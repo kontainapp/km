@@ -1,7 +1,5 @@
 /*
- * Print the names of ELF sections .
- *
- * $Id : prog4 . txt 2133 2011 -11 -10 08:28:22 Z jkoshy $
+ * TODO: header
  */
 #include <err.h>
 #include <errno.h>
@@ -26,6 +24,11 @@ static void my_pread(int fd, void *buf, size_t count, off_t offset)
    }
 }
 
+/*
+ * Read elf executable file and initialize mem with the content of the program
+ * segments. Set entry point.
+ * All errors are fatal.
+ */
 int load_elf(const char *file, void *mem, uint64_t *entry)
 {
    int fd;

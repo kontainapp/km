@@ -163,14 +163,14 @@ static void km_init_pml4(void *mem)
    pml4e->p = 1;
    pml4e->r_w = 1;
    pml4e->accessed = 1;
-   //    pml4e->u_s = 1,
+//    pml4e->u_s = 1;
    pml4e->pdpt = (RSV_PDPT_OFFSET + RSV_MEM_START) >> 12;
 
    memset(pdpe, 0, PAGE_SIZE);
    pdpe->p = 1;
    pdpe->r_w = 1;
    pdpe->accessed = 1;
-   //    pdpe->u_s = 1;
+//    pdpe->u_s = 1;
    pdpe->pd = (RSV_PDT_OFFSET + RSV_MEM_START) >> 12;
 
    memset(pde, 0, PAGE_SIZE);
@@ -180,6 +180,7 @@ static void km_init_pml4(void *mem)
       pde->r_w = 1;
       pde->accessed = 1;
       pde->ps = 1;
+    //   pde->u_s = 1;
       pde->page = pa >> 21;
    }
 }
@@ -284,8 +285,6 @@ static void km_mem_init(void)
    }
    machine.vm_mem_regs[KM_GUEST_MEMSLOT] = reg;
    machine.vm_mem_reg_cnt = KM_MEMSLOT_CNT;
-   //    km_init_gdt_idt((void *)reg->userspace_addr);
-   //    km_init_pml4((void *)reg->userspace_addr);
 }
 
 /*

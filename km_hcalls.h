@@ -12,7 +12,7 @@ static const int KM_HCALL_PORT_BASE = 0x8000;
 
 typedef enum km_hcall {
    KM_HC_BASE = 0,
-   KM_HC_HLT = 0,
+   KM_HC_HLT = KM_HC_BASE,
    KM_HC_STDOUT,
    KM_HC_COUNT
 } km_hcall_t;

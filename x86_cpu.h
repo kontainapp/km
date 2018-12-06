@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 /*
- * All structures/typedefs are from Intel® 64 and IA-32 Architectures SDM
+ * structures/typedefs/defines from Intel® 64 and IA-32 Architectures SDM
  */
 /*
  * SDM, Figure 3-8. Segment Descriptor

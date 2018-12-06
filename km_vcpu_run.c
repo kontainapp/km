@@ -44,7 +44,7 @@ static void __run_err(void (*fn)(int, const char *, __gnuc_va_list),
 #define run_errx(__s, __f, ...) __run_err(&verrx, vcpu, __s, __f, ##__VA_ARGS__)
 
 /*
- * return non-zero if guest halted, status in RAX
+ * return non-zero and set status if guest halted
  */
 static int hypercall(km_vcpu_t *vcpu, int *status)
 {
