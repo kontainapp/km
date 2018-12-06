@@ -1,0 +1,4 @@
+*.o
+km
+a.out
+trace.dat
