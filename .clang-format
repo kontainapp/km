@@ -1,0 +1,13 @@
+BasedOnStyle: LLVM
+IndentWidth: 3
+UseTab: Never
+BreakBeforeBraces: Linux
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: false
+IndentCaseLabels: true
+AlignTrailingComments: true
+SpacesBeforeTrailingComments: 7
+AlignAfterOpenBracket: true
+SortIncludes: false
+# AlignConsecutiveAssignments: true
+# AlignConsecutiveDeclarations: true

@@ -1,0 +1,25 @@
+{
+	"folders": [
+		{
+			"path": "/home/serge/workspace/km"
+		}
+	],
+	"settings": {
+        "editor.detectIndentation": false,
+        "files.associations": {
+            "fcntl.h": "c",
+            "km.h": "c",
+            "types.h": "c",
+            "stdint.h": "c",
+            "stat.h": "c",
+            "string.h": "c",
+            "stdlib.h": "c",
+            "x86_cpu.h": "c",
+            "errno.h": "c",
+            "km_hcalls.h": "c",
+            "stdio.h": "c",
+            "mman.h": "c",
+            "mman-linux.h": "c"
+        }
+	}
+}
