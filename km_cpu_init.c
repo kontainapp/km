@@ -162,14 +162,12 @@ static void km_init_pml4(void *mem)
    memset(pml4e, 0, PAGE_SIZE);
    pml4e->p = 1;
    pml4e->r_w = 1;
-   pml4e->accessed = 1;
    pml4e->u_s = 1;
    pml4e->pdpt = (RSV_PDPT_OFFSET + RSV_MEM_START) >> 12;
 
    memset(pdpe, 0, PAGE_SIZE);
    pdpe->p = 1;
    pdpe->r_w = 1;
-   pdpe->accessed = 1;
    pdpe->u_s = 1;
    pdpe->pd = (RSV_PDT_OFFSET + RSV_MEM_START) >> 12;
 
@@ -178,7 +176,6 @@ static void km_init_pml4(void *mem)
         pa += HUGE_PAGE_SIZE, pde++) {
       pde->p = 1;
       pde->r_w = 1;
-      pde->accessed = 1;
       pde->ps = 1;
       pde->u_s = 1;
       pde->page = pa >> 21;
