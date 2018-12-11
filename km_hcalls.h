@@ -26,6 +26,7 @@ typedef enum km_hcall {
    KM_HC_BIND,
    KM_HC_LISTEN,
    KM_HC_SOCKET,
+   KM_HC_SOCKOPT,
    KM_HC_COUNT
 } km_hcall_t;
 
@@ -77,3 +78,15 @@ typedef struct km_socket_hc {
    int type;
    int protocol;
 } km_socket_hc_t;
+
+enum { GET, SET } km_getset_sockopt_t;
+
+typedef struct km_sockopt_hc {
+   km_hc_cmn_t;
+   int sockfd;
+   int get_set;
+   int level;
+   int optname;
+   uint64_t optval;
+   uint32_t optlen;
+} km_sockopt_hc_t;

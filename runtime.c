@@ -116,6 +116,39 @@ int socket(int domain, int type, int protocol)
    return arg.hc_ret;
 }
 
+int getsockopt(int fd, int level, int optname, void *optval, socklen_t *optlen)
+{
+   km_sockopt_hc_t arg = {
+       .sockfd = fd,
+       .get_set = GET,
+       .level = level,
+       .optname = optname,
+       .optval = (uint64_t)optval,
+       .optname = optname,
+   };
+
+   km_hcall(KM_HC_SOCKOPT, &arg);
+   errno = arg.hc_errno;
+   return arg.hc_ret;
+}
+
+int setsockopt(int fd, int level, int optname, const void *optval,
+               socklen_t optlen)
+{
+   km_sockopt_hc_t arg = {
+       .sockfd = fd,
+       .get_set = SET,
+       .level = level,
+       .optname = optname,
+       .optval = (uint64_t)optval,
+       .optname = optname,
+   };
+
+   km_hcall(KM_HC_SOCKOPT, &arg);
+   errno = arg.hc_errno;
+   return arg.hc_ret;
+}
+
 size_t strlen(const char *s)
 {
    const char *a = s;

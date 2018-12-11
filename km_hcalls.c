@@ -90,11 +90,22 @@ static int socket_hcall(void *ga, int *status)
    return 0;
 }
 
+static int sockopt_hcall(void *ga, int *status)
+{
+   km_sockopt_hc_t *arg = (typeof(arg))ga;
+
+   if (arg->get_set == GET) {
+      arg->hc_ret = getsockopt(arg->sockfd, arg->level, arg->optname,
+                               km_gva_to_kma(arg->optval), &arg->optlen);
+   } else {
+      arg->hc_ret = setsockopt(arg->sockfd, arg->level, arg->optname,
+                               km_gva_to_kma(arg->optval), arg->optlen);
+   }
+   arg->hc_errno = errno;
+   return 0;
+}
+
 km_hcall_fn_t km_hcalls_table[KM_HC_COUNT] = {
-    halt_hcall,
-    rw_hcall,
-    accept_hcall,
-    bind_hcall,
-    listen_hcall,
-    socket_hcall,
+    halt_hcall,   rw_hcall,     accept_hcall,  bind_hcall,
+    listen_hcall, socket_hcall, sockopt_hcall,
 };

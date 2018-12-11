@@ -36,7 +36,7 @@ struct sockaddr_in sa_serv;
 int tcp_listen(void)
 {
    int listen_sd;
-//    int optval = 1;
+   int optval = 1;
 
    listen_sd = socket(AF_INET, SOCK_STREAM, 0);
    if (listen_sd < 0) {
@@ -48,7 +48,7 @@ int tcp_listen(void)
    sa_serv.sin_addr.s_addr = INADDR_ANY;
    sa_serv.sin_port = htons(PORT);
 
-   //    setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
+   setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
 
    if (bind(listen_sd, (struct sockaddr *)&sa_serv, sizeof(sa_serv)) < 0) {
       puts("bind\n");
@@ -67,7 +67,7 @@ int tcp_accept(int listen_sd)
    int sd;
    socklen_t client_len;
    struct sockaddr_in sa_cli;
-//    char topbuf[512];
+   //    char topbuf[512];
 
    sd = accept(listen_sd, (struct sockaddr *)&sa_cli, &client_len);
 
