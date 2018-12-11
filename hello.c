@@ -14,6 +14,8 @@
 
 #include "km_hcalls.h"
 
+int errno;
+
 static const char *msg = "Hello, world\n";
 
 static inline void km_hcall(int n, volatile void *arg)
@@ -27,10 +29,11 @@ static inline void km_hcall(int n, volatile void *arg)
 
 ssize_t write(int fildes, const void *buf, size_t nbyte)
 {
-   km_stdout_hc_t arg = {.data = (uint64_t)buf, .length = nbyte};
+   km_rw_hc_t arg = {.fd = 1, .r_w = WRITE, .data = (uint64_t)buf, .length = nbyte};
 
-   km_hcall(KM_HC_STDOUT, &arg);
-   return nbyte;
+   km_hcall(KM_HC_RW, &arg);
+   errno = arg.hc_errno;
+   return arg.hc_ret;
 }
 
 void exit(int status)

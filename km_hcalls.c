@@ -4,21 +4,22 @@
  * Kontain Inc CONFIDENTIAL
  *
  * This file includes unpublished proprietary source code of Kontain Inc. The
- * copyright notice above does not evidence any actual or intended publication of
- * such source code. Disclosure of this source code or any related proprietary
- * information is strictly prohibited without the express written permission of
- * Kontain Inc.
+ * copyright notice above does not evidence any actual or intended publication
+ * of such source code. Disclosure of this source code or any related
+ * proprietary information is strictly prohibited without the express written
+ * permission of Kontain Inc.
  */
 
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
+#include <sys/socket.h>
 
 #include "km_hcalls.h"
 #include "km.h"
 
 /*
- * User space implementation of hypercalls.
+ * User space (km) implementation of hypercalls.
  * These functions are called from kvm_vcpu_run() when guest makes hypercall
  * vmexit.
  *
@@ -38,24 +39,62 @@ static int halt_hcall(void *ga, int *status)
 }
 
 /*
- * write a buffer to stdout
+ * read/write
  */
-static int stdout_hcall(void *ga, int *status)
+static int rw_hcall(void *ga, int *status)
 {
-   km_stdout_hc_t *arg = (typeof(arg))ga;
-   int i, rc;
+   km_rw_hc_t *arg = (typeof(arg))ga;
 
-   for (i = 0; i < arg->length; i += rc) {
-      if ((rc = write(STDOUT_FILENO, km_gva_to_kma(arg->data + i),
-                      arg->length - i)) < 0) {
-         *status = errno;
-         return -1;
-      }
+   if (arg->r_w == READ) {
+      arg->hc_ret = read(arg->fd, km_gva_to_kma(arg->data), arg->length);
+   } else {
+      arg->hc_ret = write(arg->fd, km_gva_to_kma(arg->data), arg->length);
    }
+   arg->hc_errno = errno;
+   return 0;
+}
+
+static int accept_hcall(void *ga, int *status)
+{
+   km_accept_hc_t *arg = (typeof(arg))ga;
+
+   arg->hc_ret = accept(arg->sockfd, km_gva_to_kma(arg->addr), &arg->addrlen);
+   arg->hc_errno = errno;
+   return 0;
+}
+
+static int bind_hcall(void *ga, int *status)
+{
+   km_bind_hc_t *arg = (typeof(arg))ga;
+
+   arg->hc_ret = bind(arg->sockfd, km_gva_to_kma(arg->addr), arg->addrlen);
+   arg->hc_errno = errno;
+   return 0;
+}
+
+static int listen_hcall(void *ga, int *status)
+{
+   km_listen_hc_t *arg = (typeof(arg))ga;
+
+   arg->hc_ret = listen(arg->sockfd, arg->backlog);
+   arg->hc_errno = errno;
+   return 0;
+}
+
+static int socket_hcall(void *ga, int *status)
+{
+   km_socket_hc_t *arg = (typeof(arg))ga;
+
+   arg->hc_ret = socket(arg->domain, arg->type, arg->protocol);
+   arg->hc_errno = errno;
    return 0;
 }
 
 km_hcall_fn_t km_hcalls_table[KM_HC_COUNT] = {
     halt_hcall,
-    stdout_hcall,
+    rw_hcall,
+    accept_hcall,
+    bind_hcall,
+    listen_hcall,
+    socket_hcall,
 };
