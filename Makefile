@@ -11,7 +11,7 @@ km: $(OBJ)
 $(OBJ): $(HDR)
 
 clean:
-	rm -f *.o a.out km
+	rm -f *.o km hello hello_html
 
 hello:	hello.c
 	gcc -c -O2 hello.c

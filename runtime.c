@@ -61,6 +61,8 @@ void exit(int status)
    km_hlt_hc_t arg = {.exit_code = status};
 
    km_hcall(KM_HC_HLT, &arg);
+   while (1)
+      ;       // squelch ‘noreturn’ function warning
 }
 
 int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
