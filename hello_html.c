@@ -36,7 +36,7 @@ struct sockaddr_in sa_serv;
 int tcp_listen(void)
 {
    int listen_sd;
-   int optval = 1;
+//    int optval = 1;
 
    listen_sd = socket(AF_INET, SOCK_STREAM, 0);
    if (listen_sd < 0) {
@@ -65,7 +65,7 @@ int tcp_listen(void)
 int tcp_accept(int listen_sd)
 {
    int sd;
-   int client_len;
+   socklen_t client_len;
    struct sockaddr_in sa_cli;
 //    char topbuf[512];
 

@@ -4,9 +4,10 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "make km",
+            "label": "make",
             "type": "process",
             "command": "make",
+            "args": ["all"],
             "group": {
                 "kind": "build",
                 "isDefault": true

@@ -25,27 +25,31 @@ help:  ## Prints help on 'make' targets
 	$(MAKEFILE_LIST)
 	@echo ""
 
+all: km hello hello_html hello.km hello_html.km	## build everything
 
 km: $(OBJ)  ## build the 'km' VMM
 	gcc $(OBJ) -lelf -o km
 
 $(OBJ): $(HDR)
 
+.PHONY: clean
 clean:  ## removes .o and other artifacts
-	rm -f *.o km hello hello_html
+	rm -f *.o km hello hello_html hello.km hello_html.km
 
-hello:	hello.c  ## builds 'hello world' example (load a unikernel and print hello via hypercall)
-	gcc -c -O2 hello.c
-	ld -T km.ld hello.o -o hello
-
-hello_html: hello_html.c runtime.c  ## builds 'hello world" HTML example - run with ``km hello_world'' in one window, then from browser go to http://127.0.0.1:8002.
-	gcc -c -O2 hello_html.c
+runtime.o: runtime.c
 	gcc -c -O2 runtime.c
-	ld -T km.ld hello_html.o runtime.o -o hello_html
 
-test: km hello hello_html ## Builds all and runs a simple test
+hello.km:	hello.c runtime.o ## builds 'hello world' example (load a unikernel and print hello via hypercall)
+	gcc -c -O2 hello.c
+	ld -T km.ld hello.o runtime.o -o hello.km
+
+hello_html.km: hello_html.c runtime.o  ## builds 'hello world" HTML example - run with ``km hello_world'' in one window, then from browser go to http://127.0.0.1:8002.
+	gcc -c -O2 hello_html.c
+	ld -T km.ld hello_html.o runtime.o -o hello_html.km
+
+test: all ## Builds all and runs a simple test
 	# TBD - make return from km compliant with "success" :-)
-	-./km hello
-	./km hello_html &
-	curl -s http://127.0.0.1:8002 | grep -q  "I'm here"
-	@echo Success
+	-./km hello.km
+	./km hello_html.km &
+	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
+	@echo "Success"
