@@ -13,6 +13,11 @@ $(OBJ): $(HDR)
 clean:
 	rm -f *.o a.out km
 
-a.out:	hello.c
+hello:	hello.c
 	gcc -c -O2 hello.c
-	ld -T km.ld hello.o
+	ld -T km.ld hello.o -o hello
+
+hello_html: hello_html.c runtime.c
+	gcc -c -O2 hello_html.c
+	gcc -c -O2 runtime.c
+	ld -T km.ld hello_html.o runtime.o -o hello_html
