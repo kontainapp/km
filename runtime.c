@@ -17,8 +17,6 @@
 
 int errno;
 
-static const char *msg = "Hello, world\n";
-
 static inline void km_hcall(int n, volatile void *arg)
 {
    __asm__ __volatile__("outl %0, %1"
