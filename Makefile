@@ -19,9 +19,11 @@
 CFLAGS := -Wall -ggdb -O2
 
 HDR := km.h km_hcalls.h x86_cpu.h
-SRC := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c
+KM_SRC := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c
+SRC := $(KM_SRC) runtime.c hello.c hello_html.c
 
-OBJ := $(SRC:.c=.o)
+KM_OBJ := $(KM_SRC:.c=.o)
+OBJ := $(SRC:.c=.o) 
 
 # colors for nice color in output
 RED := \033[31m
@@ -43,28 +45,27 @@ help:  ## Prints help on 'make' targets
 	$(MAKEFILE_LIST)
 	@echo ""
 
-all: km hello.km hello_html.km	hello hello_html ## build everything
+.PHONY: all
+all: km hello.km hello_html.km hello hello_html ## build everything
 
-km: $(OBJ)  ## build the 'km' VMM
-	gcc $(OBJ) -lelf -o km
+km: $(KM_OBJ)  ## build the 'km' VMM
+	$(CC) $(KM_OBJ) -lelf -o km
 
-$(OBJ): $(HDR)
+$(KM_OBJ) $(OBJ): $(HDR)
 
 .PHONY: clean
 clean:  ## removes .o and other artifacts
 	rm -f *.o km hello hello_html hello.km hello_html.km
 
 runtime.o: runtime.c
-	gcc -Wall -c -O2 runtime.c
 
-hello.km:	hello.c runtime.o ## builds 'hello world' example (load a unikernel and print hello via hypercall)
-	gcc -c -O2 hello.c
+hello.km:	hello.o runtime.o ## builds 'hello world' example (load a unikernel and print hello via hypercall)
 	ld -T km.ld hello.o runtime.o -o hello.km
 
-hello_html.km: hello_html.c runtime.o  ## builds 'hello world" HTML example - run with ``km hello_world'' in one window, then from browser go to http://127.0.0.1:8002.
-	gcc -c -O2 hello_html.c
+hello_html.km: hello_html.o runtime.o  ## builds 'hello world" HTML example - run with ``km hello_world'' in one window, then from browser go to http://127.0.0.1:8002.
 	ld -T km.ld hello_html.o runtime.o -o hello_html.km
 
+.PHONY: test
 test: all ## Builds all and runs a simple test
 	# TBD - make return from km compliant with "success" :-)
 	-./km hello.km
