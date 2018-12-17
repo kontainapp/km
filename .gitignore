@@ -1,7 +1,8 @@
 *.o
+*.a
 km
-a.out
 trace.dat
 hello
 hello_html
 *.km
+*.d

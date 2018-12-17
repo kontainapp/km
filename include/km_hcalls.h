@@ -51,10 +51,14 @@ static inline int km_hcall(int n, km_hc_args_t *arg)
                         : "a"((uint32_t)((uint64_t)arg)),
                           "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
                         : "memory");
-   if (arg->hc_ret > 4096UL) {
+   /*
+    * Linux returns small negative numbers as errors, with abs value that of
+    * errno. Linus said "he will make sure no syscall returns a value in -1 ..
+    * -4095 as a valid result", leaving that range for errno values
+    */
+   if (arg->hc_ret > -0x1000UL) {
       errno = -arg->hc_ret;
       return -1;
    }
    return arg->hc_ret;
 }
-
