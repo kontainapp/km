@@ -225,12 +225,12 @@ static void page_free(void *addr, size_t size)
  * Knowing memory layout and how pml4 is set,
  * convert between guest virtual address and km address
  */
-void *km_gva_to_kma(uint64_t ga)
+inline uint64_t km_gva_to_kma(uint64_t ga)
 {
    if (ga >= GUEST_MEM_SIZE) {
       errx(1, "km_gva_to_kma: bad guest address 0x%lx", ga);
    }
-   return (void *)(machine.vm_mem_regs[KM_GUEST_MEMSLOT]->userspace_addr + ga);
+   return machine.vm_mem_regs[KM_GUEST_MEMSLOT]->userspace_addr + ga;
 }
 
 uint64_t km_kma_to_gva(void *ka)

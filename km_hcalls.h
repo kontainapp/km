@@ -21,72 +21,40 @@ static const int KM_HCALL_PORT_BASE = 0x8000;
 typedef enum km_hcall {
    KM_HC_BASE = 0,
    KM_HC_HLT = KM_HC_BASE,
-   KM_HC_RW,
+   KM_HC_READ,
+   KM_HC_WRITE,
    KM_HC_ACCEPT,
    KM_HC_BIND,
    KM_HC_LISTEN,
    KM_HC_SOCKET,
-   KM_HC_SOCKOPT,
+   KM_HC_GETSOCKOPT,
+   KM_HC_SETSOCKOPT,
    KM_HC_COUNT
 } km_hcall_t;
 
-typedef enum { READ, WRITE } km_rwdir_t;
+typedef struct km_hc_agrs {
+   uint64_t hc_ret;
+   uint64_t arg1;
+   uint64_t arg2;
+   uint64_t arg3;
+   uint64_t arg4;
+   uint64_t arg5;
+   uint64_t arg6;
+} km_hc_args_t;
 
-typedef struct {
-   int hc_ret;
-   int hc_errno;
-} km_common_hc_t;
-#define km_hc_cmn_t km_common_hc_t cmn
-#define hc_errno cmn.hc_errno
-#define hc_ret cmn.hc_ret
+extern int errno;
 
-typedef struct km_hlt_hc {
-   int exit_code;
-} km_hlt_hc_t;
+static inline int km_hcall(int n, km_hc_args_t *arg)
+{
+   __asm__ __volatile__("outl %0, %1"
+                        :
+                        : "a"((uint32_t)((uint64_t)arg)),
+                          "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
+                        : "memory");
+   if (arg->hc_ret > 4096UL) {
+      errno = -arg->hc_ret;
+      return -1;
+   }
+   return arg->hc_ret;
+}
 
-typedef struct km_rw_hc {
-   km_hc_cmn_t;
-   int fd;
-   int r_w;
-   uint64_t data;
-   uint32_t length;
-} km_rw_hc_t;
-
-typedef struct km_accept_hc {
-   km_hc_cmn_t;
-   int sockfd;
-   uint64_t addr;       // struct sockaddr
-   uint32_t addrlen;
-} km_accept_hc_t;
-
-typedef struct km_bind_hc {
-   km_hc_cmn_t;
-   int sockfd;
-   uint64_t addr;       // struct sockaddr
-   uint32_t addrlen;
-} km_bind_hc_t;
-
-typedef struct km_listen_hc {
-   km_hc_cmn_t;
-   int sockfd;
-   int backlog;
-} km_listen_hc_t;
-
-typedef struct km_socket_hc {
-   km_hc_cmn_t;
-   int domain;
-   int type;
-   int protocol;
-} km_socket_hc_t;
-
-enum { GET, SET } km_getset_sockopt_t;
-
-typedef struct km_sockopt_hc {
-   km_hc_cmn_t;
-   int sockfd;
-   int get_set;
-   int level;
-   int optname;
-   uint64_t optval;
-   uint32_t optlen;
-} km_sockopt_hc_t;

@@ -36,10 +36,10 @@ void km_machine_init(void);
 km_vcpu_t *km_vcpu_init(uint64_t ent, uint64_t sp);
 void km_vcpu_run(km_vcpu_t *vcpu);
 
-typedef int (*km_hcall_fn_t)(void *guest_addr, int *status);
+typedef int (*km_hcall_fn_t)(uint64_t guest_addr, int *status);
 
 extern km_hcall_fn_t km_hcalls_table[];
 
-void *km_gva_to_kma(uint64_t ga);
+uint64_t km_gva_to_kma(uint64_t ga);
 uint64_t km_kma_to_gva(void *ka);
 uint64_t km_guest_memsize(void);
