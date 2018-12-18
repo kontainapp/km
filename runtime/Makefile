@@ -17,6 +17,8 @@ INCLUDES := ${TOP}/include
 SRC := global.c read.c write.c exit.c accept.c bind.c listen.c socket.c getsockopt.c setsockopt.c \
 	   strlen.c puts.c
 
+.PHONY: all clean test help
+all: libruntime.a
 libruntime.a: $(OBJ)
 	ar cr $@ $(OBJ)
 
@@ -26,10 +28,13 @@ $(OBJ):
 	@set -e; rm -f $@; \
 	$(CC) -MM ${CFLAGS} $< | sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' > $@;
 
-.PHONY: clean
 clean:
 	rm -f *.o *.a *.d
-	
+
+test: all
+
+help:
+
 #
 # do not generate .d file if target is clean
 #

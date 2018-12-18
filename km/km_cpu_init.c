@@ -22,28 +22,7 @@
 #include "km.h"
 #include "x86_cpu.h"
 
-/*
- * kernel include/linux/kvm_host.h
- */
-static const int CPUID_ENTRIES = 100;       // A little padding, kernel says 80
-#define KVM_USER_MEM_SLOTS 512
-#define KVM_MAX_VCPUS 288
-
-typedef struct km_machine {
-   int kvm_fd;                               // /dev/kvm file desciprtor
-   int mach_fd;                              // VM file desciprtor
-   size_t vm_run_size;                       // size of the run control region
-                                             //
-   int vm_cpu_cnt;                           // count of the below
-   km_vcpu_t *vm_vcpus[KVM_MAX_VCPUS];       // VCPUs we created
-   int vm_mem_reg_cnt;                       // count of the below
-   kvm_mem_reg_t
-       *vm_mem_regs[KVM_USER_MEM_SLOTS];       // guest physical memory regions
-                                               //
-   kvm_cpuid2_t *cpuid;                        // to set VCPUs cpuid
-} km_machine_t;
-
-static km_machine_t machine = {
+km_machine_t machine = {
     .kvm_fd = -1,
     .mach_fd = -1,
 };
@@ -59,17 +38,6 @@ static km_machine_t machine = {
  * TODO: equivalent of brk()/sbrk() system call could be used for guest to
  * request more memory
  */
-
-typedef enum {
-   KM_MEMSLOT_BASE = 0,
-   KM_RSRV_MEMSLOT = KM_MEMSLOT_BASE,
-   KM_GUEST_MEMSLOT,
-   KM_MEMSLOT_CNT
-} km_memslot_t;
-
-static const int GUEST_MEM_START = PAGE_SIZE * 512;                    // 2MB
-static const uint64_t GUEST_MEM_SIZE = PAGE_SIZE * 1024 * 256ul;       // 1GB
-
 static const int RSV_MEM_START = PAGE_SIZE;
 static const int RSV_MEM_SIZE = PAGE_SIZE * 63;
 
@@ -220,18 +188,6 @@ static void page_free(void *addr, size_t size)
  * Initialize GDT, IDT, and PML4 structures in the first region
  * PML4 doesn't map the reserved region, it becomes hidden from the guest
  */
-
-/*
- * Knowing memory layout and how pml4 is set,
- * convert between guest virtual address and km address
- */
-inline uint64_t km_gva_to_kma(uint64_t ga)
-{
-   if (ga >= GUEST_MEM_SIZE) {
-      errx(1, "km_gva_to_kma: bad guest address 0x%lx", ga);
-   }
-   return machine.vm_mem_regs[KM_GUEST_MEMSLOT]->userspace_addr + ga;
-}
 
 uint64_t km_kma_to_gva(void *ka)
 {

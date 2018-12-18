@@ -22,7 +22,8 @@ KM := ${TOP}/km/km
 
 EXECS := hello.km hello_html.km hello hello_html
 
-.PHONY: test
+.PHONY: all clean test help
+all: test
 test: ${EXECS} ## Builds all and runs a simple test
 	# TBD - make return from km compliant with "success" :-)
 	-${KM} hello.km
@@ -47,9 +48,10 @@ hello_html.km: hello_html.o
 	@set -e; rm -f $@; \
 	$(CC) -MM ${CFLAGS} $< | sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' > $@;
 
-.PHONY: clean
 clean:
 	rm -f *.o *.d $(EXECS)
+
+help:
 
 #
 # do not generate .d file if target is clean

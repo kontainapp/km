@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/km",
-            "args": ["a.out"],
+            "args": ["hello_html.km"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],

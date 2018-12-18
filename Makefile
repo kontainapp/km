@@ -18,18 +18,14 @@
 
 SUBDIRS := km runtime tests
 
-.PHONY: all subdirs $(SUBDIRS)
+.PHONY: all subdirs $(SUBDIRS) clean test help
 all: subdirs
-subdirs: $(SUBDIRS)
+subdirs clean test help: $(SUBDIRS)
 
 $(SUBDIRS):
-	$(MAKE) -C $@
+	$(MAKE) -C $@ $(MAKECMDGOALS)
 
-tests: km
-
-.PHONY: clean
-clean:
-	@for dir in $(SUBDIRS); do $(MAKE) -C $$dir $@; done
+tests: km runtime
 
 # colors for nice color in output
 RED := \033[31m

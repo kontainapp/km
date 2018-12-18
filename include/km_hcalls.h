@@ -32,7 +32,7 @@ typedef enum km_hcall {
    KM_HC_COUNT
 } km_hcall_t;
 
-typedef struct km_hc_agrs {
+typedef struct km_hc_args {
    uint64_t hc_ret;
    uint64_t arg1;
    uint64_t arg2;

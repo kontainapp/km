@@ -10,6 +10,4 @@
  * permission of Kontain Inc.
  */
 
-#include <unistd.h>
-
 int errno;
