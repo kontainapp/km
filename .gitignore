@@ -1,8 +1,8 @@
 *.o
 *.a
-km
 trace.dat
-hello
-hello_html
+tests/hello
+tests/hello_html
 *.km
 *.d
+km/km

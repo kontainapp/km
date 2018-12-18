@@ -8,51 +8,31 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
-CFLAGS = -Wall -ggdb -O2
-LDLAGS = -T $(TOP)/km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
+CFLAGS = -Wall -ggdb $(patsubst %,-I %,${INCLUDES}) -O2
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:.c=.o}
 
 TOP := ..
-LDDIRS := ${TOP}/runtime
-LIBS := runtime
-SRC := hello.c hello_html.c
-
-KM := ${TOP}/km/km
-
-EXECS := hello.km hello_html.km hello hello_html
+INCLUDES := ${TOP}/include
+SRC := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c
 
 .PHONY: all clean test help
-all: test
-test: ${EXECS} ## Builds all and runs a simple test
-	# TBD - make return from km compliant with "success" :-)
-	-${KM} hello.km
-	-./hello
-	${KM} hello_html.km &
-	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
-	@echo "Success"	
-	./hello_html &
-	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
-	@echo "Success"	
-
-$(EXECS):
-$(OBJ):
-
-hello.km:	hello.o
-	ld hello.o -o hello.km ${LDLAGS}
-
-hello_html.km: hello_html.o
-	ld hello_html.o -o hello_html.km ${LDLAGS}
+all: km
+km: $(OBJ)
+	$(CC) $(OBJ) -lelf -o km
 
 %.d: %.c
 	@set -e; rm -f $@; \
 	$(CC) -MM ${CFLAGS} $< | sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' > $@;
 
+.PHONY: clean
 clean:
-	rm -f *.o *.d $(EXECS)
+	rm -f *.o km *.d
+
+test: all
 
 help:
-
+	
 #
 # do not generate .d file if target is clean
 #
