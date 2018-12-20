@@ -2,32 +2,23 @@ ENTRY(main)
 
 SECTIONS {
     . = 0x0;
-    .text :
-    {
-        *(.text)
-        *(.text.*)
+    .text : {
+        SORT_BY_ALIGNMENT*(.text) SORT_BY_ALIGNMENT*(.text.*)
     }
     . = ALIGN(0x1000);
-    .rodata :
-    {
-        *(.rodata)
-        *(.rodata.*)
+    .rodata : {
+        SORT_BY_ALIGNMENT*(.rodata) SORT_BY_ALIGNMENT*(.rodata.*)
     }
-    .eh_frame :
-    {
-        *(.eh_frame)
+    .eh_frame : {
+        SORT_BY_ALIGNMENT*(.eh_frame)
     }
     . = ALIGN(0x1000);
-    .data :
-    {
-        *(.data)
-        *(.data.*)
+    .data : {
+        SORT_BY_ALIGNMENT*(.data) SORT_BY_ALIGNMENT*(.data.*)
     }
     . = ALIGN(0x1000);
-    .bss :
-    {
-        *(.bss)
-        *(COMMON)
+    .bss : {
+        SORT_BY_ALIGNMENT*(.bss) SORT_BY_ALIGNMENT*(COMMON)
     }
     . = ALIGN(0x1000);
 }

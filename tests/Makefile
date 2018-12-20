@@ -9,7 +9,7 @@
 #   Kontain Inc.
 
 CFLAGS = -Wall -ggdb -O2
-LDLAGS = -T $(TOP)/km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
+LDLAGS = --gc-sections --print-gc-sections -T $(TOP)/km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:.c=.o}
 
