@@ -3,7 +3,9 @@
 # Subject to change - code is currently PoC
 #
 # dependencies:
-#  elfutils-libelf-devel - for gelf.h and related libs
+#  elfutils-libelf-devel  and elfutils-libelf-devel-static for gelf.h and related libs
+#  OR:
+#  docker - for 'make w
 #
 # ====
 #  Copyright © 2018 Kontain Inc. All rights reserved.
@@ -18,15 +20,32 @@
 
 SUBDIRS := km runtime tests
 
-.PHONY: all subdirs $(SUBDIRS) clean test help
-all: subdirs
-subdirs clean test help: $(SUBDIRS)
+.PHONY: all subdirs $(SUBDIRS) clean test help docker
+all: subdirs ## Build all in all subdirs - basically, build + test recursively
 
+subdirs: $(SUBDIRS)
+clean: subdirs  ## clean all build artifacts. 
+test: subdirs   ## just runs pre-build tests everywhere
+
+tests: km runtime
 $(SUBDIRS):
 	$(MAKE) -C $@ $(MAKECMDGOALS)
 
-tests: km runtime
 
+# dockerized build 
+# 
+DLOC := docker/build
+DIMG := km-buildenv
+
+# run dockerized build
+# TBD: separate build from run so --privileged is not needed for build
+withdocker: ## Run dockerized make. Use TARGET to change what's built, i.e. "make withdocker TARGET=clean"
+	docker build -t $(DIMG) $(DLOC)
+	docker run --privileged --rm -v `pwd`:/src -w /src $(DIMG) $(MAKE) $(MAKEFLAGS) $(TARGET)
+
+
+# support for "make help"
+#
 # colors for nice color in output
 RED := \033[31m
 GREEN := \033[32m
@@ -45,4 +64,4 @@ help:  ## Prints help on 'make' targets
     /^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
 	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
 	$(MAKEFILE_LIST)
-	@echo ""
+	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
