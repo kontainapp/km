@@ -8,9 +8,12 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
+# -ffunction-sections -fdata-sections work together with linker script, see km.ld
+# Other -f... options are to reduce generated code size
+
 CFLAGS = -Wall -ggdb $(patsubst %,-I %,${INCLUDES}) -Os \
 	-fomit-frame-pointer -fno-unwind-tables -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections \
-	-ffreestanding -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector
+	-fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:.c=.o}
 
