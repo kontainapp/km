@@ -1,5 +1,10 @@
 ENTRY(main)
-
+/*
+ * Sections names .text.* .todata.* .data.* are produced by gcc with -ffunction-sections -fdata-sections
+ * This works together with SORT_BY_ALIGNMENT directive to minimize alignment gaps
+ * ld --gc-sections drops unused/unreferences sections
+ */
+ 
 SECTIONS {
     . = 0x0;
     .text : {
