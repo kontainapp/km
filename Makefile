@@ -5,7 +5,7 @@
 # dependencies:
 #  elfutils-libelf-devel  and elfutils-libelf-devel-static for gelf.h and related libs
 #  OR:
-#  docker - for 'make w
+#  docker - for 'make withdocker TARGET=<target>
 #
 # ====
 #  Copyright © 2018 Kontain Inc. All rights reserved.
@@ -54,7 +54,7 @@ CYAN := \033[36m
 NOCOLOR := \033[0m
 
 #
-# Default target (should be first, to support simply 'make' invoking 'make help')
+# 'Help' target - based on '##' comments in targets
 #
 # This target ("help") scans Makefile for '##' in targets and prints a summary
 # Note - used awk to print (instead of echo) so escaping/coloring is platform independed
