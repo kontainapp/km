@@ -16,7 +16,6 @@ TOP := ..
 INCLUDES := ${TOP}/include
 SRC := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c
 
-.PHONY: all clean test help
 all: km
 km: $(OBJ)
 	$(CC) $(OBJ) -lelf -o km
@@ -25,7 +24,6 @@ km: $(OBJ)
 	@set -e; rm -f $@; \
 	$(CC) -MM ${CFLAGS} $< | sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' > $@;
 
-.PHONY: clean
 clean:
 	rm -f *.o km *.d
 
@@ -39,3 +37,5 @@ help:
 ifneq ($(MAKECMDGOALS), clean)
 -include ${DEPS}
 endif # ($(MAKECMDGOALS), clean)
+
+.PHONY: all clean test help

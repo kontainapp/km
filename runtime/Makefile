@@ -22,7 +22,6 @@ INCLUDES := ${TOP}/include
 SRC := global.c read.c write.c exit.c accept.c bind.c listen.c socket.c getsockopt.c setsockopt.c \
 	   strlen.c puts.c
 
-.PHONY: all clean test help
 all: libruntime.a
 libruntime.a: $(OBJ)
 	ar cr $@ $(OBJ)
@@ -46,3 +45,5 @@ help:
 ifneq ($(MAKECMDGOALS), clean)
 -include ${DEPS}
 endif # ($(MAKECMDGOALS), clean)
+
+.PHONY: all clean test help
