@@ -20,6 +20,9 @@
             "stdio.h": "c",
             "mman.h": "c",
             "mman-linux.h": "c"
+        },
+        "files.exclude": {
+            "build/**": true
         }
 	}
 }

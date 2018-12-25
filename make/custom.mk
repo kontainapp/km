@@ -8,12 +8,6 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 
-TOP := ..
-INCLUDES := ${TOP}/include
-SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c
-LLIBS := elf
-EXEC := km
+# customizable build parameters
 
-include ${TOP}/make/actions.mk
-
-test: all
+COPTS ?= -O2

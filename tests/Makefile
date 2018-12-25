@@ -14,11 +14,11 @@ DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:.c=.o}
 
 TOP := ..
-LDDIRS := ${TOP}/runtime
+LDDIRS := ${TOP}/build/runtime
 LIBS := runtime
 SRC := hello.c hello_html.c
 
-KM := ${TOP}/km/km
+KM := ${TOP}/build/km/km
 
 EXECS := hello.km hello_html.km hello hello_html
 
