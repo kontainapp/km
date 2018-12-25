@@ -18,6 +18,6 @@ LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 
 RUN dnf install -y gcc \
 		elfutils-libelf-devel elfutils-libelf-devel-static \
-		make \
+		make git \
 	&& dnf clean all
 

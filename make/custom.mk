@@ -10,4 +10,8 @@
 
 # customizable build parameters
 
+# defalt optimization flag
 COPTS ?= -O2
+
+# A list of folders to include in addition to ${TOP}include. E.g.
+#EXTRA_INCLUDES := ${TOP}arch/include ${TOP}demo/include

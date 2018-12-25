@@ -8,17 +8,17 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
+TOP := $(shell git rev-parse --show-cdup)
 CFLAGS = -Wall -ggdb -O2
-LDLAGS = --gc-sections --print-gc-sections -T $(TOP)/km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
+LDLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:.c=.o}
 
-TOP := ..
-LDDIRS := ${TOP}/build/runtime
+LDDIRS := ${TOP}build/runtime
 LIBS := runtime
 SRC := hello.c hello_html.c
 
-KM := ${TOP}/build/km/km
+KM := ${TOP}build/km/km
 
 EXECS := hello.km hello_html.km hello hello_html
 

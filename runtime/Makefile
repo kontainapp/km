@@ -8,19 +8,18 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
-# -ffunction-sections -fdata-sections work together with linker script, see km.ld
-# Other -f... options are to reduce generated code size
-
-TOP := ..
-COPTS := -Os \
-	-fomit-frame-pointer -fno-unwind-tables -fno-asynchronous-unwind-tables \
-	-ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math \
-	-fno-tree-loop-distribute-patterns -fno-stack-protector
-INCLUDES := ${TOP}/include
 SOURCES := global.c read.c write.c exit.c accept.c bind.c listen.c socket.c getsockopt.c \
 		   setsockopt.c strlen.c puts.c
 LIB := runtime
 
-include ${TOP}/make/actions.mk
+# -ffunction-sections -fdata-sections work together with linker script, see km.ld
+# Other -f... options are to reduce generated code size
+COPTS := -Os \
+	-fomit-frame-pointer -fno-unwind-tables -fno-asynchronous-unwind-tables \
+	-ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math \
+	-fno-tree-loop-distribute-patterns -fno-stack-protector
+
+TOP := $(shell git rev-parse --show-cdup)
+include ${TOP}make/actions.mk
 
 test: all
