@@ -18,9 +18,11 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
-TOP := .
+# scan all these and  'make' stuff there
 SUBDIRS := km runtime tests
 
-include ${TOP}/make/actions.mk
-
+# build VMM and runtime library before trying to build tests
 tests: km runtime
+
+TOP := $(shell git rev-parse --show-cdup)
+include ${TOP}make/actions.mk

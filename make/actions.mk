@@ -9,7 +9,8 @@
 #  Kontain Inc.
 #
 # To be included throughout the KONTAIN project
-# TOP has to be defined before inclusion
+# TOP has to be defined before inclusion, usually as 
+#  		TOP := $(shell git rev-parse --show-cdup)
 #
 # There are three possible builds depending on the including Makefile,
 # depending which of the following is defined:
@@ -22,17 +23,28 @@
 # - LLIBS: to link with -l ${LLIBS}
 #
 
-include ${TOP}/make/custom.mk
+# make sure the value is non-empty - if we are 
+# already at the top, we can get empty line from upstairs
+# (Note that below we'll expect the trailing '/' in directories)
+ifeq ($(strip ${TOP}),)
+TOP := ./
+endif
 
-# path from ${TOP} to this dir
-FROMTOP = $(patsubst $(realpath ${TOP})/%,%, $(realpath .)/)
-# dir where to put the build artifacts
-BLDDIR = $(addprefix ${TOP}/build/, ${FROMTOP})
+# this is the path from the TOP to current dir
+FROMTOP := $(shell git rev-parse --show-prefix)
+# all build results (including obj etc..)  go under this one
+BLDTOP := ${TOP}build/
+# build for the current run goes here 
+BLDDIR := ${BLDTOP}${FROMTOP}
+
+# customization of build should be in custom.mk
+include ${TOP}make/custom.mk
+
 CFLAGS = ${COPTS} -Wall -ggdb $(patsubst %,-I %,${INCLUDES})
-DEPS = $(addprefix ${BLDDIR}/,${SOURCES:%.c=%.d})
-OBJS = $(addprefix ${BLDDIR}/,${SOURCES:.c=.o})
-BLDEXEC = $(addprefix ${BLDDIR}/,${EXEC})
-BLDLIB = $(addprefix ${BLDDIR}/lib,$(addsuffix .a,${LIB}))
+DEPS = $(addprefix ${BLDDIR},${SOURCES:%.c=%.d})
+OBJS = $(addprefix ${BLDDIR},${SOURCES:.c=.o})
+BLDEXEC = $(addprefix ${BLDDIR},${EXEC})
+BLDLIB = $(addprefix ${BLDDIR}lib,$(addsuffix .a,${LIB}))
 
 ifneq (${SUBDIRS},)
 
@@ -47,9 +59,9 @@ $(SUBDIRS):
 
 .PHONY: subdirs $(SUBDIRS)
 
-else # not SUBDIRS, i.e. BLDEXEC or BLDLIB
+else # not SUBDIRS, i.e. EXEC or LIB
 
-ifneq (${BLDEXEC},)
+ifneq (${EXEC},)
 
 all: ${BLDEXEC}
 ${BLDEXEC}: $(OBJS)
@@ -57,7 +69,7 @@ ${BLDEXEC}: $(OBJS)
 
 endif
 
-ifneq (${BLDLIB},)
+ifneq (${LIB},)
 
 all: ${BLDLIB}
 ${BLDLIB}: $(OBJS)
@@ -70,14 +82,16 @@ ${OBJS} ${DEPS}: | ${BLDDIR}	# order only prerequisite - just make sure it exist
 ${BLDDIR}:
 	mkdir -p $@
 
-${BLDDIR}/%.o: %.c
+${BLDDIR}%.o: %.c
 	$(CC) -c ${CFLAGS} $< -o $@
 
 # note ${BLDDIR} in the .d file - this is what tells make to get .o from ${BLDDIR}
 #
-${BLDDIR}/%.d: %.c
+${BLDDIR}%.d: %.c
 	set -e; rm -f $@; \
-	$(CC) -MM ${CFLAGS} $< | sed 's,\($*\)\.o[ :]*,${BLDDIR}/\1.o $@ : ,g' > $@;
+	$(CC) -MM ${CFLAGS} $< | sed 's,\($*\)\.o[ :]*,${BLDDIR}\1.o $@ : ,g' > $@;
+
+test: all
 
 clean:
 	rm -rf ${BLDDIR}
@@ -91,7 +105,9 @@ endif # ($(MAKECMDGOALS), clean)
 
 endif # (${SUBDIRS},)
 
-# support for "make help"
+# Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever) 
+
+# Support for "make help"
 #
 # colors for nice color in output
 RED := \033[31m
@@ -114,15 +130,35 @@ help:  ## Prints help on 'make' targets
 	@echo ""
 
 # dockerized build 
-# 
-DLOC := ${TOP}/docker/build
-DIMG := km-buildenv
-DFILE ?= Dockerfile
+#
+# use Dockerfile-fedora, Dockerfile-ubuntu, etc... to get different flavors 
+DTYPE ?= fedora
+DLOC := ${TOP}docker/build
+DIMG := km-buildenv-${DTYPE}
+DFILE := Dockerfile.$(DTYPE)
 
-# run dockerized build
-# TBD: separate build from run so --privileged is not needed for build
-withdocker: ## Run dockerized make. Use TARGET to change what's built, i.e. "make withdocker TARGET=clean [DFILE=Dockerfile.ubuntu]"
-	docker build -t $(DIMG) $(DLOC) -f ${DLOC}/${DFILE}
+# Support for 'make withdocker'
+#
+# Usage: 
+#	make withdocker [TARGET=<make-target>] [DTYPE=<os-type>]
+#  	<make-target> is "all" by default (same as in regular make, with no docker)
+#  	<os-type> is "fedora" by default. See ${TOP}/docker/build for supported OSes
+#
+# TBD:
+#  - separate build from run so --privileged is not needed for build
+#
+#  Note:
+# 'chmod' in the last line is needed to enable 'make clean' to work without docker
+#    (since docker-produced files are owned by the container user, which is root by default)
+#
+withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
+	docker build -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
 	docker run --privileged --rm -v $(realpath ${TOP}):/src -w /src/${FROMTOP} $(DIMG) $(MAKE) $(MAKEFLAGS) $(TARGET)
+	docker run --rm -v $(realpath ${TOP}):/src ${DIMG} chmod -fR a+w /src/build
 
-.PHONY: all clean test help withdocker
+# Support for simple debug print (make debugvars)
+VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS CFLAGS BLDEXEC BLDLIB DEPS OBJS
+debugvars:   ## prints interesting vars and their values
+	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
+
+.PHONY: all clean test help withdocker debugvars

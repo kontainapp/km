@@ -8,12 +8,13 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 
-TOP := ..
-INCLUDES := ${TOP}/include
+TOP := $(shell git rev-parse --show-cdup)
+
 SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c
+INCLUDES := ${TOP}include
 LLIBS := elf
 EXEC := km
 
-include ${TOP}/make/actions.mk
+include ${TOP}make/actions.mk
 
 test: all
