@@ -8,8 +8,11 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
+TOP := $(shell git rev-parse --show-cdup)
+
 SOURCES := global.c read.c write.c exit.c accept.c bind.c listen.c socket.c getsockopt.c \
 		   setsockopt.c strlen.c puts.c
+INCLUDES := ${TOP}include
 LIB := runtime
 
 # -ffunction-sections -fdata-sections work together with linker script, see km.ld
@@ -19,7 +22,4 @@ COPTS := -Os \
 	-ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math \
 	-fno-tree-loop-distribute-patterns -fno-stack-protector
 
-TOP := $(shell git rev-parse --show-cdup)
 include ${TOP}make/actions.mk
-
-test: all

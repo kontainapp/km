@@ -23,10 +23,9 @@
 # - LLIBS: to link with -l ${LLIBS}
 #
 
-
 # make sure the value is non-empty - if we are 
 # already at the top, we can get empty line from upstairs
-# (Note that below we'll expect the trailing '/')
+# (Note that below we'll expect the trailing '/' in directories)
 ifeq ($(strip ${TOP}),)
 TOP := ./
 endif
@@ -34,14 +33,13 @@ endif
 # this is the path from the TOP to current dir
 FROMTOP := $(shell git rev-parse --show-prefix)
 # all build results (including obj etc..)  go under this one
-BLDTOP  := ${TOP}build
+BLDTOP := ${TOP}build/
 # build for the current run goes here 
-BLDDIR  := ${BLDTOP}/${FROMTOP}
+BLDDIR := ${BLDTOP}${FROMTOP}
 
 # customization of build should be in custom.mk
 include ${TOP}make/custom.mk
 
-INCLUDES := ${TOP}include ${EXTRA_INCLUDES}
 CFLAGS = ${COPTS} -Wall -ggdb $(patsubst %,-I %,${INCLUDES})
 DEPS = $(addprefix ${BLDDIR},${SOURCES:%.c=%.d})
 OBJS = $(addprefix ${BLDDIR},${SOURCES:.c=.o})
@@ -92,6 +90,8 @@ ${BLDDIR}%.o: %.c
 ${BLDDIR}%.d: %.c
 	set -e; rm -f $@; \
 	$(CC) -MM ${CFLAGS} $< | sed 's,\($*\)\.o[ :]*,${BLDDIR}\1.o $@ : ,g' > $@;
+
+test: all
 
 clean:
 	rm -rf ${BLDDIR}
@@ -156,10 +156,9 @@ withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	docker run --privileged --rm -v $(realpath ${TOP}):/src -w /src/${FROMTOP} $(DIMG) $(MAKE) $(MAKEFLAGS) $(TARGET)
 	docker run --rm -v $(realpath ${TOP}):/src ${DIMG} chmod -fR a+w /src/build
 
-.PHONY: all clean test help withdocker
-
-
 # Support for simple debug print (make debugvars)
 VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS CFLAGS BLDEXEC BLDLIB DEPS OBJS
 debugvars:   ## prints interesting vars and their values
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
+
+.PHONY: all clean test help withdocker debugvars
