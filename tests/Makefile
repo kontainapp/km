@@ -8,23 +8,23 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
+TOP := $(shell git rev-parse --show-cdup)
 CFLAGS = -Wall -ggdb -O2
-LDLAGS = --gc-sections --print-gc-sections -T $(TOP)/km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
+LDLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:.c=.o}
 
-TOP := ..
-LDDIRS := ${TOP}/runtime
+LDDIRS := ${TOP}build/runtime
 LIBS := runtime
 SRC := hello.c hello_html.c
 
-KM := ${TOP}/km/km
+KM := ${TOP}build/km/km
 
 EXECS := hello.km hello_html.km hello hello_html
 
-.PHONY: all clean test help
-all: test
-test: ${EXECS} ## Builds all and runs a simple test
+all: ${EXECS} ## Build a simple test
+
+test: all	## Run a simple test
 	# TBD - make return from km compliant with "success" :-)
 	-${KM} hello.km
 	-./hello
@@ -34,9 +34,6 @@ test: ${EXECS} ## Builds all and runs a simple test
 	./hello_html &
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
 	@echo "Success"	
-
-$(EXECS):
-$(OBJ):
 
 hello.km:	hello.o
 	ld hello.o -o hello.km ${LDLAGS}
@@ -59,3 +56,5 @@ help:
 ifneq ($(MAKECMDGOALS), clean)
 -include ${DEPS}
 endif # ($(MAKECMDGOALS), clean)
+
+.PHONY: all clean test help
