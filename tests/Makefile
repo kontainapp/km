@@ -17,23 +17,26 @@ OBJ = ${SRC:.c=.o}
 LDDIRS := ${TOP}build/runtime
 LIBS := runtime
 SRC := hello.c hello_html.c
-
 KM := ${TOP}build/km/km
-
 EXECS := hello.km hello_html.km hello hello_html
 
 all: ${EXECS} ## Build a simple test
 
-test: all	## Run a simple test
-	# TBD - make return from km compliant with "success" :-)
-	-${KM} hello.km
-	-./hello
-	${KM} hello_html.km &
-	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
-	@echo "Success"	
+# Run tests in regular bash and in km/VMM.
+# Note that 'hello' is supposed to return magic '17' (see tests/hello.c).
+test: all ## Run a simple test (may need /dev/kvm or privileged container)
+	./hello; if [ $$? -ne 17 ] ; then false; fi
+	pl_status=`${KM} hello.km | awk '/status/ {printf("%d", $$6);}'` ; \
+			if [ $$pl_status -ne 17 ] ; then echo ==$$pl_status ; false; fi
+	@echo "Hello: Success"
 	./hello_html &
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
-	@echo "Success"	
+	${KM} hello_html.km &
+	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
+	@echo "Success"
+	./hello_html &
+	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
+	@echo "Success"
 
 hello.km:	hello.o
 	ld hello.o -o hello.km ${LDLAGS}

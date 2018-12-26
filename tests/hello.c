@@ -17,6 +17,9 @@ static const char *msg = "Hello, world\n";
 
 int main()
 {
-   write(1, msg, 14);
+   size_t ret = write(1, msg, 14);
+   // supress compiler warning about unused var
+   if (ret)
+      ;
    exit(17);
 }
