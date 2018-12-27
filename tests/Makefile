@@ -33,10 +33,7 @@ test: all ## Run a simple test (may need /dev/kvm or privileged container)
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
 	${KM} hello_html.km &
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
-	@echo "Success"
-	./hello_html &
-	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
-	@echo "Success"
+	@echo "Hello-html: Success"
 
 hello.km:	hello.o
 	ld hello.o -o hello.km ${LDLAGS}

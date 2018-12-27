@@ -12,8 +12,15 @@
 
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 
 int puts(const char *s)
 {
-   return write(1, s, strlen(s));
+   size_t len = strlen(s);
+   ssize_t ret = write(1, s, len);
+   if (ret == EOF ) {
+      return EOF;
+   }
+
+   return write(1, "\n", 1);
 }
