@@ -26,7 +26,7 @@ all: ${EXECS} ## Build a simple test
 # Note that 'hello' is supposed to return magic '17' (see tests/hello.c).
 test: all ## Run a simple test (may need /dev/kvm or privileged container)
 	./hello; if [ $$? -ne 17 ] ; then false; fi
-	pl_status=`${KM} hello.km | awk '/status/ {printf("%d", $$6);}'` ; \
+	pl_status=`${KM} hello.km | awk '/status/ {printf("%d", strtonum($$6));}'` ; \
 			if [ $$pl_status -ne 17 ] ; then echo ==$$pl_status ; false; fi
 	@echo "Hello: Success"
 	./hello_html &
