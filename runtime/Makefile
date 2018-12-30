@@ -11,7 +11,7 @@
 TOP := $(shell git rev-parse --show-cdup)
 
 SOURCES := global.c read.c write.c exit.c accept.c bind.c listen.c socket.c getsockopt.c \
-		   setsockopt.c strlen.c puts.c
+		   setsockopt.c strlen.c puts.c stack_chk.c
 INCLUDES := ${TOP}include
 LIB := runtime
 

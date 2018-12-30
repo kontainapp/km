@@ -67,6 +67,9 @@ int load_elf(const char *file, void *mem, uint64_t *entry)
       if (gelf_getphdr(e, i, &phdr) == NULL) {
          errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
       }
+      if (phdr.p_type != PT_LOAD) {
+         continue;
+      }
       /*
        * TODO: check we fit in memory
        */

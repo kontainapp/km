@@ -100,11 +100,15 @@ int main(int argc, char const *argv[])
 {
    char buf[4096];
    int listen_sd, sd;
+   size_t ret;
 
    listen_sd = tcp_listen();
    sd = tcp_accept(listen_sd);
-   read(sd, buf, 4096);
-   write(sd, wbuf, sizeof(wbuf));
+   ret = read(sd, buf, 4096);
+   ret = write(sd, wbuf, sizeof(wbuf));
+   // supress compiler warning about unused var
+   if (ret)
+      ;
    //    tcp_close(sd);
    //    tcp_close(listen_sd);
    exit(0);
