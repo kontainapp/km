@@ -33,5 +33,4 @@ int main()
    // return magic '17' to validate it's passing all the way up
    // We'll test for '17' upstairs in tests
    exit(17);
-
 }
