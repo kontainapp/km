@@ -10,5 +10,5 @@
 
 # customizable build parameters
 
-# defalt optimization flag
+# default optimization flag
 COPTS ?= -O2

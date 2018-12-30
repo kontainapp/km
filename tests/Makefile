@@ -36,10 +36,10 @@ test: all ## Run a simple test (may need /dev/kvm or privileged container)
 	@echo "Hello-html: Success"
 
 hello.km:	hello.o
-	ld hello.o -o hello.km ${LDLAGS}
+	${LD} hello.o -o hello.km ${LDLAGS}
 
 hello_html.km: hello_html.o
-	ld hello_html.o -o hello_html.km ${LDLAGS}
+	${LD} hello_html.o -o hello_html.km ${LDLAGS}
 
 %.d: %.c
 	@set -e; rm -f $@; \
