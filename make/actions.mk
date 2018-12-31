@@ -22,6 +22,7 @@
 # - INCLUDES: directories to search for include files
 # - LLIBS: to link with -l ${LLIBS}
 #
+SHELL=/bin/bash
 
 # make sure the value is non-empty - if we are 
 # already at the top, we can get empty line from upstairs
@@ -73,23 +74,32 @@ ifneq (${LIB},)
 
 all: ${BLDLIB}
 ${BLDLIB}: $(OBJS)
-	rm -f $@; ar cr $@ $(OBJS)
+	rm -f $@; ${AR} crs $@ $(OBJS)
 
 endif
 
-${OBJS} ${DEPS}: | ${BLDDIR}	# order only prerequisite - just make sure it exists
+OBJDIRS := $(sort $(dir ${OBJS}))
+${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exists
 
-${BLDDIR}:
+${OBJDIRS}:
 	mkdir -p $@
 
+# The sed regexp below is the same as in problemWatcher in tasks.json.
+# \\1 - filename :\\2:\\3: - position (note \\3: is optional) \\4 - severity \\5 - message
+# The sed transformation adds ${FROMTOP} prefix to file names to facilitate looking for files
+#
 ${BLDDIR}%.o: %.c
-	$(CC) -c ${CFLAGS} $< -o $@
+	@echo $(CC) -c ${CFLAGS} $< -o $@
+	@$(CC) -c ${CFLAGS} $< -o $@ |& \
+	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 # note ${BLDDIR} in the .d file - this is what tells make to get .o from ${BLDDIR}
 #
 ${BLDDIR}%.d: %.c
-	set -e; rm -f $@; \
-	$(CC) -MM ${CFLAGS} $< | sed 's,\($*\)\.o[ :]*,${BLDDIR}\1.o $@ : ,g' > $@;
+	@echo $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@
+	@set -e; rm -f $@; \
+	$(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
+	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 test: all
 

@@ -21,7 +21,9 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#define __bswap_16(x) ((__uint16_t)((((x) >> 8) & 0xff) | (((x)&0xff) << 8)))
+#ifndef htons
+#define htons(x)	__bswap_16(x)
+#endif
 
 static const in_port_t PORT = 8002;
 
