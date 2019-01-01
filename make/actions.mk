@@ -133,7 +133,7 @@ NOCOLOR := \033[0m
 # Note - used awk to print (instead of echo) so escaping/coloring is platform independed
 help:  ## Prints help on 'make' targets
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
-    /^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
+	/^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
 	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
 	$(MAKEFILE_LIST)
 	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
@@ -162,9 +162,8 @@ DFILE := Dockerfile.$(DTYPE)
 #    (since docker-produced files are owned by the container user, which is root by default)
 #
 withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
-	docker build -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
-	docker run --privileged --rm -v $(realpath ${TOP}):/src -w /src/${FROMTOP} $(DIMG) $(MAKE) $(MAKEFLAGS) $(TARGET)
-	docker run --rm -v $(realpath ${TOP}):/src ${DIMG} chmod -fR a+w /src/build
+	docker build --build-arg=UID=$(shell id -u) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
+	docker run --device=/dev/kvm --rm -v $(realpath ${TOP}):/src -w /src/${FROMTOP} $(DIMG) $(MAKE) $(MAKEFLAGS) $(TARGET)
 
 # Support for simple debug print (make debugvars)
 VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS CFLAGS BLDEXEC BLDLIB DEPS OBJS

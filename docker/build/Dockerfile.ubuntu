@@ -16,5 +16,10 @@ FROM ubuntu
 
 LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 
-RUN apt-get update; apt-get upgrade -y; \
+ARG UID
+
+RUN groupadd -g $UID appuser && useradd -r -u $UID -g appuser appuser && \
+    apt-get update; apt-get upgrade -y; \
     apt-get install -y make git libelf-dev gcc-8 curl; apt-get clean; ln -s `which gcc-8` /bin/cc
+
+USER appuser
