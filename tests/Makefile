@@ -27,7 +27,7 @@ all: ${EXECS} ## Build a simple test
 test: all ## Run a simple test (may need /dev/kvm or privileged container)
 	./hello; if [ $$? -ne 17 ] ; then false; fi
 	pl_status=`${KM} hello.km | awk '/status/ { print $$6 }'` ; \
-			if [ $$pl_status != "0x11" ] ; then echo ==$$pl_status ; false; fi
+			if [ "$$pl_status" != "0x11" ] ; then echo ==$$pl_status ; false; fi
 	@echo "Hello: Success"
 	./hello_html &
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
