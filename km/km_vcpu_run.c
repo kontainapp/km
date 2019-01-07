@@ -4,10 +4,10 @@
  * Kontain Inc CONFIDENTIAL
  *
  * This file includes unpublished proprietary source code of Kontain Inc. The
- * copyright notice above does not evidence any actual or intended publication of
- * such source code. Disclosure of this source code or any related proprietary
- * information is strictly prohibited without the express written permission of
- * Kontain Inc.
+ * copyright notice above does not evidence any actual or intended publication
+ * of such source code. Disclosure of this source code or any related
+ * proprietary information is strictly prohibited without the express written
+ * permission of Kontain Inc.
  */
 
 #include <stdlib.h>
@@ -57,14 +57,15 @@ static void __run_err(void (*fn)(int, const char *, __gnuc_va_list),
 static int hypercall(km_vcpu_t *vcpu, int *status)
 {
    kvm_run_t *r = vcpu->cpu_run;
-   km_hcall_t hc = r->io.port - KM_HCALL_PORT_BASE;
+   int hc = r->io.port - KM_HCALL_PORT_BASE;
    uint64_t ga;
    int rc;
 
    /* TODO: Can we send more than 4 bytes in one exit? */
    /* Sanity checks */
+   /* TODO: 512! */
    if (!(r->io.direction == KVM_EXIT_IO_OUT || r->io.size == 4 ||
-         hc >= KM_HC_BASE || hc < KM_HC_COUNT)) {
+         hc >= 0 || hc < 512)) {
       run_errx(1, "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
                r->io.port, r->io.size,
                r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
@@ -73,7 +74,7 @@ static int hypercall(km_vcpu_t *vcpu, int *status)
       run_errx(1, "KVM: unexpected hypercall 0x%lx", hc);
    }
    ga = *(uint32_t *)((void *)r + r->io.data_offset);
-   if ((rc = km_hcalls_table[hc](km_gva_to_kma(ga), status)) != 0) {
+   if ((rc = km_hcalls_table[hc](hc, km_gva_to_kml(ga), status)) != 0) {
       printf("KVM: hypercall 0x%x stops, status 0x%x\n", hc, *status);
    }
    return rc;

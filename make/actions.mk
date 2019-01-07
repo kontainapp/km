@@ -41,9 +41,9 @@ BLDDIR := ${BLDTOP}${FROMTOP}
 # customization of build should be in custom.mk
 include ${TOP}make/custom.mk
 
-CFLAGS = ${COPTS} -Wall -ggdb $(patsubst %,-I %,${INCLUDES})
-DEPS = $(addprefix ${BLDDIR},${SOURCES:%.c=%.d})
-OBJS = $(addprefix ${BLDDIR},${SOURCES:.c=.o})
+CFLAGS = ${COPTS} -Wall -ggdb $(addprefix -I , ${INCLUDES})
+DEPS = $(addprefix ${BLDDIR}, $(addsuffix .d, $(basename ${SOURCES})))
+OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${SOURCES})))
 BLDEXEC = $(addprefix ${BLDDIR},${EXEC})
 BLDLIB = $(addprefix ${BLDDIR}lib,$(addsuffix .a,${LIB}))
 
@@ -78,7 +78,7 @@ ${BLDLIB}: $(OBJS)
 
 endif
 
-OBJDIRS := $(sort $(dir ${OBJS}))
+OBJDIRS = $(sort $(dir ${OBJS}))
 ${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exists
 
 ${OBJDIRS}:
@@ -89,6 +89,16 @@ ${OBJDIRS}:
 # The sed transformation adds ${FROMTOP} prefix to file names to facilitate looking for files
 #
 ${BLDDIR}%.o: %.c
+	@echo $(CC) -c ${CFLAGS} $< -o $@
+	@$(CC) -c ${CFLAGS} $< -o $@ |& \
+	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+
+${BLDDIR}%.o: %.s
+	@echo $(CC) -c ${CFLAGS} $< -o $@
+	@$(CC) -c ${CFLAGS} $< -o $@ |& \
+	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+
+${BLDDIR}%.o: %.S
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
 	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="

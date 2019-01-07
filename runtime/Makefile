@@ -10,16 +10,51 @@
 
 TOP := $(shell git rev-parse --show-cdup)
 
-SOURCES := global.c read.c write.c exit.c accept.c bind.c listen.c socket.c getsockopt.c \
-		   setsockopt.c strlen.c puts.c stack_chk.c
-INCLUDES := ${TOP}include
 LIB := runtime
+
+# following it to compute SOURCES, picking up all .c files from relevant dirs
+# (i.e. skipping SKIP_SRC_DIR). Then drop the base implementations for the sake of
+# arch specific ones based on ARCH.
+SRCDIR := musl/
+ARCH := x86_64
+SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc ldso mq process sched signal)
+SRC_DIRS := $(filter-out ${SKIP_SRC_DIR}, $(wildcard $(addprefix $(SRCDIR),src/*/)))
+
+BASE_SRCS := $(wildcard $(addsuffix *.c,$(SRC_DIRS)))
+ARCH_SRCS := $(wildcard $(addsuffix $(ARCH)/*.[csS],$(SRC_DIRS)))
+# asm/arch specific implementations replacing base ones
+REPLACED_SRCS := $(addsuffix .%, $(subst /$(ARCH)/,/,$(basename $(ARCH_SRCS)))) %syscall.s
+SOURCES := $(filter-out ${REPLACED_SRCS}, ${BASE_SRCS} ${ARCH_SRCS}) syscall_km.c
+
+H_DIRS := arch/$(ARCH) arch/generic src/include src/internal include
+# has to be recursive assignment as BLDDIR is defined in an include below
+INCLUDES = . ${TOP}include $(addprefix ${SRCDIR}, ${H_DIRS}) ${BLDDIR}${SRCDIR}include
+
+CWERRS := -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith
+CWARNS := -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable \
+		  -Wno-unknown-pragmas -Wno-pointer-to-int-cast
 
 # -ffunction-sections -fdata-sections work together with linker script, see km.ld
 # Other -f... options are to reduce generated code size
-COPTS := -Os \
+COPTS := -Os -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 	-fomit-frame-pointer -fno-unwind-tables -fno-asynchronous-unwind-tables \
 	-ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math \
-	-fno-tree-loop-distribute-patterns -fno-stack-protector
+	-fno-tree-loop-distribute-patterns -fno-stack-protector \
+	${CWERRS} ${CWARNS}
 
 include ${TOP}make/actions.mk
+
+${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
+
+${BLDDIR}${SRCDIR}include/bits/alltypes.h: $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in
+	mkdir -p $(dir $@)
+	sed -f $(SRCDIR)tools/mkalltypes.sed $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in > $@
+
+${BLDDIR}${SRCDIR}include/bits/syscall.h: $(SRCDIR)arch/$(ARCH)/bits/syscall.h.in
+	mkdir -p $(dir $@)
+	cp $< $@
+	sed -n -e s/__NR_/SYS_/p < $< >> $@
+
+${BLDDIR}${SRCDIR}include/version.h: $(wildcard $(SRCDIR)VERSION $(SRCDIR).git)
+	mkdir -p $(dir $@)
+	printf '#define VERSION "%s"\n' "$$(cd $(SRCDIR); sh tools/version.sh)" > $@

@@ -287,6 +287,7 @@ void km_machine_fini(void)
       close(machine.kvm_fd);
       machine.kvm_fd = -1;
    }
+   km_hcalls_fini();
 }
 
 static void kvm_vcpu_init_sregs(int fd)
@@ -409,4 +410,5 @@ void km_machine_init(void)
       err(1, "KVM: get supported CPUID failed");
    }
    km_mem_init();
+   km_hcalls_init();
 }

@@ -10,6 +10,9 @@
  * permission of Kontain Inc.
  */
 
+#undef _FORTIFY_SOURCE
+#define _FORTIFY_SOURCE 0
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,17 +24,13 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#ifndef htons
-#define htons(x)	__bswap_16(x)
-#endif
-
 static const in_port_t PORT = 8002;
 
-// void tcp_close(int sd)
-// {
-//    shutdown(sd, SHUT_RDWR); /* no more receptions */
-//    close(sd);
-// }
+void tcp_close(int sd)
+{
+   shutdown(sd, SHUT_RDWR); /* no more receptions */
+   close(sd);
+}
 
 struct sockaddr_in sa_serv;
 
@@ -67,15 +66,15 @@ int tcp_listen(void)
 int tcp_accept(int listen_sd)
 {
    int sd;
-   socklen_t client_len;
    struct sockaddr_in sa_cli;
-   //    char topbuf[512];
+   socklen_t client_len = sizeof(sa_cli);
+   char topbuf[512];
 
    sd = accept(listen_sd, (struct sockaddr *)&sa_cli, &client_len);
 
-   //    printf("- connection from %s, port %d\n",
-   //           inet_ntop(AF_INET, &sa_cli.sin_addr, topbuf, sizeof(topbuf)),
-   //           ntohs(sa_cli.sin_port));
+   printf("- connection from %s, port %d, addrlen %d\n",
+          inet_ntop(AF_INET, &sa_cli.sin_addr, topbuf, sizeof(topbuf)),
+          ntohs(sa_cli.sin_port), client_len);
 
    return sd;
 }
@@ -111,7 +110,7 @@ int main(int argc, char const *argv[])
    // supress compiler warning about unused var
    if (ret)
       ;
-   //    tcp_close(sd);
-   //    tcp_close(listen_sd);
+   tcp_close(sd);
+   tcp_close(listen_sd);
    exit(0);
 }

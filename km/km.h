@@ -37,9 +37,13 @@ void km_machine_init(void);
 km_vcpu_t *km_vcpu_init(uint64_t ent, uint64_t sp);
 void km_vcpu_run(km_vcpu_t *vcpu);
 
-typedef int (*km_hcall_fn_t)(uint64_t guest_addr, int *status);
+typedef int (*km_hcall_fn_t)(int hc __attribute__((__unused__)),
+                             uint64_t guest_addr, int *status);
 
 extern km_hcall_fn_t km_hcalls_table[];
+
+void km_hcalls_init(void);
+void km_hcalls_fini(void);
 
 /*
  * kernel include/linux/kvm_host.h
@@ -78,12 +82,17 @@ static const uint64_t GUEST_MEM_SIZE = PAGE_SIZE * 1024 * 256ul;       // 1GB
  * Knowing memory layout and how pml4 is set,
  * convert between guest virtual address and km address
  */
-static inline uint64_t km_gva_to_kma(uint64_t ga)
+static inline uint64_t km_gva_to_kml(uint64_t ga)
 {
    if (ga >= GUEST_MEM_SIZE) {
       errx(1, "km_gva_to_kma: bad guest address 0x%lx", ga);
    }
    return machine.vm_mem_regs[KM_GUEST_MEMSLOT]->userspace_addr + ga;
+}
+
+static inline void *km_gva_to_kma(uint64_t ga)
+{
+   return (void *)km_gva_to_kml(ga);
 }
 
 uint64_t km_kma_to_gva(void *ka);
