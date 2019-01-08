@@ -173,7 +173,7 @@ DFILE := Dockerfile.$(DTYPE)
 #
 withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	docker build --build-arg=UID=$(shell id -u) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
-	docker run --device=/dev/kvm --rm -v $(realpath ${TOP}):/src -w /src/${FROMTOP} $(DIMG) $(MAKE) $(MAKEFLAGS) $(TARGET)
+	docker run --device=/dev/kvm --rm -v $(realpath ${TOP}):/src -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS=$(MAKEFLAGS) $(TARGET)
 
 # Support for simple debug print (make debugvars)
 VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS CFLAGS BLDEXEC BLDLIB DEPS OBJS
