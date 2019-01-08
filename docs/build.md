@@ -48,10 +48,10 @@ make test
 Build system uses tried-and-true `make` and related tricks. Generally, each dir with sources (or with subdirs) needs to have a Makefile. This Makefile need to have the following:
 
 * The location of TOP of the repository, using  `TOP := $(shell git rev-parse --show-cdup)`
-* A few variables to tell system what to build, e.g. `LIB := runtime`
+* A few variables to tell system what to build (e.g. `LIB := runtime`), and what to build it from (`SOURCES := a.c, x.c …`), compile options (`COPTS := -Os -D_GNU_SOURCE …`) and include dirs (`INCLUDES := ${TOP}/include`)
 * `include ${TOP}make/actions.mk`
 
-Generally, the build system automatically builds dependencies and then does the following work:
+Generally, the build system automatically builds dependencies (unless it's configured to only scan `SUBDIRS`) and does the following work:
 
 ### Scan subdirs and execute `make` there
 
