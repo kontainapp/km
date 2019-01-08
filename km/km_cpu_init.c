@@ -4,10 +4,10 @@
  * Kontain Inc CONFIDENTIAL
  *
  * This file includes unpublished proprietary source code of Kontain Inc. The
- * copyright notice above does not evidence any actual or intended publication of
- * such source code. Disclosure of this source code or any related proprietary
- * information is strictly prohibited without the express written permission of
- * Kontain Inc.
+ * copyright notice above does not evidence any actual or intended publication
+ * of such source code. Disclosure of this source code or any related
+ * proprietary information is strictly prohibited without the express written
+ * permission of Kontain Inc.
  */
 
 #include <err.h>
@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <assert.h>
 
 #include "km.h"
 #include "x86_cpu.h"
@@ -30,10 +31,19 @@ km_machine_t machine = {
 /*
  * Physical memory layout:
  * - 4k hole
- * - 63 pages reserved area, used for pml4, gdt, idt
- * - hole till 2MB
- * - 1GB user space
+ * - 63 pages reserved area, used for pml4, pdpt, gdt, idt
+ * - hole till 1GB, 0x40000000
+ * - 1GB user space. The plan is to have this expandable in responce to brk()
+ * - hole from the end of user space, currently 2GB, 0x80000000, till
+ * 0x7fffc0000000;
  *
+ * 2^48 - linear address in VMM
+ * 2^47 - linear address in guest = 0 - 0x7fffffffffff
+ *
+ * guest stack is 1GB starting 1G down from 0x7fffffffffff, which is
+ * 0x7fffc0000000
+ */
+/*
  * TODO: make layout dynamic, per command line
  * TODO: equivalent of brk()/sbrk() system call could be used for guest to
  * request more memory
@@ -42,13 +52,17 @@ static const int RSV_MEM_START = PAGE_SIZE;
 static const int RSV_MEM_SIZE = PAGE_SIZE * 63;
 
 /*
- * Mandatory data structures in reserved memory to enable 64 bit CPU
+ * Mandatory data structures in reserved memory to enable 64 bit CPU,
+ * as seen in km memory
  */
 static const int RSV_GDT_OFFSET = 2 * PAGE_SIZE;
 static const int RSV_IDT_OFFSET = 3 * PAGE_SIZE;
 static const int RSV_PML4_OFFSET = 4 * PAGE_SIZE;
 static const int RSV_PDPT_OFFSET = 5 * PAGE_SIZE;
-static const int RSV_PDT_OFFSET = 6 * PAGE_SIZE;
+static const int RSV_PDPT2_OFFSET = 6 * PAGE_SIZE;
+
+// convert to guest physical
+#define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
 
 /*
  * Segment constants. They go directly to ioctl to set x86 registers, and
@@ -122,40 +136,77 @@ static void km_init_gdt_idt(void *mem)
 }
 
 /*
- * Setup pagetables in the guest. We use 2MB pages for now.
- * We need only one pml4 emtry, one pdtd entry, and one pdt page (512 entries)
- * per 1GB of address space.
+ * Setup pagetables in the guest. We use 1GB pages.
+ * We use two pml4 entries, #0 and #255.
+ * #0 covers the text and data, the #255 stack.
+ * There are correspondingly two pdpt pages.
+ * We use only the very last entry in the second one.
+ * Initially only the first entry of the first one is used, but then it expands
+ * with brk.
  *
  * TODO: Check for hugepage support
+ */
+
+static void pml4e_set(x86_pml4e_t *pml4e, uint64_t pdpt)
+{
+   pml4e->p = 1;
+   pml4e->r_w = 1;
+   pml4e->u_s = 1;
+   pml4e->pdpt = pdpt >> 12;
+}
+
+static void pdpe_set(x86_pdpte_1g_t *pdpe, uint64_t addr)
+{
+   pdpe->p = 1;
+   pdpe->r_w = 1;
+   pdpe->u_s = 1;
+   pdpe->ps = 1;
+   pdpe->page = addr >> 30;
+}
+/*
+ *           0|      |255
+ *           |-------- --------|
+ *            |       \
+ *           /         \__________________
+ *         /                              \
+ *       |                                 |511
+ *      |----------------| |----------------|
  */
 static void km_init_pml4(void *mem)
 {
    x86_pml4e_t *pml4e = mem + RSV_PML4_OFFSET;
-   x86_pdpte_t *pdpe = mem + RSV_PDPT_OFFSET;
-   x86_pde_2m_t *pde = mem + RSV_PDT_OFFSET;
-   uint64_t pa;
-
    memset(pml4e, 0, PAGE_SIZE);
-   pml4e->p = 1;
-   pml4e->r_w = 1;
-   pml4e->u_s = 1;
-   pml4e->pdpt = (RSV_PDPT_OFFSET + RSV_MEM_START) >> 12;
+   // 512 entries, each covers 512 GB, for a total of 256 TB
+   // entry 0: 0 - 0x7fffffffff guest addr
+   pml4e_set(pml4e, RSV_GUEST_PA(RSV_PDPT_OFFSET));
+   // entry 255: 0x7f8000000000 - 0x7fffffffffff, last of the first half
+   // we put stack there
+   // entry 1: 0x8000000000 - 0xffffffffff guest addr
+   int pml4_idx = GUEST_STACK_START_VA / (512 * GIB);
 
-   memset(pdpe, 0, PAGE_SIZE);
-   pdpe->p = 1;
-   pdpe->r_w = 1;
-   pdpe->u_s = 1;
-   pdpe->pd = (RSV_PDT_OFFSET + RSV_MEM_START) >> 12;
-
-   memset(pde, 0, PAGE_SIZE);
-   for (pa = GUEST_MEM_START; pa < GUEST_MEM_START + GUEST_MEM_SIZE;
-        pa += HUGE_PAGE_SIZE, pde++) {
-      pde->p = 1;
-      pde->r_w = 1;
-      pde->ps = 1;
-      pde->u_s = 1;
-      pde->page = pa >> 21;
+   // check if we need the second pml4 entry, i.e the two mem regions are more
+   // than 512 GB apart. If we do, make the second entry to the second pdpt page
+   assert(pml4_idx < 512);
+   if (pml4_idx > 0) {
+      pml4e_set(pml4e + pml4_idx, RSV_GUEST_PA(RSV_PDPT2_OFFSET));
    }
+
+   x86_pdpte_1g_t *pdpe = mem + RSV_PDPT_OFFSET;
+   memset(pdpe, 0, PAGE_SIZE);
+   // One page per pml4 entry, 512 entries, each covers 1GB
+   // entry 0: first GB
+   pdpe_set(pdpe, GUEST_MEM_START);
+
+   int pdpt_idx = (GUEST_STACK_START_VA / GIB) & 0x1ff;
+
+   // the second pdpt entry does into the same pdpt page if there are less than
+   // 512GB apart, and to the second if they are more. This is the same logic as
+   // in pml4_idx check above
+   if (pml4_idx > 0) {
+      pdpe = mem + RSV_PDPT2_OFFSET;
+      memset(pdpe, 0, PAGE_SIZE);
+   }
+   pdpe_set(pdpe + pdpt_idx, GUEST_STACK_START_PA);
 }
 
 static void *page_malloc(size_t size)
@@ -189,21 +240,7 @@ static void page_free(void *addr, size_t size)
  * PML4 doesn't map the reserved region, it becomes hidden from the guest
  */
 
-uint64_t km_kma_to_gva(void *ka)
-{
-   uint64_t addr = (typeof(addr))ka;
-
-   if (addr < machine.vm_mem_regs[KM_GUEST_MEMSLOT]->userspace_addr ||
-       addr >= machine.vm_mem_regs[KM_GUEST_MEMSLOT]->memory_size) {
-      errx(1, "km_kma_to_gva: bad km address %p", ka);
-   }
-   return addr - machine.vm_mem_regs[KM_GUEST_MEMSLOT]->userspace_addr;
-}
-
-uint64_t km_guest_memsize(void)
-{
-   return machine.vm_mem_regs[KM_GUEST_MEMSLOT]->memory_size;
-}
+#define GUEST_ADDR_SLOT ((void *)0x100000000000)
 
 static void km_mem_init(void)
 {
@@ -221,7 +258,7 @@ static void km_mem_init(void)
    reg->slot = KM_RSRV_MEMSLOT;
    reg->guest_phys_addr = RSV_MEM_START;
    reg->memory_size = RSV_MEM_SIZE;
-   reg->flags = 0;       // KVM_MEM_READONLY;
+   reg->flags = 0;       // KVM_MEM_READONLY would be 1;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
       err(1, "KVM: set reserved region failed");
    }
@@ -229,23 +266,76 @@ static void km_mem_init(void)
    km_init_gdt_idt((void *)reg->userspace_addr);
    km_init_pml4((void *)reg->userspace_addr);
 
-   /* 2. Payload memory */
+   /* 2. data and text memory, account for brk */
    if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
       err(1, "KVM: no memory for mem region");
    }
-   if ((ptr = page_malloc(GUEST_MEM_SIZE)) == NULL) {
+   if ((ptr = mmap(NULL /* GUEST_ADDR_SLOT */, GUEST_MEM_SIZE,
+                   PROT_READ | PROT_WRITE,
+                   MAP_SHARED | MAP_ANONYMOUS /* | MAP_FIXED */, -1, 0)) ==
+       MAP_FAILED) {
       err(1, "KVM: no memory for guest payload");
    }
    reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
-   reg->slot = KM_GUEST_MEMSLOT;
+   reg->slot = KM_TEXT_DATA_MEMSLOT;
    reg->guest_phys_addr = GUEST_MEM_START;
+   // This is where we claim we have more memory than we actually do
+   //    reg->memory_size = GUEST_MEM_SIZE * 512;
    reg->memory_size = GUEST_MEM_SIZE;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      err(1, "KVM: set guest payload memory failed");
+      err(1, "KVM: set guest payload stack memory failed");
    }
-   machine.vm_mem_regs[KM_GUEST_MEMSLOT] = reg;
+   machine.vm_mem_regs[KM_TEXT_DATA_MEMSLOT] = reg;
+   machine.brk = GUEST_MEM_SIZE;
+
+   /* 3. Stack */
+   if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
+      err(1, "KVM: no memory for stack mem region");
+   }
+   if ((ptr = page_malloc(GUEST_MEM_SIZE)) == NULL) {
+      err(1, "KVM: no memory for guest payload stack");
+   }
+   reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
+   reg->slot = KM_STACK_MEMSLOT;
+   reg->guest_phys_addr = GUEST_STACK_START_PA;
+   reg->memory_size = GUEST_MEM_SIZE;
+   reg->flags = 0;
+   if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+      err(1, "KVM: set guest payload stack memory failed");
+   }
+   machine.vm_mem_regs[KM_STACK_MEMSLOT] = reg;
    machine.vm_mem_reg_cnt = KM_MEMSLOT_CNT;
+}
+
+uint64_t km_mem_brk(uint64_t brk)
+{
+#if 0
+   uint64_t size;
+
+   if (brk == 0 || brk == machine.brk) {
+      return machine.brk;
+   }
+   // for now we only equipped to deal with up to 512
+   if (brk < machine.brk || brk > 512 * GUEST_MEM_SIZE) {
+      return -EINVAL;
+   }
+   size = (brk - machine.brk + GUEST_MEM_SIZE - 1) | ~(GUEST_MEM_SIZE - 1ul);
+   if (mmap(GUEST_ADDR_SLOT + machine.brk, size, PROT_READ | PROT_WRITE,
+            MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0) == MAP_FAILED) {
+      err(1, "KVM: no memory for guest payload");
+   }
+
+   x86_pdpte_1g_t *pdpe =
+       machine.vm_mem_regs[KM_RSRV_MEMSLOT]->userspace_addr + RSV_PDPT_OFFSET;
+
+   for (uint64_t i = machine.brk; i < machine.brk + size; i += GUEST_MEM_SIZE) {
+      pdpe_set(pdpe + i / GUEST_MEM_SIZE, GUEST_MEM_START + i);
+   }
+   machine.brk += size;
+   machine.vm_mem_regs[KM_TEXT_DATA_MEMSLOT]->memory_size += size;
+#endif
+   return machine.brk;
 }
 
 /*

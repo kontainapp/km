@@ -73,7 +73,8 @@ static int hypercall(km_vcpu_t *vcpu, int *status)
    if (km_hcalls_table[hc] == NULL) {
       run_errx(1, "KVM: unexpected hypercall 0x%lx", hc);
    }
-   ga = *(uint32_t *)((void *)r + r->io.data_offset);
+   ga = *(uint32_t *)((void *)r + r->io.data_offset) |
+        (GUEST_STACK_START_VA + (GUEST_MEM_SIZE & 0xffffffff00000000ul));
    if ((rc = km_hcalls_table[hc](hc, km_gva_to_kml(ga), status)) != 0) {
       printf("KVM: hypercall 0x%x stops, status 0x%x\n", hc, *status);
    }
@@ -88,10 +89,6 @@ void km_vcpu_run(km_vcpu_t *vcpu)
       if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) < 0) {
          if (errno == EINTR || errno == EAGAIN) {
             continue;
-         }
-         if (errno == EFAULT) {
-            /* TODO: Can this happen? What about exit_reason in this case? */
-            run_errx(1, "KVM: guest segfault");
          }
          run_err(1, "KVM: vcpu run failed");
       }

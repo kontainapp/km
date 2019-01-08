@@ -28,7 +28,7 @@ int main(int argc, char const *argv[])
    }
    km_machine_init();
    load_elf(argv[1], (void *)km_gva_to_kma(0), &guest_entry);
-   vcpu = km_vcpu_init(guest_entry, km_guest_memsize());
+   vcpu = km_vcpu_init(guest_entry, GUEST_STACK_START_VA + GUEST_MEM_SIZE - 1);
    /*
     * Run the first vcpu
     */
