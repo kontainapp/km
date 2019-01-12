@@ -64,8 +64,8 @@ static int hypercall(km_vcpu_t *vcpu, int *status)
    /* TODO: Can we send more than 4 bytes in one exit? */
    /* Sanity checks */
    /* TODO: 512! */
-   if (!(r->io.direction == KVM_EXIT_IO_OUT || r->io.size == 4 ||
-         hc >= 0 || hc < 512)) {
+   if (!(r->io.direction == KVM_EXIT_IO_OUT || r->io.size == 4 || hc >= 0 ||
+         hc < 512)) {
       run_errx(1, "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
                r->io.port, r->io.size,
                r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
@@ -73,8 +73,23 @@ static int hypercall(km_vcpu_t *vcpu, int *status)
    if (km_hcalls_table[hc] == NULL) {
       run_errx(1, "KVM: unexpected hypercall 0x%lx", hc);
    }
-   ga = *(uint32_t *)((void *)r + r->io.data_offset) |
-        (GUEST_STACK_START_VA + (GUEST_MEM_SIZE & 0xffffffff00000000ul));
+   /*
+    * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of
+    * the args address. Two assumptions made here: hcall args passed are on
+    * stack in the guest, and the stack is less than 4GB long, i.e. the address
+    * is withint 4GB range below the top of the stack.
+    *
+    * We set the high four bytes to the same as top of the stack, and check for
+    * underflow.
+    */
+   /* high four bytes */
+   static const uint64_t stack_top_high = GUEST_STACK_TOP & ~0xfffffffful;
+   /* Recover high 4 bytes, but check for roll under 4GB boundary */
+   ga = *(uint32_t *)((void *)r + r->io.data_offset) | stack_top_high;
+   if (ga > GUEST_STACK_TOP) {
+      ga -= 4 * GIB;
+   }
+
    if ((rc = km_hcalls_table[hc](hc, km_gva_to_kml(ga), status)) != 0) {
       printf("KVM: hypercall 0x%x stops, status 0x%x\n", hc, *status);
    }

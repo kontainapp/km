@@ -14,7 +14,8 @@
 #include <linux/kvm.h>
 #include <err.h>
 
-static const int PAGE_SIZE = 0x1000;       // standard 4k page
+static const uint64_t PAGE_SIZE = 0x1000;       // standard 4k page
+static const uint64_t GIB = 0x40000000ul;       // GByte
 
 /*
  * Types from linux/kvm.h
@@ -76,31 +77,38 @@ typedef enum {
 
 extern km_machine_t machine;
 
-static const uint64_t GIB = 0x40000000ul;
-static const uint64_t GUEST_MEM_SIZE = GIB;       // 1GB
-static const uint64_t GUEST_MEM_START = GIB;
-// last GB of the first half
+/*
+ * See "Virtual memory layout:" in km_cpu_init.c for details.
+ */
+// Last GB of the first half of 2^48 virt address
+static const uint64_t GUEST_STACK_TOP = 128 * 1024 * GIB - GIB;
+static const uint64_t GUEST_STACK_START_SIZE = GIB;
+static const uint64_t GUEST_STACK_START_VA =
+    GUEST_STACK_TOP - GUEST_STACK_START_SIZE;       // 0x7fffc0000000
 static const uint64_t GUEST_STACK_START_PA = 511 * GIB;
-static const uint64_t GUEST_STACK_START_VA = 0x7fffc0000000;
 
 /*
  * Knowing memory layout and how pml4 is set,
  * convert between guest virtual address and km address
  */
-static inline uint64_t km_gva_to_kml(uint64_t ga)
+static inline uint64_t km_gva_to_kml(uint64_t gva)
 {
-   if (ga < machine.brk) {
-      return machine.vm_mem_regs[KM_TEXT_DATA_MEMSLOT]->userspace_addr + ga;
+   if (gva >= GUEST_STACK_START_VA && gva < GUEST_STACK_TOP) {
+      return machine.vm_mem_regs[KM_STACK_MEMSLOT]->userspace_addr -
+             GUEST_STACK_START_VA + gva;
    }
-   if (ga >= GUEST_STACK_START_VA && ga < GUEST_STACK_START_VA + GUEST_MEM_SIZE) {
-      return machine.vm_mem_regs[KM_STACK_MEMSLOT]->userspace_addr - GUEST_STACK_START_VA + ga;
+   if (gva < machine.brk) {
+      return machine.vm_mem_regs[KM_TEXT_DATA_MEMSLOT]->userspace_addr + gva;
    }
-   errx(1, "km_gva_to_kma: bad guest address 0x%lx", ga);
+   errx(1, "km_gva_to_kma: bad guest address 0x%lx", gva);
 }
 
-static inline void *km_gva_to_kma(uint64_t ga)
+/*
+ * Same as above but cast to (void *)
+ */
+static inline void *km_gva_to_kma(uint64_t gva)
 {
-   return (void *)km_gva_to_kml(ga);
+   return (void *)km_gva_to_kml(gva);
 }
 
 // uint64_t km_kma_to_gva(void *ka);
