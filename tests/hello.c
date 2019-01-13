@@ -16,9 +16,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "syscall.h"
 
 static const char *msg1 = "Hello, ";
 static const char *msg2 = "world!";
+
+void *SYS_break(void *addr)
+{
+   return (void *)syscall(SYS_brk, addr);
+}
 
 int main()
 {
@@ -29,6 +35,10 @@ int main()
    // supress compiler warning about unused var
    if (ret)
       ;
+
+   printf("break is %p\n", SYS_break(NULL));
+   SYS_break((void *)0x60000000);
+   printf("break is %p\n", SYS_break(NULL));
 
    // return magic '17' to validate it's passing all the way up
    // We'll test for '17' upstairs in tests

@@ -276,6 +276,14 @@ static int shutdown_hcall(int hc, uint64_t ga, int *status)
    return 0;
 }
 
+static int brk_hcall(int hc, uint64_t ga, int *status)
+{
+   km_hc_args_t *arg = (typeof(arg))ga;
+
+   arg->hc_ret = km_mem_brk(arg->arg1);
+   return 0;
+}
+
 /* TODO: 512! Same TODO in km_vcpu_run:hypercall() */
 km_hcall_fn_t km_hcalls_table[512];
 
@@ -297,6 +305,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_stat] = stat_hcall;
    km_hcalls_table[SYS_close] = close_hcall;
    km_hcalls_table[SYS_shutdown] = shutdown_hcall;
+   km_hcalls_table[SYS_brk] = brk_hcall;
 }
 
 void km_hcalls_fini(void)

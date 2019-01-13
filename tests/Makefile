@@ -32,6 +32,7 @@ test: all ## Run a simple test (may need /dev/kvm or privileged container)
 	./hello_html &
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
 	${KM} hello_html.km &
+	# sleep 0.3s - if above starts slower curl tries to connect too fast
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
 	@echo "Hello-html: Success"
 

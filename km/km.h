@@ -32,7 +32,7 @@ typedef struct km_vcpu {
    kvm_run_t *cpu_run;       // run control region
 } km_vcpu_t;
 
-int load_elf(const char *file, void *mem, uint64_t *entry);
+int load_elf(const char *file, void *mem, uint64_t *entry, uint64_t *end);
 void km_machine_init(void);
 km_vcpu_t *km_vcpu_init(uint64_t ent, uint64_t sp);
 void km_vcpu_run(km_vcpu_t *vcpu);

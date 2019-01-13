@@ -38,7 +38,7 @@ static void my_pread(int fd, void *buf, size_t count, off_t offset)
  * segments. Set entry point.
  * All errors are fatal.
  */
-int load_elf(const char *file, void *mem, uint64_t *entry)
+int load_elf(const char *file, void *mem, uint64_t *entry, uint64_t *end)
 {
    int fd;
    Elf *e;
@@ -63,6 +63,7 @@ int load_elf(const char *file, void *mem, uint64_t *entry)
       errx(2, "gelf_getehrd %s", elf_errmsg(-1));
    }
    *entry = ehdr.e_entry;
+   *end = 0;
    for (i = 0; i < ehdr.e_phnum; i++) {
       if (gelf_getphdr(e, i, &phdr) == NULL) {
          errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
@@ -88,6 +89,9 @@ int load_elf(const char *file, void *mem, uint64_t *entry)
       }
       if (mprotect(addr, phdr.p_memsz, pr) < 0) {
          err(2, "failed to set guest memory protection");
+      }
+      if (phdr.p_paddr + phdr.p_memsz > *end) {
+         *end = phdr.p_paddr + phdr.p_memsz;
       }
    }
    (void)elf_end(e);
