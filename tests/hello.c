@@ -12,6 +12,9 @@
  * Test 'write' and 'puts' by saying hello world.
  */
 
+#undef _FORTIFY_SOURCE
+#define _FORTIFY_SOURCE 0
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
