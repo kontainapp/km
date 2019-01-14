@@ -61,11 +61,9 @@ static int hypercall(km_vcpu_t *vcpu, int *status)
    uint64_t ga;
    int rc;
 
-   /* TODO: Can we send more than 4 bytes in one exit? */
    /* Sanity checks */
-   /* TODO: 512! */
    if (!(r->io.direction == KVM_EXIT_IO_OUT || r->io.size == 4 || hc >= 0 ||
-         hc < 512)) {
+         hc < KM_MAX_HCALL)) {
       run_errx(1, "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
                r->io.port, r->io.size,
                r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");

@@ -37,6 +37,11 @@ void km_machine_init(void);
 km_vcpu_t *km_vcpu_init(uint64_t ent, uint64_t sp);
 void km_vcpu_run(km_vcpu_t *vcpu);
 
+/*
+ * Maximum hypercall number, defines the size of the km_hcalls_table
+ */
+#define KM_MAX_HCALL 512
+
 typedef int (*km_hcall_fn_t)(int hc __attribute__((__unused__)),
                              uint64_t guest_addr, int *status);
 
@@ -110,8 +115,5 @@ static inline void *km_gva_to_kma(uint64_t gva)
 {
    return (void *)km_gva_to_kml(gva);
 }
-
-// uint64_t km_kma_to_gva(void *ka);
-// uint64_t km_guest_memsize(void);
 
 uint64_t km_mem_brk(uint64_t brk);

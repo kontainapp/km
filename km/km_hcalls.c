@@ -284,8 +284,7 @@ static int brk_hcall(int hc, uint64_t ga, int *status)
    return 0;
 }
 
-/* TODO: 512! Same TODO in km_vcpu_run:hypercall() */
-km_hcall_fn_t km_hcalls_table[512];
+km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 
 void km_hcalls_init(void)
 {

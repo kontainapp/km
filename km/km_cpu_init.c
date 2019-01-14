@@ -162,7 +162,7 @@ static void pdpe_set(x86_pdpte_1g_t *pdpe, uint64_t addr)
 /*
  * Virtual memory layout:
  *
- * Guest text and data region starts from virtual address 0, initially
+ * Guest text and data region starts from virtual address 0, initially size
  * GUEST_MEM_INCR. This region grows at the guest requests via brk() call. The
  * end of this region is always machine.brk.
  *
@@ -326,8 +326,7 @@ uint64_t km_mem_brk(uint64_t brk)
    if (brk == 0 || brk == machine.brk) {
       return machine.brk;
    }
-   // for now we only equipped to deal with up to 512
-   if (brk < machine.brk || brk > 512 * GUEST_MEM_INCR) {
+   if (brk < machine.brk || brk > GUEST_MEM_MAX) {
       return -EINVAL;
    }
    // check if we need more allocation
@@ -422,7 +421,7 @@ static void kvm_vcpu_init_sregs(int fd)
 }
 
 /*
- * Creat vcpu, map the control region, initialize sregs.
+ * Create vcpu, map the control region, initialize sregs.
  * Set RIP, SP, RFLAGS, clear the rest of the regs.
  * vpcu is ready to run starting with instruction @RIP
  */
