@@ -17,11 +17,12 @@ FROM fedora
 LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 
 ARG UID
+ARG GID
 
-RUN groupadd -g $UID appuser && useradd -r -u $UID -g appuser appuser && \
-    dnf install -y gcc \
+RUN dnf install -y gcc \
 		elfutils-libelf-devel elfutils-libelf-devel-static \
 		make git \
 	&& dnf clean all
 
+RUN groupadd -g $GID appuser && useradd -r -u $UID -g $GID appuser
 USER appuser
