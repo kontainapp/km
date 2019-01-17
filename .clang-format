@@ -1,4 +1,5 @@
 BasedOnStyle: LLVM
+ColumnLimit: 80
 IndentWidth: 3
 UseTab: Never
 BreakBeforeBraces: Linux

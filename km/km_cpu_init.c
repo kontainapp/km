@@ -346,7 +346,6 @@ uint64_t km_mem_brk(uint64_t brk)
       for (uint64_t i = mbrk_rnd; i < machine.brk + size; i += GUEST_MEM_INCR) {
          pdpe_set(pdpe + i / GUEST_MEM_INCR, GUEST_MEM_START_PA + i);
       }
-      machine.vm_mem_regs[KM_TEXT_DATA_MEMSLOT]->memory_size += size;
    }
    machine.brk = brk;
    return machine.brk;
