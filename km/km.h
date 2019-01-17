@@ -15,6 +15,7 @@
 #include <err.h>
 
 static const uint64_t PAGE_SIZE = 0x1000;       // standard 4k page
+static const uint64_t MIB = 0x100000;           // MByte
 static const uint64_t GIB = 0x40000000ul;       // GByte
 
 /*
@@ -28,11 +29,11 @@ typedef struct kvm_sregs kvm_sregs_t;
 typedef struct kvm_regs kvm_regs_t;
 
 typedef struct km_vcpu {
-   int kvm_vcpu_fd;          // this VCPU file desciprtors
+   int kvm_vcpu_fd;          // this VCPU file descriptors
    kvm_run_t *cpu_run;       // run control region
 } km_vcpu_t;
 
-int load_elf(const char *file, void *mem, uint64_t *entry, uint64_t *end);
+int load_elf(const char *file, uint64_t *entry);
 void km_machine_init(void);
 km_vcpu_t *km_vcpu_init(uint64_t ent, uint64_t sp);
 void km_vcpu_run(km_vcpu_t *vcpu);
@@ -54,17 +55,17 @@ void km_hcalls_fini(void);
  * kernel include/linux/kvm_host.h
  */
 static const int CPUID_ENTRIES = 100;       // A little padding, kernel says 80
-#define KVM_USER_MEM_SLOTS 512
+#define KVM_USER_MEM_SLOTS 509
 #define KVM_MAX_VCPUS 288
 
 typedef struct km_machine {
-   int kvm_fd;                               // /dev/kvm file desciprtor
-   int mach_fd;                              // VM file desciprtor
+   int kvm_fd;                               // /dev/kvm file descriptor
+   int mach_fd;                              // VM file descriptor
    size_t vm_run_size;                       // size of the run control region
                                              //
    int vm_cpu_cnt;                           // count of the below
    km_vcpu_t *vm_vcpus[KVM_MAX_VCPUS];       // VCPUs we created
-   int vm_mem_reg_cnt;                       // count of the below
+
    kvm_mem_reg_t
        *vm_mem_regs[KVM_USER_MEM_SLOTS];       // guest physical memory regions
    uint64_t brk;                               //
@@ -72,40 +73,70 @@ typedef struct km_machine {
    kvm_cpuid2_t *cpuid;                        // to set VCPUs cpuid
 } km_machine_t;
 
-typedef enum {
-   KM_MEMSLOT_BASE = 0,
-   KM_RSRV_MEMSLOT = KM_MEMSLOT_BASE,
-   KM_TEXT_DATA_MEMSLOT,
-   KM_STACK_MEMSLOT,
-   KM_MEMSLOT_CNT
-} km_memslot_t;
-
 extern km_machine_t machine;
+
+static const int KM_RSRV_MEMSLOT = 0;
+static const int KM_TEXT_DATA_MEMSLOT = 1;
+// other text and data memslots follow
+static const int KM_STACK_MEMSLOT = KVM_USER_MEM_SLOTS - 1;
+
+#define GUEST_MEM_START_VA memreg_base(KM_TEXT_DATA_MEMSLOT)
 
 /*
  * See "Virtual memory layout:" in km_cpu_init.c for details.
  */
 // Last GB of the first half of 2^48 virt address
 static const uint64_t GUEST_STACK_TOP = 128 * 1024 * GIB - GIB;
-static const uint64_t GUEST_STACK_START_SIZE = GIB;
+static const uint64_t GUEST_STACK_START_SIZE = 2 * MIB;
 static const uint64_t GUEST_STACK_START_VA =
-    GUEST_STACK_TOP - GUEST_STACK_START_SIZE;       // 0x7fffc0000000
-static const uint64_t GUEST_STACK_START_PA = 511 * GIB;
+    GUEST_STACK_TOP - GUEST_STACK_START_SIZE;       // 0x7fffbfe00000
+static const uint64_t GUEST_STACK_START_PA = 512 * GIB - 2 * MIB;
 
 /*
+ * address space is made of exponentially increasing regions (km_cpu_init.c):
+ *  base             size  idx   clz
+ *   2MB -   4MB      2MB    1    42
+ *   4MB -   8MB      4MB    2    41
+ *   8MB -  16MB      8MB    3    40
+ *  16MB -  32MB     16MB    4    39
+ *     ...
+ * idx is number of the region, we compute it based on number of leading zeroes
+ * in a given address, using clzl instruction.
+ * base is address of the first byte in it. Note size equals base.
+ *
  * Knowing memory layout and how pml4 is set,
- * convert between guest virtual address and km address
+ * convert between guest virtual address and km address.
  */
+static inline int gva_to_memreg_idx(uint64_t gva)
+{
+   return 43 - __builtin_clzl(gva);
+}
+
+/*
+ * Note base and size are equal in this layout
+ */
+static inline uint64_t memreg_base(int idx)
+{
+   return MIB << idx;
+}
+
+static inline uint64_t memreg_size(int idx)
+{
+   return MIB << idx ;
+}
+
 static inline uint64_t km_gva_to_kml(uint64_t gva)
 {
    if (gva >= GUEST_STACK_START_VA && gva < GUEST_STACK_TOP) {
       return machine.vm_mem_regs[KM_STACK_MEMSLOT]->userspace_addr -
              GUEST_STACK_START_VA + gva;
    }
-   if (gva < machine.brk) {
-      return machine.vm_mem_regs[KM_TEXT_DATA_MEMSLOT]->userspace_addr + gva;
+   if (GUEST_MEM_START_VA <= gva && gva < machine.brk) {
+      int idx = gva_to_memreg_idx(gva);
+
+      return gva - memreg_base(idx) + machine.vm_mem_regs[idx]->userspace_addr;
    }
-   errx(1, "km_gva_to_kma: bad guest address 0x%lx", gva);
+   return (uint64_t) NULL;
 }
 
 /*

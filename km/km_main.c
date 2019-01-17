@@ -30,7 +30,7 @@ static inline void usage()
 int main(int argc, char *const argv[])
 {
    km_vcpu_t *vcpu;
-   uint64_t guest_entry, end;
+   uint64_t guest_entry;
    int opt;
    char *payload_file = NULL;
    bool wait_for_signal = false;
@@ -51,8 +51,8 @@ int main(int argc, char *const argv[])
    payload_file = argv[optind];
 
    km_machine_init();
-   load_elf(payload_file, (void *)km_gva_to_kma(0), &guest_entry, &end);
-   km_mem_brk(end);
+   load_elf(payload_file, &guest_entry);
+   km_hcalls_init();
    vcpu = km_vcpu_init(guest_entry, GUEST_STACK_TOP - 1);
 
    /*

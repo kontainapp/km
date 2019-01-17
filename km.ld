@@ -6,7 +6,7 @@ ENTRY(main)
  */
  
 SECTIONS {
-    . = 0x0;
+    . = 0x200000; /* 2MB */
     .text : {
         SORT_BY_ALIGNMENT*(.text) SORT_BY_ALIGNMENT*(.text.*)
     }

@@ -92,7 +92,7 @@ typedef struct x86_pdpte {
 } x86_pdpte_t /* __attribute__((packed)) */;
 
 /*
- * SDM, Table 4-16. pdpte refering to page directory
+ * SDM, Table 4-17. pde refering to 2MB page
  */
 typedef struct x86_pde_2m {
    uint64_t p : 1;                   // present

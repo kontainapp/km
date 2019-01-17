@@ -25,6 +25,29 @@
         "files.exclude": {
             "build/**": true
         },
-        "editor.tabSize": 3
+      "editor.tabSize": 3,
+      "cSpell.words": [
+         "HCALL",
+         "Kontain",
+         "OSXMMEXCPT",
+         "PDPT",
+         "VCPUS",
+         "clzl",
+         "cpuid",
+         "efer",
+         "ehdr",
+         "getehdr",
+         "hcalls",
+         "memsz",
+         "mprotect",
+         "pdpe",
+         "pdpte",
+         "phnum",
+         "sregs",
+         "vcpu",
+         "vpcu",
+         "xbffffffffffffffful",
+         "xfffffffful"
+      ]
 	}
 }

@@ -10,6 +10,7 @@
  * permission of Kontain Inc.
  */
 
+#define _GNU_SOURCE
 #include <err.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -34,15 +35,16 @@ km_machine_t machine = {
  *
  * - 4k hole
  * - 63 pages reserved area, used for pml4, pdpt, gdt, idt
- * - hole till 1GB, 0x40000000
- * - User space, initially 1GB, expandable in responce to brk()
+ * - hole till 2MB, 0x200000
+ * - User space, starting with 2MB, each next increasing by two:
+ *   2MB, 4MB, 8MB ... 512MB, 1GB, ... 256GB.
  * - hole from the end of user space, to 511GB
- * - guest stack is 1GB starting 511GB
+ * - guest stack is 2MB with the top at 512GB
  *
  * TODO: We are forced to stay within 512GB of guest physical memory
  * as KVM refuses to work if we try to use phys addr more than 512GB,
  * hence the GUEST_MEM_MAX value below
- * 
+ *
  * In the absence of this limitation we'd put the stack up high
  */
 static const int RSV_MEM_START = PAGE_SIZE;
@@ -56,20 +58,15 @@ static const int RSV_IDT_OFFSET = 3 * PAGE_SIZE;
 static const int RSV_PML4_OFFSET = 4 * PAGE_SIZE;
 static const int RSV_PDPT_OFFSET = 5 * PAGE_SIZE;
 static const int RSV_PDPT2_OFFSET = 6 * PAGE_SIZE;
+static const int RSV_PD_OFFSET = 7 * PAGE_SIZE;
+static const int RSV_PD2_OFFSET = 8 * PAGE_SIZE;
 /*
  * convert the above to guest physical offsets
  */
 #define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
 
-static const uint64_t GUEST_MEM_INCR = GIB;
-static const uint64_t GUEST_MEM_START_PA = GIB;
-/*
- * TODO: Turns out setting large guest memory region
- * (KVM_SET_USER_MEMORY_REGION) takes a lot of time, 510 GB takes well over
- * 100ms. We set this to 4GB for now so we pass the tests, but we need to
- * revisit the design.
- */
-static const uint64_t GUEST_MEM_MAX = GIB * 4;       // 510;
+#define GUEST_MEM_START_PA memreg_base(KM_TEXT_DATA_MEMSLOT)
+static const uint64_t GUEST_MEM_MAX = 510 * GIB;
 
 /*
  * Segment constants. They go directly to ioctl to set x86 registers, and
@@ -102,7 +99,7 @@ static const kvm_seg_t seg_tr = {
     .present = 1,
 };
 
-static const kvm_seg_t seg_unus = {
+static const kvm_seg_t seg_unused = {
     .unusable = 1,
 };
 
@@ -150,7 +147,15 @@ static void pml4e_set(x86_pml4e_t *pml4e, uint64_t pdpt)
    pml4e->pdpt = pdpt >> 12;
 }
 
-static void pdpe_set(x86_pdpte_1g_t *pdpe, uint64_t addr)
+static void pdpte_set(x86_pdpte_t *pdpe, uint64_t pd)
+{
+   pdpe->p = 1;
+   pdpe->r_w = 1;
+   pdpe->u_s = 1;
+   pdpe->pd = pd >> 12;
+}
+
+static void pdpte_1g_set(x86_pdpte_1g_t *pdpe, uint64_t addr)
 {
    pdpe->p = 1;
    pdpe->r_w = 1;
@@ -159,28 +164,41 @@ static void pdpe_set(x86_pdpte_1g_t *pdpe, uint64_t addr)
    pdpe->page = addr >> 30;
 }
 
+static void pde_2mb_set(x86_pde_2m_t *pde, u_int64_t addr)
+{
+   pde->p = 1;
+   pde->r_w = 1;
+   pde->u_s = 1;
+   pde->ps = 1;
+   pde->page = addr >> 21;
+}
+
 /*
  * Virtual memory layout:
  *
- * Guest text and data region starts from virtual address 0, initially size
- * GUEST_MEM_INCR. This region grows at the guest requests via brk() call. The
- * end of this region is always machine.brk.
+ * Guest text and data region starts from virtual address 2MB. It grows and
+ * shrinks at the guest requests via brk() call. The end of this region for the
+ * purposes of brk() is machine.brk. The actual virtual address space is made of
+ * exponentially increasing areas, staring with 2MB to the total of
+ * GUEST_MEM_MAX. Note virtual and physical layout are equivalent.
  *
  * Guest stack starting GUEST_STACK_START_VA, GUEST_STACK_START_SIZE. We chose,
  * somewhat randonly, GUEST_STACK_START_VA at the last GB of the first half of
- * 48 bit wide virtual adress space. See km.h for values.
+ * 48 bit wide virtual address space. See km.h for values.
  *
- * We use 1GB pages. We need two pml4 entries, #0 and #255, #0 covers the text
- * and data, the #255 stack. There are correspondingly two pdpt pages.
- * We use only the very last entry in the second one. Initially only the first
- * entry of the first one is used, but then it expands with brk.
- * If we ever go over the 512GB limit there will be a need for more pdpt pages.
+ * We use 2MB pages for the first GB, and 1GB pages for the rest. With the
+ * GUEST_MEM_MAX of 510GB we need two pml4 entries, #0 and #255, #0 covers the
+ * text and data, the #255 stack. There are correspondingly two pdpt pages. We
+ * use only the very last entry in the second one. Initially only the second
+ * entry of the first one is used, but then it expands with brk. If we ever go
+ * over the 512GB limit there will be a need for more pdpt pages. The first
+ * entry points to the pd page that covers the first GB.
  *
  * TODO: Check for hugepage support
  *
  * The picture illustrates layout with the constants values as set.
  * The code below is a little more flexible, allowing one or two pdpt pages and
- * pml4 entries, as well as vatiable locations in pdpt table, depending on the
+ * pml4 entries, as well as variable locations in pdpt table, depending on the
  * virtual address of the stack
  *
  *           0|      |255
@@ -190,13 +208,19 @@ static void pdpe_set(x86_pdpte_1g_t *pdpe, uint64_t addr)
  *        /                               \
  *       |                                 |511
  *      [----------------] [----------------] pdpt pages
+ *       |                                 |
+ *       |\________                        |
+ *       |         \                       |
+ *      [----------------] [----------------] pd pages
+ *        |                                |
+ *      2 - 4 MB                 512GB-2MB - 512GB
  */
-static void km_init_pml4(void *mem)
+static void init_pml4(void *mem)
 {
    x86_pml4e_t *pml4e;
-   x86_pdpte_1g_t *pdpe;
-   int pml4_idx;
-   int pdpt_idx;
+   x86_pdpte_t *pdpe;
+   x86_pde_2m_t *pde;
+   int idx;
 
    pml4e = mem + RSV_PML4_OFFSET;
    memset(pml4e, 0, PAGE_SIZE);
@@ -204,21 +228,30 @@ static void km_init_pml4(void *mem)
 
    pdpe = mem + RSV_PDPT_OFFSET;
    memset(pdpe, 0, PAGE_SIZE);
-   pdpe_set(pdpe, GUEST_MEM_START_PA);       // first entry for the first GB
+   pdpte_set(pdpe, RSV_GUEST_PA(RSV_PD_OFFSET));       // first entry for the first GB
 
-   pml4_idx = GUEST_STACK_START_VA / (512 * GIB);
-   assert(pml4_idx < 512);
-   pdpt_idx = (GUEST_STACK_START_VA / GIB) & 0x1ff;
+   pde = mem + RSV_PD_OFFSET;
+   memset(pde, 0, PAGE_SIZE);
+   pde_2mb_set(pde + 1, GUEST_MEM_START_PA);       // second entry for the 2MB - 4MB 
+
+   idx = GUEST_STACK_START_VA / (512 * GIB);
+   assert(idx < 512);
 
    // check if we need the second pml4 entry, i.e the two mem regions are more
    // than 512 GB apart. If we do, make the second entry to the second pdpt page
-   if (pml4_idx > 0) {
+   if (idx > 0) {
       // prepare the second pdpt page if needed
       pdpe = mem + RSV_PDPT2_OFFSET;
-      pml4e_set(pml4e + pml4_idx, RSV_GUEST_PA(RSV_PDPT2_OFFSET));
+      pml4e_set(pml4e + idx, RSV_GUEST_PA(RSV_PDPT2_OFFSET));
       memset(pdpe, 0, PAGE_SIZE);
    }
-   pdpe_set(pdpe + pdpt_idx, GUEST_STACK_START_PA);
+   idx = (GUEST_STACK_START_VA / GIB) & 0x1ff;
+   pdpte_set(pdpe + idx, RSV_GUEST_PA(RSV_PD2_OFFSET));
+
+   idx = (GUEST_STACK_START_VA / (2 * MIB)) & 0x1ff;
+   pde = mem + RSV_PD2_OFFSET;
+   memset(pde, 0, PAGE_SIZE);
+   pde_2mb_set(pde + idx, GUEST_STACK_START_PA);   
 }
 
 static void *page_malloc(size_t size)
@@ -240,8 +273,6 @@ static void page_free(void *addr, size_t size)
 {
    munmap(addr, size);
 }
-
-#define GUEST_ADDR_SLOT ((void *)0x100000000000)
 
 /*
  * Initialize GDT, IDT, and PML4 structures in the reserved region
@@ -269,28 +300,25 @@ static void km_mem_init(void)
    }
    machine.vm_mem_regs[KM_RSRV_MEMSLOT] = reg;
    km_init_gdt_idt((void *)reg->userspace_addr);
-   km_init_pml4((void *)reg->userspace_addr);
+   init_pml4((void *)reg->userspace_addr);
 
    /* 2. data and text memory, account for brk */
    if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
       err(1, "KVM: no memory for mem region");
    }
-   if ((ptr = mmap(GUEST_ADDR_SLOT, GUEST_MEM_INCR, PROT_READ | PROT_WRITE,
-                   MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0)) ==
-       MAP_FAILED) {
+   if ((ptr = page_malloc(memreg_size(KM_TEXT_DATA_MEMSLOT))) == NULL) {
       err(1, "KVM: no memory for guest payload");
    }
    reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
    reg->slot = KM_TEXT_DATA_MEMSLOT;
    reg->guest_phys_addr = GUEST_MEM_START_PA;
-   // This is where we claim we have more memory than we actually do
-   reg->memory_size = GUEST_MEM_MAX;
+   reg->memory_size = memreg_size(KM_TEXT_DATA_MEMSLOT);
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
       err(1, "KVM: set guest memory failed");
    }
    machine.vm_mem_regs[KM_TEXT_DATA_MEMSLOT] = reg;
-   machine.brk = PAGE_SIZE;
+   machine.brk = GUEST_MEM_START_VA + PAGE_SIZE;
 
    /* 3. Stack */
    if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
@@ -308,44 +336,118 @@ static void km_mem_init(void)
       err(1, "KVM: set guest payload stack memory failed");
    }
    machine.vm_mem_regs[KM_STACK_MEMSLOT] = reg;
-   machine.vm_mem_reg_cnt = KM_MEMSLOT_CNT;
+}
+
+/*
+ * Set and clear pml4 hierarchy entries to reflect addition or removal of reg,
+ * following the setup in init_pml4(). Set/Clears pdpte or pde depending on the
+ * size.
+ */
+static void set_pml4_hierarchy(kvm_mem_reg_t *reg)
+{
+   int idx = reg->slot;
+   uint64_t size = reg->memory_size;
+   uint64_t base = memreg_base(idx);
+
+   if (size < GIB) {
+      x86_pde_2m_t *pde = (x86_pde_2m_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
+                                               ->userspace_addr +
+                                           RSV_PD_OFFSET);
+      for (uint64_t i = 0; i < size; i += 2 * MIB) {
+         pde_2mb_set(pde + (i + base)/ (2 * MIB), reg->guest_phys_addr + i);
+      }
+   } else {
+      x86_pdpte_1g_t *pdpe =
+          (x86_pdpte_1g_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
+                                 ->userspace_addr +
+                             RSV_PDPT_OFFSET);
+      for (uint64_t i = 0; i < size; i += GIB) {
+         pdpte_1g_set(pdpe + (i + base)/ GIB, reg->guest_phys_addr + i);
+      }
+   }
+}
+
+static void clear_pml4_hierarchy(kvm_mem_reg_t *reg)
+{
+   int idx = reg->slot;
+   uint64_t size = reg->memory_size;
+   uint64_t base = memreg_base(idx);
+
+   if (size < GIB) {
+      x86_pde_2m_t *pde = (x86_pde_2m_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
+                                               ->userspace_addr +
+                                           RSV_PD_OFFSET);
+      for (uint64_t i = 0; i < size; i += 2 * MIB) {
+         memset(pde + (i + base)/ (2 * MIB), 0, sizeof(*pde));
+      }
+   } else {
+      x86_pdpte_1g_t *pdpe =
+          (x86_pdpte_1g_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
+                                 ->userspace_addr +
+                             RSV_PDPT_OFFSET);
+      for (uint64_t i = 0; i < size; i += GIB) {
+         memset(pdpe + (i + base)/ GIB, 0, sizeof(*pdpe));
+      }
+   }
 }
 
 /*
  * brk() call implementation.
  *
- * Expand mmap-ed memory but keep it at the same virtual address
- * (GUEST_ADDR_SLOT). machine.brk keeps track if the current position of the
- * break
+ * Move machine.brk up or down, adding or removing memory regions as required.
  */
 uint64_t km_mem_brk(uint64_t brk)
 {
-   uint64_t size;
-   uint64_t mbrk_rnd;
+   int idx;
+   uint64_t size, m_brk;
+   void *ptr;
+   kvm_mem_reg_t *reg;
 
    if (brk == 0 || brk == machine.brk) {
       return machine.brk;
    }
-   if (brk < machine.brk || brk > GUEST_MEM_MAX) {
+   if (brk > GUEST_MEM_MAX) {
       return -EINVAL;
    }
-   // check if we need more allocation
-   if ((mbrk_rnd = roundup(machine.brk, GUEST_MEM_INCR)) < brk) {
-      size = roundup(brk - mbrk_rnd, GUEST_MEM_INCR);
 
-      if (mmap(GUEST_ADDR_SLOT + mbrk_rnd, size, PROT_READ | PROT_WRITE,
-               MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0) == MAP_FAILED) {
-         err(1, "KVM: no memory for guest payload");
+   idx = gva_to_memreg_idx(machine.brk);
+   m_brk = MIN(brk, memreg_base(idx) + memreg_size(idx));
+   for (; m_brk < brk; m_brk = MIN(brk, memreg_base(idx) + memreg_size(idx))) {
+      /* Not enough room in the allocated memreg, allocate and add new ones */
+      idx++;
+      if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
+         return -ENOMEM;
       }
-
-      x86_pdpte_1g_t *pdpe =
-          (x86_pdpte_1g_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
-                                 ->userspace_addr +
-                             RSV_PDPT_OFFSET);
-
-      for (uint64_t i = mbrk_rnd; i < machine.brk + size; i += GUEST_MEM_INCR) {
-         pdpe_set(pdpe + i / GUEST_MEM_INCR, GUEST_MEM_START_PA + i);
+      size = memreg_size(idx);
+      if ((ptr = page_malloc(size)) == NULL) {
+         free(reg);
+         return -ENOMEM;
       }
+      reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
+      reg->slot = idx;
+      reg->guest_phys_addr = memreg_base(idx);
+      reg->memory_size = size;
+      reg->flags = 0;
+      if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+         page_free(ptr, size);
+         free(reg);
+         return -errno;
+      }
+      machine.vm_mem_regs[idx] = reg;
+      set_pml4_hierarchy(reg);
+   }
+   for (; idx > gva_to_memreg_idx(brk); idx--) {
+      /* brk moved down and left one or more memory regions. Remove and free */
+      reg = machine.vm_mem_regs[idx];
+      size = reg->memory_size;
+      clear_pml4_hierarchy(reg);
+      reg->memory_size = 0;
+      if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+         err(1, "KVM: failed to unplug memory region %d", idx);
+      }
+      page_free((void *)reg->userspace_addr, size);
+      free(reg);
+      machine.vm_mem_regs[idx] = NULL;
    }
    machine.brk = brk;
    return machine.brk;
@@ -371,11 +473,17 @@ void km_machine_fini(void)
       }
    }
    /* check if there are any memory regions */
-   for (; machine.vm_mem_regs; machine.vm_mem_reg_cnt--) {
-      kvm_mem_reg_t *mr = machine.vm_mem_regs[machine.vm_mem_reg_cnt - 1];
+   for (int i = KVM_USER_MEM_SLOTS - 1; i >= 0; i--) {
+      kvm_mem_reg_t *mr = machine.vm_mem_regs[i];
 
-      /* TODO: Do we need to "unplug" it from the VM? */
-      page_free((void *)mr->userspace_addr, mr->memory_size);
+      if (mr != NULL) {
+         /* TODO: Do we need to "unplug" it from the VM? */
+         if (mr->memory_size != 0) {
+            page_free((void *)mr->userspace_addr, mr->memory_size);
+         }
+         free(mr);
+         machine.vm_mem_regs[i] = NULL;
+      }
    }
    /* Now undo things done in km_machine_init */
    if (machine.cpuid != NULL) {
@@ -411,7 +519,7 @@ static void kvm_vcpu_init_sregs(int fd)
        .gdt = {.base = RSV_MEM_START + RSV_GDT_OFFSET, .limit = PAGE_SIZE},
        .idt = {.base = RSV_MEM_START + RSV_IDT_OFFSET, .limit = PAGE_SIZE},
        .tr = seg_tr,
-       .ldt = seg_unus,
+       .ldt = seg_unused,
    };
 
    if (ioctl(fd, KVM_SET_SREGS, &sregs) < 0) {
@@ -513,5 +621,4 @@ void km_machine_init(void)
       err(1, "KVM: get supported CPUID failed");
    }
    km_mem_init();
-   km_hcalls_init();
 }
