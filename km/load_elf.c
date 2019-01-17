@@ -77,6 +77,7 @@ int load_elf(const char *file, void *mem, uint64_t *entry, uint64_t *end)
       addr = mem + phdr.p_paddr;
       my_pread(fd, addr, phdr.p_filesz, phdr.p_offset);
       memset(addr + phdr.p_filesz, 0, phdr.p_memsz - phdr.p_filesz);
+#if 0
       pr = 0;
       if (phdr.p_flags & PF_R) {
          pr |= PROT_READ;
@@ -90,6 +91,7 @@ int load_elf(const char *file, void *mem, uint64_t *entry, uint64_t *end)
       if (mprotect(addr, phdr.p_memsz, pr) < 0) {
          err(2, "failed to set guest memory protection");
       }
+#endif
       if (phdr.p_paddr + phdr.p_memsz > *end) {
          *end = phdr.p_paddr + phdr.p_memsz;
       }

@@ -10,6 +10,7 @@
  * permission of Kontain Inc.
  */
 
+#define _GNU_SOURCE
 #include <err.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -42,7 +43,7 @@ km_machine_t machine = {
  * TODO: We are forced to stay within 512GB of guest physical memory
  * as KVM refuses to work if we try to use phys addr more than 512GB,
  * hence the GUEST_MEM_MAX value below
- * 
+ *
  * In the absence of this limitation we'd put the stack up high
  */
 static const int RSV_MEM_START = PAGE_SIZE;
@@ -276,15 +277,13 @@ static void km_mem_init(void)
       err(1, "KVM: no memory for mem region");
    }
    if ((ptr = mmap(GUEST_ADDR_SLOT, GUEST_MEM_INCR, PROT_READ | PROT_WRITE,
-                   MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0)) ==
-       MAP_FAILED) {
+                   MAP_SHARED | MAP_ANONYMOUS, -1, 0)) == MAP_FAILED) {
       err(1, "KVM: no memory for guest payload");
    }
    reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
    reg->slot = KM_TEXT_DATA_MEMSLOT;
    reg->guest_phys_addr = GUEST_MEM_START_PA;
-   // This is where we claim we have more memory than we actually do
-   reg->memory_size = GUEST_MEM_MAX;
+   reg->memory_size = GUEST_MEM_INCR;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
       err(1, "KVM: set guest memory failed");
@@ -320,30 +319,41 @@ static void km_mem_init(void)
  */
 uint64_t km_mem_brk(uint64_t brk)
 {
-   uint64_t size;
-   uint64_t mbrk_rnd;
+   uint64_t new_size;
+   void *new_addr;
+   kvm_mem_reg_t *reg;
 
    if (brk == 0 || brk == machine.brk) {
       return machine.brk;
    }
-   if (brk < machine.brk || brk > GUEST_MEM_MAX) {
+   if (brk > GUEST_MEM_MAX) {
       return -EINVAL;
    }
-   // check if we need more allocation
-   if ((mbrk_rnd = roundup(machine.brk, GUEST_MEM_INCR)) < brk) {
-      size = roundup(brk - mbrk_rnd, GUEST_MEM_INCR);
+   reg = machine.vm_mem_regs[KM_TEXT_DATA_MEMSLOT];
+   // check if we need to change allocation
+   if (brk > reg->memory_size || reg->memory_size - brk > GUEST_MEM_INCR) {
+      new_size = roundup(brk, GUEST_MEM_INCR);
 
-      if (mmap(GUEST_ADDR_SLOT + mbrk_rnd, size, PROT_READ | PROT_WRITE,
-               MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, -1, 0) == MAP_FAILED) {
-         err(1, "KVM: no memory for guest payload");
+      if ((new_addr = mremap((void *)reg->userspace_addr, reg->memory_size,
+                             new_size, MREMAP_MAYMOVE)) == MAP_FAILED) {
+         return -ENOMEM;
       }
-
+      reg->memory_size = 0;
+      if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+         err(1, "KVM: delete guest memory failed");
+      }
+      reg->memory_size = new_size;
+      reg->userspace_addr = (uint64_t)new_addr;
+      if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+         err(1, "KVM: change guest memory failed");
+      }
       x86_pdpte_1g_t *pdpe =
           (x86_pdpte_1g_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
                                  ->userspace_addr +
                              RSV_PDPT_OFFSET);
 
-      for (uint64_t i = mbrk_rnd; i < machine.brk + size; i += GUEST_MEM_INCR) {
+      for (uint64_t i = roundup(machine.brk, GUEST_MEM_INCR); i < new_size;
+           i += GUEST_MEM_INCR) {
          pdpe_set(pdpe + i / GUEST_MEM_INCR, GUEST_MEM_START_PA + i);
       }
    }
