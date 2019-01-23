@@ -14,6 +14,7 @@ SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c
 INCLUDES := ${TOP}include
 LLIBS := elf
 EXEC := km
+LDOPTS := -static
 
 include ${TOP}make/actions.mk
 

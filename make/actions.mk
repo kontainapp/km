@@ -9,7 +9,7 @@
 #  Kontain Inc.
 #
 # To be included throughout the KONTAIN project
-# TOP has to be defined before inclusion, usually as 
+# TOP has to be defined before inclusion, usually as
 #  		TOP := $(shell git rev-parse --show-cdup)
 #
 # There are three possible builds depending on the including Makefile,
@@ -24,7 +24,7 @@
 #
 SHELL=/bin/bash
 
-# make sure the value is non-empty - if we are 
+# make sure the value is non-empty - if we are
 # already at the top, we can get empty line from upstairs
 # (Note that below we'll expect the trailing '/' in directories)
 ifeq ($(strip ${TOP}),)
@@ -35,7 +35,7 @@ endif
 FROMTOP := $(shell git rev-parse --show-prefix)
 # all build results (including obj etc..)  go under this one
 BLDTOP := ${TOP}build/
-# build for the current run goes here 
+# build for the current run goes here
 BLDDIR := ${BLDTOP}${FROMTOP}
 
 # customization of build should be in custom.mk
@@ -52,7 +52,7 @@ ifneq (${SUBDIRS},)
 all: subdirs ## Build all in all subdirs - basically, build + test recursively
 
 subdirs: $(SUBDIRS)
-clean: subdirs  ## clean all build artifacts. 
+clean: subdirs  ## clean all build artifacts.
 test: subdirs   ## build all and run tests everywhere
 
 $(SUBDIRS):
@@ -66,7 +66,7 @@ ifneq (${EXEC},)
 
 all: ${BLDEXEC}
 ${BLDEXEC}: $(OBJS)
-	$(CC) $(OBJS) $(addprefix -l ,${LLIBS}) -o $@
+	$(CC) $(LDOPTS) $(OBJS) $(addprefix -l ,${LLIBS}) -o $@
 
 endif
 
@@ -125,7 +125,7 @@ endif # ($(MAKECMDGOALS), clean)
 
 endif # (${SUBDIRS},)
 
-# Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever) 
+# Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
 # Support for "make help"
 #
@@ -149,9 +149,9 @@ help:  ## Prints help on 'make' targets
 	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
 	@echo ""
 
-# dockerized build 
+# dockerized build
 #
-# use Dockerfile-fedora, Dockerfile-ubuntu, etc... to get different flavors 
+# use Dockerfile-fedora, Dockerfile-ubuntu, etc... to get different flavors
 DTYPE ?= fedora
 DLOC := ${TOP}docker/build
 DIMG := km-buildenv-${DTYPE}
@@ -159,7 +159,7 @@ DFILE := Dockerfile.$(DTYPE)
 
 # Support for 'make withdocker'
 #
-# Usage: 
+# Usage:
 #	make withdocker [TARGET=<make-target>] [DTYPE=<os-type>]
 #  	<make-target> is "all" by default (same as in regular make, with no docker)
 #  	<os-type> is "fedora" by default. See ${TOP}/docker/build for supported OSes
