@@ -90,7 +90,7 @@ static const uint64_t GUEST_STACK_TOP = 128 * 1024 * GIB - GIB;
 static const uint64_t GUEST_STACK_START_SIZE = 2 * MIB;
 static const uint64_t GUEST_STACK_START_VA =
     GUEST_STACK_TOP - GUEST_STACK_START_SIZE;       // 0x7fffbfe00000
-static const uint64_t GUEST_STACK_START_PA = 512 * GIB - 2 * MIB;
+static const uint64_t GUEST_STACK_START_PA = 2 * GIB - 2 * MIB;
 
 /*
  * address space is made of exponentially increasing regions (km_cpu_init.c):
@@ -122,7 +122,7 @@ static inline uint64_t memreg_base(int idx)
 
 static inline uint64_t memreg_size(int idx)
 {
-   return MIB << idx ;
+   return MIB << idx;
 }
 
 static inline uint64_t km_gva_to_kml(uint64_t gva)

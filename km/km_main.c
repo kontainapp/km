@@ -20,11 +20,12 @@
 
 #include "km.h"
 
-
 static inline void usage()
 {
    errx(1, "Usage: km [-w] <payload-file>\n"
-            "Options:\n\t-w - create a VM with payload and wait for SIGUSR1 before running it");
+           "Options:\n"
+           "\t-w - create a VM with payload and wait for SIGUSR1 before "
+           "running it");
 }
 
 int main(int argc, char *const argv[])
@@ -69,10 +70,10 @@ int main(int argc, char *const argv[])
       sigaddset(&signal_set, SIGUSR1);
       sigprocmask(SIG_BLOCK, &signal_set, NULL);
       sigwait(&signal_set, &received_signal);
-  }
+   }
 
-  /*
-   * Run the first vcpu
-   */
+   /*
+    * Run the first vcpu
+    */
    km_vcpu_run(vcpu);
 }

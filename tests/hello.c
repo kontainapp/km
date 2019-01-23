@@ -22,10 +22,12 @@
 #include <assert.h>
 #include "syscall.h"
 
+static void const *high_addr = (void *)0x30000000ul;
+
 static const char *msg1 = "Hello, ";
 static char msg2[0x1ff000] = "world!";
 
-void *SYS_break(void *addr)
+void *SYS_break(void const *addr)
 {
    return (void *)syscall(SYS_brk, addr);
 }
@@ -44,9 +46,9 @@ int main()
       ;
 
    printf("break is %p\n", ptr = SYS_break(NULL));
-   SYS_break((void *)0x30000000);
+   SYS_break(high_addr);
    printf("break is %p\n", ptr1 = SYS_break(NULL));
-   assert((void *)0x30000000 == SYS_break(NULL));
+   assert(ptr1 == high_addr);
    printf("break is %p\n", SYS_break(NULL));
 
    ptr1 -= 20;

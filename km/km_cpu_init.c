@@ -36,16 +36,17 @@ km_machine_t machine = {
  * - 4k hole
  * - 63 pages reserved area, used for pml4, pdpt, gdt, idt
  * - hole till 2MB, 0x200000
- * - User space, starting with 2MB, each next increasing by two:
+ * - User space, starting with 2MB region, each next increasing by two:
  *   2MB, 4MB, 8MB ... 512MB, 1GB, ... 256GB.
- * - hole from the end of user space, to 511GB
- * - guest stack is 2MB with the top at 512GB
+ *   We start with just 2MB region, then add the subsequent ones as necessary.
+ * - hole from the end of user space, till the bottom of the stack.
+ * - guest stack is 2MB with the top at 2GB. When user space regions closes the
+ *   hole the stack gets replugged up the memory as necessary.
  *
- * TODO: We are forced to stay within 512GB of guest physical memory
+ * TODO: We are forced to stay within 512GB of guest physical memory,
+ * or even less on some machines like i3.
  * as KVM refuses to work if we try to use phys addr more than 512GB,
  * hence the GUEST_MEM_MAX value below
- *
- * In the absence of this limitation we'd put the stack up high
  */
 static const int RSV_MEM_START = PAGE_SIZE;
 static const int RSV_MEM_SIZE = PAGE_SIZE * 63;
@@ -183,7 +184,7 @@ static void pde_2mb_set(x86_pde_2m_t *pde, u_int64_t addr)
  * GUEST_MEM_MAX. Note virtual and physical layout are equivalent.
  *
  * Guest stack starting GUEST_STACK_START_VA, GUEST_STACK_START_SIZE. We chose,
- * somewhat randonly, GUEST_STACK_START_VA at the last GB of the first half of
+ * somewhat randonly, GUEST_STACK_START_VA at the last 2MB of the first half of
  * 48 bit wide virtual address space. See km.h for values.
  *
  * We use 2MB pages for the first GB, and 1GB pages for the rest. With the
@@ -413,8 +414,27 @@ uint64_t km_mem_brk(uint64_t brk)
    idx = gva_to_memreg_idx(machine.brk);
    m_brk = MIN(brk, memreg_base(idx) + memreg_size(idx));
    for (; m_brk < brk; m_brk = MIN(brk, memreg_base(idx) + memreg_size(idx))) {
-      /* Not enough room in the allocated memreg, allocate and add new ones */
+      /*
+       * Not enough room in the allocated memreg, allocate and add new ones.
+       * First check if we need to move stack.
+       */
       idx++;
+      reg = machine.vm_mem_regs[KM_STACK_MEMSLOT];
+      if (reg->guest_phys_addr < memreg_base(idx) + memreg_size(idx)) {
+         /* TODO: 256GB memory region pushes the stack above 512GB, which
+          * doesn't work. See above Physical memory layout: */
+         reg->guest_phys_addr =
+             memreg_base(idx + 1) + memreg_size(idx + 1) - GUEST_STACK_START_SIZE;
+         if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+            return -errno;
+         }
+         x86_pde_2m_t *pde =
+             (x86_pde_2m_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
+                                  ->userspace_addr +
+                              RSV_PD2_OFFSET);
+         pde += (GUEST_STACK_START_VA / (2 * MIB)) & 0x1ff;
+         pde_2mb_set(pde, reg->guest_phys_addr);
+      }
       if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
          return -ENOMEM;
       }
