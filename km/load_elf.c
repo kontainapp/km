@@ -69,8 +69,7 @@ static void load_extent(int fd, GElf_Phdr *phdr)
    do {
       idx = gva_to_memreg_idx(phdr->p_paddr);
       addr = km_gva_to_kma(phdr->p_paddr);
-      size = MIN(phdr->p_memsz,
-                 memreg_base(idx) + memreg_size(idx) - phdr->p_paddr);
+      size = MIN(phdr->p_memsz, memreg_top(idx) - phdr->p_paddr);
       filesize = MIN(phdr->p_filesz, size);
       my_pread(fd, addr, filesize, phdr->p_offset);
       memset(addr + filesize, 0, size - filesize);

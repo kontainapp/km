@@ -71,6 +71,7 @@ typedef struct km_machine {
    uint64_t brk;                               //
                                                //
    kvm_cpuid2_t *cpuid;                        // to set VCPUs cpuid
+   uint64_t guest_max_physmem;                 // Set from CPUID
 } km_machine_t;
 
 extern km_machine_t machine;
@@ -85,12 +86,32 @@ static const int KM_STACK_MEMSLOT = KVM_USER_MEM_SLOTS - 1;
 /*
  * See "Virtual memory layout:" in km_cpu_init.c for details.
  */
-// Last GB of the first half of 2^48 virt address
+/*
+ * Talking about stacks, start refers to the lowest address, top is the highest,
+ * in other words start and top are view from the memory regions allocation
+ * point of view.
+ *
+ * RSP register initially is pointed to the top of the stack, and grows down
+ * with flow of the program.
+ */
 static const uint64_t GUEST_STACK_TOP = 128 * 1024 * GIB - GIB;
+/*
+ * Total of all thread stacks, packed into one range of addresses. Stacks
+ * (GUEST_STACK_START_SIZE each) will be placed in the area of
+ * GUEST_ALL_STACKS_SIZE and the code will control overflow and move/extend in
+ * the unlikely event of the need.
+ */
+static const uint64_t GUEST_ALL_STACKS_SIZE = GIB;
+/* Single thread stack size */
 static const uint64_t GUEST_STACK_START_SIZE = 2 * MIB;
+/* Initial thread stack start - lowest address */
 static const uint64_t GUEST_STACK_START_VA =
     GUEST_STACK_TOP - GUEST_STACK_START_SIZE;       // 0x7fffbfe00000
-static const uint64_t GUEST_STACK_START_PA = 512 * GIB - 2 * MIB;
+
+#define GUEST_STACK_START_PA (machine.guest_max_physmem - GUEST_STACK_START_SIZE)
+
+/* Top of the allowed text+data area, or maximum possible value of machine.brk */
+#define GUEST_MAX_BRK (machine.guest_max_physmem - GUEST_ALL_STACKS_SIZE)
 
 /*
  * address space is made of exponentially increasing regions (km_cpu_init.c):
@@ -122,7 +143,12 @@ static inline uint64_t memreg_base(int idx)
 
 static inline uint64_t memreg_size(int idx)
 {
-   return MIB << idx ;
+   return MIB << idx;
+}
+
+static inline uint64_t memreg_top(int idx)
+{
+   return (MIB << 1) << idx;
 }
 
 static inline uint64_t km_gva_to_kml(uint64_t gva)

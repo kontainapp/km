@@ -36,17 +36,17 @@ km_machine_t machine = {
  * - 4k hole
  * - 63 pages reserved area, used for pml4, pdpt, gdt, idt
  * - hole till 2MB, 0x200000
- * - User space, starting with 2MB, each next increasing by two:
+ * - User space, starting with 2MB region, each next increasing by two:
  *   2MB, 4MB, 8MB ... 512MB, 1GB, ... 256GB.
- * - hole from the end of user space, to 511GB
- * - guest stack is 2MB with the top at 512GB
+ *   We start with just 2MB region, then add the subsequent ones as necessary.
+ * - hole from the end of user space to (guest_max_physmem - 1GB)
+ * - last GB is reserved for stacks. The first thread stack is 2MB at the top of
+ *   that GB
  *
- * TODO: We are forced to stay within 512GB of guest physical memory
- * as KVM refuses to work if we try to use phys addr more than 512GB,
- * hence the GUEST_MEM_MAX value below
- *
- * In the absence of this limitation we'd put the stack up high
+ * We are forced to stay within width of the CPU physical memory bus. We
+ * determine that the by analyzing CPUID and store in machine.guest_max_physmem
  */
+
 static const int RSV_MEM_START = PAGE_SIZE;
 static const int RSV_MEM_SIZE = PAGE_SIZE * 63;
 /*
@@ -66,7 +66,6 @@ static const int RSV_PD2_OFFSET = 8 * PAGE_SIZE;
 #define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
 
 #define GUEST_MEM_START_PA memreg_base(KM_TEXT_DATA_MEMSLOT)
-static const uint64_t GUEST_MEM_MAX = 510 * GIB;
 
 /*
  * Segment constants. They go directly to ioctl to set x86 registers, and
@@ -179,17 +178,18 @@ static void pde_2mb_set(x86_pde_2m_t *pde, u_int64_t addr)
  * Guest text and data region starts from virtual address 2MB. It grows and
  * shrinks at the guest requests via brk() call. The end of this region for the
  * purposes of brk() is machine.brk. The actual virtual address space is made of
- * exponentially increasing areas, staring with 2MB to the total of
- * GUEST_MEM_MAX. Note virtual and physical layout are equivalent.
+ * exponentially increasing areas, staring with 2MB to the total based on
+ * guest_max_physmem, allowing for stack. Note virtual and physical layout are
+ * equivalent.
  *
  * Guest stack starting GUEST_STACK_START_VA, GUEST_STACK_START_SIZE. We chose,
- * somewhat randonly, GUEST_STACK_START_VA at the last GB of the first half of
+ * somewhat randonly, GUEST_STACK_START_VA at the last 2MB of the first half of
  * 48 bit wide virtual address space. See km.h for values.
  *
  * We use 2MB pages for the first GB, and 1GB pages for the rest. With the
- * GUEST_MEM_MAX of 510GB we need two pml4 entries, #0 and #255, #0 covers the
- * text and data, the #255 stack. There are correspondingly two pdpt pages. We
- * use only the very last entry in the second one. Initially only the second
+ * guest_max_physmem <= 512GB we need two pml4 entries, #0 and #255, #0 covers
+ * the text and data, the #255 stack. There are correspondingly two pdpt pages.
+ * We use only the very last entry in the second one. Initially only the second
  * entry of the first one is used, but then it expands with brk. If we ever go
  * over the 512GB limit there will be a need for more pdpt pages. The first
  * entry points to the pd page that covers the first GB.
@@ -215,6 +215,14 @@ static void pde_2mb_set(x86_pde_2m_t *pde, u_int64_t addr)
  *        |                                |
  *      2 - 4 MB                 512GB-2MB - 512GB
  */
+
+/* virtual address space covered by one pml4 entry */
+static const uint64_t PML4E_REGION = 512 * GIB;
+/* Same for pdpt entry */
+static const uint64_t PDPTE_REGION = GIB;
+/* same for pd entry */
+static const uint64_t PDE_REGION = 2 * MIB;
+
 static void init_pml4(void *mem)
 {
    x86_pml4e_t *pml4e;
@@ -222,6 +230,7 @@ static void init_pml4(void *mem)
    x86_pde_2m_t *pde;
    int idx;
 
+   assert(machine.guest_max_physmem <= PML4E_REGION);
    pml4e = mem + RSV_PML4_OFFSET;
    memset(pml4e, 0, PAGE_SIZE);
    pml4e_set(pml4e, RSV_GUEST_PA(RSV_PDPT_OFFSET));       // entry #0
@@ -234,8 +243,8 @@ static void init_pml4(void *mem)
    memset(pde, 0, PAGE_SIZE);
    pde_2mb_set(pde + 1, GUEST_MEM_START_PA);       // second entry for the 2MB - 4MB 
 
-   idx = GUEST_STACK_START_VA / (512 * GIB);
-   assert(idx < 512);
+   idx = GUEST_STACK_START_VA / PML4E_REGION;
+   assert(idx < PAGE_SIZE / sizeof(x86_pml4e_t));       // within pml4 page
 
    // check if we need the second pml4 entry, i.e the two mem regions are more
    // than 512 GB apart. If we do, make the second entry to the second pdpt page
@@ -245,13 +254,13 @@ static void init_pml4(void *mem)
       pml4e_set(pml4e + idx, RSV_GUEST_PA(RSV_PDPT2_OFFSET));
       memset(pdpe, 0, PAGE_SIZE);
    }
-   idx = (GUEST_STACK_START_VA / GIB) & 0x1ff;
+   idx = (GUEST_STACK_START_VA / PDPTE_REGION) & 0x1ff;
    pdpte_set(pdpe + idx, RSV_GUEST_PA(RSV_PD2_OFFSET));
 
-   idx = (GUEST_STACK_START_VA / (2 * MIB)) & 0x1ff;
+   idx = (GUEST_STACK_START_VA / PDE_REGION) & 0x1ff;
    pde = mem + RSV_PD2_OFFSET;
    memset(pde, 0, PAGE_SIZE);
-   pde_2mb_set(pde + idx, GUEST_STACK_START_PA);   
+   pde_2mb_set(pde + idx, GUEST_STACK_START_PA);
 }
 
 static void *page_malloc(size_t size)
@@ -349,20 +358,21 @@ static void set_pml4_hierarchy(kvm_mem_reg_t *reg)
    uint64_t size = reg->memory_size;
    uint64_t base = memreg_base(idx);
 
-   if (size < GIB) {
+   if (size < PDPTE_REGION) {
       x86_pde_2m_t *pde = (x86_pde_2m_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
                                                ->userspace_addr +
                                            RSV_PD_OFFSET);
-      for (uint64_t i = 0; i < size; i += 2 * MIB) {
-         pde_2mb_set(pde + (i + base)/ (2 * MIB), reg->guest_phys_addr + i);
+      for (uint64_t i = 0; i < size; i += PDE_REGION) {
+         pde_2mb_set(pde + (i + base) / PDE_REGION, reg->guest_phys_addr + i);
       }
    } else {
       x86_pdpte_1g_t *pdpe =
           (x86_pdpte_1g_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
                                  ->userspace_addr +
                              RSV_PDPT_OFFSET);
-      for (uint64_t i = 0; i < size; i += GIB) {
-         pdpte_1g_set(pdpe + (i + base)/ GIB, reg->guest_phys_addr + i);
+      for (uint64_t i = 0; i < size; i += PDPTE_REGION) {
+         pdpte_1g_set(pdpe + (i + base) / PDPTE_REGION,
+                      reg->guest_phys_addr + i);
       }
    }
 }
@@ -373,20 +383,20 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t *reg)
    uint64_t size = reg->memory_size;
    uint64_t base = memreg_base(idx);
 
-   if (size < GIB) {
+   if (size < PDPTE_REGION) {
       x86_pde_2m_t *pde = (x86_pde_2m_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
                                                ->userspace_addr +
                                            RSV_PD_OFFSET);
-      for (uint64_t i = 0; i < size; i += 2 * MIB) {
-         memset(pde + (i + base)/ (2 * MIB), 0, sizeof(*pde));
+      for (uint64_t i = 0; i < size; i += PDE_REGION) {
+         memset(pde + (i + base) / PDE_REGION, 0, sizeof(*pde));
       }
    } else {
       x86_pdpte_1g_t *pdpe =
           (x86_pdpte_1g_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
                                  ->userspace_addr +
                              RSV_PDPT_OFFSET);
-      for (uint64_t i = 0; i < size; i += GIB) {
-         memset(pdpe + (i + base)/ GIB, 0, sizeof(*pdpe));
+      for (uint64_t i = 0; i < size; i += PDPTE_REGION) {
+         memset(pdpe + (i + base) / PDPTE_REGION, 0, sizeof(*pdpe));
       }
    }
 }
@@ -406,19 +416,20 @@ uint64_t km_mem_brk(uint64_t brk)
    if (brk == 0 || brk == machine.brk) {
       return machine.brk;
    }
-   if (brk > GUEST_MEM_MAX) {
+   if (brk > GUEST_MAX_BRK) {
       return -EINVAL;
    }
 
    idx = gva_to_memreg_idx(machine.brk);
-   m_brk = MIN(brk, memreg_base(idx) + memreg_size(idx));
-   for (; m_brk < brk; m_brk = MIN(brk, memreg_base(idx) + memreg_size(idx))) {
+   m_brk = MIN(brk, memreg_top(idx));
+   for (; m_brk < brk; m_brk = MIN(brk, memreg_top(idx))) {
       /* Not enough room in the allocated memreg, allocate and add new ones */
       idx++;
       if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
          return -ENOMEM;
       }
-      size = memreg_size(idx);
+      size = memreg_top(idx) < GUEST_MAX_BRK ? memreg_size(idx)
+                                             : GUEST_MAX_BRK - memreg_base(idx);
       if ((ptr = page_malloc(size)) == NULL) {
          free(reg);
          return -ENOMEM;
@@ -619,6 +630,18 @@ void km_machine_init(void)
    machine.cpuid->nent = CPUID_ENTRIES;
    if (ioctl(machine.kvm_fd, KVM_GET_SUPPORTED_CPUID, machine.cpuid) < 0) {
       err(1, "KVM: get supported CPUID failed");
+   }
+   /*
+    * SDM, Table 3-8. Information Returned by CPUID.
+    * Get and save max CPU supported phys memory.
+    */
+   for (int i = 0; i < machine.cpuid->nent; i++) {
+      if (machine.cpuid->entries[i].function == 0x80000008) {
+         warnx("KVM: physical memory width %d",
+               machine.cpuid->entries[i].eax & 0xff);
+         machine.guest_max_physmem = 1ul
+                                     << (machine.cpuid->entries[i].eax & 0xff);
+      }
    }
    km_mem_init();
 }
