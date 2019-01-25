@@ -194,8 +194,6 @@ static void pde_2mb_set(x86_pde_2m_t *pde, u_int64_t addr)
  * over the 512GB limit there will be a need for more pdpt pages. The first
  * entry points to the pd page that covers the first GB.
  *
- * TODO: Check for hugepage support
- *
  * The picture illustrates layout with the constants values as set.
  * The code below is a little more flexible, allowing one or two pdpt pages and
  * pml4 entries, as well as variable locations in pdpt table, depending on the
@@ -366,6 +364,7 @@ static void set_pml4_hierarchy(kvm_mem_reg_t *reg)
          pde_2mb_set(pde + (i + base) / PDE_REGION, reg->guest_phys_addr + i);
       }
    } else {
+      assert(machine.pdpe1g != 0);       // no 1GB pages support
       x86_pdpte_1g_t *pdpe =
           (x86_pdpte_1g_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
                                  ->userspace_addr +
@@ -391,6 +390,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t *reg)
          memset(pde + (i + base) / PDE_REGION, 0, sizeof(*pde));
       }
    } else {
+      assert(machine.pdpe1g != 0);       // no 1GB pages support
       x86_pdpte_1g_t *pdpe =
           (x86_pdpte_1g_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
                                  ->userspace_addr +
@@ -634,14 +634,28 @@ void km_machine_init(void)
    /*
     * SDM, Table 3-8. Information Returned by CPUID.
     * Get and save max CPU supported phys memory.
+    * Check for 1GB pages support
     */
    for (int i = 0; i < machine.cpuid->nent; i++) {
-      if (machine.cpuid->entries[i].function == 0x80000008) {
-         warnx("KVM: physical memory width %d",
-               machine.cpuid->entries[i].eax & 0xff);
-         machine.guest_max_physmem = 1ul
-                                     << (machine.cpuid->entries[i].eax & 0xff);
+      switch (machine.cpuid->entries[i].function) {
+         case 0x80000008:
+            warnx("KVM: physical memory width %d",
+                  machine.cpuid->entries[i].eax & 0xff);
+            machine.guest_max_physmem =
+                1ul << (machine.cpuid->entries[i].eax & 0xff);
+            break;
+         case 0x80000001:
+            machine.pdpe1g = ((machine.cpuid->entries[i].edx & 1ul << 26) != 0);
+            break;
       }
+   }
+   if (machine.pdpe1g == 0) {
+      /*
+       * In the absence of 1gb pages we can only support 2GB, first for
+       * text+data, and the second for the stack. See assert() in
+       * set_pml4_hierarchy()
+       */
+      machine.guest_max_physmem = MIN(2 * GIB, machine.guest_max_physmem);
    }
    km_mem_init();
 }

@@ -72,6 +72,7 @@ typedef struct km_machine {
                                                //
    kvm_cpuid2_t *cpuid;                        // to set VCPUs cpuid
    uint64_t guest_max_physmem;                 // Set from CPUID
+   int pdpe1g;                                 //
 } km_machine_t;
 
 extern km_machine_t machine;
