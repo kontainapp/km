@@ -20,9 +20,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <errno.h>
 #include "syscall.h"
 
 static void const *high_addr = (void *)0x30000000ul;
+static void const *very_high_addr = (void *)(512 * 0x40000000ul);
 
 static const char *msg1 = "Hello, ";
 static char msg2[0x1ff000] = "world!";
@@ -49,13 +51,22 @@ int main()
    SYS_break(high_addr);
    printf("break is %p\n", ptr1 = SYS_break(NULL));
    assert(ptr1 == high_addr);
-   printf("break is %p\n", SYS_break(NULL));
 
    ptr1 -= 20;
    strcpy(ptr1, msg1);
    strcat(ptr1, msg2);
    printf("%s from far up the memory %p\n", (char *)ptr1, ptr1);
 
+   if (SYS_break(very_high_addr) != very_high_addr) {
+      perror("Unable to set brk that high");
+   } else {
+      printf("break is %p\n", ptr1 = SYS_break(NULL));
+
+      ptr1 -= 20;
+      strcpy(ptr1, msg1);
+      strcat(ptr1, msg2);
+      printf("%s from even farer up the memory %p\n", (char *)ptr1, ptr1);
+   }
    SYS_break((void *)ptr);
    assert(ptr == SYS_break(NULL));
    printf("break is %p\n", SYS_break(NULL));

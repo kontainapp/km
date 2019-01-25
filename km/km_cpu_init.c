@@ -417,7 +417,7 @@ uint64_t km_mem_brk(uint64_t brk)
       return machine.brk;
    }
    if (brk > GUEST_MAX_BRK) {
-      return -EINVAL;
+      return -ENOMEM;
    }
 
    idx = gva_to_memreg_idx(machine.brk);
