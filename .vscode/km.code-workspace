@@ -43,8 +43,10 @@
          "pdpe",
          "pdpte",
          "phnum",
+         "runc",
          "sregs",
          "vcpu",
+         "vmexit",
          "vpcu",
          "xbffffffffffffffful",
          "xfffffffful"

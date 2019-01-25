@@ -32,7 +32,7 @@
  * RAX is system call number and return value. The remaining up to 6 args are
  * "D" "S" "d" "r10" "r8" "r9".
  *
- * Unfortunatly we have no access to registers from the guest, so instead guest
+ * Unfortunately we have no access to registers from the guest, so instead guest
  * puts the values that normally would go to registers into km_hc_args_t
  * structure. Syscall number is passed as an IO port number, result is returned
  * in hc_ret field.
@@ -42,9 +42,9 @@
  *
  * Some of the values passed in these arguments are guest addresses. There is no
  * pattern here, each system call has its own signature. We need to translate
- * the guest adresses to km view to make things work, using km_gva_to_kma() when
+ * the guest addresses to km view to make things work, using km_gva_to_kma() when
  * appropriate. There is no machinery, need to manually interpret each system
- * call. We paste signature incomment to make it a bit easier. Look into each
+ * call. We paste signature in comment to make it a bit easier. Look into each
  * XXX_hcall() for examples.
  *
  */
