@@ -19,8 +19,8 @@ LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 ARG UID
 ARG GID
 
-RUN dnf install -y gcc \
-		elfutils-libelf-devel elfutils-libelf-devel-static glibc-devel glibc-static \
+RUN dnf install -y gcc glibc-static\
+		elfutils-libelf-devel elfutils-libelf-devel-static glibc-devel  \
 		make git \
 	&& dnf clean all
 

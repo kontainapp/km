@@ -10,6 +10,9 @@
  * permission of Kontain Inc.
  */
 
+#ifndef __KM_H__
+#define __KM_H__
+
 #include <stdint.h>
 #include <linux/kvm.h>
 #include <err.h>
@@ -175,3 +178,12 @@ static inline void *km_gva_to_kma(uint64_t gva)
 }
 
 uint64_t km_mem_brk(uint64_t brk);
+
+/*
+ * Trivial trace() based on warn() - but with an a switch to run off and on.
+ */
+extern int g_km_info_verbose;
+#define km_info(...)  do { if (g_km_info_verbose) warn(__VA_ARGS__); } while (0)
+#define km_infox(...) do { if (g_km_info_verbose) warnx(__VA_ARGS__); } while (0)
+
+#endif /* #ifndef __KM_H__ */

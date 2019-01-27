@@ -4,6 +4,8 @@ build/**
 trace.dat
 tests/hello
 tests/hello_html
+tests/hello_loop
+tests/*.out
 *.km
 *.d
 km/km

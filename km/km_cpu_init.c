@@ -239,7 +239,7 @@ static void init_pml4(void *mem)
 
    pde = mem + RSV_PD_OFFSET;
    memset(pde, 0, PAGE_SIZE);
-   pde_2mb_set(pde + 1, GUEST_MEM_START_PA);       // second entry for the 2MB - 4MB 
+   pde_2mb_set(pde + 1, GUEST_MEM_START_PA);       // second entry for the 2MB - 4MB
 
    idx = GUEST_STACK_START_VA / PML4E_REGION;
    assert(idx < PAGE_SIZE / sizeof(x86_pml4e_t));       // within pml4 page
@@ -541,7 +541,7 @@ static void kvm_vcpu_init_sregs(int fd)
 /*
  * Create vcpu, map the control region, initialize sregs.
  * Set RIP, SP, RFLAGS, clear the rest of the regs.
- * vpcu is ready to run starting with instruction @RIP
+ * VCPU is ready to run starting with instruction @RIP
  */
 km_vcpu_t *km_vcpu_init(uint64_t ent, uint64_t sp)
 {

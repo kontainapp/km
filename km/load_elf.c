@@ -82,6 +82,15 @@ static void load_extent(int fd, GElf_Phdr *phdr)
       }
       if (phdr->p_flags & PF_X) {
          pr |= PROT_EXEC;
+         {
+            // HACK - FIXME !!!
+            // when debugging, make sure all EXEC sections are
+            // writable so sw breakpoints can be inserted
+            extern int g_gdb_port;
+            if (g_gdb_port) {
+               pr |= PROT_WRITE;
+            }
+         }
       }
       if (mprotect(addr, size, pr) < 0) {
          err(2, "failed to set guest memory protection");

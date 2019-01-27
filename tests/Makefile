@@ -10,13 +10,15 @@
 SHELL=/bin/bash
 
 TOP := $(shell git rev-parse --show-cdup)
-CFLAGS = -Wall -ggdb -fno-stack-protector -O2
+COPTS ?= -ggdb -O2
+CFLAGS = -Wall $(COPTS) -fno-stack-protector
 LDLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
+LOADLIBES ?= -static
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:%.c=%.o}
 
 SRC_KM_ONLY := load.c exit_value.c mem_brk.c
-SRC_LINUX := hello.c hello_html.c
+SRC_LINUX := hello.c hello_html.c hello_loop.c
 SRC = ${SRC_LINUX} ${SRC_KM_ONLY}
 LDDIRS := ${TOP}build/runtime
 LIBS := runtime

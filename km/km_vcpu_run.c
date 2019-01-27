@@ -13,13 +13,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <unistd.h>
 #include <err.h>
 #include <stdarg.h>
 #include <string.h>
 #include <sys/ioctl.h>
-
-#include "km_hcalls.h"
+#include <assert.h>
 #include "km.h"
+#include "km_hcalls.h"
+#include "km_gdb.h"
 
 /*
  * run related err and errx - get regs, print RIP and the supplied message
@@ -92,14 +94,30 @@ static int hypercall(km_vcpu_t *vcpu, int *hc, int *status)
 void km_vcpu_run(km_vcpu_t *vcpu)
 {
    int status, hc;
+   int wait_for_gdb = km_gdb_enabled();
 
    while (1) {
+      if (wait_for_gdb) {
+         km_gdb_prepare_for_run(vcpu);
+      }
       if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) < 0) {
-         if (errno == EINTR || errno == EAGAIN) {
+         km_info("ioctl exit with errno");
+         if (errno == EAGAIN) {
             continue;
          }
-         run_err(1, "KVM: vcpu run failed");
+         if (errno != EINTR ) {
+            run_err(1, "KVM: vcpu run failed");
+         }
       }
+      if (km_gdb_enabled()) {
+         if (km_gdb_needs_to_handle_kvm_exit(vcpu)) {
+            km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
+            wait_for_gdb = 1;
+            continue;
+         }
+         wait_for_gdb = 0;
+      }
+
       switch (vcpu->cpu_run->exit_reason) {
          case KVM_EXIT_IO: /* Hypercall */
             if (hypercall(vcpu, &hc, &status) != 0) {
@@ -118,10 +136,6 @@ void km_vcpu_run(km_vcpu_t *vcpu)
                      vcpu->cpu_run->fail_entry.hardware_entry_failure_reason);
             break;
 
-         case KVM_EXIT_DEBUG:
-            run_errx(1, "KVM: debug isn't implemented yet");
-            break;
-
          case KVM_EXIT_INTERNAL_ERROR:
             run_errx(1, "KVM: internal error, suberr 0x%x",
                      vcpu->cpu_run->internal.suberror);
@@ -131,9 +145,31 @@ void km_vcpu_run(km_vcpu_t *vcpu)
             run_errx(1, "KVM: shutdown");
             break;
 
+         case KVM_EXIT_DEBUG:
+            if (km_gdb_enabled()) {
+               assert("GDB should have taken care of this exit!" == NULL);
+            }
+            warnx("KVM_EXIT_DEBUG in non-gdb mode. Expected if gdb just "
+                  "disconnected. Ignoring...");
+            break;
+
+         case KVM_EXIT_INTR:
+            // we could get here if VM run is interrupted by a signal to vcpu thread
+            // and thread blocks the signal (while KVM does not).
+            assert(errno == EINTR);
+            if (km_gdb_enabled()) {
+               assert("GDB should have taken care of this exit!" == NULL);
+            }
+            run_errx(1, "KVM: cpu stopped - INTR");
+            break;
+
+         case KVM_EXIT_HLT:
+            run_errx(1, "KVM: cpu stopped with 'hlt' instruction");
+            break;
+
          default:
             run_errx(1, "KVM: exit 0x%lx", vcpu->cpu_run->exit_reason);
             break;
-      }
+         }
    }
 }

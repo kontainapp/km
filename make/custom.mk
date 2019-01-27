@@ -12,3 +12,4 @@
 
 # default optimization flag
 COPTS ?= -O2
+# LDOPTS ?= -static

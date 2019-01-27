@@ -10,11 +10,12 @@
 
 TOP := $(shell git rev-parse --show-cdup)
 
-SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c
+SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c \
+		km_gdb_stub.c gdb_kvm_x86_64.c km_signal.c chan/queue.c chan/chan.c
 INCLUDES := ${TOP}include
 LLIBS := elf
 EXEC := km
-LDOPTS := -static
+LDOPTS ?= -static
 
 include ${TOP}make/actions.mk
 

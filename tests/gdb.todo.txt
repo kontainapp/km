@@ -1,0 +1,141 @@
+
+Text below is my working note set. ***not for review***
+--------------------------------------------------------------
+
+Terminology:
+
+KM gdbstub (or simply gdbstub) - KM-side code talking to GDB
+
+
+
+1. thread clean UP
+1a main() is 2mb. Why gdb is asking to read memory at 0 ?
+2/ read_last symbol - check mapping.
+3. breakpoints d- does GDB sets/removes them all  for each step ?
+4. drop debugging output
+
+
+current threads:
+typedef struct km_threads = {.main, .gdb, .vcpu} km_treads_t;
+static km_theads_t g_km_threads;
+
+main: start all,  wait on join from both
+gdbstub - it is always in either in handle_exceptions, or in poll_for_control_c
+ - on entry, runs run gdb_handle_payload_stops() onces ( to kick off gdb)
+ - loops on chan_recv(gdb channel, &msg)
+     gets "handle_kvm_exit" OR "wait_for_gdb_interrupt" and loops into proper code
+     on actual EINTR  in poll() exits and goes to chan
+     on IO ready checks if it's 0x3, if it set immediate interrupt and goes to chan
+     is exits loops  into handle_kvm_exit(SIGINT)
+     in handle exit writes true(1)/false(0) to vcpu channel
+vcpu - as today, but before entering, writes to "start 0" to gdb channel (so it starts interrupt wait)
+ on completion, sends signal to vcpu thread to interrupt the wait, and sends "exit 0" to gdb channel
+ to handle exit, then waits for completion on vcpu channel
+
+vcpu
+
+   # HACKS TO CLEAN UP
+
+   - ***** need to ADD TESTS (at least basic)
+   - **** need to review the code to see what is #1 before PR
+   - check races
+
+   - !!! km_gva_to_kma need to return NULL on failure , not bomb - it's a legitimate use case with GDB
+   - what do we want from Monitor command ? too cool to ignore
+   - need to remove IBM/GPL licensed function
+
+   - need to review protocol and get a a few groups of "what needs to happen going forward". e.g No Ack need to support, tons of q??
+   - need to implement extended-remote (!) protocol to allow 'run' command and restarts
+   - when debugging. mprotect is forced to WRITE  for EXEC section
+       - should actually turn it on/off for BP setting
+   - There are races in gdbstub
+      - changing status on disconnect but vcpu still thinking it's being debuged.
+      - the ones on signalling and handling the rest before the gdb had tie to do stuff
+   - It does need thread mgmt with channel per thread
+   - (?)need to reply with Offsets - there seem to be a bug when GDB tries to reach mem loc ==-
+
+
+
+Assumptions:
+
+phase 1
+
+- no dynamic load of gdbstub code - gdbstub is a linked in
+- No symbols/target definition transfer - GDB need to have file / symtables
+  MISSING: check gOffsets -returning 0s and returning "" seems to be the same - double check !
+- gdbstub starts listening to GDB when km is started with '-g gdb_port', or when KM gets  SIGUSR1  (then the port with be 3333)
+- on start with -g' , gdbstub takes control and waits for GDB *before* any of km_vcpu_run. km_vcpu_run on 'run' command only
+- on SIGUSR to GDB - vcpu keeps running but KM starts to listen to GDB. When GDB connects,
+         vcpu is stopped (by setting vcpu->immediate stop from GDB thread)
+
+Threads
+- main - prep all, start gdbstub  (stub runs in main to simplify things), start km_vcpu thread(s)
+   (vcpu threads is subject to discussion, for now it's one)
+
+    - new VCPU thread  in debug mode set does sigwait (SIGUSR1 - to start listen to GDB on gdb, SIGUSR2 - for continuing vcpu run)
+   - other threads block  SIGUSR* (main/gdb blocks SIGUSR2, main/vcpu blocks SIGUSR1)
+   - then main waits for threads to join
+- GDB km_gdbstub loop
+   - registers SIGUSR1 handler
+   - if no '-g', goes into sigwait() until the signal is received
+     - when the signal received, starts waiting for GDB - same as -g but hardcoded port. IGNORES SIGUSR1 in this mode.
+   - if started with -g, starts listening to gdb (listen/recv); handles the commands
+   - on GDB connect - if running (i.e. was started from signal),stops vcpu right away, then handles GDB protocol
+   - when needs to start vcpu
+         (1) makes sure it is stopped (just a var and a mutex per vcpu - for now g_km_vcpu_thread_info)
+         (2) prep all in gdb thread
+         (3) signals to vcpu_run thread to continue the vcpu run loop (sets vcpu running flag for accounting)
+         (4) goes back to waiting on recv()
+   - recv: if vcpu running, only Ctrl-C is accepted. The rest is ASSERT. (if not running,Cntr-C is ignored)
+   - on detach/disconnect
+      - closes the socket to GDB
+      - turns of debug flag (used by debug_exit_handler, below - so vcpu runs uninterrupted)
+      - if not running, signals to vcpu to run
+       on disconnect: start listening again
+
+   - we support extended-remote (p2),
+
+ - km_vcpu_run  loop:
+      uses a flag (global volatile) about running (can be mutex+flag to make sure it's all kosher,
+          but it's costly for every exit, and not needed anywhere by GDB, so I suggest to skip)
+      on exit, calls km_gdbstub_check() [returns 'CONTINUE'(i.e. continue the loop, or 'YIELD' (i.e. yield control
+      to control/gdb. On Yield it enters sigwait(SIGUSR2) and waits for OK from control loop
+      before moving on). No errors - assert or errx. Can return "UNKNOWN" which means "continues" ]
+      SEND on exit
+
+  ^C - blocked omn vcpu thread; goes into "take mutex; send set break immediately to VM; release mutex"
+
+
+Supported are
+- mem read/write, reg read/write,
+- ?? symbols interrogation NEED to be supported as the symrefs in .km files are changed when mapped
+- single step, continue
+- SW breakpoints
+   - when SW is set, fresh meminfo is fetched (as it could have changed) from /proc/self/maps
+   - if area is protected, the protection is removed, the BP is inserted and the protection is restored
+- (most likely) HW breaks/watches
+- register read/write
+- NO support for file IO and fancy stuff, libs (assume gdb knows)
+- kill/stop
+- Threads are basic - T0 report
+- monitor commands (TBD- what do we want to be able to do with KM/VM from GDB) ?
+
+When working, play with and add
+   - whatever is missing when using Ph2
+
+Phase 2
+   - dynamic loading on GDB support (on SIGHUP)
+   - dedicated thread for the stub
+   - support for ^C/vCtrlC packer on running VM
+   - support for symbol interrogation and generally no need for .km to be on gdb (optional)
+   - support 'load file' on gdb (optional)
+
+Phase 3
+   - multithreading support for payloads, and qSupports as needed
+
+
+
+
+
+
+

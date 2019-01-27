@@ -41,7 +41,7 @@ BLDDIR := ${BLDTOP}${FROMTOP}
 # customization of build should be in custom.mk
 include ${TOP}make/custom.mk
 
-CFLAGS = ${COPTS} -Wall -ggdb $(addprefix -I , ${INCLUDES})
+CFLAGS = ${COPTS} -Wall -ggdb -pthread $(addprefix -I , ${INCLUDES})
 DEPS = $(addprefix ${BLDDIR}, $(addsuffix .d, $(basename ${SOURCES})))
 OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${SOURCES})))
 BLDEXEC = $(addprefix ${BLDDIR},${EXEC})
@@ -66,7 +66,7 @@ ifneq (${EXEC},)
 
 all: ${BLDEXEC}
 ${BLDEXEC}: $(OBJS)
-	$(CC) $(LDOPTS) $(OBJS) $(addprefix -l ,${LLIBS}) -o $@
+	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
 
 endif
 
@@ -176,8 +176,9 @@ withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	docker run --device=/dev/kvm --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS=$(MAKEFLAGS) $(TARGET)
 
 # Support for simple debug print (make debugvars)
-VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS CFLAGS BLDEXEC BLDLIB DEPS OBJS
+VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS CFLAGS BLDEXEC BLDLIB DEPS OBJS COPTS
 debugvars:   ## prints interesting vars and their values
+	@echo To change the list of printed vars, use 'VARS_TO_PRINT="..." make debugvars'
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
 
 .PHONY: all clean test help withdocker debugvars
