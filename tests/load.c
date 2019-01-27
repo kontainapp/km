@@ -23,9 +23,9 @@ int main()
 {
    int ret;
 
-   ret = write(1, msg1, sizeof(msg1));
+   ret = write(1, msg1, sizeof(msg1) - 1);
    ret = write(1, pad, 1);
-   ret = write(1, msg2, sizeof(msg2));
+   ret = write(1, msg2, sizeof(msg2) - 1);
    if (ret)
       ;
 

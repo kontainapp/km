@@ -7,9 +7,10 @@
 #   such source code. Disclosure of this source code or any related proprietary
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
+SHELL=/bin/bash
 
 TOP := $(shell git rev-parse --show-cdup)
-CFLAGS = -Wall -ggdb -O2
+CFLAGS = -Wall -ggdb -fno-stack-protector -O2
 LDLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:%.c=%.o}
@@ -26,7 +27,7 @@ all: ${EXECS} ## Build a simple test
 
 # Run tests in regular bash and in km/VMM.
 test: all ## Run a simple test (may need /dev/kvm or privileged container)
-	pl_status=`${KM} exit_value.km 2>&1 |& awk '/status/ { print $$11 }'` ; \
+	pl_status=`${KM} exit_value.km |& awk '/status/ { print $$11 }'` ; \
 			if [ "$$pl_status" != "0x11" ] ; then echo ==$$pl_status ; false; fi
 	@echo "Exit value: Success"
 	pl_status=`${KM} load.km |& awk '/status/ { print $$11 }'` ; \
@@ -34,7 +35,7 @@ test: all ## Run a simple test (may need /dev/kvm or privileged container)
 	@echo "Load: Success"
 	./hello > 1.out
 	${KM} hello.km > 2.out
-	diff 1.out 2.out || false
+	@diff 1.out 2.out || false
 	@echo "Hello: Success"
 	${KM} mem_brk.km
 	@echo "Mem_brk: Success"

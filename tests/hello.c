@@ -18,10 +18,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static const char msg[] = "Hello, world\n";
+static const char msg[] = "Hello,";
 
 int main()
 {
-   printf("%s", msg);
+   char msg2[] = "world!\n";
+
+   printf("%s %s", msg, msg2);
    exit(0);
 }

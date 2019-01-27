@@ -33,7 +33,6 @@ void *SYS_break(void const *addr)
 
 int main()
 {
-   ssize_t ret;
    void *ptr, *ptr1;
 
    printf("break is %p\n", ptr = SYS_break(NULL));

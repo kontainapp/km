@@ -107,7 +107,7 @@ int main(int argc, char const *argv[])
    sd = tcp_accept(listen_sd);
    ret = read(sd, buf, 4096);
    ret = write(sd, wbuf, sizeof(wbuf));
-   // supress compiler warning about unused var
+   // suppress compiler warning about unused var
    if (ret)
       ;
    tcp_close(sd);
