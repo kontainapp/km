@@ -12,44 +12,53 @@ TOP := $(shell git rev-parse --show-cdup)
 CFLAGS = -Wall -ggdb -O2
 LDLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
 DEPS = ${SRC:%.c=%.d}
-OBJ = ${SRC:.c=.o}
+OBJ = ${SRC:%.c=%.o}
 
+SRC_KM_ONLY := load.c exit_value.c mem_brk.c
+SRC_LINUX := hello.c hello_html.c
+SRC = ${SRC_LINUX} ${SRC_KM_ONLY}
 LDDIRS := ${TOP}build/runtime
 LIBS := runtime
-SRC := hello.c hello_html.c
 KM := ${TOP}build/km/km
-EXECS := hello.km hello_html.km hello hello_html
+EXECS := ${SRC:%.c=%.km} ${SRC_LINUX:%.c=%}
 
 all: ${EXECS} ## Build a simple test
 
 # Run tests in regular bash and in km/VMM.
-# Note that 'hello' is supposed to return magic '17', or 0x11 (see tests/hello.c).
 test: all ## Run a simple test (may need /dev/kvm or privileged container)
-	./hello; if [ $$? -ne 17 ] ; then false; fi
-	pl_status=`${KM} hello.km | awk '/status/ { print $$6 }'` ; \
+	pl_status=`${KM} exit_value.km 2>&1 |& awk '/status/ { print $$11 }'` ; \
 			if [ "$$pl_status" != "0x11" ] ; then echo ==$$pl_status ; false; fi
+	@echo "Exit value: Success"
+	pl_status=`${KM} load.km |& awk '/status/ { print $$11 }'` ; \
+			if [ "$$pl_status" != "0x0" ] ; then echo ==$$pl_status ; false; fi
+	@echo "Load: Success"
+	./hello > 1.out
+	${KM} hello.km > 2.out
+	diff 1.out 2.out || false
 	@echo "Hello: Success"
+	${KM} mem_brk.km
+	@echo "Mem_brk: Success"
 	./hello_html &
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
 	${KM} hello_html.km &
-	# 'km' monitor may start slow (while we are experimenting with startup time)
-	# let it time to start before running curl
+	@# 'km' monitor may start slow (while we are experimenting with startup time)
+	@# let it time to start before running curl
 	sleep 0.5s
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
 	@echo "Hello-html: Success"
+	@rm 1.out 2.out
 
-hello.km:	hello.o
-	${LD} hello.o -o hello.km ${LDLAGS}
-
-hello_html.km: hello_html.o
-	${LD} hello_html.o -o hello_html.km ${LDLAGS}
+%.km: %.o
+	${LD} $< -o $@ ${LDLAGS}
 
 %.d: %.c
+	@echo $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@
 	@set -e; rm -f $@; \
-	$(CC) -MM ${CFLAGS} $< | sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' > $@;
+	$(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
+	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 clean:
-	rm -f *.o *.d $(EXECS)
+	rm -f *.o *.d $(EXECS) 1.out 2.out
 
 help:
 

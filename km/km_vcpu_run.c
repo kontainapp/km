@@ -54,22 +54,21 @@ static void __run_err(void (*fn)(int, const char *, __gnuc_va_list),
 /*
  * return non-zero and set status if guest halted
  */
-static int hypercall(km_vcpu_t *vcpu, int *status)
+static int hypercall(km_vcpu_t *vcpu, int *hc, int *status)
 {
    kvm_run_t *r = vcpu->cpu_run;
-   int hc = r->io.port - KM_HCALL_PORT_BASE;
    uint64_t ga;
-   int rc;
 
    /* Sanity checks */
-   if (!(r->io.direction == KVM_EXIT_IO_OUT || r->io.size == 4 || hc >= 0 ||
-         hc < KM_MAX_HCALL)) {
+   *hc = r->io.port - KM_HCALL_PORT_BASE;
+   if (!(r->io.direction == KVM_EXIT_IO_OUT || r->io.size == 4 || *hc >= 0 ||
+         *hc < KM_MAX_HCALL)) {
       run_errx(1, "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
                r->io.port, r->io.size,
                r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
    }
-   if (km_hcalls_table[hc] == NULL) {
-      run_errx(1, "KVM: unexpected hypercall 0x%lx", hc);
+   if (km_hcalls_table[*hc] == NULL) {
+      run_errx(1, "KVM: unexpected hypercall 0x%lx", *hc);
    }
    /*
     * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of
@@ -87,16 +86,12 @@ static int hypercall(km_vcpu_t *vcpu, int *status)
    if (ga > GUEST_STACK_TOP) {
       ga -= 4 * GIB;
    }
-
-   if ((rc = km_hcalls_table[hc](hc, km_gva_to_kml(ga), status)) != 0) {
-      printf("KVM: hypercall 0x%x stops, status 0x%x\n", hc, *status);
-   }
-   return rc;
+   return km_hcalls_table[*hc](*hc, km_gva_to_kml(ga), status);
 }
 
 void km_vcpu_run(km_vcpu_t *vcpu)
 {
-   int status;
+   int status, hc;
 
    while (1) {
       if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) < 0) {
@@ -107,8 +102,8 @@ void km_vcpu_run(km_vcpu_t *vcpu)
       }
       switch (vcpu->cpu_run->exit_reason) {
          case KVM_EXIT_IO: /* Hypercall */
-            if (hypercall(vcpu, &status) != 0) {
-               run_errx(1, "KVM: stop, status 0x%x", status);
+            if (hypercall(vcpu, &hc, &status) != 0) {
+               run_errx(0, "KVM: hypercall 0x%x stop, status 0x%x", hc, status);
                return;
             }
             break;       // continue the while

@@ -9,19 +9,14 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * Test saying "hello world" via printf
+ * Test passing value from exit() to KM
  */
 
-#undef _FORTIFY_SOURCE
-#define _FORTIFY_SOURCE 0
-
-#include <stdio.h>
 #include <stdlib.h>
-
-static const char msg[] = "Hello, world\n";
 
 int main()
 {
-   printf("%s", msg);
-   exit(0);
+   // return magic '17' to validate it's passing all the way up
+   // We'll test for '17' upstairs in tests
+   exit(17);
 }
