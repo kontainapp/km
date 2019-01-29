@@ -36068,6 +36068,54 @@
         "arguments": [
             "cc",
             "-c",
+            "-O2",
+            "-Wall",
+            "-ggdb",
+            "-I",
+            "../include",
+            "-o",
+            "../build/km/km_signal.o",
+            "km_signal.c"
+        ],
+        "directory": "${workspaceFolder}/km",
+        "file": "km_main.c"
+    },
+    {
+        "arguments": [
+            "cc",
+            "-c",
+            "-O2",
+            "-Wall",
+            "-ggdb",
+            "-I",
+            "../include",
+            "-o",
+            "../build/km/km_gdb_stub.o",
+            "km_main.c"
+        ],
+        "directory": "${workspaceFolder}/km",
+        "file": "km_gdb_stub.c"
+    },
+    {
+        "arguments": [
+            "cc",
+            "-c",
+            "-O2",
+            "-Wall",
+            "-ggdb",
+            "-I",
+            "../include",
+            "-o",
+            "../build/km/gdb_kvm_x86_64.o",
+            "km_main.c"
+        ],
+        "directory": "${workspaceFolder}/km",
+        "file": "gdb_kvm_x86_64.c"
+    },
+    {
+        "arguments": [
+            "cc",
+            "-c",
             "-Os",
             "-D_XOPEN_SOURCE=700",
             "-pipe",
