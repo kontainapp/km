@@ -1,14 +1,31 @@
 BasedOnStyle: LLVM
-ColumnLimit: 80
+ColumnLimit: 100
 IndentWidth: 3
-UseTab: Never
 BreakBeforeBraces: Linux
 AllowShortFunctionsOnASingleLine: InlineOnly
-AllowShortIfStatementsOnASingleLine: false
 IndentCaseLabels: true
-AlignTrailingComments: true
-SpacesBeforeTrailingComments: 7
-AlignAfterOpenBracket: true
-SortIncludes: false
+PointerAlignment: Left
+BinPackArguments: false
+BinPackParameters: false
+ForEachMacros: ['SLIST_FOREACH', 'SLIST_FOREACH_SAFE',
+                'LIST_FOREACH', 'LIST_FOREACH_SAFE',
+                'SIMPLEQ_FOREACH', 'SIMPLEQ_FOREACH_SAFE', 
+                'TAILQ_FOREACH', 'TAILQ_FOREACH_SAFE',
+                'TAILQ_FOREACH_REVERSE', 'TAILQ_FOREACH_REVERSE_SAFE',
+                'STAILQ_FOREACH', 'STAILQ_FOREACH_SAFE']
+KeepEmptyLinesAtTheStartOfBlocks: false
+SpacesBeforeTrailingComments: 3
+SortIncludes: true
+IncludeCategories:
+  - Regex:           '^<[^/]+>'
+    Priority:        1
+  - Regex:           '^<sys/[^/]+>'
+    Priority:        2
+  - Regex:           '^<.+/.+>'
+    Priority:        3
+  - Regex:           '^".+/.+"'
+    Priority:        4
+  - Regex:           '.*'
+    Priority:        5
 # AlignConsecutiveAssignments: true
 # AlignConsecutiveDeclarations: true
