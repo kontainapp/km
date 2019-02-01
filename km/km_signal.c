@@ -12,11 +12,11 @@
  * Signal-related wrappers for KM threads/KVM vcpu runs.
  */
 
-#include <stdlib.h>
 #include <err.h>
-#include <string.h>
-#include <signal.h>
 #include <pthread.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/signalfd.h>
 #include <linux/kvm.h>
@@ -30,16 +30,16 @@
  * TBD: we need to fetch process mask, clear the signal and set it.
  * For now clearing all.
  */
-void km_vcpu_unblock_signal(km_vcpu_t *vcpu, int signum)
+void km_vcpu_unblock_signal(km_vcpu_t* vcpu, int signum)
 {
    sigset_t signal_set;
    sigemptyset(&signal_set);
-   struct kvm_signal_mask *sigmask;
+   struct kvm_signal_mask* sigmask;
 
    sigmask = malloc(sizeof(struct kvm_signal_mask) + sizeof(sigset_t));
-    if (sigmask == NULL) {
-        err(1, "Can't allocate memory for setting KVM signal mask");
-    }
+   if (sigmask == NULL) {
+      err(1, "Can't allocate memory for setting KVM signal mask");
+   }
 
    // KVM will expect kernel_sigset_t with long-sized (8 in i86_64) signal_set
    sigmask->len = 8;
@@ -51,8 +51,8 @@ void km_vcpu_unblock_signal(km_vcpu_t *vcpu, int signum)
 
    sigaddset(&signal_set, signum);
    if (pthread_sigmask(SIG_BLOCK, &signal_set, NULL) != 0) {
-       free(sigmask);
-       err(1, "Failed to block signal %d on thread 0x%lx", signum, pthread_self());
+      free(sigmask);
+      err(1, "Failed to block signal %d on thread 0x%lx", signum, pthread_self());
    }
    free(sigmask);
 }
@@ -78,7 +78,7 @@ int km_get_signalfd(int signum)
  */
 void km_reset_pending_signal(int signum)
 {
-   struct sigaction prev;       // previous info - to recover after reset
+   struct sigaction prev;   // previous info - to recover after reset
    struct sigaction sa_ignore = {.sa_handler = SIG_IGN, .sa_flags = 0};
 
    sigemptyset(&sa_ignore.sa_mask);
@@ -97,7 +97,8 @@ void km_reset_pending_signal(int signum)
  * to block it, so to use in multi-threaded code other threads (or parent)
  * needs to block it or handle it too.
  */
-void km_wait_for_signal(int signum) {
+void km_wait_for_signal(int signum)
+{
    sigset_t signal_set;
    int received_signal;
 

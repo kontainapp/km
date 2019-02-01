@@ -15,8 +15,8 @@
 
 #include <pthread.h>
 
-#include "km.h"
 #include "chan/chan.h"
+#include "km.h"
 
 /*
  * thread related stuff
@@ -33,11 +33,11 @@
 typedef struct km_threads {
    pthread_t main_thread;
    pthread_t gdbsrv_thread;
-   chan_t *gdb_chan;
+   chan_t* gdb_chan;
    pthread_t vcpu_thread[VCPU_THREAD_CNT];
-   km_vcpu_t *vcpu[VCPU_THREAD_CNT];
-   chan_t *vcpu_chan[VCPU_THREAD_CNT];
-   } km_threads_t;
+   km_vcpu_t* vcpu[VCPU_THREAD_CNT];
+   chan_t* vcpu_chan[VCPU_THREAD_CNT];
+} km_threads_t;
 
 // TBD: add getter/setters and hide the struct
 extern km_threads_t g_km_threads;

@@ -13,16 +13,16 @@
 #undef _FORTIFY_SOURCE
 #define _FORTIFY_SOURCE 0
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <unistd.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 static const in_port_t PORT = 8002;
 
@@ -51,7 +51,7 @@ int tcp_listen(void)
 
    setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
 
-   if (bind(listen_sd, (struct sockaddr *)&sa_serv, sizeof(sa_serv)) < 0) {
+   if (bind(listen_sd, (struct sockaddr*)&sa_serv, sizeof(sa_serv)) < 0) {
       puts("bind\n");
       exit(1);
    }
@@ -70,11 +70,12 @@ int tcp_accept(int listen_sd)
    socklen_t client_len = sizeof(sa_cli);
    char topbuf[512];
 
-   sd = accept(listen_sd, (struct sockaddr *)&sa_cli, &client_len);
+   sd = accept(listen_sd, (struct sockaddr*)&sa_cli, &client_len);
 
    printf("- connection from %s, port %d, addrlen %d\n",
           inet_ntop(AF_INET, &sa_cli.sin_addr, topbuf, sizeof(topbuf)),
-          ntohs(sa_cli.sin_port), client_len);
+          ntohs(sa_cli.sin_port),
+          client_len);
 
    return sd;
 }
@@ -97,7 +98,7 @@ char wbuf[] = "HTTP/1.1 200 OK\r\n"
               "</body>\r\n"
               "</html>\r\n";
 
-int main(int argc, char const *argv[])
+int main(int argc, char const* argv[])
 {
    char buf[4096];
    int listen_sd, sd;

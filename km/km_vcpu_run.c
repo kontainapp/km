@@ -10,24 +10,24 @@
  * permission of Kontain Inc.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <errno.h>
-#include <unistd.h>
-#include <err.h>
-#include <stdarg.h>
-#include <string.h>
-#include <sys/ioctl.h>
 #include <assert.h>
+#include <err.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 #include "km.h"
-#include "km_hcalls.h"
 #include "km_gdb.h"
+#include "km_hcalls.h"
 
 /*
  * run related err and errx - get regs, print RIP and the supplied message
  */
-static void __run_err(void (*fn)(int, const char *, __gnuc_va_list),
-                      km_vcpu_t *vcpu, int s, const char *f, ...)
+static void
+__run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
 {
    static const char fx[] = "RIP 0x%0llx, RSP 0x%0llx: ";
    int save_errno = errno;
@@ -56,17 +56,18 @@ static void __run_err(void (*fn)(int, const char *, __gnuc_va_list),
 /*
  * return non-zero and set status if guest halted
  */
-static int hypercall(km_vcpu_t *vcpu, int *hc, int *status)
+static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
 {
-   kvm_run_t *r = vcpu->cpu_run;
+   kvm_run_t* r = vcpu->cpu_run;
    uint64_t ga;
 
    /* Sanity checks */
    *hc = r->io.port - KM_HCALL_PORT_BASE;
-   if (!(r->io.direction == KVM_EXIT_IO_OUT || r->io.size == 4 || *hc >= 0 ||
-         *hc < KM_MAX_HCALL)) {
-      run_errx(1, "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
-               r->io.port, r->io.size,
+   if (!(r->io.direction == KVM_EXIT_IO_OUT || r->io.size == 4 || *hc >= 0 || *hc < KM_MAX_HCALL)) {
+      run_errx(1,
+               "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
+               r->io.port,
+               r->io.size,
                r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
    }
    if (km_hcalls_table[*hc] == NULL) {
@@ -84,14 +85,14 @@ static int hypercall(km_vcpu_t *vcpu, int *hc, int *status)
    /* high four bytes */
    static const uint64_t stack_top_high = GUEST_STACK_TOP & ~0xfffffffful;
    /* Recover high 4 bytes, but check for roll under 4GB boundary */
-   ga = *(uint32_t *)((void *)r + r->io.data_offset) | stack_top_high;
+   ga = *(uint32_t*)((void*)r + r->io.data_offset) | stack_top_high;
    if (ga > GUEST_STACK_TOP) {
       ga -= 4 * GIB;
    }
    return km_hcalls_table[*hc](*hc, km_gva_to_kml(ga), status);
 }
 
-void km_vcpu_run(km_vcpu_t *vcpu)
+void km_vcpu_run(km_vcpu_t* vcpu)
 {
    int status, hc;
    int wait_for_gdb = km_gdb_enabled();
@@ -105,7 +106,7 @@ void km_vcpu_run(km_vcpu_t *vcpu)
          if (errno == EAGAIN) {
             continue;
          }
-         if (errno != EINTR ) {
+         if (errno != EINTR) {
             run_err(1, "KVM: vcpu run failed");
          }
       }
@@ -124,21 +125,20 @@ void km_vcpu_run(km_vcpu_t *vcpu)
                run_errx(0, "KVM: hypercall 0x%x stop, status 0x%x", hc, status);
                return;
             }
-            break;       // continue the while
+            break;   // continue the while
 
          case KVM_EXIT_UNKNOWN:
-            run_errx(1, "KVM: unknown err 0x%lx",
-                     vcpu->cpu_run->hw.hardware_exit_reason);
+            run_errx(1, "KVM: unknown err 0x%lx", vcpu->cpu_run->hw.hardware_exit_reason);
             break;
 
          case KVM_EXIT_FAIL_ENTRY:
-            run_errx(1, "KVM: fail entry 0x%lx",
+            run_errx(1,
+                     "KVM: fail entry 0x%lx",
                      vcpu->cpu_run->fail_entry.hardware_entry_failure_reason);
             break;
 
          case KVM_EXIT_INTERNAL_ERROR:
-            run_errx(1, "KVM: internal error, suberr 0x%x",
-                     vcpu->cpu_run->internal.suberror);
+            run_errx(1, "KVM: internal error, suberr 0x%x", vcpu->cpu_run->internal.suberror);
             break;
 
          case KVM_EXIT_SHUTDOWN:
@@ -170,6 +170,6 @@ void km_vcpu_run(km_vcpu_t *vcpu)
          default:
             run_errx(1, "KVM: exit 0x%lx", vcpu->cpu_run->exit_reason);
             break;
-         }
+      }
    }
 }

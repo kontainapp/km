@@ -36,38 +36,38 @@
  */
 
 #define _GNU_SOURCE
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
+#include <netdb.h>
+#include <poll.h>
+#include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
-#include <stdbool.h>
-#include <ctype.h>
-#include <pthread.h>
-#include <poll.h>
-#include <errno.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 
+#include "chan/chan.h"
 #include "km.h"
 #include "km_gdb.h"
 #include "km_signal.h"
 #include "km_thread.h"
-#include "chan/chan.h"
 
-int g_gdb_port = 0;       // 0 means NO GDB
+int g_gdb_port = 0;   // 0 means NO GDB
 
 static int socket_fd = 0;
 static const char hexchars[] = "0123456789abcdef";
 
 #define BUFMAX (16 * 1024)
-static char in_buffer[BUFMAX];       // TODO: malloc/free these two
+static char in_buffer[BUFMAX];   // TODO: malloc/free these two
 static unsigned char registers[BUFMAX];
 
 /* The actual error code is ignored by GDB, so any number will do. */
-#define GDB_ERROR_MSG                  "E01"
+#define GDB_ERROR_MSG "E01"
 
 static int hex(unsigned char ch)
 {
@@ -84,38 +84,37 @@ static int hex(unsigned char ch)
  * Converts the (count) bytes of memory pointed to by mem into an hex string in
  * buf. Returns a pointer to the last char put in buf (null).
  */
-static char *mem2hex(const unsigned char *mem, char *buf, size_t count)
+static char* mem2hex(const unsigned char* mem, char* buf, size_t count)
 {
-    size_t i;
-    unsigned char ch;
+   size_t i;
+   unsigned char ch;
 
-    for (i = 0; i < count; i++) {
-        ch = *mem++;
-        *buf++ = hexchars[ch >> 4];
-        *buf++ = hexchars[ch % 16];
-    }
-    *buf = 0;
-    return buf;
+   for (i = 0; i < count; i++) {
+      ch = *mem++;
+      *buf++ = hexchars[ch >> 4];
+      *buf++ = hexchars[ch % 16];
+   }
+   *buf = 0;
+   return buf;
 }
 
 /*
  * Converts the hex string in buf into binary in mem.
  * Returns a pointer to the character AFTER the last byte written.
  */
-static unsigned char *hex2mem(const char *buf,
-                              unsigned char *mem, size_t count)
+static unsigned char* hex2mem(const char* buf, unsigned char* mem, size_t count)
 {
-    size_t i;
-    unsigned char ch;
+   size_t i;
+   unsigned char ch;
 
-    assert(strlen(buf) >= (2 * count));
+   assert(strlen(buf) >= (2 * count));
 
-    for (i = 0; i < count; i++) {
-        ch = hex(*buf++) << 4;
-        ch = ch + hex(*buf++);
-        *mem++ = ch;
-    }
-    return mem;
+   for (i = 0; i < count; i++) {
+      ch = hex(*buf++) << 4;
+      ch = ch + hex(*buf++);
+      *mem++ = ch;
+   }
+   return mem;
 }
 
 /*
@@ -123,7 +122,7 @@ static unsigned char *hex2mem(const char *buf,
  * global socket_fd and returns 0.
  * Returns -1 in case of failures.
  */
-static int gdb_wait_for_connect(const char *image_name)
+static int gdb_wait_for_connect(const char* image_name)
 {
    int listen_socket_fd;
    struct sockaddr_in server_addr, client_addr;
@@ -138,16 +137,14 @@ static int gdb_wait_for_connect(const char *image_name)
       return -1;
    }
 
-   if (setsockopt(listen_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt,
-                  sizeof(opt)) == -1) {
+   if (setsockopt(listen_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
       warn("setsockopt(SO_REUSEADDR) failed");
    }
    server_addr.sin_family = AF_INET;
    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
    server_addr.sin_port = htons(g_gdb_port);
 
-   if (bind(listen_socket_fd, (struct sockaddr *)&server_addr,
-            sizeof(server_addr)) == -1) {
+   if (bind(listen_socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
       warn("bind failed");
       return -1;
    }
@@ -158,19 +155,17 @@ static int gdb_wait_for_connect(const char *image_name)
    }
 
    warnx("Waiting for a debugger. Connect to it like this:");
-   warnx("\tgdb --ex=\"target remote localhost:%d\" %s", g_gdb_port,
-         image_name);
+   warnx("\tgdb --ex=\"target remote localhost:%d\" %s", g_gdb_port, image_name);
 
    len = sizeof(client_addr);
-   socket_fd = accept(listen_socket_fd, (struct sockaddr *)&client_addr, &len);
+   socket_fd = accept(listen_socket_fd, (struct sockaddr*)&client_addr, &len);
    if (socket_fd == -1) {
       warn("accept failed");
       return -1;
    }
    close(listen_socket_fd);
 
-   if (setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, &opt,
-                  sizeof(opt)) == -1) {
+   if (setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
       warn("Setting TCP_NODELAY failed, continuing...");
    }
    ip_addr.s_addr = client_addr.sin_addr.s_addr;
@@ -180,41 +175,41 @@ static int gdb_wait_for_connect(const char *image_name)
 
 static int send_char(char ch)
 {
-    /* TCP is already buffering, so no need to buffer here as well. */
-    return send(socket_fd, &ch, 1, 0);
+   /* TCP is already buffering, so no need to buffer here as well. */
+   return send(socket_fd, &ch, 1, 0);
 }
 
 /* get single char, blocking */
 static char recv_char(void)
 {
-    unsigned char ch;
-    int ret;
+   unsigned char ch;
+   int ret;
 
-    if ((ret = recv(socket_fd, &ch, 1, 0)) < 0) {
-       return -1;
-    }
-    if (ret == 0) {
-       warn("socket shutdown");       // orderly shutdown
-       return -1;
-    }
-    /*
-     * Could be either printable '$...' command, or ^C. We do not support 'X'
-     * (binary data) packets
-     */
-    if (!(isprint(ch) || ch == GDB_INTERRUPT_PKT)) {
-       warn("unexpected character 0x%x", ch);
-       return -1;
-    }
-    return (char)ch;
+   if ((ret = recv(socket_fd, &ch, 1, 0)) < 0) {
+      return -1;
+   }
+   if (ret == 0) {
+      warn("socket shutdown");   // orderly shutdown
+      return -1;
+   }
+   /*
+    * Could be either printable '$...' command, or ^C. We do not support 'X'
+    * (binary data) packets
+    */
+   if (!(isprint(ch) || ch == GDB_INTERRUPT_PKT)) {
+      warn("unexpected character 0x%x", ch);
+      return -1;
+   }
+   return (char)ch;
 }
 
 /*
  * Scan for the sequence $<data>#<checksum>
  * Returns a null terminated string.
  */
-static char *recv_packet(void)
+static char* recv_packet(void)
 {
-   char *buffer = &in_buffer[0];
+   char* buffer = &in_buffer[0];
    unsigned char checksum;
    unsigned char xmitcsum;
    char ch;
@@ -230,8 +225,7 @@ static char *recv_packet(void)
 
    retry:
       // Fill the buffer and calculate the checksum
-      for (count = 0, checksum = 0; count < BUFMAX - 1;
-           count++, checksum += ch) {
+      for (count = 0, checksum = 0; count < BUFMAX - 1; count++, checksum += ch) {
          if ((ch = recv_char()) == -1) {
             return NULL;
          }
@@ -247,7 +241,7 @@ static char *recv_packet(void)
          warnx("gdb message too long, disconnecting");
          return NULL;
       }
-      buffer[count] = '\0';       // Make this a C string.
+      buffer[count] = '\0';   // Make this a C string.
 
       /* recv checksum from the packet  and compare with calculated one */
       assert(ch == '#');
@@ -263,7 +257,9 @@ static char *recv_packet(void)
       if (checksum != xmitcsum) {
          warnx("Failed checksum from GDB. "
                "Calculated= 0x%x, received=0x%x. buf=%s",
-               checksum, xmitcsum, buffer);
+               checksum,
+               xmitcsum,
+               buffer);
          if (send_char('-') == -1) {
             // Unsuccessful reply to a failed checksum
             warnx("GDB: Could not send an ACK- to the debugger.");
@@ -291,33 +287,32 @@ static char *recv_packet(void)
  * Send packet of the form $<packet info>#<checksum> without waiting for an ACK
  * from the debugger. Only send_response
  */
-static void send_packet_no_ack(const char *buffer)
+static void send_packet_no_ack(const char* buffer)
 {
-    unsigned char checksum;
-    int count;
-    char ch;
+   unsigned char checksum;
+   int count;
+   char ch;
 
-    /*
-     * We ignore all send_char errors as it means that the connection
-     * is broken so all sends for the packet will fail, and the next recv
-     * for gdb ack will also fail take the necessary actions.
-     */
-    km_infox("%s: Sending '%s'", __FUNCTION__, buffer);
-    send_char('$');
-    for (count = 0, checksum = 0; (ch = buffer[count]) != '\0';
-         count++, checksum += ch)
-       ;
-    send(socket_fd, buffer, count, 0);
-    send_char('#');
-    send_char(hexchars[checksum >> 4]);
-    send_char(hexchars[checksum % 16]);
+   /*
+    * We ignore all send_char errors as it means that the connection
+    * is broken so all sends for the packet will fail, and the next recv
+    * for gdb ack will also fail take the necessary actions.
+    */
+   km_infox("%s: Sending '%s'", __FUNCTION__, buffer);
+   send_char('$');
+   for (count = 0, checksum = 0; (ch = buffer[count]) != '\0'; count++, checksum += ch)
+      ;
+   send(socket_fd, buffer, count, 0);
+   send_char('#');
+   send_char(hexchars[checksum >> 4]);
+   send_char(hexchars[checksum % 16]);
 }
 
 /*
  * Send a packet and wait for a successful ACK of '+' from the debugger.
  * An ACK of '-' means that we have to resend.
  */
-static void send_packet(const char *buffer)
+static void send_packet(const char* buffer)
 {
    for (char ch = '\0'; ch != '+';) {
       send_packet_no_ack(buffer);
@@ -327,9 +322,18 @@ static void send_packet(const char *buffer)
    }
 }
 
-#define send_error_msg()   do { send_packet(GDB_ERROR_MSG); } while (0)
-#define send_not_supported_msg()   do { send_packet(""); } while (0)
-#define send_okay_msg()   do { send_packet("OK"); } while (0)
+#define send_error_msg()                                                                           \
+   do {                                                                                            \
+      send_packet(GDB_ERROR_MSG);                                                                  \
+   } while (0)
+#define send_not_supported_msg()                                                                   \
+   do {                                                                                            \
+      send_packet("");                                                                             \
+   } while (0)
+#define send_okay_msg()                                                                            \
+   do {                                                                                            \
+      send_packet("OK");                                                                           \
+   } while (0)
 
 /*
  * This is a response to 'c' and 's' gdb packets. In other words, the VM was
@@ -360,8 +364,9 @@ static void send_response(char code, int signum, bool wait_for_ack)
 static void km_signal_gdb_about_kvm_exit(void)
 {
    if (pthread_kill(g_km_threads.gdbsrv_thread, GDBSTUB_SIGNAL) != 0) {
-      err(1, "Failed to inform GDB about VM run completion - pthread_kill() "
-             "failed");
+      err(1,
+          "Failed to inform GDB about VM run completion - pthread_kill() "
+          "failed");
    }
 }
 
@@ -381,12 +386,11 @@ static void km_signal_vcpu_about_gdb_intr(void)
  * When vcpu is running, we still want to listen to gdb ^C, in which case signal
  * vcpu thread to interrupt KVM_RUN.
  */
-void km_gdb_poll_for_client_intr(km_vcpu_t *vcpu, int sig_fd)
+void km_gdb_poll_for_client_intr(km_vcpu_t* vcpu, int sig_fd)
 {
-   struct pollfd fds[] = {
-       {.fd = socket_fd, .events = POLLIN | POLLERR},
-       {.fd = sig_fd, .events = POLLIN | POLLERR | POLLRDHUP}};
-   if (poll(fds, sizeof(fds)/sizeof(struct pollfd), -1 /* no timeout */) < 0) {
+   struct pollfd fds[] = {{.fd = socket_fd, .events = POLLIN | POLLERR},
+                          {.fd = sig_fd, .events = POLLIN | POLLERR | POLLRDHUP}};
+   if (poll(fds, sizeof(fds) / sizeof(struct pollfd), -1 /* no timeout */) < 0) {
       // warn and fall through to notify that poll has exited
       warn("%s: poll failed.", __FUNCTION__);
    } else {
@@ -399,7 +403,7 @@ void km_gdb_poll_for_client_intr(km_vcpu_t *vcpu, int sig_fd)
             err(1, "read signalfd failed");
          }
          assert(info.ssi_signo == GDBSTUB_SIGNAL);
-                  km_infox("%s: Got signalfd, exiting poll", __FUNCTION__);
+         km_infox("%s: Got signalfd, exiting poll", __FUNCTION__);
       }
       if (fds[0].revents) {
          int ch = recv_char();
@@ -416,9 +420,9 @@ void km_gdb_poll_for_client_intr(km_vcpu_t *vcpu, int sig_fd)
  * at which points returns control.
  * Note: signum is upstairs converted from from KVM exit reason.
  */
-static void gdb_handle_payload_stop(km_vcpu_t *vcpu, int signum)
+static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
 {
-   char *packet;
+   char* packet;
    char obuf[BUFMAX];
 
    /* Notify the debugger of our last signal */
@@ -428,7 +432,7 @@ static void gdb_handle_payload_stop(km_vcpu_t *vcpu, int signum)
 
    while ((packet = recv_packet()) != NULL) {
       km_gva_t addr = 0;
-      void *kma;       // KM virtual address
+      void* kma;   // KM virtual address
       gdb_breakpoint_type_t type;
       size_t len;
       int command, ret;
@@ -509,7 +513,7 @@ static void gdb_handle_payload_stop(km_vcpu_t *vcpu, int signum)
                send_error_msg();
                break;
             }
-            void *kma = km_gva_to_kma(addr);
+            void* kma = km_gva_to_kma(addr);
             if (kma == NULL) {
                send_error_msg();
             } else {
@@ -556,8 +560,7 @@ static void gdb_handle_payload_stop(km_vcpu_t *vcpu, int signum)
          case 'z': {
             /* Remove a breakpoint */
             packet++;
-            if (sscanf(packet, "%" PRIx32 ",%" PRIx64 ",%zx", &type, &addr,
-                       &len) != 3) {
+            if (sscanf(packet, "%" PRIx32 ",%" PRIx64 ",%zx", &type, &addr, &len) != 3) {
                send_error_msg();
                break;
             }
@@ -581,7 +584,7 @@ static void gdb_handle_payload_stop(km_vcpu_t *vcpu, int signum)
             warnx("Debugger asked us to quit");
             send_okay_msg();
             errx(1, "Quiting per debugger request");
-            goto done;       // not reachable
+            goto done;   // not reachable
          }
          case 'D': {
             warnx("Debugger detached");
@@ -607,8 +610,8 @@ static void gdb_handle_payload_stop(km_vcpu_t *vcpu, int signum)
             send_not_supported_msg();
             break;
          }
-      }       // switch
-   }          // while
+      }   // switch
+   }      // while
    if (packet == NULL) {
       warnx("GDB: Stop debugging as we could not receive the next command "
             "from the debugger.");
@@ -620,54 +623,54 @@ done:
 
 /*
  * This function is called on GDB thread to give gdb a chance to handle the KVM exit.
- * It is expected to be called ONLY when gdb is enabled and ONLY when the vcpu in question has exited the run.
- * If the exit reason is of interest to gdb, the function lets gdb try to handle it, and returns
- * 'true' for handled or 'false' for not handled.
- * If the exit reason is of no interest to gdb, the function  simply returns 'false' and lets
- * vcpu loop to handle the exit as it sees fit.
+ * It is expected to be called ONLY when gdb is enabled and ONLY when the vcpu in question has
+ * exited the run. If the exit reason is of interest to gdb, the function lets gdb try to handle it,
+ * and returns 'true' for handled or 'false' for not handled. If the exit reason is of no interest
+ * to gdb, the function  simply returns 'false' and lets vcpu loop to handle the exit as it sees
+ * fit.
  *
- * Note that we map VM exit reason to a GDB 'signal', which is what needs to be communicated  back to gdb client.
+ * Note that we map VM exit reason to a GDB 'signal', which is what needs to be communicated  back
+ * to gdb client.
  */
-static bool km_gdb_handle_kvm_exit(km_vcpu_t *vcpu)
+static bool km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
 {
-    int signum = 0;
+   int signum = 0;
 
-    assert(km_gdb_enabled());
-    signum = km_gdb_exit_reason_to_signal(vcpu);
+   assert(km_gdb_enabled());
+   signum = km_gdb_exit_reason_to_signal(vcpu);
 
-    switch(signum) {
-    case SIGINT:
-    case SIGQUIT:
-    case SIGKILL:
-    case SIGTRAP:
-    case SIGSEGV:
-        gdb_handle_payload_stop(vcpu, signum);
-        return true;
+   switch (signum) {
+      case SIGINT:
+      case SIGQUIT:
+      case SIGKILL:
+      case SIGTRAP:
+      case SIGSEGV:
+         gdb_handle_payload_stop(vcpu, signum);
+         return true;
 
-    case SIGTERM:
-        // let GDB know we are done, and let vcpu loop to do it's completion
-        send_response('W', 0, true);
-        break;
+      case SIGTERM:
+         // let GDB know we are done, and let vcpu loop to do it's completion
+         send_response('W', 0, true);
+         break;
 
-    default:
-        /* Handle this exit in the vcpu loop */
-        break;
-    }
+      default:
+         /* Handle this exit in the vcpu loop */
+         break;
+   }
 
-    return false;
+   return false;
 }
-
 
 /*
  * Gdb stub thread start. Gets an array of vcpu pointers.
  */
-static void *km_gdb_thread_entry(void *arg)
+static void* km_gdb_thread_entry(void* arg)
 {
    int sig_fd;
 
    assert(km_gdb_enabled());
    // TBD: we assume single VCPU thread here, need to handle multi vCPUs
-   km_vcpu_t *vcpu = ((km_vcpu_t **)arg)[0];
+   km_vcpu_t* vcpu = ((km_vcpu_t**)arg)[0];
 
    // Get an fd so we can poll on it
    sig_fd = km_get_signalfd(GDBSTUB_SIGNAL);
@@ -675,37 +678,38 @@ static void *km_gdb_thread_entry(void *arg)
    // Talk to GDB first time, before any vCPU run
    gdb_handle_payload_stop(vcpu, GDB_SIGFIRST);
    // talk to GDB, managing vcpu runs
-   while(km_gdb_enabled()) {
-    km_vcpu_t* msg;
-    int ret;
+   while (km_gdb_enabled()) {
+      km_vcpu_t* msg;
+      int ret;
 
-    // Unblock vcpu_thread by sending any number to the channel
-    chan_send_int(g_km_threads.vcpu_chan[0], 1);
-    // Poll for either interrupt from gdb client, or for vcpu run completion
-    km_gdb_poll_for_client_intr(vcpu, sig_fd);
-    // get vcpu from vcpu thread - also sync the threads
-    chan_recv(g_km_threads.gdb_chan, (void*)&msg); // should get vcpu
-    assert(vcpu == msg);
-    km_infox("%s: poll and vcpu_run done , got vcpu* (%p)", __FUNCTION__, msg);
-    ret = km_gdb_handle_kvm_exit(vcpu);       // give control to gdb
-    km_infox("Sending exit_handled (%d) to vcpu", ret);
-    chan_send_int(g_km_threads.vcpu_chan[0], ret);
+      // Unblock vcpu_thread by sending any number to the channel
+      chan_send_int(g_km_threads.vcpu_chan[0], 1);
+      // Poll for either interrupt from gdb client, or for vcpu run completion
+      km_gdb_poll_for_client_intr(vcpu, sig_fd);
+      // get vcpu from vcpu thread - also sync the threads
+      chan_recv(g_km_threads.gdb_chan, (void*)&msg);   // should get vcpu
+      assert(vcpu == msg);
+      km_infox("%s: poll and vcpu_run done , got vcpu* (%p)", __FUNCTION__, msg);
+      ret = km_gdb_handle_kvm_exit(vcpu);   // give control to gdb
+      km_infox("Sending exit_handled (%d) to vcpu", ret);
+      chan_send_int(g_km_threads.vcpu_chan[0], ret);
    }
-   return (void *)NULL;
+   return (void*)NULL;
 }
 
 /*
- * Start gdb stub - wait for GDB to connect and start a thread to manage interaction with gdb client.
+ * Start gdb stub - wait for GDB to connect and start a thread to manage interaction with gdb
+ * client.
  */
-void km_gdb_start_stub(int port, char *const payload_file)
+void km_gdb_start_stub(int port, char* const payload_file)
 {
-    int i;
+   int i;
 
-    assert(km_gdb_enabled());
-    // First create all channels so the threads can communicate right away
-    g_km_threads.gdb_chan = chan_init(0);
-    if (g_km_threads.gdb_chan == NULL) {
-       err(1, "Failed to create comm channel to talk to GDB threads");
+   assert(km_gdb_enabled());
+   // First create all channels so the threads can communicate right away
+   g_km_threads.gdb_chan = chan_init(0);
+   if (g_km_threads.gdb_chan == NULL) {
+      err(1, "Failed to create comm channel to talk to GDB threads");
    }
    for (i = 0; i < VCPU_THREAD_CNT; i++) {
       g_km_threads.vcpu_chan[i] = chan_init(0);
@@ -714,13 +718,14 @@ void km_gdb_start_stub(int port, char *const payload_file)
       }
    }
    km_infox("Enabling gdbserver on port %d...", port);
-   if( gdb_wait_for_connect(payload_file) == -1) {
-       errx(1, "Failed to connect to GDB");
+   if (gdb_wait_for_connect(payload_file) == -1) {
+      errx(1, "Failed to connect to GDB");
    }
 
    // TBD: think about 'attach' on signal - dynamically starting this thread
-   if (pthread_create(&g_km_threads.gdbsrv_thread, NULL, &km_gdb_thread_entry,
-                      (void *)g_km_threads.vcpu) != 0) {
+   if (pthread_create(
+           &g_km_threads.gdbsrv_thread, NULL, &km_gdb_thread_entry, (void*)g_km_threads.vcpu) !=
+       0) {
       err(1, "Failed to create GDB server thread ");
    }
 }
@@ -728,16 +733,16 @@ void km_gdb_start_stub(int port, char *const payload_file)
 /* closes the gdb socket and set port to 0 */
 void km_gdb_disable(void)
 {
-    if (socket_fd > 0) {
-       close(socket_fd);
-        socket_fd = -1;
-    }
-    warnx("Disabling gdb");
-    g_gdb_port = 0;
+   if (socket_fd > 0) {
+      close(socket_fd);
+      socket_fd = -1;
+   }
+   warnx("Disabling gdb");
+   g_gdb_port = 0;
 }
 
 /* Called on vcpu thread and waits until GDB allows the next vcpu run */
-void km_gdb_prepare_for_run(km_vcpu_t *vcpu)
+void km_gdb_prepare_for_run(km_vcpu_t* vcpu)
 {
    int buf;
 
@@ -752,22 +757,23 @@ void km_gdb_prepare_for_run(km_vcpu_t *vcpu)
  * Returns "1" if gdb handled the exit and kvm loop does not need to,
  * 0 otherwise
  */
-int km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t *vcpu, int run_errno)
+int km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno)
 {
    int ret;
 
    assert(km_gdb_enabled());
-   if ( km_gdb_exit_reason_to_signal(vcpu) == GDB_SIGNONE) {
-       km_infox("gdb -not mine, keep going (reason: %d)", vcpu->cpu_run->exit_reason);
-       return 0; // GDB can'thandle this exit
+   if (km_gdb_exit_reason_to_signal(vcpu) == GDB_SIGNONE) {
+      km_infox("gdb -not mine, keep going (reason: %d)", vcpu->cpu_run->exit_reason);
+      return 0;   // GDB can'thandle this exit
    }
    km_reset_pending_signal(GDBSTUB_SIGNAL);
    // Inform gdb thread that vcpu run is over
    km_signal_gdb_about_kvm_exit();
    km_infox("%s: KVM_RUN done.  Sending send(vcpu)->gdb_chan from thr 0x%lx",
-            __FUNCTION__, pthread_self());
-    // This will start stub interuction with GDB client:
-   chan_send(g_km_threads.gdb_chan, (void *)vcpu);
+            __FUNCTION__,
+            pthread_self());
+   // This will start stub interuction with GDB client:
+   chan_send(g_km_threads.gdb_chan, (void*)vcpu);
    km_infox("%s: vcpu sent. Waiting for 1/0 from gdb thread", __FUNCTION__);
    // This will be unblocked when gdb stub wants vcpu cycle to resume:
    chan_recv_int(g_km_threads.vcpu_chan[0], &ret);

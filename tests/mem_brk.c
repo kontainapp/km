@@ -15,20 +15,20 @@
 #undef _FORTIFY_SOURCE
 #define _FORTIFY_SOURCE 0
 
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 #include <assert.h>
 #include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include "syscall.h"
 
-static void const *high_addr = (void *)0x30000000ul;
-static void const *very_high_addr = (void *)(512 * 0x40000000ul);
+static void const* high_addr = (void*)0x30000000ul;
+static void const* very_high_addr = (void*)(512 * 0x40000000ul);
 
-void *SYS_break(void const *addr)
+void* SYS_break(void const* addr)
 {
-   return (void *)syscall(SYS_brk, addr);
+   return (void*)syscall(SYS_brk, addr);
 }
 
 int main()
@@ -42,7 +42,7 @@ int main()
 
    ptr1 -= 20;
    strcpy(ptr1, "Hello, world");
-   printf("%s from far up the memory %p\n", (char *)ptr1, ptr1);
+   printf("%s from far up the memory %p\n", (char*)ptr1, ptr1);
 
    if (SYS_break(very_high_addr) != very_high_addr) {
       perror("Unable to set brk that high");
@@ -51,10 +51,10 @@ int main()
 
       ptr1 -= 20;
       strcpy(ptr1, "Hello, world");
-      printf("%s from even farer up the memory %p\n", (char *)ptr1, ptr1);
+      printf("%s from even farer up the memory %p\n", (char*)ptr1, ptr1);
    }
 
-   SYS_break((void *)ptr);
+   SYS_break((void*)ptr);
    assert(ptr == SYS_break(NULL));
    printf("break is %p\n", SYS_break(NULL));
 

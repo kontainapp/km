@@ -17,20 +17,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <unistd.h>
+#include <sys/mman.h>
 #include <sys/param.h>
 
 #include "km.h"
 
-static void my_pread(int fd, void *buf, size_t count, off_t offset)
+static void my_pread(int fd, void* buf, size_t count, off_t offset)
 {
    int i, rc;
 
    for (i = 0, rc = 0; i < count; i += rc) {
       // rc == 0 means EOF which to us means error in the format
-      if ((rc = pread(fd, buf + i, count - i, offset + i)) <= 0 &&
-          rc != EINTR) {
+      if ((rc = pread(fd, buf + i, count - i, offset + i)) <= 0 && rc != EINTR) {
          err(2, "error reading elf");
       }
    }
@@ -41,9 +40,9 @@ static void my_pread(int fd, void *buf, size_t count, off_t offset)
  * - adjust break so there is enough memory
  * - loop over memory regions this extent covering, read/memset the content and set mprotect.
  */
-static void load_extent(int fd, GElf_Phdr *phdr)
+static void load_extent(int fd, GElf_Phdr* phdr)
 {
-   void *addr;
+   void* addr;
    uint64_t size, filesize, top;
    int idx, pr;
 
@@ -107,10 +106,10 @@ static void load_extent(int fd, GElf_Phdr *phdr)
  * segments. Set entry point.
  * All errors are fatal.
  */
-int load_elf(const char *file, uint64_t *entry)
+int load_elf(const char* file, uint64_t* entry)
 {
    int fd;
-   Elf *e;
+   Elf* e;
    GElf_Ehdr ehdr;
    GElf_Phdr phdr;
    int i;

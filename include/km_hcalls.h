@@ -28,11 +28,10 @@ typedef struct km_hc_args {
    uint64_t arg6;
 } km_hc_args_t;
 
-static inline void km_hcall(int n, km_hc_args_t *arg)
+static inline void km_hcall(int n, km_hc_args_t* arg)
 {
    __asm__ __volatile__("outl %0, %1"
                         :
-                        : "a"((uint32_t)((uint64_t)arg)),
-                          "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
+                        : "a"((uint32_t)((uint64_t)arg)), "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
                         : "memory");
 }

@@ -11,15 +11,15 @@
  */
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <err.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <assert.h>
 #include <sys/param.h>
 
 #include "km.h"
@@ -107,28 +107,16 @@ static const kvm_seg_t seg_unused = {
  *
  * TODO: Do we even need to specify idt if there are no interrupts?
  */
-static void km_init_gdt_idt(void *mem)
+static void km_init_gdt_idt(void* mem)
 {
-   x86_seg_d_t *seg = mem + RSV_GDT_OFFSET;
+   x86_seg_d_t* seg = mem + RSV_GDT_OFFSET;
    /*
     * Three first slots in gdt - none, code, data
     */
    static const x86_seg_d_t gdt[] = {
        {0},
-       {.limit_hi = 0xf,
-        .limit_lo = 0xffff,
-        .type = 9,
-        .p = 1,
-        .s = 1,
-        .l = 1,
-        .g = 1},
-       {.limit_hi = 0xf,
-        .limit_lo = 0xffff,
-        .type = 3,
-        .p = 1,
-        .d_b = 1,
-        .s = 1,
-        .g = 1},
+       {.limit_hi = 0xf, .limit_lo = 0xffff, .type = 9, .p = 1, .s = 1, .l = 1, .g = 1},
+       {.limit_hi = 0xf, .limit_lo = 0xffff, .type = 3, .p = 1, .d_b = 1, .s = 1, .g = 1},
    };
 
    memcpy(seg, gdt, 3 * sizeof(*seg));
@@ -138,7 +126,7 @@ static void km_init_gdt_idt(void *mem)
    memset(seg, 0, PAGE_SIZE);
 }
 
-static void pml4e_set(x86_pml4e_t *pml4e, uint64_t pdpt)
+static void pml4e_set(x86_pml4e_t* pml4e, uint64_t pdpt)
 {
    pml4e->p = 1;
    pml4e->r_w = 1;
@@ -146,7 +134,7 @@ static void pml4e_set(x86_pml4e_t *pml4e, uint64_t pdpt)
    pml4e->pdpt = pdpt >> 12;
 }
 
-static void pdpte_set(x86_pdpte_t *pdpe, uint64_t pd)
+static void pdpte_set(x86_pdpte_t* pdpe, uint64_t pd)
 {
    pdpe->p = 1;
    pdpe->r_w = 1;
@@ -154,7 +142,7 @@ static void pdpte_set(x86_pdpte_t *pdpe, uint64_t pd)
    pdpe->pd = pd >> 12;
 }
 
-static void pdpte_1g_set(x86_pdpte_1g_t *pdpe, uint64_t addr)
+static void pdpte_1g_set(x86_pdpte_1g_t* pdpe, uint64_t addr)
 {
    pdpe->p = 1;
    pdpe->r_w = 1;
@@ -163,7 +151,7 @@ static void pdpte_1g_set(x86_pdpte_1g_t *pdpe, uint64_t addr)
    pdpe->page = addr >> 30;
 }
 
-static void pde_2mb_set(x86_pde_2m_t *pde, u_int64_t addr)
+static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
 {
    pde->p = 1;
    pde->r_w = 1;
@@ -221,28 +209,28 @@ static const uint64_t PDPTE_REGION = GIB;
 /* same for pd entry */
 static const uint64_t PDE_REGION = 2 * MIB;
 
-static void init_pml4(void *mem)
+static void init_pml4(void* mem)
 {
-   x86_pml4e_t *pml4e;
-   x86_pdpte_t *pdpe;
-   x86_pde_2m_t *pde;
+   x86_pml4e_t* pml4e;
+   x86_pdpte_t* pdpe;
+   x86_pde_2m_t* pde;
    int idx;
 
    assert(machine.guest_max_physmem <= PML4E_REGION);
    pml4e = mem + RSV_PML4_OFFSET;
    memset(pml4e, 0, PAGE_SIZE);
-   pml4e_set(pml4e, RSV_GUEST_PA(RSV_PDPT_OFFSET));       // entry #0
+   pml4e_set(pml4e, RSV_GUEST_PA(RSV_PDPT_OFFSET));   // entry #0
 
    pdpe = mem + RSV_PDPT_OFFSET;
    memset(pdpe, 0, PAGE_SIZE);
-   pdpte_set(pdpe, RSV_GUEST_PA(RSV_PD_OFFSET));       // first entry for the first GB
+   pdpte_set(pdpe, RSV_GUEST_PA(RSV_PD_OFFSET));   // first entry for the first GB
 
    pde = mem + RSV_PD_OFFSET;
    memset(pde, 0, PAGE_SIZE);
-   pde_2mb_set(pde + 1, GUEST_MEM_START_PA);       // second entry for the 2MB - 4MB
+   pde_2mb_set(pde + 1, GUEST_MEM_START_PA);   // second entry for the 2MB - 4MB
 
    idx = GUEST_STACK_START_VA / PML4E_REGION;
-   assert(idx < PAGE_SIZE / sizeof(x86_pml4e_t));       // within pml4 page
+   assert(idx < PAGE_SIZE / sizeof(x86_pml4e_t));   // within pml4 page
 
    // check if we need the second pml4 entry, i.e the two mem regions are more
    // than 512 GB apart. If we do, make the second entry to the second pdpt page
@@ -261,22 +249,22 @@ static void init_pml4(void *mem)
    pde_2mb_set(pde + idx, GUEST_STACK_START_PA);
 }
 
-static void *page_malloc(size_t size)
+static void* page_malloc(size_t size)
 {
-   void *addr;
+   void* addr;
 
    if ((size & (PAGE_SIZE - 1)) != 0) {
       errno = EINVAL;
       return NULL;
    }
-   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE,
-                    MAP_SHARED | MAP_ANONYMOUS, -1, 0)) == MAP_FAILED) {
+   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
+       MAP_FAILED) {
       return NULL;
    }
    return addr;
 }
 
-static void page_free(void *addr, size_t size)
+static void page_free(void* addr, size_t size)
 {
    munmap(addr, size);
 }
@@ -287,8 +275,8 @@ static void page_free(void *addr, size_t size)
  */
 static void km_mem_init(void)
 {
-   kvm_mem_reg_t *reg;
-   void *ptr;
+   kvm_mem_reg_t* reg;
+   void* ptr;
 
    /* 1. reserved memory */
    if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
@@ -301,13 +289,13 @@ static void km_mem_init(void)
    reg->slot = KM_RSRV_MEMSLOT;
    reg->guest_phys_addr = RSV_MEM_START;
    reg->memory_size = RSV_MEM_SIZE;
-   reg->flags = 0;       // set to KVM_MEM_READONLY for readonly
+   reg->flags = 0;   // set to KVM_MEM_READONLY for readonly
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
       err(1, "KVM: set reserved region failed");
    }
    machine.vm_mem_regs[KM_RSRV_MEMSLOT] = reg;
-   km_init_gdt_idt((void *)reg->userspace_addr);
-   init_pml4((void *)reg->userspace_addr);
+   km_init_gdt_idt((void*)reg->userspace_addr);
+   init_pml4((void*)reg->userspace_addr);
 
    /* 2. data and text memory, account for brk */
    if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
@@ -350,51 +338,44 @@ static void km_mem_init(void)
  * following the setup in init_pml4(). Set/Clears pdpte or pde depending on the
  * size.
  */
-static void set_pml4_hierarchy(kvm_mem_reg_t *reg)
+static void set_pml4_hierarchy(kvm_mem_reg_t* reg)
 {
    int idx = reg->slot;
    uint64_t size = reg->memory_size;
    uint64_t base = memreg_base(idx);
 
    if (size < PDPTE_REGION) {
-      x86_pde_2m_t *pde = (x86_pde_2m_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
-                                               ->userspace_addr +
-                                           RSV_PD_OFFSET);
+      x86_pde_2m_t* pde =
+          (x86_pde_2m_t*)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]->userspace_addr + RSV_PD_OFFSET);
       for (uint64_t i = 0; i < size; i += PDE_REGION) {
          pde_2mb_set(pde + (i + base) / PDE_REGION, reg->guest_phys_addr + i);
       }
    } else {
-      assert(machine.pdpe1g != 0);       // no 1GB pages support
-      x86_pdpte_1g_t *pdpe =
-          (x86_pdpte_1g_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
-                                 ->userspace_addr +
-                             RSV_PDPT_OFFSET);
+      assert(machine.pdpe1g != 0);   // no 1GB pages support
+      x86_pdpte_1g_t* pdpe =
+          (x86_pdpte_1g_t*)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]->userspace_addr + RSV_PDPT_OFFSET);
       for (uint64_t i = 0; i < size; i += PDPTE_REGION) {
-         pdpte_1g_set(pdpe + (i + base) / PDPTE_REGION,
-                      reg->guest_phys_addr + i);
+         pdpte_1g_set(pdpe + (i + base) / PDPTE_REGION, reg->guest_phys_addr + i);
       }
    }
 }
 
-static void clear_pml4_hierarchy(kvm_mem_reg_t *reg)
+static void clear_pml4_hierarchy(kvm_mem_reg_t* reg)
 {
    int idx = reg->slot;
    uint64_t size = reg->memory_size;
    uint64_t base = memreg_base(idx);
 
    if (size < PDPTE_REGION) {
-      x86_pde_2m_t *pde = (x86_pde_2m_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
-                                               ->userspace_addr +
-                                           RSV_PD_OFFSET);
+      x86_pde_2m_t* pde =
+          (x86_pde_2m_t*)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]->userspace_addr + RSV_PD_OFFSET);
       for (uint64_t i = 0; i < size; i += PDE_REGION) {
          memset(pde + (i + base) / PDE_REGION, 0, sizeof(*pde));
       }
    } else {
-      assert(machine.pdpe1g != 0);       // no 1GB pages support
-      x86_pdpte_1g_t *pdpe =
-          (x86_pdpte_1g_t *)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]
-                                 ->userspace_addr +
-                             RSV_PDPT_OFFSET);
+      assert(machine.pdpe1g != 0);   // no 1GB pages support
+      x86_pdpte_1g_t* pdpe =
+          (x86_pdpte_1g_t*)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]->userspace_addr + RSV_PDPT_OFFSET);
       for (uint64_t i = 0; i < size; i += PDPTE_REGION) {
          memset(pdpe + (i + base) / PDPTE_REGION, 0, sizeof(*pdpe));
       }
@@ -410,8 +391,8 @@ uint64_t km_mem_brk(uint64_t brk)
 {
    int idx;
    uint64_t size, m_brk;
-   void *ptr;
-   kvm_mem_reg_t *reg;
+   void* ptr;
+   kvm_mem_reg_t* reg;
 
    if (brk == 0 || brk == machine.brk) {
       return machine.brk;
@@ -428,8 +409,7 @@ uint64_t km_mem_brk(uint64_t brk)
       if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
          return -ENOMEM;
       }
-      size = memreg_top(idx) < GUEST_MAX_BRK ? memreg_size(idx)
-                                             : GUEST_MAX_BRK - memreg_base(idx);
+      size = memreg_top(idx) < GUEST_MAX_BRK ? memreg_size(idx) : GUEST_MAX_BRK - memreg_base(idx);
       if ((ptr = page_malloc(size)) == NULL) {
          free(reg);
          return -ENOMEM;
@@ -456,7 +436,7 @@ uint64_t km_mem_brk(uint64_t brk)
       if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
          err(1, "KVM: failed to unplug memory region %d", idx);
       }
-      page_free((void *)reg->userspace_addr, size);
+      page_free((void*)reg->userspace_addr, size);
       free(reg);
       machine.vm_mem_regs[idx] = NULL;
    }
@@ -471,7 +451,7 @@ void km_machine_fini(void)
 {
    /* check if there are any VCPUs */
    for (; machine.vm_cpu_cnt; machine.vm_cpu_cnt--) {
-      km_vcpu_t *vcpu = machine.vm_vcpus[machine.vm_cpu_cnt - 1];
+      km_vcpu_t* vcpu = machine.vm_vcpus[machine.vm_cpu_cnt - 1];
 
       if (vcpu != NULL) {
          if (vcpu->cpu_run != NULL) {
@@ -485,12 +465,12 @@ void km_machine_fini(void)
    }
    /* check if there are any memory regions */
    for (int i = KVM_USER_MEM_SLOTS - 1; i >= 0; i--) {
-      kvm_mem_reg_t *mr = machine.vm_mem_regs[i];
+      kvm_mem_reg_t* mr = machine.vm_mem_regs[i];
 
       if (mr != NULL) {
          /* TODO: Do we need to "unplug" it from the VM? */
          if (mr->memory_size != 0) {
-            page_free((void *)mr->userspace_addr, mr->memory_size);
+            page_free((void*)mr->userspace_addr, mr->memory_size);
          }
          free(mr);
          machine.vm_mem_regs[i] = NULL;
@@ -543,9 +523,9 @@ static void kvm_vcpu_init_sregs(int fd)
  * Set RIP, SP, RFLAGS, clear the rest of the regs.
  * VCPU is ready to run starting with instruction @RIP
  */
-km_vcpu_t *km_vcpu_init(uint64_t ent, uint64_t sp)
+km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp)
 {
-   km_vcpu_t *vcpu;
+   km_vcpu_t* vcpu;
    int cnt = machine.vm_cpu_cnt;
 
    /*
@@ -565,8 +545,9 @@ km_vcpu_t *km_vcpu_init(uint64_t ent, uint64_t sp)
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_CPUID2, machine.cpuid) < 0) {
       err(1, "KVM: set CPUID2 failed");
    }
-   if ((vcpu->cpu_run = mmap(NULL, machine.vm_run_size, PROT_READ | PROT_WRITE,
-                             MAP_SHARED, vcpu->kvm_vcpu_fd, 0)) == MAP_FAILED) {
+   if ((vcpu->cpu_run = mmap(
+            NULL, machine.vm_run_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu->kvm_vcpu_fd, 0)) ==
+       MAP_FAILED) {
       err(1, "KVM: failed mmap VCPU %d control region", cnt);
    }
    machine.vm_vcpus[cnt++] = vcpu;
@@ -613,18 +594,17 @@ void km_machine_init(void)
    if ((machine.mach_fd = ioctl(machine.kvm_fd, KVM_CREATE_VM, NULL)) < 0) {
       err(1, "KVM: create VM failed");
    }
-   if ((machine.vm_run_size =
-            ioctl(machine.kvm_fd, KVM_GET_VCPU_MMAP_SIZE, 0)) < 0) {
+   if ((machine.vm_run_size = ioctl(machine.kvm_fd, KVM_GET_VCPU_MMAP_SIZE, 0)) < 0) {
       err(1, "KVM: get VM memory region size failed");
    }
    if (machine.vm_run_size < sizeof(kvm_run_t)) {
       errx(1,
            "KVM: suspicious VM memory region size %zu, expecting at least %zu",
-           machine.vm_run_size, sizeof(kvm_run_t));
+           machine.vm_run_size,
+           sizeof(kvm_run_t));
    }
-   if ((machine.cpuid =
-            malloc(sizeof(kvm_cpuid2_t) +
-                   CPUID_ENTRIES * sizeof(struct kvm_cpuid_entry2))) == NULL) {
+   if ((machine.cpuid = malloc(sizeof(kvm_cpuid2_t) +
+                               CPUID_ENTRIES * sizeof(struct kvm_cpuid_entry2))) == NULL) {
       err(1, "KVM: no memory for CPUID");
    }
    machine.cpuid->nent = CPUID_ENTRIES;
@@ -639,10 +619,8 @@ void km_machine_init(void)
    for (int i = 0; i < machine.cpuid->nent; i++) {
       switch (machine.cpuid->entries[i].function) {
          case 0x80000008:
-            warnx("KVM: physical memory width %d",
-                  machine.cpuid->entries[i].eax & 0xff);
-            machine.guest_max_physmem =
-                1ul << (machine.cpuid->entries[i].eax & 0xff);
+            warnx("KVM: physical memory width %d", machine.cpuid->entries[i].eax & 0xff);
+            machine.guest_max_physmem = 1ul << (machine.cpuid->entries[i].eax & 0xff);
             break;
          case 0x80000001:
             machine.pdpe1g = ((machine.cpuid->entries[i].edx & 1ul << 26) != 0);

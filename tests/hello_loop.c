@@ -20,14 +20,14 @@
 #undef _FORTIFY_SOURCE
 #define _FORTIFY_SOURCE 0
 
-#include <unistd.h>
+#include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <limits.h>
+#include <unistd.h>
 #include "syscall.h"
 
-static const char *msg1 = "Hello, I am a loop ";
+static const char* msg1 = "Hello, I am a loop ";
 
 void run_forever(void)
 {
@@ -40,7 +40,7 @@ void run_forever(void)
       if (run_count % step == 0) {
          printf("Another brick in the wall # %ld (%ld)\n", run_count / step, run_count);
       }
-    }
+   }
 }
 
 int main()
