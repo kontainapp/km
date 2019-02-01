@@ -155,7 +155,7 @@ static int gdb_wait_for_connect(const char* image_name)
    }
 
    warnx("Waiting for a debugger. Connect to it like this:");
-   warnx("\tgdb --ex=\"target remote localhost:%d\" %s", g_gdb_port, image_name);
+   warnx("\tgdb --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n", g_gdb_port, image_name);
 
    len = sizeof(client_addr);
    socket_fd = accept(listen_socket_fd, (struct sockaddr*)&client_addr, &len);
@@ -513,13 +513,12 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
                send_error_msg();
                break;
             }
-            void* kma = km_gva_to_kma(addr);
-            if (kma == NULL) {
+            if ((kma = km_gva_to_kma(addr)) == NULL) {
                send_error_msg();
-            } else {
-               hex2mem(obuf, kma, len);
-               send_okay_msg();
+               break;
             }
+            hex2mem(obuf, kma, len);
+            send_okay_msg();
             break; /* Wait for another command. */
          }
          case 'g': {

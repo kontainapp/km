@@ -4,76 +4,100 @@
    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
    "version": "0.2.0",
    "configurations": [
-
       {
-         "name": "km-hello-html",
+         "name": "KM with a payload",
          "type": "cppdbg",
          "request": "launch",
          "program": "${workspaceFolder}/build/km/km",
-         "args": ["tests/hello_html.km"],
+         "args": [
+            "tests/${input:payload}.km"
+         ],
          "stopAtEntry": true,
          "cwd": "${workspaceFolder}",
          "environment": [],
          "externalConsole": false,
          "MIMode": "gdb",
-         "setupCommands": [{
-            "description": "Enable pretty-printing for gdb",
-            "text": "-enable-pretty-printing",
-            "ignoreFailures": true
-         }]
-      },
-      {
-         "name": "km-hello",
-         "type": "cppdbg",
-         "request": "launch",
-         "program": "${workspaceFolder}/build/km/km",
-         "args": ["tests/hello.km"],
-         "stopAtEntry": true,
-         "cwd": "${workspaceFolder}",
-         "environment": [],
-         "externalConsole": false,
-         "MIMode": "gdb",
-         "setupCommands": [{
-            "description": "Enable pretty-printing for gdb",
-            "text": "-enable-pretty-printing",
-            "ignoreFailures": true
-         }]
-      },
-      {
-         "name": "km-load",
-         "type": "cppdbg",
-         "request": "launch",
-         "program": "${workspaceFolder}/build/km/km",
-         "args": ["tests/load.km"],
-         "stopAtEntry": true,
-         "cwd": "${workspaceFolder}",
-         "environment": [],
-         "externalConsole": false,
-         "MIMode": "gdb",
-         "setupCommands": [{
-            "description": "Enable pretty-printing for gdb",
-            "text": "-enable-pretty-printing",
-            "ignoreFailures": true
-         }]
-      },
-      {
-        "name": "km-gdb-hello",
-        "type": "cppdbg",
-        "request": "launch",
-        "program": "${workspaceFolder}/build/km/km",
-        "args": ["-g", "3333", "tests/hello_loop.km"],
-        "stopAtEntry": false,
-        "cwd": "${workspaceFolder}",
-        "environment": [],
-        "externalConsole": false,
-        "MIMode": "gdb",
-        "setupCommands": [
+         "setupCommands": [
             {
-                "description": "Enable pretty-printing for gdb",
-                "text": "-enable-pretty-printing",
-                "ignoreFailures": true
+               "description": "Enable pretty-printing for gdb",
+               "text": "-enable-pretty-printing",
+               "ignoreFailures": true
             }
-        ]
-    }
-   ]
+         ]
+      },
+      {
+         "name": "KM gdb stub with a payload",
+         "type": "cppdbg",
+         "request": "launch",
+         "program": "${workspaceFolder}/build/km/km",
+         "args": [
+            "-g",
+            "3333",
+            "tests/${input:payload}.km"
+         ],
+         "stopAtEntry": false,
+         "cwd": "${workspaceFolder}",
+         "environment": [],
+         "externalConsole": false,
+         "MIMode": "gdb",
+         "setupCommands": [
+            {
+               "description": "Enable pretty-printing for gdb",
+               "text": "-enable-pretty-printing",
+               "ignoreFailures": true
+            }
+         ]
+      },
+      {
+         "name": "Payload debug (from tests)",
+         "type": "cppdbg",
+         "request": "launch",
+         "cwd": "${workspaceFolder}",
+         "program": "${workspaceFolder}/tests/${input:payload}.km",
+         "args": [
+            "set debug remote 3"
+         ],
+         "stopAtEntry": true,
+         "preLaunchTask": "make",
+         "miDebuggerServerAddress": "localhost:3333",
+         "miDebuggerArgs": "--silent",
+         "debugServerPath": "${workspaceFolder}/build/km/km",
+         "debugServerArgs": "-g 3333 -V ${workspaceFolder}/tests/${input:payload}.km",
+         "serverLaunchTimeout": 5000,
+         "filterStderr": true,
+         "filterStdout": false,
+         "serverStarted": "GdbServerStubStarted",
+         "logging": {
+            "moduleLoad": true,
+            "trace": false,
+            "engineLogging": true,
+            "programOutput": true,
+            "exceptions": true,
+            "traceResponse": false
+         },
+         "environment": [],
+         "externalConsole": false,
+         "setupCommands": [
+            {
+               "description": "Enable pretty-printing for gdb",
+               "text": "-enable-pretty-printing",
+               "ignoreFailures": true
+            },
+            {
+               "description": "Make sure we stop somewhere",
+               "text": "b printf",
+               "ignoreFailures": false
+            }
+         ]
+      }
+   ],
+   "inputs": [
+      {
+          "id": "payload",
+          "description": "payload file (basename) to debug (e.g. 'hello' for tests/hello.km ",
+          "default": "hello",
+          "type": "pickString",
+          "options": ["hello", "hello_html", "hello_loop", "load", "mem_brk", "gdb_test"]
+         }
+  ]
 }

@@ -24,6 +24,16 @@
                     "message": 5
                 }
             }
+        },
+        {
+            "label": "test",
+            "type": "process",
+            "command": "make",
+            "args": ["test"],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
         }
     ]
 }

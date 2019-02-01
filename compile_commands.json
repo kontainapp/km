@@ -22286,6 +22286,20 @@
         "arguments": [
             "cc",
             "-c",
+            "-Wall",
+            "-ggdb",
+            "-O2",
+            "-o",
+            "hello_loop.o",
+            "hello_loop.c"
+        ],
+        "directory": "${workspaceFolder}/tests",
+        "file": "hello_loop.c"
+    },
+    {
+        "arguments": [
+            "cc",
+            "-c",
             "-Os",
             "-D_XOPEN_SOURCE=700",
             "-pipe",
