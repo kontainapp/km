@@ -1,7 +1,7 @@
 {
 	"folders": [
 		{
-			"path": "/home/serge/workspace/km"
+			"path": ".."
 		}
 	],
 	"settings": {
@@ -26,8 +26,11 @@
          "locale_impl.h": "c"
       },
         "files.exclude": {
-            "build/**": true
-        },
+         "**/*.[od]": true,
+         "**/*.km": true,
+         "build/**": true,
+         "tests/[12].out": true
+      },
       "editor.tabSize": 3,
       "cSpell.words": [
          "HCALL",
