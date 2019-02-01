@@ -23,6 +23,8 @@
 #include <unistd.h>
 #include "syscall.h"
 
+static void const* __39_bit_mem = (void*)(512 * 0x40000000ul);
+
 static void const* high_addr = (void*)0x30000000ul;
 static void const* very_high_addr = (void*)(512 * 0x40000000ul);
 
@@ -45,13 +47,16 @@ int main()
    printf("%s from far up the memory %p\n", (char*)ptr1, ptr1);
 
    if (SYS_break(very_high_addr) != very_high_addr) {
-      perror("Unable to set brk that high");
+      perror("Unable to set brk that high (expected)");
+      assert(very_high_addr >= __39_bit_mem);
    } else {
       printf("break is %p\n", ptr1 = SYS_break(NULL));
 
       ptr1 -= 20;
       strcpy(ptr1, "Hello, world");
       printf("%s from even farer up the memory %p\n", (char*)ptr1, ptr1);
+
+      assert(very_high_addr < __39_bit_mem);
    }
 
    SYS_break((void*)ptr);

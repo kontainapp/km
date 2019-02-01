@@ -31,16 +31,16 @@ all: ${EXECS} ## Build a simple test
 test: all ## Run a simple test (may need /dev/kvm or privileged container)
 	pl_status=`${KM} exit_value.km |& awk '/status/ { print $$11 }'` ; \
 			if [ "$$pl_status" != "0x11" ] ; then echo ==$$pl_status ; false; fi
-	@echo "Exit value: Success"
+	@echo -e "Exit value: ${SUCCESS}"
 	pl_status=`${KM} load.km |& awk '/status/ { print $$11 }'` ; \
 			if [ "$$pl_status" != "0x0" ] ; then echo ==$$pl_status ; false; fi
-	@echo "Load: Success"
+	@echo -e "Load: ${SUCCESS}"
 	./hello > 1.out
 	${KM} hello.km > 2.out
 	@diff 1.out 2.out || false
-	@echo "Hello: Success"
-	${KM} mem_brk.km
-	@echo "Mem_brk: Success"
+	@echo -e "Hello: ${SUCCESS}"
+	${KM} mem_brk.km || false
+	@echo -e "Mem_brk: ${SUCCESS}"
 	./hello_html &
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
 	${KM} hello_html.km &
@@ -48,7 +48,7 @@ test: all ## Run a simple test (may need /dev/kvm or privileged container)
 	@# let it time to start before running curl
 	sleep 0.5s
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
-	@echo "Hello-html: Success"
+	@echo -e "Hello-html: ${SUCCESS}"
 	@rm 1.out 2.out
 
 %.km: %.o
@@ -64,6 +64,8 @@ clean:
 	rm -f *.o *.d $(EXECS) 1.out 2.out
 
 help:
+
+SUCCESS := \033[32;1mSuccess\033[0m
 
 #
 # do not generate .d file if target is clean
