@@ -22269,6 +22269,20 @@
         "file": "hello.c"
     },
     {
+      "arguments": [
+          "cc",
+          "-c",
+          "-Wall",
+          "-ggdb",
+          "-O2",
+          "-o",
+          "gdb_test.o",
+          "gdb_test.c"
+      ],
+      "directory": "${workspaceFolder}/tests",
+      "file": "gdb_test.c"
+  },
+    {
         "arguments": [
             "cc",
             "-c",

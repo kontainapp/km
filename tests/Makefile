@@ -17,13 +17,16 @@ LOADLIBES ?= -static
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:%.c=%.o}
 
-SRC_KM_ONLY := load.c exit_value.c mem_brk.c
+SRC_KM_ONLY := load.c exit_value.c mem_brk.c gdb_test.c
 SRC_LINUX := hello.c hello_html.c hello_loop.c
 SRC = ${SRC_LINUX} ${SRC_KM_ONLY}
 LDDIRS := ${TOP}build/runtime
 LIBS := runtime
 KM := ${TOP}build/km/km
 EXECS := ${SRC:%.c=%.km} ${SRC_LINUX:%.c=%}
+
+GDB_PAYLOAD := gdb_test.km
+GDB_EXPECTED_VAL := 1219779
 
 all: ${EXECS} ## Build a simple test
 
@@ -50,6 +53,16 @@ test: all ## Run a simple test (may need /dev/kvm or privileged container)
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
 	@echo -e "Hello-html: ${SUCCESS}"
 	@rm 1.out 2.out
+	@# === GDB TEST ===
+	@$(KM)  -g 3333 $(GDB_PAYLOAD)  &
+	@sleep 0.5
+	@gdb -q  \
+			-ex "target remote localhost:3333" \
+			-ex 'b print_str' \
+			-ex c -ex n -ex n -ex n \
+			-ex 'p var1' \
+			-ex c -ex q $(GDB_PAYLOAD) | grep -q $(GDB_EXPECTED_VAL)
+	@echo -e "gdb test:  ${SUCCESS}"
 
 %.km: %.o
 	${LD} $< -o $@ ${LDLAGS}
@@ -74,4 +87,4 @@ ifneq ($(MAKECMDGOALS), clean)
 -include ${DEPS}
 endif # ($(MAKECMDGOALS), clean)
 
-.PHONY: all clean test help
+.PHONY: all clean test help gdb
