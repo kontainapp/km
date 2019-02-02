@@ -53,78 +53,17 @@ static const int RSV_MEM_SIZE = PAGE_SIZE * 63;
  * Mandatory data structures in reserved area to enable 64 bit CPU.
  * These numbers are offsets from the start of reserved area
  */
-static const int RSV_GDT_OFFSET = 2 * PAGE_SIZE;
-static const int RSV_IDT_OFFSET = 3 * PAGE_SIZE;
-static const int RSV_PML4_OFFSET = 4 * PAGE_SIZE;
-static const int RSV_PDPT_OFFSET = 5 * PAGE_SIZE;
-static const int RSV_PDPT2_OFFSET = 6 * PAGE_SIZE;
-static const int RSV_PD_OFFSET = 7 * PAGE_SIZE;
-static const int RSV_PD2_OFFSET = 8 * PAGE_SIZE;
+static const int RSV_PML4_OFFSET = 0 * PAGE_SIZE;
+static const int RSV_PDPT_OFFSET = 1 * PAGE_SIZE;
+static const int RSV_PDPT2_OFFSET = 2 * PAGE_SIZE;
+static const int RSV_PD_OFFSET = 3 * PAGE_SIZE;
+static const int RSV_PD2_OFFSET = 4 * PAGE_SIZE;
 /*
  * convert the above to guest physical offsets
  */
 #define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
 
 #define GUEST_MEM_START_PA memreg_base(KM_TEXT_DATA_MEMSLOT)
-
-/*
- * Segment constants. They go directly to ioctl to set x86 registers, and
- * translate to GDT entries in memory
- */
-static const kvm_seg_t seg_code = {
-    .selector = 1,
-    .limit = 0xffffffff,
-    .type = 9, /* Execute-only, accessed */
-    .present = 1,
-    .s = 1,
-    .l = 1,
-    .g = 1,
-};
-
-static const kvm_seg_t seg_data = {
-    .selector = 2,
-    .limit = 0xffffffff,
-    .type = 3, /* Read-write, accessed */
-    .present = 1,
-    .db = 1,
-    .s = 1,
-    .g = 1,
-};
-
-static const kvm_seg_t seg_tr = {
-    .base = 0,
-    .limit = 0,
-    .type = 11, /* 64-bit TSS, busy */
-    .present = 1,
-};
-
-static const kvm_seg_t seg_unused = {
-    .unusable = 1,
-};
-
-/*
- * GDT in the first reserved page, idt in the second
- *
- * TODO: Do we even need to specify idt if there are no interrupts?
- */
-static void km_init_gdt_idt(void* mem)
-{
-   x86_seg_d_t* seg = mem + RSV_GDT_OFFSET;
-   /*
-    * Three first slots in gdt - none, code, data
-    */
-   static const x86_seg_d_t gdt[] = {
-       {0},
-       {.limit_hi = 0xf, .limit_lo = 0xffff, .type = 9, .p = 1, .s = 1, .l = 1, .g = 1},
-       {.limit_hi = 0xf, .limit_lo = 0xffff, .type = 3, .p = 1, .d_b = 1, .s = 1, .g = 1},
-   };
-
-   memcpy(seg, gdt, 3 * sizeof(*seg));
-
-   /* IDT - just zeroed out, or do we need to ``.type = 0b1110;''? */
-   seg = mem + RSV_IDT_OFFSET;
-   memset(seg, 0, PAGE_SIZE);
-}
 
 static void pml4e_set(x86_pml4e_t* pml4e, uint64_t pdpt)
 {
@@ -294,7 +233,6 @@ static void km_mem_init(void)
       err(1, "KVM: set reserved region failed");
    }
    machine.vm_mem_regs[KM_RSRV_MEMSLOT] = reg;
-   km_init_gdt_idt((void*)reg->userspace_addr);
    init_pml4((void*)reg->userspace_addr);
 
    /* 2. data and text memory, account for brk */
@@ -492,27 +430,26 @@ void km_machine_fini(void)
    km_hcalls_fini();
 }
 
-static void kvm_vcpu_init_sregs(int fd)
+static void kvm_vcpu_init_sregs(int fd, uint64_t fs)
 {
-   static const kvm_sregs_t sregs = {
+   static const kvm_sregs_t sregs_template = {
        .cr0 = X86_CR0_PE | X86_CR0_PG | X86_CR0_WP | X86_CR0_NE,
        .cr3 = RSV_MEM_START + RSV_PML4_OFFSET,
        .cr4 = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_OSFXSR | X86_CR4_OSXMMEXCPT,
        .efer = X86_EFER_LME | X86_EFER_LMA,
 
-       .cs = seg_code,
-       .ss = seg_data,
-       .ds = seg_data,
-       .es = seg_data,
-       .fs = seg_data,
-       .gs = seg_data,
-
-       .gdt = {.base = RSV_MEM_START + RSV_GDT_OFFSET, .limit = PAGE_SIZE},
-       .idt = {.base = RSV_MEM_START + RSV_IDT_OFFSET, .limit = PAGE_SIZE},
-       .tr = seg_tr,
-       .ldt = seg_unused,
+       .cs = {.limit = 0xffffffff,
+              .type = 9, /* Execute-only, accessed */
+              .present = 1,
+              .s = 1,
+              .l = 1,
+              .g = 1},
+       .tr = {.type = 11, /* 64-bit TSS, busy */
+              .present = 1},
    };
+   kvm_sregs_t sregs = sregs_template;
 
+   sregs.fs.base = fs;
    if (ioctl(fd, KVM_SET_SREGS, &sregs) < 0) {
       err(1, "KVM: set sregs failed");
    }
@@ -523,7 +460,7 @@ static void kvm_vcpu_init_sregs(int fd)
  * Set RIP, SP, RFLAGS, clear the rest of the regs.
  * VCPU is ready to run starting with instruction @RIP
  */
-km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp)
+km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp, uint64_t fs_base)
 {
    km_vcpu_t* vcpu;
    int cnt = machine.vm_cpu_cnt;
@@ -551,7 +488,7 @@ km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp)
       err(1, "KVM: failed mmap VCPU %d control region", cnt);
    }
    machine.vm_vcpus[cnt++] = vcpu;
-   kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd);
+   kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, fs_base);
 
    /* per ABI, make sure sp + 8 is 16 aligned */
    sp &= ~(7ul);

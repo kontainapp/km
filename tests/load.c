@@ -21,11 +21,12 @@ static const char msg2[] = "after loading big array\n";
  * To recompute the size, compile load.km then run make load_expected_size and replace the number
  * below with printed one.
  */
-static const unsigned long size = 0x0000000000602014;
+static const unsigned long size = 0x000000000060200e;
 
 int main()
 {
    int ret;
+   unsigned int x;
 
    ret = write(1, msg1, sizeof(msg1) - 1);
    ret = write(1, pad, 1);
@@ -33,7 +34,7 @@ int main()
    if (ret)
       ;
 
-   if (syscall(SYS_brk, 0) != size) {
+   if ((x = syscall(SYS_brk, 0)) != size) {
       syscall(SYS_exit, 1);
    }
    syscall(SYS_exit, 0);

@@ -52,11 +52,11 @@ static void* km_start_vcpu_thread(void* arg)
 
 int main(int argc, char* const argv[])
 {
-   uint64_t guest_entry;
    int i;
    int opt;
    char* payload_file = NULL;
    bool wait_for_signal = false;
+   uint64_t fs;
 
    while ((opt = getopt(argc, argv, "wg:V")) != -1) {
       switch (opt) {
@@ -83,10 +83,11 @@ int main(int argc, char* const argv[])
    payload_file = argv[optind];
 
    km_machine_init();
-   load_elf(payload_file, &guest_entry);
+   load_elf(payload_file);
+   fs = km_init_guest();
    km_hcalls_init();
    for (i = 0; i < VCPU_THREAD_CNT; i++) {
-      g_km_threads.vcpu[i] = km_vcpu_init(guest_entry, GUEST_STACK_TOP - 1);
+      g_km_threads.vcpu[i] = km_vcpu_init(km_guest.km_ehdr.e_entry, GUEST_STACK_TOP - 1, fs);
    }
 
    if (km_gdb_enabled()) {

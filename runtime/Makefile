@@ -23,8 +23,10 @@ SRC_DIRS := $(filter-out ${SKIP_SRC_DIR}, $(wildcard $(addprefix $(SRCDIR),src/*
 BASE_SRCS := $(wildcard $(addsuffix *.c,$(SRC_DIRS)))
 ARCH_SRCS := $(wildcard $(addsuffix $(ARCH)/*.[csS],$(SRC_DIRS)))
 # asm/arch specific implementations replacing base ones
-REPLACED_SRCS := $(addsuffix .%, $(subst /$(ARCH)/,/,$(basename $(ARCH_SRCS)))) %syscall.s %__errno_location.c %strerror.c
-SOURCES := $(filter-out ${REPLACED_SRCS}, ${BASE_SRCS} ${ARCH_SRCS}) syscall_km.c __errno_location.c strerror.c
+REPLACED_SRCS := $(addsuffix .%, $(subst /$(ARCH)/,/,$(basename $(ARCH_SRCS))))
+KM_REPLACED_SRCS := syscall.s __libc_start_main.c __init_tls.c
+SOURCES := $(filter-out ${REPLACED_SRCS}, ${BASE_SRCS} ${ARCH_SRCS})
+SOURCES := $(filter-out $(addprefix %, ${KM_REPLACED_SRCS}), ${SOURCES}) syscall_km.c
 
 H_DIRS := arch/$(ARCH) arch/generic src/include src/internal src/errno include
 # has to be recursive assignment as BLDDIR is defined in an include below

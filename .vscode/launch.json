@@ -55,22 +55,22 @@
          "cwd": "${workspaceFolder}",
          "program": "${workspaceFolder}/tests/${input:payload}.km",
          "args": [
-            "set debug remote 3"
+            "set debug remote 0"
          ],
          "stopAtEntry": true,
          "preLaunchTask": "make",
          "miDebuggerServerAddress": "localhost:3333",
          "miDebuggerArgs": "--silent",
          "debugServerPath": "${workspaceFolder}/build/km/km",
-         "debugServerArgs": "-g 3333 -V ${workspaceFolder}/tests/${input:payload}.km",
+         "debugServerArgs": "-g 3333 ${workspaceFolder}/tests/${input:payload}.km",
          "serverLaunchTimeout": 5000,
          "filterStderr": true,
          "filterStdout": false,
          "serverStarted": "GdbServerStubStarted",
          "logging": {
-            "moduleLoad": true,
+            "moduleLoad": false,
             "trace": false,
-            "engineLogging": true,
+            "engineLogging": false,
             "programOutput": true,
             "exceptions": true,
             "traceResponse": false

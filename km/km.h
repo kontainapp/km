@@ -16,6 +16,13 @@
 #include <err.h>
 #include <stdint.h>
 #include <linux/kvm.h>
+#include <sys/param.h>
+
+#include "km_elf.h"
+
+#define rounddown(x, y)  (__builtin_constant_p (y) && powerof2 (y)   \
+                         ? ((x) & ~((y) - 1))                       \
+                         : (((x) / (y)) * (y)))
 
 static const uint64_t PAGE_SIZE = 0x1000;   // standard 4k page
 static const uint64_t MIB = 0x100000;       // MByte
@@ -36,9 +43,8 @@ typedef struct km_vcpu {
    kvm_run_t* cpu_run;   // run control region
 } km_vcpu_t;
 
-int load_elf(const char* file, uint64_t* entry);
 void km_machine_init(void);
-km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp);
+km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp, uint64_t fs_base);
 void km_vcpu_run(km_vcpu_t* vcpu);
 
 /*
@@ -175,6 +181,7 @@ static inline void* km_gva_to_kma(uint64_t gva)
 }
 
 uint64_t km_mem_brk(uint64_t brk);
+uint64_t km_init_guest(void);
 
 /*
  * Trivial trace() based on warn() - but with an a switch to run off and on.
