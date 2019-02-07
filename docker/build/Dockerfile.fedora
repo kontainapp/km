@@ -20,7 +20,7 @@ ARG UID
 ARG GID
 
 RUN dnf install -y gcc glibc-static\
-		elfutils-libelf-devel elfutils-libelf-devel-static glibc-devel  \
+		elfutils-libelf-devel elfutils-libelf-devel-static glibc-devel gdb \
 		make git \
 	&& dnf clean all
 
