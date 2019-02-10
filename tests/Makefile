@@ -12,38 +12,52 @@ SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-cdup)
 COPTS ?= -ggdb -O2
 CFLAGS = -Wall $(COPTS) -fno-stack-protector
-LDLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
+KM_LDFLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
 LOADLIBES ?= -static
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:%.c=%.o}
 
-SRC_KM_ONLY := load.c exit_value.c mem_brk.c gdb_test.c
-SRC_LINUX := hello.c hello_html.c hello_loop.c
-SRC = ${SRC_LINUX} ${SRC_KM_ONLY}
+# Tests to run in KM only, build only .km
+SRC_KM_ONLY := exit_value.c load.c mem_brk.c
+# Tests to run in linux and km, and compare. Build for both
+SRC_LINUX := hello.c hello_html.c gdb_test.c
+# Helpers, build for KM and linix, do not run as part of test
+SRC_HELPERS := hello_loop.c 
+
+SRC = ${SRC_LINUX} ${SRC_KM_ONLY} ${SRC_HELPERS}
 LDDIRS := ${TOP}build/runtime
 LIBS := runtime
 KM := ${TOP}build/km/km
 EXECS := ${SRC:%.c=%.km} ${SRC_LINUX:%.c=%}
-
-GDB_PAYLOAD := gdb_test.km
-GDB_EXPECTED_VAL := 1219779
+# add a leading '.' 
+TEST_TARGETS :=  ${SRC_KM_ONLY:%.c=.%} ${SRC_LINUX:%.c=.%}
 
 all: ${EXECS} ## Build a simple test
 
 # Run tests in regular bash and in km/VMM.
-test: all ## Run a simple test (may need /dev/kvm or privileged container)
+test: all $(TEST_TARGETS) ## Run a simple test (may need /dev/kvm or privileged container)
+
+.exit_value: 
 	pl_status=`${KM} exit_value.km |& awk '/status/ { print $$11 }'` ; \
 			if [ "$$pl_status" != "0x11" ] ; then echo ==$$pl_status ; false; fi
-	@echo -e "Exit value: ${SUCCESS}"
+	@echo -e "$@: ${SUCCESS}"
+
+.load:
 	pl_status=`${KM} load.km |& awk '/status/ { print $$11 }'` ; \
 			if [ "$$pl_status" != "0x0" ] ; then echo ==$$pl_status ; false; fi
-	@echo -e "Load: ${SUCCESS}"
+	@echo -e "$@: ${SUCCESS}"
+
+.hello: 
 	./hello > 1.out
 	${KM} hello.km > 2.out
 	@diff 1.out 2.out || false
-	@echo -e "Hello: ${SUCCESS}"
+	@echo -e "$@: ${SUCCESS}"
+
+.mem_brk:
 	${KM} mem_brk.km || false
-	@echo -e "Mem_brk: ${SUCCESS}"
+	@echo -e "$@: ${SUCCESS}"
+
+.hello_html:
 	./hello_html &
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
 	${KM} hello_html.km &
@@ -51,21 +65,19 @@ test: all ## Run a simple test (may need /dev/kvm or privileged container)
 	@# let it time to start before running curl
 	sleep 0.5s
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
-	@echo -e "Hello-html: ${SUCCESS}"
+	@echo -e "$@: ${SUCCESS}"
 	@rm 1.out 2.out
-	@# === GDB TEST ===
-	@$(KM)  -g 3333 $(GDB_PAYLOAD)  &
+
+.gdb_test:
+	@$(KM)  -g 3333 gdb_test.km  &
 	@sleep 0.5
-	@gdb -q  \
-			-ex "target remote localhost:3333" \
-			-ex 'b print_str' \
-			-ex c -ex n -ex n -ex n \
-			-ex 'p var1' \
-			-ex c -ex q $(GDB_PAYLOAD) | grep -q $(GDB_EXPECTED_VAL)
-	@echo -e "gdb test:  ${SUCCESS}"
+	@gdb 	-q -nx --ex="target remote :3333"  \
+			--ex="source cmd_for_test.gdb"  --ex=c --ex=q \
+			gdb_test.km | grep -q SUCCESS
+	@echo -e "$@:  ${SUCCESS}"
 
 %.km: %.o
-	${LD} $< -o $@ ${LDLAGS}
+	${LD} $< -o $@ ${KM_LDFLAGS}
 
 .PHONY: load_expected_size
 load_expected_size: load.km

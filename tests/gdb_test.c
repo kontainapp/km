@@ -19,24 +19,46 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int var1 = 333;
-static char* str1 = "I am here !";
+static int volatile var1 = 333; // volatile to stop optimization
 
-static int print_str(char const* s, int i)
+/* 
+ * expected value (see below for calculation) 
+ * should be in sync with cmd_for_test.gdb
+ */
+static const int expected = 454201677;
+
+/*
+ * Do some conversion and return the result.
+ * This result later will be printed in gdb to as a test
+ */
+int change_and_print(int i)
 {
-      printf("Got %s and %d\n", s, i);
-      i *= i;
-      i *= strlen(s);
-      printf("and converted to %d\n", i);
-      return i;
+   i *= i;
+   i = (i << 12) + var1;
+   printf("%s returned %d\n", __FUNCTION__, i);
+   return i;
 }
 
-int main()
-{
-   int n = var1 * var1 * strlen(str1);
-   assert(n == print_str(str1, var1));
-   var1 = n;
-   printf("Done\n");
+/* 
+ * Another heper gdb tests */
+static int rand_func(int i) {
+   int volatile n = i;
+   n = rand() * i;
+   n++;
+   return n;
+}
+
+int main() {
+   int n = ((var1 * var1) << 12) + var1;
+   int m = change_and_print(var1);
+   printf("n=%d m=%d, EXPECTED=%d\n", n, m, expected);
+   assert(n == m);
+   // EXPECTED value is put in var1 here for gdb to validate
+   var1 = n; 
+   n = rand_func(n);
+   n = change_and_print(n);
+   printf("got 0x%x. Now done\n", n);
+   var1 = 0;
 
    exit(0);
 }

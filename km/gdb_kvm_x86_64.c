@@ -486,6 +486,7 @@ int km_gdb_exit_reason_to_signal(km_vcpu_t* vcpu)
 {
    switch (vcpu->cpu_run->exit_reason) {
       case KVM_EXIT_DEBUG:
+         // TODO: check db7 for HW watchpoints
          return SIGTRAP;
 
       case KVM_EXIT_INTR:

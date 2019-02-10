@@ -5,6 +5,7 @@ trace.dat
 tests/hello
 tests/hello_html
 tests/hello_loop
+tests/gdb_test
 tests/*.out
 *.km
 *.d
