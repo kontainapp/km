@@ -67,6 +67,10 @@ test: all ## Run a simple test (may need /dev/kvm or privileged container)
 %.km: %.o
 	${LD} $< -o $@ ${LDLAGS}
 
+.PHONY: load_expected_size
+load_expected_size: load.km
+	@nm load.km | awk '/__end_elf__/{ print "0x" $$1}'
+
 %.d: %.c
 	@echo $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@
 	@set -e; rm -f $@; \

@@ -17,7 +17,11 @@
 static char msg1[] = "Hello, world,";
 static char pad[0x400000] = " padding";
 static const char msg2[] = "after loading big array\n";
-static const unsigned long size = 0x603004;
+/*
+ * To recompute the size, compile load.km then run make load_expected_size and replace the number
+ * below with printed one.
+ */
+static const unsigned long size = 0x0000000000602014;
 
 int main()
 {
