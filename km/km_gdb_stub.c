@@ -377,7 +377,7 @@ static void km_signal_gdb_about_kvm_exit(void)
  */
 static void km_signal_vcpu_about_gdb_intr(void)
 {
-   if (pthread_kill(g_km_threads.vcpu_thread[0], GDBSTUB_SIGNAL) < 0) {
+   if (pthread_kill(g_km_threads.vcpu_thread[0], GDBSTUB_SIGNAL) != 0) {
       err(1, "Failed to send signal to VCPU to wake it up");
    }
 }

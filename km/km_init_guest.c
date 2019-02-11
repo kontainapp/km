@@ -136,7 +136,7 @@ km_builtin_tls_t builtin_tls[1];
  * sets of variables for each structure we deal with, like libc and libc_kma, former and latter
  * correspondingly. The guest addresses are, as everywhere in km, of uint64_t. km addresses are of
  * the type there are in the guest. When we need to obtain addresses of subfields in the guests we
- * cast the uint64_t to the appropriate pointer, the use &(struct)->field.
+ * cast the uint64_t to the appropriate pointer, then use &(struct)->field.
  *
  * TODO: There are other guest structures, such as __environ, __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
@@ -161,7 +161,9 @@ uint64_t km_init_guest(void)
    /*
     * TODO: km_main_tls should be initialized from ELF headers of PT_TLS, PT_PHDR ... type to get
     * information about guest program specific TLS. For now we go with minimal TLS just to support
-    * pthreads and internal data.
+    * pthreads and internal data. As such, there is no need for the "2 * sizeof(void*)". That space
+    * should be used for dtv which is part of TLS support. dtv[0] is generation #, dtv[1] is a
+    * pointer to the only TLS area as this is static program.
     */
    libc_kma->tls_align = MIN_TLS_ALIGN;
    libc_kma->tls_size = 2 * sizeof(void*) + sizeof(km_pthread_t) + MIN_TLS_ALIGN;

@@ -463,7 +463,6 @@ static void kvm_vcpu_init_sregs(int fd, uint64_t fs)
 km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp, uint64_t fs_base)
 {
    km_vcpu_t* vcpu;
-   int cnt = machine.vm_cpu_cnt;
 
    /*
     * TODO: consider returning errors to be able to keep going instead of just
@@ -476,8 +475,8 @@ km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp, uint64_t fs_base)
    if ((vcpu = malloc(sizeof(km_vcpu_t))) == NULL) {
       err(1, "KVM: no memory for vcpu");
    }
-   if ((vcpu->kvm_vcpu_fd = ioctl(machine.mach_fd, KVM_CREATE_VCPU, cnt)) < 0) {
-      err(1, "KVM: create vcpu %d failed", cnt);
+   if ((vcpu->kvm_vcpu_fd = ioctl(machine.mach_fd, KVM_CREATE_VCPU, machine.vm_cpu_cnt)) < 0) {
+      err(1, "KVM: create vcpu %d failed", machine.vm_cpu_cnt);
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_CPUID2, machine.cpuid) < 0) {
       err(1, "KVM: set CPUID2 failed");
@@ -485,9 +484,9 @@ km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp, uint64_t fs_base)
    if ((vcpu->cpu_run = mmap(
             NULL, machine.vm_run_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu->kvm_vcpu_fd, 0)) ==
        MAP_FAILED) {
-      err(1, "KVM: failed mmap VCPU %d control region", cnt);
+      err(1, "KVM: failed mmap VCPU %d control region", machine.vm_cpu_cnt);
    }
-   machine.vm_vcpus[cnt++] = vcpu;
+   machine.vm_vcpus[machine.vm_cpu_cnt++] = vcpu;
    kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, fs_base);
 
    /* per ABI, make sure sp + 8 is 16 aligned */

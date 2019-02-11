@@ -23,7 +23,8 @@
          "mman-linux.h": "c",
          "features.h": "c",
          "__strerror.h": "c",
-         "locale_impl.h": "c"
+         "locale_impl.h": "c",
+         "km_gdb.h": "c"
       },
         "files.exclude": {
          "**/*.[od]": true,
