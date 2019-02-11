@@ -283,15 +283,13 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg)
    uint64_t base = memreg_base(idx);
 
    if (size < PDPTE_REGION) {
-      x86_pde_2m_t* pde =
-          (x86_pde_2m_t*)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]->userspace_addr + RSV_PD_OFFSET);
+      x86_pde_2m_t* pde = km_memreg_kma(KM_RSRV_MEMSLOT) + RSV_PD_OFFSET;
       for (uint64_t i = 0; i < size; i += PDE_REGION) {
          pde_2mb_set(pde + (i + base) / PDE_REGION, reg->guest_phys_addr + i);
       }
    } else {
       assert(machine.pdpe1g != 0);   // no 1GB pages support
-      x86_pdpte_1g_t* pdpe =
-          (x86_pdpte_1g_t*)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]->userspace_addr + RSV_PDPT_OFFSET);
+      x86_pdpte_1g_t* pdpe = km_memreg_kma(KM_RSRV_MEMSLOT) + RSV_PDPT_OFFSET;
       for (uint64_t i = 0; i < size; i += PDPTE_REGION) {
          pdpte_1g_set(pdpe + (i + base) / PDPTE_REGION, reg->guest_phys_addr + i);
       }
@@ -305,15 +303,13 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg)
    uint64_t base = memreg_base(idx);
 
    if (size < PDPTE_REGION) {
-      x86_pde_2m_t* pde =
-          (x86_pde_2m_t*)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]->userspace_addr + RSV_PD_OFFSET);
+      x86_pde_2m_t* pde = km_memreg_kma(KM_RSRV_MEMSLOT) + RSV_PD_OFFSET;
       for (uint64_t i = 0; i < size; i += PDE_REGION) {
          memset(pde + (i + base) / PDE_REGION, 0, sizeof(*pde));
       }
    } else {
       assert(machine.pdpe1g != 0);   // no 1GB pages support
-      x86_pdpte_1g_t* pdpe =
-          (x86_pdpte_1g_t*)(machine.vm_mem_regs[KM_RSRV_MEMSLOT]->userspace_addr + RSV_PDPT_OFFSET);
+      x86_pdpte_1g_t* pdpe = km_memreg_kma(KM_RSRV_MEMSLOT) + RSV_PDPT_OFFSET;
       for (uint64_t i = 0; i < size; i += PDPTE_REGION) {
          memset(pdpe + (i + base) / PDPTE_REGION, 0, sizeof(*pdpe));
       }

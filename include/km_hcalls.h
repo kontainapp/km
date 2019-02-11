@@ -10,6 +10,9 @@
  * permission of Kontain Inc.
  */
 
+#ifndef __KM_HCALLS_H__
+#define __KM_HCALLS_H__
+
 #include <stdint.h>
 
 /*
@@ -35,3 +38,5 @@ static inline void km_hcall(int n, km_hc_args_t* arg)
                         : "a"((uint32_t)((uint64_t)arg)), "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
                         : "memory");
 }
+
+#endif /* #ifndef __KM_HCALLS_H__ */

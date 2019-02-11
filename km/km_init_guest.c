@@ -172,7 +172,7 @@ uint64_t km_init_guest(void)
       err(2, "No memory for TLS");
    }
    tcb = rounddown(mem + libc_kma->tls_size - sizeof(km_pthread_t), libc_kma->tls_align);
-   tcb_kma = (km_pthread_t*)km_gva_to_kml(tcb);
+   tcb_kma = km_gva_to_kma(tcb);
    tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)mem;
    tcb_kma->self = (km_pthread_t*)tcb;
    tcb_kma->detach_state = DT_JOINABLE;

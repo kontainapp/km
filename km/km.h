@@ -19,6 +19,7 @@
 #include <sys/param.h>
 
 #include "km_elf.h"
+#include "km_hcalls.h"
 
 #define rounddown(x, y)  (__builtin_constant_p (y) && powerof2 (y)   \
                          ? ((x) & ~((y) - 1))                       \
@@ -51,8 +52,7 @@ void km_vcpu_run(km_vcpu_t* vcpu);
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
 #define KM_MAX_HCALL 512
-
-typedef int (*km_hcall_fn_t)(int hc __attribute__((__unused__)), uint64_t guest_addr, int* status);
+typedef int (*km_hcall_fn_t)(int hc __attribute__((__unused__)), km_hc_args_t* guest_addr, int* status);
 
 extern km_hcall_fn_t km_hcalls_table[];
 
@@ -83,6 +83,12 @@ typedef struct km_machine {
 } km_machine_t;
 
 extern km_machine_t machine;
+
+static void* km_memreg_kma(int idx) __attribute__((unused));
+static void* km_memreg_kma(int idx)
+{
+   return (void*)machine.vm_mem_regs[idx]->userspace_addr;
+}
 
 static const int KM_RSRV_MEMSLOT = 0;
 static const int KM_TEXT_DATA_MEMSLOT = 1;
@@ -159,25 +165,17 @@ static inline uint64_t memreg_top(int idx)
    return (MIB << 1) << idx;
 }
 
-static inline uint64_t km_gva_to_kml(uint64_t gva)
+static inline void* km_gva_to_kma(uint64_t gva)
 {
    if (gva >= GUEST_STACK_START_VA && gva < GUEST_STACK_TOP) {
-      return machine.vm_mem_regs[KM_STACK_MEMSLOT]->userspace_addr - GUEST_STACK_START_VA + gva;
+      return km_memreg_kma(KM_STACK_MEMSLOT) - GUEST_STACK_START_VA + gva;
    }
    if (GUEST_MEM_START_VA <= gva && gva < machine.brk) {
       int idx = gva_to_memreg_idx(gva);
 
-      return gva - memreg_base(idx) + machine.vm_mem_regs[idx]->userspace_addr;
+      return gva - memreg_base(idx) + km_memreg_kma(idx);
    }
-   return (uint64_t)NULL;
-}
-
-/*
- * Same as above but cast to (void *)
- */
-static inline void* km_gva_to_kma(uint64_t gva)
-{
-   return (void*)km_gva_to_kml(gva);
+   return NULL;
 }
 
 uint64_t km_mem_brk(uint64_t brk);

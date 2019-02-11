@@ -89,7 +89,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
    if (ga > GUEST_STACK_TOP) {
       ga -= 4 * GIB;
    }
-   return km_hcalls_table[*hc](*hc, km_gva_to_kml(ga), status);
+   return km_hcalls_table[*hc](*hc, km_gva_to_kma(ga), status);
 }
 
 void km_vcpu_run(km_vcpu_t* vcpu)
