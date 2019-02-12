@@ -18,6 +18,7 @@
 #include <sys/param.h>
 #include <linux/kvm.h>
 
+#include "chan/chan.h"
 #include "km_elf.h"
 #include "km_hcalls.h"
 
@@ -44,9 +45,12 @@ typedef void* km_kma_t;      // kontain monitor address (i.e. address in km proc
 typedef struct km_vcpu {
    int kvm_vcpu_fd;      // this VCPU file descriptors
    kvm_run_t* cpu_run;   // run control region
+   pthread_t vcpu_thread;
+   chan_t* vcpu_chan;
 } km_vcpu_t;
 
 void km_machine_init(void);
+void km_machine_fini(void);
 km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, km_gva_t fs_base);
 void km_vcpu_run(km_vcpu_t* vcpu);
 
@@ -88,8 +92,24 @@ typedef struct km_machine {
 
 extern km_machine_t machine;
 
-static km_kma_t km_memreg_kma(int idx) __attribute__((unused));
-static km_kma_t km_memreg_kma(int idx)
+static inline km_vcpu_t* km_main_vcpu(void)
+{
+   return machine.vm_vcpus[0];
+}
+
+static inline int km_put_new_vcpu(km_vcpu_t* new)
+{
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      if (machine.vm_vcpus[i] == NULL) {
+         machine.vm_cpu_cnt++;
+         machine.vm_vcpus[i] = new;
+         return i;
+      }
+   }
+   return -1;
+}
+
+static inline void* km_memreg_kma(int idx)
 {
    return (km_kma_t)machine.vm_mem_regs[idx]->userspace_addr;
 }

@@ -24,9 +24,7 @@
 #include "km.h"
 #include "km_gdb.h"
 #include "km_signal.h"
-#include "km_thread.h"
 
-km_threads_t g_km_threads;
 int g_km_info_verbose;   // 0 is silent
 
 static inline void usage()
@@ -39,7 +37,7 @@ static inline void usage()
         "\n\t-g port - listens for gbd to connect on <port> before running VM payload");
 }
 
-static void* km_start_vcpu_thread(void* arg)
+static void* km_start_vcpu(void* arg)
 {
    km_vcpu_t* vcpu = (km_vcpu_t*)arg;
 
@@ -52,7 +50,6 @@ static void* km_start_vcpu_thread(void* arg)
 
 int main(int argc, char* const argv[])
 {
-   int i;
    int opt;
    char* payload_file = NULL;
    bool wait_for_signal = false;
@@ -86,9 +83,8 @@ int main(int argc, char* const argv[])
    load_elf(payload_file);
    fs = km_init_guest();
    km_hcalls_init();
-   for (i = 0; i < VCPU_THREAD_CNT; i++) {
-      g_km_threads.vcpu[i] = km_vcpu_init(km_guest.km_ehdr.e_entry, GUEST_STACK_TOP - 1, fs);
-   }
+   // Initialize main vcpu with payload entry point, main stack, and main pthred pointer
+   km_vcpu_init(km_guest.km_ehdr.e_entry, GUEST_STACK_TOP - 1, fs);
 
    if (km_gdb_enabled()) {
       km_gdb_start_stub(g_gdb_port, payload_file);
@@ -99,23 +95,12 @@ int main(int argc, char* const argv[])
       km_wait_for_signal(SIGUSR1);
    }
 
-   g_km_threads.main_thread = pthread_self();
-   for (i = 0; i < VCPU_THREAD_CNT; i++) {
-      if (pthread_create(&g_km_threads.vcpu_thread[i],
-                         NULL,
-                         &km_start_vcpu_thread,
-                         (void*)g_km_threads.vcpu[i]) != 0) {
-         err(2, "Failed to create run_vcpu thread %d", i);
-      }
+   if (pthread_create(&km_main_vcpu()->vcpu_thread, NULL, km_start_vcpu, km_main_vcpu()) != 0) {
+      err(2, "Failed to create main run_vcpu thread");
    }
    if (km_gdb_enabled()) {
-      pthread_join(g_km_threads.gdbsrv_thread, NULL);
-      chan_dispose(g_km_threads.gdb_chan);
+      km_gdb_stop_stub();
    }
-   for (i = 0; i < VCPU_THREAD_CNT; i++) {
-      pthread_join(g_km_threads.vcpu_thread[i], NULL);
-      if (g_km_threads.vcpu_chan[i])
-         chan_dispose(g_km_threads.vcpu_chan[i]);
-   }
-   return 1;
+   km_machine_fini();
+   exit(0);
 }

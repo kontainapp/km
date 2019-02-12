@@ -23,6 +23,7 @@
 #include <sys/param.h>
 
 #include "km.h"
+#include "km_gdb.h"
 #include "x86_cpu.h"
 
 km_machine_t machine = {
@@ -380,15 +381,19 @@ km_gva_t km_mem_brk(km_gva_t brk)
 }
 
 /*
- * TODO: Is it needed as we exiting anyways?
+ * Join the vcpu threads, then dispose of all machine resources
  */
 void km_machine_fini(void)
 {
    /* check if there are any VCPUs */
-   for (; machine.vm_cpu_cnt; machine.vm_cpu_cnt--) {
-      km_vcpu_t* vcpu = machine.vm_vcpus[machine.vm_cpu_cnt - 1];
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      km_vcpu_t* vcpu = machine.vm_vcpus[i];
 
       if (vcpu != NULL) {
+         pthread_join(vcpu->vcpu_thread, NULL);
+         if (vcpu->vcpu_chan != NULL) {
+            chan_dispose(vcpu->vcpu_chan);
+         }
          if (vcpu->cpu_run != NULL) {
             (void)munmap(vcpu->cpu_run, machine.vm_run_size);
          }
@@ -396,6 +401,8 @@ void km_machine_fini(void)
             close(vcpu->kvm_vcpu_fd);
          }
          free(vcpu);
+         machine.vm_vcpus[i] = NULL;
+         machine.vm_cpu_cnt--;
       }
    }
    /* check if there are any memory regions */
@@ -460,20 +467,20 @@ static void kvm_vcpu_init_sregs(int fd, uint64_t fs)
 km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
 {
    km_vcpu_t* vcpu;
+   int vcpu_id;
 
    /*
     * TODO: consider returning errors to be able to keep going instead of just
     * giving up
     */
-   /*
-    * TODO: check if we have too many VCPUs already. Need to get the
-    * KVM_CAP_NR_VCPUS and/or KVM_CAP_NR_VCPUS in km_machine_init()
-    */
    if ((vcpu = malloc(sizeof(km_vcpu_t))) == NULL) {
       err(1, "KVM: no memory for vcpu");
    }
-   if ((vcpu->kvm_vcpu_fd = ioctl(machine.mach_fd, KVM_CREATE_VCPU, machine.vm_cpu_cnt)) < 0) {
-      err(1, "KVM: create vcpu %d failed", machine.vm_cpu_cnt);
+   if ((vcpu_id = km_put_new_vcpu(vcpu)) < 0) {
+      err(1, "KVM: too many vcpus");
+   }
+   if ((vcpu->kvm_vcpu_fd = ioctl(machine.mach_fd, KVM_CREATE_VCPU, vcpu_id)) < 0) {
+      err(1, "KVM: create vcpu %d failed", vcpu_id);
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_CPUID2, machine.cpuid) < 0) {
       err(1, "KVM: set CPUID2 failed");
@@ -481,9 +488,8 @@ km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
    if ((vcpu->cpu_run = mmap(
             NULL, machine.vm_run_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu->kvm_vcpu_fd, 0)) ==
        MAP_FAILED) {
-      err(1, "KVM: failed mmap VCPU %d control region", machine.vm_cpu_cnt);
+      err(1, "KVM: failed mmap VCPU %d control region", vcpu_id);
    }
-   machine.vm_vcpus[machine.vm_cpu_cnt++] = vcpu;
    kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, fs_base);
 
    /* per ABI, make sure sp + 8 is 16 aligned */
@@ -495,8 +501,13 @@ km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
        .rflags = X86_RFLAGS_FIXED,
        .rsp = sp,
    };
-   if (ioctl(machine.vm_vcpus[0]->kvm_vcpu_fd, KVM_SET_REGS, &regs) < 0) {
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &regs) < 0) {
       err(1, "KVM: set regs failed");
+   }
+   if (km_gdb_enabled()) {
+      if ((vcpu->vcpu_chan = chan_init(0)) == NULL) {
+         err(1, "Failed to create comm channel to vCPU thread");
+      }
    }
    return vcpu;
 }

@@ -10,3 +10,4 @@ tests/*.out
 *.km
 *.d
 km/km
+make.out

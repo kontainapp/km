@@ -68,6 +68,7 @@ struct __attribute__((__packed__)) km_gdb_regs {
 
 extern void km_gdb_disable(void);
 extern void km_gdb_start_stub(int port, char* const payload_file);
+extern void km_gdb_stop_stub(void);
 extern void km_gdb_poll_for_client_intr(km_vcpu_t* vcpu, int sig_fd);
 extern void km_gdb_prepare_for_run(km_vcpu_t* vcpu);
 extern int km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno);
