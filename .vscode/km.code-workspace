@@ -64,6 +64,7 @@
          "vpcu",
          "xbffffffffffffffful",
          "xfffffffful"
-      ]
+      ],
+      "editor.formatOnSave": true
 	}
 }
