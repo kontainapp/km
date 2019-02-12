@@ -15,15 +15,14 @@
 
 #include <err.h>
 #include <stdint.h>
-#include <linux/kvm.h>
 #include <sys/param.h>
+#include <linux/kvm.h>
 
 #include "km_elf.h"
 #include "km_hcalls.h"
 
-#define rounddown(x, y)  (__builtin_constant_p (y) && powerof2 (y)   \
-                         ? ((x) & ~((y) - 1))                       \
-                         : (((x) / (y)) * (y)))
+#define rounddown(x, y)                                                                            \
+   (__builtin_constant_p(y) && powerof2(y) ? ((x) & ~((y)-1)) : (((x) / (y)) * (y)))
 
 static const uint64_t PAGE_SIZE = 0x1000;   // standard 4k page
 static const uint64_t MIB = 0x100000;       // MByte
@@ -39,8 +38,8 @@ typedef struct kvm_segment kvm_seg_t;
 typedef struct kvm_sregs kvm_sregs_t;
 typedef struct kvm_regs kvm_regs_t;
 
-typedef uint64_t km_gva_t; // guest virtual address (i.e. address in payload space)
-typedef void* km_kma_t; // kontain monitor address (i.e. address in km process space)
+typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload space)
+typedef void* km_kma_t;      // kontain monitor address (i.e. address in km process space)
 
 typedef struct km_vcpu {
    int kvm_vcpu_fd;      // this VCPU file descriptors
@@ -48,14 +47,16 @@ typedef struct km_vcpu {
 } km_vcpu_t;
 
 void km_machine_init(void);
-km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base);
+km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, km_gva_t fs_base);
 void km_vcpu_run(km_vcpu_t* vcpu);
 
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
 #define KM_MAX_HCALL 512
-typedef int (*km_hcall_fn_t)(int hc __attribute__((__unused__)), km_hc_args_t* guest_addr, int* status);
+typedef int (*km_hcall_fn_t)(int hc __attribute__((__unused__)),
+                             km_hc_args_t* guest_addr,
+                             int* status);
 
 extern km_hcall_fn_t km_hcalls_table[];
 
