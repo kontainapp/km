@@ -432,7 +432,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
 
    while ((packet = recv_packet()) != NULL) {
       km_gva_t addr = 0;
-      void* kma;   // KM virtual address
+      km_kma_t kma;
       gdb_breakpoint_type_t type;
       size_t len;
       int command, ret;

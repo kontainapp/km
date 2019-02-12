@@ -134,20 +134,20 @@ km_builtin_tls_t builtin_tls[1];
  *
  * Care needs to be taken to distinguish between addresses seen in the guest and in km. We have two
  * sets of variables for each structure we deal with, like libc and libc_kma, former and latter
- * correspondingly. The guest addresses are, as everywhere in km, of uint64_t. km addresses are of
- * the type there are in the guest. When we need to obtain addresses of subfields in the guests we
- * cast the uint64_t to the appropriate pointer, then use &(struct)->field.
+ * correspondingly. The guest addresses are, as everywhere in km, of km_gva_t (aka uint64_t). km
+ * addresses are of the type there are in the guest. When we need to obtain addresses of subfields
+ * in the guests we cast the km_gva_t to the appropriate pointer, then use &(struct)->field.
  *
  * TODO: There are other guest structures, such as __environ, __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
  */
-uint64_t km_init_guest(void)
+km_gva_t km_init_guest(void)
 {
-   uint64_t libc = km_guest.km_libc.st_value;
+   km_gva_t libc = km_guest.km_libc.st_value;
    km__libc_t* libc_kma;
-   uint64_t mem;
+   km_gva_t mem;
    km_pthread_t* tcb_kma;
-   uint64_t tcb;
+   km_gva_t tcb;
 
    // If libc isn't part of loaded ELF there is nothing for us to do
    if (libc == 0) {

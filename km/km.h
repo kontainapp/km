@@ -39,13 +39,16 @@ typedef struct kvm_segment kvm_seg_t;
 typedef struct kvm_sregs kvm_sregs_t;
 typedef struct kvm_regs kvm_regs_t;
 
+typedef uint64_t km_gva_t; // guest virtual address (i.e. address in payload space)
+typedef void* km_kma_t; // kontain monitor address (i.e. address in km process space)
+
 typedef struct km_vcpu {
    int kvm_vcpu_fd;      // this VCPU file descriptors
    kvm_run_t* cpu_run;   // run control region
 } km_vcpu_t;
 
 void km_machine_init(void);
-km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp, uint64_t fs_base);
+km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base);
 void km_vcpu_run(km_vcpu_t* vcpu);
 
 /*
@@ -75,7 +78,7 @@ typedef struct km_machine {
    km_vcpu_t* vm_vcpus[KVM_MAX_VCPUS];   // VCPUs we created
 
    kvm_mem_reg_t* vm_mem_regs[KVM_USER_MEM_SLOTS];   // guest physical memory regions
-   uint64_t brk;                                     //
+   km_gva_t brk;                                     //
                                                      //
    kvm_cpuid2_t* cpuid;                              // to set VCPUs cpuid
    uint64_t guest_max_physmem;                       // Set from CPUID
@@ -84,10 +87,10 @@ typedef struct km_machine {
 
 extern km_machine_t machine;
 
-static void* km_memreg_kma(int idx) __attribute__((unused));
-static void* km_memreg_kma(int idx)
+static km_kma_t km_memreg_kma(int idx) __attribute__((unused));
+static km_kma_t km_memreg_kma(int idx)
 {
-   return (void*)machine.vm_mem_regs[idx]->userspace_addr;
+   return (km_kma_t)machine.vm_mem_regs[idx]->userspace_addr;
 }
 
 static const int KM_RSRV_MEMSLOT = 0;
@@ -108,7 +111,7 @@ static const int KM_STACK_MEMSLOT = KVM_USER_MEM_SLOTS - 1;
  * RSP register initially is pointed to the top of the stack, and grows down
  * with flow of the program.
  */
-static const uint64_t GUEST_STACK_TOP = 128 * 1024 * GIB - GIB;
+static const km_gva_t GUEST_STACK_TOP = 128 * 1024 * GIB - GIB;
 /*
  * Total of all thread stacks, packed into one range of addresses. Stacks
  * (GUEST_STACK_START_SIZE each) will be placed in the area of
@@ -119,7 +122,7 @@ static const uint64_t GUEST_ALL_STACKS_SIZE = GIB;
 /* Single thread stack size */
 static const uint64_t GUEST_STACK_START_SIZE = 2 * MIB;
 /* Initial thread stack start - lowest address */
-static const uint64_t GUEST_STACK_START_VA =
+static const km_gva_t GUEST_STACK_START_VA =
     GUEST_STACK_TOP - GUEST_STACK_START_SIZE;   // 0x7fffbfe00000
 
 #define GUEST_STACK_START_PA (machine.guest_max_physmem - GUEST_STACK_START_SIZE)
@@ -142,7 +145,7 @@ static const uint64_t GUEST_STACK_START_VA =
  * Knowing memory layout and how pml4 is set,
  * convert between guest virtual address and km address.
  */
-static inline int gva_to_memreg_idx(uint64_t gva)
+static inline int gva_to_memreg_idx(km_gva_t gva)
 {
    return 43 - __builtin_clzl(gva);
 }
@@ -160,12 +163,12 @@ static inline uint64_t memreg_size(int idx)
    return MIB << idx;
 }
 
-static inline uint64_t memreg_top(int idx)
+static inline km_gva_t memreg_top(int idx)
 {
    return (MIB << 1) << idx;
 }
 
-static inline void* km_gva_to_kma(uint64_t gva)
+static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
    if (gva >= GUEST_STACK_START_VA && gva < GUEST_STACK_TOP) {
       return km_memreg_kma(KM_STACK_MEMSLOT) - GUEST_STACK_START_VA + gva;
@@ -178,8 +181,8 @@ static inline void* km_gva_to_kma(uint64_t gva)
    return NULL;
 }
 
-uint64_t km_mem_brk(uint64_t brk);
-uint64_t km_init_guest(void);
+km_gva_t km_mem_brk(km_gva_t brk);
+km_gva_t km_init_guest(void);
 
 /*
  * Trivial trace() based on warn() - but with an a switch to run off and on.

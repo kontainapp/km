@@ -59,7 +59,7 @@ __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, 
 static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
 {
    kvm_run_t* r = vcpu->cpu_run;
-   uint64_t ga;
+   km_gva_t ga;
 
    /* Sanity checks */
    *hc = r->io.port - KM_HCALL_PORT_BASE;
@@ -83,9 +83,9 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
     * underflow.
     */
    /* high four bytes */
-   static const uint64_t stack_top_high = GUEST_STACK_TOP & ~0xfffffffful;
+   static const km_gva_t stack_top_high = GUEST_STACK_TOP & ~0xfffffffful;
    /* Recover high 4 bytes, but check for roll under 4GB boundary */
-   ga = *(uint32_t*)((void*)r + r->io.data_offset) | stack_top_high;
+   ga = *(uint32_t*)((km_kma_t)r + r->io.data_offset) | stack_top_high;
    if (ga > GUEST_STACK_TOP) {
       ga -= 4 * GIB;
    }

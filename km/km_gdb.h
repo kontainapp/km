@@ -22,7 +22,6 @@
 #include "km.h"
 #include "km_signal.h"
 
-typedef uint64_t km_gva_t;
 /* GDB breakpoint/watchpoint types */
 typedef enum {
    /* Do not change these. The values have to match on the GDB client

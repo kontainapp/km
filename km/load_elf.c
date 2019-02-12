@@ -43,8 +43,9 @@ static void my_pread(int fd, void* buf, size_t count, off_t offset)
  */
 static void load_extent(int fd, GElf_Phdr* phdr)
 {
-   void* addr;
-   uint64_t size, filesize, top;
+   km_kma_t addr;
+   uint64_t size, filesize;
+   km_gva_t top;
    int idx, pr;
 
    /* Extent memory if neccesary */

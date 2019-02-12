@@ -148,7 +148,7 @@ static const uint64_t PDPTE_REGION = GIB;
 /* same for pd entry */
 static const uint64_t PDE_REGION = 2 * MIB;
 
-static void init_pml4(void* mem)
+static void init_pml4(km_kma_t mem)
 {
    x86_pml4e_t* pml4e;
    x86_pdpte_t* pdpe;
@@ -188,9 +188,9 @@ static void init_pml4(void* mem)
    pde_2mb_set(pde + idx, GUEST_STACK_START_PA);
 }
 
-static void* page_malloc(size_t size)
+static km_kma_t page_malloc(size_t size)
 {
-   void* addr;
+   km_kma_t addr;
 
    if ((size & (PAGE_SIZE - 1)) != 0) {
       errno = EINVAL;
@@ -203,7 +203,7 @@ static void* page_malloc(size_t size)
    return addr;
 }
 
-static void page_free(void* addr, size_t size)
+static void page_free(km_kma_t addr, size_t size)
 {
    munmap(addr, size);
 }
@@ -215,7 +215,7 @@ static void page_free(void* addr, size_t size)
 static void km_mem_init(void)
 {
    kvm_mem_reg_t* reg;
-   void* ptr;
+   km_kma_t ptr;
 
    /* 1. reserved memory */
    if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
@@ -233,7 +233,7 @@ static void km_mem_init(void)
       err(1, "KVM: set reserved region failed");
    }
    machine.vm_mem_regs[KM_RSRV_MEMSLOT] = reg;
-   init_pml4((void*)reg->userspace_addr);
+   init_pml4((km_kma_t)reg->userspace_addr);
 
    /* 2. data and text memory, account for brk */
    if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
@@ -321,11 +321,12 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg)
  *
  * Move machine.brk up or down, adding or removing memory regions as required.
  */
-uint64_t km_mem_brk(uint64_t brk)
+km_gva_t km_mem_brk(km_gva_t brk)
 {
    int idx;
-   uint64_t size, m_brk;
-   void* ptr;
+   uint64_t size;
+   km_gva_t m_brk;
+   km_kma_t ptr;
    kvm_mem_reg_t* reg;
 
    if (brk == 0 || brk == machine.brk) {
@@ -370,7 +371,7 @@ uint64_t km_mem_brk(uint64_t brk)
       if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
          err(1, "KVM: failed to unplug memory region %d", idx);
       }
-      page_free((void*)reg->userspace_addr, size);
+      page_free((km_kma_t)reg->userspace_addr, size);
       free(reg);
       machine.vm_mem_regs[idx] = NULL;
    }
@@ -404,7 +405,7 @@ void km_machine_fini(void)
       if (mr != NULL) {
          /* TODO: Do we need to "unplug" it from the VM? */
          if (mr->memory_size != 0) {
-            page_free((void*)mr->userspace_addr, mr->memory_size);
+            page_free((km_kma_t)mr->userspace_addr, mr->memory_size);
          }
          free(mr);
          machine.vm_mem_regs[i] = NULL;
@@ -456,7 +457,7 @@ static void kvm_vcpu_init_sregs(int fd, uint64_t fs)
  * Set RIP, SP, RFLAGS, clear the rest of the regs.
  * VCPU is ready to run starting with instruction @RIP
  */
-km_vcpu_t* km_vcpu_init(uint64_t ent, uint64_t sp, uint64_t fs_base)
+km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
 {
    km_vcpu_t* vcpu;
 
