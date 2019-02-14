@@ -46,7 +46,6 @@
  * appropriate. There is no machinery, need to manually interpret each system
  * call. We paste signature in comment to make it a bit easier. Look into each
  * XXX_hcall() for examples.
- *
  */
 
 static inline uint64_t __syscall_1(uint64_t num, uint64_t a1)
@@ -249,6 +248,23 @@ static int brk_hcall(int hc, km_hc_args_t* arg, int* status)
    return 0;
 }
 
+static int pthread_create_hcall(int hc, km_hc_args_t* arg, int* status)
+{
+   // int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+   //   void *(*start_routine) (void *), void *arg);
+
+   arg->hc_ret = km_create_pthread(km_gva_to_kma(arg->arg1),
+                                   km_gva_to_kma(arg->arg2),
+                                   (void* (*)(void*))(arg->arg3),
+                                   (void*)arg->arg4);
+   return 0;
+}
+
+/*
+ * Hypercalls that don't translate directly into system calls.
+ */
+#define HC_pthread (KM_MAX_HCALL - 1)
+
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 
 void km_hcalls_init(void)
@@ -270,6 +286,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_close] = close_hcall;
    km_hcalls_table[SYS_shutdown] = shutdown_hcall;
    km_hcalls_table[SYS_brk] = brk_hcall;
+   km_hcalls_table[HC_pthread] = pthread_create_hcall;
 }
 
 void km_hcalls_fini(void)

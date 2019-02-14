@@ -52,6 +52,7 @@ typedef struct km_vcpu {
 void km_machine_init(void);
 void km_machine_fini(void);
 km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, km_gva_t fs_base);
+void* km_vcpu_run_main(void* unused);
 void km_vcpu_run(km_vcpu_t* vcpu);
 
 /*
@@ -203,7 +204,11 @@ static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 }
 
 km_gva_t km_mem_brk(km_gva_t brk);
-km_gva_t km_init_guest(void);
+km_gva_t km_init_libc_main(void);
+int km_create_pthread(pthread_t* restrict pid,
+                      const pthread_attr_t* restrict attr,
+                      void* (*start)(void*),
+                      void* restrict args);
 
 /*
  * Trivial trace() based on warn() - but with an a switch to run off and on.

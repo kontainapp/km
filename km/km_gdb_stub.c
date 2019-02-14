@@ -368,9 +368,7 @@ static void send_response(char code, int signum, bool wait_for_ack)
 static void km_signal_gdb_about_kvm_exit(void)
 {
    if (pthread_kill(gdbsrv_thread, GDBSTUB_SIGNAL) != 0) {
-      err(1,
-          "Failed to inform GDB about VM run completion - pthread_kill() "
-          "failed");
+      err(1, "Failed send guest completion signal to GDB");
    }
 }
 
@@ -384,7 +382,7 @@ static void km_signal_gdb_about_kvm_exit(void)
 static void km_signal_vcpu_about_gdb_intr(void)
 {
    if (pthread_kill(km_main_vcpu()->vcpu_thread, GDBSTUB_SIGNAL) != 0) {
-      err(1, "Failed to send signal to VCPU to wake it up");
+      err(1, "GDB failed to send signal to guest to stop it");
    }
 }
 
@@ -668,7 +666,7 @@ static bool km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
 
 /*
  * Gdb stub thread start.
- * 
+ *
  * We need to deal with only one CPU, or guest thread, because guest is stopped before it was able
  * to execute anything, hence there are no threads (vcpus) other than main thread (vcpu).
  */
@@ -685,20 +683,17 @@ static void* km_gdb_thread_entry(void* unused)
    // Talk to GDB first time, before any vCPU run
    gdb_handle_payload_stop(vcpu, GDB_SIGFIRST);
    // talk to GDB, managing vcpu runs
-   while (km_gdb_enabled()) {
+   for (int ret = 1; km_gdb_enabled();) {
       km_vcpu_t* msg;
-      int ret;
 
-      chan_send_int(vcpu->vcpu_chan, 1);   // Unblock main thread
+      km_infox("Sending exit_handled (%d) to vcpu", ret);
+      chan_send_int(vcpu->vcpu_chan, ret);   // Unblock main thread
       // Poll for either interrupt from gdb client, or for vcpu run completion
       km_gdb_poll_for_client_intr(vcpu, sig_fd);
       // get vcpu from vcpu thread - also sync the threads
       chan_recv(gdb_chan, (void*)&msg);   // should get vcpu
-      assert(vcpu == msg);
       km_infox("%s: poll and vcpu_run done, got vcpu* (%p)", __FUNCTION__, msg);
       ret = km_gdb_handle_kvm_exit(vcpu);   // give control to gdb
-      km_infox("Sending exit_handled (%d) to vcpu", ret);
-      chan_send_int(vcpu->vcpu_chan, ret);
    }
    return (void*)NULL;
 }

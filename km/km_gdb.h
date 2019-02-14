@@ -79,9 +79,4 @@ static inline int km_gdb_enabled(void)
    return g_gdb_port;
 }
 
-static inline int km_gdb_needs_to_handle_kvm_exit(km_vcpu_t* vcpu)
-{
-   return (km_gdb_exit_reason_to_signal(vcpu) != GDB_SIGNONE);
-}
-
 #endif /* __KM_GDB_H__ */

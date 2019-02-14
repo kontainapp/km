@@ -54,62 +54,62 @@ typedef struct km__libc {
 } km__libc_t;
 
 typedef struct km__ptcb {
-	void (*__f)(void *);
-	void *__x;
-	struct __ptcb *__next;
+   void (*__f)(void*);
+   void* __x;
+   struct __ptcb* __next;
 } km__ptcb_t;
 
 enum {
-	DT_EXITED = 0,
-	DT_EXITING,
-	DT_JOINABLE,
-	DT_DETACHED,
-	DT_DYNAMIC,
+   DT_EXITED = 0,
+   DT_EXITING,
+   DT_JOINABLE,
+   DT_DETACHED,
+   DT_DYNAMIC,
 };
 
 typedef struct km_pthread {
-	/* Part 1 -- these fields may be external or
-	 * internal (accessed via asm) ABI. Do not change. */
-	struct km_pthread *self;
-	uintptr_t *dtv;
-	void *unused1, *unused2;
-	uintptr_t sysinfo;
-	uintptr_t canary, canary2;
+   /* Part 1 -- these fields may be external or
+    * internal (accessed via asm) ABI. Do not change. */
+   struct km_pthread* self;
+   uintptr_t* dtv;
+   void *unused1, *unused2;
+   uintptr_t sysinfo;
+   uintptr_t canary, canary2;
 
-	/* Part 2 -- implementation details, non-ABI. */
-	int tid;
-	int errno_val;
-	volatile int detach_state;
-	volatile int cancel;
-	volatile unsigned char canceldisable, cancelasync;
-	unsigned char tsd_used:1;
-	unsigned char unblock_cancel:1;
-	unsigned char dlerror_flag:1;
-	unsigned char *map_base;
-	size_t map_size;
-	void *stack;
-	size_t stack_size;
-	size_t guard_size;
-	void *start_arg;
-	void *(*start)(void *);
-	void *result;
-	km__ptcb_t *cancelbuf;
-	void **tsd;
-	struct {
-		volatile void *volatile head;
-		long off;
-		volatile void *volatile pending;
-	} robust_list;
-	volatile int timer_id;
-	km__locale_t* locale;
-	volatile int killlock[1];
-	char *dlerror_buf;
-	void *stdio_locks;
+   /* Part 2 -- implementation details, non-ABI. */
+   int tid;
+   int errno_val;
+   volatile int detach_state;
+   volatile int cancel;
+   volatile unsigned char canceldisable, cancelasync;
+   unsigned char tsd_used : 1;
+   unsigned char unblock_cancel : 1;
+   unsigned char dlerror_flag : 1;
+   unsigned char* map_base;
+   size_t map_size;
+   void* stack;
+   size_t stack_size;
+   size_t guard_size;
+   void* start_arg;
+   void* (*start)(void*);
+   void* result;
+   km__ptcb_t* cancelbuf;
+   void** tsd;
+   struct {
+      volatile void* volatile head;
+      long off;
+      volatile void* volatile pending;
+   } robust_list;
+   volatile int timer_id;
+   km__locale_t* locale;
+   volatile int killlock[1];
+   char* dlerror_buf;
+   void* stdio_locks;
 
-	/* Part 3 -- the positions of these fields relative to
-	 * the end of the structure is external and internal ABI. */
-	uintptr_t canary_at_end;
-	uintptr_t *dtv_copy;
+   /* Part 3 -- the positions of these fields relative to
+    * the end of the structure is external and internal ABI. */
+   uintptr_t canary_at_end;
+   uintptr_t* dtv_copy;
 } km_pthread_t;
 
 /*
@@ -120,9 +120,9 @@ typedef struct km_pthread {
 struct km_tls_module km_main_tls;
 
 typedef struct km_builtin_tls {
-	char c;
-	km_pthread_t pt;
-	void *space[16];
+   char c;
+   km_pthread_t pt;
+   void* space[16];
 } km_builtin_tls_t;
 #define MIN_TLS_ALIGN offsetof(km_builtin_tls_t, pt)
 
@@ -130,7 +130,9 @@ km_builtin_tls_t builtin_tls[1];
 
 /*
  * load_elf() finds __libc by name in the ELF image of the guest. We follow __init_libc() logic to
- * initialize the content.
+ * initialize the content, including TLS and pthread structure for the main thread. TLS is allocated
+ * right above the mem_brk(). pthread is part of TLS area, we return the pointer to pthread to later
+ * it can be used to initialize FS segment register.
  *
  * Care needs to be taken to distinguish between addresses seen in the guest and in km. We have two
  * sets of variables for each structure we deal with, like libc and libc_kma, former and latter
@@ -141,7 +143,7 @@ km_builtin_tls_t builtin_tls[1];
  * TODO: There are other guest structures, such as __environ, __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
  */
-km_gva_t km_init_guest(void)
+km_gva_t km_init_libc_main(void)
 {
    km_gva_t libc = km_guest.km_libc.st_value;
    km__libc_t* libc_kma;
@@ -169,7 +171,7 @@ km_gva_t km_init_guest(void)
    libc_kma->tls_size = 2 * sizeof(void*) + sizeof(km_pthread_t) + MIN_TLS_ALIGN;
    mem = km_mem_brk(0);
    if (km_mem_brk(mem + libc_kma->tls_size) != mem + libc_kma->tls_size) {
-      err(2, "No memory for TLS");
+      err(2, "No memory for main TLS");
    }
    tcb = rounddown(mem + libc_kma->tls_size - sizeof(km_pthread_t), libc_kma->tls_align);
    tcb_kma = km_gva_to_kma(tcb);
@@ -179,4 +181,26 @@ km_gva_t km_init_guest(void)
    tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
    return tcb;
+}
+
+/*
+ * Allocate and initialize pthread structure for newly created thread in the guest.
+ */
+km_pthread_t* km_init_pthread(const pthread_attr_t* restrict attr)
+{
+   return NULL;
+}
+
+int km_create_pthread(pthread_t* restrict pid,
+                      const pthread_attr_t* restrict attr,
+                      void* (*start)(void*),
+                      void* restrict args)
+{
+   km_pthread_t* pt;
+   km_vcpu_t* vcpu;
+
+   pt = km_init_pthread(attr);
+   vcpu = km_vcpu_init((km_gva_t)start, (km_gva_t)pt->stack, (km_gva_t)pt);
+   km_vcpu_run(vcpu);
+   return 0;
 }

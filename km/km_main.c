@@ -37,17 +37,6 @@ static inline void usage()
         "\n\t-g port - listens for gbd to connect on <port> before running VM payload");
 }
 
-static void* km_start_vcpu(void* arg)
-{
-   km_vcpu_t* vcpu = (km_vcpu_t*)arg;
-
-   // unblock signal in the VM (and block on the current thead)
-   km_vcpu_unblock_signal(vcpu, GDBSTUB_SIGNAL);
-   // and now go into the run loop
-   km_vcpu_run(vcpu);
-   return (void*)NULL;
-}
-
 int main(int argc, char* const argv[])
 {
    int opt;
@@ -81,9 +70,9 @@ int main(int argc, char* const argv[])
 
    km_machine_init();
    load_elf(payload_file);
-   fs = km_init_guest();
+   fs = km_init_libc_main();
    km_hcalls_init();
-   // Initialize main vcpu with payload entry point, main stack, and main pthred pointer
+   // Initialize main vcpu with payload entry point, main stack, and main pthread pointer
    km_vcpu_init(km_guest.km_ehdr.e_entry, GUEST_STACK_TOP - 1, fs);
 
    if (km_gdb_enabled()) {
@@ -95,7 +84,7 @@ int main(int argc, char* const argv[])
       km_wait_for_signal(SIGUSR1);
    }
 
-   if (pthread_create(&km_main_vcpu()->vcpu_thread, NULL, km_start_vcpu, km_main_vcpu()) != 0) {
+   if (pthread_create(&km_main_vcpu()->vcpu_thread, NULL, km_vcpu_run_main, NULL) != 0) {
       err(2, "Failed to create main run_vcpu thread");
    }
    if (km_gdb_enabled()) {

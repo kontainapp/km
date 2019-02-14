@@ -95,12 +95,12 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
 void km_vcpu_run(km_vcpu_t* vcpu)
 {
    int status, hc;
-   int wait_for_gdb = km_gdb_enabled();
 
+   if (km_gdb_enabled()) {
+      // unblock signal in the VM (and block on the current thead)
+      km_vcpu_unblock_signal(vcpu, GDBSTUB_SIGNAL);
+   }
    while (1) {
-      if (wait_for_gdb) {
-         km_gdb_prepare_for_run(vcpu);
-      }
       if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) < 0) {
          km_info("ioctl exit with errno");
          if (errno == EAGAIN) {
@@ -110,15 +110,9 @@ void km_vcpu_run(km_vcpu_t* vcpu)
             run_err(1, "KVM: vcpu run failed");
          }
       }
-      if (km_gdb_enabled()) {
-         if (km_gdb_needs_to_handle_kvm_exit(vcpu)) {
-            km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
-            wait_for_gdb = 1;
-            continue;
-         }
-         wait_for_gdb = 0;
+      if (km_gdb_enabled() && km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno) != 0) {
+         continue;
       }
-
       switch (vcpu->cpu_run->exit_reason) {
          case KVM_EXIT_IO: /* Hypercall */
             if (hypercall(vcpu, &hc, &status) != 0) {
@@ -172,4 +166,19 @@ void km_vcpu_run(km_vcpu_t* vcpu)
             break;
       }
    }
+}
+
+void* km_vcpu_run_main(void* unused)
+{
+   km_vcpu_t* vcpu = km_main_vcpu();
+
+   /*
+    * Main vcpu in presence of gdb needs to pause before entering guest main() and wait for gdb
+    * client connection. The client will control the execution by continue or step commands.
+    */
+   if (km_gdb_enabled()) {
+      km_gdb_prepare_for_run(vcpu);
+   }
+   km_vcpu_run(vcpu);   // and now go into the run loop
+   return (void*)NULL;
 }

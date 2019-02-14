@@ -27,8 +27,9 @@
          "km_gdb.h": "c"
       },
         "files.exclude": {
-         "**/*.[od]": true,
+         "**/*.d": true,
          "**/*.km": true,
+         "**/*.o": true,
          "build/**": true,
          "tests/[12].out": true
       },
@@ -65,6 +66,9 @@
          "xbffffffffffffffful",
          "xfffffffful"
       ],
-      "editor.formatOnSave": true
+      "editor.formatOnSave": true,
+      "search.exclude": {
+         "{**/WHATSNEW,aarch64,arm,m68k,microblaze,mips,mips64,mipsn32,or1k,powerpc*,s390x,sh,**/*.json,**/*.md}": true
+      }
 	}
 }
