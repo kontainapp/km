@@ -24,7 +24,8 @@
          "features.h": "c",
          "__strerror.h": "c",
          "locale_impl.h": "c",
-         "km_gdb.h": "c"
+         "km_gdb.h": "c",
+         "bsd_queue.h": "c"
       },
         "files.exclude": {
          "**/*.d": true,

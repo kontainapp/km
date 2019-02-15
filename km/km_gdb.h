@@ -34,10 +34,9 @@ typedef enum {
    GDB_BREAKPOINT_MAX
 } gdb_breakpoint_type_t;
 
-#define GDB_SIGNONE (-1)   // see km_gdb_exit_reason_to_signal()
-#define GDB_SIGFIRST 0     // the guest hasn't run yet
+#define GDB_SIGNONE (-1)
+#define GDB_SIGFIRST 0   // the guest hasn't run yet
 
-extern int km_gdb_exit_reason_to_signal(km_vcpu_t* vcpu);
 extern int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* reg, size_t* len);
 extern int km_gdb_write_registers(km_vcpu_t* vcpu, uint8_t* reg, size_t len);
 extern int km_gdb_enable_ss(km_vcpu_t* vcpu);
@@ -69,9 +68,10 @@ struct __attribute__((__packed__)) km_gdb_regs {
 extern void km_gdb_disable(void);
 extern void km_gdb_start_stub(int port, char* const payload_file);
 extern void km_gdb_stop_stub(void);
-extern void km_gdb_poll_for_client_intr(km_vcpu_t* vcpu, int sig_fd);
 extern void km_gdb_prepare_for_run(km_vcpu_t* vcpu);
-extern int km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno);
+extern void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno);
+extern char* mem2hex(const unsigned char* mem, char* buf, size_t count);
+extern void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len);
 
 extern int g_gdb_port;
 static inline int km_gdb_enabled(void)

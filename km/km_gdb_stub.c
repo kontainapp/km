@@ -86,7 +86,7 @@ static int hex(unsigned char ch)
  * Converts the (count) bytes of memory pointed to by mem into an hex string in
  * buf. Returns a pointer to the last char put in buf (null).
  */
-static char* mem2hex(const unsigned char* mem, char* buf, size_t count)
+char* mem2hex(const unsigned char* mem, char* buf, size_t count)
 {
    size_t i;
    unsigned char ch;
@@ -387,38 +387,6 @@ static void km_signal_vcpu_about_gdb_intr(void)
 }
 
 /*
- * When vcpu is running, we still want to listen to gdb ^C, in which case signal
- * vcpu thread to interrupt KVM_RUN.
- */
-void km_gdb_poll_for_client_intr(km_vcpu_t* vcpu, int sig_fd)
-{
-   struct pollfd fds[] = {{.fd = socket_fd, .events = POLLIN | POLLERR},
-                          {.fd = sig_fd, .events = POLLIN | POLLERR | POLLRDHUP}};
-   if (poll(fds, sizeof(fds) / sizeof(struct pollfd), -1 /* no timeout */) < 0) {
-      // warn and fall through to notify that poll has exited
-      warn("%s: poll failed.", __FUNCTION__);
-   } else {
-      if (fds[1].revents) {
-         struct signalfd_siginfo info;
-
-         km_infox("%s: Got signalfd, reading", __FUNCTION__);
-         int ret = read(fds[1].fd, &info, sizeof(info));
-         if (ret != sizeof(struct signalfd_siginfo)) {
-            err(1, "read signalfd failed");
-         }
-         assert(info.ssi_signo == GDBSTUB_SIGNAL);
-         km_infox("%s: Got signalfd, exiting poll", __FUNCTION__);
-      }
-      if (fds[0].revents) {
-         int ch = recv_char();
-         km_infox("%s: Checking recv and SKIPPING ^C or INTR: ch=%d", __FUNCTION__, ch);
-         assert(errno == EINTR || ch == GDB_INTERRUPT_PKT);
-         km_signal_vcpu_about_gdb_intr();
-      }
-   }
-}
-
-/*
  * Handle individual KVM_RUN exit on vcpu.
  * Conducts dialog with gdb, until gdb orders next run (e.g. "next"),
  * at which points returns control.
@@ -506,7 +474,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
                send_error_msg();
                break;
             }
-            mem2hex(kma, obuf, len);
+            km_guest_mem2hex(addr, kma, obuf, len);
             send_packet(obuf);
             break; /* Wait for another command. */
          }
@@ -637,63 +605,68 @@ done:
  */
 static bool km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
 {
-   int signum = 0;
-
    assert(km_gdb_enabled());
-   signum = km_gdb_exit_reason_to_signal(vcpu);
-
-   switch (signum) {
-      case SIGINT:
-      case SIGQUIT:
-      case SIGKILL:
-      case SIGTRAP:
-      case SIGSEGV:
-         gdb_handle_payload_stop(vcpu, signum);
-         return true;
-
-      case SIGTERM:
+   switch (vcpu->cpu_run->exit_reason) {
+      case KVM_EXIT_HLT:
          // let GDB know we are done, and let vcpu loop to do it's completion
          send_response('W', 0, true);
-         break;
+         return false;
 
-      default:
-         /* Handle this exit in the vcpu loop */
-         break;
+      case KVM_EXIT_DEBUG:
+         gdb_handle_payload_stop(vcpu, SIGTRAP);
+         return true;
+
+      case KVM_EXIT_INTR:
+         gdb_handle_payload_stop(vcpu, SIGINT);
+         return true;
+
+      case KVM_EXIT_EXCEPTION:
+         gdb_handle_payload_stop(vcpu, SIGSEGV);
+         return true;
    }
-
    return false;
 }
 
 /*
- * Gdb stub thread start.
- *
- * We need to deal with only one CPU, or guest thread, because guest is stopped before it was able
- * to execute anything, hence there are no threads (vcpus) other than main thread (vcpu).
+ * When vcpu is running, we still want to listen to gdb ^C, in which case signal
+ * vcpu thread to interrupt KVM_RUN.
  */
 static void* km_gdb_thread_entry(void* unused)
 {
-   int sig_fd;
-
-   assert(km_gdb_enabled());
+   int sig_fd = km_get_signalfd(GDBSTUB_SIGNAL);
    km_vcpu_t* vcpu = km_main_vcpu();
+   struct pollfd fds[] = {
+       {.fd = socket_fd, .events = POLLIN | POLLERR},
+       {.fd = sig_fd, .events = POLLIN | POLLERR | POLLRDHUP},
+   };
 
-   // Get an fd so we can poll on it
-   sig_fd = km_get_signalfd(GDBSTUB_SIGNAL);
-   assert(sig_fd > 0);
-   // Talk to GDB first time, before any vCPU run
-   gdb_handle_payload_stop(vcpu, GDB_SIGFIRST);
-   // talk to GDB, managing vcpu runs
-   for (int ret = 1; km_gdb_enabled();) {
-      km_vcpu_t* msg;
+   gdb_handle_payload_stop(vcpu, GDB_SIGFIRST);   // Talk to GDB first time, before any vCPU run
+   chan_send_int(vcpu->vcpu_chan, 1);             // Unblock main guest thread
+   while (km_gdb_enabled()) {
+      if (poll(fds, sizeof(fds) / sizeof(struct pollfd), -1 /* no timeout */) < 0) {
+         err(1, "%s: poll failed.", __FUNCTION__);
+      }
+      if (fds[1].revents) {   // vcpu stopped, we need to look at it
+         struct signalfd_siginfo info;
 
-      km_infox("Sending exit_handled (%d) to vcpu", ret);
-      chan_send_int(vcpu->vcpu_chan, ret);   // Unblock main thread
-      // Poll for either interrupt from gdb client, or for vcpu run completion
-      km_gdb_poll_for_client_intr(vcpu, sig_fd);
-      // get vcpu from vcpu thread - also sync the threads
-      chan_recv(gdb_chan, (void*)&msg);   // should get vcpu
-      km_infox("%s: poll and vcpu_run done, got vcpu* (%p)", __FUNCTION__, msg);
-      ret = km_gdb_handle_kvm_exit(vcpu);   // give control to gdb
+         int ret = read(fds[1].fd, &info, sizeof(info));
+         if (ret != sizeof(struct signalfd_siginfo)) {
+            err(1, "read signalfd failed");
+         }
+         assert(info.ssi_signo == GDBSTUB_SIGNAL);
+         chan_recv(gdb_chan, (void*)&vcpu);   // should get vcpu
+         km_infox("%s: poll and vcpu_run done, got vcpu* (%p)", __FUNCTION__, vcpu);
+         ret = km_gdb_handle_kvm_exit(vcpu);    // give control to gdb
+         chan_send_int(vcpu->vcpu_chan, ret);   // Unblock main guest thread
+         continue;
+      }
+      if (fds[0].revents) {   // gdb client wants ^c
+         int ch = recv_char();
+         km_infox("%s: Checking recv and SKIPPING ^C or INTR: ch=%d", __FUNCTION__, ch);
+         assert(errno == EINTR || ch == GDB_INTERRUPT_PKT);
+         km_signal_vcpu_about_gdb_intr();
+         continue;
+      }
    }
    return (void*)NULL;
 }
@@ -753,26 +726,19 @@ void km_gdb_prepare_for_run(km_vcpu_t* vcpu)
  * Returns "1" if gdb handled the exit and kvm loop does not need to,
  * 0 otherwise
  */
-int km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno)
+void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno)
 {
-   int ret;
+   int unused;
 
    assert(km_gdb_enabled());
-   if (km_gdb_exit_reason_to_signal(vcpu) == GDB_SIGNONE) {
-      km_infox("gdb -not mine, keep going (reason: %d)", vcpu->cpu_run->exit_reason);
-      return 0;   // GDB can'thandle this exit
-   }
    km_reset_pending_signal(GDBSTUB_SIGNAL);
    // Inform gdb thread that vcpu run is over
    km_signal_gdb_about_kvm_exit();
-   km_infox("%s: KVM_RUN done.  Sending send(vcpu)->gdb_chan from thr 0x%lx",
-            __FUNCTION__,
-            pthread_self());
+   km_infox("%s: KVM_RUN done. send(vcpu)->gdb_chan", __FUNCTION__);
    // This will start stub interuction with GDB client:
    chan_send(gdb_chan, (void*)vcpu);
    km_infox("%s: vcpu sent. Waiting for 1/0 from gdb thread", __FUNCTION__);
    // This will be unblocked when gdb stub wants vcpu cycle to resume:
-   chan_recv_int(vcpu->vcpu_chan, &ret);
-   km_infox("gdb handle_exception returned ret=%d to vcpu thread", ret);
-   return ret;
+   chan_recv_int(vcpu->vcpu_chan, &unused);
+   km_infox("gdb handle_exception returned to vcpu thread");
 }

@@ -65,11 +65,15 @@ void km_vcpu_unblock_signal(km_vcpu_t* vcpu, int signum)
 int km_get_signalfd(int signum)
 {
    sigset_t signal_set;
+   int fd;
 
    sigemptyset(&signal_set);
    sigaddset(&signal_set, signum);
    pthread_sigmask(SIG_BLOCK, &signal_set, NULL);
-   return signalfd(-1, &signal_set, SFD_NONBLOCK | SFD_CLOEXEC);
+   if ((fd = signalfd(-1, &signal_set, SFD_NONBLOCK | SFD_CLOEXEC)) < 0) {
+      err(1, "Failed to get signalfd");
+   }
+   return fd;
 }
 
 /*

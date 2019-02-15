@@ -285,6 +285,24 @@ static int bp_list_remove(gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
 }
 
 /*
+ * Read and hex encode guest memory correcting for SW breakpoints
+ */
+void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
+{
+   unsigned char mbuf[len];
+
+   memcpy(mbuf, kma, len);
+   for (int i = 0; i < len; i++) {
+      struct breakpoint_t* bp;
+
+      if ((bp = bp_list_find(GDB_BREAKPOINT_SW, addr + i, 1)) != NULL) {
+         mbuf[i] = bp->saved_insn;
+      }
+   }
+   mem2hex(mbuf, obuf, len);
+}
+
+/*
  * Fills *reg with a stream of hexadecimal digits for each guest register
  * in GDB register order, where each register is in target endian order.
  * Returns 0 if success, -1 otherwise.
@@ -471,32 +489,4 @@ int km_gdb_disable_ss(km_vcpu_t* vcpu)
 {
    stepping = false;
    return km_gdb_update_guest_debug(vcpu);
-}
-
-/*
- * On return from KVM_RUN that corresponds to guest code stopping we need to
- * send a reply with unix signal number reflecting the stop reason to gdb.  E.g.
- * SIGTRAP for breakpoints, SIGINT for ^c, and so on. This function does the
- * conversion.
- *
- * For kvm exits that do not correspond to guest stops, like hypercall, the
- * function returns GDB_SIGNONE.
- */
-int km_gdb_exit_reason_to_signal(km_vcpu_t* vcpu)
-{
-   switch (vcpu->cpu_run->exit_reason) {
-      case KVM_EXIT_DEBUG:
-         // TODO: check db7 for HW watchpoints
-         return SIGTRAP;
-
-      case KVM_EXIT_INTR:
-         return SIGINT;
-
-      case KVM_EXIT_HLT:
-         return SIGTERM;
-
-      case KVM_EXIT_EXCEPTION:
-         return SIGSEGV;
-   }
-   return GDB_SIGNONE;
 }
