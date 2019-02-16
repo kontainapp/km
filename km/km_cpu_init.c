@@ -117,10 +117,12 @@ static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
  * We use 2MB pages for the first GB, and 1GB pages for the rest. With the
  * guest_max_physmem <= 512GB we need two pml4 entries, #0 and #255, #0 covers
  * the text and data, the #255 stack. There are correspondingly two pdpt pages.
- * We use only the very last entry in the second one. Initially only the second
- * entry of the first one is used, but then it expands with brk. If we ever go
- * over the 512GB limit there will be a need for more pdpt pages. The first
- * entry points to the pd page that covers the first GB.
+ * We use only the very last entry in the second one. The first entry in the first one, representing
+ * first 2MB of address space, it always empty. Usable memory starts from 2MB. Initially there are
+ * no memory allocated, then it expands with brk.
+ * 
+ * If we ever go over the 512GB limit there will be a need for more pdpt pages. The first entry
+ * points to the pd page that covers the first GB.
  *
  * The picture illustrates layout with the constants values as set.
  * The code below is a little more flexible, allowing one or two pdpt pages and
@@ -166,8 +168,7 @@ static void init_pml4(km_kma_t mem)
    pdpte_set(pdpe, RSV_GUEST_PA(RSV_PD_OFFSET));   // first entry for the first GB
 
    pde = mem + RSV_PD_OFFSET;
-   memset(pde, 0, PAGE_SIZE);
-   pde_2mb_set(pde + 1, GUEST_MEM_START_PA);   // second entry for the 2MB - 4MB
+   memset(pde, 0, PAGE_SIZE);   // clear page, no usable entries
 
    idx = GUEST_STACK_START_VA / PML4E_REGION;
    assert(idx < PAGE_SIZE / sizeof(x86_pml4e_t));   // within pml4 page
@@ -210,15 +211,16 @@ static void page_free(km_kma_t addr, size_t size)
 }
 
 /*
- * Initialize GDT, IDT, and PML4 structures in the reserved region
- * PML4 doesn't map the reserved region, it becomes hidden from the guest
+ * Create reserved memory, initialize PML4 and brk.
+ *
+ * TODO: For now also create stack and initialize PML4 for it. As stack and mmap handling will merge
+ * this will also disapper.
  */
 static void km_mem_init(void)
 {
    kvm_mem_reg_t* reg;
    km_kma_t ptr;
 
-   /* 1. reserved memory */
    if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
       err(1, "KVM: no memory for mem region");
    }
@@ -236,25 +238,9 @@ static void km_mem_init(void)
    machine.vm_mem_regs[KM_RSRV_MEMSLOT] = reg;
    init_pml4((km_kma_t)reg->userspace_addr);
 
-   /* 2. data and text memory, account for brk */
-   if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
-      err(1, "KVM: no memory for mem region");
-   }
-   if ((ptr = page_malloc(memreg_size(KM_TEXT_DATA_MEMSLOT))) == NULL) {
-      err(1, "KVM: no memory for guest payload");
-   }
-   reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
-   reg->slot = KM_TEXT_DATA_MEMSLOT;
-   reg->guest_phys_addr = GUEST_MEM_START_PA;
-   reg->memory_size = memreg_size(KM_TEXT_DATA_MEMSLOT);
-   reg->flags = 0;
-   if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      err(1, "KVM: set guest memory failed");
-   }
-   machine.vm_mem_regs[KM_TEXT_DATA_MEMSLOT] = reg;
-   machine.brk = GUEST_MEM_START_VA + PAGE_SIZE;
+   machine.brk = GUEST_MEM_START_VA - 1;
 
-   /* 3. Stack */
+   /* TODO: Stack for now */
    if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
       err(1, "KVM: no memory for stack mem region");
    }
