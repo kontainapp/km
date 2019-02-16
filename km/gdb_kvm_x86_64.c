@@ -78,17 +78,16 @@ static const uint8_t int3 = 0xcc;
 
 static int kvm_arch_insert_sw_breakpoint(km_vcpu_t* vcpu, struct breakpoint_t* bp)
 {
-   uint8_t* insn = (uint8_t*)km_gva_to_kma(
-       bp->addr);   // TBD: we do need to check the addr+ size is still within the mem
-   if (insn == NULL) {
-      errx(2, "bad bad memory at %lx", bp->addr);
+   uint8_t* insn;   // existing instructions at the bp location
+
+   if ((insn = (uint8_t*)km_gva_to_kma(bp->addr)) == NULL) {
+      warn("failed to insert bp - address %lx is not in guest va space", bp->addr);
+      return -1;
    }
    bp->saved_insn = *insn;
    /*
-    * We just modify the first byte even if the instruction is multi-byte.
-    * The debugger keeps track of the length of the instruction. The
-    * consequence of this is that we don't have to set all other bytes as
-    * NOP's.
+    * The debugger keeps track of the length of the instruction. We only need to manipulate the
+    * firt byte.
     */
    *insn = int3;
    return 0;
@@ -96,11 +95,13 @@ static int kvm_arch_insert_sw_breakpoint(km_vcpu_t* vcpu, struct breakpoint_t* b
 
 static int kvm_arch_remove_sw_breakpoint(km_vcpu_t* vcpu, struct breakpoint_t* bp)
 {
-   uint8_t* insn = (uint8_t*)km_gva_to_kma(
-       bp->addr);   // TBD: we do need to check the addr+ size is still within the mem
-
+   uint8_t* insn;
+   if ((insn = (uint8_t*)km_gva_to_kma(bp->addr)) == NULL) {
+      return -1;
+   }
    assert(*insn == int3);
    *insn = bp->saved_insn;
+
    return 0;
 }
 
@@ -358,10 +359,9 @@ int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t* len)
    // TBD: Add KVM_GET_FPU
    if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, &fpuregs)) == -1) {
       warn("KVM_GET_FPU failed, ignoring");
-   } else {
-      // kvm gets 16 bytes per reg and names them differently. WIll figure it out later
-      km_infox("FPU regs: not reporting for now (TBD)");
    }
+   // kvm gets 16 bytes per reg and names them differently. Will figure it out later
+   km_infox("FPU regs: not reporting for now (TBD)");
    return 0;
 }
 
@@ -438,15 +438,15 @@ int km_gdb_add_breakpoint(km_vcpu_t* vcpu, gdb_breakpoint_type_t type, km_gva_t 
    struct breakpoint_t* bp;
 
    assert(type < GDB_BREAKPOINT_MAX);
-
    if (bp_list_find(type, addr, len)) {
       return 0;
    }
    if ((bp = bp_list_insert(type, addr, len)) == NULL) {
       return -1;
    }
-   if (type == GDB_BREAKPOINT_SW) {
-      kvm_arch_insert_sw_breakpoint(vcpu, bp);
+   if (type == GDB_BREAKPOINT_SW && kvm_arch_insert_sw_breakpoint(vcpu, bp) != 0) {
+      bp_list_remove(GDB_BREAKPOINT_SW, addr, len);
+      return -1;
    }
    return km_gdb_update_guest_debug(vcpu);
 }
@@ -459,13 +459,11 @@ int km_gdb_remove_breakpoint(km_vcpu_t* vcpu, gdb_breakpoint_type_t type, km_gva
 {
    struct breakpoint_t* bp;
 
-   assert(type < GDB_BREAKPOINT_MAX);
-
-   if (type == GDB_BREAKPOINT_SW) {
-      if ((bp = bp_list_find(type, addr, len)) != NULL) {
-         kvm_arch_remove_sw_breakpoint(vcpu, bp);
-      }
-      return bp_list_remove(type, addr, len);
+   if ((bp = bp_list_find(type, addr, len)) == NULL) {
+      return 0;   // nothing to delete
+   }
+   if (type == GDB_BREAKPOINT_SW && kvm_arch_remove_sw_breakpoint(vcpu, bp) != 0) {
+      return -1;
    }
    if (bp_list_remove(type, addr, len) == -1) {
       return -1;
