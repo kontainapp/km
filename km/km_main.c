@@ -42,7 +42,7 @@ int main(int argc, char* const argv[])
    int opt;
    char* payload_file = NULL;
    bool wait_for_signal = false;
-   uint64_t fs;
+   km_gva_t fs, sp;
 
    while ((opt = getopt(argc, argv, "wg:V")) != -1) {
       switch (opt) {
@@ -69,11 +69,12 @@ int main(int argc, char* const argv[])
    payload_file = argv[optind];
 
    km_machine_init();
+   sp = km_stack();
    load_elf(payload_file);
    fs = km_init_libc_main();
    km_hcalls_init();
    // Initialize main vcpu with payload entry point, main stack, and main pthread pointer
-   km_vcpu_init(km_guest.km_ehdr.e_entry, GUEST_STACK_TOP - 1, fs);
+   km_vcpu_init(km_guest.km_ehdr.e_entry, sp, fs);
 
    if (km_gdb_enabled()) {
       km_gdb_start_stub(g_gdb_port, payload_file);

@@ -110,7 +110,7 @@ static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
  * guest_max_physmem, allowing for stack. Note virtual and physical layout are
  * equivalent.
  *
- * Guest stack starting GUEST_STACK_START_VA, GUEST_STACK_START_SIZE. We chose,
+ * Guest stack starting GUEST_STACK_START_VA, GUEST_STACK_SIZE. We chose,
  * somewhat randonly, GUEST_STACK_START_VA at the last 2MB of the first half of
  * 48 bit wide virtual address space. See km.h for values.
  *
@@ -120,7 +120,7 @@ static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
  * We use only the very last entry in the second one. The first entry in the first one, representing
  * first 2MB of address space, it always empty. Usable memory starts from 2MB. Initially there are
  * no memory allocated, then it expands with brk.
- * 
+ *
  * If we ever go over the 512GB limit there will be a need for more pdpt pages. The first entry
  * points to the pd page that covers the first GB.
  *
@@ -155,7 +155,6 @@ static void init_pml4(km_kma_t mem)
 {
    x86_pml4e_t* pml4e;
    x86_pdpte_t* pdpe;
-   x86_pde_2m_t* pde;
    int idx;
 
    assert(machine.guest_max_physmem <= PML4E_REGION);
@@ -167,10 +166,7 @@ static void init_pml4(km_kma_t mem)
    memset(pdpe, 0, PAGE_SIZE);
    pdpte_set(pdpe, RSV_GUEST_PA(RSV_PD_OFFSET));   // first entry for the first GB
 
-   pde = mem + RSV_PD_OFFSET;
-   memset(pde, 0, PAGE_SIZE);   // clear page, no usable entries
-
-   idx = GUEST_STACK_START_VA / PML4E_REGION;
+   idx = (GUEST_STACK_TOP - 1) / PML4E_REGION;
    assert(idx < PAGE_SIZE / sizeof(x86_pml4e_t));   // within pml4 page
 
    // check if we need the second pml4 entry, i.e the two mem regions are more
@@ -181,13 +177,11 @@ static void init_pml4(km_kma_t mem)
       pml4e_set(pml4e + idx, RSV_GUEST_PA(RSV_PDPT2_OFFSET));
       memset(pdpe, 0, PAGE_SIZE);
    }
-   idx = (GUEST_STACK_START_VA / PDPTE_REGION) & 0x1ff;
+   idx = (GUEST_STACK_TOP - 1) / PDPTE_REGION & 0x1ff;
    pdpte_set(pdpe + idx, RSV_GUEST_PA(RSV_PD2_OFFSET));
 
-   idx = (GUEST_STACK_START_VA / PDE_REGION) & 0x1ff;
-   pde = mem + RSV_PD2_OFFSET;
-   memset(pde, 0, PAGE_SIZE);
-   pde_2mb_set(pde + idx, GUEST_STACK_START_PA);
+   memset(mem + RSV_PD_OFFSET, 0, PAGE_SIZE);    // clear page, no usable entries
+   memset(mem + RSV_PD2_OFFSET, 0, PAGE_SIZE);   // clear page, no usable entries
 }
 
 static km_kma_t page_malloc(size_t size)
@@ -208,6 +202,43 @@ static km_kma_t page_malloc(size_t size)
 static void page_free(km_kma_t addr, size_t size)
 {
    munmap(addr, size);
+}
+
+km_gva_t km_stack(void)
+{
+   kvm_mem_reg_t* reg;
+   km_kma_t ptr;
+   x86_pde_2m_t* pde = km_memreg_kma(KM_RSRV_MEMSLOT) + RSV_PD2_OFFSET;
+   uint64_t idx;
+
+   for (idx = 0; idx < KVM_MAX_VCPUS; idx++) {
+      if (machine.vm_mem_regs[KM_STACK_MEMSLOT - idx] == NULL) {
+         break;
+      }
+   }
+   if (idx == KVM_MAX_VCPUS) {
+      errx(1, "no mem slots for stack");
+   }
+   if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
+      err(1, "KVM: no memory for stack mem region");
+   }
+   if ((ptr = page_malloc(GUEST_STACK_SIZE)) == NULL) {
+      err(1, "KVM: no memory for guest payload stack");
+   }
+   km_gva_t pa = machine.guest_max_physmem - (idx + 1) * GUEST_STACK_SIZE;
+   km_gva_t va = GUEST_STACK_TOP - (idx + 1) * GUEST_STACK_SIZE;
+
+   reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
+   reg->slot = KM_STACK_MEMSLOT - idx;
+   reg->guest_phys_addr = pa;
+   reg->memory_size = GUEST_STACK_SIZE;
+   reg->flags = 0;
+   if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+      err(1, "KVM: set guest payload stack memory failed");
+   }
+   machine.vm_mem_regs[reg->slot] = reg;
+   pde_2mb_set(pde + ((va / PDE_REGION) & 0x1ff), pa);
+   return va + GUEST_STACK_SIZE - 1;
 }
 
 /*
@@ -237,25 +268,7 @@ static void km_mem_init(void)
    }
    machine.vm_mem_regs[KM_RSRV_MEMSLOT] = reg;
    init_pml4((km_kma_t)reg->userspace_addr);
-
    machine.brk = GUEST_MEM_START_VA - 1;
-
-   /* TODO: Stack for now */
-   if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
-      err(1, "KVM: no memory for stack mem region");
-   }
-   if ((ptr = page_malloc(GUEST_STACK_START_SIZE)) == NULL) {
-      err(1, "KVM: no memory for guest payload stack");
-   }
-   reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
-   reg->slot = KM_STACK_MEMSLOT;
-   reg->guest_phys_addr = GUEST_STACK_START_PA;
-   reg->memory_size = GUEST_STACK_START_SIZE;
-   reg->flags = 0;
-   if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      err(1, "KVM: set guest payload stack memory failed");
-   }
-   machine.vm_mem_regs[KM_STACK_MEMSLOT] = reg;
 }
 
 /*
@@ -319,7 +332,7 @@ km_gva_t km_mem_brk(km_gva_t brk)
    if (brk == 0 || brk == machine.brk) {
       return machine.brk;
    }
-   if (brk > GUEST_MAX_BRK) {
+   if (brk > GUEST_MAX_BRK()) {
       return -ENOMEM;
    }
 
@@ -331,7 +344,7 @@ km_gva_t km_mem_brk(km_gva_t brk)
       if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
          return -ENOMEM;
       }
-      size = memreg_top(idx) < GUEST_MAX_BRK ? memreg_size(idx) : GUEST_MAX_BRK - memreg_base(idx);
+      size = memreg_top(idx) < GUEST_MAX_BRK() ? memreg_size(idx) : GUEST_MAX_BRK() - memreg_base(idx);
       if ((ptr = page_malloc(size)) == NULL) {
          free(reg);
          return -ENOMEM;

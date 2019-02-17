@@ -120,7 +120,8 @@ static const int KM_TEXT_DATA_MEMSLOT = 1;
 // other text and data memslots follow
 static const int KM_STACK_MEMSLOT = KVM_USER_MEM_SLOTS - 1;
 
-#define GUEST_MEM_START_VA memreg_base(KM_TEXT_DATA_MEMSLOT)
+// memreg_base(KM_TEXT_DATA_MEMSLOT)
+static const uint64_t GUEST_MEM_START_VA = MIB << KM_TEXT_DATA_MEMSLOT;
 
 /*
  * See "Virtual memory layout:" in km_cpu_init.c for details.
@@ -134,23 +135,15 @@ static const int KM_STACK_MEMSLOT = KVM_USER_MEM_SLOTS - 1;
  * with flow of the program.
  */
 static const km_gva_t GUEST_STACK_TOP = 128 * 1024 * GIB - GIB;
-/*
- * Total of all thread stacks, packed into one range of addresses. Stacks
- * (GUEST_STACK_START_SIZE each) will be placed in the area of
- * GUEST_ALL_STACKS_SIZE and the code will control overflow and move/extend in
- * the unlikely event of the need.
- */
-static const uint64_t GUEST_ALL_STACKS_SIZE = GIB;
-/* Single thread stack size */
-static const uint64_t GUEST_STACK_START_SIZE = 2 * MIB;
-/* Initial thread stack start - lowest address */
-static const km_gva_t GUEST_STACK_START_VA =
-    GUEST_STACK_TOP - GUEST_STACK_START_SIZE;   // 0x7fffbfe00000
+static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
+// Each VCPU, aka thread, gets itw own stack. This is max total size of all of them
+static const uint64_t GUEST_STACK_TOTAL_SIZE = GUEST_STACK_SIZE * KVM_MAX_VCPUS;
 
-#define GUEST_STACK_START_PA (machine.guest_max_physmem - GUEST_STACK_START_SIZE)
-
-/* Top of the allowed text+data area, or maximum possible value of machine.brk */
-#define GUEST_MAX_BRK (machine.guest_max_physmem - GUEST_ALL_STACKS_SIZE)
+// Top of the allowed text+data area, or maximum possible value of machine.brk
+static inline uint64_t GUEST_MAX_BRK(void)
+{
+   return machine.guest_max_physmem - GUEST_STACK_TOTAL_SIZE;
+}
 
 /*
  * address space is made of exponentially increasing regions (km_cpu_init.c):
@@ -192,11 +185,17 @@ static inline km_gva_t memreg_top(int idx)
 
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
-   if (gva >= GUEST_STACK_START_VA && gva < GUEST_STACK_TOP) {
-      return km_memreg_kma(KM_STACK_MEMSLOT) - GUEST_STACK_START_VA + gva;
+   int idx;
+
+   if (GUEST_STACK_TOP - GUEST_STACK_TOTAL_SIZE <= gva && gva < GUEST_STACK_TOP) {
+      idx = KM_STACK_MEMSLOT - (GUEST_STACK_TOP - gva) / GUEST_STACK_SIZE;
+      if (machine.vm_mem_regs[idx] == NULL) {
+         return NULL;
+      }
+      return km_memreg_kma(idx) + gva % GUEST_STACK_SIZE;
    }
    if (GUEST_MEM_START_VA <= gva && gva < machine.brk) {
-      int idx = gva_to_memreg_idx(gva);
+      idx = gva_to_memreg_idx(gva);
 
       return gva - memreg_base(idx) + km_memreg_kma(idx);
    }
@@ -204,6 +203,7 @@ static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 }
 
 km_gva_t km_mem_brk(km_gva_t brk);
+km_gva_t km_stack(void);
 km_gva_t km_init_libc_main(void);
 int km_create_pthread(pthread_t* restrict pid,
                       const pthread_attr_t* restrict attr,
