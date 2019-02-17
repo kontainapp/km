@@ -35,7 +35,7 @@ int main()
       ;
 
    if ((x = syscall(SYS_brk, 0)) != size) {
-      syscall(SYS_exit, 1);
+      return 1;
    }
-   syscall(SYS_exit, 0);
+   return 0;
 }

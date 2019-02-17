@@ -21,8 +21,8 @@ OBJ = ${SRC:%.c=%.o}
 SRC_KM_ONLY := exit_value.c load.c mem_brk.c
 # Tests to run in linux and km, and compare. Build for both
 SRC_LINUX := hello.c hello_html.c gdb_test.c
-# Helpers, build for KM and linix, do not run as part of test
-SRC_HELPERS := hello_loop.c 
+# Helpers, build for KM and linux, do not run as part of test
+SRC_HELPERS := hello_loop.c hello_2_loops.c
 
 SRC = ${SRC_LINUX} ${SRC_KM_ONLY} ${SRC_HELPERS}
 LDDIRS := ${TOP}build/runtime
@@ -38,12 +38,12 @@ all: ${EXECS} ## Build a simple test
 test: all $(TEST_TARGETS) ## Run a simple test (may need /dev/kvm or privileged container)
 
 .exit_value: 
-	pl_status=`${KM} exit_value.km |& awk '/status/ { print $$11 }'` ; \
+	pl_status=`${KM} exit_value.km |& awk '/status/ { print $$13 }'` ; \
 			if [ "$$pl_status" != "0x11" ] ; then echo ==$$pl_status ; false; fi
 	@echo -e "$@: ${SUCCESS}"
 
 .load:
-	pl_status=`${KM} load.km |& awk '/status/ { print $$11 }'` ; \
+	pl_status=`${KM} load.km |& awk '/status/ { print $$13 }'` ; \
 			if [ "$$pl_status" != "0x0" ] ; then echo ==$$pl_status ; false; fi
 	@echo -e "$@: ${SUCCESS}"
 

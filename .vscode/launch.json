@@ -93,11 +93,19 @@
    ],
    "inputs": [
       {
-          "id": "payload",
-          "description": "payload file (basename) to debug (e.g. 'hello' for tests/hello.km ",
-          "default": "hello",
-          "type": "pickString",
-          "options": ["hello", "hello_html", "hello_loop", "load", "mem_brk", "gdb_test"]
-         }
-  ]
+         "id": "payload",
+         "description": "payload file (basename) to debug (e.g. 'hello' for tests/hello.km ",
+         "default": "hello",
+         "type": "pickString",
+         "options": [
+            "hello",
+            "hello_html",
+            "hello_loop",
+            "hello_2_loops",
+            "load",
+            "mem_brk",
+            "gdb_test"
+         ]
+      }
+   ]
 }

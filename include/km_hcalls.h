@@ -39,4 +39,10 @@ static inline void km_hcall(int n, km_hc_args_t* arg)
                         : "memory");
 }
 
+#define KM_MAX_HCALL 512
+/*
+ * Hypercalls that don't translate directly into system calls.
+ */
+#define HC_pthread (KM_MAX_HCALL - 1)
+
 #endif /* #ifndef __KM_HCALLS_H__ */

@@ -14,6 +14,8 @@
  * struct __libc and friends.
  */
 
+#include <assert.h>
+#include <errno.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -186,21 +188,67 @@ km_gva_t km_init_libc_main(void)
 /*
  * Allocate and initialize pthread structure for newly created thread in the guest.
  */
-km_pthread_t* km_init_pthread(const pthread_attr_t* restrict attr)
+static km_gva_t km_init_pthread(const pthread_attr_t* restrict attr)
 {
-   return NULL;
+   km_gva_t libc = km_guest.km_libc.st_value;
+   km__libc_t* libc_kma;
+   km_pthread_t* tcb_kma;
+   km_gva_t tcb;
+   km_gva_t sp;
+
+   assert(libc != 0);
+   if ((sp = km_alloc_stack()) == 0) {
+      return 0;
+   }
+   libc_kma = km_gva_to_kma(libc);
+   tcb = rounddown(sp - sizeof(km_pthread_t), libc_kma->tls_align);
+   tcb_kma = km_gva_to_kma(tcb);
+   memset(tcb_kma, 0, sizeof(km_pthread_t));
+   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)(sp - libc_kma->tls_size);
+   tcb_kma->self = (km_pthread_t*)tcb;
+   tcb_kma->detach_state = DT_JOINABLE;
+   tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
+   tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
+   tcb_kma->stack = (typeof(tcb_kma->stack))sp - libc_kma->tls_size;
+   tcb_kma->stack_size = GUEST_STACK_SIZE - libc_kma->tls_size;
+   return tcb;
 }
 
 int km_create_pthread(pthread_t* restrict pid,
                       const pthread_attr_t* restrict attr,
+                      void (*__entry__)(void),
                       void* (*start)(void*),
                       void* restrict args)
 {
-   km_pthread_t* pt;
+   km_pthread_t* pt_kma;
+   km_gva_t pt;
    km_vcpu_t* vcpu;
+   int rc;
 
-   pt = km_init_pthread(attr);
-   vcpu = km_vcpu_init((km_gva_t)start, (km_gva_t)pt->stack, (km_gva_t)pt);
-   km_vcpu_run(vcpu);
-   return 0;
+   if ((pt = km_init_pthread(attr)) == 0) {
+      return -EAGAIN;
+   }
+   pt_kma = km_gva_to_kma(pt);
+   pt_kma->start = start;
+   pt_kma->start_arg = args;
+   vcpu = km_vcpu_init((km_gva_t)__entry__, (km_gva_t)pt_kma->stack, (km_gva_t)pt);
+   pt_kma->tid = vcpu->vcpu_id;
+   vcpu->guest_thr = pt;
+
+   pthread_attr_t att;
+
+   pthread_attr_init(&att);
+   pthread_attr_setdetachstate(&att, PTHREAD_CREATE_DETACHED);
+   pthread_attr_setstacksize(&att, 4 * PAGE_SIZE);
+   rc = pthread_create(&vcpu->vcpu_thread, NULL, (void* (*)(void*))(km_vcpu_run), vcpu);
+   pthread_attr_destroy(&att);
+   return rc;
+}
+
+void km_fini_pthread(km_vcpu_t* vcpu)
+{
+   int id = vcpu->vcpu_id;
+
+   km_vcpu_fini(vcpu);
+   km_free_stack(id);
 }

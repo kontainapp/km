@@ -25,7 +25,9 @@
          "__strerror.h": "c",
          "locale_impl.h": "c",
          "km_gdb.h": "c",
-         "bsd_queue.h": "c"
+         "bsd_queue.h": "c",
+         "pthread_impl.h": "c",
+         "syscall_arch.h": "c"
       },
         "files.exclude": {
          "**/*.d": true,

@@ -43,22 +43,24 @@ typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload s
 typedef void* km_kma_t;      // kontain monitor address (i.e. address in km process space)
 
 typedef struct km_vcpu {
-   int kvm_vcpu_fd;      // this VCPU file descriptors
-   kvm_run_t* cpu_run;   // run control region
-   pthread_t vcpu_thread;
+   int kvm_vcpu_fd;         // this VCPU file descriptors
+   int vcpu_id;             // uniq ID
+   kvm_run_t* cpu_run;      // run control region
+   pthread_t vcpu_thread;   // km pthread
+   km_gva_t guest_thr;      // guest pthread
    chan_t* vcpu_chan;
 } km_vcpu_t;
 
 void km_machine_init(void);
 void km_machine_fini(void);
 km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, km_gva_t fs_base);
+void km_vcpu_fini(km_vcpu_t* vcpu);
 void* km_vcpu_run_main(void* unused);
-void km_vcpu_run(km_vcpu_t* vcpu);
+void* km_vcpu_run(km_vcpu_t* vcpu);
 
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
-#define KM_MAX_HCALL 512
 typedef int (*km_hcall_fn_t)(int hc __attribute__((__unused__)),
                              km_hc_args_t* guest_addr,
                              int* status);
@@ -203,12 +205,15 @@ static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 }
 
 km_gva_t km_mem_brk(km_gva_t brk);
-km_gva_t km_stack(void);
+km_gva_t km_alloc_stack(void);
+void km_free_stack(int idx);
 km_gva_t km_init_libc_main(void);
 int km_create_pthread(pthread_t* restrict pid,
                       const pthread_attr_t* restrict attr,
+                      void (*__entry__)(void),
                       void* (*start)(void*),
                       void* restrict args);
+void km_fini_pthread(km_vcpu_t* vcpu);
 
 /*
  * Trivial trace() based on warn() - but with an a switch to run off and on.

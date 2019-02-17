@@ -29,7 +29,7 @@
 static void
 __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
 {
-   static const char fx[] = "RIP 0x%0llx, RSP 0x%0llx: ";
+   static const char fx[] = "VCPU %d, RIP 0x%0llx, RSP 0x%0llx: ";
    int save_errno = errno;
    va_list args;
    kvm_regs_t regs;
@@ -42,7 +42,7 @@ __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, 
       va_end(args);
    }
 
-   sprintf(fmt, fx, regs.rip, regs.rsp);
+   sprintf(fmt, fx, vcpu->vcpu_id, regs.rip, regs.rsp);
    strcat(fmt, f);
 
    errno = save_errno;
@@ -52,6 +52,30 @@ __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, 
 
 #define run_err(__s, __f, ...) __run_err(&verr, vcpu, __s, __f, ##__VA_ARGS__)
 #define run_errx(__s, __f, ...) __run_err(&verrx, vcpu, __s, __f, ##__VA_ARGS__)
+
+static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu, const char* f, ...)
+{
+   static const char fx[] = "VCPU %d, RIP 0x%0llx, RSP 0x%0llx: ";
+   va_list args;
+   kvm_regs_t regs;
+   char fmt[strlen(f) + strlen(fx) + 2 * strlen("1234567890123456") + 10];
+
+   va_start(args, f);
+
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &regs) < 0) {
+      (*fn)(f, args);
+      va_end(args);
+      return;
+   }
+
+   sprintf(fmt, fx, vcpu->vcpu_id, regs.rip, regs.rsp);
+   strcat(fmt, f);
+
+   (*fn)(fmt, args);
+   va_end(args);
+}
+
+#define run_warn(__f, ...) __run_warn(&vwarnx, vcpu, __f, ##__VA_ARGS__)
 
 /*
  * return non-zero and set status if guest halted
@@ -92,7 +116,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
    return km_hcalls_table[*hc](*hc, km_gva_to_kma(ga), status);
 }
 
-void km_vcpu_run(km_vcpu_t* vcpu)
+void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int status, hc;
 
@@ -113,8 +137,13 @@ void km_vcpu_run(km_vcpu_t* vcpu)
       switch (vcpu->cpu_run->exit_reason) {
          case KVM_EXIT_IO: /* Hypercall */
             if (hypercall(vcpu, &hc, &status) != 0) {
-               run_errx(0, "KVM: hypercall 0x%x stop, status 0x%x", hc, status);
-               return;
+               run_warn("KVM: hypercall 0x%x stop, status 0x%x", hc, status);
+               if (km_gdb_enabled()) {
+                  vcpu->cpu_run->exit_reason = KVM_EXIT_HLT;
+                  km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
+               }
+               km_fini_pthread(vcpu);
+               return NULL;
             }
             break;   // continue the while
 
@@ -165,6 +194,5 @@ void* km_vcpu_run_main(void* unused)
    if (km_gdb_enabled()) {
       km_gdb_prepare_for_run(vcpu);
    }
-   km_vcpu_run(vcpu);   // and now go into the run loop
-   return (void*)NULL;
+   return km_vcpu_run(vcpu);   // and now go into the run loop
 }

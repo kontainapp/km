@@ -321,6 +321,7 @@ static void send_packet(const char* buffer)
    for (char ch = '\0'; ch != '+';) {
       send_packet_no_ack(buffer);
       if ((ch = recv_char()) == -1) {
+         km_gdb_disable();
          return;
       }
    }
@@ -603,28 +604,28 @@ done:
  * Note that we map VM exit reason to a GDB 'signal', which is what needs to be communicated  back
  * to gdb client.
  */
-static bool km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
+static void km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
 {
    assert(km_gdb_enabled());
    switch (vcpu->cpu_run->exit_reason) {
       case KVM_EXIT_HLT:
-         // let GDB know we are done, and let vcpu loop to do it's completion
          send_response('W', 0, true);
-         return false;
+         km_gdb_disable();
+         return;
 
       case KVM_EXIT_DEBUG:
          gdb_handle_payload_stop(vcpu, SIGTRAP);
-         return true;
+         return;
 
       case KVM_EXIT_INTR:
          gdb_handle_payload_stop(vcpu, SIGINT);
-         return true;
+         return;
 
       case KVM_EXIT_EXCEPTION:
          gdb_handle_payload_stop(vcpu, SIGSEGV);
-         return true;
+         return;
    }
-   return false;
+   return;
 }
 
 /*
@@ -656,8 +657,8 @@ static void* km_gdb_thread_entry(void* unused)
          assert(info.ssi_signo == GDBSTUB_SIGNAL);
          chan_recv(gdb_chan, (void*)&vcpu);   // should get vcpu
          km_infox("%s: poll and vcpu_run done, got vcpu* (%p)", __FUNCTION__, vcpu);
-         ret = km_gdb_handle_kvm_exit(vcpu);    // give control to gdb
-         chan_send_int(vcpu->vcpu_chan, ret);   // Unblock main guest thread
+         km_gdb_handle_kvm_exit(vcpu);        // give control to gdb
+         chan_send_int(vcpu->vcpu_chan, 1);   // Unblock main guest thread
          continue;
       }
       if (fds[0].revents) {   // gdb client wants ^c

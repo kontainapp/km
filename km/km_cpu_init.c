@@ -184,9 +184,9 @@ static void init_pml4(km_kma_t mem)
    memset(mem + RSV_PD2_OFFSET, 0, PAGE_SIZE);   // clear page, no usable entries
 }
 
-static km_kma_t page_malloc(size_t size)
+static void* page_malloc(size_t size)
 {
-   km_kma_t addr;
+   void* addr;
 
    if ((size & (PAGE_SIZE - 1)) != 0) {
       errno = EINVAL;
@@ -199,12 +199,12 @@ static km_kma_t page_malloc(size_t size)
    return addr;
 }
 
-static void page_free(km_kma_t addr, size_t size)
+static void page_free(void* addr, size_t size)
 {
    munmap(addr, size);
 }
 
-km_gva_t km_stack(void)
+km_gva_t km_alloc_stack(void)
 {
    kvm_mem_reg_t* reg;
    km_kma_t ptr;
@@ -238,14 +238,33 @@ km_gva_t km_stack(void)
    }
    machine.vm_mem_regs[reg->slot] = reg;
    pde_2mb_set(pde + ((va / PDE_REGION) & 0x1ff), pa);
-   return va + GUEST_STACK_SIZE - 1;
+   return va + GUEST_STACK_SIZE;
+}
+
+void km_free_stack(int idx)
+{
+   kvm_mem_reg_t* reg;
+   x86_pde_2m_t* pde = km_memreg_kma(KM_RSRV_MEMSLOT) + RSV_PD2_OFFSET;
+   km_gva_t va = GUEST_STACK_TOP - (idx + 1) * GUEST_STACK_SIZE;
+   uint64_t tmp;
+
+   memset(pde + ((va / PDE_REGION) & 0x1ff), 0, sizeof(*pde));
+   reg = machine.vm_mem_regs[KM_STACK_MEMSLOT - idx];
+   machine.vm_vcpus[KM_STACK_MEMSLOT - idx] = NULL;
+   tmp = reg->memory_size;
+   reg->memory_size = 0;
+   if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+      err(1, "KVM: remove guest payload stack memory failed");
+   }
+   page_free((void*)reg->userspace_addr, tmp);
+   free(reg);
 }
 
 /*
  * Create reserved memory, initialize PML4 and brk.
  *
- * TODO: For now also create stack and initialize PML4 for it. As stack and mmap handling will merge
- * this will also disapper.
+ * TODO: For now also create stack and initialize PML4 for it. As stack and mmap handling will
+ * merge this will also disapper.
  */
 static void km_mem_init(void)
 {
@@ -344,7 +363,8 @@ km_gva_t km_mem_brk(km_gva_t brk)
       if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
          return -ENOMEM;
       }
-      size = memreg_top(idx) < GUEST_MAX_BRK() ? memreg_size(idx) : GUEST_MAX_BRK() - memreg_base(idx);
+      size =
+          memreg_top(idx) < GUEST_MAX_BRK() ? memreg_size(idx) : GUEST_MAX_BRK() - memreg_base(idx);
       if ((ptr = page_malloc(size)) == NULL) {
          free(reg);
          return -ENOMEM;
@@ -384,12 +404,12 @@ km_gva_t km_mem_brk(km_gva_t brk)
  */
 void km_machine_fini(void)
 {
+   pthread_join(km_main_vcpu()->vcpu_thread, NULL);
    /* check if there are any VCPUs */
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       km_vcpu_t* vcpu = machine.vm_vcpus[i];
 
       if (vcpu != NULL) {
-         pthread_join(vcpu->vcpu_thread, NULL);
          if (vcpu->vcpu_chan != NULL) {
             chan_dispose(vcpu->vcpu_chan);
          }
@@ -411,7 +431,7 @@ void km_machine_fini(void)
       if (mr != NULL) {
          /* TODO: Do we need to "unplug" it from the VM? */
          if (mr->memory_size != 0) {
-            page_free((km_kma_t)mr->userspace_addr, mr->memory_size);
+            page_free((void*)mr->userspace_addr, mr->memory_size);
          }
          free(mr);
          machine.vm_mem_regs[i] = NULL;
@@ -466,7 +486,6 @@ static void kvm_vcpu_init_sregs(int fd, uint64_t fs)
 km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
 {
    km_vcpu_t* vcpu;
-   int vcpu_id;
 
    /*
     * TODO: consider returning errors to be able to keep going instead of just
@@ -475,11 +494,12 @@ km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
    if ((vcpu = malloc(sizeof(km_vcpu_t))) == NULL) {
       err(1, "KVM: no memory for vcpu");
    }
-   if ((vcpu_id = km_put_new_vcpu(vcpu)) < 0) {
+   memset(vcpu, 0, sizeof(km_vcpu_t));
+   if ((vcpu->vcpu_id = km_put_new_vcpu(vcpu)) < 0) {
       err(1, "KVM: too many vcpus");
    }
-   if ((vcpu->kvm_vcpu_fd = ioctl(machine.mach_fd, KVM_CREATE_VCPU, vcpu_id)) < 0) {
-      err(1, "KVM: create vcpu %d failed", vcpu_id);
+   if ((vcpu->kvm_vcpu_fd = ioctl(machine.mach_fd, KVM_CREATE_VCPU, vcpu->vcpu_id)) < 0) {
+      err(1, "KVM: create vcpu %d failed", vcpu->vcpu_id);
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_CPUID2, machine.cpuid) < 0) {
       err(1, "KVM: set CPUID2 failed");
@@ -487,7 +507,7 @@ km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
    if ((vcpu->cpu_run = mmap(
             NULL, machine.vm_run_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu->kvm_vcpu_fd, 0)) ==
        MAP_FAILED) {
-      err(1, "KVM: failed mmap VCPU %d control region", vcpu_id);
+      err(1, "KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
    }
    kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, fs_base);
 
@@ -509,6 +529,25 @@ km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
       }
    }
    return vcpu;
+}
+
+/*
+ * Release resources allocated in km_vcpu_init()
+ */
+void km_vcpu_fini(km_vcpu_t* vcpu)
+{
+   if (vcpu->vcpu_chan != NULL) {
+      chan_dispose(vcpu->vcpu_chan);
+   }
+   if (vcpu->cpu_run != NULL) {
+      (void)munmap(vcpu->cpu_run, machine.vm_run_size);
+   }
+   if (vcpu->kvm_vcpu_fd >= 0) {
+      close(vcpu->kvm_vcpu_fd);
+   }
+   machine.vm_vcpus[vcpu->vcpu_id] = NULL;
+   free(vcpu);
+   machine.vm_cpu_cnt--;
 }
 
 /*

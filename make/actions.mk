@@ -74,7 +74,7 @@ ifneq (${LIB},)
 
 all: ${BLDLIB}
 ${BLDLIB}: $(OBJS)
-	rm -f $@; ${AR} crs $@ $(OBJS)
+	@rm -f $@; ${AR} crs $@ $(OBJS)
 
 endif
 

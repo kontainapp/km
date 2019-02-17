@@ -133,7 +133,7 @@ static inline uint64_t km_gva_to_kml(uint64_t gva)
 /*
  * guest code executed exit(status);
  */
-static int halt_hcall(int hc, km_hc_args_t* arg, int* status)
+static int exit_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    *status = arg->arg1;
    return 1;
@@ -255,22 +255,18 @@ static int pthread_create_hcall(int hc, km_hc_args_t* arg, int* status)
 
    arg->hc_ret = km_create_pthread(km_gva_to_kma(arg->arg1),
                                    km_gva_to_kma(arg->arg2),
-                                   (void* (*)(void*))(arg->arg3),
-                                   (void*)arg->arg4);
+                                   (void (*)(void))(arg->arg3),
+                                   (void* (*)(void*))(arg->arg4),
+                                   (void*)arg->arg5);
    return 0;
 }
-
-/*
- * Hypercalls that don't translate directly into system calls.
- */
-#define HC_pthread (KM_MAX_HCALL - 1)
 
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 
 void km_hcalls_init(void)
 {
-   km_hcalls_table[SYS_exit] = halt_hcall;
-   km_hcalls_table[SYS_exit_group] = halt_hcall;
+   km_hcalls_table[SYS_exit] = exit_hcall;
+   km_hcalls_table[SYS_exit_group] = exit_hcall;
    km_hcalls_table[SYS_read] = rw_hcall;
    km_hcalls_table[SYS_write] = rw_hcall;
    km_hcalls_table[SYS_readv] = rwv_hcall;
