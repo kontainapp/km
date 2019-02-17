@@ -22,6 +22,7 @@
 #include "km.h"
 #include "km_gdb.h"
 #include "km_hcalls.h"
+#include "km_mem.h"
 
 /*
  * run related err and errx - get regs, print RIP and the supplied message
@@ -102,6 +103,8 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
     * the args address. Two assumptions made here: hcall args passed are on
     * stack in the guest, and the stack is less than 4GB long, i.e. the address
     * is withint 4GB range below the top of the stack.
+    *
+    * TODO: Has to be on each vcpu thread stack
     *
     * We set the high four bytes to the same as top of the stack, and check for
     * underflow.

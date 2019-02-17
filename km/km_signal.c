@@ -27,7 +27,7 @@
 /*
  * Clear the requested signal for a VCPU, at the same time blocking it
  * for current thread so it can get through while in KVM.
- * TBD: we need to fetch process mask, clear the signal and set it.
+ * TODO: we need to fetch process mask, clear the signal and set it.
  * For now clearing all.
  */
 void km_vcpu_unblock_signal(km_vcpu_t* vcpu, int signum)

@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "km.h"
+#include "km_mem.h"
 
 /*
  * Definitions and structures from varios musl files

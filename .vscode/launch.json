@@ -98,13 +98,15 @@
          "default": "hello",
          "type": "pickString",
          "options": [
+            "exit_value",
             "hello",
             "hello_html",
             "hello_loop",
             "hello_2_loops",
             "load",
             "mem_brk",
-            "gdb_test"
+            "gdb_test",
+            "mmap_test"
          ]
       }
    ]

@@ -18,6 +18,7 @@
 
 #include "km.h"
 #include "km_hcalls.h"
+#include "km_mem.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -261,6 +262,31 @@ static int pthread_create_hcall(int hc, km_hc_args_t* arg, int* status)
    return 0;
 }
 
+static int mmap_hcall(int hc, km_hc_args_t* arg, int* status)
+{
+   arg->hc_ret = km_guest_mmap(
+       (km_gva_t)arg->arg1, (size_t)arg->arg2, arg->arg3, arg->arg4, arg->arg5, (off_t)arg->arg6);
+   return 0;
+};
+
+static int munmap_hcall(int hc, km_hc_args_t* arg, int* status)
+{
+   arg->hc_ret = km_guest_munmap((km_gva_t)arg->arg1, (size_t)arg->arg2);
+   return 0;
+};
+
+static int mremap_hcall(int hc, km_hc_args_t* arg, int* status)
+{
+   arg->hc_ret = km_guest_mremap(
+       (void*)arg->arg1, (size_t)arg->arg2, arg->arg3, arg->arg4, arg->arg5, (off_t)arg->arg6);
+   return 0;
+};
+
+/*
+ * Hypercalls that don't translate directly into system calls.
+ */
+#define HC_pthread (KM_MAX_HCALL - 1)
+
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 
 void km_hcalls_init(void)
@@ -283,6 +309,9 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_shutdown] = shutdown_hcall;
    km_hcalls_table[SYS_brk] = brk_hcall;
    km_hcalls_table[HC_pthread] = pthread_create_hcall;
+   km_hcalls_table[SYS_mmap] = mmap_hcall;
+   km_hcalls_table[SYS_munmap] = munmap_hcall;
+   km_hcalls_table[SYS_mremap] = mremap_hcall;
 }
 
 void km_hcalls_fini(void)

@@ -1,0 +1,192 @@
+/*
+ * Copyright © 2018 Kontain Inc. All rights reserved.
+ *
+ * Kontain Inc CONFIDENTIAL
+ *
+ * This file includes unpublished proprietary source code of Kontain Inc. The
+ * copyright notice above does not evidence any actual or intended publication
+ * of such source code. Disclosure of this source code or any related
+ * proprietary information is strictly prohibited without the express written
+ * permission of Kontain Inc.
+ */
+
+#ifndef __KM_MEM_H__
+#define __KM_MEM_H__
+
+#include <assert.h>
+#include <err.h>
+#include <stdint.h>
+#include <sys/param.h>
+#include <linux/kvm.h>
+#include "km.h"
+
+static const int RSV_MEM_START = PAGE_SIZE;
+static const int RSV_MEM_SIZE = PAGE_SIZE * 63;
+/*
+ * Mandatory data structures in reserved area to enable 64 bit CPU.
+ * These numbers are offsets from the start of reserved area
+ */
+static const int RSV_PML4_OFFSET = 0 * PAGE_SIZE;
+static const int RSV_PDPT_OFFSET = 1 * PAGE_SIZE;
+static const int RSV_PDPT2_OFFSET = 2 * PAGE_SIZE;
+static const int RSV_PD_OFFSET = 3 * PAGE_SIZE;
+static const int RSV_PD2_OFFSET = 4 * PAGE_SIZE;
+/*
+ * convert the above to guest physical offsets
+ */
+#define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
+
+static inline void* km_memreg_kma(int idx)
+{
+   return (km_kma_t)machine.vm_mem_regs[idx]->userspace_addr;
+}
+
+static const int KM_RSRV_MEMSLOT = 0;
+static const int KM_TEXT_DATA_MEMSLOT = 1;
+// other text and data memslots follow
+
+// memreg_base(KM_TEXT_DATA_MEMSLOT)
+static const km_gva_t GUEST_MEM_START_VA = MIB << KM_TEXT_DATA_MEMSLOT;
+// ceiling for guest virt. address. 2MB shift down to make it aligned on GB with physical address
+static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB;
+
+// VA offset from PA for addresses over machine.tbrk. Last 2MB of VA stay unused for symmetry.
+#define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA + 2 * MIB - machine.guest_max_physmem)
+/*
+ * See "Virtual memory layout:" in km_cpu_init.c for details.
+ */
+/*
+ * Talking about stacks, start refers to the lowest address, top is the highest,
+ * in other words start and top are view from the memory regions allocation
+ * point of view.
+ *
+ * RSP register initially is pointed to the top of the stack, and grows down
+ * with flow of the program.
+ */
+
+#ifdef FIXED_STACK
+static const km_gva_t GUEST_STACK_TOP = GUEST_MEM_TOP_VA - GIB;
+static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
+// Each VCPU, aka thread, gets itw own stack. This is max total size of all of them
+static const uint64_t GUEST_STACK_TOTAL_SIZE = GUEST_STACK_SIZE * KVM_MAX_VCPUS;
+#else
+static const km_gva_t GUEST_STACK_TOP = GUEST_MEM_TOP_VA;
+static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
+#endif
+
+/*
+ * Physical address space is made of regions with size exponentially increasing from 2MB until they
+ * cross the middle of the space ,  and then region size starts to exponentially decrease until they
+ * drop to 2MB (last region size). E.g.:
+ * // clang-format off
+ *  base - end       size  idx   clz  clz(end)
+ *   2MB -   4MB      2MB    1    42   n/a
+ *   4MB -   8MB      4MB    2    41   ..
+ *   8MB -  16MB      8MB    3    40
+ *  16MB -  32MB     16MB    4    39
+ *     ...
+ *  128GB - 256GB    128GB   17   26
+ *  256GB - 384GB    128GB   18   n/a  25
+ *  384GB - 448GB    64GB    19   n/a  26
+ *        ...
+ *  510GB - 511GB      1GB   25   n/a  32
+ * // clang-format on
+ * idx is number of the region, we compute it based on number of leading zeroes
+ * in a given address (clz) or in "512GB - address" (clz(end)), using clzl instruction. 'base' is
+ * address of the first byte in it. Note size equals base in the first half of the space
+ *
+ * Knowing memory layout and how pml4 is set, convert between guest virtual address and km address.
+ */
+
+// memreg index for an addr in the bottom half of the PA (after that the geometry changes)
+static inline int MEM_IDX(km_gva_t addr)
+{
+   // 43 is "64 - position_of_first_bit_in_2MB"
+   return (43 - __builtin_clzl(addr));
+}
+
+// guest virtual address to guest physical address - adjust high gva down
+static inline km_gva_t gva_to_gpa(km_gva_t gva)
+{
+   // when brk grows, we can be asked about gva > machin.brk, so asserting on max_physmem not brk
+   assert(gva <= machine.guest_max_physmem || gva >= machine.tbrk);
+   if (gva >= machine.tbrk) {
+      gva -= GUEST_VA_OFFSET;
+   }
+   return gva;
+}
+
+static inline int gva_to_memreg_idx(km_gva_t addr)
+{
+   addr = gva_to_gpa(addr);   // adjust for gva after 'tbrk'
+   if (addr <= machine.guest_mid_physmem) {
+      return MEM_IDX(addr);
+   }
+   return machine.last_mem_idx - MEM_IDX(machine.guest_max_physmem - addr - 1);
+}
+
+static inline km_gva_t memreg_top(int idx);   // forward declaration
+
+/* memreg_base() and memreg_top() return guest physical addresses */
+static inline uint64_t memreg_base(int idx)
+{
+   if (idx <= machine.mid_mem_idx) {
+      return MIB << idx;
+   }
+   return machine.guest_max_physmem - memreg_top(machine.last_mem_idx - idx);
+}
+
+static inline km_gva_t memreg_top(int idx)
+{
+   if (idx <= machine.mid_mem_idx) {
+      return (MIB << 1) << idx;
+   }
+   return machine.guest_max_physmem - memreg_base(machine.last_mem_idx - idx);
+   // return machine.vm_mem_regs[idx]->guest_phys_addr + machine.vm_mem_regs[idx]->memory_size;
+}
+
+static inline uint64_t memreg_size(int idx)
+{
+   if (idx <= machine.mid_mem_idx) {
+      return MIB << idx;
+   }
+   return MIB << (machine.last_mem_idx - idx);
+   // return machine.vm_mem_regs[idx]->memory_size;
+}
+
+static inline km_kma_t km_gva_to_kma(km_gva_t gva)
+{
+   int idx;
+
+#ifdef FIXED_STACK
+   // special case for stacks (scaffolding)
+   if (GUEST_STACK_TOP - GUEST_STACK_TOTAL_SIZE <= gva && gva < GUEST_STACK_TOP) {
+      idx = KM_STACK_MEMSLOT - (GUEST_STACK_TOP - gva) / GUEST_STACK_SIZE;
+      if (machine.vm_mem_regs[idx] == NULL) {
+         return NULL;
+      }
+      return km_memreg_kma(idx) + gva % GUEST_STACK_SIZE;
+   }
+#endif
+
+   if ((GUEST_MEM_START_VA <= gva && gva < machine.brk) ||
+       (machine.tbrk <= gva && gva <= GUEST_MEM_TOP_VA)) {
+      idx = gva_to_memreg_idx(gva);
+      return gva_to_gpa(gva) - memreg_base(idx) + km_memreg_kma(idx);
+   }
+   return NULL;
+}
+
+void km_mem_init(void);
+void km_page_free(km_kma_t addr, size_t size);
+km_kma_t km_page_malloc(size_t size);
+int km_mmap_extend(void);
+void km_guest_mmap_init(void);
+km_gva_t km_mem_brk(km_gva_t brk);
+km_gva_t km_alloc_stack(void);
+void km_free_stack(int idx);
+km_gva_t km_guest_mmap(km_gva_t addr, size_t length, int prot, int flags, int fd, off_t offset);
+int km_guest_munmap(km_gva_t addr, size_t length);
+km_gva_t km_guest_mremap(void* old_address, size_t old_size, size_t new_size, int flags, ...);
+
+#endif /* #ifndef __KM_MEM_H__ */

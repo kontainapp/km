@@ -52,6 +52,7 @@
 
 #include "km.h"
 #include "km_gdb.h"
+#include "km_mem.h"
 
 struct breakpoint_t {
    gdb_breakpoint_type_t type;
@@ -106,7 +107,7 @@ static int kvm_arch_remove_sw_breakpoint(km_vcpu_t* vcpu, struct breakpoint_t* b
 }
 
 /*
- *  TBD: this function needs to be written from scratch based on Intel SDK (D6/D7) and KVM API doc
+ *  TODO: this function needs to be written from scratch based on Intel SDK (D6/D7) and KVM API doc
  *  this function is taken by Solo5 from GPLd QEMU source code, target/i386/kvm.c
  */
 static int km_gdb_update_guest_debug(km_vcpu_t* vcpu)
@@ -356,12 +357,12 @@ int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t* len)
    gregs->fs = sregs.fs.selector;
    gregs->gs = sregs.gs.selector;
 
-   // TBD: Add KVM_GET_FPU
+   // TODO: Add KVM_GET_FPU
    if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, &fpuregs)) == -1) {
       warn("KVM_GET_FPU failed, ignoring");
    }
    // kvm gets 16 bytes per reg and names them differently. Will figure it out later
-   km_infox("FPU regs: not reporting for now (TBD)");
+   km_infox("FPU regs: not reporting for now (TODO)");
    return 0;
 }
 

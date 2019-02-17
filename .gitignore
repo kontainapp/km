@@ -5,7 +5,9 @@ trace.dat
 tests/hello
 tests/hello_html
 tests/hello_loop
-tests/gdb_test
+tests/*_test
+tests/memslot
+tests/mem_brk
 tests/*.out
 *.km
 *.d

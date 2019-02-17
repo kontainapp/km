@@ -54,6 +54,7 @@
 #include "chan/chan.h"
 #include "km.h"
 #include "km_gdb.h"
+#include "km_mem.h"
 #include "km_signal.h"
 
 int g_gdb_port = 0;   // 0 means NO GDB
@@ -433,7 +434,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
             break;
          }
          case 'R': {
-            /* restart: kill run_vcpu thread(s) and run em again - TBD */
+            /* restart: kill run_vcpu thread(s) and run em again - TODO */
             /* for now: */ send_not_supported_msg();
             break;
          }
@@ -566,7 +567,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
          }
 #if 0
         case 'q': {
-           /* TBD: separate command parsing into a sane table with "command" -> function */
+           /* TODO: separate command parsing into a sane table with "command" -> function */
            if (strncmp(packet, "qSupported", strlen("qSupported")) == 0) {
               send_packet("PacketSize=65535;qXfer:features:read+");
            } else if (strncmp(packet, "qXfer:features:read:target.xml:",
@@ -688,7 +689,7 @@ void km_gdb_start_stub(int port, char* const payload_file)
       errx(1, "Failed to connect to GDB");
    }
 
-   // TBD: think about 'attach' on signal - dynamically starting this thread
+   // TODO: think about 'attach' on signal - dynamically starting this thread
    if (pthread_create(&gdbsrv_thread, NULL, km_gdb_thread_entry, NULL) != 0) {
       err(1, "Failed to create GDB server thread ");
    }

@@ -23,6 +23,7 @@
 #include "chan/chan.h"
 #include "km.h"
 #include "km_gdb.h"
+#include "km_mem.h"
 #include "km_signal.h"
 
 int g_km_info_verbose;   // 0 is silent

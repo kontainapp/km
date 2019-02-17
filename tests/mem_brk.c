@@ -23,9 +23,9 @@
 #include <unistd.h>
 #include "syscall.h"
 
-static void const* __39_bit_mem = (void*)(512 * 0x40000000ul);
+static void const* __39_bit_mem = (void*)(512 * 0x40000000ul);   // 512GB
 
-static void const* high_addr = (void*)0x30000000ul;
+static void const* high_addr = (void*)0x30000000ul;   // 768 MB
 static void const* very_high_addr = (void*)(512 * 0x40000000ul);
 
 void* SYS_break(void const* addr)
@@ -39,7 +39,7 @@ int main()
 
    printf("break is %p\n", ptr = SYS_break(NULL));
    SYS_break(high_addr);
-   printf("break is %p\n", ptr1 = SYS_break(NULL));
+   printf("break is %p, expected %p\n", ptr1 = SYS_break(NULL), high_addr);
    assert(ptr1 == high_addr);
 
    ptr1 -= 20;
@@ -61,7 +61,7 @@ int main()
 
    SYS_break((void*)ptr);
    assert(ptr == SYS_break(NULL));
-   printf("break is %p\n", SYS_break(NULL));
+   printf("break is %p , expected %p\n", SYS_break(NULL), ptr);
 
    exit(0);
 }

@@ -87,11 +87,17 @@ typedef struct km_machine {
    km_vcpu_t* vm_vcpus[KVM_MAX_VCPUS];   // VCPUs we created
 
    kvm_mem_reg_t* vm_mem_regs[KVM_USER_MEM_SLOTS];   // guest physical memory regions
-   km_gva_t brk;                                     //
-                                                     //
-   kvm_cpuid2_t* cpuid;                              // to set VCPUs cpuid
-   uint64_t guest_max_physmem;                       // Set from CPUID
-   int pdpe1g;                                       //
+   km_gva_t brk;    // program break (highest address in bottom VA, i.e. txt/data)
+   km_gva_t tbrk;   // top break (lowest address in top VA)
+
+   kvm_cpuid2_t* cpuid;          // to set VCPUs cpuid
+   uint64_t guest_max_physmem;   // Set from CPUID
+   int pdpe1g;                   // 1 if 1G pages are supported by HW
+
+   // derivatives from guest_max_physmem  and memory layout. Cached to save on recalculation
+   uint64_t guest_mid_physmem;   // first byte of the top half of PA
+   int mid_mem_idx;              // idx for the last region in the bottom half of PA
+   int last_mem_idx;             // idx for the last (and hidden) region in the top half of PA
 } km_machine_t;
 
 extern km_machine_t machine;
@@ -113,101 +119,6 @@ static inline int km_put_new_vcpu(km_vcpu_t* new)
    return -1;
 }
 
-static inline void* km_memreg_kma(int idx)
-{
-   return (km_kma_t)machine.vm_mem_regs[idx]->userspace_addr;
-}
-
-static const int KM_RSRV_MEMSLOT = 0;
-static const int KM_TEXT_DATA_MEMSLOT = 1;
-// other text and data memslots follow
-static const int KM_STACK_MEMSLOT = KVM_USER_MEM_SLOTS - 1;
-
-// memreg_base(KM_TEXT_DATA_MEMSLOT)
-static const uint64_t GUEST_MEM_START_VA = MIB << KM_TEXT_DATA_MEMSLOT;
-
-/*
- * See "Virtual memory layout:" in km_cpu_init.c for details.
- */
-/*
- * Talking about stacks, start refers to the lowest address, top is the highest,
- * in other words start and top are view from the memory regions allocation
- * point of view.
- *
- * RSP register initially is pointed to the top of the stack, and grows down
- * with flow of the program.
- */
-static const km_gva_t GUEST_STACK_TOP = 128 * 1024 * GIB - GIB;
-static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
-// Each VCPU, aka thread, gets itw own stack. This is max total size of all of them
-static const uint64_t GUEST_STACK_TOTAL_SIZE = GUEST_STACK_SIZE * KVM_MAX_VCPUS;
-
-// Top of the allowed text+data area, or maximum possible value of machine.brk
-static inline uint64_t GUEST_MAX_BRK(void)
-{
-   return machine.guest_max_physmem - GUEST_STACK_TOTAL_SIZE;
-}
-
-/*
- * address space is made of exponentially increasing regions (km_cpu_init.c):
- *  base             size  idx   clz
- *   2MB -   4MB      2MB    1    42
- *   4MB -   8MB      4MB    2    41
- *   8MB -  16MB      8MB    3    40
- *  16MB -  32MB     16MB    4    39
- *     ...
- * idx is number of the region, we compute it based on number of leading zeroes
- * in a given address, using clzl instruction.
- * base is address of the first byte in it. Note size equals base.
- *
- * Knowing memory layout and how pml4 is set,
- * convert between guest virtual address and km address.
- */
-static inline int gva_to_memreg_idx(km_gva_t gva)
-{
-   return 43 - __builtin_clzl(gva);
-}
-
-/*
- * Note base and size are equal in this layout
- */
-static inline uint64_t memreg_base(int idx)
-{
-   return MIB << idx;
-}
-
-static inline uint64_t memreg_size(int idx)
-{
-   return MIB << idx;
-}
-
-static inline km_gva_t memreg_top(int idx)
-{
-   return (MIB << 1) << idx;
-}
-
-static inline km_kma_t km_gva_to_kma(km_gva_t gva)
-{
-   int idx;
-
-   if (GUEST_STACK_TOP - GUEST_STACK_TOTAL_SIZE <= gva && gva < GUEST_STACK_TOP) {
-      idx = KM_STACK_MEMSLOT - (GUEST_STACK_TOP - gva) / GUEST_STACK_SIZE;
-      if (machine.vm_mem_regs[idx] == NULL) {
-         return NULL;
-      }
-      return km_memreg_kma(idx) + gva % GUEST_STACK_SIZE;
-   }
-   if (GUEST_MEM_START_VA <= gva && gva < machine.brk) {
-      idx = gva_to_memreg_idx(gva);
-
-      return gva - memreg_base(idx) + km_memreg_kma(idx);
-   }
-   return NULL;
-}
-
-km_gva_t km_mem_brk(km_gva_t brk);
-km_gva_t km_alloc_stack(void);
-void km_free_stack(int idx);
 km_gva_t km_init_libc_main(void);
 int km_create_pthread(pthread_t* restrict pid,
                       const pthread_attr_t* restrict attr,

@@ -11,16 +11,16 @@ SHELL=/bin/bash
 
 TOP := $(shell git rev-parse --show-cdup)
 COPTS ?= -ggdb -O2
-CFLAGS = -Wall $(COPTS) -fno-stack-protector
+CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
 KM_LDFLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
-LOADLIBES ?= -static
+LOADLIBES ?= -ggdb -static -pthread
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:%.c=%.o}
 
 # Tests to run in KM only, build only .km
-SRC_KM_ONLY := exit_value.c load.c mem_brk.c
+SRC_KM_ONLY := exit_value.c load.c
 # Tests to run in linux and km, and compare. Build for both
-SRC_LINUX := hello.c hello_html.c gdb_test.c
+SRC_LINUX := hello.c hello_html.c mem_brk.c gdb_test.c  mmap_test.c memslot.c
 # Helpers, build for KM and linux, do not run as part of test
 SRC_HELPERS := hello_loop.c hello_2_loops.c
 
@@ -28,8 +28,8 @@ SRC = ${SRC_LINUX} ${SRC_KM_ONLY} ${SRC_HELPERS}
 LDDIRS := ${TOP}build/runtime
 LIBS := runtime
 KM := ${TOP}build/km/km
-EXECS := ${SRC:%.c=%.km} ${SRC_LINUX:%.c=%}
-# add a leading '.' 
+EXECS := ${SRC:%.c=%.km} ${SRC_LINUX:%.c=%} ${SRC_HELPERS:%.c=%}
+# add a leading '.'
 TEST_TARGETS :=  ${SRC_KM_ONLY:%.c=.%} ${SRC_LINUX:%.c=.%}
 
 all: ${EXECS} ## Build a simple test
@@ -37,27 +37,32 @@ all: ${EXECS} ## Build a simple test
 # Run tests in regular bash and in km/VMM.
 test: all $(TEST_TARGETS) ## Run a simple test (may need /dev/kvm or privileged container)
 
-.exit_value: 
+.exit_value:
+	@echo === Test: $@ ===
 	pl_status=`${KM} exit_value.km |& awk '/status/ { print $$13 }'` ; \
 			if [ "$$pl_status" != "0x11" ] ; then echo ==$$pl_status ; false; fi
 	@echo -e "$@: ${SUCCESS}"
 
 .load:
+	@echo === Test: $@ ===
 	pl_status=`${KM} load.km |& awk '/status/ { print $$13 }'` ; \
 			if [ "$$pl_status" != "0x0" ] ; then echo ==$$pl_status ; false; fi
 	@echo -e "$@: ${SUCCESS}"
 
-.hello: 
+.hello:
+	@echo === Test: $@ ===
 	./hello > 1.out
 	${KM} hello.km > 2.out
 	@diff 1.out 2.out || false
 	@echo -e "$@: ${SUCCESS}"
 
 .mem_brk:
+	@echo === Test: $@ ===
 	${KM} mem_brk.km || false
 	@echo -e "$@: ${SUCCESS}"
 
 .hello_html:
+	@echo === Test: $@ ===
 	./hello_html &
 	curl -s http://127.0.0.1:8002 | grep -q "I'm here"
 	${KM} hello_html.km &
@@ -69,12 +74,21 @@ test: all $(TEST_TARGETS) ## Run a simple test (may need /dev/kvm or privileged 
 	@rm 1.out 2.out
 
 .gdb_test:
+	@echo === Test: $@ ===
 	@$(KM)  -g 3333 gdb_test.km  &
 	@sleep 0.5
 	@gdb 	-q -nx --ex="target remote :3333"  \
 			--ex="source cmd_for_test.gdb"  --ex=c --ex=q \
 			gdb_test.km | grep -q SUCCESS
 	@echo -e "$@:  ${SUCCESS}"
+
+.mmap_test .memslot:
+	@echo === Test: $@ ===
+	@echo ./mmap_test
+	@./mmap_test | grep -q SUCCESS
+	@echo ${KM} mmap_test.km
+	@${KM} mmap_test.km | grep -q SUCCESS
+	@echo -e "$@: ${SUCCESS}"
 
 %.km: %.o
 	${LD} $< -o $@ ${KM_LDFLAGS}

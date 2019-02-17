@@ -21,6 +21,7 @@
 #include <sys/param.h>
 
 #include "km.h"
+#include "km_mem.h"
 
 km_payload_t km_guest;
 
