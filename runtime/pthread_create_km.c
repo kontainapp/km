@@ -1,10 +1,11 @@
+#include "libc.h"
 #include "pthread_impl.h"
 
 #include "km_hcalls.h"
 
 _Noreturn void __pthread_exit(void* result)
 {
-   pthread_t self = __pthread_self();
+   struct pthread* self = __pthread_self();
 
    self->result = result;
    while (1) {
@@ -14,7 +15,7 @@ _Noreturn void __pthread_exit(void* result)
 
 _Noreturn void __pthread_entry__(void)
 {
-   pthread_t self = __pthread_self();
+   struct pthread* self = __pthread_self();
 
    self->result = (void*)self->start(self->start_arg);
    while (1) {
