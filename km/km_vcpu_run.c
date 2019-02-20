@@ -107,10 +107,10 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
     * underflow.
     */
    /* high four bytes */
-   static const km_gva_t stack_top_high = GUEST_STACK_TOP & ~0xfffffffful;
+   km_gva_t stack_top_high = vcpu->start_stack & ~0xfffffffful;
    /* Recover high 4 bytes, but check for roll under 4GB boundary */
    ga = *(uint32_t*)((km_kma_t)r + r->io.data_offset) | stack_top_high;
-   if (ga > GUEST_STACK_TOP) {
+   if (ga > vcpu->start_stack) {
       ga -= 4 * GIB;
    }
    return km_hcalls_table[*hc](*hc, km_gva_to_kma(ga), status);

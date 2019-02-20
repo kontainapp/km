@@ -48,6 +48,7 @@ typedef struct km_vcpu {
    kvm_run_t* cpu_run;      // run control region
    pthread_t vcpu_thread;   // km pthread
    km_gva_t guest_thr;      // guest pthread
+   km_gva_t start_stack;    // available in guest_thr but requres gva_to_kma, save it
    chan_t* vcpu_chan;
 } km_vcpu_t;
 

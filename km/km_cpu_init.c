@@ -483,7 +483,7 @@ static void kvm_vcpu_init_sregs(int fd, uint64_t fs)
  * Set RIP, SP, RFLAGS, clear the rest of the regs.
  * VCPU is ready to run starting with instruction @RIP
  */
-km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
+km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, km_gva_t pt)
 {
    km_vcpu_t* vcpu;
 
@@ -509,7 +509,7 @@ km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
        MAP_FAILED) {
       err(1, "KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
    }
-   kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, fs_base);
+   kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, pt);
 
    /* per ABI, make sure sp + 8 is 16 aligned */
    sp &= ~(7ul);
@@ -523,6 +523,8 @@ km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, uint64_t fs_base)
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &regs) < 0) {
       err(1, "KVM: set regs failed");
    }
+   vcpu->guest_thr = pt;
+   vcpu->start_stack = sp;
    if (km_gdb_enabled()) {
       if ((vcpu->vcpu_chan = chan_init(0)) == NULL) {
          err(1, "Failed to create comm channel to vCPU thread");

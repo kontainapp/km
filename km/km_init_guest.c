@@ -233,7 +233,6 @@ int km_create_pthread(pthread_t* restrict pid,
    pt_kma->start_arg = args;
    vcpu = km_vcpu_init((km_gva_t)__entry__, (km_gva_t)pt_kma->stack, (km_gva_t)pt);
    pt_kma->tid = vcpu->vcpu_id;
-   vcpu->guest_thr = pt;
 
    pthread_attr_t att;
 
