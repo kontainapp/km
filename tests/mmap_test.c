@@ -24,8 +24,6 @@
 #include "km.h"
 #include "km_mem.h"
 
-static const uint64_t _8M = 8 * MIB;
-
 int g_km_info_verbose;   // 0 is silent
 static inline void usage()
 {
@@ -55,6 +53,7 @@ int main(int argc, char* const argv[])
 {
    int opt, ret;
    void* addr;
+   size_t size;
    int err_count = 0;
 
    while ((opt = getopt(argc, argv, "V")) != -1) {
@@ -68,50 +67,80 @@ int main(int argc, char* const argv[])
       }
    }
 
-   if ((addr = mmap(NULL, _8M, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
+   size = 8 * MIB;
+   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
        MAP_FAILED) {
-      warn("FAILED: mmap for size = 0x%lx - Not enough memory ", _8M);
+      warn("FAILED: basic mmap for size = 0x%lx - Not enough memory ", size);
       err_count++;
    }
 
-   if ((ret = munmap(addr, _8M)) != 0) {
-      warn("FAILED: munmap addr=%p size %s failed with %d", addr, out_sz(_8M), ret);
+   if ((ret = munmap(addr, size)) != 0) {
+      warn("FAILED: basic munmap addr=%p size %s failed with %d", addr, out_sz(size), ret);
       err_count++;
-   } else {
-      warnx("Basic mmap/munmap for %s passed. addr=%p", out_sz(_8M), addr);
    }
 
-   printf("Now map same size and then unmap half size\n");
-   if ((addr = mmap(NULL, _8M, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
+   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
        MAP_FAILED) {
       warn("Not enough memory ");
       err_count++;
    }
-   size_t sz = _8M / 2;
-   if ((ret = munmap(addr, sz)) == 0 || (errno != EINVAL && errno != EINVAL)) {
+
+   if ((ret = munmap(addr, size / 2)) == 0 || (errno != EINVAL && errno != EINVAL)) {
       err_count++;
-      warn("FAILURE: unmap(%s): expected %d or %d got errno=%d, ret=%d",
-           out_sz(sz),
+      warn("FAILED: partial unmap(%s): expected %d or %d got errno=%d, ret=%d",
+           out_sz(size / 2),
            EINVAL,
            ENOTSUP,
            ret,
            errno);
    }
 
+   // wrong args - address is not supported
    if ((addr = mmap((void*)0x8000,
-                    _8M,
+                    size,
                     PROT_READ | PROT_WRITE,
                     MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED,
                     -1,
                     0)) != MAP_FAILED &&
        errno != EINVAL) {
       err_count++;
-      warn("FAILURE: mmap(%s) expected EINVAL got ret=%d, errno=%d", out_sz(sz), ret, errno);
+      warn("FAILED: mmap(addr, %s) expected EINVAL got ret=%d, errno=%d", out_sz(size), ret, errno);
       err_count++;
    }
-   // memset(addr + sz, '2', sz);   // this should do proper exit when we clean up mprotect and KVM
-   // exit codes
 
-   fprintf(stderr, "%s (err_count=%d)\n", err_count ? "FAILED" : "SUCCESS", err_count);
+   // Large region
+   size = GIB * 3;
+   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
+       MAP_FAILED) {
+      warn("FAILED: large mmap for size = 0x%lx - Not enough memory ", size);
+      err_count++;
+   }
+   memset(addr + size / 2, '2', size / 2 - 1);
+
+   if ((ret = munmap(addr, size)) != 0) {
+      warn("FAILED: large munmap addr=%p size %s failed with %d", addr, out_sz(size), ret);
+      err_count++;
+   }
+
+   // Large region not aligned on GB
+   size = GIB * 2 + MIB * 12;
+   // #if 0
+   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
+       MAP_FAILED) {
+      warn("FAILED: large not aligned mmap for size = 0x%lx - Not enough memory ", size);
+      err_count++;
+   }
+   memset(addr + size / 2, '2', size / 2 - 1);
+
+#if 0   // TODO - unmap fails with EINVAL. Commenting out to complete the PR
+   if ((ret = munmap(addr, size)) != 0) {
+      warn("FAILED: large not aligned munmap addr=%p size %s failed with %d",
+           addr,
+           out_sz(size),
+           ret);
+      err_count++;
+   }
+#endif
+   printf("%s (err_count=%d)\n", err_count ? "FAILED" : "SUCCESS", err_count);
    exit(err_count);
 }

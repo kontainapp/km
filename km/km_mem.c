@@ -241,9 +241,7 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
    if (size < PDPTE_REGION) {
       x86_pde_2m_t* pde =
           km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
-      if (upper_va) {
-         base %= PDPTE_REGION;
-      }
+      base %= PDPTE_REGION;
       for (uint64_t i = 0; i < size; i += PDE_REGION) {
          pde_2mb_set(pde + (i + base) / PDE_REGION, reg->guest_phys_addr + i);
       }
@@ -266,6 +264,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
    if (size < PDPTE_REGION) {
       x86_pde_2m_t* pde =
           km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
+      base %= PDPTE_REGION;
       for (uint64_t i = 0; i < size; i += PDE_REGION) {
          memset(pde + (i + base) / PDE_REGION, 0, sizeof(*pde));
       }
