@@ -148,7 +148,7 @@ static void init_pml4(km_kma_t mem)
    memset(pdpe, 0, PAGE_SIZE);
    pdpte_set(pdpe, RSV_GUEST_PA(RSV_PD_OFFSET));   // first entry for the first GB
 
-   idx = (GUEST_STACK_TOP - 1) / PML4E_REGION;
+   idx = (GUEST_MEM_TOP_VA - 1) / PML4E_REGION;
    assert(idx < PAGE_SIZE / sizeof(x86_pml4e_t));   // within pml4 page
 
    // check if we need the second pml4 entry, i.e the two mem regions are more
@@ -159,7 +159,7 @@ static void init_pml4(km_kma_t mem)
       memset(pdpe, 0, PAGE_SIZE);
       pml4e_set(pml4e + idx, RSV_GUEST_PA(RSV_PDPT2_OFFSET));
    }
-   idx = (GUEST_STACK_TOP - 1) / PDPTE_REGION & 0x1ff;
+   idx = (GUEST_MEM_TOP_VA - 1) / PDPTE_REGION & 0x1ff;
    pdpte_set(pdpe + idx, RSV_GUEST_PA(RSV_PD2_OFFSET));
 
    memset(mem + RSV_PD_OFFSET, 0, PAGE_SIZE);    // clear page, no usable entries
@@ -242,7 +242,6 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
       x86_pde_2m_t* pde =
           km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
       if (upper_va) {
-         base += GUEST_VA_OFFSET;
          base %= PDPTE_REGION;
       }
       for (uint64_t i = 0; i < size; i += PDE_REGION) {

@@ -43,7 +43,7 @@ int main(int argc, char* const argv[])
    int opt;
    char* payload_file = NULL;
    bool wait_for_signal = false;
-   km_gva_t fs, sp;
+   km_gva_t fs, map;
 
    while ((opt = getopt(argc, argv, "wg:V")) != -1) {
       switch (opt) {
@@ -70,12 +70,14 @@ int main(int argc, char* const argv[])
    payload_file = argv[optind];
 
    km_machine_init();
-   sp = km_guest_mmap_simple(GUEST_STACK_SIZE) + GUEST_STACK_SIZE;
    load_elf(payload_file);
    fs = km_init_libc_main();
    km_hcalls_init();
    // Initialize main vcpu with payload entry point, main stack, and main pthread pointer
-   km_vcpu_init(km_guest.km_ehdr.e_entry, sp, fs);
+   if ((map = km_guest_mmap_simple(GUEST_STACK_SIZE)) == 0) {
+      err(1, " Failed to allocate memory for main stack");
+   }
+   km_vcpu_init(km_guest.km_ehdr.e_entry, map + GUEST_STACK_SIZE, fs);
 
    if (km_gdb_enabled()) {
       km_gdb_start_stub(g_gdb_port, payload_file);

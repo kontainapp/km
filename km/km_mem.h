@@ -46,12 +46,12 @@ static const int KM_TEXT_DATA_MEMSLOT = 1;
 // other text and data memslots follow
 
 // memreg_base(KM_TEXT_DATA_MEMSLOT)
-static const km_gva_t GUEST_MEM_START_VA = MIB << KM_TEXT_DATA_MEMSLOT;
+static const km_gva_t GUEST_MEM_START_VA = 2 * MIB;
 // ceiling for guest virt. address. 2MB shift down to make it aligned on GB with physical address
-static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB;
+static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
 
 // VA offset from PA for addresses over machine.tbrk. Last 2MB of VA stay unused for symmetry.
-#define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA + 2 * MIB - machine.guest_max_physmem)
+#define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA - (machine.guest_max_physmem - 2 * MIB))
 /*
  * See "Virtual memory layout:" in km_cpu_init.c for details.
  */
@@ -64,15 +64,7 @@ static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB;
  * with flow of the program.
  */
 
-#ifdef FIXED_STACK
-static const km_gva_t GUEST_STACK_TOP = GUEST_MEM_TOP_VA - GIB;
 static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
-// Each VCPU, aka thread, gets itw own stack. This is max total size of all of them
-static const uint64_t GUEST_STACK_TOTAL_SIZE = GUEST_STACK_SIZE * KVM_MAX_VCPUS;
-#else
-static const km_gva_t GUEST_STACK_TOP = GUEST_MEM_TOP_VA;
-static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
-#endif
 
 /*
  * Physical address space is made of regions with size exponentially increasing from 2MB until they
@@ -157,17 +149,6 @@ static inline uint64_t memreg_size(int idx)
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
    int idx;
-
-#ifdef FIXED_STACK
-   // special case for stacks (scaffolding)
-   if (GUEST_STACK_TOP - GUEST_STACK_TOTAL_SIZE <= gva && gva < GUEST_STACK_TOP) {
-      idx = KM_STACK_MEMSLOT - (GUEST_STACK_TOP - gva) / GUEST_STACK_SIZE;
-      if (machine.vm_mem_regs[idx] == NULL) {
-         return NULL;
-      }
-      return km_memreg_kma(idx) + gva % GUEST_STACK_SIZE;
-   }
-#endif
 
    if ((GUEST_MEM_START_VA <= gva && gva < machine.brk) ||
        (machine.tbrk <= gva && gva <= GUEST_MEM_TOP_VA)) {
