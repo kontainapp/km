@@ -32,29 +32,34 @@ km_machine_t machine = {
     .mach_fd = -1,
 };
 
+static chan_t* machine_chan;
+
+/*
+ * km_machine_fini() will wait for signal on machine_chan to start tearing everything down. We
+ * signal this channel when vpcu count drops to zero in km_vcpu_fini().
+ */
+void km_signal_machine_fini(void)
+{
+   chan_send(machine_chan, NULL);
+}
+
 /*
  * Join the vcpu threads, then dispose of all machine resources
  */
 void km_machine_fini(void)
 {
-   pthread_join(km_main_vcpu()->vcpu_thread, NULL);
-   /* check if there are any VCPUs */
+   void* buf;
+
+   chan_recv(machine_chan, &buf);
+   chan_dispose(machine_chan);
+
+   assert(machine.vm_vcpu_run_cnt == 0);
+
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       km_vcpu_t* vcpu = machine.vm_vcpus[i];
 
       if (vcpu != NULL) {
-         if (vcpu->vcpu_chan != NULL) {
-            chan_dispose(vcpu->vcpu_chan);
-         }
-         if (vcpu->cpu_run != NULL) {
-            (void)munmap(vcpu->cpu_run, machine.vm_run_size);
-         }
-         if (vcpu->kvm_vcpu_fd >= 0) {
-            close(vcpu->kvm_vcpu_fd);
-         }
-         free(vcpu);
-         machine.vm_vcpus[i] = NULL;
-         machine.vm_cpu_cnt--;
+         km_vcpu_fini(vcpu);
       }
    }
    /* check if there are any memory regions */
@@ -109,6 +114,18 @@ static void kvm_vcpu_init_sregs(int fd, uint64_t fs)
    if (ioctl(fd, KVM_SET_SREGS, &sregs) < 0) {
       err(1, "KVM: set sregs failed");
    }
+}
+
+static inline int km_put_new_vcpu(km_vcpu_t* new)
+{
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      if (machine.vm_vcpus[i] == NULL) {
+         machine.vm_vcpu_run_cnt++;
+         machine.vm_vcpus[i] = new;
+         return i;
+      }
+   }
+   return -1;
 }
 
 /*
@@ -185,7 +202,6 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
    }
    machine.vm_vcpus[vcpu->vcpu_id] = NULL;
    free(vcpu);
-   machine.vm_cpu_cnt--;
 }
 
 /*
@@ -202,6 +218,7 @@ void km_machine_init(void)
 {
    int rc;
 
+   machine_chan = chan_init(0);
    if ((machine.kvm_fd = open("/dev/kvm", O_RDWR /* | O_CLOEXEC */)) < 0) {
       err(1, "KVM: Can't open /dev/kvm");
    }

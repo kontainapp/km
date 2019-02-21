@@ -43,7 +43,7 @@ typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload s
 typedef void* km_kma_t;      // kontain monitor address (i.e. address in km process space)
 
 typedef struct km_vcpu {
-   int kvm_vcpu_fd;         // this VCPU file descriptors
+   int kvm_vcpu_fd;         // this VCPU file descriptor
    int vcpu_id;             // uniq ID
    kvm_run_t* cpu_run;      // run control region
    pthread_t vcpu_thread;   // km pthread
@@ -55,6 +55,7 @@ typedef struct km_vcpu {
 } km_vcpu_t;
 
 void km_machine_init(void);
+void km_signal_machine_fini(void);
 void km_machine_fini(void);
 km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, km_gva_t fs_base);
 void km_vcpu_fini(km_vcpu_t* vcpu);
@@ -85,7 +86,7 @@ typedef struct km_machine {
    int mach_fd;                          // VM file descriptor
    size_t vm_run_size;                   // size of the run control region
                                          //
-   int vm_cpu_cnt;                       // count of the below
+   int vm_vcpu_run_cnt;                  // count of still running VCPUs
    km_vcpu_t* vm_vcpus[KVM_MAX_VCPUS];   // VCPUs we created
 
    kvm_mem_reg_t* vm_mem_regs[KVM_USER_MEM_SLOTS];   // guest physical memory regions
@@ -109,25 +110,13 @@ static inline km_vcpu_t* km_main_vcpu(void)
    return machine.vm_vcpus[0];
 }
 
-static inline int km_put_new_vcpu(km_vcpu_t* new)
-{
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      if (machine.vm_vcpus[i] == NULL) {
-         machine.vm_cpu_cnt++;
-         machine.vm_vcpus[i] = new;
-         return i;
-      }
-   }
-   return -1;
-}
-
 km_gva_t km_init_libc_main(void);
 int km_create_pthread(pthread_t* restrict pid,
-                      const pthread_attr_t* restrict attr,
-                      void (*__entry__)(void),
-                      void* (*start)(void*),
-                      void* restrict args);
-void km_fini_pthread(km_vcpu_t* vcpu);
+                      const km_kma_t attr,
+                      km_gva_t start,
+                      km_gva_t args);
+int km_join_pthread(pthread_t pid, km_kma_t ret);
+void km_vcpu_stopped(km_vcpu_t* vcpu);
 
 /*
  * Trivial trace() based on warn() - but with an a switch to run off and on.

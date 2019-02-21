@@ -28,7 +28,7 @@ void run(char* msg, long run_count)
    const long step = 1ul << 26;
 
    run_count *= step;
-   printf("run (almost) forever , count=%ld\n", run_count);
+   printf("run (almost) forever, count=%ld\n", run_count);
    // run until someone changes the 'run'. If run is <=0 on start, run forever
    while (--run_count != 0) {
       if (run_count % step == 0) {
@@ -39,7 +39,7 @@ void run(char* msg, long run_count)
 
 void* run_2(void* arg)
 {
-   run("one bites the dust", 16);
+   run("one bites the dust", 32);
    return NULL;
 }
 
@@ -49,6 +49,9 @@ int main()
 
    puts(msg1);
    pthread_create(&pt, NULL, run_2, NULL);
-   run("brick in the wall", 40);
+   printf("started 0x%lx\n", pt);
+   run("brick in the wall", 16);
+   printf("joining 0x%lx ... \n", pt);
+   printf("joined 0x%lx, %d\n", pt, pthread_join(pt, NULL));
    exit(0);
 }

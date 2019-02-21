@@ -96,7 +96,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
                r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
    }
    if (km_hcalls_table[*hc] == NULL) {
-      run_errx(1, "KVM: unexpected hypercall 0x%lx", *hc);
+      run_errx(1, "KVM: unexpected hypercall %ld", *hc);
    }
    /*
     * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of
@@ -140,13 +140,13 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
       switch (vcpu->cpu_run->exit_reason) {
          case KVM_EXIT_IO: /* Hypercall */
             if (hypercall(vcpu, &hc, &status) != 0) {
-               run_warn("KVM: hypercall 0x%x stop, status 0x%x", hc, status);
+               run_warn("KVM: hypercall %d stop, status 0x%x", hc, status);
                if (km_gdb_enabled()) {
                   vcpu->cpu_run->exit_reason = KVM_EXIT_HLT;
                   km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
                }
-               km_fini_pthread(vcpu);
-               return NULL;
+               km_vcpu_stopped(vcpu);
+               return (void*)(uint64_t)status;   // from the vcpu thread
             }
             break;   // continue the while
 

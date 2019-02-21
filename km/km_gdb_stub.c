@@ -51,7 +51,6 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-#include "chan/chan.h"
 #include "km.h"
 #include "km_gdb.h"
 #include "km_mem.h"

@@ -103,6 +103,7 @@
             "hello_html",
             "hello_loop",
             "hello_2_loops",
+            "threads",
             "load",
             "mem_brk",
             "gdb_test",

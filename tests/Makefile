@@ -22,7 +22,7 @@ SRC_KM_ONLY := exit_value.c load.c
 # Tests can run on linux and km, and compare. Build for both.
 SRC_LINUX := hello.c hello_html.c mem_brk.c mmap_test.c gdb_test.c
 # Helpers, build for KM and linux, do not run as part of test
-SRC_HELPERS := hello_loop.c hello_2_loops.c  memslot.c
+SRC_HELPERS := hello_loop.c hello_2_loops.c memslot.c threads.c futex.c
 
 SRC = ${SRC_LINUX} ${SRC_KM_ONLY} ${SRC_HELPERS}
 LDDIRS := ${TOP}build/runtime

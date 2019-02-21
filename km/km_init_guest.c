@@ -148,7 +148,7 @@ km_builtin_tls_t builtin_tls[1];
  */
 km_gva_t km_init_libc_main(void)
 {
-   km_gva_t libc = km_guest.km_libc.st_value;
+   km_gva_t libc = km_guest.km_libc;
    km__libc_t* libc_kma;
    km_gva_t mem;
    km_pthread_t* tcb_kma;
@@ -186,72 +186,148 @@ km_gva_t km_init_libc_main(void)
    return tcb;
 }
 
+#define DEFAULT_STACK_SIZE 131072
+#define DEFAULT_GUARD_SIZE 8192
+
+#define DEFAULT_STACK_MAX (8 << 20)
+#define DEFAULT_GUARD_MAX (1 << 20)
+
+typedef struct {
+   union {
+      int __i[14];
+      volatile int __vi[14];
+      unsigned long __s[7];
+   } __u;
+} km_pthread_attr_t;
+
+static inline size_t _a_stacksize(const km_pthread_attr_t* restrict g_attr)
+{
+   return g_attr == NULL ? 0 : g_attr->__u.__s[0];
+}
+static inline size_t _a_guardsize(const km_pthread_attr_t* restrict g_attr)
+{
+   return g_attr == NULL ? 0 : g_attr->__u.__s[1];
+}
+static inline size_t _a_stackaddr(const km_pthread_attr_t* restrict g_attr)
+{
+   return g_attr == NULL ? 0 : g_attr->__u.__s[2];
+}
+#define __SU (sizeof(size_t) / sizeof(int))
+static inline int _a_detach(const km_pthread_attr_t* restrict g_attr)
+{
+   return g_attr == NULL || g_attr->__u.__i[3 * __SU + 0] == 0 ? DT_JOINABLE : DT_DETACHED;
+}
+
+// #define _a_sched __u.__i[3 * __SU + 1]
+// #define _a_policy __u.__i[3 * __SU + 2]
+// #define _a_prio __u.__i[3 * __SU + 3]
+
 /*
  * Allocate and initialize pthread structure for newly created thread in the guest.
  */
-static km_gva_t km_init_pthread(const pthread_attr_t* restrict attr, km_gva_t sp)
+static km_gva_t km_init_pthread(const km_pthread_attr_t* restrict g_attr)
 {
-   km_gva_t libc = km_guest.km_libc.st_value;
+   km_gva_t libc = km_guest.km_libc;
    km__libc_t* libc_kma;
    km_pthread_t* tcb_kma;
    km_gva_t tcb;
+   km_gva_t map_base;
+   size_t map_size = _a_stacksize(g_attr);
 
+   assert(_a_stackaddr(g_attr) == 0);   // TODO: for now
    assert(libc != 0);
    libc_kma = km_gva_to_kma(libc);
-   tcb = rounddown(sp - sizeof(km_pthread_t), libc_kma->tls_align);
+
+   map_size = _a_stacksize(g_attr) == 0
+                  ? DEFAULT_STACK_SIZE
+                  : roundup(_a_stacksize(g_attr) + libc_kma->tls_size, PAGE_SIZE);
+   if ((map_base = km_guest_mmap_simple(map_size)) == 0) {
+      return -ENOMEM;
+   }
+   tcb = rounddown(map_base + map_size - sizeof(km_pthread_t), libc_kma->tls_align);
    tcb_kma = km_gva_to_kma(tcb);
    memset(tcb_kma, 0, sizeof(km_pthread_t));
-   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)(sp - libc_kma->tls_size);
+   tcb_kma->stack = (typeof(tcb_kma->stack))map_base + map_size - libc_kma->tls_size;
+   tcb_kma->stack_size = map_size - libc_kma->tls_size;
+   tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
+   tcb_kma->map_size = map_size;
+   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)(tcb_kma->stack - libc_kma->tls_size);
    tcb_kma->self = (km_pthread_t*)tcb;
-   tcb_kma->detach_state = DT_JOINABLE;
+   tcb_kma->detach_state = _a_detach(g_attr);
    tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
-   tcb_kma->stack = (typeof(tcb_kma->stack))sp - libc_kma->tls_size;
-   tcb_kma->stack_size = GUEST_STACK_SIZE - libc_kma->tls_size;
    return tcb;
 }
 
 int km_create_pthread(pthread_t* restrict pid,
-                      const pthread_attr_t* restrict attr,
-                      void (*__entry__)(void),
-                      void* (*start)(void*),
-                      void* restrict args)
+                      const km_kma_t restrict attr,
+                      km_gva_t start,
+                      km_gva_t args)
 {
    km_pthread_t* pt_kma;
    km_gva_t pt;
    km_vcpu_t* vcpu;
    int rc;
-   km_gva_t map_base;
-   size_t map_size = GUEST_STACK_SIZE;
 
-   if ((map_base = km_guest_mmap_simple(map_size)) == 0) {
-      return -ENOMEM;
-   }
-   if ((pt = km_init_pthread(attr, map_base + map_size)) == 0) {
+   if ((pt = km_init_pthread(attr)) == 0) {
       return -EAGAIN;
    }
    pt_kma = km_gva_to_kma(pt);
-   pt_kma->start = start;
-   pt_kma->start_arg = args;
-   if ((vcpu = km_vcpu_init((km_gva_t)__entry__, (km_gva_t)pt_kma->stack, (km_gva_t)pt)) == NULL) {
-      km_guest_munmap(map_base, map_size);
+   pt_kma->start = (void* (*)(void*))start;
+   pt_kma->start_arg = (void*)args;
+   vcpu = km_vcpu_init(km_guest.km_pthread_entry, (km_gva_t)pt_kma->stack, (km_gva_t)pt);
+   if (vcpu == NULL) {
+      km_guest_munmap((km_gva_t)pt_kma->map_base, pt_kma->map_size);
       return -EBUSY;
    }
-   pt_kma->tid = vcpu->vcpu_id;
-   vcpu->map_base = map_base;
-   vcpu->map_size = map_size;
+   *pid = pt_kma->tid = vcpu->vcpu_id;
+   vcpu->map_base = (km_gva_t)pt_kma->map_base;
+   vcpu->map_size = pt_kma->map_size;
 
-   pthread_attr_t att;
+   pthread_attr_t vcpu_thr_att;
 
-   pthread_attr_init(&att);
-   pthread_attr_setdetachstate(&att, PTHREAD_CREATE_DETACHED);
-   pthread_attr_setstacksize(&att, 4 * PAGE_SIZE);
-   rc = pthread_create(&vcpu->vcpu_thread, NULL, (void* (*)(void*))(km_vcpu_run), vcpu);
-   pthread_attr_destroy(&att);
+   pthread_attr_init(&vcpu_thr_att);
+   if (pt_kma->detach_state == DT_DETACHED) {
+      pthread_attr_setdetachstate(&vcpu_thr_att, PTHREAD_CREATE_DETACHED);
+   }
+   pthread_attr_setstacksize(&vcpu_thr_att, 16 * PAGE_SIZE);
+   rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))km_vcpu_run, vcpu);
+   pthread_attr_destroy(&vcpu_thr_att);
    return rc;
 }
 
-void km_fini_pthread(km_vcpu_t* vcpu)
+static inline km_vcpu_t* km_find_vcpu(int vcpu_id)
 {
-   km_vcpu_fini(vcpu);
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      if (machine.vm_vcpus[i] != NULL && machine.vm_vcpus[i]->vcpu_id == vcpu_id) {
+         return machine.vm_vcpus[i];
+      }
+   }
+   return NULL;
+}
+
+int km_join_pthread(pthread_t pid, km_kma_t ret)
+{
+   km_vcpu_t* vcpu;
+   int rc;
+
+   if ((vcpu = km_find_vcpu(pid)) == NULL) {
+      return -ESRCH;
+   }
+   if ((rc = -pthread_join(vcpu->vcpu_thread, (void*)ret)) == 0) {
+      km_vcpu_fini(vcpu);
+   }
+   return rc;
+}
+
+void km_vcpu_stopped(km_vcpu_t* vcpu)
+{
+   km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
+
+   if (pt_kma->detach_state == DT_DETACHED) {
+      km_vcpu_fini(vcpu);
+   }
+   if (--machine.vm_vcpu_run_cnt == 0) {
+      km_signal_machine_fini();
+   }
 }

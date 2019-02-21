@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "chan/chan.h"
 #include "km.h"
 #include "km_gdb.h"
 #include "km_mem.h"
@@ -31,11 +30,11 @@ int g_km_info_verbose;   // 0 is silent
 static inline void usage()
 {
    errx(1,
-        "Usage: km [-V] [-w] [-g port] <payload-file>"
-        "\nOptions:"
-        "\n\t-V      - turn on Verbose printing of internal trace messages"
-        "\n\t-w      - wait for SIGUSR1 before running VM payload"
-        "\n\t-g port - listens for gbd to connect on <port> before running VM payload");
+        "Usage: km [-V] [-w] [-g port] <payload-file>\n"
+        "Options:\n"
+        "\t-V      - turn on Verbose printing of internal trace messages\n"
+        "\t-w      - wait for SIGUSR1 before running VM payload\n"
+        "\t-g port - listens for gbd to connect on <port> before running VM payload");
 }
 
 int main(int argc, char* const argv[])
@@ -69,14 +68,14 @@ int main(int argc, char* const argv[])
    }
    payload_file = argv[optind];
 
+   km_hcalls_init();
    km_machine_init();
    load_elf(payload_file);
    fs = km_init_libc_main();
-   km_hcalls_init();
-   // Initialize main vcpu with payload entry point, main stack, and main pthread pointer
    if ((map = km_guest_mmap_simple(GUEST_STACK_SIZE)) == 0) {
-      err(1, " Failed to allocate memory for main stack");
+      err(1, "Failed to allocate memory for main stack");
    }
+   // Initialize main vcpu with payload entry point, main stack, and main pthread pointer
    km_vcpu_init(km_guest.km_ehdr.e_entry, map + GUEST_STACK_SIZE, fs);
 
    if (km_gdb_enabled()) {

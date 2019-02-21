@@ -15,6 +15,8 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
+#include <linux/futex.h>
 
 #include "km.h"
 #include "km_hcalls.h"
@@ -239,7 +241,7 @@ static int close_hcall(int hc, km_hc_args_t* arg, int* status)
 static int shutdown_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int shutdown(int sockfd, int how);
-   arg->hc_ret = __syscall_2(SYS_ioctl, arg->arg1, arg->arg2);
+   arg->hc_ret = __syscall_2(hc, arg->arg1, arg->arg2);
    return 0;
 }
 
@@ -249,16 +251,32 @@ static int brk_hcall(int hc, km_hc_args_t* arg, int* status)
    return 0;
 }
 
-static int pthread_create_hcall(int hc, km_hc_args_t* arg, int* status)
+static int futex_hcall(int hc, km_hc_args_t* arg, int* status)
 {
-   // int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-   //   void *(*start_routine) (void *), void *arg);
+   int op = arg->arg2;
+   uint64_t timeout_or_val2;
 
-   arg->hc_ret = km_create_pthread(km_gva_to_kma(arg->arg1),
-                                   km_gva_to_kma(arg->arg2),
-                                   (void (*)(void))(arg->arg3),
-                                   (void* (*)(void*))(arg->arg4),
-                                   (void*)arg->arg5);
+   // int futex(int *uaddr, int futex_op, int val,
+   //   const struct timespec *timeout,   /* or: uint32_t val2 */
+   //   int *uaddr2, int val3);
+   switch (op & 0xf) {
+      case FUTEX_WAIT:
+      case FUTEX_WAIT_BITSET:
+      case FUTEX_LOCK_PI:
+      case FUTEX_WAIT_REQUEUE_PI:
+         timeout_or_val2 = km_gva_to_kml(arg->arg4);
+         break;
+      default:
+         timeout_or_val2 = arg->arg4;
+         break;
+   }
+   arg->hc_ret = __syscall_6(hc,
+                             km_gva_to_kml(arg->arg1),
+                             op,
+                             arg->arg3,
+                             timeout_or_val2,
+                             km_gva_to_kml(arg->arg5),
+                             arg->arg6);
    return 0;
 }
 
@@ -282,10 +300,28 @@ static int mremap_hcall(int hc, km_hc_args_t* arg, int* status)
    return 0;
 };
 
-/*
- * Hypercalls that don't translate directly into system calls.
- */
-#define HC_pthread (KM_MAX_HCALL - 1)
+static int clock_gettime_hcall(int hc, km_hc_args_t* arg, int* status)
+{
+   // int clock_gettime(clockid_t clk_id, struct timespec *tp);
+   arg->hc_ret = __syscall_2(hc, arg->arg1, km_gva_to_kml(arg->arg2));
+   return 0;
+}
+
+static int pthread_create_hcall(int hc, km_hc_args_t* arg, int* status)
+{
+   // int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+   //   void *(*start_routine) (void *), void *arg);
+   arg->hc_ret = km_create_pthread(
+       km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
+   return 0;
+}
+
+static int pthread_join_hcall(int hc, km_hc_args_t* arg, int* status)
+{
+   // int pthread_join(pthread_t thread, void **retval);
+   arg->hc_ret = km_join_pthread(arg->arg1, km_gva_to_kma(arg->arg2));
+   return 0;
+}
 
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 
@@ -308,10 +344,14 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_close] = close_hcall;
    km_hcalls_table[SYS_shutdown] = shutdown_hcall;
    km_hcalls_table[SYS_brk] = brk_hcall;
-   km_hcalls_table[HC_pthread] = pthread_create_hcall;
+   km_hcalls_table[SYS_futex] = futex_hcall;
    km_hcalls_table[SYS_mmap] = mmap_hcall;
    km_hcalls_table[SYS_munmap] = munmap_hcall;
    km_hcalls_table[SYS_mremap] = mremap_hcall;
+   km_hcalls_table[SYS_clock_gettime] = clock_gettime_hcall;
+
+   km_hcalls_table[HC_pthread_create] = pthread_create_hcall;
+   km_hcalls_table[HC_pthread_join] = pthread_join_hcall;
 }
 
 void km_hcalls_fini(void)

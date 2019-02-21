@@ -1,8 +1,6 @@
 #include "libc.h"
 #include "pthread_impl.h"
 
-#include "km_hcalls.h"
-
 _Noreturn void __pthread_exit(void* result)
 {
    struct pthread* self = __pthread_self();
@@ -13,7 +11,7 @@ _Noreturn void __pthread_exit(void* result)
    }
 }
 
-_Noreturn void __pthread_entry__(void)
+_Noreturn void __pt_entry__(void)
 {
    struct pthread* self = __pthread_self();
 
@@ -24,19 +22,24 @@ _Noreturn void __pthread_entry__(void)
 }
 
 int __pthread_create(pthread_t* restrict res,
-                     const pthread_attr_t* restrict attrp,
+                     const pthread_attr_t* restrict ap,
                      void* (*entry)(void*),
                      void* restrict arg)
 {
    unsigned long rc;
 
    a_inc(&__libc.threads_minus_1);
-   if ((rc = __syscall5(HC_pthread, res, attrp, __pthread_entry__, entry, arg)) > -0x1000ul) {
+   /*
+    * We need to make sure __pt_entry__ function gets into the executable if this function is there.
+    * However running ld with --gc-sections removes __pt_entry__ because the only reference is from
+    * inside km monitor, and of course ld is not aware of that. We generate the reference here but
+    * putting __pt_entry__ address into the fifth argument, which is totally ignored by
+    * pthread_create implementation in km.
+    */
+   if ((rc = __syscall5(HC_pthread_create, res, ap, entry, arg, __pt_entry__)) != 0) {
       a_dec(&__libc.threads_minus_1);
-      errno = -rc;
-      return -1;
    }
-   return rc;
+   return -rc;
 }
 
 weak_alias(__pthread_create, pthread_create);

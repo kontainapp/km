@@ -1,5 +1,4 @@
-#include <sys/syscall.h>
-
+#include "sys/syscall.h"
 #include "km_hcalls.h"
 #include "syscall_arch.h"
 
@@ -19,10 +18,13 @@ int __syscall(long n, long a1, long a2, long a3, long a4, long a5, long a6)
 
 extern int main(int argc, char** argv);
 
-void __start_c__(void)
+_Noreturn void __start_c__(void)
 {
    int argc;
    char** argv;
+   int rc = main(argc, argv);
 
-   __syscall1(SYS_exit, main(argc, argv));
+   while (1) {
+      __syscall1(SYS_exit, rc);
+   }
 }

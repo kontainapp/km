@@ -39,6 +39,7 @@
       },
       "editor.tabSize": 3,
       "cSpell.words": [
+         "FUTEX",
          "HCALL",
          "Kontain",
          "OSXMMEXCPT",

@@ -9,6 +9,8 @@ tests/hello_2_loops
 tests/*_test
 tests/memslot
 tests/mem_brk
+tests/threads
+tests/futex
 tests/*.out
 *.km
 *.d
