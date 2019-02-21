@@ -54,6 +54,7 @@
          "hwcap",
          "infox",
          "memsz",
+         "mmaps",
          "mprotect",
          "musl",
          "pdpe",

@@ -9,7 +9,7 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * Basic test for mmap() and friends  - WIP
+ * Basic test for mmap() and friends.
  */
 
 #include <err.h>
@@ -88,17 +88,30 @@ int main(int argc, char* const argv[])
       err_count++;
    }
    size_t sz = _8M / 2;
-   if ((ret = munmap(addr, sz)) == 0 || errno != ENOTSUP) {
+   if ((ret = munmap(addr, sz)) == 0 || (errno != EINVAL && errno != EINVAL)) {
       err_count++;
-      warn("FAILURE: expected ENOTSUP from munmap of %s : %d", out_sz(sz), ret);
+      warn("FAILURE: unmap(%s): expected %d or %d got errno=%d, ret=%d",
+           out_sz(sz),
+           EINVAL,
+           ENOTSUP,
+           ret,
+           errno);
    }
 
-   memset(addr + sz, '2', sz);   //
-
-   char* msg = "SUCCESS - we go to the end (%d)\n";
-   if (err_count) {
-      msg = "FAILED (%d)\n";
+   if ((addr = mmap((void*)0x8000,
+                    _8M,
+                    PROT_READ | PROT_WRITE,
+                    MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED,
+                    -1,
+                    0)) != MAP_FAILED &&
+       errno != EINVAL) {
+      err_count++;
+      warn("FAILURE: mmap(%s) expected EINVAL got ret=%d, errno=%d", out_sz(sz), ret, errno);
+      err_count++;
    }
-   printf(msg, err_count);
+   // memset(addr + sz, '2', sz);   // this should do proper exit when we clean up mprotect and KVM
+   // exit codes
+
+   fprintf(stderr, "%s (err_count=%d)\n", err_count ? "FAILED" : "SUCCESS", err_count);
    exit(err_count);
 }

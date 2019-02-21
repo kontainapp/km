@@ -19,10 +19,10 @@ OBJ = ${SRC:%.c=%.o}
 
 # Tests to run in KM only, build only .km
 SRC_KM_ONLY := exit_value.c load.c
-# Tests to run in linux and km, and compare. Build for both
-SRC_LINUX := hello.c hello_html.c mem_brk.c gdb_test.c  mmap_test.c memslot.c
+# Tests can run on linux and km, and compare. Build for both.
+SRC_LINUX := hello.c hello_html.c mem_brk.c mmap_test.c gdb_test.c
 # Helpers, build for KM and linux, do not run as part of test
-SRC_HELPERS := hello_loop.c hello_2_loops.c
+SRC_HELPERS := hello_loop.c hello_2_loops.c  memslot.c
 
 SRC = ${SRC_LINUX} ${SRC_KM_ONLY} ${SRC_HELPERS}
 LDDIRS := ${TOP}build/runtime
@@ -45,8 +45,10 @@ test: all $(TEST_TARGETS) ## Run a simple test (may need /dev/kvm or privileged 
 
 .load:
 	@echo === Test: $@ ===
-	pl_status=`${KM} load.km |& awk '/status/ { print $$13 }'` ; \
-			if [ "$$pl_status" != "0x0" ] ; then echo ==$$pl_status ; false; fi
+	@echo "${KM} load.km |& awk /status/ '{ print \$$13 }'"
+	@pl_status=`${KM} load.km |& awk '/status/ { print $$13 }'` ; \
+			if [ "$$pl_status" != "0x0" ] ; then echo ==$$pl_status ; \
+			echo Failed - try to run \'make load_expected_size\' in tests, and replace load.c:size value ; false; fi
 	@echo -e "$@: ${SUCCESS}"
 
 .hello:
@@ -73,6 +75,11 @@ test: all $(TEST_TARGETS) ## Run a simple test (may need /dev/kvm or privileged 
 	@echo -e "$@: ${SUCCESS}"
 	@rm 1.out 2.out
 
+.mmap_test:
+	@echo === Test: $@ ===
+	@echo ${KM} mmap_test.km
+	@if ${KM} mmap_test.km ; then echo -e "$@: ${SUCCESS}"; else false ; fi
+
 .gdb_test:
 	@echo === Test: $@ ===
 	@$(KM)  -g 3333 gdb_test.km  &
@@ -82,13 +89,6 @@ test: all $(TEST_TARGETS) ## Run a simple test (may need /dev/kvm or privileged 
 			gdb_test.km | grep -q SUCCESS
 	@echo -e "$@:  ${SUCCESS}"
 
-.mmap_test .memslot:
-	@echo === Test: $@ ===
-	@echo ./mmap_test
-	@./mmap_test | grep -q SUCCESS
-	@echo ${KM} mmap_test.km
-	@${KM} mmap_test.km | grep -q SUCCESS
-	@echo -e "$@: ${SUCCESS}"
 
 %.km: %.o
 	${LD} $< -o $@ ${KM_LDFLAGS}

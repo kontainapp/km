@@ -70,7 +70,7 @@ int main(int argc, char* const argv[])
    payload_file = argv[optind];
 
    km_machine_init();
-   sp = km_alloc_stack() - 1;
+   sp = km_guest_mmap_simple(GUEST_STACK_SIZE) + GUEST_STACK_SIZE;
    load_elf(payload_file);
    fs = km_init_libc_main();
    km_hcalls_init();

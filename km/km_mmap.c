@@ -103,7 +103,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    if ((reg = km_mmap_find_free(size)) != NULL) {
       // found a free chunk, carve from it
       km_mmap_reg_t* carved = reg;
-      if (MMAP_END(reg) > gva + size) {   // keep extra space in free
+      if (MMAP_END(reg) > gva + size) {   // keep extra space in free list
          if ((carved = malloc(sizeof(km_mmap_reg_t))) == NULL) {
             return -ENOMEM;
          }
@@ -113,6 +113,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
          reg->size -= size;
          LIST_INSERT_HEAD(&mmaps.free, carved, link);
       }
+      LIST_REMOVE(reg, link);
       return carved->start;
    }
    // nothing useful in the free list, get fresh memory by moving tbrk down
@@ -135,9 +136,9 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
 }
 
 /*
- * Unmaps an  address from guest virtual space.
+ * Un-maps an  address from guest virtual space.
  *
- * TODO - unmap partial regions and/or manage holes. For now unmaps only FULL regions previouisly
+ * TODO - unmap partial regions and/or manage holes. For now un-maps only FULL regions previously
  * mapped.
  * TODO - manipulate km-level map/unmap when adding/remove to free/busy lists (since we cannot do it
  * in pml4 due to coarse granularity)

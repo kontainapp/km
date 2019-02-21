@@ -157,7 +157,7 @@ km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, km_gva_t pt)
       err(1, "KVM: set regs failed");
    }
    vcpu->guest_thr = pt;
-   vcpu->start_stack = sp;
+   vcpu->stack_top = sp;
    if (km_gdb_enabled()) {
       if ((vcpu->vcpu_chan = chan_init(0)) == NULL) {
          err(1, "Failed to create comm channel to vCPU thread");
@@ -179,6 +179,9 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
    }
    if (vcpu->kvm_vcpu_fd >= 0) {
       close(vcpu->kvm_vcpu_fd);
+   }
+   if (vcpu->map_base) {
+      km_guest_munmap(vcpu->map_base, vcpu->map_size);
    }
    machine.vm_vcpus[vcpu->vcpu_id] = NULL;
    free(vcpu);

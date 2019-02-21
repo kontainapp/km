@@ -186,23 +186,10 @@ void km_page_free(km_kma_t addr, size_t size)
    munmap(addr, size);
 }
 
-km_gva_t km_alloc_stack(void)
+/* simple wrapper to avoid polluting all callers with mmap.h */
+km_gva_t km_guest_mmap_simple(size_t size)
 {
-   km_gva_t va = km_guest_mmap(
-       0, GUEST_STACK_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-   if (va == 0) {
-      warn("Not enough memory for stack request");
-      return 0;
-   }
-   return va + GUEST_STACK_SIZE - 1;
-}
-
-void km_free_stack(int idx)
-{
-   /* TODO
-    * NOOP - need to get SP TOP (or bottom) and call
-    *  km_guest_munmap()
-    */
+   return km_guest_mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 }
 
 /*
