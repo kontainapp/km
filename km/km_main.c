@@ -76,7 +76,7 @@ int main(int argc, char* const argv[])
       err(1, "Failed to allocate memory for main stack");
    }
    // Initialize main vcpu with payload entry point, main stack, and main pthread pointer
-   km_vcpu_init(km_guest.km_ehdr.e_entry, map + GUEST_STACK_SIZE, fs);
+   km_vcpu_init(0, map + GUEST_STACK_SIZE, fs);
 
    if (km_gdb_enabled()) {
       km_gdb_start_stub(g_gdb_port, payload_file);

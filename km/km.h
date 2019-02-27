@@ -57,7 +57,7 @@ typedef struct km_vcpu {
 void km_machine_init(void);
 void km_signal_machine_fini(void);
 void km_machine_fini(void);
-km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, km_gva_t fs_base);
+km_vcpu_t* km_vcpu_init(int is_pthread, km_gva_t sp, km_gva_t fs_base);
 void km_vcpu_fini(km_vcpu_t* vcpu);
 void* km_vcpu_run_main(void* unused);
 void* km_vcpu_run(km_vcpu_t* vcpu);
@@ -65,9 +65,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu);
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
-typedef int (*km_hcall_fn_t)(int hc __attribute__((__unused__)),
-                             km_hc_args_t* guest_addr,
-                             int* status);
+typedef int (*km_hcall_fn_t)(int hc __attribute__((__unused__)), km_hc_args_t* guest_addr, int* status);
 
 extern km_hcall_fn_t km_hcalls_table[];
 
@@ -111,10 +109,7 @@ static inline km_vcpu_t* km_main_vcpu(void)
 }
 
 km_gva_t km_init_libc_main(void);
-int km_create_pthread(pthread_t* restrict pid,
-                      const km_kma_t attr,
-                      km_gva_t start,
-                      km_gva_t args);
+int km_create_pthread(pthread_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
 int km_join_pthread(pthread_t pid, km_kma_t ret);
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 

@@ -130,10 +130,12 @@ static inline int km_put_new_vcpu(km_vcpu_t* new)
 
 /*
  * Create vcpu, map the control region, initialize sregs.
- * Set RIP, SP, RFLAGS, clear the rest of the regs.
+ * Set RIP, SP, RFLAGS, and RDI, clear the rest of the regs.
  * VCPU is ready to run starting with instruction @RIP
+ * RDI aka the first function arg, tells it if we are in main (==0) or pthread(!=0)
+ * RIP always points to __start_c__ which is always entry point in ELF.
  */
-km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, km_gva_t pt)
+km_vcpu_t* km_vcpu_init(int is_pthread, km_gva_t sp, km_gva_t pt)
 {
    km_vcpu_t* vcpu;
 
@@ -166,7 +168,8 @@ km_vcpu_t* km_vcpu_init(km_gva_t ent, km_gva_t sp, km_gva_t pt)
    sp -= (sp + 8) % 16;
 
    kvm_regs_t regs = {
-       .rip = ent,
+       .rip = km_guest.km_ehdr.e_entry,
+       .rdi = is_pthread,   // first function argument
        .rflags = X86_RFLAGS_FIXED,
        .rsp = sp,
    };

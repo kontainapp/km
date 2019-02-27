@@ -20,13 +20,15 @@ ARCH := x86_64
 SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc ldso mq process sched signal)
 SRC_DIRS := $(filter-out ${SKIP_SRC_DIR}, $(wildcard $(addprefix $(SRCDIR),src/*/)))
 
+KM_REPLACED_SRCS := syscall.s __libc_start_main.c __init_tls.c pthread_create.c pthread_join.c
+KM_EXTRA_SRCS := start_c_km.c syscall_km.c pthread_create_km.c pthread_join_km.c
+
 BASE_SRCS := $(wildcard $(addsuffix *.c,$(SRC_DIRS)))
 ARCH_SRCS := $(wildcard $(addsuffix $(ARCH)/*.[csS],$(SRC_DIRS)))
 # asm/arch specific implementations replacing base ones
 REPLACED_SRCS := $(addsuffix .%, $(subst /$(ARCH)/,/,$(basename $(ARCH_SRCS))))
-KM_REPLACED_SRCS := syscall.s __libc_start_main.c __init_tls.c pthread_create.c pthread_join.c
 SOURCES := $(filter-out ${REPLACED_SRCS}, ${BASE_SRCS} ${ARCH_SRCS})
-SOURCES := $(filter-out $(addprefix %, ${KM_REPLACED_SRCS}), ${SOURCES}) syscall_km.c pthread_create_km.c pthread_join_km.c
+SOURCES := $(filter-out $(addprefix %, ${KM_REPLACED_SRCS}), ${SOURCES}) ${KM_EXTRA_SRCS}
 
 H_DIRS := arch/$(ARCH) arch/generic src/include src/internal src/errno include
 # has to be recursive assignment as BLDDIR is defined in an include below

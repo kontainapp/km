@@ -18,17 +18,15 @@
 #include <stdint.h>
 
 #define LIBC_SYM_NAME "__libc"
-#define PTHREAD_ENTRY_NAME "__pt_entry__"
 
 /*
  * Description of the guest payload. Note these structures come from guest ELF and represent values
  * in guest address space. We'll need to convert them to monitor (KM) addresses to acces.
  */
 typedef struct km_payload {
-   Elf64_Ehdr km_ehdr;            // elf file header
-   Elf64_Phdr* km_phdr;           // elf program headers
-   Elf64_Addr km_libc;            // libc in payload program
-   Elf64_Addr km_pthread_entry;   // pthread entry function in payload program
+   Elf64_Ehdr km_ehdr;    // elf file header
+   Elf64_Phdr* km_phdr;   // elf program headers
+   Elf64_Addr km_libc;    // libc in payload program
 } km_payload_t;
 
 extern km_payload_t km_guest;

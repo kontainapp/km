@@ -164,12 +164,7 @@ int load_elf(const char* file)
             if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
                 strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), LIBC_SYM_NAME) == 0) {
                km_guest.km_libc = sym.st_value;
-               continue;
-            }
-            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), PTHREAD_ENTRY_NAME) == 0) {
-               km_guest.km_pthread_entry = sym.st_value;
-               continue;
+               break;
             }
          }
          break;

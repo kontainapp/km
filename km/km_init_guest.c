@@ -275,7 +275,7 @@ int km_create_pthread(pthread_t* restrict pid,
    pt_kma = km_gva_to_kma(pt);
    pt_kma->start = (void* (*)(void*))start;
    pt_kma->start_arg = (void*)args;
-   vcpu = km_vcpu_init(km_guest.km_pthread_entry, (km_gva_t)pt_kma->stack, (km_gva_t)pt);
+   vcpu = km_vcpu_init(1, (km_gva_t)pt_kma->stack, (km_gva_t)pt);
    if (vcpu == NULL) {
       km_guest_munmap((km_gva_t)pt_kma->map_base, pt_kma->map_size);
       return -EBUSY;
