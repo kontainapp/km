@@ -41759,7 +41759,7 @@
           "../build/km/km_mem.o",
           "km_mem.c"
       ],
-      "directory": "/home/serge/workspace/km/km",
+      "directory": "${workspaceFolder}/km",
       "file": "km_mem.c"
     },
     {
@@ -63469,22 +63469,25 @@
           "memslot.o",
           "memslot.c"
       ],
-      "directory": "/home/serge/workspace/km/tests",
+      "directory": "${workspaceFolder}/tests",
       "file": "memslot.c"
     },
     {
       "arguments": [
-          "cc",
-          "-c",
-          "-Wall",
-          "-ggdb",
-          "-O2",
-          "-fno-stack-protector",
-          "-o",
-          "mmap_test.o",
-          "mmap_test.c"
-      ],
-      "directory": "/home/serge/workspace/km/tests",
+         "cc",
+         "-c",
+         "-Wall",
+         "-ggdb",
+         "-O2",
+         "-fno-stack-protector",
+         "-pthread",
+         "-I../include",
+         "-I../km",
+         "-o",
+         "mmap_test.o",
+         "mmap_test.c"
+     ],
+      "directory": "${workspaceFolder}/tests",
       "file": "mmap_test.c"
     },
     {
