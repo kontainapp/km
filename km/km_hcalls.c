@@ -112,8 +112,8 @@ __syscall_5(uint64_t num, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, ui
    return res;
 }
 
-static inline uint64_t __syscall_6(
-    uint64_t num, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6)
+static inline uint64_t
+__syscall_6(uint64_t num, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6)
 {
    uint64_t res;
    register uint64_t r10 __asm__("r10") = a4;
@@ -204,8 +204,12 @@ static int getsockopt_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t
    // *optlen);
-   arg->hc_ret = __syscall_5(
-       hc, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kml(arg->arg4), km_gva_to_kml(arg->arg5));
+   arg->hc_ret = __syscall_5(hc,
+                             arg->arg1,
+                             arg->arg2,
+                             arg->arg3,
+                             km_gva_to_kml(arg->arg4),
+                             km_gva_to_kml(arg->arg5));
    return 0;
 }
 
@@ -282,21 +286,23 @@ static int futex_hcall(int hc, km_hc_args_t* arg, int* status)
 
 static int mmap_hcall(int hc, km_hc_args_t* arg, int* status)
 {
-   arg->hc_ret = km_guest_mmap(
-       (km_gva_t)arg->arg1, (size_t)arg->arg2, arg->arg3, arg->arg4, arg->arg5, (off_t)arg->arg6);
+   // void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+   arg->hc_ret = km_guest_mmap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, arg->arg6);
    return 0;
 };
 
 static int munmap_hcall(int hc, km_hc_args_t* arg, int* status)
 {
-   arg->hc_ret = km_guest_munmap((km_gva_t)arg->arg1, (size_t)arg->arg2);
+   // int munmap(void *addr, size_t length);
+   arg->hc_ret = km_guest_munmap(arg->arg1, arg->arg2);
    return 0;
 };
 
 static int mremap_hcall(int hc, km_hc_args_t* arg, int* status)
 {
-   arg->hc_ret = km_guest_mremap(
-       (void*)arg->arg1, (size_t)arg->arg2, arg->arg3, arg->arg4, arg->arg5, (off_t)arg->arg6);
+   // void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ... /* void
+   // *new_address */);
+   arg->hc_ret = km_guest_mremap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, arg->arg6);
    return 0;
 };
 
@@ -311,8 +317,8 @@ static int pthread_create_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
    //   void *(*start_routine) (void *), void *arg);
-   arg->hc_ret = km_create_pthread(
-       km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
+   arg->hc_ret =
+       km_create_pthread(km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
    return 0;
 }
 

@@ -68,7 +68,7 @@ static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
 
 /*
  * Physical address space is made of regions with size exponentially increasing from 2MB until they
- * cross the middle of the space ,  and then region size starts to exponentially decrease until they
+ * cross the middle of the space ,  and then region sizes are exponentially decreasing until they
  * drop to 2MB (last region size). E.g.:
  * // clang-format off
  *  base - end       size  idx   clz  clz(end)
@@ -83,17 +83,22 @@ static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
  *        ...
  *  510GB - 511GB      1GB   25   n/a  32
  * // clang-format on
+ *
  * idx is number of the region, we compute it based on number of leading zeroes
  * in a given address (clz) or in "512GB - address" (clz(end)), using clzl instruction. 'base' is
  * address of the first byte in it. Note size equals base in the first half of the space
  *
  * Knowing memory layout and how pml4 is set, convert between guest virtual address and km address.
+ *
+ * Note 1:
+ * The actual virtual address space is made of areas mapped 1:1 to guest physical memory regions described above.
+ * KM virtual memory (backing guest phys. memory) is contigious only within a region.
  */
 
 // memreg index for an addr in the bottom half of the PA (after that the geometry changes)
 static inline int MEM_IDX(km_gva_t addr)
 {
-   // 43 is "64 - position_of_first_bit_in_2MB"
+   // 43 is "64 - __builtin_clzl(2*MIB)"
    return (43 - __builtin_clzl(addr));
 }
 
@@ -134,7 +139,6 @@ static inline km_gva_t memreg_top(int idx)
       return (MIB << 1) << idx;
    }
    return machine.guest_max_physmem - memreg_base(machine.last_mem_idx - idx);
-   // return machine.vm_mem_regs[idx]->guest_phys_addr + machine.vm_mem_regs[idx]->memory_size;
 }
 
 static inline uint64_t memreg_size(int idx)
@@ -143,7 +147,6 @@ static inline uint64_t memreg_size(int idx)
       return MIB << idx;
    }
    return MIB << (machine.last_mem_idx - idx);
-   // return machine.vm_mem_regs[idx]->memory_size;
 }
 
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
@@ -159,14 +162,14 @@ static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 }
 
 void km_mem_init(void);
-void km_page_free(km_kma_t addr, size_t size);
-km_kma_t km_page_malloc(size_t size);
+void km_page_free(void* addr, size_t size);
+void* km_page_malloc(size_t size);
 int km_mmap_extend(void);
 void km_guest_mmap_init(void);
 km_gva_t km_mem_brk(km_gva_t brk);
 km_gva_t km_guest_mmap_simple(size_t stack_size);
 km_gva_t km_guest_mmap(km_gva_t addr, size_t length, int prot, int flags, int fd, off_t offset);
 int km_guest_munmap(km_gva_t addr, size_t length);
-km_gva_t km_guest_mremap(void* old_address, size_t old_size, size_t new_size, int flags, ...);
+km_gva_t km_guest_mremap(km_gva_t old_address, size_t old_size, size_t new_size, int flags, ...);
 
 #endif /* #ifndef __KM_MEM_H__ */

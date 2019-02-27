@@ -69,7 +69,7 @@ void km_machine_fini(void)
       if (mr != NULL) {
          /* TODO: Do we need to "unplug" it from the VM? */
          if (mr->memory_size != 0) {
-            km_page_free((km_kma_t)mr->userspace_addr, mr->memory_size);
+            km_page_free((void*)mr->userspace_addr, mr->memory_size);
          }
          free(mr);
          machine.vm_mem_regs[i] = NULL;

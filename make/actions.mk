@@ -164,8 +164,7 @@ DFILE := Dockerfile.$(DTYPE)
 #  	<make-target> is "all" by default (same as in regular make, with no docker)
 #  	<os-type> is "fedora" by default. See ${TOP}/docker/build for supported OSes
 #
-# TODO:
-#  - separate build from run so --privileged is not needed for build
+# TODO: separate build from run so --privileged is not needed for build
 #
 #  Note:
 # 'chmod' in the last line is needed to enable 'make clean' to work without docker

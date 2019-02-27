@@ -75,9 +75,9 @@ test: all $(TEST_TARGETS) ## Run a simple test (may need /dev/kvm or privileged 
 	@echo -e "$@: ${SUCCESS}"
 	@rm 1.out 2.out
 
-.mmap_test:
+.mmap_test: mmap_test.km
 	@echo === Test: $@ ===
-	${KM} mmap_test.km | grep -q SUCCESS
+	${KM} $< | grep -q SUCCESS
 	@echo -e "$@: ${SUCCESS}"
 
 .gdb_test:

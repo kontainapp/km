@@ -81,35 +81,47 @@ static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
 }
 
 /*
- * Virtual memory layout:
+ * Virtual Memory layout:
  *
- * Guest text and data region starts from virtual address 2MB. It grows and
- * shrinks at the guest requests via brk() call. The end of this region for the
- * purposes of brk() is machine.brk. The actual virtual address space is made of
- * exponentially increasing areas, staring with 2MB to the total based on
- * guest_max_physmem, allowing for stack. Note virtual and physical layout are
- * equivalent.
+ * Virtual address space starts from virtual address GUEST_MEM_START_VA (2MB) and ends at virtual
+ * address GUEST_MEM_TOP_VA which is chosen to be, somewhat randonly, at the last 2MB of the
+ * first half of 48 bit wide virtual address space. See km.h for values.
  *
- * TODO: update text below when code works
+ * The virtual address space contains 2 regions - bottom, growing up (for guest
+ * text and data) and top, growing down (for stacks and mmap-ed regions).
  *
- * Guest stack starting GUEST_STACK_START_VA, GUEST_STACK_SIZE. We chose,
- * somewhat randonly, GUEST_STACK_START_VA at the last 2MB of the first half of
- * 48 bit wide virtual address space. See km.h for values.
+ * Bottom region: guest text and data region starts from the beginning of the virtual address space.
+ * It grows (upwards) and shrinks at the guest requests via brk() call. The end of this region for
+ * the purposes of brk() is machine.brk.
  *
- * We use 2MB pages for the first GB, and 1GB pages for the rest. With the
- * guest_max_physmem <= 512GB we need two pml4 entries, #0 and #255, #0 covers
- * the text and data, the #255 stack. There are correspondingly two pdpt pages.
- * We use only the very last entry in the second one. The first entry in the first one, representing
- * first 2MB of address space, it always empty. Usable memory starts from 2MB. Initially there are
- * no memory allocated, then it expands with brk.
+ * Top region: stack and mmap-allocated region starts from the end of the virtual address space. It
+ * grows (downwards) and shrinks at the guest requests via mmap() call, as well as Monitor requests
+ * via km_guest_mmap_simple() call, usually used for stack(s) allocation. The end (i.e. the lowest
+ * address) of this region is machine.tbrk.
+ *
+ * Total amount of guest virtual memory (bottom region + top region) is currently limited to
+ * 'guest_max_physical_mem-4MB' (i.e. 512GB-4MB).  Virtual to physical is essentially 1:1
+ * mapping, but the top region virtual addresses are equal to physical_addresses + GUEST_VA_OFFSET.
+ *
+ * We use 2MB pages for the first and last GB of virtual space, and 1GB pages for the rest. With the
+ * guest_max_physmem == 512GB we need two pml4 entries, #0 and #255. #0 covers the text and data (up
+ * to machine.brk), the #255 mmap and stack area (from machine.tbrk up). There are correspondingly two
+ * pdpt pages. Since we allow 2MB pages only for the first and last GB, we use only 2 pdp tables. The
+ * rest of VA is covered by 1GB-wide slots in relevant PDPT. The first entry in the
+ * first PDP table, representing first 2MB of address space, it always empty. Same for the last
+ * entry in the second PDP table - it is always empty. Usable virtual memory starts from 2MB and
+ * ends at GUEST_MEM_TOP_VA-2MB. Usable physical memory starts at 2MB and ends at 512GB-2MB.
+ * Initially there is no memory allocated, then it expands with brk (left to right in the picture
+ * below) or with mmap (right to left).
  *
  * If we ever go over the 512GB limit there will be a need for more pdpt pages. The first entry
  * points to the pd page that covers the first GB.
  *
  * The picture illustrates layout with the constants values as set.
  * The code below is a little more flexible, allowing one or two pdpt pages and
- * pml4 entries, as well as variable locations in pdpt table, depending on the
- * virtual address of the stack
+ * pml4 entries, as well as variable locations in pdpt table
+ *
+ * // clang-format off
  *
  *           0|      |255
  *           [----------------] pml4 page
@@ -123,7 +135,9 @@ static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
  *       |         \                       |
  *      [----------------] [----------------] pd pages
  *        |                                |
- *      2 - 4 MB                 512GB-2MB - 512GB
+ *      2 - 4 MB                 512GB-2MB - 512GB    <==== physical addresses
+ *
+ * // clang-format on
  */
 
 /* virtual address space covered by one pml4 entry */
@@ -133,13 +147,26 @@ static const uint64_t PDPTE_REGION = GIB;
 /* same for pd entry */
 static const uint64_t PDE_REGION = 2 * MIB;
 
+/*
+ * Slot number in PDE table for guest virtual address.
+ * Logically, we do (__addr % PDPTE_REGION) / PDE_REGION
+ */
+static inline int PDE_SLOT(km_gva_t __addr)
+{
+   return ((__addr)&0x3ffffffful) >> 21;
+}
+
 static void init_pml4(km_kma_t mem)
 {
    x86_pml4e_t* pml4e;
    x86_pdpte_t* pdpe;
    int idx;
 
+   // The code assumes that a single PML4 slot can cover all available physical memory.
    assert(machine.guest_max_physmem <= PML4E_REGION);
+   // The code assumes that PA and VA are aligned within PDE table (which covers PDPTE_REGION)
+   assert(GUEST_VA_OFFSET % PDPTE_REGION == 0);
+
    pml4e = mem + RSV_PML4_OFFSET;
    memset(pml4e, 0, PAGE_SIZE);
    pml4e_set(pml4e, RSV_GUEST_PA(RSV_PDPT_OFFSET));   // entry #0
@@ -148,25 +175,21 @@ static void init_pml4(km_kma_t mem)
    memset(pdpe, 0, PAGE_SIZE);
    pdpte_set(pdpe, RSV_GUEST_PA(RSV_PD_OFFSET));   // first entry for the first GB
 
+   // Since in our mem layout the two mem regions are always more
+   // than 512 GB apart, make the second pml4 entry pointing to the second pdpt page
    idx = (GUEST_MEM_TOP_VA - 1) / PML4E_REGION;
-   assert(idx < PAGE_SIZE / sizeof(x86_pml4e_t));   // within pml4 page
+   pml4e_set(pml4e + idx, RSV_GUEST_PA(RSV_PDPT2_OFFSET));
+   pdpe = mem + RSV_PDPT2_OFFSET;
+   memset(pdpe, 0, PAGE_SIZE);
 
-   // check if we need the second pml4 entry, i.e the two mem regions are more
-   // than 512 GB apart. If we do, make the second entry to the second pdpt page
-   if (idx > 0) {
-      // prepare the second pdpt page if needed
-      pdpe = mem + RSV_PDPT2_OFFSET;
-      memset(pdpe, 0, PAGE_SIZE);
-      pml4e_set(pml4e + idx, RSV_GUEST_PA(RSV_PDPT2_OFFSET));
-   }
-   idx = (GUEST_MEM_TOP_VA - 1) / PDPTE_REGION & 0x1ff;
+   idx = PDE_SLOT(GUEST_MEM_TOP_VA);
    pdpte_set(pdpe + idx, RSV_GUEST_PA(RSV_PD2_OFFSET));
 
    memset(mem + RSV_PD_OFFSET, 0, PAGE_SIZE);    // clear page, no usable entries
    memset(mem + RSV_PD2_OFFSET, 0, PAGE_SIZE);   // clear page, no usable entries
 }
 
-km_kma_t km_page_malloc(size_t size)
+void* km_page_malloc(size_t size)
 {
    km_kma_t addr;
 
@@ -181,7 +204,7 @@ km_kma_t km_page_malloc(size_t size)
    return addr;
 }
 
-void km_page_free(km_kma_t addr, size_t size)
+void km_page_free(void* addr, size_t size)
 {
    munmap(addr, size);
 }
@@ -198,7 +221,7 @@ km_gva_t km_guest_mmap_simple(size_t size)
 void km_mem_init(void)
 {
    kvm_mem_reg_t* reg;
-   km_kma_t ptr;
+   void* ptr;
 
    if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
       err(1, "KVM: no memory for mem region");
@@ -223,7 +246,6 @@ void km_mem_init(void)
    machine.mid_mem_idx = MEM_IDX(machine.guest_mid_physmem - 1);
    // Place for the last 2MB of PA. We do not allocate it to make memregs mirrored
    machine.last_mem_idx = (machine.mid_mem_idx << 1) + 1;
-
    km_guest_mmap_init();
 }
 
@@ -234,16 +256,16 @@ void km_mem_init(void)
  */
 static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
 {
-   int idx = reg->slot;
    size_t size = reg->memory_size;
-   km_gva_t base = machine.vm_mem_regs[idx]->guest_phys_addr;
+   km_gva_t base = reg->guest_phys_addr;
 
    if (size < PDPTE_REGION) {
       x86_pde_2m_t* pde =
           km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
-      base %= PDPTE_REGION;
-      for (uint64_t i = 0; i < size; i += PDE_REGION) {
-         pde_2mb_set(pde + (i + base) / PDE_REGION, reg->guest_phys_addr + i);
+      for (uint64_t addr = base; addr < base + size; addr += PDE_REGION) {
+         // virtual and physical mem aligned the same on PDE_REGION, so we can use phys. address in
+         // PDE_SLOT()
+         pde_2mb_set(pde + PDE_SLOT(addr), addr);
       }
    } else {
       assert(machine.pdpe1g != 0);
@@ -257,16 +279,16 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
 
 static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
 {
-   int idx = reg->slot;
    uint64_t size = reg->memory_size;
-   uint64_t base = memreg_base(idx);
+   uint64_t base = reg->guest_phys_addr;
 
    if (size < PDPTE_REGION) {
       x86_pde_2m_t* pde =
           km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
-      base %= PDPTE_REGION;
-      for (uint64_t i = 0; i < size; i += PDE_REGION) {
-         memset(pde + (i + base) / PDE_REGION, 0, sizeof(*pde));
+      for (uint64_t addr = base; addr < base + size; addr += PDE_REGION) {
+         // virtual and physical mem aligned the same on PDE_REGION, so we can use phys. address in
+         // PDE_SLOT()
+         memset(pde + PDE_SLOT(addr), 0, sizeof(*pde));
       }
    } else {
       assert(machine.pdpe1g != 0);   // no 1GB pages support
@@ -286,7 +308,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
  */
 static int km_alloc_region(int idx, size_t size, int upper_va)
 {
-   km_kma_t ptr;
+   void* ptr;
    kvm_mem_reg_t* reg;
 
    assert(machine.vm_mem_regs[idx] == NULL);
@@ -354,7 +376,7 @@ km_gva_t km_mem_brk(km_gva_t brk)
       if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
          err(1, "KVM: failed to unplug memory region %d", idx);
       }
-      km_page_free((km_kma_t)reg->userspace_addr, size);
+      km_page_free((void*)reg->userspace_addr, size);
       free(reg);
       machine.vm_mem_regs[idx] = NULL;
    }

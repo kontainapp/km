@@ -63,7 +63,8 @@ static int mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, in
    return 0;
 }
 
-// find the first free mmap with enough space, if any
+// find any free mmap larger or equal to 'size'
+// TODO: sort free by size and return a smallest one
 static km_mmap_reg_t* km_mmap_find_free(size_t size)
 {
    km_mmap_reg_t* ptr;
@@ -101,7 +102,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    }
    // TODO: check flags
    if ((reg = km_mmap_find_free(size)) != NULL) {
-      // found a free chunk, carve from it
+      // found a free chunk, carve requested space from it
       km_mmap_reg_t* carved = reg;
       if (MMAP_END(reg) > gva + size) {   // keep extra space in free list
          if ((carved = malloc(sizeof(km_mmap_reg_t))) == NULL) {
@@ -111,11 +112,13 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
          carved->size = size;
          reg->start += size;
          reg->size -= size;
-         LIST_INSERT_HEAD(&mmaps.free, carved, link);
+      } else {   // full chunk is reuse
+         LIST_REMOVE(reg, link);
       }
-      LIST_REMOVE(reg, link);
+      LIST_INSERT_HEAD(&mmaps.busy, carved, link);
       return carved->start;
    }
+
    // nothing useful in the free list, get fresh memory by moving tbrk down
    while (size > mmaps.min_used - machine.tbrk) {
       if ((ret = km_mmap_extend()) != 0) {
@@ -140,8 +143,8 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
  *
  * TODO - unmap partial regions and/or manage holes. For now un-maps only FULL regions previously
  * mapped.
- * TODO - manipulate km-level map/unmap when adding/remove to free/busy lists (since we cannot do it
- * in pml4 due to coarse granularity)
+ * TODO - manipulate km-level mprotect() when adding/remove to free/busy lists (since we cannot do
+ * it in pml4 due to coarse granularity)
  *
  * Returns 0 on success. -ENOTSUP if the part of the FULL requested region is not mapped
  */
@@ -160,9 +163,9 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    return -ENOTSUP;
 }
 
-// TODO
+// TODO - implement :-)
 km_gva_t km_guest_mremap(
-    void* old_address, size_t old_size, size_t new_size, int flags, ... /* void *new_address */)
+    km_gva_t old_address, size_t old_size, size_t new_size, int flags, ... /* void *new_address */)
 {
    return -ENOTSUP;
 }

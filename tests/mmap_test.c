@@ -54,7 +54,10 @@ int main(int argc, char* const argv[])
    int opt, ret;
    void* addr;
    size_t size;
+   char* type;
    int err_count = 0;
+   extern char* __progname;
+   __progname = "mmap_test";   // warn*() uses that
 
    while ((opt = getopt(argc, argv, "V")) != -1) {
       switch (opt) {
@@ -68,34 +71,38 @@ int main(int argc, char* const argv[])
    }
 
    size = 8 * MIB;
+   type = "basic mmap/unmap";
    if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
        MAP_FAILED) {
-      warn("FAILED: basic mmap for size = 0x%lx - Not enough memory ", size);
+      warn("FAILED: %s: %s - Not enough memory ", type, out_sz(size));
       err_count++;
+   } else {
+      if ((ret = munmap(addr, size)) != 0) {
+         warn("FAILED: %s: addr=%p size %s failed with %d", type, addr, out_sz(size), ret);
+         err_count++;
+      } else {
+         warnx("passed: %s", type);
+      }
    }
 
-   if ((ret = munmap(addr, size)) != 0) {
-      warn("FAILED: basic munmap addr=%p size %s failed with %d", addr, out_sz(size), ret);
-      err_count++;
-   }
-
+   // Free half the allocated
+   type = "map full/unmap half";
    if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
        MAP_FAILED) {
       warn("Not enough memory ");
       err_count++;
-   }
-
-   if ((ret = munmap(addr, size / 2)) == 0 || (errno != EINVAL && errno != EINVAL)) {
-      err_count++;
-      warn("FAILED: partial unmap(%s): expected %d or %d got errno=%d, ret=%d",
-           out_sz(size / 2),
-           EINVAL,
-           ENOTSUP,
-           ret,
-           errno);
+   } else {
+      size_t unmap_sz = size / 2;
+      if ((ret = munmap(addr, unmap_sz)) == 0 || (errno != ENOTSUP)) {
+         err_count++;
+         warn("FAILED: unmap half (%s): expected %d got errno=%d", out_sz(unmap_sz), ENOTSUP, errno);
+      } else {
+         warnx("passed: %s", type);
+      }
    }
 
    // wrong args - address is not supported
+   type = "wrong address - should fail";
    if ((addr = mmap((void*)0x8000,
                     size,
                     PROT_READ | PROT_WRITE,
@@ -104,43 +111,49 @@ int main(int argc, char* const argv[])
                     0)) != MAP_FAILED &&
        errno != EINVAL) {
       err_count++;
-      warn("FAILED: mmap(addr, %s) expected EINVAL got ret=%d, errno=%d", out_sz(size), ret, errno);
+      warn("FAILED: mmap(addr, %s) expected EINVAL got errno=%d", out_sz(size), errno);
       err_count++;
+   } else {
+      warnx("passed: %s", type);
    }
 
    // Large region
+   type = "mmap/unmap large region";
    size = GIB * 3;
    if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
        MAP_FAILED) {
-      warn("FAILED: large mmap for size = 0x%lx - Not enough memory ", size);
+      warn("FAILED: %s: %s - Not enough memory ", type, out_sz(size));
       err_count++;
-   }
-   memset(addr + size / 2, '2', size / 2 - 1);
-
-   if ((ret = munmap(addr, size)) != 0) {
-      warn("FAILED: large munmap addr=%p size %s failed with %d", addr, out_sz(size), ret);
-      err_count++;
+   } else {
+      memset(addr + size / 2, '2', size / 2 - 1);
+      if ((ret = munmap(addr, size)) != 0) {
+         warn("FAILED: large munmap addr=%p size %s failed with %d", addr, out_sz(size), ret);
+         err_count++;
+      } else {
+         warnx("passed: %s", type);
+      }
    }
 
    // Large region not aligned on GB
+   type = "mmap/unmap large unaligned on 1GB region";
    size = GIB * 2 + MIB * 12;
    // #if 0
    if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
        MAP_FAILED) {
       warn("FAILED: large not aligned mmap for size = 0x%lx - Not enough memory ", size);
       err_count++;
+   } else {
+      memset(addr + size / 2, '2', size / 2 - 1);
+      if ((ret = munmap(addr, size)) != 0) {
+         warn("FAILED: large not aligned munmap addr=%p size %s failed with %d",
+              addr,
+              out_sz(size),
+              ret);
+         err_count++;
+      } else {
+         warnx("passed: %s", type);
+      }
    }
-   memset(addr + size / 2, '2', size / 2 - 1);
-
-#if 0   // TODO - unmap fails with EINVAL. Commenting out to complete the PR
-   if ((ret = munmap(addr, size)) != 0) {
-      warn("FAILED: large not aligned munmap addr=%p size %s failed with %d",
-           addr,
-           out_sz(size),
-           ret);
-      err_count++;
-   }
-#endif
    printf("%s (err_count=%d)\n", err_count ? "FAILED" : "SUCCESS", err_count);
    exit(err_count);
 }
