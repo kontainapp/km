@@ -156,8 +156,8 @@ km_vcpu_t* km_vcpu_init(int is_pthread, km_gva_t sp, km_gva_t pt)
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_CPUID2, machine.cpuid) < 0) {
       err(1, "KVM: set CPUID2 failed");
    }
-   if ((vcpu->cpu_run = mmap(
-            NULL, machine.vm_run_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu->kvm_vcpu_fd, 0)) ==
+   if ((vcpu->cpu_run =
+            mmap(NULL, machine.vm_run_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu->kvm_vcpu_fd, 0)) ==
        MAP_FAILED) {
       err(1, "KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
    }
@@ -243,8 +243,8 @@ void km_machine_init(void)
            machine.vm_run_size,
            sizeof(kvm_run_t));
    }
-   if ((machine.cpuid = malloc(sizeof(kvm_cpuid2_t) +
-                               CPUID_ENTRIES * sizeof(struct kvm_cpuid_entry2))) == NULL) {
+   if ((machine.cpuid =
+            malloc(sizeof(kvm_cpuid2_t) + CPUID_ENTRIES * sizeof(struct kvm_cpuid_entry2))) == NULL) {
       err(1, "KVM: no memory for CPUID");
    }
    machine.cpuid->nent = CPUID_ENTRIES;

@@ -91,8 +91,9 @@ static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
  * Knowing memory layout and how pml4 is set, convert between guest virtual address and km address.
  *
  * Note 1:
- * The actual virtual address space is made of areas mapped 1:1 to guest physical memory regions described above.
- * KM virtual memory (backing guest phys. memory) is contigious only within a region.
+ * The actual virtual address space is made of areas mapped 1:1 to guest physical memory regions
+ * described above. KM virtual memory (backing guest phys. memory) is contigious only within a
+ * region.
  */
 
 // memreg index for an addr in the bottom half of the PA (after that the geometry changes)
@@ -105,9 +106,9 @@ static inline int MEM_IDX(km_gva_t addr)
 // guest virtual address to guest physical address - adjust high gva down
 static inline km_gva_t gva_to_gpa(km_gva_t gva)
 {
-   // when brk grows, we can be asked about gva > machin.brk, so asserting on max_physmem not brk
-   assert(gva <= machine.guest_max_physmem || gva >= machine.tbrk);
-   if (gva >= machine.tbrk) {
+   assert((GUEST_MEM_START_VA - 1 <= gva && gva < machine.guest_max_physmem) ||
+          (GUEST_VA_OFFSET <= gva && gva <= GUEST_MEM_TOP_VA));
+   if (gva > GUEST_VA_OFFSET) {
       gva -= GUEST_VA_OFFSET;
    }
    return gva;
@@ -164,9 +165,9 @@ static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 void km_mem_init(void);
 void km_page_free(void* addr, size_t size);
 void* km_page_malloc(size_t size);
-int km_mmap_extend(void);
 void km_guest_mmap_init(void);
 km_gva_t km_mem_brk(km_gva_t brk);
+km_gva_t km_mem_tbrk(km_gva_t tbrk);
 km_gva_t km_guest_mmap_simple(size_t stack_size);
 km_gva_t km_guest_mmap(km_gva_t addr, size_t length, int prot, int flags, int fd, off_t offset);
 int km_guest_munmap(km_gva_t addr, size_t length);

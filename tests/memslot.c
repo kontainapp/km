@@ -35,11 +35,11 @@ static char* out_sz(uint64_t val)
    return buf;
 }
 
-#define CHECK(expr) ((expr) ? 0 : check_fail(#expr, __FILE__, __LINE__))
+#define CHECK(expr, info) ((expr) ? 0 : check_fail(#expr, __FILE__, __LINE__, idx))
 // returns 1 to count errors
-static inline int check_fail(char* expr, char* file, int line)
+static inline int check_fail(char* expr, char* file, int line, int idx)
 {
-   printf("Check '%s' failed at %s:%d\n", expr, file, line);
+   printf("Check '%s' failed at %s:%d (idx %d)\n", expr, file, line, idx);
    return 1;
 }
 
@@ -71,8 +71,7 @@ int main(int argc, char** argv)
        "memreg-top\n");
 
    int64_t current_size, current_start;
-   for (current_size = current_start = 2 * MIB;
-        current_start < machine.guest_max_physmem - 2 * MIB;) {
+   for (current_size = current_start = 2 * MIB; current_start < machine.guest_max_physmem - 2 * MIB;) {
       int clz = __builtin_clzl(current_start);
       int idx = gva_to_memreg_idx(current_start);
       // calculate start / size for the next step
@@ -88,9 +87,9 @@ int main(int argc, char** argv)
              out_sz(memreg_size(idx)),
              out_sz(memreg_top(idx)));
 #endif
-      err_count += CHECK(current_start == memreg_base(idx));
-      err_count += CHECK(current_size == memreg_size(idx));
-      err_count += CHECK(current_size + current_start == memreg_top(idx));
+      err_count += CHECK(current_start == memreg_base(idx), idx);
+      err_count += CHECK(current_size == memreg_size(idx), idx);
+      err_count += CHECK(current_size + current_start == memreg_top(idx), idx);
       // printf("{0x%lx, %d},\n", current_start, idx);
       current_start += current_size;
       if (current_start > machine.guest_mid_physmem && current_size > 2 * MIB) {

@@ -384,31 +384,51 @@ km_gva_t km_mem_brk(km_gva_t brk)
    return machine.brk;
 }
 
-// extend tbrk down. returns 0 or -errno.
-int km_mmap_extend(void)
+/*
+ * Extends tbrk down in the upper virtual address (VA) space, mirroring behavior of km_mem_brk which
+ * extends allocated space up in the bottom VA, top of VA down.
+ * Note that gva in the upper VA are shifted up GUEST_VA_OFFSET from related gpa.
+ */
+km_gva_t km_mem_tbrk(km_gva_t tbrk)
 {
-   int ret;
-   int idx = gva_to_memreg_idx(machine.tbrk);
-   int b_idx = gva_to_memreg_idx(machine.brk);
+   int idx;
+   uint64_t size;
 
-   if (idx == b_idx || (idx - 1) == b_idx) {
-      /*
-       * Can't allocate next slot - just move tbrk down
-       * TODO  - allow  for sharing the slot and
-       * make sure we don't come in the same 1GB slot
-       */
-      km_gva_t tbrk_pa = gva_to_gpa(machine.tbrk);
-      assert(machine.brk <= tbrk_pa);
-      if (machine.brk == tbrk_pa) {
+   km_gva_t floor = gva_to_gpa(machine.brk);   // bottom for PA addresses avail
+
+   if (tbrk == 0 || tbrk == machine.tbrk) {
+      return machine.tbrk;
+   }
+   if (gva_to_gpa(tbrk) <= floor) {
+      return -ENOMEM;
+   }
+
+   idx = gva_to_memreg_idx(machine.tbrk);
+   for (km_gva_t m_brk = MAX(tbrk, memreg_base(idx) + GUEST_VA_OFFSET); m_brk > tbrk;
+        m_brk = MAX(tbrk, memreg_base(idx) + GUEST_VA_OFFSET)) {
+      /* Not enough room in the allocated memreg, allocate and add new ones */
+      idx--;
+      if ((size = memreg_size(idx)) > memreg_top(idx) - floor) {
          return -ENOMEM;
       }
-      machine.tbrk -= (tbrk_pa - machine.brk);
-      return 0;
+      int ret;
+      if ((ret = km_alloc_region(idx, size, 1)) != 0) {
+         return ret;
+      }
    }
-   size_t size = memreg_size(--idx);   // next idx downward
-   if ((ret = km_alloc_region(idx, size, 1)) != 0) {
-      return ret;
+   for (; idx < gva_to_memreg_idx(tbrk); idx++) {
+      /* tbrk moved up and left one or more memory regions. Remove and free */
+      kvm_mem_reg_t* reg = machine.vm_mem_regs[idx];
+      size = reg->memory_size;
+      clear_pml4_hierarchy(reg, 1);
+      reg->memory_size = 0;
+      if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+         err(1, "KVM: failed to unplug memory region %d", idx);
+      }
+      km_page_free((void*)reg->userspace_addr, size);
+      free(reg);
+      machine.vm_mem_regs[idx] = NULL;
    }
-   machine.tbrk -= size;
-   return 0;
+   machine.tbrk = tbrk;
+   return machine.tbrk;
 }

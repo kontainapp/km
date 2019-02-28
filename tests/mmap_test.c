@@ -25,12 +25,14 @@
 #include "km_mem.h"
 
 int g_km_info_verbose;   // 0 is silent
+static int err_count = 0;
+
 static inline void usage()
 {
    errx(1,
-        "Usage: mmap [-V] "
-        "\nOptions:"
-        "\n\t-V      - turn on Verbose printing of internal trace messages");
+        "Usage: mmap [-V] \n"
+        "Options:\n"
+        "\t-V      - turn on Verbose printing of internal trace messages\n");
 }
 
 // human readable print for addresses and sizes
@@ -49,13 +51,45 @@ static char* out_sz(uint64_t val)
    return buf;
 }
 
+// positive tests
+typedef struct mmap_test {
+   char* test_info;        // string to help identify the test. NULL indicates the end of table
+   int type;               // 1 for mmap, 0 for unmap
+   uint64_t offset;        // for unmap, start offset from the last mmap result. For mmap: address
+   size_t size;            // size for the operation
+   int prot;               // protection for mmap()
+   int flags;              // flags for mmap()
+   int expected_failure;   // 0 if success is expected. Expected errno otherwise.
+} mmap_test_t;
+
+#define TYPE_MMAP 1
+#define TYPE_MUNMAP 0
+
+// Positive mmap/unmap tests. After this set , the free/busy lists in mmaps should be empty and tbrk
+// should reset to top of the VA
+static mmap_test_t tests[] = {
+    {"Basic", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Basic", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
+    {"Large", TYPE_MMAP, 0, 2 * GIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Large", TYPE_MUNMAP, 0, 2 * GIB, 0, 0},
+    {"Multiple regions", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Multiple regions", TYPE_MUNMAP, 0, 2 * GIB + 12 * MIB, 0, 0},
+    {"Swiss cheese", TYPE_MMAP, 0, 2 * GIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Swiss cheese", TYPE_MUNMAP, 512 * MIB, GIB, 0, 0},
+    {"Swiss cheese", TYPE_MUNMAP, 0, 512 * MIB, 0, 0},
+    {"Swiss cheese", TYPE_MUNMAP, 1 * GIB + 512 * MIB, 512 * MIB, 0, 0},
+
+    {"Wrong args", TYPE_MMAP, 0x20000ul, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, EINVAL},
+    {"Wrong args", TYPE_MUNMAP, 0x20000ul, 1 * MIB, 0, 0, EINVAL},
+    {NULL},
+};
+
 int main(int argc, char* const argv[])
 {
-   int opt, ret;
-   void* addr;
-   size_t size;
-   char* type;
-   int err_count = 0;
+   void* last_addr = 0;
+   int mmap_failed = 0;
+   int ret;
+   int opt;
    extern char* __progname;
    __progname = "mmap_test";   // warn*() uses that
 
@@ -70,90 +104,78 @@ int main(int argc, char* const argv[])
       }
    }
 
-   size = 8 * MIB;
-   type = "basic mmap/unmap";
-   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
-       MAP_FAILED) {
-      warn("FAILED: %s: %s - Not enough memory ", type, out_sz(size));
-      err_count++;
-   } else {
-      if ((ret = munmap(addr, size)) != 0) {
-         warn("FAILED: %s: addr=%p size %s failed with %d", type, addr, out_sz(size), ret);
-         err_count++;
-      } else {
-         warnx("passed: %s", type);
+   // positive tests
+   for (mmap_test_t* t = tests; t->test_info != NULL; t++) {
+      if (t->expected_failure != 0) {
+         continue;
+      }
+      switch (t->type) {
+         case TYPE_MMAP:
+            if ((last_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0)) ==
+                MAP_FAILED) {
+               warn("FAILED: mmap %s sz=%s", t->test_info, out_sz(t->size));
+
+               mmap_failed = 1;
+               err_count++;
+               break;
+            }
+            memset(last_addr + t->size / 2, '2', t->size / 4);
+            warnx("'%s' mmap passed", t->test_info);
+            break;
+         case TYPE_MUNMAP:
+            if (mmap_failed) {
+               warnx("\tprior mmap failed, skipping munmap test %s", t->test_info);
+               break;
+            }
+            if ((ret = munmap(last_addr + t->offset, t->size)) != 0) {
+               warn("FAILED: '%s' munmap(%p, %s) failed with rc %d",
+                    t->test_info,
+                    last_addr + t->offset,
+                    out_sz(t->size),
+                    ret);
+               err_count++;
+               break;
+            }
+            warnx("'%s' munmap passed", t->test_info);
+            break;
+         default:
+            assert("No way" == NULL);
       }
    }
 
-   // Free half the allocated
-   type = "map full/unmap half";
-   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
-       MAP_FAILED) {
-      warn("Not enough memory ");
-      err_count++;
-   } else {
-      size_t unmap_sz = size / 2;
-      if ((ret = munmap(addr, unmap_sz)) == 0 || (errno != ENOTSUP)) {
-         err_count++;
-         warn("FAILED: unmap half (%s): expected %d got errno=%d", out_sz(unmap_sz), ENOTSUP, errno);
-      } else {
-         warnx("passed: %s", type);
+   // negative tests
+   for (mmap_test_t* t = tests; t->test_info != NULL; t++) {
+      if (t->expected_failure == 0) {
+         continue;
+      }
+      switch (t->type) {
+         case TYPE_MMAP:
+            if ((last_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0)) !=
+                MAP_FAILED) {
+               warn("FAILED: mmap %s sz=%s", t->test_info, out_sz(t->size));
+               err_count++;
+               break;
+            }
+            warn("Expected failure: '%s' mmap passed, errno %d", t->test_info, errno);
+            break;
+         case TYPE_MUNMAP:
+            if ((ret = munmap(last_addr + t->offset, t->size)) == 0) {
+               warn("FAILED: '%s' munmap(%p, %s) returned %d, expected %d",
+                    t->test_info,
+                    last_addr + t->offset,
+                    out_sz(t->size),
+                    ret,
+                    t->expected_failure);
+               err_count++;
+               break;
+            }
+            warn("Expected failure: '%s' munmap passed, errno %d", t->test_info, errno);
+            break;
+         default:
+            assert("Should never get here" == NULL);
       }
    }
-
-   // wrong args - address is not supported
-   type = "wrong address - should fail";
-   if ((addr = mmap((void*)0x8000,
-                    size,
-                    PROT_READ | PROT_WRITE,
-                    MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED,
-                    -1,
-                    0)) != MAP_FAILED &&
-       errno != EINVAL) {
-      err_count++;
-      warn("FAILED: mmap(addr, %s) expected EINVAL got errno=%d", out_sz(size), errno);
-      err_count++;
-   } else {
-      warnx("passed: %s", type);
-   }
-
-   // Large region
-   type = "mmap/unmap large region";
-   size = GIB * 3;
-   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
-       MAP_FAILED) {
-      warn("FAILED: %s: %s - Not enough memory ", type, out_sz(size));
-      err_count++;
-   } else {
-      memset(addr + size / 2, '2', size / 2 - 1);
-      if ((ret = munmap(addr, size)) != 0) {
-         warn("FAILED: large munmap addr=%p size %s failed with %d", addr, out_sz(size), ret);
-         err_count++;
-      } else {
-         warnx("passed: %s", type);
-      }
-   }
-
-   // Large region not aligned on GB
-   type = "mmap/unmap large unaligned on 1GB region";
-   size = GIB * 2 + MIB * 12;
-   // #if 0
-   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
-       MAP_FAILED) {
-      warn("FAILED: large not aligned mmap for size = 0x%lx - Not enough memory ", size);
-      err_count++;
-   } else {
-      memset(addr + size / 2, '2', size / 2 - 1);
-      if ((ret = munmap(addr, size)) != 0) {
-         warn("FAILED: large not aligned munmap addr=%p size %s failed with %d",
-              addr,
-              out_sz(size),
-              ret);
-         err_count++;
-      } else {
-         warnx("passed: %s", type);
-      }
-   }
-   printf("%s (err_count=%d)\n", err_count ? "FAILED" : "SUCCESS", err_count);
+   warnx("%s (err_count=%d)", err_count ? "FAILED" : "SUCCESS", err_count);   // for visibility
+   puts(err_count ? "FAILED" : "SUCCESS");   // for Makefiles report
    exit(err_count);
 }

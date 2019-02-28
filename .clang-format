@@ -7,11 +7,11 @@ IndentCaseLabels: true
 PointerAlignment: Left
 BinPackArguments: false
 BinPackParameters: false
-PenaltyBreakBeforeFirstCallParameter: 2000
-PenaltyBreakComment: 500
+PenaltyBreakBeforeFirstCallParameter: 250
 PenaltyBreakFirstLessLess: 200
+PenaltyBreakComment: 50
 PenaltyBreakString: 100
-PenaltyExcessCharacter: 10
+PenaltyExcessCharacter: 5
 PenaltyReturnTypeOnItsOwnLine: 0
 ForEachMacros:
   - 'SLIST_FOREACH'
