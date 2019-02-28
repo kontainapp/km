@@ -324,7 +324,7 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
 {
    km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
 
-   if (pt_kma->detach_state == DT_DETACHED) {
+   if (pt_kma != NULL && pt_kma->detach_state == DT_DETACHED) {
       km_vcpu_fini(vcpu);
    }
    if (--machine.vm_vcpu_run_cnt == 0) {
