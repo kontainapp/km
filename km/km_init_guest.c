@@ -134,8 +134,7 @@ km_builtin_tls_t builtin_tls[1];
 /*
  * load_elf() finds __libc by name in the ELF image of the guest. We follow __init_libc() logic to
  * initialize the content, including TLS and pthread structure for the main thread. TLS is allocated
- * right above the mem_brk(). pthread is part of TLS area, we return the pointer to pthread to later
- * it can be used to initialize FS segment register.
+ * on top of the stack. pthread is part of TLS area.
  *
  * Care needs to be taken to distinguish between addresses seen in the guest and in km. We have two
  * sets of variables for each structure we deal with, like libc and libc_kma, former and latter
@@ -143,47 +142,60 @@ km_builtin_tls_t builtin_tls[1];
  * addresses are of the type there are in the guest. When we need to obtain addresses of subfields
  * in the guests we cast the km_gva_t to the appropriate pointer, then use &(struct)->field.
  *
+ * Also we distingush two case - the one when libc is part of executable (the most commin case), and
+ * when it isn't. The latter assumes some very simple payload, or something incompatible with libc.
+ *
  * TODO: There are other guest structures, such as __environ, __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
  */
-km_gva_t km_init_libc_main(void)
+void km_init_libc_main(km_vcpu_t* vcpu)
 {
    km_gva_t libc = km_guest.km_libc;
-   km__libc_t* libc_kma;
-   km_gva_t mem;
+   km__libc_t* libc_kma = NULL;
    km_pthread_t* tcb_kma;
    km_gva_t tcb;
+   km_gva_t map_base;
 
-   // If libc isn't part of loaded ELF there is nothing for us to do
-   if (libc == 0) {
-      return 0;
+   if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) == 0) {
+      err(1, "Failed to allocate memory for main stack");
    }
-   libc_kma = km_gva_to_kma(libc);
-   libc_kma->auxv = NULL;   // for now
-   libc_kma->page_size = PAGE_SIZE;
-   libc_kma->secure = 1;
-   libc_kma->can_do_threads = 0;   // TODO: for now
-   /*
-    * TODO: km_main_tls should be initialized from ELF headers of PT_TLS, PT_PHDR ... type to get
-    * information about guest program specific TLS. For now we go with minimal TLS just to support
-    * pthreads and internal data. As such, there is no need for the "2 * sizeof(void*)". That space
-    * should be used for dtv which is part of TLS support. dtv[0] is generation #, dtv[1] is a
-    * pointer to the only TLS area as this is static program.
-    */
-   libc_kma->tls_align = MIN_TLS_ALIGN;
-   libc_kma->tls_size = 2 * sizeof(void*) + sizeof(km_pthread_t) + MIN_TLS_ALIGN;
-   mem = km_mem_brk(0);
-   if (km_mem_brk(mem + libc_kma->tls_size) != mem + libc_kma->tls_size) {
-      err(2, "No memory for main TLS");
+
+   if (libc != 0) {
+      libc_kma = km_gva_to_kma(libc);
+      libc_kma->auxv = NULL;   // for now
+      libc_kma->page_size = PAGE_SIZE;
+      libc_kma->secure = 1;
+      libc_kma->can_do_threads = 0;   // TODO: for now
+      /*
+       * TODO: km_main_tls should be initialized from ELF headers of PT_TLS, PT_PHDR ... type to get
+       * information about guest program specific TLS. For now we go with minimal TLS just to
+       * support pthreads and internal data. As such, there is no need for the "2 * sizeof(void*)".
+       * That space should be used for dtv which is part of TLS support. dtv[0] is generation #,
+       * dtv[1] is a pointer to the only TLS area as this is static program.
+       */
+      libc_kma->tls_align = MIN_TLS_ALIGN;
+      libc_kma->tls_size = 2 * sizeof(void*) + sizeof(km_pthread_t) + MIN_TLS_ALIGN;
+      tcb = rounddown(map_base + GUEST_STACK_SIZE - sizeof(km_pthread_t), libc_kma->tls_align);
+   } else {
+      tcb = rounddown(map_base + GUEST_STACK_SIZE - sizeof(km_pthread_t), MIN_TLS_ALIGN);
    }
-   tcb = rounddown(mem + libc_kma->tls_size - sizeof(km_pthread_t), libc_kma->tls_align);
    tcb_kma = km_gva_to_kma(tcb);
-   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)mem;
+   if (libc != 0) {
+      tcb_kma->stack = (typeof(tcb_kma->stack))map_base + GUEST_STACK_SIZE - libc_kma->tls_size;
+      tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)tcb_kma->stack;
+      tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
+   } else {
+      tcb_kma->stack = (typeof(tcb_kma->stack))tcb;
+   }
+   tcb_kma->stack_size = (km_gva_t)tcb_kma->stack - map_base;
+   tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
+   tcb_kma->map_size = GUEST_STACK_SIZE;
    tcb_kma->self = (km_pthread_t*)tcb;
    tcb_kma->detach_state = DT_JOINABLE;
-   tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
-   return tcb;
+
+   vcpu->guest_thr = tcb;
+   vcpu->stack_top = (typeof(vcpu->stack_top))tcb_kma->stack;
 }
 
 #define DEFAULT_STACK_SIZE 131072
@@ -225,14 +237,15 @@ static inline int _a_detach(const km_pthread_attr_t* restrict g_attr)
 /*
  * Allocate and initialize pthread structure for newly created thread in the guest.
  */
-static km_gva_t km_init_pthread(const km_pthread_attr_t* restrict g_attr)
+static km_gva_t
+km_init_pthread(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gva_t start, km_gva_t args)
 {
    km_gva_t libc = km_guest.km_libc;
    km__libc_t* libc_kma;
    km_pthread_t* tcb_kma;
    km_gva_t tcb;
    km_gva_t map_base;
-   size_t map_size = _a_stacksize(g_attr);
+   size_t map_size;
 
    assert(_a_stackaddr(g_attr) == 0);   // TODO: for now
    assert(libc != 0);
@@ -251,12 +264,26 @@ static km_gva_t km_init_pthread(const km_pthread_attr_t* restrict g_attr)
    tcb_kma->stack_size = map_size - libc_kma->tls_size;
    tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
    tcb_kma->map_size = map_size;
-   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)(tcb_kma->stack - libc_kma->tls_size);
+   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)tcb_kma->stack;
    tcb_kma->self = (km_pthread_t*)tcb;
    tcb_kma->detach_state = _a_detach(g_attr);
    tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
+   tcb_kma->start = (void* (*)(void*))start;
+   tcb_kma->start_arg = (void*)args;
+   tcb_kma->tid = vcpu->vcpu_id;
+   vcpu->guest_thr = tcb;
+   vcpu->stack_top = (typeof(vcpu->stack_top))tcb_kma->stack;
    return tcb;
+}
+
+void km_fini_pthread(km_vcpu_t* vcpu)
+{
+   km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
+
+   if (pt_kma != NULL && pt_kma->map_base != NULL) {
+      km_guest_munmap((km_gva_t)pt_kma->map_base, pt_kma->map_size);
+   }
 }
 
 int km_create_pthread(pthread_t* restrict pid,
@@ -264,35 +291,33 @@ int km_create_pthread(pthread_t* restrict pid,
                       km_gva_t start,
                       km_gva_t args)
 {
-   km_pthread_t* pt_kma;
    km_gva_t pt;
    km_vcpu_t* vcpu;
    int rc;
 
-   if ((pt = km_init_pthread(attr)) == 0) {
+   if ((vcpu = km_vcpu_get()) == NULL) {
       return -EAGAIN;
    }
-   pt_kma = km_gva_to_kma(pt);
-   pt_kma->start = (void* (*)(void*))start;
-   pt_kma->start_arg = (void*)args;
-   vcpu = km_vcpu_init(1, (km_gva_t)pt_kma->stack, (km_gva_t)pt);
-   if (vcpu == NULL) {
-      km_guest_munmap((km_gva_t)pt_kma->map_base, pt_kma->map_size);
-      return -EBUSY;
+   if ((pt = km_init_pthread(attr, vcpu, start, args)) == 0) {
+      km_vcpu_put(vcpu);
+      return -EAGAIN;
    }
-   *pid = pt_kma->tid = vcpu->vcpu_id;
-   vcpu->map_base = (km_gva_t)pt_kma->map_base;
-   vcpu->map_size = pt_kma->map_size;
+   if ((rc = km_vcpu_set_to_run(vcpu, 1)) < 0) {
+      return -EAGAIN;
+   }
 
    pthread_attr_t vcpu_thr_att;
 
    pthread_attr_init(&vcpu_thr_att);
-   if (pt_kma->detach_state == DT_DETACHED) {
+   if (_a_detach(attr) == DT_DETACHED) {
       pthread_attr_setdetachstate(&vcpu_thr_att, PTHREAD_CREATE_DETACHED);
    }
    pthread_attr_setstacksize(&vcpu_thr_att, 16 * PAGE_SIZE);
    rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))km_vcpu_run, vcpu);
    pthread_attr_destroy(&vcpu_thr_att);
+   if (pid != NULL) {
+      *pid = vcpu->vcpu_id;
+   }
    return rc;
 }
 
@@ -314,8 +339,11 @@ int km_join_pthread(pthread_t pid, km_kma_t ret)
    if ((vcpu = km_find_vcpu(pid)) == NULL) {
       return -ESRCH;
    }
+   if (vcpu == km_main_vcpu()) {
+      return -EINVAL;
+   }
    if ((rc = -pthread_join(vcpu->vcpu_thread, (void*)ret)) == 0) {
-      km_vcpu_fini(vcpu);
+      km_vcpu_put(vcpu);
    }
    return rc;
 }
@@ -325,9 +353,10 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
    km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
 
    if (pt_kma != NULL && pt_kma->detach_state == DT_DETACHED) {
-      km_vcpu_fini(vcpu);
+      km_vcpu_put(vcpu);
    }
-   if (--machine.vm_vcpu_run_cnt == 0) {
+   // if (--machine.vm_vcpu_run_cnt == 0) {
+   if (__atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST) == 0) {
       km_signal_machine_fini();
    }
 }

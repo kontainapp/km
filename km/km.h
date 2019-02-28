@@ -43,22 +43,19 @@ typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload s
 typedef void* km_kma_t;      // kontain monitor address (i.e. address in km process space)
 
 typedef struct km_vcpu {
-   int kvm_vcpu_fd;         // this VCPU file descriptor
+   int is_running;          // 0 means ready for reuse, otherwise busy with workload thread
    int vcpu_id;             // uniq ID
    kvm_run_t* cpu_run;      // run control region
    pthread_t vcpu_thread;   // km pthread
    km_gva_t guest_thr;      // guest pthread
    km_gva_t stack_top;      // available in guest_thr but requres gva_to_kma, save it
-   km_gva_t map_base;       // start of the guest mmap region used for stack
-   size_t map_size;         // size of the guest mmap region used for stack
-   chan_t* vcpu_chan;
+   chan_t* vcpu_chan;       // gdb uses to signal vcpu to run
+   int kvm_vcpu_fd;         // this VCPU file descriptor
 } km_vcpu_t;
 
 void km_machine_init(void);
 void km_signal_machine_fini(void);
 void km_machine_fini(void);
-km_vcpu_t* km_vcpu_init(int is_pthread, km_gva_t sp, km_gva_t fs_base);
-void km_vcpu_fini(km_vcpu_t* vcpu);
 void* km_vcpu_run_main(void* unused);
 void* km_vcpu_run(km_vcpu_t* vcpu);
 
@@ -108,10 +105,15 @@ static inline km_vcpu_t* km_main_vcpu(void)
    return machine.vm_vcpus[0];
 }
 
-km_gva_t km_init_libc_main(void);
+void km_init_libc_main(km_vcpu_t* vcpu);
 int km_create_pthread(pthread_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
 int km_join_pthread(pthread_t pid, km_kma_t ret);
+void km_fini_pthread(km_vcpu_t* vcpu);
+
 void km_vcpu_stopped(km_vcpu_t* vcpu);
+km_vcpu_t* km_vcpu_get(void);
+void km_vcpu_put(km_vcpu_t* vcpu);
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread);
 
 /*
  * Trivial trace() based on warn() - but with an a switch to run off and on.

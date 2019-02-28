@@ -21,37 +21,44 @@
 #include <unistd.h>
 #include "syscall.h"
 
-static const char* msg1 = "Hello, I am a loop ";
+static const char* msg1 = "brick in the wall ";
+static const char* msg2 = "one bites the dust";
+const long step = 1ul;
 
-void run(char* msg, long run_count)
+void subrun(char* msg)
 {
-   const long step = 1ul << 26;
-
-   run_count *= step;
-   printf("run (almost) forever, count=%ld\n", run_count);
-   // run until someone changes the 'run'. If run is <=0 on start, run forever
-   while (--run_count != 0) {
+   for (long run_count = 0; run_count < step; run_count++) {
       if (run_count % step == 0) {
-         printf("Another %s # %ld (%ld) 0x%lx\n", msg, run_count / step, run_count, pthread_self());
+         printf("Another %s # %ld (%ld)\n", msg, run_count / step, run_count);
       }
    }
+   pthread_exit(0);
 }
 
-void* run_2(void* arg)
+void run(char* msg)
 {
-   run("one bites the dust", 32);
-   return NULL;
+   for (long run_count = 0; run_count < 32; run_count++) {
+      pthread_t pt1, pt2;
+
+      pthread_create(&pt1, NULL, (void* (*)(void*))subrun, (void*)msg1);
+      pthread_create(&pt2, NULL, (void* (*)(void*))subrun, (void*)msg2);
+      printf(" ... joined 0x%lx, %d\n", pt2, pthread_join(pt2, NULL));
+      printf(" ... joined 0x%lx, %d\n", pt1, pthread_join(pt1, NULL));
+   }
 }
 
 int main()
 {
-   pthread_t pt;
+   pthread_t pt1, pt2;
 
-   puts(msg1);
-   pthread_create(&pt, NULL, run_2, NULL);
-   printf("started 0x%lx\n", pt);
-   run("brick in the wall", 16);
-   printf("joining 0x%lx ... \n", pt);
-   printf("joined 0x%lx, %d\n", pt, pthread_join(pt, NULL));
+   pthread_create(&pt1, NULL, (void* (*)(void*))run, NULL);
+   printf("started 0x%lx\n", pt1);
+   pthread_create(&pt2, NULL, (void* (*)(void*))run, NULL);
+   printf("started 0x%lx\n", pt2);
+
+   printf("joining 0x%lx ... \n", pt1);
+   printf("joined 0x%lx, %d\n", pt1, pthread_join(pt1, NULL));
+   printf("joining 0x%lx ... \n", pt2);
+   printf("joined 0x%lx, %d\n", pt2, pthread_join(pt2, NULL));
    exit(0);
 }

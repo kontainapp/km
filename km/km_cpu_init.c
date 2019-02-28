@@ -44,6 +44,30 @@ void km_signal_machine_fini(void)
 }
 
 /*
+ * Release resources allocated in km_vcpu_init(). Used in km_machine_fini() for final cleanup.
+ * For normal thread completion use km_vcpu_put()
+ */
+void km_vcpu_fini(km_vcpu_t* vcpu)
+{
+   km_fini_pthread(vcpu);
+   if (vcpu->vcpu_chan != NULL) {
+      chan_dispose(vcpu->vcpu_chan);
+   }
+   if (vcpu->cpu_run != NULL) {
+      if (munmap(vcpu->cpu_run, machine.vm_run_size) != 0) {
+         err(3, "munmap cpu_run for vcpu fd");
+      }
+   }
+   if (vcpu->kvm_vcpu_fd >= 0) {
+      if (close(vcpu->kvm_vcpu_fd) != 0) {
+         err(3, "closing vcpu fd");
+      }
+   }
+   machine.vm_vcpus[vcpu->vcpu_id] = NULL;
+   free(vcpu);
+}
+
+/*
  * Join the vcpu threads, then dispose of all machine resources
  */
 void km_machine_fini(void)
@@ -91,7 +115,7 @@ void km_machine_fini(void)
    km_hcalls_fini();
 }
 
-static void kvm_vcpu_init_sregs(int fd, uint64_t fs)
+static int kvm_vcpu_init_sregs(int fd, uint64_t fs)
 {
    static const kvm_sregs_t sregs_template = {
        .cr0 = X86_CR0_PE | X86_CR0_PG | X86_CR0_WP | X86_CR0_NE,
@@ -111,60 +135,98 @@ static void kvm_vcpu_init_sregs(int fd, uint64_t fs)
    kvm_sregs_t sregs = sregs_template;
 
    sregs.fs.base = fs;
-   if (ioctl(fd, KVM_SET_SREGS, &sregs) < 0) {
-      err(1, "KVM: set sregs failed");
-   }
-}
-
-static inline int km_put_new_vcpu(km_vcpu_t* new)
-{
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      if (machine.vm_vcpus[i] == NULL) {
-         machine.vm_vcpu_run_cnt++;
-         machine.vm_vcpus[i] = new;
-         return i;
-      }
-   }
-   return -1;
+   return ioctl(fd, KVM_SET_SREGS, &sregs);
 }
 
 /*
- * Create vcpu, map the control region, initialize sregs.
- * Set RIP, SP, RFLAGS, and RDI, clear the rest of the regs.
- * VCPU is ready to run starting with instruction @RIP
- * RDI aka the first function arg, tells it if we are in main (==0) or pthread(!=0)
- * RIP always points to __start_c__ which is always entry point in ELF.
+ * Create vcpu with KVM, map the control region.
  */
-km_vcpu_t* km_vcpu_init(int is_pthread, km_gva_t sp, km_gva_t pt)
+static int km_vcpu_init(km_vcpu_t* vcpu)
 {
-   km_vcpu_t* vcpu;
+   int rc;
 
-   /*
-    * TODO: consider returning errors to be able to keep going instead of just
-    * giving up
-    */
-   if ((vcpu = malloc(sizeof(km_vcpu_t))) == NULL) {
-      err(1, "KVM: no memory for vcpu");
-   }
-   memset(vcpu, 0, sizeof(km_vcpu_t));
-   if ((vcpu->vcpu_id = km_put_new_vcpu(vcpu)) < 0) {
-      err(1, "KVM: too many vcpus");
-   }
    if ((vcpu->kvm_vcpu_fd = ioctl(machine.mach_fd, KVM_CREATE_VCPU, vcpu->vcpu_id)) < 0) {
-      err(1, "KVM: create vcpu %d failed", vcpu->vcpu_id);
+      warn("KVM: create vcpu %d failed", vcpu->vcpu_id);
+      return vcpu->kvm_vcpu_fd;
    }
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_CPUID2, machine.cpuid) < 0) {
-      err(1, "KVM: set CPUID2 failed");
+   if ((rc = ioctl(vcpu->kvm_vcpu_fd, KVM_SET_CPUID2, machine.cpuid)) < 0) {
+      warn("KVM: set CPUID2 failed");
+      return rc;
    }
    if ((vcpu->cpu_run =
             mmap(NULL, machine.vm_run_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu->kvm_vcpu_fd, 0)) ==
        MAP_FAILED) {
-      err(1, "KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
+      warn("KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
+      return -1;
    }
-   kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, pt);
+   if (km_gdb_enabled()) {
+      if ((vcpu->vcpu_chan = chan_init(0)) == NULL) {
+         warn("failed init gdb chan for vcpu %d", vcpu->vcpu_id);
+         return -1;
+      }
+   }
+   return 0;
+}
+
+/*
+ * Atomically check for empty slots and for slots that could be reused !is_running).
+ * We free new if found a slot for reuse, otherwise mark it is_running.
+ * Return the slot number
+ */
+km_vcpu_t* km_vcpu_get(void)
+{
+   km_vcpu_t* new;
+   km_vcpu_t* old;
+   int unused;
+
+   if ((new = malloc(sizeof(km_vcpu_t))) == NULL) {
+      err(1, "KVM: no memory for vcpu");
+   }
+   memset(new, 0, sizeof(km_vcpu_t));
+
+   __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
+   new->is_running = 1;   // so it won't get snatched right after its inserted
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      // if (machine.vm_vcpus[i] == NULL) machine.vm_vcpus[i] = new;
+      old = NULL;
+      if (__atomic_compare_exchange_n(&machine.vm_vcpus[i], &old, new, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+         new->vcpu_id = i;
+         if (km_vcpu_init(new) < 0) {
+            __atomic_store_n(&machine.vm_vcpus[i], NULL, __ATOMIC_SEQ_CST);
+            break;
+         }
+         return new;
+      }
+      // if (machine.vm_vcpus[i].is_running == 0) ...is_running = 1;
+      unused = 0;
+      if (__atomic_compare_exchange_n(&old->is_running, &unused, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+         free(new);   // no need, reusing an existing one
+         return old;
+      }
+   }
+   __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
+   free(new);
+   return NULL;
+}
+
+/*
+ * Set the vcpu to run - Initialize sregs and regs.
+ * Set RIP, SP, RFLAGS, and RDI, clear the rest of the regs.
+ * VCPU is ready to run starting with instruction @RIP RDI aka the first function arg,
+ * tells it if we are in main (==0) or pthread(!=0) RIP always points to __start_c__
+ * which is always entry point in ELF.
+ */
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread)
+{
+   int rc;
+   km_gva_t sp;
+
+   if ((rc = kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, vcpu->guest_thr)) < 0) {
+      return rc;
+   }
 
    /* per ABI, make sure sp + 8 is 16 aligned */
-   sp &= ~(7ul);
+   sp = vcpu->stack_top & ~(7ul);
    sp -= (sp + 8) % 16;
 
    kvm_regs_t regs = {
@@ -173,38 +235,22 @@ km_vcpu_t* km_vcpu_init(int is_pthread, km_gva_t sp, km_gva_t pt)
        .rflags = X86_RFLAGS_FIXED,
        .rsp = sp,
    };
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &regs) < 0) {
-      err(1, "KVM: set regs failed");
+   if ((rc = ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &regs)) < 0) {
+      return rc;
    }
-   vcpu->guest_thr = pt;
    vcpu->stack_top = sp;
-   if (km_gdb_enabled()) {
-      if ((vcpu->vcpu_chan = chan_init(0)) == NULL) {
-         err(1, "Failed to create comm channel to vCPU thread");
-      }
-   }
-   return vcpu;
+   return 0;
 }
 
 /*
- * Release resources allocated in km_vcpu_init()
+ * Thread completed. Release the resources that we can and mark the vcpu available for reuse by
+ * setting vcpu->is_running to 0
  */
-void km_vcpu_fini(km_vcpu_t* vcpu)
+void km_vcpu_put(km_vcpu_t* vcpu)
 {
-   if (vcpu->vcpu_chan != NULL) {
-      chan_dispose(vcpu->vcpu_chan);
-   }
-   if (vcpu->cpu_run != NULL) {
-      (void)munmap(vcpu->cpu_run, machine.vm_run_size);
-   }
-   if (vcpu->kvm_vcpu_fd >= 0) {
-      close(vcpu->kvm_vcpu_fd);
-   }
-   if (vcpu->map_base) {
-      km_guest_munmap(vcpu->map_base, vcpu->map_size);
-   }
-   machine.vm_vcpus[vcpu->vcpu_id] = NULL;
-   free(vcpu);
+   km_fini_pthread(vcpu);
+   // vcpu->is_running = 0;
+   __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_running, 0, __ATOMIC_SEQ_CST);
 }
 
 /*

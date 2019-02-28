@@ -64,9 +64,11 @@ void* run(void* arg)
 
 int main()
 {
-   pthread_t pt;
+   pthread_t pt1, pt2;
 
-   pthread_create(&pt, NULL, run, NULL);
-   run((void*)1);
+   pthread_create(&pt1, NULL, run, NULL);
+   pthread_create(&pt2, NULL, run, 1);
+   pthread_join(pt2, NULL);
+   pthread_join(pt1, NULL);
    exit(0);
 }
