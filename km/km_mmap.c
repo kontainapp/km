@@ -113,7 +113,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
          carved->size = size;
          reg->start += size;
          reg->size -= size;
-      } else {   // full chunk is reuse
+      } else {   // full chunk is reused
          LIST_REMOVE(reg, link);
       }
       LIST_INSERT_HEAD(&mmaps.busy, carved, link);

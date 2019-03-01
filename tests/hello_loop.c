@@ -16,10 +16,6 @@
  * ./build/km/km -g 3333 tests/hello_loop.km
  * gdb -q -l 50000 --ex="target remote localhost:3333" -ex="b run_forever"--ex="c" hello_loop.km
  */
-
-#undef _FORTIFY_SOURCE
-#define _FORTIFY_SOURCE 0
-
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>

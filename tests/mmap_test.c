@@ -11,7 +11,6 @@
  *
  * Basic test for mmap() and friends.
  */
-
 #include <err.h>
 #include <errno.h>
 #include <getopt.h>

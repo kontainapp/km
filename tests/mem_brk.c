@@ -11,10 +11,6 @@
  *
  * Test brk() with different values
  */
-
-#undef _FORTIFY_SOURCE
-#define _FORTIFY_SOURCE 0
-
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>

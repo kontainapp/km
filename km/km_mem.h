@@ -91,7 +91,7 @@ static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
  * Knowing memory layout and how pml4 is set, convert between guest virtual address and km address.
  *
  * Note 1:
- * The actual virtual address space is made of areas mapped 1:1 to guest physical memory regions
+ * The actual virtual address space is made of areas mapped to guest physical memory regions
  * described above. KM virtual memory (backing guest phys. memory) is contigious only within a
  * region.
  */
@@ -116,7 +116,7 @@ static inline km_gva_t gva_to_gpa(km_gva_t gva)
 
 static inline int gva_to_memreg_idx(km_gva_t addr)
 {
-   addr = gva_to_gpa(addr);   // adjust for gva after 'tbrk'
+   addr = gva_to_gpa(addr);   // adjust for gva in the top part of VA space
    if (addr <= machine.guest_mid_physmem) {
       return MEM_IDX(addr);
    }

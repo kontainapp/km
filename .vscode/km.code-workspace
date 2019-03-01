@@ -8,34 +8,12 @@
       "editor.detectIndentation": false,
       "files.associations": {
          "*.mak": "makefile",
-         "fcntl.h": "c",
-         "km.h": "c",
-         "types.h": "c",
-         "stdint.h": "c",
-         "stat.h": "c",
-         "string.h": "c",
-         "stdlib.h": "c",
-         "x86_cpu.h": "c",
-         "errno.h": "c",
-         "km_hcalls.h": "c",
-         "stdio.h": "c",
-         "mman.h": "c",
-         "mman-linux.h": "c",
-         "features.h": "c",
-         "__strerror.h": "c",
-         "locale_impl.h": "c",
-         "km_gdb.h": "c",
-         "bsd_queue.h": "c",
-         "pthread_impl.h": "c",
-         "syscall_arch.h": "c",
-         "km_mem.h": "c"
+         "*.h": "c",
       },
       "files.exclude": {
-         "**/*.d": true,
-         "**/*.km": true,
-         "**/*.o": true,
-         "build/**": true,
-         "tests/[12].out": true
+         "build": true,
+         "tests/{*.out,*.d,*.o,*.km}": true,
+         "runtime/musl/**/{WHATSNEW,aarch64,arm,m68k,microblaze,mips*,mipsn32,or1k,powerpc*,s390x,sh}": true
       },
       "editor.tabSize": 3,
       "cSpell.words": [
@@ -73,8 +51,5 @@
          "xfffffffful"
       ],
       "editor.formatOnSave": true,
-      "search.exclude": {
-         "{**/WHATSNEW,aarch64,arm,m68k,microblaze,mips,mips64,mipsn32,or1k,powerpc*,s390x,sh,**/*.json,**/*.md}": true
-      }
    }
 }

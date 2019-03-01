@@ -9,10 +9,6 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  */
-
-#undef _FORTIFY_SOURCE
-#define _FORTIFY_SOURCE 0
-
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>

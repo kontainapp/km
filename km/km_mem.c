@@ -260,8 +260,7 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
    km_gva_t base = reg->guest_phys_addr;
 
    if (size < PDPTE_REGION) {
-      x86_pde_2m_t* pde =
-          km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
+      x86_pde_2m_t* pde = km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
       for (uint64_t addr = base; addr < base + size; addr += PDE_REGION) {
          // virtual and physical mem aligned the same on PDE_REGION, so we can use phys. address in
          // PDE_SLOT()
@@ -283,8 +282,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
    uint64_t base = reg->guest_phys_addr;
 
    if (size < PDPTE_REGION) {
-      x86_pde_2m_t* pde =
-          km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
+      x86_pde_2m_t* pde = km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
       for (uint64_t addr = base; addr < base + size; addr += PDE_REGION) {
          // virtual and physical mem aligned the same on PDE_REGION, so we can use phys. address in
          // PDE_SLOT()
@@ -399,7 +397,7 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
    if (tbrk == 0 || tbrk == machine.tbrk) {
       return machine.tbrk;
    }
-   if (gva_to_gpa(tbrk) <= floor) {
+   if (gva_to_gpa(tbrk) <= floor) {   // More checks will follow, but this case is certainly ENOMEM
       return -ENOMEM;
    }
 

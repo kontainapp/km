@@ -11,7 +11,7 @@ SHELL=/bin/bash
 
 TOP := $(shell git rev-parse --show-cdup)
 COPTS ?= -ggdb -O2
-CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
+CFLAGS = -Wall $(COPTS) -D_FORTIFY_SOURCE=0 -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
 KM_LDFLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
 LOADLIBES ?= -ggdb -static -pthread
 DEPS = ${SRC:%.c=%.d}
