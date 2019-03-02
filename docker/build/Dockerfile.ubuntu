@@ -24,3 +24,4 @@ RUN apt-get update; apt-get upgrade -y; \
 
 RUN groupadd -g $GID appuser && useradd -r -u $UID -g $GID appuser
 USER appuser
+ENV TERM=xterm

@@ -12,7 +12,7 @@
       },
       "files.exclude": {
          "build": true,
-         "tests/{*.out,*.d,*.o,*.km}": true,
+         "tests/{*_test,*.d,*.o,*.km}": true,
          "runtime/musl/**/{WHATSNEW,aarch64,arm,m68k,microblaze,mips*,mipsn32,or1k,powerpc*,s390x,sh}": true
       },
       "editor.tabSize": 3,

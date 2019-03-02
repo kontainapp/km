@@ -26,3 +26,4 @@ RUN dnf install -y gcc glibc-static\
 
 RUN groupadd -g $GID appuser && useradd -r -u $UID -g $GID appuser
 USER appuser
+ENV TERM=xterm

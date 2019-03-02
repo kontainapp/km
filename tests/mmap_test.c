@@ -110,8 +110,7 @@ int main(int argc, char* const argv[])
       }
       switch (t->type) {
          case TYPE_MMAP:
-            if ((last_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0)) ==
-                MAP_FAILED) {
+            if ((last_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0)) == MAP_FAILED) {
                warn("FAILED: mmap %s sz=%s", t->test_info, out_sz(t->size));
 
                mmap_failed = 1;
@@ -149,8 +148,7 @@ int main(int argc, char* const argv[])
       }
       switch (t->type) {
          case TYPE_MMAP:
-            if ((last_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0)) !=
-                MAP_FAILED) {
+            if ((last_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0)) != MAP_FAILED) {
                warn("FAILED: mmap %s sz=%s", t->test_info, out_sz(t->size));
                err_count++;
                break;
@@ -174,7 +172,6 @@ int main(int argc, char* const argv[])
             assert("Should never get here" == NULL);
       }
    }
-   warnx("%s (err_count=%d)", err_count ? "FAILED" : "SUCCESS", err_count);   // for visibility
-   puts(err_count ? "FAILED" : "SUCCESS");   // for Makefiles report
+   warnx("Resulting err_count=%d)", err_count);
    exit(err_count);
 }
