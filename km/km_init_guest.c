@@ -145,6 +145,10 @@ km_builtin_tls_t builtin_tls[1];
  * Also we distingush two case - the one when libc is part of executable (the most commin case), and
  * when it isn't. The latter assumes some very simple payload, or something incompatible with libc.
  *
+ * See TLS description as referenced in gcc manual https://gcc.gnu.org/onlinedocs/gcc-8.2.0/gcc.pdf
+ * in section 6.63 Thread-Local Storage, at the time of this writing pointing at
+ * https://www.akkadia.org/drepper/tls.pdf.
+ *
  * TODO: There are other guest structures, such as __environ, __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
  */
@@ -238,7 +242,7 @@ static inline int _a_detach(const km_pthread_attr_t* restrict g_attr)
  * Allocate and initialize pthread structure for newly created thread in the guest.
  */
 static km_gva_t
-km_init_pthread(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gva_t start, km_gva_t args)
+km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gva_t start, km_gva_t args)
 {
    km_gva_t libc = km_guest.km_libc;
    km__libc_t* libc_kma;
@@ -277,7 +281,7 @@ km_init_pthread(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
    return tcb;
 }
 
-void km_fini_pthread(km_vcpu_t* vcpu)
+void km_pthread_fini(km_vcpu_t* vcpu)
 {
    km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
 
@@ -286,10 +290,7 @@ void km_fini_pthread(km_vcpu_t* vcpu)
    }
 }
 
-int km_create_pthread(pthread_t* restrict pid,
-                      const km_kma_t restrict attr,
-                      km_gva_t start,
-                      km_gva_t args)
+int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_gva_t start, km_gva_t args)
 {
    km_gva_t pt;
    km_vcpu_t* vcpu;
@@ -298,11 +299,13 @@ int km_create_pthread(pthread_t* restrict pid,
    if ((vcpu = km_vcpu_get()) == NULL) {
       return -EAGAIN;
    }
-   if ((pt = km_init_pthread(attr, vcpu, start, args)) == 0) {
+   if ((pt = km_pthread_init(attr, vcpu, start, args)) == 0) {
       km_vcpu_put(vcpu);
       return -EAGAIN;
    }
    if ((rc = km_vcpu_set_to_run(vcpu, 1)) < 0) {
+      km_pthread_fini(vcpu);
+      km_vcpu_put(vcpu);
       return -EAGAIN;
    }
 
@@ -331,7 +334,7 @@ static inline km_vcpu_t* km_find_vcpu(int vcpu_id)
    return NULL;
 }
 
-int km_join_pthread(pthread_t pid, km_kma_t ret)
+int km_pthread_join(pthread_t pid, km_kma_t ret)
 {
    km_vcpu_t* vcpu;
    int rc;
@@ -339,9 +342,17 @@ int km_join_pthread(pthread_t pid, km_kma_t ret)
    if ((vcpu = km_find_vcpu(pid)) == NULL) {
       return -ESRCH;
    }
+   /*
+    * TODO: Is that the the right assumption? I guess a main thread can do pthread_self to obtain
+    * its own ID, then pass it to another thread so it can join main. Yikes!
+    */
    if (vcpu == km_main_vcpu()) {
       return -EINVAL;
    }
+   /*
+    * There are multiple condition such as deadlock or double join that are supposed to be detected,
+    * we simply delegate that to system pthread_join().
+    */
    if ((rc = -pthread_join(vcpu->vcpu_thread, (void*)ret)) == 0) {
       km_vcpu_put(vcpu);
    }
