@@ -5,3 +5,5 @@ build/**
 tests/*_test
 tests/*_test.km
 trace.dat
+ipch
+*.ipch

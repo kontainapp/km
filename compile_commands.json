@@ -16151,6 +16151,23 @@
         "file": "load.c"
     },
     {
+      "arguments": [
+          "cc",
+          "-c",
+          "-Wall",
+          "-ggdb",
+          "-O2",
+          "-fno-stack-protector",
+          "-I", "../km",
+          "-I", "../include",
+          "-o",
+          "mutext_test.o",
+          "mutext_test.c"
+      ],
+      "directory": "${workspaceFolder}/tests",
+      "file": "mutext_test.c"
+  },
+    {
         "arguments": [
             "cc",
             "-c",

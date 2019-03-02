@@ -19,7 +19,6 @@ load tests_setup
    # Show this on failure:
    echo Failed - try to run \'make load_expected_size\' in tests, and replace load.c:size value
 
-   # Now run the test
    run $KM load_test.km
    if [[ $status -ne 0  || $(echo "$output" | grep -cw 'status 0x0') != 1 ]]
    then
@@ -43,7 +42,7 @@ load tests_setup
    fi
 }
 
-@test "Hello world - run and print" {
+@test "basic run and print(hello world)" {
    linux_out=`./hello_test`
    run $KM hello_test.km
    if [[ $status -ne 0  || $(echo "$output" | grep -cw "$linux_out") != 1 ]]
@@ -52,7 +51,7 @@ load tests_setup
    fi
 }
 
-@test "Basic HTTP/socket I/O (hello_html)" {
+@test "basic HTTP/socket I/O (hello_html)" {
    local expected="I'm here"
    local address="http://127.0.0.1:8002"
 
@@ -75,8 +74,17 @@ load tests_setup
 }
 
 @test "mmap/munmap" {
+   expected_st='status 0x0';
+   # we expected 3 ENOMEM failures on 36 (0x24) bit buses
+   if [ -f "$(command -v cpuid)" ] ; then
+      bits="$(cpuid  | awk '/maximum physical address bits/ {print $6}'  | head -1)"
+      if [ "$bits" == "0x24" ] ; then
+         expected_st='status 0x3' ;
+      fi
+   fi
+
    run $KM mmap_test.km
-   if [[ $status -ne 0  || $(echo "$output" | grep -cw 'status 0x0') != 1 ]]
+   if [[ $status -ne 0  || $(echo "$output" | grep -cw "$expected_st") != 1 ]]
    then
     emit_debug_output && return 1
    fi
@@ -110,9 +118,9 @@ load tests_setup
 }
 
 @test "pthread_create and mutex" {
-   skip "TODO: convert to test"
-
-   run $KM mutex.km
-   [ "$status" -eq 0 ]
-   echo "${output}" | grep -wq SUCCESS
+   run $KM mutex_test.km
+   if [[ $status -ne  0 || "$(echo $output | grep -c ', fail: 0,')" != 1 ]]
+   then
+      emit_debug_output   && return 1
+   fi
 }

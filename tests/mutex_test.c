@@ -13,19 +13,22 @@
 #include <err.h>
 #include <limits.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "greatest/greatest.h"
 #include "syscall.h"
 
 volatile int var;
 pthread_mutex_t mt = PTHREAD_MUTEX_INITIALIZER;
-const long step = 1l << 24;
-const long run_count = 1l << 26;
+const long step = 1l << 23;
+const long run_count = 1l << 24;
 
-void* run(void* arg)
+// actual testing. return type is TEST since ASSERT_* return this
+TEST run(void* arg)
 {
    int x, y;
    struct timespec tp, tp0;
@@ -42,9 +45,7 @@ void* run(void* arg)
       }
       y = var;
       pthread_mutex_unlock(&mt);
-      if (x != y) {
-         errx(1, "Mismatch in %s: %d - %d\n", msg, x, y);
-      }
+      ASSERT_EQ_FMTm(msg, x, y, "%d");
       if ((i & (step - 1)) == 0) {
          clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp);
          printf("%s: %ld, %ld ms\n",
@@ -57,16 +58,46 @@ void* run(void* arg)
          tp0 = tp;
       }
    }
-   return NULL;
+   PASS();
 }
 
-int main()
+// thread entry. It calls actual test with typecast, to make compiler happy
+void* run_thr(void* arg)
 {
-   pthread_t pt1, pt2;
+   return (void*)run(arg);
+}
 
-   pthread_create(&pt1, NULL, run, NULL);
-   pthread_create(&pt2, NULL, run, (void*)1);
-   pthread_join(pt2, NULL);
-   pthread_join(pt1, NULL);
-   exit(0);
+// let's use a couple of TESTS, just to have more that 1 test in the file
+static pthread_t pt1, pt2;
+
+TEST basic_create(void)
+{
+   ASSERT_EQm("Create 1 ok", pthread_create(&pt1, NULL, run_thr, NULL), 0);
+   ASSERT_EQm("Create 2 ok", pthread_create(&pt2, NULL, run_thr, (void*)1), 0);
+   PASSm("threads started\n");
+}
+
+TEST run_and_check(void)
+{
+   void* retval;
+   ASSERT_EQm("Joined 2 ok ", pthread_join(pt2, &retval), 0);
+   ASSERT_EQm("Thread 2 test passed", retval, 0);
+   ASSERT_EQm("Joined 1 ok", pthread_join(pt1, &retval), 0);
+   ASSERT_EQm("Thread 1 test passed", retval, 0);
+   PASSm("joined and checked\n");
+}
+
+/* Inserts misc defintions */
+GREATEST_MAIN_DEFS();
+
+int main(int argc, char** argv)
+{
+   GREATEST_MAIN_BEGIN();       // init & parse command-line args
+   greatest_set_verbosity(1);   // needed if we want to pass through | greatest/contrib/greenest,
+                                // especially from KM payload
+   /* Tests can  be run as suites, or directly. Lets run directly. */
+   RUN_TEST(basic_create);
+   RUN_TEST(run_and_check);
+
+   GREATEST_MAIN_END();   // display results and return
 }

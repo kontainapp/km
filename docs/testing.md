@@ -25,37 +25,86 @@ We need to have multiple ways of KM building for test. They mainly differ in com
 
 ### Code coverage
 
-We will use gcov. More tbd
+We will use gcov/lcov. More tbd
 
-## Choices
+Commands to create report (assumes lcov and gcov are installed)
+
+```bash
+lcov --capture --directory ../build/km/ -b `pwd`/.. --output-file ../build/c.info
+genhtml  ../build/c.info --output-directory ../build/out/
+google-chrome ../build/out/
+```
+
+Support in vscode: brainfit.vscode-coverage-highlighter. Settings:
+
+```json
+"vscode-coverage-highlighter.files": [
+     "build/c.info",
+     "coverage/lcov*.info",
+     "cov*.xml"
+  ]
+```
+
+## Test framework choices
+
+The 3 choices are below. BATS is  a good all around way to push BASH tests together and organize multiple test executable.
+nUnit or greates both are good is basic test framework support - suites, tests, asserts, etc..
+
+We will use BATS and either greatest.h
+
+* [BATS](https://github.com/bats-core/bats-core) (or `dnf install bats`)
+  * TAP-compliant testing framework for Bash
+  * allows to scan directories / runs multiple tests(named `<test>.bats`)
+* [greatest](https://github.com/silentbicycle/greatest)
+  * Another set of marcos / C  / CLI , similar to nUnit
+  * Good review (and comparison with others) [here](https://spin.atomicobject.com/2013/07/31/greatest-c-testing-embedded/)
+  * Does almost all we  want (has a few shorcomings but nothing major - i.e. does not do parametrized tests, does not support test-specific setup/teardown - only per suite, etc)
+
+### Looked at and declined
+
+* [nUnit](https://nemequ.github.io/munit)
+  * small/portable/easy. Tons of useful stuff like `munit_assert_memory_equal` :-)
+  * support tests (functions) and suits (arrays)
+  * has CLI and seems ready to run
+  * **WOULD BE THE CHOICE** but unfortunately it messes with forks/signals and much more, and at this point (March '19) it's too much overhead to use it
 
 * [Libtap](https://github.com/zorgnax/libtap)
   * simple set of macros for [TAP](http://testanything.org/), e.g. `ok(test(), "test descr"));`
   * just a C include file and one .c file
-  * no suites or skips - nothing fancy.
-  * good for ONE test file. Real good
-* [BATS](https://github.com/bats-core/bats-core) (or `dnf install bats`)
-  * TAP-compliant testing framework for Bash
-  * allows to scan directories / runs multiple tests(named `<test>.bats`)
+  * good for ONE test file. Real good for one file. Only
+  * no suites or skips - and overall feels not worth spending time on.
 * [CUnit](http://cunit.sourceforge.net/doc/index.html)
   * Looks like a good unit test env. but an overkill for now
   * Defines a bunch of helpful marcos for asserts, pass/fail reporting (see [CUnit site](http://cunit.sourceforge.net/doc/writing_tests.html#tests))
   * Supports a live "test registry' where tests can be added programmatically
   * Supports test suits & groups (as array or description / functions)
   * supports output redirection/logs
-* [nUnit](https://nemequ.github.io/munit)
-  * small/portable/easy. Tons of useful stuff like `munit_assert_memory_equal` :-)
-  * support tests (functions) and suits (arrays)
-  * has CLI and seems ready to run
-* [greatest](https://github.com/silentbicycle/greatest)
-  * Another set of marcos / C  / CLI , similar to nUnit
-  * Good review (and comparison with others) [here](https://spin.atomicobject.com/2013/07/31/greatest-c-testing-embedded/)
+  * feels unnecessary large and complex, requires "registry" for tracking tests, API to add to suites, etc.
+* [check](https://libcheck.github.io/check/) or `dnf install check`
+  * another unit testing , similar to the rest
+  * expects autoconf , libtool, pkg-config cmake , and does not seem to add much compared to , say , nUnit - thus we will pass.
 
-At this stage `BATS` and either `nunit` or `greatest` seem the best.
+### Potential - but seems like an overkill
+
+* [Criterion](https://github.com/Snaipe/Criterion)
+  * Good:
+    * Real nice framework, in active state, handles many aspects (e.g. signal testing, reports,  'theories' in TDD, etc...)
+    * seems in active state, many forks
+    * Their motto is `A cross-platform C and C++ unit testing framework for the 21th century`
+    * Docs are [here](https://criterion.readthedocs.io/en/master/)
+  * Not so good:
+    * Dependencies on much stuff, total 15M (uses klib, debugbreak, nanopb - protobuffers)
+    * requires build with cmake/gcc and install, set lib
+  * Conclusion
+    * **overkill for us** , skipping (for now), and not needed until we have a few full time test devs at least
+    * we can always add it if needed as another step in BATS runs, skipping for now
+
+BTW, `dependencies it uses need to be kept in mind` if we need good trees/streaming/json/etc, or protobufs, or debugreak in the code.
+
+* http://attractivechaos.github.io/klib/#About
+* https://github.com/scottt/debugbreak/
+* https://jpa.kapsi.fi/nanopb/
 
 ## Next steps
 
-* Convert a couple of tests and decide
-* Add to build
-* Convert the rest
 * look at coverage/build modes

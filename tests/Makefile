@@ -24,12 +24,13 @@ LIBS := runtime
 EXECS := ${SRC:%.c=%.km} ${SRC:%.c=%}
 BATS := bats/bin/bats
 TEST_FILES := km_core_tests.bats
+MATCH ?= ".*"
 
 all: ${EXECS} ## Build all test, for Linux and KM
 
 # Run all or some of tests (may need /dev/kvm or privileged container)
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
-	@${BATS} -p -f ".*$(MATCH).*" ${TEST_FILES}
+	@${BATS} -p -f "${MATCH}" ${TEST_FILES}
 
 %.km: %.o
 	${LD} $< -o $@ ${KM_LDFLAGS}
