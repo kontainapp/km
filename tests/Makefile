@@ -22,7 +22,7 @@ OBJ = ${SRC:%.c=%.o}
 LDDIRS := ${TOP}build/runtime
 LIBS := runtime
 EXECS := ${SRC:%.c=%.km} ${SRC:%.c=%}
-BATS := bats-core/bin/bats
+BATS := bats/bin/bats
 TEST_FILES := km_core_tests.bats
 
 all: ${EXECS} ## Build all test, for Linux and KM

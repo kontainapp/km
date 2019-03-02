@@ -2,6 +2,6 @@
 	path = runtime/musl
 	url = git@bitbucket.org:kontainapp/musl.git
 
-[submodule "bats"]
-	path = tests/bats-core
-	url = https://github.com/bats-core/bats-core
+[submodule "tests/bats"]
+	path = tests/bats
+	url = git@bitbucket.org:kontainapp/bats.git
