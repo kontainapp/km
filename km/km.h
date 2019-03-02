@@ -43,7 +43,7 @@ typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload s
 typedef void* km_kma_t;      // kontain monitor address (i.e. address in km process space)
 
 typedef struct km_vcpu {
-   int is_running;          // 0 means ready for reuse, otherwise busy with workload thread
+   int is_used;             // 0 means ready for reuse, otherwise busy with workload thread
    int vcpu_id;             // uniq ID
    kvm_run_t* cpu_run;      // run control region
    pthread_t vcpu_thread;   // km pthread
@@ -106,9 +106,9 @@ static inline km_vcpu_t* km_main_vcpu(void)
 }
 
 void km_init_libc_main(km_vcpu_t* vcpu);
-int km_create_pthread(pthread_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
-int km_join_pthread(pthread_t pid, km_kma_t ret);
-void km_fini_pthread(km_vcpu_t* vcpu);
+int km_pthread_create(pthread_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
+int km_pthread_join(pthread_t pid, km_kma_t ret);
+void km_pthread_fini(km_vcpu_t* vcpu);
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);

@@ -49,7 +49,7 @@ void km_signal_machine_fini(void)
  */
 void km_vcpu_fini(km_vcpu_t* vcpu)
 {
-   km_fini_pthread(vcpu);
+   km_pthread_fini(vcpu);
    if (vcpu->vcpu_chan != NULL) {
       chan_dispose(vcpu->vcpu_chan);
    }
@@ -169,9 +169,18 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
 }
 
 /*
- * Atomically check for empty slots and for slots that could be reused !is_running).
- * We free new if found a slot for reuse, otherwise mark it is_running.
- * Return the slot number
+ * km_vcpu_get() atomically finds the first vcpu slot that can be used for a new vcpu and adjusts
+ * vm_vcpu_run_cnt. It could be an empty slot, or previously used slot left by exited thread.
+ *
+ * Note that vm_vcpu_run_cnt **is not** the same as number of used vcpu slots. It is instead a
+ * number of active running vcpu threads. It is adjusted down when an vcpu exits, in
+ * km_vcpu_stopped(). If the vm_vcpu_run_cnt drops to 0 there are no running vcpus any more, payload
+ * is done. km_vcpu_stopped() signals the main thread to tear down and exit the km.
+ *
+ * vcpu slot is still in use after a joinable thread exited but pthread_join() isn't executed yet.
+ * Once the thread is joined in km_pthread_join(), the slot is reusable, i.e is_used is set to 0.
+ *
+ * We allocate new vcpu structure to use in an empty slot, and free it if a slot for reuse is found.
  */
 km_vcpu_t* km_vcpu_get(void)
 {
@@ -185,7 +194,7 @@ km_vcpu_t* km_vcpu_get(void)
    memset(new, 0, sizeof(km_vcpu_t));
 
    __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
-   new->is_running = 1;   // so it won't get snatched right after its inserted
+   new->is_used = 1;   // so it won't get snatched right after its inserted
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       // if (machine.vm_vcpus[i] == NULL) machine.vm_vcpus[i] = new;
       old = NULL;
@@ -197,9 +206,9 @@ km_vcpu_t* km_vcpu_get(void)
          }
          return new;
       }
-      // if (machine.vm_vcpus[i].is_running == 0) ...is_running = 1;
+      // if (machine.vm_vcpus[i].is_used == 0) ...is_used = 1;
       unused = 0;
-      if (__atomic_compare_exchange_n(&old->is_running, &unused, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+      if (__atomic_compare_exchange_n(&old->is_used, &unused, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
          free(new);   // no need, reusing an existing one
          return old;
       }
@@ -207,6 +216,17 @@ km_vcpu_t* km_vcpu_get(void)
    __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
    free(new);
    return NULL;
+}
+
+/*
+ * Thread completed. Release the resources that we can and mark the vcpu available for reuse by
+ * setting vcpu->is_used to 0
+ */
+void km_vcpu_put(km_vcpu_t* vcpu)
+{
+   km_pthread_fini(vcpu);
+   // vcpu->is_used = 0;
+   __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_used, 0, __ATOMIC_SEQ_CST);
 }
 
 /*
@@ -240,17 +260,6 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread)
    }
    vcpu->stack_top = sp;
    return 0;
-}
-
-/*
- * Thread completed. Release the resources that we can and mark the vcpu available for reuse by
- * setting vcpu->is_running to 0
- */
-void km_vcpu_put(km_vcpu_t* vcpu)
-{
-   km_fini_pthread(vcpu);
-   // vcpu->is_running = 0;
-   __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_running, 0, __ATOMIC_SEQ_CST);
 }
 
 /*

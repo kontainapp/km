@@ -204,12 +204,8 @@ static int getsockopt_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t
    // *optlen);
-   arg->hc_ret = __syscall_5(hc,
-                             arg->arg1,
-                             arg->arg2,
-                             arg->arg3,
-                             km_gva_to_kml(arg->arg4),
-                             km_gva_to_kml(arg->arg5));
+   arg->hc_ret =
+       __syscall_5(hc, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kml(arg->arg4), km_gva_to_kml(arg->arg5));
    return 0;
 }
 
@@ -217,8 +213,7 @@ static int setsockopt_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int setsockopt(int sockfd, int level, int optname, const void *optval,
    // socklen_t optlen);
-   arg->hc_ret =
-       __syscall_5(hc, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kml(arg->arg4), arg->arg5);
+   arg->hc_ret = __syscall_5(hc, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kml(arg->arg4), arg->arg5);
    return 0;
 }
 
@@ -318,14 +313,14 @@ static int pthread_create_hcall(int hc, km_hc_args_t* arg, int* status)
    // int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
    //   void *(*start_routine) (void *), void *arg);
    arg->hc_ret =
-       km_create_pthread(km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
+       km_pthread_create(km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
    return 0;
 }
 
 static int pthread_join_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int pthread_join(pthread_t thread, void **retval);
-   arg->hc_ret = km_join_pthread(arg->arg1, km_gva_to_kma(arg->arg2));
+   arg->hc_ret = km_pthread_join(arg->arg1, km_gva_to_kma(arg->arg2));
    return 0;
 }
 
