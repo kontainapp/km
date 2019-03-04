@@ -136,24 +136,33 @@ static inline uint64_t km_gva_to_kml(uint64_t gva)
 /*
  * guest code executed exit(status);
  */
-static int exit_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t exit_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    *status = arg->arg1;
-   return 1;
+   return HC_STOP;
+}
+
+/*
+ * guest code executed exit_grp(status);
+ */
+static km_hc_ret_t exit_grp_hcall(int hc, km_hc_args_t* arg, int* status)
+{
+   *status = arg->arg1;
+   return HC_ALLSTOP;
 }
 
 /*
  * read/write
  */
-static int rw_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t rw_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // ssize_t read(int fd, void *buf, size_t count);
    // ssize_t write(int fd, const void *buf, size_t count);
    arg->hc_ret = __syscall_3(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int rwv_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t rwv_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    int cnt = arg->arg3;
    struct iovec iov[cnt];
@@ -169,88 +178,88 @@ static int rwv_hcall(int hc, km_hc_args_t* arg, int* status)
       iov[i].iov_len = guest_iov[i].iov_len;
    }
    arg->hc_ret = __syscall_3(hc, arg->arg1, (long)iov, cnt);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int accept_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t accept_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
    arg->hc_ret = __syscall_3(hc, arg->arg1, km_gva_to_kml(arg->arg2), km_gva_to_kml(arg->arg3));
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int bind_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t bind_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
    arg->hc_ret = __syscall_3(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int listen_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t listen_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int listen(int sockfd, int backlog);
    arg->hc_ret = __syscall_2(hc, arg->arg1, arg->arg2);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int socket_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t socket_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int socket(int domain, int type, int protocol);
    arg->hc_ret = __syscall_3(hc, arg->arg1, arg->arg2, arg->arg3);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int getsockopt_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t getsockopt_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t
    // *optlen);
    arg->hc_ret =
        __syscall_5(hc, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kml(arg->arg4), km_gva_to_kml(arg->arg5));
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int setsockopt_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t setsockopt_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int setsockopt(int sockfd, int level, int optname, const void *optval,
    // socklen_t optlen);
    arg->hc_ret = __syscall_5(hc, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kml(arg->arg4), arg->arg5);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int ioctl_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t ioctl_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int ioctl(int fd, unsigned long request, void *arg);
    arg->hc_ret = __syscall_3(hc, arg->arg1, arg->arg2, km_gva_to_kml(arg->arg3));
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int stat_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t stat_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int ioctl(int fd, unsigned long request, void *arg);
    arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2));
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int close_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t close_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    arg->hc_ret = __syscall_1(hc, arg->arg1);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int shutdown_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t shutdown_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int shutdown(int sockfd, int how);
    arg->hc_ret = __syscall_2(hc, arg->arg1, arg->arg2);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int brk_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t brk_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    arg->hc_ret = km_mem_brk(arg->arg1);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int futex_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t futex_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    int op = arg->arg2;
    uint64_t timeout_or_val2;
@@ -276,60 +285,63 @@ static int futex_hcall(int hc, km_hc_args_t* arg, int* status)
                              timeout_or_val2,
                              km_gva_to_kml(arg->arg5),
                              arg->arg6);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int mmap_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t mmap_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
    arg->hc_ret = km_guest_mmap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, arg->arg6);
-   return 0;
+   return HC_CONTINUE;
 };
 
-static int munmap_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t munmap_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int munmap(void *addr, size_t length);
    arg->hc_ret = km_guest_munmap(arg->arg1, arg->arg2);
-   return 0;
+   return HC_CONTINUE;
 };
 
-static int mremap_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t mremap_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ... /* void
    // *new_address */);
    arg->hc_ret = km_guest_mremap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, arg->arg6);
-   return 0;
+   return HC_CONTINUE;
 };
 
-static int clock_gettime_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t clock_gettime_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int clock_gettime(clockid_t clk_id, struct timespec *tp);
    arg->hc_ret = __syscall_2(hc, arg->arg1, km_gva_to_kml(arg->arg2));
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int pthread_create_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t pthread_create_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
    //   void *(*start_routine) (void *), void *arg);
    arg->hc_ret =
        km_pthread_create(km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
-   return 0;
+   return HC_CONTINUE;
 }
 
-static int pthread_join_hcall(int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t pthread_join_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int pthread_join(pthread_t thread, void **retval);
    arg->hc_ret = km_pthread_join(arg->arg1, km_gva_to_kma(arg->arg2));
-   return 0;
+   return HC_CONTINUE;
 }
 
+/*
+ * Maximum hypercall number, defines the size of the km_hcalls_table
+ */
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 
 void km_hcalls_init(void)
 {
    km_hcalls_table[SYS_exit] = exit_hcall;
-   km_hcalls_table[SYS_exit_group] = exit_hcall;
+   km_hcalls_table[SYS_exit_group] = exit_grp_hcall;
    km_hcalls_table[SYS_read] = rw_hcall;
    km_hcalls_table[SYS_write] = rw_hcall;
    km_hcalls_table[SYS_readv] = rwv_hcall;

@@ -39,7 +39,23 @@ static inline void km_hcall(int n, km_hc_args_t* arg)
                         : "memory");
 }
 
+typedef enum {
+   HC_CONTINUE = 0,
+   HC_STOP,
+   HC_ALLSTOP,
+} km_hc_ret_t;
+
+typedef km_hc_ret_t (*km_hcall_fn_t)(int hc __attribute__((__unused__)),
+                                     km_hc_args_t* guest_addr,
+                                     int* status);
+
+extern km_hcall_fn_t km_hcalls_table[];
+
+/*
+ * Maximum hypercall number, defines the size of the km_hcalls_table
+ */
 #define KM_MAX_HCALL 512
+
 /*
  * Hypercalls that don't translate directly into system calls.
  */

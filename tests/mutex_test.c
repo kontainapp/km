@@ -9,6 +9,8 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  */
+
+#include <err.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -41,7 +43,7 @@ void* run(void* arg)
       y = var;
       pthread_mutex_unlock(&mt);
       if (x != y) {
-         printf("%sx: %d - %d\n", msg, x, y);
+         errx(1, "Mismatch in %s: %d - %d\n", msg, x, y);
       }
       if ((i & (step - 1)) == 0) {
          clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp);

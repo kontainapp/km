@@ -8,7 +8,7 @@ load tests_setup
 
 @test "basic vm setup, workload invocation and exit value check" {
    run $KM exit_value_test.km
-   if [[ $status -ne 0  || $(echo "$output" | grep -cw 'status 0x11') != 1 ]]
+   if [[ $status -ne 17  || $(echo "$output" | grep -cw 'status 0x11') != 1 ]]
    then
     emit_debug_output && return 1
    fi

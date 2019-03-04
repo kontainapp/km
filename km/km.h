@@ -59,13 +59,6 @@ void km_machine_fini(void);
 void* km_vcpu_run_main(void* unused);
 void* km_vcpu_run(km_vcpu_t* vcpu);
 
-/*
- * Maximum hypercall number, defines the size of the km_hcalls_table
- */
-typedef int (*km_hcall_fn_t)(int hc __attribute__((__unused__)), km_hc_args_t* guest_addr, int* status);
-
-extern km_hcall_fn_t km_hcalls_table[];
-
 void km_hcalls_init(void);
 void km_hcalls_fini(void);
 
