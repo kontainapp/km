@@ -29,7 +29,7 @@ TERM=xterm
 # Teardown for each test. Note that printing to stdout/stderr in this function
 # only shows up on errors. For print on success too, redirect to >&3
 teardown() {
-      echo -e "${output}"
+      echo -e "\nkm output:\n${output}"
 }
 
 # Now the actual tests.
@@ -58,15 +58,15 @@ teardown() {
    [ $status -eq 0 ]
 }
 
-@test "basic run and print(hello world)" {
-   run ./hello_test "$BATS_TEST_DESCRIPTION"
+@test "basic run and print hello world" {
+   run ./hello_test "$BATS_TEST_DESCRIPTION" -f
    [ $status -eq 0 ]
    linux_out="${output}"
 
-   run $KM hello_test.km "${BATS_TEST_DESCRIPTION}"
+   run $KM hello_test.km "${BATS_TEST_DESCRIPTION}" -f
    [ $status -eq 0 ]
    # argv[0] differs for linux and km so strip it out , and then compare results
-   diff <(echo -e "$linux_out" | fgrep -v 'argv[0]')  <(echo -e "$output" | fgrep -v 'argv[0]')
+   diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]')
 }
 
 @test "basic HTTP/socket I/O (hello_html)" {

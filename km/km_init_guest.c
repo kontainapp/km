@@ -187,10 +187,8 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
       stack_top = tcb = rounddown(stack_top - sizeof(km_pthread_t), MIN_TLS_ALIGN);
    }
    tcb_kma = km_gva_to_kma(tcb);
-   if (libc != 0) {
-      tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)stack_top;
-      tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
-   }
+   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)stack_top;
+   tcb_kma->locale = libc != 0 ? &((km__libc_t*)libc)->global_locale : NULL;
    tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
    tcb_kma->map_size = GUEST_STACK_SIZE;
    tcb_kma->self = (km_pthread_t*)tcb;
@@ -206,7 +204,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
 
       stack_top -= len;
       if (map_base + GUEST_STACK_SIZE - stack_top > GUEST_ARG_MAX) {
-         err(2, "Argument list is too large");
+         errx(2, "Argument list is too large");
       }
       argv_km[argc] = (char*)stack_top;
       stack_top_kma -= len;
