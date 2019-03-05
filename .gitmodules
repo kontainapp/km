@@ -5,3 +5,6 @@
 [submodule "tests/bats"]
 	path = tests/bats
 	url = git@bitbucket.org:kontainapp/bats.git
+[submodule "tests/greatest"]
+	path = tests/greatest
+	url = git@bitbucket.org:kontainapp/ctest_greatest.git
