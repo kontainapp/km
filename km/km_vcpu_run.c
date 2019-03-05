@@ -77,6 +77,17 @@ static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu,
 }
 
 #define run_warn(__f, ...) __run_warn(&vwarnx, vcpu, __f, ##__VA_ARGS__)
+// only show this for verbose ('-V') runs
+#define run_info(__f, ...)                                                                         \
+   do {                                                                                            \
+      if (g_km_info_verbose)                                                                       \
+         __run_warn(&vwarnx, vcpu, __f, ##__VA_ARGS__);                                            \
+   } while (0)
+#define run_infox(__f, ...)                                                                        \
+   do {                                                                                            \
+      if (g_km_info_verbose)                                                                       \
+         __run_warn(&vwarnx, vcpu, __f, ##__VA_ARGS__);                                            \
+   } while (0)
 
 /*
  * return non-zero and set status if guest halted
@@ -154,7 +165,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    }
    while (1) {
       if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) < 0) {
-         km_info("ioctl exit with errno");
+         run_info("ioctl exit with errno");
          if (errno == EAGAIN) {
             continue;
          }
@@ -169,17 +180,17 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                   break;
 
                case HC_STOP:
-                  run_warn("KVM: hypercall %d stop, status 0x%x", hc, status);
+                  run_infox("KVM: hypercall %d stop, status 0x%x", hc, status);
                   km_vcpu_exit(vcpu, status);
 
                case HC_ALLSTOP:
-                  run_warn("KVM: hypercall %d stop, status 0x%x", hc, status);
+                  run_infox("KVM: hypercall %d stop, status 0x%x", hc, status);
                   km_vcpu_exit_all(vcpu, status);
             }
             break;   // exit_reason, case KVM_EXIT_IO
 
          case KVM_EXIT_HLT:
-            run_warn("KVM: vcpu HLT");
+            km_infox("KVM: vcpu HLT");
             km_vcpu_exit(vcpu, status);
 
          case KVM_EXIT_UNKNOWN:

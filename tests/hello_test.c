@@ -22,7 +22,7 @@ int main(int argc, char** argv)
 
    printf("%s %s\n", msg, msg2);
    for (int i = 0; i < argc; i++) {
-      printf("%s %s\n", msg, argv[i]);
+      printf("%s argv[%d] = '%s'\n", msg, i, argv[i]);
    }
    exit(0);
 }

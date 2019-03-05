@@ -315,7 +315,7 @@ void km_machine_init(void)
    for (int i = 0; i < machine.cpuid->nent; i++) {
       switch (machine.cpuid->entries[i].function) {
          case 0x80000008:
-            warnx("KVM: physical memory width %d", machine.cpuid->entries[i].eax & 0xff);
+            km_infox("KVM: physical memory width %d", machine.cpuid->entries[i].eax & 0xff);
             machine.guest_max_physmem = 1ul << (machine.cpuid->entries[i].eax & 0xff);
             break;
          case 0x80000001:

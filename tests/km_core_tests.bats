@@ -1,93 +1,96 @@
+#!./bats/bin/bats
 #
-# BATS test set
+# Copyright © 2018 Kontain Inc. All rights reserved.
 #
-# TODO:
-#  - Add header and comments
+# Kontain Inc CONFIDENTIAL
+#
+# This file includes unpublished proprietary source code of Kontain Inc. The
+# copyright notice above does not evidence any actual or intended publication
+# of such source code. Disclosure of this source code or any related
+# proprietary information is strictly prohibited without the express written
+# permission of Kontain Inc.
+#
+# BATS (BASH Test Suite) definition for KM core test pass
+#
+# See ./bats/... for docs
+#
 
-load tests_setup
+# we will kill any test if takes longer
+timeout=60s
+
+# KM binary location.
+KM_BIN=../build/km/km
+# this is how we invoke KM - with a timeout
+KM="timeout -v --foreground $timeout ${KM_BIN}"
+
+# this is needed for running in Docker - bats uses 'tput' so it needs the TERM
+TERM=xterm
+
+# Teardown for each test. Note that printing to stdout/stderr in this function
+# only shows up on errors. For print on success too, redirect to >&3
+teardown() {
+      echo -e "${output}"
+}
+
+# Now the actual tests.
+# They can be invoked by either 'make test [MATCH=<filter>]' or ./km_core_tests.bats [-f <filter>]
+# <filter> is a regexp or substring matching test name
 
 @test "basic vm setup, workload invocation and exit value check" {
    run $KM exit_value_test.km
-   if [[ $status -ne 17  || $(echo "$output" | grep -cw 'status 0x11') != 1 ]]
-   then
-    emit_debug_output && return 1
-   fi
-
+   [ $status -eq 17 ]
 }
 
 @test "load elf and layout check" {
-   # Show this on failure:
-   echo Failed - try to run \'make load_expected_size\' in tests, and replace load.c:size value
-
    run $KM load_test.km
-   if [[ $status -ne 0  || $(echo "$output" | grep -cw 'status 0x0') != 1 ]]
-   then
-    emit_debug_output && return 1
-   fi
+   # Show this on failure:
+   echo -e "\n*** Try to run 'make load_expected_size' in tests, and replace load.c:size value\n"
+   [ $status -eq 0 ]
 }
 
 @test "KVM memslot / phys mem sizes" {
    run ./memslot_test
-   if [ $status -ne 0  ]
-   then
-    emit_debug_output && return 1
-   fi
+   [ $status -eq 0  ]
 }
 
 @test "brk() call" {
    run $KM brk_test.km
-   if [ "$status" -ne 0 ]
-   then
-    emit_debug_output && return 1
-   fi
+   [ $status -eq 0 ]
 }
 
 @test "basic run and print(hello world)" {
-   linux_out=`./hello_test`
-   run $KM hello_test.km
-   if [[ $status -ne 0  || $(echo "$output" | grep -cw "$linux_out") != 1 ]]
-   then
-    emit_debug_output && return 1
-   fi
+   run ./hello_test "$BATS_TEST_DESCRIPTION"
+   [ $status -eq 0 ]
+   linux_out="${output}"
+
+   run $KM hello_test.km "${BATS_TEST_DESCRIPTION}"
+   [ $status -eq 0 ]
+   # argv[0] differs for linux and km so strip it out , and then compare results
+   diff <(echo -e "$linux_out" | fgrep -v 'argv[0]')  <(echo -e "$output" | fgrep -v 'argv[0]')
 }
 
 @test "basic HTTP/socket I/O (hello_html)" {
-   local expected="I'm here"
    local address="http://127.0.0.1:8002"
 
-	(./hello_html_test &)
-	run curl -s $address
-   if [[ $status -ne 0  || $(echo "$output" | grep -cw "$expected") != 1 ]]
-   then
-    emit_debug_output && return 1
-   fi
+   (./hello_html_test &)
+   run curl -s $address
+   [ $status -eq 0 ]
+   linux_out="${output}"
 
    ($KM hello_html_test.km &)
-	# 'km' monitor may start slow (while we are experimenting with startup time)
-	# let it time to start before running curl
-	sleep 0.5s
 	run curl -s $address
-   if [[ $status -ne 0  || $(echo "$output" | grep -cw "$expected") != 1 ]]
-   then
-    emit_debug_output && return 1
-   fi
+   [ $status -eq 0 ]
+   diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
 
 @test "mmap/munmap" {
-   expected_st='status 0x0';
-   # we expected 3 ENOMEM failures on 36 (0x24) bit buses
-   if [ -f "$(command -v cpuid)" ] ; then
-      bits="$(cpuid  | awk '/maximum physical address bits/ {print $6}'  | head -1)"
-      if [ "$bits" == "0x24" ] ; then
-         expected_st='status 0x3' ;
-      fi
-   fi
+   expected_status=0
+   # we expect 3 ENOMEM failures on 36 bit buses
+   bus_width=$(${KM} -V exit_value_test.km 2>& 1 | awk '/physical memory width/ {print $6;}')
+   if [ $bus_width -eq 36 ] ; then expected_status=3 ; fi
 
    run $KM mmap_test.km
-   if [[ $status -ne 0  || $(echo "$output" | grep -cw "$expected_st") != 1 ]]
-   then
-    emit_debug_output && return 1
-   fi
+   [ $status -eq $expected_status ]
 }
 
 @test "futex example" {
@@ -95,7 +98,6 @@ load tests_setup
 
    run $KM futex.km
    [ "$status" -eq 0 ]
-   echo "${output}" | grep -wq SUCCESS
 }
 
 @test "gdb support" {
@@ -103,10 +105,7 @@ load tests_setup
 	sleep 0.5
 	run gdb -q -nx --ex="target remote :3333"  --ex="source cmd_for_test.gdb"  \
          --ex=c --ex=q gdb_test.km
-   if [ $(echo "$output" | grep -cw 'SUCCESS') != 1 ]
-   then
-    emit_debug_output && return 1
-   fi
+   [ $(echo "$output" | grep -cw 'SUCCESS') == 1 ]
 }
 
 @test "basic threads loop" {
@@ -114,13 +113,9 @@ load tests_setup
 
    run $KM hello_t_loops_test.km
    [ "$status" -eq 0 ]
-   echo "${output}" | grep -wq SUCCESS
 }
 
 @test "pthread_create and mutex" {
    run $KM mutex_test.km
-   if [[ $status -ne  0 || "$(echo $output | grep -c ', fail: 0,')" != 1 ]]
-   then
-      emit_debug_output   && return 1
-   fi
+   [ $status -eq  0 ]
 }
