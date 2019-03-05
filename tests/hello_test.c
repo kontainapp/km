@@ -16,10 +16,13 @@
 
 static const char msg[] = "Hello,";
 
-int main()
+int main(int argc, char** argv)
 {
-   char msg2[] = "world!\n";
+   char* msg2 = "world";
 
-   printf("%s %s", msg, msg2);
+   printf("%s %s\n", msg, msg2);
+   for (int i = 0; i < argc; i++) {
+      printf("%s %s\n", msg, argv[i]);
+   }
    exit(0);
 }

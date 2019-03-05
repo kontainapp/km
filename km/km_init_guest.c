@@ -152,17 +152,19 @@ km_builtin_tls_t builtin_tls[1];
  * TODO: There are other guest structures, such as __environ, __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
  */
-void km_init_libc_main(km_vcpu_t* vcpu)
+void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
 {
    km_gva_t libc = km_guest.km_libc;
    km__libc_t* libc_kma = NULL;
    km_pthread_t* tcb_kma;
    km_gva_t tcb;
    km_gva_t map_base;
+   km_gva_t stack_top;
 
    if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) == 0) {
       err(1, "Failed to allocate memory for main stack");
    }
+   stack_top = map_base + GUEST_STACK_SIZE;
 
    if (libc != 0) {
       libc_kma = km_gva_to_kma(libc);
@@ -179,27 +181,46 @@ void km_init_libc_main(km_vcpu_t* vcpu)
        */
       libc_kma->tls_align = MIN_TLS_ALIGN;
       libc_kma->tls_size = 2 * sizeof(void*) + sizeof(km_pthread_t) + MIN_TLS_ALIGN;
-      tcb = rounddown(map_base + GUEST_STACK_SIZE - sizeof(km_pthread_t), libc_kma->tls_align);
+      tcb = rounddown(stack_top - sizeof(km_pthread_t), libc_kma->tls_align);
+      stack_top -= libc_kma->tls_size;
    } else {
-      tcb = rounddown(map_base + GUEST_STACK_SIZE - sizeof(km_pthread_t), MIN_TLS_ALIGN);
+      stack_top = tcb = rounddown(stack_top - sizeof(km_pthread_t), MIN_TLS_ALIGN);
    }
    tcb_kma = km_gva_to_kma(tcb);
    if (libc != 0) {
-      tcb_kma->stack = (typeof(tcb_kma->stack))map_base + GUEST_STACK_SIZE - libc_kma->tls_size;
-      tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)tcb_kma->stack;
+      tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)stack_top;
       tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
-   } else {
-      tcb_kma->stack = (typeof(tcb_kma->stack))tcb;
    }
-   tcb_kma->stack_size = (km_gva_t)tcb_kma->stack - map_base;
    tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
    tcb_kma->map_size = GUEST_STACK_SIZE;
    tcb_kma->self = (km_pthread_t*)tcb;
    tcb_kma->detach_state = DT_JOINABLE;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
 
+   char* argv_km[argc + 1];   // argv to copy to guest stack
+   km_kma_t stack_top_kma = km_gva_to_kma(stack_top);
+
+   argv_km[argc] = NULL;
+   for (argc--; argc >= 0; argc--) {
+      int len = roundup(strnlen(argv[argc], PATH_MAX), sizeof(km_gva_t));
+
+      stack_top -= len;
+      if (map_base + GUEST_STACK_SIZE - stack_top > GUEST_ARG_MAX) {
+         err(2, "Argument list is too large");
+      }
+      argv_km[argc] = (char*)stack_top;
+      stack_top_kma -= len;
+      strncpy(stack_top_kma, argv[argc], len);
+   }
+   stack_top_kma -= sizeof(argv_km);
+   stack_top -= sizeof(argv_km);
+   memcpy(stack_top_kma, argv_km, sizeof(argv_km));
+
+   tcb_kma->stack = (typeof(tcb_kma->stack))stack_top;
+   tcb_kma->stack_size = stack_top - map_base;
+
    vcpu->guest_thr = tcb;
-   vcpu->stack_top = (typeof(vcpu->stack_top))tcb_kma->stack;
+   vcpu->stack_top = stack_top;
 }
 
 #define DEFAULT_STACK_SIZE 131072
@@ -303,7 +324,7 @@ int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_
       km_vcpu_put(vcpu);
       return -EAGAIN;
    }
-   if ((rc = km_vcpu_set_to_run(vcpu, 1)) < 0) {
+   if ((rc = km_vcpu_set_to_run(vcpu, 0)) < 0) {
       km_pthread_fini(vcpu);
       km_vcpu_put(vcpu);
       return -EAGAIN;

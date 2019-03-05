@@ -98,7 +98,7 @@ static inline km_vcpu_t* km_main_vcpu(void)
    return machine.vm_vcpus[0];
 }
 
-void km_init_libc_main(km_vcpu_t* vcpu);
+void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[]);
 int km_pthread_create(pthread_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
 int km_pthread_join(pthread_t pid, km_kma_t ret);
 void km_pthread_fini(km_vcpu_t* vcpu);

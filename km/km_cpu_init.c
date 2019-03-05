@@ -233,10 +233,10 @@ void km_vcpu_put(km_vcpu_t* vcpu)
  * Set the vcpu to run - Initialize sregs and regs.
  * Set RIP, SP, RFLAGS, and RDI, clear the rest of the regs.
  * VCPU is ready to run starting with instruction @RIP RDI aka the first function arg,
- * tells it if we are in main (==0) or pthread(!=0) RIP always points to __start_c__
+ * tells it if we are in main with argc (>0) or pthread(==0) RIP always points to __start_c__
  * which is always entry point in ELF.
  */
-int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread)
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_main_argc)
 {
    int rc;
    km_gva_t sp;
@@ -245,20 +245,21 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread)
       return rc;
    }
 
-   /* per ABI, make sure sp + 8 is 16 aligned */
-   sp = vcpu->stack_top & ~(7ul);
-   sp -= (sp + 8) % 16;
+   sp = vcpu->stack_top;
+   assert((sp & 7) == 0);
+   // TODO: per ABI, make sure sp + 8 is 16 aligned?
+   // sp -= (sp + 8) % 16;
 
    kvm_regs_t regs = {
        .rip = km_guest.km_ehdr.e_entry,
-       .rdi = is_pthread,   // first function argument
+       .rdi = is_main_argc,   // first function argument
+       .rsi = sp,             // where we put argv
        .rflags = X86_RFLAGS_FIXED,
        .rsp = sp,
    };
    if ((rc = ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &regs)) < 0) {
       return rc;
    }
-   vcpu->stack_top = sp;
    return 0;
 }
 

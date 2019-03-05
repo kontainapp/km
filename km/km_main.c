@@ -30,7 +30,7 @@ int g_km_info_verbose;   // 0 is silent
 static inline void usage()
 {
    errx(1,
-        "Usage: km [-V] [-w] [-g port] <payload-file>\n"
+        "Usage: km [-V] [-w] [-g port] <payload-file> [<payload args>]\n"
         "Options:\n"
         "\t-V      - turn on Verbose printing of internal trace messages\n"
         "\t-w      - wait for SIGUSR1 before running VM payload\n"
@@ -44,7 +44,7 @@ int main(int argc, char* const argv[])
    bool wait_for_signal = false;
    km_vcpu_t* vcpu;
 
-   while ((opt = getopt(argc, argv, "wg:V")) != -1) {
+   while ((opt = getopt(argc, argv, "+wg:V")) != -1) {
       switch (opt) {
          case 'w':
             wait_for_signal = true;
@@ -63,7 +63,7 @@ int main(int argc, char* const argv[])
             usage();
       }
    }
-   if (optind != argc - 1) {
+   if (optind == argc) {
       usage();
    }
    payload_file = argv[optind];
@@ -74,9 +74,9 @@ int main(int argc, char* const argv[])
    if ((vcpu = km_vcpu_get()) == NULL) {
       err(1, "failed to get main vcpu");
    }
-   km_init_libc_main(vcpu);
+   km_init_libc_main(vcpu, argc - optind, argv + optind);
 
-   if (km_vcpu_set_to_run(vcpu, 0) != 0) {
+   if (km_vcpu_set_to_run(vcpu, argc - optind) != 0) {
       err(1, "failed to set main vcpu to run");
    }
 

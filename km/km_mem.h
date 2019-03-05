@@ -65,6 +65,7 @@ static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
  */
 
 static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
+static const uint64_t GUEST_ARG_MAX = 32 * PAGE_SIZE;
 
 /*
  * Physical address space is made of regions with size exponentially increasing from 2MB until they
