@@ -39,10 +39,17 @@ load_expected_size: load_test.km
 	@nm load_test.km | awk '/__end_elf__/{ print "0x" $$1}'
 
 %.d: %.c
+	@# print the command we really need to run
 	@echo $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@
+	@# run the command and adjust it's error messages so VS Code navigates properly
 	@set -e; rm -f $@; \
-	$(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
-	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	  $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
+	  sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	@# make sure dependencies are rebuilt if needed.
+	@# sed strips everything before colon, removes leading and trailing spaces, then splits words into individual lines
+	@# and trailing ':'. See - http://scottmcpeak.com/autodepend/autodepend.html for explanation
+	@sed -e 's/^.*: *//' -e 's/ *\\$$//'  -e 's/^ *//' -e 's/ \+/:\n/g'  -e 's/$$/:/' $*.d | cat $*.d - > $*.d.tmp
+	@mv $*.d.tmp $*.d
 
 clean:
 	rm -f *.o *.d $(EXECS)
