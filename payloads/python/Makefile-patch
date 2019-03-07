@@ -1,0 +1,11 @@
+--- Makefile	2019-03-06 17:15:53.042437798 -0800
++++ /home/serge/workspace/cpython/Makefile	2019-03-06 12:07:53.201888471 -0800
+@@ -235,7 +235,7 @@
+ SHLIBS=		$(LIBS)
+ 
+ DLINCLDIR=	.
+-DYNLOADFILE=	dynload_shlib.o
++DYNLOADFILE=	dynload_stub.o
+ MACHDEP_OBJS=	
+ LIBOBJDIR=	Python/
+ LIBOBJS=	

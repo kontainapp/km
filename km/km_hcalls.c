@@ -240,6 +240,27 @@ static km_hc_ret_t stat_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t fstat_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int fstat(int fd, struct stat *statbuf);
+   arg->hc_ret = __syscall_2(hc, arg->arg1, km_gva_to_kml(arg->arg2));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t getdirents_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);
+   arg->hc_ret = __syscall_3(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t getcwd_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int getcwd(char *buf, size_t size);
+   arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), arg->arg2);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t close_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    arg->hc_ret = __syscall_1(hc, arg->arg1);
@@ -329,6 +350,48 @@ static km_hc_ret_t madvise_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* sta
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t readlink_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
+   arg->hc_ret = __syscall_3(hc, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2), arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t getrandom_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // ssize_t getrandom(void *buf, size_t buflen, unsigned int flags);
+   arg->hc_ret = __syscall_3(hc, km_gva_to_kml(arg->arg1), arg->arg2, arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t open_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int open(const char *pathname, int flags, mode_t mode);
+   arg->hc_ret = __syscall_3(hc, km_gva_to_kml(arg->arg1), arg->arg2, arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t lseek_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // off_t lseek(int fd, off_t offset, int whence);
+   arg->hc_ret = __syscall_3(hc, arg->arg1, arg->arg2, arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   arg->hc_ret = 0;
+   km_infox("hc = %d, %ld %lx %lx %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t dup_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int dup(int oldfd);
+   arg->hc_ret = __syscall_1(hc, arg->arg1);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t pthread_create_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    // int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
@@ -365,7 +428,11 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getsockopt] = getsockopt_hcall;
    km_hcalls_table[SYS_setsockopt] = setsockopt_hcall;
    km_hcalls_table[SYS_ioctl] = ioctl_hcall;
+   km_hcalls_table[SYS_fcntl] = ioctl_hcall;
    km_hcalls_table[SYS_stat] = stat_hcall;
+   km_hcalls_table[SYS_fstat] = fstat_hcall;
+   km_hcalls_table[SYS_getdents64] = getdirents_hcall;
+   km_hcalls_table[SYS_getcwd] = getcwd_hcall;
    km_hcalls_table[SYS_close] = close_hcall;
    km_hcalls_table[SYS_shutdown] = shutdown_hcall;
    km_hcalls_table[SYS_brk] = brk_hcall;
@@ -375,6 +442,19 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_mremap] = mremap_hcall;
    km_hcalls_table[SYS_clock_gettime] = clock_gettime_hcall;
    km_hcalls_table[SYS_madvise] = madvise_hcall;
+
+   km_hcalls_table[SYS_readlink] = readlink_hcall;
+   km_hcalls_table[SYS_getrandom] = getrandom_hcall;
+   km_hcalls_table[SYS_open] = open_hcall;
+   km_hcalls_table[SYS_lseek] = lseek_hcall;
+   km_hcalls_table[SYS_rt_sigaction] = dummy_hcall;
+   km_hcalls_table[SYS_rt_sigprocmask] = dummy_hcall;
+   km_hcalls_table[SYS_getpid] = dummy_hcall;
+   km_hcalls_table[SYS_dup] = dup_hcall;
+   km_hcalls_table[SYS_geteuid] = dummy_hcall;
+   km_hcalls_table[SYS_getuid] = dummy_hcall;
+   km_hcalls_table[SYS_getegid] = dummy_hcall;
+   km_hcalls_table[SYS_getgid] = dummy_hcall;
 
    km_hcalls_table[HC_pthread_create] = pthread_create_hcall;
    km_hcalls_table[HC_pthread_join] = pthread_join_hcall;
