@@ -44,29 +44,29 @@ teardown() {
 # They can be invoked by either 'make test [MATCH=<filter>]' or ./km_core_tests.bats [-f <filter>]
 # <filter> is a regexp or substring matching test name
 
-@test "basic vm setup, workload invocation and exit value check" {
+@test "setup_basic: basic vm setup, workload invocation and exit value check" {
    run $KM exit_value_test.km
    [ $status -eq 17 ]
 }
 
-@test "load elf and layout check" {
+@test "setup_load: load elf and layout check" {
    run $KM load_test.km
    # Show this on failure:
    echo -e "\n*** Try to run 'make load_expected_size' in tests, and replace load.c:size value\n"
    [ $status -eq 0 ]
 }
 
-@test "KVM memslot / phys mem sizes" {
+@test "mem_basic: KVM memslot / phys mem sizes" {
    run ./memslot_test
    [ $status -eq 0  ]
 }
 
-@test "brk() call" {
+@test "mem_brk: brk() call" {
    run $KM brk_test.km
    [ $status -eq 0 ]
 }
 
-@test "basic run and print hello world" {
+@test "hc_basic: basic run and print hello world" {
    run ./hello_test "$BATS_TEST_DESCRIPTION" -f
    [ $status -eq 0 ]
    linux_out="${output}"
@@ -77,7 +77,7 @@ teardown() {
    diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]')
 }
 
-@test "basic HTTP/socket I/O (hello_html)" {
+@test "hc_socket: basic HTTP/socket I/O (hello_html)" {
    local address="http://127.0.0.1:8002"
 
    (./hello_html_test &)
@@ -91,7 +91,7 @@ teardown() {
    diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
 
-@test "mmap/munmap" {
+@test "mem_mmap0: mmap and munmap with addr=0" {
    expected_status=0
    # we expect 3 ENOMEM failures on 36 bit buses
    bus_width=$(${KM} -V exit_value_test.km 2>& 1 | awk '/physical memory width/ {print $6;}')
@@ -108,7 +108,7 @@ teardown() {
    [ "$status" -eq 0 ]
 }
 
-@test "gdb support" {
+@test "gdb_basic: gdb support" {
    $KM -g 3333 gdb_test.km  &
 	sleep 0.5
 	run gdb -q -nx --ex="target remote :3333"  --ex="source cmd_for_test.gdb"  \
@@ -116,14 +116,12 @@ teardown() {
    [ $(echo "$output" | grep -cw 'SUCCESS') == 1 ]
 }
 
-@test "basic threads loop" {
-   skip "TODO: convert to test"
-
-   run $KM hello_t_loops_test.km
+@test "threads_basic: basic threads create, exit and join" {
+   run $KM hello_2_loops_test.km
    [ "$status" -eq 0 ]
 }
 
-@test "pthread_create and mutex" {
+@test "threads_mutex: mutex" {
    run $KM mutex_test.km
    [ $status -eq  0 ]
 }

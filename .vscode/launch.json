@@ -88,7 +88,29 @@
                "ignoreFailures": false
             }
          ]
-      }
+      },
+      {
+         "name": "KM dump",
+         "type": "cppdbg",
+         "request": "launch",
+         "program": "${workspaceFolder}/build/km/km",
+         "args": [
+            "tests/${input:payload}.km"
+         ],
+         "coreDumpPath": "${workspaceFolder}/build/km/core",
+         "stopAtEntry": true,
+         "cwd": "${workspaceFolder}",
+         "environment": [],
+         "externalConsole": false,
+         "MIMode": "gdb",
+         "setupCommands": [
+            {
+               "description": "Enable pretty-printing for gdb",
+               "text": "-enable-pretty-printing",
+               "ignoreFailures": true
+            }
+         ]
+      },
    ],
    "inputs": [
       {
@@ -107,6 +129,7 @@
             "brk_test",
             "gdb_test",
             "mmap_test",
+            "hello_2_loops",
             "mutex_test"
          ]
       }

@@ -13,6 +13,7 @@
  */
 #include <err.h>
 #include <errno.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -36,6 +37,7 @@ typedef struct km_mmap_reg {
 typedef struct km_mmap_cb {   // control block
    km_mmap_list_t free;       // list of free regions
    km_mmap_list_t busy;       // list of mapped regions
+   pthread_mutex_t mutex;     // global map lock
 } km_mmap_cb_t;
 
 static km_mmap_cb_t mmaps = {
@@ -43,10 +45,24 @@ static km_mmap_cb_t mmaps = {
     .busy = LIST_HEAD_INITIALIZER(free_head),
 };
 
+static inline void mmaps_lock(void)
+{
+   pthread_mutex_lock(&mmaps.mutex);
+}
+
+static inline void mmaps_unlock(void)
+{
+   pthread_mutex_unlock(&mmaps.mutex);
+}
+
 void km_guest_mmap_init(void)
 {
    LIST_INIT(&mmaps.free);
    LIST_INIT(&mmaps.busy);
+   // creatre global lock. It is destroyed on exit only
+   if (pthread_mutex_init(&mmaps.mutex, NULL) != 0) {
+      err(2, "Failed to create mmaps mutex");
+   };
 }
 
 static int mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
@@ -101,12 +117,14 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
+   mmaps_lock();
    // TODO: check flags
    if ((reg = km_mmap_find_free(size)) != NULL) {
       // found a free chunk, carve requested space from it
       km_mmap_reg_t* carved = reg;
       if (mmap_end(reg) > gva + size) {   // keep extra space in free list
          if ((carved = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+            mmaps_unlock();
             return -ENOMEM;
          }
          memcpy(carved, reg, sizeof(km_mmap_reg_t));
@@ -117,15 +135,19 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
          LIST_REMOVE(reg, link);
       }
       LIST_INSERT_HEAD(&mmaps.busy, carved, link);
+      mmaps_unlock();
       return carved->start;
    }
 
    // nothing useful in the free list, get fresh memory by moving tbrk down
    if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+      mmaps_unlock();
       return -ENOMEM;
    }
    if ((ret = km_mem_tbrk(machine.tbrk - size)) <= 0) {
       free(reg);
+      mmaps_unlock();
+
       return ret;
    }
    //  place requested mmap region in the newly allocated memory
@@ -134,6 +156,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    reg->protection = prot;
    reg->size = size;
    LIST_INSERT_HEAD(&mmaps.busy, reg, link);
+   mmaps_unlock();
    return reg->start;
 }
 
@@ -159,18 +182,21 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL || (addr + size > mmap_end(reg))) {
       return -EINVAL;   // unmap start and end have to be in a single mapped region, for now
    }
+   mmaps_lock();
    // Calculate head and tail regions (possibly of 0 size). If not empty, they would stay in busy list.
    head_start = reg->start;
    head_size = addr - head_start;
    tail_start = addr + size;
    tail_size = mmap_end(reg) - tail_start;
    if (head_size > 0 && (head = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+      mmaps_unlock();
       return -ENOMEM;
    }
    if (tail_size > 0 && ((tail = malloc(sizeof(km_mmap_reg_t))) == NULL)) {
       if (head != NULL) {
          free(head);
       }
+      mmaps_unlock();
       return -ENOMEM;
    }
    reg->start += head_size;
@@ -195,6 +221,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    } else {
       LIST_INSERT_HEAD(&mmaps.free, reg, link);
    }
+   mmaps_unlock();
    return 0;
 }
 
