@@ -20,8 +20,8 @@ ARG UID
 ARG GID
 
 RUN dnf install -y gcc glibc-static\
-		elfutils-libelf-devel elfutils-libelf-devel-static glibc-devel gdb \
-		make git \
+		elfutils-libelf-devel elfutils-libelf-devel-static glibc-devel zlib-static gdb \
+		make git lcov \
 	&& dnf clean all
 
 RUN groupadd -g $GID appuser && useradd -r -u $UID -g $GID appuser

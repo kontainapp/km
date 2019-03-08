@@ -8,8 +8,12 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 SHELL=/bin/bash
-
 TOP := $(shell git rev-parse --show-cdup)
+
+default: all
+
+include ${TOP}make/locations.mk
+
 SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_value_test.c \
 		load_test.c  hello_loop_test.c hello_2_loops_test.c memslot_test.c mutex_test.c futex_test.c
 
@@ -17,11 +21,13 @@ COPTS ?= -ggdb -O2
 CFLAGS = -Wall $(COPTS) -D_FORTIFY_SOURCE=0 -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
 KM_LDFLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
 LOADLIBES ?= -ggdb -static -pthread
+LDDIRS := ${TOP}build/runtime
 DEPS = ${SRC:%.c=%.d}
 OBJ = ${SRC:%.c=%.o}
-LDDIRS := ${TOP}build/runtime
 LIBS := runtime
 EXECS := ${SRC:%.c=%.km} ${SRC:%.c=%}
+
+# Test: run by BATS, defintion in TEST_FILES, test name has to MATCH
 BATS := bats/bin/bats
 TEST_FILES := km_core_tests.bats
 MATCH ?= ".*"
@@ -30,7 +36,7 @@ all: ${EXECS} ## Build all test, for Linux and KM
 
 # Run all or some of tests (may need /dev/kvm or privileged container)
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
-	@${BATS} -p -f "${MATCH}" ${TEST_FILES}
+	@export KM_BIN=$(KM_BIN); ${BATS} -p -f "${MATCH}" ${TEST_FILES}
 
 %.km: %.o
 	${LD} $< -o $@ ${KM_LDFLAGS}
@@ -41,10 +47,10 @@ load_expected_size: load_test.km
 
 %.d: %.c
 	@# print the command we really need to run
-	@echo $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@
+	@echo $(CC) -MT $*.o -MT $@ -MM ${CFLAGS} $< -o $@
 	@# run the command and adjust it's error messages so VS Code navigates properly
 	@set -e; rm -f $@; \
-	  $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
+	  $(CC) -MT $*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
 	  sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 	@# make sure dependencies are rebuilt if needed.
 	@# sed strips everything before colon, removes leading and trailing spaces, then splits words into individual lines
@@ -62,4 +68,44 @@ ifneq ($(MAKECMDGOALS), clean)
 -include ${DEPS}
 endif # ($(MAKECMDGOALS), clean)
 
-.PHONY: all clean test help gdb
+covclean: ## Clean up code coverage build artifacts
+	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
+
+coverage: all  ## Build with code coverage, then run tests and generate reports
+	@$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .coverage
+
+ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
+# we need this nesting to pass COV_BLDTYPE and set env. properly
+.PHONY: .coverage .cov_init .cov_clean
+.cov_clean:
+	rm -rf ${BLDDIR}
+
+# extra config for LCOV
+LCOV_RC := -rc lcov_branch_coverage=1
+
+# extra config for genhtml
+GENHTML_RC := -rc genhtml_branch_coverage=1
+
+.coverage: test
+	@lcov --quiet --capture --checksum  \
+		$(LCOV_RC) --directory ${KM_BLDDIR} \
+		--base-directory ${TOP}km --path $(realpath ${BLDTOP}) \
+		--output-file $(COV_INFO)
+	@lcov --summary \
+		$(LCOV_RC)  $(COV_INFO)
+	@genhtml --quiet $(COV_INFO) \
+		$(GENHTML_RC) --show-details --num-spaces 3 --legend \
+		--title "Kontain Monitor Code Coverage report by LCOV"\
+		--output-directory $(COV_REPORT)
+	@echo -e "${GREEN}Code Coverage Report: $(abspath $(COV_REPORT))/index.html${NOCOLOR}"
+
+test: .cov_init
+
+.cov_init:
+	@if [ ! $$(command -v lcov) ]  ; then echo -e "${RED}'lcov' command is missing - please install lcov package (e.g. 'sudo dnf install lcov')${NOCOLOR}"; false  ; fi
+	@echo -e "${GREEN}Running tests with code coverage...${NOCOLOR}"
+	@mkdir -p $(BLDDIR)
+	@lcov --zerocounters --quiet $(LCOV_RC)  --directory ${KM_BLDDIR}
+endif
+
+.PHONY: all clean test help gdb coverage covclean

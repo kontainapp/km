@@ -172,6 +172,6 @@ int main(int argc, char* const argv[])
             assert("Should never get here" == NULL);
       }
    }
-   warnx("Resulting err_count=%d)", err_count);
+   warnx("Resulting err_count=%d", err_count);
    exit(err_count);
 }

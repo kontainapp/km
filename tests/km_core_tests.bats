@@ -1,5 +1,7 @@
-#!./bats/bin/bats
-#
+#!/bin/bash
+# use this if started as a standalone script:
+if [ -z "$BATS_TEST_FILENAME" ] ; then "exec" "`dirname $0`/bats/bin/bats" "$0" "$@" ; fi
+
 # Copyright © 2018 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
@@ -15,11 +17,17 @@
 # See ./bats/... for docs
 #
 
-# we will kill any test if takes longer
-timeout=60s
+# bats sits under tests, so this will move us to tests
+cd $BATS_ROOT/..
 
 # KM binary location.
-KM_BIN=../build/km/km
+if [ -z "$KM_BIN" ] ; then
+   KM_BIN="$(git rev-parse --show-toplevel)/build/km/km"
+   echo $KM_BIN >&3
+fi
+
+# we will kill any test if takes longer
+timeout=60s
 # this is how we invoke KM - with a timeout
 KM="timeout -v --foreground $timeout ${KM_BIN}"
 

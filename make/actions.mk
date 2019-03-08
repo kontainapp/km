@@ -31,13 +31,8 @@ ifeq ($(strip ${TOP}),)
 TOP := ./
 endif
 
-# this is the path from the TOP to current dir
-FROMTOP := $(shell git rev-parse --show-prefix)
-# all build results (including obj etc..)  go under this one
-BLDTOP := ${TOP}build/
-# build for the current run goes here
-BLDDIR := ${BLDTOP}${FROMTOP}
-
+# all locations/file names
+include ${TOP}make/locations.mk
 # customization of build should be in custom.mk
 include ${TOP}make/custom.mk
 
@@ -54,6 +49,8 @@ all: subdirs ## Build all in all subdirs - basically, build + test recursively
 subdirs: $(SUBDIRS)
 clean: subdirs  ## clean all build artifacts.
 test: subdirs   ## build all and run tests everywhere
+coverage: subdirs ## build and run tests with code coverage support
+covclean: subdirs ## clean coverage-related build artifacts
 
 $(SUBDIRS):
 	$(MAKE) -C $@ $(MAKECMDGOALS)
@@ -78,6 +75,23 @@ ${BLDLIB}: $(OBJS)
 
 endif
 
+.PHONY: coverage covclean .cov_clean
+ifneq (${COVERAGE},)
+coverage:
+	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" COPTS="$(COPTS) --coverage"
+
+covclean:
+	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
+
+.cov_clean:
+	rm -rf ${BLDDIR}
+else
+coverage: all
+
+covclean:
+	@echo `pwd`: Nothing to do for '$@'.
+endif
+
 OBJDIRS = $(sort $(dir ${OBJS}))
 ${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exists
 
@@ -91,25 +105,24 @@ ${OBJDIRS}:
 ${BLDDIR}%.o: %.c
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	   sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 ${BLDDIR}%.o: %.s
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	   sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 ${BLDDIR}%.o: %.S
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	   sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 # note ${BLDDIR} in the .d file - this is what tells make to get .o from ${BLDDIR}
 #
 ${BLDDIR}%.d: %.c
 	@echo $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@
-	@set -e; rm -f $@; \
-	$(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
-	sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	@set -e; rm -f $@;  $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
+	   sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 test: all
 
@@ -119,35 +132,11 @@ clean:
 #
 # do not generate .d file if target is clean
 #
-ifneq ($(MAKECMDGOALS), clean)
+ifneq ($(findstring clean, $(MAKECMDGOALS)), clean)
 -include ${DEPS}
 endif # ($(MAKECMDGOALS), clean)
 
 endif # (${SUBDIRS},)
-
-# Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
-
-# Support for "make help"
-#
-# colors for nice color in output
-RED := \033[31m
-GREEN := \033[32m
-YELLOW := \033[33m
-CYAN := \033[36m
-NOCOLOR := \033[0m
-
-#
-# 'Help' target - based on '##' comments in targets
-#
-# This target ("help") scans Makefile for '##' in targets and prints a summary
-# Note - used awk to print (instead of echo) so escaping/coloring is platform independed
-help:  ## Prints help on 'make' targets
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
-	/^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
-	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
-	$(MAKEFILE_LIST)
-	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
-	@echo ""
 
 # dockerized build
 #
@@ -174,10 +163,28 @@ withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	docker build --build-arg=UID=$(shell id -u) --build-arg=GID=$(shell id -g) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
 	docker run --device=/dev/kvm --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 
+#
+# 'Help' target - based on '##' comments in targets
+#
+# This target ("help") scans Makefile for '##' in targets and prints a summary
+# Note - used awk to print (instead of echo) so escaping/coloring is platform independed
+help:  ## Prints help on 'make' targets
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
+	/^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
+	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
+	$(MAKEFILE_LIST)
+	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
+	@echo ""
+
 # Support for simple debug print (make debugvars)
-VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS CFLAGS BLDEXEC BLDLIB DEPS OBJS COPTS
+VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS \
+	KM_BLDDIR KM_BIN\
+	CFLAGS BLDEXEC BLDLIB  COPTS \
+	COVERAGE COV_INFO COV_REPORT
+
+.PHONY: debugvars
 debugvars:   ## prints interesting vars and their values
 	@echo To change the list of printed vars, use 'VARS_TO_PRINT="..." make debugvars'
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
 
-.PHONY: all clean test help withdocker debugvars
+.PHONY: all clean test help withdocker

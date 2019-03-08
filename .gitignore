@@ -7,3 +7,4 @@ tests/*_test.km
 trace.dat
 ipch
 *.ipch
+gmon.out

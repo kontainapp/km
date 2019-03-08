@@ -215,7 +215,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             if (km_gdb_enabled()) {
                km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
             } else {
-               run_errx(1, "KVM: cpu stopped with %d reason", vcpu->cpu_run->exit_reason);
+               run_errx(1, "KVM: cpu stopped with reason=%d", vcpu->cpu_run->exit_reason);
             }
             break;
 

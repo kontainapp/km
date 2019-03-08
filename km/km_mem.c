@@ -384,7 +384,7 @@ km_gva_t km_mem_brk(km_gva_t brk)
 
 /*
  * Extends tbrk down in the upper virtual address (VA) space, mirroring behavior of km_mem_brk which
- * extends allocated space up in the bottom VA, top of VA down.
+ * extends allocated space up in the bottom VA.
  * Note that gva in the upper VA are shifted up GUEST_VA_OFFSET from related gpa.
  */
 km_gva_t km_mem_tbrk(km_gva_t tbrk)
