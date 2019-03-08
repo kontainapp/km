@@ -12,15 +12,21 @@ pushd ../../runtime/musl
 make -j8
 popd
 
-git clone https://github.com/python/cpython.git -b 3.7
-cd cpython
-./configure --disable-shared
-patch < ../pyconfig.h-patch
-patch < ../Makefile-patch
-make -j8
+if [ ! -d cpython ]; then
+    git clone https://github.com/python/cpython.git -b 3.7
+    pushd cpython
+    ./configure --disable-shared
+    patch < ../pyconfig.h-patch
+    patch < ../Makefile-patch
+else
+    pushd cpython
+fi
 
-../link-static-musl.sh
-../link-km.sh
+make -j8
+popd
+
+./link-static-musl.sh
+./link-km.sh
 
 echo ""
 echo "now in cpython you can run ``../km/build/km/km ./python.km''"
