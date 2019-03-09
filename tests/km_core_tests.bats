@@ -56,6 +56,20 @@ teardown() {
    [ $status -eq 0 ]
 }
 
+@test "hypercall: invoke wrong hypercall" {
+   run $KM hc_test.km 400
+   echo -e "$output" | grep -q "unexpected hypercall 400"
+   [ $status -eq 1 ]
+
+   run $KM hc_test.km -10
+   echo -e "$output" | grep -q "unexpected IO port activity, port 0x7ff6 0x4 bytes out"
+   [ $status -eq 1 ]   
+
+   run $KM hc_test.km 1000
+   echo -e "$output" | grep -q "unexpected IO port activity, port 0x83e8 0x4 bytes out"
+   [ $status -eq 1 ]   
+}
+
 @test "mem_basic: KVM memslot / phys mem sizes" {
    run ./memslot_test
    [ $status -eq 0  ]

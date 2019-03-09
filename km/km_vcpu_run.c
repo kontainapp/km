@@ -99,7 +99,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
 
    /* Sanity checks */
    *hc = r->io.port - KM_HCALL_PORT_BASE;
-   if (!(r->io.direction == KVM_EXIT_IO_OUT || r->io.size == 4 || *hc >= 0 || *hc < KM_MAX_HCALL)) {
+   if (!(r->io.direction == KVM_EXIT_IO_OUT && r->io.size == 4 && *hc >= 0 && *hc < KM_MAX_HCALL)) {
       run_errx(1,
                "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
                r->io.port,
