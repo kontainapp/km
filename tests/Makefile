@@ -87,7 +87,7 @@ LCOV_RC := -rc lcov_branch_coverage=1
 GENHTML_RC := -rc genhtml_branch_coverage=1
 
 .coverage: test
-	@lcov --quiet --capture --checksum  \
+	@lcov --quiet --capture --checksum  --no-external \
 		$(LCOV_RC) --directory ${KM_BLDDIR} \
 		--base-directory ${TOP}km --path $(realpath ${BLDTOP}) \
 		--output-file $(COV_INFO)
