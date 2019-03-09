@@ -239,21 +239,20 @@ void km_vcpu_put(km_vcpu_t* vcpu)
 int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_main_argc)
 {
    int rc;
-   km_gva_t sp;
+   km_gva_t sp, argv;
 
    if ((rc = kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, vcpu->guest_thr)) < 0) {
       return rc;
    }
 
-   sp = vcpu->stack_top;
+   argv = sp = vcpu->stack_top;
    assert((sp & 7) == 0);
-   // TODO: per ABI, make sure sp + 8 is 16 aligned?
-   // sp -= (sp + 8) % 16;
+   sp -= (sp + 8) % 16;   // per ABI, make sure sp + 8 is 16 aligned
 
    kvm_regs_t regs = {
        .rip = km_guest.km_ehdr.e_entry,
        .rdi = is_main_argc,   // first function argument
-       .rsi = sp,             // where we put argv
+       .rsi = argv,           // where we put argv
        .rflags = X86_RFLAGS_FIXED,
        .rsp = sp,
    };
