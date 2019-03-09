@@ -70,9 +70,14 @@ teardown() {
    [ $status -eq 1 ]   
 }
 
+@test "wait on signal" {
+   ($KM -w hello_test.km &)
+   kill -SIGUSR1 `pidof km`
+}
+
 @test "mem_basic: KVM memslot / phys mem sizes" {
    run ./memslot_test
-   [ $status -eq 0  ]
+   [ $status -eq 0 ]
 }
 
 @test "mem_brk: brk() call" {
