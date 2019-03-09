@@ -1,6 +1,33 @@
 # Testing
 
-A quick summary of testing framework requirements, choices and info on how to use the chose one
+Each PR has to be associated with an automated test, and analyzed with code coverage.
+
+**Tests are residing in ./tests and built and started by a Makefile there.** Makefile calls `km_core_tests.bats` which is what controls test runs.
+
+## Test tools
+
+We use `BATS` to coordinate and glue together multiple test suites, and `silentbycycle/greatest` for C test suits support. Both tools are configured as git submodules under ./test, so `git submodule update --init` is needed after first `git clone` on KM repo.
+
+* [BATS](https://github.com/bats-core/bats-core) (or `dnf install bats`)
+  * A good all around way to organize multiple test executable.
+  * TAP-compliant testing framework for Bash
+  * allows to scan directories / runs multiple tests(named `<test>.bats`)
+* [greatest](https://github.com/silentbicycle/greatest)
+  * A single .h file set of macros / C  / CLI
+  * Good review (and comparison with others) [here](https://spin.atomicobject.com/2013/07/31/greatest-c-testing-embedded/)
+  * Does almost all we  want (has a few shortcomings but nothing major - i.e. does not do parametrized tests, does not support test-specific setup/teardown - only per suite, etc), and very simple to install/use in the payloads.
+
+## Code coverage
+
+We use gcov/lcov for C test coverage.
+
+* To build coverage report, run `make coverage`. It will re-compile `km` with coverage (respecting settings in custom.mk) run the test suite and generate test coverage HTML reports. It will also print out the location of the reports.
+* To clean up coverage artifacts, run `make covclean`.
+* To see coverage in VSCode, install `Coverage gutters` plugin (ryanluker.vscode-coverage-gutters) and use `Watch` toggle on the bottom of an editor.
+
+# Appendix
+
+A quick summary of testing framework requirements, choices and info on how we were choosing one
 
 ## Requirements
 
@@ -23,44 +50,7 @@ We need to have multiple ways of KM building for test. They mainly differ in com
 * Code coverage build (aka cov) - debug plus ` -fprofile-arcs -ftest-coverage`
 * Production build (aka prod) - eventually. Asserts are skipped, optimization is turned on, no debug symbols
 
-### Code coverage
-
-We will use gcov/lcov. More tbd
-
-Commands to create report (assumes lcov and gcov are installed)
-
-```bash
-lcov --capture --directory ../build/km/ -b `pwd`/.. --output-file ../build/c.info
-genhtml  ../build/c.info --output-directory ../build/out/
-google-chrome ../build/out/
-```
-
-Support in vscode: brainfit.vscode-coverage-highlighter. Settings:
-
-```json
-"vscode-coverage-highlighter.files": [
-     "build/c.info",
-     "coverage/lcov*.info",
-     "cov*.xml"
-  ]
-```
-
-## Test framework choices
-
-The 3 choices are below. BATS is  a good all around way to push BASH tests together and organize multiple test executable.
-nUnit or greates both are good is basic test framework support - suites, tests, asserts, etc..
-
-We will use BATS and either greatest.h
-
-* [BATS](https://github.com/bats-core/bats-core) (or `dnf install bats`)
-  * TAP-compliant testing framework for Bash
-  * allows to scan directories / runs multiple tests(named `<test>.bats`)
-* [greatest](https://github.com/silentbicycle/greatest)
-  * Another set of marcos / C  / CLI , similar to nUnit
-  * Good review (and comparison with others) [here](https://spin.atomicobject.com/2013/07/31/greatest-c-testing-embedded/)
-  * Does almost all we  want (has a few shorcomings but nothing major - i.e. does not do parametrized tests, does not support test-specific setup/teardown - only per suite, etc)
-
-### Looked at and declined
+## Looked at and declined test frameworks
 
 * [nUnit](https://nemequ.github.io/munit)
   * small/portable/easy. Tons of useful stuff like `munit_assert_memory_equal` :-)
@@ -83,9 +73,6 @@ We will use BATS and either greatest.h
 * [check](https://libcheck.github.io/check/) or `dnf install check`
   * another unit testing , similar to the rest
   * expects autoconf , libtool, pkg-config cmake , and does not seem to add much compared to , say , nUnit - thus we will pass.
-
-### Potential - but seems like an overkill
-
 * [Criterion](https://github.com/Snaipe/Criterion)
   * Good:
     * Real nice framework, in active state, handles many aspects (e.g. signal testing, reports,  'theories' in TDD, etc...)
@@ -104,7 +91,3 @@ BTW, `dependencies it uses need to be kept in mind` if we need good trees/stream
 * http://attractivechaos.github.io/klib/#About
 * https://github.com/scottt/debugbreak/
 * https://jpa.kapsi.fi/nanopb/
-
-## Next steps
-
-* look at coverage/build modes

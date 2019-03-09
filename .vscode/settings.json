@@ -1,13 +1,6 @@
 {
    "files.associations": {
       "Dockerfile*": "dockerfile",
-      "unistd.h": "c",
-      "in.h": "c",
-      "km_gdb.h": "c",
-      "socket.h": "c"
-   },
-   "vscode-coverage-highlighter.files": [
-      "Comment:this is for brainfit.vscode-coverage-highlighter",
-      "build/tests/coverage/coverage.info"
-   ]
+      "*.h": "c"
+   }
 }

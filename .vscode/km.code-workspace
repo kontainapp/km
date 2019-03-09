@@ -51,5 +51,9 @@
          "xfffffffful"
       ],
       "editor.formatOnSave": true,
+      "coverage-gutters.coverageReportFileName": "build/tests/coverage/lcov-report/index.html",
+      "coverage-gutters.lcovname": "coverage.info",
+      "coverage-gutters.showLineCoverage": true,
+      "coverage-gutters.showRulerCoverage": true,
    }
 }
