@@ -56,26 +56,23 @@ teardown() {
    [ $status -eq 0 ]
 }
 
-@test "hypercall: invoke wrong hypercall" {
+@test "hc_check: invoke wrong hypercall" {
    run $KM hc_test.km 400
-   echo -e "$output" | grep -q "unexpected hypercall 400"
-   [ $status -eq 1 ]
+   [ $(echo -e "$output" | grep -cw "unexpected hypercall 400") == 1 ]
 
    run $KM hc_test.km -10
-   echo -e "$output" | grep -q "unexpected IO port activity, port 0x7ff6 0x4 bytes out"
-   [ $status -eq 1 ]   
+   [ $(echo -e "$output" | grep -cw "unexpected IO port activity, port 0x7ff6 0x4 bytes out") == 1 ]
 
    run $KM hc_test.km 1000
-   echo -e "$output" | grep -q "unexpected IO port activity, port 0x83e8 0x4 bytes out"
-   [ $status -eq 1 ]   
+   [ $(echo -e "$output" | grep -cw "unexpected IO port activity, port 0x83e8 0x4 bytes out") == 1 ]
 }
 
-@test "wait on signal" {
+@test "km_main: wait on signal" {
    ($KM -w hello_test.km &)
    kill -SIGUSR1 `pidof km`
 }
 
-@test "mem_basic: KVM memslot / phys mem sizes" {
+@test "mem_slots: KVM memslot / phys mem sizes" {
    run ./memslot_test
    [ $status -eq 0 ]
 }
@@ -86,11 +83,12 @@ teardown() {
 }
 
 @test "hc_basic: basic run and print hello world" {
-   run ./hello_test "$BATS_TEST_DESCRIPTION" -f
+   args="more_flags to_check: -f and check --args !"
+   run ./hello_test $args
    [ $status -eq 0 ]
    linux_out="${output}"
 
-   run $KM hello_test.km "${BATS_TEST_DESCRIPTION}" -f
+   run $KM hello_test.km $args
    [ $status -eq 0 ]
    # argv[0] differs for linux and km so strip it out , and then compare results
    diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]')
