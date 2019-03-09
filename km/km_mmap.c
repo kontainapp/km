@@ -179,10 +179,11 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    km_gva_t head_start, tail_start;
    size_t head_size, tail_size;
 
+   mmaps_lock();
    if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL || (addr + size > mmap_end(reg))) {
+      mmaps_unlock();
       return -EINVAL;   // unmap start and end have to be in a single mapped region, for now
    }
-   mmaps_lock();
    // Calculate head and tail regions (possibly of 0 size). If not empty, they would stay in busy list.
    head_start = reg->start;
    head_size = addr - head_start;
