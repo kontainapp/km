@@ -20,6 +20,10 @@
 #include <linux/kvm.h>
 #include "km.h"
 
+static const uint64_t PAGE_SIZE = 0x1000;   // standard 4k page
+static const uint64_t MIB = 0x100000;       // MByte
+static const uint64_t GIB = 0x40000000ul;   // GByte
+
 static const int RSV_MEM_START = PAGE_SIZE;
 static const int RSV_MEM_SIZE = PAGE_SIZE * 63;
 /*

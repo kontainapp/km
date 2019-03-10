@@ -35,8 +35,13 @@ MATCH ?= ".*"
 all: ${EXECS} ## Build all test, for Linux and KM
 
 # Run all or some of tests (may need /dev/kvm or privileged container)
+# ignore test failure when building coverage
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
+ifeq (${MAKECMDGOALS},.coverage)
+	@-export KM_BIN=$(KM_BIN); ${BATS} -p -f "${MATCH}" ${TEST_FILES}
+else
 	@export KM_BIN=$(KM_BIN); ${BATS} -p -f "${MATCH}" ${TEST_FILES}
+endif
 
 %.km: %.o
 	${LD} $< -o $@ ${KM_LDFLAGS}

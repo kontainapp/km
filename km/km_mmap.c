@@ -120,9 +120,9 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    mmaps_lock();
    // TODO: check flags
    if ((reg = km_mmap_find_free(size)) != NULL) {
-      // found a free chunk, carve requested space from it
+      // found a free chunk with enough room, carve requested space from it
       km_mmap_reg_t* carved = reg;
-      if (mmap_end(reg) > gva + size) {   // keep extra space in free list
+      if (reg->size > size) {   // keep extra space in free list
          if ((carved = malloc(sizeof(km_mmap_reg_t))) == NULL) {
             mmaps_unlock();
             return -ENOMEM;

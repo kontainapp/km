@@ -25,10 +25,6 @@
 #define rounddown(x, y)                                                                            \
    (__builtin_constant_p(y) && powerof2(y) ? ((x) & ~((y)-1)) : (((x) / (y)) * (y)))
 
-static const uint64_t PAGE_SIZE = 0x1000;   // standard 4k page
-static const uint64_t MIB = 0x100000;       // MByte
-static const uint64_t GIB = 0x40000000ul;   // GByte
-
 /*
  * Types from linux/kvm.h
  */

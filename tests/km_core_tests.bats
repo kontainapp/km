@@ -90,7 +90,7 @@ teardown() {
 
    run $KM hello_test.km $args
    [ $status -eq 0 ]
-   # argv[0] differs for linux and km so strip it out , and then compare results
+   # argv[0] differs for linux and km so strip it out, and then compare results
    diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]')
 }
 
@@ -98,11 +98,13 @@ teardown() {
    local address="http://127.0.0.1:8002"
 
    (./hello_html_test &)
+   sleep 0.5s
    run curl -s $address
    [ $status -eq 0 ]
    linux_out="${output}"
 
    ($KM hello_html_test.km &)
+   sleep 0.5s
 	run curl -s $address
    [ $status -eq 0 ]
    diff <(echo -e "$linux_out")  <(echo -e "$output")
@@ -110,9 +112,9 @@ teardown() {
 
 @test "mem_mmap0: mmap and munmap with addr=0" {
    expected_status=0
-   # we expect 3 ENOMEM failures on 36 bit buses
+   # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    bus_width=$(${KM} -V exit_value_test.km 2>& 1 | awk '/physical memory width/ {print $6;}')
-   if [ $bus_width -eq 36 ] ; then expected_status=3 ; fi
+   if [ $bus_width -eq 36 ] ; then expected_status=1 ; fi
 
    run $KM mmap_test.km
    [ $status -eq $expected_status ]
@@ -126,9 +128,9 @@ teardown() {
 }
 
 @test "gdb_basic: gdb support" {
-   $KM -g 3333 gdb_test.km  &
+   $KM -g 3333 gdb_test.km &
 	sleep 0.5
-	run gdb -q -nx --ex="target remote :3333"  --ex="source cmd_for_test.gdb"  \
+	run gdb -q -nx --ex="target remote :3333" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test.km
    [ $(echo "$output" | grep -cw 'SUCCESS') == 1 ]
 }
@@ -140,5 +142,5 @@ teardown() {
 
 @test "threads_mutex: mutex" {
    run $KM mutex_test.km
-   [ $status -eq  0 ]
+   [ $status -eq 0 ]
 }
