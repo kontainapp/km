@@ -40,11 +40,6 @@ static const int RSV_PD2_OFFSET = 4 * PAGE_SIZE;
  */
 #define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
 
-static inline void* km_memreg_kma(int idx)
-{
-   return (km_kma_t)machine.vm_mem_regs[idx]->userspace_addr;
-}
-
 static const int KM_RSRV_MEMSLOT = 0;
 static const int KM_TEXT_DATA_MEMSLOT = 1;
 // other text and data memslots follow
@@ -157,12 +152,11 @@ static inline uint64_t memreg_size(int idx)
 
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
-   int idx;
-
-   if ((GUEST_MEM_START_VA <= gva && gva < machine.brk) ||
-       (machine.tbrk <= gva && gva <= GUEST_MEM_TOP_VA)) {
-      idx = gva_to_memreg_idx(gva);
-      return gva_to_gpa(gva) - memreg_base(idx) + km_memreg_kma(idx);
+   if ((GUEST_MEM_START_VA <= gva && gva < GUEST_MEM_TOP_VA)) {
+      int i = gva_to_memreg_idx(gva);
+      return machine.vm_mem_regs[i].memory_size == 0
+                 ? NULL
+                 : gva_to_gpa(gva) - memreg_base(i) + (void*)machine.vm_mem_regs[i].userspace_addr;
    }
    return NULL;
 }

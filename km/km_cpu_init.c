@@ -31,6 +31,7 @@
 km_machine_t machine = {
     .kvm_fd = -1,
     .mach_fd = -1,
+    .brk_mutex = PTHREAD_MUTEX_INITIALIZER,
 };
 
 /*
@@ -86,16 +87,17 @@ void km_machine_fini(void)
       }
    }
    /* check if there are any memory regions */
-   for (int i = KVM_USER_MEM_SLOTS - 1; i >= 0; i--) {
-      kvm_mem_reg_t* mr = machine.vm_mem_regs[i];
+   for (int i = KM_MEM_SLOTS - 1; i >= 0; i--) {
+      kvm_mem_reg_t* mr = &machine.vm_mem_regs[i];
 
-      if (mr != NULL) {
-         /* TODO: Do we need to "unplug" it from the VM? */
-         if (mr->memory_size != 0) {
-            km_page_free((void*)mr->userspace_addr, mr->memory_size);
+      if (mr->memory_size != 0) {
+         uint64_t mem_siz = mr->memory_size;
+         mr->memory_size = 0;
+         if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, mr) < 0) {
+            warn("KVM: failed to unplug memory region %d", i);
          }
-         free(mr);
-         machine.vm_mem_regs[i] = NULL;
+         km_page_free((void*)mr->userspace_addr, mem_siz);
+         mr->userspace_addr = 0;
       }
    }
    /* Now undo things done in km_machine_init */

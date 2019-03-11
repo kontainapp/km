@@ -43,6 +43,7 @@ typedef struct km_mmap_cb {   // control block
 static km_mmap_cb_t mmaps = {
     .free = LIST_HEAD_INITIALIZER(free_head),
     .busy = LIST_HEAD_INITIALIZER(free_head),
+    .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
 
 static inline void mmaps_lock(void)
@@ -59,20 +60,13 @@ void km_guest_mmap_init(void)
 {
    LIST_INIT(&mmaps.free);
    LIST_INIT(&mmaps.busy);
-   // creatre global lock. It is destroyed on exit only
-   if (pthread_mutex_init(&mmaps.mutex, NULL) != 0) {
-      err(2, "Failed to create mmaps mutex");
-   };
 }
 
-static int mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
+static inline int mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
 {
    // block all stuff we do not support yet
    if (addr != 0 || fd != -1 || offset != 0 || flags & MAP_FIXED) {
       return -EINVAL;
-   }
-   if (size > machine.guest_max_physmem - machine.brk) {
-      return -ENOMEM;
    }
    return 0;
 }
@@ -144,14 +138,12 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
       mmaps_unlock();
       return -ENOMEM;
    }
-   if ((ret = km_mem_tbrk(machine.tbrk - size)) <= 0) {
-      free(reg);
+   if (km_syscall_ok(ret = km_mem_tbrk(machine.tbrk - size)) < 0) {
       mmaps_unlock();
-
+      free(reg);
       return ret;
    }
-   //  place requested mmap region in the newly allocated memory
-   reg->start = machine.tbrk;
+   reg->start = ret;   //  place requested mmap region in the newly allocated memory
    reg->flags = flags;
    reg->protection = prot;
    reg->size = size;

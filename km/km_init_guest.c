@@ -162,7 +162,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    km_gva_t map_base;
    km_gva_t stack_top;
 
-   if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) == 0) {
+   if (km_syscall_ok(map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
    }
    stack_top = map_base + GUEST_STACK_SIZE;
@@ -278,8 +278,8 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
    map_size = _a_stacksize(g_attr) == 0
                   ? DEFAULT_STACK_SIZE
                   : roundup(_a_stacksize(g_attr) + libc_kma->tls_size, PAGE_SIZE);
-   if ((map_base = km_guest_mmap_simple(map_size)) == 0) {
-      return -ENOMEM;
+   if (km_syscall_ok(map_base = km_guest_mmap_simple(map_size)) < 0) {
+      return 0;
    }
    tcb = rounddown(map_base + map_size - sizeof(km_pthread_t), libc_kma->tls_align);
    tcb_kma = km_gva_to_kma(tcb);

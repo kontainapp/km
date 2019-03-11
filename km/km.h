@@ -14,6 +14,7 @@
 #define __KM_H__
 
 #include <err.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <sys/param.h>
 #include <linux/kvm.h>
@@ -61,8 +62,9 @@ void km_hcalls_fini(void);
  * kernel include/linux/kvm_host.h
  */
 static const int CPUID_ENTRIES = 100;   // A little padding, kernel says 80
-#define KVM_USER_MEM_SLOTS 509
 #define KVM_MAX_VCPUS 288
+
+#define KM_MEM_SLOTS 41   // We use 35 on 512GB machine, 41 on 4TB, out of 509 KVM_USER_MEM_SLOTS
 
 typedef struct km_machine {
    int kvm_fd;                           // /dev/kvm file descriptor
@@ -72,9 +74,10 @@ typedef struct km_machine {
    int vm_vcpu_run_cnt;                  // count of still running VCPUs
    km_vcpu_t* vm_vcpus[KVM_MAX_VCPUS];   // VCPUs we created
 
-   kvm_mem_reg_t* vm_mem_regs[KVM_USER_MEM_SLOTS];   // guest physical memory regions
-   km_gva_t brk;    // program break (highest address in bottom VA, i.e. txt/data)
-   km_gva_t tbrk;   // top break (lowest address in top VA)
+   kvm_mem_reg_t vm_mem_regs[KM_MEM_SLOTS];   // guest physical memory regions
+   km_gva_t brk;                // program break (highest address in bottom VA, i.e. txt/data)
+   km_gva_t tbrk;               // top break (lowest address in top VA)
+   pthread_mutex_t brk_mutex;   // protects the two above
 
    kvm_cpuid2_t* cpuid;          // to set VCPUs cpuid
    uint64_t guest_max_physmem;   // Set from CPUID
@@ -91,6 +94,18 @@ typedef struct km_machine {
 
 extern km_machine_t machine;
 
+static inline void km_mem_lock(void)
+{
+   if (pthread_mutex_lock(&machine.brk_mutex) != 0) {
+      err(1, "memory lock failed");
+   }
+}
+
+static inline void km_mem_unlock(void)
+{
+   pthread_mutex_unlock(&machine.brk_mutex);
+}
+
 static inline km_vcpu_t* km_main_vcpu(void)
 {
    return machine.vm_vcpus[0];
@@ -105,6 +120,15 @@ void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
 void km_vcpu_put(km_vcpu_t* vcpu);
 int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread);
+
+/*
+ * To check for success/failure from plain system calls and similar logic, returns -1 if fail.
+ * *NOT* to be used for actual syscall wrapper as it doesn't set errno.
+ */
+static inline long km_syscall_ok(uint64_t r)
+{
+   return r > -4096ul ? -1 : r;
+}
 
 /*
  * Trivial trace() based on warn() - but with an a switch to run off and on.

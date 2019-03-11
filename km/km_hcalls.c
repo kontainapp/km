@@ -317,6 +317,18 @@ static km_hc_ret_t clock_gettime_hcall(int hc, km_hc_args_t* arg, int* status)
    return HC_CONTINUE;
 }
 
+/*
+ * TODO: only see advice 4, MADV_DONTNEED so far. Might want to pass that to the host to expedite
+ * freeing resources, assuming it has to be our memory
+ */
+static km_hc_ret_t madvise_hcall(int hc, km_hc_args_t* arg, int* status)
+{
+   // int madvise(void *addr, size_t length, int advice);
+   km_infox("hc = %d, %ld %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3);
+   arg->hc_ret = 0;
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t pthread_create_hcall(int hc, km_hc_args_t* arg, int* status)
 {
    // int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
@@ -362,6 +374,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_munmap] = munmap_hcall;
    km_hcalls_table[SYS_mremap] = mremap_hcall;
    km_hcalls_table[SYS_clock_gettime] = clock_gettime_hcall;
+   km_hcalls_table[SYS_madvise] = madvise_hcall;
 
    km_hcalls_table[HC_pthread_create] = pthread_create_hcall;
    km_hcalls_table[HC_pthread_join] = pthread_join_hcall;

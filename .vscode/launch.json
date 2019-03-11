@@ -130,6 +130,8 @@
             "gdb_test",
             "mmap_test",
             "getline_test",
+            "mem_test",
+            "hello_2_loops",
             "mutex_test"
          ]
       }

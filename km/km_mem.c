@@ -26,7 +26,6 @@
 
 #include "km.h"
 #include "km_mem.h"
-// #include "km_gdb.h"
 #include "x86_cpu.h"
 
 /*
@@ -45,6 +44,11 @@
  * We are forced to stay within width of the CPU physical memory bus. We
  * determine that the by analyzing CPUID and store in machine.guest_max_physmem
  */
+
+static inline km_kma_t km_resv_kma(void)
+{
+   return (km_kma_t)machine.vm_mem_regs[KM_RSRV_MEMSLOT].userspace_addr;
+}
 
 static void pml4e_set(x86_pml4e_t* pml4e, uint64_t pdpt)
 {
@@ -223,9 +227,7 @@ void km_mem_init(void)
    kvm_mem_reg_t* reg;
    void* ptr;
 
-   if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
-      err(1, "KVM: no memory for mem region");
-   }
+   reg = &machine.vm_mem_regs[KM_RSRV_MEMSLOT];
    if ((ptr = km_page_malloc(RSV_MEM_SIZE)) == NULL) {
       err(1, "KVM: no memory for reserved pages");
    }
@@ -237,7 +239,6 @@ void km_mem_init(void)
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
       err(1, "KVM: set reserved region failed");
    }
-   machine.vm_mem_regs[KM_RSRV_MEMSLOT] = reg;
    init_pml4((km_kma_t)reg->userspace_addr);
 
    machine.brk = GUEST_MEM_START_VA - 1;   // last allocated byte
@@ -260,7 +261,7 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
    km_gva_t base = reg->guest_phys_addr;
 
    if (size < PDPTE_REGION) {
-      x86_pde_2m_t* pde = km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
+      x86_pde_2m_t* pde = km_resv_kma() + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
       for (uint64_t addr = base; addr < base + size; addr += PDE_REGION) {
          // virtual and physical mem aligned the same on PDE_REGION, so we can use phys. address in
          // PDE_SLOT()
@@ -268,8 +269,7 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
       }
    } else {
       assert(machine.pdpe1g != 0);
-      x86_pdpte_1g_t* pdpe =
-          km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PDPT2_OFFSET : RSV_PDPT_OFFSET);
+      x86_pdpte_1g_t* pdpe = km_resv_kma() + (upper_va ? RSV_PDPT2_OFFSET : RSV_PDPT_OFFSET);
       for (uint64_t i = 0; i < size; i += PDPTE_REGION) {
          pdpte_1g_set(pdpe + (i + base) / PDPTE_REGION, reg->guest_phys_addr + i);
       }
@@ -282,7 +282,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
    uint64_t base = reg->guest_phys_addr;
 
    if (size < PDPTE_REGION) {
-      x86_pde_2m_t* pde = km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
+      x86_pde_2m_t* pde = km_resv_kma() + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
       for (uint64_t addr = base; addr < base + size; addr += PDE_REGION) {
          // virtual and physical mem aligned the same on PDE_REGION, so we can use phys. address in
          // PDE_SLOT()
@@ -290,8 +290,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
       }
    } else {
       assert(machine.pdpe1g != 0);   // no 1GB pages support
-      x86_pdpte_1g_t* pdpe =
-          km_memreg_kma(KM_RSRV_MEMSLOT) + (upper_va ? RSV_PDPT2_OFFSET : RSV_PDPT_OFFSET);
+      x86_pdpte_1g_t* pdpe = km_resv_kma() + (upper_va ? RSV_PDPT2_OFFSET : RSV_PDPT_OFFSET);
       for (uint64_t i = 0; i < size; i += PDPTE_REGION) {
          memset(pdpe + (i + base) / PDPTE_REGION, 0, sizeof(*pdpe));
       }
@@ -307,14 +306,10 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
 static int km_alloc_region(int idx, size_t size, int upper_va)
 {
    void* ptr;
-   kvm_mem_reg_t* reg;
+   kvm_mem_reg_t* reg = &machine.vm_mem_regs[idx];
 
-   assert(machine.vm_mem_regs[idx] == NULL);
-   if ((reg = malloc(sizeof(kvm_mem_reg_t))) == NULL) {
-      return -ENOMEM;
-   }
+   assert(reg->memory_size == 0 && reg->userspace_addr == 0);
    if ((ptr = km_page_malloc(size)) == NULL) {
-      free(reg);
       return -ENOMEM;
    }
    reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
@@ -324,10 +319,8 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
       km_page_free(ptr, size);
-      free(reg);
       return -errno;
    }
-   machine.vm_mem_regs[idx] = reg;
    set_pml4_hierarchy(reg, upper_va);
    return 0;
 }
@@ -342,14 +335,18 @@ km_gva_t km_mem_brk(km_gva_t brk)
    int idx;
    uint64_t size;
    km_gva_t m_brk;
-   kvm_mem_reg_t* reg;
-   km_gva_t ceiling = gva_to_gpa(machine.tbrk);   // ceiling for PA addresses avail
    int ret;
 
-   if (brk == 0 || brk == machine.brk) {
+   if (brk == 0) {
       return machine.brk;
    }
+   if (brk >= machine.guest_max_physmem) {
+      return -ENOMEM;
+   }
+   km_mem_lock();
+   km_gva_t ceiling = gva_to_gpa(machine.tbrk);   // ceiling for PA addresses avail
    if (brk > ceiling) {
+      km_mem_unlock();
       return -ENOMEM;
    }
 
@@ -359,15 +356,19 @@ km_gva_t km_mem_brk(km_gva_t brk)
       /* Not enough room in the allocated memreg, allocate and add new ones */
       idx++;
       if ((size = memreg_size(idx)) > ceiling - memreg_base(idx)) {
+         machine.brk = memreg_top(--idx);
+         km_mem_unlock();
          return -ENOMEM;
       }
       if ((ret = km_alloc_region(idx, size, 0)) != 0) {
+         machine.brk = memreg_top(--idx);
+         km_mem_unlock();
          return ret;
       }
    }
    for (; idx > gva_to_memreg_idx(brk); idx--) {
       /* brk moved down and left one or more memory regions. Remove and free */
-      reg = machine.vm_mem_regs[idx];
+      kvm_mem_reg_t* reg = &machine.vm_mem_regs[idx];
       size = reg->memory_size;
       clear_pml4_hierarchy(reg, 0);
       reg->memory_size = 0;
@@ -375,11 +376,12 @@ km_gva_t km_mem_brk(km_gva_t brk)
          err(1, "KVM: failed to unplug memory region %d", idx);
       }
       km_page_free((void*)reg->userspace_addr, size);
-      free(reg);
-      machine.vm_mem_regs[idx] = NULL;
+      reg->userspace_addr = 0;
+      reg->memory_size = 0;
    }
    machine.brk = brk;
-   return machine.brk;
+   km_mem_unlock();
+   return brk;
 }
 
 /*
@@ -390,14 +392,19 @@ km_gva_t km_mem_brk(km_gva_t brk)
 km_gva_t km_mem_tbrk(km_gva_t tbrk)
 {
    int idx;
+   int ret;
    uint64_t size;
 
-   km_gva_t floor = gva_to_gpa(machine.brk);   // bottom for PA addresses avail
-
-   if (tbrk == 0 || tbrk == machine.tbrk) {
+   if (tbrk == 0) {
       return machine.tbrk;
    }
+   if (tbrk < GUEST_VA_OFFSET) {
+      return -ENOMEM;
+   }
+   km_mem_lock();
+   km_gva_t floor = gva_to_gpa(machine.brk);   // bottom for PA addresses avail
    if (gva_to_gpa(tbrk) <= floor) {   // More checks will follow, but this case is certainly ENOMEM
+      km_mem_unlock();
       return -ENOMEM;
    }
 
@@ -407,16 +414,19 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
       /* Not enough room in the allocated memreg, allocate and add new ones */
       idx--;
       if ((size = memreg_size(idx)) > memreg_top(idx) - floor) {
+         machine.tbrk = memreg_base(++idx);
+         km_mem_unlock();
          return -ENOMEM;
       }
-      int ret;
       if ((ret = km_alloc_region(idx, size, 1)) != 0) {
+         machine.tbrk = memreg_base(++idx);
+         km_mem_unlock();
          return ret;
       }
    }
    for (; idx < gva_to_memreg_idx(tbrk); idx++) {
       /* tbrk moved up and left one or more memory regions. Remove and free */
-      kvm_mem_reg_t* reg = machine.vm_mem_regs[idx];
+      kvm_mem_reg_t* reg = &machine.vm_mem_regs[idx];
       size = reg->memory_size;
       clear_pml4_hierarchy(reg, 1);
       reg->memory_size = 0;
@@ -424,9 +434,10 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
          err(1, "KVM: failed to unplug memory region %d", idx);
       }
       km_page_free((void*)reg->userspace_addr, size);
-      free(reg);
-      machine.vm_mem_regs[idx] = NULL;
+      reg->userspace_addr = 0;
+      reg->memory_size = 0;
    }
    machine.tbrk = tbrk;
-   return machine.tbrk;
+   km_mem_unlock();
+   return tbrk;
 }

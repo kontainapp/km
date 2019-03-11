@@ -78,8 +78,10 @@ teardown() {
 }
 
 @test "mem_brk: brk() call" {
+   sudo sysctl -w vm.overcommit_memory=1
    run $KM brk_test.km
    [ $status -eq 0 ]
+   sudo sysctl -w vm.overcommit_memory=0
 }
 
 @test "hc_basic: basic run and print hello world" {
@@ -143,4 +145,11 @@ teardown() {
 @test "threads_mutex: mutex" {
    run $KM mutex_test.km
    [ $status -eq 0 ]
+}
+
+@test "mem_test: threads create, malloc/free, exit and join" {
+   sudo sysctl -w vm.overcommit_memory=1
+   run $KM mem_test.km
+   [ "$status" -eq 0 ]
+   sudo sysctl -w vm.overcommit_memory=0
 }
