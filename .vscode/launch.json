@@ -129,7 +129,7 @@
             "brk_test",
             "gdb_test",
             "mmap_test",
-            "hello_2_loops",
+            "getline_test",
             "mutex_test"
          ]
       }
