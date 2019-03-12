@@ -14,11 +14,11 @@
 #define __KM_H__
 
 #include <err.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <sys/param.h>
 #include <linux/kvm.h>
 
-#include "chan/chan.h"
 #include "km_elf.h"
 #include "km_hcalls.h"
 
@@ -45,8 +45,8 @@ typedef struct km_vcpu {
    pthread_t vcpu_thread;   // km pthread
    km_gva_t guest_thr;      // guest pthread
    km_gva_t stack_top;      // available in guest_thr but requres gva_to_kma, save it
-   chan_t* vcpu_chan;       // gdb uses to signal vcpu to run
    int kvm_vcpu_fd;         // this VCPU file descriptor
+   int eventfd;             // gdb uses this to synchronize with VCPU thread
 } km_vcpu_t;
 
 void km_machine_init(void);
@@ -85,6 +85,9 @@ typedef struct km_machine {
    uint64_t guest_mid_physmem;   // first byte of the top half of PA
    int mid_mem_idx;              // idx for the last region in the bottom half of PA
    int last_mem_idx;             // idx for the last (and hidden) region in the top half of PA
+
+   // syncronization support
+   int shutdown_fd;   // eventfd to coordinate final shutdown
 } km_machine_t;
 
 extern km_machine_t machine;

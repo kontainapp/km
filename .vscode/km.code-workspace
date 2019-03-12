@@ -28,6 +28,7 @@
          "cpuid",
          "efer",
          "ehdr",
+         "eventfd",
          "getehdr",
          "hcalls",
          "hwcap",

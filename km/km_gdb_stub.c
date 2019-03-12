@@ -46,6 +46,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -59,7 +60,7 @@
 int g_gdb_port = 0;   // 0 means NO GDB
 
 static pthread_t gdbsrv_thread;
-static chan_t* gdb_chan;
+static int gdb_eventfd;
 static int socket_fd = 0;
 
 #define BUFMAX (16 * 1024)
@@ -157,9 +158,7 @@ static int gdb_wait_for_connect(const char* image_name)
    }
 
    warnx("Waiting for a debugger. Connect to it like this:");
-   warnx("\tgdb --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n",
-         g_gdb_port,
-         image_name);
+   warnx("\tgdb --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n", g_gdb_port, image_name);
 
    len = sizeof(client_addr);
    socket_fd = accept(listen_socket_fd, (struct sockaddr*)&client_addr, &len);
@@ -632,17 +631,17 @@ static void km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
  * When vcpu is running, we still want to listen to gdb ^C, in which case signal
  * vcpu thread to interrupt KVM_RUN.
  */
-static void* km_gdb_thread_entry(void* unused)
+static void* km_gdb_thread_entry(void* data)
 {
    int sig_fd = km_get_signalfd(GDBSTUB_SIGNAL);
-   km_vcpu_t* vcpu = km_main_vcpu();
+   km_vcpu_t* vcpu = (km_vcpu_t*)data;
    struct pollfd fds[] = {
        {.fd = socket_fd, .events = POLLIN | POLLERR},
        {.fd = sig_fd, .events = POLLIN | POLLERR | POLLRDHUP},
    };
 
    gdb_handle_payload_stop(vcpu, GDB_SIGFIRST);   // Talk to GDB first time, before any vCPU run
-   chan_send_int(vcpu->vcpu_chan, 1);             // Unblock main guest thread
+   eventfd_write(vcpu->eventfd, 1);               // Unblock main guest thread
    while (km_gdb_enabled()) {
       if (poll(fds, sizeof(fds) / sizeof(struct pollfd), -1 /* no timeout */) < 0) {
          err(1, "%s: poll failed.", __FUNCTION__);
@@ -655,10 +654,11 @@ static void* km_gdb_thread_entry(void* unused)
             err(1, "read signalfd failed");
          }
          assert(info.ssi_signo == GDBSTUB_SIGNAL);
-         chan_recv(gdb_chan, (void*)&vcpu);   // should get vcpu
+         eventfd_t unused;
+         eventfd_read(gdb_eventfd, &unused);
          km_infox("%s: poll and vcpu_run done, got vcpu* (%p)", __FUNCTION__, vcpu);
-         km_gdb_handle_kvm_exit(vcpu);        // give control to gdb
-         chan_send_int(vcpu->vcpu_chan, 1);   // Unblock main guest thread
+         km_gdb_handle_kvm_exit(vcpu);      // give control to gdb
+         eventfd_write(vcpu->eventfd, 1);   // Unblock main guest thread
          continue;
       }
       if (fds[0].revents) {   // gdb client wants ^c
@@ -680,7 +680,7 @@ void km_gdb_start_stub(int port, char* const payload_file)
 {
    assert(km_gdb_enabled());
    // First create all channels so the threads can communicate right away
-   if ((gdb_chan = chan_init(0)) == NULL) {
+   if ((gdb_eventfd = eventfd(0, 0)) == -1) {
       err(1, "Failed to create comm channel to talk to GDB threads");
    }
    km_infox("Enabling gdbserver on port %d...", port);
@@ -689,7 +689,7 @@ void km_gdb_start_stub(int port, char* const payload_file)
    }
 
    // TODO: think about 'attach' on signal - dynamically starting this thread
-   if (pthread_create(&gdbsrv_thread, NULL, km_gdb_thread_entry, NULL) != 0) {
+   if (pthread_create(&gdbsrv_thread, NULL, km_gdb_thread_entry, km_main_vcpu()) != 0) {
       err(1, "Failed to create GDB server thread ");
    }
 }
@@ -697,7 +697,7 @@ void km_gdb_start_stub(int port, char* const payload_file)
 void km_gdb_stop_stub(void)
 {
    pthread_join(gdbsrv_thread, NULL);
-   chan_dispose(gdb_chan);
+   close(gdb_eventfd);
 }
 
 /* closes the gdb socket and set port to 0 */
@@ -714,12 +714,13 @@ void km_gdb_disable(void)
 /* Called on vcpu thread and waits until GDB allows the next vcpu run */
 void km_gdb_prepare_for_run(km_vcpu_t* vcpu)
 {
-   int buf;
+   eventfd_t buf;
 
    assert(km_gdb_enabled());
    // wait for gbd loop to allow vcpu to run
-   chan_recv_int(vcpu->vcpu_chan, &buf);
-   km_infox("%s: vcpu_run unblocked (got %d from gdb)", __FUNCTION__, buf);
+   eventfd_read(vcpu->eventfd, &buf);
+
+   km_infox("%s: vcpu_run unblocked by gdb", __FUNCTION__);
 }
 
 /*
@@ -729,17 +730,13 @@ void km_gdb_prepare_for_run(km_vcpu_t* vcpu)
  */
 void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno)
 {
-   int unused;
+   eventfd_t unused;
 
    assert(km_gdb_enabled());
    km_reset_pending_signal(GDBSTUB_SIGNAL);
-   // Inform gdb thread that vcpu run is over
-   km_signal_gdb_about_kvm_exit();
-   km_infox("%s: KVM_RUN done. send(vcpu)->gdb_chan", __FUNCTION__);
-   // This will start stub interuction with GDB client:
-   chan_send(gdb_chan, (void*)vcpu);
-   km_infox("%s: vcpu sent. Waiting for 1/0 from gdb thread", __FUNCTION__);
-   // This will be unblocked when gdb stub wants vcpu cycle to resume:
-   chan_recv_int(vcpu->vcpu_chan, &unused);
-   km_infox("gdb handle_exception returned to vcpu thread");
+   km_signal_gdb_about_kvm_exit();   // Interrupt gdbstub waiting for ^C  (in case it was waiting)
+   eventfd_write(gdb_eventfd, 1);    // Tell gdbstub to start interacting with client
+   km_infox("%s: Waiting for gdb to allow vcpu %d to continue...", __FUNCTION__, vcpu->vcpu_id);
+   eventfd_read(vcpu->eventfd, &unused);   // Wait for gdb to allow this vcpu to continue
+   km_infox("%s: gdb signalled for this vcpu to continue", __FUNCTION__);
 }

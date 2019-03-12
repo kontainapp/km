@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/param.h>
@@ -32,15 +33,15 @@ km_machine_t machine = {
     .mach_fd = -1,
 };
 
-static chan_t* machine_chan;
-
 /*
- * km_machine_fini() will wait for signal on machine_chan to start tearing everything down. We
- * signal this channel when vpcu count drops to zero in km_vcpu_fini().
+ * km_machine_fini() will wait for read from eventfd to start tearing everything down.
+ * We write to this eventfd when vpcu count drops to zero in km_vcpu_fini().
  */
 void km_signal_machine_fini(void)
 {
-   chan_send(machine_chan, NULL);
+   if (eventfd_write(machine.shutdown_fd, 1) == -1) {
+      errx(2, "Failed to send machine_fini signal");
+   }
 }
 
 /*
@@ -50,9 +51,7 @@ void km_signal_machine_fini(void)
 void km_vcpu_fini(km_vcpu_t* vcpu)
 {
    km_pthread_fini(vcpu);
-   if (vcpu->vcpu_chan != NULL) {
-      chan_dispose(vcpu->vcpu_chan);
-   }
+   close(vcpu->eventfd);
    if (vcpu->cpu_run != NULL) {
       if (munmap(vcpu->cpu_run, machine.vm_run_size) != 0) {
          err(3, "munmap cpu_run for vcpu fd");
@@ -72,10 +71,10 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
  */
 void km_machine_fini(void)
 {
-   void* buf;
+   eventfd_t buf;
 
-   chan_recv(machine_chan, &buf);
-   chan_dispose(machine_chan);
+   eventfd_read(machine.shutdown_fd, &buf);
+   close(machine.shutdown_fd);
 
    assert(machine.vm_vcpu_run_cnt == 0);
 
@@ -160,8 +159,8 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       return -1;
    }
    if (km_gdb_enabled()) {
-      if ((vcpu->vcpu_chan = chan_init(0)) == NULL) {
-         warn("failed init gdb chan for vcpu %d", vcpu->vcpu_id);
+      if ((vcpu->eventfd = eventfd(0, 0)) == -1) {
+         warn("failed init gdb eventfd for vcpu %d", vcpu->vcpu_id);
          return -1;
       }
    }
@@ -276,7 +275,9 @@ void km_machine_init(void)
 {
    int rc;
 
-   machine_chan = chan_init(0);
+   if ((machine.shutdown_fd = eventfd(0, 0)) == -1) {
+      err(1, "KM: Failed to create machine shutdown_fd");
+   }
    if ((machine.kvm_fd = open("/dev/kvm", O_RDWR /* | O_CLOEXEC */)) < 0) {
       err(1, "KVM: Can't open /dev/kvm");
    }
