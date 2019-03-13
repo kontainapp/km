@@ -65,6 +65,27 @@ struct __attribute__((__packed__)) km_gdb_regs {
 #define GDBSTUB_SIGNAL SIGUSR2
 #define GDB_INTERRUPT_PKT 0x3   // aka ^C
 
+typedef struct gdbstub_info {
+   int port;                    // 0 means NO GDB
+   pthread_t thread;            // pthread in whicnh gdbstub is running
+   pthread_mutex_t vcpu_lock;   // used in coordination with multiple VCPUs
+   int sync_eventfd;            // notifications from VCPUs
+   int intr_eventfd;            // ^c from client
+   int sock_fd;                 // socket to communicate to gdb client
+} gdbstub_info_t;
+
+extern gdbstub_info_t gdbstub;
+
+static inline void km_gdb_enable(int port)
+{
+   gdbstub.port = port;
+}
+
+static inline int km_gdb_enabled(void)
+{
+   return gdbstub.port;
+}
+
 extern void km_gdb_disable(void);
 extern void km_gdb_start_stub(int port, char* const payload_file);
 extern void km_gdb_stop_stub(void);
@@ -72,11 +93,5 @@ extern void km_gdb_prepare_for_run(km_vcpu_t* vcpu);
 extern void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno);
 extern char* mem2hex(const unsigned char* mem, char* buf, size_t count);
 extern void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len);
-
-extern int g_gdb_port;
-static inline int km_gdb_enabled(void)
-{
-   return g_gdb_port;
-}
 
 #endif /* __KM_GDB_H__ */

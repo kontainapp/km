@@ -21,6 +21,7 @@
 #include <sys/param.h>
 
 #include "km.h"
+#include "km_gdb.h"
 #include "km_mem.h"
 
 km_payload_t km_guest;
@@ -85,11 +86,10 @@ static void load_extent(int fd, GElf_Phdr* phdr)
       if (phdr->p_flags & PF_X) {
          pr |= PROT_EXEC;
          {
-            // HACK - FIXME !!!
+            // TODO
             // when debugging, make sure all EXEC sections are
             // writable so sw breakpoints can be inserted
-            extern int g_gdb_port;
-            if (g_gdb_port) {
+            if (gdbstub.port) {
                pr |= PROT_WRITE;
             }
          }

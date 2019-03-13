@@ -50,8 +50,8 @@ int main(int argc, char* const argv[])
             wait_for_signal = true;
             break;
          case 'g':
-            g_gdb_port = atoi(optarg);
-            if (!g_gdb_port) {
+            gdbstub.port = atoi(optarg);
+            if (!gdbstub.port) {
                usage();
             }
             break;
@@ -81,7 +81,7 @@ int main(int argc, char* const argv[])
    }
 
    if (km_gdb_enabled()) {
-      km_gdb_start_stub(g_gdb_port, payload_file);
+      km_gdb_start_stub(gdbstub.port, payload_file);
    }
 
    if (wait_for_signal) {
