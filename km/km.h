@@ -14,7 +14,6 @@
 #define __KM_H__
 
 #include <err.h>
-#include <pthread.h>
 #include <stdint.h>
 #include <sys/param.h>
 #include <linux/kvm.h>

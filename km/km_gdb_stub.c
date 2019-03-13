@@ -60,7 +60,7 @@
 int g_gdb_port = 0;   // 0 means NO GDB
 
 static pthread_t gdbsrv_thread;
-static int gdb_eventfd;
+static int gdb_sync_eventfd;
 static int socket_fd = 0;
 
 #define BUFMAX (16 * 1024)
@@ -361,16 +361,7 @@ static void send_response(char code, int signum, bool wait_for_ack)
    }
 }
 
-/*
- * Convenience wrapper to signal gdb thread that kvm run is done.
- * This will make gdb stub exit from poll() for ^C
- */
-static void km_signal_gdb_about_kvm_exit(void)
-{
-   if (pthread_kill(gdbsrv_thread, GDBSTUB_SIGNAL) != 0) {
-      err(1, "Failed send guest completion signal to GDB");
-   }
-}
+static int gdb_intr_eventfd;
 
 /*
  * Convenience wrapper to signal vcpu thread that gdb stub got ^C from gdb client.
@@ -633,11 +624,12 @@ static void km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
  */
 static void* km_gdb_thread_entry(void* data)
 {
-   int sig_fd = km_get_signalfd(GDBSTUB_SIGNAL);
    km_vcpu_t* vcpu = (km_vcpu_t*)data;
+   gdb_intr_eventfd = eventfd(0, 0);
+
    struct pollfd fds[] = {
        {.fd = socket_fd, .events = POLLIN | POLLERR},
-       {.fd = sig_fd, .events = POLLIN | POLLERR | POLLRDHUP},
+       {.fd = gdb_intr_eventfd, .events = POLLIN | POLLERR | POLLRDHUP},
    };
 
    gdb_handle_payload_stop(vcpu, GDB_SIGFIRST);   // Talk to GDB first time, before any vCPU run
@@ -647,15 +639,10 @@ static void* km_gdb_thread_entry(void* data)
          err(1, "%s: poll failed.", __FUNCTION__);
       }
       if (fds[1].revents) {   // vcpu stopped, we need to look at it
-         struct signalfd_siginfo info;
-
-         int ret = read(fds[1].fd, &info, sizeof(info));
-         if (ret != sizeof(struct signalfd_siginfo)) {
-            err(1, "read signalfd failed");
-         }
-         assert(info.ssi_signo == GDBSTUB_SIGNAL);
          eventfd_t unused;
-         eventfd_read(gdb_eventfd, &unused);
+
+         eventfd_read(gdb_intr_eventfd, &unused);   // clear up event sent to stop ^C wait
+         eventfd_read(gdb_sync_eventfd, &unused);   // Now wait for vcpu to signal exit
          km_infox("%s: poll and vcpu_run done, got vcpu* (%p)", __FUNCTION__, vcpu);
          km_gdb_handle_kvm_exit(vcpu);      // give control to gdb
          eventfd_write(vcpu->eventfd, 1);   // Unblock main guest thread
@@ -680,7 +667,7 @@ void km_gdb_start_stub(int port, char* const payload_file)
 {
    assert(km_gdb_enabled());
    // First create all channels so the threads can communicate right away
-   if ((gdb_eventfd = eventfd(0, 0)) == -1) {
+   if ((gdb_sync_eventfd = eventfd(0, 0)) == -1) {
       err(1, "Failed to create comm channel to talk to GDB threads");
    }
    km_infox("Enabling gdbserver on port %d...", port);
@@ -697,7 +684,7 @@ void km_gdb_start_stub(int port, char* const payload_file)
 void km_gdb_stop_stub(void)
 {
    pthread_join(gdbsrv_thread, NULL);
-   close(gdb_eventfd);
+   close(gdb_sync_eventfd);
 }
 
 /* closes the gdb socket and set port to 0 */
@@ -734,8 +721,8 @@ void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno)
 
    assert(km_gdb_enabled());
    km_reset_pending_signal(GDBSTUB_SIGNAL);
-   km_signal_gdb_about_kvm_exit();   // Interrupt gdbstub waiting for ^C  (in case it was waiting)
-   eventfd_write(gdb_eventfd, 1);    // Tell gdbstub to start interacting with client
+   eventfd_write(gdb_intr_eventfd, 1);   // Interrupt gdbstub waiting for ^C  (in case it was waiting)
+   eventfd_write(gdb_sync_eventfd, 1);   // Tell gdbstub to start interacting with client
    km_infox("%s: Waiting for gdb to allow vcpu %d to continue...", __FUNCTION__, vcpu->vcpu_id);
    eventfd_read(vcpu->eventfd, &unused);   // Wait for gdb to allow this vcpu to continue
    km_infox("%s: gdb signalled for this vcpu to continue", __FUNCTION__);

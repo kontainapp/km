@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/signalfd.h>
 #include <linux/kvm.h>
 
 #include "km.h"
@@ -55,25 +54,6 @@ void km_vcpu_unblock_signal(km_vcpu_t* vcpu, int signum)
       err(1, "Failed to block signal %d on thread 0x%lx", signum, pthread_self());
    }
    free(sigmask);
-}
-
-/*
- * Construct and return signalfd for a signal, so we can
- * poll() on it. Also blocks the signal on the current thread
- * so it will be "pending" and thus delivered via socketfd.
- */
-int km_get_signalfd(int signum)
-{
-   sigset_t signal_set;
-   int fd;
-
-   sigemptyset(&signal_set);
-   sigaddset(&signal_set, signum);
-   pthread_sigmask(SIG_BLOCK, &signal_set, NULL);
-   if ((fd = signalfd(-1, &signal_set, SFD_NONBLOCK | SFD_CLOEXEC)) < 0) {
-      err(1, "Failed to get signalfd");
-   }
-   return fd;
 }
 
 /*
