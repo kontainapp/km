@@ -76,18 +76,28 @@ typedef struct gdbstub_info {
 
 extern gdbstub_info_t gdbstub;
 
-static inline void km_gdb_enable(int port)
-{
-   gdbstub.port = port;
-}
-
-static inline int km_gdb_enabled(void)
+static inline int km_gdb_port_get(void)
 {
    return gdbstub.port;
 }
 
+static inline void km_gdb_port_set(int port)
+{
+   gdbstub.port = port;
+}
+
+static inline void km_gdb_enable(int port)
+{
+   km_gdb_port_set(port);
+}
+
+static inline int km_gdb_is_enabled(void)
+{
+   return km_gdb_port_get() != 0 ? 1 : 0;
+}
+
 extern void km_gdb_disable(void);
-extern void km_gdb_start_stub(int port, char* const payload_file);
+extern void km_gdb_start_stub(char* const payload_file);
 extern void km_gdb_stop_stub(void);
 extern void km_gdb_prepare_for_run(km_vcpu_t* vcpu);
 extern void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno);

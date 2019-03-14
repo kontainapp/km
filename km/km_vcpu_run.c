@@ -137,7 +137,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
 static void km_vcpu_exit(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
 static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
 {
-   if (km_gdb_enabled()) {
+   if (km_gdb_is_enabled()) {
       vcpu->cpu_run->exit_reason = KVM_EXIT_HLT;
       km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
    }
@@ -148,7 +148,7 @@ static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
 static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
 static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
 {
-   if (km_gdb_enabled()) {
+   if (km_gdb_is_enabled()) {
       vcpu->cpu_run->exit_reason = KVM_EXIT_HLT;
       km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
    }
@@ -159,7 +159,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int status, hc;
 
-   if (km_gdb_enabled()) {
+   if (km_gdb_is_enabled()) {
       // unblock signal in the VM (and block on the current thead)
       km_vcpu_unblock_signal(vcpu, GDBSTUB_SIGNAL);
    }
@@ -212,7 +212,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_DEBUG:
          case KVM_EXIT_INTR:
          case KVM_EXIT_EXCEPTION:
-            if (km_gdb_enabled()) {
+            if (km_gdb_is_enabled()) {
                km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
             } else {
                run_errx(1, "KVM: cpu stopped with reason=%d", vcpu->cpu_run->exit_reason);
@@ -234,7 +234,7 @@ void* km_vcpu_run_main(void* unused)
     * Main vcpu in presence of gdb needs to pause before entering guest main() and wait for gdb
     * client connection. The client will control the execution by continue or step commands.
     */
-   if (km_gdb_enabled()) {
+   if (km_gdb_is_enabled()) {
       km_gdb_prepare_for_run(vcpu);
    }
    return km_vcpu_run(vcpu);   // and now go into the run loop

@@ -129,7 +129,7 @@ static int gdb_wait_for_connect(const char* image_name)
    socklen_t len;
    int opt = 1;
 
-   assert(km_gdb_enabled());
+   assert(km_gdb_is_enabled());
    listen_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
    if (listen_socket_fd == -1) {
       warn("Could not create socket");
@@ -141,7 +141,7 @@ static int gdb_wait_for_connect(const char* image_name)
    }
    server_addr.sin_family = AF_INET;
    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-   server_addr.sin_port = htons(gdbstub.port);
+   server_addr.sin_port = htons(km_gdb_port_get());
 
    if (bind(listen_socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
       warn("bind failed");
@@ -154,7 +154,9 @@ static int gdb_wait_for_connect(const char* image_name)
    }
 
    warnx("Waiting for a debugger. Connect to it like this:");
-   warnx("\tgdb --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n", gdbstub.port, image_name);
+   warnx("\tgdb --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n",
+         km_gdb_port_get(),
+         image_name);
 
    len = sizeof(client_addr);
    gdbstub.sock_fd = accept(listen_socket_fd, (struct sockaddr*)&client_addr, &len);
@@ -590,7 +592,7 @@ done:
  */
 static void km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
 {
-   assert(km_gdb_enabled());
+   assert(km_gdb_is_enabled());
    switch (vcpu->cpu_run->exit_reason) {
       case KVM_EXIT_HLT:
          send_response('W', 0, true);
@@ -628,7 +630,7 @@ static void* km_gdb_thread_entry(void* data)
 
    gdb_handle_payload_stop(vcpu, GDB_SIGFIRST);   // Talk to GDB first time, before any vCPU run
    eventfd_write(vcpu->eventfd, 1);               // Unblock main guest thread
-   while (km_gdb_enabled()) {
+   while (km_gdb_is_enabled()) {
       if (poll(fds, sizeof(fds) / sizeof(struct pollfd), -1 /* no timeout */) < 0) {
          err(1, "%s: poll failed.", __FUNCTION__);
       }
@@ -657,14 +659,14 @@ static void* km_gdb_thread_entry(void* data)
  * Start gdb stub - wait for GDB to connect and start a thread to manage interaction with gdb
  * client.
  */
-void km_gdb_start_stub(int port, char* const payload_file)
+void km_gdb_start_stub(char* const payload_file)
 {
-   assert(km_gdb_enabled());
+   assert(km_gdb_is_enabled());
    // First create all channels so the threads can communicate right away
    if ((gdbstub.sync_eventfd = eventfd(0, 0)) == -1) {
       err(1, "Failed to create comm channel to talk to GDB threads");
    }
-   km_infox("Enabling gdbserver on port %d...", port);
+   km_infox("Enabling gdbserver on port %d...", km_gdb_port_get());
    if (gdb_wait_for_connect(payload_file) == -1) {
       errx(1, "Failed to connect to GDB");
    }
@@ -689,7 +691,7 @@ void km_gdb_disable(void)
       gdbstub.sock_fd = -1;
    }
    warnx("Disabling gdb");
-   gdbstub.port = 0;
+   km_gdb_port_set(0);
 }
 
 /* Called on vcpu thread and waits until GDB allows the next vcpu run */
@@ -697,7 +699,7 @@ void km_gdb_prepare_for_run(km_vcpu_t* vcpu)
 {
    eventfd_t buf;
 
-   assert(km_gdb_enabled());
+   assert(km_gdb_is_enabled());
    // wait for gbd loop to allow vcpu to run
    eventfd_read(vcpu->eventfd, &buf);
 
@@ -713,7 +715,7 @@ void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno)
 {
    eventfd_t unused;
 
-   assert(km_gdb_enabled());
+   assert(km_gdb_is_enabled());
    km_reset_pending_signal(GDBSTUB_SIGNAL);
    eventfd_write(gdbstub.intr_eventfd,
                  1);   // Interrupt gdbstub waiting for ^C  (in case it was waiting)

@@ -86,10 +86,10 @@ static void load_extent(int fd, GElf_Phdr* phdr)
       if (phdr->p_flags & PF_X) {
          pr |= PROT_EXEC;
          {
-            // TODO
-            // when debugging, make sure all EXEC sections are
-            // writable so sw breakpoints can be inserted
-            if (gdbstub.port) {
+            // When debugging, make sure all EXEC sections are
+            // writable so sw breakpoints can be inserted.
+            // TODO - manage protection dynamically on set/clear breakpoints
+            if (km_gdb_is_enabled()) {
                pr |= PROT_WRITE;
             }
          }

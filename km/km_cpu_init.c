@@ -34,8 +34,8 @@ km_machine_t machine = {
 };
 
 /*
- * km_machine_fini() will wait for read from eventfd to start tearing everything down.
- * We write to this eventfd when vpcu count drops to zero in km_vcpu_fini().
+ * km_machine_fini() will wait for read from machine.shutdown_fd to start tearing
+ * everything down. We write to shutdown_fd when vpcu count drops to zero in km_vcpu_fini().
  */
 void km_signal_machine_fini(void)
 {
@@ -158,7 +158,7 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       warn("KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
       return -1;
    }
-   if (km_gdb_enabled()) {
+   if (km_gdb_is_enabled()) {
       if ((vcpu->eventfd = eventfd(0, 0)) == -1) {
          warn("failed init gdb eventfd for vcpu %d", vcpu->vcpu_id);
          return -1;

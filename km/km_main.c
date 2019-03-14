@@ -43,6 +43,7 @@ int main(int argc, char* const argv[])
    char* payload_file = NULL;
    bool wait_for_signal = false;
    km_vcpu_t* vcpu;
+   int port;
 
    while ((opt = getopt(argc, argv, "+wg:V")) != -1) {
       switch (opt) {
@@ -50,10 +51,10 @@ int main(int argc, char* const argv[])
             wait_for_signal = true;
             break;
          case 'g':
-            gdbstub.port = atoi(optarg);
-            if (!gdbstub.port) {
+            if ((port = atoi(optarg)) == 0) {
                usage();
             }
+            km_gdb_port_set(port);
             break;
          case 'V':
             g_km_info_verbose = 1;
@@ -80,8 +81,8 @@ int main(int argc, char* const argv[])
       err(1, "failed to set main vcpu to run");
    }
 
-   if (km_gdb_enabled()) {
-      km_gdb_start_stub(gdbstub.port, payload_file);
+   if (km_gdb_is_enabled()) {
+      km_gdb_start_stub(payload_file);
    }
 
    if (wait_for_signal) {
@@ -92,7 +93,7 @@ int main(int argc, char* const argv[])
    if (pthread_create(&km_main_vcpu()->vcpu_thread, NULL, km_vcpu_run_main, NULL) != 0) {
       err(2, "Failed to create main run_vcpu thread");
    }
-   if (km_gdb_enabled()) {
+   if (km_gdb_is_enabled()) {
       km_gdb_stop_stub();
    }
    km_machine_fini();
