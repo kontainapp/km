@@ -32,9 +32,9 @@ void subrun(char* msg)
    pthread_exit(0);
 }
 
-void run(char* msg)
+void* run(void* msg)
 {
-   for (long run_count = 0; run_count < 32; run_count++) {
+   for (long run_count = 0; run_count < 1024; run_count++) {
       pthread_t pt1, pt2;
 
       pthread_create(&pt1, NULL, (void* (*)(void*))subrun, (void*)brick_msg);
@@ -42,19 +42,19 @@ void run(char* msg)
       printf(" ... joined 0x%lx, %d\n", pt2, pthread_join(pt2, NULL));
       printf(" ... joined 0x%lx, %d\n", pt1, pthread_join(pt1, NULL));
    }
+   return NULL;
 }
 
 TEST nested_threads(void)
 {
    pthread_t pt1, pt2;
    int ret;
-   // void* thr_ret;
 
-   ret = pthread_create(&pt1, NULL, (void* (*)(void*))run, NULL);
+   ret = pthread_create(&pt1, NULL, run, NULL);
    // assert macro can use params more than once, so using separate <ret>
    ASSERT_EQ(0, ret);
    printf("started 0x%lx\n", pt1);
-   ret = pthread_create(&pt2, NULL, (void* (*)(void*))run, NULL);
+   ret = pthread_create(&pt2, NULL, run, NULL);
    ASSERT_EQ(0, ret);
    printf("started 0x%lx\n", pt2);
 
