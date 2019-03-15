@@ -54,7 +54,7 @@ int main(int argc, char** argv)
    }
    machine.guest_max_physmem = size_in_gb * GIB;
 
-   // TBD: get from km_mem_init
+   // TODO: get from km_mem_init
    machine.brk = GUEST_MEM_START_VA - 1;   // last allocated byte
    machine.tbrk = GUEST_MEM_TOP_VA;
    machine.guest_mid_physmem = machine.guest_max_physmem >> 1;

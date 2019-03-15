@@ -28,7 +28,7 @@ static const char* msg1 = "Hello, I am a loop ";
 void run_forever(void)
 {
    long volatile run_count = LONG_MAX;
-   const int step = 10000;
+   const int step = 200000000;   // brute force delay
 
    printf("run (almost) forever , count=%ld\n", run_count);
    // run until someone changes the 'run'. If run is <=0 on start, run forever

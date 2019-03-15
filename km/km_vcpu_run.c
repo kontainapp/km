@@ -30,7 +30,7 @@
 static void
 __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
 {
-   static const char fx[] = "VCPU %d, RIP 0x%0llx, RSP 0x%0llx: ";
+   static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx: ";
    int save_errno = errno;
    va_list args;
    kvm_regs_t regs;
@@ -59,7 +59,7 @@ static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu,
    static const char fx[] = "VCPU %d, RIP 0x%0llx, RSP 0x%0llx: ";
    va_list args;
    kvm_regs_t regs;
-   char fmt[strlen(f) + strlen(fx) + 2 * strlen("1234567890123456") + 10];
+   char fmt[strlen(f) + strlen(fx) + 2 * strlen("1234567890123456") + 64];
 
    va_start(args, f);
 
@@ -81,13 +81,51 @@ static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu,
 #define run_info(__f, ...)                                                                         \
    do {                                                                                            \
       if (g_km_info_verbose)                                                                       \
-         __run_warn(&vwarnx, vcpu, __f, ##__VA_ARGS__);                                            \
+         __run_warn(&vwarn, vcpu, __f, ##__VA_ARGS__);                                             \
    } while (0)
 #define run_infox(__f, ...)                                                                        \
    do {                                                                                            \
       if (g_km_info_verbose)                                                                       \
          __run_warn(&vwarnx, vcpu, __f, ##__VA_ARGS__);                                            \
    } while (0)
+
+static const char* kvm_reason_name(int reason)
+{
+#define __KVM_REASON_NAME(__var) #__var
+   static const char* const reasons[] = {
+       __KVM_REASON_NAME(KVM__EXIT_UNKNOWN),
+       __KVM_REASON_NAME(KVM__EXIT_EXCEPTION),
+       __KVM_REASON_NAME(KVM__EXIT_IO),
+       __KVM_REASON_NAME(KVM__EXIT_HYPERCALL),
+       __KVM_REASON_NAME(KVM__EXIT_DEBUG),
+       __KVM_REASON_NAME(KVM__EXIT_HLT),
+       __KVM_REASON_NAME(KVM__EXIT_MMIO),
+       __KVM_REASON_NAME(KVM__EXIT_IRQ_WINDOW_OPEN),
+       __KVM_REASON_NAME(KVM__EXIT_SHUTDOWN),
+       __KVM_REASON_NAME(KVM__EXIT_FAIL_ENTRY),
+       __KVM_REASON_NAME(KVM__EXIT_INTR),
+       __KVM_REASON_NAME(KVM__EXIT_SET_TPR),
+       __KVM_REASON_NAME(KVM__EXIT_TPR_ACCESS),
+       __KVM_REASON_NAME(KVM__EXIT_S390_SIEIC),
+       __KVM_REASON_NAME(KVM__EXIT_S390_RESET),
+       __KVM_REASON_NAME(KVM__EXIT_DCR), /* deprecated */
+       __KVM_REASON_NAME(KVM__EXIT_NMI),
+       __KVM_REASON_NAME(KVM__EXIT_INTERNAL_ERROR),
+       __KVM_REASON_NAME(KVM__EXIT_OSI),
+       __KVM_REASON_NAME(KVM__EXIT_PAPR_HCALL),
+       __KVM_REASON_NAME(KVM__EXIT_S390_UCONTROL),
+       __KVM_REASON_NAME(KVM__EXIT_WATCHDOG),
+       __KVM_REASON_NAME(KVM__EXIT_S390_TSCH),
+       __KVM_REASON_NAME(KVM__EXIT_EPR),
+       __KVM_REASON_NAME(KVM__EXIT_SYSTEM_EVENT),
+       __KVM_REASON_NAME(KVM__EXIT_S390_STSI),
+       __KVM_REASON_NAME(KVM__EXIT_IOAPIC_EOI),
+       __KVM_REASON_NAME(KVM__EXIT_HYPERV),
+   };
+#undef __KVM_REASON_NAME
+
+   return reason < sizeof(reasons) / sizeof(*reasons[0]) ? reasons[reason] : "No such reason";
+}
 
 /*
  * return non-zero and set status if guest halted
@@ -159,21 +197,22 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int status, hc;
 
-   if (km_gdb_is_enabled()) {
-      // unblock signal in the VM (and block on the current thead)
-      km_vcpu_unblock_signal(vcpu, GDBSTUB_SIGNAL);
-   }
    while (1) {
+      vcpu->cpu_run->immediate_exit = 0;   // reset in case it was changed by a signal handler
       if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) < 0) {
-         run_info("ioctl exit with errno");
+         run_info("ioctl exit with reason %d (%s) errno %d",
+                  vcpu->cpu_run->exit_reason,
+                  kvm_reason_name(vcpu->cpu_run->exit_reason),
+                  errno);
          if (errno == EAGAIN) {
             continue;
          }
          if (errno != EINTR) {
-            run_err(1, "KVM: vcpu run failed");
+            run_err(1, "KVM: vcpu run failed with errno %d", errno);
          }
       }
-      switch (vcpu->cpu_run->exit_reason) {
+      int reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
+      switch (reason) {
          case KVM_EXIT_IO: /* Hypercall */
             switch (hypercall(vcpu, &hc, &status)) {
                case HC_CONTINUE:
@@ -184,7 +223,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                   km_vcpu_exit(vcpu, status);
 
                case HC_ALLSTOP:
-                  run_infox("KVM: hypercall %d stop, status 0x%x", hc, status);
+                  run_infox("KVM: hypercall %d allstop, status 0x%x", hc, status);
                   km_vcpu_exit_all(vcpu, status);
             }
             break;   // exit_reason, case KVM_EXIT_IO
@@ -215,12 +254,13 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             if (km_gdb_is_enabled()) {
                km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
             } else {
-               run_errx(1, "KVM: cpu stopped with reason=%d", vcpu->cpu_run->exit_reason);
+               warn("KVM: cpu %d stopped. reason=%d (%s)", vcpu->vcpu_id, reason, kvm_reason_name(reason));
+               return NULL;
             }
             break;
 
          default:
-            run_errx(1, "KVM: exit 0x%lx", vcpu->cpu_run->exit_reason);
+            run_errx(1, "KVM: exit. reason=%d (%s)", vcpu->vcpu_id, reason, kvm_reason_name(reason));
             break;
       }
    }

@@ -71,7 +71,7 @@ See ../tests/Makefile. This one is work in progress and will change to be more g
 
 ## CI/CD
 
-TBD (does not exist yet)
+TODO (does not exist yet)
 
 ## Source layout
 

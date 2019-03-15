@@ -73,8 +73,9 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
 void km_machine_fini(void)
 {
    eventfd_t buf;
-
-   eventfd_read(machine.shutdown_fd, &buf);
+   int ret;
+   while ((ret = eventfd_read(machine.shutdown_fd, &buf)) == -1 && errno == EINTR)
+      ;
    close(machine.shutdown_fd);
 
    assert(machine.vm_vcpu_run_cnt == 0);
@@ -217,6 +218,45 @@ km_vcpu_t* km_vcpu_get(void)
    __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
    free(new);
    return NULL;
+}
+
+/* Apply callback for each active VCPU, when they are not running.
+ * Returns 0 or number of failures.
+ */
+int km_vcpu_apply(km_vcpu_apply_cb func)
+{
+   int failures = 0;
+   int ret;
+
+   km_gdb_vcpu_lock();
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      // TODO vcpu coming and going at this point would be a pain
+      if (machine.vm_vcpus[i] == NULL || machine.vm_vcpus[i]->is_used == 0) {
+         continue;
+      }
+      if ((ret = (*func)(machine.vm_vcpus[i])) != 0) {
+         warnx("km_vcpu_apply: func %p failed \n", func);
+         failures++;
+      }
+   }
+   km_gdb_vcpu_unlock();
+   return failures;
+}
+
+// apply a function to VCPU with the given thread_id. Return func() ret or -1 for failure to find
+// Since it applied to the pthread_self(), we do not need to lock the vcpu lists
+int km_vcpu_apply_self(km_vcpu_apply_cb func)
+{
+   pthread_t tid = pthread_self();
+
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      km_vcpu_t* vcpu = machine.vm_vcpus[i];
+      if (vcpu != NULL && vcpu->vcpu_thread == tid) {
+         return func(vcpu);
+      }
+   }
+   assert("km_vcpu_apply_self failed to find itself" == NULL);
+   return 1;   // notreached
 }
 
 /*

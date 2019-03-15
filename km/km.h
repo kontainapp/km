@@ -121,6 +121,10 @@ km_vcpu_t* km_vcpu_get(void);
 void km_vcpu_put(km_vcpu_t* vcpu);
 int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread);
 
+typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu);   // return 0 if all is good
+extern int km_vcpu_apply(km_vcpu_apply_cb func);
+extern int km_vcpu_apply_self(km_vcpu_apply_cb func);
+
 /*
  * To check for success/failure from plain system calls and similar logic, returns -1 if fail.
  * *NOT* to be used for actual syscall wrapper as it doesn't set errno.

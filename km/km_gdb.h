@@ -62,14 +62,13 @@ struct __attribute__((__packed__)) km_gdb_regs {
    uint32_t fctrl, fstat, ftag, fiseg, fioff, foseg, fooff, fop;
 };
 
-#define GDBSTUB_SIGNAL SIGUSR2
 #define GDB_INTERRUPT_PKT 0x3   // aka ^C
 
 typedef struct gdbstub_info {
    int port;                    // 0 means NO GDB
-   pthread_t thread;            // pthread in whicnh gdbstub is running
+   pthread_t thread;            // pthread in which gdbstub is running
    pthread_mutex_t vcpu_lock;   // used in coordination with multiple VCPUs
-   int sync_eventfd;            // notifications from VCPUs
+   int sync_eventfd;            // notifications from VCPUs about KVM exits
    int intr_eventfd;            // ^c from client
    int sock_fd;                 // socket to communicate to gdb client
 } gdbstub_info_t;
@@ -94,6 +93,20 @@ static inline void km_gdb_enable(int port)
 static inline int km_gdb_is_enabled(void)
 {
    return km_gdb_port_get() != 0 ? 1 : 0;
+}
+
+static inline void km_gdb_vcpu_lock(void)
+{
+   if (km_gdb_is_enabled()) {
+      pthread_mutex_lock(&gdbstub.vcpu_lock);
+   }
+}
+
+static inline void km_gdb_vcpu_unlock(void)
+{
+   if (km_gdb_is_enabled()) {
+      pthread_mutex_unlock(&gdbstub.vcpu_lock);
+   }
 }
 
 extern void km_gdb_disable(void);

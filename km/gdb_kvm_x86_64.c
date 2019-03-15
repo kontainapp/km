@@ -110,7 +110,7 @@ static int kvm_arch_remove_sw_breakpoint(km_vcpu_t* vcpu, struct breakpoint_t* b
  *  TODO: this function needs to be written from scratch based on Intel SDK (D6/D7) and KVM API doc
  *  this function is taken by Solo5 from GPLd QEMU source code, target/i386/kvm.c
  */
-static int km_gdb_update_guest_debug(km_vcpu_t* vcpu)
+static int _km_gdb_update_one_guest_debug(km_vcpu_t* vcpu)
 {
    struct kvm_guest_debug dbg = {0};
    struct breakpoint_t* bp;
@@ -122,7 +122,8 @@ static int km_gdb_update_guest_debug(km_vcpu_t* vcpu)
        /* Break on data reads only. */
        [GDB_WATCHPOINT_READ] = 0x2,
        /* Break on data reads or writes but not instruction fetches. */
-       [GDB_WATCHPOINT_ACCESS] = 0x3};
+       [GDB_WATCHPOINT_ACCESS] = 0x3,
+   };
    static const uint8_t len_code[] = {
        [1] = 0x0,   // 00 — 1-byte length.
        [2] = 0x1,   // 01 — 2-byte length.
@@ -163,6 +164,16 @@ static int km_gdb_update_guest_debug(km_vcpu_t* vcpu)
       return -1;
    }
 
+   return 0;
+}
+
+static int km_gdb_update_guest_debug(km_vcpu_t* unused)
+{
+   int count;
+   if ((count = km_vcpu_apply(_km_gdb_update_one_guest_debug)) != 0) {
+      warnx("WOW, failed some vcpu_apply for gdb update");
+      return -1;
+   }
    return 0;
 }
 

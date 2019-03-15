@@ -16,9 +16,8 @@
 #include <sys/signalfd.h>
 #include "km.h"
 
-extern void km_vcpu_unblock_signal(km_vcpu_t* vcpu, int signal);
-extern int km_get_signalfd(int signal);
 extern void km_wait_for_signal(int sig);
-extern void km_reset_pending_signal(int signal);
-
+extern void km_block_signal(int signum);
+typedef void (*sa_handler_t)(int);
+extern void km_install_sighandler(int signum, sa_handler_t hander_func);
 #endif /* __KM_SIGNAL_H__ */
