@@ -57,20 +57,13 @@
 #include "km_mem.h"
 #include "km_signal.h"
 
-// Signal used for signalling vcpu thread to force KVM exit
-#define KM_SIGVCPUSTOP SIGUSR2
-
-// GDB global info
-gdbstub_info_t gdbstub;
-
-// buffer for gdb protocol
-#define BUFMAX (16 * 1024)
+gdbstub_info_t gdbstub;          // GDB global info
+#define KM_SIGVCPUSTOP SIGUSR2   //  Used for signalling vcpu thread to force KVM exit
+#define BUFMAX (16 * 1024)       // buffer for gdb protocol
 static char in_buffer[BUFMAX];   // TODO: malloc/free these two
 static unsigned char registers[BUFMAX];
 
-/* The actual error code is ignored by GDB, so any number will do. */
-#define GDB_ERROR_MSG "E01"
-
+#define GDB_ERROR_MSG "E01"   // The actual error code is ignored by GDB, so any number will do
 static const char hexchars[] = "0123456789abcdef";
 
 static int hex(unsigned char ch)
@@ -371,7 +364,7 @@ static void send_response(char code, int signum, bool wait_for_ack)
 static int km_vcpu_force_exit(km_vcpu_t* vcpu)
 {
    if (pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP) != 0) {
-      err(1, "GDB failed to send signal to guest to stop it");
+      warn("%s: gdb has failed to signal guest about stopping vCPU %d", __FUNCTION__, vcpu->vcpu_id);
    }
    return 0;
 }
@@ -633,9 +626,13 @@ static void km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
    return;
 }
 
+// returns 0 on success and 1 on failure. Failures just counted by upstairs for reporting
 static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu)
 {
-   return eventfd_write(vcpu->eventfd, 1) == 0 ? 0 : 1;   // Unblock main guest thread
+   int ret;
+   while ((ret = eventfd_write(vcpu->eventfd, 1) == -1 && errno == EINTR))
+      ;
+   return ret == 0 ? 0 : 1;   // Unblock main guest thread
 }
 
 /*
@@ -667,7 +664,7 @@ static void* km_gdb_thread_entry(void* data)
          }
          km_infox("%s: poll and vcpu_run done, got vcpu* (%p)", __FUNCTION__, vcpu);
          km_gdb_handle_kvm_exit(vcpu);   // give control to gdb
-         km_vcpu_apply(km_gdb_vcpu_continue);
+         km_vcpu_apply_all(km_gdb_vcpu_continue);
          continue;
       }
       if (fds[0].revents) {   // gdb client wants ^c
@@ -679,7 +676,7 @@ static void* km_gdb_thread_entry(void* data)
             return NULL;
          }
          assert(errno == EINTR || ch == GDB_INTERRUPT_PKT);
-         km_vcpu_apply(km_vcpu_force_exit);
+         km_vcpu_apply_all(km_vcpu_force_exit);
          continue;
       }
    }
@@ -730,7 +727,7 @@ void km_gdb_disable(void)
    km_gdb_port_set(0);
 }
 
-/* Called on vcpu thread and waits until GDB allows the next vcpu run */
+/* Called on vcpu thread and waits until GDB allows the vcpu to continue running */
 void km_gdb_prepare_for_run(km_vcpu_t* vcpu)
 {
    eventfd_t buf;

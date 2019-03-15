@@ -95,14 +95,14 @@ static inline int km_gdb_is_enabled(void)
    return km_gdb_port_get() != 0 ? 1 : 0;
 }
 
-static inline void km_gdb_vcpu_lock(void)
+static inline void km_gdb_pthread_block(void)
 {
    if (km_gdb_is_enabled()) {
       pthread_mutex_lock(&gdbstub.vcpu_lock);
    }
 }
 
-static inline void km_gdb_vcpu_unlock(void)
+static inline void km_gdb_pthread_unblock(void)
 {
    if (km_gdb_is_enabled()) {
       pthread_mutex_unlock(&gdbstub.vcpu_lock);

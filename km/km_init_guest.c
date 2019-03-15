@@ -317,20 +317,20 @@ int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_
    km_vcpu_t* vcpu;
    int rc;
 
-   km_gdb_vcpu_lock();   // when in GDB, protect vcpu list scans from new vcpus
+   km_gdb_pthread_block();   // when in GDB, protect vcpu list scans from new vcpus
    if ((vcpu = km_vcpu_get()) == NULL) {
-      km_gdb_vcpu_unlock();
+      km_gdb_pthread_unblock();
       return -EAGAIN;
    }
    if ((pt = km_pthread_init(attr, vcpu, start, args)) == 0) {
       km_vcpu_put(vcpu);
-      km_gdb_vcpu_unlock();
+      km_gdb_pthread_unblock();
       return -EAGAIN;
    }
    if ((rc = km_vcpu_set_to_run(vcpu, 0)) < 0) {
       km_pthread_fini(vcpu);
       km_vcpu_put(vcpu);
-      km_gdb_vcpu_unlock();
+      km_gdb_pthread_unblock();
       return -EAGAIN;
    }
 
@@ -346,7 +346,7 @@ int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_
    if (pid != NULL) {
       *pid = vcpu->vcpu_id;
    }
-   km_gdb_vcpu_unlock();
+   km_gdb_pthread_unblock();
    return rc;
 }
 
