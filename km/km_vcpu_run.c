@@ -91,40 +91,41 @@ static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu,
 
 static const char* kvm_reason_name(int reason)
 {
-#define __KVM_REASON_NAME(__var) #__var
-   static const char* const reasons[] = {
-       __KVM_REASON_NAME(KVM__EXIT_UNKNOWN),
-       __KVM_REASON_NAME(KVM__EXIT_EXCEPTION),
-       __KVM_REASON_NAME(KVM__EXIT_IO),
-       __KVM_REASON_NAME(KVM__EXIT_HYPERCALL),
-       __KVM_REASON_NAME(KVM__EXIT_DEBUG),
-       __KVM_REASON_NAME(KVM__EXIT_HLT),
-       __KVM_REASON_NAME(KVM__EXIT_MMIO),
-       __KVM_REASON_NAME(KVM__EXIT_IRQ_WINDOW_OPEN),
-       __KVM_REASON_NAME(KVM__EXIT_SHUTDOWN),
-       __KVM_REASON_NAME(KVM__EXIT_FAIL_ENTRY),
-       __KVM_REASON_NAME(KVM__EXIT_INTR),
-       __KVM_REASON_NAME(KVM__EXIT_SET_TPR),
-       __KVM_REASON_NAME(KVM__EXIT_TPR_ACCESS),
-       __KVM_REASON_NAME(KVM__EXIT_S390_SIEIC),
-       __KVM_REASON_NAME(KVM__EXIT_S390_RESET),
-       __KVM_REASON_NAME(KVM__EXIT_DCR), /* deprecated */
-       __KVM_REASON_NAME(KVM__EXIT_NMI),
-       __KVM_REASON_NAME(KVM__EXIT_INTERNAL_ERROR),
-       __KVM_REASON_NAME(KVM__EXIT_OSI),
-       __KVM_REASON_NAME(KVM__EXIT_PAPR_HCALL),
-       __KVM_REASON_NAME(KVM__EXIT_S390_UCONTROL),
-       __KVM_REASON_NAME(KVM__EXIT_WATCHDOG),
-       __KVM_REASON_NAME(KVM__EXIT_S390_TSCH),
-       __KVM_REASON_NAME(KVM__EXIT_EPR),
-       __KVM_REASON_NAME(KVM__EXIT_SYSTEM_EVENT),
-       __KVM_REASON_NAME(KVM__EXIT_S390_STSI),
-       __KVM_REASON_NAME(KVM__EXIT_IOAPIC_EOI),
-       __KVM_REASON_NAME(KVM__EXIT_HYPERV),
+#define __KVM_REASON_MAX (KVM_EXIT_HYPERV + 1)   // this is the current max
+#define __KVM_REASON_NAME(__r) [__r] = #__r
+   static const char* const reasons[__KVM_REASON_MAX] = {
+       __KVM_REASON_NAME(KVM_EXIT_UNKNOWN),
+       __KVM_REASON_NAME(KVM_EXIT_EXCEPTION),
+       __KVM_REASON_NAME(KVM_EXIT_IO),
+       __KVM_REASON_NAME(KVM_EXIT_HYPERCALL),
+       __KVM_REASON_NAME(KVM_EXIT_DEBUG),
+       __KVM_REASON_NAME(KVM_EXIT_HLT),
+       __KVM_REASON_NAME(KVM_EXIT_MMIO),
+       __KVM_REASON_NAME(KVM_EXIT_IRQ_WINDOW_OPEN),
+       __KVM_REASON_NAME(KVM_EXIT_SHUTDOWN),
+       __KVM_REASON_NAME(KVM_EXIT_FAIL_ENTRY),
+       __KVM_REASON_NAME(KVM_EXIT_INTR),
+       __KVM_REASON_NAME(KVM_EXIT_SET_TPR),
+       __KVM_REASON_NAME(KVM_EXIT_TPR_ACCESS),
+       __KVM_REASON_NAME(KVM_EXIT_S390_SIEIC),
+       __KVM_REASON_NAME(KVM_EXIT_S390_RESET),
+       __KVM_REASON_NAME(KVM_EXIT_DCR), /* deprecated */
+       __KVM_REASON_NAME(KVM_EXIT_NMI),
+       __KVM_REASON_NAME(KVM_EXIT_INTERNAL_ERROR),
+       __KVM_REASON_NAME(KVM_EXIT_OSI),
+       __KVM_REASON_NAME(KVM_EXIT_PAPR_HCALL),
+       __KVM_REASON_NAME(KVM_EXIT_S390_UCONTROL),
+       __KVM_REASON_NAME(KVM_EXIT_WATCHDOG),
+       __KVM_REASON_NAME(KVM_EXIT_S390_TSCH),
+       __KVM_REASON_NAME(KVM_EXIT_EPR),
+       __KVM_REASON_NAME(KVM_EXIT_SYSTEM_EVENT),
+       __KVM_REASON_NAME(KVM_EXIT_S390_STSI),
+       __KVM_REASON_NAME(KVM_EXIT_IOAPIC_EOI),
+       __KVM_REASON_NAME(KVM_EXIT_HYPERV),
    };
 #undef __KVM_REASON_NAME
 
-   return reason < sizeof(reasons) / sizeof(*reasons[0]) ? reasons[reason] : "No such reason";
+   return reason <= __KVM_REASON_MAX ? reasons[reason] : "No such reason";
 }
 
 /*

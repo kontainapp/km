@@ -34,6 +34,11 @@ KM="timeout -v --foreground $timeout ${KM_BIN}"
 # this is needed for running in Docker - bats uses 'tput' so it needs the TERM
 TERM=xterm
 
+bus_width() {
+   #  use KM to print out physical memory width on the test machine
+   echo $(${KM} -V exit_value_test.km 2>& 1 | awk '/physical memory width/ {print $6;}')
+}
+
 # Teardown for each test. Note that printing to stdout/stderr in this function
 # only shows up on errors. For print on success too, redirect to >&3
 teardown() {
@@ -78,9 +83,11 @@ teardown() {
 }
 
 @test "mem_brk: brk() call" {
+   # we expect 2 group of tests fail due to ENOMEM on 36 bit buses
+   if [ $(bus_width) -eq 36 ] ; then expected_status=2 ; else  expected_status=0; fi
    sudo sysctl -w vm.overcommit_memory=1
    run $KM brk_test.km
-   [ $status -eq 0 ]
+   [ $status -eq $expected_status ]
    sudo sysctl -w vm.overcommit_memory=0
 }
 
@@ -113,10 +120,8 @@ teardown() {
 }
 
 @test "mem_mmap0: mmap and munmap with addr=0" {
-   expected_status=0
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
-   bus_width=$(${KM} -V exit_value_test.km 2>& 1 | awk '/physical memory width/ {print $6;}')
-   if [ $bus_width -eq 36 ] ; then expected_status=1 ; fi
+   if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
    run $KM mmap_test.km
    [ $status -eq $expected_status ]

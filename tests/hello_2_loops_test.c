@@ -20,7 +20,7 @@
 
 static const char* brick_msg = "brick in the wall ";
 static const char* dust_msg = "one bites the dust";
-const long step = 2ul;
+const long step = 1ul;
 
 void subrun(char* msg)
 {
