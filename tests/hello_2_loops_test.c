@@ -26,7 +26,7 @@ void subrun(char* msg)
 {
    for (long run_count = 0; run_count < step; run_count++) {
       if (run_count % step == 0) {
-         printf("Another %s # %ld (%ld)\n", msg, run_count / step, run_count);
+         printf("Another %s # %ld of %ld, thr=0x%lx\n", msg, run_count / step, run_count, pthread_self());
       }
    }
    pthread_exit(0);
@@ -39,8 +39,14 @@ void* run(void* msg)
 
       pthread_create(&pt1, NULL, (void* (*)(void*))subrun, (void*)brick_msg);
       pthread_create(&pt2, NULL, (void* (*)(void*))subrun, (void*)dust_msg);
-      printf(" ... joined 0x%lx, %d\n", pt2, pthread_join(pt2, NULL));
-      printf(" ... joined 0x%lx, %d\n", pt1, pthread_join(pt1, NULL));
+      pthread_join(pt2, NULL);
+      if (greatest_get_verbosity() != 0) {
+         printf(" ... joined 0x%lx\n", pt2);
+      }
+      pthread_join(pt1, NULL);
+      if (greatest_get_verbosity() != 0) {
+         printf(" ... joined 0x%lx\n", pt1);
+      }
    }
    return NULL;
 }
@@ -53,18 +59,33 @@ TEST nested_threads(void)
    ret = pthread_create(&pt1, NULL, run, NULL);
    // assert macro can use params more than once, so using separate <ret>
    ASSERT_EQ(0, ret);
-   printf("started 0x%lx\n", pt1);
+   if (greatest_get_verbosity() != 0) {
+      printf("started 0x%lx\n", pt1);
+   }
+
    ret = pthread_create(&pt2, NULL, run, NULL);
    ASSERT_EQ(0, ret);
-   printf("started 0x%lx\n", pt2);
+   if (greatest_get_verbosity() != 0) {
+      printf("started 0x%lx\n", pt2);
+   }
 
-   printf("joining 0x%lx ... \n", pt1);
+   if (greatest_get_verbosity() != 0) {
+      printf("joining 0x%lx ... \n", pt1);
+   }
+   ret = pthread_join(pt1, NULL);
    ASSERT_EQ(ret, 0);
-   printf("joined 0x%lx, %d\n", pt1, ret = pthread_join(pt1, NULL));
+   if (greatest_get_verbosity() != 0) {
+      printf("joined 0x%lx, %d\n", pt1, ret);
+   }
 
-   printf("joining 0x%lx ... \n", pt2);
-   printf("joined 0x%lx, %d\n", pt2, ret = pthread_join(pt2, NULL));
+   if (greatest_get_verbosity() != 0) {
+      printf("joining 0x%lx ... \n", pt2);
+   }
+   ret = pthread_join(pt2, NULL);
    ASSERT_EQ(ret, 0);
+   if (greatest_get_verbosity() != 0) {
+      printf("joined 0x%lx, %d\n", pt2, ret);
+   }
 
    PASS();
 }
@@ -74,12 +95,12 @@ GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
 {
-   GREATEST_MAIN_BEGIN();       // init & parse command-line args
-   greatest_set_verbosity(1);   // needed if we want to pass through | greatest/contrib/greenest,
-                                // especially from KM payload
+   GREATEST_MAIN_BEGIN();   // init & parse command-line args
+   // greatest_set_verbosity(1);
+
    /* Tests can  be run as suites, or directly. Lets run directly. */
    RUN_TEST(nested_threads);
 
-   GREATEST_MAIN_END();           // display results
+   GREATEST_PRINT_REPORT();
    return greatest_info.failed;   // return count of errors (or 0 if all is good)
 }

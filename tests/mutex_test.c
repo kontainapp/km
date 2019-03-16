@@ -99,6 +99,6 @@ int main(int argc, char** argv)
    RUN_TEST(basic_create);
    RUN_TEST(run_and_check);
 
-   GREATEST_MAIN_END();           // display results
+   GREATEST_PRINT_REPORT();
    return greatest_info.failed;   // return count of errors (or 0 if all is good)
 }

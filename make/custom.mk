@@ -11,5 +11,5 @@
 # customizable build parameters
 
 # default optimization flag
-COPTS ?= -O0
+COPTS ?= -O2
 # LDOPTS ?= -static

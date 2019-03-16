@@ -77,13 +77,11 @@ void km_machine_fini(void)
    while ((ret = eventfd_read(machine.shutdown_fd, &buf)) == -1 && errno == EINTR)
       ;
    close(machine.shutdown_fd);
-
    assert(machine.vm_vcpu_run_cnt == 0);
-
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      km_vcpu_t* vcpu = machine.vm_vcpus[i];
+      km_vcpu_t* vcpu;
 
-      if (vcpu != NULL) {
+      if ((vcpu = machine.vm_vcpus[i]) != NULL) {
          km_vcpu_fini(vcpu);
       }
    }
@@ -219,45 +217,67 @@ km_vcpu_t* km_vcpu_get(void)
 }
 
 /*
- * Apply callback for each active VCPU, when they are not running.
- * Returns 0 or number of failures.
+ * Apply callback for each used VCPU.
+ * Returns a sum of returned from func() - i.e. 0 if all return 0.
+ *
+ * Note: may skip VCPus if vcpu_get() was called on a different thread during the apply_all op
  */
-int km_vcpu_apply_all(km_vcpu_apply_cb func)
+int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data)
 {
-   int failures = 0;
-   int ret;
+   int ret, i, total;
 
-   km_gdb_pthread_block();   // blocks new pthreads from being created thus we don't need wider locks
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      if (machine.vm_vcpus[i] == NULL || machine.vm_vcpus[i]->is_used == 0) {
-         continue;
+   for (i = 0, total = 0; i < KVM_MAX_VCPUS; i++) {
+      km_vcpu_t* vcpu;
+
+      if ((vcpu = machine.vm_vcpus[i]) == NULL) {
+         break;   // since we allocate vcpus sequentially, no reason to scan after NULL
       }
-      if ((ret = (*func)(machine.vm_vcpus[i])) != 0) {
-         warnx("km_vcpu_apply_all: func %p failed \n", func);
-         failures++;
+      if (vcpu->is_used == 1 && (ret = (*func)(vcpu, data)) != 0) {
+         km_infox("km_vcpu_apply_all: func %p returned %d for vcpu %d", func, ret, vcpu->vcpu_id);
+         total += ret;
       }
    }
-   km_gdb_pthread_unblock();
-   return failures;
+   return total;
+}
+
+static int km_vcpu_check_running(km_vcpu_t* vcpu, void* unused)
+{
+   return vcpu->is_paused == 0;
+}
+
+void km_vcpu_wait_for_all_to_pause(void)
+{
+   int count;
+   while ((count = km_vcpu_apply_all(km_vcpu_check_running, 0)) != 0) {
+      // Wait for vcpus to exit from KVM. No need for speed here so can do busy wait.
+      static const struct timespec req = {
+          .tv_sec = 0, .tv_nsec = 10000000, /* 10 millisec */
+      };
+      km_infox("Still %d vcpus running", count);
+      nanosleep(&req, NULL);
+   }
+   machine.pause_requested = 0;
 }
 
 /*
- * Apply a function to VCPU with the given thread_id.
- * Return func() ret or -1 for failure to find
- * Since it applied to the pthread_self(), we do not need to lock the vcpu lists
+ * Convenience wrapper to force KVM exit by setting immediate exit flag
+ * and then sending a signal to vcpu thread. The thread signal handler can be a noop, just need to
+ * exist.
  */
-int km_vcpu_apply_self(km_vcpu_apply_cb func)
+int km_vcpu_pause(km_vcpu_t* vcpu, void* unused)
 {
-   pthread_t tid = pthread_self();
-
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      km_vcpu_t* vcpu = machine.vm_vcpus[i];
-      if (vcpu != NULL && vcpu->vcpu_thread == tid) {
-         return func(vcpu);
-      }
+   int ret;
+   if (vcpu->is_paused == 1 || vcpu->vcpu_thread == 0) {   // already paused or not started yet
+      km_infox("VCPU %d skipped (p=%d thr=0x%lx)", vcpu->vcpu_id, vcpu->is_paused, vcpu->vcpu_thread);
+      return 0;
    }
-   assert("km_vcpu_apply_self failed to find itself" == NULL);
-   return 1;   // notreached
+   vcpu->cpu_run->immediate_exit = 1;
+   if ((ret = pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP)) != 0) {
+      warn("%s: Failed to send stop to vCPU %d (errno %d)", __FUNCTION__, vcpu->vcpu_id, ret);
+      return 1;
+   }
+   km_infox("VCPU %d signalled to pause", vcpu->vcpu_id);
+   return 0;
 }
 
 /*

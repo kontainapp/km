@@ -39,12 +39,14 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <poll.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
@@ -58,7 +60,6 @@
 #include "km_signal.h"
 
 gdbstub_info_t gdbstub;          // GDB global info
-#define KM_SIGVCPUSTOP SIGUSR2   //  Used for signalling vcpu thread to force KVM exit
 #define BUFMAX (16 * 1024)       // buffer for gdb protocol
 static char in_buffer[BUFMAX];   // TODO: malloc/free these two
 static unsigned char registers[BUFMAX];
@@ -357,32 +358,23 @@ static void send_response(char code, int signum, bool wait_for_ack)
    }
 }
 
+static int add_thread_id(km_vcpu_t* vcpu, void* data)
+{
+   char* obuf = (char*)data;
+   // gdb does not handle id=0 so ++. TODO: use tid
+   sprintf(obuf + strlen(obuf), "%x,", vcpu->vcpu_id + 1);
+   return 0;
+}
+
 /*
- * Convenience wrapper to send a signal to vcpu thread which will force KVM exit with KVM_EXIT_INTR.
- * (see signal handler setting kvm->immediate_exit)
+ * sends 'm<threads>' package
  */
-static int km_vcpu_force_exit(km_vcpu_t* vcpu)
+static void send_threads_list(void)
 {
-   if (pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP) != 0) {
-      warn("%s: gdb has failed to signal guest about stopping vCPU %d", __FUNCTION__, vcpu->vcpu_id);
-   }
-   return 0;
-}
-
-// Force KVM_RUN to exit right away on ioctl entry, or re-entry from signal handling
-static int km_vcpu_set_immediate_exit(km_vcpu_t* vcpu)
-{
-   vcpu->cpu_run->immediate_exit = 1;
-   km_infox("%s: set immediate exit on a thread 0x%lx", __FUNCTION__, vcpu->vcpu_thread);
-   return 0;
-}
-
-// sighandler, called on each vcpu (assuming pthread_kill was sent to each vcpu thread)
-static void km_vcpustop_handler(int signum_unused)
-{
-   if (km_vcpu_apply_self(km_vcpu_set_immediate_exit) != 0) {
-      err(2, "Failed to stop VCPU");
-   }
+   char obuf[BUFMAX] = "m";
+   km_vcpu_apply_all(add_thread_id, obuf);
+   obuf[strlen(obuf) - 1] = '\0';   // strip trailing ,
+   send_packet(obuf);
 }
 
 /*
@@ -396,6 +388,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
    char* packet;
    char obuf[BUFMAX];
 
+   km_infox("gdb_handle_payload_stop vcpu %d signum %d", vcpu->vcpu_id, signum);
    /* Notify the debugger of our last signal */
    if (signum != GDB_SIGFIRST) {
       send_response('S', signum, true);
@@ -562,20 +555,19 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
             km_gdb_disable();
             goto done;
          }
-#if 0
-        case 'q': {
-           /* TODO: separate command parsing into a sane table with "command" -> function */
-           if (strncmp(packet, "qSupported", strlen("qSupported")) == 0) {
-              send_packet("PacketSize=65535;qXfer:features:read+");
-           } else if (strncmp(packet, "qXfer:features:read:target.xml:",
-                              strlen("qXfer:features:read:target.xml:")) == 0) {
-              send_packet(gdb_reg_info_xml);
-           } else {
-              send_not_supported_msg();
-           }
-           break; /* Wait for another command. */
-        }
-#endif
+         case 'q': {
+            /* TODO: separate command parsing into a sane table with "command" -> function */
+            if (strncmp(packet, "qfThreadInfo", strlen("qfThreadInfo")) == 0) {
+               send_threads_list();
+            } else if (strncmp(packet, "qsThreadInfo", strlen("qsThreadInfo")) == 0) {
+               send_packet("l");
+            } else if (strncmp(packet, "qC", strlen("qC")) == 0) {
+               send_packet("o");   // "implies the old thread ID"
+            } else {
+               send_not_supported_msg();
+            }
+            break; /* Wait for another command. */
+         }
          default: {
             send_not_supported_msg();
             break;
@@ -602,8 +594,9 @@ done:
  * Note that we map VM exit reason to a GDB 'signal', which is what needs to be communicated  back
  * to gdb client.
  */
-static void km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
+static void km_gdb_handle_kvm_exit(void)
 {
+   km_vcpu_t* vcpu = km_main_vcpu();   // TODO - NEED TO REWORK and deal with vcpus
    assert(km_gdb_is_enabled());
    switch (vcpu->cpu_run->exit_reason) {
       case KVM_EXIT_HLT:
@@ -627,7 +620,7 @@ static void km_gdb_handle_kvm_exit(km_vcpu_t* vcpu)
 }
 
 // returns 0 on success and 1 on failure. Failures just counted by upstairs for reporting
-static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu)
+static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, void* unused)
 {
    int ret;
    while ((ret = eventfd_write(vcpu->eventfd, 1) == -1 && errno == EINTR))
@@ -641,44 +634,58 @@ static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu)
  */
 static void* km_gdb_thread_entry(void* data)
 {
-   km_vcpu_t* vcpu = (km_vcpu_t*)data;
+   km_vcpu_t* main_vcpu = (km_vcpu_t*)data;
    gdbstub.intr_eventfd = eventfd(0, 0);
-
    struct pollfd fds[] = {
        {.fd = gdbstub.sock_fd, .events = POLLIN | POLLERR},
        {.fd = gdbstub.intr_eventfd, .events = POLLIN | POLLERR},
    };
 
-   gdb_handle_payload_stop(vcpu, GDB_SIGFIRST);   // Talk to GDB first time, before any vCPU run
-   eventfd_write(vcpu->eventfd, 1);               // Unblock main guest thread the first time
+   gdb_handle_payload_stop(main_vcpu, GDB_SIGFIRST);   // Talk to GDB first time, before any vCPU run
+   km_gdb_vcpu_continue(main_vcpu, 0);
    while (km_gdb_is_enabled()) {
-      if (poll(fds, sizeof(fds) / sizeof(struct pollfd), -1 /* no timeout */) < 0) {
-         err(1, "%s: poll failed.", __FUNCTION__);
+      eventfd_t unused;
+      int ret;
+
+      // Poll 2 fds described above in fds[], with no timeout ("-1")
+      while ((ret = poll(fds, 2, -1) == -1) && (errno == EAGAIN || errno == EINTR))
+         ;
+      if (ret < 0) {
+         err(1, "%s: poll failed ret=%d.", __FUNCTION__, ret);
       }
-      if (fds[1].revents) {   // vcpu stopped, we need to look at it
-         eventfd_t unused;
-         eventfd_read(gdbstub.intr_eventfd, &unused);   // clear up event sent to stop ^C wait
-         // Wait for ALL vcpu to exit. TODO - take a lock
-         for (int count = 0; count < machine.vm_vcpu_run_cnt; count++) {
-            eventfd_read(gdbstub.sync_eventfd, &unused);   // Now wait for vcpu to signal exit
-         }
-         km_infox("%s: poll and vcpu_run done, got vcpu* (%p)", __FUNCTION__, vcpu);
-         km_gdb_handle_kvm_exit(vcpu);   // give control to gdb
-         km_vcpu_apply_all(km_gdb_vcpu_continue);
-         continue;
+      machine.pause_requested = 1;
+      gdbstub.session_requested = 1;
+      if (fds[1].revents) {   // vcpu stopped
+         km_infox("gdb: a vcpu signalled about an exit");
+         while (eventfd_read(gdbstub.intr_eventfd, &unused) == -1 && errno == EINTR)
+            ;   // clear up event sent from vcpu
       }
-      if (fds[0].revents) {   // gdb client wants ^c
+      if (fds[0].revents) {   // gdb client sent something (hopefully ^C)
          int ch = recv_char();
-         km_infox("%s: Checking recv and SKIPPING ^C or INTR: ch=%d", __FUNCTION__, ch);
+         km_infox("%s: got a msg from a client checking for ^C or INTR: ch=%d", __FUNCTION__, ch);
          if (ch == -1) {
             warn("%s: connection closed", __FUNCTION__);
             km_gdb_disable();
             return NULL;
          }
          assert(errno == EINTR || ch == GDB_INTERRUPT_PKT);
-         km_vcpu_apply_all(km_vcpu_force_exit);
-         continue;
       }
+
+      km_infox("Signalling all vCPUs to pause");
+      km_vcpu_apply_all(km_vcpu_pause, NULL);
+      km_vcpu_wait_for_all_to_pause();
+      // clear up gdbstub.intr_eventfd in case vcpus sent extra events
+      int flags = fcntl(gdbstub.intr_eventfd, F_GETFL);
+      fcntl(gdbstub.intr_eventfd, F_SETFL, flags | O_NONBLOCK);
+      while (eventfd_read(gdbstub.intr_eventfd, &unused) == -1 && errno == EINTR)
+         ;
+      fcntl(gdbstub.intr_eventfd, F_SETFL, flags);
+      // give control back to gdb
+      km_infox("%s: DONE waiting, all stopped", __FUNCTION__);
+      km_gdb_handle_kvm_exit();
+      gdbstub.session_requested = 0;
+      km_infox("%s: exit handled, ready to proceed", __FUNCTION__);
+      km_vcpu_apply_all(km_gdb_vcpu_continue, NULL);
    }
    return NULL;
 }
@@ -690,13 +697,6 @@ static void* km_gdb_thread_entry(void* data)
 void km_gdb_start_stub(char* const payload_file)
 {
    assert(km_gdb_is_enabled());
-   // First create all channels so the threads can communicate right away
-   if ((gdbstub.sync_eventfd = eventfd(0, EFD_SEMAPHORE)) == -1) {
-      err(1, "Failed to create event channel to talk to GDB threads");
-   }
-   if (pthread_mutex_init(&gdbstub.vcpu_lock, NULL) != 0) {
-      err(1, "Failed to acquire mutex for gdb thread");
-   }
    km_infox("Enabling gdbserver on port %d...", km_gdb_port_get());
    if (gdb_wait_for_connect(payload_file) == -1) {
       errx(1, "Failed to connect to gdb");
@@ -706,14 +706,11 @@ void km_gdb_start_stub(char* const payload_file)
    if (pthread_create(&gdbstub.thread, NULL, km_gdb_thread_entry, km_main_vcpu()) != 0) {
       err(1, "Failed to create GDB server thread ");
    }
-   km_install_sighandler(KM_SIGVCPUSTOP, km_vcpustop_handler);
 }
 
-void km_gdb_stop_stub(void)
+void km_gdb_join_stub(void)
 {
    pthread_join(gdbstub.thread, NULL);
-   close(gdbstub.sync_eventfd);
-   pthread_mutex_destroy(&gdbstub.vcpu_lock);
 }
 
 /* closes the gdb socket and set port to 0 */
@@ -746,11 +743,19 @@ void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno)
 {
    eventfd_t unused;
 
-   assert(km_gdb_is_enabled());
-   // TODO: do we need to reset eventfd on entry if it is filled in by multiple VCPUs?
-   eventfd_write(gdbstub.intr_eventfd, 1);   // Interrupt gdbstub wait for ^C  (if it was waiting)
-   eventfd_write(gdbstub.sync_eventfd, 1);   // Tell gdbstub to start interacting with client
+   if (!km_gdb_is_enabled()) {
+      return;
+   }
+   km_infox("km_gdb_ask_stub_to_handle_kvm_exit");
+   vcpu->is_paused = 1;
+   if (!gdbstub.session_requested) {
+      km_infox("Gdb seems to be sleeping, wake it up from vcpu %d", vcpu->vcpu_id);
+      eventfd_write(gdbstub.intr_eventfd, 1);   // Interrupt gdbstub wait (if it was waiting)
+   }
    km_infox("%s: Waiting for gdb to allow vcpu %d to continue...", __FUNCTION__, vcpu->vcpu_id);
-   eventfd_read(vcpu->eventfd, &unused);   // Wait for gdb to allow this vcpu to continue
-   km_infox("%s: gdb signalled for this vcpu to continue", __FUNCTION__);
+   while (eventfd_read(vcpu->eventfd, &unused) == -1 && errno == EINTR)
+      ;   // Wait for gdb to allow this vcpu to continue
+   km_infox("%s: gdb signalled for vcpu %d to continue", __FUNCTION__, vcpu->vcpu_id);
+   vcpu->cpu_run->immediate_exit = 0;
+   vcpu->is_paused = 0;
 }

@@ -49,19 +49,19 @@ teardown() {
 # They can be invoked by either 'make test [MATCH=<filter>]' or ./km_core_tests.bats [-f <filter>]
 # <filter> is a regexp or substring matching test name
 
-@test "setup_basic: basic vm setup, workload invocation and exit value check" {
+@test "setup_basic: basic vm setup, workload invocation and exit value check (exit_value_test)" {
    run $KM exit_value_test.km
    [ $status -eq 17 ]
 }
 
-@test "setup_load: load elf and layout check" {
+@test "setup_load: load elf and layout check (load_test)" {
    run $KM load_test.km
    # Show this on failure:
    echo -e "\n*** Try to run 'make load_expected_size' in tests, and replace load.c:size value\n"
    [ $status -eq 0 ]
 }
 
-@test "hc_check: invoke wrong hypercall" {
+@test "hc_check: invoke wrong hypercall (hc_test)" {
    run $KM hc_test.km 400
    [ $(echo -e "$output" | grep -cw "unexpected hypercall 400") == 1 ]
 
@@ -72,17 +72,17 @@ teardown() {
    [ $(echo -e "$output" | grep -cw "unexpected IO port activity, port 0x83e8 0x4 bytes out") == 1 ]
 }
 
-@test "km_main: wait on signal" {
+@test "km_main: wait on signal (hello_test)" {
    ($KM -w hello_test.km &)
    kill -SIGUSR1 `pidof km`
 }
 
-@test "mem_slots: KVM memslot / phys mem sizes" {
+@test "mem_slots: KVM memslot / phys mem sizes (memslot_test)" {
    run ./memslot_test
    [ $status -eq 0 ]
 }
 
-@test "mem_brk: brk() call" {
+@test "mem_brk: brk() call (brk_test)" {
    # we expect 3 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
    if [ $(bus_width) -eq 36 ] ; then expected_status=3 ; else  expected_status=0; fi
    sudo sysctl -w vm.overcommit_memory=1
@@ -91,7 +91,7 @@ teardown() {
    sudo sysctl -w vm.overcommit_memory=0
 }
 
-@test "hc_basic: basic run and print hello world" {
+@test "hc_basic: basic run and print hello world (hello_test)" {
    args="more_flags to_check: -f and check --args !"
    run ./hello_test $args
    [ $status -eq 0 ]
@@ -103,7 +103,7 @@ teardown() {
    diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]')
 }
 
-@test "hc_socket: basic HTTP/socket I/O (hello_html)" {
+@test "hc_socket: basic HTTP/socket I/O (hello_html_test)" {
    local address="http://127.0.0.1:8002"
 
    (./hello_html_test &)
@@ -119,8 +119,8 @@ teardown() {
    diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
 
-@test "mem_mmap0: mmap and munmap with addr=0" {
-   # we expect 1 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
+@test "mem_mmap0: mmap and munmap with addr=0 (mmap_test)" {
+   # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
    run $KM mmap_test.km
@@ -134,7 +134,7 @@ teardown() {
    [ "$status" -eq 0 ]
 }
 
-@test "gdb_basic: gdb support" {
+@test "gdb_basic: gdb support (gdb_test)" {
    $KM -g 3333 gdb_test.km &
 	sleep 0.5
 	run gdb -q -nx --ex="target remote :3333" --ex="source cmd_for_test.gdb" \
@@ -142,20 +142,25 @@ teardown() {
    [ $(echo "$output" | grep -cw 'SUCCESS') == 1 ]
 }
 
-@test "threads_basic: basic threads create, exit and join" {
+@test "threads_basic: basic threads create, exit and join (hello_2_loops_test)" {
    run $KM hello_2_loops_test.km
    [ "$status" -eq 0 ]
 }
 
-@test "threads_mutex: mutex" {
+@test "threads_exit_grp: force exit when threads are in flight (exit_grp_test)" {
+   run $KM exit_grp_test.km
+   [ $status -eq 17 ]
+}
+
+@test "threads_mutex: mutex (mutex_test)" {
    run $KM mutex_test.km
    [ $status -eq 0 ]
 }
 
-@test "mem_test: threads create, malloc/free, exit and join" {
-   # we expect 1 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
-   if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
-
+@test "mem_test: threads create, malloc/free, exit and join (mem_test)" {
+   expected_status=0
+   # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
+   if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; fi
    sudo sysctl -w vm.overcommit_memory=1
    run $KM mem_test.km
    [ "$status" -eq $expected_status ]

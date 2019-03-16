@@ -150,22 +150,21 @@ static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
 
    if (TAILQ_EMPTY(list)) {
       TAILQ_INSERT_HEAD(list, reg, link);
-      return;
-   }
-
-   TAILQ_FOREACH (ptr, list, link) {   // find the map to the right of the 'reg'
-      if (ptr->start > reg->start) {
-         assert(ptr->start >= reg->start + reg->size);
-         break;
-      }
-      // double check that there are no overlaps (we don't support overlapping mmaps)
-      assert(ptr->start < reg->start && (ptr->start + ptr->size <= reg->start));
-   }
-
-   if (ptr == TAILQ_END(list)) {
-      TAILQ_INSERT_TAIL(list, reg, link);
    } else {
-      TAILQ_INSERT_BEFORE(ptr, reg, link);
+      TAILQ_FOREACH (ptr, list, link) {   // find the map to the right of the 'reg'
+         if (ptr->start > reg->start) {
+            assert(ptr->start >= reg->start + reg->size);
+            break;
+         }
+         // double check that there are no overlaps (we don't support overlapping mmaps)
+         assert(ptr->start < reg->start && (ptr->start + ptr->size <= reg->start));
+      }
+
+      if (ptr == TAILQ_END(list)) {
+         TAILQ_INSERT_TAIL(list, reg, link);
+      } else {
+         TAILQ_INSERT_BEFORE(ptr, reg, link);
+      }
    }
 
    if (busy == 0) {
@@ -205,7 +204,6 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
-   km_infox("mmap entry. tbrk=0x%lx", machine.tbrk);
    mmaps_lock();
    // TODO: check flags
    if ((reg = km_mmap_find_free(size)) != NULL) {
@@ -244,7 +242,6 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    reg->size = size;
    km_mmaps_insert_busy(reg);
    mmaps_unlock();
-   km_infox("mmap exit. tbrk=0x%lx", machine.tbrk);
    return reg->start;
 }
 
@@ -267,7 +264,6 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    km_gva_t head_start, tail_start;
    size_t head_size, tail_size;
 
-   km_infox("munmap entry. tbrk=0x%lx", machine.tbrk);
    mmaps_lock();
    if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL || (addr + size > reg->start + reg->size)) {
       mmaps_unlock();
@@ -307,7 +303,6 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    km_mmaps_remove_busy(reg);   // move from busy to free list. No need to free reg, it will be reused
    km_mmaps_insert_free(reg);
    mmaps_unlock();
-   km_infox("munmap exit. tbrk=0x%lx", machine.tbrk);
    return 0;
 }
 

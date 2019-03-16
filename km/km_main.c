@@ -90,8 +90,8 @@ int main(int argc, char* const argv[])
       err(2, "Failed to create main run_vcpu thread");
    }
    if (km_gdb_is_enabled()) {
-      km_gdb_stop_stub();
+      km_gdb_join_stub();
    }
    km_machine_fini();
-   exit(0);
+   exit(machine.ret);
 }

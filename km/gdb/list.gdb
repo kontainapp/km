@@ -1,6 +1,6 @@
 #
 # print BSD list content (see 'man queue')
-# Can be used for printing mmaps free/busy queur
+# Can be used for printing mmaps free/busy query
 #
 
 define print_list
@@ -8,7 +8,6 @@ if $argc == 0
       help print_list
       return
    else
-      print $arg0
       set $head = $arg0
    end
 
@@ -26,13 +25,11 @@ document print_list
      print_list &mmaps.free
 end
 
-
 define print_tailq
 if $argc == 0
       help print_tailq
       return
    else
-      print $arg0
       set $head = $arg0
    end
 
@@ -48,4 +45,12 @@ document print_tailq
      Syntax: print_tailq &LIST
    Examples:
      print_tailq &mmaps.free
+end
+
+define km_mmaps
+   print "mmaps FREE list:"
+   print_tailq &mmaps.free
+   print "mmaps BUSY list:"
+   print_tailq &mmaps.busy "Busy list"
+   printf ".tbrk= 0x%lx\n", machine.tbrk
 end

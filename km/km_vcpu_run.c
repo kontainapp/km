@@ -174,16 +174,12 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
    return km_hcalls_table[*hc](*hc, km_gva_to_kma(ga), status);
 }
 
-/*
- * TODO: The following two function are very similar. Not making them into one because of future
- * work for multithreaded gdb. Also might implement exit_all via stopping vcpus first.
- */
 static void km_vcpu_exit(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
 static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
 {
    if (km_gdb_is_enabled()) {
       vcpu->cpu_run->exit_reason = KVM_EXIT_HLT;
-      km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
+      km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);   // TODO: just send "thread exited" event to gdb
    }
    km_vcpu_stopped(vcpu);
    pthread_exit((void*)(uint64_t)s);   // from the vcpu thread
@@ -192,34 +188,64 @@ static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
 static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
 static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
 {
+   machine.pause_requested = 1;
+   vcpu->is_paused = 1;
+   machine.ret = s;
+   km_vcpu_apply_all(km_vcpu_pause, NULL);
+   km_vcpu_wait_for_all_to_pause();
    if (km_gdb_is_enabled()) {
-      vcpu->cpu_run->exit_reason = KVM_EXIT_HLT;
-      km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
+      // TODO: just send "happyexit" to gdb
    }
-   exit(s);   // from km monitor alltogether
+   km_vcpu_exit(vcpu, s);
+}
+
+/*
+ * Signal handler. Used when we want VCPU to stop. Upstairs we set immediate_exit to 1
+ * and then signal the thread, which causes interrupt and reenter to KVM_RUN with
+ * immediate exit. So the ctual handler is noop. it just need to exit
+ */
+static void km_vcpu_pause_sighandler(int signum_unused)
+{
+   // NOOP
 }
 
 void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int status, hc;
+   km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
 
    while (1) {
-      vcpu->cpu_run->immediate_exit = 0;   // reset in case it was changed by a signal handler
       if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) < 0) {
-         run_info("ioctl exit with reason %d (%s) errno %d",
+         run_info("ioctl exit with reason %d (%s) imm_exit=%d errno %d",
                   vcpu->cpu_run->exit_reason,
                   kvm_reason_name(vcpu->cpu_run->exit_reason),
+                  vcpu->cpu_run->immediate_exit,
                   errno);
          if (errno == EAGAIN) {
             continue;
          }
          if (errno != EINTR) {
-            run_err(1, "KVM: vcpu run failed with errno %d", errno);
+            run_err(1, "KVM: vcpu run failed with errno %d (%s)", errno, strerror(errno));
          }
       }
       int reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
       switch (reason) {
          case KVM_EXIT_IO: /* Hypercall */
+            if (vcpu->cpu_run->immediate_exit) {
+               // hypercall was interrupted
+               km_infox("EXIT_IO now is time to stop VCPU %d", vcpu->vcpu_id);
+               assert(machine.pause_requested);
+               if (km_gdb_is_enabled()) {
+                  vcpu->is_paused = 1;
+                  vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
+                  km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
+               } else {
+                  // stop this thread, no questions asked
+                  km_vcpu_detach(vcpu);
+                  km_vcpu_exit(vcpu, EINTR);
+               }
+               break;
+            }
             switch (hypercall(vcpu, &hc, &status)) {
                case HC_CONTINUE:
                   break;
@@ -227,10 +253,12 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                case HC_STOP:
                   run_infox("KVM: hypercall %d stop, status 0x%x", hc, status);
                   km_vcpu_exit(vcpu, status);
+                  break;
 
                case HC_ALLSTOP:
                   run_infox("KVM: hypercall %d allstop, status 0x%x", hc, status);
                   km_vcpu_exit_all(vcpu, status);
+                  break;
             }
             break;   // exit_reason, case KVM_EXIT_IO
 
@@ -256,8 +284,15 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             abort();
             break;
 
-         case KVM_EXIT_DEBUG:
          case KVM_EXIT_INTR:
+            if (km_gdb_is_enabled()) {
+               km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
+            } else {
+               km_vcpu_exit(vcpu, EINTR);
+            }
+            break;
+
+         case KVM_EXIT_DEBUG:
          case KVM_EXIT_EXCEPTION:
             if (km_gdb_is_enabled()) {
                km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);

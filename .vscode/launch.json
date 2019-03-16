@@ -22,6 +22,11 @@
                "description": "Enable pretty-printing for gdb",
                "text": "-enable-pretty-printing",
                "ignoreFailures": true
+            },
+            {
+               "description": "Load KM specific commands",
+               "text": "source ${workspaceFolder}/km/gdb/list.gdb",
+               "ignoreFailures": false
             }
          ]
       },
@@ -130,7 +135,8 @@
             "getline_test",
             "mem_test",
             "hello_2_loops",
-            "mutex_test"
+            "mutex_test",
+            "exit_grp_test"
          ]
       }
    ]

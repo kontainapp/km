@@ -51,10 +51,12 @@ void km_install_sighandler(int signum, sa_handler_t func)
 void km_wait_for_signal(int signum)
 {
    sigset_t signal_set;
+   sigset_t old_signal_set;
    int received_signal;
 
    sigemptyset(&signal_set);
    sigaddset(&signal_set, signum);
-   pthread_sigmask(SIG_BLOCK, &signal_set, NULL);
+   pthread_sigmask(SIG_BLOCK, &signal_set, &old_signal_set);
    sigwait(&signal_set, &received_signal);
+   pthread_sigmask(SIG_SETMASK, &old_signal_set, NULL);
 }
