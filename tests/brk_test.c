@@ -42,11 +42,12 @@ static void const* very_high_addr = (void*)(512 * GIB);
 
 /*
  * Test brk and tbrk co-existing in the same region.
- * 
+ *
  * We test four regions, regs[] are the stating address. We put tbrk (via mmap) at the place defined
  * by map_off of that region. Than we try to put brk using the offs[] in that region, with the
- * intent of putting it well below, just 1GB below, same GB, and above. Each test iteration is mmap, then break, then reset.
- * 
+ * intent of putting it well below, just 1GB below, same GB, and above. Each test iteration is mmap,
+ * then break, then reset.
+ *
  * tbrk/brk does mmap first brk second, brk/tbrk in the opposite order.
  */
 
@@ -108,6 +109,15 @@ TEST brk_tbrk_test()
    PASS();
 }
 
+TEST brk_2gib(void)
+{
+   // Check reaching into 2nd GB (1gb pages).
+   void* _1gb = (void*)GIB + 2 * MIB;
+   SYS_break(_1gb);
+   ASSERT_EQ_FMT(_1gb, SYS_break(NULL), "%p");
+   PASS();
+}
+
 TEST brk_test(void)
 {
    void *ptr, *ptr1;
@@ -158,6 +168,7 @@ int main(int argc, char** argv)
    GREATEST_MAIN_BEGIN();
    greatest_set_verbosity(1);
 
+   RUN_TEST(brk_2gib);
    RUN_TEST(brk_test);
    RUN_TEST(brk_not_too_greedy);
    RUN_TEST(brk_test);

@@ -83,8 +83,8 @@ teardown() {
 }
 
 @test "mem_brk: brk() call" {
-   # we expect 2 group of tests fail due to ENOMEM on 36 bit buses
-   if [ $(bus_width) -eq 36 ] ; then expected_status=2 ; else  expected_status=0; fi
+   # we expect 3 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
+   if [ $(bus_width) -eq 36 ] ; then expected_status=3 ; else  expected_status=0; fi
    sudo sysctl -w vm.overcommit_memory=1
    run $KM brk_test.km
    [ $status -eq $expected_status ]
@@ -120,7 +120,7 @@ teardown() {
 }
 
 @test "mem_mmap0: mmap and munmap with addr=0" {
-   # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
+   # we expect 1 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
    run $KM mmap_test.km

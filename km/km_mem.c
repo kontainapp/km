@@ -299,7 +299,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
 
 /*
  * Allocate memory 'size' and configure it as mem region 'idx', supporting
- * va at from idx->guest_phys_addr + va_offset.
+ * VA at from idx->guest_phys_addr + va_offset.
  *
  * Return 0 for success and -errno for errors
  */
@@ -307,14 +307,16 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
 {
    void* ptr;
    kvm_mem_reg_t* reg = &machine.vm_mem_regs[idx];
+   km_gva_t base = memreg_base(idx);
 
    assert(reg->memory_size == 0 && reg->userspace_addr == 0);
+   assert(machine.pdpe1g || (base < GIB || base >= machine.guest_max_physmem - GIB));
    if ((ptr = km_page_malloc(size)) == NULL) {
       return -ENOMEM;
    }
    reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
    reg->slot = idx;
-   reg->guest_phys_addr = memreg_base(idx);
+   reg->guest_phys_addr = base;
    reg->memory_size = size;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
@@ -340,7 +342,7 @@ km_gva_t km_mem_brk(km_gva_t brk)
    if (brk == 0) {
       return machine.brk;
    }
-   if (brk >= machine.guest_max_physmem) {
+   if (brk > GUEST_VA_ZONE_SIZE) {
       return -ENOMEM;
    }
    km_mem_lock();
@@ -398,7 +400,7 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
    if (tbrk == 0) {
       return machine.tbrk;
    }
-   if (tbrk < GUEST_VA_OFFSET) {
+   if (tbrk < GUEST_MEM_TOP_VA - GUEST_VA_ZONE_SIZE) {
       return -ENOMEM;
    }
    km_mem_lock();

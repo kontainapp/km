@@ -59,11 +59,10 @@ typedef struct mmap_test {
 
 // tests that should pass on 36 bits buses (where we give 2GB space)
 static mmap_test_t _36_tests[] = {
-    {"Basic-mmap", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
-    {"Basic-munmap", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
-    {"Basic-munmap-dup1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0, EINVAL},
-    {"Basic-munmap-dup2", TYPE_MUNMAP, 0, 6 * MIB, 0, 0, EINVAL},
-
+    {"Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
+    {"Basic-mmap2", TYPE_MMAP, 0, 1020 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Basic-munmap2", TYPE_MUNMAP, 0, 1020 * MIB, 0, 0},
     {"Swiss cheese-mmap", TYPE_MMAP, 0, 760 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
     {"Swiss cheese-munmap1", TYPE_MUNMAP, 500 * MIB, 260 * MIB, 0, 0},
     {"Swiss cheese-munmap2", TYPE_MUNMAP, 0, 300 * MIB, 0, 0},
@@ -76,9 +75,10 @@ static mmap_test_t _36_tests[] = {
 
 // these tests will fail on 36 bit buses but should pass on larger address space
 static mmap_test_t _39_tests[] = {
-
-    {"Large-mmap", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
-    {"Large-munmap", TYPE_MUNMAP, 0, 2 * GIB + 12 * MIB, 0, 0},
+    {"Large-mmap1", TYPE_MMAP, 0, 1022 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Large-munmap1", TYPE_MUNMAP, 0, 1022 * MIB, 0, 0},
+    {"Large-mmap2", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Large-munmap2", TYPE_MUNMAP, 0, 2 * GIB + 12 * MIB, 0, 0},
     {NULL},
 };
 // used for multiple invocations of mmap_test

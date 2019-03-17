@@ -23,9 +23,9 @@
 #include "sys/mman.h"
 #include "syscall.h"
 
-#define MB (1024 * 1024 / 4)
+#define MIB (1024 * 1024)
 
-static const long sizes[] = {32 * MB, 64 * MB, 128 * MB, 256 * MB, 512 * MB, 1024 * MB};
+static const long sizes[] = {32 * MIB, 64 * MIB, 128 * MIB, 256 * MIB, 512 * MIB, 1024 * MIB};
 const long step = sizeof(sizes) / sizeof(long);
 
 static inline char* simple_mmap(size_t size)

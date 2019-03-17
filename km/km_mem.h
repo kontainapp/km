@@ -51,6 +51,10 @@ static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
 
 // VA offset from PA for addresses over machine.tbrk. Last 2MB of VA stay unused for symmetry.
 #define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA - (machine.guest_max_physmem - 2 * MIB))
+
+// We support 2 "zones" of VAs, one on the bottom and one on the top, each no larger than this
+#define GUEST_VA_ZONE_SIZE ((machine.pdpe1g ? machine.guest_max_physmem : GIB) - 2 * MIB)
+
 /*
  * See "Virtual memory layout:" in km_cpu_init.c for details.
  */
@@ -106,6 +110,7 @@ static inline int MEM_IDX(km_gva_t addr)
 // guest virtual address to guest physical address - adjust high gva down
 static inline km_gva_t gva_to_gpa(km_gva_t gva)
 {
+   // gva must be in the bottom or top "max_physmem" , but not in between
    assert((GUEST_MEM_START_VA - 1 <= gva && gva < machine.guest_max_physmem) ||
           (GUEST_VA_OFFSET <= gva && gva <= GUEST_MEM_TOP_VA));
    if (gva > GUEST_VA_OFFSET) {
