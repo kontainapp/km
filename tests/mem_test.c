@@ -13,6 +13,8 @@
  * test mutual exclusion between them.
  */
 #include <err.h>
+#include <errno.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -33,14 +35,17 @@ static inline char* simple_mmap(size_t size)
    return mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 }
 
-int subrun(void* up)
+void* subrun(void* up)
 {
    char* array[step];
    int i;
+   uint64_t errors = 0;
 
    if (up != NULL) {
       for (i = 0; i < step; i++) {
-         ASSERT_NOT_EQ((array[i] = simple_mmap(sizes[i])), MAP_FAILED);
+         if ((array[i] = simple_mmap(sizes[i])) == MAP_FAILED) {
+            errors++;
+         }
       }
       for (i = 0; i < step; i++) {
          if (array[i] != MAP_FAILED) {
@@ -49,7 +54,9 @@ int subrun(void* up)
       }
    } else {
       for (i = step - 1; i >= 0; i--) {
-         ASSERT_NOT_EQ((array[i] = simple_mmap(sizes[i])), MAP_FAILED);
+         if ((array[i] = simple_mmap(sizes[i])) == MAP_FAILED) {
+            errors++;
+         }
       }
       for (i = step - 1; i >= 0; i--) {
          if (array[i] != MAP_FAILED) {
@@ -57,19 +64,25 @@ int subrun(void* up)
          }
       }
    }
-   pthread_exit(0);
+   pthread_exit((void*)errors);
 }
 
-void run(char* msg)
+void* run(void* unused)
 {
+   uint64_t errors = 0;
+   void* thr_ret;
+
    for (long run_count = 0; run_count < 128; run_count++) {
       pthread_t pt1, pt2;
 
-      pthread_create(&pt1, NULL, (void* (*)(void*))subrun, NULL);
-      pthread_create(&pt2, NULL, (void* (*)(void*))subrun, (void*)1);
-      pthread_join(pt2, NULL);
-      pthread_join(pt1, NULL);
+      pthread_create(&pt1, NULL, subrun, NULL);
+      pthread_create(&pt2, NULL, subrun, (void*)1);
+      pthread_join(pt2, &thr_ret);
+      errors += *(uint64_t*)thr_ret;
+      pthread_join(pt1, &thr_ret);
+      errors += *(uint64_t*)thr_ret;
    }
+   return (void*)errors;
 }
 
 static inline void* SYS_break(void const* addr)
@@ -77,7 +90,7 @@ static inline void* SYS_break(void const* addr)
    return (void*)syscall(SYS_brk, addr);
 }
 
-int run_brk(void* unused)
+void* run_brk(void* unused)
 {
    void* start_brk = SYS_break(0);
    void* ptr;
@@ -88,51 +101,73 @@ int run_brk(void* unused)
       for (int i = 0; i < step; i++) {
          ptr += sizes[i];
          ret = SYS_break(ptr);
-         ASSERT_EQm("break: ", ptr, ret);
+         if (ret == (void*)-1 || ptr != SYS_break(0)) {
+            printf("break L%d: ptr=%p br=%p ret=%p errno=%d\n", __LINE__, ptr, SYS_break(0), ret, errno);
+            return (void*)1;
+         }
       }
       for (int i = 0; i < step; i++) {
          ptr -= sizes[i];
          ret = SYS_break(ptr);
-         ASSERT_EQm("break: ", ptr, ret);
+         if (ret == (void*)-1 || ptr != SYS_break(0)) {
+            printf("break L%d: ptr=%p br=%p ret=%p errno=%d\n", __LINE__, ptr, SYS_break(0), ret, errno);
+            return (void*)1;
+         }
       }
    }
    printf("======================== Ending the brk thread ========================\n");
-   return 0;
+   return NULL;
 }
 
 TEST nested_threads(void)
 {
    pthread_t pt1, pt2, pt_b1, pt_b2;
    int ret;
-   // void* thr_ret;
+   void* thr_ret = NULL;
+   uint64_t errors = 0;
 
-   ret = pthread_create(&pt_b1, NULL, (void* (*)(void*))run_brk, NULL);
-   ASSERT_EQ(0, ret);
-
-   ret = pthread_create(&pt_b2, NULL, (void* (*)(void*))run_brk, NULL);
-   ASSERT_EQ(0, ret);
-
-   ret = pthread_create(&pt1, NULL, (void* (*)(void*))run, NULL);
    // assert macro can use params more than once, so using separate <ret>
+   ret = pthread_create(&pt_b1, NULL, run_brk, NULL);
+   ASSERT_EQ(0, ret);
+   printf("started 0x%lx\n", pt_b1);
+
+   ret = pthread_create(&pt_b2, NULL, run_brk, NULL);
+   ASSERT_EQ(0, ret);
+   printf("started 0x%lx\n", pt_b2);
+
+   ret = pthread_create(&pt1, NULL, run, NULL);
    ASSERT_EQ(0, ret);
    printf("started 0x%lx\n", pt1);
-   ret = pthread_create(&pt2, NULL, (void* (*)(void*))run, NULL);
+
+   ret = pthread_create(&pt2, NULL, run, NULL);
    ASSERT_EQ(0, ret);
    printf("started 0x%lx\n", pt2);
 
    printf("joining break threads \n");
-   printf("joined 0x%lx, %d\n", pt_b1, ret = pthread_join(pt_b1, NULL));
-   printf("joined 0x%lx, %d\n", pt_b2, ret = pthread_join(pt_b2, NULL));
+
+   ret = pthread_join(pt_b1, &thr_ret);
+   printf("joined 0x%lx ret=%d %ld\n", pt_b1, ret, (long int)thr_ret);
    ASSERT_EQ(ret, 0);
+   errors += *(uint64_t*)thr_ret;
+
+   printf("ready to join next\n");
+   ret = pthread_join(pt_b2, &thr_ret);
+   printf("joined 0x%lx ret=%d %ld\n", pt_b2, ret, (long int)thr_ret);
+   ASSERT_EQ(ret, 0);
+   errors += *(uint64_t*)thr_ret;
 
    printf("joining 0x%lx ... \n", pt1);
-   printf("joined 0x%lx, %d\n", pt1, ret = pthread_join(pt1, NULL));
+   ret = pthread_join(pt1, &thr_ret);
+   printf("joined 0x%lx, ret=%d %ld\n", pt1, ret, (long int)thr_ret);
    ASSERT_EQ(ret, 0);
+   errors += *(uint64_t*)thr_ret;
 
    printf("joining 0x%lx ... \n", pt2);
-   printf("joined 0x%lx, %d\n", pt2, ret = pthread_join(pt2, NULL));
+   printf("joined 0x%lx, %d\n", pt2, ret = pthread_join(pt2, &thr_ret));
    ASSERT_EQ(ret, 0);
+   errors += *(uint64_t*)thr_ret;
 
+   ASSERT_EQ(errors, 0);
    PASS();
 }
 
@@ -147,6 +182,6 @@ int main(int argc, char** argv)
    /* Tests can  be run as suites, or directly. Lets run directly. */
    RUN_TEST(nested_threads);
 
-   GREATEST_MAIN_END();           // display results
-   return greatest_info.failed;   // return count of errors (or 0 if all is good)
+   GREATEST_MAIN_END();          // display results
+   exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
 }
