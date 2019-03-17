@@ -375,6 +375,7 @@ void km_machine_init(void)
        * set_pml4_hierarchy()
        */
       machine.guest_max_physmem = MIN(2 * GIB, machine.guest_max_physmem);
+      km_infox("KVM: 1gb pages are not supported");
    }
    km_mem_init();
 }

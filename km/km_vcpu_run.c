@@ -29,12 +29,15 @@
  */
 static void
 __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
+    __attribute__((format(printf, 4, 5)));   // define attributes
+static void
+__run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
 {
-   static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx: ";
+   static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx ";
    int save_errno = errno;
    va_list args;
    kvm_regs_t regs;
-   char fmt[strlen(f) + strlen(fx) + 2 * strlen("1234567890123456") + 10];
+   char fmt[strlen(f) + strlen(fx) + 2 * strlen("1234567890123456") + 64];
 
    va_start(args, f);
 
@@ -55,8 +58,10 @@ __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, 
 #define run_errx(__s, __f, ...) __run_err(&verrx, vcpu, __s, __f, ##__VA_ARGS__)
 
 static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu, const char* f, ...)
+    __attribute__((format(printf, 3, 4)));   // define attributes
+static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu, const char* f, ...)
 {
-   static const char fx[] = "VCPU %d, RIP 0x%0llx, RSP 0x%0llx: ";
+   static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx ";
    va_list args;
    kvm_regs_t regs;
    char fmt[strlen(f) + strlen(fx) + 2 * strlen("1234567890123456") + 64];
@@ -146,7 +151,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
                r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
    }
    if (km_hcalls_table[*hc] == NULL) {
-      run_errx(1, "KVM: unexpected hypercall %ld", *hc);
+      run_errx(1, "KVM: unexpected hypercall %d", *hc);
    }
    /*
     * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of
@@ -234,11 +239,11 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             km_vcpu_exit(vcpu, status);
 
          case KVM_EXIT_UNKNOWN:
-            run_errx(1, "KVM: unknown err 0x%lx", vcpu->cpu_run->hw.hardware_exit_reason);
+            run_errx(1, "KVM: unknown err 0x%llx", vcpu->cpu_run->hw.hardware_exit_reason);
             break;
 
          case KVM_EXIT_FAIL_ENTRY:
-            run_errx(1, "KVM: fail entry 0x%lx", vcpu->cpu_run->fail_entry.hardware_entry_failure_reason);
+            run_errx(1, "KVM: fail entry 0x%llx", vcpu->cpu_run->fail_entry.hardware_entry_failure_reason);
             break;
 
          case KVM_EXIT_INTERNAL_ERROR:
@@ -255,13 +260,13 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             if (km_gdb_is_enabled()) {
                km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
             } else {
-               warn("KVM: cpu %d stopped. reason=%d (%s)", vcpu->vcpu_id, reason, kvm_reason_name(reason));
+               run_warn("KVM: stopped. reason=%d (%s)", reason, kvm_reason_name(reason));
                return NULL;
             }
             break;
 
          default:
-            run_errx(1, "KVM: exit. reason=%d (%s)", vcpu->vcpu_id, reason, kvm_reason_name(reason));
+            run_errx(1, "KVM: exit. reason=%d (%s)", reason, kvm_reason_name(reason));
             break;
       }
    }
