@@ -153,8 +153,11 @@ teardown() {
 }
 
 @test "mem_test: threads create, malloc/free, exit and join" {
+   # we expect 1 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
+   if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
+
    sudo sysctl -w vm.overcommit_memory=1
    run $KM mem_test.km
-   [ "$status" -eq 0 ]
+   [ "$status" -eq $expected_status ]
    sudo sysctl -w vm.overcommit_memory=0
 }

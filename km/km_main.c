@@ -85,6 +85,7 @@ int main(int argc, char* const argv[])
       warnx("Waiting for kill -SIGUSR1 `pidof km`");
       km_wait_for_signal(SIGUSR1);
    }
+   __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
    if (pthread_create(&km_main_vcpu()->vcpu_thread, NULL, km_vcpu_run_main, NULL) != 0) {
       err(2, "Failed to create main run_vcpu thread");
    }

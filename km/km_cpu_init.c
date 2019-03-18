@@ -171,13 +171,13 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
 }
 
 /*
- * km_vcpu_get() atomically finds the first vcpu slot that can be used for a new vcpu and adjusts
- * vm_vcpu_run_cnt. It could be an empty slot, or previously used slot left by exited thread.
+ * km_vcpu_get() atomically finds the first vcpu slot that can be used for a new vcpu. It could be
+ * an empty slot, or previously used slot left by exited thread.
  *
- * Note that vm_vcpu_run_cnt **is not** the same as number of used vcpu slots. It is instead a
- * number of active running vcpu threads. It is adjusted down when an vcpu exits, in
- * km_vcpu_stopped(). If the vm_vcpu_run_cnt drops to 0 there are no running vcpus any more, payload
- * is done. km_vcpu_stopped() signals the main thread to tear down and exit the km.
+ * Note that vm_vcpu_run_cnt **is not** the same as number of used vcpu slots, it is a number of
+ * active running vcpu threads. It is adjusted up right before vcpu thread starts, and down when an
+ * vcpu exits, in km_vcpu_stopped(). If the vm_vcpu_run_cnt drops to 0 there are no running vcpus any
+ * more, payload is done. km_vcpu_stopped() signals the main thread to tear down and exit the km.
  *
  * vcpu slot is still in use after a joinable thread exited but pthread_join() isn't executed yet.
  * Once the thread is joined in km_pthread_join(), the slot is reusable, i.e is_used is set to 0.
@@ -195,7 +195,6 @@ km_vcpu_t* km_vcpu_get(void)
    }
    memset(new, 0, sizeof(km_vcpu_t));
 
-   __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
    new->is_used = 1;   // so it won't get snatched right after its inserted
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       // if (machine.vm_vcpus[i] == NULL) machine.vm_vcpus[i] = new;
@@ -215,7 +214,6 @@ km_vcpu_t* km_vcpu_get(void)
          return old;
       }
    }
-   __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
    free(new);
    return NULL;
 }

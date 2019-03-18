@@ -237,6 +237,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_HLT:
             km_infox("KVM: vcpu HLT");
             km_vcpu_exit(vcpu, status);
+            break;
 
          case KVM_EXIT_UNKNOWN:
             run_errx(1, "KVM: unknown err 0x%llx", vcpu->cpu_run->hw.hardware_exit_reason);
@@ -251,7 +252,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             break;
 
          case KVM_EXIT_SHUTDOWN:
-            run_errx(1, "KVM: shutdown");
+            run_warn("KVM: shutdown");
+            abort();
             break;
 
          case KVM_EXIT_DEBUG:
@@ -261,7 +263,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
             } else {
                run_warn("KVM: stopped. reason=%d (%s)", reason, kvm_reason_name(reason));
-               return NULL;
+               km_vcpu_exit(vcpu, -1);
             }
             break;
 

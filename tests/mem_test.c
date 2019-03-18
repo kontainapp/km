@@ -72,16 +72,28 @@ void* run(void* unused)
    uint64_t errors = 0;
    void* thr_ret;
 
+   printf("starting run\n");
    for (long run_count = 0; run_count < 128; run_count++) {
       pthread_t pt1, pt2;
 
-      pthread_create(&pt1, NULL, subrun, NULL);
-      pthread_create(&pt2, NULL, subrun, (void*)1);
-      pthread_join(pt2, &thr_ret);
-      errors += *(uint64_t*)thr_ret;
-      pthread_join(pt1, &thr_ret);
-      errors += *(uint64_t*)thr_ret;
+      if (pthread_create(&pt1, NULL, subrun, NULL) != 0) {
+         errors++;
+      }
+      if (pthread_create(&pt2, NULL, subrun, (void*)1) != 0) {
+         errors++;
+      }
+      if (pthread_join(pt2, &thr_ret) != 0) {
+         errors++;
+      } else {
+         errors += (uint64_t)thr_ret;
+      }
+      if (pthread_join(pt1, &thr_ret) != 0) {
+         errors++;
+      } else {
+         errors += (uint64_t)thr_ret;
+      }
    }
+   printf("run errors = %ld\n", errors);
    return (void*)errors;
 }
 
@@ -101,7 +113,7 @@ void* run_brk(void* unused)
       for (int i = 0; i < step; i++) {
          ptr += sizes[i];
          ret = SYS_break(ptr);
-         if (ret == (void*)-1 || ptr != SYS_break(0)) {
+         if (ret == (void*)-1) {
             printf("break L%d: ptr=%p br=%p ret=%p errno=%d\n", __LINE__, ptr, SYS_break(0), ret, errno);
             return (void*)1;
          }
@@ -109,7 +121,7 @@ void* run_brk(void* unused)
       for (int i = 0; i < step; i++) {
          ptr -= sizes[i];
          ret = SYS_break(ptr);
-         if (ret == (void*)-1 || ptr != SYS_break(0)) {
+         if (ret == (void*)-1) {
             printf("break L%d: ptr=%p br=%p ret=%p errno=%d\n", __LINE__, ptr, SYS_break(0), ret, errno);
             return (void*)1;
          }
@@ -148,24 +160,24 @@ TEST nested_threads(void)
    ret = pthread_join(pt_b1, &thr_ret);
    printf("joined 0x%lx ret=%d %ld\n", pt_b1, ret, (long int)thr_ret);
    ASSERT_EQ(ret, 0);
-   errors += *(uint64_t*)thr_ret;
+   errors += (uint64_t)thr_ret;
 
    printf("ready to join next\n");
    ret = pthread_join(pt_b2, &thr_ret);
    printf("joined 0x%lx ret=%d %ld\n", pt_b2, ret, (long int)thr_ret);
    ASSERT_EQ(ret, 0);
-   errors += *(uint64_t*)thr_ret;
+   errors += (uint64_t)thr_ret;
 
    printf("joining 0x%lx ... \n", pt1);
    ret = pthread_join(pt1, &thr_ret);
    printf("joined 0x%lx, ret=%d %ld\n", pt1, ret, (long int)thr_ret);
    ASSERT_EQ(ret, 0);
-   errors += *(uint64_t*)thr_ret;
+   errors += (uint64_t)thr_ret;
 
    printf("joining 0x%lx ... \n", pt2);
    printf("joined 0x%lx, %d\n", pt2, ret = pthread_join(pt2, &thr_ret));
    ASSERT_EQ(ret, 0);
-   errors += *(uint64_t*)thr_ret;
+   errors += (uint64_t)thr_ret;
 
    ASSERT_EQ(errors, 0);
    PASS();
@@ -182,6 +194,6 @@ int main(int argc, char** argv)
    /* Tests can  be run as suites, or directly. Lets run directly. */
    RUN_TEST(nested_threads);
 
-   GREATEST_MAIN_END();          // display results
+   GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
 }

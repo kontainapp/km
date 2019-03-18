@@ -308,6 +308,7 @@ void km_pthread_fini(km_vcpu_t* vcpu)
 
    if (pt_kma != NULL && pt_kma->map_base != NULL) {
       km_guest_munmap((km_gva_t)pt_kma->map_base, pt_kma->map_size);
+      pt_kma->map_base = NULL;
    }
 }
 
@@ -317,6 +318,9 @@ int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_
    km_vcpu_t* vcpu;
    int rc;
 
+   if (pid != NULL) {
+      *pid = -1;
+   }
    km_gdb_pthread_block();   // when in GDB, protect vcpu list scans from new vcpus
    if ((vcpu = km_vcpu_get()) == NULL) {
       km_gdb_pthread_unblock();
@@ -328,7 +332,6 @@ int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_
       return -EAGAIN;
    }
    if ((rc = km_vcpu_set_to_run(vcpu, 0)) < 0) {
-      km_pthread_fini(vcpu);
       km_vcpu_put(vcpu);
       km_gdb_pthread_unblock();
       return -EAGAIN;
@@ -341,23 +344,20 @@ int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_
       pthread_attr_setdetachstate(&vcpu_thr_att, PTHREAD_CREATE_DETACHED);
    }
    pthread_attr_setstacksize(&vcpu_thr_att, 16 * PAGE_SIZE);
+   __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
    rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))km_vcpu_run, vcpu);
    pthread_attr_destroy(&vcpu_thr_att);
+   if (rc != 0) {
+      __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
+      km_vcpu_put(vcpu);
+      km_gdb_pthread_unblock();
+      return rc;
+   }
    if (pid != NULL) {
       *pid = vcpu->vcpu_id;
    }
    km_gdb_pthread_unblock();
-   return rc;
-}
-
-static inline km_vcpu_t* km_find_vcpu(int vcpu_id)
-{
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      if (machine.vm_vcpus[i] != NULL && machine.vm_vcpus[i]->vcpu_id == vcpu_id) {
-         return machine.vm_vcpus[i];
-      }
-   }
-   return NULL;
+   return 0;
 }
 
 int km_pthread_join(pthread_t pid, km_kma_t ret)
@@ -365,9 +365,10 @@ int km_pthread_join(pthread_t pid, km_kma_t ret)
    km_vcpu_t* vcpu;
    int rc;
 
-   if ((vcpu = km_find_vcpu(pid)) == NULL) {
+   if (pid >= KVM_MAX_VCPUS) {
       return -ESRCH;
    }
+   vcpu = machine.vm_vcpus[pid];
    /*
     * TODO: Is that the the right assumption? I guess a main thread can do pthread_self to obtain
     * its own ID, then pass it to another thread so it can join main. Yikes!
@@ -389,7 +390,8 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
 {
    km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
 
-   if (pt_kma != NULL && pt_kma->detach_state == DT_DETACHED) {
+   assert(pt_kma != NULL);
+   if (pt_kma->detach_state == DT_DETACHED) {
       km_vcpu_put(vcpu);
    }
    // if (--machine.vm_vcpu_run_cnt == 0) {

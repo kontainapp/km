@@ -15,10 +15,12 @@ _Noreturn void __start_c__(long is_main_argc, char** argv)
       struct pthread* self = __pthread_self();
 
       rc = (int)self->start(self->start_arg);
-   } else {
-      rc = main(is_main_argc, argv);
+      while (1) {
+         __syscall1(SYS_exit, rc);
+      }
    }
+   rc = main(is_main_argc, argv);
    while (1) {
-      __syscall1(SYS_exit, rc);
+      __syscall1(SYS_exit_group, rc);
    }
 }
