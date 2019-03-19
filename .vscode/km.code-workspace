@@ -29,6 +29,8 @@
          "efer",
          "ehdr",
          "eventfd",
+         "ffffffffful",
+         "ffffffful",
          "getehdr",
          "hcalls",
          "hwcap",

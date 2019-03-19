@@ -59,6 +59,18 @@ typedef struct mmap_test {
 
 // tests that should pass on 36 bits buses (where we give 2GB space)
 static mmap_test_t _36_tests[] = {
+    //  {"Large-mmap2gb", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED |
+    //  MAP_ANONYMOUS},
+    //  {"Large-munmap2gb", TYPE_MUNMAP, 0, 2 * GIB + 12 * MIB, 0, 0},
+    //  {"Large-mmap2", TYPE_MMAP, 0, 1 * GIB + 1020 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED |
+    //  MAP_ANONYMOUS},
+    //  {"Large-munmap2", TYPE_MUNMAP, 0, 1 * GIB + 1020 * MIB, 0, 0},
+
+    // Dive into the bottom 1GB on 4GB:
+    {"Large-mmap1.1", TYPE_MMAP, 0, 3 * GIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+
+    {"Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
     {"Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
     {"Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
     {"Basic-mmap2", TYPE_MMAP, 0, 1020 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
@@ -103,7 +115,8 @@ TEST mmap_test(void)
                                last_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0),
                                MAP_FAILED,
                                fmt);
-            memset(last_addr + t->size / 2, '2', t->size / 4);
+            printf("Map OK, trying to memset '2' to 0x%lx size: 0x%lx\n", (uint64_t)last_addr, t->size);
+            memset(last_addr, '2', t->size);
             break;
          case TYPE_MUNMAP:
             printf("%s: mumap(%s, %s...)\n",

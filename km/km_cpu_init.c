@@ -359,7 +359,9 @@ void km_machine_init(void)
       switch (machine.cpuid->entries[i].function) {
          case 0x80000008:
             km_infox("KVM: physical memory width %d", machine.cpuid->entries[i].eax & 0xff);
-            machine.guest_max_physmem = 1ul << (machine.cpuid->entries[i].eax & 0xff);
+            // machine.guest_max_physmem = 1ul << (machine.cpuid->entries[i].eax & 0xff);
+            machine.guest_max_physmem = 4 * GIB;
+            warnx("Running with 4GB phys memory");
             break;
          case 0x80000001:
             machine.pdpe1g = ((machine.cpuid->entries[i].edx & 1ul << 26) != 0);

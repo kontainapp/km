@@ -72,7 +72,7 @@ void* run(void* unused)
    uint64_t errors = 0;
    void* thr_ret;
 
-   printf("starting run\n");
+   // printf("starting run\n");
    for (long run_count = 0; run_count < 128; run_count++) {
       pthread_t pt1, pt2;
 
@@ -114,7 +114,14 @@ void* run_brk(void* unused)
          ptr += sizes[i];
          ret = SYS_break(ptr);
          if (ret == (void*)-1) {
-            printf("break L%d: ptr=%p br=%p ret=%p errno=%d\n", __LINE__, ptr, SYS_break(0), ret, errno);
+            printf("break up: L%d: ptr=%p br=%p errno=%d size=0x%lx (i=%d)\n",
+                   __LINE__,
+                   ptr,
+                   SYS_break(0),
+                   errno,
+                   sizes[i],
+                   i);
+            SYS_break(start_brk);
             return (void*)1;
          }
       }
@@ -122,7 +129,14 @@ void* run_brk(void* unused)
          ptr -= sizes[i];
          ret = SYS_break(ptr);
          if (ret == (void*)-1) {
-            printf("break L%d: ptr=%p br=%p ret=%p errno=%d\n", __LINE__, ptr, SYS_break(0), ret, errno);
+            printf("break down: L%d: ptr=%p br=%p errno=%d size=0x%lx (i=%d)\n",
+                   __LINE__,
+                   ptr,
+                   SYS_break(0),
+                   errno,
+                   sizes[i],
+                   i);
+            SYS_break(start_brk);
             return (void*)1;
          }
       }
@@ -131,53 +145,38 @@ void* run_brk(void* unused)
    return NULL;
 }
 
+// simple thread create with check. assert macro can use params more than once, so using separate <ret>
+#define MEM_THREAD(__id, __entry)                                                                  \
+   {                                                                                               \
+      int ret = pthread_create(&(__id), NULL, __entry, NULL);                                      \
+      ASSERT_EQ(0, ret);                                                                           \
+      printf("started %s 0x%lx\n", #__id, __id);                                                   \
+   }
+
+#define MEM_JOIN(__id)                                                                             \
+   {                                                                                               \
+      void* thr_ret = NULL;                                                                        \
+      int ret = pthread_join(__id, &thr_ret);                                                      \
+      printf("joined %s 0x%lx ret=%d err_count=%ld\n", #__id, __id, ret, (uint64_t)thr_ret);       \
+      ASSERT_EQ(ret, 0);                                                                           \
+      errors += (uint64_t)thr_ret;                                                                 \
+   }
+
 TEST nested_threads(void)
 {
    pthread_t pt1, pt2, pt_b1, pt_b2;
-   int ret;
-   void* thr_ret = NULL;
-   uint64_t errors = 0;
+   uint64_t errors = 0;   // will be changed by macro below
 
-   // assert macro can use params more than once, so using separate <ret>
-   ret = pthread_create(&pt_b1, NULL, run_brk, NULL);
-   ASSERT_EQ(0, ret);
-   printf("started 0x%lx\n", pt_b1);
-
-   ret = pthread_create(&pt_b2, NULL, run_brk, NULL);
-   ASSERT_EQ(0, ret);
-   printf("started 0x%lx\n", pt_b2);
-
-   ret = pthread_create(&pt1, NULL, run, NULL);
-   ASSERT_EQ(0, ret);
-   printf("started 0x%lx\n", pt1);
-
-   ret = pthread_create(&pt2, NULL, run, NULL);
-   ASSERT_EQ(0, ret);
-   printf("started 0x%lx\n", pt2);
-
+   MEM_THREAD(pt_b1, run_brk);
+   MEM_THREAD(pt_b2, run_brk);
+   MEM_THREAD(pt1, run);
+   MEM_THREAD(pt2, run);
    printf("joining break threads \n");
-
-   ret = pthread_join(pt_b1, &thr_ret);
-   printf("joined 0x%lx ret=%d %ld\n", pt_b1, ret, (long int)thr_ret);
-   ASSERT_EQ(ret, 0);
-   errors += (uint64_t)thr_ret;
-
-   printf("ready to join next\n");
-   ret = pthread_join(pt_b2, &thr_ret);
-   printf("joined 0x%lx ret=%d %ld\n", pt_b2, ret, (long int)thr_ret);
-   ASSERT_EQ(ret, 0);
-   errors += (uint64_t)thr_ret;
-
-   printf("joining 0x%lx ... \n", pt1);
-   ret = pthread_join(pt1, &thr_ret);
-   printf("joined 0x%lx, ret=%d %ld\n", pt1, ret, (long int)thr_ret);
-   ASSERT_EQ(ret, 0);
-   errors += (uint64_t)thr_ret;
-
-   printf("joining 0x%lx ... \n", pt2);
-   printf("joined 0x%lx, %d\n", pt2, ret = pthread_join(pt2, &thr_ret));
-   ASSERT_EQ(ret, 0);
-   errors += (uint64_t)thr_ret;
+   MEM_JOIN(pt_b1);
+   MEM_JOIN(pt_b2);
+   printf("joining mmap threads \n");
+   MEM_JOIN(pt1);
+   MEM_JOIN(pt2);
 
    ASSERT_EQ(errors, 0);
    PASS();

@@ -94,9 +94,7 @@
          "type": "cppdbg",
          "request": "launch",
          "program": "${workspaceFolder}/build/km/km",
-         "args": [
-            "tests/${input:payload}.km"
-         ],
+         "args": [],
          "coreDumpPath": "${workspaceFolder}/build/km/core",
          "stopAtEntry": true,
          "cwd": "${workspaceFolder}",

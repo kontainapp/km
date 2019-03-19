@@ -62,7 +62,8 @@ void km_guest_mmap_init(void)
    LIST_INIT(&mmaps.busy);
 }
 
-static inline int mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
+static inline int
+mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
 {
    // block all stuff we do not support yet
    if (addr != 0 || fd != -1 || offset != 0 || flags & MAP_FIXED) {

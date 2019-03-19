@@ -52,8 +52,14 @@ static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
 // VA offset from PA for addresses over machine.tbrk. Last 2MB of VA stay unused for symmetry.
 #define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA - (machine.guest_max_physmem - 2 * MIB))
 
-// We support 2 "zones" of VAs, one on the bottom and one on the top, each no larger than this
-#define GUEST_VA_ZONE_SIZE ((machine.pdpe1g ? machine.guest_max_physmem : GIB) - 2 * MIB)
+/*
+ * We support 2 "zones" of VAs, one on the bottom and one on the top, each no larger than this.
+ * We do not support 2MB pages in the first and last GB of VA (just so we do not have to manage PDE
+ * tables), So the actual zone size is 'max_physmem - GB' , or just 1GB on HW with no 1g pages - all
+ * VA there is provded by 2 PDP tables - see km_mem.c
+ */
+#define GUEST_MEM_ZONE_SIZE_VA                                                                     \
+   ((machine.pdpe1g ? (machine.guest_max_physmem - GIB) : GIB) - 2 * MIB)
 
 /*
  * See "Virtual memory layout:" in km_cpu_init.c for details.
@@ -117,6 +123,13 @@ static inline km_gva_t gva_to_gpa(km_gva_t gva)
       gva -= GUEST_VA_OFFSET;
    }
    return gva;
+}
+
+// helper to convert physical to virtual in the top of VA
+static inline km_gva_t gpa_to_upper_gva(uint64_t gpa)
+{
+   assert(GUEST_MEM_START_VA <= gpa && gpa < machine.guest_max_physmem);
+   return gpa + GUEST_VA_OFFSET;
 }
 
 static inline int gva_to_memreg_idx(km_gva_t addr)
