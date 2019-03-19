@@ -308,8 +308,9 @@ void km_pthread_fini(km_vcpu_t* vcpu)
 
    if (pt_kma != NULL && pt_kma->map_base != NULL) {
       km_guest_munmap((km_gva_t)pt_kma->map_base, pt_kma->map_size);
-      pt_kma->map_base = NULL;
+      vcpu->guest_thr = 0;
    }
+   vcpu->stack_top = 0;
 }
 
 int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_gva_t start, km_gva_t args)
