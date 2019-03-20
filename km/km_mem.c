@@ -250,7 +250,7 @@ void km_mem_init(void)
    }
    init_pml4((km_kma_t)reg->userspace_addr);
 
-   machine.brk = GUEST_MEM_START_VA - 1;   // last allocated byte
+   machine.brk = GUEST_MEM_START_VA;
    machine.tbrk = GUEST_MEM_TOP_VA;
    machine.guest_mid_physmem = machine.guest_max_physmem >> 1;
    machine.mid_mem_idx = MEM_IDX(machine.guest_mid_physmem - 1);
@@ -278,7 +278,7 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
    } else {
       assert(machine.pdpe1g != 0);
       x86_pdpte_1g_t* pdpe = km_resv_kma() + (upper_va ? RSV_PDPT2_OFFSET : RSV_PDPT_OFFSET);
-      uint64_t gva = gpa_to_upper_gva(base);
+      uint64_t gva = upper_va ? gpa_to_upper_gva(base) : base;
       for (uint64_t addr = gva; addr < gva + size; addr += PDPTE_REGION, base += PDPTE_REGION) {
          pdpte_1g_set(pdpe + PDPTE_SLOT(addr), base);
       }
@@ -300,7 +300,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
    } else {
       assert(machine.pdpe1g != 0);   // no 1GB pages support
       x86_pdpte_1g_t* pdpe = km_resv_kma() + (upper_va ? RSV_PDPT2_OFFSET : RSV_PDPT_OFFSET);
-      uint64_t gva = gpa_to_upper_gva(base);
+      uint64_t gva = upper_va ? gpa_to_upper_gva(base) : base;
       for (uint64_t addr = gva; addr < gva + size; addr += PDPTE_REGION, base += PDPTE_REGION) {
          memset(pdpe + PDPTE_SLOT(addr), 0, sizeof(*pdpe));
       }
@@ -378,7 +378,7 @@ km_gva_t km_mem_brk(km_gva_t brk)
       return -ENOMEM;
    }
 
-   idx = gva_to_memreg_idx(machine.brk);
+   idx = gva_to_memreg_idx(machine.brk - 1);
    for (km_gva_t m_brk = MIN(brk, memreg_top(idx)); m_brk < brk; m_brk = MIN(brk, memreg_top(idx))) {
       /* Not enough room in the allocated memreg, allocate and add new ones */
       idx++;
@@ -391,7 +391,7 @@ km_gva_t km_mem_brk(km_gva_t brk)
          break;
       }
    }
-   for (; idx > gva_to_memreg_idx(brk); idx--) {
+   for (; idx > gva_to_memreg_idx(brk - 1); idx--) {
       /* brk moved down and left one or more memory regions. Remove and free */
       km_free_region(idx, 0);
    }

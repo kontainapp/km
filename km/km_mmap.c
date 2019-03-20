@@ -73,7 +73,6 @@ mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t
 }
 
 // find any free mmap larger or equal to 'size'
-// TODO: sort free by size and return a smallest one
 static km_mmap_reg_t* km_mmap_find_free(size_t size)
 {
    km_mmap_reg_t* ptr;
@@ -86,22 +85,96 @@ static km_mmap_reg_t* km_mmap_find_free(size_t size)
    return NULL;
 }
 
+// A helper to return the 'end' , i.e. the address of the first bite *after* the region
 static inline km_gva_t mmap_end(km_mmap_reg_t* reg)
 {
    return reg->start + reg->size;
 }
 
-// find a mmap segment containing the addr
+// find a mmap segment containing the addr in the sorted busy list
 static km_mmap_reg_t* km_mmap_find_busy(km_gva_t addr)
 {
    km_mmap_reg_t* ptr;
 
    LIST_FOREACH (ptr, &mmaps.busy, link) {
-      if (ptr->start <= addr && addr <= mmap_end(ptr)) {
+      if (ptr->start <= addr && addr < mmap_end(ptr)) {
          return ptr;
       }
    }
    return NULL;
+}
+
+/*
+ * Inserts into the list sorted by reg->start/
+ * TODO: Could (and should) be changed to avoid multiple scans
+ * by passing optional location where to insert (since it's usually known from prev. search).
+ * Leaving it nonoptimal for now, in assumption the map lists are very short
+ */
+static inline void km_mmaps_list_insert_sorted(km_mmap_list_t* list, km_mmap_reg_t* reg)
+{
+   km_mmap_reg_t* ptr;
+
+   LIST_FOREACH (ptr, list, link) {
+      if (ptr->start > reg->start) {
+         assert(ptr->start >= mmap_end(reg));
+         break;   // Found one to the right on the region to insert
+      }
+      // double check that there are no overlaps (we don't support overlapping mmaps)
+      assert(ptr->start < reg->start && mmap_end(ptr) <= reg->start);
+   }
+   if (ptr) {
+      LIST_INSERT_BEFORE(ptr, reg, link);
+   } else {
+      LIST_INSERT_HEAD(list, reg, link);
+   }
+}
+
+// inserts into the 'busy' list and tries to consolidate neighbors with the same characteristics
+static inline void km_mmaps_list_insert_busy(km_mmap_reg_t* reg)
+{
+   km_mmaps_list_insert_sorted(&mmaps.busy, reg);
+   // TODO: scan and try to consolidate
+}
+
+// inserts into 'free' sorted list, and tries to consolidate free entries and
+// TODO: modify code to avoid multiple scans of the list
+static inline void km_mmaps_list_insert_free(km_mmap_reg_t* reg)
+{
+   km_mmap_reg_t* ptr;
+   km_mmap_list_t* list = &mmaps.free;
+
+   km_mmaps_list_insert_sorted(list, reg);
+
+   // scan the list and see if we can glue stuff together and also free some memory
+   // Ideally we should have done on insert above, but it's generic (for free and busy)
+   // so taking an easy route
+   km_mmap_reg_t* prev = LIST_FIRST(list);
+
+   LIST_FOREACH (ptr, list, link) {
+      if (prev && mmap_end(prev) == ptr->start) {
+         // for 'free' list flags/prot don't matter, so concat the regions
+         ptr->start = prev->start;
+         ptr->size += prev->size;
+         LIST_REMOVE(prev, link);
+         free(prev);
+      }
+      prev = ptr;
+   }
+   ptr = LIST_FIRST(list);
+   if (ptr->start == km_mem_tbrk(0)) {
+      km_mem_tbrk(mmap_end(ptr));
+      LIST_REMOVE(ptr, link);
+      free(ptr);
+   }
+}
+
+/*
+ *  Removes a reg from whatever list it is in. Superficial wrapper for API consistency.
+ * Does not clean up 'reg' as it is reused upstairs in some cases
+ */
+static inline void km_mmaps_list_remove(km_mmap_reg_t* reg)
+{
+   LIST_REMOVE(reg, link);
 }
 
 km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
@@ -112,6 +185,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
+   km_infox("mmap entry. tbrk=0x%lx", machine.tbrk);
    mmaps_lock();
    // TODO: check flags
    if ((reg = km_mmap_find_free(size)) != NULL) {
@@ -126,10 +200,10 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
          carved->size = size;
          reg->start += size;
          reg->size -= size;
-      } else {   // full chunk is reused
-         LIST_REMOVE(reg, link);
+      } else {                        // full chunk is reused -
+         km_mmaps_list_remove(reg);   // remove from free list. <carved> points to <reg> area
       }
-      LIST_INSERT_HEAD(&mmaps.busy, carved, link);
+      km_mmaps_list_insert_busy(carved);
       mmaps_unlock();
       return carved->start;
    }
@@ -148,8 +222,9 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    reg->flags = flags;
    reg->protection = prot;
    reg->size = size;
-   LIST_INSERT_HEAD(&mmaps.busy, reg, link);
+   km_mmaps_list_insert_busy(reg);
    mmaps_unlock();
+   km_infox("mmap exit. tbrk=0x%lx", machine.tbrk);
    return reg->start;
 }
 
@@ -172,6 +247,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    km_gva_t head_start, tail_start;
    size_t head_size, tail_size;
 
+   km_infox("munmap entry. tbrk=0x%lx", machine.tbrk);
    mmaps_lock();
    if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL || (addr + size > mmap_end(reg))) {
       mmaps_unlock();
@@ -199,29 +275,25 @@ int km_guest_munmap(km_gva_t addr, size_t size)
       memcpy(head, reg, sizeof(*head));
       head->start = head_start;
       head->size = head_size;
-      LIST_INSERT_HEAD(&mmaps.busy, head, link);
+      km_mmaps_list_insert_busy(head);
    }
    if (tail != NULL) {
       memcpy(tail, reg, sizeof(*tail));
       tail->start = tail_start;
       tail->size = tail_size;
-      LIST_INSERT_HEAD(&mmaps.busy, tail, link);
+      km_mmaps_list_insert_busy(tail);
    }
 
-   LIST_REMOVE(reg, link);   // remove from busy list
-   if (reg->start == km_mem_tbrk(0)) {
-      km_mem_tbrk(mmap_end(reg));
-      free(reg);
-   } else {
-      LIST_INSERT_HEAD(&mmaps.free, reg, link);
-   }
+   km_mmaps_list_remove(reg);   // move from busy to free list. No need to free reg, it will be reused
+   km_mmaps_list_insert_free(reg);
    mmaps_unlock();
+   km_infox("munmap exit. tbrk=0x%lx", machine.tbrk);
    return 0;
 }
 
 // TODO - implement :-)
-km_gva_t km_guest_mremap(
-    km_gva_t old_address, size_t old_size, size_t new_size, int flags, ... /* void *new_address */)
+km_gva_t
+km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... /* void *new_address */)
 {
    return -ENOTSUP;
 }

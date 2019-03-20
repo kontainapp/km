@@ -28,8 +28,8 @@ OBJ = ${SRC:%.c=%.o}
 LIBS := runtime
 EXECS := ${SRC:%.c=%.km} ${SRC:%.c=%}
 
-# Test: run by BATS, defintion in TEST_FILES, test name has to MATCH
-BATS := bats/bin/bats
+# Test: run by BATS, definition in TEST_FILES, test name has to MATCH
+BATS := time bats/bin/bats
 TEST_FILES := km_core_tests.bats
 MATCH ?= ".*"
 
