@@ -5,23 +5,23 @@
 
 define print_list
 if $argc == 0
-		help print_list
+      help print_list
       return
-	else
+   else
       print $arg0
-		set $head = $arg0
-	end
+      set $head = $arg0
+   end
 
-  set $item = $head->lh_first
-  while $item != 0
-    printf "start= 0x%lx size = %d MiB\n", $item->start, $item->size/1024/1024
-    set $item=$item->link->le_next
-  end
+   set $item = $head->lh_first
+   while $item != 0
+      printf "start= 0x%lx size = %d MiB\n", $item->start, $item->size/1024/1024
+      set $item=$item->link->le_next
+   end
 end
 
 document print_list
-	Prints LIST info
-	Syntax: print_list &LIST
-	Examples:
-	print_list &mmaps.free
+   Prints LIST info
+     Syntax: print_list &LIST
+   Examples:
+     print_list &mmaps.free
 end

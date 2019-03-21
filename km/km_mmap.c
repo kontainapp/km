@@ -41,8 +41,8 @@ typedef struct km_mmap_cb {   // control block
 } km_mmap_cb_t;
 
 static km_mmap_cb_t mmaps = {
-    .free = LIST_HEAD_INITIALIZER(free_head),
-    .busy = LIST_HEAD_INITIALIZER(free_head),
+    .free = LIST_HEAD_INITIALIZER(mmaps.free),
+    .busy = LIST_HEAD_INITIALIZER(mmaps.busy),
     .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
 
@@ -105,14 +105,19 @@ static km_mmap_reg_t* km_mmap_find_busy(km_gva_t addr)
 }
 
 /*
- * Inserts into the list sorted by reg->start/
+ * Inserts region into the list sorted by reg->start.
+ * Also compresses the list/adjusts tbrk for free list
+ * 'busy' == 1 for insert into BUSY list, 0 for insert into FREE list.
+ *
  * TODO: Could (and should) be changed to avoid multiple scans
  * by passing optional location where to insert (since it's usually known from prev. search).
  * Leaving it nonoptimal for now, in assumption the map lists are very short
+ *
  */
-static inline void km_mmaps_list_insert_sorted(km_mmap_list_t* list, km_mmap_reg_t* reg)
+static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
 {
    km_mmap_reg_t* ptr;
+   km_mmap_list_t* list = busy ? &mmaps.busy : &mmaps.free;
 
    LIST_FOREACH (ptr, list, link) {
       if (ptr->start > reg->start) {
@@ -122,30 +127,17 @@ static inline void km_mmaps_list_insert_sorted(km_mmap_list_t* list, km_mmap_reg
       // double check that there are no overlaps (we don't support overlapping mmaps)
       assert(ptr->start < reg->start && mmap_end(ptr) <= reg->start);
    }
-   if (ptr) {
-      LIST_INSERT_BEFORE(ptr, reg, link);
-   } else {
+   if (ptr == NULL) {   // empty list. Insert the item an we are done
       LIST_INSERT_HEAD(list, reg, link);
+      return;
    }
-}
 
-// inserts into the 'busy' list and tries to consolidate neighbors with the same characteristics
-static inline void km_mmaps_list_insert_busy(km_mmap_reg_t* reg)
-{
-   km_mmaps_list_insert_sorted(&mmaps.busy, reg);
-   // TODO: scan and try to consolidate
-}
+   LIST_INSERT_BEFORE(ptr, reg, link);
+   if (busy) {   // TODO: try to consolidate the busy maps with the same flags/prot
+      return;
+   }
 
-// inserts into 'free' sorted list, and tries to consolidate free entries and
-// TODO: modify code to avoid multiple scans of the list
-static inline void km_mmaps_list_insert_free(km_mmap_reg_t* reg)
-{
-   km_mmap_reg_t* ptr;
-   km_mmap_list_t* list = &mmaps.free;
-
-   km_mmaps_list_insert_sorted(list, reg);
-
-   // scan the list and see if we can glue stuff together and also free some memory
+   // scan the FREE list and see if we can glue stuff together and also free some memory
    // Ideally we should have done on insert above, but it's generic (for free and busy)
    // so taking an easy route
    km_mmap_reg_t* prev = LIST_FIRST(list);
@@ -168,11 +160,24 @@ static inline void km_mmaps_list_insert_free(km_mmap_reg_t* reg)
    }
 }
 
-/*
- *  Removes a reg from whatever list it is in. Superficial wrapper for API consistency.
- * Does not clean up 'reg' as it is reused upstairs in some cases
- */
-static inline void km_mmaps_list_remove(km_mmap_reg_t* reg)
+// Insert a region into the BUSY MMAPS list
+static inline void km_mmaps_insert_busy(km_mmap_reg_t* reg)
+{
+   km_mmaps_insert(reg, 1);
+}
+
+// Insert a region into the FREE MMAPS list, and compress maps/tbrk
+static inline void km_mmaps_insert_free(km_mmap_reg_t* reg)
+{
+   km_mmaps_insert(reg, 0);
+}
+
+// Remove an element from a list.  In the list, this does not depend on list  head
+static inline void km_mmaps_remove_free(km_mmap_reg_t* reg)
+{
+   LIST_REMOVE(reg, link);
+}
+static inline void km_mmaps_remove_busy(km_mmap_reg_t* reg)
 {
    LIST_REMOVE(reg, link);
 }
@@ -200,10 +205,10 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
          carved->size = size;
          reg->start += size;
          reg->size -= size;
-      } else {                        // full chunk is reused -
-         km_mmaps_list_remove(reg);   // remove from free list. <carved> points to <reg> area
+      } else {   // full chunk is reused -
+         km_mmaps_remove_free(reg);
       }
-      km_mmaps_list_insert_busy(carved);
+      km_mmaps_insert_busy(carved);
       mmaps_unlock();
       return carved->start;
    }
@@ -222,7 +227,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    reg->flags = flags;
    reg->protection = prot;
    reg->size = size;
-   km_mmaps_list_insert_busy(reg);
+   km_mmaps_insert_busy(reg);
    mmaps_unlock();
    km_infox("mmap exit. tbrk=0x%lx", machine.tbrk);
    return reg->start;
@@ -275,17 +280,17 @@ int km_guest_munmap(km_gva_t addr, size_t size)
       memcpy(head, reg, sizeof(*head));
       head->start = head_start;
       head->size = head_size;
-      km_mmaps_list_insert_busy(head);
+      km_mmaps_insert_busy(head);
    }
    if (tail != NULL) {
       memcpy(tail, reg, sizeof(*tail));
       tail->start = tail_start;
       tail->size = tail_size;
-      km_mmaps_list_insert_busy(tail);
+      km_mmaps_insert_busy(tail);
    }
 
-   km_mmaps_list_remove(reg);   // move from busy to free list. No need to free reg, it will be reused
-   km_mmaps_list_insert_free(reg);
+   km_mmaps_remove_busy(reg);   // move from busy to free list. No need to free reg, it will be reused
+   km_mmaps_insert_free(reg);
    mmaps_unlock();
    km_infox("munmap exit. tbrk=0x%lx", machine.tbrk);
    return 0;
