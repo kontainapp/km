@@ -216,7 +216,7 @@ static struct breakpoint_t* bp_list_find(gdb_breakpoint_type_t type, km_gva_t ad
 }
 
 /*
- * Adds a new breakpoint to the list of breakpoints.  Returns the found or
+ * Adds a new breakpoint to the list of breakpoints. Returns the found or
  * created breakpoint. Returns NULL in case of failure or if we reached the max
  * number of allowed hardware breakpoints (4).
  */
@@ -441,7 +441,7 @@ int km_gdb_write_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t len)
 }
 
 /*
- * Add a breakpoint of type software or hardware, at address addr.  len is
+ * Add a breakpoint of type software or hardware, at address addr. len is
  * typically the size of the breakpoint in bytes that should be inserted
  * Returns 0 if success, -1 otherwise.
  */

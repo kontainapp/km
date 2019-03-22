@@ -104,7 +104,7 @@ static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
  * address) of this region is machine.tbrk.
  *
  * Total amount of guest virtual memory (bottom region + top region) is currently limited to
- * 'guest_max_physical_mem-4MB' (i.e. 512GB-4MB).  Virtual to physical is essentially 1:1
+ * 'guest_max_physical_mem-4MB' (i.e. 512GB-4MB). Virtual to physical is essentially 1:1
  * mapping, but the top region virtual addresses are equal to physical_addresses + GUEST_VA_OFFSET.
  *
  * We use 2MB pages for the first and last GB of virtual space, and 1GB pages for the rest. With the

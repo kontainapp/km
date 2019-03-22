@@ -78,7 +78,7 @@ static const uint64_t GUEST_ARG_MAX = 32 * PAGE_SIZE;
 
 /*
  * Physical address space is made of regions with size exponentially increasing from 2MB until they
- * cross the middle of the space,  and then region sizes are exponentially decreasing until they
+ * cross the middle of the space, and then region sizes are exponentially decreasing until they
  * drop to 2MB (last region size). E.g.:
  * // clang-format off
  *  base - end       size  idx   clz  clz(end)
