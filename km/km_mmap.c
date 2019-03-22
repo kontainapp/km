@@ -23,7 +23,7 @@
 #include "km.h"
 #include "km_mem.h"
 
-LIST_HEAD(km_mmap_list, km_mmap_reg);
+TAILQ_HEAD(km_mmap_list, km_mmap_reg);
 typedef struct km_mmap_list km_mmap_list_t;
 
 typedef struct km_mmap_reg {
@@ -31,7 +31,7 @@ typedef struct km_mmap_reg {
    size_t size;
    int flags;
    int protection;
-   LIST_ENTRY(km_mmap_reg) link;
+   TAILQ_ENTRY(km_mmap_reg) link;
 } km_mmap_reg_t;
 
 typedef struct km_mmap_cb {   // control block
@@ -41,8 +41,8 @@ typedef struct km_mmap_cb {   // control block
 } km_mmap_cb_t;
 
 static km_mmap_cb_t mmaps = {
-    .free = LIST_HEAD_INITIALIZER(mmaps.free),
-    .busy = LIST_HEAD_INITIALIZER(mmaps.busy),
+    .free = TAILQ_HEAD_INITIALIZER(mmaps.free),
+    .busy = TAILQ_HEAD_INITIALIZER(mmaps.busy),
     .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
 
@@ -58,8 +58,8 @@ static inline void mmaps_unlock(void)
 
 void km_guest_mmap_init(void)
 {
-   LIST_INIT(&mmaps.free);
-   LIST_INIT(&mmaps.busy);
+   TAILQ_INIT(&mmaps.free);
+   TAILQ_INIT(&mmaps.busy);
 }
 
 static inline int
@@ -77,7 +77,7 @@ static km_mmap_reg_t* km_mmap_find_free(size_t size)
 {
    km_mmap_reg_t* ptr;
 
-   LIST_FOREACH (ptr, &mmaps.free, link) {
+   TAILQ_FOREACH (ptr, &mmaps.free, link) {
       if (ptr->size >= size) {
          return ptr;
       }
@@ -96,12 +96,47 @@ static km_mmap_reg_t* km_mmap_find_busy(km_gva_t addr)
 {
    km_mmap_reg_t* ptr;
 
-   LIST_FOREACH (ptr, &mmaps.busy, link) {
+   TAILQ_FOREACH (ptr, &mmaps.busy, link) {
       if (ptr->start <= addr && addr < mmap_end(ptr)) {
          return ptr;
       }
    }
    return NULL;
+}
+
+/*
+ * Try to glue with left and/or right region from 'reg'.
+ * 'Reg' is assumed to be in free list already.
+ * When the regions are concat together, the excess ones are freed and removed fron the list
+ */
+static inline void km_mmap_concat_free(km_mmap_reg_t* reg)
+{
+   km_mmap_list_t* list = &mmaps.free;
+   km_mmap_reg_t* left = TAILQ_PREV(reg, km_mmap_list, link);
+   km_mmap_reg_t* right = TAILQ_NEXT(reg, link);
+
+   if (left != NULL && mmap_end(left) == reg->start) {
+      left->size += reg->size;
+      if (right != NULL && mmap_end(reg) == right->start) {
+         left->size += right->size;
+         TAILQ_REMOVE(list, right, link);
+         free(right);
+      }
+      TAILQ_REMOVE(list, reg, link);
+      free(reg);
+   } else if (right != NULL && mmap_end(reg) == right->start) {
+      right->start = reg->start;
+      right->size += reg->size;
+      TAILQ_REMOVE(list, reg, link);
+      free(reg);
+   }
+
+   // adjust tbrk() if needed
+   if ((reg = TAILQ_FIRST(list))->start == km_mem_tbrk(0)) {
+      km_mem_tbrk(mmap_end(reg));
+      TAILQ_REMOVE(list, reg, link);
+      free(reg);
+   }
 }
 
 /*
@@ -116,57 +151,42 @@ static km_mmap_reg_t* km_mmap_find_busy(km_gva_t addr)
  */
 static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
 {
-   km_mmap_reg_t* ptr;
    km_mmap_list_t* list = busy ? &mmaps.busy : &mmaps.free;
+   km_mmap_reg_t* ptr;
 
-   LIST_FOREACH (ptr, list, link) {
+   if (TAILQ_EMPTY(list)) {
+      TAILQ_INSERT_HEAD(list, reg, link);
+      return;
+   }
+
+   TAILQ_FOREACH (ptr, list, link) {   // find the map to the right of the 'reg'
       if (ptr->start > reg->start) {
          assert(ptr->start >= mmap_end(reg));
-         break;   // Found one to the right on the region to insert
+         break;
       }
       // double check that there are no overlaps (we don't support overlapping mmaps)
       assert(ptr->start < reg->start && mmap_end(ptr) <= reg->start);
    }
-   if (ptr == NULL) {   // empty list. Insert the item an we are done
-      LIST_INSERT_HEAD(list, reg, link);
-      return;
+
+   if (ptr == TAILQ_END(list)) {
+      TAILQ_INSERT_TAIL(list, reg, link);
+   } else {
+      TAILQ_INSERT_BEFORE(ptr, reg, link);
    }
 
-   LIST_INSERT_BEFORE(ptr, reg, link);
-   if (busy) {   // TODO: try to consolidate the busy maps with the same flags/prot
-      return;
+   if (busy == 0) {
+      km_mmap_concat_free(reg);
    }
-
-   // scan the FREE list and see if we can glue stuff together and also free some memory
-   // Ideally we should have done on insert above, but it's generic (for free and busy)
-   // so taking an easy route
-   km_mmap_reg_t* prev = LIST_FIRST(list);
-
-   LIST_FOREACH (ptr, list, link) {
-      if (prev && mmap_end(prev) == ptr->start) {
-         // for 'free' list flags/prot don't matter, so concat the regions
-         ptr->start = prev->start;
-         ptr->size += prev->size;
-         LIST_REMOVE(prev, link);
-         free(prev);
-      }
-      prev = ptr;
-   }
-   ptr = LIST_FIRST(list);
-   if (ptr->start == km_mem_tbrk(0)) {
-      km_mem_tbrk(mmap_end(ptr));
-      LIST_REMOVE(ptr, link);
-      free(ptr);
-   }
+   // Nothing else to do for busy list. TODO: try to consolidate if flags/prot match
 }
 
-// Insert a region into the BUSY MMAPS list
+// Insert a region into the BUSY MMAPS list. Expects 'reg' to be malloced
 static inline void km_mmaps_insert_busy(km_mmap_reg_t* reg)
 {
    km_mmaps_insert(reg, 1);
 }
 
-// Insert a region into the FREE MMAPS list, and compress maps/tbrk
+// Insert a region into the FREE MMAPS list, and compress maps/tbrk. Expects 'reg' to be malloced
 static inline void km_mmaps_insert_free(km_mmap_reg_t* reg)
 {
    km_mmaps_insert(reg, 0);
@@ -175,11 +195,11 @@ static inline void km_mmaps_insert_free(km_mmap_reg_t* reg)
 // Remove an element from a list.  In the list, this does not depend on list  head
 static inline void km_mmaps_remove_free(km_mmap_reg_t* reg)
 {
-   LIST_REMOVE(reg, link);
+   TAILQ_REMOVE(&mmaps.free, reg, link);
 }
 static inline void km_mmaps_remove_busy(km_mmap_reg_t* reg)
 {
-   LIST_REMOVE(reg, link);
+   TAILQ_REMOVE(&mmaps.busy, reg, link);
 }
 
 km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
