@@ -85,19 +85,13 @@ static km_mmap_reg_t* km_mmap_find_free(size_t size)
    return NULL;
 }
 
-// A helper to return the 'end' , i.e. the address of the first bite *after* the region
-static inline km_gva_t mmap_end(km_mmap_reg_t* reg)
-{
-   return reg->start + reg->size;
-}
-
 // find a mmap segment containing the addr in the sorted busy list
 static km_mmap_reg_t* km_mmap_find_busy(km_gva_t addr)
 {
    km_mmap_reg_t* ptr;
 
    TAILQ_FOREACH (ptr, &mmaps.busy, link) {
-      if (ptr->start <= addr && addr < mmap_end(ptr)) {
+      if (ptr->start <= addr && addr < ptr->start + ptr->size) {
          return ptr;
       }
    }
@@ -115,16 +109,16 @@ static inline void km_mmap_concat_free(km_mmap_reg_t* reg)
    km_mmap_reg_t* left = TAILQ_PREV(reg, km_mmap_list, link);
    km_mmap_reg_t* right = TAILQ_NEXT(reg, link);
 
-   if (left != NULL && mmap_end(left) == reg->start) {
+   if (left != NULL && (left->start + left->size == reg->start)) {
       left->size += reg->size;
-      if (right != NULL && mmap_end(reg) == right->start) {
+      if (right != NULL && (reg->start + reg->size == right->start)) {
          left->size += right->size;
          TAILQ_REMOVE(list, right, link);
          free(right);
       }
       TAILQ_REMOVE(list, reg, link);
       free(reg);
-   } else if (right != NULL && mmap_end(reg) == right->start) {
+   } else if (right != NULL && (reg->start + reg->size == right->start)) {
       right->start = reg->start;
       right->size += reg->size;
       TAILQ_REMOVE(list, reg, link);
@@ -133,7 +127,7 @@ static inline void km_mmap_concat_free(km_mmap_reg_t* reg)
 
    // adjust tbrk() if needed
    if ((reg = TAILQ_FIRST(list))->start == km_mem_tbrk(0)) {
-      km_mem_tbrk(mmap_end(reg));
+      km_mem_tbrk(reg->start);
       TAILQ_REMOVE(list, reg, link);
       free(reg);
    }
@@ -161,11 +155,11 @@ static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
 
    TAILQ_FOREACH (ptr, list, link) {   // find the map to the right of the 'reg'
       if (ptr->start > reg->start) {
-         assert(ptr->start >= mmap_end(reg));
+         assert(ptr->start >= reg->start + reg->size);
          break;
       }
       // double check that there are no overlaps (we don't support overlapping mmaps)
-      assert(ptr->start < reg->start && mmap_end(ptr) <= reg->start);
+      assert(ptr->start < reg->start && (ptr->start + ptr->size <= reg->start));
    }
 
    if (ptr == TAILQ_END(list)) {
@@ -177,7 +171,7 @@ static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
    if (busy == 0) {
       km_mmap_concat_free(reg);
    }
-   // Nothing else to do for busy list. TODO: try to consolidate if flags/prot match
+   // TODO: try to consolidate busy list if flags/prot match
 }
 
 // Insert a region into the BUSY MMAPS list. Expects 'reg' to be malloced
@@ -192,11 +186,12 @@ static inline void km_mmaps_insert_free(km_mmap_reg_t* reg)
    km_mmaps_insert(reg, 0);
 }
 
-// Remove an element from a list.  In the list, this does not depend on list  head
+// Remove an element from a list. In the list, this does not depend on list head
 static inline void km_mmaps_remove_free(km_mmap_reg_t* reg)
 {
    TAILQ_REMOVE(&mmaps.free, reg, link);
 }
+
 static inline void km_mmaps_remove_busy(km_mmap_reg_t* reg)
 {
    TAILQ_REMOVE(&mmaps.busy, reg, link);
@@ -274,7 +269,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
 
    km_infox("munmap entry. tbrk=0x%lx", machine.tbrk);
    mmaps_lock();
-   if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL || (addr + size > mmap_end(reg))) {
+   if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL || (addr + size > reg->start + reg->size)) {
       mmaps_unlock();
       return -EINVAL;   // unmap start and end have to be in a single mapped region, for now
    }
@@ -282,7 +277,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    head_start = reg->start;
    head_size = addr - head_start;
    tail_start = addr + size;
-   tail_size = mmap_end(reg) - tail_start;
+   tail_size = reg->start + reg->size - tail_start;
    if (head_size > 0 && (head = malloc(sizeof(km_mmap_reg_t))) == NULL) {
       mmaps_unlock();
       return -ENOMEM;

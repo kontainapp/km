@@ -55,7 +55,7 @@ static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
 /*
  * We support 2 "zones" of VAs, one on the bottom and one on the top, each no larger than this.
  * We do not support 2MB pages in the first and last GB of VA (just so we do not have to manage PDE
- * tables), So the actual zone size is 'max_physmem - GB' , or just 1GB on HW with no 1g pages - all
+ * tables), So the actual zone size is 'max_physmem - GB', or just 1GB on HW with no 1g pages - all
  * VA there is provded by 2 PDP tables - see km_mem.c
  */
 #define GUEST_MEM_ZONE_SIZE_VA                                                                     \
@@ -78,7 +78,7 @@ static const uint64_t GUEST_ARG_MAX = 32 * PAGE_SIZE;
 
 /*
  * Physical address space is made of regions with size exponentially increasing from 2MB until they
- * cross the middle of the space ,  and then region sizes are exponentially decreasing until they
+ * cross the middle of the space,  and then region sizes are exponentially decreasing until they
  * drop to 2MB (last region size). E.g.:
  * // clang-format off
  *  base - end       size  idx   clz  clz(end)
@@ -116,7 +116,7 @@ static inline int MEM_IDX(km_gva_t addr)
 // guest virtual address to guest physical address - adjust high gva down
 static inline km_gva_t gva_to_gpa(km_gva_t gva)
 {
-   // gva must be in the bottom or top "max_physmem" , but not in between
+   // gva must be in the bottom or top "max_physmem", but not in between
    assert((GUEST_MEM_START_VA - 1 <= gva && gva < machine.guest_max_physmem) ||
           (GUEST_VA_OFFSET <= gva && gva <= GUEST_MEM_TOP_VA));
    if (gva > GUEST_VA_OFFSET) {
