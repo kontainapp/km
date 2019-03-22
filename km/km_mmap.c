@@ -127,7 +127,7 @@ static inline void km_mmap_concat_free(km_mmap_reg_t* reg)
 
    // adjust tbrk() if needed
    if ((reg = TAILQ_FIRST(list))->start == km_mem_tbrk(0)) {
-      km_mem_tbrk(reg->start);
+      km_mem_tbrk(reg->start + reg->size);
       TAILQ_REMOVE(list, reg, link);
       free(reg);
    }
