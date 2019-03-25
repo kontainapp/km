@@ -171,7 +171,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
    if (ga > vcpu->stack_top) {
       ga -= 4 * GIB;
    }
-   return km_hcalls_table[*hc](*hc, km_gva_to_kma(ga), status);
+   return km_hcalls_table[*hc](vcpu, *hc, km_gva_to_kma(ga), status);
 }
 
 static void km_vcpu_exit(km_vcpu_t* vcpu, int s) __attribute__((noreturn));

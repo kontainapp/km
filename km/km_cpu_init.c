@@ -241,28 +241,6 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data)
 }
 
 /*
- * Apply callback to the current thread. Really, just find VCPU and apply callback.
- * Returns what the callback function returns (we expect 0 for success)
- */
-int km_vcpu_apply_self(km_vcpu_apply_cb func, void* data)
-{
-   pthread_t pt = pthread_self();
-
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      km_vcpu_t* vcpu;
-
-      if ((vcpu = machine.vm_vcpus[i]) == NULL) {
-         break;   // since we allocate vcpus sequentially, no reason to scan after NULL
-      }
-      if (vcpu->is_used == 1 && vcpu->vcpu_thread == pt) {
-         return (*func)(vcpu, data);
-      }
-   }
-   assert("km_vcpu_apply_self: current thread should be in VCPU list" == NULL);
-   return -1;   // not reachable
-}
-
-/*
  * Returns 1 if the vcpu is still running (i.e.not paused). Skip the ones waiting on join as join is
  * not interruptable anyways and may generate a deadlock.
  */

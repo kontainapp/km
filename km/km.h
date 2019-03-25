@@ -114,8 +114,9 @@ static inline km_vcpu_t* km_main_vcpu(void)
 }
 
 void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[]);
-int km_pthread_create(pthread_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
-int km_pthread_join(pthread_t pid, km_kma_t ret);
+int km_pthread_create(
+    km_vcpu_t* vcpu, pthread_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
+int km_pthread_join(km_vcpu_t* vcpu, pthread_t pid, km_kma_t ret);
 void km_pthread_fini(km_vcpu_t* vcpu);
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
@@ -126,7 +127,6 @@ void km_vcpu_detach(km_vcpu_t* vcpu);
 
 typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, void* data);   // return 0 if all is good
 extern int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data);
-extern int km_vcpu_apply_self(km_vcpu_apply_cb func, void* data);
 extern int km_vcpu_pause(km_vcpu_t* vcpu, void* unused);
 extern void km_vcpu_wait_for_all_to_pause(void);
 

@@ -315,7 +315,11 @@ void km_pthread_fini(km_vcpu_t* vcpu)
    }
 }
 
-int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_gva_t start, km_gva_t args)
+int km_pthread_create(km_vcpu_t* current_vcpu,
+                      pthread_t* restrict pid,
+                      const km_kma_t restrict attr,
+                      km_gva_t start,
+                      km_gva_t args)
 {
    km_gva_t pt;
    km_vcpu_t* vcpu;
@@ -360,13 +364,7 @@ int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_
    return 0;
 }
 
-static int km_vcpu_set_joining(km_vcpu_t* vcpu, void* val)
-{
-   vcpu->is_joining = (uint64_t)val;
-   return 0;
-}
-
-int km_pthread_join(pthread_t pid, km_kma_t ret)
+int km_pthread_join(km_vcpu_t* current_vcpu, pthread_t pid, km_kma_t ret)
 {
    km_vcpu_t* vcpu;
    int rc;
@@ -379,7 +377,7 @@ int km_pthread_join(pthread_t pid, km_kma_t ret)
     * pthread_join the thread needs to be skipped when asking all vcpus to stop. Note that join will
     * complete naturally when the thread being joined exits due to signal.
     */
-   km_vcpu_apply_self(km_vcpu_set_joining, (void*)1);
+   current_vcpu->is_joining = 1;
    vcpu = machine.vm_vcpus[pid];
    /*
     * There are multiple condition such as deadlock or double join that are supposed to be detected,
@@ -392,7 +390,7 @@ int km_pthread_join(pthread_t pid, km_kma_t ret)
    if ((rc = -pthread_join(vcpu->vcpu_thread, (void*)ret)) == 0) {
       km_vcpu_put(vcpu);
    } else {
-      km_vcpu_apply_self(km_vcpu_set_joining, (void*)0);
+      current_vcpu->is_joining = 0;
    }
    return rc;
 }
