@@ -179,7 +179,7 @@ static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
 {
    if (km_gdb_is_enabled()) {
       vcpu->cpu_run->exit_reason = KVM_EXIT_HLT;
-      km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);   // TODO: just send "thread exited" event to gdb
+      km_gdb_notify_and_wait(vcpu, errno);   // TODO: just send "thread exited" event to gdb
    }
    km_vcpu_stopped(vcpu);
    machine.ret = s & 0377;   // Process status, if this is the last thread. &0377 is per 'man 3 exit'
@@ -231,14 +231,14 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
       }
       int reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
       switch (reason) {
-         case KVM_EXIT_IO: /* Hypercall */
-            if (vcpu->cpu_run->immediate_exit) {
-               // hypercall was interrupted
+         case KVM_EXIT_IO:          // Exiting from hypercall
+            if (errno == EINTR) {   // hypercall was interrupted
+               assert(vcpu->cpu_run->immediate_exit == 1);
                km_infox("KVM_EXIT_IO: HC interrupted. Time to stop VCPU %d", vcpu->vcpu_id);
                if (km_gdb_is_enabled()) {
                   vcpu->is_paused = 1;
                   vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
-                  km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
+                  km_gdb_notify_and_wait(vcpu, errno);
                } else {
                   /*
                    * We are supposed to only get here on hypercall interrupt by a signal outside of
@@ -291,7 +291,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
          case KVM_EXIT_INTR:
             if (km_gdb_is_enabled()) {
-               km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
+               km_gdb_notify_and_wait(vcpu, errno);
             } else {
                km_vcpu_exit(vcpu, EINTR);
             }
@@ -300,7 +300,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_DEBUG:
          case KVM_EXIT_EXCEPTION:
             if (km_gdb_is_enabled()) {
-               km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
+               km_gdb_notify_and_wait(vcpu, errno);
             } else {
                run_warn("KVM: stopped. reason=%d (%s)", reason, kvm_reason_name(reason));
                km_vcpu_exit(vcpu, -1);

@@ -146,7 +146,7 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
    int rc;
 
    if ((vcpu->kvm_vcpu_fd = ioctl(machine.mach_fd, KVM_CREATE_VCPU, vcpu->vcpu_id)) < 0) {
-      warn("KVM: create vcpu %d failed", vcpu->vcpu_id);
+      warn("KVM: create VCPU %d failed", vcpu->vcpu_id);
       return vcpu->kvm_vcpu_fd;
    }
    if ((rc = ioctl(vcpu->kvm_vcpu_fd, KVM_SET_CPUID2, machine.cpuid)) < 0) {
@@ -161,7 +161,7 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
    }
    if (km_gdb_is_enabled()) {
       if ((vcpu->eventfd = eventfd(0, 0)) == -1) {
-         warn("failed init gdb eventfd for vcpu %d", vcpu->vcpu_id);
+         warn("failed init gdb eventfd for VCPU %d", vcpu->vcpu_id);
          return -1;
       }
    }
@@ -233,7 +233,7 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data)
          break;   // since we allocate vcpus sequentially, no reason to scan after NULL
       }
       if (vcpu->is_used == 1 && (ret = (*func)(vcpu, data)) != 0) {
-         km_infox("km_vcpu_apply_all: func %p returned %d for vcpu %d", func, ret, vcpu->vcpu_id);
+         km_infox("km_vcpu_apply_all: func %p returned %d for VCPU %d", func, ret, vcpu->vcpu_id);
          total += ret;
       }
    }
@@ -328,6 +328,9 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_main_argc)
    if ((rc = ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &regs)) < 0) {
       return rc;
    }
+   if (km_gdb_is_enabled()) {
+      km_gdb_update_vcpu_debug(vcpu, 0);
+   }
    return 0;
 }
 
@@ -378,7 +381,7 @@ void km_machine_init(void)
       err(1, "KVM: get supported CPUID failed");
    }
    /*
-    * SDM, Table 3-8. Information Returned by CPUID.
+    * Intel SDM, Vol3, Table 3-8. Information Returned by CPUID.
     * Get and save max CPU supported phys memory.
     * Check for 1GB pages support
     */

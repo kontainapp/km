@@ -13,10 +13,10 @@
 #include <stdint.h>
 
 /*
- * structures/typedefs/defines from Intel® 64 and IA-32 Architectures SDM
+ * structures/typedefs/defines from Intel® 64 and IA-32 Architectures Intel SDM, Vol3
  */
 /*
- * SDM, Figure 3-8. Segment Descriptor
+ * Intel SDM, Vol3, Figure 3-8. Segment Descriptor
  */
 typedef struct x86_seg_d {
    uint64_t limit_lo : 16;
@@ -34,7 +34,7 @@ typedef struct x86_seg_d {
 } x86_seg_d_t /* __attribute__((packed)) */;
 
 /*
- * SDM, Table 4-14. pml4e
+ * Intel SDM, Vol3, Table 4-14. pml4e
  */
 typedef struct x86_pml4e {
    uint64_t p : 1;            // present
@@ -52,7 +52,7 @@ typedef struct x86_pml4e {
 } x86_pml4e_t /* __attribute__((packed)) */;
 
 /*
- * SDM, Table 4-15. pdpte for 1GB pages
+ * Intel SDM, Vol3, Table 4-15. pdpte for 1GB pages
  */
 typedef struct x86_pdpte_1g {
    uint64_t p : 1;             // present
@@ -74,7 +74,7 @@ typedef struct x86_pdpte_1g {
 } x86_pdpte_1g_t /* __attribute__((packed)) */;
 
 /*
- * SDM, Table 4-16. pdpte refering to page directory
+ * Intel SDM, Vol3, Table 4-16. pdpte refering to page directory
  */
 typedef struct x86_pdpte {
    uint64_t p : 1;            // present
@@ -92,7 +92,7 @@ typedef struct x86_pdpte {
 } x86_pdpte_t /* __attribute__((packed)) */;
 
 /*
- * SDM, Table 4-17. pde refering to 2MB page
+ * Intel SDM, Vol3, Table 4-17. pde refering to 2MB page
  */
 typedef struct x86_pde_2m {
    uint64_t p : 1;               // present
@@ -114,7 +114,7 @@ typedef struct x86_pde_2m {
 } x86_pde_2m_t;
 
 /*
- * SDM, 2.5 CONTROL REGISTERS, Figure 2-7 and surrounding text
+ * Intel SDM, Vol3, 2.5 CONTROL REGISTERS, Figure 2-7 and surrounding text
  */
 /*
  * CR0
@@ -166,7 +166,7 @@ typedef struct x86_pde_2m {
 #define X86_CR4_PKE (1ul << 22)          // enable Protection Keys support
 
 /*
- * SDM. Figure 2-5. EFLAGS bits, same RFLAGS per 2.3.1
+ * Intel SDM, Vol3. Figure 2-5. EFLAGS bits, same RFLAGS per 2.3.1
  */
 #define X86_RFLAGS_CF (1ul << 0)      // Carry Flag
 #define X86_RFLAGS_FIXED (1ul << 1)   // Bit 1 - always on

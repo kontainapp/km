@@ -39,7 +39,6 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -68,16 +67,14 @@ SLIST_HEAD(breakpoints_head, breakpoint_t);
 static struct breakpoints_head sw_breakpoints;
 static struct breakpoints_head hw_breakpoints;
 
-/* The Intel SDM specifies that the DR7 has space for 4 breakpoints. */
+/* Intel SDM, Vol3 specifies that the DR7 has space for 4 breakpoints. */
 #define MAX_HW_BREAKPOINTS 4
 static uint32_t nr_hw_breakpoints = 0;
 
-/* Stepping is disabled by default. */
-static bool stepping = false;
 /* This is the trap instruction used for software breakpoints. */
 static const uint8_t int3 = 0xcc;
 
-static int kvm_arch_insert_sw_breakpoint(km_vcpu_t* vcpu, struct breakpoint_t* bp)
+static int kvm_arch_insert_sw_breakpoint(struct breakpoint_t* bp)
 {
    uint8_t* insn;   // existing instructions at the bp location
 
@@ -94,7 +91,7 @@ static int kvm_arch_insert_sw_breakpoint(km_vcpu_t* vcpu, struct breakpoint_t* b
    return 0;
 }
 
-static int kvm_arch_remove_sw_breakpoint(km_vcpu_t* vcpu, struct breakpoint_t* bp)
+static int kvm_arch_remove_sw_breakpoint(struct breakpoint_t* bp)
 {
    uint8_t* insn;
    if ((insn = (uint8_t*)km_gva_to_kma(bp->addr)) == NULL) {
@@ -106,71 +103,57 @@ static int kvm_arch_remove_sw_breakpoint(km_vcpu_t* vcpu, struct breakpoint_t* b
    return 0;
 }
 
-/*
- *  TODO: this function needs to be written from scratch based on Intel SDK (D6/D7) and KVM API doc
- *  this function is taken by Solo5 from GPLd QEMU source code, target/i386/kvm.c
- */
-static int km_gdb_update_one_guest_debug(km_vcpu_t* vcpu, void* unused)
+// Sets VCPU Debug registers to match current breakpoint list. See Intel SDM Vol3, 17.2 "Debug Registers".
+#define DR dbg.arch.debugreg   // generic debug register
+#define DR7 DR[7]              // debug control register
+int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, void* unused)
 {
    struct kvm_guest_debug dbg = {0};
-   struct breakpoint_t* bp;
-   static const uint8_t type_code[] = {
-       /* Break on instruction execution only. */
-       [GDB_BREAKPOINT_HW] = 0x0,
-       /* Break on data writes only. */
-       [GDB_WATCHPOINT_WRITE] = 0x1,
-       /* Break on data reads only. */
-       [GDB_WATCHPOINT_READ] = 0x2,
-       /* Break on data reads or writes but not instruction fetches. */
-       [GDB_WATCHPOINT_ACCESS] = 0x3,
+   static const uint8_t bp_condition_code[] = {
+       [GDB_BREAKPOINT_HW] = 0x0,       // Break on instruction execution only.
+       [GDB_WATCHPOINT_WRITE] = 0x1,    // Break on data writes only.
+       [GDB_WATCHPOINT_READ] = 0x2,     // Break on data reads only.
+       [GDB_WATCHPOINT_ACCESS] = 0x3,   // Break on data reads or writes but not instruction fetches.
    };
-   static const uint8_t len_code[] = {
+   static const uint8_t mem_size_code[] = {
        [1] = 0x0,   // 00 — 1-byte length.
        [2] = 0x1,   // 01 — 2-byte length.
        [4] = 0x3,   // 10 — 8-byte length.
        [8] = 0x2,   // 11 — 4-byte length.
    };
-   int n = 0;
 
-   if (stepping) {
+   if (gdbstub.stepping) {
       dbg.control = KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_SINGLESTEP;
    }
    if (!SLIST_EMPTY(&sw_breakpoints)) {
       dbg.control |= KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_USE_SW_BP;
    }
-   if (!SLIST_EMPTY(&hw_breakpoints)) {
-      dbg.control |= KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_USE_HW_BP;
 
-      /* Enable global breakpointing (across all threads) on the control
-       * debug register. */
-      dbg.arch.debugreg[7] = 1 << 9;
-      dbg.arch.debugreg[7] |= 1 << 10;
-      SLIST_FOREACH (bp, &hw_breakpoints, entries) {
-         assert(bp->type != GDB_BREAKPOINT_SW);
-         dbg.arch.debugreg[n] = bp->addr;
-         /* global breakpointing */
-         dbg.arch.debugreg[7] |= (2 << (n * 2));
-         /* read/write fields */
-         dbg.arch.debugreg[7] |= (type_code[bp->type] << (16 + n * 4));
-         /* Length fields */
-         dbg.arch.debugreg[7] |= ((uint32_t)len_code[bp->len] << (18 + n * 4));
+   int n = 0;
+   if (!SLIST_EMPTY(&hw_breakpoints)) {
+      struct breakpoint_t* bp;
+      dbg.control |= KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_USE_HW_BP;
+      DR7 = (1 << 9 | 1 << 10);   // SDM recommendation for forward compatibility
+      SLIST_FOREACH (bp, &hw_breakpoints, entries) {   // Configure HW breakpoints in debug registers
+         DR[n] = bp->addr;
+         DR7 |= (2 << (n * 2));                                       // global breakpoint
+         DR7 |= (bp_condition_code[bp->type] << (16 + n * 4));        // read/write fields
+         DR7 |= ((uint32_t)mem_size_code[bp->len] << (18 + n * 4));   // memory length
          n++;
       }
    }
-
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_GUEST_DEBUG, &dbg) == -1) {
-      /* The KVM_CAP_SET_GUEST_DEBUG capability is not available. */
       err(1, "KVM_SET_GUEST_DEBUG failed");
-      return -1;
+      return -1;   // Not reachable
    }
-
    return 0;
 }
 
-static int km_gdb_update_guest_debug(km_vcpu_t* unused)
+static int km_gdb_update_guest_debug(void)
 {
-   if (km_vcpu_apply_all(km_gdb_update_one_guest_debug, NULL) != 0) {
-      warnx("WOW, failed some vcpu_apply for gdb update");
+   int count;
+   if ((count = km_vcpu_apply_all(km_gdb_update_vcpu_debug, NULL)) != 0) {
+      warnx("Failed update guest debug info for %d VCPU(s)", count);
       return -1;
    }
    return 0;
@@ -196,8 +179,7 @@ static struct breakpoint_t* bp_list_find(gdb_breakpoint_type_t type, km_gva_t ad
       case GDB_WATCHPOINT_WRITE:
       case GDB_WATCHPOINT_READ:
       case GDB_WATCHPOINT_ACCESS:
-         /* We only support hardware watchpoints. */
-         SLIST_FOREACH (bp, &hw_breakpoints, entries) {
+         SLIST_FOREACH (bp, &hw_breakpoints, entries) {   // We only support hardware watchpoints.
             if (bp->addr == addr) {
                if (bp->len != len) {
                   warnx("HW breakpoint of different len at 0x%lx", addr);
@@ -221,17 +203,15 @@ static struct breakpoint_t* bp_list_find(gdb_breakpoint_type_t type, km_gva_t ad
  */
 static struct breakpoint_t* bp_list_insert(gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
 {
-   struct breakpoint_t* bp;
+   struct breakpoint_t* bp = bp_list_find(type, addr, len);
 
-   bp = bp_list_find(type, addr, len);
-   if (bp) {
+   if ((bp = bp_list_find(type, addr, len)) != NULL) {
       bp->refcount++;
       return bp;
    }
-
-   bp = malloc(sizeof(struct breakpoint_t));
-   if (bp == NULL)
+   if ((bp = malloc(sizeof(struct breakpoint_t))) == NULL) {
       return NULL;
+   }
 
    bp->addr = addr;
    bp->type = type;
@@ -248,14 +228,15 @@ static struct breakpoint_t* bp_list_insert(gdb_breakpoint_type_t type, km_gva_t 
       case GDB_WATCHPOINT_READ:
       case GDB_WATCHPOINT_ACCESS:
          /* We only support hardware watchpoints. */
-         if (nr_hw_breakpoints == MAX_HW_BREAKPOINTS)
+         if (nr_hw_breakpoints == MAX_HW_BREAKPOINTS) {
             return NULL;
+         }
          nr_hw_breakpoints++;
          SLIST_INSERT_HEAD(&hw_breakpoints, bp, entries);
          break;
 
       default:
-         assert(0);
+         assert("Unknown breakpoint type in insert" == NULL);
    }
 
    return bp;
@@ -290,7 +271,7 @@ static int bp_list_remove(gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
          break;
 
       default:
-         assert(0);
+         assert("Unknown breakpoint type in remove" == NULL);
    }
    free(bp);
    return 0;
@@ -328,16 +309,16 @@ int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t* len)
    int ret;
 
    if (*len < sizeof(struct km_gdb_regs)) {
-      errx(1, "%s: buffer too small", __FUNCTION__);
+      warnx("%s: buffer too small", __FUNCTION__);
       return -1;
    }
    if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &kregs)) == -1) {
       err(1, "KVM_GET_REGS");
-      return -1;
+      return -1;   // unreachable
    }
    if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &sregs)) == -1) {
       err(1, "KVM_GET_REGS");
-      return -1;
+      return -1;   // unreachable
    }
 
    *len = sizeof(struct km_gdb_regs);
@@ -444,58 +425,58 @@ int km_gdb_write_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t len)
  * typically the size of the breakpoint in bytes that should be inserted
  * Returns 0 if success, -1 otherwise.
  */
-int km_gdb_add_breakpoint(km_vcpu_t* vcpu, gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
+int km_gdb_add_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
 {
    struct breakpoint_t* bp;
 
    assert(type < GDB_BREAKPOINT_MAX);
-   if (bp_list_find(type, addr, len)) {
+   if (bp_list_find(type, addr, len) != NULL) {   // was already set
       return 0;
    }
    if ((bp = bp_list_insert(type, addr, len)) == NULL) {
       return -1;
    }
-   if (type == GDB_BREAKPOINT_SW && kvm_arch_insert_sw_breakpoint(vcpu, bp) != 0) {
+   if (type == GDB_BREAKPOINT_SW && kvm_arch_insert_sw_breakpoint(bp) != 0) {
       bp_list_remove(GDB_BREAKPOINT_SW, addr, len);
       return -1;
    }
-   return km_gdb_update_guest_debug(vcpu);
+   return km_gdb_update_guest_debug();
 }
 
 /*
  * Remove a breakpoint of type software or hardware, at address addr.
  * Returns 0 if success, -1 otherwise.
  */
-int km_gdb_remove_breakpoint(km_vcpu_t* vcpu, gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
+int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
 {
    struct breakpoint_t* bp;
 
    if ((bp = bp_list_find(type, addr, len)) == NULL) {
       return 0;   // nothing to delete
    }
-   if (type == GDB_BREAKPOINT_SW && kvm_arch_remove_sw_breakpoint(vcpu, bp) != 0) {
+   if (type == GDB_BREAKPOINT_SW && kvm_arch_remove_sw_breakpoint(bp) != 0) {
       return -1;
    }
    if (bp_list_remove(type, addr, len) == -1) {
       return -1;
    }
-   return km_gdb_update_guest_debug(vcpu);
+   return km_gdb_update_guest_debug();
 }
 
 /*
  * Enable single stepping. Returns 0 if success, -1 otherwise.
  */
-int km_gdb_enable_ss(km_vcpu_t* vcpu)
+int km_gdb_enable_ss(void)
 {
-   stepping = true;
-   return km_gdb_update_guest_debug(vcpu);
+   gdbstub.stepping = true;
+   return km_gdb_update_guest_debug();
 }
 
 /*
  * Disable single stepping. Returns 0 if success, -1 otherwise.
  */
-int km_gdb_disable_ss(km_vcpu_t* vcpu)
+int km_gdb_disable_ss(void)
 {
-   stepping = false;
-   return km_gdb_update_guest_debug(vcpu);
+   gdbstub.stepping = false;
+   return km_gdb_update_guest_debug();
 }

@@ -113,6 +113,15 @@ static inline km_vcpu_t* km_main_vcpu(void)
    return machine.vm_vcpus[0];
 }
 
+// fetch vcpu by index in vcpu array (aka vcpu_id)
+static inline km_vcpu_t* km_vcpu_fetch(int idx)
+{
+   if (idx < 0 || idx >= KVM_MAX_VCPUS) {
+      return NULL;
+   }
+   return machine.vm_vcpus[idx];
+}
+
 void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[]);
 int km_pthread_create(
     km_vcpu_t* vcpu, pthread_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);

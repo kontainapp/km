@@ -388,7 +388,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
    char* packet;
    char obuf[BUFMAX];
 
-   km_infox("gdb_handle_payload_stop vcpu %d signum %d", vcpu->vcpu_id, signum);
+   km_infox("gdb_handle_payload_stop signum %d", signum);
    /* Notify the debugger of our last signal */
    if (signum != GDB_SIGFIRST) {
       send_response('S', signum, true);
@@ -400,6 +400,8 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
       gdb_breakpoint_type_t type;
       size_t len;
       int command, ret;
+      km_vcpu_t* vcpu = km_vcpu_fetch(km_gdb_vcpu_id_get());
+      assert(vcpu != NULL);
 
       km_infox("%s: got packet: '%s'", __FUNCTION__, packet);
       /*
@@ -418,14 +420,22 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
             break;
          }
          case 'H': {
-            /* Payload is single threaded for now, so accept all "set thread"
-             * commands blindly and noop */
+            /*
+             * ‘H op thread-id’.
+             * Set thread for subsequent operations. op should be ‘c’ for step and continue  and ‘g’
+             * for other operations.
+             * TODO: this is deprecated, supporting the ‘vCont’ command is a better option.
+             *   See https://sourceware.org/gdb/onlinedocs/gdb/Packets.html#Packets)
+             */
+            int vcpu_id;
+            char cmd;
+            if (sscanf(packet, "H%c%d", &cmd, &vcpu_id) != 2 ||
+                (vcpu = km_vcpu_fetch(vcpu_id)) == NULL) {
+               send_error_msg();
+               break;
+            }
+            km_gdb_vcpu_id_set(vcpu_id);
             send_okay_msg();
-            break;
-         }
-         case 'R': {
-            /* restart: kill run_vcpu thread(s) and run em again - TODO */
-            /* for now: */ send_not_supported_msg();
             break;
          }
          case 's': {
@@ -434,13 +444,13 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
                /* not supported, but that's OK as GDB will retry with the
                 * slower version of this: update all registers. */
                send_not_supported_msg();
-               break; /* Wait for another command. */
+               break;
             }
-            if (km_gdb_enable_ss(vcpu) == -1) {
+            if (km_gdb_enable_ss() == -1) {
                send_error_msg();
-               break; /* Wait for another command. */
+               break;
             }
-            goto done; /* Continue with program */
+            goto done;   // Continue with program
          }
          case 'c': {
             /* Continue (and disable stepping for the next instruction) */
@@ -448,13 +458,13 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
                /* not supported, but that's OK as GDB will retry with the
                 * slower version of this: update all registers. */
                send_not_supported_msg();
-               break; /* Wait for another command. */
+               break;
             }
-            if (km_gdb_disable_ss(vcpu) == -1) {
+            if (km_gdb_disable_ss() == -1) {
                send_error_msg();
-               break; /* Wait for another command. */
+               break;
             }
-            goto done; /* Continue with program */
+            goto done;   // Continue with program
          }
          case 'm': {
             /* Read memory content */
@@ -468,7 +478,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
             }
             km_guest_mem2hex(addr, kma, obuf, len);
             send_packet(obuf);
-            break; /* Wait for another command. */
+            break;
          }
          case 'M': {
             /* Write memory content */
@@ -483,7 +493,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
             }
             hex2mem(obuf, kma, len);
             send_okay_msg();
-            break; /* Wait for another command. */
+            break;
          }
          case 'g': {
             /* Read general registers */
@@ -494,7 +504,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
             }
             mem2hex(registers, obuf, len);
             send_packet(obuf);
-            break; /* Wait for another command. */
+            break;
          }
          case 'G': {
             /* Write general registers */
@@ -532,9 +542,9 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
                break;
             }
             if (command == 'Z') {
-               ret = km_gdb_add_breakpoint(vcpu, type, addr, len);
+               ret = km_gdb_add_breakpoint(type, addr, len);
             } else {
-               ret = km_gdb_remove_breakpoint(vcpu, type, addr, len);
+               ret = km_gdb_remove_breakpoint(type, addr, len);
             }
             if (ret == -1) {
                send_error_msg();
@@ -586,12 +596,12 @@ done:
 /*
  * This function is called on GDB thread to give gdb a chance to handle the KVM exit.
  * It is expected to be called ONLY when gdb is enabled and ONLY when the vcpu in question has
- * exited the run. If the exit reason is of interest to gdb, the function lets gdb try to handle it,
- * and returns 'true' for handled or 'false' for not handled. If the exit reason is of no interest
- * to gdb, the function  simply returns 'false' and lets vcpu loop to handle the exit as it sees
- * fit.
+ * exited the run. If the exit reason is of interest to gdb, the function lets gdb try to handle
+ * it, and returns 'true' for handled or 'false' for not handled. If the exit reason is of no
+ * interest to gdb, the function  simply returns 'false' and lets vcpu loop to handle the exit as
+ * it sees fit.
  *
- * Note that we map VM exit reason to a GDB 'signal', which is what needs to be communicated  back
+ * Note that we map VM exit reason to a GDB 'signal', which is what needs to be communicated back
  * to gdb client.
  */
 static void km_gdb_handle_kvm_exit(void)
@@ -744,25 +754,25 @@ void km_gdb_prepare_for_run(km_vcpu_t* vcpu)
 }
 
 /*
- * Called on each vcpu thread after gdb-related kvm exit. Calls gdbstub to handle the exit.
+ * Called from vcpu thread(s) after gdb-related kvm exit. Notifies gdbstub about the KVM exit and
+ * then waits for gdbstub to allow vcpu to continue.
  */
-void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno)
+void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int run_errno)
 {
    eventfd_t unused;
 
    if (!km_gdb_is_enabled()) {
       return;
    }
-   km_infox("km_gdb_ask_stub_to_handle_kvm_exit");
+   km_infox("km_gdb_notify_and_wait");
    vcpu->is_paused = 1;
    if (gdbstub.session_requested == 0) {
-      km_infox("Gdb seems to be sleeping, wake it up from vcpu %d", vcpu->vcpu_id);
-      eventfd_write(gdbstub.intr_eventfd, 1);   // Interrupt gdbstub wait (if it was waiting)
+      km_infox("gdb seems to be sleeping, wake it up. VCPU %d", vcpu->vcpu_id);
+      eventfd_write(gdbstub.intr_eventfd, 1);
    }
-   km_infox("%s: Waiting for gdb to allow vcpu %d to continue...", __FUNCTION__, vcpu->vcpu_id);
    while (eventfd_read(vcpu->eventfd, &unused) == -1 && errno == EINTR)
       ;   // Wait for gdb to allow this vcpu to continue
-   km_infox("%s: gdb signalled for vcpu %d to continue", __FUNCTION__, vcpu->vcpu_id);
+   km_infox("%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
    vcpu->cpu_run->immediate_exit = 0;
    vcpu->is_paused = 0;
 }

@@ -39,12 +39,10 @@ typedef enum {
 
 extern int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* reg, size_t* len);
 extern int km_gdb_write_registers(km_vcpu_t* vcpu, uint8_t* reg, size_t len);
-extern int km_gdb_enable_ss(km_vcpu_t* vcpu);
-extern int km_gdb_disable_ss(km_vcpu_t* vcpu);
-extern int
-km_gdb_add_breakpoint(km_vcpu_t* vcpu, gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
-extern int
-km_gdb_remove_breakpoint(km_vcpu_t* vcpu, gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
+extern int km_gdb_enable_ss(void);
+extern int km_gdb_disable_ss(void);
+extern int km_gdb_add_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
+extern int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
 
 /*
  * Registers layout for send/receve to gdb. Has to match what gdb expects.
@@ -70,6 +68,8 @@ typedef struct gdbstub_info {
    int sock_fd;             // socket to communicate to gdb client
    int intr_eventfd;        // event interrupting stub wait for gdb client
    int session_requested;   // set to 1 when payload threads need to pause on exit
+   bool stepping;           // single step mode (stepi)
+   int vcpu_id;             // VCPU ID gdb asks the stub to operate on, Defaut is main (0)
 } gdbstub_info_t;
 
 extern gdbstub_info_t gdbstub;
@@ -94,12 +94,23 @@ static inline int km_gdb_is_enabled(void)
    return km_gdb_port_get() != 0 ? 1 : 0;
 }
 
+static inline int km_gdb_vcpu_id_get(void)
+{
+   return gdbstub.vcpu_id;
+}
+
+static inline void km_gdb_vcpu_id_set(int id)
+{
+   gdbstub.vcpu_id = id;
+}
+
 extern void km_gdb_disable(void);
 extern void km_gdb_start_stub(char* const payload_file);
 extern void km_gdb_join_stub(void);
 extern void km_gdb_prepare_for_run(km_vcpu_t* vcpu);
-extern void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno);
+extern void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int run_errno);
 extern char* mem2hex(const unsigned char* mem, char* buf, size_t count);
 extern void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len);
+extern int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, void* unused);
 
 #endif /* __KM_GDB_H__ */

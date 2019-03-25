@@ -11,8 +11,6 @@
  *
  * Simple test to validate exit_grp - starts PCOUNT threads (half slow, half fast), join fast and
  * then do exit()
- *
- * NOTE: see deadlock info under EXIT_GRP_GENERATE_DEADLOCK below
  */
 
 #include <err.h>
@@ -24,7 +22,7 @@
 #include <unistd.h>
 #include "greatest/greatest.h"
 
-#define PCOUNT 20   // total count of threads to start
+#define PCOUNT 60   // total count of threads to start
 #define EXIT_GRP_GENERATE_DEADLOCK 1
 
 // run thread. arg defines how soon the thread will exit (larger arg - longer life)
@@ -43,6 +41,7 @@ void* run_thr(void* arg)
     * So enabling this checks this deadlock prevention.
     */
    if (ret % (PCOUNT) == 0) {
+      printf("Exit(11) from from a non-main thread\n");
       exit(11);   // check that we can exit from here too. main() will be running !
    }
 #endif
@@ -88,6 +87,6 @@ int main(int argc, char** argv)
    RUN_TEST(tests_in_flight);
    RUN_TEST(wait_for_some);
    GREATEST_PRINT_REPORT();
-   printf("Exiting main with ret=17\n");
+   printf("Exit(17) from main\n");
    exit(17);   // grp exit with some pre-defined code
 }
