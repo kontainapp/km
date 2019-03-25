@@ -182,7 +182,8 @@ static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
       km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);   // TODO: just send "thread exited" event to gdb
    }
    km_vcpu_stopped(vcpu);
-   pthread_exit((void*)(uint64_t)s);   // from the vcpu thread
+   machine.ret = s & 0377;   // Process status, if this is the last thread. &0377 is per 'man 3 exit'
+   pthread_exit((void*)(uint64_t)s);
 }
 
 static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
@@ -190,12 +191,12 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
 {
    machine.pause_requested = 1;
    vcpu->is_paused = 1;
-   machine.ret = s;
    km_vcpu_apply_all(km_vcpu_pause, NULL);
    km_vcpu_wait_for_all_to_pause();
    if (km_gdb_is_enabled()) {
       // TODO: just send "happyexit" to gdb
    }
+   machine.ret = s & 0377;   // Process status. &0377 is per 'man 3 exit'
    km_vcpu_exit(vcpu, s);
 }
 
