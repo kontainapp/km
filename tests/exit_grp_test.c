@@ -25,6 +25,7 @@
 #include "greatest/greatest.h"
 
 #define PCOUNT 20   // total count of threads to start
+#define EXIT_GRP_GENERATE_DEADLOCK 1
 
 // run thread. arg defines how soon the thread will exit (larger arg - longer life)
 void* run_thr(void* arg)
@@ -37,15 +38,11 @@ void* run_thr(void* arg)
    ret = rand();
 #ifdef EXIT_GRP_GENERATE_DEADLOCK
    /*
-    * This will generate deadlock when the main() thread would wait on this one to join,
+    * This will generate potential deadlock when the main() thread would wait on this one to join,
     * and this one will be waiting on main thread to confirm pause() ater handling exit grp.
-    * For now leaving it as  "known issue - when main() does thread_join, and the thread being
-    * joined does group exit(), it deadlocks. Do not do it at home.
-    *
-    * TODO: Race: pthread_join started on a thread BEFORE setting machine_pause_requested=1 from
-    * another thread
+    * So enabling this checks this deadlock prevention.
     */
-   if (ret % 2 == 0) {
+   if (ret % (PCOUNT) == 0) {
       exit(11);   // check that we can exit from here too. main() will be running !
    }
 #endif

@@ -240,15 +240,42 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data)
    return total;
 }
 
-static int km_vcpu_check_running(km_vcpu_t* vcpu, void* unused)
+/*
+ * Apply callback to the current thread. Really, just find VCPU and apply callback.
+ * Returns what -1 if not found, or what the callback function returns (we expect 0 for success)
+ */
+int km_vcpu_apply_self(km_vcpu_apply_cb func, void* data)
 {
-   return vcpu->is_paused == 0;
+   pthread_t pt = pthread_self();
+
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      km_vcpu_t* vcpu;
+
+      if ((vcpu = machine.vm_vcpus[i]) == NULL) {
+         break;   // since we allocate vcpus sequentially, no reason to scan after NULL
+      }
+      if (vcpu->is_used == 1 && vcpu->vcpu_thread == pt) {
+         return (*func)(vcpu, data);
+      }
+   }
+   errno = ESRCH;
+   return -1;
+}
+
+// returns 1 if the vcpu is still running (i.e.not paused). Skip the ones wating on join as join is
+// no interruptable anyways and may generate a deadlock
+static int km_vcpu_count_running(km_vcpu_t* vcpu, void* unused)
+{
+   if (vcpu->is_paused == 1 || vcpu->is_joining == 1) {
+      return 0;
+   }
+   return 1;
 }
 
 void km_vcpu_wait_for_all_to_pause(void)
 {
    int count;
-   while ((count = km_vcpu_apply_all(km_vcpu_check_running, 0)) != 0) {
+   while ((count = km_vcpu_apply_all(km_vcpu_count_running, 0)) != 0) {
       // Wait for vcpus to exit from KVM. No need for speed here so can do busy wait.
       static const struct timespec req = {
           .tv_sec = 0, .tv_nsec = 10000000, /* 10 millisec */
@@ -260,9 +287,9 @@ void km_vcpu_wait_for_all_to_pause(void)
 }
 
 /*
- * Convenience wrapper to force KVM exit by setting immediate exit flag
- * and then sending a signal to vcpu thread. The thread signal handler can be a noop, just need to
- * exist.
+ * Convenience wrapper to force KVM exit by setting immediate exit flag and then sending a signal to
+ * vcpu thread. The thread signal handler can be a noop, just need to exist.
+ * Note:  Relies on the upstairs to only be called on a used VCPU.
  */
 int km_vcpu_pause(km_vcpu_t* vcpu, void* unused)
 {

@@ -370,6 +370,12 @@ static inline km_vcpu_t* km_find_vcpu(int vcpu_id)
    return NULL;
 }
 
+static int km_vcpu_set_joining(km_vcpu_t* vcpu, void* val)
+{
+   vcpu->is_joining = (uint64_t)val;
+   return 0;
+}
+
 int km_pthread_join(pthread_t pid, km_kma_t ret)
 {
    km_vcpu_t* vcpu;
@@ -378,6 +384,12 @@ int km_pthread_join(pthread_t pid, km_kma_t ret)
    if (pid >= KVM_MAX_VCPUS) {
       return -ESRCH;
    }
+   /*
+    * Mark current thread as "joining someone else". pthread_join is not interruptable, so self()
+    * needs to be skipped when asking all vcpus to stop. Not that join will exit naturally with the
+    * other thread exits  due to signal.
+    */
+   km_vcpu_apply_self(km_vcpu_set_joining, (void*)1);
    vcpu = machine.vm_vcpus[pid];
    /*
     * There are multiple condition such as deadlock or double join that are supposed to be detected,
@@ -387,14 +399,10 @@ int km_pthread_join(pthread_t pid, km_kma_t ret)
     * "All of the threads in a process are peers: any thread can join with any other thread in the
     * process."
     */
-   if (machine.pause_requested) {
-      vcpu->cpu_run->immediate_exit = 1;
-      km_infox("*** Preventing join when we want to stop VCPU %d", vcpu->vcpu_id);
-      return -EINVAL;   // pthread_join does not return EBUSY, so returning this
-   }
-   /* TODO: can deadlock if other thread does exit_grp() here, and we join on it */
    if ((rc = -pthread_join(vcpu->vcpu_thread, (void*)ret)) == 0) {
       km_vcpu_put(vcpu);
+   } else {
+      km_vcpu_apply_self(km_vcpu_set_joining, (void*)0);
    }
    return rc;
 }

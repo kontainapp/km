@@ -48,6 +48,7 @@ typedef struct km_vcpu {
    int eventfd;             // gdb uses this to synchronize with VCPU thread
    int is_used;             // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;           // 1 means the vcpu is waiting for gdb to allow it to continue
+   int is_joining;          // 1 if curently joining another thread.
 } km_vcpu_t;
 
 void km_machine_init(void);
@@ -125,6 +126,7 @@ void km_vcpu_detach(km_vcpu_t* vcpu);
 
 typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, void* data);   // return 0 if all is good
 extern int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data);
+extern int km_vcpu_apply_self(km_vcpu_apply_cb func, void* data);
 extern int km_vcpu_pause(km_vcpu_t* vcpu, void* unused);
 extern void km_vcpu_wait_for_all_to_pause(void);
 

@@ -233,8 +233,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_IO: /* Hypercall */
             if (vcpu->cpu_run->immediate_exit) {
                // hypercall was interrupted
-               km_infox("EXIT_IO now is time to stop VCPU %d", vcpu->vcpu_id);
-               assert(machine.pause_requested);
+               km_infox("KVM_EXIT_IO: HC interrupted. Time to stop VCPU %d", vcpu->vcpu_id);
                if (km_gdb_is_enabled()) {
                   vcpu->is_paused = 1;
                   vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;

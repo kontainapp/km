@@ -149,7 +149,8 @@ teardown() {
 
 @test "threads_exit_grp: force exit when threads are in flight (exit_grp_test)" {
    run $KM exit_grp_test.km
-   [ $status -eq 17 ]
+   # the test can exit(17) from main thread or random exit(11) from subthread
+   [ $status -eq 17 -o $status -eq 11  ]
 }
 
 @test "threads_mutex: mutex (mutex_test)" {
