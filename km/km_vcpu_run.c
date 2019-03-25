@@ -202,7 +202,7 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
 /*
  * Signal handler. Used when we want VCPU to stop. Upstairs we set immediate_exit to 1
  * and then signal the thread, which causes interrupt and reenter to KVM_RUN with
- * immediate exit. So the ctual handler is noop. it just need to exit
+ * immediate exit. So the actual handler is noop - it just need to exist.
  */
 static void km_vcpu_pause_sighandler(int signum_unused)
 {
@@ -239,8 +239,13 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                   vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
                   km_gdb_ask_stub_to_handle_kvm_exit(vcpu, errno);
                } else {
-                  // stop this thread, no questions asked
-                  km_vcpu_detach(vcpu);
+                  /*
+                   * We are supposed to only get here on hypercall interrupt by a signal outside of
+                   * GDB, i.e. on exit_grp(). So we are done with the current  thread, and we don’t
+                   * care for remants to hang around and block fini(). So we make it detached and
+                   * exit vcpu, and that takes care of true exit for the current thread.
+                   */
+                  km_vcpu_detach(vcpu);   // detach so the next line does true exit
                   km_vcpu_exit(vcpu, EINTR);
                }
                break;

@@ -360,16 +360,6 @@ int km_pthread_create(pthread_t* restrict pid, const km_kma_t restrict attr, km_
    return 0;
 }
 
-static inline km_vcpu_t* km_find_vcpu(int vcpu_id)
-{
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      if (machine.vm_vcpus[i] != NULL && machine.vm_vcpus[i]->vcpu_id == vcpu_id) {
-         return machine.vm_vcpus[i];
-      }
-   }
-   return NULL;
-}
-
 static int km_vcpu_set_joining(km_vcpu_t* vcpu, void* val)
 {
    vcpu->is_joining = (uint64_t)val;
@@ -385,9 +375,9 @@ int km_pthread_join(pthread_t pid, km_kma_t ret)
       return -ESRCH;
    }
    /*
-    * Mark current thread as "joining someone else". pthread_join is not interruptable, so self()
-    * needs to be skipped when asking all vcpus to stop. Not that join will exit naturally with the
-    * other thread exits  due to signal.
+    * Mark current thread as "joining someone else". pthread_join is not interruptable, so while in
+    * pthread_join the thread needs to be skipped when asking all vcpus to stop. Note that join will
+    * complete naturally when the thread being joined exits due to signal.
     */
    km_vcpu_apply_self(km_vcpu_set_joining, (void*)1);
    vcpu = machine.vm_vcpus[pid];

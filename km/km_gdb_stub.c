@@ -619,6 +619,18 @@ static void km_gdb_handle_kvm_exit(void)
    return;
 }
 
+// Read and discard pending eventfd reads, if any. Non-blocking.
+static void km_empty_out_eventfd(int fd)
+{
+   eventfd_t unused;
+
+   int flags = fcntl(fd, F_GETFL);
+   fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+   while (eventfd_read(fd, &unused) == -1 && errno == EINTR)
+      ;
+   fcntl(fd, F_SETFL, flags);
+}
+
 // returns 0 on success and 1 on failure. Failures just counted by upstairs for reporting
 static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, void* unused)
 {
@@ -674,15 +686,9 @@ static void* km_gdb_thread_entry(void* data)
       km_infox("Signalling all vCPUs to pause");
       km_vcpu_apply_all(km_vcpu_pause, NULL);
       km_vcpu_wait_for_all_to_pause();
-      // clear up gdbstub.intr_eventfd in case vcpus sent extra events
-      int flags = fcntl(gdbstub.intr_eventfd, F_GETFL);
-      fcntl(gdbstub.intr_eventfd, F_SETFL, flags | O_NONBLOCK);
-      while (eventfd_read(gdbstub.intr_eventfd, &unused) == -1 && errno == EINTR)
-         ;
-      fcntl(gdbstub.intr_eventfd, F_SETFL, flags);
-      // give control back to gdb
+      km_empty_out_eventfd(gdbstub.intr_eventfd);   // discard extra 'intr' events if vcpus sent them
       km_infox("%s: DONE waiting, all stopped", __FUNCTION__);
-      km_gdb_handle_kvm_exit();
+      km_gdb_handle_kvm_exit();   // give control back to gdb
       gdbstub.session_requested = 0;
       km_infox("%s: exit handled, ready to proceed", __FUNCTION__);
       km_vcpu_apply_all(km_gdb_vcpu_continue, NULL);
@@ -711,6 +717,7 @@ void km_gdb_start_stub(char* const payload_file)
 void km_gdb_join_stub(void)
 {
    pthread_join(gdbstub.thread, NULL);
+   close(gdbstub.intr_eventfd);
 }
 
 /* closes the gdb socket and set port to 0 */
@@ -748,7 +755,7 @@ void km_gdb_ask_stub_to_handle_kvm_exit(km_vcpu_t* vcpu, int run_errno)
    }
    km_infox("km_gdb_ask_stub_to_handle_kvm_exit");
    vcpu->is_paused = 1;
-   if (!gdbstub.session_requested) {
+   if (gdbstub.session_requested == 0) {
       km_infox("Gdb seems to be sleeping, wake it up from vcpu %d", vcpu->vcpu_id);
       eventfd_write(gdbstub.intr_eventfd, 1);   // Interrupt gdbstub wait (if it was waiting)
    }

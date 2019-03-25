@@ -242,7 +242,7 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data)
 
 /*
  * Apply callback to the current thread. Really, just find VCPU and apply callback.
- * Returns what -1 if not found, or what the callback function returns (we expect 0 for success)
+ * Returns what the callback function returns (we expect 0 for success)
  */
 int km_vcpu_apply_self(km_vcpu_apply_cb func, void* data)
 {
@@ -258,12 +258,14 @@ int km_vcpu_apply_self(km_vcpu_apply_cb func, void* data)
          return (*func)(vcpu, data);
       }
    }
-   errno = ESRCH;
-   return -1;
+   assert("km_vcpu_apply_self: current thread should be in VCPU list" == NULL);
+   return -1;   // not reachable
 }
 
-// returns 1 if the vcpu is still running (i.e.not paused). Skip the ones wating on join as join is
-// no interruptable anyways and may generate a deadlock
+/*
+ * Returns 1 if the vcpu is still running (i.e.not paused). Skip the ones waiting on join as join is
+ * not interruptable anyways and may generate a deadlock.
+ */
 static int km_vcpu_count_running(km_vcpu_t* vcpu, void* unused)
 {
    if (vcpu->is_paused == 1 || vcpu->is_joining == 1) {

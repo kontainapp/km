@@ -137,11 +137,6 @@ static inline void km_mmap_concat_free(km_mmap_reg_t* reg)
  * Inserts region into the list sorted by reg->start.
  * Also compresses the list/adjusts tbrk for free list
  * 'busy' == 1 for insert into BUSY list, 0 for insert into FREE list.
- *
- * TODO: Could (and should) be changed to avoid multiple scans
- * by passing optional location where to insert (since it's usually known from prev. search).
- * Leaving it nonoptimal for now, in assumption the map lists are very short
- *
  */
 static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
 {
