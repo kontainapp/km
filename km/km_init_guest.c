@@ -309,7 +309,6 @@ void km_pthread_fini(km_vcpu_t* vcpu)
    vcpu->guest_thr = 0;
    vcpu->stack_top = 0;
    vcpu->is_paused = 0;
-   vcpu->cpu_run->immediate_exit = 0;
    if (pt_kma != NULL && pt_kma->map_base != NULL) {
       km_guest_munmap((km_gva_t)pt_kma->map_base, pt_kma->map_size);
    }
@@ -348,9 +347,6 @@ int km_pthread_create(km_vcpu_t* current_vcpu,
    }
    pthread_attr_setstacksize(&vcpu_thr_att, 16 * PAGE_SIZE);
    __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
-   if (machine.pause_requested) {
-      vcpu->cpu_run->immediate_exit = 1;
-   }
    rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))km_vcpu_run, vcpu);
    pthread_attr_destroy(&vcpu_thr_att);
    if (rc != 0) {
@@ -406,7 +402,6 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
    km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
 
    assert(pt_kma != NULL);
-   vcpu->is_paused = 1;
    if (pt_kma->detach_state == DT_DETACHED) {
       km_vcpu_put(vcpu);
    }

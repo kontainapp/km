@@ -127,7 +127,6 @@
             "hello_html_test",
             "hello_loop_test",
             "hello_2_loops_test",
-            "threads_test",
             "load_test",
             "brk_test",
             "gdb_test",

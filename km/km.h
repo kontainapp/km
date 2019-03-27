@@ -14,8 +14,10 @@
 #define __KM_H__
 
 #include <err.h>
+#include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <sys/eventfd.h>
 #include <sys/param.h>
 #include <linux/kvm.h>
 
@@ -48,7 +50,7 @@ typedef struct km_vcpu {
    int eventfd;             // gdb uses this to synchronize with VCPU thread
    int is_used;             // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;           // 1 means the vcpu is waiting for gdb to allow it to continue
-   int is_joining;          // 1 if curently joining another thread.
+   int is_joining;          // 1 if currently joining another thread.
 } km_vcpu_t;
 
 void km_machine_init(void);
@@ -90,7 +92,8 @@ typedef struct km_machine {
    int last_mem_idx;             // idx for the last (and hidden) region in the top half of PA
    // syncronization support
    int shutdown_fd;       // eventfd to coordinate final shutdown
-   int pause_requested;   // 1 if all threads pause is requested (usually by gdb, or by exit_grp
+   int exit_group;        // 1 if processing exit_group() call now.
+   int pause_requested;   // 1 if all VCPUs are being paused. Used to prevent race with new vcpu threads
    int ret;               // return code from payload's main thread
 } km_machine_t;
 
@@ -122,6 +125,14 @@ static inline km_vcpu_t* km_vcpu_fetch(int idx)
    return machine.vm_vcpus[idx];
 }
 
+static inline int km_wait_on_eventfd(int fd)
+{
+   eventfd_t value;
+   while (eventfd_read(fd, &value) == -1 && errno == EINTR)
+      ;
+   return value;
+}
+
 void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[]);
 int km_pthread_create(
     km_vcpu_t* vcpu, pthread_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
@@ -134,10 +145,11 @@ void km_vcpu_put(km_vcpu_t* vcpu);
 int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread);
 void km_vcpu_detach(km_vcpu_t* vcpu);
 
-typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, void* data);   // return 0 if all is good
-extern int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data);
-extern int km_vcpu_pause(km_vcpu_t* vcpu, void* unused);
+typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, uint64_t data);   // return 0 if all is good
+extern int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data);
+extern int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused);
 extern void km_vcpu_wait_for_all_to_pause(void);
+extern int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused);
 
 #define KM_SIGVCPUSTOP SIGUSR1   //  After km start, used to signal VCP thread to force KVM exit
 

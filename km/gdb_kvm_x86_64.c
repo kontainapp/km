@@ -106,7 +106,7 @@ static int kvm_arch_remove_sw_breakpoint(struct breakpoint_t* bp)
 // Sets VCPU Debug registers to match current breakpoint list. See Intel SDM Vol3, 17.2 "Debug Registers".
 #define DR dbg.arch.debugreg   // generic debug register
 #define DR7 DR[7]              // debug control register
-int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, void* unused)
+int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, uint64_t unused)
 {
    struct kvm_guest_debug dbg = {0};
    static const uint8_t bp_condition_code[] = {
@@ -152,7 +152,7 @@ int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, void* unused)
 static int km_gdb_update_guest_debug(void)
 {
    int count;
-   if ((count = km_vcpu_apply_all(km_gdb_update_vcpu_debug, NULL)) != 0) {
+   if ((count = km_vcpu_apply_all(km_gdb_update_vcpu_debug, 0)) != 0) {
       warnx("Failed update guest debug info for %d VCPU(s)", count);
       return -1;
    }

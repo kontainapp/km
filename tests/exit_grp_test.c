@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include "greatest/greatest.h"
 
-#define PCOUNT 60   // total count of threads to start
+#define PCOUNT 10   // total count of threads to start
 #define EXIT_GRP_GENERATE_DEADLOCK 1
 
 // run thread. arg defines how soon the thread will exit (larger arg - longer life)

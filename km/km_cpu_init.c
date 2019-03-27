@@ -40,6 +40,9 @@ km_machine_t machine = {
  */
 void km_signal_machine_fini(void)
 {
+   if (km_gdb_is_enabled()) {
+      km_gdb_fini(machine.ret);
+   }
    if (eventfd_write(machine.shutdown_fd, 1) == -1) {
       errx(2, "Failed to send machine_fini signal");
    }
@@ -72,10 +75,7 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
  */
 void km_machine_fini(void)
 {
-   eventfd_t buf;
-   int ret;
-   while ((ret = eventfd_read(machine.shutdown_fd, &buf)) == -1 && errno == EINTR)
-      ;
+   km_wait_on_eventfd(machine.shutdown_fd);
    close(machine.shutdown_fd);
    assert(machine.vm_vcpu_run_cnt == 0);
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
@@ -222,7 +222,7 @@ km_vcpu_t* km_vcpu_get(void)
  *
  * Note: may skip VCPus if vcpu_get() was called on a different thread during the apply_all op
  */
-int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data)
+int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data)
 {
    int ret, i, total;
 
@@ -241,15 +241,27 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data)
 }
 
 /*
- * Returns 1 if the vcpu is still running (i.e.not paused). Skip the ones waiting on join as join is
- * not interruptable anyways and may generate a deadlock.
+ * Returns 1 if the vcpu is still running (i.e.not paused). Skip the ones sitting in pthread_join
+ * because it can generate a deadlock if they wait in pthread_join(this_thread)).
  */
-static int km_vcpu_count_running(km_vcpu_t* vcpu, void* unused)
+static int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 {
    if (vcpu->is_paused == 1 || vcpu->is_joining == 1) {
       return 0;
    }
    return 1;
+}
+
+ int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
+{
+   warnx("print: VCPU %d paused %d joining %d used %d thread %lx guest_thr %#lx",
+         vcpu->vcpu_id,
+         vcpu->is_paused,
+         vcpu->is_joining,
+         vcpu->is_used,
+         vcpu->vcpu_thread,
+         vcpu->guest_thr);
+   return 0;
 }
 
 void km_vcpu_wait_for_all_to_pause(void)
@@ -260,27 +272,28 @@ void km_vcpu_wait_for_all_to_pause(void)
       static const struct timespec req = {
           .tv_sec = 0, .tv_nsec = 10000000, /* 10 millisec */
       };
-      km_infox("Still %d vcpus running", count);
+      if (g_km_info_verbose == 1) {
+         km_infox("Still %d vcpus running", count);
+         km_vcpu_apply_all(km_vcpu_print, 0);
+      }
       nanosleep(&req, NULL);
    }
-   machine.pause_requested = 0;
 }
 
 /*
- * Convenience wrapper to force KVM exit by setting immediate exit flag and then sending a signal to
- * vcpu thread. The thread signal handler can be a noop, just need to exist.
- * Note:  Relies on the upstairs to only be called on a used VCPU.
+ * Force KVM to exit by sending a signal to vcpu thread. The signal handler can be a noop, just need
+ * to exist.
  */
-int km_vcpu_pause(km_vcpu_t* vcpu, void* unused)
+int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
 {
    int ret;
+   assert(vcpu->is_used == 1);
    if (vcpu->is_paused == 1 || vcpu->vcpu_thread == 0) {   // already paused or not started yet
       km_infox("VCPU %d skipped (p=%d thr=0x%lx)", vcpu->vcpu_id, vcpu->is_paused, vcpu->vcpu_thread);
       return 0;
    }
-   vcpu->cpu_run->immediate_exit = 1;
    if ((ret = pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP)) != 0) {
-      warn("%s: Failed to send stop to vCPU %d (errno %d)", __FUNCTION__, vcpu->vcpu_id, ret);
+      warnx("%s: Failed to send stop to vCPU %d errno %d)", __FUNCTION__, vcpu->vcpu_id, ret);
       return 1;
    }
    km_infox("VCPU %d signalled to pause", vcpu->vcpu_id);

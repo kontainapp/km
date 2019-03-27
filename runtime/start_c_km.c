@@ -13,14 +13,11 @@ _Noreturn void __start_c__(long is_main_argc, char** argv)
 
    if (is_main_argc == 0) {
       struct pthread* self = __pthread_self();
-
       rc = (int)self->start(self->start_arg);
-      while (1) {
-         __syscall1(SYS_exit, rc);
-      }
+   } else {
+      rc = main(is_main_argc, argv);
    }
-   rc = main(is_main_argc, argv);
    while (1) {
-      __syscall1(SYS_exit_group, rc);
+      __syscall1(SYS_exit, rc);
    }
 }

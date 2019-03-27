@@ -104,13 +104,13 @@ static inline void km_gdb_vcpu_id_set(int id)
    gdbstub.vcpu_id = id;
 }
 
+extern void km_gdb_fini(int ret);
 extern void km_gdb_disable(void);
 extern void km_gdb_start_stub(char* const payload_file);
 extern void km_gdb_join_stub(void);
-extern void km_gdb_prepare_for_run(km_vcpu_t* vcpu);
 extern void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int run_errno);
 extern char* mem2hex(const unsigned char* mem, char* buf, size_t count);
 extern void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len);
-extern int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, void* unused);
+extern int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, uint64_t unused);
 
 #endif /* __KM_GDB_H__ */
