@@ -15,14 +15,14 @@ popd
 if [ ! -d cpython ]; then
     git clone https://github.com/python/cpython.git -b 3.7
     pushd cpython
-    ./configure --disable-shared
+    ./configure LDFLAGS="-static" --disable-shared
     patch < ../pyconfig.h-patch
-    patch < ../Makefile-patch
+    patch -p1 < ../Setup.local-patch
 else
     pushd cpython
 fi
 
-make -j8
+make -j8 LDFLAGS="-static" LINKFORSHARED=" " DYNLOADFILE="dynload_stub.o"
 popd
 
 ./link-static-musl.sh
