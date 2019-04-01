@@ -265,7 +265,7 @@ static char* recv_packet(void)
             return NULL;
          }
       } else {
-         km_infox("%s: '%s', ack", __FUNCTION__, buffer);
+         km_infox(KM_TRACE_GDB, "%s: '%s', ack", __FUNCTION__, buffer);
          if (send_char('+') == -1) {
             // Unsuccessful reply to a successful transfer
             err(1, "GDB: Could not send an ACK+ to the debugger.");
@@ -297,7 +297,7 @@ static void send_packet_no_ack(const char* buffer)
     * is broken so all sends for the packet will fail, and the next recv
     * for gdb ack will also fail take the necessary actions.
     */
-   km_infox("Sending packet '%s'", buffer);
+   km_infox(KM_TRACE_GDB, "Sending packet '%s'", buffer);
    send_char('$');
    for (count = 0, checksum = 0; (ch = buffer[count]) != '\0'; count++, checksum += ch)
       ;
@@ -394,12 +394,12 @@ static void km_gdb_general_query(char* packet, char* obuf)
       char label[64];
 
       if (sscanf(packet, "qThreadExtraInfo,%x", &thr_id) != 1) {
-         km_infox("qThreadExtraInfo: wrong packet '%s'", packet);
+         km_infox(KM_TRACE_GDB, "qThreadExtraInfo: wrong packet '%s'", packet);
          send_error_msg();
          return;
       }
       if ((vcpu = km_vcpu_fetch(thr_id)) == NULL) {
-         km_infox("qThreadExtraInfo: VCPU %d is not found", thr_id);
+         km_infox(KM_TRACE_GDB, "qThreadExtraInfo: VCPU %d is not found", thr_id);
          send_error_msg();
          return;
       }
@@ -424,7 +424,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
    char obuf[BUFMAX];
 
    assert(vcpu != NULL);
-   km_infox("%s: signum %d", __FUNCTION__, signum);
+   km_infox(KM_TRACE_GDB, "%s: signum %d", __FUNCTION__, signum);
    if (signum != GDB_SIGFIRST) {   // Notify the debugger about our last signal
       send_response('S', signum, true);
    }
@@ -435,7 +435,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
       size_t len;
       int command, ret;
 
-      km_infox("Got packet: '%s'", packet);
+      km_infox(KM_TRACE_GDB, "Got packet: '%s'", packet);
       /*
        * From the GDB manual:
        * "At a minimum, a stub is required to support the ‘g’ and ‘G’
@@ -484,7 +484,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
              */
             int vcpu_id;
             if (sscanf(packet, "T%x", &vcpu_id) != 1 || km_vcpu_fetch(vcpu_id) == NULL) {
-               km_infox("Reporting thread for vcpu %d as dead", vcpu_id);
+               km_infox(KM_TRACE_GDB, "Reporting thread for vcpu %d as dead", vcpu_id);
                send_error_msg();
                break;
             }
@@ -734,18 +734,21 @@ static void* km_gdb_thread_entry(void* data)
          is_intr = 1;
       }
       if (fds[1].revents) {   // vcpu stopped
-         km_infox("gdb: a vcpu signalled about an exit");
+         km_infox(KM_TRACE_GDB, "gdb: a vcpu signalled about an exit");
       }
 
-      km_infox("Signalling all vCPUs to pause");
+      km_infox(KM_TRACE_GDB, "Signalling all vCPUs to pause");
       km_vcpu_apply_all(km_vcpu_pause, 0);
       km_vcpu_wait_for_all_to_pause();
-      km_infox("%s: DONE waiting, all stopped. vm_vcpu_run_cnt %d", __FUNCTION__, machine.vm_vcpu_run_cnt);
+      km_infox(KM_TRACE_GDB,
+               "%s: DONE waiting, all stopped. vm_vcpu_run_cnt %d",
+               __FUNCTION__,
+               machine.vm_vcpu_run_cnt);
       km_empty_out_eventfd(gdbstub.intr_eventfd);   // discard extra 'intr' events if vcpus sent them
       km_gdb_handle_kvm_exit(is_intr);              // give control back to gdb
       gdbstub.session_requested = 0;
       machine.pause_requested = 0;
-      km_infox("%s: exit handled, ready to proceed", __FUNCTION__);
+      km_infox(KM_TRACE_GDB, "%s: exit handled, ready to proceed", __FUNCTION__);
       km_vcpu_apply_all(km_gdb_vcpu_continue, 0);
    }
    return NULL;
@@ -758,7 +761,7 @@ static void* km_gdb_thread_entry(void* data)
 void km_gdb_start_stub(char* const payload_file)
 {
    assert(km_gdb_is_enabled());
-   km_infox("Enabling gdbserver on port %d...", km_gdb_port_get());
+   km_infox(KM_TRACE_GDB, "Enabling gdbserver on port %d...", km_gdb_port_get());
    if (gdb_wait_for_connect(payload_file) == -1) {
       errx(1, "Failed to connect to gdb");
    }
@@ -792,15 +795,15 @@ void km_gdb_disable(void)
  */
 void km_gdb_notify_and_wait(km_vcpu_t* vcpu, __attribute__((unused)) int unused)
 {
-   km_infox("%s on VCPU %d", __FUNCTION__, vcpu->vcpu_id);
+   km_infox(KM_TRACE_GDB, "%s on VCPU %d", __FUNCTION__, vcpu->vcpu_id);
    vcpu->is_paused = 1;
    if (gdbstub.session_requested == 0) {
-      km_infox("gdb seems to be sleeping, wake it up. VCPU %d", vcpu->vcpu_id);
+      km_infox(KM_TRACE_GDB, "gdb seems to be sleeping, wake it up. VCPU %d", vcpu->vcpu_id);
       gdbstub.vcpu_id = vcpu->vcpu_id;
       eventfd_write(gdbstub.intr_eventfd, 1);
    }
    km_wait_on_eventfd(vcpu->eventfd);   // Wait for gdb to allow this vcpu to continue
-   km_infox("%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
+   km_infox(KM_TRACE_GDB, "%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
    vcpu->is_paused = 0;
 }
 

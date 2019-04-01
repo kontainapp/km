@@ -63,4 +63,6 @@ extern km_hcall_fn_t km_hcalls_table[];
 #define HC_pthread_create (KM_MAX_HCALL - 1)
 #define HC_pthread_join (KM_MAX_HCALL - 2)
 
+#define KM_TRACE_HC "hypercall"
+
 #endif /* #ifndef __KM_HCALLS_H__ */

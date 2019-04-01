@@ -85,12 +85,12 @@ static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu,
 // only show this for verbose ('-V') runs
 #define run_info(__f, ...)                                                                         \
    do {                                                                                            \
-      if (g_km_info_verbose)                                                                       \
+      if (km_trace_enabled() && regexec(&km_info_trace.tags, KM_TRACE_KVM, 0, NULL, 0) == 0)       \
          __run_warn(&vwarn, vcpu, __f, ##__VA_ARGS__);                                             \
    } while (0)
 #define run_infox(__f, ...)                                                                        \
    do {                                                                                            \
-      if (g_km_info_verbose)                                                                       \
+      if (km_trace_enabled() && regexec(&km_info_trace.tags, KM_TRACE_KVM, 0, NULL, 0) == 0)       \
          __run_warn(&vwarnx, vcpu, __f, ##__VA_ARGS__);                                            \
    } while (0)
 
@@ -212,8 +212,12 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
    };
    int count = 10;
    while (machine.vm_vcpu_run_cnt > 1 && count-- > 0) {
-      if (g_km_info_verbose == 1) {
-         km_infox("%s VCPU %d: Still %d vcpus running", __FUNCTION__, vcpu->vcpu_id, machine.vm_vcpu_run_cnt);
+      if (km_trace_enabled()) {
+         km_infox(KM_TRACE_VCPU,
+                  "%s VCPU %d: Still %d vcpus running",
+                  __FUNCTION__,
+                  vcpu->vcpu_id,
+                  machine.vm_vcpu_run_cnt);
          km_vcpu_apply_all(km_vcpu_print, 0);
       }
       nanosleep(&req, NULL);
@@ -343,7 +347,7 @@ void* km_vcpu_run_main(void* unused)
     */
    if (km_gdb_is_enabled()) {
       km_wait_on_eventfd(vcpu->eventfd);   // wait for gbd loop to allow main vcpu to run
-      km_infox("%s: vcpu_run VCPU %d unblocked by gdb", __FUNCTION__, vcpu->vcpu_id);
+      km_infox(KM_TRACE_VCPU, "%s: vcpu_run VCPU %d unblocked by gdb", __FUNCTION__, vcpu->vcpu_id);
    }
    return km_vcpu_run(vcpu);   // and now go into the run loop
 }

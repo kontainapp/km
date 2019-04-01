@@ -25,16 +25,18 @@
 #include "km_mem.h"
 #include "km_signal.h"
 
-int g_km_info_verbose;   // 0 is silent
+#define GDB_DEFAULT_PORT 3333
+
+km_info_trace_t km_info_trace;
 
 static inline void usage()
 {
    errx(1,
-        "Usage: km [-V] [-w] [-g port] <payload-file> [<payload args>]\n"
+        "Usage: km [-V[tag]] [-w] [-g[port]] <payload-file> [<payload args>]\n"
         "Options:\n"
-        "\t-V      - turn on Verbose printing of internal trace messages\n"
-        "\t-w      - wait for SIGUSR1 before running VM payload\n"
-        "\t-g port - listens for gbd to connect on <port> before running VM payload");
+        "\t-V[tag]  - Verbose. Print internal messaging with matching tag\n"
+        "\t-w       - wait for SIGUSR1 before running VM payload\n"
+        "\t-g[port] - listens for gbd on <port> (default 3333) before running payload");
 }
 
 int main(int argc, char* const argv[])
@@ -42,20 +44,32 @@ int main(int argc, char* const argv[])
    int opt;
    char* payload_file = NULL;
    bool wait_for_signal = false;
+   int port;
    km_vcpu_t* vcpu;
-   while ((opt = getopt(argc, argv, "+wg:V")) != -1) {
+   int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
+
+   while ((opt = getopt(argc, argv, "+wg::V::v")) != -1) {
       switch (opt) {
          case 'w':
             wait_for_signal = true;
             break;
          case 'g':
-            km_gdb_port_set(atoi(optarg));
-            if (!km_gdb_port_get()) {
+            if (optarg == NULL) {
+               port = GDB_DEFAULT_PORT;
+            } else if ((port = atoi(optarg)) == 0) {
+               warnx("Wrong gdb port number");
                usage();
             }
+            km_gdb_port_set(port);
             break;
          case 'V':
-            g_km_info_verbose = 1;
+            if (optarg == NULL) {
+               regcomp(&km_info_trace.tags, ".*", regex_flags);
+            } else if (regcomp(&km_info_trace.tags, optarg, regex_flags) != 0) {
+               warnx("Failed to compile -V regexp");
+               usage();
+            }
+            km_info_trace.level = KM_TRACE_INFO;
             break;
          case '?':
          default:

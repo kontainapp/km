@@ -16,9 +16,11 @@
 #include <err.h>
 #include <errno.h>
 #include <pthread.h>
+#include <regex.h>
 #include <stdint.h>
 #include <sys/eventfd.h>
 #include <sys/param.h>
+#include <sys/types.h>
 #include <linux/kvm.h>
 
 #include "km_elf.h"
@@ -163,18 +165,35 @@ static inline long km_syscall_ok(uint64_t r)
 }
 
 /*
- * Trivial trace() based on warn() - but with an a switch to run off and on.
+ * Trivial trace control - with switch to turn on/off and on and a tag to match.
+ * E.g. "-Vgdb" will only match GDB related messages, and '-V(gdb|kvm)' will match both gdb and
+ * kvm-related messages. The "gdb" "kvm" tag is passed to km_info API
  */
-extern int g_km_info_verbose;
-#define km_info(...)                                                                               \
+typedef struct km_info_trace {
+   regex_t tags;   // only trace the tags matching this regexp
+   enum {
+      KM_TRACE_NONE,
+      KM_TRACE_INFO,
+      KM_TRACE_ERN,
+      KM_TRACE_ERR
+   } level;   // trace level. using only KM_TRACE_NONE for now
+} km_info_trace_t;
+extern km_info_trace_t km_info_trace;
+
+#define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)   // 1 for yes, 0 for no
+#define km_info(tag, ...)                                                                          \
    do {                                                                                            \
-      if (g_km_info_verbose)                                                                       \
+      if (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)                \
          warn(__VA_ARGS__);                                                                        \
    } while (0)
-#define km_infox(...)                                                                              \
+#define km_infox(tag, ...)                                                                         \
    do {                                                                                            \
-      if (g_km_info_verbose)                                                                       \
+      if (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)                \
          warnx(__VA_ARGS__);                                                                       \
    } while (0)
+
+// tags for different traces
+#define KM_TRACE_VCPU "vcpu"
+#define KM_TRACE_KVM "kvm"
 
 #endif /* #ifndef __KM_H__ */

@@ -353,7 +353,7 @@ int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t* len)
       warn("KVM_GET_FPU failed, ignoring");
    }
    // kvm gets 16 bytes per reg and names them differently. Will figure it out later
-   km_infox("FPU regs: not reporting for now (TODO)");
+   km_infox(KM_TRACE_GDB, "FPU regs: not reporting for now (TODO)");
    return 0;
 }
 

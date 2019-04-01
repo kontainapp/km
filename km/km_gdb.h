@@ -37,6 +37,8 @@ typedef enum {
 #define GDB_SIGNONE (-1)
 #define GDB_SIGFIRST 0   // the guest hasn't run yet
 
+#define KM_TRACE_GDB "gdb"
+
 extern int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* reg, size_t* len);
 extern int km_gdb_write_registers(km_vcpu_t* vcpu, uint8_t* reg, size_t len);
 extern int km_gdb_enable_ss(void);

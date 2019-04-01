@@ -233,7 +233,7 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data)
          break;   // since we allocate vcpus sequentially, no reason to scan after NULL
       }
       if (vcpu->is_used == 1 && (ret = (*func)(vcpu, data)) != 0) {
-         km_infox("km_vcpu_apply_all: func %p returned %d for VCPU %d", func, ret, vcpu->vcpu_id);
+         km_infox(KM_TRACE_VCPU, "%s: func ret %d for VCPU %d", __FUNCTION__, ret, vcpu->vcpu_id);
          total += ret;
       }
    }
@@ -252,15 +252,16 @@ static int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
    return 1;
 }
 
- int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
+int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
 {
-   warnx("print: VCPU %d paused %d joining %d used %d thread %lx guest_thr %#lx",
-         vcpu->vcpu_id,
-         vcpu->is_paused,
-         vcpu->is_joining,
-         vcpu->is_used,
-         vcpu->vcpu_thread,
-         vcpu->guest_thr);
+   km_infox(KM_TRACE_VCPU,
+            "km_vcpu_print: VCPU %d - paused %d joining %d used %d thread %lx guest_thr %#lx",
+            vcpu->vcpu_id,
+            vcpu->is_paused,
+            vcpu->is_joining,
+            vcpu->is_used,
+            vcpu->vcpu_thread,
+            vcpu->guest_thr);
    return 0;
 }
 
@@ -272,8 +273,8 @@ void km_vcpu_wait_for_all_to_pause(void)
       static const struct timespec req = {
           .tv_sec = 0, .tv_nsec = 10000000, /* 10 millisec */
       };
-      if (g_km_info_verbose == 1) {
-         km_infox("Still %d vcpus running", count);
+      if (km_trace_enabled()) {
+         km_infox(KM_TRACE_VCPU, "Still %d vcpus running", count);
          km_vcpu_apply_all(km_vcpu_print, 0);
       }
       nanosleep(&req, NULL);
@@ -289,14 +290,18 @@ int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
    int ret;
    assert(vcpu->is_used == 1);
    if (vcpu->is_paused == 1 || vcpu->vcpu_thread == 0) {   // already paused or not started yet
-      km_infox("VCPU %d skipped (p=%d thr=0x%lx)", vcpu->vcpu_id, vcpu->is_paused, vcpu->vcpu_thread);
+      km_infox(KM_TRACE_VCPU,
+               "VCPU %d skipped (p=%d thr=0x%lx)",
+               vcpu->vcpu_id,
+               vcpu->is_paused,
+               vcpu->vcpu_thread);
       return 0;
    }
    if ((ret = pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP)) != 0) {
       warnx("%s: Failed to send stop to vCPU %d errno %d)", __FUNCTION__, vcpu->vcpu_id, ret);
       return 1;
    }
-   km_infox("VCPU %d signalled to pause", vcpu->vcpu_id);
+   km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
    return 0;
 }
 
@@ -401,7 +406,7 @@ void km_machine_init(void)
    for (int i = 0; i < machine.cpuid->nent; i++) {
       switch (machine.cpuid->entries[i].function) {
          case 0x80000008:
-            km_infox("KVM: physical memory width %d", machine.cpuid->entries[i].eax & 0xff);
+            km_infox(KM_TRACE_KVM, "KVM: physical memory width %d", machine.cpuid->entries[i].eax & 0xff);
             machine.guest_max_physmem = 1ul << (machine.cpuid->entries[i].eax & 0xff);
             break;
          case 0x80000001:
@@ -416,7 +421,7 @@ void km_machine_init(void)
        * set_pml4_hierarchy()
        */
       machine.guest_max_physmem = MIN(2 * GIB, machine.guest_max_physmem);
-      km_infox("KVM: 1gb pages are not supported");
+      km_infox(KM_TRACE_KVM, "KVM: 1gb pages are not supported");
    }
    km_mem_init();
 }

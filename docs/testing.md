@@ -25,6 +25,12 @@ We use gcov/lcov for C test coverage.
 * To clean up coverage artifacts, run `make covclean`.
 * To see coverage in VSCode, install `Coverage gutters` plugin (ryanluker.vscode-coverage-gutters) and use `Watch` toggle on the bottom of an editor.
 
+## Debugging
+
+To debug payload, run `km -g<port> payload.km` - this will start km listening on port for gdb client. KM will also print out a gdb command to run, which connects to km to debug.
+
+In Visual Studio Code, we provide `launch.json` with different debugging options. Choose from Debug drop down in Debug mode.
+
 # Appendix
 
 A quick summary of testing framework requirements, choices and info on how we were choosing one

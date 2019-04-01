@@ -20,7 +20,7 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 
 COPTS ?= -ggdb -O2
 CFLAGS = -Wall $(COPTS) -D_FORTIFY_SOURCE=0 -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
-KM_LDFLAGS = --gc-sections --print-gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
+KM_LDFLAGS = --gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
 LOADLIBES ?= -ggdb -static -pthread
 LDDIRS := ${TOP}build/runtime
 DEPS = ${SRC:%.c=%.d}
