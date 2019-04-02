@@ -183,7 +183,8 @@ static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
    pthread_exit((void*)(uint64_t)s);
 }
 
-/* Force a vcpu exit and cleanup.
+/*
+ * Force a vcpu exit and cleanup.
  * Called when we are done with the current thread, and we don’t care for remants to hang around and
  * block fini(). So we make it detached and exit vcpu, and that takes care of true exit for the
  * current thread.
@@ -203,7 +204,8 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
    vcpu->is_paused = 1;
    km_vcpu_apply_all(km_vcpu_pause, 0);
    km_vcpu_wait_for_all_to_pause();
-   /* At this point, some threads may still be in pthread_join(), or may be alive because they were
+   /*
+    * At this point, some threads may still be in pthread_join(), or may be alive because they were
     * paused (e.g. for stop) before the signal. We need to give them time to clean up.
     * For now, we give them 100 msec. TODO: wait forever after the hack below is removed
     */
@@ -214,7 +216,7 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
    while (machine.vm_vcpu_run_cnt > 1 && count-- > 0) {
       if (km_trace_enabled()) {
          km_infox(KM_TRACE_VCPU,
-                  "%s VCPU %d: Still %d vcpus running",
+                  "%s VCPU %d: %d vcpus are still running",
                   __FUNCTION__,
                   vcpu->vcpu_id,
                   machine.vm_vcpu_run_cnt);
@@ -238,8 +240,19 @@ static void km_vcpu_pause_sighandler(int signum_unused)
    // NOOP
 }
 
-static void km_vcpu_handle_ioctl_failure(km_vcpu_t* vcpu)
+/*
+ * Call ioctl(KVM_RUN) once, and handles error return from ioctl.
+ * Returns 0 on success -1 on ioctl error (an indication that normal exit_reason handling should be
+ * skipped upstairs)
+ */
+static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 {
+   if (machine.pause_requested) {   // guarantee an exit right away if we are pausing
+      vcpu->cpu_run->immediate_exit = 1;
+   }
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) == 0) {
+      return 0;
+   }
    run_info("KVM_RUN exit %d (%s) imm_exit=%d %s",
             vcpu->cpu_run->exit_reason,
             kvm_reason_name(vcpu->cpu_run->exit_reason),
@@ -256,7 +269,7 @@ static void km_vcpu_handle_ioctl_failure(km_vcpu_t* vcpu)
          }
          vcpu->cpu_run->immediate_exit = 0;
          vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
-         if (km_gdb_is_enabled()) {
+         if (km_gdb_is_enabled() == 1) {
             km_gdb_notify_and_wait(vcpu, errno);
          } else {
             assert("Reached the unreachable" == NULL);
@@ -266,6 +279,8 @@ static void km_vcpu_handle_ioctl_failure(km_vcpu_t* vcpu)
       default:
          run_err(1, "KVM: vcpu run failed with errno %d (%s)", errno, strerror(errno));
    }
+   assert(vcpu->cpu_run->immediate_exit == 0);
+   return -1;
 }
 
 void* km_vcpu_run(km_vcpu_t* vcpu)
@@ -274,15 +289,12 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
 
    while (1) {
-      if (machine.pause_requested) {   // guarantee an exit right away if we are pausing
-         vcpu->cpu_run->immediate_exit = 1;
-      }
-      if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) < 0) {
-         km_vcpu_handle_ioctl_failure(vcpu);
+      int reason;
+
+      if (km_vcpu_one_kvm_run(vcpu) < 0) {
          continue;
       }
-      assert(vcpu->cpu_run->immediate_exit == 0);
-      int reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
+      reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
       run_infox("KVM: exit reason=%d (%s)", reason, kvm_reason_name(reason));
       switch (reason) {
          case KVM_EXIT_IO:
@@ -322,7 +334,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_DEBUG:
          case KVM_EXIT_EXCEPTION:
          case KVM_EXIT_HLT:
-            if (km_gdb_is_enabled()) {
+            if (km_gdb_is_enabled() == 1) {
                km_gdb_notify_and_wait(vcpu, errno);
             } else {
                run_warn("KVM: exit vcpu. reason=%d (%s)", reason, kvm_reason_name(reason));
@@ -345,7 +357,7 @@ void* km_vcpu_run_main(void* unused)
     * Main vcpu in presence of gdb needs to pause before entering guest main() and wait for gdb
     * client connection. The client will control the execution by continue or step commands.
     */
-   if (km_gdb_is_enabled()) {
+   if (km_gdb_is_enabled() == 1) {
       km_wait_on_eventfd(vcpu->eventfd);   // wait for gbd loop to allow main vcpu to run
       km_infox(KM_TRACE_VCPU, "%s: vcpu_run VCPU %d unblocked by gdb", __FUNCTION__, vcpu->vcpu_id);
    }

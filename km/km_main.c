@@ -34,9 +34,9 @@ static inline void usage()
    errx(1,
         "Usage: km [-V[tag]] [-w] [-g[port]] <payload-file> [<payload args>]\n"
         "Options:\n"
-        "\t-V[tag]  - Verbose. Print internal messaging with matching tag\n"
-        "\t-w       - wait for SIGUSR1 before running VM payload\n"
-        "\t-g[port] - listens for gbd on <port> (default 3333) before running payload");
+        "\t-V[tag]  - Verbose print of internal messaging with matching tag\n"
+        "\t-w       - Wait for SIGUSR1 before running VM payload\n"
+        "\t-g[port] - Listens for gbd on <port> (default 3333) before running payload");
 }
 
 int main(int argc, char* const argv[])
@@ -92,7 +92,7 @@ int main(int argc, char* const argv[])
    if (km_vcpu_set_to_run(vcpu, argc - optind) != 0) {
       err(1, "failed to set main vcpu to run");
    }
-   if (km_gdb_is_enabled()) {
+   if (km_gdb_is_enabled() == 1) {
       km_gdb_start_stub(payload_file);
    }
    if (wait_for_signal) {
@@ -103,7 +103,7 @@ int main(int argc, char* const argv[])
    if (pthread_create(&km_main_vcpu()->vcpu_thread, NULL, km_vcpu_run_main, NULL) != 0) {
       err(2, "Failed to create main run_vcpu thread");
    }
-   if (km_gdb_is_enabled()) {
+   if (km_gdb_is_enabled() == 1) {
       km_gdb_join_stub();
    }
    km_machine_fini();

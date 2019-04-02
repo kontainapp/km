@@ -40,7 +40,7 @@ km_machine_t machine = {
  */
 void km_signal_machine_fini(void)
 {
-   if (km_gdb_is_enabled()) {
+   if (km_gdb_is_enabled() == 1) {
       km_gdb_fini(machine.ret);
    }
    if (eventfd_write(machine.shutdown_fd, 1) == -1) {
@@ -159,7 +159,7 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       warn("KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
       return -1;
    }
-   if (km_gdb_is_enabled()) {
+   if (km_gdb_is_enabled() == 1) {
       if ((vcpu->eventfd = eventfd(0, 0)) == -1) {
          warn("failed init gdb eventfd for VCPU %d", vcpu->vcpu_id);
          return -1;
@@ -288,6 +288,7 @@ void km_vcpu_wait_for_all_to_pause(void)
 int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
 {
    int ret;
+
    assert(vcpu->is_used == 1);
    if (vcpu->is_paused == 1 || vcpu->vcpu_thread == 0) {   // already paused or not started yet
       km_infox(KM_TRACE_VCPU,
@@ -346,7 +347,7 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_main_argc)
    if ((rc = ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &regs)) < 0) {
       return rc;
    }
-   if (km_gdb_is_enabled()) {
+   if (km_gdb_is_enabled() == 1) {
       km_gdb_update_vcpu_debug(vcpu, 0);
    }
    return 0;

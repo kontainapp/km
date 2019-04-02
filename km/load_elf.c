@@ -89,7 +89,7 @@ static void load_extent(int fd, GElf_Phdr* phdr)
             // When debugging, make sure all EXEC sections are
             // writable so sw breakpoints can be inserted.
             // TODO - manage protection dynamically on set/clear breakpoints
-            if (km_gdb_is_enabled()) {
+            if (km_gdb_is_enabled() == 1) {
                pr |= PROT_WRITE;
             }
          }

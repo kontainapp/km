@@ -135,9 +135,10 @@ teardown() {
 }
 
 @test "gdb_basic: gdb support (gdb_test)" {
-   $KM -g 3333 gdb_test.km &
+   gdb_port=3333
+   $KM -g$gdb_port gdb_test.km &
 	sleep 0.5
-	run gdb -q -nx --ex="target remote :3333" --ex="source cmd_for_test.gdb" \
+	run gdb -q -nx --ex="target remote :$gdb_port" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test.km
    [ $(echo "$output" | grep -cw 'SUCCESS') == 1 ]
 }
