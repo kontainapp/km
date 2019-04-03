@@ -19,6 +19,8 @@
 #include <pthread.h>
 #include <stddef.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/syscall.h>   // getpid() has no libc wrapper, so need to do syscall
 
 #include "km.h"
 #include "km_gdb.h"
@@ -314,6 +316,17 @@ void km_pthread_fini(km_vcpu_t* vcpu)
    }
 }
 
+// glibc does not have a wrapper for SYS_gettid, let's add it
+#ifdef SYS_gettid
+pid_t gettid(void)
+{
+   return syscall(SYS_gettid);
+}
+#else
+#error "SYS_gettid is not available"
+#endif
+
+// Create guest thread. We use vcpu->guest_thr for payload thread id.
 int km_pthread_create(km_vcpu_t* current_vcpu,
                       pthread_t* restrict pid,
                       const km_kma_t restrict attr,
@@ -385,9 +398,8 @@ int km_pthread_join(km_vcpu_t* current_vcpu, pthread_t pid, km_kma_t ret)
     */
    if ((rc = -pthread_join(vcpu->vcpu_thread, (void*)ret)) == 0) {
       km_vcpu_put(vcpu);
-   } else {
-      current_vcpu->is_joining = 0;
    }
+   current_vcpu->is_joining = 0;
    return rc;
 }
 

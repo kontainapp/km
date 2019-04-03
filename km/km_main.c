@@ -48,7 +48,7 @@ int main(int argc, char* const argv[])
    km_vcpu_t* vcpu;
    int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
 
-   while ((opt = getopt(argc, argv, "+wg::V::v")) != -1) {
+   while ((opt = getopt(argc, argv, "+wg::V::")) != -1) {
       switch (opt) {
          case 'w':
             wait_for_signal = true;
@@ -57,7 +57,7 @@ int main(int argc, char* const argv[])
             if (optarg == NULL) {
                port = GDB_DEFAULT_PORT;
             } else if ((port = atoi(optarg)) == 0) {
-               warnx("Wrong gdb port number");
+               warnx("Wrong gdb port number '%s'", optarg);
                usage();
             }
             km_gdb_port_set(port);
@@ -66,7 +66,7 @@ int main(int argc, char* const argv[])
             if (optarg == NULL) {
                regcomp(&km_info_trace.tags, ".*", regex_flags);
             } else if (regcomp(&km_info_trace.tags, optarg, regex_flags) != 0) {
-               warnx("Failed to compile -V regexp");
+               warnx("Failed to compile -V regexp '%s'", optarg);
                usage();
             }
             km_info_trace.level = KM_TRACE_INFO;
@@ -85,26 +85,31 @@ int main(int argc, char* const argv[])
    km_machine_init();
    load_elf(payload_file);
    if ((vcpu = km_vcpu_get()) == NULL) {
-      err(1, "failed to get main vcpu");
+      err(1, "Failed to get main vcpu");
    }
    km_init_libc_main(vcpu, argc - optind, argv + optind);
-
    if (km_vcpu_set_to_run(vcpu, argc - optind) != 0) {
       err(1, "failed to set main vcpu to run");
-   }
-   if (km_gdb_is_enabled() == 1) {
-      km_gdb_start_stub(payload_file);
    }
    if (wait_for_signal) {
       warnx("Waiting for kill -SIGUSR1 `pidof km`");
       km_wait_for_signal(SIGUSR1);
    }
+   if (km_gdb_is_enabled() == 1) {
+      gdbstub.intr_eventfd = eventfd(0, 0);   // we will need it for km_vcpu_run_main and gdb main loop
+   }
    __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
-   if (pthread_create(&km_main_vcpu()->vcpu_thread, NULL, km_vcpu_run_main, NULL) != 0) {
+   vcpu = km_main_vcpu();
+   if (pthread_create(&vcpu->vcpu_thread, NULL, km_vcpu_run_main, NULL) != 0) {
       err(2, "Failed to create main run_vcpu thread");
    }
-   if (km_gdb_is_enabled() == 1) {
-      km_gdb_join_stub();
+   if (km_gdb_is_enabled() == 1) {   // TODO: think about 'attach' on signal
+      km_infox(KM_TRACE_GDB, "Enabling gdbserver on port %d...", km_gdb_port_get());
+      if (km_gdb_wait_for_connect(payload_file) == -1) {
+         errx(1, "Failed to connect to gdb");
+      }
+      km_gdb_main_loop(vcpu);
+      km_gdb_disable();
    }
    km_machine_fini();
    exit(machine.ret);

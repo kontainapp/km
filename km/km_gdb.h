@@ -65,13 +65,14 @@ struct __attribute__((__packed__)) km_gdb_regs {
 #define GDB_INTERRUPT_PKT 0x3   // aka ^C
 
 typedef struct gdbstub_info {
-   pthread_t thread;        // pthread in which gdbstub is running
    int port;                // Port the stub is listening for gdb client. 0 means NO GDB
    int sock_fd;             // socket to communicate to gdb client
    int intr_eventfd;        // event interrupting stub wait for gdb client
    int session_requested;   // set to 1 when payload threads need to pause on exit
    bool stepping;           // single step mode (stepi)
-   int vcpu_id;             // VCPU ID gdb asks the stub to operate on, Defaut is main (0)
+   km_vcpu_t* gdb_vcpu;     // VCPU which GDB is asking us to work on.
+   int exit_reason;         // last KVM exit reason
+   // Note: we use vcpu->tid as gdb payload thread id. It also matches linux LWP
 } gdbstub_info_t;
 
 extern gdbstub_info_t gdbstub;
@@ -96,20 +97,21 @@ static inline int km_gdb_is_enabled(void)
    return km_gdb_port_get() != 0 ? 1 : 0;
 }
 
-static inline int km_gdb_vcpu_id_get(void)
+static inline km_vcpu_t* km_gdb_vcpu_get(void)
 {
-   return gdbstub.vcpu_id;
+   return gdbstub.gdb_vcpu;
 }
 
-static inline void km_gdb_vcpu_id_set(int id)
+static inline void km_gdb_vcpu_set(km_vcpu_t* vcpu)
 {
-   gdbstub.vcpu_id = id;
+   gdbstub.gdb_vcpu = vcpu;
 }
 
+extern int km_gdb_wait_for_connect(const char* image_name);
+extern void km_gdb_main_loop(km_vcpu_t* main_vcpu);
 extern void km_gdb_fini(int ret);
 extern void km_gdb_disable(void);
 extern void km_gdb_start_stub(char* const payload_file);
-extern void km_gdb_join_stub(void);
 extern void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int run_errno);
 extern char* mem2hex(const unsigned char* mem, char* buf, size_t count);
 extern void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len);

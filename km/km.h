@@ -46,6 +46,7 @@ typedef struct km_vcpu {
    int vcpu_id;             // uniq ID
    kvm_run_t* cpu_run;      // run control region
    pthread_t vcpu_thread;   // km pthread
+   pid_t tid;               // Thread Id for VCPU thread. Used to id thread in gdb and reporting
    km_gva_t guest_thr;      // guest pthread
    km_gva_t stack_top;      // available in guest_thr but requres gva_to_kma, save it
    int kvm_vcpu_fd;         // this VCPU file descriptor
@@ -118,15 +119,6 @@ static inline km_vcpu_t* km_main_vcpu(void)
    return machine.vm_vcpus[0];
 }
 
-// fetch vcpu by index in vcpu array (aka vcpu_id)
-static inline km_vcpu_t* km_vcpu_fetch(int idx)
-{
-   if (idx < 0 || idx >= KVM_MAX_VCPUS) {
-      return NULL;
-   }
-   return machine.vm_vcpus[idx];
-}
-
 static inline int km_wait_on_eventfd(int fd)
 {
    eventfd_t value;
@@ -152,6 +144,10 @@ extern int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data);
 extern int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused);
 extern void km_vcpu_wait_for_all_to_pause(void);
 extern int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused);
+extern km_vcpu_t* km_vcpu_fetch(int id);
+extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
+
+extern pid_t gettid(void);
 
 #define KM_SIGVCPUSTOP SIGUSR1   //  After km start, used to signal VCP thread to force KVM exit
 
@@ -174,7 +170,7 @@ typedef struct km_info_trace {
    enum {
       KM_TRACE_NONE,
       KM_TRACE_INFO,
-      KM_TRACE_ERN,
+      KM_TRACE_WARN,
       KM_TRACE_ERR
    } level;   // trace level. using only KM_TRACE_NONE for now
 } km_info_trace_t;

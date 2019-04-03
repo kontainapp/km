@@ -265,14 +265,14 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
       case EINTR:
          if (machine.exit_group == 1) {   // Interrupt from exit_group() - we are done.
             km_vcpu_force_exit(vcpu);     // Clean up and exit the current  VCPU thread
-            assert("Reached the unreachable 1" == NULL);
+            assert("Reached the unreachable" == NULL);
          }
          vcpu->cpu_run->immediate_exit = 0;
          vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          if (km_gdb_is_enabled() == 1) {
             km_gdb_notify_and_wait(vcpu, errno);
-         } else {
-            assert("Reached the unreachable" == NULL);
+         } else {   // e.g. gdb attached to KM and then detached while in ioctl
+            warn("KVM_RUN interrupted... continuing");
          }
          break;
 
@@ -287,6 +287,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int status, hc;
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
+   vcpu->tid = gettid();
 
    while (1) {
       int reason;
@@ -352,13 +353,16 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 void* km_vcpu_run_main(void* unused)
 {
    km_vcpu_t* vcpu = km_main_vcpu();
+   vcpu->tid = gettid();
 
    /*
     * Main vcpu in presence of gdb needs to pause before entering guest main() and wait for gdb
     * client connection. The client will control the execution by continue or step commands.
     */
    if (km_gdb_is_enabled() == 1) {
-      km_wait_on_eventfd(vcpu->eventfd);   // wait for gbd loop to allow main vcpu to run
+      while (eventfd_write(gdbstub.intr_eventfd, 1) == -1 && errno == EINTR)
+         warnx("what");   // signal gdb main loop that tid is set and it can proceed
+      km_wait_on_eventfd(vcpu->eventfd);   // wait for gbd main loop to allow main vcpu to run
       km_infox(KM_TRACE_VCPU, "%s: vcpu_run VCPU %d unblocked by gdb", __FUNCTION__, vcpu->vcpu_id);
    }
    return km_vcpu_run(vcpu);   // and now go into the run loop

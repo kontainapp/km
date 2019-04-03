@@ -119,7 +119,7 @@ static unsigned char* hex2mem(const char* buf, unsigned char* mem, size_t count)
  * global gdbstub.sock_fd and returns 0.
  * Returns -1 in case of failures.
  */
-static int gdb_wait_for_connect(const char* image_name)
+int km_gdb_wait_for_connect(const char* image_name)
 {
    int listen_socket_fd;
    struct sockaddr_in server_addr, client_addr;
@@ -357,19 +357,25 @@ static void send_response(char code, int signum, bool wait_for_ack)
    }
 }
 
-// Add hex vcpu->vcpu_id to the list of thread_ids for communication to gdb
+static inline int km_gdb_thread_id(km_vcpu_t* vcpu)   // we use vcpu->tid as thread id for GDB
+{
+   return vcpu->tid;
+}
+
+// Add hex gdb_tid to the list of thread_ids for communication to gdb
 static int add_thread_id(km_vcpu_t* vcpu, uint64_t data)
 {
    char* obuf = (char*)data;
 
-   sprintf(obuf + strlen(obuf), "%x,", vcpu->vcpu_id);
+   sprintf(obuf + strlen(obuf), "%x,", km_gdb_thread_id(vcpu));
+   km_infox(KM_TRACE_GDB "threads", "add_thread_id: '%s'", obuf);
    return 0;
 }
 
 // Form and send thread list ('m<thread_ids>' packet) to gdb
 static void send_threads_list(void)
 {
-   char obuf[BUFMAX] = "m";   // max thread is is 288 (currently) so BUFMAX is more than enough
+   char obuf[BUFMAX] = "m";   // max thread is 288 (currently) so BUFMAX (16K) is more than enough
 
    km_vcpu_apply_all(add_thread_id, (uint64_t)obuf);
    obuf[strlen(obuf) - 1] = '\0';   // strip trailing comma
@@ -379,7 +385,8 @@ static void send_threads_list(void)
 // Handle general query packet ('q<query>'). Use obuf as output buffer.
 static void km_gdb_general_query(char* packet, char* obuf)
 {
-   if (strncmp(packet, "qfThreadInfo", strlen("qfThreadInfo")) == 0) {   // Get list of active thread IDs
+   if (strncmp(packet, "qfThreadInfo", strlen("qfThreadInfo")) == 0) {   // Get list of active
+                                                                         // thread IDs
       send_threads_list();
    } else if (strncmp(packet, "qsThreadInfo", strlen("qsThreadInfo")) == 0) {   // Get more thread ids
       send_packet("l");   // 'l' means "no more thread ids"
@@ -387,25 +394,25 @@ static void km_gdb_general_query(char* packet, char* obuf)
       send_packet("1");   // '1' means "the process was attached, not started"
    } else if (strncmp(packet, "qC", strlen("qC")) == 0) {   // Get the current thread_id
       char buf[64];
-      sprintf(buf, "QC%x", gdbstub.vcpu_id);
+
+      sprintf(buf, "QC%x", km_gdb_thread_id(km_gdb_vcpu_get()));
       send_packet(buf);
    } else if (strncmp(packet, "qThreadExtraInfo", strlen("qThreadExtraInfo")) == 0) {   // Get label
-      // gdb allow free form labels, so we send guest_thr
-      int thr_id;
-      km_vcpu_t* vcpu;
       char label[64];
+      int thread_id;
+      km_vcpu_t* vcpu;
 
-      if (sscanf(packet, "qThreadExtraInfo,%x", &thr_id) != 1) {
-         km_infox(KM_TRACE_GDB, "qThreadExtraInfo: wrong packet '%s'", packet);
+      if (sscanf(packet, "qThreadExtraInfo,%x", &thread_id) != 1) {
+         warnx("qThreadExtraInfo: wrong packet '%s'", packet);
          send_error_msg();
          return;
       }
-      if ((vcpu = km_vcpu_fetch(thr_id)) == NULL) {
-         km_infox(KM_TRACE_GDB, "qThreadExtraInfo: VCPU %d is not found", thr_id);
+      if ((vcpu = km_vcpu_fetch_by_tid(thread_id)) == NULL) {
+         warnx("qThreadExtraInfo: VCPU for thread %#x is not found", thread_id);
          send_error_msg();
          return;
       }
-      sprintf(label, "THR %#lx", vcpu->guest_thr);
+      sprintf(label, "vcpu %d", vcpu->vcpu_id);   // gdb allow free form labels, so we send VCPU ID
       mem2hex((unsigned char*)label, obuf, strlen(label));
       send_packet(obuf);
    } else {
@@ -413,19 +420,18 @@ static void km_gdb_general_query(char* packet, char* obuf)
    }
 }
 /*
- * Handle individual KVM_RUN exit on vcpu.
+ * Handle KVM_RUN exit.
  * Conduct dialog with gdb, until gdb orders next run (e.g. "next"), at which points return
  * control so the payload may continue to run.
  *
  * Note: Before calling this function, KVM exit_reason is converted to signum.
  * TODO: split this function into a sane table-driven set of handlers based on parsed command.
  */
-static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
+static void gdb_handle_payload_stop(int signum)
 {
    char* packet;
    char obuf[BUFMAX];
 
-   assert(vcpu != NULL);
    km_infox(KM_TRACE_GDB, "%s: signum %d", __FUNCTION__, signum);
    if (signum != GDB_SIGFIRST) {   // Notify the debugger about our last signal
       send_response('S', signum, true);
@@ -440,7 +446,7 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
       km_infox(KM_TRACE_GDB, "Got packet: '%s'", packet);
       command = packet[0];
       switch (command) {
-         case '!': {   // allow extended-remote mode. TODO: do we really support it ?
+         case '!': {   // allow extended-remote mode. TODO: we don't support it fully, maybe decline?
             send_okay_msg();
             break;
          }
@@ -449,37 +455,36 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
              * ‘H op thread-id’. op should be ‘c’ for step and continue  and ‘g’
              * for other operations.
              * TODO: this is deprecated, supporting the ‘vCont’ command is a better option.
-             *   See https://sourceware.org/gdb/onlinedocs/gdb/Packets.html#Packets)
+             * See https://sourceware.org/gdb/onlinedocs/gdb/Packets.html#Packets)
+             *
+             * If requested, change VCPU we are working on.
+             * thread_id == -1 means "all threads". 0 means "any thread". "-1" is really
+             * used for 'non stop" mode only, which we don't support, so for both cases we use main vcpu
              */
-            int vcpu_id;
-            char cmd_unused;
+            int thread_id;
+            char cmd;
+            km_vcpu_t* vcpu = km_main_vcpu();   // TODO: use 1st vcpu in_use here !
 
-            if (sscanf(packet, "H%c%d", &cmd_unused, &vcpu_id) != 2) {
+            if (sscanf(packet, "H%c%x", &cmd, &thread_id) != 2 || (cmd != 'g' && cmd != 'c')) {
+               warnx("Wrong 'H' packet '%s'", packet);
                send_error_msg();
                break;
             }
-            /*
-             * If requested, change VCPU we are working on.
-             * Note: vcpu_id == -1 means "all threads". Use current vcpu for now.
-             * TODO: not clear what it means for 'get regs' for example
-             */
-            if (vcpu_id != -1) {
-               km_vcpu_t* tmp;
-               if ((tmp = km_vcpu_fetch(vcpu_id)) == NULL) {
-                  send_error_msg();
-                  break;
-               }
-               vcpu = tmp;
-               km_gdb_vcpu_id_set(vcpu_id);
+            if (thread_id > 0 && (vcpu = km_vcpu_fetch_by_tid(thread_id)) == NULL) {
+               warnx("Can't find vcpu for tid %d (%#x) ", thread_id, thread_id);
+               send_error_msg();
+               break;
             }
+            assert(vcpu != NULL);
+            km_gdb_vcpu_set(vcpu);   // memorize it for future sessions ??
             send_okay_msg();
             break;
          }
          case 'T': {   // ‘T thread-id’.   Find out if the thread thread-id is alive.
-            int vcpu_id;
+            int thread_id;
 
-            if (sscanf(packet, "T%x", &vcpu_id) != 1 || km_vcpu_fetch(vcpu_id) == NULL) {
-               km_infox(KM_TRACE_GDB, "Reporting thread for vcpu %d as dead", vcpu_id);
+            if (sscanf(packet, "T%x", &thread_id) != 1 || km_vcpu_fetch_by_tid(thread_id) == NULL) {
+               km_infox(KM_TRACE_GDB "threads", "Reporting thread for vcpu %d as dead", thread_id);
                send_error_msg();
                break;
             }
@@ -540,6 +545,8 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
             break;
          }
          case 'g': {   // Read general registers
+            km_vcpu_t* vcpu = km_gdb_vcpu_get();
+
             len = BUFMAX;
             if (km_gdb_read_registers(vcpu, registers, &len) == -1) {
                send_error_msg();
@@ -550,6 +557,8 @@ static void gdb_handle_payload_stop(km_vcpu_t* vcpu, int signum)
             break;
          }
          case 'G': {   // Write general registers
+            km_vcpu_t* vcpu = km_gdb_vcpu_get();
+
             len = BUFMAX;
             /* Call read_registers just to get len (not very efficient). */
             if (km_gdb_read_registers(vcpu, registers, &len) == -1) {
@@ -626,8 +635,8 @@ done:
 /*
  * This function is called on GDB thread to give gdb a chance to handle the KVM exit.
  * It is expected to be called ONLY when gdb is enabled and ONLY when when all vCPUs are paused.
- * If the exit reason is of interest to gdb, the function lets gdb to handle it. If the exit reason
- * is of no interest to gdb, the function simply returns and lets vcpu loop to handle the
+ * If the exit reason is of interest to gdb, the function lets gdb to handle it. If the exit
+ * reason is of no interest to gdb, the function simply returns and lets vcpu loop to handle the
  * rest as it sees fit.
  *
  * Note that we map VM exit reason to a GDB 'signal', which is what needs to be communicated back
@@ -636,24 +645,21 @@ done:
 static void km_gdb_handle_kvm_exit(int is_intr)
 {
    assert(km_gdb_is_enabled() == 1);
-   km_vcpu_t* vcpu = km_vcpu_fetch(km_gdb_vcpu_id_get());
-   uint32_t reason = is_intr ? KVM_EXIT_INTR : vcpu->cpu_run->exit_reason;
-
-   switch (reason) {
+   switch (is_intr ? KVM_EXIT_INTR : gdbstub.exit_reason) {
       case KVM_EXIT_HLT:
          km_gdb_fini(0);
          return;
 
       case KVM_EXIT_DEBUG:
-         gdb_handle_payload_stop(vcpu, SIGTRAP);
+         gdb_handle_payload_stop(SIGTRAP);
          return;
 
       case KVM_EXIT_INTR:
-         gdb_handle_payload_stop(vcpu, SIGINT);
+         gdb_handle_payload_stop(SIGINT);
          return;
 
       case KVM_EXIT_EXCEPTION:
-         gdb_handle_payload_stop(vcpu, SIGSEGV);
+         gdb_handle_payload_stop(SIGSEGV);
          return;
    }
    return;
@@ -678,19 +684,20 @@ static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, __attribute__((unused)) 
 }
 
 /*
+ * TODO: comment
  * When vcpu is running, we still want to listen to gdb ^C, in which case signal
  * vcpu thread to interrupt KVM_RUN.
  */
-static void* km_gdb_thread_entry(void* data)
+void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 {
-   km_vcpu_t* main_vcpu = (km_vcpu_t*)data;
-   gdbstub.intr_eventfd = eventfd(0, 0);
    struct pollfd fds[] = {
        {.fd = gdbstub.sock_fd, .events = POLLIN | POLLERR},
        {.fd = gdbstub.intr_eventfd, .events = POLLIN | POLLERR},
    };
 
-   gdb_handle_payload_stop(main_vcpu, GDB_SIGFIRST);   // Talk to GDB first time, before any vCPU run
+   km_wait_on_eventfd(gdbstub.intr_eventfd);   // Wait for km_vcpu_run_main to set vcpu->tid
+   km_gdb_vcpu_set(main_vcpu);
+   gdb_handle_payload_stop(GDB_SIGFIRST);   // Talk to GDB first time, before any vCPU run
    km_gdb_vcpu_continue(main_vcpu, 0);
    while (km_gdb_is_enabled() == 1) {
       int ret;
@@ -708,11 +715,10 @@ static void* km_gdb_thread_entry(void* data)
       is_intr = 0;
       if (fds[0].revents) {   // gdb client sent something (hopefully ^C)
          int ch = recv_char();
-         warnx("%s: got a msg from a client. ch=%d", __FUNCTION__, ch);
+         km_infox(KM_TRACE_GDB, "%s: got a msg from a client. ch=%d", __FUNCTION__, ch);
          if (ch == -1) {
             warn("%s: connection closed", __FUNCTION__);
-            km_gdb_disable();
-            return NULL;
+            return;
          }
          assert(errno == EINTR || ch == GDB_INTERRUPT_PKT);
          is_intr = 1;
@@ -735,41 +741,20 @@ static void* km_gdb_thread_entry(void* data)
       km_infox(KM_TRACE_GDB, "%s: exit handled, ready to proceed", __FUNCTION__);
       km_vcpu_apply_all(km_gdb_vcpu_continue, 0);
    }
-   return NULL;
-}
-
-/*
- * Start gdb stub - wait for GDB to connect and start a thread to manage interaction with gdb
- * client.
- */
-void km_gdb_start_stub(char* const payload_file)
-{
-   assert(km_gdb_is_enabled() == 1);
-   km_infox(KM_TRACE_GDB, "Enabling gdbserver on port %d...", km_gdb_port_get());
-   if (gdb_wait_for_connect(payload_file) == -1) {
-      errx(1, "Failed to connect to gdb");
-   }
-
-   // TODO: think about 'attach' on signal - dynamically starting this thread
-   if (pthread_create(&gdbstub.thread, NULL, km_gdb_thread_entry, km_main_vcpu()) != 0) {
-      err(1, "Failed to create GDB server thread ");
-   }
-}
-
-void km_gdb_join_stub(void)
-{
-   pthread_join(gdbstub.thread, NULL);
-   close(gdbstub.intr_eventfd);
 }
 
 /* closes the gdb socket and set port to 0 */
 void km_gdb_disable(void)
 {
+   if (km_gdb_is_enabled() != 1) {
+      return;
+   }
+   warnx("Disabling gdb");
    if (gdbstub.sock_fd > 0) {
       close(gdbstub.sock_fd);
       gdbstub.sock_fd = -1;
    }
-   warnx("Disabling gdb");
+   close(gdbstub.intr_eventfd);
    km_gdb_port_set(0);
 }
 
@@ -783,7 +768,8 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, __attribute__((unused)) int unused)
    vcpu->is_paused = 1;
    if (gdbstub.session_requested == 0) {
       km_infox(KM_TRACE_GDB, "gdb seems to be sleeping, wake it up. VCPU %d", vcpu->vcpu_id);
-      gdbstub.vcpu_id = vcpu->vcpu_id;
+      // km_gdb_tid_set(km_gdb_thread_id(vcpu));
+      gdbstub.exit_reason = vcpu->cpu_run->exit_reason;
       eventfd_write(gdbstub.intr_eventfd, 1);
    }
    km_wait_on_eventfd(vcpu->eventfd);   // Wait for gdb to allow this vcpu to continue
