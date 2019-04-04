@@ -475,7 +475,6 @@ static void gdb_handle_payload_stop(int signum)
                send_error_msg();
                break;
             }
-            assert(vcpu != NULL);
             km_gdb_vcpu_set(vcpu);   // memorize it for future sessions ??
             send_okay_msg();
             break;
@@ -678,15 +677,16 @@ static void km_empty_out_eventfd(int fd)
 static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, __attribute__((unused)) uint64_t unused)
 {
    int ret;
-   while ((ret = eventfd_write(vcpu->eventfd, 1) == -1 && errno == EINTR))
-      ;
+   while ((ret = eventfd_write(vcpu->eventfd, 1) == -1 && errno == EINTR)) {
+      ;   // ignore signals during the write
+   }
    return ret == 0 ? 0 : 1;   // Unblock main guest thread
 }
 
 /*
- * TODO: comment
- * When vcpu is running, we still want to listen to gdb ^C, in which case signal
- * vcpu thread to interrupt KVM_RUN.
+ * Loop on waiting on either ^C from gdb client, or a vcpu exit from kvm_run for a reason relevant
+ * to gdb. When a wait is over (for either of the reasons), stops all vcpus and lets GDB handle the
+ * exit. When gdb says "next" or "continue" or "step", signals vcpuy to continue and reenters the loop.
  */
 void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 {
@@ -703,9 +703,10 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       int ret;
       int is_intr;   // set to 1 if we were interrupted by gdb client
 
-      // Poll 2 fds described above in fds[], with no timeout ("-1")
-      while ((ret = poll(fds, 2, -1) == -1) && (errno == EAGAIN || errno == EINTR))
-         ;
+      // Poll two fds described above in fds[], with no timeout ("-1")
+      while ((ret = poll(fds, 2, -1) == -1) && (errno == EAGAIN || errno == EINTR)) {
+         ;   // ignore signals which may interrupt the poll
+      }
       if (ret < 0) {
          err(1, "%s: poll failed ret=%d.", __FUNCTION__, ret);
       }

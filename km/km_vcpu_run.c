@@ -350,20 +350,21 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    }
 }
 
+/*
+ * Main vcpu in presence of gdb needs to pause before entering guest main() and wait for gdb
+ * client connection. The client will control the execution by continue or step commands.
+ */
 void* km_vcpu_run_main(void* unused)
 {
    km_vcpu_t* vcpu = km_main_vcpu();
-   vcpu->tid = gettid();
 
-   /*
-    * Main vcpu in presence of gdb needs to pause before entering guest main() and wait for gdb
-    * client connection. The client will control the execution by continue or step commands.
-    */
+   vcpu->tid = gettid();
    if (km_gdb_is_enabled() == 1) {
-      while (eventfd_write(gdbstub.intr_eventfd, 1) == -1 && errno == EINTR)
-         warnx("what");   // signal gdb main loop that tid is set and it can proceed
+      while (eventfd_write(gdbstub.intr_eventfd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
+         ;   // ignore signals during the write
+      }
       km_wait_on_eventfd(vcpu->eventfd);   // wait for gbd main loop to allow main vcpu to run
       km_infox(KM_TRACE_VCPU, "%s: vcpu_run VCPU %d unblocked by gdb", __FUNCTION__, vcpu->vcpu_id);
    }
-   return km_vcpu_run(vcpu);   // and now go into the run loop
+   return km_vcpu_run(vcpu);
 }
