@@ -271,7 +271,6 @@ km_vcpu_t* km_vcpu_fetch(int id)
    return vcpu;
 }
 
-
 /*
  * Returns 1 if the vcpu is still running (i.e.not paused). Skip the ones sitting in pthread_join
  * because it can generate a deadlock if they wait in pthread_join(this_thread)).
@@ -449,6 +448,12 @@ void km_machine_init(void)
             machine.pdpe1g = ((machine.cpuid->entries[i].edx & 1ul << 26) != 0);
             break;
       }
+   }
+   if (machine.guest_max_physmem > GUEST_MAX_PHYSMEM_SUPPORTED) {
+      warnx("Scaling down guest max phys mem to %#lx from %#lx",
+            GUEST_MAX_PHYSMEM_SUPPORTED,
+            machine.guest_max_physmem);
+      machine.guest_max_physmem = GUEST_MAX_PHYSMEM_SUPPORTED;
    }
    if (machine.pdpe1g == 0) {
       /*

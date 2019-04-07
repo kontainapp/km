@@ -61,6 +61,9 @@ static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
 #define GUEST_MEM_ZONE_SIZE_VA                                                                     \
    ((machine.pdpe1g ? (machine.guest_max_physmem - GIB) : GIB) - 2 * MIB)
 
+// We currently only have code with 1 PML4 entry per "zone", so we can't support more than that
+#define GUEST_MAX_PHYSMEM_SUPPORTED 512 * GIB
+
 /*
  * See "Virtual memory layout:" in km_cpu_init.c for details.
  */
