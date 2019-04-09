@@ -1,0 +1,13 @@
+cpython/Lib/test
+cpython/build
+cpython/Doc
+cpython/libpython*
+cpython/Objects
+cpython/Include
+cpython/P*
+cpython/M*
+cpython/T*
+!cpython/Modules/Setup
+cpython/config*
+cpython/python
+

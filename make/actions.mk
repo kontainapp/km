@@ -65,6 +65,23 @@ all: ${BLDEXEC}
 ${BLDEXEC}: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
 
+# pack KM with shared libs as a docker container, and run a sanity check
+pack: ${BLDEXEC} pack
+	@# Extract shared lib names KM needs, and create a bare docker container with KM and shared libs
+	@#libgcc_s is needed for phtread_cancel (not referred from elf)
+	tmpdir=$$(mktemp -d) ; \
+	libs="$$(ldd ${BLDEXEC} \
+	  | grep -v linux-vdso.so  \
+	  | sed -e 's-^.*\s/-/-' -e 's- (.*--') /usr/lib64/libgcc_s.so.1"; \
+	for lib in $$libs ; \
+			do mkdir -p $$tmpdir/`dirname $$lib`; cp --parent $$lib $$tmpdir ; \
+	done ;  \
+	cp ${BLDEXEC} $$tmpdir ; \
+	tar -C $$tmpdir -cv . | docker import -m "Kontain Monitor Base Image" - kontain:km ; rm -rf $$tmpdir
+	@# Test is real quick
+	docker run --rm --device /dev/kvm -v $(abspath ${TOP}/tests):/payloads kontain:km  /km /payloads/hello_test.km
+
+
 endif
 
 ifneq (${LIB},)
