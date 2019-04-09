@@ -8,3 +8,6 @@ trace.dat
 ipch
 *.ipch
 gmon.out
+GTAGS
+GPATH
+GRTAGS

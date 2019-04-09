@@ -378,6 +378,27 @@ static km_hc_ret_t lseek_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* statu
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t rename_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int rename(const char *oldpath, const char *newpath);
+   arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t chdir_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int chdir(const char *path);
+   arg->hc_ret = __syscall_1(hc, km_gva_to_kml(arg->arg1));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t mkdir_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int mkdir(const char *path, mode_t mode);
+   arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), arg->arg2);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    arg->hc_ret = 0;
@@ -454,6 +475,10 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getrandom] = getrandom_hcall;
    km_hcalls_table[SYS_open] = open_hcall;
    km_hcalls_table[SYS_lseek] = lseek_hcall;
+   km_hcalls_table[SYS_rename] = rename_hcall;
+   km_hcalls_table[SYS_mkdir] = mkdir_hcall;
+   km_hcalls_table[SYS_chdir] = chdir_hcall;
+
    km_hcalls_table[SYS_rt_sigaction] = dummy_hcall;
    km_hcalls_table[SYS_rt_sigprocmask] = dummy_hcall;
    km_hcalls_table[SYS_getpid] = dummy_hcall;
