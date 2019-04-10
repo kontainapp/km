@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pykm-deployment
+  labels:
+    app: pykm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pykm
+  template:
+    metadata:
+      labels:
+        app: pykm
+    spec:
+      containers:
+      - name: pykm
+        image:  msterinkontain/kmpy:hello1
+        ports:
+        - containerPort: 80
+        resources:
+           requests:
+              devices.kubevirt.io/kvm: "1"
+           limits:
+              devices.kubevirt.io/kvm: "1"
+        args: ["/hello_again.py"]

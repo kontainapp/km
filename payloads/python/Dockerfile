@@ -19,11 +19,11 @@
 #
 
 FROM kontain:km
-
 LABEL Description="Starts Python in Kontain VM" Vendor="Kontain.app" Version="0.1"
 
 COPY cpython/python.km python/
 COPY cpython/Lib/ python/Lib/
 COPY cpython/Modules/Setup python/Modules/
-
-ENTRYPOINT [ "/km" , "/python/python.km" ]
+COPY cpython/python.km python/
+COPY hello*.py /
+ENTRYPOINT [ "/km" , "-V" , "/python/python.km", "-u"]

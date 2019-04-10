@@ -399,6 +399,18 @@ static km_hc_ret_t mkdir_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* statu
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t select_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   //  int select(int nfds, fd_set *readfds, fd_set *writefds,
+   //             fd_set *exceptfds, struct timeval *timeout);
+   arg->hc_ret = __syscall_5(hc,
+                             arg->arg1,
+                             km_gva_to_kml(arg->arg2),
+                             km_gva_to_kml(arg->arg3),
+                             km_gva_to_kml(arg->arg4),
+                             km_gva_to_kml(arg->arg5));
+   return HC_CONTINUE;
+}
 static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    arg->hc_ret = 0;
@@ -478,6 +490,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_rename] = rename_hcall;
    km_hcalls_table[SYS_mkdir] = mkdir_hcall;
    km_hcalls_table[SYS_chdir] = chdir_hcall;
+   km_hcalls_table[SYS_select] = select_hcall;
 
    km_hcalls_table[SYS_rt_sigaction] = dummy_hcall;
    km_hcalls_table[SYS_rt_sigprocmask] = dummy_hcall;
