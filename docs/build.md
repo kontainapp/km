@@ -69,6 +69,50 @@ Indicated by setting `LIB` to the target lib, e.g. `LIB := runtime`
 
 See ../tests/Makefile. This one is work in progress and will change to be more generic and provides uniform test execution
 
+## Containerized KM in Docker and Kubernetes (WIP)
+
+### Build docker images for KM and python.km
+
+Currently docker images are constructed in 2 layers:
+
+ 1. **KM + KM shared libs**. `make -C km pack` makes it, the result is `kontain/km:dev` image.
+ 1. **python.km with python modules. and ALL payloads** `cd payloads/python; docker build -t msterinkontain/kmpy:latest .`
+ 1. Azure: Tag and push to Azure Container Registry: Docker tag msterinkontain/kmpy:latest kontainkubeacr.azurecr.io/km:hello ; docker push !$
+ 1. Dockerhub: the above is pushed to dockerhub (using @marksterin account there :-)) `docker push msterinkontain/kmpy:latest`
+
+### Run under Docker
+
+`docker run --device=/dev/kvm msterinkontain/kmpy:latest <payload.py>` - see a few .py files in payloads/python
+
+### Run under Kubernetes
+
+We do not want to run privileged containers there (and often policy blocks it anyways) and Kubernetes does not allow to simply configure access to devices , to avoid conflicts between different apps, so we use github.com/kubevirt/kubernetes-device-plugins/pkg/kvm to expose /dev/kvm to the pods.
+
+* build the KVM plugin (we can use pre-built shared or have our own)
+  * in plugins dir, do `dep ensure; make build-kvm`
+* deploy to cluster as DaemonSet
+  * `kubectl apply  -f <path>/kubernetes-device-plugins/manifests/kvm-ds.yaml`
+* deploy KM-based apps, e.g.
+  * `kubectl apply -f payloads/python/pykm-deploy.yaml (this assumes the image was pushed to dockerhub msterinkontain/kmpy - see above)
+
+### Notes
+
+* Currently KM + necessary shared libraries are packaged to bare container using `tar c ... | docker import -`  approach - this allows to package container similar to `FROM scratch` but without having *mkdir* to create files layout.
+  * this obviously does not pick up vDSO so the code there (e.g. gettimeofday) will be sub-optimal - if needed we'd mitigate it by vDSO analog for KM payloads
+* Python modules are packaged into on-host Docker image layers so the payload first reaches into hypercall, we proxy it to syscall and then it goes to file names namespace and then to overlay FS. We need to see if we should just package that into the payload by mmaping directly into VM memory
+* If python code reaches into  syscall we don't support yet, the container will exist with 'unknown HC', obviously. I think we need to have automatic routing to "allowed" syscalls, since it's only < 500 of those :-)
+* We used manually / statically build python.tk.
+* the build process uses Docker so running the build in Docker would require DinD ... I never tried it so skipping for now. **docker/kub build does not work with `make withdocker`**
+
+### TODO
+
+* Make build specific for branch. Make clean up specific for branch
+* Choose cloud provider (likely: Azure)
+* Make Kontain docker private repo there. Integrate into the build (as 'containers' target ?)
+* Add basics Azure pipeline, with standard tests
+* push stuff there and pull from there automatically
+* Do the same with AKS for Kubernetes (note: Need to use D3-v3 instance for nested virtualization)
+
 ## CI/CD
 
 TODO (does not exist yet)

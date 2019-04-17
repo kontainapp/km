@@ -37,6 +37,7 @@
          "hcalls",
          "hwcap",
          "infox",
+         "kubernetes",
          "memsz",
          "mmaps",
          "mprotect",

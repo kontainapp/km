@@ -1,13 +1,4 @@
 #
-# Basic build for kontain machine (km) and related tests/examples.
-# Subject to change - code is currently PoC
-#
-# dependencies:
-#  elfutils-libelf-devel and elfutils-libelf-devel-static for gelf.h and related libs
-#  OR:
-#  docker - for 'make withdocker TARGET=<target>
-#
-# ====
 #  Copyright © 2018 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
@@ -17,12 +8,19 @@
 #   such source code. Disclosure of this source code or any related proprietary
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
+#
+# Basic build for kontain payloads
 
 # scan all these and  'make' stuff there
-SUBDIRS := km runtime tests payloads
+SUBDIRS := python
 
-# build VMM and runtime library before trying to build tests
-tests: km runtime
+# make sure payloads dir is skipped for top-level 'make' to avoid rebuilds when only KM is needed
+# to run, use 'make all'
+default: 
+	@echo Skipping payloads build for goal '$@'. Use 'make all' or 'make build' for payloads build
+
+# use this target to force payloads build
+build: $(SUBDIRS)
 
 TOP := $(shell git rev-parse --show-cdup)
 include ${TOP}make/actions.mk

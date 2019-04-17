@@ -115,3 +115,6 @@ test: .cov_init
 endif
 
 .PHONY: all clean test help gdb coverage covclean
+
+distro distroclean publish publishclean:
+	@echo $(notdir $(CURDIR)): nothing to do for target '$@'

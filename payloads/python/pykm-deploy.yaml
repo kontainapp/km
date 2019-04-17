@@ -5,7 +5,7 @@ metadata:
   labels:
     app: pykm
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: pykm
@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
       - name: pykm
-        image:  msterinkontain/kmpy:hello1
+        image: kontainkubeacr.azurecr.io/km:hello
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
         resources:

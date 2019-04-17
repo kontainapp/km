@@ -13,6 +13,8 @@
 
 # this is the path from the TOP to current dir
 FROMTOP := $(shell git rev-parse --show-prefix)
+# Current branch (for making different names unique per branch, e.g. Docker tags)
+SRC_BRANCH := $(shell git rev-parse --abbrev-ref  HEAD)
 # all build results (including obj etc..)  go under this one
 BLDTOP := ${TOP}build/
 # Build results go here,
@@ -23,6 +25,11 @@ BLDDIR := ${BLDTOP}${FROMTOP}$(BLDTYPE)
 # so we can use KM from different places
 KM_BLDDIR := ${BLDTOP}km/$(BLDTYPE)
 KM_BIN := ${KM_BLDDIR}km
+
+
+# Use current branch as image version (tag) for doccker images. 
+# To be complianbt with tag grammar, replace '/' with '-'
+IMAGE_VERSION = $(subst /,-,$(SRC_BRANCH))
 
 # Code coverage support. Assumes 'lcov' is installed.
 # See man 1 geninifo for source code markers which control coverage generating, if needed

@@ -39,18 +39,23 @@ include ${TOP}make/custom.mk
 CFLAGS = ${COPTS} -Wall -ggdb -pthread $(addprefix -I , ${INCLUDES})
 DEPS = $(addprefix ${BLDDIR}, $(addsuffix .d, $(basename ${SOURCES})))
 OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${SOURCES})))
-BLDEXEC = $(addprefix ${BLDDIR},${EXEC})
+BLDEXEC := $(addprefix ${BLDDIR},${EXEC})
 BLDLIB = $(addprefix ${BLDDIR}lib,$(addsuffix .a,${LIB}))
 
 ifneq (${SUBDIRS},)
 
 all: subdirs ## Build all in all subdirs - basically, build + test recursively
 
+# Note: one target per line, so 'make help' works
 subdirs: $(SUBDIRS)
 clean: subdirs  ## clean all build artifacts.
 test: subdirs   ## build all and run tests everywhere
 coverage: subdirs ## build and run tests with code coverage support
 covclean: subdirs ## clean coverage-related build artifacts
+distro: subdirs ## package binaries for the current branch as Docker Container Images
+distroclean: subdirs ## remove packages created by 'make distro'
+publish: subdirs ## publish packages for the current branch online (currently to Azure ACR - see distro.mk)
+publishclean: subdirs ## (TODO) remove packages from online repos
 
 $(SUBDIRS):
 	$(MAKE) -C $@ $(MAKECMDGOALS)
@@ -64,23 +69,6 @@ ifneq (${EXEC},)
 all: ${BLDEXEC}
 ${BLDEXEC}: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
-
-# pack KM with shared libs as a docker container, and run a sanity check
-pack: ${BLDEXEC} pack
-	@# Extract shared lib names KM needs, and create a bare docker container with KM and shared libs
-	@#libgcc_s is needed for phtread_cancel (not referred from elf)
-	tmpdir=$$(mktemp -d) ; \
-	libs="$$(ldd ${BLDEXEC} \
-	  | grep -v linux-vdso.so  \
-	  | sed -e 's-^.*\s/-/-' -e 's- (.*--') /usr/lib64/libgcc_s.so.1"; \
-	for lib in $$libs ; \
-			do mkdir -p $$tmpdir/`dirname $$lib`; cp --parent $$lib $$tmpdir ; \
-	done ;  \
-	cp ${BLDEXEC} $$tmpdir ; \
-	tar -C $$tmpdir -cv . | docker import -m "Kontain Monitor Base Image" - kontain:km ; rm -rf $$tmpdir
-	@# Test is real quick
-	docker run --rm --device /dev/kvm -v $(abspath ${TOP}/tests):/payloads kontain:km  /km /payloads/hello_test.km
-
 
 endif
 
@@ -115,7 +103,7 @@ ${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exis
 ${OBJDIRS}:
 	mkdir -p $@
 
-# The sed regexp below is the same as in problemWatcher in tasks.json.
+# The sed regexp below is the same as in Visual Studion Code problemWatcher in tasks.json.
 # \\1 - filename :\\2:\\3: - position (note \\3: is optional) \\4 - severity \\5 - message
 # The sed transformation adds ${FROMTOP} prefix to file names to facilitate looking for files
 #
@@ -152,6 +140,9 @@ clean:
 ifneq ($(findstring clean, $(MAKECMDGOALS)), clean)
 -include ${DEPS}
 endif # ($(MAKECMDGOALS), clean)
+
+.DEFAULT:
+	@echo $(notdir $(CURDIR)): nothing to do for target '$@'
 
 endif # (${SUBDIRS},)
 
@@ -197,7 +188,7 @@ help:  ## Prints help on 'make' targets
 VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS \
 	KM_BLDDIR KM_BIN\
 	CFLAGS BLDEXEC BLDLIB  COPTS \
-	COVERAGE COV_INFO COV_REPORT
+	COVERAGE COV_INFO COV_REPORT SRC_BRANCH IMAGE_VERSION
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values
@@ -205,3 +196,4 @@ debugvars:   ## prints interesting vars and their values
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
 
 .PHONY: all clean test help withdocker
+

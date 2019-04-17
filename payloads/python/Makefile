@@ -1,0 +1,36 @@
+# Copyright © 2018 Kontain Inc. All rights reserved.
+#
+# Kontain Inc CONFIDENTIAL
+#
+#  This file includes unpublished proprietary source code of Kontain Inc. The
+#  copyright notice above does not evidence any actual or intended publication of
+#  such source code. Disclosure of this source code or any related proprietary
+#  information is strictly prohibited without the express written permission of
+#  Kontain Inc.
+#
+# Makefile for building and packing payload runtime for KM
+
+TOP := $(shell git rev-parse --show-cdup)
+
+# KM file name, relative to currentdir. Note that the same will be absolute in the container
+PAYLOAD_KM := cpython/python.km
+# image name, without repo and version tag  
+PAYLOAD_IMAGE_SHORT_NAME := python-km
+# name to be added to label(s)
+PAYLOAD_NAME := Python3.7
+
+# a list to be passed to tar to be backed into container image
+PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' \
+	cpython/python.km cpython/Lib cpython/Modules/Setup scripts
+
+all: $(PAYLOAD_KM)
+
+$(PAYLOAD_KM): *sh *patch
+	./build.sh
+
+# force the build
+build:
+	./build.sh
+
+include ${TOP}make/distro.mk
+
