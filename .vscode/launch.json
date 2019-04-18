@@ -37,7 +37,6 @@
          "program": "${workspaceFolder}/build/km/km",
          "args": [
             "-g",
-            "3333",
             "tests/${input:payload}.km"
          ],
          "stopAtEntry": false,
@@ -66,7 +65,7 @@
          "miDebuggerServerAddress": "localhost:3333",
          "miDebuggerArgs": "--silent",
          "debugServerPath": "${workspaceFolder}/build/km/km",
-         "debugServerArgs": "-g 3333 ${workspaceFolder}/tests/${input:payload}.km",
+         "debugServerArgs": "-g ${workspaceFolder}/tests/${input:payload}.km",
          "serverLaunchTimeout": 5000,
          "filterStderr": true,
          "filterStdout": false,
