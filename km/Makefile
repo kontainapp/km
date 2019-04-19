@@ -24,8 +24,8 @@ include ${TOP}make/actions.mk
 
 #
 # Building Docker Image with KM (and related shared libs), and running sanity check.
-# This is deliberately separated from payloads and distro.mk - we may decide to change packaging for 
-# KM and , say, distribute it as RPM with statically linked KM, or single binary, or whatever. 
+# This is deliberately separated from payloads and distro.mk - we may decide to change packaging for
+# KM and, say, distribute it as RPM with statically linked KM, or single binary, or whatever.
 #
 # For now, build as a base layer for Docker image, so we can guarantee the latest and greatest KM
 # in any containarized test/demo
@@ -33,11 +33,11 @@ include ${TOP}make/actions.mk
 KM_IMAGE_LABEL := LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 KM_IMAGE_MESSAGE := Kontain Monitor Base Image
 # Docker image name for KM
-# Example is 'kontain/km:msterin-mmap-basic', where current branch is msterin/mmap-basic 
+# Example is 'kontain/km:msterin-mmap-basic', where current branch is msterin/mmap-basic
 KM_IMAGE_FULL_NAME := kontain/$(EXEC):$(IMAGE_VERSION)
 
 # Build  a docker image with KM only, to be used as base image if needed
-# We tar used shared libs and KM, put it in a bare docker container, and validate it 
+# We tar used shared libs and KM, put it in a bare docker container, and validate it
 # note: libgcc_s is needed for phtread_cancel (it is not referred from elf/ldd)
 distro: ${BLDEXEC}
 	@tmpdir=$$(mktemp -d) ; \

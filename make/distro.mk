@@ -10,11 +10,11 @@
 #
 # A helper include for makefiles which need to build disto packages or publish to registries.#
 
-include $(TOP)make/locations.mk 
+include $(TOP)make/locations.mk
 
-# Image name for KM, build in KM dir. 
-KM_IMAGE_FULL_NAME := kontain/km:$(IMAGE_VERSION) 
-# Dockerfie has it hardcoded and I did not find a way to pass --build-args to Dockerfile's 'FROM'  
+# Image name for KM, build in KM dir.
+KM_IMAGE_FULL_NAME := kontain/km:$(IMAGE_VERSION)
+# Dockerfie has it hardcoded and I did not find a way to pass --build-args to Dockerfile's 'FROM'
 KM_IMAGE_EXPECTED := kontain/km:current
 
 ifeq ($(PAYLOAD_IMAGE_SHORT_NAME),)
@@ -29,16 +29,16 @@ PAYLOAD_IMAGE_FULL_NAME := kontain/$(PAYLOAD_IMAGE_SHORT_NAME):$(IMAGE_VERSION)
 PUBLISH_TAG := $(subst kontain,$(REGISTRY),$(PAYLOAD_IMAGE_FULL_NAME))
 
 # Build KM payload container, using KM container as the base image
-TAR_FILE := payload.tar 
+TAR_FILE := payload.tar
 DOCKERFILE_CONTENT := \
 	FROM $(KM_IMAGE_FULL_NAME) \\n \
-   LABEL Description=\"Starts ${PAYLOAD_NAME} in Kontain VM\" Vendor=\"Kontain.app\" Version=\"0.1\"	\\n \
+	LABEL Description=\"Starts ${PAYLOAD_NAME} in Kontain VM\" Vendor=\"Kontain.app\" Version=\"0.1\"	\\n \
 	ADD $(TAR_FILE) / \\n \
 	ENTRYPOINT [ \"/km\", \"/$(PAYLOAD_KM)\"] \\n
 
 distro: all Dockerfile
 	@tar -cf $(TAR_FILE) $(PAYLOAD_FILES)
-	@echo "Cleaning an old image"; docker rmi -f $(PAYLOAD_IMAGE_FULL_NAME) 2>/dev/null 
+	@echo "Cleaning old image"; docker rmi -f $(PAYLOAD_IMAGE_FULL_NAME) 2>/dev/null
 	@echo -e $(DOCKERFILE_CONTENT) | docker build --force-rm -t $(PAYLOAD_IMAGE_FULL_NAME) -f - .
 	@rm $(TAR_FILE)
 	@echo -e "Docker image created: $(GREEN)`docker image ls $(PAYLOAD_IMAGE_FULL_NAME) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
@@ -47,7 +47,7 @@ distroclean:
 	docker rmi -f ${PAYLOAD_IMAGE_FULL_NAME}
 
 publish:
-	@echo Tagging and pushing to Docker registry as ${PUBLISH_TAG}. 
+	@echo Tagging and pushing to Docker registry as ${PUBLISH_TAG}.
 	@echo Do not forget to authenticate to the registry, e.g. "az acr login  -n kontainKubeACR".
 	docker tag ${PAYLOAD_IMAGE_FULL_NAME} ${PUBLISH_TAG}
 	docker push ${PUBLISH_TAG}
@@ -60,7 +60,7 @@ publishclean:
 	@echo $(notdir $(CURDIR)): ignoring $@
 
 # Support for simple debug print (make debugvars)
-VARS_TO_PRINT ?= IMAGE_FULL_NAME 
+VARS_TO_PRINT ?= IMAGE_FULL_NAME
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values

@@ -39,7 +39,7 @@ include ${TOP}make/custom.mk
 CFLAGS = ${COPTS} -Wall -ggdb -pthread $(addprefix -I , ${INCLUDES})
 DEPS = $(addprefix ${BLDDIR}, $(addsuffix .d, $(basename ${SOURCES})))
 OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${SOURCES})))
-BLDEXEC := $(addprefix ${BLDDIR},${EXEC})
+BLDEXEC = $(addprefix ${BLDDIR},${EXEC})
 BLDLIB = $(addprefix ${BLDDIR}lib,$(addsuffix .a,${LIB}))
 
 ifneq (${SUBDIRS},)
