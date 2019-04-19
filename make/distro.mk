@@ -21,8 +21,6 @@ ifeq ($(PAYLOAD_IMAGE_SHORT_NAME),)
   $(error "Please define PAYLOAD_IMAGE_SHORT_NAME in your makefile)
 endif
 
-# we expect the ACR to be created with the name below (see azure  docs)
-REGISTRY := kontainkubeacr.azurecr.io
 # this is how we will name images locally
 PAYLOAD_IMAGE_FULL_NAME := kontain/$(PAYLOAD_IMAGE_SHORT_NAME):$(IMAGE_VERSION)
 # tag used in remote registry. We assume 'docker login' is done outside of the makefiles
@@ -32,9 +30,9 @@ PUBLISH_TAG := $(subst kontain,$(REGISTRY),$(PAYLOAD_IMAGE_FULL_NAME))
 TAR_FILE := payload.tar
 DOCKERFILE_CONTENT := \
 	FROM $(KM_IMAGE_FULL_NAME) \\n \
-	LABEL Description=\"Starts ${PAYLOAD_NAME} in Kontain VM\" Vendor=\"Kontain.app\" Version=\"0.1\"	\\n \
+	LABEL Description=\"${PAYLOAD_NAME} \(/${PAYLOAD_KM}\) in Kontain\" Vendor=\"Kontain.app\" Version=\"0.1\"	\\n \
 	ADD $(TAR_FILE) / \\n \
-	ENTRYPOINT [ \"/km\", \"/$(PAYLOAD_KM)\"] \\n
+	ENTRYPOINT [ \"/km\"] \\n
 
 distro: all Dockerfile
 	@tar -cf $(TAR_FILE) $(PAYLOAD_FILES)
@@ -48,19 +46,20 @@ distroclean:
 
 publish:
 	@echo Tagging and pushing to Docker registry as ${PUBLISH_TAG}.
-	@echo Do not forget to authenticate to the registry, e.g. "az acr login  -n kontainKubeACR".
+	@echo Do not forget to authenticate to the registry, e.g. "$(REGISTRY_AUTH_EXAMPLE)".
 	docker tag ${PAYLOAD_IMAGE_FULL_NAME} ${PUBLISH_TAG}
 	docker push ${PUBLISH_TAG}
 	docker rmi $(PUBLISH_TAG)
 
 publishclean:
-	@echo For now, please manually remove the spare images from ACR, using az CLI or Azure Portal
+	-${CLOUD_SCRIPTS}/untag_image.sh $(PAYLOAD_IMAGE_SHORT_NAME) $(IMAGE_VERSION)
 
 .DEFAULT:
-	@echo $(notdir $(CURDIR)): ignoring $@
+	@echo $(notdir $(CURDIR)): ignoring target '$@'
 
+VAR1 = $(shell $(TOP)/cloud/$(CLOUD)/get_config )
 # Support for simple debug print (make debugvars)
-VARS_TO_PRINT ?= IMAGE_FULL_NAME
+VARS_TO_PRINT ?= PAYLOAD_IMAGE_FULL_NAME PUBLISH_TAG REGISTRY_NAME REGISTRY REGISTRY_AUTH_EXAMPLE CLOUD
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values

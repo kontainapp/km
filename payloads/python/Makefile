@@ -8,18 +8,18 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
-# Makefile for building and packing payload runtime for KM
+# Makefile for building and packing Python payload runtime for KM
 
 TOP := $(shell git rev-parse --show-cdup)
 
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := cpython/python.km
-# image name, without repo and version tag  
+# image name, without repo and version tag
 PAYLOAD_IMAGE_SHORT_NAME := python-km
 # name to be added to label(s)
 PAYLOAD_NAME := Python3.7
 
-# a list to be passed to tar to be backed into container image
+# a list to be passed to tar to be packed into container image
 PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' \
 	cpython/python.km cpython/Lib cpython/Modules/Setup scripts
 
@@ -33,4 +33,3 @@ build:
 	./build.sh
 
 include ${TOP}make/distro.mk
-

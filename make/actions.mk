@@ -54,7 +54,7 @@ coverage: subdirs ## build and run tests with code coverage support
 covclean: subdirs ## clean coverage-related build artifacts
 distro: subdirs ## package binaries for the current branch as Docker Container Images
 distroclean: subdirs ## remove packages created by 'make distro'
-publish: subdirs ## publish packages for the current branch online (currently to Azure ACR - see distro.mk)
+publish: subdirs ## publish packages for the current branch online (e.g to Azure ACR - see distro.mk)
 publishclean: subdirs ## (TODO) remove packages from online repos
 
 $(SUBDIRS):
@@ -188,7 +188,8 @@ help:  ## Prints help on 'make' targets
 VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS \
 	KM_BLDDIR KM_BIN\
 	CFLAGS BLDEXEC BLDLIB  COPTS \
-	COVERAGE COV_INFO COV_REPORT SRC_BRANCH IMAGE_VERSION
+	COVERAGE COV_INFO COV_REPORT SRC_BRANCH IMAGE_VERSION \
+	CLOUD REGISTRY
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values

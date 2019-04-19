@@ -61,5 +61,6 @@
       "coverage-gutters.lcovname": "coverage.info",
       "coverage-gutters.showLineCoverage": true,
       "coverage-gutters.showRulerCoverage": true,
+      "files.trimTrailingWhitespace": true,
    }
 }

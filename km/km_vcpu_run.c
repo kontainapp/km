@@ -155,6 +155,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
    if (ga > vcpu->stack_top) {
       ga -= 4 * GIB;
    }
+   km_infox(KM_TRACE_HC, "hc = %d", *hc);
    return km_hcalls_table[*hc](vcpu, *hc, km_gva_to_kma(ga), status);
 }
 

@@ -469,7 +469,6 @@ void km_machine_init(km_machine_init_params_t* params)
        */
       warnx("KVM: 1gb pages are not supported (pdpe1g=0), setting VM max mem to 2 GiB");
       machine.guest_max_physmem = MIN(2 * GIB, machine.guest_max_physmem);
-      km_infox(KM_TRACE_KVM, "KVM: 1gb pages are not supported");
    }
    if (params->guest_physmem != 0) {
       if (params->guest_physmem > machine.guest_max_physmem) {

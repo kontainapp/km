@@ -345,7 +345,7 @@ static km_hc_ret_t clock_gettime_hcall(void* vcpu, int hc, km_hc_args_t* arg, in
 static km_hc_ret_t madvise_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    // int madvise(void *addr, size_t length, int advice);
-   km_infox(KM_TRACE_HC, "hc = %d, %ld %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3);
+   km_infox(KM_TRACE_HC, "hc = %d (madvise), %ld %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3);
    arg->hc_ret = 0;
    return HC_CONTINUE;
 }
@@ -415,7 +415,7 @@ static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* statu
 {
    arg->hc_ret = 0;
    km_infox(KM_TRACE_HC,
-            "hc = %d, %ld %lx %lx %lx %lx",
+            "hc = %d (dummy), %ld %lx %lx %lx %lx",
             hc,
             arg->arg1,
             arg->arg2,

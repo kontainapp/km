@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: pykm
-        image: kontainkubeacr.azurecr.io/km:hello
+        image: kontainkubecr.azurecr.io/python-km:msterin-kube
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -25,4 +25,4 @@ spec:
               devices.kubevirt.io/kvm: "1"
            limits:
               devices.kubevirt.io/kvm: "1"
-        args: ["/hello_again.py"]
+        args: [ "/cpython/python.km", "-u", "/scripts/hello_loop.py"]

@@ -14,7 +14,8 @@
 # this is the path from the TOP to current dir
 FROMTOP := $(shell git rev-parse --show-prefix)
 # Current branch (for making different names unique per branch, e.g. Docker tags)
-SRC_BRANCH := $(shell git rev-parse --abbrev-ref  HEAD)
+# use 'SRC_BRANCH=branch make <target>' for building target (e.g clean :-)) for other branches, if needed
+SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
 # all build results (including obj etc..)  go under this one
 BLDTOP := ${TOP}build/
 # Build results go here,
@@ -26,8 +27,16 @@ BLDDIR := ${BLDTOP}${FROMTOP}$(BLDTYPE)
 KM_BLDDIR := ${BLDTOP}km/$(BLDTYPE)
 KM_BIN := ${KM_BLDDIR}km
 
+# cloud-related stuff
+#
+# name of the cloud, as well as subdir of $(TOP)/cloud where the proper scripts hide
+CLOUD := azure
+CLOUD_SCRIPTS := $(TOP)cloud/$(CLOUD)
 
-# Use current branch as image version (tag) for doccker images. 
+# now bring all cloud-specific stuff needed in forms on 'key = value'
+include $(CLOUD_SCRIPTS)/cloud_config.mk
+
+# Use current branch as image version (tag) for doccker images.
 # To be complianbt with tag grammar, replace '/' with '-'
 IMAGE_VERSION = $(subst /,-,$(SRC_BRANCH))
 

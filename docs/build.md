@@ -75,14 +75,16 @@ See ../tests/Makefile. This one is work in progress and will change to be more g
 
 Currently docker images are constructed in 2 layers:
 
- 1. **KM + KM shared libs**. `make -C km pack` makes it, the result is `kontain/km:dev` image.
- 1. **python.km with python modules. and ALL payloads** `cd payloads/python; docker build -t msterinkontain/kmpy:latest .`
- 1. Azure: Tag and push to Azure Container Registry: Docker tag msterinkontain/kmpy:latest kontainkubeacr.azurecr.io/km:hello ; docker push !$
- 1. Dockerhub: the above is pushed to dockerhub (using @marksterin account there :-)) `docker push msterinkontain/kmpy:latest`
+ 1. **KM + KM shared libs**. `make -C km distro` makes it, the result is `kontain/km:<tag>` image. `tag` is essentally the current branch name converted to a valid tag syntax, e.g. 'msterin-somebranch'. Just doing `make distro` in the top level will also build it as well as other distro packages.
+ 1. **python.km with python modules. and ALL payloads** `cd payloads/python; make distro` or just `make distro` in payloads or even at the top of the repo.
+ 1. Azure: Tag and push to Azure Container Registry: `make publish`. This assumes auth is all set, specifically than `az acr login -n kontainKubeACR' succeded so docker login credentals are populated
+ 1. Use `make publishclean` to clean up the published stuff ()
+
+Note that we do not tag any image as `latest` since I am not sure which oneto tag :-)
 
 ### Run under Docker
 
-`docker run --device=/dev/kvm msterinkontain/kmpy:latest <payload.py>` - see a few .py files in payloads/python
+`docker run --device=/dev/kvm kontain/python-km:latest <payload.py>` - see a few .py files in payloads/python
 
 ### Run under Kubernetes
 

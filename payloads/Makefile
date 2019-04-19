@@ -17,7 +17,7 @@ SUBDIRS := python
 # make sure payloads dir is skipped for top-level 'make' to avoid rebuilds when only KM is needed
 # to run, use 'make all'
 default: 
-	@echo Skipping payloads build for goal '$@'. Use 'make all' or 'make build' for payloads build
+	@echo "Skipping payloads build for goal '$@'. Use 'make all' or 'make build' for payloads build"
 
 # use this target to force payloads build
 build: $(SUBDIRS)
