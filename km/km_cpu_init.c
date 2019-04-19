@@ -397,7 +397,7 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_main_argc)
  *
  * Any failure is fatal, hence void
  */
-void km_machine_init(void)
+void km_machine_init(uint64_t max_pmem)
 {
    int rc;
 
@@ -463,6 +463,14 @@ void km_machine_init(void)
        */
       machine.guest_max_physmem = MIN(2 * GIB, machine.guest_max_physmem);
       km_infox(KM_TRACE_KVM, "KVM: 1gb pages are not supported");
+   }
+   if (max_pmem != 0) {
+      if (max_pmem <= machine.guest_max_physmem) {
+         machine.guest_max_physmem = max_pmem;
+      } else {
+         err(1, "Cannot set guest phys memory size to '0x%lx'. max supported=0x%lx",
+            max_pmem, machine.guest_max_physmem);
+      }
    }
    km_mem_init();
 }
