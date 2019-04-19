@@ -56,7 +56,7 @@ typedef struct km_vcpu {
    int is_joining;          // 1 if currently joining another thread.
 } km_vcpu_t;
 
-void km_machine_init(void);
+void km_machine_init(uint64_t guest_pmem);
 void km_signal_machine_fini(void);
 void km_machine_fini(void);
 void* km_vcpu_run_main(void* unused);

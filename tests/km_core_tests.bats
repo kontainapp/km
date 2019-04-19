@@ -168,3 +168,20 @@ teardown() {
    [ "$status" -eq $expected_status ]
    sudo sysctl -w vm.overcommit_memory=0
 }
+
+@test "pmem_test: test physical memory override (pmem_test)" {
+   # Don't support bus smaller than 32 bits
+   run $KM -P 31 hello_test.km
+   [ "$status" -ne 0 ]
+   # run hello test in a guest with a 33 bit memory bus.
+   run $KM -P 33 hello_test.km
+   [ "$status" -eq 0 ]
+   # Don't support guest bus larger the host bus.
+   run $KM -P `expr $(bus_width) + 1` hello_test.km
+   [ "$status" -ne 0 ]
+   # Don't support 0 width bus
+   run $KM -P 0 hello_test.km
+   [ "$status" -ne 0 ]
+   run $KM -P -1 hello_test.km
+   [ "$status" -ne 0 ]
+}
