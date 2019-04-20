@@ -56,7 +56,13 @@ typedef struct km_vcpu {
    int is_joining;          // 1 if currently joining another thread.
 } km_vcpu_t;
 
-void km_machine_init(uint64_t guest_pmem);
+typedef struct km_machine_init_params {
+   uint64_t guest_physmem;   // Requested size of guest physical memory in bytes
+   int force_pdpe1g;         // 1 to force 1g pages support even if VM cpuid does not report it.
+                             // TODO: check if there is a KVM config for this
+} km_machine_init_params_t;
+
+void km_machine_init(km_machine_init_params_t* params);
 void km_signal_machine_fini(void);
 void km_machine_fini(void);
 void* km_vcpu_run_main(void* unused);

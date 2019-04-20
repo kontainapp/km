@@ -100,7 +100,7 @@ teardown() {
    run $KM hello_test.km $args
    [ $status -eq 0 ]
    # argv[0] differs for linux and km so strip it out, and then compare results
-   diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]')
+   diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]' | fgrep -v 'pdpe1g')
 }
 
 @test "hc_socket: basic HTTP/socket I/O (hello_html_test)" {
@@ -174,8 +174,11 @@ teardown() {
    run $KM -P 31 hello_test.km
    [ "$status" -ne 0 ]
    # run hello test in a guest with a 33 bit memory bus.
-   run $KM -P 33 hello_test.km
-   [ "$status" -eq 0 ]
+   # TODO: instead of bus_width, we should look at pdpe1g - without 1g pages, we only support 2GB of memory anyways
+   if [ $(bus_width) -gt 36 ] ; then
+      run $KM -P 33 hello_test.km
+      [ "$status" -eq 0 ]
+   fi
    # Don't support guest bus larger the host bus.
    run $KM -P `expr $(bus_width) + 1` hello_test.km
    [ "$status" -ne 0 ]

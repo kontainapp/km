@@ -35,29 +35,32 @@ static inline void usage()
         "Usage: km [-V[tag]] [-w] [-g[port]] <payload-file> [<payload args>]\n"
         "Options:\n"
         "\t-V[tag]  - Verbose print of internal messaging with matching tag\n"
-        "\t-P<bits> - Guest physical memory bus size in bits.\n"
-        "             32=4GIB, 33=8GIB, 34=16GIB, etc.\n"
-        "             (Override auto detection)\n"
+        "\t-P<bits> - Set guest physical memory bus size in bits.\n"
+        "\t           i.e. 32 means 4GiB, 33 8GiB, 34 16GiB, etc. (Override auto detection)\n"
         "\t-w       - Wait for SIGUSR1 before running VM payload\n"
-        "\t-g[port] - Listens for gbd on <port> (default 3333) before running payload");
+        "\t-g[port] - Listen for gbd on <port> (default 3333) before running payload\n"
+        "\t-1       - force using of 1G pages in payload (assumes hardware support)");
 }
 
 int main(int argc, char* const argv[])
 {
    int opt;
+   int port;
+   km_vcpu_t* vcpu;
+   km_machine_init_params_t km_machine_init_params = {};
    char* payload_file = NULL;
    bool wait_for_signal = false;
-   int port;
-   int gpbits = 0;  // Width of guest physical memory bus.
-   uint64_t guest_pmem = 0;
-   char *ep = NULL;
-   km_vcpu_t* vcpu;
+   int gpbits = 0;   // Width of guest physical memory bus.
+   char* ep = NULL;
    int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
 
-   while ((opt = getopt(argc, argv, "+wg::V::P:")) != -1) {
+   while ((opt = getopt(argc, argv, "+w1g::V::P:")) != -1) {
       switch (opt) {
          case 'w':
             wait_for_signal = true;
+            break;
+         case '1':
+            km_machine_init_params.force_pdpe1g = 1;
             break;
          case 'g':
             if (optarg == NULL) {
@@ -71,22 +74,19 @@ int main(int argc, char* const argv[])
          case 'P':
             gpbits = strtol(optarg, &ep, 0);
             if (ep == NULL || *ep != '\0') {
-               warnx("'%s' is not a number", optarg);
+               warnx("Wrong memory bus size '%s'", optarg);
                usage();
             }
-            if (gpbits < 32) {
-               warnx("guest memory bus size must be >= 32 - got '%d'", gpbits);
+            if (gpbits < 32 || gpbits >= 63) {
+               warnx("Guest memory bus width must be between 32 and 63 - got '%d'", gpbits);
                usage();
             }
-            if (gpbits >= (8 * sizeof(guest_pmem) - 1)) {
-               warnx("memory bus size  must be < %ld - got '%d'",
-                     8 * sizeof(guest_pmem), gpbits);
-               usage();
-            }
-            guest_pmem = 1UL << gpbits;
-            if (guest_pmem > GUEST_MAX_PHYSMEM_SUPPORTED) {
-               warnx("guest physical memory must be < 0x%lx - got 0x%lx",
-                     GUEST_MAX_PHYSMEM_SUPPORTED, guest_pmem);
+            km_machine_init_params.guest_physmem = 1UL << gpbits;
+            if (km_machine_init_params.guest_physmem > GUEST_MAX_PHYSMEM_SUPPORTED) {
+               warnx("Guest physical memory must be < 0x%lx - got 0x%lx (bus width %d)",
+                     GUEST_MAX_PHYSMEM_SUPPORTED,
+                     km_machine_init_params.guest_physmem,
+                     gpbits);
                usage();
             }
             break;
@@ -110,7 +110,7 @@ int main(int argc, char* const argv[])
    payload_file = argv[optind];
 
    km_hcalls_init();
-   km_machine_init(guest_pmem);
+   km_machine_init(&km_machine_init_params);
    load_elf(payload_file);
    if ((vcpu = km_vcpu_get()) == NULL) {
       err(1, "Failed to get main vcpu");

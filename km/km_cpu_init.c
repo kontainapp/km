@@ -397,7 +397,7 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_main_argc)
  *
  * Any failure is fatal, hence void
  */
-void km_machine_init(uint64_t max_pmem)
+void km_machine_init(km_machine_init_params_t* params)
 {
    int rc;
 
@@ -446,6 +446,12 @@ void km_machine_init(uint64_t max_pmem)
             break;
          case 0x80000001:
             machine.pdpe1g = ((machine.cpuid->entries[i].edx & 1ul << 26) != 0);
+            if (params->force_pdpe1g == 1 && machine.pdpe1g == 0) {
+               //  The actual hardware should not support it, otherwise expect payload to EXIT_SHUTDOWN
+               km_infox(KM_TRACE_KVM, "PATCHING pdpe1g to 1");
+               machine.cpuid->entries[i].edx |= (1ul << 26);
+               machine.pdpe1g = 1;
+            }
             break;
       }
    }
@@ -461,16 +467,18 @@ void km_machine_init(uint64_t max_pmem)
        * text+data, and the second for the stack. See assert() in
        * set_pml4_hierarchy()
        */
+      warnx("KVM: 1gb pages are not supported (pdpe1g=0), setting VM max mem to 2 GiB");
       machine.guest_max_physmem = MIN(2 * GIB, machine.guest_max_physmem);
       km_infox(KM_TRACE_KVM, "KVM: 1gb pages are not supported");
    }
-   if (max_pmem != 0) {
-      if (max_pmem <= machine.guest_max_physmem) {
-         machine.guest_max_physmem = max_pmem;
-      } else {
-         err(1, "Cannot set guest phys memory size to '0x%lx'. max supported=0x%lx",
-            max_pmem, machine.guest_max_physmem);
+   if (params->guest_physmem != 0) {
+      if (params->guest_physmem > machine.guest_max_physmem) {
+         err(1,
+             "Cannot set guest memory size to '0x%lx'. Max supported=0x%lx",
+             params->guest_physmem,
+             machine.guest_max_physmem);
       }
+      machine.guest_max_physmem = params->guest_physmem;
    }
    km_mem_init();
 }
