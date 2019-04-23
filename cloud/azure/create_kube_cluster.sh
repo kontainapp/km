@@ -19,6 +19,7 @@ cd `dirname $0`
 source ./cloud_config.mk
 out_type=table
 
+set -e
 # create service principal, give it access to ACR, create cluster with the SP
 appPwd=`az ad sp create-for-rbac --name ${K8_SERVICE_PRINCIPAL} --skip-assignment --query password --output tsv`
 echo Do not lose it PWD $appPwd . TODO: switch to pre-generated PEM certs

@@ -20,7 +20,7 @@ PAYLOAD_IMAGE_SHORT_NAME := python-km
 PAYLOAD_NAME := Python3.7
 
 # a list to be passed to tar to be packed into container image
-PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' \
+PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.exe' --exclude '*.whl' \
 	cpython/python.km cpython/Lib cpython/Modules/Setup scripts
 
 all: $(PAYLOAD_KM)

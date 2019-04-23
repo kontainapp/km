@@ -16,13 +16,18 @@ spec:
     spec:
       containers:
       - name: pykm
-        image: kontainkubecr.azurecr.io/python-km:msterin-kube
+        image: python-km
         imagePullPolicy: Always
         ports:
         - containerPort: 80
         resources:
            requests:
               devices.kubevirt.io/kvm: "1"
+              cpu: 100m
+              memory: "10Mi"
            limits:
               devices.kubevirt.io/kvm: "1"
+              cpu: 2
+              memory: "500Mi"
+
         args: [ "/cpython/python.km", "-u", "/scripts/hello_loop.py"]

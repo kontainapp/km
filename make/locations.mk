@@ -27,10 +27,10 @@ BLDDIR := ${BLDTOP}${FROMTOP}$(BLDTYPE)
 KM_BLDDIR := ${BLDTOP}km/$(BLDTYPE)
 KM_BIN := ${KM_BLDDIR}km
 
-# cloud-related stuff
+# cloud-related stuff. By default set to Azure
 #
 # name of the cloud, as well as subdir of $(TOP)/cloud where the proper scripts hide
-CLOUD := azure
+CLOUD ?= azure
 CLOUD_SCRIPTS := $(TOP)cloud/$(CLOUD)
 
 # now bring all cloud-specific stuff needed in forms on 'key = value'

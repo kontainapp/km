@@ -1,0 +1,13 @@
+# Apply customization below to kustomize.yml + resources in "bases"
+bases:
+- ../../python
+
+nameSuffix: -minikube-demo
+
+# TODO: pass registry/tag from Makefiles as 'kustomize edit'. For info
+# see https://kubectl.docs.kubernetes.io/pages/app_management/container_images.html
+images:
+  - name: "python-km"
+    newName: msterinkontain/python-km
+    newTag: msterin-kube
+

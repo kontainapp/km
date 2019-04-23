@@ -14,6 +14,7 @@
 source `dirname $0`/cloud_config.mk
 out_type=table
 
+set -e
 set -x
 az account set -s ${CLOUD_SUBSCRIPTION}
 az configure --defaults location=${CLOUD_LOCATION}

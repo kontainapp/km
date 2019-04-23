@@ -1,0 +1,17 @@
+
+# apiVersion: kustomize.config.k8s.io/v1beta1
+# kind: Kustomization
+
+
+bases:
+- ../../python
+
+nameSuffix: -azure-demo
+
+# TODO: pass registry/tag from Makefiles as 'kustomize edit'. For info
+# see https://kubectl.docs.kubernetes.io/pages/app_management/container_images.html
+images:
+  - name: "python-km"
+    newName: kontainkubecr.azurecr.io/python-km
+    newTag: msterin-kube
+

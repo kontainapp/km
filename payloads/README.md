@@ -1,11 +1,26 @@
 # Kontain Payloads
 
-This directory keeps a collection of payloads we explicitly converted to work as KM payloads.
-In the future we will also place here the code to auto-convert payloads
+This directory keeps the collection of payloads we explicitly converted to work as KM payloads.
+We also keep here the `./k8s` dir with the code to customize payload deployments to Kubernetes in different clouds (e.g. Azure).
 
-* Payloads can be built with `make all` (does initial pull , configure and build) or  `make build` (this one will force some reconfig and rebuild of the payloads).
-* Payloads are distributed as Docker images and can be created with `make distro`  - though we recommend doing `make distro` from top level , so KM base Docker image gets built first.
-* `make publish` will push them to Azure ACT (assuming you've loggged in)
-* `make distroclean` and 'make publishclean` are cleaning the artifacts
 
-All 'make' commands (as always) can be also entered while in individual payload directory
+* Build
+  * `make all` This does initial pull from repos, e.g. `cpython`, then configures and builds.This command will only pull / configure / build payloads once.
+  * `make build` also pulls only onces, but configures and builds payloads on every run
+* Package and publish:
+  * Payloads are distributed as Docker images
+  * `make distro` creates Docker images (all images if run from the top, or specific image if run in a specifif dir)
+    * *Prerequisites*
+      * Docker needs to be install and configured
+      * Also, if building payloadimages only, Docker image for `km` needs to be pre-built.
+    * Doing `make distro` from top level will build KM base Docker image first, and then build payload  Docker images.
+* `make publish` will push them to container registry. You need to be logged in the proper registry (Azure ACR, dockerhub, etc.. - see below)
+  * $(TOP)make/`locations.mk` defines the CLOUD variable as `azure`, so by default, it will try to push to Azure Container Registry.
+  * Registry name is defined in `./k8s/azure/kustomization.yml`.
+  * You can redefine where to push when running make, e.g.  `make CLOUD=minikube publish` will push to registry defined in `./k8s/cloud/minikube/kustomization.yml`.
+* `make distroclean` and `make publishclean` are cleaning the artifacts
+* `kubectl apply -k k8s/<cloud>` to deploy to `<cloud>`, e.g `kubectl apply -k k8s/azure`
+  * This assunes your kubectl context is set to point to the correct cloud
+
+
+Note that the actual deployment config yamls are in `./payloads/...` dirs , e.g. `./payloads/python/pykm-deployment.yml`, and `./k8/...` keeps customizations for which are applied on the top of payload .yml files.

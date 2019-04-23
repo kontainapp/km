@@ -1,8 +1,6 @@
-# Support for Azure
+# Support for provisioning on Azure
 
-Scripts and other fun to deploy, run and test Kontain payloads on Azure under Kubernetes.
-
-We will also add provisioning for CI/CD resources here, later.
+Scripts and other fun to prepare all for running Kontain payloads on Azure under Kubernetes.
 
 ## Prerequisities
 
@@ -42,7 +40,7 @@ Since we require KVM support, we can only use a subset of Azure instances. We us
 Assuming you are in the top of KM repo
 
 ```bash
-kubectl apply -f payloads/kvm-ds.yml
-kubectl apply -f payloads/python/pykm-deploy.yaml
+kubectl apply -f cloud/k8s/kvm-ds.yml
+kubectl apply -k payloads/cloud/azure
 
 ```

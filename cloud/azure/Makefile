@@ -18,22 +18,21 @@ help:
 resources:
 	./create_initial_resources.sh
 
+K8S_KVM_DEVICE_PLUGIN := $(TOP)cloud/k8s/kvm-ds.yml
 cluster:
 	./create_kube_cluster.sh
+	kubectl apply -f $(K8S_KVM_DEVICE_PLUGIN)
 
 cleancluster:
-	./clear_kube_cluster.sh
+	-./clear_kube_cluster.sh
 
 cleanall: cleancluster cleanresources
 
 cleanresources:
-	./clear_initial_resources.sh
+	-./clear_initial_resources.sh
 
 clean: cleanall
 
 distro publish:
 	$(MAKE) $(MAKEFLAGS) -C ../..  $@
 
-apply:  ## run kubectl applies to deploy kvm plugin daemonset and kontain app
-	kubectl apply -f ../../payloads/kvm-ds.yml
-	kubectl apply -f ../../payloads/python/pykm-deploy.yaml
