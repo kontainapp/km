@@ -64,6 +64,9 @@ static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
 // We currently only have code with 1 PML4 entry per "zone", so we can't support more than that
 #define GUEST_MAX_PHYSMEM_SUPPORTED 512 * GIB
 
+// Don't support guests with less than 4GB physical
+#define GUEST_MIN_PHYSMEM_SUPPORTED 4 * GIB
+
 /*
  * See "Virtual memory layout:" in km_cpu_init.c for details.
  */
