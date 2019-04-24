@@ -447,7 +447,7 @@ void km_machine_init(km_machine_init_params_t* params)
          case 0x80000001:
             machine.pdpe1g = ((machine.cpuid->entries[i].edx & 1ul << 26) != 0);
             if (params->force_pdpe1g == 1 && machine.pdpe1g == 0) {
-               //  The actual hardware should not support it, otherwise expect payload to EXIT_SHUTDOWN
+               // The actual hardware should support it, otherwise expect payload to EXIT_SHUTDOWN
                km_infox(KM_TRACE_KVM, "PATCHING pdpe1g to 1");
                machine.cpuid->entries[i].edx |= (1ul << 26);
                machine.pdpe1g = 1;

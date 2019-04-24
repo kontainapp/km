@@ -39,7 +39,7 @@ static inline void usage()
         "\t           i.e. 32 means 4GiB, 33 8GiB, 34 16GiB, etc. (Override auto detection)\n"
         "\t-w       - Wait for SIGUSR1 before running VM payload\n"
         "\t-g[port] - Listen for gbd on <port> (default 3333) before running payload\n"
-        "\t-1       - force using of 1G pages in payload (assumes hardware support)");
+        "\t-G       - force using of 1G pages in payload (assumes hardware support)");
 }
 
 int main(int argc, char* const argv[])
@@ -47,19 +47,19 @@ int main(int argc, char* const argv[])
    int opt;
    int port;
    km_vcpu_t* vcpu;
+   char* payload_file;
    km_machine_init_params_t km_machine_init_params = {};
-   char* payload_file = NULL;
    bool wait_for_signal = false;
    int gpbits = 0;   // Width of guest physical memory bus.
    char* ep = NULL;
    int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
 
-   while ((opt = getopt(argc, argv, "+w1g::V::P:")) != -1) {
+   while ((opt = getopt(argc, argv, "+wGg::V::P:")) != -1) {
       switch (opt) {
          case 'w':
             wait_for_signal = true;
             break;
-         case '1':
+         case 'G':
             km_machine_init_params.force_pdpe1g = 1;
             break;
          case 'g':
