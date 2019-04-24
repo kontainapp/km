@@ -188,3 +188,8 @@ teardown() {
    run $KM -P -1 hello_test.km
    [ "$status" -ne 0 ]
 }
+
+@test "brk_map_test: test brk and map w/physical memory override (brk_map_test)" {
+   run $KM -P 33 brk_map_test.km -- 33
+   [ "$status" -eq 0 ]
+}

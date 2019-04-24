@@ -20963,6 +20963,26 @@
         "arguments": [
             "cc",
             "-c",
+            "-Wall",
+            "-ggdb",
+            "-O2",
+            "-D_FORTIFY_SOURCE=0",
+            "-D_GNU_SOURCE=1",
+            "-fno-stack-protector",
+            "-pthread",
+            "-I../include",
+            "-I../km",
+            "-o",
+            "brk_map_test.o",
+            "brk_map_test.c"
+        ],
+        "directory": "${workspaceFolder}/tests",
+        "file": "brk_map_test.c"
+    },
+    {
+        "arguments": [
+            "cc",
+            "-c",
             "-Os",
             "-D_XOPEN_SOURCE=700",
             "-pipe",

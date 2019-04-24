@@ -4,6 +4,8 @@
    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
    "version": "0.2.0",
    "configurations": [
+
+
       {
          "name": "KM with a payload",
          "type": "cppdbg",
@@ -111,6 +113,25 @@
                "text": "-enable-pretty-printing",
                "ignoreFailures": true
             }
+         ]
+      },
+      {
+         "name": "brk_map_test (8GB)",
+         "type": "cppdbg",
+         "request": "launch",
+         "program": "${workspaceFolder}/build/km/km",
+         "args": ["-P", "33", "tests/brk_map_test.km", "--", "33"],
+         "stopAtEntry": true,
+         "cwd": "${workspaceFolder}",
+         "environment": [],
+         "externalConsole": false,
+         "MIMode": "gdb",
+         "setupCommands": [
+             {
+                 "description": "Enable pretty-printing for gdb",
+                 "text": "-enable-pretty-printing",
+                 "ignoreFailures": true
+             }
          ]
       },
    ],

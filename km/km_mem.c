@@ -355,6 +355,11 @@ static void km_free_region(int idx, int upper_va)
    reg->guest_phys_addr = 0;
 }
 
+static inline int km_region_allocated(int idx) {
+   kvm_mem_reg_t* reg = &machine.vm_mem_regs[idx];
+   return (reg->userspace_addr != 0);
+}
+
 /*
  * brk() call implementation.
  *
@@ -363,8 +368,6 @@ static void km_free_region(int idx, int upper_va)
 km_gva_t km_mem_brk(km_gva_t brk)
 {
    int idx;
-   uint64_t size;
-   int ret;
    int error = 0;
 
    if (brk == 0) {
@@ -374,8 +377,10 @@ km_gva_t km_mem_brk(km_gva_t brk)
       return -ENOMEM;
    }
    km_mem_lock();
-   km_gva_t ceiling = gva_to_gpa(machine.tbrk);   // ceiling for PA addresses avail
-   if (brk > ceiling) {
+
+   // Keep brk and tbrk out if the same 1 GIB region.
+   if (rounddown(gva_to_gpa(brk), PDPTE_REGION) >=
+       rounddown(gva_to_gpa(machine.tbrk), PDPTE_REGION)) {
       km_mem_unlock();
       return -ENOMEM;
    }
@@ -384,18 +389,25 @@ km_gva_t km_mem_brk(km_gva_t brk)
    for (km_gva_t m_brk = MIN(brk, memreg_top(idx)); m_brk < brk; m_brk = MIN(brk, memreg_top(idx))) {
       /* Not enough room in the allocated memreg, allocate and add new ones */
       idx++;
-      if ((size = memreg_size(idx)) > ceiling - memreg_base(idx) ||   // conflict with tbrk
-          (ret = km_alloc_region(idx, size, 0)) != 0) {               // OOM
-         // Config the loop below to free up just allocated regions
-         idx--;
-         brk = machine.brk;
-         error = ENOMEM;
-         break;
+      // TODO: Manipulate present bits in PT to only expose pages needed for brk
+      if (km_region_allocated(idx)) {
+         /*
+          * the slot is already populated which means the other side allocated it.
+          * Still need to estabilsh page table(s) on this side.
+          */
+         set_pml4_hierarchy(&machine.vm_mem_regs[idx], 0);
+      } else if (km_alloc_region(idx, memreg_size(idx), 0) != 0) {
+            idx--;
+            brk = machine.brk;
+            error = ENOMEM;
+            break;
       }
    }
+   int tbrk_idx = gva_to_memreg_idx(machine.tbrk);
    for (; idx > gva_to_memreg_idx(brk - 1); idx--) {
-      /* brk moved down and left one or more memory regions. Remove and free */
-      km_free_region(idx, 0);
+      if (idx < tbrk_idx) {   // don't free shared slot.
+         km_free_region(idx, 0);
+      }
    }
    machine.brk = brk;
    km_mem_unlock();
@@ -410,8 +422,6 @@ km_gva_t km_mem_brk(km_gva_t brk)
 km_gva_t km_mem_tbrk(km_gva_t tbrk)
 {
    int idx;
-   int ret;
-   uint64_t size;
    int error = 0;
 
    if (tbrk == 0) {
@@ -421,8 +431,10 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
       return -ENOMEM;
    }
    km_mem_lock();
-   km_gva_t floor = gva_to_gpa(machine.brk);   // bottom for PA addresses avail
-   if (gva_to_gpa(tbrk) <= floor) {   // More checks will follow, but this case is certainly ENOMEM
+   // Keep brk and tbrk out if the same 1 GIB region.
+   km_gva_t brk_pa = gva_to_gpa(machine.brk);
+   km_gva_t tbrk_pa = gva_to_gpa(tbrk);
+   if (rounddown(brk_pa, PDPTE_REGION) >= rounddown(tbrk_pa, PDPTE_REGION)) {
       km_mem_unlock();
       return -ENOMEM;
    }
@@ -432,18 +444,26 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
         m_brk = MAX(tbrk, gpa_to_upper_gva(memreg_base(idx)))) {
       /* Not enough room in the allocated memreg, allocate and add new ones */
       idx--;
-      if ((size = memreg_size(idx)) > memreg_top(idx) - floor ||   // conflict with brk
-          (ret = km_alloc_region(idx, size, 1)) != 0) {            // OOM
-         // Config the loop below to free up  just allocated regions
-         idx++;
-         tbrk = machine.tbrk;
-         error = ENOMEM;
-         break;
+      // TODO: Manipulate present bits in PT to only expose pages needed for tbrk
+      if (km_region_allocated(idx)) {
+         /*
+          * the slot is already populated which means the other side allocated it.
+          * Still need to estabilsh page table(s) on this side.
+          */
+         set_pml4_hierarchy(&machine.vm_mem_regs[idx], 1);
+      } else if (km_alloc_region(idx, memreg_size(idx), 1) != 0) {
+            idx--;
+            tbrk = machine.tbrk;
+            error = ENOMEM;
+            break;
       }
    }
+   int brk_idx = gva_to_memreg_idx(machine.brk);
    for (; idx < gva_to_memreg_idx(tbrk); idx++) {
-      /* tbrk moved up and left one or more memory regions. Remove and free */
-      km_free_region(idx, 1);
+      if (idx > brk_idx) {  // don't free shared slot.
+         /* brk moved down and left one or more memory regions. Remove and free */
+         km_free_region(idx, 1);
+      }
    }
    machine.tbrk = tbrk;
    km_mem_unlock();
