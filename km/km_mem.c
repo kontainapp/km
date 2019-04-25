@@ -72,6 +72,7 @@ static void pdpte_1g_set(x86_pdpte_1g_t* pdpe, uint64_t addr)
    pdpe->r_w = 1;
    pdpe->u_s = 1;
    pdpe->ps = 1;
+   pdpe->glb = 1;
    pdpe->page = addr >> 30;
 }
 
@@ -81,6 +82,7 @@ static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
    pde->r_w = 1;
    pde->u_s = 1;
    pde->ps = 1;
+   pde->glb = 1;
    pde->page = addr >> 21;
 }
 
