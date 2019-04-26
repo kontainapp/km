@@ -9,7 +9,6 @@
          "command": "make",
          "args": [
             "-j16",
-            "all"
          ],
          "group": {
             "kind": "build",

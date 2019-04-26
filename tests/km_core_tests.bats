@@ -50,8 +50,10 @@ teardown() {
 # <filter> is a regexp or substring matching test name
 
 @test "setup_basic: basic vm setup, workload invocation and exit value check (exit_value_test)" {
-   run $KM exit_value_test.km
-   [ $status -eq 17 ]
+   for i in $(seq 1 200) ; do # a loop to catch race with return value, if any
+      run $KM exit_value_test.km
+      [ $status -eq 17 ]
+   done
 }
 
 @test "setup_load: load elf and layout check (load_test)" {

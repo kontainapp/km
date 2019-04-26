@@ -162,9 +162,9 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
 static void km_vcpu_exit(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
 static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
 {
-   vcpu->is_paused = 1;   // in case someone else wants to pause this one, no need
+   vcpu->is_paused = 1;      // in case someone else wants to pause this one, no need
+   machine.ret = s & 0377;   // in case this is the last thread, set status. &0377 is per 'man 3 exit'
    km_vcpu_stopped(vcpu);
-   machine.ret = s & 0377;   // Set status, in case this is the last thread. &0377 is per 'man 3 exit'
    pthread_exit((void*)(uint64_t)s);
 }
 
