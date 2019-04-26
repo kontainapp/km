@@ -174,15 +174,24 @@ static inline uint64_t memreg_size(int idx)
    return MIB << (machine.last_mem_idx - idx);
 }
 
+/*
+ * Translates guest virtual address to km address.
+ * @param gva Guest virtual address
+ * @returns Address in KM. returns NULL if guest VA is invalid.
+ */
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
-   if ((GUEST_MEM_START_VA <= gva && gva < GUEST_MEM_TOP_VA)) {
-      int i = gva_to_memreg_idx(gva);
-      return machine.vm_mem_regs[i].memory_size == 0
-                 ? NULL
-                 : gva_to_gpa(gva) - memreg_base(i) + (void*)machine.vm_mem_regs[i].userspace_addr;
+   if (gva < GUEST_MEM_START_VA || gva > GUEST_MEM_TOP_VA) {
+      return NULL;
    }
-   return NULL;
+   if (machine.brk <= gva && gva < machine.tbrk) {
+      return NULL;
+   }
+   int i = gva_to_memreg_idx(gva);
+   if (machine.vm_mem_regs[i].memory_size == 0) {
+      return NULL;
+   }
+   return gva_to_gpa(gva) - memreg_base(i) + (void*)machine.vm_mem_regs[i].userspace_addr;
 }
 
 void km_mem_init(void);

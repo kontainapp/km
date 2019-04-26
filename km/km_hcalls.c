@@ -168,6 +168,11 @@ static km_hc_ret_t rwv_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
    struct iovec iov[cnt];
    const struct iovec* guest_iov = km_gva_to_kma(arg->arg2);
 
+   if (guest_iov == NULL) {
+      arg->hc_ret = EFAULT;
+      return HC_CONTINUE;
+   }
+
    // ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
    // ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
    //
@@ -436,15 +441,30 @@ static km_hc_ret_t pthread_create_hcall(void* vcpu, int hc, km_hc_args_t* arg, i
 {
    // int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
    //   void *(*start_routine) (void *), void *arg);
-   arg->hc_ret =
-       km_pthread_create(vcpu, km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
+   km_kma_t pt = 0;
+   km_kma_t attr = 0;
+
+   if (arg->arg1 != 0 && (pt = km_gva_to_kma(arg->arg1)) == 0) {
+      arg->hc_ret = EFAULT;
+      return HC_CONTINUE;
+   }
+   if (arg->arg2 != 0 && (attr = km_gva_to_kma(arg->arg2)) == 0) {
+      arg->hc_ret = EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_pthread_create(vcpu, pt, attr, arg->arg3, arg->arg4);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t pthread_join_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    // int pthread_join(pthread_t thread, void **retval);
-   arg->hc_ret = km_pthread_join(vcpu, arg->arg1, km_gva_to_kma(arg->arg2));
+   km_kma_t pt = 0;
+   if (arg->arg2 != 0 && (pt = km_gva_to_kma(arg->arg2)) == 0) {
+      arg->hc_ret = EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_pthread_join(vcpu, arg->arg1, pt);
    return HC_CONTINUE;
 }
 

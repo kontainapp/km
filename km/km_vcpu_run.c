@@ -156,6 +156,18 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
       ga -= 4 * GIB;
    }
    km_infox(KM_TRACE_HC, "hc = %d", *hc);
+   if (km_gva_to_kma(ga) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
+      /*
+       * return code to guest is inside hc_args, so there isn't a place to put an error code.
+       * Obvious choices are:
+       * - ignore
+       * - SIGSEGV the guest
+       * - Terminate the monitor
+       * Terminate for now
+       * TODO: Revisit this action when we can do signals.
+       */
+      run_errx(1, "KVM: bad km_hc_args address 0x%lx", ga);
+   }
    return km_hcalls_table[*hc](vcpu, *hc, km_gva_to_kma(ga), status);
 }
 

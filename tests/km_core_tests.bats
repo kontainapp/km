@@ -67,11 +67,14 @@ teardown() {
    run $KM hc_test.km 400
    [ $(echo -e "$output" | grep -cw "unexpected hypercall 400") == 1 ]
 
-   run $KM hc_test.km -10
+   run $KM hc_test.km -- -10
    [ $(echo -e "$output" | grep -cw "unexpected IO port activity, port 0x7ff6 0x4 bytes out") == 1 ]
 
    run $KM hc_test.km 1000
    [ $(echo -e "$output" | grep -cw "unexpected IO port activity, port 0x83e8 0x4 bytes out") == 1 ]
+
+   run $KM hc_test.km --bad-arg 3
+   [ $(echo -e "$output" | grep -cw "bad km_hc_args address") == 1 ]
 }
 
 @test "km_main: wait on signal (hello_test)" {
