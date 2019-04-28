@@ -446,11 +446,15 @@ void km_machine_init(km_machine_init_params_t* params)
             break;
          case 0x80000001:
             machine.pdpe1g = ((machine.cpuid->entries[i].edx & 1ul << 26) != 0);
-            if (params->force_pdpe1g == 1 && machine.pdpe1g == 0) {
+            if (machine.pdpe1g == 0 && params->force_pdpe1g == KM_FLAG_FORCE_ENABLE) {
                // The actual hardware should support it, otherwise expect payload to EXIT_SHUTDOWN
                km_infox(KM_TRACE_KVM, "PATCHING pdpe1g to 1");
                machine.cpuid->entries[i].edx |= (1ul << 26);
                machine.pdpe1g = 1;
+            } else if (machine.pdpe1g == 1 && params->force_pdpe1g == KM_FLAG_FORCE_DISABLE) {
+               km_infox(KM_TRACE_KVM, "PATCHING pdpe1g to 0");
+               machine.cpuid->entries[i].edx &= ~(1ul << 26);
+               machine.pdpe1g = 0;
             }
             break;
       }
@@ -472,10 +476,10 @@ void km_machine_init(km_machine_init_params_t* params)
    }
    if (params->guest_physmem != 0) {
       if (params->guest_physmem > machine.guest_max_physmem) {
-         err(1,
-             "Cannot set guest memory size to '0x%lx'. Max supported=0x%lx",
-             params->guest_physmem,
-             machine.guest_max_physmem);
+         errx(1,
+              "Cannot set guest memory size to '0x%lx'. Max supported=0x%lx",
+              params->guest_physmem,
+              machine.guest_max_physmem);
       }
       machine.guest_max_physmem = params->guest_physmem;
    }

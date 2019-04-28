@@ -10,7 +10,7 @@ BinPackParameters: false
 PenaltyBreakBeforeFirstCallParameter: 250
 PenaltyBreakFirstLessLess: 200
 PenaltyBreakComment: 50
-PenaltyBreakString: 100
+PenaltyBreakString: 60
 PenaltyExcessCharacter: 5
 PenaltyReturnTypeOnItsOwnLine: 0
 ForEachMacros:

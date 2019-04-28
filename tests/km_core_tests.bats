@@ -75,7 +75,7 @@ teardown() {
 }
 
 @test "km_main: wait on signal (hello_test)" {
-   ($KM -w hello_test.km &)
+   ($KM --wait-for-signal hello_test.km &)
    kill -SIGUSR1 `pidof km`
 }
 
@@ -192,6 +192,12 @@ teardown() {
 }
 
 @test "brk_map_test: test brk and map w/physical memory override (brk_map_test)" {
-   run $KM -P 33 brk_map_test.km -- 33
-   [ "$status" -eq 0 ]
+   if [ $(bus_width) -gt 36 ] ; then
+      run $KM -P33 brk_map_test.km -- 33
+      [ "$status" -eq 0 ]
+   fi
+   # make sure we fail gracefully if there is no 1G pages supported. Also checks longopt
+   run $KM --membus-width=33 --disable-1g-pages brk_map_test.km -- 33
+   [ "$status" -eq 1 ]
+
 }

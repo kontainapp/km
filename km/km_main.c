@@ -14,7 +14,6 @@
 #include <getopt.h>
 #include <pthread.h>
 #include <signal.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,15 +31,34 @@ km_info_trace_t km_info_trace;
 static inline void usage()
 {
    errx(1,
-        "Usage: km [-V[tag]] [-w] [-g[port]] <payload-file> [<payload args>]\n"
-        "Options:\n"
-        "\t-V[tag]  - Verbose print of internal messaging with matching tag\n"
-        "\t-P<bits> - Set guest physical memory bus size in bits.\n"
-        "\t           i.e. 32 means 4GiB, 33 8GiB, 34 16GiB, etc. (Override auto detection)\n"
-        "\t-w       - Wait for SIGUSR1 before running VM payload\n"
-        "\t-g[port] - Listen for gbd on <port> (default 3333) before running payload\n"
-        "\t-G       - force using of 1G pages in payload (assumes hardware support)");
+        "Kontain Monitor - runs 'payload-file [payload args]' in Kontain VM\n"
+        "Usage: km [options] <payload-file> [-- <payload args>]\n"
+
+        "\nOptions:\n"
+        "\t--verbose[=regexp] (-V[regexp])     - Verbose print where internal info tag matches "
+        "'regexp'\n"
+        "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 3333) "
+        "before running payload\n"
+        "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
+
+        "\n\tOverride auto detection:\n"
+        "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. "
+        "32 means 4GiB, 33 8GiB, 34 16GiB, etc. \n"
+        "\t--enable-1g-pages  - Force enable 1G pages support (assumes hardware support)\n"
+        "\t--disable-1g-pages - Force disable 1G pages support.");
 }
+
+static km_machine_init_params_t km_machine_init_params = {};
+static int wait_for_signal = 0;
+static struct option long_options[] = {
+    {"wait-for-signal", no_argument, &wait_for_signal, 1},
+    {"enable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_ENABLE},
+    {"disable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_DISABLE},
+    {"membus-width", required_argument, 0, 'P'},
+    {"gdb-server-port", optional_argument, 0, 'g'},
+    {"verbose", optional_argument, 0, 'V'},
+    {0, 0, 0, 0},
+};
 
 int main(int argc, char* const argv[])
 {
@@ -48,19 +66,19 @@ int main(int argc, char* const argv[])
    int port;
    km_vcpu_t* vcpu;
    char* payload_file;
-   km_machine_init_params_t km_machine_init_params = {};
-   bool wait_for_signal = false;
    int gpbits = 0;   // Width of guest physical memory bus.
    char* ep = NULL;
    int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
+   int longopt_index;
 
-   while ((opt = getopt(argc, argv, "+wGg::V::P:")) != -1) {
+   while ((opt = getopt_long(argc, argv, "+g::V::P:", long_options, &longopt_index)) != -1) {
       switch (opt) {
-         case 'w':
-            wait_for_signal = true;
-            break;
-         case 'G':
-            km_machine_init_params.force_pdpe1g = 1;
+         case 0:
+            /* If this option set a flag, do nothing else now. */
+            if (long_options[longopt_index].flag != 0) {
+               break;
+            }
+            // Put here handling of longopts which do not have related short opt
             break;
          case 'g':
             if (optarg == NULL) {
@@ -119,7 +137,7 @@ int main(int argc, char* const argv[])
    if (km_vcpu_set_to_run(vcpu, argc - optind) != 0) {
       err(1, "failed to set main vcpu to run");
    }
-   if (wait_for_signal) {
+   if (wait_for_signal == 1) {
       warnx("Waiting for kill -SIGUSR1 `pidof km`");
       km_wait_for_signal(SIGUSR1);
    }

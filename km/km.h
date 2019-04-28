@@ -56,10 +56,17 @@ typedef struct km_vcpu {
    int is_joining;          // 1 if currently joining another thread.
 } km_vcpu_t;
 
+// simple enum to help in forcing 'enable/disable' flags
+typedef enum {
+   KM_FLAG_FORCE_ENABLE = 1,
+   KM_FLAG_FORCE_DISABLE = -1,
+   KM_FLAG_FORCE_KEEP = 0
+} km_flag_force_t;
+
 typedef struct km_machine_init_params {
-   uint64_t guest_physmem;   // Requested size of guest physical memory in bytes
-   int force_pdpe1g;         // 1 to force 1g pages support even if VM cpuid does not report it.
-                             // TODO: check if there is a KVM config for this
+   uint64_t guest_physmem;         // Requested size of guest physical memory in bytes
+   km_flag_force_t force_pdpe1g;   // force on/off 1g pages support regardless of VM CPUID support
+                                   // TODO: check if there is a KVM config for force-enable
 } km_machine_init_params_t;
 
 void km_machine_init(km_machine_init_params_t* params);
