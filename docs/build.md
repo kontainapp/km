@@ -1,5 +1,12 @@
 # Build, test, CI and sources layout
 
+## Coding Style
+
+We use the Visual Studio Code (VS Code) IDE.
+Many of our formatting rules happen automaticaly when using VS Code.
+
+TODO: Insert our style thoughts here.
+
 ## Build and test
 
 ### Cloning the repo
