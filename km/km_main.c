@@ -28,6 +28,8 @@
 
 km_info_trace_t km_info_trace;
 
+extern int vcpu_dump;
+
 static inline void usage()
 {
    errx(1,
@@ -40,6 +42,7 @@ static inline void usage()
         "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 3333) "
         "before running payload\n"
         "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
+        "\t--dump-shutdown                     - Produce register dump on VCPU error\n"
 
         "\n\tOverride auto detection:\n"
         "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. "
@@ -52,6 +55,7 @@ static km_machine_init_params_t km_machine_init_params = {};
 static int wait_for_signal = 0;
 static struct option long_options[] = {
     {"wait-for-signal", no_argument, &wait_for_signal, 1},
+    {"dump-shutdown", no_argument, 0, 'D'},
     {"enable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_ENABLE},
     {"disable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_DISABLE},
     {"membus-width", required_argument, 0, 'P'},
@@ -88,6 +92,9 @@ int main(int argc, char* const argv[])
                usage();
             }
             km_gdb_port_set(port);
+            break;
+         case 'D':
+            vcpu_dump = 1;
             break;
          case 'P':
             gpbits = strtol(optarg, &ep, 0);

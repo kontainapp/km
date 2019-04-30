@@ -24,6 +24,8 @@
 #include "km_hcalls.h"
 #include "km_mem.h"
 
+int vcpu_dump = 0;
+
 /*
  * run related err and errx - get regs, print RIP and the supplied message
  */
@@ -115,6 +117,228 @@ static const char* kvm_reason_name(int reason)
 #undef __KVM_REASON_NAME
 
    return reason <= __KVM_REASON_MAX ? reasons[reason] : "No such reason";
+}
+
+#define FMT_BUF(cur, rem, ...)                                                                     \
+   {                                                                                               \
+      int count = snprintf(cur, rem, __VA_ARGS__);                                                 \
+      if (count > rem) {                                                                           \
+         return NULL;                                                                              \
+      }                                                                                            \
+      cur += count;                                                                                \
+      rem -= count;                                                                                \
+      if (rem == 0) {                                                                              \
+         return NULL;                                                                              \
+      }                                                                                            \
+   }
+static char* dump_regs(km_vcpu_t* vcpu, char* buf, size_t len)
+{
+   kvm_regs_t regs;
+   char* cur = buf;
+   size_t rem = len;
+
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &regs) < 0) {
+      fprintf(stderr, "KVM_GET_REGS failed: %d - %s\n", errno, strerror(errno));
+      return NULL;
+   }
+
+   FMT_BUF(cur, rem, "== KVM_GET_REGS ==\n");
+   FMT_BUF(cur,
+           rem,
+           "RAX: 0x%-16llx RBX: 0x%-16llx RCX: 0x%-16llx RDX: 0x%-16llx\n",
+           regs.rax,
+           regs.rbx,
+           regs.rcx,
+           regs.rdx);
+   FMT_BUF(cur,
+           rem,
+           "RSI: 0x%-16llx RDI: 0x%-16llx RSP: 0x%-16llx RBP: 0x%-16llx\n",
+           regs.rsi,
+           regs.rdi,
+           regs.rsp,
+           regs.rbp);
+   FMT_BUF(cur,
+           rem,
+           "R8:  0x%-16llx R9:  0x%-16llx R10: 0x%-16llx R11: 0x%-16llx\n",
+           regs.r8,
+           regs.r9,
+           regs.r10,
+           regs.r11);
+   FMT_BUF(cur,
+           rem,
+           "R12: 0x%-16llx R13: 0x%-16llx R14: 0x%-16llx R15: 0x%-16llx\n",
+           regs.r12,
+           regs.r13,
+           regs.r14,
+           regs.r15);
+
+   FMT_BUF(cur, rem, "RIP: 0x%-16llx RFLAGS: 0x%llx\n", regs.rip, regs.rflags);
+   return cur;
+}
+
+static char* dump_segment_register(char* name, struct kvm_segment* seg, char* buf, size_t len)
+{
+   char* cur = buf;
+   size_t rem = len;
+
+   FMT_BUF(cur,
+           rem,
+           "%-3s base: 0x%-16llx limit:0x%x selector: 0x%x type: 0x%x present: 0x%x\n",
+           name,
+           seg->base,
+           seg->limit,
+           seg->selector,
+           seg->type,
+           seg->present);
+   FMT_BUF(cur,
+           rem,
+           "    dpl:0x%x db:0x%x s:0x%x l:0x%x g:0x%x avl:0x%x unusable:0x%x\n",
+           seg->dpl,
+           seg->db,
+           seg->s,
+           seg->l,
+           seg->g,
+           seg->avl,
+           seg->unusable);
+
+   return cur;
+}
+
+#define FMT_SREG(name, regp, cur, rem)                                                             \
+   {                                                                                               \
+      int count;                                                                                   \
+      char* ptr = dump_segment_register(name, regp, cur, rem);                                     \
+      if (ptr == NULL) {                                                                           \
+         return NULL;                                                                              \
+      }                                                                                            \
+      count = ptr - cur;                                                                           \
+      if (count > rem) {                                                                           \
+         return NULL;                                                                              \
+      }                                                                                            \
+      cur += count;                                                                                \
+      rem -= count;                                                                                \
+      if (rem == 0) {                                                                              \
+         return NULL;                                                                              \
+      }                                                                                            \
+   }
+
+static char* dump_sregs(km_vcpu_t* vcpu, char* buf, size_t len)
+{
+   kvm_sregs_t sregs;
+   char* cur = buf;
+   size_t rem = len;
+
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &sregs) < 0) {
+      fprintf(stderr, "KVM_GET_SREGS failed: %d - %s\n", errno, strerror(errno));
+      return NULL;
+   }
+   FMT_BUF(cur, rem, "== KVM_GET_SREGS ==\n");
+   FMT_SREG("CS", &sregs.cs, cur, rem);
+   FMT_SREG("DS", &sregs.ds, cur, rem);
+   FMT_SREG("ES", &sregs.es, cur, rem);
+   FMT_SREG("FS", &sregs.fs, cur, rem);
+   FMT_SREG("GS", &sregs.gs, cur, rem);
+   FMT_SREG("SS", &sregs.ss, cur, rem);
+   FMT_SREG("TR", &sregs.tr, cur, rem);
+   FMT_SREG("LDT", &sregs.ldt, cur, rem);
+   FMT_BUF(cur, rem, "GDT base: 0x%llx limit: 0x%x\n", sregs.gdt.base, sregs.gdt.limit);
+   FMT_BUF(cur, rem, "IDT base: 0x%llx limit: 0x%x\n", sregs.idt.base, sregs.idt.limit);
+   FMT_BUF(cur,
+           rem,
+           "CR0: 0x%llx CR2: 0x%llx CR3: 0x%llx CR4: 0x%llx CR8: 0x%llx\n",
+           sregs.cr0,
+           sregs.cr2,
+           sregs.cr3,
+           sregs.cr4,
+           sregs.cr8);
+   FMT_BUF(cur, rem, "EFER: 0x%llx APIC_BASE: 0x%llxc\n", sregs.efer, sregs.apic_base);
+
+   FMT_BUF(cur, rem, "INTERRUPT BITMAP:");
+
+   for (int i = 0; i < sizeof(sregs.interrupt_bitmap) / sizeof(__u64); i++) {
+      FMT_BUF(cur, rem, " 0x%llx", sregs.interrupt_bitmap[i]);
+   }
+   FMT_BUF(cur, rem, "\n");
+   return cur;
+}
+
+static char* dump_events(km_vcpu_t* vcpu, char* buf, size_t len)
+{
+   struct kvm_vcpu_events events;
+   char* cur = buf;
+   size_t rem = len;
+
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_VCPU_EVENTS, &events) < 0) {
+      fprintf(stderr, "KVM_GET_VCPU_EVENTS failed: %d - %s\n", errno, strerror(errno));
+      return NULL;
+   }
+   FMT_BUF(cur, rem, "== EVENTS ==\n");
+   FMT_BUF(cur,
+           rem,
+           "EXCEPTION: injected: 0x%x nr: 0x%x has_error_code: 0x%x pending: 0x%x "
+           "error_code: 0x%x\n",
+           events.exception.injected,
+           events.exception.nr,
+           events.exception.has_error_code,
+           events.exception.pending,
+           events.exception.error_code);
+   FMT_BUF(cur,
+           rem,
+           "INTERRUPT: injected: 0x%x nr: 0x%x soft: 0x%x shadow: 0x%x\n",
+           events.interrupt.injected,
+           events.interrupt.nr,
+           events.interrupt.soft,
+           events.interrupt.shadow);
+   FMT_BUF(cur,
+           rem,
+           "NMI:       injected: 0x%x nr: 0x%x masked: 0x%x pad: 0x%x\n",
+           events.nmi.injected,
+           events.nmi.pending,
+           events.nmi.masked,
+           events.nmi.pad);
+   FMT_BUF(cur, rem, "SIPI_VECTOR: 0x%x FLAGS: 0x%x\n", events.sipi_vector, events.flags);
+   FMT_BUF(cur,
+           rem,
+           "SMI:       smm: 0x%x pending: 0x%x inside_nmi: 0x%x latched_init: 0x%x\n",
+           events.smi.smm,
+           events.smi.pending,
+           events.smi.smm_inside_nmi,
+           events.smi.latched_init);
+   FMT_BUF(cur,
+           rem,
+           "EXCEPTION_HAS_PAYLOAD: 0x%x EXCEPTION_PAYLOAD: 0x%llx\n",
+           events.exception_has_payload,
+           events.exception_payload);
+   return cur;
+}
+
+static void dump_vcpu(km_vcpu_t* vcpu)
+{
+   char buf[4096];
+   char* next;
+   size_t len = sizeof(buf);
+
+   next = dump_regs(vcpu, buf, len);
+   if (next == NULL) {
+      fprintf(stderr, "ERROR - NULL return from dump_regs\n");
+      return;
+   }
+   len = sizeof(buf) - (next - buf);
+
+   next = dump_sregs(vcpu, next, len);
+   if (next == NULL) {
+      fprintf(stderr, "ERROR - NULL return from dump_sregs\n");
+      return;
+   }
+   len = sizeof(buf) - (next - buf);
+
+   next = dump_events(vcpu, next, len);
+   if (next == NULL) {
+      fprintf(stderr, "ERROR - NULL return from dump_events\n");
+      return;
+   }
+
+   fprintf(stderr, "%s", buf);
 }
 
 /*
@@ -326,6 +550,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
          case KVM_EXIT_SHUTDOWN:
             run_warn("KVM: shutdown");
+            if (vcpu_dump)
+               dump_vcpu(vcpu);
             abort();
             break;
 
