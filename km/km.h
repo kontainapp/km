@@ -204,5 +204,6 @@ extern km_info_trace_t km_info_trace;
 // tags for different traces
 #define KM_TRACE_VCPU "vcpu"
 #define KM_TRACE_KVM "kvm"
+#define KM_TRACE_MEM "mem"
 
 #endif /* #ifndef __KM_H__ */

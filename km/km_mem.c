@@ -68,7 +68,6 @@ static void pdpte_set(x86_pdpte_t* pdpe, uint64_t pd)
 
 static void pdpte_1g_set(x86_pdpte_1g_t* pdpe, uint64_t addr)
 {
-   pdpe->p = 1;
    pdpe->r_w = 1;
    pdpe->u_s = 1;
    pdpe->ps = 1;
@@ -78,7 +77,6 @@ static void pdpte_1g_set(x86_pdpte_1g_t* pdpe, uint64_t addr)
 
 static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
 {
-   pde->p = 1;
    pde->r_w = 1;
    pde->u_s = 1;
    pde->ps = 1;
@@ -261,6 +259,124 @@ void km_mem_init(void)
    km_guest_mmap_init();
 }
 
+#define MAX_PDE_SLOT PDE_SLOT(GUEST_MEM_TOP_VA)
+#define MAX_PDPTE_SLOT PDPTE_SLOT(GUEST_MEM_TOP_VA)
+
+/*
+ * fixup_bottom_page_tables() and fixup_top_page_tables() deal
+ * with symmetric virtual memory layouts, so be aware that changes
+ * to one typically require changes to the other.
+ */
+static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
+{
+   x86_pde_2m_t* pde = km_resv_kma() + RSV_PD_OFFSET;
+   x86_pdpte_1g_t* pdpe = km_resv_kma() + RSV_PDPT_OFFSET;
+   int old_2m_slot = PDE_SLOT(old_brk);
+   int new_2m_slot = PDE_SLOT(new_brk);
+   int old_1g_slot = PDPTE_SLOT(old_brk);
+   int new_1g_slot = PDPTE_SLOT(new_brk);
+
+   if (new_brk > old_brk) {
+      km_info(KM_TRACE_MEM,
+              "%s grow  old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+              __FUNCTION__,
+              old_brk,
+              old_2m_slot,
+              old_1g_slot,
+              new_brk,
+              new_2m_slot,
+              new_1g_slot);
+      if (old_1g_slot == 0) {
+         int limit = (new_1g_slot == 0) ? new_2m_slot : MAX_PDE_SLOT;
+         for (int i = old_2m_slot; i <= limit; i++) {
+            pde[i].p = 1;
+         }
+      }
+      if (new_1g_slot > 0) {
+         int start = (old_1g_slot == 0) ? 1 : old_1g_slot;
+         for (int i = start; i <= new_1g_slot; i++) {
+            pdpe[i].p = 1;
+         }
+      }
+   } else {
+      km_info(KM_TRACE_MEM,
+              "%s shrink old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+              __FUNCTION__,
+              old_brk,
+              old_2m_slot,
+              old_1g_slot,
+              new_brk,
+              new_2m_slot,
+              new_1g_slot);
+      if (old_1g_slot > 0) {
+         int start = (new_1g_slot == 0) ? 1 : new_1g_slot;
+         for (int i = start; i < old_1g_slot; i++) {
+            pdpe[i].p = 0;
+         }
+      }
+      if (new_1g_slot == 0) {
+         int limit = (old_1g_slot == 0) ? old_2m_slot : MAX_PDE_SLOT;
+         for (int i = new_2m_slot + 1; i <= limit; i++) {
+            pde[i].p = 0;
+         }
+      }
+   }
+}
+
+static inline void fixup_top_page_tables(km_gva_t old_brk, km_gva_t new_brk)
+{
+   x86_pde_2m_t* pde = km_resv_kma() + RSV_PD2_OFFSET;
+   x86_pdpte_1g_t* pdpe = km_resv_kma() + RSV_PDPT2_OFFSET;
+   int old_2m_slot = PDE_SLOT(old_brk);
+   int new_2m_slot = PDE_SLOT(new_brk);
+   int old_1g_slot = PDPTE_SLOT(old_brk);
+   int new_1g_slot = PDPTE_SLOT(new_brk);
+
+   if (new_brk < old_brk) {
+      km_info(KM_TRACE_MEM,
+              "%s grow old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+              __FUNCTION__,
+              old_brk,
+              old_2m_slot,
+              old_1g_slot,
+              new_brk,
+              new_2m_slot,
+              new_1g_slot);
+      if (old_1g_slot == MAX_PDPTE_SLOT) {
+         int start = (new_1g_slot == MAX_PDPTE_SLOT) ? new_2m_slot : 0;
+         for (int i = start; i <= old_2m_slot; i++) {
+            pde[i].p = 1;
+         }
+      }
+      if (new_1g_slot < MAX_PDPTE_SLOT) {
+         for (int i = new_1g_slot; i <= old_1g_slot; i++) {
+            pdpe[i].p = 1;
+         }
+      }
+   } else {
+      km_info(KM_TRACE_MEM,
+              "%s shrink old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+              __FUNCTION__,
+              old_brk,
+              old_2m_slot,
+              old_1g_slot,
+              new_brk,
+              new_2m_slot,
+              new_1g_slot);
+      if (old_1g_slot < MAX_PDPTE_SLOT) {
+         for (int i = old_1g_slot; i < new_1g_slot; i++) {
+            pdpe[i].p = 0;
+         }
+      }
+      if (new_1g_slot == MAX_PDPTE_SLOT) {
+         int start = (old_1g_slot == MAX_PDPTE_SLOT) ? 0 : old_2m_slot;
+         for (int i = start; i < new_2m_slot; i++) {
+            pde[i].p = 0;
+         }
+      }
+   }
+}
+
 /*
  * Set and clear pml4 hierarchy entries to reflect addition or removal of reg,
  * following the setup in init_pml4(). Set/Clears pdpte or pde depending on the
@@ -355,7 +471,8 @@ static void km_free_region(int idx, int upper_va)
    reg->guest_phys_addr = 0;
 }
 
-static inline int km_region_allocated(int idx) {
+static inline int km_region_allocated(int idx)
+{
    kvm_mem_reg_t* reg = &machine.vm_mem_regs[idx];
    return (reg->userspace_addr != 0);
 }
@@ -379,28 +496,26 @@ km_gva_t km_mem_brk(km_gva_t brk)
    km_mem_lock();
 
    // Keep brk and tbrk out if the same 1 GIB region.
-   if (rounddown(gva_to_gpa(brk), PDPTE_REGION) >=
-       rounddown(gva_to_gpa(machine.tbrk), PDPTE_REGION)) {
+   if (rounddown(gva_to_gpa(brk), PDPTE_REGION) >= rounddown(gva_to_gpa(machine.tbrk), PDPTE_REGION)) {
       km_mem_unlock();
       return -ENOMEM;
    }
 
    idx = gva_to_memreg_idx(machine.brk - 1);
    for (km_gva_t m_brk = MIN(brk, memreg_top(idx)); m_brk < brk; m_brk = MIN(brk, memreg_top(idx))) {
-      /* Not enough room in the allocated memreg, allocate and add new ones */
+      /* Move to the next memreg. Allocate if required. */
       idx++;
-      // TODO: Manipulate present bits in PT to only expose pages needed for brk
       if (km_region_allocated(idx)) {
          /*
-          * the slot is already populated which means the other side allocated it.
-          * Still need to estabilsh page table(s) on this side.
+          * the slot is already populated which means the tbrk side allocated it.
+          * Still need to establish virtual to physical page mapping on this side.
           */
          set_pml4_hierarchy(&machine.vm_mem_regs[idx], 0);
       } else if (km_alloc_region(idx, memreg_size(idx), 0) != 0) {
-            idx--;
-            brk = machine.brk;
-            error = ENOMEM;
-            break;
+         idx--;
+         brk = machine.brk;
+         error = ENOMEM;
+         break;
       }
    }
    int tbrk_idx = gva_to_memreg_idx(machine.tbrk);
@@ -409,6 +524,7 @@ km_gva_t km_mem_brk(km_gva_t brk)
          km_free_region(idx, 0);
       }
    }
+   fixup_bottom_page_tables(machine.brk, brk);
    machine.brk = brk;
    km_mem_unlock();
    return error == 0 ? brk : -error;
@@ -442,29 +558,29 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
    idx = gva_to_memreg_idx(machine.tbrk);
    for (km_gva_t m_brk = MAX(tbrk, gpa_to_upper_gva(memreg_base(idx))); m_brk > tbrk;
         m_brk = MAX(tbrk, gpa_to_upper_gva(memreg_base(idx)))) {
-      /* Not enough room in the allocated memreg, allocate and add new ones */
+      /* Move to the next memreg. Allocate if required. */
       idx--;
-      // TODO: Manipulate present bits in PT to only expose pages needed for tbrk
       if (km_region_allocated(idx)) {
          /*
-          * the slot is already populated which means the other side allocated it.
-          * Still need to estabilsh page table(s) on this side.
+          * the slot is already populated which means the brk side allocated it.
+          * Still need to establish virtual to physical page mapping on this side.
           */
          set_pml4_hierarchy(&machine.vm_mem_regs[idx], 1);
       } else if (km_alloc_region(idx, memreg_size(idx), 1) != 0) {
-            idx--;
-            tbrk = machine.tbrk;
-            error = ENOMEM;
-            break;
+         idx--;
+         tbrk = machine.tbrk;
+         error = ENOMEM;
+         break;
       }
    }
-   int brk_idx = gva_to_memreg_idx(machine.brk);
+   int brk_idx = gva_to_memreg_idx(machine.brk - 1);
    for (; idx < gva_to_memreg_idx(tbrk); idx++) {
-      if (idx > brk_idx) {  // don't free shared slot.
+      if (idx > brk_idx) {   // don't free shared slot.
          /* brk moved down and left one or more memory regions. Remove and free */
          km_free_region(idx, 1);
       }
    }
+   fixup_top_page_tables(machine.tbrk, tbrk);
    machine.tbrk = tbrk;
    km_mem_unlock();
    return error == 0 ? tbrk : -error;

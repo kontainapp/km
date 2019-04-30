@@ -561,8 +561,9 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
          case KVM_EXIT_SHUTDOWN:
             run_warn("KVM: shutdown");
-            if (vcpu_dump)
+            if (vcpu_dump) {
                dump_vcpu(vcpu);
+            }
             abort();
             break;
 
