@@ -35,10 +35,11 @@ __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, 
 static void
 __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
 {
-   static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx ";
+   static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
    int save_errno = errno;
    va_list args;
    kvm_regs_t regs;
+   kvm_sregs_t sregs;
    char fmt[strlen(f) + strlen(fx) + 2 * strlen("1234567890123456") + 64];
 
    va_start(args, f);
@@ -47,8 +48,12 @@ __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, 
       (*fn)(s, f, args);
       va_end(args);
    }
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &sregs) < 0) {
+      (*fn)(s, f, args);
+      va_end(args);
+   }
 
-   sprintf(fmt, fx, vcpu->vcpu_id, regs.rip, regs.rsp);
+   sprintf(fmt, fx, vcpu->vcpu_id, regs.rip, regs.rsp, sregs.cr2);
    strcat(fmt, f);
 
    errno = save_errno;
@@ -63,9 +68,10 @@ static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu,
     __attribute__((format(printf, 3, 4)));   // define attributes
 static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu, const char* f, ...)
 {
-   static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx ";
+   static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
    va_list args;
    kvm_regs_t regs;
+   kvm_sregs_t sregs;
    char fmt[strlen(f) + strlen(fx) + 2 * strlen("1234567890123456") + 64];
 
    va_start(args, f);
@@ -75,8 +81,13 @@ static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu,
       va_end(args);
       return;
    }
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &sregs) < 0) {
+      (*fn)(f, args);
+      va_end(args);
+      return;
+   }
 
-   sprintf(fmt, fx, vcpu->vcpu_id, regs.rip, regs.rsp);
+   sprintf(fmt, fx, vcpu->vcpu_id, regs.rip, regs.rsp, sregs.cr2);
    strcat(fmt, f);
 
    (*fn)(fmt, args);
