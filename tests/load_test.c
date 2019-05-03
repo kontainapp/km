@@ -11,8 +11,11 @@
  *
  * Test loading larger program into KM memory, also write. Use exit value
  */
+#include <stdio.h>
 #include <unistd.h>
 #include "syscall.h"
+
+static int print_size = 0;
 
 static char msg1[] = "Hello, world,";
 static char pad[0x400000] = " padding";
@@ -21,12 +24,21 @@ static const char msg2[] = "after loading big array\n";
  * To recompute the size, compile load.km then run make load_expected_size and replace the number
  * below with printed one.
  */
-static const unsigned long size = 0x000000000060200e;
+static const unsigned long size = 0x0000000000604138;
 
-int main()
+int main(int argc, char* argv[])
 {
    int ret;
-   unsigned int x;
+   unsigned long x;
+   int c;
+
+   while ((c = getopt(argc, argv, "p")) != -1) {
+      switch (c) {
+         case 'p':
+            print_size = 1;
+            break;
+      }
+   }
 
    ret = write(1, msg1, sizeof(msg1) - 1);
    ret = write(1, pad, 1);
@@ -34,8 +46,9 @@ int main()
    if (ret)
       ;
 
-   if ((x = syscall(SYS_brk, 0)) != size) {
-      return 1;
+   x = syscall(SYS_brk, 0);
+   if (print_size) {
+      fprintf(stderr, "size=0x%lx, expect=0x%lx\n", x, size);
    }
-   return 0;
+   return (x == size) ? 0 : 1;
 }

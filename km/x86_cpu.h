@@ -194,3 +194,79 @@ typedef struct x86_pde_2m {
 #define X86_EFER_LME (1ul << 8)    // Long mode enable (R/W)
 #define X86_EFER_LMA (1ul << 10)   // Long mode active (R/O)
 #define X86_EFER_NX (1ul << 11)    // No execute enable
+
+/*
+ * Protected-Mode Exceptions and Interrupts
+ * Intel SDM Table 6-1
+ */
+#define X86_INTR_DE (0)    // Divide Error
+#define X86_INTR_DB (1)    // Debug Exception
+#define X86_INTR_NMI (2)   // NMI
+#define X86_INTR_BP (3)    // Breakpoint
+#define X86_INTR_OF (4)    // Overflow
+#define X86_INTR_BR (5)    // BOUND Range Exceeded
+#define X86_INTR_UD (6)    // Invalid Opcode (Undefined Opcode)
+#define X86_INTR_NM (7)    // Device Not Available (No Math Coprocessor)
+#define X86_INTR_DF (8)    // Double Fault (includes error, always 0)
+// 9 Intel Reserved. Post 386 processors do not generate.
+#define X86_INTR_TS (10)   // Invalid TSS (includes error)
+#define X86_INTR_NP (11)   // Segment Not Present (includes error)
+#define X86_INTR_SS (12)   // Stack-Segment Fault (includes error)
+#define X86_INTR_GP (13)   // General Protection (includes error)
+#define X86_INTR_PF (14)   // Page Fault (includes error)
+// 15 - Intel Reserved
+#define X86_INTR_MF (16)   // x87 FPU Floating Point Error (Math Fault)
+#define X86_INTR_AC (17)   // Alignment Check (includes error, always 0)
+#define X86_INTR_MC (18)   // Machine Check (model dependent)
+#define X86_INTR_XM (19)   // SMID Floating Point Exception
+#define X86_INTR_VE (20)   // Virtualization Exception
+// 21-31 Intel Reserved
+// 32-255 User Defined.
+
+#define X86_IDT_NENTRY (256)
+
+/*
+ * 64 Bit Interrupt Descriptor Table Entry.
+ * Intel SDM, Vol3, Figure 6-7
+ */
+typedef struct x86_idt_entry {
+   uint64_t fp_low : 16;      // Low bits of interrupt handler address
+   uint64_t sel_rpl : 2;      // segment selector RPL field
+   uint64_t sel_ti : 1;       // segment selector table (0=GDT, 1=LDT)
+   uint64_t sel_index : 13;   // segment selector index
+   uint64_t ist_index : 3;    // Interrupt Stack Table Index
+   uint64_t reserved1 : 5;
+   uint64_t type : 5;       // System and Segment Descriptior Type from Table 3-2
+   uint64_t dpl : 2;        // Descriptor Pri:vilege Level
+   uint64_t p : 1;          // Present
+   uint64_t fp_mid : 16;    // Mid bits of interrupt handler address
+   uint64_t fp_high : 32;   // High bits of interrupt handler address.
+   uint64_t reserved2 : 32;
+} x86_idt_entry_t;
+
+#define X86_IDT_NENTRY (256)
+#define X86_IDT_SIZE (sizeof(x86_idt_entry_t) * X86_IDT_NENTRY)
+
+/*
+ * System and Segment Descriptor Types
+ * Intel SDM, Vol3, Table 3-2
+ * (IA-32e mode)
+ */
+#define X86_DSCT_LDT (0x2)
+#define X86_DSCT_TSS_AVAIL (0x9)
+#define X86_DSCT_TSS_BUSY (0xb)
+#define X86_DSCT_CALL_GATE (0xc)
+#define X86_DSCT_INTR_GATE (0xe)
+#define X86_DSCT_TRAP_GATE (0xf)
+
+/*
+ * 64 Bit Interrupt Stack Frame
+ * Intel SDM, Vol3, Figure 6-8
+ */
+typedef struct x86_interrupt_frame {
+   uint64_t rip;
+   uint64_t cs;
+   uint64_t rflags;
+   uint64_t rsp;
+   uint64_t ss;
+} x86_interrupt_frame_t;

@@ -28,7 +28,8 @@ km_payload_t km_guest;
 
 static void my_pread(int fd, void* buf, size_t count, off_t offset)
 {
-   if (mmap(buf, roundup(count, PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) == MAP_FAILED) {
+   if (mmap(buf, roundup(count, PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
+       MAP_FAILED) {
       err(2, "error mmap elf");
    }
 }
@@ -63,13 +64,19 @@ static void load_extent(int fd, GElf_Phdr* phdr)
     * more parts, splitting it on regions boundary so pread() and friends could
     * work as expected. In the guest since virtual memory machinery works
     * transparently, there are no issues.
+    *
+    * Preserve the values in phdr. They will be needed to drop a core.
     */
+   Elf64_Addr p_paddr = phdr->p_paddr;
+   Elf64_Xword p_memsz = phdr->p_memsz;
+   Elf64_Off p_offset = phdr->p_offset;
+   Elf64_Xword p_filesz = phdr->p_filesz;
    do {
-      idx = gva_to_memreg_idx(phdr->p_paddr);
-      addr = km_gva_to_kma(phdr->p_paddr);
-      size = MIN(phdr->p_memsz, memreg_top(idx) - phdr->p_paddr);
-      filesize = MIN(phdr->p_filesz, size);
-      my_pread(fd, addr, filesize, phdr->p_offset);
+      idx = gva_to_memreg_idx(p_paddr);
+      addr = km_gva_to_kma(p_paddr);
+      size = MIN(p_memsz, memreg_top(idx) - p_paddr);
+      filesize = MIN(p_filesz, size);
+      my_pread(fd, addr, filesize, p_offset);
       memset(addr + filesize, 0, size - filesize);
       pr = 0;
       if (phdr->p_flags & PF_R) {
@@ -92,11 +99,11 @@ static void load_extent(int fd, GElf_Phdr* phdr)
       if (mprotect(addr, size, pr) < 0) {
          err(2, "failed to set guest memory protection");
       }
-      phdr->p_paddr += size;
-      phdr->p_memsz -= size;
-      phdr->p_offset += filesize;
-      phdr->p_filesz -= filesize;
-   } while (phdr->p_memsz > 0);
+      p_paddr += size;
+      p_memsz -= size;
+      p_offset += filesize;
+      p_filesz -= filesize;
+   } while (p_memsz > 0);
 }
 
 /*
@@ -159,6 +166,12 @@ int load_elf(const char* file)
             if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
                 strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), LIBC_SYM_NAME) == 0) {
                km_guest.km_libc = sym.st_value;
+            }
+            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
+                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), "__km_interrupt_handler") == 0) {
+               km_guest.km_handlers = sym.st_value;
+            }
+            if (km_guest.km_libc != 0 && km_guest.km_handlers != 0) {
                break;
             }
          }

@@ -230,3 +230,16 @@ teardown() {
    # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
    diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]' | grep -v '^km:')
 }
+
+# The behavior tested here is temporary and will change when real signal handling exists.
+@test "exception: exceptions and faults in the guest (exception)" {
+   # divide by zero
+   run $KM stray_test.km div0
+   [ $status -eq 1 ]
+   # invalid opcode
+   run $KM stray_test.km ud
+   [ $status -eq 7 ]
+   # page fault
+   run $KM stray_test.km stray
+   [ $status -eq 15 ]
+}

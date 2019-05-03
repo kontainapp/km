@@ -139,6 +139,13 @@ static int kvm_vcpu_init_sregs(int fd, uint64_t fs)
    kvm_sregs_t sregs = sregs_template;
 
    sregs.fs.base = fs;
+   if (machine.idt == 0) {
+      errx(1, "Should not happen - no IDT");
+   }
+   sregs.idt.base = machine.idt;
+   sregs.idt.limit = machine.idt_size;
+   sregs.gdt.base = machine.gdt;
+   sregs.gdt.limit = machine.gdt_size;
    return ioctl(fd, KVM_SET_SREGS, &sregs);
 }
 

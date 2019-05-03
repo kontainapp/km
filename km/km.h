@@ -38,6 +38,7 @@ typedef struct kvm_cpuid2 kvm_cpuid2_t;
 typedef struct kvm_segment kvm_seg_t;
 typedef struct kvm_sregs kvm_sregs_t;
 typedef struct kvm_regs kvm_regs_t;
+typedef struct kvm_vcpu_events kvm_vcpu_events_t;
 
 typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload space)
 typedef void* km_kma_t;      // kontain monitor address (i.e. address in km process space)
@@ -88,6 +89,7 @@ void km_signal_machine_fini(void);
 void km_machine_fini(void);
 void* km_vcpu_run_main(void* unused);
 void* km_vcpu_run(km_vcpu_t* vcpu);
+void km_dump_vcpu(km_vcpu_t* vcpu);
 
 void km_hcalls_init(void);
 void km_hcalls_fini(void);
@@ -125,6 +127,11 @@ typedef struct km_machine {
    int exit_group;        // 1 if processing exit_group() call now.
    int pause_requested;   // 1 if all VCPUs are being paused. Used to prevent race with new vcpu threads
    int exit_status;       // return code from payload's main thread
+   // guest interrupt support
+   km_gva_t gdt;      // Guest address of Global Descriptor Table (GDT)
+   size_t gdt_size;   // GDT size (bytes)
+   km_gva_t idt;      // Guest address of Interrupt Descriptor Table (IDT)
+   size_t idt_size;   // IDT size (bytes)
 } km_machine_t;
 
 extern km_machine_t machine;
@@ -175,6 +182,10 @@ extern km_vcpu_t* km_vcpu_fetch(int id);
 extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
 
 extern pid_t gettid(void);
+
+// Interrupt handling.
+void km_init_guest_idt(km_gva_t handlers);
+void km_handle_interrupt(km_vcpu_t* vcpu);
 
 #define KM_SIGVCPUSTOP SIGUSR1   //  After km start, used to signal VCP thread to force KVM exit
 

@@ -195,7 +195,8 @@
             "mem_test",
             "hello_2_loops",
             "mutex_test",
-            "exit_grp_test"
+            "exit_grp_test",
+            "stray_test"
          ]
       }
    ]

@@ -1,3 +1,4 @@
+#include "km_hcalls.h"
 #include "pthread_impl.h"
 
 extern int main(int argc, char** argv);
@@ -21,3 +22,18 @@ _Noreturn void __start_c__(long is_main_argc, char** argv)
       __syscall1(SYS_exit, rc);
    }
 }
+
+/*
+ * Common handler for all interrupts, exceptions and traps in the guest.
+ * Since the monitor does all the heavy lifting, this function does not return directly.
+ * If a return into the guest is required, the monitor will set everything up to return
+ * the right place.
+ */
+_Noreturn void __km_handle_interrupt(void)
+{
+   km_hc_args_t args;
+   km_hcall(HC_guest_interrupt, &args);
+   // Should not return
+}
+typedef void (*interrupt_handler_t)(void);
+interrupt_handler_t __km_interrupt_handler = __km_handle_interrupt;

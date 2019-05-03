@@ -323,7 +323,7 @@ static char* dump_events(km_vcpu_t* vcpu, char* buf, size_t len)
    return cur;
 }
 
-static void dump_vcpu(km_vcpu_t* vcpu)
+void km_dump_vcpu(km_vcpu_t* vcpu)
 {
    char buf[4096];
    char* next;
@@ -561,7 +561,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_SHUTDOWN:
             run_warn("KVM: shutdown");
             if (vcpu_dump) {
-               dump_vcpu(vcpu);
+               km_dump_vcpu(vcpu);
             }
             abort();
             break;

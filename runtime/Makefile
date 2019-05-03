@@ -10,6 +10,8 @@
 
 TOP := $(shell git rev-parse --show-cdup)
 
+# SUBDIRS := idt
+
 LIB := runtime
 
 # following it to compute SOURCES, picking up all .c files from relevant dirs

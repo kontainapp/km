@@ -24,9 +24,10 @@
  * in guest address space. We'll need to convert them to monitor (KM) addresses to acces.
  */
 typedef struct km_payload {
-   Elf64_Ehdr km_ehdr;    // elf file header
-   Elf64_Phdr* km_phdr;   // elf program headers
-   Elf64_Addr km_libc;    // libc in payload program
+   Elf64_Ehdr km_ehdr;       // elf file header
+   Elf64_Phdr* km_phdr;      // elf program headers
+   Elf64_Addr km_libc;       // libc in payload program
+   Elf64_Addr km_handlers;   // interrupt/exception handler table
 } km_payload_t;
 
 extern km_payload_t km_guest;

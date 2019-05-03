@@ -159,6 +159,7 @@ km_builtin_tls_t builtin_tls[1];
 void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
 {
    km_gva_t libc = km_guest.km_libc;
+   km_gva_t handlers = km_guest.km_handlers;
    km__libc_t* libc_kma = NULL;
    km_pthread_t* tcb_kma;
    km_gva_t tcb;
@@ -190,6 +191,10 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    } else {
       stack_top = tcb = rounddown(stack_top - sizeof(km_pthread_t), MIN_TLS_ALIGN);
    }
+   if (handlers == 0) {
+      errx(1, "Bad binary - cannot find interrupt handler");
+   }
+   km_init_guest_idt(handlers);
    tcb_kma = km_gva_to_kma(tcb);
    tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)stack_top;
    tcb_kma->locale = libc != 0 ? &((km__libc_t*)libc)->global_locale : NULL;
@@ -391,7 +396,7 @@ static int check_join_deadlock(km_vcpu_t* joinee_vcpu, km_vcpu_t* current_vcpu)
    if (current_vcpu == joinee_vcpu) {
       return -EDEADLOCK;
    }
-   for (vcpu = joinee_vcpu; vcpu->joining_pid != -1; ) {
+   for (vcpu = joinee_vcpu; vcpu->joining_pid != -1;) {
       vcpu = machine.vm_vcpus[vcpu->joining_pid];
       assert(vcpu != NULL && vcpu->is_used != 0);
       if (vcpu->joining_pid == current_vcpu->vcpu_id) {
