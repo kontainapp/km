@@ -51,6 +51,15 @@
  * XXX_hcall() for examples.
  */
 
+static inline uint64_t __syscall_0(uint64_t num)
+{
+   uint64_t res;
+
+   __asm__ __volatile__("syscall" : "=a"(res) : "a"(num) : "rcx", "r11");
+
+   return res;
+}
+
 static inline uint64_t __syscall_1(uint64_t num, uint64_t a1)
 {
    uint64_t res;
@@ -416,6 +425,42 @@ static km_hc_ret_t select_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* stat
                              km_gva_to_kml(arg->arg5));
    return HC_CONTINUE;
 }
+
+static km_hc_ret_t sendto_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
+   //                const struct sockaddr *dest_addr, socklen_t addrlen);
+   arg->hc_ret = __syscall_6(hc,
+                             arg->arg1,
+                             km_gva_to_kml(arg->arg2),
+                             arg->arg3,
+                             arg->arg4,
+                             km_gva_to_kml(arg->arg5),
+                             arg->arg6);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t nanosleep_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int nanosleep(const struct timespec* req, struct timespec* rem);
+   arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t dup_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int dup(int oldfd);
+   arg->hc_ret = __syscall_1(hc, arg->arg1);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t pause_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int pause(void);
+   arg->hc_ret = __syscall_0(hc);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    arg->hc_ret = 0;
@@ -427,13 +472,6 @@ static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* statu
             arg->arg3,
             arg->arg4,
             arg->arg5);
-   return HC_CONTINUE;
-}
-
-static km_hc_ret_t dup_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
-{
-   // int dup(int oldfd);
-   arg->hc_ret = __syscall_1(hc, arg->arg1);
    return HC_CONTINUE;
 }
 
@@ -511,6 +549,9 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_mkdir] = mkdir_hcall;
    km_hcalls_table[SYS_chdir] = chdir_hcall;
    km_hcalls_table[SYS_select] = select_hcall;
+   km_hcalls_table[SYS_pause] = pause_hcall;
+   km_hcalls_table[SYS_sendto] = sendto_hcall;
+   km_hcalls_table[SYS_nanosleep] = nanosleep_hcall;
 
    km_hcalls_table[SYS_rt_sigaction] = dummy_hcall;
    km_hcalls_table[SYS_rt_sigprocmask] = dummy_hcall;
@@ -520,6 +561,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getuid] = dummy_hcall;
    km_hcalls_table[SYS_getegid] = dummy_hcall;
    km_hcalls_table[SYS_getgid] = dummy_hcall;
+   km_hcalls_table[SYS_sched_yield] = dummy_hcall;
 
    km_hcalls_table[HC_pthread_create] = pthread_create_hcall;
    km_hcalls_table[HC_pthread_join] = pthread_join_hcall;

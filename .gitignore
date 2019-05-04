@@ -3,7 +3,7 @@ build/**
 *.a
 *.d
 tests/*_test
-tests/*_test.km
+tests/*.km
 trace.dat
 ipch
 *.ipch
