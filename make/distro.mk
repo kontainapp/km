@@ -34,7 +34,7 @@ DOCKERFILE_CONTENT := \
 	ADD $(TAR_FILE) / \\n \
 	ENTRYPOINT [ \"/km\"] \\n
 
-distro: all Dockerfile
+distro: all
 	@tar -cf $(TAR_FILE) $(PAYLOAD_FILES)
 	@echo "Cleaning old image"; docker rmi -f $(PAYLOAD_IMAGE_FULL_NAME) 2>/dev/null
 	@echo -e $(DOCKERFILE_CONTENT) | docker build --force-rm -t $(PAYLOAD_IMAGE_FULL_NAME) -f - .

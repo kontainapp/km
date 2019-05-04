@@ -37,22 +37,13 @@ KM_IMAGE_MESSAGE := Kontain Monitor Base Image
 KM_IMAGE_FULL_NAME := kontain/$(EXEC):$(IMAGE_VERSION)
 
 # Build  a docker image with KM only, to be used as base image if needed
-# We tar used shared libs and KM, put it in a bare docker container, and validate it
-# note: libgcc_s is needed for phtread_cancel (it is not referred from elf/ldd)
+# We build KM static, put it in a bare docker container, and validate it
 distro: ${BLDEXEC}
-	@tmpdir=$$(mktemp -d) ; \
-	 cp ${BLDEXEC} $$tmpdir ; \
-	 libs="$$(ldd ${BLDEXEC} \
-	  | grep -v linux-vdso.so  \
-	  | sed -e 's-^.*\s/-/-' -e 's- (.*--') /usr/lib64/libgcc_s.so.1"; \
-	 for lib in $$libs ; \
-			do mkdir -p $$tmpdir/`dirname $$lib`; cp --parent $$lib $$tmpdir ; \
-	 done ;  \
-	 echo "Creating docker image '$(KM_IMAGE_FULL_NAME)'..." ; docker rmi -f $(KM_IMAGE_FULL_NAME) 2>/dev/null ;\
-	tar -C $$tmpdir -c . | docker import -m '$(KM_IMAGE_MESSAGE)' -c '$(KM_IMAGE_LABEL)' - $(KM_IMAGE_FULL_NAME) ; rm -rf $$tmpdir
+	@echo "Creating docker image '$(KM_IMAGE_FULL_NAME)'..." ; docker rmi -f $(KM_IMAGE_FULL_NAME) 2>/dev/null
+	tar -C $(dir $(BLDEXEC)) -c $(notdir $(BLDEXEC)) | docker import -m '$(KM_IMAGE_MESSAGE)' -c '$(KM_IMAGE_LABEL)' - $(KM_IMAGE_FULL_NAME)
 	@# Quick validation of the image; it will fail if load_test.km fails
-	@docker run --rm --device /dev/kvm \
-		-v $(abspath ${TOP}/tests):/payloads $(KM_IMAGE_FULL_NAME) \
+	docker run --rm --device /dev/kvm \
+		-v $(abspath ${TOP}/tests):/payloads:Z $(KM_IMAGE_FULL_NAME) \
 		/km /payloads/load_test.km > /dev/null
 	@echo -e "Docker image created: $(GREEN)`docker image ls $(KM_IMAGE_FULL_NAME) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
