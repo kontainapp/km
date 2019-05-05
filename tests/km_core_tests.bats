@@ -104,8 +104,8 @@ teardown() {
 
    run $KM hello_test.km $args
    [ $status -eq 0 ]
-   # argv[0] differs for linux and km so strip it out, and then compare results
-   diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]' | fgrep -v 'pdpe1g')
+   # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
+   diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]' | grep -v '^km:')
 }
 
 @test "hc_socket: basic HTTP/socket I/O (hello_html_test)" {
