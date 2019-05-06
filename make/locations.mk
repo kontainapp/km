@@ -16,9 +16,14 @@ FROMTOP := $(shell git rev-parse --show-prefix)
 # Current branch (for making different names unique per branch, e.g. Docker tags)
 # use 'SRC_BRANCH=branch make <target>' for building target (e.g clean :-)) for other branches, if needed
 SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
+
+# sha and build time for further reporting
+SRC_VERSION := $(shell git rev-parse HEAD)
+BUILD_TIME := $(shell date -Iminutes)
+
 # all build results (including obj etc..)  go under this one
 BLDTOP := ${TOP}build/
-# Build results go here,
+# Build results go here.
 # For different build types (e.g. coverage), pass BLDTYPE=<type>/, e.g BLDTYPE=coverage/ (with trailing /)
 BLDDIR := ${BLDTOP}${FROMTOP}$(BLDTYPE)
 

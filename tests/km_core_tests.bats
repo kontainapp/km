@@ -202,5 +202,14 @@ teardown() {
    # make sure we fail gracefully if there is no 1G pages supported. Also checks longopt
    run $KM --membus-width=33 --disable-1g-pages brk_map_test.km -- 33
    [ "$status" -eq 1 ]
+}
 
+@test "cli: test -v and other innocent args" {
+   run $KM -v
+   [ "$status" -eq 0 ]
+   echo -e "$output" | fgrep -q `git rev-parse HEAD`
+   echo -e "$output" | fgrep -q `git rev-parse --abbrev-ref HEAD`
+   echo -e "$output" | fgrep -q 'Kontain Monitor v'
+   run $KM --version
+   [ "$status" -eq 0 ]
 }

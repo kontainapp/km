@@ -41,6 +41,7 @@ static inline void usage()
         "'regexp'\n"
         "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 3333) "
         "before running payload\n"
+        "\t--version (-v)                      - Print version info and exit\n"
         "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
         "\t--dump-shutdown                     - Produce register dump on VCPU error\n"
 
@@ -49,6 +50,30 @@ static inline void usage()
         "32 means 4GiB, 33 8GiB, 34 16GiB, etc. \n"
         "\t--enable-1g-pages  - Force enable 1G pages support (assumes hardware support)\n"
         "\t--disable-1g-pages - Force disable 1G pages support.");
+}
+
+// Version info. SCM_* is supposed to be set by the build
+static const int ver_major = 0;
+static const int ver_minor = 3;
+#ifndef SRC_BRANCH   // branch name
+#define SRC_BRANCH "?"
+#endif
+#ifndef SRC_VERSION   // SHA
+#define SRC_VERSION "?"
+#endif
+#ifndef BUILD_TIME
+#define BUILD_TIME "?"
+#endif
+
+static inline void show_version(void)
+{
+   errx(0,
+        "Kontain Monitor version %d.%d\nBranch: %s sha: %s build_time: %s",
+        ver_major,
+        ver_minor,
+        SRC_BRANCH,
+        SRC_VERSION,
+        BUILD_TIME);
 }
 
 static km_machine_init_params_t km_machine_init_params = {};
@@ -61,6 +86,8 @@ static struct option long_options[] = {
     {"membus-width", required_argument, 0, 'P'},
     {"gdb-server-port", optional_argument, 0, 'g'},
     {"verbose", optional_argument, 0, 'V'},
+    {"version", no_argument, 0, 'v'},
+
     {0, 0, 0, 0},
 };
 
@@ -75,7 +102,7 @@ int main(int argc, char* const argv[])
    int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int longopt_index;
 
-   while ((opt = getopt_long(argc, argv, "+g::V::P:", long_options, &longopt_index)) != -1) {
+   while ((opt = getopt_long(argc, argv, "+g::V::P:v", long_options, &longopt_index)) != -1) {
       switch (opt) {
          case 0:
             /* If this option set a flag, do nothing else now. */
@@ -123,6 +150,9 @@ int main(int argc, char* const argv[])
                usage();
             }
             km_info_trace.level = KM_TRACE_INFO;
+            break;
+         case 'v':
+            show_version();
             break;
          case '?':
          default:
