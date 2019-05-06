@@ -28,8 +28,9 @@
 #include "km_mem.h"
 #include "x86_cpu.h"
 
-static const char cpu_vendor_id[] = "Kontain.app";   // 12 char including \0
-_Static_assert(sizeof(cpu_vendor_id) == 12, "VendorId len should be 12");
+static const char cpu_vendor_id[] = "Kontain.app";
+_Static_assert(sizeof(cpu_vendor_id) == 3 * sizeof(u_int32_t),
+               "VendorId - wrong length");   // 12 char including \0 to fit in 3 x 32bit regs
 
 km_machine_t machine = {
     .kvm_fd = -1,
@@ -442,29 +443,30 @@ void km_machine_init(km_machine_init_params_t* params)
     * Check for 1GB pages support
     */
    for (int i = 0; i < machine.cpuid->nent; i++) {
-      switch (machine.cpuid->entries[i].function) {
+      struct kvm_cpuid_entry2* entry = &machine.cpuid->entries[i];
+      switch (entry->function) {
          case 0x80000008:
-            km_infox(KM_TRACE_KVM, "KVM: physical memory width %d", machine.cpuid->entries[i].eax & 0xff);
-            machine.guest_max_physmem = 1ul << (machine.cpuid->entries[i].eax & 0xff);
+            km_infox(KM_TRACE_KVM, "KVM: physical memory width %d", entry->eax & 0xff);
+            machine.guest_max_physmem = 1ul << (entry->eax & 0xff);
             break;
          case 0x80000001:
-            machine.pdpe1g = ((machine.cpuid->entries[i].edx & 1ul << 26) != 0);
+            machine.pdpe1g = ((entry->edx & 1ul << 26) != 0);
             if (machine.pdpe1g == 0 && params->force_pdpe1g == KM_FLAG_FORCE_ENABLE) {
                // The actual hardware should support it, otherwise expect payload to EXIT_SHUTDOWN
                km_infox(KM_TRACE_KVM, "PATCHING pdpe1g to 1");
-               machine.cpuid->entries[i].edx |= (1ul << 26);
+               entry->edx |= (1ul << 26);
                machine.pdpe1g = 1;
             } else if (machine.pdpe1g == 1 && params->force_pdpe1g == KM_FLAG_FORCE_DISABLE) {
                km_infox(KM_TRACE_KVM, "PATCHING pdpe1g to 0");
-               machine.cpuid->entries[i].edx &= ~(1ul << 26);
+               entry->edx &= ~(1ul << 26);
                machine.pdpe1g = 0;
             }
             break;
          case 0x0:
             km_infox(KM_TRACE_KVM, "Setting VendorId to '%s'", cpu_vendor_id);
-            memcpy(&machine.cpuid->entries[i].ebx, cpu_vendor_id, 4);
-            memcpy(&machine.cpuid->entries[i].edx, cpu_vendor_id + 4, 4);
-            memcpy(&machine.cpuid->entries[i].ecx, cpu_vendor_id + 8, 4);
+            memcpy(&entry->ebx, cpu_vendor_id, sizeof(u_int32_t));
+            memcpy(&entry->edx, cpu_vendor_id + sizeof(u_int32_t), sizeof(u_int32_t));
+            memcpy(&entry->ecx, cpu_vendor_id + 2 * sizeof(u_int32_t), sizeof(u_int32_t));
 
             break;
       }
