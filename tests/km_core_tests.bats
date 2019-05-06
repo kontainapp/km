@@ -218,3 +218,15 @@ teardown() {
    [ "$status" -eq 0 ]
    echo -e "$output" | fgrep -q 'Kontain.app'
 }
+
+@test "longjmp_test: basic setjmp/longjump" {
+   args="more_flags to_check: -f and check --args !"
+   run ./longjmp_test $args
+   [ $status -eq 0 ]
+   linux_out="${output}"
+
+   run $KM longjmp_test.km $args
+   [ $status -eq 0 ]
+   # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
+   diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]' | grep -v '^km:')
+}
