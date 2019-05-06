@@ -207,7 +207,6 @@ teardown() {
 @test "cli: test -v and other small tests" {
    run $KM -v
    [ "$status" -eq 0 ]
-   echo -e "$output" | fgrep -q `git rev-parse HEAD`
    echo -e "$output" | fgrep -q `git rev-parse --abbrev-ref HEAD`
    echo -e "$output" | fgrep -q 'Kontain Monitor v'
    run $KM --version

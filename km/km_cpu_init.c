@@ -467,7 +467,6 @@ void km_machine_init(km_machine_init_params_t* params)
             memcpy(&entry->ebx, cpu_vendor_id, sizeof(u_int32_t));
             memcpy(&entry->edx, cpu_vendor_id + sizeof(u_int32_t), sizeof(u_int32_t));
             memcpy(&entry->ecx, cpu_vendor_id + 2 * sizeof(u_int32_t), sizeof(u_int32_t));
-
             break;
       }
    }
