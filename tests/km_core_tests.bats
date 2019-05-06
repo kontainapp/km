@@ -204,7 +204,7 @@ teardown() {
    [ "$status" -eq 1 ]
 }
 
-@test "cli: test -v and other innocent args" {
+@test "cli: test -v and other small tests" {
    run $KM -v
    [ "$status" -eq 0 ]
    echo -e "$output" | fgrep -q `git rev-parse HEAD`
@@ -212,4 +212,10 @@ teardown() {
    echo -e "$output" | fgrep -q 'Kontain Monitor v'
    run $KM --version
    [ "$status" -eq 0 ]
+}
+
+@test "cpuid: test cpu vendor id (cpuid_test)" {
+   run $KM cpuid_test.km
+   [ "$status" -eq 0 ]
+   echo -e "$output" | fgrep -q 'Kontain.app'
 }

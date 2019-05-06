@@ -28,6 +28,9 @@
 #include "km_mem.h"
 #include "x86_cpu.h"
 
+static const char cpu_vendor_id[] = "Kontain.app";   // 12 char including \0
+_Static_assert(sizeof(cpu_vendor_id) == 12, "VendorId len should be 12");
+
 km_machine_t machine = {
     .kvm_fd = -1,
     .mach_fd = -1,
@@ -456,6 +459,13 @@ void km_machine_init(km_machine_init_params_t* params)
                machine.cpuid->entries[i].edx &= ~(1ul << 26);
                machine.pdpe1g = 0;
             }
+            break;
+         case 0x0:
+            km_infox(KM_TRACE_KVM, "Setting VendorId to '%s'", cpu_vendor_id);
+            memcpy(&machine.cpuid->entries[i].ebx, cpu_vendor_id, 4);
+            memcpy(&machine.cpuid->entries[i].edx, cpu_vendor_id + 4, 4);
+            memcpy(&machine.cpuid->entries[i].ecx, cpu_vendor_id + 8, 4);
+
             break;
       }
    }
