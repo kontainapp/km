@@ -4,5 +4,8 @@
       "*.h": "c"
    },
    "editor.formatOnSave": true,
-   "editor.formatOnType": true
+   "editor.formatOnType": true,
+   "files.exclude": {
+      "**/*.{o,d,km}": true
+   }
 }

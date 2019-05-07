@@ -32,11 +32,17 @@ DOCKERFILE_CONTENT := \
 	FROM $(KM_IMAGE_FULL_NAME) \\n \
 	LABEL Description=\"${PAYLOAD_NAME} \(/${PAYLOAD_KM}\) in Kontain\" Vendor=\"Kontain.app\" Version=\"0.1\"	\\n \
 	ADD $(TAR_FILE) / \\n \
-	ENTRYPOINT [ \"/km\"] \\n
+	WORKDIR /$(dir $(PAYLOAD_KM)) \\n \
+	ENTRYPOINT [ \"/km\"]
 
 distro: all
+	@#check Docker availability
+	@if ! docker ps -aq  > /dev/null ; then \
+		echo -e "${RED}Failed to run Docker - check install and security${NOCOLOR}"; false ; \
+	fi;
 	@tar -cf $(TAR_FILE) $(PAYLOAD_FILES)
 	@echo "Cleaning old image"; docker rmi -f $(PAYLOAD_IMAGE_FULL_NAME) 2>/dev/null
+	@echo -e "Building new image with generated Dockerfile:\\n $(DOCKERFILE_CONTENT)"
 	@echo -e $(DOCKERFILE_CONTENT) | docker build --force-rm -t $(PAYLOAD_IMAGE_FULL_NAME) -f - .
 	@rm $(TAR_FILE)
 	@echo -e "Docker image created: $(GREEN)`docker image ls $(PAYLOAD_IMAGE_FULL_NAME) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
@@ -57,7 +63,20 @@ publishclean:
 .DEFAULT:
 	@echo $(notdir $(CURDIR)): ignoring target '$@'
 
-VAR1 = $(shell $(TOP)/cloud/$(CLOUD)/get_config )
+#
+# 'Help' target - based on '##' comments in targets
+#
+# This target ("help") scans Makefile for '##' in targets and prints a summary
+# Note - used awk to print (instead of echo) so escaping/coloring is platform independed
+help:  ## Prints help on 'make' targets
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
+	/^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
+	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
+	$(MAKEFILE_LIST)
+	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
+	@echo ""
+
+
 # Support for simple debug print (make debugvars)
 VARS_TO_PRINT ?= PAYLOAD_IMAGE_FULL_NAME PUBLISH_TAG REGISTRY_NAME REGISTRY REGISTRY_AUTH_EXAMPLE CLOUD
 
