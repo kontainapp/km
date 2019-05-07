@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dweb-deployment
+  labels:
+    app: dweb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dweb
+  template:
+    metadata:
+      labels:
+        app: dweb
+    spec:
+      containers:
+      - name: dweb
+        image: dweb-km
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        resources:
+           requests:
+              devices.kubevirt.io/kvm: "1"
+              cpu: 100m
+              memory: "10Mi"
+           limits:
+              devices.kubevirt.io/kvm: "1"
+              cpu: 2
+              memory: "500Mi"
+
+        args: [ "dweb.km", "8080"]

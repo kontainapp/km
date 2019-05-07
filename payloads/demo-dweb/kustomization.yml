@@ -1,0 +1,5 @@
+resources:
+   - ./dweb-deployment.yml
+
+namePrefix: kontain-
+

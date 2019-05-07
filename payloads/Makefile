@@ -12,7 +12,7 @@
 # Basic build for kontain payloads
 
 # scan all these and  'make' stuff there
-SUBDIRS := python
+SUBDIRS := python demo-dweb
 
 # make sure payloads dir is skipped for top-level 'make' to avoid rebuilds when only KM is needed
 # to run, use 'make all'
