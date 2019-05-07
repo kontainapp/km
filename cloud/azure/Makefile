@@ -12,6 +12,8 @@
 # TODO : rework apply -f, it is a hack for now
 
 TOP := $(shell git rev-parse --show-cdup)
+include cloud_config.mk
+
 help:
 	@echo 'please specify explicit target. In bash, "make <tab>" shows the list'
 
@@ -36,3 +38,12 @@ clean: cleanall
 distro publish:
 	$(MAKE) $(MAKEFLAGS) -C ../..  $@
 
+# Support for simple debug print (make debugvars)
+VARS_TO_PRINT ?= CLOUD_RESOURCE_GROUP CLOUD_SUBSCRIPTION CLOUD_LOCATION \
+					K8_SERVICE_PRINCIPAL K8S_CLUSTER K8S_NODE_INSTANCE_SIZE \
+					REGISTRY_NAME  REGISTRY REGISTRY_AUTH_EXAMPLE REGISTRY_SKU
+
+.PHONY: debugvars
+debugvars:   ## prints interesting vars and their values
+	@echo To change the list of printed vars, use 'VARS_TO_PRINT="..." make debugvars'
+	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
