@@ -677,7 +677,7 @@ static void km_empty_out_eventfd(int fd)
 static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, __attribute__((unused)) uint64_t unused)
 {
    int ret;
-   while ((ret = eventfd_write(vcpu->eventfd, 1) == -1 && errno == EINTR)) {
+   while ((ret = eventfd_write(vcpu->gdb_efd, 1) == -1 && errno == EINTR)) {
       ;   // ignore signals during the write
    }
    return ret == 0 ? 0 : 1;   // Unblock main guest thread
@@ -686,7 +686,7 @@ static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, __attribute__((unused)) 
 /*
  * Loop on waiting on either ^C from gdb client, or a vcpu exit from kvm_run for a reason relevant
  * to gdb. When a wait is over (for either of the reasons), stops all vcpus and lets GDB handle the
- * exit. When gdb says "next" or "continue" or "step", signals vcpuy to continue and reenters the loop.
+ * exit. When gdb says "next" or "continue" or "step", signals vcpu to continue and reenters the loop.
  */
 void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 {
@@ -773,7 +773,7 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, __attribute__((unused)) int unused)
       gdbstub.exit_reason = vcpu->cpu_run->exit_reason;
       eventfd_write(gdbstub.intr_eventfd, 1);
    }
-   km_wait_on_eventfd(vcpu->eventfd);   // Wait for gdb to allow this vcpu to continue
+   km_wait_on_eventfd(vcpu->gdb_efd);   // Wait for gdb to allow this vcpu to continue
    km_infox(KM_TRACE_GDB, "%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
    vcpu->is_paused = 0;
 }

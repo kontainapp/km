@@ -406,13 +406,12 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
    return km_hcalls_table[*hc](vcpu, *hc, km_gva_to_kma(ga), status);
 }
 
-static void km_vcpu_exit(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
 static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
 {
-   vcpu->is_paused = 1;      // in case someone else wants to pause this one, no need
-   machine.ret = s & 0377;   // in case this is the last thread, set status. &0377 is per 'man 3 exit'
+   vcpu->is_paused = 1;            // in case someone else wants to pause this one, no need
+   vcpu->exit_status = s & 0377;   // per man exit
+   machine.exit_status = vcpu->exit_status;   // in case this is the last thread, set status
    km_vcpu_stopped(vcpu);
-   pthread_exit((void*)(uint64_t)s);
 }
 
 /*
@@ -428,7 +427,7 @@ static int km_vcpu_force_exit(km_vcpu_t* vcpu)
    return 0;
 }
 
-static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
+// static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
 static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
 {
    machine.pause_requested = 1;   // prevent new vcpus from racing
@@ -456,7 +455,7 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
       }
       nanosleep(&req, NULL);
    }
-   // TODO - remove the hack below (if () err() )  when 'robust list' is implemented in KM workload runtime
+   // TODO - consider an unforced solution
    if (machine.vm_vcpu_run_cnt > 1) {
       errx(s, "Forcing exit_group() without cleanup");
    }
@@ -598,7 +597,7 @@ void* km_vcpu_run_main(void* unused)
       while (eventfd_write(gdbstub.intr_eventfd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
          ;   // ignore signals during the write
       }
-      km_wait_on_eventfd(vcpu->eventfd);   // wait for gbd main loop to allow main vcpu to run
+      km_wait_on_eventfd(vcpu->gdb_efd);   // wait for gbd main loop to allow main vcpu to run
       km_infox(KM_TRACE_VCPU, "%s: vcpu_run VCPU %d unblocked by gdb", __FUNCTION__, vcpu->vcpu_id);
    }
    return km_vcpu_run(vcpu);

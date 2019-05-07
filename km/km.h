@@ -42,18 +42,32 @@ typedef struct kvm_regs kvm_regs_t;
 typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload space)
 typedef void* km_kma_t;      // kontain monitor address (i.e. address in km process space)
 
+typedef enum {
+   VCPU_IDLE = 0,     // idle, same as is_used = 0
+   VCPU_RUNNING,      // guest thread between create and exit
+   VCPU_JOIN_WAITS,   // same as above, another thread waits in join
+   VCPU_DONE          // after pthread_exit() waiting for join
+} km_vthr_state_t;
+
 typedef struct km_vcpu {
-   int vcpu_id;             // uniq ID
-   kvm_run_t* cpu_run;      // run control region
-   pthread_t vcpu_thread;   // km pthread
-   pid_t tid;               // Thread Id for VCPU thread. Used to id thread in gdb and reporting
-   km_gva_t guest_thr;      // guest pthread
-   km_gva_t stack_top;      // available in guest_thr but requres gva_to_kma, save it
-   int kvm_vcpu_fd;         // this VCPU file descriptor
-   int eventfd;             // gdb uses this to synchronize with VCPU thread
-   int is_used;             // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
-   int is_paused;           // 1 means the vcpu is waiting for gdb to allow it to continue
-   int is_joining;          // 1 if currently joining another thread.
+   int vcpu_id;                 // uniq ID
+   int kvm_vcpu_fd;             // this VCPU file descriptor
+   kvm_run_t* cpu_run;          // run control region
+   pthread_t vcpu_thread;       // km pthread
+   pthread_mutex_t thr_mtx;     // protects the three fields below
+   pthread_cond_t thr_cv;       // used by vcpu_pthread to block while vcpu isn't in use
+   pthread_cond_t join_cv;      // join waits for thread to finish
+   km_vthr_state_t thr_state;   // state of the vcpu thread
+                                //
+   km_gva_t guest_thr;          // guest pthread
+   km_gva_t stack_top;          // available in guest_thr but requres gva_to_kma, save it
+                                //
+   pid_t tid;                   // Thread Id for VCPU thread. Used to id thread in gdb and reporting
+   int gdb_efd;                 // gdb uses this to synchronize with VCPU thread
+   int is_used;                 // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
+   int is_paused;               // 1 means the vcpu is waiting for gdb to allow it to continue
+   int joining_pid;             // pid if currently joining another thread pid, -1 if not
+   int exit_status;             // exit status for this thread
 } km_vcpu_t;
 
 // simple enum to help in forcing 'enable/disable' flags
@@ -110,7 +124,7 @@ typedef struct km_machine {
    int shutdown_fd;       // eventfd to coordinate final shutdown
    int exit_group;        // 1 if processing exit_group() call now.
    int pause_requested;   // 1 if all VCPUs are being paused. Used to prevent race with new vcpu threads
-   int ret;               // return code from payload's main thread
+   int exit_status;       // return code from payload's main thread
 } km_machine_t;
 
 extern km_machine_t machine;

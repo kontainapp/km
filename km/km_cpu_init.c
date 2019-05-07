@@ -45,7 +45,7 @@ km_machine_t machine = {
 void km_signal_machine_fini(void)
 {
    if (km_gdb_is_enabled() == 1) {
-      km_gdb_fini(machine.ret);
+      km_gdb_fini(machine.exit_status);
    }
    if (eventfd_write(machine.shutdown_fd, 1) == -1) {
       errx(2, "Failed to send machine_fini signal");
@@ -59,7 +59,7 @@ void km_signal_machine_fini(void)
 void km_vcpu_fini(km_vcpu_t* vcpu)
 {
    km_pthread_fini(vcpu);
-   close(vcpu->eventfd);
+   close(vcpu->gdb_efd);
    if (vcpu->cpu_run != NULL) {
       if (munmap(vcpu->cpu_run, machine.vm_run_size) != 0) {
          err(3, "munmap cpu_run for vcpu fd");
@@ -164,10 +164,22 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       return -1;
    }
    if (km_gdb_is_enabled() == 1) {
-      if ((vcpu->eventfd = eventfd(0, 0)) == -1) {
+      if ((vcpu->gdb_efd = eventfd(0, 0)) == -1) {
          warn("failed init gdb eventfd for VCPU %d", vcpu->vcpu_id);
          return -1;
       }
+   }
+   if (pthread_mutex_init(&vcpu->thr_mtx, NULL) != 0) {
+      warn("failed to initialize mutex thr_mtx");
+      return -1;
+   }
+   if (pthread_cond_init(&vcpu->thr_cv, NULL) != 0) {
+      warn("failed to initialize condition thr_cv");
+      return -1;
+   }
+   if (pthread_cond_init(&vcpu->join_cv, NULL) != 0) {
+      warn("failed to initialize condition join_cv");
+      return -1;
    }
    return 0;
 }
@@ -196,6 +208,7 @@ km_vcpu_t* km_vcpu_get(void)
       err(1, "KVM: no memory for vcpu");
    }
    memset(new, 0, sizeof(km_vcpu_t));
+   new->joining_pid = -1;
 
    new->is_used = 1;   // so it won't get snatched right after its inserted
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
@@ -281,7 +294,7 @@ km_vcpu_t* km_vcpu_fetch(int id)
  */
 static int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 {
-   if (vcpu->is_paused == 1 || vcpu->is_joining == 1) {
+   if (vcpu->is_paused == 1 || vcpu->joining_pid != -1) {
       return 0;
    }
    return 1;
@@ -293,7 +306,7 @@ int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
             "VCPU %d info: paused %d joining %d used %d thread %#lx (tid %#x) guest_thr %#lx",
             vcpu->vcpu_id,
             vcpu->is_paused,
-            vcpu->is_joining,
+            vcpu->joining_pid,
             vcpu->is_used,
             vcpu->vcpu_thread,
             vcpu->tid,

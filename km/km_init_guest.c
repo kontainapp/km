@@ -326,6 +326,29 @@ pid_t gettid(void)
 #error "SYS_gettid is not available"
 #endif
 
+static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict attr)
+{
+   int rc;
+
+   __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
+   vcpu->thr_state = VCPU_RUNNING;
+   if (vcpu->vcpu_thread == 0) {
+      pthread_attr_t vcpu_thr_att;
+
+      pthread_attr_init(&vcpu_thr_att);
+      pthread_attr_setstacksize(&vcpu_thr_att, 16 * PAGE_SIZE);
+      rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))km_vcpu_run, vcpu);
+      pthread_attr_destroy(&vcpu_thr_att);
+   } else {
+      rc = -pthread_cond_signal(&vcpu->thr_cv);
+   }
+   if (rc != 0) {
+      vcpu->thr_state = VCPU_IDLE;
+      __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
+   }
+   return rc;
+}
+
 // Create guest thread. We use vcpu->guest_thr for payload thread id.
 int km_pthread_create(km_vcpu_t* current_vcpu,
                       pthread_t* restrict pid,
@@ -351,21 +374,9 @@ int km_pthread_create(km_vcpu_t* current_vcpu,
       km_vcpu_put(vcpu);
       return -EAGAIN;
    }
-
-   pthread_attr_t vcpu_thr_att;
-
-   pthread_attr_init(&vcpu_thr_att);
-   if (_a_detach(attr) == DT_DETACHED) {
-      pthread_attr_setdetachstate(&vcpu_thr_att, PTHREAD_CREATE_DETACHED);
-   }
-   pthread_attr_setstacksize(&vcpu_thr_att, 16 * PAGE_SIZE);
-   __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
-   rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))km_vcpu_run, vcpu);
-   pthread_attr_destroy(&vcpu_thr_att);
-   if (rc != 0) {
-      __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
+   if (km_run_vcpu_thread(vcpu, attr) < 0) {
       km_vcpu_put(vcpu);
-      return rc;
+      return -EAGAIN;
    }
    if (pid != NULL) {
       *pid = vcpu->vcpu_id;
@@ -373,33 +384,82 @@ int km_pthread_create(km_vcpu_t* current_vcpu,
    return 0;
 }
 
+static int check_join_deadlock(km_vcpu_t* joinee_vcpu, km_vcpu_t* current_vcpu)
+{
+   km_vcpu_t* vcpu;
+
+   if (current_vcpu == joinee_vcpu) {
+      return -EDEADLOCK;
+   }
+   for (vcpu = joinee_vcpu; vcpu->joining_pid != -1; ) {
+      vcpu = machine.vm_vcpus[vcpu->joining_pid];
+      assert(vcpu != NULL && vcpu->is_used != 0);
+      if (vcpu->joining_pid == current_vcpu->vcpu_id) {
+         return -EDEADLOCK;
+      }
+   }
+   return 0;
+}
+
 int km_pthread_join(km_vcpu_t* current_vcpu, pthread_t pid, km_kma_t ret)
 {
    km_vcpu_t* vcpu;
-   int rc;
+   int rc = 0;
 
-   if (pid >= KVM_MAX_VCPUS) {
+   if (pid >= KVM_MAX_VCPUS || (vcpu = machine.vm_vcpus[pid]) == NULL || vcpu->is_used == 0) {
       return -ESRCH;
    }
+   if ((rc = check_join_deadlock(vcpu, current_vcpu)) != 0) {
+      return rc;
+   }
+   km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
+   assert(pt_kma != NULL);
+   if (pt_kma->detach_state == DT_DETACHED || pt_kma->detach_state == DT_DYNAMIC) {
+      return -EINVAL;
+   }
    /*
-    * Mark current thread as "joining someone else". pthread_join is not interruptable, so while in
-    * pthread_join the thread needs to be skipped when asking all vcpus to stop. Note that join will
-    * complete naturally when the thread being joined exits due to signal.
+    * Mark current thread as "joining someone else". pthread_cond_wait() is not interruptable,
+    * so while in pthread_join the thread needs to be skipped when asking all vcpus to stop.
+    * Note that join will complete naturally when the thread being joined exits due to signal.
     */
-   current_vcpu->is_joining = 1;
-   vcpu = machine.vm_vcpus[pid];
+   current_vcpu->joining_pid = pid;
    /*
-    * There are multiple condition such as deadlock or double join that are supposed to be detected,
-    * we simply delegate that to system pthread_join().
-    *
     * Note: there is no special theatment of main thread. 'man pthread_join' says:
-    * "All of the threads in a process are peers: any thread can join with any other thread in the
-    * process."
+    * "All of the threads in a process are peers: any thread can join with any other thread in
+    * the process."
     */
-   if ((rc = -pthread_join(vcpu->vcpu_thread, (void*)ret)) == 0) {
+   if (pthread_mutex_lock(&vcpu->thr_mtx) != 0) {
+      err(1, "join: lock mutex thr_mtx");
+   }
+   switch (vcpu->thr_state) {
+      case VCPU_RUNNING:
+         vcpu->thr_state = VCPU_JOIN_WAITS;
+         while (vcpu->thr_state != VCPU_DONE) {
+            if (pthread_cond_wait(&vcpu->join_cv, &vcpu->thr_mtx) != 0) {
+               err(1, "wait condition join_cv");
+            }
+         }
+         /* fall through */
+      case VCPU_DONE:
+         if (ret != NULL) {
+            *(int*)ret = vcpu->exit_status;
+         }
+         vcpu->thr_state = VCPU_IDLE;
+         break;
+      case VCPU_JOIN_WAITS:
+         rc = -EINVAL;
+         break;
+      case VCPU_IDLE:
+         rc = -ESRCH;
+         break;
+   }
+   if (pthread_mutex_unlock(&vcpu->thr_mtx) != 0) {
+      err(1, "join: unlock mutex thr_mtx");
+   }
+   if (rc == 0) {
       km_vcpu_put(vcpu);
    }
-   current_vcpu->is_joining = 0;
+   current_vcpu->joining_pid = -1;
    return rc;
 }
 
@@ -414,11 +474,42 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
    km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
 
    assert(pt_kma != NULL);
-   if (pt_kma->detach_state == DT_DETACHED) {
+   if (pt_kma->detach_state == DT_DETACHED || pt_kma->detach_state == DT_DYNAMIC) {
+      vcpu->thr_state = VCPU_IDLE;
       km_vcpu_put(vcpu);
    }
+
    // if (--machine.vm_vcpu_run_cnt == 0) {
    if (__atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST) == 0) {
       km_signal_machine_fini();
+   }
+   if (machine.exit_group == 1) {
+      pthread_exit(NULL);
+   }
+   if (pthread_mutex_lock(&vcpu->thr_mtx) != 0) {
+      err(1, "vcpu_stopped: lock mutex thr_mtx");
+   }
+   switch (vcpu->thr_state) {
+      case VCPU_RUNNING:
+         vcpu->thr_state = VCPU_DONE;
+         break;
+
+      case VCPU_JOIN_WAITS:
+         vcpu->thr_state = VCPU_DONE;
+         if (pthread_cond_signal(&vcpu->join_cv) != 0) {
+            err(1, "signal condition join_cv");
+         }
+         break;
+
+      default:
+         break;
+   }
+   while (vcpu->thr_state != VCPU_RUNNING && vcpu->thr_state != VCPU_JOIN_WAITS) {
+      if (pthread_cond_wait(&vcpu->thr_cv, &vcpu->thr_mtx) != 0) {
+         err(1, "wait on condition thr_cv");
+      }
+   }
+   if (pthread_mutex_unlock(&vcpu->thr_mtx) != 0) {
+      err(1, "unlock mutex thr_mtx");
    }
 }

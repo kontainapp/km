@@ -183,6 +183,7 @@ int main(int argc, char* const argv[])
    }
    __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
    vcpu = km_main_vcpu();
+   vcpu->thr_state = VCPU_RUNNING;
    if (pthread_create(&vcpu->vcpu_thread, NULL, km_vcpu_run_main, NULL) != 0) {
       err(2, "Failed to create main run_vcpu thread");
    }
@@ -195,5 +196,5 @@ int main(int argc, char* const argv[])
       km_gdb_disable();
    }
    km_machine_fini();
-   exit(machine.ret);
+   exit(machine.exit_status);
 }
