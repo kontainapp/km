@@ -461,6 +461,50 @@ static km_hc_ret_t pause_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* statu
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t getsockname_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+   arg->hc_ret = __syscall_3(hc, arg->arg1, km_gva_to_kml(arg->arg2), km_gva_to_kml(arg->arg3));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t poll_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int poll(struct pollfd *fds, nfds_t nfds, int timeout);
+   arg->hc_ret = __syscall_3(hc, km_gva_to_kml(arg->arg1), arg->arg2, arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t accept4_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int accept4(int sockfd, struct sockaddr *addr,
+   //             socklen_t *addrlen, int flags);
+   arg->hc_ret =
+       __syscall_4(hc, arg->arg1, km_gva_to_kml(arg->arg2), km_gva_to_kml(arg->arg3), arg->arg4);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t recvfrom_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
+   //                  struct sockaddr *src_addr, socklen_t *addrlen);
+   arg->hc_ret = __syscall_6(hc,
+                             arg->arg1,
+                             km_gva_to_kml(arg->arg2),
+                             arg->arg3,
+                             arg->arg4,
+                             km_gva_to_kml(arg->arg5),
+                             km_gva_to_kml(arg->arg6));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t lstat_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int lstat(const char* pathname, struct stat* statbuf);
+   arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2));
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    arg->hc_ret = 0;
@@ -552,6 +596,11 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_pause] = pause_hcall;
    km_hcalls_table[SYS_sendto] = sendto_hcall;
    km_hcalls_table[SYS_nanosleep] = nanosleep_hcall;
+   km_hcalls_table[SYS_getsockname] = getsockname_hcall;
+   km_hcalls_table[SYS_poll] = poll_hcall;
+   km_hcalls_table[SYS_accept4] = accept4_hcall;
+   km_hcalls_table[SYS_recvfrom] = recvfrom_hcall;
+   km_hcalls_table[SYS_lstat] = lstat_hcall;
 
    km_hcalls_table[SYS_rt_sigaction] = dummy_hcall;
    km_hcalls_table[SYS_rt_sigprocmask] = dummy_hcall;
