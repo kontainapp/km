@@ -17,7 +17,7 @@ if [ ! -d cpython ]; then
     pushd cpython
     ./configure LDFLAGS="-static" --disable-shared
     patch < ../pyconfig.h-patch
-    patch -p1 < ../Setup.local-patch
+    cp ../Setup.local Modules/Setup.local
 else
     pushd cpython
 fi
