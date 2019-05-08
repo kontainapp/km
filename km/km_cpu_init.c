@@ -12,6 +12,7 @@
 
 #define _GNU_SOURCE
 #include <assert.h>
+#include <cpuid.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -474,6 +475,11 @@ void km_machine_init(km_machine_init_params_t* params)
                entry->edx &= ~(1ul << 26);
                machine.pdpe1g = 0;
             }
+            break;
+         case 0x80000002:
+         case 0x80000003:
+         case 0x80000004:
+            __get_cpuid(entry->function, &entry->eax, &entry->ebx, &entry->ecx, &entry->edx);
             break;
          case 0x0:
             km_infox(KM_TRACE_KVM, "Setting VendorId to '%s'", cpu_vendor_id);

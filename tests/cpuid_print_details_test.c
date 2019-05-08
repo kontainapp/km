@@ -17,6 +17,7 @@
 #include <intrin.h>
 typedef unsigned __int32 uint32_t;
 #endif
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -49,7 +50,11 @@ void print_ebchar4(uint32_t a)
 {
    EBChar4 a_c;
    a_c.u32 = a;
-   printf("%c%c%c%c", a_c.c[0], a_c.c[1], a_c.c[2], a_c.c[3]);
+   for (int i = 0; i <= 3; i++) {
+      if (isprint(a_c.c[i])) {
+         putc(a_c.c[i], stdout);
+      }
+   }
 }
 
 int main(void)
