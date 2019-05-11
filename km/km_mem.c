@@ -202,7 +202,7 @@ static void init_pml4(km_kma_t mem)
    memset(mem + RSV_PD2_OFFSET, 0, PAGE_SIZE);   // clear page, no usable entries
 }
 
-void* km_page_malloc(size_t size)
+static void* km_page_malloc(size_t size)
 {
    km_kma_t addr;
 

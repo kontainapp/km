@@ -28,13 +28,8 @@ km_payload_t km_guest;
 
 static void my_pread(int fd, void* buf, size_t count, off_t offset)
 {
-   int i, rc;
-
-   for (i = 0, rc = 0; i < count; i += rc) {
-      // rc == 0 means EOF which to us means error in the format
-      if ((rc = pread(fd, buf + i, count - i, offset + i)) <= 0 && rc != EINTR) {
-         err(2, "error reading elf");
-      }
+   if (mmap(buf, roundup(count, PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) == MAP_FAILED) {
+      err(2, "error mmap elf");
    }
 }
 

@@ -196,7 +196,6 @@ static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 
 void km_mem_init(void);
 void km_page_free(void* addr, size_t size);
-void* km_page_malloc(size_t size);
 void km_guest_mmap_init(void);
 km_gva_t km_mem_brk(km_gva_t brk);
 km_gva_t km_mem_tbrk(km_gva_t tbrk);
