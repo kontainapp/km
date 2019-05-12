@@ -60,7 +60,7 @@ class Handler(BaseHTTPRequestHandler):
              'form':  {key: form.getvalue(key) for key in form},  'received': 'ok'}).encode())
 
 
-def run(server_class=HTTPServer, handler_class=Handler, port=8001):
+def run(server_class=HTTPServer, handler_class=Handler, port=8080):
     httpd = server_class(('', port), handler_class)
     print('Listening on http://localhost:{0}...'.format(port))
     httpd.serve_forever()

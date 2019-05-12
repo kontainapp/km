@@ -5,7 +5,7 @@ metadata:
   labels:
     app: pykm
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: pykm
@@ -19,7 +19,7 @@ spec:
         image: python-km
         imagePullPolicy: Always
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         resources:
            requests:
               devices.kubevirt.io/kvm: "1"
@@ -30,4 +30,4 @@ spec:
               cpu: 2
               memory: "500Mi"
 
-        args: [ "/cpython/python.km", "-u", "/scripts/hello_loop.py"]
+        args: [ "/cpython/python.km", "-u", "../scripts/micro_srv.py"]

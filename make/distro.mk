@@ -21,10 +21,16 @@ ifeq ($(PAYLOAD_IMAGE_SHORT_NAME),)
   $(error "Please define PAYLOAD_IMAGE_SHORT_NAME in your makefile)
 endif
 
-# this is how we will name images locally
-PAYLOAD_IMAGE_FULL_NAME := kontain/$(PAYLOAD_IMAGE_SHORT_NAME):$(IMAGE_VERSION)
+# this is how we will name images locally (we will add :<tag> later)
+PAYLOAD_IMAGE_NAME = kontain/${PAYLOAD_IMAGE_SHORT_NAME}
 # tag used in remote registry. We assume 'docker login' is done outside of the makefiles
-PUBLISH_TAG := $(subst kontain,$(REGISTRY),$(PAYLOAD_IMAGE_FULL_NAME))
+PUBLISH_TAG = $(subst kontain,$(REGISTRY),$(PAYLOAD_IMAGE_NAME))
+
+# shortcuts for using below
+PAYLOAD_BRANCH = ${PAYLOAD_IMAGE_NAME}:${IMAGE_VERSION}
+PAYLOAD_LATEST = ${PAYLOAD_IMAGE_NAME}:latest
+PUBLISH_BRANCH = ${PUBLISH_TAG}:${IMAGE_VERSION}
+PUBLISH_LATEST = ${PUBLISH_TAG}:latest
 
 # Build KM payload container, using KM container as the base image
 TAR_FILE := payload.tar
@@ -41,24 +47,30 @@ distro: all
 		echo -e "${RED}Failed to run Docker - check install and security${NOCOLOR}"; false ; \
 	fi;
 	@tar -cf $(TAR_FILE) $(PAYLOAD_FILES)
-	@echo "Cleaning old image"; docker rmi -f $(PAYLOAD_IMAGE_FULL_NAME) 2>/dev/null
+	@-echo "Cleaning old image"; \
+		docker rmi -f ${PAYLOAD_BRANCH} ${PAYLOAD_LATEST} 2>/dev/null
 	@echo -e "Building new image with generated Dockerfile:\\n $(DOCKERFILE_CONTENT)"
-	@echo -e $(DOCKERFILE_CONTENT) | docker build --force-rm -t $(PAYLOAD_IMAGE_FULL_NAME) -f - .
+	@echo -e $(DOCKERFILE_CONTENT) | docker build --force-rm -t $(PAYLOAD_BRANCH) -f - .
+	docker tag ${PAYLOAD_BRANCH} ${PAYLOAD_LATEST}
 	@rm $(TAR_FILE)
-	@echo -e "Docker image created: $(GREEN)`docker image ls $(PAYLOAD_IMAGE_FULL_NAME) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
+	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls $(PAYLOAD_IMAGE_NAME) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
 distroclean:
-	docker rmi -f ${PAYLOAD_IMAGE_FULL_NAME}
+	-docker rmi -f ${PAYLOAD_BRANCH} ${PAYLOAD_LATEST
 
 publish:
 	@echo Tagging and pushing to Docker registry as ${PUBLISH_TAG}.
 	@echo Do not forget to authenticate to the registry, e.g. "$(REGISTRY_AUTH_EXAMPLE)".
-	docker tag ${PAYLOAD_IMAGE_FULL_NAME} ${PUBLISH_TAG}
-	docker push ${PUBLISH_TAG}
-	docker rmi $(PUBLISH_TAG)
+	docker tag ${PAYLOAD_BRANCH} ${PUBLISH_BRANCH}
+	docker tag ${PAYLOAD_LATEST} ${PUBLISH_LATEST}
+	docker push ${PUBLISH_BRANCH}
+	docker push ${PUBLISH_LATEST}
+	docker rmi ${PUBLISH_BRANCH} ${PUBLISH_LATEST}
 
 publishclean:
 	-${CLOUD_SCRIPTS}/untag_image.sh $(PAYLOAD_IMAGE_SHORT_NAME) $(IMAGE_VERSION)
+	-${CLOUD_SCRIPTS}/untag_image.sh $(PAYLOAD_IMAGE_SHORT_NAME)latest
+
 
 .DEFAULT:
 	@echo $(notdir $(CURDIR)): ignoring target '$@'
@@ -78,7 +90,7 @@ help:  ## Prints help on 'make' targets
 
 
 # Support for simple debug print (make debugvars)
-VARS_TO_PRINT ?= PAYLOAD_IMAGE_FULL_NAME PUBLISH_TAG REGISTRY_NAME REGISTRY REGISTRY_AUTH_EXAMPLE CLOUD
+VARS_TO_PRINT ?= PAYLOAD_IMAGE_NAME IMAGE_VERSION PUBLISH_TAG PUBLISH_BRANCH PUBLISH_LATEST REGISTRY_NAME REGISTRY REGISTRY_AUTH_EXAMPLE CLOUD
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values

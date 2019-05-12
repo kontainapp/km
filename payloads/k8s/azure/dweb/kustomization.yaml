@@ -13,5 +13,5 @@ nameSuffix: -azure-demo
 images:
   - name: "dweb-km"
     newName: kontainkubecr.azurecr.io/dweb-km
-    newTag: msterin-demo1
+    newTag: latest
 

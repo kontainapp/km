@@ -20,10 +20,10 @@ help:
 resources:
 	./create_initial_resources.sh
 
-K8S_KVM_DEVICE_PLUGIN := $(TOP)cloud/k8s/kvm-ds.yml
+K8S_KVM_DEVICE_PLUGIN := ${TOP}cloud/k8s/kvm-ds.yml
 cluster:
 	./create_kube_cluster.sh
-	kubectl apply -f $(K8S_KVM_DEVICE_PLUGIN)
+	kubectl apply -f ${K8S_KVM_DEVICE_PLUGIN}
 
 cleancluster:
 	-./clear_kube_cluster.sh

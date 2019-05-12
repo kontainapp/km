@@ -31,7 +31,7 @@ kmdemo:  all ## Run Simple web server demo as Kontain VM Payload
 dockerdemo: all distro ## Run Simple web server demo as Kontain VM payload in Docker
 	@echo use "http://localhost:${PORT1}" to access the demo running as a Kontain VM packaged in Docker
 	@echo DO NOT FORGET TO run make dockerclean
-	docker run --device /dev/kvm -t --rm -p ${PORT1}:${PORT1} ${PAYLOAD_IMAGE_FULL_NAME} \
+	docker run --device /dev/kvm -t --rm -p ${PORT1}:${PORT1} ${PAYLOAD_IMAGE_NAME} \
 		dweb.km ${PORT1}
 
 dockerclean: ## CLean up results of 'make dockerdemo' if it was killed with ^C

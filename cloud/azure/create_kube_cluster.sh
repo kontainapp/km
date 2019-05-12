@@ -27,6 +27,7 @@ set -x
 acrId=`az acr show --resource-group ${CLOUD_RESOURCE_GROUP} --name ${REGISTRY_NAME} --query "id" --output tsv`
 sp_id=`az ad sp list  --query "[?contains(servicePrincipalNames,'$K8_SERVICE_PRINCIPAL')].{Id: objectId}"  --output tsv`
 appId=`az ad sp show --id ${sp_id}  --query appId --output tsv`
+sleep 5 # give azure time to propagate the data
 az role assignment create --assignee ${appId} --scope ${acrId} --role acrpull --output ${out_type}
 
 az aks create --resource-group ${CLOUD_RESOURCE_GROUP}  --name ${K8S_CLUSTER}  \

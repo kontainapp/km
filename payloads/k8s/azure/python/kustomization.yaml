@@ -10,8 +10,10 @@ nameSuffix: -azure-demo
 
 # TODO: pass registry/tag from Makefiles as 'kustomize edit'. For info
 # see https://kubectl.docs.kubernetes.io/pages/app_management/container_images.html
+
+# for now, just assume it's latest
 images:
   - name: "python-km"
     newName: kontainkubecr.azurecr.io/python-km
-    newTag: msterin-demo1
+    newTag: latest
 

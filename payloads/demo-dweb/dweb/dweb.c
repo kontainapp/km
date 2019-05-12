@@ -87,6 +87,10 @@ int main(int argc, char** argv)
       printf("hint: dweb [port number [path]]\n");
       return 0;
    }
+   if (argc > 1 && !strncmp(argv[1], "-x", 2)) {
+      puts("I am DWEB. Exiting as requested");
+      exit(0);
+   }
    if (argc > 2 && !strncmp(argv[2], "-d", 2)) {
       // don't read from the console or log anything
       dwebserver(atoi(argv[1]), &send_response, NULL);
@@ -143,7 +147,8 @@ void send_api_response(struct hitArgs* args, char* path, char* request_body)
    }
 }
 
-extern char* get_cpuid(void);
+extern char* get_cpu_vendorid(void);
+extern char* get_cpu_proc(void);
 
 void send_file_response(struct hitArgs* args, char* path, char* request_body, int path_length)
 {
@@ -167,8 +172,12 @@ void send_file_response(struct hitArgs* args, char* path, char* request_body, in
          string_add(response, "</b></br>");
       }
       string_add(response, "<h2>BTW, your CPU Vendor Id is <span class=\"btn btn-success\" !>");
-      string_add(response, get_cpuid());
+      string_add(response, get_cpu_vendorid());
       string_add(response, "</span></ h2> <br /> ");
+
+      string_add(response, "<h3>Processor: <bold>");
+      string_add(response, get_cpu_proc());
+      string_add(response, "</bold></ h2> <br /> ");
 
       string_add(response, "</body></html>");
       ok_200(args, "\nContent-Type: text/html", string_chars(response), path);
