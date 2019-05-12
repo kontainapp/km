@@ -18,9 +18,6 @@ INCLUDES := ${TOP}include
 LLIBS := elf z
 COVERAGE := yes
 
-# default target - build all KM stuff needed for 'make test'
-default: all
-
 include ${TOP}make/actions.mk
 
 #
