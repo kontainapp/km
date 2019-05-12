@@ -66,10 +66,17 @@ else # not SUBDIRS, i.e. EXEC or LIB
 
 ifneq (${EXEC},)
 
-override CFLAGS += -DSRC_BRANCH='"${SRC_BRANCH}"' -DSRC_VERSION='"${SRC_VERSION}"' -DBUILD_TIME='"${BUILD_TIME}"'
 all: ${BLDEXEC}
 ${BLDEXEC}: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
+
+# if VERSION_SRC Is defined, these sources need to be rebuilt each time git info changes
+ifneq (${VERSION_SRC},)
+${VERSION_SRC}: ${TOP}.git/HEAD ${TOP}.git/index
+	touch $@
+
+${BLDDIR}$(subst .c,.o,${VERSION_SRC}): CFLAGS += -DSRC_BRANCH='"${SRC_BRANCH}"' -DSRC_VERSION='"${SRC_VERSION}"' -DBUILD_TIME='"${BUILD_TIME}"'
+endif
 
 endif
 
