@@ -4,8 +4,8 @@ This demo target to illustrate the key Kontain.app claims:
 
 1. VM-level payloads isolation with start time and storage footprint much smaller than (inferior) Docker-based isolation
 1. No source code changes for apps to run directly in Kontain VM (no guest OS)
-1. No changes to operations - interoperability with Docker & Kubernetes. Run Kontain payload (microservice) in Kubernetes [ Question: should we do it instead for python microservice]
-1. Supporting complex apps -  Python3 in KM. full Python interpreter with modules in Kontain VM, no OS)
+1. No changes to operations - interoperability with Docker & Kubernetes. Run Kontain payload (microservice) in Kubernetes
+1. Supporting complex apps -  Python3 in KM. full Python interpreter with modules in Kontain VM, no OS.
 1. Suitability for microservice - simple Python-based microservice in Kontain VM, as Kubernetes service
 
 This document describes the *default* path to take during the demo.
@@ -18,10 +18,12 @@ This document describes the *default* path to take during the demo.
 * [kubectl (1.14+)](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux) and Azure [az CLI (latest)](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-yum?view=azure-cli-latest) should be installed for Kubernetes/Azure part of the demo
 * for meltdown demo, the hardware has to be intel supporting TSX instructions, and  meltdown mitigation should be turned off (`pti=off` on boot line)
 * `jq` installed for demo formatting
-* Azure publish and Kubernetes deploy require interactive login to Azure
-  * `az login`
-  * `az acr login -n kontainkubecr`
-  * `az aks get-credentials --resource-group kontainKubeRG --name kontainKubeCluster --overwrite-existing`
+* Azure publish and Kubernetes deploy require interactive login to Azure:
+```bash
+az login
+az acr login -n kontainkubecr
+az aks get-credentials --resource-group kontainKubeRG --name kontainKubeCluster --overwrite-existing
+```
 
 ## VM level isolation and start time; build from the same (unmodified) source
 
@@ -38,8 +40,9 @@ Steps:
 # Set shell var to make life easier
 repo=~/workspace/covm/; km=$repo/build/km/km
 
-# Build simple web server - 'dweb' pp
+# Build simple web server - 'dweb'
 cd $repo/payloads/demo-dweb/dweb/; make clean
+# open /show dweb.c (optonal: edit/change it). Then build:
 make
 
 # Note: 2 artifacts produced from the same .c and .o files
@@ -57,8 +60,6 @@ $km ./dweb.km 8080
 time docker run --rm  dweb  /tmp/dweb -x
 time $km dweb.km -x
 
-# optonal: change dweb.c / rebuild / demo
-make; $km ./dweb.km 8080
 ```
 
 ## Support complex workloads and microservices - Python3-based service
@@ -76,15 +77,14 @@ repo=~/workspace/covm/; km=$repo/build/km/km
 cd $repo/payloads/python; ./link-km.sh
 
 # Run a simple microservice - python http server with Restful API
-
-# in terminal 1:
+# - Open /show ../scripts/micro_srv.py. (optional: edit/change it)
+# - Run in terminal 1:
 cd cpython; $km ./python.km ../scripts/micro_srv.py
 
-# in terminal 2
+# In terminal 2
 curl -s localhost:8080 | jq .  # shows os.uname()
 curl -s -d "type=demo&subject=Kontain"  localhost:8080 | jq . # shows simple APi call
 
-# optional:  show/edit/rerun.  The script is ../scripts/micro_srv.py
 ```
 
 ## Operations
