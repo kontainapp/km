@@ -19,7 +19,7 @@ This document describes the *default* path to take during the demo.
   * For `docker-CE`, see [Docker installation info](https://docs.docker.com/install/linux/docker-ce/fedora/). As of the moment of this writing, they did not support Fedora30 so --releasever=29 needs to be passed to dnf
    * For `moby-engine`, just `dnf install` it.
 * `make distro` should pass so km base container is available
-* If docker image size comparison is needed, it's a good idea to pre-pull Ubuntu based and Alpine based Python images: `docker pull python; docker pull jfloff/alpine-python`
+* If docker image size comparison is needed, it's a good idea to pre-pull default Python images: `docker pull python`
 * [kubectl (1.14+)](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux) and Azure [az CLI (latest)](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-yum?view=azure-cli-latest) should be installed for Kubernetes/Azure part of the demo
 * for meltdown demo, the hardware has to be Intel CPU supporting TSX instructions, and  meltdown mitigation should be turned off (`pti=off` on boot line)
 * `jq` installed for pretty output formatting.
@@ -61,9 +61,16 @@ $km ./dweb.km 8080
 # Build Docker container with dweb
 (cd ..; docker build -t dweb .)
 
-# Show start time
+# Show start time ('-x' to exit from server right awayzoom)
 time docker run --rm  dweb  /tmp/dweb -x
 time $km dweb.km -x
+
+
+# (optional, and pre-pulling python is recommended)
+# While we are here, let's compare container sizes for another payload, Python:
+make -C $repo/payloads/python distro
+docker pull python
+docker images | grep python| grep latest
 
 ```
 
@@ -105,11 +112,6 @@ repo=~/workspace/covm/; km=$repo/build/km/km
 
 # Note: detailed guidance is in $repo/cloud/README.md
 make -C $repo distro
-
-# (optional, and pre-pulling python is recommended) Here are container sizes compared:
-docker pull python
-docker pull jfloff/alpine-python
-docker images | grep python| grep latest
 
 # now push to docker registry and deploy the app
 make -C $repo/payloads/demo-dweb publish
