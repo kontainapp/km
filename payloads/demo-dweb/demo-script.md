@@ -14,11 +14,16 @@ This document describes the *default* path to take during the demo.
 
 * The demo hardware is expected to have KM repo checked out in `~/workspace/covm` (change `repo=...` in the text below if the location is different()
 * KM build is successful
-* `make distro` should also pass so km base container is available
+* Docker v18.x should be installed for `make distro` and `make publish` to work. You can use docker-ce or moby-engine, they both install docker v18.x.
+  * If docker is already installed, check version with `docker version -f 'Client: {{.Client.Version}}'`
+  * For `docker-CE`, see [Docker installation info](https://docs.docker.com/install/linux/docker-ce/fedora/). As of the moment of this writing, they did not support Fedora30 so --releasever=29 needs to be passed to dnf
+   * For `moby-engine`, just `dnf install` it.
+* `make distro` should pass so km base container is available
+* If docker image size comparison is needed, it's a good idea to pre-pull Ubuntu based and Alpine based Python images: `docker pull python; docker pull jfloff/alpine-python`
 * [kubectl (1.14+)](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux) and Azure [az CLI (latest)](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-yum?view=azure-cli-latest) should be installed for Kubernetes/Azure part of the demo
-* for meltdown demo, the hardware has to be intel supporting TSX instructions, and  meltdown mitigation should be turned off (`pti=off` on boot line)
-* `jq` installed for demo formatting
-* Azure publish and Kubernetes deploy require interactive login to Azure:
+* for meltdown demo, the hardware has to be Intel CPU supporting TSX instructions, and  meltdown mitigation should be turned off (`pti=off` on boot line)
+* `jq` installed for pretty output formatting.
+* Azure publish and Kubernetes deploy require interactive login:
 ```bash
 az login
 az acr login -n kontainkubecr
@@ -100,26 +105,31 @@ repo=~/workspace/covm/; km=$repo/build/km/km
 
 # Note: detailed guidance is in $repo/cloud/README.md
 make -C $repo distro
-make -C $repo publish
 
-kubectl apply -k $repo/payloads/k8s/azure/python
-kubectl get pod
-kubectl port-forward <pod-id> 8080:8080
+# (optional, and pre-pulling python is recommended) Here are container sizes compared:
+docker pull python
+docker pull jfloff/alpine-python
+docker images | grep python| grep latest
 
-# in terminal 2, same commands
-curl -s localhost:8080 | jq .  # shows os.uname()
-curl -s -d "type=demo&subject=Kontain"  localhost:8080 | jq . # shows simple APi call
-
-# cleanup and deploy dweb
-kubectl delete deploy kontain-pykm-deployment-azure-demo
+# now push to docker registry and deploy the app
+make -C $repo/payloads/demo-dweb publish
 kubectl apply -k $repo/payloads/k8s/azure/dweb
-kubectl get pod
-kubectl port-forward <pod-id> 8080:8080
-
-# browser to localhost:8080, show test
-
+kubectl get pod --selector=app=dweb  # make sure it shows as Running
+kubectl port-forward `kubectl get pod --selector=app=dweb -o jsonpath='{.items[0].metadata.name}'` 8080:8080
+# Manual: browser to localhost:8080, show test
 # clean up
 kubectl delete deploy kontain-dweb-deployment-azure-demo
+
+# Optional: same demo for python microservice
+make -C $repo/payloads/python publish
+kubectl apply -k $repo/payloads/k8s/azure/python
+kubectl get pod --selector=app=pykm  # make sure it shows as Running
+kubectl port-forward `kubectl get pod --selector=app=pykm -o jsonpath='{.items[0].metadata.name}'` 8080:8080
+# in terminal 2
+curl -s localhost:8080 | jq .  # shows os.uname()
+curl -s -d "type=demo&subject=Kontain"  localhost:8080 | jq . # shows simple APi call
+# clean up
+kubectl delete deploy kontain-pykm-deployment-azure-demo
 ```
 
 ## (optional) Local docker with our payloads
@@ -156,5 +166,5 @@ cd $repo/payloads/meltdown
 ./run.sh
 
 # same in KM
-$km physical_reader.km <kernel_address> <loc_from_secret_app>
+$km physical_reader.km <phys_addr_from_secret_app> <direct_physical_map_from_kaslr>
 ```
