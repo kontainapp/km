@@ -32,8 +32,10 @@ _Noreturn void __start_c__(long is_main_argc, char** argv)
 _Noreturn void __km_handle_interrupt(void)
 {
    km_hc_args_t args;
-   km_hcall(HC_guest_interrupt, &args);
-   // Should not return
+   while (1) {
+      // Should not return
+      km_hcall(HC_guest_interrupt, &args);
+   }
 }
 typedef void (*interrupt_handler_t)(void);
 interrupt_handler_t __km_interrupt_handler = __km_handle_interrupt;
