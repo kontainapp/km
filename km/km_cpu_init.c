@@ -29,9 +29,8 @@
 #include "km_mem.h"
 #include "x86_cpu.h"
 
-static const char cpu_vendor_id[] = "Kontain.app";
-_Static_assert(sizeof(cpu_vendor_id) == 3 * sizeof(u_int32_t),
-               "VendorId - wrong length");   // 12 char including \0 to fit in 3 x 32bit regs
+// Set CPUID VendorId to this. 12 chars max (sans \0) to fit in 3 register: ebx,ecx,edx
+static const char cpu_vendor_id[3 * sizeof(u_int32_t) + 1] = "Kontain";
 
 km_machine_t machine = {
     .kvm_fd = -1,

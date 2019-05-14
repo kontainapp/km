@@ -162,8 +162,22 @@ void send_file_response(struct hitArgs* args, char* path, char* request_body, in
       string_add(response, "<html><head><title>Response Page</title></head>");
       string_add(response, "<link rel = \"stylesheet\" href = \"css/bootstrap.min.css\">");
       string_add(response, "<link rel = \"stylesheet\" href = \"css/bootstrap-theme.min.css\">");
-      string_add(response, "<body><h1>Thanks...</h1>You sent these values:<br/>");
+      string_add(response,
+                 "<link rel=\"stylesheet\" "
+                 "href=\"https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/"
+                 "bootstrap.min.css\" "
+                 "integrity=\"sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/"
+                 "iJTQUOhcWr7x9JvoRxT2MZw1T\" crossorigin=\"anonymous\">");
+      string_add(response, "<body>");
 
+      string_add(response, "<h1>CPU Vendor Id is: <span class=\"badge badge-success\">");
+      string_add(response, get_cpu_vendorid());
+      string_add(response, "</span></h1> <br /> ");
+
+      string_add(response, "<h2>Processor: <span class=\"badge badge-info\">");
+      string_add(response, get_cpu_proc());
+      string_add(response, "</span></h2> <br /> ");
+      string_add(response, "<h3>You sent these values:</h3>");
       int v;
       for (v = 0; v < args->form_value_counter; v++) {
          string_add(response, form_name(args, v));
@@ -171,14 +185,6 @@ void send_file_response(struct hitArgs* args, char* path, char* request_body, in
          string_add(response, form_value(args, v));
          string_add(response, "</b></br>");
       }
-      string_add(response, "<h2>BTW, your CPU Vendor Id is <span class=\"btn btn-success\" !>");
-      string_add(response, get_cpu_vendorid());
-      string_add(response, "</span></ h2> <br /> ");
-
-      string_add(response, "<h3>Processor: <bold>");
-      string_add(response, get_cpu_proc());
-      string_add(response, "</bold></ h2> <br /> ");
-
       string_add(response, "</body></html>");
       ok_200(args, "\nContent-Type: text/html", string_chars(response), path);
       string_free(response);
