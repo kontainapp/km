@@ -216,7 +216,7 @@ teardown() {
 @test "cpuid: test cpu vendor id (cpuid_test)" {
    run $KM cpuid_test.km
    [ "$status" -eq 0 ]
-   echo -e "$output" | fgrep -q 'Kontain.app'
+   echo -e "$output" | fgrep -q 'Kontain'
 }
 
 @test "longjmp_test: basic setjmp/longjump" {
