@@ -42,11 +42,12 @@ Steps:
 
 ```bash
 #!/bin/bash
-# Set shell var to make life easier
-repo=~/workspace/covm/; km=$repo/build/km/km
+# The rest of the script assumes that KM repo is available at ~/workspace/km/
+# and KM binary at ~/workspace/km/build/km/km
+# we don't use sh vars there so demo-time cut-n-paste from the text below does not depend on it
 
 # Build simple web server - 'dweb'
-cd $repo/payloads/demo-dweb/dweb/; make clean
+cd ~/workspace/km/payloads/demo-dweb/dweb/; make clean
 # open /show dweb.c (optonal: edit/change it). Then build:
 make
 
@@ -56,21 +57,14 @@ make
 file dweb dweb.km
 
 # Run dweb.km as Kontain VM payload, and demo it (test->CPUID)
-$km ./dweb.km 8080
+~/workspace/km/build/km/km ./dweb.km 8080
 
 # Build Docker container with dweb
 (cd ..; docker build -t dweb .)
 
 # Show start time ('-x' to exit from server right awayzoom)
 time docker run --rm  dweb  /tmp/dweb -x
-time $km dweb.km -x
-
-
-# (optional, and pre-pulling python is recommended)
-# While we are here, let's compare container sizes for another payload, Python:
-make -C $repo/payloads/python distro
-docker pull python
-docker images | grep python| grep latest
+time ~/workspace/km/build/km/km dweb.km -x
 
 ```
 
@@ -83,19 +77,28 @@ Goal:
 
 ```bash
 #!/bin/bash
-repo=~/workspace/covm/; km=$repo/build/km/km
 
 # Build from the same code/object files:
-cd $repo/payloads/python; ./link-km.sh
+cd ~/workspace/km/payloads/python; ./link-km.sh
+
+# Show how python sees it's environment, in Linux and in km
+cd cpython; ./python -c 'import os; print(os.uname())'
+~/workspace/km/build/km/km ./python.km -c 'import os; print(os.uname())'
 
 # Run a simple microservice - python http server with Restful API
 # - Open /show ../scripts/micro_srv.py. (optional: edit/change it)
 # - Run in terminal 1:
-cd cpython; $km ./python.km ../scripts/micro_srv.py
+~/workspace/km/build/km/km ./python.km ../scripts/micro_srv.py
 
 # In terminal 2
 curl -s localhost:8080 | jq .  # shows os.uname()
 curl -s -d "type=demo&subject=Kontain"  localhost:8080 | jq . # shows simple APi call
+
+# Artifact size - compared off the shelf Python container with km-based one
+# While we are here, let's compare container sizes for another payload, Python:
+make -C ~/workspace/km/payloads/python distro
+docker pull python
+docker images | grep python| grep latest
 
 ```
 
@@ -108,14 +111,16 @@ Goals:
 
 ```bash
 #!/bin/bash
-repo=~/workspace/covm/; km=$repo/build/km/km
+# The rest of the script assumes that KM repo is available at ~/workspace/km/
+# and KM binary at ~/workspace/km/build/km/km
+# we don't use sh vars there so demo-time cut-n-paste from the text below does not depend on it
 
-# Note: detailed guidance is in $repo/cloud/README.md
-make -C $repo distro
+# Note: detailed guidance is in ~/workspace/km/cloud/README.md
+make -C ~/workspace/km distro
 
 # now push to docker registry and deploy the app
-make -C $repo/payloads/demo-dweb publish
-kubectl apply -k $repo/payloads/k8s/azure/dweb
+make -C ~/workspace/km/payloads/demo-dweb publish
+kubectl apply -k ~/workspace/km/payloads/k8s/azure/dweb
 kubectl get pod --selector=app=dweb  # make sure it shows as Running
 kubectl port-forward `kubectl get pod --selector=app=dweb -o jsonpath='{.items[0].metadata.name}'` 8080:8080
 # Manual: browser to localhost:8080, show test
@@ -123,8 +128,8 @@ kubectl port-forward `kubectl get pod --selector=app=dweb -o jsonpath='{.items[0
 kubectl delete deploy kontain-dweb-deployment-azure-demo
 
 # Optional: same demo for python microservice
-make -C $repo/payloads/python publish
-kubectl apply -k $repo/payloads/k8s/azure/python
+make -C ~/workspace/km/payloads/python publish
+kubectl apply -k ~/workspace/km/payloads/k8s/azure/python
 kubectl get pod --selector=app=pykm  # make sure it shows as Running
 kubectl port-forward `kubectl get pod --selector=app=pykm -o jsonpath='{.items[0].metadata.name}'` 8080:8080
 # in terminal 2
@@ -156,9 +161,8 @@ Pre requisite:
 
 ```bash
 #!/bin/bash
-repo=~/workspace/covm/; km=$repo/build/km/km
 
-cd $repo/payloads/meltdown
+cd ~/workspace/km/payloads/meltdown
 
 # get kernel address (optional)
 (cd kaslr_offset/; sudo ./direct_physical_map.sh)
@@ -168,5 +172,5 @@ cd $repo/payloads/meltdown
 ./run.sh
 
 # same in KM
-$km physical_reader.km <phys_addr_from_secret_app> <direct_physical_map_from_kaslr>
+~/workspace/km/build/km/km physical_reader.km <phys_addr_from_secret_app> <direct_physical_map_from_kaslr>
 ```
