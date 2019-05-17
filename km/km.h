@@ -69,6 +69,10 @@ typedef struct km_vcpu {
    int is_paused;               // 1 means the vcpu is waiting for gdb to allow it to continue
    int joining_pid;             // pid if currently joining another thread pid, -1 if not
    int exit_status;             // exit status for this thread
+   int regs_valid;              // Are registers valid?
+   kvm_regs_t regs;             // Cached register values.
+   int sregs_valid;             // Are segment registers valid?
+   kvm_sregs_t sregs;           // Cached segment register values.
 } km_vcpu_t;
 
 // simple enum to help in forcing 'enable/disable' flags
@@ -90,6 +94,10 @@ void km_machine_fini(void);
 void* km_vcpu_run_main(void* unused);
 void* km_vcpu_run(km_vcpu_t* vcpu);
 void km_dump_vcpu(km_vcpu_t* vcpu);
+void km_read_registers(km_vcpu_t* vcpu);
+void km_write_registers(km_vcpu_t* vcpu);
+void km_read_sregisters(km_vcpu_t* vcpu);
+void km_write_sregisters(km_vcpu_t* vcpu);
 
 void km_hcalls_init(void);
 void km_hcalls_fini(void);
@@ -230,5 +238,6 @@ extern km_info_trace_t km_info_trace;
 #define KM_TRACE_VCPU "vcpu"
 #define KM_TRACE_KVM "kvm"
 #define KM_TRACE_MEM "mem"
+#define KM_TRACE_COREDUMP "coredump"
 
 #endif /* #ifndef __KM_H__ */

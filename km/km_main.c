@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "km.h"
+#include "km_coredump.h"
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
@@ -83,6 +84,7 @@ static struct option long_options[] = {
     {"dump-shutdown", no_argument, 0, 'D'},
     {"enable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_ENABLE},
     {"disable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_DISABLE},
+    {"coredump", required_argument, 0, 'C'},
     {"membus-width", required_argument, 0, 'P'},
     {"gdb-server-port", optional_argument, 0, 'g'},
     {"verbose", optional_argument, 0, 'V'},
@@ -102,7 +104,7 @@ int main(int argc, char* const argv[])
    int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int longopt_index;
 
-   while ((opt = getopt_long(argc, argv, "+g::V::P:v", long_options, &longopt_index)) != -1) {
+   while ((opt = getopt_long(argc, argv, "+g::V::P:vC:", long_options, &longopt_index)) != -1) {
       switch (opt) {
          case 0:
             /* If this option set a flag, do nothing else now. */
@@ -119,6 +121,9 @@ int main(int argc, char* const argv[])
                usage();
             }
             km_gdb_port_set(port);
+            break;
+         case 'C':
+            km_set_coredump_path(optarg);
             break;
          case 'D':
             vcpu_dump = 1;

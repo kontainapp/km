@@ -353,6 +353,58 @@ void km_dump_vcpu(km_vcpu_t* vcpu)
 }
 
 /*
+ * populate vcpu->regs with register values
+ */
+void km_read_registers(km_vcpu_t* vcpu)
+{
+   if (vcpu->regs_valid) {
+      return;
+   }
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &vcpu->regs) < 0) {
+      warn("%s - KVM_GET_REGS failed", __FUNCTION__);
+      return;
+   }
+   vcpu->regs_valid = 1;
+}
+
+void km_write_registers(km_vcpu_t* vcpu)
+{
+   if (!vcpu->regs_valid) {
+      errx(2, "%s - registers not valid", __FUNCTION__);
+   }
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &vcpu->regs) < 0) {
+      warn("%s - KVM_SET_REGS failed", __FUNCTION__);
+      return;
+   }
+}
+
+/*
+ * populate vcpu->sregs with segment register values
+ */
+void km_read_sregisters(km_vcpu_t* vcpu)
+{
+   if (vcpu->sregs_valid) {
+      return;
+   }
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &vcpu->sregs) < 0) {
+      warn("%s - KVM_GET_SREGS failed", __FUNCTION__);
+      return;
+   }
+   vcpu->sregs_valid = 1;
+}
+
+void km_write_sregsiters(km_vcpu_t* vcpu)
+{
+   if (!vcpu->sregs_valid) {
+      errx(2, "%s - sregisters not valid", __FUNCTION__);
+   }
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_SREGS, &vcpu->sregs) < 0) {
+      warn("%s - KVM_SET_SREGS failed", __FUNCTION__);
+      return;
+   }
+}
+
+/*
  * return non-zero and set status if guest halted
  */
 static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
@@ -522,6 +574,10 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
    while (1) {
       int reason;
+
+      // Invalidate cached registers
+      vcpu->regs_valid = 0;
+      vcpu->sregs_valid = 0;
 
       if (km_vcpu_one_kvm_run(vcpu) < 0) {
          continue;

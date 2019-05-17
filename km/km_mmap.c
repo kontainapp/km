@@ -13,14 +13,18 @@
  */
 #include <err.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 #include <sys/mman.h>
 
 #include "bsd_queue.h"
 #include "km.h"
+#include "km_coredump.h"
 #include "km_mem.h"
 
 TAILQ_HEAD(km_mmap_list, km_mmap_reg);
@@ -306,4 +310,82 @@ km_gva_t
 km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... /* void *new_address */)
 {
    return -ENOTSUP;
+}
+
+/*
+ * Need access to mmaps to drop core, so this is here for now.
+ */
+void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
+{
+   char* core_path = km_get_coredump_path();
+   int fd;
+   int phnum = 1;   // 1 for PT_NOTE
+   size_t offset;   // Data offset
+   km_mmap_reg_t* ptr;
+   char* notes_buffer;
+   size_t notes_length = KM_PAGE_SIZE;
+   size_t notes_used = 0;
+
+   if ((fd = open(core_path, O_RDWR | O_CREAT, 0666)) < 0) {
+      errx(2, "Cannot open corefile '%s' - %s\n", core_path, strerror(errno));
+   }
+   warnx("Write coredump to '%s'\n", core_path);
+
+   if ((notes_buffer = (char*)malloc(notes_length)) == NULL) {
+      errx(2, "%s - cannot allocate notes buffer", __FUNCTION__);
+   }
+   memset(notes_buffer, 0, KM_PAGE_SIZE);
+
+   // Count up phdrs for mmaps and set offset where data will start.
+   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
+      if (km_guest.km_phdr[i].p_type != PT_LOAD) {
+         continue;
+      }
+      phnum++;
+   }
+   TAILQ_FOREACH (ptr, &mmaps.busy, link) {
+      phnum++;
+   }
+   offset = sizeof(Elf64_Ehdr) + phnum * sizeof(Elf64_Phdr);
+
+   // write elf header
+   km_core_write_elf_header(fd, phnum);
+   // Create PT_NOTE in memory and write the header
+   notes_used = km_core_write_notes(vcpu, fd, offset, notes_buffer, KM_PAGE_SIZE);
+   offset += notes_used;
+   // Write headers for segments from ELF
+   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
+      if (km_guest.km_phdr[i].p_type != PT_LOAD) {
+         continue;
+      }
+      km_core_write_load_header(fd,
+                                offset,
+                                km_guest.km_phdr[i].p_vaddr,
+                                km_guest.km_phdr[i].p_memsz,
+                                km_guest.km_phdr[i].p_flags);
+      offset += km_guest.km_phdr[i].p_memsz;
+   }
+   // Headers for MMAPs
+   TAILQ_FOREACH (ptr, &mmaps.busy, link) {
+      // translate mmap prot to elf access flags.
+      static uint8_t mmap_to_elf_flags[8] = {0, 4, 2, 6, 1, 5, 3, 7};
+
+      km_core_write_load_header(fd, offset, ptr->start, ptr->size, mmap_to_elf_flags[ptr->protection & 0x7]);
+      offset += ptr->size;
+   }
+
+   // Write the actual data.
+   km_core_write(fd, notes_buffer, notes_length);
+   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
+      if (km_guest.km_phdr[i].p_type != PT_LOAD) {
+         continue;
+      }
+      km_core_write(fd, km_gva_to_kma(km_guest.km_phdr[i].p_vaddr), km_guest.km_phdr[i].p_memsz);
+   }
+   TAILQ_FOREACH (ptr, &mmaps.busy, link) {
+      km_core_write(fd, km_gva_to_kma(ptr->start), ptr->size);
+   }
+
+   free(notes_buffer);
+   (void)close(fd);
 }

@@ -14,6 +14,8 @@
 #ifndef __KM_ELF_H__
 #define __KM_ELF_H__
 
+#include "km.h"
+
 #include <gelf.h>
 #include <stdint.h>
 

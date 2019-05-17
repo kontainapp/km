@@ -181,11 +181,11 @@ static void init_pml4(km_kma_t mem)
    assert(GUEST_VA_OFFSET % PDPTE_REGION == 0);
 
    pml4e = mem + RSV_PML4_OFFSET;
-   memset(pml4e, 0, PAGE_SIZE);
+   memset(pml4e, 0, KM_PAGE_SIZE);
    pml4e_set(pml4e, RSV_GUEST_PA(RSV_PDPT_OFFSET));   // entry #0
 
    pdpe = mem + RSV_PDPT_OFFSET;
-   memset(pdpe, 0, PAGE_SIZE);
+   memset(pdpe, 0, KM_PAGE_SIZE);
    pdpte_set(pdpe, RSV_GUEST_PA(RSV_PD_OFFSET));   // first entry for the first GB
 
    // Since in our mem layout the two mem regions are always more
@@ -193,20 +193,20 @@ static void init_pml4(km_kma_t mem)
    idx = (GUEST_MEM_TOP_VA - 1) / PML4E_REGION;
    pml4e_set(pml4e + idx, RSV_GUEST_PA(RSV_PDPT2_OFFSET));
    pdpe = mem + RSV_PDPT2_OFFSET;
-   memset(pdpe, 0, PAGE_SIZE);
+   memset(pdpe, 0, KM_PAGE_SIZE);
 
    idx = PDE_SLOT(GUEST_MEM_TOP_VA);
    pdpte_set(pdpe + idx, RSV_GUEST_PA(RSV_PD2_OFFSET));
 
-   memset(mem + RSV_PD_OFFSET, 0, PAGE_SIZE);    // clear page, no usable entries
-   memset(mem + RSV_PD2_OFFSET, 0, PAGE_SIZE);   // clear page, no usable entries
+   memset(mem + RSV_PD_OFFSET, 0, KM_PAGE_SIZE);    // clear page, no usable entries
+   memset(mem + RSV_PD2_OFFSET, 0, KM_PAGE_SIZE);   // clear page, no usable entries
 }
 
 static void* km_page_malloc(size_t size)
 {
    km_kma_t addr;
 
-   if ((size & (PAGE_SIZE - 1)) != 0) {
+   if ((size & (KM_PAGE_SIZE - 1)) != 0) {
       errno = EINVAL;
       return NULL;
    }
@@ -277,15 +277,15 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
    int new_1g_slot = PDPTE_SLOT(new_brk);
 
    if (new_brk > old_brk) {
-      km_info(KM_TRACE_MEM,
-              "%s grow  old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
-              __FUNCTION__,
-              old_brk,
-              old_2m_slot,
-              old_1g_slot,
-              new_brk,
-              new_2m_slot,
-              new_1g_slot);
+      km_infox(KM_TRACE_MEM,
+               "%s grow  old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+               __FUNCTION__,
+               old_brk,
+               old_2m_slot,
+               old_1g_slot,
+               new_brk,
+               new_2m_slot,
+               new_1g_slot);
       if (old_1g_slot == 0) {
          int limit = (new_1g_slot == 0) ? new_2m_slot : MAX_PDE_SLOT;
          for (int i = old_2m_slot; i <= limit; i++) {
@@ -299,15 +299,15 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
          }
       }
    } else {
-      km_info(KM_TRACE_MEM,
-              "%s shrink old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
-              __FUNCTION__,
-              old_brk,
-              old_2m_slot,
-              old_1g_slot,
-              new_brk,
-              new_2m_slot,
-              new_1g_slot);
+      km_infox(KM_TRACE_MEM,
+               "%s shrink old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+               __FUNCTION__,
+               old_brk,
+               old_2m_slot,
+               old_1g_slot,
+               new_brk,
+               new_2m_slot,
+               new_1g_slot);
       if (old_1g_slot > 0) {
          int start = (new_1g_slot == 0) ? 1 : new_1g_slot;
          for (int i = start; i < old_1g_slot; i++) {
@@ -333,15 +333,15 @@ static inline void fixup_top_page_tables(km_gva_t old_brk, km_gva_t new_brk)
    int new_1g_slot = PDPTE_SLOT(new_brk);
 
    if (new_brk < old_brk) {
-      km_info(KM_TRACE_MEM,
-              "%s grow old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
-              __FUNCTION__,
-              old_brk,
-              old_2m_slot,
-              old_1g_slot,
-              new_brk,
-              new_2m_slot,
-              new_1g_slot);
+      km_infox(KM_TRACE_MEM,
+               "%s grow old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+               __FUNCTION__,
+               old_brk,
+               old_2m_slot,
+               old_1g_slot,
+               new_brk,
+               new_2m_slot,
+               new_1g_slot);
       if (old_1g_slot == MAX_PDPTE_SLOT) {
          int start = (new_1g_slot == MAX_PDPTE_SLOT) ? new_2m_slot : 0;
          for (int i = start; i <= old_2m_slot; i++) {
@@ -354,15 +354,15 @@ static inline void fixup_top_page_tables(km_gva_t old_brk, km_gva_t new_brk)
          }
       }
    } else {
-      km_info(KM_TRACE_MEM,
-              "%s shrink old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
-              __FUNCTION__,
-              old_brk,
-              old_2m_slot,
-              old_1g_slot,
-              new_brk,
-              new_2m_slot,
-              new_1g_slot);
+      km_infox(KM_TRACE_MEM,
+               "%s shrink old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+               __FUNCTION__,
+               old_brk,
+               old_2m_slot,
+               old_1g_slot,
+               new_brk,
+               new_2m_slot,
+               new_1g_slot);
       if (old_1g_slot < MAX_PDPTE_SLOT) {
          for (int i = old_1g_slot; i < new_1g_slot; i++) {
             pdpe[i].p = 0;

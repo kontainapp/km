@@ -18,6 +18,8 @@
 #include <sys/ioctl.h>
 
 #include "km.h"
+#include "km_coredump.h"
+#include "km_elf.h"
 #include "km_mem.h"
 #include "x86_cpu.h"
 
@@ -91,8 +93,6 @@ static uint8_t error_included[32] = {
 
 void km_handle_interrupt(km_vcpu_t* vcpu)
 {
-   kvm_regs_t regs;
-   kvm_regs_t sregs;
    kvm_vcpu_events_t events;
    uint8_t enumber;
 
@@ -108,20 +108,15 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
       errx(1, "Unexpected Interrupt - %d", enumber);
    }
 
-   // Get registers and get references to interrupt stack frame.
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &regs) < 0) {
-      errx(1, "KVM_GET_REGS failed %d (%s)\n", errno, strerror(errno));
-   }
-   uint64_t* rsp_kma = km_gva_to_kma(regs.rsp);
+   km_read_registers(vcpu);
+   km_read_sregisters(vcpu);
+
+   uint64_t* rsp_kma = km_gva_to_kma(vcpu->regs.rsp);
    uint64_t error_code = 0;
    x86_interrupt_frame_t* iframe = (x86_interrupt_frame_t*)rsp_kma;
    if (error_included[enumber]) {
       error_code = *rsp_kma;
       iframe = (x86_interrupt_frame_t*)(rsp_kma + 1);
-   }
-
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &sregs) < 0) {
-      errx(1, "KVM_GET_SREGS failed %d (%s)\n", errno, strerror(errno));
    }
 
    fprintf(stderr, "ERROR CODE: 0x%lx\n", error_code);
@@ -130,6 +125,12 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
    fprintf(stderr, "    RFLAGS: 0x%lx\n", iframe->rflags);
    fprintf(stderr, "       RSP: 0x%lx\n", iframe->rsp);
    fprintf(stderr, "        SS: 0x%lx\n", iframe->ss);
+
+   // Restore register to what they were before the interrupt.
+   vcpu->regs.rip = iframe->rip;
+   vcpu->regs.rsp = iframe->rsp;
+   vcpu->sregs.cs.base = iframe->cs;
+   vcpu->sregs.ss.base = iframe->cs;
 
    // TODO: do actions.
    switch (events.exception.nr) {
@@ -164,8 +165,10 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
          break;
    }
 
+   km_dump_core(vcpu, iframe);
+
    errx(events.exception.nr + 1,
         "GOT INTERRUPT HC!!!! number=%d RSP=0x%llx",
         events.exception.nr,
-        regs.rsp);
+        vcpu->regs.rsp);
 }

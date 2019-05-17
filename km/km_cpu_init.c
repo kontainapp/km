@@ -387,6 +387,10 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_main_argc)
    int rc;
    km_gva_t sp, argv;
 
+   // invalidate cached registers
+   vcpu->regs_valid = 0;
+   vcpu->sregs_valid = 0;
+
    if ((rc = kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, vcpu->guest_thr)) < 0) {
       return rc;
    }

@@ -304,8 +304,6 @@ void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
  */
 int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t* len)
 {
-   struct kvm_regs kregs;
-   struct kvm_sregs sregs;
    struct kvm_fpu fpuregs;
    struct km_gdb_regs* gregs = (struct km_gdb_regs*)registers;
    int ret;
@@ -314,41 +312,35 @@ int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t* len)
       warnx("%s: buffer too small", __FUNCTION__);
       return -1;
    }
-   if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &kregs)) == -1) {
-      err(1, "KVM_GET_REGS");
-      return -1;   // unreachable
-   }
-   if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &sregs)) == -1) {
-      err(1, "KVM_GET_REGS");
-      return -1;   // unreachable
-   }
+   km_read_registers(vcpu);
+   km_read_sregisters(vcpu);
 
    *len = sizeof(struct km_gdb_regs);
 
-   gregs->rax = kregs.rax;
-   gregs->rbx = kregs.rbx;
-   gregs->rcx = kregs.rcx;
-   gregs->rdx = kregs.rdx;
+   gregs->rax = vcpu->regs.rax;
+   gregs->rbx = vcpu->regs.rbx;
+   gregs->rcx = vcpu->regs.rcx;
+   gregs->rdx = vcpu->regs.rdx;
 
-   gregs->rsi = kregs.rsi;
-   gregs->rdi = kregs.rdi;
-   gregs->rbp = kregs.rbp;
-   gregs->rsp = kregs.rsp;
+   gregs->rsi = vcpu->regs.rsi;
+   gregs->rdi = vcpu->regs.rdi;
+   gregs->rbp = vcpu->regs.rbp;
+   gregs->rsp = vcpu->regs.rsp;
 
-   gregs->r8 = kregs.r8;
-   gregs->r9 = kregs.r9;
-   gregs->r10 = kregs.r10;
-   gregs->r11 = kregs.r11;
+   gregs->r8 = vcpu->regs.r8;
+   gregs->r9 = vcpu->regs.r9;
+   gregs->r10 = vcpu->regs.r10;
+   gregs->r11 = vcpu->regs.r11;
 
-   gregs->rip = kregs.rip;
-   gregs->eflags = kregs.rflags;
+   gregs->rip = vcpu->regs.rip;
+   gregs->eflags = vcpu->regs.rflags;
 
-   gregs->cs = sregs.cs.selector;
-   gregs->ss = sregs.ss.selector;
-   gregs->ds = sregs.ds.selector;
-   gregs->es = sregs.es.selector;
-   gregs->fs = sregs.fs.selector;
-   gregs->gs = sregs.gs.selector;
+   gregs->cs = vcpu->sregs.cs.selector;
+   gregs->ss = vcpu->sregs.ss.selector;
+   gregs->ds = vcpu->sregs.ds.selector;
+   gregs->es = vcpu->sregs.es.selector;
+   gregs->fs = vcpu->sregs.fs.selector;
+   gregs->gs = vcpu->sregs.gs.selector;
 
    // TODO: Add KVM_GET_FPU
    if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, &fpuregs)) == -1) {
@@ -367,58 +359,47 @@ int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t* len)
  */
 int km_gdb_write_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t len)
 {
-   struct kvm_regs kregs;
-   struct kvm_sregs sregs;
    struct km_gdb_regs* gregs = (struct km_gdb_regs*)registers;
-   int ret;
 
    if (len < sizeof(struct km_gdb_regs)) {
       return -1;
    }
+
    /* Let's read all registers just in case we miss filling one of them. */
-   if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &kregs)) == -1) {
-      err(1, "KVM_GET_REGS");
-      return -1;
-   }
-   if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &sregs)) == -1) {
-      err(1, "KVM_GET_REGS");
-      return -1;
-   }
-   kregs.rax = gregs->rax;
-   kregs.rbx = gregs->rbx;
-   kregs.rcx = gregs->rcx;
-   kregs.rdx = gregs->rdx;
+   km_read_registers(vcpu);
+   km_read_sregisters(vcpu);
+   vcpu->regs.rax = gregs->rax;
+   vcpu->regs.rbx = gregs->rbx;
+   vcpu->regs.rcx = gregs->rcx;
+   vcpu->regs.rdx = gregs->rdx;
 
-   kregs.rsi = gregs->rsi;
-   kregs.rdi = gregs->rdi;
-   kregs.rbp = gregs->rbp;
-   kregs.rsp = gregs->rsp;
+   vcpu->regs.rsi = gregs->rsi;
+   vcpu->regs.rdi = gregs->rdi;
+   vcpu->regs.rbp = gregs->rbp;
+   vcpu->regs.rsp = gregs->rsp;
 
-   kregs.r8 = gregs->r8;
-   kregs.r9 = gregs->r9;
-   kregs.r10 = gregs->r10;
-   kregs.r11 = gregs->r11;
-   kregs.r12 = gregs->r12;
-   kregs.r13 = gregs->r13;
-   kregs.r14 = gregs->r14;
-   kregs.r15 = gregs->r15;
+   vcpu->regs.r8 = gregs->r8;
+   vcpu->regs.r9 = gregs->r9;
+   vcpu->regs.r10 = gregs->r10;
+   vcpu->regs.r11 = gregs->r11;
+   vcpu->regs.r12 = gregs->r12;
+   vcpu->regs.r13 = gregs->r13;
+   vcpu->regs.r14 = gregs->r14;
+   vcpu->regs.r15 = gregs->r15;
 
-   kregs.rip = gregs->rip;
-   kregs.rflags = gregs->eflags;
+   vcpu->regs.rip = gregs->rip;
+   vcpu->regs.rflags = gregs->eflags;
 
    /*
     * Our CPU model doesn't have the concept of segments. We highjack the gdb
     * notion of x86_64 but our CPU model sets the segments once and they never
     * change after that.
     */
-   assert(sregs.cs.selector == gregs->cs && sregs.ss.selector == gregs->ss &&
-          sregs.ds.selector == gregs->ds && sregs.es.selector == gregs->es &&
-          sregs.fs.selector == gregs->fs && sregs.gs.selector == gregs->gs);
+   assert(vcpu->sregs.cs.selector == gregs->cs && vcpu->sregs.ss.selector == gregs->ss &&
+          vcpu->sregs.ds.selector == gregs->ds && vcpu->sregs.es.selector == gregs->es &&
+          vcpu->sregs.fs.selector == gregs->fs && vcpu->sregs.gs.selector == gregs->gs);
 
-   if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &kregs)) == -1) {
-      err(1, "KVM_GET_REGS");
-      return -1;   // not reachable
-   }
+   km_write_registers(vcpu);
    return 0;
 }
 

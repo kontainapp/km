@@ -10,6 +10,8 @@
  * Kontain Inc.
  */
 
+#ifndef KM_X86_CPU_H_
+#define KM_X86_CPU_H_
 #include <stdint.h>
 
 /*
@@ -270,3 +272,4 @@ typedef struct x86_interrupt_frame {
    uint64_t rsp;
    uint64_t ss;
 } x86_interrupt_frame_t;
+#endif

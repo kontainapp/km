@@ -20,21 +20,21 @@
 #include <linux/kvm.h>
 #include "km.h"
 
-static const uint64_t PAGE_SIZE = 0x1000;   // standard 4k page
+static const uint64_t KM_PAGE_SIZE = 0x1000;   // standard 4k page
 static const uint64_t MIB = 0x100000;       // MByte
 static const uint64_t GIB = 0x40000000ul;   // GByte
 
-static const int RSV_MEM_START = PAGE_SIZE;
-static const int RSV_MEM_SIZE = PAGE_SIZE * 63;
+static const int RSV_MEM_START = KM_PAGE_SIZE;
+static const int RSV_MEM_SIZE = KM_PAGE_SIZE * 63;
 /*
  * Mandatory data structures in reserved area to enable 64 bit CPU.
  * These numbers are offsets from the start of reserved area
  */
-static const int RSV_PML4_OFFSET = 0 * PAGE_SIZE;
-static const int RSV_PDPT_OFFSET = 1 * PAGE_SIZE;
-static const int RSV_PDPT2_OFFSET = 2 * PAGE_SIZE;
-static const int RSV_PD_OFFSET = 3 * PAGE_SIZE;
-static const int RSV_PD2_OFFSET = 4 * PAGE_SIZE;
+static const int RSV_PML4_OFFSET = 0 * KM_PAGE_SIZE;
+static const int RSV_PDPT_OFFSET = 1 * KM_PAGE_SIZE;
+static const int RSV_PDPT2_OFFSET = 2 * KM_PAGE_SIZE;
+static const int RSV_PD_OFFSET = 3 * KM_PAGE_SIZE;
+static const int RSV_PD2_OFFSET = 4 * KM_PAGE_SIZE;
 /*
  * convert the above to guest physical offsets
  */
@@ -80,7 +80,7 @@ static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
  */
 
 static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
-static const uint64_t GUEST_ARG_MAX = 32 * PAGE_SIZE;
+static const uint64_t GUEST_ARG_MAX = 32 * KM_PAGE_SIZE;
 
 /*
  * Physical address space is made of regions with size exponentially increasing from 2MB until they

@@ -28,7 +28,7 @@ km_payload_t km_guest;
 
 static void my_pread(int fd, void* buf, size_t count, off_t offset)
 {
-   if (mmap(buf, roundup(count, PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
+   if (mmap(buf, roundup(count, KM_PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
        MAP_FAILED) {
       err(2, "error mmap elf");
    }

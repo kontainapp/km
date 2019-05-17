@@ -174,7 +174,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    if (libc != 0) {
       libc_kma = km_gva_to_kma(libc);
       libc_kma->auxv = NULL;   // for now
-      libc_kma->page_size = PAGE_SIZE;
+      libc_kma->page_size = KM_PAGE_SIZE;
       libc_kma->secure = 1;
       libc_kma->can_do_threads = 0;   // Doesn't seem to matter either way
       /*
@@ -286,7 +286,7 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
 
    map_size = _a_stacksize(g_attr) == 0
                   ? DEFAULT_STACK_SIZE
-                  : roundup(_a_stacksize(g_attr) + libc_kma->tls_size, PAGE_SIZE);
+                  : roundup(_a_stacksize(g_attr) + libc_kma->tls_size, KM_PAGE_SIZE);
    if (km_syscall_ok(map_base = km_guest_mmap_simple(map_size)) < 0) {
       return 0;
    }
@@ -344,7 +344,7 @@ static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict at
       pthread_attr_t vcpu_thr_att;
 
       pthread_attr_init(&vcpu_thr_att);
-      pthread_attr_setstacksize(&vcpu_thr_att, 16 * PAGE_SIZE);
+      pthread_attr_setstacksize(&vcpu_thr_att, 16 * KM_PAGE_SIZE);
       rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))km_vcpu_run, vcpu);
       pthread_attr_destroy(&vcpu_thr_att);
    } else {

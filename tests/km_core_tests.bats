@@ -65,16 +65,16 @@ teardown() {
 
 @test "hc_check: invoke wrong hypercall (hc_test)" {
    run $KM hc_test.km 400
-   [ $(echo -e "$output" | grep -cw "unexpected hypercall 400") == 1 ]
+   [ $(echo -e "$output" | grep -F -cw "unexpected hypercall 400") == 1 ]
 
    run $KM hc_test.km -- -10
-   [ $(echo -e "$output" | grep -cw "unexpected IO port activity, port 0x7ff6 0x4 bytes out") == 1 ]
+   [ $(echo -e "$output" | grep -F -cw "unexpected IO port activity, port 0x7ff6 0x4 bytes out") == 1 ]
 
    run $KM hc_test.km 1000
-   [ $(echo -e "$output" | grep -cw "unexpected IO port activity, port 0x83e8 0x4 bytes out") == 1 ]
+   [ $(echo -e "$output" | grep -F -cw "unexpected IO port activity, port 0x83e8 0x4 bytes out") == 1 ]
 
    run $KM hc_test.km --bad-arg 3
-   [ $(echo -e "$output" | grep -cw "bad km_hc_args address") == 1 ]
+   [ $(echo -e "$output" | grep -F -cw "bad km_hc_args address") == 1 ]
 }
 
 @test "km_main: wait on signal (hello_test)" {
@@ -105,7 +105,7 @@ teardown() {
    run $KM hello_test.km $args
    [ $status -eq 0 ]
    # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
-   diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]' | grep -v '^km:')
+   diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
 }
 
 @test "hc_socket: basic HTTP/socket I/O (hello_html_test)" {
@@ -145,7 +145,7 @@ teardown() {
 	sleep 0.5
 	run gdb -q -nx --ex="target remote :$gdb_port" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test.km
-   [ $(echo "$output" | grep -cw 'SUCCESS') == 1 ]
+   [ $(echo "$output" | grep -F -cw 'SUCCESS') == 1 ]
 }
 
 @test "threads_basic: basic threads create, exit and join (hello_2_loops_test)" {
@@ -207,8 +207,8 @@ teardown() {
 @test "cli: test -v and other small tests" {
    run $KM -v
    [ "$status" -eq 0 ]
-   echo -e "$output" | fgrep -q `git rev-parse --abbrev-ref HEAD`
-   echo -e "$output" | fgrep -q 'Kontain Monitor v'
+   echo -e "$output" | grep -F -q `git rev-parse --abbrev-ref HEAD`
+   echo -e "$output" | grep -F -q 'Kontain Monitor v'
    run $KM --version
    [ "$status" -eq 0 ]
 }
@@ -216,7 +216,7 @@ teardown() {
 @test "cpuid: test cpu vendor id (cpuid_test)" {
    run $KM cpuid_test.km
    [ "$status" -eq 0 ]
-   echo -e "$output" | fgrep -q 'Kontain'
+   echo -e "$output" | grep -F -q 'Kontain'
 }
 
 @test "longjmp_test: basic setjmp/longjump" {
@@ -228,18 +228,33 @@ teardown() {
    run $KM longjmp_test.km $args
    [ $status -eq 0 ]
    # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
-   diff <(echo -e "$linux_out" | fgrep -v 'argv[0]') <(echo -e "$output" | fgrep -v 'argv[0]' | grep -v '^km:')
+   diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
 }
 
 # The behavior tested here is temporary and will change when real signal handling exists.
 @test "exception: exceptions and faults in the guest (exception)" {
+   CORE=/tmp/kmcore.$$
    # divide by zero
-   run $KM stray_test.km div0
+   [ ! -f ${CORE} ]
+   run $KM --coredump=${CORE} stray_test.km div0
    [ $status -eq 1 ]
+   [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'div0('
+   rm -f ${CORE}
+
    # invalid opcode
-   run $KM stray_test.km ud
+   [ ! -f ${CORE} ]
+   run $KM --coredump=${CORE} stray_test.km ud
    [ $status -eq 7 ]
+   [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'undefined_op('
+   rm -f ${CORE}
+
    # page fault
-   run $KM stray_test.km stray
+   [ ! -f ${CORE} ]
+   run $KM --coredump=${CORE} stray_test.km stray
    [ $status -eq 15 ]
+   [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference('
+   rm -f ${CORE}
 }
