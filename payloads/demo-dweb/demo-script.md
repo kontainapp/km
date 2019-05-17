@@ -12,7 +12,7 @@ This document describes the *default* path to take during the demo.
 
 ## Prerequisites
 
-* The demo hardware is expected to have KM repo checked out in `~/workspace/covm` (change `repo=...` in the text below if the location is different()
+* The demo hardware is expected to have KM repo checked out in `~/workspace/km`
 * KM build is successful
 * Docker v18.x should be installed for `make distro` and `make publish` to work. You can use docker-ce or moby-engine, they both install docker v18.x.
   * If docker is already installed, check version with `docker version -f 'Client: {{.Client.Version}}'`
