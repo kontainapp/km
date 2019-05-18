@@ -46,7 +46,7 @@ else
 endif
 
 %.km: %.o
-	${LD} $< -o $@ ${KM_LDFLAGS}
+	${LD} $< -o $@ ${KM_LDFLAGS} ; chmod a-x $@
 
 .PHONY: load_expected_size
 load_expected_size: load_test.km

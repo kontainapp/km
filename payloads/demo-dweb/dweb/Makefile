@@ -13,7 +13,7 @@ dweb: $(OBJS)
 	$(CC) -o $@ $^ -pthread -std=gnu99
 
 dweb.km: $(OBJS)
-	$(LD) -o $@ $^  ${KM_LDFLAGS}
+	$(LD) -o $@ $^  ${KM_LDFLAGS} ; chmod a-x $@
 
 .PHONY: clean
 clean:
