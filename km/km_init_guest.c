@@ -71,7 +71,7 @@ enum {
    DT_EXITING,
    DT_JOINABLE,
    DT_DETACHED,
-   DT_DYNAMIC,
+   DT_DYNAMIC,   // started as JOINABLE then called detach()
 };
 
 typedef struct km_pthread {
@@ -136,7 +136,7 @@ typedef struct km_builtin_tls {
 km_builtin_tls_t builtin_tls[1];
 
 /*
- * load_elf() finds __libc by name in the ELF image of the guest. We follow __init_libc() logic to
+ * km_load_elf() finds __libc by name in the ELF image of the guest. We follow __init_libc() logic to
  * initialize the content, including TLS and pthread structure for the main thread. TLS is allocated
  * on top of the stack. pthread is part of TLS area.
  *
@@ -176,7 +176,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
       libc_kma->auxv = NULL;   // for now
       libc_kma->page_size = PAGE_SIZE;
       libc_kma->secure = 1;
-      libc_kma->can_do_threads = 0;   // TODO: for now
+      libc_kma->can_do_threads = 0;   // Doesn't seem to matter either way
       /*
        * TODO: km_main_tls should be initialized from ELF headers of PT_TLS, PT_PHDR ... type to get
        * information about guest program specific TLS. For now we go with minimal TLS just to
@@ -185,7 +185,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
        * dtv[1] is a pointer to the only TLS area as this is static program.
        */
       libc_kma->tls_align = MIN_TLS_ALIGN;
-      libc_kma->tls_size = 2 * sizeof(void*) + sizeof(km_pthread_t) + MIN_TLS_ALIGN;
+      libc_kma->tls_size = roundup(2 * sizeof(void*) + sizeof(km_pthread_t), libc_kma->tls_align);
       tcb = rounddown(stack_top - sizeof(km_pthread_t), libc_kma->tls_align);
       stack_top -= libc_kma->tls_size;
    } else {
@@ -276,6 +276,7 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
    km__libc_t* libc_kma;
    km_pthread_t* tcb_kma;
    km_gva_t tcb;
+   km_gva_t tsd;
    km_gva_t map_base;
    size_t map_size;
 
@@ -289,15 +290,17 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
    if (km_syscall_ok(map_base = km_guest_mmap_simple(map_size)) < 0) {
       return 0;
    }
-   tcb = rounddown(map_base + map_size - sizeof(km_pthread_t), libc_kma->tls_align);
+   tsd = map_base + map_size - km_guest.km_tsd_size;
+   tcb = rounddown(tsd - sizeof(km_pthread_t), libc_kma->tls_align);
    tcb_kma = km_gva_to_kma(tcb);
    memset(tcb_kma, 0, sizeof(km_pthread_t));
-   tcb_kma->stack = (typeof(tcb_kma->stack))map_base + map_size - libc_kma->tls_size;
-   tcb_kma->stack_size = map_size - libc_kma->tls_size;
+   tcb_kma->stack = (typeof(tcb_kma->stack))tsd - libc_kma->tls_size;
+   tcb_kma->stack_size = (typeof(tcb_kma->stack_size))tcb_kma->stack - map_base;
    tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
    tcb_kma->map_size = map_size;
    tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)tcb_kma->stack;
    tcb_kma->self = (km_pthread_t*)tcb;
+   tcb_kma->tsd = (typeof(tcb_kma->tsd))tsd;
    tcb_kma->detach_state = _a_detach(g_attr);
    tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;

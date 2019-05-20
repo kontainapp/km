@@ -6,7 +6,7 @@ extern int main(int argc, char** argv);
 /*
  * Common entry point used for both main() and pthread entry.
  * The purpose is to process return from the actual code (main or pthread entry) and pass to exit().
- * Entry point in ELF header, then in km as km_guest.km_ehdr.e_entry, placed there by load_elf.
+ * Entry point in ELF header, then in km as km_guest.km_ehdr.e_entry, placed there by km_load_elf.
  */
 _Noreturn void __start_c__(long is_main_argc, char** argv)
 {

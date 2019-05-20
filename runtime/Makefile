@@ -22,7 +22,8 @@ ARCH := x86_64
 SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc ldso mq process sched signal)
 SRC_DIRS := $(filter-out ${SKIP_SRC_DIR}, $(wildcard $(addprefix $(SRCDIR),src/*/)))
 
-KM_REPLACED_SRCS := syscall.s __libc_start_main.c __init_tls.c pthread_create.c pthread_join.c uname.c
+KM_REPLACED_SRCS := syscall.s __libc_start_main.c __init_tls.c pthread_create.c pthread_join.c uname.c \
+						pthread_kill.c pthread_setcanceltype.c
 KM_EXTRA_SRCS := start_c_km.c syscall_km.c syscall_cp_km.c pthread_create_km.c pthread_join_km.c uname_km.c
 
 BASE_SRCS := $(wildcard $(addsuffix *.c,$(SRC_DIRS)))

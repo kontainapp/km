@@ -18,15 +18,46 @@
 #include "greatest/greatest.h"
 #include "syscall.h"
 
+pthread_key_t mystr_key, mystr_key_2;
+
+void free_key(void* str)
+{
+   free((char*)str);
+}
+
+void mykeycreate(void)
+{
+   pthread_key_create(&mystr_key, free_key);
+}
+
+void make_mystr(char* msg)
+{
+   char* str;
+   static pthread_once_t mykeycreated = PTHREAD_ONCE_INIT;
+
+   pthread_once(&mykeycreated, mykeycreate);
+
+   str = malloc(128);
+   sprintf(str, "I'm 0x%lx", pthread_self());
+
+   pthread_setspecific(mystr_key, str);
+   pthread_setspecific(mystr_key_2, strdup(msg));
+}
+
 static const char* brick_msg = "brick in the wall ";
 static const char* dust_msg = "one bites the dust";
 const long step = 1ul;
 
 void subrun(char* msg)
 {
+   make_mystr(msg);
    for (long run_count = 0; run_count < step; run_count++) {
       if (run_count % step == 0) {
-         printf("Another %s # %ld of %ld, thr=0x%lx\n", msg, run_count / step, run_count, pthread_self());
+         printf("Another %s # %ld of %ld, %s\n",
+                (char*)pthread_getspecific(mystr_key_2),
+                run_count / step,
+                run_count,
+                (char*)pthread_getspecific(mystr_key));
       }
    }
    pthread_exit(0);
@@ -56,6 +87,8 @@ TEST nested_threads(void)
    pthread_t pt1, pt2;
    int ret;
 
+   pthread_key_create(&mystr_key_2, free_key);
+   
    ret = pthread_create(&pt1, NULL, run, NULL);
    // assert macro can use params more than once, so using separate <ret>
    ASSERT_EQ(0, ret);

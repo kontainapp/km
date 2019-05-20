@@ -6,6 +6,7 @@ _Noreturn void __pthread_exit(void* result)
 {
    struct pthread* self = __pthread_self();
 
+   __pthread_tsd_run_dtors();
    __do_orphaned_stdio_locks();
 
    self->result = result;
@@ -45,6 +46,9 @@ int __pthread_create(pthread_t* restrict res,
       init_file_lock(__stdin_used);
       init_file_lock(__stdout_used);
       init_file_lock(__stderr_used);
+      if (__pthread_self()->tsd == NULL) {
+         __pthread_self()->tsd = (void**)__pthread_tsd_main;
+      }
    }
 
    a_inc(&__libc.threads_minus_1);

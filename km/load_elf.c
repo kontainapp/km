@@ -111,7 +111,7 @@ static void load_extent(int fd, GElf_Phdr* phdr)
  * segments. Set entry point.
  * All errors are fatal.
  */
-int load_elf(const char* file)
+int km_load_elf(const char* file)
 {
    int fd;
    Elf* e;
@@ -164,14 +164,18 @@ int load_elf(const char* file)
 
             gelf_getsym(data, i, &sym);
             if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
-                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), LIBC_SYM_NAME) == 0) {
+                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_LIBC_SYM_NAME) == 0) {
                km_guest.km_libc = sym.st_value;
             }
             if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
-                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), "__km_interrupt_handler") == 0) {
+                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_HNDL_SYM_NAME) == 0) {
                km_guest.km_handlers = sym.st_value;
             }
-            if (km_guest.km_libc != 0 && km_guest.km_handlers != 0) {
+            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
+                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_TSD_SIZE_SYM_NAME) == 0) {
+               km_guest.km_tsd_size = sym.st_value;
+            }
+            if (km_guest.km_libc != 0 && km_guest.km_handlers != 0 && km_guest.km_tsd_size != 0) {
                break;
             }
          }

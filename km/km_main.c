@@ -166,7 +166,7 @@ int main(int argc, char* const argv[])
 
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
-   load_elf(payload_file);
+   km_load_elf(payload_file);
    if ((vcpu = km_vcpu_get()) == NULL) {
       err(1, "Failed to get main vcpu");
    }
