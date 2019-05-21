@@ -164,6 +164,11 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
          break;
    }
 
+   vcpu->is_paused = 1;
+   machine.pause_requested = 1;
+   km_vcpu_apply_all(km_vcpu_pause, 0);
+   km_vcpu_wait_for_all_to_pause();
+
    km_dump_core(vcpu, iframe);
 
    errx(events.exception.nr + 1,

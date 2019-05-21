@@ -116,6 +116,10 @@ void km_machine_fini(void)
       close(machine.kvm_fd);
       machine.kvm_fd = -1;
    }
+   if (machine.intr_fd >= 0) {
+      close(machine.intr_fd);
+      machine.intr_fd = -1;
+   }
    km_hcalls_fini();
 }
 
@@ -429,6 +433,9 @@ void km_machine_init(km_machine_init_params_t* params)
 {
    int rc;
 
+   if ((machine.intr_fd = eventfd(0, 0)) == -1) {
+      err(1, "KM: Failed to create machine intr_fd");
+   }
    if ((machine.shutdown_fd = eventfd(0, 0)) == -1) {
       err(1, "KM: Failed to create machine shutdown_fd");
    }

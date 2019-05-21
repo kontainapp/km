@@ -67,7 +67,6 @@ struct __attribute__((__packed__)) km_gdb_regs {
 typedef struct gdbstub_info {
    int port;                // Port the stub is listening for gdb client. 0 means NO GDB
    int sock_fd;             // socket to communicate to gdb client
-   int intr_eventfd;        // event interrupting stub wait for gdb client
    int session_requested;   // set to 1 when payload threads need to pause on exit
    bool stepping;           // single step mode (stepi)
    km_vcpu_t* gdb_vcpu;     // VCPU which GDB is asking us to work on.

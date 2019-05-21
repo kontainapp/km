@@ -368,7 +368,8 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    // Headers for MMAPs
    TAILQ_FOREACH (ptr, &mmaps.busy, link) {
       // translate mmap prot to elf access flags.
-      static uint8_t mmap_to_elf_flags[8] = {0, 4, 2, 6, 1, 5, 3, 7};
+      static uint8_t mmap_to_elf_flags[8] =
+          {0, PF_R, PF_W, (PF_R | PF_W), PF_X, (PF_R | PF_X), (PF_W | PF_X), (PF_R | PF_W | PF_X)};
 
       km_core_write_load_header(fd, offset, ptr->start, ptr->size, mmap_to_elf_flags[ptr->protection & 0x7]);
       offset += ptr->size;

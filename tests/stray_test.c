@@ -13,6 +13,8 @@
  */
 #include <assert.h>
 #include <errno.h>
+#include <pthread.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +46,13 @@ void undefined_op()
    asm volatile("ud2");
 }
 
+pthread_mutex_t mt = PTHREAD_MUTEX_INITIALIZER;
+void* thread_main(void* arg)
+{
+   pthread_mutex_lock(&mt);
+   return NULL;
+}
+
 void usage()
 {
    fprintf(stderr, "usage: %s <operation>\n", cmdname);
@@ -58,6 +67,7 @@ int main(int argc, char** argv)
    extern int optind;
    int c;
    char* op;
+   pthread_t thr;
 
    cmdname = argv[0];
    while ((c = getopt(argc, argv, "h")) != -1) {
@@ -76,6 +86,12 @@ int main(int argc, char** argv)
       return 1;
    }
    op = argv[optind];
+
+   pthread_mutex_lock(&mt);
+   if (pthread_create(&thr, NULL, thread_main, NULL) != 0) {
+      fprintf(stderr, "pthread_create failed - %d\n", errno);
+      return 1;
+   }
 
    if (strcmp(op, "stray") == 0) {
       stray_reference();

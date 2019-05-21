@@ -692,10 +692,10 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 {
    struct pollfd fds[] = {
        {.fd = gdbstub.sock_fd, .events = POLLIN | POLLERR},
-       {.fd = gdbstub.intr_eventfd, .events = POLLIN | POLLERR},
+       {.fd = machine.intr_fd, .events = POLLIN | POLLERR},
    };
 
-   km_wait_on_eventfd(gdbstub.intr_eventfd);   // Wait for km_vcpu_run_main to set vcpu->tid
+   km_wait_on_eventfd(machine.intr_fd);   // Wait for km_vcpu_run_main to set vcpu->tid
    km_gdb_vcpu_set(main_vcpu);
    gdb_handle_payload_stop(GDB_SIGFIRST);   // Talk to GDB first time, before any vCPU run
    km_gdb_vcpu_continue(main_vcpu, 0);
@@ -735,8 +735,8 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
                "%s: DONE waiting, all stopped. vm_vcpu_run_cnt %d",
                __FUNCTION__,
                machine.vm_vcpu_run_cnt);
-      km_empty_out_eventfd(gdbstub.intr_eventfd);   // discard extra 'intr' events if vcpus sent them
-      km_gdb_handle_kvm_exit(is_intr);              // give control back to gdb
+      km_empty_out_eventfd(machine.intr_fd);   // discard extra 'intr' events if vcpus sent them
+      km_gdb_handle_kvm_exit(is_intr);         // give control back to gdb
       gdbstub.session_requested = 0;
       machine.pause_requested = 0;
       km_infox(KM_TRACE_GDB, "%s: exit handled, ready to proceed", __FUNCTION__);
@@ -755,7 +755,6 @@ void km_gdb_disable(void)
       close(gdbstub.sock_fd);
       gdbstub.sock_fd = -1;
    }
-   close(gdbstub.intr_eventfd);
    km_gdb_port_set(0);
 }
 
@@ -771,7 +770,7 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, __attribute__((unused)) int unused)
       km_infox(KM_TRACE_GDB, "gdb seems to be sleeping, wake it up. VCPU %d", vcpu->vcpu_id);
       // km_gdb_tid_set(km_gdb_thread_id(vcpu));
       gdbstub.exit_reason = vcpu->cpu_run->exit_reason;
-      eventfd_write(gdbstub.intr_eventfd, 1);
+      eventfd_write(machine.intr_fd, 1);
    }
    km_wait_on_eventfd(vcpu->gdb_efd);   // Wait for gdb to allow this vcpu to continue
    km_infox(KM_TRACE_GDB, "%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
@@ -786,5 +785,5 @@ void km_gdb_fini(int ret)
    }
    send_response('W', ret, false);
    km_gdb_disable();
-   eventfd_write(gdbstub.intr_eventfd, 1);
+   eventfd_write(machine.intr_fd, 1);
 }

@@ -554,6 +554,13 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
          vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          if (km_gdb_is_enabled() == 1) {
             km_gdb_notify_and_wait(vcpu, errno);
+         } else if (machine.pause_requested) {
+            vcpu->is_paused = 1;
+            km_read_registers(vcpu);
+            km_read_sregisters(vcpu);
+            km_wait_on_eventfd(vcpu->gdb_efd);
+            // TODO: snapshot cores will be restarted.
+            vcpu->is_paused = 0;
          } else {   // e.g. gdb attached to KM and then detached while in ioctl
             warn("KVM_RUN interrupted... continuing");
          }
@@ -575,13 +582,16 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    while (1) {
       int reason;
 
+      // TODO: interlock with machine.pause_requested.
+
       // Invalidate cached registers
       vcpu->regs_valid = 0;
       vcpu->sregs_valid = 0;
-
+      vcpu->is_paused = 0;
       if (km_vcpu_one_kvm_run(vcpu) < 0) {
          continue;
       }
+      vcpu->is_paused = 1;
       reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
       run_infox("KVM: exit reason=%d (%s)", reason, kvm_reason_name(reason));
       switch (reason) {
@@ -650,7 +660,7 @@ void* km_vcpu_run_main(void* unused)
 
    vcpu->tid = gettid();
    if (km_gdb_is_enabled() == 1) {
-      while (eventfd_write(gdbstub.intr_eventfd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
+      while (eventfd_write(machine.intr_fd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
          ;   // ignore signals during the write
       }
       km_wait_on_eventfd(vcpu->gdb_efd);   // wait for gbd main loop to allow main vcpu to run

@@ -120,7 +120,7 @@ static inline int km_make_dump_prstatus(km_vcpu_t* vcpu, char* buf, size_t lengt
    cur += km_add_note_header(cur, remain, "CORE", sizeof(struct elf_prstatus));
 
    // TODO: Fill in the rest of elf_prstatus.
-
+   pr.pr_pid = vcpu->vcpu_thread;
    // Found these assignments in Linux source arch/x86/include/asm/elf.h
    pr.pr_reg[0] = vcpu->regs.r15;
    pr.pr_reg[1] = vcpu->regs.r14;
@@ -157,6 +157,25 @@ static inline int km_make_dump_prstatus(km_vcpu_t* vcpu, char* buf, size_t lengt
    return cur - buf;
 }
 
+typedef struct {
+   km_vcpu_t *pr_vcpu;    // 'current', already output. skip
+   char *pr_cur;
+   size_t pr_remain;
+} km_core_dump_prstatus_t;
+
+static int km_core_dump_threads(km_vcpu_t* vcpu, uint64_t arg)
+{
+   km_core_dump_prstatus_t *ctx = (km_core_dump_prstatus_t *) arg;
+   if (vcpu == ctx->pr_vcpu) {
+      return 0;
+   }
+   size_t ret;
+   ret = km_make_dump_prstatus(vcpu, ctx->pr_cur, ctx->pr_remain);
+   ctx->pr_cur += ret;
+   ctx->pr_remain -= ret;
+   return ret;
+}
+
 int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t size)
 {
    Elf64_Phdr phdr = {};
@@ -165,10 +184,20 @@ int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t
    size_t remain = size;
    size_t ret;
 
-   // NT_PRSTATUS (prstatus structure)
+   /*
+    * NT_PRSTATUS (prstatus structure)
+    * There is one NT_PRSTATUS for each running thread (vcpu) in the guest. 
+    * GDB interprts the first prstatus as it's initial current thread, so
+    * it is important the the failing thread be the first one in the list.
+    */
    ret = km_make_dump_prstatus(vcpu, cur, remain);
    cur += ret;
    remain -= ret;
+
+   km_core_dump_prstatus_t ctx = { .pr_vcpu = vcpu, .pr_cur = cur, .pr_remain = remain};
+   km_vcpu_apply_all(km_core_dump_threads, (uint64_t) &ctx);
+   cur = ctx.pr_cur;
+   remain = ctx.pr_remain;
 
    // TODO: Other notes sections in real core files.
    //  NT_PRPSINFO (prpsinfo structure)
