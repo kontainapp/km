@@ -5,7 +5,7 @@ OBJS=dweb.o dwebsvr.o cpuid.o
 override CFLAGS += -g -O2 -Wstringop-overflow=0
 override LDFLAGS += -g
 
-KM_LDFLAGS=${LDFLAGS} -static -nostdlib -T ${TOP}km.ld -L ${TOP}build/runtime -lruntime
+KM_LDFLAGS=${LDFLAGS} -static --gc-sections -nostdlib -T ${TOP}km.ld -L ${TOP}build/runtime -lruntime
 
 all: dweb dweb.km
 

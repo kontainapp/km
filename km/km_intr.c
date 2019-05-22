@@ -41,7 +41,6 @@ void km_init_guest_idt(km_gva_t handlers_gva)
    km_gva_t gdt_base;
    size_t gdt_size = sizeof(x86_seg_d_t) * 2;
    km_gva_t idt_base;
-   uint64_t* handlers_kma = (uint64_t*)km_gva_to_kma(handlers_gva);
    x86_seg_d_t* gdt;
    x86_idt_entry_t* idte;
 
@@ -72,7 +71,7 @@ void km_init_guest_idt(km_gva_t handlers_gva)
    idte = (x86_idt_entry_t*)km_gva_to_kma(idt_base);
 
    for (int i = 0; i < X86_IDT_NENTRY; i++) {
-      build_idt_entry(&idte[i], *handlers_kma, 1);
+      build_idt_entry(&idte[i], handlers_gva, 1);
    }
 
    machine.idt = idt_base;

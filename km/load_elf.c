@@ -28,9 +28,11 @@ km_payload_t km_guest;
 
 static void my_pread(int fd, void* buf, size_t count, off_t offset)
 {
-   if (mmap(buf, roundup(count, KM_PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
-       MAP_FAILED) {
-      err(2, "error mmap elf");
+   if (count > 0) {
+      if (mmap(buf, roundup(count, KM_PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
+          MAP_FAILED) {
+         err(2, "error mmap elf");
+      }
    }
 }
 
@@ -167,11 +169,12 @@ int km_load_elf(const char* file)
                 strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_LIBC_SYM_NAME) == 0) {
                km_guest.km_libc = sym.st_value;
             }
-            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
+            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
                 strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_HNDL_SYM_NAME) == 0) {
                km_guest.km_handlers = sym.st_value;
             }
-            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
+            if ((sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) ||
+                 sym.st_info == ELF64_ST_INFO(STB_WEAK, STT_OBJECT)) &&
                 strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_TSD_SIZE_SYM_NAME) == 0) {
                km_guest.km_tsd_size = sym.st_value;
             }

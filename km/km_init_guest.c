@@ -279,6 +279,13 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
    km_gva_t tsd;
    km_gva_t map_base;
    size_t map_size;
+   size_t tsd_size;
+
+   if (km_guest.km_tsd_size == 0) {
+      errx(1, "Bad binary - cannot find __pthread_tsd_size");
+   }
+   tsd_size = *(size_t*)km_gva_to_kma(km_guest.km_tsd_size);
+   assert(tsd_size < sizeof(void*) * PTHREAD_KEYS_MAX);
 
    assert(_a_stackaddr(g_attr) == 0);   // TODO: for now
    assert(libc != 0);
@@ -286,11 +293,11 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
 
    map_size = _a_stacksize(g_attr) == 0
                   ? DEFAULT_STACK_SIZE
-                  : roundup(_a_stacksize(g_attr) + libc_kma->tls_size, KM_PAGE_SIZE);
+                  : roundup(_a_stacksize(g_attr) + libc_kma->tls_size + tsd_size, KM_PAGE_SIZE);
    if (km_syscall_ok(map_base = km_guest_mmap_simple(map_size)) < 0) {
       return 0;
    }
-   tsd = map_base + map_size - km_guest.km_tsd_size;
+   tsd = map_base + map_size - tsd_size;
    tcb = rounddown(tsd - sizeof(km_pthread_t), libc_kma->tls_align);
    tcb_kma = km_gva_to_kma(tcb);
    memset(tcb_kma, 0, sizeof(km_pthread_t));

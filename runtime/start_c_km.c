@@ -1,7 +1,17 @@
 #include "km_hcalls.h"
 #include "pthread_impl.h"
+#include "stdio_impl.h"
 
 extern int main(int argc, char** argv);
+
+static void dummy_0()
+{
+}
+weak_alias(dummy_0, __pthread_tsd_run_dtors);
+weak_alias(dummy_0, __do_orphaned_stdio_locks);
+
+volatile size_t __attribute__((__weak__)) __pthread_tsd_size = 0;
+void *__pthread_tsd_main[1] __attribute__((__weak__)) = { 0 };
 
 /*
  * Common entry point used for both main() and pthread entry.
@@ -16,8 +26,11 @@ _Noreturn void __start_c__(long is_main_argc, char** argv)
       struct pthread* self = __pthread_self();
       rc = (int)self->start(self->start_arg);
    } else {
+      (void)__pthread_tsd_size;
       rc = main(is_main_argc, argv);
    }
+   __pthread_tsd_run_dtors();
+   __do_orphaned_stdio_locks();
    while (1) {
       __syscall1(SYS_exit, rc);
    }
@@ -37,5 +50,3 @@ _Noreturn void __km_handle_interrupt(void)
       km_hcall(HC_guest_interrupt, &args);
    }
 }
-typedef void (*interrupt_handler_t)(void);
-interrupt_handler_t __km_interrupt_handler = __km_handle_interrupt;

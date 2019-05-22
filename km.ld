@@ -1,7 +1,7 @@
 EXTERN(__start_c__)
 ENTRY(__start_c__)
+EXTERN(__km_handle_interrupt)
 
-EXTERN(__km_interrupt_handler)
 /*
  * Sections names .text.* .rodata.* .data.* are produced by gcc with -ffunction-sections -fdata-sections
  * This works together with SORT_BY_ALIGNMENT directive to minimize alignment gaps

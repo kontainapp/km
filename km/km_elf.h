@@ -20,7 +20,7 @@
 #include <stdint.h>
 
 #define KM_LIBC_SYM_NAME "__libc"
-#define KM_INT_HNDL_SYM_NAME "__km_interrupt_handler"
+#define KM_INT_HNDL_SYM_NAME "__km_handle_interrupt"
 #define KM_TSD_SIZE_SYM_NAME "__pthread_tsd_size"
 /*
  * Description of the guest payload. Note these structures come from guest ELF and represent values

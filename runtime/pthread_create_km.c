@@ -17,7 +17,7 @@ _Noreturn void __pthread_exit(void* result)
 
 extern _Noreturn void __start_c__(long arg);
 
-static void init_file_lock(FILE *f)
+static void init_file_lock(FILE* f)
 {
    if (f != NULL && f->lock < 0) {
       f->lock = 0;
