@@ -195,7 +195,6 @@ int main(int argc, char* const argv[])
          errx(1, "Failed to connect to gdb");
       }
       km_gdb_main_loop(vcpu);
-      km_gdb_disable();
    }
    km_machine_fini();
    exit(machine.exit_status);

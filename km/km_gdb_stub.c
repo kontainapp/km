@@ -172,6 +172,20 @@ int km_gdb_wait_for_connect(const char* image_name)
    return 0;
 }
 
+/* closes the gdb socket and set port to 0 */
+void km_gdb_disable(void)
+{
+   if (km_gdb_is_enabled() != 1) {
+      return;
+   }
+   warnx("Disabling gdb");
+   if (gdbstub.sock_fd > 0) {
+      close(gdbstub.sock_fd);
+      gdbstub.sock_fd = -1;
+   }
+   km_gdb_port_set(0);
+}
+
 static int send_char(char ch)
 {
    /* TCP is already buffering, so no need to buffer here as well. */
@@ -184,11 +198,8 @@ static char recv_char(void)
    unsigned char ch;
    int ret;
 
-   if ((ret = recv(gdbstub.sock_fd, &ch, 1, 0)) < 0) {
-      return -1;
-   }
-   if (ret == 0) {
-      warn("socket shutdown");   // orderly shutdown
+   if ((ret = recv(gdbstub.sock_fd, &ch, 1, 0)) <= 0) {
+      km_gdb_disable();
       return -1;
    }
    /*
@@ -197,6 +208,7 @@ static char recv_char(void)
     */
    if (!(isprint(ch) || ch == GDB_INTERRUPT_PKT)) {
       warn("unexpected character 0x%x", ch);
+      km_gdb_disable();
       return -1;
    }
    return (char)ch;
@@ -316,7 +328,6 @@ static void send_packet(const char* buffer)
    for (char ch = '\0'; ch != '+';) {
       send_packet_no_ack(buffer);
       if ((ch = recv_char()) == -1) {
-         km_gdb_disable();
          return;
       }
    }
@@ -622,11 +633,6 @@ static void gdb_handle_payload_stop(int signum)
          }
       }   // switch
    }      // while
-   if (packet == NULL) {
-      warnx("GDB: Stop debugging as we could not receive the next command "
-            "from the debugger.");
-      km_gdb_disable();
-   }
 done:
    return;
 }
@@ -710,7 +716,6 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       if (ret < 0) {
          err(1, "%s: poll failed ret=%d.", __FUNCTION__, ret);
       }
-      assert(km_gdb_is_enabled() == 1);
       machine.pause_requested = 1;
       gdbstub.session_requested = 1;
       is_intr = 0;
@@ -718,7 +723,6 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
          int ch = recv_char();
          km_infox(KM_TRACE_GDB, "%s: got a msg from a client. ch=%d", __FUNCTION__, ch);
          if (ch == -1) {
-            warn("%s: connection closed", __FUNCTION__);
             return;
          }
          assert(errno == EINTR || ch == GDB_INTERRUPT_PKT);
@@ -742,20 +746,6 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       km_infox(KM_TRACE_GDB, "%s: exit handled, ready to proceed", __FUNCTION__);
       km_vcpu_apply_all(km_gdb_vcpu_continue, 0);
    }
-}
-
-/* closes the gdb socket and set port to 0 */
-void km_gdb_disable(void)
-{
-   if (km_gdb_is_enabled() != 1) {
-      return;
-   }
-   warnx("Disabling gdb");
-   if (gdbstub.sock_fd > 0) {
-      close(gdbstub.sock_fd);
-      gdbstub.sock_fd = -1;
-   }
-   km_gdb_port_set(0);
 }
 
 /*
@@ -783,7 +773,7 @@ void km_gdb_fini(int ret)
    if (km_gdb_is_enabled() != 1) {
       return;
    }
-   send_response('W', ret, false);
+   send_response('W', ret, true);
    km_gdb_disable();
    eventfd_write(machine.intr_fd, 1);
 }
