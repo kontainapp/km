@@ -87,32 +87,26 @@ ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
 .cov_clean:
 	rm -rf ${BLDDIR}
 
-# extra config for LCOV
-LCOV_RC := -rc lcov_branch_coverage=1
-
-# extra config for genhtml
-GENHTML_RC := -rc genhtml_branch_coverage=1
+# extra config for Code coverate
+COVERAGE_CMD_NAME := gcovr
+ifeq (${MATCH},)
+# Generate a fail if code coverage is too low - only for full test passes
+COVERAGE_THRESHOLDS :=  --fail-under-branch 40  --fail-under-line 55
+endif
+# example: gcovr ../build/km/coverage/ -r ../km --html-details -o ../build/km/coverage/report/km.html
+COVERAGE_CMD_FLAGS  :=  -r ${TOP}km --html --html-details -o ${COVERAGE_REPORT} ${KM_BLDDIR} \
+		 --html-title "Kontain Monitor Code Coverage report" --print-summary -j 4 --exclude-unreachable-branches --delete
 
 .coverage: test
-	@lcov --quiet --capture --checksum  --no-external \
-		$(LCOV_RC) --directory ${KM_BLDDIR} \
-		--base-directory ${TOP}km --path $(realpath ${BLDTOP}) \
-		--output-file $(COV_INFO)
-	@lcov --summary \
-		$(LCOV_RC)  $(COV_INFO)
-	@genhtml --quiet $(COV_INFO) \
-		$(GENHTML_RC) --show-details --num-spaces 3 --legend \
-		--title "Kontain Monitor Code Coverage report by LCOV"\
-		--output-directory $(COV_REPORT)
-	@echo -e "${GREEN}Code Coverage Report: $(abspath $(COV_REPORT))/index.html${NOCOLOR}"
+	@echo -e "COVERAGE: ${GREEN}Analyzing the code coverage...${NOCOLOR}"
+	@${COVERAGE_CMD_NAME} ${COVERAGE_CMD_FLAGS} ${COVERAGE_LOCATIONS} ${COVERAGE_THRESHOLDS}
+	@echo -e "COVERAGE: ${GREEN}Code Coverage Details: $(abspath $(COVERAGE_REPORT))${NOCOLOR}"
 
 test: .cov_init
-
 .cov_init:
-	@if [ ! $$(command -v lcov) ]  ; then echo -e "${RED}'lcov' command is missing - please install lcov package (e.g. 'sudo dnf install lcov')${NOCOLOR}"; false  ; fi
-	@echo -e "${GREEN}Running tests with code coverage...${NOCOLOR}"
-	@mkdir -p $(BLDDIR)
-	@lcov --zerocounters --quiet $(LCOV_RC)  --directory ${KM_BLDDIR}
+	@if [ ! $$(command -v $(COVERAGE_CMD_NAME)) ]  ; then echo -e "${RED}'${COVERAGE_CMD_NAME} command is missing - please install ${COVERAGE_CMD_NAME} package (e.g. 'sudo dnf install ${COVERAGE_CMD}${NOCOLOR}"; false  ; fi
+	@echo -e "COVERAGE: ${GREEN}Running tests with code coverage...${NOCOLOR}"
+
 endif
 
 .PHONY: all clean test help gdb coverage covclean

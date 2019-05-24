@@ -19,11 +19,11 @@ We use `BATS` to coordinate and glue together multiple test suites, and `silentb
 
 ## Code coverage
 
-We use gcov/lcov for C test coverage.
+We use gcov/gcovr for C test coverage. While `gcov` (the program generating readable coverage info from coverage binary files) is a part of gcc package, `gcovr` (the program doing nice html rendering with source code) needs to be installed, i.e. `sudo dnf install gcovr`. See [gcovr site](https://www.gcovr.com) for details
 
 * To build coverage report, run `make coverage`. It will re-compile `km` with coverage (respecting settings in custom.mk) run the test suite and generate test coverage HTML reports. It will also print out the location of the reports.
 * To clean up coverage artifacts, run `make covclean`.
-* To see coverage in VSCode, install `Coverage gutters` plugin (ryanluker.vscode-coverage-gutters) and use `Watch` toggle on the bottom of an editor.
+
 
 ## Debugging
 

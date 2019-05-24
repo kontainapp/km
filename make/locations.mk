@@ -45,14 +45,11 @@ include $(CLOUD_SCRIPTS)/cloud_config.mk
 # To be complianbt with tag grammar, replace '/' with '-'
 IMAGE_VERSION = $(subst /,-,$(SRC_BRANCH))
 
-# Code coverage support. Assumes 'lcov' is installed.
-# See man 1 geninifo for source code markers which control coverage generating, if needed
+# Code coverage support. If enabled, build with code coverage in dedicate dir
 COV_BLDTYPE := coverage
 
-# tracefile and final report locations
-COV_INFO    = $(BLDDIR)coverage.info
-# location for html report
-COV_REPORT  = $(BLDDIR)lcov-report
+# location for html coverage report
+COVERAGE_REPORT  = $(KM_BLDDIR)/coverage.html
 
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 

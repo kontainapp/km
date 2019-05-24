@@ -19,9 +19,9 @@ LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 ARG UID
 ARG GID
 
-RUN dnf install -y gcc glibc-static\
+RUN dnf install -y gcc glibc-static \
 		elfutils-libelf-devel elfutils-libelf-devel-static glibc-devel zlib-static gdb \
-		make git lcov \
+		make git gcovr \
 	&& dnf clean all
 
 RUN groupadd -g $GID appuser && useradd -r -u $UID -g $GID appuser
