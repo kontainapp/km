@@ -146,6 +146,8 @@ teardown() {
 	run gdb -q -nx --ex="target remote :$gdb_port" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test.km
    [ $(echo "$output" | grep -F -cw 'SUCCESS') == 1 ]
+   wait %1
+   [ $status == 0 ]
 }
 
 @test "threads_basic: basic threads create, exit and join (hello_2_loops_test)" {

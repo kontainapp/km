@@ -725,7 +725,8 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
          if (ch == -1) {
             return;
          }
-         assert(errno == EINTR || ch == GDB_INTERRUPT_PKT);
+         // We expect INTR or '+' as a confirmatoin arriving due to other thread signalling payloas exit
+         assert(errno == EINTR || ch == GDB_INTERRUPT_PKT || ch == '+');
          is_intr = 1;
       }
       if (fds[1].revents) {   // vcpu stopped
