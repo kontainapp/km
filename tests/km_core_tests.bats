@@ -140,13 +140,16 @@ teardown() {
 }
 
 @test "gdb_basic: gdb support (gdb_test)" {
-   gdb_port=3333
-   $KM -g$gdb_port gdb_test.km &
-	sleep 0.5
-	run gdb -q -nx --ex="target remote :$gdb_port" --ex="source cmd_for_test.gdb" \
+   km_gdb_default_port=3333
+   # start KM in background, give it time to start, and connect with gdb cliennt
+   $KM -g gdb_test.km &
+   gdb_pid=`jobs -p` ; sleep 0.5
+	run gdb -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test.km
+   # check that gdb found what it is supposed to find
    [ $(echo "$output" | grep -F -cw 'SUCCESS') == 1 ]
-   wait %1
+   # check that KM exited normally
+   wait $gdb_pid
    [ $status == 0 ]
 }
 

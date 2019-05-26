@@ -278,7 +278,7 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
 
    if (new_brk > old_brk) {
       km_infox(KM_TRACE_MEM,
-               "%s grow  old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+               "%s grow  old:0x%lx(%d,%d) new:0x%lx(%d,%d)",
                __FUNCTION__,
                old_brk,
                old_2m_slot,
@@ -300,7 +300,7 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
       }
    } else {
       km_infox(KM_TRACE_MEM,
-               "%s shrink old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+               "%s shrink old:0x%lx(%d,%d) new:0x%lx(%d,%d)",
                __FUNCTION__,
                old_brk,
                old_2m_slot,
@@ -334,7 +334,7 @@ static inline void fixup_top_page_tables(km_gva_t old_brk, km_gva_t new_brk)
 
    if (new_brk < old_brk) {
       km_infox(KM_TRACE_MEM,
-               "%s grow old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+               "%s grow old:0x%lx(%d,%d) new:0x%lx(%d,%d)",
                __FUNCTION__,
                old_brk,
                old_2m_slot,
@@ -355,7 +355,7 @@ static inline void fixup_top_page_tables(km_gva_t old_brk, km_gva_t new_brk)
       }
    } else {
       km_infox(KM_TRACE_MEM,
-               "%s shrink old:0x%lx(%d,%d) new:0x%lx(%d,%d)\n",
+               "%s shrink old:0x%lx(%d,%d) new:0x%lx(%d,%d)",
                __FUNCTION__,
                old_brk,
                old_2m_slot,

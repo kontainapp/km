@@ -32,7 +32,7 @@ int change_and_print(int i)
 {
    i *= i;
    i = (i << 12) + var1;
-   printf("%s returned %d\n", __FUNCTION__, i);
+   printf("gdb_test: %s returned %d\n", __FUNCTION__, i);
    return i;
 }
 
@@ -50,13 +50,13 @@ int main()
 {
    int n = ((var1 * var1) << 12) + var1;
    int m = change_and_print(var1);
-   printf("n=%d m=%d, EXPECTED=%d\n", n, m, expected);
+   printf("gdb_test: n=%d m=%d, EXPECTED=%d\n", n, m, expected);
    assert(n == m);
    // EXPECTED value is put in var1 here for gdb to validate
    var1 = n;
    n = rand_func(n);
    n = change_and_print(n);
-   printf("got 0x%x. Now done\n", n);
+   printf("gdb_test: got 0x%x. Now done\n", n);
    var1 = 0;
 
    exit(0);

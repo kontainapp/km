@@ -173,17 +173,17 @@ int km_gdb_wait_for_connect(const char* image_name)
 }
 
 /* closes the gdb socket and set port to 0 */
-void km_gdb_disable(void)
+static void km_gdb_disable(void)
 {
    if (km_gdb_is_enabled() != 1) {
       return;
    }
+   km_gdb_port_set(0);
    warnx("Disabling gdb");
    if (gdbstub.sock_fd > 0) {
       close(gdbstub.sock_fd);
       gdbstub.sock_fd = -1;
    }
-   km_gdb_port_set(0);
 }
 
 static int send_char(char ch)
@@ -198,19 +198,18 @@ static char recv_char(void)
    unsigned char ch;
    int ret;
 
-   if ((ret = recv(gdbstub.sock_fd, &ch, 1, 0)) <= 0) {
+   while ((ret = recv(gdbstub.sock_fd, &ch, 1, 0)) < 0 && errno == EINTR) {
+      ;   // ignore interrupts
+   }
+   if (ret <= 0) {
       km_gdb_disable();
       return -1;
    }
    /*
-    * Could be either printable '$...' command, or ^C. We do not support 'X'
-    * (binary data) packets
+    * Paranoia check: at this poing we should get either printable '$...' command, or ^C, since we
+    * do not support nor expect 'X' (binary data) packets.
     */
-   if (!(isprint(ch) || ch == GDB_INTERRUPT_PKT)) {
-      warn("unexpected character 0x%x", ch);
-      km_gdb_disable();
-      return -1;
-   }
+   assert(isprint(ch) || ch == GDB_INTERRUPT_PKT);
    return (char)ch;
 }
 
@@ -652,7 +651,8 @@ static void km_gdb_handle_kvm_exit(int is_intr)
    assert(km_gdb_is_enabled() == 1);
    switch (is_intr ? KVM_EXIT_INTR : gdbstub.exit_reason) {
       case KVM_EXIT_HLT:
-         km_gdb_fini(0);
+         warnx("KVM_EXIT_HLT received: stopping GDB session");
+         km_gdb_fini(0);   // TODO: HLT instruction pauses CPU until next HW interrupt. Need to handle
          return;
 
       case KVM_EXIT_DEBUG:
@@ -718,28 +718,24 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       }
       machine.pause_requested = 1;
       gdbstub.session_requested = 1;
-      is_intr = 0;
-      if (fds[0].revents) {   // gdb client sent something (hopefully ^C)
-         int ch = recv_char();
-         km_infox(KM_TRACE_GDB, "%s: got a msg from a client. ch=%d", __FUNCTION__, ch);
-         if (ch == -1) {
-            return;
-         }
-         // We expect INTR or '+' as a confirmatoin arriving due to other thread signalling payloas exit
-         assert(errno == EINTR || ch == GDB_INTERRUPT_PKT || ch == '+');
-         is_intr = 1;
-      }
-      if (fds[1].revents) {   // vcpu stopped
-         km_infox(KM_TRACE_GDB, "gdb: a vcpu signalled about an exit");
-      }
-
-      km_infox(KM_TRACE_GDB, "Signalling all vCPUs to pause");
+      km_infox(KM_TRACE_GDB, "%s: Signalling vCPUs to pause", __FUNCTION__);
       km_vcpu_apply_all(km_vcpu_pause, 0);
       km_vcpu_wait_for_all_to_pause();
-      km_infox(KM_TRACE_GDB,
-               "%s: DONE waiting, all stopped. vm_vcpu_run_cnt %d",
-               __FUNCTION__,
-               machine.vm_vcpu_run_cnt);
+      km_infox(KM_TRACE_GDB, "%s: vCPUs paused. run_cnt %d", __FUNCTION__, machine.vm_vcpu_run_cnt);
+      is_intr = 0;            // memorize if GDB sent a ^C  or it was a vCPU kvm exit
+      if (fds[0].revents) {   // got something from gdb client (hopefully ^C)
+         int ch = recv_char();
+         km_infox(KM_TRACE_GDB, "%s: got a msg from a client. ch=%d", __FUNCTION__, ch);
+         if (ch == -1 || ch == '+') {   // channel error or EOF (ch == -1), OR we are exiting gdb
+                                        // (ch == '+') - see comments to km_gdb_fini()
+            break;
+         }
+         assert(ch == GDB_INTERRUPT_PKT);   // At this point it's only legal to see ^C from GDB
+         is_intr = 1;
+      }
+      if (fds[1].revents) {
+         km_infox(KM_TRACE_GDB, "%s: gdb: a vcpu signalled about an exit", __FUNCTION__);
+      }
       km_empty_out_eventfd(machine.intr_fd);   // discard extra 'intr' events if vcpus sent them
       km_gdb_handle_kvm_exit(is_intr);         // give control back to gdb
       gdbstub.session_requested = 0;
@@ -768,13 +764,22 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, __attribute__((unused)) int unused)
    vcpu->is_paused = 0;
 }
 
-// Tell GBD we are done
 void km_gdb_fini(int ret)
 {
    if (km_gdb_is_enabled() != 1) {
-      return;
+      return;   // gdb is already disabled
    }
-   send_response('W', ret, true);
+   /*
+    * Tell GDB that we are done.
+    *
+    * Normally, we would want to signal gdb thread and have it signal us back when it's ready,
+    * but in this case we are likely in the middle of releasing a vCPU. To avoid relying on vCPU
+    * object state for signals, we simply send 'W' packet ("inferior completed") directly to GDB
+    * client, ignore the ack and disable gdb. The gdb_main_loop thread may be be woken up by 'ack'
+    * from gdb, in which case either km_gdb_disable() completes before main_loop reads a char so
+    * main loop gets ch==-1, or main loops gets the ack (ch=='+'). In both cases, we will exit the
+    * main loop and that completes gdb session.
+    */
+   send_response('W', ret, false);
    km_gdb_disable();
-   eventfd_write(machine.intr_fd, 1);
 }
