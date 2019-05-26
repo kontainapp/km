@@ -650,11 +650,6 @@ static void km_gdb_handle_kvm_exit(int is_intr)
 {
    assert(km_gdb_is_enabled() == 1);
    switch (is_intr ? KVM_EXIT_INTR : gdbstub.exit_reason) {
-      case KVM_EXIT_HLT:
-         warnx("KVM_EXIT_HLT received: stopping GDB session");
-         km_gdb_fini(0);   // TODO: HLT instruction pauses CPU until next HW interrupt. Need to handle
-         return;
-
       case KVM_EXIT_DEBUG:
          gdb_handle_payload_stop(SIGTRAP);
          return;
@@ -665,6 +660,10 @@ static void km_gdb_handle_kvm_exit(int is_intr)
 
       case KVM_EXIT_EXCEPTION:
          gdb_handle_payload_stop(SIGSEGV);
+         return;
+
+      default:
+         warnx("%s: Unknown reason %d, ignoring.", __FUNCTION__, gdbstub.exit_reason);
          return;
    }
    return;
@@ -716,6 +715,11 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       if (ret < 0) {
          err(1, "%s: poll failed ret=%d.", __FUNCTION__, ret);
       }
+      if (machine.vm_vcpu_run_cnt == 0) {
+         send_response('W', ret, true);   // inferior normal exit
+         km_gdb_disable();
+         return;
+      }
       machine.pause_requested = 1;
       gdbstub.session_requested = 1;
       km_infox(KM_TRACE_GDB, "%s: Signalling vCPUs to pause", __FUNCTION__);
@@ -726,8 +730,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       if (fds[0].revents) {   // got something from gdb client (hopefully ^C)
          int ch = recv_char();
          km_infox(KM_TRACE_GDB, "%s: got a msg from a client. ch=%d", __FUNCTION__, ch);
-         if (ch == -1 || ch == '+') {   // channel error or EOF (ch == -1), OR we are exiting gdb
-                                        // (ch == '+') - see comments to km_gdb_fini()
+         if (ch == -1) {   // channel error or EOF (ch == -1)
             break;
          }
          assert(ch == GDB_INTERRUPT_PKT);   // At this point it's only legal to see ^C from GDB
@@ -762,24 +765,4 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, __attribute__((unused)) int unused)
    km_wait_on_eventfd(vcpu->gdb_efd);   // Wait for gdb to allow this vcpu to continue
    km_infox(KM_TRACE_GDB, "%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
    vcpu->is_paused = 0;
-}
-
-void km_gdb_fini(int ret)
-{
-   if (km_gdb_is_enabled() != 1) {
-      return;   // gdb is already disabled
-   }
-   /*
-    * Tell GDB that we are done.
-    *
-    * Normally, we would want to signal gdb thread and have it signal us back when it's ready,
-    * but in this case we are likely in the middle of releasing a vCPU. To avoid relying on vCPU
-    * object state for signals, we simply send 'W' packet ("inferior completed") directly to GDB
-    * client, ignore the ack and disable gdb. The gdb_main_loop thread may be be woken up by 'ack'
-    * from gdb, in which case either km_gdb_disable() completes before main_loop reads a char so
-    * main loop gets ch==-1, or main loops gets the ack (ch=='+'). In both cases, we will exit the
-    * main loop and that completes gdb session.
-    */
-   send_response('W', ret, false);
-   km_gdb_disable();
 }

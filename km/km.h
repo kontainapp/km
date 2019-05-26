@@ -131,7 +131,7 @@ typedef struct km_machine {
    int mid_mem_idx;              // idx for the last region in the bottom half of PA
    int last_mem_idx;             // idx for the last (and hidden) region in the top half of PA
    // syncronization support
-   int intr_fd;           // eventfd to coordinate stopping, and optionally restarting, all vcpu's
+   int intr_fd;           // eventfd used to signal to listener that a vCPU stopped
    int shutdown_fd;       // eventfd to coordinate final shutdown
    int exit_group;        // 1 if processing exit_group() call now.
    int pause_requested;   // 1 if all VCPUs are being paused. Used to prevent race with new vcpu threads

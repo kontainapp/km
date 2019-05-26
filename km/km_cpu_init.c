@@ -45,7 +45,7 @@ km_machine_t machine = {
 void km_signal_machine_fini(void)
 {
    if (km_gdb_is_enabled() == 1) {
-      km_gdb_fini(machine.exit_status);
+      eventfd_write(machine.intr_fd, 1);   // unblock gdb main_loop poll()
    }
    if (eventfd_write(machine.shutdown_fd, 1) == -1) {
       errx(2, "Failed to send machine_fini signal");

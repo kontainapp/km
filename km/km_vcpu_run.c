@@ -634,13 +634,17 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
          case KVM_EXIT_DEBUG:
          case KVM_EXIT_EXCEPTION:
-         case KVM_EXIT_HLT:
             if (km_gdb_is_enabled() == 1) {
                km_gdb_notify_and_wait(vcpu, errno);
             } else {
                run_warn("KVM: exit vcpu. reason=%d (%s)", reason, kvm_reason_name(reason));
                km_vcpu_exit(vcpu, -1);
             }
+            break;
+
+         case KVM_EXIT_HLT:
+            warnx("KVM: KVM_EXIT_HLT - exiting the thread");
+            km_vcpu_exit(vcpu, status);
             break;
 
          default:
