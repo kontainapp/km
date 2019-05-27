@@ -9,9 +9,32 @@ static void dummy_0()
 }
 weak_alias(dummy_0, __pthread_tsd_run_dtors);
 weak_alias(dummy_0, __do_orphaned_stdio_locks);
+weak_alias(dummy_0, _init);
+weak_alias(dummy_0, _fini);
 
 volatile size_t __attribute__((__weak__)) __pthread_tsd_size = 0;
-void *__pthread_tsd_main[1] __attribute__((__weak__)) = { 0 };
+void* __pthread_tsd_main[1] __attribute__((__weak__)) = {0};
+
+extern weak hidden void (*const __init_array_start)(void), (*const __init_array_end)(void);
+extern weak hidden void (*const __fini_array_start)(void), (*const __fini_array_end)(void);
+
+hidden void __libc_start_init(void)
+{
+   _init();
+   uintptr_t a = (uintptr_t)&__init_array_start;
+   for (; a < (uintptr_t)&__init_array_end; a += sizeof(void (*)())) {
+      (*(void (**)(void))a)();
+   }
+}
+
+hidden void __libc_exit_fini(void)
+{
+   uintptr_t a = (uintptr_t)&__fini_array_end;
+   for (; a > (uintptr_t)&__fini_array_start; a -= sizeof(void (*)())) {
+      (*(void (**)())(a - sizeof(void (*)())))();
+   }
+   _fini();
+}
 
 /*
  * Common entry point used for both main() and pthread entry.
@@ -20,20 +43,17 @@ void *__pthread_tsd_main[1] __attribute__((__weak__)) = { 0 };
  */
 _Noreturn void __start_c__(long is_main_argc, char** argv)
 {
-   int rc;
+   long rc;
 
    if (is_main_argc == 0) {
       struct pthread* self = __pthread_self();
       rc = (int)self->start(self->start_arg);
    } else {
       (void)__pthread_tsd_size;
+      __libc_start_init();
       rc = main(is_main_argc, argv);
    }
-   __pthread_tsd_run_dtors();
-   __do_orphaned_stdio_locks();
-   while (1) {
-      __syscall1(SYS_exit, rc);
-   }
+   pthread_exit((void*)rc);
 }
 
 /*

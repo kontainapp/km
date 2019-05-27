@@ -4,14 +4,15 @@
 
 _Noreturn void __pthread_exit(void* result)
 {
-   struct pthread* self = __pthread_self();
-
    __pthread_tsd_run_dtors();
    __do_orphaned_stdio_locks();
 
-   self->result = result;
+   if (a_fetch_add(&libc.threads_minus_1, -1) == 0) {
+      libc.threads_minus_1 = 0;
+      exit((int)result);
+   }
    while (1) {
-      __syscall1(SYS_exit, self->result);
+      __syscall1(SYS_exit, result);
    }
 }
 

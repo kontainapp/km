@@ -31,3 +31,4 @@ __stub_core__(sched_yield);
 __stub_core__(system);
 __stub_core__(wait);
 __stub_core__(waitid);
+__stub_core__(dl_iterate_phdr);   // TODO: Need to revisit

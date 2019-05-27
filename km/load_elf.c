@@ -44,7 +44,7 @@ static void my_pread(int fd, void* buf, size_t count, off_t offset)
 static void load_extent(int fd, GElf_Phdr* phdr)
 {
    km_kma_t addr;
-   uint64_t size, filesize;
+   uint64_t size, filesize, extra;
    km_gva_t top;
    int idx, pr;
 
@@ -76,9 +76,10 @@ static void load_extent(int fd, GElf_Phdr* phdr)
    do {
       idx = gva_to_memreg_idx(p_paddr);
       addr = km_gva_to_kma(p_paddr);
+      extra = addr - (km_kma_t)rounddown((uint64_t)addr, KM_PAGE_SIZE);
       size = MIN(p_memsz, memreg_top(idx) - p_paddr);
       filesize = MIN(p_filesz, size);
-      my_pread(fd, addr, filesize, p_offset);
+      my_pread(fd, addr - extra, filesize + extra, p_offset - extra);
       memset(addr + filesize, 0, size - filesize);
       pr = 0;
       if (phdr->p_flags & PF_R) {
@@ -98,7 +99,7 @@ static void load_extent(int fd, GElf_Phdr* phdr)
             }
          }
       }
-      if (mprotect(addr, size, pr) < 0) {
+      if (mprotect(addr - extra, size + extra, pr) < 0) {
          err(2, "failed to set guest memory protection");
       }
       p_paddr += size;

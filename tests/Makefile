@@ -19,15 +19,20 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 		getline_test.c mem_test.c exit_grp_test.c intr_test.c brk_map_test.c crash_test.c cpuid_test.c \
 		longjmp_test.c cpuid_print_details_test.c stray_test.c signal_test.c
 
+SRC_CPP = var_storage_test.cpp
+
 COPTS ?= -ggdb -O2
 CFLAGS = -Wall $(COPTS) -D_FORTIFY_SOURCE=0 -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
-KM_LDFLAGS = --gc-sections -T ${TOP}km.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
-LOADLIBES ?= -ggdb -static -pthread
+LDFLAGS = -ggdb -static -pthread
+KM_LDFLAGS = -Wl,-u__km_handle_interrupt -Wl,-e__start_c__ -Wl,--gc-sections -nostdlib -T ${TOP}gcc.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
+LDLIBS = -lstdc++ -lgcc_eh
 LDDIRS := ${TOP}build/runtime
-DEPS = ${SRC:%.c=%.d}
-OBJ = ${SRC:%.c=%.o}
+DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
+OBJ = ${SRC:%.c=%.o} ${SRC_CPP:%.cpp=%.o}
 LIBS := runtime
-EXECS := ${SRC:%.c=%.km} ${SRC:%.c=%}
+EXECS := ${SRC:%.c=%} ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%} ${SRC_CPP:%.cpp=%.km}
+
+CXXFLAGS=${COPTS}
 
 # Test: run by BATS, definition in TEST_FILES, test name has to MATCH
 BATS := time bats/bin/bats
@@ -46,7 +51,7 @@ else
 endif
 
 %.km: %.o
-	${LD} $< -o $@ ${KM_LDFLAGS} ; chmod a-x $@
+	${CC} ${LDFLAGS} $< -o $@ ${LDLIBS} ${KM_LDFLAGS} && chmod a-x $@
 
 .PHONY: load_expected_size
 load_expected_size: load_test.km
@@ -58,6 +63,19 @@ load_expected_size: load_test.km
 	@# run the command and adjust it's error messages so VS Code navigates properly
 	@set -e; rm -f $@; \
 	  $(CC) -MT $*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
+	  sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	@# make sure dependencies are rebuilt if needed.
+	@# sed strips everything before colon, removes leading and trailing spaces, then splits words into individual lines
+	@# and trailing ':'. See - http://scottmcpeak.com/autodepend/autodepend.html for explanation
+	@sed -e 's/^.*: *//' -e 's/ *\\$$//'  -e 's/^ *//' -e 's/ \+/:\n/g'  -e 's/$$/:/' $*.d | cat $*.d - > $*.d.tmp
+	@mv $*.d.tmp $*.d
+
+%.d: %.cpp
+	@# print the command we really need to run
+	@echo $(CPP) -MT $*.o -MT $@ -MM ${CFLAGS} ${CPPFLAGS} $< -o $@
+	@# run the command and adjust it's error messages so VS Code navigates properly
+	@set -e; rm -f $@; \
+	  $(CPP) -MT $*.o -MT $@ -MM ${CFLAGS} ${CPPFLAGS} $< -o $@ |& \
 	  sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 	@# make sure dependencies are rebuilt if needed.
 	@# sed strips everything before colon, removes leading and trailing spaces, then splits words into individual lines

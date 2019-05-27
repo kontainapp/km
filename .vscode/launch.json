@@ -182,6 +182,7 @@
          "default": "hello",
          "type": "pickString",
          "options": [
+            "var_storage_test",
             "exit_value_test",
             "hello_test",
             "hello_html_test",
