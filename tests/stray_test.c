@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include "km_hcalls.h"
 #include "syscall.h"
 
 char* cmdname = "?";
@@ -103,6 +104,11 @@ int main(int argc, char** argv)
    }
    if (strcmp(op, "ud") == 0) {
       undefined_op();
+      return 1;
+   }
+   if (strcmp(op, "hc") == 0) {
+      km_hc_args_t arg;
+      km_hcall(SYS_fork, &arg);
       return 1;
    }
    fprintf(stderr, "Unrecognized operation '%s'\n", op);

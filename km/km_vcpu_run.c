@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include "km.h"
+#include "km_coredump.h"
 #include "km_gdb.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
@@ -422,7 +423,8 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
                r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
    }
    if (km_hcalls_table[*hc] == NULL) {
-      run_errx(1, "KVM: unexpected hypercall %d", *hc);
+      km_dump_core(vcpu, NULL);
+      run_errx(1, "KVM: unexpected hypercall %d - dumped core", *hc);
    }
    /*
     * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of

@@ -262,4 +262,12 @@ teardown() {
    [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference('
    rm -f ${CORE}
+
+   # bad hcall
+   [ ! -f ${CORE} ]
+   run $KM --coredump=${CORE} stray_test.km hc
+   [ $status -eq 1 ]
+   [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'km_hcall ('
+   rm -f ${CORE}
 }
