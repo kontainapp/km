@@ -136,7 +136,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
       case X86_INTR_DE:   // Divide error: SIGFPE
          break;
 
-      case X86_INTR_UD:   // Undefined instrucution: SIGILL
+      case X86_INTR_UD:   // Undefined instruction: SIGILL
          break;
 
       case X86_INTR_GP:   // General Protection: SIGSEGV

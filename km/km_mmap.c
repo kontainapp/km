@@ -329,7 +329,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    if ((fd = open(core_path, O_RDWR | O_CREAT, 0666)) < 0) {
       errx(2, "Cannot open corefile '%s' - %s\n", core_path, strerror(errno));
    }
-   warnx("Write coredump to '%s'\n", core_path);
+   warnx("Write coredump to '%s'", core_path);
 
    if ((notes_buffer = (char*)malloc(notes_length)) == NULL) {
       errx(2, "%s - cannot allocate notes buffer", __FUNCTION__);

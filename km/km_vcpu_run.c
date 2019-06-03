@@ -424,7 +424,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
    }
    if (km_hcalls_table[*hc] == NULL) {
       km_dump_core(vcpu, NULL);
-      run_errx(1, "KVM: unexpected hypercall %d - dumped core", *hc);
+      run_errx(1, "KVM: unexpected hypercall %d - core dumped", *hc);
    }
    /*
     * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of
@@ -455,7 +455,8 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
        * Terminate for now
        * TODO: Revisit this action when we can do signals.
        */
-      run_errx(1, "KVM: bad km_hc_args address 0x%lx", ga);
+      km_dump_core(vcpu, NULL);
+      run_errx(1, "KVM: bad km_hc_args address 0x%lx - core dumped", ga);
    }
    return km_hcalls_table[*hc](vcpu, *hc, km_gva_to_kma(ga), status);
 }

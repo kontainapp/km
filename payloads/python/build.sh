@@ -13,7 +13,7 @@ make -j8
 popd
 
 if [ ! -d cpython ]; then
-    git clone https://github.com/python/cpython.git -b 3.7
+    git clone https://github.com/python/cpython.git -b v3.7.1
     pushd cpython
     ./configure LDFLAGS="-static" --disable-shared
     patch < ../pyconfig.h-patch
