@@ -42,7 +42,7 @@ distro: ${BLDEXEC}
 	@# Quick validation of the image; it will fail if load_test.km fails
 	docker run --rm --device /dev/kvm \
 		-v $(abspath ${TOP}/tests):/payloads:Z $(KM_IMAGE_FULL_NAME) \
-		/km /payloads/load_test.km > /dev/null
+		/km /payloads/hello_test.km > /dev/null
 	@echo -e "Docker image created: $(GREEN)`docker image ls $(KM_IMAGE_FULL_NAME) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
 distroclean:

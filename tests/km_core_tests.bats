@@ -213,7 +213,7 @@ teardown() {
    [ "$status" -eq 1 ]
 }
 
-@test "cli: test -v and other small tests" {
+@test "cli: test 'km -v' and other small tests" {
    run $KM -v
    [ "$status" -eq 0 ]
    echo -e "$output" | grep -F -q `git rev-parse --abbrev-ref HEAD`
@@ -241,7 +241,7 @@ teardown() {
 }
 
 # The behavior tested here is temporary and will change when real signal handling exists.
-@test "exception: exceptions and faults in the guest (exception)" {
+@test "exception: exceptions and faults in the guest (stay_test)" {
    CORE=/tmp/kmcore.$$
    # divide by zero
    [ ! -f ${CORE} ]
@@ -287,4 +287,28 @@ teardown() {
 @test "signals: signals in the guest (signals)" {
    run $KM signal_test.km
    [ $status -eq 0 ]
+}
+
+
+# C++ tests
+@test "cpp: constructors and statics (var_storage_test)" {
+   run $KM var_storage_test.km
+   [ "$status" -eq 0 ]
+
+   ctors=`echo -e "$output" | grep -F Constructor | wc -l`
+   dtors=`echo -e "$output" | grep -F Destructor | wc -l`
+   [ "$ctors" -gt 0 ]
+   [ "$ctors" -eq "$dtors" ]
+}
+
+
+@test "cpp: basic throw and unwind (throw_basic_test)" {
+   run ./throw_basic_test
+   [ $status -eq 0 ]
+   linux_out="${output}"
+
+   run $KM throw_basic_test.km
+   [ "$status" -eq 0 ]
+
+   diff <(echo -e "$linux_out")  <(echo -e "$output")
 }

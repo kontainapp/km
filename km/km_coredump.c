@@ -24,7 +24,7 @@
 #include "km_coredump.h"
 
 // TODO: Need to figure out where the corefile default should go.
-static char* coredump_path = "/tmp/kmcore";
+static char* coredump_path = "./kmcore";
 
 void km_set_coredump_path(char* path)
 {
@@ -158,14 +158,14 @@ static inline int km_make_dump_prstatus(km_vcpu_t* vcpu, char* buf, size_t lengt
 }
 
 typedef struct {
-   km_vcpu_t *pr_vcpu;    // 'current', already output. skip
-   char *pr_cur;
+   km_vcpu_t* pr_vcpu;   // 'current', already output. skip
+   char* pr_cur;
    size_t pr_remain;
 } km_core_dump_prstatus_t;
 
 static int km_core_dump_threads(km_vcpu_t* vcpu, uint64_t arg)
 {
-   km_core_dump_prstatus_t *ctx = (km_core_dump_prstatus_t *) arg;
+   km_core_dump_prstatus_t* ctx = (km_core_dump_prstatus_t*)arg;
    if (vcpu == ctx->pr_vcpu) {
       return 0;
    }
@@ -186,7 +186,7 @@ int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t
 
    /*
     * NT_PRSTATUS (prstatus structure)
-    * There is one NT_PRSTATUS for each running thread (vcpu) in the guest. 
+    * There is one NT_PRSTATUS for each running thread (vcpu) in the guest.
     * GDB interprts the first prstatus as it's initial current thread, so
     * it is important the the failing thread be the first one in the list.
     */
@@ -194,8 +194,8 @@ int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t
    cur += ret;
    remain -= ret;
 
-   km_core_dump_prstatus_t ctx = { .pr_vcpu = vcpu, .pr_cur = cur, .pr_remain = remain};
-   km_vcpu_apply_all(km_core_dump_threads, (uint64_t) &ctx);
+   km_core_dump_prstatus_t ctx = {.pr_vcpu = vcpu, .pr_cur = cur, .pr_remain = remain};
+   km_vcpu_apply_all(km_core_dump_threads, (uint64_t)&ctx);
    cur = ctx.pr_cur;
    remain = ctx.pr_remain;
 

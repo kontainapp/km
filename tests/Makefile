@@ -19,7 +19,7 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 		getline_test.c mem_test.c exit_grp_test.c intr_test.c brk_map_test.c crash_test.c cpuid_test.c \
 		longjmp_test.c cpuid_print_details_test.c stray_test.c signal_test.c
 
-SRC_CPP = var_storage_test.cpp
+SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
 COPTS ?= -ggdb -O2
 CFLAGS = -Wall $(COPTS) -D_FORTIFY_SOURCE=0 -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
@@ -30,14 +30,18 @@ LDDIRS := ${TOP}build/runtime
 DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 OBJ = ${SRC:%.c=%.o} ${SRC_CPP:%.cpp=%.o}
 LIBS := runtime
-EXECS := ${SRC:%.c=%} ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%} ${SRC_CPP:%.cpp=%.km}
+KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
+LINUX_PAYLOADS = ${KM_PAYLOADS:%.km=%}
+EXECS := ${KM_PAYLOADS} ${LINUX_PAYLOADS}
+
+${KM_PAYLOADS}: ${LDDIRS}
 
 CXXFLAGS=${COPTS}
 
 # Test: run by BATS, definition in TEST_FILES, test name has to MATCH
 BATS := time bats/bin/bats
 TEST_FILES := km_core_tests.bats
-MATCH ?= ".*"
+MATCH ?= .*
 
 all: ${EXECS} ## Build all test, for Linux and KM
 
@@ -51,7 +55,8 @@ else
 endif
 
 %.km: %.o
-	${CC} ${LDFLAGS} $< -o $@ ${LDLIBS} ${KM_LDFLAGS} && chmod a-x $@
+	${CC} ${LDFLAGS} /usr/lib/gcc/x86_64-redhat-linux/9/crtbeginT.o $< -o $@ ${LDLIBS} ${KM_LDFLAGS} /usr/lib/gcc/x86_64-redhat-linux/9/crtend.o
+	@chmod a-x $@
 
 .PHONY: load_expected_size
 load_expected_size: load_test.km
@@ -84,7 +89,7 @@ load_expected_size: load_test.km
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d $(EXECS)
+	rm -f *.o *.d $(EXECS) kmcore
 
 #
 # do not generate .d file if target is clean
@@ -107,7 +112,7 @@ ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
 
 # extra config for Code coverate
 COVERAGE_CMD_NAME := gcovr
-ifeq (${MATCH},)
+ifeq (${MATCH},.*)
 # Generate a fail if code coverage is too low - only for full test passes
 COVERAGE_THRESHOLDS :=  --fail-under-branch 40  --fail-under-line 55
 endif

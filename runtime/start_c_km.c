@@ -12,6 +12,8 @@ weak_alias(dummy_0, __do_orphaned_stdio_locks);
 weak_alias(dummy_0, _init);
 weak_alias(dummy_0, _fini);
 
+__attribute__((__weak__)) void* __dso_handle = (void*)&__dso_handle;
+
 volatile size_t __attribute__((__weak__)) __pthread_tsd_size = 0;
 void* __pthread_tsd_main[1] __attribute__((__weak__)) = {0};
 
