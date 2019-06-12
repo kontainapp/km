@@ -17,12 +17,14 @@
 #include <errno.h>
 #include <pthread.h>
 #include <regex.h>
+#include <signal.h>
 #include <stdint.h>
 #include <sys/eventfd.h>
 #include <sys/param.h>
 #include <sys/types.h>
 #include <linux/kvm.h>
 
+#include "bsd_queue.h"
 #include "km_elf.h"
 #include "km_hcalls.h"
 
@@ -50,6 +52,23 @@ typedef enum {
    VCPU_DONE          // after pthread_exit() waiting for join
 } km_vthr_state_t;
 
+typedef uint64_t km_sigset_t;
+typedef struct km_sigaction {
+   km_gva_t handler;
+   km_sigset_t sa_mask;
+   uint32_t sa_flags;
+} km_sigaction_t;
+
+typedef struct km_signal {
+   TAILQ_ENTRY(km_signal) link;
+   siginfo_t info;
+} km_signal_t;
+
+typedef struct km_signal_list {
+   TAILQ_HEAD(, km_signal) head;
+   sigset_t mask;   // Signals in list.
+} km_signal_list_t;
+
 typedef struct km_vcpu {
    int vcpu_id;                 // uniq ID
    int kvm_vcpu_fd;             // this VCPU file descriptor
@@ -73,6 +92,8 @@ typedef struct km_vcpu {
    kvm_regs_t regs;             // Cached register values.
    int sregs_valid;             // Are segment registers valid?
    kvm_sregs_t sregs;           // Cached segment register values.
+   km_sigset_t sigmask;         // blocked signals for thread
+   km_signal_list_t sigpending;   // List of signals sent to thread
 } km_vcpu_t;
 
 // simple enum to help in forcing 'enable/disable' flags
@@ -137,10 +158,14 @@ typedef struct km_machine {
    int pause_requested;   // 1 if all VCPUs are being paused. Used to prevent race with new vcpu threads
    int exit_status;       // return code from payload's main thread
    // guest interrupt support
-   km_gva_t gdt;      // Guest address of Global Descriptor Table (GDT)
-   size_t gdt_size;   // GDT size (bytes)
-   km_gva_t idt;      // Guest address of Interrupt Descriptor Table (IDT)
-   size_t idt_size;   // IDT size (bytes)
+   km_gva_t gdt;                   // Guest address of Global Descriptor Table (GDT)
+   size_t gdt_size;                // GDT size (bytes)
+   km_gva_t idt;                   // Guest address of Interrupt Descriptor Table (IDT)
+   size_t idt_size;                // IDT size (bytes)
+   pthread_mutex_t signal_mutex;   // Protect signal data structures.
+   km_signal_list_t sigpending;    // List of signals pending for guest
+   km_signal_list_t sigfree;       // Freelist of signal entries.
+   km_sigaction_t sigactions[_NSIG];
 } km_machine_t;
 
 extern km_machine_t machine;
@@ -155,6 +180,18 @@ static inline void km_mem_lock(void)
 static inline void km_mem_unlock(void)
 {
    pthread_mutex_unlock(&machine.brk_mutex);
+}
+
+static inline void km_signal_lock(void)
+{
+   if (pthread_mutex_lock(&machine.signal_mutex) != 0) {
+      err(1, "signal lock failed");
+   }
+}
+
+static inline void km_signal_unlock(void)
+{
+   pthread_mutex_unlock(&machine.signal_mutex);
 }
 
 static inline km_vcpu_t* km_main_vcpu(void)
@@ -240,5 +277,6 @@ extern km_info_trace_t km_info_trace;
 #define KM_TRACE_KVM "kvm"
 #define KM_TRACE_MEM "mem"
 #define KM_TRACE_COREDUMP "coredump"
+#define KM_TRACE_SIGNALS "signals"
 
 #endif /* #ifndef __KM_H__ */

@@ -50,3 +50,15 @@ _Noreturn void __km_handle_interrupt(void)
       km_hcall(HC_guest_interrupt, &args);
    }
 }
+
+_Noreturn void __km_handle_signal(
+    uint64_t savsp, void (*sigact)(int, siginfo_t*, void*), int signo, siginfo_t* siginfo, void* uctx)
+{
+   km_hc_args_t args;
+   args.arg1 = savsp;
+   (*sigact)(signo, siginfo, uctx);
+   while (1) {
+      // Should not return
+      km_hcall(SYS_rt_sigreturn, &args);
+   }
+}

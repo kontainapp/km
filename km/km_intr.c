@@ -12,6 +12,7 @@
  * Enable and handle traps/exceptions in guest.
  */
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -21,6 +22,7 @@
 #include "km_coredump.h"
 #include "km_elf.h"
 #include "km_mem.h"
+#include "km_signal.h"
 #include "x86_cpu.h"
 
 /*
@@ -118,12 +120,12 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
       iframe = (x86_interrupt_frame_t*)(rsp_kma + 1);
    }
 
-   fprintf(stderr, "ERROR CODE: 0x%lx\n", error_code);
-   fprintf(stderr, "       RIP: 0x%lx\n", iframe->rip);
-   fprintf(stderr, "        CS: 0x%lx\n", iframe->cs);
-   fprintf(stderr, "    RFLAGS: 0x%lx\n", iframe->rflags);
-   fprintf(stderr, "       RSP: 0x%lx\n", iframe->rsp);
-   fprintf(stderr, "        SS: 0x%lx\n", iframe->ss);
+   km_info(KM_TRACE_SIGNALS, "ERROR CODE: 0x%lx\n", error_code);
+   km_info(KM_TRACE_SIGNALS, "       RIP: 0x%lx\n", iframe->rip);
+   km_info(KM_TRACE_SIGNALS, "        CS: 0x%lx\n", iframe->cs);
+   km_info(KM_TRACE_SIGNALS, "    RFLAGS: 0x%lx\n", iframe->rflags);
+   km_info(KM_TRACE_SIGNALS, "       RSP: 0x%lx\n", iframe->rsp);
+   km_info(KM_TRACE_SIGNALS, "        SS: 0x%lx\n", iframe->ss);
 
    // Restore register to what they were before the interrupt.
    vcpu->regs.rip = iframe->rip;
@@ -131,19 +133,21 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
    vcpu->sregs.cs.base = iframe->cs;
    vcpu->sregs.ss.base = iframe->cs;
 
-   // TODO: do actions.
+   siginfo_t info = {.si_code = SI_KERNEL};
    switch (events.exception.nr) {
       case X86_INTR_DE:   // Divide error: SIGFPE
+         info.si_signo = SIGFPE;
          break;
 
       case X86_INTR_UD:   // Undefined instruction: SIGILL
+         info.si_signo = SIGILL;
          break;
 
       case X86_INTR_GP:   // General Protection: SIGSEGV
       case X86_INTR_PF:   // Page fault: SIGSEGV
+         info.si_signo = SIGSEGV;
          break;
 
-      // TODO: What about these?
       case X86_INTR_DB:    // Debug Exception
       case X86_INTR_NMI:   // NMI
       case X86_INTR_BP:    // breakpoint
@@ -159,20 +163,11 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
       case X86_INTR_NP:    // Segment not present
       case X86_INTR_SS:    // Stack-Segment fault
       case X86_INTR_AC:    // Alignment Check
+         info.si_signo = SIGSYS;
          break;
       default:
          break;
    }
 
-   vcpu->is_paused = 1;
-   machine.pause_requested = 1;
-   km_vcpu_apply_all(km_vcpu_pause, 0);
-   km_vcpu_wait_for_all_to_pause();
-
-   km_dump_core(vcpu, iframe);
-
-   errx(events.exception.nr + 1,
-        "GOT INTERRUPT HC!!!! number=%d RSP=0x%llx",
-        events.exception.nr,
-        vcpu->regs.rsp);
+   km_post_signal(vcpu, &info);
 }

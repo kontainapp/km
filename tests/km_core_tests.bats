@@ -65,16 +65,20 @@ teardown() {
 
 @test "hc_check: invoke wrong hypercall (hc_test)" {
    run $KM hc_test.km 400
-   [ $(echo -e "$output" | grep -F -cw "unexpected hypercall 400") == 1 ]
+   [ $status == 31 ]  #SIGSYS
+   [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
 
    run $KM hc_test.km -- -10
-   [ $(echo -e "$output" | grep -F -cw "unexpected IO port activity, port 0x7ff6 0x4 bytes out") == 1 ]
+   [ $status == 31 ]  #SIGSYS
+   [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
 
    run $KM hc_test.km 1000
-   [ $(echo -e "$output" | grep -F -cw "unexpected IO port activity, port 0x83e8 0x4 bytes out") == 1 ]
+   [ $status == 31 ]  #SIGSYS
+   [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
 
    run $KM hc_test.km --bad-arg 3
-   [ $(echo -e "$output" | grep -F -cw "bad km_hc_args address") == 1 ]
+   [ $status == 31 ]  #SIGSYS
+   [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
 }
 
 @test "km_main: wait on signal (hello_test)" {
@@ -242,7 +246,7 @@ teardown() {
    # divide by zero
    [ ! -f ${CORE} ]
    run $KM --coredump=${CORE} stray_test.km div0
-   [ $status -eq 1 ]
+   [ $status -eq 8 ] # SIGFPE
    [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'div0('
    rm -f ${CORE}
@@ -250,7 +254,7 @@ teardown() {
    # invalid opcode
    [ ! -f ${CORE} ]
    run $KM --coredump=${CORE} stray_test.km ud
-   [ $status -eq 7 ]
+   [ $status -eq 4 ] # SIGILL
    [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'undefined_op('
    rm -f ${CORE}
@@ -258,7 +262,7 @@ teardown() {
    # page fault
    [ ! -f ${CORE} ]
    run $KM --coredump=${CORE} stray_test.km stray
-   [ $status -eq 15 ]
+   [ $status -eq 11 ] # SIGSEGV
    [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference('
    rm -f ${CORE}
@@ -266,8 +270,21 @@ teardown() {
    # bad hcall
    [ ! -f ${CORE} ]
    run $KM --coredump=${CORE} stray_test.km hc
-   [ $status -eq 1 ]
+   [ $status -eq 31 ] # SIGSYS
    [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'km_hcall ('
    rm -f ${CORE}
+
+   # write to text (protected memory)
+   [ ! -f ${CORE} ]
+   run $KM --coredump=${CORE} stray_test.km prot
+   [ $status -eq 11 ]  # SIGSEGV
+   [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'write_text ('
+   rm -f ${CORE}
+}
+
+@test "signals: signals in the guest (signals)" {
+   run $KM signal_test.km
+   [ $status -eq 0 ]
 }

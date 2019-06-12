@@ -1,6 +1,7 @@
 EXTERN(__start_c__)
 ENTRY(__start_c__)
 EXTERN(__km_handle_interrupt)
+EXTERN(__km_handle_signal)
 
 /*
  * Sections names .text.* .rodata.* .data.* are produced by gcc with -ffunction-sections -fdata-sections

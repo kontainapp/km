@@ -136,9 +136,9 @@ typedef struct km_builtin_tls {
 km_builtin_tls_t builtin_tls[1];
 
 /*
- * km_load_elf() finds __libc by name in the ELF image of the guest. We follow __init_libc() logic to
- * initialize the content, including TLS and pthread structure for the main thread. TLS is allocated
- * on top of the stack. pthread is part of TLS area.
+ * km_load_elf() finds __libc by name in the ELF image of the guest. We follow __init_libc() logic
+ * to initialize the content, including TLS and pthread structure for the main thread. TLS is
+ * allocated on top of the stack. pthread is part of TLS area.
  *
  * Care needs to be taken to distinguish between addresses seen in the guest and in km. We have two
  * sets of variables for each structure we deal with, like libc and libc_kma, former and latter
@@ -381,6 +381,7 @@ int km_pthread_create(km_vcpu_t* current_vcpu,
    if ((vcpu = km_vcpu_get()) == NULL) {
       return -EAGAIN;
    }
+   vcpu->sigmask = current_vcpu->sigmask;
    if ((pt = km_pthread_init(attr, vcpu, start, args)) == 0) {
       km_vcpu_put(vcpu);
       return -EAGAIN;

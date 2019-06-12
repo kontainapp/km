@@ -1,5 +1,43 @@
 # Signal Handling in KM Guests
 
+Reference(s):
+
+* [IEEE Std 1003.1/Open Group Base Specifications (Issue 7) http://pubs.opengroup.org/onlinepubs/9699919799/](http://pubs.opengroup.org/onlinepubs/9699919799/)
+* [The GNU C Library: 24. Signal Handling - https://www.gnu.org/software/libc/manual/html_node/Signal-Handling.html](https://www.gnu.org/software/libc/manual/html_node/Signal-Handling.html)
+
+## Overview
+Signals are a messy part of the Linux programming environment. They were messy in original UNIX and they have
+gotten messier over time. One area where this messiness is obvious is the mapping between section 2 `libc` functions
+and native Linux systems calls. Unlike most section 2 `libc` functions where there is direct correspondence between
+`libc` and the system call, many signal oriented functions have nontrivial mappings between the function and the system
+call. See the implementation of `sigaction(2)` for a good example of this.
+
+The following table shows how some signal-opriented native Linux syscalls map into `libc` functions.
+
+| Linux SysCall | `libc` | Description |
+| ------- | ---- | --------|
+| SYS_rt_sigprocmask | pthread_sigmask(3)<br>sigaction(2) | Signal masking. In MUSL, both process-wide masking and<br>per-thread masking use the common system call. |
+| SYS_rt_sigaction | signal(2)<br>sigaction(2)| Define a signal handler. |
+| SYS_rt_sigtimedwait | sigtimedwait(2)<br>sigwait(2)<br>sigwaitinfo(2) | Wait for signal(s) to occur. |
+| SYS_rt_sigpending | sigpending(2) | Nondestructively get pending signals. |
+| SYS_signalfd4 | signalfd(2) | Create file descrptor to recieve signals |
+| SYS_kill | kill(2) | Send a signal to a process. |
+| SYS_tkill | abort(3)<br>raise(3)<br>pthread_cancel(3)<br>pthread_kill(3)| Send a signal to a thread. |
+
+There are three distinct methods defined in the Linux environment for a process to receive signals:
+
+* rt_sigtimed wait(2) and related functions (related functions implemented in libc).
+* signalfd(2) (similar to rt_sigtimed_wait, but can be used by poll/select/epoll).
+* Asynchronous callback (classic signals).
+
+In keeping with the isolated single process model of KM, signal processing in KM guests is restricted in the following ways:
+
+1. KM guests can only send signals to themselves. For example kill(0, sig), raise(sig). EINVAL is returned if this restriction is violated.
+2. KM guests will receive program error signals detected by KM runtime (eg. SIGSEGV, SIGFPE, SIGILL).
+2. By default KM handles all signals from the outside (ie. the kernel or other processes) are not available inside ta guest.
+
+As a future enhancement, configuration option(s) could be defined to allow outside signals to be visible inside a KM guest.
+
 ## Guest Exception Handling
 
 When runtime errors such as divide by zero or a stray memory refrence occur in a KVM guest, they result in a X86 interrupt seen in the guest. In order to catch these errors, the Kontain runtime contains an interrupt handler. All this exception handler does is make a hypercall. The hypercall handler inside KM takes care of the rest.

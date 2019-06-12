@@ -22,6 +22,7 @@
 #define KM_LIBC_SYM_NAME "__libc"
 #define KM_INT_HNDL_SYM_NAME "__km_handle_interrupt"
 #define KM_TSD_SIZE_SYM_NAME "__pthread_tsd_size"
+#define KM_SIG_HNDL_SYM_NAME "__km_handle_signal"
 /*
  * Description of the guest payload. Note these structures come from guest ELF and represent values
  * in guest address space. We'll need to convert them to monitor (KM) addresses to acces.
@@ -32,6 +33,7 @@ typedef struct km_payload {
    Elf64_Addr km_libc;       // libc in payload program
    Elf64_Addr km_handlers;   // interrupt/exception handler
    Elf64_Addr km_tsd_size;   // __pthread_tsd_size in the payload
+   Elf64_Addr km_sighandle;  // signal trampoline function
 } km_payload_t;
 
 extern km_payload_t km_guest;

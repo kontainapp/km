@@ -21,6 +21,7 @@
 #include "km.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
+#include "km_signal.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -556,6 +557,65 @@ static km_hc_ret_t guest_interrupt_hcall(void* vcpu, int hc, km_hc_args_t* arg, 
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t rt_sigprocmask_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int rt_sigprocmask(int how, const kernel_sigset_t *set, kernel_sigset_t *oldset, size_t sigsetsize);
+   km_sigset_t* set = NULL;
+   km_sigset_t* oldset = NULL;
+
+   if (arg->arg2 != 0 && (set = km_gva_to_kma(arg->arg2)) == NULL) {
+      arg->hc_ret = EINVAL;
+      return HC_CONTINUE;
+   }
+   if (arg->arg3 != 0 && (oldset = km_gva_to_kma(arg->arg3)) == NULL) {
+      arg->hc_ret = EINVAL;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_rt_sigprocmask(vcpu, arg->arg1, set, oldset, arg->arg4);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t rt_sigaction_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
+   km_sigaction_t* act = NULL;
+   km_sigaction_t* oldact = NULL;
+
+   if (arg->arg2 != 0 && (act = km_gva_to_kma(arg->arg2)) == NULL) {
+      arg->hc_ret = EINVAL;
+      return HC_CONTINUE;
+   }
+   if (arg->arg3 != 0 && (oldact = km_gva_to_kma(arg->arg3)) == NULL) {
+      arg->hc_ret = EINVAL;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_rt_sigaction(vcpu, arg->arg1, act, oldact, arg->arg4);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t rt_sigreturn_hcall(void* varg, int hc, km_hc_args_t* arg, int* status)
+{
+   km_vcpu_t* vcpu = (km_vcpu_t*)varg;
+   void* savregs = km_gva_to_kma(arg->arg1);
+
+   arg->hc_ret = km_rt_sigreturn(vcpu, savregs);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t kill_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int kill(pid_t pid, int sig)
+   arg->hc_ret = km_kill(vcpu, arg->arg1, arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t rt_sigpending_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int rt_sigpending(sigset_t *set, size_t sigsetsize)
+   arg->hc_ret = km_rt_sigpending(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   return HC_CONTINUE;
+}
+
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
@@ -608,8 +668,12 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_recvfrom] = recvfrom_hcall;
    km_hcalls_table[SYS_lstat] = lstat_hcall;
 
-   km_hcalls_table[SYS_rt_sigaction] = dummy_hcall;
-   km_hcalls_table[SYS_rt_sigprocmask] = dummy_hcall;
+   km_hcalls_table[SYS_rt_sigprocmask] = rt_sigprocmask_hcall;
+   km_hcalls_table[SYS_rt_sigaction] = rt_sigaction_hcall;
+   km_hcalls_table[SYS_rt_sigreturn] = rt_sigreturn_hcall;
+   km_hcalls_table[SYS_rt_sigpending] = rt_sigpending_hcall;
+   km_hcalls_table[SYS_kill] = kill_hcall;
+
    km_hcalls_table[SYS_getpid] = dummy_hcall;
    km_hcalls_table[SYS_dup] = dup_hcall;
    km_hcalls_table[SYS_geteuid] = dummy_hcall;

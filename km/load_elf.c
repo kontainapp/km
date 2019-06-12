@@ -178,7 +178,11 @@ int km_load_elf(const char* file)
                 strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_TSD_SIZE_SYM_NAME) == 0) {
                km_guest.km_tsd_size = sym.st_value;
             }
-            if (km_guest.km_libc != 0 && km_guest.km_handlers != 0 && km_guest.km_tsd_size != 0) {
+            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_HNDL_SYM_NAME) == 0) {
+               km_guest.km_sighandle = sym.st_value;
+            }
+            if (km_guest.km_libc != 0 && km_guest.km_handlers != 0 && km_guest.km_tsd_size != 0 && km_guest.km_sighandle != 0) {
                break;
             }
          }

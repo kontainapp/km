@@ -47,6 +47,11 @@ void undefined_op()
    asm volatile("ud2");
 }
 
+void write_text(void* ptr)
+{
+   *((char*)ptr) = 'a';
+}
+
 pthread_mutex_t mt = PTHREAD_MUTEX_INITIALIZER;
 void* thread_main(void* arg)
 {
@@ -61,6 +66,8 @@ void usage()
    fprintf(stderr, " stray - generate a stray reference\n");
    fprintf(stderr, " div0  - generate a divde by zero\n");
    fprintf(stderr, " ud    - generate an undefined op code\n");
+   fprintf(stderr, " hc    - generate an undefined hypercall\n");
+   fprintf(stderr, " prot  - generate an write to protected memory\n");
 }
 
 int main(int argc, char** argv)
@@ -111,6 +118,11 @@ int main(int argc, char** argv)
       km_hcall(SYS_fork, &arg);
       return 1;
    }
+   if (strcmp(op, "prot") == 0) {
+      write_text(usage);
+      return 1;
+   }
+
    fprintf(stderr, "Unrecognized operation '%s'\n", op);
    usage();
    return 1;

@@ -24,6 +24,7 @@
 #include "km_gdb.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
+#include "km_signal.h"
 
 int vcpu_dump = 0;
 
@@ -416,15 +417,20 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
    /* Sanity checks */
    *hc = r->io.port - KM_HCALL_PORT_BASE;
    if (!(r->io.direction == KVM_EXIT_IO_OUT && r->io.size == 4 && *hc >= 0 && *hc < KM_MAX_HCALL)) {
-      run_errx(1,
-               "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
-               r->io.port,
-               r->io.size,
-               r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
+      km_info(KM_TRACE_SIGNALS,
+              "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
+              r->io.port,
+              r->io.size,
+              r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
+
+      siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
+      km_post_signal(vcpu, &info);
+      return -1;
    }
    if (km_hcalls_table[*hc] == NULL) {
-      km_dump_core(vcpu, NULL);
-      run_errx(1, "KVM: unexpected hypercall %d - core dumped", *hc);
+      siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
+      km_post_signal(vcpu, &info);
+      return -1;
    }
    /*
     * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of
@@ -446,17 +452,9 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
    }
    km_infox(KM_TRACE_HC, "hc = %d", *hc);
    if (km_gva_to_kma(ga) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
-      /*
-       * return code to guest is inside hc_args, so there isn't a place to put an error code.
-       * Obvious choices are:
-       * - ignore
-       * - SIGSEGV the guest
-       * - Terminate the monitor
-       * Terminate for now
-       * TODO: Revisit this action when we can do signals.
-       */
-      km_dump_core(vcpu, NULL);
-      run_errx(1, "KVM: bad km_hc_args address 0x%lx - core dumped", ga);
+      siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
+      km_post_signal(vcpu, &info);
+      return -1;
    }
    return km_hcalls_table[*hc](vcpu, *hc, km_gva_to_kma(ga), status);
 }
@@ -557,18 +555,20 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
          vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          if (km_gdb_is_enabled() == 1) {
             km_gdb_notify_and_wait(vcpu, errno);
-         } else if (machine.pause_requested) {
-            vcpu->is_paused = 1;
-            km_read_registers(vcpu);
-            km_read_sregisters(vcpu);
-            km_wait_on_eventfd(vcpu->gdb_efd);
-            // TODO: snapshot cores will be restarted.
-            vcpu->is_paused = 0;
-         } else {   // e.g. gdb attached to KM and then detached while in ioctl
-            warn("KVM_RUN interrupted... continuing");
          }
          break;
 
+      case EFAULT: {
+         /*
+          * This happens when the guest violates memory protection, for example
+          * writes to the text area. This is a side-effect of how we protect
+          * guest memory (guest PT says page is writable, but kernel says it
+          * isn't).
+          */
+         siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
+         km_post_signal(vcpu, &info);
+         break;
+      }
       default:
          run_err(1, "KVM: vcpu run failed with errno %d (%s)", errno, strerror(errno));
    }
@@ -581,17 +581,30 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    int status, hc;
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
    vcpu->tid = gettid();
+   vcpu->is_paused = 1;
 
    while (1) {
       int reason;
 
-      // TODO: interlock with machine.pause_requested.
+      // interlock with machine.pause_requested.
+      if (machine.pause_requested) {
+         km_read_registers(vcpu);
+         km_read_sregisters(vcpu);
+         km_wait_on_eventfd(vcpu->gdb_efd);
+      }
+
+      /*
+       * If there is a signal with a handler, setup the guest's registers to
+       * execute the handler in the the KVM_RUN.
+       */
+      km_deliver_signal(vcpu);
 
       // Invalidate cached registers
       vcpu->regs_valid = 0;
       vcpu->sregs_valid = 0;
       vcpu->is_paused = 0;
       if (km_vcpu_one_kvm_run(vcpu) < 0) {
+         vcpu->is_paused = 1;
          continue;
       }
       vcpu->is_paused = 1;

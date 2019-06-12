@@ -36,6 +36,9 @@ km_machine_t machine = {
     .kvm_fd = -1,
     .mach_fd = -1,
     .brk_mutex = PTHREAD_MUTEX_INITIALIZER,
+    .signal_mutex = PTHREAD_MUTEX_INITIALIZER,
+    .sigpending.head = TAILQ_HEAD_INITIALIZER(machine.sigpending.head),
+    .sigfree.head = TAILQ_HEAD_INITIALIZER(machine.sigfree.head),
 };
 
 /*
@@ -82,6 +85,7 @@ void km_machine_fini(void)
    km_wait_on_eventfd(machine.shutdown_fd);
    close(machine.shutdown_fd);
    assert(machine.vm_vcpu_run_cnt == 0);
+   km_signal_fini();
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       km_vcpu_t* vcpu;
 
@@ -218,7 +222,8 @@ km_vcpu_t* km_vcpu_get(void)
    if ((new = malloc(sizeof(km_vcpu_t))) == NULL) {
       err(1, "KVM: no memory for vcpu");
    }
-   memset(new, 0, sizeof(km_vcpu_t));
+   km_signal_list_t tmpl = {.head = TAILQ_HEAD_INITIALIZER(new->sigpending.head)};
+   new->sigpending = tmpl;
    new->joining_pid = -1;
 
    new->is_used = 1;   // so it won't get snatched right after its inserted
@@ -531,4 +536,5 @@ void km_machine_init(km_machine_init_params_t* params)
       machine.guest_max_physmem = params->guest_physmem;
    }
    km_mem_init();
+   km_signal_init();
 }
