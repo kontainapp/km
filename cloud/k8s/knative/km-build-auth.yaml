@@ -1,0 +1,13 @@
+# ssh cert for authorizing build to access bitbucket. Actual cert is stripped out
+
+apiVersion: v1
+data:
+  ssh-privatekey: <base64 private key goes here>
+kind: Secret
+metadata:
+  annotations:
+    build.knative.dev/git-0: https://bitbucket.org
+    build.knative.dev/git-1: https://msterin_kontain@bitbucket.org
+  name: km-build-auth
+  namespace: default
+type: kubernetes.io/ssh-auth

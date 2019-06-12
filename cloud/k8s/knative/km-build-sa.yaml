@@ -1,0 +1,9 @@
+# config for Service account for running.
+# Secrets for SA need to be configured elsewhere (e.g. k-build-auth.yaml)
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: km-build-sa
+secrets:
+  - name: km-build-auth

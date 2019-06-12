@@ -1,0 +1,23 @@
+   # experimentation with Knative BUILD component, to build KM
+   #   - it needs accurate service account security configured outside of this file, so it can access bitbucket.
+
+   apiVersion: build.knative.dev/v1alpha1
+   kind: Build
+   metadata:
+     name: km-build
+   spec:
+     serviceAccountName: km-build-sa
+     source:
+      git:
+        url: https://bitbucket.org/kontainapp/covm.git
+        revision: master
+     steps:
+       - name: pwd
+         image: busybox
+         args: ["pwd"]
+       - name: ls
+         image: busybox
+         args: ["ls", "-l", "."]
+       - name: make
+         image: kontainkubecr.azurecr.io/km-buildenv-fedora
+         args: ["make"]
