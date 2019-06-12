@@ -28,6 +28,7 @@ _pickle _pickle.c      # pickle accelerator
 _datetime _datetimemodule.c    # datetime accelerator
 _bisect _bisectmodule.c        # Bisection algorithms
 #_heapq _heapqmodule.c  # Heap queue algorithm
+_queue _queuemodule.c # queues
 #_asyncio _asynciomodule.c  # Fast asyncio Future
 
 unicodedata unicodedata.c    # static Unicode character database
@@ -57,6 +58,8 @@ _socket socketmodule.c
 #_ssl _ssl.c \
 #       -DUSE_SSL -I$(SSL)/include -I$(SSL)/include/openssl \
 #       -L$(SSL)/lib -lssl -lcrypto
+
+zlib zlibmodule.c -I$(prefix)/include -L$(exec_prefix)/lib -lz
 
 # The crypt module is now disabled by default because it breaks builds
 # on many systems (where -lcrypt is needed), e.g. Linux (I believe).
