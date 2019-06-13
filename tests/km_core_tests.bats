@@ -49,6 +49,11 @@ teardown() {
 # They can be invoked by either 'make test [MATCH=<filter>]' or ./km_core_tests.bats [-f <filter>]
 # <filter> is a regexp or substring matching test name
 
+@test "setup_link: check if linking produced text segment where we expect" {
+   run objdump -wp load_test.km
+   [[ $(echo -e "$output" | awk '/LOAD/{print $5}' | sort -g | head -1) -eq 0x200000 ]]
+}
+
 @test "setup_basic: basic vm setup, workload invocation and exit value check (exit_value_test)" {
    for i in $(seq 1 200) ; do # a loop to catch race with return value, if any
       run $KM exit_value_test.km
@@ -241,7 +246,7 @@ teardown() {
 }
 
 # The behavior tested here is temporary and will change when real signal handling exists.
-@test "exception: exceptions and faults in the guest (stay_test)" {
+@test "exception: exceptions and faults in the guest (stray_test)" {
    CORE=/tmp/kmcore.$$
    # divide by zero
    [ ! -f ${CORE} ]

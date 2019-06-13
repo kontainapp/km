@@ -48,8 +48,25 @@ static void load_extent(int fd, GElf_Phdr* phdr)
    km_gva_t top;
    int idx, pr;
 
-   /* Extent memory if neccesary */
    top = phdr->p_paddr + phdr->p_memsz;
+   /*
+    * There is no memory in the first 2MB of virtual address space. We use gcc-km.spec file to drive
+    * memory allocation during linking, based on default linking script. The relevant line is:
+    * ``... -Ttext-segment=0x1FF000 ... -z norelro %(old_link) --build-id=none''
+    * In combination with the default linking script this lands the beginning of text segment at
+    * 2MB. Obviously 0x1FF000 is one page before that, but the linking script does
+    * ``. = SEGMENT_START("text-segment", 0x400000) + SIZEOF_HEADERS;'' and later
+    * ``. = ALIGN(CONSTANT (MAXPAGESIZE));''
+    * which adds that page. Normally that page contains program headers and build-if. The former
+    * doesn't apply to us as we are statically linked, so the space is just waisted. --build-id=none
+    * removes the latter, so the page simply stay empty, and first loadable segment starts at 2MB as
+    * we want.
+    *
+    * We also have a test in the test suit to check for 2MB start.
+    */
+   assert(top >= GUEST_MEM_START_VA);
+
+   /* Extent memory if neccesary */
    if (top >= km_mem_brk(0)) {
       if (km_mem_brk(top) != top) {
          err(2, "No memory to load elf");

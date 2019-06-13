@@ -23,20 +23,17 @@ SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
 COPTS ?= -ggdb -O2
 CFLAGS = -Wall $(COPTS) -D_FORTIFY_SOURCE=0 -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
-LDFLAGS = -ggdb -static -pthread
-KM_LDFLAGS = -Wl,-u__km_handle_interrupt -Wl,-e__start_c__ -Wl,--gc-sections -nostdlib -T ${TOP}gcc.ld $(patsubst %,-L %,${LDDIRS}) $(patsubst %,-l%,${LIBS})
-LDLIBS = -lstdc++ -lgcc_eh
+LDFLAGS = -ggdb -pthread
+KM_LDFLAGS = -specs=${TOP}gcc-km.spec $(patsubst %,-L %,${LDDIRS})
 LDDIRS := ${TOP}build/runtime
 DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
-OBJ = ${SRC:%.c=%.o} ${SRC_CPP:%.cpp=%.o}
-LIBS := runtime
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
-LINUX_PAYLOADS = ${KM_PAYLOADS:%.km=%}
-EXECS := ${KM_PAYLOADS} ${LINUX_PAYLOADS}
+EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
 ${KM_PAYLOADS}: ${LDDIRS}
 
 CXXFLAGS=${COPTS}
+${SRC_CPP:%.cpp=%} ${SRC_CPP:%.cpp=%.km}: CC=g++
 
 # Test: run by BATS, definition in TEST_FILES, test name has to MATCH
 BATS := time bats/bin/bats
@@ -55,7 +52,7 @@ else
 endif
 
 %.km: %.o
-	${CC} ${LDFLAGS} /usr/lib/gcc/x86_64-redhat-linux/9/crtbeginT.o $< -o $@ ${LDLIBS} ${KM_LDFLAGS} /usr/lib/gcc/x86_64-redhat-linux/9/crtend.o
+	${CC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
 	@chmod a-x $@
 
 .PHONY: load_expected_size

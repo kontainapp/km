@@ -21,8 +21,6 @@ using namespace std;
 
 #include <stdio.h>
 
-__attribute__((__weak__)) void* __dso_handle = (void*)&__dso_handle;
-
 class StorageType
 {
    string name;
