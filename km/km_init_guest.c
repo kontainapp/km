@@ -42,12 +42,6 @@ typedef struct km__locale_struct {
    const struct km__locale_map* cat[6];
 } km__locale_t;
 
-typedef struct km_tls_module {
-   struct km_tls_module* next;
-   void* image;
-   size_t len, size, align, offset;
-} km_tls_module_t;
-
 typedef struct km__libc {
    int can_do_threads;
    int threaded;
@@ -124,7 +118,7 @@ typedef struct km_pthread {
  * the description of the TLS memory and used for as a source of initialization for new threads TLS.
  * So we keep it in the monitor.
  */
-struct km_tls_module km_main_tls;
+km_tls_module_t km_main_tls;
 
 typedef struct km_builtin_tls {
    char c;
@@ -132,8 +126,6 @@ typedef struct km_builtin_tls {
    void* space[16];
 } km_builtin_tls_t;
 #define MIN_TLS_ALIGN offsetof(km_builtin_tls_t, pt)
-
-km_builtin_tls_t builtin_tls[1];
 
 /*
  * km_load_elf() finds __libc by name in the ELF image of the guest. We follow __init_libc() logic
@@ -153,23 +145,48 @@ km_builtin_tls_t builtin_tls[1];
  * in section 6.63 Thread-Local Storage, at the time of this writing pointing at
  * https://www.akkadia.org/drepper/tls.pdf.
  *
+ * TLS paper above explain TLS on various platforms and in generic way. We implement here
+ * simplification.
+ *
+ * One simplification is that being one static executable we only have one tls module, instead of
+ * linked list of nmodules, one per dynamically linked/loaded object. Correspondingly the dtv
+ * contains only one pointer, dtv[1], and generation number (dtv[0]) never changes.
+ * Another simplification is that for now we always put TLS on the stack, thus we allocate stack to
+ * contain requested stack size and TLS.
+ * In addition to TLS there is also TSD (pthread_key_create/pthread_setspecific and such). For the
+ * main thread TSD is placed in a separate area, which gets linked in the guest code if the facility
+ * is used. Note pthread_create() assignment of tsd field. For subsequent threads we put TSD also on
+ * the stack.
+ *
+ * For the main thread, going from the top of the allocated stack area down, we place Thread Control
+ * Block (TCB, km_pthread_t), then TLS, then dtv. All with the appropriate alignment derived either
+ * from structure packing (MIN_TLS_ALIGN) or coming from TLS extend in ELF. Below dtv for main
+ * thread we put the argv built from the args, and then goes the initial top of the stack.
+ *
+ * For the subsequent threads on the very top goes fixed size TSD area. Below that goes TCB, then
+ * TLS, then dtv, and the initial top of the stack, again all appropriately alligned.
+ *
  * TODO: There are other guest structures, such as __environ, __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
  */
 void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
 {
    km_gva_t libc = km_guest.km_libc;
-   km_gva_t handlers = km_guest.km_handlers;
    km__libc_t* libc_kma = NULL;
-   km_pthread_t* tcb_kma;
    km_gva_t tcb;
+   km_pthread_t* tcb_kma;
+   uintptr_t* dtv_kma;
+   km_gva_t dtv;
    km_gva_t map_base;
-   km_gva_t stack_top;
 
+   if (km_guest.km_handlers == 0) {
+      errx(1, "Bad binary - cannot find interrupt handler");
+   }
+   km_init_guest_idt(km_guest.km_handlers);
    if (km_syscall_ok(map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
    }
-   stack_top = map_base + GUEST_STACK_SIZE;
+   tcb = rounddown(map_base + GUEST_STACK_SIZE - sizeof(km_pthread_t), MIN_TLS_ALIGN);
 
    if (libc != 0) {
       libc_kma = km_gva_to_kma(libc);
@@ -177,26 +194,29 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
       libc_kma->page_size = KM_PAGE_SIZE;
       libc_kma->secure = 1;
       libc_kma->can_do_threads = 0;   // Doesn't seem to matter either way
-      /*
-       * TODO: km_main_tls should be initialized from ELF headers of PT_TLS, PT_PHDR ... type to get
-       * information about guest program specific TLS. For now we go with minimal TLS just to
-       * support pthreads and internal data. As such, there is no need for the "2 * sizeof(void*)".
-       * That space should be used for dtv which is part of TLS support. dtv[0] is generation #,
-       * dtv[1] is a pointer to the only TLS area as this is static program.
-       */
-      libc_kma->tls_align = MIN_TLS_ALIGN;
-      libc_kma->tls_size = roundup(2 * sizeof(void*) + sizeof(km_pthread_t), libc_kma->tls_align);
-      tcb = rounddown(stack_top - sizeof(km_pthread_t), libc_kma->tls_align);
-      stack_top -= libc_kma->tls_size;
-   } else {
-      stack_top = tcb = rounddown(stack_top - sizeof(km_pthread_t), MIN_TLS_ALIGN);
    }
-   if (handlers == 0) {
-      errx(1, "Bad binary - cannot find interrupt handler");
+   /*
+    * km_main_tls is initialized from ELF PT_TLS header. dtv is part of TLS: dtv[0] is generation #,
+    * dtv[1] is a pointer to the only TLS area as this is static program.
+    *
+    * Normally km_main_tls is in executable memory, and is used to initialize newly created threads'
+    * TLS. In our case that logic is all in KM, so we keep that info in KM as well, and only
+    * initialize part of libc used by runtime TLS, or __tls_get_addr(), which means for example
+    * libc_kma->tls_{size,head,cnt} are NULL as not used.
+    */
+   km_main_tls.align = MAX(km_main_tls.align, MIN_TLS_ALIGN);
+   km_gva_t tls = rounddown(tcb - km_main_tls.size, km_main_tls.align);
+   dtv = rounddown(tls - 2 * sizeof(void*), sizeof(void*));
+   dtv_kma = km_gva_to_kma(dtv);
+   dtv_kma[0] = 1;   // static executable
+   dtv_kma[1] = tls;
+   km_main_tls.offset = tcb - tls;
+   if (km_main_tls.len != 0) {
+      memcpy(km_gva_to_kma(tls), km_main_tls.image, km_main_tls.len);
    }
-   km_init_guest_idt(handlers);
+
    tcb_kma = km_gva_to_kma(tcb);
-   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)stack_top;
+   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)dtv;
    tcb_kma->locale = libc != 0 ? &((km__libc_t*)libc)->global_locale : NULL;
    tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
    tcb_kma->map_size = GUEST_STACK_SIZE;
@@ -204,7 +224,8 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    tcb_kma->detach_state = DT_JOINABLE;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
 
-   char* argv_km[argc + 1];   // argv to copy to guest stack
+   char* argv_km[argc + 1];   // argv to copy to guest stack_init
+   km_gva_t stack_top = dtv;
    km_kma_t stack_top_kma = km_gva_to_kma(stack_top);
 
    argv_km[argc] = NULL;
@@ -273,39 +294,52 @@ static km_gva_t
 km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gva_t start, km_gva_t args)
 {
    km_gva_t libc = km_guest.km_libc;
-   km__libc_t* libc_kma;
    km_pthread_t* tcb_kma;
    km_gva_t tcb;
    km_gva_t tsd;
    km_gva_t map_base;
    size_t map_size;
    size_t tsd_size;
+   uintptr_t* dtv_kma;
+   km_gva_t dtv;
 
    if (km_guest.km_tsd_size == 0) {
       errx(1, "Bad binary - cannot find __pthread_tsd_size");
    }
    tsd_size = *(size_t*)km_gva_to_kma(km_guest.km_tsd_size);
-   assert(tsd_size < sizeof(void*) * PTHREAD_KEYS_MAX);
+   assert(tsd_size < sizeof(void*) * PTHREAD_KEYS_MAX &&
+          tsd_size == rounddown(tsd_size, sizeof(void*)));
 
    assert(_a_stackaddr(g_attr) == 0);   // TODO: for now
    assert(libc != 0);
-   libc_kma = km_gva_to_kma(libc);
 
    map_size = _a_stacksize(g_attr) == 0
                   ? DEFAULT_STACK_SIZE
-                  : roundup(_a_stacksize(g_attr) + libc_kma->tls_size + tsd_size, KM_PAGE_SIZE);
+                  : roundup(_a_stacksize(g_attr) + km_main_tls.size + sizeof(km_pthread_t) + tsd_size,
+                            KM_PAGE_SIZE);
    if (km_syscall_ok(map_base = km_guest_mmap_simple(map_size)) < 0) {
       return 0;
    }
-   tsd = map_base + map_size - tsd_size;
-   tcb = rounddown(tsd - sizeof(km_pthread_t), libc_kma->tls_align);
+   tsd = map_base + map_size - tsd_size;   // aligned because mmap and assert tsd_size above
+   memset(km_gva_to_kma(tsd), 0, tsd_size);
+   tcb = rounddown(tsd - sizeof(km_pthread_t), MIN_TLS_ALIGN);
    tcb_kma = km_gva_to_kma(tcb);
    memset(tcb_kma, 0, sizeof(km_pthread_t));
-   tcb_kma->stack = (typeof(tcb_kma->stack))tsd - libc_kma->tls_size;
+
+   km_gva_t tls = rounddown(tcb - km_main_tls.size, km_main_tls.align);
+   dtv = rounddown(tls - 2 * sizeof(void*), sizeof(void*));
+   dtv_kma = km_gva_to_kma(dtv);
+   dtv_kma[0] = 1;   // static executable
+   dtv_kma[1] = tls;
+   if (km_main_tls.len != 0) {
+      memcpy(km_gva_to_kma(tls), km_main_tls.image, km_main_tls.len);
+   }
+
+   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)dtv;
+   tcb_kma->stack = (typeof(tcb_kma->stack))dtv;
    tcb_kma->stack_size = (typeof(tcb_kma->stack_size))tcb_kma->stack - map_base;
    tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
    tcb_kma->map_size = map_size;
-   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)tcb_kma->stack;
    tcb_kma->self = (km_pthread_t*)tcb;
    tcb_kma->tsd = (typeof(tcb_kma->tsd))tsd;
    tcb_kma->detach_state = _a_detach(g_attr);

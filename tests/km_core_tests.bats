@@ -160,8 +160,13 @@ teardown() {
    [ $status == 0 ]
 }
 
-@test "threads_basic: basic threads create, exit and join (hello_2_loops_test)" {
+@test "threads_basic: basic threads create, TSD, exit and join (hello_2_loops_test)" {
    run $KM hello_2_loops_test.km
+   [ "$status" -eq 0 ]
+}
+
+@test "threads_basic: threads with TLS, create, exit and join (hello_2_loops_tls_test)" {
+   run $KM hello_2_loops_tls_test.km
    [ "$status" -eq 0 ]
 }
 

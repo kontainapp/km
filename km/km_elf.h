@@ -36,7 +36,17 @@ typedef struct km_payload {
    Elf64_Addr km_sighandle;  // signal trampoline function
 } km_payload_t;
 
+typedef struct km_tls_module {
+   struct km_tls_module* next;
+   void* image;
+   size_t len;
+   size_t size;
+   size_t align;
+   size_t offset;
+} km_tls_module_t;
+
 extern km_payload_t km_guest;
+extern km_tls_module_t km_main_tls;
 
 int km_load_elf(const char* file);
 

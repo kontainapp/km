@@ -26,7 +26,7 @@
 
 km_payload_t km_guest;
 
-static void my_pread(int fd, void* buf, size_t count, off_t offset)
+static void my_mmap(int fd, void* buf, size_t count, off_t offset)
 {
    if (count > 0) {
       if (mmap(buf, roundup(count, KM_PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
@@ -96,7 +96,7 @@ static void load_extent(int fd, GElf_Phdr* phdr)
       extra = addr - (km_kma_t)rounddown((uint64_t)addr, KM_PAGE_SIZE);
       size = MIN(p_memsz, memreg_top(idx) - p_paddr);
       filesize = MIN(p_filesz, size);
-      my_pread(fd, addr - extra, filesize + extra, p_offset - extra);
+      my_mmap(fd, addr - extra, filesize + extra, p_offset - extra);
       memset(addr + filesize, 0, size - filesize);
       pr = 0;
       if (phdr->p_flags & PF_R) {
@@ -124,6 +124,29 @@ static void load_extent(int fd, GElf_Phdr* phdr)
       p_offset += filesize;
       p_filesz -= filesize;
    } while (p_memsz > 0);
+}
+
+static void my_pread(int fd, void* buf, size_t count, off_t offset)
+{
+   int i, rc;
+
+   for (i = 0, rc = 0; i < count; i += rc) {
+      // rc == 0 means EOF which to us means error in the format
+      if ((rc = pread(fd, buf + i, count - i, offset + i)) <= 0 && rc != EINTR) {
+         err(2, "error reading elf");
+      }
+   }
+}
+
+static void tls_extent(int fd, GElf_Phdr* phdr)
+{
+   km_main_tls.align = phdr->p_align;
+   km_main_tls.len = phdr->p_filesz;
+   km_main_tls.size = phdr->p_memsz;
+   if ((km_main_tls.image = malloc(phdr->p_filesz)) == NULL) {
+      errx(2, "no memory to store TLS initialized data");
+   }
+   my_pread(fd, km_main_tls.image, phdr->p_filesz, phdr->p_offset);
 }
 
 /*
@@ -164,10 +187,12 @@ int km_load_elf(const char* file)
       if (gelf_getphdr(e, i, phdr) == NULL) {
          errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
       }
-      if (phdr->p_type != PT_LOAD) {
-         continue;
+      if (phdr->p_type == PT_LOAD) {
+         load_extent(fd, phdr);
       }
-      load_extent(fd, phdr);
+      if (phdr->p_type == PT_TLS) {
+         tls_extent(fd, phdr);
+      }
    }
    /*
     * Read symbol table and look for symbols of interest to KM
