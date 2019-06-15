@@ -248,41 +248,64 @@ teardown() {
    [ ! -f ${CORE} ]
    run $KM --coredump=${CORE} stray_test.km div0
    [ $status -eq 8 ] # SIGFPE
+   echo $output | grep -F 'Floating point exception (core dumped)'
    [ -f ${CORE} ]
-   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'div0('
    rm -f ${CORE}
 
    # invalid opcode
    [ ! -f ${CORE} ]
    run $KM --coredump=${CORE} stray_test.km ud
    [ $status -eq 4 ] # SIGILL
+   echo $output | grep -F 'Illegal instruction (core dumped)'
    [ -f ${CORE} ]
-   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'undefined_op('
    rm -f ${CORE}
 
    # page fault
    [ ! -f ${CORE} ]
    run $KM --coredump=${CORE} stray_test.km stray
    [ $status -eq 11 ] # SIGSEGV
+   echo $output | grep -F 'Segmentation fault (core dumped)'
    [ -f ${CORE} ]
-   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference('
    rm -f ${CORE}
 
    # bad hcall
    [ ! -f ${CORE} ]
    run $KM --coredump=${CORE} stray_test.km hc
    [ $status -eq 31 ] # SIGSYS
+   echo $output | grep -F 'Bad system call (core dumped)'
    [ -f ${CORE} ]
-   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'km_hcall ('
    rm -f ${CORE}
 
    # write to text (protected memory)
    [ ! -f ${CORE} ]
    run $KM --coredump=${CORE} stray_test.km prot
    [ $status -eq 11 ]  # SIGSEGV
+   echo $output | grep -F 'Segmentation fault (core dumped)'
    [ -f ${CORE} ]
-   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'write_text ('
    rm -f ${CORE}
+
+   # abort
+   [ ! -f ${CORE} ]
+   run $KM --coredump=${CORE} stray_test.km abort
+   [ $status -eq 6 ]  # SIGABRT
+   echo $output | grep -F 'Aborted (core dumped)'
+   [ -f ${CORE} ]
+   rm -f ${CORE}
+
+   # quit
+   [ ! -f ${CORE} ]
+   run $KM --coredump=${CORE} stray_test.km quit
+   [ $status -eq 3 ]  # SIGQUIT
+   echo $output | grep -F 'Quit (core dumped)'
+   [ -f ${CORE} ]
+   rm -f ${CORE}
+
+   # term
+   [ ! -f ${CORE} ]
+   run $KM --coredump=${CORE} stray_test.km term
+   [ $status -eq 15 ]  # SIGTERM
+   echo $output | grep -F 'Terminated'
+   [ ! -f ${CORE} ]
 }
 
 @test "signals: signals in the guest (signals)" {

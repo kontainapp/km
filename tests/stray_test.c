@@ -122,6 +122,18 @@ int main(int argc, char** argv)
       write_text(usage);
       return 1;
    }
+   if (strcmp(op, "abort") == 0) {
+      abort();
+      return 1;
+   }
+   if (strcmp(op, "quit") == 0) {
+      kill(0, SIGQUIT);
+      return 1;
+   }
+   if (strcmp(op, "term") == 0) {
+      kill(0, SIGTERM);
+      return 1;
+   }
 
    fprintf(stderr, "Unrecognized operation '%s'\n", op);
    usage();

@@ -566,6 +566,11 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
       default:
          run_err(1, "KVM: vcpu run failed with errno %d (%s)", errno, strerror(errno));
    }
+   /*
+    * If there is a signal with a handler, setup the guest's registers to
+    * execute the handler in the the KVM_RUN.
+    */
+   km_deliver_signal(vcpu);
    assert(vcpu->cpu_run->immediate_exit == 0);
    return -1;
 }
@@ -588,10 +593,11 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
       }
 
       /*
-       * If there is a signal with a handler, setup the guest's registers to
-       * execute the handler in the the KVM_RUN.
+       * If there is a signal ready to go, tell KVM to do an immediate exit.
        */
-      km_deliver_signal(vcpu);
+      if (km_signal_ready(vcpu)) {
+         vcpu->cpu_run->immediate_exit = 1;
+      }
 
       // Invalidate cached registers
       vcpu->regs_valid = 0;

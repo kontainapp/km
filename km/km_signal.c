@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Kontain Inc. All rights reserved.
+ * Copyright © 2019 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -15,6 +15,7 @@
 #include <err.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -25,15 +26,6 @@
 #include "km_coredump.h"
 #include "km_mem.h"
 #include "km_signal.h"
-
-void km_block_signal(int signum)
-{
-   sigset_t signal_set;
-
-   sigemptyset(&signal_set);
-   sigaddset(&signal_set, signum);
-   pthread_sigmask(SIG_BLOCK, &signal_set, NULL);
-}
 
 void km_install_sighandler(int signum, sa_handler_t func)
 {
@@ -219,14 +211,71 @@ static inline int next_signal(km_vcpu_t* vcpu, siginfo_t* info)
    return 0;
 }
 
+/*
+ * Determine whether this signal already pending.
+ */
+static inline int signal_pending(km_vcpu_t* vcpu, siginfo_t* info)
+{
+   km_signal_t* sig;
+
+   km_signal_lock();
+   if (vcpu != NULL) {
+      TAILQ_FOREACH (sig, &vcpu->sigpending.head, link) {
+         if (sig->info.si_signo == info->si_signo) {
+            km_signal_unlock();
+            return 1;
+         }
+      }
+   }
+   TAILQ_FOREACH (sig, &machine.sigpending.head, link) {
+      if (sig->info.si_signo == info->si_signo) {
+         km_signal_unlock();
+         return 1;
+      }
+   }
+   km_signal_unlock();
+   return 0;
+}
+
+int km_signal_ready(km_vcpu_t* vcpu)
+{
+   km_signal_t* sig;
+
+   km_signal_lock();
+   TAILQ_FOREACH (sig, &vcpu->sigpending.head, link) {
+      if (!km_sigismember(&vcpu->sigmask, sig->info.si_signo)) {
+         km_signal_unlock();
+         return 1;
+      }
+   }
+   TAILQ_FOREACH (sig, &machine.sigpending.head, link) {
+      if (!km_sigismember(&vcpu->sigmask, sig->info.si_signo)) {
+         km_signal_unlock();
+         return 1;
+      }
+   }
+   km_signal_unlock();
+   return 0;
+}
+
 void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 {
+   /*
+    * non-RT signals are consolidated in while pending.
+    */
+   if (info->si_signo < SIGRTMIN && signal_pending(vcpu, info)) {
+      return;
+   }
+
    km_signal_list_t* slist = (vcpu == NULL) ? &machine.sigpending : &vcpu->sigpending;
    enqueue_signal(slist, info);
 }
 
 #define RED_ZONE (128)
 
+/*
+ * Do the dirty-work to get a signal handler called in the guest.
+ */
 static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigaction_t* act)
 {
    km_read_registers(vcpu);
@@ -290,6 +339,9 @@ void km_deliver_signal(km_vcpu_t* vcpu)
 uint64_t
 km_rt_sigprocmask(km_vcpu_t* vcpu, int how, km_sigset_t* set, km_sigset_t* oldset, size_t sigsetsize)
 {
+   if (sigsetsize != sizeof(km_sigset_t)) {
+      return -EINVAL;
+   }
    /*
     * No locking required here because this syscall will only change the mask for the current
     * thread. Single threaded by nature.
@@ -316,6 +368,8 @@ km_rt_sigprocmask(km_vcpu_t* vcpu, int how, km_sigset_t* set, km_sigset_t* oldse
          case SIG_SETMASK:
             vcpu->sigmask = *set;
             break;
+         default:
+            return -EINVAL;
       }
    }
    return 0;
@@ -324,8 +378,11 @@ km_rt_sigprocmask(km_vcpu_t* vcpu, int how, km_sigset_t* set, km_sigset_t* oldse
 uint64_t
 km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t* oldact, size_t sigsetsize)
 {
+   if (sigsetsize != sizeof(km_sigset_t)) {
+      return -EINVAL;
+   }
    if (signo < 1 || signo >= NSIG) {
-      return EINVAL;
+      return -EINVAL;
    }
    /*
     * sigactions are process-wide, so need the lock.
@@ -348,28 +405,50 @@ uint64_t km_rt_sigreturn(km_vcpu_t* vcpu, void* savregs)
 {
    km_read_registers(vcpu);
    memcpy(&vcpu->regs, savregs, sizeof(vcpu->regs));
-   vcpu->regs.rip++;
    km_write_registers(vcpu);
+
    return 0;
 }
 
 uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo)
 {
    if (pid != 0) {
-      return EINVAL;
+      return -EINVAL;
    }
    if (signo < 1 || signo >= NSIG) {
-      return EINVAL;
+      return -EINVAL;
    }
 
-   // Untargeted signal.
+   // Process-wide signal.
    siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
    km_post_signal(NULL, &info);
    return 0;
 }
 
+uint64_t km_tkill(km_vcpu_t* vcpu, pid_t tid, int signo)
+{
+   /*
+    * KM tid is the index into the machine.vm_vcpus array.
+    */
+   if (tid < 0 || tid > KVM_MAX_VCPUS || machine.vm_vcpus[tid] == NULL ||
+       machine.vm_vcpus[tid]->is_used == 0) {
+      return -EINVAL;
+   }
+   if (signo < 1 || signo >= NSIG) {
+      return -EINVAL;
+   }
+
+   // Thread-targeted signal.
+   siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
+   km_post_signal(machine.vm_vcpus[tid], &info);
+   return 0;
+}
+
 uint64_t km_rt_sigpending(km_vcpu_t* vcpu, km_sigset_t* set, size_t sigsetsize)
 {
+   if (sigsetsize != sizeof(km_sigset_t)) {
+      return -EINVAL;
+   }
    get_pending_signals(vcpu, set);
    return 0;
 }

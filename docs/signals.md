@@ -6,11 +6,7 @@ Reference(s):
 * [The GNU C Library: 24. Signal Handling - https://www.gnu.org/software/libc/manual/html_node/Signal-Handling.html](https://www.gnu.org/software/libc/manual/html_node/Signal-Handling.html)
 
 ## Overview
-Signals are a messy part of the Linux programming environment. They were messy in original UNIX and they have
-gotten messier over time. One area where this messiness is obvious is the mapping between section 2 `libc` functions
-and native Linux systems calls. Unlike most section 2 `libc` functions where there is direct correspondence between
-`libc` and the system call, many signal oriented functions have nontrivial mappings between the function and the system
-call. See the implementation of `sigaction(2)` for a good example of this.
+Signals are a messy part of the Linux programming environment. They were messy in original UNIX and they have gotten messier over time. One area where this messiness is obvious is the mapping between section 2 `libc` functions and native Linux systems calls. Unlike most section 2 `libc` functions where there is direct correspondence between `libc` and the system call, many signal oriented functions have nontrivial mappings between the function and the system call. See the implementation of `sigaction(2)` for a good example of this.
 
 The following table shows how some signal-opriented native Linux syscalls map into `libc` functions.
 
@@ -30,21 +26,30 @@ There are three distinct methods defined in the Linux environment for a process 
 * signalfd(2) (similar to rt_sigtimed_wait, but can be used by poll/select/epoll).
 * Asynchronous callback (classic signals).
 
-In keeping with the isolated single process model of KM, signal processing in KM guests is restricted in the following ways:
+## Guest Signal Architecture
 
-1. KM guests can only send signals to themselves. For example kill(0, sig), raise(sig). EINVAL is returned if this restriction is violated.
-2. KM guests will receive program error signals detected by KM runtime (eg. SIGSEGV, SIGFPE, SIGILL).
-2. By default KM handles all signals from the outside (ie. the kernel or other processes) are not available inside ta guest.
+KM emulates what the Linux kernel would do for a process WRT signals. In particular:
 
-As a future enhancement, configuration option(s) could be defined to allow outside signals to be visible inside a KM guest.
+* KM maintains a set of signal handler dispositions (Default, Ignore, Handler) for the guest.
+* KM maintains per-thread signal mask for the the guest.
+* KM maintains per-thread and process-wide pending signal lists for the guest.
+* KM translates faults and exceptions that occur in the guest into signals for the guest.
+* KM implements signal default actions (like Terminate and Terminate-with-Core()).
+
+The design goal for KM signal handling is compatibility with what the Linux kernel would do, within the bounds of the following restrictions:
+
+1. A KM guest process can only send signals to itself. For example kill(0, sig), raise(sig). EINVAL is returned if this restriction is violated.
+2. A KM guest process can only receive signals generated with the KM environment:
+  * Explicitly sent by the guest process itself.
+  * Created by KM in response to an exception or fault that occurs within the guest process. For example, SIGSEGV.
+
+When KM wants to invoke a signal handler defined by the guest process, KM first saves the guest's registers to the stack (in guest memory) and sets up the guest to run a common first-level signal call handler which in turn calls the guest-defined signal handler. When the guest-defined signal handler returns, the first level handler makes a KM hypercall to inform KM that the guest signal handler has completed.
 
 ## Guest Exception Handling
 
 When runtime errors such as divide by zero or a stray memory refrence occur in a KVM guest, they result in a X86 interrupt seen in the guest. In order to catch these errors, the Kontain runtime contains an interrupt handler. All this exception handler does is make a hypercall. The hypercall handler inside KM takes care of the rest.
 
-At guest intitialization time, KM creates an Interrupt Descriptor Table (IDT) in guest memory.
-The IDT points at the runtime exception handler.
-The KVM API KVM_GET_VCPU_EVENTS function exposes the reason for the interrupt.
+At guest intitialization time, KM creates an Interrupt Descriptor Table (IDT) in guest memory. The IDT points at the runtime exception handler. The KVM API KVM_GET_VCPU_EVENTS function exposes the reason for the interrupt.
 
 All of the intelligence for dealing with the interrupt resides in the monitor.
 

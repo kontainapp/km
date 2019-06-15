@@ -564,11 +564,11 @@ static km_hc_ret_t rt_sigprocmask_hcall(void* vcpu, int hc, km_hc_args_t* arg, i
    km_sigset_t* oldset = NULL;
 
    if (arg->arg2 != 0 && (set = km_gva_to_kma(arg->arg2)) == NULL) {
-      arg->hc_ret = EINVAL;
+      arg->hc_ret = -EINVAL;
       return HC_CONTINUE;
    }
    if (arg->arg3 != 0 && (oldset = km_gva_to_kma(arg->arg3)) == NULL) {
-      arg->hc_ret = EINVAL;
+      arg->hc_ret = -EINVAL;
       return HC_CONTINUE;
    }
    arg->hc_ret = km_rt_sigprocmask(vcpu, arg->arg1, set, oldset, arg->arg4);
@@ -582,7 +582,7 @@ static km_hc_ret_t rt_sigaction_hcall(void* vcpu, int hc, km_hc_args_t* arg, int
    km_sigaction_t* oldact = NULL;
 
    if (arg->arg2 != 0 && (act = km_gva_to_kma(arg->arg2)) == NULL) {
-      arg->hc_ret = EINVAL;
+      arg->hc_ret = -EINVAL;
       return HC_CONTINUE;
    }
    if (arg->arg3 != 0 && (oldact = km_gva_to_kma(arg->arg3)) == NULL) {
@@ -606,6 +606,13 @@ static km_hc_ret_t kill_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status
 {
    // int kill(pid_t pid, int sig)
    arg->hc_ret = km_kill(vcpu, arg->arg1, arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t tkill_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int tkill(pid_t tid, int sig)
+   arg->hc_ret = km_tkill(vcpu, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 }
 
@@ -673,6 +680,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_rt_sigreturn] = rt_sigreturn_hcall;
    km_hcalls_table[SYS_rt_sigpending] = rt_sigpending_hcall;
    km_hcalls_table[SYS_kill] = kill_hcall;
+   km_hcalls_table[SYS_tkill] = tkill_hcall;
 
    km_hcalls_table[SYS_getpid] = dummy_hcall;
    km_hcalls_table[SYS_dup] = dup_hcall;

@@ -133,39 +133,46 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
    vcpu->sregs.cs.base = iframe->cs;
    vcpu->sregs.ss.base = iframe->cs;
 
+   /*
+    * map processor exceptions to signals in accordance with
+    * Table 3.1 from AMD64 ABI
+    * https://software.intel.com/sites/default/files/article/402129/mpx-linux64-abi.pdf
+    */
    siginfo_t info = {.si_code = SI_KERNEL};
    switch (events.exception.nr) {
       case X86_INTR_DE:   // Divide error: SIGFPE
+      case X86_INTR_NM:   // Device not available (math coprocessor)
+      case X86_INTR_MF:   // Math Fault
          info.si_signo = SIGFPE;
          break;
 
-      case X86_INTR_UD:   // Undefined instruction: SIGILL
-         info.si_signo = SIGILL;
+      case X86_INTR_DB:   // Debug Exception
+      case X86_INTR_BP:   // breakpoint
+         info.si_signo = SIGTRAP;
          break;
 
+      case X86_INTR_OF:   // Overflow
+      case X86_INTR_SS:   // Stack-Segment fault
       case X86_INTR_GP:   // General Protection: SIGSEGV
       case X86_INTR_PF:   // Page fault: SIGSEGV
          info.si_signo = SIGSEGV;
          break;
 
-      case X86_INTR_DB:    // Debug Exception
-      case X86_INTR_NMI:   // NMI
-      case X86_INTR_BP:    // breakpoint
-      case X86_INTR_OF:    // Overflow
-      case X86_INTR_BR:    // BOUND Range
-      case X86_INTR_NM:    // Device not available (math coprocessor)
-      case X86_INTR_MF:    // Math Fault
-      case X86_INTR_MC:    // Machine Check
-      case X86_INTR_XM:    // SIMD Exception
-      case X86_INTR_VE:    // Virtualization
-      case X86_INTR_DF:    // Double Fault
-      case X86_INTR_TS:    // Invalid TSS
-      case X86_INTR_NP:    // Segment not present
-      case X86_INTR_SS:    // Stack-Segment fault
-      case X86_INTR_AC:    // Alignment Check
-         info.si_signo = SIGSYS;
+      case X86_INTR_NMI:           // NMI
+      case X86_INTR_DF:            // Double Fault
+      case X86_INTR_TS:            // Invalid TSS
+         info.si_signo = SIGSYS;   // no ABI mapping. KM treats as SIGSYS
          break;
+
+      case X86_INTR_UD:   // Undefined instruction: SIGILL
+      case X86_INTR_NP:   // Segment not present
+      case X86_INTR_BR:   // BOUND Range
+      case X86_INTR_MC:   // Machine Check
+      case X86_INTR_XM:   // SIMD Exception
+      case X86_INTR_VE:   // Virtualization
+      case X86_INTR_AC:   // Alignment Check
       default:
+         info.si_signo = SIGILL;
          break;
    }
 
