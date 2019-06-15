@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "km.h"
 #include "km_coredump.h"
@@ -180,7 +181,7 @@ int main(int argc, char* const argv[])
       err(1, "failed to set main vcpu to run");
    }
    if (wait_for_signal == 1) {
-      warnx("Waiting for kill -SIGUSR1 `pidof km`");
+      warnx("Waiting for kill -SIGUSR1  %d", getpid());
       km_wait_for_signal(SIGUSR1);
    }
    __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++

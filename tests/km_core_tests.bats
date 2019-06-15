@@ -87,8 +87,8 @@ teardown() {
 }
 
 @test "km_main: wait on signal (hello_test)" {
-   ($KM --wait-for-signal hello_test.km &)
-   kill -SIGUSR1 `pidof km`
+   run timeout -s SIGUSR1 1s ${KM_BIN} --wait-for-signal hello_test.km
+   [ $status -eq 124 ]
 }
 
 @test "mem_slots: KVM memslot / phys mem sizes (memslot_test)" {
