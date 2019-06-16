@@ -46,6 +46,8 @@ static inline void usage()
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
         "\t--dump-shutdown                     - Produce register dump on VCPU error\n"
+        "\t--overcommit-memory                 - Allow huge address allocations for payloads.\n"
+        "\t                                      See 'sysctl vm.overcommit_memory'\n"
 
         "\n\tOverride auto detection:\n"
         "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. "
@@ -85,6 +87,7 @@ static struct option long_options[] = {
     {"dump-shutdown", no_argument, 0, 'D'},
     {"enable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_ENABLE},
     {"disable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_DISABLE},
+    {"overcommit-memory", no_argument, &(km_machine_init_params.overcommit_memory), 1},
     {"coredump", required_argument, 0, 'C'},
     {"membus-width", required_argument, 0, 'P'},
     {"gdb-server-port", optional_argument, 0, 'g'},

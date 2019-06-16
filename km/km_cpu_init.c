@@ -535,6 +535,6 @@ void km_machine_init(km_machine_init_params_t* params)
       }
       machine.guest_max_physmem = params->guest_physmem;
    }
-   km_mem_init();
+   km_mem_init(params);
    km_signal_init();
 }

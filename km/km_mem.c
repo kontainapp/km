@@ -202,16 +202,18 @@ static void init_pml4(km_kma_t mem)
    memset(mem + RSV_PD2_OFFSET, 0, KM_PAGE_SIZE);   // clear page, no usable entries
 }
 
+static int overcommit_memory;   // controls how we request memory for payload from Linux
+
 static void* km_page_malloc(size_t size)
 {
    km_kma_t addr;
+   int flags = MAP_SHARED | MAP_ANONYMOUS | (overcommit_memory == 1 ? MAP_NORESERVE : 0);
 
    if ((size & (KM_PAGE_SIZE - 1)) != 0) {
       errno = EINVAL;
       return NULL;
    }
-   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) ==
-       MAP_FAILED) {
+   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, flags, -1, 0)) == MAP_FAILED) {
       return NULL;
    }
    return addr;
@@ -231,11 +233,12 @@ km_gva_t km_guest_mmap_simple(size_t size)
 /*
  * Create reserved memory, initialize PML4 and brk.
  */
-void km_mem_init(void)
+void km_mem_init(km_machine_init_params_t* params)
 {
    kvm_mem_reg_t* reg;
    void* ptr;
 
+   overcommit_memory = params->overcommit_memory;
    reg = &machine.vm_mem_regs[KM_RSRV_MEMSLOT];
    if ((ptr = km_page_malloc(RSV_MEM_SIZE)) == NULL) {
       err(1, "KVM: no memory for reserved pages");

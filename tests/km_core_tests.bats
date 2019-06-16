@@ -99,10 +99,8 @@ teardown() {
 @test "mem_brk: brk() call (brk_test)" {
    # we expect 3 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
    if [ $(bus_width) -eq 36 ] ; then expected_status=3 ; else  expected_status=0; fi
-   sudo sysctl -w vm.overcommit_memory=1
-   run $KM brk_test.km
+   run $KM --overcommit-memory brk_test.km
    [ $status -eq $expected_status ]
-   sudo sysctl -w vm.overcommit_memory=0
 }
 
 @test "hc_basic: basic run and print hello world (hello_test)" {
@@ -182,10 +180,8 @@ teardown() {
    expected_status=0
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; fi
-   sudo sysctl -w vm.overcommit_memory=1
    run $KM mem_test.km
    [ "$status" -eq $expected_status ]
-   sudo sysctl -w vm.overcommit_memory=0
 }
 
 @test "pmem_test: test physical memory override (pmem_test)" {

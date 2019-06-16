@@ -21,8 +21,8 @@
 #include "km.h"
 
 static const uint64_t KM_PAGE_SIZE = 0x1000;   // standard 4k page
-static const uint64_t MIB = 0x100000;       // MByte
-static const uint64_t GIB = 0x40000000ul;   // GByte
+static const uint64_t MIB = 0x100000;          // MByte
+static const uint64_t GIB = 0x40000000ul;      // GByte
 
 static const int RSV_MEM_START = KM_PAGE_SIZE;
 static const int RSV_MEM_SIZE = KM_PAGE_SIZE * 63;
@@ -194,7 +194,7 @@ static inline km_kma_t km_gva_to_kma(km_gva_t gva)
    return gva_to_gpa(gva) - memreg_base(i) + (void*)machine.vm_mem_regs[i].userspace_addr;
 }
 
-void km_mem_init(void);
+void km_mem_init(km_machine_init_params_t* params);
 void km_page_free(void* addr, size_t size);
 void km_guest_mmap_init(void);
 km_gva_t km_mem_brk(km_gva_t brk);
