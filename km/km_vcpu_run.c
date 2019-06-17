@@ -288,12 +288,10 @@ static char* dump_events(km_vcpu_t* vcpu, char* buf, size_t len)
    FMT_BUF(cur, rem, "== EVENTS ==\n");
    FMT_BUF(cur,
            rem,
-           "EXCEPTION: injected: 0x%x nr: 0x%x has_error_code: 0x%x pending: 0x%x "
-           "error_code: 0x%x\n",
+           "EXCEPTION: injected: 0x%x nr: 0x%x has_error_code: 0x%x error_code: 0x%x\n",
            events.exception.injected,
            events.exception.nr,
            events.exception.has_error_code,
-           events.exception.pending,
            events.exception.error_code);
    FMT_BUF(cur,
            rem,
@@ -317,11 +315,11 @@ static char* dump_events(km_vcpu_t* vcpu, char* buf, size_t len)
            events.smi.pending,
            events.smi.smm_inside_nmi,
            events.smi.latched_init);
-   FMT_BUF(cur,
-           rem,
-           "EXCEPTION_HAS_PAYLOAD: 0x%x EXCEPTION_PAYLOAD: 0x%llx\n",
-           events.exception_has_payload,
-           events.exception_payload);
+   // FMT_BUF(cur,
+   //         rem,
+   //         "EXCEPTION_HAS_PAYLOAD: 0x%x EXCEPTION_PAYLOAD: 0x%llx\n",
+   //         events.exception_has_payload,
+   //         events.exception_payload);
    return cur;
 }
 

@@ -29,7 +29,7 @@ fi
 # we will kill any test if takes longer
 timeout=60s
 # this is how we invoke KM - with a timeout
-KM="timeout -v --foreground $timeout ${KM_BIN}"
+KM="timeout --foreground $timeout ${KM_BIN}"
 
 # this is needed for running in Docker - bats uses 'tput' so it needs the TERM
 TERM=xterm
