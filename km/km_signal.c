@@ -122,7 +122,6 @@ void km_signal_init(void)
    // Job Control signals
    km_sigemptyset(&jc_signals);
    km_sigaddset(&jc_signals, SIGCHLD);
-   km_sigaddset(&jc_signals, SIGCLD);
    km_sigaddset(&jc_signals, SIGCONT);
    km_sigaddset(&jc_signals, SIGSTOP);
    km_sigaddset(&jc_signals, SIGTTIN);

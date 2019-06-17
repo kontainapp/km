@@ -9,6 +9,7 @@
       "files.associations": {
          "*.mak": "makefile",
          "*.h": "c",
+         "Dockerfile.*": "dockerfile",
       },
       "files.exclude": {
          "{GPATH,GRTAGS,GTAGS}": true,

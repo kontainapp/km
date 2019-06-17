@@ -366,7 +366,7 @@ static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict at
 
 // Create guest thread. We use vcpu->guest_thr for payload thread id.
 int km_pthread_create(km_vcpu_t* current_vcpu,
-                      pthread_t* restrict pid,
+                      pthread_tid_t* restrict pid,
                       const km_kma_t restrict attr,
                       km_gva_t start,
                       km_gva_t args)
@@ -417,7 +417,7 @@ static int check_join_deadlock(km_vcpu_t* joinee_vcpu, km_vcpu_t* current_vcpu)
    return 0;
 }
 
-int km_pthread_join(km_vcpu_t* current_vcpu, pthread_t pid, km_kma_t ret)
+int km_pthread_join(km_vcpu_t* current_vcpu, pthread_tid_t pid, km_kma_t ret)
 {
    km_vcpu_t* vcpu;
    int rc = 0;

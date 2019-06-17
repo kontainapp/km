@@ -32,10 +32,10 @@ int vcpu_dump = 0;
  * run related err and errx - get regs, print RIP and the supplied message
  */
 static void
-__run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
+__run_err(void (*fn)(int, const char*, __builtin_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
     __attribute__((format(printf, 4, 5)));   // define attributes
 static void
-__run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
+__run_err(void (*fn)(int, const char*, __builtin_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
 {
    static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
    int save_errno = errno;
@@ -66,9 +66,10 @@ __run_err(void (*fn)(int, const char*, __gnuc_va_list), km_vcpu_t* vcpu, int s, 
 #define run_err(__s, __f, ...) __run_err(&verr, vcpu, __s, __f, ##__VA_ARGS__)
 #define run_errx(__s, __f, ...) __run_err(&verrx, vcpu, __s, __f, ##__VA_ARGS__)
 
-static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu, const char* f, ...)
+static void
+__run_warn(void (*fn)(const char*, __builtin_va_list), km_vcpu_t* vcpu, const char* f, ...)
     __attribute__((format(printf, 3, 4)));   // define attributes
-static void __run_warn(void (*fn)(const char*, __gnuc_va_list), km_vcpu_t* vcpu, const char* f, ...)
+static void __run_warn(void (*fn)(const char*, __builtin_va_list), km_vcpu_t* vcpu, const char* f, ...)
 {
    static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
    va_list args;
@@ -315,11 +316,6 @@ static char* dump_events(km_vcpu_t* vcpu, char* buf, size_t len)
            events.smi.pending,
            events.smi.smm_inside_nmi,
            events.smi.latched_init);
-   // FMT_BUF(cur,
-   //         rem,
-   //         "EXCEPTION_HAS_PAYLOAD: 0x%x EXCEPTION_PAYLOAD: 0x%llx\n",
-   //         events.exception_has_payload,
-   //         events.exception_payload);
    return cur;
 }
 
