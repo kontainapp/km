@@ -28,7 +28,7 @@ static const int expected = 454201677;
  * Do some conversion and return the result.
  * This result later will be printed in gdb to as a test
  */
-int change_and_print(int i)
+int __attribute__((noinline)) change_and_print(int i)
 {
    i *= i;
    i = (i << 12) + var1;
@@ -38,7 +38,7 @@ int change_and_print(int i)
 
 /*
  * Another helper gdb tests */
-static int rand_func(int i)
+static int __attribute__((noinline)) rand_func(int i)
 {
    int volatile n = i;
    n = rand() * i;
