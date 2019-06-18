@@ -49,15 +49,18 @@ static void const* very_high_addr = (void*)(512 * GIB);
  * then break, then reset.
  *
  * tbrk/brk does mmap first brk second, brk/tbrk in the opposite order.
+ *
+ * Some of the 'offs' array values are supposed to succeed and  some are supposed to fail.
+ * The 'offs_success' array keeps track of this.
  */
 
 static unsigned long const regs[] = {64 * GIB, 128 * GIB, 256 * GIB, 384 * GIB};
 static unsigned long const offs[] = {1 * GIB + MIB, 15 * GIB + MIB, 16 * GIB + 2 * MIB, 45 * GIB + MIB};
+static int offs_success[] = {1, 1, 0, 0};
 static unsigned long const map_off = 16 * GIB + 800 * MIB;
 
 TEST tbrk_brk_test()
 {
-   SKIPm("TODO: Implement tbrk and brk in the same memory region, km_mem_brk() and km_mem_tbrk");
    void* brk = SYS_break(0);
 
    for (int r = 0; r < sizeof(regs) / sizeof(long); r++) {
@@ -72,6 +75,9 @@ TEST tbrk_brk_test()
          void* brk_exp = (void*)(regs[r] + offs[o]);
          sprintf(msg, "%s reg %d off %d %p", "brk ", r, o, brk_exp);
          void* brk_got = SYS_break(brk_exp);
+         if (!offs_success[o]) {
+            brk_exp = (void*)-1;
+         }
          ASSERT_EQ_FMTm(msg, brk_exp, brk_got, "%p");
 
          munmap(map_p, map_s);
@@ -84,7 +90,6 @@ TEST tbrk_brk_test()
 
 TEST brk_tbrk_test()
 {
-   SKIPm("TODO: Implement tbrk and brk in the same memory region, km_mem_brk() and km_mem_tbrk");
    void* brk = SYS_break(0);
 
    for (int r = 0; r < sizeof(regs) / sizeof(long); r++) {
@@ -99,7 +104,11 @@ TEST brk_tbrk_test()
 
          sprintf(msg, "%s reg %d off %d", "mmap", r, o);
          void* map_p = simple_mmap(map_s);
-         ASSERT_NOT_EQ_FMTm(msg, map_p, MAP_FAILED, "%p");
+         if (offs_success[o]) {
+            ASSERT_NOT_EQ_FMTm(msg, map_p, MAP_FAILED, "%p");
+         } else {
+            ASSERT_EQ_FMTm(msg, map_p, MAP_FAILED, "%p");
+         }
 
          munmap(map_p, map_s);
          brk_got = SYS_break(brk);
