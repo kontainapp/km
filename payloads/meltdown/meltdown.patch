@@ -8,7 +8,7 @@ index a7e1f07..7af9fde 100644
  *.so
 +*.km
 diff --git a/Makefile b/Makefile
-index 3933c3a..9ab9137 100644
+index 3933c3a..b4abda1 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,20 +1,27 @@
@@ -44,8 +44,7 @@ index 3933c3a..9ab9137 100644
  	make clean -C libkdump
 +
 +physical_reader.km: physical_reader.o libkdump/libkdump.a
-+	ld $^ -o physical_reader.km --gc-sections -T $(KM_TOP)/km.ld -L $(KM_TOP)/build/runtime -lruntime
-\ No newline at end of file
++	cc $^ -o $@ -specs=${KM_TOP}/gcc-km.spec -L ${KM_TOP}/build/runtime
 diff --git a/libkdump/libkdump.c b/libkdump/libkdump.c
 index c590391..68df002 100644
 --- a/libkdump/libkdump.c
