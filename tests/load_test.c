@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2019 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -24,7 +24,7 @@ static const char msg2[] = "after loading big array\n";
  * To recompute the size, compile load.km then run make load_expected_size and replace the number
  * below with printed one.
  */
-static const unsigned long size = 0x0000000000604278;
+static const unsigned long size[] = {0x0000000000604278, 0x0000000000605778};
 
 int main(int argc, char* argv[])
 {
@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
 
    x = syscall(SYS_brk, 0);
    if (print_size) {
-      fprintf(stderr, "size=0x%lx, expect=0x%lx\n", x, size);
+      fprintf(stderr, "size=0x%lx, expect=0x%lx or 0x%lx\n", x, size[0], size[1]);
    }
-   return (x == size) ? 0 : 1;
+   return (x == size[0] || x == size[1]) ? 0 : 1;
 }

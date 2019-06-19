@@ -1,4 +1,4 @@
-#  Copyright © 2018 Kontain Inc. All rights reserved.
+#  Copyright © 2018-2019 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
 #
@@ -22,8 +22,8 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
 COPTS ?= -ggdb -O2
-CFLAGS = -Wall $(COPTS) -D_FORTIFY_SOURCE=0 -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
-LDFLAGS = -ggdb -pthread
+CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
+LDFLAGS = -static -no-pie -ggdb -pthread
 KM_LDFLAGS = -specs=${TOP}gcc-km.spec $(patsubst %,-L %,${LDDIRS})
 LDDIRS := ${TOP}build/runtime
 DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
@@ -32,7 +32,7 @@ EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
 ${KM_PAYLOADS}: ${LDDIRS}
 
-CXXFLAGS=${COPTS}
+CXXFLAGS=${CFLAGS}
 ${SRC_CPP:%.cpp=%} ${SRC_CPP:%.cpp=%.km}: CC=g++
 
 # Test: run by BATS, definition in TEST_FILES, test name has to MATCH

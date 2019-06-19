@@ -13,4 +13,4 @@ crtbeginT.o%s
 crtend.o%s
 
 *link:
--static -Ttext-segment=0x1FF000 -u__km_handle_interrupt -u__km_handle_signal -e__start_c__ --gc-sections -z norelro %(old_link) --build-id=none
+%(old_link) -static -Ttext-segment=0x1FF000 -u__km_handle_interrupt -u__km_handle_signal -e__start_c__ --gc-sections -zseparate-code -z norelro -zmax-page-size=0x1000 --build-id=none
