@@ -40,16 +40,21 @@ BATS := time bats/bin/bats
 TEST_FILES := km_core_tests.bats
 MATCH ?= .*
 
+# file for keeping per-test 'time' info
+TIME_INFO = ${TOP}build/time_info.txt
+
 all: ${EXECS} ## Build all test, for Linux and KM
 
 # Run all or some of tests (may need /dev/kvm or privileged container)
 # ignore test failure when building coverage
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
+	@rm -f ${TIME_INFO}
 ifeq (${MAKECMDGOALS},.coverage)
-	@-export KM_BIN=$(KM_BIN); ${BATS} -p -f "${MATCH}" ${TEST_FILES}
+	@-export KM_BIN=$(KM_BIN); export TIME_INFO=${TIME_INFO}; ${BATS} -p -f "${MATCH}" ${TEST_FILES}
 else
-	@export KM_BIN=$(KM_BIN); ${BATS} -p -f "${MATCH}" ${TEST_FILES}
+	@export KM_BIN=$(KM_BIN); export TIME_INFO=${TIME_INFO};  ${BATS} -p -f "${MATCH}" ${TEST_FILES}
 endif
+	@echo -e "${GREEN}Detailed time info is in $(abspath ${TIME_INFO}) ${NOCOLOR}"
 
 %.km: %.o
 	${CC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
@@ -57,7 +62,7 @@ endif
 
 .PHONY: load_expected_size
 load_expected_size: load_test.km
-	@nm load_test.km | awk '/__end_elf__/{ print "0x" $$1}'
+	@nm load_test.km | awk '/ _end/{ print "0x" $$1}'
 
 %.d: %.c
 	@# print the command we really need to run
