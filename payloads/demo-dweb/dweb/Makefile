@@ -11,7 +11,7 @@ dweb: $(OBJS)
 
 KM_LDFLAGS := -specs=${TOP}gcc-km.spec -L ${TOP}build/runtime
 dweb.km: $(OBJS)
-	$(CC) $(CLFAGS) -pthread  -o $@ $^ ${KM_LDFLAGS}
+	$(CC) $(CLFAGS) -pthread  -o $@ $^ ${KM_LDFLAGS} && chmod a-x $@
 
 .PHONY: clean
 clean:
