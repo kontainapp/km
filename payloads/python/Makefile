@@ -12,6 +12,8 @@
 
 TOP := $(shell git rev-parse --show-cdup)
 
+# KM monitor path
+KM_BIN=${TOP}/build/km/km
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := cpython/python.km
 # image name, without repo and version tag
@@ -31,5 +33,9 @@ $(PAYLOAD_KM): *sh *patch
 # force the build
 build:
 	./build.sh
+
+test: all
+	${KM_BIN} ${PAYLOAD_KM} ./test_unittest.py
+	${KM_BIN} ${PAYLOAD_KM} ./cpython/Lib/unittest/test/
 
 include ${TOP}make/distro.mk

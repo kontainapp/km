@@ -19,6 +19,14 @@ After it is done, you can pass `cpython/python.km` to KM as a payload, e.g. `../
 
 `make distro` and `make publish` will build Docker image and publish it to Azure ACR. We expect that KM is already packaged as a container, and you logged in to ACR 9for publish. So generally, it's better to do `make distro` from top level - this will build KM image as well (or you can `make -C ../../km distro` to get KM image built)
 
+## Testing python KM payload
+
+`make test` to test python KM payload
+
+* It will run kontain tests in ./test_unittest.py.
+* It will also run a subset of the unit test that come with cpython in /cpython/Lib/unittest/test (tests relying on module subprocess are excluded). build.sh  maintains a list of test to exclude. If you add a test to the list you should either rm -f cpython dir and re-build or rename the test manually as per build.sh.
+
+
 ## Known issues
 
 * There are rough edges in locale management - you may see some error messages but all should work.
