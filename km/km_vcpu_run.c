@@ -389,7 +389,7 @@ void km_read_sregisters(km_vcpu_t* vcpu)
    vcpu->sregs_valid = 1;
 }
 
-void km_write_sregsiters(km_vcpu_t* vcpu)
+void km_write_sregisters(km_vcpu_t* vcpu)
 {
    if (!vcpu->sregs_valid) {
       errx(2, "%s - sregisters not valid", __FUNCTION__);

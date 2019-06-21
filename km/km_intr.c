@@ -131,7 +131,9 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
    vcpu->regs.rip = iframe->rip;
    vcpu->regs.rsp = iframe->rsp;
    vcpu->sregs.cs.base = iframe->cs;
-   vcpu->sregs.ss.base = iframe->cs;
+   vcpu->sregs.ss.base = iframe->ss;
+   km_write_registers(vcpu);
+   km_write_sregisters(vcpu);
 
    /*
     * map processor exceptions to signals in accordance with
