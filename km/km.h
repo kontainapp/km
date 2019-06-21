@@ -69,6 +69,8 @@ typedef struct km_signal_list {
    sigset_t mask;   // Signals in list.
 } km_signal_list_t;
 
+typedef unsigned long int pthread_tid_t;
+
 typedef struct km_vcpu {
    int vcpu_id;                 // uniq ID
    int kvm_vcpu_fd;             // this VCPU file descriptor
@@ -86,7 +88,7 @@ typedef struct km_vcpu {
    int gdb_efd;                 // gdb uses this to synchronize with VCPU thread
    int is_used;                 // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;               // 1 means the vcpu is waiting for gdb to allow it to continue
-   int joining_pid;             // pid if currently joining another thread pid, -1 if not
+   pthread_tid_t joining_pid;   // pid if currently joining another thread pid, -1 if not
    int exit_status;             // exit status for this thread
    int regs_valid;              // Are registers valid?
    kvm_regs_t regs;             // Cached register values.
@@ -209,8 +211,6 @@ static inline int km_wait_on_eventfd(int fd)
    return value;
 }
 
-typedef unsigned long int pthread_tid_t;   // we use vcpu ID as pthread id, so it's int
-
 void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[]);
 int km_pthread_create(
     km_vcpu_t* vcpu, pthread_tid_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
@@ -228,7 +228,7 @@ extern int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data);
 extern int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused);
 extern void km_vcpu_wait_for_all_to_pause(void);
 extern int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused);
-extern km_vcpu_t* km_vcpu_fetch(int id);
+extern km_vcpu_t* km_vcpu_fetch(pthread_tid_t);
 extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
 
 extern pid_t gettid(void);
