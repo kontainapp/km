@@ -265,6 +265,7 @@ teardown() {
    [ $status -eq 8 ] # SIGFPE
    echo $output | grep -F 'Floating point exception (core dumped)'
    [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'div0 ('
    rm -f ${CORE}
 
    # invalid opcode
@@ -273,6 +274,7 @@ teardown() {
    [ $status -eq 4 ] # SIGILL
    echo $output | grep -F 'Illegal instruction (core dumped)'
    [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'undefined_op ('
    rm -f ${CORE}
 
    # page fault
@@ -281,6 +283,7 @@ teardown() {
    [ $status -eq 11 ] # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference ('
    rm -f ${CORE}
 
    # bad hcall
@@ -289,6 +292,7 @@ teardown() {
    [ $status -eq 31 ] # SIGSYS
    echo $output | grep -F 'Bad system call (core dumped)'
    [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'main ('
    rm -f ${CORE}
 
    # write to text (protected memory)
@@ -297,6 +301,7 @@ teardown() {
    [ $status -eq 11 ]  # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'write_text ('
    rm -f ${CORE}
 
    # abort
@@ -305,6 +310,7 @@ teardown() {
    [ $status -eq 6 ]  # SIGABRT
    echo $output | grep -F 'Aborted (core dumped)'
    [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'abort ('
    rm -f ${CORE}
 
    # quit
@@ -313,6 +319,7 @@ teardown() {
    [ $status -eq 3 ]  # SIGQUIT
    echo $output | grep -F 'Quit (core dumped)'
    [ -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'kill ('
    rm -f ${CORE}
 
    # term

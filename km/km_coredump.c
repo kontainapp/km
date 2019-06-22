@@ -22,6 +22,7 @@
 
 #include "km.h"
 #include "km_coredump.h"
+#include "km_mem.h"
 
 // TODO: Need to figure out where the corefile default should go.
 static char* coredump_path = "./kmcore";
@@ -36,17 +37,18 @@ char* km_get_coredump_path()
    return coredump_path;
 }
 
+/*
+ * Write a buffer in KM memory.
+ */
 void km_core_write(int fd, void* buffer, size_t length)
 {
    int rc;
-   if ((rc = write(fd, buffer, length)) != length) {
-      errx(2,
-           "%s - write error - expect=%ld got=%d errno=%d [%s]\n",
-           __FUNCTION__,
-           length,
-           rc,
-           errno,
-           strerror(errno));
+
+   if ((rc = write(fd, buffer, length)) == -1) {
+      errx(2, "%s - write error - errno=%d [%s]\n", __FUNCTION__, errno, strerror(errno));
+   }
+   if (rc != length) {
+      errx(2, "%s - short write: expect: %ld got:%d", __FUNCTION__, length, rc);
    }
 }
 
@@ -120,7 +122,7 @@ static inline int km_make_dump_prstatus(km_vcpu_t* vcpu, char* buf, size_t lengt
    cur += km_add_note_header(cur, remain, "CORE", sizeof(struct elf_prstatus));
 
    // TODO: Fill in the rest of elf_prstatus.
-   pr.pr_pid = vcpu->vcpu_thread;
+   pr.pr_pid = vcpu->tid;
    // Found these assignments in Linux source arch/x86/include/asm/elf.h
    pr.pr_reg[0] = vcpu->regs.r15;
    pr.pr_reg[1] = vcpu->regs.r14;
@@ -218,4 +220,24 @@ int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t
 
    // return cur - buf;
    return size;
+}
+
+/*
+ * Write a contiguous area in guest memory. Account for
+ * this to map into discontiguous KM memory.
+ */
+void km_guestmem_write(int fd, km_gva_t base, size_t length)
+{
+   km_gva_t current = base;
+   size_t remain = length;
+
+   while (remain > 0) {
+      int memidx = gva_to_memreg_idx(current);
+      kvm_mem_reg_t* memreg = &machine.vm_mem_regs[memidx];
+      size_t wsz = MIN(remain, memreg->memory_size - (gva_to_gpa(current) - memreg->guest_phys_addr));
+
+      km_core_write(fd, km_gva_to_kma(current), wsz);
+      current += wsz;
+      remain -= wsz;
+   }
 }

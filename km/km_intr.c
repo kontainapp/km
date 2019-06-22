@@ -25,6 +25,30 @@
 #include "km_signal.h"
 #include "x86_cpu.h"
 
+static char* str_intr[256] = {
+    "Divide Error",
+    "Debug Exception",
+    "NMI",
+    "Breakpoint",
+    "Overflow",
+    "BOUND Range Exceeded",
+    "Invalid Opcode",
+    "Device Not Available",
+    "Double Fault",
+    0,
+    "Invalid TSS",
+    "Segment Not Present",
+    "Stack Segment Fault",
+    "General Protection",
+    "Page Fault",
+    0,
+    "Floating Point Error",
+    "Alignment Check",
+    "Machine Check",
+    "SMID Floating Point Exception",
+    "Virtualization Exception",
+};
+
 /*
  * See Intel SDM, Vol3, Figure 6-7
  */
@@ -178,5 +202,10 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
          break;
    }
 
+   warnx("Guest Fault: type:%d (%s) --> signal:%d (%s)",
+         events.exception.nr,
+         str_intr[events.exception.nr],
+         info.si_signo,
+         strsignal(info.si_signo));
    km_post_signal(vcpu, &info);
 }
