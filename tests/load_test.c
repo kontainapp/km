@@ -24,7 +24,8 @@ static const char msg2[] = "after loading big array\n";
  * To recompute the size, compile load.km then run make load_expected_size and replace the number
  * below with printed one.
  */
-static const unsigned long size[] = {0x0000000000604f58, 0x0000000000605778};
+
+static const unsigned long size[] = {0x0000000000604278, 0x0000000000605778};
 
 int main(int argc, char* argv[])
 {
