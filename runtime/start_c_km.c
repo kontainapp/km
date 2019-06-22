@@ -45,17 +45,14 @@ hidden void __libc_exit_fini(void)
  */
 _Noreturn void __start_c__(long is_main_argc, char** argv)
 {
-   long rc;
-
+   (void)__pthread_tsd_size;
    if (is_main_argc == 0) {
       struct pthread* self = __pthread_self();
-      rc = (int)self->start(self->start_arg);
+      pthread_exit(self->start(self->start_arg));
    } else {
-      (void)__pthread_tsd_size;
       __libc_start_init();
-      rc = main(is_main_argc, argv);
+      exit(main(is_main_argc, argv));
    }
-   pthread_exit((void*)rc);
 }
 
 /*

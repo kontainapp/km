@@ -38,7 +38,7 @@ int __cxa_thread_atexit_impl(km_dtor_func_t dtor_func,
    km_dtor_list_t* new;
 
    if ((new = malloc(sizeof(km_dtor_list_t))) == NULL) {
-      return ENOMEM;
+      return -1;
    }
    new->dtor_func = dtor_func;
    new->obj_to_d = obj_to_d;

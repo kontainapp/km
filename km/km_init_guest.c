@@ -307,7 +307,7 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
       errx(1, "Bad binary - cannot find __pthread_tsd_size");
    }
    tsd_size = *(size_t*)km_gva_to_kma(km_guest.km_tsd_size);
-   assert(tsd_size < sizeof(void*) * PTHREAD_KEYS_MAX &&
+   assert(tsd_size <= sizeof(void*) * PTHREAD_KEYS_MAX &&
           tsd_size == rounddown(tsd_size, sizeof(void*)));
 
    assert(_a_stackaddr(g_attr) == 0);   // TODO: for now

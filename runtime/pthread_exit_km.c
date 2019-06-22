@@ -6,6 +6,8 @@ static void dummy_0()
 {
 }
 weak_alias(dummy_0, __run_tls_dtors);
+weak_alias(dummy_0, __pthread_tsd_run_dtors);
+weak_alias(dummy_0, __do_orphaned_stdio_locks);
 
 _Noreturn void __pthread_exit(void* result)
 {

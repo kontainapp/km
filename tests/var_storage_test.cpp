@@ -91,16 +91,15 @@ int main()
 
    thread t1(thread_entry, "1");
    thread t2(thread_entry, "2");
-   // thread t3(check_tls(), "3+");
+   thread t3(check_tls(), "3+");
 
    t_main.pname("t_main");
    t_LocalStatic.pname("t_LocalStatic");
    t_Global.pname("t_Global");
    t_GlobalStatic.pname("t_GlobalStatic");
 
-
    t1.join();
-   // t3.join();
+   t3.join();
    t2.join();
 
    cout << "after join" << endl;
