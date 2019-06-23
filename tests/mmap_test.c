@@ -70,12 +70,12 @@ static mmap_test_t _36_tests[] = {
     {"Swiss cheese-munmap1", TYPE_MUNMAP, 500 * MIB, 260 * MIB, 0, 0},
     {"Swiss cheese-unaligned-munmap2", TYPE_MUNMAP, 0, 300 * MIB - 256, 0, 0},
     {"Swiss cheese-munmap3", TYPE_MUNMAP, 300 * MIB, 200 * MIB, 0, 0},
+    {"Wrong-args-mmap", TYPE_MMAP, 400 * MIB, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
 
-    {"Wrong-args-mmap", TYPE_MMAP, 0x20000ul, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, EINVAL},
-    {"Wrong-args-mmap", TYPE_MMAP, 0, 8 * MIB + 256, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, EINVAL},
-    {"Wrong-args-munmap", TYPE_MUNMAP, 0x20000ul, 1 * MIB, 0, 0, EINVAL},
-    {"Basic-munmap-dup1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0, EINVAL},
-    {"Basic-munmap-dup2", TYPE_MUNMAP, 0, 6 * MIB, 0, 0, EINVAL},
+    {"Wrong-args-mmap", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, EINVAL},
+    {"Wrong-args-munmap", TYPE_MUNMAP, 300 * MIB, 1 * MIB, 0, 0, EINVAL},
+    {"Basic-munmap-dup1", TYPE_MUNMAP, 500 * MIB, 8 * MIB, 0, 0, EINVAL},
+    {"Basic-munmap-dup2", TYPE_MUNMAP, 500 * MIB, 6 * MIB, 0, 0, EINVAL},
     {NULL},
 };
 

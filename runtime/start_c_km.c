@@ -81,3 +81,25 @@ _Noreturn void __km_handle_signal(
       km_hcall(SYS_rt_sigreturn, &args);
    }
 }
+
+char* environ[1] = {NULL};
+
+const char* gnu_get_libc_version(void)
+{
+   return "km";
+}
+
+char* secure_getenv(const char* name)
+{
+   return NULL;
+}
+
+int backtrace(void** buffer, int size)
+{
+   return 0;
+}
+
+int execvp(const char* path, char* const argv[])
+{
+   return -1;
+}

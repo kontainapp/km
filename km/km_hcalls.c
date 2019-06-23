@@ -455,6 +455,13 @@ static km_hc_ret_t dup_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t dup3_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int dup3(int oldfd, int newfd, int flags);
+   arg->hc_ret = __syscall_3(hc, arg->arg1, arg->arg2, arg->arg3);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t pause_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    // int pause(void);
@@ -623,6 +630,52 @@ static km_hc_ret_t rt_sigpending_hcall(void* vcpu, int hc, km_hc_args_t* arg, in
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t epoll1_create_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int epoll_create1(int flags);
+   arg->hc_ret = __syscall_1(hc, arg->arg1);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t epoll_ctl_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
+   arg->hc_ret = __syscall_4(hc, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kml(arg->arg4));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t epoll_pwait_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int epoll_pwait(int epfd, struct epoll_event *events, int maxevents, int timeout, const
+   // sigset_t *sigmask);
+   arg->hc_ret =
+       __syscall_5(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3, arg->arg4, km_gva_to_kml(arg->arg5));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t pipe2_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int pipe2(int pipefd[2], int flags);
+   arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t eventfd2_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int eventfd(unsigned int initval, int flags);
+   arg->hc_ret = __syscall_2(hc, arg->arg1, arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t prlimit64_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int prlimit(pid_t pid, int resource, const struct rlimit *new_limit, struct rlimit
+   // *old_limit);
+   arg->hc_ret =
+       __syscall_4(hc, arg->arg1, arg->arg2, km_gva_to_kml(arg->arg3), km_gva_to_kml(arg->arg4));
+   return HC_CONTINUE;
+}
+
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
@@ -674,6 +727,14 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_accept4] = accept4_hcall;
    km_hcalls_table[SYS_recvfrom] = recvfrom_hcall;
    km_hcalls_table[SYS_lstat] = lstat_hcall;
+   km_hcalls_table[SYS_epoll_create1] = epoll1_create_hcall;
+   km_hcalls_table[SYS_epoll_ctl] = epoll_ctl_hcall;
+   km_hcalls_table[SYS_epoll_pwait] = epoll_pwait_hcall;
+   km_hcalls_table[SYS_dup] = dup_hcall;
+   km_hcalls_table[SYS_dup3] = dup3_hcall;
+   km_hcalls_table[SYS_pipe2] = pipe2_hcall;
+   km_hcalls_table[SYS_eventfd2] = eventfd2_hcall;
+   km_hcalls_table[SYS_prlimit64] = prlimit64_hcall;
 
    km_hcalls_table[SYS_rt_sigprocmask] = rt_sigprocmask_hcall;
    km_hcalls_table[SYS_rt_sigaction] = rt_sigaction_hcall;
@@ -683,12 +744,14 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_tkill] = tkill_hcall;
 
    km_hcalls_table[SYS_getpid] = dummy_hcall;
-   km_hcalls_table[SYS_dup] = dup_hcall;
    km_hcalls_table[SYS_geteuid] = dummy_hcall;
    km_hcalls_table[SYS_getuid] = dummy_hcall;
    km_hcalls_table[SYS_getegid] = dummy_hcall;
    km_hcalls_table[SYS_getgid] = dummy_hcall;
    km_hcalls_table[SYS_sched_yield] = dummy_hcall;
+   km_hcalls_table[SYS_mprotect] = dummy_hcall;
+
+   km_hcalls_table[SYS_clock_getres] = dummy_hcall;
 
    km_hcalls_table[HC_pthread_create] = pthread_create_hcall;
    km_hcalls_table[HC_pthread_join] = pthread_join_hcall;

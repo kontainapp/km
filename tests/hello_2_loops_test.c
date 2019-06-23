@@ -67,9 +67,13 @@ void* run(void* msg)
 {
    for (long run_count = 0; run_count < 1024; run_count++) {
       pthread_t pt1, pt2;
+      pthread_attr_t attr;
 
-      pthread_create(&pt1, NULL, (void* (*)(void*))subrun, (void*)brick_msg);
-      pthread_create(&pt2, NULL, (void* (*)(void*))subrun, (void*)dust_msg);
+      pthread_attr_init(&attr);
+      pthread_attr_setstacksize(&attr, 365 * 1024);
+      pthread_create(&pt1, &attr, (void* (*)(void*))subrun, (void*)brick_msg);
+      pthread_create(&pt2, &attr, (void* (*)(void*))subrun, (void*)dust_msg);
+      pthread_attr_destroy(&attr);
       pthread_join(pt2, NULL);
       if (greatest_get_verbosity() != 0) {
          printf(" ... joined 0x%lx\n", pt2);

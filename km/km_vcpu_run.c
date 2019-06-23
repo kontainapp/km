@@ -422,6 +422,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
       return -1;
    }
    if (km_hcalls_table[*hc] == NULL) {
+      warnx("Unimplemented hypercall %d", *hc);
       siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
       km_post_signal(vcpu, &info);
       return -1;
