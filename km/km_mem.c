@@ -546,7 +546,7 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
    if (tbrk == 0) {
       return machine.tbrk;
    }
-   if (tbrk < GUEST_MEM_TOP_VA - GUEST_MEM_ZONE_SIZE_VA) {
+   if (GUEST_MEM_TOP_VA < tbrk || tbrk < GUEST_MEM_TOP_VA - GUEST_MEM_ZONE_SIZE_VA) {
       return -ENOMEM;
    }
    km_mem_lock();
