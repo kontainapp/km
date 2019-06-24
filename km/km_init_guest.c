@@ -307,7 +307,7 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
       errx(1, "Bad binary - cannot find __pthread_tsd_size");
    }
    tsd_size = *(size_t*)km_gva_to_kma(km_guest.km_tsd_size);
-   assert(tsd_size < sizeof(void*) * PTHREAD_KEYS_MAX &&
+   assert(tsd_size <= sizeof(void*) * PTHREAD_KEYS_MAX &&
           tsd_size == rounddown(tsd_size, sizeof(void*)));
 
    assert(_a_stackaddr(g_attr) == 0);   // TODO: for now
@@ -429,7 +429,7 @@ int km_pthread_create(km_vcpu_t* current_vcpu,
       return -EAGAIN;
    }
    if (pid != NULL) {
-      *pid = vcpu->vcpu_id;
+      *pid = vcpu->guest_thr;
    }
    return 0;
 }
@@ -442,9 +442,8 @@ static int check_join_deadlock(km_vcpu_t* joinee_vcpu, km_vcpu_t* current_vcpu)
       return -EDEADLOCK;
    }
    for (vcpu = joinee_vcpu; vcpu->joining_pid != -1;) {
-      vcpu = machine.vm_vcpus[vcpu->joining_pid];
-      assert(vcpu != NULL && vcpu->is_used != 0);
-      if (vcpu->joining_pid == current_vcpu->vcpu_id) {
+      vcpu = km_vcpu_fetch(vcpu->joining_pid);
+      if (vcpu != NULL && vcpu->joining_pid == current_vcpu->vcpu_id) {
          return -EDEADLOCK;
       }
    }
@@ -456,16 +455,16 @@ int km_pthread_join(km_vcpu_t* current_vcpu, pthread_tid_t pid, km_kma_t ret)
    km_vcpu_t* vcpu;
    int rc = 0;
 
-   if (pid >= KVM_MAX_VCPUS || (vcpu = machine.vm_vcpus[pid]) == NULL || vcpu->is_used == 0) {
+   if ((vcpu = km_vcpu_fetch(pid)) == NULL) {
       return -ESRCH;
-   }
-   if ((rc = check_join_deadlock(vcpu, current_vcpu)) != 0) {
-      return rc;
    }
    km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
    assert(pt_kma != NULL);
    if (pt_kma->detach_state == DT_DETACHED || pt_kma->detach_state == DT_DYNAMIC) {
       return -EINVAL;
+   }
+   if ((rc = check_join_deadlock(vcpu, current_vcpu)) != 0) {
+      return rc;
    }
    /*
     * Mark current thread as "joining someone else". pthread_cond_wait() is not interruptable,
@@ -506,10 +505,10 @@ int km_pthread_join(km_vcpu_t* current_vcpu, pthread_tid_t pid, km_kma_t ret)
    if (pthread_mutex_unlock(&vcpu->thr_mtx) != 0) {
       err(1, "join: unlock mutex thr_mtx");
    }
+   current_vcpu->joining_pid = -1;
    if (rc == 0) {
       km_vcpu_put(vcpu);
    }
-   current_vcpu->joining_pid = -1;
    return rc;
 }
 

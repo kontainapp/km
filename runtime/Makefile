@@ -12,19 +12,25 @@ TOP := $(shell git rev-parse --show-cdup)
 
 # SUBDIRS := idt
 
-LIB := runtime
+LIB := runtime_unused
 
 # following it to compute SOURCES, picking up all .c files from relevant dirs
 # (i.e. skipping SKIP_SRC_DIR). Then drop the base implementations for the sake of
 # arch specific ones based on ARCH.
 SRCDIR := musl/
 ARCH := x86_64
-SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc ldso mq process sched)
+# SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc ldso mq process sched)
+SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq process sched)
 SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/)))
 
 KM_REPLACED_SRCS := syscall.s __libc_start_main.c __init_tls.c pthread_create.c pthread_join.c uname.c
 KM_EXTRA_SRCS := start_c_km.c syscall_km.c syscall_cp_km.c pthread_create_km.c pthread_exit_km.c pthread_join_km.c \
-					uname_km.c runtime_stub_km.c chk_stub_km.c
+					uname_km.c runtime_stub_km.c chk_stub_km.c cxa_thread_atexit_km.c
+
+KM_PTHREAD_OBJS := pthread_cond_broadcast.o pthread_cond_destroy.o pthread_cond_signal.o pthread_cond_wait.o \
+						 pthread_create_km.o pthread_detach.o pthread_getspecific.o pthread_join_km.o pthread_key_create.o \
+						 pthread_key_delete.o pthread_mutex_lock.o pthread_mutex_unlock.o pthread_once.o \
+						 pthread_rwlock_rdlock.o pthread_rwlock_unlock.o pthread_rwlock_wrlock.o pthread_setspecific.o
 
 BASE_SRCS := $(wildcard $(addsuffix *.c,$(SRC_DIRS)))
 ARCH_SRCS := $(wildcard $(addsuffix $(ARCH)/*.[csS],$(SRC_DIRS)))
@@ -43,13 +49,24 @@ CWARNS := -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-va
 
 # -ffunction-sections -fdata-sections work together with linker script, see km.ld
 # Other -f... options are to reduce generated code size
-COPTS := -Os -D_XOPEN_SOURCE=700 -pipe -nostdinc \
+COPTS := -Os -ggdb -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 	-fomit-frame-pointer -fno-unwind-tables -fno-asynchronous-unwind-tables \
 	-ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math \
 	-fno-tree-loop-distribute-patterns -fno-stack-protector \
 	${CWERRS} ${CWARNS}
 
 include ${TOP}make/actions.mk
+
+all: $(addprefix ${BLDDIR}, libkmpthread.a) $(addprefix ${BLDDIR}, libruntime.a)
+
+KM_PTHREAD_OFILES = $(filter $(addprefix %,${KM_PTHREAD_OBJS}), ${OBJS})
+OFILES = $(filter-out $(addprefix %,${KM_PTHREAD_OBJS}), ${OBJS})
+
+$(addprefix ${BLDDIR}, libkmpthread.a): ${KM_PTHREAD_OFILES}
+	@echo "Making " $@; rm -f $@; ld -r ${KM_PTHREAD_OFILES} -o $*.o; ${AR} crs $@ -o $*.o
+
+$(addprefix ${BLDDIR}, libruntime.a): ${OFILES}
+	@echo "Making " $@; rm -f $@; ${AR} crs $@ ${OFILES}
 
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 

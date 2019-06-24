@@ -290,18 +290,19 @@ km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
    return NULL;
 }
 
-// fetch in_use vcpu by it's ID
-km_vcpu_t* km_vcpu_fetch(int id)
+km_vcpu_t* km_vcpu_fetch(pthread_tid_t pid)
 {
-   km_vcpu_t* vcpu;
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      km_vcpu_t* vcpu;
 
-   if (id < 0 || id >= KVM_MAX_VCPUS) {
-      return NULL;
+      if ((vcpu = machine.vm_vcpus[i]) == NULL) {
+         break;   // since we allocate vcpus sequentially, no reason to scan after NULL
+      }
+      if (vcpu->is_used == 1 && vcpu->guest_thr == pid) {
+         return vcpu;
+      }
    }
-   if ((vcpu = machine.vm_vcpus[id]) == NULL || vcpu->is_used != 1) {
-      return NULL;
-   }
-   return vcpu;
+   return NULL;
 }
 
 /*
@@ -319,7 +320,7 @@ static int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
 {
    km_infox(KM_TRACE_VCPU,
-            "VCPU %d info: paused %d joining %d used %d thread %#lx (tid %#x) guest_thr %#lx",
+            "VCPU %d info: paused %d joining %ld used %d thread %#lx (tid %#x) guest_thr %#lx",
             vcpu->vcpu_id,
             vcpu->is_paused,
             vcpu->joining_pid,
