@@ -3,7 +3,7 @@
 ## Coding Style
 
 We use the Visual Studio Code (VS Code) IDE.
-Many of our formatting rules happen automaticaly when using VS Code.
+Many of our formatting rules happen automatically when using VS Code.
 
 TODO: Insert our style thoughts here.
 
@@ -14,8 +14,8 @@ TODO: Insert our style thoughts here.
 We use git submodules, so do not forget to init/update them. Assuming your credentials are in order, here is how to bring the stuff in:
 
 ```sh
-git clone git@bitbucket.org:kontainapp/covm.git
-cd covm
+git clone git@github.com:kontainapp/km.git
+cd km
 git submodule update --init
 ```
 
