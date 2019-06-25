@@ -2,7 +2,7 @@
 
 All terminology and content is subject to change without notice.
 
-For build and test info, see ./docs/build.md.
+For build and test info, see [docs/build.md](docs/build.md).
 
 * Generally, `docs` is where we keep track of things.
 * `km` is the code for Kontain Monitor
