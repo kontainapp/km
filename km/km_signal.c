@@ -15,6 +15,7 @@
 #include <err.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,6 +25,7 @@
 #include "bsd_queue.h"
 #include "km.h"
 #include "km_coredump.h"
+#include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
 
@@ -271,6 +273,26 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
    enqueue_signal(slist, info);
 }
 
+/*
+ * Signal handler caller stack frame. This is what RSP points at when a guest signal
+ * handler is started. 
+ */
+typedef struct km_signal_frame {
+   /*
+    * address for the signal handler to return to. See __km_sigreturn in 
+    * runtime/x86_sigaction.s
+    */
+   uint64_t return_addr;
+   /* HC argument array for __km_sigreturn. */
+   km_hc_args_t hcargs;
+   /* Saved registers */
+   kvm_regs_t regs;
+   /* Passed to guest signal handler */
+   siginfo_t info;
+   /* Passed to guest signal handler */
+   ucontext_t ucontext;
+} km_signal_frame_t;
+
 #define RED_ZONE (128)
 
 /*
@@ -280,21 +302,18 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
 {
    km_read_registers(vcpu);
 
-   km_gva_t si_gva = vcpu->regs.rsp - RED_ZONE - sizeof(siginfo_t);
-   km_gva_t newsp_gva = si_gva - sizeof(vcpu->regs);
+   km_gva_t sframe_gva = vcpu->regs.rsp - RED_ZONE - sizeof(km_signal_frame_t);
+   km_signal_frame_t* frame = km_gva_to_kma(sframe_gva);
 
-   // TODO: Check that newsp_gva is valid memory.
+   memcpy(&frame->info, info, sizeof(siginfo_t));
+   memcpy(&frame->regs, &vcpu->regs, sizeof(vcpu->regs));
+   frame->return_addr = km_guest.km_sigreturn;
 
-   memcpy(km_gva_to_kma(si_gva), info, sizeof(siginfo_t));
-   void* newsp = km_gva_to_kma(newsp_gva);
-   memcpy(newsp, &vcpu->regs, sizeof(vcpu->regs));
-   vcpu->regs.rsp = newsp_gva;
-   vcpu->regs.rip = km_guest.km_sighandle;
-   vcpu->regs.rdi = newsp_gva;
-   vcpu->regs.rsi = act->handler;
-   vcpu->regs.rdx = info->si_signo;
-   vcpu->regs.rcx = si_gva;
-   vcpu->regs.r8 = 0;   // TODO: ucontext
+   vcpu->regs.rsp = sframe_gva;
+   vcpu->regs.rip = act->handler;
+   vcpu->regs.rdi = info->si_signo;
+   vcpu->regs.rsi = sframe_gva + offsetof(km_signal_frame_t, info);
+   vcpu->regs.rdx = sframe_gva + offsetof(km_signal_frame_t, ucontext);
 
    km_write_registers(vcpu);
 }
@@ -334,6 +353,21 @@ void km_deliver_signal(km_vcpu_t* vcpu)
 
    assert(act->handler != (km_gva_t)SIG_IGN);
    do_guest_handler(vcpu, &info, act);
+}
+
+void km_rt_sigreturn(km_vcpu_t* vcpu)
+{
+   km_read_registers(vcpu);
+   /*
+    * Return from handle moved rsp past the return address. Subtract size of
+    * the address to account to it.
+    * TODO: ensure everything we are copying from is really in guest memory, Don't want to
+    *       leak information into guest.
+    */
+   memcpy(&vcpu->regs,
+          km_gva_to_kma(vcpu->regs.rsp - sizeof(uint64_t) + offsetof(km_signal_frame_t, regs)),
+          sizeof(vcpu->regs));
+   km_write_registers(vcpu);
 }
 
 uint64_t
@@ -398,15 +432,6 @@ km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t*
       }
    }
    km_signal_unlock();
-   return 0;
-}
-
-uint64_t km_rt_sigreturn(km_vcpu_t* vcpu, void* savregs)
-{
-   km_read_registers(vcpu);
-   memcpy(&vcpu->regs, savregs, sizeof(vcpu->regs));
-   km_write_registers(vcpu);
-
    return 0;
 }
 

@@ -611,9 +611,8 @@ static km_hc_ret_t rt_sigaction_hcall(void* vcpu, int hc, km_hc_args_t* arg, int
 static km_hc_ret_t rt_sigreturn_hcall(void* varg, int hc, km_hc_args_t* arg, int* status)
 {
    km_vcpu_t* vcpu = (km_vcpu_t*)varg;
-   void* savregs = km_gva_to_kma(arg->arg1);
 
-   arg->hc_ret = km_rt_sigreturn(vcpu, savregs);
+   km_rt_sigreturn(vcpu);  // don't care about arg orreturn code.
    return HC_CONTINUE;
 }
 
