@@ -25,4 +25,5 @@ void km_core_write_elf_header(int fd, int phnum);
 int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t size);
 void km_core_write_load_header(int fd, off_t offset, km_gva_t base, size_t size, int flags);
 void km_core_write(int fd, void* buffer, size_t length);
+void km_guestmem_write(int fd, km_gva_t base, size_t length);
 #endif

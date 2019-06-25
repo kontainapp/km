@@ -9,7 +9,7 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * Generates exceptions in guest.
+ * Generates exceptions in guest in order to test guest coredumps.
  */
 #include <assert.h>
 #include <errno.h>
@@ -26,6 +26,10 @@
 #include "syscall.h"
 
 char* cmdname = "?";
+
+// make the data and bss segments large to force a region boundary crossing in coredump.
+int bigarray_data[10000000] = {1, 2, 3};
+int bigarray_bss[10000000];
 
 // Generate a X86 #PF exception
 void stray_reference(void)
@@ -45,6 +49,12 @@ void div0()
 void undefined_op()
 {
    asm volatile("ud2");
+}
+
+void bad_hcall()
+{
+   km_hc_args_t arg;
+   km_hcall(SYS_fork, &arg);
 }
 
 void write_text(void* ptr)
@@ -101,6 +111,15 @@ int main(int argc, char** argv)
       return 1;
    }
 
+   /*
+    * Map a fairly large region to force the coredump to do a large write.
+    */
+   if (mmap(0, 10 * 1024 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0) ==
+       MAP_FAILED) {
+      fprintf(stderr, "large mmap failed");
+      return 1;
+   }
+
    if (strcmp(op, "stray") == 0) {
       stray_reference();
       return 1;
@@ -114,8 +133,7 @@ int main(int argc, char** argv)
       return 1;
    }
    if (strcmp(op, "hc") == 0) {
-      km_hc_args_t arg;
-      km_hcall(SYS_fork, &arg);
+      bad_hcall();
       return 1;
    }
    if (strcmp(op, "prot") == 0) {

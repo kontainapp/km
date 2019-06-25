@@ -326,7 +326,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    size_t notes_length = KM_PAGE_SIZE;
    size_t notes_used = 0;
 
-   if ((fd = open(core_path, O_RDWR | O_CREAT, 0666)) < 0) {
+   if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0666)) < 0) {
       errx(2, "Cannot open corefile '%s' - %s\n", core_path, strerror(errno));
    }
    warnx("Write coredump to '%s'", core_path);
@@ -381,10 +381,10 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       if (km_guest.km_phdr[i].p_type != PT_LOAD) {
          continue;
       }
-      km_core_write(fd, km_gva_to_kma(km_guest.km_phdr[i].p_vaddr), km_guest.km_phdr[i].p_memsz);
+      km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr, km_guest.km_phdr[i].p_memsz);
    }
    TAILQ_FOREACH (ptr, &mmaps.busy, link) {
-      km_core_write(fd, km_gva_to_kma(ptr->start), ptr->size);
+      km_guestmem_write(fd, ptr->start, ptr->size);
    }
 
    free(notes_buffer);
