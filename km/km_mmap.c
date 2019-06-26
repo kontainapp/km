@@ -73,6 +73,9 @@ mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t
    if (addr != 0 || fd != -1 || offset != 0 || flags & MAP_FIXED) {
       return -EINVAL;
    }
+   if (size % KM_PAGE_SIZE != 0) {
+      return -EINVAL;
+   }
    return 0;
 }
 
@@ -263,6 +266,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    km_gva_t head_start, tail_start;
    size_t head_size, tail_size;
 
+   size = roundup(size, KM_PAGE_SIZE);
    mmaps_lock();
    if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL || (addr + size > reg->start + reg->size)) {
       mmaps_unlock();
