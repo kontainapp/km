@@ -70,8 +70,7 @@ void km_init_guest_idt(km_gva_t handlers_gva)
    x86_idt_entry_t* idte;
 
    /*
-    * Create a GDT with the NULL entry and a single entry for
-    * our interrupt handlers
+    * Create a GDT. Allocate a page. We only need entry 1 for the IDT.
     */
    if (km_syscall_ok(gdt_base = km_guest_mmap_simple(KM_PAGE_SIZE)) < 0) {
       err(1, "Failed to allocate guest IDT memory");
