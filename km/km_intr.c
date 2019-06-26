@@ -65,7 +65,6 @@ static inline void build_idt_entry(x86_idt_entry_t* idt, km_gva_t handler, int i
 void km_init_guest_idt(km_gva_t handlers_gva)
 {
    km_gva_t gdt_base;
-   size_t gdt_size = sizeof(x86_seg_d_t) * 2;
    km_gva_t idt_base;
    x86_seg_d_t* gdt;
    x86_idt_entry_t* idte;
@@ -74,7 +73,7 @@ void km_init_guest_idt(km_gva_t handlers_gva)
     * Create a GDT with the NULL entry and a single entry for
     * our interrupt handlers
     */
-   if (km_syscall_ok(gdt_base = km_guest_mmap_simple(gdt_size)) < 0) {
+   if (km_syscall_ok(gdt_base = km_guest_mmap_simple(KM_PAGE_SIZE)) < 0) {
       err(1, "Failed to allocate guest IDT memory");
    }
    gdt = (x86_seg_d_t*)km_gva_to_kma(gdt_base);
@@ -86,7 +85,7 @@ void km_init_guest_idt(km_gva_t handlers_gva)
    gdt[1].g = 1;
 
    machine.gdt = gdt_base;
-   machine.gdt_size = gdt_size;
+   machine.gdt_size = KM_PAGE_SIZE;
 
    /*
     * Create the IDT.
