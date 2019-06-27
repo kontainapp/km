@@ -1,6 +1,7 @@
 #include "km_hcalls.h"
 #include "pthread_impl.h"
 #include "stdio_impl.h"
+#include "unistd.h"
 
 extern int main(int argc, char** argv);
 
@@ -50,6 +51,7 @@ _Noreturn void __start_c__(long is_main_argc, char** argv)
       struct pthread* self = __pthread_self();
       pthread_exit(self->start(self->start_arg));
    } else {
+   	__environ = argv + is_main_argc + 1;
       __libc_start_init();
       exit(main(is_main_argc, argv));
    }
@@ -81,8 +83,6 @@ _Noreturn void __km_handle_signal(
       km_hcall(SYS_rt_sigreturn, &args);
    }
 }
-
-char* environ[1] = {NULL};
 
 const char* gnu_get_libc_version(void)
 {
