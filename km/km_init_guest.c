@@ -230,7 +230,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
 
    argv_km[argc] = NULL;
    for (argc--; argc >= 0; argc--) {
-      int len = roundup(strnlen(argv[argc], PATH_MAX), sizeof(km_gva_t));
+      int len = strnlen(argv[argc], PATH_MAX) + 1;
 
       stack_top -= len;
       if (map_base + GUEST_STACK_SIZE - stack_top > GUEST_ARG_MAX) {
@@ -240,6 +240,8 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
       stack_top_kma -= len;
       strncpy(stack_top_kma, argv[argc], len);
    }
+   stack_top = rounddown(stack_top, sizeof(void*));
+   stack_top_kma = km_gva_to_kma(stack_top);
    static const int size_of_empty_aux_and_env = 4 * sizeof(void*);
    stack_top -= size_of_empty_aux_and_env;
    stack_top_kma -= size_of_empty_aux_and_env;
