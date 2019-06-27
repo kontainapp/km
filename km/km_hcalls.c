@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2019 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -162,17 +162,22 @@ static km_hc_ret_t exit_grp_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* st
 }
 
 /*
- * read/write
+ * read/write and pread/pwrite. The former ignores the 4th arg
  */
-static km_hc_ret_t rw_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+static km_hc_ret_t prw_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    // ssize_t read(int fd, void *buf, size_t count);
    // ssize_t write(int fd, const void *buf, size_t count);
-   arg->hc_ret = __syscall_3(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3);
+   // ssize_t pread(int fd, void *buf, size_t count, off_t offset);
+   // ssize_t pwrite(int fd, const void* buf, size_t count, off_t offset);
+   arg->hc_ret = __syscall_4(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3, arg->arg4);
    return HC_CONTINUE;
 }
 
-static km_hc_ret_t rwv_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+/*
+ * readv/writev and preadv/pwritev. The former ignores the 4th arg
+ */
+static km_hc_ret_t prwv_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    int cnt = arg->arg3;
    struct iovec iov[cnt];
@@ -185,6 +190,8 @@ static km_hc_ret_t rwv_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 
    // ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
    // ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
+   // ssize_t preadv(int fd, const struct iovec* iov, int iovcnt, off_t offset);
+   // ssize_t pwritev(int fd, const struct iovec* iov, int iovcnt, off_t offset);
    //
    // need to convert not only the address of iov,
    // but also pointers to individual buffers in it
@@ -192,7 +199,7 @@ static km_hc_ret_t rwv_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
       iov[i].iov_base = km_gva_to_kma((long)guest_iov[i].iov_base);
       iov[i].iov_len = guest_iov[i].iov_len;
    }
-   arg->hc_ret = __syscall_3(hc, arg->arg1, (long)iov, cnt);
+   arg->hc_ret = __syscall_4(hc, arg->arg1, (long)iov, cnt, arg->arg4);
    return HC_CONTINUE;
 }
 
@@ -250,7 +257,7 @@ static km_hc_ret_t ioctl_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* statu
 
 static km_hc_ret_t stat_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
-   // int ioctl(int fd, unsigned long request, void *arg);
+   // int stat(const char *pathname, struct stat *statbuf);
    arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2));
    return HC_CONTINUE;
 }
@@ -514,13 +521,6 @@ static km_hc_ret_t recvfrom_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* st
    return HC_CONTINUE;
 }
 
-static km_hc_ret_t lstat_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
-{
-   // int lstat(const char* pathname, struct stat* statbuf);
-   arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2));
-   return HC_CONTINUE;
-}
-
 static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    arg->hc_ret = 0;
@@ -693,10 +693,14 @@ void km_hcalls_init(void)
 {
    km_hcalls_table[SYS_exit] = exit_hcall;
    km_hcalls_table[SYS_exit_group] = exit_grp_hcall;
-   km_hcalls_table[SYS_read] = rw_hcall;
-   km_hcalls_table[SYS_write] = rw_hcall;
-   km_hcalls_table[SYS_readv] = rwv_hcall;
-   km_hcalls_table[SYS_writev] = rwv_hcall;
+   km_hcalls_table[SYS_read] = prw_hcall;
+   km_hcalls_table[SYS_write] = prw_hcall;
+   km_hcalls_table[SYS_readv] = prwv_hcall;
+   km_hcalls_table[SYS_writev] = prwv_hcall;
+   km_hcalls_table[SYS_pread64] = prw_hcall;
+   km_hcalls_table[SYS_pwrite64] = prw_hcall;
+   km_hcalls_table[SYS_preadv] = prwv_hcall;
+   km_hcalls_table[SYS_pwritev] = prwv_hcall;
    km_hcalls_table[SYS_accept] = accept_hcall;
    km_hcalls_table[SYS_bind] = bind_hcall;
    km_hcalls_table[SYS_listen] = listen_hcall;
@@ -706,6 +710,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_ioctl] = ioctl_hcall;
    km_hcalls_table[SYS_fcntl] = ioctl_hcall;
    km_hcalls_table[SYS_stat] = stat_hcall;
+   km_hcalls_table[SYS_lstat] = stat_hcall;
    km_hcalls_table[SYS_statx] = statx_hcall;
    km_hcalls_table[SYS_fstat] = fstat_hcall;
    km_hcalls_table[SYS_getdents64] = getdirents_hcall;
@@ -735,7 +740,6 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_poll] = poll_hcall;
    km_hcalls_table[SYS_accept4] = accept4_hcall;
    km_hcalls_table[SYS_recvfrom] = recvfrom_hcall;
-   km_hcalls_table[SYS_lstat] = lstat_hcall;
    km_hcalls_table[SYS_epoll_create1] = epoll1_create_hcall;
    km_hcalls_table[SYS_epoll_ctl] = epoll_ctl_hcall;
    km_hcalls_table[SYS_epoll_pwait] = epoll_pwait_hcall;
@@ -753,6 +757,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_tkill] = tkill_hcall;
 
    km_hcalls_table[SYS_getpid] = dummy_hcall;
+   km_hcalls_table[SYS_getppid] = dummy_hcall;
    km_hcalls_table[SYS_geteuid] = dummy_hcall;
    km_hcalls_table[SYS_getuid] = dummy_hcall;
    km_hcalls_table[SYS_getegid] = dummy_hcall;
