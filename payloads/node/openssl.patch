@@ -1,0 +1,12 @@
+diff --git a/deps/openssl/openssl_common.gypi b/deps/openssl/openssl_common.gypi
+index c4b95c20ae..66a4201e12 100644
+--- a/deps/openssl/openssl_common.gypi
++++ b/deps/openssl/openssl_common.gypi
+@@ -62,6 +62,7 @@
+         'OPENSSLDIR="/etc/ssl"',
+         'ENGINESDIR="/dev/null"',
+         'TERMIOS',
++        'OPENSSL_NO_ASYNC=1',
+       ],
+       'conditions': [
+         [ 'llvm_version==0', {
