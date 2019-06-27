@@ -255,6 +255,14 @@ static km_hc_ret_t stat_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t statx_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
+   arg->hc_ret =
+       __syscall_5(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3, arg->arg4, km_gva_to_kml(arg->arg5));
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t fstat_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    // int fstat(int fd, struct stat *statbuf);
@@ -698,6 +706,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_ioctl] = ioctl_hcall;
    km_hcalls_table[SYS_fcntl] = ioctl_hcall;
    km_hcalls_table[SYS_stat] = stat_hcall;
+   km_hcalls_table[SYS_statx] = statx_hcall;
    km_hcalls_table[SYS_fstat] = fstat_hcall;
    km_hcalls_table[SYS_getdents64] = getdirents_hcall;
    km_hcalls_table[SYS_getcwd] = getcwd_hcall;
