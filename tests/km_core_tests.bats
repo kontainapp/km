@@ -100,6 +100,26 @@ teardown() {
    [ $status -eq 124 ]
 }
 
+@test "km_main: optargs (hello_test)" {
+   run ${KM_BIN} -v  hello_test.km
+   [ $status -eq 0 ]
+
+   run ${KM_BIN} -V  hello_test.km
+   [ $status -eq 0 ]
+
+   run ${KM_BIN} -g foobar  hello_test.km
+   [ $status -eq 2 ]
+
+   run ${KM_BIN} -C path  hello_test.km
+   [ $status -eq 0 ]
+
+   run ${KM_BIN} -P 0   hello_test.km
+   [ $status -eq 1 ]
+
+   run ${KM_BIN} -X
+   [ $status -eq 1 ]
+}
+
 @test "mem_slots: KVM memslot / phys mem sizes (memslot_test)" {
    run ./memslot_test
    [ $status -eq 0 ]
