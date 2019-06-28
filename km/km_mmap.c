@@ -328,7 +328,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    size_t offset;   // Data offset
    km_mmap_reg_t* ptr;
    char* notes_buffer;
-   size_t notes_length = KM_PAGE_SIZE;
+   size_t notes_length = km_core_notes_length();
    size_t notes_used = 0;
 
    if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0666)) < 0) {
@@ -339,7 +339,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    if ((notes_buffer = (char*)malloc(notes_length)) == NULL) {
       errx(2, "%s - cannot allocate notes buffer", __FUNCTION__);
    }
-   memset(notes_buffer, 0, KM_PAGE_SIZE);
+   memset(notes_buffer, 0, notes_length);
 
    // Count up phdrs for mmaps and set offset where data will start.
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
@@ -356,7 +356,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    // write elf header
    km_core_write_elf_header(fd, phnum);
    // Create PT_NOTE in memory and write the header
-   notes_used = km_core_write_notes(vcpu, fd, offset, notes_buffer, KM_PAGE_SIZE);
+   notes_used = km_core_write_notes(vcpu, fd, offset, notes_buffer, notes_length);
    offset += notes_used;
    // Write headers for segments from ELF
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
