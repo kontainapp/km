@@ -63,7 +63,7 @@ int main(int argc, char** argv)
    }
 
    if (badarg) {
-      km_hcall(callid, (km_hc_args_t*)-2LL);
+      km_hcall(callid, (km_hc_args_t*)-1LL);
    } else {
       syscall(callid, 0);
    }

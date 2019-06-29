@@ -612,7 +612,7 @@ static km_hc_ret_t rt_sigreturn_hcall(void* varg, int hc, km_hc_args_t* arg, int
 {
    km_vcpu_t* vcpu = (km_vcpu_t*)varg;
 
-   km_rt_sigreturn(vcpu);  // don't care about arg orreturn code.
+   km_rt_sigreturn(vcpu);  // don't care about arg or return code.
    return HC_CONTINUE;
 }
 

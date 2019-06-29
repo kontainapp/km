@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Kontain Inc. All rights reserved.
+ * Copyright © 2019 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -9,6 +9,9 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
+ * Signal trampoline for KM guests. KM starts signal handling at the guest signal 
+ * guest signal handler itself with the stack setup for return to __km_sigreturn.
+ * Most of this file is about describing the stack so it can be correctly unwound.
  */
 
     nop

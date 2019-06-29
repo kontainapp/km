@@ -48,7 +48,7 @@ The design goal for KM signal handling is compatibility with what the Linux kern
   * Explicitly sent by the guest process itself.
   * Created by KM in response to an exception or fault that occurs within the guest process. For example, SIGSEGV.
 
-When KM wants to invoke a signal handler defined by the guest process, KM first saves the guest's registers to the stack (in guest memory) and sets up the guest to run a common first-level signal call handler which in turn calls the guest-defined signal handler. When the guest-defined signal handler returns, the first level handler makes a KM hypercall to inform KM that the guest signal handler has completed.
+When KM wants to invoke a signal handler defined by the guest process, KM first saves the guest's registers to the stack (in guest memory) and sets up the guest to run the user defined handler function. The guest stack has a return address that points to a KM runtime routine. When the guest-defined signal handler returns, the routine makes a KM hypercall to inform KM that the guest signal handler has completed.
 
 ## Guest Exception Handling
 

@@ -278,19 +278,11 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
  * handler is started. 
  */
 typedef struct km_signal_frame {
-   /*
-    * address for the signal handler to return to. See __km_sigreturn in 
-    * runtime/x86_sigaction.s
-    */
-   uint64_t return_addr;
-   /* HC argument array for __km_sigreturn. */
-   km_hc_args_t hcargs;
-   /* Saved registers */
-   kvm_regs_t regs;
-   /* Passed to guest signal handler */
-   siginfo_t info;
-   /* Passed to guest signal handler */
-   ucontext_t ucontext;
+   uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
+   km_hc_args_t hcargs;    // HC argument array for __km_sigreturn.
+   kvm_regs_t regs;        // Saved registers
+   siginfo_t info;         // Passed to guest signal handler
+   ucontext_t ucontext;    // Passed to guest signal handler
 } km_signal_frame_t;
 
 #define RED_ZONE (128)
