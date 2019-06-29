@@ -328,6 +328,17 @@ teardown() {
    [ $status -eq 15 ]  # SIGTERM
    echo $output | grep -F 'Terminated'
    [ ! -f ${CORE} ]
+
+   # signal
+   [ ! -f ${CORE} ]
+   run km_with_timeout --coredump=${CORE} stray_test.km signal
+   [ $status -eq 6 ]  # SIGABRT
+   echo $output | grep -F 'Aborted'
+   [  -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'kill ('
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F '<signal handler called>'
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'signal_handler ('
+   rm -f ${CORE}
 }
 
 @test "signals: signals in the guest (signals)" {

@@ -1,14 +1,19 @@
 # Signal Handling in KM Guests
 
+**Note: This is a work in progress.**
+
 Reference(s):
 
 * [IEEE Std 1003.1/Open Group Base Specifications (Issue 7) http://pubs.opengroup.org/onlinepubs/9699919799/](http://pubs.opengroup.org/onlinepubs/9699919799/)
 * [The GNU C Library: 24. Signal Handling - https://www.gnu.org/software/libc/manual/html_node/Signal-Handling.html](https://www.gnu.org/software/libc/manual/html_node/Signal-Handling.html)
+* [Linux Standards Base (current: LSB 5) - https://refspecs.linuxfoundation.org/lsb.shtml](https://refspecs.linuxfoundation.org/lsb.shtml)
+* [Debugging Using DWARF http://www.dwarfstd.org/doc/Debugging%20using%20DWARF.pdf](http://www.dwarfstd.org/doc/Debugging%20using%20DWARF.pdf)
+* [DWARF Debugging Information Format http://www.dwarfstd.org/doc/DWARF5.pdf](http://www.dwarfstd.org/doc/DWARF5.pdf)
 
 ## Overview
 Signals are a messy part of the Linux programming environment. They were messy in original UNIX and they have gotten messier over time. One area where this messiness is obvious is the mapping between section 2 `libc` functions and native Linux systems calls. Unlike most section 2 `libc` functions where there is direct correspondence between `libc` and the system call, many signal oriented functions have nontrivial mappings between the function and the system call. See the implementation of `sigaction(2)` for a good example of this.
 
-The following table shows how some signal-opriented native Linux syscalls map into `libc` functions.
+The following table shows how some signal-oriented native Linux syscalls map into `libc` functions.
 
 | Linux SysCall | `libc` | Description |
 | ------- | ---- | --------|
@@ -43,13 +48,13 @@ The design goal for KM signal handling is compatibility with what the Linux kern
   * Explicitly sent by the guest process itself.
   * Created by KM in response to an exception or fault that occurs within the guest process. For example, SIGSEGV.
 
-When KM wants to invoke a signal handler defined by the guest process, KM first saves the guest's registers to the stack (in guest memory) and sets up the guest to run a common first-level signal call handler which in turn calls the guest-defined signal handler. When the guest-defined signal handler returns, the first level handler makes a KM hypercall to inform KM that the guest signal handler has completed.
+When KM wants to invoke a signal handler defined by the guest process, KM first saves the guest's registers to the stack (in guest memory) and sets up the guest to run the user defined handler function. The guest stack has a return address that points to a KM runtime routine. When the guest-defined signal handler returns, the routine makes a KM hypercall to inform KM that the guest signal handler has completed.
 
 ## Guest Exception Handling
 
-When runtime errors such as divide by zero or a stray memory refrence occur in a KVM guest, they result in a X86 interrupt seen in the guest. In order to catch these errors, the Kontain runtime contains an interrupt handler. All this exception handler does is make a hypercall. The hypercall handler inside KM takes care of the rest.
+When runtime errors such as divide by zero or a stray memory reference occur in a KVM guest, they result in a X86 interrupt seen in the guest. In order to catch these errors, the Kontain runtime contains an interrupt handler. All this exception handler does is make a hypercall. The hypercall handler inside KM takes care of the rest.
 
-At guest intitialization time, KM creates an Interrupt Descriptor Table (IDT) in guest memory. The IDT points at the runtime exception handler. The KVM API KVM_GET_VCPU_EVENTS function exposes the reason for the interrupt.
+At guest initialization time, KM creates an Interrupt Descriptor Table (IDT) in guest memory. The IDT points at the runtime exception handler. The KVM API KVM_GET_VCPU_EVENTS function exposes the reason for the interrupt.
 
 All of the intelligence for dealing with the interrupt resides in the monitor.
 
@@ -58,9 +63,9 @@ All of the intelligence for dealing with the interrupt resides in the monitor.
 * [Anatomy of an ELF core file - https://www.gabriel.urdhr.fr/2015/05/29/core-file/](https://www.gabriel.urdhr.fr/2015/05/29/core-file/)
 
 Coredumps are ELF format files with header type ET_CORE.
-Unlike object files and executables, coredump files only contain an ELF header, a single PT_NOTE program header area, and one or more PT_LOAD program header areas.
+Unlike object files and executable files, coredump files only contain an ELF header, a single PT_NOTE program header area, and one or more PT_LOAD program header areas.
 
-The PT_NOTE area contains lots of information about the proccess the core describes. See below for details.
+The PT_NOTE area contains lots of information about the process the core describes. See below for details.
 
 The PT_LOAD areas describe
 As (with data). core dump only contains a program header table (Elf64_Phdr) with the following entries:

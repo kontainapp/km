@@ -19,10 +19,11 @@
 #include <unistd.h>
 #include "km_hcalls.h"
 
-char *cmdname = "hc_call";
+char* cmdname = "hc_call";
 int badarg = 0;
 
-void usage() {
+void usage()
+{
    fprintf(stderr, "usage %s [options] <callid>\n", cmdname);
    fprintf(stderr, "  --bad-arg,-b   Pass a bad argument to hypercall\n");
 }
@@ -31,26 +32,23 @@ int main(int argc, char** argv)
 {
    extern int optind;
    int c;
-   char *ep = NULL;
+   char* ep = NULL;
    int callid;
-   static struct option long_options[] = {
-      {"bad-arg", no_argument, 0, 'b'},
-      {0, 0, 0, 0}
-   };
+   static struct option long_options[] = {{"bad-arg", no_argument, 0, 'b'}, {0, 0, 0, 0}};
 
    cmdname = argv[0];
    while ((c = getopt_long(argc, argv, "bh", long_options, NULL)) != -1) {
       switch (c) {
-      case 'b':
-         badarg = 1;
-         break;
-      case 'h':
-         usage();
-         return 0;
-      default:
-         fprintf(stderr, "unrecognized option %c\n", c);
-         usage();
-         return 1;
+         case 'b':
+            badarg = 1;
+            break;
+         case 'h':
+            usage();
+            return 0;
+         default:
+            fprintf(stderr, "unrecognized option %c\n", c);
+            usage();
+            return 1;
       }
    }
 
@@ -65,7 +63,7 @@ int main(int argc, char** argv)
    }
 
    if (badarg) {
-      km_hcall(callid, (km_hc_args_t *) -1LL);
+      km_hcall(callid, (km_hc_args_t*)-1LL);
    } else {
       syscall(callid, 0);
    }

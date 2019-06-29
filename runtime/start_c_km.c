@@ -51,7 +51,7 @@ _Noreturn void __start_c__(long is_main_argc, char** argv)
       struct pthread* self = __pthread_self();
       pthread_exit(self->start(self->start_arg));
    } else {
-   	__environ = argv + is_main_argc + 1;
+      __environ = argv + is_main_argc + 1;
       __libc_start_init();
       exit(main(is_main_argc, argv));
    }
@@ -69,17 +69,5 @@ _Noreturn void __km_handle_interrupt(void)
    while (1) {
       // Should not return
       km_hcall(HC_guest_interrupt, &args);
-   }
-}
-
-_Noreturn void __km_handle_signal(
-    uint64_t savsp, void (*sigact)(int, siginfo_t*, void*), int signo, siginfo_t* siginfo, void* uctx)
-{
-   km_hc_args_t args;
-   args.arg1 = savsp;
-   (*sigact)(signo, siginfo, uctx);
-   while (1) {
-      // Should not return
-      km_hcall(SYS_rt_sigreturn, &args);
    }
 }

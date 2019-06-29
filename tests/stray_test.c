@@ -69,15 +69,24 @@ void* thread_main(void* arg)
    return NULL;
 }
 
+void signal_handler(int sig)
+{
+   abort();
+}
+
 void usage()
 {
    fprintf(stderr, "usage: %s <operation>\n", cmdname);
    fprintf(stderr, "operations:\n");
    fprintf(stderr, " stray - generate a stray reference\n");
-   fprintf(stderr, " div0  - generate a divde by zero\n");
+   fprintf(stderr, " div0  - generate a divide by zero\n");
    fprintf(stderr, " ud    - generate an undefined op code\n");
    fprintf(stderr, " hc    - generate an undefined hypercall\n");
    fprintf(stderr, " prot  - generate an write to protected memory\n");
+   fprintf(stderr, " abort - generate an abort call\n");
+   fprintf(stderr, " quit  - generate a SIGQUIT\n");
+   fprintf(stderr, " term  - generate a SIGTERM\n");
+   fprintf(stderr, " signal- abort() inside signal handler\n");
 }
 
 int main(int argc, char** argv)
@@ -152,7 +161,11 @@ int main(int argc, char** argv)
       kill(0, SIGTERM);
       return 1;
    }
-
+   if (strcmp(op, "signal") == 0) {
+      signal(SIGUSR1, signal_handler);
+      kill(0, SIGUSR1);
+      return 1;
+   }
    fprintf(stderr, "Unrecognized operation '%s'\n", op);
    usage();
    return 1;
