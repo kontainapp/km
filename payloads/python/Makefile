@@ -34,10 +34,7 @@ $(PAYLOAD_KM): *sh *patch
 build:
 	./build.sh
 
-test:
-	@echo -e "${RED}Python-km test pass is not stable yet, skipping it. Run 'make test-km' to force${NOCOLOR}"
-
-test-km: all
+test: all
 	${KM_BIN} ${PAYLOAD_KM} ./test_unittest.py
 	${KM_BIN} ${PAYLOAD_KM} ./cpython/Lib/unittest/test/
 

@@ -143,6 +143,11 @@ teardown() {
    [ $status -eq 0 ]
 }
 
+@test "mem_regions: Crossing regions boundary (regions_test)" {
+   run ./memslot_test
+   [ $status -eq 0 ]
+}
+
 @test "mem_brk: brk() call (brk_test)" {
    # we expect 3 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
    if [ $(bus_width) -eq 36 ] ; then expected_status=3 ; else  expected_status=0; fi
