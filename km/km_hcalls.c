@@ -170,7 +170,21 @@ static km_hc_ret_t prw_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
    // ssize_t write(int fd, const void *buf, size_t count);
    // ssize_t pread(int fd, void *buf, size_t count, off_t offset);
    // ssize_t pwrite(int fd, const void* buf, size_t count, off_t offset);
-   arg->hc_ret = __syscall_4(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3, arg->arg4);
+   km_gva_t addr = arg->arg2;
+   size_t req = arg->arg3;
+   off_t off = arg->arg4;
+   size_t ret, transf;
+
+   for (ret = 0, transf = 0; transf < req; transf += ret) {
+      int idx = gva_to_memreg_idx(addr);
+      size_t size = MIN(req - transf, memreg_top(idx) - addr);
+      if ((ret = __syscall_4(hc, arg->arg1, km_gva_to_kml(addr), size, off)) <= 0) {
+         break;
+      }
+      addr += ret;
+      off += ret;
+   }
+   arg->hc_ret = transf > 0 ? transf : ret;
    return HC_CONTINUE;
 }
 
