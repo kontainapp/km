@@ -152,6 +152,14 @@ static const uint64_t PDPTE_REGION = GIB;
 static const uint64_t PDE_REGION = 2 * MIB;
 
 /*
+ * Memory readions that become guest physical memory are allocated using mmap() with specified
+ * address, so that contiguous guest physical memory becomes contiguos in KM space as well. We
+ * randomly choose to start guest memory allocation from 0x100000000000, which happens to be 16TB.
+ * It has an advantage of being numerically the guest physical addresses with bit 0x100000000000 set.
+ */
+static km_kma_t KM_USER_MEM_BASE = (void*)0x100000000000ul;   // 16TiB
+
+/*
  * Slot number in PDE table for gva '_addr'.
  * Logically: (__addr % PDPTE_REGION) / PDE_REGION
  */
@@ -204,17 +212,20 @@ static void init_pml4(km_kma_t mem)
 
 static int overcommit_memory;   // controls how we request memory for payload from Linux
 
-static void* km_page_malloc(size_t size)
+static void* km_page_malloc(km_kma_t hint, size_t size)
 {
    km_kma_t addr;
    int flags = MAP_SHARED | MAP_ANONYMOUS | (overcommit_memory == 1 ? MAP_NORESERVE : 0);
 
-   if ((size & (KM_PAGE_SIZE - 1)) != 0) {
+   if ((size & (KM_PAGE_SIZE - 1)) != 0 || ((uint64_t)hint & (KM_PAGE_SIZE - 1)) != 0) {
       errno = EINVAL;
       return NULL;
    }
-   if ((addr = mmap(NULL, size, PROT_READ | PROT_WRITE, flags, -1, 0)) == MAP_FAILED) {
+   if ((addr = mmap(hint, size, PROT_READ | PROT_WRITE, flags, -1, 0)) == MAP_FAILED) {
       return NULL;
+   }
+   if (hint != NULL && addr != hint) {
+      errx(1, "Problem getting guest memory, wanted %p, got %p", hint, addr);
    }
    return addr;
 }
@@ -240,7 +251,7 @@ void km_mem_init(km_machine_init_params_t* params)
 
    overcommit_memory = params->overcommit_memory;
    reg = &machine.vm_mem_regs[KM_RSRV_MEMSLOT];
-   if ((ptr = km_page_malloc(RSV_MEM_SIZE)) == NULL) {
+   if ((ptr = km_page_malloc(RSV_MEM_START + KM_USER_MEM_BASE, RSV_MEM_SIZE)) == NULL) {
       err(1, "KVM: no memory for reserved pages");
    }
    reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
@@ -442,7 +453,7 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
 
    assert(reg->memory_size == 0 && reg->userspace_addr == 0);
    assert(machine.pdpe1g || (base < GIB || base >= machine.guest_max_physmem - GIB));
-   if ((ptr = km_page_malloc(size)) == NULL) {
+   if ((ptr = km_page_malloc(base + KM_USER_MEM_BASE, size)) == NULL) {
       return -ENOMEM;
    }
    reg->userspace_addr = (typeof(reg->userspace_addr))ptr;

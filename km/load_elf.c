@@ -41,14 +41,9 @@ static void my_mmap(int fd, void* buf, size_t count, off_t offset)
  * - adjust break so there is enough memory
  * - loop over memory regions this extent covering, read/memset the content and set mprotect.
  */
-static void load_extent(int fd, GElf_Phdr* phdr)
+static void load_extent(int fd, const GElf_Phdr* phdr)
 {
-   km_kma_t addr;
-   uint64_t size, filesize, extra;
-   km_gva_t top;
-   int idx, pr;
-
-   top = phdr->p_paddr + phdr->p_memsz;
+   km_gva_t top = phdr->p_paddr + phdr->p_memsz;
    /*
     * There is no memory in the first 2MB of virtual address space. We use gcc-km.spec file to drive
     * memory allocation during linking, based on default linking script. The relevant line is:
@@ -73,57 +68,33 @@ static void load_extent(int fd, GElf_Phdr* phdr)
       }
    }
 
-   /*
-    * As memory is structured in regions, loop over the covered regions to make
-    * sure not to cross the boundary.
-    *
-    * The virtual address space is contiguous, there are no holes or anything
-    * observable on the boundary. But the monitor addresses are most likely not
-    * contiguos at the boundary. Hence we have to split the extent into two or
-    * more parts, splitting it on regions boundary so pread() and friends could
-    * work as expected. In the guest since virtual memory machinery works
-    * transparently, there are no issues.
-    *
-    * Preserve the values in phdr. They will be needed to drop a core.
-    */
-   Elf64_Addr p_paddr = phdr->p_paddr;
    Elf64_Xword p_memsz = phdr->p_memsz;
-   Elf64_Off p_offset = phdr->p_offset;
    Elf64_Xword p_filesz = phdr->p_filesz;
-   do {
-      idx = gva_to_memreg_idx(p_paddr);
-      addr = km_gva_to_kma(p_paddr);
-      extra = addr - (km_kma_t)rounddown((uint64_t)addr, KM_PAGE_SIZE);
-      size = MIN(p_memsz, memreg_top(idx) - p_paddr);
-      filesize = MIN(p_filesz, size);
-      my_mmap(fd, addr - extra, filesize + extra, p_offset - extra);
-      memset(addr + filesize, 0, size - filesize);
-      pr = 0;
-      if (phdr->p_flags & PF_R) {
-         pr |= PROT_READ;
-      }
-      if (phdr->p_flags & PF_W) {
-         pr |= PROT_WRITE;
-      }
-      if (phdr->p_flags & PF_X) {
-         pr |= PROT_EXEC;
-         {
-            // When debugging, make sure all EXEC sections are
-            // writable so sw breakpoints can be inserted.
-            // TODO - manage protection dynamically on set/clear breakpoints
-            if (km_gdb_is_enabled() == 1) {
-               pr |= PROT_WRITE;
-            }
+   km_kma_t addr = km_gva_to_kma(phdr->p_paddr);
+   uint64_t extra = addr - (km_kma_t)rounddown((uint64_t)addr, KM_PAGE_SIZE);
+   my_mmap(fd, addr - extra, p_filesz + extra, phdr->p_offset - extra);
+   memset(addr + p_filesz, 0, p_memsz - p_filesz);
+   int pr = 0;
+   if (phdr->p_flags & PF_R) {
+      pr |= PROT_READ;
+   }
+   if (phdr->p_flags & PF_W) {
+      pr |= PROT_WRITE;
+   }
+   if (phdr->p_flags & PF_X) {
+      pr |= PROT_EXEC;
+      {
+         // When debugging, make sure all EXEC sections are
+         // writable so sw breakpoints can be inserted.
+         // TODO - manage protection dynamically on set/clear breakpoints
+         if (km_gdb_is_enabled() == 1) {
+            pr |= PROT_WRITE;
          }
       }
-      if (mprotect(addr - extra, size + extra, pr) < 0) {
-         err(2, "failed to set guest memory protection");
-      }
-      p_paddr += size;
-      p_memsz -= size;
-      p_offset += filesize;
-      p_filesz -= filesize;
-   } while (p_memsz > 0);
+   }
+   if (mprotect(addr - extra, p_memsz + extra, pr) < 0) {
+      err(2, "failed to set guest memory protection");
+   }
 }
 
 static void my_pread(int fd, void* buf, size_t count, off_t offset)
