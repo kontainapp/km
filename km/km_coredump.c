@@ -28,6 +28,7 @@ static char* coredump_path = "./kmcore";
 
 void km_set_coredump_path(char* path)
 {
+   km_infox(KM_TRACE_COREDUMP, "Setting coredump path to %s", path);
    coredump_path = path;
 }
 

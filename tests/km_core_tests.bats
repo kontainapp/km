@@ -101,23 +101,41 @@ teardown() {
 }
 
 @test "km_main: optargs (hello_test)" {
+   # -v flag prints version and branch
    run ${KM_BIN} -v  hello_test.km
    [ $status -eq 0 ]
+   branch=$(git rev-parse --abbrev-ref  HEAD)
+   [ $(echo -e "$output" | grep -F -cw "$branch") == 1 ]
 
-   run ${KM_BIN} -V  hello_test.km
+   run ${KM_BIN} -Vkvm  hello_test.km
+   # -V<regex> turns on tracing for a subsystem. Check it for kvm
    [ $status -eq 0 ]
+   [ $(echo -e "$output" | grep -F -cw "KVM_EXIT_IO") > 1 ]
 
-   run ${KM_BIN} -g foobar  hello_test.km
-   [ $status -eq 2 ]
-
-   run ${KM_BIN} -C path  hello_test.km
-   [ $status -eq 0 ]
-
-   run ${KM_BIN} -P 0   hello_test.km
+   # -g[port] turns on gdb and tested in gdb coverage. Let's validate a failure case
+   run ${KM_BIN} -gfoobar  hello_test.km
    [ $status -eq 1 ]
+   [ $(echo -e "$output" | grep -F -cw "Wrong gdb port number") == 1 ]
 
+   # -C sets coredump file name
+   corefile=/tmp/km$$
+   run ${KM_BIN} -Vcoredump -C $corefile hello_test.km
+   [ $status -eq 0 ]
+   [ $(echo -e "$output" | grep -F -cw "Setting coredump path to $corefile") == 1 ]
+
+   # -P sets Physical memory bus width
+   run ${KM_BIN} -P 31   hello_test.km
+   [ $status -eq 1 ]
+   [ $(echo -e "$output" | grep -F -cw "Guest memory bus width must be between 32 and 63") == 1 ]
+
+   run ${KM_BIN} -P32 hello_test.km
+   [ $status -eq 0 ]
+
+   # invalid option
    run ${KM_BIN} -X
    [ $status -eq 1 ]
+      [ $(echo -e "$output" | grep -F -cw "invalid option") == 1 ]
+
 }
 
 @test "mem_slots: KVM memslot / phys mem sizes (memslot_test)" {
