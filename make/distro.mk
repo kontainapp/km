@@ -56,7 +56,7 @@ distro: all
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls $(PAYLOAD_IMAGE_NAME) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
 distroclean:
-	-docker rmi -f ${PAYLOAD_BRANCH} ${PAYLOAD_LATEST
+	docker rmi -f ${PAYLOAD_BRANCH} ${PAYLOAD_LATEST}
 
 publish:
 	@echo Tagging and pushing to Docker registry as ${PUBLISH_TAG}.
