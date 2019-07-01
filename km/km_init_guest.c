@@ -161,12 +161,13 @@ typedef struct km_builtin_tls {
  * For the main thread, going from the top of the allocated stack area down, we place Thread Control
  * Block (TCB, km_pthread_t), then TLS, then dtv. All with the appropriate alignment derived either
  * from structure packing (MIN_TLS_ALIGN) or coming from TLS extend in ELF. Below dtv for main
- * thread we put the argv built from the args, and then goes the initial top of the stack.
+ * thread we put dummy (empty) AUXV and environ, the argv built from the args, and then goes the
+ * initial top of the stack.
  *
  * For the subsequent threads on the very top goes fixed size TSD area. Below that goes TCB, then
  * TLS, then dtv, and the initial top of the stack, again all appropriately alligned.
  *
- * TODO: There are other guest structures, such as __environ, __hwcap, __sysinfo, __progname and so
+ * TODO: There are other guest structures, such as __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
  */
 void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])

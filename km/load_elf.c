@@ -53,7 +53,7 @@ static void load_extent(int fd, const GElf_Phdr* phdr)
     * ``. = SEGMENT_START("text-segment", 0x400000) + SIZEOF_HEADERS;'' and later
     * ``. = ALIGN(CONSTANT (MAXPAGESIZE));''
     * which adds that page. Normally that page contains program headers and build-if. The former
-    * doesn't apply to us as we are statically linked, so the space is just waisted. --build-id=none
+    * doesn't apply to us as we are statically linked, so the space is just wasted. --build-id=none
     * removes the latter, so the page simply stay empty, and first loadable segment starts at 2MB as
     * we want.
     *
@@ -61,7 +61,7 @@ static void load_extent(int fd, const GElf_Phdr* phdr)
     */
    assert(top >= GUEST_MEM_START_VA);
 
-   /* Extent memory if neccesary */
+   /* Extent memory if necessary */
    if (top >= km_mem_brk(0)) {
       if (km_mem_brk(top) != top) {
          err(2, "No memory to load elf");
