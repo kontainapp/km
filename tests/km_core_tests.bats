@@ -144,7 +144,7 @@ teardown() {
 }
 
 @test "mem_regions: Crossing regions boundary (regions_test)" {
-   run ./memslot_test
+   run ${KM_BIN} regions_test.km
    [ $status -eq 0 ]
 }
 

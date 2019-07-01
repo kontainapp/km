@@ -21,7 +21,7 @@
 
 /*
  * First memort regions are: 2mb - 4mb, 4mb - 8mb, 8mb - 16mb ...
- * We place brk to 9mb, or into the thord region. Then we initialize memory around 8mb boundary, and
+ * We place brk to 9mb, or into the third region. Then we initialize memory around 8mb boundary, and
  * print it to make sure all of the content makes it.
  */
 #define BUFSIZE 16 * 1024
@@ -52,7 +52,7 @@ TEST region(void)
    lseek(fd, SEEK_SET, 0);
    read(fd, data_in, BUFSIZE);
    close(fd);
-   unlink("/tmp/kmtest_data");
+   // unlink("/tmp/kmtest_data");
    ASSERT_EQ(memcmp(data, data_in, BUFSIZE), 0);
    PASS();
 }
@@ -69,6 +69,7 @@ int main(int argc, char** argv)
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
 }
 
+// random data to compare IO results - literally from /dev/random
 const long data[] =
     {0x939ed54a9747498b, 0xb38b6f12e0c3a34c, 0x14d157906b95f4fa, 0xac5ecdd4a370875d,
      0x1c5004a912b424b8, 0x11f7a2d437db70ce, 0x98bd926b5a723a0e, 0xf06ccdfbf915e77b,
