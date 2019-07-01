@@ -226,6 +226,7 @@ int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t
 /*
  * Write a contiguous area in guest memory. Since write can
  * be very large, break it up into reasonably sized pieces (1MB).
+ * We assume we'll always be able to write 1MB.
  */
 void km_guestmem_write(int fd, km_gva_t base, size_t length)
 {
@@ -234,8 +235,6 @@ void km_guestmem_write(int fd, km_gva_t base, size_t length)
    static size_t maxwrite = MIB;
 
    while (remain > 0) {
-      int memidx = gva_to_memreg_idx(current);
-      kvm_mem_reg_t* memreg = &machine.vm_mem_regs[memidx];
       size_t wsz = MIN(remain, maxwrite);
 
       km_core_write(fd, km_gva_to_kma(current), wsz);
