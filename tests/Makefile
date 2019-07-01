@@ -54,7 +54,11 @@ ifeq (${MAKECMDGOALS},.coverage)
 else
 	@export KM_BIN=$(KM_BIN); export TIME_INFO=${TIME_INFO};  ${BATS} -p -f "${MATCH}" ${TEST_FILES}
 endif
-	@echo -e "${GREEN}Detailed time info is in $(abspath ${TIME_INFO}) ${NOCOLOR}"
+	@echo -e "${GREEN}Non-zero time tests:${NOCOLOR}"
+	@grep elapsed ${TIME_INFO} | grep -v "elapsed 0:00.00" | sort -r
+	@echo ""
+	@rm -f ${TIME_INFO}
+
 
 %.km: %.o
 	${CC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
