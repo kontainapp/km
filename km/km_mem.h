@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2019 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -56,7 +56,7 @@ static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
  * We support 2 "zones" of VAs, one on the bottom and one on the top, each no larger than this.
  * We do not support 2MB pages in the first and last GB of VA (just so we do not have to manage PDE
  * tables), So the actual zone size is 'max_physmem - GB', or just 1GB on HW with no 1g pages - all
- * VA there is provded by 2 PDP tables - see km_mem.c
+ * VA there is provided by 2 PDP tables - see km_mem.c
  */
 #define GUEST_MEM_ZONE_SIZE_VA                                                                     \
    ((machine.pdpe1g ? (machine.guest_max_physmem - GIB) : GIB) - 2 * MIB)
@@ -104,14 +104,16 @@ static const uint64_t GUEST_ARG_MAX = 32 * KM_PAGE_SIZE;
  * in a given address (clz) or in "512GB - address" (clz(end)), using clzl instruction. 'base' is
  * address of the first byte in it. Note size equals base in the first half of the space
  *
- * Knowing memory layout and how pml4 is set, convert between guest virtual address and km address.
- *
- * Note 1:
- * The actual virtual address space is made of areas mapped to guest physical memory regions
- * described above. KM virtual memory (backing guest phys. memory) is contigious only within a
- * region.
+ * Memory regions that become guest physical memory are allocated using mmap() with specified
+ * address, so that contiguous guest physical memory becomes contiguous in KM space as well. We
+ * randomly choose to start guest memory allocation from 0x100000000000, which happens to be 16TB.
+ * It has an advantage of being numerically the guest physical addresses with bit 0x100000000000 set.
  */
+static km_kma_t KM_USER_MEM_BASE = (void*)0x100000000000ul;   // 16TiB
 
+/*
+ * Knowing memory layout and how pml4 is set, convert between guest virtual address and km address.
+ */
 // memreg index for an addr in the bottom half of the PA (after that the geometry changes)
 static inline int MEM_IDX(km_gva_t addr)
 {
@@ -181,17 +183,11 @@ static inline uint64_t memreg_size(int idx)
  */
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
-   if (gva < GUEST_MEM_START_VA || gva > GUEST_MEM_TOP_VA) {
+   if (gva < GUEST_MEM_START_VA || (machine.brk <= gva && gva < machine.tbrk) ||
+       GUEST_MEM_TOP_VA < gva) {
       return NULL;
    }
-   if (machine.brk <= gva && gva < machine.tbrk) {
-      return NULL;
-   }
-   int i = gva_to_memreg_idx(gva);
-   if (machine.vm_mem_regs[i].memory_size == 0) {
-      return NULL;
-   }
-   return gva_to_gpa(gva) - memreg_base(i) + (void*)machine.vm_mem_regs[i].userspace_addr;
+   return KM_USER_MEM_BASE + gva_to_gpa(gva);
 }
 
 void km_mem_init(km_machine_init_params_t* params);

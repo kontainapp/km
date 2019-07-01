@@ -152,14 +152,6 @@ static const uint64_t PDPTE_REGION = GIB;
 static const uint64_t PDE_REGION = 2 * MIB;
 
 /*
- * Memory readions that become guest physical memory are allocated using mmap() with specified
- * address, so that contiguous guest physical memory becomes contiguos in KM space as well. We
- * randomly choose to start guest memory allocation from 0x100000000000, which happens to be 16TB.
- * It has an advantage of being numerically the guest physical addresses with bit 0x100000000000 set.
- */
-static km_kma_t KM_USER_MEM_BASE = (void*)0x100000000000ul;   // 16TiB
-
-/*
  * Slot number in PDE table for gva '_addr'.
  * Logically: (__addr % PDPTE_REGION) / PDE_REGION
  */
@@ -509,7 +501,7 @@ km_gva_t km_mem_brk(km_gva_t brk)
    }
    km_mem_lock();
 
-   // Keep brk and tbrk out if the same 1 GIB region.
+   // Keep brk and tbrk out of the same 1 GIB region.
    if (rounddown(gva_to_gpa(brk), PDPTE_REGION) >= rounddown(gva_to_gpa(machine.tbrk), PDPTE_REGION)) {
       km_mem_unlock();
       return -ENOMEM;
