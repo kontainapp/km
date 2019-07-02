@@ -1,13 +1,9 @@
-# Simple test for gdb stub
+# Test for GDB stub handing of guest signals.
 #
-# to test km gdb support from ./tests:
-#  shell_1> ../build/km/km -g 3333 ./gdb_test.km
-#  shell_2> gdb -q -nx --ex="target remote :3333"  --ex="source cmd_for_test.gdb"  --ex c --ex q gdb_test.km
+# to test km gdb signal support from ./tests:
+#  shell_1> ../build/km/km -g3333 ./stray_test.km signal
+#  shell_2> gdb -q -nx --ex="target remote :3333"  --ex="source cmd_for_signal_test.gdb"  --ex c --ex q stray_test.km
 # 
-# to validate the same with gdb server, use the same commmand for gdb,
-# but replace 'gdb_test.km' with 'gdb_test', and use gdbserver"
-#  shell_2> gdbserver :3333 gdb_test
-
 
 set print pretty
 set pagination off
