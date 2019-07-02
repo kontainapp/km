@@ -71,6 +71,7 @@ typedef struct gdbstub_info {
    bool stepping;           // single step mode (stepi)
    km_vcpu_t* gdb_vcpu;     // VCPU which GDB is asking us to work on.
    int exit_reason;         // last KVM exit reason
+   int signo;               // signal number
    // Note: we use vcpu->tid as gdb payload thread id. It also matches linux LWP
 } gdbstub_info_t;
 
@@ -110,7 +111,7 @@ extern int km_gdb_wait_for_connect(const char* image_name);
 extern void km_gdb_main_loop(km_vcpu_t* main_vcpu);
 extern void km_gdb_fini(int ret);
 extern void km_gdb_start_stub(char* const payload_file);
-extern void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int run_errno);
+extern void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo);
 extern char* mem2hex(const unsigned char* mem, char* buf, size_t count);
 extern void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len);
 extern int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, uint64_t unused);

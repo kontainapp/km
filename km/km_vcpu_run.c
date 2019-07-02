@@ -549,7 +549,7 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
          vcpu->cpu_run->immediate_exit = 0;
          vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          if (km_gdb_is_enabled() == 1) {
-            km_gdb_notify_and_wait(vcpu, errno);
+            km_gdb_notify_and_wait(vcpu, km_signal_ready(vcpu));
          }
          break;
 
@@ -652,7 +652,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_DEBUG:
          case KVM_EXIT_EXCEPTION:
             if (km_gdb_is_enabled() == 1) {
-               km_gdb_notify_and_wait(vcpu, errno);
+               km_gdb_notify_and_wait(vcpu, km_signal_ready(vcpu));
             } else {
                run_warn("KVM: exit vcpu. reason=%d (%s)", reason, kvm_reason_name(reason));
                km_vcpu_exit(vcpu, -1);

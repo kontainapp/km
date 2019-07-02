@@ -212,6 +212,21 @@ teardown() {
    [ $status == 0 ]
 }
 
+@test "gdb_signal: gdb signal support (stray_test)" {
+   km_gdb_default_port=3333
+   # Test with signals
+   km_with_timeout -g stray_test.km signal &
+   gdb_pid=`jobs -p` ; sleep 0.5
+	run gdb -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_signal_test.gdb" \
+         --ex=c --ex=q stray_test.km
+   [ $status -eq 0 ]
+   [ $(echo "$output" | grep -F -cw 'received signal SIGUSR1') == 1 ]
+   [ $(echo "$output" | grep -F -cw 'received signal SIGABRT') == 1 ]
+   # check that KM exited normally
+   run wait $gdb_pid 
+   [ $status -eq 6 ]
+}
+
 @test "threads_basic: basic threads create, TSD, exit and join (hello_2_loops_test)" {
    run km_with_timeout hello_2_loops_test.km
    [ "$status" -eq 0 ]

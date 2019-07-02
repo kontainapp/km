@@ -513,6 +513,7 @@ static void gdb_handle_payload_stop(int signum)
             }
             goto done;   // Continue with program
          }
+         case 'C':
          case 'c': {   // Continue (and disable stepping for the next instruction)
             if (sscanf(packet, "c%" PRIx64, &addr) == 1) {
                /* not supported, but that's OK as GDB will retry with the
@@ -655,7 +656,7 @@ static void km_gdb_handle_kvm_exit(int is_intr)
          return;
 
       case KVM_EXIT_INTR:
-         gdb_handle_payload_stop(SIGINT);
+         gdb_handle_payload_stop((gdbstub.signo != 0) ? gdbstub.signo : SIGINT);
          return;
 
       case KVM_EXIT_EXCEPTION:
@@ -749,13 +750,67 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 }
 
 /*
+ * GDB uses it's own notion of signal number which is different that the native signal
+ * number. See https://sourceware.org/gdb/onlinedocs/gdb/Stop-Reply-Packets.html.
+ * GDB's signal numbers are the 'Sparc and Alpha' numbers defined in 'man 7 signal'.
+ *
+ * This function translates a X86 signal number to it's equivilent GDB signal number.
+ */
+static inline int gdb_signo(int sig)
+{
+   switch (sig) {
+      case SIGUSR1:
+         sig = 30;
+         break;
+      case SIGUSR2:
+         sig = 31;
+         break;
+      case SIGCHLD:
+         sig = 20;
+         break;
+      case SIGCONT:
+         sig = 19;
+         break;
+      case SIGSTOP:
+         sig = 17;
+         break;
+      case SIGTTIN:
+         sig = 21;
+         break;
+      case SIGTTOU:
+         sig = 22;
+         break;
+      case SIGBUS:
+         sig = 10;
+         break;
+      case SIGSYS:
+         sig = 12;
+         break;
+      case SIGURG:
+         sig = 16;
+         break;
+      case SIGXCPU:
+         sig = 24;
+         break;
+      case SIGXFSZ:
+         sig = 25;
+         break;
+      case SIGIO:
+         sig = 23;
+         break;
+   }
+   return sig;
+}
+
+/*
  * Called from vcpu thread(s) after gdb-related kvm exit. Notifies gdbstub about the KVM exit and
  * then waits for gdbstub to allow vcpu to continue.
  */
-void km_gdb_notify_and_wait(km_vcpu_t* vcpu, __attribute__((unused)) int unused)
+void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo)
 {
    km_infox(KM_TRACE_GDB, "%s on VCPU %d", __FUNCTION__, vcpu->vcpu_id);
    vcpu->is_paused = 1;
+   gdbstub.signo = gdb_signo(signo);
    if (gdbstub.session_requested == 0) {
       km_infox(KM_TRACE_GDB, "gdb seems to be sleeping, wake it up. VCPU %d", vcpu->vcpu_id);
       // km_gdb_tid_set(km_gdb_thread_id(vcpu));

@@ -247,13 +247,13 @@ int km_signal_ready(km_vcpu_t* vcpu)
    TAILQ_FOREACH (sig, &vcpu->sigpending.head, link) {
       if (!km_sigismember(&vcpu->sigmask, sig->info.si_signo)) {
          km_signal_unlock();
-         return 1;
+         return sig->info.si_signo;
       }
    }
    TAILQ_FOREACH (sig, &machine.sigpending.head, link) {
       if (!km_sigismember(&vcpu->sigmask, sig->info.si_signo)) {
          km_signal_unlock();
-         return 1;
+         return sig->info.si_signo;
       }
    }
    km_signal_unlock();
@@ -275,7 +275,7 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 
 /*
  * Signal handler caller stack frame. This is what RSP points at when a guest signal
- * handler is started. 
+ * handler is started.
  */
 typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
