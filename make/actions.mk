@@ -59,7 +59,7 @@ publish: subdirs ## publish packages for the current branch online (e.g to Azure
 publishclean: subdirs ## (TODO) remove packages from online repos
 
 $(SUBDIRS):
-	$(MAKE) -C $@ $(MAKECMDGOALS)
+	$(MAKE) -C $@ $(MAKECMDGOALS) MAKEOVERRIDES=
 
 .PHONY: subdirs $(SUBDIRS)
 

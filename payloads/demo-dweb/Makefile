@@ -16,7 +16,8 @@ KM_BIN=${TOP}/build/km/km
 
 .PHONY: all build clean
 all build clean:
-	$(MAKE) -$(MAKEFLAGS) -C dweb $@
+	$(MAKE) -C dweb $@
+
 all: ## builds Linux and KM for payload in this folder
 clean: ## Clean up the build
 
