@@ -14,7 +14,7 @@ fi
 make -j8
 popd
 
-./link.sh
+./link-km.sh
 
 echo ""
 echo "now you can run ``../../build/km/km ./node/out/Release/node.km''"

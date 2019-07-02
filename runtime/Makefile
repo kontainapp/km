@@ -57,7 +57,7 @@ COPTS := -Os -ggdb -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 
 include ${TOP}make/actions.mk
 
-all: $(addprefix ${BLDDIR}, libkmpthread.a) $(addprefix ${BLDDIR}, libruntime.a)
+all: $(addprefix ${BLDDIR}, libkmpthread.a) $(addprefix ${BLDDIR}, libruntime.a) $(addprefix ${BLDDIR}, libm.a)
 
 KM_PTHREAD_OFILES = $(filter $(addprefix %,${KM_PTHREAD_OBJS}), ${OBJS})
 OFILES = $(filter-out $(addprefix %,${KM_PTHREAD_OBJS}), ${OBJS})
@@ -67,6 +67,9 @@ $(addprefix ${BLDDIR}, libkmpthread.a): ${KM_PTHREAD_OFILES}
 
 $(addprefix ${BLDDIR}, libruntime.a): ${OFILES}
 	@echo "Making " $@; rm -f $@; ${AR} crs $@ ${OFILES}
+
+$(addprefix ${BLDDIR}, libm.a):
+	@echo "Making " $@; rm -f $@; ${AR} crs $@
 
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 
