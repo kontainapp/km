@@ -11,10 +11,13 @@
 # Makefile for building and packing dweb-demo
 
 TOP := $(shell git rev-parse --show-cdup)
+KM_BIN=${TOP}/build/km/km
+
 
 .PHONY: all build clean
 all build clean:
-	$(MAKE) -$(MAKEFLAGS) -C dweb $@
+	$(MAKE) -C dweb $@
+
 all: ## builds Linux and KM for payload in this folder
 clean: ## Clean up the build
 
@@ -36,6 +39,10 @@ dockerdemo: all distro ## Run Simple web server demo as Kontain VM payload in Do
 
 dockerclean: ## CLean up results of 'make dockerdemo' if it was killed with ^C
 	-docker rm -f `docker ps -qa -f label=Vendor=Kontain.app`
+
+test-all: all ## Builds dweb all and runs simple test
+	@echo -en "Testing dweb.km start/stop"; cd dweb; \
+		../${KM_BIN} dweb.km -x | grep -q 'Exiting as requested' && echo ...passed
 
 # Info for packaging into Docker Image
 

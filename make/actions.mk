@@ -49,7 +49,8 @@ all: subdirs ## Build all in all subdirs - basically, build + test recursively
 # Note: one target per line, so 'make help' works
 subdirs: $(SUBDIRS)
 clean: subdirs  ## clean all build artifacts.
-test: subdirs   ## build all and run tests everywhere
+test: subdirs   ## build all and run KM tests
+test-all: test  ## build all and run KM and payload tests
 coverage: subdirs ## build and run tests with code coverage support
 covclean: subdirs ## clean coverage-related build artifacts
 distro: subdirs ## package binaries for the current branch as Docker Container Images
@@ -58,7 +59,7 @@ publish: subdirs ## publish packages for the current branch online (e.g to Azure
 publishclean: subdirs ## (TODO) remove packages from online repos
 
 $(SUBDIRS):
-	$(MAKE) -C $@ $(MAKECMDGOALS)
+	$(MAKE) -C $@ $(MAKECMDGOALS) MAKEOVERRIDES=
 
 .PHONY: subdirs $(SUBDIRS)
 

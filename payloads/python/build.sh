@@ -25,6 +25,7 @@ TEST_NAMES=(\
 if [ ! -d cpython ]; then
     git clone https://github.com/python/cpython.git -b v3.7.1
     pushd cpython
+    set -e
     ./configure LDFLAGS="-static" --disable-shared
     patch < ../pyconfig.h-patch
     cp ../Setup.local Modules/Setup.local
@@ -32,6 +33,7 @@ if [ ! -d cpython ]; then
     for tname in "${TEST_NAMES[@]}"; do
         mv -v $TEST_PATH/$tname $TEST_PATH/__km_disable__$tname
     done
+    set +e
 else
     pushd cpython
 fi

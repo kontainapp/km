@@ -1,4 +1,4 @@
-# Copyright © 2018 Kontain Inc. All rights reserved.
+# Copyright © 2019 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -8,22 +8,21 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
-# Makefile for building and packing Python payload runtime for KM
+# Makefile for building and packing Node.js payload runtime for KM
 
 TOP := $(shell git rev-parse --show-cdup)
 
 # KM monitor path
 KM_BIN=${TOP}/build/km/km
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
-PAYLOAD_KM := cpython/python.km
+PAYLOAD_KM := node/out/Release/node.km
 # image name, without repo and version tag
-PAYLOAD_IMAGE_SHORT_NAME := python-km
+PAYLOAD_IMAGE_SHORT_NAME := node-km
 # name to be added to label(s)
-PAYLOAD_NAME := Python3.7
+PAYLOAD_NAME := NodeJs10.14
 
-# a list to be passed to tar to be packed into container image
-PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.exe' --exclude '*.whl' \
-	cpython/python.km cpython/Lib cpython/Modules/Setup scripts
+# a list to be passed to tar to be packed into container image - TODO !
+PAYLOAD_FILES := --exclude='*/test/*' scripts $(PAYLOAD_KM)
 
 all: $(PAYLOAD_KM)
 
@@ -34,8 +33,10 @@ $(PAYLOAD_KM): *sh *patch
 build:
 	./build.sh
 
+# TODO: we need to modify and use 'make -j4 test' in Node, per 'pull-requests.md'
 test-all: all
-	${KM_BIN} ${PAYLOAD_KM} ./test_unittest.py
-	${KM_BIN} ${PAYLOAD_KM} ./cpython/Lib/unittest/test/
+	@echo hello.js; ${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
+	@echo noop.js - expecting exit with code 22:
+	@${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js ; [ $$? -eq 22 ]
 
 include ${TOP}make/distro.mk

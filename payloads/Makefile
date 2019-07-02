@@ -12,12 +12,12 @@
 # Basic build for kontain payloads
 
 # scan all these and  'make' stuff there
-SUBDIRS := python demo-dweb
+SUBDIRS := python demo-dweb node
 
-# make sure payloads dir is skipped for top-level 'make' to avoid rebuilds when only KM is needed
-# to run, use 'make all'
-default: 
-	@echo "Skipping payloads build for goal '$@'. Use 'make all' or 'make build' for payloads build"
+# Filter out 'make test' requests' to assure that 'make test' only builds/tests KM. If payload needs to be tested, uses 'make test-all'
+# Also, just 'make' will not cause building payloads , so it is reserved for building KM only. Use 'make all' or 'make build' to request payloads build
+default test:
+	@echo "Info: ignoring target '$@' in payloads"
 
 # use this target to force payloads build
 build: $(SUBDIRS)
