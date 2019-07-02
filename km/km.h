@@ -240,12 +240,16 @@ void km_handle_interrupt(km_vcpu_t* vcpu);
 #define KM_SIGVCPUSTOP SIGUSR1   //  After km start, used to signal VCP thread to force KVM exit
 
 /*
- * To check for success/failure from plain system calls and similar logic, returns -1 if fail.
- * *NOT* to be used for actual syscall wrapper as it doesn't set errno.
+ * To check for success/failure from plain system calls and similar logic, returns -1 and sets errno
+ * if fail.
  */
 static inline long km_syscall_ok(uint64_t r)
 {
-   return r > -4096ul ? -1 : r;
+   if (r > -4096ul) {
+      errno = -r;
+      return -1;
+   }
+   return r;
 }
 
 /*

@@ -227,10 +227,11 @@ void km_page_free(void* addr, size_t size)
    munmap(addr, size);
 }
 
-/* simple wrapper to avoid polluting all callers with mmap.h */
+/* simple wrapper to avoid polluting all callers with mmap.h, and set return value and errno */
 km_gva_t km_guest_mmap_simple(size_t size)
 {
-   return km_guest_mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   return km_syscall_ok(
+       km_guest_mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
 }
 
 /*

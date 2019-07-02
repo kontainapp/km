@@ -234,7 +234,8 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
       mmaps_unlock();
       return -ENOMEM;
    }
-   if (km_syscall_ok(ret = km_mem_tbrk(machine.tbrk - size)) < 0) {
+   km_gva_t want = machine.tbrk - size;
+   if ((ret = km_mem_tbrk(want)) != want) {
       mmaps_unlock();
       free(reg);
       return ret;

@@ -184,7 +184,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
       errx(1, "Bad binary - cannot find interrupt handler");
    }
    km_init_guest_idt(km_guest.km_handlers);
-   if (km_syscall_ok(map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
+   if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
    }
    tcb = rounddown(map_base + GUEST_STACK_SIZE - sizeof(km_pthread_t), MIN_TLS_ALIGN);
@@ -326,7 +326,7 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
                   ? DEFAULT_STACK_SIZE
                   : roundup(_a_stacksize(g_attr) + km_main_tls.size + sizeof(km_pthread_t) + tsd_size,
                             KM_PAGE_SIZE);
-   if (km_syscall_ok(map_base = km_guest_mmap_simple(map_size)) < 0) {
+   if ((map_base = km_guest_mmap_simple(map_size)) < 0) {
       return 0;
    }
    tsd = map_base + map_size - tsd_size;   // aligned because mmap and assert tsd_size above
