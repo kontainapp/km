@@ -55,8 +55,8 @@ ifeq (${MAKECMDGOALS},.coverage)
 else
 	@export KM_BIN=$(KM_BIN); export TIME_INFO=${TIME_INFO};  ${BATS} -p -f "${MATCH}" ${TEST_FILES}
 endif
-	@echo -e "${GREEN}Non-zero time tests:${NOCOLOR}"
-	@grep elapsed ${TIME_INFO} | grep -v "elapsed 0:00.00" | sort -r
+	@echo -e "${GREEN}Tests slower that 0.01 sec:${NOCOLOR}"
+	@grep elapsed ${TIME_INFO} | grep -v "elapsed 0:00.0[01]" | sort -r
 	@echo ""
 	@rm -f ${TIME_INFO}
 
@@ -137,7 +137,10 @@ test: .cov_init
 	@if [ ! $$(command -v $(COVERAGE_CMD_NAME)) ]  ; then echo -e "${RED}'${COVERAGE_CMD_NAME} command is missing - please install ${COVERAGE_CMD_NAME} package (e.g. 'sudo dnf install ${COVERAGE_CMD}${NOCOLOR}"; false  ; fi
 	@echo -e "COVERAGE: ${GREEN}Running tests with code coverage...${NOCOLOR}"
 
+
 endif
+
+test-all: test
 
 .PHONY: all clean test help gdb coverage covclean
 
