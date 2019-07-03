@@ -20,11 +20,12 @@ ARG UID
 ARG GID
 
 RUN apt-get update; apt-get upgrade -y; \
-   apt-get install -y make git gdb libelf-dev gcc-8 g++-8 libc-dev curl vim time; \
+   apt-get install -y make git gdb libelf-dev gcc-8 g++-8 libc-dev curl vim time python; \
    apt-get clean; \
    ln -s `which gcc-8` /bin/cc; \
+   ln -s `which gcc-8` /bin/gcc; \
    ln -s `which g++-8` /bin/g++
 
-RUN groupadd -g $GID appuser && useradd -r -u $UID -g $GID appuser
+RUN groupadd -f -g $GID appuser && useradd -r -u $UID -g $GID appuser
 USER appuser
 ENV TERM=xterm

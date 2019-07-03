@@ -2,16 +2,6 @@
 
 set -x
 
-# git clone git@bitbucket.org:kontainapp/covm.git km
-# cd km
-# git checkout serge/python
-# git submodule update --init
-
-pushd ../../runtime/musl
-./configure --disable-shared
-make -j8
-popd
-
 # list cpython unittest we do not want to run.
 TEST_PATH="./Lib/unittest/test"
 TEST_NAMES=(\
@@ -26,7 +16,7 @@ if [ ! -d cpython ]; then
     git clone https://github.com/python/cpython.git -b v3.7.1
     pushd cpython
     set -e
-    ./configure LDFLAGS="-static" --disable-shared
+    ./configure CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0" LDFLAGS="-static" --disable-shared
     patch < ../pyconfig.h-patch
     cp ../Setup.local Modules/Setup.local
     # Prefix tests differently to ensure that they are not run.
@@ -41,7 +31,6 @@ fi
 make -j8 LDFLAGS="-static" LINKFORSHARED=" " DYNLOADFILE="dynload_stub.o"
 popd
 
-./link-static-musl.sh
 ./link-km.sh
 
 echo ""

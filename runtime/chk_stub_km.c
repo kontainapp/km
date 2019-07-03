@@ -108,3 +108,17 @@ void __longjmp_chk(jmp_buf env, int val)
 {
    longjmp(env, val);
 }
+
+/* Python on Ubuntu wants these:
+__fdelt_chk
+__memcpy_chk
+__memmove_chk
+__open64_2
+__realpath_chk
+__snprintf_chk
+__strcpy_chk
+__strncpy_chk
+__wcscat_chk
+__wcscpy_chk
+__wcsncpy_chk
+*/

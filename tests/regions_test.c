@@ -35,6 +35,8 @@ void* SYS_break(void const* addr)
    return (void*)syscall(SYS_brk, addr);
 }
 
+void inline IGUR() {}  /* Ignore GCC Unused Result */
+
 TEST region(void)
 {
    int fd;
@@ -48,9 +50,9 @@ TEST region(void)
    }
    ptr = top - MiB - 8000;   // one full page and one partial page below the region boundary
    memcpy(ptr, data, BUFSIZE);
-   write(fd, ptr, BUFSIZE);
+   IGUR(write(fd, ptr, BUFSIZE));
    lseek(fd, SEEK_SET, 0);
-   read(fd, data_in, BUFSIZE);
+   IGUR(read(fd, data_in, BUFSIZE));
    close(fd);
    // unlink("/tmp/kmtest_data");
    ASSERT_EQ(memcmp(data, data_in, BUFSIZE), 0);

@@ -138,7 +138,7 @@ ${BLDDIR}%.d: %.c
 	@set -e; rm -f $@;  $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
 	   sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
-test: all
+test test-all: all
 
 clean:
 	rm -rf ${BLDDIR}

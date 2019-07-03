@@ -2,7 +2,7 @@ TOP := $(shell git rev-parse --show-cdup)
 
 OBJS=dweb.o dwebsvr.o cpuid.o
 
-override CFLAGS += -g -O2 -Wstringop-overflow=0 -std=gnu99
+override CFLAGS += -g -O2 -Wstringop-overflow=0 -std=gnu99 -U_FORTIFY_SOURCE
 
 all: dweb dweb.km
 

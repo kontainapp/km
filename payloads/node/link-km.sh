@@ -1,11 +1,13 @@
 #!/bin/bash
 
+set -x
+
 KM=../..
 NODE=node
 
-g++ -v -o $NODE/out/Release/node.km \
+g++ -o $NODE/out/Release/node.km \
   -static -no-pie -ggdb \
-  -specs=$KM/gcc-km.spec -L /home/serge/workspace/km/build/runtime \
+  -specs=$KM/gcc-km.spec -L $KM/build/runtime \
   -Wl,--start-group \
     $NODE/out/Release/obj.target/node/src/node_main.o \
     $NODE/out/Release/obj.target/node/src/node_snapshot_stub.o \
@@ -30,4 +32,4 @@ g++ -v -o $NODE/out/Release/node.km \
     $NODE/out/Release/obj.target/tools/icu/libicustubdata.a \
     $NODE/out/Release/obj.target/tools/v8_gypfiles/libv8_snapshot.a \
     $NODE/out/Release/obj.target/tools/v8_gypfiles/libgenerate_snapshot.a \
-  -Wl,--end-group -zundefs
+  -Wl,--end-group

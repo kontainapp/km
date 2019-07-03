@@ -21,9 +21,10 @@ ARG GID
 
 RUN dnf install -y gcc glibc-static \
    elfutils-libelf-devel elfutils-libelf-devel-static glibc-devel zlib-static gdb \
-   gcc-c++ libstdc++-static make git gcovr time \
+   gcc-c++ libstdc++-static make git gcovr time patch openssl-devel findutils python \
    && dnf clean all
 
-RUN groupadd -g $GID appuser && useradd -r -u $UID -g $GID appuser
+RUN groupadd -f -g $GID appuser && useradd -r -u $UID -g $GID appuser
+
 USER appuser
 ENV TERM=xterm
