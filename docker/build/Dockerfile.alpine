@@ -24,6 +24,6 @@ RUN apk add --no-cache \
    libc-dev linux-headers elfutils-dev \
    ncurses coreutils shadow curl
 
-RUN groupadd -g $GID appuser && useradd -r -u $UID -g $GID appuser
+RUN groupadd -f -g $GID appuser && useradd -r -u $UID -g $GID appuser
 USER appuser
 ENV TERM=xterm
