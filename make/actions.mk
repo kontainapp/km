@@ -176,9 +176,13 @@ DFILE := Dockerfile.$(DTYPE)
 # 'chmod' in the last line is needed to enable 'make clean' to work without docker
 #    (since docker-produced files are owned by the container user, which is root by default)
 #
+__testing := $(strip $(findstring test,$(TARGET)) $(findstring coverage,$(TARGET)))
+ifneq ($(__testing),)  # only add --device=/dev/kvm is we are testing
+ DEVICE_KVM := --device=/dev/kvm
+endif
 withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	docker build --build-arg=UID=$(shell id -u) --build-arg=GID=$(shell id -g) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
-	docker run --device=/dev/kvm --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+	docker run $(DEVICE_KVM) --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 
 #
 # 'Help' target - based on '##' comments in targets
