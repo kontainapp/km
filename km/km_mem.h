@@ -181,17 +181,22 @@ static inline uint64_t memreg_size(int idx)
  * @param gva Guest virtual address
  * @returns Address in KM. returns NULL if guest VA is invalid.
  */
+static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
+{
+   return KM_USER_MEM_BASE + gva_to_gpa(gva);
+}
+
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
    if (gva < GUEST_MEM_START_VA || (machine.brk <= gva && gva < machine.tbrk) ||
        GUEST_MEM_TOP_VA < gva) {
       return NULL;
    }
-   return KM_USER_MEM_BASE + gva_to_gpa(gva);
+   return km_gva_to_kma_nocheck(gva);
 }
 
 void km_mem_init(km_machine_init_params_t* params);
-void km_page_free(void* addr, size_t size);
+void km_guest_page_free(km_gva_t addr, size_t size);
 void km_guest_mmap_init(void);
 km_gva_t km_mem_brk(km_gva_t brk);
 km_gva_t km_mem_tbrk(km_gva_t tbrk);

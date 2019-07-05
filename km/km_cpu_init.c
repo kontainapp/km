@@ -103,7 +103,7 @@ void km_machine_fini(void)
          if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, mr) < 0) {
             warn("KVM: failed to unplug memory region %d", i);
          }
-         km_page_free((void*)mr->userspace_addr, mem_siz);
+         km_guest_page_free(mr->guest_phys_addr, mem_siz);
          mr->userspace_addr = 0;
       }
    }
@@ -513,9 +513,10 @@ void km_machine_init(km_machine_init_params_t* params)
       }
    }
    if (machine.guest_max_physmem > GUEST_MAX_PHYSMEM_SUPPORTED) {
-      km_infox(KM_TRACE_MEM, "Scaling down guest max phys mem to %#lx from %#lx",
-            GUEST_MAX_PHYSMEM_SUPPORTED,
-            machine.guest_max_physmem);
+      km_infox(KM_TRACE_MEM,
+               "Scaling down guest max phys mem to %#lx from %#lx",
+               GUEST_MAX_PHYSMEM_SUPPORTED,
+               machine.guest_max_physmem);
       machine.guest_max_physmem = GUEST_MAX_PHYSMEM_SUPPORTED;
    }
    if (machine.pdpe1g == 0) {
@@ -524,7 +525,8 @@ void km_machine_init(km_machine_init_params_t* params)
        * text+data, and the second for the stack. See assert() in
        * set_pml4_hierarchy()
        */
-      km_infox(KM_TRACE_MEM, "KVM: 1gb pages are not supported (pdpe1g=0), setting VM max mem to 2 GiB");
+      km_infox(KM_TRACE_MEM,
+               "KVM: 1gb pages are not supported (pdpe1g=0), setting VM max mem to 2 GiB");
       machine.guest_max_physmem = MIN(2 * GIB, machine.guest_max_physmem);
    }
    if (params->guest_physmem != 0) {
