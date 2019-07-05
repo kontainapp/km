@@ -185,6 +185,7 @@
             "var_storage_test",
             "exit_value_test",
             "hello_test",
+            "mprotect_test",
             "hello_html_test",
             "hello_loop_test",
             "hello_2_loops_test",

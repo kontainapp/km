@@ -1,6 +1,6 @@
 #include "km_hcalls.h"
 
-int __syscall(long n, long a1, long a2, long a3, long a4, long a5, long a6)
+unsigned long __syscall(long n, long a1, long a2, long a3, long a4, long a5, long a6)
 {
    km_hc_args_t arg;
 

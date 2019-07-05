@@ -204,27 +204,27 @@ static void init_pml4(km_kma_t mem)
 
 static int overcommit_memory;   // controls how we request memory for payload from Linux
 
-static void* km_page_malloc(km_kma_t hint, size_t size)
+static void* km_guest_page_malloc(km_gva_t gpa_hint, size_t size, int prot)
 {
    km_kma_t addr;
    int flags = MAP_SHARED | MAP_ANONYMOUS | (overcommit_memory == 1 ? MAP_NORESERVE : 0);
 
-   if ((size & (KM_PAGE_SIZE - 1)) != 0 || ((uint64_t)hint & (KM_PAGE_SIZE - 1)) != 0) {
+   if ((size & (KM_PAGE_SIZE - 1)) != 0 || (gpa_hint & (KM_PAGE_SIZE - 1)) != 0) {
       errno = EINVAL;
       return NULL;
    }
-   if ((addr = mmap(hint, size, PROT_READ | PROT_WRITE, flags, -1, 0)) == MAP_FAILED) {
+   if ((addr = mmap(gpa_hint + KM_USER_MEM_BASE, size, prot, flags, -1, 0)) == MAP_FAILED) {
       return NULL;
    }
-   if (hint != NULL && addr != hint) {
-      errx(1, "Problem getting guest memory, wanted %p, got %p", hint, addr);
+   if (addr != gpa_hint + KM_USER_MEM_BASE) {
+      errx(1, "Problem getting guest memory, wanted %p, got %p", gpa_hint + KM_USER_MEM_BASE, addr);
    }
    return addr;
 }
 
-void km_page_free(void* addr, size_t size)
+void km_guest_page_free(km_gva_t addr, size_t size)
 {
-   munmap(addr, size);
+   munmap(addr + KM_USER_MEM_BASE, size);
 }
 
 /* simple wrapper to avoid polluting all callers with mmap.h, and set return value and errno */
@@ -244,7 +244,7 @@ void km_mem_init(km_machine_init_params_t* params)
 
    overcommit_memory = params->overcommit_memory;
    reg = &machine.vm_mem_regs[KM_RSRV_MEMSLOT];
-   if ((ptr = km_page_malloc(RSV_MEM_START + KM_USER_MEM_BASE, RSV_MEM_SIZE)) == NULL) {
+   if ((ptr = km_guest_page_malloc(RSV_MEM_START, RSV_MEM_SIZE, PROT_READ | PROT_WRITE)) == NULL) {
       err(1, "KVM: no memory for reserved pages");
    }
    reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
@@ -446,7 +446,7 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
 
    assert(reg->memory_size == 0 && reg->userspace_addr == 0);
    assert(machine.pdpe1g || (base < GIB || base >= machine.guest_max_physmem - GIB));
-   if ((ptr = km_page_malloc(base + KM_USER_MEM_BASE, size)) == NULL) {
+   if ((ptr = km_guest_page_malloc(base, size, PROT_NONE)) == NULL) {
       return -ENOMEM;
    }
    reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
@@ -455,7 +455,7 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
    reg->memory_size = size;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      km_page_free(ptr, size);
+      km_guest_page_free(base, size);
       return -errno;
    }
    set_pml4_hierarchy(reg, upper_va);
@@ -473,7 +473,7 @@ static void km_free_region(int idx, int upper_va)
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
       err(1, "KVM: failed to unplug memory region %d", idx);
    }
-   km_page_free((void*)reg->userspace_addr, size);
+   km_guest_page_free(reg->guest_phys_addr, size);
    reg->userspace_addr = 0;
    reg->guest_phys_addr = 0;
 }
@@ -532,6 +532,13 @@ km_gva_t km_mem_brk(km_gva_t brk)
       }
    }
    fixup_bottom_page_tables(machine.brk, brk);
+   km_gva_t oldpage = roundup(machine.brk, KM_PAGE_SIZE);
+   km_gva_t newpage = roundup(brk, KM_PAGE_SIZE);
+   if (oldpage < newpage) {
+      mprotect(km_gva_to_kma_nocheck(oldpage), newpage - oldpage, PROT_READ | PROT_WRITE);
+   } else if (newpage < oldpage) {
+      mprotect(km_gva_to_kma_nocheck(newpage), oldpage - newpage, PROT_NONE);
+   }
    machine.brk = brk;
    km_mem_unlock();
    return error == 0 ? brk : -error;
@@ -588,6 +595,13 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
       }
    }
    fixup_top_page_tables(machine.tbrk, tbrk);
+   km_gva_t oldpage = machine.tbrk;
+   km_gva_t newpage = tbrk;
+   if (oldpage < newpage) {
+      mprotect(km_gva_to_kma_nocheck(oldpage), newpage - oldpage, PROT_NONE);
+   } else if (newpage < oldpage) {
+      mprotect(km_gva_to_kma_nocheck(newpage), oldpage - newpage, PROT_READ | PROT_WRITE);
+   }
    machine.tbrk = tbrk;
    km_mem_unlock();
    return error == 0 ? tbrk : -error;
