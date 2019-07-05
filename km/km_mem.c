@@ -532,6 +532,13 @@ km_gva_t km_mem_brk(km_gva_t brk)
       }
    }
    fixup_bottom_page_tables(machine.brk, brk);
+   km_gva_t oldpage = roundup(machine.brk, KM_PAGE_SIZE);
+   km_gva_t newpage = roundup(brk, KM_PAGE_SIZE);
+   if (oldpage < newpage) {
+      mprotect(KM_USER_MEM_BASE + oldpage, newpage - oldpage, PROT_READ | PROT_WRITE);
+   } else if (newpage < oldpage) {
+      mprotect(KM_USER_MEM_BASE + newpage, oldpage - newpage, PROT_NONE);
+   }
    machine.brk = brk;
    km_mem_unlock();
    return error == 0 ? brk : -error;
@@ -588,6 +595,13 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
       }
    }
    fixup_top_page_tables(machine.tbrk, tbrk);
+   km_gva_t oldpage = roundup(machine.tbrk, KM_PAGE_SIZE);
+   km_gva_t newpage = roundup(tbrk, KM_PAGE_SIZE);
+   if (oldpage < newpage) {
+      mprotect(KM_USER_MEM_BASE + oldpage, newpage - oldpage, PROT_NONE);
+   } else if (newpage < oldpage) {
+      mprotect(KM_USER_MEM_BASE + newpage, oldpage - newpage, PROT_READ | PROT_WRITE);
+   }
    machine.tbrk = tbrk;
    km_mem_unlock();
    return error == 0 ? tbrk : -error;
