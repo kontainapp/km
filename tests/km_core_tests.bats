@@ -102,18 +102,18 @@ teardown() {
 
 @test "km_main: optargs (hello_test)" {
    # -v flag prints version and branch
-   run km_with_timeout -v  hello_test.km
+   run km_with_timeout -v hello_test.km
    [ $status -eq 0 ]
    branch=$(git rev-parse --abbrev-ref  HEAD)
    [ $(echo -e "$output" | grep -F -cw "$branch") == 1 ]
 
-   run km_with_timeout -Vkvm  hello_test.km
+   run km_with_timeout -Vkvm hello_test.km
    # -V<regex> turns on tracing for a subsystem. Check it for kvm
    [ $status -eq 0 ]
    [ $(echo -e "$output" | grep -F -cw "KVM_EXIT_IO") -gt 1 ]
 
    # -g[port] turns on gdb and tested in gdb coverage. Let's validate a failure case
-   run km_with_timeout -gfoobar  hello_test.km
+   run km_with_timeout -gfoobar hello_test.km
    [ $status -eq 1 ]
    [ $(echo -e "$output" | grep -F -cw "Wrong gdb port number") == 1 ]
 
@@ -124,7 +124,7 @@ teardown() {
    [ $(echo -e "$output" | grep -F -cw "Setting coredump path to $corefile") == 1 ]
 
    # -P sets Physical memory bus width
-   run km_with_timeout -P 31   hello_test.km
+   run km_with_timeout -P 31 hello_test.km
    [ $status -eq 1 ]
    [ $(echo -e "$output" | grep -F -cw "Guest memory bus width must be between 32 and 63") == 1 ]
 
@@ -136,6 +136,10 @@ teardown() {
    [ $status -eq 1 ]
       [ $(echo -e "$output" | grep -F -cw "invalid option") == 1 ]
 
+   # Linux executable instead of .km
+   run km_with_timeout hello_test
+   [ $status -eq 0 ]
+      [ $(echo -e "$output" | grep -F -cw "regular Linux executable in KM") == 1 ]
 }
 
 @test "mem_slots: KVM memslot / phys mem sizes (memslot_test)" {

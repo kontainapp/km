@@ -180,9 +180,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    km_gva_t dtv;
    km_gva_t map_base;
 
-   if (km_guest.km_handlers == 0) {
-      errx(1, "Bad binary - cannot find interrupt handler");
-   }
+   assert(km_guest.km_handlers != 0);
    km_init_guest_idt(km_guest.km_handlers);
    if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
@@ -312,9 +310,7 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
    uintptr_t* dtv_kma;
    km_gva_t dtv;
 
-   if (km_guest.km_tsd_size == 0) {
-      errx(1, "Bad binary - cannot find __pthread_tsd_size");
-   }
+   assert(km_guest.km_tsd_size != 0);
    tsd_size = *(size_t*)km_gva_to_kma(km_guest.km_tsd_size);
    assert(tsd_size <= sizeof(void*) * PTHREAD_KEYS_MAX &&
           tsd_size == rounddown(tsd_size, sizeof(void*)));

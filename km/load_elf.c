@@ -182,18 +182,15 @@ int km_load_elf(const char* file)
             if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
                 strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_LIBC_SYM_NAME) == 0) {
                km_guest.km_libc = sym.st_value;
-            }
-            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_HNDL_SYM_NAME) == 0) {
+            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_HNDL_SYM_NAME) == 0) {
                km_guest.km_handlers = sym.st_value;
-            }
-            if ((sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) ||
-                 sym.st_info == ELF64_ST_INFO(STB_WEAK, STT_OBJECT)) &&
-                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_TSD_SIZE_SYM_NAME) == 0) {
+            } else if ((sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) ||
+                        sym.st_info == ELF64_ST_INFO(STB_WEAK, STT_OBJECT)) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_TSD_SIZE_SYM_NAME) == 0) {
                km_guest.km_tsd_size = sym.st_value;
-            }
-            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
+            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
                km_guest.km_sigreturn = sym.st_value;
             }
             if (km_guest.km_libc != 0 && km_guest.km_handlers != 0 && km_guest.km_tsd_size != 0 &&
@@ -203,6 +200,14 @@ int km_load_elf(const char* file)
          }
          break;
       }
+   }
+   if (km_guest.km_handlers == 0 || km_guest.km_tsd_size == 0 || km_guest.km_sigreturn == 0) {
+      errx(1,
+           "Non-KM binary: cannot find interrupt handler%s, tsd size%s, or sigreturn%s. Trying to "
+           "run regular Linux executable in KM?",
+           km_guest.km_handlers == 0 ? "(*)" : "",
+           km_guest.km_tsd_size == 0 ? "(*)" : "",
+           km_guest.km_sigreturn == 0 ? "(*)" : "");
    }
    (void)elf_end(e);
    (void)close(fd);
