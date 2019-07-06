@@ -138,7 +138,7 @@ teardown() {
 
    # Linux executable instead of .km
    run km_with_timeout hello_test
-   [ $status -eq 0 ]
+   [ $status -eq 1 ]
       [ $(echo -e "$output" | grep -F -cw "regular Linux executable in KM") == 1 ]
 }
 
