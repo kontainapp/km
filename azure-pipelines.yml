@@ -20,6 +20,6 @@ steps:
 
 - script: |
     set -x
-    docker run --rm -u `id -u` -g `id -g` -v $(Build.SourcesDirectory):/src:Z -w /src msterin/km-buildenv-fedora make
+    docker run --rm -u `id -u` -v `pwd`:/src:Z -w /src msterin/km-buildenv-fedora make
     echo See https://aka.ms/yaml
   displayName: 'Make'
