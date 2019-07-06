@@ -1,9 +1,9 @@
 [submodule "runtime/musl"]
 	path = runtime/musl
-	url = git@github.com:kontainapp/musl.git
+	url = https://github.com/kontainapp/musl
 [submodule "tests/bats"]
 	path = tests/bats
-	url = git@github.com:kontainapp/bats.git
+	url = https://github.com/kontainapp/bats
 [submodule "tests/greatest"]
 	path = tests/greatest
-	url = git@github.com:kontainapp/ctest_greatest.git
+	url = https://github.com/kontainapp/ctest_greatest
