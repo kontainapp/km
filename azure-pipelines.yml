@@ -1,0 +1,25 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-16.04'
+
+steps:
+
+- checkout: self
+  submodules: true
+  path: src
+
+- script: echo We can do some fancy prep here....
+  displayName: 'Run a one-line script'
+
+- script: |
+    set -x
+    docker run --rm -v `pwd`:/src:Z -w /src msterin/km-buildenv-fedora make
+    echo See https://aka.ms/yaml
+  displayName: 'Make'
