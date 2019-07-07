@@ -1,0 +1,36 @@
+# Kontain pipeline
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+
+stages:
+- stage: Build
+  jobs:
+  - job: 'fedora'
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+    - checkout: self
+      submodules: true
+    - script: |
+        set -x
+        docker run --rm -u `id -u` -v `pwd`:/src:Z -w /src msterin/km-buildenv-fedora make
+      displayName: 'make with fedora'
+  - job: 'ubuntu'
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+    - checkout: self
+      submodules: recursive
+      persistCredentials: 'true'
+    - script: |
+        set -x
+        make withdocker DTYPE=ubuntu
+      displayName: 'make with ubuntu'
+
+- stage: 'Test'
+  jobs:
+  - job: test
+ 
