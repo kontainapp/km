@@ -11,12 +11,15 @@ stages:
   - job: 'fedora'
     pool:
       vmImage: 'ubuntu-16.04'
+    container:
+      image: 'msterin/km-buildenv-fedora'
+      options: '--user=root'
     steps:
     - checkout: self
       submodules: true
     - script: |
         set -x
-        docker run --rm -u `id -u` -v `pwd`:/src:Z -w /src msterin/km-buildenv-fedora make
+        make -j5
       displayName: 'make with fedora'
   - job: 'ubuntu'
     pool:
