@@ -26,7 +26,7 @@
 #include "km_mem.h"
 #include "km_signal.h"
 
-#define GDB_DEFAULT_PORT 3333
+#define GDB_DEFAULT_PORT 2159   // per /etc/services, this is gdbremote default
 
 km_info_trace_t km_info_trace;
 
@@ -41,7 +41,7 @@ static inline void usage()
         "\nOptions:\n"
         "\t--verbose[=regexp] (-V[regexp])     - Verbose print where internal info tag matches "
         "'regexp'\n"
-        "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 3333) "
+        "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 2159) "
         "before running payload\n"
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"

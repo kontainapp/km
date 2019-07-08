@@ -1,12 +1,12 @@
 # Simple test for gdb stub
 #
 # to test km gdb support from ./tests:
-#  shell_1> ../build/km/km -g 3333 ./gdb_test.km
-#  shell_2> gdb -q -nx --ex="target remote :3333"  --ex="source cmd_for_test.gdb"  --ex c --ex q gdb_test.km
-# 
+#  shell_1> ../build/km/km -g 2159 ./gdb_test.km
+#  shell_2> gdb -q -nx --ex="target remote :2159"  --ex="source cmd_for_test.gdb"  --ex c --ex q gdb_test.km
+#
 # to validate the same with gdb server, use the same commmand for gdb,
 # but replace 'gdb_test.km' with 'gdb_test', and use gdbserver"
-#  shell_2> gdbserver :3333 gdb_test
+#  shell_2> gdbserver :2159 gdb_test
 
 
 set print pretty
@@ -18,11 +18,11 @@ command
   p var1
 end
 
-hbreak rand_func if i > 1 
-command 
+hbreak rand_func if i > 1
+command
   p/s "** HWBREAK "
   p/x i
-end 
+end
 
 
 p/s "** should break at change_and_print():"
@@ -56,7 +56,7 @@ else
 p/s "FAILURE"
 # when we have malloc():
 # call printf("actual=%d, expected=%d\n", $actual, $expected)
-# for now: 
+# for now:
 p "** actual: "
 p $actual
 p "** expected:"
@@ -67,7 +67,7 @@ p/s "** should finish now"
 del
 i b
 
-# For some reason 'cont' generates 'error in command file' 
-# from gdb client for KM remote debug (but works with gdbserver) 
+# For some reason 'cont' generates 'error in command file'
+# from gdb client for KM remote debug (but works with gdbserver)
 # so finishing the script.
 # Please do '--ex c --ex q' in gdb command

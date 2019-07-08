@@ -13,8 +13,8 @@
  *
  * Invoked in 2 shells, something like this:
  *
- * ./build/km/km -g 3333 tests/hello_loop.km
- * gdb -q -l 50000 --ex="target remote localhost:3333" -ex="b run_forever"--ex="c" hello_loop.km
+ * ./build/km/km -g 2159 tests/hello_loop.km
+ * gdb -q -l 50000 --ex="target remote localhost:2159" -ex="b run_forever"--ex="c" hello_loop.km
  */
 #include <limits.h>
 #include <stdio.h>
