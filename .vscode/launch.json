@@ -62,7 +62,7 @@
             "set debug remote 0"
          ],
          "stopAtEntry": true,
-         "miDebuggerServerAddress": "localhost:3333",
+         "miDebuggerServerAddress": "localhost:2159",
          "miDebuggerArgs": "--silent",
          "debugServerPath": "${workspaceFolder}/build/km/km",
          "debugServerArgs": "-g ${workspaceFolder}/tests/${input:test_payload}.km",
@@ -103,7 +103,7 @@
             "set debug remote 0"
          ],
          "stopAtEntry": true,
-         "miDebuggerServerAddress": "localhost:3333",
+         "miDebuggerServerAddress": "localhost:2159",
          "miDebuggerArgs": "--silent",
          "debugServerPath": "${workspaceFolder}/build/km/km",
          "debugServerArgs": "-g ${workspaceFolder}/payloads/demo-dweb/dweb/dweb.km 8081 ${workspaceFolder}/payloads/demo-dweb/dweb",

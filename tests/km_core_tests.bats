@@ -203,7 +203,7 @@ teardown() {
 }
 
 @test "gdb_basic: gdb support (gdb_test)" {
-   km_gdb_default_port=3333
+   km_gdb_default_port=2159
    # start KM in background, give it time to start, and connect with gdb cliennt
    km_with_timeout -g gdb_test.km &
    gdb_pid=`jobs -p` ; sleep 0.5
@@ -217,7 +217,7 @@ teardown() {
 }
 
 @test "gdb_signal: gdb signal support (stray_test)" {
-   km_gdb_default_port=3333
+   km_gdb_default_port=2159
    # Test with signals
    km_with_timeout -g stray_test.km signal &
    gdb_pid=`jobs -p` ; sleep 0.5
