@@ -171,9 +171,21 @@ static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
    }
 
    if (busy == 0) {
+      if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, PROT_NONE) != 0) {
+         warn("Failed to mprotect addr 0x%lx sz 0x%lx prot NONE)", reg->start, reg->size);
+      }
       km_mmap_concat_free(reg);
+   } else {
+      if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, reg->protection) != 0) {
+         warn("Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)", reg->start, reg->size, reg->protection);
+      }
+      // TODO: try to consolidate busy list if flags/prot match
    }
-   // TODO: try to consolidate busy list if flags/prot match
+   km_infox(KM_TRACE_MEM,
+            "mprotect(0x%lx, 0x%lx, flag 0x%x)",
+            reg->start,
+            reg->size,
+            busy ? reg->protection : PROT_NONE);
 }
 
 // Insert a region into the BUSY MMAPS list. Expects 'reg' to be malloced
@@ -224,6 +236,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
       } else {   // full chunk is reused -
          km_mmaps_remove_free(reg);
       }
+      carved->protection = prot;
       km_mmaps_insert_busy(carved);
       mmaps_unlock();
       return carved->start;
