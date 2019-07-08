@@ -594,14 +594,8 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
          km_free_region(idx, 1);
       }
    }
-   fixup_top_page_tables(machine.tbrk, tbrk);
-   km_gva_t oldpage = machine.tbrk;
-   km_gva_t newpage = tbrk;
-   if (oldpage < newpage) {
-      mprotect(km_gva_to_kma_nocheck(oldpage), newpage - oldpage, PROT_NONE);
-   } else if (newpage < oldpage) {
-      mprotect(km_gva_to_kma_nocheck(newpage), oldpage - newpage, PROT_READ | PROT_WRITE);
-   }
+   fixup_top_page_tables(machine.tbrk, tbrk);   // fix in-guest page tables used/unused flag
+   // Note: below-tbrk mprotect is managed in guest mmaps (km_mmap.c), so here we just move tbrk up/down.
    machine.tbrk = tbrk;
    km_mem_unlock();
    return error == 0 ? tbrk : -error;

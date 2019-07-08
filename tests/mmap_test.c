@@ -14,6 +14,8 @@
 #include <err.h>
 #include <errno.h>
 #include <getopt.h>
+#include <setjmp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -204,6 +206,57 @@ TEST mmap_from_free()
    PASS();
 }
 
+static jmp_buf jbuf;
+
+void signal_handler(int signal)
+{
+   if (signal != SIGSEGV) {
+      err(2, "Unexpected signal caught: %d", signal);
+   }
+   longjmp(jbuf, SIGSEGV);   // reusing SIGSEGV as setjmp() return
+}
+
+// test that (1) munmapped memory is access protected (2) we honor mmap prot flag
+TEST mmap_protect()
+{
+   void *addr, *addr1;
+   int ret;
+
+   signal(SIGSEGV, signal_handler);
+   // get mmap, carve 1MIB munmapped section and try to access it. Should call the handler
+   addr = mmap(0, 200 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   ASSERT_NOT_EQ_FMT(MAP_FAILED, addr, "%p");
+   addr1 = addr + 10 * MIB;
+   ASSERT_EQ_FMTm("Unmap from the middle", 0, munmap(addr1, 1 * MIB), "%d");
+   if ((ret = setjmp(jbuf)) == 0) {
+      strcpy((char*)addr1, "writing to unmapped area");
+      FAILm("Write successful and should be not");
+   } else {
+      ASSERT_EQm("Did not get expected signal", ret, SIGSEGV);
+      printf("Handled SIGSEGV on unmmaped mem successfully... continuing...\n");
+   }
+   // now lets' check we respect PROT flags
+   void* mapped = mmap(0, 1 * MIB, PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   ASSERT_EQ_FMT(addr1, mapped, "%p");   // we expect to grab the btarea just released
+   uint8_t buf[1024];
+   memcpy(buf, (uint8_t*)addr1, sizeof(buf));   // read should succeed
+   if ((ret = setjmp(jbuf)) == 0) {
+      strcpy((char*)addr1, "writing to write-protected area");   // write should fail
+      FAILm("Write successful and should be not");
+   } else {
+      ASSERT_EQm("Did not get expected signal", ret, SIGSEGV);
+      printf("Handled SIGSEGV on write-protected mem violation... continuing...\n");
+   }
+
+   // now unmap the leftovers
+   ASSERT_EQ_FMTm("Unmap head", 0, munmap(addr, 10 * MIB), "%d");
+   ASSERT_EQ_FMTm("Unmap from the middle again", 0, munmap(addr1, 1 * MIB), "%d");
+   ASSERT_EQ_FMTm("Unmap tail", 0, munmap(addr1 + 1 * MIB, 200 * MIB - 10 * MIB - MIB), "%d");
+
+   signal(SIGSEGV, SIG_DFL);
+   PASS();
+}
+
 /* Inserts misc defintions */
 GREATEST_MAIN_DEFS();
 
@@ -222,6 +275,9 @@ int main(int argc, char** argv)
 
    printf("Testing mmap() from free areas\n");
    RUN_TEST(mmap_from_free);
+
+   printf("Testing protection for unmapped area\n");
+   RUN_TEST(mmap_protect);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
