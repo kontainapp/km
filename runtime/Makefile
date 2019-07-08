@@ -24,7 +24,7 @@ SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix 
 
 KM_REPLACED_SRCS := syscall.s __libc_start_main.c __init_tls.c pthread_create.c pthread_join.c uname.c getenv.c \
 					__reset_tls.c
-KM_EXTRA_SRCS := start_c_km.c syscall_km.c syscall_cp_km.c pthread_create_km.c pthread_exit_km.c pthread_join_km.c \
+KM_EXTRA_SRCS := start_c_km.c syscall_km.c pthread_create_km.c pthread_exit_km.c pthread_join_km.c \
 					uname_km.c runtime_stub_km.c chk_stub_km.c cxa_thread_atexit_km.c getenv_km.c x86_sigaction.s
 
 KM_PTHREAD_OBJS := pthread_cond_broadcast.o pthread_cond_destroy.o pthread_cond_signal.o pthread_cond_wait.o \
