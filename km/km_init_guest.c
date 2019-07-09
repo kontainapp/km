@@ -188,7 +188,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    tcb = rounddown(map_base + GUEST_STACK_SIZE - sizeof(km_pthread_t), MIN_TLS_ALIGN);
 
    if (libc != 0) {
-      libc_kma = km_gva_to_kma(libc);
+      libc_kma = km_gva_to_kma_nocheck(libc);
       libc_kma->auxv = NULL;   // for now
       libc_kma->page_size = KM_PAGE_SIZE;
       libc_kma->secure = 1;
@@ -206,15 +206,15 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    km_main_tls.align = MAX(km_main_tls.align, MIN_TLS_ALIGN);
    km_gva_t tls = rounddown(tcb - km_main_tls.size, km_main_tls.align);
    dtv = rounddown(tls - 2 * sizeof(void*), sizeof(void*));
-   dtv_kma = km_gva_to_kma(dtv);
+   dtv_kma = km_gva_to_kma_nocheck(dtv);
    dtv_kma[0] = 1;   // static executable
    dtv_kma[1] = tls;
    km_main_tls.offset = tcb - tls;
    if (km_main_tls.len != 0) {
-      memcpy(km_gva_to_kma(tls), km_main_tls.image, km_main_tls.len);
+      memcpy(km_gva_to_kma_nocheck(tls), km_main_tls.image, km_main_tls.len);
    }
 
-   tcb_kma = km_gva_to_kma(tcb);
+   tcb_kma = km_gva_to_kma_nocheck(tcb);
    tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)dtv;
    tcb_kma->locale = libc != 0 ? &((km__libc_t*)libc)->global_locale : NULL;
    tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
@@ -225,7 +225,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
 
    char* argv_km[argc + 1];   // argv to copy to guest stack_init
    km_gva_t stack_top = dtv;
-   km_kma_t stack_top_kma = km_gva_to_kma(stack_top);
+   km_kma_t stack_top_kma = km_gva_to_kma_nocheck(stack_top);
 
    argv_km[argc] = NULL;
    for (argc--; argc >= 0; argc--) {
@@ -240,7 +240,7 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
       strncpy(stack_top_kma, argv[argc], len);
    }
    stack_top = rounddown(stack_top, sizeof(void*));
-   stack_top_kma = km_gva_to_kma(stack_top);
+   stack_top_kma = km_gva_to_kma_nocheck(stack_top);
    static const int size_of_empty_aux_and_env = 4 * sizeof(void*);
    stack_top -= size_of_empty_aux_and_env;
    stack_top_kma -= size_of_empty_aux_and_env;
@@ -311,7 +311,7 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
    km_gva_t dtv;
 
    assert(km_guest.km_tsd_size != 0);
-   tsd_size = *(size_t*)km_gva_to_kma(km_guest.km_tsd_size);
+   tsd_size = *(size_t*)km_gva_to_kma_nocheck(km_guest.km_tsd_size);
    assert(tsd_size <= sizeof(void*) * PTHREAD_KEYS_MAX &&
           tsd_size == rounddown(tsd_size, sizeof(void*)));
 
@@ -326,18 +326,18 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
       return 0;
    }
    tsd = map_base + map_size - tsd_size;   // aligned because mmap and assert tsd_size above
-   memset(km_gva_to_kma(tsd), 0, tsd_size);
+   memset(km_gva_to_kma_nocheck(tsd), 0, tsd_size);
    tcb = rounddown(tsd - sizeof(km_pthread_t), MIN_TLS_ALIGN);
-   tcb_kma = km_gva_to_kma(tcb);
+   tcb_kma = km_gva_to_kma_nocheck(tcb);
    memset(tcb_kma, 0, sizeof(km_pthread_t));
 
    km_gva_t tls = rounddown(tcb - km_main_tls.size, km_main_tls.align);
    dtv = rounddown(tls - 2 * sizeof(void*), sizeof(void*));
-   dtv_kma = km_gva_to_kma(dtv);
+   dtv_kma = km_gva_to_kma_nocheck(dtv);
    dtv_kma[0] = 1;   // static executable
    dtv_kma[1] = tls;
    if (km_main_tls.len != 0) {
-      memcpy(km_gva_to_kma(tls), km_main_tls.image, km_main_tls.len);
+      memcpy(km_gva_to_kma_nocheck(tls), km_main_tls.image, km_main_tls.len);
    }
 
    tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)dtv;
@@ -519,7 +519,7 @@ int km_pthread_join(km_vcpu_t* current_vcpu, pthread_tid_t pid, km_kma_t ret)
 
 void km_vcpu_detach(km_vcpu_t* vcpu)
 {
-   km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
+   km_pthread_t* pt_kma = km_gva_to_kma_nocheck(vcpu->guest_thr);
    pt_kma->detach_state = DT_DETACHED;
 }
 

@@ -211,6 +211,15 @@ static inline void km_mmaps_remove_busy(km_mmap_reg_t* reg)
    TAILQ_REMOVE(&mmaps.busy, reg, link);
 }
 
+/*
+ * Maps an address range in guest virtual space.
+ *
+ * TODO: check flags. Use the gva if specified.
+ *
+ * Returns mapped addres on success, or -errno on failure.
+ * -EINVAL if the args are not valid
+ * -ENOMEM if fails to allocate memory
+ */
 km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
 {
    km_gva_t ret;
@@ -220,7 +229,6 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
       return ret;
    }
    mmaps_lock();
-   // TODO: check flags
    if ((reg = km_mmap_find_free(size)) != NULL) {
       // found a free chunk with enough room, carve requested space from it
       km_mmap_reg_t* carved = reg;
@@ -263,13 +271,10 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
 }
 
 /*
- * Un-maps an  address from guest virtual space.
+ * Un-maps an address range from guest virtual space.
  *
  * TODO - manage unmap() which cover non-mapped regions, or more than 1 region.
  * For now un-maps only full or part of a region previously mapped.
- *
- * TODO - manipulate km-level mprotect() to match guest-mapped areas, to prevent access to not
- * mapped memory in the guest
  *
  * Returns 0 on success.
  * -EINVAL if the part of the FULL requested region is not mapped
@@ -403,6 +408,9 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr, km_guest.km_phdr[i].p_memsz);
    }
    TAILQ_FOREACH (ptr, &mmaps.busy, link) {
+      if ((ptr->protection & PROT_READ) != PROT_READ) {
+         mprotect(km_gva_to_kma_nocheck(ptr->start), ptr->size, ptr->protection | PROT_READ);
+      }
       km_guestmem_write(fd, ptr->start, ptr->size);
    }
 

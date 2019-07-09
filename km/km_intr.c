@@ -75,7 +75,7 @@ void km_init_guest_idt(km_gva_t handlers_gva)
    if ((gdt_base = km_guest_mmap_simple(KM_PAGE_SIZE)) < 0) {
       err(1, "Failed to allocate guest IDT memory");
    }
-   gdt = (x86_seg_d_t*)km_gva_to_kma(gdt_base);
+   gdt = (x86_seg_d_t*)km_gva_to_kma_nocheck(gdt_base);
    gdt[1].limit_lo = 0xffff;
    gdt[1].type = 0xa;   // code, conforming
    gdt[1].s = 1;        // system segment
@@ -92,7 +92,7 @@ void km_init_guest_idt(km_gva_t handlers_gva)
    if ((idt_base = km_guest_mmap_simple(X86_IDT_SIZE)) < 0) {
       err(1, "Failed to allocate guest IDT memory");
    }
-   idte = (x86_idt_entry_t*)km_gva_to_kma(idt_base);
+   idte = (x86_idt_entry_t*)km_gva_to_kma_nocheck(idt_base);
 
    for (int i = 0; i < X86_IDT_NENTRY; i++) {
       build_idt_entry(&idte[i], handlers_gva, 1);
@@ -134,7 +134,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
    km_read_registers(vcpu);
    km_read_sregisters(vcpu);
 
-   uint64_t* rsp_kma = km_gva_to_kma(vcpu->regs.rsp);
+   uint64_t* rsp_kma = km_gva_to_kma_nocheck(vcpu->regs.rsp);
    uint64_t error_code = 0;
    x86_interrupt_frame_t* iframe = (x86_interrupt_frame_t*)rsp_kma;
    if (error_included[enumber]) {

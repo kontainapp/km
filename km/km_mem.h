@@ -177,15 +177,21 @@ static inline uint64_t memreg_size(int idx)
 }
 
 /*
- * Translates guest virtual address to km address.
+ * Translates guest virtual address to km address, assuming the guest address is valid.
+ * To be used to make it obvious that gva is *known* to be valid.
  * @param gva Guest virtual address
- * @returns Address in KM. returns NULL if guest VA is invalid.
+ * @returns Address in KM
  */
 static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
 {
    return KM_USER_MEM_BASE + gva_to_gpa(gva);
 }
 
+/*
+ * Translates guest virtual address to km address, checking for validity.
+ * @param gva Guest virtual address
+ * @returns Address in KM. returns NULL if guest VA is invalid.
+ */
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
    if (gva < GUEST_MEM_START_VA || (machine.brk <= gva && gva < machine.tbrk) ||

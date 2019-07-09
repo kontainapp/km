@@ -237,7 +237,7 @@ void km_guestmem_write(int fd, km_gva_t base, size_t length)
    while (remain > 0) {
       size_t wsz = MIN(remain, maxwrite);
 
-      km_core_write(fd, km_gva_to_kma(current), wsz);
+      km_core_write(fd, km_gva_to_kma_nocheck(current), wsz);
       current += wsz;
       remain -= wsz;
    }
