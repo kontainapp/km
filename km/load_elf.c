@@ -70,7 +70,7 @@ static void load_extent(int fd, const GElf_Phdr* phdr)
 
    Elf64_Xword p_memsz = phdr->p_memsz;
    Elf64_Xword p_filesz = phdr->p_filesz;
-   km_kma_t addr = km_gva_to_kma(phdr->p_paddr);
+   km_kma_t addr = km_gva_to_kma_nocheck(phdr->p_paddr);
    uint64_t extra = addr - (km_kma_t)rounddown((uint64_t)addr, KM_PAGE_SIZE);
    my_mmap(fd, addr - extra, p_filesz + extra, phdr->p_offset - extra);
    memset(addr + p_filesz, 0, p_memsz - p_filesz);

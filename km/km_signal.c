@@ -295,7 +295,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    km_read_registers(vcpu);
 
    km_gva_t sframe_gva = vcpu->regs.rsp - RED_ZONE - sizeof(km_signal_frame_t);
-   km_signal_frame_t* frame = km_gva_to_kma(sframe_gva);
+   km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
 
    memcpy(&frame->info, info, sizeof(siginfo_t));
    memcpy(&frame->regs, &vcpu->regs, sizeof(vcpu->regs));
@@ -357,7 +357,7 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
     *       leak information into guest.
     */
    memcpy(&vcpu->regs,
-          km_gva_to_kma(vcpu->regs.rsp - sizeof(uint64_t) + offsetof(km_signal_frame_t, regs)),
+          km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(uint64_t) + offsetof(km_signal_frame_t, regs)),
           sizeof(vcpu->regs));
    km_write_registers(vcpu);
 }

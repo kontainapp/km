@@ -446,12 +446,13 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
       ga -= 4 * GIB;
    }
    km_infox(KM_TRACE_HC, "hc = %d", *hc);
-   if (km_gva_to_kma(ga) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
+   km_kma_t ga_kma;
+   if ((ga_kma = km_gva_to_kma(ga)) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
       siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
       km_post_signal(vcpu, &info);
       return -1;
    }
-   return km_hcalls_table[*hc](vcpu, *hc, km_gva_to_kma(ga), status);
+   return km_hcalls_table[*hc](vcpu, *hc, ga_kma, status);
 }
 
 static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
