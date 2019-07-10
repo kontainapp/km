@@ -12,7 +12,7 @@
  * Generates exceptions in guest in order to test guest coredumps.
  */
 #include <assert.h>
-#include <errno.h>
+#include <err.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
@@ -24,6 +24,8 @@
 
 #include "km_hcalls.h"
 #include "syscall.h"
+
+#define MIB (1024ul * 1024ul)
 
 char* cmdname = "?";
 
@@ -116,17 +118,25 @@ int main(int argc, char** argv)
 
    pthread_mutex_lock(&mt);
    if (pthread_create(&thr, NULL, thread_main, NULL) != 0) {
-      fprintf(stderr, "pthread_create failed - %d\n", errno);
-      return 1;
+      err(1, "pthread_create failed");
    }
 
    /*
     * Map a fairly large region to force the coredump to do a large write.
     */
-   if (mmap(0, 10 * 1024 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0) ==
-       MAP_FAILED) {
-      fprintf(stderr, "large mmap failed");
-      return 1;
+   if (mmap(0, 10 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0) == MAP_FAILED) {
+      errx(1, "large mmap failed");
+   }
+
+   /*
+    * Make sure we have a couple of non-readable maps
+    */
+   if (mmap(0, 200 * MIB, PROT_NONE, MAP_SHARED | MAP_ANONYMOUS, -1, 0) == MAP_FAILED) {
+      errx(1, "large PROT_NONE mmap ");
+   }
+
+   if (mmap(0, 10 * MIB, PROT_EXEC, MAP_SHARED | MAP_ANONYMOUS, -1, 0) == MAP_FAILED) {
+      errx(1, "large PROT_NONE mmap ");
    }
 
    if (strcmp(op, "stray") == 0) {
