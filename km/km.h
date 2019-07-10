@@ -284,6 +284,7 @@ extern km_info_trace_t km_info_trace;
 #define KM_TRACE_VCPU "vcpu"
 #define KM_TRACE_KVM "kvm"
 #define KM_TRACE_MEM "mem"
+#define KM_TRACE_MMAP "mmap"
 #define KM_TRACE_COREDUMP "coredump"
 #define KM_TRACE_SIGNALS "signals"
 

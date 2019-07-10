@@ -6,7 +6,7 @@ if [ ! -d node ]; then
     git clone https://github.com/nodejs/node.git -b v12.4.0
     pushd node
     patch -p1 < ../openssl.patch
-    ./configure --fully-static
+    ./configure --fully-static --gdb --debug
 else
     pushd node
 fi
