@@ -420,11 +420,15 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       km_kma_t start = km_gva_to_kma_nocheck(ptr->start);
       // make sure we can read the mapped memory (e.g. it can be EXEC only)
       if ((ptr->protection & PROT_READ) != PROT_READ) {
-         assert(mprotect(start, ptr->size, ptr->protection | PROT_READ) == 0);
+         if (mprotect(start, ptr->size, ptr->protection | PROT_READ) != 0) {
+            err(1, "%s: failed to make %p,0x%lx readable for dump", __FUNCTION__, start, ptr->size);
+         }
       }
       km_guestmem_write(fd, ptr->start, ptr->size);
       // recover protection, in case it's a live coredump and we are not exiting yet
-      assert(mprotect(start, ptr->size, ptr->protection) == 0);
+      if (mprotect(start, ptr->size, ptr->protection) != 0) {
+         err(1, "%s: failed to set %p,0x%lx prot to 0x%x", __FUNCTION__, start, ptr->size, ptr->protection);
+      }
    }
 
    free(notes_buffer);
