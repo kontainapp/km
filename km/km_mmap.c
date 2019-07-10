@@ -66,15 +66,32 @@ void km_guest_mmap_init(void)
    TAILQ_INIT(&mmaps.busy);
 }
 
+// Checks for stuff we do not support.
 static inline int
 mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
 {
-   // block all stuff we do not support yet.
-   // TODO: We don't support address hints either, we simply ignore it for now.
-   if (fd != -1 || offset != 0 || flags & MAP_FIXED) {
+   if (addr != 0) {   // TODO: We don't support address hints either, we simply ignore it for now.
+      km_infox(KM_TRACE_MMAP, "Ignoring mmap hint 0x%lx", addr);
+   }
+   if (fd != -1 || offset != 0 || flags & (MAP_FIXED | MAP_FIXED_NOREPLACE)) {
+      km_infox(KM_TRACE_MMAP, "mmap: wrong fd, offset or flags");
       return -EINVAL;
    }
    if (size % KM_PAGE_SIZE != 0) {
+      km_infox(KM_TRACE_MMAP, "mmap: size misaligned");
+      return -EINVAL;
+   }
+   if (size >= GUEST_MEM_ZONE_SIZE_VA) {
+      km_infox(KM_TRACE_MMAP, "mmap: size is too large");
+      return -ENOMEM;
+   }
+   return 0;
+}
+
+static inline int mumap_check_params(km_gva_t addr, size_t size)
+{
+   if (addr != roundup(addr, KM_PAGE_SIZE) || size == 0) {
+      km_infox(KM_TRACE_MMAP, "munmap EINVAL 0x%lx size 0x%lx", addr, size);
       return -EINVAL;
    }
    return 0;
@@ -93,62 +110,57 @@ static km_mmap_reg_t* km_mmap_find_free(size_t size)
    return NULL;
 }
 
-// find a mmap segment containing the addr in the sorted busy list
-static km_mmap_reg_t* km_mmap_find_busy(km_gva_t addr)
+// calls mprotect on a single mmap region
+static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
 {
-   km_mmap_reg_t* ptr;
-
-   TAILQ_FOREACH (ptr, &mmaps.busy, link) {
-      if (ptr->start <= addr && addr < ptr->start + ptr->size) {
-         return ptr;
-      }
+   if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, reg->protection) != 0) {
+      warn("%s: Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)",
+           __FUNCTION__,
+           reg->start,
+           reg->size,
+           reg->protection);
    }
-   return NULL;
+}
+
+// return 1 if ok to concat. Relies on 'free' mmaps all having 0 in protection and flags
+static inline int ok_to_concat(km_mmap_reg_t* left, km_mmap_reg_t* right)
+{
+   return ((left->start + left->size == right->start) && left->protection == right->protection &&
+           left->flags == right->flags);
 }
 
 /*
- * Try to glue with left and/or right region from 'reg'.
- * 'Reg' is assumed to be in free list already.
- * When the regions are concat together, the excess ones are freed and removed fron the list
+ * Concatenate 'reg' mmap with left and/or right neighbor in the 'list', if they have the
+ * same properties. Remove from the list and free the excess the neighbors.
  */
-static inline void km_mmap_concat_free(km_mmap_reg_t* reg)
+static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
 {
-   km_mmap_list_t* list = &mmaps.free;
    km_mmap_reg_t* left = TAILQ_PREV(reg, km_mmap_list, link);
    km_mmap_reg_t* right = TAILQ_NEXT(reg, link);
 
-   if (left != NULL && (left->start + left->size == reg->start)) {
-      left->size += reg->size;
-      if (right != NULL && (reg->start + reg->size == right->start)) {
-         left->size += right->size;
+   if (left != NULL && ok_to_concat(left, reg) == 1) {
+      if (right != NULL && ok_to_concat(reg, right) == 1) {
+         reg->size += right->size;
          TAILQ_REMOVE(list, right, link);
          free(right);
       }
-      TAILQ_REMOVE(list, reg, link);
-      free(reg);
-   } else if (right != NULL && (reg->start + reg->size == right->start)) {
+      reg->start = left->start;
+      reg->size += left->size;
+      TAILQ_REMOVE(list, left, link);
+      free(left);
+   } else if (right != NULL && ok_to_concat(reg, right) == 1) {
       right->start = reg->start;
-      right->size += reg->size;
-      TAILQ_REMOVE(list, reg, link);
-      free(reg);
-   }
-
-   // adjust tbrk() if needed
-   if ((reg = TAILQ_FIRST(list))->start == km_mem_tbrk(0)) {
-      km_mem_tbrk(reg->start + reg->size);
-      TAILQ_REMOVE(list, reg, link);
-      free(reg);
+      reg->size += right->size;
+      TAILQ_REMOVE(list, right, link);
+      free(right);
    }
 }
 
 /*
  * Inserts region into the list sorted by reg->start.
- * Also compresses the list/adjusts tbrk for free list
- * 'busy' == 1 for insert into BUSY list, 0 for insert into FREE list.
  */
-static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
+static inline void km_mmap_insert(km_mmap_reg_t* reg, km_mmap_list_t* list)
 {
-   km_mmap_list_t* list = busy ? &mmaps.busy : &mmaps.free;
    km_mmap_reg_t* ptr;
 
    if (TAILQ_EMPTY(list)) {
@@ -169,48 +181,72 @@ static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
          TAILQ_INSERT_BEFORE(ptr, reg, link);
       }
    }
+   km_mmap_mprotect_region(reg);
+}
 
-   if (busy == 0) {
-      if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, PROT_NONE) != 0) {
-         warn("Failed to mprotect addr 0x%lx sz 0x%lx prot NONE)", reg->start, reg->size);
-      }
-      km_mmap_concat_free(reg);
-   } else {
-      if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, reg->protection) != 0) {
-         warn("Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)", reg->start, reg->size, reg->protection);
-      }
-      // TODO: try to consolidate busy list if flags/prot match
+// Insert a region into the BUSY MMAPS with proper protection. Expects 'reg' to be malloced
+static inline void km_mmap_insert_busy(km_mmap_reg_t* reg)
+{
+   km_mmap_insert(reg, &mmaps.busy);
+}
+
+// Insert 'reg' into the FREE MMAPS with PROT_NONE, and compress maps/tbrk. Expects 'reg' to be malloced
+static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
+{
+   km_mmap_list_t* list = &mmaps.free;
+
+   reg->protection = PROT_NONE;
+   reg->flags = 0;
+   km_mmap_insert(reg, list);
+   km_mmap_concat(reg, list);
+   if (reg->start == km_mem_tbrk(0)) {   // adjust tbrk() if needed
+      km_mem_tbrk(reg->start + reg->size);
+      TAILQ_REMOVE(list, reg, link);
+      free(reg);
    }
-   km_infox(KM_TRACE_MEM,
-            "mprotect(0x%lx, 0x%lx, flag 0x%x)",
-            reg->start,
-            reg->size,
-            busy ? reg->protection : PROT_NONE);
 }
 
-// Insert a region into the BUSY MMAPS list. Expects 'reg' to be malloced
-static inline void km_mmaps_insert_busy(km_mmap_reg_t* reg)
-{
-   km_mmaps_insert(reg, 1);
-}
-
-// Insert a region into the FREE MMAPS list, and compress maps/tbrk. Expects 'reg' to be malloced
-static inline void km_mmaps_insert_free(km_mmap_reg_t* reg)
-{
-   km_mmaps_insert(reg, 0);
-}
-
-// Remove an element from a list. In the list, this does not depend on list head
-static inline void km_mmaps_remove_free(km_mmap_reg_t* reg)
-{
-   TAILQ_REMOVE(&mmaps.free, reg, link);
-}
-
-static inline void km_mmaps_remove_busy(km_mmap_reg_t* reg)
+static inline void km_mmap_remove_busy(km_mmap_reg_t* reg)
 {
    TAILQ_REMOVE(&mmaps.busy, reg, link);
 }
 
+// Remove an element from a list. In the list, this does not depend on list head
+static inline void km_mmap_remove_free(km_mmap_reg_t* reg)
+{
+   TAILQ_REMOVE(&mmaps.free, reg, link);
+}
+
+// moves existing mmap region from busy to free
+static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
+{
+   km_mmap_remove_busy(reg);
+   km_mmap_insert_free(reg);
+}
+
+// moves existing mmap region from busy to free
+static inline void km_mmaps_move_to_busy(km_mmap_reg_t* reg)
+{
+   km_mmap_remove_free(reg);
+   km_mmap_insert_busy(reg);
+}
+
+static inline void km_mmap_busy_collapse(void)
+{
+   km_mmap_reg_t *reg, *next, *last = NULL;
+   TAILQ_FOREACH_SAFE (reg, &mmaps.busy, link, next) {
+      if (last == NULL) {
+         last = reg;
+         continue;
+      }
+      if (last->start + last->size == reg->start && last->flags == reg->flags &&
+          last->protection == reg->protection) {
+         last->size += reg->size;
+         TAILQ_REMOVE(&mmaps.busy, reg, link);
+         free(reg);
+      }
+   }
+}
 /*
  * Maps an address range in guest virtual space.
  *
@@ -225,56 +261,105 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    km_gva_t ret;
    km_mmap_reg_t* reg;
 
+   km_infox(KM_TRACE_MMAP, "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x)", gva, size, prot, flags);
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
    mmaps_lock();
-   if ((reg = km_mmap_find_free(size)) != NULL) {
-      // found a free chunk with enough room, carve requested space from it
-      km_mmap_reg_t* carved = reg;
-      if (reg->size > size) {   // keep extra space in free list
-         if ((carved = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+   if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
+      if (reg->size > size) {                       // free mmap has extra room to be kept in 'free'
+         km_mmap_reg_t* busy;
+         if ((busy = malloc(sizeof(km_mmap_reg_t))) == NULL) {
             mmaps_unlock();
             return -ENOMEM;
          }
-         memcpy(carved, reg, sizeof(km_mmap_reg_t));
-         carved->size = size;
-         reg->start += size;
+         memcpy(busy, reg, sizeof(km_mmap_reg_t));
+         reg->start += size;   // patch the region in 'free' list to keep only extra room
          reg->size -= size;
-      } else {   // full chunk is reused -
-         km_mmaps_remove_free(reg);
+         busy->size = size;
+         reg = busy;   // it will be inserted into 'busy' list
+      } else {         // the 'free' mmap has exactly the requested size
+         assert(reg->size == size);
+         km_mmap_remove_free(reg);
       }
-      carved->protection = prot;
-      km_mmaps_insert_busy(carved);
-      mmaps_unlock();
-      return carved->start;
+   } else {   // nothing useful in the free list, get fresh memory by moving tbrk down
+      if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+         mmaps_unlock();
+         return -ENOMEM;
+      }
+      km_gva_t want = machine.tbrk - size;
+      if ((ret = km_mem_tbrk(want)) != want) {
+         mmaps_unlock();
+         free(reg);
+         return ret;
+      }
+      reg->start = ret;   //  place requested mmap region in the newly allocated memory
+      reg->size = size;
    }
-
-   // nothing useful in the free list, get fresh memory by moving tbrk down
-   if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-      mmaps_unlock();
-      return -ENOMEM;
-   }
-   km_gva_t want = machine.tbrk - size;
-   if ((ret = km_mem_tbrk(want)) != want) {
-      mmaps_unlock();
-      free(reg);
-      return ret;
-   }
-   reg->start = ret;   //  place requested mmap region in the newly allocated memory
    reg->flags = flags;
    reg->protection = prot;
-   reg->size = size;
-   km_mmaps_insert_busy(reg);
+   km_mmap_insert_busy(reg);
+   km_gva_t new_map_start = reg->start;   // note: 'reg' can be modified during collapse
+   km_mmap_busy_collapse();
    mmaps_unlock();
-   return reg->start;
+   return new_map_start;
+}
+
+typedef void (*km_mmap_action)(km_mmap_reg_t* reg);   // action type to apply to mmaps within the range
+/*
+ * Apply 'action(reg)' to all mmap regions completely within the (addr, addr+size-1) range in 'busy'
+ * mmaps. If needed splits the mmaps at the ends - new maps are also updated to have protection
+ * 'prot',
+ *
+ * Returns 0 on success or -errno
+ */
+static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int prot)
+{
+   km_mmap_reg_t *reg, *next, *extra;
+
+   TAILQ_FOREACH_SAFE (reg, &mmaps.busy, link, next) {
+      if (reg->start + reg->size <= addr) {
+         continue;   // skip all to the left of addr
+      }
+      if (reg->start >= addr + size) {
+         break;   // we passed the range and are done
+      }
+      if (reg->start < addr) {   // overlaps on the start
+         if ((extra = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+            mmaps_unlock();
+            return -ENOMEM;
+         }
+         memcpy(extra, reg, sizeof(*reg));
+         reg->size = addr - reg->start;   // left part
+         extra->start = addr;             // right part
+         extra->size -= reg->size;
+         km_mmap_insert_busy(extra);   // TODO - allow 'insert_busy_after'
+         next = extra;                 // handle the freshly inserted mmap
+         continue;
+      }
+      if (reg->start + reg->size > addr + size) {   // overlaps on the end
+         if ((extra = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+            mmaps_unlock();
+            return -ENOMEM;
+         }
+         memcpy(extra, reg, sizeof(*reg));
+         extra->size = addr + size - extra->start;   // left part
+         reg->start = addr + size;                   // right part
+         reg->size -= extra->size;
+         km_mmap_insert_busy(extra);
+         next = extra;   // handle the freshly inserted mmap
+         continue;
+      }
+      assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range
+      reg->protection = prot;
+      action(reg);
+   }
+   return 0;
 }
 
 /*
- * Un-maps an address range from guest virtual space.
- *
- * TODO - manage unmap() which cover non-mapped regions, or more than 1 region.
- * For now un-maps only full or part of a region previously mapped.
+ * Unmaps address range in guest virtual space.
+ * Per per munmap(3) it is ok if some pages within the range were already unmapped.
  *
  * Returns 0 on success.
  * -EINVAL if the part of the FULL requested region is not mapped
@@ -282,57 +367,80 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
  */
 int km_guest_munmap(km_gva_t addr, size_t size)
 {
-   km_mmap_reg_t *reg = NULL, *head = NULL, *tail = NULL;
-   km_gva_t head_start, tail_start;
-   size_t head_size, tail_size;
+   int ret;
 
+   km_infox(KM_TRACE_MMAP, "munmap guest(0x%lx, 0x%lx)", addr, size);
    size = roundup(size, KM_PAGE_SIZE);
+   if ((ret = mumap_check_params(addr, size)) != 0) {
+      return ret;
+   }
    mmaps_lock();
-   if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL || (addr + size > reg->start + reg->size)) {
-      mmaps_unlock();
-      return -EINVAL;   // unmap start and end have to be in a single mapped region, for now
-   }
-   // Calculate head and tail regions (possibly of 0 size). If not empty, they would stay in busy list.
-   head_start = reg->start;
-   head_size = addr - head_start;
-   tail_start = addr + size;
-   tail_size = reg->start + reg->size - tail_start;
-   if (head_size > 0 && (head = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-      mmaps_unlock();
-      return -ENOMEM;
-   }
-   if (tail_size > 0 && ((tail = malloc(sizeof(km_mmap_reg_t))) == NULL)) {
-      if (head != NULL) {
-         free(head);
-      }
-      mmaps_unlock();
-      return -ENOMEM;
-   }
-   reg->start += head_size;
-   reg->size -= (head_size + tail_size);
-   if (head != NULL) {
-      memcpy(head, reg, sizeof(*head));
-      head->start = head_start;
-      head->size = head_size;
-      km_mmaps_insert_busy(head);
-   }
-   if (tail != NULL) {
-      memcpy(tail, reg, sizeof(*tail));
-      tail->start = tail_start;
-      tail->size = tail_size;
-      km_mmaps_insert_busy(tail);
-   }
+   ret = km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
+   mmaps_unlock();
+   return ret;
+}
 
-   km_mmaps_remove_busy(reg);   // move from busy to free list. No need to free reg, it will be reused
-   km_mmaps_insert_free(reg);
+/*
+ * Checks if busy mmaps are contiguous from `addr' `end' region.
+ * Return 0 if they are, -1 if they are not.
+ */
+static int km_mmap_busy_check_contigious(km_gva_t addr, size_t size)
+{
+   km_mmap_reg_t* reg;
+   km_gva_t last_end = 0;
+
+   TAILQ_FOREACH (reg, &mmaps.busy, link) {
+      if (reg->start + reg->size < addr) {
+         continue;
+      }
+      if (reg->start > addr + size) {
+         if (last_end >= addr + size) {
+            return 0;
+         }
+         return -1;   // gap at the end of the range
+      }
+      if ((last_end != 0 && last_end != reg->start) || (last_end == 0 && reg->start > addr)) {
+         return -1;   // gap in the beginning or before current reg
+      }
+      last_end = reg->start + reg->size;
+   }
+   return 0;
+}
+
+/*
+ * Changes protection for contigious range of mmap-ed memory.
+ * returns 0 (success) or -errno per mprotect(3)
+ */
+int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
+{
+   km_infox(KM_TRACE_MMAP, "mprotect guest(0x%lx 0x%lx prot %x)", addr, size, prot);
+   if ((prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC | PROT_GROWSDOWN | PROT_GROWSUP)) != 0) {
+      return -EINVAL;
+   }
+   if (addr != rounddown(addr, KM_PAGE_SIZE) || (size = roundup(size, KM_PAGE_SIZE)) == 0) {
+      return -EINVAL;
+   }
+   mmaps_lock();
+   // Per mprotect(3) if there are un-mmaped pages in the area, error out with ENOMEM
+   if (km_mmap_busy_check_contigious(addr, size) != 0) {
+      km_infox(KM_TRACE_MMAP, "mprotect area not fully mapped");
+      mmaps_unlock();
+      return -ENOMEM;
+   }
+   if (km_mmap_busy_range_apply(addr, size, km_mmap_mprotect_region, prot) != 0) {
+      mmaps_unlock();
+      return -ENOMEM;
+   }
+   km_mmap_busy_collapse();
    mmaps_unlock();
    return 0;
 }
 
-// TODO - implement :-)
+// TODO - implement
 km_gva_t
 km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... /* void *new_address */)
 {
+   km_infox(KM_TRACE_MMAP, "mremap(0x%lx, 0x%lx, size 0x%lx)", old_addr, old_size, size);
    return -ENOTSUP;
 }
 

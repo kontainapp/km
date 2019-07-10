@@ -388,7 +388,13 @@ void km_deliver_signal(km_vcpu_t* vcpu)
          km_dump_core(vcpu, NULL);
          core_dumped = 1;
       }
-      errx(info.si_signo, "guest: %s %s", strsignal(info.si_signo), (core_dumped) ? "(core dumped)" : "");
+      warnx("guest: %s %s", strsignal(info.si_signo), (core_dumped) ? "(core dumped)" : "");
+      extern int debug_dump_on_err;
+      if (debug_dump_on_err) {
+         abort();
+      } else {
+         exit(info.si_signo);
+      }
    }
 
    assert(act->handler != (km_gva_t)SIG_IGN);

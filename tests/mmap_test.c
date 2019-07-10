@@ -21,10 +21,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include "greatest/greatest.h"
 
-#include "km.h"
-#include "km_mem.h"
+#include "greatest/greatest.h"
+#include "mmap_test.h"
 
 // human readable print for addresses and sizes
 static char* out_sz(uint64_t val)
@@ -43,19 +42,6 @@ static char* out_sz(uint64_t val)
 }
 
 // positive tests
-typedef struct mmap_test {
-   char* test_info;        // string to help identify the test. NULL indicates the end of table
-   int type;               // 1 for mmap, 0 for unmap
-   uint64_t offset;        // for unmap, start offset from the last mmap result. For mmap: address
-   size_t size;            // size for the operation
-   int prot;               // protection for mmap()
-   int flags;              // flags for mmap()
-   int expected_failure;   // 0 if success is expected. Expected errno otherwise.
-} mmap_test_t;
-
-#define TYPE_MMAP 1
-#define TYPE_MUNMAP 0
-
 // After this set , the free/busy lists in mmaps should be empty and tbrk
 // should reset to top of the VA
 
@@ -72,12 +58,20 @@ static mmap_test_t _36_tests[] = {
     {"Swiss cheese-munmap1", TYPE_MUNMAP, 500 * MIB, 260 * MIB, 0, 0},
     {"Swiss cheese-unaligned-munmap2", TYPE_MUNMAP, 0, 300 * MIB - 256, 0, 0},
     {"Swiss cheese-munmap3", TYPE_MUNMAP, 300 * MIB, 200 * MIB, 0, 0},
-    {"Wrong-args-mmap", TYPE_MMAP, 400 * MIB, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
 
-    {"Wrong-args-mmap", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED, EINVAL},
-    {"Wrong-args-munmap", TYPE_MUNMAP, 300 * MIB, 1 * MIB, 0, 0, EINVAL},
-    {"Basic-munmap-dup1", TYPE_MUNMAP, 500 * MIB, 8 * MIB, 0, 0, EINVAL},
-    {"Basic-munmap-dup2", TYPE_MUNMAP, 500 * MIB, 6 * MIB, 0, 0, EINVAL},
+    // we ignore addr but it's legit to send it
+    {"Wrong-args-mmap-addr", TYPE_MMAP, 400 * MIB, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Wrong-args-mmap-fixed",
+     TYPE_MMAP,
+     0,
+     8 * MIB,
+     PROT_READ | PROT_WRITE,
+     MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED,
+     EINVAL},
+    {"Wrong-args-munmap", TYPE_MUNMAP, 300 * MIB + 20, 1 * MIB, 0, 0, EINVAL},
+    // it's legal to munmap non-mapped areas:
+    {"huge-munmap", TYPE_MUNMAP, 300 * MIB, 1 * MIB, 0, 0, 0},
+    {"dup-munmap", TYPE_MUNMAP, 300 * MIB, 8 * MIB, 0, 0, 0},
     {NULL},
 };
 
@@ -100,6 +94,7 @@ static mmap_test_t* tests;
 
 static const char* fmt = "0x%lx";   // format for offsets/types error msg
 
+// generic test, expects global 'tests' to be setup to point to the right test data table
 TEST mmap_test(void)
 {
    void* last_addr = MAP_FAILED;   // changed by mmap; MAP_FAILED if mmap fails
@@ -160,6 +155,20 @@ TEST mmap_test(void)
             ASSERT_EQ(NULL, "Not reachable");
       }
    }
+   PASS();
+}
+
+TEST mmap_test_36(void)
+{
+   tests = _36_tests;
+   CHECK_CALL(mmap_test());
+   PASS();
+}
+
+TEST mmap_test_39(void)
+{
+   tests = _39_tests;
+   CHECK_CALL(mmap_test());
    PASS();
 }
 
@@ -263,20 +272,18 @@ GREATEST_MAIN_DEFS();
 int main(int argc, char** argv)
 {
    GREATEST_MAIN_BEGIN();
-   greatest_set_verbosity(1);
+   // greatest_set_verbosity(1);
 
-   printf("Testing smaller (< 2GiB) sizes\n");
-   tests = _36_tests;
-   RUN_TEST(mmap_test);
+   printf("===== mmap_test_36: Testing smaller (< 2GiB) sizes\n");
+   RUN_TEST(mmap_test_36);
 
-   printf("Testing large (> 2GiB) sizes\n");
-   tests = _39_tests;
-   RUN_TEST(mmap_test);
+   printf("===== mmap_test_39: Testing large (> 2GiB) sizes\n");
+   RUN_TEST(mmap_test_39);
 
-   printf("Testing mmap() from free areas\n");
+   printf("===== mmap_from_free: Testing mmap() from free areas\n");
    RUN_TEST(mmap_from_free);
 
-   printf("Testing protection for unmapped area\n");
+   printf("===== mmap_protect: Testing protection for unmapped area\n");
    RUN_TEST(mmap_protect);
 
    GREATEST_PRINT_REPORT();
