@@ -368,6 +368,9 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       phnum++;
    }
    TAILQ_FOREACH (ptr, &mmaps.busy, link) {
+      if (ptr->protection == PROT_NONE) {
+         continue;
+      }
       phnum++;
    }
    offset = sizeof(Elf64_Ehdr) + phnum * sizeof(Elf64_Phdr);
@@ -392,6 +395,9 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    // Headers for MMAPs
    TAILQ_FOREACH (ptr, &mmaps.busy, link) {
       // translate mmap prot to elf access flags.
+      if (ptr->protection == PROT_NONE) {
+         continue;
+      }
       static uint8_t mmap_to_elf_flags[8] =
           {0, PF_R, PF_W, (PF_R | PF_W), PF_X, (PF_R | PF_X), (PF_W | PF_X), (PF_R | PF_W | PF_X)};
 
@@ -408,10 +414,17 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr, km_guest.km_phdr[i].p_memsz);
    }
    TAILQ_FOREACH (ptr, &mmaps.busy, link) {
+      if (ptr->protection == PROT_NONE) {
+         continue;
+      }
+      km_kma_t start = km_gva_to_kma_nocheck(ptr->start);
+      // make sure we can read the mapped memory (e.g. it can be EXEC only)
       if ((ptr->protection & PROT_READ) != PROT_READ) {
-         mprotect(km_gva_to_kma_nocheck(ptr->start), ptr->size, ptr->protection | PROT_READ);
+         assert(mprotect(start, ptr->size, ptr->protection | PROT_READ) == 0);
       }
       km_guestmem_write(fd, ptr->start, ptr->size);
+      // recover protection, in case it's a live coredump and we are not exiting yet
+      assert(mprotect(start, ptr->size, ptr->protection) == 0);
    }
 
    free(notes_buffer);
