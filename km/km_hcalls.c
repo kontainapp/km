@@ -361,6 +361,13 @@ static km_hc_ret_t mremap_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* stat
    return HC_CONTINUE;
 };
 
+static km_hc_ret_t mprotect_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   //  int mprotect(void *addr, size_t len, int prot);
+   arg->hc_ret = km_guest_mprotect(arg->arg1, arg->arg2, arg->arg3);
+   return HC_CONTINUE;
+};
+
 static km_hc_ret_t clock_gettime_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    // int clock_gettime(clockid_t clk_id, struct timespec *tp);
@@ -612,7 +619,7 @@ static km_hc_ret_t rt_sigreturn_hcall(void* varg, int hc, km_hc_args_t* arg, int
 {
    km_vcpu_t* vcpu = (km_vcpu_t*)varg;
 
-   km_rt_sigreturn(vcpu);  // don't care about arg or return code.
+   km_rt_sigreturn(vcpu);   // don't care about arg or return code.
    return HC_CONTINUE;
 }
 
@@ -721,6 +728,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_mmap] = mmap_hcall;
    km_hcalls_table[SYS_munmap] = munmap_hcall;
    km_hcalls_table[SYS_mremap] = mremap_hcall;
+   km_hcalls_table[SYS_mprotect] = mprotect_hcall;
    km_hcalls_table[SYS_clock_gettime] = clock_gettime_hcall;
    km_hcalls_table[SYS_madvise] = madvise_hcall;
 
@@ -762,7 +770,6 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getegid] = dummy_hcall;
    km_hcalls_table[SYS_getgid] = dummy_hcall;
    km_hcalls_table[SYS_sched_yield] = dummy_hcall;
-   km_hcalls_table[SYS_mprotect] = dummy_hcall;
 
    km_hcalls_table[SYS_clock_getres] = dummy_hcall;
 

@@ -10,6 +10,15 @@
          "*.mak": "makefile",
          "*.h": "c",
          "Dockerfile.*": "dockerfile",
+         "array": "c",
+         "deque": "c",
+         "forward_list": "c",
+         "list": "c",
+         "unordered_map": "c",
+         "unordered_set": "c",
+         "vector": "c",
+         "initializer_list": "c",
+         "string_view": "c"
       },
       "files.exclude": {
          "{GPATH,GRTAGS,GTAGS}": true,

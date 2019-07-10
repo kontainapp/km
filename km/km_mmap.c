@@ -195,7 +195,7 @@ static inline void km_mmaps_insert_busy(km_mmap_reg_t* reg)
 }
 
 // Insert a region into the FREE MMAPS list, and compress maps/tbrk. Expects 'reg' to be malloced
-static inline void km_mmaps_insert_free(km_mmap_reg_t* reg)
+static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
 {
    km_mmaps_insert(reg, 0);
 }
@@ -206,7 +206,7 @@ static inline void km_mmaps_remove_free(km_mmap_reg_t* reg)
    TAILQ_REMOVE(&mmaps.free, reg, link);
 }
 
-static inline void km_mmaps_remove_busy(km_mmap_reg_t* reg)
+static inline void km_mmap_remove_busy(km_mmap_reg_t* reg)
 {
    TAILQ_REMOVE(&mmaps.busy, reg, link);
 }
@@ -224,7 +224,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
 {
    km_gva_t ret;
    km_mmap_reg_t* reg;
-   km_infox(KM_TRACE_MEM, "mmap(0x%lx, 0x%lx, prot 0x%x flags 0x%x)", gva, size, prot, flags);
+   km_infox(KM_TRACE_MEM, "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x)", gva, size, prot, flags);
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
@@ -285,7 +285,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    km_mmap_reg_t *reg = NULL, *head = NULL, *tail = NULL;
    km_gva_t head_start, tail_start;
    size_t head_size, tail_size;
-   km_infox(KM_TRACE_MEM, "munmap(0x%lx, 0x%lx)", addr, size);
+   km_infox(KM_TRACE_MEM, "munmap guest(0x%lx, 0x%lx)", addr, size);
 
    size = roundup(size, KM_PAGE_SIZE);
    mmaps_lock();
@@ -324,18 +324,94 @@ int km_guest_munmap(km_gva_t addr, size_t size)
       km_mmaps_insert_busy(tail);
    }
 
-   km_mmaps_remove_busy(reg);   // move from busy to free list. No need to free reg, it will be reused
-   km_mmaps_insert_free(reg);
+   km_mmap_remove_busy(reg);   // move from busy to free list. No need to free reg, it will be reused
+   km_mmap_insert_free(reg);
    mmaps_unlock();
    return 0;
 }
 
-// TODO - implement :-)
+/*
+ * Checks if the queue (the one `reg' belongs to) is covering memory contiguously from reg->start to
+ * `end'. If it does, returns the mmap_reg* for the last mmap (e.t. the one where the 'end' lands).
+ * Otherwise returns NULL.
+ */
+static km_mmap_reg_t* km_mmap_get_last_contiguous(km_mmap_reg_t* reg, km_gva_t end)
+{
+   for (km_gva_t ptr = reg->start + reg->size; ptr < end; ptr += reg->size) {
+      if ((reg = TAILQ_NEXT(reg, link)) != NULL && reg->start == ptr) {
+         continue;
+      }
+      return NULL;
+   }
+   return reg;
+}
+
+/*
+ * returns 0 (success) or -errno
+ */
+int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
+{
+   km_mmap_reg_t *reg = NULL, *head = NULL, *tail = NULL;
+
+   km_infox(KM_TRACE_MEM, "mprotect guest(0x%lx 0x%lx prot %x)", addr, size, prot);
+   if ((prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC | PROT_GROWSDOWN | PROT_GROWSUP)) != 0) {
+      return -EINVAL;
+   }
+   if (addr != rounddown(addr, KM_PAGE_SIZE) || (size = roundup(size, KM_PAGE_SIZE)) == 0) {
+      return -EINVAL;
+   }
+   mmaps_lock();
+   if ((head = km_mmap_find_busy(addr)) == NULL ||
+       (tail = km_mmap_get_last_contiguous(head, addr + size)) == NULL) {
+      mmaps_unlock();
+      return -EINVAL;
+   }
+   // Split first mmap, if needed.
+   assert(addr >= head->start);
+   if (addr > head->start) {
+      if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+         mmaps_unlock();
+         return -ENOMEM;
+      }
+      memcpy(reg, head, sizeof(*head));
+      reg->size = addr - head->start;
+      head->start = addr;
+      head->size -= reg->size;
+      km_mmaps_insert_busy(reg);
+   }
+   // split the last mmap, if needed
+   if (tail->start + tail->size > addr + size) {
+      if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+         mmaps_unlock();
+         return -ENOMEM;
+      }
+      memcpy(reg, tail, sizeof(*tail));
+      reg->start = addr + size;
+      reg->size = tail->start + tail->size - reg->start;
+      tail->size -= reg->size;
+      km_mmaps_insert_busy(reg);
+   }
+   // now scan the maps and change mprotect on them
+   for (reg = head; reg != NULL; reg = TAILQ_NEXT(reg, link)) {
+      km_infox(KM_TRACE_MEM, "mprotect guest: setting 0x%lx,0x%lx -> 0x%x", reg->start, reg->size, prot);
+      if (mprotect(km_gva_to_kma(reg->start), reg->size, prot) != 0) {
+         warn("mprotect guest: failed for 0x%lx,0x%lx -> 0x%x", reg->start, reg->size, prot);
+      }
+      reg->protection = prot;
+      if (reg == tail) {
+         break;
+      }
+   }
+   assert(reg == tail);
+   mmaps_unlock();
+   return 0;
+}
+
+// TODO - implement
 km_gva_t
 km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... /* void *new_address */)
 {
    km_infox(KM_TRACE_MEM, "mremap(0x%lx, 0x%lx, size 0x%lx)", old_addr, old_size, size);
-
    return -ENOTSUP;
 }
 
