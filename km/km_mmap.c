@@ -182,7 +182,7 @@ static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
       // TODO: try to consolidate busy list if flags/prot match
    }
    km_infox(KM_TRACE_MEM,
-            "mprotect(0x%lx, 0x%lx, flag 0x%x)",
+            "mprotect busy(0x%lx, 0x%lx, flag 0x%x)",
             reg->start,
             reg->size,
             busy ? reg->protection : PROT_NONE);
@@ -224,7 +224,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
 {
    km_gva_t ret;
    km_mmap_reg_t* reg;
-
+   km_infox(KM_TRACE_MEM, "mmap(0x%lx, 0x%lx, prot 0x%x flags 0x%x)", gva, size, prot, flags);
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
@@ -285,6 +285,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    km_mmap_reg_t *reg = NULL, *head = NULL, *tail = NULL;
    km_gva_t head_start, tail_start;
    size_t head_size, tail_size;
+   km_infox(KM_TRACE_MEM, "munmap(0x%lx, 0x%lx)", addr, size);
 
    size = roundup(size, KM_PAGE_SIZE);
    mmaps_lock();
@@ -333,6 +334,8 @@ int km_guest_munmap(km_gva_t addr, size_t size)
 km_gva_t
 km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... /* void *new_address */)
 {
+   km_infox(KM_TRACE_MEM, "mremap(0x%lx, 0x%lx, size 0x%lx)", old_addr, old_size, size);
+
    return -ENOTSUP;
 }
 
