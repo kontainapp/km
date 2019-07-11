@@ -810,7 +810,9 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo)
 {
    km_infox(KM_TRACE_GDB, "%s on VCPU %d", __FUNCTION__, vcpu->vcpu_id);
    vcpu->is_paused = 1;
-   gdbstub.signo = gdb_signo(signo);
+   if (signo != 0) {
+      gdbstub.signo = gdb_signo(signo);
+   }
    if (gdbstub.session_requested == 0) {
       km_infox(KM_TRACE_GDB, "gdb seems to be sleeping, wake it up. VCPU %d", vcpu->vcpu_id);
       // km_gdb_tid_set(km_gdb_thread_id(vcpu));
