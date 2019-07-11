@@ -242,6 +242,7 @@ static inline int signal_pending(km_vcpu_t* vcpu, siginfo_t* info)
 int km_signal_ready(km_vcpu_t* vcpu)
 {
    km_signal_t* sig;
+   km_signal_t* next_sig;
 
    km_signal_lock();
    TAILQ_FOREACH (sig, &vcpu->sigpending.head, link) {
@@ -250,8 +251,11 @@ int km_signal_ready(km_vcpu_t* vcpu)
          return sig->info.si_signo;
       }
    }
-   TAILQ_FOREACH (sig, &machine.sigpending.head, link) {
+   TAILQ_FOREACH_SAFE (sig, &machine.sigpending.head, link, next_sig) {
       if (!km_sigismember(&vcpu->sigmask, sig->info.si_signo)) {
+         // A process-wide signal can only be claimed by one thread.
+         TAILQ_REMOVE(&machine.sigpending.head, sig, link);
+         TAILQ_INSERT_TAIL(&vcpu->sigpending.head, sig, link);
          km_signal_unlock();
          return sig->info.si_signo;
       }
