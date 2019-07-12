@@ -7,7 +7,7 @@ override CFLAGS += -g -O2 -Wstringop-overflow=0 -std=gnu99 -U_FORTIFY_SOURCE
 all: dweb dweb.km
 
 dweb: $(OBJS)
-	$(CC) $(CLFAGS) -pthread  -o $@ $^
+	$(CC) -static $(CLFAGS) -pthread  -o $@ $^
 
 KM_LDFLAGS := -specs=${TOP}gcc-km.spec -L ${TOP}build/runtime
 dweb.km: $(OBJS)

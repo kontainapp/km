@@ -233,5 +233,5 @@ void send_file_response(struct hitArgs* args, char* path, char* request_body, in
    close(file_id);
 
    // allow socket to drain before closing
-   sleep(1);
+   // sleep(1);
 }
