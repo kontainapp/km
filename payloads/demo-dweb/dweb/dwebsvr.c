@@ -43,21 +43,21 @@ void get_form_values(struct hitArgs *args, char *body)
     char *saveptr;
     int t=0, i, alloc = FORM_VALUE_BLOCK;
 	char *tmp, *token = strtok_r(body, "&", &saveptr);
-    
+
     args->form_values = mallocx(alloc * sizeof(FORM_VALUE));
     memset(args->form_values, 0, alloc * sizeof(FORM_VALUE));
-    
+
     while(token != NULL)
     {
         tmp = mallocx((int)strlen(token)+1);
         strcpy(tmp, token);
         url_decode(tmp);
-        
+
 		for (i=0; i<strlen(tmp); i++)
         {
 			if (tmp[i]=='=') break;
         }
-        
+
         if (i<strlen(tmp))
         {
             if (alloc <= t)
@@ -67,14 +67,14 @@ void get_form_values(struct hitArgs *args, char *body)
                 memset(args->form_values+alloc, 0, FORM_VALUE_BLOCK * sizeof(FORM_VALUE));
                 alloc = newsize;
             }
-        
+
             args->form_values[t].data = mallocx((int)strlen(tmp)+1);
             strcpy(args->form_values[t].data, tmp);
             args->form_values[t].name = args->form_values[t].data;
             args->form_values[t].value = args->form_values[t].data+1+i;
             args->form_values[t++].data[i] = 0;
         }
-        
+
 		token = strtok_r(NULL, "&", &saveptr);
         free (tmp);
     }
@@ -93,10 +93,10 @@ void clear_form_values(struct hitArgs *args)
 
 void finish_hit(struct hitArgs *args, int exit_code)
 {
+    shutdown(args->socketfd, SHUT_RDWR); /* no more receptions */
     close(args->socketfd);
-    if (args->buffer)
-    {
-        string_free(args->buffer);
+    if (args->buffer) {
+      string_free(args->buffer);
     }
     if (args->headers)
     {
@@ -108,7 +108,7 @@ void finish_hit(struct hitArgs *args, int exit_code)
         free(args->content_type);
     }
     free(args);
-    
+
 #if MODE == MULTI_PROCESS
     exit(exit_code);
 #elif MODE == MULTI_THREADED
@@ -174,7 +174,7 @@ void ok_200(struct hitArgs *args, char *custom_headers, char *html, char *path)
     }
     write_html(args->socketfd, string_chars(headers), html);
     string_free(headers);
-	
+
 	args->logger_function(LOG, "200 OK", path, args->socketfd);
 }
 
@@ -200,13 +200,13 @@ struct http_header get_header(const char *name, char *request, int max_len)
     char *end = ptr + max_len;
     strncpy(retval.name, name, sizeof(retval.name)-1);
     retval.name[sizeof(retval.name)-1] = 0;
-    
+
     if (ptr == NULL)
     {
         retval.value[0] = 0;
         return retval;
     }
-    
+
     while (*ptr++!=':' && ptr <= end) ;
     while (isblank(*++ptr) && ptr <= end) ;
     while (x<sizeof(retval.value)-1 && *ptr!='\r' && *ptr!='\n' && ptr <= end)
@@ -235,7 +235,7 @@ http_verb request_type(char *request)
 	{
 		return HTTP_POST;
 	}
-	
+
 	return HTTP_NOT_SUPPORTED;
 }
 
@@ -251,7 +251,7 @@ void webhit(struct hitArgs *args)
 	char *body;
     struct http_header content_length;
     args->buffer = new_string(READ_BUF_LEN);
-    
+
     // we need to read the HTTP headers first...
     // so loop until we receive "\r\n\r\n"
     while (get_body_start(string_chars(args->buffer)) < 0
@@ -262,18 +262,18 @@ void webhit(struct hitArgs *args)
         string_add(args->buffer, tmp_buf);
         if (tmp_buf[0]==0) break;
     }
-    
+
     if (request_size == 0)
     {
         finish_hit(args, 3);
         return;
     }
-    
+
     content_length = get_header("Content-Length", string_chars(args->buffer), args->buffer->used_bytes);
     args->content_length = atoi(content_length.value);
     body_start = get_body_start(string_chars(args->buffer));
     headers_end = body_start-4;
-    
+
     if (headers_end > 0)
     {
         args->headers = mallocx((int)headers_end+1);
@@ -285,12 +285,12 @@ void webhit(struct hitArgs *args)
         args->headers = mallocx(1);
         args->headers[0] = 0;
     }
-    
+
     if (body_start >= 0)
     {
         body_size = request_size - body_start;
     }
-    
+
     // safari seems to send the headers, and then the body slightly later
     while (body_size < args->content_length
            && args->buffer->used_bytes <= MAX_INCOMING_REQUEST)
@@ -309,7 +309,7 @@ void webhit(struct hitArgs *args)
             break;
         }
     }
-    
+
     if (request_size <= 0)
 	{
 		// cannot read request, so we'll stop
@@ -317,19 +317,19 @@ void webhit(struct hitArgs *args)
         finish_hit(args, 3);
         return;
 	}
-    
+
     args->logger_function(LOG, "request", string_chars(args->buffer), args->hit);
-    
+
 	if (type = request_type(string_chars(args->buffer)), type == HTTP_NOT_SUPPORTED)
 	{
 		forbidden_403(args, "Only simple GET and POST operations are supported");
         finish_hit(args, 3);
         return;
 	}
-	
+
 	// get a pointer to the request body (or NULL if it's not there)
     body = (type==HTTP_GET) ? NULL : args->buffer->ptr+get_body_start(string_chars(args->buffer));
-	
+
 	// the request will be "GET [URL] " or "POST [URL] " followed by other details
 	// we will terminate after the second space, to ignore everything else
 	for (i = (type==HTTP_GET) ? 4 : 5; i < args->buffer->used_bytes; i++)
@@ -342,7 +342,7 @@ void webhit(struct hitArgs *args)
 	}
 
     j = (type==HTTP_GET) ? 4 : 5;
-    
+
     // check for an absolute directory
     if (string_chars(args->buffer)[j+1] == '/')
     {
@@ -350,7 +350,7 @@ void webhit(struct hitArgs *args)
         finish_hit(args, 3);
         return;
     }
-    
+
 	for (; j<i-1; j++)
 	{
 		// check for any parent directory use
@@ -361,14 +361,14 @@ void webhit(struct hitArgs *args)
 	        return;
 		}
 	}
-    
+
     struct http_header ctype = get_header("Content-Type", args->headers, (int)strlen(args->headers));
     j = (int)strlen(ctype.value);
     if (j > 0)
     {
         args->content_type = mallocx(j+1);
         strncpy(args->content_type, ctype.value, j);
-        
+
         if (string_matches_value(args->content_type, "application/x-www-form-urlencoded"))
         {
             get_form_values(args, body);
@@ -379,7 +379,7 @@ void webhit(struct hitArgs *args)
         args->content_type = mallocx(1);
         args->content_type[0] = 0;
     }
-    
+
 	// call the "responder function" which has been provided to do the rest
     args->responder_function(args, string_chars(args->buffer) + ((type==HTTP_GET) ? 5 : 6), body, type);
     finish_hit(args, 1);
@@ -390,7 +390,7 @@ void* threadMain(void *targs)
 {
 	struct hitArgs *args = (struct hitArgs*)targs;
     pthread_detach(pthread_self());
-    
+
     webhit(args);
     return NULL;
 }
@@ -399,7 +399,7 @@ void* threadMain(void *targs)
 void inthandler(int sig)
 {
     if (doing_shutdown==1) return;
-    
+
     doing_shutdown=1;
     puts("\nwebserver shutting down");
     close(listenfd);
@@ -425,13 +425,13 @@ int dwebserver(int port,
 	socklen_t length;
     // get the compiler to initialise to zeros (C99 Standard 6.7.8.21)
     struct sockaddr_in cli_addr = {}, serv_addr = {};
-    
+
 	if (port <= 0 || port > 60000)
 	{
 		logger_func(ERROR, "Invalid port number (try 1 - 60000)", "", 0);
 		exit(3);
 	}
-    
+
     // ignore child process deaths
 #ifndef SIGCLD
 	signal(SIGCHLD, SIG_IGN);
@@ -440,16 +440,16 @@ int dwebserver(int port,
 #endif
     signal(SIGHUP, SIG_IGN);  // ignore terminal hangups
     signal(SIGPIPE, SIG_IGN); // ignore broken pipes
-    
+
     if ((listenfd = socket(AF_INET, SOCK_STREAM,0)) < 0)
 	{
 		logger_func(ERROR, "system call", "socket", 0);
 		return 0;
 	}
-    
+
     // But to support Linux, I've also used MSG_NOSIGNAL:
     // http://stackoverflow.com/questions/108183/how-to-prevent-sigpipes-or-handle-them-properly/450130#450130
-    
+
     int y = 1;
 #ifdef SO_NOSIGPIPE
     // use SO_NOSIGPIPE, to ignore any SIGPIPEs
@@ -467,33 +467,33 @@ int dwebserver(int port,
         logger_func(ERROR, "system call", "setsockopt -> SO_REUSEADDR", 0);
 		return 0;
     }
-    
+
     // as soon as listenfd is set, keep a handler
     // so we can close it on exit
     signal(SIGINT, &inthandler);
     signal(SIGTERM, &inthandler);
-    
+
     serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	serv_addr.sin_port = htons(port);
-    
+
 	if (bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) <0)
 	{
 		logger_func(ERROR, "system call", "bind", 0);
 		return 0;
 	}
-    
+
 	if (listen(listenfd, 64) <0)
 	{
 		logger_func(ERROR, "system call", "listen", 0);
 		return 0;
 	}
-    
+
     // use a 60 second timeout on individual sockets
     struct timeval timeout;
     timeout.tv_sec = 60;
     timeout.tv_usec = 0;
-    
+
 	for (hit=1; ; hit++)
 	{
 		length = sizeof(cli_addr);
@@ -510,7 +510,7 @@ int dwebserver(int port,
         {
             logger_func(ERROR, "system call", "setsockopt -> SO_RCVTIMEO", 0);
         }
-        
+
         struct hitArgs *args = mallocx(sizeof(struct hitArgs));
         args->buffer = NULL;
         args->form_values = NULL;
@@ -521,7 +521,7 @@ int dwebserver(int port,
         args->hit = hit;
         args->socketfd = socketfd;
         args->responder_function = responder_func;
-        
+
 #if MODE == SINGLE_THREADED
         webhit(args);
 #elif MODE == MULTI_PROCESS
@@ -532,7 +532,7 @@ int dwebserver(int port,
 		}
 		else
 		{
-			if (pid == 0) 
+			if (pid == 0)
 			{
 				// child
 				close(listenfd);
@@ -565,7 +565,7 @@ void url_decode(char *s)
     char s_copy[len+1];
     char *ptr = s_copy;
     memset(s_copy, 0, sizeof(s_copy));
-    
+
     for (i=0; i < len; i++)
     {
         if (s[i]=='+')
