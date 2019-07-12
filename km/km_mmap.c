@@ -289,10 +289,12 @@ int km_guest_munmap(km_gva_t addr, size_t size)
 
    size = roundup(size, KM_PAGE_SIZE);
    mmaps_lock();
-   if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL || (addr + size > reg->start + reg->size)) {
+   if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL) {
       mmaps_unlock();
+      warnx("unmap: EINVAL on params");
       return -EINVAL;   // unmap start and end have to be in a single mapped region, for now
    }
+   // || (addr + size > reg->start + reg->size)
    // Calculate head and tail regions (possibly of 0 size). If not empty, they would stay in busy list.
    head_start = reg->start;
    head_size = addr - head_start;
@@ -300,6 +302,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    tail_size = reg->start + reg->size - tail_start;
    if (head_size > 0 && (head = malloc(sizeof(km_mmap_reg_t))) == NULL) {
       mmaps_unlock();
+      warnx("unmap: ENOMEM1");
       return -ENOMEM;
    }
    if (tail_size > 0 && ((tail = malloc(sizeof(km_mmap_reg_t))) == NULL)) {
@@ -307,6 +310,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
          free(head);
       }
       mmaps_unlock();
+      warnx("unmap: ENOMEM2");
       return -ENOMEM;
    }
    reg->start += head_size;
@@ -331,19 +335,22 @@ int km_guest_munmap(km_gva_t addr, size_t size)
 }
 
 /*
- * Checks if the queue (the one `reg' belongs to) is covering memory contiguously from reg->start to
- * `end'. If it does, returns the mmap_reg* for the last mmap (e.t. the one where the 'end' lands).
- * Otherwise returns NULL.
+ * Checks if mmaps are contiguous from `reg' region to `end' region.
+ * Return 1 if they are, 0 if they are not
  */
-static km_mmap_reg_t* km_mmap_get_last_contiguous(km_mmap_reg_t* reg, km_gva_t end)
+static int km_mmap_is_contigious(km_mmap_reg_t* reg, km_mmap_reg_t* end)
 {
-   for (km_gva_t ptr = reg->start + reg->size; ptr < end; ptr += reg->size) {
-      if ((reg = TAILQ_NEXT(reg, link)) != NULL && reg->start == ptr) {
-         continue;
-      }
-      return NULL;
+   if (reg == end) {
+      return 1;
    }
-   return reg;
+   assert(reg != NULL && end != NULL && reg->start < end->start);
+   for (km_mmap_reg_t* next = TAILQ_NEXT(reg, link); reg != NULL && reg->start <= end->start;
+        reg = next, next = TAILQ_NEXT(reg, link)) {
+      if (reg->start + reg->size != next->start) {
+         return 0;   // found a gap in mem coverage
+      }
+   }
+   return 1;
 }
 
 /*
@@ -362,7 +369,8 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
    }
    mmaps_lock();
    if ((head = km_mmap_find_busy(addr)) == NULL ||
-       (tail = km_mmap_get_last_contiguous(head, addr + size)) == NULL) {
+       (tail = km_mmap_find_busy(addr + size - 1)) == NULL || km_mmap_is_contigious(head, tail) == 0) {
+      warnx("not contigious");
       mmaps_unlock();
       return -EINVAL;
    }
