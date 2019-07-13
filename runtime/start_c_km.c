@@ -44,13 +44,14 @@ hidden void __libc_exit_fini(void)
  * The purpose is to process return from the actual code (main or pthread entry) and pass to exit().
  * Entry point in ELF header, then in km as km_guest.km_ehdr.e_entry, placed there by km_load_elf.
  */
-_Noreturn void __start_c__(long is_main_argc, char** argv)
+_Noreturn void __start_c__(long is_main_argc, void* argv_or_start, void* start_args)
 {
    (void)__pthread_tsd_size;
    if (is_main_argc == 0) {
-      struct pthread* self = __pthread_self();
-      pthread_exit(self->start(self->start_arg));
+      void* (*start)(void*) = argv_or_start;
+      pthread_exit(start(start_args));
    } else {
+      char** argv = argv_or_start;
       __environ = argv + is_main_argc + 1;
       __libc_start_init();
       exit(main(is_main_argc, argv));

@@ -220,7 +220,7 @@ void km_pthread_fini(km_vcpu_t* vcpu);
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
 void km_vcpu_put(km_vcpu_t* vcpu);
-int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread);
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread, km_gva_t start, km_gva_t start_args);
 void km_vcpu_detach(km_vcpu_t* vcpu);
 
 typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, uint64_t data);   // return 0 if all is good

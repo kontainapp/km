@@ -61,11 +61,9 @@ typedef struct km__ptcb {
 } km__ptcb_t;
 
 enum {
-   DT_EXITED = 0,
-   DT_EXITING,
+   DT_EXITING = 0,
    DT_JOINABLE,
-   DT_DETACHED,
-   DT_DYNAMIC,   // started as JOINABLE then called detach()
+   DT_DETACHED
 };
 
 typedef struct km_pthread {
@@ -84,15 +82,12 @@ typedef struct km_pthread {
    volatile int cancel;
    volatile unsigned char canceldisable, cancelasync;
    unsigned char tsd_used : 1;
-   unsigned char unblock_cancel : 1;
    unsigned char dlerror_flag : 1;
    unsigned char* map_base;
    size_t map_size;
    void* stack;
    size_t stack_size;
    size_t guard_size;
-   void* start_arg;
-   void* (*start)(void*);
    void* result;
    km__ptcb_t* cancelbuf;
    void** tsd;
@@ -298,7 +293,7 @@ static inline int _a_detach(const km_pthread_attr_t* restrict g_attr)
  * Allocate and initialize pthread structure for newly created thread in the guest.
  */
 static km_gva_t
-km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gva_t start, km_gva_t args)
+km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu)
 {
    km_gva_t libc = km_guest.km_libc;
    km_pthread_t* tcb_kma;
@@ -350,8 +345,6 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
    tcb_kma->detach_state = _a_detach(g_attr);
    tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
-   tcb_kma->start = (void* (*)(void*))start;
-   tcb_kma->start_arg = (void*)args;
    tcb_kma->tid = vcpu->vcpu_id;
    vcpu->guest_thr = tcb;
    vcpu->stack_top = (typeof(vcpu->stack_top))tcb_kma->stack;
@@ -421,11 +414,11 @@ int km_pthread_create(km_vcpu_t* current_vcpu,
       return -EAGAIN;
    }
    vcpu->sigmask = current_vcpu->sigmask;
-   if ((pt = km_pthread_init(attr, vcpu, start, args)) == 0) {
+   if ((pt = km_pthread_init(attr, vcpu)) == 0) {
       km_vcpu_put(vcpu);
       return -EAGAIN;
    }
-   if ((rc = km_vcpu_set_to_run(vcpu, 0)) < 0) {
+   if ((rc = km_vcpu_set_to_run(vcpu, 0, start, args)) < 0) {
       km_vcpu_put(vcpu);
       return -EAGAIN;
    }
@@ -465,7 +458,7 @@ int km_pthread_join(km_vcpu_t* current_vcpu, pthread_tid_t pid, km_kma_t ret)
    }
    km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
    assert(pt_kma != NULL);
-   if (pt_kma->detach_state == DT_DETACHED || pt_kma->detach_state == DT_DYNAMIC) {
+   if (pt_kma->detach_state == DT_DETACHED) {
       return -EINVAL;
    }
    if ((rc = check_join_deadlock(vcpu, current_vcpu)) != 0) {
@@ -528,7 +521,7 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
    km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
 
    assert(pt_kma != NULL);
-   if (pt_kma->detach_state == DT_DETACHED || pt_kma->detach_state == DT_DYNAMIC) {
+   if (pt_kma->detach_state == DT_DETACHED) {
       vcpu->thr_state = VCPU_IDLE;
       km_vcpu_put(vcpu);
    }
