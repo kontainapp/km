@@ -1,0 +1,36 @@
+# Set default parameters
+parameters:
+  registry: 'kontainkubecr.azurecr.io'
+  registrySC: 'kontainkubecr_service_connection'
+  vmImage: 'ubuntu-16.04'
+
+jobs:
+- job: ${{ parameters.name }}
+  pool:
+    vmImage: ${{ parameters.vmImage }}
+  steps:
+
+  - checkout: self
+    submodules: true
+    persistCredentials: 'true'
+  
+  - task: Docker@2
+    displayName: Login to ${{ parameters.registrySC }}
+    inputs:
+      command: login
+      containerRegistry: ${{ parameters.registrySC }}
+
+  - script: |
+      docker pull ${{ parameters.registry }}/km-buildenv-${{ parameters.name }}
+      docker tag  ${{ parameters.registry }}/km-buildenv-${{ parameters.name }} km-buildenv-${{ parameters.name }}
+    displayName: pull  km-buildenv-${{ parameters.name }}
+
+  - task: Docker@2
+    displayName: Build and push an image to container registry
+    inputs:
+      command: buildAndPush
+      repository: 'km-buildenv-${{ parameters.name }}'
+      dockerfile: './docker/build/Dockerfile.${{ parameters.name }}'
+      containerRegistry: '${{ parameters.registrySC }}'
+      tags: |
+        latest

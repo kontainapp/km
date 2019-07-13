@@ -159,9 +159,11 @@ endif # (${SUBDIRS},)
 #
 # use Dockerfile-fedora, Dockerfile-ubuntu, etc... to get different flavors
 DTYPE ?= fedora
+USER ?= appuser
 DLOC := ${TOP}docker/build
 DIMG := km-buildenv-${DTYPE}
 DFILE := Dockerfile.$(DTYPE)
+
 
 # Support for 'make withdocker'
 #
@@ -180,8 +182,12 @@ __testing := $(strip $(findstring test,$(TARGET)) $(findstring coverage,$(TARGET
 ifneq ($(__testing),)  # only add --device=/dev/kvm is we are testing
  DEVICE_KVM := --device=/dev/kvm
 endif
-withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
-	docker build --build-arg=UID=$(shell id -u) --build-arg=GID=$(shell id -g) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
+
+mk-image: ## build fedora image
+	docker build --build-arg=USER=$(USER)  --build-arg=UID=$(shell id -u) --build-arg=GID=$(shell id -g) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
+
+withdocker:
+	## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	docker run $(DEVICE_KVM) --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 
 #
