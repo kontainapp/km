@@ -6,47 +6,34 @@ trigger:
 - master
 
 stages:
-- stage: Build
-  jobs:
-  - job: 'fedora'
-    pool:
-      vmImage: 'ubuntu-16.04'
-    container:
-      image: 'msterin/km-buildenv-fedora'
-      options: '--user=root'
-    steps:
-    - checkout: self
-      submodules: true
-    - script: |
-        set -x
-        make -j5
-      displayName: 'make with fedora'
-  - job: 'ubuntu'
-    pool:
-      vmImage: 'ubuntu-16.04'
-    steps:
-    - checkout: self
-      submodules: recursive
-      persistCredentials: 'true'
-    - script: |
-        set -x
-        make withdocker DTYPE=ubuntu
-      displayName: 'make with ubuntu'
 
-- stage: 'Distro'
-  pool:
-    vmImage: 'ubuntu-16.04'
-  container:
-    image: 'msterin/km-buildenv-fedora'
-    options: '--user=root'
-  steps:
-  - checkout: self
-    submodules: true
-  - script: |
-      set -x
-      make -j5 distro
-      make -j5 publish
-    displayName: 'make with fedora'
+- stage: Buildenv
+
+  jobs:
+
+  - template: azure-pipelines-km-buildenv-template.yml
+    parameters:
+      name: 'fedora'
+
+  - template: azure-pipelines-km-buildenv-template.yml
+    parameters:
+      name: 'ubuntu'
+
+  - template: azure-pipelines-km-buildenv-template.yml
+    parameters:
+      name: 'alpine'
+
+- stage: Build
+
+  jobs:
+
+  - template: azure-pipelines-km-build-template.yml
+    parameters:
+      name: 'fedora'
+
+  - template: azure-pipelines-km-build-template.yml
+    parameters:
+      name: 'ubuntu'
 
 - stage: 'Test'
   jobs:
