@@ -46,6 +46,7 @@ static inline void usage()
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
         "\t--dump-shutdown                     - Produce register dump on VCPU error\n"
+        "\t--core-on-err                       - generate KM core dump when exiting on err()"
         "\t--overcommit-memory                 - Allow huge address allocations for payloads.\n"
         "\t                                      See 'sysctl vm.overcommit_memory'\n"
 
@@ -82,6 +83,7 @@ static inline void show_version(void)
 
 static km_machine_init_params_t km_machine_init_params = {};
 static int wait_for_signal = 0;
+int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
 static struct option long_options[] = {
     {"wait-for-signal", no_argument, &wait_for_signal, 1},
     {"dump-shutdown", no_argument, 0, 'D'},
@@ -92,6 +94,7 @@ static struct option long_options[] = {
     {"membus-width", required_argument, 0, 'P'},
     {"gdb-server-port", optional_argument, 0, 'g'},
     {"verbose", optional_argument, 0, 'V'},
+    {"core-on-err", no_argument, &debug_dump_on_err, 1},
     {"version", no_argument, 0, 'v'},
 
     {0, 0, 0, 0},
