@@ -33,6 +33,21 @@ stages:
         make withdocker DTYPE=ubuntu
       displayName: 'make with ubuntu'
 
+- stage: 'Distro'
+  pool:
+    vmImage: 'ubuntu-16.04'
+  container:
+    image: 'msterin/km-buildenv-fedora'
+    options: '--user=root'
+  steps:
+  - checkout: self
+    submodules: true
+  - script: |
+      set -x
+      make -j5 distro
+      make -j5 publish
+    displayName: 'make with fedora'
+
 - stage: 'Test'
   jobs:
   - job: test
