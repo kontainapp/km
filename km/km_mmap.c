@@ -93,17 +93,38 @@ static km_mmap_reg_t* km_mmap_find_free(size_t size)
    return NULL;
 }
 
+static int km_mmap_contains(km_mmap_reg_t* reg, km_gva_t addr)
+{
+   return (reg->start <= addr && addr < reg->start + reg->size);
+}
+
 // find a mmap segment containing the addr in the sorted busy list
 static km_mmap_reg_t* km_mmap_find_busy(km_gva_t addr)
 {
    km_mmap_reg_t* ptr;
 
    TAILQ_FOREACH (ptr, &mmaps.busy, link) {
-      if (ptr->start <= addr && addr < ptr->start + ptr->size) {
+      if (km_mmap_contains(ptr, addr)) {
          return ptr;
       }
    }
    return NULL;
+}
+
+// find first mmap region containing the addr or being on the right of the addr, in the sorted busy list
+static km_mmap_reg_t* km_mmap_find_busy_mapped(km_gva_t addr)
+{
+   km_mmap_reg_t* ptr;
+
+   TAILQ_FOREACH (ptr, &mmaps.busy, link) {
+      if (km_mmap_contains(ptr, addr)) {
+         return ptr;   // addr is in this
+      }
+      if (ptr->start > addr) {
+         return ptr;   // this is the first mapped region to the right of addr
+      }
+   }
+   return NULL;   // nothing to the right of the addr
 }
 
 /*
@@ -273,8 +294,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
 /*
  * Un-maps an address range from guest virtual space.
  *
- * TODO - manage unmap() which cover non-mapped regions, or more than 1 region.
- * For now un-maps only full or part of a region previously mapped.
+ * per unmap(3), it is legal to unmap regions which are not mapped
  *
  * Returns 0 on success.
  * -EINVAL if the part of the FULL requested region is not mapped
@@ -282,54 +302,50 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
  */
 int km_guest_munmap(km_gva_t addr, size_t size)
 {
-   km_mmap_reg_t *reg = NULL, *head = NULL, *tail = NULL;
-   km_gva_t head_start, tail_start;
-   size_t head_size, tail_size;
-   km_infox(KM_TRACE_MEM, "munmap guest(0x%lx, 0x%lx)", addr, size);
+   km_mmap_reg_t *reg = NULL, *head = NULL, *tail = NULL, *next = NULL;
 
-   size = roundup(size, KM_PAGE_SIZE);
-   mmaps_lock();
-   if (size == 0 || (reg = km_mmap_find_busy(addr)) == NULL) {
-      mmaps_unlock();
+   km_infox(KM_TRACE_MEM, "munmap guest(0x%lx, 0x%lx)", addr, size);
+   if ((size = roundup(size, KM_PAGE_SIZE)) == 0) {
       warnx("unmap: EINVAL on params");
       return -EINVAL;   // unmap start and end have to be in a single mapped region, for now
    }
-   // || (addr + size > reg->start + reg->size)
-   // Calculate head and tail regions (possibly of 0 size). If not empty, they would stay in busy list.
-   head_start = reg->start;
-   head_size = addr - head_start;
-   tail_start = addr + size;
-   tail_size = reg->start + reg->size - tail_start;
-   if (head_size > 0 && (head = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+   mmaps_lock();
+   if ((head = km_mmap_find_busy_mapped(addr)) == NULL) {
+      km_infox(KM_TRACE_MEM, "munmap guest - nothing to do !");
       mmaps_unlock();
-      warnx("unmap: ENOMEM1");
-      return -ENOMEM;
+      return 0;
    }
-   if (tail_size > 0 && ((tail = malloc(sizeof(km_mmap_reg_t))) == NULL)) {
-      if (head != NULL) {
-         free(head);
+   // Split first mmap, if needed. TODO - remove cut-n-paste
+   if (km_mmap_contains(head, addr)) {
+      if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+         mmaps_unlock();
+         return -ENOMEM;
       }
-      mmaps_unlock();
-      warnx("unmap: ENOMEM2");
-      return -ENOMEM;
+      memcpy(reg, head, sizeof(*head));
+      reg->size = addr - head->start;
+      head->start = addr;
+      head->size -= reg->size;
+      km_mmaps_insert_busy(reg);
    }
-   reg->start += head_size;
-   reg->size -= (head_size + tail_size);
-   if (head != NULL) {
-      memcpy(head, reg, sizeof(*head));
-      head->start = head_start;
-      head->size = head_size;
-      km_mmaps_insert_busy(head);
+   // scan and unmap all to the end.
+   for (reg = head; reg != NULL && reg->start + reg->size <= addr + size; reg = next) {
+      if (km_mmap_contains(reg, addr)) {
+         // The last one may need to be split
+         if ((tail = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+            mmaps_unlock();
+            return -ENOMEM;
+         }
+         memcpy(tail, reg, sizeof(*head));
+         reg->size = addr - reg->start;
+         tail->start = addr;
+         tail->size -= reg->size;
+         km_mmaps_insert_busy(tail);
+      }
+      next = TAILQ_NEXT(reg, link);
+      km_mmap_remove_busy(reg);   // move from busy to free list. No
+                                  // need to free reg, it will be reused
+      km_mmap_insert_free(reg);
    }
-   if (tail != NULL) {
-      memcpy(tail, reg, sizeof(*tail));
-      tail->start = tail_start;
-      tail->size = tail_size;
-      km_mmaps_insert_busy(tail);
-   }
-
-   km_mmap_remove_busy(reg);   // move from busy to free list. No need to free reg, it will be reused
-   km_mmap_insert_free(reg);
    mmaps_unlock();
    return 0;
 }
