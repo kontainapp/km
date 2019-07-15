@@ -764,7 +764,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_tkill] = tkill_hcall;
 
    km_hcalls_table[SYS_getpid] = dummy_hcall;
-   km_hcalls_table[SYS_getppid] = dummy_hcall;
+   km_hcalls_table[SYS_getppid] = dummy_hcall;   // used in mprotect_test.c - update if changed here !
    km_hcalls_table[SYS_geteuid] = dummy_hcall;
    km_hcalls_table[SYS_getuid] = dummy_hcall;
    km_hcalls_table[SYS_getegid] = dummy_hcall;

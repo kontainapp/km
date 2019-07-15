@@ -35,7 +35,8 @@ if $argc == 0
 
    set $item = $head->tqh_first
    while $item != 0
-      printf "start= 0x%lx size = %d MiB (%d)\n", $item->start, $item->size/1024/1024, $item->size
+      printf "start= 0x%lx size = %d MiB (%d) prot 0x%x\n", $item->start, $item->size/1024/1024, \
+               $item->size, $item->protection
       set $item=$item->link->tqe_next
    end
 end

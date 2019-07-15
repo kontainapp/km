@@ -71,7 +71,7 @@ mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t
 {
    // block all stuff we do not support yet.
    // TODO: We don't support address hints either, we simply ignore it for now.
-   if (fd != -1 || offset != 0 || flags & MAP_FIXED) {
+   if (fd != -1 || offset != 0 || flags & (MAP_FIXED | MAP_FIXED_NOREPLACE)) {
       return -EINVAL;
    }
    if (size % KM_PAGE_SIZE != 0) {

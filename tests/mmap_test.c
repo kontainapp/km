@@ -21,10 +21,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include "greatest/greatest.h"
 
-#include "km.h"
-#include "km_mem.h"
+#include "greatest/greatest.h"
+#include "mmap_test.h"
 
 // human readable print for addresses and sizes
 static char* out_sz(uint64_t val)
@@ -43,19 +42,6 @@ static char* out_sz(uint64_t val)
 }
 
 // positive tests
-typedef struct mmap_test {
-   char* test_info;        // string to help identify the test. NULL indicates the end of table
-   int type;               // 1 for mmap, 0 for unmap
-   uint64_t offset;        // for unmap, start offset from the last mmap result. For mmap: address
-   size_t size;            // size for the operation
-   int prot;               // protection for mmap()
-   int flags;              // flags for mmap()
-   int expected_failure;   // 0 if success is expected. Expected errno otherwise.
-} mmap_test_t;
-
-#define TYPE_MMAP 1
-#define TYPE_MUNMAP 0
-
 // After this set , the free/busy lists in mmaps should be empty and tbrk
 // should reset to top of the VA
 
