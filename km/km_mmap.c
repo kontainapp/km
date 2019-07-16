@@ -302,49 +302,59 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
  */
 int km_guest_munmap(km_gva_t addr, size_t size)
 {
-   km_mmap_reg_t *reg = NULL, *head = NULL, *tail = NULL, *next = NULL;
+   km_mmap_reg_t *reg = NULL, *reg1 = NULL, *head = NULL, *tail = NULL, *next = NULL;
 
    km_infox(KM_TRACE_MEM, "munmap guest(0x%lx, 0x%lx)", addr, size);
    if ((size = roundup(size, KM_PAGE_SIZE)) == 0) {
-      warnx("unmap: EINVAL on params");
-      return -EINVAL;   // unmap start and end have to be in a single mapped region, for now
+      km_infox(KM_TRACE_MEM, "EINVAL on size 0");
+      return -EINVAL;
    }
    mmaps_lock();
+   // something should be mapped to the right on addr:
    if ((head = km_mmap_find_busy_mapped(addr)) == NULL) {
-      km_infox(KM_TRACE_MEM, "munmap guest - nothing to do !");
+      km_infox(KM_TRACE_MEM, "munmap guest - no mapped pages");
       mmaps_unlock();
       return 0;
    }
-   // Split first mmap, if needed. TODO - remove cut-n-paste
-   if (km_mmap_contains(head, addr)) {
-      if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-         mmaps_unlock();
-         return -ENOMEM;
+   // If maps split is needed, allocate memory. TODO - consolidate with guest_mprotect() code
+   if (km_mmap_contains(head, addr) && head->start != addr &&
+       (reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+      mmaps_unlock();
+      return -ENOMEM;
+   }
+   if ((tail = km_mmap_find_busy(addr + size - 1)) != NULL && km_mmap_contains(tail, addr + size) &&
+       tail->start + tail->size != addr + size && (reg1 = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+      if (reg != NULL) {
+         free(reg);
       }
+      mmaps_unlock();
+      return -ENOMEM;
+   }
+   if (reg != NULL) {   // split the first mmap
       memcpy(reg, head, sizeof(*head));
       reg->size = addr - head->start;
       head->start = addr;
       head->size -= reg->size;
       km_mmaps_insert_busy(reg);
    }
-   // scan and unmap all to the end.
-   for (reg = head; reg != NULL && reg->start + reg->size <= addr + size; reg = next) {
-      if (km_mmap_contains(reg, addr)) {
-         // The last one may need to be split
-         if ((tail = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-            mmaps_unlock();
-            return -ENOMEM;
-         }
-         memcpy(tail, reg, sizeof(*head));
-         reg->size = addr - reg->start;
-         tail->start = addr;
-         tail->size -= reg->size;
-         km_mmaps_insert_busy(tail);
-      }
+   if (reg1 != NULL) {   // split the last mmap
+      memcpy(reg1, tail, sizeof(*tail));
+      reg1->start = addr + size;
+      reg1->size = tail->start + tail->size - reg1->start;
+      tail->size -= reg1->size;
+      km_mmaps_insert_busy(reg1);
+   }
+   // We will now make 'head' cover the whole area and move it to 'free' list,
+   // and remove leftovers from 'busy' list
+   next = TAILQ_NEXT(head, link);
+   head->size = size;
+   km_mmap_remove_busy(head);
+   km_mmap_insert_free(head);
+   for (reg = next; reg != NULL && reg->start + reg->size <= addr + size; reg = next) {
+      km_infox(KM_TRACE_MEM, "munmap guest: cleaning 0x%lx,0x%lx", reg->start, reg->size);
       next = TAILQ_NEXT(reg, link);
-      km_mmap_remove_busy(reg);   // move from busy to free list. No
-                                  // need to free reg, it will be reused
-      km_mmap_insert_free(reg);
+      km_mmap_remove_busy(reg);
+      free(reg);
    }
    mmaps_unlock();
    return 0;
@@ -370,11 +380,11 @@ static int km_mmap_is_contigious(km_mmap_reg_t* reg, km_mmap_reg_t* end)
 }
 
 /*
- * returns 0 (success) or -errno
+ * returns 0 (success) or -errno.
  */
 int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
 {
-   km_mmap_reg_t *reg = NULL, *head = NULL, *tail = NULL;
+   km_mmap_reg_t *reg = NULL, *reg1 = NULL, *head = NULL, *tail = NULL;
 
    km_infox(KM_TRACE_MEM, "mprotect guest(0x%lx 0x%lx prot %x)", addr, size, prot);
    if ((prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC | PROT_GROWSDOWN | PROT_GROWSUP)) != 0) {
@@ -384,49 +394,59 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
       return -EINVAL;
    }
    mmaps_lock();
+   // Per mprotect(3) if there are unmmaped pages in the area, error out with ENOMEM
    if ((head = km_mmap_find_busy(addr)) == NULL ||
        (tail = km_mmap_find_busy(addr + size - 1)) == NULL || km_mmap_is_contigious(head, tail) == 0) {
-      warnx("not contigious");
+      km_infox(KM_TRACE_MEM, "mprotect area not fully mapped, thus ENOMEM");
       mmaps_unlock();
-      return -EINVAL;
+      return -ENOMEM;
    }
-   // Split first mmap, if needed.
    assert(addr >= head->start);
-   if (addr > head->start) {
-      if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-         mmaps_unlock();
-         return -ENOMEM;
+
+   // If we need to split mmaps, get memory first so we can bail out without damaging mmap lists
+   if (addr > head->start && (reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+      mmaps_unlock();
+      return -ENOMEM;
+   }
+   if (tail->start + tail->size > addr + size && (reg1 = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+      if (reg != NULL) {
+         free(reg);
       }
+      mmaps_unlock();
+      return -ENOMEM;
+   }
+   // Split the first and last maps if needed.
+   if (reg != NULL) {
       memcpy(reg, head, sizeof(*head));
       reg->size = addr - head->start;
       head->start = addr;
       head->size -= reg->size;
       km_mmaps_insert_busy(reg);
    }
-   // split the last mmap, if needed
-   if (tail->start + tail->size > addr + size) {
-      if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-         mmaps_unlock();
-         return -ENOMEM;
-      }
-      memcpy(reg, tail, sizeof(*tail));
-      reg->start = addr + size;
-      reg->size = tail->start + tail->size - reg->start;
-      tail->size -= reg->size;
-      km_mmaps_insert_busy(reg);
+   // split the last mmap, if needed. Note that tail and head could be the same mmap
+   if (reg1 != NULL) {
+      memcpy(reg1, tail, sizeof(*tail));
+      reg1->start = addr + size;
+      reg1->size = tail->start + tail->size - reg1->start;
+      tail->size -= reg1->size;
+      km_mmaps_insert_busy(reg1);
    }
-   // now scan the maps and change mprotect on them
-   for (reg = head; reg != NULL; reg = TAILQ_NEXT(reg, link)) {
-      km_infox(KM_TRACE_MEM, "mprotect guest: setting 0x%lx,0x%lx -> 0x%x", reg->start, reg->size, prot);
-      if (mprotect(km_gva_to_kma(reg->start), reg->size, prot) != 0) {
-         warn("mprotect guest: failed for 0x%lx,0x%lx -> 0x%x", reg->start, reg->size, prot);
-      }
-      reg->protection = prot;
-      if (reg == tail) {
-         break;
-      }
+   // Convert the first map to the new mprotected region
+   head->size = size;
+   head->protection = prot;
+   assert(head->start == addr);
+   assert(head->start + head->size == tail->start + tail->size);
+   if (mprotect(km_gva_to_kma(head->start), head->size, prot) != 0) {
+      warn("mprotect guest: failed mprotectition 0x%lx,0x%lx -> 0x%x", head->start, head->size, prot);
    }
-   assert(reg == tail);
+   // clean up the rest
+   km_mmap_reg_t* next;
+   for (reg = TAILQ_NEXT(head, link); reg != TAILQ_NEXT(tail, link); reg = next) {
+      km_infox(KM_TRACE_MEM, "mprotect guest: cleaning 0x%lx,0x%lx -> 0x%x", reg->start, reg->size, prot);
+      next = TAILQ_NEXT(reg, link);
+      TAILQ_REMOVE(&mmaps.busy, reg, link);
+      free(reg);
+   }
    mmaps_unlock();
    return 0;
 }

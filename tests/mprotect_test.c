@@ -122,11 +122,13 @@ TEST mprotect_complex_test()
 
    void* last_addr = MAP_FAILED;   // changed by mmap; MAP_FAILED if mmap fails
 
+   printf("Running %s\n", __FUNCTION__);
    for (mmap_test_t* t = mprotect_tests; t->test_info != NULL; t++) {
       errno = 0;
+      printf("%s: op %d (%s, %s...) \n", t->test_info, t->type, out_sz(t->offset), out_sz(t->size));
+
       switch (t->type) {
          case TYPE_MMAP:
-            printf("%s: mmap(%s, %s...) ", t->test_info, out_sz(t->offset), out_sz(t->size));
             last_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0);
             printf("return: %p (%s)\n", last_addr, out_sz((uint64_t)last_addr));
 
@@ -145,7 +147,6 @@ TEST mprotect_complex_test()
             }
             break;
          case TYPE_MUNMAP:
-            printf("%s: mumap(%s, %s...)\n", t->test_info, out_sz(t->offset), out_sz(t->size));
             ret = munmap(last_addr + t->offset, t->size);
             if (t->expected_failure == OK) {
                ASSERT_EQ_FMTm(t->test_info, 0, errno, errno_fmt);
@@ -156,7 +157,6 @@ TEST mprotect_complex_test()
             }
             break;
          case TYPE_MPROTECT:
-            printf("%s: protect(%s, %s...)\n", t->test_info, out_sz(t->offset), out_sz(t->size));
             ret = mprotect(last_addr + t->offset, t->size, t->prot);
             if (t->expected_failure == OK) {
                ASSERT_EQ_FMTm(t->test_info, 0, errno, errno_fmt);
