@@ -433,8 +433,6 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
     * stack in the guest, and the stack is less than 4GB long, i.e. the address
     * is withint 4GB range below the top of the stack.
     *
-    * TODO: Has to be on each vcpu thread stack
-    *
     * We set the high four bytes to the same as top of the stack, and check for
     * underflow.
     */

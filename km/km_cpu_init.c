@@ -392,7 +392,7 @@ void km_vcpu_put(km_vcpu_t* vcpu)
  * tells it if we are in main with argc (>0) or pthread(==0) RIP always points to __start_c__
  * which is always entry point in ELF.
  */
-int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_main_argc)
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_main_argc, km_gva_t start, km_gva_t start_args)
 {
    int rc;
    km_gva_t sp, argv;
@@ -405,14 +405,15 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_main_argc)
       return rc;
    }
 
-   argv = sp = vcpu->stack_top;
+   argv = sp = vcpu->stack_top;   // where we put argv
    assert((sp & 7) == 0);
    sp -= (sp + 8) % 16;   // per ABI, make sure sp + 8 is 16 aligned
 
    kvm_regs_t regs = {
        .rip = km_guest.km_ehdr.e_entry,
        .rdi = is_main_argc,   // first function argument
-       .rsi = argv,           // where we put argv
+       .rsi = is_main_argc > 0 ? argv : start,
+       .rdx = start_args,
        .rflags = X86_RFLAGS_FIXED,
        .rsp = sp,
    };
