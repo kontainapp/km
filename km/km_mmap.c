@@ -305,8 +305,8 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    km_mmap_reg_t *reg = NULL, *reg1 = NULL, *head = NULL, *tail = NULL, *next = NULL;
 
    km_infox(KM_TRACE_MEM, "munmap guest(0x%lx, 0x%lx)", addr, size);
-   if ((size = roundup(size, KM_PAGE_SIZE)) == 0) {
-      km_infox(KM_TRACE_MEM, "EINVAL on size 0");
+   if (addr != roundup(addr, KM_PAGE_SIZE) || (size = roundup(size, KM_PAGE_SIZE)) == 0) {
+      km_infox(KM_TRACE_MEM, "EINVAL 0x%lx size 0x%lx", addr, size);
       return -EINVAL;
    }
    mmaps_lock();
