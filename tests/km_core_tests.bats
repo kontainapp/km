@@ -232,14 +232,9 @@ teardown() {
 }
 
 @test "Unused memory protection: check that unused memory is protected (mprotect_test)" {
-   expected_status=1 # complex mprotect does not work yet, so 1 test will fail
+   expected_status=0
    run km_with_timeout mprotect_test.km
    [ $status -eq $expected_status ]
-}
-
-# printing a reminder. To unskip, remove this test and set expected_statu to 0 in the above test
-@test "Mprotect() and sparse munmap test (mprotect_test)" {
-   skip "MPROTECT test skipped pending mprotect() implementation merge"
 }
 
 @test "threads_basic: threads with TLS, create, exit and join (hello_2_loops_tls_test)" {

@@ -310,6 +310,15 @@ int km_guest_munmap(km_gva_t addr, size_t size)
       return -EINVAL;
    }
    mmaps_lock();
+   // trim ends if we asked to unmap under machine.tbrk or over max guest VA
+   if (addr + size > GUEST_MEM_TOP_VA) {
+      size = GUEST_MEM_TOP_VA - addr;
+   }
+   if (addr < machine.tbrk) {
+      size_t delta = machine.tbrk - addr;
+      addr = machine.tbrk;
+      size -= delta;
+   }
    // something should be mapped to the right on addr:
    if ((head = km_mmap_find_busy_mapped(addr)) == NULL) {
       km_infox(KM_TRACE_MEM, "munmap guest - no mapped pages");
