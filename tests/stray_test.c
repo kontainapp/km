@@ -176,6 +176,16 @@ int main(int argc, char** argv)
       kill(0, SIGUSR1);
       return 1;
    }
+   if (strcmp(op, "block-segv") == 0) {
+      sigset_t mask;
+      sigemptyset(&mask);
+      sigaddset(&mask, SIGSEGV);
+      if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
+         err(1, "sigprocmask failed");
+      }
+      stray_reference();
+      return 1;
+   }
    fprintf(stderr, "Unrecognized operation '%s'\n", op);
    usage();
    return 1;

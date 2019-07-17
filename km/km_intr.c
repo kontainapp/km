@@ -206,4 +206,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
          info.si_signo,
          strsignal(info.si_signo));
    km_post_signal(vcpu, &info);
+
+   // We know there is a signal. Force delivery now.
+   km_deliver_signal(vcpu);
 }
