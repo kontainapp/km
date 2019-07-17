@@ -127,6 +127,22 @@ static km_mmap_reg_t* km_mmap_find_busy_mapped(km_gva_t addr)
    return NULL;   // nothing to the right of the addr
 }
 
+// find first mmap region containing the addr or being on the right of the addr, in the sorted busy list
+static km_mmap_reg_t* km_mmap_find_free_mapped(km_gva_t addr)
+{
+   km_mmap_reg_t* ptr;
+
+   TAILQ_FOREACH (ptr, &mmaps.free, link) {
+      if (km_mmap_contains(ptr, addr)) {
+         return ptr;   // addr is in this
+      }
+      if (ptr->start > addr) {
+         return ptr;   // this is the first mapped region to the right of addr
+      }
+   }
+   return NULL;   // nothing to the right of the addr
+}
+
 /*
  * Try to glue with left and/or right region from 'reg'.
  * 'Reg' is assumed to be in free list already.
@@ -164,12 +180,9 @@ static inline void km_mmap_concat_free(km_mmap_reg_t* reg)
 
 /*
  * Inserts region into the list sorted by reg->start.
- * Also compresses the list/adjusts tbrk for free list
- * 'busy' == 1 for insert into BUSY list, 0 for insert into FREE list.
  */
-static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
+static inline void km_mmaps_insert(km_mmap_reg_t* reg, km_mmap_list_t* list)
 {
-   km_mmap_list_t* list = busy ? &mmaps.busy : &mmaps.free;
    km_mmap_reg_t* ptr;
 
    if (TAILQ_EMPTY(list)) {
@@ -190,35 +203,24 @@ static inline void km_mmaps_insert(km_mmap_reg_t* reg, int busy)
          TAILQ_INSERT_BEFORE(ptr, reg, link);
       }
    }
-
-   if (busy == 0) {
-      if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, PROT_NONE) != 0) {
-         warn("Failed to mprotect addr 0x%lx sz 0x%lx prot NONE)", reg->start, reg->size);
-      }
-      km_mmap_concat_free(reg);
-   } else {
-      if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, reg->protection) != 0) {
-         warn("Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)", reg->start, reg->size, reg->protection);
-      }
-      // TODO: try to consolidate busy list if flags/prot match
+   if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, reg->protection) != 0) {
+      warn("Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)", reg->start, reg->size, reg->protection);
    }
-   km_infox(KM_TRACE_MEM,
-            "mprotect busy(0x%lx, 0x%lx, flag 0x%x)",
-            reg->start,
-            reg->size,
-            busy ? reg->protection : PROT_NONE);
 }
 
 // Insert a region into the BUSY MMAPS list. Expects 'reg' to be malloced
 static inline void km_mmaps_insert_busy(km_mmap_reg_t* reg)
 {
-   km_mmaps_insert(reg, 1);
+   km_mmaps_insert(reg, &mmaps.busy);
+   // TODO: try to consolidate busy list if flags/prot match
 }
 
 // Insert a region into the FREE MMAPS list, and compress maps/tbrk. Expects 'reg' to be malloced
 static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
 {
-   km_mmaps_insert(reg, 0);
+   reg->protection = PROT_NONE;
+   km_mmaps_insert(reg, &mmaps.free);
+   km_mmap_concat_free(reg);
 }
 
 // Remove an element from a list. In the list, this does not depend on list head
@@ -331,8 +333,8 @@ int km_guest_munmap(km_gva_t addr, size_t size)
       mmaps_unlock();
       return -ENOMEM;
    }
-   if ((tail = km_mmap_find_busy(addr + size - 1)) != NULL && km_mmap_contains(tail, addr + size) &&
-       tail->start + tail->size != addr + size && (reg1 = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+   if ((tail = km_mmap_find_busy(addr + size)) != NULL && tail->start != addr + size &&
+       (reg1 = malloc(sizeof(km_mmap_reg_t))) == NULL) {
       if (reg != NULL) {
          free(reg);
       }
@@ -354,17 +356,39 @@ int km_guest_munmap(km_gva_t addr, size_t size)
       km_mmaps_insert_busy(reg1);
    }
    // We will now make 'head' cover the whole area and move it to 'free' list,
-   // and remove leftovers from 'busy' list
+   // and remove leftovers from 'busy' AND 'free' lists
    next = TAILQ_NEXT(head, link);
    head->size = size;
+   // do not free(head), we will need it
    km_mmap_remove_busy(head);
-   km_mmap_insert_free(head);
-   for (reg = next; reg != NULL && reg->start + reg->size <= addr + size; reg = next) {
+   // clean busy mmaps between head and tail - they are all replaced with head
+   for (reg = next; reg != NULL && reg->start + reg->size < addr + size; reg = next) {
       km_infox(KM_TRACE_MEM, "munmap guest: cleaning 0x%lx,0x%lx", reg->start, reg->size);
       next = TAILQ_NEXT(reg, link);
       km_mmap_remove_busy(reg);
       free(reg);
    }
+
+   // TODO - fix this hack and do a good layout
+   {
+      km_mmap_reg_t *free_head = NULL, *next = NULL, *reg = NULL;
+      // clean up all free maps between addr and addr+size
+      if ((free_head = km_mmap_find_free_mapped(addr)) != NULL) {
+         free_head->size = addr - free_head->start;
+         for (reg = TAILQ_NEXT(free_head, link); reg != NULL && reg->start < addr + size; reg = next) {
+            if (reg->start + reg->size >= addr + size) {
+               // just shrink the last one
+               reg->size = reg->start + reg->size - (addr + size);
+               reg->start = addr + size;
+               break;
+            }
+            next = TAILQ_NEXT(reg, link);
+            TAILQ_REMOVE(&mmaps.free, reg, link);
+            free(reg);
+         }
+      }
+   }
+   km_mmap_insert_free(head);
    mmaps_unlock();
    return 0;
 }
