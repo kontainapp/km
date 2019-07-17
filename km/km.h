@@ -211,7 +211,7 @@ static inline int km_wait_on_eventfd(int fd)
    return value;
 }
 
-void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[]);
+km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[]);
 int km_pthread_create(
     km_vcpu_t* vcpu, pthread_tid_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
 int km_pthread_join(km_vcpu_t* vcpu, pthread_tid_t pid, km_kma_t ret);
@@ -220,7 +220,7 @@ void km_pthread_fini(km_vcpu_t* vcpu);
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
 void km_vcpu_put(km_vcpu_t* vcpu);
-int km_vcpu_set_to_run(km_vcpu_t* vcpu, int is_pthread, km_gva_t start, km_gva_t start_args);
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, km_gva_t arg2);
 void km_vcpu_detach(km_vcpu_t* vcpu);
 
 typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, uint64_t data);   // return 0 if all is good

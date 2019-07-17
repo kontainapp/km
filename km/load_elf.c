@@ -185,16 +185,19 @@ int km_load_elf(const char* file)
             } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_HNDL_SYM_NAME) == 0) {
                km_guest.km_handlers = sym.st_value;
+            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
+               km_guest.km_sigreturn = sym.st_value;
+            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_THR_START_SYM_NAME) == 0) {
+               km_guest.km_start_thread = sym.st_value;
             } else if ((sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) ||
                         sym.st_info == ELF64_ST_INFO(STB_WEAK, STT_OBJECT)) &&
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_TSD_SIZE_SYM_NAME) == 0) {
                km_guest.km_tsd_size = sym.st_value;
-            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
-               km_guest.km_sigreturn = sym.st_value;
             }
             if (km_guest.km_libc != 0 && km_guest.km_handlers != 0 && km_guest.km_tsd_size != 0 &&
-                km_guest.km_sigreturn != 0) {
+                km_guest.km_sigreturn != 0 && km_guest.km_start_thread != 0) {
                break;
             }
          }

@@ -25,7 +25,7 @@ static const char msg2[] = "after loading big array\n";
  * below with printed one.
  */
 
-static const unsigned long size[] = {0x0000000000604278, 0x0000000000605778};
+static const unsigned long size[] = {0x0000000000604270, 0x0000000000605778};
 
 int main(int argc, char* argv[])
 {

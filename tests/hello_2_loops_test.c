@@ -9,6 +9,7 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  */
+#include <errno.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -92,7 +93,8 @@ TEST nested_threads(void)
    int ret;
 
    pthread_key_create(&mystr_key_2, free_key);
-   
+   pthread_setspecific(mystr_key_2, (void*)0x17);
+
    ret = pthread_create(&pt1, NULL, run, NULL);
    // assert macro can use params more than once, so using separate <ret>
    ASSERT_EQ(0, ret);
@@ -110,7 +112,7 @@ TEST nested_threads(void)
       printf("joining 0x%lx ... \n", pt1);
    }
    ret = pthread_join(pt1, NULL);
-   ASSERT_EQ(ret, 0);
+   ASSERT_EQ(0, ret);
    if (greatest_get_verbosity() != 0) {
       printf("joined 0x%lx, %d\n", pt1, ret);
    }
@@ -119,7 +121,12 @@ TEST nested_threads(void)
       printf("joining 0x%lx ... \n", pt2);
    }
    ret = pthread_join(pt2, NULL);
-   ASSERT_EQ(ret, 0);
+   ASSERT_EQ(0, ret);
+
+   ASSERT_EQ((void*)0x17, pthread_getspecific(mystr_key_2));
+   ASSERT_EQ(pthread_key_delete(mystr_key_2), 0);
+   ASSERT_EQ(0, pthread_getspecific(mystr_key_2));
+
    if (greatest_get_verbosity() != 0) {
       printf("joined 0x%lx, %d\n", pt2, ret);
    }

@@ -5,18 +5,11 @@
 
 extern int main(int argc, char** argv);
 
-static void dummy_0()
+static void dummy()
 {
 }
-weak_alias(dummy_0, __pthread_tsd_run_dtors);
-weak_alias(dummy_0, __do_orphaned_stdio_locks);
-weak_alias(dummy_0, _init);
-weak_alias(dummy_0, _fini);
-
-__attribute__((__weak__)) void* __dso_handle = (void*)&__dso_handle;
-
-volatile size_t __attribute__((__weak__)) __pthread_tsd_size = 0;
-void* __pthread_tsd_main[1] __attribute__((__weak__)) = {0};
+weak_alias(dummy, _init);
+weak_alias(dummy, _fini);
 
 extern weak hidden void (*const __init_array_start)(void), (*const __init_array_end)(void);
 extern weak hidden void (*const __fini_array_start)(void), (*const __fini_array_end)(void);
@@ -30,7 +23,7 @@ hidden void __libc_start_init(void)
    }
 }
 
-hidden void __libc_exit_fini(void)
+hidden void __libc_exit_fini(void)   // called from exit
 {
    uintptr_t a = (uintptr_t)&__fini_array_end;
    for (; a > (uintptr_t)&__fini_array_start; a -= sizeof(void (*)())) {
@@ -40,22 +33,23 @@ hidden void __libc_exit_fini(void)
 }
 
 /*
- * Common entry point used for both main() and pthread entry.
- * The purpose is to process return from the actual code (main or pthread entry) and pass to exit().
  * Entry point in ELF header, then in km as km_guest.km_ehdr.e_entry, placed there by km_load_elf.
  */
-_Noreturn void __start_c__(long is_main_argc, void* argv_or_start, void* start_args)
+_Noreturn void __start_c__(long argc, char** argv)
 {
    (void)__pthread_tsd_size;
-   if (is_main_argc == 0) {
-      void* (*start)(void*) = argv_or_start;
-      pthread_exit(start(start_args));
-   } else {
-      char** argv = argv_or_start;
-      __environ = argv + is_main_argc + 1;
-      __libc_start_init();
-      exit(main(is_main_argc, argv));
-   }
+   __environ = argv + argc + 1;
+   __libc_start_init();
+   exit(main(argc, argv));
+}
+
+/*
+ * Entry point for pthreads. Used by km to start threads. Refered from pthread_create to make an
+ * undefined function reference
+ */
+_Noreturn volatile void __start_thread__(void* (*start)(void*), void* arg)
+{
+   pthread_exit(start(arg));
 }
 
 /*
