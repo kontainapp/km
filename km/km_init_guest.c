@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2019 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -63,7 +63,7 @@ typedef struct km__ptcb {
 enum {
    DT_EXITING = 0,
    DT_JOINABLE,
-   DT_DETACHED
+   DT_DETACHED,
 };
 
 typedef struct km_pthread {
@@ -71,7 +71,7 @@ typedef struct km_pthread {
     * internal (accessed via asm) ABI. Do not change. */
    struct km_pthread* self;
    uintptr_t* dtv;
-   void *unused1, *unused2;
+   struct km_pthread *prev, *next; /* non-ABI */
    uintptr_t sysinfo;
    uintptr_t canary, canary2;
 
@@ -162,10 +162,12 @@ typedef struct km_builtin_tls {
  * For the subsequent threads on the very top goes fixed size TSD area. Below that goes TCB, then
  * TLS, then dtv, and the initial top of the stack, again all appropriately alligned.
  *
+ * Return location of argv in the guest
+ *
  * TODO: There are other guest structures, such as __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
  */
-void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
+km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
 {
    km_gva_t libc = km_guest.km_libc;
    km__libc_t* libc_kma = NULL;
@@ -248,9 +250,12 @@ void km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
 
    tcb_kma->stack = (typeof(tcb_kma->stack))stack_top;
    tcb_kma->stack_size = stack_top - map_base;
+   // thread list with single element, per musl logic
+   tcb_kma->next = tcb_kma->prev = (typeof(tcb_kma->prev))tcb;
 
    vcpu->guest_thr = tcb;
    vcpu->stack_top = stack_top;
+   return stack_top;   // argv in the guest
 }
 
 #define DEFAULT_STACK_SIZE 131072
@@ -293,7 +298,7 @@ static inline int _a_detach(const km_pthread_attr_t* restrict g_attr)
  * Allocate and initialize pthread structure for newly created thread in the guest.
  */
 static km_gva_t
-km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu)
+km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gva_t current_tcb)
 {
    km_gva_t libc = km_guest.km_libc;
    km_pthread_t* tcb_kma;
@@ -346,9 +351,27 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu)
    tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
    tcb_kma->tid = vcpu->vcpu_id;
+   /*
+    * The lock is taken in the guest pthread_create_km(). We'll need to clean these if we fail
+    * before succeeding in creating this thread, km_pthread_unlink(). On pthread_exit() the unlink
+    * happens in the guest under lock before we get into pthread_exit() hc.
+    * Unlike other lists that came from BSD musl uses pointer to itself to indicate head/tail.
+    */
+   tcb_kma->next = ((km_pthread_t*)km_gva_to_kma_nocheck(current_tcb))->next;
+   tcb_kma->prev = (km_pthread_t*)current_tcb;
+   ((km_pthread_t*)km_gva_to_kma_nocheck((km_gva_t)tcb_kma->next))->prev = (km_pthread_t*)tcb;
+   ((km_pthread_t*)km_gva_to_kma_nocheck((km_gva_t)tcb_kma->prev))->next = (km_pthread_t*)tcb;
+
    vcpu->guest_thr = tcb;
    vcpu->stack_top = (typeof(vcpu->stack_top))tcb_kma->stack;
    return tcb;
+}
+
+static void km_pthread_unlink(km_vcpu_t* vcpu)
+{
+   km_pthread_t* self = (km_pthread_t*)km_gva_to_kma_nocheck(vcpu->guest_thr);
+   self->next->prev = self->prev;
+   self->prev->next = self->next;
 }
 
 void km_pthread_fini(km_vcpu_t* vcpu)
@@ -414,15 +437,17 @@ int km_pthread_create(km_vcpu_t* current_vcpu,
       return -EAGAIN;
    }
    vcpu->sigmask = current_vcpu->sigmask;
-   if ((pt = km_pthread_init(attr, vcpu)) == 0) {
+   if ((pt = km_pthread_init(attr, vcpu, current_vcpu->guest_thr)) == 0) {
       km_vcpu_put(vcpu);
       return -EAGAIN;
    }
-   if ((rc = km_vcpu_set_to_run(vcpu, 0, start, args)) < 0) {
+   if ((rc = km_vcpu_set_to_run(vcpu, km_guest.km_start_thread, start, args)) < 0) {
+      km_pthread_unlink(vcpu);
       km_vcpu_put(vcpu);
       return -EAGAIN;
    }
    if (km_run_vcpu_thread(vcpu, attr) < 0) {
+      km_pthread_unlink(vcpu);
       km_vcpu_put(vcpu);
       return -EAGAIN;
    }

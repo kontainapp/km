@@ -247,6 +247,11 @@ teardown() {
    [ $(echo "$output" | grep -F -cw 'BAD') == 0 ]
 }
 
+@test "threads_basic: threads with TSD, create, exit and join (hello_2_loops_test)" {
+   run km_with_timeout hello_2_loops_test.km
+   [ "$status" -eq 0 ]
+}
+
 @test "threads_exit_grp: force exit when threads are in flight (exit_grp_test)" {
    run km_with_timeout exit_grp_test.km
    # the test can exit(17) from main thread or random exit(11) from subthread

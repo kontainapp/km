@@ -179,8 +179,8 @@ int main(int argc, char* const argv[])
    if ((vcpu = km_vcpu_get()) == NULL) {
       err(1, "Failed to get main vcpu");
    }
-   km_init_libc_main(vcpu, argc - optind, argv + optind);
-   if (km_vcpu_set_to_run(vcpu, argc - optind, 0, 0) != 0) {
+   km_gva_t guest_argv = km_init_libc_main(vcpu, argc - optind, argv + optind);
+   if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry, argc - optind, guest_argv) != 0) {
       err(1, "failed to set main vcpu to run");
    }
    if (wait_for_signal == 1) {

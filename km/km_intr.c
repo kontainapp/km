@@ -18,9 +18,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
-#include "km.h"
 #include "km_coredump.h"
-#include "km_elf.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "x86_cpu.h"
