@@ -660,6 +660,13 @@ static km_hc_ret_t epoll_pwait_hcall(void* vcpu, int hc, km_hc_args_t* arg, int*
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t pipe_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int pipe2(int pipefd[2], int flags);
+   arg->hc_ret = __syscall_1(hc, km_gva_to_kml(arg->arg1));
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t pipe2_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    // int pipe2(int pipefd[2], int flags);
@@ -744,6 +751,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_epoll_pwait] = epoll_pwait_hcall;
    km_hcalls_table[SYS_dup] = dup_hcall;
    km_hcalls_table[SYS_dup3] = dup3_hcall;
+   km_hcalls_table[SYS_pipe] = pipe_hcall;
    km_hcalls_table[SYS_pipe2] = pipe2_hcall;
    km_hcalls_table[SYS_eventfd2] = eventfd2_hcall;
    km_hcalls_table[SYS_prlimit64] = prlimit64_hcall;

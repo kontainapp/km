@@ -415,6 +415,12 @@ teardown() {
    [  -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference ('
    rm -f ${CORE}
+
+   # ensure that the guest can ignore a SIGPIPE.
+   [ ! -f ${CORE} ]
+   run km_with_timeout --coredump=${CORE} stray_test.km sigpipe
+   [ $status -eq 0 ]  # should succeed
+   [ ! -f ${CORE} ]
 }
 
 @test "signals: signals in the guest (signals)" {

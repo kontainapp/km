@@ -107,6 +107,11 @@ static inline void km_gdb_vcpu_set(km_vcpu_t* vcpu)
    gdbstub.gdb_vcpu = vcpu;
 }
 
+static inline int km_fd_is_gdb(int fd)
+{
+   return (fd == gdbstub.sock_fd);
+}
+
 extern int km_gdb_wait_for_connect(const char* image_name);
 extern void km_gdb_main_loop(km_vcpu_t* main_vcpu);
 extern void km_gdb_fini(int ret);

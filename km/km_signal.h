@@ -13,6 +13,7 @@
 #ifndef __KM_SIGNAL_H__
 #define __KM_SIGNAL_H__
 
+#include <signal.h>
 #include <sys/signalfd.h>
 #include "km.h"
 
@@ -32,8 +33,8 @@ uint64_t km_tkill(km_vcpu_t* vcpu, pid_t tid, int signo);
 uint64_t km_rt_sigpending(km_vcpu_t* vcpu, km_sigset_t* set, size_t sigsetsize);
 
 extern void km_wait_for_signal(int sig);
-typedef void (*sa_handler_t)(int);
-extern void km_install_sighandler(int signum, sa_handler_t hander_func);
+typedef void (*sa_action_t)(int, siginfo_t*, void*);
+extern void km_install_sighandler(int signum, sa_action_t hander_func);
 
 static inline int km_sigindex(int signo)
 {
