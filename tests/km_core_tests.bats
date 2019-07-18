@@ -406,6 +406,15 @@ teardown() {
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F '<signal handler called>'
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'signal_handler ('
    rm -f ${CORE}
+
+   # sigsegv blocked
+   [ ! -f ${CORE} ]
+   run km_with_timeout --coredump=${CORE} stray_test.km block-segv
+   [ $status -eq 11 ]  # SIGSEGV
+   echo $output | grep -F 'Segmentation fault (core dumped)'
+   [  -f ${CORE} ]
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference ('
+   rm -f ${CORE}
 }
 
 @test "signals: signals in the guest (signals)" {
