@@ -90,7 +90,8 @@ mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t
 
 static inline int mumap_check_params(km_gva_t addr, size_t size)
 {
-   if (addr != roundup(addr, KM_PAGE_SIZE) || size == 0) {
+   if (addr != roundup(addr, KM_PAGE_SIZE) || size == 0 ||
+       addr < (GUEST_MEM_TOP_VA - GUEST_MEM_ZONE_SIZE_VA)) {
       km_infox(KM_TRACE_MEM, "munmap EINVAL 0x%lx size 0x%lx", addr, size);
       return -EINVAL;
    }
@@ -223,6 +224,7 @@ static inline void km_mmaps_insert_busy(km_mmap_reg_t* reg)
 static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
 {
    reg->protection = PROT_NONE;
+   reg->flags = 0;
    km_mmaps_insert(reg, &mmaps.free);
    km_mmap_concat_free(reg);
 }
@@ -257,7 +259,6 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
       return ret;
    }
    mmaps_lock();
-   // TODO: there could be other 'busy' mmaps on the way - they should be dropped !!!!!
    if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
       if (reg->size > size) {                       // free mmap has extra room to be kept in 'free'
          km_mmap_reg_t* busy;
@@ -313,13 +314,19 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    if ((ret = mumap_check_params(addr, size)) != 0) {
       return ret;
    }
+   if (addr >= GUEST_MEM_TOP_VA) {   // unmap() over the TOP_VA is a noop
+      return 0;
+   }
    mmaps_lock();
-   // trim if we asked to unmap under machine.tbrk or over max guest VA
-   if (addr + size > GUEST_MEM_TOP_VA) {
+   if (addr + size > GUEST_MEM_TOP_VA) {   // trim if we asked to unmap over max guest VA
       size = GUEST_MEM_TOP_VA - addr;
    }
-   if (addr < machine.tbrk) {
+   if (addr < machine.tbrk) {   // trim if we are asked to unmap under tbrk
       size_t delta = machine.tbrk - addr;
+      if (size <= delta) {
+         mmaps_unlock();
+         return 0;
+      }
       addr = machine.tbrk;
       size -= delta;
    }
