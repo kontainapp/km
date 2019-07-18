@@ -29,9 +29,9 @@
 #include "km_mem.h"
 #include "km_signal.h"
 
-void km_install_sighandler(int signum, sa_handler_t func)
+void km_install_sighandler(int signum, sa_action_t func)
 {
-   struct sigaction sa = {.sa_handler = func, .sa_flags = 0};
+   struct sigaction sa = {.sa_sigaction = func, .sa_flags = SA_SIGINFO};
 
    sigemptyset(&sa.sa_mask);
    if (sigaction(signum, &sa, NULL) < 0) {
@@ -83,6 +83,8 @@ static km_sigset_t misc_signals = 0;
  * We will define it to mean 'we don't ignore'.
  */
 static km_sigset_t ign_block_signals = 0;
+static km_sigset_t no_catch_signals = 0;   // signals that can't be caught, blocked, or ignored
+static km_sigset_t def_ign_signals = 0;    // default ignore signals
 
 void km_signal_init(void)
 {
@@ -135,7 +137,7 @@ void km_signal_init(void)
    km_sigaddset(&oerror_signals, SIGXCPU);
    km_sigaddset(&oerror_signals, SIGXFSZ);
 
-   // Miscalaneous km_signals
+   // Miscellaneous km_signals
    km_sigemptyset(&misc_signals);
    km_sigaddset(&misc_signals, SIGUSR1);
    km_sigaddset(&misc_signals, SIGUSR2);
@@ -146,6 +148,21 @@ void km_signal_init(void)
    km_sigaddset(&ign_block_signals, SIGFPE);
    km_sigaddset(&ign_block_signals, SIGILL);
    km_sigaddset(&ign_block_signals, SIGSEGV);
+   /*
+    * signals that cannot be caught, blocked, or ignored
+    */
+   km_sigemptyset(&no_catch_signals);
+   km_sigaddset(&no_catch_signals, SIGKILL);
+   km_sigaddset(&no_catch_signals, SIGSTOP);
+
+   /*
+    * Signals whose default action is ignore.
+    * Source: http://man7.org/linux/man-pages/man7/signal.7.html
+    */
+   km_sigemptyset(&def_ign_signals);
+   km_sigaddset(&def_ign_signals, SIGCHLD);
+   km_sigaddset(&def_ign_signals, SIGURG);
+   km_sigaddset(&def_ign_signals, SIGWINCH);
 }
 
 void km_signal_fini(void)
@@ -355,8 +372,13 @@ void km_deliver_signal(km_vcpu_t* vcpu)
       return;
    }
    if (act->handler == (km_gva_t)SIG_DFL) {
+      if (km_sigismember(&def_ign_signals, info.si_signo)) {
+         return;
+      }
+
+      // Signals that get here terminate the process. The only question is: core or no core?
       int core_dumped = 0;
-      // Signal default action is terminate the process. Some signals need a core dump too.
+      assert(info.si_signo != SIGCHLD);   // KM does not support
       vcpu->is_paused = 1;
       machine.pause_requested = 1;
       km_vcpu_apply_all(km_vcpu_pause, 0);
@@ -433,6 +455,9 @@ km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t*
       return -EINVAL;
    }
    if (signo < 1 || signo >= NSIG) {
+      return -EINVAL;
+   }
+   if (km_sigismember(&no_catch_signals, signo)) {
       return -EINVAL;
    }
    /*

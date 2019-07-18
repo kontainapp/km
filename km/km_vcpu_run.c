@@ -513,9 +513,28 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
  * Signal handler. Used when we want VCPU to stop. The signal causes KVM_RUN exit with -EINTR, so
  * the actual handler is noop - it just needs to exist.
  */
-static void km_vcpu_pause_sighandler(int signum_unused)
+static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, void* ucontext_unused)
 {
    // NOOP
+}
+
+/*
+ * Forward a signali file descriptor received by KM into the guest signal system.
+ * This relies on info->si_fd being populated.
+ */
+static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unused)
+{
+   /*
+    * If/When we keep track of all file descriptors open by the guest, we can
+    * check this better. For now assume that the only KM exclusive fd that
+    * will generate a fd signal is the GDB socket.
+    */
+   if (km_fd_is_gdb(sinfo->si_fd)) {
+      return;
+   }
+
+   siginfo_t info = {.si_signo = signo, .si_code = SI_KERNEL};
+   km_post_signal(NULL, &info);
 }
 
 /*
@@ -578,7 +597,6 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int status, hc;
-   km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
    vcpu->tid = gettid();
    vcpu->is_paused = 1;
 
@@ -679,6 +697,11 @@ void* km_vcpu_run_main(void* unused)
    km_vcpu_t* vcpu = km_main_vcpu();
 
    vcpu->tid = gettid();
+
+   km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
+   km_install_sighandler(SIGPIPE, km_forward_fd_signal);
+   km_install_sighandler(SIGIO, km_forward_fd_signal);
+
    if (km_gdb_is_enabled() == 1) {
       while (eventfd_write(machine.intr_fd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
          ;   // ignore signals during the write

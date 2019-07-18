@@ -13,6 +13,7 @@
  */
 #include <assert.h>
 #include <err.h>
+#include <errno.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
@@ -62,6 +63,24 @@ void bad_hcall()
 void write_text(void* ptr)
 {
    *((char*)ptr) = 'a';
+}
+
+int do_sigpipe()
+{
+   int pfd[2];
+   if (pipe(pfd) < 0) {
+      return errno;
+   }
+   close(pfd[0]);
+
+   char* buf = "hello world";
+   size_t buflen = strlen(buf) + 1;
+
+   signal(SIGPIPE, SIG_IGN);
+
+   // genreate sigpipe event (should be ignored)
+   write(pfd[1], buf, buflen);
+   return 0;
 }
 
 pthread_mutex_t mt = PTHREAD_MUTEX_INITIALIZER;
@@ -185,6 +204,9 @@ int main(int argc, char** argv)
       }
       stray_reference();
       return 1;
+   }
+   if (strcmp(op, "sigpipe") == 0) {
+      return do_sigpipe();
    }
    fprintf(stderr, "Unrecognized operation '%s'\n", op);
    usage();

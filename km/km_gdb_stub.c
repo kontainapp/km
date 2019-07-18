@@ -58,9 +58,9 @@
 #include "km_mem.h"
 #include "km_signal.h"
 
-gdbstub_info_t gdbstub;          // GDB global info
-#define BUFMAX (16 * 1024)       // buffer for gdb protocol
-static char in_buffer[BUFMAX];   // TODO: malloc/free these two
+gdbstub_info_t gdbstub = {.sock_fd = -1};   // GDB global info
+#define BUFMAX (16 * 1024)                  // buffer for gdb protocol
+static char in_buffer[BUFMAX];              // TODO: malloc/free these two
 static unsigned char registers[BUFMAX];
 
 #define GDB_ERROR_MSG "E01"   // The actual error code is ignored by GDB, so any number will do
