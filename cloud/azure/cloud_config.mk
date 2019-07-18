@@ -17,7 +17,7 @@ CLOUD_RESOURCE_GROUP=kontainKubeRG
 
 # Azure payment reference (name or ID).
 # Assumes the script authentication with Azure accoubt and subscription was crearted with this name
-CLOUD_SUBSCRIPTION=Pay-As-You-Go
+CLOUD_SUBSCRIPTION=Kontain-Pay-As-You-Go
 
 # values from `az account list-locations`
 CLOUD_LOCATION=westus
