@@ -34,11 +34,17 @@ if $argc == 0
    end
 
    set $item = $head->tqh_first
-   set $last_end=0
-   set $count=0
+   set $last_end = 0
+   set $count = 0
    while $item != 0
-      printf "start= 0x%lx size = %ld MiB (%ld) prot 0x%x flags 0x%x distance 0x%lx\n", $item->start, $item->size/1024/1024, \
-               $item->size, $item->protection, $item->flags, $item->start - $last_end
+      if $count == 0
+         set $distance = 0
+      else
+         set $distance =  $item->start - $last_end
+      end
+      printf "%3d start= 0x%lx size = %ld MiB (%ld) prot 0x%x flags 0x%x distance %ld MiB (0x%lx)\n", \
+                $count, $item->start, $item->size / (1024*1024), $item->size, \
+                $item->protection, $item->flags, $distance / (1024*1024) ,  $distance
       set $last_end = $item->start + $item->size
       set $item=$item->link->tqe_next
       set $count++
