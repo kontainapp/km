@@ -554,7 +554,7 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
    int idx;
    int error = 0;
 
-   if (tbrk == 0) {
+   if (tbrk == 0 || tbrk == machine.tbrk) {
       return machine.tbrk;
    }
    if (GUEST_MEM_TOP_VA < tbrk || tbrk < GUEST_MEM_TOP_VA - GUEST_MEM_ZONE_SIZE_VA) {
