@@ -31,6 +31,8 @@ The  code is built directly on a build machine (then all dependencies need to be
 
 ### Building with Docker
 
+Note: to install docker run `sudo dnf install moby-engine`.
+
 To build with docker, make sure `docker` and  `make` are installed, and run
 
 ```sh
