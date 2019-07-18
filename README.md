@@ -57,6 +57,8 @@ if (cond) {
    do something;
 }
 ```
+* we always compare function results with explicit value. E.g. we do `if (my_check() == 0) ...` instead of `if (!my_check())...`
+* for `return` statement, if we return a single token (with or without sign), then we do not use `()`, otherwise we do. E.g. `return 0;` and `return -ENOMEM;`, but `return (value + 1); `
 
 ## Test runs
 
