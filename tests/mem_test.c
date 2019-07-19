@@ -178,7 +178,7 @@ TEST nested_threads(void)
    MEM_JOIN(pt1);
    MEM_JOIN(pt2);
 
-   ASSERT_EQ(errors, 0);
+   ASSERT_EQ(0, errors);
    PASS();
 }
 

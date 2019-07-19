@@ -581,7 +581,7 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
           */
          set_pml4_hierarchy(&machine.vm_mem_regs[idx], 1);
       } else if (km_alloc_region(idx, memreg_size(idx), 1) != 0) {
-         idx--;
+         idx++;
          tbrk = machine.tbrk;
          error = ENOMEM;
          break;
