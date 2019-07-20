@@ -10,6 +10,7 @@ jobs:
     vmImage: ${{ parameters.vmImage }}
 
   steps:
+
   - checkout: self
     submodules: true
 
@@ -20,19 +21,12 @@ jobs:
       containerRegistry: ${{ parameters.registrySC }}
 
   - script: |
-      docker pull ${{ parameters.registry }}/km-buildenv-${{ parameters.name }}
-      docker tag  ${{ parameters.registry }}/km-buildenv-${{ parameters.name }} km-buildenv-${{ parameters.name }}
       make withdocker DTYPE=${{ parameters.name }}
-    displayName: make km with ${{ parameters.name }}
+    displayName: make km with ${{ parameters.name }} REGISTRY= ${{ parameters.registry }}
 
   - script: |
       set -x
-      make distro || true
+      make distro withdocker  ${{ parameters.name }} REGISTRY= ${{ parameters.registry }}
     condition: and(succeeded(), eq('${{ parameters.name }}', 'fedora'))
     displayName: 'make  distro'
 
-  - script: |
-      set -x
-      make publish || true
-    condition: and(succeeded(), eq('${{ parameters.name }}', 'fedora'))
-    displayName: 'make  distro'

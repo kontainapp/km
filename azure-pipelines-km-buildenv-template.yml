@@ -4,33 +4,36 @@ parameters:
   registrySC: 'kontainkubecr_service_connection'
   vmImage: 'ubuntu-16.04'
 
+
 jobs:
 - job: ${{ parameters.name }}
   pool:
     vmImage: ${{ parameters.vmImage }}
+
+  variables:
+    imageName: ${{ parameters.registry }}/km-buildenv-${{ parameters.name }}
+    dockerFile: ./docker/build/Dockerfile.${{ parameters.name }}
+    linux: ${{ parameters.name }}
+
   steps:
 
   - checkout: self
     submodules: true
-    persistCredentials: 'true'
-  
+
   - task: Docker@2
-    displayName: Login to ${{ parameters.registrySC }}
+    displayName: Docker@2 login to ${{ parameters.registrySC }}
     inputs:
       command: login
       containerRegistry: ${{ parameters.registrySC }}
 
   - script: |
-      docker pull ${{ parameters.registry }}/km-buildenv-${{ parameters.name }}
-      docker tag  ${{ parameters.registry }}/km-buildenv-${{ parameters.name }} km-buildenv-${{ parameters.name }}
-    displayName: pull  km-buildenv-${{ parameters.name }}
+      docker pull ${{ parameters.registry }}/km-buildenv-${{ parameters.name }} || true
+      docker tag  ${{ parameters.registry }}/km-buildenv-${{ parameters.name }} km-buildenv-${{ parameters.name }} || true
+    condition: and(succeeded(), eq('${{ parameters.name }}', 'fedora'))
+    displayName: docker pull  km-buildenv-${{ parameters.name }}
 
-  - task: Docker@2
-    displayName: Build and push an image to container registry
-    inputs:
-      command: buildAndPush
-      repository: 'km-buildenv-${{ parameters.name }}'
-      dockerfile: './docker/build/Dockerfile.${{ parameters.name }}'
-      containerRegistry: '${{ parameters.registrySC }}'
-      tags: |
-        latest
+  - script: |
+      docker build --build-arg=USER=appuser --build-arg=UID=1001 --build-arg=GID=117 -t $(imageName) -f  ./docker/build/Dockerfile.$(linux)  ./docker/build
+    displayName: docker build km-buildenv-${{ parameters.name }}
+
+

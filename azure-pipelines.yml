@@ -15,13 +15,6 @@ stages:
     parameters:
       name: 'fedora'
 
-  - template: azure-pipelines-km-buildenv-template.yml
-    parameters:
-      name: 'ubuntu'
-
-  - template: azure-pipelines-km-buildenv-template.yml
-    parameters:
-      name: 'alpine'
 
 - stage: Build
 
@@ -31,9 +24,6 @@ stages:
     parameters:
       name: 'fedora'
 
-  - template: azure-pipelines-km-build-template.yml
-    parameters:
-      name: 'ubuntu'
 
 - stage: 'Test'
   jobs:

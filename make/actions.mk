@@ -163,6 +163,9 @@ USER ?= appuser
 DLOC := ${TOP}docker/build
 DIMG := km-buildenv-${DTYPE}
 DFILE := Dockerfile.$(DTYPE)
+ifdef REGISTRY
+DIMG := $(REGISTRY)/$(DIMG)
+endif
 
 
 # Support for 'make withdocker'
@@ -183,8 +186,12 @@ ifneq ($(__testing),)  # only add --device=/dev/kvm is we are testing
  DEVICE_KVM := --device=/dev/kvm
 endif
 
+UID := $(shell id -u)
+GID := $(shell id -g)
+
+
 mk-image: ## build fedora image
-	docker build --build-arg=USER=$(USER)  --build-arg=UID=$(shell id -u) --build-arg=GID=$(shell id -g) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
+	docker build --build-arg=USER=$(USER)  --build-arg=UID=$(UID) --build-arg=GID=$(GID) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
 
 withdocker:
 	## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
@@ -208,7 +215,7 @@ VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS \
 	KM_BLDDIR KM_BIN\
 	CFLAGS BLDEXEC BLDLIB  COPTS \
 	COVERAGE COVERAGE_REPORT SRC_BRANCH IMAGE_VERSION \
-	CLOUD REGISTRY
+	CLOUD REGISTRY DIMG USER UID GID
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values
