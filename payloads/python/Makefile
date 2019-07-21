@@ -34,7 +34,10 @@ $(PAYLOAD_KM): *sh *patch
 build:
 	./build.sh
 
-test-all: all
+link:
+	./link-km.sh
+
+test-all:
 	${KM_BIN} ${PAYLOAD_KM} ./test_unittest.py
 	${KM_BIN} ${PAYLOAD_KM} ./cpython/Lib/unittest/test/
 

@@ -150,6 +150,26 @@
          ]
       },
       {
+         "name": "KMcore: 'gdb node.km kmcore'",
+         "type": "cppdbg",
+         "request": "launch",
+         "cwd": "${workspaceFolder}/payloads/node",
+         "program": "${workspaceFolder}/payloads/node/node/out/Debug/node.km",
+         "coreDumpPath": "${workspaceFolder}/payloads/node/kmcore",
+         "args": [],
+         "stopAtEntry": true,
+         "environment": [],
+         "externalConsole": false,
+         "MIMode": "gdb",
+         "setupCommands": [
+            {
+               "description": "Enable pretty-printing for gdb",
+               "text": "-enable-pretty-printing",
+               "ignoreFailures": true
+            }
+         ]
+      },
+      {
          "name": "brk_map_test (8GB)",
          "type": "cppdbg",
          "request": "launch",
@@ -180,6 +200,7 @@
          "request": "launch",
          "program": "${workspaceFolder}/build/km/km",
          "args": [
+            "-Vmmap",
             "payloads/node/node/out/Release/node.km",
             "payloads/node/scripts/hello.js"
          ],
