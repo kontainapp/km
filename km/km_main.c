@@ -46,7 +46,8 @@ static inline void usage()
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
         "\t--dump-shutdown                     - Produce register dump on VCPU error\n"
-        "\t--core-on-err                       - generate KM core dump when exiting on err()"
+        "\t--core-on-err                       - generate KM core dump when exiting on err, "
+        "including guest core dump\n"
         "\t--overcommit-memory                 - Allow huge address allocations for payloads.\n"
         "\t                                      See 'sysctl vm.overcommit_memory'\n"
 
