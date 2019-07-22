@@ -20,7 +20,7 @@ default test:
 	@echo "Info: ignoring target '$@' in payloads"
 
 # use this target to force payloads build
-build: $(SUBDIRS)
+link build: $(SUBDIRS)
 
 TOP := $(shell git rev-parse --show-cdup)
 include ${TOP}make/actions.mk
