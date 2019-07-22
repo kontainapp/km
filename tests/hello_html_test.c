@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Kontain Inc. All rights reserved.
+ * Copyright © 2019 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -77,7 +77,7 @@ int tcp_accept(int listen_sd)
 }
 
 char wbuf[] = "HTTP/1.1 200 OK\r\n"
-              "Date: Mon, 10 Dec 2018 22:23:47 GMT\r\n"
+              "Date: Mon, 10 Dec 2019 22:23:47 GMT\r\n"
               "Server: Apache\r\n"
               "Last-Modified: Sat, 01 Nov 2014 04:18:40 GMT\r\n"
               "Content-Length: 110\r\n"
