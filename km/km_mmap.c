@@ -27,6 +27,9 @@
 #include "km_coredump.h"
 #include "km_mem.h"
 
+// Passed in 'flags' to prevent premature concat. Should not overlap with mmap's MAP_* flags
+#define MAP_DONOT_CONCAT 0x4000
+
 TAILQ_HEAD(km_mmap_list, km_mmap_reg);
 typedef struct km_mmap_list km_mmap_list_t;
 
@@ -110,21 +113,14 @@ static km_mmap_reg_t* km_mmap_find_free(size_t size)
    return NULL;
 }
 
-// calls mprotect on a single mmap region
-static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
-{
-   if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, reg->protection) != 0) {
-      warn("%s: Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)",
-           __FUNCTION__,
-           reg->start,
-           reg->size,
-           reg->protection);
-   }
-}
-
-// return 1 if ok to concat. Relies on 'free' mmaps all having 0 in protection and flags
+// return 1 if ok to concat. Relies on 'free' mmaps all having 0 in protection and flags.
+// Also honors MAP_DONOT_CONCAT flag
 static inline int ok_to_concat(km_mmap_reg_t* left, km_mmap_reg_t* right)
 {
+   if ((left->flags & MAP_DONOT_CONCAT) == MAP_DONOT_CONCAT ||
+       (right->flags & MAP_DONOT_CONCAT) == MAP_DONOT_CONCAT) {
+      return 0;
+   }
    return (left->start + left->size == right->start && left->protection == right->protection &&
            left->flags == right->flags);
 }
@@ -148,6 +144,18 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
       reg->size += right->size;
       TAILQ_REMOVE(list, right, link);
       free(right);
+   }
+}
+
+// calls mprotect on a single mmap region
+static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
+{
+   if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, reg->protection) != 0) {
+      warn("%s: Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)",
+           __FUNCTION__,
+           reg->start,
+           reg->size,
+           reg->protection);
    }
 }
 
@@ -182,7 +190,10 @@ static inline void km_mmap_insert(km_mmap_reg_t* reg, km_mmap_list_t* list)
 // Insert a region into the BUSY MMAPS with proper protection. Expects 'reg' to be malloced
 static inline void km_mmap_insert_busy(km_mmap_reg_t* reg)
 {
-   km_mmap_insert(reg, &mmaps.busy);
+   km_mmap_list_t* list = &mmaps.busy;
+
+   km_mmap_insert(reg, list);
+   km_mmap_concat(reg, list);
 }
 
 // Insert 'reg' into the FREE MMAPS with PROT_NONE, and compress maps/tbrk. Expects 'reg' to be malloced
@@ -219,25 +230,11 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
    km_mmap_insert_free(reg);
 }
 
-// moves existing mmap region from busy to free
-static inline void km_mmaps_move_to_busy(km_mmap_reg_t* reg)
+// mprotects the region and then tries to concat it
+static inline void km_mmap_mprotect_and_concat(km_mmap_reg_t* reg)
 {
-   km_mmap_remove_free(reg);
-   km_mmap_insert_busy(reg);
-}
-
-static inline void km_mmap_busy_collapse(void)
-{
-   km_mmap_reg_t *reg, *next, *last = NULL;
-   TAILQ_FOREACH_SAFE (reg, &mmaps.busy, link, next) {
-      if (last != NULL && last->start + last->size == reg->start && last->flags == reg->flags &&
-          last->protection == reg->protection) {
-         last->size += reg->size;
-         TAILQ_REMOVE(&mmaps.busy, reg, link);
-         free(reg);
-      }
-      last = reg;
-   }
+   km_mmap_mprotect_region(reg);
+   km_mmap_concat(reg, &mmaps.busy);
 }
 /*
  * Maps an address range in guest virtual space.
@@ -290,18 +287,17 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    }
    reg->flags = flags;
    reg->protection = prot;
+   km_gva_t map_start = reg->start;   // reg->start can be modified due to concat inside insert_busy
    km_mmap_insert_busy(reg);
-   km_gva_t new_map_start = reg->start;   // note: 'reg' can be modified during collapse
-   km_mmap_busy_collapse();
    mmaps_unlock();
-   return new_map_start;
+   return map_start;
 }
 
-typedef void (*km_mmap_action)(km_mmap_reg_t* reg);   // action type to apply to mmaps within the range
+typedef void (*km_mmap_action)(km_mmap_reg_t*);
 /*
- * Apply 'action(reg)' to all mmap regions completely within the (addr, addr+size-1) range in 'busy'
- * mmaps. If needed splits the mmaps at the ends - new maps are also updated to have protection
- * 'prot',
+ * Apply 'action(reg)' to all mmap regions completely within the (addr, addr+size-1) range in
+ * 'busy' mmaps. If needed splits the mmaps at the ends - new maps are also updated to have
+ * protection 'prot',
  *
  * Returns 0 on success or -errno
  */
@@ -322,11 +318,13 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
             return -ENOMEM;
          }
          memcpy(extra, reg, sizeof(*reg));
-         reg->size = addr - reg->start;   // left part
-         extra->start = addr;             // right part
+         reg->size = addr - reg->start;   // left part, to keep in busy
+         extra->start = addr;             // right part, to insert in busy
          extra->size -= reg->size;
+         extra->flags |= MAP_DONOT_CONCAT;
          km_mmap_insert_busy(extra);   // TODO - allow 'insert_busy_after'
-         next = extra;                 // handle the freshly inserted mmap
+         extra->flags &= ~MAP_DONOT_CONCAT;
+         next = extra;   // handle the freshly inserted mmap
          continue;
       }
       if (reg->start + reg->size > addr + size) {   // overlaps on the end
@@ -335,10 +333,12 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
             return -ENOMEM;
          }
          memcpy(extra, reg, sizeof(*reg));
-         extra->size = addr + size - extra->start;   // left part
-         reg->start = addr + size;                   // right part
+         extra->size = addr + size - extra->start;   // left part , to insert in busy
+         reg->start = addr + size;                   // right part, to keep in busy
          reg->size -= extra->size;
+         extra->flags |= MAP_DONOT_CONCAT;
          km_mmap_insert_busy(extra);
+         extra->flags &= ~MAP_DONOT_CONCAT;
          next = extra;   // handle the freshly inserted mmap
          continue;
       }
@@ -419,11 +419,10 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
       mmaps_unlock();
       return -ENOMEM;
    }
-   if (km_mmap_busy_range_apply(addr, size, km_mmap_mprotect_region, prot) != 0) {
+   if (km_mmap_busy_range_apply(addr, size, km_mmap_mprotect_and_concat, prot) != 0) {
       mmaps_unlock();
       return -ENOMEM;
    }
-   km_mmap_busy_collapse();
    mmaps_unlock();
    return 0;
 }

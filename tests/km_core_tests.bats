@@ -187,7 +187,7 @@ teardown() {
    diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
 
-@test "mem_mmap0: mmap and munmap with addr=0 (mmap_test)" {
+@test "mem_mmap: mmap and munmap with addr=0 (mmap_test)" {
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
