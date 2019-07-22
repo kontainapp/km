@@ -385,16 +385,14 @@ void km_deliver_signal(km_vcpu_t* vcpu)
       km_vcpu_apply_all(km_vcpu_pause, 0);
       km_vcpu_wait_for_all_to_pause();
       if ((km_sigismember(&perror_signals, info.si_signo) != 0) || (info.si_signo == SIGQUIT)) {
+         extern int debug_dump_on_err;
          km_dump_core(vcpu, NULL);
+         if (debug_dump_on_err) {
+            abort();
+         }
          core_dumped = 1;
       }
-      warnx("guest: %s %s", strsignal(info.si_signo), (core_dumped) ? "(core dumped)" : "");
-      extern int debug_dump_on_err;
-      if (debug_dump_on_err) {
-         abort();
-      } else {
-         exit(info.si_signo);
-      }
+      errx(info.si_signo, "guest: %s %s", strsignal(info.si_signo), (core_dumped) ? "(core dumped)" : "");
    }
 
    assert(act->handler != (km_gva_t)SIG_IGN);

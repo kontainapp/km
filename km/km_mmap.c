@@ -125,13 +125,13 @@ static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
 // return 1 if ok to concat. Relies on 'free' mmaps all having 0 in protection and flags
 static inline int ok_to_concat(km_mmap_reg_t* left, km_mmap_reg_t* right)
 {
-   return ((left->start + left->size == right->start) && left->protection == right->protection &&
+   return (left->start + left->size == right->start && left->protection == right->protection &&
            left->flags == right->flags);
 }
 
 /*
  * Concatenate 'reg' mmap with left and/or right neighbor in the 'list', if they have the
- * same properties. Remove from the list and free the excess the neighbors.
+ * same properties. Remove from the list and free the excess neighbors.
  */
 static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
 {
@@ -139,17 +139,12 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
    km_mmap_reg_t* right = TAILQ_NEXT(reg, link);
 
    if (left != NULL && ok_to_concat(left, reg) == 1) {
-      if (right != NULL && ok_to_concat(reg, right) == 1) {
-         reg->size += right->size;
-         TAILQ_REMOVE(list, right, link);
-         free(right);
-      }
       reg->start = left->start;
       reg->size += left->size;
       TAILQ_REMOVE(list, left, link);
       free(left);
-   } else if (right != NULL && ok_to_concat(reg, right) == 1) {
-      right->start = reg->start;
+   }
+   if (right != NULL && ok_to_concat(reg, right) == 1) {
       reg->size += right->size;
       TAILQ_REMOVE(list, right, link);
       free(right);
@@ -381,7 +376,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
 }
 
 /*
- * Checks if busy mmaps are contiguous from `addr' `end' region.
+ * Checks if busy mmaps are contiguous from `addr' to `addr+size'.
  * Return 0 if they are, -1 if they are not.
  */
 static int km_mmap_busy_check_contigious(km_gva_t addr, size_t size)
