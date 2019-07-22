@@ -31,12 +31,29 @@ The  code is built directly on a build machine (then all dependencies need to be
 
 ### Building with Docker
 
-To build with docker, make sure `docker` and  `make` are installed, and run
+To build with docker, make sure `docker` and  `make` are installed, and run:
 
 ```sh
  make withdocker
  make withdocker TARGET=test
 ```
+
+#### Installing Docker
+
+If you are running Fedora 30 or greater:
+
+```sh
+sudo dnf install moby-engine
+```
+
+For older systems see the instructions at https://docs.docker.com/v17.12/install/.
+
+Run `sudo service docker start` to start the Docker service.
+
+#### Configuring Docker
+
+By default Docker require root permission to run. Read the instructions at https://docs.docker.com/install/linux/linux-postinstall/ to run docker without being root. 
+
 
 ### Building directly on the box
 
