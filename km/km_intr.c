@@ -205,7 +205,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
          info.si_signo,
          strsignal(info.si_signo));
 
-   if (km_gdb_is_enabled()) {
+   if (km_gdb_is_enabled() != 0) {
       vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
       km_gdb_notify_and_wait(vcpu, info.si_signo);
    }
