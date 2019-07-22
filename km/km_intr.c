@@ -19,6 +19,7 @@
 #include <sys/ioctl.h>
 
 #include "km_coredump.h"
+#include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "x86_cpu.h"
@@ -203,6 +204,12 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
          str_intr[events.exception.nr],
          info.si_signo,
          strsignal(info.si_signo));
+
+   if (km_gdb_is_enabled() != 0) {
+      vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
+      km_gdb_notify_and_wait(vcpu, info.si_signo);
+   }
+
    km_post_signal(vcpu, &info);
 
    // We know there is a signal. Force delivery now.

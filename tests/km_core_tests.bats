@@ -231,6 +231,20 @@ teardown() {
    [ $status -eq 6 ]
 }
 
+@test "gdb_exception: gdb exception support (stray_test)" {
+   km_gdb_default_port=2159
+   # Test with signals
+   km_with_timeout -g stray_test.km stray &
+   gdb_pid=`jobs -p` ; sleep 0.5
+	run gdb -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_exception_test.gdb" \
+         --ex=c --ex=q stray_test.km
+   [ $status -eq 0 ]
+   [ $(echo "$output" | grep -F -cw 'received signal SIGSEGV') == 1 ]
+   # check that KM exited normally
+   run wait $gdb_pid
+   [ $status -eq 11 ]  # SIGSEGV
+}
+
 @test "Unused memory protection: check that unused memory is protected (mprotect_test)" {
    core=/tmp/kmcore$$
    run km_with_timeout -C $core mprotect_test.km
