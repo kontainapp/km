@@ -244,6 +244,33 @@ TEST complex_test()
    PASS();
 }
 
+// helper to test glue
+TEST concat_test()
+{
+   static mmap_test_t mprotect_tests[] = {
+       {"1. mmap", TYPE_MMAP, 0, 1 * MIB, PROT_NONE, flags, OK},
+       {"2. mmap", TYPE_MMAP, 0, 2 * MIB, PROT_NONE, flags, OK},
+       {"3. mmap", TYPE_MMAP, 0, 3 * MIB, PROT_NONE, flags, OK},
+       {"4. mmap", TYPE_MMAP, 0, 4 * MIB, PROT_NONE, flags, OK},
+       {"5. mmap", TYPE_MMAP, 0, 5 * MIB, PROT_NONE, flags, OK},
+       {"6. mprotect", TYPE_MPROTECT, 1 * MIB, 1 * MIB, PROT_READ, flags, OK},
+       {"7. mprotect", TYPE_MPROTECT, 2 * MIB, 1 * MIB, PROT_READ, flags, OK},
+       {"8. mprotect", TYPE_MPROTECT, 3 * MIB, 1 * MIB, PROT_READ, flags, OK},
+       {"9. mprotect", TYPE_MPROTECT, 4 * MIB, 1 * MIB, PROT_READ, flags, OK},
+       {"10.mprotect", TYPE_MPROTECT, 5 * MIB, 1 * MIB, PROT_READ, flags, OK},
+       {"11.mprotect", TYPE_MPROTECT, 6 * MIB, 1 * MIB, PROT_READ, flags, OK},
+
+       // TODO: automate checking for the mmaps concatenation. For now check with `print_tailq
+       // &mmaps.busy ` in gdb
+       {"12.cleanup unmap", TYPE_MUNMAP, 0, 15 * MIB, PROT_NONE, flags, OK},
+
+       {NULL},
+   };
+
+   printf("Running %s\n", __FUNCTION__);
+   CHECK_CALL(mmap_test_execute(mprotect_tests));
+   PASS();
+}
 GREATEST_MAIN_DEFS();
 int main(int argc, char** argv)
 {
@@ -252,6 +279,7 @@ int main(int argc, char** argv)
 
    RUN_TEST(brk_test);
    RUN_TEST(simple_test);
+   RUN_TEST(concat_test);
    RUN_TEST(complex_test);
 
    GREATEST_PRINT_REPORT();

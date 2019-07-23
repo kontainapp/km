@@ -230,16 +230,13 @@ static inline void km_mmap_busy_collapse(void)
 {
    km_mmap_reg_t *reg, *next, *last = NULL;
    TAILQ_FOREACH_SAFE (reg, &mmaps.busy, link, next) {
-      if (last == NULL) {
-         last = reg;
-         continue;
-      }
-      if (last->start + last->size == reg->start && last->flags == reg->flags &&
+      if (last != NULL && last->start + last->size == reg->start && last->flags == reg->flags &&
           last->protection == reg->protection) {
          last->size += reg->size;
          TAILQ_REMOVE(&mmaps.busy, reg, link);
          free(reg);
       }
+      last = reg;
    }
 }
 /*
