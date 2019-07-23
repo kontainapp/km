@@ -116,7 +116,6 @@ typedef struct km_machine_init_params {
 void km_machine_init(km_machine_init_params_t* params);
 void km_signal_machine_fini(void);
 void km_machine_fini(void);
-void km_vcpu_set_tid(km_vcpu_t* vcpu);
 void* km_vcpu_run_main(void* unused);
 void* km_vcpu_run(km_vcpu_t* vcpu);
 void km_dump_vcpu(km_vcpu_t* vcpu);
