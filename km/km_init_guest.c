@@ -122,6 +122,13 @@ typedef struct km_builtin_tls {
 } km_builtin_tls_t;
 #define MIN_TLS_ALIGN offsetof(km_builtin_tls_t, pt)
 
+void km_vcpu_set_tid(km_vcpu_t* vcpu)
+{
+   km_pthread_t* tcb_kma = km_gva_to_kma_nocheck(vcpu->guest_thr);
+
+   tcb_kma->tid = vcpu->tid = vcpu->vcpu_id + 1;
+}
+
 /*
  * km_load_elf() finds __libc by name in the ELF image of the guest. We follow __init_libc() logic
  * to initialize the content, including TLS and pthread structure for the main thread. TLS is
@@ -385,16 +392,6 @@ void km_pthread_fini(km_vcpu_t* vcpu)
       km_guest_munmap((km_gva_t)pt_kma->map_base, pt_kma->map_size);
    }
 }
-
-// glibc does not have a wrapper for SYS_gettid, let's add it
-#ifdef SYS_gettid
-pid_t gettid(void)
-{
-   return syscall(SYS_gettid);
-}
-#else
-#error "SYS_gettid is not available"
-#endif
 
 static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict attr)
 {

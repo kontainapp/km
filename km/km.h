@@ -231,8 +231,6 @@ extern int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused);
 extern km_vcpu_t* km_vcpu_fetch(pthread_tid_t);
 extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
 
-extern pid_t gettid(void);
-
 // Interrupt handling.
 void km_init_guest_idt(km_gva_t handlers);
 void km_handle_interrupt(km_vcpu_t* vcpu);
