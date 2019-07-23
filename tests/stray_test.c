@@ -9,7 +9,8 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * Generates exceptions in guest in order to test guest coredumps.
+ * This program generates exceptions in guest in order to test guest coredumps
+ * and other processing.
  */
 #include <assert.h>
 #include <err.h>
@@ -34,30 +35,80 @@ char* cmdname = "?";
 int bigarray_data[10000000] = {1, 2, 3};
 int bigarray_bss[10000000];
 
-// Generate a X86 #PF exception
-void stray_reference(void)
+int stray_reference(int optind, int argc, char* argv[]);
+int div0(int optind, int argc, char* argv[]);
+int undefined_op(int optind, int argc, char* argv[]);
+int protection_test(int optind, int argc, char* argv[]);
+int abort_test(int optind, int argc, char* argv[]);
+int quit_test(int optind, int argc, char* argv[]);
+int term_test(int optind, int argc, char* argv[]);
+int signal_abort_test(int optind, int argc, char* argv[]);
+int block_segv_test(int optind, int argc, char* argv[]);
+int sigpipe_test(int optind, int argc, char* argv[]);
+int hc_test(int optind, int argc, char* argv[]);
+int hc_badarg_test(int optind, int argc, char* argv[]);
+
+struct stray_op {
+   char* op;                                          // Operation name on command line
+   int (*func)(int optind, int argc, char* argv[]);   // operation function
+   char* description;
+} operations[] = {
+    {.op = "stray",
+     .func = stray_reference,
+     .description = "- make a stray memory reference that will generate a SIGSEGV."},
+    {.op = "div0", .func = div0, .description = "- divide by 0 and generate a SIGFPE."},
+    {.op = "ud", .func = undefined_op, .description = "- undefined instruction, generate a SIGILL."},
+    {.op = "prot",
+     .func = protection_test,
+     .description = "- try to write to instruction memory. Generate a SIGSEGV."},
+    {.op = "abort", .func = abort_test, .description = "- Call abort(2). Generate a SIGABRT."},
+    {.op = "quit", .func = quit_test, .description = "- Generate a SIGQUIT."},
+    {.op = "term", .func = term_test, .description = "- Generate a SIGTERM."},
+    {.op = "signal", .func = signal_abort_test, .description = "- abort(2) from a signal handler."},
+    {.op = "block-segv", .func = block_segv_test, .description = "- block SIGSEGV and them generate it."},
+    {.op = "sigpipe", .func = sigpipe_test, .description = "- ignore SIGPIPE and then generate it."},
+    {.op = "hc",
+     .func = hc_test,
+     .description = "<call> - make hypercall with number <call>. exit 0 means success."},
+    {.op = "hc-badarg",
+     .func = hc_badarg_test,
+     .description = "<call> - make hypercall with number <call> and a bad argument."},
+    {.op = NULL, .func = NULL, .description = NULL},
+};
+
+void usage()
+{
+   fprintf(stderr, "usage: %s <operation>\n", cmdname);
+   fprintf(stderr, "operations:\n");
+
+   struct stray_op* sop = operations;
+   while (sop->op != NULL) {
+      fprintf(stderr, " %s %s\n", sop->op, sop->description);
+      sop++;
+   }
+}
+
+// Generate a X86 #PF exception (page fault)
+int stray_reference(int optind, int argc, char* argv[])
 {
    char* ptr = (char*)-16;
    *ptr = 'a';
+   return 0;
 }
 
-// Generate a X86 #DE exception
-void div0()
+// Generate a X86 #DE exception divide error)
+int div0(int optind, int argc, char* argv[])
 {
    asm volatile("xor %rcx, %rcx\n\t"
                 "div %rcx");
+   return 0;
 }
 
-// Generate a X86 #UD excpetion
-void undefined_op()
+// Generate a X86 #UD excpetion (invalid opcode)
+int undefined_op(int optind, int argc, char* argv[])
 {
    asm volatile("ud2");
-}
-
-void bad_hcall()
-{
-   km_hc_args_t arg;
-   km_hcall(SYS_fork, &arg);
+   return 0;
 }
 
 void write_text(void* ptr)
@@ -65,7 +116,58 @@ void write_text(void* ptr)
    *((char*)ptr) = 'a';
 }
 
-int do_sigpipe()
+// Generate a X86 #GP exception (general protection)
+int protection_test(int optind, int argc, char* argv[])
+{
+   write_text(usage);
+   return 0;
+}
+
+int abort_test(int optind, int argc, char* argv[])
+{
+   abort();
+   return 0;
+}
+
+int quit_test(int optind, int argc, char* argv[])
+{
+   kill(0, SIGQUIT);
+   return 0;
+}
+
+int term_test(int optind, int argc, char* argv[])
+{
+   kill(0, SIGTERM);
+   return 0;
+}
+
+void signal_abort_handler(int sig)
+{
+   abort();
+}
+
+int signal_abort_test(int optind, int argc, char* argv[])
+{
+   signal(SIGUSR1, signal_abort_handler);
+   kill(0, SIGUSR1);
+   return 0;
+}
+
+// Block SIGSEGV and then generate one. Should drop core drop a core.
+int block_segv_test(int optind, int argc, char* argv[])
+{
+   sigset_t mask;
+   sigemptyset(&mask);
+   sigaddset(&mask, SIGSEGV);
+   if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
+      err(1, "sigprocmask failed");
+   }
+   stray_reference(optind, argc, argv);
+   return 0;
+}
+
+// Ignore SIGPIP and generate a one. Should be ignored
+int sigpipe_test(int optind, int argc, char* argv[])
 {
    int pfd[2];
    if (pipe(pfd) < 0) {
@@ -83,31 +185,40 @@ int do_sigpipe()
    return 0;
 }
 
+// Generate a hypercall.
+int hc_test(int optind, int optarg, char* argv[])
+{
+   char* ep = NULL;
+   int callid = strtol(argv[optind], &ep, 0);
+   if (ep == NULL || *ep != '\0') {
+      fprintf(stderr, "callid '%s' is not a number", argv[optind]);
+      usage();
+      return 100;
+   }
+   syscall(callid, 0);
+   return 0;
+}
+
+// Generate a hypercall with a known bad argument.
+int hc_badarg_test(int optind, int optarg, char* argv[])
+{
+   char* ep = NULL;
+   int callid = strtol(argv[optind], &ep, 0);
+   if (ep == NULL || *ep != '\0') {
+      fprintf(stderr, "callid '%s' is not a number", argv[optind]);
+      usage();
+      return 100;
+   }
+   km_hcall(callid, (km_hc_args_t*)-1LL);
+   return 0;
+}
+
+// A thread to have laying around. Make the coredumps more interesting.
 pthread_mutex_t mt = PTHREAD_MUTEX_INITIALIZER;
 void* thread_main(void* arg)
 {
    pthread_mutex_lock(&mt);
    return NULL;
-}
-
-void signal_handler(int sig)
-{
-   abort();
-}
-
-void usage()
-{
-   fprintf(stderr, "usage: %s <operation>\n", cmdname);
-   fprintf(stderr, "operations:\n");
-   fprintf(stderr, " stray - generate a stray reference\n");
-   fprintf(stderr, " div0  - generate a divide by zero\n");
-   fprintf(stderr, " ud    - generate an undefined op code\n");
-   fprintf(stderr, " hc    - generate an undefined hypercall\n");
-   fprintf(stderr, " prot  - generate an write to protected memory\n");
-   fprintf(stderr, " abort - generate an abort call\n");
-   fprintf(stderr, " quit  - generate a SIGQUIT\n");
-   fprintf(stderr, " term  - generate a SIGTERM\n");
-   fprintf(stderr, " signal- abort() inside signal handler\n");
 }
 
 int main(int argc, char** argv)
@@ -129,11 +240,12 @@ int main(int argc, char** argv)
             return 1;
       }
    }
-   if (optind + 1 != argc) {
+   if (optind >= argc) {
       usage();
       return 1;
    }
    op = argv[optind];
+   optind++;
 
    pthread_mutex_lock(&mt);
    if (pthread_create(&thr, NULL, thread_main, NULL) != 0) {
@@ -158,56 +270,14 @@ int main(int argc, char** argv)
       errx(1, "large PROT_NONE mmap ");
    }
 
-   if (strcmp(op, "stray") == 0) {
-      stray_reference();
-      return 1;
-   }
-   if (strcmp(op, "div0") == 0) {
-      div0();
-      return 1;
-   }
-   if (strcmp(op, "ud") == 0) {
-      undefined_op();
-      return 1;
-   }
-   if (strcmp(op, "hc") == 0) {
-      bad_hcall();
-      return 1;
-   }
-   if (strcmp(op, "prot") == 0) {
-      write_text(usage);
-      return 1;
-   }
-   if (strcmp(op, "abort") == 0) {
-      abort();
-      return 1;
-   }
-   if (strcmp(op, "quit") == 0) {
-      kill(0, SIGQUIT);
-      return 1;
-   }
-   if (strcmp(op, "term") == 0) {
-      kill(0, SIGTERM);
-      return 1;
-   }
-   if (strcmp(op, "signal") == 0) {
-      signal(SIGUSR1, signal_handler);
-      kill(0, SIGUSR1);
-      return 1;
-   }
-   if (strcmp(op, "block-segv") == 0) {
-      sigset_t mask;
-      sigemptyset(&mask);
-      sigaddset(&mask, SIGSEGV);
-      if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
-         err(1, "sigprocmask failed");
+   struct stray_op* nop = operations;
+   while (nop->op != NULL) {
+      if (strcmp(op, nop->op) == 0) {
+         return nop->func(optind, argc, argv);
       }
-      stray_reference();
-      return 1;
+      nop++;
    }
-   if (strcmp(op, "sigpipe") == 0) {
-      return do_sigpipe();
-   }
+
    fprintf(stderr, "Unrecognized operation '%s'\n", op);
    usage();
    return 1;
