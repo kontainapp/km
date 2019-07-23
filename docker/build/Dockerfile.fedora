@@ -2,7 +2,7 @@
 # Dockerfile for builds.
 # Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
 #
-# Copyright © 2018 Kontain Inc. All rights reserved.
+# Copyright © 2019 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
 #

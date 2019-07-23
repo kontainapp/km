@@ -1,6 +1,6 @@
 
 /*
- * Copyright © 2018 Kontain Inc. All rights reserved.
+ * Copyright © 2019 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Kontain Inc. All rights reserved.
+ * Copyright © 2019 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -10,7 +10,7 @@
  * permission of Kontain Inc.
  *
  * Test brk() with configrable memory size.
- * 
+ *
  * Note: Two sets of SYS_break tests is temporary until I work out how to handle setable
  *       guest virtual memory and tests in general.
  */
@@ -47,7 +47,7 @@ char buf[TEST_BUFFER_SZ];
  * Test that data written to mmap or SYS_break memory can be written and
  * read back. Use random'ish data for each call to ensure we don't succeed
  * due to old data in memory.
- * 
+ *
  * Returns 1 (True) when successful, 0 (False) otherwise.
  */
 int test_memory(void *ptr) {
@@ -232,7 +232,7 @@ int main(int argc, char** argv)
 
    RUN_TEST(map_brk_to_limit);
    RUN_TEST(brk_map_to_limit);
-   
+
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
 }

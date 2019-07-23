@@ -1,4 +1,4 @@
-# Copyright © 2018 Kontain Inc. All rights reserved.
+# Copyright © 2019 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -18,17 +18,19 @@ We should find a list of 50 modules.
 """
 import unittest
 
+
 class TestModules(unittest.TestCase):
 
     def test_import_modules(self):
-        NUMBER_OF_MODULES=50
+        NUMBER_OF_MODULES = 50
 
         with self.assertRaises(ModuleNotFoundError):
             import foo
         import sys
 
         # Get a list of module names.
-        moduleNames = list(filter(lambda x:  not x.startswith('_'), sys.modules.keys()))
+        moduleNames = list(
+            filter(lambda x: not x.startswith('_'), sys.modules.keys()))
 
         # Import them all.
         modules = list(map(__import__, moduleNames))
@@ -36,10 +38,11 @@ class TestModules(unittest.TestCase):
             for module in modules:
                 self.assertIn(name, module.__dict__.keys())
 
-        # Count them. 
+        # Count them.
         names = sorted(set(map(lambda x: x.__name__, modules)))
-        self.assertEqual(len(names), NUMBER_OF_MODULES, 
-                "Should have found {} modules".format(NUMBER_OF_MODULES))
+        self.assertEqual(len(names), NUMBER_OF_MODULES,
+                         "Should have found {} modules".format(NUMBER_OF_MODULES))
+
 
 if __name__ == '__main__':
     unittest.main()

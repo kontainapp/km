@@ -2,7 +2,7 @@
 # use this if started as a standalone script:
 if [ -z "$BATS_TEST_FILENAME" ] ; then "exec" "`dirname $0`/bats/bin/bats" "$0" "$@" ; fi
 
-# Copyright © 2018 Kontain Inc. All rights reserved.
+# Copyright © 2019 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
