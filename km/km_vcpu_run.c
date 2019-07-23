@@ -597,7 +597,7 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int status, hc;
-   km_vcpu_set_tid(vcpu);
+   vcpu->tid = gettid();
    vcpu->is_paused = 1;
 
    while (1) {
@@ -695,7 +695,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 void* km_vcpu_run_main(void* unused)
 {
    km_vcpu_t* vcpu = km_main_vcpu();
-   km_vcpu_set_tid(vcpu);
+
+   vcpu->tid = gettid();
 
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
    km_install_sighandler(SIGPIPE, km_forward_fd_signal);

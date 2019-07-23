@@ -195,54 +195,14 @@
          ]
       },
       {
-         "name": "Direct debugging of node.km micro-srv.js",
-         "type": "cppdbg",
-         "request": "launch",
-         "cwd": "${workspaceFolder}/payloads/node",
-         "program": "${workspaceFolder}/payloads/node/node/out/Debug/node.km",
-         "args": [
-            "set debug remote 0"
-         ],
-         "stopAtEntry": true,
-         "miDebuggerServerAddress": "localhost:2159",
-         "miDebuggerArgs": "--silent",
-         "debugServerPath": "${workspaceFolder}/build/km/km",
-         "debugServerArgs": "-g ${workspaceFolder}/payloads/node/node/out/Debug/node.km ${workspaceFolder}/payloads/node/scripts/micro-srv.js",
-         "serverLaunchTimeout": 60000,
-         "filterStderr": true,
-         "filterStdout": false,
-         "serverStarted": "GdbServerStubStarted",
-         "logging": {
-            "moduleLoad": false,
-            "trace": false,
-            "engineLogging": false,
-            "programOutput": true,
-            "exceptions": true,
-            "traceResponse": false
-         },
-         "environment": [],
-         "externalConsole": false,
-         "setupCommands": [
-            {
-               "description": "Enable pretty-printing for gdb",
-               "text": "-enable-pretty-printing",
-               "ignoreFailures": true
-            },
-            {
-               "description": "Make sure we stop somewhere",
-               "text": "b printf",
-               "ignoreFailures": false
-            }
-         ]
-      },
-      {
-         "name": "KM Node.km micro-srv.js",
+         "name": "KM Node.js Hello.js",
          "type": "cppdbg",
          "request": "launch",
          "program": "${workspaceFolder}/build/km/km",
          "args": [
-            "payloads/node/node/out/Debug/node.km",
-            "payloads/node/scripts/micro-srv.js"
+            "-Vmmap",
+            "payloads/node/node/out/Release/node.km",
+            "payloads/node/scripts/hello.js"
          ],
          "stopAtEntry": true,
          "cwd": "${workspaceFolder}",
