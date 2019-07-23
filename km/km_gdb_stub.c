@@ -367,9 +367,9 @@ static void send_response(char code, int signum, bool wait_for_ack)
    }
 }
 
-static inline int km_gdb_thread_id(km_vcpu_t* vcpu)   // we use vcpu->tid as thread id for GDB
+static inline int km_gdb_thread_id(km_vcpu_t* vcpu)   // we use km_vcpu_get_tid as thread id for GDB
 {
-   return vcpu->tid;
+   return km_vcpu_get_tid(vcpu);
 }
 
 // Add hex gdb_tid to the list of thread_ids for communication to gdb

@@ -274,22 +274,18 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data)
    return total;
 }
 
-// fetch vcpu by KM thread tid
+// fetch vcpu by thread tid, as returned by gettid(). This should match km_vcpu_get_tid()
 km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
 {
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      km_vcpu_t* vcpu;
+   km_vcpu_t* vcpu;
 
-      if ((vcpu = machine.vm_vcpus[i]) == NULL) {
-         break;   // since we allocate vcpus sequentially, no reason to scan after NULL
-      }
-      if (vcpu->is_used == 1 && vcpu->tid == tid) {
-         return vcpu;
-      }
+   if (tid > 0 && tid < KVM_MAX_VCPUS && (vcpu = machine.vm_vcpus[tid - 1]) != NULL) {
+      return vcpu->is_used == 1 ? vcpu : NULL;
    }
    return NULL;
 }
 
+// fetch vcpu by guest thead pointer, as returned by pthread_create()
 km_vcpu_t* km_vcpu_fetch(pthread_tid_t pid)
 {
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
@@ -326,7 +322,7 @@ int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
             vcpu->joining_pid,
             vcpu->is_used,
             vcpu->vcpu_thread,
-            vcpu->tid,
+            km_vcpu_get_tid(vcpu),
             vcpu->guest_thr);
    return 0;
 }
