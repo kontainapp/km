@@ -78,19 +78,19 @@ teardown() {
 }
 
 @test "hc_check: invoke wrong hypercall (hc_test)" {
-   run km_with_timeout hc_test.km 400
+   run km_with_timeout stray_test.km hc 400
    [ $status == 31 ]  #SIGSYS
    [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
 
-   run km_with_timeout hc_test.km -- -10
+   run km_with_timeout stray_test.km hc -10
    [ $status == 31 ]  #SIGSYS
    [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
 
-   run km_with_timeout hc_test.km 1000
+   run km_with_timeout stray_test.km hc 1000
    [ $status == 31 ]  #SIGSYS
    [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
 
-   run km_with_timeout hc_test.km --bad-arg 3
+   run km_with_timeout stray_test.km hc-badarg 3
    [ $status == 31 ]  #SIGSYS
    [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
 }
@@ -370,7 +370,7 @@ teardown() {
 
    # bad hcall
    [ ! -f ${CORE} ]
-   run km_with_timeout --coredump=${CORE} stray_test.km hc
+   run km_with_timeout --coredump=${CORE} stray_test.km hc 400
    [ $status -eq 31 ] # SIGSYS
    echo $output | grep -F 'Bad system call (core dumped)'
    [ -f ${CORE} ]
@@ -417,9 +417,10 @@ teardown() {
    [ $status -eq 6 ]  # SIGABRT
    echo $output | grep -F 'Aborted'
    [  -f ${CORE} ]
-   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'kill ('
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'abort ('
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'signal_abort_handler ('
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F '<signal handler called>'
-   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'signal_handler ('
+   gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'signal_abort_test ('
    rm -f ${CORE}
 
    # sigsegv blocked
