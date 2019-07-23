@@ -85,8 +85,6 @@ _Noreturn void __pthread_exit(void* result)
    }
    /*
     * At this point we are committed to thread termination. Unlink the thread from the list.
-    * This change will not be visible until the lock is released, which only happens after
-    * SYS_exit has been called, via the exit futex address pointing at the lock.
     */
    libc.threads_minus_1--;
    self->next->prev = self->prev;

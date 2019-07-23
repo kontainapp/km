@@ -123,7 +123,7 @@ static inline int km_make_dump_prstatus(km_vcpu_t* vcpu, char* buf, size_t lengt
    cur += km_add_note_header(cur, remain, "CORE", sizeof(struct elf_prstatus));
 
    // TODO: Fill in the rest of elf_prstatus.
-   pr.pr_pid = vcpu->tid;
+   pr.pr_pid = km_vcpu_get_tid(vcpu);
    // Found these assignments in Linux source arch/x86/include/asm/elf.h
    pr.pr_reg[0] = vcpu->regs.r15;
    pr.pr_reg[1] = vcpu->regs.r14;

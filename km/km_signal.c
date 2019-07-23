@@ -499,20 +499,15 @@ uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo)
 
 uint64_t km_tkill(km_vcpu_t* vcpu, pid_t tid, int signo)
 {
-   /*
-    * KM tid is the index into the machine.vm_vcpus array.
-    */
-   if (tid < 0 || tid > KVM_MAX_VCPUS || machine.vm_vcpus[tid] == NULL ||
-       machine.vm_vcpus[tid]->is_used == 0) {
-      return -EINVAL;
-   }
-   if (signo < 1 || signo >= NSIG) {
+   km_vcpu_t* target_vcpu = km_vcpu_fetch_by_tid(tid);
+
+   if (target_vcpu == NULL || signo < 1 || signo >= NSIG) {
       return -EINVAL;
    }
 
    // Thread-targeted signal.
    siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
-   km_post_signal(machine.vm_vcpus[tid], &info);
+   km_post_signal(target_vcpu, &info);
    return 0;
 }
 

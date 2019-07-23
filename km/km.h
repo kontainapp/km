@@ -72,31 +72,38 @@ typedef struct km_signal_list {
 typedef unsigned long int pthread_tid_t;
 
 typedef struct km_vcpu {
-   int vcpu_id;                 // uniq ID
-   int kvm_vcpu_fd;             // this VCPU file descriptor
-   kvm_run_t* cpu_run;          // run control region
-   pthread_t vcpu_thread;       // km pthread
-   pthread_mutex_t thr_mtx;     // protects the three fields below
-   pthread_cond_t thr_cv;       // used by vcpu_pthread to block while vcpu isn't in use
-   pthread_cond_t join_cv;      // join waits for thread to finish
-   km_vthr_state_t thr_state;   // state of the vcpu thread
-                                //
-   km_gva_t guest_thr;          // guest pthread
-   km_gva_t stack_top;          // available in guest_thr but requres gva_to_kma, save it
-                                //
-   pid_t tid;                   // Thread Id for VCPU thread. Used to id thread in gdb and reporting
-   int gdb_efd;                 // gdb uses this to synchronize with VCPU thread
-   int is_used;                 // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
-   int is_paused;               // 1 means the vcpu is waiting for gdb to allow it to continue
-   pthread_tid_t joining_pid;   // pid if currently joining another thread pid, -1 if not
-   int exit_status;             // exit status for this thread
-   int regs_valid;              // Are registers valid?
-   kvm_regs_t regs;             // Cached register values.
-   int sregs_valid;             // Are segment registers valid?
-   kvm_sregs_t sregs;           // Cached segment register values.
-   km_sigset_t sigmask;         // blocked signals for thread
+   int vcpu_id;                   // uniq ID
+   int kvm_vcpu_fd;               // this VCPU file descriptor
+   kvm_run_t* cpu_run;            // run control region
+   pthread_t vcpu_thread;         // km pthread
+   pthread_mutex_t thr_mtx;       // protects the three fields below
+   pthread_cond_t thr_cv;         // used by vcpu_pthread to block while vcpu isn't in use
+   pthread_cond_t join_cv;        // join waits for thread to finish
+   km_vthr_state_t thr_state;     // state of the vcpu thread
+                                  //
+   km_gva_t guest_thr;            // guest pthread
+   km_gva_t stack_top;            // available in guest_thr but requres gva_to_kma, save it
+                                  //
+   int gdb_efd;                   // gdb uses this to synchronize with VCPU thread
+   int is_used;                   // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
+   int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
+   pthread_tid_t joining_pid;     // pid if currently joining another thread pid, -1 if not
+   int exit_status;               // exit status for this thread
+   int regs_valid;                // Are registers valid?
+   kvm_regs_t regs;               // Cached register values.
+   int sregs_valid;               // Are segment registers valid?
+   kvm_sregs_t sregs;             // Cached segment register values.
+   km_sigset_t sigmask;           // blocked signals for thread
    km_signal_list_t sigpending;   // List of signals sent to thread
 } km_vcpu_t;
+
+/*
+ * Produce tid for this vcpu. This should match km_vcpu_fetch_by_tid()
+ */
+static inline pid_t km_vcpu_get_tid(km_vcpu_t* vcpu)
+{
+   return vcpu->vcpu_id + 1;
+}
 
 // simple enum to help in forcing 'enable/disable' flags
 typedef enum {
@@ -230,8 +237,6 @@ extern void km_vcpu_wait_for_all_to_pause(void);
 extern int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused);
 extern km_vcpu_t* km_vcpu_fetch(pthread_tid_t);
 extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
-
-extern pid_t gettid(void);
 
 // Interrupt handling.
 void km_init_guest_idt(km_gva_t handlers);

@@ -72,7 +72,7 @@ typedef struct gdbstub_info {
    km_vcpu_t* gdb_vcpu;     // VCPU which GDB is asking us to work on.
    int exit_reason;         // last KVM exit reason
    int signo;               // signal number
-   // Note: we use vcpu->tid as gdb payload thread id. It also matches linux LWP
+   // Note: we use km_vcpu_get_tid() as gdb payload thread id
 } gdbstub_info_t;
 
 extern gdbstub_info_t gdbstub;

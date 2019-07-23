@@ -220,8 +220,8 @@ TEST test_tkill()
    // too large for KM vcpu
    ASSERT_EQ(-1, syscall(SYS_tkill, 1024, SIGUSR1));
    ASSERT_EQ(EINVAL, errno);
-   // unused KM vcpu
-   ASSERT_EQ(-1, syscall(SYS_tkill, 1, SIGUSR1));
+   // unused KM vcpu. We are single threaded, tid is 1, so we use 2
+   ASSERT_EQ(-1, syscall(SYS_tkill, 2, SIGUSR1));
    ASSERT_EQ(EINVAL, errno);
 
    // bad signal numbers

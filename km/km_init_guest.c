@@ -250,7 +250,9 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
 
    tcb_kma->stack = (typeof(tcb_kma->stack))stack_top;
    tcb_kma->stack_size = stack_top - map_base;
-   // thread list with single element, per musl logic
+   tcb_kma->tid = km_vcpu_get_tid(vcpu);
+
+   // thread list with single element, per musl logic. No lock as we are the first
    tcb_kma->next = tcb_kma->prev = (typeof(tcb_kma->prev))tcb;
 
    vcpu->guest_thr = tcb;
@@ -350,7 +352,7 @@ km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gv
    tcb_kma->detach_state = _a_detach(g_attr);
    tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
-   tcb_kma->tid = vcpu->vcpu_id;
+   tcb_kma->tid = km_vcpu_get_tid(vcpu);
    /*
     * The lock is taken in the guest pthread_create_km(). We'll need to clean these if we fail
     * before succeeding in creating this thread, km_pthread_unlink(). On pthread_exit() the unlink
@@ -385,16 +387,6 @@ void km_pthread_fini(km_vcpu_t* vcpu)
       km_guest_munmap((km_gva_t)pt_kma->map_base, pt_kma->map_size);
    }
 }
-
-// glibc does not have a wrapper for SYS_gettid, let's add it
-#ifdef SYS_gettid
-pid_t gettid(void)
-{
-   return syscall(SYS_gettid);
-}
-#else
-#error "SYS_gettid is not available"
-#endif
 
 static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict attr)
 {
