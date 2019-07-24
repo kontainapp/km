@@ -200,8 +200,14 @@ TEST simple_test()   // TODO
        {"4. mprotect large READ|WRITE", TYPE_MPROTECT, 6 * MIB, 32 * MIB, PROT_READ | PROT_WRITE, flags, OK},
        {"4a.OK to write", TYPE_WRITE, 8 * MIB, 1 * MIB, '4', 0, OK},
        {"4a.OK to read", TYPE_READ, 16 * MIB, 2 * MIB, 0, 0, OK},
-
        {"5.cleanup unmap", TYPE_MUNMAP, 0, 64 * MIB, PROT_NONE, flags, OK},
+
+       // test mprotect merge
+       {"6. Large Empty mmap", TYPE_MMAP, 0, 2 * MIB, PROT_NONE, flags, OK},
+       {"6a. mprotect PROT_READ", TYPE_MPROTECT, 1 * MIB, 1 * MIB, PROT_READ, flags, OK},
+       {"6b. mprotect PROT_READ", TYPE_MPROTECT, 0 * MIB, 1 * MIB, PROT_READ, flags, OK},
+       {"7.cleanup unmap", TYPE_MUNMAP, 0, 2 * MIB, PROT_NONE, flags, OK},
+
        {NULL},
    };
 

@@ -267,7 +267,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
             mmaps_unlock();
             return -ENOMEM;
          }
-         memcpy(busy, reg, sizeof(km_mmap_reg_t));
+         *busy = *reg;
          reg->start += size;   // patch the region in 'free' list to keep only extra room
          reg->size -= size;
          busy->size = size;
@@ -308,9 +308,11 @@ typedef void (*km_mmap_action)(km_mmap_reg_t*);
  */
 static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int prot)
 {
-   km_mmap_reg_t *reg, *next, *extra;
+   km_mmap_reg_t* reg;
 
-   TAILQ_FOREACH_SAFE (reg, &mmaps.busy, link, next) {
+   TAILQ_FOREACH (reg, &mmaps.busy, link) {
+      km_mmap_reg_t* extra;
+
       if (reg->start + reg->size <= addr) {
          continue;   // skip all to the left of addr
       }
@@ -322,12 +324,11 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
             mmaps_unlock();
             return -ENOMEM;
          }
-         memcpy(extra, reg, sizeof(*reg));
+         *extra = *reg;
          reg->size = addr - reg->start;   // left part, to keep in busy
          extra->start = addr;             // right part, to insert in busy
          extra->size -= reg->size;
-         km_mmap_insert_busy_after(reg, extra);
-         next = extra;   // handle the freshly inserted mmap
+         km_mmap_insert_busy_after(reg, extra);   // next action need to process 'extra', not 'reg'
          continue;
       }
       if (reg->start + reg->size > addr + size) {   // overlaps on the end
@@ -335,13 +336,11 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
             mmaps_unlock();
             return -ENOMEM;
          }
-         memcpy(extra, reg, sizeof(*reg));
-         extra->size = addr + size - extra->start;   // left part , to insert in busy
-         reg->start = addr + size;                   // right part, to keep in busy
-         reg->size -= extra->size;
-         km_mmap_insert_busy_before(reg, extra);
-         next = extra;   // handle the freshly inserted mmap
-         continue;
+         *extra = *reg;
+         reg->size = addr + size - reg->start;   // left part , to insert in busy
+         extra->start = addr + size;             // right part, to keep in busy
+         extra->size -= reg->size;
+         km_mmap_insert_busy_after(reg, extra);   // fall through to process 'reg'
       }
       assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range
       reg->protection = prot;
