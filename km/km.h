@@ -135,6 +135,12 @@ void km_hcalls_init(void);
 void km_hcalls_fini(void);
 
 /*
+ * Guest file descriptor entry.
+ */
+typedef struct km_guest_file {
+   int used;
+} km_guest_file_t;
+/*
  * kernel include/linux/kvm_host.h
  */
 static const int CPUID_ENTRIES = 100;   // A little padding, kernel says 80
@@ -177,6 +183,9 @@ typedef struct km_machine {
    km_signal_list_t sigpending;    // List of signals pending for guest
    km_signal_list_t sigfree;       // Freelist of signal entries.
    km_sigaction_t sigactions[_NSIG];
+
+   km_guest_file_t* files;   // file descriptor table
+   int nfiles;               // number of file descriptor table entries
 } km_machine_t;
 
 extern km_machine_t machine;

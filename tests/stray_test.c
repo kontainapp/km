@@ -47,6 +47,7 @@ int block_segv_test(int optind, int argc, char* argv[]);
 int sigpipe_test(int optind, int argc, char* argv[]);
 int hc_test(int optind, int argc, char* argv[]);
 int hc_badarg_test(int optind, int argc, char* argv[]);
+int close_test(int optind, int argc, char* argv[]);
 
 struct stray_op {
    char* op;                                          // Operation name on command line
@@ -73,6 +74,7 @@ struct stray_op {
     {.op = "hc-badarg",
      .func = hc_badarg_test,
      .description = "<call> - make hypercall with number <call> and a bad argument."},
+    {.op = "close", .func = close_test, .description = "<fd> - close file descriptor fd"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -210,6 +212,21 @@ int hc_badarg_test(int optind, int optarg, char* argv[])
       return 100;
    }
    km_hcall(callid, (km_hc_args_t*)-1LL);
+   return 0;
+}
+
+int close_test(int optind, int optarg, char* argv[])
+{
+   char* ep = NULL;
+   int fd = strtol(argv[optind], &ep, 0);
+   if (ep == NULL || *ep != '\0') {
+      fprintf(stderr, "fd '%s' is not a number", argv[optind]);
+      usage();
+      return 100;
+   }
+   if (close(fd) < 0) {
+      return errno;
+   }
    return 0;
 }
 

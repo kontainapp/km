@@ -23,8 +23,10 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/param.h>
+#include <sys/resource.h>
 
 #include "km.h"
+#include "km_filesys.h"
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "x86_cpu.h"
@@ -123,6 +125,10 @@ void km_machine_fini(void)
    if (machine.intr_fd >= 0) {
       close(machine.intr_fd);
       machine.intr_fd = -1;
+   }
+   if (machine.files != NULL) {
+      free(machine.files);
+      machine.files = NULL;
    }
    km_hcalls_fini();
 }
@@ -432,6 +438,10 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, km_gva_t 
 void km_machine_init(km_machine_init_params_t* params)
 {
    int rc;
+
+   if (km_init_guest_files() < 0) {
+      err(1, "KM: k_init_guest_files() failed");
+   }
 
    if ((machine.intr_fd = eventfd(0, 0)) == -1) {
       err(1, "KM: Failed to create machine intr_fd");
