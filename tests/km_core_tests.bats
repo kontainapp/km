@@ -38,6 +38,7 @@ timeout=60s
 function km_with_timeout () {
    /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " \
       -a -o $TIME_INFO timeout --foreground $timeout ${KM_BIN} $*
+   s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
 }
 
 # this is needed for running in Docker - bats uses 'tput' so it needs the TERM
