@@ -11,7 +11,7 @@
 # Makefile for building and packing Node.js payload runtime for KM
 
 TOP := $(shell git rev-parse --show-cdup)
-BUILD=Debug
+BUILD ?= Debug
 
 # KM monitor path
 KM_BIN=${TOP}/build/km/km
