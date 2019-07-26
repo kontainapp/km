@@ -1,7 +1,7 @@
 /*
  * All of this file, more or less, came from musl. Thread create/exit logic is split between guest
  * and KM. Things visible and actively used in the guest are done here, for instance stdio, thread
- * linked list, tsd dtors, and such. KM manages the VCPU, stack, and such.
+ * linked list, tsd dtors, and such. KM manages the VCPU, stack, and such._
  */
 
 #include "libc.h"
@@ -64,6 +64,9 @@ _Noreturn void __pthread_exit(void* result)
 {
    pthread_t self = __pthread_self();
    sigset_t set;
+
+	self->canceldisable = 1;
+	self->cancelasync = 0;
 
    __pthread_tsd_run_dtors();
    __do_orphaned_stdio_locks();

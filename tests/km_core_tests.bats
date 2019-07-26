@@ -443,6 +443,10 @@ teardown() {
    assert_success
 }
 
+@test "pthread_cancel: (pthread_cancel_test)" {
+   run km_with_timeout pthread_cancel_test.km
+   assert_success
+}
 
 # C++ tests
 @test "cpp: constructors and statics (var_storage_test)" {

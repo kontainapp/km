@@ -91,7 +91,7 @@ typedef struct km_vcpu {
    int is_used;                   // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
    pthread_tid_t joining_pid;     // pid if currently joining another thread pid, -1 if not
-   int exit_status;               // exit status for this thread
+   km_gva_t exit_res;          // exit status for this thread
    int regs_valid;                // Are registers valid?
    kvm_regs_t regs;               // Cached register values.
    int sregs_valid;               // Are segment registers valid?
