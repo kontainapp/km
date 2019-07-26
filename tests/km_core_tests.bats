@@ -469,3 +469,14 @@ teardown() {
 
    diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
+
+@test "filesys: basic file systems tests" {
+   TESTDIR=testdir.$$
+   mkdir ${TESTDIR}
+   touch ${TESTDIR}/visible
+
+   run km_with_timeout --rootdir=${TESTDIR} filesys_test.km
+   [ "$status" -eq 0 ]
+
+   rm -rf ${TESTDIR}
+}

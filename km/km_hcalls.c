@@ -12,6 +12,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
@@ -220,8 +221,20 @@ static km_hc_ret_t getdirents_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t getcwd_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   /*
+    * TODO: More work here. See 'NOTES' section of the man page for details. In particular,
+    *       this needs to be an absolute path name in the guest. That's pretty much the same
+    *       requirement as cur_dir, so just need to get that right.
+    */
+
    // int getcwd(char *buf, size_t size);
-   arg->hc_ret = km_fs_getcwd(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   void* gbuf = km_gva_to_kma(arg->arg1);
+
+   if (gbuf == NULL || arg->arg2 <= strlen(machine.filesys.curdir)) {
+      return -EFAULT;
+   }
+   strncpy(km_gva_to_kma(arg->arg1), machine.filesys.curdir, arg->arg2);
+   arg->hc_ret = arg;
    return HC_CONTINUE;
 }
 
@@ -374,7 +387,7 @@ static km_hc_ret_t rename_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t chdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int chdir(const char *path);
-   arg->hc_ret = __syscall_1(hc, km_gva_to_kml(arg->arg1));
+   arg->hc_ret = km_fs_chdir(vcpu, km_gva_to_kma(arg->arg1));
    return HC_CONTINUE;
 }
 

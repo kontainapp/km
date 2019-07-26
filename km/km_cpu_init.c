@@ -126,9 +126,9 @@ void km_machine_fini(void)
       close(machine.intr_fd);
       machine.intr_fd = -1;
    }
-   if (machine.files != NULL) {
-      free(machine.files);
-      machine.files = NULL;
+   if (machine.filesys.files != NULL) {
+      free(machine.filesys.files);
+      machine.filesys.files = NULL;
    }
    km_hcalls_fini();
 }
@@ -439,7 +439,7 @@ void km_machine_init(km_machine_init_params_t* params)
 {
    int rc;
 
-   if (km_init_guest_files() < 0) {
+   if (km_init_guest_files(params) < 0) {
       err(1, "KM: k_init_guest_files() failed");
    }
 

@@ -44,6 +44,7 @@ static inline void usage()
         "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 2159) "
         "before running payload\n"
         "\t--version (-v)                      - Print version info and exit\n"
+        "\t--rootdir=<directory>               - Root directory for payload\n"
         "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
         "\t--dump-shutdown                     - Produce register dump on VCPU error\n"
         "\t--core-on-err                       - generate KM core dump when exiting on err, "
@@ -82,7 +83,7 @@ static inline void show_version(void)
         BUILD_TIME);
 }
 
-static km_machine_init_params_t km_machine_init_params = {};
+static km_machine_init_params_t km_machine_init_params = {.rootdir = ".", .curdir = "/"};
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
 static struct option long_options[] = {
@@ -97,6 +98,7 @@ static struct option long_options[] = {
     {"verbose", optional_argument, 0, 'V'},
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
     {"version", no_argument, 0, 'v'},
+    {"rootdir", required_argument, 0, 'r'},
 
     {0, 0, 0, 0},
 };
@@ -166,6 +168,9 @@ int main(int argc, char* const argv[])
             break;
          case 'v':
             show_version();
+            break;
+         case 'r':
+            km_machine_init_params.rootdir = optarg;
             break;
          case '?':
          default:

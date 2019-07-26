@@ -121,6 +121,8 @@ typedef struct km_machine_init_params {
                                    // TODO: check if there is a KVM config for force-enable
    int overcommit_memory;   // 1 if we want to allow memory overcommit (i.e. MAP_NORESERVE in mmap)
                             // Note: if too much of it is accessed, we expect Linux OOM killer to kick in
+   char* rootdir;   // Payload root directory
+   char* curdir;    // current directory
 } km_machine_init_params_t;
 
 void km_machine_init(km_machine_init_params_t* params);
@@ -140,9 +142,14 @@ void km_hcalls_fini(void);
 /*
  * Guest file descriptor entry.
  */
-typedef struct km_guest_file {
-   int used;
-} km_guest_file_t;
+typedef struct km_guest_fs {
+   struct km_guest_file {
+      int used;
+   } * files;
+   int nfiles;
+   char* root_prefix;       // Full path name of guest's virtual root.
+   char curdir[PATH_MAX];   // current directory.
+} km_guest_fs_t;
 /*
  * kernel include/linux/kvm_host.h
  */
@@ -187,8 +194,7 @@ typedef struct km_machine {
    km_signal_list_t sigfree;       // Freelist of signal entries.
    km_sigaction_t sigactions[_NSIG];
 
-   km_guest_file_t* files;   // file descriptor table
-   int nfiles;               // number of file descriptor table entries
+   km_guest_fs_t filesys;   // guest file system
 } km_machine_t;
 
 extern km_machine_t machine;

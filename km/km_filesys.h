@@ -8,6 +8,16 @@
  * of such source code. Disclosure of this source code or any related
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
+ *
+ * Kontain Virtual File System
+ * ---------------------------
+ *
+ * KM virtualizes the guest payload's view of it's file environment.
+ *
+ * KM provides a virtual file system pathname space to the guest process as a root.
+ * The virtual filesystem acts like a file system root from the POV of guest, including
+ * handling '..' correctly (like Linux pivot_root(2)). This is implemented as file path
+ * translations implemented by KM.
  */
 
 #ifndef KM_FILESYS_H_
@@ -16,7 +26,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/epoll.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -28,12 +40,63 @@
 #include "km_mem.h"
 #include "km_syscall.h"
 
-static int check_guest_fd(km_vcpu_t* vcpu, int fd)
+/*
+ * Translates a path name from the guest into a KM host pathname.
+ * host path points to a char[PATH_MAX].
+ */
+static inline int km_gpath_to_kpath(km_vcpu_t* vcpu, char* pathname, char* host_path)
 {
-   if (fd < 0 || fd >= machine.nfiles) {
+   char guest_path[PATH_MAX];
+   char* cur = host_path;
+   int remain = PATH_MAX;
+   int inc;
+
+   warnx("%s %s", __FUNCTION__, pathname);
+
+   // Copy pathname.
+   if (strlen(pathname) >= sizeof(guest_path)) {
+      return -1;
+   }
+   strncpy(guest_path, pathname, sizeof(guest_path));
+
+   inc = snprintf(cur, remain, "%s", machine.filesys.root_prefix);
+   cur += inc;
+   remain -= inc;
+   if (remain <= 0) {
+      return -1;
+   }
+
+   int level = 0;
+   char* savptr = NULL;
+   char* tok = strtok_r(guest_path, "/", &savptr);
+   while (tok != NULL) {
+      printf("tok=%s\n", tok);
+      if (strcmp(tok, "..") == 0) {
+         if (level > 0) {
+            level--;
+            inc = snprintf(cur, remain, "/%s", tok);
+            cur += inc;
+            remain -= inc;
+         }
+      } else if (strcmp(tok, ".") != 0) {
+         level++;
+         inc = snprintf(cur, remain, "/%s", tok);
+         cur += inc;
+         remain -= inc;
+      }
+      tok = strtok_r(NULL, "/", &savptr);
+   }
+   warnx("%s %s->%s", __FUNCTION__, pathname, host_path);
+
+   return 0;
+}
+
+static inline int check_guest_fd(km_vcpu_t* vcpu, int fd)
+{
+   if (fd < 0 || fd >= machine.filesys.nfiles) {
       return -EBADF;
    }
-   if (__atomic_load_n(&machine.files[fd].used, __ATOMIC_SEQ_CST) != 0) {
+   if (__atomic_load_n(&machine.filesys.files[fd].used, __ATOMIC_SEQ_CST) != 0) {
       return fd;
    }
    return -1;
@@ -43,42 +106,53 @@ static int check_guest_fd(km_vcpu_t* vcpu, int fd)
  * Note: dup3 will silently close a fd, so if the fd is already in the table, assume
  *       that is what happened.
  */
-static void add_guest_fd(km_vcpu_t* vcpu, int fd)
+static inline void add_guest_fd(km_vcpu_t* vcpu, int fd)
 {
-   if (fd < 0 || fd > machine.nfiles) {
+   if (fd < 0 || fd > machine.filesys.nfiles) {
       errx(1, "%s bad file descriptor %d", __FUNCTION__, fd);
    }
-   __atomic_store_n(&machine.files[fd].used, 1, __ATOMIC_SEQ_CST);
+   __atomic_store_n(&machine.filesys.files[fd].used, 1, __ATOMIC_SEQ_CST);
    return;
 }
 
-static void del_guest_fd(km_vcpu_t* vcpu, int fd)
+static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
 {
-   if (fd < 0 || fd > machine.nfiles) {
+   if (fd < 0 || fd > machine.filesys.nfiles) {
       errx(1, "%s bad file descriptor %d", __FUNCTION__, fd);
    }
-   __atomic_store_n(&machine.files[fd].used, 0, __ATOMIC_SEQ_CST);
+   __atomic_store_n(&machine.filesys.files[fd].used, 0, __ATOMIC_SEQ_CST);
 }
 
-static inline int km_init_guest_files()
+static inline int km_init_guest_files(km_machine_init_params_t* params)
 {
-   struct rlimit lim;
+   struct stat st;
+   if (stat(params->rootdir, &st) < 0) {
+      err(1, "guest root directory %s", params->rootdir);
+   }
+   if ((st.st_mode & S_IFDIR) == 0) {
+      err(1, "guest root %s is not a directory", params->rootdir);
+   }
+   machine.filesys.root_prefix = params->rootdir;
+   strncpy(machine.filesys.curdir, params->curdir, PATH_MAX - 1);
 
+   struct rlimit lim;
    if (getrlimit(RLIMIT_NOFILE, &lim) < 0) {
       return -1;
    }
-   machine.files = calloc(lim.rlim_cur, sizeof(km_guest_file_t));
-   machine.nfiles = lim.rlim_cur;
+   machine.filesys.files = calloc(lim.rlim_cur, sizeof(struct km_guest_file));
+   machine.filesys.nfiles = lim.rlim_cur;
    // stdin, stdout, and stderr are open.
-   machine.files[0].used = 1;
-   machine.files[1].used = 1;
-   machine.files[2].used = 1;
+   machine.filesys.files[0].used = 1;
+   machine.filesys.files[1].used = 1;
+   machine.filesys.files[2].used = 1;
    return 0;
 }
 
 // int open(char *pathname, int flags, mode_t mode)
 static inline uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
 {
+   // TODO: Preprocess path name
+   // TODO: open with O_NOFOLLOW to prevent following symlinks. Symlinks need to be translated
    int fd = __syscall_3(SYS_open, (uintptr_t)pathname, flags, mode);
    if (fd >= 0) {
       add_guest_fd(vcpu, fd);
@@ -192,56 +266,95 @@ static inline uint64_t km_fs_getdents64(km_vcpu_t* vcpu, int fd, void* dirp, uns
 // int symlink(const char *target, const char *linkpath);
 static inline uint64_t km_fs_symlink(km_vcpu_t* vcpu, char* target, char* linkpath)
 {
-   int ret = __syscall_2(SYS_symlink, (uintptr_t)target, (uintptr_t)linkpath);
+   char hostpath[PATH_MAX];
+   if (km_gpath_to_kpath(vcpu, linkpath, hostpath) < 0) {
+      return -ENAMETOOLONG;
+   }
+
+   int ret = __syscall_2(SYS_symlink, (uintptr_t)target, (uintptr_t)hostpath);
    return ret;
 }
 
 // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
 static inline uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz)
 {
-   int ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
-   return ret;
-}
-
-// int getcwd(char *buf, size_t size);
-static inline uint64_t km_fs_getcwd(km_vcpu_t* vcpu, char* buf, size_t bufsz)
-{
-   int ret = __syscall_2(SYS_getcwd, (uintptr_t)buf, bufsz);
+   char hostpath[PATH_MAX];
+   if (km_gpath_to_kpath(vcpu, pathname, hostpath) < 0) {
+      return -ENAMETOOLONG;
+   }
+   int ret = __syscall_3(SYS_readlink, (uintptr_t)hostpath, (uintptr_t)buf, bufsz);
    return ret;
 }
 
 // int chdir(const char *path);
 static inline uint64_t km_fs_chdir(km_vcpu_t* vcpu, char* pathname)
 {
-   int ret = __syscall_1(SYS_chdir, (uintptr_t)pathname);
+   char hostpath[PATH_MAX];
+   if (km_gpath_to_kpath(vcpu, pathname, hostpath) < 0) {
+      return -ENAMETOOLONG;
+   }
+
+   struct stat st;
+   if (stat(hostpath, &st) < 0) {
+      return -errno;
+   }
+   if ((st.st_mode & S_IFMT) != S_IFDIR) {
+      return -ENOTDIR;
+   }
+   strncpy(machine.filesys.curdir, &hostpath[strlen(machine.filesys.root_prefix)], PATH_MAX);
+   int ret = __syscall_1(SYS_chdir, (uintptr_t)hostpath);
    return ret;
 }
 
 // int mkdir(const char *path, mode_t mode);
 static inline uint64_t km_fs_mkdir(km_vcpu_t* vcpu, char* pathname, mode_t mode)
 {
-   int ret = __syscall_2(SYS_getcwd, (uintptr_t)pathname, mode);
+   char hostpath[PATH_MAX];
+   if (km_gpath_to_kpath(vcpu, pathname, hostpath) < 0) {
+      return -ENAMETOOLONG;
+   }
+   int ret = __syscall_2(SYS_mkdir, (uintptr_t)hostpath, mode);
    return ret;
 }
 
 // int rename(const char *oldpath, const char *newpath);
 static inline uint64_t km_fs_rename(km_vcpu_t* vcpu, char* oldpath, char* newpath)
 {
-   int ret = __syscall_2(SYS_rename, (uintptr_t)oldpath, (uintptr_t)newpath);
+   char old_host_path[PATH_MAX];
+   char new_host_path[PATH_MAX];
+
+   // TODO: Process oldpath, newpath
+   if (km_gpath_to_kpath(vcpu, oldpath, old_host_path) < 0) {
+      return -ENAMETOOLONG;
+   }
+   if (km_gpath_to_kpath(vcpu, newpath, new_host_path) < 0) {
+      return -ENAMETOOLONG;
+   }
+
+   int ret = __syscall_2(SYS_rename, (uintptr_t)old_host_path, (uintptr_t)new_host_path);
    return ret;
 }
 
 // int stat(const char *pathname, struct stat *statbuf);
 static inline uint64_t km_fs_stat(km_vcpu_t* vcpu, char* pathname, struct stat* statbuf)
 {
-   int ret = __syscall_2(SYS_stat, (uintptr_t)pathname, (uintptr_t)statbuf);
+   char hostpath[PATH_MAX];
+   if (km_gpath_to_kpath(vcpu, pathname, hostpath) < 0) {
+      return -ENAMETOOLONG;
+   }
+   int ret = __syscall_2(SYS_stat, (uintptr_t)hostpath, (uintptr_t)statbuf);
+   warnx("%s FMT=%o", __FUNCTION__, statbuf->st_mode & S_IFMT);
    return ret;
 }
 
 // int lstat(const char *pathname, struct stat *statbuf);
 static inline uint64_t km_fs_lstat(km_vcpu_t* vcpu, char* pathname, struct stat* statbuf)
 {
-   int ret = __syscall_2(SYS_lstat, (uintptr_t)pathname, (uintptr_t)statbuf);
+   char hostpath[PATH_MAX];
+   if (km_gpath_to_kpath(vcpu, pathname, hostpath) < 0) {
+      return -ENAMETOOLONG;
+   }
+   int ret = __syscall_2(SYS_lstat, (uintptr_t)hostpath, (uintptr_t)statbuf);
    return ret;
 }
 
@@ -249,7 +362,11 @@ static inline uint64_t km_fs_lstat(km_vcpu_t* vcpu, char* pathname, struct stat*
 static inline uint64_t
 km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int mask, void* statxbuf)
 {
-   int ret = __syscall_5(SYS_statx, dirfd, (uintptr_t)pathname, flags, mask, (uintptr_t)statxbuf);
+   char hostpath[PATH_MAX];
+   if (km_gpath_to_kpath(vcpu, pathname, hostpath) < 0) {
+      return -ENAMETOOLONG;
+   }
+   int ret = __syscall_5(SYS_statx, dirfd, (uintptr_t)hostpath, flags, mask, (uintptr_t)statxbuf);
    return ret;
 }
 
@@ -563,7 +680,7 @@ static inline uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
     *       RLIMIT_SIGPENDING - Maximum number of pending signals.
     *       RLIMIT_STACK - maximum size of process stack.
     */
-   if (resource == RLIMIT_NOFILE && new_limit != NULL && new_limit->rlim_cur > machine.nfiles) {
+   if (resource == RLIMIT_NOFILE && new_limit != NULL && new_limit->rlim_cur > machine.filesys.nfiles) {
       return -EPERM;
    }
    int ret = __syscall_4(SYS_prlimit64, pid, resource, (uintptr_t)new_limit, (uintptr_t)old_limit);
