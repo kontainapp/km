@@ -7,3 +7,9 @@
 [submodule "tests/greatest"]
 	path = tests/greatest
 	url = https://github.com/kontainapp/ctest_greatest
+[submodule "tests/bats-support"]
+	path = tests/bats-support
+	url = https://github.com/ztombol/bats-support
+[submodule "tests/bats-assert"]
+	path = tests/bats-assert
+	url = https://github.com/ztombol/bats-assert
