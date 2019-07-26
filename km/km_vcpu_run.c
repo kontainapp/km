@@ -403,7 +403,7 @@ void km_write_sregisters(km_vcpu_t* vcpu)
 /*
  * return non-zero and set status if guest halted
  */
-static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
+static int hypercall(km_vcpu_t* vcpu, int* hc)
 {
    kvm_run_t* r = vcpu->cpu_run;
    km_gva_t ga;
@@ -450,14 +450,12 @@ static int hypercall(km_vcpu_t* vcpu, int* hc, int* status)
       km_post_signal(vcpu, &info);
       return -1;
    }
-   return km_hcalls_table[*hc](vcpu, *hc, ga_kma, status);
+   return km_hcalls_table[*hc](vcpu, *hc, ga_kma);
 }
 
-static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
+static void km_vcpu_exit(km_vcpu_t* vcpu)
 {
    vcpu->is_paused = 1;            // in case someone else wants to pause this one, no need
-   vcpu->exit_status = s & 0377;   // per man exit
-   machine.exit_status = vcpu->exit_status;   // in case this is the last thread, set status
    km_vcpu_stopped(vcpu);
 }
 
@@ -470,12 +468,12 @@ static void km_vcpu_exit(km_vcpu_t* vcpu, int s)
 static int km_vcpu_force_exit(km_vcpu_t* vcpu)
 {
    km_vcpu_detach(vcpu);
-   km_vcpu_exit(vcpu, -1);
+   km_vcpu_exit(vcpu);
    return 0;
 }
 
 // static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
-static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
+static void km_vcpu_exit_all(km_vcpu_t* vcpu)
 {
    machine.pause_requested = 1;   // prevent new vcpus from racing
    machine.exit_group = 1;        // make sure we exit and not waiting for gdb
@@ -505,9 +503,9 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
    // TODO - consider an unforced solution
    if (machine.vm_vcpu_run_cnt > 1) {
       km_infox(KM_TRACE_VCPU, "Forcing exit_group() without cleanup");
-      exit(s);
+      exit(machine.exit_status);
    }
-   km_vcpu_exit(vcpu, s);   // Exit with proper return status. This will exit the current thread
+   km_vcpu_exit(vcpu);   // Exit with proper return status. This will exit the current thread
 }
 
 /*
@@ -595,7 +593,7 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 
 void* km_vcpu_run(km_vcpu_t* vcpu)
 {
-   int status, hc;
+   int hc;
    vcpu->is_paused = 1;
 
    while (1) {
@@ -628,18 +626,18 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
       run_infox("KVM: exit reason=%d (%s)", reason, kvm_reason_name(reason));
       switch (reason) {
          case KVM_EXIT_IO:
-            switch (hypercall(vcpu, &hc, &status)) {
+            switch (hypercall(vcpu, &hc)) {
                case HC_CONTINUE:
                   break;
 
                case HC_STOP:
-                  run_infox("KVM: hypercall %d stop, status 0x%x", hc, status);
-                  km_vcpu_exit(vcpu, status);
+                  run_infox("KVM: hypercall %d stop", hc);
+                  km_vcpu_exit(vcpu);
                   break;
 
                case HC_ALLSTOP:
-                  run_infox("KVM: hypercall %d allstop, status 0x%x", hc, status);
-                  km_vcpu_exit_all(vcpu, status);
+                  run_infox("KVM: hypercall %d allstop, status 0x%x", hc, machine.exit_status);
+                  km_vcpu_exit_all(vcpu);
                   break;
             }
             break;   // exit_reason, case KVM_EXIT_IO
@@ -670,13 +668,13 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                km_gdb_notify_and_wait(vcpu, km_signal_ready(vcpu));
             } else {
                run_warn("KVM: exit vcpu. reason=%d (%s)", reason, kvm_reason_name(reason));
-               km_vcpu_exit(vcpu, -1);
+               km_vcpu_exit(vcpu);
             }
             break;
 
          case KVM_EXIT_HLT:
             warnx("KVM: KVM_EXIT_HLT - exiting the thread");
-            km_vcpu_exit(vcpu, status);
+            km_vcpu_exit(vcpu);
             break;
 
          default:

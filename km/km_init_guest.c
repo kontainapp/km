@@ -27,9 +27,13 @@
 #include "km_mem.h"
 
 /*
- * Definitions and structures from varios musl files
+ * Definitions and structures from various musl files
  */
 #define LOCALE_NAME_MAX 23
+
+#define SIGTIMER 32
+#define SIGCANCEL 33
+#define SIGSYNCCALL 34
 
 typedef struct km__locale_map {
    const void* map;
@@ -429,6 +433,8 @@ int km_pthread_create(km_vcpu_t* current_vcpu,
       return -EAGAIN;
    }
    vcpu->sigmask = current_vcpu->sigmask;
+   km_sigdelset(&vcpu->sigmask, SIGCANCEL);
+
    if ((pt = km_pthread_init(attr, vcpu, current_vcpu->guest_thr)) == 0) {
       km_vcpu_put(vcpu);
       return -EAGAIN;
@@ -506,7 +512,7 @@ int km_pthread_join(km_vcpu_t* current_vcpu, pthread_tid_t pid, km_kma_t ret)
          /* fall through */
       case VCPU_DONE:
          if (ret != NULL) {
-            *(int*)ret = vcpu->exit_status;
+            *(km_gva_t*)ret = vcpu->exit_res;
          }
          vcpu->thr_state = VCPU_IDLE;
          break;

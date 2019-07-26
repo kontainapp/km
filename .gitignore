@@ -4,6 +4,7 @@ build/**
 *.d
 tests/*_test
 tests/*.km
+tests/*.musl
 trace.dat
 ipch
 *.ipch

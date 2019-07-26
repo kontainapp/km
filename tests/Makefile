@@ -18,7 +18,7 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 		load_test.c  hello_loop_test.c hello_2_loops_test.c memslot_test.c mutex_test.c futex_test.c \
 		getline_test.c mem_test.c exit_grp_test.c intr_test.c brk_map_test.c crash_test.c cpuid_test.c \
 		longjmp_test.c cpuid_print_details_test.c stray_test.c signal_test.c hello_2_loops_tls_test.c \
-		regions_test.c mprotect_test.c
+		regions_test.c mprotect_test.c pthread_cancel_test.c
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 

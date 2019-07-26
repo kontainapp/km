@@ -265,6 +265,7 @@
          "default": "hello",
          "type": "pickString",
          "options": [
+            "pthread_cancel_test",
             "var_storage_test",
             "exit_value_test",
             "hello_test",

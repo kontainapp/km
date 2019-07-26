@@ -312,9 +312,12 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
    if (info->si_signo < SIGRTMIN && signal_pending(vcpu, info)) {
       return;
    }
-
-   km_signal_list_t* slist = (vcpu == NULL) ? &machine.sigpending : &vcpu->sigpending;
-   enqueue_signal(slist, info);
+   if (vcpu == 0) {
+      enqueue_signal(&machine.sigpending, info);
+      return;
+   }
+   enqueue_signal(&vcpu->sigpending, info);
+   pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
 }
 
 /*

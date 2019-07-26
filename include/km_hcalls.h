@@ -47,8 +47,7 @@ typedef enum {
 
 typedef km_hc_ret_t (*km_hcall_fn_t)(void* vcpu,
                                      int hc __attribute__((__unused__)),
-                                     km_hc_args_t* guest_addr,
-                                     int* status);
+                                     km_hc_args_t* guest_addr);
 
 extern km_hcall_fn_t km_hcalls_table[];
 
