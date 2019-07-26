@@ -210,6 +210,20 @@ static km_hc_ret_t accept_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* stat
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t socketpair_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // int socketpair(int domain, int type, int protocol, int sv[2]);
+   arg->hc_ret = __syscall_4(hc, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kml(arg->arg4));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t connect_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   //  int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+   arg->hc_ret = __syscall_3(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t bind_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
 {
    // int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
@@ -384,6 +398,13 @@ static km_hc_ret_t madvise_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* sta
    // int madvise(void *addr, size_t length, int advice);
    km_infox(KM_TRACE_HC, "hc = %d (madvise), %ld %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3);
    arg->hc_ret = 0;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t umask_hcall(void* vcpu, int hc, km_hc_args_t* arg, int* status)
+{
+   // mode_t umask(mode_t mask);
+   arg->hc_ret = __syscall_1(hc, arg->arg1);
    return HC_CONTINUE;
 }
 
@@ -715,6 +736,8 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_preadv] = prwv_hcall;
    km_hcalls_table[SYS_pwritev] = prwv_hcall;
    km_hcalls_table[SYS_accept] = accept_hcall;
+   km_hcalls_table[SYS_connect] = connect_hcall;
+   km_hcalls_table[SYS_socketpair] = socketpair_hcall;
    km_hcalls_table[SYS_bind] = bind_hcall;
    km_hcalls_table[SYS_listen] = listen_hcall;
    km_hcalls_table[SYS_socket] = socket_hcall;
@@ -739,6 +762,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_clock_gettime] = clock_gettime_hcall;
    km_hcalls_table[SYS_madvise] = madvise_hcall;
 
+   km_hcalls_table[SYS_umask] = umask_hcall;
    km_hcalls_table[SYS_readlink] = readlink_hcall;
    km_hcalls_table[SYS_getrandom] = getrandom_hcall;
    km_hcalls_table[SYS_open] = open_hcall;
