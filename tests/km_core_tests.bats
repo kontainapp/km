@@ -17,8 +17,9 @@ if [ -z "$BATS_TEST_FILENAME" ] ; then "exec" "`dirname $0`/bats/bin/bats" "$0" 
 # See ./bats/... for docs
 #
 
-# bats sits under tests, so this will move us to tests
-cd $BATS_ROOT/..
+cd $BATS_ROOT/.. # bats sits under tests, so this will move us to tests
+load 'bats-support/load' # see manual in bats-support/README.md
+load 'bats-assert/load'  # see manual in bats-assert/README.mnd
 
 # KM binary location.
 if [ -z "$KM_BIN" ] ; then
@@ -27,7 +28,7 @@ if [ -z "$KM_BIN" ] ; then
 fi
 
 if [ -z "$TIME_INFO" ] ; then
-   echo "Please make sure TIME_INFO env is defined. We will put detailed timing info there">&3
+   echo "Please make sure TIME_INFO env is defined and points to a file. We will put detailed timing info there">&3
    exit 10
 fi
 
@@ -67,7 +68,7 @@ teardown() {
 @test "setup_basic: basic vm setup, workload invocation and exit value check (exit_value_test)" {
    for i in $(seq 1 200) ; do # a loop to catch race with return value, if any
       run km_with_timeout exit_value_test.km
-      [ $status -eq 17 ]
+      assert_equal $status 17
    done
 }
 
@@ -75,25 +76,25 @@ teardown() {
    run km_with_timeout load_test.km
    # Show this on failure:
    echo -e "\n*** Try to run 'make load_expected_size' in tests, and replace load.c:size value\n"
-   [ $status -eq 0 ]
+   assert_success
 }
 
 @test "hc_check: invoke wrong hypercall (hc_test)" {
    run km_with_timeout stray_test.km hc 400
-   [ $status == 31 ]  #SIGSYS
-   [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
+   assert [ $status == 31 ]  #SIGSYS
+   assert_output --partial "Bad system call"
 
    run km_with_timeout stray_test.km hc -10
-   [ $status == 31 ]  #SIGSYS
-   [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
+   assert [ $status == 31 ]  #SIGSYS
+   assert_output --partial "Bad system call"
 
    run km_with_timeout stray_test.km hc 1000
-   [ $status == 31 ]  #SIGSYS
-   [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
+   assert [ $status == 31 ]  #SIGSYS
+   assert_output --partial "Bad system call"
 
    run km_with_timeout stray_test.km hc-badarg 3
-   [ $status == 31 ]  #SIGSYS
-   [ $(echo -e "$output" | grep -F -cw "Bad system call") == 1 ]
+   assert [ $status == 31 ]  #SIGSYS
+   assert_output --partial "Bad system call"
 }
 
 @test "km_main: wait on signal (hello_test)" {
@@ -104,70 +105,65 @@ teardown() {
 @test "km_main: optargs (hello_test)" {
    # -v flag prints version and branch
    run km_with_timeout -v hello_test.km
-   [ $status -eq 0 ]
+   assert_success
    branch=$(git rev-parse --abbrev-ref  HEAD)
-   [ $(echo -e "$output" | grep -F -cw "$branch") == 1 ]
+   assert_line --partial "$branch"
 
-   run km_with_timeout -Vkvm hello_test.km
-   # -V<regex> turns on tracing for a subsystem. Check it for kvm
-   [ $status -eq 0 ]
-   [ $(echo -e "$output" | grep -F -cw "KVM_EXIT_IO") -gt 1 ]
+   run km_with_timeout -Vkvm hello_test.km # -V<regex> turns on tracing for a subsystem. Check it for -Vkvm
+   assert_success
+   assert_line --partial "KVM_EXIT_IO"
 
    # -g[port] turns on gdb and tested in gdb coverage. Let's validate a failure case
    run km_with_timeout -gfoobar hello_test.km
-   [ $status -eq 1 ]
-   [ $(echo -e "$output" | grep -F -cw "Wrong gdb port number") == 1 ]
+   assert_failure
+   assert_line  "km: Wrong gdb port number 'foobar'"
 
-   # -C sets coredump file name
    corefile=/tmp/km$$
-   run km_with_timeout -Vcoredump -C $corefile hello_test.km
-   [ $status -eq 0 ]
-   [ $(echo -e "$output" | grep -F -cw "Setting coredump path to $corefile") == 1 ]
+   run km_with_timeout -Vcoredump -C $corefile hello_test.km # -C sets coredump file name
+   assert_success
+   assert_output --partial "Setting coredump path to $corefile"
 
-   # -P sets Physical memory bus width
-   run km_with_timeout -P 31 hello_test.km
-   [ $status -eq 1 ]
-   [ $(echo -e "$output" | grep -F -cw "Guest memory bus width must be between 32 and 63") == 1 ]
+   run km_with_timeout -P 31 hello_test.km # -P sets Physical memory bus width
+   assert_failure
+   assert_line  "km: Guest memory bus width must be between 32 and 63 - got '31'"
 
    run km_with_timeout -P32 hello_test.km
-   [ $status -eq 0 ]
+   assert_success
 
-   # invalid option
-   run km_with_timeout -X
-   [ $status -eq 1 ]
-      [ $(echo -e "$output" | grep -F -cw "invalid option") == 1 ]
+   run km_with_timeout -X # invalid option
+   assert_failure
+   assert_line --partial "invalid option"
 
-   # Linux executable instead of .km
-   run km_with_timeout hello_test
-   [ $status -eq 1 ]
-      [ $(echo -e "$output" | grep -F -cw "regular Linux executable in KM") == 1 ]
+   run km_with_timeout hello_test # Linux executable instead of .km
+   assert_failure
+   assert_output "km: Non-KM binary: cannot find interrupt handler(*), tsd size(*), or sigreturn(*). Trying to run regular Linux executable in KM?"
 }
 
 @test "mem_slots: KVM memslot / phys mem sizes (memslot_test)" {
    run ./memslot_test
-   [ $status -eq 0 ]
+   assert_success
 }
 
 @test "mem_regions: Crossing regions boundary (regions_test)" {
    run ${KM_BIN} regions_test.km
-   [ $status -eq 0 ]
+   assert_success
 }
 
 @test "mem_brk: brk() call (brk_test)" {
    # we expect 3 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
    if [ $(bus_width) -eq 36 ] ; then expected_status=3 ; else  expected_status=0; fi
    run km_with_timeout --overcommit-memory brk_test.km
-   [ $status -eq $expected_status ]
+   assert [ $status -eq $expected_status ]
 }
 
 @test "hc_basic: basic run and print hello world (hello_test)" {
    args="more_flags to_check: -f and check --args !"
    run ./hello_test $args
-   [ $status -eq 0 ]
+   assert_success
    linux_out="${output}"
 
    run km_with_timeout hello_test.km $args
-   [ $status -eq 0 ]
+   assert_success
    # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
    diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
 }
@@ -178,13 +174,13 @@ teardown() {
    (./hello_html_test &)
    sleep 0.5s
    run curl -s $address
-   [ $status -eq 0 ]
+   assert_success
    linux_out="${output}"
 
    (km_with_timeout hello_html_test.km &)
    sleep 0.5s
 	run curl -s $address
-   [ $status -eq 0 ]
+   assert_success
    diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
 
@@ -200,7 +196,7 @@ teardown() {
    skip "TODO: convert to test"
 
    run km_with_timeout futex.km
-   [ "$status" -eq 0 ]
+   assert_success
 }
 
 @test "gdb_basic: gdb support (gdb_test)" {
@@ -211,10 +207,10 @@ teardown() {
 	run gdb -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test.km
    # check that gdb found what it is supposed to find
-   [ $(echo "$output" | grep -F -cw 'SUCCESS') == 1 ]
+   assert_line --partial 'SUCCESS'
    # check that KM exited normally
    wait $gdb_pid
-   [ $status == 0 ]
+   assert_success
 }
 
 @test "gdb_signal: gdb signal support (stray_test)" {
@@ -224,12 +220,12 @@ teardown() {
    gdb_pid=`jobs -p` ; sleep 0.5
 	run gdb -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_signal_test.gdb" \
          --ex=c --ex=q stray_test.km
-   [ $status -eq 0 ]
-   [ $(echo "$output" | grep -F -cw 'received signal SIGUSR1') == 1 ]
-   [ $(echo "$output" | grep -F -cw 'received signal SIGABRT') == 1 ]
+   assert_success
+   assert_line --partial 'received signal SIGUSR1'
+   assert_line --partial 'received signal SIGABRT'
    # check that KM exited normally
    run wait $gdb_pid
-   [ $status -eq 6 ]
+   assert [ $status -eq 6 ]
 }
 
 @test "gdb_exception: gdb exception support (stray_test)" {
@@ -239,39 +235,38 @@ teardown() {
    gdb_pid=`jobs -p` ; sleep 0.5
 	run gdb -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_exception_test.gdb" \
          --ex=c --ex=q stray_test.km
-   [ $status -eq 0 ]
-   [ $(echo "$output" | grep -F -cw 'received signal SIGSEGV') == 1 ]
+   assert_success
+   assert_line --partial  'received signal SIGSEGV'
    # check that KM exited normally
    run wait $gdb_pid
-   [ $status -eq 11 ]  # SIGSEGV
+   assert [ $status -eq 11 ]  # SIGSEGV
 }
 
 @test "Unused memory protection: check that unused memory is protected (mprotect_test)" {
-   expected_status=0
    run km_with_timeout mprotect_test.km
-   [ $status -eq $expected_status ]
+   assert_success
 }
 
 @test "threads_basic: threads with TLS, create, exit and join (hello_2_loops_tls_test)" {
    run km_with_timeout hello_2_loops_tls_test.km
-   [ "$status" -eq 0 ]
-   [ $(echo "$output" | grep -F -cw 'BAD') == 0 ]
+   assert_success
+   refute_line --partial 'BAD'
 }
 
 @test "threads_basic: threads with TSD, create, exit and join (hello_2_loops_test)" {
    run km_with_timeout hello_2_loops_test.km
-   [ "$status" -eq 0 ]
+   assert_success
 }
 
 @test "threads_exit_grp: force exit when threads are in flight (exit_grp_test)" {
    run km_with_timeout exit_grp_test.km
    # the test can exit(17) from main thread or random exit(11) from subthread
-   [ $status -eq 17 -o $status -eq 11  ]
+   assert [ $status -eq 17 -o $status -eq 11  ]
 }
 
 @test "threads_mutex: mutex (mutex_test)" {
    run km_with_timeout mutex_test.km
-   [ $status -eq 0 ]
+   assert_success
 }
 
 @test "mem_test: threads create, malloc/free, exit and join (mem_test)" {
@@ -279,62 +274,60 @@ teardown() {
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; fi
    run km_with_timeout mem_test.km
-   [ $status -eq $expected_status ]
+   assert [ $status -eq $expected_status ]
 }
 
 @test "pmem_test: test physical memory override (pmem_test)" {
    # Don't support bus smaller than 32 bits
    run km_with_timeout -P 31 hello_test.km
-   [ "$status" -ne 0 ]
+   assert_failure
    # run hello test in a guest with a 33 bit memory bus.
    # TODO: instead of bus_width, we should look at pdpe1g - without 1g pages, we only support 2GB of memory anyways
    if [ $(bus_width) -gt 36 ] ; then
       run km_with_timeout -P 33 hello_test.km
-      [ "$status" -eq 0 ]
+      assert_success
    fi
-   # Don't support guest bus larger the host bus.
-   run km_with_timeout -P `expr $(bus_width) + 1` hello_test.km
-   [ "$status" -ne 0 ]
-   # Don't support 0 width bus
-   run km_with_timeout -P 0 hello_test.km
-   [ "$status" -ne 0 ]
+   run km_with_timeout -P `expr $(bus_width) + 1` hello_test.km # Don't support guest bus larger the host bus
+   assert_failure
+   run km_with_timeout -P 0 hello_test.km # Don't support 0 width bus
+   assert_failure
    run km_with_timeout -P -1 hello_test.km
-   [ "$status" -ne 0 ]
+   assert_failure
 }
 
 @test "brk_map_test: test brk and map w/physical memory override (brk_map_test)" {
    if [ $(bus_width) -gt 36 ] ; then
       run km_with_timeout -P33 brk_map_test.km -- 33
-      [ "$status" -eq 0 ]
+      assert_success
    fi
    # make sure we fail gracefully if there is no 1G pages supported. Also checks longopt
    run km_with_timeout --membus-width=33 --disable-1g-pages brk_map_test.km -- 33
-   [ "$status" -eq 1 ]
+   assert_failure
 }
 
 @test "cli: test 'km -v' and other small tests" {
    run km_with_timeout -v
-   [ "$status" -eq 0 ]
-   echo -e "$output" | grep -F -q `git rev-parse --abbrev-ref HEAD`
-   echo -e "$output" | grep -F -q 'Kontain Monitor v'
+   assert_success
+   assert_line --partial `git rev-parse --abbrev-ref HEAD`
+   assert_line --partial 'Kontain Monitor v'
    run km_with_timeout --version
-   [ "$status" -eq 0 ]
+   assert_success
 }
 
 @test "cpuid: test cpu vendor id (cpuid_test)" {
    run km_with_timeout cpuid_test.km
-   [ "$status" -eq 0 ]
-   echo -e "$output" | grep -F -q 'Kontain'
+   assert_success
+   assert_line --partial 'Kontain'
 }
 
 @test "longjmp_test: basic setjmp/longjump" {
    args="more_flags to_check: -f and check --args !"
    run ./longjmp_test $args
-   [ $status -eq 0 ]
+   assert_success
    linux_out="${output}"
 
    run km_with_timeout longjmp_test.km $args
-   [ $status -eq 0 ]
+   assert_success
    # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
    diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
 }
@@ -343,81 +336,81 @@ teardown() {
 @test "exception: exceptions and faults in the guest (stray_test)" {
    CORE=/tmp/kmcore.$$
    # divide by zero
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km div0
-   [ $status -eq 8 ] # SIGFPE
+   assert [ $status -eq 8 ] # SIGFPE
    echo $output | grep -F 'Floating point exception (core dumped)'
-   [ -f ${CORE} ]
+   assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'div0 ('
    rm -f ${CORE}
 
    # invalid opcode
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km ud
-   [ $status -eq 4 ] # SIGILL
+   assert [ $status -eq 4 ] # SIGILL
    echo $output | grep -F 'Illegal instruction (core dumped)'
-   [ -f ${CORE} ]
+   assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'undefined_op ('
    rm -f ${CORE}
 
    # page fault
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km stray
-   [ $status -eq 11 ] # SIGSEGV
+   assert [ $status -eq 11 ] # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
-   [ -f ${CORE} ]
+   assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference ('
    rm -f ${CORE}
 
    # bad hcall
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km hc 400
-   [ $status -eq 31 ] # SIGSYS
+   assert [ $status -eq 31 ] # SIGSYS
    echo $output | grep -F 'Bad system call (core dumped)'
-   [ -f ${CORE} ]
+   assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'main ('
    rm -f ${CORE}
 
    # write to text (protected memory)
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km prot
-   [ $status -eq 11 ]  # SIGSEGV
+   assert [ $status -eq 11 ]  # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'write_text ('
-   rm -f ${CORE}
+   assert rm -f ${CORE}
 
    # abort
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km abort
-   [ $status -eq 6 ]  # SIGABRT
+   assert [ $status -eq 6 ]  # SIGABRT
    echo $output | grep -F 'Aborted (core dumped)'
-   [ -f ${CORE} ]
+   assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'abort ('
    rm -f ${CORE}
 
    # quit
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km quit
-   [ $status -eq 3 ]  # SIGQUIT
+   assert [ $status -eq 3 ]  # SIGQUIT
    echo $output | grep -F 'Quit (core dumped)'
-   [ -f ${CORE} ]
+   assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'kill ('
    rm -f ${CORE}
 
    # term
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km term
-   [ $status -eq 15 ]  # SIGTERM
+   assert [ $status -eq 15 ]  # SIGTERM
    echo $output | grep -F 'Terminated'
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
 
    # signal
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km signal
-   [ $status -eq 6 ]  # SIGABRT
+   assert [ $status -eq 6 ]  # SIGABRT
    echo $output | grep -F 'Aborted'
-   [  -f ${CORE} ]
+   assert [  -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'abort ('
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'signal_abort_handler ('
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F '<signal handler called>'
@@ -425,42 +418,42 @@ teardown() {
    rm -f ${CORE}
 
    # sigsegv blocked
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km block-segv
-   [ $status -eq 11 ]  # SIGSEGV
+   assert [ $status -eq 11 ]  # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
-   [  -f ${CORE} ]
+   assert [  -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference ('
    rm -f ${CORE}
 
    # ensure that the guest can ignore a SIGPIPE.
-   [ ! -f ${CORE} ]
+   assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km sigpipe
-   [ $status -eq 0 ]  # should succeed
-   [ ! -f ${CORE} ]
+   assert_success  # should succeed
+   assert [ ! -f ${CORE} ]
 }
 
 @test "signals: signals in the guest (signals)" {
    run km_with_timeout signal_test.km
-   [ $status -eq 0 ]
+   assert_success
 }
 
 
 # C++ tests
 @test "cpp: constructors and statics (var_storage_test)" {
    run km_with_timeout var_storage_test.km
-   [ "$status" -eq 0 ]
+   assert_success
 
    ctors=`echo -e "$output" | grep -F Constructor | wc -l`
    dtors=`echo -e "$output" | grep -F Destructor | wc -l`
-   [ "$ctors" -gt 0 ]
-   [ "$ctors" -eq "$dtors" ]
+   assert [ "$ctors" -gt 0 ]
+   assert [ "$ctors" -eq "$dtors" ]
 }
 
 
 @test "cpp: basic throw and unwind (throw_basic_test)" {
    run ./throw_basic_test
-   [ $status -eq 0 ]
+   assert_success
    linux_out="${output}"
 
    run km_with_timeout throw_basic_test.km
