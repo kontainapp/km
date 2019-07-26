@@ -504,7 +504,8 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s)
    }
    // TODO - consider an unforced solution
    if (machine.vm_vcpu_run_cnt > 1) {
-      errx(s, "Forcing exit_group() without cleanup");
+      km_infox(KM_TRACE_VCPU, "Forcing exit_group() without cleanup");
+      exit(s);
    }
    km_vcpu_exit(vcpu, s);   // Exit with proper return status. This will exit the current thread
 }
