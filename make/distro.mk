@@ -42,10 +42,7 @@ DOCKERFILE_CONTENT := \
 	ENTRYPOINT [ \"/km\"]
 
 distro: all
-	@#check Docker availability
-	@if ! docker ps -aq  > /dev/null ; then \
-		echo -e "${RED}Failed to run Docker - check install and security${NOCOLOR}"; false ; \
-	fi;
+	@$(TOP)make/check-docker.sh
 	@tar -cf $(TAR_FILE) $(PAYLOAD_FILES)
 	@-echo "Cleaning old image"; \
 		docker rmi -f ${PAYLOAD_BRANCH} ${PAYLOAD_LATEST} 2>/dev/null

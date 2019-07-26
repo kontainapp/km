@@ -37,6 +37,7 @@ KM_IMAGE_FULL_NAME := kontain/$(EXEC):$(IMAGE_VERSION)
 # Build  a docker image with KM only, to be used as base image if needed
 # We build KM static, put it in a bare docker container, and validate it
 distro: ${BLDEXEC}
+	@$(TOP)make/check-docker.sh
 	@echo "Creating docker image '$(KM_IMAGE_FULL_NAME)'..." ; docker rmi -f $(KM_IMAGE_FULL_NAME) 2>/dev/null
 	tar -C $(dir $(BLDEXEC)) -c $(notdir $(BLDEXEC)) | docker import -m '$(KM_IMAGE_MESSAGE)' -c '$(KM_IMAGE_LABEL)' - $(KM_IMAGE_FULL_NAME)
 	@# Quick validation of the image; it will fail if load_test.km fails
