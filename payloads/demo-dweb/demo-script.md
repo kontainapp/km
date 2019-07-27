@@ -142,7 +142,7 @@ kubectl delete deploy kontain-pykm-deployment-azure-demo
 ## (optional) Local docker with our payloads
 
 ```bash
-docker run -p 8080:8080 -t --rm --device /dev/kvm kontain/python-km /cpython/python.km "/scripts/micro_srv.py"
+docker run -p 8080:8080 -t --rm --device /dev/kvm kontain/python-km /cpython/python.km -S "/scripts/micro_srv.py"
 docker run -p 8080:8080 -t --rm --device /dev/kvm kontain/dweb-km dweb.km 8080
 ```
 
