@@ -63,7 +63,7 @@ file dweb dweb.km
 (cd ..; docker build -t dweb .)
 
 # Show start time ('-x' to exit from server right awayzoom)
-time docker run --rm  dweb  /tmp/dweb -x
+time docker run --rm  dweb  /dweb/dweb -x
 time ~/workspace/km/build/km/km dweb.km -x
 
 ```
@@ -142,7 +142,7 @@ kubectl delete deploy kontain-pykm-deployment-azure-demo
 ## (optional) Local docker with our payloads
 
 ```bash
-docker run -p 8080:8080 -t --rm --device /dev/kvm kontain/python-km /cpython/python.km "/scripts/micro_srv.py"
+docker run -p 8080:8080 -t --rm --device /dev/kvm kontain/python-km /cpython/python.km -S "/scripts/micro_srv.py"
 docker run -p 8080:8080 -t --rm --device /dev/kvm kontain/dweb-km dweb.km 8080
 ```
 
