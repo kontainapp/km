@@ -431,6 +431,11 @@ teardown() {
    run km_with_timeout --coredump=${CORE} stray_test.km sigpipe
    assert_success  # should succeed
    assert [ ! -f ${CORE} ]
+
+   # Try to close a KM file from the guest
+   run km_with_timeout --coredump=${CORE} stray_test.km close 5
+   assert [ $status -eq 9 ]  # EBADF
+   assert [ ! -f ${CORE} ]
 }
 
 @test "signals: signals in the guest (signals)" {
