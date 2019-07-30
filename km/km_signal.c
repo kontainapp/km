@@ -326,6 +326,7 @@ typedef struct km_signal_frame {
    kvm_regs_t regs;        // Saved registers
    siginfo_t info;         // Passed to guest signal handler
    ucontext_t ucontext;    // Passed to guest signal handler
+   km_sigset_t sav_mask;
 } km_signal_frame_t;
 
 #define RED_ZONE (128)
@@ -343,6 +344,13 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    memcpy(&frame->info, info, sizeof(siginfo_t));
    memcpy(&frame->regs, &vcpu->regs, sizeof(vcpu->regs));
    frame->return_addr = km_guest.km_sigreturn;
+   frame->ucontext.uc_mcontext.gregs[16] = vcpu->regs.rip;
+   frame->sav_mask = vcpu->sigmask;
+   if ((act->sa_flags & SA_SIGINFO) != 0) {
+      vcpu->sigmask |= act->sa_mask;
+   }
+   // Defer this signal.
+   km_sigaddset(&vcpu->sigmask, info->si_signo);
 
    vcpu->regs.rsp = sframe_gva;
    vcpu->regs.rip = act->handler;
@@ -408,9 +416,9 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
     * TODO: ensure everything we are copying from is really in guest memory, Don't want to
     *       leak information into guest.
     */
-   memcpy(&vcpu->regs,
-          km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(uint64_t) + offsetof(km_signal_frame_t, regs)),
-          sizeof(vcpu->regs));
+   km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(km_gva_t));
+   vcpu->sigmask = frame->sav_mask;
+   memcpy(&vcpu->regs, &frame->regs, sizeof(vcpu->regs));
    km_write_registers(vcpu);
 }
 

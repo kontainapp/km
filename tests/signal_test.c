@@ -232,6 +232,47 @@ TEST test_tkill()
    PASS();
 }
 
+sigset_t expmask;
+int sigmask_pass = 0;
+void sigact(int signo, siginfo_t* info, void* context)
+{
+   sigset_t mset;
+   if (sigprocmask(SIG_SETMASK, NULL, &mset) < 0) {
+      return;
+   }
+   if (*(uint64_t*)&expmask == *(uint64_t*)&mset) {
+      sigmask_pass = 1;
+   }
+}
+
+// Test sigmask manipulation
+TEST test_sigmask()
+{
+   sigset_t pset;
+   sigset_t aset;
+   struct sigaction newact;
+   struct sigaction oldact;
+
+   sigemptyset(&pset);
+   sigemptyset(&aset);
+
+   // Get sigmask as it exists
+   ASSERT_EQ(0, sigprocmask(SIG_SETMASK, NULL, &pset));
+
+   sigfillset(&expmask);
+   newact.sa_sigaction = sigact;
+   newact.sa_mask = expmask;
+   newact.sa_flags = SA_SIGINFO;
+   ASSERT_EQ(0, sigaction(SIGUSR1, &newact, &oldact));
+
+   kill(0, SIGUSR1);
+   ASSERT_EQ(1, sigmask_pass);
+
+   ASSERT_EQ(0, sigprocmask(SIG_SETMASK, NULL, &aset));
+   ASSERT_EQ(*(uint64_t*)&pset, *(uint64_t*)&pset);
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -250,6 +291,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_sigaction);
    RUN_TEST(test_kill);
    RUN_TEST(test_tkill);
+   RUN_TEST(test_sigmask);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)

@@ -53,10 +53,13 @@ typedef enum {
 } km_vthr_state_t;
 
 typedef uint64_t km_sigset_t;
+
+// must match k_sigaction
 typedef struct km_sigaction {
    km_gva_t handler;
-   km_sigset_t sa_mask;
    uint32_t sa_flags;
+   km_gva_t restorer;
+   km_sigset_t sa_mask;
 } km_sigaction_t;
 
 typedef struct km_signal {
