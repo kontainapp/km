@@ -474,13 +474,13 @@ static inline uint64_t km_fs_select(km_vcpu_t* vcpu,
                                     struct timeval* timeout)
 {
    for (int i = 0; i < nfds; i++) {
-      if (FD_ISSET(i, readfds) && check_guest_fd(vcpu, i) == -1) {
+      if (readfds != NULL && FD_ISSET(i, readfds) && check_guest_fd(vcpu, i) == -1) {
          return -EBADF;
       }
-      if (FD_ISSET(i, writefds) && check_guest_fd(vcpu, i) == -1) {
+      if (writefds != NULL && FD_ISSET(i, writefds) && check_guest_fd(vcpu, i) == -1) {
          return -EBADF;
       }
-      if (FD_ISSET(i, exceptfds) && check_guest_fd(vcpu, i) == -1) {
+      if (exceptfds != NULL && FD_ISSET(i, exceptfds) && check_guest_fd(vcpu, i) == -1) {
          return -EBADF;
       }
    }
@@ -496,6 +496,9 @@ static inline uint64_t km_fs_select(km_vcpu_t* vcpu,
 // int poll(struct pollfd *fds, nfds_t nfds, int timeout);
 static inline uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeout)
 {
+   if (fds == NULL) {
+      return -EINVAL;
+   }
    for (int i = 0; i < nfds; i++) {
       if (check_guest_fd(vcpu, fds[i].fd) == -1) {
          return -EBADF;
