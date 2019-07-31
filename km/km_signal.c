@@ -12,6 +12,7 @@
  * Signal-related wrappers for KM threads/KVM vcpu runs.
  */
 
+#define _GNU_SOURCE
 #include <err.h>
 #include <pthread.h>
 #include <signal.h>
@@ -344,7 +345,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    memcpy(&frame->info, info, sizeof(siginfo_t));
    memcpy(&frame->regs, &vcpu->regs, sizeof(vcpu->regs));
    frame->return_addr = km_guest.km_sigreturn;
-   frame->ucontext.uc_mcontext.gregs[16] = vcpu->regs.rip;
+   frame->ucontext.uc_mcontext.gregs[REG_RIP] = vcpu->regs.rip;
    frame->sav_mask = vcpu->sigmask;
    if ((act->sa_flags & SA_SIGINFO) != 0) {
       vcpu->sigmask |= act->sa_mask;
@@ -419,6 +420,7 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(km_gva_t));
    vcpu->sigmask = frame->sav_mask;
    memcpy(&vcpu->regs, &frame->regs, sizeof(vcpu->regs));
+   vcpu->regs.rip = frame->ucontext.uc_mcontext.gregs[REG_RIP];
    km_write_registers(vcpu);
 }
 
