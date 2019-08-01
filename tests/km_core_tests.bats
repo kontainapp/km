@@ -332,7 +332,6 @@ teardown() {
    diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
 }
 
-# The behavior tested here is temporary and will change when real signal handling exists.
 @test "exception: exceptions and faults in the guest (stray_test)" {
    CORE=/tmp/kmcore.$$
    # divide by zero
