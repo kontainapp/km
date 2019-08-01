@@ -520,17 +520,15 @@ static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, 
 }
 
 /*
- * Forward a signali file descriptor received by KM into the guest signal system.
+ * Forward a signal file descriptor received by KM into the guest signal system.
  * This relies on info->si_fd being populated.
  */
 static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unused)
 {
-   /*
-    * If/When we keep track of all file descriptors open by the guest, we can
-    * check this better. For now assume that the only KM exclusive fd that
-    * will generate a fd signal is the GDB socket.
-    */
-   if (km_fd_is_gdb(sinfo->si_fd)) {
+   if (sinfo->si_fd < 0 || sinfo->si_fd >= machine.nfiles) {
+      return;
+   }
+   if (machine.files[sinfo->si_fd].used == 0) {
       return;
    }
 
