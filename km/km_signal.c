@@ -344,8 +344,8 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    km_gva_t sframe_gva = vcpu->regs.rsp - RED_ZONE - sizeof(km_signal_frame_t);
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
 
-   memcpy(&frame->info, info, sizeof(siginfo_t));
-   memcpy(&frame->regs, &vcpu->regs, sizeof(vcpu->regs));
+   frame->info = *info;
+   frame->regs = vcpu->regs;
    frame->return_addr = km_guest.km_sigreturn;
    frame->ucontext.uc_mcontext.gregs[REG_RIP] = vcpu->regs.rip;
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
@@ -421,7 +421,7 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
     */
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(km_gva_t));
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
-   memcpy(&vcpu->regs, &frame->regs, sizeof(vcpu->regs));
+   vcpu->regs = frame->regs;
    vcpu->regs.rip = frame->ucontext.uc_mcontext.gregs[REG_RIP];
    km_write_registers(vcpu);
 }
