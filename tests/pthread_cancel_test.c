@@ -73,7 +73,12 @@ static int thread_func(void* arg)
    ASSERT_EQ(0, s);
    print_msg("thread_func(): started; cancellation disabled\n");
    if (arg == NULL) {
+      struct timeval now;
+
       mysleep(5);
+      gettimeofday(&now, NULL);
+      /* Check if we were interrupted midsleep */
+      ASSERT_FALSE(now.tv_sec - start.tv_sec <= 3);
    }
    print_msg("thread_func(): about to enable cancellation\n");
 
