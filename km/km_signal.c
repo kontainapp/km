@@ -317,7 +317,9 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
       return;
    }
    enqueue_signal(&vcpu->sigpending, info);
-   pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
+   if (km_sigismember(&vcpu->sigmask, info->si_signo) == 0) {
+      pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
+   }
 }
 
 /*
