@@ -455,7 +455,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
 
 static void km_vcpu_exit(km_vcpu_t* vcpu)
 {
-   vcpu->is_paused = 1;            // in case someone else wants to pause this one, no need
+   vcpu->is_paused = 1;   // in case someone else wants to pause this one, no need
    km_vcpu_stopped(vcpu);
 }
 
@@ -523,10 +523,10 @@ static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, 
  */
 static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unused)
 {
-   if (sinfo->si_fd < 0 || sinfo->si_fd >= machine.nfiles) {
+   if (sinfo->si_fd < 0 || sinfo->si_fd >= machine.filesys.nfiles) {
       return;
    }
-   if (machine.files[sinfo->si_fd].used == 0) {
+   if (machine.filesys.files[sinfo->si_fd].used == 0) {
       return;
    }
 
