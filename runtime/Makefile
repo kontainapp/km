@@ -19,7 +19,7 @@ LIB := runtime_unused
 # arch specific ones based on ARCH.
 SRCDIR := musl/
 ARCH := x86_64
-SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc ldso mq process sched)
+SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq process sched)
 SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/)))
 
 KM_REPLACED_SRCS := syscall.s syscall_cp.s __libc_start_main.c __init_tls.c __reset_tls.c  getenv.c uname.c \

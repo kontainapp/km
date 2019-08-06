@@ -17,7 +17,7 @@
 
 int __dummy_stub(void)
 {
-   return 0;
+   return -ENOSYS;
 }
 
 static void dump_core_stub(const char* syscall_name)
@@ -39,8 +39,8 @@ static void dump_core_stub(const char* syscall_name)
  */
 __stub_core__(execve);
 __stub_core__(execvp);
-__stub_core__(fork);
-__stub_core__(waitpid);
+__stub__(fork);
+__stub__(waitpid);
 __stub_core__(execv);
 __stub_core__(fexecve);
 __stub_core__(sched_getparam);
@@ -54,13 +54,6 @@ __stub_core__(sched_yield);
 __stub_core__(system);
 __stub_core__(wait);
 __stub_core__(waitid);
-
-__stub_core__(dl_iterate_phdr);
-__stub_core__(dladdr);
-__stub_core__(dlclose);
-__stub_core__(dlerror);
-__stub_core__(dlopen);
-__stub_core__(dlsym);
 
 /*
  * executable stubs, returning simple canned value

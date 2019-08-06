@@ -200,8 +200,8 @@ TEST test_sigaction()
 
 TEST test_kill()
 {
-   // Another process
-   ASSERT_EQ(-1, kill(1, SIGUSR1));
+   // Another process - we are 1, hence we use 2
+   ASSERT_EQ(-1, kill(2, SIGUSR1));
    ASSERT_EQ(EINVAL, errno);
 
    // test bad signal numbers

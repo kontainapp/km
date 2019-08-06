@@ -453,10 +453,12 @@ static km_hc_ret_t pause_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
-static km_hc_ret_t getsockname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+static km_hc_ret_t get_sock_peer_name_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-   arg->hc_ret = __syscall_3(hc, arg->arg1, km_gva_to_kml(arg->arg2), km_gva_to_kml(arg->arg3));
+   // int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+   arg->hc_ret =
+       km_fs_get_sock_peer_name(vcpu, hc, arg->arg1, km_gva_to_kma(arg->arg2), (socklen_t*)arg->arg3);
    return HC_CONTINUE;
 }
 
@@ -501,6 +503,27 @@ static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
             arg->arg3,
             arg->arg4,
             arg->arg5);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t getpid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // pid_t getpid(void);
+   arg->hc_ret = 1;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t getppid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // pid_t getppid(void);
+   arg->hc_ret = 0;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t gettid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // pid_t gettid(void);
+   arg->hc_ret = km_vcpu_get_tid(vcpu);
    return HC_CONTINUE;
 }
 
@@ -718,7 +741,8 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_pause] = pause_hcall;
    km_hcalls_table[SYS_sendto] = sendto_hcall;
    km_hcalls_table[SYS_nanosleep] = nanosleep_hcall;
-   km_hcalls_table[SYS_getsockname] = getsockname_hcall;
+   km_hcalls_table[SYS_getsockname] = get_sock_peer_name_hcall;
+   km_hcalls_table[SYS_getpeername] = get_sock_peer_name_hcall;
    km_hcalls_table[SYS_poll] = poll_hcall;
    km_hcalls_table[SYS_accept4] = accept4_hcall;
    km_hcalls_table[SYS_recvfrom] = recvfrom_hcall;
@@ -740,8 +764,9 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_kill] = kill_hcall;
    km_hcalls_table[SYS_tkill] = tkill_hcall;
 
-   km_hcalls_table[SYS_getpid] = dummy_hcall;
-   km_hcalls_table[SYS_getppid] = dummy_hcall;
+   km_hcalls_table[SYS_getpid] = getpid_hcall;
+   km_hcalls_table[SYS_getppid] = getppid_hcall;
+   km_hcalls_table[SYS_gettid] = gettid_hcall;
    km_hcalls_table[SYS_geteuid] = dummy_hcall;
    km_hcalls_table[SYS_getuid] = dummy_hcall;
    km_hcalls_table[SYS_getegid] = dummy_hcall;
