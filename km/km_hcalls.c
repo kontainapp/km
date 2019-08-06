@@ -339,6 +339,12 @@ static km_hc_ret_t readlink_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t getrandom_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // ssize_t getrandom(void *buf, size_t buflen, unsigned int flags);
+   char* buf;
+
+   if ((buf = km_gva_to_kma(arg->arg1)) == NULL) {
+      arg->hc_ret = EFAULT;
+      return HC_CONTINUE;
+   }
    arg->hc_ret = __syscall_3(hc, km_gva_to_kml(arg->arg1), arg->arg2, arg->arg3);
    return HC_CONTINUE;
 }
