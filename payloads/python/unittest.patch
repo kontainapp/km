@@ -1,0 +1,25 @@
+diff --git a/Lib/unittest/test/test_program.py b/Lib/unittest/test/test_program.py
+index 4a62ae1b11..98cf922586 100644
+--- a/Lib/unittest/test/test_program.py
++++ b/Lib/unittest/test/test_program.py
+@@ -419,6 +419,7 @@ class TestCommandLineArgs(unittest.TestCase):
+ 
+         self.assertEqual(program.testNamePatterns, ['*foo*', '*bar*', '*pat*'])
+ 
++    @unittest.expectedFailure
+     def testSelectedTestNamesFunctionalTest(self):
+         def run_unittest(args):
+             p = subprocess.Popen([sys.executable, '-m', 'unittest'] + args,
+diff --git a/Lib/unittest/test/test_runner.py b/Lib/unittest/test/test_runner.py
+index 7d36340741..088c20c8cd 100644
+--- a/Lib/unittest/test/test_runner.py
++++ b/Lib/unittest/test/test_runner.py
+@@ -935,6 +935,7 @@ class Test_TextTestRunner(unittest.TestCase):
+         expectedresult = (runner.stream, DESCRIPTIONS, VERBOSITY)
+         self.assertEqual(runner._makeResult(), expectedresult)
+ 
++    @unittest.expectedFailure
+     def test_warnings(self):
+         """
+         Check that warnings argument of TextTestRunner correctly affects the
+

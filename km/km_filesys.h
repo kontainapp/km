@@ -395,13 +395,14 @@ km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optv
 }
 
 // int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+// int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 static inline uint64_t
-km_fs_getsockname(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
+km_fs_get_sock_peer_name(km_vcpu_t* vcpu, int hc, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
 {
    if (check_guest_fd(vcpu, sockfd) == -1) {
       return -EBADF;
    }
-   int ret = __syscall_3(SYS_getsockname, sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
+   int ret = __syscall_3(hc, sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
    return ret;
 }
 

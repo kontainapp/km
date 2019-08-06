@@ -17,12 +17,16 @@ We should find a list of 50 modules.
 
 """
 import unittest
+import platform
 
 
 class TestModules(unittest.TestCase):
 
     def test_import_modules(self):
-        NUMBER_OF_MODULES = 50
+        if platform.python_version().split('.')[1] == '7':
+            NUMBER_OF_MODULES = 55
+        else:
+            NUMBER_OF_MODULES = 67
 
         with self.assertRaises(ModuleNotFoundError):
             import foo

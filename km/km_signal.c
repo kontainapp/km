@@ -498,7 +498,7 @@ km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t*
 
 uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo)
 {
-   if (pid != 0) {
+   if (pid != 0 && pid != 1) {
       return -EINVAL;
    }
    if (signo < 1 || signo >= NSIG) {
