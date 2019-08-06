@@ -18,6 +18,11 @@
  * The virtual filesystem acts like a file system root from the POV of guest, including
  * handling '..' correctly (like Linux pivot_root(2)). This is implemented as file path
  * translations implemented by KM.
+ *
+ * TODO:
+ * - current directory as a clean abslute path name.
+ * - current directory in all relative paths from guest.
+ * - open safe with symlinks.
  */
 
 #ifndef KM_FILESYS_H_
@@ -29,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/epoll.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -50,8 +56,6 @@ static inline int km_gpath_to_kpath(km_vcpu_t* vcpu, char* pathname, char* host_
    char* cur = host_path;
    int remain = PATH_MAX;
    int inc;
-
-   warnx("%s %s", __FUNCTION__, pathname);
 
    // Copy pathname.
    if (strlen(pathname) >= sizeof(guest_path)) {
@@ -86,7 +90,6 @@ static inline int km_gpath_to_kpath(km_vcpu_t* vcpu, char* pathname, char* host_
       }
       tok = strtok_r(NULL, "/", &savptr);
    }
-   warnx("%s %s->%s", __FUNCTION__, pathname, host_path);
 
    return 0;
 }
@@ -289,31 +292,61 @@ static inline uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf
 // int chdir(const char *path);
 static inline uint64_t km_fs_chdir(km_vcpu_t* vcpu, char* pathname)
 {
+   char pwdbuf[PATH_MAX];
+   warnx("%s KM pwd:%s", __FUNCTION__, getcwd(pwdbuf, PATH_MAX));
+   // Absolute path only (for now)
+   if (pathname[0] != '/') {
+      warnx("%s %s", __FUNCTION__, "aaa");
+      return -EINVAL;
+   }
+
    char hostpath[PATH_MAX];
    if (km_gpath_to_kpath(vcpu, pathname, hostpath) < 0) {
+      warnx("%s %s", __FUNCTION__, "bbb");
       return -ENAMETOOLONG;
    }
 
    struct stat st;
    if (stat(hostpath, &st) < 0) {
+      warnx("%s %s %s %d", __FUNCTION__, "ccc", hostpath, errno);
       return -errno;
    }
    if ((st.st_mode & S_IFMT) != S_IFDIR) {
+      warnx("%s %s", __FUNCTION__, "ddd");
       return -ENOTDIR;
    }
-   strncpy(machine.filesys.curdir, &hostpath[strlen(machine.filesys.root_prefix)], PATH_MAX);
-   int ret = __syscall_1(SYS_chdir, (uintptr_t)hostpath);
-   return ret;
+   // TODO: Need to cleanse pathname
+   strncpy(machine.filesys.curdir, pathname, PATH_MAX - 1);
+   return 0;
 }
 
 // int mkdir(const char *path, mode_t mode);
 static inline uint64_t km_fs_mkdir(km_vcpu_t* vcpu, char* pathname, mode_t mode)
 {
+   if (pathname == NULL) {
+      return -EFAULT;
+   }
+
    char hostpath[PATH_MAX];
    if (km_gpath_to_kpath(vcpu, pathname, hostpath) < 0) {
       return -ENAMETOOLONG;
    }
    int ret = __syscall_2(SYS_mkdir, (uintptr_t)hostpath, mode);
+   return ret;
+}
+
+// int rmdir(const char *path)
+static inline uint64_t km_fs_rmdir(km_vcpu_t* vcpu, char* pathname)
+{
+   if (pathname == NULL) {
+      return -EFAULT;
+   }
+
+   char hostpath[PATH_MAX];
+   if (km_gpath_to_kpath(vcpu, pathname, hostpath) < 0) {
+      return -ENAMETOOLONG;
+   }
+   int ret = __syscall_1(SYS_rmdir, (uintptr_t)hostpath);
    return ret;
 }
 
@@ -343,7 +376,6 @@ static inline uint64_t km_fs_stat(km_vcpu_t* vcpu, char* pathname, struct stat* 
       return -ENAMETOOLONG;
    }
    int ret = __syscall_2(SYS_stat, (uintptr_t)hostpath, (uintptr_t)statbuf);
-   warnx("%s FMT=%o", __FUNCTION__, statbuf->st_mode & S_IFMT);
    return ret;
 }
 

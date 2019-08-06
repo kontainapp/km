@@ -233,8 +233,9 @@ static km_hc_ret_t getcwd_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    if (gbuf == NULL || arg->arg2 <= strlen(machine.filesys.curdir)) {
       return -EFAULT;
    }
+   warnx("%s '%s'", __FUNCTION__, machine.filesys.curdir);
    strncpy(km_gva_to_kma(arg->arg1), machine.filesys.curdir, arg->arg2);
-   arg->hc_ret = arg;
+   arg->hc_ret = arg->arg1;
    return HC_CONTINUE;
 }
 
@@ -395,6 +396,13 @@ static km_hc_ret_t mkdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int mkdir(const char *path, mode_t mode);
    arg->hc_ret = km_fs_mkdir(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t rmdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int mkdir(const char *path, mode_t mode);
+   arg->hc_ret = km_fs_rmdir(vcpu, km_gva_to_kma(arg->arg1));
    return HC_CONTINUE;
 }
 
@@ -720,6 +728,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_rename] = rename_hcall;
    km_hcalls_table[SYS_symlink] = symlink_hcall;
    km_hcalls_table[SYS_mkdir] = mkdir_hcall;
+   km_hcalls_table[SYS_rmdir] = rmdir_hcall;
    km_hcalls_table[SYS_chdir] = chdir_hcall;
    km_hcalls_table[SYS_select] = select_hcall;
    km_hcalls_table[SYS_pause] = pause_hcall;

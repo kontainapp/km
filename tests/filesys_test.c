@@ -101,13 +101,35 @@ TEST test_rename()
    PASS();
 }
 
+/*
+ * create a directory in root
+ *
+ * 1) chdir to it
+ * 2) chdir back to root,
+ * 3 rmdir the directory
+ */
 TEST test_chdir()
 {
+   ASSERT_EQ(0, mkdir("/mydir", 0777));
+
    char buf[PATH_MAX];
 
-   ASSERT_EQ(0, getcwd(buf, PATH_MAX));
+   ASSERT_NOT_EQ(0, getcwd(buf, PATH_MAX));
    ASSERT_EQ(0, strcmp("/", buf));
-   ASSERT_EQ(0, mkdir("mydir", 0777));
+
+   ASSERT_EQ(0, chdir("/mydir"));
+   ASSERT_NOT_EQ(0, getcwd(buf, PATH_MAX));
+   ASSERT_EQ(0, strcmp("/mydir", buf));
+
+   ASSERT_EQ(0, chdir("/"));
+   ASSERT_NOT_EQ(0, getcwd(buf, PATH_MAX));
+   ASSERT_EQ(0, strcmp("/", buf));
+
+   // Absolute path into chdir for now
+   ASSERT_EQ(-1, chdir("mydir"));
+   ASSERT_EQ(EINVAL, errno);
+
+   ASSERT_EQ(0, rmdir("/mydir"));
 
    PASS();
 }
@@ -129,7 +151,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_mkdir);
    RUN_TEST(test_symlink);
    RUN_TEST(test_rename);
-   // RUN_TEST(test_chdir);
+   RUN_TEST(test_chdir);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
