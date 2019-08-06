@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 
 #include "km_hcalls.h"
 #include "syscall.h"
@@ -48,6 +49,7 @@ int sigpipe_test(int optind, int argc, char* argv[]);
 int hc_test(int optind, int argc, char* argv[]);
 int hc_badarg_test(int optind, int argc, char* argv[]);
 int close_test(int optind, int argc, char* argv[]);
+int stat_test(int optind, int argc, char* argv[]);
 
 struct stray_op {
    char* op;                                          // Operation name on command line
@@ -75,6 +77,7 @@ struct stray_op {
      .func = hc_badarg_test,
      .description = "<call> - make hypercall with number <call> and a bad argument."},
     {.op = "close", .func = close_test, .description = "<fd> - close file descriptor fd"},
+    {.op = "stat", .func = stat_test, .description = "<pathname> - Stat a file in guest"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -188,7 +191,7 @@ int sigpipe_test(int optind, int argc, char* argv[])
 }
 
 // Generate a hypercall.
-int hc_test(int optind, int optarg, char* argv[])
+int hc_test(int optind, int argc, char* argv[])
 {
    char* ep = NULL;
    int callid = strtol(argv[optind], &ep, 0);
@@ -202,7 +205,7 @@ int hc_test(int optind, int optarg, char* argv[])
 }
 
 // Generate a hypercall with a known bad argument.
-int hc_badarg_test(int optind, int optarg, char* argv[])
+int hc_badarg_test(int optind, int argc, char* argv[])
 {
    char* ep = NULL;
    int callid = strtol(argv[optind], &ep, 0);
@@ -215,7 +218,7 @@ int hc_badarg_test(int optind, int optarg, char* argv[])
    return 0;
 }
 
-int close_test(int optind, int optarg, char* argv[])
+int close_test(int optind, int argc, char* argv[])
 {
    char* ep = NULL;
    int fd = strtol(argv[optind], &ep, 0);
@@ -230,6 +233,19 @@ int close_test(int optind, int optarg, char* argv[])
    return 0;
 }
 
+int stat_test(int optind, int argc, char* argv[])
+{
+   struct stat st;
+
+   if (optind + 1 != argc) {
+      usage();
+      return 1;
+   }
+   if (stat(argv[optind], &st) < 0) {
+      return errno;
+   }
+   return 0;
+}
 // A thread to have laying around. Make the coredumps more interesting.
 pthread_mutex_t mt = PTHREAD_MUTEX_INITIALIZER;
 void* thread_main(void* arg)

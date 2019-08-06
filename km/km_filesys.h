@@ -46,6 +46,95 @@
 #include "km_mem.h"
 #include "km_syscall.h"
 
+static const int DEPTH_MAX = 64;
+
+static void km_get_path(km_vcpu_t* vcpu, char* base, char* stack[], int level, char* pathname)
+{
+   strncpy(pathname, base, PATH_MAX);
+
+   char* cur = pathname + strlen(pathname);
+   for (int i = 0; i < level; i++) {
+      *cur++ = '/';
+      strncpy(cur, stack[i], PATH_MAX - (cur - pathname));
+   }
+}
+
+static int km_fs_namei(km_vcpu_t* vcpu, char* pathname, char* host_path)
+{
+   char guest_path[PATH_MAX];
+   char host_base[PATH_MAX];
+
+   // Setup root and (optionally) curdir in host name
+   if (pathname[0] == '/') {
+      snprintf(host_base, PATH_MAX, "%s", machine.filesys.root_prefix);
+   } else {
+      snprintf(host_base, PATH_MAX, "%s%s", machine.filesys.root_prefix, machine.filesys.curdir);
+   }
+
+   // tokenize guest path name
+   strncpy(guest_path, pathname, PATH_MAX);
+
+   struct stat st;
+   int level;
+   char* stack[DEPTH_MAX];
+   char* savptr;
+   char* tok;
+top:
+   warnx("%s guest_path:%s", __FUNCTION__, guest_path);
+   level = 0;
+   savptr = NULL;
+   tok = strtok_r(guest_path, "/", &savptr);
+   while (tok != NULL) {
+      if (strcmp(tok, "..") == 0) {
+         if (level > 0) {
+            level--;
+         }
+      } else if (strcmp(tok, ".") != 0) {
+         if (level >= DEPTH_MAX) {
+            err(1, "%s path too deep", __FUNCTION__);
+         }
+         stack[level++] = tok;
+         char cpath[PATH_MAX];
+         km_get_path(vcpu, host_base, stack, level, cpath);
+         warnx("%s host_base:%s cpath:%s", __FUNCTION__, host_base, cpath);
+         int ret = lstat(cpath, &st);
+         if (ret < 0) {
+            warn("%s lstat failed %s", __FUNCTION__, cpath);
+            return -errno;
+         }
+         warnx("%s cpath:%s type 0x%x", __FUNCTION__, cpath, st.st_mode & S_IFMT);
+         if ((st.st_mode & S_IFMT) == S_IFLNK) {
+            warnx("%s cpath:%s is a symlink", __FUNCTION__, cpath);
+            // TODO: Read symlink
+            char link[PATH_MAX];
+            if (readlink(cpath, link, PATH_MAX) < 0) {
+               return -errno;
+            }
+            if (link[0] == '/') {
+               // link is absolute path
+               strncpy(guest_path, link, PATH_MAX);
+            } else {
+               // link is relative path
+               char* cur = guest_path;
+               for (int i = 0; i < level - 1; i++) {
+                  *cur++ = '/';
+                  strncpy(cur, stack[i], PATH_MAX - (cur - guest_path));
+                  cur += strlen(cur);
+               }
+               *cur++ = '/';
+               strncpy(cur, link, PATH_MAX - (cur - guest_path));
+            }
+            warnx("%s cpath=%s symlink=%s guest_path=%s", __FUNCTION__, cpath, link, guest_path);
+            goto top;
+         }
+      }
+      tok = strtok_r(NULL, "/", &savptr);
+   }
+   km_get_path(vcpu, host_base, stack, level, host_path);
+   warnx("translation: %s to %s", pathname, host_path);
+   return 0;
+}
+
 /*
  * Translates a path name from the guest into a KM host pathname.
  * host path points to a char[PATH_MAX].
@@ -57,7 +146,7 @@ static inline int km_gpath_to_kpath(km_vcpu_t* vcpu, char* pathname, char* host_
    int remain = PATH_MAX;
    int inc;
 
-   // Copy pathname.
+   // Copy guest's pathname into a buffer for tokenization.
    if (strlen(pathname) >= sizeof(guest_path)) {
       return -1;
    }
@@ -129,12 +218,23 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
 static inline int km_init_guest_files(km_machine_init_params_t* params)
 {
    struct stat st;
-   if (stat(params->rootdir, &st) < 0) {
+   char curdirbuf[PATH_MAX];
+
+   if (lstat(params->rootdir, &st) < 0) {
       err(1, "guest root directory %s", params->rootdir);
    }
-   if ((st.st_mode & S_IFDIR) == 0) {
+   if ((st.st_mode & S_IFMT) != S_IFDIR) {
       err(1, "guest root %s is not a directory", params->rootdir);
    }
+
+   snprintf(curdirbuf, PATH_MAX, "%s%s", params->rootdir, params->curdir);
+   if (lstat(curdirbuf, &st) < 0) {
+      err(1, "guest current dir: %s", curdirbuf);
+   }
+   if ((st.st_mode & S_IFMT) != S_IFDIR) {
+      err(1, "guest current dir is not a directory: %s", curdirbuf);
+   }
+
    machine.filesys.root_prefix = params->rootdir;
    strncpy(machine.filesys.curdir, params->curdir, PATH_MAX - 1);
 
@@ -372,9 +472,16 @@ static inline uint64_t km_fs_rename(km_vcpu_t* vcpu, char* oldpath, char* newpat
 static inline uint64_t km_fs_stat(km_vcpu_t* vcpu, char* pathname, struct stat* statbuf)
 {
    char hostpath[PATH_MAX];
+#if 1
+   int rc = km_fs_namei(vcpu, pathname, hostpath);
+   if (rc < 0) {
+      return rc;
+   }
+#else
    if (km_gpath_to_kpath(vcpu, pathname, hostpath) < 0) {
       return -ENAMETOOLONG;
    }
+#endif
    int ret = __syscall_2(SYS_stat, (uintptr_t)hostpath, (uintptr_t)statbuf);
    return ret;
 }
