@@ -92,7 +92,11 @@ static inline uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    if (check_guest_fd(vcpu, fd) == -1) {
       return -EBADF;
    }
-   int ret = __syscall_1(SYS_close, fd);
+   int ret = 0;
+   // stdin, stdout, and stderr shared with KM so guest can't close them.
+   if (fd > 2) {
+      __syscall_1(SYS_close, fd);
+   }
    if (ret == 0) {
       del_guest_fd(vcpu, fd);
    }
@@ -282,9 +286,15 @@ static inline uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
    if (check_guest_fd(vcpu, fd) < 0) {
       return -EBADF;
    }
+   // stdin, stdout, stderr shared with KM. Guest can't change.
+   if (newfd <= 2) {
+      warnx("%s guest cannot dup to %d (stdin, stdout or stderr", __FUNCTION__, newfd);
+      return -EBADF;
+   }
    // Don't allow dup to newfd open by KM and not guest.
    struct stat st;
    if (check_guest_fd(vcpu, newfd) == 0 && fstat(newfd, &st) == 0) {
+      warnx("%s guest cannot dup to %d open by KM", __FUNCTION__, newfd);
       return -EBADF;
    }
    int ret = __syscall_2(SYS_dup2, fd, newfd);
@@ -300,9 +310,15 @@ static inline uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    if (check_guest_fd(vcpu, fd) < 0) {
       return -EBADF;
    }
+   // stdin, stdout, stderr shared with KM. Guest can't change.
+   if (newfd <= 2) {
+      warnx("%s guest cannot dup to %d (stdin, stdout or stderr", __FUNCTION__, newfd);
+      return -EBADF;
+   }
    // Don't allow dup to newfd open by KM and not guest.
    struct stat st;
    if (check_guest_fd(vcpu, newfd) == 0 && fstat(newfd, &st) == 0) {
+      warnx("%s guest cannot dup to %d open by KM", __FUNCTION__, newfd);
       return -EBADF;
    }
    int ret = __syscall_3(SYS_dup2, fd, newfd, flags);
