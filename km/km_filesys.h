@@ -95,7 +95,9 @@ static inline uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    int ret = 0;
    // stdin, stdout, and stderr shared with KM so guest can't close them.
    if (fd > 2) {
-      __syscall_1(SYS_close, fd);
+      ret = __syscall_1(SYS_close, fd);
+   } else {
+      warnx("guest closing fd=%d", fd);
    }
    if (ret == 0) {
       del_guest_fd(vcpu, fd);
