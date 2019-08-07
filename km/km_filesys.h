@@ -92,7 +92,13 @@ static inline uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    if (check_guest_fd(vcpu, fd) == -1) {
       return -EBADF;
    }
-   int ret = __syscall_1(SYS_close, fd);
+   int ret = 0;
+   // stdin, stdout, and stderr shared with KM so guest can't close them.
+   if (fd > 2) {
+      ret = __syscall_1(SYS_close, fd);
+   } else {
+      warnx("guest closing fd=%d", fd);
+   }
    if (ret == 0) {
       del_guest_fd(vcpu, fd);
    }
@@ -282,9 +288,15 @@ static inline uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
    if (check_guest_fd(vcpu, fd) < 0) {
       return -EBADF;
    }
+   // stdin, stdout, stderr shared with KM. Guest can't change.
+   if (newfd <= 2) {
+      warnx("%s guest cannot dup to %d (stdin, stdout or stderr)", __FUNCTION__, newfd);
+      return -EBADF;
+   }
    // Don't allow dup to newfd open by KM and not guest.
    struct stat st;
-   if (check_guest_fd(vcpu, newfd) == 0 && fstat(newfd, &st) == 0) {
+   if (check_guest_fd(vcpu, newfd) < 0 && fstat(newfd, &st) == 0) {
+      warnx("%s guest cannot dup to %d (open by KM)", __FUNCTION__, newfd);
       return -EBADF;
    }
    int ret = __syscall_2(SYS_dup2, fd, newfd);
@@ -300,9 +312,15 @@ static inline uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    if (check_guest_fd(vcpu, fd) < 0) {
       return -EBADF;
    }
+   // stdin, stdout, stderr shared with KM. Guest can't change.
+   if (newfd <= 2) {
+      warnx("%s guest cannot dup to %d (stdin, stdout or stderr)", __FUNCTION__, newfd);
+      return -EBADF;
+   }
    // Don't allow dup to newfd open by KM and not guest.
    struct stat st;
-   if (check_guest_fd(vcpu, newfd) == 0 && fstat(newfd, &st) == 0) {
+   if (check_guest_fd(vcpu, newfd) < 0 && fstat(newfd, &st) == 0) {
+      warnx("%s guest cannot dup to %d (open by KM)", __FUNCTION__, newfd);
       return -EBADF;
    }
    int ret = __syscall_3(SYS_dup2, fd, newfd, flags);
@@ -417,6 +435,17 @@ km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addr
    int ret = __syscall_3(SYS_accept, sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
    if (ret >= 0) {
       add_guest_fd(vcpu, ret);
+   }
+   return ret;
+}
+
+// int socketpair(int domain, int type, int protocol, int sv[2]);
+static inline uint64_t km_fs_socketpair(km_vcpu_t* vcpu, int domain, int type, int protocol, int sv[2])
+{
+   int ret = __syscall_4(SYS_socketpair, domain, type, protocol, (uintptr_t)sv);
+   if (ret == 0) {
+      add_guest_fd(vcpu, sv[0]);
+      add_guest_fd(vcpu, sv[1]);
    }
    return ret;
 }

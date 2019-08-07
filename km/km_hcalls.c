@@ -110,7 +110,7 @@ static km_hc_ret_t accept_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t socketpair_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int socketpair(int domain, int type, int protocol, int sv[2]);
-   arg->hc_ret = __syscall_4(hc, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kml(arg->arg4));
+   arg->hc_ret = km_fs_socketpair(vcpu, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kma(arg->arg4));
    return HC_CONTINUE;
 }
 

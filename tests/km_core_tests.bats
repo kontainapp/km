@@ -469,3 +469,8 @@ teardown() {
 
    diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
+
+@test "filesys: guest file system operations (filesys_test)" {
+   run km_with_timeout filesys_test.km
+   assert_success
+}
