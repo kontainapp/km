@@ -437,6 +437,17 @@ km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addr
    return ret;
 }
 
+// int socketpair(int domain, int type, int protocol, int sv[2]);
+static inline uint64_t km_fs_socketpair(km_vcpu_t* vcpu, int domain, int type, int protocol, int sv[2])
+{
+   int ret = __syscall_4(SYS_socketpair, domain, type, protocol, (uintptr_t)sv);
+   if (ret == 0) {
+      add_guest_fd(vcpu, sv[0]);
+      add_guest_fd(vcpu, sv[1]);
+   }
+   return ret;
+}
+
 // int accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags);
 static inline uint64_t
 km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen, int flags)

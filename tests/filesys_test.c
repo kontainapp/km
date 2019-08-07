@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -75,6 +76,16 @@ TEST test_disallowed_close()
    PASS();
 }
 
+TEST test_socketpair()
+{
+   int fd[2];
+
+   ASSERT_EQ(0, socketpair(PF_LOCAL, SOCK_STREAM, 0, fd));
+   ASSERT_EQ(0, close(fd[0]));
+   ASSERT_EQ(0, close(fd[1]));
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -85,6 +96,7 @@ int main(int argc, char** argv)
                                 // especially from KM payload
    /* Tests can  be run as suites, or directly. Lets run directly. */
    RUN_TEST(test_stat);
+   RUN_TEST(test_socketpair);
    RUN_TEST(test_disallowed_dup2);
    RUN_TEST(test_disallowed_close);
 
