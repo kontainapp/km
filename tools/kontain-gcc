@@ -1,0 +1,12 @@
+#!/bin/bash
+if [ $# -eq 0 ] ; then exec "${REALGCC:-gcc}" ; fi
+
+dir=`dirname ${BASH_SOURCE[0]}`
+KM_TOP=`realpath $dir/../../km`
+# invoke gcc with extra params for Kontain link;
+# note: some tools (e.g. busybox) have 'main' defined in .a file, so we need to force linking it in
+# set -x
+exec "${REALGCC:-gcc}" \
+   -static -no-pie -specs=${KM_TOP}/gcc-km.spec -Wl,--undefined=main \
+    "$@" \
+   -L/usr/lib64 -lz -L ${KM_TOP}/build/runtime
