@@ -36,46 +36,6 @@ TEST test_stat()
    PASS();
 }
 
-// Test diallowed dup2 (and dup3)
-TEST test_disallowed_dup2()
-{
-   int fd = open("/", O_RDONLY);
-
-   ASSERT_NOT_EQ(-1, fd);
-
-   /*
-    * fd 3 and 4 are KVM file descriptors used by KM.
-    */
-   for (int i = 0; i < 5; i++) {
-      ASSERT_EQ(-1, dup2(fd, i));
-      ASSERT_EQ(EBADF, errno);
-      ASSERT_EQ(-1, dup3(fd, i, O_CLOEXEC));
-      ASSERT_EQ(EBADF, errno);
-   }
-   close(fd);
-
-   PASS();
-}
-
-/*
- * Note: guest's stdin is pretty much hosed here.
- */
-TEST test_disallowed_close()
-{
-   int fd = open("/", O_RDONLY);
-
-   ASSERT_NOT_EQ(-1, fd);
-
-   ASSERT_EQ(0, close(0));
-   ASSERT_EQ(-1, dup2(fd, 0));
-   ASSERT_EQ(EBADF, errno);
-   ASSERT_EQ(-1, dup3(fd, 0, O_CLOEXEC));
-   ASSERT_EQ(EBADF, errno);
-   close(fd);
-
-   PASS();
-}
-
 TEST test_socketpair()
 {
    int fd[2];
@@ -97,8 +57,6 @@ int main(int argc, char** argv)
    /* Tests can  be run as suites, or directly. Lets run directly. */
    RUN_TEST(test_stat);
    RUN_TEST(test_socketpair);
-   RUN_TEST(test_disallowed_dup2);
-   RUN_TEST(test_disallowed_close);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)

@@ -41,6 +41,7 @@ km_machine_t machine = {
     .signal_mutex = PTHREAD_MUTEX_INITIALIZER,
     .sigpending.head = TAILQ_HEAD_INITIALIZER(machine.sigpending.head),
     .sigfree.head = TAILQ_HEAD_INITIALIZER(machine.sigfree.head),
+    .filesys.lock = PTHREAD_MUTEX_INITIALIZER,
 };
 
 /*
@@ -126,9 +127,10 @@ void km_machine_fini(void)
       close(machine.intr_fd);
       machine.intr_fd = -1;
    }
-   if (machine.files != NULL) {
-      free(machine.files);
-      machine.files = NULL;
+
+   if (machine.filesys.guestfd_to_hostfd_map != NULL) {
+      free(machine.filesys.guestfd_to_hostfd_map);
+      machine.filesys.guestfd_to_hostfd_map = NULL;
    }
    km_hcalls_fini();
 }

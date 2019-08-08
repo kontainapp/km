@@ -91,7 +91,7 @@ typedef struct km_vcpu {
    int is_used;                   // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
    pthread_tid_t joining_pid;     // pid if currently joining another thread pid, -1 if not
-   km_gva_t exit_res;          // exit status for this thread
+   km_gva_t exit_res;             // exit status for this thread
    int regs_valid;                // Are registers valid?
    kvm_regs_t regs;               // Cached register values.
    int sregs_valid;               // Are segment registers valid?
@@ -143,6 +143,16 @@ void km_hcalls_fini(void);
 typedef struct km_guest_file {
    int used;
 } km_guest_file_t;
+
+typedef struct km_filesys {
+   /*
+    * File descriptor maps.
+    */
+   int* guestfd_to_hostfd_map;
+   int nfdmap;
+   pthread_mutex_t lock;
+} km_filesys_t;
+
 /*
  * kernel include/linux/kvm_host.h
  */
@@ -187,8 +197,7 @@ typedef struct km_machine {
    km_signal_list_t sigfree;       // Freelist of signal entries.
    km_sigaction_t sigactions[_NSIG];
 
-   km_guest_file_t* files;   // file descriptor table
-   int nfiles;               // number of file descriptor table entries
+   km_filesys_t filesys;
 } km_machine_t;
 
 extern km_machine_t machine;
