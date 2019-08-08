@@ -1,0 +1,4 @@
+#!/bin/sh
+exec strip \
+   -K __start_thread__ -K __km_handle_interrupt -K __pthread_tsd_size -K __km_sigreturn -K __libc \
+   "$@"
