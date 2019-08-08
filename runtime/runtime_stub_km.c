@@ -59,8 +59,26 @@ __stub_core__(waitid);
  * executable stubs, returning simple canned value
  */
 __stub__(backtrace);
+__stub__(mallopt);
 
 const char* gnu_get_libc_version(void)
 {
    return "km";
+}
+
+// Files compiled with libc sys/sysmacros.h will refer to functions below (#define-d in musl sys/sysmacros.h)
+const int gnu_dev_major(int x)
+{
+   return ((unsigned)((((x) >> 31 >> 1) & 0xfffff000) | (((x) >> 8) & 0x00000fff)));
+}
+
+const int gnu_dev_minor(int x)
+{
+   return ((unsigned)((((x) >> 12) & 0xffffff00) | ((x)&0x000000ff)));
+}
+
+const int gnu_dev_makedev(int x, int y)
+{
+   return ((((x)&0xfffff000ULL) << 32) | (((x)&0x00000fffULL) << 8) | (((y)&0xffffff00ULL) << 12) |
+           (((y)&0x000000ffULL)));
 }
