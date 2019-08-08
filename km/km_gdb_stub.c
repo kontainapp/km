@@ -422,7 +422,7 @@ static void km_gdb_general_query(char* packet, char* obuf)
          send_error_msg();
          return;
       }
-      sprintf(label, "vcpu %d", vcpu->vcpu_id);   // gdb allow free form labels, so we send VCPU ID
+      sprintf(label, "Guest 0x%lx", vcpu->guest_thr);   // guest pthread pointer in free form label
       mem2hex((unsigned char*)label, obuf, strlen(label));
       send_packet(obuf);
    } else {
