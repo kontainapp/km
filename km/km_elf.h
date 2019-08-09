@@ -23,6 +23,7 @@
 #define KM_THR_START_SYM_NAME "__start_thread__"
 #define KM_INT_HNDL_SYM_NAME "__km_handle_interrupt"
 #define KM_TSD_SIZE_SYM_NAME "__pthread_tsd_size"
+#define KM_PCREATE_SYM_NAME "pthread_create"
 #define KM_SIG_RTRN_SYM_NAME "__km_sigreturn"
 /*
  * Description of the guest payload. Note these structures come from guest ELF and represent values

@@ -168,6 +168,7 @@ int km_load_elf(const char* file)
    /*
     * Read symbol table and look for symbols of interest to KM
     */
+   int pthread_create_present = 0;
    for (Elf_Scn* scn = NULL; (scn = elf_nextscn(e, scn)) != NULL;) {
       GElf_Shdr shdr;
 
@@ -195,6 +196,9 @@ int km_load_elf(const char* file)
                         sym.st_info == ELF64_ST_INFO(STB_WEAK, STT_OBJECT)) &&
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_TSD_SIZE_SYM_NAME) == 0) {
                km_guest.km_tsd_size = sym.st_value;
+            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_PCREATE_SYM_NAME) == 0) {
+               pthread_create_present = 1;
             }
             if (km_guest.km_libc != 0 && km_guest.km_handlers != 0 && km_guest.km_tsd_size != 0 &&
                 km_guest.km_sigreturn != 0 && km_guest.km_start_thread != 0) {
@@ -204,6 +208,10 @@ int km_load_elf(const char* file)
          break;
       }
    }
+   if (km_guest.km_libc == 0) {
+      // just a warning here, basic no-print/no-locale stuff still works
+      warnx("Payload file is missing %s info", KM_LIBC_SYM_NAME);
+   }
    if (km_guest.km_handlers == 0 || km_guest.km_tsd_size == 0 || km_guest.km_sigreturn == 0) {
       errx(1,
            "Non-KM binary: cannot find interrupt handler%s, tsd size%s, or sigreturn%s. Trying to "
@@ -211,6 +219,9 @@ int km_load_elf(const char* file)
            km_guest.km_handlers == 0 ? "(*)" : "",
            km_guest.km_tsd_size == 0 ? "(*)" : "",
            km_guest.km_sigreturn == 0 ? "(*)" : "");
+   }
+   if (km_guest.km_start_thread == 0 && pthread_create_present == 1) {
+      errx(1, "Payload is pthread enabled but is missing %s info", KM_THR_START_SYM_NAME);
    }
    (void)elf_end(e);
    (void)close(fd);
