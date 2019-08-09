@@ -137,6 +137,17 @@ teardown() {
    run km_with_timeout hello_test # Linux executable instead of .km
    assert_failure
    assert_line "km: Non-KM binary: cannot find interrupt handler(*), tsd size(*), or sigreturn(*). Trying to run regular Linux executable in KM?"
+
+   log=`mktemp`
+   echo Log location: $log
+   run km_with_timeout -V --log-to=$log hello_test.km # check --log-to option
+   assert_success
+   assert [ -e $log ]
+   assert grep -q 'Hello, world' $log       # stdout
+   assert grep -q 'Setting VendorId ' $log  # stderr
+   rm $log
+   run km_with_timeout -V --log-to=/very/bad/place hello_test.km
+   assert_failure
 }
 
 @test "mem_slots: KVM memslot / phys mem sizes (memslot_test)" {

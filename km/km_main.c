@@ -44,6 +44,7 @@ static inline void usage()
         "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 2159) "
         "before running payload\n"
         "\t--version (-v)                      - Print version info and exit\n"
+        "\t--log-to=file_name                  - Stream stdout and stderr to file_name\n"
         "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
         "\t--dump-shutdown                     - Produce register dump on VCPU error\n"
         "\t--core-on-err                       - generate KM core dump when exiting on err, "
@@ -93,6 +94,7 @@ static struct option long_options[] = {
     {"overcommit-memory", no_argument, &(km_machine_init_params.overcommit_memory), 1},
     {"coredump", required_argument, 0, 'C'},
     {"membus-width", required_argument, 0, 'P'},
+    {"log-to", required_argument, 0, 'l'},
     {"gdb-server-port", optional_argument, 0, 'g'},
     {"verbose", optional_argument, 0, 'V'},
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
@@ -129,6 +131,11 @@ int main(int argc, char* const argv[])
                usage();
             }
             km_gdb_port_set(port);
+            break;
+         case 'l':
+            if (freopen(optarg, "a", stdout) == NULL || freopen(optarg, "a", stderr) == NULL) {
+               err(1, optarg);
+            }
             break;
          case 'C':
             km_set_coredump_path(optarg);
