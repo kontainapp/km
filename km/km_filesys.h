@@ -41,12 +41,6 @@ static int check_guest_fd(km_vcpu_t* vcpu, int fd)
    }
    pthread_mutex_unlock(&machine.filesys.lock);
    return ret;
-#if 0
-   if (__atomic_load_n(&machine.files[fd].used, __ATOMIC_SEQ_CST) != 0) {
-      return fd;
-   }
-   return -1;
-#endif
 }
 
 static int add_guest_fd(km_vcpu_t* vcpu, int host_fd)
@@ -65,9 +59,6 @@ static int add_guest_fd(km_vcpu_t* vcpu, int host_fd)
    }
    pthread_mutex_unlock(&machine.filesys.lock);
 
-#if 0
-   __atomic_store_n(&machine.files[fd].used, 1, __ATOMIC_SEQ_CST);
-#endif
    return guest_fd;
 }
 
@@ -79,9 +70,6 @@ static void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
    pthread_mutex_lock(&machine.filesys.lock);
    machine.filesys.guestfd_to_hostfd_map[fd] = -1;
    pthread_mutex_unlock(&machine.filesys.lock);
-#if 0
-   __atomic_store_n(&machine.files[fd].used, 0, __ATOMIC_SEQ_CST);
-#endif
 }
 
 static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)

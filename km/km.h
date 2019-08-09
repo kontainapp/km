@@ -137,19 +137,9 @@ void km_write_sregisters(km_vcpu_t* vcpu);
 void km_hcalls_init(void);
 void km_hcalls_fini(void);
 
-/*
- * Guest file descriptor entry.
- */
-typedef struct km_guest_file {
-   int used;
-} km_guest_file_t;
-
 typedef struct km_filesys {
-   /*
-    * File descriptor maps.
-    */
-   int* guestfd_to_hostfd_map;
-   int nfdmap;
+   int* guestfd_to_hostfd_map;   // file descriptor map
+   int nfdmap;                   // size of file descriptor map
    pthread_mutex_t lock;
 } km_filesys_t;
 
