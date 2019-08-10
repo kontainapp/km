@@ -350,7 +350,13 @@ static inline uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
    if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
       return -EBADF;
    }
-   int ret = __syscall_1(SYS_dup, host_fd);
+   int host_newfd;
+   if ((host_newfd = check_guest_fd(vcpu, newfd)) < 0) {
+      if ((host_newfd = open("/", O_RDONLY)) < 0) {
+         return -errno;
+      }
+   }
+   int ret = __syscall_2(SYS_dup2, host_fd, host_newfd);
    if (ret >= 0) {
       ret = replace_guest_fd(vcpu, newfd, ret);
    }
@@ -364,13 +370,13 @@ static inline uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
       return -EBADF;
    }
-   int ret = __syscall_1(SYS_dup, host_fd);
-   if ((flags & O_CLOEXEC) != 0) {
-      int rc;
-      if ((rc = __syscall_3(SYS_fcntl, ret, F_SETFD, O_CLOEXEC)) < 0) {
-         err(1, "%s fcntl failed", __FUNCTION__);
+   int host_newfd;
+   if ((host_newfd = check_guest_fd(vcpu, newfd)) < 0) {
+      if ((host_newfd = open("/", O_RDONLY)) < 0) {
+         return -errno;
       }
    }
+   int ret = __syscall_3(SYS_dup3, host_fd, host_newfd, flags);
    if (ret >= 0) {
       ret = replace_guest_fd(vcpu, newfd, ret);
    }
