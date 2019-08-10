@@ -77,12 +77,18 @@ static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
    if (guest_fd < 0 || guest_fd > machine.filesys.nfdmap) {
       errx(1, "%s bad file descriptor %d", __FUNCTION__, guest_fd);
    }
+   int close_fd = -1;
    pthread_mutex_lock(&machine.filesys.lock);
    if (machine.filesys.guestfd_to_hostfd_map[guest_fd] != -1) {
-      __syscall_1(SYS_close, machine.filesys.guestfd_to_hostfd_map[guest_fd]);
+      close_fd = machine.filesys.guestfd_to_hostfd_map[guest_fd];
    }
    machine.filesys.guestfd_to_hostfd_map[guest_fd] = host_fd;
    pthread_mutex_unlock(&machine.filesys.lock);
+   // don't close stdin, stdout, or stderr
+   if (close_fd > 2) {
+      __syscall_1(SYS_close, close_fd);
+
+   }
    return guest_fd;
 }
 
@@ -673,13 +679,6 @@ static inline uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
 
    int ret =
        __syscall_6(SYS_epoll_wait, host_epfd, (uintptr_t)events, maxevents, timeout, (uintptr_t)sigmask, sigsetsize);
-   if (ret > 0) {
-      for (int i = 0; i < ret; i++) {
-         if (events[i].events != 0) {
-            events[i].data.fd = hostfd_to_guestfd(vcpu, events[i].data.fd);
-         }
-      }
-   }
    return ret;
 }
 
