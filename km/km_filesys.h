@@ -663,7 +663,8 @@ static inline uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
                                          struct epoll_event* events,
                                          int maxevents,
                                          int timeout,
-                                         const sigset_t* sigmask)
+                                         const sigset_t* sigmask,
+                                         int sigsetsize)
 {
    int host_epfd;
    if ((host_epfd = check_guest_fd(vcpu, epfd)) < 0) {
@@ -671,10 +672,12 @@ static inline uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
    }
 
    int ret =
-       __syscall_5(SYS_epoll_wait, host_epfd, (uintptr_t)events, maxevents, timeout, (uintptr_t)sigmask);
+       __syscall_6(SYS_epoll_wait, host_epfd, (uintptr_t)events, maxevents, timeout, (uintptr_t)sigmask, sigsetsize);
    if (ret > 0) {
       for (int i = 0; i < ret; i++) {
-         events[i].data.fd = hostfd_to_guestfd(vcpu, events[i].data.fd);
+         if (events[i].events != 0) {
+            events[i].data.fd = hostfd_to_guestfd(vcpu, events[i].data.fd);
+         }
       }
    }
    return ret;
