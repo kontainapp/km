@@ -92,6 +92,7 @@ static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
    return guest_fd;
 }
 
+// Note: vcpu is NULL if called from km signal handler.
 static inline int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
 {
    if (hostfd < 0) {

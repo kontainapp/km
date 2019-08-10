@@ -21,6 +21,7 @@
 #include <sys/ioctl.h>
 #include "km.h"
 #include "km_coredump.h"
+#include "km_filesys.h"
 #include "km_gdb.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
@@ -523,19 +524,12 @@ static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, 
  */
 static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unused)
 {
-   if (sinfo->si_fd < 0 || sinfo->si_fd >= machine.filesys.nfdmap) {
+   int guest_fd = hostfd_to_guestfd(NULL, sinfo->si_fd);
+   if (guest_fd < 0) {
       return;
    }
-   pthread_mutex_lock(&machine.filesys.lock);
-   for (int i = 0; i < machine.filesys.nfdmap; i++) {
-      if (machine.filesys.guestfd_to_hostfd_map[i] == sinfo->si_fd) {
-         pthread_mutex_unlock(&machine.filesys.lock);
-         siginfo_t info = {.si_signo = signo, .si_code = SI_KERNEL};
-         km_post_signal(NULL, &info);
-         return;
-      }
-   }
-   pthread_mutex_unlock(&machine.filesys.lock);
+   siginfo_t info = {.si_signo = signo, .si_code = SI_KERNEL};
+   km_post_signal(NULL, &info);
 }
 
 /*
