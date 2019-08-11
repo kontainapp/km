@@ -35,10 +35,18 @@ fi
 # we will kill any test if takes longer
 timeout=60s
 
-# this is how we invoke KM - with a timeout
+# this is how we invoke KM - with a timeout and reporting run time
 function km_with_timeout () {
-   /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " \
-      -a -o $TIME_INFO timeout --foreground $timeout ${KM_BIN} $*
+   /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
+      timeout --foreground $timeout \
+         ${KM_BIN} "$@"
+   s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
+}
+
+# this is how we invoke gdb - with timeout
+function gdb_with_timeout () {
+   timeout --foreground $timeout \
+      gdb "$@"
    s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
 }
 
@@ -214,8 +222,8 @@ teardown() {
    km_gdb_default_port=2159
    # start KM in background, give it time to start, and connect with gdb cliennt
    km_with_timeout -g gdb_test.km &
-   gdb_pid=`jobs -p` ; sleep 0.5
-	run gdb -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_test.gdb" \
+   gdb_pid=$! ; sleep 0.5
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test.km
    # check that gdb found what it is supposed to find
    assert_line --partial 'SUCCESS'
@@ -224,12 +232,12 @@ teardown() {
    assert_success
 }
 
+# Test with signals
 @test "gdb_signal: gdb signal support (stray_test)" {
    km_gdb_default_port=2159
-   # Test with signals
    km_with_timeout -g stray_test.km signal &
-   gdb_pid=`jobs -p` ; sleep 0.5
-	run gdb -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_signal_test.gdb" \
+   gdb_pid=$! ; sleep 0.5
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_signal_test.gdb" \
          --ex=c --ex=q stray_test.km
    assert_success
    assert_line --partial 'received signal SIGUSR1'
@@ -243,8 +251,8 @@ teardown() {
    km_gdb_default_port=2159
    # Test with signals
    km_with_timeout -g stray_test.km stray &
-   gdb_pid=`jobs -p` ; sleep 0.5
-	run gdb -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_exception_test.gdb" \
+   gdb_pid=$! ; sleep 0.5
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_exception_test.gdb" \
          --ex=c --ex=q stray_test.km
    assert_success
    assert_line --partial  'received signal SIGSEGV'

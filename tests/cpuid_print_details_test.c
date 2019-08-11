@@ -186,6 +186,7 @@ int main(void)
       print_feature(ecx & (1 << 7), "MISALIGNSSE   (Misaligned SSE mode)");
       print_feature(ecx & (1 << 2), "SVM           (Secure Virtual Machine)");
       print_feature(ecx & (1 << 0), "LAHFSAHF      (LAHF and SAHF instruction support in 64-bit mode)");
+      print_feature(edx & (1 << 26), "pdpe1g        (1G pages support)");
    }
    return 0;
 }

@@ -27,44 +27,26 @@
 #include "km_coredump.h"
 #include "km_mem.h"
 
-TAILQ_HEAD(km_mmap_list, km_mmap_reg);
-typedef struct km_mmap_list km_mmap_list_t;
-
-typedef struct km_mmap_reg {
-   km_gva_t start;
-   size_t size;
-   int flags;
-   int protection;
-   TAILQ_ENTRY(km_mmap_reg) link;
-} km_mmap_reg_t;
-
-typedef struct km_mmap_cb {   // control block
-   km_mmap_list_t free;       // list of free regions
-   km_mmap_list_t busy;       // list of mapped regions
-   pthread_mutex_t mutex;     // global map lock
-} km_mmap_cb_t;
-
-static km_mmap_cb_t mmaps = {
-    .free = TAILQ_HEAD_INITIALIZER(mmaps.free),
-    .busy = TAILQ_HEAD_INITIALIZER(mmaps.busy),
-    .mutex = PTHREAD_MUTEX_INITIALIZER,
-};
-
 static inline void mmaps_lock(void)
 {
-   pthread_mutex_lock(&mmaps.mutex);
+   pthread_mutex_lock(&machine.mmaps.mutex);
 }
 
 static inline void mmaps_unlock(void)
 {
-   pthread_mutex_unlock(&mmaps.mutex);
+   pthread_mutex_unlock(&machine.mmaps.mutex);
 }
 
 void km_guest_mmap_init(void)
 {
-   TAILQ_INIT(&mmaps.free);
-   TAILQ_INIT(&mmaps.busy);
+   TAILQ_INIT(&machine.mmaps.free);
+   TAILQ_INIT(&machine.mmaps.busy);
 }
+
+// on ubuntu and older kernels, this is not defined. We need symbol to check (and reject) flags
+#ifndef MAP_FIXED_NOREPLACE
+#define MAP_FIXED_NOREPLACE 0x100000
+#endif
 
 // Checks for stuff we do not support.
 static inline int
@@ -102,7 +84,7 @@ static km_mmap_reg_t* km_mmap_find_free(size_t size)
 {
    km_mmap_reg_t* ptr;
 
-   TAILQ_FOREACH (ptr, &mmaps.free, link) {
+   TAILQ_FOREACH (ptr, &machine.mmaps.free, link) {
       if (ptr->size >= size) {
          return ptr;
       }
@@ -182,7 +164,7 @@ static inline void km_mmap_insert(km_mmap_reg_t* reg, km_mmap_list_t* list)
 // Insert a region into busy mmaps with proper protection. Expects 'reg' to be malloced
 static inline void km_mmap_insert_busy(km_mmap_reg_t* reg)
 {
-   km_mmap_list_t* list = &mmaps.busy;
+   km_mmap_list_t* list = &machine.mmaps.busy;
 
    km_mmap_insert(reg, list);
    km_mmap_concat(reg, list);
@@ -191,7 +173,7 @@ static inline void km_mmap_insert_busy(km_mmap_reg_t* reg)
 // Inserts 'reg' after 'listelem' in busy. No list traverse and no neighbor concatenation
 static inline void km_mmap_insert_busy_after(km_mmap_reg_t* listelem, km_mmap_reg_t* reg)
 {
-   TAILQ_INSERT_AFTER(&mmaps.busy, listelem, reg, link);
+   TAILQ_INSERT_AFTER(&machine.mmaps.busy, listelem, reg, link);
 }
 
 // Inserts 'reg' before 'listelem' in busy. No list traverse and no neighbor concatenation
@@ -204,7 +186,7 @@ static inline void km_mmap_insert_busy_before(km_mmap_reg_t* listelem, km_mmap_r
 // Insert 'reg' into the FREE MMAPS with PROT_NONE, and compress maps/tbrk. Expects 'reg' to be malloced
 static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
 {
-   km_mmap_list_t* list = &mmaps.free;
+   km_mmap_list_t* list = &machine.mmaps.free;
 
    reg->protection = PROT_NONE;
    reg->flags = 0;
@@ -219,13 +201,13 @@ static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
 
 static inline void km_mmap_remove_busy(km_mmap_reg_t* reg)
 {
-   TAILQ_REMOVE(&mmaps.busy, reg, link);
+   TAILQ_REMOVE(&machine.mmaps.busy, reg, link);
 }
 
 // Remove an element from a list. In the list, this does not depend on list head
 static inline void km_mmap_remove_free(km_mmap_reg_t* reg)
 {
-   TAILQ_REMOVE(&mmaps.free, reg, link);
+   TAILQ_REMOVE(&machine.mmaps.free, reg, link);
 }
 
 // moves existing mmap region from busy to free
@@ -239,7 +221,7 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
 static inline void km_mmap_mprotect(km_mmap_reg_t* reg)
 {
    km_mmap_mprotect_region(reg);
-   km_mmap_concat(reg, &mmaps.busy);
+   km_mmap_concat(reg, &machine.mmaps.busy);
 }
 /*
  * Maps an address range in guest virtual space.
@@ -301,7 +283,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
 typedef void (*km_mmap_action)(km_mmap_reg_t*);
 /*
  * Apply 'action(reg)' to all mmap regions completely within the (addr, addr+size-1) range in
- * 'busy' mmaps. If needed splits the mmaps at the ends - new maps are also updated to have
+ * 'busy' machine.mmaps. If needed splits the mmaps at the ends - new maps are also updated to have
  * protection 'prot',
  *
  * Returns 0 on success or -errno
@@ -310,7 +292,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
 {
    km_mmap_reg_t* reg;
 
-   TAILQ_FOREACH (reg, &mmaps.busy, link) {
+   TAILQ_FOREACH (reg, &machine.mmaps.busy, link) {
       km_mmap_reg_t* extra;
 
       if (reg->start + reg->size <= addr) {
@@ -381,7 +363,7 @@ static int km_mmap_busy_check_contigious(km_gva_t addr, size_t size)
    km_mmap_reg_t* reg;
    km_gva_t last_end = 0;
 
-   TAILQ_FOREACH (reg, &mmaps.busy, link) {
+   TAILQ_FOREACH (reg, &machine.mmaps.busy, link) {
       if (reg->start + reg->size < addr) {
          continue;
       }
@@ -466,7 +448,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       }
       phnum++;
    }
-   TAILQ_FOREACH (ptr, &mmaps.busy, link) {
+   TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {
          continue;
       }
@@ -492,7 +474,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       offset += km_guest.km_phdr[i].p_memsz;
    }
    // Headers for MMAPs
-   TAILQ_FOREACH (ptr, &mmaps.busy, link) {
+   TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       // translate mmap prot to elf access flags.
       if (ptr->protection == PROT_NONE) {
          continue;
@@ -512,7 +494,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       }
       km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr, km_guest.km_phdr[i].p_memsz);
    }
-   TAILQ_FOREACH (ptr, &mmaps.busy, link) {
+   TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {
          continue;
       }

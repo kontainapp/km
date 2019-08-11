@@ -41,6 +41,9 @@ km_machine_t machine = {
     .signal_mutex = PTHREAD_MUTEX_INITIALIZER,
     .sigpending.head = TAILQ_HEAD_INITIALIZER(machine.sigpending.head),
     .sigfree.head = TAILQ_HEAD_INITIALIZER(machine.sigfree.head),
+    .mmaps.free = TAILQ_HEAD_INITIALIZER(machine.mmaps.free),
+    .mmaps.busy = TAILQ_HEAD_INITIALIZER(machine.mmaps.busy),
+    .mmaps.mutex = PTHREAD_MUTEX_INITIALIZER,
 };
 
 /*

@@ -7,7 +7,7 @@ source ../km/gdb/list.gdb
 break km_hcalls.c:dummy_hcall
 command
 print "Busy list"
-print_tailq &mmaps.busy
+print_tailq &machine.mmaps.busy
 print "Free list"
-print_tailq &mmaps.free
+print_tailq &machine.mmaps.free
 end

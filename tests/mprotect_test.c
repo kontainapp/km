@@ -267,7 +267,7 @@ TEST concat_test()
        {"11.mprotect", TYPE_MPROTECT, 6 * MIB, 1 * MIB, PROT_READ, flags, OK},
 
        // TODO: automate checking for the mmaps concatenation. For now check with `print_tailq
-       // &mmaps.busy ` in gdb
+       // &machine.mmaps.busy ` in gdb
        {"12.cleanup unmap", TYPE_MUNMAP, 0, 15 * MIB, PROT_NONE, flags, OK},
 
        {NULL},
