@@ -141,7 +141,6 @@ typedef struct km_filesys {
    int* guestfd_to_hostfd_map;   // file descriptor map
    int* hostfd_to_guestfd_map;   // reverse file descriptor map
    int nfdmap;                   // size of file descriptor maps
-   pthread_mutex_t lock;
 } km_filesys_t;
 
 /*

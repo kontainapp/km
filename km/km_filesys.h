@@ -35,11 +35,7 @@ static int check_guest_fd(km_vcpu_t* vcpu, int fd)
       return -EBADF;
    }
    int ret = -1;
-   pthread_mutex_lock(&machine.filesys.lock);
-   if (machine.filesys.guestfd_to_hostfd_map[fd] != -1) {
-      ret = machine.filesys.guestfd_to_hostfd_map[fd];
-   }
-   pthread_mutex_unlock(&machine.filesys.lock);
+   ret = __atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
    return ret;
 }
 
@@ -49,17 +45,14 @@ static int add_guest_fd(km_vcpu_t* vcpu, int host_fd)
       errx(1, "%s bad file descriptor %d", __FUNCTION__, host_fd);
    }
    int guest_fd = -1;
-   pthread_mutex_lock(&machine.filesys.lock);
    for (int i = 0; i < machine.filesys.nfdmap; i++) {
-      if (machine.filesys.guestfd_to_hostfd_map[i] == -1) {
-         machine.filesys.guestfd_to_hostfd_map[i] = host_fd;
-         machine.filesys.guestfd_to_hostfd_map[host_fd] = i;
+      int minus_one = -1;
+      if (__atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[i], &minus_one, host_fd, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST) != 0) {
+         __atomic_store_n(&machine.filesys.guestfd_to_hostfd_map[host_fd], i, __ATOMIC_SEQ_CST);
          guest_fd = i;
          break;
       }
    }
-   pthread_mutex_unlock(&machine.filesys.lock);
-
    return guest_fd;
 }
 
@@ -68,10 +61,9 @@ static void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
    if (fd < 0 || fd > machine.filesys.nfdmap) {
       errx(1, "%s bad file descriptor %d", __FUNCTION__, fd);
    }
-   pthread_mutex_lock(&machine.filesys.lock);
-   machine.filesys.guestfd_to_hostfd_map[fd] = -1;
-   machine.filesys.hostfd_to_guestfd_map[hostfd] = -1;
-   pthread_mutex_unlock(&machine.filesys.lock);
+   if (__atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[fd], &hostfd, -1, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST) != 0) {
+      __atomic_compare_exchange_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], &fd, -1, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+   }
 }
 
 static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
@@ -80,13 +72,8 @@ static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
       errx(1, "%s bad file descriptor %d", __FUNCTION__, guest_fd);
    }
    int close_fd = -1;
-   pthread_mutex_lock(&machine.filesys.lock);
-   if (machine.filesys.guestfd_to_hostfd_map[guest_fd] != -1) {
-      close_fd = machine.filesys.guestfd_to_hostfd_map[guest_fd];
-   }
-   machine.filesys.guestfd_to_hostfd_map[guest_fd] = host_fd;
-   machine.filesys.hostfd_to_guestfd_map[host_fd] = guest_fd;
-   pthread_mutex_unlock(&machine.filesys.lock);
+   close_fd = __atomic_exchange_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], host_fd, __ATOMIC_SEQ_CST);
+   __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[host_fd], guest_fd, __ATOMIC_SEQ_CST);
    // don't close stdin, stdout, or stderr
    if (close_fd > 2) {
       __syscall_1(SYS_close, close_fd);
@@ -102,13 +89,10 @@ static inline int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
       return -1;
    }
    int guest_fd = -1;
-   pthread_mutex_lock(&machine.filesys.lock);
-   guest_fd = machine.filesys.hostfd_to_guestfd_map[hostfd];
-   if (machine.filesys.guestfd_to_hostfd_map[guest_fd] != hostfd) {
-      pthread_mutex_unlock(&machine.filesys.lock);
-      return -1;
+   guest_fd = __atomic_load_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], __ATOMIC_SEQ_CST);
+   if (__atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], __ATOMIC_SEQ_CST) != hostfd) {
+      guest_fd = -1;
    }
-   pthread_mutex_unlock(&machine.filesys.lock);
    return guest_fd;
 }
 
