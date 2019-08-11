@@ -128,11 +128,8 @@ void km_machine_fini(void)
       machine.intr_fd = -1;
    }
 
-   if (machine.filesys.guestfd_to_hostfd_map != NULL) {
-      free(machine.filesys.guestfd_to_hostfd_map);
-      machine.filesys.guestfd_to_hostfd_map = NULL;
-   }
    km_hcalls_fini();
+   km_fs_fini();
 }
 
 static int kvm_vcpu_init_sregs(int fd, uint64_t fs)
@@ -441,7 +438,7 @@ void km_machine_init(km_machine_init_params_t* params)
 {
    int rc;
 
-   if (km_init_guest_files() < 0) {
+   if (km_fs_init() < 0) {
       err(1, "KM: k_init_guest_files() failed");
    }
 

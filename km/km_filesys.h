@@ -53,6 +53,7 @@ static int add_guest_fd(km_vcpu_t* vcpu, int host_fd)
    for (int i = 0; i < machine.filesys.nfdmap; i++) {
       if (machine.filesys.guestfd_to_hostfd_map[i] == -1) {
          machine.filesys.guestfd_to_hostfd_map[i] = host_fd;
+         machine.filesys.guestfd_to_hostfd_map[host_fd] = i;
          guest_fd = i;
          break;
       }
@@ -69,6 +70,7 @@ static void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
    }
    pthread_mutex_lock(&machine.filesys.lock);
    machine.filesys.guestfd_to_hostfd_map[fd] = -1;
+   machine.filesys.hostfd_to_guestfd_map[hostfd] = -1;
    pthread_mutex_unlock(&machine.filesys.lock);
 }
 
@@ -83,6 +85,7 @@ static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
       close_fd = machine.filesys.guestfd_to_hostfd_map[guest_fd];
    }
    machine.filesys.guestfd_to_hostfd_map[guest_fd] = host_fd;
+   machine.filesys.hostfd_to_guestfd_map[host_fd] = guest_fd;
    pthread_mutex_unlock(&machine.filesys.lock);
    // don't close stdin, stdout, or stderr
    if (close_fd > 2) {
@@ -100,17 +103,16 @@ static inline int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
    }
    int guest_fd = -1;
    pthread_mutex_lock(&machine.filesys.lock);
-   for (int i = 0; i < machine.filesys.nfdmap; i++) {
-      if (machine.filesys.guestfd_to_hostfd_map[i] == hostfd) {
-         guest_fd = i;
-         break;
-      }
+   guest_fd = machine.filesys.hostfd_to_guestfd_map[hostfd];
+   if (machine.filesys.guestfd_to_hostfd_map[guest_fd] != hostfd) {
+      pthread_mutex_unlock(&machine.filesys.lock);
+      return -1;
    }
    pthread_mutex_unlock(&machine.filesys.lock);
    return guest_fd;
 }
 
-static inline int km_init_guest_files()
+static inline int km_fs_init()
 {
    struct rlimit lim;
 
@@ -119,14 +121,34 @@ static inline int km_init_guest_files()
    }
 
    size_t mapsz = lim.rlim_cur * sizeof(int);
+
    machine.filesys.guestfd_to_hostfd_map = malloc(mapsz);
    memset(machine.filesys.guestfd_to_hostfd_map, 0xff, mapsz);
+
+   machine.filesys.hostfd_to_guestfd_map = malloc(mapsz);
+   memset(machine.filesys.hostfd_to_guestfd_map, 0xff, mapsz);
+
    machine.filesys.nfdmap = lim.rlim_cur;
 
-   machine.filesys.guestfd_to_hostfd_map[0] = 0;
-   machine.filesys.guestfd_to_hostfd_map[1] = 1;
-   machine.filesys.guestfd_to_hostfd_map[2] = 2;
+   // setup guest std file streams.
+   for (int i = 0; i < 3; i++) {
+      machine.filesys.guestfd_to_hostfd_map[i] = i;
+      machine.filesys.hostfd_to_guestfd_map[i] = i;
+
+   }
    return 0;
+}
+
+static inline void km_fs_fini()
+{
+   if (machine.filesys.guestfd_to_hostfd_map != NULL) {
+      free(machine.filesys.guestfd_to_hostfd_map);
+      machine.filesys.guestfd_to_hostfd_map = NULL;
+   }
+   if (machine.filesys.hostfd_to_guestfd_map != NULL) {
+      free(machine.filesys.hostfd_to_guestfd_map);
+      machine.filesys.hostfd_to_guestfd_map = NULL;
+   }
 }
 
 // int open(char *pathname, int flags, mode_t mode)
@@ -597,23 +619,17 @@ static inline uint64_t km_fs_select(km_vcpu_t* vcpu,
                          (uintptr_t)timeout);
    if (ret > 0) {
       for (int i = 0; i < nfds; i++) {
-         int guest_fd = -1;
+         int guest_fd = hostfd_to_guestfd(vcpu, i);
+         if (guest_fd < 0) {
+            continue;
+         }
          if (readfds != NULL && FD_ISSET(i, host_readfds)) {
-            if (guest_fd == -1) {
-               guest_fd = hostfd_to_guestfd(vcpu, i);
-            }
             FD_SET(guest_fd, readfds);
          }
          if (writefds != NULL && FD_ISSET(i, host_writefds)) {
-            if (guest_fd == -1) {
-               guest_fd = hostfd_to_guestfd(vcpu, i);
-            }
             FD_SET(guest_fd, writefds);
          }
          if (exceptfds != NULL && FD_ISSET(i, host_exceptfds)) {
-            if (guest_fd == -1) {
-               guest_fd = hostfd_to_guestfd(vcpu, i);
-            }
             FD_SET(guest_fd, exceptfds);
          }
       }
