@@ -32,6 +32,18 @@ if [ -z "$TIME_INFO" ] ; then
    exit 10
 fi
 
+if [ -z "$BRANCH" ] ; then
+   BRANCH=$(git rev-parse --abbrev-ref HEAD)
+fi
+
+# check if we need to skip test when running on Azure.
+if ./km -V hello_test.km 2>&1 | grep -q "width 44" &&
+   ./km -V hello_test.km 2>&1 | grep -q "not supported (pdpe1g=0)"
+then
+   SKIP=1
+fi
+
+
 # we will kill any test if takes longer
 timeout=60s
 
@@ -62,6 +74,11 @@ bus_width() {
 # only shows up on errors. For print on success too, redirect to >&3
 teardown() {
       echo -e "\nkm output:\n${output}"
+}
+
+# Check if running in docker.
+function in_docker() {
+  cat /proc/1/cgroup | grep -q docker
 }
 
 # Now the actual tests.
@@ -106,15 +123,17 @@ teardown() {
 }
 
 @test "km_main: wait on signal (hello_test)" {
+   #[ -z $SKIP ] || skip "pdpe1g=0 and bus witdh 44"
    run timeout -s SIGUSR1 1s ${KM_BIN} --wait-for-signal hello_test.km
    [ $status -eq 124 ]
 }
 
 @test "km_main: optargs (hello_test)" {
+   [ -z $SKIP ] || skip "pdpe1g=0 and bus witdh 44"
    # -v flag prints version and branch
    run km_with_timeout -v hello_test.km
    assert_success
-   branch=$(git rev-parse --abbrev-ref  HEAD)
+   branch=$BRANCH
    assert_line --partial "$branch"
 
    run km_with_timeout -Vkvm hello_test.km # -V<regex> turns on tracing for a subsystem. Check it for -Vkvm
@@ -169,6 +188,7 @@ teardown() {
 }
 
 @test "mem_brk: brk() call (brk_test)" {
+   [ -z $SKIP ] || skip "pdpe1g=0 and bus witdh 44"
    # we expect 3 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
    if [ $(bus_width) -eq 36 ] ; then expected_status=3 ; else  expected_status=0; fi
    run km_with_timeout --overcommit-memory brk_test.km
@@ -204,6 +224,7 @@ teardown() {
 }
 
 @test "mem_mmap: mmap and munmap with addr=0 (mmap_test)" {
+   [ -z $SKIP ] || skip "pdpe1g=0 and bus witdh 44"
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
@@ -284,11 +305,13 @@ teardown() {
 }
 
 @test "threads_mutex: mutex (mutex_test)" {
+   #[ -z $SKIP ] || skip "pdpe1g=0 and bus witdh 44"
    run km_with_timeout mutex_test.km
    assert_success
 }
 
 @test "mem_test: threads create, malloc/free, exit and join (mem_test)" {
+   [ -z $SKIP ] || skip "pdpe1g=0 and bus witdh 44"
    expected_status=0
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; fi

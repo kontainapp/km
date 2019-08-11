@@ -16,8 +16,10 @@ FROM alpine
 
 LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 
-ARG UID
-ARG GID
+# uid=1001(vsts) gid=117(docker) groups=117(docker)
+ARG USER=appuser
+ARG UID=1001
+ARG GID=117
 
 RUN apk add --no-cache \
    build-base  elfutils-libelf zlib-dev gdb git gcovr bash \

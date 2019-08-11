@@ -16,8 +16,10 @@ FROM ubuntu
 
 LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 
-ARG UID
-ARG GID
+# uid=1001(vsts) gid=117(docker) groups=117(docker)
+ARG USER=appuser
+ARG UID=1001
+ARG GID=117
 
 RUN apt-get update; apt-get upgrade -y; \
    apt-get install -y make git gdb libelf-dev gcc-8 g++-8 libc-dev curl vim time python; \
