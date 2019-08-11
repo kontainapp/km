@@ -22,7 +22,7 @@ document print_list
    Prints LIST info. Assumes LIST entry name is 'link'
      Syntax: print_list &LIST
    Examples:
-     print_list &mmaps.free
+     print_list &machine.mmaps.free
 end
 
 define print_tailq
@@ -51,13 +51,13 @@ document print_tailq
    Prints TAILQ info. Assumes TAILQ entry name is 'link'
      Syntax: print_tailq &LIST
    Examples:
-     print_tailq &mmaps.free
+     print_tailq &machine.mmaps.free
 end
 
 define km_mmaps
    print "mmaps FREE list:"
-   print_tailq &mmaps.free
+   print_tailq &machine.mmaps.free
    print "mmaps BUSY list:"
-   print_tailq &mmaps.busy "Busy list"
+   print_tailq &machine.mmaps.busy "Busy list"
    printf ".tbrk= 0x%lx\n", machine.tbrk
 end

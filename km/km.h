@@ -115,6 +115,7 @@ typedef enum {
    KM_FLAG_FORCE_KEEP = 0
 } km_flag_force_t;
 
+// struct for passing command line / config information into different inits.
 typedef struct km_machine_init_params {
    uint64_t guest_physmem;         // Requested size of guest physical memory in bytes
    km_flag_force_t force_pdpe1g;   // force on/off 1g pages support regardless of VM CPUID support
@@ -142,6 +143,26 @@ typedef struct km_filesys {
    int* hostfd_to_guestfd_map;   // reverse file descriptor map
    int nfdmap;                   // size of file descriptor maps
 } km_filesys_t;
+
+// mmaps lists typedefs
+TAILQ_HEAD(km_mmap_list, km_mmap_reg);
+typedef struct km_mmap_list km_mmap_list_t;
+
+// single mmap-ed (or munmapped) region
+typedef struct km_mmap_reg {
+   km_gva_t start;
+   size_t size;
+   int flags;        // flag as passed to mmmap()
+   int protection;   // as passed to mmaps() or mprotect(), or 0 for unmapped region
+   TAILQ_ENTRY(km_mmap_reg) link;
+} km_mmap_reg_t;
+
+// mmaps control block
+typedef struct km_mmap_cb {   // control block
+   km_mmap_list_t free;       // list of free regions
+   km_mmap_list_t busy;       // list of mapped regions
+   pthread_mutex_t mutex;     // global map lock
+} km_mmap_cb_t;
 
 /*
  * kernel include/linux/kvm_host.h
@@ -186,8 +207,8 @@ typedef struct km_machine {
    km_signal_list_t sigpending;    // List of signals pending for guest
    km_signal_list_t sigfree;       // Freelist of signal entries.
    km_sigaction_t sigactions[_NSIG];
-
    km_filesys_t filesys;
+   km_mmap_cb_t mmaps;       // guest memory regions managed with mmaps/mprotect/munmap
 } km_machine_t;
 
 extern km_machine_t machine;
