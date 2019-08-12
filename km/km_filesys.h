@@ -8,7 +8,7 @@
  * of such source code. Disclosure of this source code or any related
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
- * 
+ *
  * Notes on File Descriptors
  * -------------------------
  * Every file descriptor opened by a guest payload has a coresponding open file
@@ -17,7 +17,7 @@
  * Likewise host file descriptor numbers are mapped to guest file descriptor
  * numbers when events involving file descriptors need to be forwarded to the
  * guest payload.
- * 
+ *
  */
 
 #ifndef KM_FILESYS_H_
@@ -50,23 +50,27 @@ static int check_guest_fd(km_vcpu_t* vcpu, int fd)
    }
    int ret = -EBADF;
    ret = __atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
+   assert((ret == -1) || machine.filesys.hostfd_to_guestfd_map[ret] == fd);
    return ret;
 }
 
 /*
  * Adds a host fd to the guest. Returns the guest fd number assigned.
- * Assigns lowest available guest fd, ust like the kernel.
+ * Assigns lowest available guest fd, just like the kernel.
  */
 static int add_guest_fd(km_vcpu_t* vcpu, int host_fd)
 {
-   if (host_fd < 0 || host_fd > machine.filesys.nfdmap) {
-      errx(1, "%s bad file descriptor %d", __FUNCTION__, host_fd);
-   }
+   assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
    int guest_fd = -1;
    for (int i = 0; i < machine.filesys.nfdmap; i++) {
-      int minus_one = -1;
-      if (__atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[i], &minus_one, host_fd, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST) != 0) {
-         __atomic_store_n(&machine.filesys.guestfd_to_hostfd_map[host_fd], i, __ATOMIC_SEQ_CST);
+      int fd_available = -1;
+      if (__atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[i],
+                                      &fd_available,
+                                      host_fd,
+                                      0,
+                                      __ATOMIC_SEQ_CST,
+                                      __ATOMIC_SEQ_CST) != 0) {
+         __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[host_fd], i, __ATOMIC_SEQ_CST);
          guest_fd = i;
          break;
       }
@@ -79,11 +83,19 @@ static int add_guest_fd(km_vcpu_t* vcpu, int host_fd)
  */
 static void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
 {
-   if (fd < 0 || fd > machine.filesys.nfdmap) {
-      errx(1, "%s bad file descriptor %d", __FUNCTION__, fd);
-   }
-   if (__atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[fd], &hostfd, -1, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST) != 0) {
-      __atomic_compare_exchange_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], &fd, -1, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+   assert(fd >= 0 && fd < machine.filesys.nfdmap);
+   if (__atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[fd],
+                                   &hostfd,
+                                   -1,
+                                   0,
+                                   __ATOMIC_SEQ_CST,
+                                   __ATOMIC_SEQ_CST) != 0) {
+      __atomic_compare_exchange_n(&machine.filesys.hostfd_to_guestfd_map[hostfd],
+                                  &fd,
+                                  -1,
+                                  0,
+                                  __ATOMIC_SEQ_CST,
+                                  __ATOMIC_SEQ_CST);
    }
 }
 
@@ -96,12 +108,12 @@ static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
       errx(1, "%s bad file descriptor %d", __FUNCTION__, guest_fd);
    }
    int close_fd = -1;
-   close_fd = __atomic_exchange_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], host_fd, __ATOMIC_SEQ_CST);
+   close_fd =
+       __atomic_exchange_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], host_fd, __ATOMIC_SEQ_CST);
    __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[host_fd], guest_fd, __ATOMIC_SEQ_CST);
    // don't close stdin, stdout, or stderr
    if (close_fd > 2) {
       __syscall_1(SYS_close, close_fd);
-
    }
    return guest_fd;
 }
@@ -109,7 +121,7 @@ static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
 // Note: vcpu is NULL if called from km signal handler.
 /*
  * maps a host fd to a guest fd. Returns a negative error number if mapping does
- * not exist. Used by 
+ * not exist. Used by
  */
 static inline int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
 {
@@ -146,7 +158,6 @@ static inline int km_fs_init()
    for (int i = 0; i < 3; i++) {
       machine.filesys.guestfd_to_hostfd_map[i] = i;
       machine.filesys.hostfd_to_guestfd_map[i] = i;
-
    }
    return 0;
 }
@@ -711,8 +722,13 @@ static inline uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
       return -EBADF;
    }
 
-   int ret =
-       __syscall_6(SYS_epoll_wait, host_epfd, (uintptr_t)events, maxevents, timeout, (uintptr_t)sigmask, sigsetsize);
+   int ret = __syscall_6(SYS_epoll_wait,
+                         host_epfd,
+                         (uintptr_t)events,
+                         maxevents,
+                         timeout,
+                         (uintptr_t)sigmask,
+                         sigsetsize);
    return ret;
 }
 
