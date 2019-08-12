@@ -440,7 +440,6 @@ void km_machine_init(km_machine_init_params_t* params)
    if (km_fs_init() < 0) {
       err(1, "KM: k_init_guest_files() failed");
    }
-
    if ((machine.intr_fd = eventfd(0, 0)) == -1) {
       err(1, "KM: Failed to create machine intr_fd");
    }

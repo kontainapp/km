@@ -8,6 +8,16 @@
  * of such source code. Disclosure of this source code or any related
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
+ * 
+ * Notes on File Descriptors
+ * -------------------------
+ * Every file descriptor opened by a guest payload has a coresponding open file
+ * descriptor in KM. The the guest's file descriptor table is virtualized and
+ * a guest file decriptor number is mapped to a KM process file descriptor number.
+ * Likewise host file descriptor numbers are mapped to guest file descriptor
+ * numbers when events involving file descriptors need to be forwarded to the
+ * guest payload.
+ * 
  */
 
 #ifndef KM_FILESYS_H_
@@ -29,16 +39,24 @@
 #include "km_mem.h"
 #include "km_syscall.h"
 
+/*
+ * Translates guest fd to host fd. Returns negative errno if
+ * mapping does not exist.
+ */
 static int check_guest_fd(km_vcpu_t* vcpu, int fd)
 {
    if (fd < 0 || fd >= machine.filesys.nfdmap) {
       return -EBADF;
    }
-   int ret = -1;
+   int ret = -EBADF;
    ret = __atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
    return ret;
 }
 
+/*
+ * Adds a host fd to the guest. Returns the guest fd number assigned.
+ * Assigns lowest available guest fd, ust like the kernel.
+ */
 static int add_guest_fd(km_vcpu_t* vcpu, int host_fd)
 {
    if (host_fd < 0 || host_fd > machine.filesys.nfdmap) {
@@ -56,6 +74,9 @@ static int add_guest_fd(km_vcpu_t* vcpu, int host_fd)
    return guest_fd;
 }
 
+/*
+ * deletes an exist guest file descriptor mapping (used by close(2))
+ */
 static void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
 {
    if (fd < 0 || fd > machine.filesys.nfdmap) {
@@ -66,6 +87,9 @@ static void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
    }
 }
 
+/*
+ * Replaces the mapping for a guest file descriptor. Used by dup2(2) and dup(3).
+ */
 static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
 {
    if (guest_fd < 0 || guest_fd > machine.filesys.nfdmap) {
@@ -83,15 +107,19 @@ static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
 }
 
 // Note: vcpu is NULL if called from km signal handler.
+/*
+ * maps a host fd to a guest fd. Returns a negative error number if mapping does
+ * not exist. Used by 
+ */
 static inline int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
 {
    if (hostfd < 0) {
-      return -1;
+      return -ENOENT;
    }
    int guest_fd = -1;
    guest_fd = __atomic_load_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], __ATOMIC_SEQ_CST);
    if (__atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], __ATOMIC_SEQ_CST) != hostfd) {
-      guest_fd = -1;
+      guest_fd = -ENOENT;
    }
    return guest_fd;
 }
@@ -101,7 +129,7 @@ static inline int km_fs_init()
    struct rlimit lim;
 
    if (getrlimit(RLIMIT_NOFILE, &lim) < 0) {
-      return -1;
+      return -errno;
    }
 
    size_t mapsz = lim.rlim_cur * sizeof(int);
@@ -404,7 +432,7 @@ static inline uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2])
 // int pipe2(int pipefd[2], int flags);
 static inline uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags)
 {
-   int ret = __syscall_2(SYS_pipe, (uintptr_t)pipefd, flags);
+   int ret = __syscall_2(SYS_pipe2, (uintptr_t)pipefd, flags);
    if (ret == 0) {
       pipefd[0] = add_guest_fd(vcpu, pipefd[0]);
       pipefd[1] = add_guest_fd(vcpu, pipefd[1]);
@@ -437,7 +465,7 @@ static inline uint64_t
 km_fs_getsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optval, socklen_t* optlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) == -1) {
+   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
       return -EBADF;
    }
    int ret =
@@ -450,7 +478,7 @@ static inline uint64_t
 km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optval, socklen_t optlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) == -1) {
+   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_5(SYS_setsockopt, host_sockfd, level, optname, (uintptr_t)optval, optlen);
@@ -463,7 +491,7 @@ static inline uint64_t
 km_fs_get_sock_peer_name(km_vcpu_t* vcpu, int hc, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) == -1) {
+   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(hc, sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
@@ -474,7 +502,7 @@ km_fs_get_sock_peer_name(km_vcpu_t* vcpu, int hc, int sockfd, struct sockaddr* a
 static inline uint64_t km_fs_bind(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) == -1) {
+   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_bind, host_sockfd, (uintptr_t)addr, addrlen);
@@ -630,7 +658,7 @@ static inline uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nf
       return -EINVAL;
    }
    for (int i = 0; i < nfds; i++) {
-      if ((host_fds[i].fd = check_guest_fd(vcpu, fds[i].fd)) == -1) {
+      if ((host_fds[i].fd = check_guest_fd(vcpu, fds[i].fd)) < 0) {
          return -EBADF;
       }
       host_fds[i].events = fds[i].events;
