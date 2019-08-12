@@ -104,9 +104,8 @@ static void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
  */
 static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
 {
-   if (guest_fd < 0 || guest_fd > machine.filesys.nfdmap) {
-      errx(1, "%s bad file descriptor %d", __FUNCTION__, guest_fd);
-   }
+   assert(guest_fd >= 0 && guest_fd < machine.filesys.nfdmap);
+   assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
    int close_fd = -1;
    close_fd =
        __atomic_exchange_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], host_fd, __ATOMIC_SEQ_CST);
@@ -118,10 +117,10 @@ static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
    return guest_fd;
 }
 
-// Note: vcpu is NULL if called from km signal handler.
 /*
  * maps a host fd to a guest fd. Returns a negative error number if mapping does
- * not exist. Used by
+ * not exist. Used by SIGPIPE/SIGIO signal handlers and select.
+ * Note: vcpu is NULL if called from km signal handler.
  */
 static inline int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
 {
