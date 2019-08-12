@@ -1,0 +1,7 @@
+*.c
+*.o
+*.d
+*.cpp
+Dockerfile
+bats-job*
+Makefile

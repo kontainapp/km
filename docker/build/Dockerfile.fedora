@@ -16,6 +16,8 @@ FROM fedora
 
 LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 
+# uid=1001(vsts) gid=117(docker) groups=117(docker)
+ARG USER=appuser
 ARG UID
 ARG GID
 
@@ -24,7 +26,10 @@ RUN dnf install -y gcc glibc-static \
    gcc-c++ libstdc++-static make git gcovr time patch openssl-devel findutils python \
    && dnf clean all
 
-RUN groupadd -f -g $GID appuser && useradd -r -u $UID -g $GID appuser
 
-USER appuser
+RUN groupadd -f -g $GID $USER
+RUN useradd -r -u $UID -g $GID $USER
+
+USER $USER
+WORKDIR /home/$USER
 ENV TERM=xterm
