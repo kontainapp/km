@@ -456,6 +456,7 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
       km_guest_page_free(base, size);
+      memset(reg, 0, sizeof(*reg));
       return -errno;
    }
    set_pml4_hierarchy(reg, upper_va);
