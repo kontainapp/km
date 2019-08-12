@@ -502,3 +502,18 @@ function in_docker() {
    run km_with_timeout filesys_test.km
    assert_success
 }
+
+@test "filepath: guest file path operations (filepathtest)" {
+   DIRNAME=/tmp/testdir.$$
+   mkdir ${DIRNAME}
+
+   run km_with_timeout filepath_test.km ${DIRNAME}
+   assert_success
+
+   rm -rf /tmp/${DIRNAME}
+}
+
+@test "socket: guest socket operations (socket_test)" {
+   run km_with_timeout socket_test.km
+   assert_success
+}

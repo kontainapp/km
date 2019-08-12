@@ -96,6 +96,9 @@ static km_hc_ret_t prw_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t prwv_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   if (km_gva_to_kma(arg->arg2) == NULL) {
+      return -EFAULT;
+   }
    arg->hc_ret = km_fs_prwv(vcpu, hc, arg->arg1, km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
    return HC_CONTINUE;
 }
@@ -103,6 +106,9 @@ static km_hc_ret_t prwv_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t accept_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+   if (km_gva_to_kma(arg->arg2) == NULL) {
+      return -EFAULT;
+   }
    arg->hc_ret = km_fs_accept(vcpu, arg->arg1, km_gva_to_kma(arg->arg2), km_gva_to_kma(arg->arg3));
    return HC_CONTINUE;
 }
@@ -110,6 +116,9 @@ static km_hc_ret_t accept_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t socketpair_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int socketpair(int domain, int type, int protocol, int sv[2]);
+   if (km_gva_to_kma(arg->arg4) == NULL) {
+      return -EFAULT;
+   }
    arg->hc_ret = km_fs_socketpair(vcpu, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kma(arg->arg4));
    return HC_CONTINUE;
 }
@@ -117,13 +126,19 @@ static km_hc_ret_t socketpair_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t connect_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    //  int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-   arg->hc_ret = __syscall_3(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3);
+   if (km_gva_to_kma(arg->arg2) == NULL) {
+      return -EFAULT;
+   }
+   arg->hc_ret = km_fs_connect(vcpu, arg->arg1, km_gva_to_kma(arg->arg2), arg->arg3);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t bind_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+   if (km_gva_to_kma(arg->arg2) == NULL) {
+      return -EFAULT;
+   }
    arg->hc_ret = km_fs_bind(vcpu, arg->arg1, km_gva_to_kma(arg->arg2), arg->arg3);
    return HC_CONTINUE;
 }
@@ -146,6 +161,12 @@ static km_hc_ret_t getsockopt_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t
    // *optlen);
+   if (km_gva_to_kma(arg->arg4) == NULL) {
+      return -EFAULT;
+   }
+   if (km_gva_to_kma(arg->arg5) == NULL) {
+      return -EFAULT;
+   }
    arg->hc_ret = km_fs_getsockopt(vcpu,
                                   arg->arg1,
                                   arg->arg2,
@@ -159,6 +180,9 @@ static km_hc_ret_t setsockopt_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int setsockopt(int sockfd, int level, int optname, const void *optval,
    // socklen_t optlen);
+   if (km_gva_to_kma(arg->arg4) == NULL) {
+      return -EFAULT;
+   }
    arg->hc_ret =
        km_fs_setsockopt(vcpu, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kma(arg->arg4), arg->arg5);
    return HC_CONTINUE;
@@ -168,6 +192,9 @@ static km_hc_ret_t ioctl_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int ioctl(int fd, unsigned long request, void *arg);
    // arg->hc_ret = __syscall_3(hc, arg->arg1, arg->arg2, km_gva_to_kml(arg->arg3));
+   if (km_gva_to_kma(arg->arg3) == NULL) {
+      return -EFAULT;
+   }
    arg->hc_ret = km_fs_ioctl(vcpu, arg->arg1, arg->arg2, km_gva_to_kma(arg->arg3));
    return HC_CONTINUE;
 }
@@ -182,6 +209,12 @@ static km_hc_ret_t fcntl_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t stat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int stat(const char *pathname, struct stat *statbuf);
+   if (km_gva_to_kma(arg->arg1) == NULL) {
+      return -EFAULT;
+   }
+   if (km_gva_to_kma(arg->arg2) == NULL) {
+      return -EFAULT;
+   }
    arg->hc_ret = km_fs_stat(vcpu, km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2));
    return HC_CONTINUE;
 }
@@ -380,7 +413,14 @@ static km_hc_ret_t rename_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t chdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int chdir(const char *path);
-   arg->hc_ret = __syscall_1(hc, km_gva_to_kml(arg->arg1));
+   arg->hc_ret = km_fs_chdir(vcpu, km_gva_to_kma(arg->arg1));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t fchdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int chdir(const char *path);
+   arg->hc_ret = km_fs_fchdir(vcpu, arg->arg1);
    return HC_CONTINUE;
 }
 
@@ -388,6 +428,13 @@ static km_hc_ret_t mkdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int mkdir(const char *path, mode_t mode);
    arg->hc_ret = km_fs_mkdir(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t rmdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int mkdir(const char *path, mode_t mode);
+   arg->hc_ret = km_fs_rmdir(vcpu, km_gva_to_kma(arg->arg1));
    return HC_CONTINUE;
 }
 
@@ -458,7 +505,7 @@ static km_hc_ret_t get_sock_peer_name_hcall(void* vcpu, int hc, km_hc_args_t* ar
    // int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
    // int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
    arg->hc_ret =
-       km_fs_get_sock_peer_name(vcpu, hc, arg->arg1, km_gva_to_kma(arg->arg2), (socklen_t*)arg->arg3);
+       km_fs_get_sock_peer_name(vcpu, hc, arg->arg1, km_gva_to_kma(arg->arg2), km_gva_to_kma(arg->arg3));
    return HC_CONTINUE;
 }
 
@@ -571,11 +618,11 @@ static km_hc_ret_t rt_sigprocmask_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    km_sigset_t* oldset = NULL;
 
    if (arg->arg2 != 0 && (set = km_gva_to_kma(arg->arg2)) == NULL) {
-      arg->hc_ret = -EINVAL;
+      arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
    if (arg->arg3 != 0 && (oldset = km_gva_to_kma(arg->arg3)) == NULL) {
-      arg->hc_ret = -EINVAL;
+      arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
    arg->hc_ret = km_rt_sigprocmask(vcpu, arg->arg1, set, oldset, arg->arg4);
@@ -589,11 +636,11 @@ static km_hc_ret_t rt_sigaction_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    km_sigaction_t* oldact = NULL;
 
    if (arg->arg2 != 0 && (act = km_gva_to_kma(arg->arg2)) == NULL) {
-      arg->hc_ret = -EINVAL;
+      arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
    if (arg->arg3 != 0 && (oldact = km_gva_to_kma(arg->arg3)) == NULL) {
-      arg->hc_ret = EINVAL;
+      arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
    arg->hc_ret = km_rt_sigaction(vcpu, arg->arg1, act, oldact, arg->arg4);
@@ -685,6 +732,14 @@ static km_hc_ret_t prlimit64_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t unlink_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int prlimit(pid_t pid, int resource, const struct rlimit *new_limit, struct rlimit
+   // *old_limit);
+   arg->hc_ret = km_fs_unlink(vcpu, km_gva_to_kma(arg->arg1));
+   return HC_CONTINUE;
+}
+
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
@@ -737,7 +792,10 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_rename] = rename_hcall;
    km_hcalls_table[SYS_symlink] = symlink_hcall;
    km_hcalls_table[SYS_mkdir] = mkdir_hcall;
+   km_hcalls_table[SYS_rmdir] = rmdir_hcall;
+   km_hcalls_table[SYS_unlink] = unlink_hcall;
    km_hcalls_table[SYS_chdir] = chdir_hcall;
+   km_hcalls_table[SYS_fchdir] = fchdir_hcall;
    km_hcalls_table[SYS_select] = select_hcall;
    km_hcalls_table[SYS_pause] = pause_hcall;
    km_hcalls_table[SYS_sendto] = sendto_hcall;
