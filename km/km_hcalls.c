@@ -650,7 +650,8 @@ static km_hc_ret_t epoll_pwait_hcall(void* vcpu, int hc, km_hc_args_t* arg)
                                    km_gva_to_kma(arg->arg2),
                                    arg->arg3,
                                    arg->arg4,
-                                   km_gva_to_kma(arg->arg5));
+                                   km_gva_to_kma(arg->arg5),
+                                   arg->arg6);
    return HC_CONTINUE;
 }
 

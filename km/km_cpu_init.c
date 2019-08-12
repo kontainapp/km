@@ -126,11 +126,9 @@ void km_machine_fini(void)
       close(machine.intr_fd);
       machine.intr_fd = -1;
    }
-   if (machine.files != NULL) {
-      free(machine.files);
-      machine.files = NULL;
-   }
+
    km_hcalls_fini();
+   km_fs_fini();
 }
 
 static int kvm_vcpu_init_sregs(int fd, uint64_t fs)
@@ -439,10 +437,9 @@ void km_machine_init(km_machine_init_params_t* params)
 {
    int rc;
 
-   if (km_init_guest_files() < 0) {
+   if (km_fs_init() < 0) {
       err(1, "KM: k_init_guest_files() failed");
    }
-
    if ((machine.intr_fd = eventfd(0, 0)) == -1) {
       err(1, "KM: Failed to create machine intr_fd");
    }
