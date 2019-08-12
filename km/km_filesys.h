@@ -237,7 +237,6 @@ km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, si
       iov[i].iov_len = guest_iov[i].iov_len;
    }
    int ret = __syscall_4(scall, host_fd, (uintptr_t)iov, iovcnt, offset);
-
    return ret;
 }
 
