@@ -59,9 +59,12 @@ extern km_hcall_fn_t km_hcalls_table[];
 /*
  * Hypercalls that don't translate directly into system calls.
  */
-#define HC_pthread_create (KM_MAX_HCALL - 1)
-#define HC_pthread_join (KM_MAX_HCALL - 2)
-#define HC_guest_interrupt (KM_MAX_HCALL - 3)
+enum km_internal_hypercalls {
+   HC_pthread_create = KM_MAX_HCALL - 1,
+   HC_pthread_join = KM_MAX_HCALL - 2,
+   HC_guest_interrupt = KM_MAX_HCALL - 3,
+   HC_km_unittest = KM_MAX_HCALL - 4,
+};
 
 #define KM_TRACE_HC "hypercall"
 
