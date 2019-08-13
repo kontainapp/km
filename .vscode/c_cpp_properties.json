@@ -1,16 +1,19 @@
 {
-    "configurations": [
-        {
-            "name": "Linux",
-            "includePath": [
-                "${workspaceFolder}/**"
-            ],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c11",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "gcc-x64",
-            "compileCommands": "compile_commands.json"
-        }
-    ],
-    "version": 4
+   "configurations": [
+      {
+         "name": "Linux",
+         "includePath": [
+            "${workspaceFolder}/**"
+         ],
+         "defines": [
+            "_KM_UNITTEST"
+         ],
+         "compilerPath": "/usr/bin/gcc",
+         "cStandard": "c11",
+         "cppStandard": "c++17",
+         "intelliSenseMode": "gcc-x64",
+         "compileCommands": "compile_commands.json"
+      }
+   ],
+   "version": 4
 }

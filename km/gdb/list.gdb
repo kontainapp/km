@@ -38,8 +38,8 @@ if $argc == 0
    set $count = 1
    while $item != 0
       set $distance = $item->start - $last_end
-      printf "%3d start= 0x%lx size = %ld MiB (%ld) prot 0x%x flags 0x%x distance %d MiB (%ld)\n", \
-               $count, $item->start, $item->size/(1024ul*1024ul), \
+      printf "%3d 0x%-12lx next 0x%-12lx start= 0x%lx size = %ld MiB (%ld) prot 0x%x flags 0x%x distance %d MiB (%ld)\n", \
+               $count,$item, $item->link->tqe_next, $item->start, $item->size/(1024ul*1024ul), \
                $item->size, $item->protection, $item->flags, $distance/ (1024ul*1024ul), $distance
       set $count++
       set $last_end = $item->start + $item->size
@@ -54,10 +54,19 @@ document print_tailq
      print_tailq &machine.mmaps.free
 end
 
-define km_mmaps
-   print "mmaps FREE list:"
-   print_tailq &machine.mmaps.free
-   print "mmaps BUSY list:"
-   print_tailq &machine.mmaps.busy "Busy list"
-   printf ".tbrk= 0x%lx\n", machine.tbrk
+define print_mmaps
+   printf "................................       tbrk= 0x%lx\n", machine.tbrk
+   if machine.mmaps.free.tqh_first == 0
+      print "mmap FREE list empty"
+   else
+      print "mmaps FREE list:"
+      print_tailq &machine.mmaps.free
+   end
+
+   if machine.mmaps.busy.tqh_first == 0
+      print "mmap BUSY list empty"
+   else
+      print "mmaps BUSY list:"
+      print_tailq &machine.mmaps.busy "Busy list"
+   end
 end
