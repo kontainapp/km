@@ -11,6 +11,7 @@
  *
  * Support for payload mmap() and related API
  */
+#define _GNU_SOURCE
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -39,6 +40,11 @@ static inline void mmaps_unlock(void)
 
 void km_guest_mmap_init(void)
 {
+   pthread_mutexattr_t attr;
+
+   pthread_mutexattr_init(&attr);
+   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);   // e.g. we call 'unmap' from 'remap'
+   pthread_mutex_init(&machine.mmaps.mutex, &attr);
    TAILQ_INIT(&machine.mmaps.free);
    TAILQ_INIT(&machine.mmaps.busy);
 }
@@ -92,6 +98,23 @@ static km_mmap_reg_t* km_mmap_find_free(size_t size)
    return NULL;
 }
 
+// find an mmap in a list which  includes the address. Returns NULL if not found
+static km_mmap_reg_t* km_mmap_find_address(km_mmap_list_t* list, km_gva_t address)
+{
+   km_mmap_reg_t* ptr;
+
+   TAILQ_FOREACH (ptr, list, link) {
+      if (ptr->start + ptr->size <= address) {
+         continue;   // still on the left of address
+      }
+      if (ptr->start > address) {
+         return NULL;   // passed address already
+      }
+      return ptr;
+   }
+   return NULL;
+}
+
 // return 1 if ok to concat. Relies on 'free' mmaps all having 0 in protection and flags.
 static inline int ok_to_concat(km_mmap_reg_t* left, km_mmap_reg_t* right)
 {
@@ -102,6 +125,7 @@ static inline int ok_to_concat(km_mmap_reg_t* left, km_mmap_reg_t* right)
 /*
  * Concatenate 'reg' mmap with left and/or right neighbor in the 'list', if they have the
  * same properties. Remove from the list and free the excess neighbors.
+ * Can be applied to any maps (free/busy)
  */
 static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
 {
@@ -164,19 +188,16 @@ static inline void km_mmap_insert(km_mmap_reg_t* reg, km_mmap_list_t* list)
 // Insert a region into busy mmaps with proper protection. Expects 'reg' to be malloced
 static inline void km_mmap_insert_busy(km_mmap_reg_t* reg)
 {
-   km_mmap_list_t* list = &machine.mmaps.busy;
-
-   km_mmap_insert(reg, list);
-   km_mmap_concat(reg, list);
+   km_mmap_insert(reg, &machine.mmaps.busy);
 }
 
-// Inserts 'reg' after 'listelem' in busy. No list traverse and no neighbor concatenation
+// Inserts 'reg' after 'listelem' in busy. No list traverse.
 static inline void km_mmap_insert_busy_after(km_mmap_reg_t* listelem, km_mmap_reg_t* reg)
 {
    TAILQ_INSERT_AFTER(&machine.mmaps.busy, listelem, reg, link);
 }
 
-// Inserts 'reg' before 'listelem' in busy. No list traverse and no neighbor concatenation
+// Inserts 'reg' before 'listelem' in busy. No list traverse.
 static inline void km_mmap_insert_busy_before(km_mmap_reg_t* listelem, km_mmap_reg_t* reg)
 {
    // we don't care which list, but keep function name for consistency
@@ -217,12 +238,20 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
    km_mmap_insert_free(reg);
 }
 
-// mprotects 'reg' and concats with adjustment neighbors
-static inline void km_mmap_mprotect(km_mmap_reg_t* reg)
+/*
+ * Sets protection to PROT_WRITE and zeros out a region in guest space.
+ * Protection needs to be reset afterwards.
+ */
+static void km_mmap_zero_range(km_gva_t addr, km_gva_t size)
 {
-   km_mmap_mprotect_region(reg);
-   km_mmap_concat(reg, &machine.mmaps.busy);
+   void* from = km_gva_to_kma(addr);
+   assert(from != NULL);   // should have been checked earlier
+
+   km_mmap_reg_t tmp = {.start = addr, .size = size, .protection = PROT_WRITE};
+   km_mmap_mprotect_region(&tmp);
+   memset(from, 0, size);
 }
+
 /*
  * Maps an address range in guest virtual space.
  *
@@ -243,7 +272,9 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    }
    mmaps_lock();
    if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
-      if (reg->size > size) {                       // free mmap has extra room to be kept in 'free'
+      assert(size <= reg->size);
+      km_mmap_zero_range(reg->start, size);
+      if (reg->size > size) {   // free mmap has extra room to be kept in 'free'
          km_mmap_reg_t* busy;
          if ((busy = malloc(sizeof(km_mmap_reg_t))) == NULL) {
             mmaps_unlock();
@@ -264,7 +295,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
          return -ENOMEM;
       }
       km_gva_t want = machine.tbrk - size;
-      if ((ret = km_mem_tbrk(want)) != want) {
+      if ((ret = km_mem_tbrk(want)) != want) {   // tbrk move get clean memory via mmap()
          mmaps_unlock();
          free(reg);
          return ret;
@@ -274,7 +305,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    }
    reg->flags = flags;
    reg->protection = prot;
-   km_gva_t map_start = reg->start;   // reg->start can be modified by concat in insert_busy
+   km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
    km_mmap_insert_busy(reg);
    mmaps_unlock();
    return map_start;
@@ -291,6 +322,7 @@ typedef void (*km_mmap_action)(km_mmap_reg_t*);
 static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int prot)
 {
    km_mmap_reg_t* reg;
+   errno = 0;
 
    TAILQ_FOREACH (reg, &machine.mmaps.busy, link) {
       km_mmap_reg_t* extra;
@@ -351,6 +383,7 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    mmaps_lock();
    ret = km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
    mmaps_unlock();
+   km_info(KM_TRACE_MMAP, "== munmap ret=%d", ret);
    return ret;
 }
 
@@ -401,7 +434,7 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
       mmaps_unlock();
       return -ENOMEM;
    }
-   if (km_mmap_busy_range_apply(addr, size, km_mmap_mprotect, prot) != 0) {
+   if (km_mmap_busy_range_apply(addr, size, km_mmap_mprotect_region, prot) != 0) {
       mmaps_unlock();
       return -ENOMEM;
    }
@@ -409,12 +442,105 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
    return 0;
 }
 
-// TODO - implement
-km_gva_t
-km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... /* void *new_address */)
+// Grows a mmap to size. old_addr is expected to be within ptr map. Returns new address or -errno
+// Note. Remap can grow *over* free region into the next busy - it is dangerous, so not supporting
+static km_gva_t
+km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t size, int may_move)
 {
-   km_infox(KM_TRACE_MMAP, "mremap(0x%lx, 0x%lx, size 0x%lx)", old_addr, old_size, size);
-   return -ENOTSUP;
+   assert(old_addr >= ptr->start && old_addr < ptr->start + ptr->size &&
+          old_addr + old_size <= ptr->start + ptr->size && size > old_size);
+
+   if (ptr->start + ptr->size >= old_addr + size) {
+      km_infox(KM_TRACE_MMAP, "mremap: enough room in mmaps, noop");
+      return old_addr;
+   }
+   // If there is a large enough free slot after this, use it.
+   km_mmap_reg_t* next = TAILQ_NEXT(ptr, link);
+   size_t needed = size - old_size;
+   if (next != NULL && next->start - (ptr->start + ptr->size) >= needed) {
+      // Adjust free list and protections -  cannot use km_guest_mmap here as it can grab a wrong area
+      km_infox(KM_TRACE_MMAP, "mremap: reusing adjusted free map");
+      km_mmap_reg_t* donor = km_mmap_find_address(&machine.mmaps.free, ptr->start + ptr->size);
+      assert(donor != NULL && donor->size >= needed);   // MUST have free slot due to gap in busy
+      km_mmap_zero_range(old_addr + old_size, needed);
+      ptr->size += needed;
+      km_mmap_mprotect_region(ptr);
+      if (donor->size == needed) {
+         km_mmap_remove_free(donor);
+         free(donor);
+      } else {
+         donor->start += needed;
+         donor->size -= needed;
+      }
+      return old_addr;
+   }
+
+   // No free space to grow, alloc new
+   km_gva_t ret;
+   if (may_move == 0 ||
+       (ret = km_syscall_ok(km_guest_mmap(0, size, ptr->protection, ptr->flags, -1, 0))) == -1) {
+      km_info(KM_TRACE_MMAP, "Failed to get mmap for growth (may_move = %d)", may_move);
+      return -ENOMEM;
+   }
+   void* to = km_gva_to_kma(ret);
+   void* from = km_gva_to_kma(old_addr);
+   assert(from != NULL);   // should have been checked before, in hcalls
+   memcpy(to, from, old_size);
+   if (km_syscall_ok(km_guest_munmap(old_addr, old_size)) == -1) {
+      err(1, "Failed to unmap after remapping");
+   }
+   return ret;
+}
+
+// Shrinks a mmap to size. old_addr is expected to be within ptr map. Returns new address or -errno
+static km_gva_t km_mremap_shrink(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t size)
+{
+   assert(old_addr >= ptr->start && old_addr < ptr->start + ptr->size &&
+          old_addr + old_size <= ptr->start + ptr->size);
+   if (km_syscall_ok(km_guest_munmap(old_addr + size, old_size - size)) == -1) {
+      return -EFAULT;
+   }
+   return old_addr;
+}
+
+// Implementation of guest 'mremap'. Returns new address or -errno
+km_gva_t
+km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... /*void* new_address*/)
+{
+   km_mmap_reg_t* ptr;
+   km_gva_t ret;
+
+   km_infox(KM_TRACE_MMAP, "mremap(0x%lx, 0x%lx, 0x%lx, 0x%x)", old_addr, old_size, size, flags);
+   if ((old_addr % KM_PAGE_SIZE) != 0 || old_size == 0 || size == 0 || (flags & ~MREMAP_MAYMOVE) != 0) {
+      return -EINVAL;
+   }
+
+   old_size = roundup(old_size, KM_PAGE_SIZE);
+   size = roundup(size, KM_PAGE_SIZE);
+   if (old_size == size) {   // no changes requested
+      return old_addr;
+   }
+
+   mmaps_lock();
+   if ((ptr = km_mmap_find_address(&machine.mmaps.busy, old_addr)) == NULL) {
+      mmaps_unlock();
+      km_infox(KM_TRACE_MMAP, "mremap: Did not find requested map");
+      return -EFAULT;
+   }
+   if (ptr->start + ptr->size < old_addr + old_size) {   // check the requested map is homogeneous
+      mmaps_unlock();
+      km_infox(KM_TRACE_MMAP, "mremap: requested mmap is not fully within existing map");
+      return -EFAULT;
+   }
+   // found the map and it's a legit size
+   if (old_size < size) {   // grow
+      ret = km_mremap_grow(ptr, old_addr, old_size, size, (flags & MREMAP_MAYMOVE) != 0);
+   } else {   // shrink (old_size == size is already checked above)
+      ret = km_mremap_shrink(ptr, old_addr, old_size, size);
+   }
+   mmaps_unlock();
+   km_infox(KM_TRACE_MMAP, "mremap: ret=0x%lx", ret);
+   return ret;
 }
 
 /*

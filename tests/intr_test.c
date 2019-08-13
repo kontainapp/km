@@ -58,7 +58,7 @@ void* subrun(void* data)
 TEST intrtest(void)
 {
    pthread_t pt1, pt2;
-   int errors;
+   int errors = 0;
 
    MEM_THREAD(pt1, subrun, dust_msg);
    MEM_THREAD(pt2, subrun, brick_msg);

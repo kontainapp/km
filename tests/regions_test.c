@@ -35,7 +35,9 @@ void* SYS_break(void const* addr)
    return (void*)syscall(SYS_brk, addr);
 }
 
-void inline IGUR() {}  /* Ignore GCC Unused Result */
+static void inline IGUR()
+{
+} /* Ignore GCC Unused Result */
 
 TEST region(void)
 {

@@ -292,7 +292,11 @@ static km_hc_ret_t mremap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ... /* void
    // *new_address */);
-   arg->hc_ret = km_guest_mremap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, arg->arg6);
+   if (km_gva_to_kma(arg->arg1) == NULL) {
+      arg->hc_ret = -EINVAL;
+   } else {
+      arg->hc_ret = km_guest_mremap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5);
+   }
    return HC_CONTINUE;
 };
 

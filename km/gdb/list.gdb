@@ -54,10 +54,19 @@ document print_tailq
      print_tailq &machine.mmaps.free
 end
 
-define km_mmaps
-   print "mmaps FREE list:"
-   print_tailq &machine.mmaps.free
-   print "mmaps BUSY list:"
-   print_tailq &machine.mmaps.busy "Busy list"
+define print_mmaps
+   if machine.mmaps.free.tqh_first == 0
+     print "mmap FREE list empty"
+   else
+      print "mmaps FREE list:"
+      print_tailq &machine.mmaps.free
+   end
+
+   if machine.mmaps.busy.tqh_first == 0
+     print "mmap BUSY list empty"
+   else
+      print "mmaps BUSY list:"
+      print_tailq &machine.mmaps.busy "Busy list"
+   end
    printf ".tbrk= 0x%lx\n", machine.tbrk
 end

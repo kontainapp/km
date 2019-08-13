@@ -11,6 +11,7 @@
  *
  * Basic test for mmap() and friends.
  */
+#define _GNU_SOURCE /* See feature_test_macros(7) */
 #include <err.h>
 #include <errno.h>
 #include <getopt.h>
@@ -41,6 +42,18 @@ static char* out_sz(uint64_t val)
    return buf;
 }
 
+// handler for SIGSEGV
+static jmp_buf jbuf;
+static int fail = 0;   // info from signal handled that something failed
+void signal_handler(int signal)
+{
+   if (signal != SIGSEGV) {
+      warn("Unexpected signal caught: %d", signal);
+      fail = 1;
+   }
+   longjmp(jbuf, SIGSEGV);   // reusing SIGSEGV as setjmp() return
+}
+
 // positive tests
 // After this set , the free/busy lists in mmaps should be empty and tbrk
 // should reset to top of the VA
@@ -48,27 +61,24 @@ static char* out_sz(uint64_t val)
 // tests that should pass on 36 bits buses (where we give 2GB space)
 static mmap_test_t _36_tests[] = {
     // Dive into the bottom 1GB on 4GB:
-    {"Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags},
     {"Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
-    {"Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags},
     {"Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
-    {"Basic-mmap2", TYPE_MMAP, 0, 1020 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Basic-mmap2", TYPE_MMAP, 0, 1020 * MIB, PROT_READ | PROT_WRITE, flags},
     {"Basic-munmap2", TYPE_MUNMAP, 0, 1020 * MIB, 0, 0},
-    {"Swiss cheese-mmap", TYPE_MMAP, 0, 760 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Swiss cheese-mmap", TYPE_MMAP, 0, 760 * MIB, PROT_READ | PROT_WRITE, flags},
     {"Swiss cheese-munmap1", TYPE_MUNMAP, 500 * MIB, 260 * MIB, 0, 0},
     {"Swiss cheese-unaligned-munmap2", TYPE_MUNMAP, 0, 300 * MIB - 256, 0, 0},
     {"Swiss cheese-munmap3", TYPE_MUNMAP, 300 * MIB, 200 * MIB, 0, 0},
 
+    {"simple map to set addr fopr test", TYPE_MMAP, 0, 1 * MIB, PROT_READ | PROT_WRITE, flags},
     // we ignore addr but it's legit to send it
-    {"Wrong-args-mmap-addr", TYPE_MMAP, 400 * MIB, 8 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
-    {"Wrong-args-mmap-fixed",
-     TYPE_MMAP,
-     0,
-     8 * MIB,
-     PROT_READ | PROT_WRITE,
-     MAP_SHARED | MAP_ANONYMOUS | MAP_FIXED,
-     EINVAL},
+    {"Wrong-args-mmap-addr", TYPE_MMAP, 400 * MIB, 8 * MIB, PROT_READ | PROT_WRITE, flags},
+    {"Wrong-args-mmap-fixed", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags | MAP_FIXED, EINVAL},
     {"Wrong-args-munmap", TYPE_MUNMAP, 300 * MIB + 20, 1 * MIB, 0, 0, EINVAL},
+    {"simple unmap to clean up ", TYPE_MUNMAP, 0, 1 * MIB, 0, 0},
+
     // it's legal to munmap non-mapped areas:
     {"huge-munmap", TYPE_MUNMAP, 300 * MIB, 1 * MIB, 0, 0, 0},
     {"dup-munmap", TYPE_MUNMAP, 300 * MIB, 8 * MIB, 0, 0, 0},
@@ -77,89 +87,166 @@ static mmap_test_t _36_tests[] = {
 
 // these tests will fail on 36 bit buses but should pass on larger address space
 static mmap_test_t _39_tests[] = {
-    {"Large-mmap2gb", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Large-mmap2gb", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, flags},
     {"Large-munmap2gb", TYPE_MUNMAP, 0, 2 * GIB + 12 * MIB, 0, 0},
-    {"Large-mmap1", TYPE_MMAP, 0, 1022 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Large-mmap1", TYPE_MMAP, 0, 1022 * MIB, PROT_READ | PROT_WRITE, flags},
     {"Large-munmap1", TYPE_MUNMAP, 0, 1022 * MIB, 0, 0},
-    {"Large-mmap2", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Large-mmap2", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, flags},
     {"Large-munmap2", TYPE_MUNMAP, 0, 2 * GIB + 12 * MIB, 0, 0},
-    {"Large-mmap2.1020", TYPE_MMAP, 0, 1 * GIB + 1020 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Large-mmap2.1020", TYPE_MMAP, 0, 1 * GIB + 1020 * MIB, PROT_READ | PROT_WRITE, flags},
     {"Large-munmap2.1020", TYPE_MUNMAP, 0, 1 * GIB + 1020 * MIB, 0, 0},
-    {"Large-mmap3GB", TYPE_MMAP, 0, 3 * GIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS},
+    {"Large-mmap3GB", TYPE_MMAP, 0, 3 * GIB, PROT_READ | PROT_WRITE, flags},
     {"Large-unmmap3GB", TYPE_MUNMAP, 0, 3 * GIB, 0, 0},
     {NULL},
 };
 // used for multiple invocations of mmap_test
 static mmap_test_t* tests;
 
-static const char* fmt = "0x%lx";   // format for offsets/types error msg
-
 // generic test, expects global 'tests' to be setup to point to the right test data table
 TEST mmap_test(void)
 {
-   void* last_addr = MAP_FAILED;   // changed by mmap; MAP_FAILED if mmap fails
    int ret;
+   void* remapped_addr;            // address mremap uses (usually last_addr + offset)
+   void* new_addr = MAP_FAILED;    // address mremap on map returns.
+   void* last_addr = MAP_FAILED;   // changed by successful mmap
 
-   // positive tests
-   for (mmap_test_t* t = tests; t->test_info != NULL; t++) {
-      if (t->expected_failure != 0) {
-         continue;
+   for (mmap_test_t* t = tests; t->info != NULL; t++) {
+      errno = 0;
+      if (greatest_get_verbosity() == 1) {
+         printf("* %s\n", t->info);
       }
       switch (t->type) {
          case TYPE_MMAP:
-            printf("%s: mmap(%s, %s...)\n", t->test_info, out_sz(t->offset), out_sz(t->size));
-            ASSERT_NOT_EQ_FMTm(t->test_info,
-                               MAP_FAILED,
-                               last_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0),
-                               fmt);
-            printf("Map OK, trying to memset '2' to 0x%lx size: 0x%lx\n", (uint64_t)last_addr, t->size);
-            memset(last_addr, '2', t->size);
+            new_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0);
+            if (greatest_get_verbosity() == 1) {
+               printf("return: %p (%s)\n", new_addr, out_sz((uint64_t)new_addr));
+            }
+            if (t->expected == OK) {
+               ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);   // print errno out if test fails
+               ASSERT_NOT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
+               if ((t->prot & PROT_WRITE) != 0) {
+                  if (greatest_get_verbosity() == 1) {
+                     printf("Mmap OK, trying to memset '2' to 0x%lx size: 0x%lx\n",
+                            (uint64_t)new_addr,
+                            t->size);
+                  }
+                  memset(new_addr, '2', t->size);
+               }
+               last_addr = new_addr;
+            } else {
+               ASSERT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
+               ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
+            }
             break;
          case TYPE_MUNMAP:
-            printf("%s: mumap(%s, %s...)\n",
-                   t->test_info,
-                   out_sz((km_gva_t)last_addr + t->offset),
-                   out_sz(t->size));
-            if (last_addr == MAP_FAILED) {
-               printf("%s: Skipping munmap(MAP_FAILED, %s)\n", t->test_info, out_sz(t->size));
+            assert(last_addr != MAP_FAILED);   // we should have failed test already
+            ret = munmap(last_addr + t->offset, t->size);
+            if (t->expected == OK) {
+               ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);
+               ASSERT_EQ_FMTm(t->info, 0, ret, ret_fmt);
+            } else {
+               ASSERT_NOT_EQ_FMTm(t->info, 0, ret, ret_fmt);
+               ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
+            }
+            break;
+         case TYPE_MREMAP:
+            assert(last_addr != MAP_FAILED);   // we should have failed test already
+            remapped_addr = last_addr + t->offset;
+            size_t new_size = t->prot;
+            new_addr = mremap(remapped_addr, t->size, new_size, t->flags);
+            if (t->expected == OK) {
+               ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);   // print errno out if test fails
+               ASSERT_NOT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
+               if (greatest_get_verbosity() == 1) {
+                  printf("mremap OK %p -> %p, now memset '2' size: 0x%lx\n", last_addr, new_addr, new_size);
+               }
+               memset(new_addr, '2', new_size);   // just core dumps if something is wrong
+               signal(SIGSEGV, signal_handler);
+               if ((ret = setjmp(jbuf)) == 0) {
+                  if (new_addr != remapped_addr) {   // remapped address should be not accessible now
+                     memset(remapped_addr, '2', new_size);
+                     FAILm("memset to new address is successful and should be not");
+                  } else if (t->size > new_size) {   // removed area should be not accessible now
+                     memset(remapped_addr + new_size, '2', t->size - new_size);
+                     FAILm("memset to removed ares is successful and should be not");
+                  }
+               } else {
+                  assert(ret == SIGSEGV);   // we use that value in longjmp
+               }
+               signal(t->expected, SIG_DFL);
+            } else {   // expecting failure
+               ASSERT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
+               ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
+            }
+            break;
+         case TYPE_USE_MREMAP_ADDR:
+            assert(new_addr != MAP_FAILED);
+            last_addr = new_addr;
+            break;
+         case TYPE_MPROTECT:
+            assert(last_addr != MAP_FAILED);   // we should have failed test already
+            ret = mprotect(last_addr + t->offset, t->size, t->prot);
+            if (t->expected == OK) {
+               ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);
+               ASSERT_EQ_FMTm(t->info, 0, ret, ret_fmt);
+            } else {
+               ASSERT_NOT_EQ_FMTm(t->info, 0, ret, ret_fmt);
+               ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
+            }
+            break;
+         case TYPE_WRITE:
+            assert(last_addr != MAP_FAILED);   // we should have failed test already
+            if (t->expected == OK) {
+               memset(last_addr + t->offset, (char)t->prot, t->size);
                break;
             }
-            ASSERT_EQ_FMTm(t->test_info, 0, ret = munmap(last_addr + t->offset, t->size), fmt);
+            signal(t->expected, signal_handler);
+            if ((ret = setjmp(jbuf)) == 0) {
+               memset(last_addr + t->offset, (char)t->prot, t->size);
+               printf("Write to %p (sz 0x%lx) was successful and should be not\n",
+                      last_addr + t->offset,
+                      t->size);
+               FAIL();
+            } else {
+               assert(ret == SIGSEGV);   // we use that value in longjmp
+            }
+            signal(t->expected, SIG_DFL);
+            ASSERT_EQm("signal handler caught unexpected signal", 0, fail);
+            break;
+         case TYPE_READ:
+            assert(last_addr != MAP_FAILED);   // we should have failed test already
+            if (t->expected == OK) {
+               for (size_t i = 0; i < t->size; i++) {
+                  volatile char c = *(char*)(last_addr + t->offset + i);
+                  assert(c != c + 1);   // stop gcc from complaining,but generate code
+               }
+               break;
+               signal(t->expected, signal_handler);
+               if ((ret = setjmp(jbuf)) == 0) {
+                  char ch_expected = t->prot;
+                  for (size_t i = 0; i < t->size; i++) {
+                     volatile char c = *(char*)(last_addr + t->offset + i);
+                     if (ch_expected != 0) {
+                        ASSERT_EQm("Reading comparison failed", ch_expected, c);
+                     }
+                  }
+                  FAILm("Read successful and should be not");   // return
+               }
+               assert(ret == SIGSEGV);   // we use that value in longjmp
+               signal(t->expected, SIG_DFL);
+               ASSERT_EQm("signal handler caught unexpected signal", 0, fail);
+            }
             break;
          default:
             ASSERT_EQ(NULL, "Not reachable");
-      }
-   }
-
-   // negative tests
-   for (mmap_test_t* t = tests; t->test_info != NULL; t++) {
-      if (t->expected_failure == 0) {
-         continue;
-      }
-      switch (t->type) {
-         case TYPE_MMAP:
-            printf("%s: neg mmap(%s, %s...)\n", t->test_info, out_sz(t->offset), out_sz(t->size));
-            ASSERT_EQ_FMTm(t->test_info,
-                           MAP_FAILED,
-                           mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0),
-                           fmt);
-            break;
-         case TYPE_MUNMAP:
-            printf("%s: neg mumap(%s, %s...)\n",
-                   t->test_info,
-                   out_sz((km_gva_t)last_addr + t->offset),
-                   out_sz(t->size));
-            ASSERT_EQ_FMTm(t->test_info, -1, munmap(last_addr + t->offset, t->size), fmt);
-            break;
-         default:
-            ASSERT_EQ(NULL, "Not reachable");
-      }
-   }
+      }   // switch
+   }      // for
    PASS();
 }
 
 TEST mmap_test_36(void)
 {
+   printf("===== mmap_test_36: Testing smaller (< 2GiB) sizes\n");
    tests = _36_tests;
    CHECK_CALL(mmap_test());
    PASS();
@@ -167,6 +254,7 @@ TEST mmap_test_36(void)
 
 TEST mmap_test_39(void)
 {
+   printf("===== mmap_test_39: Testing large (> 2GiB) sizes\n");
    tests = _39_tests;
    CHECK_CALL(mmap_test());
    PASS();
@@ -176,7 +264,9 @@ TEST mmap_test_39(void)
 TEST mmap_from_free()
 {
    void *addr, *addr1, *addr2;
+   int ret;
 
+   printf("===== mmap_from_free: Testing mmap() from free areas\n");
    /* 1. Allocate 200MB, allocate another 10MB to block tbrk change,  cut a 100MB hole from a middle
     * of first map.
     * 2. Grab 100MB (should be allocated from the whole freed block), release it
@@ -184,45 +274,41 @@ TEST mmap_from_free()
     * 4. then release the rest */
 
    // 1.
-   addr = mmap(0, 200 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   addr = mmap(0, 200 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
    ASSERT_NOT_EQ_FMT(MAP_FAILED, addr, "%p");
-   addr2 = mmap(0, 10 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   addr2 = mmap(0, 10 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
    ASSERT_NOT_EQ_FMT(MAP_FAILED, addr2, "%p");
-   ASSERT_EQ_FMT(0, munmap(addr + 50 * MIB, 100 * MIB), "%d");
+   ret = munmap(addr + 50 * MIB, 100 * MIB);
+   ASSERT_EQ_FMT(0, ret, "%d");
 
    // 2.
-   addr1 = mmap(0, 100 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   addr1 = mmap(0, 100 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
    ASSERT_NOT_EQ_FMT(MAP_FAILED, addr1, "%p");
 
    ASSERT_EQ_FMTm("mmap to the free carved", addr + 50 * MIB, addr1, "%p");
-   ASSERT_EQ_FMTm("Unmap from the middle", 0, munmap(addr1, 100 * MIB), "%d");
+   ret = munmap(addr1, 100 * MIB);
+   ASSERT_EQ_FMTm("Unmap from the middle", 0, ret, "%d");
 
    // 3.
-   ASSERT_NOT_EQ(MAP_FAILED,
-                 addr1 = mmap(0, 50 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
+   addr1 = mmap(0, 50 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
+   ASSERT_NOT_EQ(MAP_FAILED, addr1);
    ASSERT_EQ(addr + 50 * MIB, addr1);
-   ASSERT_EQ(0, munmap(addr1, 50 * MIB));
+   ret = munmap(addr1, 50 * MIB);
+   ASSERT_EQ(0, ret);
 
-   ASSERT_NOT_EQ(MAP_FAILED,
-                 addr1 = mmap(0, 100 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
+   addr1 = mmap(0, 100 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
+   ASSERT_NOT_EQ(MAP_FAILED, addr1);
    ASSERT_EQ(0, munmap(addr1, 100 * MIB));
 
    // 4.
-   ASSERT_EQ(0, munmap(addr2, 10 * MIB));
-   ASSERT_EQ(0, munmap(addr, 50 * MIB));
-   ASSERT_EQ(0, munmap(addr + 150 * MIB, 50 * MIB));
+   ret = munmap(addr2, 10 * MIB);
+   ASSERT_EQ(0, ret);
+   ret = munmap(addr, 50 * MIB);
+   ASSERT_EQ(0, ret);
+   ret = munmap(addr + 150 * MIB, 50 * MIB);
+   ASSERT_EQ(0, ret);
 
    PASS();
-}
-
-static jmp_buf jbuf;
-
-void signal_handler(int signal)
-{
-   if (signal != SIGSEGV) {
-      err(2, "Unexpected signal caught: %d", signal);
-   }
-   longjmp(jbuf, SIGSEGV);   // reusing SIGSEGV as setjmp() return
 }
 
 // test that (1) munmapped memory is access protected (2) we honor mmap prot flag
@@ -231,9 +317,10 @@ TEST mmap_protect()
    void *addr, *addr1;
    int ret;
 
+   printf("===== mmap_protect: Testing protection for unmapped area\n");
    signal(SIGSEGV, signal_handler);
    // get mmap, carve 1MIB munmapped section and try to access it. Should call the handler
-   addr = mmap(0, 200 * MIB, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   addr = mmap(0, 200 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
    ASSERT_NOT_EQ_FMT(MAP_FAILED, addr, "%p");
    addr1 = addr + 10 * MIB;
    ASSERT_EQ_FMTm("Unmap from the middle", 0, munmap(addr1, 1 * MIB), "%d");
@@ -245,7 +332,7 @@ TEST mmap_protect()
       printf("Handled SIGSEGV on unmmaped mem successfully... continuing...\n");
    }
    // now lets' check we respect PROT flags
-   void* mapped = mmap(0, 1 * MIB, PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   void* mapped = mmap(0, 1 * MIB, PROT_READ, flags, -1, 0);
    ASSERT_EQ_FMT(addr1, mapped, "%p");   // we expect to grab the btarea just released
    uint8_t buf[1024];
    memcpy(buf, (uint8_t*)addr1, sizeof(buf));   // read should succeed
@@ -266,25 +353,71 @@ TEST mmap_protect()
    PASS();
 }
 
+// helper to test glue
+TEST mremap_test()
+{
+   static const int prot = (PROT_READ | PROT_WRITE);
+   static mmap_test_t mremap_tests[] = {
+       {"1 mmap", TYPE_MMAP, 0, 10 * MIB, prot, flags, OK},
+
+       {"1f1 mremap param - FIXED flag", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, MREMAP_FIXED, EINVAL},
+       {"1f2 mremap param - new_size 0", TYPE_MREMAP, 0, 1 * MIB, 0 * MIB, MREMAP_MAYMOVE, EINVAL},
+       {"1f3 mremap param - size 0", TYPE_MREMAP, 0, 0 * MIB, 1 * MIB, MREMAP_MAYMOVE, EINVAL},
+       {"1f4 mremap param - unaligned", TYPE_MREMAP, 1, 2 * MIB, 1 * MIB, MREMAP_MAYMOVE, EINVAL},
+       {"1f5 mremap param - wrong flags", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, 0x44, EINVAL},
+
+       {"1 mremap shrink makes 1mb hole", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, MREMAP_MAYMOVE, OK},
+       {"1 mmap refill the hole", TYPE_MMAP, 1 * MIB, 1 * MIB, prot, flags, OK},
+       {"1 cleanup (unmap)", TYPE_MUNMAP, 0, 10 * MIB, PROT_NONE, flags, OK},
+
+       // grow should move ptr; old area should be unaccessible.
+       {"2 mmap", TYPE_MMAP, 0, 2 * MIB, prot, flags, OK},
+       {"2 write", TYPE_WRITE, 0, 1 * KM_PAGE_SIZE, '2', 0, OK},
+       {"2 mremap grow", TYPE_MREMAP, 0, 2 * MIB, 3 * MIB, MREMAP_MAYMOVE, OK},
+       {"2 write old should SIGSEGV", TYPE_WRITE, 0, 1 * KM_PAGE_SIZE, '?', 0, SIGSEGV},   // old area gone
+       {"2 switch last_addr to mremap", TYPE_USE_MREMAP_ADDR},
+       {"2 read new", TYPE_READ, 0, 1 * KM_PAGE_SIZE, '2', 0, OK},
+       {"2 write new tail", TYPE_WRITE, 03 * MIB - 1 * KM_PAGE_SIZE, 1 * KM_PAGE_SIZE, '?', 0, OK},
+
+       {"2 cleanup (unmap)", TYPE_MUNMAP, 0, 3 * MIB, PROT_NONE, flags, OK},
+
+       // TBD
+       //  {"3 mremap grow into free", TYPE_MREMAP, 0, 10 * MIB, 12 * MIB, MREMAP_MAYMOVE, OK},
+       {"3 mmap", TYPE_MMAP, 0, 10 * MIB, prot, flags, OK},
+       {"3 munmap make a hole", TYPE_MUNMAP, 2 * MIB, 1 * MIB, PROT_NONE, flags, OK},
+       {"3 mremap grow", TYPE_MREMAP, 1 * MIB, 1 * MIB, 2 * MIB - 2 * KM_PAGE_SIZE, MREMAP_MAYMOVE, OK},
+       {"3 write to remapped", TYPE_WRITE, 2 * MIB + 2 * KM_PAGE_SIZE, 1 * KM_PAGE_SIZE, '2', 0, OK},
+       {"3 write to free should SIGSEGV", TYPE_WRITE, 3 * MIB - 1 * KM_PAGE_SIZE, 1 * KM_PAGE_SIZE, '?', 0, SIGSEGV},
+       {"3 mremap grow - plug the hole", TYPE_MREMAP, 1 * MIB, 1 * MIB, 2 * MIB, MREMAP_MAYMOVE, OK},
+       {"3 write last page should succeed", TYPE_WRITE, 3 * MIB - 1 * KM_PAGE_SIZE, 1 * KM_PAGE_SIZE, '?', 0, OK},
+
+       {"3 cleanup (unmap)", TYPE_MUNMAP, 0, 10 * MIB, PROT_NONE, flags, OK},
+
+       // TBD - failure to remap over different mmaps
+       //  {"4. mprotect PROT_READ", TYPE_MPROTECT, 8 * MIB, 10 * MIB, PROT_READ, flags, OK},
+       //  {"4f mremap grow over protected", TYPE_MREMAP, 0, 10 * MIB, 12 * MIB, MREMAP_MAYMOVE, EFAULT},
+
+       {NULL},
+   };
+
+   printf("===== mremap: Testing mremap() functionality\n");
+   tests = mremap_tests;
+   CHECK_CALL(mmap_test());
+   PASS();
+}
+
 /* Inserts misc defintions */
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
 {
    GREATEST_MAIN_BEGIN();
-   // greatest_set_verbosity(1);
 
-   printf("===== mmap_test_36: Testing smaller (< 2GiB) sizes\n");
    RUN_TEST(mmap_test_36);
-
-   printf("===== mmap_test_39: Testing large (> 2GiB) sizes\n");
    RUN_TEST(mmap_test_39);
-
-   printf("===== mmap_from_free: Testing mmap() from free areas\n");
    RUN_TEST(mmap_from_free);
-
-   printf("===== mmap_protect: Testing protection for unmapped area\n");
    RUN_TEST(mmap_protect);
+   RUN_TEST(mremap_test);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
