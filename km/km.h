@@ -119,9 +119,9 @@ typedef enum {
 typedef struct km_machine_init_params {
    uint64_t guest_physmem;         // Requested size of guest physical memory in bytes
    km_flag_force_t force_pdpe1g;   // force on/off 1g pages support regardless of VM CPUID support
-                                   // TODO: check if there is a KVM config for force-enable
-   int overcommit_memory;   // 1 if we want to allow memory overcommit (i.e. MAP_NORESERVE in mmap)
-                            // Note: if too much of it is accessed, we expect Linux OOM killer to kick in
+   km_flag_force_t overcommit_memory;   // memory overcommit (i.e. MAP_NORESERVE in mmap)
+                                        // Note: if too much of it is accessed, we expect Linux OOM
+                                        // killer to kick in
 } km_machine_init_params_t;
 
 void km_machine_init(km_machine_init_params_t* params);

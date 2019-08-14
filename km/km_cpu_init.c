@@ -492,7 +492,7 @@ void km_machine_init(km_machine_init_params_t* params)
             break;
          case 0x80000001:
             machine.pdpe1g = ((entry->edx & 1ul << 26) != 0);
-            if (machine.pdpe1g == 0 && params->force_pdpe1g == KM_FLAG_FORCE_ENABLE) {
+            if (machine.pdpe1g == 0 && params->force_pdpe1g != KM_FLAG_FORCE_DISABLE) {
                // The actual hardware should support it, otherwise expect payload to EXIT_SHUTDOWN
                km_infox(KM_TRACE_KVM, "PATCHING pdpe1g to 1");
                entry->edx |= (1ul << 26);
