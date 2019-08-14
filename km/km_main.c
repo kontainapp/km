@@ -55,8 +55,8 @@ static inline void usage()
         "\n\tOverride auto detection:\n"
         "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. "
         "32 means 4GiB, 33 8GiB, 34 16GiB, etc. \n"
-        "\t--enable-1g-pages  - Force enable 1G pages support (assumes hardware support)\n"
-        "\t--disable-1g-pages - Force disable 1G pages support.");
+        "\t--enable-1g-pages  - Force enable 1G pages support (default). Assumes hardware support\n"
+        "\t--disable-1g-pages - Force disable 1G pages support");
 }
 
 // Version info. SCM_* is supposed to be set by the build
@@ -83,7 +83,10 @@ static inline void show_version(void)
         BUILD_TIME);
 }
 
-static km_machine_init_params_t km_machine_init_params = {};
+static km_machine_init_params_t km_machine_init_params = {
+   .force_pdpe1g = KM_FLAG_FORCE_ENABLE,
+   .overcommit_memory = KM_FLAG_FORCE_DISABLE,
+};
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
 static struct option long_options[] = {
@@ -91,7 +94,7 @@ static struct option long_options[] = {
     {"dump-shutdown", no_argument, 0, 'D'},
     {"enable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_ENABLE},
     {"disable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_DISABLE},
-    {"overcommit-memory", no_argument, &(km_machine_init_params.overcommit_memory), 1},
+    {"overcommit-memory", no_argument, &(km_machine_init_params.overcommit_memory), KM_FLAG_FORCE_ENABLE},
     {"coredump", required_argument, 0, 'C'},
     {"membus-width", required_argument, 0, 'P'},
     {"log-to", required_argument, 0, 'l'},

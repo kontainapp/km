@@ -35,16 +35,14 @@ static const int RSV_PDPT_OFFSET = 1 * KM_PAGE_SIZE;
 static const int RSV_PDPT2_OFFSET = 2 * KM_PAGE_SIZE;
 static const int RSV_PD_OFFSET = 3 * KM_PAGE_SIZE;
 static const int RSV_PD2_OFFSET = 4 * KM_PAGE_SIZE;
+static const int RSV_IDMAP_OFFSET = RSV_MEM_SIZE;   // next page after reserved area
 /*
  * convert the above to guest physical offsets
  */
 #define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
 
 static const int KM_RSRV_MEMSLOT = 0;
-static const int KM_TEXT_DATA_MEMSLOT = 1;
-// other text and data memslots follow
 
-// memreg_base(KM_TEXT_DATA_MEMSLOT)
 static const km_gva_t GUEST_MEM_START_VA = 2 * MIB;
 // ceiling for guest virt. address. 2MB shift down to make it aligned on GB with physical address
 static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
