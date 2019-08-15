@@ -24,17 +24,17 @@ SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
 COPTS ?= -ggdb -O2
 CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
-LDFLAGS = -static -no-pie -ggdb -pthread
-KM_LDFLAGS = -specs=${TOP}gcc-km.spec $(patsubst %,-L %,${LDDIRS})
-LDDIRS := ${TOP}build/runtime
+LDFLAGS = -ggdb -pthread
+KCC := kontain-gcc
 DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
 EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
-${KM_PAYLOADS}: ${LDDIRS}
+${KM_PAYLOADS}: ${TOP}build/runtime
 
 CXXFLAGS=${CFLAGS}
-${SRC_CPP:%.cpp=%} ${SRC_CPP:%.cpp=%.km}: CC=g++
+${SRC_CPP:%.cpp=%.km}: KCC=kontain-g++
+${SRC_CPP:%.cpp=%}: CC=g++
 
 # Test: run by BATS, definition in TEST_FILES, test name has to MATCH
 BATS := time bats/bin/bats
@@ -55,15 +55,14 @@ ifeq (${MAKECMDGOALS},.coverage)
 else
 	@export KM_BIN=$(KM_BIN); export TIME_INFO=${TIME_INFO};  ${BATS} -p -f "${MATCH}" ${TEST_FILES}
 endif
-	@echo -e "${GREEN}Tests slower that 0.01 sec:${NOCOLOR}"
-	@grep elapsed ${TIME_INFO} | grep -v "elapsed 0:00.0[01]" | sort -r
+	@echo -e "${GREEN}Tests slower than 0.1 sec:${NOCOLOR}"
+	@grep elapsed ${TIME_INFO} | grep -v "elapsed 0:00.[01]" | sort -r
 	@echo ""
 	@rm -f ${TIME_INFO}
 
 
 %.km: %.o
-	${CC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
-	@chmod a-x $@
+	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
 
 .PHONY: load_expected_size
 load_expected_size: load_test.km
