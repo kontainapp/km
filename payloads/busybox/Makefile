@@ -13,7 +13,7 @@
 TOP := $(shell git rev-parse --show-cdup)
 
 SHELL :=/bin/bash
-PATH  := $(realpath ${TOP}tools):${PATH}
+PATH := $(realpath ${TOP}tools):${PATH}
 
 # KM monitor path
 KM_BIN=${TOP}/build/km/km

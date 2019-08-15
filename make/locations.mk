@@ -17,6 +17,8 @@ FROMTOP := $(shell git rev-parse --show-prefix)
 # use 'SRC_BRANCH=branch make <target>' for building target (e.g clean :-)) for other branches, if needed
 SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
 
+PATH := $(realpath ${TOP}tools):${PATH}
+
 # sha and build time for further reporting
 SRC_VERSION := $(shell git rev-parse HEAD)
 BUILD_TIME := $(shell date -Iminutes)
