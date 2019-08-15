@@ -1,4 +1,5 @@
-trigger: none
+trigger:
+- jme/tests
 pr:
 - master
 
@@ -28,6 +29,7 @@ steps:
 - bash: echo "##vso[task.setvariable variable=git_rev]$(git rev-parse --short HEAD)"
 
 - script: |
+    set -e
     docker pull $(registry)/km-buildenv-fedora
     docker tag $(registry)/km-buildenv-fedora  km-buildenv-fedora
     make withdocker DTYPE=fedora
@@ -38,8 +40,11 @@ steps:
   displayName: make withdocker
 
 - script: |
+    set -e
     cp -v build/km/km tests/
+    ls *km
     make mk-bats TAG=$(Build.BuildId)
+    test $(docker run --rm -it e3326255c4d5 bash -c 'ls -1  *km' | wc -l) -gt 20
     docker tag test-bats:$(Build.BuildId)  $(registry)/test-bats:$(Build.BuildId)
     docker push $(registry)/test-bats:$(Build.BuildId)
   displayName: build test image

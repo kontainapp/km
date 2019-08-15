@@ -18,7 +18,9 @@ spec:
           value: BRANCH_NAME
         - name: KM_BIN
           value: /tests/km
-        command: [ "bats/bin/bats", "-p", "km_core_tests.bats"]
+        - name: TIME_INFO
+          value: /time_info.txt
+        command: ["bats/bin/bats", "-p", "km_core_tests.bats"]
         resources:
            requests:
               devices.kubevirt.io/kvm: "1"
