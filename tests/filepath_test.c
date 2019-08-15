@@ -17,6 +17,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -188,6 +189,95 @@ TEST test_chdir()
    PASS();
 }
 
+/*
+ * Concurrent open test. This is excerises KM file descript table locking.
+ */
+#define OPEN_TEST_NFILES 20
+struct open_task_file {
+   char path[PATH_MAX];
+   struct stat st;
+};
+struct open_task_file open_task_files[OPEN_TEST_NFILES];
+
+#define OPEN_TEST_NTASK 20
+
+pthread_mutex_t open_test_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t open_test_cond = PTHREAD_COND_INITIALIZER;
+int open_test_start = 0;
+
+void* open_task_main(void* arg)
+{
+   int* statusp = arg;
+   *statusp = 0;
+
+   // Synchronized startup
+   pthread_mutex_lock(&open_test_mutex);
+   while (open_test_start == 0) {
+      pthread_cond_wait(&open_test_cond, &open_test_mutex);
+   }
+   pthread_mutex_unlock(&open_test_mutex);
+
+   for (int i = 0; i < 10000; i++) {
+      for (int j = 0; j < OPEN_TEST_NFILES; j++) {
+         int fd = open(open_task_files[j].path, O_RDONLY);
+         if (fd < 0) {
+            perror(open_task_files[j].path);
+            continue;
+         }
+         struct stat st;
+         if (fstat(fd, &st) < 0) {
+            fprintf(stderr, "fstat failure: %s %d\n", open_task_files[j].path, errno);
+            *statusp = *statusp + 1;
+         }
+         if (st.st_ino != open_task_files[j].st.st_ino) {
+            fprintf(stderr, "ino mismatch %s\n", open_task_files[j].path);
+            *statusp = *statusp + 1;
+         }
+         close(fd);
+      }
+   }
+   return NULL;
+}
+
+TEST test_concurrent_open()
+{
+   int rc;
+   pthread_t thread[OPEN_TEST_NTASK];
+   int open_task_status[OPEN_TEST_NTASK];
+
+   for (int i = 0; i < OPEN_TEST_NFILES; i++) {
+      snprintf(open_task_files[i].path, PATH_MAX, "%s/file%d", dirpath, i);
+      rc = mknod(open_task_files[i].path, S_IFREG | S_IRUSR, 0);
+      ASSERT_EQ(0, rc);
+      rc = stat(open_task_files[i].path, &open_task_files[i].st);
+      ASSERT_EQ(0, rc);
+   }
+
+   for (int i = 0; i < OPEN_TEST_NTASK; i++) {
+      rc = pthread_create(&thread[i], 0, open_task_main, &open_task_status[i]);
+      ASSERT_EQ(0, rc);
+   }
+
+   // release the hounds...
+   pthread_mutex_lock(&open_test_mutex);
+   open_test_start = 1;
+   pthread_cond_broadcast(&open_test_cond);
+   pthread_mutex_unlock(&open_test_mutex);
+
+   for (int i = 0; i < OPEN_TEST_NTASK; i++) {
+      void* rval;
+      rc = pthread_join(thread[i], &rval);
+      ASSERT_EQ(0, rc);
+   }
+   for (int i = 0; i < OPEN_TEST_NFILES; i++) {
+      rc = unlink(open_task_files[i].path);
+   }
+   for (int i = 0; i < OPEN_TEST_NFILES; i++) {
+      ASSERT_EQ(0, open_task_status[i]);
+   }
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 char* cmdname = "?";
@@ -224,6 +314,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_rename);
    RUN_TEST(test_symlink);
    RUN_TEST(test_chdir);
+   RUN_TEST(test_concurrent_open);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)

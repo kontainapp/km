@@ -902,7 +902,19 @@ static km_hc_ret_t unlink_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   arg->hc_ret = km_fs_unlink(vcpu, km_gva_to_kma(arg->arg1));
+   arg->hc_ret = km_fs_unlink(vcpu, pathname);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t mknod_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int mknod(const char *pathname, mode_t mode, dev_t dev);
+   void* pathname = km_gva_to_kma(arg->arg1);
+   if (pathname == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_mknod(vcpu, pathname, arg->arg2, arg->arg3);
    return HC_CONTINUE;
 }
 
@@ -960,6 +972,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_mkdir] = mkdir_hcall;
    km_hcalls_table[SYS_rmdir] = rmdir_hcall;
    km_hcalls_table[SYS_unlink] = unlink_hcall;
+   km_hcalls_table[SYS_mknod] = mknod_hcall;
    km_hcalls_table[SYS_chdir] = chdir_hcall;
    km_hcalls_table[SYS_fchdir] = fchdir_hcall;
    km_hcalls_table[SYS_select] = select_hcall;

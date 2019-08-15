@@ -70,6 +70,8 @@ uint64_t km_fs_ioctl(km_vcpu_t* vcpu, int fd, unsigned long request, void* arg);
 uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg);
 // off_t lseek(int fd, off_t offset, int whence);
 uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence);
+// int mknod(const char *pathname, mode_t mode, dev_t dev);
+uint64_t km_fs_mknod(km_vcpu_t* vcpu, char* pathname, mode_t mode, dev_t dev);
 // int unlink(const char *path);
 uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname);
 // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);

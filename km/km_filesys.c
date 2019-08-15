@@ -40,13 +40,14 @@
  * Translates guest fd to host fd. Returns negative errno if
  * mapping does not exist.
  */
-static int check_guest_fd(km_vcpu_t* vcpu, int fd)
+static inline int check_guest_fd(km_vcpu_t* vcpu, int fd)
 {
    if (fd < 0 || fd >= machine.filesys.nfdmap) {
       return -1;
    }
    int ret = __atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
-   assert((ret == -1) || machine.filesys.hostfd_to_guestfd_map[ret] == fd);
+   assert((ret == -1) || (machine.filesys.hostfd_to_guestfd_map[ret] == fd) ||
+          (machine.filesys.hostfd_to_guestfd_map[ret] == -1));
    return ret;
 }
 
@@ -76,24 +77,40 @@ static int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd)
 }
 
 /*
- * deletes an exist guest file descriptor mapping (used by close(2))
+ * deletes an exist guestfd to hostfd mapping (used by km_fs_close())
  */
-static void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
+static inline void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
 {
    assert(fd >= 0 && fd < machine.filesys.nfdmap);
-   if (__atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[fd],
-                                   &hostfd,
-                                   -1,
-                                   0,
-                                   __ATOMIC_SEQ_CST,
-                                   __ATOMIC_SEQ_CST) != 0) {
-      __atomic_compare_exchange_n(&machine.filesys.hostfd_to_guestfd_map[hostfd],
-                                  &fd,
-                                  -1,
-                                  0,
-                                  __ATOMIC_SEQ_CST,
-                                  __ATOMIC_SEQ_CST);
-   }
+   int rc = __atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[fd],
+                                        &hostfd,
+                                        -1,
+                                        0,
+                                        __ATOMIC_SEQ_CST,
+                                        __ATOMIC_SEQ_CST);
+   assert(rc != 0);
+}
+
+/*
+ * Deletes hostfd->guestfd mapping. See km_fs_close.
+ */
+static inline void km_del_host_fd(km_vcpu_t* vcpu, int hostfd, int guestfd)
+{
+   int rc = __atomic_compare_exchange_n(&machine.filesys.hostfd_to_guestfd_map[hostfd],
+                                        &guestfd,
+                                        -1,
+                                        0,
+                                        __ATOMIC_SEQ_CST,
+                                        __ATOMIC_SEQ_CST);
+   assert(rc != 0);
+}
+
+/*
+ * Re-establishes hostfd->guestfd mapping if close fails. See km_fs_close.
+ */
+static inline void km_fix_host_fd(km_vcpu_t* vcpu, int hostfd, int guestfd)
+{
+   __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], guestfd, __ATOMIC_SEQ_CST);
 }
 
 /*
@@ -183,7 +200,21 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
       return -EBADF;
    }
+   /*
+    * Notes on closing guestfd: We need to be careful here,
+    * Once the the kernel decides it is going to return success for
+    * the close(2) call, that fd can be reused for subsequent open(2)
+    * calls. To handle that,the hostfd_to_guestfd mapping is cleared before
+    * close(2) is called. if close(2) succeeds (which it will almost 100%
+    * of the time), the guestfd_to_hostfd mapping is cleared. If the close(2)
+    * fails, the hostfd_to_guestfd mapping is re-established. This means that
+    * if the close(2) fails, there is a window where KM events to that
+    * hostfd will not be routed to the guest.
+    *
+    * This scenario seems unlikely, so we'll just live with it for now.
+    */
    int ret = 0;
+   km_del_host_fd(vcpu, host_fd, fd);
    // stdin, stdout, and stderr shared with KM so guest can't close them.
    if (fd > 2) {
       ret = __syscall_1(SYS_close, host_fd);
@@ -192,6 +223,8 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    }
    if (ret == 0) {
       del_guest_fd(vcpu, fd, host_fd);
+   } else {
+      km_fix_host_fd(vcpu, host_fd, fd);
    }
    return ret;
 }
@@ -366,6 +399,12 @@ uint64_t km_fs_rmdir(km_vcpu_t* vcpu, char* pathname, mode_t mode)
 uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname, mode_t mode)
 {
    int ret = __syscall_1(SYS_unlink, (uintptr_t)pathname);
+   return ret;
+}
+
+uint64_t km_fs_mknod(km_vcpu_t* vcpu, char* pathname, mode_t mode, dev_t dev)
+{
+   int ret = __syscall_3(SYS_mknod, (uintptr_t)pathname, mode, dev);
    return ret;
 }
 
