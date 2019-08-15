@@ -35,9 +35,11 @@
 
 TEST test_close()
 {
-   ASSERT_EQ(-1, close(-1));
+   int rc = close(-1);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
-   ASSERT_EQ(-1, close(1000000));
+   rc = close(1000000);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
    PASS();
 }
@@ -45,31 +47,35 @@ TEST test_close()
 TEST test_stat()
 {
    struct stat st;
+   int rc;
 
-   ASSERT_EQ(0, stat("/", &st));
+   rc = stat("/", &st);
+   ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFDIR, st.st_mode & S_IFMT);
 
    int fd = open("/", O_RDONLY);
    ASSERT_NOT_EQ(-1, fd);
-   ASSERT_EQ(0, fstat(fd, &st));
+   rc = fstat(fd, &st);
+   ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFDIR, st.st_mode & S_IFMT);
-   ASSERT_EQ(0, close(fd));
+   rc = close(fd);
+   ASSERT_EQ(0, rc);
 
    /*
     * Various bad file descriptors
     */
-   ASSERT_EQ(-1, fstat(fd, &st));
+   rc = fstat(fd, &st);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
-   ASSERT_EQ(-1, fstat(-1, &st));
+   rc = fstat(-1, &st);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
-   ASSERT_EQ(-1, fstat(1000000, &st));
+   rc = fstat(1000000, &st);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
 
    struct statx stx;
-   int rc = syscall(SYS_statx, AT_FDCWD, "/", 0, STATX_ALL, &stx);
-   if (rc != 0) {
-      perror("statx");
-   }
+   rc = syscall(SYS_statx, AT_FDCWD, "/", 0, STATX_ALL, &stx);
    ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFDIR, stx.stx_mode & S_IFMT);
    PASS();
@@ -89,12 +95,13 @@ TEST test_getdents()
 
    int fd = open("/", O_RDONLY);
    ASSERT_NOT_EQ(-1, fd);
-   int ret = syscall(SYS_getdents64, fd, dbuf, ndirent);
-   fprintf(stderr, "ret=%d errno=%d\n", ret, errno);
-   ASSERT_NOT_EQ(-1, ret);
-   ASSERT_EQ(0, close(fd));
+   int rc = syscall(SYS_getdents64, fd, dbuf, ndirent);
+   ASSERT_NOT_EQ(-1, rc);
+   rc = close(fd);
+   ASSERT_EQ(0, rc);
 
-   ASSERT_EQ(-1, syscall(SYS_getdents64, fd, dbuf, ndirent));
+   rc = syscall(SYS_getdents64, fd, dbuf, ndirent);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
    PASS();
 }
@@ -103,18 +110,28 @@ TEST test_getdents()
 TEST test_socketpair()
 {
    int fd[2];
+   int rc;
 
-   ASSERT_EQ(0, socketpair(PF_LOCAL, SOCK_STREAM, 0, fd));
-   ASSERT_EQ(0, close(fd[0]));
-   ASSERT_EQ(0, close(fd[1]));
+   rc = socketpair(PF_LOCAL, SOCK_STREAM, 0, fd);
+   ASSERT_EQ(0, rc);
+   rc = close(fd[0]);
+   ASSERT_EQ(0, rc);
+   rc = close(fd[1]);
+   ASSERT_EQ(0, rc);
 
-   ASSERT_EQ(0, pipe(fd));
-   ASSERT_EQ(0, close(fd[0]));
-   ASSERT_EQ(0, close(fd[1]));
+   rc = pipe(fd);
+   ASSERT_EQ(0, rc);
+   rc = close(fd[0]);
+   ASSERT_EQ(0, rc);
+   rc = close(fd[1]);
+   ASSERT_EQ(0, rc);
 
-   ASSERT_EQ(0, pipe2(fd, O_CLOEXEC));
-   ASSERT_EQ(0, close(fd[0]));
-   ASSERT_EQ(0, close(fd[1]));
+   rc = pipe2(fd, O_CLOEXEC);
+   ASSERT_EQ(0, rc);
+   rc = close(fd[0]);
+   ASSERT_EQ(0, rc);
+   rc = close(fd[1]);
+   ASSERT_EQ(0, rc);
    PASS();
 }
 
@@ -123,6 +140,7 @@ TEST test_socketpair()
  */
 TEST test_open_fd_fill()
 {
+   int rc;
    // open two file descriptors
    int fd1 = open("/", O_RDONLY);
    ASSERT_NOT_EQ(-1, fd1);
@@ -131,14 +149,17 @@ TEST test_open_fd_fill()
    // Ensure 1st one has lower fd value than second
    ASSERT(fd1 < fd2);
    // Close the first one and open a new one
-   ASSERT_EQ(0, close(fd1));
+   rc = close(fd1);
+   ASSERT_EQ(0, rc);
    int fd3 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd1);
+   ASSERT_NOT_EQ(-1, fd3);
    // Ensure fd1 value was re-used.
    ASSERT_EQ(fd1, fd3);
    // clean it up.
-   ASSERT_EQ(0, close(fd2));
-   ASSERT_EQ(0, close(fd3));
+   rc = close(fd2);
+   ASSERT_EQ(0, rc);
+   rc = close(fd3);
+   ASSERT_EQ(0, rc);
 
    PASS();
 }
@@ -148,6 +169,7 @@ TEST test_open_fd_fill()
  */
 TEST test_dup_fd_fill()
 {
+   int rc;
    // open two file descriptors
    int fd1 = open("/", O_RDONLY);
    ASSERT_NOT_EQ(-1, fd1);
@@ -156,20 +178,24 @@ TEST test_dup_fd_fill()
    // Ensure 1st one has lower fd value than second
    ASSERT(fd1 < fd2);
    // Close the first one and dup
-   ASSERT_EQ(0, close(fd1));
+   rc = close(fd1);
+   ASSERT_EQ(0, rc);
    int fd3 = dup(fd2);
    ASSERT_NOT_EQ(-1, fd1);
    // Ensure fd1 value was re-used.
    ASSERT_EQ(fd1, fd3);
    // clean it up.
-   ASSERT_EQ(0, close(fd2));
-   ASSERT_EQ(0, close(fd3));
+   rc = close(fd2);
+   ASSERT_EQ(0, rc);
+   rc = close(fd3);
+   ASSERT_EQ(0, rc);
 
    PASS();
 }
 
 TEST test_dup()
 {
+   int rc;
    // Setup: 2 gaps
    int fd1 = open("/", O_RDONLY);
    ASSERT_NOT_EQ(-1, fd1);
@@ -181,40 +207,53 @@ TEST test_dup()
    ASSERT_NOT_EQ(-1, fd4);
    int fd5 = open("/", O_RDONLY);
    ASSERT_NOT_EQ(-1, fd5);
-   ASSERT_EQ(0, close(fd2));
-   ASSERT_EQ(0, close(fd4));
+   rc = close(fd2);
+   ASSERT_EQ(0, rc);
+   rc = close(fd4);
+   ASSERT_EQ(0, rc);
 
    // fcntl dup sets a starting point for new fd search.
    int ret = fcntl(fd1, F_DUPFD, fd3);
    ASSERT_EQ(fd4, ret);
-   ASSERT_EQ(0, close(ret));
+   rc = close(ret);
+   ASSERT_EQ(0, rc);
 
    // dup will take lowest
    ret = dup(fd5);
    ASSERT_EQ(fd2, ret);
-   ASSERT_EQ(0, close(ret));
+   rc = close(ret);
+   ASSERT_EQ(0, rc);
 
    // dup 2 allows choice of target
    ret = dup2(fd5, fd2);
    ASSERT_EQ(fd2, ret);
-   ASSERT_EQ(0, close(ret));
+   rc = close(ret);
+   ASSERT_EQ(0, rc);
 
    ret = dup3(fd5, fd2, O_CLOEXEC);
    ASSERT_EQ(fd2, ret);
-   ASSERT_EQ(0, close(ret));
+   rc = close(ret);
+   ASSERT_EQ(0, rc);
 
-   ASSERT_EQ(0, close(fd1));
-   ASSERT_EQ(0, close(fd3));
-   ASSERT_EQ(0, close(fd5));
+   rc = close(fd1);
+   ASSERT_EQ(0, rc);
+   rc = close(fd3);
+   ASSERT_EQ(0, rc);
+   rc = close(fd5);
+   ASSERT_EQ(0, rc);
 
    // Try on closed fd's
-   ASSERT_EQ(-1, fcntl(fd5, F_DUPFD, fd3));
+   rc = fcntl(fd5, F_DUPFD, fd3);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
-   ASSERT_EQ(-1, dup(fd5));
+   rc = dup(fd5);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
-   ASSERT_EQ(-1, dup2(fd5, fd2));
+   rc = dup2(fd5, fd2);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
-   ASSERT_EQ(-1, dup3(fd5, fd2, O_CLOEXEC));
+   rc = dup3(fd5, fd2, O_CLOEXEC);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
 
    PASS();
@@ -225,16 +264,20 @@ TEST test_dup()
  */
 TEST test_eventfd()
 {
+   int rc;
    int fd = eventfd(0, 0);
    ASSERT_NOT_EQ(-1, fd);
-   close(fd);
+   rc = close(fd);
+   ASSERT_EQ(0, rc);
    PASS();
 }
 
 TEST test_getrlimit_nofiles()
 {
+   int rc;
    struct rlimit rlim;
-   ASSERT_EQ(0, getrlimit(RLIMIT_NOFILE, &rlim));
+   rc = getrlimit(RLIMIT_NOFILE, &rlim);
+   ASSERT_EQ(0, rc);
    PASS();
 }
 

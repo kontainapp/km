@@ -73,8 +73,11 @@ TEST test_sigpending()
    signal(SIGUSR2, SIG_DFL);
 
    // test bad sigsetsize
-   ASSERT_EQ(-1, syscall(SYS_rt_sigpending, pending, 4));
+   ASSERT_EQ(-1, syscall(SYS_rt_sigpending, &pending, 4));
    ASSERT_EQ(EINVAL, errno);
+   // test bad pointer
+   ASSERT_EQ(-1, syscall(SYS_rt_sigpending, NULL, 4));
+   ASSERT_EQ(EFAULT, errno);
    PASS();
 }
 

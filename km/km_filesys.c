@@ -43,10 +43,9 @@
 static int check_guest_fd(km_vcpu_t* vcpu, int fd)
 {
    if (fd < 0 || fd >= machine.filesys.nfdmap) {
-      return -EBADF;
+      return -1;
    }
-   int ret = -EBADF;
-   ret = __atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
+   int ret = __atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
    assert((ret == -1) || machine.filesys.hostfd_to_guestfd_map[ret] == fd);
    return ret;
 }
@@ -104,8 +103,7 @@ static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
 {
    assert(guest_fd >= 0 && guest_fd < machine.filesys.nfdmap);
    assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
-   int close_fd = -1;
-   close_fd =
+   int close_fd =
        __atomic_exchange_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], host_fd, __ATOMIC_SEQ_CST);
    __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[host_fd], guest_fd, __ATOMIC_SEQ_CST);
    // don't close stdin, stdout, or stderr
@@ -125,8 +123,7 @@ int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
    if (hostfd < 0) {
       return -ENOENT;
    }
-   int guest_fd = -1;
-   guest_fd = __atomic_load_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], __ATOMIC_SEQ_CST);
+   int guest_fd = __atomic_load_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], __ATOMIC_SEQ_CST);
    if (__atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], __ATOMIC_SEQ_CST) != hostfd) {
       guest_fd = -ENOENT;
    }
@@ -145,10 +142,8 @@ int km_fs_init()
 
    machine.filesys.guestfd_to_hostfd_map = malloc(mapsz);
    memset(machine.filesys.guestfd_to_hostfd_map, 0xff, mapsz);
-
    machine.filesys.hostfd_to_guestfd_map = malloc(mapsz);
    memset(machine.filesys.hostfd_to_guestfd_map, 0xff, mapsz);
-
    machine.filesys.nfdmap = lim.rlim_cur;
 
    // setup guest std file streams.
@@ -198,6 +193,17 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    if (ret == 0) {
       del_guest_fd(vcpu, fd, host_fd);
    }
+   return ret;
+}
+
+// int shutdown(int sockfd, int how);
+int km_fs_shutdown(km_vcpu_t* vcpu, int sockfd, int how)
+{
+   int host_fd;
+   if ((host_fd = check_guest_fd(vcpu, sockfd)) < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_2(SYS_shutdown, host_fd, how);
    return ret;
 }
 

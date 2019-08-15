@@ -87,7 +87,13 @@ static km_hc_ret_t prw_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    // ssize_t pread(int fd, void *buf, size_t count, off_t offset);
    // ssize_t pwrite(int fd, const void* buf, size_t count, off_t offset);
    // arg->hc_ret = __syscall_4(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3, arg->arg4);
-   arg->hc_ret = km_fs_prw(vcpu, hc, arg->arg1, km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
+   void* buf = km_gva_to_kma(arg->arg2);
+   if (buf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   // arg->hc_ret = km_fs_prw(vcpu, hc, arg->arg1, km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
+   arg->hc_ret = km_fs_prw(vcpu, hc, arg->arg1, buf, arg->arg3, arg->arg4);
    return HC_CONTINUE;
 }
 
@@ -96,50 +102,61 @@ static km_hc_ret_t prw_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t prwv_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   if (km_gva_to_kma(arg->arg2) == NULL) {
-      return -EFAULT;
+   void* buf = km_gva_to_kma(arg->arg2);
+   if (buf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
-   arg->hc_ret = km_fs_prwv(vcpu, hc, arg->arg1, km_gva_to_kma(arg->arg2), arg->arg3, arg->arg4);
+   arg->hc_ret = km_fs_prwv(vcpu, hc, arg->arg1, buf, arg->arg3, arg->arg4);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t accept_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-   if (km_gva_to_kma(arg->arg2) == NULL) {
-      return -EFAULT;
+   void* addr = km_gva_to_kma(arg->arg2);
+   void* addrlen = km_gva_to_kma(arg->arg3);
+   if (addr == NULL || addrlen == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
-   arg->hc_ret = km_fs_accept(vcpu, arg->arg1, km_gva_to_kma(arg->arg2), km_gva_to_kma(arg->arg3));
+   arg->hc_ret = km_fs_accept(vcpu, arg->arg1, addr, addrlen);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t socketpair_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int socketpair(int domain, int type, int protocol, int sv[2]);
-   if (km_gva_to_kma(arg->arg4) == NULL) {
-      return -EFAULT;
+   void* sv = km_gva_to_kma(arg->arg4);
+   if (sv == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
-   arg->hc_ret = km_fs_socketpair(vcpu, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kma(arg->arg4));
+   arg->hc_ret = km_fs_socketpair(vcpu, arg->arg1, arg->arg2, arg->arg3, sv);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t connect_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    //  int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-   if (km_gva_to_kma(arg->arg2) == NULL) {
-      return -EFAULT;
+   void* addr = km_gva_to_kma(arg->arg2);
+   if (addr == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
-   arg->hc_ret = km_fs_connect(vcpu, arg->arg1, km_gva_to_kma(arg->arg2), arg->arg3);
+   arg->hc_ret = km_fs_connect(vcpu, arg->arg1, addr, arg->arg3);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t bind_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-   if (km_gva_to_kma(arg->arg2) == NULL) {
-      return -EFAULT;
+   void* addr = km_gva_to_kma(arg->arg2);
+   if (addr == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
-   arg->hc_ret = km_fs_bind(vcpu, arg->arg1, km_gva_to_kma(arg->arg2), arg->arg3);
+   arg->hc_ret = km_fs_bind(vcpu, arg->arg1, addr, arg->arg3);
    return HC_CONTINUE;
 }
 
@@ -161,18 +178,13 @@ static km_hc_ret_t getsockopt_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t
    // *optlen);
-   if (km_gva_to_kma(arg->arg4) == NULL) {
-      return -EFAULT;
+   void* optval = km_gva_to_kma(arg->arg4);
+   void* optlen = km_gva_to_kma(arg->arg5);
+   if (optval == NULL || optlen == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
-   if (km_gva_to_kma(arg->arg5) == NULL) {
-      return -EFAULT;
-   }
-   arg->hc_ret = km_fs_getsockopt(vcpu,
-                                  arg->arg1,
-                                  arg->arg2,
-                                  arg->arg3,
-                                  km_gva_to_kma(arg->arg4),
-                                  km_gva_to_kma(arg->arg5));
+   arg->hc_ret = km_fs_getsockopt(vcpu, arg->arg1, arg->arg2, arg->arg3, optval, optlen);
    return HC_CONTINUE;
 }
 
@@ -180,11 +192,12 @@ static km_hc_ret_t setsockopt_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int setsockopt(int sockfd, int level, int optname, const void *optval,
    // socklen_t optlen);
-   if (km_gva_to_kma(arg->arg4) == NULL) {
-      return -EFAULT;
+   void* optval = km_gva_to_kma(arg->arg4);
+   if (optval == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
-   arg->hc_ret =
-       km_fs_setsockopt(vcpu, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kma(arg->arg4), arg->arg5);
+   arg->hc_ret = km_fs_setsockopt(vcpu, arg->arg1, arg->arg2, arg->arg3, optval, arg->arg5);
    return HC_CONTINUE;
 }
 
@@ -192,10 +205,12 @@ static km_hc_ret_t ioctl_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int ioctl(int fd, unsigned long request, void *arg);
    // arg->hc_ret = __syscall_3(hc, arg->arg1, arg->arg2, km_gva_to_kml(arg->arg3));
-   if (km_gva_to_kma(arg->arg3) == NULL) {
-      return -EFAULT;
+   void* argp = km_gva_to_kma(arg->arg3);
+   if (argp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
-   arg->hc_ret = km_fs_ioctl(vcpu, arg->arg1, arg->arg2, km_gva_to_kma(arg->arg3));
+   arg->hc_ret = km_fs_ioctl(vcpu, arg->arg1, arg->arg2, argp);
    return HC_CONTINUE;
 }
 
@@ -209,52 +224,74 @@ static km_hc_ret_t fcntl_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t stat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int stat(const char *pathname, struct stat *statbuf);
-   if (km_gva_to_kma(arg->arg1) == NULL) {
-      return -EFAULT;
+   void* pathname = km_gva_to_kma(arg->arg1);
+   void* statbuf = km_gva_to_kma(arg->arg2);
+   if (pathname == NULL || statbuf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
-   if (km_gva_to_kma(arg->arg2) == NULL) {
-      return -EFAULT;
-   }
-   arg->hc_ret = km_fs_stat(vcpu, km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2));
+   arg->hc_ret = km_fs_stat(vcpu, pathname, statbuf);
    return HC_CONTINUE;
 }
 static km_hc_ret_t lstat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int lstat(const char *pathname, struct stat *statbuf);
-   arg->hc_ret = km_fs_lstat(vcpu, km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2));
+   void* pathname = km_gva_to_kma(arg->arg1);
+   void* statbuf = km_gva_to_kma(arg->arg2);
+   if (pathname == NULL || statbuf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_lstat(vcpu, pathname, statbuf);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t statx_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
-   arg->hc_ret = km_fs_statx(vcpu,
-                             arg->arg1,
-                             km_gva_to_kma(arg->arg2),
-                             arg->arg3,
-                             arg->arg4,
-                             km_gva_to_kma(arg->arg5));
+   void* pathname = km_gva_to_kma(arg->arg2);
+   void* statbuf = km_gva_to_kma(arg->arg5);
+   if (pathname == NULL || statbuf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_statx(vcpu, arg->arg1, pathname, arg->arg3, arg->arg4, statbuf);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t fstat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int fstat(int fd, struct stat *statbuf);
-   arg->hc_ret = km_fs_fstat(vcpu, arg->arg1, km_gva_to_kma(arg->arg2));
+   void* statbuf = km_gva_to_kma(arg->arg2);
+   if (statbuf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_fstat(vcpu, arg->arg1, statbuf);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t getdirents_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);
-   arg->hc_ret = km_fs_getdents64(vcpu, arg->arg1, km_gva_to_kma(arg->arg2), arg->arg3);
+   void* dirp = km_gva_to_kma(arg->arg2);
+   if (dirp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_getdents64(vcpu, arg->arg1, dirp, arg->arg3);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t getcwd_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int getcwd(char *buf, size_t size);
-   arg->hc_ret = km_fs_getcwd(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   void* buf = km_gva_to_kma(arg->arg1);
+   if (buf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_getcwd(vcpu, buf, arg->arg2);
    return HC_CONTINUE;
 }
 
@@ -268,7 +305,7 @@ static km_hc_ret_t close_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t shutdown_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int shutdown(int sockfd, int how);
-   arg->hc_ret = __syscall_2(hc, arg->arg1, arg->arg2);
+   arg->hc_ret = km_fs_shutdown(vcpu, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 }
 
@@ -339,6 +376,10 @@ static km_hc_ret_t mprotect_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t clock_gettime_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int clock_gettime(clockid_t clk_id, struct timespec *tp);
+   if (arg->arg2 != 0 && km_gva_to_kml(arg->arg2) == 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
    arg->hc_ret = __syscall_2(hc, arg->arg1, km_gva_to_kml(arg->arg2));
    return HC_CONTINUE;
 }
@@ -365,17 +406,22 @@ static km_hc_ret_t umask_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t readlink_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
-   arg->hc_ret = km_fs_readlink(vcpu, km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2), arg->arg3);
+   void* pathname = km_gva_to_kma(arg->arg1);
+   void* buf = km_gva_to_kma(arg->arg2);
+   if (pathname == NULL || buf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_readlink(vcpu, pathname, buf, arg->arg3);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t getrandom_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // ssize_t getrandom(void *buf, size_t buflen, unsigned int flags);
-   char* buf;
-
-   if ((buf = km_gva_to_kma(arg->arg1)) == NULL) {
-      arg->hc_ret = EFAULT;
+   void* buf = km_gva_to_kma(arg->arg1);
+   if (buf == NULL) {
+      arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
    arg->hc_ret = __syscall_3(hc, km_gva_to_kml(arg->arg1), arg->arg2, arg->arg3);
@@ -386,7 +432,12 @@ static km_hc_ret_t open_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int open(const char *pathname, int flags, mode_t mode);
    // arg->hc_ret = __syscall_3(hc, km_gva_to_kml(arg->arg1), arg->arg2, arg->arg3);
-   arg->hc_ret = km_fs_open(vcpu, km_gva_to_kma(arg->arg1), arg->arg2, arg->arg3);
+   void* pathname = km_gva_to_kma(arg->arg1);
+   if (pathname == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_open(vcpu, pathname, arg->arg2, arg->arg3);
    return HC_CONTINUE;
 }
 
@@ -399,27 +450,45 @@ static km_hc_ret_t lseek_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t symlink_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_fs_symlink(vcpu, km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2));
+   // int symlink(const char *target, const char *linkpath);
+   void* target = km_gva_to_kma(arg->arg1);
+   void* linkpath = km_gva_to_kma(arg->arg2);
+   if (target == NULL || linkpath == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_symlink(vcpu, target, linkpath);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t rename_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int rename(const char *oldpath, const char *newpath);
-   arg->hc_ret = km_fs_rename(vcpu, km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2));
+   void* oldpath = km_gva_to_kma(arg->arg1);
+   void* newpath = km_gva_to_kma(arg->arg2);
+   if (oldpath == NULL || newpath == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_rename(vcpu, oldpath, newpath);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t chdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int chdir(const char *path);
-   arg->hc_ret = km_fs_chdir(vcpu, km_gva_to_kma(arg->arg1));
+   void* path = km_gva_to_kma(arg->arg1);
+   if (path == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_chdir(vcpu, path);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t fchdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   // int chdir(const char *path);
+   // int fchdir(int fd);
    arg->hc_ret = km_fs_fchdir(vcpu, arg->arg1);
    return HC_CONTINUE;
 }
@@ -427,14 +496,24 @@ static km_hc_ret_t fchdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t mkdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int mkdir(const char *path, mode_t mode);
-   arg->hc_ret = km_fs_mkdir(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   void* path = km_gva_to_kma(arg->arg1);
+   if (path == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_mkdir(vcpu, path, arg->arg2);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t rmdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   // int mkdir(const char *path, mode_t mode);
-   arg->hc_ret = km_fs_rmdir(vcpu, km_gva_to_kma(arg->arg1));
+   // int rmdir(const char *path);
+   void* path = km_gva_to_kma(arg->arg1);
+   if (path == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_rmdir(vcpu, path);
    return HC_CONTINUE;
 }
 
@@ -442,12 +521,28 @@ static km_hc_ret_t select_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    //  int select(int nfds, fd_set *readfds, fd_set *writefds,
    //             fd_set *exceptfds, struct timeval *timeout);
-   arg->hc_ret = km_fs_select(vcpu,
-                              arg->arg1,
-                              km_gva_to_kma(arg->arg2),
-                              km_gva_to_kma(arg->arg3),
-                              km_gva_to_kma(arg->arg4),
-                              km_gva_to_kma(arg->arg5));
+   // NULL is a legal value for readfds, writefds, exceptfds, and timeout
+   void* readfds = km_gva_to_kma(arg->arg2);
+   void* writefds = km_gva_to_kma(arg->arg3);
+   void* exceptfds = km_gva_to_kma(arg->arg4);
+   void* timeout = km_gva_to_kma(arg->arg5);
+   if (readfds == NULL && arg->arg2 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (writefds == NULL && arg->arg3 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (exceptfds == NULL && arg->arg4 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (timeout == NULL && arg->arg5 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_select(vcpu, arg->arg1, readfds, writefds, exceptfds, timeout);
    return HC_CONTINUE;
 }
 
@@ -468,6 +563,12 @@ static km_hc_ret_t sendto_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t nanosleep_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int nanosleep(const struct timespec* req, struct timespec* rem);
+   // NULL is a legal value for rem.
+   void* rem = km_gva_to_kma(arg->arg2);
+   if (rem == NULL && arg->arg2 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
    arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2));
    return HC_CONTINUE;
 }
@@ -504,15 +605,25 @@ static km_hc_ret_t get_sock_peer_name_hcall(void* vcpu, int hc, km_hc_args_t* ar
 {
    // int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
    // int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-   arg->hc_ret =
-       km_fs_get_sock_peer_name(vcpu, hc, arg->arg1, km_gva_to_kma(arg->arg2), km_gva_to_kma(arg->arg3));
+   void* addr = km_gva_to_kma(arg->arg2);
+   void* addrlen = km_gva_to_kma(arg->arg3);
+   if (addr == NULL || addrlen == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_get_sock_peer_name(vcpu, hc, arg->arg1, addr, addrlen);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t poll_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int poll(struct pollfd *fds, nfds_t nfds, int timeout);
-   arg->hc_ret = km_fs_poll(vcpu, km_gva_to_kma(arg->arg1), arg->arg2, arg->arg3);
+   void* fds = km_gva_to_kma(arg->arg1);
+   if (fds == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_poll(vcpu, fds, arg->arg2, arg->arg3);
    return HC_CONTINUE;
 }
 
@@ -520,22 +631,42 @@ static km_hc_ret_t accept4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int accept4(int sockfd, struct sockaddr *addr,
    //             socklen_t *addrlen, int flags);
-   arg->hc_ret =
-       km_fs_accept4(vcpu, arg->arg1, km_gva_to_kma(arg->arg2), km_gva_to_kma(arg->arg3), arg->arg4);
+   // NULL is a legal value for addr and addrlen.
+   void* addr = km_gva_to_kma(arg->arg2);
+   void* addrlen = km_gva_to_kma(arg->arg3);
+   if (addr == NULL && arg->arg2 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (addrlen == NULL && arg->arg3 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_accept4(vcpu, arg->arg1, addr, addrlen, arg->arg4);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t recvfrom_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
-   //                  struct sockaddr *src_addr, socklen_t *addrlen);
-   arg->hc_ret = km_fs_recvfrom(vcpu,
-                                arg->arg1,
-                                km_gva_to_kma(arg->arg2),
-                                arg->arg3,
-                                arg->arg4,
-                                km_gva_to_kma(arg->arg5),
-                                km_gva_to_kma(arg->arg6));
+   //                  struct sockaddr *srcaddr, socklen_t *addrlen);
+   // srcaddr and addrlen are optional
+   void* buf = km_gva_to_kma(arg->arg2);
+   void* srcaddr = km_gva_to_kma(arg->arg5);
+   void* addrlen = km_gva_to_kma(arg->arg6);
+   if (buf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (srcaddr == NULL && arg->arg5 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (addrlen == NULL && arg->arg6 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_recvfrom(vcpu, arg->arg1, buf, arg->arg3, arg->arg4, srcaddr, addrlen);
    return HC_CONTINUE;
 }
 
@@ -670,7 +801,12 @@ static km_hc_ret_t tkill_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t rt_sigpending_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int rt_sigpending(sigset_t *set, size_t sigsetsize)
-   arg->hc_ret = km_rt_sigpending(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   void* sigset = km_gva_to_kma(arg->arg1);
+   if (sigset == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_rt_sigpending(vcpu, sigset, arg->arg2);
    return HC_CONTINUE;
 }
 
@@ -684,35 +820,51 @@ static km_hc_ret_t epoll1_create_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t epoll_ctl_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
-   arg->hc_ret = km_fs_epoll_ctl(vcpu, arg->arg1, arg->arg2, arg->arg3, km_gva_to_kma(arg->arg4));
+   // event can be NULL
+   void* event = km_gva_to_kma(arg->arg4);
+   if (event == NULL && arg->arg4 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_epoll_ctl(vcpu, arg->arg1, arg->arg2, arg->arg3, event);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t epoll_pwait_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int epoll_pwait(int epfd, struct epoll_event *events, int maxevents, int timeout, const
-   // sigset_t *sigmask);
-   arg->hc_ret = km_fs_epoll_pwait(vcpu,
-                                   arg->arg1,
-                                   km_gva_to_kma(arg->arg2),
-                                   arg->arg3,
-                                   arg->arg4,
-                                   km_gva_to_kma(arg->arg5),
-                                   arg->arg6);
+   // sigset_t *sigmask, size_t sigmasklen);
+   void* events = km_gva_to_kma(arg->arg2);
+   void* sigmask = km_gva_to_kma(arg->arg5);
+   if (events == NULL || (sigmask == NULL && arg->arg5 != 0)) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_epoll_pwait(vcpu, arg->arg1, events, arg->arg3, arg->arg4, sigmask, arg->arg6);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t pipe_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int pipe2(int pipefd[2], int flags);
-   arg->hc_ret = km_fs_pipe(vcpu, km_gva_to_kma(arg->arg1));
+   void* pipefd = km_gva_to_kma(arg->arg1);
+   if (pipefd == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_pipe(vcpu, pipefd);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t pipe2_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   void* pipefd = km_gva_to_kma(arg->arg1);
+   if (pipefd == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
    // int pipe2(int pipefd[2], int flags);
-   arg->hc_ret = km_fs_pipe2(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   arg->hc_ret = km_fs_pipe2(vcpu, pipefd, arg->arg2);
    return HC_CONTINUE;
 }
 
@@ -727,15 +879,29 @@ static km_hc_ret_t prlimit64_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int prlimit(pid_t pid, int resource, const struct rlimit *new_limit, struct rlimit
    // *old_limit);
-   arg->hc_ret =
-       km_fs_prlimit64(vcpu, arg->arg1, arg->arg2, km_gva_to_kma(arg->arg3), km_gva_to_kma(arg->arg4));
+   // newlimit and oldlimit are optional
+   void* newlimit = km_gva_to_kma(arg->arg3);
+   void* oldlimit = km_gva_to_kma(arg->arg4);
+   if (newlimit == NULL && arg->arg3 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (oldlimit == NULL && arg->arg4 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_prlimit64(vcpu, arg->arg1, arg->arg2, newlimit, oldlimit);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t unlink_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   // int prlimit(pid_t pid, int resource, const struct rlimit *new_limit, struct rlimit
-   // *old_limit);
+   // int unlink(char *pathname);
+   void* pathname = km_gva_to_kma(arg->arg1);
+   if (pathname == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
    arg->hc_ret = km_fs_unlink(vcpu, km_gva_to_kma(arg->arg1));
    return HC_CONTINUE;
 }

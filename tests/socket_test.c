@@ -34,9 +34,11 @@
 TEST test_socket_create()
 {
    int fd;
+   int rc;
    fd = socket(AF_UNIX, SOCK_STREAM, 0);
    ASSERT_NOT_EQ(-1, fd);
-   ASSERT_EQ(0, close(fd));
+   rc = close(fd);
+   ASSERT_EQ(0, rc);
 
    fd = socket(AF_INET, SOCK_STREAM, 0);
    ASSERT_NOT_EQ(-1, fd);
@@ -44,20 +46,29 @@ TEST test_socket_create()
 
    fd = socket(AF_INET, SOCK_DGRAM, 0);
    ASSERT_NOT_EQ(-1, fd);
-   ASSERT_EQ(0, close(fd));
+   rc = close(fd);
+   ASSERT_EQ(0, rc);
    PASS();
 }
 
 TEST test_sockopt()
 {
    int fd;
+   int rc;
    fd = socket(AF_UNIX, SOCK_STREAM, 0);
    ASSERT_NOT_EQ(-1, fd);
    int opt;
    socklen_t optlen = sizeof(opt);
-   ASSERT_EQ(0, getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &opt, &optlen));
-   // TODO: setsockopt
-   ASSERT_EQ(0, close(fd));
+   rc = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &opt, &optlen);
+   ASSERT_EQ(0, rc);
+   rc = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void*)-1, &optlen);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
+   rc = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &opt, (void*)-1);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
+   rc = close(fd);
+   ASSERT_EQ(0, rc);
 
    PASS();
 }
@@ -98,16 +109,19 @@ TEST test_tcp()
 {
    // Server socket
    int sfd;
+   int rc;
    sfd = socket(AF_INET, SOCK_STREAM, 0);
    ASSERT_NOT_EQ(-1, sfd);
    struct sockaddr_in saddr;
    saddr.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &saddr.sin_addr);
    saddr.sin_port = TEST_PORT;
-   ASSERT_EQ(0, bind(sfd, &saddr, sizeof(saddr)));
+   rc = bind(sfd, &saddr, sizeof(saddr));
+   ASSERT_EQ(0, rc);
 
    pthread_t thr;
-   ASSERT_EQ(0, pthread_create(&thr, NULL, tcp_server_main, &sfd));
+   rc = pthread_create(&thr, NULL, tcp_server_main, &sfd);
+   ASSERT_EQ(0, rc);
 
    // Client Socket. Connect then close.
    int cfd;
@@ -119,22 +133,27 @@ TEST test_tcp()
    caddr.sin_port = TEST_PORT;
    inet_pton(AF_INET, "127.0.0.1", &caddr.sin_addr);
 
-   sleep(2);
-   ASSERT_EQ(0, connect(cfd, &caddr, sizeof(caddr)));
+   sleep(1);
+   rc = connect(cfd, &caddr, sizeof(caddr));
+   ASSERT_EQ(0, rc);
 
    struct sockaddr_storage addr;
    socklen_t addrlen = sizeof(addr);
-   ASSERT_EQ(0, getpeername(cfd, (struct sockaddr*)&addr, &addrlen));
+   rc = getpeername(cfd, (struct sockaddr*)&addr, &addrlen);
+   ASSERT_EQ(0, rc);
 
-   ASSERT_EQ(0, close(cfd));
+   rc = close(cfd);
+   ASSERT_EQ(0, rc);
 
    // close of client should end thread
    void* rvalp = NULL;
-   ASSERT_EQ(0, pthread_join(thr, &rvalp));
+   rc = pthread_join(thr, &rvalp);
+   ASSERT_EQ(0, rc);
    ASSERT_NOT_EQ(NULL, rvalp);
    ASSERT_EQ(0, *(int*)rvalp);
 
-   ASSERT_EQ(0, close(sfd));
+   rc = close(sfd);
+   ASSERT_EQ(0, rc);
 
    PASS();
 }
@@ -144,6 +163,7 @@ TEST test_tcp()
 
 TEST test_udp()
 {
+   int rc;
    int epfd = epoll_create(0);
    ASSERT_NOT_EQ(-1, epfd);
 
@@ -154,7 +174,8 @@ TEST test_udp()
    addr1.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &addr1.sin_addr);
    addr1.sin_port = TEST_UDP_PORT1;
-   ASSERT_EQ(0, bind(fd1, &addr1, sizeof(addr1)));
+   rc = bind(fd1, &addr1, sizeof(addr1));
+   ASSERT_EQ(0, rc);
 
    int fd2;
    fd2 = socket(AF_INET, SOCK_DGRAM, 0);
@@ -163,17 +184,20 @@ TEST test_udp()
    addr2.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &addr2.sin_addr);
    addr2.sin_port = TEST_UDP_PORT2;
-   ASSERT_EQ(0, bind(fd2, &addr2, sizeof(addr2)));
+   rc = bind(fd2, &addr2, sizeof(addr2));
+   ASSERT_EQ(0, rc);
 
    struct epoll_event event = {.events = EPOLLIN | EPOLLERR, .data.fd = fd2};
-   ASSERT_EQ(0, epoll_ctl(epfd, EPOLL_CTL_ADD, fd2, &event));
+   rc = epoll_ctl(epfd, EPOLL_CTL_ADD, fd2, &event);
+   ASSERT_EQ(0, rc);
 
    char* msg = "Hello from KM";
    int sent = sendto(fd1, msg, strlen(msg) + 1, 0, &addr2, sizeof(addr2));
    ASSERT_EQ(strlen(msg) + 1, sent);
 
    struct epoll_event revents[5];
-   ASSERT_EQ(1, epoll_wait(epfd, revents, 5, -1));
+   rc = epoll_wait(epfd, revents, 5, -1);
+   ASSERT_EQ(1, rc);
 
    char buf[1024];
    struct sockaddr raddr;
@@ -182,9 +206,13 @@ TEST test_udp()
    ASSERT_EQ(sent, rcvd);
    ASSERT_EQ(0, strcmp(msg, buf));
 
-   ASSERT_EQ(0, close(fd1));
-   ASSERT_EQ(0, close(fd2));
-   ASSERT_EQ(0, close(epfd));
+   rc = close(fd1);
+   ASSERT_EQ(0, rc);
+   rc = close(fd2);
+   ASSERT_EQ(0, rc);
+   rc = close(epfd);
+   ASSERT_EQ(0, rc);
+
    PASS();
 }
 

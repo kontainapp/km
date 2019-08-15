@@ -504,12 +504,9 @@ function in_docker() {
 }
 
 @test "filepath: guest file path operations (filepathtest)" {
-   DIRNAME=/tmp/testdir.$$
-   mkdir ${DIRNAME}
-
+   DIRNAME=`mktemp -d`
    run km_with_timeout filepath_test.km ${DIRNAME}
    assert_success
-
    rm -rf /tmp/${DIRNAME}
 }
 

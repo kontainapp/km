@@ -37,80 +37,154 @@ char* dirpath = NULL;
  */
 TEST test_mkdir()
 {
+   int rc;
    char newpath[PATH_MAX];
    snprintf(newpath, PATH_MAX, "%s/mydir", dirpath);
-   ASSERT_EQ(0, mkdir(newpath, 0777));
+   rc = mkdir(newpath, 0777);
+   ASSERT_EQ(0, rc);
    struct stat st;
-   ASSERT_EQ(0, stat(newpath, &st));
+   rc = stat(newpath, &st);
+   ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFDIR, (st.st_mode & S_IFMT));
-   ASSERT_EQ(0, rmdir(newpath));
+   rc = rmdir(newpath);
+   ASSERT_EQ(0, rc);
+
+   rc = mkdir((char*)-1, 0777);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
+   rc = rmdir((char*)-1);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
    PASS();
 }
 
 TEST test_rename()
 {
+   int rc;
    char oldpath[PATH_MAX];
    snprintf(oldpath, PATH_MAX, "%s/mydir", dirpath);
-   ASSERT_EQ(0, mkdir(oldpath, 0777));
+   rc = mkdir(oldpath, 0777);
+   ASSERT_EQ(0, rc);
    struct stat st;
-   ASSERT_EQ(0, stat(oldpath, &st));
+   rc = stat(oldpath, &st);
+   ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFDIR, (st.st_mode & S_IFMT));
    char newpath[PATH_MAX];
    snprintf(newpath, PATH_MAX, "%s/mydir2", dirpath);
-   ASSERT_EQ(0, rename(oldpath, newpath));
-   ASSERT_EQ(-1, stat(oldpath, &st));
+   rc = rename(oldpath, newpath);
+   ASSERT_EQ(0, rc);
+   rc = stat(oldpath, &st);
+   ASSERT_EQ(-1, rc);
    ASSERT_EQ(ENOENT, errno);
-   ASSERT_EQ(0, stat(newpath, &st));
+   rc = stat(newpath, &st);
+   ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFDIR, (st.st_mode & S_IFMT));
-   ASSERT_EQ(0, rmdir(newpath));
+   rc = rmdir(newpath);
+   ASSERT_EQ(0, rc);
+
+   rc = rename((char*)-1, newpath);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
+   rc = rename(oldpath, (char*)-1);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
    PASS();
 }
 
 TEST test_symlink()
 {
+   int rc;
    char oldpath[PATH_MAX];
    snprintf(oldpath, PATH_MAX, "%s/mydir", dirpath);
-   ASSERT_EQ(0, mkdir(oldpath, 0777));
+   rc = mkdir(oldpath, 0777);
+   ASSERT_EQ(0, rc);
 
    char linkpath[PATH_MAX];
    snprintf(linkpath, PATH_MAX, "%s/mydir-link", dirpath);
-   ASSERT_EQ(0, symlink(oldpath, linkpath));
+   rc = symlink(oldpath, linkpath);
+   ASSERT_EQ(0, rc);
    struct stat st;
-   ASSERT_EQ(0, lstat(linkpath, &st));
+   rc = lstat(linkpath, &st);
+   ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFLNK, (st.st_mode & S_IFMT));
+
+   rc = symlink((char*)-1, linkpath);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
+   rc = symlink(oldpath, (char*)-1);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
 
    char linkval[PATH_MAX];
    memset(linkval, 0, PATH_MAX);
-   ASSERT_NOT_EQ(-1, readlink(linkpath, linkval, PATH_MAX));
-   ASSERT_EQ(0, strcmp(linkval, oldpath));
-   ASSERT_EQ(0, stat(linkpath, &st));
+   rc = readlink(linkpath, linkval, PATH_MAX);
+   ASSERT_NOT_EQ(-1, rc);
+   rc = strcmp(linkval, oldpath);
+   ASSERT_EQ(0, rc);
+   rc = stat(linkpath, &st);
+   ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFDIR, (st.st_mode & S_IFMT));
-   ASSERT_EQ(0, unlink(linkpath));
-   ASSERT_EQ(0, rmdir(oldpath));
+
+   rc = readlink((char*)-1, linkval, PATH_MAX);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
+   rc = readlink(linkpath, (char*)-1, PATH_MAX);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
+
+   rc = unlink(linkpath);
+   ASSERT_EQ(0, rc);
+   rc = rmdir(oldpath);
+   ASSERT_EQ(0, rc);
+
+   rc = unlink((char*)-1);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
 
    PASS();
 }
 
 TEST test_chdir()
 {
+   void* ptr;
+   int rc;
    char oldpath[PATH_MAX];
-   ASSERT_NOT_EQ(NULL, getcwd(oldpath, PATH_MAX));
-   ASSERT_EQ(0, chdir(dirpath));
+   ptr = getcwd(oldpath, PATH_MAX);
+   ASSERT_NOT_EQ(NULL, ptr);
+   rc = chdir(dirpath);
+   ASSERT_EQ(0, rc);
    char curpath[PATH_MAX];
-   ASSERT_NOT_EQ(NULL, getcwd(curpath, PATH_MAX));
-   ASSERT_EQ(0, strcmp(curpath, dirpath));
-   ASSERT_EQ(0, chdir(oldpath));
-   ASSERT_NOT_EQ(NULL, getcwd(curpath, PATH_MAX));
-   ASSERT_EQ(0, strcmp(curpath, oldpath));
+   ptr = getcwd(curpath, PATH_MAX);
+   ASSERT_NOT_EQ(NULL, ptr);
+   rc = strcmp(curpath, dirpath);
+   ASSERT_EQ(0, rc);
+   rc = chdir(oldpath);
+   ASSERT_EQ(0, rc);
+   ptr = getcwd(curpath, PATH_MAX);
+   ASSERT_NOT_EQ(NULL, ptr);
+   rc = strcmp(curpath, oldpath);
+   ASSERT_EQ(0, rc);
 
    int fd = open(dirpath, O_RDONLY);
    ASSERT_NOT_EQ(-1, fd);
-   ASSERT_EQ(0, fchdir(fd));
-   ASSERT_NOT_EQ(NULL, getcwd(curpath, PATH_MAX));
-   ASSERT_EQ(0, strcmp(curpath, dirpath));
-   ASSERT_EQ(0, chdir(oldpath));
-   ASSERT_NOT_EQ(NULL, getcwd(curpath, PATH_MAX));
-   ASSERT_EQ(0, strcmp(curpath, oldpath));
+   rc = fchdir(fd);
+   ASSERT_EQ(0, rc);
+   ptr = getcwd(curpath, PATH_MAX);
+   ASSERT_NOT_EQ(NULL, ptr);
+   rc = strcmp(curpath, dirpath);
+   ASSERT_EQ(0, rc);
+   rc = chdir(oldpath);
+   ASSERT_EQ(0, rc);
+   ptr = getcwd(curpath, PATH_MAX);
+   ASSERT_NOT_EQ(NULL, ptr);
+   rc = strcmp(curpath, oldpath);
+   ASSERT_EQ(0, rc);
+
+   ptr = getcwd((char*)-1, PATH_MAX);
+   ASSERT_EQ(NULL, ptr);
+   rc = chdir((char*)-1);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EFAULT, errno);
    PASS();
 }
 
@@ -127,11 +201,11 @@ int main(int argc, char** argv)
 {
    GREATEST_MAIN_BEGIN();
    cmdname = argv[0];
-   if (argc != 2) {
+   if (argc < 2) {
       usage();
       return 1;
    }
-   dirpath = argv[1];
+   dirpath = argv[argc - 1];
 
    struct stat st;
    if (stat(dirpath, &st) < 0) {
