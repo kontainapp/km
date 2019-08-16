@@ -552,6 +552,19 @@ km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optv
    return ret;
 }
 
+// ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
+// ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
+uint64_t
+km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr *msg, int flag)
+{
+   int host_sockfd;
+   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_3(scall, host_sockfd, (uintptr_t)msg, flag);
+   return ret;
+}
+
 // int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 // int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 uint64_t

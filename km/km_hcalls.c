@@ -201,6 +201,19 @@ static km_hc_ret_t setsockopt_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
+   // ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
+   void* msg = km_gva_to_kma(arg->arg2);
+   if (msg == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_sendrecvmsg(vcpu, hc, arg->arg1, msg, arg->arg3);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t ioctl_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int ioctl(int fd, unsigned long request, void *arg);
@@ -943,6 +956,8 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_socket] = socket_hcall;
    km_hcalls_table[SYS_getsockopt] = getsockopt_hcall;
    km_hcalls_table[SYS_setsockopt] = setsockopt_hcall;
+   km_hcalls_table[SYS_sendmsg] = sendrecvmsg_hcall;
+   km_hcalls_table[SYS_recvmsg] = sendrecvmsg_hcall;
    km_hcalls_table[SYS_ioctl] = ioctl_hcall;
    km_hcalls_table[SYS_fcntl] = fcntl_hcall;
    km_hcalls_table[SYS_stat] = stat_hcall;
@@ -1005,12 +1020,13 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getpid] = getpid_hcall;
    km_hcalls_table[SYS_getppid] = getppid_hcall;
    km_hcalls_table[SYS_gettid] = gettid_hcall;
+
+   km_hcalls_table[SYS_getrusage] = dummy_hcall;
    km_hcalls_table[SYS_geteuid] = dummy_hcall;
    km_hcalls_table[SYS_getuid] = dummy_hcall;
    km_hcalls_table[SYS_getegid] = dummy_hcall;
    km_hcalls_table[SYS_getgid] = dummy_hcall;
    km_hcalls_table[SYS_sched_yield] = dummy_hcall;
-
    km_hcalls_table[SYS_clock_getres] = dummy_hcall;
 
    km_hcalls_table[HC_pthread_create] = pthread_create_hcall;
