@@ -23,11 +23,13 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/eventfd.h>
+#include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 
 #include "syscall.h"
 
@@ -217,6 +219,10 @@ TEST test_dup()
    ASSERT_EQ(fd4, ret);
    rc = close(ret);
    ASSERT_EQ(0, rc);
+   ret = fcntl(fd1, F_DUPFD_CLOEXEC, fd3);
+   ASSERT_EQ(fd4, ret);
+   rc = close(ret);
+   ASSERT_EQ(0, rc);
 
    // dup will take lowest
    ret = dup(fd5);
@@ -281,6 +287,98 @@ TEST test_getrlimit_nofiles()
    PASS();
 }
 
+/*
+ * feeds system calls that take file descriptors a set of bad file descriptors
+ */
+int badfd[] = {-1, 1000000, 2000, 0};
+TEST test_bad_fd()
+{
+   int rc;
+
+   // close
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = close(badfd[i]);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // shutdown
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = shutdown(badfd[i], 0);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // ioctl
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = ioctl(badfd[i], 0, 0);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // fcntl
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = fcntl(badfd[i], 0, 0);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // lseek
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = lseek(badfd[i], 0, 0);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // fchdir
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = fchdir(badfd[i]);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // fstat
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct stat st;
+      rc = fstat(badfd[i], &st);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // dup
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = dup(badfd[i]);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // dup2
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = dup2(badfd[i], 0);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   rc = dup2(0, -1);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EBADF, errno);
+   // dup3
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = dup3(badfd[i], 0, 0);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   rc = dup3(0, -1, 0);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EBADF, errno);
+   // read
+   for (int i = 0; badfd[i] != 0; i++) {
+      char buf[128];
+      rc = read(badfd[i], buf, sizeof(buf));
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // readv
+   struct iovec iov = {.iov_base = (void*)-1, .iov_len = 1281};
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = readv(badfd[i], &iov, 1);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -299,6 +397,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_dup);
    RUN_TEST(test_eventfd);
    RUN_TEST(test_getrlimit_nofiles);
+   RUN_TEST(test_bad_fd);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)

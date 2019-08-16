@@ -206,7 +206,7 @@ static km_hc_ret_t ioctl_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    // int ioctl(int fd, unsigned long request, void *arg);
    // arg->hc_ret = __syscall_3(hc, arg->arg1, arg->arg2, km_gva_to_kml(arg->arg3));
    void* argp = km_gva_to_kma(arg->arg3);
-   if (argp == NULL) {
+   if (argp == NULL && arg->arg3 != 0) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }

@@ -216,6 +216,125 @@ TEST test_udp()
    PASS();
 }
 
+/*
+ * Test socket oriented syscalls with bad fd's.
+ */
+int badfd[] = {-1, 1000000, 2000, 0};
+TEST test_bad_fd()
+{
+   int rc;
+   // getsockopt
+   for (int i = 0; badfd[i] != 0; i++) {
+      int opt;
+      socklen_t optlen = sizeof(opt);
+      rc = getsockopt(badfd[i], 0, 0, &opt, &optlen);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // setsockopt
+   for (int i = 0; badfd[i] != 0; i++) {
+      int opt;
+      socklen_t optlen = sizeof(opt);
+      rc = setsockopt(badfd[i], 0, 0, &opt, optlen);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // getpeername
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct sockaddr addr;
+      socklen_t addrlen = sizeof(addr);
+      rc = getpeername(badfd[i], &addr, &addrlen);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // bind
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct sockaddr addr;
+      socklen_t addrlen = sizeof(addr);
+      rc = bind(badfd[i], &addr, addrlen);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // listen
+   for (int i = 0; badfd[i] != 0; i++) {
+      rc = listen(badfd[i], 10);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // accept
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct sockaddr addr;
+      socklen_t addrlen = sizeof(addr);
+      rc = accept(badfd[i], &addr, &addrlen);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // accept4
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct sockaddr addr;
+      socklen_t addrlen = sizeof(addr);
+      rc = accept4(badfd[i], &addr, &addrlen, O_CLOEXEC);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // accept4
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct sockaddr addr;
+      socklen_t addrlen = sizeof(addr);
+      rc = connect(badfd[i], &addr, addrlen);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // sendto
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct sockaddr addr;
+      socklen_t addrlen = sizeof(addr);
+      char buf[1024];
+      rc = sendto(badfd[i], buf, sizeof(buf), 0, &addr, addrlen);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // recvfrom
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct sockaddr addr;
+      socklen_t addrlen = sizeof(addr);
+      char buf[1024];
+      rc = recvfrom(badfd[i], buf, sizeof(buf), 0, &addr, &addrlen);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // poll
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct pollfd pfd;
+      pfd.fd = badfd[i];
+      pfd.events = POLLIN | POLLERR;
+      rc = poll(&pfd, 1, 0);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // epoll_ctl
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct epoll_event event;
+      rc = epoll_ctl(badfd[i], 0, 0, &event);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+      rc = epoll_ctl(0, 0, badfd[i], &event);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+      rc = epoll_ctl(badfd[i], 0, badfd[i], &event);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   // epoll_wait
+   for (int i = 0; badfd[i] != 0; i++) {
+      struct epoll_event revent;
+      rc = epoll_wait(badfd[i], &revent, 1, -1);
+      ASSERT_EQ(-1, rc);
+      ASSERT_EQ(EBADF, errno);
+   }
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -228,6 +347,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_sockopt);
    RUN_TEST(test_udp);
    RUN_TEST(test_tcp);
+   RUN_TEST(test_bad_fd);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)

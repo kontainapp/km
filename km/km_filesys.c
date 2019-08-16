@@ -265,11 +265,6 @@ km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, si
    if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
       return -EBADF;
    }
-   struct iovec iov[iovcnt];
-
-   if (guest_iov == NULL) {
-      return -EFAULT;
-   }
 
    // ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
    // ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
@@ -278,6 +273,7 @@ km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, si
    //
    // need to convert not only the address of iov,
    // but also pointers to individual buffers in it
+   struct iovec iov[iovcnt];
    for (int i = 0; i < iovcnt; i++) {
       iov[i].iov_base = km_gva_to_kma((long)guest_iov[i].iov_base);
       iov[i].iov_len = guest_iov[i].iov_len;
@@ -308,7 +304,7 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
    if (cmd == F_SETLK || cmd == F_SETLKW || cmd == F_GETLK) {
       farg = (uint64_t)km_gva_to_kma(arg);
    } else if (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) {
-      // Let kernel pick destination. Satisfiy the fd number request for guest below.
+      // Let kernel pick hostfd destination. Satisfy the fd number request for guest below.
       farg = 0;
    }
    int ret = __syscall_3(SYS_fcntl, host_fd, cmd, farg);
@@ -467,6 +463,9 @@ uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
 {
    int host_fd;
    if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+      return -EBADF;
+   }
+   if (newfd < 0 || newfd >= machine.filesys.nfdmap) {
       return -EBADF;
    }
    int host_newfd;
@@ -748,9 +747,7 @@ uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeou
 {
    struct pollfd host_fds[nfds];
 
-   if (fds == NULL) {
-      return -EINVAL;
-   }
+   // fds checked before this is called.
    for (int i = 0; i < nfds; i++) {
       if ((host_fds[i].fd = check_guest_fd(vcpu, fds[i].fd)) < 0) {
          return -EBADF;
