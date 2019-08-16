@@ -7,8 +7,7 @@ if [[ $cmd == *g++ ]] ; then REALGCC=g++ ; else REALGCC=gcc; fi
 if [ $# -eq 0 ] ; then exec "${REALGCC}" ; fi
 
 KM_TOP=`realpath $dir/../../km`
-# note: some tools (e.g. busybox) have 'main' defined in .a file, thus we force linking it in with -u=main
 exec "${REALGCC}" \
    -static -no-pie -specs=${KM_TOP}/gcc-km.spec \
     "$@" \
-   -L/usr/lib64 -lz -L ${KM_TOP}/build/runtime
+   -L ${KM_TOP}/build/runtime

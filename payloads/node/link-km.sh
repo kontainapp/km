@@ -3,12 +3,12 @@
 set -x
 
 KM=../..
+PATH=${KM}/tools:$PATH
 
 link_node() {
    NODE=node/out/$1
-   g++ -o $NODE/node.km \
-   -static -no-pie -ggdb \
-   -specs=$KM/gcc-km.spec -z undefs -L $KM/build/runtime \
+   kontain-g++ -o $NODE/node.km \
+   -ggdb -z undefs \
    -Wl,--start-group \
       $NODE/obj.target/node/src/node_main.o \
       $NODE/obj.target/node/src/node_snapshot_stub.o \
