@@ -3,7 +3,7 @@
 #
 cmd=`basename ${BASH_SOURCE[0]}`
 dir=`dirname ${BASH_SOURCE[0]}`
-KM_TOP=$(git rev-parse --show-toplevel)
+KM_TOP=`realpath $dir/..`
 if [[ $cmd == *g++ ]] ; then REALGCC=g++ ; else REALGCC=gcc; fi
 if [ $# -eq 0 ] ; then exec "${REALGCC}" ; fi
 

@@ -11,7 +11,7 @@
 # Makefile for building and packing Node.js payload runtime for KM
 
 TOP := $(shell git rev-parse --show-cdup)
-BUILD ?= Debug
+BUILD ?= Release
 
 # KM monitor path
 KM_BIN=${TOP}/build/km/km
@@ -28,14 +28,14 @@ PAYLOAD_FILES := --exclude='*/test/*' scripts $(PAYLOAD_KM)
 all: $(PAYLOAD_KM)
 
 $(PAYLOAD_KM): *sh *patch
-	./build.sh
+	./build.sh ${BUILD}
 
 # force the build
 build:
-	./build.sh
+	./build.sh ${BUILD}
 
 link:
-	./link-km.sh
+	./link-km.sh ${BUILD}
 
 # TODO: we need to modify and use 'make -j4 test' in Node, per 'pull-requests.md'
 test-all:
@@ -44,5 +44,6 @@ test-all:
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js ; [ $$? -eq 22 ]
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/micro-srv.js & sleep 0.5 ; curl localhost:8080
 	-curl -X POST localhost:8080 # force the srv to exit and ignore curl 'empty reply'
+	${KM_BIN} node/out/${BUILD}/cctest.km --gtest_filter="*"
 
 include ${TOP}make/distro.mk
