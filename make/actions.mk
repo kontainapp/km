@@ -168,12 +168,10 @@ DIMG := $(REGISTRY)/$(DIMG)
 TIMG := $(REGISTRY)/$(TIMG)
 endif
 
-
 # dockerized tests
 TLOC := ${TOP}tests
 TIMG := test-bats
 TFILE := Dockerfile
-
 
 # Support for 'make withdocker'
 #
@@ -196,11 +194,17 @@ endif
 UID := $(shell id -u)
 GID := $(shell id -g)
 
-
-.PHONY: mk-image
+.PHONY: mk-image update-build-image
 mk-image: ## build fedora image
 	docker build --build-arg=USER=$(USER)  --build-arg=UID=$(UID) --build-arg=GID=$(GID) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
 
+# This target assumes we are building for kontainkubecr registry.
+update-build-image:
+	az acr login -n kontainkubecr
+	docker build --build-arg=USER=appuser  \
+         --build-arg=UID=1001 --build-arg=GID=117 \
+         -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
+	docker push ${DIMG}
 
 # Default is to tag test-bats image with uid.
 # Allows for Azure CI to set tag with build id.

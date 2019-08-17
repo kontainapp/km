@@ -1,7 +1,3 @@
-#
-# Dockerfile for tests.
-# Usage will be 'docker run -it --rm --env BRANCH=$(git rev-parse --abbrev-ref HEAD) --device=/dev/kvm --user 0 test-bats km_cdocker run <container> make TARGET=<target> - see ../../Makefile
-#
 # Copyright © 2019 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
@@ -11,6 +7,10 @@
 #   such source code. Disclosure of this source code or any related proprietary
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
+#
+# Dockerfile for tests.
+# Usage will be 'docker run -it --rm --env BRANCH=$(git rev-parse --abbrev-ref HEAD) --device=/dev/kvm --user 0 test-bats km_cdocker run <container> make TARGET=<target> - see ../../Makefile
+#
 
 FROM km-buildenv-fedora:latest
 

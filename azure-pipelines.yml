@@ -1,6 +1,5 @@
 trigger:
-- master
-
+- jme/tests
 pr:
 - master
 
@@ -30,6 +29,7 @@ steps:
 - bash: echo "##vso[task.setvariable variable=git_rev]$(git rev-parse --short HEAD)"
 
 - script: |
+    set -e
     docker pull $(registry)/km-buildenv-fedora
     docker tag $(registry)/km-buildenv-fedora  km-buildenv-fedora
     make withdocker DTYPE=fedora
@@ -40,6 +40,7 @@ steps:
   displayName: make withdocker
 
 - script: |
+    set -e
     cp -v build/km/km tests/
     make mk-bats TAG=$(Build.BuildId)
     docker tag test-bats:$(Build.BuildId)  $(registry)/test-bats:$(Build.BuildId)
@@ -66,7 +67,7 @@ steps:
     kubernetesCluster: $(kubernetesCluster)
     kubernetesServiceEndpoint: $(k8sSC)
     command: wait
-    arguments: --timeout 200s --for=condition=complete job/bats-$(Build.BuildId)
+    arguments: --timeout 240s --for=condition=complete job/bats-$(Build.BuildId)
 
 - task: Kubernetes@1
   condition: always()

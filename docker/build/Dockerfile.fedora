@@ -1,7 +1,3 @@
-#
-# Dockerfile for builds.
-# Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
-#
 # Copyright © 2019 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
@@ -11,6 +7,9 @@
 #   such source code. Disclosure of this source code or any related proprietary
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
+#
+# Dockerfile for builds.
+# Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
 
 FROM fedora
 
