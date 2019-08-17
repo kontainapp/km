@@ -132,8 +132,7 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
    km_mmap_reg_t* left = TAILQ_PREV(reg, km_mmap_list, link);
    km_mmap_reg_t* right = TAILQ_NEXT(reg, link);
 
-   assert(reg != left);
-   assert(reg != right);
+   assert(reg != left && reg != right);   // out of paranoia, check for cycles
    km_infox(KM_TRACE_MMAP, "Concat check %p %p %p", left, reg, right);
    if (left != NULL && ok_to_concat(left, reg) == 1) {
       reg->start = left->start;
@@ -323,9 +322,9 @@ typedef void (*km_mmap_action)(km_mmap_reg_t*);
  */
 static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int prot)
 {
-   km_mmap_reg_t* reg;
+   km_mmap_reg_t *reg, *next;
 
-   TAILQ_FOREACH (reg, &machine.mmaps.busy, link) {
+   TAILQ_FOREACH_SAFE (reg, &machine.mmaps.busy, link, next) {
       km_mmap_reg_t* extra;
 
       if (reg->start + reg->size <= addr) {
@@ -343,7 +342,8 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
          extra->start = addr;             // right part, to insert in busy
          extra->size -= reg->size;
          assert(reg != extra);
-         km_mmap_insert_busy_after(reg, extra);   // next action need to process 'extra', not 'reg'
+         km_mmap_insert_busy_after(reg, extra);
+         next = extra;   // next action need to process 'extra'
          continue;
       }
       if (reg->start + reg->size > addr + size) {   // overlaps on the end
@@ -356,6 +356,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
          extra->size -= reg->size;
          assert(reg != extra);
          km_mmap_insert_busy_after(reg, extra);   // fall through to process 'reg'
+         next = extra;                            // after that, need to process 'extra'
       }
       assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range
       reg->protection = prot;

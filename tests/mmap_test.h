@@ -30,6 +30,7 @@ typedef enum {
 } call_type_t;
 
 typedef struct mmap_test {
+   int line;           // line # in the src file
    char* info;         // string to help identify the test. NULL indicates the end of table
    call_type_t type;   // Operation type
    uint64_t offset;    // for mmap - address. For others - offset from the last mmap result

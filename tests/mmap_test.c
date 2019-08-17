@@ -61,43 +61,43 @@ void signal_handler(int signal)
 // tests that should pass on 36 bits buses (where we give 2GB space)
 static mmap_test_t _36_tests[] = {
     // Dive into the bottom 1GB on 4GB:
-    {"Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags},
-    {"Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
-    {"Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags},
-    {"Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
-    {"Basic-mmap2", TYPE_MMAP, 0, 1020 * MIB, PROT_READ | PROT_WRITE, flags},
-    {"Basic-munmap2", TYPE_MUNMAP, 0, 1020 * MIB, 0, 0},
-    {"Swiss cheese-mmap", TYPE_MMAP, 0, 760 * MIB, PROT_READ | PROT_WRITE, flags},
-    {"Swiss cheese-munmap1", TYPE_MUNMAP, 500 * MIB, 260 * MIB, 0, 0},
-    {"Swiss cheese-unaligned-munmap2", TYPE_MUNMAP, 0, 300 * MIB - 256, 0, 0},
-    {"Swiss cheese-munmap3", TYPE_MUNMAP, 300 * MIB, 200 * MIB, 0, 0},
+    {__LINE__, "Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
+    {__LINE__, "Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
+    {__LINE__, "Basic-mmap2", TYPE_MMAP, 0, 1020 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Basic-munmap2", TYPE_MUNMAP, 0, 1020 * MIB, 0, 0},
+    {__LINE__, "Swiss cheese-mmap", TYPE_MMAP, 0, 760 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Swiss cheese-munmap1", TYPE_MUNMAP, 500 * MIB, 260 * MIB, 0, 0},
+    {__LINE__, "Swiss cheese-unaligned-munmap2", TYPE_MUNMAP, 0, 300 * MIB - 256, 0, 0},
+    {__LINE__, "Swiss cheese-munmap3", TYPE_MUNMAP, 300 * MIB, 200 * MIB, 0, 0},
 
-    {"simple map to set addr fopr test", TYPE_MMAP, 0, 1 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "simple map to set addr fopr test", TYPE_MMAP, 0, 1 * MIB, PROT_READ | PROT_WRITE, flags},
     // we ignore addr but it's legit to send it
-    {"Wrong-args-mmap-addr", TYPE_MMAP, 400 * MIB, 8 * MIB, PROT_READ | PROT_WRITE, flags},
-    {"Wrong-args-mmap-fixed", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags | MAP_FIXED, EINVAL},
-    {"Wrong-args-munmap", TYPE_MUNMAP, 300 * MIB + 20, 1 * MIB, 0, 0, EINVAL},
-    {"simple unmap to clean up ", TYPE_MUNMAP, 0, 1 * MIB, 0, 0},
+    {__LINE__, "Wrong-args-mmap-addr", TYPE_MMAP, 400 * MIB, 8 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Wrong-args-mmap-fixed", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags | MAP_FIXED, EINVAL},
+    {__LINE__, "Wrong-args-munmap", TYPE_MUNMAP, 300 * MIB + 20, 1 * MIB, 0, 0, EINVAL},
+    {__LINE__, "simple unmap to clean up ", TYPE_MUNMAP, 0, 1 * MIB, 0, 0},
 
     // it's legal to munmap non-mapped areas:
-    {"huge-munmap", TYPE_MUNMAP, 300 * MIB, 1 * MIB, 0, 0, 0},
-    {"dup-munmap", TYPE_MUNMAP, 300 * MIB, 8 * MIB, 0, 0, 0},
-    {NULL},
+    {__LINE__, "huge-munmap", TYPE_MUNMAP, 300 * MIB, 1 * MIB, 0, 0, 0},
+    {__LINE__, "dup-munmap", TYPE_MUNMAP, 300 * MIB, 8 * MIB, 0, 0, 0},
+    {0, NULL},
 };
 
 // these tests will fail on 36 bit buses but should pass on larger address space
 static mmap_test_t _39_tests[] = {
-    {"Large-mmap2gb", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, flags},
-    {"Large-munmap2gb", TYPE_MUNMAP, 0, 2 * GIB + 12 * MIB, 0, 0},
-    {"Large-mmap1", TYPE_MMAP, 0, 1022 * MIB, PROT_READ | PROT_WRITE, flags},
-    {"Large-munmap1", TYPE_MUNMAP, 0, 1022 * MIB, 0, 0},
-    {"Large-mmap2", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, flags},
-    {"Large-munmap2", TYPE_MUNMAP, 0, 2 * GIB + 12 * MIB, 0, 0},
-    {"Large-mmap2.1020", TYPE_MMAP, 0, 1 * GIB + 1020 * MIB, PROT_READ | PROT_WRITE, flags},
-    {"Large-munmap2.1020", TYPE_MUNMAP, 0, 1 * GIB + 1020 * MIB, 0, 0},
-    {"Large-mmap3GB", TYPE_MMAP, 0, 3 * GIB, PROT_READ | PROT_WRITE, flags},
-    {"Large-unmmap3GB", TYPE_MUNMAP, 0, 3 * GIB, 0, 0},
-    {NULL},
+    {__LINE__, "Large-mmap2gb", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Large-munmap2gb", TYPE_MUNMAP, 0, 2 * GIB + 12 * MIB, 0, 0},
+    {__LINE__, "Large-mmap1", TYPE_MMAP, 0, 1022 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Large-munmap1", TYPE_MUNMAP, 0, 1022 * MIB, 0, 0},
+    {__LINE__, "Large-mmap2", TYPE_MMAP, 0, 2 * GIB + 12 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Large-munmap2", TYPE_MUNMAP, 0, 2 * GIB + 12 * MIB, 0, 0},
+    {__LINE__, "Large-mmap2.1020", TYPE_MMAP, 0, 1 * GIB + 1020 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Large-munmap2.1020", TYPE_MUNMAP, 0, 1 * GIB + 1020 * MIB, 0, 0},
+    {__LINE__, "Large-mmap3GB", TYPE_MMAP, 0, 3 * GIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Large-unmmap3GB", TYPE_MUNMAP, 0, 3 * GIB, 0, 0},
+    {0, NULL},
 };
 // used for multiple invocations of mmap_test
 static mmap_test_t* tests;
@@ -203,9 +203,10 @@ TEST mmap_test(void)
             signal(t->expected, signal_handler);
             if ((ret = setjmp(jbuf)) == 0) {
                memset(last_addr + t->offset, (char)t->prot, t->size);
-               printf("Write to %p (sz 0x%lx) was successful and should be not\n",
+               printf("Write to %p (sz 0x%lx) was successful and should be not (line %d)\n",
                       last_addr + t->offset,
-                      t->size);
+                      t->size,
+                      t->line);
                FAIL();
             } else {
                assert(ret == SIGSEGV);   // we use that value in longjmp
@@ -358,46 +359,62 @@ TEST mremap_test()
 {
    static const int prot = (PROT_READ | PROT_WRITE);
    static mmap_test_t mremap_tests[] = {
-       {"1 mmap", TYPE_MMAP, 0, 10 * MIB, prot, flags, OK},
+       {__LINE__, "1 mmap", TYPE_MMAP, 0, 10 * MIB, prot, flags, OK},
 
-       {"1f1 mremap param - FIXED flag", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, MREMAP_FIXED, EINVAL},
-       {"1f2 mremap param - new_size 0", TYPE_MREMAP, 0, 1 * MIB, 0 * MIB, MREMAP_MAYMOVE, EINVAL},
-       {"1f3 mremap param - size 0", TYPE_MREMAP, 0, 0 * MIB, 1 * MIB, MREMAP_MAYMOVE, EINVAL},
-       {"1f4 mremap param - unaligned", TYPE_MREMAP, 1, 2 * MIB, 1 * MIB, MREMAP_MAYMOVE, EINVAL},
-       {"1f5 mremap param - wrong flags", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, 0x44, EINVAL},
+       {__LINE__, "1f1 mremap param - FIXED flag", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, MREMAP_FIXED, EINVAL},
+       {__LINE__, "1f2 mremap param - new_size 0", TYPE_MREMAP, 0, 1 * MIB, 0 * MIB, MREMAP_MAYMOVE, EINVAL},
+       {__LINE__, "1f3 mremap param - size 0", TYPE_MREMAP, 0, 0 * MIB, 1 * MIB, MREMAP_MAYMOVE, EINVAL},
+       {__LINE__, "1f4 mremap param - unaligned", TYPE_MREMAP, 1, 2 * MIB, 1 * MIB, MREMAP_MAYMOVE, EINVAL},
+       {__LINE__, "1f5 mremap param - wrong flags", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, 0x44, EINVAL},
 
-       {"1 mremap shrink makes 1mb hole", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, MREMAP_MAYMOVE, OK},
-       {"1 mmap refill the hole", TYPE_MMAP, 1 * MIB, 1 * MIB, prot, flags, OK},
-       {"1 cleanup (unmap)", TYPE_MUNMAP, 0, 10 * MIB, PROT_NONE, flags, OK},
+       {__LINE__, "1 mremap shrink makes 1mb hole", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, MREMAP_MAYMOVE, OK},
+       {__LINE__, "1 mmap refill the hole", TYPE_MMAP, 1 * MIB, 1 * MIB, prot, flags, OK},
+       {__LINE__, "1 cleanup (unmap)", TYPE_MUNMAP, 0, 10 * MIB, PROT_NONE, flags, OK},
 
        // grow should move ptr; old area should be unaccessible.
-       {"2 mmap", TYPE_MMAP, 0, 2 * MIB, prot, flags, OK},
-       {"2 write", TYPE_WRITE, 0, 1 * KM_PAGE_SIZE, '2', 0, OK},
-       {"2 mremap grow", TYPE_MREMAP, 0, 2 * MIB, 3 * MIB, MREMAP_MAYMOVE, OK},
-       {"2 write old should SIGSEGV", TYPE_WRITE, 0, 1 * KM_PAGE_SIZE, '?', 0, SIGSEGV},   // old area gone
-       {"2 switch last_addr to mremap", TYPE_USE_MREMAP_ADDR},
-       {"2 read new", TYPE_READ, 0, 1 * KM_PAGE_SIZE, '2', 0, OK},
-       {"2 write new tail", TYPE_WRITE, 03 * MIB - 1 * KM_PAGE_SIZE, 1 * KM_PAGE_SIZE, '?', 0, OK},
+       {__LINE__, "2 mmap", TYPE_MMAP, 0, 2 * MIB, prot, flags, OK},
+       {__LINE__, "2 write", TYPE_WRITE, 0, 1 * KM_PAGE_SIZE, '2', 0, OK},
+       {__LINE__, "2 mremap grow", TYPE_MREMAP, 0, 2 * MIB, 3 * MIB, MREMAP_MAYMOVE, OK},
+       {__LINE__, "2 write old should SIGSEGV", TYPE_WRITE, 0, 1 * KM_PAGE_SIZE, '?', 0, SIGSEGV},   // old area gone
+       {__LINE__, "2 switch last_addr to mremap", TYPE_USE_MREMAP_ADDR},
+       {__LINE__, "2 read new", TYPE_READ, 0, 1 * KM_PAGE_SIZE, '2', 0, OK},
+       {__LINE__, "2 write new tail", TYPE_WRITE, 03 * MIB - 1 * KM_PAGE_SIZE, 1 * KM_PAGE_SIZE, '?', 0, OK},
 
-       {"2 cleanup (unmap)", TYPE_MUNMAP, 0, 3 * MIB, PROT_NONE, flags, OK},
+       {__LINE__, "2 cleanup (unmap)", TYPE_MUNMAP, 0, 3 * MIB, PROT_NONE, flags, OK},
 
        // TBD
-       //  {"3 mremap grow into free", TYPE_MREMAP, 0, 10 * MIB, 12 * MIB, MREMAP_MAYMOVE, OK},
-       {"3 mmap", TYPE_MMAP, 0, 10 * MIB, prot, flags, OK},
-       {"3 munmap make a hole", TYPE_MUNMAP, 2 * MIB, 1 * MIB, PROT_NONE, flags, OK},
-       {"3 mremap grow", TYPE_MREMAP, 1 * MIB, 1 * MIB, 2 * MIB - 2 * KM_PAGE_SIZE, MREMAP_MAYMOVE, OK},
-       {"3 write to remapped", TYPE_WRITE, 2 * MIB + 2 * KM_PAGE_SIZE, 1 * KM_PAGE_SIZE, '2', 0, OK},
-       {"3 write to free should SIGSEGV", TYPE_WRITE, 3 * MIB - 1 * KM_PAGE_SIZE, 1 * KM_PAGE_SIZE, '?', 0, SIGSEGV},
-       {"3 mremap grow - plug the hole", TYPE_MREMAP, 1 * MIB, 1 * MIB, 2 * MIB, MREMAP_MAYMOVE, OK},
-       {"3 write last page should succeed", TYPE_WRITE, 3 * MIB - 1 * KM_PAGE_SIZE, 1 * KM_PAGE_SIZE, '?', 0, OK},
+       //  {__LINE__, "3 mremap grow into free", TYPE_MREMAP, 0, 10 * MIB, 12 * MIB, MREMAP_MAYMOVE, OK},
+       {__LINE__, "3 mmap", TYPE_MMAP, 0, 10 * MIB, prot, flags, OK},
+       {__LINE__, "3 munmap make a hole", TYPE_MUNMAP, 2 * MIB, 1 * MIB, PROT_NONE, flags, OK},
+       {__LINE__, "3 mremap grow", TYPE_MREMAP, 1 * MIB, 1 * MIB, 2 * MIB - 2 * KM_PAGE_SIZE, MREMAP_MAYMOVE, OK},
+       {__LINE__, "3 write to remapped", TYPE_WRITE, 2 * MIB + 2 * KM_PAGE_SIZE, 1 * KM_PAGE_SIZE, '2', 0, OK},
+       {__LINE__,
+        "3 write to free should SIGSEGV",
+        TYPE_WRITE,
+        3 * MIB - 1 * KM_PAGE_SIZE,
+        1 * KM_PAGE_SIZE,
+        '?',
+        0,
+        SIGSEGV},
+       {__LINE__, "3 mremap grow - plug the hole", TYPE_MREMAP, 1 * MIB, 1 * MIB, 2 * MIB, MREMAP_MAYMOVE, OK},
+       {__LINE__,
+        "3 write last page should succeed",
+        TYPE_WRITE,
+        3 * MIB - 1 * KM_PAGE_SIZE,
+        1 * KM_PAGE_SIZE,
+        '?',
+        0,
+        OK},
 
-       {"3 cleanup (unmap)", TYPE_MUNMAP, 0, 10 * MIB, PROT_NONE, flags, OK},
+       {__LINE__, "3 cleanup (unmap)", TYPE_MUNMAP, 0, 10 * MIB, PROT_NONE, flags, OK},
 
        // TBD - failure to remap over different mmaps
-       //  {"4. mprotect PROT_READ", TYPE_MPROTECT, 8 * MIB, 10 * MIB, PROT_READ, flags, OK},
-       //  {"4f mremap grow over protected", TYPE_MREMAP, 0, 10 * MIB, 12 * MIB, MREMAP_MAYMOVE, EFAULT},
+       //  {__LINE__, "4. mprotect PROT_READ", TYPE_MPROTECT, 8 * MIB, 10 * MIB, PROT_READ, flags,
+       //  OK},
+       //  {__LINE__, "4f mremap grow over protected", TYPE_MREMAP, 0, 10 * MIB, 12 * MIB,
+       //  MREMAP_MAYMOVE, EFAULT},
 
-       {NULL},
+       {0, NULL},
    };
 
    printf("===== mremap: Testing mremap() functionality\n");
