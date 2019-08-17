@@ -243,7 +243,7 @@ TEST complex_test()
 // helper to test glue
 TEST concat_test()
 {
-   PASS();   // it is now noop since we turned off mmap and mprotect concat
+   SKIPm("Concat is not needed for busy maps");
    static mmap_test_t mprotect_tests[] = {
        {"1. mmap", TYPE_MMAP, 0, 1 * MIB, PROT_NONE, flags, OK},
        {"2. mmap", TYPE_MMAP, 0, 2 * MIB, PROT_NONE, flags, OK},

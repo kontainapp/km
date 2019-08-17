@@ -318,8 +318,7 @@ typedef void (*km_mmap_action)(km_mmap_reg_t*);
  *
  * Returns 0 on success or -errno
  */
-static int
-km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int prot, int needs_lock)
+static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int prot)
 {
    km_mmap_reg_t* reg;
 
@@ -334,7 +333,6 @@ km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int 
       }
       if (reg->start < addr) {   // overlaps on the start
          if ((extra = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-            mmaps_unlock(needs_lock);
             return -ENOMEM;
          }
          *extra = *reg;
@@ -346,7 +344,6 @@ km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int 
       }
       if (reg->start + reg->size > addr + size) {   // overlaps on the end
          if ((extra = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-            mmaps_unlock(needs_lock);
             return -ENOMEM;
          }
          *extra = *reg;
@@ -380,7 +377,7 @@ static int km_guest_munmap_lockable(km_gva_t addr, size_t size, int needs_lock)
       return ret;
    }
    mmaps_lock(needs_lock);
-   ret = km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE, needs_lock);
+   ret = km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
    mmaps_unlock(needs_lock);
    km_info(KM_TRACE_MMAP, "== munmap ret=%d", ret);
    return ret;
@@ -447,7 +444,7 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
       mmaps_unlock(needs_lock);
       return -ENOMEM;
    }
-   if (km_mmap_busy_range_apply(addr, size, km_mmap_mprotect_region, prot, needs_lock) != 0) {
+   if (km_mmap_busy_range_apply(addr, size, km_mmap_mprotect_region, prot) != 0) {
       mmaps_unlock(needs_lock);
       return -ENOMEM;
    }
