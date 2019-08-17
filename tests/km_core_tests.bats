@@ -32,8 +32,12 @@ if [ -z "$TIME_INFO" ] ; then
    exit 10
 fi
 
+if [ -z "$BRANCH" ] ; then
+   BRANCH=$(git rev-parse --abbrev-ref HEAD)
+fi
+
 # we will kill any test if takes longer
-timeout=60s
+timeout=150
 
 # this is how we invoke KM - with a timeout and reporting run time
 function km_with_timeout () {
@@ -62,6 +66,11 @@ bus_width() {
 # only shows up on errors. For print on success too, redirect to >&3
 teardown() {
       echo -e "\nkm output:\n${output}"
+}
+
+# Check if running in docker.
+function in_docker() {
+  cat /proc/1/cgroup | grep -q docker
 }
 
 # Now the actual tests.
@@ -114,7 +123,7 @@ teardown() {
    # -v flag prints version and branch
    run km_with_timeout -v hello_test.km
    assert_success
-   branch=$(git rev-parse --abbrev-ref  HEAD)
+   branch=$BRANCH
    assert_line --partial "$branch"
 
    run km_with_timeout -Vkvm hello_test.km # -V<regex> turns on tracing for a subsystem. Check it for -Vkvm

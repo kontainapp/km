@@ -159,9 +159,19 @@ endif # (${SUBDIRS},)
 #
 # use Dockerfile-fedora, Dockerfile-ubuntu, etc... to get different flavors
 DTYPE ?= fedora
+USER ?= appuser
 DLOC := ${TOP}docker/build
 DIMG := km-buildenv-${DTYPE}
 DFILE := Dockerfile.$(DTYPE)
+ifdef REGISTRY
+DIMG := $(REGISTRY)/$(DIMG)
+TIMG := $(REGISTRY)/$(TIMG)
+endif
+
+# dockerized tests
+TLOC := ${TOP}tests
+TIMG := test-bats
+TFILE := Dockerfile
 
 # Support for 'make withdocker'
 #
@@ -180,8 +190,33 @@ __testing := $(strip $(findstring test,$(TARGET)) $(findstring coverage,$(TARGET
 ifneq ($(__testing),)  # only add --device=/dev/kvm is we are testing
  DEVICE_KVM := --device=/dev/kvm
 endif
-withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
-	docker build --build-arg=UID=$(shell id -u) --build-arg=GID=$(shell id -g) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
+
+UID := $(shell id -u)
+GID := $(shell id -g)
+
+.PHONY: mk-image update-build-image
+mk-image: ## build fedora image
+	docker build --build-arg=USER=$(USER)  --build-arg=UID=$(UID) --build-arg=GID=$(GID) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
+
+# This target assumes we are building for kontainkubecr registry.
+update-build-image:
+	az acr login -n kontainkubecr
+	docker build --build-arg=USER=appuser  \
+         --build-arg=UID=1001 --build-arg=GID=117 \
+         -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
+	docker push ${DIMG}
+
+# Default is to tag test-bats image with uid.
+# Allows for Azure CI to set tag with build id.
+TAG ?= ${USER}
+.PHONY: mk-bats
+mk-bats: ## build bats image with tests
+	cp ./build/km/km ./tests/km
+	docker build -t ${TIMG}:${TAG}  ${TLOC} -f ${TLOC}/${TFILE}
+
+
+withdocker:
+	## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	docker run $(DEVICE_KVM) --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 
 #
@@ -202,7 +237,7 @@ VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS \
 	KM_BLDDIR KM_BIN\
 	CFLAGS BLDEXEC BLDLIB  COPTS \
 	COVERAGE COVERAGE_REPORT SRC_BRANCH IMAGE_VERSION \
-	CLOUD REGISTRY
+	CLOUD REGISTRY DIMG USER UID GID TAG
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values

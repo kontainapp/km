@@ -1,7 +1,3 @@
-#
-# Dockerfile for builds.
-# Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
-#
 # Copyright © 2019 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
@@ -11,13 +7,18 @@
 #   such source code. Disclosure of this source code or any related proprietary
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
+#
+# Dockerfile for builds.
+# Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
 
 FROM alpine
 
 LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 
-ARG UID
-ARG GID
+# uid=1001(vsts) gid=117(docker) groups=117(docker)
+ARG USER=appuser
+ARG UID=1001
+ARG GID=117
 
 RUN apk add --no-cache \
    build-base  elfutils-libelf zlib-dev gdb git gcovr bash \

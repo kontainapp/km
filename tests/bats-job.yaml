@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bats-BUILD_ID
+  labels:
+    app: bats-BUILD_ID
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsUser: 0
+      containers:
+      - name: bats-BUILD_ID
+        imagePullPolicy: Always
+        image: kontainkubecr.azurecr.io/test-bats:BUILD_ID
+        env:
+        - name: BRANCH
+          value: BRANCH_NAME
+        - name: KM_BIN
+          value: /tests/km
+        - name: TIME_INFO
+          value: /time_info.txt
+        command: ["bash","run_bats_tests.sh"]
+        resources:
+           requests:
+              devices.kubevirt.io/kvm: "1"
+              cpu: "250m"
+           limits:
+              devices.kubevirt.io/kvm: "1"
+              cpu: "1"
+      restartPolicy: Never
+  backoffLimit: 0
+
+
