@@ -56,14 +56,14 @@ end
 
 define print_mmaps
    if machine.mmaps.free.tqh_first == 0
-     print "mmap FREE list empty"
+      print "mmap FREE list empty"
    else
       print "mmaps FREE list:"
       print_tailq &machine.mmaps.free
    end
 
    if machine.mmaps.busy.tqh_first == 0
-     print "mmap BUSY list empty"
+      print "mmap BUSY list empty"
    else
       print "mmaps BUSY list:"
       print_tailq &machine.mmaps.busy "Busy list"
