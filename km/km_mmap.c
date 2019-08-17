@@ -132,6 +132,9 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
    km_mmap_reg_t* left = TAILQ_PREV(reg, km_mmap_list, link);
    km_mmap_reg_t* right = TAILQ_NEXT(reg, link);
 
+   assert(reg != left);
+   assert(reg != right);
+   km_infox(KM_TRACE_MMAP, "Concat check %p %p %p", left, reg, right);
    if (left != NULL && ok_to_concat(left, reg) == 1) {
       reg->start = left->start;
       reg->size += left->size;
@@ -339,6 +342,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
          reg->size = addr - reg->start;   // left part, to keep in busy
          extra->start = addr;             // right part, to insert in busy
          extra->size -= reg->size;
+         assert(reg != extra);
          km_mmap_insert_busy_after(reg, extra);   // next action need to process 'extra', not 'reg'
          continue;
       }
@@ -350,6 +354,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
          reg->size = addr + size - reg->start;   // left part , to insert in busy
          extra->start = addr + size;             // right part, to keep in busy
          extra->size -= reg->size;
+         assert(reg != extra);
          km_mmap_insert_busy_after(reg, extra);   // fall through to process 'reg'
       }
       assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range

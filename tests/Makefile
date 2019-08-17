@@ -22,7 +22,7 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
-COPTS ?= -ggdb -O2
+COPTS ?= -ggdb # -O2
 CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
 LDFLAGS = -ggdb -pthread
 KCC := kontain-gcc
