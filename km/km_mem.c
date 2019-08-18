@@ -207,7 +207,7 @@ static int overcommit_memory;   // controls how we request memory for payload fr
 static void* km_guest_page_malloc(km_gva_t gpa_hint, size_t size, int prot)
 {
    km_kma_t addr;
-   int flags = MAP_SHARED | MAP_ANONYMOUS | (overcommit_memory == 1 ? MAP_NORESERVE : 0);
+   int flags = MAP_PRIVATE | MAP_ANONYMOUS | (overcommit_memory == 1 ? MAP_NORESERVE : 0);
 
    if ((size & (KM_PAGE_SIZE - 1)) != 0 || (gpa_hint & (KM_PAGE_SIZE - 1)) != 0) {
       errno = EINVAL;
@@ -231,7 +231,7 @@ void km_guest_page_free(km_gva_t addr, size_t size)
 km_gva_t km_guest_mmap_simple(size_t size)
 {
    return km_syscall_ok(
-       km_guest_mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
+       km_guest_mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
 }
 
 /*
