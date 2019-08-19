@@ -40,718 +40,148 @@
 #include "km_syscall.h"
 
 /*
- * Translates guest fd to host fd. Returns negative errno if
- * mapping does not exist.
- */
-static int check_guest_fd(km_vcpu_t* vcpu, int fd)
-{
-   if (fd < 0 || fd >= machine.filesys.nfdmap) {
-      return -EBADF;
-   }
-   int ret = -EBADF;
-   ret = __atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
-   assert((ret == -1) || machine.filesys.hostfd_to_guestfd_map[ret] == fd);
-   return ret;
-}
-
-/*
- * Adds a host fd to the guest. Returns the guest fd number assigned.
- * Assigns lowest available guest fd, just like the kernel.
- */
-static int add_guest_fd(km_vcpu_t* vcpu, int host_fd)
-{
-   assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
-   int guest_fd = -1;
-   for (int i = 0; i < machine.filesys.nfdmap; i++) {
-      int fd_available = -1;
-      if (__atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[i],
-                                      &fd_available,
-                                      host_fd,
-                                      0,
-                                      __ATOMIC_SEQ_CST,
-                                      __ATOMIC_SEQ_CST) != 0) {
-         __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[host_fd], i, __ATOMIC_SEQ_CST);
-         guest_fd = i;
-         break;
-      }
-   }
-   return guest_fd;
-}
-
-/*
- * deletes an exist guest file descriptor mapping (used by close(2))
- */
-static void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
-{
-   assert(fd >= 0 && fd < machine.filesys.nfdmap);
-   if (__atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[fd],
-                                   &hostfd,
-                                   -1,
-                                   0,
-                                   __ATOMIC_SEQ_CST,
-                                   __ATOMIC_SEQ_CST) != 0) {
-      __atomic_compare_exchange_n(&machine.filesys.hostfd_to_guestfd_map[hostfd],
-                                  &fd,
-                                  -1,
-                                  0,
-                                  __ATOMIC_SEQ_CST,
-                                  __ATOMIC_SEQ_CST);
-   }
-}
-
-/*
- * Replaces the mapping for a guest file descriptor. Used by dup2(2) and dup(3).
- */
-static inline int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
-{
-   assert(guest_fd >= 0 && guest_fd < machine.filesys.nfdmap);
-   assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
-   int close_fd = -1;
-   close_fd =
-       __atomic_exchange_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], host_fd, __ATOMIC_SEQ_CST);
-   __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[host_fd], guest_fd, __ATOMIC_SEQ_CST);
-   // don't close stdin, stdout, or stderr
-   if (close_fd > 2) {
-      __syscall_1(SYS_close, close_fd);
-   }
-   return guest_fd;
-}
-
-/*
  * maps a host fd to a guest fd. Returns a negative error number if mapping does
  * not exist. Used by SIGPIPE/SIGIO signal handlers and select.
  * Note: vcpu is NULL if called from km signal handler.
  */
-static inline int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
-{
-   if (hostfd < 0) {
-      return -ENOENT;
-   }
-   int guest_fd = -1;
-   guest_fd = __atomic_load_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], __ATOMIC_SEQ_CST);
-   if (__atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], __ATOMIC_SEQ_CST) != hostfd) {
-      guest_fd = -ENOENT;
-   }
-   return guest_fd;
-}
-
-static inline int km_fs_init()
-{
-   struct rlimit lim;
-
-   if (getrlimit(RLIMIT_NOFILE, &lim) < 0) {
-      return -errno;
-   }
-
-   size_t mapsz = lim.rlim_cur * sizeof(int);
-
-   machine.filesys.guestfd_to_hostfd_map = malloc(mapsz);
-   memset(machine.filesys.guestfd_to_hostfd_map, 0xff, mapsz);
-
-   machine.filesys.hostfd_to_guestfd_map = malloc(mapsz);
-   memset(machine.filesys.hostfd_to_guestfd_map, 0xff, mapsz);
-
-   machine.filesys.nfdmap = lim.rlim_cur;
-
-   // setup guest std file streams.
-   for (int i = 0; i < 3; i++) {
-      machine.filesys.guestfd_to_hostfd_map[i] = i;
-      machine.filesys.hostfd_to_guestfd_map[i] = i;
-   }
-   return 0;
-}
-
-static inline void km_fs_fini()
-{
-   if (machine.filesys.guestfd_to_hostfd_map != NULL) {
-      free(machine.filesys.guestfd_to_hostfd_map);
-      machine.filesys.guestfd_to_hostfd_map = NULL;
-   }
-   if (machine.filesys.hostfd_to_guestfd_map != NULL) {
-      free(machine.filesys.hostfd_to_guestfd_map);
-      machine.filesys.hostfd_to_guestfd_map = NULL;
-   }
-}
-
+int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd);
+int km_fs_init();
+void km_fs_fini();
 // int open(char *pathname, int flags, mode_t mode)
-static inline uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
-{
-   int fd = __syscall_3(SYS_open, (uintptr_t)pathname, flags, mode);
-   if (fd >= 0) {
-      fd = add_guest_fd(vcpu, fd);
-   }
-   return fd;
-}
-
+uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode);
 // int close(fd)
-static inline uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   int ret = 0;
-   // stdin, stdout, and stderr shared with KM so guest can't close them.
-   if (fd > 2) {
-      ret = __syscall_1(SYS_close, host_fd);
-   } else {
-      warnx("guest closing fd=%d", fd);
-   }
-   if (ret == 0) {
-      del_guest_fd(vcpu, fd, host_fd);
-   }
-   return ret;
-}
-
+uint64_t km_fs_close(km_vcpu_t* vcpu, int fd);
+// int shutdown(int sockfd, int how);
+int km_fs_shutdown(km_vcpu_t* vcpu, int sockfd, int how);
 // ssize_t read(int fd, void *buf, size_t count);
 // ssize_t write(int fd, const void *buf, size_t count);
 // ssize_t pread(int fd, void *buf, size_t count, off_t offset);
 // ssize_t pwrite(int fd, const void* buf, size_t count, off_t offset);
-static inline uint64_t
-km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, const void* buf, size_t count, off_t offset)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_4(scall, host_fd, (uintptr_t)buf, count, offset);
-   return ret;
-}
-
+uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, const void* buf, size_t count, off_t offset);
 // ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
 // ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
 // ssize_t preadv(int fd, const struct iovec* iov, int iovcnt, off_t offset);
 // ssize_t pwritev(int fd, const struct iovec* iov, int iovcnt, off_t offset);
-static inline uint64_t
-km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, size_t iovcnt, off_t offset)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   struct iovec iov[iovcnt];
-
-   if (guest_iov == NULL) {
-      return -EFAULT;
-   }
-
-   // ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
-   // ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
-   // ssize_t preadv(int fd, const struct iovec* iov, int iovcnt, off_t offset);
-   // ssize_t pwritev(int fd, const struct iovec* iov, int iovcnt, off_t offset);
-   //
-   // need to convert not only the address of iov,
-   // but also pointers to individual buffers in it
-   for (int i = 0; i < iovcnt; i++) {
-      iov[i].iov_base = km_gva_to_kma((long)guest_iov[i].iov_base);
-      iov[i].iov_len = guest_iov[i].iov_len;
-   }
-   int ret = __syscall_4(scall, host_fd, (uintptr_t)iov, iovcnt, offset);
-   return ret;
-}
-
+uint64_t
+km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, size_t iovcnt, off_t offset);
 // int ioctl(int fd, unsigned long request, void *arg);
-static inline uint64_t km_fs_ioctl(km_vcpu_t* vcpu, int fd, unsigned long request, void* arg)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_3(SYS_ioctl, host_fd, request, (uintptr_t)arg);
-   return ret;
-}
-
+uint64_t km_fs_ioctl(km_vcpu_t* vcpu, int fd, unsigned long request, void* arg);
 // int fcntl(int fd, int cmd, ... /* arg */ );
-static inline uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   uint64_t farg = arg;
-   if (cmd == F_SETLK || cmd == F_SETLKW || cmd == F_GETLK) {
-      farg = (uint64_t)km_gva_to_kma(arg);
-   }
-   int ret = __syscall_3(SYS_fcntl, host_fd, cmd, farg);
-   return ret;
-}
-
+uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg);
 // off_t lseek(int fd, off_t offset, int whence);
-static inline uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_3(SYS_lseek, host_fd, offset, whence);
-   return ret;
-}
-
+uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence);
+// int mknod(const char *pathname, mode_t mode, dev_t dev);
+uint64_t km_fs_mknod(km_vcpu_t* vcpu, char* pathname, mode_t mode, dev_t dev);
+// int unlink(const char *path);
+uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname);
 // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);
-static inline uint64_t km_fs_getdents64(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_3(SYS_getdents64, host_fd, (uintptr_t)dirp, count);
-   return ret;
-}
-
+uint64_t km_fs_getdents64(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count);
 // int symlink(const char *target, const char *linkpath);
-static inline uint64_t km_fs_symlink(km_vcpu_t* vcpu, char* target, char* linkpath)
-{
-   int ret = __syscall_2(SYS_symlink, (uintptr_t)target, (uintptr_t)linkpath);
-   return ret;
-}
-
+uint64_t km_fs_symlink(km_vcpu_t* vcpu, char* target, char* linkpath);
 // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
-static inline uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz)
-{
-   int ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
-   return ret;
-}
-
+uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz);
 // int getcwd(char *buf, size_t size);
-static inline uint64_t km_fs_getcwd(km_vcpu_t* vcpu, char* buf, size_t bufsz)
-{
-   int ret = __syscall_2(SYS_getcwd, (uintptr_t)buf, bufsz);
-   return ret;
-}
-
+uint64_t km_fs_getcwd(km_vcpu_t* vcpu, char* buf, size_t bufsz);
 // int chdir(const char *path);
-static inline uint64_t km_fs_chdir(km_vcpu_t* vcpu, char* pathname)
-{
-   int ret = __syscall_1(SYS_chdir, (uintptr_t)pathname);
-   return ret;
-}
-
+uint64_t km_fs_chdir(km_vcpu_t* vcpu, char* pathname);
+// int fchdir(const int fd);
+uint64_t km_fs_fchdir(km_vcpu_t* vcpu, int fd);
 // int mkdir(const char *path, mode_t mode);
-static inline uint64_t km_fs_mkdir(km_vcpu_t* vcpu, char* pathname, mode_t mode)
-{
-   int ret = __syscall_2(SYS_getcwd, (uintptr_t)pathname, mode);
-   return ret;
-}
-
+uint64_t km_fs_mkdir(km_vcpu_t* vcpu, char* pathname, mode_t mode);
+// int rmdir(const char *path, mode_t mode);
+uint64_t km_fs_rmdir(km_vcpu_t* vcpu, char* pathname);
 // int rename(const char *oldpath, const char *newpath);
-static inline uint64_t km_fs_rename(km_vcpu_t* vcpu, char* oldpath, char* newpath)
-{
-   int ret = __syscall_2(SYS_rename, (uintptr_t)oldpath, (uintptr_t)newpath);
-   return ret;
-}
-
+uint64_t km_fs_rename(km_vcpu_t* vcpu, char* oldpath, char* newpath);
 // int stat(const char *pathname, struct stat *statbuf);
-static inline uint64_t km_fs_stat(km_vcpu_t* vcpu, char* pathname, struct stat* statbuf)
-{
-   int ret = __syscall_2(SYS_stat, (uintptr_t)pathname, (uintptr_t)statbuf);
-   return ret;
-}
-
+uint64_t km_fs_stat(km_vcpu_t* vcpu, char* pathname, struct stat* statbuf);
 // int lstat(const char *pathname, struct stat *statbuf);
-static inline uint64_t km_fs_lstat(km_vcpu_t* vcpu, char* pathname, struct stat* statbuf)
-{
-   int ret = __syscall_2(SYS_lstat, (uintptr_t)pathname, (uintptr_t)statbuf);
-   return ret;
-}
-
+uint64_t km_fs_lstat(km_vcpu_t* vcpu, char* pathname, struct stat* statbuf);
 // int statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf)
-static inline uint64_t
-km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int mask, void* statxbuf)
-{
-   int ret = __syscall_5(SYS_statx, dirfd, (uintptr_t)pathname, flags, mask, (uintptr_t)statxbuf);
-   return ret;
-}
-
+uint64_t
+km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int mask, void* statxbuf);
 // int fstat(int fd, struct stat *statbuf);
-static inline uint64_t km_fs_fstat(km_vcpu_t* vcpu, int fd, struct stat* statbuf)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_2(SYS_fstat, host_fd, (uintptr_t)statbuf);
-   return ret;
-}
-
+uint64_t km_fs_fstat(km_vcpu_t* vcpu, int fd, struct stat* statbuf);
 // int dup(int oldfd);
-static inline uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_1(SYS_dup, host_fd);
-   if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret);
-   }
-   return ret;
-}
-
+uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd);
 // int dup2(int oldfd, int newfd);
-static inline uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   int host_newfd;
-   if ((host_newfd = check_guest_fd(vcpu, newfd)) < 0) {
-      if ((host_newfd = open("/", O_RDONLY)) < 0) {
-         return -errno;
-      }
-   }
-   int ret = __syscall_2(SYS_dup2, host_fd, host_newfd);
-   if (ret >= 0) {
-      ret = replace_guest_fd(vcpu, newfd, ret);
-   }
-   return ret;
-}
-
+uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd);
 // int dup3(int oldfd, int newfd, int flags);
-static inline uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
-{
-   int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   int host_newfd;
-   if ((host_newfd = check_guest_fd(vcpu, newfd)) < 0) {
-      if ((host_newfd = open("/", O_RDONLY)) < 0) {
-         return -errno;
-      }
-   }
-   int ret = __syscall_3(SYS_dup3, host_fd, host_newfd, flags);
-   if (ret >= 0) {
-      ret = replace_guest_fd(vcpu, newfd, ret);
-   }
-   return ret;
-}
-
+uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags);
 // int pipe(int pipefd[2]);
-static inline uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2])
-{
-   int ret = __syscall_1(SYS_pipe, (uintptr_t)pipefd);
-   if (ret == 0) {
-      pipefd[0] = add_guest_fd(vcpu, pipefd[0]);
-      pipefd[1] = add_guest_fd(vcpu, pipefd[1]);
-   }
-   return ret;
-}
-
+uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2]);
 // int pipe2(int pipefd[2], int flags);
-static inline uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags)
-{
-   int ret = __syscall_2(SYS_pipe2, (uintptr_t)pipefd, flags);
-   if (ret == 0) {
-      pipefd[0] = add_guest_fd(vcpu, pipefd[0]);
-      pipefd[1] = add_guest_fd(vcpu, pipefd[1]);
-   }
-   return ret;
-}
-
+uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags);
 // int eventfd2(unsigned int initval, int flags);
-static inline uint64_t km_fs_eventfd2(km_vcpu_t* vcpu, int initval, int flags)
-{
-   int ret = __syscall_2(SYS_eventfd2, initval, flags);
-   if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret);
-   }
-   return ret;
-}
-
+uint64_t km_fs_eventfd2(km_vcpu_t* vcpu, int initval, int flags);
 // int socket(int domain, int type, int protocol);
-static inline uint64_t km_fs_socket(km_vcpu_t* vcpu, int domain, int type, int protocol)
-{
-   int ret = __syscall_3(SYS_socket, domain, type, protocol);
-   if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret);
-   }
-   return ret;
-}
-
+uint64_t km_fs_socket(km_vcpu_t* vcpu, int domain, int type, int protocol);
 // int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
-static inline uint64_t
-km_fs_getsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optval, socklen_t* optlen)
-{
-   int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
-      return -EBADF;
-   }
-   int ret =
-       __syscall_5(SYS_getsockopt, host_sockfd, level, optname, (uintptr_t)optval, (uintptr_t)optlen);
-   return ret;
-}
-
+uint64_t
+km_fs_getsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optval, socklen_t* optlen);
 // int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
-static inline uint64_t
-km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optval, socklen_t optlen)
-{
-   int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_5(SYS_setsockopt, host_sockfd, level, optname, (uintptr_t)optval, optlen);
-   return ret;
-}
-
+uint64_t
+km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optval, socklen_t optlen);
 // int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 // int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-static inline uint64_t
-km_fs_get_sock_peer_name(km_vcpu_t* vcpu, int hc, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
-{
-   int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_3(hc, sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
-   return ret;
-}
-
+uint64_t
+km_fs_get_sock_peer_name(km_vcpu_t* vcpu, int hc, int sockfd, struct sockaddr* addr, socklen_t* addrlen);
 // int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-static inline uint64_t km_fs_bind(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t addrlen)
-{
-   int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_3(SYS_bind, host_sockfd, (uintptr_t)addr, addrlen);
-   return ret;
-}
-
+uint64_t km_fs_bind(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t addrlen);
 // int listen(int sockfd, int backlog)
-static inline uint64_t km_fs_listen(km_vcpu_t* vcpu, int sockfd, int backlog)
-{
-   int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_2(SYS_listen, host_sockfd, backlog);
-   return ret;
-}
-
+uint64_t km_fs_listen(km_vcpu_t* vcpu, int sockfd, int backlog);
 // int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-static inline uint64_t
-km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
-{
-   int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_3(SYS_accept, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
-   if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret);
-   }
-   return ret;
-}
-
+uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen);
+// int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+uint64_t km_fs_connect(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t addrlen);
 // int socketpair(int domain, int type, int protocol, int sv[2]);
-static inline uint64_t km_fs_socketpair(km_vcpu_t* vcpu, int domain, int type, int protocol, int sv[2])
-{
-   int ret = __syscall_4(SYS_socketpair, domain, type, protocol, (uintptr_t)sv);
-   if (ret == 0) {
-      sv[0] = add_guest_fd(vcpu, sv[0]);
-      sv[1] = add_guest_fd(vcpu, sv[1]);
-   }
-   return ret;
-}
-
+uint64_t km_fs_socketpair(km_vcpu_t* vcpu, int domain, int type, int protocol, int sv[2]);
 // int accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags);
-static inline uint64_t
-km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen, int flags)
-{
-   int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_4(SYS_accept4, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen, flags);
-   if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret);
-   }
-   return ret;
-}
-
+uint64_t
+km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen, int flags);
 // ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 //                const struct sockaddr *dest_addr, socklen_t addrlen);
-static inline uint64_t km_fs_sendto(km_vcpu_t* vcpu,
-                                    int sockfd,
-                                    const void* buf,
-                                    size_t len,
-                                    int flags,
-                                    const struct sockaddr* addr,
-                                    socklen_t addrlen)
-{
-   int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
-      return -EBADF;
-   }
-   int ret =
-       __syscall_6(SYS_sendto, host_sockfd, (uintptr_t)buf, len, flags, (uintptr_t)addr, addrlen);
-   return ret;
-}
-
+uint64_t km_fs_sendto(km_vcpu_t* vcpu,
+                      int sockfd,
+                      const void* buf,
+                      size_t len,
+                      int flags,
+                      const struct sockaddr* addr,
+                      socklen_t addrlen);
 // ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
 //                  struct sockaddr *src_addr, socklen_t *addrlen);
-static inline uint64_t km_fs_recvfrom(
-    km_vcpu_t* vcpu, int sockfd, void* buf, size_t len, int flags, struct sockaddr* addr, socklen_t* addrlen)
-{
-   int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
-      return -EBADF;
-   }
-   int ret =
-       __syscall_6(SYS_recvfrom, host_sockfd, (uintptr_t)buf, len, flags, (uintptr_t)addr, (uintptr_t)addrlen);
-   return ret;
-}
-
+uint64_t km_fs_recvfrom(km_vcpu_t* vcpu,
+                        int sockfd,
+                        void* buf,
+                        size_t len,
+                        int flags,
+                        struct sockaddr* addr,
+                        socklen_t* addrlen);
 //  int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
-static inline uint64_t km_fs_select(km_vcpu_t* vcpu,
-                                    int nfds,
-                                    fd_set* readfds,
-                                    fd_set* writefds,
-                                    fd_set* exceptfds,
-                                    struct timeval* timeout)
-{
-   fd_set* host_readfds = NULL;
-   fd_set* host_writefds = NULL;
-   fd_set* host_exceptfds = NULL;
-   fd_set host_readfds_;
-   fd_set host_writefds_;
-   fd_set host_exceptfds_;
-
-   FD_ZERO(&host_readfds_);
-   FD_ZERO(&host_writefds_);
-   FD_ZERO(&host_exceptfds_);
-
-   if (readfds != NULL) {
-      host_readfds = &host_readfds_;
-   }
-   if (writefds != NULL) {
-      host_writefds = &host_writefds_;
-   }
-   if (exceptfds != NULL) {
-      host_exceptfds = &host_exceptfds_;
-   }
-
-   int ret = __syscall_5(SYS_select,
-                         nfds,
-                         (uintptr_t)host_readfds,
-                         (uintptr_t)host_writefds,
-                         (uintptr_t)host_exceptfds,
-                         (uintptr_t)timeout);
-   if (ret > 0) {
-      for (int i = 0; i < nfds; i++) {
-         int guest_fd = hostfd_to_guestfd(vcpu, i);
-         if (guest_fd < 0) {
-            continue;
-         }
-         if (readfds != NULL && FD_ISSET(i, host_readfds)) {
-            FD_SET(guest_fd, readfds);
-         }
-         if (writefds != NULL && FD_ISSET(i, host_writefds)) {
-            FD_SET(guest_fd, writefds);
-         }
-         if (exceptfds != NULL && FD_ISSET(i, host_exceptfds)) {
-            FD_SET(guest_fd, exceptfds);
-         }
-      }
-   }
-   return ret;
-}
-
+uint64_t km_fs_select(km_vcpu_t* vcpu,
+                      int nfds,
+                      fd_set* readfds,
+                      fd_set* writefds,
+                      fd_set* exceptfds,
+                      struct timeval* timeout);
 // int poll(struct pollfd *fds, nfds_t nfds, int timeout);
-static inline uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeout)
-{
-   struct pollfd host_fds[nfds];
-
-   if (fds == NULL) {
-      return -EINVAL;
-   }
-   for (int i = 0; i < nfds; i++) {
-      if ((host_fds[i].fd = check_guest_fd(vcpu, fds[i].fd)) < 0) {
-         return -EBADF;
-      }
-      host_fds[i].events = fds[i].events;
-      host_fds[i].revents = 0;
-   }
-   int ret = __syscall_3(SYS_poll, (uintptr_t)host_fds, nfds, timeout);
-   if (ret > 0) {
-      for (int i = 0; i < nfds; i++) {
-         fds[i].revents = host_fds[i].revents;
-      }
-   }
-   return ret;
-}
-
+uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeout);
 // int epoll_create1(int flags);
-static inline uint64_t km_fs_epoll_create1(km_vcpu_t* vcpu, int flags)
-{
-   int ret = __syscall_1(SYS_epoll_create1, flags);
-   if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret);
-   }
-   return ret;
-}
-
+uint64_t km_fs_epoll_create1(km_vcpu_t* vcpu, int flags);
 // int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
-static inline uint64_t
-km_fs_epoll_ctl(km_vcpu_t* vcpu, int epfd, int op, int fd, struct epoll_event* event)
-{
-   int host_epfd;
-   int host_fd;
-
-   if ((host_epfd = check_guest_fd(vcpu, epfd)) < 0 || (host_fd = check_guest_fd(vcpu, fd)) < 0) {
-      return -EBADF;
-   }
-   int ret = __syscall_4(SYS_epoll_ctl, host_epfd, op, host_fd, (uintptr_t)event);
-   return ret;
-}
-
+uint64_t km_fs_epoll_ctl(km_vcpu_t* vcpu, int epfd, int op, int fd, struct epoll_event* event);
 // int epoll_pwait(int epfd, struct epoll_event *events, int maxevents, int timeout,
 //  const sigset_t *sigmask);
-static inline uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
-                                         int epfd,
-                                         struct epoll_event* events,
-                                         int maxevents,
-                                         int timeout,
-                                         const sigset_t* sigmask,
-                                         int sigsetsize)
-{
-   int host_epfd;
-   if ((host_epfd = check_guest_fd(vcpu, epfd)) < 0) {
-      return -EBADF;
-   }
-
-   int ret = __syscall_6(SYS_epoll_wait,
-                         host_epfd,
-                         (uintptr_t)events,
-                         maxevents,
-                         timeout,
-                         (uintptr_t)sigmask,
-                         sigsetsize);
-   return ret;
-}
-
+uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
+                           int epfd,
+                           struct epoll_event* events,
+                           int maxevents,
+                           int timeout,
+                           const sigset_t* sigmask,
+                           int sigsetsize);
 // int prlimit(pid_t pid, int resource, const struct rlimit *new_limit, struct rlimit *old_limit);
-static inline uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
-                                       pid_t pid,
-                                       int resource,
-                                       const struct rlimit* new_limit,
-                                       struct rlimit* old_limit)
-{
-   /*
-    * TODO: A number of rlimit values are effected by KM and we want to virtualize. For example:
-    *       RLIMIT_AS - Maximum address space size.
-    *       RLIMIT_CORE - Maximum core size.
-    *       RLIMIT_DATA - Maximum data a process can create.
-    *       RLIMIT_NOFILE - Maximum number of files
-    *       RLIMIT_NPROC - Maximum number of processes (should set to 1).
-    *       RLIMIT_SIGPENDING - Maximum number of pending signals.
-    *       RLIMIT_STACK - maximum size of process stack.
-    */
-   if (resource == RLIMIT_NOFILE && new_limit != NULL && new_limit->rlim_cur > machine.filesys.nfdmap) {
-      return -EPERM;
-   }
-   int ret = __syscall_4(SYS_prlimit64, pid, resource, (uintptr_t)new_limit, (uintptr_t)old_limit);
-   return ret;
-}
+uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
+                         pid_t pid,
+                         int resource,
+                         const struct rlimit* new_limit,
+                         struct rlimit* old_limit);
 #endif
