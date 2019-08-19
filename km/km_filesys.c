@@ -101,14 +101,6 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int guestfd, int hostfd)
 }
 
 /*
- * Re-establishes hostfd->guestfd mapping if close fails. See km_fs_close.
- */
-static inline void km_fix_host_fd(km_vcpu_t* vcpu, int hostfd, int guestfd)
-{
-   __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], guestfd, __ATOMIC_SEQ_CST);
-}
-
-/*
  * Replaces the mapping for a guest file descriptor. Used by dup2(2) and dup(3).
  */
 static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
