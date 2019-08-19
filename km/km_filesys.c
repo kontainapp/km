@@ -189,13 +189,12 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    }
    /*
     * Notes on closing guestfd:
-    * The kernel releases host_fd for very early in close(2) processing.
-    * This means that host_fd could be reused before close(2) has
-    * returned. 
     * 
-    * In addition, the "Dealing with error * returns from close()" section
+    * The "Dealing with error returns from close()" section
     * of the close(2) man page states: "Linux kernel always releases the
     * file descriptor early in the close operation, freeing it for reuse".
+    * (And when they say 'always' they mean always. While close(2) can return
+    * an error, the file descriptor is unconditionally closed).
     * 
     * Hence the hostfd/guestfd mappings are cleared unconditionally
     * before close(2) is called. 
