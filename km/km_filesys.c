@@ -79,29 +79,24 @@ static int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd)
 /*
  * deletes an exist guestfd to hostfd mapping (used by km_fs_close())
  */
-static inline void del_guest_fd(km_vcpu_t* vcpu, int fd, int hostfd)
+static inline void del_guest_fd(km_vcpu_t* vcpu, int guestfd, int hostfd)
 {
-   assert(fd >= 0 && fd < machine.filesys.nfdmap);
-   int rc = __atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[fd],
-                                        &hostfd,
-                                        -1,
-                                        0,
-                                        __ATOMIC_SEQ_CST,
-                                        __ATOMIC_SEQ_CST);
-   assert(rc != 0);
-}
-
-/*
- * Deletes hostfd->guestfd mapping. See km_fs_close.
- */
-static inline void km_del_host_fd(km_vcpu_t* vcpu, int hostfd, int guestfd)
-{
+   assert(hostfd >= 0 && hostfd < machine.filesys.nfdmap);
    int rc = __atomic_compare_exchange_n(&machine.filesys.hostfd_to_guestfd_map[hostfd],
                                         &guestfd,
                                         -1,
                                         0,
                                         __ATOMIC_SEQ_CST,
                                         __ATOMIC_SEQ_CST);
+   assert(rc != 0);
+
+   assert(guestfd >= 0 && guestfd < machine.filesys.nfdmap);
+   rc = __atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[guestfd],
+                                    &hostfd,
+                                    -1,
+                                    0,
+                                    __ATOMIC_SEQ_CST,
+                                    __ATOMIC_SEQ_CST);
    assert(rc != 0);
 }
 
@@ -201,30 +196,28 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
       return -EBADF;
    }
    /*
-    * Notes on closing guestfd: We need to be careful here,
-    * Once the the kernel decides it is going to return success for
-    * the close(2) call, that fd can be reused for subsequent open(2)
-    * calls. To handle that,the hostfd_to_guestfd mapping is cleared before
-    * close(2) is called. if close(2) succeeds (which it will almost 100%
-    * of the time), the guestfd_to_hostfd mapping is cleared. If the close(2)
-    * fails, the hostfd_to_guestfd mapping is re-established. This means that
-    * if the close(2) fails, there is a window where KM events to that
-    * hostfd will not be routed to the guest.
-    *
-    * This scenario seems unlikely, so we'll just live with it for now.
+    * Notes on closing guestfd:
+    * The kernel releases host_fd for very early in close(2) processing.
+    * This means that host_fd could be reused before close(2) has
+    * returned. 
+    * 
+    * In addition, the "Dealing with error * returns from close()" section
+    * of the close(2) man page states: "Linux kernel always releases the
+    * file descriptor early in the close operation, freeing it for reuse".
+    * 
+    * Hence the hostfd/guestfd mappings are cleared unconditionally
+    * before close(2) is called. 
     */
+   del_guest_fd(vcpu, fd, host_fd);
    int ret = 0;
-   km_del_host_fd(vcpu, host_fd, fd);
    // stdin, stdout, and stderr shared with KM so guest can't close them.
    if (fd > 2) {
       ret = __syscall_1(SYS_close, host_fd);
    } else {
       warnx("guest closing fd=%d", fd);
    }
-   if (ret == 0) {
-      del_guest_fd(vcpu, fd, host_fd);
-   } else {
-      km_fix_host_fd(vcpu, host_fd, fd);
+   if (ret != 0) {
+      warnx("close of guest fd %d (hostfd %d) returned an error: %d", fd, host_fd, ret);
    }
    return ret;
 }
