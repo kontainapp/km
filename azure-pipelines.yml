@@ -1,5 +1,6 @@
 trigger:
 - jme/tests
+- muth/fix-pipeline
 pr:
 - master
 
