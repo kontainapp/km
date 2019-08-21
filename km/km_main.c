@@ -36,7 +36,7 @@ static inline void usage()
 {
    errx(1,
         "Kontain Monitor - runs 'payload-file [payload args]' in Kontain VM\n"
-        "Usage: km [options] <payload-file> [-- <payload args>]\n"
+        "Usage: km [options] payload-file.[km] [payload_args ... ]\n"
 
         "\nOptions:\n"
         "\t--verbose[=regexp] (-V[regexp])     - Verbose print where internal info tag matches "
@@ -84,8 +84,8 @@ static inline void show_version(void)
 }
 
 static km_machine_init_params_t km_machine_init_params = {
-   .force_pdpe1g = KM_FLAG_FORCE_ENABLE,
-   .overcommit_memory = KM_FLAG_FORCE_DISABLE,
+    .force_pdpe1g = KM_FLAG_FORCE_ENABLE,
+    .overcommit_memory = KM_FLAG_FORCE_DISABLE,
 };
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
