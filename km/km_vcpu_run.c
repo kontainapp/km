@@ -10,6 +10,7 @@
  * permission of Kontain Inc.
  */
 
+#define _GNU_SOURCE
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
@@ -593,6 +594,10 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int hc;
    vcpu->is_paused = 1;
+
+   char thread_name[16];   // see 'man pthread_getname_np'
+   sprintf(thread_name, "vcpu-%d", vcpu->vcpu_id);
+   pthread_setname_np(vcpu->vcpu_thread, thread_name);
 
    while (1) {
       int reason;

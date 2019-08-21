@@ -34,6 +34,7 @@ long __syscall_cp_asm(int* c, long n, long a1, long a2, long a3, long a4, long a
       __asm__("__cp_end:");
       return arg.hc_ret;
    }
+   _Pragma("GCC diagnostic ignored \"-Wreturn-type\"");   // shut up gcc about lack of 'return'
    __asm__("__cp_cancel:"
            "jmp __cancel");
 }
