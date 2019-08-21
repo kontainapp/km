@@ -142,7 +142,7 @@ int main(int argc, char** argv)
    GREATEST_MAIN_BEGIN();   // init & parse command-line args
    // greatest_set_verbosity(1);
 
-   /* Tests can  be run as suites, or directly. Lets run directly. */
+   /* Tests can be run as suites, or directly. Lets run directly. */
    RUN_TEST(nested_threads);
 
    GREATEST_PRINT_REPORT();
