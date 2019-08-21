@@ -151,9 +151,12 @@ function in_docker() {
    assert_failure
    assert_line --partial "invalid option"
 
-   run km_with_timeout hello_test # Linux executable instead of .km
+   # KM will auto-add '.km' to file name, so create a .km file with Linux executable
+   tmp=/tmp/hello$$ ; cp hello_test $tmp.km
+   run km_with_timeout $tmp # Linux executable instead of .km
    assert_failure
    assert_line "km: Non-KM binary: cannot find interrupt handler(*), tsd size(*), or sigreturn(*). Trying to run regular Linux executable in KM?"
+   rm $tmp.km # may leave dirt if the tests above fail
 
    log=`mktemp`
    echo Log location: $log

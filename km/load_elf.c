@@ -127,12 +127,17 @@ static void tls_extent(int fd, GElf_Phdr* phdr)
  */
 int km_load_elf(const char* file)
 {
+   char fn[strlen(file + 3)];
    int fd;
    Elf* e;
    GElf_Ehdr* ehdr = &km_guest.km_ehdr;
 
    if (elf_version(EV_CURRENT) == EV_NONE) {
       errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
+   }
+   if (strcmp(".km", file + strlen(file) - 3) != 0) {
+      sprintf(fn, "%s.km", file);
+      file = fn;
    }
    if ((fd = open(file, O_RDONLY, 0)) < 0) {
       err(2, "open %s failed", file);
