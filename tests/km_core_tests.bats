@@ -521,3 +521,8 @@ function in_docker() {
    run km_with_timeout socket_test.km
    assert_success
 }
+
+@test "dl_iterate_phdr: AUXV and dl_iterate_phdr (dl_iterate_phdr_test)" {
+   run km_with_timeout dl_iterate_phdr_test.km
+   assert_success
+}

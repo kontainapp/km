@@ -190,7 +190,6 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
 
    if (libc != 0) {
       libc_kma = km_gva_to_kma_nocheck(libc);
-      libc_kma->auxv = NULL;   // for now
       libc_kma->page_size = KM_PAGE_SIZE;
       libc_kma->secure = 1;
       libc_kma->can_do_threads = 0;   // Doesn't seem to matter either way
@@ -227,7 +226,7 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    char* argv_km[argc + 1];   // argv to copy to guest stack_init
    km_gva_t stack_top = dtv;
    km_kma_t stack_top_kma = km_gva_to_kma_nocheck(stack_top);
-
+   // copy arguments and form argv array
    argv_km[argc] = NULL;
    for (argc--; argc >= 0; argc--) {
       int len = strnlen(argv[argc], PATH_MAX) + 1;
@@ -242,11 +241,31 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    }
    stack_top = rounddown(stack_top, sizeof(void*));
    stack_top_kma = km_gva_to_kma_nocheck(stack_top);
-   static const int size_of_empty_aux_and_env = 4 * sizeof(void*);
-   stack_top -= size_of_empty_aux_and_env;
-   stack_top_kma -= size_of_empty_aux_and_env;
-   memset(stack_top_kma, 0, size_of_empty_aux_and_env);
-   *(char**)stack_top_kma = (char*)(stack_top + sizeof(char*));
+   // AUXV
+   static const int size_of_aux_slot = 2 * sizeof(void*);
+   stack_top -= size_of_aux_slot;
+   stack_top_kma -= size_of_aux_slot;
+   memset(stack_top_kma, 0, size_of_aux_slot);
+   stack_top -= size_of_aux_slot;
+   stack_top_kma -= size_of_aux_slot;
+   *(uint64_t*)stack_top_kma = AT_PHNUM;
+   *(uint64_t*)(stack_top_kma + sizeof(void*)) = km_guest.km_ehdr.e_phnum;
+   stack_top -= size_of_aux_slot;
+   stack_top_kma -= size_of_aux_slot;
+   *(uint64_t*)stack_top_kma = AT_PHENT;
+   *(uint64_t*)(stack_top_kma + sizeof(void*)) = km_guest.km_ehdr.e_phentsize;
+   stack_top -= size_of_aux_slot;
+   stack_top_kma -= size_of_aux_slot;
+   *(uint64_t*)stack_top_kma = AT_PHDR;
+   *(uint64_t*)(stack_top_kma + sizeof(void*)) = km_guest.km_phdr[0].p_vaddr + km_guest.km_ehdr.e_phoff;
+   if (libc != 0) {
+      libc_kma->auxv = (void*)stack_top;   // auxv
+   }
+   static const int size_of_empty_env = 2 * sizeof(void*);
+   stack_top -= size_of_empty_env;
+   stack_top_kma -= size_of_empty_env;
+   memset(stack_top_kma, 0, size_of_empty_env);
+   *(char**)stack_top_kma = (char*)(stack_top + sizeof(char*));   // empty env
 
    stack_top_kma -= sizeof(argv_km);
    stack_top -= sizeof(argv_km);
