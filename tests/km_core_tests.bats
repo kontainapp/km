@@ -219,7 +219,7 @@ function in_docker() {
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
-   run km_with_timeout mmap_test.km
+   run km_with_timeout mmap_test.km -v
    [ $status -eq $expected_status ]
 }
 
@@ -274,7 +274,7 @@ function in_docker() {
 }
 
 @test "Unused memory protection: check that unused memory is protected (mprotect_test)" {
-   run km_with_timeout mprotect_test.km
+   run km_with_timeout mprotect_test.km -v
    assert_success
 }
 
@@ -472,12 +472,12 @@ function in_docker() {
 }
 
 @test "signals: signals in the guest (signals)" {
-   run km_with_timeout signal_test.km
+   run km_with_timeout signal_test.km -v
    assert_success
 }
 
 @test "pthread_cancel: (pthread_cancel_test)" {
-   run km_with_timeout pthread_cancel_test.km
+   run km_with_timeout pthread_cancel_test.km -v
    assert_success
 }
 
@@ -505,7 +505,7 @@ function in_docker() {
 }
 
 @test "filesys: guest file system operations (filesys_test)" {
-   run km_with_timeout filesys_test.km
+   run km_with_timeout filesys_test.km -v
    assert_success
 }
 
@@ -526,6 +526,6 @@ function in_docker() {
 }
 
 @test "dl_iterate_phdr: AUXV and dl_iterate_phdr (dl_iterate_phdr_test)" {
-   run km_with_timeout dl_iterate_phdr_test.km
+   run km_with_timeout dl_iterate_phdr_test.km -v
    assert_success
 }
