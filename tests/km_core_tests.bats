@@ -505,7 +505,11 @@ function in_docker() {
 
 @test "filepath: guest file path operations (filepathtest)" {
    DIRNAME=`mktemp -d`
-   run km_with_timeout filepath_test.km ${DIRNAME}
+   # note: the 2nd parameter (500) is the number o time the
+   #       concurrent_open_test runs in a loop. The3 default is
+   #       10000. We use 500 here to accomodate azure, where the
+   #       open/close cycle is ~40ms vs 1ms on a local workstation.
+   run km_with_timeout filepath_test.km ${DIRNAME} 500
    assert_success
    rm -rf /tmp/${DIRNAME}
 }
