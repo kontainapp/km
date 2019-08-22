@@ -189,6 +189,7 @@ TEST test_chdir()
    PASS();
 }
 
+int nloops = 10000;
 /*
  * Concurrent open test. This is excerises KM file descript table locking.
  */
@@ -217,7 +218,7 @@ void* open_task_main(void* arg)
    }
    pthread_mutex_unlock(&open_test_mutex);
 
-   for (int i = 0; i < 10000; i++) {
+   for (int i = 0; i < nloops; i++) {
       for (int j = 0; j < OPEN_TEST_NFILES; j++) {
          int fd = open(open_task_files[j].path, O_RDONLY);
          if (fd < 0) {
@@ -284,7 +285,7 @@ char* cmdname = "?";
 
 void usage()
 {
-   fprintf(stderr, "%s <directory>\n", cmdname);
+   fprintf(stderr, "%s <directory> [<loops>]\n", cmdname);
 }
 
 int main(int argc, char** argv)
@@ -295,7 +296,19 @@ int main(int argc, char** argv)
       usage();
       return 1;
    }
-   dirpath = argv[argc - 1];
+   dirpath = argv[1];
+   if (argc == 3) {
+      char *ep = NULL;
+      int val = strtol(argv[2], &ep, 0);
+      if (*ep != '\0') {
+         usage();
+         return 1;
+      }
+      nloops = val;
+   } else if (argc > 3) {
+      usage();
+      return 1;
+   }
 
    struct stat st;
    if (stat(dirpath, &st) < 0) {
