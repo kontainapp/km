@@ -96,7 +96,7 @@ load_expected_size: load_test.km
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d $(EXECS) kmcore
+	rm -f *.o *.d $(EXECS) kmcore $(TIME_INFO)
 
 #
 # do not generate .d file if target is clean
