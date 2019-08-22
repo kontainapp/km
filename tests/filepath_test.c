@@ -217,7 +217,7 @@ void* open_task_main(void* arg)
    }
    pthread_mutex_unlock(&open_test_mutex);
 
-   for (int i = 0; i < 10000; i++) {
+   for (int i = 0; i < 10; i++) {
       for (int j = 0; j < OPEN_TEST_NFILES; j++) {
          int fd = open(open_task_files[j].path, O_RDONLY);
          if (fd < 0) {
