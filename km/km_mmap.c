@@ -28,19 +28,13 @@
 #include "km_coredump.h"
 #include "km_mem.h"
 
-static inline void mmaps_lock(int needs_lock)
+static inline void mmaps_lock(void)
 {
-   if (needs_lock == 0) {
-      return;
-   }
    pthread_mutex_lock(&machine.mmaps.mutex);
 }
 
-static inline void mmaps_unlock(int needs_lock)
+static inline void mmaps_unlock(void)
 {
-   if (needs_lock == 0) {
-      return;
-   }
    pthread_mutex_unlock(&machine.mmaps.mutex);
 }
 
@@ -249,32 +243,18 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
    km_mmap_insert_free(reg);
 }
 
-/*
- * Maps an address range in guest virtual space.
- *
- * TODO: check flags. Use the gva if specified.
- *
- * Returns mapped addres on success, or -errno on failure.
- * -EINVAL if the args are not valid
- * -ENOMEM if fails to allocate memory
- */
+// Guest mmap implementation. Params should be already checked and locks taken..
 static km_gva_t
-km_guest_mmap_lockable(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, int needs_lock)
+km_guest_mmap_nolock(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
 {
-   km_gva_t ret;
    km_mmap_reg_t* reg;
+   km_gva_t ret;
 
-   km_infox(KM_TRACE_MMAP, "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x)", gva, size, prot, flags);
-   if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
-      return ret;
-   }
-   mmaps_lock(needs_lock);
    if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
       assert(size <= reg->size);
       if (reg->size > size) {   // free mmap has extra room to be kept in 'free'
          km_mmap_reg_t* busy;
          if ((busy = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-            mmaps_unlock(needs_lock);
             return -ENOMEM;
          }
          *busy = *reg;
@@ -288,12 +268,10 @@ km_guest_mmap_lockable(km_gva_t gva, size_t size, int prot, int flags, int fd, o
       }
    } else {   // nothing useful in the free list, get fresh memory by moving tbrk down
       if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-         mmaps_unlock(needs_lock);
          return -ENOMEM;
       }
       km_gva_t want = machine.tbrk - size;
       if ((ret = km_mem_tbrk(want)) != want) {
-         mmaps_unlock(needs_lock);
          free(reg);
          return ret;
       }
@@ -304,21 +282,29 @@ km_guest_mmap_lockable(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    reg->protection = prot;
    km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
    km_mmap_insert_busy(reg);
-   mmaps_unlock(needs_lock);
    return map_start;
 }
 
-// mmap under a pre-acquired lock
-static km_gva_t
-km_guest_mmap_nolock(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
-{
-   return km_guest_mmap_lockable(gva, size, prot, flags, fd, offset, 0);
-}
-
-// mmap with locking
+/*
+ * Maps an address range in guest virtual space.
+ *  - checks the params, takes the lock and calls the actual implementation
+ *
+ * Returns mapped addres on success, or -errno on failure.
+ * -EINVAL if the args are not valid
+ * -ENOMEM if fails to allocate memory
+ */
 km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
 {
-   return km_guest_mmap_lockable(gva, size, prot, flags, fd, offset, 1);
+   km_gva_t ret;
+
+   km_infox(KM_TRACE_MMAP, "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x)", gva, size, prot, flags);
+   if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
+      return ret;
+   }
+   mmaps_lock();
+   ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset);
+   mmaps_unlock();
+   return ret;
 }
 
 typedef void (*km_mmap_action)(km_mmap_reg_t*);
@@ -370,6 +356,12 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
    return 0;
 }
 
+// Guest munmap implementation. Params should be already checked and locks taken.
+static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
+{
+   return km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
+}
+
 /*
  * Unmaps address range in guest virtual space.
  * Per per munmap(3) it is ok if some pages within the range were already unmapped.
@@ -378,7 +370,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
  * -EINVAL if the part of the FULL requested region is not mapped
  * -ENOMEM if fails to allocate memory for control structures
  */
-static int km_guest_munmap_lockable(km_gva_t addr, size_t size, int needs_lock)
+int km_guest_munmap(km_gva_t addr, size_t size)
 {
    int ret;
 
@@ -387,23 +379,11 @@ static int km_guest_munmap_lockable(km_gva_t addr, size_t size, int needs_lock)
    if ((ret = mumap_check_params(addr, size)) != 0) {
       return ret;
    }
-   mmaps_lock(needs_lock);
-   ret = km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
-   mmaps_unlock(needs_lock);
+   mmaps_lock();
+   ret = km_guest_munmap_nolock(addr, size);
+   mmaps_unlock();
    km_infox(KM_TRACE_MMAP, "== munmap ret=%d", ret);
    return ret;
-}
-
-// unmap that always acquires mmaps lock.
-int km_guest_munmap(km_gva_t addr, size_t size)
-{
-   return km_guest_munmap_lockable(addr, size, 1);
-}
-
-// unmap under pre-acquired lock.
-static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
-{
-   return km_guest_munmap_lockable(addr, size, 0);
 }
 
 /*
@@ -433,6 +413,20 @@ static int km_mmap_busy_check_contigious(km_gva_t addr, size_t size)
    return 0;
 }
 
+// Guest mprotect implementation. Params should be already checked and locks taken.
+static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
+{
+   // Per mprotect(3) if there are un-mmaped pages in the area, error out with ENOMEM
+   if (km_mmap_busy_check_contigious(addr, size) != 0) {
+      km_infox(KM_TRACE_MMAP, "mprotect area not fully mapped");
+      return -ENOMEM;
+   }
+   if (km_mmap_busy_range_apply(addr, size, km_mmap_mprotect, prot) != 0) {
+      return -ENOMEM;
+   }
+   return 0;
+}
+
 /*
  * Changes protection for contigious range of mmap-ed memory.
  * With locked == 1 does not bother to do locking
@@ -440,7 +434,6 @@ static int km_mmap_busy_check_contigious(km_gva_t addr, size_t size)
  */
 int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
 {
-   int needs_lock = 1;   // always lock
    km_infox(KM_TRACE_MMAP, "mprotect guest(0x%lx 0x%lx prot %x)", addr, size, prot);
    if ((prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC | PROT_GROWSDOWN | PROT_GROWSUP)) != 0) {
       return -EINVAL;
@@ -448,19 +441,10 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
    if (addr != rounddown(addr, KM_PAGE_SIZE) || (size = roundup(size, KM_PAGE_SIZE)) == 0) {
       return -EINVAL;
    }
-   mmaps_lock(needs_lock);
-   // Per mprotect(3) if there are un-mmaped pages in the area, error out with ENOMEM
-   if (km_mmap_busy_check_contigious(addr, size) != 0) {
-      km_infox(KM_TRACE_MMAP, "mprotect area not fully mapped");
-      mmaps_unlock(needs_lock);
-      return -ENOMEM;
-   }
-   if (km_mmap_busy_range_apply(addr, size, km_mmap_mprotect, prot) != 0) {
-      mmaps_unlock(needs_lock);
-      return -ENOMEM;
-   }
-   mmaps_unlock(needs_lock);
-   return 0;
+   mmaps_lock();
+   int ret = km_guest_mprotect_nolock(addr, size, prot);
+   mmaps_unlock();
+   return ret;
 }
 
 // Grows a mmap to size. old_addr is expected to be within ptr map. Returns new address or -errno
@@ -520,13 +504,34 @@ static km_gva_t km_mremap_shrink(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t o
    return old_addr;
 }
 
+// Guest mremap implementation. Params should be already checked and locks taken.
+static km_gva_t km_guest_mremap_nolock(km_gva_t old_addr, size_t old_size, size_t size, int flags)
+{
+   km_mmap_reg_t* ptr;
+   km_gva_t ret;
+
+   if ((ptr = km_mmap_find_address(&machine.mmaps.busy, old_addr)) == NULL) {
+      km_infox(KM_TRACE_MMAP, "mremap: Did not find requested map");
+      return -EFAULT;
+   }
+   if (ptr->start + ptr->size < old_addr + old_size) {   // check the requested map is homogeneous
+      km_infox(KM_TRACE_MMAP, "mremap: requested mmap is not fully within existing map");
+      return -EFAULT;
+   }
+   // found the map and it's a legit size
+   if (old_size < size) {   // grow
+      ret = km_mremap_grow(ptr, old_addr, old_size, size, (flags & MREMAP_MAYMOVE) != 0);
+   } else {   // shrink (old_size == size is already checked above)
+      ret = km_mremap_shrink(ptr, old_addr, old_size, size);
+   }
+   return ret;
+}
+
 // Implementation of guest 'mremap'. Returns new address or -errno
 km_gva_t
 km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... /*void* new_address*/)
 {
-   km_mmap_reg_t* ptr;
    km_gva_t ret;
-   int needs_lock = 1;   // always lock
 
    km_infox(KM_TRACE_MMAP, "mremap(0x%lx, 0x%lx, 0x%lx, 0x%x)", old_addr, old_size, size, flags);
    if ((old_addr % KM_PAGE_SIZE) != 0 || old_size == 0 || size == 0 || (flags & ~MREMAP_MAYMOVE) != 0) {
@@ -539,24 +544,9 @@ km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... 
       return old_addr;
    }
 
-   mmaps_lock(needs_lock);
-   if ((ptr = km_mmap_find_address(&machine.mmaps.busy, old_addr)) == NULL) {
-      mmaps_unlock(needs_lock);
-      km_infox(KM_TRACE_MMAP, "mremap: Did not find requested map");
-      return -EFAULT;
-   }
-   if (ptr->start + ptr->size < old_addr + old_size) {   // check the requested map is homogeneous
-      mmaps_unlock(needs_lock);
-      km_infox(KM_TRACE_MMAP, "mremap: requested mmap is not fully within existing map");
-      return -EFAULT;
-   }
-   // found the map and it's a legit size
-   if (old_size < size) {   // grow
-      ret = km_mremap_grow(ptr, old_addr, old_size, size, (flags & MREMAP_MAYMOVE) != 0);
-   } else {   // shrink (old_size == size is already checked above)
-      ret = km_mremap_shrink(ptr, old_addr, old_size, size);
-   }
-   mmaps_unlock(needs_lock);
+   mmaps_lock();
+   ret = km_guest_mremap_nolock(old_addr, old_size, size, flags);
+   mmaps_unlock();
    km_infox(KM_TRACE_MMAP, "mremap: ret=0x%lx", ret);
    return ret;
 }
