@@ -39,7 +39,7 @@ link:
 
 TEST_CMD ?= ${KM_BIN} ${PAYLOAD_KM}
 test-all:
-	-${TEST_CMD} ./test_unittest.py
+	${TEST_CMD} ./test_unittest.py
 	${TEST_CMD} ./cpython/Lib/unittest/test/
 
 include ${TOP}make/distro.mk
