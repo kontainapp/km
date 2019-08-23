@@ -564,6 +564,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    char* notes_buffer;
    size_t notes_length = km_core_notes_length();
    size_t notes_used = 0;
+   km_gva_t end_load = 0;
 
    if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0666)) < 0) {
       errx(2, "Cannot open corefile '%s' - %s\n", core_path, strerror(errno));
@@ -580,12 +581,21 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       if (km_guest.km_phdr[i].p_type != PT_LOAD) {
          continue;
       }
+      km_gva_t pend = km_guest.km_phdr[i].p_vaddr + km_guest.km_phdr[i].p_memsz;
+      if (pend > end_load) {
+         end_load = pend;
+      }
+
       phnum++;
    }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {
          continue;
       }
+      phnum++;
+   }
+   // Account for brk beyond elf segments.
+   if (end_load != 0 && end_load < machine.brk) {
       phnum++;
    }
    offset = sizeof(Elf64_Ehdr) + phnum * sizeof(Elf64_Phdr);
@@ -619,6 +629,15 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       km_core_write_load_header(fd, offset, ptr->start, ptr->size, mmap_to_elf_flags[ptr->protection & 0x7]);
       offset += ptr->size;
    }
+   // HDR for space between end of elf load and brk
+   if (end_load != 0 && end_load < machine.brk) {
+      km_core_write_load_header(fd,
+                                offset,
+                                end_load,
+                                machine.brk - end_load,
+                                PF_R | PF_W);
+      offset += machine.brk - end_load;
+   }
 
    // Write the actual data.
    km_core_write(fd, notes_buffer, notes_length);
@@ -644,6 +663,10 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       if (mprotect(start, ptr->size, ptr->protection) != 0) {
          err(1, "%s: failed to set %p,0x%lx prot to 0x%x", __FUNCTION__, start, ptr->size, ptr->protection);
       }
+   }
+   // Data for space between end of elf load and brk
+   if (end_load != 0 && end_load < machine.brk) {
+      km_guestmem_write(fd, end_load, machine.brk - end_load);
    }
 
    free(notes_buffer);
