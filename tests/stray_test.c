@@ -287,6 +287,13 @@ int main(int argc, char** argv)
       errx(1, "large PROT_NONE mmap ");
    }
 
+   /*
+    * malloc some space
+    */
+   int msz = MIB / 16;     // 64K
+   void *ptr = malloc(msz);
+   memset(ptr, 'a', msz);;
+
    struct stray_op* nop = operations;
    while (nop->op != NULL) {
       if (strcmp(op, nop->op) == 0) {
