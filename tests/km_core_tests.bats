@@ -372,6 +372,9 @@ function in_docker() {
    echo $output | grep -F 'Floating point exception (core dumped)'
    assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'div0 ('
+   # Check number of segments. Shoudl be 8
+   nload=`readelf -l ${CORE} | grep LOAD | wc -l`
+   assert [ "${nload}" == "8" ]
    rm -f ${CORE}
 
    # invalid opcode
