@@ -37,7 +37,7 @@ steps:
     sed  -i "s:BRANCH_NAME:$(git_rev):"        tests/bats-job.yaml
     sed  -i "s:BUILD_ID:$(Build.BuildId):"     tests/bats-job.yaml
     cat tests/bats-job.yaml
-  displayName: make withdocker
+  displayName: build 
 
 - script: |
     set -e
@@ -45,7 +45,7 @@ steps:
     make mk-bats TAG=$(Build.BuildId)
     docker tag test-bats:$(Build.BuildId)  $(registry)/test-bats:$(Build.BuildId)
     docker push $(registry)/test-bats:$(Build.BuildId)
-  displayName: build test image
+  displayName: dockerize tests
 
 - task: Kubernetes@1
   displayName: start tests
@@ -59,7 +59,7 @@ steps:
     arguments: -f tests/bats-job.yaml
 
 - task: Kubernetes@1
-  displayName: wait for completion or timeout
+  displayName: run tests
   inputs:
     connectionType: Kubernetes Service Connection
     azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
@@ -71,7 +71,7 @@ steps:
 
 - task: Kubernetes@1
   condition: always()
-  displayName: get logs
+  displayName: get tests results
   inputs:
     connectionType: Kubernetes Service Connection
     azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
