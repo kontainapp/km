@@ -45,6 +45,10 @@ login:  ## Interactive login to Azure, Acure Container Registry and Kubernetes c
 dashboard: login # Interactive login, and then forward port/open Kubernetes Dashboard
 	az aks browse --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER)
 
+DTYPE ?= fedora
+buildenv:  ## Build km-buildenv image for Azure
+	./buildenv.sh ${DTYPE}
+
 # Support for simple debug print (make debugvars)
 VARS_TO_PRINT ?= CLOUD_RESOURCE_GROUP CLOUD_SUBSCRIPTION CLOUD_LOCATION \
 					K8_SERVICE_PRINCIPAL K8S_CLUSTER K8S_NODE_INSTANCE_SIZE \

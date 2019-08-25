@@ -75,3 +75,7 @@ If you want changes to CI, you can edit script in your private branch and go thr
 
 CI source is under source control if you have questions/confusion - please ask @ slack **build\_and\_test** channel, and PLEASE do not not hesitate to update this file with the info :-)
 
+### Update buildenv images
+
+    make -C ./cloud/azure buildenv      # default to fedora
+    make -C ./cloud/azure buildenv DTYPE=ubuntu|fedora|alpine
