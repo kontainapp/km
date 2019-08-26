@@ -17,7 +17,8 @@
 
 int __dummy_stub(void)
 {
-   return -ENOSYS;
+   errno = ENOSYS;
+   return -1;
 }
 
 static void dump_core_stub(const char* syscall_name)

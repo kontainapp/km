@@ -9,7 +9,7 @@
  * information is strictly prohibited without the express written permission of
  * Kontain Inc.
  *
- * Simplifued implementation of __cxa_thread_atexit_impl() and __call_tls_dtors()
+ * Simplified implementation of __cxa_thread_atexit_impl() and __call_tls_dtors()
  */
 #include <errno.h>
 #include <malloc.h>

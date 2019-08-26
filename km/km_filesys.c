@@ -189,15 +189,15 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    }
    /*
     * Notes on closing guestfd:
-    * 
+    *
     * The "Dealing with error returns from close()" section
     * of the close(2) man page states: "Linux kernel always releases the
     * file descriptor early in the close operation, freeing it for reuse".
     * (And when they say 'always' they mean always. While close(2) can return
     * an error, the file descriptor is unconditionally closed).
-    * 
+    *
     * Hence the hostfd/guestfd mappings are cleared unconditionally
-    * before close(2) is called. 
+    * before close(2) is called.
     */
    del_guest_fd(vcpu, fd, host_fd);
    int ret = 0;
@@ -413,7 +413,14 @@ uint64_t km_fs_lstat(km_vcpu_t* vcpu, char* pathname, struct stat* statbuf)
 uint64_t
 km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int mask, void* statxbuf)
 {
-   int ret = __syscall_5(SYS_statx, dirfd, (uintptr_t)pathname, flags, mask, (uintptr_t)statxbuf);
+   int host_fd = dirfd;
+
+   if (dirfd != AT_FDCWD && pathname[0] != '/') {
+      if ((host_fd = check_guest_fd(vcpu, dirfd)) < 0) {
+         return -EBADF;
+      }
+   }
+   int ret = __syscall_5(SYS_statx, host_fd, (uintptr_t)pathname, flags, mask, (uintptr_t)statxbuf);
    return ret;
 }
 
@@ -425,6 +432,13 @@ uint64_t km_fs_fstat(km_vcpu_t* vcpu, int fd, struct stat* statbuf)
       return -EBADF;
    }
    int ret = __syscall_2(SYS_fstat, host_fd, (uintptr_t)statbuf);
+   return ret;
+}
+
+// int access(const char *pathname, int mode);
+uint64_t km_fs_access(km_vcpu_t* vcpu, const char* pathname, int mode)
+{
+   int ret = __syscall_2(SYS_access, (uintptr_t)pathname, mode);
    return ret;
 }
 
@@ -554,14 +568,27 @@ km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optv
 
 // ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
 // ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
-uint64_t
-km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr *msg, int flag)
+uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr* msg, int flag)
 {
    int host_sockfd;
    if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(scall, host_sockfd, (uintptr_t)msg, flag);
+   return ret;
+}
+
+// ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
+uint64_t km_fs_sendfile(km_vcpu_t* vcpu, int out_fd, int in_fd, off_t* offset, size_t count)
+{
+   int host_outfd, host_infd;
+   if ((host_outfd = check_guest_fd(vcpu, out_fd)) < 0) {
+      return -EBADF;
+   }
+   if ((host_infd = check_guest_fd(vcpu, in_fd)) < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_4(SYS_sendfile, host_outfd, host_infd, (uintptr_t)offset, count);
    return ret;
 }
 
