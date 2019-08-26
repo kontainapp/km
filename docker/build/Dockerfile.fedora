@@ -22,7 +22,7 @@ ARG GID
 
 RUN dnf install -y gcc glibc-static \
    elfutils-libelf-devel elfutils-libelf-devel-static glibc-devel zlib-static gdb \
-   gcc-c++ libstdc++-static make git gcovr time patch openssl-devel findutils python \
+   gcc-c++ libstdc++-static make git gcovr time patch openssl-devel findutils python expat-static \
    && dnf clean all
 
 
