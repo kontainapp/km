@@ -36,7 +36,7 @@ static inline void usage()
 {
    errx(1,
         "Kontain Monitor - runs 'payload-file [payload args]' in Kontain VM\n"
-        "Usage: km [options] payload-file.[km] [payload_args ... ]\n"
+        "Usage: km [options] payload-file[.km] [payload_args ... ]\n"
 
         "\nOptions:\n"
         "\t--verbose[=regexp] (-V[regexp])     - Verbose print where internal info tag matches "

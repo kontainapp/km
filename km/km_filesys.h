@@ -101,6 +101,8 @@ uint64_t
 km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int mask, void* statxbuf);
 // int fstat(int fd, struct stat *statbuf);
 uint64_t km_fs_fstat(km_vcpu_t* vcpu, int fd, struct stat* statbuf);
+// int access(const char *pathname, int mode);
+uint64_t km_fs_access(km_vcpu_t* vcpu, const char* pathname, int mode);
 // int dup(int oldfd);
 uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd);
 // int dup2(int oldfd, int newfd);
@@ -124,6 +126,8 @@ km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optv
 // ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
 // ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
 uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr* msg, int flag);
+// ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
+uint64_t km_fs_sendfile(km_vcpu_t* vcpu, int out_fd, int in_fd, off_t* offset, size_t count);
 // int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 // int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 uint64_t

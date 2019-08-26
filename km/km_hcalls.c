@@ -11,6 +11,7 @@
  */
 
 #include <errno.h>
+#include <linux/stat.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -206,12 +207,49 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
    // ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
-   void* msg = km_gva_to_kma(arg->arg2);
-   if (msg == NULL) {
+   struct msghdr* msg_kma = km_gva_to_kma(arg->arg2);
+   struct msghdr msg;
+
+   if (msg_kma == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   arg->hc_ret = km_fs_sendrecvmsg(vcpu, hc, arg->arg1, msg, arg->arg3);
+   msg.msg_name = km_gva_to_kma_nocheck((uint64_t)msg_kma->msg_name);   // optional
+   msg.msg_namelen = msg_kma->msg_namelen;
+   msg.msg_iovlen = msg_kma->msg_iovlen;
+   struct iovec iov[msg.msg_iovlen];
+   for (int i = 0; i < msg.msg_iovlen; i++) {
+      struct iovec* iov_kma;
+
+      if ((iov_kma = km_gva_to_kma((uint64_t)msg_kma->msg_iov)) == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+      iov[i].iov_base = km_gva_to_kma((uint64_t)iov_kma[i].iov_base);
+      iov[i].iov_len = iov_kma[i].iov_len;
+   }
+   msg.msg_iov = iov;
+   msg.msg_control = km_gva_to_kma_nocheck((uint64_t)msg_kma->msg_control);   // optional
+   msg.msg_controllen = msg_kma->msg_controllen;
+   msg.msg_flags = msg_kma->msg_flags;
+   arg->hc_ret = km_fs_sendrecvmsg(vcpu, hc, arg->arg1, &msg, arg->arg3);
+   if (hc == SYS_recvmsg) {
+      msg_kma->msg_namelen = msg.msg_namelen;
+      msg_kma->msg_controllen = msg.msg_controllen;
+      msg_kma->msg_flags = msg.msg_flags;
+   }
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t sendfile_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
+   off_t* offset = km_gva_to_kma(arg->arg3);
+   if (offset == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_sendfile(vcpu, arg->arg1, arg->arg2, offset, arg->arg4);
    return HC_CONTINUE;
 }
 
@@ -264,7 +302,7 @@ static km_hc_ret_t statx_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
    void* pathname = km_gva_to_kma(arg->arg2);
-   void* statbuf = km_gva_to_kma(arg->arg5);
+   struct statx* statbuf = km_gva_to_kma(arg->arg5);
    if (pathname == NULL || statbuf == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
@@ -591,6 +629,19 @@ static km_hc_ret_t nanosleep_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t access_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int access(const char *pathname, int mode);
+   void* pathname = km_gva_to_kma(arg->arg1);
+   if (pathname == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
+   arg->hc_ret = km_fs_access(vcpu, pathname, arg->arg2);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t dup_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int dup(int oldfd);
@@ -685,6 +736,19 @@ static km_hc_ret_t recvfrom_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
    arg->hc_ret = km_fs_recvfrom(vcpu, arg->arg1, buf, arg->arg3, arg->arg4, srcaddr, addrlen);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t getrusage_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int getrusage(int who, struct rusage *usage);
+   void* buf = km_gva_to_kma(arg->arg2);
+   if (buf == NULL) {
+      arg->hc_ret = -EFAULT;
+   } else {
+      arg->hc_ret = 0;
+      memset(buf, 0, sizeof(struct rusage));
+   }
    return HC_CONTINUE;
 }
 
@@ -978,6 +1042,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_setsockopt] = setsockopt_hcall;
    km_hcalls_table[SYS_sendmsg] = sendrecvmsg_hcall;
    km_hcalls_table[SYS_recvmsg] = sendrecvmsg_hcall;
+   km_hcalls_table[SYS_sendfile] = sendfile_hcall;
    km_hcalls_table[SYS_ioctl] = ioctl_hcall;
    km_hcalls_table[SYS_fcntl] = fcntl_hcall;
    km_hcalls_table[SYS_stat] = stat_hcall;
@@ -1022,6 +1087,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_epoll_create1] = epoll1_create_hcall;
    km_hcalls_table[SYS_epoll_ctl] = epoll_ctl_hcall;
    km_hcalls_table[SYS_epoll_pwait] = epoll_pwait_hcall;
+   km_hcalls_table[SYS_access] = access_hcall;
    km_hcalls_table[SYS_dup] = dup_hcall;
    km_hcalls_table[SYS_dup2] = dup2_hcall;
    km_hcalls_table[SYS_dup3] = dup3_hcall;
@@ -1041,7 +1107,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getppid] = getppid_hcall;
    km_hcalls_table[SYS_gettid] = gettid_hcall;
 
-   km_hcalls_table[SYS_getrusage] = dummy_hcall;
+   km_hcalls_table[SYS_getrusage] = getrusage_hcall;
    km_hcalls_table[SYS_geteuid] = dummy_hcall;
    km_hcalls_table[SYS_getuid] = dummy_hcall;
    km_hcalls_table[SYS_getegid] = dummy_hcall;

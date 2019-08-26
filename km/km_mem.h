@@ -120,15 +120,20 @@ static inline int MEM_IDX(km_gva_t addr)
 }
 
 // guest virtual address to guest physical address - adjust high gva down
+static inline km_gva_t gva_to_gpa_nocheck(km_gva_t gva)
+{
+   if (gva > GUEST_VA_OFFSET) {
+      gva -= GUEST_VA_OFFSET;
+   }
+   return gva;
+}
+
 static inline km_gva_t gva_to_gpa(km_gva_t gva)
 {
    // gva must be in the bottom or top "max_physmem", but not in between
    assert((GUEST_MEM_START_VA - 1 <= gva && gva < machine.guest_max_physmem) ||
           (GUEST_VA_OFFSET <= gva && gva <= GUEST_MEM_TOP_VA));
-   if (gva > GUEST_VA_OFFSET) {
-      gva -= GUEST_VA_OFFSET;
-   }
-   return gva;
+   return gva_to_gpa_nocheck(gva);
 }
 
 // helper to convert physical to virtual in the top of VA
@@ -182,7 +187,7 @@ static inline uint64_t memreg_size(int idx)
  */
 static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
 {
-   return KM_USER_MEM_BASE + gva_to_gpa(gva);
+   return KM_USER_MEM_BASE + gva_to_gpa_nocheck(gva);
 }
 
 /*
