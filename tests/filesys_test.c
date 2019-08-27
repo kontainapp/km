@@ -31,6 +31,10 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 
+#ifndef STATX_ALL
+#include <linux/stat.h>
+#endif
+
 #include "syscall.h"
 
 #include "greatest/greatest.h"

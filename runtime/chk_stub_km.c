@@ -70,6 +70,20 @@ int __sprintf_chk(char* s,
    return rc;
 }
 
+extern int __snprintf_chk (char *s, size_t n, __attribute__((unused)) int flag,
+                           __attribute__((unused)) size_t slen, const char *format,
+                           ...)
+{
+   va_list arg;
+   int rc;
+
+   va_start(arg, format);
+   rc = vsnprintf(s, n, format, arg);
+   va_end(arg);
+
+   return rc;
+}
+
 int __vfprintf_chk(FILE* fp, __attribute__((unused)) int flag, const char* format, va_list arg)
 {
    return vfprintf(fp, format, arg);
