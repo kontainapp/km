@@ -26,6 +26,7 @@
 #include "km_signal.h"
 #include "km_syscall.h"
 #include "km_unittest.h"
+#include "km_dll.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -783,6 +784,62 @@ static km_hc_ret_t getrusage_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = 0;
       memset(buf, 0, sizeof(struct rusage));
    }
+}
+
+static km_hc_ret_t dlopen_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   void *path = km_gva_to_kma(arg->arg1);
+   if (path == NULL) {
+      siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL, .si_addr = arg->arg1};
+      km_post_signal(vcpu, &info);
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_dlopen(vcpu, path, arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t dlclose_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = 0;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t dlsym_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   void *sym = km_gva_to_kma(arg->arg2);
+   if (sym == NULL) {
+      siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL, .si_addr = arg->arg2};
+      km_post_signal(vcpu, &info);
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_dlsym(vcpu, arg->arg1, sym);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t dlerror_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // let km_dlopen deal with 
+   void *msg = km_gva_to_kma(arg->arg1);
+   if (msg == NULL) {
+      siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL, .si_addr = arg->arg1};
+      km_post_signal(vcpu, &info);
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_dlerror(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t dladdr_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   warnx("%s", __FUNCTION__);
+   arg->hc_ret = 0;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t dlinfo_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   warnx("%s", __FUNCTION__);
+   arg->hc_ret = 0;
    return HC_CONTINUE;
 }
 
@@ -1218,6 +1275,13 @@ void km_hcalls_init(void)
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;
    km_hcalls_table[HC_procfdname] = procfdname_hcall;
+   // dlopen and friends
+   km_hcalls_table[HC_dlopen] = dlopen_hcall;
+   km_hcalls_table[HC_dlclose] = dlclose_hcall;
+   km_hcalls_table[HC_dlsym] = dlsym_hcall;
+   km_hcalls_table[HC_dlerror] = dlerror_hcall;
+   km_hcalls_table[HC_dladdr] = dladdr_hcall;
+   km_hcalls_table[HC_dlinfo] = dlinfo_hcall;
 }
 
 void km_hcalls_fini(void)

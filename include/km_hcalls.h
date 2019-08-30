@@ -65,6 +65,12 @@ enum km_internal_hypercalls {
    HC_guest_interrupt = KM_MAX_HCALL - 3,
    HC_km_unittest = KM_MAX_HCALL - 4,
    HC_procfdname = KM_MAX_HCALL - 5,
+   HC_dlopen = KM_MAX_HCALL - 6,
+   HC_dlclose = KM_MAX_HCALL - 7,
+   HC_dlsym = KM_MAX_HCALL - 8,
+   HC_dladdr = KM_MAX_HCALL - 9,
+   HC_dlerror = KM_MAX_HCALL - 10,
+   HC_dlinfo = KM_MAX_HCALL -  11,
 };
 
 extern const char* const km_hc_name_get(int hc);

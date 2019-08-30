@@ -2,6 +2,7 @@ build/**
 *.o
 *.a
 *.d
+*.swp
 tests/*_test
 tests/*.km
 tests/*.musl
@@ -13,4 +14,4 @@ GTAGS
 GPATH
 GRTAGS
 kmcore
-
+__pycache__

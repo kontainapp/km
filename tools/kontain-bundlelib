@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+
+import argparse
+import subprocess
+from os.path import basename,dirname
+from tempfile import NamedTemporaryFile
+
+def split_pathname(file):
+  tbase = basename(file).rsplit('.', 2)[0]
+  tdir = dirname(file)
+  if len(tdir) == 0:
+    tdir = '.'
+  return tdir, tbase
+
+def get_exports(file):
+   '''
+   Gets list of exported symbols from an object file
+   '''
+   return [line.split()[-1] for line in subprocess.getoutput(
+            'readelf -s {} | grep "GLOBAL *DEFAULT *[0-9]"'
+             .format(file)).split('\n')]
+
+def translate_exports(lib, syms):
+   return { sym : '{}_{}'.format(sym, lib) for sym in syms}
+
+def build_single_lib(obj, linkage_file):
+  odir,obase = split_pathname(obj)
+  renamed_obj = '{}/km_obj_{}.o'.format(odir, obase)
+
+  # Build the translation structure
+  t = translate_exports(obase, get_exports(obj))
+
+  # Generate rename commands file
+  oc_rename = NamedTemporaryFile()
+  f = open(oc_rename.name, 'w')
+  for sym,tsym in t.items():
+    f.write('{} {}\n'.format(sym, tsym))
+  f.close()
+
+  # Run objcopy to rename symbols
+  cmd = 'objcopy --redefine-syms {} {} {}'.format(oc_rename.name, obj, renamed_obj).split()
+  subprocess.run(cmd)
+
+  # Build linkage file
+  linkage_file.write('\n/* {} */\n'.format(obase))
+  for sym,tsym in t.items():
+    linkage_file.write('extern void * {};\n'.format(tsym))
+  linkage_file.write('static km_dlsymbol_t _{}_syms[{}] = {{\n'.format(obase, len(t)))
+  for sym,tsym in t.items():
+    linkage_file.write('  {{.sym_name = "{}", .sym_addr = &{} }},\n'.format(sym, tsym))
+  linkage_file.write('};\n')
+  return renamed_obj
+
+
+def Main(args):
+  target = args.o[0]
+  tdir, tbase = split_pathname(target)
+  objnames = []
+
+  linkage_file_name='{}/{}_link.c'.format(tdir, tbase)
+  linkage_file = open(linkage_file_name, 'w')
+  linkage_file.write('/* Auto-generated - Do not edit */\n')
+  linkage_file.write('#include <stddef.h>\n')
+  linkage_file.write('#include "km_dl_linkage.h"\n')
+  for obj in args.files:
+    name = build_single_lib(obj, linkage_file)
+    objnames.append(name)
+
+  linkage_file.write('\nkm_dlentry_t __km_dllist[{}] = {{\n'.format(len(args.files)))
+  for obj in args.files:
+    odir,obase = split_pathname(obj)
+    linkage_file.write('  {{.dlname="{}.so", .symbols=_{}_syms, .nsymbols={} }},\n'.format(obase, obase, len(get_exports(obj))))
+
+  linkage_file.write('};\n')
+  linkage_file.write('int __km_ndllist = {};\n'.format(len(args.files)))
+  linkage_file.close()
+
+  # Compile linkage table
+  TOP = subprocess.getoutput('git rev-parse --show-cdup').split()[0]
+  linkage_obj='{}/{}_link.o'.format(tdir, tbase)
+  cmd = 'cc -c -o {} {} -I {}include'.format(linkage_obj, linkage_file_name, TOP).split()
+  subprocess.run(cmd)
+
+  # link into one binary
+  library_obj='{}/lib_bundle.o'.format(tdir)
+  cmd = 'ld -o {} --relocatable {}'.format(library_obj, linkage_obj).split()
+  cmd.extend(objnames)
+  subprocess.run(cmd)
+
+
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-o', nargs=1)
+  parser.add_argument('files', nargs='+')
+  args = parser.parse_args()
+  Main(args)

@@ -1,0 +1,4 @@
+*.so
+km_lnk_*.c
+*.km
+lib_bundle_link.c

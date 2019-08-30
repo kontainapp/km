@@ -25,7 +25,7 @@ SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
 COPTS ?= -ggdb -O2
 CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
-LDFLAGS = -ggdb -pthread
+LDFLAGS = -ggdb -pthread -ldl
 KCC := kontain-gcc
 DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}

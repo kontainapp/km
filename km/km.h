@@ -27,6 +27,7 @@
 #include "bsd_queue.h"
 #include "km_elf.h"
 #include "km_hcalls.h"
+#include "km_dl_linkage.h"
 
 #define rounddown(x, y)                                                                            \
    (__builtin_constant_p(y) && powerof2(y) ? ((x) & ~((y)-1)) : (((x) / (y)) * (y)))
@@ -169,6 +170,12 @@ typedef struct km_mmap_cb {   // control block
    pthread_mutex_t mutex;     // global map lock
 } km_mmap_cb_t;
 
+// emulated dl control block
+typedef struct km_dl_cb {
+   km_dlentry_t *dllist;
+   int ndllist;
+} km_dl_cb_t;
+
 /*
  * kernel include/linux/kvm_host.h
  */
@@ -214,6 +221,7 @@ typedef struct km_machine {
    km_sigaction_t sigactions[_NSIG];
    km_filesys_t filesys;
    km_mmap_cb_t mmaps;   // guest memory regions managed with mmaps/mprotect/munmap
+   km_dl_cb_t dls;       // emulated dynamic libraries
 } km_machine_t;
 
 extern km_machine_t machine;

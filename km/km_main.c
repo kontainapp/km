@@ -22,6 +22,7 @@
 
 #include "km.h"
 #include "km_coredump.h"
+#include "km_dll.h"
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
@@ -226,6 +227,7 @@ int main(int argc, char* const argv[])
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
    km_load_elf(payload_file);
+   km_dl_init();
    if ((vcpu = km_vcpu_get()) == NULL) {
       err(1, "Failed to get main vcpu");
    }
@@ -250,6 +252,7 @@ int main(int argc, char* const argv[])
       }
       km_gdb_main_loop(vcpu);
    }
+   km_dl_fini();
    km_machine_fini();
    exit(machine.exit_status);
 }

@@ -19,10 +19,10 @@
 #   Kontain Inc.
 
 # scan all these and  'make' stuff there
-SUBDIRS := km runtime tests payloads
+SUBDIRS := km runtime tests payloads dllib
 
 # build VMM and runtime library before trying to build tests
-tests: km runtime
+tests: km runtime dllib
 
 TOP := $(shell git rev-parse --show-cdup)
 
