@@ -155,22 +155,6 @@ int km_load_elf(const char* file)
       err(2, "no memory for elf program headers");
    }
    /*
-    * Read program headers, store them in km_guest for future use, and process PT_LOAD ones
-    */
-   for (int i = 0; i < ehdr->e_phnum; i++) {
-      GElf_Phdr* phdr = &km_guest.km_phdr[i];
-
-      if (gelf_getphdr(e, i, phdr) == NULL) {
-         errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
-      }
-      if (phdr->p_type == PT_LOAD) {
-         load_extent(fd, phdr);
-      }
-      if (phdr->p_type == PT_TLS) {
-         tls_extent(fd, phdr);
-      }
-   }
-   /*
     * Read symbol table and look for symbols of interest to KM
     */
    int pthread_create_present = 0;
@@ -215,7 +199,7 @@ int km_load_elf(const char* file)
    }
    if (km_guest.km_libc == 0) {
       // just a warning here, basic no-print/no-locale stuff still works
-      warnx("Payload file is missing %s info", KM_LIBC_SYM_NAME);
+      km_infox(KM_TRACE_MEM, "Payload file is missing %s info", KM_LIBC_SYM_NAME);
    }
    if (km_guest.km_handlers == 0 || km_guest.km_tsd_size == 0 || km_guest.km_sigreturn == 0) {
       errx(1,
@@ -227,6 +211,22 @@ int km_load_elf(const char* file)
    }
    if (km_guest.km_start_thread == 0 && pthread_create_present == 1) {
       errx(1, "Payload is pthread enabled but is missing %s info", KM_THR_START_SYM_NAME);
+   }
+   /*
+    * Read program headers, store them in km_guest for future use, and process PT_LOAD ones
+    */
+   for (int i = 0; i < ehdr->e_phnum; i++) {
+      GElf_Phdr* phdr = &km_guest.km_phdr[i];
+
+      if (gelf_getphdr(e, i, phdr) == NULL) {
+         errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
+      }
+      if (phdr->p_type == PT_LOAD) {
+         load_extent(fd, phdr);
+      }
+      if (phdr->p_type == PT_TLS) {
+         tls_extent(fd, phdr);
+      }
    }
    (void)elf_end(e);
    (void)close(fd);
