@@ -208,7 +208,7 @@ typedef struct km_machine {
    km_signal_list_t sigfree;       // Freelist of signal entries.
    km_sigaction_t sigactions[_NSIG];
    km_filesys_t filesys;
-   km_mmap_cb_t mmaps;       // guest memory regions managed with mmaps/mprotect/munmap
+   km_mmap_cb_t mmaps;   // guest memory regions managed with mmaps/mprotect/munmap
 } km_machine_t;
 
 extern km_machine_t machine;
@@ -250,7 +250,7 @@ static inline int km_wait_on_eventfd(int fd)
    return value;
 }
 
-km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[]);
+km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* envp[]);
 int km_pthread_create(
     km_vcpu_t* vcpu, pthread_tid_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
 int km_pthread_join(km_vcpu_t* vcpu, pthread_tid_t pid, km_kma_t ret);

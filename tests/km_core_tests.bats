@@ -170,6 +170,23 @@ function in_docker() {
    assert_failure
 }
 
+@test "environ: passing environment to payloads (env_test)" {
+   val=`pwd`/$$
+   run km_with_timeout --putenv PATH=$val env_test.km
+   assert_success
+   assert_output --partial "PATH=$val"
+
+   run km_with_timeout --copyenv env_test.km
+   assert_success
+   assert_output --partial "PATH=$PATH"
+
+   run km_with_timeout --copyenv --putenv MORE=less env_test.km
+   assert_failure
+
+   run km_with_timeout --putenv PATH=testingpath --copyenv env_test.km
+   assert_failure
+}
+
 @test "mem_slots: KVM memslot / phys mem sizes (memslot_test)" {
    run ./memslot_test
    assert_success
