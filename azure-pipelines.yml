@@ -36,6 +36,7 @@ steps:
     echo "short head: $git_rev"
     sed  -i "s:BRANCH_NAME:$(git_rev):"        tests/bats-job.yaml
     sed  -i "s:BUILD_ID:$(Build.BuildId):"     tests/bats-job.yaml
+    sed  -i "s:REGISTRY:$(azureContainerRegistry):"     tests/bats-job.yaml
     cat tests/bats-job.yaml
   displayName: build 
 

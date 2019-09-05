@@ -12,7 +12,7 @@ spec:
       containers:
       - name: bats-BUILD_ID
         imagePullPolicy: Always
-        image: kontainkubecr.azurecr.io/test-bats:BUILD_ID
+        image: REGISTRY.azurecr.io/test-bats:BUILD_ID
         env:
         - name: BRANCH
           value: BRANCH_NAME

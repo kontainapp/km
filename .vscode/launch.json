@@ -10,9 +10,7 @@
          "request": "launch",
          "program": "${workspaceFolder}/build/km/km",
          "args": [
-            "-Vmmap",
-            "tests/${input:test_payload}.km",
-            "-v"
+            "tests/${input:test_payload}.km"
          ],
          "stopAtEntry": true,
          "cwd": "${workspaceFolder}",

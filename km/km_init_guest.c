@@ -171,7 +171,7 @@ typedef struct km_builtin_tls {
  * TODO: There are other guest structures, such as __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
  */
-km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
+km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* envp[])
 {
    km_gva_t libc = km_guest.km_libc;
    km__libc_t* libc_kma = NULL;
@@ -223,10 +223,26 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    tcb_kma->detach_state = DT_JOINABLE;
    tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
 
-   char* argv_km[argc + 1];   // argv to copy to guest stack_init
    km_gva_t stack_top = dtv;
    km_kma_t stack_top_kma = km_gva_to_kma_nocheck(stack_top);
+
+   // Set environ - copy strings and prep the envp array
+   for (int i = 0; i < envc - 1; i++) {
+      int len = strnlen(envp[i], PATH_MAX) + 1;
+
+      stack_top -= len;
+      stack_top_kma -= len;
+      if (map_base + GUEST_STACK_SIZE - stack_top > GUEST_ARG_MAX) {
+         errx(2, "Environment list is too large");
+      }
+      strncpy(stack_top_kma, envp[i], len);
+      envp[i] = (char*)stack_top;
+   }
+   stack_top = rounddown(stack_top, sizeof(void*));
+   stack_top_kma = km_gva_to_kma_nocheck(stack_top);
+
    // copy arguments and form argv array
+   char* argv_km[argc + 1];   // argv to copy to guest stack_init
    argv_km[argc] = NULL;
    for (argc--; argc >= 0; argc--) {
       int len = strnlen(argv[argc], PATH_MAX) + 1;
@@ -261,12 +277,14 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[])
    if (libc != 0) {
       libc_kma->auxv = (void*)stack_top;   // auxv
    }
-   static const int size_of_empty_env = 2 * sizeof(void*);
-   stack_top -= size_of_empty_env;
-   stack_top_kma -= size_of_empty_env;
-   memset(stack_top_kma, 0, size_of_empty_env);
-   *(char**)stack_top_kma = (char*)(stack_top + sizeof(char*));   // empty env
 
+   // place envp array
+   size_t envp_sz = sizeof(envp[0]) * envc;
+   stack_top_kma -= envp_sz;
+   stack_top -= envp_sz;
+   memcpy(stack_top_kma, envp, envp_sz);
+
+   // place argv array
    stack_top_kma -= sizeof(argv_km);
    stack_top -= sizeof(argv_km);
    memcpy(stack_top_kma, argv_km, sizeof(argv_km));

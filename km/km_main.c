@@ -45,6 +45,8 @@ static inline void usage()
         "before running payload\n"
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--log-to=file_name                  - Stream stdout and stderr to file_name\n"
+        "\t--putenv key=value                  - Add environment 'key' to payload\n"
+        "\t--copyenv                           - Copy all KM env. variables into payload\n"
         "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
         "\t--dump-shutdown                     - Produce register dump on VCPU error\n"
         "\t--core-on-err                       - generate KM core dump when exiting on err, "
@@ -98,6 +100,8 @@ static struct option long_options[] = {
     {"coredump", required_argument, 0, 'C'},
     {"membus-width", required_argument, 0, 'P'},
     {"log-to", required_argument, 0, 'l'},
+    {"putenv", required_argument, 0, 'e'},
+    {"copyenv", no_argument, 0, 'E'},
     {"gdb-server-port", optional_argument, 0, 'g'},
     {"verbose", optional_argument, 0, 'V'},
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
@@ -116,7 +120,11 @@ int main(int argc, char* const argv[])
    char* ep = NULL;
    int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int longopt_index;
+   char** envp = calloc(1, sizeof(char*));   // NULL terminated array of env pointers
+   int envc = 1;                             // count of elements in envp (including NULL)
+   int putenv_used = 0, copyenv_used = 0;    // they are mutually exlusive
 
+   assert(envp != NULL);
    while ((opt = getopt_long(argc, argv, "+g::V::P:vC:", long_options, &longopt_index)) != -1) {
       switch (opt) {
          case 0:
@@ -139,6 +147,35 @@ int main(int argc, char* const argv[])
             if (freopen(optarg, "a", stdout) == NULL || freopen(optarg, "a", stderr) == NULL) {
                err(1, optarg);
             }
+            break;
+         case 'e':   // --putenv
+            putenv_used++;
+            if (copyenv_used != 0) {
+               warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
+               usage();
+            }
+            envp[envc - 1] = optarg;
+            envc++;
+            if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
+               err(1, "Failed to alloc memory for putenv %s", optarg);
+            }
+            envp[envc - 1] = NULL;
+            break;
+         case 'E':   // --copyenv
+            copyenv_used++;
+            if (putenv_used != 0) {
+               warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
+               usage();
+            }
+            for (envc = 0; __environ[envc] != NULL; envc++) {
+               ;   // count env vars
+            }
+            envc++;   // account for terminating NULL
+            if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
+               err(1, "Failed to alloc memory for copyenv");
+            }
+            // avoid impacting KM env by using a copy
+            memcpy(envp, __environ, sizeof(envp[0]) * envc);
             break;
          case 'C':
             km_set_coredump_path(optarg);
@@ -193,7 +230,7 @@ int main(int argc, char* const argv[])
    if ((vcpu = km_vcpu_get()) == NULL) {
       err(1, "Failed to get main vcpu");
    }
-   km_gva_t guest_argv = km_init_libc_main(vcpu, argc - optind, argv + optind);
+   km_gva_t guest_argv = km_init_libc_main(vcpu, argc - optind, argv + optind, envc, envp);
    if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry, argc - optind, guest_argv) != 0) {
       err(1, "failed to set main vcpu to run");
    }
