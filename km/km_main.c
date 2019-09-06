@@ -162,7 +162,10 @@ int main(int argc, char* const argv[])
             envp[envc - 1] = NULL;
             break;
          case 'E':   // --copyenv
-            copyenv_used++;
+            if (copyenv_used++ != 0) {
+               warnx("Ignoring redundant '--copyenv' option");
+               break;
+            }
             if (putenv_used != 0) {
                warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
                usage();
@@ -170,12 +173,8 @@ int main(int argc, char* const argv[])
             for (envc = 0; __environ[envc] != NULL; envc++) {
                ;   // count env vars
             }
-            envc++;   // account for terminating NULL
-            if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
-               err(1, "Failed to alloc memory for copyenv");
-            }
-            // avoid impacting KM env by using a copy
-            memcpy(envp, __environ, sizeof(envp[0]) * envc);
+            envc++;             // account for terminating NULL
+            envp = __environ;   // pointers and strings will be copied to guest stack later
             break;
          case 'C':
             km_set_coredump_path(optarg);
