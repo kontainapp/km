@@ -170,15 +170,17 @@ function in_docker() {
    assert_failure
 }
 
-@test "environ: passing environment to payloads (env_test)" {
+@test "km_main: passing environment to payloads (env_test)" {
    val=`pwd`/$$
    run km_with_timeout --putenv PATH=$val env_test.km
    assert_success
    assert_output --partial "PATH=$val"
 
-   run km_with_timeout --copyenv env_test.km
+   run km_with_timeout --copyenv --copyenv env_test.km
    assert_success
-   assert_output --partial "PATH=$PATH"
+   assert_line "km: Ignoring redundant '--copyenv' option"
+   assert_line "getenv: PATH=$PATH"
+
 
    run km_with_timeout --copyenv --putenv MORE=less env_test.km
    assert_failure
