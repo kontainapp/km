@@ -445,7 +445,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
    if (ga > vcpu->stack_top) {
       ga -= 4 * GIB;
    }
-   km_infox(KM_TRACE_HC, "hc = %d", *hc);
+   km_infox(KM_TRACE_HC, "hc = %d (%s)", *hc, km_hc_name_get(*hc));
    km_kma_t ga_kma;
    if ((ga_kma = km_gva_to_kma(ga)) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
       siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
