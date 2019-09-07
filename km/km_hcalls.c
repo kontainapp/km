@@ -11,13 +11,13 @@
  */
 
 #include <errno.h>
-#include <linux/stat.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <linux/futex.h>
+#include <linux/stat.h>
 
 #include "km.h"
 #include "km_filesys.h"
@@ -429,7 +429,7 @@ static km_hc_ret_t mprotect_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 };
 
-static km_hc_ret_t clock_gettime_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+static km_hc_ret_t clock_time_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int clock_gettime(clockid_t clk_id, struct timespec *tp);
    if (arg->arg2 != 0 && km_gva_to_kml(arg->arg2) == 0) {
@@ -513,7 +513,8 @@ static km_hc_ret_t symlink_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   arg->hc_ret = km_fs_symlink(vcpu, target, linkpath);
+   arg->hc_ret = hc == SYS_symlink ? km_fs_symlink(vcpu, target, linkpath)
+                                   : km_fs_link(vcpu, target, linkpath);
    return HC_CONTINUE;
 }
 
@@ -546,6 +547,39 @@ static km_hc_ret_t fchdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int fchdir(int fd);
    arg->hc_ret = km_fs_fchdir(vcpu, arg->arg1);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t truncate_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int truncate(const char *path, off_t length);
+   void* path = km_gva_to_kma(arg->arg1);
+   if (path == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_truncate(vcpu, path, arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t ftruncate_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int ftruncate(int fd, off_t length);
+   arg->hc_ret = km_fs_ftruncate(vcpu, arg->arg1, arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t fsync_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int fsync(int fd);
+   arg->hc_ret = km_fs_fsync(vcpu, arg->arg1);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t fdatasync_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int fdatasync(int fd);
+   arg->hc_ret = km_fs_fdatasync(vcpu, arg->arg1);
    return HC_CONTINUE;
 }
 
@@ -1000,6 +1034,46 @@ static km_hc_ret_t mknod_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t chown_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int chown(const char *pathname, uid_t owner, gid_t group);
+   // int lchown(const char *pathname, uid_t owner, gid_t group);
+   void* pathname = km_gva_to_kma(arg->arg1);
+   if (pathname == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = hc == SYS_chown ? km_fs_chown(vcpu, pathname, arg->arg2, arg->arg3)
+                                 : km_fs_lchown(vcpu, pathname, arg->arg2, arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t fchown_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int fchown(int fd, uid_t owner, gid_t group);
+   arg->hc_ret = km_fs_fchown(vcpu, arg->arg1, arg->arg2, arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t chmod_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int chmod(const char *pathname, mode_t mode);
+   void* pathname = km_gva_to_kma(arg->arg1);
+   if (pathname == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_chmod(vcpu, pathname, arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t fchmod_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int fchmod(int fd, mode_t mode);
+   arg->hc_ret = km_fs_fchmod(vcpu, arg->arg1, arg->arg2);
+   return HC_CONTINUE;
+}
+
 // provides misc internal info for KM unittests
 static km_hc_ret_t km_unittest_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
@@ -1013,6 +1087,17 @@ static km_hc_ret_t km_unittest_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    arg->hc_ret = -ENOTSUP;
    return HC_CONTINUE;
 #endif
+}
+
+static km_hc_ret_t procfdname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   void* buf = km_gva_to_kma(arg->arg1);
+   if (buf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_procfdname(vcpu, buf, arg->arg2);
+   return HC_CONTINUE;
 }
 
 /*
@@ -1059,7 +1144,9 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_munmap] = munmap_hcall;
    km_hcalls_table[SYS_mremap] = mremap_hcall;
    km_hcalls_table[SYS_mprotect] = mprotect_hcall;
-   km_hcalls_table[SYS_clock_gettime] = clock_gettime_hcall;
+   km_hcalls_table[SYS_clock_gettime] = clock_time_hcall;
+   km_hcalls_table[SYS_clock_getres] = clock_time_hcall;
+   km_hcalls_table[SYS_clock_settime] = clock_time_hcall;
    km_hcalls_table[SYS_madvise] = madvise_hcall;
 
    km_hcalls_table[SYS_umask] = umask_hcall;
@@ -1068,13 +1155,23 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_open] = open_hcall;
    km_hcalls_table[SYS_lseek] = lseek_hcall;
    km_hcalls_table[SYS_rename] = rename_hcall;
+   km_hcalls_table[SYS_link] = symlink_hcall;
    km_hcalls_table[SYS_symlink] = symlink_hcall;
    km_hcalls_table[SYS_mkdir] = mkdir_hcall;
    km_hcalls_table[SYS_rmdir] = rmdir_hcall;
    km_hcalls_table[SYS_unlink] = unlink_hcall;
    km_hcalls_table[SYS_mknod] = mknod_hcall;
+   km_hcalls_table[SYS_chown] = chown_hcall;
+   km_hcalls_table[SYS_lchown] = chown_hcall;
+   km_hcalls_table[SYS_fchown] = fchown_hcall;
+   km_hcalls_table[SYS_chmod] = chmod_hcall;
+   km_hcalls_table[SYS_fchmod] = fchmod_hcall;
    km_hcalls_table[SYS_chdir] = chdir_hcall;
    km_hcalls_table[SYS_fchdir] = fchdir_hcall;
+   km_hcalls_table[SYS_truncate] = truncate_hcall;
+   km_hcalls_table[SYS_ftruncate] = ftruncate_hcall;
+   km_hcalls_table[SYS_fsync] = fsync_hcall;
+   km_hcalls_table[SYS_fdatasync] = fdatasync_hcall;
    km_hcalls_table[SYS_select] = select_hcall;
    km_hcalls_table[SYS_pause] = pause_hcall;
    km_hcalls_table[SYS_sendto] = sendto_hcall;
@@ -1113,12 +1210,13 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getegid] = dummy_hcall;
    km_hcalls_table[SYS_getgid] = dummy_hcall;
    km_hcalls_table[SYS_sched_yield] = dummy_hcall;
-   km_hcalls_table[SYS_clock_getres] = dummy_hcall;
+   km_hcalls_table[SYS_setpriority] = dummy_hcall;
 
    km_hcalls_table[HC_pthread_create] = pthread_create_hcall;
    km_hcalls_table[HC_pthread_join] = pthread_join_hcall;
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;
+   km_hcalls_table[HC_procfdname] = procfdname_hcall;
 }
 
 void km_hcalls_fini(void)

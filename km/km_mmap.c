@@ -220,7 +220,6 @@ static inline void km_mmap_insert(km_mmap_reg_t* reg, km_mmap_list_t* list)
 static inline void km_mmap_insert_busy(km_mmap_reg_t* reg)
 {
    km_mmap_list_t* list = &machine.mmaps.busy;
-
    km_mmap_insert(reg, list);
    km_mmap_concat(reg, list);
 }

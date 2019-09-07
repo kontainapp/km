@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
@@ -329,6 +330,13 @@ uint64_t km_fs_symlink(km_vcpu_t* vcpu, char* target, char* linkpath)
    return ret;
 }
 
+// int link(const char *oldpath, const char *newpath);
+uint64_t km_fs_link(km_vcpu_t* vcpu, char* old, char* new)
+{
+   int ret = __syscall_2(SYS_link, (uintptr_t)old, (uintptr_t) new);
+   return ret;
+}
+
 // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
 uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz)
 {
@@ -361,6 +369,46 @@ uint64_t km_fs_fchdir(km_vcpu_t* vcpu, int fd)
    return ret;
 }
 
+// int truncate(const char *path, off_t length);
+uint64_t km_fs_truncate(km_vcpu_t* vcpu, char* pathname, off_t length)
+{
+   int ret = __syscall_2(SYS_truncate, (uintptr_t)pathname, length);
+   return ret;
+}
+
+// int ftruncate(int fd, off_t length);
+uint64_t km_fs_ftruncate(km_vcpu_t* vcpu, int fd, off_t length)
+{
+   int host_fd;
+   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_2(SYS_ftruncate, host_fd, length);
+   return ret;
+}
+
+// int fsync(int fd);
+uint64_t km_fs_fsync(km_vcpu_t* vcpu, int fd)
+{
+   int host_fd;
+   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_1(SYS_fsync, host_fd);
+   return ret;
+}
+
+// int fdatasync(int fd);
+uint64_t km_fs_fdatasync(km_vcpu_t* vcpu, int fd)
+{
+   int host_fd;
+   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_1(SYS_fdatasync, host_fd);
+   return ret;
+}
+
 // int mkdir(const char *path, mode_t mode);
 uint64_t km_fs_mkdir(km_vcpu_t* vcpu, char* pathname, mode_t mode)
 {
@@ -382,9 +430,53 @@ uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname, mode_t mode)
    return ret;
 }
 
+// int mknod(const char *pathname, mode_t mode, dev_t dev);
 uint64_t km_fs_mknod(km_vcpu_t* vcpu, char* pathname, mode_t mode, dev_t dev)
 {
    int ret = __syscall_3(SYS_mknod, (uintptr_t)pathname, mode, dev);
+   return ret;
+}
+
+// int chown(const char *pathname, uid_t owner, gid_t group);
+uint64_t km_fs_chown(km_vcpu_t* vcpu, char* pathname, uid_t uid, gid_t gid)
+{
+   int ret = __syscall_3(SYS_chown, (uintptr_t)pathname, uid, gid);
+   return ret;
+}
+
+// int lchown(const char *pathname, uid_t owner, gid_t group);
+uint64_t km_fs_lchown(km_vcpu_t* vcpu, char* pathname, uid_t uid, gid_t gid)
+{
+   int ret = __syscall_3(SYS_lchown, (uintptr_t)pathname, uid, gid);
+   return ret;
+}
+
+// int fchown(int fd, uid_t owner, gid_t group);
+uint64_t km_fs_fchown(km_vcpu_t* vcpu, int fd, uid_t uid, gid_t gid)
+{
+   int host_fd;
+   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_3(SYS_fchown, host_fd, uid, gid);
+   return ret;
+}
+
+// int chmod(const char *pathname, mode_t mode);
+uint64_t km_fs_chmod(km_vcpu_t* vcpu, char* pathname, mode_t mode)
+{
+   int ret = __syscall_2(SYS_chmod, (uintptr_t)pathname, mode);
+   return ret;
+}
+
+// int fchmod(int fd, mode_t mode);
+uint64_t km_fs_fchmod(km_vcpu_t* vcpu, int fd, mode_t mode)
+{
+   int host_fd;
+   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_2(SYS_fchmod, host_fd, mode);
    return ret;
 }
 
@@ -858,4 +950,24 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
    }
    int ret = __syscall_4(SYS_prlimit64, pid, resource, (uintptr_t)new_limit, (uintptr_t)old_limit);
    return ret;
+}
+
+// procfdname() produces /proc/self/fd/<number> name for given fd
+uint64_t km_fs_procfdname(km_vcpu_t* vcpu, char* buf, int fd)
+{
+   int host_fd = check_guest_fd(vcpu, fd);
+   if (host_fd < 0) {
+      strcpy(buf, "/proc/nonexistent");
+      return -EBADF;
+   }
+   /*
+    * This is used from inside musl, for instance in an implementation of realpath(). We obviously
+    * need to transate the fd number so we make it into a pypercall. We could've make realpath()
+    * into a hypercall but procfdname() is used in half a dozen other places in musl.
+    *
+    * The buffer is provided with (alomst) fixed size expressed as ``char buf[15+3*sizeof(int)];''
+    * or once as `char procname[sizeof "/proc/self/fd/" + 3*sizeof(int) + 2];'' so we play along.
+    */
+   sprintf(buf, "/proc/self/fd/%d", host_fd);
+   return 0;
 }

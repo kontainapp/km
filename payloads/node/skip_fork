@@ -25,6 +25,7 @@ es-module/test-esm-require-cache.mjs
 es-module/test-esm-shared-loader-dep.mjs
 es-module/test-esm-shebang.mjs
 es-module/test-esm-snapshot.mjs
+es-module/test-esm-specifiers.mjs
 es-module/test-esm-symlink.js
 es-module/test-esm-symlink-main.js
 es-module/test-esm-symlink-type.js
