@@ -790,8 +790,9 @@ static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    arg->hc_ret = 0;
    km_infox(KM_TRACE_HC,
-            "hc = %d (dummy), %ld %lx %lx %lx %lx",
+            "hc = %d (dummy for %s), %ld %lx %lx %lx %lx",
             hc,
+            km_hc_name_get(hc),
             arg->arg1,
             arg->arg2,
             arg->arg3,
