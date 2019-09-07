@@ -71,11 +71,23 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg);
 // off_t lseek(int fd, off_t offset, int whence);
 uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence);
 // int mknod(const char *pathname, mode_t mode, dev_t dev);
+// int chown(const char *pathname, uid_t owner, gid_t group);
+uint64_t km_fs_chown(km_vcpu_t* vcpu, char* pathname, uid_t uid, gid_t gid);
+// int lchown(const char *pathname, uid_t owner, gid_t group);
+uint64_t km_fs_lchown(km_vcpu_t* vcpu, char* pathname, uid_t uid, gid_t gid);
+// int fchown(int fd, uid_t owner, gid_t group);
+uint64_t km_fs_fchown(km_vcpu_t* vcpu, int fd, uid_t uid, gid_t gid);
 uint64_t km_fs_mknod(km_vcpu_t* vcpu, char* pathname, mode_t mode, dev_t dev);
+// int chmod(const char *pathname, mode_t mode);
+uint64_t km_fs_chmod(km_vcpu_t* vcpu, char* pathname, mode_t mode);
+// int fchmod(int fd, mode_t mode);
+uint64_t km_fs_fchmod(km_vcpu_t* vcpu, int fd, mode_t mode);
 // int unlink(const char *path);
 uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname);
 // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);
 uint64_t km_fs_getdents64(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count);
+// int link(const char *oldpath, const char *newpath);
+uint64_t km_fs_link(km_vcpu_t* vcpu, char* old, char* new);
 // int symlink(const char *target, const char *linkpath);
 uint64_t km_fs_symlink(km_vcpu_t* vcpu, char* target, char* linkpath);
 // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
@@ -86,6 +98,14 @@ uint64_t km_fs_getcwd(km_vcpu_t* vcpu, char* buf, size_t bufsz);
 uint64_t km_fs_chdir(km_vcpu_t* vcpu, char* pathname);
 // int fchdir(const int fd);
 uint64_t km_fs_fchdir(km_vcpu_t* vcpu, int fd);
+// int truncate(const char *path, off_t length);
+uint64_t km_fs_truncate(km_vcpu_t* vcpu, char* pathname, off_t length);
+// int ftruncate(int fd, off_t length);
+uint64_t km_fs_ftruncate(km_vcpu_t* vcpu, int fd, off_t length);
+// int fsync(int fd);
+uint64_t km_fs_fsync(km_vcpu_t* vcpu, int fd);
+// int fdatasync(int fd);
+uint64_t km_fs_fdatasync(km_vcpu_t* vcpu, int fd);
 // int mkdir(const char *path, mode_t mode);
 uint64_t km_fs_mkdir(km_vcpu_t* vcpu, char* pathname, mode_t mode);
 // int rmdir(const char *path, mode_t mode);
@@ -191,4 +211,6 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
                          int resource,
                          const struct rlimit* new_limit,
                          struct rlimit* old_limit);
+// procfdname() produces /proc/self/fd/<number> name for given fd
+uint64_t km_fs_procfdname(km_vcpu_t* vcpu, char* buf, int fd);
 #endif
