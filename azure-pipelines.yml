@@ -1,6 +1,5 @@
-trigger:
-- jme/tests
-pr:
+trigger: none
+pr: 
 - master
 
 variables:
@@ -13,6 +12,11 @@ variables:
     k8sSC: 'CD-to-k8s'
     vmImage: 'ubuntu-16.04'
 
+strategy:
+  matrix:
+    fedora:
+      buildenv.type: fedora
+
 pool:
     vmImage: $(vmImage)
     
@@ -21,7 +25,7 @@ steps:
   submodules: true
 
 - task: Docker@2
-  displayName: login to $(registrySC)
+  displayName: login to $(azureContainerRegistry)
   inputs:
     command: login
     containerRegistry: $(registrySC)
@@ -30,22 +34,49 @@ steps:
 
 - script: |
     set -e
-    docker pull $(registry)/km-buildenv-fedora
-    docker tag $(registry)/km-buildenv-fedora  km-buildenv-fedora
-    make withdocker DTYPE=fedora
-    echo "short head: $git_rev"
-    sed  -i "s:BRANCH_NAME:$(git_rev):"        tests/bats-job.yaml
-    sed  -i "s:BUILD_ID:$(Build.BuildId):"     tests/bats-job.yaml
-    sed  -i "s:REGISTRY:$(azureContainerRegistry):"     tests/bats-job.yaml
-    cat tests/bats-job.yaml
-  displayName: build 
+    echo -e "\nSHA: $(git rev-parse HEAD)"
+    echo -e "Build env image: $(registry)/km-buildenv-$(buildenv.type)"
+    echo -e "Bats test image: $(registry)/test-bats:$(buildenv.type)-$(Build.BuildId)"
+    echo "--"
+    echo -e "\nDocker version:"
+    docker version
+    echo "--"
+    echo -e "\nVM / OS:"
+    cat /proc/version
+    echo -e "--\n"
+  displayName: build environment"
 
 - script: |
     set -e
+    docker pull $(registry)/km-buildenv-$(buildenv.type)
+    docker tag $(registry)/km-buildenv-$(buildenv.type)  km-buildenv-$(buildenv.type)
+    make withdocker DTYPE=$(buildenv.type)
+    echo "short head: $git_rev"
+    cp -v tests/bats-job.yaml tests/bats-$(buildenv.type)-job.yaml
+    sed  -i "s:BRANCH_NAME:$(git_rev):"        tests/bats-$(buildenv.type)-job.yaml
+    sed  -i "s:BUILD_ID:$(Build.BuildId):"     tests/bats-$(buildenv.type)-job.yaml
+    sed  -i "s:DTYPE_VALUE:$(buildenv.type):"     tests/bats-$(buildenv.type)-job.yaml
+    sed  -i "s:REGISTRY:$(azureContainerRegistry):"   tests/bats-$(buildenv.type)-job.yaml
+    cat tests/bats-$(buildenv.type)-job.yaml
+  displayName: dockerize build with $(buildenv.type)
+
+- script: |
+    set -e
+    PAYLOADS=( \
+      python
+      busybox
+      node
+      dweb
+    )
+    for payload in ${PAYLOADS[@]}; do
+      cid=$(docker create kontainkubecr.azurecr.io/${payload}-km)
+      docker cp $cid:/ ./tests/$payload
+      ls -lat ./tests/*
+    done
     cp -v build/km/km tests/
-    make mk-bats TAG=$(Build.BuildId)
-    docker tag test-bats:$(Build.BuildId)  $(registry)/test-bats:$(Build.BuildId)
-    docker push $(registry)/test-bats:$(Build.BuildId)
+    make mk-bats TAG=$(buildenv.type)-$(Build.BuildId) DTYPE=$(buildenv.type)
+    docker tag test-bats:$(buildenv.type)-$(Build.BuildId)  $(registry)/test-bats:$(buildenv.type)-$(Build.BuildId)
+    docker push $(registry)/test-bats:$(buildenv.type)-$(Build.BuildId)
   displayName: dockerize tests
 
 - task: Kubernetes@1
@@ -57,7 +88,8 @@ steps:
     kubernetesCluster: $(kubernetesCluster)
     kubernetesServiceEndpoint: $(k8sSC)
     command: apply
-    arguments: -f tests/bats-job.yaml
+    arguments: -f tests/bats-$(buildenv.type)-job.yaml
+
 
 - task: Kubernetes@1
   displayName: run tests
@@ -68,7 +100,7 @@ steps:
     kubernetesCluster: $(kubernetesCluster)
     kubernetesServiceEndpoint: $(k8sSC)
     command: wait
-    arguments: --timeout 240s --for=condition=complete job/bats-$(Build.BuildId)
+    arguments: --timeout 240s --for=condition=complete job/bats-$(buildenv.type)-$(Build.BuildId)
 
 - task: Kubernetes@1
   condition: always()
@@ -80,7 +112,7 @@ steps:
     kubernetesCluster: $(kubernetesCluster)
     kubernetesServiceEndpoint: $(k8sSC)
     command: logs
-    arguments: jobs/bats-$(Build.BuildId)
+    arguments: jobs/bats-$(buildenv.type)-$(Build.BuildId)
 
 - task: Kubernetes@1
   condition: always()
@@ -92,5 +124,5 @@ steps:
     kubernetesCluster: $(kubernetesCluster)
     kubernetesServiceEndpoint: $(k8sSC)
     command: delete
-    arguments: jobs/bats-$(Build.BuildId)
+    arguments: jobs/bats-$(buildenv.type)-$(Build.BuildId)
 

@@ -204,7 +204,7 @@ TAG ?= ${USER}
 .PHONY: mk-bats
 mk-bats: ## build bats image with tests
 	cp ./build/km/km ./tests/km
-	docker build -t ${TIMG}:${TAG}  ${TLOC} -f ${TLOC}/${TFILE}
+	docker build --build-arg DTYPE=${DTYPE} -t ${TIMG}:${TAG}  ${TLOC} -f ${TLOC}/${TFILE}
 
 
 withdocker:

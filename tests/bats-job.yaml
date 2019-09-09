@@ -1,23 +1,25 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: bats-BUILD_ID
+  name: bats-DTYPE_VALUE-BUILD_ID
   labels:
-    app: bats-BUILD_ID
+    app: bats-DTYPE_VALUE-BUILD_ID
 spec:
   template:
     spec:
       securityContext:
         runAsUser: 0
       containers:
-      - name: bats-BUILD_ID
+      - name: bats-DTYPE_VALUE-BUILD_ID
         imagePullPolicy: Always
-        image: REGISTRY.azurecr.io/test-bats:BUILD_ID
+        image: REGISTRY.azurecr.io/test-bats:DTYPE_VALUE-BUILD_ID
         env:
         - name: BRANCH
           value: BRANCH_NAME
         - name: KM_BIN
           value: /tests/km
+        - name: DTYPE
+          value: DTYPE_VALUE
         - name: TIME_INFO
           value: /time_info.txt
         command: ["bash","run_bats_tests.sh"]

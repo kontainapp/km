@@ -5,7 +5,18 @@ exit_code=$?
 # Print time info
 echo '------------------------------------------------------------------------------'
 echo "Tests slower than 0.1 sec:"
-grep elapsed /time_info.txt | grep -v "elapsed 0:00.[01]" | sort -r
+grep elapsed $TIME_INFO | grep -v "elapsed 0:00.[01]" | sort -r
 echo '------------------------------------------------------------------------------'
 echo ""
+echo '---------------------payload checks-------------------------------------------'
+> $TIME_INFO
+bats/bin/bats -t km_payloads_tests.bats
+((exit_code+=$?))
+# Print time info
+echo '------------------------------------------------------------------------------'
+echo "Tests slower than 0.1 sec:"
+grep elapsed $TIME_INFO | grep -v "elapsed 0:00.[01]" | sort -r
+echo '------------------------------------------------------------------------------'
+echo ""
+
 exit $exit_code
