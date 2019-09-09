@@ -140,9 +140,32 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
    }
 }
 
+// if this is the first time region will be accessible, zero it out
+static void km_mmap_zero(km_mmap_reg_t* reg)
+{
+   km_kma_t addr = km_gva_to_kma_nocheck(reg->start);
+   size_t size = reg->size;
+
+   if (reg->protection == PROT_NONE || (reg->km_flags & KM_MMAP_INITED) != 0) {
+      km_infox(KM_TRACE_MMAP,
+               "skip zero km mem %p sz %ld prot 0x%x km_flags 0x%x",
+               addr,
+               size,
+               reg->protection,
+               reg->km_flags);
+      return;   // not accessible or already was zeroed out
+   }
+   km_infox(KM_TRACE_MMAP, "zero km %p sz %ld", addr, size);
+   mprotect(addr, size, PROT_WRITE);
+   memset(addr, 0, size);
+   reg->km_flags |= KM_MMAP_INITED;
+}
+
 // wrapper for mprotect() on a single mmap region.
 static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
 {
+   km_mmap_zero(reg);   // range may become acessible for the 1st time - zero it if needed
+
    if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, reg->protection) != 0) {
       warn("%s: Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)",
            __FUNCTION__,
@@ -218,6 +241,7 @@ static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
    reg->flags = 0;
    km_mmap_insert(reg, list);
    km_mmap_concat(reg, list);
+   reg->km_flags &= ~KM_MMAP_INITED;
    if (reg->start == km_mem_tbrk(0)) {   // adjust tbrk() if needed
       km_mem_tbrk(reg->start + reg->size);
       TAILQ_REMOVE(list, reg, link);
@@ -280,6 +304,7 @@ km_guest_mmap_nolock(km_gva_t gva, size_t size, int prot, int flags, int fd, off
    }
    reg->flags = flags;
    reg->protection = prot;
+   reg->km_flags = 0;
    km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
    km_mmap_insert_busy(reg);
    return map_start;
@@ -464,6 +489,12 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
       km_infox(KM_TRACE_MMAP, "mremap: reusing adjusted free map");
       km_mmap_reg_t* donor = km_mmap_find_address(&machine.mmaps.free, ptr->start + ptr->size);
       assert(donor != NULL && donor->size >= needed);   // MUST have free slot due to gap in busy
+      km_mmap_reg_t new_range = {.start = old_addr + old_size,
+                                 .size = needed,
+                                 .protection = ptr->protection,
+                                 .flags = ptr->flags,
+                                 .km_flags = 0};
+      km_mmap_zero(&new_range);
       ptr->size += needed;
       km_mmap_mprotect_region(ptr);
       if (donor->size == needed) {
@@ -473,6 +504,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
          donor->start += needed;
          donor->size -= needed;
       }
+
       return old_addr;
    }
 
@@ -631,11 +663,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    }
    // HDR for space between end of elf load and brk
    if (end_load != 0 && end_load < machine.brk) {
-      km_core_write_load_header(fd,
-                                offset,
-                                end_load,
-                                machine.brk - end_load,
-                                PF_R | PF_W);
+      km_core_write_load_header(fd, offset, end_load, machine.brk - end_load, PF_R | PF_W);
       offset += machine.brk - end_load;
    }
 

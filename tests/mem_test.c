@@ -32,7 +32,8 @@ const long step = sizeof(sizes) / sizeof(long);
 
 static inline char* simple_mmap(size_t size)
 {
-   return mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   // Since we don't check memory content and get huge maps, use PROT_NONE to avoid memset() in km_mmaps.c
+   return mmap(0, size, PROT_NONE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 }
 
 void* subrun(void* up)
