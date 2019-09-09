@@ -30,9 +30,9 @@ void* SYS_break(void const* addr)
    return (void*)syscall(SYS_brk, addr);
 }
 
-static inline char* simple_mmap(size_t size)
+static inline char* simple_addr_reserve(size_t size)
 {
-   return mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   return mmap(0, size, PROT_NONE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 }
 
 static void const* __39_bit_mem = (void*)(512 * GIB);   // 512GB
@@ -69,7 +69,7 @@ TEST tbrk_brk_test()
          char msg[128];
 
          sprintf(msg, "%s reg %d off %d 0x%lx", "mmap", r, o, map_s);
-         void* map_p = simple_mmap(map_s);
+         void* map_p = simple_addr_reserve(map_s);
          ASSERT_NOT_EQ_FMTm(msg, map_p, MAP_FAILED, "%p");
 
          void* brk_exp = (void*)(regs[r] + offs[o]);
@@ -103,7 +103,7 @@ TEST brk_tbrk_test()
          ASSERT_EQ_FMTm(msg, brk_exp, brk_got, "%p");
 
          sprintf(msg, "%s reg %d off %d", "mmap", r, o);
-         void* map_p = simple_mmap(map_s);
+         void* map_p = simple_addr_reserve(map_s);
          if (offs_success[o]) {
             ASSERT_NOT_EQ_FMTm(msg, map_p, MAP_FAILED, "%p");
          } else {

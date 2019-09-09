@@ -152,10 +152,15 @@ typedef struct km_mmap_list km_mmap_list_t;
 typedef struct km_mmap_reg {
    km_gva_t start;
    size_t size;
-   int flags;        // flag as passed to mmmap()
+   int flags;        // flag as passed to mmap()
    int protection;   // as passed to mmaps() or mprotect(), or 0 for unmapped region
+   int km_flags;     // Flags used by KM and not by guest
    TAILQ_ENTRY(km_mmap_reg) link;
 } km_mmap_reg_t;
+
+enum {
+   KM_MMAP_INITED = 0x1,   // 1 if area was zeroed out already
+} km_mmap_flags_e;
 
 // mmaps control block
 typedef struct km_mmap_cb {   // control block

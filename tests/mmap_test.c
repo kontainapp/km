@@ -183,6 +183,9 @@ TEST mmap_test(void)
             if (t->expected == OK) {
                ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);   // print errno out if test fails
                ASSERT_NOT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
+               if ((t->prot & PROT_READ) != 0) {
+                  ASSERT_EQm("Mmaped memory should be zeroed", 0, *(int*)new_addr);
+               }
                if ((t->prot & PROT_WRITE) != 0) {
                   if (greatest_get_verbosity() == 1) {
                      printf("Mmap OK, trying to memset '2' to 0x%lx size: 0x%lx (%s)\n",
@@ -222,13 +225,17 @@ TEST mmap_test(void)
                ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);   // print errno out if test fails
                ASSERT_NOT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
                if (greatest_get_verbosity() == 1) {
-                  printf("mremap OK %p -> %p, now memset '2' size old 0x%lx (%s) new 0x%lx (%s)\n",
+                  printf("mremap OK %p -> %p, will memset '2' size old 0x%lx (%s) new 0x%lx (%s)\n",
                          last_addr,
                          new_addr,
                          old_size,
                          out_sz(old_size),
                          new_size,
                          out_sz(new_size));
+               }
+               if (old_size < new_size) {   // WE ASSUME PROT_READ for the parent map !
+                  printf("VALUE %d at %p\n", *(int*)(new_addr + old_size), new_addr);
+                  ASSERT_EQm("new range in remap should be zeroed", 0, *(int*)(new_addr + old_size));
                }
                memset(new_addr, '2', new_size);   // just core dumps if something is wrong
                signal(SIGSEGV, signal_handler);
