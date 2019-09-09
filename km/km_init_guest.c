@@ -171,7 +171,7 @@ typedef struct km_builtin_tls {
  * TODO: There are other guest structures, such as __hwcap, __sysinfo, __progname and so
  * on, we will need to process them as well most likely.
  */
-km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* envp[])
+km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[])
 {
    km_gva_t libc = km_guest.km_libc;
    km__libc_t* libc_kma = NULL;
@@ -227,16 +227,19 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int en
    km_kma_t stack_top_kma = km_gva_to_kma_nocheck(stack_top);
 
    // Set environ - copy strings and prep the envp array
+
+   char* km_envp[envc + 1];
+   memcpy(km_envp, envp, sizeof(km_envp));
    for (int i = 0; i < envc - 1; i++) {
-      int len = strnlen(envp[i], PATH_MAX) + 1;
+      int len = strnlen(km_envp[i], PATH_MAX) + 1;
 
       stack_top -= len;
       stack_top_kma -= len;
       if (map_base + GUEST_STACK_SIZE - stack_top > GUEST_ARG_MAX) {
          errx(2, "Environment list is too large");
       }
-      strncpy(stack_top_kma, envp[i], len);
-      envp[i] = (char*)stack_top;
+      strncpy(stack_top_kma, km_envp[i], len);
+      km_envp[i] = (char*)stack_top;
    }
    stack_top = rounddown(stack_top, sizeof(void*));
    stack_top_kma = km_gva_to_kma_nocheck(stack_top);
@@ -279,10 +282,10 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int en
    }
 
    // place envp array
-   size_t envp_sz = sizeof(envp[0]) * envc;
+   size_t envp_sz = sizeof(km_envp[0]) * envc;
    stack_top_kma -= envp_sz;
    stack_top -= envp_sz;
-   memcpy(stack_top_kma, envp, envp_sz);
+   memcpy(stack_top_kma, km_envp, envp_sz);
 
    // place argv array
    stack_top_kma -= sizeof(argv_km);

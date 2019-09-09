@@ -250,7 +250,8 @@ static inline int km_wait_on_eventfd(int fd)
    return value;
 }
 
-km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* envp[]);
+km_gva_t
+km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[]);
 int km_pthread_create(
     km_vcpu_t* vcpu, pthread_tid_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
 int km_pthread_join(km_vcpu_t* vcpu, pthread_tid_t pid, km_kma_t ret);
