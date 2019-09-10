@@ -1,16 +1,13 @@
 #!/bin/bash
-
-set -x
+set -ex
 
 if [ ! -d cpython ]; then
     git clone https://github.com/python/cpython.git -b v3.7.4
     pushd cpython
-    set -e
     ./configure CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0" LDFLAGS="-static" --disable-shared
     patch < ../pyconfig.h-patch || true
     cp ../Setup.local Modules/Setup.local
     patch -p1 < ../unittest.patch
-    set +e
 else
     pushd cpython
 fi
