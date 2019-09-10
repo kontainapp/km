@@ -140,7 +140,13 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
    }
 }
 
-// if this is the first time region will be accessible, zero it out
+/*
+ * If this is the first time region will be accessible, zero it out
+ *
+ * This function relies on the fact that the last step in any guest mmap manipulation is always setting
+ * protection to whatever the guest has requested. So right after a call to km_mmap_zero there is
+ * always proper protection setting - so we can simply set it to PROT_WRITE here before memset
+ */
 static void km_mmap_zero(km_mmap_reg_t* reg)
 {
    km_kma_t addr = km_gva_to_kma_nocheck(reg->start);
@@ -148,7 +154,7 @@ static void km_mmap_zero(km_mmap_reg_t* reg)
 
    if (reg->protection == PROT_NONE || (reg->km_flags & KM_MMAP_INITED) != 0) {
       km_infox(KM_TRACE_MMAP,
-               "skip zero km mem %p sz %ld prot 0x%x km_flags 0x%x",
+               "skip zero kma: %p sz %ld prot 0x%x km_flags 0x%x",
                addr,
                size,
                reg->protection,
