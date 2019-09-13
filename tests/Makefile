@@ -142,7 +142,7 @@ endif
 
 test-all: test
 
-.PHONY: all clean test help gdb coverage covclean
+.PHONY: all clean test help gdb coverage covclean install
 
-distro distroclean publish publishclean:
+distro distroclean publish publishclean install:
 	@echo $(notdir $(CURDIR)): nothing to do for target '$@'

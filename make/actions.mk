@@ -57,6 +57,7 @@ distro: subdirs ## package binaries for the current branch as Docker Container I
 distroclean: subdirs ## remove packages created by 'make distro'
 publish: subdirs ## publish packages for the current branch online (e.g to Azure ACR - see distro.mk)
 publishclean: subdirs ## (TODO) remove packages from online repos
+install: subdirs ## installs to ${KM_INSTALL_HOME} (/opt/kontain by default)
 
 $(SUBDIRS):
 	$(MAKE) -C $@ $(MAKECMDGOALS) MAKEOVERRIDES=

@@ -17,6 +17,12 @@ FROMTOP := $(shell git rev-parse --show-prefix)
 # use 'SRC_BRANCH=branch make <target>' for building target (e.g clean :-)) for other branches, if needed
 SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
 
+# installation home. Misc components can install to ./lib ./bin, etc...
+# note that if you want install home to be shared (e.g. /opt/kontain), do not forget to sudo make
+KM_INSTALL_HOME ?= ~/.local/kontain
+KM_INSTALL_BIN = ${KM_INSTALL_HOME}/bin
+KM_INSTALL_LIB = ${KM_INSTALL_HOME}/lib
+
 PATH := $(realpath ${TOP}tools):${PATH}
 
 # sha and build time for further reporting

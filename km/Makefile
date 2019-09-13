@@ -46,3 +46,15 @@ distro: ${BLDEXEC}
 distroclean:
 	-docker rmi -f ${KM_IMAGE_FULL_NAME}
 
+
+.PHONY: install
+install: ${KM_INSTALL_BIN}/${EXEC}
+
+ ${KM_INSTALL_BIN}/${EXEC} : ${BLDEXEC}
+	@echo Installing to KM_INSTALL_HOME=$(KM_INSTALL_HOME)
+	mkdir -p ${KM_INSTALL_BIN}
+	cp $(BLDEXEC) ${KM_INSTALL_BIN}
+	@if ! [[ "$$PATH" == *"~/.local/kontain/bin"* ]] ; then \
+		echo -e '$(GREEN)\nDo not forget to add ${KM_INSTALL_BIN} to PATH, e.g. add this to ~/.bashrc: $(NOCOLOR)' ; \
+		echo -e 'if ! [[ "$$PATH" == *"${KM_INSTALL_BIN}"* ]] ; then PATH="$$PATH:${KM_INSTALL_BIN}" ; fi\n' ; \
+	fi
