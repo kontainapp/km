@@ -48,9 +48,9 @@ all: subdirs ## Build all in all subdirs - basically, build + test recursively
 
 # Note: one target per line, so 'make help' works
 subdirs: $(SUBDIRS)
-clean: subdirs  ## clean all build artifacts.
-test: subdirs   ## build all and run KM tests
-test-all: test  ## build all and run KM and payload tests
+clean: subdirs ## clean all build artifacts.
+test: subdirs ## build all and run KM tests
+test-all: test ## build all and run KM and payload tests
 coverage: subdirs ## build and run tests with code coverage support
 covclean: subdirs ## clean coverage-related build artifacts
 distro: subdirs ## package binaries for the current branch as Docker Container Images
@@ -188,15 +188,15 @@ TFILE := Dockerfile
 #
 __testing := $(strip $(findstring test,$(TARGET)) $(findstring coverage,$(TARGET)))
 ifneq ($(__testing),)  # only add --device=/dev/kvm is we are testing
- DEVICE_KVM := --device=/dev/kvm
+DEVICE_KVM := --device=/dev/kvm
 endif
 
 UID := $(shell id -u)
 GID := $(shell id -g)
 
 .PHONY: mk-image
-mk-image: ## build fedora image
-	docker build --build-arg=USER=$(USER)  --build-arg=UID=$(UID) --build-arg=GID=$(GID) -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
+mk-image: ## make build image based on ${DTYPE}
+	docker build -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
 
 # Default is to tag test-bats image with uid.
 # Allows for Azure CI to set tag with build id.
@@ -204,13 +204,12 @@ TAG ?= ${USER}
 .PHONY: mk-bats
 mk-bats: ## build bats image with tests
 	cp ./build/km/km ./tests/km
-	docker build -t ${TIMG}:${TAG}  ${TLOC} -f ${TLOC}/${TFILE}
-
+	docker build -t ${TIMG}:${TAG} ${TLOC} -f ${TLOC}/${TFILE}
 
 withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" |  grep -q ${DIMG} ; then \
 		echo -e "$(CYAN)${DIMG} is missing locally, will try to pull from registry. Use 'make mk-image' to build$(NOCOLOR)" ; fi
-	docker run --ulimit nofile=`ulimit -n`:`ulimit -n -H` $(DEVICE_KVM) --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+	docker run --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u$(UID):$(GID) $(DEVICE_KVM) $(DEVICE_KVM) --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 
 #
 # 'Help' target - based on '##' comments in targets

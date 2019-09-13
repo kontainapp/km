@@ -84,10 +84,20 @@ class check_tls
    }
 };
 
+double toDouble(const char* buffer, size_t length) {
+  std::istringstream stream(std::string(buffer, length));
+  stream.imbue(std::locale("C"));  // Ignore locale
+  double d;
+  stream >> d;
+  return d;
+}
+
 int main()
 {
    StorageType t_main("Local main");
    static StorageType t_LocalStatic("local Static");
+
+   cout << "======> " << toDouble("1", 1) << endl;
 
    thread t1(thread_entry, "1");
    thread t2(thread_entry, "2");

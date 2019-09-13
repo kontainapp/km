@@ -28,6 +28,6 @@ TOP := $(shell git rev-parse --show-cdup)
 
 # On mac $(MAKE) evaluates to '/Applications/Xcode.app/Contents/Developer/usr/bin/make'
 ifeq ($(shell uname), Darwin)
-  MAKE := make
+MAKE := make
 endif
 include ${TOP}make/actions.mk
