@@ -15,7 +15,7 @@ variables:
 
 pool:
     vmImage: $(vmImage)
-    
+
 steps:
 - checkout: self
   submodules: true
@@ -29,19 +29,19 @@ steps:
 - bash: echo "##vso[task.setvariable variable=git_rev]$(git rev-parse --short HEAD)"
 
 - script: |
-    set -e
+    set -e -x
     docker pull $(registry)/km-buildenv-fedora
-    docker tag $(registry)/km-buildenv-fedora  km-buildenv-fedora
+    docker tag $(registry)/km-buildenv-fedora km-buildenv-fedora
     make withdocker DTYPE=fedora
     echo "short head: $git_rev"
-    sed  -i "s:BRANCH_NAME:$(git_rev):"        tests/bats-job.yaml
-    sed  -i "s:BUILD_ID:$(Build.BuildId):"     tests/bats-job.yaml
-    sed  -i "s:REGISTRY:$(azureContainerRegistry):"     tests/bats-job.yaml
+    sed -i "s:BRANCH_NAME:$(git_rev):"        tests/bats-job.yaml
+    sed -i "s:BUILD_ID:$(Build.BuildId):"     tests/bats-job.yaml
+    sed -i "s:REGISTRY:$(azureContainerRegistry):"     tests/bats-job.yaml
     cat tests/bats-job.yaml
-  displayName: build 
+  displayName: build
 
 - script: |
-    set -e
+    set -e -x
     cp -v build/km/km tests/
     make mk-bats TAG=$(Build.BuildId)
     docker tag test-bats:$(Build.BuildId)  $(registry)/test-bats:$(Build.BuildId)

@@ -1,13 +1,20 @@
 #!/bin/bash
 # invoke gcc with extra params for Kontain link
-#
+
 cmd=`basename ${BASH_SOURCE[0]}`
 dir=`dirname ${BASH_SOURCE[0]}`
 KM_TOP=`realpath $dir/..`
-if [[ $cmd == *g++ ]] ; then REALGCC=g++ ; else REALGCC=gcc; fi
-if [ $# -eq 0 ] ; then exec "${REALGCC}" ; fi
+PREFIX=/opt/kontain
+# check if this is run in local build tree and use the local libs then
+if [[ x${KM_TOP} == x${PREFIX}/* ]] ; then
+   LIB="-L ${PREFIX}/lib64"
+   SPEC="${PREFIX}/lib64"
+else
+   LIB="-L ${PREFIX}/lib64 -L ${KM_TOP}/build/runtime"
+   SPEC="${KM_TOP}"
+fi
 
-exec "${REALGCC}" \
-   -static -no-pie -specs=${KM_TOP}/gcc-km.spec \
-    "$@" \
-   -L ${KM_TOP}/build/runtime
+if [[ $cmd == *g++ ]] ; then REALGCC=g++; else REALGCC=gcc; fi
+if [[ $# -eq 0 ]] ; then exec "${REALGCC}" ; fi
+
+exec "${REALGCC}" -static -no-pie -specs=${SPEC}/gcc-km.spec "$@" ${LIB}

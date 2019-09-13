@@ -8,27 +8,52 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 #
-# Dockerfile for builds.
+# Dockerfile for build image. There are three stages:
+#
+# buildenv-base - basic from OS image with the necessary packages installed
+# build-libstdcpp - clone gcc source, then build and install libstdc++
+# buildenv - based on buildenv-base and just copy the installed part from the previous
+#
 # Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
 
-FROM fedora
-
-LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
-
-# uid=1001(vsts) gid=117(docker) groups=117(docker)
+FROM fedora AS buildenv-base
 ARG USER=appuser
-ARG UID
-ARG GID
+ARG UID=1000
+ARG GID=1000
 
-RUN dnf install -y gcc glibc-static \
-   elfutils-libelf-devel elfutils-libelf-devel-static glibc-devel zlib-static gdb \
-   gcc-c++ libstdc++-static make git gcovr time patch openssl-devel findutils python expat-static \
-   && dnf clean all
+RUN groupadd -f -g $GID $USER && useradd -r -u $UID -g $GID $USER && mkdir /home/$USER && chown $UID.$GID /home/$USER
 
-
-RUN groupadd -f -g $GID $USER
-RUN useradd -r -u $UID -g $GID $USER
-
-USER $USER
-WORKDIR /home/$USER
 ENV TERM=xterm
+ENV USER=$USER
+ENV PREFIX=/opt/kontain
+WORKDIR /home/$USER
+
+RUN dnf install -y gcc gcc-c++ make gdb git gcovr time patch file findutils python \
+   glibc-devel glibc-static elfutils-libelf-devel elfutils-libelf-devel-static zlib-static openssl-devel expat-static \
+   && dnf upgrade -y && dnf clean all
+
+FROM buildenv-base AS buildenv-gcc-base
+RUN dnf install -y gmp-devel mpfr-devel libmpc-devel isl-devel flex m4
+
+FROM buildenv-gcc-base AS build-libstdcpp
+ARG LIBSTDCPPVER=gcc-9_2_0-release
+USER $USER
+
+RUN git clone https://github.com/gcc-mirror/gcc.git -b $LIBSTDCPPVER
+RUN mkdir -p build_gcc && cd build_gcc \
+   && ../gcc/configure --prefix=$PREFIX --enable-clocale=generic --disable-bootstrap --enable-languages=c,c++,fortran,lto \
+   --disable-shared --enable-threads=posix --enable-checking=release --disable-multilib --with-system-zlib \
+   --enable-__cxa_atexit --disable-libunwind-exceptions --enable-gnu-unique-object \
+   --enable-linker-build-id --with-gcc-major-version-only --with-linker-hash-style=gnu \
+   --enable-plugin --enable-initfini-array --with-isl --without-cuda-driver \
+   --enable-gnu-indirect-function --enable-cet --with-tune=generic \
+   && make -j16
+
+USER root
+RUN mkdir -p $PREFIX && make -C build_gcc/x86_64-pc-linux-gnu/libstdc++-v3 install
+
+FROM buildenv-base AS buildenv
+LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
+USER $USER
+
+COPY --from=build-libstdcpp $PREFIX/ $PREFIX
