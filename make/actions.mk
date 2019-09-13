@@ -205,6 +205,8 @@ TAG ?= ${USER}
 mk-bats: ## build bats image with tests
 	cp ./build/km/km ./tests/km
 	docker build -t ${TIMG}:${TAG} ${TLOC} -f ${TLOC}/${TFILE}
+	rm ./tests/km
+
 
 withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" |  grep -q ${DIMG} ; then \
