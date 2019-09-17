@@ -56,6 +56,7 @@ uint64_t km_dlerror(km_vcpu_t *vcpu, char *msg, size_t length)
 
 uint64_t km_dlopen(km_vcpu_t *vcpu, char *pathname, int flags)
 {
+    warnx("%s(%s,%d)", __FUNCTION__, pathname, flags);
     if (machine.dls.ndllist == 0) {
         return 0;
     }

@@ -23,6 +23,6 @@ lib_bundle.o: dllib1.o dllib2.o
 	kontain-bundlelib -o $@ $+
 
 clean:
-	rm -f *.o *.so dltest
+	rm -f *.o *.so dltest *.km lib_bundle_link.c
 
-test:
+test test-all:
