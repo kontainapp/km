@@ -1,10 +1,109 @@
+# Copyright © 2019 Kontain Inc. All rights reserved.
+#
+# Kontain Inc CONFIDENTIAL
+#
+#  This file includes unpublished proprietary source code of Kontain Inc. The
+#  copyright notice above does not evidence any actual or intended publication of
+#  such source code. Disclosure of this source code or any related proprietary
+#  information is strictly prohibited without the express written permission of
+#  Kontain Inc.
+#
+# Build and run python flask example (targets build* and run*)
+# Convert to Kontain and test (targets faktory and test)
+#
+# pass DTYPE=type for different distros (see DTYPES below for the list)
+
+TOP := $(shell git rev-parse --show-cdup)
+
+DOCKER_BUILD := docker build --network=host
+TEST_LABEL := flask-km-test
+DOCKER_RUN := docker run -t --rm -p 8080:8080 --label $(TEST_LABEL)
+
+# supported types
+DTYPES := alpine fedora ubuntu
+# default type
 DTYPE ?= alpine
 
-run:
-	docker run --rm -p 8080:8080 flask:$(DTYPE)
+IMAGE_NAME := flask
+IMAGE :=  $(IMAGE_NAME):$(DTYPE)
 
-build:
-	m4 Dockerfile.$(DTYPE) | docker build -f - -t flask:$(DTYPE) .
+KM_IMAGE_NAME := flask-km
+# note: KM_IMAGE for different DTYPES is pretty much identical (sans .py location). Keeping all for testing
+KM_IMAGE := $(KM_IMAGE_NAME):$(DTYPE)
 
-build-all:
-	for t in alpine fedora ubuntu ; do $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" build DTYPE=$$t; done
+ifeq ($(DTYPE),alpine)
+	UPDATE_INDEX := true
+	# we need bash for scripts in faktory too
+	ADD_PIP3 := apk add py3-pip bash
+endif
+
+ifeq ($(DTYPE),fedora)
+	UPDATE_INDEX := dnf -y update
+	ADD_PIP3 := dnf -y install python3-pip
+endif
+
+ifeq ($(DTYPE),ubuntu)
+	# ADD_PIP3 := apt-get update -y && apt-get install -y python3-pip
+	UPDATE_INDEX := apt-get update -y
+	ADD_PIP3 := apt-get install -y python3-pip
+endif
+
+ifeq ($(ADD_PIP3),)
+  $(error "In DTYPE=type, the supported types are: '$(DTYPES)'")
+endif
+
+build: ## build python flask example, based on alpine. alpine can we swapped for fedora or ubuntu by passing DTYPE=type (alpine, fedora, ubuntu)
+	$(DOCKER_BUILD) \
+		--build-arg distro="$(DTYPE)" --build-arg add_pip3="$(ADD_PIP3)" --build-arg update_index="$(UPDATE_INDEX)" \
+		-t $(IMAGE) .
+
+run: ## run python flask example,based on alpine. Same DTYPE as supported as in'build'. Assumes "build" was successful.
+	$(DOCKER_RUN) $(IMAGE)
+
+SRC_WD :=  WORKDIR $(shell docker image inspect $(IMAGE) -f '{{json .Config.WorkingDir }}')
+SRC_ENTRYPOINT := ENTRYPOINT $(shell docker image inspect $(IMAGE) -f '{{json .Config.Entrypoint }}')
+SRC_CMD :=  CMD $(shell docker image inspect $(IMAGE) -f '{{json .Config.Cmd }}')
+#
+# To convert, we run Makes Dockerfile by adding source entrypoint/cmd to the stem dockerfile, and runs commands in stem dockerfile
+# in source image
+#
+faktory: ## Convert flask example to Kontainer. Same DTYPE as supported as in'build'. Assumes "build" was successful.
+	cp ../../cpython/python.km python3.km # TODO - build python.km if needed; also use python versioning scheme
+	echo -e '\n\n#--  auto-lifted from $(IMAGE):--\n$(SRC_WD)\n$(SRC_ENTRYPOINT)\n$(SRC_CMD)\n' | \
+		cat faktory_stem.dockerfile - |  \
+		$(DOCKER_BUILD) --build-arg distro="$(DTYPE)"  -t $(KM_IMAGE) -f - . ; \
+	res=$$? ; rm -f python3.km ; if [ $$res != 0 ] ; then false ; fi
+
+test:   ## run Kontain with flask example,based. Same DTYPE as supported as in'build'. Assumes "faktory" was successful.
+	$(DOCKER_RUN) --device=/dev/kvm $(KM_IMAGE)
+
+clean: ## Kill test containers (if any) and remove all images build for flask-km (python flask is untouched)
+	@echo Cleaning. Ignore messages about failures and ignoring failures.
+	-docker rm -f `docker ps -aq --filter label=$(TEST_LABEL)` 2> /dev/null
+	-docker rmi $(KM_IMAGE)
+	-docker image prune  -f
+
+TARGET?= build
+all-dtypes: # make TARGET for each DTYPE. E.g. `make all-dtypes TARGET=clean". Default is 'build'
+	for t in $(DTYPES) ; do $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET) DTYPE=$$t ; done
+
+#
+# 'Help' target - based on '##' comments in targets
+#
+# This target ("help") scans Makefile for '##' in targets and prints a summary
+# Note - used awk to print (instead of echo) so escaping/coloring is platform independed
+help:  ## Prints help on 'make' targets
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
+	/^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
+	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
+	$(MAKEFILE_LIST)
+	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
+	@echo ""
+
+include $(TOP)make/locations.mk
+
+
+try:
+	docker image inspect $(IMAGE) -f '{{json .Config.Entrypoint }}'
+	docker image inspect $(IMAGE) -f '{{json .Config.Cmd }}'
+	echo '\n#-- generated lines:--\nENTRYPOINT $(SRC_ENTRYPOINT)\nCMD $(SRC_CMD)\n' | cat faktory_stem.dockerfile -

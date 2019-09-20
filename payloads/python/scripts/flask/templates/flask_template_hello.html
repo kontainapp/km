@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+   <h1>Hello from Flask running in {{ sysname }} on {{ machine }}</h1>
+   <h2>Today is {{ now }}</h2>
+   <header>
+      <div class="container">
+         <h1 class="logo">Simple Flask Menu</h1>
+         <strong>
+            <nav>
+               <ul class="menu">
+                  <li><a href="{{ url_for('hello') }}">Say Hello</a></li>
+                  <li><a href="{{ url_for('shutdown') }}">Shutdown</a></li>
+               </ul>
+            </nav>
+         </strong>
+      </div>
+   </header>
+</body>
+
+</html>
