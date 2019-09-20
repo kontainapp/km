@@ -279,10 +279,13 @@ static km_hc_ret_t stat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    void* pathname = km_gva_to_kma(arg->arg1);
    void* statbuf = km_gva_to_kma(arg->arg2);
    if (pathname == NULL || statbuf == NULL) {
+      km_info(KM_TRACE_HC, "stat: FAILED path=%p buf=%p", pathname, statbuf);
+
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
    arg->hc_ret = km_fs_stat(vcpu, pathname, statbuf);
+   km_info(KM_TRACE_HC, "stat: '%s'", (char*)pathname);
    return HC_CONTINUE;
 }
 static km_hc_ret_t lstat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
