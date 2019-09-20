@@ -1,6 +1,0 @@
-COPY . /app
-WORKDIR /app
-RUN pip3 install --user --no-warn-script-location -r requirements.txt
-
-# ENTRYPOINT ["python3", "-B", "-E", "-OO", "-t"]
-CMD ["python3", "-B", "-E", "-OO", "-t", "flask_hello.py"]

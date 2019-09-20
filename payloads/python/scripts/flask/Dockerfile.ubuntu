@@ -1,7 +1,0 @@
-FROM ubuntu:latest
-MAINTAINER "whoever"
-
-RUN apt-get update -y && apt-get install -y python3-pip && pip3 install --upgrade pip
-
-include(Dockerfile.flask.include)
-
