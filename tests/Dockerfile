@@ -12,7 +12,8 @@
 # Usage will be 'docker run -it --rm --env BRANCH=$(git rev-parse --abbrev-ref HEAD) --device=/dev/kvm --user 0 test-bats km_cdocker run <container> make TARGET=<target> - see ../../Makefile
 #
 
-FROM km-buildenv-fedora:latest
+ARG  DTYPE
+FROM km-buildenv-${DTYPE}:latest
 
 ENV BATS time bats/bin/bats
 ENV TEST_FILES km_core_tests.bats
