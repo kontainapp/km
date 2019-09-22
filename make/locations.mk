@@ -36,12 +36,15 @@ KM_BIN := ${KM_BLDDIR}km
 
 # cloud-related stuff. By default set to Azure
 #
-# name of the cloud, as well as subdir of $(TOP)/cloud where the proper scripts hide
+# name of the cloud, as well as subdir of $(TOP)/cloud where the proper scripts hide. Use CLOUD='' to build with no cloud
+# All cloud stuff can be turned off by passing CLOUD=''
 CLOUD ?= azure
-CLOUD_SCRIPTS := $(TOP)cloud/$(CLOUD)
 
+ifneq ($(CLOUD),)
 # now bring all cloud-specific stuff needed in forms on 'key = value'
+CLOUD_SCRIPTS := $(TOP)cloud/$(CLOUD)
 include $(CLOUD_SCRIPTS)/cloud_config.mk
+endif
 
 # Use current branch as image version (tag) for doccker images.
 # To be complianbt with tag grammar, replace '/' with '-'
