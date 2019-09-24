@@ -12,7 +12,7 @@ else
     pushd cpython
 fi
 
-make -j16 LDFLAGS="-static" LINKFORSHARED=" " DYNLOADFILE="dynload_stub.o"
+make -j16 LDFLAGS="-static" LINKFORSHARED=" " DYNLOADFILE="dynload_shlib.o"
 popd
 
 ./link-km.sh
