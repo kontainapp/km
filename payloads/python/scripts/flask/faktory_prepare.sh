@@ -1,9 +1,22 @@
 #!/bin/bash
 #
-# Copy python-related stuff to DIR  - needed for faktory conversion
+# Copyright © 2019 Kontain Inc. All rights reserved.
 #
-# TODO - BASH is not on alpine; need to rewrite this in python or sh and drop 'apk add bash' from makefiles
+# Kontain Inc CONFIDENTIAL
 #
+#  This file includes unpublished proprietary source code of Kontain Inc. The
+#  copyright notice above does not evidence any actual or intended publication of
+#  such source code. Disclosure of this source code or any related proprietary
+#  information is strictly prohibited without the express written permission of
+#  Kontain Inc.
+#
+# Python specific code running inside of a container based on original (to-be-coonverted) image.
+#
+# Copies python-related stuff to $1 (default /tmp/faktory) and generates shebang python3 file with proper path
+# The results are used upstairs to construct proper Kontainer
+#
+# TODO
+# - Maybe rewrite in python ? BASH is not on alpine; drop 'apk add bash' from makefiles
 
 DIR=$1  # where to save files
 if [ -z "$DIR" ] ; then DIR=/tmp/faktory; fi

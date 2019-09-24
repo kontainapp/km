@@ -17,7 +17,7 @@ TOP := $(shell git rev-parse --show-cdup)
 
 DOCKER_BUILD := docker build --network=host
 TEST_LABEL := flask-km-test
-DOCKER_RUN := docker run -t --rm -p 8080:8080 --label $(TEST_LABEL)
+DOCKER_RUN := docker run -t --rm -p 8080:8080 --label $(TEST_LABEL) --ulimit nofile=1024:1024
 
 # supported types
 DTYPES := alpine fedora ubuntu
@@ -60,19 +60,8 @@ build: ## build python flask example, based on alpine. alpine can we swapped for
 run: ## run python flask example,based on alpine. Same DTYPE as supported as in'build'. Assumes "build" was successful.
 	$(DOCKER_RUN) $(IMAGE)
 
-SRC_WD :=  WORKDIR $(shell docker image inspect $(IMAGE) -f '{{json .Config.WorkingDir }}')
-SRC_ENTRYPOINT := ENTRYPOINT $(shell docker image inspect $(IMAGE) -f '{{json .Config.Entrypoint }}')
-SRC_CMD :=  CMD $(shell docker image inspect $(IMAGE) -f '{{json .Config.Cmd }}')
-#
-# To convert, we run Makes Dockerfile by adding source entrypoint/cmd to the stem dockerfile, and runs commands in stem dockerfile
-# in source image
-#
 faktory: ## Convert flask example to Kontainer. Same DTYPE as supported as in'build'. Assumes "build" was successful.
-	cp ../../cpython/python.km python3.km # TODO - build python.km if needed; also use python versioning scheme
-	echo -e '\n\n#--  auto-lifted from $(IMAGE):--\n$(SRC_WD)\n$(SRC_ENTRYPOINT)\n$(SRC_CMD)\n' | \
-		cat faktory_stem.dockerfile - |  \
-		$(DOCKER_BUILD) --build-arg distro="$(DTYPE)"  -t $(KM_IMAGE) -f - . ; \
-	res=$$? ; rm -f python3.km ; if [ $$res != 0 ] ; then false ; fi
+	./faktory_run_build.sh "$(IMAGE)" "$(KM_IMAGE)" "$(DTYPE)"
 
 test:   ## run Kontain with flask example,based. Same DTYPE as supported as in'build'. Assumes "faktory" was successful.
 	$(DOCKER_RUN) --device=/dev/kvm $(KM_IMAGE)
