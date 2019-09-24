@@ -53,7 +53,7 @@ Run `sudo service docker start` to start the Docker service.
 
 #### Configuring Docker
 
-By default Docker require root permission to run. Read the instructions at https://docs.docker.com/install/linux/linux-postinstall/ to run docker without being root. 
+By default Docker require root permission to run. Read the instructions at https://docs.docker.com/install/linux/linux-postinstall/ to run docker without being root.
 
 
 ### Building directly on the box
@@ -109,7 +109,7 @@ Note that we do not tag any image as `latest` since I am not sure which oneto ta
 
 ### Run under Docker
 
-`docker run --device=/dev/kvm kontain/python-km:latest <payload.py>` - see a few .py files in payloads/python
+`docker run --ulimit nofile=1024:1024 --device=/dev/kvm kontain/python-km:latest <payload.py>` - see a few .py files in payloads/python
 
 ### Run under Kubernetes
 

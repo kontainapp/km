@@ -135,7 +135,7 @@ int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
    return guest_fd;
 }
 
-int km_fs_init()
+int km_fs_init(void)
 {
    struct rlimit lim;
 
@@ -159,7 +159,7 @@ int km_fs_init()
    return 0;
 }
 
-void km_fs_fini()
+void km_fs_fini(void)
 {
    if (machine.filesys.guestfd_to_hostfd_map != NULL) {
       free(machine.filesys.guestfd_to_hostfd_map);
