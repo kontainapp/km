@@ -37,6 +37,6 @@ WORKDIR /app
 # installing to user to check multiple site-modules locations
 RUN pip3 install --user --no-warn-script-location -r requirements.txt
 
-ENTRYPOINT ["python3", "-B", "-E", "-OO", "-t"]
+ENTRYPOINT ["python3", "-B", "-OO", "-t"]
 CMD ["flask_hello.py"]
 

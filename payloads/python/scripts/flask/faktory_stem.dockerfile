@@ -27,8 +27,8 @@ ARG KM_TAG=latest
 FROM $image:$distro as original
 
 # Prep all the files needed in Kontainer , in $TMP dir
-COPY faktory.sh /tmp
-RUN /tmp/faktory.sh /tmp/faktory
+COPY faktory_prepare.sh /tmp
+RUN /tmp/faktory_prepare.sh /tmp/faktory
 
 # This stage will unpack all py files from prior stage and add KM/python.km needed stuff
 FROM $KM_BASE:$KM_TAG as km
@@ -38,9 +38,4 @@ COPY --from=original /tmp/faktory/python3 /usr/local/bin/
 # TODO: build correct python3.km depending on payload;  package in tar as /usr/local/bin/python and use 'ADD'
 COPY python3.km  /usr/local/bin/
 
-# ENTRYPOINT and CMD will be added to to the end of this file by outside caller
-# ENTRYPOINT, e.g.
-#    docker image inspect flask:alpine -f '{{ .Config.Cmd }}'
-#    docker image inspect flask:alpine -f '{{ .Config.Env }}'
-#    docker image inspect flask:alpine -f '{{ .Config.Entrypoint }}'
-#    docker image inspect flask:alpine -f '{{ .Config.WorkingDir }}'
+# ENTRYPOINT and CMD will be added to to the end of this file by caller from upstairs
