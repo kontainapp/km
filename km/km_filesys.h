@@ -45,8 +45,8 @@
  * Note: vcpu is NULL if called from km signal handler.
  */
 int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd);
-int km_fs_init();
-void km_fs_fini();
+int km_fs_init(void);
+void km_fs_fini(void);
 // int open(char *pathname, int flags, mode_t mode)
 uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode);
 // int close(fd)

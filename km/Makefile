@@ -41,10 +41,6 @@ distro: ${BLDEXEC}
 	@$(TOP)make/check-docker.sh
 	@echo "Creating docker image '$(KM_IMAGE_FULL_NAME)'..." ; docker rmi -f $(KM_IMAGE_FULL_NAME) 2>/dev/null
 	tar -C $(dir $(BLDEXEC)) -c $(notdir $(BLDEXEC)) | docker import -m '$(KM_IMAGE_MESSAGE)' -c '$(KM_IMAGE_LABEL)' - $(KM_IMAGE_FULL_NAME)
-	@# Quick validation of the image; it will fail if load_test.km fails
-	docker run --rm --device /dev/kvm \
-		-v $(abspath ${TOP}/tests):/payloads:Z $(KM_IMAGE_FULL_NAME) \
-		/km /payloads/hello_test.km > /dev/null
 	@echo -e "Docker image created: $(GREEN)`docker image ls $(KM_IMAGE_FULL_NAME) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
 distroclean:
