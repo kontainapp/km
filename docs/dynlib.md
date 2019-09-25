@@ -1,17 +1,21 @@
-# Shared Library Emulation
+## Shared Library Emulation
 
-The runtime support for for higher level languages like Python, Java, and NodeJS leverage shared libraries to support adding functionality at runtime. For example, the Python `import` facility allows for modules written in `C` and `C++`.
+### Problem Statement
 
-KM is written for a statically linked environment and does not directly support shared libraries. This paper contains a high level design for supporting language extensions in KM.
+Shared libraries are used by higher level languages like Python, Java, and NodeJS to add functionality at runtime. For example, the Python `import` facility allows for add-on modules written in `C` and `C++` that are loaded at runtime. NodeJS and Java have similar facilities. The common thread to all of these are the POSIX functions defined in `dlfcn.h` (`dlsym(3)` and `dlsym(3)` in particular).
 
-## Design Goals
+KM on the other hand is designed and written for a statically linked environment and does not directly support shared libraries.
+
+This paper contains a high level design for supporting language extensions in KM.
+
+### Design Goals and Restrictions
 * Zero changes to the core language runtime (e.g. the Python interpreter).
 * Static linking. We do not want to do runtime linking for performance and complexity reasons.
-
-## Design Approach
-
 * Only support 'strategic' extensions. Kontain decides what is strategic.
-* Customer payload-specific language runtime (e.g. standard Python interpreter plus required binary extension(s)).
+
+### Design Approach
+
+Statically link the objects and emulate `dlopen(3)` and `dlsym(3)`.
 
 ## Python
 The current state of affairs for Python:
