@@ -6,6 +6,7 @@ if [ ! -d cpython ]; then
     pushd cpython
     ./configure
     patch -p1 < ../unittest.patch
+    patch -p0 < ../makesetup.patch
 else
     pushd cpython
 fi
