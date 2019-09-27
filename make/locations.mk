@@ -39,6 +39,12 @@ KM_BIN := ${KM_BLDDIR}km
 # name of the cloud, as well as subdir of $(TOP)/cloud where the proper scripts hide. Use CLOUD='' to build with no cloud
 # All cloud stuff can be turned off by passing CLOUD=''
 CLOUD ?= azure
+ifeq ($(MAKECMDGOALS),mk-image)
+undefine CLOUD
+endif
+ifeq ($(MAKECMDGOALS),withdocker)
+undefine CLOUD
+endif
 
 ifneq ($(CLOUD),)
 # now bring all cloud-specific stuff needed in forms on 'key = value'
