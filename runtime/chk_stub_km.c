@@ -70,9 +70,12 @@ int __sprintf_chk(char* s,
    return rc;
 }
 
-extern int __snprintf_chk (char *s, size_t n, __attribute__((unused)) int flag,
-                           __attribute__((unused)) size_t slen, const char *format,
-                           ...)
+extern int __snprintf_chk(char* s,
+                          size_t n,
+                          __attribute__((unused)) int flag,
+                          __attribute__((unused)) size_t slen,
+                          const char* format,
+                          ...)
 {
    va_list arg;
    int rc;
@@ -123,9 +126,23 @@ void __longjmp_chk(jmp_buf env, int val)
    longjmp(env, val);
 }
 
+void* __memset_chk(void* __dest, int __ch, size_t __len, size_t __resid)
+{
+   return __builtin_memset(__dest, __ch, __len);
+}
+
+void* __memcpy_chk(void* __restrict __dest, const void* __restrict __src, size_t __len, size_t __resid)
+{
+   return __builtin_memcpy(__dest, __src, __len);
+}
+
+char* __strcat_chk(char* __restrict __dest, const char* __restrict __src, size_t __resid)
+{
+   return __builtin_strcat(__dest, __src);
+}
+
 /* Python on Ubuntu wants these:
 __fdelt_chk
-__memcpy_chk
 __memmove_chk
 __open64_2
 __realpath_chk

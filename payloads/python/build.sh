@@ -6,12 +6,12 @@ if [ ! -d cpython ]; then
     pushd cpython
     ./configure CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0" LDFLAGS="-static" --disable-shared
     patch < ../pyconfig.h-patch || true
-    cp ../Setup.local Modules/Setup.local
     patch -p1 < ../unittest.patch
 else
     pushd cpython
 fi
 
+cp ../Setup.local Modules/Setup.local
 make -j16 LDFLAGS="-static" LINKFORSHARED=" " DYNLOADFILE="dynload_stub.o"
 popd
 
