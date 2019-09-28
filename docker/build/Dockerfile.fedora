@@ -29,7 +29,7 @@ ENV PREFIX=/opt/kontain
 WORKDIR /home/$USER
 
 RUN dnf install -y gcc gcc-c++ make gdb git gcovr time patch file findutils python \
-   glibc-devel glibc-static elfutils-libelf-devel elfutils-libelf-devel-static zlib-static openssl-devel expat-static \
+   glibc-devel glibc-static elfutils-libelf-devel elfutils-libelf-devel-static zlib-static openssl-devel openssl-static expat-static \
    && dnf upgrade -y && dnf clean all
 
 FROM buildenv-base AS buildenv-gcc-base

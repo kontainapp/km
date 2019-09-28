@@ -56,9 +56,9 @@ _socket socketmodule.c
 # Socket module helper for SSL support; you must comment out the other
 # socket line above, and possibly edit the SSL variable:
 #SSL=/usr/local/ssl
-#_ssl _ssl.c \
-#       -DUSE_SSL -I$(SSL)/include -I$(SSL)/include/openssl \
-#       -L$(SSL)/lib -lssl -lcrypto
+_ssl _ssl.c \
+       -DUSE_SSL -I$(SSL)/include -I$(SSL)/include/openssl \
+       -L$(SSL)/lib -lssl -lcrypto
 
 zlib zlibmodule.c -I$(prefix)/include -L$(exec_prefix)/lib -lz
 
