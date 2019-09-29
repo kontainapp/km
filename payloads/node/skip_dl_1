@@ -40,6 +40,14 @@ addons/stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-1
 addons/stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-2.js
 addons/hello-world/test-worker.js
 addons/dlopen-ping-pong/test-worker.js
+addons/01_function_arguments/test.js
+addons/02_callbacks/test.js
+addons/03_object_factory/test.js
+addons/05_wrapping_c_objects/test.js
+addons/04_function_factory/test.js
+addons/06_factory_of_wrapped_objects/test.js
+addons/07_passing_wrapped_objects_around/test.js
+addons/08_void_atexitcallback_args/test.js
 js-native-api/5_function_factory/test.js
 js-native-api/8_passing_wrapped/test.js
 js-native-api/6_object_wrap/test.js

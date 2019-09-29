@@ -466,6 +466,7 @@ sequential/test-util-debug.js
 sequential/test-vm-timeout-rethrow.js
 abort/test-abort-backtrace.js
 abort/test-abort-uncaught-exception.js
+abort/test-addon-uv-handle-leak.js
 abort/test-http-parser-consume.js
 abort/test-process-abort-exitcode.js
 abort/test-worker-abort-uncaught-exception.js
