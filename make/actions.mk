@@ -211,7 +211,7 @@ mk-bats: ## build bats image with tests
 withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" |  grep -q ${DIMG} ; then \
 		echo -e "$(CYAN)${DIMG} is missing locally, will try to pull from registry. Use 'make mk-image' to build$(NOCOLOR)" ; fi
-	docker run --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u$(UID):$(GID) $(DEVICE_KVM) $(DEVICE_KVM) --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+	docker run --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u${UID}:${GID} ${DEVICE_KVM} --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 
 #
 # 'Help' target - based on '##' comments in targets

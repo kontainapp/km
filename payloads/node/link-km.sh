@@ -2,14 +2,11 @@
 
 set -x
 
-if [ $# -ne 0 ] ; then BUILD=$1 ; else BUILD=Release ; fi
-KM=../..
-PATH=${KM}/tools:$PATH
+if [ $# -ne 0 ] ; then NODE=$1 ; else exit 1 ; fi
+PATH=../../tools:$PATH
 
 link_node() {
-   NODE=node/out/$1
-   kontain-g++ -o $NODE/node.km \
-   -ggdb -z undefs \
+   kontain-g++ -ggdb -o $NODE/node.km \
    -Wl,--start-group \
       $NODE/obj.target/node/src/node_main.o \
       $NODE/obj.target/node/src/node_snapshot_stub.o \
@@ -38,9 +35,7 @@ link_node() {
 }
 
 link_cctest() {
-   NODE=node/out/$1
-   kontain-g++ -o $NODE/cctest.km \
-   -ggdb -z undefs \
+   kontain-g++ -ggdb -o $NODE/cctest.km \
    -Wl,--start-group \
       $NODE/obj.target/cctest/src/node_snapshot_stub.o \
       $NODE/obj.target/cctest/src/node_code_cache_stub.o \
@@ -83,5 +78,5 @@ link_cctest() {
    -Wl,--end-group
 }
 
-link_node $BUILD
-link_cctest $BUILD
+link_node
+link_cctest

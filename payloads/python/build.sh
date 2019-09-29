@@ -12,7 +12,7 @@ else
 fi
 
 cp ../Setup.local Modules/Setup.local
-make -j16 LDFLAGS="-static" LINKFORSHARED=" " DYNLOADFILE="dynload_stub.o"
+make -j`expr 2 \* $(nproc)` LDFLAGS="-static" LINKFORSHARED=" " DYNLOADFILE="dynload_stub.o"
 popd
 
 ./link-km.sh
