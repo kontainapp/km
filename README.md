@@ -1,3 +1,4 @@
+[![Build Status for 'master'](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=3&branchName=master)
 # KM (Kontain Monitor) and related payloads for Kontain.app VMs
 
 All terminology and content is subject to change without notice.
@@ -9,6 +10,8 @@ We plan to be fully compatible with OCI/CRI to seamlessly plug into Docker/Kuber
 For one page Kontain intro, Technical Users whitepapers and info see Kontain's [Google docs](https://docs.google.com)
 
 For build and test info, see [docs/build.md](docs/build.md).
+
+
 
 ## Files layout
 
