@@ -1,6 +1,5 @@
 # experimentation with Knative build examples
 
-
 apiVersion: build.knative.dev/v1alpha1
 kind: Build
 metadata:
@@ -12,8 +11,8 @@ spec:
       url: https://github.com/example/build-example.git
       revision: master
   steps:
-  - name: build-km
-    image: kontainkubecr.azurecr.io/km-buildenv-fedora:latest
-    args: ['ubuntu-build-example', 'SECRETS-example.md']
-  - image: gcr.io/example-builders/build-example
-    args: ['echo', 'hello-example', 'build']
+    - name: build-km
+      image: kontainkubecr.azurecr.io/buildenv-km-fedora:latest
+      args: ["ubuntu-build-example", "SECRETS-example.md"]
+    - image: gcr.io/example-builders/build-example
+      args: ["echo", "hello-example", "build"]

@@ -10,20 +10,20 @@
 #
 # Dockerfile for build node.js image. There are two stages:
 #
-# buildenv-node - based on km-buildenv-fedora, git clone, compile and test node
+# buildenv-node - based on kontain/buildenv-km-fedora, git clone, compile and test node
 # linkenv - based on km-build-env and just copy the objetcs and test files
 
 ARG MODE=Release
 ARG VERS=v12.4.0
 
-FROM km-buildenv-fedora AS buildenv-node
+FROM kontain/buildenv-km-fedora AS buildenv-node
 ARG MODE
 ARG VERS
 
 RUN git clone https://github.com/nodejs/node.git -b $VERS
 RUN cd node && ./configure --gdb `[[ $MODE == Debug ]] && echo -n --debug` && make -j`expr 2 \* $(nproc)` && make jstest
 
-FROM km-buildenv-fedora
+FROM kontain/buildenv-km-fedora
 ARG MODE
 ARG VERS
 ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node

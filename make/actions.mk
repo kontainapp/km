@@ -53,10 +53,16 @@ test: subdirs ## build all and run KM tests
 test-all: test ## build all and run KM and payload tests
 coverage: subdirs ## build and run tests with code coverage support
 covclean: subdirs ## clean coverage-related build artifacts
-distro: subdirs ## package binaries for the current branch as Docker Container Images
-distroclean: subdirs ## remove packages created by 'make distro'
-publish: subdirs ## publish packages for the current branch online (e.g to Azure ACR - see distro.mk)
-publishclean: subdirs ## (TODO) remove packages from online repos
+buildenv-image: subdirs ## builds and packages all build environment image
+push-buildenv-image: subdirs ## Push buildenv images to a cloud registry. PROTECTED OPERATION.
+pull-buildenv-image: subdirs ## Pulls buildenv images from a cloud registry
+test-image: subdirs ## builds and packages testable image
+push-test-image: subdirs ## Push test images to a cloud registry. IMAGE_VERSION should provide image tag name
+pull-test-image: subdirs ## Pulls test images from a cloud registry. IMAGE_VERSION is mandatory. Used mainly in CI
+distro: subdirs ## package demo binaries for the current branch as Docker Container Images
+distroclean: subdirs ## remove demo packages created by 'make distro'
+publish: subdirs ## publish demo packages for the current branch online (e.g to Azure ACR - see distro.mk)
+publishclean: subdirs ## (TODO) remove demo packages from online repos
 
 $(SUBDIRS):
 	$(MAKE) -C $@ $(MAKECMDGOALS) MAKEOVERRIDES=
@@ -71,7 +77,7 @@ all: ${BLDEXEC}
 ${BLDEXEC}: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
 
-# if VERSION_SRC Is defined, these sources need to be rebuilt each time git info changes
+# if VERSION_SRC is defined, force-rebuild these sources on 'git info' changes
 ifneq (${VERSION_SRC},)
 ${VERSION_SRC}: ${TOP}.git/HEAD ${TOP}.git/index
 	touch $@
@@ -144,34 +150,17 @@ clean:
 	rm -rf ${BLDDIR}
 
 #
-# do not generate .d file if target is clean
+# do not generate .d file for some targets
 #
-ifneq ($(findstring clean, $(MAKECMDGOALS)), clean)
+NO_DEPS_TARGETS := "clean clobber .pull-image .push-image"
+ifeq ($(findstring $(MAKECMDGOALS),$(NO_DEPS_TARGETS)),)
 -include ${DEPS}
-endif # ($(MAKECMDGOALS), clean)
+endif
 
 .DEFAULT:
 	@echo $(notdir $(CURDIR)): nothing to do for target '$@'
 
 endif # (${SUBDIRS},)
-
-# dockerized build
-#
-# use Dockerfile-fedora, Dockerfile-ubuntu, etc... to get different flavors
-DTYPE ?= fedora
-USER ?= appuser
-DLOC := ${TOP}docker/build
-DIMG := km-buildenv-${DTYPE}
-DFILE := Dockerfile.$(DTYPE)
-ifdef REGISTRY
-DIMG := $(REGISTRY)/$(DIMG)
-TIMG := $(REGISTRY)/$(TIMG)
-endif
-
-# dockerized tests
-TLOC := ${TOP}tests
-TIMG := test-bats
-TFILE := Dockerfile
 
 # Support for 'make withdocker'
 #
@@ -185,27 +174,12 @@ ifneq ($(__testing),)  # only add --device=/dev/kvm is we are testing
 DEVICE_KVM := --device=/dev/kvm
 endif
 
-UID := $(shell id -u)
-GID := $(shell id -g)
-
-.PHONY: mk-image
-mk-image: ## make build image based on ${DTYPE}
-	docker build --network=host -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
-	echo TODO docker tag ${DIMG} strip-registry-name && false
-
-# Default is to tag test-bats image with uid.
-# Allows for Azure CI to set tag with build id.
-TAG ?= ${USER}
-.PHONY: mk-bats
-mk-bats: ## build bats image with tests
-	cp ./build/km/km ./tests/km
-	docker build --build-arg DTYPE=${DTYPE} -t ${TIMG}:${TAG} ${TLOC} -f ${TLOC}/${TFILE}
-	rm ./tests/km
-
-withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
-	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${DIMG} ; then \
-		echo -e "$(CYAN)${DIMG} is missing locally, will try to pull from registry. Use 'make mk-image' to build$(NOCOLOR)" ; fi
-	docker run --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u${UID}:${GID} ${DEVICE_KVM} --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+# this is needed for proper image name forming
+COMPONENT := km
+withdocker: ## Build using Docker container for build environment. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
+	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${BUILDENV_IMG} ; then \
+		echo -e "$(CYAN)${BUILDENV_IMG} is missing locally, will try to pull from registry. Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
+	docker run --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u${UID}:${GID} ${DEVICE_KVM} -t --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(BUILDENV_IMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 
 #
 # 'Help' target - based on '##' comments in targets
@@ -225,7 +199,7 @@ VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS \
 	KM_BLDDIR KM_BIN \
 	CFLAGS BLDEXEC BLDLIB COPTS \
 	COVERAGE COVERAGE_REPORT SRC_BRANCH IMAGE_VERSION \
-	CLOUD REGISTRY DIMG USER UID GID TAG
+	CLOUD REGISTRY BUILDENV_IMG USER UID GID TAG
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values

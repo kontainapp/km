@@ -10,27 +10,16 @@ spec:
       securityContext:
         runAsUser: 0
       containers:
-      - name: bats-DTYPE_VALUE-BUILD_ID
-        imagePullPolicy: Always
-        image: REGISTRY.azurecr.io/test-bats:DTYPE_VALUE-BUILD_ID
-        env:
-        - name: BRANCH
-          value: BRANCH_NAME
-        - name: KM_BIN
-          value: /tests/km
-        - name: DTYPE
-          value: DTYPE_VALUE
-        - name: TIME_INFO
-          value: /time_info.txt
-        command: ["bash","run_bats_tests.sh"]
-        resources:
-           requests:
+        - name: bats-DTYPE_VALUE-BUILD_ID
+          imagePullPolicy: Always
+          image: REGISTRY.azurecr.io/test-km-DTYPE_VALUE:CI-BUILD_ID
+          command: ["bash", "run_bats_tests.sh"]
+          resources:
+            requests:
               devices.kubevirt.io/kvm: "1"
               cpu: "250m"
-           limits:
+            limits:
               devices.kubevirt.io/kvm: "1"
               cpu: "1"
       restartPolicy: Never
   backoffLimit: 0
-
-

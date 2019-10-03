@@ -1,8 +1,8 @@
 trigger:
-- master
-- ci/* # prefix ci/ to force CI on every push. e.g. ci/msterin/test-azure-devops/ci
+  - master
+  - ci/* # prefix ci/ to force CI on every push. e.g. ci/msterin/test-azure-devops/ci
 pr:
-- master
+  - master
 
 variables:
   azureSubscriptionEndpoint: kontainAzureResourceManageServiceConnection
@@ -18,103 +18,93 @@ strategy:
   matrix:
     fedora:
       buildenv.type: fedora
-    ubuntu:
-      buildenv.type: ubuntu
-
+    # ubuntu:
+    #   buildenv.type: ubuntu
 pool:
   vmImage: $(vmImage)
 
 steps:
-- checkout: self
-  submodules: true
+  - checkout: self
+    submodules: true
 
-- task: Docker@2
-  displayName: login to $(azureContainerRegistry)
-  inputs:
-    command: login
-    containerRegistry: $(registrySC)
+  - task: Docker@2
+    inputs:
+      command: login
+      containerRegistry: $(registrySC)
+    displayName: Login to registry $(azureContainerRegistry)
 
-- bash: echo "##vso[task.setvariable variable=git_rev]$(git rev-parse --short HEAD)"
+  - bash: |
+      set -e
+      echo ====Environment info===
+      echo "SHA: $(git rev-parse HEAD)"
+      echo "===VM/OS"
+      cat /proc/version
+      lsb_release
+      echo "=== Docker version:"
+      docker version
+      echo "==== ENV"
+      env
+      echo  =======================
+    displayName: Print build environment info
 
-- script: |
-    set -e
-    echo -e "\nSHA: $(git rev-parse HEAD)"
-    echo -e "Build env image: $(registry)/km-buildenv-$(buildenv.type)"
-    echo -e "Bats test image: $(registry)/test-bats:$(buildenv.type)-$(Build.BuildId)"
-    echo "--"
-    echo -e "\nDocker version:"
-    docker version
-    echo "--"
-    echo -e "\nVM / OS:"
-    cat /proc/version
-    echo -e "--\n"
-  displayName: build environment
+  - bash: |
+      set -e -x
+      make -C tests pull-buildenv-image
+      make -j withdocker DTYPE=$(buildenv.type)
+      echo "=== bats tests/bats-$(buildenv.type)-job.yaml : ==="
+      m4 -D BUILD_ID=$(Build.BuildId) -D DTYPE_VALUE=$(buildenv.type) -D REGISTRY=$(azureContainerRegistry) tests/bats-job.yaml | tee tests/bats-$(buildenv.type)-job.yaml
+    displayName: Build KM and test using docker ($(buildenv.type))
 
-- script: |
-    set -e
-    docker pull $(registry)/km-buildenv-$(buildenv.type)
-    docker tag $(registry)/km-buildenv-$(buildenv.type)  km-buildenv-$(buildenv.type)
-    make withdocker DTYPE=$(buildenv.type)
-    echo "short head: $git_rev"
-    cp -v tests/bats-job.yaml tests/bats-$(buildenv.type)-job.yaml
-    sed  -i "s:BRANCH_NAME:$(git_rev):"        tests/bats-$(buildenv.type)-job.yaml
-    sed  -i "s:BUILD_ID:$(Build.BuildId):"     tests/bats-$(buildenv.type)-job.yaml
-    sed  -i "s:DTYPE_VALUE:$(buildenv.type):"     tests/bats-$(buildenv.type)-job.yaml
-    sed  -i "s:REGISTRY:$(azureContainerRegistry):"   tests/bats-$(buildenv.type)-job.yaml
-    cat tests/bats-$(buildenv.type)-job.yaml
-  displayName: dockerize build with $(buildenv.type)
+  - bash: make -C tests test-image push-test-image IMAGE_VERSION=CI-$(Build.BuildId) DTYPE=$(buildenv.type)
+    displayName: Create and push KM Test container to registry $(registry)
 
-- script: |
-    set -e -x
-    cp -v build/km/km tests/
-    make mk-bats TAG=$(buildenv.type)-$(Build.BuildId) DTYPE=$(buildenv.type)
-    docker tag test-bats:$(buildenv.type)-$(Build.BuildId)  $(registry)/test-bats:$(buildenv.type)-$(Build.BuildId)
-    docker push $(registry)/test-bats:$(buildenv.type)-$(Build.BuildId)
-  displayName: dockerize tests
+  - task: Kubernetes@1
+    inputs:
+      connectionType: Kubernetes Service Connection
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureResourceGroup: $(azureResourceGroup)
+      kubernetesCluster: $(kubernetesCluster)
+      kubernetesServiceEndpoint: $(k8sSC)
+      command: apply
+      arguments: -f tests/bats-$(buildenv.type)-job.yaml
+    displayName: Start tests on Kubernetes cluster $(kubernetesCluster)
 
-- task: Kubernetes@1
-  displayName: start tests
-  inputs:
-    connectionType: Kubernetes Service Connection
-    azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-    azureResourceGroup: $(azureResourceGroup)
-    kubernetesCluster: $(kubernetesCluster)
-    kubernetesServiceEndpoint: $(k8sSC)
-    command: apply
-    arguments: -f tests/bats-$(buildenv.type)-job.yaml
+  - task: Kubernetes@1
+    inputs:
+      connectionType: Kubernetes Service Connection
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureResourceGroup: $(azureResourceGroup)
+      kubernetesCluster: $(kubernetesCluster)
+      kubernetesServiceEndpoint: $(k8sSC)
+      command: wait
+      arguments: --timeout 240s --for=condition=complete job/bats-$(buildenv.type)-$(Build.BuildId)
+    displayName: Wait for tests to complete or fail
 
+  - task: Kubernetes@1
+    condition: always()
+    inputs:
+      connectionType: Kubernetes Service Connection
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureResourceGroup: $(azureResourceGroup)
+      kubernetesCluster: $(kubernetesCluster)
+      kubernetesServiceEndpoint: $(k8sSC)
+      command: logs
+      arguments: jobs/bats-$(buildenv.type)-$(Build.BuildId)
+    displayName: Get tests results
 
-- task: Kubernetes@1
-  displayName: run tests
-  inputs:
-    connectionType: Kubernetes Service Connection
-    azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-    azureResourceGroup: $(azureResourceGroup)
-    kubernetesCluster: $(kubernetesCluster)
-    kubernetesServiceEndpoint: $(k8sSC)
-    command: wait
-    arguments: --timeout 240s --for=condition=complete job/bats-$(buildenv.type)-$(Build.BuildId)
+  - task: Kubernetes@1
+    condition: always()
+    inputs:
+      connectionType: Kubernetes Service Connection
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureResourceGroup: $(azureResourceGroup)
+      kubernetesCluster: $(kubernetesCluster)
+      kubernetesServiceEndpoint: $(k8sSC)
+      command: delete
+      arguments: jobs/bats-$(buildenv.type)-$(Build.BuildId)
+    displayName: Delete Kubernetes test job bats-$(Build.BuildId)
 
-- task: Kubernetes@1
-  condition: always()
-  displayName: get tests results
-  inputs:
-    connectionType: Kubernetes Service Connection
-    azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-    azureResourceGroup: $(azureResourceGroup)
-    kubernetesCluster: $(kubernetesCluster)
-    kubernetesServiceEndpoint: $(k8sSC)
-    command: logs
-    arguments: jobs/bats-$(buildenv.type)-$(Build.BuildId)
-
-- task: Kubernetes@1
-  condition: always()
-  displayName: delete job bats-$(Build.BuildId)
-  inputs:
-    connectionType: Kubernetes Service Connection
-    azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-    azureResourceGroup: $(azureResourceGroup)
-    kubernetesCluster: $(kubernetesCluster)
-    kubernetesServiceEndpoint: $(k8sSC)
-    command: delete
-    arguments: jobs/bats-$(buildenv.type)-$(Build.BuildId)
+  - script: |
+      echo '****** TODO print SHA so we can rebuild, and remove image $(registry)/test-km-$(buildenv.type):CI-$(Build.BuildId)'
+    condition: always()
+    displayName: Cleanup test image in registry (TODO)

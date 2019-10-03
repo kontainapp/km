@@ -24,6 +24,8 @@ NODEOUT = node/out/$(BUILD)
 
 # KM monitor path
 KM_BIN := ${TOP}/build/km/km
+
+#TODO - these are not needed for new targets, RECONCILE !
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := ${NODEOUT}/node.km
 TEST_KM := ${NODEOUT}/cctest.km
@@ -36,16 +38,13 @@ PAYLOAD_FILES := --exclude='*/test/*' scripts $(PAYLOAD_KM)
 
 NODE_DISTRO_FILES := ${PAYLOAD_KM} ${TEST_KM} $(addprefix node/, deps doc test tools)
 
-DOCKER_BUILD := docker build --network=host
-DOCKER_RUN := docker run -t --rm --ulimit nofile=1024:1024
-
 # either run all in 'blank' container, or local.
 # in blank: link + tar + create shebang
 # fromsrc local: link + create shebang
 # regular local: just run docker
 all:
 ifneq ($(shell test -d node/.git && echo OK),OK)
-	${DOCKER_RUN} -u1000:1000 -v ~/workspace/km:/src:Z -w /src km-buildenv-node-fedora make -C payloads/node in-blank-container
+	${DOCKER_RUN} -u1000:1000 -v ~/workspace/km:/src:Z -w /src kontain/buildenv-node-fedora make -C payloads/node in-blank-container
 else
 	./link-km.sh ${NODEBUILD}
 endif
@@ -67,7 +66,10 @@ fromsrc:
 clobber:
 	rm -rf node
 
-.test: ${PAYLOAD_KM} ${TEST_KM}  # 'test' target is hidden until we commit proper node buils (TODO)
+clean:
+	@echo "Nothing to do for 'clean' - use 'clobber' to force remove build artifacts"
+	@# TODO -  clean ./node build artifacts
+test: ${PAYLOAD_KM} ${TEST_KM}  # 'test' target is hidden until we commit proper node buils (TODO)
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
 	@echo noop.js - expecting exit with code 22:
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js ; [ $$? -eq 22 ]
@@ -75,17 +77,16 @@ clobber:
 	-curl -X POST localhost:8080 # force the srv to exit and ignore curl 'empty reply'
 	${KM_BIN} ${TEST_KM} --gtest_filter="*"
 
-test-all: .test
+test-all: test
 	cd ${NODETOP} && /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* | tr '\n' ','` default addons js-native-api node-api
 
-mk-test-image: ${KM_BIN} ${NODE_DISTRO_FILES} ## build image to run tests. TODO: need to out the scipt to exec the tests in
-	cp ${KM_BIN} node
-	${DOCKER_BUILD} -t km-test-node -f test-fedora.dockerfile .
-
-run-test-image: mk-test-image ## run tests in the mk-test-image. TODO: need to make it independent from source
+run-test-image: test-image ## run tests in the test-image. TODO: need to make it independent from source
 	${DOCKER_RUN} --device=/dev/kvm -v ~/workspace/km:/src:Z -w /src km-test-node make -C payloads/node test-all
 
-mk-buildenv-image: ## build 'blank' image
-	${DOCKER_BUILD} -t buildenv-node-fedora -f buildenv-fedora.dockerfile .
+# component id for docker images
+COMPONENT := node
+T_LOC := .
+# Use existing small dir for buildenv image builds (saves on sending data to docker svc)
+BE_LOC  := ./scripts
 
-include ${TOP}make/distro.mk
+include ${TOP}make/images.mk
