@@ -15,7 +15,7 @@
 
 TOP := $(shell git rev-parse --show-cdup)
 
-DOCKER_BUILD := docker build --network=host
+DOCKER_BUILD := docker build
 TEST_LABEL := flask-km-test
 DOCKER_RUN := docker run -t --rm -p 8080:8080 --label $(TEST_LABEL) --ulimit nofile=1024:1024
 

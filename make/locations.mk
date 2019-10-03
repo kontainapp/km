@@ -11,11 +11,13 @@
 # A helper include. ALlowes to include some vars in dirs which cannot include
 # actions.mk (e.g. tests which need their own compike /link flags)
 
+default: all
+
 # this is the path from the TOP to current dir
 FROMTOP := $(shell git rev-parse --show-prefix)
-# Current branch (for making different names unique per branch, e.g. Docker tags)
-# use 'SRC_BRANCH=branch make <target>' for building target (e.g clean :-)) for other branches, if needed
+# Current branch and SHA(for making different names unique per branch, e.g. Docker tags)
 SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
+SRC_SHA ?= $(shell git rev-parse HEAD)
 
 PATH := $(realpath ${TOP}tools):${PATH}
 
@@ -34,6 +36,20 @@ BLDDIR := ${BLDTOP}${FROMTOP}$(BLDTYPE)
 KM_BLDDIR := ${BLDTOP}km/$(BLDTYPE)
 KM_BIN := ${KM_BLDDIR}km
 
+# dockerized build
+# TODO: Some of these values should be moved to images.mk , but we have multiple
+# dependencies on that , so keeping it here for now
+#
+# use DTYPE=fedora or DTYPE=ubuntu, etc... to get different flavors
+DTYPE ?= fedora
+USER  ?= appuser
+
+# needed in 'make withdocker' so duplicating it here, for now
+BUILDENV_IMG  ?= kontain/buildenv-${COMPONENT}-${DTYPE}
+
+UID := $(shell id -u)
+GID := $(shell id -g)
+
 # cloud-related stuff. By default set to Azure
 #
 # name of the cloud, as well as subdir of $(TOP)/cloud where the proper scripts hide. Use CLOUD='' to build with no cloud
@@ -47,8 +63,7 @@ include $(CLOUD_SCRIPTS)/cloud_config.mk
 endif
 
 # Use current branch as image version (tag) for doccker images.
-# To be complianbt with tag grammar, replace '/' with '-'
-IMAGE_VERSION = $(subst /,-,$(SRC_BRANCH))
+IMAGE_VERSION ?= latest
 
 # Code coverage support. If enabled, build with code coverage in dedicate dir
 COV_BLDTYPE := coverage

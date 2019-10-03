@@ -34,7 +34,7 @@ The  code is built directly on a build machine (then all dependencies need to be
 To build with docker, make sure `docker` and  `make` are installed, and run:
 
 ```sh
- make mk-image
+ make buildenv-image  # this will take time
  make withdocker
  make withdocker TARGET=test
 ```

@@ -10,9 +10,8 @@
 SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-cdup)
 
-default: all
-
-include ${TOP}make/locations.mk
+COMPONENT := km
+include ${TOP}make/images.mk
 
 SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_value_test.c \
 		load_test.c  hello_loop_test.c hello_2_loops_test.c memslot_test.c mutex_test.c futex_test.c \
@@ -22,6 +21,9 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 		dl_iterate_phdr_test.c env_test.c locale_test.c
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
+
+# Use existing small dir for buildenv image builds (saves on sending data to docker svc)
+BE_LOC  := ./gdb
 
 COPTS ?= -ggdb -O2
 CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
@@ -99,11 +101,12 @@ clean:
 	rm -f *.o *.d $(EXECS) kmcore $(TIME_INFO)
 
 #
-# do not generate .d file if target is clean
+# do not generate .d file for some targets
 #
-ifneq ($(MAKECMDGOALS), clean)
+NO_DEPS_TARGETS := "clean clobber .pull-image .push-image"
+ifeq ($(findstring $(MAKECMDGOALS),$(NO_DEPS_TARGETS)),)
 -include ${DEPS}
-endif # ($(MAKECMDGOALS), clean)
+endif
 
 covclean: ## Clean up code coverage build artifacts
 	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
@@ -137,10 +140,17 @@ test: .cov_init
 	@if [ ! $$(command -v $(COVERAGE_CMD_NAME)) ]  ; then echo -e "${RED}'${COVERAGE_CMD_NAME} command is missing - please install ${COVERAGE_CMD_NAME} package (e.g. 'sudo dnf install ${COVERAGE_CMD}${NOCOLOR}"; false  ; fi
 	@echo -e "COVERAGE: ${GREEN}Running tests with code coverage...${NOCOLOR}"
 
-
-endif
+endif # ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
 
 test-all: test
+
+# install stuff for fedora per docker image info
+# TODO: maybe make it generic to scan folders
+buildenv-local-fedora: buildenv-image ## make local build environment for KM
+	sudo dnf install -y `docker run --rm ${BUILDENV_IMG} dnf list --installed | awk '/x86/ {print $$1}' `
+	docker create --name tmp_env $(BUILDENV_IMG)
+	sudo docker cp tmp_env:/opt/kontain /opt
+	docker rm tmp_env
 
 .PHONY: all clean test help gdb coverage covclean
 

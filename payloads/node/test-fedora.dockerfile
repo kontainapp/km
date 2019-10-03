@@ -10,9 +10,11 @@
 #
 # Dockerfile to package node.km and friends for testing in CI/CD
 
+ARG DTYPE=fedora
+FROM kontain/buildenv-km-${DTYPE}
 
-FROM km-buildenv-fedora
 ARG MODE=Release
 ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node
-COPY --chown=appuser:appuser ./ /home/$USER/
+
+COPY --chown=appuser:appuser node /home/$USER/node
 RUN echo '#!/home/'$USER'/node/km --copyenv' > /home/$USER/node/out/${MODE}/node && chmod +x /home/$USER/node/out/${MODE}/node

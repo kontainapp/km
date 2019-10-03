@@ -3,5 +3,6 @@
 *.d
 *.cpp
 Dockerfile
+*.dockerfile
 bats-job*
 Makefile
