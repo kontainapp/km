@@ -20,7 +20,7 @@ NODEBUILD = ${NODETOP}/out/$(BUILD)
 NODEOUT = node/out/$(BUILD)
 
 # KM monitor path
-KM_BIN=${TOP}/build/km/km
+KM_BIN := ${TOP}/build/km/km
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := ${NODEOUT}/node.km
 TEST_KM := ${NODEOUT}/cctest.km
@@ -28,18 +28,15 @@ TEST_KM := ${NODEOUT}/cctest.km
 PAYLOAD_IMAGE_SHORT_NAME := node-km
 # name to be added to label(s)
 PAYLOAD_NAME := NodeJs12.4
-
 # a list to be passed to tar to be packed into container image - TODO !
 PAYLOAD_FILES := --exclude='*/test/*' scripts $(PAYLOAD_KM)
 
 NODE_DISTRO_FILES := ${PAYLOAD_KM} ${TEST_KM} $(addprefix node/, deps doc test tools)
 
-all: ${NODE_DISTRO_FILES}
-
-# This target links the node compile artifacts into .km files. The compile artifacts could be local in the tree
-# (whith FROM_SOURCE set) or pre-packaged in container. In the latter case the resulting fiels are copied
-${PAYLOAD_KM} ${TEST_KM}: ${NODEBUILD}
-	echo $(dir $(realpath ${NODETOP})) ' : ' ${CURDIR}
+all:
+ifeq ($(shell test -d node/.git && echo OK),OK)
+	./link-km.sh ${NODEBUILD}
+endif
 ifneq ($(dir $(realpath ${NODETOP})),${CURDIR}/)
 	./link-km.sh ${NODEBUILD}
 	tar -C ${NODETOP}/.. -cf - ${NODE_DISTRO_FILES} | tar -xf -
@@ -50,12 +47,13 @@ endif
 	echo "#!`realpath ${KM_BIN}` --copyenv" > ${NODEOUT}/node.sh && chmod +x ${NODEOUT}/node.sh
 	ln -sf node.sh ${NODEOUT}/node
 
-${NODEBUILD}: | ${NODETOP}
+fromsrc:
+	git clone https://github.com/nodejs/node.git -b ${VERS}
 	cd ${NODETOP} && ./configure --gdb `[[ $BUILD == Debug ]] && echo -n --debug` && make -j`expr 2 \* $(nproc)` && make jstest
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
 
-${NODETOP}:
-	git clone https://github.com/nodejs/node.git -b ${VERS}
+clobber:
+	rm -rf node
 
 test: ${PAYLOAD_KM} ${TEST_KM}
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
