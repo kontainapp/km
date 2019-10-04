@@ -23,10 +23,10 @@ ARG VERS
 RUN git clone https://github.com/nodejs/node.git -b $VERS
 RUN cd node && ./configure --gdb `[[ $MODE == Debug ]] && echo -n --debug` && make -j`expr 2 \* $(nproc)` && make jstest
 
-FROM km-buildenv-fedora AS linkenv-node
+FROM km-buildenv-fedora
 ARG MODE
 ARG VERS
-ENV MODE=$MODE VERS=$VERS
+ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/out/ node/out
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/test/ node/test
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/tools/ node/tools
