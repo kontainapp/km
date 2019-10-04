@@ -119,24 +119,24 @@ ${OBJDIRS}:
 ${BLDDIR}%.o: %.c
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-	   sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 ${BLDDIR}%.o: %.s
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-	   sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 ${BLDDIR}%.o: %.S
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-	   sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 # note ${BLDDIR} in the .d file - this is what tells make to get .o from ${BLDDIR}
 #
 ${BLDDIR}%.d: %.c
 	@echo $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@
-	@set -e; rm -f $@;  $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
-	   sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	@set -e; rm -f $@; $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
+		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 test test-all: all
 
@@ -180,12 +180,6 @@ TFILE := Dockerfile
 #  	<make-target> is "all" by default (same as in regular make, with no docker)
 #  	<os-type> is "fedora" by default. See ${TOP}/docker/build for supported OSes
 #
-# TODO: separate build from run so --privileged is not needed for build
-#
-#  Note:
-# 'chmod' in the last line is needed to enable 'make clean' to work without docker
-#    (since docker-produced files are owned by the container user, which is root by default)
-#
 __testing := $(strip $(findstring test,$(TARGET)) $(findstring coverage,$(TARGET)))
 ifneq ($(__testing),)  # only add --device=/dev/kvm is we are testing
 DEVICE_KVM := --device=/dev/kvm
@@ -207,9 +201,8 @@ mk-bats: ## build bats image with tests
 	docker build -t ${TIMG}:${TAG} ${TLOC} -f ${TLOC}/${TFILE}
 	rm ./tests/km
 
-
 withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
-	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" |  grep -q ${DIMG} ; then \
+	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${DIMG} ; then \
 		echo -e "$(CYAN)${DIMG} is missing locally, will try to pull from registry. Use 'make mk-image' to build$(NOCOLOR)" ; fi
 	docker run --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u${UID}:${GID} ${DEVICE_KVM} --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(DIMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 
@@ -219,8 +212,8 @@ withdocker: ## Build in docker. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 # This target ("help") scans Makefile for '##' in targets and prints a summary
 # Note - used awk to print (instead of echo) so escaping/coloring is platform independed
 help:  ## Prints help on 'make' targets
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
-	/^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n make $(CYAN)<target>$(NOCOLOR)\n" } \
+	/^[.a-zA-Z0-9_-]+:.*?##/ { printf " $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
 	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
 	$(MAKEFILE_LIST)
 	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
@@ -228,8 +221,8 @@ help:  ## Prints help on 'make' targets
 
 # Support for simple debug print (make debugvars)
 VARS_TO_PRINT ?= TOP FROMTOP BLDTOP BLDDIR SUBDIRS \
-	KM_BLDDIR KM_BIN\
-	CFLAGS BLDEXEC BLDLIB  COPTS \
+	KM_BLDDIR KM_BIN \
+	CFLAGS BLDEXEC BLDLIB COPTS \
 	COVERAGE COVERAGE_REPORT SRC_BRANCH IMAGE_VERSION \
 	CLOUD REGISTRY DIMG USER UID GID TAG
 
@@ -239,4 +232,3 @@ debugvars:   ## prints interesting vars and their values
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
 
 .PHONY: all clean test help withdocker
-

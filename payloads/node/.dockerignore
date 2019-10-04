@@ -1,3 +1,10 @@
 *
+!skip_*
+!node/km
+!node/out/Release/*.km
+!node/deps
+!node/tools
+!node/test
+!node/doc
 !payload.tar
 
