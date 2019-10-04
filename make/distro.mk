@@ -18,7 +18,7 @@ KM_IMAGE_FULL_NAME := kontain/km:$(IMAGE_VERSION)
 KM_IMAGE_EXPECTED := kontain/km:current
 
 ifeq ($(PAYLOAD_IMAGE_SHORT_NAME),)
-  $(error "Please define PAYLOAD_IMAGE_SHORT_NAME in your makefile)
+$(error "Please define PAYLOAD_IMAGE_SHORT_NAME in your makefile)
 endif
 
 # this is how we will name images locally (we will add :<tag> later)
