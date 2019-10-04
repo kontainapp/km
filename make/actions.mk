@@ -190,7 +190,7 @@ GID := $(shell id -g)
 
 .PHONY: mk-image
 mk-image: ## make build image based on ${DTYPE}
-	docker build -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
+	docker build --network=host -t ${DIMG} ${DLOC} -f ${DLOC}/${DFILE}
 
 # Default is to tag test-bats image with uid.
 # Allows for Azure CI to set tag with build id.
