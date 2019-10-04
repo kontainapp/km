@@ -36,7 +36,6 @@ PAYLOAD_FILES := --exclude='*/test/*' scripts $(PAYLOAD_KM)
 
 NODE_DISTRO_FILES := ${PAYLOAD_KM} ${TEST_KM} $(addprefix node/, deps doc test tools)
 
-
 DOCKER_BUILD := docker build --network=host
 DOCKER_RUN := docker run -t --rm --ulimit nofile=1024:1024
 
@@ -45,18 +44,20 @@ DOCKER_RUN := docker run -t --rm --ulimit nofile=1024:1024
 # fromsrc local: link + create shebang
 # regular local: just run docker
 all:
-ifeq ($(shell test -d node/.git && echo OK),OK)
+ifneq ($(shell test -d node/.git && echo OK),OK)
+	${DOCKER_RUN} -u1000:1000 -v ~/workspace/km:/src:Z -w /src km-buildenv-node-fedora make -C payloads/node in-blank-container
+else
 	./link-km.sh ${NODEBUILD}
-endif
-ifneq ($(dir $(realpath ${NODETOP})),${CURDIR}/)
-	./link-km.sh ${NODEBUILD}
-	tar -C ${NODETOP}/.. -cf - ${NODE_DISTRO_FILES} | tar -xf -
 endif
 	@# Create node file with ``#!${KM_BIN} --copyenv''. Invoking that will call ``${KM_BIN} node <args>''.
 	@# km will add .km suffix. --copyenv is needed as test.py passes info to the tests via environment
 	@# We need this so unmodified node tests can be executed
 	echo "#!`realpath ${KM_BIN}` --copyenv" > ${NODEOUT}/node.sh && chmod +x ${NODEOUT}/node.sh
 	ln -sf node.sh ${NODEOUT}/node
+
+in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
+	./link-km.sh ${NODEBUILD}
+	tar -C ${NODETOP}/.. -cf - ${NODE_DISTRO_FILES} | tar -xf -
 
 fromsrc:
 	git clone https://github.com/nodejs/node.git -b ${VERS}
@@ -75,13 +76,16 @@ test: ${PAYLOAD_KM} ${TEST_KM}
 	${KM_BIN} ${TEST_KM} --gtest_filter="*"
 
 test-all: test
-	cd node && /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* | tr '\n' ','` default addons js-native-api node-api
+	cd ${NODETOP} && /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* | tr '\n' ','` default addons js-native-api node-api
 
-mk-test-image: ${KM_BIN}
+mk-test-image: ${KM_BIN} ${NODE_DISTRO_FILES} ## build image to run tests. TODO: need to out the scipt to exec the tests in
 	cp ${KM_BIN} node
 	${DOCKER_BUILD} -t km-test-node -f test-fedora.dockerfile .
 
-mk-buildenv-image:
+run-test-image: mk-test-image ## run tests in the mk-test-image. TODO: need to make it independent from source
+	${DOCKER_RUN} --device=/dev/kvm -v ~/workspace/km:/src:Z -w /src km-test-node make -C payloads/node test-all
+
+mk-buildenv-image: ## build 'blank' image
 	${DOCKER_BUILD} -t buildenv-node-fedora -f buildenv-fedora.dockerfile .
 
 include ${TOP}make/distro.mk

@@ -13,6 +13,6 @@
 
 FROM km-buildenv-fedora
 ARG MODE=Release
-ENV MODE=$MODE
+ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node
 COPY --chown=appuser:appuser ./ /home/$USER/
 RUN echo '#!/home/'$USER'/node/km --copyenv' > /home/$USER/node/out/${MODE}/node && chmod +x /home/$USER/node/out/${MODE}/node
