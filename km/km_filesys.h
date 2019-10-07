@@ -148,6 +148,10 @@ km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optv
 uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr* msg, int flag);
 // ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
 uint64_t km_fs_sendfile(km_vcpu_t* vcpu, int out_fd, int in_fd, off_t* offset, size_t count);
+// ssize_t copy_file_range(int fd_in, off_t *off_in, int fd_out, loff_t *off_out, size_t len,
+// unsigned int flags);
+uint64_t km_fs_copy_file_range(
+    km_vcpu_t* vcpu, int fd_in, off_t* off_in, int fd_out, off_t* off_out, size_t len, unsigned int flags);
 // int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 // int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 uint64_t
