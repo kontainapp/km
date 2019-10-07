@@ -67,7 +67,7 @@ fromsrc:
 clobber:
 	rm -rf node
 
-test: ${PAYLOAD_KM} ${TEST_KM}
+.test: ${PAYLOAD_KM} ${TEST_KM}  # 'test' target is hidden until we commit proper node buils (TODO)
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
 	@echo noop.js - expecting exit with code 22:
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js ; [ $$? -eq 22 ]
@@ -75,7 +75,7 @@ test: ${PAYLOAD_KM} ${TEST_KM}
 	-curl -X POST localhost:8080 # force the srv to exit and ignore curl 'empty reply'
 	${KM_BIN} ${TEST_KM} --gtest_filter="*"
 
-test-all: test
+test-all: .test
 	cd ${NODETOP} && /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* | tr '\n' ','` default addons js-native-api node-api
 
 mk-test-image: ${KM_BIN} ${NODE_DISTRO_FILES} ## build image to run tests. TODO: need to out the scipt to exec the tests in
