@@ -4,15 +4,14 @@ set -ex
 if [ ! -d cpython ]; then
     git clone https://github.com/python/cpython.git -b v3.7.4
     pushd cpython
-    ./configure CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0" LDFLAGS="-static" --disable-shared
-    patch < ../pyconfig.h-patch || true
+    ./configure
     patch -p1 < ../unittest.patch
 else
     pushd cpython
 fi
 
 cp ../Setup.local Modules/Setup.local
-make -j`expr 2 \* $(nproc)` LDFLAGS="-static" LINKFORSHARED=" " DYNLOADFILE="dynload_stub.o"
+make -j`expr 2 \* $(nproc)`
 popd
 
 ./link-km.sh

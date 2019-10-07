@@ -244,12 +244,30 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t sendfile_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
-   off_t* offset = km_gva_to_kma(arg->arg3);
-   if (offset == NULL) {
+   off_t* offset = NULL;
+
+   if (arg->arg3 != 0 && (offset = km_gva_to_kma(arg->arg3)) == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
    arg->hc_ret = km_fs_sendfile(vcpu, arg->arg1, arg->arg2, offset, arg->arg4);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t copy_file_range_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // ssize_t copy_file_range(int fd_in, loff_t *off_in, int fd_out, loff_t *off_out, size_t len,
+   // unsigned int flags);
+   off_t* off_in = NULL;
+   off_t* off_out = NULL;
+
+   if ((arg->arg2 != 0 && (off_in = km_gva_to_kma(arg->arg2)) == NULL) ||
+       (arg->arg4 != 0 && (off_out = km_gva_to_kma(arg->arg4)) == NULL)) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret =
+       km_fs_copy_file_range(vcpu, arg->arg1, off_in, arg->arg3, off_out, arg->arg5, arg->arg6);
    return HC_CONTINUE;
 }
 
@@ -1132,6 +1150,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_sendmsg] = sendrecvmsg_hcall;
    km_hcalls_table[SYS_recvmsg] = sendrecvmsg_hcall;
    km_hcalls_table[SYS_sendfile] = sendfile_hcall;
+   km_hcalls_table[SYS_copy_file_range] = copy_file_range_hcall;
    km_hcalls_table[SYS_ioctl] = ioctl_hcall;
    km_hcalls_table[SYS_fcntl] = fcntl_hcall;
    km_hcalls_table[SYS_stat] = stat_hcall;

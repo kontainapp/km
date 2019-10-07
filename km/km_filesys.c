@@ -684,6 +684,23 @@ uint64_t km_fs_sendfile(km_vcpu_t* vcpu, int out_fd, int in_fd, off_t* offset, s
    return ret;
 }
 
+// ssize_t copy_file_range(int fd_in, off_t *off_in, int fd_out, loff_t *off_out, size_t len,
+// unsigned int flags);
+uint64_t km_fs_copy_file_range(
+    km_vcpu_t* vcpu, int fd_in, off_t* off_in, int fd_out, off_t* off_out, size_t len, unsigned int flags)
+{
+   int host_outfd, host_infd;
+   if ((host_outfd = check_guest_fd(vcpu, fd_out)) < 0) {
+      return -EBADF;
+   }
+   if ((host_infd = check_guest_fd(vcpu, fd_in)) < 0) {
+      return -EBADF;
+   }
+   int ret =
+       __syscall_6(SYS_copy_file_range, host_infd, (uintptr_t)off_in, host_outfd, (uintptr_t)off_out, len, flags);
+   return ret;
+}
+
 // int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 // int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 uint64_t
