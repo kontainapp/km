@@ -31,7 +31,7 @@ steps:
     inputs:
       command: login
       containerRegistry: $(registrySC)
-    displayName: Login to registry $(azureContainerRegistry)
+    displayName: Login to registry $(registry)
 
   - bash: |
       set -e
@@ -39,7 +39,6 @@ steps:
       echo "SHA: $(git rev-parse HEAD)"
       echo "===VM/OS"
       cat /proc/version
-      lsb_release
       echo "=== Docker version:"
       docker version
       echo "==== ENV"
@@ -53,7 +52,7 @@ steps:
       make -j withdocker DTYPE=$(buildenv.type)
       echo "=== bats tests/bats-$(buildenv.type)-job.yaml : ==="
       m4 -D BUILD_ID=$(Build.BuildId) -D DTYPE_VALUE=$(buildenv.type) -D REGISTRY=$(azureContainerRegistry) tests/bats-job.yaml | tee tests/bats-$(buildenv.type)-job.yaml
-    displayName: Build KM and test using docker ($(buildenv.type))
+    displayName: Build KM and KM tests using docker ($(buildenv.type))
 
   - bash: make -C tests test-image push-test-image IMAGE_VERSION=CI-$(Build.BuildId) DTYPE=$(buildenv.type)
     displayName: Create and push KM Test container to registry $(registry)

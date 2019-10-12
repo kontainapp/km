@@ -103,10 +103,11 @@ clean:
 #
 # do not generate .d file for some targets
 #
-NO_DEPS_TARGETS := "clean clobber .pull-image .push-image"
-ifeq ($(findstring $(MAKECMDGOALS),$(NO_DEPS_TARGETS)),)
+$(shell [[ "${MAKECMDGOALS}" =~ ^(clean|clobber|.*-image)$$ ]])
+ifneq ($(.SHELLSTATUS),0)
 -include ${DEPS}
 endif
+
 
 covclean: ## Clean up code coverage build artifacts
 	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
