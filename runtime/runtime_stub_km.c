@@ -36,7 +36,7 @@ static void dump_core_stub(const char* syscall_name)
 
 /*
  * Stubs to allow linking but not executing the functionality explicitly removed from libruntime.
- * Guest code still can call syscall directly and trigger KM unimplememnted hypercall.
+ * Guest code still can call syscall directly and trigger KM unimplemented hypercall.
  */
 __stub__(getcontext);
 __stub__(setcontext);

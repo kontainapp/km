@@ -29,36 +29,48 @@ git config --global fetch.recurseSubmodules true
 
 The  code is built directly on a build machine (then all dependencies need to be installed, for the list see Docker/build/Dockerfile*) or using Docker (then only `docker` and `make` are needed)
 
+### Build system
+
+We use GNU **make** as our build engine. This document describes some of the key targets and recipes. For list of available targets, type `make help`, or `make <tab><tab>` if you are using bash.
+
 ### Building with Docker
 
-To build with docker, make sure `docker` and  `make` are installed, and run:
+To build with docker, make sure `docker` and  `make` are installed, and run the commands below. *Building with docker* will use a docker container with all necessary pre-requisites installed; will use local source tree exposed to Docker via a docker volume, and will place the results in the local *build* directory - so the end result si exactly the sme as regular 'make', but it does not require pre-reqs installed on he local machine. One the the key use cases for this is cloud-based CI/CD pipeline.
+
+Commands to build Docker image, and then build using this docker image, in Docker:
 
 ```sh
- make buildenv-image  # this will take time
+ make buildenv-image  # this will take LONG time !!!
  make withdocker
  make withdocker TARGET=test
 ```
 
-#### Installing Docker
-
-If you are running Fedora 30 or greater:
+Commands to build Docker image, use it to  install correct pre-requisites on the local host, and then build natively on the local host:
 
 ```sh
-sudo dnf install moby-engine
+ make buildenv-image  # this will take LONG time !!!
+ make buildenv-local-fedora # supported on fedora only !
+ make ; make test
+ ```
+
+Instead of building buildenv-image, you can pull it - much faster but requires `az` command line installation and Azure login credentials. * See `build-test-make-targets-and-images.md` for details
+
+```sh
+make pull-buildenv-image
 ```
 
-For older systems see the instructions at https://docs.docker.com/v17.12/install/.
+#### Installing Docker
 
-Run `sudo service docker start` to start the Docker service.
+Please see https://docs.docker.com/install/linux/docker-ce/fedora/ for instructions
 
 #### Configuring Docker
 
 By default Docker require root permission to run. Read the instructions at https://docs.docker.com/install/linux/linux-postinstall/ to run docker without being root.
 
-
 ### Building directly on the box
 
-First, Install all dependencies (see `build/docker/Dockerfile*` for the list of dependencies on either Ubuntu or Fedora).
+First, Install all dependencies (see `make buildenv-local-fedora` make target, and related explanation in `build-test-make-targets-and-images.md`.
+
 Then, run make:
 
 ```sh
@@ -100,12 +112,12 @@ See ../tests/Makefile. This one is work in progress and will change to be more g
 
 Currently docker images are constructed in 2 layers:
 
- 1. **KM + KM shared libs**. `make -C km distro` makes it, the result is `kontain/km:<tag>` image. `tag` is essentally the current branch name converted to a valid tag syntax, e.g. 'msterin-somebranch'. Just doing `make distro` in the top level will also build it as well as other distro packages.
+ 1. **KM + KM shared libs**. `make -C km distro` makes it, the result is `kontain/km:<tag>` image. `tag` is essentially the current branch name converted to a valid tag syntax, e.g. 'msterin-somebranch'. Just doing `make distro` in the top level will also build it as well as other distro packages.
  1. **python.km with python modules. and ALL payloads** `cd payloads/python; make distro` or just `make distro` in payloads or even at the top of the repo.
- 1. Azure: Tag and push to Azure Container Registry: `make publish`. This assumes auth is all set, specifically than `az acr login -n kontainKubeACR' succeded so docker login credentals are populated
+ 1. Azure: Tag and push to Azure Container Registry: `make publish`. This assumes auth is all set, specifically than `az acr login -n kontainKubeACR' succeeded so docker login credentials are populated
  1. Use `make publishclean` to clean up the published stuff ()
 
-Note that we do not tag any image as `latest` since I am not sure which oneto tag :-)
+Note that we do not tag any image as `latest` since I am not sure which one to tag :-)
 
 ### Run under Docker
 
@@ -124,25 +136,16 @@ We do not want to run privileged containers there (and often policy blocks it an
 
 ### Notes
 
-* Currently KM + necessary shared libraries are packaged to bare container using `tar c ... | docker import -`  approach - this allows to package container similar to `FROM scratch` but without having *mkdir* to create files layout.
+* Currently statically linked KM  packaged to bare container using `tar c ... | docker import -`  approach - this allows to package container similar to `FROM scratch` but without having *mkdir* to create files layout.
   * this obviously does not pick up vDSO so the code there (e.g. gettimeofday) will be sub-optimal - if needed we'd mitigate it by vDSO analog for KM payloads
 * Python modules are packaged into on-host Docker image layers so the payload first reaches into hypercall, we proxy it to syscall and then it goes to file names namespace and then to overlay FS. We need to see if we should just package that into the payload by mmaping directly into VM memory
 * If python code reaches into  syscall we don't support yet, the container will exist with 'unknown HC', obviously. I think we need to have automatic routing to "allowed" syscalls, since it's only < 500 of those :-)
 * We used manually / statically build python.tk.
 * the build process uses Docker so running the build in Docker would require DinD ... I never tried it so skipping for now. **docker/kub build does not work with `make withdocker`**
 
-### TODO
-
-* Make build specific for branch. Make clean up specific for branch
-* Choose cloud provider (likely: Azure)
-* Make Kontain docker private repo there. Integrate into the build (as 'containers' target ?)
-* Add basics Azure pipeline, with standard tests
-* push stuff there and pull from there automatically
-* Do the same with AKS for Kubernetes (note: Need to use D3-v3 instance for nested virtualization)
-
 ## CI/CD
 
-TODO (does not exist yet)
+We use Azure Pipelines hooked into github for CI/CD. See `azure-pipeline.md` doc and `azure-pipelines.yml` configuration
 
 ## Source layout
 
@@ -153,4 +156,6 @@ TODO (does not exist yet)
 
 ### Other repos
 
-This repo uses musl C lib as a submodule (we use our own clone for that)
+This repo uses a set of submodules - e.g. musl C lib and bats testing suite
+
+=== END OF DOCUMENT ===
