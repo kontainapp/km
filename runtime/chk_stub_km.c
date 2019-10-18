@@ -13,9 +13,11 @@
  * non-checking implementations
  */
 
+#include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+
 #include "musl/include/setjmp.h"
 
 int __fprintf_chk(FILE* f, __attribute__((unused)) int flag, const char* format, ...)
@@ -139,6 +141,14 @@ void* __memcpy_chk(void* __restrict __dest, const void* __restrict __src, size_t
 char* __strcat_chk(char* __restrict __dest, const char* __restrict __src, size_t __resid)
 {
    return __builtin_strcat(__dest, __src);
+}
+
+void __explicit_bzero_chk(void* dst, size_t len, size_t dstlen)
+{
+   assert(dstlen >= len);
+   memset(dst, '\0', len);
+   /* Compiler barrier.  */
+   asm volatile("" ::: "memory");
 }
 
 /* Python on Ubuntu wants these:
