@@ -1,6 +1,8 @@
 *
+!scripts
+!Makefile
 !skip_*
-!node/km
+!km
 !node/out/Release/*.km
 !node/deps
 !node/tools
