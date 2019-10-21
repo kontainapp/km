@@ -69,19 +69,18 @@ clobber:
 clean:
 	@echo "Nothing to do for 'clean' - use 'clobber' to force remove build artifacts"
 	@# TODO -  clean ./node build artifacts
-test: ${PAYLOAD_KM} ${TEST_KM}  # 'test' target is hidden until we commit proper node buils (TODO)
-	${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
-	@echo noop.js - expecting exit with code 22:
-	${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js ; [ $$? -eq 22 ]
-	${KM_BIN} ${PAYLOAD_KM} ./scripts/micro-srv.js & sleep 0.5 ; curl localhost:8080
-	-curl -X POST localhost:8080 # force the srv to exit and ignore curl 'empty reply'
-	${KM_BIN} ${TEST_KM} --gtest_filter="*"
+
+test: # ${PAYLOAD_KM} ${TEST_KM}  # 'test' target is hidden until we commit proper node builds
+	scripts/test-run.sh test ${KM_BIN} ${PAYLOAD_KM} ${TEST_KM}
 
 test-all: test
-	cd ${NODETOP} && /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* | tr '\n' ','` default addons js-native-api node-api
+	scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
-run-test-image: test-image ## run tests in the test-image. TODO: need to make it independent from source
-	${DOCKER_RUN} --device=/dev/kvm -v ~/workspace/km:/src:Z -w /src km-test-node make -C payloads/node test-all
+test-withdocker:  ## run tests in the test-image
+	${DOCKER_RUN} --rm --ulimit nofile=1024:1024 --device=/dev/kvm  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
+
+test-all-withdocker:
+	${DOCKER_RUN} --rm --ulimit nofile=1024:1024 --device=/dev/kvm  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
 # component id for docker images
 COMPONENT := node
