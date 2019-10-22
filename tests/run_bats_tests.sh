@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 # Run tests
-bats/bin/bats -t km_core_tests.bats
+bats/bin/bats -t km_core_tests.bats -f "${MATCH:-.*}"
 exit_code=$?
 # Print time info
 echo '------------------------------------------------------------------------------'

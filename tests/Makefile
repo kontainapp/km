@@ -145,6 +145,12 @@ endif # ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
 
 test-all: test
 
+# Run full suite of tests regarless of being asked to run full or abbreviated set
+# NOTE: if needed, we can run a shorter set by passing MATCH env with regexp, e.g.
+#			${DOCKER_RUN_TEST} --env=MATCH='(exit|setup|hello)' ${TEST_IMG}:${IMAGE_VERSION} run_bats_tests.sh
+test-withdocker test-all-withdocker:
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} run_bats_tests.sh
+
 # install stuff for fedora per docker image info
 # TODO: maybe make it generic to scan folders
 buildenv-local-fedora: buildenv-image ## make local build environment for KM

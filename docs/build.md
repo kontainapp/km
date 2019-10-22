@@ -49,7 +49,7 @@ Commands to build Docker image, use it to  install correct pre-requisites on the
 
 ```sh
  make buildenv-image  # this will take LONG time !!!
- make buildenv-local-fedora # supported on fedora only !
+ make -C tests buildenv-local-fedora # supported on fedora only !
  make ; make test
  ```
 

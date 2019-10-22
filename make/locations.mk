@@ -11,7 +11,7 @@
 # A helper include. ALlowes to include some vars in dirs which cannot include
 # actions.mk (e.g. tests which need their own compike /link flags)
 
-default: all
+# default: all
 
 # this is the path from the TOP to current dir
 FROMTOP := $(shell git rev-parse --show-prefix)
