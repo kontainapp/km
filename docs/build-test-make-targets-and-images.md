@@ -2,7 +2,7 @@
 
 This doc sketches the workflow, use cases, make targets for local dev and CI.  The goals are as follows:
 
-* have all docker image based functionality in makefiles so they can be invoked/user locally and in CI
+* have all docker image based functionality in makefiles so they can be invoked and used locally and in CI
 * avoid make/CI code drift
 * Support fast build of payloads,as well as neccessary libs (e.g. libstdc++)
 
@@ -19,7 +19,7 @@ Docker images for build environment need to be built or pulled with `buildenv-im
 
 ### Docker image for build environment
 
-Dockerized build is using `buildenv-component-platform` images (i.e.`buildenv-km-fedora` or `buildenv-node-fedora`) which need to be either built once, or pulled into local docker cache once. Also, the same image is used when prereqs are being installed locally with `make buildenv-local-fedora`.
+Dockerized build is using `buildenv-component-platform` images (i.e.`buildenv-km-fedora` or `buildenv-node-fedora`) which need to be either built once, or pulled into local docker cache once. Also, the same image is used when prereqs are being installed locally with `make -C tests buildenv-local-fedora`.
 
 * `make buildenv-image` - creates buildenv image (whole 9 yard  - includes libstdc++ build).**This is a long process as it installs many packages, clones gcc and builts libstdc++**
 * `make pull-buildenv-image` - pulls the image from (Azure) container registry and re-tags it for local use. We do this to avoid image name dependency on the specific registry it is pulled from.
@@ -66,7 +66,7 @@ Payload can be built from source (i.e. `git clone` first) or from pre-created do
 * `make test-withdocker` - a wrapper running `make test` rules in `test-image` container
 * `make test-all-withdocker` a wrapper running `make test-all` rules in `test-image` container
 
-Each payload also supports the same targets supporte for KM, but uses payload-specific *component*, e.g. *node*:
+Each payload also supports the same targets supported for KM, but uses payload-specific *component*, e.g. *node*:
 
 * `make buildenv-image` - builds the blank (named *buildenv-component-platform*), e.g. `buildenv-node-fedora`)
 * `make pull-buildenv-image` - pulls images from (azure) registry, re-tags it for local runs (it expects that loginto Docker registry - was already done. See `make -C cloud/azure login`)

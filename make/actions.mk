@@ -49,8 +49,8 @@ all: subdirs ## Build all in all subdirs - basically, build + test recursively
 # Note: one target per line, so 'make help' works
 subdirs: $(SUBDIRS)
 clean: subdirs ## clean all build artifacts.
-test: subdirs ## build all and run KM tests
-test-all: test ## build all and run KM and payload tests
+test: subdirs ## run basic tests (KM tests and short payload tests)
+test-all: subdirs ## run extended tests(KM tests full payload tests)
 coverage: subdirs ## build and run tests with code coverage support
 covclean: subdirs ## clean coverage-related build artifacts
 buildenv-image: subdirs ## builds and packages all build environment image
@@ -59,6 +59,8 @@ pull-buildenv-image: subdirs ## Pulls buildenv images from a cloud registry
 test-image: subdirs ## builds and packages testable image
 push-test-image: subdirs ## Push test images to a cloud registry. IMAGE_VERSION should provide image tag name
 pull-test-image: subdirs ## Pulls test images from a cloud registry. IMAGE_VERSION is mandatory. Used mainly in CI
+test-withdocker: subdirs ##
+test-all-withdocker: subdirs ## build all and run KM and payload tests
 distro: subdirs ## package demo binaries for the current branch as Docker Container Images
 distroclean: subdirs ## remove demo packages created by 'make distro'
 publish: subdirs ## publish demo packages for the current branch online (e.g to Azure ACR - see distro.mk)

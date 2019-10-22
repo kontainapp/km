@@ -22,8 +22,8 @@ ENV TIME_INFO /tests/time_info.txt
 ENV KM_BIN /tests/km
 ENV BRANCH=${branch}
 
-COPY . /tests
+COPY --chown=appuser:appuser . /tests
 WORKDIR /tests
 ENV PATH=/tests/bats/bin:.:$PATH
 
-#ENTRYPOINT ["/usr/bin/bash", "/tests/bats/bin/bats"]
+# ENTRYPOINT ["run_bats_tests.sh"]

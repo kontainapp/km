@@ -25,7 +25,7 @@ NODEOUT = node/out/$(BUILD)
 # KM monitor path
 KM_BIN := ${TOP}/build/km/km
 
-#TODO - these are not needed for new targets, RECONCILE !
+# TODO - these are not needed for new targets, RECONCILE !
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := ${NODEOUT}/node.km
 TEST_KM := ${NODEOUT}/cctest.km
@@ -77,10 +77,10 @@ test-all: test
 	scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
 test-withdocker:  ## run tests in the test-image
-	${DOCKER_RUN} --rm --ulimit nofile=1024:1024 --device=/dev/kvm  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
+	${DOCKER_RUN_TEST}  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
 
 test-all-withdocker:
-	${DOCKER_RUN} --rm --ulimit nofile=1024:1024 --device=/dev/kvm  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test-all ${NODETOP} ${BUILD}
+	${DOCKER_RUN_TEST}  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
 # component id for docker images
 COMPONENT := node

@@ -23,6 +23,7 @@ include ${TOP}make/locations.mk
 
 DOCKER_BUILD := docker build --label "KONTAIN:BRANCH=$(SRC_BRANCH)" --label "KONTAIN:SHA=$(SRC_SHA)"
 DOCKER_RUN := docker run -t
+DOCKER_RUN_TEST := docker run -t --rm --ulimit nofile=1024:1024 --device=/dev/kvm
 # Use DOCKER_RUN_CLEANUP="" if container is needed after a run
 DOCKER_RUN_CLEANUP ?= --rm
 DOCKER_RUN_FOR_TEST  := $(DOCKER_RUN) $(DOCKER_RUN_CLEANUP) --device=/dev/kvm --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u${UID}:${GID}
