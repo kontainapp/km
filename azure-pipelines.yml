@@ -37,11 +37,13 @@ steps:
       set -e
       echo ====Environment info===
       echo "SHA: $(git rev-parse HEAD)"
-      echo "===VM/OS"
+      echo "=== Last 10 commits:"
+      git log -n 10 --graph --pretty=format:'%h% %d %s %cr %ce'
+      echo "=== VM/OS:"
       cat /proc/version
       echo "=== Docker version:"
       docker version
-      echo "==== ENV"
+      echo "=== ENV:"
       env
       echo  =======================
     displayName: Print build environment info
