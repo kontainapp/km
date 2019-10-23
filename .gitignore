@@ -16,4 +16,5 @@ GPATH
 GRTAGS
 kmcore
 payloads/node/node
-
+cscope.out
+**/cscope.out
