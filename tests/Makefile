@@ -86,10 +86,10 @@ load_expected_size: load_test.km
 
 %.d: %.cpp
 	@# print the command we really need to run
-	@echo $(CPP) -MT $*.o -MT $@ -MM ${CFLAGS} ${CPPFLAGS} $< -o $@
+	@echo $(CXX) -MT $*.o -MT $@ -MM ${CXXFLAGS} ${CPPFLAGS} $< -o $@
 	@# run the command and adjust it's error messages so VS Code navigates properly
 	@set -e; rm -f $@; \
-	  $(CPP) -MT $*.o -MT $@ -MM ${CFLAGS} ${CPPFLAGS} $< -o $@ |& \
+	  $(CXX) -MT $*.o -MT $@ -MM ${CXXFLAGS} ${CPPFLAGS} $< -o $@ |& \
 	  sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 	@# make sure dependencies are rebuilt if needed.
 	@# sed strips everything before colon, removes leading and trailing spaces, then splits words into individual lines
@@ -103,11 +103,10 @@ clean:
 #
 # do not generate .d file for some targets
 #
-$(shell [[ "${MAKECMDGOALS}" =~ ^(clean|clobber|.*-image)$$ ]])
+$(shell [[ "${MAKECMDGOALS}" =~ ^(clean|clobber|.*-image)$$ || "${MAKEFLAGS}" =~ "n" ]] )
 ifneq ($(.SHELLSTATUS),0)
 -include ${DEPS}
 endif
-
 
 covclean: ## Clean up code coverage build artifacts
 	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
