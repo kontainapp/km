@@ -604,6 +604,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
       // interlock with machine.pause_requested.
       if (machine.pause_requested) {
+         km_infox(KM_TRACE_VCPU, "%s: vcpu %d blocking on gdb_efd", __FUNCTION__, vcpu->vcpu_id);
          km_read_registers(vcpu);
          km_read_sregisters(vcpu);
          km_wait_on_eventfd(vcpu->gdb_efd);
