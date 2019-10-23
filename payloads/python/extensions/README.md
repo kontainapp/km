@@ -1,43 +1,32 @@
-# Extension Module Instructions
+# How to add a (compiled) Extension Module to python.km
 
-Preparing a external package with Python extensions for use by KM.
-## Preparing a package for KM
+External package with compiled (.so) modules can be added to python.km by building the packges into .o files, and linking with python.km.
+During this process we add the module as a built-in Python module, and during import we intercept the request and provide the correct built-in module name.
 
-### Step 1: Get the Package Source Code
-Run `git clone` for package source from directory `cpython/Modules`.
+The majority of needed steps are automated in `payloads/python/build.sh`. Here is how to prepare the modules for build.sh
 
-### Step 2: Change Directory to Package Source
-Run `cd <pkgname>`
+## Add module's code to python.km as a built-in module
 
-### Step 3: Build the Package and Capture Output
-Run `bear python3 setup.py build > bear.out`. This creates the files `compile_commands.json` and `bear.out`.
+1. **Get the Package Source Code into cpython/Modules**, i.e. `cd cpython/Modules; git clone package_src_repo`.
+1. **Add module names and version to `m_list` and `m_version arrays` in `payloads/python/build.sh`. (going forward we'll make these lists external and auto-populate when analyzing the app being converted)
+1. **run payloads/python/build.sh**. It will build the module using module's setup.py, and prepare new python.km file with new built-in module.
 
-### Step 4: Extract Build Information
-Run `extract_build.py` (creates `km_capture.km`)
+**NOTE** The final phase (.km link) may fail if new modules require extra `-l`. See next step if that happens.
 
-### Step 5: Get Python specific information
-Run `build_pyext.py`(creates `km_setup.local`, `km_libs.json`, and `.c` files with munged `PyInit_` function names)
+## Update and re-run `km-link.sh` if needed
 
-### Step 6: Archive the Convereted Package
-Run `cd ..; tar czf <pkgname>.tgz <pkgname>`
+This step is not automated yet (but will be)
+Check `-l` and `-L` options in  the Modules/your_module/`km_libs.json` files, if there are any - add them to the link line in `python/km-link.sh`, and re-run it.
 
-## Creating a Application Specific `python.km`
+## Install the actual module so python can find it
 
-### Step 1: Unarchive Needed Packages
-Inside the directory `cpython/Modules` run `tar xf <pkgname>.tgz`.
+For example, when running python.km from build directory you can do `pip3 install -t cpython/Lib package_name`.
 
-### Step 2: Create new `Setup.local`
-Append the `km_setup.local` files from the package directory(ies) to KM's default `Setup.local`.
+If you use PYTHONHOME or PYTHONPATH, just make sure the package is accessible to python.km (assumung you pass the env to KM via `--putenv`)
 
-### Step 3: Create new `km-link.sh`
-Add the options in the package's `km_libs.json` to the link line.
+## Check Site customize
 
-### Step 4: Build it
-Run `build.sh`
+If your python.km is NOT located in python build tree (cpython), you need to make sure km_sitecustomer.py is copied as `sitecustomize.py` to site-specific (i.e. anywhere in sys.path) location.
 
-### Step 5: Install `.py` Files
-For each add-on package: `cd cpython/Lib; ln -s ../Modules/<pkgname>/<pkgname> <pkgname>` (There is probably a way to do this with params to the package's `setup.py`).
+Note that it's all taken care of by `build.sh` when you run cpython/python.km
 
-## Running under KM
-
-The file `payloads/python/extensions/km_sitecustomize.py` must be in the Python site directory as `sitecustomize.py.
