@@ -500,6 +500,8 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
 /*
  * Signal handler. Used when we want VCPU to stop. The signal causes KVM_RUN exit with -EINTR, so
  * the actual handler is noop - it just needs to exist.
+ * Calling km_info() and km_infox() from this function seems to occassionally cause a mutex
+ * deadlock in the regular expression code called from km_info*().
  */
 static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, void* ucontext_unused)
 {
@@ -527,18 +529,31 @@ static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unu
  */
 static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 {
-   int signo;
+   int rc;
 
    if (machine.pause_requested) {   // guarantee an exit right away if we are pausing
       vcpu->cpu_run->immediate_exit = 1;
    }
+
    /*
     * When ioctl( KVM_RUN ) fails, it apparently doesn't set exit_reason.
     * To avoid seeing the exit_reason from the preceeding KVM_RUN ioctl
     * we initialize the value before making the ioctl() request.
     */
    vcpu->cpu_run->exit_reason = 0;   // i hope this won't disturb kvm.
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) == 0) {
+   km_infox(KM_TRACE_VCPU,
+            "%s: vcpu %d, is_paused %d, about to ioctl( KVM_RUN )",
+            __FUNCTION__,
+            vcpu->vcpu_id,
+            vcpu->is_paused);
+   rc = ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
+   km_infox(KM_TRACE_VCPU,
+            "%s: vcpu %d, is_paused %d, ioctl( KVM_RUN ) returned %d",
+            __FUNCTION__,
+            vcpu->vcpu_id,
+            vcpu->is_paused,
+            rc);
+   if (rc == 0) {
       return 0;
    }
    run_info("KVM_RUN exit %d (%s) imm_exit=%d",
@@ -558,8 +573,9 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
          vcpu->cpu_run->immediate_exit = 0;
          vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          if (km_gdb_is_enabled() == 1) {
-            signo = km_signal_ready(vcpu);
-            if (signo == 0) {
+            siginfo_t info;
+            km_dequeue_signal(vcpu, &info);
+            if (info.si_signo == 0) {
                /*
                 * ioctl( KVM_RUN ) was interrupted by SIGUSR1
                 * All we need to do here is arrange to pause this vcpu
@@ -568,7 +584,7 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
                machine.pause_requested = 1;
                return -1;
             } else {
-               km_gdb_notify_and_wait(vcpu, signo);
+               km_gdb_notify_and_wait(vcpu, info.si_signo);
             }
          }
          break;
@@ -643,11 +659,17 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                   break;
 
                case HC_STOP:
+                  // This thread has executed pthread_exit() or exit() and is terminating.
                   run_infox("KVM: hypercall %d stop", hc);
                   km_vcpu_exit(vcpu);
+                  if (km_gdb_want_threadevents()) {
+                     // Tell gdb this thread has exited
+                     km_gdb_notify_and_wait(vcpu, GDB_KMSIGNAL_THREADEXIT);
+                  }
                   break;
 
                case HC_ALLSTOP:
+                  // This thread has executed exit_group() and the payload is terminating.
                   run_infox("KVM: hypercall %d allstop, status 0x%x", hc, machine.exit_status);
                   km_vcpu_exit_all(vcpu);
                   break;
@@ -675,6 +697,34 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             break;
 
          case KVM_EXIT_DEBUG:
+            if (km_gdb_is_enabled() == 1) {
+               /*
+                * We handle stepping through a range of addresses here.
+                * If we are in the address stepping range, we just turn around and keep
+                * stepping.  Once we exit the address range we give control to the
+                * gdb server thread.
+                * If we hit a breapoint planted in the stepping range we exit to gdb.
+                */
+               if (vcpu->rangestepping && vcpu->cpu_run->debug.arch.pc >= vcpu->steprange_start &&
+                   vcpu->cpu_run->debug.arch.pc < vcpu->steprange_end &&
+                   (vcpu->cpu_run->debug.arch.dr6 & 0x4000) != 0) {
+                  continue;
+               }
+               /*
+                * To find out which breakpoint fired we need to look into this processors kvm_run
+                * structure. In particular the kvm_debug_exit_arch structure. We use the pseudo
+                * signal GDB_KMSIGNAL_KVMEXIT to cause the gdb payload handler to look into the
+                * vcpu's kvm_run structure to figure out what has happened so that it can generate
+                * the correct gdb stop reply.
+                */
+               km_gdb_notify_and_wait(vcpu, GDB_KMSIGNAL_KVMEXIT);
+            } else {
+               // gdb is not attached, we shouldn't be seeing a debug exit?
+               run_warn("KVM: vcpu debug exit without gdb?");
+               km_vcpu_exit(vcpu);
+            }
+            break;
+
          case KVM_EXIT_EXCEPTION:
             if (km_gdb_is_enabled() == 1) {
                km_gdb_notify_and_wait(vcpu, km_signal_ready(vcpu));

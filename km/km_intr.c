@@ -113,6 +113,14 @@ static uint8_t error_included[32] = {
     0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 };
 
+/*
+ * This function is called when a guest vcpu causes a fault like illegal instruction
+ * or accessing a nonexistant piece of memory.
+ * We get here via HC_guest_interrupt.
+ * The fault is converted into a signal number here and then passed to the gdb thread
+ * if it is active.
+ * Then the signal is delivered to the guest vcpu in case it can handle the signal.
+ */
 void km_handle_interrupt(km_vcpu_t* vcpu)
 {
    kvm_vcpu_events_t events;
