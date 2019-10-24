@@ -34,7 +34,7 @@ PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.e
 	cpython/python.km cpython/Lib cpython/Modules/Setup scripts
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
-PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py pybuilddir.txt)
+PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build/lib.linux-x86_64-3.7 pybuilddir.txt dlstatic_km.mk)
 
 # either run all in 'blank' container, or local.
 # in blank: link + tar + create shebang
@@ -42,24 +42,29 @@ PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build/lib.linux-x86_64-
 # regular local: just run docker
 all:
 ifneq ($(shell test -d cpython/.git && echo OK),OK)
-	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src kontain/buildenv-python-fedora make -C payloads/python in-blank-container
+	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} make -C payloads/python in-blank-container
 else
+	 make -C cpython -f dlstatic_km.mk
+	./extensions/build_extensions.sh
 	./link-km.sh ${PYTHONTOP} cpython
 endif
 
-in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
+in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
 	tar -C ${PYTHONTOP}/.. -cf - ${PYTHON_DISTRO_FILES} | tar -xf -
 	cd cpython && patch -p1 < ../unittest.patch
+	make -C cpython -f dlstatic_km.mk
+	@echo "*** Warning - module extension are skipped. Use 'fromsrc' build for extensions"
 	./link-km.sh ${PYTHONTOP} cpython
 
 fromsrc:
 	git clone https://github.com/python/cpython.git -b ${VERS}
-	cd ${PYTHONTOP} && ./configure && cp ../Setup.local Modules/Setup.local && make -j`expr 2 \* $(nproc)`
-	cd ${PYTHONTOP} && patch -p1 < ../unittest.patch
-	./link-km.sh ${PYTHONTOP} ${PYTHONTOP}
-
-clobber:
-	rm -rf cpython
+	cd cpython && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
+	cd cpython && patch -p1 < ../unittest.patch
+	cd cpython && ../extensions/prepare_extension.py bear.out --skip ../extensions/skip_builtins.txt
+	# this seems repetitive, TODO - clean cut-n-paste:
+	make -C cpython -f dlstatic_km.mk
+	./extensions/build_extensions.sh
+	./link-km.sh cpython cpython
 
 clean:
 	@echo "Nothing to do for 'clean' - use 'clobber' to force remove build artifacts"
@@ -78,5 +83,10 @@ export define runenv_prep
 	tar -cf - ${PYTHON_DISTRO_FILES} scripts | tar -C $(RUNENV_PATH) -xf -
 	echo '#!/km --putenv=PYTHONPATH=/cpython/Lib' > $(RUNENV_PATH)/python ; chmod a+x $(RUNENV_PATH)/python
 endef
+clobber:
+	rm -rf cpython
+
+clobber-modules:
+	cd cpython; git clean -xdff Lib Modules
 
 include ${TOP}make/images.mk

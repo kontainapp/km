@@ -1,6 +1,10 @@
 # Image-related make targets
 
-This doc sketches the workflow, use cases, make targets for local dev and CI.  The goals are as follows:
+**THIS IS NOT A BUILD GUIDANCE DOCUMENT** - `docs/build.md` is the building guidance, and `docs/azure_pipeline.md` is the doc with hints and FAQ about using CI and running stuff there.
+
+This doc sketches the workflow, use cases, make targets for local dev and CI, and while we try to keep it reasonably accurate, this is more of a design doc
+
+The design goals are as follows:
 
 * have all docker image based functionality in makefiles so they can be invoked and used locally and in CI
 * avoid make/CI code drift

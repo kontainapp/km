@@ -75,8 +75,8 @@ login:  .check_tools ## Interactive login to Azure, Azure Container Registry and
 	az aks get-credentials --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER) --overwrite-existing
 
 login-cli: .check_tools  ## Non-interactive login to Azure, Azure Container Registry and Kubernetes cluster on Azure
-	echo az login ${SP_DISPLAYNAME}
-	az login --service-principal -u ${SP_APPID} -p ${SP_PASSWORD} --tenant ${SP_TENANT} -o table
+	@echo az login ${SP_DISPLAYNAME}
+	@az login --service-principal -u ${SP_APPID} -p ${SP_PASSWORD} --tenant ${SP_TENANT} -o table
 	az acr login -n $(REGISTRY_NAME)
 	az aks get-credentials --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER) --overwrite-existing
 
@@ -98,6 +98,7 @@ CI_IMAGE_DRY_RUN ?= --dry-run
 CI_IMAGE_PURGE_CMD="mcr.microsoft.com/acr/acr-cli:0.1 purge --registry {{.Run.Registry}} \
 	--filter '${repo}:.*' --untagged ${CI_IMAGE_DRY_RUN} --ago ${CI_IMAGE_PURGE_AGE}"
 
+CI_BUILDENV_IMAGE_VERSION ?= latest
 ci-image-purge: ## purge CI test images older that CI_IMAGE_PURGE_AGE
 ifneq ($(CI_IMAGE_DRY_RUN),)
 	@echo -e "${GREEN}Doing dry run. To do actual purge, run with CI_IMAGE_DRY_RUN=\"\" ${NOCOLOR}"

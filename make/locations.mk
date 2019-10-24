@@ -36,7 +36,7 @@ BLDDIR := ${BLDTOP}${FROMTOP}$(BLDTYPE)
 KM_BLDDIR := ${BLDTOP}km/$(BLDTYPE)
 KM_BIN := ${KM_BLDDIR}km
 RT_BLDDIR := ${BLDTOP}runtime/
-KM_LDSO := "${RT_BLDDIR}libc.so.km"
+KM_LDSO := ${RT_BLDDIR}libc.so.km
 KM_LDSO_PATH := "/opt/kontain/lib64:/lib64
 
 # dockerized build
@@ -84,6 +84,8 @@ COVERAGE_REPORT  = $(KM_BLDDIR)/coverage.html
 
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
+# regexp for targets which should not try to build dependencies (.d)
+NO_DEPS_TARGETS := (clean|clobber|.*-image|print-.*|debugvars)
 # colors for pretty output. Unless we are in Azure pipelines
 ifeq (${PIPELINE_WORKSPACE},)
 RED := \033[31m

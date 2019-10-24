@@ -156,9 +156,8 @@ void __explicit_bzero_chk(void* dst, size_t len, size_t dstlen)
    asm volatile("" ::: "memory");
 }
 
-/* Python on Ubuntu wants these:
-__memmove_chk
-__snprintf_chk
+/* Python on Ubuntu also wants these:
+__open64_2 // alias to open + params check
 __strncpy_chk
 __wcscat_chk
 */
