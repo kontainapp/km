@@ -15,9 +15,10 @@
 set -ex
 
 if [ ! -d cpython ]; then
-    set -x
+    echo Fetching cpython from github...
     git clone https://github.com/python/cpython.git -b v3.7.4
     pushd cpython
+    echo Configuring...
     ./configure
     patch -p1 < ../unittest.patch
     patch -p0 < ../makesetup.patch
@@ -25,41 +26,64 @@ else
     pushd cpython
 fi
 
-# NOTE: we are in cpython dir from now on
-cp ../Setup.local Modules/Setup.local
+# We are in cpython dir from now on. setup_file will be used further
+setup_file=$(realpath Modules/Setup.local)
+ext_file=$(realpath ../extensions/modules.txt)
+extract_build_info=$(realpath ../extensions/extract_build.py)
 
-# TODO:  replace hardcoded arrays with external info
-#        can use this externally:
-# modules=`git status --untracked-files --short |  awk -F/ '/Modules/ {print $2}'`
-# m_list=(falcon hug werkzeug markupsafe)
-# m_version=(2.0.0 someversion 0.16.0 2.6.0)
-m_list=()
-m_version=()
-extract_build_info=`pwd`/../extensions/extract_build.py
+cp ../Setup.local $setup_file
 
-# scan modules ($i is index im m_list), transforms bear out and add to Setup.local
-for i in ${!m_list[@]} ; do
-   module=./Modules/${m_list[$i]}
-   echo === $0: checking module $module from `pwd`
-   if [[ ! -d $module ]] ; then echo === MISSING MODULE, SKIPPING; continue; fi
-   pushd $module
-   # skip module build if it was already built and analyzed
+# Gets module if needed, and build/prep info for Setup.local
+process_module() {
+   name=$1     # module name
+   version=$2  # requested version
+   url=$3      # git url ... needed for modules with .so only. May be empty
+   subdir=${4:-.}  # where to run setup.py
+
+   echo processing name=$name version=$version url=$url pwd=$PWD
+   src=./Modules/$name
+   installed=./Lib/$name
+
+   if [[ ! -d $installed ]] ; then
+      pip3 install -t Lib $name
+   fi
+   if [[ -z "$(find $installed -name '*.so')" ]] ; then
+      echo $installed does not seem to have any .so files. Skipping...
+      return
+   fi
+   if [[ ! -d $src ]] ; then
+      echo === $src not found, cloning ...
+      if [[ -z "$url" ]] ; then echo *** ERROR - no URL. Please add git remote URL for $name ; return; fi
+      (cd Modules; git clone $url)
+   fi
+
+   cd $src/$subdir
+   # build module if it was not built yet
+   echo Checking $src and rebuilding if needed...
    if [[ ! -f compile_commands.json ]] ; then
       echo === setup.py build $module
-      git clean -xdf ; python3 setup.py clean
-      bear python3 setup.py build > bear.out
+      git clean -xdf
+      git checkout $version
+      # build the module with keeping trace and compile info for further processing
+      # note: *do not* use '-j' (parallel jobs) flag in setup.py. It breaks some module builds. e.g. numpy
+      bear python3 setup.py build |& tee bear.out
    fi
-   setup_info=km_setup.local
-   if [[ ! -f $setup_info ]] ; then
-      $extract_build_info
-      if [[ $? -ne 0 ]] ; then popd; continue; fi  # skip python-only modules
-   fi
-   echo "=== Adding $module/$setup_info to Modules/Setup.local. Lines added: $(cat $setup_info | wc -l)"
-   cat $setup_info >> ../Setup.local
-   popd # back to cpython
-   echo === TODO: version should be ${m_version[$i]}. Also check for '-L -l' in km_libs.json
-done
 
+   $extract_build_info
+   echo "=== Adding $name info to Modules/Setup.local. Lines added: $(cat km_setup.local | wc -l)"
+   cat km_setup.local >> $setup_file
+}
+
+loc=$PWD
+if [[ -f $ext_file ]] ; then
+   cat $ext_file | while read mod_name mod_version mod_src_git; do
+      if [[ $mod_name =~ ^# ]] ; then continue ; fi
+      process_module  $mod_name $mod_version $mod_src_git
+      cd $loc
+   done
+fi
+
+echo Building python...
 make -j`expr 2 \* $(nproc)`
 popd # back to payloads/python
 
@@ -67,7 +91,8 @@ popd # back to payloads/python
 # The one below is good if PYTHONPATH is set to Lib or it's a build run.
 cp extensions/km_sitecustomize.py cpython/Lib/sitecustomize.py
 
-./link-km.sh
+echo Linking python.km...
+LDLIBS=$(echo `cat cpython/Modules/*/km_libs.txt`) ./link-km.sh
 echo ""
 echo "now in cpython you can run ``../km/build/km/km ./python.km''"
 
