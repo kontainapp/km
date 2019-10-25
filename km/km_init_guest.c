@@ -186,44 +186,7 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int en
    if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
    }
-   tcb = rounddown(map_base + GUEST_STACK_SIZE - sizeof(km_pthread_t), MIN_TLS_ALIGN);
-
-   if (libc != 0) {
-      libc_kma = km_gva_to_kma_nocheck(libc);
-      libc_kma->page_size = KM_PAGE_SIZE;
-      libc_kma->secure = 1;
-      libc_kma->can_do_threads = 0;   // Doesn't seem to matter either way
-   }
-   /*
-    * km_main_tls is initialized from ELF PT_TLS header. dtv is part of TLS: dtv[0] is generation #,
-    * dtv[1] is a pointer to the only TLS area as this is static program.
-    *
-    * Normally km_main_tls is in executable memory, and is used to initialize newly created threads'
-    * TLS. In our case that logic is all in KM, so we keep that info in KM as well, and only
-    * initialize part of libc used by runtime TLS, or __tls_get_addr(), which means for example
-    * libc_kma->tls_{size,head,cnt} are NULL as not used.
-    */
-   km_main_tls.align = MAX(km_main_tls.align, MIN_TLS_ALIGN);
-   km_gva_t tls = rounddown(tcb - km_main_tls.size, km_main_tls.align);
-   dtv = rounddown(tls - 2 * sizeof(void*), sizeof(void*));
-   dtv_kma = km_gva_to_kma_nocheck(dtv);
-   dtv_kma[0] = 1;   // static executable
-   dtv_kma[1] = tls;
-   km_main_tls.offset = tcb - tls;
-   if (km_main_tls.len != 0) {
-      memcpy(km_gva_to_kma_nocheck(tls), km_main_tls.image, km_main_tls.len);
-   }
-
-   tcb_kma = km_gva_to_kma_nocheck(tcb);
-   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)dtv;
-   tcb_kma->locale = libc != 0 ? &((km__libc_t*)libc)->global_locale : NULL;
-   tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
-   tcb_kma->map_size = GUEST_STACK_SIZE;
-   tcb_kma->self = (km_pthread_t*)tcb;
-   tcb_kma->detach_state = DT_JOINABLE;
-   tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
-
-   km_gva_t stack_top = dtv;
+   km_gva_t stack_top = rounddown(map_base + GUEST_STACK_SIZE, MIN_TLS_ALIGN);   // most likely noop
    km_kma_t stack_top_kma = km_gva_to_kma_nocheck(stack_top);
 
    // Set environ - copy strings and prep the envp array
@@ -277,9 +240,6 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int en
    stack_top_kma -= size_of_aux_slot;
    *(uint64_t*)stack_top_kma = AT_PHDR;
    *(uint64_t*)(stack_top_kma + sizeof(void*)) = km_guest.km_phdr[0].p_vaddr + km_guest.km_ehdr.e_phoff;
-   if (libc != 0) {
-      libc_kma->auxv = (void*)stack_top;   // auxv
-   }
 
    // place envp array
    size_t envp_sz = sizeof(km_envp[0]) * envc;
@@ -291,13 +251,6 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int en
    stack_top_kma -= sizeof(argv_km);
    stack_top -= sizeof(argv_km);
    memcpy(stack_top_kma, argv_km, sizeof(argv_km));
-
-   tcb_kma->stack = (typeof(tcb_kma->stack))stack_top;
-   tcb_kma->stack_size = stack_top - map_base;
-   tcb_kma->tid = km_vcpu_get_tid(vcpu);
-
-   // thread list with single element, per musl logic. No lock as we are the first
-   tcb_kma->next = tcb_kma->prev = (typeof(tcb_kma->prev))tcb;
 
    vcpu->guest_thr = tcb;
    vcpu->stack_top = stack_top;
