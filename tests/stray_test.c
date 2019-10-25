@@ -12,10 +12,12 @@
  * This program generates exceptions in guest in order to test guest coredumps
  * and other processing.
  */
+#define _GNU_SOURCE
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -48,6 +50,7 @@ int sigpipe_test(int optind, int argc, char* argv[]);
 int hc_test(int optind, int argc, char* argv[]);
 int hc_badarg_test(int optind, int argc, char* argv[]);
 int close_test(int optind, int argc, char* argv[]);
+int clone_test(int optind, int argc, char* argv[]);
 
 struct stray_op {
    char* op;                                          // Operation name on command line
@@ -75,6 +78,7 @@ struct stray_op {
      .func = hc_badarg_test,
      .description = "<call> - make hypercall with number <call> and a bad argument."},
     {.op = "close", .func = close_test, .description = "<fd> - close file descriptor fd"},
+    {.op = "clone", .func =  clone_test, .description = "test clone system call"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -226,6 +230,31 @@ int close_test(int optind, int optarg, char* argv[])
    }
    if (close(fd) < 0) {
       return errno;
+   }
+   return 0;
+}
+
+int clone_main(void *arg)
+{
+   return 0;
+}
+volatile int __thread_list_lock;
+int clone_test(int optind, int optarg, char* argv[])
+{
+   /*
+    *  The raw system call interface on x86-64 and  some  other  architectures
+    *  (including sh, tile, and alpha) is:
+    * 
+    *      long clone(unsigned long flags, void *child_stack,
+    *                 int *ptid, int *ctid,
+    *                 unsigned long newtls);
+    * 
+    */
+   static char substack[8192];
+   printf("%s\n", __FUNCTION__);
+   long ret = clone(clone_main, substack + sizeof(substack), 0, NULL, NULL, NULL, NULL);
+   if (ret == -1) {
+      perror("clone");
    }
    return 0;
 }

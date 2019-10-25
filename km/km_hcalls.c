@@ -1122,6 +1122,12 @@ static km_hc_ret_t procfdname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+  arg->hc_ret = -ENOTSUP;
+  return HC_CONTINUE;
+}
+
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
@@ -1234,6 +1240,8 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getgid] = dummy_hcall;
    km_hcalls_table[SYS_sched_yield] = dummy_hcall;
    km_hcalls_table[SYS_setpriority] = dummy_hcall;
+
+   km_hcalls_table[SYS_clone] = clone_hcall;
 
    km_hcalls_table[HC_pthread_create] = pthread_create_hcall;
    km_hcalls_table[HC_pthread_join] = pthread_join_hcall;

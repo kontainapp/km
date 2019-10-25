@@ -23,7 +23,7 @@ SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq process sched)
 SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/)))
 
 KM_REPLACED_SRCS := syscall.s syscall_cp.s __libc_start_main.c __init_tls.c __reset_tls.c  getenv.c uname.c \
-					pthread_create.c pthread_join.c pthread_setcancelstate.c preadv.c pwritev.c fcntl.c procfdname.c sigaltstack.c
+					pthread_create.c pthread_join.c pthread_setcancelstate.c preadv.c pwritev.c fcntl.c procfdname.c sigaltstack.c clone.s
 KM_EXTRA_SRCS := $(wildcard *_km.c) $(wildcard *.s)
 
 KM_PTHREAD_OBJS := pthread_cond_broadcast.o pthread_cond_destroy.o pthread_cond_signal.o pthread_cond_wait.o \
