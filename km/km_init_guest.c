@@ -623,3 +623,9 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
       err(1, "unlock mutex thr_mtx");
    }
 }
+
+int km_clone(km_vcpu_t *vcpu, unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls)
+{
+   warnx("%s flags=0x%lx child_stack=%p ptid=%p ctid=%p newtls=0x%lx\n", __FUNCTION__, flags, child_stack, ptid, ctid, newtls);
+   return -ENOTSUP;
+}

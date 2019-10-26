@@ -251,8 +251,11 @@ int clone_test(int optind, int optarg, char* argv[])
     * 
     */
    static char substack[8192];
+   unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND
+		| CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS
+		| CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_DETACHED;
    printf("%s\n", __FUNCTION__);
-   long ret = clone(clone_main, substack + sizeof(substack), 0, NULL, NULL, NULL, NULL);
+   long ret = clone(clone_main, substack + sizeof(substack), flags, NULL, NULL, NULL, NULL);
    if (ret == -1) {
       perror("clone");
    }
