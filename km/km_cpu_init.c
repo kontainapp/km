@@ -390,7 +390,7 @@ void km_vcpu_put(km_vcpu_t* vcpu)
  * Set RIP, SP, RFLAGS, and function args - RDI, RSI, clear the rest of the regs.
  * VCPU is ready to run starting with instruction @RIP, RDI and RSI are the first two function arg.
  */
-int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t args)
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, uint64_t arg2)
 {
    int rc;
    km_gva_t sp;
@@ -409,7 +409,8 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t args)
 
    kvm_regs_t regs = {
        .rip = start,
-       .rdi = args,   // first function argument
+       .rdi = arg1,   // first function argument
+       .rsi = arg2,   // second function argument
        .rflags = X86_RFLAGS_FIXED,
        .rsp = sp,
    };

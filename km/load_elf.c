@@ -151,8 +151,12 @@ int km_load_elf(const char* file)
             } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
                km_guest.km_sigreturn = sym.st_value;
+            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_CLONE_CHILD_SYM_NAME) == 0) {
+               km_guest.km_clone_child = sym.st_value;
+               warnx("clone_child: 0x%lx", km_guest.km_clone_child);
             }
-            if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0) {
+            if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0 && km_guest.km_clone_child) {
                break;
             }
          }

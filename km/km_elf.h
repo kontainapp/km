@@ -21,6 +21,7 @@
 
 #define KM_INT_HNDL_SYM_NAME "__km_handle_interrupt"
 #define KM_SIG_RTRN_SYM_NAME "__km_sigreturn"
+#define KM_CLONE_CHILD_SYM_NAME "__km_clone_run_child"
 /*
  * Description of the guest payload. Note these structures come from guest ELF and represent values
  * in guest address space. We'll need to convert them to monitor (KM) addresses to acces.
@@ -30,6 +31,7 @@ typedef struct km_payload {
    Elf64_Phdr* km_phdr;          // elf program headers
    Elf64_Addr km_handlers;       // interrupt/exception handler
    Elf64_Addr km_sigreturn;      // signal trampoline function
+   Elf64_Addr km_clone_child;    // clone child trampoline function
 } km_payload_t;
 
 typedef struct km_tls_module {
