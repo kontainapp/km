@@ -259,6 +259,7 @@ int clone_test(int optind, int optarg, char* argv[])
    if (ret == -1) {
       perror("clone");
    }
+   
    return 0;
 }
 

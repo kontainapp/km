@@ -627,5 +627,16 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
 int km_clone(km_vcpu_t *vcpu, unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls)
 {
    warnx("%s flags=0x%lx child_stack=%p ptid=%p ctid=%p newtls=0x%lx\n", __FUNCTION__, flags, child_stack, ptid, ctid, newtls);
+
+   km_vcpu_t *new_vcpu =  km_vcpu_get();
+   if (new_vcpu == NULL) {
+      return -EAGAIN;
+   }
+   new_vcpu->stack_top = (uintptr_t) child_stack;
+   if (km_run_vcpu_thread(vcpu, NULL) < 0) {
+      km_vcpu_put(vcpu);
+      return -EAGAIN;
+   }
+
    return -ENOTSUP;
 }
