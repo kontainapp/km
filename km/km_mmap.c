@@ -60,10 +60,6 @@ mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t
       km_infox(KM_TRACE_MMAP, "mmap: wrong fd, offset or flags");
       return -EINVAL;
    }
-   if (size % KM_PAGE_SIZE != 0) {
-      km_infox(KM_TRACE_MMAP, "mmap: size misaligned");
-      return -EINVAL;
-   }
    if (size >= GUEST_MEM_ZONE_SIZE_VA) {
       km_infox(KM_TRACE_MMAP, "mmap: size is too large");
       return -ENOMEM;
@@ -331,6 +327,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
+   size = roundup(size, KM_PAGE_SIZE);
    mmaps_lock();
    ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset);
    mmaps_unlock();
