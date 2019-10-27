@@ -37,6 +37,8 @@ char* cmdname = "?";
 int bigarray_data[10000000] = {1, 2, 3};
 int bigarray_bss[10000000];
 
+pthread_mutex_t mt = PTHREAD_MUTEX_INITIALIZER;
+
 int stray_reference(int optind, int argc, char* argv[]);
 int div0(int optind, int argc, char* argv[]);
 int undefined_op(int optind, int argc, char* argv[]);
@@ -78,7 +80,7 @@ struct stray_op {
      .func = hc_badarg_test,
      .description = "<call> - make hypercall with number <call> and a bad argument."},
     {.op = "close", .func = close_test, .description = "<fd> - close file descriptor fd"},
-    {.op = "clone", .func =  clone_test, .description = "test clone system call"},
+    {.op = "clone", .func = clone_test, .description = "test clone system call"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -234,8 +236,10 @@ int close_test(int optind, int optarg, char* argv[])
    return 0;
 }
 
-int clone_main(void *arg)
+int clone_main(void* arg)
 {
+   char* msg = "hello from clone_main";
+   write(1, msg, sizeof(msg));
    return 0;
 }
 volatile int __thread_list_lock;
@@ -244,27 +248,26 @@ int clone_test(int optind, int optarg, char* argv[])
    /*
     *  The raw system call interface on x86-64 and  some  other  architectures
     *  (including sh, tile, and alpha) is:
-    * 
+    *
     *      long clone(unsigned long flags, void *child_stack,
     *                 int *ptid, int *ctid,
     *                 unsigned long newtls);
-    * 
+    *
     */
    static char substack[8192];
-   unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND
-		| CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS
-		| CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_DETACHED;
-   printf("%s\n", __FUNCTION__);
+   unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM |
+                    CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_DETACHED;
+   printf("%s stack:%p\n", __FUNCTION__, substack);
    long ret = clone(clone_main, substack + sizeof(substack), flags, NULL, NULL, NULL, NULL);
    if (ret == -1) {
       perror("clone");
    }
-   
+   pthread_mutex_lock(&mt);
+
    return 0;
 }
 
 // A thread to have laying around. Make the coredumps more interesting.
-pthread_mutex_t mt = PTHREAD_MUTEX_INITIALIZER;
 void* thread_main(void* arg)
 {
    pthread_mutex_lock(&mt);
@@ -323,9 +326,10 @@ int main(int argc, char** argv)
    /*
     * malloc some space
     */
-   int msz = MIB / 16;     // 64K
-   void *ptr = malloc(msz);
-   memset(ptr, 'a', msz);;
+   int msz = MIB / 16;   // 64K
+   void* ptr = malloc(msz);
+   memset(ptr, 'a', msz);
+   ;
 
    struct stray_op* nop = operations;
    while (nop->op != NULL) {

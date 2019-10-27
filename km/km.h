@@ -262,7 +262,13 @@ int km_pthread_create(
 int km_pthread_join(km_vcpu_t* vcpu, pthread_tid_t pid, km_kma_t ret);
 void km_pthread_fini(km_vcpu_t* vcpu);
 
-int km_clone(km_vcpu_t *vcpu, unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls);
+int km_clone(km_vcpu_t* vcpu,
+             unsigned long flags,
+             uint64_t child_stack,
+             int* ptid,
+             int* ctid,
+             unsigned long newtls,
+             void** cargs);
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
