@@ -26,7 +26,7 @@ DOCKER_RUN := docker run -t
 DOCKER_RUN_TEST := docker run -t --rm --ulimit nofile=1024:1024 --device=/dev/kvm
 # Use DOCKER_RUN_CLEANUP="" if container is needed after a run
 DOCKER_RUN_CLEANUP ?= --rm
-DOCKER_RUN_FOR_TEST  := $(DOCKER_RUN) $(DOCKER_RUN_CLEANUP) --device=/dev/kvm --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u${UID}:${GID}
+# DOCKER_RUN_FOR_TEST  := $(DOCKER_RUN) $(DOCKER_RUN_CLEANUP) --device=/dev/kvm --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u${UID}:${GID}
 
 # Image names and location for image builds
 TEST_IMG := kontain/test-${COMPONENT}-${DTYPE}
@@ -42,13 +42,15 @@ BUILDENV_DOCKERFILE ?= buildenv-${DTYPE}.dockerfile
 # builednev image docker build location
 BE_LOC ?= .
 # Test image docker build location
-T_LOC ?= .
+TE_LOC ?= .
+# Runtime env image docker build location
+RE_LOC ?= $(TE_LOC)
 
 test-image:  ## build test image with test tools and code
 	@# Copy KM there. TODO - remove when we support pre-installed KM
-	cp ${KM_BIN} ${T_LOC}
-	${DOCKER_BUILD} --build-arg branch=${SRC_SHA} -t ${TEST_IMG}:${IMAGE_VERSION} ${T_LOC} -f ${TEST_DOCKERFILE}
-	rm ${T_LOC}/$(notdir ${KM_BIN})
+	cp ${KM_BIN} ${TE_LOC}
+	${DOCKER_BUILD} --build-arg branch=${SRC_SHA} -t ${TEST_IMG}:${IMAGE_VERSION} ${TE_LOC} -f ${TEST_DOCKERFILE}
+	rm ${TE_LOC}/$(notdir ${KM_BIN})
 
 buildenv-image:  ## make build image based on ${DTYPE}
 	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${IMAGE_VERSION} ${BE_LOC} -f ${BUILDENV_DOCKERFILE}
@@ -108,7 +110,7 @@ help:  ## Prints help on 'make' targets
 
 
 # Support for simple debug print (make debugvars)
-VARS_TO_PRINT ?= DIMG TEST_IMG BE_LOC T_LOC BUILDENV_IMG BUILDENV_DOCKERFILE KM_BIN DTYPE TEST_IMG_REG BUILDENV_IMG_REG SRC_BRANCH SRC_SHA
+VARS_TO_PRINT ?= DIMG TEST_IMG BE_LOC TE_LOC BUILDENV_IMG BUILDENV_DOCKERFILE KM_BIN DTYPE TEST_IMG_REG BUILDENV_IMG_REG SRC_BRANCH SRC_SHA
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values
@@ -117,11 +119,64 @@ debugvars:   ## prints interesting vars and their values
 
 todo:  ## List of TODOs
 	@echo -e "$(GREEN)"
-	@echo '* validate make; make test ; make test-all. Also get a list of targetsand check them'
-	@echo '* cleanup images in CD; review .md file to see what else is missing'
-	@echo '* update and test CI -hack. THEN clean up seds to use kustomize if possible'
-	@echo '* update .md files ; build.md etc.'
 	@echo '* replace distro.mk and distro targets with make run-image; test and change demo and .md'
 	@echo '* add pull/push to github.com shared so no login is needed for buildenv'
 	@echo '* write a small script and a target and clean up junk from registry'
 	@echo -e "$(NOCOLOR)"
+
+# For now, use vars that distro.mk assumed
+
+test-distro:
+	${DOCKER_RUN_TEST} ${RUNENV_IMG} ${RUNENV_TEST_PARAM}
+# KM monitor path
+KM_BIN=${TOP}/build/km/km
+# KM file name, relative to currentdir. Note that the same will be absolute in the container
+# PAYLOAD_KM := cpython/python.km
+# name to be added to label(s)
+PAYLOAD_NAME := Node.js-10
+
+RUNENV_TEST_PARAM = /out/Release/hello.js
+
+# a list to be passed to tar to be packed into container image
+PAYLOAD_FILES := --exclude='*/test/*' out/Release km
+
+RUNENV_IMG := kontain/runenv-${COMPONENT}-${DTYPE}
+RUNENV_IMG_REG := $(REGISTRY)/runenv-${COMPONENT}-${DTYPE}
+
+# RE_LOC := ${TOP}/build/${COMPONENT_RUNENV}
+RE_LOC := node
+
+#
+# TODO:
+# - mkdir -p build/payloads/node/runenv
+# - form payload.tar content, PIPE there
+# - edit shebang file if any THERE
+# - package docker image
+# vars: PAYLOAD_FILES - list of stuff to tar up
+#  runenv.dockerfile - dockerfile for constructing KM payload. Note IT IS NOT platform dependent. Produces runenv-node-km. LABEL keeps the original platform
+
+distro runtime-image: ## (ALPHA) Build minimap runtime image
+	@$(TOP)make/check-docker.sh
+	# mkdir -p $(RE_LOC)
+	cp ${KM_BIN} $(RE_LOC)
+	cp scripts/* $(RE_LOC)/out/Release
+	tar -C $(RE_LOC) -cf $(RE_LOC)/$(TAR_FILE) $(PAYLOAD_FILES)
+	#-echo "Cleaning old image"; \
+		docker rmi -f ${RUNENV_IMG}:latest 2>/dev/null
+	echo -e "Building new image with generated Dockerfile:\\n $(DOCKERFILE_CONTENT)"
+	echo -e $(DOCKERFILE_CONTENT) | docker build --force-rm \
+		-t  kontain/runenv-${COMPONENT}-${DTYPE}:latest -f - ${RE_LOC}
+	# docker tag ${PAYLOAD_LATEST}
+	rm $(RE_LOC)/$(TAR_FILE) $(RE_LOC)/km
+	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls $(RUNENV_IMG) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
+
+
+# Build KM payload container, using KM container as the base image
+TAR_FILE := payload.tar
+DOCKERFILE_CONTENT := \
+	FROM scratch \\n \
+	LABEL Description=\"${PAYLOAD_NAME} \(/${COMPONENT}\) in Kontain\" Vendor=\"Kontain.app\" Version=\"0.1\"	\\n \
+	ADD km $(TAR_FILE) / \\n \
+	WORKDIR /$(dir $(PAYLOAD_KM)) \\n \
+	ENTRYPOINT [ \"/out/Release/node\"]
+

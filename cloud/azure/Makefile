@@ -49,6 +49,15 @@ DTYPE ?= fedora
 buildenv:  ## Build km-buildenv image for Azure
 	./buildenv.sh ${DTYPE}
 
+ow:
+	@./create_openwhisk_vms.sh
+
+clearow:
+	@./clear_openwhisk_vms.sh
+
+listow:
+	@./list_openwhisk_vms.sh
+
 # Support for simple debug print (make debugvars)
 VARS_TO_PRINT ?= CLOUD_RESOURCE_GROUP CLOUD_SUBSCRIPTION CLOUD_LOCATION \
 					K8_SERVICE_PRINCIPAL K8S_CLUSTER K8S_NODE_INSTANCE_SIZE \

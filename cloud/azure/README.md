@@ -1,6 +1,7 @@
 # Support for provisioning on Azure
 
 Scripts and other fun to prepare all for running Kontain payloads on Azure under Kubernetes.
+Also has support for creating VM for Openwhisk demo/tests (`*ow` targets)
 
 ## Prerequisities
 
@@ -44,3 +45,20 @@ kubectl apply -f cloud/k8s/kvm-ds.yml
 kubectl apply -k payloads/cloud/azure
 
 ```
+
+## Openwhisk-related targets
+
+Use `make help` for help.
+
+* `make ow` to  build Vms.
+  * Note: The script is not tested when  the private key is password protected. ssh private key from ~/.ssh/id_rsa is used for the duration of `git clone` commands.
+  * for changes to the VM names list, directly edit VMS var in `create_openwhisk_vms.sh`
+  * VMs are named `name-openwhisk-kontain`, per *create_openwhisk_vms.sh*) e.g. *km-openwhisk-kontain* VM with km-openwhisk-kontain.westus.cloudapp.azure.com DNS name.
+  * VMs have the same size (D3V3, about $200/mo), and all 3 have all for openwhisk installed. This is done do simplify the scripts
+  * VMs also have ssh configured per ./config source dir (.pub files are added to authorized keys and config is copied).
+  * VMs have Openwhisk and other stuff per [Openwhisk testing instructions](https://github.com/kontainapp/openwhisk-performance/blob/master/readme.md) installed.
+* `make listow` to list Vms names and IPs
+* `make clearow` to delete the *-openwhisk-kontain VMS
+
+All targets assume `make login` succeded.
+

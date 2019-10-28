@@ -46,3 +46,5 @@ K8S_CLUSTER=kontainKubeCluster
 # Used for each K8S node. Needs to support nested virtualization
 K8S_NODE_INSTANCE_SIZE=Standard_D2s_v3
 
+# default format for az command reporting info to tty
+OUT_TYPE=table

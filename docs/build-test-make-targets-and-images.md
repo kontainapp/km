@@ -85,7 +85,7 @@ Each payload also supports the same targets supported for KM, but uses payload-s
 
 ## Files layout
 
-* Dirs where buildenv and test images are build are defined by `BE_LOC` and `T_LOC` make vars.
+* Dirs where buildenv and test images are build are defined by `BE_LOC` and `TE_LOC` make vars.
 * Each dir has *.dockerignore* to eliminate unneeded files from being copied to dockerd on build.
 * See `images.mk` for details
 

@@ -9,15 +9,12 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
-# Creates all resources needed before we can create a K8s cluster
+# Deployes VM with Openwhisk instance to Azure.
+# Also preps this VM to fetch from Kontain github
 
 source `dirname $0`/cloud_config.mk
+set -ex
 
-set -e
-set -x
-az account set -s ${CLOUD_SUBSCRIPTION}
-az configure --defaults location=${CLOUD_LOCATION}
-az group create --name ${CLOUD_RESOURCE_GROUP} --output ${OUT_TYPE}
-az acr create \
-   --resource-group ${CLOUD_RESOURCE_GROUP} \
-   --name ${REGISTRY_NAME} --sku ${REGISTRY_SKU} --output ${OUT_TYPE}
+for i in `az vm list -g ${CLOUD_RESOURCE_GROUP} --query "[?contains(name, 'OpenWhisk')].id" -o tsv` ; do
+   az vm delete --id $i --yes &
+done
