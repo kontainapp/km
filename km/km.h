@@ -87,6 +87,13 @@ typedef struct km_vcpu {
    kvm_sregs_t sregs;             // Cached segment register values.
    km_sigset_t sigmask;           // blocked signals for thread
    km_signal_list_t sigpending;   // List of signals sent to thread
+
+   /*
+    * Linux/Pthread handshake hacks. These are actually part of the standard.
+    *
+    */
+   km_gva_t set_child_tid;     // See 'man 2 set_child_tid' for details
+   km_gva_t clear_child_tid;   // See 'man 2 set_child_tid' for details
 } km_vcpu_t;
 
 /*
@@ -252,10 +259,12 @@ int km_pthread_join(km_vcpu_t* vcpu, pthread_tid_t pid, km_kma_t ret);
 int km_clone(km_vcpu_t* vcpu,
              unsigned long flags,
              uint64_t child_stack,
-             int* ptid,
-             int* ctid,
+             km_gva_t ptid,
+             km_gva_t ctid,
              unsigned long newtls,
              void** cargs);
+uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr);
+void km_exit(km_vcpu_t* vcpu, int status);
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
