@@ -52,7 +52,7 @@ int sigpipe_test(int optind, int argc, char* argv[]);
 int hc_test(int optind, int argc, char* argv[]);
 int hc_badarg_test(int optind, int argc, char* argv[]);
 int close_test(int optind, int argc, char* argv[]);
-int clone_test(int optind, int argc, char* argv[]);
+int thread_test(int optind, int argc, char* argv[]);
 
 struct stray_op {
    char* op;                                          // Operation name on command line
@@ -80,7 +80,7 @@ struct stray_op {
      .func = hc_badarg_test,
      .description = "<call> - make hypercall with number <call> and a bad argument."},
     {.op = "close", .func = close_test, .description = "<fd> - close file descriptor fd"},
-    {.op = "clone", .func = clone_test, .description = "test clone system call"},
+    {.op = "thread", .func = thread_test, .description = "test pthread create/join"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -236,34 +236,18 @@ int close_test(int optind, int optarg, char* argv[])
    return 0;
 }
 
-int clone_main(void* arg)
+void* thread_main2(void* arg)
 {
-   char* msg = "hello from clone_main";
-   write(1, msg, sizeof(msg));
-   return 0;
+   fprintf(stderr, "%s\n", __FUNCTION__);
+   return NULL;
 }
-volatile int __thread_list_lock;
-int clone_test(int optind, int optarg, char* argv[])
-{
-   /*
-    *  The raw system call interface on x86-64 and  some  other  architectures
-    *  (including sh, tile, and alpha) is:
-    *
-    *      long clone(unsigned long flags, void *child_stack,
-    *                 int *ptid, int *ctid,
-    *                 unsigned long newtls);
-    *
-    */
-   static char substack[8192];
-   unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM |
-                    CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_DETACHED;
-   printf("%s stack:%p\n", __FUNCTION__, substack);
-   long ret = clone(clone_main, substack + sizeof(substack), flags, NULL, NULL, NULL, NULL);
-   if (ret == -1) {
-      perror("clone");
-   }
-   pthread_mutex_lock(&mt);
 
+int thread_test(int optind, int optarg, char* argv[])
+{
+   pthread_t thr;
+   pthread_create(&thr, NULL, thread_main2, NULL);
+   void* ret;
+   pthread_join(thr, &ret);
    return 0;
 }
 
@@ -279,7 +263,6 @@ int main(int argc, char** argv)
    extern int optind;
    int c;
    char* op;
-   pthread_t thr;
 
    cmdname = argv[0];
    while ((c = getopt(argc, argv, "h")) != -1) {
@@ -300,6 +283,7 @@ int main(int argc, char** argv)
    op = argv[optind];
    optind++;
 
+   pthread_t thr;
    pthread_mutex_lock(&mt);
    if (pthread_create(&thr, NULL, thread_main, NULL) != 0) {
       err(1, "pthread_create failed");

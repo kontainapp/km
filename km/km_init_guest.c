@@ -13,17 +13,21 @@
  * This includes passing parameters to main.
  */
 
+#define _GNU_SOURCE
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sched.h>
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/syscall.h>   // getpid() has no libc wrapper, so need to do syscall
+#include <sys/syscall.h>
+#include <linux/futex.h>
 
 #include "km.h"
 #include "km_gdb.h"
 #include "km_mem.h"
+#include "km_syscall.h"
 
 /*
  * Allocate stack for main thread and initialize it according to ABI:
@@ -174,15 +178,28 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
 int km_clone(km_vcpu_t* vcpu,
              unsigned long flags,
              uint64_t child_stack,
-             int* ptid,
-             int* ctid,
+             km_gva_t ptid,
+             km_gva_t ctid,
              unsigned long newtls,
              void** cargs)
 {
+   // threads only
+   if ((flags & CLONE_THREAD) == 0) {
+      return -ENOTSUP;
+   }
+
    km_vcpu_t* new_vcpu = km_vcpu_get();
    if (new_vcpu == NULL) {
       return -EAGAIN;
    }
+
+   if ((flags & CLONE_CHILD_SETTID) != 0) {
+      new_vcpu->set_child_tid = ctid;
+   }
+   if ((flags & CLONE_CHILD_CLEARTID) != 0) {
+      new_vcpu->clear_child_tid = ctid;
+   }
+
    new_vcpu->stack_top = (uintptr_t)child_stack;
    new_vcpu->guest_thr = newtls;
    int rc =
@@ -191,10 +208,43 @@ int km_clone(km_vcpu_t* vcpu,
       km_vcpu_put(new_vcpu);
       return rc;
    }
+
+   // Obey parent set tid protocol
+   if ((flags & CLONE_PARENT_SETTID) != 0) {
+      int* lptid = km_gva_to_kma(ptid);
+      if (lptid != NULL) {
+         *lptid = new_vcpu->vcpu_id + 1;
+      }
+   }
+
+   // Obey set_child_tid protocol for pthreads. See 'clone(2)'
+   int* gtid;
+   if ((gtid = km_gva_to_kma(new_vcpu->set_child_tid)) != NULL) {
+      *gtid = new_vcpu->vcpu_id + 1;
+   }
+
    if (km_run_vcpu_thread(new_vcpu, NULL) < 0) {
       km_vcpu_put(new_vcpu);
       return -EAGAIN;
    }
 
-   return new_vcpu->vcpu_id;
+   return new_vcpu->vcpu_id + 1;
+}
+
+uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr)
+{
+   vcpu->clear_child_tid = tidptr;
+   return vcpu->vcpu_id + 1;
+}
+
+void km_exit(km_vcpu_t* vcpu, int status)
+{
+   if (vcpu->clear_child_tid != 0) {
+      // See 'man 2 set_tid_address'
+      int* ctid = km_gva_to_kma(vcpu->clear_child_tid);
+      if (ctid != NULL) {
+         *ctid = 0;
+         __syscall_6(SYS_futex, (uintptr_t)ctid, FUTEX_WAKE, 1, 0, 0, 0);
+      }
+   }
 }
