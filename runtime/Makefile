@@ -37,7 +37,7 @@ REPLACED_SRCS := $(addsuffix .%, $(subst /$(ARCH)/,/,$(basename $(ARCH_SRCS))))
 ALL_SOURCES := $(filter-out ${REPLACED_SRCS}, ${BASE_SRCS} ${ARCH_SRCS})
 ALL_SOURCES := $(filter-out $(addprefix %, ${KM_REPLACED_SRCS}), ${ALL_SOURCES}) ${KM_EXTRA_SRCS}
 
-SOURCES := $(filter musl/src/%,$(ALL_SOURCES))
+SOURCES := $(filter musl/src/%,$(ALL_SOURCES)) ${KM_EXTRA_SRCS}
 DL_SOURCES := $(filter musl/ldso/%,${ALL_SOURCES})
 CRT_SOURCES := $(filter musl/crt/%,$(ALL_SOURCES))
 
@@ -76,7 +76,7 @@ $(addprefix ${BLDDIR}, libm.a):
 	@echo "Making " $@; rm -f $@; ${AR} crs $@
 
 $(addprefix ${BLDDIR}, libruntime.so): ${SO_OBJS} ${DL_OBJS}
-	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -o $@ ${SO_OBJS} ${DL_OBJS}
+	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -o $@ ${SO_OBJS} ${DL_OBJS} -lgcc -lgcc_eh
 
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 
