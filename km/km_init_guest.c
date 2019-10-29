@@ -213,14 +213,14 @@ int km_clone(km_vcpu_t* vcpu,
    if ((flags & CLONE_PARENT_SETTID) != 0) {
       int* lptid = km_gva_to_kma(ptid);
       if (lptid != NULL) {
-         *lptid = new_vcpu->vcpu_id + 1;
+         *lptid = km_vcpu_get_tid(new_vcpu);
       }
    }
 
    // Obey set_child_tid protocol for pthreads. See 'clone(2)'
    int* gtid;
    if ((gtid = km_gva_to_kma(new_vcpu->set_child_tid)) != NULL) {
-      *gtid = new_vcpu->vcpu_id + 1;
+      *gtid = km_vcpu_get_tid(new_vcpu);
    }
 
    if (km_run_vcpu_thread(new_vcpu, NULL) < 0) {
@@ -228,13 +228,13 @@ int km_clone(km_vcpu_t* vcpu,
       return -EAGAIN;
    }
 
-   return new_vcpu->vcpu_id + 1;
+   return km_vcpu_get_tid(new_vcpu);
 }
 
 uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr)
 {
    vcpu->clear_child_tid = tidptr;
-   return vcpu->vcpu_id + 1;
+   return km_vcpu_get_tid(vcpu);
 }
 
 void km_exit(km_vcpu_t* vcpu, int status)
