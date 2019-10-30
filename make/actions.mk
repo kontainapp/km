@@ -208,4 +208,7 @@ debugvars:   ## prints interesting vars and their values
 	@echo To change the list of printed vars, use 'VARS_TO_PRINT="..." make debugvars'
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
 
+# allows to do 'make print-varname'
+print-%  : ; @echo $* = $($*)
+
 .PHONY: all clean test help withdocker
