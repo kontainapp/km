@@ -20,7 +20,7 @@ LIB := runtime
 SRCDIR := musl/
 ARCH := x86_64
 SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq process sched)
-SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/ crt/ ldso)))
+SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/ crt/ ldso/)))
 
 KM_REPLACED_SRCS := __set_thread_area.s syscall.s syscall_cp.s getenv.c uname.c preadv.c pwritev.c fcntl.c procfdname.c sigaltstack.c clone.s
 KM_EXTRA_SRCS := $(wildcard *_km.c) $(wildcard *.s)
@@ -76,11 +76,15 @@ $(addprefix ${BLDDIR}, libm.a):
 	@echo "Making " $@; rm -f $@; ${AR} crs $@
 
 $(addprefix ${BLDDIR}, libruntime.so): ${SO_OBJS} ${DL_OBJS}
-	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -o $@ ${SO_OBJS} ${DL_OBJS} -lgcc -lgcc_eh
+	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS}
 
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 
-${SO_OBJS} ${DL_OBJS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exists
+SODL_OBJDIRS = $(sort $(dir ${DL_OBJS})) $(sort $(dir ${CRT_OBJS}))
+${SO_OBJS} ${DL_OBJS}: | ${OBJDIRS}	${SODL_OBJDIRS} # order only prerequisite - just make sure it exists
+
+${SODL_OBJDIRS}:
+	mkdir -p $@
 
 ${BLDDIR}%.lo: %.c
 	@echo $(CC) -c ${CFLAGS} $< -o $@
@@ -96,9 +100,6 @@ ${BLDDIR}%.lo: %.S
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
 		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
-
-$(addprefix ${BLDDIR}, libc.so): $(SO_OBJS) $(DL_OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -o $@ $(SO_OBJS) $(DL_OBJS) $(LIBCC)
 
 ${BLDDIR}${SRCDIR}include/bits/alltypes.h: $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in
 	mkdir -p $(dir $@)
