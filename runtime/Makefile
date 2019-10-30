@@ -59,15 +59,15 @@ COPTS := -Os -ggdb -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 
 include ${TOP}make/actions.mk
 
-all: $(addprefix ${BLDDIR},libm.a libruntime.so)
-
 SO_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, $(basename ${SOURCES})))
 DL_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, $(basename ${DL_SOURCES})))
 CRT_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${CRT_SOURCES})))
 
 $(CRT_OBJS): CFLAGS += -DCRT
 $(SO_OBJS) $(DL_OBJS): CFLAGS += -fPIC
-$(addprefix ${BLDDIR},crt/Scrt1.o crt/rcrt1.o): CFLAGS += -fPIC
+${BLDDIR}musl/crt/Scrt1.o ${BLDDIR}musl/crt/rcrt1.o: CFLAGS += -fPIC
+
+all: $(addprefix ${BLDDIR},libm.a libruntime.so) ${CRT_OBJS}
 
 KM_PTHREAD_OFILES = $(filter $(addprefix %,${KM_PTHREAD_OBJS}), ${OBJS})
 OFILES = $(filter-out $(addprefix %,${KM_PTHREAD_OBJS}), ${OBJS})
