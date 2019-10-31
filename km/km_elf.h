@@ -32,6 +32,7 @@ typedef struct km_payload {
    Elf64_Addr km_handlers;       // interrupt/exception handler
    Elf64_Addr km_sigreturn;      // signal trampoline function
    Elf64_Addr km_clone_child;    // clone child trampoline function
+   Elf64_Addr km_load_adjust;    // elf->guest vaddr adjustment
 } km_payload_t;
 
 typedef struct km_tls_module {
@@ -46,6 +47,6 @@ typedef struct km_tls_module {
 extern km_payload_t km_guest;
 extern km_tls_module_t km_main_tls;
 
-int km_load_elf(const char* file);
+uint64_t km_load_elf(const char* file);
 
 #endif /* #ifndef __KM_H__ */

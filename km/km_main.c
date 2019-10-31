@@ -225,12 +225,12 @@ int main(int argc, char* const argv[])
 
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
-   km_load_elf(payload_file);
+   km_gva_t adjust = km_load_elf(payload_file);
    if ((vcpu = km_vcpu_get()) == NULL) {
       err(1, "Failed to get main vcpu");
    }
    km_gva_t guest_args = km_init_main(vcpu, argc - optind, argv + optind, envc, envp);
-   if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry, guest_args, 0) != 0) {
+   if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry + adjust, guest_args, 0) != 0) {
       err(1, "failed to set main vcpu to run");
    }
    if (wait_for_signal == 1) {

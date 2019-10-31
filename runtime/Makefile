@@ -70,7 +70,7 @@ $(CRT_OBJS): CFLAGS += -DCRT
 $(SO_OBJS) $(DL_OBJS): CFLAGS += -fPIC
 ${BLDDIR}musl/crt/Scrt1.o ${BLDDIR}musl/crt/rcrt1.o: CFLAGS += -fPIC
 
-all: $(addprefix ${BLDDIR},libm.a libpthread.a libruntime.so) ${CRT_OBJS}
+all: $(addprefix ${BLDDIR},libm.a libpthread.a libc.so.km) ${CRT_OBJS}
 
 $(addprefix ${BLDDIR}, libm.a):
 	@echo "Making " $@; rm -f $@; ${AR} crs $@
@@ -78,8 +78,8 @@ $(addprefix ${BLDDIR}, libm.a):
 $(addprefix ${BLDDIR}, libpthread.a): ${PTHREAD_OBJS}
 	@echo "Making " $@; rm -f $@; ld -r ${PTHREAD_OBJS} -o $*.o; ${AR} crs $@ -o $*.o
 
-$(addprefix ${BLDDIR}, libruntime.so): ${SO_OBJS} ${DL_OBJS}
-	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS}
+$(addprefix ${BLDDIR}, libc.so.km): ${SO_OBJS} ${DL_OBJS}
+	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} /usr/lib/gcc/x86_64-redhat-linux/9/libgcc.a
 
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 

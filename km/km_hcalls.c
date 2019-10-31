@@ -1263,6 +1263,7 @@ void km_hcalls_init(void)
 
    km_hcalls_table[SYS_clone] = clone_hcall;
    km_hcalls_table[SYS_set_tid_address] = set_tid_address_hcall;
+   km_hcalls_table[SYS_membarrier] = dummy_hcall;
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;

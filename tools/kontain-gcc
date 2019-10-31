@@ -27,24 +27,27 @@ fi
 cat <<EOF > ${TMP_SPEC}
 %rename link old_link
 
+*cc1:
+%{!shared: -no-pie} %{shared: -fPIC}
+
 *lib:
--lruntime -lpthread -lruntime
+%{!shared: -lruntime -lpthread -lruntime} %{shared: -lc}
 
 *libgcc:
 libgcc.a%s %:if-exists(libgcc_eh.a%s)
 
 *startfile:
-${CRT}/crt1.o%s ${CRT}/x86_64/crti.o%s crtbeginT.o%s
+%{!shared: ${CRT}/crt1.o%s} %{shared: ${CRT}/Scrt1.o } ${CRT}/x86_64/crti.o%s %{!shared: crtbeginT.o%s} %{shared: crtbeginS.o%s}
 
 *endfile:
-crtend.o%s ${CRT}/x86_64/crtn.o%s
+%{!shared: crtend.o%s} %{shared: crtendS.o%s} ${CRT}/x86_64/crtn.o%s
 
 *link:
-%(old_link) -static -Ttext-segment=0x200000 -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child -e_start_c --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
+%(old_link) %{!shared: -static -Ttext-segment=0x200000 -e_start} %{shared: -dynamic-linker libc.so -e_start} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
 EOF
 
 if [[ $cmd == *g++ ]] ; then REALGCC=g++; else REALGCC=gcc; fi
 if [[ $# -eq 0 ]] ; then exec "${REALGCC}" ; fi
 
-"${REALGCC}" -static -no-pie -specs=${TMP_SPEC} "$@" ${LIB}
+"${REALGCC}" -specs=${TMP_SPEC} "$@" ${LIB}
 

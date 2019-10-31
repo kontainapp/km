@@ -27,6 +27,10 @@ if [ -z "$KM_BIN" ] ; then
    echo $KM_BIN >&3
 fi
 
+if [ -z "$KM_LDSO" ] ; then
+   KM_LDSO="$(git rev-parse --show-toplevel)/build/runtime/libc.so.km"
+fi
+
 if [ -z "$TIME_INFO" ] ; then
    echo "Please make sure TIME_INFO env is defined and points to a file. We will put detailed timing info there">&3
    exit 10

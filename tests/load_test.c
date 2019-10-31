@@ -16,6 +16,7 @@
 #include "syscall.h"
 
 static int print_size = 0;
+static int shared_lib = 0;
 
 static char msg1[] = "Hello, world,";
 static char pad[0x400000] = " padding";
@@ -25,7 +26,8 @@ static const char msg2[] = "after loading big array\n";
  * below with printed one.
  */
 
-static const unsigned long size[] = {0x0000000000606458, 0x0000000000606770};
+static const unsigned long size[] = {0x0000000000606458, 0x0000000000606770, 0x0000000000606438, 0};
+static const unsigned long shared_size[] = {0x292440, 0};
 
 int main(int argc, char* argv[])
 {
@@ -33,10 +35,13 @@ int main(int argc, char* argv[])
    unsigned long x;
    int c;
 
-   while ((c = getopt(argc, argv, "p")) != -1) {
+   while ((c = getopt(argc, argv, "ps")) != -1) {
       switch (c) {
          case 'p':
             print_size = 1;
+            break;
+         case 's':
+            shared_lib = 1;
             break;
       }
    }
@@ -49,7 +54,31 @@ int main(int argc, char* argv[])
 
    x = syscall(SYS_brk, 0);
    if (print_size) {
-      fprintf(stderr, "size=0x%lx, expect=0x%lx or 0x%lx\n", x, size[0], size[1]);
+      if (shared_lib) {
+         fprintf(stderr, "(shared) size=0x%lx, expect:\n", x);
+         for (int i = 0; shared_size[i] != 0; i++) {
+            fprintf(stderr, "  0x%lx\n", shared_size[i]);
+         }
+
+      } else {
+         fprintf(stderr, "(static) size=0x%lx, expect:\n", x);
+         for (int i = 0; size[i] != 0; i++) {
+            fprintf(stderr, "  0x%lx\n", size[i]);
+         }
+      }
    }
-   return (x == size[0] || x == size[1]) ? 0 : 1;
+   if (shared_lib) {
+      for (int i = 0; shared_size[i] != 0; i++) {
+         if (x == shared_size[i]) {
+            return 0;
+         }
+      }
+   } else {
+      for (int i = 0; size[i] != 0; i++) {
+         if (x == size[i]) {
+            return 0;
+         }
+      }
+   }
+   return 1;
 }
