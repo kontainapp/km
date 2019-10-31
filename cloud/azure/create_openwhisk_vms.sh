@@ -31,7 +31,9 @@ for name in $VMS; do
    $DEBUG scp -oStrictHostKeyChecking=no ~/.ssh/id_rsa ssh/* $ADMIN@$ip:.ssh  # ** see 'rm -f' after git clone
    if [[ $name =~ client ]]
    then
+      $DEBUG ssh $ADMIN@$ip 'cat .ssh/*.pub >> .ssh/authorized_keys'
       echo 'Skipping openwhisk install for client. TODO - install here whatever is needed on the client'
+      echo TODO: git clone what is needed and rm .ssh/id_rsa
    else
       $DEBUG ssh $ADMIN@$ip 'cat .ssh/*.pub >> .ssh/authorized_keys; \
                               sudo dnf install -y git ansible ;\
