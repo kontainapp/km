@@ -49,6 +49,15 @@ DTYPE ?= fedora
 buildenv:  ## Build km-buildenv image for Azure
 	./buildenv.sh ${DTYPE}
 
+ow: ## create vms for openwhisk testing or demo
+	@./create_openwhisk_vms.sh
+
+clearow: ## clear openwhisk machines. You can just run 'apply_openwhisk_vms.sh delete' instead
+	@./apply_openwhisk_vms.sh delete
+
+listow: ## list openwhisk machines. You can just run 'apply_openwhisk_vms.sh ls' instead
+	@./apply_openwhisk_vms.sh ls
+
 # Support for simple debug print (make debugvars)
 VARS_TO_PRINT ?= CLOUD_RESOURCE_GROUP CLOUD_SUBSCRIPTION CLOUD_LOCATION \
 					K8_SERVICE_PRINCIPAL K8S_CLUSTER K8S_NODE_INSTANCE_SIZE \
