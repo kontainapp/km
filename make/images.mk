@@ -10,6 +10,22 @@
 #
 # Support for building docker images. Assumes locations.mk is included
 #
+# Builds 3 type of images
+#  - buildenv-image (environment for build)
+#  - test-image (all artefacts for running build suites, including KM and payloads)
+#  - runenv-image (minimal image for running KM+payload)
+#
+# The first 2 are explaned in docs/build.md and docs/build-test-make-targets-and-images.md
+
+# The runenv-image  is a bare bones image for specific payload.
+# 		Can be built with 'make runenv-image' or 'make distro'. The following info
+#		needs to be defined in Makefile for it to work
+#		-  BE_LOC is the location for Docker to use. Default is build/payloads/component
+#		- runenv_prep function is (optional) code to copy stuff to the BE_LOC, or modify it
+#				before running Docker. E.g. if BE_LOC=. , the runenv_prpe is likely not needed
+#		- COMPONENT, PAYLOAD_NAME and PAYLOAD_KM also need to be defined.  See payloads/node
+#		for examples
+#
 
 # make sure the value is non-empty and has trailing /
 ifeq ($(strip ${TOP}),)
@@ -21,27 +37,39 @@ $(error "COMPONENT is undefined - please add COMPONENT=component_name in your Ma
 endif
 include ${TOP}make/locations.mk
 
+DOCKER_BUILD := docker build --label "KONTAIN:BRANCH=$(SRC_BRANCH)" --label "KONTAIN:SHA=$(SRC_SHA)"
+DOCKER_RUN := docker run -t
+DOCKER_RUN_TEST := docker run -t --rm --ulimit nofile=1024:1024 --device=/dev/kvm
+# Use DOCKER_RUN_CLEANUP="" if container is needed after a run
+DOCKER_RUN_CLEANUP ?= --rm
+
 # Image names and location for image builds
 TEST_IMG := kontain/test-${COMPONENT}-${DTYPE}
 BUILDENV_IMG := kontain/buildenv-${COMPONENT}-${DTYPE}
+# runenv does not include anything linix distro specific, so it does not have 'DTYPE'
+RUNENV_IMG := kontain/runenv-${COMPONENT}
 
 # image names with proper registry
-TEST_IMG_REG := $(REGISTRY)/test-${COMPONENT}-${DTYPE}
-BUILDENV_IMG_REG := $(REGISTRY)/buildenv-${COMPONENT}-${DTYPE}
+TEST_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(TEST_IMG))
+BUILDENV_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(BUILDENV_IMG))
+RUNENV_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(RUNENV_IMG))
 
 TEST_DOCKERFILE ?= test-${DTYPE}.dockerfile
 BUILDENV_DOCKERFILE ?= buildenv-${DTYPE}.dockerfile
+RUNENV_DOCKERFILE ?= runenv.dockerfile
 
 # builednev image docker build location
 BE_LOC ?= .
 # Test image docker build location
-T_LOC ?= .
+TE_LOC ?= .
+# Runtime env image docker build location
+RE_LOC ?= ${BLDDIR}
 
 test-image:  ## build test image with test tools and code
 	@# Copy KM there. TODO - remove when we support pre-installed KM
-	cp ${KM_BIN} ${T_LOC}
-	${DOCKER_BUILD} --build-arg branch=${SRC_SHA} -t ${TEST_IMG}:${IMAGE_VERSION} ${T_LOC} -f ${TEST_DOCKERFILE}
-	rm ${T_LOC}/$(notdir ${KM_BIN})
+	cp ${KM_BIN} ${TE_LOC}
+	${DOCKER_BUILD} --build-arg branch=${SRC_SHA} -t ${TEST_IMG}:${IMAGE_VERSION} ${TE_LOC} -f ${TEST_DOCKERFILE}
+	rm ${TE_LOC}/$(notdir ${KM_BIN})
 
 buildenv-image:  ## make build image based on ${DTYPE}
 	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${IMAGE_VERSION} ${BE_LOC} -f ${BUILDENV_DOCKERFILE}
@@ -101,20 +129,52 @@ help:  ## Prints help on 'make' targets
 
 
 # Support for simple debug print (make debugvars)
-VARS_TO_PRINT ?= DIMG TEST_IMG BE_LOC T_LOC BUILDENV_IMG BUILDENV_DOCKERFILE KM_BIN DTYPE TEST_IMG_REG BUILDENV_IMG_REG SRC_BRANCH SRC_SHA
+VARS_TO_PRINT ?= DIMG TEST_IMG BE_LOC TE_LOC BUILDENV_IMG BUILDENV_DOCKERFILE KM_BIN DTYPE TEST_IMG_REG BUILDENV_IMG_REG SRC_BRANCH SRC_SHA
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values
 	@echo To change the list of printed vars, use 'VARS_TO_PRINT="..." make debugvars'
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
 
-todo:  ## List of TODOs
-	@echo -e "$(GREEN)"
-	@echo '* validate make; make test ; make test-all. Also get a list of targetsand check them'
-	@echo '* cleanup images in CD; review .md file to see what else is missing'
-	@echo '* update and test CI -hack. THEN clean up seds to use kustomize if possible'
-	@echo '* update .md files ; build.md etc.'
-	@echo '* replace distro.mk and distro targets with make run-image; test and change demo and .md'
-	@echo '* add pull/push to github.com shared so no login is needed for buildenv'
-	@echo '* write a small script and a target and clean up junk from registry'
-	@echo -e "$(NOCOLOR)"
+# allows to do 'make print-varname'
+print-%  : ; @echo $* = $($*)
+
+
+# use this embedded dockerfile... we need it to replace ENTRYPOINT
+export define DOCKERFILE_CONTENT
+cat <<EOF
+	FROM scratch
+	LABEL Description="${PAYLOAD_NAME} in Kontain" Vendor="Kontain.app" Version="0.1"
+	ADD . /
+	ENTRYPOINT [ "/km", "$(notdir $(PAYLOAD_KM))" ]
+EOF
+endef
+
+runenv-image: $(RE_LOC) ## Build minimal runtime image
+	@$(TOP)make/check-docker.sh
+	@-docker rmi -f ${RUNENV_IMG}:latest 2>/dev/null
+ifdef runenv_prep
+	eval $(runenv_prep)
+endif
+	eval "$$DOCKERFILE_CONTENT"  | $(DOCKER_BUILD) -t $(RUNENV_IMG) -f - ${RE_LOC}
+	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls $(RUNENV_IMG) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
+
+test-runenv-image: ## Test runtime image
+	${DOCKER_RUN_TEST} ${RUNENV_IMG} ${RUNENV_TEST_PARAM}
+
+push-runenv-image: test-image ## pushes image.
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)"  \
+		FROM=$(RUNENV_IMG):$(IMAGE_VERSION) TO=$(RUNENV_IMG_REG):$(IMAGE_VERSION)
+
+pull-runenv-image: ## pulls test image.
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)"  \
+		FROM=$(RUNENV_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_IMG):$(IMAGE_VERSION)
+
+distro: runenv-image ## an alias for runenv-image
+publish: push-runenv-image
+
+${BLDDIR}:
+	mkdir -p ${BLDDIR}
+

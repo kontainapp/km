@@ -22,19 +22,15 @@ NODEBUILD = ${NODETOP}/out/$(BUILD)
 # Node build-produced artifacts - if building from blank, we copy them here at the end
 NODEOUT = node/out/$(BUILD)
 
-# KM monitor path
-KM_BIN := ${TOP}/build/km/km
+# component id for docker images
+COMPONENT := node
 
-# TODO - these are not needed for new targets, RECONCILE !
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := ${NODEOUT}/node.km
 TEST_KM := ${NODEOUT}/cctest.km
-# image name, without repo and version tag
-PAYLOAD_IMAGE_SHORT_NAME := node-km
-# name to be added to label(s)
+
+# name to be added to runtime image label(s)
 PAYLOAD_NAME := NodeJs12.4
-# TODO: a list to be passed to tar to be packed into container image
-PAYLOAD_FILES := --exclude='*/test/*' scripts $(PAYLOAD_KM)
 
 NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
 
@@ -83,10 +79,17 @@ test-withdocker:  ## run tests in the test-image
 test-all-withdocker:
 	${DOCKER_RUN_TEST}  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
-# component id for docker images
-COMPONENT := node
-T_LOC := .
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BE_LOC  := ./scripts
+
+# param for 'make test-runenv-image'
+RUNENV_TEST_PARAM = hello.js
+
+# if something needs to be copied/modified before building runenv image in Docker,
+# define this function
+export define runenv_prep
+	cp ${KM_BIN} ${PAYLOAD_KM} scripts/* $(RE_LOC)
+	echo '#!/km --copyenv' sed -i -e 's-!.*node-node-' $(RE_LOC)/node
+endef
 
 include ${TOP}make/images.mk
