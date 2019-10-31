@@ -12,7 +12,8 @@
 # Build script for python.
 # Also tries to add modules enumberated in m_list (needs `bear' installed for this)
 #
-set -ex
+set -e
+# set -x
 
 if [ ! -d cpython ]; then
     echo Fetching cpython from github...
@@ -29,7 +30,7 @@ fi
 # We are in cpython dir from now on. setup_file will be used further
 setup_file=$(realpath Modules/Setup.local)
 ext_file=$(realpath ../extensions/modules.txt)
-extract_build_info=$(realpath ../extensions/extract_build.py)
+extract_build=$(realpath ../extensions/extract_build.py)
 
 cp ../Setup.local $setup_file
 
@@ -38,7 +39,6 @@ process_module() {
    name=$1     # module name
    version=$2  # requested version
    url=$3      # git url ... needed for modules with .so only. May be empty
-   subdir=${4:-.}  # where to run setup.py
 
    echo processing name=$name version=$version url=$url pwd=$PWD
    src=./Modules/$name
@@ -57,7 +57,7 @@ process_module() {
       (cd Modules; git clone $url)
    fi
 
-   cd $src/$subdir
+   cd $src
    # build module if it was not built yet
    echo Checking $src and rebuilding if needed...
    if [[ ! -f compile_commands.json ]] ; then
@@ -69,17 +69,31 @@ process_module() {
       bear python3 setup.py build |& tee bear.out
    fi
 
-   $extract_build_info
+   $extract_build
    echo "=== Adding $name info to Modules/Setup.local. Lines added: $(cat km_setup.local | wc -l)"
    cat km_setup.local >> $setup_file
 }
 
-loc=$PWD
+loc=$(realpath $PWD)
 if [[ -f $ext_file ]] ; then
-   cat $ext_file | while read mod_name mod_version mod_src_git; do
-      if [[ $mod_name =~ ^# ]] ; then continue ; fi
-      process_module  $mod_name $mod_version $mod_src_git
-      cd $loc
+   if [[ -z "$(type -t bear)" ]] ; then
+      echo "*** ERROR Modules build needs 'bear' which is not found, please install the neccessary package"
+      exit 1
+   fi
+   cat $ext_file | while read mod_name mod_version mod_src_git dependencies; do
+      if [[ -z "$mod_name" || $mod_name =~ ^# ]] ; then continue ; fi
+      for d in $dependencies ; do
+         if [[ -z "$(type -t $d)" ]] ; then
+            echo "*** WARNING $mod_name needs '$d' which is not found, please install the neccessary package"
+            missing=yes
+         fi
+      done
+      if [[ -z "$missing" ]] ; then
+         process_module  $mod_name $mod_version $mod_src_git
+         cd $loc
+      else
+         echo "*** WARNING $mod_name skipped "
+      fi
    done
 fi
 

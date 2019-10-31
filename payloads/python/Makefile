@@ -27,7 +27,7 @@ PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.e
 
 all: $(PAYLOAD_KM)
 
-$(PAYLOAD_KM): *sh *patch
+$(PAYLOAD_KM): *sh *patch extenstion/modules.txt
 	./build.sh
 
 # force the build
@@ -36,6 +36,12 @@ build:
 
 link:
 	./link-km.sh
+
+clobber:
+	rm -rf cpython
+
+clobber-modules:
+	cd cpython; git clean -xdff Lib Modules
 
 TEST_CMD ?= ${KM_BIN} ${PAYLOAD_KM}
 test-all:

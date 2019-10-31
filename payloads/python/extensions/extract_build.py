@@ -126,11 +126,10 @@ def convert_buildinfo_to_setup(libs,
     """
     Converts build info in libs to format understood by Python's Setup.local, and save results in km_setup.local
     Also dumps km_libs.json with -l / -L info for the build.
-    Returns 0 when conversion is done, 1 when skipped.
     """
 
     if not libs:
-        return 1
+        return
 
     base = os.path.basename(os.getcwd())
     total_L = list()
@@ -179,8 +178,6 @@ def convert_buildinfo_to_setup(libs,
         with open(libs_cmdinfo_file, 'w') as f:  # LDFLAGS-style dump
             f.writelines(" ".join(total_L + total_l) + "\n")
 
-    return 0
-
 
 if __name__ == '__main__':
-    sys.exit(convert_buildinfo_to_setup(read_buildinfo()))
+    convert_buildinfo_to_setup(read_buildinfo())

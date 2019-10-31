@@ -1,20 +1,24 @@
 #
 # Extension modules to include in python.km
 #
-# <module_name> <version> <url_for_source>
-# URL is optional and only needed for compiled modules
-# Line with First character '#' is treated as comment
-# No empty lines!
+# <module_name> <version> <url_for_source> "<dependency>"
+# optional:
+#   URL is optional and only needed for compiled modules
+#   dependency is a binary dependency the module needs to build, e.g. cython for numpy.
+#        for multiple dependencies, glul them with '\ ', e.g. cython\ bear
+#
+# Line with First character '#' is treated as comment, emoty lines are ignore
+#
 # for py-only module, we install them in Lib only
 # For C modules, we installe in Lib, clone source to Modules and build
 #
 # This file is used from build.sh
-#
-pytz   2.0
-markupsafe 1.1.1 https://github.com/pallets/markupsafe
+
+#pytz   2.0 none
+#markupsafe 1.1.1 https://github.com/pallets/markupsafe
 #django 2.2.6
 #hug 2.4.0 https://github.com/hugapi/hug
 #werkzeug 0.16.1
 #falcon 2.0.0 https://github.com/falconry/falcon
 #gunicorn 19.9.0
-#numpy v1.17.3 https://github.com/numpy/numpy
+#numpy v1.17.3 https://github.com/numpy/numpy cython
