@@ -25,10 +25,10 @@ SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix 
 KM_REPLACED_SRCS := __set_thread_area.s syscall.s syscall_cp.s getenv.c uname.c preadv.c pwritev.c fcntl.c procfdname.c sigaltstack.c clone.s
 KM_EXTRA_SRCS := $(wildcard *_km.c) $(wildcard *.s)
 
-KM_PTHREAD_OBJS := pthread_cond_broadcast.o pthread_cond_destroy.o pthread_cond_signal.o pthread_cond_wait.o \
-						 pthread_create.o pthread_detach.o pthread_getspecific.o pthread_join.o pthread_key_create.o \
-						 pthread_key_delete.o pthread_mutex_lock.o pthread_mutex_unlock.o pthread_once.o \
-						 pthread_rwlock_rdlock.o pthread_rwlock_unlock.o pthread_rwlock_wrlock.o pthread_setspecific.o
+PTHREAD_CFLS := pthread_cond_broadcast.c pthread_cond_destroy.c pthread_cond_signal.c pthread_cond_wait.c \
+					 pthread_create.c pthread_detach.c pthread_getspecific.c pthread_join.c pthread_key_create.c \
+					 pthread_key_delete.c pthread_mutex_lock.c pthread_mutex_unlock.c pthread_once.c \
+					 pthread_rwlock_rdlock.c pthread_rwlock_unlock.c pthread_rwlock_wrlock.c pthread_setspecific.c
 
 BASE_SRCS := $(wildcard $(addsuffix *.c,$(SRC_DIRS)))
 ARCH_SRCS := $(wildcard $(addsuffix $(ARCH)/*.[csS],$(SRC_DIRS)))
@@ -37,7 +37,9 @@ REPLACED_SRCS := $(addsuffix .%, $(subst /$(ARCH)/,/,$(basename $(ARCH_SRCS))))
 ALL_SOURCES := $(filter-out ${REPLACED_SRCS}, ${BASE_SRCS} ${ARCH_SRCS})
 ALL_SOURCES := $(filter-out $(addprefix %, ${KM_REPLACED_SRCS}), ${ALL_SOURCES}) ${KM_EXTRA_SRCS}
 
-SOURCES := $(filter musl/src/%,$(ALL_SOURCES)) ${KM_EXTRA_SRCS}
+SOURCES := $(filter-out $(addprefix %, ${PTHREAD_CFLS}), $(filter musl/src/%,$(ALL_SOURCES))) ${KM_EXTRA_SRCS}
+PTHREAD_SRCS := $(filter $(addprefix %, ${PTHREAD_CFLS}), $(filter musl/src/%,$(ALL_SOURCES)))
+
 DL_SOURCES := $(filter musl/ldso/%,${ALL_SOURCES})
 CRT_SOURCES := $(filter musl/crt/%,$(ALL_SOURCES))
 
@@ -59,31 +61,32 @@ COPTS := -Os -ggdb -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 
 include ${TOP}make/actions.mk
 
-SO_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, $(basename ${SOURCES})))
+SO_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, $(basename ${SOURCES} ${PTHREAD_SRCS})))
 DL_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, $(basename ${DL_SOURCES})))
 CRT_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${CRT_SOURCES})))
+PTHREAD_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${PTHREAD_SRCS})))
 
 $(CRT_OBJS): CFLAGS += -DCRT
 $(SO_OBJS) $(DL_OBJS): CFLAGS += -fPIC
 ${BLDDIR}musl/crt/Scrt1.o ${BLDDIR}musl/crt/rcrt1.o: CFLAGS += -fPIC
 
-all: $(addprefix ${BLDDIR},libm.a libruntime.so) ${CRT_OBJS}
-
-KM_PTHREAD_OFILES = $(filter $(addprefix %,${KM_PTHREAD_OBJS}), ${OBJS})
-OFILES = $(filter-out $(addprefix %,${KM_PTHREAD_OBJS}), ${OBJS})
+all: $(addprefix ${BLDDIR},libm.a libpthread.a libruntime.so) ${CRT_OBJS}
 
 $(addprefix ${BLDDIR}, libm.a):
 	@echo "Making " $@; rm -f $@; ${AR} crs $@
+
+$(addprefix ${BLDDIR}, libpthread.a): ${PTHREAD_OBJS}
+	@echo "Making " $@; rm -f $@; ld -r ${PTHREAD_OBJS} -o $*.o; ${AR} crs $@ -o $*.o
 
 $(addprefix ${BLDDIR}, libruntime.so): ${SO_OBJS} ${DL_OBJS}
 	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS}
 
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 
-SODL_OBJDIRS = $(sort $(dir ${DL_OBJS})) $(sort $(dir ${CRT_OBJS}))
-${SO_OBJS} ${DL_OBJS}: | ${OBJDIRS}	${SODL_OBJDIRS} # order only prerequisite - just make sure it exists
+EXTRA_OBJDIRS = $(sort $(dir ${DL_OBJS})) $(sort $(dir ${CRT_OBJS}))
+${SO_OBJS} ${DL_OBJS}: | ${OBJDIRS}	${EXTRA_OBJDIRS} # order only prerequisite - just make sure it exists
 
-${SODL_OBJDIRS}:
+${EXTRA_OBJDIRS}:
 	mkdir -p $@
 
 ${BLDDIR}%.lo: %.c
