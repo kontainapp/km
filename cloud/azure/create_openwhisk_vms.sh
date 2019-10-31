@@ -24,12 +24,10 @@ if [[ ! -z "$DEBUG" ]] ; then DEBUG=echo; fi
 
 for name in $VMS; do
    full_name=$name-$SUFFIX
-   echo Creating $full_name...
-   $DEBUG az vm create --resource-group ${CLOUD_RESOURCE_GROUP} \
+   ip=$($DEBUG az vm create --resource-group ${CLOUD_RESOURCE_GROUP} \
       --name $full_name --public-ip-address-dns-name $full_name \
-      --image ${VM_IMAGE} --size ${K8S_NODE_INSTANCE_SIZE} \
-      --admin-username ${ADMIN}  --output ${OUT_TYPE}
-   ip=$($DEBUG az vm show -d --name $full_name -g ${CLOUD_RESOURCE_GROUP} | $DEBUG jq -r .publicIps)
+      --image ${VM_IMAGE} --size ${K8S_NODE_INSTANCE_SIZE} --admin-username ${ADMIN} \
+      --output tsv --query publicIpAddress)
    $DEBUG scp -oStrictHostKeyChecking=no ~/.ssh/id_rsa ssh/* $ADMIN@$ip:.ssh  # ** see 'rm -f' after git clone
    if [[ $name =~ client ]]
    then

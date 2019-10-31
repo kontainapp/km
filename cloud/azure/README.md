@@ -60,5 +60,7 @@ Use `make help` for help.
 * `make listow` to list Vms names and IPs
 * `make clearow` to delete the *-openwhisk-kontain VMS
 
+To stop all vms so they are not billed to us, run `apply_openwhisk_vms.sh deallocate` directly (no `make` wrapper). To restart, `apply_openwhisk_vms.sh start` (`apply_openwhisk_vms.sh help` for what the script can do )
+
 All targets assume `make login` succeded.
 
