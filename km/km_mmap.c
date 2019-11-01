@@ -454,6 +454,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
          if (mmap(kma, size, prot, flags | MAP_FIXED, hfd, offset) == (void*)-1) {
             ret = -errno;
             // TODO (muth): undo mmap operation from above.
+            warn("%s: file mmap failed", __FUNCTION__);
          }
       } else {
          ret = -EINVAL;
