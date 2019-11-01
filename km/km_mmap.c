@@ -385,14 +385,8 @@ km_guest_mmap_nolock(km_gva_t gva, size_t size, int prot, int flags, int fd, off
 
    if ((flags & MAP_FIXED)) {
       // Only allow MAP_FIXED for already mapped regions (for MUSL dynlink.c)
-      if (km_find_reg_nolock(gva) == NULL || km_find_reg_nolock(gva + size - 1) == NULL) {
+      if ((reg = km_find_reg_nolock(gva)) == NULL || reg->start + reg->size < gva + size) {
          return -EINVAL;
-      }
-      int rc = km_guest_mprotect_nolock(gva, size, prot);
-      if (km_syscall_ok(rc)) {
-         reg = km_find_reg_nolock(gva);
-         reg->gfd = fd;
-         reg->offset = offset;
       }
       return gva;
    }
@@ -459,6 +453,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
       if (hfd >= 0) {
          if (mmap(kma, size, prot, flags | MAP_FIXED, hfd, offset) == (void*)-1) {
             ret = -errno;
+            // TODO (muth): undo mmap operation from above.
          }
       } else {
          ret = -EINVAL;
