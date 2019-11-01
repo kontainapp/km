@@ -15,10 +15,10 @@
 # This file is used from build.sh
 
 #pytz   2.0 none
-#markupsafe 1.1.1 https://github.com/pallets/markupsafe
+markupsafe 1.1.1 https://github.com/pallets/markupsafe
 #django 2.2.6
 #hug 2.4.0 https://github.com/hugapi/hug
 #werkzeug 0.16.1
-#falcon 2.0.0 https://github.com/falconry/falcon
+falcon 2.0.0 https://github.com/falconry/falcon
 #gunicorn 19.9.0
-#numpy v1.17.3 https://github.com/numpy/numpy cython
+numpy v1.17.3 https://github.com/numpy/numpy cython
