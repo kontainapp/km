@@ -155,6 +155,8 @@ typedef struct km_mmap_reg {
    int flags;        // flag as passed to mmap()
    int protection;   // as passed to mmaps() or mprotect(), or 0 for unmapped region
    int km_flags;     // Flags used by KM and not by guest
+   int gfd;          // Guest fd. -1 if no fd
+   off_t offset;     // offset into fd (if it exists).
    TAILQ_ENTRY(km_mmap_reg) link;
 } km_mmap_reg_t;
 
