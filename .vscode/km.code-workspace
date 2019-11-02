@@ -62,5 +62,6 @@
       "files.trimTrailingWhitespace": true,
       "editor.formatOnPaste": true,
       "editor.formatOnType": true,
+      "editor.useTabStops": false,
    }
 }
