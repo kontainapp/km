@@ -79,7 +79,7 @@ $(addprefix ${BLDDIR}, libpthread.a): ${PTHREAD_OBJS}
 	@echo "Making " $@; rm -f $@; ld -r ${PTHREAD_OBJS} -o $*.o; ${AR} crs $@ -o $*.o
 
 $(addprefix ${BLDDIR}, libruntime.so.km): ${SO_OBJS} ${DL_OBJS}
-	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS}
+	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-Ttext-segment=0x200000 -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS}
 
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 
