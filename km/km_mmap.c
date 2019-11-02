@@ -26,6 +26,7 @@
 #include "bsd_queue.h"
 #include "km.h"
 #include "km_coredump.h"
+#include "km_filesys.h"
 #include "km_mem.h"
 
 static inline void mmaps_lock(void)
@@ -53,11 +54,12 @@ void km_guest_mmap_init(void)
 static inline int
 mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
 {
-   if (addr != 0) {   // TODO: We don't support address hints either, we simply ignore it for now.
-      km_infox(KM_TRACE_MMAP, "Ignoring mmap hint 0x%lx", addr);
-   }
-   if (fd != -1 || offset != 0 || flags & (MAP_FIXED | MAP_FIXED_NOREPLACE)) {
+   if (flags & MAP_FIXED_NOREPLACE) {
       km_infox(KM_TRACE_MMAP, "mmap: wrong fd, offset or flags");
+      return -EINVAL;
+   }
+   if ((flags & MAP_FIXED) && addr == 0) {
+      km_infox(KM_TRACE_MMAP, "mmap: bad fixed address");
       return -EINVAL;
    }
    if (size % KM_PAGE_SIZE != 0) {
@@ -244,6 +246,7 @@ static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
 
    reg->protection = PROT_NONE;
    reg->flags = 0;
+   reg->gfd = -1;
    km_mmap_insert(reg, list);
    km_mmap_concat(reg, list);
    reg->km_flags &= ~KM_MMAP_INITED;
@@ -270,71 +273,6 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
 {
    km_mmap_remove_busy(reg);
    km_mmap_insert_free(reg);
-}
-
-// Guest mmap implementation. Params should be already checked and locks taken..
-static km_gva_t
-km_guest_mmap_nolock(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
-{
-   km_mmap_reg_t* reg;
-   km_gva_t ret;
-
-   if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
-      assert(size <= reg->size);
-      if (reg->size > size) {   // free mmap has extra room to be kept in 'free'
-         km_mmap_reg_t* busy;
-         if ((busy = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-            return -ENOMEM;
-         }
-         *busy = *reg;
-         reg->start += size;   // patch the region in 'free' list to keep only extra room
-         reg->size -= size;
-         busy->size = size;
-         reg = busy;   // it will be inserted into 'busy' list
-      } else {         // the 'free' mmap has exactly the requested size
-         assert(reg->size == size);
-         km_mmap_remove_free(reg);
-      }
-   } else {   // nothing useful in the free list, get fresh memory by moving tbrk down
-      if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
-         return -ENOMEM;
-      }
-      km_gva_t want = machine.tbrk - size;
-      if ((ret = km_mem_tbrk(want)) != want) {
-         free(reg);
-         return ret;
-      }
-      reg->start = ret;   //  place requested mmap region in the newly allocated memory
-      reg->size = size;
-   }
-   reg->flags = flags;
-   reg->protection = prot;
-   reg->km_flags = 0;
-   km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
-   km_mmap_insert_busy(reg);
-   return map_start;
-}
-
-/*
- * Maps an address range in guest virtual space.
- *  - checks the params, takes the lock and calls the actual implementation
- *
- * Returns mapped addres on success, or -errno on failure.
- * -EINVAL if the args are not valid
- * -ENOMEM if fails to allocate memory
- */
-km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
-{
-   km_gva_t ret;
-
-   km_infox(KM_TRACE_MMAP, "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x)", gva, size, prot, flags);
-   if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
-      return ret;
-   }
-   mmaps_lock();
-   ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset);
-   mmaps_unlock();
-   return ret;
 }
 
 typedef void (*km_mmap_action)(km_mmap_reg_t*);
@@ -386,36 +324,6 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
    return 0;
 }
 
-// Guest munmap implementation. Params should be already checked and locks taken.
-static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
-{
-   return km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
-}
-
-/*
- * Unmaps address range in guest virtual space.
- * Per per munmap(3) it is ok if some pages within the range were already unmapped.
- *
- * Returns 0 on success.
- * -EINVAL if the part of the FULL requested region is not mapped
- * -ENOMEM if fails to allocate memory for control structures
- */
-int km_guest_munmap(km_gva_t addr, size_t size)
-{
-   int ret;
-
-   km_infox(KM_TRACE_MMAP, "munmap guest(0x%lx, 0x%lx)", addr, size);
-   size = roundup(size, KM_PAGE_SIZE);
-   if ((ret = mumap_check_params(addr, size)) != 0) {
-      return ret;
-   }
-   mmaps_lock();
-   ret = km_guest_munmap_nolock(addr, size);
-   mmaps_unlock();
-   km_infox(KM_TRACE_MMAP, "== munmap ret=%d", ret);
-   return ret;
-}
-
 /*
  * Checks if busy mmaps are contiguous from `addr' to `addr+size'.
  * Return 0 if they are, -1 if they are not.
@@ -455,6 +363,134 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
       return -ENOMEM;
    }
    return 0;
+}
+
+static km_mmap_reg_t* km_find_reg_nolock(km_gva_t gva)
+{
+   km_mmap_reg_t* reg;
+   TAILQ_FOREACH (reg, &machine.mmaps.busy, link) {
+      if (reg->start <= gva && reg->start + reg->size > gva) {
+         return reg;
+      }
+   }
+   return NULL;
+}
+
+// Guest mmap implementation. Params should be already checked and locks taken..
+static km_gva_t
+km_guest_mmap_nolock(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
+{
+   km_mmap_reg_t* reg;
+   km_gva_t ret;
+
+   if ((flags & MAP_FIXED)) {
+      // Only allow MAP_FIXED for already mapped regions (for MUSL dynlink.c)
+      if ((reg = km_find_reg_nolock(gva)) == NULL || reg->start + reg->size < gva + size) {
+         return -EINVAL;
+      }
+      return gva;
+   }
+   if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
+      assert(size <= reg->size);
+      if (reg->size > size) {   // free mmap has extra room to be kept in 'free'
+         km_mmap_reg_t* busy;
+         if ((busy = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+            return -ENOMEM;
+         }
+         *busy = *reg;
+         reg->start += size;   // patch the region in 'free' list to keep only extra room
+         reg->size -= size;
+         busy->size = size;
+         reg = busy;   // it will be inserted into 'busy' list
+      } else {         // the 'free' mmap has exactly the requested size
+         assert(reg->size == size);
+         km_mmap_remove_free(reg);
+      }
+   } else {   // nothing useful in the free list, get fresh memory by moving tbrk down
+      if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+         return -ENOMEM;
+      }
+      km_gva_t want = machine.tbrk - size;
+      if ((ret = km_mem_tbrk(want)) != want) {
+         free(reg);
+         return ret;
+      }
+      reg->start = ret;   //  place requested mmap region in the newly allocated memory
+      reg->size = size;
+   }
+   reg->flags = flags;
+   reg->protection = prot;
+   reg->km_flags = 0;
+   reg->gfd = fd;
+   reg->offset = offset;
+   km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
+   km_mmap_insert_busy(reg);
+   return map_start;
+}
+
+/*
+ * Maps an address range in guest virtual space.
+ *  - checks the params, takes the lock and calls the actual implementation
+ *
+ * Returns mapped addres on success, or -errno on failure.
+ * -EINVAL if the args are not valid
+ * -ENOMEM if fails to allocate memory
+ */
+km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
+{
+   km_gva_t ret;
+
+   km_infox(KM_TRACE_MMAP, "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x)", gva, size, prot, flags);
+   if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
+      return ret;
+   }
+   mmaps_lock();
+   ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset);
+   mmaps_unlock();
+   if (km_syscall_ok(ret) && fd >= 0) {
+      km_kma_t kma = km_gva_to_kma(ret);
+      int hfd = guestfd_to_hostfd(fd);
+      if (hfd >= 0) {
+         if (mmap(kma, size, prot, flags | MAP_FIXED, hfd, offset) == (void*)-1) {
+            ret = -errno;
+            // TODO (muth): undo mmap operation from above.
+            warn("%s: file mmap failed", __FUNCTION__);
+         }
+      } else {
+         ret = -EINVAL;
+      }
+   }
+   return ret;
+}
+
+// Guest munmap implementation. Params should be already checked and locks taken.
+static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
+{
+   return km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
+}
+
+/*
+ * Unmaps address range in guest virtual space.
+ * Per per munmap(3) it is ok if some pages within the range were already unmapped.
+ *
+ * Returns 0 on success.
+ * -EINVAL if the part of the FULL requested region is not mapped
+ * -ENOMEM if fails to allocate memory for control structures
+ */
+int km_guest_munmap(km_gva_t addr, size_t size)
+{
+   int ret;
+
+   km_infox(KM_TRACE_MMAP, "munmap guest(0x%lx, 0x%lx)", addr, size);
+   size = roundup(size, KM_PAGE_SIZE);
+   if ((ret = mumap_check_params(addr, size)) != 0) {
+      return ret;
+   }
+   mmaps_lock();
+   ret = km_guest_munmap_nolock(addr, size);
+   mmaps_unlock();
+   km_infox(KM_TRACE_MMAP, "== munmap ret=%d", ret);
+   return ret;
 }
 
 /*
