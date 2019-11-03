@@ -561,6 +561,8 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
           * guest memory (guest PT says page is writable, but kernel says it
           * isn't).
           */
+         km_read_registers(vcpu);
+         warnx("Guest memory protection violation. rip=0x%llx", vcpu->regs.rip);
          siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
          km_post_signal(vcpu, &info);
          break;

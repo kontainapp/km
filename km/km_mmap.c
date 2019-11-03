@@ -622,6 +622,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
 
       phnum++;
    }
+   end_load += km_guest.km_load_adjust;
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {
          continue;
@@ -646,7 +647,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       }
       km_core_write_load_header(fd,
                                 offset,
-                                km_guest.km_phdr[i].p_vaddr,
+                                km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
                                 km_guest.km_phdr[i].p_memsz,
                                 km_guest.km_phdr[i].p_flags);
       offset += km_guest.km_phdr[i].p_memsz;
@@ -675,7 +676,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       if (km_guest.km_phdr[i].p_type != PT_LOAD) {
          continue;
       }
-      km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr, km_guest.km_phdr[i].p_memsz);
+      km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust, km_guest.km_phdr[i].p_memsz);
    }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {

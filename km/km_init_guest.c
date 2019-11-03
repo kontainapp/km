@@ -91,7 +91,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
       stack_top_kma -= len;
       strncpy(stack_top_kma, argv[i], len);
    }
-   stack_top = rounddown(stack_top, sizeof(void*));
+   stack_top = rounddown(stack_top, sizeof(void*) * 2);
    stack_top_kma = km_gva_to_kma_nocheck(stack_top);
    // AUXV
    static const int size_of_aux_slot = 2 * sizeof(void*);
@@ -109,7 +109,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    stack_top -= size_of_aux_slot;
    stack_top_kma -= size_of_aux_slot;
    *(uint64_t*)stack_top_kma = AT_PHDR;
-   *(uint64_t*)(stack_top_kma + sizeof(void*)) = km_guest.km_phdr[0].p_vaddr + km_guest.km_ehdr.e_phoff;
+   *(uint64_t*)(stack_top_kma + sizeof(void*)) = km_guest.km_phdr[0].p_vaddr + km_guest.km_ehdr.e_phoff + km_guest.km_load_adjust;
 
    // place envp array
    size_t envp_sz = sizeof(km_envp[0]) * envc;

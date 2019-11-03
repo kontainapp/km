@@ -41,9 +41,9 @@ static void my_mmap(int fd, void* buf, size_t count, off_t offset)
  * - adjust break so there is enough memory
  * - loop over memory regions this extent covering, read/memset the content and set mprotect.
  */
-static void load_extent(int fd, const GElf_Phdr* phdr)
+static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
 {
-   km_gva_t top = phdr->p_paddr + phdr->p_memsz;
+   km_gva_t top = phdr->p_paddr + phdr->p_memsz + base;
    /*
     * There is no memory in the first 2MB of virtual address space. We use gcc-km.spec file to drive
     * memory allocation during linking, based on default linking script. The relevant line is:
@@ -70,7 +70,7 @@ static void load_extent(int fd, const GElf_Phdr* phdr)
 
    Elf64_Xword p_memsz = phdr->p_memsz;
    Elf64_Xword p_filesz = phdr->p_filesz;
-   km_kma_t addr = km_gva_to_kma_nocheck(phdr->p_paddr);
+   km_kma_t addr = km_gva_to_kma_nocheck(phdr->p_paddr) + base;
    uint64_t extra = addr - (km_kma_t)rounddown((uint64_t)addr, KM_PAGE_SIZE);
    my_mmap(fd, addr - extra, p_filesz + extra, phdr->p_offset - extra);
    memset(addr + p_filesz, 0, p_memsz - p_filesz);
@@ -102,7 +102,7 @@ static void load_extent(int fd, const GElf_Phdr* phdr)
  * segments. Set entry point.
  * All errors are fatal.
  */
-int km_load_elf(const char* file)
+uint64_t km_load_elf(const char* file)
 {
    char fn[strlen(file + 3)];
    int fd;
@@ -131,6 +131,22 @@ int km_load_elf(const char* file)
    if ((km_guest.km_phdr = malloc(sizeof(Elf64_Phdr) * ehdr->e_phnum)) == NULL) {
       err(2, "no memory for elf program headers");
    }
+
+   km_gva_t min_vaddr = -1U;
+   for (int i = 0; i < ehdr->e_phnum; i++) {
+      GElf_Phdr* phdr = &km_guest.km_phdr[i];
+
+      if (gelf_getphdr(e, i, phdr) == NULL) {
+         errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
+      }
+      if (phdr->p_type == PT_LOAD && phdr->p_vaddr < min_vaddr) {
+         min_vaddr = phdr->p_vaddr;
+      }
+      if (phdr->p_type == PT_INTERP) {
+         warnx("TODO: handle interp");
+      }
+   }
+   km_gva_t adjust = GUEST_MEM_START_VA - min_vaddr;
    /*
     * Read symbol table and look for symbols of interest to KM
     */
@@ -147,13 +163,13 @@ int km_load_elf(const char* file)
             gelf_getsym(data, i, &sym);
             if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
                 strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_HNDL_SYM_NAME) == 0) {
-               km_guest.km_handlers = sym.st_value;
+               km_guest.km_handlers = sym.st_value + adjust;
             } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
-               km_guest.km_sigreturn = sym.st_value;
+               km_guest.km_sigreturn = sym.st_value + adjust;
             } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_CLONE_CHILD_SYM_NAME) == 0) {
-               km_guest.km_clone_child = sym.st_value;
+               km_guest.km_clone_child = sym.st_value + adjust;
             }
             if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0 && km_guest.km_clone_child) {
                break;
@@ -174,15 +190,12 @@ int km_load_elf(const char* file)
     */
    for (int i = 0; i < ehdr->e_phnum; i++) {
       GElf_Phdr* phdr = &km_guest.km_phdr[i];
-
-      if (gelf_getphdr(e, i, phdr) == NULL) {
-         errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
-      }
       if (phdr->p_type == PT_LOAD) {
-         load_extent(fd, phdr);
+         load_extent(fd, phdr, adjust);
       }
    }
    (void)elf_end(e);
    (void)close(fd);
-   return 0;
+   km_guest.km_load_adjust = adjust;
+   return adjust;
 }
