@@ -1,12 +1,16 @@
 #!/bin/bash
 
+# Create node.km by linking the objects files from build artifacts located at $1 (like /home/appuser/node in a "blank")
+# and put the result into location at $2
+
 set -x
 
-if [ $# -ne 0 ] ; then NODE=$1 ; else exit 1 ; fi
+if [[ $# -ne 0 ]] ; then NODE=$1 ; else exit 1 ; fi
+OUT=${2:-$NODE}
 PATH=../../tools:$PATH
 
 link_node() {
-   kontain-g++ -ggdb -o $NODE/node.km \
+   kontain-g++ -ggdb -o $OUT/node.km \
    -Wl,--start-group \
       $NODE/obj.target/node/src/node_main.o \
       $NODE/obj.target/node/src/node_snapshot_stub.o \
@@ -35,7 +39,7 @@ link_node() {
 }
 
 link_cctest() {
-   kontain-g++ -ggdb -o $NODE/cctest.km \
+   kontain-g++ -ggdb -o $OUT/cctest.km \
    -Wl,--start-group \
       $NODE/obj.target/cctest/src/node_snapshot_stub.o \
       $NODE/obj.target/cctest/src/node_code_cache_stub.o \
