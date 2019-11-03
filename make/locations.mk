@@ -50,6 +50,12 @@ BUILDENV_IMG  ?= kontain/buildenv-${COMPONENT}-${DTYPE}
 UID := $(shell id -u)
 GID := $(shell id -g)
 
+DOCKER_BUILD := docker build --label "KONTAIN:BRANCH=$(SRC_BRANCH)" --label "KONTAIN:SHA=$(SRC_SHA)"
+# Use DOCKER_RUN_CLEANUP="" if container is needed after a run
+DOCKER_RUN_CLEANUP ?= --rm
+DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP} -t --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u${UID}:${GID}
+DOCKER_RUN_TEST := ${DOCKER_RUN} --device=/dev/kvm
+
 # cloud-related stuff. By default set to Azure
 #
 # name of the cloud, as well as subdir of $(TOP)/cloud where the proper scripts hide. Use CLOUD='' to build with no cloud

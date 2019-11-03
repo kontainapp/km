@@ -172,16 +172,17 @@ endif # (${SUBDIRS},)
 #  	<os-type> is "fedora" by default. See ${TOP}/docker/build for supported OSes
 #
 __testing := $(strip $(findstring test,$(TARGET)) $(findstring coverage,$(TARGET)))
-ifneq ($(__testing),)  # only add --device=/dev/kvm is we are testing
-DEVICE_KVM := --device=/dev/kvm
-endif
 
 # this is needed for proper image name forming
 COMPONENT := km
 withdocker: ## Build using Docker container for build environment. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${BUILDENV_IMG} ; then \
 		echo -e "$(CYAN)${BUILDENV_IMG} is missing locally, will try to pull from registry. Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
-	docker run --ulimit nofile=`ulimit -n`:`ulimit -n -H` -u${UID}:${GID} ${DEVICE_KVM} -t --rm -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(BUILDENV_IMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+ifneq ($(__testing),)  # only add --device=/dev/kvm is we are testing
+	${DOCKER_RUN_TEST} -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(BUILDENV_IMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+else
+	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(BUILDENV_IMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+endif
 
 #
 # 'Help' target - based on '##' comments in targets

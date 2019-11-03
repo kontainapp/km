@@ -36,7 +36,7 @@ PAYLOAD_NAME := NodeJs12.4
 # TODO: a list to be passed to tar to be packed into container image
 PAYLOAD_FILES := --exclude='*/test/*' scripts $(PAYLOAD_KM)
 
-NODE_DISTRO_FILES := ${PAYLOAD_KM} ${TEST_KM} $(addprefix node/, deps doc test tools)
+NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
 
 # either run all in 'blank' container, or local.
 # in blank: link + tar + create shebang
@@ -44,9 +44,9 @@ NODE_DISTRO_FILES := ${PAYLOAD_KM} ${TEST_KM} $(addprefix node/, deps doc test t
 # regular local: just run docker
 all:
 ifneq ($(shell test -d node/.git && echo OK),OK)
-	${DOCKER_RUN} -u1000:1000 -v ~/workspace/km:/src:Z -w /src kontain/buildenv-node-fedora make -C payloads/node in-blank-container
+	${DOCKER_RUN} -v ~/workspace/km:/src:Z -w /src kontain/buildenv-node-fedora make -C payloads/node in-blank-container
 else
-	./link-km.sh ${NODEBUILD}
+	./link-km.sh ${NODEBUILD} ${NODEOUT}
 endif
 	@# Create node file with ``#!${KM_BIN} --copyenv''. Invoking that will call ``${KM_BIN} node <args>''.
 	@# km will add .km suffix. --copyenv is needed as test.py passes info to the tests via environment
@@ -55,8 +55,9 @@ endif
 	ln -sf node.sh ${NODEOUT}/node
 
 in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
-	./link-km.sh ${NODEBUILD}
 	tar -C ${NODETOP}/.. -cf - ${NODE_DISTRO_FILES} | tar -xf -
+	mkdir -p ${NODEOUT}
+	./link-km.sh ${NODEBUILD} ${NODEOUT}
 
 fromsrc:
 	git clone https://github.com/nodejs/node.git -b ${VERS}
