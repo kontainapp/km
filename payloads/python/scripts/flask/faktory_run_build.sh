@@ -49,7 +49,7 @@ cp ../../cpython/python.km python3.km
 
 cat faktory_stem.dockerfile  - <<EOF  | $docker_build --build-arg distro="$DTYPE"  -t $KM_IMAGE -f - .
 
-#--  auto-lifted from $IMAGE. Do not edit directly:--
+#-- auto-lifted from $IMAGE. Do not edit directly:--
 
 WORKDIR    $(docker image inspect $IMAGE -f '{{json .Config.WorkingDir }}')
 ENTRYPOINT $entrypoint

@@ -12,17 +12,17 @@
 #
 # Builds 3 type of images
 #  - buildenv-image (environment for build)
-#  - test-image (all artefacts for running build suites, including KM and payloads)
+#  - testenv-image (all artifacts for running build suites, including KM and payloads)
 #  - runenv-image (minimal image for running KM+payload)
 #
-# The first 2 are explaned in docs/build.md and docs/build-test-make-targets-and-images.md
-
+# The first 2 are explained in docs/build.md and docs/build-test-make-targets-and-images.md
+#
 # The runenv-image  is a bare bones image for specific payload.
 # 		Can be built with 'make runenv-image' or 'make distro'. The following info
 #		needs to be defined in Makefile for it to work
-#		-  BE_LOC is the location for Docker to use. Default is build/payloads/component
-#		- runenv_prep function is (optional) code to copy stuff to the BE_LOC, or modify it
-#				before running Docker. E.g. if BE_LOC=. , the runenv_prpe is likely not needed
+#		- BUILDENV_PATH is the location for Docker to use. Default is build/payloads/component
+#		- runenv_prep function is (optional) code to copy stuff to the BUILDENV_PATH, or modify it
+#				before running Docker. E.g. if BUILDENV_PATH=. , the runenv_prpe is likely not needed
 #		- COMPONENT, PAYLOAD_NAME and PAYLOAD_KM also need to be defined.  See payloads/node
 #		for examples
 #
@@ -58,28 +58,26 @@ TEST_DOCKERFILE ?= test-${DTYPE}.dockerfile
 BUILDENV_DOCKERFILE ?= buildenv-${DTYPE}.dockerfile
 RUNENV_DOCKERFILE ?= runenv.dockerfile
 
-# builednev image docker build location
-BE_LOC ?= .
-# Test image docker build location
-TE_LOC ?= .
-# Runtime env image docker build location
-RE_LOC ?= ${BLDDIR}
+# Path 'docker build' uses for build, test and run environments
+BUILDENV_PATH ?= .
+TESTENV_PATH ?= .
+RUNENV_PATH ?= ${BLDDIR}
 
-test-image:  ## build test image with test tools and code
+testenv-image:  ## build test image with test tools and code
 	@# Copy KM there. TODO - remove when we support pre-installed KM
-	cp ${KM_BIN} ${TE_LOC}
-	${DOCKER_BUILD} --build-arg branch=${SRC_SHA} -t ${TEST_IMG}:${IMAGE_VERSION} ${TE_LOC} -f ${TEST_DOCKERFILE}
-	rm ${TE_LOC}/$(notdir ${KM_BIN})
+	cp ${KM_BIN} ${TESTENV_PATH}
+	${DOCKER_BUILD} --build-arg branch=${SRC_SHA} -t ${TEST_IMG}:${IMAGE_VERSION} ${TESTENV_PATH} -f ${TEST_DOCKERFILE}
+	rm ${TESTENV_PATH}/$(notdir ${KM_BIN})
 
 buildenv-image:  ## make build image based on ${DTYPE}
-	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${IMAGE_VERSION} ${BE_LOC} -f ${BUILDENV_DOCKERFILE}
+	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${IMAGE_VERSION} ${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 
-push-test-image: test-image ## pushes image. Blocks ':latest' - we dont want to step on each other
+push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_test_image_version .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)"  \
 		FROM=$(TEST_IMG):$(IMAGE_VERSION) TO=$(TEST_IMG_REG):$(IMAGE_VERSION)
 
-pull-test-image: ## pulls test image. Mainly need for CI
+pull-testenv-image: ## pulls test image. Mainly need for CI
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_test_image_version .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)"  \
 		FROM=$(TEST_IMG_REG):$(IMAGE_VERSION) TO=$(TEST_IMG):$(IMAGE_VERSION)
@@ -127,9 +125,8 @@ help:  ## Prints help on 'make' targets
 	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
 	@echo ""
 
-
 # Support for simple debug print (make debugvars)
-VARS_TO_PRINT ?= DIMG TEST_IMG BE_LOC TE_LOC BUILDENV_IMG BUILDENV_DOCKERFILE KM_BIN DTYPE TEST_IMG_REG BUILDENV_IMG_REG SRC_BRANCH SRC_SHA
+VARS_TO_PRINT ?= DIMG TEST_IMG BUILDENV_PATH TESTENV_PATH BUILDENV_IMG BUILDENV_DOCKERFILE KM_BIN DTYPE TEST_IMG_REG BUILDENV_IMG_REG SRC_BRANCH SRC_SHA
 
 .PHONY: debugvars
 debugvars:   ## prints interesting vars and their values
@@ -138,7 +135,6 @@ debugvars:   ## prints interesting vars and their values
 
 # allows to do 'make print-varname'
 print-%  : ; @echo $* = $($*)
-
 
 # use this embedded dockerfile... we need it to replace ENTRYPOINT
 export define DOCKERFILE_CONTENT
@@ -150,19 +146,21 @@ cat <<EOF
 EOF
 endef
 
-runenv-image: $(RE_LOC) ## Build minimal runtime image
+runenv-image: ${RUNENV_PATH}  ${KM_BIN}  ## Build minimal runtime image
 	@$(TOP)make/check-docker.sh
 	@-docker rmi -f ${RUNENV_IMG}:latest 2>/dev/null
+	cp ${KM_BIN} ${RUNENV_PATH}
 ifdef runenv_prep
+	@echo -e "Executing prep steps"
 	eval $(runenv_prep)
 endif
-	eval "$$DOCKERFILE_CONTENT"  | $(DOCKER_BUILD) -t $(RUNENV_IMG) -f - ${RE_LOC}
-	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls $(RUNENV_IMG) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
+	eval "$$DOCKERFILE_CONTENT"  | ${DOCKER_BUILD} -t ${RUNENV_IMG} -f - ${RUNENV_PATH}
+	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
-test-runenv-image: ## Test runtime image
-	${DOCKER_RUN_TEST} ${RUNENV_IMG} ${RUNENV_TEST_PARAM}
+validate-runenv-image: ## Validate runtime image
+	${DOCKER_RUN_TEST} ${RUNENV_IMG} ${RUNENV_VALIDATE_CMD}
 
-push-runenv-image: test-image ## pushes image.
+push-runenv-image: testenv-image ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)"  \
 		FROM=$(RUNENV_IMG):$(IMAGE_VERSION) TO=$(RUNENV_IMG_REG):$(IMAGE_VERSION)
@@ -177,4 +175,3 @@ publish: push-runenv-image
 
 ${BLDDIR}:
 	mkdir -p ${BLDDIR}
-

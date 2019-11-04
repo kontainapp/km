@@ -29,13 +29,13 @@ Dockerized build is using `buildenv-component-platform` images (i.e.`buildenv-km
 
 ### Testing in docker container, locally or remotely
 
-* `make test-image` - image with test environment - i.e. stuff needed for testing - bats code, /bin/time, timeout, etc.. (note: currently is *FROM buildenv*, can be scaled down if needed - since it's the only one pushed to Kubernetes for testing)
-* `make push-test-image` - pushes test image to registry. Since all test images are different, **we require to pass IMAGE_VERSION=version** for this target to work. **Version* can be SHA. or buildID, or other unique tag to diffirentiate images - e.g. CI uses `make test-image IMAGE_VERSION=CI-$(BuildId)`. We will block *:latest* tag to avoid accidental conflicts.
+* `make testenv-image` - image with test environment - i.e. stuff needed for testing - bats code, /bin/time, timeout, etc.. (note: currently is *FROM buildenv*, can be scaled down if needed - since it's the only one pushed to Kubernetes for testing)
+* `make push-testenv-image` - pushes test image to registry. Since all test images are different, **we require to pass IMAGE_VERSION=version** for this target to work. **Version* can be SHA. or buildID, or other unique tag to diffirentiate images - e.g. CI uses `make testenv-image IMAGE_VERSION=CI-$(BuildId)`. We will block *:latest* tag to avoid accidental conflicts.
 
-To run full test in Docker container (based on test-image) we provide 2 simple wrappers:
+To run full test in Docker container (based on testenv-image) we provide 2 simple wrappers:
 
-* `make test-withdocker` - runs 'test' target rules in docker using test-image.
-* `make test-all-withdocker` - runs 'test-all' (extended) target rules in docker using test-image.
+* `make test-withdocker` - runs 'test' target rules in docker using testenv-image.
+* `make test-all-withdocker` - runs 'test-all' (extended) target rules in docker using testenv-image.
 
 ### Full image names
 
@@ -63,17 +63,17 @@ Payload can be built from source (i.e. `git clone` first) or from pre-created do
   * After that `make all` keeps re-building from source until `make clobber`
 * `make test` runs all KM tests and **minimal tests subset** for payloads (aka sanity tests)
 * `make test-all` runs all KM tests and payload tests
-* `make test-withdocker` - a wrapper running `make test` rules in `test-image` container
-* `make test-all-withdocker` a wrapper running `make test-all` rules in `test-image` container
+* `make test-withdocker` - a wrapper running `make test` rules in `testenv-image` container
+* `make test-all-withdocker` a wrapper running `make test-all` rules in `testenv-image` container
 
 Each payload also supports the same targets supported for KM, but uses payload-specific *component*, e.g. *node*:
 
 * `make buildenv-image` - builds the blank (named *buildenv-component-platform*), e.g. `buildenv-node-fedora`)
 * `make pull-buildenv-image` - pulls images from (azure) registry, re-tags it for local runs (it expects that loginto Docker registry - was already done. See `make -C cloud/azure login`)
 * `make push-buildenv-image` - re-tags and pushes to registry (very rare, mainly when advancing minor version of payload, e.g. `python 3.7.4->3.7.8` )
-* `make test-image` - builds image with testenv, km files and actual tests.
-* `make run-test-image` - simple wrapper for local `docker run --device --u -ulimit` on the test image, mainly for local debugging
-* `make push-test-image` - re-tags and pushes test image to registry, mainly for CI
+* `make testenv-image` - builds image with testenv, km files and actual tests.
+* `make run-testenv-image` - simple wrapper for local `docker run --device --u -ulimit` on the test image, mainly for local debugging
+* `make push-testenv-image` - re-tags and pushes test image to registry, mainly for CI
 
 `make distro` for now stays as is, and generates Kontainer with runnable payloads and some apps, **mainly for demos**. (this is a TODO  item)
 
@@ -85,7 +85,7 @@ Each payload also supports the same targets supported for KM, but uses payload-s
 
 ## Files layout
 
-* Dirs where buildenv and test images are build are defined by `BE_LOC` and `TE_LOC` make vars.
+* Dirs where buildenv and test images are build are defined by `BUILDENV_PATH` and `TESTENV_PATH` make vars.
 * Each dir has *.dockerignore* to eliminate unneeded files from being copied to dockerd on build.
 * See `images.mk` for details
 
