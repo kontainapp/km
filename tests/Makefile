@@ -149,9 +149,11 @@ test-all: test
 test-withdocker test-all-withdocker:
 	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} run_bats_tests.sh
 
-# install stuff for fedora per docker image info
+# install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
 # TODO: maybe make it generic to scan folders
-buildenv-local-fedora: buildenv-image ## make local build environment for KM
+buildenv-local-fedora:  ## make local build environment for KM
+	@if ! docker image inspect ${BUILDENV_IMG} > /dev/null ; then \
+		echo -e "$(RED)${BUILDENV_IMG} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
 	sudo dnf install -y `docker run --rm ${BUILDENV_IMG} dnf list --installed | awk '/x86/ {print $$1}' `
 	docker create --name tmp_env $(BUILDENV_IMG)
 	sudo docker cp tmp_env:/opt/kontain /opt
