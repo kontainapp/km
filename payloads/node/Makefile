@@ -65,7 +65,7 @@ clobber:
 
 clean:
 	@echo "Nothing to do for 'clean' - use 'clobber' to force remove build artifacts"
-	@# TODO -  clean ./node build artifacts
+	@# TODO - clean ./node build artifacts
 
 test: # ${PAYLOAD_KM} ${TEST_KM}  # 'test' target is hidden until we commit proper node builds
 	scripts/test-run.sh test ${KM_BIN} ${PAYLOAD_KM} ${TEST_KM}
@@ -73,23 +73,23 @@ test: # ${PAYLOAD_KM} ${TEST_KM}  # 'test' target is hidden until we commit prop
 test-all: test
 	scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
-test-withdocker:  ## run tests in the test-image
+test-withdocker:  ## run tests in the testenv-image
 	${DOCKER_RUN_TEST}  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
 
 test-all-withdocker:
 	${DOCKER_RUN_TEST}  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
-BE_LOC  := ./scripts
+BUILDENV_PATH  := ./scripts
 
-# param for 'make test-runenv-image'
-RUNENV_TEST_PARAM = hello.js
+# Param for 'make validate-runenv-image'. Used to do a quick validation of runtime environment.
+RUNENV_VALIDATE_CMD = hello.js
 
 # if something needs to be copied/modified before building runenv image in Docker,
 # define this function
 export define runenv_prep
-	cp ${KM_BIN} ${PAYLOAD_KM} scripts/* $(RE_LOC)
-	echo '#!/km --copyenv' sed -i -e 's-!.*node-node-' $(RE_LOC)/node
+	cp ${PAYLOAD_KM} scripts/* $(RUNENV_PATH)
+	echo '#!/km --copyenv' sed -i -e 's-!.*node-node-' $(RUNENV_PATH)/node
 endef
 
 include ${TOP}make/images.mk

@@ -526,7 +526,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    // If there is a large enough free slot after this, use it.
    if ((ptr->start + ptr->size == old_addr + old_size) && (next = TAILQ_NEXT(ptr, link)) != NULL &&
        next->start - (ptr->start + ptr->size) >= needed) {
-      // Adjust free list and protections -  cannot use km_guest_mmap here as it can grab a wrong area
+      // Adjust free list and protections - cannot use km_guest_mmap here as it can grab a wrong area
       km_infox(KM_TRACE_MMAP, "mremap: reusing adjusted free map");
       km_mmap_reg_t* donor = km_mmap_find_address(&machine.mmaps.free, ptr->start + ptr->size);
       assert(donor != NULL && donor->size >= needed);   // MUST have free slot due to gap in busy
