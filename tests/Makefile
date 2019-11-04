@@ -32,8 +32,6 @@ DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
 EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
-${KM_PAYLOADS}: ${TOP}build/runtime
-
 CXXFLAGS=${CFLAGS}
 ${SRC_CPP:%.cpp=%.km}: KCC=kontain-g++
 ${SRC_CPP:%.cpp=%}: CC=g++
@@ -46,7 +44,10 @@ MATCH ?= .*
 # file for keeping per-test 'time' info
 TIME_INFO = ${TOP}build/time_info.txt
 
+# default target, should be first in file
 all: ${EXECS} ## Build all test, for Linux and KM
+
+${KM_PAYLOADS}: ${TOP}build/runtime
 
 # Run all or some of tests (may need /dev/kvm or privileged container)
 # ignore test failure when building coverage
@@ -61,7 +62,6 @@ endif
 	@grep elapsed ${TIME_INFO} | grep -v "elapsed 0:00.[01]" | sort -r
 	@echo ""
 	@rm -f ${TIME_INFO}
-
 
 %.km: %.o
 	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
@@ -102,7 +102,7 @@ clean:
 #
 # do not generate .d file for some targets
 #
-$(shell [[ "${MAKECMDGOALS}" =~ ^(clean|clobber|.*-image)$$ || "${MAKEFLAGS}" =~ "n" ]] )
+$(shell [[ "${MAKECMDGOALS}" =~ ^(clean|clobber|.*-image|print-.*|debugvars)$$ || "${MAKEFLAGS}" =~ "n" ]] )
 ifneq ($(.SHELLSTATUS),0)
 -include ${DEPS}
 endif
@@ -171,7 +171,6 @@ PAYLOAD_NAME := KontainMonitor
 export define runenv_prep
 	cp ${PAYLOAD_KM} $(RUNENV_PATH)
 endef
-
 
 .PHONY: all clean test help gdb coverage covclean
 

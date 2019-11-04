@@ -59,7 +59,7 @@ pull-buildenv-image: subdirs ## Pulls buildenv images from a cloud registry
 testenv-image: subdirs ## builds and packages testable image
 push-testenv-image: subdirs ## Push test images to a cloud registry. IMAGE_VERSION should provide image tag name
 pull-testenv-image: subdirs ## Pulls test images from a cloud registry. IMAGE_VERSION is mandatory. Used mainly in CI
-runenv-image: subdirs ## builds and packages testable image
+runenv-image: subdirs ## builds and packages image with runtime environment for each payload
 push-runenv-image: subdirs ## Push runtime images to a cloud registry. IMAGE_VERSION can be used used to modify tag name
 pull-runenv-image: subdirs ## Pulls runtime images from a cloud registry. IMAGE_VERSION an be used used to modify tag name
 validate-runenv-image: subdirs ## Runs basic validation command for runtime image
