@@ -14,7 +14,7 @@ TOP=$(git rev-parse --show-cdup)
 source `dirname $0`/cloud_config.mk
 
 DTYPE=$1
-BE_LOC=${TOP}docker/build
+BUILDENV_PATH=${TOP}docker/build
 BUILDENV_DOCKERFILE=${TOP}/tests/buildenv-${DTYPE}.dockerfile
 BUILDENV_KM_IMG=${REGISTRY}/buildenv-km-${DTYPE}
 
@@ -23,5 +23,5 @@ BUILDENV_KM_IMG=${REGISTRY}/buildenv-km-${DTYPE}
 $DEBUG az acr login -n ${REGISTRY_NAME}
 $DEBUG docker build --build-arg=USER=appuser  \
 	--build-arg=UID=1001 --build-arg=GID=117 \
-	-t ${BUILDENV_KM_IMG} ${BE_LOC} -f ${BUILDENV_DOCKERFILE}
+	-t ${BUILDENV_KM_IMG} ${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 docker push ${BUILDENV_KM_IMG}

@@ -56,9 +56,13 @@ covclean: subdirs ## clean coverage-related build artifacts
 buildenv-image: subdirs ## builds and packages all build environment image
 push-buildenv-image: subdirs ## Push buildenv images to a cloud registry. PROTECTED OPERATION.
 pull-buildenv-image: subdirs ## Pulls buildenv images from a cloud registry
-test-image: subdirs ## builds and packages testable image
-push-test-image: subdirs ## Push test images to a cloud registry. IMAGE_VERSION should provide image tag name
-pull-test-image: subdirs ## Pulls test images from a cloud registry. IMAGE_VERSION is mandatory. Used mainly in CI
+testenv-image: subdirs ## builds and packages testable image
+push-testenv-image: subdirs ## Push test images to a cloud registry. IMAGE_VERSION should provide image tag name
+pull-testenv-image: subdirs ## Pulls test images from a cloud registry. IMAGE_VERSION is mandatory. Used mainly in CI
+runenv-image: subdirs ## builds and packages testable image
+push-runenv-image: subdirs ## Push runtime images to a cloud registry. IMAGE_VERSION can be used used to modify tag name
+pull-runenv-image: subdirs ## Pulls runtime images from a cloud registry. IMAGE_VERSION an be used used to modify tag name
+validate-runenv-image: subdirs ## Runs basic validation command for runtime image
 test-withdocker: subdirs ##
 test-all-withdocker: subdirs ## build all and run KM and payload tests
 distro: subdirs ## package demo binaries for the current branch as Docker Container Images

@@ -56,7 +56,7 @@ steps:
       m4 -D BUILD_ID=$(Build.BuildId) -D DTYPE_VALUE=$(buildenv.type) -D REGISTRY=$(azureContainerRegistry) tests/bats-job.yaml | tee tests/bats-$(buildenv.type)-job.yaml
     displayName: Build KM and KM tests using docker ($(buildenv.type))
 
-  - bash: make -C tests test-image push-test-image IMAGE_VERSION=CI-$(Build.BuildId) DTYPE=$(buildenv.type)
+  - bash: make -C tests testenv-image push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId) DTYPE=$(buildenv.type)
     displayName: Create and push KM Test container to registry $(registry)
 
   - task: Kubernetes@1

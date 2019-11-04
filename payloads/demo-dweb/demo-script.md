@@ -5,7 +5,7 @@ This demo target to illustrate the key Kontain.app claims:
 1. VM-level payloads isolation with start time and storage footprint much smaller than (inferior) Docker-based isolation
 1. No source code changes for apps to run directly in Kontain VM (no guest OS)
 1. No changes to operations - interoperability with Docker & Kubernetes. Run Kontain payload (microservice) in Kubernetes
-1. Supporting complex apps -  Python3 in KM. full Python interpreter with modules in Kontain VM, no OS.
+1. Supporting complex apps - Python3 in KM. full Python interpreter with modules in Kontain VM, no OS.
 1. Suitability for microservice - simple Python-based microservice in Kontain VM, as Kubernetes service
 
 This document describes the *default* path to take during the demo.
