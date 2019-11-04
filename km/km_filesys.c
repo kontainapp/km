@@ -38,21 +38,6 @@
 #include "km_syscall.h"
 
 /*
- * Translates guest fd to host fd. Returns negative errno if
- * mapping does not exist.
- */
-static inline int check_guest_fd(km_vcpu_t* vcpu, int fd)
-{
-   if (fd < 0 || fd >= machine.filesys.nfdmap) {
-      return -1;
-   }
-   int ret = __atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
-   assert((ret == -1) || (machine.filesys.hostfd_to_guestfd_map[ret] == fd) ||
-          (machine.filesys.hostfd_to_guestfd_map[ret] == -1));
-   return ret;
-}
-
-/*
  * Adds a host fd to the guest. Returns the guest fd number assigned.
  * Assigns lowest available guest fd, just like the kernel.
  */
@@ -135,6 +120,21 @@ int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
    return guest_fd;
 }
 
+/*
+ * Translates guest fd to host fd. Returns negative errno if
+ * mapping does not exist.
+ */
+int guestfd_to_hostfd(int fd)
+{
+   if (fd < 0 || fd >= machine.filesys.nfdmap) {
+      return -1;
+   }
+   int ret = __atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
+   assert((ret == -1) || (machine.filesys.hostfd_to_guestfd_map[ret] == fd) ||
+          (machine.filesys.hostfd_to_guestfd_map[ret] == -1));
+   return ret;
+}
+
 int km_fs_init(void)
 {
    struct rlimit lim;
@@ -185,7 +185,7 @@ uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
 uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    /*
@@ -218,7 +218,7 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
 int km_fs_shutdown(km_vcpu_t* vcpu, int sockfd, int how)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_2(SYS_shutdown, host_fd, how);
@@ -232,7 +232,7 @@ int km_fs_shutdown(km_vcpu_t* vcpu, int sockfd, int how)
 uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, const void* buf, size_t count, off_t offset)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_4(scall, host_fd, (uintptr_t)buf, count, offset);
@@ -247,7 +247,7 @@ uint64_t
 km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, size_t iovcnt, off_t offset)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
 
@@ -271,7 +271,7 @@ km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, si
 uint64_t km_fs_ioctl(km_vcpu_t* vcpu, int fd, unsigned long request, void* arg)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_ioctl, host_fd, request, (uintptr_t)arg);
@@ -282,7 +282,7 @@ uint64_t km_fs_ioctl(km_vcpu_t* vcpu, int fd, unsigned long request, void* arg)
 uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    uint64_t farg = arg;
@@ -305,7 +305,7 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
 uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_lseek, host_fd, offset, whence);
@@ -316,7 +316,7 @@ uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence)
 uint64_t km_fs_getdents64(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_getdents64, host_fd, (uintptr_t)dirp, count);
@@ -362,7 +362,7 @@ uint64_t km_fs_chdir(km_vcpu_t* vcpu, char* pathname)
 uint64_t km_fs_fchdir(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_1(SYS_fchdir, host_fd);
@@ -380,7 +380,7 @@ uint64_t km_fs_truncate(km_vcpu_t* vcpu, char* pathname, off_t length)
 uint64_t km_fs_ftruncate(km_vcpu_t* vcpu, int fd, off_t length)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_2(SYS_ftruncate, host_fd, length);
@@ -391,7 +391,7 @@ uint64_t km_fs_ftruncate(km_vcpu_t* vcpu, int fd, off_t length)
 uint64_t km_fs_fsync(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_1(SYS_fsync, host_fd);
@@ -402,7 +402,7 @@ uint64_t km_fs_fsync(km_vcpu_t* vcpu, int fd)
 uint64_t km_fs_fdatasync(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_1(SYS_fdatasync, host_fd);
@@ -455,7 +455,7 @@ uint64_t km_fs_lchown(km_vcpu_t* vcpu, char* pathname, uid_t uid, gid_t gid)
 uint64_t km_fs_fchown(km_vcpu_t* vcpu, int fd, uid_t uid, gid_t gid)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_fchown, host_fd, uid, gid);
@@ -473,7 +473,7 @@ uint64_t km_fs_chmod(km_vcpu_t* vcpu, char* pathname, mode_t mode)
 uint64_t km_fs_fchmod(km_vcpu_t* vcpu, int fd, mode_t mode)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_2(SYS_fchmod, host_fd, mode);
@@ -508,7 +508,7 @@ km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int 
    int host_fd = dirfd;
 
    if (dirfd != AT_FDCWD && pathname[0] != '/') {
-      if ((host_fd = check_guest_fd(vcpu, dirfd)) < 0) {
+      if ((host_fd = guestfd_to_hostfd(dirfd)) < 0) {
          return -EBADF;
       }
    }
@@ -520,7 +520,7 @@ km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int 
 uint64_t km_fs_fstat(km_vcpu_t* vcpu, int fd, struct stat* statbuf)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_2(SYS_fstat, host_fd, (uintptr_t)statbuf);
@@ -538,7 +538,7 @@ uint64_t km_fs_access(km_vcpu_t* vcpu, const char* pathname, int mode)
 uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_1(SYS_dup, host_fd);
@@ -552,14 +552,14 @@ uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
 uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    if (newfd < 0 || newfd >= machine.filesys.nfdmap) {
       return -EBADF;
    }
    int host_newfd;
-   if ((host_newfd = check_guest_fd(vcpu, newfd)) < 0) {
+   if ((host_newfd = guestfd_to_hostfd(newfd)) < 0) {
       if ((host_newfd = open("/", O_RDONLY)) < 0) {
          return -errno;
       }
@@ -575,11 +575,11 @@ uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
 uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
 {
    int host_fd;
-   if ((host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int host_newfd;
-   if ((host_newfd = check_guest_fd(vcpu, newfd)) < 0) {
+   if ((host_newfd = guestfd_to_hostfd(newfd)) < 0) {
       if ((host_newfd = open("/", O_RDONLY)) < 0) {
          return -errno;
       }
@@ -638,7 +638,7 @@ uint64_t
 km_fs_getsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optval, socklen_t* optlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret =
@@ -651,7 +651,7 @@ uint64_t
 km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optval, socklen_t optlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_5(SYS_setsockopt, host_sockfd, level, optname, (uintptr_t)optval, optlen);
@@ -663,7 +663,7 @@ km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optv
 uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr* msg, int flag)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(scall, host_sockfd, (uintptr_t)msg, flag);
@@ -674,10 +674,10 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
 uint64_t km_fs_sendfile(km_vcpu_t* vcpu, int out_fd, int in_fd, off_t* offset, size_t count)
 {
    int host_outfd, host_infd;
-   if ((host_outfd = check_guest_fd(vcpu, out_fd)) < 0) {
+   if ((host_outfd = guestfd_to_hostfd(out_fd)) < 0) {
       return -EBADF;
    }
-   if ((host_infd = check_guest_fd(vcpu, in_fd)) < 0) {
+   if ((host_infd = guestfd_to_hostfd(in_fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_4(SYS_sendfile, host_outfd, host_infd, (uintptr_t)offset, count);
@@ -690,14 +690,19 @@ uint64_t km_fs_copy_file_range(
     km_vcpu_t* vcpu, int fd_in, off_t* off_in, int fd_out, off_t* off_out, size_t len, unsigned int flags)
 {
    int host_outfd, host_infd;
-   if ((host_outfd = check_guest_fd(vcpu, fd_out)) < 0) {
+   if ((host_outfd = guestfd_to_hostfd(fd_out)) < 0) {
       return -EBADF;
    }
-   if ((host_infd = check_guest_fd(vcpu, fd_in)) < 0) {
+   if ((host_infd = guestfd_to_hostfd(fd_in)) < 0) {
       return -EBADF;
    }
-   int ret =
-       __syscall_6(SYS_copy_file_range, host_infd, (uintptr_t)off_in, host_outfd, (uintptr_t)off_out, len, flags);
+   int ret = __syscall_6(SYS_copy_file_range,
+                         host_infd,
+                         (uintptr_t)off_in,
+                         host_outfd,
+                         (uintptr_t)off_out,
+                         len,
+                         flags);
    return ret;
 }
 
@@ -707,7 +712,7 @@ uint64_t
 km_fs_get_sock_peer_name(km_vcpu_t* vcpu, int hc, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(hc, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
@@ -718,7 +723,7 @@ km_fs_get_sock_peer_name(km_vcpu_t* vcpu, int hc, int sockfd, struct sockaddr* a
 uint64_t km_fs_bind(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_bind, host_sockfd, (uintptr_t)addr, addrlen);
@@ -729,7 +734,7 @@ uint64_t km_fs_bind(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_
 uint64_t km_fs_listen(km_vcpu_t* vcpu, int sockfd, int backlog)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_2(SYS_listen, host_sockfd, backlog);
@@ -740,7 +745,7 @@ uint64_t km_fs_listen(km_vcpu_t* vcpu, int sockfd, int backlog)
 uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_accept, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
@@ -754,7 +759,7 @@ uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockle
 uint64_t km_fs_connect(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_connect, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
@@ -777,7 +782,7 @@ uint64_t
 km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen, int flags)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_4(SYS_accept4, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen, flags);
@@ -798,7 +803,7 @@ uint64_t km_fs_sendto(km_vcpu_t* vcpu,
                       socklen_t addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret =
@@ -812,7 +817,7 @@ uint64_t km_fs_recvfrom(
     km_vcpu_t* vcpu, int sockfd, void* buf, size_t len, int flags, struct sockaddr* addr, socklen_t* addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = check_guest_fd(vcpu, sockfd)) < 0) {
+   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret =
@@ -882,7 +887,7 @@ uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeou
 
    // fds checked before this is called.
    for (int i = 0; i < nfds; i++) {
-      if ((host_fds[i].fd = check_guest_fd(vcpu, fds[i].fd)) < 0) {
+      if ((host_fds[i].fd = guestfd_to_hostfd(fds[i].fd)) < 0) {
          return -EBADF;
       }
       host_fds[i].events = fds[i].events;
@@ -913,7 +918,7 @@ uint64_t km_fs_epoll_ctl(km_vcpu_t* vcpu, int epfd, int op, int fd, struct epoll
    int host_epfd;
    int host_fd;
 
-   if ((host_epfd = check_guest_fd(vcpu, epfd)) < 0 || (host_fd = check_guest_fd(vcpu, fd)) < 0) {
+   if ((host_epfd = guestfd_to_hostfd(epfd)) < 0 || (host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_4(SYS_epoll_ctl, host_epfd, op, host_fd, (uintptr_t)event);
@@ -931,7 +936,7 @@ uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
                            int sigsetsize)
 {
    int host_epfd;
-   if ((host_epfd = check_guest_fd(vcpu, epfd)) < 0) {
+   if ((host_epfd = guestfd_to_hostfd(epfd)) < 0) {
       return -EBADF;
    }
 
@@ -972,7 +977,7 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
 // procfdname() produces /proc/self/fd/<number> name for given fd
 uint64_t km_fs_procfdname(km_vcpu_t* vcpu, char* buf, int fd)
 {
-   int host_fd = check_guest_fd(vcpu, fd);
+   int host_fd = guestfd_to_hostfd(fd);
    if (host_fd < 0) {
       strcpy(buf, "/proc/nonexistent");
       return -EBADF;

@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -23,6 +24,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "greatest/greatest.h"
 #include "mmap_test.h"
@@ -495,6 +498,42 @@ TEST mremap_test()
    PASS();
 }
 
+TEST mmap_file_test()
+{
+   printf("===== mmap_file: Testing mmap() with file\n");
+   static char fname[] = "/tmp/mmap_test_XXXXXX";
+   int fd = mkstemp(fname);
+   ASSERT_NOT_EQ(-1, fd);
+
+   int nbufs = 10;
+   char buffer[4096];
+   for (int i = 0; i < nbufs; i++) {
+      memset(buffer, 'a' + i, sizeof(buffer));
+      ASSERT_EQ(sizeof(buffer), write(fd, buffer, sizeof(buffer)));
+   }
+
+   // mmap whole file.
+   void* m = mmap(NULL, nbufs * sizeof(buffer), PROT_READ | PROT_EXEC, MAP_PRIVATE, fd, 0);
+   ASSERT_NOT_EQ((void*)-1, m);
+
+   // Check contents
+   char* s = m;
+   for (int i = 0; i < nbufs; i++) {
+      ASSERT_EQ('a' + i, s[sizeof(buffer) * i]);
+   }
+
+   // Map contents of page[2] on page[1].
+   void* t =
+       mmap(s + sizeof(buffer), sizeof(buffer), PROT_READ, MAP_PRIVATE | MAP_FIXED, fd, sizeof(buffer) * 2);
+   ASSERT_NOT_EQ(MAP_FAILED, t);
+   ASSERT_EQ(s + sizeof(buffer), t);
+   ASSERT_EQ('a' + 2, s[sizeof(buffer)]);
+   ASSERT_EQ(0, munmap(m, nbufs * sizeof(buffer)));
+   close(fd);
+   unlink(fname);
+   PASS();
+}
+
 /* Inserts misc defintions */
 GREATEST_MAIN_DEFS();
 
@@ -507,6 +546,7 @@ int main(int argc, char** argv)
    RUN_TEST(mmap_from_free);
    RUN_TEST(mmap_protect);
    RUN_TEST(mremap_test);
+   RUN_TEST(mmap_file_test);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
