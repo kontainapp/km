@@ -79,7 +79,7 @@ $(addprefix ${BLDDIR}, libpthread.a): ${PTHREAD_OBJS}
 	@echo "Making " $@; rm -f $@; ld -r ${PTHREAD_OBJS} -o $*.o; ${AR} crs $@ -o $*.o
 
 $(addprefix ${BLDDIR}, libc.so): ${SO_OBJS} ${DL_OBJS}
-	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS}
+	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} /usr/lib/gcc/x86_64-redhat-linux/9/libgcc.a
 
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 
