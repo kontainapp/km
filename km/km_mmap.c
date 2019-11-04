@@ -354,6 +354,13 @@ static int km_mmap_busy_check_contigious(km_gva_t addr, size_t size)
 // Guest mprotect implementation. Params should be already checked and locks taken.
 static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 {
+   // mprotect allowed on memory under machine.brk
+   if (addr + size <= machine.brk && addr >= GUEST_MEM_START_VA) {
+      if (mprotect(km_gva_to_kma_nocheck(addr), size, prot) < 0) {
+         return -errno;
+      }
+      return 0;
+   }
    // Per mprotect(3) if there are un-mmaped pages in the area, error out with ENOMEM
    if (km_mmap_busy_check_contigious(addr, size) != 0) {
       km_infox(KM_TRACE_MMAP, "mprotect area not fully mapped");
