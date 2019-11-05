@@ -27,6 +27,9 @@ fi
 cat <<EOF > ${TMP_SPEC}
 %rename link old_link
 
+*cc1:
+%{!shared: -no-pie}
+
 *lib:
 %{!shared: -lruntime -lpthread -lruntime} %{shared: -lc}
 
@@ -40,13 +43,11 @@ libgcc.a%s %:if-exists(libgcc_eh.a%s)
 %{!shared: crtend.o%s} %{shared: crtendS.o%s} ${CRT}/x86_64/crtn.o%s
 
 *link:
-%(old_link) %{!shared: -static -Ttext-segment=0x200000 -e_start_c} %{shared: -dynamic-linker libc.so -e_start} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
+%(old_link) %{!shared: -static -Ttext-segment=0x200000 -e_start} %{shared: -dynamic-linker libc.so -e_start} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
 EOF
 
 if [[ $cmd == *g++ ]] ; then REALGCC=g++; else REALGCC=gcc; fi
 if [[ $# -eq 0 ]] ; then exec "${REALGCC}" ; fi
 
-set -x
-#"${REALGCC}" -static -no-pie -specs=${TMP_SPEC} "$@" ${LIB}
 "${REALGCC}" -specs=${TMP_SPEC} "$@" ${LIB}
 

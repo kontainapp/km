@@ -404,10 +404,8 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, uint64_t 
    }
 
    sp = vcpu->stack_top;   // where we put argv
-   assert((sp & 7) == 0);
-   if ((sp & 0xf) != 0) {
-      sp -= (sp + 8) % 16;   // per ABI, make sure sp + 8 is 16 aligned
-   }
+   // Ensure we are 16 byte aligned per ABI. (ie. double check km_init_main)
+   assert((sp & 0xf) == 0);
 
    kvm_regs_t regs = {
        .rip = start,
