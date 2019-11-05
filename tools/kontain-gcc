@@ -40,7 +40,7 @@ libgcc.a%s %:if-exists(libgcc_eh.a%s)
 %{static: crtend.o%s} %{shared: crtendS.o%s} ${CRT}/x86_64/crtn.o%s
 
 *link:
-%(old_link) %{static: -static -Ttext-segment=0x200000} -e_start_c %{shared: -dynamic-linker libc.so} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
+%(old_link) %{static: -static -Ttext-segment=0x200000 -estart_c} %{shared: -dynamic-linker libc.so -e_start} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
 EOF
 
 if [[ $cmd == *g++ ]] ; then REALGCC=g++; else REALGCC=gcc; fi
