@@ -54,3 +54,7 @@ This part is work in progress and will replace the "built-in module" part. The f
 `dlopen` code will (**python specific !**) check the location of the file and construct unique name ("package_module"). Use this internally as a handle key to resolve symbols
 
 the plan is to have all dlopen/dlsym related code is in payload only. Nothing in KM nor gcc-kontain / spec scripts
+
+Open issues:
+
+* .so referring to another .so .. how to mangle refs ?!! (no examples. can ignore for now). as long as the undefined are in the same .so. all works as intended

@@ -25,6 +25,14 @@ def python_mod_convert(so_name, so_suffix):
     return "_km_" + mod
 
 
+def mod_sym(sym, mod):
+    # TODO: clean up pkg/mod/munged name creation with convert function, it looks hacky
+    """
+    munges the symbol sym defined for module mod
+    """
+    return sym + mod
+
+
 def process_file(file_name, so_suffix=".cpython-37m-x86_64-linux-gnu.so", convert=python_mod_convert):
     """
     analyze a file with build (cc) log, finds commands used to build.so, and
@@ -42,15 +50,19 @@ def process_file(file_name, so_suffix=".cpython-37m-x86_64-linux-gnu.so", conver
         elements = line.split()
         so_name = [w for w in elements if w.endswith(so_suffix)][0]
         objs = [w for w in elements if w.endswith(".o")]
+        print(so_name)
+        print(objs)
 
         nm = subprocess.run(["nm", "-s", "--defined-only", "-Dg", os.path.join(location, so_name)],
-                            capture_output=True)
-        #  encoding = "utf-8")
+                            capture_output=True, encoding="utf-8")
         names = [i.split()[2] for i in nm.stdout.splitlines()]
+
         # python-specific module
         mod = convert(so_name, so_suffix)
+        with open(os.path.join(location, so_name.replace(so_suffix, ".sym.txt")), 'w') as f:
+            f.writelines(["{} {}\n".format(i, mod_sym(i, mod)) for i in names])
 
-        # each generated file starts with this
+        # ===== each generated file starts with this:
         dlsym_prologue = """
 /*
  * GENERATED FILE. DO NOT EDIT. See dltables.py
@@ -58,22 +70,35 @@ def process_file(file_name, so_suffix=".cpython-37m-x86_64-linux-gnu.so", conver
  * registration and dynsym tables for {so}
  */
 
-# include "km_dlsym.h"
+# include "dlinfo_km.h"
 
-static km_payload_syms_t symbols[] = {{
+extern void *{names_def};
+
+static km_dl_symbols_t _km_symbols[] = {{
 """
-        # each generated file ends with this
+
+        # ==== each generated file ends with this:
         dlsym_epilogue = """
+
+      {{  .name = NULL, .sym = NULL }}
 }};
 
-km_payload_dltab_t {mod} = {{ "{mod}", symbols }} ;
+
+static km_dl_info_t km_dl_info = {{
+   .name = "{mod}", .symtable = _km_symbols
+}};
+
+__attribute__((constructor))  static void _km_dlinit(void) {{
+   km_dl_register(&km_dl_info);
+}}
+
 """
 
         with open(os.path.join(location, mod + "_dlsym.c"), 'x') as f:
-            f.write(dlsym_prologue.format(so=so_name))
+            f.write(dlsym_prologue.format(so=so_name, names_def=", *".join([mod_sym(i, mod) for i in names])))
             for n in names:
-                f.write("{{ \"{sym}\", &{sym} }},\n".format(
-                    sym=n))
+                f.write("      {{ .name = \"{sym}\", .sym = &{mod_sym} }},\n".format(
+                    sym=n, mod_sym=mod_sym(n, mod)))
             f.write(dlsym_epilogue.format(mod=mod))
 
     # mod_name =$(basename $so | sed "s/$so_suffix//")
