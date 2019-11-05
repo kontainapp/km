@@ -16,7 +16,7 @@
 #
 # Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
 
-FROM fedora AS buildenv-base
+FROM fedora:30 AS buildenv-base
 ARG USER=appuser
 ARG UID=1000
 ARG GID=1000
