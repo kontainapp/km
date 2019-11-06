@@ -41,15 +41,22 @@ This part is work in progress and will replace the "built-in module" part. The f
 
 `build.sh` will automate the following steps:
 
-* read modules.txt with extension modules list, pull source from github, build (we need .o file and .so file from there)
-* for each .so file get a list of symbols exported, and a list of .o files
-* munge the symnames to "symbol_package_module_km", to avoid internal clashes (e.g. numpy defines multiple symbols with same names in multiple in-package .so modules)
-* generate package_module_kmsyms.c file with tables for individual module.so. This file also has global constructor to register the "package_module" library (note that the same package can contain modules with conflicting names, this the need for the prefix)
-* generate syms.txt file with symnames conversion info for this .so (name->name_package_module_km)
-* generate one km_libs.mk per module. The makefile does the following:
-  * uses objcopy to preprocess .o files (replace symbols) based on syms.txt
-  * compiles kmsyms.c file and builds .a for each module in the package
-* links the result by using -Wl,--whole-archive lib.a -Wl,--no-whole-archive
+* **python specific** read modules.txt with extension modules list, pull source from github, build extensions (we need .o file and .so file from there)
+* look at the output of the build and  for for each .so file get (1) a list of symbols exported and (2) a list of .o files
+* Add unique id to be used - md5digest for the .so content
+  * .so can have the same name in different dirs (e.g. python *falcon* has 2 *url.so*.
+  * symnames can certainly overlap between different .so (e.g. python *numpy* has 5 *xerbla* symbols.
+* prep the mapping the .so name to base_md5Digest and symbols to to "symbol_md5Digest", to avoid internal clashes. We use md5Digest as `ID`.
+* *Generate the following per .so*  (`base` is filename stripped of .so suffix e.g. libffmpeg for libffmpeg.so.
+  * base.km.json file is created side by side with .so,  with metadata: so_name, md5digest, .o names, and symbols , FFU.
+  * base.km.symmap file in the same place has mapping "symbol symbol_ID_km" (in objcopy format - one sym map per line, space separated)
+  * base.km.symbols.c file with tables for individual module.so. This file also has global constructor to register the "base_ID" .so for statically resolved dlopen/dlsym
+* generate one km_libs.mk makefile per **python module**. For non-python cases, the .mk file will probably be per .so.
+* The makefile does the following:
+  * uses objcopy to preprocess .o files (replace symbols) based on base.km.symmap
+  * compiles (`-c`) base.km.symbols.c file
+  * builds .a for each .so
+*  links the result by passing .o files explicitly and .a files as -l
 
 `dlopen` code will (**python specific !**) check the location of the file and construct unique name ("package_module"). Use this internally as a handle key to resolve symbols
 
