@@ -46,7 +46,9 @@ This part is work in progress and will replace the "built-in module" part. The f
 * Add unique id to be used - md5digest for the .so content
   * .so can have the same name in different dirs (e.g. python *falcon* has 2 *url.so*.
   * symnames can certainly overlap between different .so (e.g. python *numpy* has 5 *xerbla* symbols.
-* prep the mapping the .so name to base_md5Digest and symbols to to "symbol_md5Digest", to avoid internal clashes. We use md5Digest as `ID`.
+* prep the mapping the .so name to base_md5Digest_km and symbols to to "symbol_md5Digest_km", to avoid internal clashes.
+  * We use md5Digest as `ID`.
+  * we add _km just to make it easier to grep
 * *Generate the following per .so*  (`base` is filename stripped of .so suffix e.g. libffmpeg for libffmpeg.so.
   * base.km.json file is created side by side with .so,  with metadata: so_name, md5digest, .o names, and symbols , FFU.
   * base.km.symmap file in the same place has mapping "symbol symbol_ID_km" (in objcopy format - one sym map per line, space separated)
