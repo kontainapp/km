@@ -62,10 +62,6 @@ mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t
       km_infox(KM_TRACE_MMAP, "mmap: bad fixed address");
       return -EINVAL;
    }
-   if (size % KM_PAGE_SIZE != 0) {
-      km_infox(KM_TRACE_MMAP, "mmap: size misaligned");
-      return -EINVAL;
-   }
    if (size >= GUEST_MEM_ZONE_SIZE_VA) {
       km_infox(KM_TRACE_MMAP, "mmap: size is too large");
       return -ENOMEM;
@@ -723,7 +719,9 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       if (km_guest.km_phdr[i].p_type != PT_LOAD) {
          continue;
       }
-      km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust, km_guest.km_phdr[i].p_memsz);
+      km_guestmem_write(fd,
+                        km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
+                        km_guest.km_phdr[i].p_memsz);
    }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {
