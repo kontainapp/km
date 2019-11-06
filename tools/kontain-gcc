@@ -28,7 +28,7 @@ cat <<EOF > ${TMP_SPEC}
 %rename link old_link
 
 *cc1:
-%{!shared: -no-pie}
+%{!shared: -no-pie} %{shared: -fPIC}
 
 *lib:
 %{!shared: -lruntime -lpthread -lruntime} %{shared: -lc}

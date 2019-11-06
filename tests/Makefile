@@ -33,6 +33,9 @@ DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
 EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
+SHRSRC := hello.c hello_lib.c # ${SRC}
+SOBJS := ${SHRSRC:%.c=%.so} ${SHRSRC:%.cpp=%.so}
+
 ${KM_PAYLOADS}: ${TOP}build/runtime
 
 CXXFLAGS=${CFLAGS}
@@ -47,7 +50,7 @@ MATCH ?= .*
 # file for keeping per-test 'time' info
 TIME_INFO = ${TOP}build/time_info.txt
 
-all: ${EXECS} ## Build all test, for Linux and KM
+all: ${EXECS} ${SOBJS} ## Build all test, for Linux and KM
 
 # Run all or some of tests (may need /dev/kvm or privileged container)
 # ignore test failure when building coverage
@@ -63,6 +66,11 @@ endif
 	@echo ""
 	@rm -f ${TIME_INFO}
 
+%.so: %.c
+	${KCC} -shared -I$(TOP)include -I$(TOP)km ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
+
+%.so: %.cpp
+	${KCC} -shared -I$(TOP)include -I$(TOP)km ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
 
 %.km: %.o
 	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
@@ -98,7 +106,7 @@ load_expected_size: load_test.km
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d $(EXECS) kmcore $(TIME_INFO)
+	rm -f *.o *.so *.d $(EXECS) kmcore $(TIME_INFO)
 
 #
 # do not generate .d file for some targets

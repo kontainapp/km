@@ -486,3 +486,9 @@ load test_helper
    run km_with_timeout dl_iterate_phdr_test.km -v
    assert_success
 }
+
+@test "hello.so: simple dlopen (hello)" {
+   run km_with_timeout ${KM_LDSO} hello.so
+   assert_success
+
+}
