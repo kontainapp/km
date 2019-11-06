@@ -210,6 +210,8 @@ int km_clone(km_vcpu_t* vcpu,
    }
 
    new_vcpu->stack_top = (uintptr_t)child_stack;
+   // want this on odd 8 byte boundary to account for clone trampoline.
+   new_vcpu->stack_top -= (new_vcpu->stack_top + 8) % 16;
    new_vcpu->guest_thr = newtls;
    int rc =
        km_vcpu_set_to_run(new_vcpu, km_guest.km_clone_child, (km_gva_t)cargs[0], (km_gva_t)cargs[1]);
