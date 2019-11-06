@@ -25,7 +25,7 @@ static const char msg2[] = "after loading big array\n";
  * below with printed one.
  */
 
-static const unsigned long size[] = {0x0000000000606458, 0x0000000000606770};
+static const unsigned long size[] = {0x0000000000606458, 0x0000000000606770, 0x0000000000606438, 0};
 
 int main(int argc, char* argv[])
 {
@@ -49,7 +49,15 @@ int main(int argc, char* argv[])
 
    x = syscall(SYS_brk, 0);
    if (print_size) {
-      fprintf(stderr, "size=0x%lx, expect=0x%lx or 0x%lx\n", x, size[0], size[1]);
+      fprintf(stderr, "size=0x%lx, expect:\n", x);
+      for (int i = 0; size[i] != 0; i++) {
+         fprintf(stderr, "  0x%lx\n", size[i]);
+      }
    }
-   return (x == size[0] || x == size[1]) ? 0 : 1;
+   for (int i = 0; size[i] != 0; i++) {
+      if (x == size[i]) {
+         return 0;
+      }
+   }
+   return 1;
 }
