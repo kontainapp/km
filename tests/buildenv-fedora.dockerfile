@@ -41,13 +41,13 @@ USER $USER
 
 RUN git clone https://github.com/gcc-mirror/gcc.git -b $LIBSTDCPPVER
 RUN mkdir -p build_gcc && cd build_gcc \
-   && ../gcc/configure --prefix=$PREFIX --enable-clocale=generic --disable-bootstrap --enable-languages=c,c++,fortran,lto \
-   --disable-shared --enable-threads=posix --enable-checking=release --disable-multilib --with-system-zlib \
-   --enable-__cxa_atexit --disable-libunwind-exceptions --enable-gnu-unique-object \
-   --enable-linker-build-id --with-gcc-major-version-only --with-linker-hash-style=gnu \
-   --enable-plugin --enable-initfini-array --with-isl --without-cuda-driver \
+   && ../gcc/configure --prefix=$PREFIX --enable-clocale=generic --disable-bootstrap --enable-languages=c,c++ \
+   --enable-threads=posix --enable-checking=release --disable-multilib --with-system-zlib --enable-__cxa_atexit \
+   --disable-libunwind-exceptions --enable-gnu-unique-object --enable-linker-build-id --with-gcc-major-version-only \
+   --with-linker-hash-style=gnu --enable-plugin --enable-initfini-array --with-isl --without-cuda-driver \
    --enable-gnu-indirect-function --enable-cet --with-tune=generic \
-   && make -j`expr 2 \* $(nproc)`
+   && make -j`expr 2 \* $(nproc)` && cd x86_64-pc-linux-gnu/libstdc++-v3 && make clean \
+   && sed -i -e 's/^#define *HAVE___CXA_THREAD_ATEXIT_IMPL.*$/\/* & *\//' config.h && make -j`expr 2 \* $(nproc)`
 
 USER root
 RUN mkdir -p $PREFIX && make -C build_gcc/x86_64-pc-linux-gnu/libstdc++-v3 install

@@ -12,10 +12,12 @@
  * This program generates exceptions in guest in order to test guest coredumps
  * and other processing.
  */
+#define _GNU_SOURCE
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -35,6 +37,8 @@ char* cmdname = "?";
 int bigarray_data[10000000] = {1, 2, 3};
 int bigarray_bss[10000000];
 
+pthread_mutex_t mt = PTHREAD_MUTEX_INITIALIZER;
+
 int stray_reference(int optind, int argc, char* argv[]);
 int div0(int optind, int argc, char* argv[]);
 int undefined_op(int optind, int argc, char* argv[]);
@@ -48,6 +52,7 @@ int sigpipe_test(int optind, int argc, char* argv[]);
 int hc_test(int optind, int argc, char* argv[]);
 int hc_badarg_test(int optind, int argc, char* argv[]);
 int close_test(int optind, int argc, char* argv[]);
+int thread_test(int optind, int argc, char* argv[]);
 
 struct stray_op {
    char* op;                                          // Operation name on command line
@@ -75,6 +80,7 @@ struct stray_op {
      .func = hc_badarg_test,
      .description = "<call> - make hypercall with number <call> and a bad argument."},
     {.op = "close", .func = close_test, .description = "<fd> - close file descriptor fd"},
+    {.op = "thread", .func = thread_test, .description = "test pthread create/join"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -230,8 +236,22 @@ int close_test(int optind, int optarg, char* argv[])
    return 0;
 }
 
+void* thread_main2(void* arg)
+{
+   fprintf(stderr, "%s\n", __FUNCTION__);
+   return NULL;
+}
+
+int thread_test(int optind, int optarg, char* argv[])
+{
+   pthread_t thr;
+   pthread_create(&thr, NULL, thread_main2, NULL);
+   void* ret;
+   pthread_join(thr, &ret);
+   return 0;
+}
+
 // A thread to have laying around. Make the coredumps more interesting.
-pthread_mutex_t mt = PTHREAD_MUTEX_INITIALIZER;
 void* thread_main(void* arg)
 {
    pthread_mutex_lock(&mt);
@@ -243,7 +263,6 @@ int main(int argc, char** argv)
    extern int optind;
    int c;
    char* op;
-   pthread_t thr;
 
    cmdname = argv[0];
    while ((c = getopt(argc, argv, "h")) != -1) {
@@ -264,6 +283,7 @@ int main(int argc, char** argv)
    op = argv[optind];
    optind++;
 
+   pthread_t thr;
    pthread_mutex_lock(&mt);
    if (pthread_create(&thr, NULL, thread_main, NULL) != 0) {
       err(1, "pthread_create failed");
@@ -290,9 +310,10 @@ int main(int argc, char** argv)
    /*
     * malloc some space
     */
-   int msz = MIB / 16;     // 64K
-   void *ptr = malloc(msz);
-   memset(ptr, 'a', msz);;
+   int msz = MIB / 16;   // 64K
+   void* ptr = malloc(msz);
+   memset(ptr, 'a', msz);
+   ;
 
    struct stray_op* nop = operations;
    while (nop->op != NULL) {

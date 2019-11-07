@@ -461,19 +461,6 @@ static void km_vcpu_exit(km_vcpu_t* vcpu)
    km_vcpu_stopped(vcpu);
 }
 
-/*
- * Force a vcpu exit and cleanup.
- * Called when we are done with the current thread, and we don’t care for remants to hang around and
- * block fini(). So we make it detached and exit vcpu, and that takes care of true exit for the
- * current thread.
- */
-static int km_vcpu_force_exit(km_vcpu_t* vcpu)
-{
-   km_vcpu_detach(vcpu);
-   km_vcpu_exit(vcpu);
-   return 0;
-}
-
 // static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
 static void km_vcpu_exit_all(km_vcpu_t* vcpu)
 {
@@ -557,7 +544,7 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 
       case EINTR:
          if (machine.exit_group == 1) {   // Interrupt from exit_group() - we are done.
-            km_vcpu_force_exit(vcpu);     // Clean up and exit the current  VCPU thread
+            km_vcpu_exit(vcpu);           // Clean up and exit the current VCPU thread
             assert("Reached the unreachable" == NULL);
          }
          vcpu->cpu_run->immediate_exit = 0;
@@ -574,6 +561,8 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
           * guest memory (guest PT says page is writable, but kernel says it
           * isn't).
           */
+         km_read_registers(vcpu);
+         warnx("Guest memory protection violation. rip=0x%llx", vcpu->regs.rip);
          siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
          km_post_signal(vcpu, &info);
          break;

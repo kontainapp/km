@@ -62,10 +62,6 @@ mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t
       km_infox(KM_TRACE_MMAP, "mmap: bad fixed address");
       return -EINVAL;
    }
-   if (size % KM_PAGE_SIZE != 0) {
-      km_infox(KM_TRACE_MMAP, "mmap: size misaligned");
-      return -EINVAL;
-   }
    if (size >= GUEST_MEM_ZONE_SIZE_VA) {
       km_infox(KM_TRACE_MMAP, "mmap: size is too large");
       return -ENOMEM;
@@ -354,6 +350,13 @@ static int km_mmap_busy_check_contigious(km_gva_t addr, size_t size)
 // Guest mprotect implementation. Params should be already checked and locks taken.
 static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 {
+   // mprotect allowed on memory under machine.brk
+   if (addr + size <= machine.brk && addr >= GUEST_MEM_START_VA) {
+      if (mprotect(km_gva_to_kma_nocheck(addr), size, prot) < 0) {
+         return -errno;
+      }
+      return 0;
+   }
    // Per mprotect(3) if there are un-mmaped pages in the area, error out with ENOMEM
    if (km_mmap_busy_check_contigious(addr, size) != 0) {
       km_infox(KM_TRACE_MMAP, "mprotect area not fully mapped");
@@ -444,6 +447,7 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
+   size = roundup(size, KM_PAGE_SIZE);
    mmaps_lock();
    ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset);
    mmaps_unlock();
@@ -661,6 +665,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
 
       phnum++;
    }
+   end_load += km_guest.km_load_adjust;
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {
          continue;
@@ -685,7 +690,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       }
       km_core_write_load_header(fd,
                                 offset,
-                                km_guest.km_phdr[i].p_vaddr,
+                                km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
                                 km_guest.km_phdr[i].p_memsz,
                                 km_guest.km_phdr[i].p_flags);
       offset += km_guest.km_phdr[i].p_memsz;
@@ -714,7 +719,9 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       if (km_guest.km_phdr[i].p_type != PT_LOAD) {
          continue;
       }
-      km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr, km_guest.km_phdr[i].p_memsz);
+      km_guestmem_write(fd,
+                        km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
+                        km_guest.km_phdr[i].p_memsz);
    }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {
