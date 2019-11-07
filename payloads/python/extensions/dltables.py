@@ -155,7 +155,7 @@ def process_file(file_name, so_suffix):
         so_full_path_name = os.path.join(location, so_file_name)
         id, short_name = convert(so_full_path_name, so_suffix)
 
-        nm = subprocess.run(["nm", "-s", "--defined-only", "-Dg",
+        nm = subprocess.run(["nm", "-s", "-Dg", "--defined-only",
                              os.path.join(location, so_file_name)],
                             capture_output=True, encoding="utf-8")
         if nm.returncode != 0:
