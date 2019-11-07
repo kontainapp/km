@@ -47,8 +47,8 @@ symfile_template = """
  * Registration and dynsym tables for {{ so }}
  */
 
-#include <stdlib.h>
-#include "dlstatic_km.h"
+# include <stdlib.h>
+# include "dlstatic_km.h"
 
 {# first element does not have ',' in front, so we have to separate [0] and the list tail #}
 extern void * {{ symbols[0].munged }} {% for sym in symbols[1:] %}, *{{ sym.munged }} {% endfor %};
@@ -59,7 +59,7 @@ static km_dl_symbol_t _km_symbols[] = { {% for sym in symbols %}
    { .name = NULL, .addr = NULL }
 };
 
-static km_dl_lib_t _km_dl_lib = {
+static km_dl_lib_reg_t _km_dl_lib = {
    .name = "{{ mod }}", .symtable = _km_symbols
 };
 
@@ -88,21 +88,23 @@ makefile_template = """#
 #   builds .a for each .so
 #   links the result by passing .o files explicitly and .a files as -l
 
+# TODO - convert Obj and get link status
 
 # TODO - pass it !
 KM_RUNTIME_INCLUDES := /home/msterin/workspace/km/runtime
 CFLAGS := -g -I$(KM_RUNTIME_INCLUDES)
+KM_LIB_EXT := .km.lib.a
 
-LIBS :=  {% for lib in libs %} {{ lib | replace(".so", ".a") }} {% endfor %}
-SYMOBJ := $(subst .a,.km.symbols.o,$(LIBS))
+LIBS := {% for lib in libs %}\\\n\t{{ lib | replace(".so", "${KM_LIB_EXT}") }} {% endfor %}
+SYMOBJ := $(subst ${KM_LIB_EXT},.km.symbols.o,$(LIBS))
 
 all: $(SYMOBJ) $(LIBS)
-\t@echo "TODO: make this line shorter pack all .o into one .a and force it with --all-archive; rename .a to libxx.a and use -L -l"
-\t@echo -e "Add this line to KM_LINK: \\n${LIBS} ${SYMOBJ}"
+\t@tmp=`mktemp`; echo -e ${SYMOBJ} ${LIBS} > $$tmp && echo Saved link line to $$tmp
+\t@echo TODO: make this line shorter pack all .o into one .a and force it with --all-archive and rename .a to libxx.a and use -L -l
 
 {# print ".a: obj_list" dependencies #}
 {% for line in info %}
-{{ line["so"] | replace(".so", ".a") }} : {{ line["objs"] | join(' ') }}
+{{ line["so"] | replace(".so", "${KM_LIB_EXT}") }} : {{ line["objs"] | join(' ') }}
 \t@ar r $@ $<
 {% endfor %}
 
@@ -146,38 +148,51 @@ def process_file(file_name, so_suffix):
         elements = line.split()
         so_file_name = [w for w in elements if w.endswith(so_suffix)][0]
         objs = [w for w in elements if w.endswith(".o")]
-        #   print(so_name)
-        #   print(objs)
         so_full_path_name = os.path.join(location, so_file_name)
         id, short_name = convert(so_full_path_name, so_suffix)
 
         nm = subprocess.run(["nm", "-s", "--defined-only", "-Dg",
                              os.path.join(location, so_file_name)],
                             capture_output=True, encoding="utf-8")
+        if nm.returncode != 0:
+            print("** NM FAILED for {}. stderr={}".format(so_file_name, nm.stderr))
+            continue
+
         # nm.stdout is a list of nm output lines, each has "address TYPE symname". Extract symnames array:
         names = [i.split()[2] for i in nm.stdout.splitlines()]
         symbols = [{"name": n, "munged": n + id} for n in names]
         meta_data = {"so": so_file_name, "id": id, "short_name": short_name, "objs": objs}
         mk_info.append(meta_data)
+        try:
+            # Save file with symbols munging , for use with objcopy
+            with open(so_full_path_name.replace(so_suffix, ".km.symmap"), 'w') as f:
+                f.writelines(["{} {}\n".format(s['name'], s['munged']) for s in symbols])
 
-        # Save file with symbols munging , for use with objcopy
-        with open(so_full_path_name.replace(so_suffix, ".km.symmap"), 'w') as f:
-            f.writelines(["{} {}\n".format(s['name'], s['munged']) for s in symbols])
-
-        # Write C file with init symtables
-        with open(so_full_path_name.replace(so_suffix, ".km.symbols.c"), 'w') as f:
-            f.write(jinja2.Template(symfile_template).render(so=so_file_name[len(BUILD_LIB_PREFIX):],
-                                                             mod=short_name,
-                                                             symbols=symbols))
-        # write json file with meta data, FFU
-        with open(so_full_path_name.replace(so_suffix, ".km.json"), 'w') as f:
-            f.write(json.dumps(meta_data, indent=3))
+            # Write C file with init symtables
+            with open(so_full_path_name.replace(so_suffix, ".km.symbols.c"), 'w') as f:
+                f.write(jinja2.Template(symfile_template).render(so=so_file_name[len(BUILD_LIB_PREFIX):],
+                                                                 mod=short_name,
+                                                                 symbols=symbols))
+            # write json file with meta data, FFU
+            with open(so_full_path_name.replace(so_suffix, ".km.json"), 'w') as f:
+                f.write(json.dumps(meta_data, indent=3))
+        except Exception as e:
+            print("*** FAILED when handling {}. More info:{}".format(so_file_name, meta_data))
+            print(e)
+            continue
 
     # and finally, makefile generation
     mk_name = os.path.join(location, "dlstatic_km.mk")
     with open(mk_name, 'w') as f:
         f.write(jinja2.Template(makefile_template).render(libs=[i["so"] for i in mk_info],
                                                           info=mk_info))
+
+    # TODO run clang-format here
+    cl = subprocess.run(["clang-format", "-i", "-style=file",
+                         mk_name], capture_output=False, encoding="utf-8")
+    if cl.returncode != 0:
+        print("FORMAT FAILED")
+
     # Debug - info for Makefile creation
     mk_json_name = os.path.join(location, "dlstatic_km.mk.json")
     with open(mk_json_name, 'w') as f:

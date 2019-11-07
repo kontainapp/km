@@ -258,15 +258,15 @@
          ]
       },
       {
-         "name": "Python: Current File",
+         "name": "Python dltable.py",
          "type": "python",
          "request": "launch",
-         "program": "${file}",
+         "program": "${workspaceFolder}/payloads/python/extensions/dltables.py",
          "console": "integratedTerminal",
          "stopOnEntry": true,
          "cwd": "${workspaceFolder}/payloads/python",
          "args": [
-            "cpython/Modules/numpy/bear.out"
+            "cpython/Modules/${input:python_module}/bear.out"
          ]
       }
    ],
@@ -298,6 +298,16 @@
             "exit_grp_test",
             "stray_test",
             "signal_test"
+         ]
+      },
+      {
+         "id": "python_module",
+         "description": "Python modules to test misc, things with",
+         "default": "falcon",
+         "type": "pickString",
+         "options": [
+            "falcon",
+            "numpy"
          ]
       }
    ]
