@@ -33,7 +33,7 @@ DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
 EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
-SHRSRC := hello.c hello_lib.c # ${SRC}
+SHRSRC := hello.c hello_lib.c ${SRC} ${SRC_CPP}
 SOBJS := ${SHRSRC:%.c=%.so} ${SHRSRC:%.cpp=%.so}
 
 ${KM_PAYLOADS}: ${TOP}build/runtime
@@ -76,8 +76,9 @@ endif
 	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
 
 .PHONY: load_expected_size
-load_expected_size: load_test.km
+load_expected_size: load_test.km load_test.so
 	@nm load_test.km | awk '/ _end/{ print "0x" $$1}'
+	@nm load_test.so | awk '/ _end/{ print "0x" $$1}'
 
 %.d: %.c
 	@# print the command we really need to run
