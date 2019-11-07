@@ -25,6 +25,9 @@ import jinja2  # TODO - make sure it's installed (run pip3 install --user)
 BUILD_LIB_PREFIX = "build/lib.{}-{}/".format(sysconfig.get_platform(),
                                              sysconfig.get_python_version())
 
+symtab_suffix = ".km.symmap"
+symbols_c_suffix = ".km.symbols.c"
+
 # jinja2 template for generated .c file.
 #  FYI, jinja2 uses
 #    {% ... %} for Statements
@@ -99,12 +102,13 @@ LIBS := {% for lib in libs %}\\\n\t{{ lib | replace(".so", "${KM_LIB_EXT}") }} {
 SYMOBJ := $(subst ${KM_LIB_EXT},.km.symbols.o,$(LIBS))
 
 all: $(SYMOBJ) $(LIBS)
-\t@tmp=`mktemp`; echo -e ${SYMOBJ} ${LIBS} > $$tmp && echo Saved link line to $$tmp
+\t@tmp=`mktemp`; for i in ${SYMOBJ} ${LIBS} ; do echo $$(realpath $$i) >> $$tmp ; done && echo Saved link line to $$tmp
 \t@echo TODO: make this line shorter pack all .o into one .a and force it with --all-archive and rename .a to libxx.a and use -L -l
 
 {# print ".a: obj_list" dependencies #}
 {% for line in info %}
-{{ line["so"] | replace(".so", "${KM_LIB_EXT}") }} : {{ line["objs"] | join(' ') }}
+{{ line["so"] | replace(".so", "${KM_LIB_EXT}") }} : {{ line["objs"] | join(' \\\\\\n\\t\\t') }}
+\tfor i in $< ; do objcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$i; done
 \t@ar r $@ $<
 {% endfor %}
 
@@ -165,14 +169,24 @@ def process_file(file_name, so_suffix):
         mk_info.append(meta_data)
         try:
             # Save file with symbols munging , for use with objcopy
-            with open(so_full_path_name.replace(so_suffix, ".km.symmap"), 'w') as f:
+            with open(so_full_path_name.replace(so_suffix, symtab_suffix), 'w') as f:
                 f.writelines(["{} {}\n".format(s['name'], s['munged']) for s in symbols])
 
             # Write C file with init symtables
-            with open(so_full_path_name.replace(so_suffix, ".km.symbols.c"), 'w') as f:
+            c_table_name = so_full_path_name.replace(so_suffix, symbols_c_suffix)
+            with open(c_table_name, 'w') as f:
                 f.write(jinja2.Template(symfile_template).render(so=so_file_name[len(BUILD_LIB_PREFIX):],
                                                                  mod=short_name,
                                                                  symbols=symbols))
+             # TODO run clang-format here
+            try:
+                cl = subprocess.run(["clang-format", "-i", "-style=file",
+                                     c_table_name], capture_output=False, encoding="utf-8")
+                if cl.returncode != 0:
+                    print("FORMAT FAILED for {}".format(c_table_name))
+            except FileNotFoundError as e:
+                print("clang-format not found. Skipping format of {}".format(c_table_name))
+
             # write json file with meta data, FFU
             with open(so_full_path_name.replace(so_suffix, ".km.json"), 'w') as f:
                 f.write(json.dumps(meta_data, indent=3))
@@ -185,13 +199,7 @@ def process_file(file_name, so_suffix):
     mk_name = os.path.join(location, "dlstatic_km.mk")
     with open(mk_name, 'w') as f:
         f.write(jinja2.Template(makefile_template).render(libs=[i["so"] for i in mk_info],
-                                                          info=mk_info))
-
-    # TODO run clang-format here
-    cl = subprocess.run(["clang-format", "-i", "-style=file",
-                         mk_name], capture_output=False, encoding="utf-8")
-    if cl.returncode != 0:
-        print("FORMAT FAILED")
+                                                          info=mk_info, symtab_suffix=symtab_suffix))
 
     # Debug - info for Makefile creation
     mk_json_name = os.path.join(location, "dlstatic_km.mk.json")
