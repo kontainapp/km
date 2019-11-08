@@ -13,9 +13,11 @@
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
+#include <asm/prctl.h>
 #include <linux/futex.h>
 #include <linux/stat.h>
 
@@ -62,11 +64,51 @@ static inline uint64_t km_gva_to_kml(uint64_t gva)
 }
 
 /*
+ * FS reg used to store guest_thread pointer
+ */
+static km_hc_ret_t arch_prctl_hcall(void* v, int hc, km_hc_args_t* arg)
+{
+   // int arch_prctl(int code, unsigned long addr);
+   // int arch_prctl(int code, unsigned long* addr);
+   km_vcpu_t* vcpu = v;
+   int code = arg->arg1;
+
+   switch (code) {
+      case ARCH_SET_FS:
+         if (km_gva_to_kma(arg->arg2) == NULL) {   // just to check, FS gets gva value
+            arg->hc_ret = -EPERM;
+         } else {
+            vcpu->guest_thr = arg->arg2;
+            km_read_sregisters(vcpu);
+            vcpu->sregs.fs.base = vcpu->guest_thr;
+            km_write_sregisters(vcpu);
+            arg->hc_ret = 0;
+         }
+         break;
+
+      case ARCH_GET_FS: {
+         km_kma_t addr = km_gva_to_kma(arg->arg2);
+         if (addr == NULL) {
+            arg->hc_ret = -EFAULT;
+         } else {
+            *(u_int64_t*)addr = vcpu->guest_thr;
+            arg->hc_ret = 0;
+         }
+         break;
+      }
+      default:
+         arg->hc_ret = -ENOTSUP;
+         break;
+   }
+   return HC_CONTINUE;
+}
+
+/*
  * guest code executed exit(status);
  */
 static km_hc_ret_t exit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   ((km_vcpu_t*)vcpu)->exit_res = arg->arg1;
+   km_exit(vcpu, arg->arg1);
    return HC_STOP;
 }
 
@@ -843,37 +885,6 @@ static km_hc_ret_t gettid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
-static km_hc_ret_t pthread_create_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-   // int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-   //   void *(*start_routine) (void *), void *arg);
-   km_kma_t pt = 0;
-   km_kma_t attr = 0;
-
-   if (arg->arg1 != 0 && (pt = km_gva_to_kma(arg->arg1)) == 0) {
-      arg->hc_ret = EFAULT;
-      return HC_CONTINUE;
-   }
-   if (arg->arg2 != 0 && (attr = km_gva_to_kma(arg->arg2)) == 0) {
-      arg->hc_ret = EFAULT;
-      return HC_CONTINUE;
-   }
-   arg->hc_ret = km_pthread_create(vcpu, pt, attr, arg->arg3, arg->arg4);
-   return HC_CONTINUE;
-}
-
-static km_hc_ret_t pthread_join_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-   // int pthread_join(pthread_t thread, void **retval);
-   km_kma_t pt = 0;
-   if (arg->arg2 != 0 && (pt = km_gva_to_kma(arg->arg2)) == 0) {
-      arg->hc_ret = EFAULT;
-      return HC_CONTINUE;
-   }
-   arg->hc_ret = km_pthread_join(vcpu, arg->arg1, pt);
-   return HC_CONTINUE;
-}
-
 static km_hc_ret_t guest_interrupt_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    km_handle_interrupt(vcpu);
@@ -1122,6 +1133,19 @@ static km_hc_ret_t procfdname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret =
+       km_clone(vcpu, arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, km_gva_to_kma(arg->arg6));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t set_tid_address_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_set_tid_address(vcpu, arg->arg1);
+   return HC_CONTINUE;
+}
+
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
@@ -1129,6 +1153,8 @@ km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 
 void km_hcalls_init(void)
 {
+   km_hcalls_table[SYS_arch_prctl] = arch_prctl_hcall;
+
    km_hcalls_table[SYS_exit] = exit_hcall;
    km_hcalls_table[SYS_exit_group] = exit_grp_hcall;
    km_hcalls_table[SYS_read] = prw_hcall;
@@ -1235,14 +1261,14 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_sched_yield] = dummy_hcall;
    km_hcalls_table[SYS_setpriority] = dummy_hcall;
 
-   km_hcalls_table[HC_pthread_create] = pthread_create_hcall;
-   km_hcalls_table[HC_pthread_join] = pthread_join_hcall;
+   km_hcalls_table[SYS_clone] = clone_hcall;
+   km_hcalls_table[SYS_set_tid_address] = set_tid_address_hcall;
+
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;
    km_hcalls_table[HC_procfdname] = procfdname_hcall;
 }
 
 void km_hcalls_fini(void)
-{
-   /* empty for now */
+{ /* empty for now */
 }

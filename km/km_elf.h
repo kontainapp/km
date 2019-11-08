@@ -19,12 +19,9 @@
 #include <gelf.h>
 #include <stdint.h>
 
-#define KM_LIBC_SYM_NAME "__libc"
-#define KM_THR_START_SYM_NAME "__start_thread__"
 #define KM_INT_HNDL_SYM_NAME "__km_handle_interrupt"
-#define KM_TSD_SIZE_SYM_NAME "__pthread_tsd_size"
-#define KM_PCREATE_SYM_NAME "pthread_create"
 #define KM_SIG_RTRN_SYM_NAME "__km_sigreturn"
+#define KM_CLONE_CHILD_SYM_NAME "__km_clone_run_child"
 /*
  * Description of the guest payload. Note these structures come from guest ELF and represent values
  * in guest address space. We'll need to convert them to monitor (KM) addresses to acces.
@@ -32,11 +29,9 @@
 typedef struct km_payload {
    Elf64_Ehdr km_ehdr;           // elf file header
    Elf64_Phdr* km_phdr;          // elf program headers
-   Elf64_Addr km_libc;           // libc in payload program
-   Elf64_Addr km_start_thread;   // thread start wrapper
    Elf64_Addr km_handlers;       // interrupt/exception handler
-   Elf64_Addr km_tsd_size;       // __pthread_tsd_size in the payload
    Elf64_Addr km_sigreturn;      // signal trampoline function
+   Elf64_Addr km_clone_child;    // clone child trampoline function
 } km_payload_t;
 
 typedef struct km_tls_module {

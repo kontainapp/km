@@ -9,9 +9,8 @@ all: dweb dweb.km
 dweb: $(OBJS)
 	$(CC) -static $(CLFAGS) -pthread  -o $@ $^
 
-KM_LDFLAGS := -specs=${TOP}gcc-km.spec -L ${TOP}build/runtime
 dweb.km: $(OBJS)
-	$(CC) -static -no-pie $(CLFAGS) -pthread  -o $@ $^ ${KM_LDFLAGS} && chmod a-x $@
+	${TOP}tools/kontain-gcc -static -no-pie $(CLFAGS) -pthread  -o $@ $^ && chmod a-x $@
 
 .PHONY: clean
 clean:
