@@ -1,5 +1,7 @@
 # Wifi Notes
 
+**Be aware -- this fix disables higher WiFi speeds and limits connection to 54 Mbps.**
+
 ## Flaky `iwlwifi` 802.11n Support
 
 The Intel integrated Wifi driver (`iwlwifi`) has issues. One of the major issues concerns 802.11n.
