@@ -59,14 +59,14 @@ void km_mmap_show_map(const km_mmap_list_t* list, const char* name)
    km_infox(KM_TRACE_MMAP, "%s", name);
    TAILQ_FOREACH (reg, list, link) {
       km_infox(KM_TRACE_MMAP,
-               "start 0x%lx size 0x%lx flags 0x%x protection 0x%x km_flags 0x%x gfd 0x%x offset "
+               "start 0x%lx size 0x%lx flags 0x%x protection 0x%x km_flags 0x%x filename %s offset "
                "0x%lx",
                reg->start,
                reg->size,
                reg->flags,
                reg->protection,
                reg->km_flags.data32,
-               reg->gfd,
+               reg->filename,
                reg->offset);
    }
 }
@@ -87,10 +87,6 @@ mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t
    }
    if ((flags & MAP_FIXED) && addr == 0) {
       km_infox(KM_TRACE_MMAP, "mmap: bad fixed address");
-      return -EINVAL;
-   }
-   if (size % KM_PAGE_SIZE != 0) {
-      km_infox(KM_TRACE_MMAP, "mmap: size misaligned");
       return -EINVAL;
    }
    if (size >= GUEST_MEM_ZONE_SIZE_VA) {
@@ -142,6 +138,13 @@ static km_mmap_reg_t* km_mmap_find_address(km_mmap_list_t* list, km_gva_t addres
 // return 1 if ok to concat. Relies on 'free' mmaps all having 0 in protection and flags.
 static inline int ok_to_concat(km_mmap_reg_t* left, km_mmap_reg_t* right)
 {
+   if (left->filename != NULL) {
+      if (right->filename == NULL || strcmp(left->filename, right->filename) != 0) {
+         return 0;
+      }
+   } else if (right->filename != NULL) {
+      return 0;
+   }
    return (left->start + left->size == right->start && left->protection == right->protection &&
            left->flags == right->flags && left->km_flags.data32 == right->km_flags.data32);
 }
@@ -274,7 +277,11 @@ static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
 
    reg->protection = PROT_NONE;
    reg->flags = 0;
-   reg->gfd = -1;
+   if (reg->filename != NULL) {
+      free(reg->filename);
+      reg->filename = NULL;
+   }
+   reg->offset = 0;
    km_mmap_insert(reg, list);
    reg->km_flags.km_mmap_inited = 0;   // allow concat to happen on free list
    km_mmap_concat(reg, list);
@@ -334,24 +341,32 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
          break;   // we passed the range and are done
       }
       if (reg->start < addr) {   // overlaps on the start
-         if ((extra = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+         if ((extra = calloc(1, sizeof(km_mmap_reg_t))) == NULL) {
             return -ENOMEM;
          }
          *extra = *reg;
          reg->size = addr - reg->start;   // left part, to keep in busy
          extra->start = addr;             // right part, to insert in busy
          extra->size -= reg->size;
+         if (reg->filename != NULL) {
+            extra->filename = strdup(reg->filename);
+            extra->offset += reg->size;
+         }
          km_mmap_insert_busy_after(reg, extra);
          continue;
       }
       if (reg->start + reg->size > addr + size) {   // overlaps on the end
-         if ((extra = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+         if ((extra = calloc(1, sizeof(km_mmap_reg_t))) == NULL) {
             return -ENOMEM;
          }
          *extra = *reg;
          reg->size = addr + size - reg->start;   // left part , to insert in busy
          extra->start = addr + size;             // right part, to keep in busy
          extra->size -= reg->size;
+         if (reg->filename != NULL) {
+            extra->filename = strdup(reg->filename);
+            extra->offset += reg->size;
+         }
          km_mmap_insert_busy_after(reg, extra);   // fall through to process 'reg'
       }
       assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range
@@ -391,6 +406,13 @@ static int km_mmap_busy_check_contigious(km_gva_t addr, size_t size)
 // Guest mprotect implementation. Params should be already checked and locks taken.
 static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 {
+   // mprotect allowed on memory under machine.brk
+   if (addr + size <= machine.brk && addr >= GUEST_MEM_START_VA) {
+      if (mprotect(km_gva_to_kma_nocheck(addr), size, prot) < 0) {
+         return -errno;
+      }
+      return 0;
+   }
    // Per mprotect(3) if there are un-mmaped pages in the area, error out with ENOMEM
    if (km_mmap_busy_check_contigious(addr, size) != 0) {
       km_infox(KM_TRACE_MMAP, "mprotect area not fully mapped");
@@ -423,6 +445,7 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
                                      mmap_allocation_type_e allocation_type)
 {
    km_mmap_reg_t* reg;
+   km_mmap_reg_t* extra;
    km_gva_t ret;
 
    if ((flags & MAP_FIXED)) {
@@ -430,13 +453,49 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
       if ((reg = km_find_reg_nolock(gva)) == NULL || reg->start + reg->size < gva + size) {
          return -EINVAL;
       }
+
+      if (reg->start < gva) {
+         // Split front
+         extra = malloc(sizeof(km_mmap_reg_t));
+         *extra = *reg;
+         extra->size = gva - reg->start;
+         if (reg->filename) {
+            extra->filename = strdup(reg->filename);
+         }
+         reg->start = gva;
+         reg->size -= extra->size;
+         reg->offset += extra->size;
+         km_mmap_insert_busy_before(reg, extra);
+      }
+      if (gva + size < reg->start + reg->size) {
+         // Split rear
+         extra = malloc(sizeof(km_mmap_reg_t));
+         *extra = *reg;
+         extra->start += size;
+         extra->size -= size;
+         extra->offset += size;
+         if (reg->filename) {
+            extra->filename = strdup(reg->filename);
+         }
+         reg->start = gva;
+         reg->size = size;
+         km_mmap_insert_busy_after(reg, extra);
+      }
+      if (fd < 0) {
+         // free(reg->filename);
+         // reg->filename = NULL;
+         // mmap
+         mmap(km_gva_to_kma(gva), size, prot, flags, fd, offset);
+      }
+      reg->flags = flags;
+      reg->protection = prot;
       return gva;
    }
    if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
       assert(size <= reg->size);
       if (reg->size > size) {   // free mmap has extra room to be kept in 'free'
          km_mmap_reg_t* busy;
-         if ((busy = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+         if ((busy = calloc(1, sizeof(km_mmap_reg_t))) == NULL) {
             return -ENOMEM;
          }
          *busy = *reg;
@@ -449,7 +508,7 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
          km_mmap_remove_free(reg);
       }
    } else {   // nothing useful in the free list, get fresh memory by moving tbrk down
-      if ((reg = malloc(sizeof(km_mmap_reg_t))) == NULL) {
+      if ((reg = calloc(1, sizeof(km_mmap_reg_t))) == NULL) {
          return -ENOMEM;
       }
       km_gva_t want = machine.tbrk - size;
@@ -464,7 +523,10 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
    reg->protection = prot;
    reg->km_flags.data32 = 0;
    reg->km_flags.km_mmap_monitor = ((allocation_type == MMAP_ALLOC_MONITOR) ? 1 : 0);
-   reg->gfd = fd;
+   char* filename = km_guestfd_name(NULL, fd);
+   if (filename != NULL) {
+      reg->filename = realpath(filename, NULL);
+   }
    reg->offset = offset;
    km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
    km_mmap_insert_busy(reg);
@@ -498,6 +560,7 @@ static km_gva_t km_guest_mmap_impl(km_gva_t gva,
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
+   size = roundup(size, KM_PAGE_SIZE);
    mmaps_lock();
    ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset, allocation_type);
    mmaps_unlock();
@@ -735,7 +798,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    }
    warnx("Write coredump to '%s'", core_path);
 
-   if ((notes_buffer = (char*)malloc(notes_length)) == NULL) {
+   if ((notes_buffer = (char*)calloc(1, notes_length)) == NULL) {
       errx(2, "%s - cannot allocate notes buffer", __FUNCTION__);
    }
    memset(notes_buffer, 0, notes_length);
@@ -752,6 +815,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
 
       phnum++;
    }
+   end_load += km_guest.km_load_adjust;
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {
          continue;
@@ -776,7 +840,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       }
       km_core_write_load_header(fd,
                                 offset,
-                                km_guest.km_phdr[i].p_vaddr,
+                                km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
                                 km_guest.km_phdr[i].p_memsz,
                                 km_guest.km_phdr[i].p_flags);
       offset += km_guest.km_phdr[i].p_memsz;
@@ -805,7 +869,9 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       if (km_guest.km_phdr[i].p_type != PT_LOAD) {
          continue;
       }
-      km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr, km_guest.km_phdr[i].p_memsz);
+      km_guestmem_write(fd,
+                        km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
+                        km_guest.km_phdr[i].p_memsz);
    }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {

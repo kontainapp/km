@@ -12,7 +12,7 @@ TOP := $(shell git rev-parse --show-cdup)
 
 # SUBDIRS := idt
 
-LIB := runtime_unused
+LIB := runtime
 
 # following it to compute SOURCES, picking up all .c files from relevant dirs
 # (i.e. skipping SKIP_SRC_DIR). Then drop the base implementations for the sake of
@@ -20,23 +20,28 @@ LIB := runtime_unused
 SRCDIR := musl/
 ARCH := x86_64
 SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq process sched)
-SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/)))
+SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/ crt/ ldso/)))
 
-KM_REPLACED_SRCS := syscall.s syscall_cp.s __libc_start_main.c __init_tls.c __reset_tls.c  getenv.c uname.c \
-					pthread_create.c pthread_join.c pthread_setcancelstate.c preadv.c pwritev.c fcntl.c procfdname.c sigaltstack.c
+KM_REPLACED_SRCS := __set_thread_area.s syscall.s syscall_cp.s getenv.c uname.c preadv.c pwritev.c fcntl.c procfdname.c sigaltstack.c clone.s
 KM_EXTRA_SRCS := $(wildcard *_km.c) $(wildcard *.s)
 
-KM_PTHREAD_OBJS := pthread_cond_broadcast.o pthread_cond_destroy.o pthread_cond_signal.o pthread_cond_wait.o \
-						 pthread_create_km.o pthread_detach.o pthread_getspecific.o pthread_join_km.o pthread_key_create.o \
-						 pthread_key_delete.o pthread_mutex_lock.o pthread_mutex_unlock.o pthread_once.o \
-						 pthread_rwlock_rdlock.o pthread_rwlock_unlock.o pthread_rwlock_wrlock.o pthread_setspecific.o
+PTHREAD_CFLS := pthread_cond_broadcast.c pthread_cond_destroy.c pthread_cond_signal.c pthread_cond_wait.c \
+					 pthread_create.c pthread_detach.c pthread_getspecific.c pthread_join.c pthread_key_create.c \
+					 pthread_key_delete.c pthread_mutex_lock.c pthread_mutex_unlock.c pthread_once.c \
+					 pthread_rwlock_rdlock.c pthread_rwlock_unlock.c pthread_rwlock_wrlock.c pthread_setspecific.c
 
 BASE_SRCS := $(wildcard $(addsuffix *.c,$(SRC_DIRS)))
 ARCH_SRCS := $(wildcard $(addsuffix $(ARCH)/*.[csS],$(SRC_DIRS)))
 # asm/arch specific implementations replacing base ones
 REPLACED_SRCS := $(addsuffix .%, $(subst /$(ARCH)/,/,$(basename $(ARCH_SRCS))))
-SOURCES := $(filter-out ${REPLACED_SRCS}, ${BASE_SRCS} ${ARCH_SRCS})
-SOURCES := $(filter-out $(addprefix %, ${KM_REPLACED_SRCS}), ${SOURCES}) ${KM_EXTRA_SRCS}
+ALL_SOURCES := $(filter-out ${REPLACED_SRCS}, ${BASE_SRCS} ${ARCH_SRCS})
+ALL_SOURCES := $(filter-out $(addprefix %, ${KM_REPLACED_SRCS}), ${ALL_SOURCES}) ${KM_EXTRA_SRCS}
+
+SOURCES := $(filter-out $(addprefix %, ${PTHREAD_CFLS}), $(filter musl/src/%,$(ALL_SOURCES))) ${KM_EXTRA_SRCS}
+PTHREAD_SRCS := $(filter $(addprefix %, ${PTHREAD_CFLS}), $(filter musl/src/%,$(ALL_SOURCES)))
+
+DL_SOURCES := $(filter musl/ldso/%,${ALL_SOURCES})
+CRT_SOURCES := $(filter musl/crt/%,$(ALL_SOURCES))
 
 H_DIRS := arch/$(ARCH) arch/generic src/include src/internal src/errno include
 # has to be recursive assignment as BLDDIR is defined in an include below
@@ -56,21 +61,48 @@ COPTS := -Os -ggdb -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 
 include ${TOP}make/actions.mk
 
-all: $(addprefix ${BLDDIR}, libkmpthread.a) $(addprefix ${BLDDIR}, libruntime.a) $(addprefix ${BLDDIR}, libm.a)
+SO_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, $(basename ${SOURCES} ${PTHREAD_SRCS})))
+DL_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, $(basename ${DL_SOURCES})))
+CRT_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${CRT_SOURCES})))
+PTHREAD_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${PTHREAD_SRCS})))
 
-KM_PTHREAD_OFILES = $(filter $(addprefix %,${KM_PTHREAD_OBJS}), ${OBJS})
-OFILES = $(filter-out $(addprefix %,${KM_PTHREAD_OBJS}), ${OBJS})
+$(CRT_OBJS): CFLAGS += -DCRT
+$(SO_OBJS) $(DL_OBJS): CFLAGS += -fPIC
+${BLDDIR}musl/crt/Scrt1.o ${BLDDIR}musl/crt/rcrt1.o: CFLAGS += -fPIC
 
-$(addprefix ${BLDDIR}, libkmpthread.a): ${KM_PTHREAD_OFILES}
-	@echo "Making " $@; rm -f $@; ld -r ${KM_PTHREAD_OFILES} -o $*.o; ${AR} crs $@ -o $*.o
-
-$(addprefix ${BLDDIR}, libruntime.a): ${OFILES}
-	@echo "Making " $@; rm -f $@; ${AR} crs $@ ${OFILES}
+all: $(addprefix ${BLDDIR},libm.a libpthread.a libc.so.km) ${CRT_OBJS}
 
 $(addprefix ${BLDDIR}, libm.a):
 	@echo "Making " $@; rm -f $@; ${AR} crs $@
 
+$(addprefix ${BLDDIR}, libpthread.a): ${PTHREAD_OBJS}
+	@echo "Making " $@; rm -f $@; ld -r ${PTHREAD_OBJS} -o $*.o; ${AR} crs $@ -o $*.o
+
+$(addprefix ${BLDDIR}, libc.so.km): ${SO_OBJS} ${DL_OBJS}
+	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} /usr/lib/gcc/x86_64-redhat-linux/9/libgcc.a
+
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
+
+EXTRA_OBJDIRS = $(sort $(dir ${DL_OBJS})) $(sort $(dir ${CRT_OBJS}))
+${SO_OBJS} ${DL_OBJS}: | ${OBJDIRS}	${EXTRA_OBJDIRS} # order only prerequisite - just make sure it exists
+
+${EXTRA_OBJDIRS}:
+	mkdir -p $@
+
+${BLDDIR}%.lo: %.c
+	@echo $(CC) -c ${CFLAGS} $< -o $@
+	@$(CC) -c ${CFLAGS} $< -o $@ |& \
+		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+
+${BLDDIR}%.lo: %.s
+	@echo $(CC) -c ${CFLAGS} $< -o $@
+	@$(CC) -c ${CFLAGS} $< -o $@ |& \
+		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+
+${BLDDIR}%.lo: %.S
+	@echo $(CC) -c ${CFLAGS} $< -o $@
+	@$(CC) -c ${CFLAGS} $< -o $@ |& \
+		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 ${BLDDIR}${SRCDIR}include/bits/alltypes.h: $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in
 	mkdir -p $(dir $@)

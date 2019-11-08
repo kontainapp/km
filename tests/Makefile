@@ -21,19 +21,24 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
+SHRSRC := dlopen_test.c dlopen_test_lib.c
+
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./gdb
 
-COPTS ?= -ggdb -O2
+COPTS ?= -ggdb -O2 -fPIC
 CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
 LDFLAGS = -ggdb -pthread
 KCC := kontain-gcc
-DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
+DEPS = ${SRC:%.c=%.d} ${SHRSRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
 EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
+SEXECS := ${SHRSRC:%.c=%.so} ${KM_PAYLOADS:%.km=%.so}
+
 CXXFLAGS=${CFLAGS}
 ${SRC_CPP:%.cpp=%.km}: KCC=kontain-g++
+${SRC_CPP:%.cpp=%.so}: KCC=kontain-g++
 ${SRC_CPP:%.cpp=%}: CC=g++
 
 # Test: run by BATS, definition in TEST_FILES, test name has to MATCH
@@ -45,7 +50,7 @@ MATCH ?= .*
 TIME_INFO = ${TOP}build/time_info.txt
 
 # default target, should be first in file
-all: ${EXECS} ## Build all test, for Linux and KM
+all: ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
 
 ${KM_PAYLOADS}: ${TOP}build/runtime
 
@@ -54,21 +59,25 @@ ${KM_PAYLOADS}: ${TOP}build/runtime
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
 	@rm -f ${TIME_INFO}
 ifeq (${MAKECMDGOALS},.coverage)
-	@-export KM_BIN=$(KM_BIN); export TIME_INFO=${TIME_INFO}; ${BATS} -p -f "${MATCH}" ${TEST_FILES}
+	@-export KM_BIN=$(KM_BIN); export KM_LDSO=${KM_LDSO}; export TIME_INFO=${TIME_INFO}; ${BATS} -p -f "${MATCH}" ${TEST_FILES}
 else
-	@export KM_BIN=$(KM_BIN); export TIME_INFO=${TIME_INFO};  ${BATS} -p -f "${MATCH}" ${TEST_FILES}
+	@export KM_BIN=$(KM_BIN); export KM_LDSO=${KM_LDSO}; export TIME_INFO=${TIME_INFO};  ${BATS} -p -f "${MATCH}" ${TEST_FILES}
 endif
 	@echo -e "${GREEN}Tests slower than 0.1 sec:${NOCOLOR}"
 	@grep elapsed ${TIME_INFO} | grep -v "elapsed 0:00.[01]" | sort -r
 	@echo ""
 	@rm -f ${TIME_INFO}
 
+%.so: %.o
+	${KCC} -shared ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
+
 %.km: %.o
 	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
 
 .PHONY: load_expected_size
-load_expected_size: load_test.km
+load_expected_size: load_test.km load_test.so
 	@nm load_test.km | awk '/ _end/{ print "0x" $$1}'
+	@nm load_test.so | awk '/ _end/{ print "0x" $$1}'
 
 %.d: %.c
 	@# print the command we really need to run
@@ -97,7 +106,7 @@ load_expected_size: load_test.km
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d $(EXECS) kmcore $(TIME_INFO)
+	rm -f *.o *.d $(EXECS) $(SEXECS) kmcore $(TIME_INFO)
 
 #
 # do not generate .d file for some targets

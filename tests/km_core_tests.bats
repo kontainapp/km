@@ -18,17 +18,28 @@ load test_helper
 @test "setup_link: check if linking produced text segment where we expect" {
    run objdump -wp load_test.km
    [[ $(echo -e "$output" | awk '/LOAD/{print $5}' | sort -g | head -1) -eq 0x200000 ]]
+
+   run objdump -wp load_test.so
+   [[ $(echo -e "$output" | awk '/LOAD/{print $5}' | sort -g | head -1) -eq 0x000000 ]]
 }
 
 @test "setup_basic: basic vm setup, workload invocation and exit value check (exit_value_test)" {
    for i in $(seq 1 200) ; do # a loop to catch race with return value, if any
       run km_with_timeout exit_value_test.km
       assert_equal $status 17
+
+      run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- exit_value_test.so
+      assert_equal $status 17
    done
 }
 
 @test "setup_load: load elf and layout check (load_test)" {
    run km_with_timeout load_test.km
+   # Show this on failure:
+   echo -e "\n*** Try to run 'make load_expected_size' in tests, and replace load.c:size value\n"
+   assert_success
+
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- load_test.so -s
    # Show this on failure:
    echo -e "\n*** Try to run 'make load_expected_size' in tests, and replace load.c:size value\n"
    assert_success
@@ -50,10 +61,30 @@ load test_helper
    run km_with_timeout stray_test.km hc-badarg 3
    assert [ $status == 31 ]  #SIGSYS
    assert_output --partial "Bad system call"
+
+   # shared TODO: core dump needs fixing.
+#   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- stray_test.so hc 400
+#   assert [ $status == 31 ]  #SIGSYS
+#   assert_output --partial "Bad system call"
+#
+#   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- stray_test.so hc -10
+#   assert [ $status == 31 ]  #SIGSYS
+#   assert_output --partial "Bad system call"
+#
+#   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- stray_test.so hc 1000
+#   assert [ $status == 31 ]  #SIGSYS
+#   assert_output --partial "Bad system call"
+#
+#   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- stray_test.so hc -badarg 3
+#   assert [ $status == 31 ]  #SIGSYS
+#   assert_output --partial "Bad system call"
 }
 
 @test "km_main: wait on signal (hello_test)" {
    run timeout -s SIGUSR1 1s ${KM_BIN} --wait-for-signal hello_test.km
+   [ $status -eq 124 ]
+
+   run timeout -s SIGUSR1 1s ${KM_BIN} --wait-for-signal ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so
    [ $status -eq 124 ]
 }
 
@@ -93,7 +124,7 @@ load test_helper
    tmp=/tmp/hello$$ ; cp hello_test $tmp.km
    run km_with_timeout $tmp # Linux executable instead of .km
    assert_failure
-   assert_line "km: Non-KM binary: cannot find interrupt handler(*), tsd size(*), or sigreturn(*). Trying to run regular Linux executable in KM?"
+   assert_line "km: Non-KM binary: cannot find interrupt handler(*) or sigreturn(*). Trying to run regular Linux executable in KM?"
    rm $tmp.km # may leave dirt if the tests above fail
 
    log=`mktemp`
@@ -105,6 +136,52 @@ load test_helper
    assert grep -q 'Setting VendorId ' $log  # stderr
    rm $log
    run km_with_timeout -V --log-to=/very/bad/place hello_test.km
+   assert_failure
+
+   # Shared
+   # -v flag prints version and branch
+   run km_with_timeout -v ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so
+   assert_success
+   branch=$BRANCH
+   assert_line --partial "$branch"
+   
+   run km_with_timeout -Vkvm ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so # -V<regex> turns on tracing for a subsystem. Check it for -Vkvm
+   assert_success
+   assert_line --partial "KVM_EXIT_IO"
+
+   # -g[port] turns on gdb and tested in gdb coverage. Let's validate a failure case
+   run km_with_timeout -gfoobar ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so
+   assert_failure
+   assert_line  "km: Wrong gdb port number 'foobar'"
+
+   corefile=/tmp/km$$
+   run km_with_timeout -Vcoredump -C $corefile ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so # -C sets coredump file name
+   assert_success
+   assert_output --partial "Setting coredump path to $corefile"
+
+   run km_with_timeout -P 31 ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so # -P sets Physical memory bus width
+   assert_failure
+   assert_line  "km: Guest memory bus width must be between 32 and 63 - got '31'"
+
+   run km_with_timeout -P32 ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so
+   assert_success
+
+   # KM will auto-add '.km' to file name, so create a .km file with Linux executable
+   tmp=/tmp/hello$$ ; cp hello_test $tmp.km
+   run km_with_timeout $tmp # Linux executable instead of .km
+   assert_failure
+   assert_line "km: Non-KM binary: cannot find interrupt handler(*) or sigreturn(*). Trying to run regular Linux executable in KM?"
+   rm $tmp.km # may leave dirt if the tests above fail
+
+   log=`mktemp`
+   echo Log location: $log
+   run km_with_timeout -V --log-to=$log ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so # check --log-to option
+   assert_success
+   assert [ -e $log ]
+   assert grep -q 'Hello, world' $log       # stdout
+   assert grep -q 'Setting VendorId ' $log  # stderr
+   rm $log
+   run km_with_timeout -V --log-to=/very/bad/place ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so
    assert_failure
 }
 
@@ -125,6 +202,22 @@ load test_helper
 
    run km_with_timeout --putenv PATH=testingpath --copyenv env_test.km
    assert_failure
+
+   # shared
+   run km_with_timeout --putenv PATH=$val ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- env_test.so
+   assert_success
+   assert_output --partial "PATH=$val"
+
+   run km_with_timeout --copyenv --copyenv ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- env_test.so
+   assert_success
+   assert_line "km: Ignoring redundant '--copyenv' option"
+   assert_line "getenv: PATH=$PATH"
+
+   run km_with_timeout --copyenv --putenv MORE=less ${KM__LDSO} env_test.so
+   assert_failure
+
+   run km_with_timeout --putenv PATH=testingpath --copyenv ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- env_test.so
+   assert_failure
 }
 
 @test "mem_slots: KVM memslot / phys mem sizes (memslot_test)" {
@@ -135,12 +228,18 @@ load test_helper
 @test "mem_regions: Crossing regions boundary (regions_test)" {
    run ${KM_BIN} regions_test.km
    assert_success
+
+   run ${KM_BIN} ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- regions_test.so
+   assert_success
 }
 
 @test "mem_brk: brk() call (brk_test)" {
    # we expect 3 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
    if [ $(bus_width) -eq 36 ] ; then expected_status=3 ; else  expected_status=0; fi
    run km_with_timeout --overcommit-memory brk_test.km
+   assert [ $status -eq $expected_status ]
+
+   run km_with_timeout --overcommit-memory ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- brk_test.so
    assert [ $status -eq $expected_status ]
 }
 
@@ -151,6 +250,13 @@ load test_helper
    linux_out="${output}"
 
    run km_with_timeout hello_test.km $args
+   assert_success
+   # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
+   diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
+
+   # shared
+   echo run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so $args
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so $args
    assert_success
    # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
    diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
@@ -170,6 +276,13 @@ load test_helper
 	run curl -s $address
    assert_success
    diff <(echo -e "$linux_out")  <(echo -e "$output")
+
+   # shared 
+   (km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_html_test.so &)
+   sleep 0.5s
+	 run curl -s $address
+   assert_success
+   diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
 
 @test "mem_mmap: mmap and munmap with addr=0 (mmap_test)" {
@@ -178,12 +291,19 @@ load test_helper
 
    run km_with_timeout mmap_test.km -v
    [ $status -eq $expected_status ]
+
+   # shared - TODO - 1 failure out of 6 tests.
+   #run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- mmap_test.so -v
+   #[ $status -eq $expected_status ]
 }
 
 @test "futex example" {
    skip "TODO: convert to test"
 
    run km_with_timeout futex.km
+   assert_success
+
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- futex.so
    assert_success
 }
 
@@ -199,6 +319,8 @@ load test_helper
    # check that KM exited normally
    wait $gdb_pid
    assert_success
+
+   # TODO: shared objects
 }
 
 # Test with signals
@@ -214,6 +336,8 @@ load test_helper
    # check that KM exited normally
    run wait $gdb_pid
    assert [ $status -eq 6 ]
+
+   # TODO: shared objects
 }
 
 @test "gdb_exception: gdb exception support (stray_test)" {
@@ -228,10 +352,15 @@ load test_helper
    # check that KM exited normally
    run wait $gdb_pid
    assert [ $status -eq 11 ]  # SIGSEGV
+
+   # TODO: shared objects
 }
 
 @test "Unused memory protection: check that unused memory is protected (mprotect_test)" {
    run km_with_timeout mprotect_test.km -v
+   assert_success
+
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- mprotect_test.so -v
    assert_success
 }
 
@@ -239,10 +368,19 @@ load test_helper
    run km_with_timeout hello_2_loops_tls_test.km
    assert_success
    refute_line --partial 'BAD'
+
+   # TODO: error loading ld-linux-x86-64.so !!! fix this (shared)
+   #run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_2_loops_tls_test.so
+   #assert_success
+   #refute_line --partial 'BAD'
 }
 
 @test "threads_basic: threads with TSD, create, exit and join (hello_2_loops_test)" {
    run km_with_timeout hello_2_loops_test.km
+   assert_success
+
+   # shared
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_2_loops_test.so
    assert_success
 }
 
@@ -250,10 +388,19 @@ load test_helper
    run km_with_timeout exit_grp_test.km
    # the test can exit(17) from main thread or random exit(11) from subthread
    assert [ $status -eq 17 -o $status -eq 11  ]
+
+   # shared
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- exit_grp_test.so
+   # the test can exit(17) from main thread or random exit(11) from subthread
+   assert [ $status -eq 17 -o $status -eq 11  ]
 }
 
 @test "threads_mutex: mutex (mutex_test)" {
    run km_with_timeout mutex_test.km
+   assert_success
+
+   # shared
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- mutex_test.so
    assert_success
 }
 
@@ -262,6 +409,10 @@ load test_helper
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; fi
    run km_with_timeout mem_test.km
+   assert [ $status -eq $expected_status ]
+
+   # shared
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- mem_test.so
    assert [ $status -eq $expected_status ]
 }
 
@@ -281,6 +432,23 @@ load test_helper
    assert_failure
    run km_with_timeout -P -1 hello_test.km
    assert_failure
+
+   # Shared
+   # Don't support bus smaller than 32 bits
+   run km_with_timeout -P 31 ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so
+   assert_failure
+   # run hello test in a guest with a 33 bit memory bus.
+   # TODO: instead of bus_width, we should look at pdpe1g - without 1g pages, we only support 2GB of memory anyways
+   if [ $(bus_width) -gt 36 ] ; then
+      run km_with_timeout -P 33 ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so
+      assert_success
+   fi
+   run km_with_timeout -P `expr $(bus_width) + 1` ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so # Don't support guest bus larger the host bus
+   assert_failure
+   run km_with_timeout -P 0 ${KM_LDDO} hello_test.so # Don't support 0 width bus
+   assert_failure
+   run km_with_timeout -P -1 ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so
+   assert_failure
 }
 
 @test "brk_map_test: test brk and map w/physical memory override (brk_map_test)" {
@@ -290,6 +458,15 @@ load test_helper
    fi
    # make sure we fail gracefully if there is no 1G pages supported. Also checks longopt
    run km_with_timeout --membus-width=33 --disable-1g-pages brk_map_test.km -- 33
+   assert_failure
+
+   # Shared
+   if [ $(bus_width) -gt 36 ] ; then
+      run km_with_timeout -P33 ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- brk_map_test.so -- 33
+      assert_success
+   fi
+   # make sure we fail gracefully if there is no 1G pages supported. Also checks longopt
+   run km_with_timeout --membus-width=33 --disable-1g-pages ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- brk_map_test.so -- 33
    assert_failure
 }
 
@@ -306,6 +483,10 @@ load test_helper
    run km_with_timeout cpuid_test.km
    assert_success
    assert_line --partial 'Kontain'
+
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- cpuid_test.so
+   assert_success
+   assert_line --partial 'Kontain'
 }
 
 @test "longjmp_test: basic setjmp/longjump" {
@@ -315,6 +496,11 @@ load test_helper
    linux_out="${output}"
 
    run km_with_timeout longjmp_test.km $args
+   assert_success
+   # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
+   diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
+
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- longjmp_test.so $args
    assert_success
    # argv[0] differs for linux and km (KM argv[0] is different, and there can be 'km:  .. text...' warnings) so strip it out, and then compare results
    diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
@@ -426,15 +612,23 @@ load test_helper
    run km_with_timeout --coredump=${CORE} stray_test.km close 5
    assert [ $status -eq 9 ]  # EBADF
    assert [ ! -f ${CORE} ]
+
+   # TODO: Core file for .so
 }
 
 @test "signals: signals in the guest (signals)" {
    run km_with_timeout signal_test.km -v
    assert_success
+
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- signal_test.so -v
+   assert_success
 }
 
 @test "pthread_cancel: (pthread_cancel_test)" {
    run km_with_timeout pthread_cancel_test.km -v
+   assert_success
+
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- pthread_cancel_test.so -v
    assert_success
 }
 
@@ -447,6 +641,8 @@ load test_helper
    dtors=`echo -e "$output" | grep -F Destructor | wc -l`
    assert [ "$ctors" -gt 0 ]
    assert [ "$ctors" -eq "$dtors" ]
+
+   # TODO: CPP for .so
 }
 
 
@@ -459,10 +655,16 @@ load test_helper
    [ "$status" -eq 0 ]
 
    diff <(echo -e "$linux_out")  <(echo -e "$output")
+
+   # TODO: CPP for .so
+   #run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- throw_basic_test.so
+   #[ "$status" -eq 0 ]
 }
 
 @test "filesys: guest file system operations (filesys_test)" {
    run km_with_timeout filesys_test.km -v
+   assert_success
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- filesys_test.so -v
    assert_success
 }
 
@@ -475,19 +677,39 @@ load test_helper
    run km_with_timeout filepath_test.km ${DIRNAME} 500
    assert_success
    rm -rf /tmp/${DIRNAME}
+
+   # TODO: core dumped
+   #DIRNAME=`mktemp -d`
+   #run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- filepath_test.so ${DIRNAME} 500
+   #assert_success
+   #rm -rf /tmp/${DIRNAME}
 }
 
 @test "socket: guest socket operations (socket_test)" {
    run km_with_timeout socket_test.km
+   assert_success
+
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- socket_test.so
    assert_success
 }
 
 @test "dl_iterate_phdr: AUXV and dl_iterate_phdr (dl_iterate_phdr_test)" {
    run km_with_timeout dl_iterate_phdr_test.km -v
    assert_success
+
+   # TODO: core dump
+   #run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- dl_iterate_phdr_test.so -v
+   #assert_success
 }
 
 @test "monitor_maps: munmap gdt and idt (munmap_monitor_maps_test)" {
    run km_with_timeout munmap_monitor_maps_test.km
    assert_success
+}
+
+# dlopen
+@test "dlopen_test.so: simple dlopen (dlopen_test)" {
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- dlopen_test.so
+   assert_success
+
 }
