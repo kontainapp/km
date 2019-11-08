@@ -32,10 +32,8 @@ DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
 EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
-SHRSRC := hello.c hello_lib.c ${SRC} ${SRC_CPP}
+SHRSRC := dlopen_test.c dlopen_test_lib.c ${SRC} ${SRC_CPP}
 SOBJS := ${SHRSRC:%.c=%.so} ${SHRSRC:%.cpp=%.so}
-
-${KM_PAYLOADS}: ${TOP}build/runtime
 
 CXXFLAGS=${CFLAGS}
 ${SRC_CPP:%.cpp=%.km}: KCC=kontain-g++

@@ -1,7 +1,7 @@
 %rename link old_link
 
 *lib:
--lruntime
+-lruntime -lkmpthread -lruntime
 
 *libgcc:
 -lgcc -lgcc_eh

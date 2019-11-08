@@ -702,8 +702,8 @@ load test_helper
 }
 
 # dlopen
-@test "hello.so: simple dlopen (hello)" {
-   run km_with_timeout ${KM_LDSO} hello.so
+@test "dlopen_test.so: simple dlopen (dlopen_test)" {
+   run km_with_timeout ${KM_LDSO} dlopen_test.so
    assert_success
 
 }
