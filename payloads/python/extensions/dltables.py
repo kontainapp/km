@@ -13,6 +13,20 @@
 # Prepare dlopen/dlsym tables for a module from a build log output
 #
 
+"""
+TODO:now that dlstatic numpy properly links (11/9), need to finalize the work:
+
+- add dl* implementation and test with markupsafe
+- PR: add ctypes to python build (separate PR)
+- test import and some ops with numpy
+- add auto forming of -L -l for link lines
+- pass on build.sh to recover full automation. Add @link files to link.sh automatically
+- remove long lines (location at least) from everywhere and safe it as vars in Makefile. Generate link files with relative (to python)path
+- remove prints, remove hacks in config/support files, clean up python entry inlaunch.json
+- PR#2
+- review generalization - what is Python specific, what needs to be separated, do a PR #3
+"""
+
 import os
 import subprocess
 import sys
@@ -92,9 +106,6 @@ makefile_template = """#
 #   builds .a for each .so
 #   links the result by passing .o files explicitly and .a files as -l
 
-# TODO - convert Obj and get link status
-
-# TODO - pass it !
 KM_RUNTIME_INCLUDES := /home/msterin/workspace/km/runtime
 CFLAGS := -g -I$(KM_RUNTIME_INCLUDES)
 LINK_LINE_FILE := linkline_km.txt
@@ -169,14 +180,15 @@ def process_file(file_name, so_suffix):
         so_file_name = [w for w in elements if w.endswith(so_suffix)][0]
         objs = [w for w in elements if w.endswith(".o")]
         so_full_path_name = os.path.join(location, so_file_name)
-        id, short_name = convert(so_full_path_name, so_suffix)
+        id, munged_name = convert(so_full_path_name, so_suffix)
 
         names = []
+        # extract synames from individual .o files. Note that we cannot extact them from
+        # the final .so since it may include other libs via `-l' flag, and those do not need to be munged
         for o in objs:
             nmargs = ["nm", "-g", "--defined-only", os.path.join(location, o)]
-            nm = subprocess.run(nmargs,
-                                capture_output=True, encoding="utf-8")
-            print("NMARGS= ", " ".join(nmargs))
+            print(" ".join(nmargs))
+            nm = subprocess.run(nmargs, capture_output=True, encoding="utf-8")
             if nm.returncode != 0:
                 print("** NM FAILED for {}. stderr={}".format(so_file_name, nm.stderr))
                 continue
@@ -184,7 +196,7 @@ def process_file(file_name, so_suffix):
             # nm.stdout is a list of nm output lines, each has "address TYPE symname". Extract symnames array:
             # names = [i.split()[2] for i in nm.stdout.splitlines()]
         symbols = [{"name": n, "munged": n + id} for n in names]
-        meta_data = {"so": so_file_name, "id": id, "short_name": short_name, "objs": objs}
+        meta_data = {"so": so_file_name, "id": id, "munged_name": munged_name, "objs": objs}
         mk_info.append(meta_data)
         try:
             # Save file with symbols munging , for use with objcopy
@@ -195,7 +207,7 @@ def process_file(file_name, so_suffix):
             c_table_name = so_full_path_name.replace(so_suffix, symbols_c_suffix)
             with open(c_table_name, 'w') as f:
                 f.write(jinja2.Template(symfile_template).render(so=so_file_name[len(BUILD_LIB_PREFIX):],
-                                                                 mod=short_name,
+                                                                 mod=munged_name,
                                                                  symbols=symbols))
              # TODO run clang-format here
             try:
