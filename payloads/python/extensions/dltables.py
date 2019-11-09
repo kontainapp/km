@@ -171,15 +171,18 @@ def process_file(file_name, so_suffix):
         so_full_path_name = os.path.join(location, so_file_name)
         id, short_name = convert(so_full_path_name, so_suffix)
 
-        nm = subprocess.run(["nm", "-s", "-Dg", "--defined-only",
-                             os.path.join(location, so_file_name)],
-                            capture_output=True, encoding="utf-8")
-        if nm.returncode != 0:
-            print("** NM FAILED for {}. stderr={}".format(so_file_name, nm.stderr))
-            continue
-
-        # nm.stdout is a list of nm output lines, each has "address TYPE symname". Extract symnames array:
-        names = [i.split()[2] for i in nm.stdout.splitlines()]
+        names = []
+        for o in objs:
+            nmargs = ["nm", "-g", "--defined-only", os.path.join(location, o)]
+            nm = subprocess.run(nmargs,
+                                capture_output=True, encoding="utf-8")
+            print("NMARGS= ", " ".join(nmargs))
+            if nm.returncode != 0:
+                print("** NM FAILED for {}. stderr={}".format(so_file_name, nm.stderr))
+                continue
+            names += [i.split()[2] for i in nm.stdout.splitlines()]
+            # nm.stdout is a list of nm output lines, each has "address TYPE symname". Extract symnames array:
+            # names = [i.split()[2] for i in nm.stdout.splitlines()]
         symbols = [{"name": n, "munged": n + id} for n in names]
         meta_data = {"so": so_file_name, "id": id, "short_name": short_name, "objs": objs}
         mk_info.append(meta_data)
