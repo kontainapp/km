@@ -5,7 +5,7 @@ set -x
 KM_TOP=../$(git rev-parse --show-cdup)
 PATH=${KM_TOP}/tools:$PATH
 
-MODULE=markupsafe
+MODULE=numpy
 LINK_FILE=/home/msterin/workspace/km/payloads/python/cpython/Modules/${MODULE}/linkline_km.txt
 
 cd cpython

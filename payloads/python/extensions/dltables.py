@@ -113,8 +113,8 @@ all: $(SYMOBJ) $(LIBS)
 {# print ".a: obj_list" dependencies #}
 {% for line in info %}
 {{ line["so"] | replace(".so", "${KM_LIB_EXT}") }} : {{ line["objs"] | join(' \\\\\n\t\t') }}
-\tfor i in $< ; do objcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$i; done
-\t@ar r $@ $<
+\tfor i in $^ ; do objcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$i; done
+\t@ar r $@ $^
 {% endfor %}
 
 # allows to do 'make print-varname'
