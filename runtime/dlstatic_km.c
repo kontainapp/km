@@ -49,7 +49,11 @@ void km_dl_register(km_dl_lib_reg_t* lib)
 
 void* dlopen(const char* file, int mode)
 {
-   // open fiscan registered
+   // open .md (TODO: generate), find ID=<IDs>
+   //   [later] if failed calculate the signagure over mmaped .so
+   //   (https://dev.w3.org/libwww/modules/md5/md5.c)
+   // negative: need to install .md files side by side to accelerate
+   // scan registered, fill the handle
    return NULL;
 }
 
