@@ -70,8 +70,8 @@ process_module() {
    fi
 
    $extract_build
-   echo "=== Adding $name info to Modules/Setup.local. Lines added: $(cat km_setup.local | wc -l)"
-   cat km_setup.local >> $setup_file
+   echo "=== SKIPPING: Adding $name info to Modules/Setup.local. Lines added: $(cat km_setup.local | wc -l)"
+   # cat km_setup.local >> $setup_file
 }
 
 loc=$(realpath $PWD)

@@ -12,19 +12,13 @@
  * dl*() and dlsym() implementations which use statically linked stuff
  */
 
+#define _GNU_SOURCE
+#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "bsd_queue.h"
 #include "dlstatic_km.h"
-
-/*
-- get a list of items
-- reigster into the list
-- on dlopen, try to open the .json and get a name from it (simple search for now), or do key=value later
-- save in the list of dlopens, handle is & inside)
-- dlsym
-*/
 
 typedef struct km_dl_lib {
    LIST_ENTRY(km_dl_lib) link;
@@ -45,4 +39,26 @@ void km_dl_register(km_dl_lib_reg_t* lib)
    printf("%s: registering %s TODO\n", __FUNCTION__, lib->name);
    km_dl_lib_t* elem = malloc(sizeof(*elem));
    LIST_INSERT_HEAD(&registered, elem, link);
+}
+
+/*
+- on dlopen, try to open the .json and get a name from it (simple search for now), or do key=value later
+- save in the list of dlopens, handle is & inside)
+- dlsym
+*/
+
+void* dlopen(const char* file, int mode)
+{
+   // open fiscan registered
+   return NULL;
+}
+
+int dladdr(const void* addr_arg, Dl_info* info)
+{
+   return 0;
+}
+
+void* dlsym(void* restrict p, const char* restrict s)
+{
+   return NULL;
 }

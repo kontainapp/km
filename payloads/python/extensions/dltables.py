@@ -96,13 +96,18 @@ makefile_template = """#
 # TODO - pass it !
 KM_RUNTIME_INCLUDES := /home/msterin/workspace/km/runtime
 CFLAGS := -g -I$(KM_RUNTIME_INCLUDES)
+LINK_LINE_FILE := linkline_km.txt
 KM_LIB_EXT := .km.lib.a
 
 LIBS := {% for lib in libs %}\\\n\t{{ lib | replace(".so", "${KM_LIB_EXT}") }} {% endfor %}
 SYMOBJ := $(subst ${KM_LIB_EXT},.km.symbols.o,$(LIBS))
 
 all: $(SYMOBJ) $(LIBS)
-\t@tmp=`mktemp`; for i in ${SYMOBJ} ${LIBS} ; do echo $$(realpath $$i) >> $$tmp ; done && echo Saved link line to $$tmp
+\t@rm -f ${LINK_LINE_FILE}
+\t@for i in ${SYMOBJ} ${LIBS} ; \\
+   do \\
+     echo $$(realpath $$i) >> ${LINK_LINE_FILE} ; \\
+   done && echo Saved link line to $(realpath ${LINK_LINE_FILE})
 \t@echo TODO: make this line shorter pack all .o into one .a and force it with --all-archive and rename .a to libxx.a and use -L -l
 
 {# print ".a: obj_list" dependencies #}
@@ -111,6 +116,9 @@ all: $(SYMOBJ) $(LIBS)
 \tfor i in $< ; do objcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$i; done
 \t@ar r $@ $<
 {% endfor %}
+
+# allows to do 'make print-varname'
+print-%  : ; @echo $* = $($*)
 
 DEBUG_FULL_INFO = {{ info }}
 """
@@ -206,7 +214,8 @@ def process_file(file_name, so_suffix):
     with open(mk_json_name, 'w') as f:
         f.write(json.dumps(mk_info, indent=3))
 
-    print("Generated {} and related files".format(mk_name))
+    print("Generated makefile and related files. Use make -C {} -f {}".format(os.path.dirname(mk_name),
+                                                                              os.path.basename(mk_name)))
 
 
 if __name__ == "__main__":
