@@ -27,6 +27,7 @@ BUILD_LIB_PREFIX = "build/lib.{}-{}/".format(sysconfig.get_platform(),
 
 symtab_suffix = ".km.symmap"
 symbols_c_suffix = ".km.symbols.c"
+extension_suffix = ".so"
 
 # jinja2 template for generated .c file.
 #  FYI, jinja2 uses
@@ -100,21 +101,28 @@ LINK_LINE_FILE := linkline_km.txt
 KM_LIB_EXT := .km.lib.a
 
 LIBS := {% for lib in libs %}\\\n\t{{ lib | replace(".so", "${KM_LIB_EXT}") }} {% endfor %}
+
 SYMOBJ := $(subst ${KM_LIB_EXT},.km.symbols.o,$(LIBS))
 
+# Build libararies and create text file with .o and .a for linker
 all: $(SYMOBJ) $(LIBS)
 \t@rm -f ${LINK_LINE_FILE}
 \t@for i in ${SYMOBJ} ${LIBS} ; \\
    do \\
      echo $$(realpath $$i) >> ${LINK_LINE_FILE} ; \\
-   done && echo Saved link line to $(realpath ${LINK_LINE_FILE})
+   done && echo Saved link line to ${CURDIR}/${LINK_LINE_FILE}
 \t@echo TODO: make this line shorter pack all .o into one .a and force it with --all-archive and rename .a to libxx.a and use -L -l
 
-{# print ".a: obj_list" dependencies #}
+clean:
+\tfind . -name '*km.*' | xargs rm
+
+{# generate ".a: obj_list" dependencies #}
 {% for line in info %}
 {{ line["so"] | replace(".so", "${KM_LIB_EXT}") }} : {{ line["objs"] | join(' \\\\\n\t\t') }}
-\tfor i in $^ ; do objcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$i; done
-\t@ar r $@ $^
+\t@for i in $^ ; do \\
+\t\tf=$$(echo $$i | sed 's/.o$$/{{ line["id"] }}.o/') ; ofiles="$$ofiles $$f" ; \\
+\t\techo cp $$i $$f;  cp $$i $$f; objcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$f; \\
+\tdone && ar rv $@ $$ofiles
 {% endfor %}
 
 # allows to do 'make print-varname'
@@ -222,4 +230,4 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: {} file_name\n   file contains output with .so build commands".format(sys.argv[0]))
     else:
-        process_file(sys.argv[1], so_suffix=".so")
+        process_file(sys.argv[1], so_suffix=extension_suffix)
