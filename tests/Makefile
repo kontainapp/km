@@ -21,22 +21,24 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
+SHRSRC := dlopen_test.c dlopen_test_lib.c
+
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./gdb
 
-COPTS ?= -ggdb -O2
+COPTS ?= -ggdb -O2 -fPIC
 CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
 LDFLAGS = -ggdb -pthread
 KCC := kontain-gcc
-DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
+DEPS = ${SRC:%.c=%.d} ${SHRSRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
 EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
-SHRSRC := dlopen_test.c dlopen_test_lib.c ${SRC} ${SRC_CPP}
-SOBJS := ${SHRSRC:%.c=%.so} ${SHRSRC:%.cpp=%.so}
+SEXECS := ${SHRSRC:%.c=%.so} ${KM_PAYLOADS:%.km=%.so}
 
 CXXFLAGS=${CFLAGS}
 ${SRC_CPP:%.cpp=%.km}: KCC=kontain-g++
+${SRC_CPP:%.cpp=%.so}: KCC=kontain-g++
 ${SRC_CPP:%.cpp=%}: CC=g++
 
 # Test: run by BATS, definition in TEST_FILES, test name has to MATCH
@@ -48,7 +50,7 @@ MATCH ?= .*
 TIME_INFO = ${TOP}build/time_info.txt
 
 # default target, should be first in file
-all: ${EXECS} ${SOBJS} ## Build all test, for Linux and KM
+all: ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
 
 ${KM_PAYLOADS}: ${TOP}build/runtime
 
@@ -66,11 +68,8 @@ endif
 	@echo ""
 	@rm -f ${TIME_INFO}
 
-%.so: %.c
-	${KCC} -shared -I$(TOP)include -I$(TOP)km ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
-
-%.so: %.cpp
-	${KCC} -shared -I$(TOP)include -I$(TOP)km ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
+%.so: %.o
+	${KCC} -shared ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
 
 %.km: %.o
 	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
@@ -107,7 +106,7 @@ load_expected_size: load_test.km load_test.so
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.so *.d $(EXECS) kmcore $(TIME_INFO)
+	rm -f *.o *.d $(EXECS) $(SEXECS) kmcore $(TIME_INFO)
 
 #
 # do not generate .d file for some targets
