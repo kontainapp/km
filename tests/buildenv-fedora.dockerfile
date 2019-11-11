@@ -33,7 +33,8 @@ RUN dnf install -y gcc gcc-c++ make gdb git gcovr time patch file findutils whic
    && dnf upgrade -y && dnf clean all
 
 FROM buildenv-base AS buildenv-gcc-base
-RUN dnf install -y gmp-devel mpfr-devel libmpc-devel isl-devel flex m4
+RUN dnf install -y gmp-devel mpfr-devel libmpc-devel isl-devel flex m4 \
+   autoconf automake libtool texinfo
 
 FROM buildenv-gcc-base AS build-libstdcpp
 ARG LIBSTDCPPVER=gcc-9_2_0-release
@@ -49,8 +50,12 @@ RUN mkdir -p build_gcc && cd build_gcc \
    && make -j`expr 2 \* $(nproc)` && cd x86_64-pc-linux-gnu/libstdc++-v3 && make clean \
    && sed -i -e 's/^#define *HAVE___CXA_THREAD_ATEXIT_IMPL.*$/\/* & *\//' config.h && make -j`expr 2 \* $(nproc)`
 
+RUN git clone https://github.com/libffi/libffi -b v3.2.1
+RUN cd libffi && ./autogen.sh && ./configure --prefix=$PREFIX && make -j
+
 USER root
 RUN mkdir -p $PREFIX && make -C build_gcc/x86_64-pc-linux-gnu/libstdc++-v3 install
+RUN make -C libffi install
 
 FROM buildenv-base AS buildenv
 LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
