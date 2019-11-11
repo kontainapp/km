@@ -154,7 +154,7 @@ test-withdocker test-all-withdocker:
 buildenv-local-fedora:  ## make local build environment for KM
 	@if ! docker image inspect ${BUILDENV_IMG} > /dev/null ; then \
 		echo -e "$(RED)${BUILDENV_IMG} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
-	sudo dnf install -y `docker run --rm ${BUILDENV_IMG} dnf list --installed | awk '/x86/ {print $$1}' `
+	sudo dnf install -y `docker history --format "{{ .CreatedBy }}" --no-trunc ${BUILDENV_IMG} | sed -rn '/dnf install/s/.*dnf install -y([^&]*)(.*)/\1/p'`
 	docker create --name tmp_env $(BUILDENV_IMG)
 	sudo docker cp tmp_env:/opt/kontain /opt
 	docker rm tmp_env
