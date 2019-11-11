@@ -16,7 +16,7 @@
 #
 # Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
 
-FROM fedora:30 AS buildenv-base
+FROM fedora:31 AS buildenv-base
 ARG USER=appuser
 ARG UID=1000
 ARG GID=1000
@@ -28,7 +28,7 @@ ENV USER=$USER
 ENV PREFIX=/opt/kontain
 WORKDIR /home/$USER
 
-RUN dnf install -y gcc gcc-c++ make gdb git gcovr time patch file findutils which procps-ng python \
+RUN dnf install -y gcc gcc-c++ make gdb git gcovr time patch file findutils diffutils which procps-ng python2 \
    glibc-devel glibc-static libstdc++-static elfutils-libelf-devel elfutils-libelf-devel-static zlib-static openssl-devel openssl-static expat-static \
    && dnf upgrade -y && dnf clean all
 

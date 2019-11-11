@@ -40,7 +40,7 @@ NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
 # regular local: just run docker
 all:
 ifneq ($(shell test -d node/.git && echo OK),OK)
-	${DOCKER_RUN} -v ~/workspace/km:/src:Z -w /src kontain/buildenv-node-fedora make -C payloads/node in-blank-container
+	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src kontain/buildenv-node-fedora make -C payloads/node in-blank-container
 else
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 endif
@@ -67,17 +67,17 @@ clean:
 	@echo "Nothing to do for 'clean' - use 'clobber' to force remove build artifacts"
 	@# TODO - clean ./node build artifacts
 
-test: # ${PAYLOAD_KM} ${TEST_KM}  # 'test' target is hidden until we commit proper node builds
+test: ${PAYLOAD_KM} ${TEST_KM}
 	scripts/test-run.sh test ${KM_BIN} ${PAYLOAD_KM} ${TEST_KM}
 
 test-all: test
 	scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
 test-withdocker:  ## run tests in the testenv-image
-	${DOCKER_RUN_TEST}  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
 
 test-all-withdocker:
-	${DOCKER_RUN_TEST}  ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test-all ${NODETOP} ${BUILD}
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM} && scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./scripts
