@@ -160,8 +160,9 @@ typedef struct km_mmap_reg {
    TAILQ_ENTRY(km_mmap_reg) link;
 } km_mmap_reg_t;
 
-enum {
-   KM_MMAP_INITED = 0x1,   // 1 if area was zeroed out already
+typedef enum {
+   KM_MMAP_INITED = 0x1,    // 1 if area was zeroed out already
+   KM_MMAP_MONITOR = 0x2,   // 1 if area is allocated by monitor
 } km_mmap_flags_e;
 
 // mmaps control block

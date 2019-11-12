@@ -115,6 +115,7 @@ static km_kma_t KM_USER_MEM_BASE = (void*)0x100000000000ul;   // 16TiB
 // memreg index for an addr in the bottom half of the PA (after that the geometry changes)
 static inline int MEM_IDX(km_gva_t addr)
 {
+   assert(addr > 0);   // clzl fails when there are no 1's
    // 43 is "64 - __builtin_clzl(2*MIB)"
    return (43 - __builtin_clzl(addr));
 }
@@ -210,7 +211,8 @@ void km_guest_mmap_init(void);
 km_gva_t km_mem_brk(km_gva_t brk);
 km_gva_t km_mem_tbrk(km_gva_t tbrk);
 km_gva_t km_guest_mmap_simple(size_t stack_size);
-km_gva_t km_guest_mmap(km_gva_t addr, size_t length, int prot, int flags, int fd, off_t offset);
+km_gva_t km_guest_mmap(
+    km_gva_t addr, size_t length, int prot, int flags, int fd, off_t offset, km_mmap_flags_e km_flags);
 int km_guest_munmap(km_gva_t addr, size_t length);
 km_gva_t km_guest_mremap(km_gva_t old_address, size_t old_size, size_t new_size, int flags, ...);
 int km_guest_mprotect(km_gva_t addr, size_t size, int prot);

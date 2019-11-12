@@ -420,7 +420,8 @@ static km_hc_ret_t futex_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t mmap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
-   arg->hc_ret = km_guest_mmap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, arg->arg6);
+   arg->hc_ret =
+       km_guest_mmap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, arg->arg6, 0 /* guest mmap */);
    return HC_CONTINUE;
 };
 

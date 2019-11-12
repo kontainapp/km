@@ -84,7 +84,8 @@ static int get_maps(void)
       if (reg == info->maps + info->nfree) {   // reset distance on 'busy' list stat
          old_end = reg->start;
       }
-      printf("mmap %s: 0x%lx size 0x%lx (%s) distance 0x%lx (%s), flags 0x%x prot 0x%x\n",
+      printf("mmap %s: 0x%lx size 0x%lx (%s) distance 0x%lx (%s), flags 0x%x prot 0x%x km_flags "
+             "0x%x\n",
              type,
              reg->start,
              reg->size,
@@ -92,7 +93,8 @@ static int get_maps(void)
              reg->start - old_end,
              out_sz(reg->start - old_end),
              reg->flags,
-             reg->protection);
+             reg->protection,
+             reg->km_flags);
       old_end = reg->start + reg->size;
    }
    return 0;

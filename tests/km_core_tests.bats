@@ -486,3 +486,8 @@ load test_helper
    run km_with_timeout dl_iterate_phdr_test.km -v
    assert_success
 }
+
+@test "monitor_maps: munmap gdt, idt and userstack (munmap_monitor_maps_test)" {
+   run km_with_timeout munmap_monitor_maps_test.km
+   assert_success
+}
