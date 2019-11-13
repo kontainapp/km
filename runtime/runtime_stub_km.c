@@ -43,6 +43,7 @@ __stub__(setcontext);
 __stub__(makecontext);
 __stub__(swapcontext);
 __stub__(sigaltstack);
+__stub__(statfs);
 __stub_core__(execve);
 __stub_core__(execvp);
 __stub_core__(execv);
