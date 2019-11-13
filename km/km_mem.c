@@ -231,7 +231,7 @@ void km_guest_page_free(km_gva_t addr, size_t size)
 km_gva_t km_guest_mmap_simple(size_t size)
 {
    return km_syscall_ok(
-       km_guest_mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, KM_MMAP_MONITOR));
+       km_guest_mmap_monitor(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
 }
 
 /*

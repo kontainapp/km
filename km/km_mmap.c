@@ -419,6 +419,7 @@ static km_gva_t km_guest_mmap_nolock(
    km_mmap_reg_t* reg;
    km_gva_t ret;
 
+   assert((km_flags & (~KM_MMAP_MONITOR)) == 0);
    if ((flags & MAP_FIXED)) {
       // Only allow MAP_FIXED for already mapped regions (for MUSL dynlink.c)
       if ((reg = km_find_reg_nolock(gva)) == NULL || reg->start + reg->size < gva + size) {
@@ -472,8 +473,8 @@ static km_gva_t km_guest_mmap_nolock(
  * -EINVAL if the args are not valid
  * -ENOMEM if fails to allocate memory
  */
-km_gva_t
-km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, km_mmap_flags_e km_flags)
+static km_gva_t km_guest_mmap_impl(
+    km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, km_mmap_flags_e km_flags)
 {
    km_gva_t ret;
    km_infox(KM_TRACE_MMAP,
@@ -504,6 +505,22 @@ km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offs
    }
    km_infox(KM_TRACE_MMAP, "== mmap guest ret=0x%lx", ret);
    return ret;
+}
+
+/*
+ * wrapper to km_guest_mmap_impl for calls from guest
+ */
+km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
+{
+   return (km_guest_mmap_impl(gva, size, prot, flags, fd, offset, 0 /* guest allocation */));
+}
+
+/*
+ * wrapper to km_guest_mmap_impl for calls from monitor
+ */
+km_gva_t km_guest_mmap_monitor(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
+{
+   return (km_guest_mmap_impl(gva, size, prot, flags, fd, offset, KM_MMAP_MONITOR));
 }
 
 // Guest munmap implementation. Params should be already checked and locks taken.
