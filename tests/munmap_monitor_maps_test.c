@@ -56,7 +56,7 @@ static int get_maps(bool verify)
       printf("Km reported ioctl not supported\n");
       return -1;
    }
-   ASSERT_EQ_FMTm("verify total map count", 1, info->ntotal, "%d");
+   ASSERT_EQ_FMTm("verify total map count", 2, info->ntotal, "%d");
    ASSERT_EQ_FMTm("verify free map count", 0, info->nfree, "%d");
    if (verify == false) {
       saved_entry = info->maps[0];
@@ -74,7 +74,6 @@ TEST munmap_monitor_maps_test(void)
 {
    void* gdtaddr = (void*)GUEST_MEM_TOP_VA - KM_PAGE_SIZE;
    void* idtaddr = gdtaddr - KM_PAGE_SIZE;
-   void* userstack = idtaddr - GUEST_STACK_SIZE;
 
    ASSERT_EQ_FMTm("Fetch initial maps", 0, get_maps(false), "%d");
 
@@ -84,13 +83,10 @@ TEST munmap_monitor_maps_test(void)
    ASSERT_EQ_FMTm("Unmap first page", 0, munmap(idtaddr, KM_PAGE_SIZE), "%d");
    ASSERT_EQ_FMTm("Verify after second unmap", 0, get_maps(true), "%d");
 
-   ASSERT_EQ_FMTm("Unmap first page", 0, munmap(userstack, GUEST_STACK_SIZE), "%d");
-   ASSERT_EQ_FMTm("Verify after third unmap", 0, get_maps(true), "%d");
-
-   ASSERT_EQ_FMTm("change protection to NONE", 0, mprotect(userstack, GUEST_STACK_SIZE, PROT_NONE), "%d");
+   ASSERT_EQ_FMTm("change protection to NONE", 0, mprotect(gdtaddr, GUEST_STACK_SIZE, PROT_NONE), "%d");
    ASSERT_EQ_FMTm("Verify after mprotect", 0, get_maps(true), "%d");
 
-   void *remap_address = mremap(userstack, GUEST_STACK_SIZE, GUEST_STACK_SIZE * 2, MREMAP_MAYMOVE);
+   void *remap_address = mremap(gdtaddr, GUEST_STACK_SIZE, GUEST_STACK_SIZE * 2, MREMAP_MAYMOVE);
    (void)remap_address;
    ASSERT_EQ_FMTm("remap to increase size", EFAULT, errno, "%d");
    ASSERT_EQ_FMTm("Verify after mprotect", 0, get_maps(true), "%d");

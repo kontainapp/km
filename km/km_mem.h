@@ -211,9 +211,8 @@ void km_guest_mmap_init(void);
 km_gva_t km_mem_brk(km_gva_t brk);
 km_gva_t km_mem_tbrk(km_gva_t tbrk);
 km_gva_t km_guest_mmap_simple(size_t stack_size);
+km_gva_t km_guest_mmap_simple_monitor(size_t stack_size);
 km_gva_t km_guest_mmap(km_gva_t addr, size_t length, int prot, int flags, int fd, off_t offset);
-km_gva_t
-km_guest_mmap_monitor(km_gva_t addr, size_t length, int prot, int flags, int fd, off_t offset);
 int km_guest_munmap(km_gva_t addr, size_t length);
 km_gva_t km_guest_mremap(km_gva_t old_address, size_t old_size, size_t new_size, int flags, ...);
 int km_guest_mprotect(km_gva_t addr, size_t size, int prot);
