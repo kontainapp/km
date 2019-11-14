@@ -50,7 +50,7 @@ void km_guest_mmap_init(void)
 #define MAP_FIXED_NOREPLACE 0x100000
 #endif
 
-void km_mmp_show_map(const km_mmap_list_t* list, const char* name)
+void km_mmap_show_map(const km_mmap_list_t* list, const char* name)
 {
    km_mmap_reg_t* reg;
 
@@ -71,8 +71,8 @@ void km_mmp_show_map(const km_mmap_list_t* list, const char* name)
 
 void km_mmap_show_maps()
 {
-   km_mmp_show_map(&machine.mmaps.free, "Free list");
-   km_mmp_show_map(&machine.mmaps.busy, "Busy list");
+   km_mmap_show_map(&machine.mmaps.free, "Free list");
+   km_mmap_show_map(&machine.mmaps.busy, "Busy list");
 }
 
 // Checks for stuff we do not support.
