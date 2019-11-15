@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,9 @@
 #include "km_coredump.h"
 #include "km_filesys.h"
 #include "km_mem.h"
+
+static const bool MMAP_ALLOC_MONITOR = true;
+static const bool MMAP_ALLOC_GUEST = false;
 
 static inline void mmaps_lock(void)
 {
@@ -412,13 +416,12 @@ static km_mmap_reg_t* km_find_reg_nolock(km_gva_t gva)
 }
 
 // Guest mmap implementation. Params should be already checked and locks taken..
-static km_gva_t km_guest_mmap_nolock(
-    km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, km_mmap_flags_e km_flags)
+static km_gva_t
+km_guest_mmap_nolock(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, bool allocation_type)
 {
    km_mmap_reg_t* reg;
    km_gva_t ret;
 
-   assert((km_flags & (~KM_MMAP_MONITOR)) == 0);
    if ((flags & MAP_FIXED)) {
       // Only allow MAP_FIXED for already mapped regions (for MUSL dynlink.c)
       if ((reg = km_find_reg_nolock(gva)) == NULL || reg->start + reg->size < gva + size) {
@@ -456,7 +459,7 @@ static km_gva_t km_guest_mmap_nolock(
    }
    reg->flags = flags;
    reg->protection = prot;
-   reg->km_flags = km_flags;
+   reg->km_flags = ((allocation_type == MMAP_ALLOC_MONITOR) ? KM_MMAP_MONITOR : 0);
    reg->gfd = fd;
    reg->offset = offset;
    km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
@@ -472,22 +475,22 @@ static km_gva_t km_guest_mmap_nolock(
  * -EINVAL if the args are not valid
  * -ENOMEM if fails to allocate memory
  */
-static km_gva_t km_guest_mmap_impl(
-    km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, km_mmap_flags_e km_flags)
+static km_gva_t
+km_guest_mmap_impl(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, bool allocation_type)
 {
    km_gva_t ret;
    km_infox(KM_TRACE_MMAP,
-            "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x km_flags 0x%x)",
+            "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x allocation type 0x%x)",
             gva,
             size,
             prot,
             flags,
-            km_flags);
+            allocation_type);
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
    mmaps_lock();
-   ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset, km_flags);
+   ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset, allocation_type);
    mmaps_unlock();
    if (km_syscall_ok(ret) && fd >= 0) {
       km_kma_t kma = km_gva_to_kma(ret);
@@ -511,7 +514,7 @@ static km_gva_t km_guest_mmap_impl(
  */
 km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset)
 {
-   return (km_guest_mmap_impl(gva, size, prot, flags, fd, offset, KM_MMAP_GUEST));
+   return (km_guest_mmap_impl(gva, size, prot, flags, fd, offset, MMAP_ALLOC_GUEST));
 }
 
 /*
@@ -521,8 +524,8 @@ km_gva_t km_guest_mmap(km_gva_t gva, size_t size, int prot, int flags, int fd, o
  */
 km_gva_t km_guest_mmap_simple_monitor(size_t size)
 {
-   return km_syscall_ok(
-       km_guest_mmap_impl(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, KM_MMAP_MONITOR));
+   return km_syscall_ok(km_guest_mmap_impl(
+       0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, MMAP_ALLOC_MONITOR));
 }
 
 /*
@@ -533,7 +536,7 @@ km_gva_t km_guest_mmap_simple_monitor(size_t size)
 km_gva_t km_guest_mmap_simple(size_t size)
 {
    return km_syscall_ok(
-       km_guest_mmap_impl(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, KM_MMAP_GUEST));
+       km_guest_mmap_impl(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, MMAP_ALLOC_GUEST));
 }
 
 // Guest munmap implementation. Params should be already checked and locks taken.
@@ -627,7 +630,8 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    km_gva_t ret;
    if (may_move == 0 ||
        (ret = km_syscall_ok(
-            km_guest_mmap_nolock(0, size, ptr->protection, ptr->flags, -1, 0, KM_MMAP_GUEST))) == -1) {
+            km_guest_mmap_nolock(0, size, ptr->protection, ptr->flags, -1, 0, MMAP_ALLOC_GUEST))) ==
+           -1) {
       km_info(KM_TRACE_MMAP, "Failed to get mmap for growth (may_move = %d)", may_move);
       return -ENOMEM;
    }
