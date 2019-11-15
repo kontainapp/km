@@ -94,7 +94,7 @@ static int get_maps(void)
              out_sz(reg->start - old_end),
              reg->flags,
              reg->protection,
-             reg->km_flags);
+             reg->km_flags.data32);
       old_end = reg->start + reg->size;
    }
    return 0;

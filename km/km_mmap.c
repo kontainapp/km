@@ -16,7 +16,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,8 +29,7 @@
 #include "km_filesys.h"
 #include "km_mem.h"
 
-static const bool MMAP_ALLOC_MONITOR = true;
-static const bool MMAP_ALLOC_GUEST = false;
+typedef enum { MMAP_ALLOC_GUEST = 0x0, MMAP_ALLOC_MONITOR } mmap_allocation_type_e;
 
 static inline void mmaps_lock(void)
 {
@@ -67,13 +65,13 @@ void km_mmap_show_map(const km_mmap_list_t* list, const char* name)
                reg->size,
                reg->flags,
                reg->protection,
-               reg->km_flags,
+               reg->km_flags.data32,
                reg->gfd,
                reg->offset);
    }
 }
 
-void km_mmap_show_maps()
+void km_mmap_show_maps(void)
 {
    km_mmap_show_map(&machine.mmaps.free, "Free list");
    km_mmap_show_map(&machine.mmaps.busy, "Busy list");
@@ -145,7 +143,7 @@ static km_mmap_reg_t* km_mmap_find_address(km_mmap_list_t* list, km_gva_t addres
 static inline int ok_to_concat(km_mmap_reg_t* left, km_mmap_reg_t* right)
 {
    return (left->start + left->size == right->start && left->protection == right->protection &&
-           left->flags == right->flags && left->km_flags == right->km_flags);
+           left->flags == right->flags && left->km_flags.data32 == right->km_flags.data32);
 }
 
 /*
@@ -184,19 +182,19 @@ static void km_mmap_zero(km_mmap_reg_t* reg)
    km_kma_t addr = km_gva_to_kma_nocheck(reg->start);
    size_t size = reg->size;
 
-   if (reg->protection == PROT_NONE || (reg->km_flags & KM_MMAP_INITED) != 0) {
+   if (reg->protection == PROT_NONE || reg->km_flags.km_mmap_inited == 1) {
       km_infox(KM_TRACE_MMAP,
                "skip zero kma: %p sz %ld prot 0x%x km_flags 0x%x",
                addr,
                size,
                reg->protection,
-               reg->km_flags);
+               reg->km_flags.data32);
       return;   // not accessible or already was zeroed out
    }
    km_infox(KM_TRACE_MMAP, "zero km %p sz %ld", addr, size);
    mprotect(addr, size, PROT_WRITE);
    memset(addr, 0, size);
-   reg->km_flags |= KM_MMAP_INITED;
+   reg->km_flags.km_mmap_inited = 1;
 }
 
 // wrapper for mprotect() on a single mmap region.
@@ -278,7 +276,7 @@ static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
    reg->flags = 0;
    reg->gfd = -1;
    km_mmap_insert(reg, list);
-   reg->km_flags &= ~KM_MMAP_INITED;   // allow concat to happen on free list
+   reg->km_flags.km_mmap_inited = 0;   // allow concat to happen on free list
    km_mmap_concat(reg, list);
    if (reg->start == km_mem_tbrk(0)) {   // adjust tbrk() if needed
       km_mem_tbrk(reg->start + reg->size);
@@ -320,7 +318,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
    TAILQ_FOREACH (reg, &machine.mmaps.busy, link) {
       km_mmap_reg_t* extra;
 
-      if ((reg->km_flags & KM_MMAP_MONITOR) == KM_MMAP_MONITOR) {
+      if (reg->km_flags.km_mmap_monitor == 1) {
          warnx("munmap/mprotect called on monitor allocated range requested addr 0x%lx size 0x%lx "
                "region start 0x%lx size 0x%lx",
                addr,
@@ -416,8 +414,13 @@ static km_mmap_reg_t* km_find_reg_nolock(km_gva_t gva)
 }
 
 // Guest mmap implementation. Params should be already checked and locks taken..
-static km_gva_t
-km_guest_mmap_nolock(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, bool allocation_type)
+static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
+                                     size_t size,
+                                     int prot,
+                                     int flags,
+                                     int fd,
+                                     off_t offset,
+                                     mmap_allocation_type_e allocation_type)
 {
    km_mmap_reg_t* reg;
    km_gva_t ret;
@@ -459,7 +462,8 @@ km_guest_mmap_nolock(km_gva_t gva, size_t size, int prot, int flags, int fd, off
    }
    reg->flags = flags;
    reg->protection = prot;
-   reg->km_flags = ((allocation_type == MMAP_ALLOC_MONITOR) ? KM_MMAP_MONITOR : 0);
+   reg->km_flags.data32 = 0;
+   reg->km_flags.km_mmap_monitor = ((allocation_type == MMAP_ALLOC_MONITOR) ? 1 : 0);
    reg->gfd = fd;
    reg->offset = offset;
    km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
@@ -475,8 +479,13 @@ km_guest_mmap_nolock(km_gva_t gva, size_t size, int prot, int flags, int fd, off
  * -EINVAL if the args are not valid
  * -ENOMEM if fails to allocate memory
  */
-static km_gva_t
-km_guest_mmap_impl(km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, bool allocation_type)
+static km_gva_t km_guest_mmap_impl(km_gva_t gva,
+                                   size_t size,
+                                   int prot,
+                                   int flags,
+                                   int fd,
+                                   off_t offset,
+                                   mmap_allocation_type_e allocation_type)
 {
    km_gva_t ret;
    km_infox(KM_TRACE_MMAP,
@@ -596,7 +605,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    km_mmap_reg_t* next;
    size_t needed = size - old_size;
 
-   assert((ptr->km_flags & KM_MMAP_MONITOR) == 0);
+   assert(ptr->km_flags.km_mmap_monitor == 0);
    assert(old_addr >= ptr->start && old_addr < ptr->start + ptr->size &&
           old_addr + old_size <= ptr->start + ptr->size && size > old_size);
 
@@ -611,7 +620,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
                                  .size = needed,
                                  .protection = ptr->protection,
                                  .flags = ptr->flags,
-                                 .km_flags = 0};
+                                 .km_flags.data32 = 0};
       km_mmap_zero(&new_range);
       ptr->size += needed;
       km_mmap_mprotect_region(ptr);
@@ -670,7 +679,7 @@ static km_gva_t km_guest_mremap_nolock(km_gva_t old_addr, size_t old_size, size_
       km_infox(KM_TRACE_MMAP, "mremap: requested mmap is not fully within existing map");
       return -EFAULT;
    }
-   if ((ptr->km_flags & KM_MMAP_MONITOR) == KM_MMAP_MONITOR) {
+   if (ptr->km_flags.km_mmap_monitor == 1) {
       return -EFAULT;
    }
    // found the map and it's a legit size

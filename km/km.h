@@ -148,23 +148,27 @@ typedef struct km_filesys {
 TAILQ_HEAD(km_mmap_list, km_mmap_reg);
 typedef struct km_mmap_list km_mmap_list_t;
 
+// mmap region monitor internal state
+typedef union {
+   struct {
+      uint32_t km_mmap_inited : 1;    // 1 if area was zeroed out already
+      uint32_t km_mmap_monitor : 1;   // 1 if area is allocated by monitor
+      uint32_t km_unused : 30;
+   };
+   uint32_t data32;
+} km_mmap_flags_u;
+
 // single mmap-ed (or munmapped) region
 typedef struct km_mmap_reg {
    km_gva_t start;
    size_t size;
-   int flags;        // flag as passed to mmap()
-   int protection;   // as passed to mmaps() or mprotect(), or 0 for unmapped region
-   int km_flags;     // Flags used by KM and not by guest
-   int gfd;          // Guest fd. -1 if no fd
-   off_t offset;     // offset into fd (if it exists).
+   int flags;                  // flag as passed to mmap()
+   int protection;             // as passed to mmaps() or mprotect(), or 0 for unmapped region
+   km_mmap_flags_u km_flags;   // Flags used by KM and not by guest
+   int gfd;                    // Guest fd. -1 if no fd
+   off_t offset;               // offset into fd (if it exists).
    TAILQ_ENTRY(km_mmap_reg) link;
 } km_mmap_reg_t;
-
-typedef enum {
-   KM_MMAP_GUEST = 0x0,     // area is allocated by guest
-   KM_MMAP_INITED = 0x1,    // 1 if area was zeroed out already
-   KM_MMAP_MONITOR = 0x2,   // 1 if area is allocated by monitor
-} km_mmap_flags_e;
 
 // mmaps control block
 typedef struct km_mmap_cb {   // control block

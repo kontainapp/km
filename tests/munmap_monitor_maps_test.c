@@ -63,7 +63,7 @@ static int get_maps(bool verify)
    } else {
       if ((info->maps[0].start != saved_entry.start) || (info->maps[0].size != saved_entry.size) ||
           (info->maps[0].flags != saved_entry.flags) ||
-          (info->maps[0].km_flags != saved_entry.km_flags)) {
+          (info->maps[0].km_flags.data32 != saved_entry.km_flags.data32)) {
          return 1;
       }
    }
