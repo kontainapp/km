@@ -331,7 +331,7 @@ load test_helper
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'div0 ('
    # Check number of segments. Shoudl be 8
    nload=`readelf -l ${CORE} | grep LOAD | wc -l`
-   assert [ "${nload}" == "8" ]
+   assert [ "${nload}" == "9" ]
    rm -f ${CORE}
 
    # invalid opcode
@@ -484,5 +484,10 @@ load test_helper
 
 @test "dl_iterate_phdr: AUXV and dl_iterate_phdr (dl_iterate_phdr_test)" {
    run km_with_timeout dl_iterate_phdr_test.km -v
+   assert_success
+}
+
+@test "monitor_maps: munmap gdt and idt (munmap_monitor_maps_test)" {
+   run km_with_timeout munmap_monitor_maps_test.km
    assert_success
 }
