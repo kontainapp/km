@@ -58,7 +58,10 @@
 #include "km_mem.h"
 #include "km_signal.h"
 
-gdbstub_info_t gdbstub = {.sock_fd = -1};   // GDB global info
+gdbstub_info_t gdbstub = {                  // GDB global info
+   .sock_fd = -1,
+   .gdbnotify_mutex = PTHREAD_MUTEX_INITIALIZER
+};
 #define BUFMAX (16 * 1024)                  // buffer for gdb protocol
 static char in_buffer[BUFMAX];              // TODO: malloc/free these two
 static unsigned char registers[BUFMAX];
@@ -441,10 +444,17 @@ static void gdb_handle_payload_stop(int signum)
 {
    char* packet;
    char obuf[BUFMAX];
+   km_vcpu_t* vcpu;
 
    km_infox(KM_TRACE_GDB, "%s: signum %d", __FUNCTION__, signum);
    if (signum != GDB_SIGFIRST) {   // Notify the debugger about our last signal
       send_response('S', signum, true);
+
+      // Switch to the cpu the signal happened on
+      if (gdbstub.sigthreadid > 0) {
+         vcpu = km_vcpu_fetch_by_tid(gdbstub.sigthreadid);
+         km_gdb_vcpu_set(vcpu);
+      }
    }
    while ((packet = recv_packet()) != NULL) {
       km_gva_t addr = 0;
@@ -473,7 +483,7 @@ static void gdb_handle_payload_stop(int signum)
              */
             int thread_id;
             char cmd;
-            km_vcpu_t* vcpu = km_main_vcpu();   // TODO: use 1st vcpu in_use here !
+            vcpu = km_main_vcpu();   // TODO: use 1st vcpu in_use here !
 
             if (sscanf(packet, "H%c%x", &cmd, &thread_id) != 2 || (cmd != 'g' && cmd != 'c')) {
                warnx("Wrong 'H' packet '%s'", packet);
@@ -722,7 +732,6 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
          return;
       }
       machine.pause_requested = 1;
-      gdbstub.session_requested = 1;
       km_infox(KM_TRACE_GDB, "%s: Signalling vCPUs to pause", __FUNCTION__);
       km_vcpu_apply_all(km_vcpu_pause, 0);
       km_vcpu_wait_for_all_to_pause();
@@ -735,7 +744,14 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
             break;
          }
          assert(ch == GDB_INTERRUPT_PKT);   // At this point it's only legal to see ^C from GDB
-         is_intr = 1;
+         pthread_mutex_lock(&gdbstub.gdbnotify_mutex);
+         if (gdbstub.session_requested == 0) {
+            gdbstub.session_requested = 1;
+            is_intr = 1;
+         } else {
+            // a signal to a km thread got there first
+         }
+         pthread_mutex_unlock(&gdbstub.gdbnotify_mutex);
       }
       if (fds[1].revents) {
          km_infox(KM_TRACE_GDB, "%s: gdb: a vcpu signalled about an exit", __FUNCTION__);
@@ -808,18 +824,26 @@ static inline int gdb_signo(int sig)
  */
 void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo)
 {
-   km_infox(KM_TRACE_GDB, "%s on VCPU %d", __FUNCTION__, vcpu->vcpu_id);
+   int rc;
+
    vcpu->is_paused = 1;
-   if (signo != 0) {
-      gdbstub.signo = gdb_signo(signo);
-   }
+
+   rc = pthread_mutex_lock(&gdbstub.gdbnotify_mutex);
+   assert(rc == 0);
+   km_infox(KM_TRACE_GDB, "%s on VCPU %d, signo %d, exit_reason %d, session_requested %d",
+         __FUNCTION__, vcpu->vcpu_id, signo, vcpu->cpu_run->exit_reason, gdbstub.session_requested);
+
    if (gdbstub.session_requested == 0) {
-      km_infox(KM_TRACE_GDB, "gdb seems to be sleeping, wake it up. VCPU %d", vcpu->vcpu_id);
       // km_gdb_tid_set(km_gdb_thread_id(vcpu));
+      gdbstub.signo = gdb_signo(signo);
+      gdbstub.sigthreadid = km_vcpu_get_tid(vcpu);
       gdbstub.exit_reason = vcpu->cpu_run->exit_reason;
       eventfd_write(machine.intr_fd, 1);
    }
+   rc = pthread_mutex_unlock(&gdbstub.gdbnotify_mutex);
+   assert(rc == 0);
+
    km_wait_on_eventfd(vcpu->gdb_efd);   // Wait for gdb to allow this vcpu to continue
-   km_infox(KM_TRACE_GDB, "%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
+   km_infox(KM_TRACE_GDB, "%s: gdb done, VCPU %d continuing", __FUNCTION__, vcpu->vcpu_id);
    vcpu->is_paused = 0;
 }

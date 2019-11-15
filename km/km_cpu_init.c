@@ -310,6 +310,7 @@ km_vcpu_t* km_vcpu_fetch(pthread_tid_t pid)
    return NULL;
 }
 
+#if 0
 /*
  * Returns 1 if the vcpu is still running (i.e.not paused). Skip the ones sitting in pthread_join
  * because it can generate a deadlock if they wait in pthread_join(this_thread)).
@@ -321,6 +322,7 @@ static int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
    }
    return 1;
 }
+#endif
 
 int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
 {
@@ -336,20 +338,53 @@ int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
    return 0;
 }
 
+/*
+ * This function both requests that vcpu's pause and waits for them to pause.
+ * It keeps trying until the vcpu's finally do pause, but we don't try forever.
+ * If we timeout we abort because the cpu's should pause promptly.
+ * If a vcpu refuses to pause we complain.
+ */
 void km_vcpu_wait_for_all_to_pause(void)
 {
-   int count;
-   while ((count = km_vcpu_apply_all(km_vcpu_count_running, 0)) != 0) {
-      // Wait for vcpus to exit from KVM. No need for speed here so can do busy wait.
-      static const struct timespec req = {
-          .tv_sec = 0, .tv_nsec = 10000000, /* 10 millisec */
-      };
-      if (km_trace_enabled()) {
-         km_infox(KM_TRACE_VCPU, "Still %d vcpus running", count);
-         km_vcpu_apply_all(km_vcpu_print, 0);
+   int i;
+   km_vcpu_t *vcpu;
+   int running;
+   int spincount;
+   struct timespec delay = { 0, 10000000 /* 10ms */ };
+
+   spincount = 0;
+   do {
+      running = 0;
+      for (i = 0; i < KVM_MAX_VCPUS; i++) {
+         if ((vcpu = machine.vm_vcpus[i]) == NULL) {
+            break;   // since we allocate vcpus sequentially, no reason to scan after NULL
+         }
+         // If vcpu is not paused then signal to have the vcpu pause
+         if (vcpu->is_used == 1 && vcpu->joining_pid != -1 && vcpu->is_paused == 0) {
+            int rc;
+
+            running++;
+            rc = pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
+            if (rc != 0) {
+               km_info(KM_TRACE_VCPU, "%s: pthread_kill failed, errno %d", __FUNCTION__, errno);
+            }
+            // After 2 times through complain about straggler threads.
+            if (spincount > 2) {
+               km_infox(KM_TRACE_VCPU, "%s: vcpu %d is not pausing, attempt %d",
+                     __FUNCTION__, vcpu->vcpu_id, spincount);
+            }
+         }
       }
-      nanosleep(&req, NULL);
-   }
+      if (spincount > 10) {
+         km_infox(KM_TRACE_VCPU, "%s: waiting to long for vcpu's to pause", __FUNCTION__);
+         abort();
+      }
+      // Sleep a while to let the vcpu's stop
+      if (running != 0) {
+         nanosleep(&delay, NULL);
+      }
+      spincount++;
+   } while (running != 0);
 }
 
 /*
