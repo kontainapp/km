@@ -13,10 +13,14 @@
  * non-checking implementations
  */
 
+#define _GNU_SOURCE
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
+#include <sys/select.h>
 
 #include "musl/include/setjmp.h"
 
@@ -155,6 +159,7 @@ void __explicit_bzero_chk(void* dst, size_t len, size_t dstlen)
 __fdelt_chk
 __memmove_chk
 __open64_2
+__open64_2 // alias to open + params check
 __realpath_chk
 __snprintf_chk
 __strcpy_chk
@@ -163,3 +168,31 @@ __wcscat_chk
 __wcscpy_chk
 __wcsncpy_chk
 */
+
+void __chk_fail(void) __attribute__((__noreturn__));
+void __chk_fail(void)
+{
+   abort();
+}
+
+long int __fdelt_chk(long int d)
+{
+   if (d < 0 || d >= FD_SETSIZE) {
+      __chk_fail();
+   }
+   return d / NFDBITS;
+}
+
+void* __memmove_chk(void* dest, const void* src, size_t len, size_t dstlen)
+{
+   if (__builtin_expect(dstlen < len, 0))
+      __chk_fail();
+
+   return memmove(dest, src, len);
+}
+
+static mbstate_t internal;   // internal shift state, gets used if ps==NULL
+size_t __mbrlen(const char* s, size_t n, mbstate_t* ps)
+{
+   return mbrtowc(NULL, s, n, ps ?: &internal);
+}
