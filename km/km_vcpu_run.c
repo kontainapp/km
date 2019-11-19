@@ -543,16 +543,17 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
    if (machine.pause_requested) {   // guarantee an exit right away if we are pausing
       vcpu->cpu_run->immediate_exit = 1;
    }
+   vcpu->cpu_run->exit_reason = 0;     // i hope this won't disturb kvm.
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) == 0) {
       return 0;
    }
-   run_info("KVM_RUN exit %d (%s) imm_exit=%d %s",
+   run_info("KVM_RUN exit %d (%s) imm_exit=%d",
             vcpu->cpu_run->exit_reason,
             kvm_reason_name(vcpu->cpu_run->exit_reason),
-            vcpu->cpu_run->immediate_exit,
-            strerror(errno));
+            vcpu->cpu_run->immediate_exit);
    switch (errno) {
       case EAGAIN:
+         vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          break;
 
       case EINTR:
@@ -574,6 +575,7 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
           * guest memory (guest PT says page is writable, but kernel says it
           * isn't).
           */
+         vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
          km_post_signal(vcpu, &info);
          break;
@@ -605,6 +607,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
       // interlock with machine.pause_requested.
       if (machine.pause_requested) {
          km_infox(KM_TRACE_VCPU, "%s: vcpu %d blocking on gdb_efd", __FUNCTION__, vcpu->vcpu_id);
+         vcpu->is_paused = 1;
          km_read_registers(vcpu);
          km_read_sregisters(vcpu);
          km_wait_on_eventfd(vcpu->gdb_efd);

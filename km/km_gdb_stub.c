@@ -385,6 +385,22 @@ static int add_thread_id(km_vcpu_t* vcpu, uint64_t data)
    return 0;
 }
 
+static void km_exit_reason_to_string(km_vcpu_t* vcpu, char* reason)
+{
+   reason[0] = 0;
+   switch (vcpu->cpu_run->exit_reason) {
+      case KVM_EXIT_DEBUG:
+         sprintf(reason, "%s", "Breakpoint");
+         break;
+      case KVM_EXIT_EXCEPTION:
+         sprintf(reason, "signal %d", km_signal_ready(vcpu));
+         break;
+      default:
+         // Show nothing for other exit reasons.
+         break;
+   }
+}
+
 // Form and send thread list ('m<thread_ids>' packet) to gdb
 static void send_threads_list(void)
 {
@@ -398,6 +414,8 @@ static void send_threads_list(void)
 // Handle general query packet ('q<query>'). Use obuf as output buffer.
 static void km_gdb_general_query(char* packet, char* obuf)
 {
+   char exit_reason[64];
+
    if (strncmp(packet, "qfThreadInfo", strlen("qfThreadInfo")) == 0) {   // Get list of active
                                                                          // thread IDs
       send_threads_list();
@@ -411,7 +429,7 @@ static void km_gdb_general_query(char* packet, char* obuf)
       sprintf(buf, "QC%x", km_gdb_thread_id(km_gdb_vcpu_get()));
       send_packet(buf);
    } else if (strncmp(packet, "qThreadExtraInfo", strlen("qThreadExtraInfo")) == 0) {   // Get label
-      char label[64];
+      char label[64 + sizeof(exit_reason)];
       int thread_id;
       km_vcpu_t* vcpu;
 
@@ -425,7 +443,10 @@ static void km_gdb_general_query(char* packet, char* obuf)
          send_error_msg();
          return;
       }
-      sprintf(label, "Guest 0x%lx", vcpu->guest_thr);   // guest pthread pointer in free form label
+      km_exit_reason_to_string(vcpu, exit_reason);
+      sprintf(label, "Guest 0x%lx, %s",       // guest pthread pointer in free form label and reason for stopping
+         vcpu->guest_thr,
+         exit_reason);
       mem2hex((unsigned char*)label, obuf, strlen(label));
       send_packet(obuf);
    } else {
@@ -446,7 +467,8 @@ static void gdb_handle_payload_stop(int signum)
    char obuf[BUFMAX];
    km_vcpu_t* vcpu;
 
-   km_infox(KM_TRACE_GDB, "%s: signum %d", __FUNCTION__, signum);
+   km_infox(KM_TRACE_GDB, "%s: signum %d, sigthreadid %d, exit_reason %d", __FUNCTION__,
+      signum, gdbstub.sigthreadid, gdbstub.exit_reason);
    if (signum != GDB_SIGFIRST) {   // Notify the debugger about our last signal
       send_response('S', signum, true);
 
@@ -660,13 +682,23 @@ done:
 static void km_gdb_handle_kvm_exit(int is_intr)
 {
    assert(km_gdb_is_enabled() == 1);
-   switch (is_intr ? KVM_EXIT_INTR : gdbstub.exit_reason) {
+   if (is_intr) {
+      // gdb client interrupted the gdb server
+      gdb_handle_payload_stop(SIGINT);
+      return;
+   }
+   switch (gdbstub.exit_reason) {
       case KVM_EXIT_DEBUG:
          gdb_handle_payload_stop(SIGTRAP);
          return;
 
+      /*
+       * We can get here because of the SIGUSR1 used to stop all the vcpu's
+       * when the gdb client stops the target.  We can also get here when the
+       * target faults.
+       */
       case KVM_EXIT_INTR:
-         gdb_handle_payload_stop((gdbstub.signo != 0) ? gdbstub.signo : SIGINT);
+         gdb_handle_payload_stop(gdbstub.signo);
          return;
 
       case KVM_EXIT_EXCEPTION:
@@ -689,11 +721,18 @@ static void km_empty_out_eventfd(int fd)
    fcntl(fd, F_SETFL, flags);
 }
 
+//
+// Unblock the passed vcpu.
+// If another vcpu has hit a breakpoint causing session_requested to be non-zero,
+// then don't start up this vcpu.  This is to avoid starting the remaining vcpu's
+// when a freshly started vcpu runs into a new breakpoint.
 // returns 0 on success and 1 on failure. Failures just counted by upstairs for reporting
+//
 static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, __attribute__((unused)) uint64_t unused)
 {
-   int ret;
-   while ((ret = eventfd_write(vcpu->gdb_efd, 1) == -1 && errno == EINTR)) {
+   int ret = 1;
+
+   while (gdbstub.session_requested == 0 && (ret = eventfd_write(vcpu->gdb_efd, 1) == -1 && errno == EINTR)) {
       ;   // ignore signals during the write
    }
    return ret == 0 ? 0 : 1;   // Unblock main guest thread
@@ -744,23 +783,30 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
             break;
          }
          assert(ch == GDB_INTERRUPT_PKT);   // At this point it's only legal to see ^C from GDB
-         pthread_mutex_lock(&gdbstub.gdbnotify_mutex);
+         ret = pthread_mutex_lock(&gdbstub.gdbnotify_mutex);
+         assert(ret == 0);
          if (gdbstub.session_requested == 0) {
             gdbstub.session_requested = 1;
             is_intr = 1;
          } else {
             // a signal to a km thread got there first
          }
-         pthread_mutex_unlock(&gdbstub.gdbnotify_mutex);
+         ret = pthread_mutex_unlock(&gdbstub.gdbnotify_mutex);
+         assert(ret == 0);
       }
       if (fds[1].revents) {
-         km_infox(KM_TRACE_GDB, "%s: gdb: a vcpu signalled about an exit", __FUNCTION__);
+         km_infox(KM_TRACE_GDB, "%s: a vcpu signalled about a kvm exit", __FUNCTION__);
       }
       km_empty_out_eventfd(machine.intr_fd);   // discard extra 'intr' events if vcpus sent them
       km_gdb_handle_kvm_exit(is_intr);         // give control back to gdb
+
+      km_infox(KM_TRACE_GDB, "%s: kvm exit handled, starting vcpu's", __FUNCTION__);
+
+      // Allow the started vcpu's to wakeup this thread now.
+      gdbstub.signo = 0;
+      gdbstub.sigthreadid = 0;
       gdbstub.session_requested = 0;
       machine.pause_requested = 0;
-      km_infox(KM_TRACE_GDB, "%s: exit handled, ready to proceed", __FUNCTION__);
       km_vcpu_apply_all(km_gdb_vcpu_continue, 0);
    }
 }
@@ -821,6 +867,16 @@ static inline int gdb_signo(int sig)
 /*
  * Called from vcpu thread(s) after gdb-related kvm exit. Notifies gdbstub about the KVM exit and
  * then waits for gdbstub to allow vcpu to continue.
+ * It is possible for multiple threads (vcpu's) to need gdb at about the same time,
+ * so, we just take the thread that gets here first unless a non-debug related signal happens.  The
+ * non-debug signal will take precedence over a debug signal.
+ * If there is already a non-debug signal then the initial non-debug signal takes precedence.
+ * We also see that some of the threads are just interrupted as result of the SIGUSR1 used to
+ * stop a vcpu.  These threads never have precedence since they didn't hit a breakpoint nor
+ * did they have an exception.
+ * Parameters:
+ *  vcpu - the thread/vcpu the signal fired on.
+ *  signo - the linux signal number
  */
 void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo)
 {
@@ -830,20 +886,41 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo)
 
    rc = pthread_mutex_lock(&gdbstub.gdbnotify_mutex);
    assert(rc == 0);
-   km_infox(KM_TRACE_GDB, "%s on VCPU %d, signo %d, exit_reason %d, session_requested %d",
-         __FUNCTION__, vcpu->vcpu_id, signo, vcpu->cpu_run->exit_reason, gdbstub.session_requested);
+   km_infox(KM_TRACE_GDB,
+         "%s on VCPU %d, session_requested %d, "
+         "new signo %d, exit_reason %d, tid %d, "
+         "existing signo %d, exit_reason %d, tid %d",
+         __FUNCTION__, vcpu->vcpu_id, gdbstub.session_requested,
+         signo, vcpu->cpu_run->exit_reason, km_vcpu_get_tid(vcpu),
+         gdbstub.signo, gdbstub.exit_reason, gdbstub.sigthreadid);
 
    if (gdbstub.session_requested == 0) {
-      // km_gdb_tid_set(km_gdb_thread_id(vcpu));
+      gdbstub.session_requested = 1;
       gdbstub.signo = gdb_signo(signo);
       gdbstub.sigthreadid = km_vcpu_get_tid(vcpu);
       gdbstub.exit_reason = vcpu->cpu_run->exit_reason;
-      eventfd_write(machine.intr_fd, 1);
+      eventfd_write(machine.intr_fd, 1);     // wakeup the gdb server thread
+   } else {
+      // Already have a pending signal.  Decide if the new signal is more important.
+      if ((vcpu->cpu_run->exit_reason != KVM_EXIT_DEBUG &&
+           vcpu->cpu_run->exit_reason != KVM_EXIT_INTR &&
+           gdbstub.exit_reason == KVM_EXIT_DEBUG) ||
+          (vcpu->cpu_run->exit_reason == KVM_EXIT_DEBUG && gdbstub.exit_reason == KVM_EXIT_INTR)) {
+         km_infox(KM_TRACE_GDB, "%s: new signal %d for thread %d overriding pending signal %d for thread %d",
+            __FUNCTION__,
+            signo,
+            km_vcpu_get_tid(vcpu),
+            gdbstub.signo,
+            gdbstub.sigthreadid);
+         gdbstub.signo = gdb_signo(signo);
+         gdbstub.sigthreadid = km_vcpu_get_tid(vcpu);
+         gdbstub.exit_reason = vcpu->cpu_run->exit_reason;
+      }
    }
    rc = pthread_mutex_unlock(&gdbstub.gdbnotify_mutex);
    assert(rc == 0);
 
    km_wait_on_eventfd(vcpu->gdb_efd);   // Wait for gdb to allow this vcpu to continue
-   km_infox(KM_TRACE_GDB, "%s: gdb done, VCPU %d continuing", __FUNCTION__, vcpu->vcpu_id);
    vcpu->is_paused = 0;
+   km_infox(KM_TRACE_GDB, "%s: gdb done, VCPU %d continuing", __FUNCTION__, vcpu->vcpu_id);
 }
