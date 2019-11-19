@@ -489,6 +489,7 @@ int km_pthread_create(km_vcpu_t* current_vcpu,
       km_vcpu_put(vcpu);
       return -EAGAIN;
    }
+   km_infox(KM_TRACE_VCPU, "%s: vcpu %d started", __FUNCTION__, vcpu->vcpu_id);
    if (pid != NULL) {
       *pid = vcpu->guest_thr;
    }
