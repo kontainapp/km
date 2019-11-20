@@ -37,6 +37,7 @@
 #include "km_mem.h"
 #include "km_syscall.h"
 
+#define MAX_OPEN_FILES (1024)
 /*
  * Adds a host fd to the guest. Returns the guest fd number assigned.
  * Assigns lowest available guest fd, just like the kernel.
@@ -137,19 +138,13 @@ int guestfd_to_hostfd(int fd)
 
 int km_fs_init(void)
 {
-   struct rlimit lim;
-
-   if (getrlimit(RLIMIT_NOFILE, &lim) < 0) {
-      return -errno;
-   }
-
-   size_t mapsz = lim.rlim_cur * sizeof(int);
+   size_t mapsz = MAX_OPEN_FILES * sizeof(int);
 
    machine.filesys.guestfd_to_hostfd_map = malloc(mapsz);
    memset(machine.filesys.guestfd_to_hostfd_map, 0xff, mapsz);
    machine.filesys.hostfd_to_guestfd_map = malloc(mapsz);
    memset(machine.filesys.hostfd_to_guestfd_map, 0xff, mapsz);
-   machine.filesys.nfdmap = lim.rlim_cur;
+   machine.filesys.nfdmap = MAX_OPEN_FILES;
 
    // setup guest std file streams.
    for (int i = 0; i < 3; i++) {
