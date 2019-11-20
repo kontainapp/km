@@ -138,13 +138,20 @@ int guestfd_to_hostfd(int fd)
 
 int km_fs_init(void)
 {
-   size_t mapsz = MAX_OPEN_FILES * sizeof(int);
+   struct rlimit lim;
+
+   if (getrlimit(RLIMIT_NOFILE, &lim) < 0) {
+      return -errno;
+   }
+
+   lim.rlim_cur = MAX_OPEN_FILES;   // Limit max open files. Temporary change till we support config.
+   size_t mapsz = lim.rlim_cur * sizeof(int);
 
    machine.filesys.guestfd_to_hostfd_map = malloc(mapsz);
    memset(machine.filesys.guestfd_to_hostfd_map, 0xff, mapsz);
    machine.filesys.hostfd_to_guestfd_map = malloc(mapsz);
    memset(machine.filesys.hostfd_to_guestfd_map, 0xff, mapsz);
-   machine.filesys.nfdmap = MAX_OPEN_FILES;
+   machine.filesys.nfdmap = lim.rlim_cur;
 
    // setup guest std file streams.
    for (int i = 0; i < 3; i++) {
