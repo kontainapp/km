@@ -58,11 +58,9 @@ distroclean:
 publish:
 	@echo Tagging and pushing to Docker registry as ${PUBLISH_TAG}.
 	@echo Do not forget to authenticate to the registry, e.g. "$(REGISTRY_AUTH_EXAMPLE)".
-	docker tag ${PAYLOAD_BRANCH} ${PUBLISH_BRANCH}
 	docker tag ${PAYLOAD_LATEST} ${PUBLISH_LATEST}
-	docker push ${PUBLISH_BRANCH}
 	docker push ${PUBLISH_LATEST}
-	docker rmi ${PUBLISH_BRANCH} ${PUBLISH_LATEST}
+	-docker rmi  ${PUBLISH_LATEST}
 
 publishclean:
 	-${CLOUD_SCRIPTS}/untag_image.sh $(PAYLOAD_IMAGE_SHORT_NAME) $(IMAGE_VERSION)
@@ -93,3 +91,6 @@ VARS_TO_PRINT ?= PAYLOAD_IMAGE_NAME IMAGE_VERSION PUBLISH_TAG PUBLISH_BRANCH PUB
 debugvars:   ## prints interesting vars and their values
 	@echo To change the list of printed vars, use 'VARS_TO_PRINT="..." make debugvars'
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
+
+# allows to do 'make print-varname'
+print-%  : ; @echo $* = $($*)

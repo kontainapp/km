@@ -2,10 +2,17 @@
 
 ## Coding Style
 
-We use the Visual Studio Code (VS Code) IDE.
-Many of our formatting rules happen automatically when using VS Code.
+We use the Visual Studio Code (VS Code) IDE. Our workspace (`km_repo_root/.vscode/km.code-workspace`) is configured to automatically run clang-format on file save.
 
-TODO: Insert our style thoughts here.
+**If you are not useing VS Code, it is your responsibility to run clang-format with `.clang-format` (from the repo) before any PR**
+
+Some of the style points we maintainin C which are not enforced by clang:
+
+* never use single line `if () statement;` - always use `{}` ,i.e. `if() {statement;}`
+* single line comments are usually `//` , multiple lines `/* ... */`
+* more to be documented
+
+In Python we follow [Pep 8](https://www.python.org/dev/peps/pep-0008/)
 
 ## Build and test
 
@@ -25,39 +32,38 @@ Going forward, do not forget to add --recurse-submodules to `git pull` and `git 
 git config --global fetch.recurseSubmodules true
 ```
 
-### Dependencies
-
-The  code is built directly on a build machine (then all dependencies need to be installed, for the list see Docker/build/Dockerfile*) or using Docker (then only `docker` and `make` are needed)
-
 ### Build system
 
 We use GNU **make** as our build engine. This document describes some of the key targets and recipes. For list of available targets, type `make help`, or `make <tab><tab>` if you are using bash.
 
+### Dependencies
+
+If you build with Docker (see below) then only `docker` and `make` are needed for the build. If you build directly on your machine, dependencies need to be installed. Also, see below for the steps.
+
+A recommended way is to download Docker image with build environment from Azure, and then either use it for building with docker, or use it  for installing dependencies locally. This will also test you login to Azure (which we use to CI/CD pipelines):
+
+#### Login to Azure and pull the 'buildenv' image from Azure Container Registry
+
+```sh
+make -C cloud/azure login
+make -C tests pull-buildenv-image
+```
+
+#### build the 'buildenv' image locally using Docker
+
+An alternative way is to build 'build environment' images locally:
+
+```sh
+make -C tests buildenv-image  # this will take VERY LONG time as it builds gcc and C++ libs
+```
+
+#### Install dependencies on the local machine (after buildenv image is available)
+
+```sh
+make -C tests buildenv-local-fedora  # currently supported on fedora only !
+```
+
 ### Building with Docker
-
-To build with docker, make sure `docker` and  `make` are installed, and run the commands below. *Building with docker* will use a docker container with all necessary pre-requisites installed; will use local source tree exposed to Docker via a docker volume, and will place the results in the local *build* directory - so the end result si exactly the sme as regular 'make', but it does not require pre-reqs installed on he local machine. One the the key use cases for this is cloud-based CI/CD pipeline.
-
-Commands to build Docker image, and then build using this docker image, in Docker:
-
-```sh
- make buildenv-image  # this will take LONG time !!!
- make withdocker
- make withdocker TARGET=test
-```
-
-Commands to build Docker image, use it to  install correct pre-requisites on the local host, and then build natively on the local host:
-
-```sh
- make buildenv-image  # this will take LONG time !!!
- make -C tests buildenv-local-fedora # supported on fedora only !
- make ; make test
- ```
-
-Instead of building buildenv-image, you can pull it - much faster but requires `az` command line installation and Azure login credentials. * See `build-test-make-targets-and-images.md` for details
-
-```sh
-make pull-buildenv-image
-```
 
 #### Installing Docker
 
@@ -67,11 +73,22 @@ Please see https://docs.docker.com/install/linux/docker-ce/fedora/ for instructi
 
 By default Docker require root permission to run. Read the instructions at https://docs.docker.com/install/linux/linux-postinstall/ to run docker without being root.
 
+#### Building
+
+To build with docker, make sure `docker` and  `make` are installed, and buildenv image is available (see section about this above) and run the commands below.
+
+*Building with docker* will use a docker container with all necessary pre-requisites installed; will use local source tree exposed to Docker via a docker volume, and will place the results in the local *build* directory - so the end result is exactly the same as regular 'make', but it does not require pre-reqs installed on the local machine. One the the key use cases for build with docker is cloud-based CI/CD pipeline.
+
+```sh
+ make withdocker
+ make withdocker TARGET=test
+```
+
 ### Building directly on the box
 
-First, Install all dependencies (see `make buildenv-local-fedora` make target, and related explanation in `build-test-make-targets-and-images.md`.
+First, Install all dependencies using `make -C tests buildenv-local-fedora` make target (specific steps are above, and detailed  explanation of images is `in docs/image-targets.md`
 
-Then, run make:
+Then, run make from the top of the repository:
 
 ```sh
 make
@@ -80,13 +97,18 @@ make test
 
 ## Build system structure
 
-**We expect changes to the build system details so this doc is just a quick intro. For specifics and examples, see ../make/\*mk and all Makefiles.**
+At any dir, use `make help` to get help on targets. Or , if you use bash, type `make<tab>` to see the target list.
 
-Build system uses tried-and-true `make` and related tricks. Generally, each dir with sources (or with subdirs) needs to have a Makefile. This Makefile need to have the following:
+Build system uses tried-and-true `make` and related tricks. Generally, each dir with sources (or with subdirs) needs to have a Makefile. Included makfiles are in `make/*mk`.
+
+This Makefile need to have the following:
 
 * The location of TOP of the repository, using  `TOP := $(shell git rev-parse --show-cdup)`
 * A few variables to tell system what to build (e.g. `LIB := runtime`), and what to build it from (`SOURCES := a.c, x.c …`), compile options (`COPTS := -Os -D_GNU_SOURCE …`) and include dirs (`INCLUDES := ${TOP}/include`)
-* `include ${TOP}make/actions.mk`
+* `include ${TOP}make/actions.mk` or include for `images.mk`
+* Config info is in `make/locations.mk`**
+
+**Customization you may want to do to compile flags and the likes for you private builds are in `make/custom.mk`**
 
 Generally, the build system automatically builds dependencies (unless it's configured to only scan `SUBDIRS`) and does the following work:
 
@@ -108,7 +130,13 @@ See ../tests/Makefile. This one is work in progress and will change to be more g
 
 ## Containerized KM in Docker and Kubernetes (WIP)
 
-### Build docker images for KM and python.km
+### Build docker images
+
+We have 3 type of images - "buildenv" allowing to build in a container, "testenv" allowing to test in a container (with all test and test tools included) and "runenv" allowing to run in a container. See `docs/image-targets.md` for details
+
+#### Images for old(er) demo
+
+These are obsolete and need to be converted to new images. Until they are, we keep the instructions below:
 
 Currently docker images are constructed in 2 layers:
 
@@ -121,9 +149,25 @@ Note that we do not tag any image as `latest` since I am not sure which one to t
 
 ### Run under Docker
 
-`docker run --ulimit nofile=1024:1024 --device=/dev/kvm kontain/python-km:latest <payload.py>` - see a few .py files in payloads/python
+Here is how to build and validated runenv image for KM:
+
+```sh
+make -C tests runenv-image validate-runenv-image
+```
+
+This will build `kontain/runenv-km` and run a test.
+
+To run another  payload with KM, just run docker with `--device=/dev/kvm`, a volume to access your payload and paylod (.km) name
 
 ### Run under Kubernetes
+
+#### Kubernetes config
+
+* make sure `kubectl` is installed. On Fedora, `sudo dnf install kubernetes-client`
+* if you use our Azure Kubernetes cluster, make sure you are logged in (`make -C cloud/azure login`).
+* if you (for some reason) want to use your own cluster, read the section below
+
+##### [only needed for new clusters] Prep cluster to allow /dev/kvm access
 
 We do not want to run privileged containers there (and often policy blocks it anyways) and Kubernetes does not allow to simply configure access to devices , to avoid conflicts between different apps, so we use github.com/kubevirt/kubernetes-device-plugins/pkg/kvm to expose /dev/kvm to the pods.
 
@@ -131,28 +175,24 @@ We do not want to run privileged containers there (and often policy blocks it an
   * in plugins dir, do `dep ensure; make build-kvm`
 * deploy to cluster as DaemonSet
   * `kubectl apply  -f <path>/kubernetes-device-plugins/manifests/kvm-ds.yaml`
-* deploy KM-based apps, e.g.
-  * `kubectl apply -f payloads/python/pykm-deploy.yaml (this assumes the image was pushed to dockerhub msterinkontain/kmpy - see above)
 
-### Notes
+#### Push and Run demo apps
 
-* Currently statically linked KM  packaged to bare container using `tar c ... | docker import -`  approach - this allows to package container similar to `FROM scratch` but without having *mkdir* to create files layout.
-  * this obviously does not pick up vDSO so the code there (e.g. gettimeofday) will be sub-optimal - if needed we'd mitigate it by vDSO analog for KM payloads
-* Python modules are packaged into on-host Docker image layers so the payload first reaches into hypercall, we proxy it to syscall and then it goes to file names namespace and then to overlay FS. We need to see if we should just package that into the payload by mmaping directly into VM memory
-* If python code reaches into  syscall we don't support yet, the container will exist with 'unknown HC', obviously. I think we need to have automatic routing to "allowed" syscalls, since it's only < 500 of those :-)
-* We used manually / statically build python.tk.
-* the build process uses Docker so running the build in Docker would require DinD ... I never tried it so skipping for now. **docker/kub build does not work with `make withdocker`**
+From the top of the repo, build and push demo containers:
+
+```sh
+make distro
+make publish
+```
+
+* To deploy KM-based apps:  `kubectl apply -k ./payloads/k8s/azure/python/`
+* To clean up: `kubectl delete deployments.apps kontain-pykm-deployment-azure-demo`
+
+:point_right: **Note** we use `kustomize` support in kubectl, it's discussion is beyond the scope of this doc, especially for demo. See `payloads/demo_script.md` for more info on the demo
 
 ## CI/CD
 
-We use Azure Pipelines hooked into github for CI/CD. See `azure-pipeline.md` doc and `azure-pipelines.yml` configuration
-
-## Source layout
-
-* KM - Monitor code (executed as a user process on the host)
-* runtime - libraries to be linked with payload (executed in a VM). Has subdirs with libraries used in the runtime (e.g. `./musl` and others)
-* make - help / include files for the build system
-* tests - tests sources
+We use Azure Pipelines hooked into github for CI/CD. See `azure-pipelines.yml` for  configuration and `azure-pipeline.md` doc for info, including FAQ (e.g how to run CI containers manually)
 
 ### Other repos
 
