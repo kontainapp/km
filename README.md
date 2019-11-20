@@ -1,4 +1,4 @@
-[![Build Status for 'master'](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=3&branchName=master)
+[![Build Status for 'master'](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km%20(1)?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=3&branchName=master)
 # KM (Kontain Monitor) and related payloads for Kontain.app VMs
 
 All terminology and content is subject to change without notice.
