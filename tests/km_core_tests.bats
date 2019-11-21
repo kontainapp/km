@@ -376,11 +376,11 @@ load test_helper
 }
 
 @test "threads_basic: threads with TSD, create, exit and join (hello_2_loops_test)" {
-   run km_with_timeout hello_2_loops_test.km
+   run km_with_timeout -Vsignal hello_2_loops_test.km
    assert_success
 
    # shared
-   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_2_loops_test.so
+   run km_with_timeout -Vsignal ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_2_loops_test.so
    assert_success
 }
 
