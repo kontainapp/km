@@ -78,7 +78,7 @@ steps:
       kubernetesCluster: $(kubernetesCluster)
       kubernetesServiceEndpoint: $(k8sSC)
       command: wait
-      arguments: --timeout 1800s --for=condition=complete job/bats-$(buildenv.type)-$(Build.BuildId)
+      arguments: --timeout 480s --for=condition=complete job/bats-$(buildenv.type)-$(Build.BuildId)
     displayName: Wait for tests to complete or fail
 
   - task: Kubernetes@1
