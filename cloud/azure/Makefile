@@ -42,6 +42,20 @@ login:  ## Interactive login to Azure, Acure Container Registry and Kubernetes c
 	az acr login -n $(REGISTRY_NAME)
 	az aks get-credentials --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER) --overwrite-existing
 
+# Support for manually purging old test images
+# TODO: set auto-scheduled task to do this https://docs.microsoft.com/en-us/azure/container-registry/container-registry-tasks-scheduled
+
+# max age for purge, in 'duration string' format https://golang.org/pkg/time/
+CI_IMAGE_PURGE_AGE := 3d
+CI_IMAGE_REPOS_TO_PURGE := test-km-fedora test-bats
+CI_IMAGE_DRY_RUN ?= --dry-run
+CI_IMAGE_PURGE_CMD="mcr.microsoft.com/acr/acr-cli:0.1 purge --registry {{.Run.Registry}} \
+	--filter '${repo}:.*' --untagged ${CI_IMAGE_DRY_RUN} --ago ${CI_IMAGE_PURGE_AGE}"
+
+ci-image-purge: ## purge CI test images older that CI_IMAGE_PURGE_AGE
+	@echo -e "${GREEN}Doing dry run. To do actual purge, run with CI_IMAGE_DRY_RUN=\"\" ${NOCOLOR}"
+	$(foreach repo,${CI_IMAGE_REPOS_TO_PURGE}, az acr run --cmd '${CI_IMAGE_PURGE_CMD}' --registry ${REGISTRY_NAME} /dev/null; )
+
 dashboard: login # Interactive login, and then forward port/open Kubernetes Dashboard
 	az aks browse --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER)
 
