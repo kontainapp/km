@@ -84,12 +84,13 @@ class check_tls
    }
 };
 
-double toDouble(const char* buffer, size_t length) {
-  std::istringstream stream(std::string(buffer, length));
-  stream.imbue(std::locale("C"));  // Ignore locale
-  double d;
-  stream >> d;
-  return d;
+double toDouble(const char* buffer, size_t length)
+{
+   std::istringstream stream(std::string(buffer, length));
+   stream.imbue(std::locale("C"));   // Ignore locale
+   double d;
+   stream >> d;
+   return d;
 }
 
 int main()
