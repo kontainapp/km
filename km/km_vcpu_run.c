@@ -540,6 +540,8 @@ static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unu
  */
 static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 {
+   int signo;
+
    if (machine.pause_requested) {   // guarantee an exit right away if we are pausing
       vcpu->cpu_run->immediate_exit = 1;
    }
@@ -564,7 +566,18 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
          vcpu->cpu_run->immediate_exit = 0;
          vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          if (km_gdb_is_enabled() == 1) {
-            km_gdb_notify_and_wait(vcpu, km_signal_ready(vcpu));
+            signo = km_signal_ready(vcpu);
+            if (signo == 0) {
+               /*
+                * ioctl( KVM_RUN ) was interrupted by SIGUSR1
+                * All we need to do here is arrange to pause this vcpu
+                * and that will happen in the caller.
+                */
+               machine.pause_requested = 1;
+               return -1;
+            } else {
+               km_gdb_notify_and_wait(vcpu, signo);
+            }
          }
          break;
 

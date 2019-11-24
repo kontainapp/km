@@ -230,6 +230,27 @@ load test_helper
    assert [ $status -eq 11 ]  # SIGSEGV
 }
 
+@test "gdb_server_race: gdb server concurrent wakeup test" {
+   km_gdb_default_port=2159
+   # Test with breakpoints triggering and SIGILL being happending continuously
+   # Save output to a log file for our own check using grep below.
+   km_with_timeout -Vgdb -g gdb_server_entry_race.km >/tmp/gdb_server_race_test.out 2>&1 &
+   gdb_pid=$! ; sleep 0.5
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
+         --ex=c --ex=q gdb_server_entry_race.km
+   assert_success
+
+   # check that KM exited normally
+   run wait $gdb_pid
+   assert [ $status -eq 0 ]
+
+   # look for km trace entries that show the sigill signal overrode the breakpoint
+   # when deciding to tell the gdb client why we stopped.
+   grep "overriding pending signal" /tmp/gdb_server_race_test.out >/dev/null
+   assert [ $status -eq 0 ]
+   rm -f /tmp/gdb_server_race_test.out
+}
+
 @test "Unused memory protection: check that unused memory is protected (mprotect_test)" {
    run km_with_timeout mprotect_test.km -v
    assert_success

@@ -336,6 +336,13 @@ int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
    return 0;
 }
 
+/*
+ * We only wait for 50 tries before deciding some vcpu's have gone crazy
+ * and aren't going to stop for us.  We abort at that point so we can
+ * look at a core file to understand what happened.
+ */
+const int MAX_VCPU_PAUSE_ATTEMPTS = 50;
+
 void km_vcpu_wait_for_all_to_pause(void)
 {
    int count;
@@ -350,7 +357,8 @@ void km_vcpu_wait_for_all_to_pause(void)
          km_infox(KM_TRACE_VCPU, "Still %d vcpus running, attempt %d", count, attempts);
          km_vcpu_apply_all(km_vcpu_print, 0);
       }
-      if (++attempts > 50) {
+      if (++attempts > MAX_VCPU_PAUSE_ATTEMPTS) {
+         km_infox(KM_TRACE_VCPU, "%s: waiting too long for vcpu's to pause", __FUNCTION__);
          abort();
       }
       nanosleep(&req, NULL);
