@@ -78,6 +78,11 @@ __stub__(waitpid);
 __stub_core__(wait);
 __stub_core__(waitid);
 
+int sched_getcpu(void)
+{
+   return 0;
+}
+
 void* dlvsym(void* handle, char* symbol, char* version)
 {
    return dlsym(handle, symbol);

@@ -1262,6 +1262,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_setpriority] = dummy_hcall;
    km_hcalls_table[SYS_sched_getaffinity] = dummy_hcall;
    km_hcalls_table[SYS_sysinfo] = dummy_hcall;
+   km_hcalls_table[SYS_prctl] = dummy_hcall;
 
    km_hcalls_table[SYS_clone] = clone_hcall;
    km_hcalls_table[SYS_set_tid_address] = set_tid_address_hcall;
