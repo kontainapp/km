@@ -22,7 +22,7 @@ ARCH := x86_64
 SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq process sched)
 SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/ crt/ ldso/)))
 
-KM_REPLACED_SRCS := __set_thread_area.s syscall.s syscall_cp.s getenv.c uname.c preadv.c pwritev.c fcntl.c procfdname.c sigaltstack.c clone.s
+KM_REPLACED_SRCS := __set_thread_area.s syscall.s syscall_cp.s getenv.c uname.c preadv.c pwritev.c fcntl.c procfdname.c sigaltstack.c clone.s getpagesize.c
 KM_EXTRA_SRCS := $(wildcard *_km.c) $(wildcard *.s)
 
 PTHREAD_CFLS := pthread_cond_broadcast.c pthread_cond_destroy.c pthread_cond_signal.c pthread_cond_wait.c \
