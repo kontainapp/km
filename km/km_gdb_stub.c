@@ -385,6 +385,9 @@ static int add_thread_id(km_vcpu_t* vcpu, uint64_t data)
    return 0;
 }
 
+// Don't expect a kvm exit reason to be bigger than 64 bytes.
+const int MAX_EXIT_REASON_STRING_SIZE = 64;
+
 static void km_exit_reason_to_string(km_vcpu_t* vcpu, char* reason, size_t reason_size)
 {
    reason[0] = 0;
@@ -411,10 +414,13 @@ static void send_threads_list(void)
    send_packet(obuf);
 }
 
+// The guest tid we send back in the thread extra info is expected to be smaller than 64.
+const int MAX_GUEST_TID_SIZE = 64;
+
 // Handle general query packet ('q<query>'). Use obuf as output buffer.
 static void km_gdb_general_query(char* packet, char* obuf)
 {
-   char exit_reason[64];
+   char exit_reason[MAX_EXIT_REASON_STRING_SIZE];
 
    if (strncmp(packet, "qfThreadInfo", strlen("qfThreadInfo")) == 0) {   // Get list of active
                                                                          // thread IDs
@@ -429,7 +435,7 @@ static void km_gdb_general_query(char* packet, char* obuf)
       sprintf(buf, "QC%x", km_gdb_thread_id(km_gdb_vcpu_get()));
       send_packet(buf);
    } else if (strncmp(packet, "qThreadExtraInfo", strlen("qThreadExtraInfo")) == 0) {   // Get label
-      char label[64 + sizeof(exit_reason)];
+      char label[MAX_GUEST_TID_SIZE + MAX_EXIT_REASON_STRING_SIZE];
       int thread_id;
       km_vcpu_t* vcpu;
 
@@ -828,11 +834,14 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
          assert(ch == GDB_INTERRUPT_PKT);   // At this point it's only legal to see ^C from GDB
          ret = pthread_mutex_lock(&gdbstub.gdbnotify_mutex);
          assert(ret == 0);
+         /*
+          * If a payload thread has already stopped it will have caused session_requested
+          * to be set non-zero.  In this case we prefer to use the stopped thread as
+          * opposed to the user ^C as the reason for breaking to gdb command level.
+          */
          if (gdbstub.session_requested == 0) {
             gdbstub.session_requested = 1;
             is_intr = 1;
-         } else {
-            // Nothing to do here.  A km payload thread stopped before the control-C got here.
          }
          ret = pthread_mutex_unlock(&gdbstub.gdbnotify_mutex);
          assert(ret == 0);

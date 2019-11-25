@@ -234,10 +234,10 @@ load test_helper
    km_gdb_default_port=2159
    # Test with breakpoints triggering and SIGILL being happending continuously
    # Save output to a log file for our own check using grep below.
-   km_with_timeout -Vgdb -g gdb_server_entry_race.km >/tmp/gdb_server_race_test.out 2>&1 &
+   km_with_timeout -Vgdb -g gdb_server_entry_race_test.km >/tmp/gdb_server_race_test.out 2>&1 &
    gdb_pid=$! ; sleep 0.5
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
-         --ex=c --ex=q gdb_server_entry_race.km
+         --ex=c --ex=q gdb_server_entry_race_test.km
    assert_success
 
    # check that KM exited normally

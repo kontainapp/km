@@ -545,6 +545,11 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
    if (machine.pause_requested) {   // guarantee an exit right away if we are pausing
       vcpu->cpu_run->immediate_exit = 1;
    }
+   /*
+    * When ioctl( KVM_RUN ) fails, it apparently doesn't set exit_reason.
+    * To avoid seeing the exit_reason from the preceeding KVM_RUN ioctl
+    * we initialize the value before making the ioctl() request.
+    */
    vcpu->cpu_run->exit_reason = 0;     // i hope this won't disturb kvm.
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) == 0) {
       return 0;
