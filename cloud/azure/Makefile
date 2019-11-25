@@ -37,7 +37,34 @@ clean: cleanall  ## clean cluster and resources
 distro publish:  ## Scan KM repo and build / publish all containers
 	$(MAKE) $(MAKEFLAGS) -C ../..  $@
 
+
+export define az_install_message
+echo -e "${RED}Azure 'az' CLI is not installed. ${NOCOLOR}"
+cat <<EOF
+
+To install, follow the instruction on
+https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-yum?view=azure-cli-latest,
+specifically:
+
+# Import the Microsoft repository key.
+sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+# Create local azure-cli repository information.
+sudo sh -c 'echo -e "[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/azure-cli.repo'
+# install
+sudo dnf install -y azure-cli
+EOF
+endef
+
 login:  ## Interactive login to Azure, Acure Container Registry and Kubernetes cluster on Azure
+	@if ! which az >& /dev/null ; then \
+		eval "$$az_install_message" ; \
+		exit 1; \
+	fi
 	az login
 	az acr login -n $(REGISTRY_NAME)
 	az aks get-credentials --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER) --overwrite-existing

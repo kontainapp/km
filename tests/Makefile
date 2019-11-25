@@ -63,6 +63,19 @@ endif
 	@echo ""
 	@rm -f ${TIME_INFO}
 
+kubernetes-test: ## create pod with existing CI build for debug. e.g. 'make kubernetes-test IMAGE_VERSION=CI-695'
+	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == latest ]] ; then \
+			echo -e "${RED}IMAGE_VERSION should be set to CI-BuildId , e.g. CI-695. Currentl value='${IMAGE_VERSION}'${NOCOLOR}" ; \
+			exit 1; \
+	fi
+	@echo "Creating or updating Kubernetes pod for USER=${USER_NAME} IMAGE_VERSION=${IMAGE_VERSION}"
+	@name=$$(m4 -DUSER=${USER_NAME} -DIMAGE_VERSION=${IMAGE_VERSION} \
+					-DSUFFIX=$(shell echo ${IMAGE_VERSION} | tr '[A-Z]' '[a-z]') run-test-pod.yaml |  \
+		kubectl apply -f - -o jsonpath='{.metadata.name}'); \
+		echo -e "Run bash in your pod '$$name' using '${GREEN}kubectl exec $$name -it -- bash${NOCOLOR}'" ; \
+		echo -e "Run tests inside your pod using '${GREEN}./run_bats_tests.sh${NOCOLOR}'" ; \
+		echo -e "When you are done, do not forget to '${GREEN}kubectl delete pod $$name${NOCOLOR}'"
+
 %.km: %.o
 	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
 
