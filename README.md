@@ -9,9 +9,7 @@ We plan to be fully compatible with OCI/CRI to seamlessly plug into Docker/Kuber
 
 For one page Kontain intro, Technical Users whitepapers and info see Kontain's [Google docs](https://docs.google.com)
 
-For build and test info, see [docs/build.md](docs/build.md).
-
-
+:point_right: **For build and test info, see [docs/build.md](docs/build.md).**
 
 ## Files layout
 
@@ -29,7 +27,13 @@ For build and test info, see [docs/build.md](docs/build.md).
 
 To get started, read the introduction and technical user whitepaper, then build and test and go from there.
 
-We use Visual Studio Code as recommended IDE; .vscode/km.code-workspace is the workspace defintion to open with File/OpenWorkspace there.
+We use Visual Studio Code as recommended IDE; install it and use `code km_repo_root/.vscode/km.code-workspace` to start, or use `File->Open Workspace` and open  **.vscode/km.code-workspace** file
+
+## Build environment
+
+[docs/build.md](docs/build.md) has the details, but if you want to get started right away:
+
+* Make sure you have 'az' CLI installed
 
 ## Contributing
 

@@ -8,7 +8,7 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
-# create buildenv images and push them to Azure regitry
+# create buildenv images and push them to Azure registry
 
 TOP=$(git rev-parse --show-cdup)
 source `dirname $0`/cloud_config.mk

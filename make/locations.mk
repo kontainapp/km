@@ -49,6 +49,7 @@ BUILDENV_IMG  ?= kontain/buildenv-${COMPONENT}-${DTYPE}
 
 UID := $(shell id -u)
 GID := $(shell id -g)
+USER_NAME := $(shell id -un)
 
 DOCKER_BUILD := docker build --label "KONTAIN:BRANCH=$(SRC_BRANCH)" --label "KONTAIN:SHA=$(SRC_SHA)"
 # Use DOCKER_RUN_CLEANUP="" if container is needed after a run
