@@ -468,6 +468,7 @@ struct gdb_event {
    int sigthreadid;
    int exit_reason;
 };
+typedef struct gdb_event gdb_event_t;
 
 /*
  * Handle KVM_RUN exit.
@@ -477,7 +478,7 @@ struct gdb_event {
  * Note: Before calling this function, KVM exit_reason is converted to signum.
  * TODO: split this function into a sane table-driven set of handlers based on parsed command.
  */
-static void gdb_handle_payload_stop(struct gdb_event *gep)
+static void gdb_handle_payload_stop(gdb_event_t *gep)
 {
    char* packet;
    char obuf[BUFMAX];
@@ -723,7 +724,7 @@ done:
  * Note that we map VM exit reason to a GDB 'signal', which is what needs to be communicated back
  * to gdb client.
  */
-static void km_gdb_handle_kvm_exit(int is_intr, struct gdb_event* gep)
+static void km_gdb_handle_kvm_exit(int is_intr, gdb_event_t* gep)
 {
    assert(km_gdb_is_enabled() == 1);
    if (is_intr) {
@@ -796,7 +797,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
        {.fd = gdbstub.sock_fd, .events = POLLIN | POLLERR},
        {.fd = machine.intr_fd, .events = POLLIN | POLLERR},
    };
-   struct gdb_event ge;
+   gdb_event_t ge;
 
    km_wait_on_eventfd(machine.intr_fd);   // Wait for km_vcpu_run_main to set vcpu->tid
    km_gdb_vcpu_set(main_vcpu);
