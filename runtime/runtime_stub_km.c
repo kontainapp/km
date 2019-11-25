@@ -78,6 +78,9 @@ __stub__(waitpid);
 __stub_core__(wait);
 __stub_core__(waitid);
 
+__stub__(backtrace);
+__stub__(mallopt);
+
 int sched_getcpu(void)
 {
    return 0;
@@ -91,9 +94,6 @@ void* dlvsym(void* handle, char* symbol, char* version)
 /*
  * executable stubs, returning simple canned value
  */
-__stub__(backtrace);
-__stub__(mallopt);
-
 const char* gnu_get_libc_version(void)
 {
    return "km";

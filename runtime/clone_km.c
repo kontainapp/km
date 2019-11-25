@@ -15,15 +15,16 @@ void __km_clone_run_child(int (*fn)(void*), void* args)
 }
 
 int __clone(int (*fn)(void*), void* child_stack, int flags, void* args, pid_t* ptid, void* newtls, pid_t* ctid)
-{ /*
-   * Clone system call signature is system dependent.
-   * The system call signature for X86 is:
-   *
-   * long clone(unsigned long flags, void *child_stack,
-   *            int *ptid, int *ctid, unsigned long newtls);
-   *
-   * See 'man 2 clone for details.
-   */
+{
+   /*
+    * Clone system call signature is system dependent.
+    * The system call signature for X86 is:
+    *
+    * long clone(unsigned long flags, void *child_stack,
+    *            int *ptid, int *ctid, unsigned long newtls);
+    *
+    * See 'man 2 clone for details.
+    */
 
    uintptr_t cargs[2] = {(uintptr_t)fn, (uintptr_t)args};
    km_hc_args_t args1 = {.arg1 = flags,

@@ -1124,6 +1124,7 @@ static km_hc_ret_t km_unittest_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t procfdname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   // musl specific call: void __procfdname(char *buf, unsigned fd)
    void* buf = km_gva_to_kma(arg->arg1);
    if (buf == NULL) {
       arg->hc_ret = -EFAULT;
@@ -1135,6 +1136,7 @@ static km_hc_ret_t procfdname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   // see clone_km.c for prototype
    arg->hc_ret =
        km_clone(vcpu, arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, km_gva_to_kma(arg->arg6));
    return HC_CONTINUE;
@@ -1142,6 +1144,7 @@ static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t set_tid_address_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   // long set_tid_address(int *tidptr);
    arg->hc_ret = km_set_tid_address(vcpu, arg->arg1);
    return HC_CONTINUE;
 }
