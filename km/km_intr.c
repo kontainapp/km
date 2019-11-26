@@ -141,12 +141,12 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
       iframe = (x86_interrupt_frame_t*)(rsp_kma + 1);
    }
 
-   km_info(KM_TRACE_SIGNALS, "ERROR CODE: 0x%lx\n", error_code);
-   km_info(KM_TRACE_SIGNALS, "       RIP: 0x%lx\n", iframe->rip);
-   km_info(KM_TRACE_SIGNALS, "        CS: 0x%lx\n", iframe->cs);
-   km_info(KM_TRACE_SIGNALS, "    RFLAGS: 0x%lx\n", iframe->rflags);
-   km_info(KM_TRACE_SIGNALS, "       RSP: 0x%lx\n", iframe->rsp);
-   km_info(KM_TRACE_SIGNALS, "        SS: 0x%lx\n", iframe->ss);
+   km_infox(KM_TRACE_SIGNALS, "ERROR CODE: 0x%lx", error_code);
+   km_infox(KM_TRACE_SIGNALS, "       RIP: 0x%lx", iframe->rip);
+   km_infox(KM_TRACE_SIGNALS, "        CS: 0x%lx", iframe->cs);
+   km_infox(KM_TRACE_SIGNALS, "    RFLAGS: 0x%lx", iframe->rflags);
+   km_infox(KM_TRACE_SIGNALS, "       RSP: 0x%lx", iframe->rsp);
+   km_infox(KM_TRACE_SIGNALS, "        SS: 0x%lx", iframe->ss);
 
    // Restore register to what they were before the interrupt.
    vcpu->regs.rip = iframe->rip;
