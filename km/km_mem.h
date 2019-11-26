@@ -195,6 +195,11 @@ static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
  * Translates guest virtual address to km address, checking for validity.
  * @param gva Guest virtual address
  * @returns Address in KM. returns NULL if guest VA is invalid.
+ *
+ * While brk and tbrk are maintained to byte granularity Linux kernel really enforces memory
+ * protection to page granularity.There are situations when memory is "donated" into malloc heap
+ * (i.e by dynlink), and malloc code treats the whole page as available even as brk points in the
+ * middle. So we relax the checks here to allow for that, and behave like Linux kernel
  */
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
