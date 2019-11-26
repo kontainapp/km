@@ -10,6 +10,7 @@
  * permission of Kontain Inc.
  */
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <stdio.h>
 #include <syscall.h>
@@ -52,7 +53,7 @@ __stub_core__(sched_getparam);
 __stub_core__(__sched_cpualloc);
 __stub_core__(__sched_cpucount);
 __stub_core__(__sched_cpufree);
-__stub_core__(sched_getaffinity);
+__stub__(sched_getaffinity);
 __stub_core__(sched_setaffinity);
 __stub_core__(sched_get_priority_max);
 __stub_core__(sched_get_priority_min);
@@ -63,16 +64,31 @@ __stub_core__(sched_setscheduler);
 __stub_core__(sched_yield);
 __stub_core__(system);
 __stub__(fork);
+__stub__(vfork);
+__stub__(shmget);
+__stub__(shmat);
+__stub__(shmdt);
+__stub__(shmctl);
 __stub__(waitpid);
 __stub_core__(wait);
 __stub_core__(waitid);
 
-/*
- * executable stubs, returning simple canned value
- */
 __stub__(backtrace);
 __stub__(mallopt);
 
+int sched_getcpu(void)
+{
+   return 0;
+}
+
+void* dlvsym(void* handle, char* symbol, char* version)
+{
+   return dlsym(handle, symbol);
+}
+
+/*
+ * executable stubs, returning simple canned value
+ */
 const char* gnu_get_libc_version(void)
 {
    return "km";

@@ -1113,6 +1113,7 @@ static km_hc_ret_t km_unittest_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t procfdname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   // musl specific call: void __procfdname(char *buf, unsigned fd)
    void* buf = km_gva_to_kma(arg->arg1);
    if (buf == NULL) {
       arg->hc_ret = -EFAULT;
@@ -1234,6 +1235,9 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getgid] = dummy_hcall;
    km_hcalls_table[SYS_sched_yield] = dummy_hcall;
    km_hcalls_table[SYS_setpriority] = dummy_hcall;
+   km_hcalls_table[SYS_sched_getaffinity] = dummy_hcall;
+   km_hcalls_table[SYS_sysinfo] = dummy_hcall;
+   km_hcalls_table[SYS_prctl] = dummy_hcall;
 
    km_hcalls_table[HC_pthread_create] = pthread_create_hcall;
    km_hcalls_table[HC_pthread_join] = pthread_join_hcall;
