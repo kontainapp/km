@@ -540,19 +540,27 @@ static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unu
  */
 static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 {
+   int signo;
+
    if (machine.pause_requested) {   // guarantee an exit right away if we are pausing
       vcpu->cpu_run->immediate_exit = 1;
    }
+   /*
+    * When ioctl( KVM_RUN ) fails, it apparently doesn't set exit_reason.
+    * To avoid seeing the exit_reason from the preceeding KVM_RUN ioctl
+    * we initialize the value before making the ioctl() request.
+    */
+   vcpu->cpu_run->exit_reason = 0;   // i hope this won't disturb kvm.
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL) == 0) {
       return 0;
    }
-   run_info("KVM_RUN exit %d (%s) imm_exit=%d %s",
+   run_info("KVM_RUN exit %d (%s) imm_exit=%d",
             vcpu->cpu_run->exit_reason,
             kvm_reason_name(vcpu->cpu_run->exit_reason),
-            vcpu->cpu_run->immediate_exit,
-            strerror(errno));
+            vcpu->cpu_run->immediate_exit);
    switch (errno) {
       case EAGAIN:
+         vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          break;
 
       case EINTR:
@@ -563,7 +571,18 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
          vcpu->cpu_run->immediate_exit = 0;
          vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          if (km_gdb_is_enabled() == 1) {
-            km_gdb_notify_and_wait(vcpu, km_signal_ready(vcpu));
+            signo = km_signal_ready(vcpu);
+            if (signo == 0) {
+               /*
+                * ioctl( KVM_RUN ) was interrupted by SIGUSR1
+                * All we need to do here is arrange to pause this vcpu
+                * and that will happen in the caller.
+                */
+               machine.pause_requested = 1;
+               return -1;
+            } else {
+               km_gdb_notify_and_wait(vcpu, signo);
+            }
          }
          break;
 
@@ -574,6 +593,7 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
           * guest memory (guest PT says page is writable, but kernel says it
           * isn't).
           */
+         vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
          siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
          km_post_signal(vcpu, &info);
          break;
@@ -605,6 +625,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
       // interlock with machine.pause_requested.
       if (machine.pause_requested) {
          km_infox(KM_TRACE_VCPU, "%s: vcpu %d blocking on gdb_efd", __FUNCTION__, vcpu->vcpu_id);
+         vcpu->is_paused = 1;
          km_read_registers(vcpu);
          km_read_sregisters(vcpu);
          km_wait_on_eventfd(vcpu->gdb_efd);
