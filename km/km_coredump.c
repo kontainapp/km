@@ -11,7 +11,11 @@
  *
  * Support writing coredump files for failing guest.
  *
- * TODO: Buffer management for PT_NOTES is vunerable to overruns. Need to fix.
+ * Linux source files for reference:
+ *  include/uapi/linux/elfcore.h
+ *  fs/binfmt_elf.c
+ *
+ * TODO: Buffer management for PT_NOTES is vulnerable to overruns. Need to fix.
  */
 
 #include <stdio.h>
@@ -22,6 +26,7 @@
 
 #include "km.h"
 #include "km_coredump.h"
+#include "km_filesys.h"
 #include "km_mem.h"
 
 // TODO: Need to figure out where the corefile default should go.
@@ -95,14 +100,14 @@ void km_core_write_load_header(int fd, off_t offset, km_gva_t base, size_t size,
 }
 
 // TODO padding?
-static int km_add_note_header(char* buf, size_t length, char* owner, size_t descsz)
+static int km_add_note_header(char* buf, size_t length, char* owner, int type, size_t descsz)
 {
    Elf64_Nhdr* nhdr;
    char* cur = buf;
    size_t ownersz = strlen(owner);
 
    nhdr = (Elf64_Nhdr*)cur;
-   nhdr->n_type = NT_PRSTATUS;
+   nhdr->n_type = type;
    nhdr->n_namesz = ownersz;
    nhdr->n_descsz = descsz;
    cur += sizeof(Elf64_Nhdr);
@@ -120,7 +125,7 @@ static inline int km_make_dump_prstatus(km_vcpu_t* vcpu, char* buf, size_t lengt
    km_read_registers(vcpu);
    km_read_sregisters(vcpu);
 
-   cur += km_add_note_header(cur, remain, "CORE", sizeof(struct elf_prstatus));
+   cur += km_add_note_header(cur, remain, "CORE", NT_PRSTATUS, sizeof(struct elf_prstatus));
 
    // TODO: Fill in the rest of elf_prstatus.
    pr.pr_pid = km_vcpu_get_tid(vcpu);
@@ -157,7 +162,7 @@ static inline int km_make_dump_prstatus(km_vcpu_t* vcpu, char* buf, size_t lengt
    cur += sizeof(struct elf_prstatus);
    remain -= sizeof(struct elf_prstatus);
 
-   return cur - buf;
+   return roundup(cur - buf, 4);
 }
 
 typedef struct {
@@ -177,6 +182,135 @@ static int km_core_dump_threads(km_vcpu_t* vcpu, uint64_t arg)
    ctx->pr_cur += ret;
    ctx->pr_remain -= ret;
    return ret;
+}
+
+/*
+ * Format of NT_FILE note:
+ *
+ * long count     -- how many files are mapped
+ * long page_size -- units for file_ofs
+ * array of [COUNT] elements of
+ *   long start
+ *   long end
+ *   long file_ofs
+ * followed by COUNT filenames in ASCII: "FILE1" NUL "FILE2" NUL...
+ */
+static size_t km_mappings_size(km_vcpu_t* vcpu, size_t* nfilesp)
+{
+   km_mmap_reg_t* ptr;
+   size_t notelen = 2 * sizeof(uint64_t);
+   size_t nfiles = 0;
+
+   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
+      Elf64_Phdr* phdr = &km_guest.km_phdr[i];
+      if (phdr->p_type != PT_LOAD) {
+         continue;
+      }
+      notelen += 3 * sizeof(uint64_t) + strlen(km_guest.km_filename) + 1;
+      nfiles++;
+   }
+   TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
+      if (ptr->filename == NULL) {
+         continue;
+      }
+      notelen += 3 * sizeof(uint64_t) + strlen(ptr->filename) + 1;
+      nfiles++;
+   }
+   if (nfilesp != NULL) {
+      *nfilesp = nfiles;
+   }
+   return notelen;
+}
+
+static inline int km_core_dump_mappings(km_vcpu_t* vcpu, char* buf, size_t length)
+{
+   char* cur = buf;
+   size_t remain = length;
+   km_mmap_reg_t* ptr;
+
+   // Pass 1 - Compute size of entry and # of files);
+   size_t notelen = 2 * sizeof(uint64_t);
+   size_t nfiles = 0;
+   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
+      Elf64_Phdr* phdr = &km_guest.km_phdr[i];
+      if (phdr->p_type != PT_LOAD) {
+         continue;
+      }
+      notelen += 3 * sizeof(uint64_t) + strlen(km_guest.km_filename) + 1;
+      nfiles++;
+   }
+   TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
+      if (ptr->filename == NULL) {
+         continue;
+      }
+      notelen += 3 * sizeof(uint64_t) + strlen(ptr->filename) + 1;
+      nfiles++;
+   }
+
+   cur += km_add_note_header(cur, remain, "CORE", NT_FILE, notelen);
+
+   // Pass 2 - Note records
+   uint64_t* fent = (uint64_t*)cur;
+   fent[0] = nfiles;
+   fent[1] = KM_PAGE_SIZE;
+   cur += 2 * sizeof(*fent);
+   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
+      Elf64_Phdr* phdr = &km_guest.km_phdr[i];
+      if (phdr->p_type != PT_LOAD) {
+         continue;
+      }
+      fent = (uint64_t*)cur;
+      fent[0] = phdr->p_vaddr + km_guest.km_load_adjust;
+      fent[1] = phdr->p_vaddr + km_guest.km_load_adjust + phdr->p_memsz;
+      fent[2] = phdr->p_offset / KM_PAGE_SIZE;
+      cur += 3 * sizeof(*fent);
+      remain -= 3 * sizeof(*fent);
+   }
+
+   TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
+      if (ptr->filename == NULL) {
+         continue;
+      }
+      fent = (uint64_t*)cur;
+      fent[0] = ptr->start;
+      fent[1] = ptr->start + ptr->size;
+      fent[2] = ptr->offset / KM_PAGE_SIZE;
+      cur += 3 * sizeof(*fent);
+      remain -= 3 * sizeof(*fent);
+   }
+
+   // pass 3 - file names.
+   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
+      Elf64_Phdr* phdr = &km_guest.km_phdr[i];
+      if (phdr->p_type != PT_LOAD) {
+         continue;
+      }
+      char* name = km_guest.km_filename;
+      size_t len = strlen(name) + 1;
+      strcpy(cur, name);
+      cur += len;
+   }
+   TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
+      if (ptr->filename == NULL) {
+         continue;
+      }
+      char* name = ptr->filename;
+      size_t len = strlen(name) + 1;
+      strcpy(cur, name);
+      cur += len;
+   }
+   return roundup(cur - buf, 4);
+}
+
+static inline int km_core_dump_auxv(km_vcpu_t* vcpu, char* buf, size_t length)
+{
+   char* cur = buf;
+   size_t remain = length;
+
+   cur += km_add_note_header(cur, remain, "CORE", NT_AUXV, machine.auxv_size);
+   memcpy(cur, machine.auxv, machine.auxv_size);
+   cur += machine.auxv_size;
+   return roundup(cur - buf, 4);
 }
 
 int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t size)
@@ -202,11 +336,19 @@ int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t
    cur = ctx.pr_cur;
    remain = ctx.pr_remain;
 
+   //  NT_FILE (mapped files)
+   ret = km_core_dump_mappings(vcpu, cur, remain);
+   cur += ret;
+   remain -= ret;
+
+   //  NT_AUXV (auxiliary vector)
+   ret = km_core_dump_auxv(vcpu, cur, remain);
+   cur += ret;
+   remain -= ret;
+
    // TODO: Other notes sections in real core files.
    //  NT_PRPSINFO (prpsinfo structure)
    //  NT_SIGINFO (siginfo_t data)
-   //  NT_AUXV (auxiliary vector)
-   //  NT_FILE (mapped files)
    //  NT_FPREGSET (floating point registers)
    //  NT_X86_XSTATE (X86 XSAVE extended state)
 
@@ -260,6 +402,8 @@ size_t km_core_notes_length()
     * At the beginning ats the default and again in position.
     */
    size_t alloclen = sizeof(Elf64_Nhdr) + ((nvcpu + 1) * sizeof(struct elf_prstatus));
+   alloclen += km_mappings_size(NULL, NULL) + sizeof(Elf64_Nhdr);
+   alloclen += machine.auxv_size + sizeof(Elf64_Nhdr);
 
    return roundup(alloclen, KM_PAGE_SIZE);
 }

@@ -23,26 +23,31 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
+SHRSRC := dlopen_test.c dlopen_test_lib.c
+
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./gdb
 TESTENV_PATH := .
 
-COPTS ?= -ggdb -O2
+COPTS ?= -ggdb -O2 -fPIC
 CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
 LDFLAGS = -ggdb -pthread
 KCC := kontain-gcc
-DEPS = ${SRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
+DEPS = ${SRC:%.c=%.d} ${SHRSRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
 EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
+SEXECS := ${SHRSRC:%.c=%.so} ${KM_PAYLOADS:%.km=%.so}
+
 CXXFLAGS=${CFLAGS}
 ${SRC_CPP:%.cpp=%.km}: KCC=kontain-g++
+${SRC_CPP:%.cpp=%.so}: KCC=kontain-g++
 ${SRC_CPP:%.cpp=%}: CC=g++
 
 # Only tests matching this regexp will be run
 MATCH ?= .*
 
-all: ${EXECS} ## Build all test, for Linux and KM
+all: ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
 
 ${KM_PAYLOADS}: ${TOP}build/runtime
 
@@ -58,12 +63,17 @@ test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by
 # Run all tests in CI, in Kubernetes. Used from CI (thus no help).
 # IMAGE_VERSION (e.g. CI-788) needs to be passed in.
 CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
+
+%.so: %.o
+	${KCC} -shared ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
+
 %.km: %.o
 	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
 
 .PHONY: load_expected_size
-load_expected_size: load_test.km
+load_expected_size: load_test.km load_test.so
 	@nm load_test.km | awk '/ _end/{ print "0x" $$1}'
+	@nm load_test.so | awk '/ _end/{ print "0x" $$1}'
 
 %.d: %.c
 	@# print the command we really need to run
@@ -92,7 +102,7 @@ load_expected_size: load_test.km
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d $(EXECS) kmcore
+	rm -f *.o *.d $(EXECS) $(SEXECS) kmcore
 
 #
 # do not generate .d file for some targets

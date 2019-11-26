@@ -10,175 +10,56 @@
  * Kontain Inc.
  *
  * After the guest is loaded on memory, initialize it's execution environment.
- * This includes passing parameters to main, but more importantly setting values in
- * struct __libc and friends.
+ * This includes passing parameters to main.
  */
 
+#define _GNU_SOURCE   // Needed for clone(2) flag definitions.
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sched.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/syscall.h>   // getpid() has no libc wrapper, so need to do syscall
+#include <sys/syscall.h>
+#include <linux/futex.h>
 
 #include "km.h"
 #include "km_gdb.h"
 #include "km_mem.h"
+#include "km_syscall.h"
 
 /*
- * Definitions and structures from various musl files
- */
-#define LOCALE_NAME_MAX 23
-
-#define SIGTIMER 32
-#define SIGCANCEL 33
-#define SIGSYNCCALL 34
-
-typedef struct km__locale_map {
-   const void* map;
-   size_t map_size;
-   char name[LOCALE_NAME_MAX + 1];
-   const struct km__locale_map* next;
-} km__locale_map_t;
-
-typedef struct km__locale_struct {
-   const struct km__locale_map* cat[6];
-} km__locale_t;
-
-typedef struct km__libc {
-   int can_do_threads;
-   int threaded;
-   int secure;
-   volatile int threads_minus_1;
-   size_t* auxv;
-   struct km_tls_module* tls_head;
-   size_t tls_size, tls_align, tls_cnt;
-   size_t page_size;
-   km__locale_t global_locale;
-} km__libc_t;
-
-typedef struct km__ptcb {
-   void (*__f)(void*);
-   void* __x;
-   struct __ptcb* __next;
-} km__ptcb_t;
-
-enum {
-   DT_EXITING = 0,
-   DT_JOINABLE,
-   DT_DETACHED,
-};
-
-typedef struct km_pthread {
-   /* Part 1 -- these fields may be external or
-    * internal (accessed via asm) ABI. Do not change. */
-   struct km_pthread* self;
-   uintptr_t* dtv;
-   struct km_pthread *prev, *next; /* non-ABI */
-   uintptr_t sysinfo;
-   uintptr_t canary, canary2;
-
-   /* Part 2 -- implementation details, non-ABI. */
-   int tid;
-   int errno_val;
-   volatile int detach_state;
-   volatile int cancel;
-   volatile unsigned char canceldisable, cancelasync;
-   unsigned char tsd_used : 1;
-   unsigned char dlerror_flag : 1;
-   unsigned char* map_base;
-   size_t map_size;
-   void* stack;
-   size_t stack_size;
-   size_t guard_size;
-   void* result;
-   km__ptcb_t* cancelbuf;
-   void** tsd;
-   struct {
-      volatile void* volatile head;
-      long off;
-      volatile void* volatile pending;
-   } robust_list;
-   volatile int timer_id;
-   km__locale_t* locale;
-   volatile int killlock[1];
-   char* dlerror_buf;
-   void* stdio_locks;
-
-   /* Part 3 -- the positions of these fields relative to
-    * the end of the structure is external and internal ABI. */
-   uintptr_t canary_at_end;
-   uintptr_t* dtv_copy;
-} km_pthread_t;
-
-/*
- * Normally this structure is part of the guest payload, however its use is very specific. It keeps
- * the description of the TLS memory and used for as a source of initialization for new threads TLS.
- * So we keep it in the monitor.
- */
-km_tls_module_t km_main_tls;
-
-typedef struct km_builtin_tls {
-   char c;
-   km_pthread_t pt;
-   void* space[16];
-} km_builtin_tls_t;
-#define MIN_TLS_ALIGN offsetof(km_builtin_tls_t, pt)
-
-/*
- * km_load_elf() finds __libc by name in the ELF image of the guest. We follow __init_libc() logic
- * to initialize the content, including TLS and pthread structure for the main thread. TLS is
- * allocated on top of the stack. pthread is part of TLS area.
+ * Allocate stack for main thread and initialize it according to ABI:
+ * https://www.uclibc.org/docs/psABI-x86_64.pdf,
+ * https://software.intel.com/sites/default/files/article/402129/mpx-linux64-abi.pdf (not sure which
+ * is newer so keep both references).
+ *
+ * We are not freeing the stack until we get to km_machine_fini(), similar to memory allocated by
+ * km_load_elf() for executable and data part of the program.
  *
  * Care needs to be taken to distinguish between addresses seen in the guest and in km. We have two
- * sets of variables for each structure we deal with, like libc and libc_kma, former and latter
- * correspondingly. The guest addresses are, as everywhere in km, of km_gva_t (aka uint64_t). km
- * addresses are of the type there are in the guest. When we need to obtain addresses of subfields
- * in the guests we cast the km_gva_t to the appropriate pointer, then use &(struct)->field.
+ * sets of variables for each structure we deal with, like stack_top and stack_top_kma, former and
+ * latter correspondingly. The guest addresses are, as everywhere in km, of km_gva_t (aka uint64_t).
  *
- * Also we distingush two case - the one when libc is part of executable (the most commin case), and
- * when it isn't. The latter assumes some very simple payload, or something incompatible with libc.
- *
- * See TLS description as referenced in gcc manual https://gcc.gnu.org/onlinedocs/gcc-8.2.0/gcc.pdf
- * in section 6.63 Thread-Local Storage, at the time of this writing pointing at
+ * See TLS description as referenced in gcc manual https://gcc.gnu.org/onlinedocs/gcc-9.2.0/gcc.pdf
+ * in section 6.64 Thread-Local Storage, at the time of this writing pointing at
  * https://www.akkadia.org/drepper/tls.pdf.
  *
- * TLS paper above explain TLS on various platforms and in generic way. We implement here
- * simplification.
- *
- * One simplification is that being one static executable we only have one tls module, instead of
- * linked list of nmodules, one per dynamically linked/loaded object. Correspondingly the dtv
- * contains only one pointer, dtv[1], and generation number (dtv[0]) never changes.
- * Another simplification is that for now we always put TLS on the stack, thus we allocate stack to
- * contain requested stack size and TLS.
- * In addition to TLS there is also TSD (pthread_key_create/pthread_setspecific and such). For the
- * main thread TSD is placed in a separate area, which gets linked in the guest code if the facility
- * is used. Note pthread_create() assignment of tsd field. For subsequent threads we put TSD also on
- * the stack.
- *
- * For the main thread, going from the top of the allocated stack area down, we place Thread Control
- * Block (TCB, km_pthread_t), then TLS, then dtv. All with the appropriate alignment derived either
- * from structure packing (MIN_TLS_ALIGN) or coming from TLS extend in ELF. Below dtv for main
- * thread we put dummy (empty) AUXV and environ, the argv built from the args, and then goes the
- * initial top of the stack.
- *
- * For the subsequent threads on the very top goes fixed size TSD area. Below that goes TCB, then
- * TLS, then dtv, and the initial top of the stack, again all appropriately alligned.
- *
- * Return location of argv in the guest
- *
- * TODO: There are other guest structures, such as __hwcap, __sysinfo, __progname and so
- * on, we will need to process them as well most likely.
+ * Return the location of argv in guest
  */
-km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[])
+#define NEW_AUXV_ENT(type, val)                                                                    \
+   {                                                                                               \
+      stack_top -= 2 * sizeof(void*);                                                              \
+      stack_top_kma -= 2 * sizeof(void*);                                                          \
+      uint64_t* ptr = stack_top_kma;                                                               \
+      ptr[0] = (type);                                                                             \
+      ptr[1] = (uint64_t)(val);                                                                    \
+   }
+
+km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[])
 {
-   km_gva_t libc = km_guest.km_libc;
-   km__libc_t* libc_kma = NULL;
-   km_gva_t tcb;
-   km_pthread_t* tcb_kma;
-   uintptr_t* dtv_kma;
-   km_gva_t dtv;
    km_gva_t map_base;
 
    assert(km_guest.km_handlers != 0);
@@ -186,48 +67,10 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int en
    if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
    }
-   tcb = rounddown(map_base + GUEST_STACK_SIZE - sizeof(km_pthread_t), MIN_TLS_ALIGN);
-
-   if (libc != 0) {
-      libc_kma = km_gva_to_kma_nocheck(libc);
-      libc_kma->page_size = KM_PAGE_SIZE;
-      libc_kma->secure = 1;
-      libc_kma->can_do_threads = 0;   // Doesn't seem to matter either way
-   }
-   /*
-    * km_main_tls is initialized from ELF PT_TLS header. dtv is part of TLS: dtv[0] is generation #,
-    * dtv[1] is a pointer to the only TLS area as this is static program.
-    *
-    * Normally km_main_tls is in executable memory, and is used to initialize newly created threads'
-    * TLS. In our case that logic is all in KM, so we keep that info in KM as well, and only
-    * initialize part of libc used by runtime TLS, or __tls_get_addr(), which means for example
-    * libc_kma->tls_{size,head,cnt} are NULL as not used.
-    */
-   km_main_tls.align = MAX(km_main_tls.align, MIN_TLS_ALIGN);
-   km_gva_t tls = rounddown(tcb - km_main_tls.size, km_main_tls.align);
-   dtv = rounddown(tls - 2 * sizeof(void*), sizeof(void*));
-   dtv_kma = km_gva_to_kma_nocheck(dtv);
-   dtv_kma[0] = 1;   // static executable
-   dtv_kma[1] = tls;
-   km_main_tls.offset = tcb - tls;
-   if (km_main_tls.len != 0) {
-      memcpy(km_gva_to_kma_nocheck(tls), km_main_tls.image, km_main_tls.len);
-   }
-
-   tcb_kma = km_gva_to_kma_nocheck(tcb);
-   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)dtv;
-   tcb_kma->locale = libc != 0 ? &((km__libc_t*)libc)->global_locale : NULL;
-   tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
-   tcb_kma->map_size = GUEST_STACK_SIZE;
-   tcb_kma->self = (km_pthread_t*)tcb;
-   tcb_kma->detach_state = DT_JOINABLE;
-   tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
-
-   km_gva_t stack_top = dtv;
+   km_gva_t stack_top = map_base + GUEST_STACK_SIZE;
    km_kma_t stack_top_kma = km_gva_to_kma_nocheck(stack_top);
 
    // Set environ - copy strings and prep the envp array
-
    char* km_envp[envc + 1];
    memcpy(km_envp, envp, sizeof(km_envp));
    for (int i = 0; i < envc - 1; i++) {
@@ -245,41 +88,66 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int en
    stack_top_kma = km_gva_to_kma_nocheck(stack_top);
 
    // copy arguments and form argv array
-   char* argv_km[argc + 1];   // argv to copy to guest stack_init
-   argv_km[argc] = NULL;
-   for (argc--; argc >= 0; argc--) {
-      int len = strnlen(argv[argc], PATH_MAX) + 1;
+   km_gva_t argv_km[argc + 1];   // argv to copy to guest stack_init
+   argv_km[argc] = 0;
+   for (int i = argc - 1; i >= 0; i--) {
+      int len = strnlen(argv[i], PATH_MAX) + 1;
 
       stack_top -= len;
       if (map_base + GUEST_STACK_SIZE - stack_top > GUEST_ARG_MAX) {
          errx(2, "Argument list is too large");
       }
-      argv_km[argc] = (char*)stack_top;
+      argv_km[i] = stack_top;
       stack_top_kma -= len;
-      strncpy(stack_top_kma, argv[argc], len);
+      strncpy(stack_top_kma, argv[i], len);
    }
-   stack_top = rounddown(stack_top, sizeof(void*));
+
+   static const char* pstr = "X86_64";
+   int pstr_len = strlen(pstr) + 1;
+   stack_top -= pstr_len;
+   stack_top_kma -= pstr_len;
+   strcpy(stack_top_kma, pstr);
+   km_gva_t platform_gva = stack_top;
+
+   // TODO: AT_RANDOM random data for seeds (16 bytes)
+
+   /*
+    * ABI wants 16 byte aligned stack top at process start time.
+    * AUXV entries are already 16 bytes.
+    */
+   stack_top = rounddown(stack_top, sizeof(void*) * 2);
+   if ((argc + envc) % 2 != 0) {
+      stack_top -= sizeof(void*);
+   }
    stack_top_kma = km_gva_to_kma_nocheck(stack_top);
+   void* auxv_end = stack_top_kma;
    // AUXV
-   static const int size_of_aux_slot = 2 * sizeof(void*);
-   stack_top -= size_of_aux_slot;
-   stack_top_kma -= size_of_aux_slot;
-   memset(stack_top_kma, 0, size_of_aux_slot);
-   stack_top -= size_of_aux_slot;
-   stack_top_kma -= size_of_aux_slot;
-   *(uint64_t*)stack_top_kma = AT_PHNUM;
-   *(uint64_t*)(stack_top_kma + sizeof(void*)) = km_guest.km_ehdr.e_phnum;
-   stack_top -= size_of_aux_slot;
-   stack_top_kma -= size_of_aux_slot;
-   *(uint64_t*)stack_top_kma = AT_PHENT;
-   *(uint64_t*)(stack_top_kma + sizeof(void*)) = km_guest.km_ehdr.e_phentsize;
-   stack_top -= size_of_aux_slot;
-   stack_top_kma -= size_of_aux_slot;
-   *(uint64_t*)stack_top_kma = AT_PHDR;
-   *(uint64_t*)(stack_top_kma + sizeof(void*)) = km_guest.km_phdr[0].p_vaddr + km_guest.km_ehdr.e_phoff;
-   if (libc != 0) {
-      libc_kma->auxv = (void*)stack_top;   // auxv
-   }
+   NEW_AUXV_ENT(0, 0);
+   NEW_AUXV_ENT(AT_PLATFORM, platform_gva);
+   NEW_AUXV_ENT(AT_EXECFN, argv_km[0]);
+   // TODO: AT_RANDOM
+   NEW_AUXV_ENT(AT_SECURE, 0);
+   NEW_AUXV_ENT(AT_EGID, 0);
+   NEW_AUXV_ENT(AT_GID, 0);
+   NEW_AUXV_ENT(AT_EUID, 0);
+   NEW_AUXV_ENT(AT_UID, 0);
+   NEW_AUXV_ENT(AT_ENTRY, km_guest.km_ehdr.e_entry + km_guest.km_load_adjust);
+   NEW_AUXV_ENT(AT_FLAGS, 0);
+   // TODO: AT_BASE (for interpretter)
+   NEW_AUXV_ENT(AT_PHNUM, km_guest.km_ehdr.e_phnum);
+   NEW_AUXV_ENT(AT_PHENT, km_guest.km_ehdr.e_phentsize);
+   NEW_AUXV_ENT(AT_PHDR,
+                km_guest.km_ehdr.e_phoff + km_guest.km_phdr[0].p_vaddr + km_guest.km_load_adjust);
+   NEW_AUXV_ENT(AT_CLKTCK, sysconf(_SC_CLK_TCK));
+   NEW_AUXV_ENT(AT_PAGESZ, KM_PAGE_SIZE);
+   // TODO: AT_HWCAP
+   // TODO: AT_SYSINFO_EHDR
+
+   // A safe copy of auxv for coredump (if needed)
+   machine.auxv_size = auxv_end - stack_top_kma;
+   machine.auxv = malloc(machine.auxv_size);
+   assert(machine.auxv);
+   memcpy(machine.auxv, stack_top_kma, machine.auxv_size);
 
    // place envp array
    size_t envp_sz = sizeof(km_envp[0]) * envc;
@@ -291,145 +159,13 @@ km_gva_t km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int en
    stack_top_kma -= sizeof(argv_km);
    stack_top -= sizeof(argv_km);
    memcpy(stack_top_kma, argv_km, sizeof(argv_km));
+   // place argc
+   stack_top_kma -= sizeof(uint64_t);
+   stack_top -= sizeof(uint64_t);
+   *(uint64_t*)stack_top_kma = argc;
 
-   tcb_kma->stack = (typeof(tcb_kma->stack))stack_top;
-   tcb_kma->stack_size = stack_top - map_base;
-   tcb_kma->tid = km_vcpu_get_tid(vcpu);
-
-   // thread list with single element, per musl logic. No lock as we are the first
-   tcb_kma->next = tcb_kma->prev = (typeof(tcb_kma->prev))tcb;
-
-   vcpu->guest_thr = tcb;
    vcpu->stack_top = stack_top;
    return stack_top;   // argv in the guest
-}
-
-#define DEFAULT_STACK_SIZE 131072
-#define DEFAULT_GUARD_SIZE 8192
-
-#define DEFAULT_STACK_MAX (8 << 20)
-#define DEFAULT_GUARD_MAX (1 << 20)
-
-typedef struct {
-   union {
-      int __i[14];
-      volatile int __vi[14];
-      unsigned long __s[7];
-   } __u;
-} km_pthread_attr_t;
-
-static inline size_t _a_stacksize(const km_pthread_attr_t* restrict g_attr)
-{
-   return g_attr == NULL ? 0 : g_attr->__u.__s[0];
-}
-static inline size_t _a_guardsize(const km_pthread_attr_t* restrict g_attr)
-{
-   return g_attr == NULL ? 0 : g_attr->__u.__s[1];
-}
-static inline size_t _a_stackaddr(const km_pthread_attr_t* restrict g_attr)
-{
-   return g_attr == NULL ? 0 : g_attr->__u.__s[2];
-}
-#define __SU (sizeof(size_t) / sizeof(int))
-static inline int _a_detach(const km_pthread_attr_t* restrict g_attr)
-{
-   return g_attr == NULL || g_attr->__u.__i[3 * __SU + 0] == 0 ? DT_JOINABLE : DT_DETACHED;
-}
-
-// #define _a_sched __u.__i[3 * __SU + 1]
-// #define _a_policy __u.__i[3 * __SU + 2]
-// #define _a_prio __u.__i[3 * __SU + 3]
-
-/*
- * Allocate and initialize pthread structure for newly created thread in the guest.
- */
-static km_gva_t
-km_pthread_init(const km_pthread_attr_t* restrict g_attr, km_vcpu_t* vcpu, km_gva_t current_tcb)
-{
-   km_gva_t libc = km_guest.km_libc;
-   km_pthread_t* tcb_kma;
-   km_gva_t tcb;
-   km_gva_t tsd;
-   km_gva_t map_base;
-   size_t map_size;
-   size_t tsd_size;
-   uintptr_t* dtv_kma;
-   km_gva_t dtv;
-
-   assert(km_guest.km_tsd_size != 0);
-   tsd_size = *(size_t*)km_gva_to_kma_nocheck(km_guest.km_tsd_size);
-   assert(tsd_size <= sizeof(void*) * PTHREAD_KEYS_MAX &&
-          tsd_size == rounddown(tsd_size, sizeof(void*)));
-
-   assert(_a_stackaddr(g_attr) == 0);   // TODO: for now
-   assert(libc != 0);
-
-   map_size = _a_stacksize(g_attr) == 0
-                  ? DEFAULT_STACK_SIZE
-                  : roundup(_a_stacksize(g_attr) + km_main_tls.size + sizeof(km_pthread_t) + tsd_size,
-                            KM_PAGE_SIZE);
-   if ((map_base = km_guest_mmap_simple(map_size)) < 0) {
-      return 0;
-   }
-   tsd = map_base + map_size - tsd_size;   // aligned because mmap and assert tsd_size above
-   memset(km_gva_to_kma_nocheck(tsd), 0, tsd_size);
-   tcb = rounddown(tsd - sizeof(km_pthread_t), MIN_TLS_ALIGN);
-   tcb_kma = km_gva_to_kma_nocheck(tcb);
-   memset(tcb_kma, 0, sizeof(km_pthread_t));
-
-   km_gva_t tls = rounddown(tcb - km_main_tls.size, km_main_tls.align);
-   dtv = rounddown(tls - 2 * sizeof(void*), sizeof(void*));
-   dtv_kma = km_gva_to_kma_nocheck(dtv);
-   dtv_kma[0] = 1;   // static executable
-   dtv_kma[1] = tls;
-   if (km_main_tls.len != 0) {
-      memcpy(km_gva_to_kma_nocheck(tls), km_main_tls.image, km_main_tls.len);
-   }
-
-   tcb_kma->dtv = tcb_kma->dtv_copy = (uintptr_t*)dtv;
-   tcb_kma->stack = (typeof(tcb_kma->stack))dtv;
-   tcb_kma->stack_size = (typeof(tcb_kma->stack_size))tcb_kma->stack - map_base;
-   tcb_kma->map_base = (typeof(tcb_kma->map_base))map_base;
-   tcb_kma->map_size = map_size;
-   tcb_kma->self = (km_pthread_t*)tcb;
-   tcb_kma->tsd = (typeof(tcb_kma->tsd))tsd;
-   tcb_kma->detach_state = _a_detach(g_attr);
-   tcb_kma->locale = &((km__libc_t*)libc)->global_locale;
-   tcb_kma->robust_list.head = &((km_pthread_t*)tcb)->robust_list.head;
-   tcb_kma->tid = km_vcpu_get_tid(vcpu);
-   /*
-    * The lock is taken in the guest pthread_create_km(). We'll need to clean these if we fail
-    * before succeeding in creating this thread, km_pthread_unlink(). On pthread_exit() the unlink
-    * happens in the guest under lock before we get into pthread_exit() hc.
-    * Unlike other lists that came from BSD musl uses pointer to itself to indicate head/tail.
-    */
-   tcb_kma->next = ((km_pthread_t*)km_gva_to_kma_nocheck(current_tcb))->next;
-   tcb_kma->prev = (km_pthread_t*)current_tcb;
-   ((km_pthread_t*)km_gva_to_kma_nocheck((km_gva_t)tcb_kma->next))->prev = (km_pthread_t*)tcb;
-   ((km_pthread_t*)km_gva_to_kma_nocheck((km_gva_t)tcb_kma->prev))->next = (km_pthread_t*)tcb;
-
-   vcpu->guest_thr = tcb;
-   vcpu->stack_top = (typeof(vcpu->stack_top))tcb_kma->stack;
-   return tcb;
-}
-
-static void km_pthread_unlink(km_vcpu_t* vcpu)
-{
-   km_pthread_t* self = (km_pthread_t*)km_gva_to_kma_nocheck(vcpu->guest_thr);
-   self->next->prev = self->prev;
-   self->prev->next = self->next;
-}
-
-void km_pthread_fini(km_vcpu_t* vcpu)
-{
-   km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
-
-   vcpu->guest_thr = 0;
-   vcpu->stack_top = 0;
-   vcpu->is_paused = 0;
-   if (pt_kma != NULL && pt_kma->map_base != NULL) {
-      km_guest_munmap((km_gva_t)pt_kma->map_base, pt_kma->map_size);
-   }
 }
 
 static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict attr)
@@ -437,7 +173,6 @@ static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict at
    int rc;
 
    __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
-   vcpu->thr_state = VCPU_RUNNING;
    if (vcpu->vcpu_thread == 0) {
       pthread_attr_t vcpu_thr_att;
 
@@ -449,146 +184,14 @@ static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict at
       rc = -pthread_cond_signal(&vcpu->thr_cv);
    }
    if (rc != 0) {
-      vcpu->thr_state = VCPU_IDLE;
       __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
    }
    return rc;
 }
 
-// Create guest thread. We use vcpu->guest_thr for payload thread id.
-int km_pthread_create(km_vcpu_t* current_vcpu,
-                      pthread_tid_t* restrict pid,
-                      const km_kma_t restrict attr,
-                      km_gva_t start,
-                      km_gva_t args)
-{
-   km_gva_t pt;
-   km_vcpu_t* vcpu;
-   int rc;
-
-   if (pid != NULL) {
-      *pid = -1;
-   }
-   if ((vcpu = km_vcpu_get()) == NULL) {
-      return -EAGAIN;
-   }
-   vcpu->sigmask = current_vcpu->sigmask;
-   km_sigdelset(&vcpu->sigmask, SIGCANCEL);
-
-   if ((pt = km_pthread_init(attr, vcpu, current_vcpu->guest_thr)) == 0) {
-      km_vcpu_put(vcpu);
-      return -EAGAIN;
-   }
-   if ((rc = km_vcpu_set_to_run(vcpu, km_guest.km_start_thread, start, args)) < 0) {
-      km_pthread_unlink(vcpu);
-      km_vcpu_put(vcpu);
-      return -EAGAIN;
-   }
-   if (km_run_vcpu_thread(vcpu, attr) < 0) {
-      km_pthread_unlink(vcpu);
-      km_vcpu_put(vcpu);
-      return -EAGAIN;
-   }
-   km_infox(KM_TRACE_VCPU, "%s: vcpu %d started", __FUNCTION__, vcpu->vcpu_id);
-   if (pid != NULL) {
-      *pid = vcpu->guest_thr;
-   }
-   return 0;
-}
-
-static int check_join_deadlock(km_vcpu_t* joinee_vcpu, km_vcpu_t* current_vcpu)
-{
-   km_vcpu_t* vcpu;
-
-   if (current_vcpu == joinee_vcpu) {
-      return -EDEADLOCK;
-   }
-   for (vcpu = joinee_vcpu; vcpu->joining_pid != -1;) {
-      vcpu = km_vcpu_fetch(vcpu->joining_pid);
-      if (vcpu != NULL && vcpu->joining_pid == current_vcpu->vcpu_id) {
-         return -EDEADLOCK;
-      }
-   }
-   return 0;
-}
-
-int km_pthread_join(km_vcpu_t* current_vcpu, pthread_tid_t pid, km_kma_t ret)
-{
-   km_vcpu_t* vcpu;
-   int rc = 0;
-
-   if ((vcpu = km_vcpu_fetch(pid)) == NULL) {
-      return -ESRCH;
-   }
-   km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
-   assert(pt_kma != NULL);
-   if (pt_kma->detach_state == DT_DETACHED) {
-      return -EINVAL;
-   }
-   if ((rc = check_join_deadlock(vcpu, current_vcpu)) != 0) {
-      return rc;
-   }
-   /*
-    * Mark current thread as "joining someone else". pthread_cond_wait() is not interruptable,
-    * so while in pthread_join the thread needs to be skipped when asking all vcpus to stop.
-    * Note that join will complete naturally when the thread being joined exits due to signal.
-    */
-   current_vcpu->joining_pid = pid;
-   /*
-    * Note: there is no special theatment of main thread. 'man pthread_join' says:
-    * "All of the threads in a process are peers: any thread can join with any other thread in
-    * the process."
-    */
-   if (pthread_mutex_lock(&vcpu->thr_mtx) != 0) {
-      err(1, "join: lock mutex thr_mtx");
-   }
-   switch (vcpu->thr_state) {
-      case VCPU_RUNNING:
-         vcpu->thr_state = VCPU_JOIN_WAITS;
-         while (vcpu->thr_state != VCPU_DONE) {
-            if (pthread_cond_wait(&vcpu->join_cv, &vcpu->thr_mtx) != 0) {
-               err(1, "wait condition join_cv");
-            }
-         }
-         /* fall through */
-      case VCPU_DONE:
-         if (ret != NULL) {
-            *(km_gva_t*)ret = vcpu->exit_res;
-         }
-         vcpu->thr_state = VCPU_IDLE;
-         break;
-      case VCPU_JOIN_WAITS:
-         rc = -EINVAL;
-         break;
-      case VCPU_IDLE:
-         rc = -ESRCH;
-         break;
-   }
-   if (pthread_mutex_unlock(&vcpu->thr_mtx) != 0) {
-      err(1, "join: unlock mutex thr_mtx");
-   }
-   current_vcpu->joining_pid = -1;
-   if (rc == 0) {
-      km_vcpu_put(vcpu);
-   }
-   return rc;
-}
-
-void km_vcpu_detach(km_vcpu_t* vcpu)
-{
-   km_pthread_t* pt_kma = km_gva_to_kma_nocheck(vcpu->guest_thr);
-   pt_kma->detach_state = DT_DETACHED;
-}
-
 void km_vcpu_stopped(km_vcpu_t* vcpu)
 {
-   km_pthread_t* pt_kma = km_gva_to_kma(vcpu->guest_thr);
-
-   assert(pt_kma != NULL);
-   if (pt_kma->detach_state == DT_DETACHED) {
-      vcpu->thr_state = VCPU_IDLE;
-      km_vcpu_put(vcpu);
-   }
+   km_vcpu_put(vcpu);
 
    // if (--machine.vm_vcpu_run_cnt == 0) {
    if (__atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST) == 0) {
@@ -600,22 +203,7 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
    if (pthread_mutex_lock(&vcpu->thr_mtx) != 0) {
       err(1, "vcpu_stopped: lock mutex thr_mtx");
    }
-   switch (vcpu->thr_state) {
-      case VCPU_RUNNING:
-         vcpu->thr_state = VCPU_DONE;
-         break;
-
-      case VCPU_JOIN_WAITS:
-         vcpu->thr_state = VCPU_DONE;
-         if (pthread_cond_signal(&vcpu->join_cv) != 0) {
-            err(1, "signal condition join_cv");
-         }
-         break;
-
-      default:
-         break;
-   }
-   while (vcpu->thr_state != VCPU_RUNNING && vcpu->thr_state != VCPU_JOIN_WAITS) {
+   while (vcpu->is_used == 0) {
       if (pthread_cond_wait(&vcpu->thr_cv, &vcpu->thr_mtx) != 0) {
          err(1, "wait on condition thr_cv");
       }
@@ -623,4 +211,81 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
    if (pthread_mutex_unlock(&vcpu->thr_mtx) != 0) {
       err(1, "unlock mutex thr_mtx");
    }
+}
+
+int km_clone(km_vcpu_t* vcpu,
+             unsigned long flags,
+             uint64_t child_stack,
+             km_gva_t ptid,
+             km_gva_t ctid,
+             unsigned long newtls,
+             void** cargs)
+{
+   // threads only
+   if ((flags & CLONE_THREAD) == 0) {
+      return -ENOTSUP;
+   }
+
+   km_vcpu_t* new_vcpu = km_vcpu_get();
+   if (new_vcpu == NULL) {
+      return -EAGAIN;
+   }
+
+   if ((flags & CLONE_CHILD_SETTID) != 0) {
+      new_vcpu->set_child_tid = ctid;
+   }
+   if ((flags & CLONE_CHILD_CLEARTID) != 0) {
+      new_vcpu->clear_child_tid = ctid;
+   }
+
+   new_vcpu->stack_top = (uintptr_t)child_stack;
+   // want this on odd 8 byte boundary to account for clone trampoline.
+   new_vcpu->stack_top -= (new_vcpu->stack_top + 8) % 16;
+   new_vcpu->guest_thr = newtls;
+   int rc =
+       km_vcpu_set_to_run(new_vcpu, km_guest.km_clone_child, (km_gva_t)cargs[0], (km_gva_t)cargs[1]);
+   if (rc < 0) {
+      km_vcpu_put(new_vcpu);
+      return rc;
+   }
+
+   // Obey parent set tid protocol
+   if ((flags & CLONE_PARENT_SETTID) != 0) {
+      int* lptid = km_gva_to_kma(ptid);
+      if (lptid != NULL) {
+         *lptid = km_vcpu_get_tid(new_vcpu);
+      }
+   }
+
+   // Obey set_child_tid protocol for pthreads. See 'clone(2)'
+   int* gtid;
+   if ((gtid = km_gva_to_kma(new_vcpu->set_child_tid)) != NULL) {
+      *gtid = km_vcpu_get_tid(new_vcpu);
+   }
+
+   if (km_run_vcpu_thread(new_vcpu, NULL) < 0) {
+      km_vcpu_put(new_vcpu);
+      return -EAGAIN;
+   }
+
+   return km_vcpu_get_tid(new_vcpu);
+}
+
+uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr)
+{
+   vcpu->clear_child_tid = tidptr;
+   return km_vcpu_get_tid(vcpu);
+}
+
+void km_exit(km_vcpu_t* vcpu, int status)
+{
+   if (vcpu->clear_child_tid != 0) {
+      // See 'man 2 set_tid_address'
+      int* ctid = km_gva_to_kma(vcpu->clear_child_tid);
+      if (ctid != NULL) {
+         *ctid = 0;
+         __syscall_6(SYS_futex, (uintptr_t)ctid, FUTEX_WAKE, 1, 0, 0, 0);
+      }
+   }
+   machine.exit_status = status;
 }

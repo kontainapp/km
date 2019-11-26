@@ -1,9 +1,11 @@
 build/**
 *.o
+*.so
 *.a
 *.d
 tests/*_test
 tests/*.km
+tests/*.so
 tests/*.musl
 tests/km
 tests/gdb/km

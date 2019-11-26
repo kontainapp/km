@@ -48,7 +48,8 @@ RUN mkdir -p build_gcc && cd build_gcc \
    --with-linker-hash-style=gnu --enable-plugin --enable-initfini-array --with-isl --without-cuda-driver \
    --enable-gnu-indirect-function --enable-cet --with-tune=generic \
    && make -j`expr 2 \* $(nproc)` && cd x86_64-pc-linux-gnu/libstdc++-v3 && make clean \
-   && sed -i -e 's/^#define *HAVE___CXA_THREAD_ATEXIT_IMPL.*$/\/* & *\//' config.h && make -j`expr 2 \* $(nproc)`
+   && sed -i -e 's/^#define *HAVE___CXA_THREAD_ATEXIT_IMPL.*$/\/* & *\//' config.h \
+   && make -j`expr 2 \* $(nproc)`
 
 RUN git clone https://github.com/libffi/libffi -b v3.2.1
 RUN cd libffi && ./autogen.sh && ./configure --prefix=$PREFIX && make -j

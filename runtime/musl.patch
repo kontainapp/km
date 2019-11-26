@@ -1,0 +1,15 @@
+diff --git a/ldso/dynlink.c b/ldso/dynlink.c
+index d1edb131..dc9b2422 100644
+--- a/ldso/dynlink.c
++++ b/ldso/dynlink.c
+@@ -967,6 +967,10 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
+ 		errno = EINVAL;
+ 		return 0;
+ 	}
++	if (strncmp(name, "ld-linux", 8) == 0) 
++	{
++		name = ldso.name;
++	}
+ 
+ 	/* Catch and block attempts to reload the implementation itself */
+ 	if (name[0]=='l' && name[1]=='i' && name[2]=='b') {
