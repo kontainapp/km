@@ -65,16 +65,16 @@ struct __attribute__((__packed__)) km_gdb_regs {
 #define GDB_INTERRUPT_PKT 0x3   // aka ^C
 
 typedef struct gdbstub_info {
-   int port;                // Port the stub is listening for gdb client. 0 means NO GDB
-   int sock_fd;             // socket to communicate to gdb client
-   int session_requested;   // set to 1 when payload threads need to pause on exit
-   bool stepping;           // single step mode (stepi)
-   km_vcpu_t* gdb_vcpu;     // VCPU which GDB is asking us to work on.
-   pthread_mutex_t gdbnotify_mutex;    // used to serialize concurrent attempts to
-                                       // call km_gdb_notify_and_wait()
-   int exit_reason;         // last KVM exit reason
-   int signo;               // signal number
-   pid_t sigthreadid;       // the id of the thread causing signo to be generated.
+   int port;                          // Port the stub is listening for gdb client. 0 means NO GDB
+   int sock_fd;                       // socket to communicate to gdb client
+   int session_requested;             // set to 1 when payload threads need to pause on exit
+   bool stepping;                     // single step mode (stepi)
+   km_vcpu_t* gdb_vcpu;               // VCPU which GDB is asking us to work on.
+   pthread_mutex_t gdbnotify_mutex;   // used to serialize concurrent attempts to
+                                      // call km_gdb_notify_and_wait()
+   int exit_reason;                   // last KVM exit reason
+   int signo;                         // signal number
+   pid_t sigthreadid;                 // the id of the thread causing signo to be generated.
    // Note: we use km_vcpu_get_tid() as gdb payload thread id
 } gdbstub_info_t;
 
