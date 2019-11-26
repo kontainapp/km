@@ -47,7 +47,7 @@ done
 # create shebang file with properly formed PYTHONPATH
 msg Creating $DIR/python3 with PYTHONPATH=$pypath
 cat <<EOF > $DIR/python3
-#!/km --putenv=PYTHONPATH=$pypath
+#!/usr/local/bin/km --putenv=PYTHONPATH=$pypath
 #
 # This file is calling Kontain Monitor (KM) and passing it's own name (e.g. python3) to KM as a payload file name.
 # The KM will first add '.km' to the payload file name, and end up using 'python3.km'.
