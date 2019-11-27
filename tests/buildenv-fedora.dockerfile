@@ -37,10 +37,10 @@ RUN dnf install -y gmp-devel mpfr-devel libmpc-devel isl-devel flex m4 \
    autoconf automake libtool texinfo
 
 FROM buildenv-gcc-base AS build-libstdcpp
-ARG LIBSTDCPPVER=gcc-9_2_0-release
+ARG LIBSTDCPPVER=gcc-9_2_0-kontain
 USER $USER
 
-RUN git clone https://github.com/gcc-mirror/gcc.git -b $LIBSTDCPPVER
+RUN git clone https://github.com/kontainapp/gcc.git -b $LIBSTDCPPVER
 RUN mkdir -p build_gcc && cd build_gcc \
    && ../gcc/configure --prefix=$PREFIX --enable-clocale=generic --disable-bootstrap --enable-languages=c,c++ \
    --enable-threads=posix --enable-checking=release --disable-multilib --with-system-zlib --enable-__cxa_atexit \
@@ -54,7 +54,7 @@ RUN git clone https://github.com/libffi/libffi -b v3.2.1
 RUN cd libffi && ./autogen.sh && ./configure --prefix=$PREFIX && make -j
 
 USER root
-RUN mkdir -p $PREFIX && make -C build_gcc/x86_64-pc-linux-gnu/libstdc++-v3 install
+RUN mkdir -p $PREFIX && make -C build_gcc/x86_64-pc-linux-gnu/libstdc++-v3 install && make -C build_gcc/x86_64-pc-linux-gnu/libgcc install
 RUN make -C libffi install
 
 FROM buildenv-base AS buildenv
