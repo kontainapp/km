@@ -91,7 +91,7 @@ Note that push is protected (see Makefiles)
   * Click on `Create and Push KM Test container`. You will see something like `make -C tests testenv-image push-testenv-image IMAGE_VERSION=CI-695 DTYPE=fedora`.
 * pull the test image for the correct version, e.g. `make -C tests pull-testenv-image IMAGE_VERSION=CI-695`
 * Run container locally `docker run -it --rm --device=/dev/kvm kontain/test-km-fedora:CI-695`
-* in the Docker prompt, run tests: `./run_bats_tests.sh-`
+* in the Docker prompt, run tests: `./run_bats_tests.sh`
 
 ### How to debug code if it fails on Kubernetes only (and passes locally)
 
@@ -102,7 +102,7 @@ First of all, make sure that
 
 Then, find IMAGE_VERSION for your CI run (see above). Let's say this was build 695, so the image version is `CI-695`
 
-* `make -C tests make  kubernetes-test IMAGE_VERSION=CI-695` to run image in Kubernetes
+* `make -C tests kubernetes-test IMAGE_VERSION=CI-695` to run image in Kubernetes
 * This will create a pod and  print out the commands to run bash there, as well as the ones to clean up when you are done.
 
 Here is an example of a session:
