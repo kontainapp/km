@@ -27,6 +27,11 @@ FROM kontain/buildenv-km-fedora
 ARG MODE
 ARG VERS
 ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node
+#
+# The following copies two sets of artifacts - objects needed to build (link) node.km,
+# and the sets of files to run set of tests. The former is used by link-km.sh,
+# the latter is copied to the output by Makefile using PYTHON_DISTRO_FILES.
+#
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/out/ node/out
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/test/ node/test
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/tools/ node/tools

@@ -19,7 +19,7 @@ VERS ?= v12.4.0
 NODETOP ?= node
 # Node build directory - depends on where the sources are
 NODEBUILD = ${NODETOP}/out/$(BUILD)
-# Node build-produced artifacts - if building from blank, we copy them here at the end
+# Node build-produced artifacts - if building from blank, we copy them here
 NODEOUT = node/out/$(BUILD)
 
 # component id for docker images
@@ -32,6 +32,7 @@ TEST_KM := ${NODEOUT}/cctest.km
 # name to be added to runtime image label(s)
 PAYLOAD_NAME := NodeJs12.4
 
+# List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
 
 # either run all in 'blank' container, or local.
@@ -59,6 +60,7 @@ fromsrc:
 	git clone https://github.com/nodejs/node.git -b ${VERS}
 	cd ${NODETOP} && ./configure --gdb `[[ $BUILD == Debug ]] && echo -n --debug` && make -j`expr 2 \* $(nproc)` && make jstest
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
+	./link-km.sh ${NODEBUILD} ${NODEOUT}
 
 clobber:
 	rm -rf node

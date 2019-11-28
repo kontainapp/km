@@ -12,12 +12,17 @@
 
 TOP := $(shell git rev-parse --show-cdup)
 
-# KM monitor path
-KM_BIN=${TOP}/build/km/km
+VERS ?= v3.7.4
+
+# Location of cpython sources. When building in container, it is set in buildenv dockerfile.
+PYTHONTOP ?= cpython
+
+# component id for docker images
+COMPONENT := python
+
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := cpython/python.km
-# image name, without repo and version tag
-PAYLOAD_IMAGE_SHORT_NAME := python-km
+
 # name to be added to label(s)
 PAYLOAD_NAME := Python3.7
 
@@ -25,21 +30,42 @@ PAYLOAD_NAME := Python3.7
 PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.exe' --exclude '*.whl' \
 	cpython/python.km cpython/Lib cpython/Modules/Setup scripts
 
-all: $(PAYLOAD_KM)
+# List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
+PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py pybuilddir.txt)
 
-$(PAYLOAD_KM): *sh *patch
-	./build.sh
-
-# force the build
-build:
-	./build.sh
-
-link:
+# either run all in 'blank' container, or local.
+# in blank: link + tar + create shebang
+# fromsrc local: link + create shebang
+# regular local: just run docker
+all:
+ifneq ($(shell test -d cpython/.git && echo OK),OK)
+	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src kontain/buildenv-python-fedora make -C payloads/python in-blank-container
+else
 	./link-km.sh
+endif
 
-TEST_CMD ?= ${KM_BIN} ${PAYLOAD_KM}
-test-all:
-	${TEST_CMD} ./test_unittest.py
-	${TEST_CMD} ./cpython/Lib/unittest/test/
+in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
+	tar -C ${PYTHONTOP}/.. -cf - ${PYTHON_DISTRO_FILES} | tar -xf -
+	cd cpython && patch -p1 < ../unittest.patch
+	./link-km.sh ${PYTHONTOP} cpython
 
-include ${TOP}make/distro.mk
+fromsrc:
+	git clone https://github.com/python/cpython.git -b ${VERS}
+	cd ${PYTHONTOP} && ./configure && cp ../Setup.local Modules/Setup.local && make -j`expr 2 \* $(nproc)`
+	cd ${PYTHONTOP} && patch -p1 < ../unittest.patch
+	./link-km.sh ${PYTHONTOP} ${PYTHONTOP}
+
+clobber:
+	rm -rf cpython
+
+clean:
+	@echo "Nothing to do for 'clean' - use 'clobber' to force remove build artifacts"
+	@# TODO - clean ./cpython build artifacts
+
+test test-all: ${PAYLOAD_KM} ${TEST_KM}
+	scripts/test-run.sh ${KM_BIN} ${PAYLOAD_KM}
+
+test-withdocker test-all-withdocker:
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh ./km ${PAYLOAD_KM}
+
+include ${TOP}make/images.mk
