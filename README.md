@@ -54,11 +54,11 @@ We use Visual Studio Code as recommended IDE; install it and use `code km_repo_r
 * The majority of formatting is handled by Visual Studio Code.
   * We use clang-format forcing to be compliant with tabs and the likes.
   * KM workspace has "Format on Save" turned on, please do not turn it off in your User settings.
+  * If you edit the source using other tools, please make sure to use `clang-format -i `*`filename`*. it will format the *`filename`* in place using the same presets as Visual Studio Code. You'll need to install it: `sudo dnf install clang.x86_64`
 * Generally, we pay attention to the code being easy to read. Give short (but meaningful) names to all, do not save on comments, and try to stay within the look and feel of the other code.
 * Single line comments are `//` , multiple lines `/* ... */`
 * We use km_underscore_notation for vars and functions.
 * Never use single lines `if (cond) do_something`. *Always* use `{}` - i.e.
-
 ```
 if (cond) {
    do something;
@@ -66,6 +66,22 @@ if (cond) {
 ```
 * we always compare function results with explicit value. E.g. we do `if (my_check() == 0) ...` instead of `if (!my_check())...`
 * for `return` statement, if we return a single token (with or without sign), then we do not use `()`, otherwise we do. E.g. `return 0;` and `return -ENOMEM;`, but `return (value + 1); `
+* Don't decare multiple variable on the same line, particularly when there are initial values assigned.
+* Don't assign multiple variables on the same line. Instead of `a = b = 0;` use two separate assignments.
+### The following isn't hard requirement but a strong preference ###
+* We like the code to be compact, for instance we like
+```
+if ((rc = function()) < 0) {
+   do something;
+}
+```
+Or, if applicable
+```
+for (int index = 0; index < MAX_INDEX; index++) {
+   loop body;
+}
+```
+* We like variable declaration closer to the place in the function where they are used, instead of more traditional way to put all declarations at the top of a function.
 
 ## Test runs
 
