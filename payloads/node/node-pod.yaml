@@ -1,0 +1,26 @@
+#
+# Template for running NODE tests in  Kubernetes.
+# See tests/bats-pod.yaml for more comments
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: USER()test-node-DTYPE()-SUFFIX()
+spec:
+  securityContext:
+    runAsUser: 0
+  containers:
+    - name: USER()test-node-DTYPE()-SUFFIX()
+      image: REGISTRY()/test-node-DTYPE():IMAGE_VERSION()
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+      resources:
+        requests:
+          devices.kubevirt.io/kvm: "1"
+          cpu: "250m"
+        limits:
+          devices.kubevirt.io/kvm: "1"
+          cpu: "1"
+      command: [COMMAND()]
+  restartPolicy: Never

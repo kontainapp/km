@@ -38,14 +38,43 @@ We use GNU **make** as our build engine. This document describes some of the key
 
 ### Dependencies
 
-If you build with Docker (see below) then only `docker` and `make` are needed for the build. If you build directly on your machine, dependencies need to be installed. Also, see below for the steps.
+If you build with Docker (see below) then only `docker` and `make` are needed for the build. If you build directly on your machine, dependencies need to be installed and build environment prepared - steps are below in **build buildenv** and **install dependencies** sections.
 
-A recommended way is to download Docker image with build environment from Azure, and then either use it for building with docker, or use it  for installing dependencies locally. This will also test you login to Azure (which we use to CI/CD pipelines):
+`A recommended way is to download Docker image with build environment from Azure`, and then either use it for building with docker, or use it for installing dependencies locally and building directly on the box. Going this way will also test your access to Azure, which you will need to see results of CI runs.
 
-#### Login to Azure and pull the 'buildenv' image from Azure Container Registry
+#### Login to Azure - interactive
+
+There are 2 way to login - interactive (`make -C cloud/azure login` and non-interactive (`make -C cloud/azure login-cli`).
+
+When you run interactive login, a browser will be open and you need to enter your credentials (@kontain.app) for authentication with Microsoft live.com service. If you are presented with "Work or home" choice, choose Work.
+
+#### Login to Azure - non interactive
+
+For non-interactive login to work, you need to create and store personal credentials on your machine.  Here are the steps:
+
+1. Login to Azure interactively
+1. Create personal Security Principal for non-interactive logins: `az ad sp create-for-rbac -n "https://your_alias_noninteractive" --role contributor`, e.g. `az ad sp create-for-rbac -n "https://msterin_noninteractive" --role contributor`
+1. Save the results in local file, e.g. *~/.tokens/az_msterin_noninteractive*. Set chmod 400 on the file. This is secret data, so **DO NOT PUBLISH AND DO NOT SAVE TO GIT**.
+1. Add credential to .bash_profile - code below (modify the file var first). If you use other shells, modify the script accordingly.
+1. `source ~/.bash_profile`
+1. **Test the login:** `make -C cloud/azure login-cli`
+
+Code to convert `az ad sp create-for-rbac` results to env variables needed by Makefiles:
 
 ```sh
-make -C cloud/azure login
+file=~/.tokens/az_msterin_noninteractive
+cat $file  | jq -r  '"export SP_APPID=\(.appId)",
+                     "export SP_DISPLAYNAME=\(.displayName)",
+                     "export SP_NAME=\(.name)",
+                     "export SP_PASSWORD=\(.password)",
+                     "export SP_TENANT=\(.tenant)"' \
+               >> ~/.bash_profile
+
+```
+
+### Pull the 'buildenv' image from Azure Container Registry
+
+```sh
 make -C tests pull-buildenv-image
 ```
 

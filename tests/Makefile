@@ -11,6 +11,7 @@ SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-cdup)
 
 COMPONENT := km
+include ${TOP}make/images.mk
 
 SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_value_test.c \
 		load_test.c  hello_loop_test.c hello_2_loops_test.c memslot_test.c mutex_test.c futex_test.c \
@@ -24,6 +25,7 @@ SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./gdb
+TESTENV_PATH := .
 
 COPTS ?= -ggdb -O2
 CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
@@ -42,40 +44,45 @@ BATS := time bats/bin/bats
 TEST_FILES := km_core_tests.bats
 MATCH ?= .*
 
-# file for keeping per-test 'time' info
-TIME_INFO = ${TOP}build/time_info.txt
-
-# default target, should be first in file
 all: ${EXECS} ## Build all test, for Linux and KM
 
 ${KM_PAYLOADS}: ${TOP}build/runtime
 
-# Run all or some of tests (may need /dev/kvm or privileged container)
+# Run all or some of tests (needs /dev/kvm)
 # ignore test failure when building coverage
-test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
-	@rm -f ${TIME_INFO}
-ifeq (${MAKECMDGOALS},.coverage)
-	@-export KM_BIN=$(KM_BIN); export TIME_INFO=${TIME_INFO}; ${BATS} -p -f "${MATCH}" ${TEST_FILES}
-else
-	@export KM_BIN=$(KM_BIN); export TIME_INFO=${TIME_INFO};  ${BATS} -p -f "${MATCH}" ${TEST_FILES}
-endif
-	@echo -e "${GREEN}Tests slower than 0.1 sec:${NOCOLOR}"
-	@grep elapsed ${TIME_INFO} | grep -v "elapsed 0:00.[01]" | sort -r
-	@echo ""
-	@rm -f ${TIME_INFO}
 
-kubernetes-test: ## create pod with existing CI build for debug. e.g. 'make kubernetes-test IMAGE_VERSION=CI-695'
-	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == latest ]] ; then \
-			echo -e "${RED}IMAGE_VERSION should be set to CI-BuildId , e.g. CI-695. Currentl value='${IMAGE_VERSION}'${NOCOLOR}" ; \
-			exit 1; \
-	fi
+ifneq ($(findstring coverage,${MAKECMDGOALS}),)
+IGNORE_FAILURE := --ignore-failure
+endif
+test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
+	./run_bats_tests.sh --km=${KM_BIN} --pretty ${IGNORE_FAILURE} --match="${MATCH}"
+
+USER_NAME := $(shell id -un)
+test-withk8s-manual : .check_image_version ## create pod with existing KM testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=CI-695'
 	@echo "Creating or updating Kubernetes pod for USER=${USER_NAME} IMAGE_VERSION=${IMAGE_VERSION}"
-	@name=$$(m4 -DUSER=${USER_NAME} -DIMAGE_VERSION=${IMAGE_VERSION} \
-					-DSUFFIX=$(shell echo ${IMAGE_VERSION} | tr '[A-Z]' '[a-z]') run-test-pod.yaml |  \
+	@name=$$(m4 -DUSER=${USER_NAME}- \
+					-DDTYPE=$(DTYPE) \
+					-DIMAGE_VERSION=${IMAGE_VERSION} \
+					-DSUFFIX=$(shell echo ${IMAGE_VERSION} | tr '[A-Z]' '[a-z]') \
+					-DREGISTRY=$(REGISTRY) \
+					-DCOMMAND='"sleep", "3600"' bats-pod.yaml |  \
 		kubectl apply -f - -o jsonpath='{.metadata.name}'); \
 		echo -e "Run bash in your pod '$$name' using '${GREEN}kubectl exec $$name -it -- bash${NOCOLOR}'" ; \
-		echo -e "Run tests inside your pod using '${GREEN}./run_bats_tests.sh${NOCOLOR}'" ; \
+		echo -e "Run tests inside your pod using '${GREEN}./run_bats_tests.sh --km=/tests/km${NOCOLOR}'" ; \
 		echo -e "When you are done, do not forget to '${GREEN}kubectl delete pod $$name${NOCOLOR}'"
+
+
+
+# Run all tests in CI, in Kubernetes. Used from CI (thus no help).
+# IMAGE_VERSION (e.g. CI-788) needs to be passed in.
+test-withk8s : .check_image_version
+	m4 -D USER="" \
+		-D DTYPE=$(DTYPE) \
+		-D IMAGE_VERSION=$(IMAGE_VERSION) \
+		-D SUFFIX=$(shell echo ${IMAGE_VERSION} | tr '[A-Z]' '[a-z]') \
+		-D REGISTRY=$(REGISTRY) \
+		-D COMMAND='"run_bats_tests.sh", "--km=/tests/km"' \
+		bats-pod.yaml | kubectl apply -f -
 
 %.km: %.o
 	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
@@ -111,7 +118,7 @@ load_expected_size: load_test.km
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d $(EXECS) kmcore $(TIME_INFO)
+	rm -f *.o *.d $(EXECS) kmcore
 
 #
 # do not generate .d file for some targets
@@ -133,26 +140,28 @@ ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
 .cov_clean:
 	rm -rf ${BLDDIR}
 
-# extra config for Code coverate
+# extra config for Code coverage
 COVERAGE_CMD_NAME := gcovr
 ifeq (${MATCH},.*)
 # Generate a fail if code coverage is too low - only for full test passes
 COVERAGE_THRESHOLDS :=  --fail-under-branch 40  --fail-under-line 55
 endif
+
 # example: gcovr ../build/km/coverage/ -r ../km --html-details -o ../build/km/coverage/report/km.html
 COVERAGE_CMD_FLAGS  :=  -r ${TOP}km --html --html-details -o ${COVERAGE_REPORT} ${KM_BLDDIR} \
 		 --html-title "Kontain Monitor Code Coverage report" --print-summary -j 4 --exclude-unreachable-branches --delete
 
 .coverage: test
 	@echo -e "COVERAGE: ${GREEN}Analyzing the code coverage...${NOCOLOR}"
-	@${COVERAGE_CMD_NAME} ${COVERAGE_CMD_FLAGS} ${COVERAGE_LOCATIONS} ${COVERAGE_THRESHOLDS}
+	${COVERAGE_CMD_NAME} ${COVERAGE_CMD_FLAGS} ${COVERAGE_LOCATIONS} ${COVERAGE_THRESHOLDS}
 	@echo -e "COVERAGE: ${GREEN}Code Coverage Details: $(abspath $(COVERAGE_REPORT))${NOCOLOR}"
 
-test: .cov_init
+
 .cov_init:
 	@if [ ! $$(command -v $(COVERAGE_CMD_NAME)) ]  ; then echo -e "${RED}'${COVERAGE_CMD_NAME} command is missing - please install ${COVERAGE_CMD_NAME} package (e.g. 'sudo dnf install ${COVERAGE_CMD}${NOCOLOR}"; false  ; fi
 	@echo -e "COVERAGE: ${GREEN}Running tests with code coverage...${NOCOLOR}"
 
+test: .cov_init
 endif # ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
 
 test-all: test
@@ -160,8 +169,10 @@ test-all: test
 # Run full suite of tests regarless of being asked to run full or abbreviated set
 # NOTE: if needed, we can run a shorter set by passing MATCH env with regexp, e.g.
 #			${DOCKER_RUN_TEST} --env=MATCH='(exit|setup|hello)' ${TEST_IMG}:${IMAGE_VERSION} run_bats_tests.sh
-test-withdocker test-all-withdocker:
+test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
 	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} run_bats_tests.sh
+
+test-all-withdocker: test-withdocker # alias
 
 # install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
 # TODO: maybe make it generic to scan folders
@@ -190,5 +201,3 @@ endef
 
 distroclean publish publishclean:
 	@echo $(notdir $(CURDIR)): nothing to do for target '$@'
-
-include ${TOP}make/images.mk

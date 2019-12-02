@@ -17,7 +17,7 @@ TOP := $(shell git rev-parse --show-cdup)
 
 DOCKER_BUILD := docker build
 TEST_LABEL := flask-km-test
-DOCKER_RUN := docker run -t --rm -p 8080:8080 --label $(TEST_LABEL) --ulimit nofile=1024:1024
+DOCKER_RUN := docker run -t --rm -p 8080:8080 --label $(TEST_LABEL)
 
 # supported types
 DTYPES := alpine fedora ubuntu
@@ -83,7 +83,7 @@ all-dtypes: # make TARGET for each DTYPE. E.g. `make all-dtypes TARGET=clean". D
 # Note - used awk to print (instead of echo) so escaping/coloring is platform independed
 help:  ## Prints help on 'make' targets
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
-	/^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
+	/^[.a-zA-Z0-9_-]+[ \t]*:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
 	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
 	$(MAKEFILE_LIST)
 	@echo 'For specific help in folders, try "(cd <dir>; make help)"'

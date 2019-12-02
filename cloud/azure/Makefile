@@ -11,6 +11,7 @@
 # create/destroy stuff in azure, an deploy to kube there
 # TODO : rework apply -f, it is a hack for now
 
+SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-cdup)
 include cloud_config.mk
 
@@ -60,27 +61,53 @@ sudo dnf install -y azure-cli
 EOF
 endef
 
-login:  ## Interactive login to Azure, Acure Container Registry and Kubernetes cluster on Azure
-	@if ! which az >& /dev/null ; then \
+export define kubectl_install_message
+echo -e "${RED}kubectl CLI is not installed. ${NOCOLOR}"
+cat <<EOF
+# To install on Fedora:
+sudo dnf install kubernetes-client
+EOF
+endef
+
+login:  .check_tools ## Interactive login to Azure, Azure Container Registry and Kubernetes cluster on Azure
+	@if az account show  >/dev/null 2> /dev/null ; then echo -e "${GREEN}already logged in${NOCOLOR}"; else \
+		az login ; \
+		az acr login -n $(REGISTRY_NAME) ; \
+		az aks get-credentials --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER) --overwrite-existing ; \
+	fi
+
+login-cli: .check_tools  ## Non-interactive login to Azure, Azure Container Registry and Kubernetes cluster on Azure
+	@if az account show  >/dev/null 2> /dev/null ; then echo -e "${GREEN}already logged in${NOCOLOR}"; else \
+		echo az login ${SP_DISPLAYNAME} ;\
+		az login --service-principal -u ${SP_APPID} -p ${SP_PASSWORD} --tenant ${SP_TENANT} ; \
+		az acr login -n $(REGISTRY_NAME) ;\
+		az aks get-credentials --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER) --overwrite-existing ;\
+	fi
+
+.check_tools:
+	@if ! which az > /dev/null ; then \
 		eval "$$az_install_message" ; \
 		exit 1; \
 	fi
-	az login
-	az acr login -n $(REGISTRY_NAME)
-	az aks get-credentials --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER) --overwrite-existing
-
+	@if ! which kubectl > /dev/null ; then \
+		eval "$$kubectl_install_message" ; \
+		exit 1; \
+	fi
 # Support for manually purging old test images
 # TODO: set auto-scheduled task to do this https://docs.microsoft.com/en-us/azure/container-registry/container-registry-tasks-scheduled
 
 # max age for purge, in 'duration string' format https://golang.org/pkg/time/
-CI_IMAGE_PURGE_AGE := 3d
-CI_IMAGE_REPOS_TO_PURGE := test-km-fedora test-bats
+CI_IMAGE_PURGE_AGE := 7d
+CI_IMAGE_REPOS_TO_PURGE := test-km-fedora test-node-fedora
 CI_IMAGE_DRY_RUN ?= --dry-run
 CI_IMAGE_PURGE_CMD="mcr.microsoft.com/acr/acr-cli:0.1 purge --registry {{.Run.Registry}} \
 	--filter '${repo}:.*' --untagged ${CI_IMAGE_DRY_RUN} --ago ${CI_IMAGE_PURGE_AGE}"
 
 ci-image-purge: ## purge CI test images older that CI_IMAGE_PURGE_AGE
+ifneq ($(CI_IMAGE_DRY_RUN),)
 	@echo -e "${GREEN}Doing dry run. To do actual purge, run with CI_IMAGE_DRY_RUN=\"\" ${NOCOLOR}"
+endif
+	@echo "Purging images for $(CI_IMAGE_REPOS_TO_PURGE) older than $(CI_IMAGE_PURGE_AGE)"
 	$(foreach repo,${CI_IMAGE_REPOS_TO_PURGE}, az acr run --cmd '${CI_IMAGE_PURGE_CMD}' --registry ${REGISTRY_NAME} /dev/null; )
 
 dashboard: login # Interactive login, and then forward port/open Kubernetes Dashboard
@@ -117,7 +144,7 @@ include $(TOP)make/locations.mk
 # Note - used awk to print (instead of echo) so escaping/coloring is platform independed
 help:  ## Prints help on 'make' targets
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
-	/^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
+	/^[.a-zA-Z0-9_-]+[ \t]*:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
 	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
 	$(MAKEFILE_LIST)
 	@echo 'For specific help in folders, try "(cd <dir>; make help)"'

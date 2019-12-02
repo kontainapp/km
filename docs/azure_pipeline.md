@@ -51,6 +51,11 @@ There is no need to specify source branches: The PR trigger specifies the target
 
 Commits pushed to branch jme/tests will trigger the CI pipeline.
 
+## Login
+
+There are 2 way to login - interactive (`make -C cloud/azure login` and non-interactive (`make -C cloud/azure login-cli`).
+Please see `docs/build.md` **Login to Azure** section for more details
+
 ## FAQ
 
 ### Test failures - where to find the details
@@ -102,19 +107,19 @@ First of all, make sure that
 
 Then, find IMAGE_VERSION for your CI run (see above). Let's say this was build 695, so the image version is `CI-695`
 
-* `make -C tests kubernetes-test IMAGE_VERSION=CI-695` to run image in Kubernetes
+* `make -C tests test-withk8s-manual IMAGE_VERSION=CI-695` to run image in Kubernetes
 * This will create a pod and  print out the commands to run bash there, as well as the ones to clean up when you are done.
 
 Here is an example of a session:
 
 ```sh
-[msterin@msterin-p330 tests]$ make  kubernetes-test IMAGE_VERSION=CI-695
+[msterin@msterin-p330 tests]$ make  test-withk8s-manual IMAGE_VERSION=CI-695
 Creating or updating Kubernetes pod for USER=msterin IMAGE_VERSION=CI-695
 Run bash in your pod 'msterin-test-ci-695' using 'kubectl exec msterin-test-ci-695 -it -- bash'
-Run tests inside your pod using './run_bats_tests.sh'
+Run tests inside your pod using './run_bats_tests.sh --km=/tests/km'
 When you are done, do not forget to 'kubectl delete pod msterin-test-ci-695'
 [msterin@msterin-p330 tests]$ kubectl exec msterin-test-ci-695 -it -- bash
-[root@msterin-test-ci-695 tests]# ./run_bats_tests.sh
+[root@msterin-test-ci-695 tests]# ./run_bats_tests.sh  --km=/tests/km
 1..38
 ok 1 setup_link: check if linking produced text segment where we expect
 ^C

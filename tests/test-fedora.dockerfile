@@ -25,5 +25,3 @@ ENV BRANCH=${branch}
 COPY --chown=appuser:appuser . /tests
 WORKDIR /tests
 ENV PATH=/tests/bats/bin:.:$PATH
-
-# ENTRYPOINT ["run_bats_tests.sh"]
