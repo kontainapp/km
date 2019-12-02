@@ -23,6 +23,7 @@
 #include <sys/select.h>
 
 #include "musl/include/setjmp.h"
+#include "musl/include/sys/param.h"
 
 int __fprintf_chk(FILE* f, __attribute__((unused)) int flag, const char* format, ...)
 {
@@ -156,23 +157,24 @@ void __explicit_bzero_chk(void* dst, size_t len, size_t dstlen)
 }
 
 /* Python on Ubuntu wants these:
-__fdelt_chk
 __memmove_chk
-__open64_2
-__open64_2 // alias to open + params check
-__realpath_chk
 __snprintf_chk
-__strcpy_chk
 __strncpy_chk
 __wcscat_chk
-__wcscpy_chk
-__wcsncpy_chk
 */
 
 void __chk_fail(void) __attribute__((__noreturn__));
 void __chk_fail(void)
 {
    abort();
+}
+
+char* __realpath_chk(const char* buf, char* resolved, size_t resolvedlen)
+{
+   if (resolvedlen < MAXPATHLEN) {
+      __chk_fail();
+   }
+   return realpath(buf, resolved);
 }
 
 long int __fdelt_chk(long int d)
@@ -183,11 +185,38 @@ long int __fdelt_chk(long int d)
    return d / NFDBITS;
 }
 
+wchar_t* __wcsncpy_chk(wchar_t* dest, const wchar_t* src, size_t n, size_t destlen)
+{
+   if (destlen < n) {
+      __chk_fail();
+   }
+   return wcsncpy(dest, src, n);
+}
+
+wchar_t* __wcscpy_chk(wchar_t* dest, const wchar_t* src, size_t n)
+{
+   return wcscpy(dest, src);
+}
+
+char* __strcpy_chk(char* dest, const char* src, size_t destlen)
+{
+   size_t len = strlen(src);
+   if (len >= destlen) {
+      __chk_fail();
+   }
+   return memcpy(dest, src, len + 1);
+}
+
+size_t __fread_chk(void* __restrict ptr, size_t ptrlen, size_t size, size_t n, FILE* __restrict stream)
+{
+   return fread(ptr, ptrlen, size, stream);
+}
+
 void* __memmove_chk(void* dest, const void* src, size_t len, size_t dstlen)
 {
-   if (__builtin_expect(dstlen < len, 0))
+   if (__builtin_expect(dstlen < len, 0)) {
       __chk_fail();
-
+   }
    return memmove(dest, src, len);
 }
 
