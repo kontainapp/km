@@ -77,7 +77,7 @@ fi
 
 $DEBUG export TIME_INFO=$time_info_file
 $DEBUG export KM_BIN=$km_bin
-$DEBUG bats/bin/bats $pretty $tests -f "$match"
+$DEBUG time bats/bin/bats $pretty -f "$match" $tests
 exit_code=$?
 
 if [ $exit_code == 0 ] ; then

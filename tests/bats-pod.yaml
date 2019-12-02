@@ -17,13 +17,12 @@ kind: Pod
 metadata:
   name: USER()test-km-DTYPE()-SUFFIX()
 spec:
-  securityContext:
-    runAsUser: 0
   containers:
     - name: USER()test-km-DTYPE()-SUFFIX()
       image: REGISTRY()/test-km-DTYPE():IMAGE_VERSION()
       imagePullPolicy: IfNotPresent
       securityContext:
+        privileged: false
         allowPrivilegeEscalation: false
       resources:
         requests:

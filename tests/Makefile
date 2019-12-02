@@ -39,9 +39,7 @@ CXXFLAGS=${CFLAGS}
 ${SRC_CPP:%.cpp=%.km}: KCC=kontain-g++
 ${SRC_CPP:%.cpp=%}: CC=g++
 
-# Test: run by BATS, definition in TEST_FILES, test name has to MATCH
-BATS := time bats/bin/bats
-TEST_FILES := km_core_tests.bats
+# Only tests matching this regexp will be run
 MATCH ?= .*
 
 all: ${EXECS} ## Build all test, for Linux and KM

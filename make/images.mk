@@ -95,7 +95,6 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 	docker rmi $(FROM)
 	@echo -e "Pulled image ${GREEN}${TO}${NOCOLOR}"
 
-
 # Helper when we need to make sure IMAGE_VERSION is defined and not 'latest'
 .check_image_version:
 	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == latest ]] ; then \

@@ -16,8 +16,6 @@ FROM kontain/buildenv-km-${DTYPE}:latest
 
 ARG branch
 
-ENV BATS time bats/bin/bats
-ENV TEST_FILES km_core_tests.bats
 ENV TIME_INFO /tests/time_info.txt
 ENV KM_BIN /tests/km
 ENV BRANCH=${branch}

@@ -15,13 +15,12 @@ kind: Pod
 metadata:
   name: NAME()
 spec:
-  securityContext:
-    runAsUser: 0
   containers:
     - name: NAME()
       image: IMAGE()
       imagePullPolicy: IfNotPresent
       securityContext:
+        privileged: false
         allowPrivilegeEscalation: false
       resources:
         requests:

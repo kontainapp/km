@@ -7,13 +7,12 @@ kind: Pod
 metadata:
   name: USER()test-node-DTYPE()-SUFFIX()
 spec:
-  securityContext:
-    runAsUser: 0
   containers:
     - name: USER()test-node-DTYPE()-SUFFIX()
       image: REGISTRY()/test-node-DTYPE():IMAGE_VERSION()
       imagePullPolicy: IfNotPresent
       securityContext:
+        privileged: false
         allowPrivilegeEscalation: false
       resources:
         requests:
