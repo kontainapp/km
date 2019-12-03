@@ -95,25 +95,52 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 	docker rmi $(FROM)
 	@echo -e "Pulled image ${GREEN}${TO}${NOCOLOR}"
 
-# Helper when we need to make sure IMAGE_VERSION is defined and not 'latest'
-.check_image_version:
+# Helper when we need to make sure IMAGE_VERSION is defined and not 'latest', and command is defined
+.check_vars:
 	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == latest ]] ; then \
-			echo -e "${RED}IMAGE_VERSION should be set to CI-BuildId , e.g. CI-695. Currentl value='${IMAGE_VERSION}'${NOCOLOR}" ; \
-			false; \
+		echo -e "${RED}IMAGE_VERSION should be set to something existing in Registry, e.g. CI-695. Current value='${IMAGE_VERSION}'${NOCOLOR}" ; \
+		false; \
+	fi
+	@if [[ -z "${CONTAINER_TEST_CMD}" ]] ; then \
+		echo -e "${RED}CONTAINER_TEST_CMD needs to be defined to use this target${NOCOLOR}"; \
+		false; \
 	fi
 
-# WIP: not used yet
-# IMAGE=kontainkubecr.azurecr.io/test-km-fedora:CI-781
-# NAME=test-km-fedora-ci-781
-# COMMAND='"run_bats_tests.sh", "--km=/tests/km"'
-CONTAINER_TEST_CMD ?= "run_bats_tests.sh", "--km=/tests/km"
-.test-withk8s :  .check_image_version
-	m4 -D NAME="test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])" \
-		-D IMAGE="$(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)" \
-		-D COMMAND='$(CONTAINER_TEST_CMD)' \
-	$(TOP)cloud/k8s/test-pod-template.yaml | kubectl apply -f -
+# We generate test pod specs from this template
+TEST_POD_TEMPLATE := $(TOP)cloud/k8s/test-pod-template.yaml
 
-# for this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
+# CONTAINER_TEST_CMD could be overriden, le't keep the original one so we can use it for help messages
+CONTAINER_TEST_CMD_HELP := $(CONTAINER_TEST_CMD)
+
+# Pod spec needs a json list as a container's command, so generate it first from a "command params" string
+__CONTAINER_TEST_CMD = $(wordlist 2,100,$(foreach item,$(CONTAINER_TEST_CMD), , \"$(item)\"))
+
+# define commands to preprocess kubernetes pod template and pass to 'kubectl apply'.
+export define preprocess_and_apply
+m4 -D NAME="$(USER_NAME)test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])" \
+	-D IMAGE="$(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)" \
+	-D COMMAND="$(__CONTAINER_TEST_CMD)" $(TEST_POD_TEMPLATE) | kubectl apply -f - -o jsonpath='{.metadata.name}'
+endef
+
+# Run test in Kubernetes. Image is formed as current-testenv-image:$IMAGE_VERSION
+# IMAGE_VERSION needs to be defined outside, and correspond to existing (in REGISTRY) image
+# For example, to run image generated on CI-695, use 'make test-withk8s IMAGE_VERSION=CI-695
+test-withk8s :  .check_vars ## Run tests in Kubernetes. IMAGE_VERSION need to be passed
+	@echo '$(preprocess_and_apply)'
+	@name=$$($(preprocess_and_apply)) ;\
+		echo -e "Run bash in your pod '$$name' using '${GREEN}kubectl exec $$name -it -- bash${NOCOLOR}'" ; \
+		echo -e "Run tests inside your pod using '${GREEN}${CONTAINER_TEST_CMD_HELP}${NOCOLOR}'" ; \
+		echo -e "When you are done, do not forget to '${GREEN}kubectl delete pod $$name${NOCOLOR}'"
+
+# Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image
+# Adds 'user-' prefix to names and puts container to sleep so we can exec into it
+ifneq ($(findstring test-withk8s-manual,${MAKECMDGOALS}),)
+USER_NAME := $(shell id -un)-
+override CONTAINER_TEST_CMD := sleep 3600
+test-withk8s-manual : test-withk8s ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=CI-695'
+endif
+
+# Build env image push. For this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
 # to the version you want to push. BE CAREFUL - it pushes to shared image !!!
 push-buildenv-image: ## Pushes to buildnev image. PROTECTED TARGET
 	@if [[ "$(FORCE_BUILDENV_PUSH)" != "force" ]] ; then \

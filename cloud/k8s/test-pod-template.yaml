@@ -1,5 +1,3 @@
-# WIP - needed for removing cut-n-paste.
-#
 # Template for running tests in  Kubernetes.
 # We use m4 to replace needed macro. 'Macro' is everything with '()' below.
 #
@@ -10,6 +8,7 @@
 # IMAGE=kontainkubecr.azurecr.io/test-km-fedora:CI-781
 # NAME=test-km-fedora-ci-781
 # COMMAND='"run_bats_tests.sh", "--km=/tests/km"'
+#
 apiVersion: v1
 kind: Pod
 metadata:

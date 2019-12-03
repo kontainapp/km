@@ -11,8 +11,8 @@
 # Makefile for building and packing Python payload runtime for KM
 
 TOP := $(shell git rev-parse --show-cdup)
-
 VERS ?= v3.7.4
+SHELL=/bin/bash
 
 # Location of cpython sources. When building in container, it is set in buildenv dockerfile.
 PYTHONTOP ?= cpython
@@ -68,8 +68,7 @@ test test-all: ${PAYLOAD_KM} ${TEST_KM}
 test-withdocker test-all-withdocker:
 	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh ./python
 
-CONTAINER_TEST_CMD := "./scripts/test-run.sh", "./python"
-test-withk8s : .test-withk8s  ##
+CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
 
 # if something needs to be copied/modified before building runenv image in Docker,
 # define this function

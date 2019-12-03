@@ -83,15 +83,8 @@ test-withdocker:  ## run tests in the testenv-image
 test-all-withdocker:
 	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM} && scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
-# TODO: reconcile with the same in km/tests
-test-withk8s : .check_image_version
-	m4 -D USER="" \
-		-D DTYPE=$(DTYPE) \
-		-D IMAGE_VERSION=$(IMAGE_VERSION) \
-		-D SUFFIX=$(shell echo ${IMAGE_VERSION} | tr '[A-Z]' '[a-z]') \
-		-D REGISTRY=$(REGISTRY) \
-		-D COMMAND='"scripts/test-run.sh", "test", "./km", "${PAYLOAD_KM}","${TEST_KM}"' \
-	  node-pod.yaml | kubectl apply -f -
+# Command to run tests in testenv-image container:
+CONTAINER_TEST_CMD := scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./scripts
