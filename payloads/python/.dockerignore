@@ -1,4 +1,11 @@
 *
 !Setup.local
 !payload.tar
-
+!cpython/python.km
+!cpython/Lib
+!cpython/Modules
+!cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py
+!scripts
+!cpython/pybuilddir.txt
+!km
+!test_unittest.py

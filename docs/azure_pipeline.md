@@ -15,17 +15,11 @@ The CI pipeline clones a km repo and runs a containerized build.
 It packages build results and tests artifacts into a docker image which is deployed
 on Kubernetes.
 
-Tests are deployed as Kubernetes Job.
-A test job will either run to completion if all tests passed or otherwise timeout.
+Tests are deployed as Kubernetes Pods. Pretty much all the work (build / test) is controlled via Makefiles, and the Pipeline just ties them together, and calls `kubectl` where needed to wait, clean up or print the results
 
-If you have test failure(s):
-On azure the 'run tests' task is the task that fails.
-This is because the failure is asserted by the kubernetes job not running successfully to completion and timing out.
-
-But the task of interest is the subsequent 'get tests results' task which displays the tests output.
+**IMPORTANT** We assume kubevirt KVM device plugin is running on Kubernetes (so /dev/kvm is available to containers) and that /dev/kvm has rw access for 'others'.
 
 One can navigate easily between tasks using Previous / Next task blue arrows on upper right corner.
-
 It is also possible to download the CI logs as text files.
 
 ### Outcome
@@ -60,8 +54,7 @@ Please see `docs/build.md` **Login to Azure** section for more details
 
 ### Test failures - where to find the details
 
-If one or more tests fail the **run tests** task will error.
-The **tests results** task is the one you want to look at for tests output and time info.
+If one or more tests fail the **run tests** task will error, and the log there will tell you what is the issue
 
 From github:
 

@@ -106,12 +106,12 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 # IMAGE=kontainkubecr.azurecr.io/test-km-fedora:CI-781
 # NAME=test-km-fedora-ci-781
 # COMMAND='"run_bats_tests.sh", "--km=/tests/km"'
-CONTAINER_TEST_CMD := "run_bats_tests.sh", "--km=/tests/km"
-.test-k8s:  .check_image_version
+CONTAINER_TEST_CMD ?= "run_bats_tests.sh", "--km=/tests/km"
+.test-withk8s :  .check_image_version
 	m4 -D NAME="test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])" \
 		-D IMAGE="$(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)" \
 		-D COMMAND='$(CONTAINER_TEST_CMD)' \
-	$(TOP)cloud/k8s/test-pod-template.yaml
+	$(TOP)cloud/k8s/test-pod-template.yaml | kubectl apply -f -
 
 # for this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
 # to the version you want to push. BE CAREFUL - it pushes to shared image !!!
@@ -167,6 +167,7 @@ ifdef runenv_prep
 	@echo -e "Executing prep steps"
 	eval $(runenv_prep)
 endif
+	eval "$$DOCKERFILE_CONTENT"
 	eval "$$DOCKERFILE_CONTENT"  | ${DOCKER_BUILD} -t ${RUNENV_IMG} -f - ${RUNENV_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
