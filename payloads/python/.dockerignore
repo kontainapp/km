@@ -1,11 +1,22 @@
-*
-!Setup.local
-!payload.tar
-!cpython/python.km
-!cpython/Lib
-!cpython/Modules
+#
+# Excluded files from dockerbuild. Used to avoid sending tons of junk to docker server for build
+#
+# This is used for all build (buildenv, testenv, runeenv) so it can't be too picky
+# TODO: use new docker support of per-dockerfile dockefile.dockerignore and craft small sets of files
+# for different docker builds
+#
+cpython/.git*
+cpython/build
+cpython/c*
+cpython/Doc
+cpython/Grammar
+cpython/Include
+cpython/m4
+cpython/Mac
+cpython/Misc
+cpython/Objects
+cpython/P*
+cpython/python
+cpython/Tools
+**/__pycache__
 !cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py
-!scripts
-!cpython/pybuilddir.txt
-!km
-!test_unittest.py
