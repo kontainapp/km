@@ -41,7 +41,7 @@ all:
 ifneq ($(shell test -d cpython/.git && echo OK),OK)
 	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src kontain/buildenv-python-fedora make -C payloads/python in-blank-container
 else
-	./link-km.sh
+	./link-km.sh ${PYTHONTOP} cpython
 endif
 
 in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
@@ -66,7 +66,7 @@ test test-all: ${PAYLOAD_KM} ${TEST_KM}
 	scripts/test-run.sh ${KM_BIN} ${PAYLOAD_KM}
 
 test-withdocker test-all-withdocker:
-	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh ./km ${PAYLOAD_KM}
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh ./python
 
 CONTAINER_TEST_CMD := "./scripts/test-run.sh", "./python"
 test-withk8s : .test-withk8s  ##
