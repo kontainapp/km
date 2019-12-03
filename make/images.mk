@@ -167,8 +167,7 @@ ifdef runenv_prep
 	@echo -e "Executing prep steps"
 	eval $(runenv_prep)
 endif
-	eval "$$DOCKERFILE_CONTENT"
-	eval "$$DOCKERFILE_CONTENT"  | ${DOCKER_BUILD} -t ${RUNENV_IMG} -f - ${RUNENV_PATH}
+	eval "$$DOCKERFILE_CONTENT" | ${DOCKER_BUILD} -t ${RUNENV_IMG} -f - ${RUNENV_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
 validate-runenv-image: ## Validate runtime image

@@ -60,7 +60,7 @@ steps:
       make -C tests pull-buildenv-image
       make -j withdocker
       make -C tests testenv-image push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId)
-    displayName: KM test - set build environment, build,  create test container and push it to registry
+    displayName: KM test - set build environment, build, create test container and push it to registry
 
   - bash: |
       set -x -e
@@ -77,7 +77,7 @@ steps:
       make -C payloads/python push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId)
     displayName: Python.km test - set build environment, build, create test container and push it to registry
 
-    # Node test. TODO - use Azure pipeline templates to drop cut-n-paste, and/or wrap this in a checked in script
+    # TODO - use Azure pipeline templates to drop cut-n-paste from km/node/python test passes. Issue #321
   - bash: |
       set -x -e
       make -C payloads/python test-withk8s IMAGE_VERSION=CI-$(Build.BuildId)
@@ -109,7 +109,7 @@ steps:
       # TODO - if the **test** failed (especially with kmcore), we want to keep these pods for a few days
       # Setting vars doc: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables
       echo "======= Printing statuses and cleaning up ======"
-      for p in $(pod_test_node) $(pod_test_km) ; do  kubectl get $p -o json; kubectl delete $p; done
+      for p in $(pod_test_km) $(pod_test_python) $(pod_test_node); do  kubectl get $p -o json; kubectl delete $p; done
       rm -f ~/.kube/config
       docker logout
       az logout
