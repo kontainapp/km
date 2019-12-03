@@ -55,33 +55,9 @@ endif
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
 	./run_bats_tests.sh --km=${KM_BIN} --pretty ${IGNORE_FAILURE} --match="${MATCH}"
 
-USER_NAME := $(shell id -un)
-test-withk8s-manual : .check_image_version ## create pod with existing KM testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=CI-695'
-	@echo "Creating or updating Kubernetes pod for USER=${USER_NAME} IMAGE_VERSION=${IMAGE_VERSION}"
-	@name=$$(m4 -DUSER=${USER_NAME}- \
-					-DDTYPE=$(DTYPE) \
-					-DIMAGE_VERSION=${IMAGE_VERSION} \
-					-DSUFFIX=$(shell echo ${IMAGE_VERSION} | tr '[A-Z]' '[a-z]') \
-					-DREGISTRY=$(REGISTRY) \
-					-DCOMMAND='"sleep", "3600"' bats-pod.yaml |  \
-		kubectl apply -f - -o jsonpath='{.metadata.name}'); \
-		echo -e "Run bash in your pod '$$name' using '${GREEN}kubectl exec $$name -it -- bash${NOCOLOR}'" ; \
-		echo -e "Run tests inside your pod using '${GREEN}./run_bats_tests.sh --km=/tests/km${NOCOLOR}'" ; \
-		echo -e "When you are done, do not forget to '${GREEN}kubectl delete pod $$name${NOCOLOR}'"
-
-
-
 # Run all tests in CI, in Kubernetes. Used from CI (thus no help).
 # IMAGE_VERSION (e.g. CI-788) needs to be passed in.
-test-withk8s : .check_image_version
-	m4 -D USER="" \
-		-D DTYPE=$(DTYPE) \
-		-D IMAGE_VERSION=$(IMAGE_VERSION) \
-		-D SUFFIX=$(shell echo ${IMAGE_VERSION} | tr '[A-Z]' '[a-z]') \
-		-D REGISTRY=$(REGISTRY) \
-		-D COMMAND='"run_bats_tests.sh", "--km=/tests/km"' \
-		bats-pod.yaml | kubectl apply -f -
-
+CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
 %.km: %.o
 	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
 
