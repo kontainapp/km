@@ -92,8 +92,8 @@ login-cli: .check_tools  ## Non-interactive login to Azure, Azure Container Regi
 
 # Support for manually purging old test images
 # max age for purge, in 'duration string' format https://golang.org/pkg/time/
-CI_IMAGE_PURGE_AGE := 3d
-CI_IMAGE_REPOS_TO_PURGE := test-km-fedora test-node-fedora
+CI_IMAGE_PURGE_AGE ?= 3d
+CI_IMAGE_REPOS_TO_PURGE := test-km-fedora test-node-fedora test-python-fedora
 CI_IMAGE_DRY_RUN ?= --dry-run
 CI_IMAGE_PURGE_CMD="mcr.microsoft.com/acr/acr-cli:0.1 purge --registry {{.Run.Registry}} \
 	--filter '${repo}:.*' --untagged ${CI_IMAGE_DRY_RUN} --ago ${CI_IMAGE_PURGE_AGE}"
