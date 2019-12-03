@@ -79,11 +79,11 @@ COVERAGE_REPORT  = $(KM_BLDDIR)/coverage.html
 
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
-# Support for "make help"
-#
-# colors for nice color in output
+# colors for pretty output. Unless we are in Azure pipelines
+ifeq (${PIPELINE_WORKSPACE},)
 RED := \033[31m
 GREEN := \033[32m
 YELLOW := \033[33m
 CYAN := \033[36m
 NOCOLOR := \033[0m
+endif

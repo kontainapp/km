@@ -157,7 +157,7 @@ Indicated by setting `LIB` to the target lib, e.g. `LIB := runtime`
 
 See ../tests/Makefile. This one is work in progress and will change to be more generic and provides uniform test execution
 
-## Containerized KM in Docker and Kubernetes (WIP)
+## Containerized KM in Docker and Kubernetes
 
 ### Build docker images
 
