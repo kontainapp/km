@@ -23,8 +23,8 @@ load 'bats-assert/load'  # see manual in bats-assert/README.mnd
 
 # KM binary location.
 if [ -z "$KM_BIN" ] ; then
-   KM_BIN="$(git rev-parse --show-toplevel)/build/km/km"
-   echo $KM_BIN >&3
+   echo "Please make sure KM_BIN env is defined and points to KM executable." >&3
+   exit 10
 fi
 
 if [ -z "$TIME_INFO" ] ; then

@@ -5,4 +5,3 @@
 Dockerfile
 *.dockerfile
 bats-job*
-Makefile
