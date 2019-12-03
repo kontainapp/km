@@ -36,7 +36,7 @@ cleanresources: ## delete all Azure resources in resource group (defined in clou
 clean: cleanall  ## clean cluster and resources
 
 distro publish:  ## Scan KM repo and build / publish all containers
-	$(MAKE) $(MAKEFLAGS) -C ../..  $@
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ../..  $@
 
 
 export define az_install_message
@@ -89,11 +89,10 @@ login-cli: .check_tools  ## Non-interactive login to Azure, Azure Container Regi
 		eval "$$kubectl_install_message" ; \
 		exit 1; \
 	fi
-# Support for manually purging old test images
-# TODO: set auto-scheduled task to do this https://docs.microsoft.com/en-us/azure/container-registry/container-registry-tasks-scheduled
 
+# Support for manually purging old test images
 # max age for purge, in 'duration string' format https://golang.org/pkg/time/
-CI_IMAGE_PURGE_AGE := 7d
+CI_IMAGE_PURGE_AGE := 3d
 CI_IMAGE_REPOS_TO_PURGE := test-km-fedora test-node-fedora
 CI_IMAGE_DRY_RUN ?= --dry-run
 CI_IMAGE_PURGE_CMD="mcr.microsoft.com/acr/acr-cli:0.1 purge --registry {{.Run.Registry}} \
@@ -105,6 +104,18 @@ ifneq ($(CI_IMAGE_DRY_RUN),)
 endif
 	@echo "Purging images for $(CI_IMAGE_REPOS_TO_PURGE) older than $(CI_IMAGE_PURGE_AGE)"
 	$(foreach repo,${CI_IMAGE_REPOS_TO_PURGE}, az acr run --cmd '${CI_IMAGE_PURGE_CMD}' --registry ${REGISTRY_NAME} /dev/null; )
+
+# Helpers to avoid cut-n-paste in pipeline definition
+ci-prepare-testenv:
+	make -C $(TOP)$(LOCATION) pull-buildenv-image all IMAGE_VERSION=latest
+	make -C $(TOP)$(LOCATION) testenv-image push-testenv-image IMAGE_VERSION=$(IMAGE_VERSION)
+
+ci-run-tests:
+	@# Note that we can get pod name from make, but to simplify the code we get it also from upstairs
+	make -C $(TOP)$(LOCATION) test-withk8s IMAGE_VERSION=$(IMAGE_VERSION)
+	kubectl wait --for=condition=Ready --timeout=2m $(POD_NAME)
+	kubectl logs -f $(POD_NAME)
+	if [ $(kubectl get $(POD_NAME) -o 'jsonpath={..terminated.exitCode}') != 0 ] ; then exit 1; fi
 
 dashboard: login # Interactive login, and then forward port/open Kubernetes Dashboard
 	az aks browse --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER)

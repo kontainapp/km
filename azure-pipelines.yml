@@ -51,7 +51,7 @@ steps:
       env
     displayName: Print build environment info
 
-  - bash: make -C cloud/azure login-cli \
+  - bash: make -C cloud/azure login-cli
           SP_APPID=$(SP_appId) SP_PASSWORD=$(SP_password) SP_TENANT=$(SP_tenant) SP_DISPLAYNAME=$(SP_displayName)
     displayName: Login to Azure, container registry and Kubernetes
 
@@ -62,44 +62,21 @@ steps:
       make -C tests testenv-image push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId)
     displayName: KM test - set build environment, build, create test container and push it to registry
 
-  - bash: |
-      set -x -e
-      make -C tests test-withk8s IMAGE_VERSION=CI-$(Build.BuildId)
-      kubectl wait --for=condition=Ready --timeout=2m $(pod_test_km)
-      kubectl logs -f $(pod_test_km)
-      if [ $(kubectl get $(pod_test_km) -o 'jsonpath={..terminated.exitCode}') != 0 ] ; then exit 1; fi
+  - bash: make -C cloud/azure ci-run-tests LOCATION=tests IMAGE_VERSION=CI-$(Build.BuildId) POD_NAME=$(pod_test_km)
     displayName: Run KM tests on Kubernetes
     timeoutInMinutes: 5
 
-  - bash: |
-      set -x -e
-      make -C payloads/python pull-buildenv-image all
-      make -C payloads/python push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId)
+  - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/python IMAGE_VERSION=CI-$(Build.BuildId)
     displayName: Python.km test - set build environment, build, create test container and push it to registry
 
-    # TODO - use Azure pipeline templates to drop cut-n-paste from km/node/python test passes. Issue #321
-  - bash: |
-      set -x -e
-      make -C payloads/python test-withk8s IMAGE_VERSION=CI-$(Build.BuildId)
-      kubectl wait --for=condition=Ready --timeout=2m $(pod_test_python)
-      kubectl logs -f $(pod_test_python)
-      if [ $(kubectl get $(pod_test_python) -o 'jsonpath={..terminated.exitCode}') != 0 ] ; then exit 1; fi
+  - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/python IMAGE_VERSION=CI-$(Build.BuildId) POD_NAME=$(pod_test_python)
     displayName: Run Python.km tests on Kubernetes
     timeoutInMinutes: 5
 
-  - bash: |
-      set -x -e
-      make -C payloads/node pull-buildenv-image all
-      make -C payloads/node push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId)
+  - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/node IMAGE_VERSION=CI-$(Build.BuildId)
     displayName: Node.km test - set build environment, build, create test container and push it to registry
 
-    # Node test. TODO - use Azure pipeline templates to drop cut-n-paste, and/or wrap this in a checked in script
-  - bash: |
-      set -x -e
-      make -C payloads/node test-withk8s IMAGE_VERSION=CI-$(Build.BuildId)
-      kubectl wait --for=condition=Ready --timeout=2m $(pod_test_node)
-      kubectl logs -f $(pod_test_node)
-      if [ $(kubectl get $(pod_test_node) -o 'jsonpath={..terminated.exitCode}') != 0 ] ; then exit 1; fi
+  - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/node IMAGE_VERSION=CI-$(Build.BuildId) POD_NAME=$(pod_test_node)
     displayName: Run Node.km tests on Kubernetes
     timeoutInMinutes: 5
 
