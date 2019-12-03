@@ -14,6 +14,7 @@ TOP := $(shell git rev-parse --show-cdup)
 
 BUILD ?= Release
 VERS ?= v12.4.0
+SHELL=/bin/bash
 
 # Location of Node sources. When building in container, it is set in buildenv dockerfile.
 NODETOP ?= node
@@ -35,13 +36,14 @@ PAYLOAD_NAME := NodeJs12.4
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
 
+REALPATH_TOP := $(realpath ${TOP})
 # either run all in 'blank' container, or local.
 # in blank: link + tar + create shebang
 # fromsrc local: link + create shebang
 # regular local: just run docker
 all:
 ifneq ($(shell test -d node/.git && echo OK),OK)
-	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src kontain/buildenv-node-fedora make -C payloads/node in-blank-container
+	${DOCKER_RUN} -w /src -v ${REALPATH_TOP}:/src:Z kontain/buildenv-node-fedora /bin/bash -x -c "make -C payloads/node in-blank-container"
 else
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 endif
@@ -52,9 +54,9 @@ endif
 	ln -sf node.sh ${NODEOUT}/node
 
 in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
-	tar -C ${NODETOP}/.. -cf - ${NODE_DISTRO_FILES} | tar -xf -
 	mkdir -p ${NODEOUT}
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
+	tar -C ${NODETOP}/.. -cf - ${NODE_DISTRO_FILES} | tar -xf -
 
 fromsrc:
 	git clone https://github.com/nodejs/node.git -b ${VERS}
@@ -80,6 +82,16 @@ test-withdocker:  ## run tests in the testenv-image
 
 test-all-withdocker:
 	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM} && scripts/test-run.sh test-all ${NODETOP} ${BUILD}
+
+# TODO: reconcile with the same in km/tests
+test-withk8s : .check_image_version
+	m4 -D USER="" \
+		-D DTYPE=$(DTYPE) \
+		-D IMAGE_VERSION=$(IMAGE_VERSION) \
+		-D SUFFIX=$(shell echo ${IMAGE_VERSION} | tr '[A-Z]' '[a-z]') \
+		-D REGISTRY=$(REGISTRY) \
+		-D COMMAND='"scripts/test-run.sh", "test", "./km", "${PAYLOAD_KM}","${TEST_KM}"' \
+	  node-pod.yaml | kubectl apply -f -
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./scripts

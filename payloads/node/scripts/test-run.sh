@@ -22,7 +22,7 @@ case "$1" in
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
 	echo noop.js - expecting exit with code 22:
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js || [ $? -eq 22 ]
-	${KM_BIN} ${PAYLOAD_KM} ./scripts/micro-srv.js & sleep 0.5 ; curl localhost:8080
+	${KM_BIN} ${PAYLOAD_KM} ./scripts/micro-srv.js & sleep 1 ; curl localhost:8080
 	curl -X POST localhost:8080 || echo Forcing srv to exit and ignoring curl 'empty reply'
 	${KM_BIN} ${TEST_KM} --gtest_filter="*"
   ;;

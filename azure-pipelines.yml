@@ -1,23 +1,34 @@
+#
+# Kontain Monitor Azure Pipeline definition
+#
+name: ci-$(BuildID) $(Date:yyyyMMdd)$(Rev:.r)
+
 trigger:
-  - master
-  - ci/* # prefix ci/ to force CI on every push. e.g. ci/msterin/test-azure-devops/ci
+  branches:
+    include:
+    - master
+    - ci/* # prefix ci/ to force CI on every push. e.g. ci/msterin/test-azure-devops/ci
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+
 pr:
   - master
 
 variables:
-  azureSubscriptionEndpoint: kontainAzureResourceManageServiceConnection
-  azureContainerRegistry: kontainkubecr
-  azureResourceGroup: kontainKubeRG
-  kubernetesCluster: kontainKubeCluster
-  registry: "kontainkubecr.azurecr.io"
-  registrySC: "kontainkubecr_service_connection"
-  k8sSC: "CD-to-k8s"
-  vmImage: "ubuntu-16.04"
+  vmImage: "ubuntu-18.04"
+  pod_test_km: "pod/test-km-$(buildenv.type)-ci-$(Build.BuildId)"
+  pod_test_node: "pod/test-node-$(buildenv.type)-ci-$(Build.BuildId)"
+  pod_test_python: "pod/test-python-$(buildenv.type)-ci-$(Build.BuildId)"
+  dtype: "$(buildenv.type)"
+
 
 strategy:
   matrix:
     fedora:
       buildenv.type: fedora
+    # Note: DTYPE=$(buildenv.type) below is needed only for Ubuntu; fedota is the default
     # ubuntu:
     #   buildenv.type: ubuntu
 pool:
@@ -27,14 +38,7 @@ steps:
   - checkout: self
     submodules: true
 
-  - task: Docker@2
-    inputs:
-      command: login
-      containerRegistry: $(registrySC)
-    displayName: Login to registry $(registry)
-
   - bash: |
-      set -e
       echo ====Environment info===
       echo "SHA: $(git rev-parse HEAD)"
       echo "=== Last 10 commits:"
@@ -43,69 +47,55 @@ steps:
       cat /proc/version
       echo "=== Docker version:"
       docker version
-      echo "=== ENV:"
-      env
       echo  =======================
+      env
     displayName: Print build environment info
 
+  - bash: make -C cloud/azure login-cli \
+          SP_APPID=$(SP_appId) SP_PASSWORD=$(SP_password) SP_TENANT=$(SP_tenant) SP_DISPLAYNAME=$(SP_displayName)
+    displayName: Login to Azure, container registry and Kubernetes
+
   - bash: |
-      set -e -x
+      set -x -e
       make -C tests pull-buildenv-image
-      make -j withdocker DTYPE=$(buildenv.type)
-      echo "=== bats tests/bats-$(buildenv.type)-job.yaml : ==="
-      m4 -D BUILD_ID=$(Build.BuildId) -D DTYPE_VALUE=$(buildenv.type) -D REGISTRY=$(azureContainerRegistry) tests/bats-job.yaml | tee tests/bats-$(buildenv.type)-job.yaml
-    displayName: Build KM and KM tests using docker ($(buildenv.type))
+      make -j withdocker
+      make -C tests testenv-image push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId)
+    displayName: Set KM build environment, build KM, create and push KM Test container to registry
 
-  - bash: make -C tests testenv-image push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId) DTYPE=$(buildenv.type)
-    displayName: Create and push KM Test container to registry $(registry)
+  - bash: |
+      set -x -e
+      make -C tests test-withk8s IMAGE_VERSION=CI-$(Build.BuildId)
+      kubectl wait --for=condition=Ready --timeout=2m $(pod_test_km)
+      kubectl logs -f $(pod_test_km)
+      if [ $(kubectl get $(pod_test_km) -o 'jsonpath={..terminated.exitCode}') != 0 ] ; then exit 1; fi
+    displayName: Run KM tests on Kubernetes
+    timeoutInMinutes: 5
 
-  - task: Kubernetes@1
-    inputs:
-      connectionType: Kubernetes Service Connection
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureResourceGroup: $(azureResourceGroup)
-      kubernetesCluster: $(kubernetesCluster)
-      kubernetesServiceEndpoint: $(k8sSC)
-      command: apply
-      arguments: -f tests/bats-$(buildenv.type)-job.yaml
-    displayName: Start tests on Kubernetes cluster $(kubernetesCluster)
+  - bash: |
+      set -x -e
+      make -C payloads/node pull-buildenv-image all
+      make -C payloads/node push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId)
+    displayName: Set Node.km build environment, build Node.km, create and push Node.km Test container to registry
 
-  - task: Kubernetes@1
-    inputs:
-      connectionType: Kubernetes Service Connection
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureResourceGroup: $(azureResourceGroup)
-      kubernetesCluster: $(kubernetesCluster)
-      kubernetesServiceEndpoint: $(k8sSC)
-      command: wait
-      arguments: --timeout 240s --for=condition=complete job/bats-$(buildenv.type)-$(Build.BuildId)
-    displayName: Wait for tests to complete or fail
+    # Node test. TODO - use Azure pipeline templates to drop cut-n-paste, and/or wrap this in a checked in script
+  - bash: |
+      set -x -e
+      make -C payloads/node test-withk8s IMAGE_VERSION=CI-$(Build.BuildId)
+      kubectl wait --for=condition=Ready --timeout=2m $(pod_test_node)
+      kubectl logs -f $(pod_test_node)
+      if [ $(kubectl get $(pod_test_node) -o 'jsonpath={..terminated.exitCode}') != 0 ] ; then exit 1; fi
+    displayName: Run Node.km tests on Kubernetes
+    timeoutInMinutes: 5
 
-  - task: Kubernetes@1
+  - bash: |
+      set -x
+      make -C cloud/azure ci-image-purge CI_IMAGE_DRY_RUN=""
+      # TODO - if the **test** failed (especially with kmcore), we want to keep these pods for a few days
+      # Setting vars doc: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables
+      echo "======= Printing statuses and cleaning up ======"
+      for p in $(pod_test_node) $(pod_test_km) ; do  kubectl get $p -o json; kubectl delete $p; done
+      rm -f ~/.kube/config
+      docker logout
+      az logout
     condition: always()
-    inputs:
-      connectionType: Kubernetes Service Connection
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureResourceGroup: $(azureResourceGroup)
-      kubernetesCluster: $(kubernetesCluster)
-      kubernetesServiceEndpoint: $(k8sSC)
-      command: logs
-      arguments: jobs/bats-$(buildenv.type)-$(Build.BuildId)
-    displayName: Get tests results
-
-  - task: Kubernetes@1
-    condition: always()
-    inputs:
-      connectionType: Kubernetes Service Connection
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureResourceGroup: $(azureResourceGroup)
-      kubernetesCluster: $(kubernetesCluster)
-      kubernetesServiceEndpoint: $(k8sSC)
-      command: delete
-      arguments: jobs/bats-$(buildenv.type)-$(Build.BuildId)
-    displayName: Delete Kubernetes test job bats-$(Build.BuildId)
-
-  - script: |
-      echo '****** TODO print SHA so we can rebuild, and remove image $(registry)/test-km-$(buildenv.type):CI-$(Build.BuildId)'
-    condition: always()
-    displayName: Cleanup test image in registry (TODO)
+    displayName: Cleanup test job,  purge old test images and logout

@@ -93,6 +93,25 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 	docker pull $(FROM)
 	docker tag $(FROM) $(TO)
 	docker rmi $(FROM)
+	@echo -e "Pulled image ${GREEN}${TO}${NOCOLOR}"
+
+# Helper when we need to make sure IMAGE_VERSION is defined and not 'latest'
+.check_image_version:
+	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == latest ]] ; then \
+			echo -e "${RED}IMAGE_VERSION should be set to CI-BuildId , e.g. CI-695. Currentl value='${IMAGE_VERSION}'${NOCOLOR}" ; \
+			false; \
+	fi
+
+# WIP: not used yet
+# IMAGE=kontainkubecr.azurecr.io/test-km-fedora:CI-781
+# NAME=test-km-fedora-ci-781
+# COMMAND='"run_bats_tests.sh", "--km=/tests/km"'
+CONTAINER_TEST_CMD := "run_bats_tests.sh", "--km=/tests/km"
+.test-k8s:  .check_image_version
+	m4 -D NAME="test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])" \
+		-D IMAGE="$(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)" \
+		-D COMMAND='$(CONTAINER_TEST_CMD)' \
+	$(TOP)cloud/k8s/test-pod-template.yaml
 
 # for this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
 # to the version you want to push. BE CAREFUL - it pushes to shared image !!!
@@ -113,7 +132,7 @@ pull-buildenv-image: ## Pulls the buildenv image.
 # Note - used awk to print (instead of echo) so escaping/coloring is platform independed
 help:  ## Prints help on 'make' targets
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
-	/^[.a-zA-Z0-9_-]+:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
+	/^[.a-zA-Z0-9_-]+[ \t]*:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
 	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
 	$(MAKEFILE_LIST)
 	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
@@ -128,7 +147,7 @@ debugvars:   ## prints interesting vars and their values
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
 
 # allows to do 'make print-varname'
-print-%  : ; @echo $* = $($*)
+print-%  : ; @echo $* = \"$($*)\"
 
 # use this embedded dockerfile... we need it to replace ENTRYPOINT
 export define DOCKERFILE_CONTENT
@@ -169,3 +188,6 @@ publish: push-runenv-image
 
 ${BLDDIR}:
 	mkdir -p ${BLDDIR}
+
+.DEFAULT:
+	@echo $(notdir $(CURDIR)): ignoring target '$@'
