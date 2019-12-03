@@ -109,6 +109,9 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 # We generate test pod specs from this template
 TEST_POD_TEMPLATE := $(TOP)cloud/k8s/test-pod-template.yaml
 
+# CONTAINER_TEST_CMD could be overriden, le't keep the original one so we can use it for help messages
+CONTAINER_TEST_CMD_HELP := $(CONTAINER_TEST_CMD)
+
 # Pod spec needs a json list as a container's command, so generate it first from a "command params" string
 __CONTAINER_TEST_CMD = $(wordlist 2,100,$(foreach item,$(CONTAINER_TEST_CMD), , \"$(item)\"))
 
@@ -126,7 +129,7 @@ test-withk8s :  .check_vars ## Run tests in Kubernetes. IMAGE_VERSION need to be
 	@echo '$(preprocess_and_apply)'
 	@name=$$($(preprocess_and_apply)) ;\
 		echo -e "Run bash in your pod '$$name' using '${GREEN}kubectl exec $$name -it -- bash${NOCOLOR}'" ; \
-		echo -e "Run tests inside your pod using '${GREEN}./run_bats_tests.sh --km=/tests/km${NOCOLOR}'" ; \
+		echo -e "Run tests inside your pod using '${GREEN}${CONTAINER_TEST_CMD_HELP}${NOCOLOR}'" ; \
 		echo -e "When you are done, do not forget to '${GREEN}kubectl delete pod $$name${NOCOLOR}'"
 
 # Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image

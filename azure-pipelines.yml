@@ -7,7 +7,7 @@ trigger:
   branches:
     include:
     - master
-    - ci/* # prefix ci/ to force CI on every push. e.g. ci/msterin/test-azure-devops/ci
+    - ci/* # prefix ci/ to force CI on every push. e.g. ci/msterin/test-azure-devops
   paths:
     exclude:
     - README.md
@@ -28,7 +28,7 @@ strategy:
   matrix:
     fedora:
       buildenv.type: fedora
-    # Note: DTYPE=$(buildenv.type) below is needed only for Ubuntu; fedota is the default
+    # Note: DTYPE=$(buildenv.type) below is needed only for Ubuntu; fedora is the default
     # ubuntu:
     #   buildenv.type: ubuntu
 pool:

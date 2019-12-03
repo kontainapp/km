@@ -11,8 +11,8 @@
 # Makefile for building and packing Python payload runtime for KM
 
 TOP := $(shell git rev-parse --show-cdup)
-
 VERS ?= v3.7.4
+SHELL=/bin/bash
 
 # Location of cpython sources. When building in container, it is set in buildenv dockerfile.
 PYTHONTOP ?= cpython
