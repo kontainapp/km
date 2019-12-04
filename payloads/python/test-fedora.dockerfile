@@ -24,5 +24,5 @@ COPY --chown=appuser:appuser km cpython/python.km test_unittest.py ./
 COPY --chown=appuser:appuser cpython/Modules cpython/Modules/
 COPY --chown=appuser:appuser cpython/Lib cpython/Lib/
 COPY --chown=appuser:appuser cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py cpython/Lib/
-RUN echo '#!'$PHOME'km --putenv=PYTHONPATH='${PHOME}'cpython/Lib' > python && chmod +x ./python
+RUN echo '#!/usr/bin/env -S '${PHOME}'km --putenv=PYTHONPATH='${PHOME}'cpython/Lib --putenv=PYTHONHOME=foo:foo' > python && chmod +x ./python
 
