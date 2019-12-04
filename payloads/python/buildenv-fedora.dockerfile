@@ -26,9 +26,7 @@ RUN make -C cpython -W Modules/Setup.local -j`expr 2 \* $(nproc)`
 
 FROM kontain/buildenv-km-fedora
 ENV PYTHONTOP=/home/appuser/cpython
-
-COPY buildenv-requirements.txt ./
-RUN pip3 install --user -r  buildenv-requirements.txt
+#
 # The following copies two sets of artifacts - objects needed to build (link) python.km,
 # and the sets of files to run set of tests. The former is used by link-km.sh,
 # the latter is copied to the output by Makefile using NODE_DISTRO_FILES.
