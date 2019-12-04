@@ -73,32 +73,13 @@ Prerequisites:
   * flex
 
 Building:
-We build the `gcc-9_2_0-release` branch.
+We have a fork of gcc that we made changes to: `https://github.com/kontainapp/gcc.git`
+We use the `gcc-9_2_0-kontain` branch.
 
 ```
-$ git clone git://gcc.gnu.org/git/gcc.git
+$ git clone https://github.com/kontainapp/gcc.git
 $ cd gcc
-```
-
-Apply this patch:
-```
-
--- a/libgcc/config/i386/cpuinfo.c
-+++ b/libgcc/config/i386/cpuinfo.c
-@@ -504,7 +504,9 @@ __cpu_indicator_init (void)
-   return 0;
- }
- 
-+#if 0
- #if defined SHARED && defined USE_ELF_SYMVER
- __asm__ (".symver __cpu_indicator_init, __cpu_indicator_init@GCC_4.8.0");
- __asm__ (".symver __cpu_model, __cpu_model@GCC_4.8.0");
- #endif
-+#endif
-```
-
-```
-$ git checkout gcc-9_2_0-release
+$ git checkout gcc-9_2_0-kontain
 $ ./configure --prefix=/opt/kontain --enable-clocale=generic \
     --disable-bootstrap --enable-languages=c,c++ --enable-threads=posix \
     --enable-checking=release --disable-multilib --with-system-zlib \

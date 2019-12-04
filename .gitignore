@@ -1,6 +1,5 @@
 build/**
 *.o
-*.so
 *.a
 *.d
 tests/*_test
