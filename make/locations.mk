@@ -37,7 +37,7 @@ KM_BLDDIR := ${BLDTOP}km/$(BLDTYPE)
 KM_BIN := ${KM_BLDDIR}km
 RT_BLDDIR := ${BLDTOP}runtime/
 KM_LDSO := "${RT_BLDDIR}libc.so.km"
-KM_LDSO_PATH := "opt/kontain/lib64:/lib64
+KM_LDSO_PATH := "/opt/kontain/lib64:/lib64
 
 # dockerized build
 # TODO: Some of these values should be moved to images.mk , but we have multiple

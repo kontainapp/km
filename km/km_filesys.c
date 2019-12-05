@@ -58,8 +58,11 @@ static int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* n
                                       __ATOMIC_SEQ_CST,
                                       __ATOMIC_SEQ_CST) != 0) {
          __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[host_fd], i, __ATOMIC_SEQ_CST);
-         void* newval = realpath(name, NULL);
-         assert(newval != NULL || errno == ENOENT);
+         void* newval = NULL;
+         if (name != NULL) {
+            newval = strdup(name);
+            assert(newval != NULL);
+         }
          void* oldval = NULL;
          __atomic_exchange(&machine.filesys.guestfd_to_name_map[i], &newval, &oldval, __ATOMIC_SEQ_CST);
          if (oldval != NULL) {

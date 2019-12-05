@@ -49,14 +49,6 @@
  *
  * Return the location of argv in guest
  */
-#define NEW_AUXV_ENT(type, val)                                                                    \
-   {                                                                                               \
-      stack_top -= 2 * sizeof(void*);                                                              \
-      stack_top_kma -= 2 * sizeof(void*);                                                          \
-      uint64_t* ptr = stack_top_kma;                                                               \
-      ptr[0] = (type);                                                                             \
-      ptr[1] = (uint64_t)(val);                                                                    \
-   }
 
 km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[])
 {
@@ -114,6 +106,12 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    /*
     * ABI wants 16 byte aligned stack top at process start time.
     * AUXV entries are already 16 bytes.
+    * BI wants the stack 16 bytes aligned at the end of this, when we place
+    * argc on the stack. From this point down we are going to place a null AUXV
+    * entry (8 bytes), AUXV, env pointers and zero entry, argv pointers and zero
+    * entry, and finally argc. AUXV entries are 16 bytes so they don't change the
+    * alignment. env and argv pointers are 8 bytes though, so we adjust for
+    * evenness of them together.
     */
    stack_top = rounddown(stack_top, sizeof(void*) * 2);
    if ((argc + envc) % 2 != 0) {
@@ -122,6 +120,15 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    stack_top_kma = km_gva_to_kma_nocheck(stack_top);
    void* auxv_end = stack_top_kma;
    // AUXV
+#define NEW_AUXV_ENT(type, val)                                                                    \
+   {                                                                                               \
+      stack_top -= 2 * sizeof(void*);                                                              \
+      stack_top_kma -= 2 * sizeof(void*);                                                          \
+      uint64_t* ptr = stack_top_kma;                                                               \
+      ptr[0] = (type);                                                                             \
+      ptr[1] = (uint64_t)(val);                                                                    \
+   }
+
    NEW_AUXV_ENT(0, 0);
    NEW_AUXV_ENT(AT_PLATFORM, platform_gva);
    NEW_AUXV_ENT(AT_EXECFN, argv_km[0]);
@@ -142,6 +149,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    NEW_AUXV_ENT(AT_PAGESZ, KM_PAGE_SIZE);
    // TODO: AT_HWCAP
    // TODO: AT_SYSINFO_EHDR
+#undef NEW_AUXV_ENT
 
    // A safe copy of auxv for coredump (if needed)
    machine.auxv_size = auxv_end - stack_top_kma;

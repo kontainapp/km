@@ -87,7 +87,6 @@ typedef struct km_vcpu {
    kvm_sregs_t sregs;             // Cached segment register values.
    km_sigset_t sigmask;           // blocked signals for thread
    km_signal_list_t sigpending;   // List of signals sent to thread
-
    /*
     * Linux/Pthread handshake hacks. These are actually part of the standard.
     *
@@ -162,8 +161,8 @@ typedef struct km_mmap_reg {
    int flags;                  // flag as passed to mmap()
    int protection;             // as passed to mmaps() or mprotect(), or 0 for unmapped region
    km_mmap_flags_u km_flags;   // Flags used by KM and not by guest
-   char *filename;
-   off_t offset;               // offset into fd (if it exists).
+   char* filename;
+   off_t offset;   // offset into fd (if it exists).
    TAILQ_ENTRY(km_mmap_reg) link;
 } km_mmap_reg_t;
 
