@@ -45,13 +45,6 @@ typedef struct kvm_vcpu_events kvm_vcpu_events_t;
 typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload space)
 typedef void* km_kma_t;      // kontain monitor address (i.e. address in km process space)
 
-typedef enum {
-   VCPU_IDLE = 0,     // idle, same as is_used = 0
-   VCPU_RUNNING,      // guest thread between create and exit
-   VCPU_JOIN_WAITS,   // same as above, another thread waits in join
-   VCPU_DONE          // after pthread_exit() waiting for join
-} km_vthr_state_t;
-
 typedef uint64_t km_sigset_t;
 
 // must match k_sigaction
@@ -81,23 +74,25 @@ typedef struct km_vcpu {
    pthread_t vcpu_thread;         // km pthread
    pthread_mutex_t thr_mtx;       // protects the three fields below
    pthread_cond_t thr_cv;         // used by vcpu_pthread to block while vcpu isn't in use
-   pthread_cond_t join_cv;        // join waits for thread to finish
-   km_vthr_state_t thr_state;     // state of the vcpu thread
                                   //
-   km_gva_t guest_thr;            // guest pthread
+   km_gva_t guest_thr;            // guest pthread, FS reg in the guest
    km_gva_t stack_top;            // available in guest_thr but requres gva_to_kma, save it
                                   //
    int gdb_efd;                   // gdb uses this to synchronize with VCPU thread
    int is_used;                   // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
-   pthread_tid_t joining_pid;     // pid if currently joining another thread pid, -1 if not
-   km_gva_t exit_res;             // exit status for this thread
    int regs_valid;                // Are registers valid?
    kvm_regs_t regs;               // Cached register values.
    int sregs_valid;               // Are segment registers valid?
    kvm_sregs_t sregs;             // Cached segment register values.
    km_sigset_t sigmask;           // blocked signals for thread
    km_signal_list_t sigpending;   // List of signals sent to thread
+   /*
+    * Linux/Pthread handshake hacks. These are actually part of the standard.
+    *
+    */
+   km_gva_t set_child_tid;     // See 'man 2 set_child_tid' for details
+   km_gva_t clear_child_tid;   // See 'man 2 set_child_tid' for details
 } km_vcpu_t;
 
 /*
@@ -141,6 +136,7 @@ void km_hcalls_fini(void);
 typedef struct km_filesys {
    int* guestfd_to_hostfd_map;   // file descriptor map
    int* hostfd_to_guestfd_map;   // reverse file descriptor map
+   char** guestfd_to_name_map;   // guest file name
    int nfdmap;                   // size of file descriptor maps
 } km_filesys_t;
 
@@ -165,8 +161,8 @@ typedef struct km_mmap_reg {
    int flags;                  // flag as passed to mmap()
    int protection;             // as passed to mmaps() or mprotect(), or 0 for unmapped region
    km_mmap_flags_u km_flags;   // Flags used by KM and not by guest
-   int gfd;                    // Guest fd. -1 if no fd
-   off_t offset;               // offset into fd (if it exists).
+   char* filename;
+   off_t offset;   // offset into fd (if it exists).
    TAILQ_ENTRY(km_mmap_reg) link;
 } km_mmap_reg_t;
 
@@ -222,6 +218,8 @@ typedef struct km_machine {
    km_sigaction_t sigactions[_NSIG];
    km_filesys_t filesys;
    km_mmap_cb_t mmaps;   // guest memory regions managed with mmaps/mprotect/munmap
+   void* auxv;           // Copy of process AUXV (used if core is dumped)
+   size_t auxv_size;     // size of process AUXV (used if core is dumped)
 } km_machine_t;
 
 extern km_machine_t machine;
@@ -263,17 +261,25 @@ static inline int km_wait_on_eventfd(int fd)
    return value;
 }
 
-km_gva_t
-km_init_libc_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[]);
+km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[]);
 int km_pthread_create(
     km_vcpu_t* vcpu, pthread_tid_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
 int km_pthread_join(km_vcpu_t* vcpu, pthread_tid_t pid, km_kma_t ret);
-void km_pthread_fini(km_vcpu_t* vcpu);
+
+int km_clone(km_vcpu_t* vcpu,
+             unsigned long flags,
+             uint64_t child_stack,
+             km_gva_t ptid,
+             km_gva_t ctid,
+             unsigned long newtls,
+             void** cargs);
+uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr);
+void km_exit(km_vcpu_t* vcpu, int status);
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
 void km_vcpu_put(km_vcpu_t* vcpu);
-int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, km_gva_t arg2);
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, uint64_t arg2);
 void km_vcpu_detach(km_vcpu_t* vcpu);
 
 typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, uint64_t data);   // return 0 if all is good

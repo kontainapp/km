@@ -16,7 +16,6 @@ if [ -z "$BATS_TEST_FILENAME" ] ; then "exec" "`dirname $0`/bats/bin/bats" "$0" 
 #
 # See ./bats/... for docs
 #
-
 cd $BATS_ROOT/.. # bats sits under tests, so this will move us to tests
 load 'bats-support/load' # see manual in bats-support/README.md
 load 'bats-assert/load'  # see manual in bats-assert/README.mnd
@@ -25,6 +24,14 @@ load 'bats-assert/load'  # see manual in bats-assert/README.mnd
 if [ -z "$KM_BIN" ] ; then
    echo "Please make sure KM_BIN env is defined and points to KM executable." >&3
    exit 10
+fi
+
+if [ -z "$KM_LDSO" ] ; then
+   KM_LDSO="$(git rev-parse --show-toplevel)/build/runtime/libc.so.km"
+fi
+
+if [ -z "$KM_LDSO_PATH" ] ; then
+   KM_LDSO_PATH="/opt/kontain/lib64:/lib64"
 fi
 
 if [ -z "$TIME_INFO" ] ; then

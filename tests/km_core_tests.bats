@@ -15,26 +15,26 @@ load test_helper
 # They can be invoked by either 'make test [MATCH=<filter>]' or ./km_core_tests.bats [-f <filter>]
 # <filter> is a regexp or substring matching test name
 
-@test "setup_link: check if linking produced text segment where we expect" {
+@test "setup_link(static): check if linking produced text segment where we expect" {
    run objdump -wp load_test.km
    [[ $(echo -e "$output" | awk '/LOAD/{print $5}' | sort -g | head -1) -eq 0x200000 ]]
 }
 
-@test "setup_basic: basic vm setup, workload invocation and exit value check (exit_value_test)" {
+@test "setup_basic(static): basic vm setup, workload invocation and exit value check (exit_value_test)" {
    for i in $(seq 1 200) ; do # a loop to catch race with return value, if any
       run km_with_timeout exit_value_test.km
       assert_equal $status 17
    done
 }
 
-@test "setup_load: load elf and layout check (load_test)" {
+@test "setup_load(static): load elf and layout check (load_test)" {
    run km_with_timeout load_test.km
    # Show this on failure:
    echo -e "\n*** Try to run 'make load_expected_size' in tests, and replace load.c:size value\n"
    assert_success
 }
 
-@test "hc_check: invoke wrong hypercall (hc_test)" {
+@test "hc_check(static): invoke wrong hypercall (hc_test)" {
    run km_with_timeout stray_test.km hc 400
    assert [ $status == 31 ]  #SIGSYS
    assert_output --partial "Bad system call"
@@ -50,14 +50,15 @@ load test_helper
    run km_with_timeout stray_test.km hc-badarg 3
    assert [ $status == 31 ]  #SIGSYS
    assert_output --partial "Bad system call"
+
 }
 
-@test "km_main: wait on signal (hello_test)" {
+@test "km_main(static): wait on signal (hello_test)" {
    run timeout -s SIGUSR1 1s ${KM_BIN} --wait-for-signal hello_test.km
    [ $status -eq 124 ]
 }
 
-@test "km_main: optargs (hello_test)" {
+@test "km_main(static): optargs (hello_test)" {
    # -v flag prints version and branch
    run km_with_timeout -v hello_test.km
    assert_success
@@ -93,7 +94,7 @@ load test_helper
    tmp=/tmp/hello$$ ; cp hello_test $tmp.km
    run km_with_timeout $tmp # Linux executable instead of .km
    assert_failure
-   assert_line "km: Non-KM binary: cannot find interrupt handler(*), tsd size(*), or sigreturn(*). Trying to run regular Linux executable in KM?"
+   assert_line "km: Non-KM binary: cannot find interrupt handler(*) or sigreturn(*). Trying to run regular Linux executable in KM?"
    rm $tmp.km # may leave dirt if the tests above fail
 
    log=`mktemp`
@@ -106,9 +107,10 @@ load test_helper
    rm $log
    run km_with_timeout -V --log-to=/very/bad/place hello_test.km
    assert_failure
+
 }
 
-@test "km_main: passing environment to payloads (env_test)" {
+@test "km_main(static): passing environment to payloads (env_test)" {
    val=`pwd`/$$
    run km_with_timeout --putenv PATH=$val env_test.km
    assert_success
@@ -127,24 +129,24 @@ load test_helper
    assert_failure
 }
 
-@test "mem_slots: KVM memslot / phys mem sizes (memslot_test)" {
+@test "mem_slots(static): KVM memslot / phys mem sizes (memslot_test)" {
    run ./memslot_test
    assert_success
 }
 
-@test "mem_regions: Crossing regions boundary (regions_test)" {
+@test "mem_regions(static): Crossing regions boundary (regions_test)" {
    run ${KM_BIN} regions_test.km
    assert_success
 }
 
-@test "mem_brk: brk() call (brk_test)" {
+@test "mem_brk(static): brk() call (brk_test)" {
    # we expect 3 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
    if [ $(bus_width) -eq 36 ] ; then expected_status=3 ; else  expected_status=0; fi
    run km_with_timeout --overcommit-memory brk_test.km
    assert [ $status -eq $expected_status ]
 }
 
-@test "hc_basic: basic run and print hello world (hello_test)" {
+@test "hc_basic(static): basic run and print hello world (hello_test)" {
    args="more_flags to_check: -f and check --args !"
    run ./hello_test $args
    assert_success
@@ -156,7 +158,7 @@ load test_helper
    diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
 }
 
-@test "hc_socket: basic HTTP/socket I/O (hello_html_test)" {
+@test "hc_socket(static): basic HTTP/socket I/O (hello_html_test)" {
    local address="http://127.0.0.1:8002"
 
    (./hello_html_test &)
@@ -172,7 +174,7 @@ load test_helper
    diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
 
-@test "mem_mmap: mmap and munmap with addr=0 (mmap_test)" {
+@test "mem_mmap(static): mmap and munmap with addr=0 (mmap_test)" {
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
@@ -180,14 +182,14 @@ load test_helper
    [ $status -eq $expected_status ]
 }
 
-@test "futex example" {
+@test "futex example(static)" {
    skip "TODO: convert to test"
 
    run km_with_timeout futex.km
    assert_success
 }
 
-@test "gdb_basic: gdb support (gdb_test)" {
+@test "gdb_basic(static): gdb support (gdb_test)" {
    km_gdb_default_port=2159
    # start KM in background, give it time to start, and connect with gdb cliennt
    km_with_timeout -g gdb_test.km &
@@ -202,7 +204,7 @@ load test_helper
 }
 
 # Test with signals
-@test "gdb_signal: gdb signal support (stray_test)" {
+@test "gdb_signal(static): gdb signal support (stray_test)" {
    km_gdb_default_port=2159
    km_with_timeout -g stray_test.km signal &
    gdb_pid=$! ; sleep 0.5
@@ -216,7 +218,7 @@ load test_helper
    assert [ $status -eq 6 ]
 }
 
-@test "gdb_exception: gdb exception support (stray_test)" {
+@test "gdb_exception(static): gdb exception support (stray_test)" {
    km_gdb_default_port=2159
    # Test with signals
    km_with_timeout -g stray_test.km stray &
@@ -230,7 +232,7 @@ load test_helper
    assert [ $status -eq 11 ]  # SIGSEGV
 }
 
-@test "gdb_server_race: gdb server concurrent wakeup test" {
+@test "gdb_server_race(static): gdb server concurrent wakeup test" {
    km_gdb_default_port=2159
    # Test with breakpoints triggering and SIGILL being happending continuously
    # Save output to a log file for our own check using grep below.
@@ -251,34 +253,34 @@ load test_helper
    rm -f /tmp/gdb_server_race_test.out
 }
 
-@test "Unused memory protection: check that unused memory is protected (mprotect_test)" {
+@test "Unused memory protection(static): check that unused memory is protected (mprotect_test)" {
    run km_with_timeout mprotect_test.km -v
    assert_success
 }
 
-@test "threads_basic: threads with TLS, create, exit and join (hello_2_loops_tls_test)" {
+@test "threads_basic(static): threads with TLS, create, exit and join (hello_2_loops_tls_test)" {
    run km_with_timeout hello_2_loops_tls_test.km
    assert_success
    refute_line --partial 'BAD'
 }
 
-@test "threads_basic: threads with TSD, create, exit and join (hello_2_loops_test)" {
-   run km_with_timeout hello_2_loops_test.km
+@test "threads_basic(static): threads with TSD, create, exit and join (hello_2_loops_test)" {
+   run km_with_timeout -Vsignal hello_2_loops_test.km
    assert_success
 }
 
-@test "threads_exit_grp: force exit when threads are in flight (exit_grp_test)" {
+@test "threads_exit_grp(static): force exit when threads are in flight (exit_grp_test)" {
    run km_with_timeout exit_grp_test.km
    # the test can exit(17) from main thread or random exit(11) from subthread
    assert [ $status -eq 17 -o $status -eq 11  ]
 }
 
-@test "threads_mutex: mutex (mutex_test)" {
+@test "threads_mutex(static): mutex (mutex_test)" {
    run km_with_timeout mutex_test.km
    assert_success
 }
 
-@test "mem_test: threads create, malloc/free, exit and join (mem_test)" {
+@test "mem_test(static): threads create, malloc/free, exit and join (mem_test)" {
    expected_status=0
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; fi
@@ -286,7 +288,7 @@ load test_helper
    assert [ $status -eq $expected_status ]
 }
 
-@test "pmem_test: test physical memory override (pmem_test)" {
+@test "pmem_test(static): test physical memory override (pmem_test)" {
    # Don't support bus smaller than 32 bits
    run km_with_timeout -P 31 hello_test.km
    assert_failure
@@ -304,7 +306,7 @@ load test_helper
    assert_failure
 }
 
-@test "brk_map_test: test brk and map w/physical memory override (brk_map_test)" {
+@test "brk_map_test(static): test brk and map w/physical memory override (brk_map_test)" {
    if [ $(bus_width) -gt 36 ] ; then
       run km_with_timeout -P33 brk_map_test.km -- 33
       assert_success
@@ -314,7 +316,7 @@ load test_helper
    assert_failure
 }
 
-@test "cli: test 'km -v' and other small tests" {
+@test "cli(static): test 'km -v' and other small tests" {
    run km_with_timeout -v
    assert_success
    assert_line --partial `git rev-parse --abbrev-ref HEAD`
@@ -323,13 +325,13 @@ load test_helper
    assert_success
 }
 
-@test "cpuid: test cpu vendor id (cpuid_test)" {
+@test "cpuid(static): test cpu vendor id (cpuid_test)" {
    run km_with_timeout cpuid_test.km
    assert_success
    assert_line --partial 'Kontain'
 }
 
-@test "longjmp_test: basic setjmp/longjump" {
+@test "longjmp_test(static): basic setjmp/longjump" {
    args="more_flags to_check: -f and check --args !"
    run ./longjmp_test $args
    assert_success
@@ -341,7 +343,7 @@ load test_helper
    diff <(echo -e "$linux_out" | grep -F -v 'argv[0]') <(echo -e "$output" | grep -F -v 'argv[0]' | grep -v '^km:')
 }
 
-@test "exception: exceptions and faults in the guest (stray_test)" {
+@test "exception(static): exceptions and faults in the guest (stray_test)" {
    CORE=/tmp/kmcore.$$
    # divide by zero
    assert [ ! -f ${CORE} ]
@@ -449,18 +451,18 @@ load test_helper
    assert [ ! -f ${CORE} ]
 }
 
-@test "signals: signals in the guest (signals)" {
+@test "signals(static): signals in the guest (signals)" {
    run km_with_timeout signal_test.km -v
    assert_success
 }
 
-@test "pthread_cancel: (pthread_cancel_test)" {
+@test "pthread_cancel(static): (pthread_cancel_test)" {
    run km_with_timeout pthread_cancel_test.km -v
    assert_success
 }
 
 # C++ tests
-@test "cpp: constructors and statics (var_storage_test)" {
+@test "cpp(static): constructors and statics (var_storage_test)" {
    run km_with_timeout var_storage_test.km
    assert_success
 
@@ -471,7 +473,7 @@ load test_helper
 }
 
 
-@test "cpp: basic throw and unwind (throw_basic_test)" {
+@test "cpp(static): basic throw and unwind (throw_basic_test)" {
    run ./throw_basic_test
    assert_success
    linux_out="${output}"
@@ -482,12 +484,12 @@ load test_helper
    diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
 
-@test "filesys: guest file system operations (filesys_test)" {
+@test "filesys(static): guest file system operations (filesys_test)" {
    run km_with_timeout filesys_test.km -v
    assert_success
 }
 
-@test "filepath: guest file path operations (filepathtest)" {
+@test "filepath(static): guest file path operations (filepathtest)" {
    DIRNAME=`mktemp -d`
    # note: the 2nd parameter (500) is the number o time the
    #       concurrent_open_test runs in a loop. The3 default is
@@ -498,17 +500,17 @@ load test_helper
    rm -rf /tmp/${DIRNAME}
 }
 
-@test "socket: guest socket operations (socket_test)" {
+@test "socket(static): guest socket operations (socket_test)" {
    run km_with_timeout socket_test.km
    assert_success
 }
 
-@test "dl_iterate_phdr: AUXV and dl_iterate_phdr (dl_iterate_phdr_test)" {
+@test "dl_iterate_phdr(static): AUXV and dl_iterate_phdr (dl_iterate_phdr_test)" {
    run km_with_timeout dl_iterate_phdr_test.km -v
    assert_success
 }
 
-@test "monitor_maps: munmap gdt and idt (munmap_monitor_maps_test)" {
+@test "monitor_maps(static): munmap gdt and idt (munmap_monitor_maps_test)" {
    run km_with_timeout munmap_monitor_maps_test.km
    assert_success
 }

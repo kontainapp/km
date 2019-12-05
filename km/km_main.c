@@ -225,12 +225,12 @@ int main(int argc, char* const argv[])
 
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
-   km_load_elf(payload_file);
+   km_gva_t adjust = km_load_elf(payload_file);
    if ((vcpu = km_vcpu_get()) == NULL) {
       err(1, "Failed to get main vcpu");
    }
-   km_gva_t guest_argv = km_init_libc_main(vcpu, argc - optind, argv + optind, envc, envp);
-   if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry, argc - optind, guest_argv) != 0) {
+   km_gva_t guest_args = km_init_main(vcpu, argc - optind, argv + optind, envc, envp);
+   if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry + adjust, guest_args, 0) != 0) {
       err(1, "failed to set main vcpu to run");
    }
    if (wait_for_signal == 1) {
@@ -238,8 +238,6 @@ int main(int argc, char* const argv[])
       km_wait_for_signal(SIGUSR1);
    }
    __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
-   vcpu = km_main_vcpu();
-   vcpu->thr_state = VCPU_RUNNING;
    if (pthread_create(&vcpu->vcpu_thread, NULL, km_vcpu_run_main, NULL) != 0) {
       err(2, "Failed to create main run_vcpu thread");
    }
