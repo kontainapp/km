@@ -1147,6 +1147,15 @@ static km_hc_ret_t set_tid_address_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t unmapself_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // pthread_exit() does this at the end to unmap the stack and exit:
+   // _Noreturn void__unmapself(void* base, size_t size);
+   (void) km_guest_munmap(arg->arg1, arg->arg2);
+   km_exit(vcpu, 0);
+   return HC_STOP;
+}
+
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
@@ -1272,6 +1281,7 @@ void km_hcalls_init(void)
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;
    km_hcalls_table[HC_procfdname] = procfdname_hcall;
+   km_hcalls_table[HC_unmapself] = unmapself_hcall;
 }
 
 void km_hcalls_fini(void)

@@ -66,7 +66,7 @@ __stub_core__(sched_getscheduler);
 __stub_core__(sched_rr_get_interval);
 __stub_core__(sched_setparam);
 __stub_core__(sched_setscheduler);
-__stub_core__(sched_yield);
+__stub__(sched_yield);
 __stub_core__(system);
 __stub__(fork);
 __stub__(vfork);
