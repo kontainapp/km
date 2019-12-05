@@ -60,8 +60,8 @@ extern km_hcall_fn_t km_hcalls_table[];
  * Hypercalls that don't translate directly into system calls.
  */
 enum km_internal_hypercalls {
-   // KM_MAX_HCALL - 1 : Reserved
-   // KM_MAX_HCALL - 2 : Reserved
+   HC_reserved1 = KM_MAX_HCALL - 1,
+   HC_reserved2 = KM_MAX_HCALL - 2,
    HC_guest_interrupt = KM_MAX_HCALL - 3,
    HC_km_unittest = KM_MAX_HCALL - 4,
    HC_procfdname = KM_MAX_HCALL - 5,

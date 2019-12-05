@@ -104,14 +104,14 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    // TODO: AT_RANDOM random data for seeds (16 bytes)
 
    /*
-    * ABI wants 16 byte aligned stack top at process start time.
-    * AUXV entries are already 16 bytes.
-    * BI wants the stack 16 bytes aligned at the end of this, when we place
+    * ABI wants the stack 16 bytes aligned at the end of this, when we place
     * argc on the stack. From this point down we are going to place a null AUXV
     * entry (8 bytes), AUXV, env pointers and zero entry, argv pointers and zero
     * entry, and finally argc. AUXV entries are 16 bytes so they don't change the
     * alignment. env and argv pointers are 8 bytes though, so we adjust for
     * evenness of them together.
+    *
+    * Reference: https://www.uclibc.org/docs/psABI-x86_64.pdf
     */
    stack_top = rounddown(stack_top, sizeof(void*) * 2);
    if ((argc + envc) % 2 != 0) {
