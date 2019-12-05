@@ -46,6 +46,7 @@
  */
 int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd);
 int guestfd_to_hostfd(int guestfd);
+char *km_guestfd_name(km_vcpu_t *vcpu, int fd);
 int km_fs_init(void);
 void km_fs_fini(void);
 // int open(char *pathname, int flags, mode_t mode)

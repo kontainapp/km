@@ -1,6 +1,14 @@
 #!/bin/bash
 # invoke gcc with extra params for Kontain link
 
+TMP_SPEC="/tmp/gcc-${BASHPID}.spec"
+
+function cleanup() {
+   rm -rf ${TMP_SPEC}
+}
+
+trap cleanup EXIT
+
 cmd=`basename ${BASH_SOURCE[0]}`
 dir=`dirname ${BASH_SOURCE[0]}`
 KM_TOP=`realpath $dir/..`
@@ -8,13 +16,38 @@ PREFIX=/opt/kontain
 # check if this is run in local build tree and use the local libs then
 if [[ x${KM_TOP} == x${PREFIX}/* ]] ; then
    LIB="-L ${PREFIX}/lib64"
+   CRT="${PREFIX}/lib64"
    SPEC="${PREFIX}/lib64"
 else
    LIB="-L ${PREFIX}/lib64 -L ${KM_TOP}/build/runtime"
+   CRT="${KM_TOP}/build/runtime/musl/crt"
    SPEC="${KM_TOP}"
 fi
+
+cat <<EOF > ${TMP_SPEC}
+%rename link old_link
+
+*cc1:
+%{!shared: -no-pie} %{shared: -fPIC}
+
+*lib:
+%{!shared: -lruntime -lpthread -lruntime} %{shared: -lc}
+
+*libgcc:
+%{shared: libgcc_s.so%s} libgcc.a%s %:if-exists(libgcc_eh.a%s)
+
+*startfile:
+%{!shared: ${CRT}/crt1.o%s} %{shared: ${CRT}/Scrt1.o } ${CRT}/x86_64/crti.o%s %{!shared: crtbeginT.o%s} %{shared: crtbeginS.o%s}
+
+*endfile:
+%{!shared: crtend.o%s} %{shared: crtendS.o%s} ${CRT}/x86_64/crtn.o%s
+
+*link:
+%(old_link) %{!shared: -static -Ttext-segment=0x200000 -e_start} %{shared: -dynamic-linker libc.so -e_start} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
+EOF
 
 if [[ $cmd == *g++ ]] ; then REALGCC=g++; else REALGCC=gcc; fi
 if [[ $# -eq 0 ]] ; then exec "${REALGCC}" ; fi
 
-exec "${REALGCC}" -static -no-pie -specs=${SPEC}/gcc-km.spec "$@" ${LIB}
+"${REALGCC}" -specs=${TMP_SPEC} "$@" ${LIB}
+

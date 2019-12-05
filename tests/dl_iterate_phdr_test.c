@@ -84,7 +84,7 @@ TEST test(void)
    ASSERT_EQ(0x38, phent);
 
    ASSERT_EQ(1, info_idx);
-   ASSERT_EQ(buffer[0].dlpi_phnum, 6);
+   ASSERT_EQ(buffer[0].dlpi_phnum, 7);
    ASSERT_EQ(buffer[0].dlpi_phdr[0].p_type, PT_LOAD);
    ASSERT_EQ(buffer[0].dlpi_phdr[0].p_flags, 4);
    ASSERT_EQ(buffer[0].dlpi_phdr[0].p_vaddr, 0x200000);

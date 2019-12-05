@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/epoll.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -34,6 +35,7 @@
 #include <sys/uio.h>
 
 #include "km.h"
+#include "km_filesys.h"
 #include "km_mem.h"
 #include "km_syscall.h"
 
@@ -42,7 +44,7 @@
  * Adds a host fd to the guest. Returns the guest fd number assigned.
  * Assigns lowest available guest fd, just like the kernel.
  */
-static int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd)
+static int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name)
 {
    assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
    assert(start_guestfd >= 0 && start_guestfd < machine.filesys.nfdmap);
@@ -56,9 +58,22 @@ static int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd)
                                       __ATOMIC_SEQ_CST,
                                       __ATOMIC_SEQ_CST) != 0) {
          __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[host_fd], i, __ATOMIC_SEQ_CST);
+         void* newval = NULL;
+         if (name != NULL) {
+            newval = strdup(name);
+            assert(newval != NULL);
+         }
+         void* oldval = NULL;
+         __atomic_exchange(&machine.filesys.guestfd_to_name_map[i], &newval, &oldval, __ATOMIC_SEQ_CST);
+         if (oldval != NULL) {
+            free(oldval);
+         }
          guest_fd = i;
          break;
       }
+   }
+   if (guest_fd < 0) {
+      err(2, "%s: no space to add guestfd", __FUNCTION__);
    }
    return guest_fd;
 }
@@ -85,6 +100,21 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int guestfd, int hostfd)
                                     __ATOMIC_SEQ_CST,
                                     __ATOMIC_SEQ_CST);
    assert(rc != 0);
+
+   void* newval = NULL;
+   void* oldval = NULL;
+   __atomic_exchange(&machine.filesys.guestfd_to_name_map[guestfd], &newval, &oldval, __ATOMIC_SEQ_CST);
+   if (oldval != NULL) {
+      free(oldval);
+   }
+}
+
+char* km_guestfd_name(km_vcpu_t* vcpu, int fd)
+{
+   if (fd < 0 || fd >= machine.filesys.nfdmap) {
+      return NULL;
+   }
+   return machine.filesys.guestfd_to_name_map[fd];
 }
 
 /*
@@ -148,15 +178,31 @@ int km_fs_init(void)
    size_t mapsz = lim.rlim_cur * sizeof(int);
 
    machine.filesys.guestfd_to_hostfd_map = malloc(mapsz);
+   assert(machine.filesys.guestfd_to_hostfd_map != NULL);
    memset(machine.filesys.guestfd_to_hostfd_map, 0xff, mapsz);
    machine.filesys.hostfd_to_guestfd_map = malloc(mapsz);
+   assert(machine.filesys.hostfd_to_guestfd_map != NULL);
    memset(machine.filesys.hostfd_to_guestfd_map, 0xff, mapsz);
    machine.filesys.nfdmap = lim.rlim_cur;
+   machine.filesys.guestfd_to_name_map = calloc(lim.rlim_cur, sizeof(char*));
+   assert(machine.filesys.guestfd_to_name_map != NULL);
 
    // setup guest std file streams.
    for (int i = 0; i < 3; i++) {
       machine.filesys.guestfd_to_hostfd_map[i] = i;
       machine.filesys.hostfd_to_guestfd_map[i] = i;
+      switch (i) {
+         case 0:
+            machine.filesys.guestfd_to_name_map[i] = strdup("[stdin]");
+            break;
+         case 1:
+            machine.filesys.guestfd_to_name_map[i] = strdup("[stdout]");
+            break;
+         case 2:
+            machine.filesys.guestfd_to_name_map[i] = strdup("[stderr]");
+            break;
+      }
+      assert(machine.filesys.guestfd_to_name_map[i] != NULL);
    }
    return 0;
 }
@@ -176,11 +222,14 @@ void km_fs_fini(void)
 // int open(char *pathname, int flags, mode_t mode)
 uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
 {
-   int fd = __syscall_3(SYS_open, (uintptr_t)pathname, flags, mode);
-   if (fd >= 0) {
-      fd = add_guest_fd(vcpu, fd, 0);
+   int guestfd = -1;
+   int hostfd = __syscall_3(SYS_open, (uintptr_t)pathname, flags, mode);
+   if (hostfd >= 0) {
+      guestfd = add_guest_fd(vcpu, hostfd, 0, pathname);
+   } else {
+      guestfd = hostfd;
    }
-   return fd;
+   return guestfd;
 }
 
 // int close(fd)
@@ -297,7 +346,7 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
    int ret = __syscall_3(SYS_fcntl, host_fd, cmd, farg);
    if (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) {
       if (ret >= 0) {
-         ret = add_guest_fd(vcpu, ret, arg);
+         ret = add_guest_fd(vcpu, ret, arg, km_guestfd_name(vcpu, fd));
       }
    }
    return ret;
@@ -419,14 +468,14 @@ uint64_t km_fs_mkdir(km_vcpu_t* vcpu, char* pathname, mode_t mode)
 }
 
 // int rmdir(const char *path);
-uint64_t km_fs_rmdir(km_vcpu_t* vcpu, char* pathname, mode_t mode)
+uint64_t km_fs_rmdir(km_vcpu_t* vcpu, char* pathname)
 {
    int ret = __syscall_1(SYS_rmdir, (uintptr_t)pathname);
    return ret;
 }
 
 // int unlink(const char *path);
-uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname, mode_t mode)
+uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname)
 {
    int ret = __syscall_1(SYS_unlink, (uintptr_t)pathname);
    return ret;
@@ -543,9 +592,11 @@ uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
    if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
+   char* name = km_guestfd_name(vcpu, fd);
+   assert(name != NULL);
    int ret = __syscall_1(SYS_dup, host_fd);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0);
+      ret = add_guest_fd(vcpu, ret, 0, name);
    }
    return ret;
 }
@@ -598,8 +649,8 @@ uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2])
 {
    int ret = __syscall_1(SYS_pipe, (uintptr_t)pipefd);
    if (ret == 0) {
-      pipefd[0] = add_guest_fd(vcpu, pipefd[0], 0);
-      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0);
+      pipefd[0] = add_guest_fd(vcpu, pipefd[0], 0, "[pipe[0]]");
+      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0, "[pipe[1]]");
    }
    return ret;
 }
@@ -609,8 +660,8 @@ uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags)
 {
    int ret = __syscall_2(SYS_pipe2, (uintptr_t)pipefd, flags);
    if (ret == 0) {
-      pipefd[0] = add_guest_fd(vcpu, pipefd[0], 0);
-      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0);
+      pipefd[0] = add_guest_fd(vcpu, pipefd[0], 1, "[pipe2[0]]");
+      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0, "[pipe2[0]]");
    }
    return ret;
 }
@@ -620,7 +671,7 @@ uint64_t km_fs_eventfd2(km_vcpu_t* vcpu, int initval, int flags)
 {
    int ret = __syscall_2(SYS_eventfd2, initval, flags);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0);
+      ret = add_guest_fd(vcpu, ret, 0, "[eventfd2]");
    }
    return ret;
 }
@@ -630,7 +681,7 @@ uint64_t km_fs_socket(km_vcpu_t* vcpu, int domain, int type, int protocol)
 {
    int ret = __syscall_3(SYS_socket, domain, type, protocol);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0);
+      ret = add_guest_fd(vcpu, ret, 0, "[socket]");
    }
    return ret;
 }
@@ -752,7 +803,7 @@ uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockle
    }
    int ret = __syscall_3(SYS_accept, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0);
+      ret = add_guest_fd(vcpu, ret, 0, "[accept]");
    }
    return ret;
 }
@@ -773,8 +824,8 @@ uint64_t km_fs_socketpair(km_vcpu_t* vcpu, int domain, int type, int protocol, i
 {
    int ret = __syscall_4(SYS_socketpair, domain, type, protocol, (uintptr_t)sv);
    if (ret == 0) {
-      sv[0] = add_guest_fd(vcpu, sv[0], 0);
-      sv[1] = add_guest_fd(vcpu, sv[1], 0);
+      sv[0] = add_guest_fd(vcpu, sv[0], 0, "[socketpair[0]]");
+      sv[1] = add_guest_fd(vcpu, sv[1], 0, "[socketpair[1]]");
    }
    return ret;
 }
@@ -789,7 +840,7 @@ km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* add
    }
    int ret = __syscall_4(SYS_accept4, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen, flags);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0);
+      ret = add_guest_fd(vcpu, ret, 0, "[accept4]");
    }
    return ret;
 }
@@ -909,7 +960,7 @@ uint64_t km_fs_epoll_create1(km_vcpu_t* vcpu, int flags)
 {
    int ret = __syscall_1(SYS_epoll_create1, flags);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0);
+      ret = add_guest_fd(vcpu, ret, 0, "[epoll_create1]");
    }
    return ret;
 }

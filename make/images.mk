@@ -60,6 +60,7 @@ RUNENV_PATH ?= ${BLDDIR}
 testenv-image:  ## build test image with test tools and code
 	@# Copy KM there. TODO - remove when we support pre-installed KM
 	cp ${KM_BIN} ${TESTENV_PATH}
+	cp ${KM_LDSO} ${TESTENV_PATH}
 	${DOCKER_BUILD} --build-arg branch=${SRC_SHA} -t ${TEST_IMG}:${IMAGE_VERSION} ${TESTENV_PATH} -f ${TEST_DOCKERFILE}
 	rm ${TESTENV_PATH}/$(notdir ${KM_BIN})
 

@@ -66,7 +66,6 @@ void km_signal_machine_fini(void)
  */
 void km_vcpu_fini(km_vcpu_t* vcpu)
 {
-   km_pthread_fini(vcpu);
    if (vcpu->gdb_efd >= 0) {
       close(vcpu->gdb_efd);
       vcpu->gdb_efd = -1;
@@ -201,10 +200,6 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       warn("failed to initialize condition thr_cv");
       return -1;
    }
-   if (pthread_cond_init(&vcpu->join_cv, NULL) != 0) {
-      warn("failed to initialize condition join_cv");
-      return -1;
-   }
    return 0;
 }
 
@@ -233,7 +228,6 @@ km_vcpu_t* km_vcpu_get(void)
    }
    km_signal_list_t tmpl = {.head = TAILQ_HEAD_INITIALIZER(new->sigpending.head)};
    new->sigpending = tmpl;
-   new->joining_pid = -1;
 
    new->is_used = 1;   // so it won't get snatched right after its inserted
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
@@ -316,7 +310,7 @@ km_vcpu_t* km_vcpu_fetch(pthread_tid_t pid)
  */
 static int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 {
-   if (vcpu->is_paused == 1 || vcpu->joining_pid != -1) {
+   if (vcpu->is_paused == 1) {
       return 0;
    }
    return 1;
@@ -325,10 +319,9 @@ static int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
 {
    km_infox(KM_TRACE_VCPU,
-            "VCPU %d info: paused %d joining %ld used %d thread %#lx (tid %#x) guest_thr %#lx",
+            "VCPU %d info: paused %d used %d thread %#lx (tid %#x) guest_thr %#lx",
             vcpu->vcpu_id,
             vcpu->is_paused,
-            vcpu->joining_pid,
             vcpu->is_used,
             vcpu->vcpu_thread,
             km_vcpu_get_tid(vcpu),
@@ -404,7 +397,9 @@ int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
  */
 void km_vcpu_put(km_vcpu_t* vcpu)
 {
-   km_pthread_fini(vcpu);
+   vcpu->guest_thr = 0;
+   vcpu->stack_top = 0;
+   vcpu->is_paused = 0;
    // vcpu->is_used = 0;
    __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_used, 0, __ATOMIC_SEQ_CST);
 }
@@ -414,7 +409,7 @@ void km_vcpu_put(km_vcpu_t* vcpu)
  * Set RIP, SP, RFLAGS, and function args - RDI, RSI, clear the rest of the regs.
  * VCPU is ready to run starting with instruction @RIP, RDI and RSI are the first two function arg.
  */
-int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, km_gva_t arg2)
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, uint64_t arg2)
 {
    int rc;
    km_gva_t sp;
@@ -428,13 +423,12 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, km_gva_t 
    }
 
    sp = vcpu->stack_top;   // where we put argv
-   assert((sp & 7) == 0);
-   sp -= (sp + 8) % 16;   // per ABI, make sure sp + 8 is 16 aligned
+   assert((sp & 0x7) == 0);
 
    kvm_regs_t regs = {
        .rip = start,
        .rdi = arg1,   // first function argument
-       .rsi = arg2,
+       .rsi = arg2,   // second function argument
        .rflags = X86_RFLAGS_FIXED,
        .rsp = sp,
    };

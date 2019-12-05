@@ -461,19 +461,6 @@ static void km_vcpu_exit(km_vcpu_t* vcpu)
    km_vcpu_stopped(vcpu);
 }
 
-/*
- * Force a vcpu exit and cleanup.
- * Called when we are done with the current thread, and we don’t care for remants to hang around and
- * block fini(). So we make it detached and exit vcpu, and that takes care of true exit for the
- * current thread.
- */
-static int km_vcpu_force_exit(km_vcpu_t* vcpu)
-{
-   km_vcpu_detach(vcpu);
-   km_vcpu_exit(vcpu);
-   return 0;
-}
-
 // static void km_vcpu_exit_all(km_vcpu_t* vcpu, int s) __attribute__((noreturn));
 static void km_vcpu_exit_all(km_vcpu_t* vcpu)
 {
@@ -565,7 +552,7 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 
       case EINTR:
          if (machine.exit_group == 1) {   // Interrupt from exit_group() - we are done.
-            km_vcpu_force_exit(vcpu);     // Clean up and exit the current  VCPU thread
+            km_vcpu_exit(vcpu);           // Clean up and exit the current VCPU thread
             assert("Reached the unreachable" == NULL);
          }
          vcpu->cpu_run->immediate_exit = 0;
