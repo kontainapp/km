@@ -28,6 +28,7 @@ load test_helper
 }
 
 @test "setup_load(shared): load elf and layout check (load_test)" {
+   skip "TODO: remove. Measuring libc.so, not test file"
    run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- load_test.so -s
    # Show this on failure:
    echo -e "\n*** Try to run 'make load_expected_size' in tests, and replace load.c:size value\n"
