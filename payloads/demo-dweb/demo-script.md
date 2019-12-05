@@ -98,7 +98,7 @@ curl -s -d "type=demo&subject=Kontain"  localhost:8080 | jq . # shows simple APi
 # While we are here, let's compare container sizes for another payload, Python:
 make -C ~/workspace/km/payloads/python distro
 docker pull python
-docker images | grep python| grep latest
+docker images | grep python | grep latest
 
 ```
 
