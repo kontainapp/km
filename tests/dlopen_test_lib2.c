@@ -6,6 +6,6 @@
 
 int do_function()
 {
-   printf("hello from do_function\n");
-   return 1;
+   printf("hello from lib2:do_function\n");
+   return 2;
 }

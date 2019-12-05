@@ -23,7 +23,7 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
-SHRSRC := dlopen_test.c dlopen_test_lib.c
+SHRSRC := dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./gdb
