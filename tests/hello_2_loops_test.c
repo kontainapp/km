@@ -19,6 +19,7 @@
 #include "greatest/greatest.h"
 #include "syscall.h"
 
+int detached = 0;
 pthread_key_t mystr_key, mystr_key_2;
 
 void free_key(void* str)
@@ -72,16 +73,21 @@ void* run(void* msg)
 
       pthread_attr_init(&attr);
       pthread_attr_setstacksize(&attr, 365 * 1024);
+      if (detached == 1) {
+         pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+      }
       pthread_create(&pt1, &attr, (void* (*)(void*))subrun, (void*)brick_msg);
       pthread_create(&pt2, &attr, (void* (*)(void*))subrun, (void*)dust_msg);
       pthread_attr_destroy(&attr);
-      pthread_join(pt2, NULL);
-      if (greatest_get_verbosity() != 0) {
-         printf(" ... joined 0x%lx\n", pt2);
-      }
-      pthread_join(pt1, NULL);
-      if (greatest_get_verbosity() != 0) {
-         printf(" ... joined 0x%lx\n", pt1);
+      if (detached == 0) {
+         pthread_join(pt2, NULL);
+         if (greatest_get_verbosity() != 0) {
+            printf(" ... joined 0x%lx\n", pt2);
+         }
+         pthread_join(pt1, NULL);
+         if (greatest_get_verbosity() != 0) {
+            printf(" ... joined 0x%lx\n", pt1);
+         }
       }
    }
    return NULL;
@@ -122,7 +128,7 @@ TEST nested_threads(void)
    }
    ret = pthread_join(pt2, NULL);
    ASSERT_EQ(0, ret);
-
+   
    ASSERT_EQ((void*)0x17, pthread_getspecific(mystr_key_2));
    ASSERT_EQ(pthread_key_delete(mystr_key_2), 0);
    ASSERT_EQ(0, pthread_getspecific(mystr_key_2));
@@ -143,6 +149,8 @@ int main(int argc, char** argv)
    // greatest_set_verbosity(1);
 
    /* Tests can be run as suites, or directly. Lets run directly. */
+   RUN_TEST(nested_threads);
+   detached = 1;
    RUN_TEST(nested_threads);
 
    GREATEST_PRINT_REPORT();
