@@ -325,6 +325,12 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
    TAILQ_FOREACH (reg, &machine.mmaps.busy, link) {
       km_mmap_reg_t* extra;
 
+      if (reg->start + reg->size <= addr) {
+         continue;   // skip all to the left of addr
+      }
+      if (reg->start >= addr + size) {
+         break;   // we passed the range and are done
+      }
       if (reg->km_flags.km_mmap_monitor == 1) {
          warnx("munmap/mprotect called on monitor allocated range requested addr 0x%lx size 0x%lx "
                "region start 0x%lx size 0x%lx",
@@ -333,12 +339,6 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
                reg->start,
                reg->size);
          continue;
-      }
-      if (reg->start + reg->size <= addr) {
-         continue;   // skip all to the left of addr
-      }
-      if (reg->start >= addr + size) {
-         break;   // we passed the range and are done
       }
       if (reg->start < addr) {   // overlaps on the start
          if ((extra = calloc(1, sizeof(km_mmap_reg_t))) == NULL) {
