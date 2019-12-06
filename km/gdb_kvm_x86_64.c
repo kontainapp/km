@@ -141,6 +141,14 @@ int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, uint64_t unused)
          DR7 |= (2 << (n * 2));                                       // global breakpoint
          DR7 |= (bp_condition_code[bp->type] << (16 + n * 4));        // read/write fields
          DR7 |= ((uint32_t)mem_size_code[bp->len] << (18 + n * 4));   // memory length
+         vcpu->dr_regs[n] = bp->addr;
+         km_infox(KM_TRACE_GDB,
+                  "%s: hw breakpoint, n %d, type %d, addr 0x%lx, len %ld",
+                  __FUNCTION__,
+                  n,
+                  bp->type,
+                  bp->addr,
+                  bp->len);
          n++;
       }
    }
@@ -207,6 +215,7 @@ static struct breakpoint_t* bp_list_insert(gdb_breakpoint_type_t type, km_gva_t 
 {
    struct breakpoint_t* bp = bp_list_find(type, addr, len);
 
+   km_infox(KM_TRACE_VCPU, "insert breakpoint type %d, addr 0x%lx, size %ld", type, addr, len);
    if ((bp = bp_list_find(type, addr, len)) != NULL) {
       bp->refcount++;
       return bp;

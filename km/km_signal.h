@@ -21,6 +21,7 @@ void km_signal_init(void);
 void km_signal_fini(void);
 void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info);
 void km_deliver_signal(km_vcpu_t* vcpu);
+void km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info);
 int km_signal_ready(km_vcpu_t*);
 
 uint64_t
