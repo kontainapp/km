@@ -13,7 +13,7 @@ TOP := $(shell git rev-parse --show-cdup)
 COMPONENT := km
 include ${TOP}make/images.mk
 
-SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_value_test.c \
+SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_value_test.c hcallargs_test.c \
 		load_test.c  hello_loop_test.c hello_2_loops_test.c memslot_test.c mutex_test.c futex_test.c \
 		getline_test.c mem_test.c exit_grp_test.c intr_test.c brk_map_test.c crash_test.c cpuid_test.c \
 		longjmp_test.c cpuid_print_details_test.c stray_test.c signal_test.c hello_2_loops_tls_test.c \
