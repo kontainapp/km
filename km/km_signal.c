@@ -279,6 +279,12 @@ static inline int signal_pending(km_vcpu_t* vcpu, siginfo_t* info)
    return 0;
 }
 
+/*
+ * Return the number of the next unblocked signal for the passed vcpu.
+ * First check the vcpu's list of pending signals then check the
+ * virtual machine's list of pending signals.
+ * If there are no pending signals, return 0.
+ */
 int km_signal_ready(km_vcpu_t* vcpu)
 {
    km_signal_t* sig;
@@ -288,6 +294,11 @@ int km_signal_ready(km_vcpu_t* vcpu)
    TAILQ_FOREACH (sig, &vcpu->sigpending.head, link) {
       if (km_sigismember(&vcpu->sigmask, sig->info.si_signo) == 0) {
          km_signal_unlock();
+         km_info(KM_TRACE_VCPU,
+                 "%s: vcpu %d signal %d ready",
+                 __FUNCTION__,
+                 vcpu->vcpu_id,
+                 sig->info.si_signo);
          return sig->info.si_signo;
       }
    }
@@ -297,11 +308,27 @@ int km_signal_ready(km_vcpu_t* vcpu)
          TAILQ_REMOVE(&machine.sigpending.head, sig, link);
          TAILQ_INSERT_TAIL(&vcpu->sigpending.head, sig, link);
          km_signal_unlock();
+         km_info(KM_TRACE_VCPU, "%s: VM signal %d ready", __FUNCTION__, sig->info.si_signo);
          return sig->info.si_signo;
       }
    }
    km_signal_unlock();
    return 0;
+}
+
+/*
+ * A special function to allow a signal to be dequeued for the gdb client to
+ * examine and allow to pass.  If the gdb client decides to allow the signal
+ * it will instruct the gdb server to repost the signal.
+ */
+void km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info)
+{
+   info->si_signo = 0;   // just in case there is no signal pending
+   if (next_signal(vcpu, info) == 0) {
+      // No pending signal?
+      km_info(KM_TRACE_VCPU, "%s: no pending signal?", __FUNCTION__);
+   }
+   return;
 }
 
 void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
@@ -313,9 +340,11 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
       return;
    }
    if (vcpu == 0) {
+      km_infox(KM_TRACE_VCPU, "%s: enqueuing signal %d to VM", __FUNCTION__, info->si_signo);
       enqueue_signal(&machine.sigpending, info);
       return;
    }
+   km_infox(KM_TRACE_VCPU, "%s: enqueuing signal %d to vcpu %d", __FUNCTION__, info->si_signo, vcpu->vcpu_id);
    enqueue_signal(&vcpu->sigpending, info);
    if (km_sigismember(&vcpu->sigmask, info->si_signo) == 0) {
       pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
@@ -467,6 +496,9 @@ km_rt_sigprocmask(km_vcpu_t* vcpu, int how, km_sigset_t* set, km_sigset_t* oldse
    return 0;
 }
 
+/*
+ * Set a guest signal handling function for the passed signal.
+ */
 uint64_t
 km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t* oldact, size_t sigsetsize)
 {
@@ -525,6 +557,10 @@ uint64_t km_tkill(km_vcpu_t* vcpu, pid_t tid, int signo)
    return 0;
 }
 
+/*
+ * Return the set of pending signals for both the passed vcpu and for the
+ * virtual machine in set.
+ */
 uint64_t km_rt_sigpending(km_vcpu_t* vcpu, km_sigset_t* set, size_t sigsetsize)
 {
    if (sigsetsize != sizeof(km_sigset_t)) {

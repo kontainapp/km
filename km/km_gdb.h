@@ -24,8 +24,11 @@
 
 /* GDB breakpoint/watchpoint types */
 typedef enum {
-   /* Do not change these. The values have to match on the GDB client
-    * side. */
+   /*
+    * Do not change these. The values have to match the value of the first
+    * argument supplied on the gdb 'z' and 'Z' commands in the remote
+    * server protocol.
+    */
    GDB_BREAKPOINT_SW = 0,
    GDB_BREAKPOINT_HW,
    GDB_WATCHPOINT_WRITE,
@@ -34,8 +37,56 @@ typedef enum {
    GDB_BREAKPOINT_MAX
 } gdb_breakpoint_type_t;
 
+/*
+ * The following are the signal numbers that gdb understands.  Some
+ * of these have values that are different from the equivalent linux
+ * signal numbers.
+ * These values are from include/gdb/signals.def which is part of the
+ * gdb source tarball.
+ * You know what happens when gdb changes these values!
+ */
+typedef enum {
+   GDB_SIGNAL_HUP = 1, // SIGHUP
+   GDB_SIGNAL_INT = 2, // SIGINT
+   GDB_SIGNAL_QUIT = 3, // SIGQUIT
+   GDB_SIGNAL_ILL = 4, // SIGILL
+   GDB_SIGNAL_TRAP = 5, // SIGTRAP
+   GDB_SIGNAL_ABRT = 6, // SIGABRT
+   GDB_SIGNAL_EMT = 7, // SIGEMT
+   GDB_SIGNAL_FPE = 8, // SIGFPE
+   GDB_SIGNAL_KILL = 9, // SIGKILL
+   GDB_SIGNAL_BUS = 10, // SIGBUS
+   GDB_SIGNAL_SEGV = 11, // SIGSEGV
+   GDB_SIGNAL_SYS = 12, // SIGSYS
+   GDB_SIGNAL_PIPE = 13, // SIGPIPE
+   GDB_SIGNAL_ALRM = 14, // SIGALRM
+   GDB_SIGNAL_TERM = 15, // SIGTERM
+   GDB_SIGNAL_URG = 16, // SIGURG
+   GDB_SIGNAL_STOP = 17, // SIGSTOP
+   GDB_SIGNAL_TSTP = 18, // SIGTSTP
+   GDB_SIGNAL_CONT = 19, // SIGCONT
+   GDB_SIGNAL_CHLD = 20, // SIGCHLD
+   GDB_SIGNAL_TTIN = 21, // SIGTTIN
+   GDB_SIGNAL_TTOU = 22, // SIGTTOU
+   GDB_SIGNAL_IO = 23, // SIGIO
+   GDB_SIGNAL_XCPU = 24, // SIGXCPU
+   GDB_SIGNAL_XFSZ = 25, // SIGXFSZ
+   GDB_SIGNAL_VTALRM = 26, // SIGVTALRM
+   GDB_SIGNAL_PROF = 27, // SIGPROF
+   GDB_SIGNAL_WINCH = 28, // SIGWINCH
+   GDB_SIGNAL_LOST = 29, // SIGLOST
+   GDB_SIGNAL_USR1 = 30, // SIGUSR1
+   GDB_SIGNAL_USR2 = 31, // SIGUSR2
+   GDB_SIGNAL_PWR = 32, // SIGPWR
+   GDB_SIGNAL_POLL = 33, // SIGPOLL
+} gdb_signal_number_t;
+
 #define GDB_SIGNONE (-1)
 #define GDB_SIGFIRST 0   // the guest hasn't run yet
+
+// Some pseudo signals that will be beyond the range of valid gdb signals.
+#define GDB_SIGNAL_LAST 1000   // arbitarily chosen large value
+#define GDB_KMSIGNAL_KVMEXIT (GDB_SIGNAL_LAST + 20)
 
 #define KM_TRACE_GDB "gdb"
 
@@ -65,16 +116,26 @@ struct __attribute__((__packed__)) km_gdb_regs {
 #define GDB_INTERRUPT_PKT 0x3   // aka ^C
 
 typedef struct gdbstub_info {
-   int port;                          // Port the stub is listening for gdb client. 0 means NO GDB
-   int sock_fd;                       // socket to communicate to gdb client
-   int session_requested;             // set to 1 when payload threads need to pause on exit
-   bool stepping;                     // single step mode (stepi)
-   km_vcpu_t* gdb_vcpu;               // VCPU which GDB is asking us to work on.
-   pthread_mutex_t gdbnotify_mutex;   // used to serialize concurrent attempts to
-                                      // call km_gdb_notify_and_wait()
-   int exit_reason;                   // last KVM exit reason
-   int signo;                         // signal number
-   pid_t sigthreadid;                 // the id of the thread causing signo to be generated.
+   int port;                           // Port the stub is listening for gdb client. 0 means NO GDB
+   int sock_fd;                        // socket to communicate to gdb client
+   int session_requested;              // set to 1 when payload threads need to pause on exit
+   bool stepping;                      // single step mode (stepi)
+   km_vcpu_t* gdb_vcpu;                // VCPU which GDB is asking us to work on.
+   pthread_mutex_t gdbnotify_mutex;    // serialize calls to km_gdb_notify_and_wait()
+   int exit_reason;                    // last KVM exit reason
+   int signo;                          // signal number
+   pid_t sigthreadid;                  // the id of the thread causing signo to be generated.
+   int send_threadevents;              // if non-zero send thread create and terminate events
+   uint8_t clientsup_multiprocess;     // gdb client can support multiprocess
+   uint8_t clientsup_xmlregisters;     // gdb client can support xmlregisters
+   uint8_t clientsup_qRelocInsn;       // gdb client can support qRelocInsn
+   uint8_t clientsup_swbreak;          // gdb client can accept swbreak stop reason in replies
+   uint8_t clientsup_hwbreak;          // gdb client can accept hwbreak stop reason in replies
+   uint8_t clientsup_forkevents;       // gdb client can accept fork events
+   uint8_t clientsup_vforkevents;      // gdb client can accept vfork events
+   uint8_t clientsup_execevents;       // gdb client can accept exec event extensions
+   uint8_t clientsup_vcontsupported;   // gdb client can send vCont and vCont? requests
+   uint8_t clientsup_qthreadevents;    // gdb client can send QThreadEvents requests
    // Note: we use km_vcpu_get_tid() as gdb payload thread id
 } gdbstub_info_t;
 
@@ -98,6 +159,11 @@ static inline void km_gdb_enable(int port)
 static inline int km_gdb_is_enabled(void)
 {
    return km_gdb_port_get() != 0 ? 1 : 0;
+}
+
+static inline int km_gdb_want_threadevents(void)
+{
+   return (km_gdb_is_enabled() && gdbstub.send_threadevents);
 }
 
 static inline km_vcpu_t* km_gdb_vcpu_get(void)

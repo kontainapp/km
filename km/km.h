@@ -81,6 +81,9 @@ typedef struct km_vcpu {
    int gdb_efd;                   // gdb uses this to synchronize with VCPU thread
    int is_used;                   // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
+   int remain_paused;             // 1 means this vcpu stays paused when gdbserver starts vcpu's
+   pthread_tid_t joining_pid;     // pid if currently joining another thread pid, -1 if not
+   km_gva_t exit_res;             // exit status for this thread
    int regs_valid;                // Are registers valid?
    kvm_regs_t regs;               // Cached register values.
    int sregs_valid;               // Are segment registers valid?
@@ -93,6 +96,11 @@ typedef struct km_vcpu {
     */
    km_gva_t set_child_tid;     // See 'man 2 set_child_tid' for details
    km_gva_t clear_child_tid;   // See 'man 2 set_child_tid' for details
+   uint64_t dr_regs[4];           // remember the addresses we are watching and have written into
+                                  // the processor's debugging facilities in DR0 - DR3.
+   uint8_t rangestepping;         // if true the vcpu is stepping through a range of addresses
+   km_gva_t steprange_start;      // beginning address of the address range to step through
+   km_gva_t steprange_end;        // end address of the address range to step through
 } km_vcpu_t;
 
 /*
