@@ -23,7 +23,6 @@ variables:
   pod_test_python: "pod/test-python-$(buildenv.type)-ci-$(Build.BuildId)"
   dtype: "$(buildenv.type)"
 
-
 strategy:
   matrix:
     fedora:
@@ -52,7 +51,7 @@ steps:
     displayName: Print build environment info
 
   - bash: make -C cloud/azure login-cli
-          SP_APPID=$(SP_appId) SP_PASSWORD=$(SP_password) SP_TENANT=$(SP_tenant) SP_DISPLAYNAME=$(SP_displayName)
+      SP_APPID=$(SP_appId) SP_PASSWORD=$(SP_password) SP_TENANT=$(SP_tenant) SP_DISPLAYNAME=$(SP_displayName)
     displayName: Login to Azure, container registry and Kubernetes
 
   - bash: |
@@ -88,7 +87,6 @@ steps:
       echo "======= Printing statuses and cleaning up ======"
       for p in $(pod_test_km) $(pod_test_python) $(pod_test_node); do  kubectl get $p -o json; kubectl delete $p; done
       rm -f ~/.kube/config
-      docker logout
       az logout
     condition: always()
     displayName: Cleanup test job,  purge old test images and logout

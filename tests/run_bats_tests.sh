@@ -14,6 +14,7 @@ Usage:  ${BASH_SOURCE[0]} [options]
   --match=regexp          Only run tests with names matching regexp (default .*)
   --time-info-file=name   Temp file with tests time tracing (default /tmp/km_test_time_info_$$)
   --km=km_name            KM path. (default derived from git )
+  --km-args="args...."    Optional argument to pass to each KM invocation
   --ignore-failure        Return success even if some tests fail.
   --pretty                Pretty colorfule output instead of TAP (https://testanything.org/) output
   --dry-run               print commands instead of executing them
@@ -33,6 +34,9 @@ while [ $# -gt 0 ]; do
       ;;
     --km=*)
       km="${1#*=}"
+      ;;
+    --km-args=*)
+      export KM_ARGS="${1#*=}"
       ;;
     --match=*)
       match="${1#*=}"

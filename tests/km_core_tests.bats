@@ -23,7 +23,7 @@ load test_helper
 @test "setup_basic(static): basic vm setup, workload invocation and exit value check (exit_value_test)" {
    for i in $(seq 1 200) ; do # a loop to catch race with return value, if any
       run km_with_timeout exit_value_test.km
-      assert_equal $status 17
+      assert_failure 17
    done
 }
 
@@ -36,26 +36,26 @@ load test_helper
 
 @test "hc_check(static): invoke wrong hypercall (hc_test)" {
    run km_with_timeout stray_test.km hc 400
-   assert [ $status == 31 ]  #SIGSYS
+   assert_failure 31  #SIGSYS
    assert_output --partial "Bad system call"
 
    run km_with_timeout stray_test.km hc -10
-   assert [ $status == 31 ]  #SIGSYS
+   assert_failure 31  #SIGSYS
    assert_output --partial "Bad system call"
 
    run km_with_timeout stray_test.km hc 1000
-   assert [ $status == 31 ]  #SIGSYS
+   assert_failure 31  #SIGSYS
    assert_output --partial "Bad system call"
 
    run km_with_timeout stray_test.km hc-badarg 3
-   assert [ $status == 31 ]  #SIGSYS
+   assert_failure 31  #SIGSYS
    assert_output --partial "Bad system call"
 
 }
 
 @test "km_main(static): wait on signal (hello_test)" {
    run timeout -s SIGUSR1 1s ${KM_BIN} --wait-for-signal hello_test.km
-   [ $status -eq 124 ]
+   assert_failure 124
 }
 
 @test "km_main(static): optargs (hello_test)" {
@@ -179,7 +179,7 @@ load test_helper
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
    run km_with_timeout mmap_test.km -v
-   [ $status -eq $expected_status ]
+   assert [ $status -eq $expected_status ]
 }
 
 @test "futex example(static)" {
@@ -215,7 +215,7 @@ load test_helper
    assert_line --partial 'received signal SIGABRT'
    # check that KM exited normally
    run wait $gdb_pid
-   assert [ $status -eq 6 ]
+   assert_failure 6
 }
 
 @test "gdb_exception(static): gdb exception support (stray_test)" {
@@ -229,7 +229,7 @@ load test_helper
    assert_line --partial  'received signal SIGSEGV'
    # check that KM exited normally
    run wait $gdb_pid
-   assert [ $status -eq 11 ]  # SIGSEGV
+   assert_failure 11  # SIGSEGV
 }
 
 @test "gdb_server_race(static): gdb server concurrent wakeup test" {
@@ -244,12 +244,12 @@ load test_helper
 
    # check that KM exited normally
    run wait $gdb_pid
-   assert [ $status -eq 0 ]
+   assert_success
 
    # look for km trace entries that show the sigill signal overrode the breakpoint
    # when deciding to tell the gdb client why we stopped.
    grep "overriding pending signal" /tmp/gdb_server_race_test.out >/dev/null
-   assert [ $status -eq 0 ]
+   assert_success
    rm -f /tmp/gdb_server_race_test.out
 }
 
@@ -277,7 +277,7 @@ load test_helper
    assert_line --partial "Switching to Thread 2"
 
    run wait $gdb_pid
-   assert [ $status -eq 0 ]
+   assert_success
 }
 
 @test "Unused memory protection(static): check that unused memory is protected (mprotect_test)" {
@@ -375,7 +375,7 @@ load test_helper
    # divide by zero
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km div0
-   assert [ $status -eq 8 ] # SIGFPE
+   assert_failure 8 # SIGFPE
    echo $output | grep -F 'Floating point exception (core dumped)'
    assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'div0 ('
@@ -387,7 +387,7 @@ load test_helper
    # invalid opcode
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km ud
-   assert [ $status -eq 4 ] # SIGILL
+   assert_failure 4 # SIGILL
    echo $output | grep -F 'Illegal instruction (core dumped)'
    assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'undefined_op ('
@@ -396,7 +396,7 @@ load test_helper
    # page fault
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km stray
-   assert [ $status -eq 11 ] # SIGSEGV
+   assert_failure 11 # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference ('
@@ -405,7 +405,7 @@ load test_helper
    # bad hcall
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km hc 400
-   assert [ $status -eq 31 ] # SIGSYS
+   assert_failure 31 # SIGSYS
    echo $output | grep -F 'Bad system call (core dumped)'
    assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'main ('
@@ -414,7 +414,7 @@ load test_helper
    # write to text (protected memory)
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km prot
-   assert [ $status -eq 11 ]  # SIGSEGV
+   assert_failure 11  # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'write_text ('
@@ -423,7 +423,7 @@ load test_helper
    # abort
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km abort
-   assert [ $status -eq 6 ]  # SIGABRT
+   assert_failure 6  # SIGABRT
    echo $output | grep -F 'Aborted (core dumped)'
    assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'abort ('
@@ -432,7 +432,7 @@ load test_helper
    # quit
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km quit
-   assert [ $status -eq 3 ]  # SIGQUIT
+   assert_failure 3  # SIGQUIT
    echo $output | grep -F 'Quit (core dumped)'
    assert [ -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'kill ('
@@ -441,14 +441,14 @@ load test_helper
    # term
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km term
-   assert [ $status -eq 15 ]  # SIGTERM
+   assert_failure 15  # SIGTERM
    echo $output | grep -F 'Terminated'
    assert [ ! -f ${CORE} ]
 
    # signal
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km signal
-   assert [ $status -eq 6 ]  # SIGABRT
+   assert_failure 6  # SIGABRT
    echo $output | grep -F 'Aborted'
    assert [  -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'abort ('
@@ -460,7 +460,7 @@ load test_helper
    # sigsegv blocked
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test.km block-segv
-   assert [ $status -eq 11 ]  # SIGSEGV
+   assert_failure 11  # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    assert [  -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test.km ${CORE} | grep -F 'stray_reference ('
@@ -474,7 +474,7 @@ load test_helper
 
    # Try to close a KM file from the guest
    run km_with_timeout --coredump=${CORE} stray_test.km close 5
-   assert [ $status -eq 9 ]  # EBADF
+   assert_failure 9  # EBADF
    assert [ ! -f ${CORE} ]
 }
 
@@ -506,7 +506,7 @@ load test_helper
    linux_out="${output}"
 
    run km_with_timeout throw_basic_test.km
-   [ "$status" -eq 0 ]
+   assert_success
 
    diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
