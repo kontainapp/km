@@ -514,3 +514,8 @@ load test_helper
    run km_with_timeout munmap_monitor_maps_test.km
    assert_success
 }
+
+@test "hypercall args(static): test hcall args passing" {
+   run km_with_timeout --overcommit-memory hcallargs_test.km
+   assert_success
+}
