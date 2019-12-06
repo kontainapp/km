@@ -28,8 +28,14 @@ ENV USER=$USER
 ENV PREFIX=/opt/kontain
 WORKDIR /home/$USER
 
-RUN dnf install -y gcc gcc-c++ make gdb git gcovr time patch file findutils diffutils which procps-ng python2 \
-   glibc-devel glibc-static libstdc++-static elfutils-libelf-devel elfutils-libelf-devel-static zlib-static openssl-devel openssl-static expat-static \
+RUN dnf install -y \
+   gcc gcc-c++ make gdb git gcovr \
+   time patch file findutils diffutils moreutils which procps-ng python2 \
+   glibc-devel glibc-static libstdc++-static \
+   elfutils-libelf-devel elfutils-libelf-devel-static \
+   zlib-static bzip2-static \
+   openssl-devel openssl-static \
+   expat-static \
    && dnf upgrade -y && dnf clean all
 
 FROM buildenv-base AS buildenv-gcc-base
