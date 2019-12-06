@@ -66,7 +66,7 @@ load test_helper
    assert_success
    branch=$BRANCH
    assert_line --partial "$branch"
-   
+
    run km_with_timeout -Vkvm ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_test.so # -V<regex> turns on tracing for a subsystem. Check it for -Vkvm
    assert_success
    assert_line --partial "KVM_EXIT_IO"
@@ -166,7 +166,7 @@ load test_helper
    assert_success
    linux_out="${output}"
 
-   # shared 
+   # shared
    (km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_html_test.so &)
    sleep 0.5s
 	 run curl -s $address
@@ -490,12 +490,11 @@ load test_helper
    assert [ "$ctors" -eq "$dtors" ]
 }
 
-
 @test "cpp(shared): basic throw and unwind (throw_basic_test)" {
    run ./throw_basic_test
    assert_success
    linux_out="${output}"
-   
+
    run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- throw_basic_test.so
    [ "$status" -eq 0 ]
    diff <(echo -e "$linux_out")  <(echo -e "$output")
@@ -543,4 +542,9 @@ load test_helper
    run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- dlopen_test.so
    assert_success
 
+}
+
+@test "hypercall args(shared): test hcall args passing" {
+   run km_with_timeout --overcommit-memory ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hcallargs_test.so
+   assert_success
 }
