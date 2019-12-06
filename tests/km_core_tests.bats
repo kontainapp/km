@@ -253,6 +253,33 @@ load test_helper
    rm -f /tmp/gdb_server_race_test.out
 }
 
+@test "gdb_qsupported(static): gdb qsupport/vcont test" {
+   km_gdb_default_port=2159
+   # Verify that qSupported, vCont?, vCont, and qXfer:threads:read remote
+   # commands are being used.
+   km_with_timeout -g gdb_qsupported_test.km &
+   gdb_pid=$!; sleep 0.5
+   run gdb_with_timeout -q -nx --ex="set debug remote 1" --ex="target remote :$km_gdb_default_port" \
+      --ex="source cmd_for_qsupported_test.gdb" --ex=q gdb_qsupported_test.km
+   assert_success
+
+   # Verify that km gdb server is responding to a qSupported packet
+   assert_line --partial "Packet received: PacketSize=00003FFF;qXfer:threads:read+;swbreak+;hwbreak+;vContSupported+"
+   # Verify that km gdb server is responding to a vCont? packet
+   assert_line --partial "Packet received: vCont;c;s;C;S"
+   # Verify that km gdb server is responding to a qXfer:threads:read" packet
+   assert_line --partial "Packet received: m<threads>\\n  <thread id"
+   # Verify that the gdb client is using vCont packets
+   assert_line --partial "Sending packet: \$vCont;s:"
+   # Verify that km gdb server is sending a stop packet with a thread id
+   assert_line --partial "Packet received: T05hwbreak:;thread:"
+   # Verify that we now see the switching threads message
+   assert_line --partial "Switching to Thread 2"
+
+   run wait $gdb_pid
+   assert [ $status -eq 0 ]
+}
+
 @test "Unused memory protection(static): check that unused memory is protected (mprotect_test)" {
    run km_with_timeout mprotect_test.km -v
    assert_success

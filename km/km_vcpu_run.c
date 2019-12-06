@@ -662,10 +662,6 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                   // This thread has executed pthread_exit() or exit() and is terminating.
                   run_infox("KVM: hypercall %d stop", hc);
                   km_vcpu_exit(vcpu);
-                  if (km_gdb_want_threadevents()) {
-                     // Tell gdb this thread has exited
-                     km_gdb_notify_and_wait(vcpu, GDB_KMSIGNAL_THREADEXIT);
-                  }
                   break;
 
                case HC_ALLSTOP:

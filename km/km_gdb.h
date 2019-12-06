@@ -86,9 +86,7 @@ typedef enum {
 
 // Some pseudo signals that will be beyond the range of valid gdb signals.
 #define GDB_SIGNAL_LAST 1000   // arbitarily chosen large value
-#define GDB_KMSIGNAL_THREADCREATE (GDB_SIGNAL_LAST + 20)
-#define GDB_KMSIGNAL_THREADEXIT (GDB_SIGNAL_LAST + 21)
-#define GDB_KMSIGNAL_KVMEXIT (GDB_SIGNAL_LAST + 22)
+#define GDB_KMSIGNAL_KVMEXIT (GDB_SIGNAL_LAST + 20)
 
 #define KM_TRACE_GDB "gdb"
 

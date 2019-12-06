@@ -81,7 +81,7 @@ typedef struct km_vcpu {
    int gdb_efd;                   // gdb uses this to synchronize with VCPU thread
    int is_used;                   // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
-   int remain_paused;             // 1 means this vcpu is not unpaused when gdbserver starts vcpu's
+   int remain_paused;             // 1 means this vcpu stays paused when gdbserver starts vcpu's
    pthread_tid_t joining_pid;     // pid if currently joining another thread pid, -1 if not
    km_gva_t exit_res;             // exit status for this thread
    int regs_valid;                // Are registers valid?

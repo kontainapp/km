@@ -407,6 +407,7 @@ void km_deliver_signal(km_vcpu_t* vcpu)
    siginfo_t info;
 
    if (!next_signal(vcpu, &info)) {
+km_infox(KM_TRACE_VCPU, "%s: no signal available", __FUNCTION__);
       return;
    }
 
@@ -437,6 +438,7 @@ void km_deliver_signal(km_vcpu_t* vcpu)
       errx(info.si_signo, "guest: %s %s", strsignal(info.si_signo), (core_dumped) ? "(core dumped)" : "");
    }
 
+km_infox(KM_TRACE_VCPU, "%s: vcpu %d, caller signal handler for signal %d", __FUNCTION__, vcpu->vcpu_id, info.si_signo);
    assert(act->handler != (km_gva_t)SIG_IGN);
    do_guest_handler(vcpu, &info, act);
 }

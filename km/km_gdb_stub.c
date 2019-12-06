@@ -68,8 +68,6 @@
  * I have found that if you want the vCont:c option to be supported you must also support
  * vCont:CXX (which allows continuing with a signal).
  * To support xml thread lists, the gdb server will reply to qSupported with qXfer:threads:read+
- * To support sending thread create and exit events back to the gdb client we reply with
- * QThreadEvents+ in the qSupported reply to the gdb client.
  */
 
 /*
@@ -91,6 +89,9 @@ static unsigned char registers[BUFMAX];
 
 #define GDB_ERROR_MSG "E01"   // The actual error code is ignored by GDB, so any number will do
 static const char hexchars[] = "0123456789abcdef";
+
+
+static void km_gdb_exit_debug_stopreply(km_vcpu_t * vcpu, char* stopreply);
 
 static int hex(unsigned char ch)
 {
@@ -396,21 +397,12 @@ static void send_response(char code, gdb_event_t* gep, bool wait_for_ack)
 {
    char obuf[BUFMAX];
    km_vcpu_t* vcpu;
-   void km_gdb_exit_debug_stopreply(km_vcpu_t * vcpu, char* stopreply);
 
    if (gdbstub.clientsup_vcontsupported && code == 'S') {
       // We can send stop replies that contain thread id's.
       // Since 'W' and 'X' don't contain thread id's let those fall into the else block.
       vcpu = km_vcpu_fetch_by_tid(gep->sigthreadid);
       switch (gep->signo) {
-         case GDB_KMSIGNAL_THREADCREATE:
-            // We should send some registers too when we know what to send.
-            snprintf(obuf, sizeof(obuf), "T00create;thread:%08X;", gep->sigthreadid);
-            break;
-         case GDB_KMSIGNAL_THREADEXIT:
-            assert(vcpu != NULL);
-            snprintf(obuf, sizeof(obuf), "w%02lX;%08X", vcpu->exit_res, gep->sigthreadid);
-            break;
          case GDB_KMSIGNAL_KVMEXIT:
             // Use the exit reason to decide what stop reply to send.
             if (gep->exit_reason == KVM_EXIT_DEBUG) {
@@ -445,14 +437,6 @@ static void send_response(char code, gdb_event_t* gep, bool wait_for_ack)
    }
 }
 
-/*
- * As part of trying to get the stack trace to work better I'm experimenting with
- * leaving the register contents out of the stop packet.  I have no reason to believe
- * this helps, but I'm trying this.  Until we can make the stack trace better or
- * prove registers in the stop packet help or hurt, I'll leave this WANT_REGS
- * stuff here.
- */
-#undef WANT_REGS
 
 /*
  * Disect the "exception state" for a kvm debug exit to figure out what kind of stop packet
@@ -463,16 +447,11 @@ static void send_response(char code, gdb_event_t* gep, bool wait_for_ack)
  *  https://software.intel.com/sites/default/files/managed/a4/60/325384-sdm-vol-3abcd.pdf
  * Look in chapter 17.
  */
-void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
+static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
 {
    struct kvm_debug_exit_arch* archp = &vcpu->cpu_run->debug.arch;
    void* addr;
    uint32_t type;
-#ifdef WANT_REGS
-   char fp[20];
-   char sp[20];
-   char pc[20];
-#endif
 
    /*
     * We have found that supplying register contents with the stop reply somehow causes
@@ -499,20 +478,10 @@ void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
            vcpu->regs.rbp,
            vcpu->regs.rip);
 
-#ifdef WANT_REGS
-   // Format the sp, fp, and pc for all of the stop packets that may want them
-   mem2hex((unsigned char*)&vcpu->regs.rsp, sp, 8);
-   mem2hex((unsigned char*)&vcpu->regs.rbp, fp, 8);
-   mem2hex((unsigned char*)&vcpu->regs.rip, pc, 8);
-#endif
 
    if (archp->exception == 3) {
       // Apparently this is how a breakpoint (int 3) looks from KVM_EXIT_DEBUG.
-#ifdef WANT_REGS
-      sprintf(stopreply, "T0506:%s;07:%s;10:%s;thread:%08x;", sp, fp, pc, km_vcpu_get_tid(vcpu));
-#else
       sprintf(stopreply, "T05thread:%08x;", km_vcpu_get_tid(vcpu));
-#endif
       return;
    }
 
@@ -523,11 +492,7 @@ void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
     */
    if (archp->exception == 1 && gdbstub.clientsup_hwbreak == 0) {
       assert((archp->dr6 & 0x4000) != 0);   // verify that this is a hw single step
-#ifdef WANT_REGS
-      sprintf(stopreply, "T0506:%s;07:%s;10:%s;thread:%08x;", sp, fp, pc, km_vcpu_get_tid(vcpu));
-#else
       sprintf(stopreply, "T05thread:%08x;", km_vcpu_get_tid(vcpu));
-#endif
       return;
    }
 
@@ -555,11 +520,7 @@ void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
    } else if ((archp->dr6 & 0x4000) != 0) {
       /* Single step exception. */
       /* Not sure if hwbreak is the right action for single step */
-#ifdef WANT_REGS
-      sprintf(stopreply, "T05hwbreak:;06:%s;07:%s;10:%s;thread:%08x;", sp, fp, pc, km_vcpu_get_tid(vcpu));
-#else
       sprintf(stopreply, "T05hwbreak:;thread:%08x;", km_vcpu_get_tid(vcpu));
-#endif
       return;
    } else {
       km_infox(KM_TRACE_GDB,
@@ -576,47 +537,23 @@ void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
     */
    switch (type) {
       case 0x00:   // break on instruction execution
-#ifdef WANT_REGS
-         sprintf(stopreply, "T05hwbreak:;06:%s;07:%s;10:%s;thread:%08x;", sp, fp, pc, km_vcpu_get_tid(vcpu));
-#else
          sprintf(stopreply, "T05hwbreak:;thread:%08x;", km_vcpu_get_tid(vcpu));
-#endif
          break;
       case 0x01:   // break on data writes
-#ifdef WANT_REGS
-         sprintf(stopreply,
-                 "T05watch:%016llx;06:%s;07:%s;10:%s;thread:%08x;",
-                 (unsigned long long)addr,
-                 sp,
-                 fp,
-                 pc,
-                 km_vcpu_get_tid(vcpu));
-#else
          sprintf(stopreply,
                  "T05watch:%016llx;thread:%08x;",
                  (unsigned long long)addr,
                  km_vcpu_get_tid(vcpu));
-#endif
          break;
       case 0x02:   // break on i/o reads or writes
          // Should we see this?  At this time I don't think so.
          abort();
          break;
       case 0x03:   // break on data reads or writes but not instruction fetches
-#ifdef WANT_REGS
-         sprintf(stopreply,
-                 "T05awatch:%016llx;06:%s;07:%s;10:%s;thread:%08x;",
-                 (unsigned long long)addr,
-                 sp,
-                 fp,
-                 pc,
-                 km_vcpu_get_tid(vcpu));
-#else
          sprintf(stopreply,
                  "T05awatch:%016llx;thread:%08x;",
                  (unsigned long long)addr,
                  km_vcpu_get_tid(vcpu));
-#endif
          break;
    }
 }
@@ -666,6 +603,26 @@ static void send_threads_list(void)
 }
 
 /*
+ * Description of the features the gdb client can claim it supports.
+ */
+typedef struct gdb_features {
+   char* feature_name;   // from the qSupported packet
+   bool feature_is_flag;
+   uint8_t* feature_flag_or_value;
+} gdb_features_t;
+static gdb_features_t gdbclient_known_features[] = {{"multiprocess", true, &gdbstub.clientsup_multiprocess},
+                                                   {"xmlRegisters", true, &gdbstub.clientsup_xmlregisters},
+                                                   {"qRelocInsn", true, &gdbstub.clientsup_qRelocInsn},
+                                                   {"swbreak", true, &gdbstub.clientsup_swbreak},
+                                                   {"hwbreak", true, &gdbstub.clientsup_hwbreak},
+                                                   {"fork-events", true, &gdbstub.clientsup_forkevents},
+                                                   {"vfork-events", true, &gdbstub.clientsup_vforkevents},
+                                                   {"exec-events", true, &gdbstub.clientsup_execevents},
+                                                   {"vContSupported", true, &gdbstub.clientsup_vcontsupported},
+                                                   {"QThreadEvents", true, &gdbstub.clientsup_qthreadevents},
+                                                   {NULL, true, NULL},};
+
+/*
  * Process the "qSupported:xxx;yyy;zzz;..." packet from the gdb client.
  * We look at the options supplied in the packet and set the associated
  * flags in the gdbstub.  Then we supply the options supported by us
@@ -678,21 +635,6 @@ static void handle_qsupported(char* packet, char* obuf)
    char* tokenp;
    char* savep;
    int i;
-   struct gdb_features {
-      char* feature_name;   // from the qSupported packet
-      bool feature_is_flag;
-      uint8_t* feature_flag_or_value;
-   } gdbclient_known_features[] = {{"multiprocess", true, &gdbstub.clientsup_multiprocess},
-                                   {"xmlRegisters", true, &gdbstub.clientsup_xmlregisters},
-                                   {"qRelocInsn", true, &gdbstub.clientsup_qRelocInsn},
-                                   {"swbreak", true, &gdbstub.clientsup_swbreak},
-                                   {"hwbreak", true, &gdbstub.clientsup_hwbreak},
-                                   {"fork-events", true, &gdbstub.clientsup_forkevents},
-                                   {"vfork-events", true, &gdbstub.clientsup_vforkevents},
-                                   {"exec-events", true, &gdbstub.clientsup_execevents},
-                                   {"vContSupported", true, &gdbstub.clientsup_vcontsupported},
-                                   {"QThreadEvents", true, &gdbstub.clientsup_qthreadevents},
-                                   {NULL, true, NULL},};
 
    *obuf = 0;
 
@@ -738,8 +680,7 @@ static void handle_qsupported(char* packet, char* obuf)
            "qXfer:threads:read+;"
            "swbreak+;"
            "hwbreak+;"
-           "vContSupported+;"
-           "QThreadEvents+",
+           "vContSupported+",
            BUFMAX - 1);
    send_packet(obuf);
 }
@@ -987,48 +928,15 @@ static void km_gdb_general_query(char* packet, char* obuf)
                exit_reason);
       mem2hex((unsigned char*)label, obuf, strlen(label));
       send_packet(obuf);
-#if 1
    } else if (strncmp(packet, "qSupported", strlen("qSupported")) == 0) {
       handle_qsupported(packet, obuf);
    } else if (strncmp(packet, "qXfer:threads:read:", strlen("qXfer:threads:read:")) == 0) {
       handle_qxfer_threads_read(packet, obuf);
    } else if (strncmp(packet, "qGetTLSAddr:", strlen("qGetTLSAddr:")) == 0) {
       handle_qgettlsaddr(packet, obuf);
-#endif
    } else {
       send_not_supported_msg();
    }
-}
-
-/*
- * Handle Q packets.
- * Q packets are used for setting properties.
- * Currently all we handle is QThreadEvents.
- * This enables and disables the sending of thread creation and termination events
- * back to the gdb client.
- */
-static void km_gdb_handle_Qpackets(char* packet, char* obuf)
-{
-   if (strncmp(packet, "QThreadEvents:", strlen("QThreadEvents:")) == 0) {
-      switch (packet[14]) {
-         case '0':
-            gdbstub.send_threadevents = 0;
-            break;
-         case '1':
-            gdbstub.send_threadevents = 1;
-            break;
-         default:
-            /* Client sendt us a bad value */
-            send_error_msg();
-            return;
-      }
-   } else {
-      /* Variable not supported */
-      send_not_supported_msg();
-      return;
-   }
-   send_okay_msg();
-   return;
 }
 
 /*
@@ -1253,7 +1161,7 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
                               siginfo_t info;
 
                               km_infox(KM_TRACE_GDB,
-                                       "%s: deliver linux signal %d (gdb %d) to thread %d",
+                                       "%s: post linux signal %d (gdb %d) to thread %d",
                                        __FUNCTION__,
                                        linuxsigno,
                                        gdbsigno,
@@ -1629,10 +1537,6 @@ static void gdb_handle_payload_stop(gdb_event_t* gep)
             km_gdb_general_query(packet, obuf);
             break;
          }
-         case 'Q': {   // General set operation
-            km_gdb_handle_Qpackets(packet, obuf);
-            break;
-         }
          case 'v': {
             int resume;
 
@@ -1992,16 +1896,7 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo)
    rc = pthread_mutex_unlock(&gdbstub.gdbnotify_mutex);
    assert(rc == 0);
 
-   /*
-    * If the thread has exited, there is no need to wait for gdb to unblock the vcpu's
-    * since this vcpu is basically idle and needs to be available for the next thread
-    * creation attempt.
-    * Of course no new threads would be created since all vcpu's are blocked or will be
-    * blocked shortly.
-    */
-   if (signo != GDB_KMSIGNAL_THREADEXIT) {
-      km_wait_on_eventfd(vcpu->gdb_efd);   // Wait for gdb to allow this vcpu to continue
-      vcpu->is_paused = 0;
-      km_infox(KM_TRACE_GDB, "%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
-   }
+   km_wait_on_eventfd(vcpu->gdb_efd);   // Wait for gdb to allow this vcpu to continue
+   vcpu->is_paused = 0;
+   km_infox(KM_TRACE_GDB, "%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
 }
