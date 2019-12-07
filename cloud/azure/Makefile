@@ -115,7 +115,10 @@ ci-run-tests:
 	make -C $(TOP)$(LOCATION) test-withk8s IMAGE_VERSION=$(IMAGE_VERSION)
 	kubectl wait --for=condition=Ready --timeout=2m $(POD_NAME)
 	kubectl logs -f $(POD_NAME)
-	if [ $(kubectl get $(POD_NAME) -o 'jsonpath={..terminated.exitCode}') != 0 ] ; then exit 1; fi
+	@if [[ "$$(kubectl get ${POD_NAME} -o 'jsonpath={..terminated.exitCode}')" != "0" ]] ; then \
+		echo "##vso[task.logissue type=error]$@ failed in pod '${POD_NAME}' , LOCATION=$(LOCATION)" ; \
+		exit 1; \
+	fi
 
 dashboard: login # Interactive login, and then forward port/open Kubernetes Dashboard
 	az aks browse --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER)

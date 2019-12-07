@@ -11,6 +11,8 @@ SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-cdup)
 
 COMPONENT := km
+CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
+
 include ${TOP}make/images.mk
 
 SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_value_test.c hcallargs_test.c \
@@ -59,10 +61,6 @@ IGNORE_FAILURE := --ignore-failure
 endif
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
 	./run_bats_tests.sh --km=${KM_BIN} --pretty ${IGNORE_FAILURE} --match="${MATCH}"
-
-# Run all tests in CI, in Kubernetes. Used from CI (thus no help).
-# IMAGE_VERSION (e.g. CI-788) needs to be passed in.
-CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
 
 %.so: %.o
 	${KCC} -shared ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
