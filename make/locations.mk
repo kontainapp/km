@@ -57,7 +57,7 @@ DOCKER_BUILD := docker build --label "KONTAIN:BRANCH=$(SRC_BRANCH)" --label "KON
 # Use DOCKER_RUN_CLEANUP="" if container is needed after a run
 DOCKER_RUN_CLEANUP ?= --rm
 DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP} -t -u${UID}:${GID}
-DOCKER_RUN_TEST := ${DOCKER_RUN} --device=/dev/kvm
+DOCKER_RUN_TEST := ${DOCKER_RUN} -i --device=/dev/kvm
 
 # cloud-related stuff. By default set to Azure
 #
