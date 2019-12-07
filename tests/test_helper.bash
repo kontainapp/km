@@ -50,7 +50,7 @@ timeout=150
 function km_with_timeout () {
    /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
       timeout --foreground $timeout \
-         ${KM_BIN} "$@"
+         ${KM_BIN} ${KM_ARGS} "$@"
    s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
 }
 
