@@ -8,5 +8,5 @@ _Noreturn void __unmapself(void* base, size_t size)
 
    args.arg1 = base;
    args.arg2 = size;
-   km_hcall(SYS_exit, &args);
+   km_hcall(HC_unmapself, &args);
 }
