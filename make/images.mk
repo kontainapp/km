@@ -99,7 +99,7 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 # Helper when we need to make sure IMAGE_VERSION is defined and not 'latest', and command is defined
 .check_vars:
 	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == latest ]] ; then \
-		echo -e "${RED}IMAGE_VERSION should be set to something existing in Registry, e.g. CI-695. Current value='${IMAGE_VERSION}'${NOCOLOR}" ; \
+		echo -e "${RED}IMAGE_VERSION should be set to something existing in Registry, e.g. ci-695. Current value='${IMAGE_VERSION}'${NOCOLOR}" ; \
 		false; \
 	fi
 	@if [[ -z "${CONTAINER_TEST_CMD}" ]] ; then \
@@ -110,7 +110,7 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 # We generate test pod specs from this template
 TEST_POD_TEMPLATE := $(TOP)cloud/k8s/test-pod-template.yaml
 
-# CONTAINER_TEST_CMD could be overriden, le't keep the original one so we can use it for help messages
+# CONTAINER_TEST_CMD could be overriden, let's keep the original one so we can use it for help messages
 CONTAINER_TEST_CMD_HELP := $(CONTAINER_TEST_CMD)
 
 # Pod spec needs a json list as a container's command, so generate it first from a "command params" string
@@ -125,7 +125,7 @@ endef
 
 # Run test in Kubernetes. Image is formed as current-testenv-image:$IMAGE_VERSION
 # IMAGE_VERSION needs to be defined outside, and correspond to existing (in REGISTRY) image
-# For example, to run image generated on CI-695, use 'make test-withk8s IMAGE_VERSION=CI-695
+# For example, to run image generated on ci-695, use 'make test-withk8s IMAGE_VERSION=ci-695
 test-withk8s :  .check_vars ## Run tests in Kubernetes. IMAGE_VERSION need to be passed
 	@echo '$(preprocess_and_apply)'
 	@name=$$($(preprocess_and_apply)) ;\
@@ -138,7 +138,7 @@ test-withk8s :  .check_vars ## Run tests in Kubernetes. IMAGE_VERSION need to be
 ifneq ($(findstring test-withk8s-manual,${MAKECMDGOALS}),)
 USER_NAME := $(shell id -un)-
 override CONTAINER_TEST_CMD := sleep 3600
-test-withk8s-manual : test-withk8s ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=CI-695'
+test-withk8s-manual : test-withk8s ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=ci-695'
 endif
 
 # Build env image push. For this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
