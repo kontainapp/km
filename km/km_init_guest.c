@@ -295,5 +295,4 @@ void km_exit(km_vcpu_t* vcpu, int status)
          __syscall_6(SYS_futex, (uintptr_t)ctid, FUTEX_WAKE, 1, 0, 0, 0);
       }
    }
-   machine.exit_status = status;
 }
