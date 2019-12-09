@@ -48,10 +48,5 @@ int __clone(int (*fn)(void*), void* child_stack, int flags, void* args, pid_t* p
                          .arg5 = (uintptr_t)newtls,
                          .arg6 = (uintptr_t)cargs};
    km_hcall(SYS_clone, &args1);
-   if (args1.hc_ret != 0) {
-      if (ctid != NULL && args1.hc_ret != -1) {
-         *ctid = (pid_t)args1.hc_ret;
-      }
-   }
    return args1.hc_ret;
 }
