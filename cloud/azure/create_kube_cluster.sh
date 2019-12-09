@@ -23,7 +23,7 @@ set -e
 # create service principal, give it access to ACR, create cluster with the SP
 appPwd=`az ad sp create-for-rbac --name ${K8_SERVICE_PRINCIPAL} --skip-assignment --query password --output tsv`
 echo Do not lose it PWD $appPwd . TODO: switch to pre-generated PEM certs
-set -x
+if [ -v BASH_TRACING ] ; then set -x ; fi
 acrId=`az acr show --resource-group ${CLOUD_RESOURCE_GROUP} --name ${REGISTRY_NAME} --query "id" --output tsv`
 sp_id=`az ad sp list  --query "[?contains(servicePrincipalNames,'$K8_SERVICE_PRINCIPAL')].{Id: objectId}"  --output tsv`
 appId=`az ad sp show --id ${sp_id}  --query appId --output tsv`

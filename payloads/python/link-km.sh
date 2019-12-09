@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+if [ -v BASH_TRACING ] ; then set -x ; fi
 
 KM_TOP=$(git rev-parse --show-cdup)
 PATH=${KM_TOP}/tools:$PATH
