@@ -21,7 +21,8 @@ variables:
   pod_test_km: "pod/test-km-$(buildenv.type)-ci-$(Build.BuildId)"
   pod_test_node: "pod/test-node-$(buildenv.type)-ci-$(Build.BuildId)"
   pod_test_python: "pod/test-python-$(buildenv.type)-ci-$(Build.BuildId)"
-  dtype: "$(buildenv.type)"
+  dtype: $(buildenv.type)
+  #bash_tracing: true # uncomment to enable '-x' in all bash scripts
 
 strategy:
   matrix:
@@ -55,8 +56,9 @@ steps:
     displayName: Login to Azure, container registry and Kubernetes
 
   - bash: |
-      set -x -e
-      make -C tests pull-buildenv-image
+      set -e
+      if [ -v BASH_TRACING ] ; then set -x ; fi
+      make -C tests pull-buildenv-image IMAGE_VERSION=latest
       make -j withdocker
       make -C tests testenv-image push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId)
     displayName: KM test - set build environment, build, create test container and push it to registry
@@ -80,7 +82,7 @@ steps:
     timeoutInMinutes: 5
 
   - bash: |
-      set -x
+      if [ -v BASH_TRACING ] ; then set -x ; fi
       make -C cloud/azure ci-image-purge CI_IMAGE_DRY_RUN=""
       # TODO - if the **test** failed (especially with kmcore), we want to keep these pods for a few days
       # Setting vars doc: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables

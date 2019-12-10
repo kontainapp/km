@@ -11,7 +11,8 @@
 #
 # Deploys VMs for Openwhisk demo to Azure.
 # Also preps this VM to fetch from Kontain github
-set -ex
+set -e
+if [ -v BASH_TRACING ] ; then set -x ; fi
 
 source `dirname $0`/cloud_config.mk
 
