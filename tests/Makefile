@@ -11,6 +11,7 @@ SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-cdup)
 
 COMPONENT := km
+# this is how we run tests in containers:
 CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
 
 include ${TOP}make/images.mk
@@ -146,15 +147,9 @@ COVERAGE_CMD_FLAGS  :=  -r ${TOP}km --html --html-details -o ${COVERAGE_REPORT} 
 test: .cov_init
 endif # ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
 
-test-all: test
+test-all: test ## alias for test
 
-# Run full suite of tests regarless of being asked to run full or abbreviated set
-# NOTE: if needed, we can run a shorter set by passing MATCH env with regexp, e.g.
-#			${DOCKER_RUN_TEST} --env=MATCH='(exit|setup|hello)' ${TEST_IMG}:${IMAGE_VERSION} run_bats_tests.sh
-test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
-	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} run_bats_tests.sh
-
-test-all-withdocker: test-withdocker # alias
+test-all-withdocker: test-withdocker ## alias for test-withdocker
 
 # install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
 # TODO: maybe make it generic to scan folders

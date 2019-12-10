@@ -94,4 +94,4 @@ steps:
       rm -f ~/.kube/config
       az logout
     condition: always()
-    displayName: Cleanup test job,  purge old test images and logout
+    displayName: Cleanup test job, purge old test images and logout

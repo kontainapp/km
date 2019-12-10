@@ -17,13 +17,13 @@
 #
 # The first 2 are explained in docs/build.md and docs/images-targets.md
 #
-# The runenv-image  is a bare bones image for specific payload.
+# The runenv-image is a bare bones image for specific payload.
 # 		Can be built with 'make runenv-image' or 'make distro'. The following info
 #		needs to be defined in Makefile for it to work
 #		- BUILDENV_PATH is the location for Docker to use. Default is build/payloads/component
 #		- runenv_prep function is (optional) code to copy stuff to the BUILDENV_PATH, or modify it
 #				before running Docker. E.g. if BUILDENV_PATH=. , the runenv_prpe is likely not needed
-#		- COMPONENT, PAYLOAD_NAME and PAYLOAD_KM also need to be defined.  See payloads/node
+#		- COMPONENT, PAYLOAD_NAME and PAYLOAD_KM also need to be defined. See payloads/node
 #		for examples
 #
 
@@ -57,24 +57,24 @@ BUILDENV_PATH ?= .
 TESTENV_PATH ?= .
 RUNENV_PATH ?= ${BLDDIR}
 
-testenv-image:  ## build test image with test tools and code
+testenv-image: ## build test image with test tools and code
 	@# Copy KM there. TODO - remove when we support pre-installed KM
 	cp ${KM_BIN} ${TESTENV_PATH}
 	cp ${KM_LDSO} ${TESTENV_PATH}
 	${DOCKER_BUILD} --build-arg branch=${SRC_SHA} -t ${TEST_IMG}:${IMAGE_VERSION} ${TESTENV_PATH} -f ${TEST_DOCKERFILE}
 	rm ${TESTENV_PATH}/$(notdir ${KM_BIN})
 
-buildenv-image:  ## make build image based on ${DTYPE}
+buildenv-image: ## make build image based on ${DTYPE}
 	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${IMAGE_VERSION} ${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 
 push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_test_image_version .push-image \
-		IMAGE_VERSION="$(IMAGE_VERSION)"  \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG):$(IMAGE_VERSION) TO=$(TEST_IMG_REG):$(IMAGE_VERSION)
 
 pull-testenv-image: ## pulls test image. Mainly need for CI
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_test_image_version .pull-image \
-		IMAGE_VERSION="$(IMAGE_VERSION)"  \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG_REG):$(IMAGE_VERSION) TO=$(TEST_IMG):$(IMAGE_VERSION)
 
 # a few of Helpers for push/pull image and re-tag
@@ -116,6 +116,10 @@ CONTAINER_TEST_CMD_HELP := $(CONTAINER_TEST_CMD)
 # Pod spec needs a json list as a container's command, so generate it first from a "command params" string
 __CONTAINER_TEST_CMD = $(wordlist 2,100,$(foreach item,$(CONTAINER_TEST_CMD), , \"$(item)\"))
 
+# Run full suite of tests regarless of being asked to run full or abbreviated set
+test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_CMD}
+
 # define commands to preprocess kubernetes pod template and pass to 'kubectl apply'.
 export define preprocess_and_apply
 m4 -D NAME="$(USER_NAME)test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])" \
@@ -135,10 +139,12 @@ test-withk8s :  .check_vars ## Run tests in Kubernetes. IMAGE_VERSION need to be
 
 # Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image
 # Adds 'user-' prefix to names and puts container to sleep so we can exec into it
+test-withk8s-manual : .test-withk8s-manual ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=CI-695'
 ifneq ($(findstring test-withk8s-manual,${MAKECMDGOALS}),)
 USER_NAME := $(shell id -un)-
-override CONTAINER_TEST_CMD := sleep 3600
-test-withk8s-manual : test-withk8s ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=ci-695'
+POD_TTL_SEC := 3600
+override CONTAINER_TEST_CMD := sleep ${POD_TTL_SEC}
+.test-withk8s-manual : test-withk8s ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=ci-695'
 endif
 
 # Build env image push. For this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
@@ -158,7 +164,7 @@ pull-buildenv-image: ## Pulls the buildenv image.
 #
 # This target ("help") scans Makefile for '##' in targets and prints a summary
 # Note - used awk to print (instead of echo) so escaping/coloring is platform independed
-help:  ## Prints help on 'make' targets
+help: ## Prints help on 'make' targets
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
 	/^[.a-zA-Z0-9_-]+[ \t]*:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
 	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
@@ -170,12 +176,12 @@ help:  ## Prints help on 'make' targets
 VARS_TO_PRINT ?= DIMG TEST_IMG BUILDENV_PATH TESTENV_PATH BUILDENV_IMG BUILDENV_DOCKERFILE KM_BIN DTYPE TEST_IMG_REG BUILDENV_IMG_REG SRC_BRANCH SRC_SHA
 
 .PHONY: debugvars
-debugvars:   ## prints interesting vars and their values
+debugvars: ## prints interesting vars and their values
 	@echo To change the list of printed vars, use 'VARS_TO_PRINT="..." make debugvars'
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
 
 # allows to do 'make print-varname'
-print-%  : ; @echo $* = \"$($*)\"
+print-% : ; @echo $* = \"$($*)\"
 
 # use this embedded dockerfile... we need it to replace ENTRYPOINT
 export define DOCKERFILE_CONTENT
@@ -187,7 +193,7 @@ cat <<EOF
 EOF
 endef
 
-runenv-image: ${RUNENV_PATH}  ${KM_BIN}  ## Build minimal runtime image
+runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
 	@$(TOP)make/check-docker.sh
 	@-docker rmi -f ${RUNENV_IMG}:latest 2>/dev/null
 	cp ${KM_BIN} ${RUNENV_PATH}
@@ -203,12 +209,12 @@ validate-runenv-image: ## Validate runtime image
 
 push-runenv-image: testenv-image ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
-		IMAGE_VERSION="$(IMAGE_VERSION)"  \
+		IMAGE_VERSION="$(IMAGE_VERSION)"\
 		FROM=$(RUNENV_IMG):$(IMAGE_VERSION) TO=$(RUNENV_IMG_REG):$(IMAGE_VERSION)
 
 pull-runenv-image: ## pulls test image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
-		IMAGE_VERSION="$(IMAGE_VERSION)"  \
+		IMAGE_VERSION="$(IMAGE_VERSION)"\
 		FROM=$(RUNENV_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_IMG):$(IMAGE_VERSION)
 
 distro: runenv-image ## an alias for runenv-image

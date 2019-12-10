@@ -77,14 +77,12 @@ test: ${PAYLOAD_KM} ${TEST_KM}
 test-all: test
 	scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
-test-withdocker:  ## run tests in the testenv-image
-	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
-
-test-all-withdocker:
-	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM} && scripts/test-run.sh test-all ${NODETOP} ${BUILD}
-
 # Command to run tests in testenv-image container:
 CONTAINER_TEST_CMD := scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
+
+test-all-withdocker: ## a special helper to run more node.km tests. TODO - does it run script/test-run outside of docker ?
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_CMD} && scripts/test-run.sh test-all ${NODETOP} ${BUILD}
+
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./scripts
