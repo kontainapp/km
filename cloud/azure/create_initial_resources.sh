@@ -14,7 +14,7 @@
 source `dirname $0`/cloud_config.mk
 
 set -e
-set -x
+if [ -v BASH_TRACING ] ; then set -x ; fi
 az account set -s ${CLOUD_SUBSCRIPTION}
 az configure --defaults location=${CLOUD_LOCATION}
 az group create --name ${CLOUD_RESOURCE_GROUP} --output ${OUT_TYPE}
