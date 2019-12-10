@@ -10,7 +10,7 @@ usage() {
 cat <<EOF
 Usage:  ${BASH_SOURCE[0]} [options]
   Options:
-  --tests=bats_file_name  Run tests from  bats_file_name (default km_core_tests.bats)
+  --tests=bats_file_name  Run tests from  bats_file_name (default "km_core_tests.bats km_so_tests.bat")
   --match=regexp          Only run tests with names matching regexp (default .*)
   --time-info-file=name   Temp file with tests time tracing (default /tmp/km_test_time_info_$$)
   --km=km_name            KM path. (default derived from git )
@@ -60,7 +60,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-tests=${tests:-km_core_tests.bats}
+tests=${tests:-"km_core_tests.bats km_so_tests.bats"}
 match=${match:-'.*'}
 time_info_file=${time_info_file:-/tmp/km_test_time_info_$$}
 pretty=${pretty:--t}
