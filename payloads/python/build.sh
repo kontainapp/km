@@ -12,10 +12,11 @@
 # Build script for python.
 # Also tries to add modules enumberated in m_list (needs `bear' installed for this)
 #
-set -ex
+
+set -e
+if [ -v BASH_TRACING ] ; then set -x ; fi
 
 if [ ! -d cpython ]; then
-    set -x
     git clone https://github.com/python/cpython.git -b v3.7.4
     pushd cpython
     ./configure

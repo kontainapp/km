@@ -25,6 +25,7 @@ variables:
   # of a var exposed in environment. E.g. 'dtype=fedora' means all shells will see DTYPE=fedora.
   dtype: $(buildenv.type) # until we add other distros, this always maps to DTYPE=fedora (see 'strategy' below)
   image_version: ci-$(Build.BuildId) # defaut IMAGE_VERSION setting for all commands
+  #bash_tracing: true # uncomment to enable '-x' in all bash scripts
 
 strategy:
   matrix:
@@ -58,7 +59,8 @@ steps:
     displayName: Login to Azure, container registry and Kubernetes
 
   - bash: |
-      set -x -e
+      set -e
+      if [ -v BASH_TRACING ] ; then set -x ; fi
       make -C tests pull-buildenv-image IMAGE_VERSION=latest
       make -j withdocker
       make -C tests testenv-image push-testenv-image
@@ -83,7 +85,7 @@ steps:
     timeoutInMinutes: 5
 
   - bash: |
-      set -x
+      if [ -v BASH_TRACING ] ; then set -x ; fi
       make -C cloud/azure ci-image-purge CI_IMAGE_DRY_RUN=""
       # TODO - if the **test** failed (especially with kmcore), we want to keep these pods for a few days
       # Setting vars doc: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables
