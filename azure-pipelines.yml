@@ -63,7 +63,7 @@ steps:
 
   - bash: make -C cloud/azure ci-run-tests LOCATION=tests IMAGE_VERSION=CI-$(Build.BuildId) POD_NAME=$(pod_test_km)
     displayName: Run KM tests on Kubernetes
-    timeoutInMinutes: 5
+    timeoutInMinutes: 10
 
   - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/python IMAGE_VERSION=CI-$(Build.BuildId)
     displayName: Python.km test - set build environment, build, create test container and push it to registry
