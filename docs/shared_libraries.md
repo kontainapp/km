@@ -125,3 +125,11 @@ export BUILD=`pwd`/build/linux-x86_64-server-release
 ```
 
 `--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
+
+## kontain-gcc
+
+Only really works with `.o` files created with default gcc. For example: `kontain-gcc -o t.km t.c` fails, but `gcc -c t.c; kontain-gcc -o t.km t.o` works.
+
+## PT_INTERP
+
+Elf files of type ET_EXEC optionally contain a PT_INTERP region. A PT_INTERP region contains the path of the dynamic loader to be used for the program.
