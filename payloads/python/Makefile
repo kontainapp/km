@@ -20,6 +20,9 @@ PYTHONTOP ?= cpython
 # component id for docker images
 COMPONENT := python
 
+# this is how we run python,km tests in container
+CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
+
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := cpython/python.km
 
@@ -65,10 +68,7 @@ clean:
 test test-all: ${PAYLOAD_KM} ${TEST_KM}
 	scripts/test-run.sh ${KM_BIN} ${PAYLOAD_KM}
 
-test-withdocker test-all-withdocker:
-	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} scripts/test-run.sh ./python
-
-CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
+test-all-withdocker: test-withdocker # alias for test-withdocker
 
 # if something needs to be copied/modified before building runenv image in Docker,
 # define this function
