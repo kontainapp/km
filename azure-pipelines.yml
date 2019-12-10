@@ -21,7 +21,10 @@ variables:
   pod_test_km: "pod/test-km-$(buildenv.type)-ci-$(Build.BuildId)"
   pod_test_node: "pod/test-node-$(buildenv.type)-ci-$(Build.BuildId)"
   pod_test_python: "pod/test-python-$(buildenv.type)-ci-$(Build.BuildId)"
-  dtype: $(buildenv.type)
+  # Helper vars for the build. Note that in Azure pipeline this also makes UPPCASE_NAME
+  # of a var exposed in environment. E.g. 'dtype=fedora' means all shells will see DTYPE=fedora.
+  dtype: $(buildenv.type) # until we add other distros, this always maps to DTYPE=fedora (see 'strategy' below)
+  image_version: ci-$(Build.BuildId) # defaut IMAGE_VERSION setting for all commands
   #bash_tracing: true # uncomment to enable '-x' in all bash scripts
 
 strategy:
@@ -60,24 +63,24 @@ steps:
       if [ -v BASH_TRACING ] ; then set -x ; fi
       make -C tests pull-buildenv-image IMAGE_VERSION=latest
       make -j withdocker
-      make -C tests testenv-image push-testenv-image IMAGE_VERSION=CI-$(Build.BuildId)
+      make -C tests testenv-image push-testenv-image
     displayName: KM test - set build environment, build, create test container and push it to registry
 
-  - bash: make -C cloud/azure ci-run-tests LOCATION=tests IMAGE_VERSION=CI-$(Build.BuildId) POD_NAME=$(pod_test_km)
+  - bash: make -C cloud/azure ci-run-tests LOCATION=tests POD_NAME=$(pod_test_km)
     displayName: Run KM tests on Kubernetes
     timeoutInMinutes: 10
 
-  - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/python IMAGE_VERSION=CI-$(Build.BuildId)
+  - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/python
     displayName: Python.km test - set build environment, build, create test container and push it to registry
 
-  - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/python IMAGE_VERSION=CI-$(Build.BuildId) POD_NAME=$(pod_test_python)
+  - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/python POD_NAME=$(pod_test_python)
     displayName: Run Python.km tests on Kubernetes
     timeoutInMinutes: 5
 
-  - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/node IMAGE_VERSION=CI-$(Build.BuildId)
+  - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/node
     displayName: Node.km test - set build environment, build, create test container and push it to registry
 
-  - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/node IMAGE_VERSION=CI-$(Build.BuildId) POD_NAME=$(pod_test_node)
+  - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/node POD_NAME=$(pod_test_node)
     displayName: Run Node.km tests on Kubernetes
     timeoutInMinutes: 5
 
