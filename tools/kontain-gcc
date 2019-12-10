@@ -43,7 +43,7 @@ cat <<EOF > ${TMP_SPEC}
 %{!shared: crtend.o%s} %{shared: crtendS.o%s} ${CRT}/x86_64/crtn.o%s
 
 *link:
-%(old_link) %{!shared: -static -Ttext-segment=0x200000 -e_start} %{shared: -dynamic-linker libc.so -e_start} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
+%(old_link) %{!shared:%{!rdynamic:-static} -Ttext-segment=0x200000 -e_start} %{rdynamic:--dynamic-linker=km-dynlink /home/muth/kontain/km/build/runtime/libc.so.km -export-dynamic} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
 EOF
 
 if [[ $cmd == *g++ ]] ; then REALGCC=g++; else REALGCC=gcc; fi
