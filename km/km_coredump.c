@@ -232,6 +232,40 @@ static size_t km_mappings_size(km_vcpu_t* vcpu, size_t* nfilesp)
    return notelen;
 }
 
+static char*
+km_core_dump_region_mapping(km_vcpu_t* vcpu, km_gva_t vaddr, km_gva_t len, km_gva_t offset, char* cur)
+{
+   uint64_t* fent = (uint64_t*)cur;
+   fent[0] = vaddr;
+   fent[1] = vaddr + len;
+   fent[2] = offset / KM_PAGE_SIZE;
+   return (char*)&fent[3];
+}
+
+static inline char* km_core_dump_elf_mappings(km_vcpu_t* vcpu, km_payload_t* payload, char* cur)
+{
+   for (int i = 0; i < payload->km_ehdr.e_phnum; i++) {
+      Elf64_Phdr* phdr = &payload->km_phdr[i];
+      if (phdr->p_type != PT_LOAD) {
+         continue;
+      }
+      cur = km_core_dump_region_mapping(vcpu,
+                                        phdr->p_vaddr + payload->km_load_adjust,
+                                        phdr->p_memsz,
+                                        phdr->p_offset,
+                                        cur);
+   }
+   return cur;
+}
+
+static inline char* km_core_dump_mapping_name(km_vcpu_t* vcpu, char* name, char* cur)
+{
+   size_t len = strlen(name) + 1;
+   strcpy(cur, name);
+   cur += len;
+   return cur;
+}
+
 static inline int km_core_dump_mappings(km_vcpu_t* vcpu, char* buf, size_t length)
 {
    char* cur = buf;
@@ -239,78 +273,26 @@ static inline int km_core_dump_mappings(km_vcpu_t* vcpu, char* buf, size_t lengt
    km_mmap_reg_t* ptr;
 
    // Pass 1 - Compute size of entry and # of files);
-   size_t notelen = 2 * sizeof(uint64_t);
-   size_t nfiles = 0;
-   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
-      Elf64_Phdr* phdr = &km_guest.km_phdr[i];
-      if (phdr->p_type != PT_LOAD) {
-         continue;
-      }
-      notelen += 3 * sizeof(uint64_t) + strlen(km_guest.km_filename) + 1;
-      nfiles++;
-   }
-   if (km_dynlinker.km_filename != NULL) {
-      for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
-         Elf64_Phdr* phdr = &km_dynlinker.km_phdr[i];
-         if (phdr->p_type != PT_LOAD) {
-            continue;
-         }
-         notelen += 3 * sizeof(uint64_t) + strlen(km_dynlinker.km_filename) + 1;
-         nfiles++;
-      }
-   }
-   TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
-      if (ptr->filename == NULL) {
-         continue;
-      }
-      notelen += 3 * sizeof(uint64_t) + strlen(ptr->filename) + 1;
-      nfiles++;
-   }
 
-   cur += km_add_note_header(cur, remain, "CORE", NT_FILE, notelen);
+   size_t nfiles = 0;
+   size_t notelen = km_mappings_size(vcpu, &nfiles);
 
    // Pass 2 - Note records
+   cur += km_add_note_header(cur, remain, "CORE", NT_FILE, notelen);
+
    uint64_t* fent = (uint64_t*)cur;
    fent[0] = nfiles;
    fent[1] = KM_PAGE_SIZE;
    cur += 2 * sizeof(*fent);
-   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
-      Elf64_Phdr* phdr = &km_guest.km_phdr[i];
-      if (phdr->p_type != PT_LOAD) {
-         continue;
-      }
-      fent = (uint64_t*)cur;
-      fent[0] = phdr->p_vaddr + km_guest.km_load_adjust;
-      fent[1] = phdr->p_vaddr + km_guest.km_load_adjust + phdr->p_memsz;
-      fent[2] = phdr->p_offset / KM_PAGE_SIZE;
-      cur += 3 * sizeof(*fent);
-      remain -= 3 * sizeof(*fent);
-   }
+   cur = km_core_dump_elf_mappings(vcpu, &km_guest, cur);
    if (km_dynlinker.km_filename != NULL) {
-      for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
-         Elf64_Phdr* phdr = &km_dynlinker.km_phdr[i];
-         if (phdr->p_type != PT_LOAD) {
-            continue;
-         }
-         fent = (uint64_t*)cur;
-         fent[0] = phdr->p_vaddr + km_dynlinker.km_load_adjust;
-         fent[1] = phdr->p_vaddr + km_dynlinker.km_load_adjust + phdr->p_memsz;
-         fent[2] = phdr->p_offset / KM_PAGE_SIZE;
-         cur += 3 * sizeof(*fent);
-         remain -= 3 * sizeof(*fent);
-      }
+      cur = km_core_dump_elf_mappings(vcpu, &km_dynlinker, cur);
    }
-
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->filename == NULL) {
          continue;
       }
-      fent = (uint64_t*)cur;
-      fent[0] = ptr->start;
-      fent[1] = ptr->start + ptr->size;
-      fent[2] = ptr->offset / KM_PAGE_SIZE;
-      cur += 3 * sizeof(*fent);
-      remain -= 3 * sizeof(*fent);
+      cur = km_core_dump_region_mapping(vcpu, ptr->start, ptr->size, ptr->offset, cur);
    }
 
    // pass 3 - file names.
@@ -319,10 +301,7 @@ static inline int km_core_dump_mappings(km_vcpu_t* vcpu, char* buf, size_t lengt
       if (phdr->p_type != PT_LOAD) {
          continue;
       }
-      char* name = km_guest.km_filename;
-      size_t len = strlen(name) + 1;
-      strcpy(cur, name);
-      cur += len;
+      cur = km_core_dump_mapping_name(vcpu, km_guest.km_filename, cur);
    }
    if (km_dynlinker.km_filename != NULL) {
       for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
@@ -330,20 +309,14 @@ static inline int km_core_dump_mappings(km_vcpu_t* vcpu, char* buf, size_t lengt
          if (phdr->p_type != PT_LOAD) {
             continue;
          }
-         char* name = km_dynlinker.km_filename;
-         size_t len = strlen(name) + 1;
-         strcpy(cur, name);
-         cur += len;
+         cur = km_core_dump_mapping_name(vcpu, km_dynlinker.km_filename, cur);
       }
    }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->filename == NULL) {
          continue;
       }
-      char* name = ptr->filename;
-      size_t len = strlen(name) + 1;
-      strcpy(cur, name);
-      cur += len;
+      cur = km_core_dump_mapping_name(vcpu, ptr->filename, cur);
    }
    return roundup(cur - buf, 4);
 }

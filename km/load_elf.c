@@ -25,8 +25,8 @@
 #include "km_gdb.h"
 #include "km_mem.h"
 
-km_payload_t km_guest = {};
-km_payload_t km_dynlinker = {};
+km_payload_t km_guest;
+km_payload_t km_dynlinker;
 char* km_dynlinker_file = "/opt/kontain/lib64/libc.so.km";
 
 static void my_mmap(int fd, void* buf, size_t count, off_t offset)
