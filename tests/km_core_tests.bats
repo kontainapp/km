@@ -94,7 +94,7 @@ load test_helper
    tmp=/tmp/hello$$ ; cp hello_test $tmp.km
    run km_with_timeout $tmp # Linux executable instead of .km
    assert_failure
-   assert_line "km: Non-KM binary: cannot find interrupt handler(*) or sigreturn(*). Trying to run regular Linux executable in KM?"
+   assert_line "km: PT_INTERP does not contain km marker. expect:'__km_dynlink__' got:'/lib64/ld-linux-x86-64.so.2'"
    rm $tmp.km # may leave dirt if the tests above fail
 
    log=`mktemp`

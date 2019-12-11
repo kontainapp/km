@@ -140,11 +140,35 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    NEW_AUXV_ENT(AT_UID, 0);
    NEW_AUXV_ENT(AT_ENTRY, km_guest.km_ehdr.e_entry + km_guest.km_load_adjust);
    NEW_AUXV_ENT(AT_FLAGS, 0);
-   // TODO: AT_BASE (for interpretter)
+   if (km_dynlinker.km_filename != 0) {
+      NEW_AUXV_ENT(AT_BASE, km_dynlinker.km_load_adjust);
+   }
    NEW_AUXV_ENT(AT_PHNUM, km_guest.km_ehdr.e_phnum);
    NEW_AUXV_ENT(AT_PHENT, km_guest.km_ehdr.e_phentsize);
-   NEW_AUXV_ENT(AT_PHDR,
-                km_guest.km_ehdr.e_phoff + km_guest.km_phdr[0].p_vaddr + km_guest.km_load_adjust);
+   /*
+    * Set AT_PHDR. Prefer PT_PHDR if it exists use it. If no PT_PHDR exists
+    * set based on first PT_LOAD found.
+    */
+   int phdr_found = 0;
+   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
+      if (km_guest.km_phdr[i].p_type == PT_PHDR) {
+         NEW_AUXV_ENT(AT_PHDR, km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust);
+         phdr_found = 1;
+         break;
+      }
+   }
+   if (phdr_found == 0) {
+      for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
+         if (km_guest.km_phdr[i].p_type == PT_LOAD) {
+            NEW_AUXV_ENT(AT_PHDR,
+                         km_guest.km_ehdr.e_phoff + km_guest.km_phdr[i].p_vaddr +
+                             km_guest.km_load_adjust);
+            phdr_found = 1;
+            break;
+         }
+      }
+   }
+   assert(phdr_found != 0);
    NEW_AUXV_ENT(AT_CLKTCK, sysconf(_SC_CLK_TCK));
    NEW_AUXV_ENT(AT_PAGESZ, KM_PAGE_SIZE);
    // TODO: AT_HWCAP

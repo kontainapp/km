@@ -51,7 +51,7 @@ void km_core_write(int fd, void* buffer, size_t length)
    int rc;
 
    if ((rc = write(fd, buffer, length)) == -1) {
-      errx(2, "%s - write error - errno=%d [%s]\n", __FUNCTION__, errno, strerror(errno));
+      errx(2, "%s - write error - errno=%d [%s] buffer=%p\n", __FUNCTION__, errno, strerror(errno), buffer);
    }
    if (rc != length) {
       errx(2, "%s - short write: expect: %ld got:%d", __FUNCTION__, length, rc);
@@ -209,6 +209,16 @@ static size_t km_mappings_size(km_vcpu_t* vcpu, size_t* nfilesp)
       notelen += 3 * sizeof(uint64_t) + strlen(km_guest.km_filename) + 1;
       nfiles++;
    }
+   if (km_dynlinker.km_filename != NULL) {
+      for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
+         Elf64_Phdr* phdr = &km_dynlinker.km_phdr[i];
+         if (phdr->p_type != PT_LOAD) {
+            continue;
+         }
+         notelen += 3 * sizeof(uint64_t) + strlen(km_dynlinker.km_filename) + 1;
+         nfiles++;
+      }
+   }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->filename == NULL) {
          continue;
@@ -239,6 +249,16 @@ static inline int km_core_dump_mappings(km_vcpu_t* vcpu, char* buf, size_t lengt
       notelen += 3 * sizeof(uint64_t) + strlen(km_guest.km_filename) + 1;
       nfiles++;
    }
+   if (km_dynlinker.km_filename != NULL) {
+      for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
+         Elf64_Phdr* phdr = &km_dynlinker.km_phdr[i];
+         if (phdr->p_type != PT_LOAD) {
+            continue;
+         }
+         notelen += 3 * sizeof(uint64_t) + strlen(km_dynlinker.km_filename) + 1;
+         nfiles++;
+      }
+   }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->filename == NULL) {
          continue;
@@ -266,6 +286,20 @@ static inline int km_core_dump_mappings(km_vcpu_t* vcpu, char* buf, size_t lengt
       cur += 3 * sizeof(*fent);
       remain -= 3 * sizeof(*fent);
    }
+   if (km_dynlinker.km_filename != NULL) {
+      for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
+         Elf64_Phdr* phdr = &km_dynlinker.km_phdr[i];
+         if (phdr->p_type != PT_LOAD) {
+            continue;
+         }
+         fent = (uint64_t*)cur;
+         fent[0] = phdr->p_vaddr + km_dynlinker.km_load_adjust;
+         fent[1] = phdr->p_vaddr + km_dynlinker.km_load_adjust + phdr->p_memsz;
+         fent[2] = phdr->p_offset / KM_PAGE_SIZE;
+         cur += 3 * sizeof(*fent);
+         remain -= 3 * sizeof(*fent);
+      }
+   }
 
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->filename == NULL) {
@@ -289,6 +323,18 @@ static inline int km_core_dump_mappings(km_vcpu_t* vcpu, char* buf, size_t lengt
       size_t len = strlen(name) + 1;
       strcpy(cur, name);
       cur += len;
+   }
+   if (km_dynlinker.km_filename != NULL) {
+      for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
+         Elf64_Phdr* phdr = &km_dynlinker.km_phdr[i];
+         if (phdr->p_type != PT_LOAD) {
+            continue;
+         }
+         char* name = km_dynlinker.km_filename;
+         size_t len = strlen(name) + 1;
+         strcpy(cur, name);
+         cur += len;
+      }
    }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->filename == NULL) {
