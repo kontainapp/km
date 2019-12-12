@@ -18,8 +18,9 @@
 
 FROM fedora:31 AS buildenv-base
 ARG USER=appuser
-ARG UID=1000
-ARG GID=1000
+# Dedicated arbitrary in-image uid/gid, mainly for file access
+ARG UID=1001
+ARG GID=117
 
 RUN groupadd -f -g $GID $USER && useradd -r -u $UID -g $GID $USER && mkdir /home/$USER && chown $UID.$GID /home/$USER
 
