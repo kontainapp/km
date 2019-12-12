@@ -50,13 +50,13 @@ USER  ?= appuser
 # needed in 'make withdocker' so duplicating it here, for now
 BUILDENV_IMG  ?= kontain/buildenv-${COMPONENT}-${DTYPE}
 
-UID := $(shell id -u)
-GID := $(shell id -g)
+CURRENT_UID := $(shell id -u)
+CURRENT_GID := $(shell id -g)
 
 DOCKER_BUILD := docker build --label "KONTAIN:BRANCH=$(SRC_BRANCH)" --label "KONTAIN:SHA=$(SRC_SHA)"
 # Use DOCKER_RUN_CLEANUP="" if container is needed after a run
 DOCKER_RUN_CLEANUP ?= --rm
-DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP} -t -u${UID}:${GID}
+DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP} -t -u${CURRENT_UID}:${CURRENT_GID}
 DOCKER_RUN_TEST := ${DOCKER_RUN} -i --device=/dev/kvm
 
 # cloud-related stuff. By default set to Azure
