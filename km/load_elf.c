@@ -100,6 +100,58 @@ static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
    }
 }
 
+static inline int km_find_hook_symbols(Elf* e, km_gva_t adjust)
+{
+   int all_found = 0;
+   for (Elf_Scn* scn = NULL; (scn = elf_nextscn(e, scn)) != NULL;) {
+      GElf_Shdr shdr;
+
+      gelf_getshdr(scn, &shdr);
+      if (shdr.sh_type == SHT_SYMTAB) {
+         Elf_Data* data = elf_getdata(scn, NULL);
+
+         for (int i = 0; i < shdr.sh_size / shdr.sh_entsize; i++) {
+            GElf_Sym sym;
+
+            gelf_getsym(data, i, &sym);
+            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_HNDL_SYM_NAME) == 0) {
+               km_guest.km_handlers = sym.st_value + adjust;
+            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
+               km_guest.km_sigreturn = sym.st_value + adjust;
+            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_CLONE_CHILD_SYM_NAME) == 0) {
+               km_guest.km_clone_child = sym.st_value + adjust;
+            }
+            if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0 && km_guest.km_clone_child) {
+               all_found = 1;
+               break;
+            }
+         }
+         break;
+      }
+   }
+   return all_found;
+}
+
+static Elf* km_open_elf_file(char* name, int* fd)
+{
+   Elf* e;
+   if ((*fd = open(km_dynlinker_file, O_RDONLY, 0)) < 0) {
+      warn("open %s failed(dynlinker)", name);
+      return NULL;
+   }
+   if ((e = elf_begin(*fd, ELF_C_READ, NULL)) == NULL) {
+      warnx("elf_begin() failed: %s(dynlinker)", elf_errmsg(-1));
+      return NULL;
+   }
+   if (elf_kind(e) != ELF_K_ELF) {
+      warnx("%s is not an ELF object(dynlinker)", name);
+      return NULL;
+   }
+   return e;
+}
 /*
  * load the dynamic linker. Currently only support MUSL dynlink built with KM hypercalls.
  */
@@ -120,12 +172,12 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    assert(S_ISREG(st.st_mode));
    km_dynlinker.km_filename = km_dynlinker_file;
 
-   int fd = open(km_dynlinker.km_filename, O_RDONLY);
+   Elf* e;
+   int fd;
+   fd = open(km_dynlinker.km_filename, O_RDONLY);
    if (fd < 0) {
       err(2, "open %s:", km_dynlinker.km_filename);
    }
-   Elf* e;
-   GElf_Ehdr* ehdr = &km_dynlinker.km_ehdr;
    if ((fd = open(km_dynlinker_file, O_RDONLY, 0)) < 0) {
       err(2, "open %s failed(dynlinker)", km_dynlinker_file);
    }
@@ -135,6 +187,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    if (elf_kind(e) != ELF_K_ELF) {
       errx(2, "%s is not an ELF object(dynlinker)", km_dynlinker_file);
    }
+   GElf_Ehdr* ehdr = &km_dynlinker.km_ehdr;
    if (gelf_getehdr(e, ehdr) == NULL) {
       errx(2, "gelf_getehdr %s(dynlinker)", elf_errmsg(-1));
    }
@@ -160,34 +213,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    }
    km_gva_t adjust = km_dynlinker.km_load_adjust = base - min_vaddr;
 
-   for (Elf_Scn* scn = NULL; (scn = elf_nextscn(e, scn)) != NULL;) {
-      GElf_Shdr shdr;
-
-      gelf_getshdr(scn, &shdr);
-      if (shdr.sh_type == SHT_SYMTAB) {
-         Elf_Data* data = elf_getdata(scn, NULL);
-
-         for (int i = 0; i < shdr.sh_size / shdr.sh_entsize; i++) {
-            GElf_Sym sym;
-
-            gelf_getsym(data, i, &sym);
-            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_HNDL_SYM_NAME) == 0) {
-               km_guest.km_handlers = sym.st_value + adjust;
-            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
-               km_guest.km_sigreturn = sym.st_value + adjust;
-            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_CLONE_CHILD_SYM_NAME) == 0) {
-               km_guest.km_clone_child = sym.st_value + adjust;
-            }
-            if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0 && km_guest.km_clone_child) {
-               break;
-            }
-         }
-         break;
-      }
-   }
+   km_find_hook_symbols(e, adjust);
 
    for (int i = 0; i < ehdr->e_phnum; i++) {
       GElf_Phdr* phdr = &km_dynlinker.km_phdr[i];
@@ -262,34 +288,7 @@ uint64_t km_load_elf(const char* file)
    /*
     * Read symbol table and look for symbols of interest to KM
     */
-   for (Elf_Scn* scn = NULL; (scn = elf_nextscn(e, scn)) != NULL;) {
-      GElf_Shdr shdr;
-
-      gelf_getshdr(scn, &shdr);
-      if (shdr.sh_type == SHT_SYMTAB) {
-         Elf_Data* data = elf_getdata(scn, NULL);
-
-         for (int i = 0; i < shdr.sh_size / shdr.sh_entsize; i++) {
-            GElf_Sym sym;
-
-            gelf_getsym(data, i, &sym);
-            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_HNDL_SYM_NAME) == 0) {
-               km_guest.km_handlers = sym.st_value + adjust;
-            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
-               km_guest.km_sigreturn = sym.st_value + adjust;
-            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_CLONE_CHILD_SYM_NAME) == 0) {
-               km_guest.km_clone_child = sym.st_value + adjust;
-            }
-            if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0 && km_guest.km_clone_child) {
-               break;
-            }
-         }
-         break;
-      }
-   }
+   km_find_hook_symbols(e, adjust);
    if (interp_vaddr == 0 && (km_guest.km_handlers == 0 || km_guest.km_sigreturn == 0)) {
       errx(1,
            "Non-KM binary: cannot find interrupt handler%s or sigreturn%s. Trying to "
