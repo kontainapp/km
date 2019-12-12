@@ -12,7 +12,8 @@
 # Usage will be 'docker run -it --rm --env BRANCH=$(git rev-parse --abbrev-ref HEAD) --device=/dev/kvm --user 0 test-km-fedora km_cdocker run <container> make TARGET=<target> - see ../../Makefile
 #
 ARG DTYPE=fedora
-FROM kontain/buildenv-km-${DTYPE}:latest
+ARG BUILDENV_IMAGE_VERSION=latest
+FROM kontain/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
 
 ARG branch
 

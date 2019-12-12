@@ -61,11 +61,15 @@ testenv-image: ## build test image with test tools and code
 	@# Copy KM there. TODO - remove when we support pre-installed KM
 	cp ${KM_BIN} ${TESTENV_PATH}
 	cp ${KM_LDSO} ${TESTENV_PATH}
-	${DOCKER_BUILD} --build-arg branch=${SRC_SHA} -t ${TEST_IMG}:${IMAGE_VERSION} ${TESTENV_PATH} -f ${TEST_DOCKERFILE}
+	${DOCKER_BUILD} \
+			--build-arg branch=${SRC_SHA} \
+			--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
+			-t ${TEST_IMG}:${IMAGE_VERSION} \
+			${TESTENV_PATH} -f ${TEST_DOCKERFILE}
 	rm ${TESTENV_PATH}/$(notdir ${KM_BIN})
 
 buildenv-image: ## make build image based on ${DTYPE}
-	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${IMAGE_VERSION} ${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
+	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} ${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 
 push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_test_image_version .push-image \
@@ -139,7 +143,7 @@ test-withk8s :  .check_vars ## Run tests in Kubernetes. IMAGE_VERSION need to be
 
 # Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image
 # Adds 'user-' prefix to names and puts container to sleep so we can exec into it
-test-withk8s-manual : .test-withk8s-manual ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=CI-695'
+test-withk8s-manual : .test-withk8s-manual ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=ci-695'
 ifneq ($(findstring test-withk8s-manual,${MAKECMDGOALS}),)
 USER_NAME := $(shell id -un)-
 POD_TTL_SEC := 3600
@@ -150,14 +154,14 @@ endif
 # Build env image push. For this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
 # to the version you want to push. BE CAREFUL - it pushes to shared image !!!
 push-buildenv-image: ## Pushes to buildnev image. PROTECTED TARGET
-	@if [[ "$(FORCE_BUILDENV_PUSH)" != "force" ]] ; then \
-		echo -e "$(RED)Unforced push of buildenv images is not supported$(NOCOLOR)" && false; fi
+	@if [[ "${BUILDENV_IMAGE_VERSION}" == "latest" && "$(FORCE_BUILDENV_PUSH)" != "force" ]] ; then \
+		echo -e "$(RED)Unforced push of 'latest' buildenv images is not supported$(NOCOLOR)" && false; fi
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
-		FROM=$(BUILDENV_IMG):$(IMAGE_VERSION) TO=$(BUILDENV_IMG_REG):$(IMAGE_VERSION)
+		FROM=$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) TO=$(BUILDENV_IMG_REG):$(BUILDENV_IMAGE_VERSION)
 
 pull-buildenv-image: ## Pulls the buildenv image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
-		FROM=$(BUILDENV_IMG_REG):$(IMAGE_VERSION) TO=$(BUILDENV_IMG):$(IMAGE_VERSION)
+		FROM=$(BUILDENV_IMG_REG):$(BUILDENV_IMAGE_VERSION) TO=$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION)
 
 #
 # 'Help' target - based on '##' comments in targets

@@ -11,7 +11,8 @@
 # Dockerfile to package python.km and friends for testing in CI/CD
 
 ARG DTYPE=fedora
-FROM kontain/buildenv-km-${DTYPE}
+ARG BUILDENV_IMAGE_VERSION=latest
+FROM kontain/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
 
 ENV PHOME /home/$USER/python/
 

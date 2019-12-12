@@ -11,7 +11,9 @@
 # Dockerfile to package node.km and friends for testing in CI/CD
 
 ARG DTYPE=fedora
-FROM kontain/buildenv-km-${DTYPE}
+ARG BUILDENV_IMAGE_VERSION=latest
+FROM kontain/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
+
 
 ARG MODE=Release
 ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node
