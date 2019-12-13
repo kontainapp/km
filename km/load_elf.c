@@ -247,7 +247,7 @@ uint64_t km_load_elf(const char* file)
    if (elf_version(EV_CURRENT) == EV_NONE) {
       errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
    }
-   if (strcmp(".km", file + strlen(file) - 3) != 0) {
+   if (strcmp(".km", file + strlen(file) - 3) != 0 && strcmp(".kmd", file + strlen(file) - 4) != 0) {
       sprintf(fn, "%s.km", file);
       file = fn;
    }

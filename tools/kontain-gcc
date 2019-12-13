@@ -23,6 +23,16 @@ else
    CRT="${KM_TOP}/build/runtime/musl/crt"
    SPEC="${KM_TOP}"
 fi
+SHR_LIBC=/home/muth/kontain/km/build/runtime/libc.so.km
+SHR_LIBSTDCPP=
+
+if [[ $cmd == *g++ ]] ; then
+    REALGCC=g++
+    SHR_LIBSTDCPP="/opt/kontain/lib64/libstdc++.so /opt/kontain/lib64/libgcc_s.so.1"
+else
+    REALGCC=gcc
+fi
+if [[ $# -eq 0 ]] ; then exec "${REALGCC}" ; fi
 
 cat <<EOF > ${TMP_SPEC}
 %rename link old_link
@@ -43,11 +53,8 @@ cat <<EOF > ${TMP_SPEC}
 %{!shared: crtend.o%s} %{shared: crtendS.o%s} ${CRT}/x86_64/crtn.o%s
 
 *link:
-%(old_link) %{!shared:%{!rdynamic:-static} -Ttext-segment=0x200000 -e_start} %{rdynamic:--dynamic-linker=__km_dynlink__ /home/muth/kontain/km/build/runtime/libc.so.km -export-dynamic} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
+%(old_link) %{!shared:%{!rdynamic:-static} -Ttext-segment=0x200000 -e_start} %{rdynamic:--dynamic-linker=__km_dynlink__ ${SHR_LIBC} ${SHR_LIBSTDCPP} -export-dynamic} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
 EOF
-
-if [[ $cmd == *g++ ]] ; then REALGCC=g++; else REALGCC=gcc; fi
-if [[ $# -eq 0 ]] ; then exec "${REALGCC}" ; fi
 
 "${REALGCC}" -specs=${TMP_SPEC} "$@" ${LIB}
 

@@ -40,16 +40,18 @@ KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
 EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
 SEXECS := ${SHRSRC:%.c=%.so} ${KM_PAYLOADS:%.km=%.so}
+DEXECS := ${SRC:%.c=%.kmd} ${SRC_CPP:%.cpp=%.kmd}
 
 CXXFLAGS=${CFLAGS}
 ${SRC_CPP:%.cpp=%.km}: KCC=kontain-g++
+${SRC_CPP:%.cpp=%.kmd}: KCC=kontain-g++
 ${SRC_CPP:%.cpp=%.so}: KCC=kontain-g++
 ${SRC_CPP:%.cpp=%}: CC=g++
 
 # Only tests matching this regexp will be run
 MATCH ?= .*
 
-all: ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
+all: ${EXECS} ${SEXECS} ${DEXECS} ## Build all test, for Linux and KM
 
 ${KM_PAYLOADS}: ${TOP}build/runtime
 
@@ -67,6 +69,9 @@ test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by
 
 %.km: %.o
 	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
+
+%.kmd: %.o
+	${KCC} ${LDFLAGS} -rdynamic $< -o $@ ${KM_LDFLAGS}
 
 .PHONY: load_expected_size
 load_expected_size: load_test.km load_test.so
@@ -100,7 +105,7 @@ load_expected_size: load_test.km load_test.so
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d $(EXECS) $(SEXECS) kmcore
+	rm -f *.o *.d $(EXECS) $(SEXECS) ${DEXECS} kmcore
 
 #
 # do not generate .d file for some targets

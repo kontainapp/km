@@ -135,3 +135,7 @@ Only really works with `.o` files created with default gcc. For example: `kontai
 Elf files of type ET_EXEC optionally contain a PT_INTERP region. A PT_INTERP region contains the path of the dynamic loader to be used for the program.
 
 `cc -fPIC -c t.c; ../tools/kontain-gcc -rdynamic -o t.km t.o`
+
+For CPP:
+
+`./build/km/km --dynlinker=../build/runtime/libc.so.km --putenv LD_LIBRARY_PATH=/opt/kontain/lib64 var_storage_test.kmd`
