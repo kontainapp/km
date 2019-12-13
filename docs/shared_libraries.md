@@ -138,4 +138,4 @@ Elf files of type ET_EXEC optionally contain a PT_INTERP region. A PT_INTERP reg
 
 For CPP:
 
-`./build/km/km --dynlinker=../build/runtime/libc.so.km --putenv LD_LIBRARY_PATH=/opt/kontain/lib64 var_storage_test.kmd`
+`./build/km/km --dynlinker=../build/runtime/libc.so.km var_storage_test.kmd`
