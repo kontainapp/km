@@ -86,9 +86,9 @@ Note that push is protected (see Makefiles)
   * click on Checks tab in the PR
   * click on `Show all checks`
   * click on 1st `Details`
-  * Click on `Create and Push KM Test container`. You will see something like `make -C tests testenv-image push-testenv-image IMAGE_VERSION=CI-695 DTYPE=fedora`.
-* pull the test image for the correct version, e.g. `make -C tests pull-testenv-image IMAGE_VERSION=CI-695`
-* Run container locally `docker run -it --rm --device=/dev/kvm kontain/test-km-fedora:CI-695`
+  * Click on `Create and Push KM Test container`. You will see something like `make -C tests testenv-image push-testenv-image IMAGE_VERSION=ci-695 DTYPE=fedora`.
+* pull the test image for the correct version, e.g. `make -C tests pull-testenv-image IMAGE_VERSION=ci-695`
+* Run container locally `docker run -it --rm --device=/dev/kvm kontain/test-km-fedora:ci-695`
 * in the Docker prompt, run tests: `./run_bats_tests.sh`
 
 ### How to debug code if it fails on Kubernetes only (and passes locally)
@@ -98,16 +98,16 @@ First of all, make sure that
 1. kubectl is installed (`sudo dnf install kubernetes-client` on Fedora)
 1. you are logged in Azure and Kubernetes (`make -C cloud/azure login`)
 
-Then, find IMAGE_VERSION for your CI run (see above). Let's say this was build 695, so the image version is `CI-695`
+Then, find IMAGE_VERSION for your CI run (see above). Let's say this was build 695, so the image version is `ci-695`
 
-* `make -C tests test-withk8s-manual IMAGE_VERSION=CI-695` to run image in Kubernetes
+* `make -C tests test-withk8s-manual IMAGE_VERSION=ci-695` to run image in Kubernetes
 * This will create a pod and  print out the commands to run bash there, as well as the ones to clean up when you are done.
 
 Here is an example of a session:
 
 ```sh
-[msterin@msterin-p330 tests]$ make  test-withk8s-manual IMAGE_VERSION=CI-695
-Creating or updating Kubernetes pod for USER=msterin IMAGE_VERSION=CI-695
+[msterin@msterin-p330 tests]$ make  test-withk8s-manual IMAGE_VERSION=ci-695
+Creating or updating Kubernetes pod for USER=msterin IMAGE_VERSION=ci-695
 Run bash in your pod 'msterin-test-ci-695' using 'kubectl exec msterin-test-ci-695 -it -- bash'
 Run tests inside your pod using './run_bats_tests.sh --km=/tests/km'
 When you are done, do not forget to 'kubectl delete pod msterin-test-ci-695'

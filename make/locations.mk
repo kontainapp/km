@@ -73,6 +73,8 @@ endif
 
 # Use current branch as image version (tag) for doccker images.
 IMAGE_VERSION ?= latest
+BUILDENV_IMAGE_VERSION ?= ${IMAGE_VERSION}
+
 
 # Code coverage support. If enabled, build with code coverage in dedicate dir
 COV_BLDTYPE := coverage
