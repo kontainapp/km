@@ -56,7 +56,7 @@ endif
 in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
 	mkdir -p ${NODEOUT}
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
-	tar -C ${NODETOP}/.. -cf - ${NODE_DISTRO_FILES} | tar -xf -
+	tar -C ${NODETOP}/.. --exclude='.tmp*' -cf - ${NODE_DISTRO_FILES} | tar -xf -
 
 fromsrc:
 	git clone https://github.com/nodejs/node.git -b ${VERS}
