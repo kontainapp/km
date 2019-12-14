@@ -15,8 +15,8 @@ FROM alpine
 
 LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
 
-# uid=1001(vsts) gid=117(docker) groups=117(docker)
 ARG USER=appuser
+# Dedicated arbitrary in-image uid/gid, mainly for file access
 ARG UID=1001
 ARG GID=117
 

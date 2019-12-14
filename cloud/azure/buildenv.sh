@@ -22,6 +22,5 @@ BUILDENV_KM_IMG=${REGISTRY}/buildenv-km-${DTYPE}
 
 $DEBUG az acr login -n ${REGISTRY_NAME}
 $DEBUG docker build --build-arg=USER=appuser  \
-	--build-arg=UID=1001 --build-arg=GID=117 \
 	-t ${BUILDENV_KM_IMG} ${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 docker push ${BUILDENV_KM_IMG}
