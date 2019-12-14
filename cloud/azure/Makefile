@@ -105,14 +105,14 @@ endif
 	@echo "Purging images for $(CI_IMAGE_REPOS_TO_PURGE) older than $(CI_IMAGE_PURGE_AGE)"
 	$(foreach repo,${CI_IMAGE_REPOS_TO_PURGE}, az acr run --cmd '${CI_IMAGE_PURGE_CMD}' --registry ${REGISTRY_NAME} /dev/null; )
 
-# Helpers to avoid cut-n-paste in pipeline definition
+# Helpers to avoid cut-n-paste in pipeline definition.
 ci-prepare-testenv:
-	make -C $(TOP)$(LOCATION) pull-buildenv-image all IMAGE_VERSION=latest
-	make -C $(TOP)$(LOCATION) testenv-image push-testenv-image IMAGE_VERSION=$(IMAGE_VERSION)
+	make -C $(TOP)$(LOCATION) pull-buildenv-image all
+	make -C $(TOP)$(LOCATION) testenv-image push-testenv-image
 
 ci-run-tests:
 	@# Note that we can get pod name from make, but to simplify the code we get it also from upstairs
-	make -C $(TOP)$(LOCATION) test-withk8s IMAGE_VERSION=$(IMAGE_VERSION)
+	make -C $(TOP)$(LOCATION) test-withk8s
 	kubectl wait --for=condition=Ready --timeout=2m $(POD_NAME)
 	kubectl logs -f $(POD_NAME)
 	@if [[ "$$(kubectl get ${POD_NAME} -o 'jsonpath={..terminated.exitCode}')" != "0" ]] ; then \

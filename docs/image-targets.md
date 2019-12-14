@@ -27,10 +27,19 @@ Dockerized build is using `buildenv-component-platform` images (i.e.`buildenv-km
 * `make push-buildenv-image` - rare op, updates buildenv image
 * `make -C tests buildenv-local-fedora` is a convenience target which extracts prerequisites (DNF package list and libstdc++ lib) from buildenv image and installs on on local box, thus allowing to run regular `make`
 
+### Image Versions
+
+We use the following environment (and Makefile) variables to control which versions are used:
+
+* `IMAGE_VERSION` - use this version (aka Docker tag) for all container images. Default is `latest`
+* `BUILDENV_IMAGE_VERSION` - use this version (aka Docker tag) for all buildenv images. Default is `IMAGE_VERSION`
+
+For example, if IMAGE_VERSION is set to `myver`, then defaut for all buidlenv images will also be `myver`. If you want to use latest buldenv images with `myver` of test images, also et BUILDENV_IMAGE_VERSION to *latest*
+
 ### Testing in docker container, locally or remotely
 
 * `make testenv-image` - image with test environment - i.e. stuff needed for testing - bats code, /bin/time, timeout, etc.. (note: currently is *FROM buildenv*, can be scaled down if needed - since it's the only one pushed to Kubernetes for testing)
-* `make push-testenv-image` - pushes test image to registry. Since all test images are different, **we require to pass IMAGE_VERSION=version** for this target to work. **Version* can be SHA. or buildID, or other unique tag to diffirentiate images - e.g. CI uses `make testenv-image IMAGE_VERSION=CI-$(BuildId)`. We will block *:latest* tag to avoid accidental conflicts.
+* `make push-testenv-image` - pushes test image to registry. Since all test images are different, **we require to pass IMAGE_VERSION=version** for this target to work. **Version* can be SHA. or buildID, or other unique tag to diffirentiate images - e.g. CI uses `make testenv-image IMAGE_VERSION=ci-$(BuildId)`. We will block *:latest* tag to avoid accidental conflicts.
 
 To run full test in Docker container (based on testenv-image) we provide 2 simple wrappers:
 
@@ -42,7 +51,7 @@ To run full test in Docker container (based on testenv-image) we provide 2 simpl
 All images are named `kontain/name-component-platform:version`.
 
 * Version default  is `latest` for buildenv images e.g. `kontain/buildenv-km-fedora:latest`.
-* Names are `buildenv` for build environment and `test` for test images - e.g `kontain/buildenv-km-fedora` or `kontain/buildenv-node-fedora` or `kontain/test-km-fedora:CI-512`
+* Names are `buildenv` for build environment and `test` for test images - e.g `kontain/buildenv-km-fedora` or `kontain/buildenv-node-fedora` or `kontain/test-km-fedora:ci-512`
 * **Push operations adds Docker image name alias (aka tag) pointing to to target registry, pushes and then clear the tag**. e.g. image `kontain/image:latest` will be tagged as `kontainkubecr.azurecr.io/image:latest` before push.
 * Pull does the opposite (pulls, then re-tags to `kontain/`)
 

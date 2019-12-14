@@ -5,7 +5,7 @@
 # m4 -D NAME=pod-name -D IMAGE=full-image-name -D COMMAND=command-to-run | kubectl apply -f -
 #
 # e.g.
-# IMAGE=kontainkubecr.azurecr.io/test-km-fedora:CI-781
+# IMAGE=kontainkubecr.azurecr.io/test-km-fedora:ci-781
 # NAME=test-km-fedora-ci-781
 # COMMAND='"run_bats_tests.sh", "--km=/tests/km"'
 #
