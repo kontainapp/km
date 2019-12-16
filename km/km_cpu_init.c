@@ -239,12 +239,14 @@ km_vcpu_t* km_vcpu_get(void)
             __atomic_store_n(&machine.vm_vcpus[i], NULL, __ATOMIC_SEQ_CST);
             break;
          }
+         km_gdb_vcpu_state_init(new);
          return new;
       }
       // if (machine.vm_vcpus[i].is_used == 0) ...is_used = 1;
       unused = 0;
       if (__atomic_compare_exchange_n(&old->is_used, &unused, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
          free(new);   // no need, reusing an existing one
+         km_gdb_vcpu_state_init(old);
          return old;
       }
    }
@@ -402,6 +404,8 @@ void km_vcpu_put(km_vcpu_t* vcpu)
    vcpu->is_paused = 0;
    // vcpu->is_used = 0;
    __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_used, 0, __ATOMIC_SEQ_CST);
+
+   vcpu->gdb_vcpu_state.gvs_gdb_run_state = GRS_RUNNING;
 }
 
 /*

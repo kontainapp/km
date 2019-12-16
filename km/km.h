@@ -67,6 +67,35 @@ typedef struct km_signal_list {
 
 typedef unsigned long int pthread_tid_t;
 
+/*
+ * KM threads are synonymous with vcpu's.  gdb controls the running state
+ * of these and hence the underlying vcpu.  This enum describes the state
+ * the vcpu can be in as a result of what gdb tells us to do with each
+ * thread with the vCont command.
+ * This reflects the state that gdb would like the vcpu to be in once the
+ * process is told to resume execution with the vCont command.
+ * With one exception and that is a vcpu becomes parked as a result of a
+ * thread exiting leaving the vcpu idle.  gdb does not put threads into
+ * parked state or move them back into an unparked state.
+ */
+typedef enum {
+   GRS_NONE,             // no state has been assigned
+   GRS_PARKED,           // this vcpu is parked waiting to be reused
+   GRS_PAUSED,           // this vcpu is paused by gdb
+   GRS_STEPPING,         // this vcpu is single stepping
+   GRS_RANGESTEPPING,    // this vcpu is stepping through a range of addresses
+   GRS_RUNNING,          // this vcpu is running
+} gdb_run_state_t;
+
+/*
+ * gdb related state stored in the km_vcpu_t.
+ */
+typedef struct {
+   gdb_run_state_t gvs_gdb_run_state; // parked, paused, stepping, running
+   km_gva_t gvs_steprange_start;      // beginning address of the address range to step through
+   km_gva_t gvs_steprange_end;        // end address of the address range to step through
+} gdb_vcpu_state_t;
+
 typedef struct km_vcpu {
    int vcpu_id;                   // uniq ID
    int kvm_vcpu_fd;               // this VCPU file descriptor
@@ -81,7 +110,6 @@ typedef struct km_vcpu {
    int gdb_efd;                   // gdb uses this to synchronize with VCPU thread
    int is_used;                   // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
-   int remain_paused;             // 1 means this vcpu stays paused when gdbserver starts vcpu's
    pthread_tid_t joining_pid;     // pid if currently joining another thread pid, -1 if not
    km_gva_t exit_res;             // exit status for this thread
    int regs_valid;                // Are registers valid?
@@ -90,17 +118,17 @@ typedef struct km_vcpu {
    kvm_sregs_t sregs;             // Cached segment register values.
    km_sigset_t sigmask;           // blocked signals for thread
    km_signal_list_t sigpending;   // List of signals sent to thread
+
    /*
     * Linux/Pthread handshake hacks. These are actually part of the standard.
-    *
     */
-   km_gva_t set_child_tid;     // See 'man 2 set_child_tid' for details
-   km_gva_t clear_child_tid;   // See 'man 2 set_child_tid' for details
+   km_gva_t set_child_tid;        // See 'man 2 set_child_tid' for details
+   km_gva_t clear_child_tid;      // See 'man 2 set_child_tid' for details
+
    uint64_t dr_regs[4];           // remember the addresses we are watching and have written into
                                   // the processor's debugging facilities in DR0 - DR3.
-   uint8_t rangestepping;         // if true the vcpu is stepping through a range of addresses
-   km_gva_t steprange_start;      // beginning address of the address range to step through
-   km_gva_t steprange_end;        // end address of the address range to step through
+
+   gdb_vcpu_state_t gdb_vcpu_state; // gdb's per thread (vcpu) state.
 } km_vcpu_t;
 
 /*

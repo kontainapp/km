@@ -87,6 +87,7 @@ typedef enum {
 // Some pseudo signals that will be beyond the range of valid gdb signals.
 #define GDB_SIGNAL_LAST 1000   // arbitarily chosen large value
 #define GDB_KMSIGNAL_KVMEXIT (GDB_SIGNAL_LAST + 20)
+#define GDB_KMSIGNAL_THREADEXIT (GDB_SIGNAL_LAST + 21)
 
 #define KM_TRACE_GDB "gdb"
 
@@ -96,6 +97,7 @@ extern int km_gdb_enable_ss(void);
 extern int km_gdb_disable_ss(void);
 extern int km_gdb_add_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
 extern int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
+extern void km_gdb_vcpu_state_init(km_vcpu_t*);
 
 /*
  * Registers layout for send/receve to gdb. Has to match what gdb expects.
@@ -185,7 +187,7 @@ extern int km_gdb_wait_for_connect(const char* image_name);
 extern void km_gdb_main_loop(km_vcpu_t* main_vcpu);
 extern void km_gdb_fini(int ret);
 extern void km_gdb_start_stub(char* const payload_file);
-extern void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo);
+extern void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait);
 extern char* mem2hex(const unsigned char* mem, char* buf, size_t count);
 extern void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len);
 extern int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, uint64_t unused);
