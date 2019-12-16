@@ -60,7 +60,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-tests=${tests:-"km_core_tests.bats km_so_tests.bats"}
+tests=${tests:-"km_core_tests.bats km_so_tests.bats km_dyn_tests.so"}
 match=${match:-'.*'}
 time_info_file=${time_info_file:-/tmp/km_test_time_info_$$}
 pretty=${pretty:--t}
