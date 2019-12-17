@@ -35,6 +35,7 @@ else
 fi
 if [[ $# -eq 0 ]] ; then exec "${REALGCC}" ; fi
 
+set -x
 cat <<EOF > ${TMP_SPEC}
 %rename link old_link
 
