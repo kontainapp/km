@@ -445,7 +445,11 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
    if (ga > vcpu->stack_top) {
       ga -= 4 * GIB;
    }
-   km_infox(KM_TRACE_HC, "hc = %d (%s)", *hc, km_hc_name_get(*hc));
+   km_infox(KM_TRACE_HC, "%s: vcpu %d, calling hc = %d (%s)",
+            __FUNCTION__,
+            vcpu->vcpu_id,
+            *hc,
+            km_hc_name_get(*hc));
    km_kma_t ga_kma;
    if ((ga_kma = km_gva_to_kma(ga)) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
       siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
@@ -546,6 +550,10 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
             __FUNCTION__,
             vcpu->vcpu_id,
             vcpu->is_paused);
+   if (vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED) {
+      km_infox(KM_TRACE_VCPU, "%s: starting vcpu %d but gdb_run_state is PAUSED?", __FUNCTION__, vcpu->vcpu_id);
+      abort();
+   }
    rc = ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
    km_infox(KM_TRACE_VCPU,
             "%s: vcpu %d, is_paused %d, ioctl( KVM_RUN ) returned %d",
@@ -584,7 +592,7 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
                machine.pause_requested = 1;
                return -1;
             } else {
-               km_gdb_notify_and_wait(vcpu, info.si_signo);
+               km_gdb_notify_and_wait(vcpu, info.si_signo, true);
             }
          }
          break;
@@ -613,6 +621,28 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
    return -1;
 }
 
+/*
+ * Return 1 if the passed vcpu has been running or stepping.
+ * Return 0 if the passed vcpu has been paused.
+ * Skip the vcpu whose id matches me.
+ */
+int km_vcpu_is_running(km_vcpu_t* vcpu, uint64_t me)
+{
+   if (vcpu == (km_vcpu_t*)me) {
+      // Don't count this vcpu
+      return 0;
+   }
+   return (vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED) ? 0 : 1;
+}
+
+/*
+ * If the passed vcpu is allocated return 1, else return 0.
+ */
+static int km_vcpu_count_allocated(km_vcpu_t* vcpu, uint64_t unused)
+{
+   return vcpu->is_used != 0;
+}
+
 void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int hc;
@@ -632,6 +662,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          km_read_registers(vcpu);
          km_read_sregisters(vcpu);
          km_wait_on_eventfd(vcpu->gdb_efd);
+         km_infox(KM_TRACE_VCPU, "%s: vcpu %d unblocked, pause_requested %d", __FUNCTION__, vcpu->vcpu_id, machine.pause_requested);
       }
 
       /*
@@ -656,11 +687,54 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_IO:
             switch (hypercall(vcpu, &hc)) {
                case HC_CONTINUE:
+                  km_infox(KM_TRACE_VCPU,
+                           "%s: vcpu %d, return from hc = %d (%s), gdb_run_state %d, pause_requested %d",
+                           __FUNCTION__,
+                           vcpu->vcpu_id,
+                           hc,
+                           km_hc_name_get(hc),
+                           vcpu->gdb_vcpu_state.gvs_gdb_run_state,
+                           machine.pause_requested);
+                  if (km_gdb_is_enabled() == 1 &&
+                      vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED &&
+                      machine.pause_requested == 0) {
+                     /*
+                      * This thread was put into pause state while it was inside of a
+                      * hypercall.  gdb server uses SIGUSR1 to get payload threads out
+                      * of ioctl( KVM_RUN ) but threads in hypercall may not be interrupted
+                      * and will finish what they are doing only to emerge and discover
+                      * they have been paused by gdb.  We detect that situation here and
+                      * pause until gdb server lets us go again.
+                      */
+                     km_wait_on_eventfd(vcpu->gdb_efd);
+                  }
                   break;
 
                case HC_STOP:
-                  // This thread has executed pthread_exit() or exit() and is terminating.
+                  /*
+                   * This thread has executed pthread_exit() or SYS_exit and is terminating.
+                   * If there is more than one thread and all of the other threads are
+                   * paused we need to let gdb know that this thread is gone so that it
+                   * can give the user a chance to get at least one of the other threads
+                   * going.
+                   * We need to wake gdb before calling km_vcpu_exit() because km_vcpu_exit()
+                   * will block until a new thread is created and reuses this vcpu.
+                   */
                   run_infox("KVM: hypercall %d stop", hc);
+                  if (km_gdb_is_enabled() != 0) {
+                     if (km_vcpu_apply_all(km_vcpu_count_allocated, 0) > 1 &&
+                         km_vcpu_apply_all(km_vcpu_is_running, (uint64_t)vcpu) == 0) {
+                        /*
+                         * We notify gdb but don't wait because we need to go on and park the
+                         * vcpu by calling km_vcpu_exit().  Note that the gdb server
+                         * sometimes depends on knowing a vcpu is idle, so we do have a bit
+                         * of a race here if the gdb server wakes up before this thread can
+                         * mark the vcpu as unused.  Should we set vcpu->is_used = 0 here?
+                         */
+                        vcpu->cpu_run->exit_reason = KVM_EXIT_DEBUG;
+                        km_gdb_notify_and_wait(vcpu, GDB_KMSIGNAL_THREADEXIT, false /* don't wait */);
+                     }
+                  }
                   km_vcpu_exit(vcpu);
                   break;
 
@@ -701,8 +775,9 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                 * gdb server thread.
                 * If we hit a breapoint planted in the stepping range we exit to gdb.
                 */
-               if (vcpu->rangestepping && vcpu->cpu_run->debug.arch.pc >= vcpu->steprange_start &&
-                   vcpu->cpu_run->debug.arch.pc < vcpu->steprange_end &&
+               if (vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_RANGESTEPPING &&
+                   vcpu->cpu_run->debug.arch.pc >= vcpu->gdb_vcpu_state.gvs_steprange_start &&
+                   vcpu->cpu_run->debug.arch.pc < vcpu->gdb_vcpu_state.gvs_steprange_end &&
                    (vcpu->cpu_run->debug.arch.dr6 & 0x4000) != 0) {
                   continue;
                }
@@ -713,7 +788,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                 * vcpu's kvm_run structure to figure out what has happened so that it can generate
                 * the correct gdb stop reply.
                 */
-               km_gdb_notify_and_wait(vcpu, GDB_KMSIGNAL_KVMEXIT);
+               km_gdb_notify_and_wait(vcpu, GDB_KMSIGNAL_KVMEXIT, true);
             } else {
                // gdb is not attached, we shouldn't be seeing a debug exit?
                run_warn("KVM: vcpu debug exit without gdb?");
@@ -723,7 +798,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
          case KVM_EXIT_EXCEPTION:
             if (km_gdb_is_enabled() == 1) {
-               km_gdb_notify_and_wait(vcpu, km_signal_ready(vcpu));
+               km_gdb_notify_and_wait(vcpu, km_signal_ready(vcpu), true);
             } else {
                run_warn("KVM: exit vcpu. reason=%d (%s)", reason, kvm_reason_name(reason));
                km_vcpu_exit(vcpu);
