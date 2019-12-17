@@ -699,13 +699,13 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                       vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED &&
                       machine.pause_requested == 0) {
                      /*
-                      * Some system calls are not interruptible.  So sending a SIGUSR1
-                      * doesn't cause such a thread to pause when gdb requests it.
-                      * The system call finishes and we end up here.  We decide if
-                      * this thread should be paused and then just wait for gdb
-                      * to let us go.
+                      * This thread was put into pause state while it was inside of a
+                      * hypercall.  gdb server uses SIGUSR1 to get payload threads out
+                      * of ioctl( KVM_RUN ) but threads in hypercall may not be interrupted
+                      * and will finish what they are doing only to emerge and discover
+                      * they have been paused by gdb.  We detect that situation here and
+                      * pause until gdb server lets us go again.
                       */
-                     vcpu->is_paused = 1;
                      km_wait_on_eventfd(vcpu->gdb_efd);
                   }
                   break;

@@ -404,8 +404,6 @@ void km_vcpu_put(km_vcpu_t* vcpu)
    vcpu->is_paused = 0;
    // vcpu->is_used = 0;
    __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_used, 0, __ATOMIC_SEQ_CST);
-
-   vcpu->gdb_vcpu_state.gvs_gdb_run_state = GRS_RUNNING;
 }
 
 /*

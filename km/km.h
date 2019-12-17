@@ -68,23 +68,21 @@ typedef struct km_signal_list {
 typedef unsigned long int pthread_tid_t;
 
 /*
- * KM threads are synonymous with vcpu's.  gdb controls the running state
- * of these and hence the underlying vcpu.  This enum describes the state
- * the vcpu can be in as a result of what gdb tells us to do with each
- * thread with the vCont command.
- * This reflects the state that gdb would like the vcpu to be in once the
- * process is told to resume execution with the vCont command.
- * With one exception and that is a vcpu becomes parked as a result of a
- * thread exiting leaving the vcpu idle.  gdb does not put threads into
- * parked state or move them back into an unparked state.
+ * This enum describes states gdb can assign to a thread with the vCont
+ * remote protocol command.
+ * This defines what state the gdb client would like the thread to be
+ * in when the payload is "running".
+ * It may seem that there is overlap between the gdb state of a thread
+ * and the vcpu's state as defined in km_vcpu but gdb_run_state_t just
+ * defines gdb's intent for the thread whereas the km_vcpu state defines
+ * what the vcpu is currently doing.
  */
 typedef enum {
    GRS_NONE,             // no state has been assigned
-   GRS_PARKED,           // this vcpu is parked waiting to be reused
-   GRS_PAUSED,           // this vcpu is paused by gdb
-   GRS_STEPPING,         // this vcpu is single stepping
-   GRS_RANGESTEPPING,    // this vcpu is stepping through a range of addresses
-   GRS_RUNNING,          // this vcpu is running
+   GRS_PAUSED,           // gdb wants this thread paused
+   GRS_STEPPING,         // gdb wants this thread single stepping
+   GRS_RANGESTEPPING,    // gdb wants this thread stepping through a range of addresses
+   GRS_RUNNING,          // gdb wants this thread running
 } gdb_run_state_t;
 
 /*
