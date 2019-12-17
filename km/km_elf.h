@@ -29,13 +29,16 @@
  * in guest address space. We'll need to convert them to monitor (KM) addresses to acces.
  */
 typedef struct km_payload {
-   Elf64_Ehdr km_ehdr;          // elf file header
-   Elf64_Phdr* km_phdr;         // elf program headers
-   Elf64_Addr km_handlers;      // interrupt/exception handler
-   Elf64_Addr km_sigreturn;     // signal trampoline function
-   Elf64_Addr km_clone_child;   // clone child trampoline function
-   Elf64_Addr km_load_adjust;   // elf->guest vaddr adjustment
-   char* km_filename;
+   Elf64_Ehdr km_ehdr;           // elf file header
+   Elf64_Phdr* km_phdr;          // elf program headers
+   Elf64_Addr km_handlers;       // interrupt/exception handler
+   Elf64_Addr km_sigreturn;      // signal trampoline function
+   Elf64_Addr km_clone_child;    // clone child trampoline function
+   Elf64_Addr km_load_adjust;    // elf->guest vaddr adjustment
+   char* km_filename;            // elf file name
+   Elf64_Addr km_interp_vaddr;   // interpreter name vaddr (if exist)
+   Elf64_Off km_interp_len;      // interpreter name length (if exist)
+   Elf64_Addr km_min_vaddr;      // minimum vaddr
 } km_payload_t;
 
 typedef struct km_tls_module {

@@ -135,20 +135,43 @@ static inline int km_find_hook_symbols(Elf* e, km_gva_t adjust)
    return all_found;
 }
 
-static Elf* km_open_elf_file(char* name, int* fd)
+static Elf* km_open_elf_file(km_payload_t* payload, int* fd)
 {
    Elf* e;
-   if ((*fd = open(km_dynlinker_file, O_RDONLY, 0)) < 0) {
-      warn("open %s failed(dynlinker)", name);
+   if ((*fd = open(payload->km_filename, O_RDONLY, 0)) < 0) {
+      warn("open %s failed", payload->km_filename);
       return NULL;
    }
    if ((e = elf_begin(*fd, ELF_C_READ, NULL)) == NULL) {
-      warnx("elf_begin() failed: %s(dynlinker)", elf_errmsg(-1));
+      warnx("elf_begin() failed: %s", elf_errmsg(-1));
       return NULL;
    }
    if (elf_kind(e) != ELF_K_ELF) {
-      warnx("%s is not an ELF object(dynlinker)", name);
+      warnx("%s is not an ELF object", payload->km_filename);
       return NULL;
+   }
+   GElf_Ehdr* ehdr = &payload->km_ehdr;
+   if (gelf_getehdr(e, ehdr) == NULL) {
+      errx(2, "gelf_getehdr %s", elf_errmsg(-1));
+   }
+   if ((payload->km_phdr = malloc(sizeof(Elf64_Phdr) * ehdr->e_phnum)) == NULL) {
+      err(2, "no memory for elf program headers");
+   }
+
+   payload->km_min_vaddr = -1U;
+   for (int i = 0; i < ehdr->e_phnum; i++) {
+      GElf_Phdr* phdr = &payload->km_phdr[i];
+
+      if (gelf_getphdr(e, i, phdr) == NULL) {
+         errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
+      }
+      if (phdr->p_type == PT_LOAD && phdr->p_vaddr < payload->km_min_vaddr) {
+         payload->km_min_vaddr = phdr->p_vaddr;
+      }
+      if (phdr->p_type == PT_INTERP) {
+         payload->km_interp_vaddr = phdr->p_vaddr;
+         payload->km_interp_len = phdr->p_filesz;
+      }
    }
    return e;
 }
@@ -174,53 +197,21 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
 
    Elf* e;
    int fd;
-   fd = open(km_dynlinker.km_filename, O_RDONLY);
-   if (fd < 0) {
-      err(2, "open %s:", km_dynlinker.km_filename);
-   }
-   if ((fd = open(km_dynlinker_file, O_RDONLY, 0)) < 0) {
-      err(2, "open %s failed(dynlinker)", km_dynlinker_file);
-   }
-   if ((e = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
-      errx(2, "elf_begin() failed: %s(dynlinker)", elf_errmsg(-1));
-   }
-   if (elf_kind(e) != ELF_K_ELF) {
-      errx(2, "%s is not an ELF object(dynlinker)", km_dynlinker_file);
-   }
    GElf_Ehdr* ehdr = &km_dynlinker.km_ehdr;
-   if (gelf_getehdr(e, ehdr) == NULL) {
-      errx(2, "gelf_getehdr %s(dynlinker)", elf_errmsg(-1));
-   }
-   if ((km_dynlinker.km_phdr = malloc(sizeof(Elf64_Phdr) * ehdr->e_phnum)) == NULL) {
-      err(2, "no memory for elf program headers(dynlinker)");
-   }
-   km_gva_t min_vaddr = -1U;
-   for (int i = 0; i < ehdr->e_phnum; i++) {
-      GElf_Phdr* phdr = &km_dynlinker.km_phdr[i];
-
-      if (gelf_getphdr(e, i, phdr) == NULL) {
-         errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
-      }
-      if (phdr->p_type == PT_LOAD && phdr->p_vaddr < min_vaddr) {
-         min_vaddr = phdr->p_vaddr;
-      }
-   }
+   e = km_open_elf_file(&km_dynlinker, &fd);
+   assert(e != 0);
 
    km_gva_t base = km_mem_brk(0);
    if (base != roundup(base, KM_PAGE_SIZE)) {
       // What about wasted bytes between base and roundup(base)?
       base = km_mem_brk(roundup(base, KM_PAGE_SIZE));
    }
-   km_gva_t adjust = km_dynlinker.km_load_adjust = base - min_vaddr;
+   km_gva_t adjust = km_dynlinker.km_load_adjust = base - km_dynlinker.km_min_vaddr;
 
    km_find_hook_symbols(e, adjust);
 
    for (int i = 0; i < ehdr->e_phnum; i++) {
       GElf_Phdr* phdr = &km_dynlinker.km_phdr[i];
-
-      if (gelf_getphdr(e, i, phdr) == NULL) {
-         errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
-      }
       if (phdr->p_type == PT_LOAD) {
          load_extent(fd, phdr, base);
       }
@@ -241,8 +232,6 @@ uint64_t km_load_elf(const char* file)
    int fd;
    Elf* e;
    GElf_Ehdr* ehdr = &km_guest.km_ehdr;
-   Elf64_Addr interp_vaddr = 0;
-   Elf64_Xword interp_len = 0;
 
    if (elf_version(EV_CURRENT) == EV_NONE) {
       errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
@@ -252,44 +241,15 @@ uint64_t km_load_elf(const char* file)
       file = fn;
    }
    km_guest.km_filename = realpath(file, NULL);
-   assert(file != NULL);
-   if ((fd = open(file, O_RDONLY, 0)) < 0) {
-      err(2, "open %s failed", file);
-   }
-   if ((e = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
-      errx(2, "elf_begin() failed: %s", elf_errmsg(-1));
-   }
-   if (elf_kind(e) != ELF_K_ELF) {
-      errx(2, "%s is not an ELF object", file);
-   }
-   if (gelf_getehdr(e, ehdr) == NULL) {
-      errx(2, "gelf_getehdr %s", elf_errmsg(-1));
-   }
-   if ((km_guest.km_phdr = malloc(sizeof(Elf64_Phdr) * ehdr->e_phnum)) == NULL) {
-      err(2, "no memory for elf program headers");
-   }
+   assert(km_guest.km_filename != NULL);
+   e = km_open_elf_file(&km_guest, &fd);
 
-   km_gva_t min_vaddr = -1U;
-   for (int i = 0; i < ehdr->e_phnum; i++) {
-      GElf_Phdr* phdr = &km_guest.km_phdr[i];
-
-      if (gelf_getphdr(e, i, phdr) == NULL) {
-         errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
-      }
-      if (phdr->p_type == PT_LOAD && phdr->p_vaddr < min_vaddr) {
-         min_vaddr = phdr->p_vaddr;
-      }
-      if (phdr->p_type == PT_INTERP) {
-         interp_vaddr = phdr->p_vaddr;
-         interp_len = phdr->p_filesz;
-      }
-   }
-   km_gva_t adjust = GUEST_MEM_START_VA - min_vaddr;
+   km_gva_t adjust = GUEST_MEM_START_VA - km_guest.km_min_vaddr;
    /*
     * Read symbol table and look for symbols of interest to KM
     */
    km_find_hook_symbols(e, adjust);
-   if (interp_vaddr == 0 && (km_guest.km_handlers == 0 || km_guest.km_sigreturn == 0)) {
+   if (km_guest.km_interp_vaddr == 0 && (km_guest.km_handlers == 0 || km_guest.km_sigreturn == 0)) {
       errx(1,
            "Non-KM binary: cannot find interrupt handler%s or sigreturn%s. Trying to "
            "run regular Linux executable in KM?",
@@ -305,11 +265,11 @@ uint64_t km_load_elf(const char* file)
          load_extent(fd, phdr, adjust);
       }
    }
-   if (interp_vaddr != 0) {
-      load_dynlink(interp_vaddr, interp_len, adjust);
-   }
    (void)elf_end(e);
    (void)close(fd);
+   if (km_guest.km_interp_vaddr != 0) {
+      load_dynlink(km_guest.km_interp_vaddr, km_guest.km_interp_len, adjust);
+   }
    km_guest.km_load_adjust = adjust;
    return adjust;
 }
