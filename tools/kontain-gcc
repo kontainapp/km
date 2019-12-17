@@ -23,7 +23,7 @@ else
    LIB="-L ${PREFIX}/lib64 -L ${KM_TOP}/build/runtime"
    CRT="${KM_TOP}/build/runtime/musl/crt"
    SPEC="${KM_TOP}"
-   SHR_LIBC="-L${KM_TOP}/build/runtime libc.so.km"
+   SHR_LIBC="-L${KM_TOP}/build/runtime -L. libc.so.km"
 fi
 SHR_LIBSTDCPP=
 
