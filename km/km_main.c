@@ -55,7 +55,7 @@ static inline void usage()
         "\t--overcommit-memory                 - Allow huge address allocations for payloads.\n"
         "\t                                      See 'sysctl vm.overcommit_memory'\n"
         "\t--dynlinker=file_name               - Set dynamic linker file (default: "
-        "/opt/kontain/lib64/libc.so.km)\n"
+        "/opt/kontain/lib64/libc.so)\n"
 
         "\n\tOverride auto detection:\n"
         "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. "

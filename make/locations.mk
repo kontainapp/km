@@ -36,7 +36,7 @@ BLDDIR := ${BLDTOP}${FROMTOP}$(BLDTYPE)
 KM_BLDDIR := ${BLDTOP}km/$(BLDTYPE)
 KM_BIN := ${KM_BLDDIR}km
 RT_BLDDIR := ${BLDTOP}runtime/
-KM_LDSO := ${RT_BLDDIR}libc.so.km
+KM_LDSO := ${RT_BLDDIR}libc.so
 KM_LDSO_PATH := "/opt/kontain/lib64:/lib64
 
 # dockerized build

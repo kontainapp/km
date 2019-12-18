@@ -18,12 +18,12 @@ if [[ x${KM_TOP} == x${PREFIX}/* ]] ; then
    LIB="-L ${PREFIX}/lib64"
    CRT="${PREFIX}/lib64"
    SPEC="${PREFIX}/lib64"
-   SHR_LIBC="-L${PREFIX}/lib64 libc.so.km"
+   SHR_LIBC="-L${PREFIX}/lib64 libc.so"
 else
    LIB="-L ${PREFIX}/lib64 -L ${KM_TOP}/build/runtime"
    CRT="${KM_TOP}/build/runtime/musl/crt"
    SPEC="${KM_TOP}"
-   SHR_LIBC="-L${KM_TOP}/build/runtime -l:libc.so.km"
+   SHR_LIBC="-L${KM_TOP}/build/runtime -l:libc.so"
 fi
 SHR_LIBSTDCPP=
 
