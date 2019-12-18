@@ -182,8 +182,14 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
 {
    // Make sure interpreter string contains KM dynlink marker.
    char* interp_kma = km_gva_to_kma(interp_vaddr + interp_adjust);
-   assert(interp_kma != NULL);
-   assert(km_gva_to_kma(interp_vaddr + interp_adjust + interp_len - 1) != NULL);
+   if (interp_kma == NULL || km_gva_to_kma(interp_vaddr + interp_adjust + interp_len - 1) == NULL) {
+      errx(2,
+           "%s: PT_INTERP vaddr map error: vaddr=0x%lx len=0x%lx adjust=0x%lx",
+           __FUNCTION__,
+           interp_vaddr,
+           interp_len,
+           interp_adjust);
+   }
    if (strncmp(interp_kma, KM_DYNLINKER_STR, interp_len) != 0) {
       errx(2, "PT_INTERP does not contain km marker. expect:'%s' got:'%s'", KM_DYNLINKER_STR, interp_kma);
    }
@@ -192,14 +198,14 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    if (stat(km_dynlinker_file, &st) != 0) {
       err(2, "KM dynamic linker %s", km_dynlinker_file);
    }
-   assert(S_ISREG(st.st_mode));
    km_dynlinker.km_filename = km_dynlinker_file;
 
    Elf* e;
    int fd;
    GElf_Ehdr* ehdr = &km_dynlinker.km_ehdr;
-   e = km_open_elf_file(&km_dynlinker, &fd);
-   assert(e != 0);
+   if ((e = km_open_elf_file(&km_dynlinker, &fd)) == NULL) {
+      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, km_dynlinker.km_filename);
+   }
 
    km_gva_t base = km_mem_brk(0);
    if (base != roundup(base, KM_PAGE_SIZE)) {
@@ -240,8 +246,10 @@ uint64_t km_load_elf(const char* file)
       sprintf(fn, "%s.km", file);
       file = fn;
    }
-   km_guest.km_filename = realpath(file, NULL);
-   assert(km_guest.km_filename != NULL);
+   if ((km_guest.km_filename = realpath(file, NULL)) == NULL) {
+      err(2, "%s realpath failed: %s", __FUNCTION__, file);
+   }
+
    e = km_open_elf_file(&km_guest, &fd);
 
    km_gva_t adjust = GUEST_MEM_START_VA - km_guest.km_min_vaddr;
