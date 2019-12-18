@@ -22,6 +22,7 @@
 
 #include "km.h"
 #include "km_coredump.h"
+#include "km_elf.h"
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
@@ -53,6 +54,8 @@ static inline void usage()
         "including guest core dump\n"
         "\t--overcommit-memory                 - Allow huge address allocations for payloads.\n"
         "\t                                      See 'sysctl vm.overcommit_memory'\n"
+        "\t--dynlinker=file_name               - Set dynamic linker file (default: "
+        "/opt/kontain/lib64/libc.so.km)\n"
 
         "\n\tOverride auto detection:\n"
         "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. "
@@ -106,6 +109,7 @@ static struct option long_options[] = {
     {"verbose", optional_argument, 0, 'V'},
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
     {"version", no_argument, 0, 'v'},
+    {"dynlinker", required_argument, 0, 'L'},
 
     {0, 0, 0, 0},
 };
@@ -213,6 +217,9 @@ int main(int argc, char* const argv[])
          case 'v':
             show_version();
             break;
+         case 'L':
+            km_dynlinker_file = optarg;
+            break;
          case '?':
          default:
             usage();
@@ -230,8 +237,18 @@ int main(int argc, char* const argv[])
       err(1, "Failed to get main vcpu");
    }
    km_gva_t guest_args = km_init_main(vcpu, argc - optind, argv + optind, envc, envp);
-   if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry + adjust, guest_args, 0) != 0) {
-      err(1, "failed to set main vcpu to run");
+   if (km_dynlinker.km_filename != NULL) {
+      if (km_vcpu_set_to_run(vcpu,
+                             km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust,
+                             guest_args,
+                             0) != 0) {
+         err(1, "failed to set main vcpu to run");
+      }
+
+   } else {
+      if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry + adjust, guest_args, 0) != 0) {
+         err(1, "failed to set main vcpu to run");
+      }
    }
    if (wait_for_signal == 1) {
       warnx("Waiting for kill -SIGUSR1  %d", getpid());
