@@ -35,6 +35,8 @@ id_suffix = ".km.id"
 so_suffix = ".so"
 so_pattern = re.compile(r".*\W-o\W+.*\w+\.so")  # e.g.'some_stuff -o aaa/ddd/a.so'
 
+need_to_mung = True  # by default we munge the symnames
+
 # jinja2 template for generated .c file.
 #  FYI, jinja2 uses
 #    {% ... %} for Statements
@@ -68,6 +70,15 @@ static km_dl_symbol_t _km_symbols[] = { {% for sym in symbols %}
    { .name = NULL, .addr = NULL }
 };
 
+#ifdef USE_WEAK_ALIASES
+#define weak_alias(old, new) \
+	extern __typeof(old) new __attribute__((__weak__, __alias__(#old)))
+
+// Weak aliases for original symbols
+{% for sym in symbols %} weak_alias({{ sym.name_munged }}, {{ sym.name }});  {% endfor %}
+
+#endif /* USE_WEAK_ALIASES */
+
 // Registration info
 static km_dl_lib_reg_t _km_dl_lib = {
    .name = "{{ so }}", .id = "{{ so_id }}", .symtable = _km_symbols
@@ -98,12 +109,11 @@ makefile_template = """#
 #   builds .a for each .so
 #   links the result by passing .o files explicitly and .a files as -l
 
-# TODO: the line below relies on specific locations in the source tree, need to use 'git rev-parse' instead
+# TODO: the line below relies on specific locations in the source tree, need to use (and populate) /opt/kontain/include
 KM_RUNTIME_INCLUDES ?=  $(shell echo ${CURDIR} | sed 's-payloads/python/.*-runtime-')
 CFLAGS := -g -I$(KM_RUNTIME_INCLUDES)
 LINK_LINE_FILE := linkline_km.txt
 KM_LIB_EXT := .km.lib.a
-PYTHONTOP ?= .
 
 LIBS := {% for lib in libs %}\\\n\t{{ lib | replace(".so", "${KM_LIB_EXT}") }} {% endfor %}
 
@@ -115,7 +125,7 @@ all: $(SYMOBJ) $(LIBS)
 \t@for i in ${SYMOBJ} ${LIBS} ; \\
    do \\
      realpath $$i | sed 's-.*/cpython-.-' >> ${LINK_LINE_FILE} ; \\
-   done && echo Saved link line to ${CURDIR}/${LINK_LINE_FILE}
+   done && echo -e "Libs built successfully. Pass ${GREEN}@${CURDIR}/${LINK_LINE_FILE}${NOCOLOR} to ld for linking in"
 \t@if [[ ! -z "{{ ldflags }}" ]] ; then  echo {{ ldpaths }} {{ ldflags }} >>  ${CURDIR}/${LINK_LINE_FILE} ; fi
 
 clean:
@@ -129,12 +139,21 @@ clobber:
 \t\tid={{ line["id"] }} ; echo Processing library=$@ id=$$id; \\
 \t\tfor obj in $^ ; do \\
 \t\t\tmunged_obj="/tmp/$$(basename $${obj/.o/$$id.o})" ; cp $$obj $$munged_obj; ofiles="$$ofiles $$munged_obj" ; \\
-\t\t\tobjcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$munged_obj; \\
+\t\t\t{{ echo_if_no_mung }} objcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$munged_obj; \\
 \t\tdone && ar rv $@ $$ofiles && rm $$ofiles
 {% endfor %}
 
 # allows to do 'make print-varname'
 print-%  : ; @echo $* = $($*)
+
+# fancy prints
+ifeq (${PIPELINE_WORKSPACE},)
+RED := \033[31m
+GREEN := \033[32m
+YELLOW := \033[33m
+CYAN := \033[36m
+NOCOLOR := \033[0m
+endif
 """
 
 
@@ -169,7 +188,7 @@ def sym_blacklist(location):
     if BLACKLIST is not None:  # calculate it only once...
         return BLACKLIST
 
-    print(f"Checking {location} for blacklisted symbols")
+    # print(f"Checking {location} for blacklisted symbols")
     libs = [os.path.join(path, file)
             for path, _, files in os.walk(location)
             for file in files if file.endswith('.a') and not file.endswith('km.lib.a')]
@@ -192,7 +211,7 @@ def save_c_tables(so_full_path, so_id, symbols, suffix=so_suffix):
     Write C file with init symtables
     """
     file_name = so_full_path.replace(suffix, symbols_c_suffix)
-    print(f"Generating {file_name}")
+    # print(f"Generating {file_name}")
     with open(file_name, 'w') as f:
         template = jinja2.Template(symfile_template)
         f.write(template.render(so=os.path.basename(so_full_path),
@@ -237,7 +256,7 @@ def nm_get_symbols(location, so_file_name, extra_flags=["--dynamic"]):
     """
     Get symnames from 'nm'-produced output, i.e.a list of "address TYPE symname" lines.
     """
-    print(f"nm {so_file_name}")
+    # print(f"nm {so_file_name}")
     so_full_path_name = os.path.join(location, so_file_name)
     nm = subprocess.run(["nm", "--extern-only", "--defined-only"] + extra_flags + [so_full_path_name],
                         capture_output=True, encoding="utf-8")
@@ -258,8 +277,18 @@ def process_line(line, location, skip_list):
     'location' is where all relative paths are starting from
     """
     items = line.split()
+    # extend '@' files:
     try:
-        so_file_name = [i for i in items if i.endswith(so_suffix)][0]
+        extra_files = [i[1:] for i in items if i.startswith('@')]
+        for f in extra_files:
+            print(f"   Adding items from {f}")
+            with open(f, 'r') as file:
+                items += file.read().split('\n')
+    except:
+        pass  # ignore failures
+
+    try:
+        so_file_name = [i for i in items if i.endswith(so_suffix) and not i.startswith('-')][0]
     except:
         print(f"No.so files in line: '{items}'")
         return None
@@ -270,16 +299,15 @@ def process_line(line, location, skip_list):
     except:
         pass  # no '.' in name, we are good
     if basename in skip_list:
-        print(f"********* Skipping {basename}")
         return None
-    objs = ["${PYTHONTOP}/" + i for i in items if i.endswith(".o")]
+    objs = [i for i in items if i.endswith(".o")]
     so_full_path_name = os.path.join(location, so_file_name)
     id, so_name_munged = convert(so_full_path_name)
     meta_data = {"so": so_file_name, "id": id, "so_name_munged": so_name_munged, "objs": objs,
                  "ldflags": [i for i in items if good_l_flag(i)],
                  "ldpaths": [i[2:] for i in items if i.startswith("-L")]}
-    symbols = [{"name": n, "name_munged": n + id}
-               for n in nm_get_symbols(location, so_file_name) if n not in sym_blacklist(location)]
+    symbols = [{"name": n, "name_munged": n + id if need_to_mung else n}
+               for n in nm_get_symbols(location, so_file_name) if n not in sym_blacklist(location) and n.find('.') == -1]
     save_artifacts(meta_data, symbols, location)
     return meta_data
 
@@ -305,10 +333,12 @@ def process_file(file_name, skip_list):
     all_l_flags = reduce(lambda x, y: x + y, [i["ldflags"] for i in mk_info])
     all_l_pathes = reduce(lambda x, y: x + y, [i["ldpaths"] for i in mk_info])
 
-    # remove duplicates.
+    # remove duplicates and also remove cross-references to libs in the same package
+    # Get the list of libs in this package by converting /path/libNAME.so to NAME
+    already_in = ["-l" + os.path.splitext(os.path.basename(f["so"]))[0][3:] for f in mk_info]
     final = []
     for i in all_l_flags:
-        if not i in final:
+        if not i in final and not i in already_in:
             final.insert(0, i)
     finaL = []
     for i in all_l_pathes:
@@ -323,12 +353,13 @@ def process_file(file_name, skip_list):
                                 info=mk_info,
                                 symmap_suffix=symmap_suffix,
                                 ldflags=" ".join(final),
-                                ldpaths=ldpaths))
+                                ldpaths=ldpaths,
+                                echo_if_no_mung="" if need_to_mung else "true"))
     # Write all meta data used for makefile creation - for debug and log purposes
     mk_json_name = os.path.join(location, "dlstatic_km.mk.json")
     with open(mk_json_name, 'w') as f:
         f.write(json.dumps(mk_info, indent=3))
-    print(f"Build command:\nmake -C {location} -f {os.path.basename(mk_name)}")
+    print(f"Log analysis completed. To build, use this command:\nmake -C {location} -f {os.path.basename(mk_name)}")
 
 
 if __name__ == "__main__":
@@ -341,12 +372,16 @@ if __name__ == "__main__":
                         help='A file with new line separated names of modules to skip in the package being analyzed')
     parser.add_argument('--self', action="store_true",
                         help='[WIP] Generate tables for dlopen(NULL). build_out_file is .km file, e.g. python.km')
+    parser.add_argument('--no_mung', action="store_true",
+                        help='Skip symnames munging and use symbols as is ')
     args = parser.parse_args()
     file_name = args.build_out_file.name
     skip_list = ""
     if (args.skip):
         skip_list = [l for l in args.skip.read().split('\n') if not l.startswith('#') and len(l) > 1]
         print(f"Skipping list: {skip_list}")
+    if args.no_mung:
+        need_to_mung = False
     if args.self:
         print(f" build dlopen(null) tables for {file_name} in {os.path.curdir}")
         symbols = [{"name": n, "name_munged": n}
