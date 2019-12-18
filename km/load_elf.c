@@ -250,7 +250,9 @@ uint64_t km_load_elf(const char* file)
       err(2, "%s realpath failed: %s", __FUNCTION__, file);
    }
 
-   e = km_open_elf_file(&km_guest, &fd);
+   if ((e = km_open_elf_file(&km_guest, &fd)) == NULL) {
+      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, km_dynlinker.km_filename);
+   }
 
    km_gva_t adjust = GUEST_MEM_START_VA - km_guest.km_min_vaddr;
    /*
