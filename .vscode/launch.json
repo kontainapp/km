@@ -256,6 +256,61 @@
                "ignoreFailures": true
             }
          ]
+      },
+      {
+         "name": "Direct debugging of python.km scripts/...",
+         "type": "cppdbg",
+         "request": "launch",
+         "cwd": "${workspaceFolder}/payloads/python",
+         "program": "${workspaceFolder}/payloads/python/cpython/python.km",
+         "args": [
+            "set debug remote 0"
+         ],
+         "stopAtEntry": true,
+         "miDebuggerServerAddress": "localhost:2159",
+         "miDebuggerArgs": "--silent",
+         "debugServerPath": "${workspaceFolder}/build/km/km",
+         "debugServerArgs": "-g ${workspaceFolder}/payloads/python/cpython/python.km ${workspaceFolder}/payloads/python/${input:python_script}",
+         "serverLaunchTimeout": 60000,
+         "filterStderr": true,
+         "filterStdout": false,
+         "serverStarted": "GdbServerStubStarted",
+         "logging": {
+            "moduleLoad": false,
+            "trace": false,
+            "engineLogging": false,
+            "programOutput": true,
+            "exceptions": true,
+            "traceResponse": false
+         },
+         "environment": [],
+         "externalConsole": false,
+         "setupCommands": [
+            {
+               "description": "Enable pretty-printing for gdb",
+               "text": "-enable-pretty-printing",
+               "ignoreFailures": true
+            },
+            {
+               "description": "Make sure we stop somewhere",
+               "text": "b printf",
+               "ignoreFailures": false
+            }
+         ]
+      },
+      {
+         "name": "Python: prepare_extension.py",
+         "type": "python",
+         "request": "launch",
+         "program": "${workspaceFolder}/payloads/python/extensions/prepare_extension.py",
+         "console": "integratedTerminal",
+         "stopOnEntry": true,
+         "cwd": "${workspaceFolder}/payloads/python",
+         "args": [
+            "cpython/${input:python_module}bear.out",
+            "--skip",
+            "${workspaceFolder}/payloads/python/extensions/skip_builtins.txt"
+         ]
       }
    ],
    "inputs": [
@@ -286,6 +341,32 @@
             "exit_grp_test",
             "stray_test",
             "signal_test"
+         ]
+      },
+      {
+         "id": "python_module",
+         "description": "Python modules to test misc, things with",
+         "default": "falcon",
+         "type": "pickString",
+         "options": [
+            "Modules/falcon/",
+            "Modules/gevent/",
+            "Modules/numpy/",
+            "Modules/markupsafe/",
+            "/"
+         ]
+      },
+      {
+         "id": "python_script",
+         "description": "Python scripts to test things with",
+         "default": "scripts/km_debug.py",
+         "type": "pickString",
+         "options": [
+            "scripts/km_debug.py",
+            "scripts/micro_srv.py",
+            "scripts/hello_again.py",
+            "scripts/hello_loop_nosleep.py",
+            "scripts/hello_loop.py"
          ]
       }
    ]

@@ -111,7 +111,7 @@ clean:
 #
 # do not generate .d file for some targets
 #
-$(shell [[ "${MAKECMDGOALS}" =~ ^(clean|clobber|.*-image|print-.*|debugvars)$$ || "${MAKEFLAGS}" =~ "n" ]] )
+$(shell [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${MAKEFLAGS}" =~ "n" ]] )
 ifneq ($(.SHELLSTATUS),0)
 -include ${DEPS}
 endif

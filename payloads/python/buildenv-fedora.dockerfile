@@ -20,21 +20,32 @@ FROM kontain/buildenv-km-fedora AS buildenv-cpython
 ARG VERS
 
 RUN git clone https://github.com/python/cpython.git -b $VERS
-RUN cd cpython && ./configure
-COPY --chown=appuser:appuser Setup.local cpython/Modules/Setup.local
-RUN make -C cpython -W Modules/Setup.local -j`expr 2 \* $(nproc)`
+RUN cd cpython && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
 
+WORKDIR /home/$USER/cpython
+COPY extensions/ ../extensions/
+# prepare "default" .so extensions to be statically linked in, and save neccessary files
+RUN ../extensions/prepare_extension.py bear.out --skip ../extensions/skip_builtins.txt \
+   && files="dlstatic_km.mk build/temp.* `find build -name '*.km.*'` `find build -name '*\.so'`" ; \
+   tar cf - $files | (mkdir builtins; tar -C builtins -xf -)
+
+# Build the target image
 FROM kontain/buildenv-km-fedora
-ENV PYTHONTOP=/home/appuser/cpython
+ENV PYTHONTOP=/home/$USER/cpython
 #
 # The following copies two sets of artifacts - objects needed to build (link) python.km,
 # and the sets of files to run set of tests. The former is used by link-km.sh,
 # the latter is copied to the output by Makefile using NODE_DISTRO_FILES.
 #
-COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Lib/ cpython/Lib
-COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Modules/ cpython/Modules
+ARG BUILD_LOC="/home/$USER/cpython/build/lib.linux-x86_64-3.7/ /home/$USER/cpython/build/temp.linux-x86_64-3.7"
+
+RUN mkdir -p ${BUILD_LOC} && chown $USER ${BUILD_LOC}
+COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/builtins cpython/
+COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Lib/ cpython/Lib/
+COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Modules/ cpython/Modules/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py \
    cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py
+COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/build/temp.linux-x86_64-3.7 cpython/build/temp.linux-x86_64-3.7/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Programs/python.o cpython/Programs/python.o
-COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/libpython3.7m.a cpython
-COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/pybuilddir.txt cpython
+COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/libpython3.7m.a cpython/
+COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/pybuilddir.txt cpython/

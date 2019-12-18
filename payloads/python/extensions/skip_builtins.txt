@@ -1,0 +1,25 @@
+#
+# Builtin .so modules (built with setup.py during cpython make)
+# which we want to ignore
+#
+
+# we need libuuid.a for this
+_uuid
+
+_curses
+_curses_panel
+readline
+termios
+xxlimited
+_xxtestfuzz
+_multibytecodec
+audioop
+ossaudiodev
+_codecs_kr
+_codecs_jp
+_codecs_cn
+_codecs_tw
+_codecs_hk
+_codecs_iso2022
+_sqlite3
+

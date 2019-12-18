@@ -1,5 +1,17 @@
 # Notes on Python Import
 
+
+***THE TEXT BELOW IS STALE AND NEEDS UPDATE**
+
+This is why:
+
+* we do not use Setup.local anymore
+* instead we  analyze .so files and generate statically linked tables
+* see python/extensions
+
+-----
+
+
 Imports of pure python modules are handled by the `cpython` interpreter using simple `read(2)`. Imports of binary extensions use `dlopen(3)` to dynamically load new functionality. The binary extensions that are Python built-ins and standard libraries are included with in the `cpython` source and are built automatically built automatically.
 
 Kontain's approach is static linking, so the `dlopen(3)` approach for extensions doesn't work for us. There isn't a problem for built-ins and standard library extensions because `cpython` knows how to statically link. This is a problem for add-on packages that are designed to create one or more shared libraries.
