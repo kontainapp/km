@@ -48,9 +48,9 @@ Note: the `-o` value for `add-symbol-file` is the virtual address of offset 0 fo
 (gdb) bt
 #0  0x00007ffffafb0513 in div0 (optind=2, argc=2, argv=0xffff81fd)
     at stray_test.c:110
-#1  0x00007ffffafb0394 in main (argc=argc@entry=2, 
+#1  0x00007ffffafb0394 in main (argc=argc@entry=2,
     argv=argv@entry=0x7fffffdfde70) at stray_test.c:321
-#2  0x0000000000214a8a in libc_start_main_stage2 (main=0x7ffffafb0210 <main>, 
+#2  0x0000000000214a8a in libc_start_main_stage2 (main=0x7ffffafb0210 <main>,
     argc=2, argv=0x7fffffdfde70) at musl/src/env/__libc_start_main.c:94
 #3  0x00007ffffafb0414 in _start ()
 #4  0x0000000000000003 in ?? ()
@@ -58,7 +58,7 @@ Note: the `-o` value for `add-symbol-file` is the virtual address of offset 0 fo
 #6  0x00007fffffdfdfbd in ?? ()
 #7  0x00007fffffdfdfcb in ?? ()
 #8  0x0000000000000000 in ?? ()
-(gdb) 
+(gdb)
 ```
 
 ## C++ Support
@@ -110,18 +110,37 @@ bash configure --enable-headless-only --disable-warnings-as-errors --with-native
 make
 ```
 
-Assumes jdk is a subdirectory of km.
+Assumes jdk is a subdirectory sibling to km.
 
 Link Java Launcher:
 ```
+
 #!/bin/bash
-  
-export BUILD=`pwd`/build/linux-x86_64-server-release 
-../km/tools/kontain-gcc -shared -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -L${BUILD}/support/modules_libs/java.base -o ${BUILD}/support/native/java.base/java_objs/java.so ${BUILD}/support/native/java.base/java/main.o -ljli -lpthread -ldl
+
+BUILD=build/linux-x86_64-server-release
+
+# /bin/gcc -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -L/home/serge/workspace/jdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o /home/serge/workspace/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java /home/serge/workspace/jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -lz -ljli -lpthread -ldl
+
+/home/serge/workspace/km/tools/kontain-gcc -shared -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -L/home/serge/workspace/jdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o /home/serge/workspace/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java.so /home/serge/workspace/jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -ljli -lpthread -ldl
+
+/home/serge/workspace/km/tools/kontain-gcc -rdynamic -Wl,--rpath=/opt/kontain/lib64:/lib64:build/linux-x86_64-server-release/jdk/lib:build/linux-x86_64-server-release/jdk/lib/server -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -L/home/serge/workspace/jdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o /home/serge/workspace/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java.kmd /home/serge/workspace/jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -ljli -lpthread -ldl
+
+# /home/serge/workspace/km/tools/kontain-gcc -shared -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -L/home/serge/workspace/jdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o /home/serge/workspace/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java /home/serge/workspace/jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -lz ./build/linux-x86_64-server-release/jdk/lib/libjli.so -lpthread -ldl
+
+cp /home/serge/workspace/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java.so /home/serge/workspace/jdk/build/linux-x86_64-server-release/jdk/bin
+cp /home/serge/workspace/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java.kmd /home/serge/workspace/jdk/build/linux-x86_64-server-release/jdk/bin
 ```
 
+Run .kmd:
+
 ```
-../km/build/km/km ../km/build/runtime/libc.so.km --library-path=/opt/kontain/lib64:$cwd/build/linux-x86_64-server-release/jdk/lib -- build/linux-x86_64-server-release/support/native/java.base/java_objs/java.so
+../km/build/km/km --dynlinker=../km/build/runtime/libc.so.km ./build/linux-x86_64-server-release/jdk/bin/java.kmd -Xms80m Hello
+```
+
+Run .so as before:
+
+```
+../km/build/km/km ../km/build/runtime/libc.so.km --library-path=/opt/kontain/lib64:/lib64:$cwd/build/linux-x86_64-server-release/jdk/lib:$cwd/build/linux-x86_64-server-release/jdk/lib/server -- build/linux-x86_64-server-release/support/native/java.base/java_objs/java.so -Xms80m Hello
 ```
 
 `--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
