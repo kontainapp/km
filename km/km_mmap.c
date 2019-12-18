@@ -818,6 +818,19 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       phnum++;
    }
    end_load += km_guest.km_load_adjust;
+   if (km_dynlinker.km_filename != NULL) {
+      for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
+         if (km_dynlinker.km_phdr[i].p_type != PT_LOAD) {
+            continue;
+         }
+         km_gva_t pend = km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_phdr[i].p_memsz;
+         if (pend > end_load) {
+            end_load = pend;
+         }
+
+         phnum++;
+      }
+   }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {
          continue;
@@ -847,6 +860,19 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
                                 km_guest.km_phdr[i].p_flags);
       offset += km_guest.km_phdr[i].p_memsz;
    }
+   if (km_dynlinker.km_filename != NULL) {
+      for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
+         if (km_dynlinker.km_phdr[i].p_type != PT_LOAD) {
+            continue;
+         }
+         km_core_write_load_header(fd,
+                                   offset,
+                                   km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust,
+                                   km_dynlinker.km_phdr[i].p_memsz,
+                                   km_dynlinker.km_phdr[i].p_flags);
+         offset += km_dynlinker.km_phdr[i].p_memsz;
+      }
+   }
    // Headers for MMAPs
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       // translate mmap prot to elf access flags.
@@ -874,6 +900,16 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       km_guestmem_write(fd,
                         km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
                         km_guest.km_phdr[i].p_memsz);
+   }
+   if (km_dynlinker.km_filename != NULL) {
+      for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
+         if (km_dynlinker.km_phdr[i].p_type != PT_LOAD) {
+            continue;
+         }
+         km_guestmem_write(fd,
+                           km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust,
+                           km_dynlinker.km_phdr[i].p_memsz);
+      }
    }
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
       if (ptr->protection == PROT_NONE) {
