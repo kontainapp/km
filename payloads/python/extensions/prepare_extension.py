@@ -40,8 +40,7 @@ so_pattern = re.compile(r".*\W-o\W+.*\w+\.so")  # e.g.'some_stuff -o aaa/ddd/a.s
 #    {% ... %} for Statements
 #    {{ ... }} for Expressions to print to the template output
 #    {# ... #} for Comments not included in the template output
-symfile_template = """
-/*
+symfile_template = """/*
  * GENERATED FILE. DO NOT EDIT.
  *
  * Copyright © 2019 Kontain Inc. All rights reserved.

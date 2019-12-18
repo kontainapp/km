@@ -41,20 +41,21 @@ On the next step, we call `../link-km.sh`. The link script will invoke `build_ex
     * .o file per each .so file with registration and tables
     * .txt file for each package - this is ld-file (passed as `@file` to ld line) which linked in the package
   * Passes a list of to-be-linked packages to `link-km.sh` which generates python.km
-  * copies .id files (the ones with md5 digest) from build (Modules) to Lib (run time). id file is used when dlopen(file) needs to find file by uniqie id in registration list - and the ID is kept in file.km.id
+  * copies .id files (one file per original.so; .id files contain MD5 signature for .so and are created earlier, when analyzing build log). The files are copied from build (Modules) to Lib (run time). id file is used when dlopen(file) needs to find file by uniqie id in registration list - and the ID is kept in file.km.id
 
 ## Using 'fake' dlopen in the payload
 
-dlopen/dlsym called from the payload is  routed to our code (not musl) which scans symbols tables and fakes dynamic dlsym by returning link-time defined addresses. See dlstatic_km.c in runtime/
+Our `dlsym()` does the same thing as the real one - retuns the address of the funtion to be called. `dlopen()` is faked by pre-linking, so it always behaves a if it is the second call to dlopen() of the same .so.
+See dlstatic_km.c in runtime.
 
-### More details on the  steps , files and makefile
+### More details on the  steps, files and makefile
 
 * Multiple .so can have conflicting symbol names. e.g. python *numpy* has a few of those
-  * To avoid the conflicts, we generate a unique id for each .so and then mangle the symbols references with this id (we keep the string name for dlsym untouched)
+  * The function names that are linked in the code are mangled to avoid conflicts. Since the symbolic names in the tables for dlsym are clear text, and that can overlap between different .so, the code using it tells the difference by handle returned from dlopen.
   * symnames can certainly overlap between different .so
   * We use md5digest of the freshly built .so as id for this .so
-* .so can have the same name in different dirs, even in the same package. e.g. python *falcon* has 2 *url.so*.
-  * To avoid the conflict, we registes bith .so name and .so name + md5 digest, and during dlopen() will be looking for the latter only if the former is not unique.
+* There are different shared libraries with the same basename but different paths (sometimes even in the same package. e.g. python *falcon* has 2 *url.so*).
+  * To avoid the conflict, we register both .so name and .so name + md5 digest, and during dlopen() will be looking for the latter only if the former is not unique.
 * We add _km to symbols and .km patterns to files just to make it easier to grep
 * We *Generate the following per .so*  (`base` is filename stripped of .so suffix e.g. libffmpeg for libffmpeg.so.
   * base.km.json file is created side by side with .so,  with metadata: so_name, md5digest, .o names, and symbols , FFU.
@@ -78,13 +79,15 @@ For numpy a few simple functions were called to make sure the call flow is good.
   * for some modules. names are converted, i.g. 'pillow' is PIL in Lib.
   * some .so are placed directly under Libs (not Libs/Module), e.g. greenlet, pvectorc, kiwi (kiwisolver)
 * LD_LIBRARY_PATH and LD_PRELOAD need to be handled
-* dlopen() flags need to be handled or at least reacted to. E.g. GLOBAL is not supporte
+* dlopen() flags need to be handled or at least reacted to. E.g. GLOBAL is not supported
 * dlinfo()
 * blacklists should be per module
   * get blacklist out of prepare_extension.py, and make it either auto-generated from -l. or better, simply special files in repo
 * use requirments.txt and 'pip3 freeze' format to get the lists of modules
-* dependent packages  CHECK is MISSING - e.g. django brings int tons of stuff, each has to be manually added to modules.txt as of now
+* dependent packages  CHECK is MISSING - e.g. django brings in tons of stuff, each has to be manually added to modules.txt as of now
+
 Also:
+
 * Add sqlite module
 * test with something other than Python
 * review generalization - what is Python specific, what needs to be separated
