@@ -19,7 +19,7 @@ ARG branch
 
 ENV TIME_INFO /tests/time_info.txt
 ENV KM_BIN /tests/km
-ENV KM_LDSO /tests/libc.so.km
+ENV KM_LDSO /tests/libc.so
 ENV KM_LDSO_PATH /opt/kontain/lib64:/lib64
 ENV BRANCH=${branch}
 

@@ -27,7 +27,7 @@
 
 km_payload_t km_guest;
 km_payload_t km_dynlinker;
-char* km_dynlinker_file = "/opt/kontain/lib64/libc.so.km";
+char* km_dynlinker_file = "/opt/kontain/lib64/libc.so";
 
 static void my_mmap(int fd, void* buf, size_t count, off_t offset)
 {
@@ -242,7 +242,8 @@ uint64_t km_load_elf(const char* file)
    if (elf_version(EV_CURRENT) == EV_NONE) {
       errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
    }
-   if (strcmp(".km", file + strlen(file) - 3) != 0 && strcmp(".kmd", file + strlen(file) - 4) != 0) {
+   if (strcmp(".km", file + strlen(file) - 3) != 0 &&
+       strcmp(".kmd", file + strlen(file) - 4) != 0 && strcmp(".so", file + strlen(file) - 3) != 0) {
       sprintf(fn, "%s.km", file);
       file = fn;
    }
