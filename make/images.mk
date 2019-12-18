@@ -57,16 +57,16 @@ BUILDENV_PATH ?= .
 TESTENV_PATH ?= .
 RUNENV_PATH ?= ${BLDDIR}
 
+TESTENV_EXTRA_FILES = ${KM_BIN} ${KM_LDSO}
 testenv-image: ## build test image with test tools and code
 	@# Copy KM there. TODO - remove when we support pre-installed KM
-	cp ${KM_BIN} ${TESTENV_PATH}
-	cp ${KM_LDSO} ${TESTENV_PATH}
-	${DOCKER_BUILD} \
+	$(foreach f,${TESTENV_EXTRA_FILES}, cp $f ${TESTENV_PATH};)
+	${DOCKER_BUILD} --no-cache \
 			--build-arg branch=${SRC_SHA} \
 			--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
 			-t ${TEST_IMG}:${IMAGE_VERSION} \
 			${TESTENV_PATH} -f ${TEST_DOCKERFILE}
-	rm ${TESTENV_PATH}/$(notdir ${KM_BIN})
+	$(foreach f,${TESTENV_EXTRA_FILES},rm ${TESTENV_PATH}/$(notdir $f);)
 
 buildenv-image: ## make build image based on ${DTYPE}
 	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} ${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
@@ -155,7 +155,7 @@ endif
 # to the version you want to push. BE CAREFUL - it pushes to shared image !!!
 push-buildenv-image: ## Pushes to buildnev image. PROTECTED TARGET
 	@if [[ "${BUILDENV_IMAGE_VERSION}" == "latest" && "$(FORCE_BUILDENV_PUSH)" != "force" ]] ; then \
-		echo -e "$(RED)Unforced push of 'latest' buildenv images is not supported$(NOCOLOR)" && false; fi
+		echo -e "$(RED)Unforced push of 'latest' buildenv images is not supported without setting FORCE_BUILDENV_PUSH to force$(NOCOLOR)" && false; fi
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 		FROM=$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) TO=$(BUILDENV_IMG_REG):$(BUILDENV_IMAGE_VERSION)
 

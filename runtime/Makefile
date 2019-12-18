@@ -22,15 +22,21 @@ ARCH := x86_64
 SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq process sched)
 SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/ crt/ ldso/)))
 
+# these musl files will be dropped from all libs (static and dynamic)
 KM_REPLACED_SRCS := __set_thread_area.s __unmapself.s syscall.s syscall_cp.s getenv.c uname.c preadv.c pwritev.c \
 						  fcntl.c procfdname.c sigaltstack.c clone.s getpagesize.c fcntl/open.c
+# These KM files will be added to all libs (static and dynamic)
 KM_EXTRA_SRCS := $(wildcard *_km.c) $(wildcard *.s)
+# These KM files are not applicable to dynamic (DL or SO) libs, and will be in static only
+KM_STATIC_ONLY_SRCS = dlstatic_km.c
 
-PTHREAD_CFLS := pthread_cond_broadcast.c pthread_cond_destroy.c pthread_cond_signal.c pthread_cond_wait.c \
+PTHREAD_SRCS := pthread_cond_broadcast.c pthread_cond_destroy.c pthread_cond_signal.c pthread_cond_wait.c \
 					 pthread_create.c pthread_detach.c pthread_getspecific.c pthread_join.c pthread_key_create.c \
 					 pthread_key_delete.c pthread_mutex_lock.c pthread_mutex_unlock.c pthread_once.c \
 					 pthread_rwlock_rdlock.c pthread_rwlock_unlock.c pthread_rwlock_wrlock.c pthread_setspecific.c
 
+# TODO: we need 3 group of sources: GENERIC STATIC_ONLY DYNAMIC_ONLY
+# generic
 BASE_SRCS := $(wildcard $(addsuffix *.c,$(SRC_DIRS)))
 ARCH_SRCS := $(wildcard $(addsuffix $(ARCH)/*.[csS],$(SRC_DIRS)))
 # asm/arch specific implementations replacing base ones
@@ -38,8 +44,11 @@ REPLACED_SRCS := $(addsuffix .%, $(subst /$(ARCH)/,/,$(basename $(ARCH_SRCS))))
 ALL_SOURCES := $(filter-out ${REPLACED_SRCS}, ${BASE_SRCS} ${ARCH_SRCS})
 ALL_SOURCES := $(filter-out $(addprefix %, ${KM_REPLACED_SRCS}), ${ALL_SOURCES}) ${KM_EXTRA_SRCS}
 
-SOURCES := $(filter-out $(addprefix %, ${PTHREAD_CFLS}), $(filter musl/src/%,$(ALL_SOURCES))) ${KM_EXTRA_SRCS}
-PTHREAD_SRCS := $(filter $(addprefix %, ${PTHREAD_CFLS}), $(filter musl/src/%,$(ALL_SOURCES)))
+# sources for objects used librutime.a - i.e. used in all version (shared and static)
+SOURCES := $(filter-out $(addprefix %, ${PTHREAD_SRCS}), $(filter musl/src/%,$(ALL_SOURCES))) ${KM_EXTRA_SRCS}
+
+# pthead-specific sources for a separate lib
+PTHREAD_SRCS := $(filter $(addprefix %, ${PTHREAD_SRCS}), $(filter musl/src/%,$(ALL_SOURCES)))
 
 DL_SOURCES := $(filter musl/ldso/%,${ALL_SOURCES})
 CRT_SOURCES := $(filter musl/crt/%,$(ALL_SOURCES))
@@ -62,8 +71,12 @@ COPTS := -Os -ggdb -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 
 include ${TOP}make/actions.mk
 
-SO_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, $(basename ${SOURCES} ${PTHREAD_SRCS})))
+# all objects needed in libc.so
+SO_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, \
+		$(basename $(filter-out ${KM_STATIC_ONLY_SRCS},${SOURCES}) ${PTHREAD_SRCS})))
+# dynlink obj files
 DL_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, $(basename ${DL_SOURCES})))
+# c run time init/start and  finish/end obj files
 CRT_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${CRT_SOURCES})))
 PTHREAD_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${PTHREAD_SRCS})))
 

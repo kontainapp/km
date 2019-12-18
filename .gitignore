@@ -20,3 +20,4 @@ kmcore
 payloads/node/node
 cscope.out
 **/cscope.out
+.vscode/tags

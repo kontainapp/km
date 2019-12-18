@@ -71,7 +71,7 @@ publish: subdirs ## publish demo packages for the current branch online (e.g to 
 publishclean: subdirs ## (TODO) remove demo packages from online repos
 
 $(SUBDIRS):
-	$(MAKE) -C $@ $(MAKECMDGOALS) MAKEOVERRIDES=
+	$(MAKE) -C $@  MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=
 
 .PHONY: subdirs $(SUBDIRS)
 
@@ -158,7 +158,7 @@ clean:
 #
 # do not generate .d file for some targets
 #
-$(shell [[ "${MAKECMDGOALS}" =~ ^(clean|clobber|.*-image|print-.*|debugvars)$$ || "${MAKEFLAGS}" =~ "n" ]] )
+$(shell [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${MAKEFLAGS}" =~ "n" ]] )
 ifneq ($(.SHELLSTATUS),0)
 -include ${DEPS}
 endif

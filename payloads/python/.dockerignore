@@ -6,7 +6,7 @@
 # for different docker builds
 #
 cpython/.git*
-cpython/build
+cpython/build/temp*
 cpython/c*
 cpython/Doc
 cpython/Grammar
@@ -20,3 +20,4 @@ cpython/python
 cpython/Tools
 **/__pycache__
 !cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py
+!extensions
