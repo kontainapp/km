@@ -27,7 +27,7 @@ if [ -z "$KM_BIN" ] ; then
 fi
 
 if [ -z "$KM_LDSO" ] ; then
-   KM_LDSO="$(git rev-parse --show-toplevel)/build/runtime/libc.so.km"
+   KM_LDSO="$(git rev-parse --show-toplevel)/build/runtime/libc.so"
 fi
 
 if [ -z "$KM_LDSO_PATH" ] ; then
