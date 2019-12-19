@@ -1151,9 +1151,52 @@ static km_hc_ret_t unmapself_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // pthread_exit() does this at the end to unmap the stack and exit:
    // _Noreturn void__unmapself(void* base, size_t size);
-   (void) km_guest_munmap(arg->arg1, arg->arg2);
+   (void)km_guest_munmap(arg->arg1, arg->arg2);
    km_exit(vcpu, 0);
    return HC_STOP;
+}
+
+static km_hc_ret_t sched_getaffinity_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int sched_getaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask);
+   km_infox(KM_TRACE_SCHED, "%s(0x%lx, 0x%lx, 0x%lx)", __FUNCTION__, arg->arg1, arg->arg2, arg->arg3);
+   arg->hc_ret = __syscall_3(hc, arg->arg1, arg->arg2, km_gva_to_kml(arg->arg3));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t sched_setaffinity_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask);
+   km_infox(KM_TRACE_SCHED, "%s(0x%lx, 0x%lx, 0x%lx)", __FUNCTION__, arg->arg1, arg->arg2, arg->arg3);
+   warnx("%s - Unsupported", __FUNCTION__);
+   arg->hc_ret = -ENOTSUP;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t getcpu_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int getcpu(unsigned *cpu, unsigned *node, struct getcpu_cache *tcache)
+   km_infox(KM_TRACE_SCHED, "%s(0x%lx, 0x%lx, 0x%lx)", __FUNCTION__, arg->arg1, arg->arg2, arg->arg3);
+   uint64_t* cpu = NULL;
+   if (arg->arg1 != 0 && (cpu = km_gva_to_kma(arg->arg1)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   uint64_t* node = NULL;
+   if (arg->arg2 != 0 && (node = km_gva_to_kma(arg->arg2)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   // arg->arg3 (tchache) is unused and ignored. See 'NOTES' in 'man 2 getcpu'.
+
+   if (cpu != NULL) {
+      *cpu = 0;
+   }
+   if (node != NULL) {
+      *node = 0;
+   }
+   arg->hc_ret = 0;
+   return HC_CONTINUE;
 }
 
 /*
@@ -1270,13 +1313,15 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getgid] = dummy_hcall;
    km_hcalls_table[SYS_sched_yield] = dummy_hcall;
    km_hcalls_table[SYS_setpriority] = dummy_hcall;
-   km_hcalls_table[SYS_sched_getaffinity] = dummy_hcall;
+   km_hcalls_table[SYS_sched_getaffinity] = sched_getaffinity_hcall;
+   km_hcalls_table[SYS_sched_setaffinity] = sched_setaffinity_hcall;
    km_hcalls_table[SYS_sysinfo] = dummy_hcall;
    km_hcalls_table[SYS_prctl] = dummy_hcall;
 
    km_hcalls_table[SYS_clone] = clone_hcall;
    km_hcalls_table[SYS_set_tid_address] = set_tid_address_hcall;
    km_hcalls_table[SYS_membarrier] = dummy_hcall;
+   km_hcalls_table[SYS_getcpu] = getcpu_hcall;
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;
