@@ -7,7 +7,7 @@ KM leverages the MUSL dynamic loader, `libc.so`. (MUSL combines the dynamic load
 Like the GLIBC dynamic loader (`ld.so`), the MUSL dynamic loader can be started from the command line. For example:
 
 ```
-$ ../build/km/km --putenv LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64 ../build/runtime/libc.so stray_test.so div0
+$ ../build/km/km --putenv LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64 ../build/runtime/libc.so.km stray_test.so div0
 ```
 
 ## GBD and Core Files
@@ -16,9 +16,9 @@ Unlike static binaries where the virtual address in core file are the same as vi
 
 For example:
 ```
-$ gdb ../build/runtime/libc.so kmcore
+$ gdb ../build/runtime/libc.so.km kmcore
 ...
-Reading symbols from ../build/runtime/libc.so...
+Reading symbols from ../build/runtime/libc.so.km...
 [New LWP 1]
 [New LWP 2]
 #0  0x00007ffffafb0513 in ?? ()
@@ -27,10 +27,10 @@ Reading symbols from ../build/runtime/libc.so...
 Mapped address spaces:
 
           Start Addr           End Addr       Size     Offset objfile
-            0x200000           0x2115c0    0x115c0        0x0 /home/muth/kontain/km/build/runtime/libc.so
-            0x212000           0x2580be    0x460be    0x12000 /home/muth/kontain/km/build/runtime/libc.so
-            0x259000           0x28d1b4    0x341b4    0x59000 /home/muth/kontain/km/build/runtime/libc.so
-            0x28ec40           0x292440     0x3800    0x8d000 /home/muth/kontain/km/build/runtime/libc.so
+            0x200000           0x2115c0    0x115c0        0x0 /home/muth/kontain/km/build/runtime/libc.so.km
+            0x212000           0x2580be    0x460be    0x12000 /home/muth/kontain/km/build/runtime/libc.so.km
+            0x259000           0x28d1b4    0x341b4    0x59000 /home/muth/kontain/km/build/runtime/libc.so.km
+            0x28ec40           0x292440     0x3800    0x8d000 /home/muth/kontain/km/build/runtime/libc.so.km
       0x7ffffafae000     0x7ffffafb0000     0x2000        0x0 /home/muth/kontain/km/tests/stray_test.so
       0x7ffffafb0000     0x7ffffafb1000     0x1000     0x2000 /home/muth/kontain/km/tests/stray_test.so
       0x7ffffafb1000     0x7ffffafb2000     0x1000     0x3000 /home/muth/kontain/km/tests/stray_test.so
@@ -48,9 +48,9 @@ Note: the `-o` value for `add-symbol-file` is the virtual address of offset 0 fo
 (gdb) bt
 #0  0x00007ffffafb0513 in div0 (optind=2, argc=2, argv=0xffff81fd)
     at stray_test.c:110
-#1  0x00007ffffafb0394 in main (argc=argc@entry=2, 
+#1  0x00007ffffafb0394 in main (argc=argc@entry=2,
     argv=argv@entry=0x7fffffdfde70) at stray_test.c:321
-#2  0x0000000000214a8a in libc_start_main_stage2 (main=0x7ffffafb0210 <main>, 
+#2  0x0000000000214a8a in libc_start_main_stage2 (main=0x7ffffafb0210 <main>,
     argc=2, argv=0x7fffffdfde70) at musl/src/env/__libc_start_main.c:94
 #3  0x00007ffffafb0414 in _start ()
 #4  0x0000000000000003 in ?? ()
@@ -58,7 +58,7 @@ Note: the `-o` value for `add-symbol-file` is the virtual address of offset 0 fo
 #6  0x00007fffffdfdfbd in ?? ()
 #7  0x00007fffffdfdfcb in ?? ()
 #8  0x0000000000000000 in ?? ()
-(gdb) 
+(gdb)
 ```
 
 ## C++ Support
@@ -110,18 +110,38 @@ bash configure --enable-headless-only --disable-warnings-as-errors --with-native
 make
 ```
 
-Assumes jdk is a subdirectory of km.
+Assumes jdk is a subdirectory sibling to km.
 
 Link Java Launcher:
 ```
+
 #!/bin/bash
-  
-export BUILD=`pwd`/build/linux-x86_64-server-release 
-../km/tools/kontain-gcc -shared -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -L${BUILD}/support/modules_libs/java.base -o ${BUILD}/support/native/java.base/java_objs/java.so ${BUILD}/support/native/java.base/java/main.o -ljli -lpthread -ldl
+
+BUILD=build/linux-x86_64-server-release
+WORKSPACE=/home/serge/workspace
+
+# /bin/gcc -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -L${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -lz -ljli -lpthread -ldl
+
+${WORKSPACE}/km/tools/kontain-gcc -shared -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -L${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java.so ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -ljli -lpthread -ldl
+
+${WORKSPACE}/km/tools/kontain-gcc -rdynamic -Wl,--rpath=/opt/kontain/lib64:/lib64:build/linux-x86_64-server-release/jdk/lib:build/linux-x86_64-server-release/jdk/lib/server -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -L${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java.kmd ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -ljli -lpthread -ldl
+
+# ${WORKSPACE}/km/tools/kontain-gcc -shared -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -L${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -lz ./build/linux-x86_64-server-release/jdk/lib/libjli.so -lpthread -ldl
+
+cp ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java.so ${WORKSPACE}/jdk/build/linux-x86_64-server-release/jdk/bin
+cp ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java.kmd ${WORKSPACE}/jdk/build/linux-x86_64-server-release/jdk/bin
 ```
 
+Run .kmd:
+
 ```
-../km/build/km/km ../km/build/runtime/libc.so --library-path=/opt/kontain/lib64:$cwd/build/linux-x86_64-server-release/jdk/lib -- build/linux-x86_64-server-release/support/native/java.base/java_objs/java.so
+../km/build/km/km --dynlinker=../km/build/runtime/libc.so ./build/linux-x86_64-server-release/jdk/bin/java.kmd -Xms80m Hello
+```
+
+Run .so as before:
+
+```
+../km/build/km/km ../km/build/runtime/libc.so --library-path=/opt/kontain/lib64:/lib64:$cwd/build/linux-x86_64-server-release/jdk/lib:$cwd/build/linux-x86_64-server-release/jdk/lib/server -- build/linux-x86_64-server-release/support/native/java.base/java_objs/java.so -Xms80m Hello
 ```
 
 `--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
@@ -138,4 +158,4 @@ Elf files of type ET_EXEC optionally contain a PT_INTERP region. A PT_INTERP reg
 
 For CPP:
 
-`./build/km/km --dynlinker=../build/runtime/libc.so var_storage_test.kmd`
+`./build/km/km --dynlinker=../build/runtime/libc.so.km var_storage_test.kmd`

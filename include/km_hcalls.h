@@ -71,5 +71,6 @@ enum km_internal_hypercalls {
 extern const char* const km_hc_name_get(int hc);
 
 #define KM_TRACE_HC "hypercall"
+#define KM_TRACE_SCHED "sched"
 
 #endif /* #ifndef __KM_HCALLS_H__ */

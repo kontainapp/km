@@ -19,7 +19,7 @@ LIB := runtime
 # arch specific ones based on ARCH.
 SRCDIR := musl/
 ARCH := x86_64
-SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq process sched)
+SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq process)
 SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/ crt/ ldso/)))
 
 # these musl files will be dropped from all libs (static and dynamic)
