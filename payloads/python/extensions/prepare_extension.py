@@ -27,6 +27,7 @@ import json
 import jinja2
 import re
 import fnmatch
+import logging
 from functools import reduce
 
 symmap_suffix = ".km.symmap"
@@ -69,15 +70,6 @@ static km_dl_symbol_t _km_symbols[] = { {% for sym in symbols %}
    { .name = "{{ sym.name }}", .addr = &{{ sym.name_munged }} }, {% endfor %}
    { .name = NULL, .addr = NULL }
 };
-
-#ifdef USE_WEAK_ALIASES
-#define weak_alias(old, new) \
-	extern __typeof(old) new __attribute__((__weak__, __alias__(#old)))
-
-// Weak aliases for original symbols
-{% for sym in symbols %} weak_alias({{ sym.name_munged }}, {{ sym.name }});  {% endfor %}
-
-#endif /* USE_WEAK_ALIASES */
 
 // Registration info
 static km_dl_lib_reg_t _km_dl_lib = {
@@ -188,7 +180,7 @@ def sym_blacklist(location):
     if BLACKLIST is not None:  # calculate it only once...
         return BLACKLIST
 
-    # print(f"Checking {location} for blacklisted symbols")
+    logging.info(f"Checking {location} for blacklisted symbols")
     libs = [os.path.join(path, file)
             for path, _, files in os.walk(location)
             for file in files if file.endswith('.a') and not file.endswith('km.lib.a')]
@@ -196,9 +188,9 @@ def sym_blacklist(location):
         nm = subprocess.run(["nm", "-A", "--extern-only", "--defined-only"] + libs,
                             capture_output=True, encoding="utf-8")
         if (nm.returncode != 0):
-            print(f"can't form blacklist, nm failed: {nm.stderr}")
+            logging.warning(f"can't form blacklist, nm failed: {nm.stderr}")
             return None
-        print(f"blacklisting symbols in libs: {libs}")
+        logging.info(f"blacklisting symbols in libs: {libs}")
         BLACKLIST = [i.split()[2] for i in nm.stdout.splitlines()
                      if i and not i.endswith(":")]
     else:
@@ -211,7 +203,7 @@ def save_c_tables(so_full_path, so_id, symbols, suffix=so_suffix):
     Write C file with init symtables
     """
     file_name = so_full_path.replace(suffix, symbols_c_suffix)
-    # print(f"Generating {file_name}")
+    logging.info(f"Generating {file_name}")
     with open(file_name, 'w') as f:
         template = jinja2.Template(symfile_template)
         f.write(template.render(so=os.path.basename(so_full_path),
@@ -221,9 +213,9 @@ def save_c_tables(so_full_path, so_id, symbols, suffix=so_suffix):
         cl = subprocess.run(["clang-format", "-i", "-style=file",
                              file_name], capture_output=False, encoding="utf-8")
         if cl.returncode != 0:
-            print(f"clang-format failed for {file_name}")
+            logging.warning(f"clang-format failed for {file_name}")
     except FileNotFoundError:
-        print(f"clang-format not found. Can't format {file_name}")
+        logging.warning(f"clang-format not found. Can't format {file_name}")
 
 
 def save_artifacts(meta_data, symbols, location):
@@ -256,12 +248,12 @@ def nm_get_symbols(location, so_file_name, extra_flags=["--dynamic"]):
     """
     Get symnames from 'nm'-produced output, i.e.a list of "address TYPE symname" lines.
     """
-    # print(f"nm {so_file_name}")
+    logging.info(f"nm {so_file_name}")
     so_full_path_name = os.path.join(location, so_file_name)
     nm = subprocess.run(["nm", "--extern-only", "--defined-only"] + extra_flags + [so_full_path_name],
                         capture_output=True, encoding="utf-8")
     if nm.returncode != 0:
-        print(f"Failed to get names for {so_full_path_name}")
+        logging.warning(f"Failed to get names for {so_full_path_name}")
         return None
     symbols = [i.split()[2] for i in nm.stdout.splitlines()]
     return symbols
@@ -281,7 +273,7 @@ def process_line(line, location, skip_list):
     try:
         extra_files = [i[1:] for i in items if i.startswith('@')]
         for f in extra_files:
-            print(f"   Adding items from {f}")
+            logging.info(f"   Adding items from {f}")
             with open(f, 'r') as file:
                 items += file.read().split('\n')
     except:
@@ -290,7 +282,7 @@ def process_line(line, location, skip_list):
     try:
         so_file_name = [i for i in items if i.endswith(so_suffix) and not i.startswith('-')][0]
     except:
-        print(f"No.so files in line: '{items}'")
+        logging.warning(f"No.so files in line: '{items}'")
         return None
     # check if the module we are looking at is on skip list
     basename = os.path.basename(so_file_name)
@@ -323,7 +315,7 @@ def process_file(file_name, skip_list):
         lines_with_so = [l for l in f.readlines() if so_pattern.match(l)]
 
     if len(lines_with_so) == 0:
-        print(f"{so_suffix} is not mentioned in {file_name} - nothing to do.")
+        logging.warning(f"{so_suffix} is not mentioned in {file_name} - nothing to do.")
         return
     # accumulate data for makefile generation, and generate it
     mk_info = [process_line(line, location, skip_list) for line in lines_with_so]
@@ -345,7 +337,7 @@ def process_file(file_name, skip_list):
         if not i in finaL:
             finaL.insert(0, i)
     ldpaths = " ".join([f"-L{os.path.join(location, i)}" for i in finaL])
-    #  print(f"Final -llist: {final}")
+    logging.info(f"Final -llist: {final}")
     mk_name = os.path.join(location, "dlstatic_km.mk")
     with open(mk_name, 'w') as f:
         template = jinja2.Template(makefile_template)
@@ -374,19 +366,23 @@ if __name__ == "__main__":
                         help='[WIP] Generate tables for dlopen(NULL). build_out_file is .km file, e.g. python.km')
     parser.add_argument('--no_mung', action="store_true",
                         help='Skip symnames munging and use symbols as is ')
+    parser.add_argument('--verbose', action="store_true",
+                        help='Verbose output')
     args = parser.parse_args()
     file_name = args.build_out_file.name
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
+    logging.info(f"Analyzing {file_name}")
     skip_list = ""
     if (args.skip):
         skip_list = [l for l in args.skip.read().split('\n') if not l.startswith('#') and len(l) > 1]
-        print(f"Skipping list: {skip_list}")
+        logging.info(f"Skipping list: {skip_list}")
     if args.no_mung:
         need_to_mung = False
     if args.self:
-        print(f" build dlopen(null) tables for {file_name} in {os.path.curdir}")
+        logging.info(f" build dlopen(null) tables for {file_name} in {os.path.curdir}")
         symbols = [{"name": n, "name_munged": n}
                    for n in nm_get_symbols(os.path.curdir, file_name, extra_flags=[])]
-        print(f"symlen {len(symbols)}")
+        logging.info(f"symlen {len(symbols)}")
         save_c_tables(os.path.realpath(file_name), os.path.basename(file_name), symbols, suffix=".km")
     else:
         process_file(file_name, skip_list)
