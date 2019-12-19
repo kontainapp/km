@@ -135,7 +135,7 @@ cp ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/j
 Run .kmd:
 
 ```
-../km/build/km/km --dynlinker=../km/build/runtime/libc.so ./build/linux-x86_64-server-release/jdk/bin/java.kmd -Xms80m Hello
+../km/build/km/km --dynlinker=../km/build/runtime/libc.so ./build/linux-x86_64-server-release/jdk/bin/java.kmd Hello
 ```
 
 Run .so as before:
