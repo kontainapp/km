@@ -7,7 +7,7 @@ KM leverages the MUSL dynamic loader, `libc.so`. (MUSL combines the dynamic load
 Like the GLIBC dynamic loader (`ld.so`), the MUSL dynamic loader can be started from the command line. For example:
 
 ```
-$ ../build/km/km --putenv LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64 ../build/runtime/libc.so.km stray_test.so div0
+$ ../build/km/km --putenv LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64 ../build/runtime/libc.so stray_test.so div0
 ```
 
 ## GBD and Core Files
@@ -16,9 +16,9 @@ Unlike static binaries where the virtual address in core file are the same as vi
 
 For example:
 ```
-$ gdb ../build/runtime/libc.so.km kmcore
+$ gdb ../build/runtime/libc.so kmcore
 ...
-Reading symbols from ../build/runtime/libc.so.km...
+Reading symbols from ../build/runtime/libc.so...
 [New LWP 1]
 [New LWP 2]
 #0  0x00007ffffafb0513 in ?? ()
@@ -27,10 +27,10 @@ Reading symbols from ../build/runtime/libc.so.km...
 Mapped address spaces:
 
           Start Addr           End Addr       Size     Offset objfile
-            0x200000           0x2115c0    0x115c0        0x0 /home/muth/kontain/km/build/runtime/libc.so.km
-            0x212000           0x2580be    0x460be    0x12000 /home/muth/kontain/km/build/runtime/libc.so.km
-            0x259000           0x28d1b4    0x341b4    0x59000 /home/muth/kontain/km/build/runtime/libc.so.km
-            0x28ec40           0x292440     0x3800    0x8d000 /home/muth/kontain/km/build/runtime/libc.so.km
+            0x200000           0x2115c0    0x115c0        0x0 /home/muth/kontain/km/build/runtime/libc.so
+            0x212000           0x2580be    0x460be    0x12000 /home/muth/kontain/km/build/runtime/libc.so
+            0x259000           0x28d1b4    0x341b4    0x59000 /home/muth/kontain/km/build/runtime/libc.so
+            0x28ec40           0x292440     0x3800    0x8d000 /home/muth/kontain/km/build/runtime/libc.so
       0x7ffffafae000     0x7ffffafb0000     0x2000        0x0 /home/muth/kontain/km/tests/stray_test.so
       0x7ffffafb0000     0x7ffffafb1000     0x1000     0x2000 /home/muth/kontain/km/tests/stray_test.so
       0x7ffffafb1000     0x7ffffafb2000     0x1000     0x3000 /home/muth/kontain/km/tests/stray_test.so
@@ -158,4 +158,4 @@ Elf files of type ET_EXEC optionally contain a PT_INTERP region. A PT_INTERP reg
 
 For CPP:
 
-`./build/km/km --dynlinker=../build/runtime/libc.so.km var_storage_test.kmd`
+`./build/km/km --dynlinker=../build/runtime/libc.so var_storage_test.kmd`
