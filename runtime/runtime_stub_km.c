@@ -54,19 +54,8 @@ __stub_core__(posix_spawn);
 __stub_core__(posix_spawn_file_actions_init);
 __stub_core__(posix_spawn_file_actions_adddup2);
 __stub_core__(posix_spawn_file_actions_destroy);
-__stub_core__(sched_getparam);
 __stub_core__(__sched_cpualloc);
-__stub_core__(__sched_cpucount);
 __stub_core__(__sched_cpufree);
-__stub__(sched_getaffinity);
-__stub_core__(sched_setaffinity);
-__stub_core__(sched_get_priority_max);
-__stub_core__(sched_get_priority_min);
-__stub_core__(sched_getscheduler);
-__stub_core__(sched_rr_get_interval);
-__stub_core__(sched_setparam);
-__stub_core__(sched_setscheduler);
-__stub__(sched_yield);
 __stub_core__(system);
 __stub__(fork);
 __stub__(vfork);
@@ -80,11 +69,6 @@ __stub_core__(waitid);
 
 __stub__(backtrace);
 __stub__(mallopt);
-
-int sched_getcpu(void)
-{
-   return 0;
-}
 
 void* dlvsym(void* handle, char* symbol, char* version)
 {
