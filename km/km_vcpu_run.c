@@ -550,10 +550,6 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
             __FUNCTION__,
             vcpu->vcpu_id,
             vcpu->is_paused);
-   if (vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED) {
-      km_infox(KM_TRACE_VCPU, "%s: starting vcpu %d but gdb_run_state is PAUSED?", __FUNCTION__, vcpu->vcpu_id);
-      abort();
-   }
    rc = ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
    km_infox(KM_TRACE_VCPU,
             "%s: vcpu %d, is_paused %d, ioctl( KVM_RUN ) returned %d",
@@ -688,13 +684,14 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             switch (hypercall(vcpu, &hc)) {
                case HC_CONTINUE:
                   km_infox(KM_TRACE_VCPU,
-                           "%s: vcpu %d, return from hc = %d (%s), gdb_run_state %d, pause_requested %d",
+                           "%s: vcpu %d, return from hc = %d (%s), gdb_run_state %d, pause_requested %d, is_paused %d",
                            __FUNCTION__,
                            vcpu->vcpu_id,
                            hc,
                            km_hc_name_get(hc),
                            vcpu->gdb_vcpu_state.gvs_gdb_run_state,
-                           machine.pause_requested);
+                           machine.pause_requested,
+                           vcpu->is_paused);
                   if (km_gdb_is_enabled() == 1 &&
                       vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED &&
                       machine.pause_requested == 0) {
@@ -706,6 +703,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                       * they have been paused by gdb.  We detect that situation here and
                       * pause until gdb server lets us go again.
                       */
+                     vcpu->is_paused = 1;
                      km_wait_on_eventfd(vcpu->gdb_efd);
                   }
                   break;
