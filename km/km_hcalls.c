@@ -16,6 +16,7 @@
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
+#include <sys/sysinfo.h>
 #include <sys/time.h>
 #include <asm/prctl.h>
 #include <linux/futex.h>
@@ -1199,6 +1200,22 @@ static km_hc_ret_t getcpu_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t sysinfo_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int sysinfo(struct sysinfo *info)
+   km_infox(KM_TRACE_SCHED, "%s(0x%lx)", __FUNCTION__, arg->arg1);
+   struct sysinfo* si = km_gva_to_kma(arg->arg1);
+   if (si == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = __syscall_1(hc, km_gva_to_kml(arg->arg1));
+   if (arg->hc_ret == 0) {
+      si->procs = 1;
+   }
+   return HC_CONTINUE;
+}
+
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
@@ -1315,13 +1332,13 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_setpriority] = dummy_hcall;
    km_hcalls_table[SYS_sched_getaffinity] = sched_getaffinity_hcall;
    km_hcalls_table[SYS_sched_setaffinity] = sched_setaffinity_hcall;
-   km_hcalls_table[SYS_sysinfo] = dummy_hcall;
    km_hcalls_table[SYS_prctl] = dummy_hcall;
 
    km_hcalls_table[SYS_clone] = clone_hcall;
    km_hcalls_table[SYS_set_tid_address] = set_tid_address_hcall;
    km_hcalls_table[SYS_membarrier] = dummy_hcall;
    km_hcalls_table[SYS_getcpu] = getcpu_hcall;
+   km_hcalls_table[SYS_sysinfo] = sysinfo_hcall;
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;

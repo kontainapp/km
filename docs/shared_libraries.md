@@ -135,13 +135,13 @@ cp ${WORKSPACE}/jdk/build/linux-x86_64-server-release/support/native/java.base/j
 Run .kmd:
 
 ```
-../km/build/km/km --dynlinker=../km/build/runtime/libc.so ./build/linux-x86_64-server-release/jdk/bin/java.kmd -Xms80m Hello
+../km/build/km/km --dynlinker=../km/build/runtime/libc.so ./build/linux-x86_64-server-release/jdk/bin/java.kmd Hello
 ```
 
 Run .so as before:
 
 ```
-../km/build/km/km ../km/build/runtime/libc.so --library-path=/opt/kontain/lib64:/lib64:$cwd/build/linux-x86_64-server-release/jdk/lib:$cwd/build/linux-x86_64-server-release/jdk/lib/server -- build/linux-x86_64-server-release/support/native/java.base/java_objs/java.so -Xms80m Hello
+../km/build/km/km ../km/build/runtime/libc.so --library-path=/opt/kontain/lib64:/lib64:$cwd/build/linux-x86_64-server-release/jdk/lib:$cwd/build/linux-x86_64-server-release/jdk/lib/server -- build/linux-x86_64-server-release/support/native/java.base/java_objs/java.so Hello
 ```
 
 `--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
