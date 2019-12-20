@@ -182,6 +182,11 @@ load test_helper
    assert [ $status -eq $expected_status ]
 }
 
+@test "mem_mmap_1(static): mmap then smaller mprotect (mmap_1_test)" {
+   assert_success
+   run km_with_timeout mmap_1_test.km
+}
+
 @test "futex example(static)" {
    skip "TODO: convert to test"
 

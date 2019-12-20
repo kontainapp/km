@@ -28,22 +28,6 @@
 #include "greatest/greatest.h"
 #include "mmap_test.h"
 
-// human readable print for addresses and sizes
-static char* out_sz(uint64_t val)
-{
-   char* buf = malloc(64);   // yeah. leak it
-   if (val < 1 * MIB) {
-      sprintf(buf, "%ld", val);
-      return buf;
-   }
-   if (val < 1 * GIB) {
-      sprintf(buf, "%ldmb", val / MIB);
-      return buf;
-   }
-   sprintf(buf, "%ldgb + %ldmb", val / GIB, val / MIB - (val / GIB) * 1024);
-   return buf;
-}
-
 // handler for SIGSEGV
 static jmp_buf jbuf;
 static int fail = 0;   // info from signal handled that something failed
