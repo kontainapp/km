@@ -330,11 +330,11 @@ def process_file(file_name, skip_list):
     already_in = ["-l" + os.path.splitext(os.path.basename(f["so"]))[0][3:] for f in mk_info]
     final = []
     for i in all_l_flags:
-        if not i in final and not i in already_in:
+        if i not in final and i not in already_in:
             final.insert(0, i)
     finaL = []
     for i in all_l_pathes:
-        if not i in finaL:
+        if i not in finaL:
             finaL.insert(0, i)
     ldpaths = " ".join([f"-L{os.path.join(location, i)}" for i in finaL])
     logging.info(f"Final -llist: {final}")
