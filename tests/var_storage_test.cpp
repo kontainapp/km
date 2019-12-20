@@ -26,8 +26,8 @@ using namespace std;
 
 class StorageType
 {
-   int var;
    pthread_t me;
+   int var;
 
    void check_id(void)
    {

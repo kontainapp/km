@@ -22,7 +22,7 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 		longjmp_test.c cpuid_print_details_test.c stray_test.c signal_test.c hello_2_loops_tls_test.c \
 		regions_test.c mprotect_test.c pthread_cancel_test.c filesys_test.c filepath_test.c socket_test.c \
 		dl_iterate_phdr_test.c env_test.c locale_test.c munmap_monitor_maps_test.c \
-		gdb_server_entry_race_test.c gdb_qsupported_test.c
+		gdb_server_entry_race_test.c gdb_qsupported_test.c mmap_1_test.c
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
@@ -32,8 +32,7 @@ SHRSRC := dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c
 BUILDENV_PATH  := ./gdb
 TESTENV_PATH := .
 
-COPTS ?= -ggdb -O2 -fPIC
-CFLAGS = -Wall $(COPTS) -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
+CFLAGS = -Wall $(COPTS) -ggdb -fPIC -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
 LDFLAGS = -ggdb -pthread
 KCC := kontain-gcc
 DEPS = ${SRC:%.c=%.d} ${SHRSRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}

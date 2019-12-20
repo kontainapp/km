@@ -452,6 +452,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
             km_hc_name_get(*hc));
    km_kma_t ga_kma;
    if ((ga_kma = km_gva_to_kma(ga)) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
+      km_infox(KM_TRACE_SIGNALS, "%s: hc: %d bad km_hc_args_t address:0x%lx", __FUNCTION__, *hc, ga);
       siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
       km_post_signal(vcpu, &info);
       return -1;

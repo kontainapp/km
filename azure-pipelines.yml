@@ -69,7 +69,6 @@ steps:
     displayName: KM test - set build environment, build, create test container and push it to registry
 
   - bash: make -C cloud/azure ci-run-tests LOCATION=tests POD_NAME=$(pod_test_km)
-    continueOnError: true
     displayName: Run KM tests on Kubernetes
     timeoutInMinutes: 10
 

@@ -34,71 +34,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../km/km_unittest.h"
 #include "km_hcalls.h"
 #include "syscall.h"
-
-// human readable print for addresses and sizes
-static char* out_sz(uint64_t val)
-{
-   char* buf = malloc(64);   // yeah. leak it
-   if (val < 1 * MIB) {
-      sprintf(buf, "%ld", val);
-      return buf;
-   }
-   if (val < 1 * GIB) {
-      sprintf(buf, "%ldmb", val / MIB);
-      return buf;
-   }
-   sprintf(buf, "%ldgb + %ldmb", val / GIB, val / MIB - (val / GIB) * 1024);
-   return buf;
-}
-
-static const int MAX_MAPS = 4096;
-static km_ut_get_mmaps_t* info;
-
-static int get_maps(void)
-{
-   int ret;
-
-   if (greatest_get_verbosity() <= 0) {
-      return 0;
-   }
-   if (info == NULL) {
-      info = calloc(1, sizeof(km_ut_get_mmaps_t) + MAX_MAPS * sizeof(km_mmap_reg_t));
-      assert(info != NULL);
-   }
-   info->ntotal = MAX_MAPS;
-   if ((ret = syscall(HC_km_unittest, KM_UT_GET_MMAPS_INFO, info)) == -EAGAIN) {
-      printf("WOW, Km reported too many maps: %d", info->ntotal);
-      return -1;
-   }
-   if (ret == -ENOTSUP) {
-      return 0;   // silent skip
-   }
-   // printf("free %d busy %d\n", info->nfree, info->ntotal - info->nfree);
-   assert(info->ntotal >= 1);   // we always have at least 1 mmap for stack
-   size_t old_end = info->maps[0].start;
-   for (km_mmap_reg_t* reg = info->maps; reg < info->maps + info->ntotal; reg++) {
-      char* type = (reg < info->maps + info->nfree ? "free" : "busy");
-      if (reg == info->maps + info->nfree) {   // reset distance on 'busy' list stat
-         old_end = reg->start;
-      }
-      printf("mmap %s: 0x%lx size 0x%lx (%s) distance 0x%lx (%s), flags 0x%x prot 0x%x km_flags "
-             "0x%x\n",
-             type,
-             reg->start,
-             reg->size,
-             out_sz(reg->size),
-             reg->start - old_end,
-             out_sz(reg->start - old_end),
-             reg->flags,
-             reg->protection,
-             reg->km_flags.data32);
-      old_end = reg->start + reg->size;
-   }
-   return 0;
-}
 
 // handler for SIGSEGV
 static jmp_buf jbuf;
