@@ -184,6 +184,11 @@ load test_helper
    #[ $status -eq $expected_status ]
 }
 
+@test "mem_mmap_1(static): mmap then smaller mprotect (mmap_1_test)" {
+   assert_success
+   run km_with_timeout mmap_1_test.km
+}
+
 @test "futex example(shared)" {
    skip "TODO: convert to test"
 
@@ -482,6 +487,8 @@ load test_helper
 
 # C++ tests
 @test "cpp(shared): constructors and statics (var_storage_test)" {
+   skip "TODO: need to fix"
+
    run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- var_storage_test.so
    assert_success
 

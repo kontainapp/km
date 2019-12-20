@@ -320,9 +320,9 @@ typedef void (*km_mmap_action)(km_mmap_reg_t*);
  */
 static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int prot)
 {
-   km_mmap_reg_t* reg;
+   km_mmap_reg_t *reg, *next;
 
-   TAILQ_FOREACH (reg, &machine.mmaps.busy, link) {
+   TAILQ_FOREACH_SAFE (reg, &machine.mmaps.busy, link, next) {
       km_mmap_reg_t* extra;
 
       if (reg->start + reg->size <= addr) {
@@ -353,6 +353,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
             extra->offset += reg->size;
          }
          km_mmap_insert_busy_after(reg, extra);
+         next = extra;
          continue;
       }
       if (reg->start + reg->size > addr + size) {   // overlaps on the end
@@ -368,6 +369,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
             extra->offset += reg->size;
          }
          km_mmap_insert_busy_after(reg, extra);   // fall through to process 'reg'
+         next = extra;
       }
       assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range
       reg->protection = prot;
