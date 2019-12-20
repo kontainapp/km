@@ -11,8 +11,9 @@
  *
  * Mapping hc/syscal id to name - mainly debug/trace helper
  */
+#include "km_hcalls.h"
 
-static const char* hc_name[512] = {0};
+static const char* hc_name[KM_MAX_HCALL] = {0};
 
 static int inited = 0;
 static void km_hc_name_init(void)
@@ -362,6 +363,10 @@ static void km_hc_name_init(void)
    hc_name[431] = "fsconfig";
    hc_name[432] = "fsmount";
    hc_name[433] = "fspick";
+   hc_name[HC_unmapself]       = "unmapself";
+   hc_name[HC_procfdname]      = "procfdname";
+   hc_name[HC_km_unittest]     = "km_unittest";
+   hc_name[HC_guest_interrupt] = "guest_interrupt";
 }
 
 const char* const km_hc_name_get(int hc)
