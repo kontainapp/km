@@ -85,7 +85,7 @@ COVERAGE_REPORT  = $(KM_BLDDIR)/coverage.html
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
 # regexp for targets which should not try to build dependencies (.d)
-NO_DEPS_TARGETS := (clean|clobber|.*-image|print-.*|debugvars)
+NO_DEPS_TARGETS := (clean|clobber|.*-image|print-.*|debugvars|help)
 # colors for pretty output. Unless we are in Azure pipelines
 ifeq (${PIPELINE_WORKSPACE},)
 RED := \033[31m
