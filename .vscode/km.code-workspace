@@ -62,5 +62,8 @@
       "files.trimTrailingWhitespace": true,
       "editor.formatOnPaste": true,
       "editor.formatOnType": true,
+      "python.formatting.autopep8Args": [
+         "[\"--max-line-length\", \"100\"]"
+      ],
    }
 }

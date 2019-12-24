@@ -213,9 +213,9 @@ def save_c_tables(so_full_path, so_id, symbols, suffix=so_suffix):
         cl = subprocess.run(["clang-format", "-i", "-style=file",
                              file_name], capture_output=False, encoding="utf-8")
         if cl.returncode != 0:
-            logging.warning(f"clang-format failed for {file_name}")
+            logging.warning(f"C code will not be formatted - clang-format has failed. File {file_name}")
     except FileNotFoundError:
-        logging.warning(f"clang-format not found. Can't format {file_name}")
+        logging.warning(f"C code will not be formatted - clang-format was not found. File {file_name}")
 
 
 def save_artifacts(meta_data, symbols, location):
@@ -366,11 +366,17 @@ if __name__ == "__main__":
                         help='[WIP] Generate tables for dlopen(NULL). build_out_file is .km file, e.g. python.km')
     parser.add_argument('--no_mung', action="store_true",
                         help='Skip symnames munging and use symbols as is ')
-    parser.add_argument('--verbose', action="store_true",
-                        help='Verbose output')
+    parser.add_argument('--log', action="store", choices=['verbose', 'quiet'],
+                        help='Logging level. Verbose prints all info. Quiet only prints errors. Default is errors and warnings')
     args = parser.parse_args()
     file_name = args.build_out_file.name
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
+    if not args.log:
+        logging.basicConfig(level=logging.WARNING)  # default
+    else:
+        if args.log == 'verbose':
+            logging.basicConfig(level=logging.INFO)
+        else:  # 'quiet'
+            logging.basicConfig(level=logging.CRITICAL)
     logging.info(f"Analyzing {file_name}")
     skip_list = ""
     if (args.skip):

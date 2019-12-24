@@ -30,16 +30,17 @@ ENV PREFIX=/opt/kontain
 WORKDIR /home/$USER
 
 RUN dnf install -y \
-   gcc gcc-c++ make gdb git gcovr \
-   time patch file findutils diffutils moreutils which procps-ng python2 \
-   glibc-devel glibc-static libstdc++-static clang \
-   elfutils-libelf-devel elfutils-libelf-devel-static  bzip2-devel \
+   gcc gcc-c++ make gdb git-core gcovr \
+   time patch file findutils diffutils which procps-ng python2 \
+   glibc-devel glibc-static libstdc++-static \
+   elfutils-libelf-devel elfutils-libelf-devel-static bzip2-devel \
    zlib-static bzip2-static xz-static \
    openssl-devel openssl-static \
    expat-static \
-   && dnf upgrade -y && dnf clean all
+   && dnf upgrade -y && dnf clean all && rm -rf /var/cache/dnf
 
 FROM buildenv-base AS buildenv-gcc-base
+# no need to clean up after dnf as it is a temp image anyways
 RUN dnf install -y gmp-devel mpfr-devel libmpc-devel isl-devel flex m4 \
    autoconf automake libtool texinfo
 
