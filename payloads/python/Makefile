@@ -53,7 +53,7 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 	tar -C ${PYTHONTOP}/.. -cf - ${PYTHON_DISTRO_FILES} | tar -xvf -
 	cd cpython && patch -p1 < ../unittest.patch
 	make -C cpython -f dlstatic_km.mk
-	@echo "*** Warning - module extension are skipped. Use 'fromsrc' build for extensions"
+	@echo "Info - .so are linked in for built-in modules only. Additional modules are supported via 'make fromsrc'"
 	./link-km.sh ${PYTHONTOP} cpython
 
 fromsrc:

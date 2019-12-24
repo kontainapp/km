@@ -32,9 +32,9 @@ WORKDIR /home/$USER
 RUN dnf install -y \
    gcc gcc-c++ make gdb git gcovr \
    time patch file findutils diffutils moreutils which procps-ng python2 \
-   glibc-devel glibc-static libstdc++-static \
+   glibc-devel glibc-static libstdc++-static clang \
    elfutils-libelf-devel elfutils-libelf-devel-static \
-   zlib-static bzip2-static \
+   zlib-static bzip2-static xz-static \
    openssl-devel openssl-static \
    expat-static \
    && dnf upgrade -y && dnf clean all
