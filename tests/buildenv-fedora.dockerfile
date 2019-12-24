@@ -33,7 +33,7 @@ RUN dnf install -y \
    gcc gcc-c++ make gdb git gcovr \
    time patch file findutils diffutils moreutils which procps-ng python2 \
    glibc-devel glibc-static libstdc++-static clang \
-   elfutils-libelf-devel elfutils-libelf-devel-static \
+   elfutils-libelf-devel elfutils-libelf-devel-static  bzip2-devel \
    zlib-static bzip2-static xz-static \
    openssl-devel openssl-static \
    expat-static \
