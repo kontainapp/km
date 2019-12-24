@@ -184,9 +184,9 @@ load test_helper
    #[ $status -eq $expected_status ]
 }
 
-@test "mem_mmap_1(static): mmap then smaller mprotect (mmap_1_test)" {
-   assert_success
+@test "mem_mmap_1(shared): mmap then smaller mprotect (mmap_1_test)" {
    run km_with_timeout mmap_1_test.km
+   assert_success
 }
 
 @test "futex example(shared)" {
@@ -276,28 +276,22 @@ load test_helper
 }
 
 @test "threads_basic(shared): threads with TLS, create, exit and join (hello_2_loops_tls_test)" {
-   skip "TODO: shared version"
-   # TODO: error loading ld-linux-x86-64.so !!! fix this (shared)
-   #run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_2_loops_tls_test.so
-   #assert_success
-   #refute_line --partial 'BAD'
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_2_loops_tls_test.so
+   assert_success
 }
 
 @test "threads_basic(shared): threads with TSD, create, exit and join (hello_2_loops_test)" {
-   # shared
-   run km_with_timeout -Vsignal ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_2_loops_test.so
+   run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- hello_2_loops_test.so
    assert_success
 }
 
 @test "threads_exit_grp(shared): force exit when threads are in flight (exit_grp_test)" {
-   # shared
    run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- exit_grp_test.so
    # the test can exit(17) from main thread or random exit(11) from subthread
    assert [ $status -eq 17 -o $status -eq 11  ]
 }
 
 @test "threads_mutex(shared): mutex (mutex_test)" {
-   # shared
    run km_with_timeout ${KM_LDSO} --library-path=${KM_LDSO_PATH} -- mutex_test.so
    assert_success
 }

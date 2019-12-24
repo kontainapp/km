@@ -333,6 +333,7 @@
             "brk_test",
             "gdb_test",
             "mmap_test",
+            "mmap_1_test",
             "getline_test",
             "mem_test",
             "mprotect_test",

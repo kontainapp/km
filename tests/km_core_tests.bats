@@ -183,8 +183,8 @@ load test_helper
 }
 
 @test "mem_mmap_1(static): mmap then smaller mprotect (mmap_1_test)" {
-   assert_success
    run km_with_timeout mmap_1_test.km
+   assert_success
 }
 
 @test "futex example(static)" {
@@ -293,11 +293,10 @@ load test_helper
 @test "threads_basic(static): threads with TLS, create, exit and join (hello_2_loops_tls_test)" {
    run km_with_timeout hello_2_loops_tls_test.km
    assert_success
-   refute_line --partial 'BAD'
 }
 
 @test "threads_basic(static): threads with TSD, create, exit and join (hello_2_loops_test)" {
-   run km_with_timeout -Vsignal hello_2_loops_test.km
+   run km_with_timeout hello_2_loops_test.km
    assert_success
 }
 

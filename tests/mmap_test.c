@@ -142,12 +142,12 @@ TEST mmap_test(void)
                ASSERT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
                ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
             }
-            get_maps();
+            get_maps(greatest_get_verbosity());
             break;
          case TYPE_MUNMAP:
             assert(last_addr != MAP_FAILED);   // we should have failed test already
             ret = munmap(last_addr + t->offset, t->size);
-            get_maps();
+            get_maps(greatest_get_verbosity());
             if (t->expected == OK) {
                ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);
                ASSERT_EQ_FMTm(t->info, 0, ret, ret_fmt);
@@ -162,7 +162,7 @@ TEST mmap_test(void)
             size_t old_size = t->size;
             size_t new_size = t->prot;
             new_addr = mremap(remapped_addr, old_size, new_size, t->flags);
-            get_maps();
+            get_maps(greatest_get_verbosity());
             if (t->expected == OK) {
                ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);   // print errno out if test fails
                ASSERT_NOT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
@@ -219,7 +219,7 @@ TEST mmap_test(void)
                ASSERT_NOT_EQ_FMTm(t->info, 0, ret, ret_fmt);
                ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
             }
-            get_maps();
+            get_maps(greatest_get_verbosity());
             break;
          case TYPE_WRITE:
             assert(last_addr != MAP_FAILED);   // we should have failed test already
@@ -432,7 +432,7 @@ TEST mremap_test()
 
    printf("===== mremap: Testing mremap() functionality\n");
    tests = mremap_tests;
-   get_maps();
+   get_maps(greatest_get_verbosity());
    CHECK_CALL(mmap_test());
    PASS();
 }

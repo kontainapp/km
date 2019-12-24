@@ -152,6 +152,8 @@ static inline int ok_to_concat(km_mmap_reg_t* left, km_mmap_reg_t* right)
 /*
  * Concatenate 'reg' mmap with left and/or right neighbor in the 'list', if they have the
  * same properties. Remove from the list and free the excess neighbors.
+ * Note: There are dependencies on the fact that reg as a pointer is intact, in other words the
+ * concat keeps that structure and removes the *neighbors*.
  */
 static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
 {
@@ -163,11 +165,13 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
       reg->start = left->start;
       reg->size += left->size;
       TAILQ_REMOVE(list, left, link);
+      memset(left, 0, sizeof(km_mmap_reg_t));
       free(left);
    }
    if (right != NULL && ok_to_concat(reg, right) == 1) {
       reg->size += right->size;
       TAILQ_REMOVE(list, right, link);
+      memset(right, 0, sizeof(km_mmap_reg_t));
       free(right);
    }
 }
@@ -369,11 +373,14 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
             extra->offset += reg->size;
          }
          km_mmap_insert_busy_after(reg, extra);   // fall through to process 'reg'
-         next = extra;
+         next = TAILQ_END(&machine.mmaps.busy);   // no need to go further, end of addr + size
       }
       assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range
       reg->protection = prot;
       action(reg);
+      if (action == km_mmap_mprotect && next != TAILQ_END(&machine.mmaps.busy)) {
+         next = TAILQ_NEXT(reg, link);
+      }
    }
    return 0;
 }
@@ -382,7 +389,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
  * Checks if busy mmaps are contiguous from `addr' to `addr+size'.
  * Return 0 if they are, -1 if they are not.
  */
-static int km_mmap_busy_check_contigious(km_gva_t addr, size_t size)
+static int km_mmap_busy_check_contiguous(km_gva_t addr, size_t size)
 {
    km_mmap_reg_t* reg;
    km_gva_t last_end = 0;
@@ -416,7 +423,7 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
       return 0;
    }
    // Per mprotect(3) if there are un-mmaped pages in the area, error out with ENOMEM
-   if (km_mmap_busy_check_contigious(addr, size) != 0) {
+   if (km_mmap_busy_check_contiguous(addr, size) != 0) {
       km_infox(KM_TRACE_MMAP, "mprotect area not fully mapped");
       return -ENOMEM;
    }
