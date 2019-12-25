@@ -177,9 +177,9 @@ load test_helper
    assert [ $status -eq $expected_status ]
 }
 
-@test "mem_mmap_1(static): mmap then smaller mprotect (mmap_1_test)" {
-   assert_success
+@test "mem_mmap_1(dynamic): mmap then smaller mprotect (mmap_1_test)" {
    run km_with_timeout mmap_1_test.km
+   assert_success
 }
 
 @test "futex example(dynamic)" {
@@ -293,7 +293,7 @@ load test_helper
 }
 
 @test "threads_basic(dynamic): threads with TSD, create, exit and join (hello_2_loops_test)" {
-   run km_with_timeout -Vsignal hello_2_loops_test.kmd
+   run km_with_timeout hello_2_loops_test.kmd
    assert_success
 }
 
