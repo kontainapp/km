@@ -31,6 +31,33 @@
          ]
       },
       {
+         "name": "KM with a dynamic test payload",
+         "type": "cppdbg",
+         "request": "launch",
+         "program": "${workspaceFolder}/build/km/km",
+         "args": [
+            "--dynlinker=${workspaceFolder}/build/runtime/libc.so",
+            "tests/${input:test_payload}.kmd"
+         ],
+         "stopAtEntry": true,
+         "cwd": "${workspaceFolder}",
+         "environment": [],
+         "externalConsole": false,
+         "MIMode": "gdb",
+         "setupCommands": [
+            {
+               "description": "Enable pretty-printing for gdb",
+               "text": "-enable-pretty-printing",
+               "ignoreFailures": true
+            },
+            {
+               "description": "Load KM specific commands",
+               "text": "source ${workspaceFolder}/km/gdb/list.gdb",
+               "ignoreFailures": false
+            }
+         ]
+      },
+      {
          "name": "KM with GDB enabled, running a test payload",
          "type": "cppdbg",
          "request": "launch",

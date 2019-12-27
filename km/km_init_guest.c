@@ -200,7 +200,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    return stack_top;   // argv in the guest
 }
 
-static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict attr)
+int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*))
 {
    int rc;
 
@@ -210,19 +210,32 @@ static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict at
 
       pthread_attr_init(&vcpu_thr_att);
       pthread_attr_setstacksize(&vcpu_thr_att, 16 * KM_PAGE_SIZE);
-      rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))km_vcpu_run, vcpu);
+      vcpu->is_active = 1;
+      rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))run, vcpu);
       pthread_attr_destroy(&vcpu_thr_att);
    } else {
+      if (pthread_mutex_lock(&vcpu->thr_mtx) != 0) {
+         err(1, "run_vcpu_thread: lock mutex thr_mtx");
+      }
+      vcpu->is_active = 1;
       rc = -pthread_cond_signal(&vcpu->thr_cv);
+      if (pthread_mutex_unlock(&vcpu->thr_mtx) != 0) {
+         err(1, "unlock mutex thr_mtx");
+      }
    }
    if (rc != 0) {
       __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
+      err(1, "run_vcpu_thread: failed activating vcpu thread");
    }
    return rc;
 }
 
 void km_vcpu_stopped(km_vcpu_t* vcpu)
 {
+   if (pthread_mutex_lock(&vcpu->thr_mtx) != 0) {
+      err(1, "vcpu_stopped: lock mutex thr_mtx");
+   }
+   km_exit(vcpu);   // release user space thread list lock
    km_vcpu_put(vcpu);
 
    // if (--machine.vm_vcpu_run_cnt == 0) {
@@ -230,12 +243,12 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
       km_signal_machine_fini();
    }
    if (machine.exit_group == 1) {
+      if (pthread_mutex_unlock(&vcpu->thr_mtx) != 0) {
+         err(1, "unlock mutex thr_mtx");
+      }
       pthread_exit(NULL);
    }
-   if (pthread_mutex_lock(&vcpu->thr_mtx) != 0) {
-      err(1, "vcpu_stopped: lock mutex thr_mtx");
-   }
-   while (vcpu->is_used == 0) {
+   while (vcpu->is_active == 0) {
       if (pthread_cond_wait(&vcpu->thr_cv, &vcpu->thr_mtx) != 0) {
          err(1, "wait on condition thr_cv");
       }
@@ -295,7 +308,7 @@ int km_clone(km_vcpu_t* vcpu,
       *gtid = km_vcpu_get_tid(new_vcpu);
    }
 
-   if (km_run_vcpu_thread(new_vcpu, NULL) < 0) {
+   if (km_run_vcpu_thread(new_vcpu, km_vcpu_run) < 0) {
       km_vcpu_put(new_vcpu);
       return -EAGAIN;
    }
@@ -309,7 +322,7 @@ uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr)
    return km_vcpu_get_tid(vcpu);
 }
 
-void km_exit(km_vcpu_t* vcpu, int status)
+void km_exit(km_vcpu_t* vcpu)
 {
    if (vcpu->clear_child_tid != 0) {
       // See 'man 2 set_tid_address'
