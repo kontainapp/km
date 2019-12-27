@@ -34,7 +34,7 @@ PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.e
 	cpython/python.km cpython/Lib cpython/Modules/Setup scripts
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
-PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build/lib.linux-x86_64-3.7 pybuilddir.txt dlstatic_km.mk)
+PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)
 
 # either run all in 'blank' container, or local.
 # in blank: link + tar + create shebang
@@ -50,10 +50,10 @@ else
 endif
 
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
-	tar -C ${PYTHONTOP}/.. -cf - ${PYTHON_DISTRO_FILES} | tar -xf -
+	tar -C ${PYTHONTOP}/.. -cf - ${PYTHON_DISTRO_FILES} | tar -xvf -
 	cd cpython && patch -p1 < ../unittest.patch
 	make -C cpython -f dlstatic_km.mk
-	@echo "*** Warning - module extension are skipped. Use 'fromsrc' build for extensions"
+	@echo "Info - .so are linked in for built-in modules only. Additional modules are supported via 'make fromsrc'"
 	./link-km.sh ${PYTHONTOP} cpython
 
 fromsrc:

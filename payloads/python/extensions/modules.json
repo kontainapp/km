@@ -1,0 +1,268 @@
+{
+   "header": [
+      "#",
+      "# Extension modules to include in python.km",
+      "#",
+      "# <module_name> <version> <url_for_source> <dependency>",
+      "# optional:",
+      "#   URL is optional and only needed for compiled modules",
+      "#   dependency is a binary dependency the module needs to build, e.g. cython for numpy.",
+      "#        for multiple dependencies, glue them with '\\ ', e.g. cython\\ bear",
+      "#",
+      "# Line with First character '#' is treated as comment, empty lines are ignore",
+      "#",
+      "# Note that some files here are purely build notes. Generally the ones with version and URL can be uncommented to be",
+      "#       added to the build",
+      "#",
+      "# This file is used from build_extensions.sh",
+      "# Keeps track of all I tried, and notes on success/failure"
+   ],
+   "modules": [
+      {
+         "name": "markupsafe",
+         "versions": [
+            "1.1.1"
+         ],
+         "git": "https://github.com/pallets/markupsafe",
+         "hasDll": "true",
+         "status": "validated",
+         "dockerRepo": "kpython/markupsafe",
+         "comment": ""
+      },
+      {
+         "name": "django",
+         "versions": [
+            "2.2.6"
+         ],
+         "git": "https://github.com/pallets/markupsafe",
+         "hasDll": "false",
+         "status": "validated",
+         "comment": ""
+      },
+      {
+         "name": "hug",
+         "versions": [
+            "2.4.0"
+         ],
+         "git": "https://github.com/hugapi/hug",
+         "hasDll": "true",
+         "status": "validated",
+         "dockerRepo": "kpython/hug",
+         "comment": ""
+      },
+      {
+         "name": "falcon",
+         "versions": [
+            "2.0.0"
+         ],
+         "git": "//github.com/falconry/falcon",
+         "hasDll": "true",
+         "dockerRepo": "kpython/falcon",
+         "status": "validated",
+         "comment": ""
+      },
+      {
+         "name": "numpy",
+         "versions": [
+            "v1.17.3"
+         ],
+         "git": "https://github.com/numpy/numpy",
+         "hasDll": "true",
+         "status": "validated",
+         "dependsOn": {
+            "tool": "cython"
+         },
+         "dockerRepo": "kpython/numpy",
+         "comment": [
+            "# NOTE: if atlas (Automatically Tuned Linear Algebra Software) is installed (with atlas-static),",
+            "# numy picks it up and expect static libtatlas which is not avail in dnf (only libatlas.a is there)"
+         ]
+      },
+      {
+         "name": "gunicorn",
+         "versions": [
+            "19.9.0"
+         ],
+         "git": "n/a",
+         "hasDll": "false",
+         "status": "fail",
+         "comment": "using os.fork"
+      },
+      {
+         "name": "wrapt",
+         "versions": [
+            "1.11.2"
+         ],
+         "git": "https://github.com/GrahamDumpleton/wrapt",
+         "hasDll": "true",
+         "dockerRepo": "kpython/wrapt",
+         "status": "validated",
+         "comment": ""
+      },
+      {
+         "name": "Pillow",
+         "versions": [
+            "6.2.1"
+         ],
+         "git": "https://github.com/python-pillow/Pillow",
+         "hasDll": "true",
+         "dockerRepo": "kpython/pillow",
+         "status": "validated",
+         "dependsOn": {
+            "dnf": [
+               "jpeg-devel",
+               "libtiff-devel"
+            ]
+         },
+         "installDir": "PIL",
+         "comment": "Python Imaging Library. Installation instructions: https://pillow.readthedocs.io/en/latest/installation.htm"
+      },
+      {
+         "name": "nameko",
+         "versions": [
+            "v2.12.0"
+         ],
+         "git": "https://github.com/nameko/nameko",
+         "hasDll": "false",
+         "dependsOn": {
+            "pyPackage": "greenlet"
+         },
+         "comment": "installs:  amqp-2.5.2 dnspython-1.16.0 eventlet-0.25.1 greenlet-0.4.15 importlib-metadata-1.3.0 kombu-4.6.7 mock-3.0.5 monotonic-1.5 more-itertools-8.0.2 nameko-2.12.0 path-13.1.0 path.py-12.4.0 vine-1.3.0 zipp-0.6.0"
+      },
+      {
+         "name": "greenlet",
+         "versions": [
+            "6.2.1"
+         ],
+         "git": "https://github.com/python-greenlet/greenlet",
+         "hasDll": "true",
+         "dockerRepo": "kpython/greenlet",
+         "status": "validated",
+         "comment": ".so is installed directly to site-packages, without an encapsulating dir"
+      },
+      {
+         "name": "pyasn1",
+         "hasDll": "false"
+      },
+      {
+         "name": "requests",
+         "hasDll": "false"
+      },
+      {
+         "name": "flask",
+         "hasDll": "false"
+      },
+      {
+         "name": "keras",
+         "hasDll": "false"
+      },
+      {
+         "name": "pytz",
+         "hasDll": "false"
+      },
+      {
+         "name": "werkzeug",
+         "hasDll": "false"
+      },
+      {
+         "name": "scipy",
+         "versions": [
+            "v1.3.2"
+         ],
+         "git": "https://github.com/scipy/scipy",
+         "hasDll": "true",
+         "dockerRepo": "kpython/scipy",
+         "status": "fail",
+         "comment": "conflict utils vs utils_cxx - dup name"
+      },
+      {
+         "name": "matplotlib",
+         "versions": [
+            "v3.1.1"
+         ],
+         "git": "https://github.com/matplotlib/matplotlib",
+         "hasDll": "true",
+         "dockerRepo": "kpython/matplotlib",
+         "status": "fail",
+         "comment": "needs -lpng16 -lfreetype"
+      },
+      {
+         "name": "pandas",
+         "versions": [
+            "v0.25.3"
+         ],
+         "git": "https://github.com/pandas-dev/pandas",
+         "hasDll": "true",
+         "dockerRepo": "kpython/pandas",
+         "status": "fail",
+         "comment": "mulitple dups. Plus unresolved __cxa_begin_catch and other _cxa_xxx"
+      },
+      {
+         "name": "python-dateutil",
+         "versions": [
+            "2.8.1"
+         ],
+         "git": "https://github.com/dateutil/dateutil",
+         "hasDll": "false",
+         "installDir": "dateutil"
+      },
+      {
+         "name": "tensorflow",
+         "versions": [
+            "???"
+         ],
+         "git": "https:???",
+         "hasDll": "true",
+         "dockerRepo": "kpython/tensorflow",
+         "status": "fail",
+         "comment": "did not get full build logs - bazel build !"
+      },
+      {
+         "name": "gevent",
+         "versions": [
+            "1.4.0"
+         ],
+         "git": "https://github.com/gevent/gevent",
+         "hasDll": "true",
+         "dependsOn": {
+            "tool": "cython"
+         },
+         "dockerRepo": "kpython/gevent",
+         "status": "fail",
+         "comment": "undefined: `__read_chk `__fdelt_chk `__memmove_chk `__open64_2 `__pread64_chk"
+      },
+      {
+         "name": "h5py",
+         "versions": [
+            "2.10.0"
+         ],
+         "git": "https://github.com/h5py/h5py",
+         "hasDll": "true",
+         "dockerRepo": "kpython/h5py",
+         "status": "fail",
+         "comment": "needs hdf5 hdf5-static (dnf). undefined: `__vasprintf_chk `__realpath_chk` SZ_encoder_enabled `SZ_BufftoBuffDecompress"
+      },
+      {
+         "name": "grpcio",
+         "versions": [
+            "??"
+         ],
+         "git": "https://github.com/grpc/grpc/tree/master/src/python/grpcio",
+         "hasDll": "true",
+         "dockerRepo": "kpython/grpcio",
+         "status": "fail",
+         "comment": "needs gprc, pyton-dev, submodules; not standard build"
+      },
+      {
+         "name": "protobuf",
+         "versions": [
+            "v3.10.1"
+         ],
+         "git": "https://github.com/protocolbuffers/protobuf",
+         "hasDll": "true",
+         "dockerRepo": "kpython/protobuf",
+         "status": "fail",
+         "comment": "# ^^^^ uses redirection to 'pth' mechanism - file cpython/Lib/protobuf-3.10.0-py3.7-nspkg.pth defines the code below.#      need investigation, uses this: # import sys, types, os;has_mfs = sys.version_info > (3, 5);p = os.path.join(sys._getframe(1).f_locals['sitedir' ], *('google',));importlib = has_mfs and __import__('importlib.util');has_mfs and __import__('importlib.machinery');m = has_mfs and sys.modules.setdefault('google', importlib.util.module_from_spec(importlib.machinery.PathFinder.find_spec('google',[os.path.dirname(p)])));m = m or sys.modules.setdefault('google', types.ModuleType('google'));mp = (m or []) and m.__dict__.setdefault('__path__',[]);(p not in mp) and mp.append(p)"
+      }
+   ]
+}

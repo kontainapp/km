@@ -18,11 +18,6 @@ ARG image=flask
 # Original image's tag. In out tests,we put distro (e.g. alpine) there.
 ARG distro=alpine
 
-# For Kontainer , we need "km" for execution in Docker, thus using kontain/km
-# When we can use runk with Kontain specific images (no docker) we won't need km inside the image and will use 'scratch' here
-ARG KM_BASE=kontain/km
-ARG KM_TAG=latest
-
 # This stage will find and extract all py-related files from original container into $TMP folder
 FROM $image:$distro as original
 
@@ -31,11 +26,11 @@ COPY faktory_prepare.sh /tmp
 RUN /tmp/faktory_prepare.sh /tmp/faktory
 
 # This stage will unpack all py files from prior stage and add KM/python.km needed stuff
-FROM $KM_BASE:$KM_TAG as km
+FROM scratch
 
 COPY --from=original /tmp/faktory/pydirs/ /
 COPY --from=original /tmp/faktory/python3 /usr/local/bin/
 # TODO: build correct python3.km depending on payload;  package in tar as /usr/local/bin/python and use 'ADD'
-COPY python3.km  /usr/local/bin/
+COPY python3.km km /usr/local/bin/
 
 # ENTRYPOINT and CMD will be added to to the end of this file by caller from upstairs
