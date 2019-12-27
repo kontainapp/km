@@ -181,7 +181,6 @@ typedef struct km_mmap_list km_mmap_list_t;
 // mmap region monitor internal state
 typedef union {
    struct {
-      uint32_t km_mmap_inited : 1;    // 1 if area was zeroed out already
       uint32_t km_mmap_monitor : 1;   // 1 if area is allocated by monitor
       uint32_t km_unused : 30;
    };
