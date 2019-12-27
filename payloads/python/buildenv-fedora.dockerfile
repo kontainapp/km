@@ -25,7 +25,7 @@ RUN cd cpython && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
 WORKDIR /home/$USER/cpython
 COPY extensions/ ../extensions/
 # prepare "default" .so extensions to be statically linked in, and save neccessary files
-RUN ../extensions/prepare_extension.py bear.out --skip ../extensions/skip_builtins.txt \
+RUN ../extensions/prepare_extension.py bear.out --no_mung --log=quiet --skip ../extensions/skip_builtins.txt \
    && files="dlstatic_km.mk build/temp.* `find build -name '*.km.*'` `find build -name '*\.so'`" ; \
    tar cf - $files | (mkdir builtins; tar -C builtins -xf -)
 
