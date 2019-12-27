@@ -78,20 +78,20 @@ typedef unsigned long int pthread_tid_t;
  * what the vcpu is currently doing.
  */
 typedef enum {
-   GRS_NONE,             // no state has been assigned
-   GRS_PAUSED,           // gdb wants this thread paused
-   GRS_STEPPING,         // gdb wants this thread single stepping
-   GRS_RANGESTEPPING,    // gdb wants this thread stepping through a range of addresses
-   GRS_RUNNING,          // gdb wants this thread running
+   GRS_NONE,            // no state has been assigned
+   GRS_PAUSED,          // gdb wants this thread paused
+   GRS_STEPPING,        // gdb wants this thread single stepping
+   GRS_RANGESTEPPING,   // gdb wants this thread stepping through a range of addresses
+   GRS_RUNNING,         // gdb wants this thread running
 } gdb_run_state_t;
 
 /*
  * gdb related state stored in the km_vcpu_t.
  */
 typedef struct {
-   gdb_run_state_t gvs_gdb_run_state; // parked, paused, stepping, running
-   km_gva_t gvs_steprange_start;      // beginning address of the address range to step through
-   km_gva_t gvs_steprange_end;        // end address of the address range to step through
+   gdb_run_state_t gvs_gdb_run_state;   // parked, paused, stepping, running
+   km_gva_t gvs_steprange_start;        // beginning address of the address range to step through
+   km_gva_t gvs_steprange_end;          // end address of the address range to step through
 } gdb_vcpu_state_t;
 
 typedef struct km_vcpu {
@@ -101,32 +101,29 @@ typedef struct km_vcpu {
    pthread_t vcpu_thread;         // km pthread
    pthread_mutex_t thr_mtx;       // protects the three fields below
    pthread_cond_t thr_cv;         // used by vcpu_pthread to block while vcpu isn't in use
+   int is_used;                   // 1 means slot is taken, 0 means 'ready for reuse'
+   int is_active;                 // 1 means VCPU thread is running, 0 means it is "parked"
                                   //
+   km_gva_t stack_top;            // also available in guest_thr
    km_gva_t guest_thr;            // guest pthread, FS reg in the guest
-   km_gva_t stack_top;            // available in guest_thr but requres gva_to_kma, save it
                                   //
    int gdb_efd;                   // gdb uses this to synchronize with VCPU thread
-   int is_used;                   // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
-   pthread_tid_t joining_pid;     // pid if currently joining another thread pid, -1 if not
-   km_gva_t exit_res;             // exit status for this thread
    int regs_valid;                // Are registers valid?
-   kvm_regs_t regs;               // Cached register values.
    int sregs_valid;               // Are segment registers valid?
+   kvm_regs_t regs;               // Cached register values.
    kvm_sregs_t sregs;             // Cached segment register values.
    km_sigset_t sigmask;           // blocked signals for thread
    km_signal_list_t sigpending;   // List of signals sent to thread
-
    /*
     * Linux/Pthread handshake hacks. These are actually part of the standard.
     */
-   km_gva_t set_child_tid;        // See 'man 2 set_child_tid' for details
-   km_gva_t clear_child_tid;      // See 'man 2 set_child_tid' for details
+   km_gva_t set_child_tid;     // See 'man 2 set_child_tid' for details
+   km_gva_t clear_child_tid;   // See 'man 2 set_child_tid' for details
 
-   uint64_t dr_regs[4];           // remember the addresses we are watching and have written into
-                                  // the processor's debugging facilities in DR0 - DR3.
-
-   gdb_vcpu_state_t gdb_vcpu_state; // gdb's per thread (vcpu) state.
+   uint64_t dr_regs[4];   // remember the addresses we are watching and have written into
+                          // the processor's debugging facilities in DR0 - DR3.
+   gdb_vcpu_state_t gdb_vcpu_state;   // gdb's per thread (vcpu) state.
 } km_vcpu_t;
 
 /*
@@ -307,7 +304,7 @@ int km_clone(km_vcpu_t* vcpu,
              unsigned long newtls,
              void** cargs);
 uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr);
-void km_exit(km_vcpu_t* vcpu, int status);
+void km_exit(km_vcpu_t* vcpu);
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
@@ -320,11 +317,10 @@ extern int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data);
 extern int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused);
 extern void km_vcpu_wait_for_all_to_pause(void);
 extern int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused);
-extern km_vcpu_t* km_vcpu_fetch(pthread_tid_t);
 extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
 
 extern void km_trace(int want_strerror, const char* function, int linenumber, const char* fmt, ...)
-       __attribute__ ((__format__ (__printf__, 4, 5)));
+    __attribute__((__format__(__printf__, 4, 5)));
 
 // Interrupt handling.
 void km_init_guest_idt(km_gva_t handlers);
@@ -369,7 +365,7 @@ extern km_info_trace_t km_info_trace;
 #define km_info(tag, fmt, ...)                                                                     \
    do {                                                                                            \
       if (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)                \
-         km_trace(1, __FUNCTION__, __LINE__, fmt __VA_OPT__(,) __VA_ARGS__);                                    \
+         km_trace(1, __FUNCTION__, __LINE__, fmt __VA_OPT__(, ) __VA_ARGS__);                      \
    } while (0)
 
 /*
@@ -378,7 +374,7 @@ extern km_info_trace_t km_info_trace;
 #define km_infox(tag, fmt, ...)                                                                    \
    do {                                                                                            \
       if (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)                \
-         km_trace(0, __FUNCTION__, __LINE__, fmt __VA_OPT__(,) __VA_ARGS__);                                    \
+         km_trace(0, __FUNCTION__, __LINE__, fmt __VA_OPT__(, ) __VA_ARGS__);                      \
    } while (0)
 
 // tags for different traces

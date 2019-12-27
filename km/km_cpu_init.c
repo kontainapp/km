@@ -290,32 +290,12 @@ km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
    return NULL;
 }
 
-// fetch vcpu by guest thead pointer, as returned by pthread_create()
-km_vcpu_t* km_vcpu_fetch(pthread_tid_t pid)
-{
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      km_vcpu_t* vcpu;
-
-      if ((vcpu = machine.vm_vcpus[i]) == NULL) {
-         break;   // since we allocate vcpus sequentially, no reason to scan after NULL
-      }
-      if (vcpu->is_used == 1 && vcpu->guest_thr == pid) {
-         return vcpu;
-      }
-   }
-   return NULL;
-}
-
 /*
- * Returns 1 if the vcpu is still running (i.e.not paused). Skip the ones sitting in pthread_join
- * because it can generate a deadlock if they wait in pthread_join(this_thread)).
+ * Returns 1 if the vcpu is still running (i.e.not paused)
  */
-static int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
+static inline int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 {
-   if (vcpu->is_paused == 1) {
-      return 0;
-   }
-   return 1;
+   return vcpu->is_paused == 1 ? 0 : 1;
 }
 
 int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
@@ -402,6 +382,7 @@ void km_vcpu_put(km_vcpu_t* vcpu)
    vcpu->guest_thr = 0;
    vcpu->stack_top = 0;
    vcpu->is_paused = 0;
+   vcpu->is_active = 0;
    // vcpu->is_used = 0;
    __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_used, 0, __ATOMIC_SEQ_CST);
 }

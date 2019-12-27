@@ -109,7 +109,6 @@ static km_hc_ret_t arch_prctl_hcall(void* v, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t exit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   km_exit(vcpu, arg->arg1);
    return HC_STOP;
 }
 
@@ -1153,7 +1152,6 @@ static km_hc_ret_t unmapself_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    // pthread_exit() does this at the end to unmap the stack and exit:
    // _Noreturn void__unmapself(void* base, size_t size);
    (void)km_guest_munmap(arg->arg1, arg->arg2);
-   km_exit(vcpu, 0);
    return HC_STOP;
 }
 
