@@ -174,39 +174,9 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
    }
 }
 
-/*
- * If this is the first time region will be accessible, zero it out
- *
- * This function relies on the fact that the last step in any guest mmap manipulation is always
- * setting protection to whatever the guest has requested. So right after a call to km_mmap_zero
- * there is always proper protection setting - so we can simply set it to PROT_WRITE here before
- * memset
- */
-static void km_mmap_zero(km_mmap_reg_t* reg)
-{
-   km_kma_t addr = km_gva_to_kma_nocheck(reg->start);
-   size_t size = reg->size;
-
-   if (reg->protection == PROT_NONE || reg->km_flags.km_mmap_inited == 1) {
-      km_infox(KM_TRACE_MMAP,
-               "skip zero kma: %p sz %ld prot 0x%x km_flags 0x%x",
-               addr,
-               size,
-               reg->protection,
-               reg->km_flags.data32);
-      return;   // not accessible or already was zeroed out
-   }
-   km_infox(KM_TRACE_MMAP, "zero km %p sz %ld", addr, size);
-   mprotect(addr, size, PROT_WRITE);
-   memset(addr, 0, size);
-   reg->km_flags.km_mmap_inited = 1;
-}
-
 // wrapper for mprotect() on a single mmap region.
 static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
 {
-   km_mmap_zero(reg);   // range may become acessible for the 1st time - zero it if needed
-
    if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, reg->protection) != 0) {
       warn("%s: Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)",
            __FUNCTION__,
@@ -285,7 +255,7 @@ static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
    }
    reg->offset = 0;
    km_mmap_insert(reg, list);
-   reg->km_flags.km_mmap_inited = 0;   // allow concat to happen on free list
+   madvise(km_gva_to_kma_nocheck(reg->start), reg->size, MADV_DONTNEED);   // zero out on next use
    km_mmap_concat(reg, list);
    if (reg->start == km_mem_tbrk(0)) {   // adjust tbrk() if needed
       km_mem_tbrk(reg->start + reg->size);
@@ -692,12 +662,6 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
       km_infox(KM_TRACE_MMAP, "mremap: reusing adjusted free map");
       km_mmap_reg_t* donor = km_mmap_find_address(&machine.mmaps.free, ptr->start + ptr->size);
       assert(donor != NULL && donor->size >= needed);   // MUST have free slot due to gap in busy
-      km_mmap_reg_t new_range = {.start = old_addr + old_size,
-                                 .size = needed,
-                                 .protection = ptr->protection,
-                                 .flags = ptr->flags,
-                                 .km_flags.data32 = 0};
-      km_mmap_zero(&new_range);
       ptr->size += needed;
       km_mmap_mprotect_region(ptr);
       if (donor->size == needed) {
