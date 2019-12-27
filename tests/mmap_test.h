@@ -48,7 +48,7 @@ typedef struct mmap_test {
 
 #define UNUSED __attribute__((unused))
 static const char* errno_fmt UNUSED = "errno 0x%x";   // format for offsets/types error msg
-static const char* ret_fmt UNUSED = "ret 0x%x";              // format for offsets/types error msg
+static const char* ret_fmt UNUSED = "ret 0x%x";       // format for offsets/types error msg
 // just to type less going forward
 static const int flags = (MAP_PRIVATE | MAP_ANONYMOUS);
 
@@ -72,14 +72,11 @@ static char* out_sz(uint64_t val)
    return buf;
 }
 
-static int get_maps(void) UNUSED;
-static int get_maps(void)
+static int get_maps(int verbose) UNUSED;
+static int get_maps(int verbose)
 {
    int ret;
 
-   if (greatest_get_verbosity() <= 0) {
-      return 0;
-   }
    if (info == NULL) {
       info = calloc(1, sizeof(km_ut_get_mmaps_t) + MAX_MAPS * sizeof(km_mmap_reg_t));
       assert(info != NULL);
@@ -102,17 +99,19 @@ static int get_maps(void)
       if (reg == info->maps + info->nfree) {   // reset distance on 'busy' list stat
          old_end = reg->start;
       }
-      printf("mmap %s: 0x%lx size 0x%lx (%s) distance 0x%lx (%s), flags 0x%x prot 0x%x km_flags "
-             "0x%x\n",
-             type,
-             reg->start,
-             reg->size,
-             out_sz(reg->size),
-             reg->start - old_end,
-             out_sz(reg->start - old_end),
-             reg->flags,
-             reg->protection,
-             reg->km_flags.data32);
+      if (verbose > 0) {
+         printf("mmap %s: 0x%lx size 0x%lx (%s) distance 0x%lx (%s), flags 0x%x prot 0x%x km_flags "
+                "0x%x\n",
+                type,
+                reg->start,
+                reg->size,
+                out_sz(reg->size),
+                reg->start - old_end,
+                out_sz(reg->start - old_end),
+                reg->flags,
+                reg->protection,
+                reg->km_flags.data32);
+      }
       old_end = reg->start + reg->size;
    }
    return 0;
