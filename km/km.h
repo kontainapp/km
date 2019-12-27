@@ -324,6 +324,9 @@ extern int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused);
 extern km_vcpu_t* km_vcpu_fetch(pthread_tid_t);
 extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
 
+extern void km_trace(int want_strerror, const char* function, int linenumber, const char* fmt, ...)
+       __attribute__ ((__format__ (__printf__, 4, 5)));
+
 // Interrupt handling.
 void km_init_guest_idt(km_gva_t handlers);
 void km_handle_interrupt(km_vcpu_t* vcpu);
@@ -360,15 +363,23 @@ typedef struct km_info_trace {
 extern km_info_trace_t km_info_trace;
 
 #define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)   // 1 for yes, 0 for no
-#define km_info(tag, ...)                                                                          \
+
+/*
+ * Trace something and add perror() output to end of the line.
+ */
+#define km_info(tag, fmt, ...)                                                                     \
    do {                                                                                            \
       if (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)                \
-         warn(__VA_ARGS__);                                                                        \
+         km_trace(1, __FUNCTION__, __LINE__, fmt __VA_OPT__(,) __VA_ARGS__);                                    \
    } while (0)
-#define km_infox(tag, ...)                                                                         \
+
+/*
+ * Trace something to stderr  but don't include perror() output.
+ */
+#define km_infox(tag, fmt, ...)                                                                    \
    do {                                                                                            \
       if (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)                \
-         warnx(__VA_ARGS__);                                                                       \
+         km_trace(0, __FUNCTION__, __LINE__, fmt __VA_OPT__(,) __VA_ARGS__);                                    \
    } while (0)
 
 // tags for different traces

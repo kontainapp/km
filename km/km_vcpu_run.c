@@ -42,22 +42,11 @@ __run_err(void (*fn)(int, const char*, __builtin_va_list), km_vcpu_t* vcpu, int 
    static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
    int save_errno = errno;
    va_list args;
-   kvm_regs_t regs;
-   kvm_sregs_t sregs;
-   char fmt[strlen(f) + strlen(fx) + 2 * strlen("1234567890123456") + 64];
+   char fmt[strlen(f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];
 
    va_start(args, f);
 
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &regs) < 0) {
-      (*fn)(s, f, args);
-      va_end(args);
-   }
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &sregs) < 0) {
-      (*fn)(s, f, args);
-      va_end(args);
-   }
-
-   sprintf(fmt, fx, vcpu->vcpu_id, regs.rip, regs.rsp, sregs.cr2);
+   sprintf(fmt, fx, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2);
    strcat(fmt, f);
 
    errno = save_errno;
@@ -75,24 +64,11 @@ static void __run_warn(void (*fn)(const char*, __builtin_va_list), km_vcpu_t* vc
 {
    static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
    va_list args;
-   kvm_regs_t regs;
-   kvm_sregs_t sregs;
-   char fmt[strlen(f) + strlen(fx) + 2 * strlen("1234567890123456") + 64];
+   char fmt[strlen(f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];
 
    va_start(args, f);
 
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &regs) < 0) {
-      (*fn)(f, args);
-      va_end(args);
-      return;
-   }
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &sregs) < 0) {
-      (*fn)(f, args);
-      va_end(args);
-      return;
-   }
-
-   sprintf(fmt, fx, vcpu->vcpu_id, regs.rip, regs.rsp, sregs.cr2);
+   sprintf(fmt, fx, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2);
    strcat(fmt, f);
 
    (*fn)(fmt, args);
@@ -445,8 +421,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
    if (ga > vcpu->stack_top) {
       ga -= 4 * GIB;
    }
-   km_infox(KM_TRACE_HC, "%s: vcpu %d, calling hc = %d (%s)",
-            __FUNCTION__,
+   km_infox(KM_TRACE_HC, "vcpu %d, calling hc = %d (%s)",
             vcpu->vcpu_id,
             *hc,
             km_hc_name_get(*hc));
@@ -547,21 +522,22 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
     */
    vcpu->cpu_run->exit_reason = 0;   // i hope this won't disturb kvm.
    km_infox(KM_TRACE_VCPU,
-            "%s: vcpu %d, is_paused %d, about to ioctl( KVM_RUN )",
-            __FUNCTION__,
+            "vcpu %d, is_paused %d, about to ioctl( KVM_RUN )",
             vcpu->vcpu_id,
             vcpu->is_paused);
-   if (vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED) {
-      km_infox(KM_TRACE_VCPU, "%s: starting vcpu %d but gdb_run_state is PAUSED?", __FUNCTION__, vcpu->vcpu_id);
-      abort();
-   }
    rc = ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
    km_infox(KM_TRACE_VCPU,
-            "%s: vcpu %d, is_paused %d, ioctl( KVM_RUN ) returned %d",
-            __FUNCTION__,
+            "vcpu %d, is_paused %d, ioctl( KVM_RUN ) returned %d",
             vcpu->vcpu_id,
             vcpu->is_paused,
             rc);
+
+   // If we need them, harvest the registers once upon return.
+   if (km_trace_enabled() || km_gdb_is_enabled()) {
+      km_read_registers(vcpu);
+      km_read_sregisters(vcpu);
+   }
+
    if (rc == 0) {
       return 0;
    }
@@ -656,14 +632,28 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    while (1) {
       int reason;
 
-      // interlock with machine.pause_requested.
-      if (machine.pause_requested) {
-         km_infox(KM_TRACE_VCPU, "%s: vcpu %d blocking on gdb_efd", __FUNCTION__, vcpu->vcpu_id);
+      /*
+       * Interlock with machine.pause_requested.
+       * Also handle the condition where a thread was in hypercall which returned
+       * after gdb had marked the thread as paused.  We need to block the thread.
+       */
+      if (machine.pause_requested ||
+          (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED)) {
+         km_infox(KM_TRACE_VCPU,
+                  "%s: vcpu %d, pause_requested %d, gvs_gdb_run_state %d, blocking on gdb_efd",
+                  __FUNCTION__,
+                  vcpu->vcpu_id,
+                  machine.pause_requested,
+                  vcpu->gdb_vcpu_state.gvs_gdb_run_state);
          vcpu->is_paused = 1;
          km_read_registers(vcpu);
          km_read_sregisters(vcpu);
          km_wait_on_eventfd(vcpu->gdb_efd);
-         km_infox(KM_TRACE_VCPU, "%s: vcpu %d unblocked, pause_requested %d", __FUNCTION__, vcpu->vcpu_id, machine.pause_requested);
+         km_infox(KM_TRACE_VCPU,
+                  "%s: vcpu %d unblocked, pause_requested %d",
+                  __FUNCTION__,
+                  vcpu->vcpu_id,
+                  machine.pause_requested);
       }
 
       /*
@@ -689,26 +679,13 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             switch (hypercall(vcpu, &hc)) {
                case HC_CONTINUE:
                   km_infox(KM_TRACE_VCPU,
-                           "%s: vcpu %d, return from hc = %d (%s), gdb_run_state %d, pause_requested %d",
-                           __FUNCTION__,
+                           "vcpu %d, return from hc = %d (%s), gdb_run_state %d, pause_requested %d, is_paused %d",
                            vcpu->vcpu_id,
                            hc,
                            km_hc_name_get(hc),
                            vcpu->gdb_vcpu_state.gvs_gdb_run_state,
-                           machine.pause_requested);
-                  if (km_gdb_is_enabled() == 1 &&
-                      vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED &&
-                      machine.pause_requested == 0) {
-                     /*
-                      * This thread was put into pause state while it was inside of a
-                      * hypercall.  gdb server uses SIGUSR1 to get payload threads out
-                      * of ioctl( KVM_RUN ) but threads in hypercall may not be interrupted
-                      * and will finish what they are doing only to emerge and discover
-                      * they have been paused by gdb.  We detect that situation here and
-                      * pause until gdb server lets us go again.
-                      */
-                     km_wait_on_eventfd(vcpu->gdb_efd);
-                  }
+                           machine.pause_requested,
+                           vcpu->is_paused);
                   break;
 
                case HC_STOP:
