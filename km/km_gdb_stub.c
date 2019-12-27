@@ -983,7 +983,7 @@ struct threadaction_blob {
    threadaction_t threadaction[KVM_MAX_VCPUS]; // each thread is bound to a virtual cpu
 };
 typedef struct threadaction_blob threadaction_blob_t;
-   
+
 
 /*
  * Apply the vCont action to the vcpu for each thread.

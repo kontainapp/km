@@ -65,5 +65,6 @@
       "python.formatting.autopep8Args": [
          "[\"--max-line-length\", \"100\"]"
       ],
+      "editor.wordWrapColumn": 100,
    }
 }
