@@ -285,6 +285,14 @@ static inline km_vcpu_t* km_main_vcpu(void)
    return machine.vm_vcpus[0];
 }
 
+static inline int km_wait_on_eventfd(int fd)
+{
+   eventfd_t value;
+   while (eventfd_read(fd, &value) == -1 && errno == EINTR)
+      ;
+   return value;
+}
+
 static inline int km_wait_on_mutex(km_vcpu_t* vcpu)
 {
    pthread_mutex_lock(&vcpu->mutex);
@@ -339,8 +347,8 @@ void km_handle_interrupt(km_vcpu_t* vcpu);
 #define KM_SIGVCPUSTOP SIGUSR1   //  After km start, used to signal VCP thread to force KVM exit
 
 /*
- * To check for success/failure from plain system calls and similar logic, returns -1 and sets errno
- * if fail.
+ * To check for success/failure from plain system calls and similar logic, returns -1 and sets
+ * errno if fail.
  */
 static inline long km_syscall_ok(uint64_t r)
 {
