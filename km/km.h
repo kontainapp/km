@@ -95,19 +95,20 @@ typedef struct {
 } gdb_vcpu_state_t;
 
 typedef struct km_vcpu {
-   int vcpu_id;                   // uniq ID
-   int kvm_vcpu_fd;               // this VCPU file descriptor
-   kvm_run_t* cpu_run;            // run control region
-   pthread_t vcpu_thread;         // km pthread
-   pthread_mutex_t thr_mtx;       // protects the three fields below
-   pthread_cond_t thr_cv;         // used by vcpu_pthread to block while vcpu isn't in use
-   int is_used;                   // 1 means slot is taken, 0 means 'ready for reuse'
-   int is_active;                 // 1 means VCPU thread is running, 0 means it is "parked"
-                                  //
-   km_gva_t stack_top;            // also available in guest_thr
-   km_gva_t guest_thr;            // guest pthread, FS reg in the guest
-                                  //
-   int gdb_efd;                   // gdb uses this to synchronize with VCPU thread
+   int vcpu_id;               // uniq ID
+   int kvm_vcpu_fd;           // this VCPU file descriptor
+   kvm_run_t* cpu_run;        // run control region
+   pthread_t vcpu_thread;     // km pthread
+   pthread_mutex_t thr_mtx;   // protects the three fields below
+   pthread_cond_t thr_cv;     // used by vcpu_pthread to block while vcpu isn't in use
+                              //
+   km_gva_t guest_thr;        // guest pthread, FS reg in the guest
+   km_gva_t stack_top;        // available in guest_thr but requres gva_to_kma, save it
+                              //
+   pthread_mutex_t mutex;
+   pthread_cond_t cond;   // gdb uses this to synchronize with VCPU thread
+   int locked;
+   int is_used;                   // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
    int regs_valid;                // Are registers valid?
    int sregs_valid;               // Are segment registers valid?
@@ -284,12 +285,20 @@ static inline km_vcpu_t* km_main_vcpu(void)
    return machine.vm_vcpus[0];
 }
 
-static inline int km_wait_on_eventfd(int fd)
+static inline int km_wait_on_mutex(km_vcpu_t* vcpu)
 {
-   eventfd_t value;
-   while (eventfd_read(fd, &value) == -1 && errno == EINTR)
-      ;
-   return value;
+   pthread_mutex_lock(&vcpu->mutex);
+   int i = pthread_cond_wait(&vcpu->cond, &vcpu->mutex);
+   pthread_mutex_unlock(&vcpu->mutex);
+   return i;
+}
+
+static inline int km_cond_signal(km_vcpu_t* vcpu)
+{
+   pthread_mutex_lock(&vcpu->mutex);
+   int i = pthread_cond_signal(&vcpu->cond);
+   pthread_mutex_unlock(&vcpu->mutex);
+   return i;
 }
 
 km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[]);

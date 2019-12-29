@@ -66,10 +66,6 @@ void km_signal_machine_fini(void)
  */
 void km_vcpu_fini(km_vcpu_t* vcpu)
 {
-   if (vcpu->gdb_efd >= 0) {
-      close(vcpu->gdb_efd);
-      vcpu->gdb_efd = -1;
-   }
    if (vcpu->cpu_run != NULL) {
       if (munmap(vcpu->cpu_run, machine.vm_run_size) != 0) {
          err(3, "munmap cpu_run for vcpu fd");
@@ -187,9 +183,12 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       warn("KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
       return -1;
    }
-
-   if ((vcpu->gdb_efd = eventfd(0, 0)) == -1) {
-      warn("failed init gdb eventfd for VCPU %d", vcpu->vcpu_id);
+   if (pthread_mutex_init(&vcpu->mutex, NULL) != 0) {
+      warn("failed to initialize mutex mutex");
+      return -1;
+   }
+   if (pthread_cond_init(&vcpu->cond, NULL) != 0) {
+      warn("failed to initialize condition cond");
       return -1;
    }
    if (pthread_mutex_init(&vcpu->thr_mtx, NULL) != 0) {
