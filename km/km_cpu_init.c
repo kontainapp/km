@@ -223,7 +223,7 @@ km_vcpu_t* km_vcpu_get(void)
    km_vcpu_t* old;
    int unused;
 
-   if ((new = malloc(sizeof(km_vcpu_t))) == NULL) {
+   if ((new = calloc(1, sizeof(km_vcpu_t))) == NULL) {
       err(1, "KVM: no memory for vcpu");
    }
    km_signal_list_t tmpl = {.head = TAILQ_HEAD_INITIALIZER(new->sigpending.head)};

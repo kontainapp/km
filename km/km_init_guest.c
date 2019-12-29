@@ -200,7 +200,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    return stack_top;   // argv in the guest
 }
 
-static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict attr)
+int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*))
 {
    int rc;
 
@@ -211,7 +211,7 @@ static inline int km_run_vcpu_thread(km_vcpu_t* vcpu, const km_kma_t restrict at
       pthread_attr_init(&vcpu_thr_att);
       pthread_attr_setstacksize(&vcpu_thr_att, 16 * KM_PAGE_SIZE);
       vcpu->is_active = 1;
-      rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))km_vcpu_run, vcpu);
+      rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))run, vcpu);
       pthread_attr_destroy(&vcpu_thr_att);
    } else {
       if (pthread_mutex_lock(&vcpu->thr_mtx) != 0) {
@@ -308,7 +308,7 @@ int km_clone(km_vcpu_t* vcpu,
       *gtid = km_vcpu_get_tid(new_vcpu);
    }
 
-   if (km_run_vcpu_thread(new_vcpu, NULL) < 0) {
+   if (km_run_vcpu_thread(new_vcpu, km_vcpu_run) < 0) {
       km_vcpu_put(new_vcpu);
       return -EAGAIN;
    }

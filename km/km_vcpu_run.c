@@ -421,10 +421,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
    if (ga > vcpu->stack_top) {
       ga -= 4 * GIB;
    }
-   km_infox(KM_TRACE_HC, "vcpu %d, calling hc = %d (%s)",
-            vcpu->vcpu_id,
-            *hc,
-            km_hc_name_get(*hc));
+   km_infox(KM_TRACE_HC, "vcpu %d, calling hc = %d (%s)", vcpu->vcpu_id, *hc, km_hc_name_get(*hc));
    km_kma_t ga_kma;
    if ((ga_kma = km_gva_to_kma(ga)) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
       km_infox(KM_TRACE_SIGNALS, "%s: hc: %d bad km_hc_args_t address:0x%lx", __FUNCTION__, *hc, ga);
@@ -679,7 +676,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             switch (hypercall(vcpu, &hc)) {
                case HC_CONTINUE:
                   km_infox(KM_TRACE_VCPU,
-                           "vcpu %d, return from hc = %d (%s), gdb_run_state %d, pause_requested %d, is_paused %d",
+                           "vcpu %d, return from hc = %d (%s), gdb_run_state %d, pause_requested "
+                           "%d, is_paused %d",
                            vcpu->vcpu_id,
                            hc,
                            km_hc_name_get(hc),
@@ -751,7 +749,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                 * If we are in the address stepping range, we just turn around and keep
                 * stepping.  Once we exit the address range we give control to the
                 * gdb server thread.
-                * If we hit a breapoint planted in the stepping range we exit to gdb.
+                * If we hit a breakpoint planted in the stepping range we exit to gdb.
                 */
                if (vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_RANGESTEPPING &&
                    vcpu->cpu_run->debug.arch.pc >= vcpu->gdb_vcpu_state.gvs_steprange_start &&
@@ -799,7 +797,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
  * Main vcpu in presence of gdb needs to pause before entering guest main() and wait for gdb
  * client connection. The client will control the execution by continue or step commands.
  */
-void* km_vcpu_run_main(void* unused)
+void* km_vcpu_run_main(km_vcpu_t* unused)
 {
    km_vcpu_t* vcpu = km_main_vcpu();
 
