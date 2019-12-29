@@ -298,7 +298,7 @@ int main(int argc, char** argv)
    }
    dirpath = argv[1];
    if (argc == 3) {
-      char *ep = NULL;
+      char* ep = NULL;
       int val = strtol(argv[2], &ep, 0);
       if (*ep != '\0') {
          usage();

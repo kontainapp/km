@@ -54,5 +54,7 @@
    "python.linting.flake8Enabled": false,
    "python.linting.enabled": true,
    "python.linting.pylintEnabled": true,
-   "python.pythonPath": "/usr/bin/python3"
+   "python.pythonPath": "/usr/bin/python3",
+   "editor.wordWrapColumn": 100,
+   "files.autoSave": "onFocusChange"
 }
