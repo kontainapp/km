@@ -117,27 +117,30 @@ struct __attribute__((__packed__)) km_gdb_regs {
 
 #define GDB_INTERRUPT_PKT 0x3   // aka ^C
 
+// Define the gdb event queue head structure.
+TAILQ_HEAD(gdb_event_queue, gdb_event);
+typedef struct gdb_event_queue gdb_event_queue_t;
+
 typedef struct gdbstub_info {
-   int port;                           // Port the stub is listening for gdb client. 0 means NO GDB
-   int sock_fd;                        // socket to communicate to gdb client
-   int session_requested;              // set to 1 when payload threads need to pause on exit
-   bool stepping;                      // single step mode (stepi)
-   km_vcpu_t* gdb_vcpu;                // VCPU which GDB is asking us to work on.
-   pthread_mutex_t gdbnotify_mutex;    // serialize calls to km_gdb_notify_and_wait()
-   int exit_reason;                    // last KVM exit reason
-   int signo;                          // signal number
-   pid_t sigthreadid;                  // the id of the thread causing signo to be generated.
-   int send_threadevents;              // if non-zero send thread create and terminate events
-   uint8_t clientsup_multiprocess;     // gdb client can support multiprocess
-   uint8_t clientsup_xmlregisters;     // gdb client can support xmlregisters
-   uint8_t clientsup_qRelocInsn;       // gdb client can support qRelocInsn
-   uint8_t clientsup_swbreak;          // gdb client can accept swbreak stop reason in replies
-   uint8_t clientsup_hwbreak;          // gdb client can accept hwbreak stop reason in replies
-   uint8_t clientsup_forkevents;       // gdb client can accept fork events
-   uint8_t clientsup_vforkevents;      // gdb client can accept vfork events
-   uint8_t clientsup_execevents;       // gdb client can accept exec event extensions
-   uint8_t clientsup_vcontsupported;   // gdb client can send vCont and vCont? requests
-   uint8_t clientsup_qthreadevents;    // gdb client can send QThreadEvents requests
+   int port;                          // Port the stub is listening for gdb client. 0 means NO GDB
+   int sock_fd;                       // socket to communicate to gdb client
+   int session_requested;             // set to 1 when payload threads need to pause on exit
+   bool stepping;                     // single step mode (stepi)
+   km_vcpu_t* gdb_vcpu;               // VCPU which GDB is asking us to work on.
+   pthread_mutex_t notify_mutex;   // serialize calls to km_gdb_notify_and_wait()
+   gdb_event_queue_t event_queue;   // queue of pending gdb events
+   int exit_reason;                          // last KVM exit reason
+   int send_threadevents;                    // if non-zero send thread create and terminate events
+   uint8_t clientsup_multiprocess;           // gdb client can support multiprocess
+   uint8_t clientsup_xmlregisters;           // gdb client can support xmlregisters
+   uint8_t clientsup_qRelocInsn;             // gdb client can support qRelocInsn
+   uint8_t clientsup_swbreak;                // gdb client can accept swbreak stop reason in replies
+   uint8_t clientsup_hwbreak;                // gdb client can accept hwbreak stop reason in replies
+   uint8_t clientsup_forkevents;             // gdb client can accept fork events
+   uint8_t clientsup_vforkevents;            // gdb client can accept vfork events
+   uint8_t clientsup_execevents;             // gdb client can accept exec event extensions
+   uint8_t clientsup_vcontsupported;         // gdb client can send vCont and vCont? requests
+   uint8_t clientsup_qthreadevents;          // gdb client can send QThreadEvents requests
    // Note: we use km_vcpu_get_tid() as gdb payload thread id
 } gdbstub_info_t;
 

@@ -599,7 +599,7 @@ int km_vcpu_is_running(km_vcpu_t* vcpu, uint64_t me)
       // Don't count this vcpu
       return 0;
    }
-   return (vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED) ? 0 : 1;
+   return (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) ? 0 : 1;
 }
 
 /*
@@ -627,12 +627,12 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
        * Also handle the condition where a thread was in hypercall which returned
        * after gdb had marked the thread as paused.  We need to block the thread.
        */
-      if (machine.pause_requested ||
-          (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED)) {
+      while (machine.pause_requested ||
+             (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
          km_infox(KM_TRACE_VCPU,
                   "pause_requested %d, gvs_gdb_run_state %d, blocking on gdb_efd",
                   machine.pause_requested,
-                  vcpu->gdb_vcpu_state.gvs_gdb_run_state);
+                  vcpu->gdb_vcpu_state.gdb_run_state);
          vcpu->is_paused = 1;
          km_read_registers(vcpu);
          km_read_sregisters(vcpu);
@@ -673,7 +673,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                            "%d, is_paused %d",
                            hc,
                            km_hc_name_get(hc),
-                           vcpu->gdb_vcpu_state.gvs_gdb_run_state,
+                           vcpu->gdb_vcpu_state.gdb_run_state,
                            machine.pause_requested,
                            vcpu->is_paused);
                   break;
@@ -755,9 +755,9 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                 * gdb server thread.
                 * If we hit a breakpoint planted in the stepping range we exit to gdb.
                 */
-               if (vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_RANGESTEPPING &&
-                   vcpu->cpu_run->debug.arch.pc >= vcpu->gdb_vcpu_state.gvs_steprange_start &&
-                   vcpu->cpu_run->debug.arch.pc < vcpu->gdb_vcpu_state.gvs_steprange_end &&
+               if (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_RANGESTEPPING &&
+                   vcpu->cpu_run->debug.arch.pc >= vcpu->gdb_vcpu_state.steprange_start &&
+                   vcpu->cpu_run->debug.arch.pc < vcpu->gdb_vcpu_state.steprange_end &&
                    (vcpu->cpu_run->debug.arch.dr6 & 0x4000) != 0) {
                   continue;
                }
@@ -770,15 +770,27 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                 */
                km_gdb_notify_and_wait(vcpu, GDB_KMSIGNAL_KVMEXIT, true);
             } else {
-               // gdb is not attached, we shouldn't be seeing a debug exit?
-               run_warn("KVM: vcpu debug exit without gdb?");
-               km_vcpu_exit(vcpu);
+               /*
+                * We got a KVM_EXIT_DEBUG but gdb is disabled.
+                * This can happen if the gdb client disconnects the connection to
+                * the gdb server because the gdb server sent something unexpected
+                * to the gdb client.  We should try to continue on here.  But, we
+                * also need to understand what the gdb server did to upset the gdb
+                * client and fix that too.
+                */
+               run_warn("KVM: vcpu %d debug exit while gdb is disabled, gdb_run_state %d, "
+                        "pause_requested %d, is_paused %d",
+                        vcpu->vcpu_id,
+                        vcpu->gdb_vcpu_state.gdb_run_state,
+                        machine.pause_requested,
+                        vcpu->is_paused);
             }
             break;
 
          case KVM_EXIT_EXCEPTION:
             if (km_gdb_is_enabled() == 1) {
-               km_gdb_notify_and_wait(vcpu, km_signal_ready(vcpu), true);
+               km_signal_ready(vcpu);   // move signal from machine queue to vcpu queue
+               km_gdb_notify_and_wait(vcpu, SIGSEGV, true);
             } else {
                run_warn("KVM: exit vcpu. reason=%d (%s)", reason, kvm_reason_name(reason));
                km_vcpu_exit(vcpu);

@@ -68,6 +68,20 @@ typedef struct km_signal_list {
 typedef unsigned long int pthread_tid_t;
 
 /*
+ * When a thread hits a breakpoint, or a single step operation completes, or
+ * a signal is generated, a gdb event is queued by the thread and then the
+ * gdb server is woken.  The gdb server then processes the elements in the
+ * queue.  This structure describes a thread's gdb event.
+ */
+typedef struct gdb_event {
+   TAILQ_ENTRY(gdb_event) link;   // link field for being in gdb's event queue
+   uint8_t entry_is_active;       // to prevent us from overwriting a thread's single gdb_event
+   pid_t sigthreadid;             // the thread this entry belongs to
+   int signo;                     // the reason a thread has generated a gdb event
+   int exit_reason;               // the reason from kvm for exiting the guest vcpu
+} gdb_event_t;
+
+/*
  * This enum describes states gdb can assign to a thread with the vCont
  * remote protocol command.
  * This defines what state the gdb client would like the thread to be
@@ -78,20 +92,21 @@ typedef unsigned long int pthread_tid_t;
  * what the vcpu is currently doing.
  */
 typedef enum {
-   GRS_NONE,            // no state has been assigned
-   GRS_PAUSED,          // gdb wants this thread paused
-   GRS_STEPPING,        // gdb wants this thread single stepping
-   GRS_RANGESTEPPING,   // gdb wants this thread stepping through a range of addresses
-   GRS_RUNNING,         // gdb wants this thread running
-} gdb_run_state_t;
+   THREADSTATE_NONE,            // no state has been assigned
+   THREADSTATE_PAUSED,          // gdb wants this thread paused
+   THREADSTATE_STEPPING,        // gdb wants this thread single stepping
+   THREADSTATE_RANGESTEPPING,   // gdb wants this thread stepping through a range of addresses
+   THREADSTATE_RUNNING,         // gdb wants this thread running
+} gdb_thread_state_t;
 
 /*
  * gdb related state stored in the km_vcpu_t.
  */
 typedef struct {
-   gdb_run_state_t gvs_gdb_run_state;   // parked, paused, stepping, running
-   km_gva_t gvs_steprange_start;        // beginning address of the address range to step through
-   km_gva_t gvs_steprange_end;          // end address of the address range to step through
+   gdb_thread_state_t gdb_run_state;   // thread is paused, stepping, or running
+   km_gva_t steprange_start;        // beginning address of the address range to step through
+   km_gva_t steprange_end;          // end address of the address range to step through
+   gdb_event_t event;               // the thread event that has woken the gdb server
 } gdb_vcpu_state_t;
 
 typedef struct km_vcpu {
