@@ -183,11 +183,11 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       warn("KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
       return -1;
    }
-   if (pthread_mutex_init(&vcpu->mutex, NULL) != 0) {
+   if (pthread_mutex_init(&vcpu->gdb_mtx, NULL) != 0) {
       warn("failed to initialize mutex mutex");
       return -1;
    }
-   if (pthread_cond_init(&vcpu->cond, NULL) != 0) {
+   if (pthread_cond_init(&vcpu->gdb_cv, NULL) != 0) {
       warn("failed to initialize condition cond");
       return -1;
    }

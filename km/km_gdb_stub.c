@@ -1665,8 +1665,8 @@ static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, __attribute__((unused)) 
                __FUNCTION__,
                vcpu->vcpu_id,
                vcpu->gdb_vcpu_state.gvs_gdb_run_state);
-      while (gdbstub.session_requested == 0 && (ret = km_cond_signal(vcpu) != 0 && errno == EINTR)) {
-         ;   // ignore signals during the write
+      while (gdbstub.session_requested == 0 && (ret = km_gdb_cv_signal(vcpu) != 0)) {
+         ;
       }
    }
    return ret == 0 ? 0 : 1;   // Unblock main guest thread
@@ -1937,7 +1937,7 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait)
 
    if (need_wait != 0) {
       km_infox(KM_TRACE_GDB, "%s: vcpu %d waiting for gdb to let me run", __FUNCTION__, vcpu->vcpu_id);
-      km_wait_on_mutex(vcpu);   // Wait for gdb to allow this vcpu to continue
+      km_wait_on_gdb_cv(vcpu);   // Wait for gdb to allow this vcpu to continue
       vcpu->is_paused = 0;
       km_infox(KM_TRACE_GDB, "%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
    }

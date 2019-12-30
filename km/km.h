@@ -95,8 +95,9 @@ typedef struct {
 } gdb_vcpu_state_t;
 
 typedef struct km_vcpu {
-   int vcpu_id;               // uniq ID
-   int kvm_vcpu_fd;           // this VCPU file descriptor
+   int vcpu_id;       // uniq ID
+   int kvm_vcpu_fd;   // this VCPU file descriptor
+   int is_active;
    kvm_run_t* cpu_run;        // run control region
    pthread_t vcpu_thread;     // km pthread
    pthread_mutex_t thr_mtx;   // protects the three fields below
@@ -105,9 +106,8 @@ typedef struct km_vcpu {
    km_gva_t guest_thr;        // guest pthread, FS reg in the guest
    km_gva_t stack_top;        // available in guest_thr but requres gva_to_kma, save it
                               //
-   pthread_mutex_t mutex;
-   pthread_cond_t cond;   // gdb uses this to synchronize with VCPU thread
-   int locked;
+   pthread_mutex_t gdb_mtx;
+   pthread_cond_t gdb_cv;         // gdb uses this to synchronize with VCPU thread
    int is_used;                   // 1 means 'busy with workload thread'. 0 means 'ready for reuse'
    int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
    int regs_valid;                // Are registers valid?
@@ -293,19 +293,19 @@ static inline int km_wait_on_eventfd(int fd)
    return value;
 }
 
-static inline int km_wait_on_mutex(km_vcpu_t* vcpu)
+static inline int km_wait_on_gdb_cv(km_vcpu_t* vcpu)
 {
-   pthread_mutex_lock(&vcpu->mutex);
-   int i = pthread_cond_wait(&vcpu->cond, &vcpu->mutex);
-   pthread_mutex_unlock(&vcpu->mutex);
+   pthread_mutex_lock(&vcpu->gdb_mtx);
+   int i = pthread_cond_wait(&vcpu->gdb_cv, &vcpu->gdb_mtx);
+   pthread_mutex_unlock(&vcpu->gdb_mtx);
    return i;
 }
 
-static inline int km_cond_signal(km_vcpu_t* vcpu)
+static inline int km_gdb_cv_signal(km_vcpu_t* vcpu)
 {
-   pthread_mutex_lock(&vcpu->mutex);
-   int i = pthread_cond_signal(&vcpu->cond);
-   pthread_mutex_unlock(&vcpu->mutex);
+   pthread_mutex_lock(&vcpu->gdb_mtx);
+   int i = pthread_cond_signal(&vcpu->gdb_cv);
+   pthread_mutex_unlock(&vcpu->gdb_mtx);
    return i;
 }
 
