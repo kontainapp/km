@@ -266,7 +266,7 @@ load test_helper
 #
 #   # look for km trace entries that show the sigill signal overrode the breakpoint
 #   # when deciding to tell the gdb client why we stopped.
-#   grep "overriding pending signal" $km_trace_file >/dev/null
+#   grep "Sending delayed stop reply, signo 4," $km_trace_file >/dev/null
 #   assert [ $status -eq 0 ]
 #   rm -f $km_trace_file
 }

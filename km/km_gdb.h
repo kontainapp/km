@@ -117,6 +117,30 @@ struct __attribute__((__packed__)) km_gdb_regs {
 
 #define GDB_INTERRUPT_PKT 0x3   // aka ^C
 
+/*
+ * To help decide what stop packet to send back to a gdb client we need to
+ * understand the history of what has happened in the recent past.
+ * We use the gdb_activity_t to remember what has happened in the recent
+ * past and to predict what gdb server should do in the near future.
+ */
+typedef enum {
+   GAT_NONE,                  // no known gdb activity
+   GAT_SWBREAK,               // software breakpoint caused entry to gdbstub
+   GAT_SINGLESTEP,            // single step resume caused exit from gdbstub
+   GAT_SINGLESTEP_COMPLETE,   // single step complete caused entry to gdbstub
+} gdb_activity_type_t;
+
+typedef struct gdb_activity {
+   gdb_activity_type_t ga_type;
+   pid_t ga_tid;
+   km_gva_t ga_addr;
+} gdb_activity_t;
+
+
+// Define the gdb event queue head structure.
+TAILQ_HEAD(gdb_event_queue, gdb_event);
+typedef struct gdb_event_queue gdb_event_queue_t;
+
 typedef struct gdbstub_info {
    int port;                           // Port the stub is listening for gdb client. 0 means NO GDB
    int sock_fd;                        // socket to communicate to gdb client
@@ -124,6 +148,8 @@ typedef struct gdbstub_info {
    bool stepping;                      // single step mode (stepi)
    km_vcpu_t* gdb_vcpu;                // VCPU which GDB is asking us to work on.
    pthread_mutex_t gdbnotify_mutex;    // serialize calls to km_gdb_notify_and_wait()
+   gdb_event_queue_t gdb_event_queue_head;  // queue of pending gdb events
+   gdb_activity_t expected_entry_event; // gdb server may be expecting a certain event and this describes it
    int exit_reason;                    // last KVM exit reason
    int signo;                          // signal number
    pid_t sigthreadid;                  // the id of the thread causing signo to be generated.

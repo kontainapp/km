@@ -634,8 +634,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
        * Also handle the condition where a thread was in hypercall which returned
        * after gdb had marked the thread as paused.  We need to block the thread.
        */
-      if (machine.pause_requested ||
-          (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED)) {
+      while (machine.pause_requested ||
+             (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED)) {
          km_infox(KM_TRACE_VCPU,
                   "%s: vcpu %d, pause_requested %d, gvs_gdb_run_state %d, blocking on gdb_efd",
                   __FUNCTION__,
@@ -675,6 +675,11 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_IO:
             switch (hypercall(vcpu, &hc)) {
                case HC_CONTINUE:
+                  /*
+                   * Be aware that a thread can be marked as pausing while it was still
+                   * running in hypercall() since some hypercalls can't be interrupted
+                   * by the SIGUSR1 mechanism used by gdb to suspend all threads.
+                   */
                   km_infox(KM_TRACE_VCPU,
                            "vcpu %d, return from hc = %d (%s), gdb_run_state %d, pause_requested "
                            "%d, is_paused %d",
@@ -766,9 +771,19 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                 */
                km_gdb_notify_and_wait(vcpu, GDB_KMSIGNAL_KVMEXIT, true);
             } else {
-               // gdb is not attached, we shouldn't be seeing a debug exit?
-               run_warn("KVM: vcpu debug exit without gdb?");
-               km_vcpu_exit(vcpu);
+               /*
+                * We got a KVM_EXIT_DEBUG but gdb is disabled.
+                * This can happen if the gdb client disconnects the connection to
+                * the gdb server because the gdb server sent something unexpected
+                * to the gdb client.  We should try to continue on here.  But, we
+                * also need to understand what the gdb server did to upset the gdb
+                * client and fix that too.
+                */
+               run_warn("KVM: vcpu %d debug exit while gdb is disabled, gdb_run_state %d, pause_requested %d, is_paused %d",
+                        vcpu->vcpu_id,
+                        vcpu->gdb_vcpu_state.gvs_gdb_run_state,
+                        machine.pause_requested,
+                        vcpu->is_paused);
             }
             break;
 
