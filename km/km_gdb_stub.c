@@ -504,7 +504,7 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
            vcpu->regs.rbp,
            vcpu->regs.rip);
 
-   if (archp->exception == 3) {
+   if (archp->exception == 3 || (archp->dr6 == 0 && archp->dr7 == 0 && archp->exception == 1)) {
       // Apparently this is how a breakpoint (int 3) looks from KVM_EXIT_DEBUG.
       sprintf(stopreply, "T05thread:%08x;", km_vcpu_get_tid(vcpu));
       return;
