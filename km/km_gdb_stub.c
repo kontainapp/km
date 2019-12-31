@@ -485,13 +485,10 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
     * reply packes.  The gdb client is running the 'g' packet anyway so it is always
     * getting the registers we were supplying with the stop packet.
     */
-
-   // Make sure we report good register contents.
-   km_read_registers(vcpu);
+   km_read_registers(vcpu);   // Make sure we report good register contents.
 
    km_infox(KM_TRACE_VCPU,
-            "%s: debug exception, vcpu %d, exception 0x%08x, pc 0x%016llX, dr6 0x%016llx, dr7 "
-            "0x%016llx",
+            "%s: debug exception, vcpu %d, exception 0x%08x, pc 0x%llX, dr6 0x%llx, dr7 0x%llx",
             __FUNCTION__,
             vcpu->vcpu_id,
             archp->exception,
@@ -504,8 +501,11 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
            vcpu->regs.rbp,
            vcpu->regs.rip);
 
+   /*
+    * Apparently this is how a breakpoint (int 3) looks from KVM_EXIT_DEBUG: exception 3 on Intel,
+    * and exc == 1 and both drs 0 on AMD. Note that on Intel the latter never happens.
+    */
    if (archp->exception == 3 || (archp->dr6 == 0 && archp->dr7 == 0 && archp->exception == 1)) {
-      // Apparently this is how a breakpoint (int 3) looks from KVM_EXIT_DEBUG.
       sprintf(stopreply, "T05thread:%08x;", km_vcpu_get_tid(vcpu));
       return;
    }
