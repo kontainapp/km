@@ -675,11 +675,6 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_IO:
             switch (hypercall(vcpu, &hc)) {
                case HC_CONTINUE:
-                  /*
-                   * Be aware that a thread can be marked as pausing while it was still
-                   * running in hypercall() since some hypercalls can't be interrupted
-                   * by the SIGUSR1 mechanism used by gdb to suspend all threads.
-                   */
                   km_infox(KM_TRACE_VCPU,
                            "vcpu %d, return from hc = %d (%s), gdb_run_state %d, pause_requested "
                            "%d, is_paused %d",
@@ -789,7 +784,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
          case KVM_EXIT_EXCEPTION:
             if (km_gdb_is_enabled() == 1) {
-               km_gdb_notify_and_wait(vcpu, km_signal_ready(vcpu), true);
+               km_signal_ready(vcpu);       // move signal from machine queue to vcpu queue
+               km_gdb_notify_and_wait(vcpu, SIGSEGV, true);
             } else {
                run_warn("KVM: exit vcpu. reason=%d (%s)", reason, kvm_reason_name(reason));
                km_vcpu_exit(vcpu);

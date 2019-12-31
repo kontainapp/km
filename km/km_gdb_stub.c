@@ -144,6 +144,7 @@ typedef struct {
    uint32_t rs_rangestepping;
    uint32_t rs_running;
 } runstates_t;
+
 int km_gdb_count_runstates(km_vcpu_t* vcpu, uint64_t runstates)
 {
    runstates_t *runstatesp = (runstates_t*)runstates;
@@ -1314,19 +1315,11 @@ static void km_gdb_handle_vpackets(char* packet, char* obuf, int* resume)
 }
 
 /*
- * Handle KVM_RUN exit.
- * Conduct dialog with gdb, until gdb orders next run (e.g. "next"), at which points return
- * control so the payload may continue to run.
- *
- * Note: Before calling this function, KVM exit_reason is converted to signum.
- * TODO: split this function into a sane table-driven set of handlers based on parsed command.
+ * Called from gdb_handle_payload_stop() to retreive a gdb_event from gdb's queue
+ * of pending wakeup events.
  */
-static void gdb_handle_payload_stop(void)
+gdb_event_t* gdb_get_next_event(void)
 {
-   km_vcpu_t* vcpu = NULL;
-   char* packet;
-   char obuf[BUFMAX];
-   int signo;
    gdb_event_t *tailgep;
    gdb_event_t *headgep;
    gdb_event_t *foundgep = NULL;
@@ -1406,17 +1399,37 @@ static void gdb_handle_payload_stop(void)
       send_response('S', foundgep, true);
       foundgep->ge_entry_is_active = false;
 
-      // Switch to the cpu the signal happened on
-      if (foundgep->ge_sigthreadid > 0) {
-         vcpu = km_vcpu_fetch_by_tid(foundgep->ge_sigthreadid);
-         km_gdb_vcpu_set(vcpu);
-      }
    } else {
       // Initial entry, no stop reply needs to be sent.
       foundgep = headgep;
       TAILQ_REMOVE(&gdbstub.gdb_event_queue_head, headgep, ge_link);
       headgep->ge_entry_is_active = false;
       pthread_mutex_unlock(&gdbstub.gdbnotify_mutex);
+   }
+   return foundgep;
+}
+
+/*
+ * Handle KVM_RUN exit.
+ * Conduct dialog with gdb, until gdb orders next run (e.g. "next"), at which points return
+ * control so the payload may continue to run.
+ *
+ * Note: Before calling this function, KVM exit_reason is converted to signum.
+ * TODO: split this function into a sane table-driven set of handlers based on parsed command.
+ */
+static void gdb_handle_payload_stop(void)
+{
+   km_vcpu_t* vcpu = NULL;
+   char* packet;
+   char obuf[BUFMAX];
+   int signo;
+   gdb_event_t *foundgep = NULL;
+
+   foundgep = gdb_get_next_event();
+   // Switch to the cpu the signal happened on
+   if (foundgep->ge_sigthreadid > 0) {
+      vcpu = km_vcpu_fetch_by_tid(foundgep->ge_sigthreadid);
+      km_gdb_vcpu_set(vcpu);
    }
 
 do_more_commands:;
@@ -1768,59 +1781,6 @@ done:
    return;
 }
 
-#if 0
-/*
- * This function is called on GDB thread to give gdb a chance to handle the KVM exit.
- * It is expected to be called ONLY when gdb is enabled and ONLY when when all vCPUs are paused.
- * If the exit reason is of interest to gdb, the function lets gdb to handle it. If the exit
- * reason is of no interest to gdb, the function simply returns and lets vcpu loop to handle the
- * rest as it sees fit.
- *
- * Note that we map VM exit reason to a GDB 'signal', which is what needs to be communicated back
- * to gdb client.
- */
-static void km_gdb_handle_kvm_exit(int is_intr, gdb_event_t* gep)
-{
-   assert(km_gdb_is_enabled() == 1);
-   if (is_intr) {
-      /*
-       * gdb client interrupted the gdb server.  There is really no current thread
-       * in this case but we need to be careful that the thread gdb thinks is
-       * the current default thread still exists.  For consistency we just make
-       * the main thread the current thread.
-       */
-      gep->signo = SIGINT;
-      gep->sigthreadid = km_vcpu_get_tid(km_main_vcpu());
-      gdb_handle_payload_stop(gep);
-      return;
-   }
-
-   switch (gep->exit_reason) {
-      case KVM_EXIT_DEBUG:
-         gdb_handle_payload_stop(gep);
-         return;
-
-      /*
-       * We can get here because of the SIGUSR1 used to stop all the vcpu's
-       * when the gdb client stops the target.  We can also get here when the
-       * target faults.
-       */
-      case KVM_EXIT_INTR:
-         gdb_handle_payload_stop(gep);
-         return;
-
-      case KVM_EXIT_EXCEPTION:
-         gep->signo = SIGSEGV;
-         gdb_handle_payload_stop(gep);
-         return;
-
-      default:
-         warnx("%s: Unknown reason %d, ignoring.", __FUNCTION__, gep->exit_reason);
-         return;
-   }
-   return;
-}
-#endif
 
 // Read and discard pending eventfd reads, if any. Non-blocking.
 static void km_empty_out_eventfd(int fd)
@@ -2100,14 +2060,6 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait)
    vcpu->gdb_vcpu_state.gvs_event.ge_signo = gdb_signo(signo);
    vcpu->gdb_vcpu_state.gvs_event.ge_sigthreadid = km_vcpu_get_tid(vcpu);
    vcpu->gdb_vcpu_state.gvs_event.ge_exit_reason = vcpu->cpu_run->exit_reason;
-   if (vcpu->gdb_vcpu_state.gvs_event.ge_exit_reason == KVM_EXIT_EXCEPTION) {
-      /*
-       * Carry over existing behaviour from the old km_gdb_handle_kvm_exit().
-       * Why do we do this?  Why doesn't km_vcpu_run() just pass SIGSEGV to
-       * km_gdb_notify_and_wait()?  Confusing.
-       */
-      vcpu->gdb_vcpu_state.gvs_event.ge_signo = GDB_SIGNAL_SEGV;
-   }
    TAILQ_INSERT_TAIL(&gdbstub.gdb_event_queue_head, &vcpu->gdb_vcpu_state.gvs_event, ge_link);
 
    // Wake up gdb server if there are no other pending gdb events.
