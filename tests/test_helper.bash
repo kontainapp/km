@@ -56,16 +56,12 @@ function km_with_timeout () {
 
 if grep -iq 'vendor_id.*:.*intel' /proc/cpuinfo
 then
-   gdb_hbreak_alias="alias mybreak=hbreak"
-   cpu="intel"
-else
-   gdb_hbreak_alias="alias mybreak=break"
-   cpu="amd"
+   check_hwbreak=yes
 fi
 # this is how we invoke gdb - with timeout
 function gdb_with_timeout () {
    timeout --foreground $timeout \
-      gdb -ex="$gdb_hbreak_alias" "$@"
+      gdb "$@"
    s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
 }
 

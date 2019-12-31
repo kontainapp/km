@@ -18,9 +18,7 @@ command
   p var1
 end
 
-# usually we test hbreak, but can override it from upstairs by setting this alias to 'break'
-ignore-errors alias mybreak=hbreak
-mybreak rand_func if i > 1
+hbreak rand_func if i > 1
 command
   p/s "** HWBREAK "
   p/x i

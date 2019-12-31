@@ -272,7 +272,7 @@ load test_helper
    assert_line --partial "Packet received: m<threads>\\n  <thread id"
    # Verify that the gdb client is using vCont packets
    assert_line --partial "Sending packet: \$vCont;s:"
-   if [[ "$cpu" == intel ]] ; then
+   if [[ "$check_hwbreak" == yes ]] ; then
       # Verify gdb server stop reply packet for hardware break
       assert_line --partial "Packet received: T05hwbreak:;thread:"
    fi
