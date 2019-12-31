@@ -645,7 +645,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          vcpu->is_paused = 1;
          km_read_registers(vcpu);
          km_read_sregisters(vcpu);
-         km_wait_on_eventfd(vcpu->gdb_efd);
+         km_wait_on_gdb_cv(vcpu);
          km_infox(KM_TRACE_VCPU,
                   "%s: vcpu %d unblocked, pause_requested %d",
                   __FUNCTION__,
@@ -809,7 +809,7 @@ void* km_vcpu_run_main(km_vcpu_t* unused)
       while (eventfd_write(machine.intr_fd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
          ;   // ignore signals during the write
       }
-      km_wait_on_eventfd(vcpu->gdb_efd);   // wait for gbd main loop to allow main vcpu to run
+      km_wait_on_gdb_cv(vcpu);   // wait for gbd main loop to allow main vcpu to run
       km_infox(KM_TRACE_VCPU, "%s: vcpu_run VCPU %d unblocked by gdb", __FUNCTION__, vcpu->vcpu_id);
    }
    return km_vcpu_run(vcpu);

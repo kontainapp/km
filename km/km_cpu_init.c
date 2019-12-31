@@ -66,10 +66,6 @@ void km_signal_machine_fini(void)
  */
 void km_vcpu_fini(km_vcpu_t* vcpu)
 {
-   if (vcpu->gdb_efd >= 0) {
-      close(vcpu->gdb_efd);
-      vcpu->gdb_efd = -1;
-   }
    if (vcpu->cpu_run != NULL) {
       if (munmap(vcpu->cpu_run, machine.vm_run_size) != 0) {
          err(3, "munmap cpu_run for vcpu fd");
@@ -188,10 +184,9 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       return -1;
    }
 
-   if ((vcpu->gdb_efd = eventfd(0, 0)) == -1) {
-      warn("failed init gdb eventfd for VCPU %d", vcpu->vcpu_id);
-      return -1;
-   }
+   vcpu->gdb_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+   vcpu->gdb_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
+
    if (pthread_mutex_init(&vcpu->thr_mtx, NULL) != 0) {
       warn("failed to initialize mutex thr_mtx");
       return -1;
@@ -230,6 +225,7 @@ km_vcpu_t* km_vcpu_get(void)
    new->sigpending = tmpl;
 
    new->is_used = 1;   // so it won't get snatched right after its inserted
+
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       // if (machine.vm_vcpus[i] == NULL) machine.vm_vcpus[i] = new;
       old = NULL;

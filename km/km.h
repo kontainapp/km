@@ -107,7 +107,8 @@ typedef struct km_vcpu {
    km_gva_t stack_top;            // also available in guest_thr
    km_gva_t guest_thr;            // guest pthread, FS reg in the guest
                                   //
-   int gdb_efd;                   // gdb uses this to synchronize with VCPU thread
+   pthread_mutex_t gdb_mtx;       //
+   pthread_cond_t gdb_cv;         // gdb uses this to synchronize with VCPU thread
    int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
    int regs_valid;                // Are registers valid?
    int sregs_valid;               // Are segment registers valid?
@@ -292,6 +293,22 @@ static inline int km_wait_on_eventfd(int fd)
    return value;
 }
 
+static inline int km_wait_on_gdb_cv(km_vcpu_t* vcpu)
+{
+   pthread_mutex_lock(&vcpu->gdb_mtx);
+   int i = pthread_cond_wait(&vcpu->gdb_cv, &vcpu->gdb_mtx);
+   pthread_mutex_unlock(&vcpu->gdb_mtx);
+   return i;
+}
+
+static inline int km_gdb_cv_signal(km_vcpu_t* vcpu)
+{
+   pthread_mutex_lock(&vcpu->gdb_mtx);
+   int i = pthread_cond_signal(&vcpu->gdb_cv);
+   pthread_mutex_unlock(&vcpu->gdb_mtx);
+   return i;
+}
+
 km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[]);
 int km_pthread_create(
     km_vcpu_t* vcpu, pthread_tid_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
@@ -330,8 +347,8 @@ void km_handle_interrupt(km_vcpu_t* vcpu);
 #define KM_SIGVCPUSTOP SIGUSR1   //  After km start, used to signal VCP thread to force KVM exit
 
 /*
- * To check for success/failure from plain system calls and similar logic, returns -1 and sets errno
- * if fail.
+ * To check for success/failure from plain system calls and similar logic, returns -1 and sets
+ * errno if fail.
  */
 static inline long km_syscall_ok(uint64_t r)
 {
