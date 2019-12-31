@@ -90,8 +90,7 @@ static unsigned char registers[BUFMAX];
 #define GDB_ERROR_MSG "E01"   // The actual error code is ignored by GDB, so any number will do
 static const char hexchars[] = "0123456789abcdef";
 
-
-static void km_gdb_exit_debug_stopreply(km_vcpu_t * vcpu, char* stopreply);
+static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply);
 
 static int hex(unsigned char ch)
 {
@@ -465,7 +464,6 @@ static void send_response(char code, gdb_event_t* gep, bool wait_for_ack)
    }
 }
 
-
 /*
  * Disect the "exception state" for a kvm debug exit to figure out what kind of stop packet
  * we should send back to the gdb client and then build that into stopreply.
@@ -505,7 +503,6 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
            vcpu->regs.rsp,
            vcpu->regs.rbp,
            vcpu->regs.rip);
-
 
    if (archp->exception == 3) {
       // Apparently this is how a breakpoint (int 3) looks from KVM_EXIT_DEBUG.
@@ -638,17 +635,20 @@ typedef struct gdb_features {
    bool feature_is_flag;
    uint8_t* feature_flag_or_value;
 } gdb_features_t;
-static gdb_features_t gdbclient_known_features[] = {{"multiprocess", true, &gdbstub.clientsup_multiprocess},
-                                                   {"xmlRegisters", true, &gdbstub.clientsup_xmlregisters},
-                                                   {"qRelocInsn", true, &gdbstub.clientsup_qRelocInsn},
-                                                   {"swbreak", true, &gdbstub.clientsup_swbreak},
-                                                   {"hwbreak", true, &gdbstub.clientsup_hwbreak},
-                                                   {"fork-events", true, &gdbstub.clientsup_forkevents},
-                                                   {"vfork-events", true, &gdbstub.clientsup_vforkevents},
-                                                   {"exec-events", true, &gdbstub.clientsup_execevents},
-                                                   {"vContSupported", true, &gdbstub.clientsup_vcontsupported},
-                                                   {"QThreadEvents", true, &gdbstub.clientsup_qthreadevents},
-                                                   {NULL, true, NULL},};
+
+static gdb_features_t gdbclient_known_features[] = {
+    {"multiprocess", true, &gdbstub.clientsup_multiprocess},
+    {"xmlRegisters", true, &gdbstub.clientsup_xmlregisters},
+    {"qRelocInsn", true, &gdbstub.clientsup_qRelocInsn},
+    {"swbreak", true, &gdbstub.clientsup_swbreak},
+    {"hwbreak", true, &gdbstub.clientsup_hwbreak},
+    {"fork-events", true, &gdbstub.clientsup_forkevents},
+    {"vfork-events", true, &gdbstub.clientsup_vforkevents},
+    {"exec-events", true, &gdbstub.clientsup_execevents},
+    {"vContSupported", true, &gdbstub.clientsup_vcontsupported},
+    {"QThreadEvents", true, &gdbstub.clientsup_qthreadevents},
+    {NULL, true, NULL},
+};
 
 /*
  * Process the "qSupported:xxx;yyy;zzz;..." packet from the gdb client.
@@ -969,21 +969,20 @@ static void km_gdb_general_query(char* packet, char* obuf)
 
 /*
  * When we get a vCont command each thread's run state can be set.
- * We remeber what was requested and apply these values after the entire
+ * We remember what was requested and apply these values after the entire
  * command is validated.
  */
 struct threadaction {
    gdb_run_state_t ta_newrunstate;
-   km_gva_t ta_steprange_start;  // if ta_newrunstate is GRS_RANGESTEPPING, the beginning of the range
-   km_gva_t ta_steprange_end;    // the end of the range stepping address range
+   km_gva_t ta_steprange_start;   // if ta_newrunstate is GRS_RANGESTEPPING, the beginning of the range
+   km_gva_t ta_steprange_end;   // the end of the range stepping address range
 };
 typedef struct threadaction threadaction_t;
 
 struct threadaction_blob {
-   threadaction_t threadaction[KVM_MAX_VCPUS]; // each thread is bound to a virtual cpu
+   threadaction_t threadaction[KVM_MAX_VCPUS];   // each thread is bound to a virtual cpu
 };
 typedef struct threadaction_blob threadaction_blob_t;
-
 
 /*
  * Apply the vCont action to the vcpu for each thread.
@@ -1009,7 +1008,8 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
          break;
       case GRS_RANGESTEPPING:
          vcpu->gdb_vcpu_state.gvs_gdb_run_state = GRS_RANGESTEPPING;
-         vcpu->gdb_vcpu_state.gvs_steprange_start = threadactionblob->threadaction[i].ta_steprange_start;
+         vcpu->gdb_vcpu_state.gvs_steprange_start =
+             threadactionblob->threadaction[i].ta_steprange_start;
          vcpu->gdb_vcpu_state.gvs_steprange_end = threadactionblob->threadaction[i].ta_steprange_end;
          gdbstub.stepping = true;
          rc = km_gdb_update_vcpu_debug(vcpu, 0);
@@ -1021,13 +1021,15 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
          break;
       default:
          rc = -1;
-         km_infox(KM_TRACE_GDB, "%s: vcpu %d, unhandled vcpu run state %d",
+         km_infox(KM_TRACE_GDB,
+                  "%s: vcpu %d, unhandled vcpu run state %d",
                   __FUNCTION__,
                   i,
                   threadactionblob->threadaction[i].ta_newrunstate);
          break;
    }
-   km_infox(KM_TRACE_GDB, "%s: vcpu %d: is_paused %d, ta_newrunstate %d, gvs_gdb_run_state %d",
+   km_infox(KM_TRACE_GDB,
+            "%s: vcpu %d: is_paused %d, ta_newrunstate %d, gvs_gdb_run_state %d",
             __FUNCTION__,
             i,
             vcpu->is_paused,
@@ -1658,13 +1660,13 @@ static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, __attribute__((unused)) 
       // gdb wants this thread paused so don't wake it up.
       ret = 0;
    } else {
-      km_infox(KM_TRACE_GDB, "%s: waking up vcpu %d, gdb_run_state %d",
+      km_infox(KM_TRACE_GDB,
+               "%s: waking up vcpu %d, gdb_run_state %d",
                __FUNCTION__,
                vcpu->vcpu_id,
                vcpu->gdb_vcpu_state.gvs_gdb_run_state);
-      while (gdbstub.session_requested == 0 &&
-             (ret = eventfd_write(vcpu->gdb_efd, 1) == -1 && errno == EINTR)) {
-         ;   // ignore signals during the write
+      if (gdbstub.session_requested == 0 && (ret = km_gdb_cv_signal(vcpu) != 0)) {
+         ;
       }
    }
    return ret == 0 ? 0 : 1;   // Unblock main guest thread
@@ -1778,45 +1780,45 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 static inline gdb_signal_number_t gdb_signo(int linuxsig)
 {
    gdb_signal_number_t linuxsig2gdbsig[] = {
-      0,
-      GDB_SIGNAL_HUP,  // SIGHUP    1
-      GDB_SIGNAL_INT,  // SIGINT    2
-      GDB_SIGNAL_QUIT, // SIGQUIT   3
-      GDB_SIGNAL_ILL,  // SIGILL    4
-      GDB_SIGNAL_TRAP, // SIGTRAP   5
-      GDB_SIGNAL_ABRT, // SIGABRT   6
-      GDB_SIGNAL_BUS,  // SIGBUS    7
-      GDB_SIGNAL_FPE,  // SIGFPE    8
-      GDB_SIGNAL_KILL, // SIGKILL   9
-      GDB_SIGNAL_USR1, // SIGUSR1   10
-      GDB_SIGNAL_SEGV, // SIGSEGV   11
-      GDB_SIGNAL_USR2, // SIGUSR2   12
-      GDB_SIGNAL_PIPE, // SIGPIPE   13
-      GDB_SIGNAL_ALRM, // SIGALRM   14
-      GDB_SIGNAL_TERM, // SIGTERM   15
-      0,               // SIGSTKFLT 16
-      GDB_SIGNAL_CHLD, // SIGCHLD   17
-      GDB_SIGNAL_CONT, // SIGCONT   18
-      GDB_SIGNAL_STOP, // SIGSTOP   19
-      GDB_SIGNAL_TSTP, // SIGTSTP   20
-      GDB_SIGNAL_TTIN, // SIGTTIN   21
-      GDB_SIGNAL_TTOU, // SIGTTOU   22
-      GDB_SIGNAL_URG,  // SIGURG    23
-      GDB_SIGNAL_XCPU, // SIGXCPU   24
-      GDB_SIGNAL_XFSZ, // SIGXFSZ   25
-      GDB_SIGNAL_VTALRM, // SIGVTALRM 26
-      GDB_SIGNAL_PROF, // SIGPROF   27
-      GDB_SIGNAL_WINCH, // SIGWINCH  28
-      GDB_SIGNAL_IO,   // SIGIO     29
-      GDB_SIGNAL_POLL, // SIGPOLL   29
-      GDB_SIGNAL_PWR,  // SIGPWR    30
-      GDB_SIGNAL_SYS,  // SIGSYS    31
+       0,
+       GDB_SIGNAL_HUP,      // SIGHUP    1
+       GDB_SIGNAL_INT,      // SIGINT    2
+       GDB_SIGNAL_QUIT,     // SIGQUIT   3
+       GDB_SIGNAL_ILL,      // SIGILL    4
+       GDB_SIGNAL_TRAP,     // SIGTRAP   5
+       GDB_SIGNAL_ABRT,     // SIGABRT   6
+       GDB_SIGNAL_BUS,      // SIGBUS    7
+       GDB_SIGNAL_FPE,      // SIGFPE    8
+       GDB_SIGNAL_KILL,     // SIGKILL   9
+       GDB_SIGNAL_USR1,     // SIGUSR1   10
+       GDB_SIGNAL_SEGV,     // SIGSEGV   11
+       GDB_SIGNAL_USR2,     // SIGUSR2   12
+       GDB_SIGNAL_PIPE,     // SIGPIPE   13
+       GDB_SIGNAL_ALRM,     // SIGALRM   14
+       GDB_SIGNAL_TERM,     // SIGTERM   15
+       0,                   // SIGSTKFLT 16
+       GDB_SIGNAL_CHLD,     // SIGCHLD   17
+       GDB_SIGNAL_CONT,     // SIGCONT   18
+       GDB_SIGNAL_STOP,     // SIGSTOP   19
+       GDB_SIGNAL_TSTP,     // SIGTSTP   20
+       GDB_SIGNAL_TTIN,     // SIGTTIN   21
+       GDB_SIGNAL_TTOU,     // SIGTTOU   22
+       GDB_SIGNAL_URG,      // SIGURG    23
+       GDB_SIGNAL_XCPU,     // SIGXCPU   24
+       GDB_SIGNAL_XFSZ,     // SIGXFSZ   25
+       GDB_SIGNAL_VTALRM,   // SIGVTALRM 26
+       GDB_SIGNAL_PROF,     // SIGPROF   27
+       GDB_SIGNAL_WINCH,    // SIGWINCH  28
+       GDB_SIGNAL_IO,       // SIGIO     29
+       GDB_SIGNAL_POLL,     // SIGPOLL   29
+       GDB_SIGNAL_PWR,      // SIGPWR    30
+       GDB_SIGNAL_SYS,      // SIGSYS    31
    };
 
    if (linuxsig > SIGSYS || linuxsig2gdbsig[linuxsig] == 0) {
-     // out of range, just give them what they passed in
-     km_infox(KM_TRACE_GDB, "No gdb signal for linux signal %d", linuxsig);
-     return (gdb_signal_number_t)linuxsig;
+      // out of range, just give them what they passed in
+      km_infox(KM_TRACE_GDB, "No gdb signal for linux signal %d", linuxsig);
+      return (gdb_signal_number_t)linuxsig;
    }
    return linuxsig2gdbsig[linuxsig];
 }
@@ -1827,40 +1829,40 @@ static inline gdb_signal_number_t gdb_signo(int linuxsig)
 static int linux_signo(gdb_signal_number_t gdb_signo)
 {
    int gdbsig2linuxsig[] = {
-      0,
-      SIGHUP,    // GDB_SIGNAL_HUP  1
-      SIGINT,    // GDB_SIGNAL_INT  2
-      SIGQUIT,   // GDB_SIGNAL_QUIT 3
-      SIGILL,    // GDB_SIGNAL_ILL  4
-      SIGTRAP,   // GDB_SIGNAL_TRAP 5
-      SIGABRT,   // GDB_SIGNAL_ABRT 6
-      0,         // GDB_SIGNAL_EMT  7
-      SIGFPE,    // GDB_SIGNAL_FPE  8
-      SIGKILL,   // GDB_SIGNAL_KILL 9
-      SIGBUS,    // GDB_SIGNAL_BUS  10
-      SIGSEGV,   // GDB_SIGNAL_SEGV 11
-      SIGSYS,    // GDB_SIGNAL_SYS  12
-      SIGPIPE,   // GDB_SIGNAL_PIPE 13
-      SIGALRM,   // GDB_SIGNAL_ALRM 14
-      SIGTERM,   // GDB_SIGNAL_TERM 15
-      SIGURG,    // GDB_SIGNAL_URG  16
-      SIGSTOP,   // GDB_SIGNAL_STOP 17
-      SIGTSTP,   // GDB_SIGNAL_TSTP 18
-      SIGCONT,   // GDB_SIGNAL_CONT 19
-      SIGCHLD,   // GDB_SIGNAL_CHLD 20
-      SIGTTIN,   // GDB_SIGNAL_TTIN 21
-      SIGTTOU,   // GDB_SIGNAL_TTOU 22
-      SIGIO,     // GDB_SIGNAL_IO   23
-      SIGXCPU,   // GDB_SIGNAL_XCPU 24
-      SIGXFSZ,   // GDB_SIGNAL_XFSZ 25
-      SIGVTALRM, // GDB_SIGNAL_VTALRM 26
-      SIGPROF,   // GDB_SIGNAL_PROF  27
-      SIGWINCH,  // GDB_SIGNAL_WINCH 28
-      0,         // GDB_SIGNAL_LOST  29
-      SIGUSR1,   // GDB_SIGNAL_USR1  30
-      SIGUSR2,   // GDB_SIGNAL_USR2  31
-      SIGPWR,    // GDB_SIGNAL_PWR   32
-      SIGPOLL,   // GDB_SIGNAL_POLL  33
+       0,
+       SIGHUP,      // GDB_SIGNAL_HUP  1
+       SIGINT,      // GDB_SIGNAL_INT  2
+       SIGQUIT,     // GDB_SIGNAL_QUIT 3
+       SIGILL,      // GDB_SIGNAL_ILL  4
+       SIGTRAP,     // GDB_SIGNAL_TRAP 5
+       SIGABRT,     // GDB_SIGNAL_ABRT 6
+       0,           // GDB_SIGNAL_EMT  7
+       SIGFPE,      // GDB_SIGNAL_FPE  8
+       SIGKILL,     // GDB_SIGNAL_KILL 9
+       SIGBUS,      // GDB_SIGNAL_BUS  10
+       SIGSEGV,     // GDB_SIGNAL_SEGV 11
+       SIGSYS,      // GDB_SIGNAL_SYS  12
+       SIGPIPE,     // GDB_SIGNAL_PIPE 13
+       SIGALRM,     // GDB_SIGNAL_ALRM 14
+       SIGTERM,     // GDB_SIGNAL_TERM 15
+       SIGURG,      // GDB_SIGNAL_URG  16
+       SIGSTOP,     // GDB_SIGNAL_STOP 17
+       SIGTSTP,     // GDB_SIGNAL_TSTP 18
+       SIGCONT,     // GDB_SIGNAL_CONT 19
+       SIGCHLD,     // GDB_SIGNAL_CHLD 20
+       SIGTTIN,     // GDB_SIGNAL_TTIN 21
+       SIGTTOU,     // GDB_SIGNAL_TTOU 22
+       SIGIO,       // GDB_SIGNAL_IO   23
+       SIGXCPU,     // GDB_SIGNAL_XCPU 24
+       SIGXFSZ,     // GDB_SIGNAL_XFSZ 25
+       SIGVTALRM,   // GDB_SIGNAL_VTALRM 26
+       SIGPROF,     // GDB_SIGNAL_PROF  27
+       SIGWINCH,    // GDB_SIGNAL_WINCH 28
+       0,           // GDB_SIGNAL_LOST  29
+       SIGUSR1,     // GDB_SIGNAL_USR1  30
+       SIGUSR2,     // GDB_SIGNAL_USR2  31
+       SIGPWR,      // GDB_SIGNAL_PWR   32
+       SIGPOLL,     // GDB_SIGNAL_POLL  33
    };
 
    if (gdb_signo > GDB_SIGNAL_POLL || gdbsig2linuxsig[gdb_signo] == 0) {
@@ -1935,7 +1937,7 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait)
 
    if (need_wait != 0) {
       km_infox(KM_TRACE_GDB, "%s: vcpu %d waiting for gdb to let me run", __FUNCTION__, vcpu->vcpu_id);
-      km_wait_on_eventfd(vcpu->gdb_efd);   // Wait for gdb to allow this vcpu to continue
+      km_wait_on_gdb_cv(vcpu);   // Wait for gdb to allow this vcpu to continue
       vcpu->is_paused = 0;
       km_infox(KM_TRACE_GDB, "%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
    }
