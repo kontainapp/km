@@ -54,12 +54,17 @@ function km_with_timeout () {
    s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
 }
 
+if grep -iq 'vendor_id.*:.*intel' /proc/cpuinfo
+then
+   check_hwbreak=yes
+fi
 # this is how we invoke gdb - with timeout
 function gdb_with_timeout () {
    timeout --foreground $timeout \
       gdb "$@"
    s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
 }
+
 
 # this is needed for running in Docker - bats uses 'tput' so it needs the TERM
 TERM=xterm
