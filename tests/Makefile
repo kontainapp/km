@@ -32,8 +32,8 @@ SHRSRC := dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c
 BUILDENV_PATH  := ./gdb
 TESTENV_PATH := .
 
-CFLAGS = -Wall $(COPTS) -ggdb -fPIC -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
-LDFLAGS = -ggdb -pthread
+CFLAGS = -Wall $(COPTS) -ggdb3 -fPIC -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
+LDFLAGS = -ggdb3 -pthread
 KCC := kontain-gcc
 DEPS = ${SRC:%.c=%.d} ${SHRSRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}

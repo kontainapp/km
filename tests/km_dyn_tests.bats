@@ -272,8 +272,10 @@ load test_helper
    assert_line --partial "Packet received: m<threads>\\n  <thread id"
    # Verify that the gdb client is using vCont packets
    assert_line --partial "Sending packet: \$vCont;s:"
-   # Verify that km gdb server is sending a stop packet with a thread id
-   assert_line --partial "Packet received: T05hwbreak:;thread:"
+   if [[ "$check_hwbreak" == yes ]] ; then
+      # Verify gdb server stop reply packet for hardware break
+      assert_line --partial "Packet received: T05hwbreak:;thread:"
+   fi
    # Verify that we now see the switching threads message
    assert_line --partial "Switching to Thread 2"
 
