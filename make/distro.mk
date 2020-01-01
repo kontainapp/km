@@ -69,28 +69,3 @@ publishclean:
 
 .DEFAULT:
 	@echo $(notdir $(CURDIR)): ignoring target '$@'
-
-#
-# 'Help' target - based on '##' comments in targets
-#
-# This target ("help") scans Makefile for '##' in targets and prints a summary
-# Note - used awk to print (instead of echo) so escaping/coloring is platform independed
-help:  ## Prints help on 'make' targets
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
-	/^[.a-zA-Z0-9_-]+[ \t]*:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
-	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
-	$(MAKEFILE_LIST)
-	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
-	@echo ""
-
-
-# Support for simple debug print (make debugvars)
-VARS_TO_PRINT ?= PAYLOAD_IMAGE_NAME IMAGE_VERSION PUBLISH_TAG PUBLISH_BRANCH PUBLISH_LATEST REGISTRY_NAME REGISTRY REGISTRY_AUTH_EXAMPLE CLOUD
-
-.PHONY: debugvars
-debugvars:   ## prints interesting vars and their values
-	@echo To change the list of printed vars, use 'VARS_TO_PRINT="..." make debugvars'
-	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
-
-# allows to do 'make print-varname'
-print-%  : ; @echo $* = \"$($*)\"

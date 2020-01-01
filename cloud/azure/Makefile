@@ -137,27 +137,5 @@ clearow: ## clear openwhisk machines. You can just run 'apply_openwhisk_vms.sh d
 listow: ## list openwhisk machines. You can just run 'apply_openwhisk_vms.sh ls' instead
 	@./apply_openwhisk_vms.sh ls
 
-# Support for simple debug print (make debugvars)
-VARS_TO_PRINT ?= CLOUD_RESOURCE_GROUP CLOUD_SUBSCRIPTION CLOUD_LOCATION \
-					K8_SERVICE_PRINCIPAL K8S_CLUSTER K8S_NODE_INSTANCE_SIZE \
-					REGISTRY_NAME  REGISTRY REGISTRY_AUTH_EXAMPLE REGISTRY_SKU
-
-.PHONY: debugvars
-debugvars:   ## prints interesting vars and their values
-	@echo To change the list of printed vars, use 'VARS_TO_PRINT="..." make debugvars'
-	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
-
 include $(TOP)make/locations.mk
-#
-# 'Help' target - based on '##' comments in targets
-#
-# This target ("help") scans Makefile for '##' in targets and prints a summary
-# Note - used awk to print (instead of echo) so escaping/coloring is platform independed
-help:  ## Prints help on 'make' targets
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(CYAN)<target>$(NOCOLOR)\n" } \
-	/^[.a-zA-Z0-9_-]+[ \t]*:.*?##/ { printf "  $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
-	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
-	$(MAKEFILE_LIST)
-	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
-	@echo ""
 
