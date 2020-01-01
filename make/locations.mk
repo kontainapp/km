@@ -94,3 +94,37 @@ YELLOW := \033[33m
 CYAN := \033[36m
 NOCOLOR := \033[0m
 endif
+
+# common targets. They won't interfere with default targets due to 'default:all' at the top
+
+# 'Help' target - based on '##' comments in targets
+#
+# This target ("help") scans Makefile for '##' in targets and prints a summary
+# Note - used awk to print (instead of echo) so escaping/coloring is platform independed
+help:  ## Prints help on 'make' targets
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n make $(CYAN)<target>$(NOCOLOR)\n" } \
+	/^[.a-zA-Z0-9_-]+[ \t]*:.*?##/ { printf " $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
+	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
+	$(MAKEFILE_LIST)
+	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
+	@echo ""
+
+# Support for simple debug print (make debugvars)
+VARS_TO_PRINT ?= \
+	DIMG TEST_IMG BUILDENV_PATH TESTENV_PATH BUILDENV_IMG BUILDENV_DOCKERFILE KM_BIN \
+	DTYPE TEST_IMG_REG BUILDENV_IMG_REG SRC_BRANCH SRC_SHA \
+	TOP FROMTOP BLDTOP BLDDIR SUBDIRS KM_BLDDIR KM_BIN \
+	CFLAGS BLDEXEC BLDLIB COPTS USER \
+	COVERAGE COVERAGE_REPORT SRC_BRANCH IMAGE_VERSION \
+	CLOUD_RESOURCE_GROUP CLOUD_SUBSCRIPTION CLOUD_LOCATION \
+	K8_SERVICE_PRINCIPAL K8S_CLUSTER K8S_NODE_INSTANCE_SIZE \
+	REGISTRY_NAME  REGISTRY REGISTRY_AUTH_EXAMPLE REGISTRY_SKU
+
+
+.PHONY: debugvars
+debugvars: ## prints interesting vars and their values
+	@echo To change the list of printed vars, use 'VARS_TO_PRINT="..." make debugvars'
+	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
+
+# allows to do 'make print-varname'
+print-% : ; @echo $* = \"$($*)\"
