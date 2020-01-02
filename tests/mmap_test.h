@@ -28,6 +28,7 @@ typedef enum {
    TYPE_READ,     // do a read to <offset, offset+size> from last mmap or mremap
    TYPE_WRITE,    // do a write to <offset, offset+size> from last mmap (use 'prot' for data)
    TYPE_USE_MREMAP_ADDR,   // in further tests, base all on address returned by last mremap (not mmap)
+   TYPE_MADVISE,
 } call_type_t;
 
 typedef struct mmap_test {
@@ -37,11 +38,12 @@ typedef struct mmap_test {
    uint64_t offset;    // for mmap - address. For others - offset from the last mmap result
    size_t size;        // size for the operation (for mmap - 'old_size')
    uint64_t prot;      // For mmap - protection.
-                       // For WRITE - data to write
-                       // For READ - data expected (0 means ignore)
-                       // For mremap - 'new_size'
-   int flags;          // flags to pass to mmap() or mremap()
-   int expected;       // 0 if success is expected. Expected signal (for read/write) or errno
+   // For WRITE - data to write
+   // For READ - data expected (0 means ignore)
+   // For mremap - 'new_size'
+   int flags;      // flags to pass to mmap() or mremap()
+   int expected;   // 0 if success is expected. Expected signal (for read/write) or errno
+   int advise;
 } mmap_test_t;
 
 #define OK 0   // expected good result

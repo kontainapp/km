@@ -405,6 +405,19 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
    return 0;
 }
 
+static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
+{
+   if (madvise(km_gva_to_kma_nocheck(addr), size, advise) != 0) {
+      return -errno;
+   }
+   return 0;
+
+   if (km_mmap_busy_check_contiguous(addr, size) != 0) {
+      km_infox(KM_TRACE_MMAP, "madvise area not fully mapped");
+   }
+   return 0;
+}
+
 static km_mmap_reg_t* km_find_reg_nolock(km_gva_t gva)
 {
    km_mmap_reg_t* reg;
@@ -640,6 +653,21 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
    }
    mmaps_lock();
    int ret = km_guest_mprotect_nolock(addr, size, prot);
+   mmaps_unlock();
+   return ret;
+}
+
+int km_guest_madvise(km_gva_t addr, size_t size, int advise)
+{
+   km_infox(KM_TRACE_MMAP, "madvise guest(0x%lx 0x%lx advise %x)", addr, size, advise);
+   if (advise != MADV_DONTNEED) {
+      return -EINVAL;
+   }
+   if (addr != rounddown(addr, KM_PAGE_SIZE) || (size = roundup(size, KM_PAGE_SIZE)) == 0) {
+      return -EINVAL;
+   }
+   mmaps_lock();
+   int ret = km_guest_madvise_nolock(addr, size, advise);
    mmaps_unlock();
    return ret;
 }

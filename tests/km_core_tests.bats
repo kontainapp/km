@@ -308,8 +308,13 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_success
 }
 
-@test "threads_basic_tls($test_type): threads with TLS, create, exit and join (hello_2_loops_tls_test$ext)" {
-   run km_with_timeout hello_2_loops_tls_test$ext
+@test "madvise memory test(static): dont have a good description yet (madvise_test)" {
+   run km_with_timeout madvise_test.km -v
+   assert_success
+}
+
+@test "threads_basic(static): threads with TLS, create, exit and join (hello_2_loops_tls_test)" {
+   run km_with_timeout hello_2_loops_tls_test.km
    assert_success
    if [ $test_type != "static" ] ; then
       refute_line --partial 'BAD'
