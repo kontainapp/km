@@ -368,7 +368,8 @@
             "mutex_test",
             "exit_grp_test",
             "stray_test",
-            "signal_test"
+            "signal_test",
+            "madvise_test"
          ]
       },
       {
