@@ -345,7 +345,7 @@ int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
    int count = 1000;   // count the tries. We assert if we are for too long
 
    assert(vcpu->is_used == 1);
-   km_infox(KM_TRACE_VCPU, "%s vcpu %d", __FUNCTION__, vcpu->vcpu_id);
+   km_infox(KM_TRACE_VCPU, "initiate pause");
    while (1) {
       if (vcpu->is_paused == 1 || vcpu->vcpu_thread == 0) {   // already paused or not started yet
          return 0;
@@ -354,9 +354,7 @@ int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
          break;
       } else {
          km_info(KM_TRACE_VCPU,
-                 "%s vcpu %d, pthread_kill failed, errno %d",
-                 __FUNCTION__,
-                 vcpu->vcpu_id,
+                 "pthread_kill failed, errno %d",
                  errno);
       }
       assert(--count > 0);
@@ -365,7 +363,7 @@ int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
       };
       nanosleep(&req, NULL);
    }
-   km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
+   km_infox(KM_TRACE_VCPU, "signalled to pause");
    return 0;
 }
 

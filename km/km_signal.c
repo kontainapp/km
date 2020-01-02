@@ -295,8 +295,7 @@ int km_signal_ready(km_vcpu_t* vcpu)
       if (km_sigismember(&vcpu->sigmask, sig->info.si_signo) == 0) {
          km_signal_unlock();
          km_info(KM_TRACE_VCPU,
-                 "%s: vcpu %d signal %d ready",
-                 __FUNCTION__,
+                 "vcpu %d signal %d ready",
                  vcpu->vcpu_id,
                  sig->info.si_signo);
          return sig->info.si_signo;
@@ -308,7 +307,7 @@ int km_signal_ready(km_vcpu_t* vcpu)
          TAILQ_REMOVE(&machine.sigpending.head, sig, link);
          TAILQ_INSERT_TAIL(&vcpu->sigpending.head, sig, link);
          km_signal_unlock();
-         km_info(KM_TRACE_VCPU, "%s: VM signal %d ready", __FUNCTION__, sig->info.si_signo);
+         km_info(KM_TRACE_VCPU, "VM signal %d ready", sig->info.si_signo);
          return sig->info.si_signo;
       }
    }
@@ -326,7 +325,7 @@ void km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info)
    info->si_signo = 0;   // just in case there is no signal pending
    if (next_signal(vcpu, info) == 0) {
       // No pending signal?
-      km_info(KM_TRACE_VCPU, "%s: no pending signal?", __FUNCTION__);
+      km_info(KM_TRACE_VCPU, "no pending signal?");
    }
    return;
 }
@@ -340,11 +339,11 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
       return;
    }
    if (vcpu == 0) {
-      km_infox(KM_TRACE_VCPU, "%s: enqueuing signal %d to VM", __FUNCTION__, info->si_signo);
+      km_infox(KM_TRACE_VCPU, "enqueuing signal %d to VM", info->si_signo);
       enqueue_signal(&machine.sigpending, info);
       return;
    }
-   km_infox(KM_TRACE_VCPU, "%s: enqueuing signal %d to vcpu %d", __FUNCTION__, info->si_signo, vcpu->vcpu_id);
+   km_infox(KM_TRACE_VCPU, "enqueuing signal %d to vcpu %d", info->si_signo, vcpu->vcpu_id);
    enqueue_signal(&vcpu->sigpending, info);
    if (km_sigismember(&vcpu->sigmask, info->si_signo) == 0) {
       pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);

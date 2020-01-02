@@ -327,7 +327,7 @@ static char* recv_packet(void)
             return NULL;
          }
       } else {
-         km_infox(KM_TRACE_GDB, "%s: '%s', ack", __FUNCTION__, buffer);
+         km_infox(KM_TRACE_GDB, "'%s', ack", buffer);
          if (send_char('+') == -1) {
             // Unsuccessful reply to a successful transfer
             err(1, "GDB: Could not send an ACK+ to the debugger.");
@@ -433,8 +433,7 @@ static void send_response(char code, gdb_event_t* gep, bool wait_for_ack)
                km_gdb_exit_debug_stopreply(vcpu, obuf);
             } else {
                km_infox(KM_TRACE_GDB,
-                        "%s: don't know how to handle exit_reason %d",
-                        __FUNCTION__,
+                        "don't know how to handle exit_reason %d",
                         gep->exit_reason);
                abort();
             }
@@ -488,9 +487,8 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
    km_read_registers(vcpu);   // Make sure we report good register contents.
 
    km_infox(KM_TRACE_VCPU,
-            "%s: debug exception, vcpu %d, exception 0x%08x, pc 0x%llX, dr6 0x%llx, dr7 0x%llx",
-            __FUNCTION__,
-            vcpu->vcpu_id,
+            "debug exception, exception 0x%08x, pc 0x%016llX, dr6 0x%016llx, dr7 "
+            "0x%016llx",
             archp->exception,
             archp->pc,
             archp->dr6,
@@ -548,12 +546,10 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
       sprintf(stopreply, "T05hwbreak:;thread:%08x;", km_vcpu_get_tid(vcpu));
       return;
    } else {
-      km_infox(KM_TRACE_GDB,
-               "%s: triggered hw breakpoint doesn't match the set hw breakpoints",
-               __FUNCTION__);
+      km_infox(KM_TRACE_GDB, "triggered hw breakpoint doesn't match the set hw breakpoints");
       abort();
    }
-   km_info(KM_TRACE_VCPU, "%s: addr %p, type 0x%x", __FUNCTION__, addr, type);
+   km_info(KM_TRACE_VCPU, "addr %p, type 0x%x", addr, type);
 
    /*
     * Convert the debug exception into the gdb stop packet type.
@@ -1022,15 +1018,13 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
       default:
          rc = -1;
          km_infox(KM_TRACE_GDB,
-                  "%s: vcpu %d, unhandled vcpu run state %d",
-                  __FUNCTION__,
+                  "vcpu %d, unhandled vcpu run state %d",
                   i,
                   threadactionblob->threadaction[i].ta_newrunstate);
          break;
    }
    km_infox(KM_TRACE_GDB,
-            "%s: vcpu %d: is_paused %d, ta_newrunstate %d, gvs_gdb_run_state %d",
-            __FUNCTION__,
+            "vcpu %d: is_paused %d, ta_newrunstate %d, gvs_gdb_run_state %d",
             i,
             vcpu->is_paused,
             threadactionblob->threadaction[i].ta_newrunstate,
@@ -1109,7 +1103,7 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
                   vcpu = km_vcpu_fetch_by_tid(tid);
                   if (vcpu == NULL) {
                      /* invalid tid should we ignore or fail? */
-                     km_info(KM_TRACE_GDB, "%s: tid %d is unknown?", __FUNCTION__, tid);
+                     km_info(KM_TRACE_GDB, "tid %d is unknown?", tid);
                      send_error_msg();
                      return;
                   } else {
@@ -1172,7 +1166,7 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
                         vcpu = km_vcpu_fetch_by_tid(tid);
                         if (vcpu == NULL) {
                            /* invalid tid should we ignore or fail? */
-                           km_info(KM_TRACE_GDB, "%s: tid %d is unknown?", __FUNCTION__, tid);
+                           km_info(KM_TRACE_GDB, "tid %d is unknown?", tid);
                            send_error_msg();
                            return;
                         } else {
@@ -1192,8 +1186,7 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
                               siginfo_t info;
 
                               km_infox(KM_TRACE_GDB,
-                                       "%s: post linux signal %d (gdb %d) to thread %d",
-                                       __FUNCTION__,
+                                       "post linux signal %d (gdb %d) to thread %d",
                                        linuxsigno,
                                        gdbsigno,
                                        tid);
@@ -1204,7 +1197,7 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
                         }
                      } else {
                         /* Not a valid number */
-                        km_info(KM_TRACE_GDB, "%s: %s is not a valid number?", __FUNCTION__, tokenp1);
+                        km_info(KM_TRACE_GDB, "%s is not a valid number?", tokenp1);
                         send_error_msg();
                         return;
                      }
@@ -1222,21 +1215,21 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
                   }
                } else {
                   // Some other trash after the action
-                  km_infox(KM_TRACE_GDB, "%s: unexpected stuff '%s' after action", __FUNCTION__, tokenp);
+                  km_infox(KM_TRACE_GDB, "unexpected stuff '%s' after action", tokenp);
                   send_error_msg();
                   return;
                }
                break;
             default:
                /* We don't support thread stop yet */
-               km_info(KM_TRACE_GDB, "%s: unsupported continue option '%s'", __FUNCTION__, tokenp);
+               km_info(KM_TRACE_GDB, "unsupported continue option '%s'", tokenp);
                send_not_supported_msg();
                return;
          }
       }
    } else {
       /* There must be an action. */
-      km_info(KM_TRACE_GDB, "%s: missing semicolon in %s'", __FUNCTION__, packet);
+      km_info(KM_TRACE_GDB, "missing semicolon in %s'", packet);
       send_error_msg();
       return;
    }
@@ -1249,7 +1242,7 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
     */
    count = km_vcpu_apply_all(km_gdb_set_thread_vcont_actions, (uint64_t)&threadactionblob);
    if (count != 0) {
-      km_info(KM_TRACE_GDB, "%s: apply all vcpus failed, count %d", __FUNCTION__, count);
+      km_info(KM_TRACE_GDB, "apply all vcpus failed, count %d", count);
       send_error_msg();
    } else {
       *resume = true;
@@ -1299,8 +1292,7 @@ static void gdb_handle_payload_stop(gdb_event_t* gep)
    int signo;
 
    km_infox(KM_TRACE_GDB,
-            "%s: signum %d, sigthreadid %d, exit_reason %d",
-            __FUNCTION__,
+            "signum %d, sigthreadid %d, exit_reason %d",
             gep->signo,
             gep->sigthreadid,
             gep->exit_reason);
@@ -1491,7 +1483,7 @@ static void gdb_handle_payload_stop(gdb_event_t* gep)
          case 'g': {   // Read general registers
             km_vcpu_t* vcpu = km_gdb_vcpu_get();
 
-            km_infox(KM_TRACE_GDB, "%s: reporting registers for vcpu %d", __FUNCTION__, vcpu->vcpu_id);
+            km_infox(KM_TRACE_GDB, "reporting registers for vcpu %d", vcpu->vcpu_id);
             len = BUFMAX;
             if (km_gdb_read_registers(vcpu, registers, &len) == -1) {
                send_error_msg();
@@ -1661,8 +1653,7 @@ static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, __attribute__((unused)) 
       ret = 0;
    } else {
       km_infox(KM_TRACE_GDB,
-               "%s: waking up vcpu %d, gdb_run_state %d",
-               __FUNCTION__,
+               "waking up vcpu %d, gdb_run_state %d",
                vcpu->vcpu_id,
                vcpu->gdb_vcpu_state.gvs_gdb_run_state);
       if (gdbstub.session_requested == 0 && (ret = km_gdb_cv_signal(vcpu) != 0)) {
@@ -1709,14 +1700,14 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
          return;
       }
       machine.pause_requested = 1;
-      km_infox(KM_TRACE_GDB, "%s: Signalling vCPUs to pause", __FUNCTION__);
+      km_infox(KM_TRACE_GDB, "Signalling vCPUs to pause");
       km_vcpu_apply_all(km_vcpu_pause, 0);
       km_vcpu_wait_for_all_to_pause();
-      km_infox(KM_TRACE_GDB, "%s: vCPUs paused. run_cnt %d", __FUNCTION__, machine.vm_vcpu_run_cnt);
+      km_infox(KM_TRACE_GDB, "vCPUs paused. run_cnt %d", machine.vm_vcpu_run_cnt);
       is_intr = 0;
       if (fds[0].revents) {   // got something from gdb client (hopefully ^C)
          int ch = recv_char();
-         km_infox(KM_TRACE_GDB, "%s: got a msg from a client. ch=%d", __FUNCTION__, ch);
+         km_infox(KM_TRACE_GDB, "got a msg from a client. ch=%d", ch);
          if (ch == -1) {   // channel error or EOF (ch == -1)
             break;
          }
@@ -1736,7 +1727,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
          assert(ret == 0);
       }
       if (fds[1].revents) {
-         km_infox(KM_TRACE_GDB, "%s: a vcpu signalled about a kvm exit", __FUNCTION__);
+         km_infox(KM_TRACE_GDB, "a vcpu signalled about a kvm exit");
 
          /*
           * Harvest a consistent description of what event happened
@@ -1757,7 +1748,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       km_empty_out_eventfd(machine.intr_fd);   // discard extra 'intr' events if vcpus sent them
       km_gdb_handle_kvm_exit(is_intr, &ge);    // give control back to gdb
 
-      km_infox(KM_TRACE_GDB, "%s: kvm exit handled, starting vcpu's", __FUNCTION__);
+      km_infox(KM_TRACE_GDB, "kvm exit handled, starting vcpu's");
 
       // Allow the started vcpu's to wakeup this thread now.
       gdbstub.signo = 0;
@@ -1867,7 +1858,7 @@ static int linux_signo(gdb_signal_number_t gdb_signo)
 
    if (gdb_signo > GDB_SIGNAL_POLL || gdbsig2linuxsig[gdb_signo] == 0) {
       // Just let the untranslatable values through
-      km_infox(KM_TRACE_GDB, "%s: no linux signal for gdb signal %d", __FUNCTION__, gdb_signo);
+      km_infox(KM_TRACE_GDB, "no linux signal for gdb signal %d", gdb_signo);
       return gdb_signo;
    }
    return gdbsig2linuxsig[gdb_signo];
@@ -1897,11 +1888,9 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait)
    rc = pthread_mutex_lock(&gdbstub.gdbnotify_mutex);
    assert(rc == 0);
    km_infox(KM_TRACE_GDB,
-            "%s on VCPU %d, need_wait %d, session_requested %d, "
+            "need_wait %d, session_requested %d, "
             "new signo %d, exit_reason %d, tid %d, "
             "existing signo %d, exit_reason %d, tid %d",
-            __FUNCTION__,
-            vcpu->vcpu_id,
             need_wait,
             gdbstub.session_requested,
             signo,
@@ -1921,8 +1910,7 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait)
       // Already have a pending signal.  Decide if the new signal is more important.
       if ((vcpu->cpu_run->exit_reason != KVM_EXIT_DEBUG && gdbstub.exit_reason == KVM_EXIT_DEBUG)) {
          km_infox(KM_TRACE_GDB,
-                  "%s: new signal %d for thread %d overriding pending signal %d for thread %d",
-                  __FUNCTION__,
+                  "new signal %d for thread %d overriding pending signal %d for thread %d",
                   signo,
                   km_vcpu_get_tid(vcpu),
                   gdbstub.signo,
@@ -1936,9 +1924,9 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait)
    assert(rc == 0);
 
    if (need_wait != 0) {
-      km_infox(KM_TRACE_GDB, "%s: vcpu %d waiting for gdb to let me run", __FUNCTION__, vcpu->vcpu_id);
+      km_infox(KM_TRACE_GDB, "waiting for gdb to unblock this vcpu");
       km_wait_on_gdb_cv(vcpu);   // Wait for gdb to allow this vcpu to continue
       vcpu->is_paused = 0;
-      km_infox(KM_TRACE_GDB, "%s: gdb signalled for VCPU %d to continue", __FUNCTION__, vcpu->vcpu_id);
+      km_infox(KM_TRACE_GDB, "gdb signalled for this vcpu to continue");
    }
 }

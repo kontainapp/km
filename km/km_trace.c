@@ -10,6 +10,7 @@
  * permission of Kontain Inc.
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -17,6 +18,7 @@
 #include <time.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
 
 /*
  * Verbose trace function.
@@ -29,30 +31,27 @@
 void km_trace(int want_strerror, const char* function, int linenumber, const char* fmt, ...)
 {
    char traceline[512];
+   char threadname[16];
    size_t tlen;
    struct timespec ts;
    struct tm tm;
    char* p;
-   pid_t tid;
    int errnum = errno;
    va_list ap;
 
    va_start(ap, fmt);
 
-   tid = syscall(SYS_gettid);
+   pthread_getname_np(pthread_self(), threadname, sizeof(threadname));
    clock_gettime(CLOCK_REALTIME, &ts);
    gmtime_r(&ts.tv_sec, &tm);            // UTC!
-   snprintf(traceline, sizeof(traceline), "%02d/%02d/%04d %02d:%02d:%02d.%09ld %-16.16s %5d %5d ",
-             tm.tm_mon + 1,
-             tm.tm_mday,
-             tm.tm_year + 1900,
+   snprintf(traceline, sizeof(traceline), "%02d:%02d:%02d.%06ld %-20.20s %5d %-6.6s ",
              tm.tm_hour,
              tm.tm_min,
              tm.tm_sec,
-             ts.tv_nsec,
+             ts.tv_nsec/1000,            // convert to microseconds
              function,
              linenumber,
-             tid);
+             threadname);
    tlen = strlen(traceline);
    p = &traceline[tlen];
    vsnprintf(p, sizeof(traceline) - tlen, fmt, ap);
