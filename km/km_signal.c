@@ -294,10 +294,7 @@ int km_signal_ready(km_vcpu_t* vcpu)
    TAILQ_FOREACH (sig, &vcpu->sigpending.head, link) {
       if (km_sigismember(&vcpu->sigmask, sig->info.si_signo) == 0) {
          km_signal_unlock();
-         km_info(KM_TRACE_VCPU,
-                 "vcpu %d signal %d ready",
-                 vcpu->vcpu_id,
-                 sig->info.si_signo);
+         km_info(KM_TRACE_VCPU, "vcpu %d signal %d ready", vcpu->vcpu_id, sig->info.si_signo);
          return sig->info.si_signo;
       }
    }

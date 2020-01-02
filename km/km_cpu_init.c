@@ -353,9 +353,7 @@ int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
       if (pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP) == 0) {
          break;
       } else {
-         km_info(KM_TRACE_VCPU,
-                 "pthread_kill failed, errno %d",
-                 errno);
+         km_info(KM_TRACE_VCPU, "pthread_kill failed, errno %d", errno);
       }
       assert(--count > 0);
       static const struct timespec req = {

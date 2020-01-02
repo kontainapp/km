@@ -11,14 +11,14 @@
  */
 
 #define _GNU_SOURCE
-#include <stdio.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <time.h>
-#include <string.h>
 #include <errno.h>
 #include <pthread.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/syscall.h>
 
 /*
  * Verbose trace function.
@@ -43,15 +43,17 @@ void km_trace(int want_strerror, const char* function, int linenumber, const cha
 
    pthread_getname_np(pthread_self(), threadname, sizeof(threadname));
    clock_gettime(CLOCK_REALTIME, &ts);
-   gmtime_r(&ts.tv_sec, &tm);            // UTC!
-   snprintf(traceline, sizeof(traceline), "%02d:%02d:%02d.%06ld %-20.20s %5d %-6.6s ",
-             tm.tm_hour,
-             tm.tm_min,
-             tm.tm_sec,
-             ts.tv_nsec/1000,            // convert to microseconds
-             function,
-             linenumber,
-             threadname);
+   gmtime_r(&ts.tv_sec, &tm);   // UTC!
+   snprintf(traceline,
+            sizeof(traceline),
+            "%02d:%02d:%02d.%06ld %-20.20s %5d %-6.6s ",
+            tm.tm_hour,
+            tm.tm_min,
+            tm.tm_sec,
+            ts.tv_nsec / 1000,   // convert to microseconds
+            function,
+            linenumber,
+            threadname);
    tlen = strlen(traceline);
    p = &traceline[tlen];
    vsnprintf(p, sizeof(traceline) - tlen, fmt, ap);
@@ -68,7 +70,7 @@ void km_trace(int want_strerror, const char* function, int linenumber, const cha
       tlen = sizeof(traceline) - 2;
    }
    traceline[tlen] = '\n';
-   traceline[tlen+1] = 0;
+   traceline[tlen + 1] = 0;
 
    va_end(ap);
 

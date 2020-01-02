@@ -432,9 +432,7 @@ static void send_response(char code, gdb_event_t* gep, bool wait_for_ack)
             if (gep->exit_reason == KVM_EXIT_DEBUG) {
                km_gdb_exit_debug_stopreply(vcpu, obuf);
             } else {
-               km_infox(KM_TRACE_GDB,
-                        "don't know how to handle exit_reason %d",
-                        gep->exit_reason);
+               km_infox(KM_TRACE_GDB, "don't know how to handle exit_reason %d", gep->exit_reason);
                abort();
             }
             break;
@@ -487,8 +485,7 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
    km_read_registers(vcpu);   // Make sure we report good register contents.
 
    km_infox(KM_TRACE_VCPU,
-            "debug exception, exception 0x%08x, pc 0x%016llX, dr6 0x%016llx, dr7 "
-            "0x%016llx",
+            "debug exception, exception 0x%x, pc 0x%llX, dr6 0x%llx, dr7 0x%llx",
             archp->exception,
             archp->pc,
             archp->dr6,

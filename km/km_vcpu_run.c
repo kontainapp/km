@@ -517,14 +517,9 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
     * we initialize the value before making the ioctl() request.
     */
    vcpu->cpu_run->exit_reason = 0;   // i hope this won't disturb kvm.
-   km_infox(KM_TRACE_VCPU,
-            "is_paused %d, about to ioctl( KVM_RUN )",
-            vcpu->is_paused);
+   km_infox(KM_TRACE_VCPU, "is_paused %d, about to ioctl( KVM_RUN )", vcpu->is_paused);
    rc = ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
-   km_infox(KM_TRACE_VCPU,
-            "is_paused %d, ioctl( KVM_RUN ) returned %d",
-            vcpu->is_paused,
-            rc);
+   km_infox(KM_TRACE_VCPU, "is_paused %d, ioctl( KVM_RUN ) returned %d", vcpu->is_paused, rc);
 
    // If we need them, harvest the registers once upon return.
    if (km_trace_enabled() || km_gdb_is_enabled()) {
@@ -645,9 +640,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          km_read_registers(vcpu);
          km_read_sregisters(vcpu);
          km_wait_on_gdb_cv(vcpu);
-         km_infox(KM_TRACE_VCPU,
-                  "unblocked, pause_requested %d",
-                  machine.pause_requested);
+         km_infox(KM_TRACE_VCPU, "unblocked, pause_requested %d", machine.pause_requested);
       }
 
       /*
@@ -724,7 +717,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                case HC_ALLSTOP:
                   // This thread has executed exit_group() and the payload is terminating.
                   km_info(KM_TRACE_KVM,
-                          "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: hypercall %d allstop, status 0x%x",
+                          "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: hypercall %d allstop, status "
+                          "0x%x",
                           vcpu->regs.rip,
                           vcpu->regs.rsp,
                           vcpu->sregs.cr2,
