@@ -17,6 +17,8 @@ We use `BATS` to coordinate and glue together multiple test suites, and `silentb
   * Good review (and comparison with others) [here](https://spin.atomicobject.com/2013/07/31/greatest-c-testing-embedded/)
   * Does almost all we  want (has a few shortcomings but nothing major - i.e. does not do parametrized tests, does not support test-specific setup/teardown - only per suite, etc), and very simple to install/use in the payloads.
 
+We also use bats-assert helpers, see https://github.com/ztombol/bats-assert or tests/bats-assert/README.md for details
+
 ## Code coverage
 
 We use gcov/gcovr for C test coverage. While `gcov` (the program generating readable coverage info from coverage binary files) is a part of gcc package, `gcovr` (the program doing nice html rendering with source code) needs to be installed, i.e. `sudo dnf install gcovr`. See [gcovr site](https://www.gcovr.com) for details
@@ -24,6 +26,35 @@ We use gcov/gcovr for C test coverage. While `gcov` (the program generating read
 * To build coverage report, run `make coverage`. It will re-compile `km` with coverage (respecting settings in custom.mk) run the test suite and generate test coverage HTML reports. It will also print out the location of the reports.
 * To clean up coverage artifacts, run `make covclean`.
 
+## Test code layout and usage
+
+Test code is a collection of .c and .cpp programs in ./tests, which are compiled for Linux and for Kontain, and then run under BATS framework, with validating results and checking (when needed) compliance with Linux results
+
+Bash functions using BATS framework and validating test results are in `tests/km_core_tests.bats`. This bats file can run a set of tests for different KM linking strategy (static, dynamic, shared), and expects misc environment vars and locations, so we do not invoke it directly, and instead always use `tests/run_bats_test.sh` bash script. Run `tests/run_bats_tests.sh --help` for flags.
+
+Test can be invoked with `make test` from top-level or ./tests. Adding MATCH=regexp will only run tests with description matching the regexp
+
+### Writing tests
+
+This is a general work flow. Use .c and .bats files in tests as examples.
+
+* write C payload that does something and prints success/error messages and extra info
+* add a test to km_core_tests.bats which calls the payload and checks the expected output using misc. assert functions (see docs for bats-assert)
+  * the test description should include unique test name; and for convenience we also add the payload name to the test description string. See .bats file for examples
+* If you need to skip your test from running for all or some of payload linkage, add test name to an exception list - i.e. `todo_*` or `not_needed_*` in `tests/km_core_tests.bats`.
+* if your test needs to behave differently (e.g. you are looking at offsets  or dyntables), `$test_type` bash variable keeps 'static' or 'dynamic' or 'so' - use to to check for correct results
+
+You can invoke individual test via the helper script, e.g.:
+
+```shell
+  cd tests
+  ./run_bats_tests.sh --pretty  --test-type=so --match=setup_link # one test only, 'shared' (.so) test only
+  ./run_bats_tests.sh --match=setup_link                          # one test for all linkage types (static/dynamic/so)
+  ./run_bats_tests.sh --pretty  --test-type=so                    # all tests for .so linkage type
+  ./run_bats_tests.sh --pretty  --match=mem_regions --test-type=so  --dry-run # print env and command to invoke bats
+```
+
+**DO NOT FORGET TO RUN `make coverage` to validate your test code coverage**
 
 ## Debugging
 
@@ -31,13 +62,13 @@ To debug payload, run `km -g<port> payload.km` - this will start km listening on
 
 In Visual Studio Code, we provide `launch.json` with different debugging options. Choose from Debug drop down in Debug mode.
 
-# Appendix
+## Appendix A - why did we choose bats for testing
 
 A quick summary of testing framework requirements, choices and info on how we were choosing one
 
-## Requirements
+### Requirements
 
-### Test suite
+#### Test suite
 
 * Uniform way to run tests and report results
   * ideally, test set is an executable (or script), uniformly named
@@ -47,7 +78,7 @@ A quick summary of testing framework requirements, choices and info on how we we
 * Do not stop on an error but allow to skip related tests ()
 * built-in check functions/macro (see http://testanything.org/)
 
-### Tests build
+#### Tests build
 
 We need to have multiple ways of KM building for test. They mainly differ in compile flags and set of used libs, and name of produced executable (km_${TYPE}, e.g. km_obj km_prod km_debug) km->km_obj
 
@@ -56,7 +87,7 @@ We need to have multiple ways of KM building for test. They mainly differ in com
 * Code coverage build (aka cov) - debug plus ` -fprofile-arcs -ftest-coverage`
 * Production build (aka prod) - eventually. Asserts are skipped, optimization is turned on, no debug symbols
 
-## Looked at and declined test frameworks
+### Looked at and declined test frameworks
 
 * [nUnit](https://nemequ.github.io/munit)
   * small/portable/easy. Tons of useful stuff like `munit_assert_memory_equal` :-)

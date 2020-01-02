@@ -14,8 +14,9 @@ if [ -z "$BATS_TEST_FILENAME" ] ; then "exec" "`dirname $0`/bats/bin/bats" "$0" 
 #
 # BATS (BASH Test Suite) definition for KM core test pass
 #
-# See ./bats/... for docs
+# See ./bats/... for docs on bats , bats-support and bats-assert functionality
 #
+
 cd $BATS_ROOT/.. # bats sits under tests, so this will move us to tests
 load 'bats-support/load' # see manual in bats-support/README.md
 load 'bats-assert/load'  # see manual in bats-assert/README.mnd
@@ -43,14 +44,58 @@ if [ -z "$BRANCH" ] ; then
    BRANCH=$(git rev-parse --abbrev-ref HEAD)
 fi
 
+# Now find out what test type we were asked to run ('static' is default)
+# and set appropriate extension and km args
+test_type=${KM_TEST_TYPE:-static}
+
+case $test_type in
+   static)
+      ext=.km
+      ;;
+   dynamic)
+      ext=.kmd
+      KM_ARGS="${KM_ARGS} --dynlinker=${KM_LDSO} --putenv LD_LIBRARY_PATH=${KM_LDSO_PATH}"
+      ;;
+   so)
+      ext=.so
+      KM_ARGS="${KM_ARGS} ${KM_LDSO} --library-path=${KM_LDSO_PATH}"
+      ;;
+   *)
+      echo "Unknown test type: $test_type, should be 'static', 'dynamic' or 'so'"
+      export KM_BIN=fail
+      ;;
+esac
+
 # we will kill any test if takes longer
 timeout=150
 
 # this is how we invoke KM - with a timeout and reporting run time
 function km_with_timeout () {
+
+   # Treat all before '--' as KM arguments, and all after '--' as payload arguments
+   # With no '--', finding $ext (.km, .kmd. .so) has the same effect.
+   # Note that we whitespace split KM args always, so no spaces inside of KM args are allowed
+   while [ $# -gt 0 ]; do
+      case "$1" in
+         --)
+            shift
+            break
+            ;;
+         *$ext)
+            break
+            ;;
+         *)
+            __args="$__args $1"
+            ;;
+      esac
+      shift
+   done
+   KM_ARGS="$__args $KM_ARGS"
+
+   # echo km_with_timeout command: ${KM_BIN} ${KM_ARGS} "$@"
    /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
       timeout --foreground $timeout \
-         ${KM_BIN} --dynlinker=${KM_LDSO} ${KM_ARGS} "$@"
+         ${KM_BIN} ${KM_ARGS} "$@"
    s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
 }
 
@@ -85,3 +130,36 @@ function in_docker() {
   cat /proc/1/cgroup | grep -q docker
 }
 
+# Helper for generic skipping
+# rely on lists
+#  `not_needed_{generic,static,dynamic,shared}` and
+#  `todo_{generic,static,dynamic,shared}`
+# to be defined in the actul test and define list of test to skip.
+# See km*.bats
+
+# Checks if word "$1" is in list "$2"
+# There HAS to be a space befor and after each word in the list, so there is always leading and trailing space in the lists
+name_in_list() {
+   [ -z "${2##* $1 *}" ]
+}
+
+# Skip test if it's on one of "skip" or "todo" lists
+#
+# $1 is BATS_DESCRIPTION string
+#   We assume test name is BASH_DESCRIPTION part before '('
+# $test_type is global
+skip_is_needed() {
+   test="$(echo $1 | sed -e 's/(.*//')"
+   if [ -z "$test" ] ; then return; fi
+   nn="not_needed_$test_type"
+   todo="todo_$test_type"
+   # note that lists have to have header and trailer space, so adding here
+   if name_in_list $test " $not_needed_generic ${!nn} " ; then
+      echo "not needed ($test_type)"
+      return
+   fi
+   if name_in_list $test " $todo_generic ${!todo} " ; then
+      echo "TODO add $test ($test_type)"
+      return
+   fi
+}
