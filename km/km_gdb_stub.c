@@ -994,6 +994,7 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
    int i = vcpu->vcpu_id;
    threadaction_blob_t* threadactionblob = (threadaction_blob_t*)ta;
 
+   assert(vcpu->is_running == 0);
    switch (threadactionblob->threadaction[i].ta_newrunstate) {
       case THREADSTATE_NONE:
          rc = 0;
@@ -1025,9 +1026,8 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
          break;
    }
    km_infox(KM_TRACE_GDB,
-            "vcpu %d: is_paused %d, ta_newrunstate %d, gdb_run_state %d",
+            "vcpu %d: ta_newrunstate %d, gdb_run_state %d",
             i,
-            vcpu->is_paused,
             threadactionblob->threadaction[i].ta_newrunstate,
             vcpu->gdb_vcpu_state.gdb_run_state);
    return rc;
@@ -1231,18 +1231,17 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
                            } else {
                               /* An earlier action already specified what to do for this thread */
                            }
-                           // If a signal is to be sent, enqueue that now.
-                           if (cmd == 'C' || cmd == 'S') {
+                           if (cmd == 'C' || cmd == 'S') {   // If a signal is sent, deliver it
                               siginfo_t info;
 
                               km_infox(KM_TRACE_GDB,
-                                       "post linux signal %d (gdb %d) to thread %d",
+                                       "deliver linux signal %d (gdb %d) to thread %d",
                                        linuxsigno,
                                        gdbsigno,
                                        tid);
                               info.si_signo = linuxsigno;
                               info.si_code = SI_USER;
-                              km_post_signal(vcpu, &info);
+                              km_deliver_signal(vcpu, &info);
                            }
                         }
                      } else {
@@ -1478,7 +1477,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
 
                info.si_signo = linux_signo(signo);
                info.si_code = SI_USER;
-               km_post_signal(vcpu, &info);
+               km_deliver_signal(vcpu, &info);
             } else {
                // The signal number is bad or missing
                send_error_msg();
@@ -1526,7 +1525,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
 
                info.si_signo = linux_signo(signo);
                info.si_code = SI_USER;
-               km_post_signal(vcpu, &info);
+               km_deliver_signal(vcpu, &info);
             } else {
                // The signal number is bad or missing
                send_error_msg();
@@ -1749,29 +1748,26 @@ void gdb_delete_stale_events(void)
 }
 
 /*
- * Unblock the paused vcpu.
- * If another vcpu has hit a breakpoint causing session_requested to be non-zero,
- * then don't start up this vcpu.  This is to avoid starting the remaining vcpu's
- * when a freshly started vcpu runs into a new breakpoint.
- * returns 0 on success and 1 on failure. Failures just counted by upstairs for reporting
+ * Resume paused vcpus. If another vcpu has hit a breakpoint causing session_requested to be
+ * non-zero, then don't resume vcpus. This is to avoid starting the remaining vcpus when a freshly
+ * started vcpu runs into a new breakpoint. returns 0 on success and 1 on failure.
  */
 static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, __attribute__((unused)) uint64_t unused)
 {
-   int ret = 1;
-
-   if (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) {
-      // gdb wants this thread paused so don't wake it up.
-      ret = 0;
-   } else {
+   if (vcpu->gdb_vcpu_state.gdb_run_state != THREADSTATE_PAUSED) {
       km_infox(KM_TRACE_GDB,
-               "waking up vcpu %d, gdb_run_state %d",
+               "resuming vcpu %d, gdb_run_state %d",
                vcpu->vcpu_id,
                vcpu->gdb_vcpu_state.gdb_run_state);
-      if (gdbstub.session_requested == 0 && (ret = km_gdb_cv_signal(vcpu) != 0)) {
-         ;
-      }
+      return km_gdb_cv_signal(vcpu);
    }
-   return ret == 0 ? 0 : 1;   // Unblock main guest thread
+   return 0;   // gdb wants this thread paused so don't resume it
+}
+
+static void km_vcpu_resume_all(void)
+{
+   __atomic_store_n(&machine.pause_requested, 0, __ATOMIC_SEQ_CST);
+   km_vcpu_apply_all(km_gdb_vcpu_continue, 0);
 }
 
 /*
@@ -1785,19 +1781,18 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
        {.fd = gdbstub.sock_fd, .events = POLLIN | POLLERR},
        {.fd = machine.intr_fd, .events = POLLIN | POLLERR},
    };
-   gdb_event_t ge;
    int ret;
 
-   km_wait_on_eventfd(machine.intr_fd);   // Wait for km_vcpu_run_main to set vcpu->tid
+   km_wait_on_eventfd(machine.intr_fd);   // Wait for km_vcpu_run_main to start
    km_gdb_vcpu_set(main_vcpu);
 
-   ge = (gdb_event_t){
+   gdb_event_t ge = (gdb_event_t){
        .signo = 0,
        .sigthreadid = km_vcpu_get_tid(main_vcpu),
    };
    gdb_handle_remote_commands(&ge);   // Talk to GDB first time, before any vCPU run
 
-   km_gdb_vcpu_continue(main_vcpu, 0);
+   km_vcpu_resume_all();
    while (km_gdb_is_enabled() == 1) {
       // Poll two fds described above in fds[], with no timeout ("-1")
       while ((ret = poll(fds, 2, -1) == -1) && (errno == EAGAIN || errno == EINTR)) {
@@ -1812,10 +1807,8 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
          km_gdb_disable();
          return;
       }
-      machine.pause_requested = 1;
       km_infox(KM_TRACE_GDB, "Signalling vCPUs to pause");
-      km_vcpu_apply_all(km_vcpu_pause, 0);
-      km_vcpu_wait_for_all_to_pause();
+      km_vcpu_pause_all();
       km_infox(KM_TRACE_GDB, "vCPUs paused. run_cnt %d", machine.vm_vcpu_run_cnt);
       if (fds[0].revents) {   // got something from gdb client (hopefully ^C)
          int ch = recv_char();
@@ -1858,17 +1851,13 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 
       km_infox(KM_TRACE_GDB, "kvm exit handled, starting vcpu's");
 
-      // Block any started thread from enqueuing an event until all threads are started
-      ret = pthread_mutex_lock(&gdbstub.notify_mutex);
+      ret = pthread_mutex_lock(&gdbstub.notify_mutex);   // Block vcpu events until all are started
       assert(ret == 0);
 
-      // Allow the started vcpu's to wakeup this thread now.
       gdbstub.session_requested = 0;
-      machine.pause_requested = 0;
+      km_vcpu_resume_all();
 
-      km_vcpu_apply_all(km_gdb_vcpu_continue, 0);
-
-      ret = pthread_mutex_unlock(&gdbstub.notify_mutex);
+      ret = pthread_mutex_unlock(&gdbstub.notify_mutex);   // Allow vcpus to wakeup us now
       assert(ret == 0);
    }
 }
@@ -1989,18 +1978,14 @@ static int linux_signo(gdb_signal_number_t gdb_signo)
  *  signo - the linux signal number
  *  need_wait - set to true if the caller wants to wait until gdb tells us to go again.
  */
-void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait)
+void km_gdb_notify(km_vcpu_t* vcpu, int signo)
 {
    int rc;
-
-   vcpu->is_paused = 1;
 
    rc = pthread_mutex_lock(&gdbstub.notify_mutex);
    assert(rc == 0);
    km_infox(KM_TRACE_GDB,
-            "need_wait %d, session_requested %d, "
-            "linux signo %d, exit_reason %u, tid %d, gdb event queue empty %d",
-            need_wait,
+            "session_requested %d, linux signo %d, exit_reason %u, tid %d, gdb event queue %d",
             gdbstub.session_requested,
             signo,
             vcpu->cpu_run->exit_reason,
@@ -2024,11 +2009,4 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait)
    }
    rc = pthread_mutex_unlock(&gdbstub.notify_mutex);
    assert(rc == 0);
-
-   if (need_wait != 0) {
-      km_infox(KM_TRACE_GDB, "waiting for gdb to unblock this vcpu");
-      km_wait_on_gdb_cv(vcpu);   // Wait for gdb to allow this vcpu to continue
-      vcpu->is_paused = 0;
-      km_infox(KM_TRACE_GDB, "gdb signalled for this vcpu to continue");
-   }
 }

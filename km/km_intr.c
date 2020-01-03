@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -216,13 +216,5 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
          info.si_signo,
          strsignal(info.si_signo));
 
-   if (km_gdb_is_enabled() != 0) {
-      vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
-      km_gdb_notify_and_wait(vcpu, info.si_signo, true);
-   }
-
    km_post_signal(vcpu, &info);
-
-   // We know there is a signal. Force delivery now.
-   km_deliver_signal(vcpu);
 }

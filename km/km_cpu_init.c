@@ -288,72 +288,35 @@ km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
  */
 static inline int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 {
-   return vcpu->is_paused == 1 ? 0 : 1;
-}
-
-int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
-{
-   km_infox(KM_TRACE_VCPU,
-            "VCPU %d info: paused %d used %d thread %#lx (tid %#x) guest_thr %#lx",
-            vcpu->vcpu_id,
-            vcpu->is_paused,
-            vcpu->is_used,
-            vcpu->vcpu_thread,
-            km_vcpu_get_tid(vcpu),
-            vcpu->guest_thr);
-   return 0;
-}
-
-/*
- * We only wait for 50 tries before deciding some vcpu's have gone crazy
- * and aren't going to stop for us.  We abort at that point so we can
- * look at a core file to understand what happened.
- */
-const int MAX_VCPU_PAUSE_ATTEMPTS = 50;
-
-void km_vcpu_wait_for_all_to_pause(void)
-{
-   int count;
-   int attempts = 0;
-
-   while ((count = km_vcpu_apply_all(km_vcpu_count_running, 0)) != 0) {
-      // Wait for vcpus to exit from KVM. No need for speed here so can do busy wait.
-      if (km_trace_enabled()) {
-         km_infox(KM_TRACE_VCPU, "Still %d vcpus running, attempt %d", count, attempts);
-         km_vcpu_apply_all(km_vcpu_print, 0);
-      }
-      if (++attempts > MAX_VCPU_PAUSE_ATTEMPTS) {
-         km_infox(KM_TRACE_VCPU, "%s: waiting too long for vcpu's to pause", __FUNCTION__);
-         abort();
-      }
-      nanosleep(&_10ms, NULL);
-   }
+   return vcpu->is_running;
 }
 
 /*
  * Force KVM to exit by sending a signal to vcpu thread. The signal handler can be a noop, just
  * need to exist.
  */
-int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
+static int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
 {
-   int count = 1000;   // count the tries. We assert if we are for too long
-
-   assert(vcpu->is_used == 1);
-   km_infox(KM_TRACE_VCPU, "initiate pause");
-   while (1) {
-      if (vcpu->is_paused == 1 || vcpu->vcpu_thread == 0) {   // already paused or not started yet
-         return 0;
+   if (vcpu->is_active == 1) {
+      if (pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP) != 0) {
+         warnx("vcpu %d, pthread_kill failed, errno %d", vcpu->vcpu_id, errno);
       }
-      if (pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP) == 0) {
-         break;
-      } else {
-         km_info(KM_TRACE_VCPU, "pthread_kill failed, errno %d", errno);
-      }
-      assert(--count > 0);
-      nanosleep(&_10ms, NULL);
+      km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
    }
-   km_infox(KM_TRACE_VCPU, "signalled to pause");
    return 0;
+}
+
+void km_vcpu_pause_all(void)
+{
+   int count;
+
+   __atomic_store_n(&machine.pause_requested, 1, __ATOMIC_SEQ_CST);
+   km_vcpu_apply_all(km_vcpu_pause, 0);
+   for (int i = 0; i < 100 && (count = km_vcpu_apply_all(km_vcpu_count_running, 0)) != 0; i++) {
+      nanosleep(&_1ms, NULL);
+      km_infox(KM_TRACE_VCPU, "waiting for KVM_RUN to exit - %d", i);
+   }
+   assert(count == 0);
 }
 
 /*
@@ -364,9 +327,8 @@ void km_vcpu_put(km_vcpu_t* vcpu)
 {
    vcpu->guest_thr = 0;
    vcpu->stack_top = 0;
-   vcpu->is_paused = 0;
+   vcpu->is_running = 0;
    vcpu->is_active = 0;
-   // vcpu->is_used = 0;
    __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_used, 0, __ATOMIC_SEQ_CST);
 }
 
