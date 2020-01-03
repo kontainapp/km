@@ -134,7 +134,7 @@ void km_machine_fini(void)
 
 static int kvm_vcpu_init_sregs(int fd, uint64_t fs)
 {
-   static const kvm_sregs_t sregs_template = {
+   kvm_sregs_t sregs = (kvm_sregs_t){
        .cr0 = X86_CR0_PE | X86_CR0_PG | X86_CR0_WP | X86_CR0_NE,
        .cr3 = RSV_MEM_START + RSV_PML4_OFFSET,
        .cr4 = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE | X86_CR4_OSFXSR | X86_CR4_OSXMMEXCPT,
@@ -148,10 +148,9 @@ static int kvm_vcpu_init_sregs(int fd, uint64_t fs)
               .g = 1},
        .tr = {.type = 11, /* 64-bit TSS, busy */
               .present = 1},
+       .fs.base = fs,
    };
-   kvm_sregs_t sregs = sregs_template;
 
-   sregs.fs.base = fs;
    if (machine.idt == 0) {
       errx(1, "Should not happen - no IDT");
    }
@@ -183,52 +182,56 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       warn("KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
       return -1;
    }
-
+   vcpu->sigpending = (km_signal_list_t){.head = TAILQ_HEAD_INITIALIZER(vcpu->sigpending.head)};
    vcpu->gdb_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    vcpu->gdb_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
-
-   if (pthread_mutex_init(&vcpu->thr_mtx, NULL) != 0) {
-      warn("failed to initialize mutex thr_mtx");
-      return -1;
-   }
-   if (pthread_cond_init(&vcpu->thr_cv, NULL) != 0) {
-      warn("failed to initialize condition thr_cv");
-      return -1;
-   }
+   vcpu->thr_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+   vcpu->thr_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
    return 0;
 }
 
 /*
  * km_vcpu_get() atomically finds the first vcpu slot that can be used for a new vcpu. It could be
- * an empty slot, or previously used slot left by exited thread.
+ * previously used slot left by exited thread, or a new one.
  *
  * Note that vm_vcpu_run_cnt **is not** the same as number of used vcpu slots, it is a number of
  * active running vcpu threads. It is adjusted up right before vcpu thread starts, and down when an
  * vcpu exits, in km_vcpu_stopped(). If the vm_vcpu_run_cnt drops to 0 there are no running vcpus any
  * more, payload is done. km_vcpu_stopped() signals the main thread to tear down and exit the km.
- *
- * vcpu slot is still in use after a joinable thread exited but pthread_join() isn't executed yet.
- * Once the thread is joined in km_pthread_join(), the slot is reusable, i.e is_used is set to 0.
- *
- * We allocate new vcpu structure to use in an empty slot, and free it if a slot for reuse is found.
  */
 km_vcpu_t* km_vcpu_get(void)
 {
-   km_vcpu_t* new;
-   km_vcpu_t* old;
    int unused;
+   int i;
+
+   // First look for previously used slots
+   for (i = 0; i < KVM_MAX_VCPUS; i++) {
+      km_vcpu_t* vcpu = machine.vm_vcpus[i];
+
+      if (__atomic_load_n(&vcpu, __ATOMIC_SEQ_CST) == NULL) {
+         break;
+      }
+      // if (machine.vm_vcpus[i].is_used == 0) ...is_used = 1;
+      unused = 0;
+      if (__atomic_compare_exchange_n(&vcpu->is_used, &unused, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+         km_gdb_vcpu_state_init(vcpu);
+         return vcpu;
+      }
+   }
+   if (i >= KVM_MAX_VCPUS) {
+      return NULL;
+   }
+   // no unused slots, need to alloc and init a new one
+   km_vcpu_t* new;
+   km_vcpu_t* old = NULL;
 
    if ((new = calloc(1, sizeof(km_vcpu_t))) == NULL) {
-      err(1, "KVM: no memory for vcpu");
+      return NULL;
    }
-   km_signal_list_t tmpl = {.head = TAILQ_HEAD_INITIALIZER(new->sigpending.head)};
-   new->sigpending = tmpl;
 
    new->is_used = 1;   // so it won't get snatched right after its inserted
-
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+   for (; i < KVM_MAX_VCPUS; i++) {
       // if (machine.vm_vcpus[i] == NULL) machine.vm_vcpus[i] = new;
-      old = NULL;
       if (__atomic_compare_exchange_n(&machine.vm_vcpus[i], &old, new, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
          new->vcpu_id = i;
          if (km_vcpu_init(new) < 0) {
@@ -238,14 +241,8 @@ km_vcpu_t* km_vcpu_get(void)
          km_gdb_vcpu_state_init(new);
          return new;
       }
-      // if (machine.vm_vcpus[i].is_used == 0) ...is_used = 1;
-      unused = 0;
-      if (__atomic_compare_exchange_n(&old->is_used, &unused, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
-         free(new);   // no need, reusing an existing one
-         km_gdb_vcpu_state_init(old);
-         return old;
-      }
    }
+   km_vcpu_fini(new);
    free(new);
    return NULL;
 }
@@ -268,7 +265,7 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data)
          break;   // since we allocate vcpus sequentially, no reason to scan after NULL
       }
       if (vcpu->is_used == 1 && (ret = (*func)(vcpu, data)) != 0) {
-         km_infox(KM_TRACE_VCPU, "%s: func ret %d for VCPU %d", __FUNCTION__, ret, vcpu->vcpu_id);
+         km_infox(KM_TRACE_VCPU, "func ret %d for VCPU %d", ret, vcpu->vcpu_id);
          total += ret;
       }
    }
@@ -321,9 +318,6 @@ void km_vcpu_wait_for_all_to_pause(void)
 
    while ((count = km_vcpu_apply_all(km_vcpu_count_running, 0)) != 0) {
       // Wait for vcpus to exit from KVM. No need for speed here so can do busy wait.
-      static const struct timespec req = {
-          .tv_sec = 0, .tv_nsec = 10000000, /* 10 millisec */
-      };
       if (km_trace_enabled()) {
          km_infox(KM_TRACE_VCPU, "Still %d vcpus running, attempt %d", count, attempts);
          km_vcpu_apply_all(km_vcpu_print, 0);
@@ -332,7 +326,7 @@ void km_vcpu_wait_for_all_to_pause(void)
          km_infox(KM_TRACE_VCPU, "%s: waiting too long for vcpu's to pause", __FUNCTION__);
          abort();
       }
-      nanosleep(&req, NULL);
+      nanosleep(&_10ms, NULL);
    }
 }
 
@@ -356,10 +350,7 @@ int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
          km_info(KM_TRACE_VCPU, "pthread_kill failed, errno %d", errno);
       }
       assert(--count > 0);
-      static const struct timespec req = {
-          .tv_sec = 0, .tv_nsec = 10000000, /* 10 millisec */
-      };
-      nanosleep(&req, NULL);
+      nanosleep(&_10ms, NULL);
    }
    km_infox(KM_TRACE_VCPU, "signalled to pause");
    return 0;
