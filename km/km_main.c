@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -253,6 +253,9 @@ int main(int argc, char* const argv[])
    if (wait_for_signal == 1) {
       warnx("Waiting for kill -SIGUSR1  %d", getpid());
       km_wait_for_signal(SIGUSR1);
+   }
+   if (km_gdb_is_enabled() == 1) {
+      km_vcpu_pause_all();
    }
    if (km_run_vcpu_thread(vcpu, km_vcpu_run_main) < 0) {
       err(2, "Failed to create main run_vcpu thread");

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -279,6 +279,14 @@ static inline int signal_pending(km_vcpu_t* vcpu, siginfo_t* info)
    return 0;
 }
 
+static const km_sigset_t unblockable =
+    1UL << (SIGBUS - 1) | 1UL << (SIGFPE - 1) | 1UL << (SIGILL - 1) | 1UL << (SIGSEGV - 1);
+
+static inline int is_deliverable(km_sigset_t* mask, int signal)
+{
+   return km_sigismember(&unblockable, signal) == 1 || km_sigismember(mask, signal) == 0 ? 1 : 0;
+}
+
 /*
  * Return the number of the next unblocked signal for the passed vcpu.
  * First check the vcpu's list of pending signals then check the
@@ -292,14 +300,14 @@ int km_signal_ready(km_vcpu_t* vcpu)
 
    km_signal_lock();
    TAILQ_FOREACH (sig, &vcpu->sigpending.head, link) {
-      if (km_sigismember(&vcpu->sigmask, sig->info.si_signo) == 0) {
+      if (is_deliverable(&vcpu->sigmask, sig->info.si_signo) == 1) {
          km_signal_unlock();
          km_info(KM_TRACE_VCPU, "vcpu %d signal %d ready", vcpu->vcpu_id, sig->info.si_signo);
          return sig->info.si_signo;
       }
    }
    TAILQ_FOREACH_SAFE (sig, &machine.sigpending.head, link, next_sig) {
-      if (km_sigismember(&vcpu->sigmask, sig->info.si_signo) == 0) {
+      if (is_deliverable(&vcpu->sigmask, sig->info.si_signo) == 1) {
          // A process-wide signal can only be claimed by one thread.
          TAILQ_REMOVE(&machine.sigpending.head, sig, link);
          TAILQ_INSERT_TAIL(&vcpu->sigpending.head, sig, link);
@@ -321,7 +329,6 @@ void km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info)
 {
    info->si_signo = 0;   // just in case there is no signal pending
    if (next_signal(vcpu, info) == 0) {
-      // No pending signal?
       km_info(KM_TRACE_VCPU, "no pending signal?");
    }
    return;
@@ -391,6 +398,16 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    km_write_registers(vcpu);
 }
 
+void km_deliver_next_signal(km_vcpu_t* vcpu)
+{
+   siginfo_t info;
+
+   if (next_signal(vcpu, &info) == 0) {
+      return;
+   }
+   km_deliver_signal(vcpu, &info);
+}
+
 /*
  * Deliver signal to guest. What delivery looks like depends on the signal disposition.
  * Ignored signals are ignored.
@@ -398,31 +415,22 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
  * Handled signals result in the guest being setup to run the signal handler
  * on the next VM_RUN call.
  */
-void km_deliver_signal(km_vcpu_t* vcpu)
+void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
 {
-   siginfo_t info;
-
-   if (!next_signal(vcpu, &info)) {
-      return;
-   }
-
-   km_sigaction_t* act = &machine.sigactions[km_sigindex(info.si_signo)];
+   km_sigaction_t* act = &machine.sigactions[km_sigindex(info->si_signo)];
    if (act->handler == (km_gva_t)SIG_IGN) {
       return;
    }
    if (act->handler == (km_gva_t)SIG_DFL) {
-      if (km_sigismember(&def_ign_signals, info.si_signo != 0)) {
+      if (km_sigismember(&def_ign_signals, info->si_signo != 0)) {
          return;
       }
 
       // Signals that get here terminate the process. The only question is: core or no core?
       int core_dumped = 0;
-      assert(info.si_signo != SIGCHLD);   // KM does not support
-      vcpu->is_paused = 1;
-      machine.pause_requested = 1;
-      km_vcpu_apply_all(km_vcpu_pause, 0);
-      km_vcpu_wait_for_all_to_pause();
-      if ((km_sigismember(&perror_signals, info.si_signo) != 0) || (info.si_signo == SIGQUIT)) {
+      assert(info->si_signo != SIGCHLD);   // KM does not support
+      km_vcpu_pause_all();
+      if ((km_sigismember(&perror_signals, info->si_signo) != 0) || (info->si_signo == SIGQUIT)) {
          extern int debug_dump_on_err;
          km_dump_core(vcpu, NULL);
          if (debug_dump_on_err) {
@@ -430,11 +438,11 @@ void km_deliver_signal(km_vcpu_t* vcpu)
          }
          core_dumped = 1;
       }
-      errx(info.si_signo, "guest: %s %s", strsignal(info.si_signo), (core_dumped) ? "(core dumped)" : "");
+      errx(info->si_signo, "guest: %s %s", strsignal(info->si_signo), (core_dumped) ? "(core dumped)" : "");
    }
 
    assert(act->handler != (km_gva_t)SIG_IGN);
-   do_guest_handler(vcpu, &info, act);
+   do_guest_handler(vcpu, info, act);
 }
 
 void km_rt_sigreturn(km_vcpu_t* vcpu)

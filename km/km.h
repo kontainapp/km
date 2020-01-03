@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -110,26 +110,26 @@ typedef struct {
 } gdb_vcpu_state_t;
 
 typedef struct km_vcpu {
-   int vcpu_id;                   // uniq ID
-   int kvm_vcpu_fd;               // this VCPU file descriptor
-   kvm_run_t* cpu_run;            // run control region
-   pthread_t vcpu_thread;         // km pthread
-   pthread_mutex_t thr_mtx;       // protects the three fields below
-   pthread_cond_t thr_cv;         // used by vcpu_pthread to block while vcpu isn't in use
-   int is_used;                   // 1 means slot is taken, 0 means 'ready for reuse'
-   int is_active;                 // 1 means VCPU thread is running, 0 means it is "parked"
-                                  //
-   km_gva_t stack_top;            // also available in guest_thr
-   km_gva_t guest_thr;            // guest pthread, FS reg in the guest
-                                  //
-   pthread_mutex_t gdb_mtx;       //
-   pthread_cond_t gdb_cv;         // gdb uses this to synchronize with VCPU thread
-   int is_paused;                 // 1 means the vcpu is waiting for gdb to allow it to continue
-   int regs_valid;                // Are registers valid?
-   int sregs_valid;               // Are segment registers valid?
-   kvm_regs_t regs;               // Cached register values.
-   kvm_sregs_t sregs;             // Cached segment register values.
-   km_sigset_t sigmask;           // blocked signals for thread
+   int vcpu_id;               // uniq ID
+   int kvm_vcpu_fd;           // this VCPU file descriptor
+   kvm_run_t* cpu_run;        // run control region
+   pthread_t vcpu_thread;     // km pthread
+   pthread_mutex_t thr_mtx;   // protects the three fields below
+   pthread_cond_t thr_cv;     // used by vcpu_pthread to block while vcpu isn't in use
+   uint8_t is_used;           // 1 means slot is taken, 0 means 'ready for reuse'
+   uint8_t is_active;         // 1 VCPU thread is running, 0 means it is "parked" or not started yet
+   uint8_t is_running;        // 1 means the vcpu is in guest, aka ioctl (KVM_RUN)
+   uint8_t regs_valid;        // Are registers valid?
+   uint8_t sregs_valid;       // Are segment registers valid?
+                              //
+   km_gva_t stack_top;        // also available in guest_thr
+   km_gva_t guest_thr;        // guest pthread, FS reg in the guest
+                              //
+   pthread_mutex_t gdb_mtx;   //
+   pthread_cond_t gdb_cv;     // gdb uses this to synchronize with VCPU thread
+   kvm_regs_t regs;           // Cached register values.
+   kvm_sregs_t sregs;         // Cached segment register values.
+   km_sigset_t sigmask;       // blocked signals for thread
    km_signal_list_t sigpending;   // List of signals sent to thread
    /*
     * Linux/Pthread handshake hacks. These are actually part of the standard.
@@ -303,17 +303,17 @@ static inline km_vcpu_t* km_main_vcpu(void)
 static inline int km_wait_on_eventfd(int fd)
 {
    eventfd_t value;
-   while (eventfd_read(fd, &value) == -1 && errno == EINTR)
+   while (eventfd_read(fd, &value) == -1 && errno == EINTR) {
       ;
+   }
    return value;
 }
 
-static inline int km_wait_on_gdb_cv(km_vcpu_t* vcpu)
+static inline void km_wait_on_gdb(km_vcpu_t* vcpu)
 {
    pthread_mutex_lock(&vcpu->gdb_mtx);
-   int i = pthread_cond_wait(&vcpu->gdb_cv, &vcpu->gdb_mtx);
+   pthread_cond_wait(&vcpu->gdb_cv, &vcpu->gdb_mtx);
    pthread_mutex_unlock(&vcpu->gdb_mtx);
-   return i;
 }
 
 static inline int km_gdb_cv_signal(km_vcpu_t* vcpu)
@@ -347,9 +347,7 @@ void km_vcpu_detach(km_vcpu_t* vcpu);
 
 typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, uint64_t data);   // return 0 if all is good
 extern int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data);
-extern int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused);
-extern void km_vcpu_wait_for_all_to_pause(void);
-extern int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused);
+extern void km_vcpu_pause_all(void);
 extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
 
 extern void km_trace(int want_strerror, const char* function, int linenumber, const char* fmt, ...)
@@ -374,8 +372,8 @@ static inline long km_syscall_ok(uint64_t r)
    return r;
 }
 
-static const struct timespec _10ms = {
-    .tv_sec = 0, .tv_nsec = 10000000, /* 10 millisec */
+static const struct timespec _1ms = {
+    .tv_sec = 0, .tv_nsec = 1000000, /* 1 millisec */
 };
 
 /*

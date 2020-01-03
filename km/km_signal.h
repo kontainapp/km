@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -20,7 +20,8 @@
 void km_signal_init(void);
 void km_signal_fini(void);
 void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info);
-void km_deliver_signal(km_vcpu_t* vcpu);
+void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info);
+void km_deliver_next_signal(km_vcpu_t* vcpu);
 void km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info);
 int km_signal_ready(km_vcpu_t*);
 
@@ -61,7 +62,7 @@ static inline void km_sigdelset(km_sigset_t* set, int signo)
    }
 }
 
-static inline int km_sigismember(km_sigset_t* set, int signo)
+static inline int km_sigismember(const km_sigset_t* set, int signo)
 {
    if (signo < 1 && signo >= _NSIG) {
       return 0;
