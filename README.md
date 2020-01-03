@@ -50,37 +50,47 @@ We use Visual Studio Code as recommended IDE; install it and use `code km_repo_r
 
 ## Code style
 
-* Our coding style doc is still TBD
+* Detailed document  for coding style is still TBD, below is a high level outline
 * The majority of formatting is handled by Visual Studio Code.
-  * We use clang-format forcing to be compliant with tabs and the likes.
+  * We use clang-format forcing to be compliant with tabs and the likes. **Do not forget to `sudo dnf install clang`** (or install clang with whatever package manager you are using)
   * KM workspace has "Format on Save" turned on, please do not turn it off in your User settings.
-  * If you edit the source using other tools, please make sure to use `clang-format -i `*`filename`*. it will format the *`filename`* in place using the same presets as Visual Studio Code. You'll need to install it: `sudo dnf install clang.x86_64`
-* Generally, we pay attention to the code being easy to read. Give short (but meaningful) names to all, do not save on comments, and try to stay within the look and feel of the other code.
+  * **If you prefer to edit the source using other tools**, you *MUST* enable git pre-commit hooks (`make git-hook-init`) to auto-format on commit.
+* Generally, we pay attention to the code being easy to read.
+  * Give short (but meaningful) names to all, do not save on comments, and try to stay within the look and feel of the other code.
+  * Try to limit function / methods / blocks size to a readable page (50-60 lines). "50-60" is not a hard requirement, but please do not create multi-page functions.
 * Single line comments are `//` , multiple lines `/* ... */`
 * We use km_underscore_notation for vars and functions.
 * Never use single lines `if (cond) do_something`. *Always* use `{}` - i.e.
-```
+
+```C
 if (cond) {
    do something;
 }
 ```
+
 * we always compare function results with explicit value. E.g. we do `if (my_check() == 0) ...` instead of `if (!my_check())...`
-* for `return` statement, if we return a single token (with or without sign), then we do not use `()`, otherwise we do. E.g. `return 0;` and `return -ENOMEM;`, but `return (value + 1); `
-* Don't decare multiple variable on the same line, particularly when there are initial values assigned.
+* for `return` statement, if we return a single token (with or without sign), then we do not use `()`, otherwise we do. E.g. `return 0;` and `return -ENOMEM;`, but `return (value + 1);`
+* Don't declare multiple variable on the same line, particularly when there are initial values assigned.
 * Don't assign multiple variables on the same line. Instead of `a = b = 0;` use two separate assignments.
-### The following isn't hard requirement but a strong preference ###
+
+### The following isn't hard requirement but a strong preference
+
 * We like the code to be compact, for instance we like
-```
+
+```C
 if ((rc = function()) < 0) {
    do something;
 }
 ```
+
 Or, if applicable
-```
+
+```C
 for (int index = 0; index < MAX_INDEX; index++) {
    loop body;
 }
 ```
+
 * We like variable declaration closer to the place in the function where they are used, instead of more traditional way to put all declarations at the top of a function.
 
 ## Test runs
