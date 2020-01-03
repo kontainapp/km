@@ -383,7 +383,7 @@ extern km_info_trace_t km_info_trace;
 #define km_info(tag, fmt, ...)                                                                     \
    do {                                                                                            \
       if (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)                \
-         km_trace(1, __FUNCTION__, __LINE__, fmt __VA_OPT__(, ) __VA_ARGS__);                      \
+         km_trace(1, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                  \
    } while (0)
 
 /*
@@ -392,7 +392,7 @@ extern km_info_trace_t km_info_trace;
 #define km_infox(tag, fmt, ...)                                                                    \
    do {                                                                                            \
       if (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)                \
-         km_trace(0, __FUNCTION__, __LINE__, fmt __VA_OPT__(, ) __VA_ARGS__);                      \
+         km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                  \
    } while (0)
 
 // tags for different traces
