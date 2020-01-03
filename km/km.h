@@ -359,6 +359,10 @@ static inline long km_syscall_ok(uint64_t r)
    return r;
 }
 
+static const struct timespec _10ms = {
+    .tv_sec = 0, .tv_nsec = 10000000, /* 10 millisec */
+};
+
 /*
  * Trivial trace control - with switch to turn on/off and on and a tag to match.
  * E.g. "-Vgdb" will only match GDB related messages, and '-V(gdb|kvm)' will match both gdb and
@@ -387,7 +391,7 @@ extern km_info_trace_t km_info_trace;
    } while (0)
 
 /*
- * Trace something to stderr  but don't include perror() output.
+ * Trace something to stderr but don't include perror() output.
  */
 #define km_infox(tag, fmt, ...)                                                                    \
    do {                                                                                            \

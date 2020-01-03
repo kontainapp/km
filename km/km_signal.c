@@ -394,7 +394,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
 /*
  * Deliver signal to guest. What delivery looks like depends on the signal disposition.
  * Ignored signals are ignored.
- * Default handler signals typically terminate, possobly with a core,
+ * Default handler signals typically terminate, possibly with a core,
  * Handled signals result in the guest being setup to run the signal handler
  * on the next VM_RUN call.
  */
