@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+# Git pre-commit hook to format files in git staging.
+# Only files with names matching $FILES below will be formatted
+#
+
+# glob pattern of files to format
+FILES='*[chp]'
+RED="\033[31m"
+GREEN="\033[32m"
+NOCOLOR="\033[0m"
+
+cd $(git rev-parse --show-toplevel)
+
+if ! command -vp clang-format > /dev/null ; then
+   echo -e "Warning: failed to format: clang-format is not found, please install clang package (sudo dnf install clang)"
+   exit 0
+fi
+if [[ ! -f .clang-format ]] ; then
+   echo -e "Warning: failed to format: file `pwd`/.clang-format is not found"
+   exit 0
+fi
+
+case "${1}" in
+  --about )
+    echo "Runs clang-format on source files matching '$FILES' in git commit staging"
+    ;;
+  * )
+    files=$(git diff-index --cached --name-only HEAD -- "$FILES")
+    if [ -z "$files" ] ; then
+      exit 0 # nothing to format
+    fi
+    if ! clang-format -i $files; then
+         echo -e "${RED}Error: failed to format $files. Commit blocked$NOCOLOR"
+         exit 1
+    fi
+    if [[ $(git diff -- $files  | wc -l) != 0 ]] ; then
+        echo -e "${GREEN}Formatted $files${NOCOLOR}"
+        git add $files
+    fi
+    ;;
+esac

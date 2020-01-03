@@ -1,11 +1,9 @@
 #
 # Basic build for kontain machine (km) and related tests/examples.
-# Subject to change - code is currently PoC
 #
-# dependencies:
-#  elfutils-libelf-devel and elfutils-libelf-devel-static for gelf.h and related libs
-#  OR:
-#  docker - for 'make withdocker TARGET=<target>
+# See README.md for details. run 'make help' for help.
+# Dependencies are enumerated in  tests/buildenv-fedora.dockerfile.
+# See 'make -C tests buildenv-fedora-local' for installing dependencies
 #
 # ====
 #  Copyright © 2018-2019 Kontain Inc. All rights reserved.
@@ -30,4 +28,12 @@ TOP := $(shell git rev-parse --show-cdup)
 ifeq ($(shell uname), Darwin)
 MAKE := make
 endif
+
+# Install git hooks, if needed
+GITHOOK_DIR ?= .githooks
+git-hooks-init: ## make git use GITHOOK_DIR (default .githooks) for pre-commit and other hooks
+	git config core.hooksPath $(GITHOOK_DIR)
+git-hooks-reset: ## reset git hooks location to git default of .git/hooks (not version controlled)
+	git config core.hooksPath .git/hooks
+
 include ${TOP}make/actions.mk
