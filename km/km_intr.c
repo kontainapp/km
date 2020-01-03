@@ -165,8 +165,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
    km_write_sregisters(vcpu);
 
    /*
-    * map processor exceptions to signals in accordance with
-    * Table 3.1 from AMD64 ABI
+    * map processor exceptions to signals in accordance with Table 3.1 from AMD64 ABI
     * https://software.intel.com/sites/default/files/article/402129/mpx-linux64-abi.pdf
     */
    siginfo_t info = {.si_code = SI_KERNEL};

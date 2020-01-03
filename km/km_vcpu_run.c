@@ -451,9 +451,6 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
     * paused (e.g. for stop) before the signal. We need to give them time to clean up.
     * For now, we give them 100 msec. TODO: wait forever after the hack below is removed
     */
-   static const struct timespec req = {
-       .tv_sec = 0, .tv_nsec = 10000000, /* 10 millisec */
-   };
    int count = 10;
    while (machine.vm_vcpu_run_cnt > 1 && count-- > 0) {
       if (km_trace_enabled()) {
@@ -463,7 +460,7 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
                   machine.vm_vcpu_run_cnt);
          km_vcpu_apply_all(km_vcpu_print, 0);
       }
-      nanosleep(&req, NULL);
+      nanosleep(&_10ms, NULL);
    }
    // TODO - consider an unforced solution
    if (machine.vm_vcpu_run_cnt > 1) {

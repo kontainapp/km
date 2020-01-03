@@ -984,11 +984,10 @@ typedef struct threadaction_blob threadaction_blob_t;
  */
 static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
 {
-   int i;
    int rc;
+   int i = vcpu->vcpu_id;
    threadaction_blob_t* threadactionblob = (threadaction_blob_t*)ta;
 
-   i = vcpu->vcpu_id;
    switch (threadactionblob->threadaction[i].ta_newrunstate) {
       case GRS_NONE:
          rc = 0;
@@ -1021,9 +1020,7 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
          break;
    }
    km_infox(KM_TRACE_GDB,
-            "vcpu %d: is_paused %d, ta_newrunstate %d, gvs_gdb_run_state %d",
-            i,
-            vcpu->is_paused,
+            "ta_newrunstate %d, gvs_gdb_run_state %d",
             threadactionblob->threadaction[i].ta_newrunstate,
             vcpu->gdb_vcpu_state.gvs_gdb_run_state);
    return rc;
@@ -1232,13 +1229,10 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
    }
 
    /*
-    * We made it through the vCont arguments, now apply what we were
-    * asked to do.
-    * Since km threads are each a vcpu, we just traverse the vcpus to
-    * have each thread's vCont actions applied.
+    * We made it through the vCont arguments, now apply what we were asked to do. Since km threads
+    * are each a vcpu, we just traverse the vcpus to have each thread's vCont actions applied.
     */
-   count = km_vcpu_apply_all(km_gdb_set_thread_vcont_actions, (uint64_t)&threadactionblob);
-   if (count != 0) {
+   if ((count = km_vcpu_apply_all(km_gdb_set_thread_vcont_actions, (uint64_t)&threadactionblob)) != 0) {
       km_info(KM_TRACE_GDB, "apply all vcpus failed, count %d", count);
       send_error_msg();
    } else {
@@ -1635,7 +1629,7 @@ static void km_empty_out_eventfd(int fd)
 }
 
 /*
- * Unblock the passed vcpu.
+ * Unblock the paused vcpu.
  * If another vcpu has hit a breakpoint causing session_requested to be non-zero,
  * then don't start up this vcpu.  This is to avoid starting the remaining vcpu's
  * when a freshly started vcpu runs into a new breakpoint.
