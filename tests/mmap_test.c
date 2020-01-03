@@ -38,7 +38,7 @@
 #include "syscall.h"
 
 // handler for SIGSEGV
-static jmp_buf jbuf;
+static sigjmp_buf jbuf;
 static int fail = 0;   // info from signal handled that something failed
 void signal_handler(int signal)
 {
@@ -46,7 +46,7 @@ void signal_handler(int signal)
       warn("Unexpected signal caught: %d", signal);
       fail = 1;
    }
-   longjmp(jbuf, SIGSEGV);   // reusing SIGSEGV as setjmp() return
+   siglongjmp(jbuf, SIGSEGV);   // reusing SIGSEGV as setjmp() return
 }
 
 // positive tests
@@ -58,10 +58,10 @@ static mmap_test_t _36_tests[] = {
     // Dive into the bottom 1GB on 4GB:
     {__LINE__, "Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags},
     {__LINE__, "Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
-    {__LINE__, "Basic-mmap1", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags},
-    {__LINE__, "Basic-munmap1", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
-    {__LINE__, "Basic-mmap2", TYPE_MMAP, 0, 1020 * MIB, PROT_READ | PROT_WRITE, flags},
-    {__LINE__, "Basic-munmap2", TYPE_MUNMAP, 0, 1020 * MIB, 0, 0},
+    {__LINE__, "Basic-mmap2", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Basic-munmap2", TYPE_MUNMAP, 0, 8 * MIB, 0, 0},
+    {__LINE__, "Basic-mmap3", TYPE_MMAP, 0, 1020 * MIB, PROT_READ | PROT_WRITE, flags},
+    {__LINE__, "Basic-munmap3", TYPE_MUNMAP, 0, 1020 * MIB, 0, 0},
     {__LINE__, "Swiss cheese-mmap", TYPE_MMAP, 0, 760 * MIB, PROT_READ | PROT_WRITE, flags},
     {__LINE__, "Swiss cheese-munmap1", TYPE_MUNMAP, 500 * MIB, 260 * MIB, 0, 0},
     {__LINE__, "Swiss cheese-unaligned-munmap2", TYPE_MUNMAP, 0, 300 * MIB - 256, 0, 0},
@@ -181,7 +181,7 @@ TEST mmap_test(void)
                }
                memset(new_addr, '2', new_size);   // just core dumps if something is wrong
                signal(SIGSEGV, signal_handler);
-               if ((ret = setjmp(jbuf)) == 0) {
+               if ((ret = sigsetjmp(jbuf, 1)) == 0) {
                   if (new_addr != remapped_addr) {   // old memory should be not accessible now
                      memset(remapped_addr, '2', old_size);
                      FAILm("memset to new address is successful and should be not");
@@ -228,7 +228,7 @@ TEST mmap_test(void)
                break;
             }
             signal(t->expected, signal_handler);
-            if ((ret = setjmp(jbuf)) == 0) {
+            if ((ret = sigsetjmp(jbuf, 1)) == 0) {
                memset(last_addr + t->offset, (char)t->prot, t->size);
                printf("Write to %p (sz 0x%lx) was successful and should be not (line %d)\n",
                       last_addr + t->offset,
@@ -249,21 +249,21 @@ TEST mmap_test(void)
                   assert(c != c + 1);   // stop gcc from complaining,but generate code
                }
                break;
-               signal(t->expected, signal_handler);
-               if ((ret = setjmp(jbuf)) == 0) {
-                  char ch_expected = t->prot;
-                  for (size_t i = 0; i < t->size; i++) {
-                     volatile char c = *(char*)(last_addr + t->offset + i);
-                     if (ch_expected != 0) {
-                        ASSERT_EQm("Reading comparison failed", ch_expected, c);
-                     }
-                  }
-                  FAILm("Read successful and should be not");   // return
-               }
-               assert(ret == SIGSEGV);   // we use that value in longjmp
-               signal(t->expected, SIG_DFL);
-               ASSERT_EQm("signal handler caught unexpected signal", 0, fail);
             }
+            signal(t->expected, signal_handler);
+            if ((ret = sigsetjmp(jbuf, 1)) == 0) {
+               char ch_expected = t->prot;
+               for (size_t i = 0; i < t->size; i++) {
+                  volatile char c = *(char*)(last_addr + t->offset + i);
+                  if (ch_expected != 0) {
+                     ASSERT_EQm("Reading comparison failed", ch_expected, c);
+                  }
+               }
+               FAILm("Read successful and should be not");   // return
+            }
+            assert(ret == SIGSEGV);   // we use that value in longjmp
+            signal(t->expected, SIG_DFL);
+            ASSERT_EQm("signal handler caught unexpected signal", 0, fail);
             break;
          default:
             ASSERT_EQ(NULL, "Not reachable");
@@ -352,7 +352,7 @@ TEST mmap_protect()
    ASSERT_NOT_EQ_FMT(MAP_FAILED, addr, "%p");
    addr1 = addr + 10 * MIB;
    ASSERT_EQ_FMTm("Unmap from the middle", 0, munmap(addr1, 1 * MIB), "%d");
-   if ((ret = setjmp(jbuf)) == 0) {
+   if ((ret = sigsetjmp(jbuf, 1)) == 0) {
       strcpy((char*)addr1, "writing to unmapped area");
       FAILm("Write successful and should be not");
    } else {
@@ -364,7 +364,7 @@ TEST mmap_protect()
    ASSERT_EQ_FMT(addr1, mapped, "%p");   // we expect to grab the btarea just released
    uint8_t buf[1024];
    memcpy(buf, (uint8_t*)addr1, sizeof(buf));   // read should succeed
-   if ((ret = setjmp(jbuf)) == 0) {
+   if ((ret = sigsetjmp(jbuf, 1)) == 0) {
       strcpy((char*)addr1, "writing to write-protected area");   // write should fail
       FAILm("Write successful and should be not");
    } else {
