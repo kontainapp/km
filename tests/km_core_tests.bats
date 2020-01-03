@@ -258,18 +258,15 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    km_trace_file=/tmp/gdb_server_race_test_static_$$.out
    # Test with breakpoints triggering and SIGILL being happending continuously
    # Save output to a log file for our own check using grep below.
+   echo trace in $km_trace_file
    km_with_timeout -V -g gdb_server_entry_race_test$ext >$km_trace_file 2>&1 &
    gdb_pid=$! ; sleep 0.5
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
          --ex=c --ex=q gdb_server_entry_race_test$ext
    assert_success
    # check that KM exited normally
-   run wait $gdb_pid
+   wait $gdb_pid
    assert_success
-
-   # look for km trace entries that show older gdb events for a paused thread are
-   # being bypassed when deciding to tell the gdb client why the target stopped.
-   assert grep -q "Skipping event for paused vcpu:" $km_trace_file
    rm -f $km_trace_file
 }
 
