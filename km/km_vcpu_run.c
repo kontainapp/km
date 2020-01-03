@@ -421,10 +421,10 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
    if (ga > vcpu->stack_top) {
       ga -= 4 * GIB;
    }
-   km_infox(KM_TRACE_HC, "vcpu %d, calling hc = %d (%s)", vcpu->vcpu_id, *hc, km_hc_name_get(*hc));
+   km_infox(KM_TRACE_HC, "calling hc = %d (%s)", *hc, km_hc_name_get(*hc));
    km_kma_t ga_kma;
    if ((ga_kma = km_gva_to_kma(ga)) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
-      km_infox(KM_TRACE_SIGNALS, "%s: hc: %d bad km_hc_args_t address:0x%lx", __FUNCTION__, *hc, ga);
+      km_infox(KM_TRACE_SIGNALS, "hc: %d bad km_hc_args_t address:0x%lx", *hc, ga);
       siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
       km_post_signal(vcpu, &info);
       return -1;
@@ -458,8 +458,7 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
    while (machine.vm_vcpu_run_cnt > 1 && count-- > 0) {
       if (km_trace_enabled()) {
          km_infox(KM_TRACE_VCPU,
-                  "%s VCPU %d: %d vcpus are still running",
-                  __FUNCTION__,
+                  "VCPU %d: %d vcpus are still running",
                   vcpu->vcpu_id,
                   machine.vm_vcpu_run_cnt);
          km_vcpu_apply_all(km_vcpu_print, 0);
@@ -518,16 +517,9 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
     * we initialize the value before making the ioctl() request.
     */
    vcpu->cpu_run->exit_reason = 0;   // i hope this won't disturb kvm.
-   km_infox(KM_TRACE_VCPU,
-            "vcpu %d, is_paused %d, about to ioctl( KVM_RUN )",
-            vcpu->vcpu_id,
-            vcpu->is_paused);
+   km_infox(KM_TRACE_VCPU, "is_paused %d, about to ioctl( KVM_RUN )", vcpu->is_paused);
    rc = ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
-   km_infox(KM_TRACE_VCPU,
-            "vcpu %d, is_paused %d, ioctl( KVM_RUN ) returned %d",
-            vcpu->vcpu_id,
-            vcpu->is_paused,
-            rc);
+   km_infox(KM_TRACE_VCPU, "is_paused %d, ioctl( KVM_RUN ) returned %d", vcpu->is_paused, rc);
 
    // If we need them, harvest the registers once upon return.
    if (km_trace_enabled() || km_gdb_is_enabled()) {
@@ -538,10 +530,14 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
    if (rc == 0) {
       return 0;
    }
-   run_info("KVM_RUN exit %d (%s) imm_exit=%d",
-            vcpu->cpu_run->exit_reason,
-            kvm_reason_name(vcpu->cpu_run->exit_reason),
-            vcpu->cpu_run->immediate_exit);
+   km_info(KM_TRACE_KVM,
+           "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM_RUN exit %d (%s) imm_exit=%d",
+           vcpu->regs.rip,
+           vcpu->regs.rsp,
+           vcpu->sregs.cr2,
+           vcpu->cpu_run->exit_reason,
+           kvm_reason_name(vcpu->cpu_run->exit_reason),
+           vcpu->cpu_run->immediate_exit);
    switch (errno) {
       case EAGAIN:
          vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
@@ -637,20 +633,14 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
       if (machine.pause_requested ||
           (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gvs_gdb_run_state == GRS_PAUSED)) {
          km_infox(KM_TRACE_VCPU,
-                  "%s: vcpu %d, pause_requested %d, gvs_gdb_run_state %d, blocking on gdb_efd",
-                  __FUNCTION__,
-                  vcpu->vcpu_id,
+                  "pause_requested %d, gvs_gdb_run_state %d, blocking on gdb_efd",
                   machine.pause_requested,
                   vcpu->gdb_vcpu_state.gvs_gdb_run_state);
          vcpu->is_paused = 1;
          km_read_registers(vcpu);
          km_read_sregisters(vcpu);
          km_wait_on_gdb_cv(vcpu);
-         km_infox(KM_TRACE_VCPU,
-                  "%s: vcpu %d unblocked, pause_requested %d",
-                  __FUNCTION__,
-                  vcpu->vcpu_id,
-                  machine.pause_requested);
+         km_infox(KM_TRACE_VCPU, "unblocked, pause_requested %d", machine.pause_requested);
       }
 
       /*
@@ -670,15 +660,20 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
       }
       vcpu->is_paused = 1;
       reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
-      run_infox("KVM: exit reason=%d (%s)", reason, kvm_reason_name(reason));
+      km_info(KM_TRACE_KVM,
+              "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: exit reason=%d (%s)",
+              vcpu->regs.rip,
+              vcpu->regs.rsp,
+              vcpu->sregs.cr2,
+              reason,
+              kvm_reason_name(reason));
       switch (reason) {
          case KVM_EXIT_IO:
             switch (hypercall(vcpu, &hc)) {
                case HC_CONTINUE:
                   km_infox(KM_TRACE_VCPU,
-                           "vcpu %d, return from hc = %d (%s), gdb_run_state %d, pause_requested "
+                           "return from hc = %d (%s), gdb_run_state %d, pause_requested "
                            "%d, is_paused %d",
-                           vcpu->vcpu_id,
                            hc,
                            km_hc_name_get(hc),
                            vcpu->gdb_vcpu_state.gvs_gdb_run_state,
@@ -696,7 +691,12 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                    * We need to wake gdb before calling km_vcpu_exit() because km_vcpu_exit()
                    * will block until a new thread is created and reuses this vcpu.
                    */
-                  run_infox("KVM: hypercall %d stop", hc);
+                  km_info(KM_TRACE_KVM,
+                          "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: hypercall %d stop",
+                          vcpu->regs.rip,
+                          vcpu->regs.rsp,
+                          vcpu->sregs.cr2,
+                          hc);
                   if (km_gdb_is_enabled() != 0) {
                      if (km_vcpu_apply_all(km_vcpu_count_allocated, 0) > 1 &&
                          km_vcpu_apply_all(km_vcpu_is_running, (uint64_t)vcpu) == 0) {
@@ -716,7 +716,14 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
                case HC_ALLSTOP:
                   // This thread has executed exit_group() and the payload is terminating.
-                  run_infox("KVM: hypercall %d allstop, status 0x%x", hc, machine.exit_status);
+                  km_info(KM_TRACE_KVM,
+                          "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: hypercall %d allstop, status "
+                          "0x%x",
+                          vcpu->regs.rip,
+                          vcpu->regs.rsp,
+                          vcpu->sregs.cr2,
+                          hc,
+                          machine.exit_status);
                   km_vcpu_exit_all(vcpu);
                   break;
             }
@@ -810,7 +817,7 @@ void* km_vcpu_run_main(km_vcpu_t* unused)
          ;   // ignore signals during the write
       }
       km_wait_on_gdb_cv(vcpu);   // wait for gbd main loop to allow main vcpu to run
-      km_infox(KM_TRACE_VCPU, "%s: vcpu_run VCPU %d unblocked by gdb", __FUNCTION__, vcpu->vcpu_id);
+      km_infox(KM_TRACE_VCPU, "vcpu_run VCPU %d unblocked by gdb", vcpu->vcpu_id);
    }
    return km_vcpu_run(vcpu);
 }
