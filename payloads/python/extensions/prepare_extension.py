@@ -132,7 +132,7 @@ clobber:
 \t\tfor obj in $^ ; do \\
 \t\t\tmunged_obj="/tmp/$$(basename $${obj/.o/$$id.o})" ; cp $$obj $$munged_obj; ofiles="$$ofiles $$munged_obj" ; \\
 \t\t\t{{ echo_if_no_mung }} objcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$munged_obj; \\
-\t\tdone && ar rv $@ $$ofiles && rm $$ofiles
+\t\tdone && ar rv $@ $$ofiles && rm -f $$ofiles
 {% endfor %}
 
 # allows to do 'make print-varname'

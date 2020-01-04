@@ -36,6 +36,13 @@ PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.e
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)
 
+# Build dlstatic extensions and link cpython.km
+export define link_cpython_km
+	make -C cpython -f dlstatic_km.mk   # compile built-in modules
+	./extensions/build_extensions.sh    # add additional modules as configured
+	./link-km.sh ${PYTHONTOP} cpython   # and link
+endef
+
 # either run all in 'blank' container, or local.
 # in blank: link + tar + create shebang
 # fromsrc local: link + create shebang
@@ -44,9 +51,7 @@ all:
 ifneq ($(shell test -d cpython/.git && echo OK),OK)
 	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} make -C payloads/python in-blank-container
 else
-	 make -C cpython -f dlstatic_km.mk
-	./extensions/build_extensions.sh
-	./link-km.sh ${PYTHONTOP} cpython
+	 eval $(link_cpython_km)
 endif
 
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
@@ -56,15 +61,19 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 	@echo "Info - .so are linked in for built-in modules only. Additional modules are supported via 'make fromsrc'"
 	./link-km.sh ${PYTHONTOP} cpython
 
-fromsrc:
+# rebuild builtin extensions
+define prepare_builtins
+	cd cpython && ../extensions/prepare_extension.py bear.out --skip ../extensions/skip_builtins.txt
+endef
+builtins: ## helper target to rebuilt builtin extension in clone cpython dir
+	eval $(prepare_builtins)
+
+fromsrc: ## Clean build cpython from source. Use 'make clobber' to prepare for this one
 	git clone https://github.com/python/cpython.git -b ${VERS}
 	cd cpython && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
 	cd cpython && patch -p1 < ../unittest.patch
-	cd cpython && ../extensions/prepare_extension.py bear.out --skip ../extensions/skip_builtins.txt
-	# this seems repetitive, TODO - clean cut-n-paste:
-	make -C cpython -f dlstatic_km.mk
-	./extensions/build_extensions.sh
-	./link-km.sh cpython cpython
+	eval $(prepare_builtins)
+	eval $(link_cpython_km)
 
 clean:
 	@echo "Nothing to do for 'clean' - use 'clobber' to force remove build artifacts"
@@ -83,7 +92,7 @@ export define runenv_prep
 	tar -cf - ${PYTHON_DISTRO_FILES} scripts | tar -C $(RUNENV_PATH) -xf -
 	echo '#!/km --putenv=PYTHONPATH=/cpython/Lib' > $(RUNENV_PATH)/python ; chmod a+x $(RUNENV_PATH)/python
 endef
-clobber:
+clobber: ## Clobber cpython build by removing cpython dir
 	rm -rf cpython
 
 clobber-modules:

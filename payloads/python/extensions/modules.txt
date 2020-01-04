@@ -61,7 +61,7 @@
 # 5 hr build with Bazel and there are no .so in the output. Needs investigation
 
 # gevent  1.4.0 https://github.com/gevent/gevent cython
-# undefined: `__read_chk `__fdelt_chk `__memmove_chk `__open64_2 `__pread64_chk
+# undefined ref to : `_dl_x86_cpu_features` and `errno` !??
 
 #h5py 2.10.0 https://github.com/h5py/h5py
 # neeeds hdf5 hdf5-static (dnf). undefined: `__vasprintf_chk `__realpath_chk` SZ_encoder_enabled `SZ_BufftoBuffDecompress

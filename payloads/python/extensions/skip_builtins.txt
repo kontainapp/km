@@ -22,4 +22,6 @@ _codecs_tw
 _codecs_hk
 _codecs_iso2022
 _sqlite3
-
+_tkinter
+_dbm
+_gdbm
