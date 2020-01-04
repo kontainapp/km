@@ -30,9 +30,14 @@ We use gcov/gcovr for C test coverage. While `gcov` (the program generating read
 
 Test code is a collection of .c and .cpp programs in ./tests, which are compiled for Linux and for Kontain, and then run under BATS framework, with validating results and checking (when needed) compliance with Linux results
 
-Bash functions using BATS framework and validating test results are in `tests/km_core_tests.bats`. This bats file can run a set of tests for different KM linking strategy (static, dynamic, shared), and expects misc environment vars and locations, so we do not invoke it directly, and instead always use `tests/run_bats_test.sh` bash script. Run `tests/run_bats_tests.sh --help` for flags.
+Bash functions using BATS framework and validating test results are in `tests/km_core_tests.bats`.
+This bats file can run a set of tests for different KM linking strategy (static, dynamic, shared), and expects misc environment vars and locations, so we do not invoke it directly, and instead always use `tests/run_bats_test.sh` bash script.
 
-Test can be invoked with `make test` from top-level or ./tests. Adding MATCH=regexp will only run tests with description matching the regexp
+Run `cd tests; ./run_bats_tests.sh --help` for flags.
+
+`make test` from top-level or ./tests also invokes `run_bats_test.sh`. Adding MATCH=regexp will only run tests with the description matching the *regexp* (*make* will pass `--match=regexp` to `run_bats_test.sh`).
+
+Note that regexp in `make test MATCH=regexp` and `./tests/run_bats_tests.sh --match=regexp` only needs to match a substring of the test description string (i.e. the string after @test keyword), so for example, 'gdb' will match all tests with 'gdb' anywhere in the description.
 
 ### Writing tests
 
@@ -42,14 +47,15 @@ This is a general work flow. Use .c and .bats files in tests as examples.
 * add a test to km_core_tests.bats which calls the payload and checks the expected output using misc. assert functions (see docs for bats-assert)
   * the test description should include unique test name; and for convenience we also add the payload name to the test description string. See .bats file for examples
 * If you need to skip your test from running for all or some of payload linkage, add test name to an exception list - i.e. `todo_*` or `not_needed_*` in `tests/km_core_tests.bats`.
-* if your test needs to behave differently (e.g. you are looking at offsets  or dyntables), `$test_type` bash variable keeps 'static' or 'dynamic' or 'so' - use to to check for correct results
+* if your test needs to behave differently (e.g. you are looking at offsets or dyntables), `$test_type` bash variable keeps 'static' or 'dynamic' or 'so' - use to to check for correct results.
 
-You can invoke individual test via the helper script, e.g.:
+You can invoke individual tests or groups of tests via the helper script, e.g.:
 
 ```shell
   cd tests
   ./run_bats_tests.sh --pretty  --test-type=so --match=setup_link # one test only, 'shared' (.so) test only
   ./run_bats_tests.sh --match=setup_link                          # one test for all linkage types (static/dynamic/so)
+  ./run_bats_tests.sh --match=setup                               # all setup* tests for all linkage types (static/dynamic/so)
   ./run_bats_tests.sh --pretty  --test-type=so                    # all tests for .so linkage type
   ./run_bats_tests.sh --pretty  --match=mem_regions --test-type=so  --dry-run # print env and command to invoke bats
 ```

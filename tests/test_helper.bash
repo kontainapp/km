@@ -14,7 +14,9 @@ if [ -z "$BATS_TEST_FILENAME" ] ; then "exec" "`dirname $0`/bats/bin/bats" "$0" 
 #
 # BATS (BASH Test Suite) definition for KM core test pass
 #
-# See ./bats/... for docs on bats , bats-support and bats-assert functionality
+# See ./bats/... for docs on bats, bats-support and bats-assert functionality:
+#  - ./bats*/README.md and man/ files)
+#  - The same docs is available on github in bats-core bats-assist and bats-support repositories
 #
 
 cd $BATS_ROOT/.. # bats sits under tests, so this will move us to tests
@@ -119,26 +121,28 @@ bus_width() {
    echo $(${KM} -V exit_value_test.km 2>& 1 | awk '/physical memory width/ {print $6;}')
 }
 
-# Teardown for each test. Note that printing to stdout/stderr in this function
-# only shows up on errors. For print on success too, redirect to >&3
+# Setup and teardown for each test.
+# Note that printing to stdout/stderr in these functions only shows up on errors.
+# For print on success too, redirect to >&3
+
+function setup() {
+  skip_if_needed "$BATS_TEST_DESCRIPTION"
+}
+
 teardown() {
       echo -e "\nkm output:\n${output}"
 }
 
-# Check if running in docker.
-function in_docker() {
-  cat /proc/1/cgroup | grep -q docker
-}
 
 # Helper for generic skipping
 # rely on lists
 #  `not_needed_{generic,static,dynamic,shared}` and
 #  `todo_{generic,static,dynamic,shared}`
-# to be defined in the actul test and define list of test to skip.
+# to be defined in the actual test and define list of test to skip.
 # See km*.bats
 
 # Checks if word "$1" is in list "$2"
-# There HAS to be a space befor and after each word in the list, so there is always leading and trailing space in the lists
+# There HAS to be a space before and after each word in the list, so there is always leading and trailing space in the lists
 name_in_list() {
    [ -z "${2##* $1 *}" ]
 }
@@ -148,18 +152,18 @@ name_in_list() {
 # $1 is BATS_DESCRIPTION string
 #   We assume test name is BASH_DESCRIPTION part before '('
 # $test_type is global
-skip_is_needed() {
+skip_if_needed() {
    test="$(echo $1 | sed -e 's/(.*//')"
    if [ -z "$test" ] ; then return; fi
    nn="not_needed_$test_type"
    todo="todo_$test_type"
    # note that lists have to have header and trailer space, so adding here
    if name_in_list $test " $not_needed_generic ${!nn} " ; then
-      echo "not needed ($test_type)"
+      skip "not needed in '$test_type' test pass"
       return
    fi
    if name_in_list $test " $todo_generic ${!todo} " ; then
-      echo "TODO add $test ($test_type)"
+      skip "TODO add $test to '$test_type' test pass"
       return
    fi
 }
