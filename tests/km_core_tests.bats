@@ -16,8 +16,9 @@ load test_helper
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
 not_needed_generic=""
 not_needed_static=""
-not_needed_dynamic="setup_load mem_slots cli km_main_env" # note:env is tested with KM_COMMAND
-not_needed_so="setup_load cli"
+# note: these are generally redundant as they are tested in 'static' pass
+not_needed_dynamic="setup_load mem_slots cli km_main_env mem_brk"
+not_needed_so="setup_load cli mem_brk"
 todo_generic="futex_example"
 todo_static=""
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
@@ -25,7 +26,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 
 
 # Now the actual tests.
-# They can be invoked by either 'make test [MATCH=<filter>]' or ./km_core_tests.bats [-f <filter>]
+# They can be invoked by either 'make test [MATCH=<filter>]' or ./run_bats_tests.sh [--match=filter]
 # <filter> is a regexp or substring matching test name
 
 @test "setup_link($test_type): check if linking produced text segment where we expect" {
@@ -46,9 +47,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "setup_load($test_type): load elf and layout check (load_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout load_test$ext
    # Show this on failure:
    echo -e "\n*** Try to run 'make load_expected_size' in tests, and replace load.c:size value\n"
@@ -56,9 +54,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "hc_check($test_type): invoke wrong hypercall (hc_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout stray_test$ext hc 400
    assert_failure 31  #SIGSYS
    assert_output --partial "Bad system call"
@@ -78,16 +73,11 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "km_main_signal($test_type): wait on signal (hello_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
    run timeout -s SIGUSR1 1s ${KM_BIN} --dynlinker=${KM_LDSO} --wait-for-signal hello_test$ext
    assert_failure 124
 }
 
 @test "km_main_args($test_type): optargs (hello_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    # -v flag prints version and branch
    run km_with_timeout -v -- hello_test$ext
    assert_success
@@ -139,9 +129,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "km_main_env($test_type): passing environment to payloads (env_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    val=`pwd`/$$
    run km_with_timeout --putenv PATH=$val env_test$ext
    assert_success
@@ -161,25 +148,16 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "mem_slots($test_type): KVM memslot / phys mem sizes (memslot_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run ./memslot_test
    assert_success
 }
 
 @test "mem_regions($test_type): Crossing regions boundary (regions_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run ${KM_BIN} ${KM_ARGS} regions_test$ext
    assert_success
 }
 
 @test "mem_brk($test_type): brk() call (brk_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    # we expect 3 group of tests to fail due to ENOMEM on 36 bit/no_1g hardware
    if [ $(bus_width) -eq 36 ] ; then expected_status=3 ; else  expected_status=0; fi
    run km_with_timeout --overcommit-memory brk_test$ext
@@ -187,9 +165,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "hc_basic($test_type): basic run and print hello world (hello_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    args="more_flags to_check: -f and check --args !"
    run ./hello_test $args
    assert_success
@@ -202,9 +177,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "hc_socket($test_type): basic HTTP/socket I/O (hello_html_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    local address="http://127.0.0.1:8002"
 
    (./hello_html_test &)
@@ -221,9 +193,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "mem_mmap($test_type): mmap and munmap with addr=0 (mmap_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
@@ -232,25 +201,16 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "mem_mmap_1($test_type): mmap then smaller mprotect (mmap_1_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout mmap_1_test$ext
    assert_success
 }
 
 @test "futex_example($test_type)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout futex$ext
    assert_success
 }
 
 @test "gdb_basic($test_type): gdb support (gdb_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    km_gdb_default_port=2159
    # start KM in background, give it time to start, and connect with gdb client
    km_with_timeout -g gdb_test$ext &
@@ -266,9 +226,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 
 # Test with signals
 @test "gdb_signal($test_type): gdb signal support (stray_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    km_gdb_default_port=2159
    km_with_timeout -g stray_test$ext signal &
    gdb_pid=$! ; sleep 0.5
@@ -283,9 +240,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "gdb_exception($test_type): gdb exception support (stray_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    km_gdb_default_port=2159
    # Test with signals
    km_with_timeout -g stray_test$ext stray &
@@ -300,9 +254,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "gdb_server_race($test_type): gdb server concurrent wakeup test" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    km_gdb_default_port=2159
    km_trace_file=/tmp/gdb_server_race_test_static_$$.out
    # Test with breakpoints triggering and SIGILL being happending continuously
@@ -312,7 +263,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
          --ex=c --ex=q gdb_server_entry_race_test$ext
    assert_success
-
    # check that KM exited normally
    run wait $gdb_pid
    assert_success
@@ -325,9 +275,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "gdb_qsupported($test_type): gdb qsupport/vcont test" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    km_gdb_default_port=2159
    # Verify that qSupported, vCont?, vCont, and qXfer:threads:read remote
    # commands are being used.
@@ -357,17 +304,11 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "unused_memory_protection($test_type): check that unused memory is protected (mprotect_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout mprotect_test$ext -v
    assert_success
 }
 
 @test "threads_basic_tls($test_type): threads with TLS, create, exit and join (hello_2_loops_tls_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout hello_2_loops_tls_test$ext
    assert_success
    if [ $test_type != "static" ] ; then
@@ -376,34 +317,22 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "threads_basic_tsd($test_type): threads with TSD, create, exit and join (hello_2_loops_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout hello_2_loops_test$ext
    assert_success
 }
 
 @test "threads_exit_grp($test_type): force exit when threads are in flight (exit_grp_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout exit_grp_test$ext
    # the test can exit(17) from main thread or random exit(11) from subthread
    assert [ $status -eq 17 -o $status -eq 11  ]
 }
 
 @test "threads_mutex($test_type): mutex (mutex_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout mutex_test$ext
    assert_success
 }
 
 @test "mem_test($test_type): threads create, malloc/free, exit and join (mem_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    expected_status=0
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; fi
@@ -412,9 +341,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "pmem_test($test_type): test physical memory override (hello_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    # Don't support bus smaller than 32 bits
    run km_with_timeout -P 31 hello_test$ext
    assert_failure
@@ -433,9 +359,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "brk_map_test($test_type): test brk and map w/physical memory override (brk_map_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    if [ $(bus_width) -gt 36 ] ; then
       run km_with_timeout -P33 brk_map_test$ext -- 33
       assert_success
@@ -446,9 +369,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "cli($test_type): test 'km -v' and other small tests" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout -v
    assert_success
    assert_line --partial `git rev-parse --abbrev-ref HEAD`
@@ -458,18 +378,12 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "cpuid($test_type): test cpu vendor id (cpuid_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout cpuid_test$ext
    assert_success
    assert_line --partial 'Kontain'
 }
 
 @test "longjmp_test($test_type): basic setjmp/longjump" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    args="more_flags to_check: -f and check --args !"
    run ./longjmp_test $args
    assert_success
@@ -482,10 +396,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "exception($test_type): exceptions and faults in the guest (stray_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-   # NOTE: gdb tries to use PT_INTERP. Doesn't like __km_dynlink__ in dynamic test
-
    CORE=/tmp/kmcore.$$
    # divide by zero
    assert [ ! -f ${CORE} ]
@@ -594,26 +504,17 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "signals($test_type): signals in the guest (signals)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout signal_test$ext -v
    assert_success
 }
 
 @test "pthread_cancel($test_type): (pthread_cancel_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout pthread_cancel_test$ext -v
    assert_success
 }
 
 # C++ tests
 @test "cpp_ctors($test_type): constructors and statics (var_storage_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout var_storage_test$ext
    assert_success
 
@@ -625,9 +526,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 
 
 @test "cpp_throw($test_type): basic throw and unwind (throw_basic_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run ./throw_basic_test
    assert_success
    linux_out="${output}"
@@ -639,17 +537,11 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "filesys($test_type): guest file system operations (filesys_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout filesys_test$ext -v
    assert_success
 }
 
 @test "filepath($test_type): guest file path operations (filepathtest$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    DIRNAME=`mktemp -d`
    # note: the 2nd parameter (500) is the number o time the
    #       concurrent_open_test runs in a loop. The3 default is
@@ -661,33 +553,21 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "socket($test_type): guest socket operations (socket_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout socket_test$ext
    assert_success
 }
 
 @test "dl_iterate_phdr($test_type): AUXV and dl_iterate_phdr (dl_iterate_phdr_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout dl_iterate_phdr_test$ext -v
    assert_success
 }
 
 @test "monitor_maps($test_type): munmap gdt and idt (munmap_monitor_maps_test$ext)" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout munmap_monitor_maps_test$ext
    assert_success
 }
 
 @test "hypercall args($test_type): test hcall args passing" {
-   reason=$(skip_is_needed "$BATS_TEST_DESCRIPTION")
-   if [ -n "$reason" ] ; then skip "$reason"; fi
-
    run km_with_timeout --overcommit-memory hcallargs_test$ext
    assert_success
 }
