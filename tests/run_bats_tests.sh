@@ -6,6 +6,8 @@
 #
 #
 
+cd $(dirname ${BASH_SOURCE[0]})
+
 DEFAULT_TESTS="km_core_tests.bats"
 DEFAULT_TEST_TYPE="static dynamic so"
 
@@ -82,8 +84,6 @@ if [ -z "$km_bin" ] ; then
       km_bin="$(git rev-parse --show-toplevel)/build/km/km"
    fi
 fi
-
-km_bin=${km:-"$(git rev-parse --show-toplevel)/build/km/km"}
 
 if [ "$pretty" == "-p" ] ; then
    RED="\033[31m"
