@@ -95,7 +95,7 @@ static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
          }
       }
    }
-   if (mprotect(addr - extra, p_memsz + extra, pr) < 0) {
+   if (mprotect(addr - extra, p_memsz + extra, protection_adjust(pr)) < 0) {
       err(2, "failed to set guest memory protection");
    }
 }

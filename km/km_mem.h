@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <err.h>
 #include <stdint.h>
+#include <sys/mman.h>
 #include <sys/param.h>
 #include <linux/kvm.h>
 #include "km.h"
@@ -209,6 +210,16 @@ static inline km_kma_t km_gva_to_kma(km_gva_t gva)
       return NULL;
    }
    return km_gva_to_kma_nocheck(gva);
+}
+
+// if prot_write passed to mprotect, adjusted to prot_read and prot_write to allow for proper mimic
+// of linux working of memory permissions (prot_write implies prot_read)
+static inline int protection_adjust(int prot)
+{
+   if ((prot & PROT_WRITE) == PROT_WRITE) {
+      prot |= PROT_READ;
+   }
+   return prot;
 }
 
 void km_mem_init(km_machine_init_params_t* params);
