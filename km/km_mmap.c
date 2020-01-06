@@ -407,6 +407,7 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 
 static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
 {
+   assert(advise == MADV_DONTNEED);
    if (madvise(km_gva_to_kma_nocheck(addr), size, advise) != 0) {
       return -errno;
    }
@@ -414,6 +415,7 @@ static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
 
    if (km_mmap_busy_check_contiguous(addr, size) != 0) {
       km_infox(KM_TRACE_MMAP, "madvise area not fully mapped");
+      return -ENOMEM;
    }
    return 0;
 }
