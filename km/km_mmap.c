@@ -177,7 +177,7 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
 // wrapper for mprotect() on a single mmap region.
 static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
 {
-   if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, reg->protection) != 0) {
+   if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, protection_adjust(reg->protection)) != 0) {
       warn("%s: Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)",
            __FUNCTION__,
            reg->start,
@@ -389,7 +389,7 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 {
    // mprotect allowed on memory under machine.brk
    if (addr + size <= machine.brk && addr >= GUEST_MEM_START_VA) {
-      if (mprotect(km_gva_to_kma_nocheck(addr), size, prot) < 0) {
+      if (mprotect(km_gva_to_kma_nocheck(addr), size, protection_adjust(prot)) < 0) {
          return -errno;
       }
       return 0;
