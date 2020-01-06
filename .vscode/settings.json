@@ -2,7 +2,6 @@
    "files.associations": {
       "Dockerfile*": "dockerfile",
       "*.h": "c",
-      "*.tcc": "c"
    },
    "editor.formatOnSave": true,
    "editor.formatOnType": true,
