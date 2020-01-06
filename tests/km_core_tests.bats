@@ -308,8 +308,8 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_success
 }
 
-@test "madvise memory test(static): dont have a good description yet (madvise_test)" {
-   run km_with_timeout madvise_test.km -v
+@test "madvise memory test($test_type): dont have a good description yet (madvise_test$ext)" {
+   run km_with_timeout madvise_test$ext -v
    assert_success
 }
 
