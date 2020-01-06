@@ -29,7 +29,7 @@
 #include "mmap_test.h"
 
 // handler for SIGSEGV
-static jmp_buf jbuf;
+static sigjmp_buf jbuf;
 static int fail = 0;   // info from signal handled that something failed
 void signal_handler(int signal)
 {
@@ -37,7 +37,7 @@ void signal_handler(int signal)
       warn("Unexpected signal caught: %d", signal);
       fail = 1;
    }
-   longjmp(jbuf, SIGSEGV);   // reusing SIGSEGV as setjmp() return
+   siglongjmp(jbuf, SIGSEGV);   // reusing SIGSEGV as setjmp() return
 }
 
 // check that write() syscall is propertly handing wrong address, and that reaching above brk() fails
@@ -51,7 +51,7 @@ TEST brk_test()
    }
 
    signal(SIGSEGV, signal_handler);
-   if ((ret = setjmp(jbuf)) == 0) {
+   if ((ret = sigsetjmp(jbuf, 1)) == 0) {
       strcpy((char*)ptr_above_brk, "writing above brk area");
       FAILm("Write successful and should be not");   // return
    }
@@ -124,7 +124,7 @@ TEST mmap_test_execute(mmap_test_t* tests)
                break;
             }
             signal(t->expected, signal_handler);
-            if ((ret = setjmp(jbuf)) == 0) {
+            if ((ret = sigsetjmp(jbuf, 1)) == 0) {
                memset(last_addr + t->offset, (char)t->prot, t->size);
                FAILm("Write successful and should be not");   // return
             }
@@ -140,18 +140,18 @@ TEST mmap_test_execute(mmap_test_t* tests)
                   assert(c != c + 1);   // stop gcc from complaining,but generate code
                }
                break;
-               signal(t->expected, signal_handler);
-               if ((ret = setjmp(jbuf)) == 0) {
-                  for (size_t i = 0; i < t->size; i++) {
-                     volatile char c = *(char*)(last_addr + t->offset + i);
-                     assert(c != c + 1);   // stop gcc from complaining,but generate code
-                  }
-                  FAILm("Read successful and should be not");   // return
-               }
-               assert(ret == SIGSEGV);   // we use that value in longjmp
-               signal(t->expected, SIG_DFL);
-               ASSERT_EQm("signal handler caught unexpected signal", 0, fail);
             }
+            signal(t->expected, signal_handler);
+            if ((ret = sigsetjmp(jbuf, 1)) == 0) {
+               for (size_t i = 0; i < t->size; i++) {
+                  volatile char c = *(char*)(last_addr + t->offset + i);
+                  assert(c != c + 1);   // stop gcc from complaining,but generate code
+               }
+               FAILm("Read successful and should be not");   // return
+            }
+            assert(ret == SIGSEGV);   // we use that value in longjmp
+            signal(t->expected, SIG_DFL);
+            ASSERT_EQm("signal handler caught unexpected signal", 0, fail);
             break;
          default:
             ASSERT_EQ(NULL, "Not reachable");
@@ -170,7 +170,10 @@ TEST simple_test()   // TODO
        {__LINE__, "2a.OK to read", TYPE_READ, 9 * MIB, 1 * MIB, 0, 0, OK},
        {__LINE__, "3. mprotect PROT_WRITE", TYPE_MPROTECT, 20 * MIB, 10 * MIB, PROT_WRITE, flags, OK},
        {__LINE__, "3a.OK to write", TYPE_WRITE, 21 * MIB, 1 * MIB, '3', 0, OK},
-       {__LINE__, "3a.should fail to read", TYPE_READ, 23 * MIB, 2 * MIB, 0, 0, SIGSEGV},
+       {__LINE__, "3a. OK to read", TYPE_READ, 23 * MIB, 2 * MIB, 0, 0, OK},
+       {__LINE__, "3a. OK to read", TYPE_READ, 23 * MIB, 2 * MIB, 0, 0, OK},
+
+       // SIGSEGV in km, not on base linux should work fine as PROT_WRITE implies read perms
        {__LINE__,
         "4. mprotect large READ|WRITE",
         TYPE_MPROTECT,
