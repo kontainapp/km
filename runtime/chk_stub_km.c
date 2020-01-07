@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <wchar.h>
 #include <sys/select.h>
 
@@ -209,6 +210,22 @@ char* __strcpy_chk(char* dest, const char* src, size_t destlen)
 size_t __fread_chk(void* __restrict ptr, size_t ptrlen, size_t size, size_t n, FILE* __restrict stream)
 {
    return fread(ptr, ptrlen, size, stream);
+}
+
+ssize_t __read_chk(int fd, void* buf, size_t nbytes, size_t buflen)
+{
+   if (nbytes > buflen) {
+      __chk_fail();
+   }
+   return read(fd, buf, nbytes);
+}
+
+ssize_t __pread64_chk(int fd, void* buf, size_t nbytes, off64_t offset, size_t buflen)
+{
+   if (nbytes > buflen) {
+      __chk_fail();
+   }
+   return pread64(fd, buf, nbytes, offset);
 }
 
 void* __memmove_chk(void* dest, const void* src, size_t len, size_t dstlen)
