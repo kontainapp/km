@@ -128,11 +128,12 @@ clobber:
 
 {# generate ".a: obj_list" dependencies #} {% for line in info %}
 {{ line["so"] | replace(".so", "${KM_LIB_EXT}") }} : \\\n\t{{ line["objs"] | join(' \\\\\n\t') }}
-\t\tid={{ line["id"] }} ; echo Processing library=$@ id=$$id; \\
+\t\tid={{ line["id"] }} ; echo Processing library=$@ id=$$id; rm -f $@; \\
 \t\tfor obj in $^ ; do \\
-\t\t\tmunged_obj="/tmp/$$(basename $${obj/.o/$$id.o})" ; cp $$obj $$munged_obj; ofiles="$$ofiles $$munged_obj" ; \\
+\t\t\tmunged_obj="/tmp/$$(basename $${obj/.o/$$id.o})" ; cp $$obj $$munged_obj; \\
 \t\t\t{{ echo_if_no_mung }} objcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$munged_obj; \\
-\t\tdone && ar rv $@ $$ofiles && rm -f $$ofiles
+\t\t\tar qv $@ $$munged_obj ; rm -f $$munged_obj ; \\
+\t\tdone
 {% endfor %}
 
 # allows to do 'make print-varname'
@@ -258,6 +259,15 @@ def nm_get_symbols(location, so_file_name, extra_flags=["--dynamic"]):
     symbols = [i.split()[2] for i in nm.stdout.splitlines()]
     return symbols
 
+SYSTEM_LIB_PATHS=["/usr/lib", "/usr/local/lib", "/usr/lib64", "/lib", "/lib64"]
+def strip_system_lib_paths(paths):
+   """
+   Removes system libraries paths from passed paths array.
+   """
+   # print(f"paths: {paths}")
+   if paths == None:
+      return None
+   return [p for p in paths if p not in SYSTEM_LIB_PATHS ]
 
 def process_line(line, location, skip_list):
     """
@@ -297,7 +307,7 @@ def process_line(line, location, skip_list):
     id, so_name_munged = convert(so_full_path_name)
     meta_data = {"so": so_file_name, "id": id, "so_name_munged": so_name_munged, "objs": objs,
                  "ldflags": [i for i in items if good_l_flag(i)],
-                 "ldpaths": [i[2:] for i in items if i.startswith("-L")]}
+                 "ldpaths": strip_system_lib_paths([i[2:] for i in items if i.startswith("-L")])}
     symbols = [{"name": n, "name_munged": n + id if need_to_mung else n}
                for n in nm_get_symbols(location, so_file_name) if n not in sym_blacklist(location) and n.find('.') == -1]
     save_artifacts(meta_data, symbols, location)
