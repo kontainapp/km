@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright © 2019 Kontain Inc. All rights reserved.
+# Copyright © 2019-2020 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -21,14 +21,17 @@ if [[ -z "$modules" ]] ; then echo "Usage: ${BASH_SOURCE[0]} modules [sources_lo
 sources_loc=${2:-"cpython/Modules"}
 libs_loc=${3:-"cpython/Lib"}
 python_layout="yes"
-
+set -x
 for m in $modules ; do
    if [[ ! -z "$python_layout" ]] ; then
-      from="$sources_loc/$m/build/lib.linux-x86_64-3.7/$m"
+      from="$sources_loc/$m/build/lib.linux-x86_64-3.7"
    else
-      from="$sources_loc/$m"
+      from="$sources_loc"
    fi
-   to=$libs_loc/$m
+   if [ -d $from/$m ] ; then from="$from/$m" ; fi #  there is a 'module-name' dir for multimodule packages
+
+   to=$libs_loc
+   if [ -d $to/$m ] ; then to=$to/$m ; fi #  there is a 'module-name' dir for multimodule packages
    id_files=$(cd $from; find . -name '*km.id')
    if [[ ! -z "$id_files" ]] ; then
       echo Copy .km.id files from $from '->' $to

@@ -13,7 +13,7 @@
       },
       "files.exclude": {
          "{GPATH,GRTAGS,GTAGS}": true,
-         "**/{*.o,*.d}": true,
+         "**/{*.o,*.d,*.so,*.km}": true,
          "build": true,
          "cpython/*": true,
          "runtime/**/{WHATSNEW,aarch64,arm,m68k,microblaze,mips*,mipsn32,or1k,powerpc*,s390x,sh}": true,
