@@ -29,6 +29,9 @@ ENV USER=$USER
 ENV PREFIX=/opt/kontain
 WORKDIR /home/$USER
 
+# some of the packages needed only for payloads and /or faktory, but we land them here for convenience
+# Also, this list is used on generating local build environment, so we explicitly add
+# some packages which are alwyas present on Fedora31 but may be missing on Fedora30 (e.g jinja2)
 RUN dnf install -y \
    gcc gcc-c++ make gdb git-core gcovr \
    time patch file findutils diffutils which procps-ng python2 \
@@ -36,7 +39,7 @@ RUN dnf install -y \
    elfutils-libelf-devel elfutils-libelf-devel-static bzip2-devel \
    zlib-static bzip2-static xz-static \
    openssl-devel openssl-static \
-   expat-static \
+   expat-static jq googler python3-jinja2 \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/dnf
 
 FROM buildenv-base AS buildenv-gcc-base
@@ -67,7 +70,7 @@ RUN mkdir -p $PREFIX && make -C build_gcc/x86_64-pc-linux-gnu/libstdc++-v3 insta
 RUN make -C libffi install
 
 FROM buildenv-base AS buildenv
-LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
+LABEL version="1.1" maintainer="Mark Sterin <msterin@kontain.app>"
 USER $USER
 
 COPY --from=build-libstdcpp $PREFIX/ $PREFIX
