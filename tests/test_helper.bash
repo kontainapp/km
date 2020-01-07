@@ -130,7 +130,13 @@ function setup() {
 }
 
 teardown() {
-      echo -e "\nkm output:\n${output}"
+   cat <<EOF
+--- Command line:
+${command}
+--- Command output:
+${output}
+---
+EOF
 }
 
 
