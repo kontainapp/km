@@ -3,18 +3,18 @@
       "#",
       "# Extension modules to include in python.km",
       "#",
-      "# <module_name> <version> <url_for_source> <dependency>",
+      "# old format: <module_name> <version> <url_for_source> <dependency>",
       "# optional:",
       "#   URL is optional and only needed for compiled modules",
       "#   dependency is a binary dependency the module needs to build, e.g. cython for numpy.",
       "#        for multiple dependencies, glue them with '\\ ', e.g. cython\\ bear",
-      "#",
-      "# Line with First character '#' is treated as comment, empty lines are ignore",
+      "",
+      "# in new format, last version (versions[-1]) is default",
       "#",
       "# Note that some files here are purely build notes. Generally the ones with version and URL can be uncommented to be",
       "#       added to the build",
       "#",
-      "# This file is used from build_extensions.sh",
+      "# This file is used from build_modules.sh",
       "# Keeps track of all I tried, and notes on success/failure"
    ],
    "modules": [
@@ -24,7 +24,7 @@
             "1.1.1"
          ],
          "git": "https://github.com/pallets/markupsafe",
-         "hasDll": "true",
+         "hasSo": "true",
          "status": "validated",
          "dockerRepo": "kpython/markupsafe",
          "comment": ""
@@ -35,7 +35,7 @@
             "2.2.6"
          ],
          "git": "https://github.com/pallets/markupsafe",
-         "hasDll": "false",
+         "hasSo": "false",
          "status": "validated",
          "comment": ""
       },
@@ -45,7 +45,7 @@
             "2.4.0"
          ],
          "git": "https://github.com/hugapi/hug",
-         "hasDll": "true",
+         "hasSo": "true",
          "status": "validated",
          "dockerRepo": "kpython/hug",
          "comment": ""
@@ -55,24 +55,25 @@
          "versions": [
             "2.0.0"
          ],
-         "git": "//github.com/falconry/falcon",
-         "hasDll": "true",
+         "git": "https://github.com/falconry/falcon",
+         "hasSo": "true",
          "dockerRepo": "kpython/falcon",
          "status": "validated",
          "comment": ""
       },
       {
          "name": "numpy",
+         "git": "https://github.com/numpy/numpy",
+         "abstract": "The fundamental package for scientific computing with Python. - numpy/numpy.",
          "versions": [
             "v1.17.3"
          ],
-         "git": "https://github.com/numpy/numpy",
-         "hasDll": "true",
+         "dockerRepo": "kpython/numpy",
+         "hasSo": "true",
          "status": "validated",
          "dependsOn": {
             "tool": "cython"
          },
-         "dockerRepo": "kpython/numpy",
          "comment": [
             "# NOTE: if atlas (Automatically Tuned Linear Algebra Software) is installed (with atlas-static),",
             "# numy picks it up and expect static libtatlas which is not avail in dnf (only libatlas.a is there)"
@@ -84,7 +85,7 @@
             "19.9.0"
          ],
          "git": "n/a",
-         "hasDll": "false",
+         "hasSo": "false",
          "status": "fail",
          "comment": "using os.fork"
       },
@@ -94,7 +95,7 @@
             "1.11.2"
          ],
          "git": "https://github.com/GrahamDumpleton/wrapt",
-         "hasDll": "true",
+         "hasSo": "true",
          "dockerRepo": "kpython/wrapt",
          "status": "validated",
          "comment": ""
@@ -105,7 +106,7 @@
             "6.2.1"
          ],
          "git": "https://github.com/python-pillow/Pillow",
-         "hasDll": "true",
+         "hasSo": "true",
          "dockerRepo": "kpython/pillow",
          "status": "validated",
          "dependsOn": {
@@ -119,50 +120,54 @@
       },
       {
          "name": "nameko",
+         "git": "https://github.com/nameko/nameko",
+         "abstract": "Python framework for building microservices. Contribute to nameko/nameko development by creating an account on GitHub.",
          "versions": [
             "v2.12.0"
          ],
-         "git": "https://github.com/nameko/nameko",
-         "hasDll": "false",
+         "hasSo": "false",
+         "dockerRepo": "kpython/nameko",
+         "status": "unknown",
          "dependsOn": {
-            "pyPackage": "greenlet"
+            "modules": "werkzeug  requests  mock  kombu  eventlet  wrapt  six  pyyaml  path.py"
          },
-         "comment": "installs:  amqp-2.5.2 dnspython-1.16.0 eventlet-0.25.1 greenlet-0.4.15 importlib-metadata-1.3.0 kombu-4.6.7 mock-3.0.5 monotonic-1.5 more-itertools-8.0.2 nameko-2.12.0 path-13.1.0 path.py-12.4.0 vine-1.3.0 zipp-0.6.0"
+         "comment": "needs greenlet.so via eventlet, the rest is python-only"
       },
       {
          "name": "greenlet",
+         "installDir": ".",
          "versions": [
-            "6.2.1"
+            "0.4.15"
          ],
          "git": "https://github.com/python-greenlet/greenlet",
-         "hasDll": "true",
+         "hasSo": "true",
          "dockerRepo": "kpython/greenlet",
          "status": "validated",
          "comment": ".so is installed directly to site-packages, without an encapsulating dir"
       },
       {
          "name": "pyasn1",
-         "hasDll": "false"
+         "hasSo": "false"
       },
       {
          "name": "requests",
-         "hasDll": "false"
+         "hasSo": "false"
       },
       {
          "name": "flask",
-         "hasDll": "false"
+         "hasSo": "false"
       },
       {
          "name": "keras",
-         "hasDll": "false"
+         "hasSo": "false"
       },
       {
          "name": "pytz",
-         "hasDll": "false"
+         "hasSo": "false"
       },
       {
          "name": "werkzeug",
-         "hasDll": "false"
+         "hasSo": "false"
       },
       {
          "name": "scipy",
@@ -170,7 +175,7 @@
             "v1.3.2"
          ],
          "git": "https://github.com/scipy/scipy",
-         "hasDll": "true",
+         "hasSo": "true",
          "dockerRepo": "kpython/scipy",
          "status": "fail",
          "comment": "conflict utils vs utils_cxx - dup name"
@@ -181,7 +186,7 @@
             "v3.1.1"
          ],
          "git": "https://github.com/matplotlib/matplotlib",
-         "hasDll": "true",
+         "hasSo": "true",
          "dockerRepo": "kpython/matplotlib",
          "status": "fail",
          "comment": "needs -lpng16 -lfreetype"
@@ -192,7 +197,7 @@
             "v0.25.3"
          ],
          "git": "https://github.com/pandas-dev/pandas",
-         "hasDll": "true",
+         "hasSo": "true",
          "dockerRepo": "kpython/pandas",
          "status": "fail",
          "comment": "mulitple dups. Plus unresolved __cxa_begin_catch and other _cxa_xxx"
@@ -203,7 +208,7 @@
             "2.8.1"
          ],
          "git": "https://github.com/dateutil/dateutil",
-         "hasDll": "false",
+         "hasSo": "false",
          "installDir": "dateutil"
       },
       {
@@ -212,7 +217,7 @@
             "???"
          ],
          "git": "https:???",
-         "hasDll": "true",
+         "hasSo": "true",
          "dockerRepo": "kpython/tensorflow",
          "status": "fail",
          "comment": "did not get full build logs - bazel build !"
@@ -223,7 +228,7 @@
             "1.4.0"
          ],
          "git": "https://github.com/gevent/gevent",
-         "hasDll": "true",
+         "hasSo": "true",
          "dependsOn": {
             "tool": "cython"
          },
@@ -233,14 +238,18 @@
       },
       {
          "name": "h5py",
+         "abstract": "HDF5 for Python -- The h5py package is a Pythonic interface to the HDF5 binary data format. - h5py/h5py.",
          "versions": [
             "2.10.0"
          ],
          "git": "https://github.com/h5py/h5py",
-         "hasDll": "true",
+         "hasSo": "true",
          "dockerRepo": "kpython/h5py",
          "status": "fail",
-         "comment": "needs hdf5 hdf5-static (dnf). undefined: `__vasprintf_chk `__realpath_chk` SZ_encoder_enabled `SZ_BufftoBuffDecompress"
+         "comment": "needs hdf5 hdf5-static (dnf). undefined: `__vasprintf_chk `__realpath_chk` SZ_encoder_enabled `SZ_BufftoBuffDecompress",
+         "dependsOn": {
+            "modules": "numpy  six"
+         }
       },
       {
          "name": "grpcio",
@@ -248,10 +257,10 @@
             "??"
          ],
          "git": "https://github.com/grpc/grpc/tree/master/src/python/grpcio",
-         "hasDll": "true",
+         "hasSo": "true",
          "dockerRepo": "kpython/grpcio",
          "status": "fail",
-         "comment": "needs gprc, pyton-dev, submodules; not standard build"
+         "comment": "needs gprc, python-dev, submodules; not standard build"
       },
       {
          "name": "protobuf",
@@ -259,10 +268,39 @@
             "v3.10.1"
          ],
          "git": "https://github.com/protocolbuffers/protobuf",
-         "hasDll": "true",
+         "hasSo": "true",
          "dockerRepo": "kpython/protobuf",
          "status": "fail",
          "comment": "# ^^^^ uses redirection to 'pth' mechanism - file cpython/Lib/protobuf-3.10.0-py3.7-nspkg.pth defines the code below.#      need investigation, uses this: # import sys, types, os;has_mfs = sys.version_info > (3, 5);p = os.path.join(sys._getframe(1).f_locals['sitedir' ], *('google',));importlib = has_mfs and __import__('importlib.util');has_mfs and __import__('importlib.machinery');m = has_mfs and sys.modules.setdefault('google', importlib.util.module_from_spec(importlib.machinery.PathFinder.find_spec('google',[os.path.dirname(p)])));m = m or sys.modules.setdefault('google', types.ModuleType('google'));mp = (m or []) and m.__dict__.setdefault('__path__',[]);(p not in mp) and mp.append(p)"
+      },
+      {
+         "name": "pillow",
+         "git": "https://github.com/python-pillow/Pillow",
+         "abstract": "The friendly PIL fork (Python Imaging Library). Contribute to python-pillow/Pillow development by creating an account on GitHub.",
+         "versions": [
+            "7.0.0"
+         ],
+         "hasSo": "true",
+         "dockerRepo": "kpython/pillow",
+         "status": "unknown"
+      }
+   ],
+   "dependencies": [
+      {
+         "name": "cython",
+         "provided by": {
+            "type": "dnf",
+            "package": "python3-Cython",
+            "full-name": "python3-Cython-0.29.13-2.fc31.x86_64"
+         }
+      },
+      {
+         "name": "other",
+         "provided by": {
+            "type": "dnf",
+            "package": "some",
+            "full-name": "some-0.29.13-2.fc31.x86_64"
+         }
       }
    ]
 }

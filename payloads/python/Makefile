@@ -36,37 +36,43 @@ PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.e
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)
 
-# Build dlstatic extensions and link cpython.km
+# 'yes' if cpython was build from src (based on existable of .git repo)
+FROMSRC=$(shell test -d $(PYTHONTOP)/.git && echo yes)
+
+# full path to top of the git repo
+PATH_TOP=$(realpath ${TOP})
+
+# Python build artifacts are prepared by either
+#   'fromsrc' in which case there is full cpython .git repo and we do full cpython build locally
+# or
+#   'buildenv-image' in which case python is build in docker, and we get 'blank' container with precompiled python libs
+#
+# build fromsrc and from buildenv-image are mutually exclusive. Default is from image. To switch, run 'make clobber' and then
+# either 'make fromsrc' or just 'make' (which will )
+#
+# Depending on the above, we run 'all' target commands either inside of container (`make in-blank-container` is run there) or in the build tree
+#
+
+# Compile built-in extensions (if needed) and link python.km
 export define link_cpython_km
-	make -C cpython -f dlstatic_km.mk   # compile built-in modules
-	./extensions/build_extensions.sh    # add additional modules as configured
-	./link-km.sh ${PYTHONTOP} cpython   # and link
+	${MAKE} -C cpython -f dlstatic_km.mk   # compile built-in modules
+	./link-km.sh ${PYTHONTOP} cpython "${EXTRA_LINKFILES}" "${CUSTOM_KM}"
 endef
 
-# either run all in 'blank' container, or local.
-# in blank: link + tar + create shebang
-# fromsrc local: link + create shebang
-# regular local: just run docker
 all:
-ifneq ($(shell test -d cpython/.git && echo OK),OK)
-	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} make -C payloads/python in-blank-container
+ifneq ($(FROMSRC),yes)
+	${DOCKER_RUN} -v $(PATH_TOP):$(PATH_TOP):Z -w $(PATH_TOP) ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+			make -C payloads/python in-blank-container \
+				EXTRA_LINKFILES="${EXTRA_LINKFILES}"  CUSTOM_KM="${CUSTOM_KM}"
 else
 	 eval $(link_cpython_km)
 endif
 
+# Copy python artifacts to the outside, and link there with in-source-tree runtime
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
-	tar -C ${PYTHONTOP}/.. -cf - ${PYTHON_DISTRO_FILES} | tar -xvf -
+	tar -C ${PYTHONTOP}/.. -cf - ${PYTHON_DISTRO_FILES} | tar -xf -
 	cd cpython && patch -p1 < ../unittest.patch
-	make -C cpython -f dlstatic_km.mk
-	@echo "Info - .so are linked in for built-in modules only. Additional modules are supported via 'make fromsrc'"
-	./link-km.sh ${PYTHONTOP} cpython
-
-# rebuild builtin extensions
-define prepare_builtins
-	cd cpython && ../extensions/prepare_extension.py bear.out --skip ../extensions/skip_builtins.txt
-endef
-builtins: ## helper target to rebuilt builtin extension in clone cpython dir
-	eval $(prepare_builtins)
+	eval $(link_cpython_km)
 
 fromsrc: ## Clean build cpython from source. Use 'make clobber' to prepare for this one
 	git clone https://github.com/python/cpython.git -b ${VERS}
@@ -75,16 +81,51 @@ fromsrc: ## Clean build cpython from source. Use 'make clobber' to prepare for t
 	eval $(prepare_builtins)
 	eval $(link_cpython_km)
 
+# Build custom python km
+custom: all ## build python-custom.km. Optionally accepts CUSTOM_NAME=config_name (default 'custom', using extensions/python-custom.json)
+
+# CUSTOM_NAME=xxx (default 'custom') user-settable name of custom configuration
+CUSTOM_NAME ?= custom
+# stuff deducted from CUSTOM_NAME:
+CUSTOM_CONFIG ?= ./extensions/python-$(CUSTOM_NAME).json
+CUSTOM_MODULES  = $(shell jq -r .modules[].name ${CUSTOM_CONFIG})
+
+ifeq (${MAKECMDGOALS},custom)
+# these 2 vars need to be defined only for target 'custom' as they impact what is being linked
+EXTRA_LINKFILES = $(foreach m,${CUSTOM_MODULES},@Modules/$m/linkline_km.txt)
+CUSTOM_KM = python-${CUSTOM_NAME}.km
+
+all: .check_custom_config pull-modules
+.PHONY: .check_custom_config
+.check_custom_config:
+	@if [ ! -f ${CUSTOM_CONFIG} ] ; then false; fi # make sure we fail if custom config is not there
+endif
+
+# rebuild builtin extensions
+define prepare_builtins
+	cd cpython && ../extensions/prepare_extension.py bear.out --skip ../extensions/skip_builtins.txt
+endef
+builtins: ## helper target to rebuilt builtin extension in clone cpython dir. Only works in fromsrc mode
+	eval $(prepare_builtins)
+
+# MODULES can be used for alist of modules. Default is all validated ones from modules.json
+build-modules push-modules pull-modules pack-modules: ## Operations on Kontain artifacts for dynamically linked modules
+	./extensions/build_modules.sh --$(subst -modules,,$@) "${MODULES}"
+
+login: ## personal helper for token-based login.
+	cat  ~/.docker/token  | docker login -u $(shell cat ~/.docker/username) --password-stdin
+
 clean:
-	@echo "Nothing to do for 'clean' - use 'clobber' to force remove build artifacts"
-	@# TODO - clean ./cpython build artifacts
+	rm -rf $(PYTHONTOP)/*.km $(PYTHONTOP)/python $(foreach m,${ALL_MODULES},$(PYTHONTOP)/Modules/$m)
+	images=`docker image ls -q  'kpython/*'` ; if [ -n "$$images" ] ; then docker rmi $$images ; fi
+	@echo -e "${GREEN}Note: use 'make clobber' to clean up cpython build.${NOCOLOR}"
 
 test test-all: ${PAYLOAD_KM} ${TEST_KM}
 	scripts/test-run.sh ${KM_BIN} ${PAYLOAD_KM}
 
 test-all-withdocker: test-withdocker # alias for test-withdocker
 
-# if something needs to be copied/modified before building runenv image in Docker,
+# If something needs to be copied/modified before building runenv image in Docker,
 # define this function
 # TODO (fix it): runenv-image for python only works with ENTRYPOINT override: --entrypoint /python
 # Also it's HUGE (170MB), need stuff stripped

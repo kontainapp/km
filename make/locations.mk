@@ -29,7 +29,7 @@ BUILD_TIME := $(shell date -Iminutes)
 BLDTOP := ${TOP}build/
 # Build results go here.
 # For different build types (e.g. coverage), pass BLDTYPE=<type>/, e.g BLDTYPE=coverage/ (with trailing /)
-BLDDIR := ${BLDTOP}${FROMTOP}$(BLDTYPE)
+BLDDIR = ${BLDTOP}${FROMTOP}$(BLDTYPE)
 
 # km location needs to be fixed no matter what is the FROMTOP,
 # so we can use KM from different places
@@ -103,7 +103,7 @@ endif
 # Note - used awk to print (instead of echo) so escaping/coloring is platform independed
 help:  ## Prints help on 'make' targets
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n make $(CYAN)<target>$(NOCOLOR)\n" } \
-	/^[.a-zA-Z0-9_-]+[ \t]*:.*?##/ { printf " $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
+	/^[.a-zA-Z0-9_ -]+[ \t]*:.*?##/ { printf " $(CYAN)%-15s$(NOCOLOR) %s\n", $$1, $$2 } \
 	/^##@/ { printf "\n\033[1m%s$(NOCOLOR)\n", substr($$0, 5) } ' \
 	$(MAKEFILE_LIST)
 	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
@@ -127,4 +127,4 @@ debugvars: ## prints interesting vars and their values
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
 
 # allows to do 'make print-varname'
-print-% : ; @echo $* = \"$($*)\"
+print-% : ; @echo $*=\"$($*)\"

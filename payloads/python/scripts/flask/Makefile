@@ -96,6 +96,3 @@ try:
 	docker image inspect $(IMAGE) -f '{{json .Config.Entrypoint }}'
 	docker image inspect $(IMAGE) -f '{{json .Config.Cmd }}'
 	echo '\n#-- generated lines:--\nENTRYPOINT $(SRC_ENTRYPOINT)\nCMD $(SRC_CMD)\n' | cat faktory_stem.dockerfile -
-
-# allows to do 'make print-varname'
-print-%  : ; @echo $* = $($*)

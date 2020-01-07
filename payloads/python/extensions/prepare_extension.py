@@ -1,6 +1,6 @@
 #!/bin/env python3
 #
-# Copyright © 2019 Kontain Inc. All rights reserved.
+# Copyright © 2019-2020 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -31,7 +31,7 @@ import logging
 from functools import reduce
 
 symmap_suffix = ".km.symmap"
-symbols_c_suffix = ".km.symbols.c"
+symbols_c_suffix = ".km.symbols.c" # note: should be in sync with makefile template's KM_SYM_EXT
 id_suffix = ".km.id"
 so_suffix = ".so"
 so_pattern = re.compile(r".*\W-o\W+.*\w+\.so")  # e.g.'some_stuff -o aaa/ddd/a.so'
@@ -103,9 +103,10 @@ makefile_template = """#
 
 # TODO: the line below relies on specific locations in the source tree, need to use (and populate) /opt/kontain/include
 KM_RUNTIME_INCLUDES ?=  $(shell echo ${CURDIR} | sed 's-payloads/python/.*-runtime-')
-CFLAGS := -g -I$(KM_RUNTIME_INCLUDES)
+CFLAGS = -g -I$(KM_RUNTIME_INCLUDES) -I$(shell echo ${CURDIR})
 LINK_LINE_FILE := linkline_km.txt
 KM_LIB_EXT := .km.lib.a
+KM_SYM_EXT := .km.symbols.o
 
 LIBS := {% for lib in libs %}\\\n\t{{ lib | replace(".so", "${KM_LIB_EXT}") }} {% endfor %}
 
@@ -127,8 +128,8 @@ clobber:
 \t-git clean -xdf
 
 {# generate ".a: obj_list" dependencies #} {% for line in info %}
-{{ line["so"] | replace(".so", "${KM_LIB_EXT}") }} : \\\n\t{{ line["objs"] | join(' \\\\\n\t') }}
-\t\tid={{ line["id"] }} ; echo Processing library=$@ id=$$id; rm -f $@; \\
+{{ line["so"] | replace(".so", "${KM_LIB_EXT}") }} : {{ line["so"] | replace(".so", "${KM_SYM_EXT}") }} \\\n\t{{ line["objs"] | join(' \\\\\n\t') }}
+\t\t@id={{ line["id"] }} ; echo Processing library=$@ id=$$id; rm -f $@; \\
 \t\tfor obj in $^ ; do \\
 \t\t\tmunged_obj="/tmp/$$(basename $${obj/.o/$$id.o})" ; cp $$obj $$munged_obj; \\
 \t\t\t{{ echo_if_no_mung }} objcopy --redefine-syms={{ line["so"] | replace(".so", ".km.symmap") }} $$munged_obj; \\
@@ -197,7 +198,6 @@ def sym_blacklist(location):
     else:
         BLACKLIST = []
     return BLACKLIST
-
 
 def save_c_tables(so_full_path, so_id, symbols, suffix=so_suffix):
     """
