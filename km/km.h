@@ -104,9 +104,9 @@ typedef enum {
  */
 typedef struct {
    gdb_thread_state_t gdb_run_state;   // thread is paused, stepping, or running
-   km_gva_t steprange_start;        // beginning address of the address range to step through
-   km_gva_t steprange_end;          // end address of the address range to step through
-   gdb_event_t event;               // the thread event that has woken the gdb server
+   km_gva_t steprange_start;           // beginning address of the address range to step through
+   km_gva_t steprange_end;             // end address of the address range to step through
+   gdb_event_t event;                  // the thread event that has woken the gdb server
 } gdb_vcpu_state_t;
 
 typedef struct km_vcpu {

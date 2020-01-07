@@ -960,8 +960,9 @@ static void km_gdb_general_query(char* packet, char* obuf)
  */
 struct threadaction {
    gdb_thread_state_t ta_newrunstate;
-   km_gva_t ta_steprange_start;   // if ta_newrunstate is THREADSTATE_RANGESTEPPING, the beginning of the range
-   km_gva_t ta_steprange_end;   // the end of the range stepping address range
+   km_gva_t ta_steprange_start;   // if ta_newrunstate is THREADSTATE_RANGESTEPPING, the beginning
+                                  // of the range
+   km_gva_t ta_steprange_end;     // the end of the range stepping address range
 };
 typedef struct threadaction threadaction_t;
 
@@ -993,8 +994,7 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
          break;
       case THREADSTATE_RANGESTEPPING:
          vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RANGESTEPPING;
-         vcpu->gdb_vcpu_state.steprange_start =
-             threadactionblob->threadaction[i].ta_steprange_start;
+         vcpu->gdb_vcpu_state.steprange_start = threadactionblob->threadaction[i].ta_steprange_start;
          vcpu->gdb_vcpu_state.steprange_end = threadactionblob->threadaction[i].ta_steprange_end;
          gdbstub.stepping = true;
          rc = km_gdb_update_vcpu_debug(vcpu, 0);
@@ -1049,8 +1049,7 @@ int verify_vcont(threadaction_blob_t* threadactionblob)
             break;
       }
    }
-   if ((running != 0 && (paused != 0 || stepping != 0)) ||
-       (stepping == 1 && running != 0) ||
+   if ((running != 0 && (paused != 0 || stepping != 0)) || (stepping == 1 && running != 0) ||
        stepping > 1) {
       /*
        * Either 1 thread is stepping or all threads are running.
@@ -1491,7 +1490,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
                send_error_msg();
                break;
             }
-// XXXX Set threadstate for all vcpu's
+            // XXXX Set threadstate for all vcpu's
             goto done;   // Continue with program
          }
          case 'C': {
@@ -1654,9 +1653,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
       }   // switch
    }      // while
 done:;
-
 }
-
 
 // Read and discard pending eventfd reads, if any. Non-blocking.
 static void km_empty_out_eventfd(int fd)
@@ -1711,14 +1708,13 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
    km_gdb_vcpu_set(main_vcpu);
 
    ge = (gdb_event_t){
-      .signo = 0,
-      .sigthreadid = km_vcpu_get_tid(main_vcpu),
+       .signo = 0,
+       .sigthreadid = km_vcpu_get_tid(main_vcpu),
    };
    gdb_handle_remote_commands(&ge);   // Talk to GDB first time, before any vCPU run
 
    km_gdb_vcpu_continue(main_vcpu, 0);
    while (km_gdb_is_enabled() == 1) {
-
       // Poll two fds described above in fds[], with no timeout ("-1")
       while ((ret = poll(fds, 2, -1) == -1) && (errno == EAGAIN || errno == EINTR)) {
          ;   // ignore signals which may interrupt the poll
@@ -1753,10 +1749,10 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
           */
          if (gdbstub.session_requested == 0) {
             gdbstub.session_requested = 1;
-            ge = (gdb_event_t) {
-               .entry_is_active = true,
-               .signo = GDB_SIGNAL_INT,
-               .sigthreadid = km_vcpu_get_tid(gdb_find_running_vcpu()),
+            ge = (gdb_event_t){
+                .entry_is_active = true,
+                .signo = GDB_SIGNAL_INT,
+                .sigthreadid = km_vcpu_get_tid(gdb_find_running_vcpu()),
             };
             TAILQ_INSERT_HEAD(&gdbstub.event_queue, &ge, link);
          }
@@ -1770,7 +1766,6 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 
       gdb_event_t* foundgep;
       while ((foundgep = gdb_select_event()) != NULL) {
-
          // process commands from the gdb client
          gdb_handle_remote_commands(foundgep);
       }
@@ -1929,11 +1924,11 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait)
 
    // Enqueue this thread's gdb event on the tail of gdb event queue.
    assert(vcpu->gdb_vcpu_state.event.entry_is_active == false);
-   vcpu->gdb_vcpu_state.event = (gdb_event_t) {
-      .entry_is_active = true,
-      .signo = gdb_signo(signo),
-      .sigthreadid = km_vcpu_get_tid(vcpu),
-      .exit_reason = vcpu->cpu_run->exit_reason,
+   vcpu->gdb_vcpu_state.event = (gdb_event_t){
+       .entry_is_active = true,
+       .signo = gdb_signo(signo),
+       .sigthreadid = km_vcpu_get_tid(vcpu),
+       .exit_reason = vcpu->cpu_run->exit_reason,
    };
    TAILQ_INSERT_TAIL(&gdbstub.event_queue, &vcpu->gdb_vcpu_state.event, link);
 
