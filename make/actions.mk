@@ -188,7 +188,4 @@ else
 	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(BUILDENV_IMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 endif
 
-# allows to do 'make print-varname'
-print-%  : ; @echo $* = \"$($*)\"
-
 .PHONY: all clean test help withdocker
