@@ -6,7 +6,9 @@
 * `https://openjdk.java.net/groups/hotspot/docs/RuntimeOverview.html`
 
 ## Building Java
-Need mercurial (hg). Need OpenJDK
+
+According to Wikipedia (https://en.wikipedia.org/wiki/Java_version_history), in the beginning of 220 the current Long Term Supported (Oracle LTS) version of Java is 11. We'll use that for now.
+Required packages for OpenJDK build are:
 ```
 sudo dnf install java-openjdk-devel
 sudo dnf install libXtst-devel libXt-devel libXrender-devel libXrandr-devel libXi-devel
@@ -14,7 +16,7 @@ sudo dnf install cups-devel
 sudo dnf install fontconfig-devel
 sudo dnf install alsa-lib-devel
 ```
-From `payloads/java` run `make fromsrc` to get and build Java. (Note: takes a long time)
+Run `make -C payloads/java fromsrc` to get and build Java. 
 
 Build java.kmd:
 ```

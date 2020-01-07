@@ -10,17 +10,19 @@
 #
 # Makefile for building and packing Python payload runtime for KM
 
+JDK_VERSION=jdk-11+28
+
 all:
 
 fromsrc:
-	hg clone  http://hg.openjdk.java.net/jdk/jdk
-	cd jdk && bash configure --enable-headless-only  \
+	git clone https://github.com/openjdk/jdk ${JDK_VERSION}
+	cd ${JDK_VERSION} && bash configure --enable-headless-only  \
 		--disable-warnings-as-errors --with-native-debug-symbols=internal \
 		--with-jvm-variants=server --with-zlib=bundled
-	make -C jdk 
+	make -C ${JDK_VERSION} 
 
 jtreg:
 	tar xf jtreg-4.2-b16.tar.gz
 
 clean:
-	rm -rf jtreg jdk
+	rm -rf jtreg ${JDK_VERSION}
