@@ -18,14 +18,14 @@ From `payloads/java` run `make fromsrc` to get and build Java. (Note: takes a lo
 
 Build java.kmd:
 ```
-../../tools/kontain-gcc -rdynamic -Wl,--rpath=/opt/kontain/lib64:/lib64:build/linux-x86_64-server-release/jdk/lib:build/linux-x86_64-server-release/jdk/lib/server -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -Ljdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o jdk/build/linux-x86_64-server-release/support/native/java.base/java_objs/java.kmd jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -ljli -lpthread -ldl
+../../tools/kontain-gcc -rdynamic -Wl,--rpath=/opt/kontain/lib64:/lib64:build/linux-x86_64-server-release/jdk/lib:build/linux-x86_64-server-release/jdk/lib/server -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -Ljdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o jdk/build/linux-x86_64-server-release/jdk/bin/java.kmd jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -ljli -lpthread -ldl
 
 ```
 
 Run:
 ```
 cd jdk
-../../../build/km/km --dynlinker=../../../build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64:./build/linux-x86_64-server-release/jdk/lib/" ./build/linux-x86_64-server-release/support/native/java.base/java_objs/java.kmd Hello
+../../../build/km/km --dynlinker=../../../build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64:./build/linux-x86_64-server-release/jdk/lib/" ./build/linux-x86_64-server-release/jdk/bin/java.kmd Hello
 ```
 
 ## Testing
@@ -36,10 +36,13 @@ The JDK 'Adoption Group' (`https://openjdk.java.net/jtreg/build.htmc`) publishes
 
 `jtreg` compiles the source for test program(s), runs the test(s), and deletes the object files (`.class` and `.jar`).
 
+
+
+
 For example:
 
 ```
-$ ../jtreg/bin/jtreg -verbose:all -testjdk:build/linux-x86_64-server-release/jdk/ test/jdk/java/util/Random/NextBytes.java
+$ ../jtreg/bin/jtreg -verbose:all -testjdk:build/linux-x86_64-server-release/jdk/ -compilejdk:build/linux-x86_64-server-release/jdk/ test/jdk/java/util/Random/NextBytes.java
 --------------------------------------------------
 TEST: java/util/Random/NextBytes.java
 TEST JDK: /home/muth/kontain/km/payloads/java/jdk/build/linux-x86_64-server-release/jdk
