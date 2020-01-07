@@ -18,3 +18,9 @@ fromsrc:
 		--disable-warnings-as-errors --with-native-debug-symbols=internal \
 		--with-jvm-variants=server --with-zlib=bundled
 	make -C jdk 
+
+jtreg:
+	tar xf jtreg-4.2-b16.tar.gz
+
+clean:
+	rm -rf jtreg jdk
