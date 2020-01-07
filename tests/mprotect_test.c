@@ -172,8 +172,6 @@ TEST simple_test()   // TODO
        {__LINE__, "3a.OK to write", TYPE_WRITE, 21 * MIB, 1 * MIB, '3', 0, OK},
        {__LINE__, "3a. OK to read", TYPE_READ, 23 * MIB, 2 * MIB, 0, 0, OK},
        {__LINE__, "3a. OK to read", TYPE_READ, 23 * MIB, 2 * MIB, 0, 0, OK},
-
-       // SIGSEGV in km, not on base linux should work fine as PROT_WRITE implies read perms
        {__LINE__,
         "4. mprotect large READ|WRITE",
         TYPE_MPROTECT,
