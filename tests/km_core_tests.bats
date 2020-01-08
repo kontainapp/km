@@ -267,11 +267,10 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    run wait $gdb_pid
    assert_success
 
-   # look for km trace entries that show the sigill signal overrode the breakpoint
-   # when deciding to tell the gdb client why we stopped.
-   grep "overriding pending signal" $km_trace_file >/dev/null
-   assert_success
-   # rm -f $km_trace_file
+   # look for km trace entries that show older gdb events for a paused thread are
+   # being bypassed when deciding to tell the gdb client why the target stopped.
+   assert grep -q "Skipping event for paused vcpu:" $km_trace_file
+   rm -f $km_trace_file
 }
 
 @test "gdb_qsupported($test_type): gdb qsupport/vcont test" {
