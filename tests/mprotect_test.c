@@ -28,18 +28,6 @@
 #include "greatest/greatest.h"
 #include "mmap_test.h"
 
-// handler for SIGSEGV
-static sigjmp_buf jbuf;
-static int fail = 0;   // info from signal handled that something failed
-void signal_handler(int signal)
-{
-   if (signal != SIGSEGV) {
-      warn("Unexpected signal caught: %d", signal);
-      fail = 1;
-   }
-   siglongjmp(jbuf, SIGSEGV);   // reusing SIGSEGV as setjmp() return
-}
-
 // check that write() syscall is propertly handing wrong address, and that reaching above brk() fails
 TEST brk_test()
 {
@@ -50,7 +38,7 @@ TEST brk_test()
       FAILm("Write above brk() should fail with EFAULT");
    }
 
-   signal(SIGSEGV, signal_handler);
+   signal(SIGSEGV, sig_handler);
    if ((ret = sigsetjmp(jbuf, 1)) == 0) {
       strcpy((char*)ptr_above_brk, "writing above brk area");
       FAILm("Write successful and should be not");   // return
@@ -62,102 +50,6 @@ TEST brk_test()
       FAILm("signal handler reported a failure");
    }
    PASSm("Handled SIGSEGV above brk() successfully...\n");
-}
-
-// traverse the tests table and execute the tests
-TEST mmap_test_execute(mmap_test_t* tests)
-{
-   int ret;
-   void* last_addr = MAP_FAILED;   // set by mmap or munmap
-                                   // for mremap
-
-   for (mmap_test_t* t = tests; t->info != NULL; t++) {
-      errno = 0;
-      fail = 0;
-      printf("%s: op %d (%s, %s...) \n", t->info, t->type, out_sz(t->offset), out_sz(t->size));
-
-      switch (t->type) {
-         case TYPE_MMAP:
-            last_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0);
-            printf("return: %p (%s)\n", last_addr, out_sz((uint64_t)last_addr));
-
-            if (t->expected == OK) {
-               ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);   // print errno out if test fails
-               ASSERT_NOT_EQ_FMTm(t->info, MAP_FAILED, last_addr, ret_fmt);
-               if ((t->prot & PROT_WRITE) != 0) {
-                  printf("Map OK, trying to memset '2' to 0x%lx size: 0x%lx\n",
-                         (uint64_t)last_addr,
-                         t->size);
-                  memset(last_addr, '2', t->size);
-               }
-            } else {
-               ASSERT_EQ_FMTm(t->info, MAP_FAILED, last_addr, ret_fmt);
-               ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
-            }
-            break;
-         case TYPE_MUNMAP:
-            assert(last_addr != MAP_FAILED);   // we should have failed test already
-            ret = munmap(last_addr + t->offset, t->size);
-            if (t->expected == OK) {
-               ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);
-               ASSERT_EQ_FMTm(t->info, 0, ret, ret_fmt);
-            } else {
-               ASSERT_NOT_EQ_FMTm(t->info, 0, ret, ret_fmt);
-               ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
-            }
-            break;
-         case TYPE_MPROTECT:
-            assert(last_addr != MAP_FAILED);   // we should have failed test already
-            ret = mprotect(last_addr + t->offset, t->size, t->prot);
-            if (t->expected == OK) {
-               ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);
-               ASSERT_EQ_FMTm(t->info, 0, ret, ret_fmt);
-            } else {
-               ASSERT_NOT_EQ_FMTm(t->info, 0, ret, ret_fmt);
-               ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
-            }
-            break;
-         case TYPE_WRITE:
-            assert(last_addr != MAP_FAILED);   // we should have failed test already
-            if (t->expected == OK) {
-               memset(last_addr + t->offset, (char)t->prot, t->size);
-               break;
-            }
-            signal(t->expected, signal_handler);
-            if ((ret = sigsetjmp(jbuf, 1)) == 0) {
-               memset(last_addr + t->offset, (char)t->prot, t->size);
-               FAILm("Write successful and should be not");   // return
-            }
-            assert(ret == SIGSEGV);   // we use that value in longjmp
-            signal(t->expected, SIG_DFL);
-            ASSERT_EQm("signal handler caught unexpected signal", 0, fail);
-            break;
-         case TYPE_READ:
-            assert(last_addr != MAP_FAILED);   // we should have failed test already
-            if (t->expected == OK) {
-               for (size_t i = 0; i < t->size; i++) {
-                  volatile char c = *(char*)(last_addr + t->offset + i);
-                  assert(c != c + 1);   // stop gcc from complaining,but generate code
-               }
-               break;
-            }
-            signal(t->expected, signal_handler);
-            if ((ret = sigsetjmp(jbuf, 1)) == 0) {
-               for (size_t i = 0; i < t->size; i++) {
-                  volatile char c = *(char*)(last_addr + t->offset + i);
-                  assert(c != c + 1);   // stop gcc from complaining,but generate code
-               }
-               FAILm("Read successful and should be not");   // return
-            }
-            assert(ret == SIGSEGV);   // we use that value in longjmp
-            signal(t->expected, SIG_DFL);
-            ASSERT_EQm("signal handler caught unexpected signal", 0, fail);
-            break;
-         default:
-            ASSERT_EQ(NULL, "Not reachable");
-      }
-   }
-   PASS();
 }
 
 // get mmap(PROT_NONE), cut sections with different protections and check read/write there
@@ -194,7 +86,7 @@ TEST simple_test()   // TODO
    };
 
    printf("Running %s\n", __FUNCTION__);
-   CHECK_CALL(mmap_test_execute(mprotect_tests));
+   CHECK_CALL(mmap_test(mprotect_tests));
    PASS();
 }
 
@@ -236,7 +128,7 @@ TEST complex_test()
    };
 
    printf("Running %s\n", __FUNCTION__);
-   CHECK_CALL(mmap_test_execute(mprotect_tests));
+   CHECK_CALL(mmap_test(mprotect_tests));
    PASS();
 }
 
@@ -265,7 +157,7 @@ TEST concat_test()
    };
 
    printf("Running %s\n", __FUNCTION__);
-   CHECK_CALL(mmap_test_execute(mprotect_tests));
+   CHECK_CALL(mmap_test(mprotect_tests));
    PASS();
 }
 
