@@ -788,13 +788,9 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             break;
 
          case KVM_EXIT_EXCEPTION:
-            if (km_gdb_is_enabled() == 1) {
-               km_signal_ready(vcpu);   // move signal from machine queue to vcpu queue
-               km_gdb_notify_and_wait(vcpu, SIGSEGV, true);
-            } else {
-               run_warn("KVM: exit vcpu. reason=%d (%s)", reason, kvm_reason_name(reason));
-               km_vcpu_exit(vcpu);
-            }
+            run_errx(1,
+                     "KVM: exception exit, hardware_exit_reason: 0x%llx",
+                     vcpu->cpu_run->hw.hardware_exit_reason);
             break;
 
          case KVM_EXIT_HLT:

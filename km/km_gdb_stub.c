@@ -1023,7 +1023,7 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
 
 static int linux_signo(gdb_signal_number_t);
 
-int verify_vcont(threadaction_blob_t* threadactionblob)
+static int verify_vcont(threadaction_blob_t* threadactionblob)
 {
    int running = 0;
    int stepping = 0;
@@ -1035,6 +1035,7 @@ int verify_vcont(threadaction_blob_t* threadactionblob)
     */
    for (i = 0; i < KVM_MAX_VCPUS; i++) {
       switch (threadactionblob->threadaction[i].ta_newrunstate) {
+         case THREADSTATE_NONE:   // default thread state may not have been applied yet
          case THREADSTATE_PAUSED:
             paused++;
             break;
@@ -1046,6 +1047,10 @@ int verify_vcont(threadaction_blob_t* threadactionblob)
             running++;
             break;
          default:
+            km_infox(KM_TRACE_GDB,
+                     "unhandled thread state %d",
+                     threadactionblob->threadaction[i].ta_newrunstate);
+            assert("unhandled gdb thread state" == NULL);
             break;
       }
    }
@@ -1141,9 +1146,11 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
                      /* Use the id of the thread's vcpu as our index */
                      i = vcpu->vcpu_id;
                      if (threadactionblob.threadaction[i].ta_newrunstate == THREADSTATE_NONE) {
-                        threadactionblob.threadaction[i].ta_newrunstate = THREADSTATE_RANGESTEPPING;
-                        threadactionblob.threadaction[i].ta_steprange_start = startaddr;
-                        threadactionblob.threadaction[i].ta_steprange_end = endaddr;
+                        threadactionblob.threadaction[i] = (threadaction_t){
+                            .ta_newrunstate = THREADSTATE_RANGESTEPPING,
+                            .ta_steprange_start = startaddr,
+                            .ta_steprange_end = endaddr,
+                        };
                      } else {
                         // An earlier action already specified what to do for this thread
                      }
@@ -1358,7 +1365,7 @@ static gdb_event_t* gdb_select_event(void)
    return foundgep;
 }
 
-static int km_gdb_find_running(km_vcpu_t* vcpu, uint64_t vcpuaddr)
+static int km_gdb_find_notpaused(km_vcpu_t* vcpu, uint64_t vcpuaddr)
 {
    if (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) {
       return 0;
@@ -1368,11 +1375,11 @@ static int km_gdb_find_running(km_vcpu_t* vcpu, uint64_t vcpuaddr)
    return 1;
 }
 
-static km_vcpu_t* gdb_find_running_vcpu(void)
+static km_vcpu_t* gdb_find_notpaused_vcpu(void)
 {
    km_vcpu_t* vcpu = NULL;
 
-   km_vcpu_apply_all(km_gdb_find_running, (uint64_t)&vcpu);
+   km_vcpu_apply_all(km_gdb_find_notpaused, (uint64_t)&vcpu);
    assert(vcpu != NULL);
    return vcpu;
 }
@@ -1752,7 +1759,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
             ge = (gdb_event_t){
                 .entry_is_active = true,
                 .signo = GDB_SIGNAL_INT,
-                .sigthreadid = km_vcpu_get_tid(gdb_find_running_vcpu()),
+                .sigthreadid = km_vcpu_get_tid(gdb_find_notpaused_vcpu()),
             };
             TAILQ_INSERT_HEAD(&gdbstub.event_queue, &ge, link);
          }
@@ -1913,8 +1920,7 @@ void km_gdb_notify_and_wait(km_vcpu_t* vcpu, int signo, bool need_wait)
    assert(rc == 0);
    km_infox(KM_TRACE_GDB,
             "need_wait %d, session_requested %d, "
-            "linux signo %d, exit_reason %d, tid %d, "
-            "existing signo %d, exit_reason %d, tid %d, gdb event queue empty %d",
+            "linux signo %d, exit_reason %u, tid %d, gdb event queue empty %d",
             need_wait,
             gdbstub.session_requested,
             signo,
