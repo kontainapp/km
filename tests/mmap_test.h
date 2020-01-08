@@ -118,3 +118,8 @@ static int get_maps(int verbose)
    }
    return 0;
 }
+
+sigjmp_buf jbuf;
+int fail;
+int mmap_test(mmap_test_t* tests);
+void sig_handler(int signal);
