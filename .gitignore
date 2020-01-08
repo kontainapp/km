@@ -18,6 +18,8 @@ GPATH
 GRTAGS
 kmcore
 payloads/node/node
+payloads/java/jdk*
+payloads/java/jtreg
 cscope.out
 **/cscope.out
 .vscode/tags
