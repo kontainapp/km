@@ -27,6 +27,8 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
+HELPER_SRC = mmap_tester.c
+
 SHRSRC := dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
@@ -62,6 +64,13 @@ ${KM_PAYLOADS}: ${TOP}build/runtime
 ifneq ($(findstring coverage,${MAKECMDGOALS}),)
 IGNORE_FAILURE := --ignore-failure
 endif
+
+libhelper.a: ${HELPER_SRC:%.c=%.o}
+	ar rv $@ $<
+
+$(EXECS) $(SEXECS) ${DEXECS}: libhelper.a
+KM_LDFLAGS +=  -L. -lhelper
+
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
 	./run_bats_tests.sh --km=${KM_BIN} --pretty ${IGNORE_FAILURE} --match="${MATCH}"
 
@@ -106,7 +115,7 @@ load_expected_size: load_test.km load_test.so
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d $(EXECS) $(SEXECS) ${DEXECS} kmcore
+	rm -f *.o *.d $(EXECS) $(SEXECS) ${DEXECS} kmcore libhelper.a
 
 #
 # do not generate .d file for some targets
