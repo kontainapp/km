@@ -16,22 +16,29 @@ cat <<EOF
 Usage:  ${BASH_SOURCE[0]} [options]
   Options:
   --tests=bats_file_name  Run tests from  bats_file_name (default "$DEFAULT_TESTS")
+  --test-type="types"     Space separated test types (default "$DEFAULT_TEST_TYPE")
+  --pretty                Pretty colorfule output instead of TAP (https://testanything.org/) output
   --match=regexp          Only run tests with names matching regexp (default .*)
   --time-info-file=name   Temp file with tests time tracing (default /tmp/km_test_time_info_$$)
   --km=km_name            KM path. (default derived from git )
   --km-args="args...."    Optional argument to pass to each KM invocation
   --ignore-failure        Return success even if some tests fail.
-  --pretty                Pretty colorfule output instead of TAP (https://testanything.org/) output
   --dry-run               print commands instead of executing them
-  --test-type="types"    Space separated test types (default "$DEFAULT_TEST_TYPE")
 EOF
 }
 
-cleanup() {
+bats_src_generated=km-bats-$$  # generated files need to be in ./ to avoid messing with 'load' command
+SIGINT_exit_code=130 # by linux agreement, 128 + SIGINT. Use it for all trap exits
+
+# arg1 is optional exit code. If not passed, we assume ^C
+cleanup_and_exit() {
    echo Cleaning up...
-   if [ -f $time_info_file ] ; then $DEBUG rm $time_info_file ; fi
+   exit_code=${1:-$SIGINT_exit_code}
+   $DEBUG rm -f ${bats_src_generated}.*
+   $DEBUG rm -f ${time_info_file}
+   exit $exit_code
 }
-trap cleanup SIGINT SIGTERM
+trap cleanup_and_exit SIGINT SIGTERM
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -98,25 +105,30 @@ fi
 
 $DEBUG export TIME_INFO=$time_info_file
 $DEBUG export KM_BIN=$km_bin
+
+# Generate files for bats, one file per type (e.g. so), from source
 for t in $test_type ; do
-   $DEBUG export KM_TEST_TYPE=$t
-   $DEBUG bats/bin/bats $pretty -f "$match" $tests
+   tmp_file=${bats_src_generated}.$t
+   echo export KM_TEST_TYPE=$t > $tmp_file
+   cat $tests >> $tmp_file
+   test_list="$test_list $tmp_file"
 done
 
-#TODO: calculate summary $?
+$DEBUG bats/bin/bats $pretty -f "$match" $test_list
 exit_code=$?
-
 if [ $exit_code == 0 ] ; then
    echo '------------------------------------------------------------------------------'
    echo -e "${GREEN}Tests slower than 0.1 sec:${NOCOLOR}"
-   $DEBUG grep elapsed $time_info_file | grep -v "elapsed 0:00.[01]" | sort -r
+   if [[ -f "$time_info_file" ]] ; then
+      $DEBUG grep elapsed $time_info_file | grep -v "elapsed 0:00.[01]" | sort -r
+   else
+      echo No time data is available.
+   fi
    echo '------------------------------------------------------------------------------'
    echo ""
 fi
 
-cleanup
 if [ $ignore_failure == "yes" ] ; then
-   exit 0
-else
-   exit $exit_code
+   exit_code=0
 fi
+cleanup_and_exit $exit_code
