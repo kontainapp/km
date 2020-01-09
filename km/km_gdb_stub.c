@@ -455,6 +455,36 @@ static void send_response(char code, gdb_event_t* gep, bool wait_for_ack)
 }
 
 /*
+ * A helper function to discover what kind of hw breakpoint fired
+ * and the address that caused it.
+ */
+static int km_gdb_get_hwbreak_info(km_vcpu_t* vcpu, void** addr, uint32_t* type)
+{
+   struct kvm_debug_exit_arch* archp = &vcpu->cpu_run->debug.arch;
+
+   if ((archp->dr6 & 1) != 0 && (archp->dr7 & 0x03) != 0) {
+      /* breakpoint in dr0 fired. */
+      *addr = (void*)vcpu->dr_regs[0];
+      *type = (archp->dr7 >> 16) & 0x03;
+   } else if ((archp->dr6 & 2) != 0 && (archp->dr7 & 0x0c) != 0) {
+      /* breakpoint in dr1 fired. */
+      *addr = (void*)vcpu->dr_regs[1];
+      *type = (archp->dr7 >> 20) & 0x03;
+   } else if ((archp->dr6 & 4) != 0 && (archp->dr7 & 0x20) != 0) {
+      /* breakpoint in dr2 fired */
+      *addr = (void*)vcpu->dr_regs[2];
+      *type = (archp->dr7 >> 24) & 0x03;
+   } else if ((archp->dr6 & 8) != 0 && (archp->dr7 & 0xc0) != 0) {
+      /* breakpoint in dr3 fired */
+      *addr = (void*)vcpu->dr_regs[3];
+      *type = (archp->dr7 >> 28) & 0x03;
+   } else {
+      return -1;
+   }
+   return 0;
+}
+
+/*
  * Disect the "exception state" for a kvm debug exit to figure out what kind of stop packet
  * we should send back to the gdb client and then build that into stopreply.
  * This is where we come when hardware breakpoints and watchpoints fire.
@@ -468,11 +498,10 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
    struct kvm_debug_exit_arch* archp = &vcpu->cpu_run->debug.arch;
    void* addr;
    uint32_t type;
+   int ret;
 
    /*
-    * We have found that supplying register contents with the stop reply somehow causes
-    * gdb stack traces to be incomplete.  So we leave the registers out of the stop
-    * reply packes.  The gdb client is running the 'g' packet anyway so it is always
+    * The gdb client is running the 'g' packet anyway so it is always
     * getting the registers we were supplying with the stop packet.
     */
    km_read_registers(vcpu);   // Make sure we report good register contents.
@@ -509,35 +538,18 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
       return;
    }
 
-   /*
-    * Ugly check to see which hw breakpoint fired.
-    * The breakpoints we set in km_gdb_update_vcpu_debug()
-    * are global but we check for both global and local here.
-    */
-   if ((archp->dr6 & 1) != 0 && (archp->dr7 & 0x03) != 0) {
-      /* breakpoint in dr0 fired. */
-      addr = (void*)vcpu->dr_regs[0];
-      type = (archp->dr7 >> 16) & 0x03;
-   } else if ((archp->dr6 & 2) != 0 && (archp->dr7 & 0x0c) != 0) {
-      /* breakpoint in dr1 fired. */
-      addr = (void*)vcpu->dr_regs[1];
-      type = (archp->dr7 >> 20) & 0x03;
-   } else if ((archp->dr6 & 4) != 0 && (archp->dr7 & 0x20) != 0) {
-      /* breakpoint in dr2 fired */
-      addr = (void*)vcpu->dr_regs[2];
-      type = (archp->dr7 >> 24) & 0x03;
-   } else if ((archp->dr6 & 8) != 0 && (archp->dr7 & 0xc0) != 0) {
-      /* breakpoint in dr3 fired */
-      addr = (void*)vcpu->dr_regs[3];
-      type = (archp->dr7 >> 28) & 0x03;
-   } else if ((archp->dr6 & 0x4000) != 0) {
+   if ((archp->dr6 & 0x4000) != 0) {
       /* Single step exception. */
       /* Not sure if hwbreak is the right action for single step */
       sprintf(stopreply, "T05hwbreak:;thread:%08x;", km_vcpu_get_tid(vcpu));
       return;
    } else {
-      km_infox(KM_TRACE_GDB, "triggered hw breakpoint doesn't match the set hw breakpoints");
-      abort();
+      ret = km_gdb_get_hwbreak_info(vcpu, &addr, &type);
+      if (ret != 0) {
+         km_infox(KM_TRACE_GDB, "triggered hw breakpoint doesn't match the set hw breakpoints");
+         abort();
+      }
+      // We've hit a hw breakpoint and addr and type have been set.
    }
    km_info(KM_TRACE_VCPU, "addr %p, type 0x%x", addr, type);
 
@@ -1671,6 +1683,76 @@ static void km_empty_out_eventfd(int fd)
    fcntl(fd, F_SETFL, flags);
 }
 
+void gdb_delete_stale_events(void)
+{
+   int ret;
+   gdb_event_t* gep;
+   gdb_event_t* nextgep;
+   km_vcpu_t* vcpu;
+
+   ret = pthread_mutex_lock(&gdbstub.notify_mutex);
+   assert(ret == 0);
+
+   /*
+    * Find events for breakpoints that were deleted by the user
+    * before a pending gdb_event for the breakpoint was processed.
+    * Delete the event so that gdb client doesn't need to
+    * see this stale breakpoint trigger and discard it.
+    */
+   TAILQ_FOREACH_SAFE (gep, &gdbstub.event_queue, link, nextgep) {
+      vcpu = km_vcpu_fetch_by_tid(gep->sigthreadid);
+      if (vcpu == NULL) {
+         continue;
+      }
+      if (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_RUNNING &&
+          gep->signo == GDB_KMSIGNAL_KVMEXIT) {
+         km_gva_t trigger_addr;
+         uint32_t type;
+         int ret;
+         struct kvm_debug_exit_arch* archp = &vcpu->cpu_run->debug.arch;
+
+         // Get the address that triggered this breakpoint
+
+         if (archp->exception == 3 || (archp->dr6 == 0 && archp->dr7 == 0 && archp->exception == 1)) {
+            /*
+             * Software breakpoint has been hit.
+             * On intel hardware, exception will be set to 3.
+             * On AMD ryzen hardware, dr6 and dr7 are set to zero.
+             */
+            trigger_addr = vcpu->regs.rip;
+         } else {
+            // Hardware breakpoint
+            ret = km_gdb_get_hwbreak_info(vcpu, (void**)&trigger_addr, &type);
+            if (ret != 0) {
+               // No hardware breakpoint triggered.
+               continue;
+            }
+         }
+
+         // Find the trigger address in the breakpoint list.
+         gdb_breakpoint_type_t bptype;
+         km_gva_t bpaddr;
+         size_t bplen;
+         ret = km_gdb_find_breakpoint(trigger_addr, &bptype, &bpaddr, &bplen);
+         if (ret != 0) {
+            // No matching breakpoint, delete the event.
+            km_infox(KM_TRACE_GDB,
+                     "Discarding gdb event for deleted breakpoint, signo %d, sigthreadid %d, "
+                     "trigger_addr 0x%lx",
+                     gep->signo,
+                     gep->sigthreadid,
+                     trigger_addr);
+            TAILQ_REMOVE(&gdbstub.event_queue, gep, link);
+            gep->entry_is_active = false;
+            // Keep looking for more or give up?
+         }
+      }
+   }
+
+   ret = pthread_mutex_unlock(&gdbstub.notify_mutex);
+   assert(ret == 0);
+}
+
 /*
  * Unblock the paused vcpu.
  * If another vcpu has hit a breakpoint causing session_requested to be non-zero,
@@ -1775,6 +1857,9 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       while ((foundgep = gdb_select_event()) != NULL) {
          // process commands from the gdb client
          gdb_handle_remote_commands(foundgep);
+
+         // Delete gdb_events for breakpoints that have been deleted
+         gdb_delete_stale_events();
       }
 
       km_infox(KM_TRACE_GDB, "kvm exit handled, starting vcpu's");

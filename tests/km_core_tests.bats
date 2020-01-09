@@ -1,4 +1,4 @@
-# Copyright © 2019 Kontain Inc. All rights reserved.
+# Copyright © 2019-2020 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -22,7 +22,7 @@ not_needed_so="setup_load cli mem_brk"
 todo_generic="futex_example"
 todo_static=""
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
-todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported exception cpp_ctors dl_iterate_phdr monitor_maps mem_mmap_1"
+todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint exception cpp_ctors dl_iterate_phdr monitor_maps mem_mmap_1"
 
 
 # Now the actual tests.
@@ -300,6 +300,23 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 
    run wait $gdb_pid
    assert_success
+}
+
+@test "gdb_delete_breakpoint($test_type): gdb delete breakpoint test" {
+   km_gdb_default_port=2159
+   km_trace_file=/tmp/gdb_delete_breakpoint_test_$test_type_$$.out
+
+   km_with_timeout -V -g gdb_delete_breakpoint_test$ext >$km_trace_file 2>&1 &
+   km_pid=$!; sleep 0.5
+
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+      --ex="source cmd_for_delete_breakpoint_test.gdb" --ex=q gdb_delete_breakpoint_test$ext
+   assert_success
+
+   run wait $km_pid
+   assert_success
+
+   assert grep -q "Discarding gdb event for deleted breakpoint," $km_trace_file
 }
 
 @test "unused_memory_protection($test_type): check that unused memory is protected (mprotect_test$ext)" {
