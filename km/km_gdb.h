@@ -97,6 +97,8 @@ extern int km_gdb_enable_ss(void);
 extern int km_gdb_disable_ss(void);
 extern int km_gdb_add_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
 extern int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
+extern int
+km_gdb_find_breakpoint(km_gva_t trigger_addr, gdb_breakpoint_type_t* type, km_gva_t* addr, size_t* len);
 extern void km_gdb_vcpu_state_init(km_vcpu_t*);
 
 /*
