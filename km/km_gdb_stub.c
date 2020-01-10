@@ -522,7 +522,8 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
     * Apparently this is how a breakpoint (int 3) looks from KVM_EXIT_DEBUG: exception 3 on Intel,
     * and exc == 1 and both drs 0 on AMD. Note that on Intel the latter never happens.
     */
-   if (archp->exception == 3 || (archp->dr6 == 0 && archp->dr7 == 0 && archp->exception == 1)) {
+   if (archp->exception == BP_VECTOR ||
+       (archp->dr6 == 0 && archp->dr7 == 0 && archp->exception == DB_VECTOR)) {
       sprintf(stopreply, "T05thread:%08x;", km_vcpu_get_tid(vcpu));
       return;
    }
@@ -532,14 +533,13 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
     * stop reply.  So, we send the client a trap stop reply.
     * This is probably happening because a hardware single step was performed.
     */
-   if (archp->exception == 1 && gdbstub.clientsup_hwbreak == 0) {
+   if (archp->exception == DB_VECTOR && gdbstub.clientsup_hwbreak == 0) {
       assert((archp->dr6 & 0x4000) != 0);   // verify that this is a hw single step
       sprintf(stopreply, "T05thread:%08x;", km_vcpu_get_tid(vcpu));
       return;
    }
 
-   if ((archp->dr6 & 0x4000) != 0) {
-      /* Single step exception. */
+   if ((archp->dr6 & 0x4000) != 0) {   // Single step exception.
       /* Not sure if hwbreak is the right action for single step */
       sprintf(stopreply, "T05hwbreak:;thread:%08x;", km_vcpu_get_tid(vcpu));
       return;
@@ -1700,8 +1700,7 @@ void gdb_delete_stale_events(void)
     * see this stale breakpoint trigger and discard it.
     */
    TAILQ_FOREACH_SAFE (gep, &gdbstub.event_queue, link, nextgep) {
-      vcpu = km_vcpu_fetch_by_tid(gep->sigthreadid);
-      if (vcpu == NULL) {
+      if ((vcpu = km_vcpu_fetch_by_tid(gep->sigthreadid)) == NULL) {
          continue;
       }
       if (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_RUNNING &&
@@ -1712,19 +1711,17 @@ void gdb_delete_stale_events(void)
          struct kvm_debug_exit_arch* archp = &vcpu->cpu_run->debug.arch;
 
          // Get the address that triggered this breakpoint
-
-         if (archp->exception == 3 || (archp->dr6 == 0 && archp->dr7 == 0 && archp->exception == 1)) {
+         if (archp->exception == BP_VECTOR ||
+             (archp->dr6 == 0 && archp->dr7 == 0 && archp->exception == DB_VECTOR)) {
             /*
              * Software breakpoint has been hit.
              * On intel hardware, exception will be set to 3.
              * On AMD ryzen hardware, dr6 and dr7 are set to zero.
              */
             trigger_addr = vcpu->regs.rip;
-         } else {
-            // Hardware breakpoint
+         } else {   // Hardware breakpoint
             ret = km_gdb_get_hwbreak_info(vcpu, (void**)&trigger_addr, &type);
-            if (ret != 0) {
-               // No hardware breakpoint triggered.
+            if (ret != 0) {   // No hardware breakpoint triggered.
                continue;
             }
          }
@@ -1734,17 +1731,15 @@ void gdb_delete_stale_events(void)
          km_gva_t bpaddr;
          size_t bplen;
          ret = km_gdb_find_breakpoint(trigger_addr, &bptype, &bpaddr, &bplen);
-         if (ret != 0) {
-            // No matching breakpoint, delete the event.
+         if (ret != 0) {   // No matching breakpoint, delete the event.
             km_infox(KM_TRACE_GDB,
-                     "Discarding gdb event for deleted breakpoint, signo %d, sigthreadid %d, "
+                     "Deleted breakpoint, discard event: signo %d, sigthreadid %d, "
                      "trigger_addr 0x%lx",
                      gep->signo,
                      gep->sigthreadid,
                      trigger_addr);
             TAILQ_REMOVE(&gdbstub.event_queue, gep, link);
             gep->entry_is_active = false;
-            // Keep looking for more or give up?
          }
       }
    }
@@ -1857,7 +1852,6 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       while ((foundgep = gdb_select_event()) != NULL) {
          // process commands from the gdb client
          gdb_handle_remote_commands(foundgep);
-
          // Delete gdb_events for breakpoints that have been deleted
          gdb_delete_stale_events();
       }

@@ -304,7 +304,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 
 @test "gdb_delete_breakpoint($test_type): gdb delete breakpoint test" {
    km_gdb_default_port=2159
-   km_trace_file=/tmp/gdb_delete_breakpoint_test_$test_type_$$.out
+   km_trace_file=/tmp/gdb_delete_breakpoint_test_$$.out
 
    km_with_timeout -V -g gdb_delete_breakpoint_test$ext >$km_trace_file 2>&1 &
    km_pid=$!; sleep 0.5
@@ -316,7 +316,9 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    run wait $km_pid
    assert_success
 
-   assert grep -q "Discarding gdb event for deleted breakpoint," $km_trace_file
+   assert grep -q "Deleted breakpoint, discard event:" $km_trace_file
+
+   rm -fr $km_trace_file
 }
 
 @test "unused_memory_protection($test_type): check that unused memory is protected (mprotect_test$ext)" {
