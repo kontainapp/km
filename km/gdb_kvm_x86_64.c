@@ -207,6 +207,33 @@ static struct breakpoint_t* bp_list_find(gdb_breakpoint_type_t type, km_gva_t ad
 }
 
 /*
+ * Find any breakpoint that covers the passed address.
+ * Return the breakpoint_t entry pointer if a match is found.
+ * Return NULL if no match is found.
+ */
+static struct breakpoint_t* bp_list_find_byaddr(km_gva_t addr)
+{
+   struct breakpoint_t* bp;
+
+   // Software breakpoints first
+   SLIST_FOREACH (bp, &sw_breakpoints, entries) {
+      if (bp->addr == addr) {
+         return bp;
+      }
+   }
+
+   // Try hardware breakpoints next.
+   SLIST_FOREACH (bp, &hw_breakpoints, entries) {   // We only support hardware watchpoints.
+      if (addr >= bp->addr && addr < (bp->addr + bp->len)) {
+         return bp;
+      }
+   }
+
+   // Didn't find it.
+   return NULL;
+}
+
+/*
  * Adds a new breakpoint to the list of breakpoints. Returns the found or
  * created breakpoint. Returns NULL in case of failure or if we reached the max
  * number of allowed hardware breakpoints (4).
@@ -452,6 +479,29 @@ int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t l
       return -1;
    }
    return km_gdb_update_guest_debug();
+}
+
+/*
+ * Find a sw or hw breakpoint that covers the address in trigger_addr.
+ * If a matching breakpoint was found return 0 and return bptype,
+ * bpaddr, and bplen.
+ * If no matching breakpoint was found return -1.
+ */
+int km_gdb_find_breakpoint(km_gva_t trigger_addr,
+                           gdb_breakpoint_type_t* bptype,
+                           km_gva_t* bpaddr,
+                           size_t* bplen)
+{
+   struct breakpoint_t* bp;
+
+   bp = bp_list_find_byaddr(trigger_addr);
+   if (bp != NULL) {
+      *bptype = bp->type;
+      *bpaddr = bp->addr;
+      *bplen = bp->len;
+      return 0;
+   }
+   return -1;
 }
 
 /*
