@@ -480,27 +480,22 @@ static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unu
  * Returns 0 on success -1 on ioctl error (an indication that normal exit_reason handling should be
  * skipped upstairs)
  */
-static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
+static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 {
    int rc;
 
    vcpu->is_running = 1;
-   // exit right away if we are pausing or there is a signal
-   if (__atomic_load_n(&machine.pause_requested, __ATOMIC_SEQ_CST) == 1 ||
-       (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
-      vcpu->is_running = 0;
-      vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
-      km_infox(KM_TRACE_VCPU, "skipping ioctl( KVM_RUN )");
-      return -1;
-   }
-
    vcpu->cpu_run->exit_reason = KVM_EXIT_UNKNOWN;   // Clear exit_reason from the preceeding ioctl
    vcpu->regs_valid = 0;                            // Invalidate cached registers
    vcpu->sregs_valid = 0;
    km_infox(KM_TRACE_VCPU, "about to ioctl( KVM_RUN )");
    rc = ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
    vcpu->is_running = 0;
-   km_infox(KM_TRACE_VCPU, "ioctl( KVM_RUN ) returned %d", rc);
+   km_infox(KM_TRACE_VCPU,
+            "ioctl( KVM_RUN ) returned %d KVM_RUN exit %d (%s)",
+            rc,
+            vcpu->cpu_run->exit_reason,
+            kvm_reason_name(vcpu->cpu_run->exit_reason));
 
    // If we need them, harvest the registers once upon return.
    if (km_trace_enabled() || km_gdb_is_enabled()) {
@@ -510,38 +505,20 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 
    if (rc != 0) {
       km_info(KM_TRACE_KVM,
-              "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM_RUN exit %d (%s)",
+              "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx",
               vcpu->regs.rip,
               vcpu->regs.rsp,
-              vcpu->sregs.cr2,
-              vcpu->cpu_run->exit_reason,
-              kvm_reason_name(vcpu->cpu_run->exit_reason));
+              vcpu->sregs.cr2);
+      vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
       switch (errno) {
-         case EAGAIN:
-            vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
-            break;
-
-         case EINTR:
+         case EINTR: {
             if (machine.exit_group == 1) {   // Interrupt from exit_group() - we are done.
                km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
                assert("Reached the unreachable" == NULL);
             }
-            vcpu->cpu_run->immediate_exit = 0;
-            vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
-            if (km_gdb_is_enabled() == 1) {
-               siginfo_t info;
-               km_dequeue_signal(vcpu, &info);
-               if (info.si_signo == 0) {
-                  // ioctl( KVM_RUN ) was interrupted by SIGUSR1, pausing all VCPU
-                  assert(__atomic_load_n(&machine.pause_requested, __ATOMIC_SEQ_CST) == 1);
-                  return -1;   // will pause upstairs
-               }
-               // other reason - notify gdb and pause ourselves, gdb will pause the rest
-               km_gdb_notify(vcpu, info.si_signo);
-               __atomic_store_n(&machine.pause_requested, 1, __ATOMIC_SEQ_CST);   // make sure we pause
-            }
+            assert(__atomic_load_n(&machine.pause_requested, __ATOMIC_SEQ_CST) == 1);
             break;
-
+         }
          case EFAULT: {
             /*
              * This happens when the guest violates memory protection, for example
@@ -549,7 +526,6 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
              * guest memory (guest PT says page is writable, but kernel says it
              * isn't).
              */
-            vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
             siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
             km_post_signal(vcpu, &info);
             break;
@@ -558,14 +534,6 @@ static int km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
             run_err(1, "KVM: vcpu run failed with errno %d (%s)", errno, strerror(errno));
       }
    }
-   if (km_gdb_is_enabled() == 0) {
-      /*
-       * If there is a signal with a handler, setup the guest's registers to execute the handler in
-       * the the KVM_RUN.
-       */
-      km_deliver_next_signal(vcpu);
-   }
-   return rc;
 }
 
 /*
@@ -579,14 +547,6 @@ int km_vcpu_is_running(km_vcpu_t* vcpu, uint64_t me)
       return 0;   // Don't count this vcpu
    }
    return (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) ? 0 : 1;
-}
-
-/*
- * If the passed vcpu is allocated return 1, else return 0.
- */
-static int km_vcpu_count_allocated(km_vcpu_t* vcpu, uint64_t unused)
-{
-   return vcpu->is_used != 0;
 }
 
 void* km_vcpu_run(km_vcpu_t* vcpu)
@@ -616,12 +576,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          km_wait_on_gdb(vcpu);
       }
 
-      if (km_signal_ready(vcpu)) {
-         vcpu->cpu_run->immediate_exit = 1;
-      }
-      if (km_vcpu_one_kvm_run(vcpu) < 0) {
-         continue;
-      }
+      km_vcpu_one_kvm_run(vcpu);
       reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
       km_info(KM_TRACE_KVM,
               "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: exit reason=%d (%s)",
@@ -631,6 +586,9 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
               reason,
               kvm_reason_name(reason));
       switch (reason) {
+         case KVM_EXIT_INTR:   // handled in km_vcpu_one_kvm_run
+            break;
+
          case KVM_EXIT_IO:
             switch (hypercall(vcpu, &hc)) {
                case HC_CONTINUE:
@@ -657,16 +615,14 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                           vcpu->regs.rsp,
                           vcpu->sregs.cr2,
                           hc);
-                  if (km_gdb_is_enabled() != 0) {
-                     if (km_vcpu_apply_all(km_vcpu_count_allocated, 0) > 1 &&
-                         km_vcpu_apply_all(km_vcpu_is_running, (uint64_t)vcpu) == 0) {
-                        /*
-                         * We notify gdb but don't wait because we need to go on and park the vcpu
-                         * by calling km_vcpu_stopped().
-                         */
-                        vcpu->cpu_run->exit_reason = KVM_EXIT_DEBUG;
-                        km_gdb_notify(vcpu, GDB_KMSIGNAL_THREADEXIT);
-                     }
+                  if (km_gdb_is_enabled() != 0 &&
+                      km_vcpu_apply_all(km_vcpu_is_running, (uint64_t)vcpu) == 0) {
+                     /*
+                      * We notify gdb but don't wait because we need to go on and park the vcpu
+                      * by calling km_vcpu_stopped().
+                      */
+                     vcpu->cpu_run->exit_reason = KVM_EXIT_DEBUG;
+                     km_gdb_notify(vcpu, GDB_KMSIGNAL_THREADEXIT);
                   }
                   km_vcpu_stopped(vcpu);
                   break;
@@ -750,6 +706,20 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          default:
             run_errx(1, "KVM: exit. reason=%d (%s)", reason, kvm_reason_name(reason));
             break;
+      }   // switch(reason)
+      if (km_signal_ready(vcpu)) {
+         if (km_gdb_is_enabled() == 1) {
+            siginfo_t info;
+            km_dequeue_signal(vcpu, &info);
+            km_gdb_notify(vcpu, info.si_signo);
+            __atomic_store_n(&machine.pause_requested, 1, __ATOMIC_SEQ_CST);   // make sure we pause
+         } else {
+            /*
+             * If there is a signal with a handler, setup the guest's registers to execute the
+             * handler in the the KVM_RUN.
+             */
+            km_deliver_next_signal(vcpu);
+         }
       }
    }
 }
