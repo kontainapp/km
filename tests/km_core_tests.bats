@@ -22,7 +22,7 @@ not_needed_so="setup_load cli mem_brk"
 todo_generic="futex_example"
 todo_static=""
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
-todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint exception cpp_ctors dl_iterate_phdr monitor_maps mem_mmap_1"
+todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep exception cpp_ctors dl_iterate_phdr monitor_maps mem_mmap_1"
 
 
 # Now the actual tests.
@@ -316,6 +316,26 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert grep -q "Deleted breakpoint, discard event:" $km_trace_file
 
    rm -fr $km_trace_file
+}
+
+@test "gdb_nextstep($test_type): gdb next step test" {
+   km_gdb_default_port=2159
+
+   km_with_timeout -g gdb_nextstep_test$ext &
+   km_pid=$!; sleep 0.5
+
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+      --ex="source cmd_for_nextstep_test.gdb" --ex=q gdb_nextstep_test$ext
+   assert_success
+
+   # Verify we "next"ed thru next_thru_this_function()
+   refute_line --partial "next_thru_this_function () at gdb_nextstep_test.c"
+
+   # Verify we "step"ed into step_into_this_function
+   assert_line --partial "step_into_this_function () at gdb_nextstep_test.c"
+
+   run wait $km_pid
+   assert_success
 }
 
 @test "unused_memory_protection($test_type): check that unused memory is protected (mprotect_test$ext)" {
