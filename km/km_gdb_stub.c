@@ -980,8 +980,25 @@ typedef struct threadaction threadaction_t;
 
 struct threadaction_blob {
    threadaction_t threadaction[KVM_MAX_VCPUS];   // each thread is bound to a virtual cpu
+   uint32_t running;
+   uint32_t stepping;
+   uint32_t paused;
 };
 typedef struct threadaction_blob threadaction_blob_t;
+
+/*
+ * Assign a threadstate to those threads that have not had it set.
+ */
+static int km_gdb_set_default_runstate(km_vcpu_t* vcpu, uint64_t ta)
+{
+   int i = vcpu->vcpu_id;
+   threadaction_blob_t* threadactionblob = (threadaction_blob_t*)ta;
+
+   if (threadactionblob->threadaction[i].ta_newrunstate == THREADSTATE_NONE) {
+      threadactionblob->threadaction[i].ta_newrunstate = THREADSTATE_PAUSED;
+   }
+   return 0;
+}
 
 /*
  * Apply the vCont action to the vcpu for each thread.
@@ -997,8 +1014,8 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
    assert(vcpu->is_running == 0);
    switch (threadactionblob->threadaction[i].ta_newrunstate) {
       case THREADSTATE_NONE:
-         rc = 0;
-         vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_PAUSED;
+         km_infox(KM_TRACE_GDB, "vcpu %d no runstate set?", i);
+         rc = -1;
          break;
       case THREADSTATE_RUNNING:
          vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RUNNING;
@@ -1017,6 +1034,10 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
          gdbstub.stepping = true;
          rc = km_gdb_update_vcpu_debug(vcpu, 0);
          break;
+      case THREADSTATE_PAUSED:
+         vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_PAUSED;
+         rc = 0;
+         break;
       default:
          rc = -1;
          km_infox(KM_TRACE_GDB,
@@ -1033,50 +1054,57 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
    return rc;
 }
 
+/*
+ * km_vcpu_apply_all() helper function to count how many threads are in
+ * each gdb runstate.
+ */
+int km_gdb_count_thread_states(km_vcpu_t* vcpu, uint64_t ta)
+{
+   int i = vcpu->vcpu_id;
+   threadaction_blob_t* threadactionblob = (threadaction_blob_t*)ta;
+
+   switch (threadactionblob->threadaction[i].ta_newrunstate) {
+      case THREADSTATE_PAUSED:
+         threadactionblob->paused++;
+         break;
+      case THREADSTATE_STEPPING:
+      case THREADSTATE_RANGESTEPPING:
+         threadactionblob->stepping++;
+         break;
+      case THREADSTATE_RUNNING:
+         threadactionblob->running++;
+         break;
+      default:
+         km_infox(KM_TRACE_GDB,
+                  "thread %d, unhandled thread state %d",
+                  km_vcpu_get_tid(vcpu),
+                  threadactionblob->threadaction[i].ta_newrunstate);
+         assert("unhandled gdb thread state" == NULL);
+         break;
+   }
+   return 0;
+}
+
 static int linux_signo(gdb_signal_number_t);
 
 static int verify_vcont(threadaction_blob_t* threadactionblob)
 {
-   int running = 0;
-   int stepping = 0;
-   int paused = 0;
-   int i;
+   threadactionblob->running = 0;
+   threadactionblob->stepping = 0;
+   threadactionblob->paused = 0;
 
-   /*
-    * Verify that all threads are running or a single thread is stepping.
-    */
-   for (i = 0; i < KVM_MAX_VCPUS; i++) {
-      switch (threadactionblob->threadaction[i].ta_newrunstate) {
-         case THREADSTATE_NONE:   // default thread state may not have been applied yet
-         case THREADSTATE_PAUSED:
-            paused++;
-            break;
-         case THREADSTATE_STEPPING:
-         case THREADSTATE_RANGESTEPPING:
-            stepping++;
-            break;
-         case THREADSTATE_RUNNING:
-            running++;
-            break;
-         default:
-            km_infox(KM_TRACE_GDB,
-                     "unhandled thread state %d",
-                     threadactionblob->threadaction[i].ta_newrunstate);
-            assert("unhandled gdb thread state" == NULL);
-            break;
-      }
-   }
-   if ((running != 0 && (paused != 0 || stepping != 0)) || (stepping == 1 && running != 0) ||
-       stepping > 1) {
-      /*
-       * Either 1 thread is stepping or all threads are running.
-       */
+   km_vcpu_apply_all(km_gdb_count_thread_states, (uint64_t)threadactionblob);
+
+   // Ensure either 1 thread is stepping or all threads are running.
+   if ((threadactionblob->running != 0 &&
+        (threadactionblob->paused != 0 || threadactionblob->stepping != 0)) ||
+       (threadactionblob->stepping == 1 && threadactionblob->running != 0) ||
+       threadactionblob->stepping > 1) {
       km_infox(KM_TRACE_GDB,
-               "Unsupported combination of running and stepping threads, "
-               "running %d, paused %d, stepping %d",
-               running,
-               paused,
-               stepping);
+               "Unsupported combination of running %d, stepping %d, and paused %d threads",
+               threadactionblob->running,
+               threadactionblob->stepping,
+               threadactionblob->paused);
       return 1;
    }
    return 0;
@@ -1283,6 +1311,8 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
       return;
    }
 
+   km_vcpu_apply_all(km_gdb_set_default_runstate, (uint64_t)&threadactionblob);
+
    /*
     * Verify that all threads are running or a single thread is stepping.
     */
@@ -1354,6 +1384,7 @@ static gdb_event_t* gdb_select_event(void)
       vcpu = km_vcpu_fetch_by_tid(foundgep->sigthreadid);
       if (vcpu->gdb_vcpu_state.gdb_run_state != THREADSTATE_PAUSED) {
          TAILQ_REMOVE(&gdbstub.event_queue, foundgep, link);
+         pthread_mutex_unlock(&gdbstub.notify_mutex);
          km_infox(KM_TRACE_GDB,
                   "Selecting gdb event at %p, signo %d, threadid %d",
                   foundgep,
@@ -1362,7 +1393,7 @@ static gdb_event_t* gdb_select_event(void)
          km_gdb_vcpu_set(vcpu);
          send_response('S', foundgep, true);
          foundgep->entry_is_active = false;
-         break;
+         return foundgep;
       }
       km_infox(KM_TRACE_GDB,
                "Skipping event for paused vcpu: gep %p, signo %d, threadid %d, gdb_run_state %d",
@@ -1373,7 +1404,7 @@ static gdb_event_t* gdb_select_event(void)
    }
    pthread_mutex_unlock(&gdbstub.notify_mutex);
 
-   return foundgep;
+   return NULL;
 }
 
 static int km_gdb_find_notpaused(km_vcpu_t* vcpu, uint64_t vcpuaddr)
