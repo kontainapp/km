@@ -34,4 +34,4 @@ echo "Running Test Case $TEST_CASE"
 $BASE_DIR/bin/$TEST_CASE.sh
 
 echo "Killing sar"
-kill -9 `ps -ef |grep vagrant|grep -v grep|grep sar |awk '{ print  $2 }'`
+pkill sar
