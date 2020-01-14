@@ -1,0 +1,63 @@
+#!/bin/bash
+# Nokia environment create modified for Kontain build environment.
+
+#set -o errexit
+
+KM_BASE=$(git rev-parse --show-toplevel)
+
+BASE_DIR=${KM_BASE}/build/demo/nokia/disks
+CPREFIX=kontainstage.azurecr.io/nokia
+
+
+if [ -z $1 ]; then
+    echo "usage: destroyTestEnv.sh <number_of_instance>"
+    exit 1
+fi
+
+NUMBER_OF_INSTANCE=$1
+
+echo "Cleaning disks"
+rm -Rf $BASE_DIR
+mkdir -p $BASE_DIR
+
+echo "Run zookeeper"
+mkdir -p $BASE_DIR/zookeeper/log && \
+mkdir -p $BASE_DIR/zookeeper/data && \
+docker run --name zookeeper-server -p 2181:2181 --network kafka-net -e ZOOKEEPER_CLIENT_PORT=2181 \
+    -e ZOOKEEPER_TICK_TIME=2000 \
+    -e ZOOKEEPER_SYNC_LIMIT=2 \
+    -e IS_RESTORE=false \
+    -v $BASE_DIR/zookeeper/log:/var/lib/zookeeper/log:z \
+    -v $BASE_DIR/zookeeper/data:/var/lib/zookeeper/data:z \
+    --ulimit nofile=122880:122880 \
+    --rm -d ${CPREFIX}/ckaf/zookeeper:2.0.0-3.4.14-2696
+
+
+for (( i=1; i<=$NUMBER_OF_INSTANCE; i++ ))
+do
+   echo "Run kafka-broker-$i"
+    mkdir -p $BASE_DIR/kafka-broker-$i/data && \
+    mkdir -p $BASE_DIR/kafka-broker-$i/log && \
+    docker run --name kafka-broker-$i -p 1909$(( $i + 1 )):9092 --network kafka-net \
+        -e KAFKA_ZOOKEEPER_CONNECT=zookeeper-server:2181 \
+        -e IS_RESTORE=false \
+        -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-broker-$i:9092 \
+        -e INTERNAL_SECURITY_PROTOCOL=PLAINTEXT \
+        -e EXTERNAL_SECURITY_PROTOCOL=PLAINTEXT \
+        -v $BASE_DIR/kafka-broker-$i/data:/var/lib/kafka/data:z \
+        -v $BASE_DIR/kafka-broker-$i/log:/var/log/kafka:z \
+        --ulimit nofile=122880:122880 \
+        --rm -d ${CPREFIX}/ckaf/kafka:2.0.0-5.3.1-2696
+done
+
+
+echo "Run test client"
+docker run --name kafka-test-client \
+    --network kafka-net \
+    --ulimit nofile=122880:122880 \
+    --rm -d \
+    ${CPREFIX}/atg/kafka-client:4.1.2-2 \
+    tail -f /dev/null 
+
+
+
