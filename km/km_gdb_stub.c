@@ -1095,13 +1095,11 @@ static int verify_vcont(threadaction_blob_t* threadactionblob)
 
    km_vcpu_apply_all(km_gdb_count_thread_states, (uint64_t)threadactionblob);
 
+   // Ensure either 1 thread is stepping or all threads are running.
    if ((threadactionblob->running != 0 &&
         (threadactionblob->paused != 0 || threadactionblob->stepping != 0)) ||
        (threadactionblob->stepping == 1 && threadactionblob->running != 0) ||
        threadactionblob->stepping > 1) {
-      /*
-       * Either 1 thread is stepping or all threads are running.
-       */
       km_infox(KM_TRACE_GDB,
                "Unsupported combination of running %d, stepping %d, and paused %d threads",
                threadactionblob->running,

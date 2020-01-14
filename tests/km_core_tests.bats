@@ -331,11 +331,10 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # Verify we "next"ed thru next_thru_this_function()
    refute_line --partial "next_thru_this_function () at gdb_nextstep_test.c"
 
-   # Verify we "step"ed into step_into_this_function
+   # Verify we "step"ed into step_into_this_function()
    assert_line --partial "step_into_this_function () at gdb_nextstep_test.c"
 
-   run wait $km_pid
-   assert_success
+   wait $km_pid
 }
 
 @test "unused_memory_protection($test_type): check that unused memory is protected (mprotect_test$ext)" {
