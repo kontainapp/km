@@ -109,6 +109,13 @@ typedef struct {
    gdb_event_t event;                  // the thread event that has woken the gdb server
 } gdb_vcpu_state_t;
 
+/*
+ * VPCU state transition:
+ * unused/unallocated -> used: .is_used == 1 km_vcpu_get()
+ * used -> active: .is_active == 1 km_run_vcpu_thread()
+ * in and out of the guest -> .is_running == 1 km_vcpu_one_kvm_run()
+ * and back to unused in km_vcpu_stopped()
+ */
 typedef struct km_vcpu {
    int vcpu_id;               // uniq ID
    int kvm_vcpu_fd;           // this VCPU file descriptor
@@ -125,8 +132,6 @@ typedef struct km_vcpu {
    km_gva_t stack_top;        // also available in guest_thr
    km_gva_t guest_thr;        // guest pthread, FS reg in the guest
                               //
-   pthread_mutex_t gdb_mtx;   //
-   pthread_cond_t gdb_cv;     // gdb uses this to synchronize with VCPU thread
    kvm_regs_t regs;           // Cached register values.
    kvm_sregs_t sregs;         // Cached segment register values.
    km_sigset_t sigmask;       // blocked signals for thread
@@ -141,6 +146,20 @@ typedef struct km_vcpu {
                           // the processor's debugging facilities in DR0 - DR3.
    gdb_vcpu_state_t gdb_vcpu_state;   // gdb's per thread (vcpu) state.
 } km_vcpu_t;
+
+static inline void km_lock_vcpu_thr(km_vcpu_t* vcpu)
+{
+   if (pthread_mutex_lock(&vcpu->thr_mtx) != 0) {
+      err(1, "lock mutex thr_mtx");
+   }
+}
+
+static inline void km_unlock_vcpu_thr(km_vcpu_t* vcpu)
+{
+   if (pthread_mutex_unlock(&vcpu->thr_mtx) != 0) {
+      err(1, "unlock mutex thr_mtx");
+   }
+}
 
 /*
  * Produce tid for this vcpu. This should match km_vcpu_fetch_by_tid()
@@ -162,8 +181,8 @@ typedef struct km_machine_init_params {
    uint64_t guest_physmem;         // Requested size of guest physical memory in bytes
    km_flag_force_t force_pdpe1g;   // force on/off 1g pages support regardless of VM CPUID support
    km_flag_force_t overcommit_memory;   // memory overcommit (i.e. MAP_NORESERVE in mmap)
-                                        // Note: if too much of it is accessed, we expect Linux OOM
-                                        // killer to kick in
+                                        // Note: if too much of it is accessed, we expect Linux
+                                        // OOM killer to kick in
 } km_machine_init_params_t;
 
 void km_machine_init(km_machine_init_params_t* params);
@@ -248,17 +267,19 @@ typedef struct km_machine {
    uint64_t guest_mid_physmem;   // first byte of the top half of PA
    int mid_mem_idx;              // idx for the last region in the bottom half of PA
    int last_mem_idx;             // idx for the last (and hidden) region in the top half of PA
-   // syncronization support
-   int intr_fd;           // eventfd used to signal to listener that a vCPU stopped
-   int shutdown_fd;       // eventfd to coordinate final shutdown
-   int exit_group;        // 1 if processing exit_group() call now.
+                                 // syncronization support
+   int intr_fd;                  // eventfd used to signal to listener that a vCPU stopped
+   int shutdown_fd;              // eventfd to coordinate final shutdown
+   int exit_group;               // 1 if processing exit_group() call now.
    int pause_requested;   // 1 if all VCPUs are being paused. Used to prevent race with new vcpu threads
    int exit_status;       // return code from payload's main thread
-   // guest interrupt support
-   km_gva_t gdt;                   // Guest address of Global Descriptor Table (GDT)
-   size_t gdt_size;                // GDT size (bytes)
-   km_gva_t idt;                   // Guest address of Interrupt Descriptor Table (IDT)
-   size_t idt_size;                // IDT size (bytes)
+   pthread_mutex_t pause_mtx;   // protects .pause_requested and indirectly gdb_run_state in vcpus
+   pthread_cond_t pause_cv;     // vcpus wait on it when pause_resuested gdb_run_state say pause
+                                // guest interrupt support
+   km_gva_t gdt;                // Guest address of Global Descriptor Table (GDT)
+   size_t gdt_size;             // GDT size (bytes)
+   km_gva_t idt;                // Guest address of Interrupt Descriptor Table (IDT)
+   size_t idt_size;             // IDT size (bytes)
    pthread_mutex_t signal_mutex;   // Protect signal data structures.
    km_signal_list_t sigpending;    // List of signals pending for guest
    km_signal_list_t sigfree;       // Freelist of signal entries.
@@ -309,21 +330,6 @@ static inline int km_wait_on_eventfd(int fd)
    return value;
 }
 
-static inline void km_wait_on_gdb(km_vcpu_t* vcpu)
-{
-   pthread_mutex_lock(&vcpu->gdb_mtx);
-   pthread_cond_wait(&vcpu->gdb_cv, &vcpu->gdb_mtx);
-   pthread_mutex_unlock(&vcpu->gdb_mtx);
-}
-
-static inline int km_gdb_cv_signal(km_vcpu_t* vcpu)
-{
-   pthread_mutex_lock(&vcpu->gdb_mtx);
-   int i = pthread_cond_signal(&vcpu->gdb_cv);
-   pthread_mutex_unlock(&vcpu->gdb_mtx);
-   return i;
-}
-
 km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[]);
 int km_pthread_create(
     km_vcpu_t* vcpu, pthread_tid_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
@@ -346,7 +352,9 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, uint64_t 
 void km_vcpu_detach(km_vcpu_t* vcpu);
 
 typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, uint64_t data);   // return 0 if all is good
+extern int km_vcpu_apply_used(km_vcpu_apply_cb func, uint64_t data);
 extern int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data);
+extern int km_vcpu_count(void);
 extern void km_vcpu_pause_all(void);
 extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
 

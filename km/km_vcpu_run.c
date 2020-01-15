@@ -516,7 +516,9 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
                km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
                assert("Reached the unreachable" == NULL);
             }
-            assert(__atomic_load_n(&machine.pause_requested, __ATOMIC_SEQ_CST) == 1);
+            pthread_mutex_lock(&machine.pause_mtx);
+            machine.pause_requested = 1;
+            pthread_mutex_unlock(&machine.pause_mtx);
             break;
          }
          case EFAULT: {
@@ -549,6 +551,33 @@ int km_vcpu_is_running(km_vcpu_t* vcpu, uint64_t me)
    return (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) ? 0 : 1;
 }
 
+static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
+{
+   /*
+    * Interlock with machine.pause_requested. This is mostly for the benefits of gdb stub, but
+    * also used to stop all vcpus in exit_grp() and in fatal signal. .pause_requested makes all
+    * vcpu threads pause in cv_wait below. In case of exit_grp() and fatal signal they never run
+    * again as we are exiting.
+    *
+    * In case of gdb the stub will set .pause_requested to 0 and broadcast the cv. The threads
+    * then re-evaluate if they can run. gdb stub conveys desired run state in the .gdb_run_state.
+    * It can allow all threads to run (gdb continue); or pause all but one, which will be stepping
+    * (gdb next or step). gdb stub changes these fields *only* when .pause_requested is set to 1,
+    * hence it is safe to check them here, even though gdb stub doesn't keep the pause_mtx lock when
+    * changing them.
+    */
+   pthread_mutex_lock(&machine.pause_mtx);
+   while (machine.pause_requested == 1 ||
+          (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
+      km_infox(KM_TRACE_VCPU,
+               "pause_requested %d, gvs_gdb_run_state %d, waiting for gdb",
+               machine.pause_requested,
+               vcpu->gdb_vcpu_state.gdb_run_state);
+      pthread_cond_wait(&machine.pause_cv, &machine.pause_mtx);
+   }
+   pthread_mutex_unlock(&machine.pause_mtx);
+}
+
 void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int hc;
@@ -560,22 +589,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    while (1) {
       int reason;
 
-      /*
-       * Interlock with machine.pause_requested.
-       * Also handle the condition where a thread was in hypercall which returned
-       * after gdb had marked the thread as paused.  We need to block the thread.
-       */
-      while (__atomic_load_n(&machine.pause_requested, __ATOMIC_SEQ_CST) == 1 ||
-             (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
-         km_infox(KM_TRACE_VCPU,
-                  "pause_requested %d, gvs_gdb_run_state %d, waiting for gdb",
-                  machine.pause_requested,
-                  vcpu->gdb_vcpu_state.gdb_run_state);
-         km_read_registers(vcpu);
-         km_read_sregisters(vcpu);
-         km_wait_on_gdb(vcpu);
-      }
-
+      km_vcpu_handle_pause(vcpu);
       km_vcpu_one_kvm_run(vcpu);
       reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
       km_info(KM_TRACE_KVM,
@@ -665,7 +679,6 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                 * the correct gdb stop reply.
                 */
                km_gdb_notify(vcpu, GDB_KMSIGNAL_KVMEXIT);
-               __atomic_store_n(&machine.pause_requested, 1, __ATOMIC_SEQ_CST);   // make sure we pause
             } else {
                /*
                 * We got a KVM_EXIT_DEBUG but gdb is disabled.
@@ -712,7 +725,6 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             siginfo_t info;
             km_dequeue_signal(vcpu, &info);
             km_gdb_notify(vcpu, info.si_signo);
-            __atomic_store_n(&machine.pause_requested, 1, __ATOMIC_SEQ_CST);   // make sure we pause
          } else {
             /*
              * If there is a signal with a handler, setup the guest's registers to execute the

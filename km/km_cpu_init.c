@@ -44,6 +44,8 @@ km_machine_t machine = {
     .mmaps.free = TAILQ_HEAD_INITIALIZER(machine.mmaps.free),
     .mmaps.busy = TAILQ_HEAD_INITIALIZER(machine.mmaps.busy),
     .mmaps.mutex = PTHREAD_MUTEX_INITIALIZER,
+    .pause_mtx = PTHREAD_MUTEX_INITIALIZER,
+    .pause_cv = PTHREAD_COND_INITIALIZER,
 };
 
 /*
@@ -183,8 +185,6 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       return -1;
    }
    vcpu->sigpending = (km_signal_list_t){.head = TAILQ_HEAD_INITIALIZER(vcpu->sigpending.head)};
-   vcpu->gdb_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
-   vcpu->gdb_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
    vcpu->thr_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    vcpu->thr_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
    return 0;
@@ -192,12 +192,7 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
 
 /*
  * km_vcpu_get() atomically finds the first vcpu slot that can be used for a new vcpu. It could be
- * previously used slot left by exited thread, or a new one.
- *
- * Note that vm_vcpu_run_cnt **is not** the same as number of used vcpu slots, it is a number of
- * active running vcpu threads. It is adjusted up right before vcpu thread starts, and down when an
- * vcpu exits, in km_vcpu_stopped(). If the vm_vcpu_run_cnt drops to 0 there are no running vcpus any
- * more, payload is done. km_vcpu_stopped() signals the main thread to tear down and exit the km.
+ * previously used slot left by exited thread, or a new one. vcpu->is_used == 0 marks the unused slot.
  */
 km_vcpu_t* km_vcpu_get(void)
 {
@@ -297,12 +292,16 @@ static inline int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
  */
 static int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
 {
+   km_lock_vcpu_thr(vcpu);
    if (vcpu->is_active == 1) {
       if (pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP) != 0) {
          warnx("vcpu %d, pthread_kill failed, errno %d", vcpu->vcpu_id, errno);
       }
+      km_unlock_vcpu_thr(vcpu);
       km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
+      return 0;
    }
+   km_unlock_vcpu_thr(vcpu);
    return 0;
 }
 
@@ -310,8 +309,11 @@ void km_vcpu_pause_all(void)
 {
    int count;
 
-   __atomic_store_n(&machine.pause_requested, 1, __ATOMIC_SEQ_CST);
+   pthread_mutex_lock(&machine.pause_mtx);
+   machine.pause_requested = 1;
+   pthread_mutex_unlock(&machine.pause_mtx);
    km_vcpu_apply_all(km_vcpu_pause, 0);
+
    for (int i = 0; i < 100 && (count = km_vcpu_apply_all(km_vcpu_count_running, 0)) != 0; i++) {
       nanosleep(&_1ms, NULL);
       km_infox(KM_TRACE_VCPU, "waiting for KVM_RUN to exit - %d", i);
