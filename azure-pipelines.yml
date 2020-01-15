@@ -11,10 +11,22 @@ trigger:
   paths:
     exclude:
     - README.md
+    - compile_commands.json
+    - .vscode/*
     - docs/*
+    - demo/customer1/*
 
 pr:
-  - master
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - README.md
+    - compile_commands.json
+    - .vscode/*
+    - docs/*
+    - demo/customer1/*
 
 variables:
   vmImage: "ubuntu-18.04"
