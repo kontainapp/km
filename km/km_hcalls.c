@@ -18,6 +18,7 @@
 #include <sys/syscall.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
+#include <sys/times.h>
 #include <asm/prctl.h>
 #include <linux/futex.h>
 #include <linux/stat.h>
@@ -1214,6 +1215,48 @@ static km_hc_ret_t sysinfo_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t times_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct tms* t = km_gva_to_kma(arg->arg1);
+   if (t == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   clock_t ret = times(t);
+   if (ret == (clock_t)-1) {
+      arg->hc_ret = -errno;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = ret;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t execve_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   warnx("%s(%s, %p, %p)",
+         __FUNCTION__,
+         (char*)km_gva_to_kma(arg->arg1),
+         km_gva_to_kma(arg->arg2),
+         km_gva_to_kma(arg->arg3));
+   uint64_t* ap = km_gva_to_kma(arg->arg2);
+   if (ap != 0) {
+      while (*ap != 0) {
+         warnx("arg: %s", (char*)km_gva_to_kma(*ap));
+         ap++;
+      }
+   }
+   ap = km_gva_to_kma(arg->arg3);
+   if (ap != 0) {
+      while (*ap != 0) {
+         warnx("env: %s", (char*)km_gva_to_kma(*ap));
+         ap++;
+      }
+   }
+   arg->hc_ret = -ENOTSUP;
+   siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
+   km_post_signal(vcpu, &info);
+   return HC_CONTINUE;
+}
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
@@ -1337,6 +1380,9 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_membarrier] = dummy_hcall;
    km_hcalls_table[SYS_getcpu] = getcpu_hcall;
    km_hcalls_table[SYS_sysinfo] = sysinfo_hcall;
+
+   km_hcalls_table[SYS_execve] = execve_hcall;
+   km_hcalls_table[SYS_times] = times_hcall;
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;
