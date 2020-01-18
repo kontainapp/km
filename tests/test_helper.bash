@@ -94,11 +94,21 @@ function km_with_timeout () {
    done
    KM_ARGS="$__args $KM_ARGS"
 
-   # echo km_with_timeout command: ${KM_BIN} ${KM_ARGS} "$@"
    /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
-      timeout --signal=6 --foreground $timeout \
+      timeout --signal=SIGABRT --foreground $timeout \
          ${KM_BIN} ${KM_ARGS} "$@"
-   s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
+   s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi
+   return $s
+}
+
+# A workaround for 'run wait' returning 255 for any failure.
+# For commands NOT using 'run' but put in the background, use this function to wait and
+# check for expected eror code (or 0, if expecting success)
+# e.g.
+#     wait_and_check 124 - wait for the last job put into background
+wait_and_check()
+{
+   s=0; wait %% || s=$? ; assert_equal $s $1
 }
 
 if grep -iq 'vendor_id.*:.*intel' /proc/cpuinfo
