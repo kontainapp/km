@@ -96,7 +96,7 @@ function km_with_timeout () {
 
    # echo km_with_timeout command: ${KM_BIN} ${KM_ARGS} "$@"
    /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
-      timeout --foreground $timeout \
+      timeout --signal=6 --foreground $timeout \
          ${KM_BIN} ${KM_ARGS} "$@"
    s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
 }

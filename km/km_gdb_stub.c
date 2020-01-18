@@ -776,7 +776,15 @@ static int build_thread_list_entry(km_vcpu_t* vcpu, uint64_t data)
    char threadname[MAX_THREADNAME_SIZE];
    char threadlistentry[MAX_THREADLISTENTRY_SIZE];
 
-   pthread_getname_np(vcpu->vcpu_thread, threadname, sizeof(threadname)); /* not really what we want here */
+   km_lock_vcpu_thr(vcpu);
+   if (vcpu->is_active != 0) {
+      pthread_getname_np(vcpu->vcpu_thread, threadname, sizeof(threadname));
+   } else {
+      // This thread is not fully instantiated.
+      km_unlock_vcpu_thr(vcpu);
+      return 0;
+   }
+   km_unlock_vcpu_thr(vcpu);
 
    snprintf(threadlistentry,
             sizeof(threadlistentry),
@@ -1002,8 +1010,7 @@ static int km_gdb_set_default_runstate(km_vcpu_t* vcpu, uint64_t ta)
 
 /*
  * Apply the vCont action to the vcpu for each thread.
- * Since payload threads are vcpus, operating on a cpu is operating
- * on the thread.
+ * See comment in km_vcpu_handle_pause() for locking assumptions.
  */
 static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
 {
@@ -1370,18 +1377,18 @@ static void km_gdb_handle_vpackets(char* packet, char* obuf, int* resume)
 static gdb_event_t* gdb_select_event(void)
 {
    gdb_event_t* foundgep = NULL;
-
    /*
     * Walk through the gdb event queue oldest entry first.  Look for events that are coming from
     * a vcpu that is marked as running or stepping.  If we find such an event then deliver its
     * stop reply now.
     */
-
    pthread_mutex_lock(&gdbstub.notify_mutex);
    TAILQ_FOREACH (foundgep, &gdbstub.event_queue, link) {
-      km_vcpu_t* vcpu;
-
-      vcpu = km_vcpu_fetch_by_tid(foundgep->sigthreadid);
+      if (foundgep->signo == GDB_KMSIGNAL_THREADEXIT) {
+         send_response('S', foundgep, true);
+         break;
+      }
+      km_vcpu_t* vcpu = km_vcpu_fetch_by_tid(foundgep->sigthreadid);
       if (vcpu->gdb_vcpu_state.gdb_run_state != THREADSTATE_PAUSED) {
          TAILQ_REMOVE(&gdbstub.event_queue, foundgep, link);
          pthread_mutex_unlock(&gdbstub.notify_mutex);
@@ -1403,7 +1410,6 @@ static gdb_event_t* gdb_select_event(void)
                vcpu->gdb_vcpu_state.gdb_run_state);
    }
    pthread_mutex_unlock(&gdbstub.notify_mutex);
-
    return NULL;
 }
 
@@ -1778,27 +1784,12 @@ void gdb_delete_stale_events(void)
    assert(ret == 0);
 }
 
-/*
- * Resume paused vcpus. If another vcpu has hit a breakpoint causing session_requested to be
- * non-zero, then don't resume vcpus. This is to avoid starting the remaining vcpus when a freshly
- * started vcpu runs into a new breakpoint. returns 0 on success and 1 on failure.
- */
-static inline int km_gdb_vcpu_continue(km_vcpu_t* vcpu, __attribute__((unused)) uint64_t unused)
-{
-   if (vcpu->gdb_vcpu_state.gdb_run_state != THREADSTATE_PAUSED) {
-      km_infox(KM_TRACE_GDB,
-               "resuming vcpu %d, gdb_run_state %d",
-               vcpu->vcpu_id,
-               vcpu->gdb_vcpu_state.gdb_run_state);
-      return km_gdb_cv_signal(vcpu);
-   }
-   return 0;   // gdb wants this thread paused so don't resume it
-}
-
 static void km_vcpu_resume_all(void)
 {
-   __atomic_store_n(&machine.pause_requested, 0, __ATOMIC_SEQ_CST);
-   km_vcpu_apply_all(km_gdb_vcpu_continue, 0);
+   pthread_mutex_lock(&machine.pause_mtx);
+   machine.pause_requested = 0;
+   pthread_cond_broadcast(&machine.pause_cv);
+   pthread_mutex_unlock(&machine.pause_mtx);
 }
 
 /*
@@ -2012,6 +2003,10 @@ static int linux_signo(gdb_signal_number_t gdb_signo)
 void km_gdb_notify(km_vcpu_t* vcpu, int signo)
 {
    int rc;
+
+   pthread_mutex_lock(&machine.pause_mtx);
+   machine.pause_requested = 1;
+   pthread_mutex_unlock(&machine.pause_mtx);
 
    rc = pthread_mutex_lock(&gdbstub.notify_mutex);
    assert(rc == 0);
