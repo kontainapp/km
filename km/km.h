@@ -274,7 +274,7 @@ typedef struct km_machine {
    int pause_requested;   // 1 if all VCPUs are being paused. Used to prevent race with new vcpu threads
    int exit_status;       // return code from payload's main thread
    pthread_mutex_t pause_mtx;   // protects .pause_requested and indirectly gdb_run_state in vcpus
-   pthread_cond_t pause_cv;     // vcpus wait on it when pause_resuested gdb_run_state say pause
+   pthread_cond_t pause_cv;     // vcpus wait on it when pause_requested gdb_run_state say pause
                                 // guest interrupt support
    km_gva_t gdt;                // Guest address of Global Descriptor Table (GDT)
    size_t gdt_size;             // GDT size (bytes)

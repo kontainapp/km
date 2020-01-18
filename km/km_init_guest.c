@@ -201,7 +201,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
 }
 
 /*
- * vcpu was obtained by km_vcpu_get() and hs .is_used set. The registers and memory is fully
+ * vcpu was obtained by km_vcpu_get() and has .is_used set. The registers and memory is fully
  * prepared to go. We need to create a thread if this is brand new vcpu, or signal the thread if it
  * is reused vcpu. We use .is_active to make sure the thread starts running when we really mean it.
  *
