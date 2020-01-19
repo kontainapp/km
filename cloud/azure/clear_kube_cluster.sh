@@ -17,7 +17,7 @@ cd `dirname $0`
 source ./cloud_config.mk
 
 #set -e  # even if some resource deletion fails, keep deleting others. Thus no need for 'set -e' here
-if [ -v BASH_TRACING ] ; then set -x ; fi
+[ "$TRACE" ] && set -x
 sp_id=`az ad sp list  --query "[?contains(servicePrincipalNames,'$K8_SERVICE_PRINCIPAL')].{Id: objectId}"  --output tsv`
 az aks delete -y --resource-group ${CLOUD_RESOURCE_GROUP}  --name ${K8S_CLUSTER}
 az ad sp delete --id $sp_id

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ -v BASH_TRACING ] ; then set -x ; fi
+[ "$TRACE" ] && set -x
 
 MUSL_TOP=../$(git rev-parse --show-cdup)runtime/musl
 
