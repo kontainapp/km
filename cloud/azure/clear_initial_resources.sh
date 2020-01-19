@@ -15,7 +15,7 @@
 source `dirname $0`/cloud_config.mk
 
 set -e
-if [ -v BASH_TRACING ] ; then set -x ; fi
+[ "$TRACE" ] && set -x
 az account set -s ${CLOUD_SUBSCRIPTION}
 az configure --defaults location=${CLOUD_LOCATION}}
 az acr delete --resource-group ${CLOUD_RESOURCE_GROUP} --name  ${REGISTRY_NAME}
