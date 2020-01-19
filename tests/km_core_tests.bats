@@ -214,43 +214,34 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    km_gdb_default_port=2159
    # start KM in background, give it time to start, and connect with gdb client
    km_with_timeout -g gdb_test$ext &
-   gdb_pid=$! ; sleep 0.5
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test$ext
    # check that gdb found what it is supposed to find
    assert_line --partial 'SUCCESS'
-   # check that KM exited normally
-   wait $gdb_pid
-   assert_success
+   wait_and_check 0 # expect KM to exit normally
 }
 
 # Test with signals
 @test "gdb_signal($test_type): gdb signal support (stray_test$ext)" {
    km_gdb_default_port=2159
    km_with_timeout -g stray_test$ext signal &
-   gdb_pid=$! ; sleep 0.5
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_signal_test.gdb" \
          --ex=c --ex=q stray_test$ext
    assert_success
    assert_line --partial 'received signal SIGUSR1'
    assert_line --partial 'received signal SIGABRT'
-   # check that KM exited normally
-   run wait $gdb_pid
-   assert_failure 6
+   wait_and_check 6 # expect KM to errx(6,...)
 }
 
 @test "gdb_exception($test_type): gdb exception support (stray_test$ext)" {
    km_gdb_default_port=2159
    # Test with signals
    km_with_timeout -g stray_test$ext stray &
-   gdb_pid=$! ; sleep 0.5
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_exception_test.gdb" \
          --ex=c --ex=q stray_test$ext
    assert_success
    assert_line --partial  'received signal SIGSEGV'
-   # check that KM exited normally
-   run wait $gdb_pid
-   assert_failure 11  # SIGSEGV
+   wait_and_check 11 # expect KM to exit with SIGSEGV
 }
 
 @test "gdb_server_race($test_type): gdb server concurrent wakeup test" {
@@ -260,13 +251,10 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # Save output to a log file for our own check using grep below.
    echo trace in $km_trace_file
    km_with_timeout -V -g gdb_server_entry_race_test$ext >$km_trace_file 2>&1 &
-   gdb_pid=$! ; sleep 0.5
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
          --ex=c --ex=q gdb_server_entry_race_test$ext
    assert_success
-   # check that KM exited normally
-   wait $gdb_pid
-   assert_success
+   wait_and_check 0 # expect KM to exit normally
    rm -f $km_trace_file
 }
 
@@ -275,7 +263,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # Verify that qSupported, vCont?, vCont, and qXfer:threads:read remote
    # commands are being used.
    km_with_timeout -g gdb_qsupported_test$ext &
-   gdb_pid=$!; sleep 0.5
    run gdb_with_timeout -q -nx --ex="set debug remote 1" --ex="target remote :$km_gdb_default_port" \
       --ex="source cmd_for_qsupported_test.gdb" --ex=q gdb_qsupported_test$ext
    assert_success
@@ -294,9 +281,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    fi
    # Verify that we now see the switching threads message
    assert_line --partial "Switching to Thread 2"
-
-   run wait $gdb_pid
-   assert_success
+   wait_and_check 0 # expect KM to exit normally
 }
 
 @test "gdb_delete_breakpoint($test_type): gdb delete breakpoint test" {
@@ -304,17 +289,11 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    km_trace_file=/tmp/gdb_delete_breakpoint_test_$$.out
 
    km_with_timeout -V -g gdb_delete_breakpoint_test$ext >$km_trace_file 2>&1 &
-   km_pid=$!; sleep 0.5
-
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
       --ex="source cmd_for_delete_breakpoint_test.gdb" --ex=q gdb_delete_breakpoint_test$ext
    assert_success
-
-   run wait $km_pid
-   assert_success
-
    assert grep -q "Deleted breakpoint, discard event:" $km_trace_file
-
+   wait_and_check 0 # expect KM to exit normally
    rm -fr $km_trace_file
 }
 
@@ -322,19 +301,15 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    km_gdb_default_port=2159
 
    km_with_timeout -g gdb_nextstep_test$ext &
-   km_pid=$!; sleep 0.5
-
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
       --ex="source cmd_for_nextstep_test.gdb" --ex=q gdb_nextstep_test$ext
    assert_success
 
    # Verify we "next"ed thru next_thru_this_function()
    refute_line --partial "next_thru_this_function () at gdb_nextstep_test.c"
-
    # Verify we "step"ed into step_into_this_function()
    assert_line --partial "step_into_this_function () at gdb_nextstep_test.c"
-
-   wait $km_pid
+   wait_and_check 0 # expect KM to exit normally
 }
 
 @test "unused_memory_protection($test_type): check that unused memory is protected (mprotect_test$ext)" {
