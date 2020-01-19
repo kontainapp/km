@@ -15,7 +15,7 @@
 source `dirname $0`/cloud_config.mk
 SUFFIX='openwhisk-kontain'
 
-if [ -v BASH_TRACING ] ; then set -x ; fi
+[ "$TRACE" ] && set -x
 op=${1:-help}
 if [[ "$op" == "help" || "$op" == "--help" ]] ; then
    cat <<EOF

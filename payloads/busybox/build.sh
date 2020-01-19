@@ -1,7 +1,7 @@
 #!/bin/bash
 
 src=busybox
-if [ -v BASH_TRACING ] ; then set -x ; fi
+[ "$TRACE" ] && set -x
 set -e
 
 if [ ! -d $src ]; then

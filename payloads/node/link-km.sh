@@ -3,7 +3,7 @@
 # Create node.km by linking the objects files from build artifacts located at $1 (like /home/appuser/node in a "blank")
 # and put the result into location at $2
 
-if [ -v BASH_TRACING ] ; then set -x ; fi
+[ "$TRACE" ] && set -x
 
 if [[ $# -ne 0 ]] ; then NODE=$1 ; else exit 1 ; fi
 OUT=${2:-$NODE}

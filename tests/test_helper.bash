@@ -69,11 +69,10 @@ case $test_type in
 esac
 
 # we will kill any test if takes longer
-timeout=150
+timeout=150s
 
 # this is how we invoke KM - with a timeout and reporting run time
 function km_with_timeout () {
-
    # Treat all before '--' as KM arguments, and all after '--' as payload arguments
    # With no '--', finding $ext (.km, .kmd. .so) has the same effect.
    # Note that we whitespace split KM args always, so no spaces inside of KM args are allowed
@@ -117,8 +116,9 @@ function gdb_with_timeout () {
 TERM=xterm
 
 bus_width() {
-   #  use KM to print out physical memory width on the test machine
-   echo $(${KM} -V exit_value_test.km 2>& 1 | awk '/physical memory width/ {print $6;}')
+   bw=$(${KM_BIN} -V exit_value_test.km |& awk '/physical memory width/ {print $9;}')
+   if [ -z "$bw" ] ; then bw=39 ; fi # default is enough memory, if the above failed
+   echo $bw
 }
 
 # Setup and teardown for each test.
@@ -141,12 +141,12 @@ EOF
 }
 
 
-# Helper for generic skipping
-# rely on lists
+# Helper for generic tests skipping based on test description.
+# Relies on lists:
 #  `not_needed_{generic,static,dynamic,shared}` and
 #  `todo_{generic,static,dynamic,shared}`
-# to be defined in the actual test and define list of test to skip.
-# See km*.bats
+# These need to be defined in the actual test and contain lists of tests to skip.
+# See km*.bats for example.
 
 # Checks if word "$1" is in list "$2"
 # There HAS to be a space before and after each word in the list, so there is always leading and trailing space in the lists

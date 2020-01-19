@@ -23,7 +23,7 @@ image="$1"
 version="$2"
 if [ -z "$image" -o -z "$version" ] ; then echo Usage: $0 image_short_name version; exit; fi
 
-if [ -v BASH_TRACING ] ; then set -x ; fi
+[ "$TRACE" ] && set -x
 $DEBUG az acr login -n ${REGISTRY_NAME}
 $DEBUG az acr repository show-tags --repository ${image} -n ${REGISTRY_NAME} --output ${out_type}
 $DEBUG az acr repository untag  -n ${REGISTRY_NAME}  --image ${image}:${version}

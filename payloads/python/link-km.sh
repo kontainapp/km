@@ -8,9 +8,8 @@
 # $2 is where to put the results of the link
 # $3 is optional space separated list of modules to link in (e.g. "numpy markupsafe")
 #
-# set -x
-
-if [ -v BASH_TRACING ] ; then set -x ; fi
+set -e
+[ "$TRACE" ] && set -x
 
 cd $(dirname ${BASH_SOURCE[0]})
 KM_TOP=$(git rev-parse --show-cdup)
