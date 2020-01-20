@@ -27,5 +27,5 @@ make pack-modules push-modules
 make clean
 make pull-modules
 make custom
-./extensions/analyze_modules "markupsafe falcon gevent"
+./extensions/analyze_modules.sh "markupsafe falcon gevent"
 
