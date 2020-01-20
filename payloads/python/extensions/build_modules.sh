@@ -33,7 +33,7 @@ usage() {
 Usage:  ${BASH_SOURCE[0]} [options] [module_list]
   Options:
   --[build|generate|pack|pull|push] Operation requested. Default 'build'.
-                                    'build' is 'clone+compile+generate'.
+                                    'build' is 'clone+compile+generate+pack'.
     module_list   Build named modules (space separated list), no matter if validated or not.
                   By default, we use validated modules from modules.json. I
 EOF
@@ -46,25 +46,20 @@ generate_files=$(realpath extensions/prepare_extension.py)
 path_ids=$(realpath extensions/create_ids.sh)
 
 get_validated_module_names() {
-   cat $ext_file | jq -r  ".modules[] | select (.hasSo==\"true\") | select(.status==\"validated\")| .name"
-}
-get_module_version() {
-   cat $ext_file | jq -r  ".modules[] | select (.name==\"$1\") | .versions[-1]"
-}
-get_module_url() {
-   cat $ext_file | jq -r  ".modules[] | select (.name==\"$1\") | .git"
-}
-get_module_dependencies(){
-   cat $ext_file | jq -r  ".modules[] | select (.name==\"$1\") | .dependsOn"
+   cat $ext_file | jq -r  ".modules[] | select (.hasSo==\"true\") | select(.status==\"validated\") | .name"
 }
 
-get_module_repo() {
-   repo=$(cat $ext_file | jq -r  ".modules[] | select (.name==\"$1\") | .dockerRepo")
-   if [[ -z "$repo" || $repo = null ]] ; then
-    repo="kpython/$(echo $name | tr '[A-Z]' '[a-z]')"
-   fi
-   echo $repo
+# first arg is module name , second the field to fetch
+get_module_data() { #
+   data=$(cat $ext_file | jq -r  ".modules[] | select (.name==\"$1\") | .$2")
+   if [[ -z "$data" || "$data" == "null" ]] ; then data="modules.$1.$2_is_empty"; fi
+   echo "$data"
 }
+# first arg is a module name
+get_module_version() { get_module_data "$1" 'versions[-1]'; }
+get_module_url() { get_module_data "$1" git; }
+get_module_repo() { get_module_data "$1" dockerRepo; }
+get_module_dependencies(){ get_module_data "$1" dependsOn; }
 
 # build_one_module name version git_url
 # Loads/builds modules, generates files and builds.a. Returns module name (if .a is present) or ""
@@ -80,19 +75,19 @@ build_one_module() {
       echo "*** Warning: no URL or VERSION for $name in $ext_file. Skipping '$mode' for $name"
       return
    fi
-   if [ $mode != both && $mode != generate ] ; then echo ERROR: wrong mode; exit 1; fi
+   if [[ $mode != build && $mode != generate ]] ; then echo ERROR: wrong mode; exit 1; fi
    src=Modules/$name
    if [[ $mode != generate  ]] ; then # clone and build module
       if [[ -z "$url" ]] ; then echo "*** ERROR - no URL found. Please add git remote URL for $name" ; return; fi
       if [[ "$deps" != null ]] ; then echo "*** WARNING - $m needs '$deps', please make sure it is installed"; fi
       rm -rf  $src
-      echo === setup.py build $module
-      git clone $url -b $version $src
-      # build the module with keeping trace and compile info for further processing
+      # clone build the module with keeping trace and compile info for further processing
       # note: *do not* use '-j' (parallel jobs) flag in setup.py. It breaks some module builds. e.g. numpy
-      (cd $src ; python3 setup.py build |& tee bear.out)
+      echo === git clone $url -b $version $src
+      git clone $url -b $version $src
    fi
 
+   (cd $src ; python3 setup.py build |& tee bear.out)
    make_cmd=$(${generate_files} $src/bear.out | grep 'make -C')
    echo $make_cmd
    $make_cmd
@@ -105,6 +100,7 @@ build() {
    for m in $modules ; do
       build_one_module  $m
    done
+   cd ..; pack # if all built fine, re-pack them
 }
 
 generate() { build; } # same code with small if/then/else inside. Used for help in debuggin. mainly
@@ -142,7 +138,7 @@ pull() {
 push() {
    make login
 	for name in $modules ; do
-		docker push $(get_module_repo)
+		docker push $(get_module_repo $name)
 	done
 }
 
