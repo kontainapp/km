@@ -216,27 +216,25 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
  */
 int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*))
 {
-   int rc;
+   int rc = 0;
 
    __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
    if (vcpu->vcpu_thread == 0) {
       pthread_attr_t vcpu_thr_att;
 
-      pthread_attr_init(&vcpu_thr_att);
-      pthread_attr_setstacksize(&vcpu_thr_att, 16 * KM_PAGE_SIZE);
+      km_pthread_attr_init(&vcpu_thr_att);
+      km_pthread_attr_setstacksize(&vcpu_thr_att, 16 * KM_PAGE_SIZE);
       km_lock_vcpu_thr(vcpu);
       vcpu->is_active = 1;
       if ((rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))run, vcpu)) != 0) {
          vcpu->is_active = 0;
       }
       km_unlock_vcpu_thr(vcpu);
-      pthread_attr_destroy(&vcpu_thr_att);
+      km_pthread_attr_destroy(&vcpu_thr_att);
    } else {
       km_lock_vcpu_thr(vcpu);
       vcpu->is_active = 1;
-      if ((rc = -pthread_cond_signal(&vcpu->thr_cv)) != 0) {
-         vcpu->is_active = 0;
-      }
+      km_pthread_cond_signal(&vcpu->thr_cv);
       km_unlock_vcpu_thr(vcpu);
    }
    if (rc != 0) {
@@ -261,9 +259,7 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
       pthread_exit(NULL);
    }
    while (vcpu->is_active == 0) {
-      if (pthread_cond_wait(&vcpu->thr_cv, &vcpu->thr_mtx) != 0) {
-         err(1, "wait on condition thr_cv");
-      }
+      km_pthread_cond_wait(&vcpu->thr_cv, &vcpu->thr_mtx);
    }
    km_unlock_vcpu_thr(vcpu);
 }
