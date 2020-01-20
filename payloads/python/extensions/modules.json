@@ -1,21 +1,12 @@
 {
    "header": [
-      "#",
-      "# Extension modules to include in python.km",
-      "#",
-      "# old format: <module_name> <version> <url_for_source> <dependency>",
-      "# optional:",
-      "#   URL is optional and only needed for compiled modules",
-      "#   dependency is a binary dependency the module needs to build, e.g. cython for numpy.",
-      "#        for multiple dependencies, glue them with '\\ ', e.g. cython\\ bear",
+      "Python compiled .so modules, to link in custom python.km",
       "",
-      "# in new format, last version (versions[-1]) is default",
-      "#",
-      "# Note that some files here are purely build notes. Generally the ones with version and URL can be uncommented to be",
-      "#       added to the build",
-      "#",
-      "# This file is used from build_modules.sh",
-      "# Keeps track of all I tried, and notes on success/failure"
+      "Describes metadata needed to build KM specific libs",
+      "Mainly self-described",
+      "Status can be unknown, fail, built or validated. Undefined status is unknown.  Built means link succeded but we did not run the actual code. Warnin",
+      "For versions, defauld is the last one in array (versions[-1])",
+      "For dependencies, tools means exec should be there - eventually we will convert it to dnf or modules"
    ],
    "modules": [
       {
@@ -74,17 +65,16 @@
          "dependsOn": {
             "tool": "cython"
          },
-         "comment": [
-            "# NOTE: if atlas (Automatically Tuned Linear Algebra Software) is installed (with atlas-static),",
-            "# numy picks it up and expect static libtatlas which is not avail in dnf (only libatlas.a is there)"
-         ]
+         "comment":  "NOTE: if atlas (Automatically Tuned Linear Algebra Software) is installed (with atlas-static), numpy picks it up and expect static libtatlas.a which is not avail in dnf (only libatlas.a is there)"
       },
       {
          "name": "gunicorn",
+         "git": "https://github.com/benoitc/gunicorn",
+         "abstract": "gunicorn 'Green Unicorn' is a WSGI HTTP Server for UNIX, fast clients and sleepy applications. - benoitc/gunicorn.",
          "versions": [
-            "19.9.0"
+            "19.9.0",
+            "20.0.4"
          ],
-         "git": "n/a",
          "hasSo": "false",
          "status": "fail",
          "comment": "using os.fork"
@@ -95,28 +85,30 @@
             "1.11.2"
          ],
          "git": "https://github.com/GrahamDumpleton/wrapt",
+         "abstract": "A Python module for decorators, wrappers and monkey patching.",
          "hasSo": "true",
          "dockerRepo": "kpython/wrapt",
-         "status": "validated",
-         "comment": ""
+         "status": "validated"
       },
       {
          "name": "Pillow",
          "versions": [
-            "6.2.1"
+            "6.2.1",
+            "7.0.0"
          ],
          "git": "https://github.com/python-pillow/Pillow",
+         "abstract": "The friendly PIL fork (Python Imaging Library). Contribute to python-pillow/Pillow development by creating an account on GitHub.",
          "hasSo": "true",
          "dockerRepo": "kpython/pillow",
-         "status": "validated",
+         "status": "fail",
          "dependsOn": {
             "dnf": [
-               "jpeg-devel",
-               "libtiff-devel"
+               "libjpeg-devel",
+               "libtiff-static"
             ]
          },
          "installDir": "PIL",
-         "comment": "Python Imaging Library. Installation instructions: https://pillow.readthedocs.io/en/latest/installation.htm"
+         "comment": "Builds but needs libjpeg.a and libfreestyle.a and they are not in dnf. Installation instructions: https://pillow.readthedocs.io/en/latest/installation.htm"
       },
       {
          "name": "nameko",
@@ -126,7 +118,6 @@
             "v2.12.0"
          ],
          "hasSo": "false",
-         "dockerRepo": "kpython/nameko",
          "status": "unknown",
          "dependsOn": {
             "modules": "werkzeug  requests  mock  kombu  eventlet  wrapt  six  pyyaml  path.py"
@@ -144,6 +135,20 @@
          "dockerRepo": "kpython/greenlet",
          "status": "validated",
          "comment": ".so is installed directly to site-packages, without an encapsulating dir"
+      },
+      {
+         "name": "pyrsistent",
+         "git": "https://github.com/tobgu/pyrsistent",
+         "abstract": "Persistent/Immutable/Functional data structures for Python - tobgu/pyrsistent.",
+         "versions": [
+            "v0.15.7"
+         ],
+         "hasSo": "true",
+         "status": "built",
+         "dockerRepo": "kpython/pyrsistent",
+         "dependsOn": {
+            "modules": "six"
+         }
       },
       {
          "name": "pyasn1",
@@ -178,7 +183,10 @@
          "hasSo": "true",
          "dockerRepo": "kpython/scipy",
          "status": "fail",
-         "comment": "conflict utils vs utils_cxx - dup name"
+         "dependsOn": {
+            "dnf": "lapack-static blas-static"
+         },
+         "comment": "Conflict utils vs utils_cxx - dup name. also needs -lgfortran (Numerical linear algebra package libraries), and has many defintion conflicts (I guess same .o picked up into different libs"
       },
       {
          "name": "matplotlib",
@@ -193,6 +201,7 @@
       },
       {
          "name": "pandas",
+         "abstract": "What is it? pandas is a Python package providing fast, flexible, and expressive data structures designed to make working with \"relational\" or \"labeled\" data both ...",
          "versions": [
             "v0.25.3"
          ],
@@ -200,7 +209,10 @@
          "hasSo": "true",
          "dockerRepo": "kpython/pandas",
          "status": "fail",
-         "comment": "mulitple dups. Plus unresolved __cxa_begin_catch and other _cxa_xxx"
+         "dependsOn": {
+            "modules": "numpy  python-dateutil  pytz"
+         },
+         "comment": "mulitple dups. Plus unresolved __cxa_begin_catch and other _cxa_xxx. BUNCH OF C++ code, and something does not work in mangle/objcopy hack"
       },
       {
          "name": "python-dateutil",
@@ -233,8 +245,7 @@
             "tool": "cython"
          },
          "dockerRepo": "kpython/gevent",
-         "status": "fail",
-         "comment": "undefined: `__read_chk `__fdelt_chk `__memmove_chk `__open64_2 `__pread64_chk"
+         "status": "built"
       },
       {
          "name": "h5py",
@@ -246,10 +257,11 @@
          "hasSo": "true",
          "dockerRepo": "kpython/h5py",
          "status": "fail",
-         "comment": "needs hdf5 hdf5-static (dnf). undefined: `__vasprintf_chk `__realpath_chk` SZ_encoder_enabled `SZ_BufftoBuffDecompress",
          "dependsOn": {
+            "dnf": "hdf5 hdf5-static",
             "modules": "numpy  six"
-         }
+         },
+         "comment": "Undefined: `__vasprintf_chk `__realpath_chk` SZ_encoder_enabled `SZ_BufftoBuffDecompress"
       },
       {
          "name": "grpcio",
@@ -271,22 +283,12 @@
          "hasSo": "true",
          "dockerRepo": "kpython/protobuf",
          "status": "fail",
-         "comment": "# ^^^^ uses redirection to 'pth' mechanism - file cpython/Lib/protobuf-3.10.0-py3.7-nspkg.pth defines the code below.#      need investigation, uses this: # import sys, types, os;has_mfs = sys.version_info > (3, 5);p = os.path.join(sys._getframe(1).f_locals['sitedir' ], *('google',));importlib = has_mfs and __import__('importlib.util');has_mfs and __import__('importlib.machinery');m = has_mfs and sys.modules.setdefault('google', importlib.util.module_from_spec(importlib.machinery.PathFinder.find_spec('google',[os.path.dirname(p)])));m = m or sys.modules.setdefault('google', types.ModuleType('google'));mp = (m or []) and m.__dict__.setdefault('__path__',[]);(p not in mp) and mp.append(p)"
-      },
-      {
-         "name": "pillow",
-         "git": "https://github.com/python-pillow/Pillow",
-         "abstract": "The friendly PIL fork (Python Imaging Library). Contribute to python-pillow/Pillow development by creating an account on GitHub.",
-         "versions": [
-            "7.0.0"
-         ],
-         "hasSo": "true",
-         "dockerRepo": "kpython/pillow",
-         "status": "unknown"
+         "comment": "^^^^ uses redirection to 'pth' mechanism - file cpython/Lib/protobuf-3.10.0-py3.7-nspkg.pth defines the code below.#      needs investigation, uses this: # import sys, types, os;has_mfs = sys.version_info > (3, 5);p = os.path.join(sys._getframe(1).f_locals['sitedir' ], *('google',));importlib = has_mfs and __import__('importlib.util');has_mfs and __import__('importlib.machinery');m = has_mfs and sys.modules.setdefault('google', importlib.util.module_from_spec(importlib.machinery.PathFinder.find_spec('google',[os.path.dirname(p)])));m = m or sys.modules.setdefault('google', types.ModuleType('google'));mp = (m or []) and m.__dict__.setdefault('__path__',[]);(p not in mp) and mp.append(p)"
       }
    ],
    "dependencies": [
       {
+         "comment": "this is a placeholder for tracking dependencies metadate",
          "name": "cython",
          "provided by": {
             "type": "dnf",
