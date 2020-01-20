@@ -21,11 +21,6 @@
 #     make build-modules pack-modules ALL_MODULES=module_name
 #     manually add '{ "name" : "$module" }' to a KM config (e.g. extension/python-custom.json)
 #     make custom
-#
-# Known issues:
-# - handling of packages which install in differently named folders (can be done via pypi REST API)
-# - github anonymous API limit rate is 60 hits/hr/client, so so version info may fail to fetch
-# - recursive dependencies analysis is missing
 
 [ "$TRACE" ] && set -x
 cd "$( dirname "${BASH_SOURCE[0]}")/.."   # We want to run in payloads/python.
@@ -47,7 +42,7 @@ analyze()  {
 
    module_path=$module  # some modules have different paths (e.g. Pillow->PIL), so prepare for that
    module_info=$(googler -n 1 -C --json "github $module" )
-   kontain_repo=$(echo kpython/$module | tr '[A-Z]' '[a-z]')  # docker repo name has to be lowercase
+   kontain_repo=kpython/${module,,}  # repo name is lowercase
    git_url=$(echo $module_info | jq -r .[].url)
    source_repo=${git_url#https://github.com/}  # git repo name ("owner/repo")
    release_info=$(curl -H 'User-Agent: kontainapp' --silent https://api.github.com/repos/$source_repo/releases/latest)
@@ -75,12 +70,12 @@ analyze()  {
       deps=",\n   \"dependsOn\" : { \"modules\": \"$deps\" }"
    fi
 
-   # Now print out the final json blob
+   # Now form the final json blob
    result=$(cat <<EOF
 {
    "name" : "$module",
    "git" : "$git_url",
-   "abstract" : "$(echo $module_info | jq -r .[].abstract)",
+   "abstract" : "$(echo $module_info | jq -r .[].abstract | sed 's/"/\\"/g')",
    "versions": ["$latest_tag"],
    "hasSo": "$hasSo",
    "status": "unknown" $repo $deps
@@ -88,6 +83,7 @@ analyze()  {
 EOF
    )
 
+   # either insert into config file, or simply print out
    if [ -n "$config_file" ] ; then
       tmpfile=/tmp/$(basename $config_file)_$$
       jq -r ".modules[.modules | length]  += $result " $config_file  > $tmpfile

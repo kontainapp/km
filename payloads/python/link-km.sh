@@ -25,9 +25,9 @@ PATH=$(realpath ${KM_TOP}/tools):$PATH
 BUILD=$(realpath ${1:-cpython})
 OUT=$(realpath ${2:-cpython})
 
-cd $OUT; kontain-gcc -ggdb ${BUILD}/Programs/python.o \
+cd $OUT
+kontain-gcc -ggdb ${BUILD}/Programs/python.o \
    @linkline_km.txt ${EXTRA_FILES} \
    ${BUILD}/libpython3*.a -lz -lssl -lcrypto $LDLIBS \
-   -o ${NAME} && chmod a-x ${NAME}
-echo Linked: ${OUT}/${NAME}
+   -o ${NAME} && chmod a-x ${NAME} && echo Linked: ${OUT}/${NAME}
 

@@ -88,17 +88,18 @@ custom: all ## build python-custom.km. Optionally accepts CUSTOM_NAME=config_nam
 CUSTOM_NAME ?= custom
 # stuff deducted from CUSTOM_NAME:
 CUSTOM_CONFIG ?= ./extensions/python-$(CUSTOM_NAME).json
-CUSTOM_MODULES  = $(shell jq -r .modules[].name ${CUSTOM_CONFIG})
+CUSTOM_MODULES ?= $(shell jq -r .modules[].name ${CUSTOM_CONFIG})
 
 ifeq (${MAKECMDGOALS},custom)
 # these 2 vars need to be defined only for target 'custom' as they impact what is being linked
 EXTRA_LINKFILES = $(foreach m,${CUSTOM_MODULES},@Modules/$m/linkline_km.txt)
 CUSTOM_KM = python-${CUSTOM_NAME}.km
+MODULES = ${CUSTOM_MODULES}
 
 all: .check_custom_config pull-modules
 .PHONY: .check_custom_config
 .check_custom_config:
-	@if [ ! -f ${CUSTOM_CONFIG} ] ; then false; fi # make sure we fail if custom config is not there
+	@if [ ! -f ${CUSTOM_CONFIG} ] ; then echo "***WARNING @{CUSTOM_CONFIG} is not found"; fi # make sure we fail if custom config is not there
 endif
 
 # rebuild builtin extensions
@@ -111,6 +112,10 @@ builtins: ## helper target to rebuilt builtin extension in clone cpython dir. On
 # MODULES can be used for alist of modules. Default is all validated ones from modules.json
 build-modules push-modules pull-modules pack-modules: ## Operations on Kontain artifacts for dynamically linked modules
 	./extensions/build_modules.sh --$(subst -modules,,$@) "${MODULES}"
+
+test-modules: ## Basic test pass - rebuilds python, rebuilds and pushes all modules, and does custom link
+	./extensions/test.sh
+	@echo TODO: run test over custom KM, including new modules test
 
 login: ## personal helper for token-based login.
 	cat  ~/.docker/token  | docker login -u $(shell cat ~/.docker/username) --password-stdin
