@@ -163,20 +163,24 @@ pull-buildenv-image: ## Pulls the buildenv image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
 		FROM=$(BUILDENV_IMG_REG):$(BUILDENV_IMAGE_VERSION) TO=$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION)
 
-# use this embedded dockerfile... we need it to replace ENTRYPOINT
+# We send the result of DOCKERFILE_CONTENT (after processing vars) to docker build in 'make runenv-image'
+# if environment is needed in the image, a component's Makefile should set DOCKER_ENV var - see python/Makefile for an exampke
 export define DOCKERFILE_CONTENT
 cat <<EOF
 	FROM scratch
 	LABEL Description="${PAYLOAD_NAME} in Kontain" Vendor="Kontain.app" Version="0.1"
 	ADD . /
-	ENTRYPOINT [ "/km", "$(notdir $(PAYLOAD_KM))" ]
+	${DOCKER_ENV}
+	ENTRYPOINT [ "/km", "--copyenv", "$(notdir $(PAYLOAD_KM))" ]
 EOF
 endef
 
 runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
 	@$(TOP)make/check-docker.sh
 	@-docker rmi -f ${RUNENV_IMG}:latest 2>/dev/null
-	cp ${KM_BIN} ${RUNENV_PATH}
+	cp ${KM_BIN} ${PAYLOAD_KM}  ${RUNENV_PATH}
+	echo '#!/km --copyenv' > $(RUNENV_PATH)$(COMPONENT) ; chmod a+x $(RUNENV_PATH)$(COMPONENT)
+
 ifdef runenv_prep
 	@echo -e "Executing prep steps"
 	eval $(runenv_prep)
