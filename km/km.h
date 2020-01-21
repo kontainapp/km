@@ -13,13 +13,13 @@
 #ifndef __KM_H__
 #define __KM_H__
 
-#include <assert.h>
 #include <err.h>
 #include <errno.h>
 #include <pthread.h>
 #include <regex.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/param.h>
 #include <sys/types.h>
@@ -123,7 +123,7 @@ typedef struct km_vcpu {
    kvm_run_t* cpu_run;        // run control region
    pthread_t vcpu_thread;     // km pthread
    pthread_mutex_t thr_mtx;   // protects the three fields below
-   pthread_cond_t thr_cv;     // used by vcpu_pthread to block while vcpu isn't in use
+   pthread_cond_t thr_cv;     // used by vcpu to block while vcpu isn't in use
    uint8_t is_used;           // 1 means slot is taken, 0 means 'ready for reuse'
    uint8_t is_active;         // 1 VCPU thread is running, 0 means it is "parked" or not started yet
    uint8_t is_running;        // 1 means the vcpu is in guest, aka ioctl (KVM_RUN)
@@ -383,52 +383,52 @@ extern km_info_trace_t km_info_trace;
          km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                  \
    } while (0)
 
-#define km_pthread_mutex_lock(mutex)                                                               \
+#define km_mutex_lock(mutex)                                                                       \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_mutex_lock(mutex)) != 0) {                                                \
          km_trace(ret, __FUNCTION__, __LINE__, "pthread_mutex_lock(" #mutex ") Failed");           \
+         abort();                                                                                  \
       }                                                                                            \
-      assert(ret == 0);                                                                            \
    } while (0)
 
-#define km_pthread_mutex_unlock(mutex)                                                             \
+#define km_mutex_unlock(mutex)                                                                     \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_mutex_unlock(mutex)) != 0) {                                              \
          km_trace(ret, __FUNCTION__, __LINE__, "pthread_mutex_unlock(" #mutex ") Failed");         \
+         abort();                                                                                  \
       }                                                                                            \
-      assert(ret == 0);                                                                            \
    } while (0)
 
-#define km_pthread_cond_broadcast(cond)                                                            \
+#define km_cond_broadcast(cond)                                                                    \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_cond_broadcast(cond)) != 0) {                                             \
          km_trace(ret, __FUNCTION__, __LINE__, "pthread_cond_broadcast(" #cond ") Failed");        \
+         abort();                                                                                  \
       }                                                                                            \
-      assert(ret == 0);                                                                            \
    } while (0)
 
-#define km_pthread_cond_signal(cond)                                                               \
+#define km_cond_signal(cond)                                                                       \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_cond_signal(cond)) != 0) {                                                \
          km_trace(ret, __FUNCTION__, __LINE__, "pthread_cond_signal(" #cond ") Failed");           \
+         abort();                                                                                  \
       }                                                                                            \
-      assert(ret == 0);                                                                            \
    } while (0)
 
-#define km_pthread_cond_wait(cond, mutex)                                                          \
+#define km_cond_wait(cond, mutex)                                                                  \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_cond_wait(cond, mutex)) != 0) {                                           \
          km_trace(ret, __FUNCTION__, __LINE__, "pthread_cond_wait(" #cond ", " #mutex ") Failed"); \
+         abort();                                                                                  \
       }                                                                                            \
-      assert(ret == 0);                                                                            \
    } while (0)
 
-#define km_pthread_getname_np(target_thread, threadname, buflen)                                   \
+#define km_getname_np(target_thread, threadname, buflen)                                           \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_getname_np(target_thread, threadname, buflen)) != 0) {                    \
@@ -436,20 +436,20 @@ extern km_info_trace_t km_info_trace;
                   __FUNCTION__,                                                                    \
                   __LINE__,                                                                        \
                   "pthread_getname_np(" #target_thread ", " #threadname ", " #buflen ") Failed");  \
+         abort();                                                                                  \
       }                                                                                            \
-      assert(ret == 0);                                                                            \
    } while (0)
 
-#define km_pthread_setname_np(target_thread, name)                                                          \
+#define km_setname_np(target_thread, name)                                                                  \
    do {                                                                                                     \
       int ret;                                                                                              \
       if ((ret = pthread_setname_np(target_thread, name)) != 0) {                                           \
          km_trace(ret, __FUNCTION__, __LINE__, "pthread_setname_np(" #target_thread ", " #name ") Failed"); \
+         abort();                                                                                           \
       }                                                                                                     \
-      assert(ret == 0);                                                                                     \
    } while (0)
 
-#define km_pthread_attr_setstacksize(attr, stacksize)                                              \
+#define km_attr_setstacksize(attr, stacksize)                                                      \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_attr_setstacksize(attr, stacksize)) != 0) {                               \
@@ -457,74 +457,74 @@ extern km_info_trace_t km_info_trace;
                   __FUNCTION__,                                                                    \
                   __LINE__,                                                                        \
                   "pthread_attr_setstacksize(" #attr ", " #stacksize ") Failed");                  \
+         abort();                                                                                  \
       }                                                                                            \
-      assert(ret == 0);                                                                            \
    } while (0)
 
-#define km_pthread_attr_init(attr)                                                                 \
+#define km_attr_init(attr)                                                                         \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_attr_init(attr)) != 0) {                                                  \
          km_trace(ret, __FUNCTION__, __LINE__, "pthread_attr_init(" #attr ") Failed");             \
+         abort();                                                                                  \
       }                                                                                            \
-      assert(ret == 0);                                                                            \
    } while (0)
 
-#define km_pthread_attr_destroy(attr)                                                              \
+#define km_attr_destroy(attr)                                                                      \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_attr_destroy(attr)) != 0) {                                               \
          km_trace(ret, __FUNCTION__, __LINE__, "pthread_attr_destroy(" #attr ") Failed");          \
+         abort();                                                                                  \
       }                                                                                            \
-      assert(ret == 0);                                                                            \
    } while (0)
 
-#define km_pthread_sigmask(how, set, oldset)                                                               \
+#define km_sigmask(how, set, oldset)                                                                       \
    do {                                                                                                    \
       int ret;                                                                                             \
       if ((ret = pthread_sigmask(how, set, oldset)) != 0) {                                                \
          km_trace(ret, __FUNCTION__, __LINE__, "pthread_sigmask(" #how ", " #set ", " #oldset ") Failed"); \
+         abort();                                                                                          \
       }                                                                                                    \
-      assert(ret == 0);                                                                                    \
    } while (0)
 
-#define km_pthread_kill(threadid, signo)                                                           \
+#define km_pkill(threadid, signo)                                                                  \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_kill(threadid, signo)) != 0) {                                            \
          km_trace(ret, __FUNCTION__, __LINE__, "pthread_kill(" #threadid ", " #signo ") Failed "); \
+         abort();                                                                                  \
       }                                                                                            \
-      assert(ret == 0);                                                                            \
    } while (0)
 
 static inline void km_lock_vcpu_thr(km_vcpu_t* vcpu)
 {
-   km_pthread_mutex_lock(&vcpu->thr_mtx);
+   km_mutex_lock(&vcpu->thr_mtx);
 }
 
 static inline void km_unlock_vcpu_thr(km_vcpu_t* vcpu)
 {
-   km_pthread_mutex_unlock(&vcpu->thr_mtx);
+   km_mutex_unlock(&vcpu->thr_mtx);
 }
 
 static inline void km_mem_lock(void)
 {
-   km_pthread_mutex_lock(&machine.brk_mutex);
+   km_mutex_lock(&machine.brk_mutex);
 }
 
 static inline void km_mem_unlock(void)
 {
-   km_pthread_mutex_unlock(&machine.brk_mutex);
+   km_mutex_unlock(&machine.brk_mutex);
 }
 
 static inline void km_signal_lock(void)
 {
-   km_pthread_mutex_lock(&machine.signal_mutex);
+   km_mutex_lock(&machine.signal_mutex);
 }
 
 static inline void km_signal_unlock(void)
 {
-   km_pthread_mutex_unlock(&machine.signal_mutex);
+   km_mutex_unlock(&machine.signal_mutex);
 }
 
 // tags for different traces

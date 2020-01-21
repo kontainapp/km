@@ -222,19 +222,19 @@ int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*))
    if (vcpu->vcpu_thread == 0) {
       pthread_attr_t vcpu_thr_att;
 
-      km_pthread_attr_init(&vcpu_thr_att);
-      km_pthread_attr_setstacksize(&vcpu_thr_att, 16 * KM_PAGE_SIZE);
+      km_attr_init(&vcpu_thr_att);
+      km_attr_setstacksize(&vcpu_thr_att, 16 * KM_PAGE_SIZE);
       km_lock_vcpu_thr(vcpu);
       vcpu->is_active = 1;
       if ((rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))run, vcpu)) != 0) {
          vcpu->is_active = 0;
       }
       km_unlock_vcpu_thr(vcpu);
-      km_pthread_attr_destroy(&vcpu_thr_att);
+      km_attr_destroy(&vcpu_thr_att);
    } else {
       km_lock_vcpu_thr(vcpu);
       vcpu->is_active = 1;
-      km_pthread_cond_signal(&vcpu->thr_cv);
+      km_cond_signal(&vcpu->thr_cv);
       km_unlock_vcpu_thr(vcpu);
    }
    if (rc != 0) {
@@ -259,7 +259,7 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
       pthread_exit(NULL);
    }
    while (vcpu->is_active == 0) {
-      km_pthread_cond_wait(&vcpu->thr_cv, &vcpu->thr_mtx);
+      km_cond_wait(&vcpu->thr_cv, &vcpu->thr_mtx);
    }
    km_unlock_vcpu_thr(vcpu);
 }

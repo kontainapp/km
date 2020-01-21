@@ -37,12 +37,11 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
    struct timespec ts;
    struct tm tm;
    char* p;
-   // int errnum = errno;
    va_list ap;
 
    va_start(ap, fmt);
 
-   km_pthread_getname_np(pthread_self(), threadname, sizeof(threadname));
+   km_getname_np(pthread_self(), threadname, sizeof(threadname));
    clock_gettime(CLOCK_REALTIME, &ts);
    gmtime_r(&ts.tv_sec, &tm);   // UTC!
    snprintf(traceline,

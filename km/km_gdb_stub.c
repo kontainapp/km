@@ -778,7 +778,7 @@ static int build_thread_list_entry(km_vcpu_t* vcpu, uint64_t data)
 
    km_lock_vcpu_thr(vcpu);
    if (vcpu->is_active != 0) {
-      km_pthread_getname_np(vcpu->vcpu_thread, threadname, sizeof(threadname));
+      km_getname_np(vcpu->vcpu_thread, threadname, sizeof(threadname));
    } else {
       // This thread is not fully instantiated.
       km_unlock_vcpu_thr(vcpu);
@@ -1382,7 +1382,7 @@ static gdb_event_t* gdb_select_event(void)
     * a vcpu that is marked as running or stepping.  If we find such an event then deliver its
     * stop reply now.
     */
-   km_pthread_mutex_lock(&gdbstub.notify_mutex);
+   km_mutex_lock(&gdbstub.notify_mutex);
    TAILQ_FOREACH (foundgep, &gdbstub.event_queue, link) {
       if (foundgep->signo == GDB_KMSIGNAL_THREADEXIT) {
          send_response('S', foundgep, true);
@@ -1391,7 +1391,7 @@ static gdb_event_t* gdb_select_event(void)
       km_vcpu_t* vcpu = km_vcpu_fetch_by_tid(foundgep->sigthreadid);
       if (vcpu->gdb_vcpu_state.gdb_run_state != THREADSTATE_PAUSED) {
          TAILQ_REMOVE(&gdbstub.event_queue, foundgep, link);
-         km_pthread_mutex_unlock(&gdbstub.notify_mutex);
+         km_mutex_unlock(&gdbstub.notify_mutex);
          km_infox(KM_TRACE_GDB,
                   "Selecting gdb event at %p, signo %d, threadid %d",
                   foundgep,
@@ -1409,7 +1409,7 @@ static gdb_event_t* gdb_select_event(void)
                foundgep->sigthreadid,
                vcpu->gdb_vcpu_state.gdb_run_state);
    }
-   km_pthread_mutex_unlock(&gdbstub.notify_mutex);
+   km_mutex_unlock(&gdbstub.notify_mutex);
    return NULL;
 }
 
@@ -1725,7 +1725,7 @@ void gdb_delete_stale_events(void)
    gdb_event_t* nextgep;
    km_vcpu_t* vcpu;
 
-   km_pthread_mutex_lock(&gdbstub.notify_mutex);
+   km_mutex_lock(&gdbstub.notify_mutex);
 
    /*
     * Find events for breakpoints that were deleted by the user
@@ -1778,15 +1778,15 @@ void gdb_delete_stale_events(void)
       }
    }
 
-   km_pthread_mutex_unlock(&gdbstub.notify_mutex);
+   km_mutex_unlock(&gdbstub.notify_mutex);
 }
 
 static void km_vcpu_resume_all(void)
 {
-   km_pthread_mutex_lock(&machine.pause_mtx);
+   km_mutex_lock(&machine.pause_mtx);
    machine.pause_requested = 0;
-   km_pthread_cond_broadcast(&machine.pause_cv);
-   km_pthread_mutex_unlock(&machine.pause_mtx);
+   km_cond_broadcast(&machine.pause_cv);
+   km_mutex_unlock(&machine.pause_mtx);
 }
 
 /*
@@ -1836,7 +1836,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
             break;
          }
          assert(ch == GDB_INTERRUPT_PKT);   // At this point it's only legal to see ^C from GDB
-         km_pthread_mutex_lock(&gdbstub.notify_mutex);
+         km_mutex_lock(&gdbstub.notify_mutex);
          /*
           * If a payload thread has already stopped it will have caused session_requested
           * to be set non-zero.  In this case we prefer to use the stopped thread as
@@ -1851,7 +1851,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
             };
             TAILQ_INSERT_HEAD(&gdbstub.event_queue, &ge, link);
          }
-         km_pthread_mutex_unlock(&gdbstub.notify_mutex);
+         km_mutex_unlock(&gdbstub.notify_mutex);
       }
       if (fds[1].revents) {
          km_infox(KM_TRACE_GDB, "a vcpu signalled about a kvm exit");
@@ -1868,12 +1868,12 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 
       km_infox(KM_TRACE_GDB, "kvm exit handled, starting vcpu's");
 
-      km_pthread_mutex_lock(&gdbstub.notify_mutex);   // Block vcpu events until all are started
+      km_mutex_lock(&gdbstub.notify_mutex);   // Block vcpu events until all are started
 
       gdbstub.session_requested = 0;
       km_vcpu_resume_all();
 
-      km_pthread_mutex_unlock(&gdbstub.notify_mutex);   // Allow vcpus to wakeup us now
+      km_mutex_unlock(&gdbstub.notify_mutex);   // Allow vcpus to wakeup us now
    }
 }
 
@@ -1995,11 +1995,11 @@ static int linux_signo(gdb_signal_number_t gdb_signo)
  */
 void km_gdb_notify(km_vcpu_t* vcpu, int signo)
 {
-   km_pthread_mutex_lock(&machine.pause_mtx);
+   km_mutex_lock(&machine.pause_mtx);
    machine.pause_requested = 1;
-   km_pthread_mutex_unlock(&machine.pause_mtx);
+   km_mutex_unlock(&machine.pause_mtx);
 
-   km_pthread_mutex_lock(&gdbstub.notify_mutex);
+   km_mutex_lock(&gdbstub.notify_mutex);
    km_infox(KM_TRACE_GDB,
             "session_requested %d, linux signo %d, exit_reason %u, tid %d, gdb event queue %d",
             gdbstub.session_requested,
@@ -2023,5 +2023,5 @@ void km_gdb_notify(km_vcpu_t* vcpu, int signo)
       gdbstub.session_requested = 1;
       eventfd_write(machine.intr_fd, 1);   // wakeup the gdb server thread
    }
-   km_pthread_mutex_unlock(&gdbstub.notify_mutex);
+   km_mutex_unlock(&gdbstub.notify_mutex);
 }

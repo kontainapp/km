@@ -309,9 +309,9 @@ void km_vcpu_pause_all(void)
 {
    int count;
 
-   km_pthread_mutex_lock(&machine.pause_mtx);
+   km_mutex_lock(&machine.pause_mtx);
    machine.pause_requested = 1;
-   km_pthread_mutex_unlock(&machine.pause_mtx);
+   km_mutex_unlock(&machine.pause_mtx);
    km_vcpu_apply_all(km_vcpu_pause, 0);
 
    for (int i = 0; i < 100 && (count = km_vcpu_apply_all(km_vcpu_count_running, 0)) != 0; i++) {

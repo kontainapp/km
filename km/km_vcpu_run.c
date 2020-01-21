@@ -516,9 +516,9 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
                km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
                assert("Reached the unreachable" == NULL);
             }
-            km_pthread_mutex_lock(&machine.pause_mtx);
+            km_mutex_lock(&machine.pause_mtx);
             machine.pause_requested = 1;
-            km_pthread_mutex_unlock(&machine.pause_mtx);
+            km_mutex_unlock(&machine.pause_mtx);
             break;
          }
          case EFAULT: {
@@ -566,16 +566,16 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
     * hence it is safe to check them here, even though gdb stub doesn't keep the pause_mtx lock when
     * changing them.
     */
-   km_pthread_mutex_lock(&machine.pause_mtx);
+   km_mutex_lock(&machine.pause_mtx);
    while (machine.pause_requested == 1 ||
           (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
       km_infox(KM_TRACE_VCPU,
                "pause_requested %d, gvs_gdb_run_state %d, waiting for gdb",
                machine.pause_requested,
                vcpu->gdb_vcpu_state.gdb_run_state);
-      km_pthread_cond_wait(&machine.pause_cv, &machine.pause_mtx);
+      km_cond_wait(&machine.pause_cv, &machine.pause_mtx);
    }
-   km_pthread_mutex_unlock(&machine.pause_mtx);
+   km_mutex_unlock(&machine.pause_mtx);
 }
 
 void* km_vcpu_run(km_vcpu_t* vcpu)
@@ -584,7 +584,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
    char thread_name[16];   // see 'man pthread_getname_np'
    sprintf(thread_name, "vcpu-%d", vcpu->vcpu_id);
-   km_pthread_setname_np(vcpu->vcpu_thread, thread_name);
+   km_setname_np(vcpu->vcpu_thread, thread_name);
 
    while (1) {
       int reason;

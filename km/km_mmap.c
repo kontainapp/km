@@ -33,12 +33,12 @@ typedef enum { MMAP_ALLOC_GUEST = 0x0, MMAP_ALLOC_MONITOR } mmap_allocation_type
 
 static inline void mmaps_lock(void)
 {
-   km_pthread_mutex_lock(&machine.mmaps.mutex);
+   km_mutex_lock(&machine.mmaps.mutex);
 }
 
 static inline void mmaps_unlock(void)
 {
-   km_pthread_mutex_unlock(&machine.mmaps.mutex);
+   km_mutex_unlock(&machine.mmaps.mutex);
 }
 
 void km_guest_mmap_init(void)
