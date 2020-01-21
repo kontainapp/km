@@ -128,6 +128,8 @@ int main(int argc, char* const argv[])
    int envc = 1;                             // count of elements in envp (including NULL)
    int putenv_used = 0, copyenv_used = 0;    // they are mutually exclusive
 
+   km_gdb_gdbstub_init();
+
    assert(envp != NULL);
    while ((opt = getopt_long(argc, argv, "+g::V::P:vC:", long_options, &longopt_index)) != -1) {
       switch (opt) {

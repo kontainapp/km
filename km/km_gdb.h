@@ -119,6 +119,17 @@ struct __attribute__((__packed__)) km_gdb_regs {
 
 #define GDB_INTERRUPT_PKT 0x3   // aka ^C
 
+// Characters that must be escaped to appear in remote protocol messages
+#define GDB_REMOTEPROTO_SPECIALCHARS "}$#*"
+
+#define MAX_GDB_VFILE_OPEN_FD                                                                      \
+   32   // our gdb server will only allow 32 concurrent open vfile handles
+#define GDB_VFILE_FD_FREE_SLOT -1
+typedef struct gdbstub_vfile {
+   int fd[MAX_GDB_VFILE_OPEN_FD];
+   pid_t current_fs;   // we use the root directory for this process for opens
+} gdbstub_vfile_t;
+
 // Define the gdb event queue head structure.
 TAILQ_HEAD(gdb_event_queue, gdb_event);
 typedef struct gdb_event_queue gdb_event_queue_t;
@@ -144,6 +155,7 @@ typedef struct gdbstub_info {
    uint8_t clientsup_vcontsupported;   // gdb client can send vCont and vCont? requests
    uint8_t clientsup_qthreadevents;    // gdb client can send QThreadEvents requests
    // Note: we use km_vcpu_get_tid() as gdb payload thread id
+   gdbstub_vfile_t vfile_state;   // state for the vfile operations
 } gdbstub_info_t;
 
 extern gdbstub_info_t gdbstub;
@@ -188,6 +200,8 @@ static inline int km_fd_is_gdb(int fd)
    return (fd == gdbstub.sock_fd);
 }
 
+extern void km_gdb_gdbstub_init(void);
+extern void km_gdb_vfile_init(void);
 extern int km_gdb_wait_for_connect(const char* image_name);
 extern void km_gdb_main_loop(km_vcpu_t* main_vcpu);
 extern void km_gdb_fini(int ret);
