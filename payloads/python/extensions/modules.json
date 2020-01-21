@@ -65,7 +65,7 @@
          "dependsOn": {
             "tool": "cython"
          },
-         "comment":  "NOTE: if atlas (Automatically Tuned Linear Algebra Software) is installed (with atlas-static), numpy picks it up and expect static libtatlas.a which is not avail in dnf (only libatlas.a is there)"
+         "comment": "NOTE: if atlas (Automatically Tuned Linear Algebra Software) is installed (with atlas-static), numpy picks it up and expect static libtatlas.a which is not avail in dnf (only libatlas.a is there)"
       },
       {
          "name": "gunicorn",
@@ -284,6 +284,33 @@
          "dockerRepo": "kpython/protobuf",
          "status": "fail",
          "comment": "^^^^ uses redirection to 'pth' mechanism - file cpython/Lib/protobuf-3.10.0-py3.7-nspkg.pth defines the code below.#      needs investigation, uses this: # import sys, types, os;has_mfs = sys.version_info > (3, 5);p = os.path.join(sys._getframe(1).f_locals['sitedir' ], *('google',));importlib = has_mfs and __import__('importlib.util');has_mfs and __import__('importlib.machinery');m = has_mfs and sys.modules.setdefault('google', importlib.util.module_from_spec(importlib.machinery.PathFinder.find_spec('google',[os.path.dirname(p)])));m = m or sys.modules.setdefault('google', types.ModuleType('google'));mp = (m or []) and m.__dict__.setdefault('__path__',[]);(p not in mp) and mp.append(p)"
+      },
+      {
+         "name": "tornado",
+         "git": "https://github.com/tornadoweb/tornado",
+         "abstract": "Tornado is a Python web framework and asynchronous networking library, originally developed at FriendFeed. - tornadoweb/tornado.",
+         "versions": [
+            "v6.0.3"
+         ],
+         "hasSo": "true",
+         "dockerRepo": "kpython/tornado",
+         "status": "built"
+      },
+      {
+         "name": "thrift",
+         "git": "https://github.com/apache/thrift",
+         "abstract": "Apache Thrift. Introduction. Thrift is a lightweight, language-independent software stack for point-to-point RPC implementation. Thrift provides clean abstractions ...",
+         "versions": [
+            "v0.13.0"
+         ],
+         "hasSo": "true",
+         "dockerRepo": "kpython/thrift",
+         "dependsOn": {
+            "modules": "six"
+         },
+         "setupLocation": "lib/py/",
+         "status": "built",
+         "comment": "TODO: setup.py in setupLocation, 'make custom' needs to handle this"
       }
    ],
    "dependencies": [
