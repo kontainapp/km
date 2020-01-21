@@ -11,6 +11,7 @@
 #  Kontain Inc.
 #
 # Check for docker availability, report issues and exit(1) if something is wrong
+[ "$TRACE" ] && set -x
 
 RED="\033[31m"
 NOCOLOR="\033[0m"

@@ -29,9 +29,9 @@ PAYLOAD_KM := cpython/python.km
 # name to be added to label(s)
 PAYLOAD_NAME := Python3.7
 
-# a list to be passed to tar to be packed into container image
+# a list to be passed to tar to be packed into container image by 'make distro'.TODO: drop 'make distro' target and related code
 PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.exe' --exclude '*.whl' \
-	cpython/python.km cpython/Lib cpython/Modules/Setup scripts
+	cpython/Lib cpython/Modules/Setup
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)
@@ -122,6 +122,7 @@ login: ## personal helper for token-based login.
 
 clean:
 	rm -rf $(PYTHONTOP)/*.km $(PYTHONTOP)/python $(foreach m,${ALL_MODULES},$(PYTHONTOP)/Modules/$m)
+	rm -rf $(RUNENV_PATH)
 	images=`docker image ls -q  'kpython/*'` ; if [ -n "$$images" ] ; then docker rmi $$images ; fi
 	@echo -e "${GREEN}Note: use 'make clobber' to clean up cpython build.${NOCOLOR}"
 
@@ -130,13 +131,12 @@ test test-all: ${PAYLOAD_KM} ${TEST_KM}
 
 test-all-withdocker: test-withdocker # alias for test-withdocker
 
-# If something needs to be copied/modified before building runenv image in Docker,
-# define this function
-# TODO (fix it): runenv-image for python only works with ENTRYPOINT override: --entrypoint /python
-# Also it's HUGE (170MB), need stuff stripped
+# Set info for runenv-image build
+DOCKER_ENV = ENV PYTHONPATH=/cpython/Lib PYTHONHOME=foo:bar
+RUNENV_VALIDATE_CMD= scripts/hello_again.py
 export define runenv_prep
-	tar -cf - ${PYTHON_DISTRO_FILES} scripts | tar -C $(RUNENV_PATH) -xf -
-	echo '#!/km --putenv=PYTHONPATH=/cpython/Lib' > $(RUNENV_PATH)/python ; chmod a+x $(RUNENV_PATH)/python
+	cp -r scripts $(RUNENV_PATH)
+	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
 endef
 clobber: ## Clobber cpython build by removing cpython dir
 	rm -rf cpython
