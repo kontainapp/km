@@ -386,7 +386,6 @@ extern km_info_trace_t km_info_trace;
 #define km_err_msg(errno, msg)                                                                     \
    do {                                                                                            \
       km_trace(errno, __FUNCTION__, __LINE__, msg);                                                \
-      abort();                                                                                     \
    } while (0)
 
 #define km_mutex_lock(mutex)                                                                       \
@@ -394,6 +393,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_mutex_lock(mutex)) != 0) {                                                \
          km_err_msg(ret, "pthread_mutex_lock(" #mutex ") Failed");                                 \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
@@ -402,6 +402,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_mutex_unlock(mutex)) != 0) {                                              \
          km_err_msg(ret, "pthread_mutex_unlock(" #mutex ") Failed");                               \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
@@ -410,6 +411,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_cond_broadcast(cond)) != 0) {                                             \
          km_err_msg(ret, "pthread_cond_broadcast(" #cond ") Failed");                              \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
@@ -418,6 +420,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_cond_signal(cond)) != 0) {                                                \
          km_err_msg(ret, "pthread_cond_signal(" #cond ") Failed");                                 \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
@@ -426,6 +429,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_cond_wait(cond, mutex)) != 0) {                                           \
          km_err_msg(ret, "pthread_cond_wait(" #cond ", " #mutex ") Failed");                       \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
@@ -434,6 +438,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                           \
       if ((ret = pthread_getname_np(target_thread, threadname, buflen)) != 0) {                          \
          km_err_msg(ret, "pthread_getname_np(" #target_thread ", " #threadname ", " #buflen ") Failed"); \
+         abort();                                                                                        \
       }                                                                                                  \
    } while (0)
 
@@ -442,6 +447,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_setname_np(target_thread, name)) != 0) {                                  \
          km_err_msg(ret, "pthread_setname_np(" #target_thread ", " #name ") Failed");              \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
@@ -450,6 +456,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_attr_setstacksize(attr, stacksize)) != 0) {                               \
          km_err_msg(ret, "pthread_attr_setstacksize(" #attr ", " #stacksize ") Failed");           \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
@@ -458,6 +465,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_attr_init(attr)) != 0) {                                                  \
          km_err_msg(ret, "pthread_attr_init(" #attr ") Failed");                                   \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
@@ -466,6 +474,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_attr_destroy(attr)) != 0) {                                               \
          km_err_msg(ret, "pthread_attr_destroy(" #attr ") Failed");                                \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
@@ -474,6 +483,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_sigmask(how, set, oldset)) != 0) {                                        \
          km_err_msg(ret, "pthread_sigmask(" #how ", " #set ", " #oldset ") Failed");               \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
@@ -482,6 +492,7 @@ extern km_info_trace_t km_info_trace;
       int ret;                                                                                     \
       if ((ret = pthread_kill(threadid, signo)) != 0) {                                            \
          km_err_msg(ret, "pthread_kill(" #threadid ", " #signo ") Failed ");                       \
+         abort();                                                                                  \
       }                                                                                            \
    } while (0)
 
