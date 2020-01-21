@@ -46,29 +46,26 @@ generate_files=$(realpath extensions/prepare_extension.py)
 path_ids=$(realpath extensions/create_ids.sh)
 
 get_validated_module_names() {
-   cat $ext_file | jq -r  ".modules[] | select (.hasSo==\"true\") | select(.status==\"validated\") | .name"
+   cat $ext_file | jq -r  ".modules[] | select (.hasSo==\"true\") | select(.status | IN(\"validated\", \"built\")) | .name"
 }
 
 # first arg is module name , second the field to fetch
 get_module_data() { #
-   data=$(cat $ext_file | jq -r  ".modules[] | select (.name==\"$1\") | .$2")
-   if [[ -z "$data" || "$data" == "null" ]] ; then data="modules.$1.$2_is_empty"; fi
-   echo "$data"
+   value=$(cat $ext_file | jq -r  ".modules[] | select (.name==\"$1\") | .$2")
+   if [ "$value" == "null" ] ; then value=""; fi
+   echo "$value"
 }
-# first arg is a module name
-get_module_version() { get_module_data "$1" 'versions[-1]'; }
-get_module_url() { get_module_data "$1" git; }
 get_module_repo() { get_module_data "$1" dockerRepo; }
-get_module_dependencies(){ get_module_data "$1" dependsOn; }
 
 # build_one_module name version git_url
 # Loads/builds modules, generates files and builds.a. Returns module name (if .a is present) or ""
 # Expects to be executed in cpython dir
 build_one_module() {
    name=$1     # module name
-   version=$(get_module_version $name)
-   url=$(get_module_url $name)
-   deps="$(get_module_dependencies $name)"
+   version=$(get_module_data $name 'versions[-1]')
+   url=$(get_module_data $name git)
+   deps="$(get_module_data $name dependsOn)"
+   setupLocation="$(get_module_data $name setupLocation)"
 
    echo build_one_module: name=$name version=$version url=$url mode=$mode
    if [[ -z "$url" || -z "$version" ]] ; then
@@ -87,8 +84,8 @@ build_one_module() {
       git clone $url -b $version $src
    fi
 
-   (cd $src ; python3 setup.py build |& tee bear.out)
-   make_cmd=$(${generate_files} $src/bear.out | grep 'make -C')
+   (cd $src/$setupLocation ; python3 setup.py build |& tee bear.out)
+   make_cmd=$(${generate_files} $src/$setupLocation/bear.out | grep 'make -C')
    echo $make_cmd
    $make_cmd
    # TODO: use it to copy files out $path_ids $name $(realpath ..) $(realpath ../../Lib)
