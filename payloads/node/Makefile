@@ -68,8 +68,9 @@ clobber:
 	rm -rf node
 
 clean:
-	@echo "Nothing to do for 'clean' - use 'clobber' to force remove build artifacts"
-	@# TODO - clean ./node build artifacts
+	rm -rf $(RUNENV_PATH)
+	images=`docker image ls -q  '${RUNENV_IMG}'` ; if [ -n "$$images" ] ; then docker rmi $$images ; fi
+	@echo "Note - 'clean' doesn't remove ./node artifacts. use 'clobber' to force remove build artifacts"
 
 test: ${PAYLOAD_KM} ${TEST_KM}
 	scripts/test-run.sh test ${KM_BIN} ${PAYLOAD_KM} ${TEST_KM}
@@ -88,13 +89,12 @@ test-all-withdocker: ## a special helper to run more node.km tests. TODO - does 
 BUILDENV_PATH  := ./scripts
 
 # Param for 'make validate-runenv-image'. Used to do a quick validation of runtime environment.
-RUNENV_VALIDATE_CMD = hello.js
+RUNENV_VALIDATE_CMD = scripts/hello.js
 
 # if something needs to be copied/modified before building runenv image in Docker,
 # define this function
 export define runenv_prep
-	cp ${PAYLOAD_KM} scripts/* $(RUNENV_PATH)
-	echo '#!/km --copyenv' sed -i -e 's-!.*node-node-' $(RUNENV_PATH)/node
+	cp -r scripts $(RUNENV_PATH)
 endef
 
 include ${TOP}make/images.mk
