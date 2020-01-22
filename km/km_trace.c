@@ -19,6 +19,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include "km.h"
 
 /*
  * Verbose trace function.
@@ -28,7 +29,7 @@
  * in the hope that trace lines are not broken when multiple threads are tracing
  * concurrently.
  */
-void km_trace(int want_strerror, const char* function, int linenumber, const char* fmt, ...)
+void km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
 {
    char traceline[512];
    char threadname[16];
@@ -36,12 +37,11 @@ void km_trace(int want_strerror, const char* function, int linenumber, const cha
    struct timespec ts;
    struct tm tm;
    char* p;
-   int errnum = errno;
    va_list ap;
 
    va_start(ap, fmt);
 
-   pthread_getname_np(pthread_self(), threadname, sizeof(threadname));
+   km_getname_np(pthread_self(), threadname, sizeof(threadname));
    clock_gettime(CLOCK_REALTIME, &ts);
    gmtime_r(&ts.tv_sec, &tm);   // UTC!
    snprintf(traceline,
@@ -58,7 +58,7 @@ void km_trace(int want_strerror, const char* function, int linenumber, const cha
    p = &traceline[tlen];
    vsnprintf(p, sizeof(traceline) - tlen, fmt, ap);
 
-   if (want_strerror != 0) {
+   if (errnum != 0) {
       tlen = strlen(traceline);
       if ((sizeof(traceline) - tlen) > 2) {
          strerror_r(errnum, &traceline[tlen], sizeof(traceline) - tlen);
