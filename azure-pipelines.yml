@@ -92,12 +92,34 @@ steps:
     displayName: Python.km tests - run on Kubernetes
     timeoutInMinutes: 5
 
+  - bash: |
+      make -C payloads/python build-modules pack-modules MODULES="markupsafe wrapt"
+      make -C payloads/python custom CUSTOM_MODULES="markupsafe wrapt"
+    displayName: Python.km custom build
+    timeoutInMinutes: 5
+
+  - bash: make -C payloads/python clean all runenv-image
+    displayName: Python.km build runenv
+    timeoutInMinutes: 2
+
+  - bash: echo TODO push-runenv-image and test in kubernetes... see make validate-runenv-image
+    displayName: Python.km runenv test (TODO)
+    timeoutInMinutes: 2
+
   - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/node
     displayName: Node.km build - set build environment, build, create test container and push it to registry
 
   - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/node POD_NAME=$(pod_test_node)
     displayName: Node.km tests - run on Kubernetes
     timeoutInMinutes: 5
+
+  - bash: make -C payloads/node clean all runenv-image
+    displayName: Node.km build runenv
+    timeoutInMinutes: 2
+
+  - bash: echo TODO push-runenv-image and test in kubernetes... see make validate-runenv-image
+    displayName: Node.km test runenv (TODO)
+    timeoutInMinutes: 2
 
   - bash: |
       [ "$TRACE" ] && set -x
