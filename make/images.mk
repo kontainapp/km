@@ -164,7 +164,7 @@ pull-buildenv-image: ## Pulls the buildenv image.
 		FROM=$(BUILDENV_IMG_REG):$(BUILDENV_IMAGE_VERSION) TO=$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION)
 
 # We send the result of DOCKERFILE_CONTENT (after processing vars) to docker build in 'make runenv-image'
-# if environment is needed in the image, a component's Makefile should set DOCKER_ENV var - see python/Makefile for an exampke
+# if environment is needed in the image, a component's Makefile should set DOCKER_ENV var - see python/Makefile for an example
 export define DOCKERFILE_CONTENT
 cat <<EOF
 	FROM scratch
@@ -191,7 +191,7 @@ endif
 validate-runenv-image: ## Validate runtime image
 	${DOCKER_RUN_TEST} ${RUNENV_IMG} ${RUNENV_VALIDATE_CMD}
 
-push-runenv-image: testenv-image ## pushes image.
+push-runenv-image:  ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)"\
 		FROM=$(RUNENV_IMG):$(IMAGE_VERSION) TO=$(RUNENV_IMG_REG):$(IMAGE_VERSION)
