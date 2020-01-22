@@ -19,6 +19,7 @@
 #include <regex.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/param.h>
 #include <sys/types.h>
@@ -146,20 +147,6 @@ typedef struct km_vcpu {
                           // the processor's debugging facilities in DR0 - DR3.
    gdb_vcpu_state_t gdb_vcpu_state;   // gdb's per thread (vcpu) state.
 } km_vcpu_t;
-
-static inline void km_lock_vcpu_thr(km_vcpu_t* vcpu)
-{
-   if (pthread_mutex_lock(&vcpu->thr_mtx) != 0) {
-      err(1, "lock mutex thr_mtx");
-   }
-}
-
-static inline void km_unlock_vcpu_thr(km_vcpu_t* vcpu)
-{
-   if (pthread_mutex_unlock(&vcpu->thr_mtx) != 0) {
-      err(1, "unlock mutex thr_mtx");
-   }
-}
 
 /*
  * Produce tid for this vcpu. This should match km_vcpu_fetch_by_tid()
@@ -292,30 +279,6 @@ typedef struct km_machine {
 
 extern km_machine_t machine;
 
-static inline void km_mem_lock(void)
-{
-   if (pthread_mutex_lock(&machine.brk_mutex) != 0) {
-      err(1, "memory lock failed");
-   }
-}
-
-static inline void km_mem_unlock(void)
-{
-   pthread_mutex_unlock(&machine.brk_mutex);
-}
-
-static inline void km_signal_lock(void)
-{
-   if (pthread_mutex_lock(&machine.signal_mutex) != 0) {
-      err(1, "signal lock failed");
-   }
-}
-
-static inline void km_signal_unlock(void)
-{
-   pthread_mutex_unlock(&machine.signal_mutex);
-}
-
 static inline km_vcpu_t* km_main_vcpu(void)
 {
    return machine.vm_vcpus[0];
@@ -358,7 +321,7 @@ extern int km_vcpu_count(void);
 extern void km_vcpu_pause_all(void);
 extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
 
-extern void km_trace(int want_strerror, const char* function, int linenumber, const char* fmt, ...)
+extern void km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
     __attribute__((__format__(__printf__, 4, 5)));
 
 // Interrupt handling.
@@ -408,7 +371,7 @@ extern km_info_trace_t km_info_trace;
 #define km_info(tag, fmt, ...)                                                                     \
    do {                                                                                            \
       if (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)                \
-         km_trace(1, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                  \
+         km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                              \
    } while (0)
 
 /*
@@ -419,6 +382,149 @@ extern km_info_trace_t km_info_trace;
       if (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)                \
          km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                  \
    } while (0)
+
+#define km_err_msg(errno, msg)                                                                     \
+   do {                                                                                            \
+      km_trace(errno, __FUNCTION__, __LINE__, msg);                                                \
+   } while (0)
+
+#define km_mutex_lock(mutex)                                                                       \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_mutex_lock(mutex)) != 0) {                                                \
+         km_err_msg(ret, "pthread_mutex_lock(" #mutex ") Failed");                                 \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+#define km_mutex_unlock(mutex)                                                                     \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_mutex_unlock(mutex)) != 0) {                                              \
+         km_err_msg(ret, "pthread_mutex_unlock(" #mutex ") Failed");                               \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+#define km_cond_broadcast(cond)                                                                    \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_cond_broadcast(cond)) != 0) {                                             \
+         km_err_msg(ret, "pthread_cond_broadcast(" #cond ") Failed");                              \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+#define km_cond_signal(cond)                                                                       \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_cond_signal(cond)) != 0) {                                                \
+         km_err_msg(ret, "pthread_cond_signal(" #cond ") Failed");                                 \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+#define km_cond_wait(cond, mutex)                                                                  \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_cond_wait(cond, mutex)) != 0) {                                           \
+         km_err_msg(ret, "pthread_cond_wait(" #cond ", " #mutex ") Failed");                       \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+#define km_getname_np(target_thread, threadname, buflen)                                                 \
+   do {                                                                                                  \
+      int ret;                                                                                           \
+      if ((ret = pthread_getname_np(target_thread, threadname, buflen)) != 0) {                          \
+         km_err_msg(ret, "pthread_getname_np(" #target_thread ", " #threadname ", " #buflen ") Failed"); \
+         abort();                                                                                        \
+      }                                                                                                  \
+   } while (0)
+
+#define km_setname_np(target_thread, name)                                                         \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_setname_np(target_thread, name)) != 0) {                                  \
+         km_err_msg(ret, "pthread_setname_np(" #target_thread ", " #name ") Failed");              \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+#define km_attr_setstacksize(attr, stacksize)                                                      \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_attr_setstacksize(attr, stacksize)) != 0) {                               \
+         km_err_msg(ret, "pthread_attr_setstacksize(" #attr ", " #stacksize ") Failed");           \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+#define km_attr_init(attr)                                                                         \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_attr_init(attr)) != 0) {                                                  \
+         km_err_msg(ret, "pthread_attr_init(" #attr ") Failed");                                   \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+#define km_attr_destroy(attr)                                                                      \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_attr_destroy(attr)) != 0) {                                               \
+         km_err_msg(ret, "pthread_attr_destroy(" #attr ") Failed");                                \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+#define km_sigmask(how, set, oldset)                                                               \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_sigmask(how, set, oldset)) != 0) {                                        \
+         km_err_msg(ret, "pthread_sigmask(" #how ", " #set ", " #oldset ") Failed");               \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+#define km_pkill(threadid, signo)                                                                  \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_kill(threadid, signo)) != 0) {                                            \
+         km_err_msg(ret, "pthread_kill(" #threadid ", " #signo ") Failed ");                       \
+         abort();                                                                                  \
+      }                                                                                            \
+   } while (0)
+
+static inline void km_lock_vcpu_thr(km_vcpu_t* vcpu)
+{
+   km_mutex_lock(&vcpu->thr_mtx);
+}
+
+static inline void km_unlock_vcpu_thr(km_vcpu_t* vcpu)
+{
+   km_mutex_unlock(&vcpu->thr_mtx);
+}
+
+static inline void km_mem_lock(void)
+{
+   km_mutex_lock(&machine.brk_mutex);
+}
+
+static inline void km_mem_unlock(void)
+{
+   km_mutex_unlock(&machine.brk_mutex);
+}
+
+static inline void km_signal_lock(void)
+{
+   km_mutex_lock(&machine.signal_mutex);
+}
+
+static inline void km_signal_unlock(void)
+{
+   km_mutex_unlock(&machine.signal_mutex);
+}
 
 // tags for different traces
 #define KM_TRACE_VCPU "vcpu"
