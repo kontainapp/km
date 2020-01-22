@@ -76,7 +76,7 @@ build_one_module() {
    src=Modules/$name
    if [[ $mode != generate  ]] ; then # clone and build module
       if [[ -z "$url" ]] ; then echo "*** ERROR - no URL found. Please add git remote URL for $name" ; return; fi
-      if [[ "$deps" != null ]] ; then echo "*** WARNING - $m needs '$deps', please make sure it is installed"; fi
+      if [[ -n "$deps" && "$deps" != null ]] ; then echo "*** WARNING - $m needs '$deps', please make sure it is installed"; fi
       rm -rf  $src
       # clone build the module with keeping trace and compile info for further processing
       # note: *do not* use '-j' (parallel jobs) flag in setup.py. It breaks some module builds. e.g. numpy
