@@ -393,6 +393,7 @@ uint64_t km_fs_link(km_vcpu_t* vcpu, char* old, char* new)
 uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz)
 {
    int ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
+   km_infox(KM_TRACE_FILESYS, "%s buf: %s", pathname, buf);
    return ret;
 }
 
@@ -576,6 +577,11 @@ uint64_t km_fs_fstat(km_vcpu_t* vcpu, int fd, struct stat* statbuf)
       return -EBADF;
    }
    int ret = __syscall_2(SYS_fstat, host_fd, (uintptr_t)statbuf);
+   if (km_trace_enabled() != 0) {
+      char* file_name = km_guestfd_name(vcpu, fd);
+      km_infox(KM_TRACE_FILESYS, "%s guest fd %d", file_name, fd);
+   }
+
    return ret;
 }
 
