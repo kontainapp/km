@@ -134,11 +134,6 @@ static unsigned char* hex2mem(const char* buf, unsigned char* mem, size_t count)
    return mem;
 }
 
-void km_gdb_gdbstub_init(void)
-{
-   km_gdb_vfile_init();
-}
-
 /*
  * Listens on (global) port and  when connection accepted/established, sets
  * global gdbstub.sock_fd and returns 0.
@@ -224,6 +219,8 @@ static void km_gdb_disable(void)
    if (km_gdb_is_enabled() != 1) {
       return;
    }
+
+   km_gdb_remove_all_breakpoints();
 
    // Disconnect gdb from all of the vcpu's
    km_vcpu_apply_all(km_gdb_vcpu_disengage, 0);
@@ -383,6 +380,48 @@ static void send_packet(const char* buffer)
 }
 
 /*
+ * Append src to the string described by dest and destmaxlen, growing the string
+ * if necessary and then update *dest and *destmaxlen if the string was made bigger.
+ * The destination can be null initially signifying the destination is empty.
+ * The src string is assumed to be null terminated.
+ * Returns:
+ *  true - src was successfully appened to *dest.
+ *  false - src was not appended because the string could not be grown to hold src
+ */
+static bool string_append(char** dest, size_t* destmaxlen, char* src)
+{
+   size_t curdestlen = (*dest != NULL) ? strlen(*dest) : 0;
+   size_t cursrclen = strlen(src);
+
+   if (*dest == NULL || (*destmaxlen - curdestlen) < (cursrclen + 1)) {   // not big enough, grow
+                                                                          // the destionation string
+      size_t bigger_size;
+      char* bigger_dest;
+
+      // Keep doubling the size until the destination can hold the source string
+      bigger_size = *destmaxlen;
+      if (bigger_size == 0) {
+         bigger_size = 1024;
+      }
+      while (bigger_size - curdestlen < cursrclen + 1) {
+         bigger_size += bigger_size;
+      }
+      bigger_dest = realloc(*dest, bigger_size);
+      if (bigger_dest == NULL) {
+         km_infox(KM_TRACE_GDB, "Failed to grow string at %p to %lu bytes", dest, bigger_size);
+         return false;
+      }
+      km_infox(KM_TRACE_GDB, "String at %p grew from %lu to %lu bytes", dest, *destmaxlen, bigger_size);
+      *dest = bigger_dest;
+      *destmaxlen = bigger_size;
+   }
+   memcpy(&(*dest)[curdestlen], src, cursrclen);
+   (*dest)[curdestlen + cursrclen] = 0;
+
+   return true;
+}
+
+/*
  * Escape the special characters }, $, #, and * by preceding with } and then xor'ing
  * the char with 0x20.
  * The buffer will expand if any chars are escaped.
@@ -419,7 +458,7 @@ static int gdb_add_escapes(uint8_t* buffer, size_t* buflen, size_t bufmax)
 /*
  * Store a 32 bit int into a buffer in big endian order.
  */
-void put_uint32(uint8_t* b, uint32_t value)
+static void put_uint32(uint8_t* b, uint32_t value)
 {
    b[0] = (value >> 24);
    b[1] = (value >> 16);
@@ -430,7 +469,7 @@ void put_uint32(uint8_t* b, uint32_t value)
 /*
  * Store a 64 bit int into a buffer in big endian order.
  */
-void put_uint64(uint8_t* b, uint64_t value)
+static void put_uint64(uint8_t* b, uint64_t value)
 {
    b[0] = (value >> 56);
    b[1] = (value >> 48);
@@ -1024,7 +1063,7 @@ static void handle_qgettlsaddr(char* packet, char* obuf)
  * memory pointed to by s.  The block of memory pointed to by s is sl
  * bytes in length.
  */
-uint32_t gdb_char_counter(uint8_t* s, uint32_t sl, char* look_for_these)
+static uint32_t gdb_char_counter(uint8_t* s, uint32_t sl, char* look_for_these)
 {
    int i;
    int j;
@@ -1044,8 +1083,8 @@ uint32_t gdb_char_counter(uint8_t* s, uint32_t sl, char* look_for_these)
 /*
  * Handle the "qXfer:auxv:read" request.
  */
-uint8_t* gdb_auxv_copy;
-uint32_t gdb_auxv_len;
+static uint8_t* gdb_auxv_copy;
+static uint32_t gdb_auxv_len;
 
 static void handle_qxfer_auxv_read(char* packet, char* obuf)
 {
@@ -1176,19 +1215,19 @@ static void handle_qxfer_execfile_read(const char* packet, char* obuf)
 #define GDB_LIBRARY_DESC_LEN 200
 typedef struct gdb_linkmap_arg {
    uint8_t count;
-   char* bufp;
-   uint32_t bufl;
+   char** bufp;
+   size_t* bufl;
 } gdb_linkmap_arg_t;
 
 /*
- * Visiitor function for traversing the list of dynamically loaded libraries.
+ * Visitor function for traversing the list of dynamically loaded libraries.
  * This function is called once for each library.
  */
-int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
+static int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
 {
    gdb_linkmap_arg_t* lmargp = (gdb_linkmap_arg_t*)argp;
    int worked;
-   char temp[GDB_LIBRARY_DESC_LEN];
+   char temp[GDB_LIBRARY_DESC_LEN + PATH_MAX];
    char* libname = (char*)km_gva_to_kma((km_gva_t)kmap->l_name);
    char dynlinker_absolute[PATH_MAX];
    uint8_t is_dynlinker;
@@ -1196,9 +1235,12 @@ int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
    is_dynlinker = (strcmp(libname, KM_DYNLINKER_STR) == 0);
    if (is_dynlinker != 0) {
       if (km_dynlinker_file[0] != '/') {
-         getcwd(dynlinker_absolute, sizeof(dynlinker_absolute));
+         if (getcwd(dynlinker_absolute, sizeof(dynlinker_absolute)) == NULL) {
+            km_info(KM_TRACE_GDB, "getcwd() failied");
+            return 1;
+         }
          snprintf(&dynlinker_absolute[strlen(dynlinker_absolute)],
-                  sizeof(dynlinker_absolute),
+                  sizeof(dynlinker_absolute) - strlen(dynlinker_absolute),
                   "/%s",
                   km_dynlinker_file);
       } else {
@@ -1220,8 +1262,8 @@ int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
                kmap->l_addr,
                kmap->l_ld);
    }
-   worked = stringcat(lmargp->bufp, temp, lmargp->bufl);
-   if (worked == 0) {
+   worked = string_append(lmargp->bufp, lmargp->bufl, temp);
+   if (worked == false) {
       km_infox(KM_TRACE_GDB, "Out of buffer space producing libraries-svr4 list");
       return 1;
    }
@@ -1233,9 +1275,8 @@ int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
 /*
  * The current list of libraries.
  */
-char* gdb_libsvr4_listp;
-int gdb_libsvr4_listl =
-    20 * GDB_LIBRARY_DESC_LEN;   // space for 20 libraries whose description is up to 200 bytes each
+static char* gdb_libsvr4_listp;
+static size_t gdb_libsvr4_listl;
 
 /*
  * Process the qXfer:libraries-svr4:read command.
@@ -1256,20 +1297,14 @@ static void handle_qxfer_librariessvr4_read(const char* packet, char* obuf)
 
    // Build up a new library list if starting from zero.
    if (offset == 0) {
-      if (gdb_libsvr4_listp == NULL) {
-         gdb_libsvr4_listp = malloc(gdb_libsvr4_listl);
-         if (gdb_libsvr4_listp == NULL) {
-            km_infox(KM_TRACE_GDB, "Couldn't allocate %d bytes of memory", gdb_libsvr4_listl);
-            send_error_msg();
-            return;
-         }
-      }
       gdb_linkmap_arg_t lmstate = {
           .count = 0,
-          .bufp = gdb_libsvr4_listp,
-          .bufl = gdb_libsvr4_listl,
+          .bufp = &gdb_libsvr4_listp,
+          .bufl = &gdb_libsvr4_listl,
       };
-      gdb_libsvr4_listp[0] = 0;
+      if (gdb_libsvr4_listp != NULL) {
+         gdb_libsvr4_listp[0] = 0;
+      }
       int rc = km_link_map_walk(km_gdb_linkmap_visit, &lmstate);
       if (rc != 0) {   // not enough space to hold the library list
          km_infox(KM_TRACE_GDB, "Error while producing library list");
@@ -1277,9 +1312,9 @@ static void handle_qxfer_librariessvr4_read(const char* packet, char* obuf)
          return;
       }
       if (lmstate.count == 0) {   // nothing there
-         stringcat(gdb_libsvr4_listp, "<library-list-svr4 version=\"1.0\" />", gdb_libsvr4_listl);
+         string_append(&gdb_libsvr4_listp, &gdb_libsvr4_listl, "<library-list-svr4 version=\"1.0\" />");
       } else {
-         stringcat(gdb_libsvr4_listp, "</library-list-svr4>", gdb_libsvr4_listl);
+         string_append(&gdb_libsvr4_listp, &gdb_libsvr4_listl, "</library-list-svr4>");
       }
    }
 
@@ -1453,7 +1488,7 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
  * km_vcpu_apply_all() helper function to count how many threads are in
  * each gdb runstate.
  */
-int km_gdb_count_thread_states(km_vcpu_t* vcpu, uint64_t ta)
+static int km_gdb_count_thread_states(km_vcpu_t* vcpu, uint64_t ta)
 {
    int i = vcpu->vcpu_id;
    threadaction_blob_t* threadactionblob = (threadaction_blob_t*)ta;
@@ -1766,13 +1801,18 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
 #define GDB_ENAMETOOLONG 91
 #define GDB_EUNKNOWN 9999
 
-void km_gdb_vfile_init(void)
+static void km_gdb_vfile_init(void)
 {
    int i;
 
    for (i = 0; i < MAX_GDB_VFILE_OPEN_FD; i++) {
       gdbstub.vfile_state.fd[i] = GDB_VFILE_FD_FREE_SLOT;
    }
+}
+
+void km_gdb_gdbstub_init(void)
+{
+   km_gdb_vfile_init();
 }
 
 /*
@@ -1835,7 +1875,7 @@ static void gdb_fd_set(int gdb_fd, int linux_fd)
 /*
  * Convert from linux errno values to gdb errno values.
  */
-int errno_linux2gdb(int linux_errno)
+static int errno_linux2gdb(int linux_errno)
 {
    int gdb_errno;
 
@@ -1913,7 +1953,8 @@ int errno_linux2gdb(int linux_errno)
  * consumed.  The caller must handle cases where all of the input was not
  * processed.
  */
-int gdb_binary_escape_add(char* input, int inputl, int* input_consumed, char* output, int outputl)
+static int
+gdb_binary_escape_add(char* input, int inputl, int* input_consumed, char* output, int outputl)
 {
    int i;
    int o;
@@ -1964,7 +2005,7 @@ typedef struct __attribute__((__packed__)) gdb_client_stat {
  * Handle gdb client requests to open and read files.
  * We currently do not support attempts to write or unlink files.
  */
-void km_gdb_handle_vfilepacket(char* packet, char* output, int outputl)
+static void km_gdb_handle_vfilepacket(char* packet, char* output, int outputl)
 {
    char* p;
    unsigned char* f;
@@ -2569,7 +2610,7 @@ done:;
 }
 
 // Read and discard pending eventfd reads, if any. Non-blocking.
-static void km_empty_out_eventfd(int fd)
+void km_empty_out_eventfd(int fd)
 {
    int flags = fcntl(fd, F_GETFL);
    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
@@ -2577,7 +2618,7 @@ static void km_empty_out_eventfd(int fd)
    fcntl(fd, F_SETFL, flags);
 }
 
-void gdb_delete_stale_events(void)
+static void gdb_delete_stale_events(void)
 {
    gdb_event_t* gep;
    gdb_event_t* nextgep;
@@ -2669,6 +2710,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
    };
    gdb_handle_remote_commands(&ge);   // Talk to GDB first time, before any vCPU run
 
+   gdbstub.session_requested = 0;
    km_vcpu_resume_all();
    while (km_gdb_is_enabled() == 1) {
       // Poll two fds described above in fds[], with no timeout ("-1")

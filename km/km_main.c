@@ -44,6 +44,8 @@ static inline void usage()
         "'regexp'\n"
         "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 2159) "
         "before running payload\n"
+        "\t--gdb-server-port-attach-dynlink[=port] - Listen for gdb on <port> before running "
+        "dynamic linker\n"
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--log-to=file_name                  - Stream stdout and stderr to file_name\n"
         "\t--putenv key=value                  - Add environment 'key' to payload\n"
@@ -106,6 +108,7 @@ static struct option long_options[] = {
     {"putenv", required_argument, 0, 'e'},
     {"copyenv", no_argument, 0, 'E'},
     {"gdb-server-port", optional_argument, 0, 'g'},
+    {"gdb-server-port-attach-dynlink", optional_argument, 0, 'G'},
     {"verbose", optional_argument, 0, 'V'},
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
     {"version", no_argument, 0, 'v'},
@@ -131,7 +134,7 @@ int main(int argc, char* const argv[])
    km_gdb_gdbstub_init();
 
    assert(envp != NULL);
-   while ((opt = getopt_long(argc, argv, "+g::V::P:vC:", long_options, &longopt_index)) != -1) {
+   while ((opt = getopt_long(argc, argv, "+g::G::V::P:vC:", long_options, &longopt_index)) != -1) {
       switch (opt) {
          case 0:
             /* If this option set a flag, do nothing else now. */
@@ -140,6 +143,7 @@ int main(int argc, char* const argv[])
             }
             // Put here handling of longopts which do not have related short opt
             break;
+         case 'G':
          case 'g':
             if (optarg == NULL) {
                port = GDB_DEFAULT_PORT;
@@ -148,6 +152,13 @@ int main(int argc, char* const argv[])
                usage();
             }
             km_gdb_port_set(port);
+            if (opt == 'G') {
+               // enter gdb before running dynamic linker
+               gdbstub.attach_at_dynlink = 1;
+            } else {
+               // enter gdb before running payload
+               gdbstub.attach_at_dynlink = 0;
+            }
             break;
          case 'l':
             if (freopen(optarg, "a", stdout) == NULL || freopen(optarg, "a", stderr) == NULL) {
@@ -244,12 +255,11 @@ int main(int argc, char* const argv[])
                              km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust,
                              guest_args,
                              0) != 0) {
-         err(1, "failed to set main vcpu to run");
+         err(1, "failed to set main vcpu to run dynlinker");
       }
-
    } else {
       if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry + adjust, guest_args, 0) != 0) {
-         err(1, "failed to set main vcpu to run");
+         err(1, "failed to set main vcpu to run payload main()");
       }
    }
    if (wait_for_signal == 1) {
@@ -257,12 +267,45 @@ int main(int argc, char* const argv[])
       km_wait_for_signal(SIGUSR1);
    }
    if (km_gdb_is_enabled() == 1) {
-      km_vcpu_pause_all();
+      if (km_dynlinker.km_filename != NULL && gdbstub.attach_at_dynlink == 0) {
+         /*
+          * The user wants to let the dynamic linker run and then break at entry to the payload.
+          * This allows the shared libraries to be loaded.
+          */
+         if (km_gdb_add_breakpoint(GDB_BREAKPOINT_HW, km_guest.km_ehdr.e_entry + adjust, 1) != 0) {
+            errx(3,
+                 "Failed to plant breakpoint on payload entry point 0x%lx",
+                 km_guest.km_ehdr.e_entry + adjust);
+         }
+      } else {
+         // sets pause_requesed and sends sigusr1 to all vcpu's
+         km_vcpu_pause_all();
+      }
    }
+   // creates thread to run km_vcpu_run_main and then writes to machine.intr_fd
    if (km_run_vcpu_thread(vcpu, km_vcpu_run_main) < 0) {
       err(2, "Failed to create main run_vcpu thread");
    }
    if (km_gdb_is_enabled() == 1) {   // TODO: think about 'attach' on signal
+      if (km_dynlinker.km_filename != NULL && gdbstub.attach_at_dynlink == 0) {
+         km_empty_out_eventfd(machine.intr_fd);
+         km_wait_on_eventfd(machine.intr_fd);
+         if (km_gdb_remove_breakpoint(GDB_BREAKPOINT_HW, km_guest.km_ehdr.e_entry + adjust, 1) != 0) {
+            errx(4,
+                 "Failed to remove breakpoint on payload entry point 0x%lx",
+                 km_guest.km_ehdr.e_entry + adjust);
+         }
+         pthread_mutex_lock(&gdbstub.notify_mutex);
+         gdb_event_t* gep = TAILQ_FIRST(&gdbstub.event_queue);
+         assert(gep != NULL);
+         if (gep->signo == GDB_KMSIGNAL_KVMEXIT) {
+            // remove the breakpoint event.
+            TAILQ_REMOVE(&gdbstub.event_queue, gep, link);
+            gep->entry_is_active = false;
+         }
+         pthread_mutex_unlock(&gdbstub.notify_mutex);
+         eventfd_write(machine.intr_fd, 1);
+      }
       km_infox(KM_TRACE_GDB, "Enabling gdbserver on port %d...", km_gdb_port_get());
       if (km_gdb_wait_for_connect(payload_file) == -1) {
          errx(1, "Failed to connect to gdb");
