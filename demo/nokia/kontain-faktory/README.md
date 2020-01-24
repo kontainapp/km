@@ -10,16 +10,24 @@ Typical sequence of commands:
 
 ```bash
 make base # One time, for pulling and tagging orginal images. Assumes login.
-make bas-retag # if you already pulled the containers, handy target to prep them for 'make all'
+make base-retag # if you already pulled the containers, handy target to prep them for 'make all'
 make all  # same as 'make' - builds kontain/nokia-* images from the base ones
 make test # docker run for kontain kafka image - just sanity checking
 ```
 
 To generate Kontain with extra KM flags, use `make clean all KMFLAGS="..."` (clean is needed since Makefile does not know the flags have changed).
-For example, to get a test run with tracing VCPU and KM core dumps on payload errors:
+
+## Examples
+
+For example, to
 
 ```bash
+# Build and tun a test run with tracing VCPU and KM core dumps on payload errors
+# To kill the test, ^Z and then 'kill -9 %%'
 make clean all test KMFLAGS="-Vcpu --core-on-err"
+
+# Start zookeeper Kontainer with bash
+make test DOCKER_TI="-ti" ARGS=bash
 ```
 
 # TODO
