@@ -21,7 +21,7 @@ TARGET_DIR ?= /opt/kontain/java/bin
 # location of java bins and libs in KM repo, relative to TOP
 JDK_LOC := payloads/java/jdk-11+28/build/linux-x86_64-server-release
 # Kontain specific fails to land in the container. We also need 'env' since some old env's do not support '-S'
-KM_FILES = ${KM_BIN} ${KM_LDSO} ${TOP}${JDK_LOC}/jdk/bin/java.kmd /usr/bin/env
+KM_FILES = ${KM_BIN} ${KM_LDSO} ${TOP}${JDK_LOC}/images/jdk/bin/java.kmd /usr/bin/env
 
 # Docker repo to take the images from
 REPO := kontainstage.azurecr.io/nokia/ckaf
@@ -77,14 +77,14 @@ clean: ## Clean temp files and containers
 	-docker rmi `docker image ls -q "kontain/nokia-*"`
 
 # This is a hack to get it going - we just mount stuff from the host. Will need to go to the container later
-loc := $(realpath ${TOP}/${JDK_LOC})
+loc := $(realpath ${TOP}/${JDK_LOC}/images/jdk)
 test:  ## Sanity checking for the resulting kafka container
 	# $(DOCKER_RUN) --device=/dev/kvm kontain/nokia-kafka
 	$(DOCKER_RUN) -it --rm --device=/dev/kvm \
-		 -e LD_LIBRARY_PATH=/opt/kontain/jrel/jdk/lib/server:/opt/kontain/jrel/jdk/lib:/opt/kontain/lib64:/lib64 \
-		 -e JAVA_HOME=/opt/kontain/jrel/jdk \
+		 -e LD_LIBRARY_PATH=/opt/kontain/jdk/lib/server:/opt/kontain/jdk/lib:/opt/kontain/lib64:/lib64 \
+		 -e JAVA_HOME=/opt/kontain/jdk \
 		 -v /opt/kontain/lib64/:/opt/kontain/lib64/:z  \
-		 -v ${loc}:/opt/kontain/jrel:z \
+		 -v ${loc}:/opt/kontain/jdk:z \
 		kontain/nokia-kafka ${ARGS}
 
 include ${TOP}make/locations.mk

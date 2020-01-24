@@ -34,7 +34,7 @@ autopurge.purgeInterval=1
 EOF
 (cd ${KM_BASE}/payloads/java/jdk-11+28; \
 ${KM_BASE}/build/km/km --dynlinker=${KM_BASE}/build/runtime/libc.so \
-  --putenv="LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64:./build/linux-x86_64-server-release/jdk/lib/" \
+  --putenv="LD_LIBRARY_PATH=${KM_BASE}/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/lib/server:${KM_BASE}/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/lib:/opt/kontain/lib64:/lib64" \
   ./build/linux-x86_64-server-release/jdk/bin/java.kmd \
   -Xmx512M -Xms512M -server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 \
   -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.awt.headless=true \

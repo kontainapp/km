@@ -289,4 +289,4 @@ cd demo/nokia/kafka-test-tool/bin
 bash -x createKMTestEnv.sh 1
 ```
 
-Logs in `build/demo/nokia/disks`.:w
+Logs in `build/demo/nokia/disks`.
