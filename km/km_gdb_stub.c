@@ -2688,6 +2688,43 @@ static void km_vcpu_resume_all(void)
    km_mutex_unlock(&machine.pause_mtx);
 }
 
+void km_gdb_wait_for_dynlink_to_finish(void)
+{
+   /*
+    * The dynamic linker is present and the user wants gdb to attach at _start
+    * (not at entry to the dynamic linker).  So, we put a breakpoint on _start,
+    * let the payload main thread run and then wait for the breakpoint to hit.
+    * When the breakpoint fires, delete the breakpoint, delete the breakpoint
+    * event and drop into the main part of gdbstub.
+    */
+   km_infox(KM_TRACE_GDB, "Begin waiting for dynamic linker to complete");
+   if (km_gdb_add_breakpoint(GDB_BREAKPOINT_HW, km_guest.km_ehdr.e_entry + km_guest.km_load_adjust, 1) !=
+       0) {
+      errx(3,
+           "Failed to plant breakpoint on payload entry point 0x%lx",
+           km_guest.km_ehdr.e_entry + km_guest.km_load_adjust);
+   }
+   km_vcpu_resume_all();                  // start the payload main thread
+   km_wait_on_eventfd(machine.intr_fd);   // wait for the breakpoint we planted to be hit
+   km_infox(KM_TRACE_GDB, "dynamic linker is done");
+   if (km_gdb_remove_breakpoint(GDB_BREAKPOINT_HW,
+                                km_guest.km_ehdr.e_entry + km_guest.km_load_adjust,
+                                1) != 0) {
+      errx(4,
+           "Failed to remove breakpoint on payload entry point 0x%lx",
+           km_guest.km_ehdr.e_entry + km_guest.km_load_adjust);
+   }
+   pthread_mutex_lock(&gdbstub.notify_mutex);
+   gdb_event_t* gep = TAILQ_FIRST(&gdbstub.event_queue);
+   assert(gep != NULL);
+   if (gep->signo == GDB_KMSIGNAL_KVMEXIT) {
+      // remove the breakpoint event.
+      TAILQ_REMOVE(&gdbstub.event_queue, gep, link);
+      gep->entry_is_active = false;
+   }
+   pthread_mutex_unlock(&gdbstub.notify_mutex);
+}
+
 /*
  * Loop on waiting on either ^C from gdb client, or a vcpu exit from kvm_run for a reason relevant
  * to gdb. When a wait is over (for either of the reasons), stops all vcpus and lets GDB handle the
@@ -2702,6 +2739,11 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
    int ret;
 
    km_wait_on_eventfd(machine.intr_fd);   // Wait for km_vcpu_run_main to start
+
+   if (km_dynlinker.km_filename != NULL && gdbstub.attach_at_dynlink == 0) {
+      km_gdb_wait_for_dynlink_to_finish();
+   }
+
    km_gdb_vcpu_set(main_vcpu);
 
    gdb_event_t ge = (gdb_event_t){

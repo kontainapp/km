@@ -267,45 +267,12 @@ int main(int argc, char* const argv[])
       km_wait_for_signal(SIGUSR1);
    }
    if (km_gdb_is_enabled() == 1) {
-      if (km_dynlinker.km_filename != NULL && gdbstub.attach_at_dynlink == 0) {
-         /*
-          * The user wants to let the dynamic linker run and then break at entry to the payload.
-          * This allows the shared libraries to be loaded.
-          */
-         if (km_gdb_add_breakpoint(GDB_BREAKPOINT_HW, km_guest.km_ehdr.e_entry + adjust, 1) != 0) {
-            errx(3,
-                 "Failed to plant breakpoint on payload entry point 0x%lx",
-                 km_guest.km_ehdr.e_entry + adjust);
-         }
-      } else {
-         // sets pause_requesed and sends sigusr1 to all vcpu's
-         km_vcpu_pause_all();
-      }
+      km_vcpu_pause_all();
    }
-   // creates thread to run km_vcpu_run_main and then writes to machine.intr_fd
    if (km_run_vcpu_thread(vcpu, km_vcpu_run_main) < 0) {
       err(2, "Failed to create main run_vcpu thread");
    }
    if (km_gdb_is_enabled() == 1) {   // TODO: think about 'attach' on signal
-      if (km_dynlinker.km_filename != NULL && gdbstub.attach_at_dynlink == 0) {
-         km_empty_out_eventfd(machine.intr_fd);
-         km_wait_on_eventfd(machine.intr_fd);
-         if (km_gdb_remove_breakpoint(GDB_BREAKPOINT_HW, km_guest.km_ehdr.e_entry + adjust, 1) != 0) {
-            errx(4,
-                 "Failed to remove breakpoint on payload entry point 0x%lx",
-                 km_guest.km_ehdr.e_entry + adjust);
-         }
-         pthread_mutex_lock(&gdbstub.notify_mutex);
-         gdb_event_t* gep = TAILQ_FIRST(&gdbstub.event_queue);
-         assert(gep != NULL);
-         if (gep->signo == GDB_KMSIGNAL_KVMEXIT) {
-            // remove the breakpoint event.
-            TAILQ_REMOVE(&gdbstub.event_queue, gep, link);
-            gep->entry_is_active = false;
-         }
-         pthread_mutex_unlock(&gdbstub.notify_mutex);
-         eventfd_write(machine.intr_fd, 1);
-      }
       km_infox(KM_TRACE_GDB, "Enabling gdbserver on port %d...", km_gdb_port_get());
       if (km_gdb_wait_for_connect(payload_file) == -1) {
          errx(1, "Failed to connect to gdb");
