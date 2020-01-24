@@ -9,16 +9,20 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 #
-# Dockerfile to add KM and Java.km stuff to BASE container
+# Take $FROM_IMAGE and convert it to run payload (kafka/zookeeper) in a Kontain VM
 #
+# TODO: assumes mounts pointing to image with .so. We need to either test with existing .so, or to copy
+# Kontain-built ones instead of volume mounts
 
-ARG BASE
-FROM $BASE
+ARG FROM_IMAGE
+FROM $FROM_IMAGE
 
 ARG KDIR
-ARG TARGET_DIR
+ARG KONTAIN_JAVA_DIR
 
-RUN mkdir -p ${TARGET_DIR}
-ADD ${KDIR}/ ${TARGET_DIR}
+ENV JAVA_HOME ${KONTAIN_JAVA_DIR}
+# TODO: fix JIT support. For now turning it off
+ENV KAFKA_OPTS=-Djava.compiler
 
-ENTRYPOINT [ "/opt/kontain/java/bin/java" ]
+RUN mkdir -p ${KONTAIN_JAVA_DIR}/bin
+ADD ${KDIR}/ ${KONTAIN_JAVA_DIR}/bin/
