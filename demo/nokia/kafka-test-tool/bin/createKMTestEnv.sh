@@ -32,22 +32,39 @@ maxClientCnxns=0
 autopurge.snapRetainCount=3
 autopurge.purgeInterval=1
 EOF
+#(cd ${KM_BASE}/payloads/java/jdk-11+28; \
+#strace -f ${KM_BASE}/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/bin/java \
+#  -Xmx512M -Xms512M -server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 \
+#  -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.awt.headless=true \
+#  -Xlog:gc*:file=${BASE_DIR}/zookeeper/log/zookeeper-gc.log:time,tags:filecount=10,filesize=102400 \
+#  -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.authenticate=false \
+#  -Dcom.sun.management.jmxremote.ssl=false -Dkafka.logs.dir=${BASE_DIR}/zookeeper/log \
+#  -Dlog4j.configuration=file:${IMAGE_DIR}/etc_kafka/log4j.properties \
+#  -cp "${IMAGE_DIR}/usr_share_java_kafka/"'*' \
+#  org.apache.zookeeper.server.quorum.QuorumPeerMain \
+#  ${IMAGE_DIR}/etc_kafka/km_zookeeper.properties > ${BASE_DIR}/zookeeper/out.txt 2>&1
+#) &
+#sleep 5
+#exit 0 
+
+# Use -Djava.compiler=NONE to disable JIT
+# JIT: -XX:+PrintCompilation -XX:+PrintCodeCacheOnCompilation \
 (cd ${KM_BASE}/payloads/java/jdk-11+28; \
-${KM_BASE}/build/km/km --dynlinker=${KM_BASE}/build/runtime/libc.so \
-  --putenv="LD_LIBRARY_PATH=${KM_BASE}/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/lib/server:${KM_BASE}/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/lib:/opt/kontain/lib64:/lib64" \
-  ./build/linux-x86_64-server-release/jdk/bin/java.kmd \
+${KM_BASE}/build/km/km -Vsignals --dynlinker=${KM_BASE}/build/runtime/libc.so \
+  --putenv="LD_LIBRARY_PATH=${KM_BASE}/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/lib/server:${KM_BASE}/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/lib:/opt/kontain/lib64:/lib64" \
+  ${KM_BASE}/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/bin/java.kmd \
   -Xmx512M -Xms512M -server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 \
   -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.awt.headless=true \
   -Xlog:gc*:file=${BASE_DIR}/zookeeper/log/zookeeper-gc.log:time,tags:filecount=10,filesize=102400 \
   -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false -Dkafka.logs.dir=${BASE_DIR}/zookeeper/log \
   -Dlog4j.configuration=file:${IMAGE_DIR}/etc_kafka/log4j.properties \
-  -Djava.compiler=NONE \
   -cp "${IMAGE_DIR}/usr_share_java_kafka/"'*' \
   org.apache.zookeeper.server.quorum.QuorumPeerMain \
   ${IMAGE_DIR}/etc_kafka/km_zookeeper.properties > ${BASE_DIR}/zookeeper/out.txt 2>&1
 ) &
 sleep 5
+exit 0
 
 for (( i=1; i<=$NUMBER_OF_INSTANCE; i++ ))
 do

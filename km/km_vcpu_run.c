@@ -534,6 +534,10 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
                      __FUNCTION__,
                      vcpu->regs.rip,
                      vcpu->regs.r10);
+            char* instr = km_gva_to_kma(vcpu->regs.rip);
+            if (instr != NULL) {
+               km_infox(KM_TRACE_SIGNALS, "instr[0]=0x%x instr[1]=0x%x", instr[0], instr[1]);
+            }
             km_dump_vcpu(vcpu);
 
             siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};

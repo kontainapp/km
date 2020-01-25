@@ -190,6 +190,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
       case X86_INTR_PF:   // Page fault: SIGSEGV
          warnx("Page Fault: 0x%llx", vcpu->sregs.cr2);
          info.si_signo = SIGSEGV;
+         info.si_addr = (void*)vcpu->sregs.cr2;
          break;
 
       case X86_INTR_NMI:           // NMI
