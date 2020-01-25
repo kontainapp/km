@@ -13,10 +13,10 @@
       },
       "files.exclude": {
          "{GPATH,GRTAGS,GTAGS}": true,
+         "**/.dockerdir": true,
          "**/{*.o,*.d,*.so,*.km}": true,
          "build": true,
          "cpython/*": true,
-         "kfilesdir/*": true,
          "runtime/**/{WHATSNEW,aarch64,arm,m68k,microblaze,mips*,mipsn32,or1k,powerpc*,s390x,sh}": true,
          "tests/{*_test,*.km,*.kmd,*.so,km-bats-*.dynamic,km-bats-*.static}": true
       },
