@@ -1257,6 +1257,12 @@ static km_hc_ret_t execve_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    km_post_signal(vcpu, &info);
    return HC_CONTINUE;
 }
+
+static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = -ENOTSUP;
+   return HC_CONTINUE;
+}
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
@@ -1382,6 +1388,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_sysinfo] = sysinfo_hcall;
 
    km_hcalls_table[SYS_execve] = execve_hcall;
+   km_hcalls_table[SYS_fork] = fork_hcall;
    km_hcalls_table[SYS_times] = times_hcall;
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
