@@ -13,6 +13,7 @@
       },
       "files.exclude": {
          "{GPATH,GRTAGS,GTAGS}": true,
+         "**/.dockerdir": true,
          "**/{*.o,*.d,*.so,*.km}": true,
          "build": true,
          "cpython/*": true,

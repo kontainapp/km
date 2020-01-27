@@ -28,10 +28,10 @@ static void dump_core_stub(const char* syscall_name)
    km_hcall(SYS_exit, (km_hc_args_t*)-1LL);
 }
 
-#define __stub__(_func_) int _func_() __attribute__((alias("__dummy_stub")))
 #define __stub_core__(_func_)                                                                      \
    hidden void __dump_core_stub_##_func_(void) { dump_core_stub(#_func_); }                        \
    void _func_() __attribute__((alias("__dump_core_stub_" #_func_)))
+#define __stub__(_func_) int _func_() __attribute__((alias("__dummy_stub")))
 
 #pragma GCC diagnostic ignored "-Wbuiltin-declaration-mismatch"
 
@@ -45,27 +45,12 @@ __stub__(makecontext);
 __stub__(swapcontext);
 __stub__(sigaltstack);
 __stub__(statfs);
-__stub_core__(execl);
-__stub_core__(execve);
-__stub_core__(execvp);
-__stub_core__(execv);
-__stub_core__(fexecve);
-__stub_core__(posix_spawn);
-__stub_core__(posix_spawn_file_actions_init);
-__stub_core__(posix_spawn_file_actions_adddup2);
-__stub_core__(posix_spawn_file_actions_destroy);
 __stub_core__(__sched_cpualloc);
 __stub_core__(__sched_cpufree);
-__stub_core__(system);
-__stub__(fork);
-__stub__(vfork);
 __stub__(shmget);
 __stub__(shmat);
 __stub__(shmdt);
 __stub__(shmctl);
-__stub__(waitpid);
-__stub_core__(wait);
-__stub_core__(waitid);
 
 __stub__(backtrace);
 __stub__(mallopt);
