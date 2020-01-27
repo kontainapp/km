@@ -30,7 +30,8 @@ cd jdk
 ../../../build/km/km --dynlinker=../../../build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64:./build/linux-x86_64-server-release/jdk/lib/" ./build/linux-x86_64-server-release/jdk/bin/java.kmd Hello
 ```
 
-## Testing
+## Testing Notes
+_John Muth's Notes_
 
 OpenJDK uses a tool called `jtreg` for testing. While `jtreg` can be built from source, that requires a installing bunch of dependencies. (See `https://openjdk.java.net/jtreg/build.html` for details).
 
@@ -107,3 +108,20 @@ Results written to /home/muth/kontain/km/payloads/java/jdk/JTwork
 # Java Tips and Tricks
 
 `--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
+
+# Issues
+
+## Run from anywhere
+```bash
+cd /tmp
+$ ~/kontain/km/build/km/km --dynlinker=/home/muth/kontain/km/build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64:/home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk/lib/:/opt/kontain/lib64:/lib64:/home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk/lib/server" /home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk.km/bin/java.kmd Hello 
+runtime_km: call to unsupported `execve', generating core dump
+km: Write coredump to './kmcore'
+km: guest: Bad system call (core dumped)
+```
+
+With LD_LIBRARY_PATH in this order it works:
+```bash
+$  ~/kontain/km/build/km/km  --dynlinker=/home/muth/kontain/km/build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk/lib/server:/home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk/lib:/opt/kontain/lib64:/lib64" /home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk/bin/java.kmd -cp /tmp Hello
+Hello, World!
+```

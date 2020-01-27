@@ -368,6 +368,27 @@ typedef struct km_signal_frame {
 
 #define RED_ZONE (128)
 
+static inline void fill_ucontext(km_vcpu_t* vcpu, ucontext_t* uc)
+{
+   uc->uc_mcontext.gregs[REG_RAX] = vcpu->regs.rax;
+   uc->uc_mcontext.gregs[REG_RBX] = vcpu->regs.rbx;
+   uc->uc_mcontext.gregs[REG_RCX] = vcpu->regs.rcx;
+   uc->uc_mcontext.gregs[REG_RDX] = vcpu->regs.rdx;
+   uc->uc_mcontext.gregs[REG_RSI] = vcpu->regs.rsi;
+   uc->uc_mcontext.gregs[REG_RDI] = vcpu->regs.rdi;
+   uc->uc_mcontext.gregs[REG_RBP] = vcpu->regs.rbp;
+   uc->uc_mcontext.gregs[REG_RSP] = vcpu->regs.rsp;
+   uc->uc_mcontext.gregs[REG_R8] = vcpu->regs.r8;
+   uc->uc_mcontext.gregs[REG_R9] = vcpu->regs.r9;
+   uc->uc_mcontext.gregs[REG_R10] = vcpu->regs.r10;
+   uc->uc_mcontext.gregs[REG_R11] = vcpu->regs.r11;
+   uc->uc_mcontext.gregs[REG_R12] = vcpu->regs.r12;
+   uc->uc_mcontext.gregs[REG_R13] = vcpu->regs.r13;
+   uc->uc_mcontext.gregs[REG_R14] = vcpu->regs.r14;
+   uc->uc_mcontext.gregs[REG_R15] = vcpu->regs.r15;
+   uc->uc_mcontext.gregs[REG_RIP] = vcpu->regs.rip;
+}
+
 /*
  * Do the dirty-work to get a signal handler called in the guest.
  */
@@ -398,7 +419,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    frame->info = *info;
    frame->regs = vcpu->regs;
    frame->return_addr = km_guest.km_sigreturn;
-   frame->ucontext.uc_mcontext.gregs[REG_RIP] = vcpu->regs.rip;
+   fill_ucontext(vcpu, &frame->ucontext);
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
    if ((act->sa_flags & SA_SIGINFO) != 0) {
       vcpu->sigmask |= act->sa_mask;

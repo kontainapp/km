@@ -528,6 +528,18 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
              * guest memory (guest PT says page is writable, but kernel says it
              * isn't).
              */
+            km_read_registers(vcpu);
+            km_infox(KM_TRACE_SIGNALS,
+                     "%s memory protection violation rip=0x%llx r10=0x%llx",
+                     __FUNCTION__,
+                     vcpu->regs.rip,
+                     vcpu->regs.r10);
+            char* instr = km_gva_to_kma(vcpu->regs.rip);
+            if (instr != NULL) {
+               km_infox(KM_TRACE_SIGNALS, "instr[0]=0x%x instr[1]=0x%x", instr[0], instr[1]);
+            }
+            km_dump_vcpu(vcpu);
+
             siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
             km_post_signal(vcpu, &info);
             break;
