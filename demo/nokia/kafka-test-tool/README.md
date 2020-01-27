@@ -1,3 +1,4 @@
+# Intructions from Nokia
 
 ## Prerequisits 
 
@@ -10,7 +11,7 @@ Please install following softwares
 
 ## Setup Docker 
 
-Perform post installatio steps in following URL
+Perform post installation steps in following URL
 https://docs.docker.com/install/linux/linux-postinstall/ 
 
 

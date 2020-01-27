@@ -30,7 +30,8 @@ cd jdk
 ../../../build/km/km --dynlinker=../../../build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64:./build/linux-x86_64-server-release/jdk/lib/" ./build/linux-x86_64-server-release/jdk/bin/java.kmd Hello
 ```
 
-## Testing
+## Testing Notes
+_John Muth's Notes_
 
 OpenJDK uses a tool called `jtreg` for testing. While `jtreg` can be built from source, that requires a installing bunch of dependencies. (See `https://openjdk.java.net/jtreg/build.html` for details).
 

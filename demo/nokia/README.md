@@ -56,6 +56,10 @@ To run:
 java -jar ~/Downloads/ksar-5.2.4-b325_gdea8d8b5-SNAPSHOT-all.jar
 ```
 
+## Private Notes
+
+The following are John's private notes.
+
 ### Demo Notes (bitnami/docker-compose)
 
 Zookeeper Cmd:
