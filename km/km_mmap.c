@@ -483,7 +483,10 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
          // free(reg->filename);
          // reg->filename = NULL;
          // mmap
-         mmap(km_gva_to_kma(gva), size, prot, flags, fd, offset);
+         void* ret = mmap(km_gva_to_kma(gva), size, prot, flags, fd, offset);
+         if (ret == MAP_FAILED) {
+            err(2, "system mmap failed");
+         }
       }
       reg->flags = flags;
       reg->protection = prot;
