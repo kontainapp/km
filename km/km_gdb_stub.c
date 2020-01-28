@@ -200,6 +200,8 @@ int km_gdb_wait_for_connect(const char* image_name)
 static int km_gdb_vcpu_disengage(km_vcpu_t* vcpu, uint64_t unused)
 {
    vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RUNNING;
+   gdbstub.stepping = 0;
+   km_gdb_update_vcpu_debug(vcpu, 0);
    return 0;
 }
 
@@ -422,10 +424,8 @@ static bool string_append(char** dest, size_t* destmaxlen, char* src)
 }
 
 /*
- * Escape the special characters }, $, #, and * by preceding with } and then xor'ing
- * the char with 0x20.
- * The buffer will expand if any chars are escaped.
- * The buffer is expanded in place.
+ * Escape any special characters }, $, #, and * in the input buffer.
+ * The buffer will expand in place if any chars are escaped.
  * Parameters:
  *   buffer - the buffer containing characters
  *   buflen - address of the number of bytes in the buffer.
@@ -1808,7 +1808,7 @@ static void km_gdb_vfile_init(void)
    }
 }
 
-void km_gdb_gdbstub_init(void)
+void km_gdbstub_init(void)
 {
    km_gdb_vfile_init();
 }
@@ -1827,7 +1827,6 @@ static int gdb_fd_alloc(void)
          return i;
       }
    }
-
    return -1;
 }
 
@@ -1999,6 +1998,279 @@ typedef struct __attribute__((__packed__)) gdb_client_stat {
    uint32_t st_ctimex;  /* time of last change */
 } gdb_client_stat_t;
 
+static void handle_vfile_open(char* packet, char* output, int outputl)
+{
+   int n;
+   int rc;
+   int open_flags;
+   int file_mode;
+   char* commap;
+   char filename[PATH_MAX / 2];
+   int gdb_fd;
+   int linux_fd;
+   int gdb_errno;
+   unsigned char* f;
+
+   // Get the filename
+   commap = strchr(packet, ',');
+   if (commap == NULL) {
+      send_error_msg();
+      return;
+   }
+   *commap = 0;
+   f = hex2mem(packet, (unsigned char*)filename, strlen(packet) / 2);
+   *f = 0;
+   *commap = ',';
+
+   n = sscanf(commap + 1, "%x,%x", &open_flags, &file_mode);
+   if (n == 2) {
+      km_infox(KM_TRACE_GDB, "vfile open %s, flags 0x%x, mode 0x%x", filename, open_flags, file_mode);
+      if (open_flags != GDB_O_RDONLY && open_flags != GDB_O_EXCL) {
+         gdb_errno = GDB_EACCES;
+         goto error_reply;
+      }
+      // See if we have any free fd's.
+      gdb_fd = gdb_fd_alloc();
+      if (gdb_fd < 0) {
+         gdb_errno = GDB_ENFILE;
+         goto error_reply;
+      }
+      /*
+       * Form the path to open by prepending the contents of the symlink
+       * /proc/XXX/root to the path supplied in the open request.
+       */
+      char open_filename[PATH_MAX];
+      char procrootdirsymlink[100];
+      snprintf(procrootdirsymlink,
+               sizeof(procrootdirsymlink),
+               "/proc/%d/root",
+               gdbstub.vfile_state.current_fs);
+      rc = readlink(procrootdirsymlink, open_filename, sizeof(open_filename));
+      if (rc < 0) {
+         gdb_fd_free(gdb_fd);
+         gdb_errno = errno_linux2gdb(errno);
+         km_info(KM_TRACE_GDB, "Couldn't read symlink %s", procrootdirsymlink);
+         goto error_reply;
+      }
+      open_filename[rc] = 0;
+      if (strcmp(open_filename, "/") == 0) {
+         strcpy(open_filename, filename);
+      } else {
+         stringcat(open_filename, "/", sizeof(open_filename));
+         stringcat(open_filename, filename, sizeof(open_filename));
+      }
+      linux_fd = open(open_filename, O_RDONLY);
+      if (linux_fd < 0) {
+         gdb_errno = errno_linux2gdb(errno);
+         gdb_fd_free(gdb_fd);
+         km_info(KM_TRACE_GDB, "Couldn't open %s", open_filename);
+         goto error_reply;
+      }
+      gdb_fd_set(gdb_fd, linux_fd);
+      sprintf(output, "F%08x", gdb_fd);
+      send_packet(output);
+      return;
+   } else {
+      gdb_errno = GDB_EINVAL;
+      goto error_reply;
+   }
+
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+static void handle_vfile_close(char* packet, char* output, int outputl)
+{
+   int gdb_fd;
+   int gdb_errno;
+   int linux_fd;
+
+   if (sscanf(packet, "%x", &gdb_fd) == 1) {
+      linux_fd = gdb_fd_find(gdb_fd);
+      if (linux_fd < 0) {
+         gdb_errno = GDB_EBADF;
+         goto error_reply;
+      }
+      close(linux_fd);
+      gdb_fd_free(gdb_fd);
+      sprintf(output, "F0");
+      send_packet(output);
+      return;
+   } else {
+      gdb_errno = GDB_EINVAL;
+      goto error_reply;
+   }
+
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+static void handle_vfile_pread(char* packet, char* output, int outputl)
+{
+   int gdb_fd;
+   int linux_fd;
+   size_t count;
+   off_t offset;
+   int body_len;
+   ssize_t bytes_read;
+   int gdb_errno;
+
+   if (sscanf(packet, "%x, %lx, %lx", &gdb_fd, &count, &offset) == 3) {
+      linux_fd = gdb_fd_find(gdb_fd);
+      if (linux_fd < 0) {
+         gdb_errno = GDB_EBADF;
+         goto error_reply;
+      }
+      const int VFILE_READ_PREFIX_SIZE = 10;
+      if (count + VFILE_READ_PREFIX_SIZE > sizeof(registers)) {   // reduce read size to fit
+                                                                  // available buffer
+         km_infox(KM_TRACE_GDB,
+                  "vFile:pread reducing read size from %ld to %ld bytes",
+                  count,
+                  sizeof(registers) - VFILE_READ_PREFIX_SIZE);
+         count = sizeof(registers) - VFILE_READ_PREFIX_SIZE;
+      }
+      bytes_read = pread(linux_fd, registers, count, offset);
+      if (bytes_read >= 0) {
+         int bytes_copied;
+         //  Reply format: Flength;attachment
+         body_len = gdb_binary_escape_add((char*)registers,
+                                          bytes_read,
+                                          &bytes_copied,
+                                          &output[VFILE_READ_PREFIX_SIZE],
+                                          outputl - VFILE_READ_PREFIX_SIZE);
+         sprintf(output, "F%08x", bytes_copied);
+         output[VFILE_READ_PREFIX_SIZE - 1] = ';';
+         send_binary_packet(output, VFILE_READ_PREFIX_SIZE + body_len);
+         return;
+      } else {
+         gdb_errno = errno_linux2gdb(errno);
+         goto error_reply;
+      }
+   } else {
+      gdb_errno = GDB_EINVAL;
+      goto error_reply;
+   }
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+static void handle_vfile_fstat(char* packet, char* output, int outputl)
+{
+   int gdb_fd;
+   int linux_fd;
+   struct stat statb;
+   gdb_client_stat_t gdb_stat;
+   int bytes_copied;
+   int body_len;
+   int prefix_len;
+   int gdb_errno;
+
+   if (sscanf(packet, "%x", &gdb_fd) == 1) {
+      linux_fd = gdb_fd_find(gdb_fd);
+      if (linux_fd < 0) {
+         gdb_errno = GDB_EBADF;
+         goto error_reply;
+      }
+      if (fstat(linux_fd, &statb) < 0) {
+         gdb_errno = errno_linux2gdb(errno);
+         goto error_reply;
+      }
+      put_uint32((uint8_t*)&gdb_stat.st_dev, 1);
+      put_uint32((uint8_t*)&gdb_stat.st_ino, statb.st_ino);
+      put_uint32((uint8_t*)&gdb_stat.st_mode, statb.st_mode);
+      put_uint32((uint8_t*)&gdb_stat.st_nlink, statb.st_nlink);
+      put_uint32((uint8_t*)&gdb_stat.st_uid, statb.st_uid);
+      put_uint32((uint8_t*)&gdb_stat.st_gid, statb.st_gid);
+      put_uint32((uint8_t*)&gdb_stat.st_rdev, statb.st_rdev);
+      put_uint64((uint8_t*)&gdb_stat.st_size, statb.st_size);
+      put_uint64((uint8_t*)&gdb_stat.st_blksize, statb.st_blksize);
+      put_uint64((uint8_t*)&gdb_stat.st_blocks, statb.st_blocks);
+      put_uint32((uint8_t*)&gdb_stat.st_atimex, statb.st_atime);
+      put_uint32((uint8_t*)&gdb_stat.st_mtimex, statb.st_mtime);
+      put_uint32((uint8_t*)&gdb_stat.st_ctimex, statb.st_ctime);
+
+      sprintf(output, "F%08lx;", sizeof(gdb_stat));
+      prefix_len = strlen(output);
+      body_len = gdb_binary_escape_add((char*)&gdb_stat,
+                                       sizeof(gdb_stat),
+                                       &bytes_copied,
+                                       &output[prefix_len],
+                                       outputl - prefix_len);
+      assert(bytes_copied == sizeof(gdb_stat));
+      send_binary_packet(output, prefix_len + body_len);
+      return;
+   } else {
+      gdb_errno = GDB_EINVAL;
+      goto error_reply;
+   }
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+static void handle_vfile_readlink(char* packet, char* output, int outputl)
+{
+   char filename[PATH_MAX];
+   unsigned char* f;
+   int gdb_errno;
+   int l;
+   f = hex2mem(packet, (unsigned char*)filename, strlen(packet));
+   *f = 0;
+   if ((l = readlink(filename, (char*)registers, sizeof(registers))) < 0) {
+      gdb_errno = errno_linux2gdb(errno);
+      goto error_reply;
+   }
+   sprintf(output, "F0;");
+   mem2hex(registers, &output[strlen(output)], l);
+   send_packet(output);
+   return;
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+static void handle_vfile_setfs(char* packet, char* output, int outputl)
+{
+   pid_t pid;
+   char* endptr;
+   char filename[PATH_MAX];
+   int gdb_errno;
+   struct stat statb;
+   /*
+    * All we do here is verify that the pid is valid and remember the
+    * pid for future open requests.
+    * When an open happens, we just read the symlink /proc/pid/root and
+    * prepend that to the path supplied with the open request.
+    */
+   pid = strtol(packet, &endptr, 16);
+   if (*endptr != 0) {
+      send_error_msg();
+      return;
+   }
+   if (pid == 1) {   // external pid to our real pid
+      pid = getpid();
+   }
+   if (pid == 0) {
+      pid = getpid();
+   }
+   snprintf(filename, sizeof(filename), "/proc/%d/root", pid);
+   if (stat(filename, &statb) != 0) {
+      gdb_errno = errno_linux2gdb(errno);
+      goto error_reply;
+   }
+   gdbstub.vfile_state.current_fs = pid;
+   sprintf(output, "F0");
+   send_packet(output);
+   return;
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
 /*
  * Handle gdb client requests to open and read files.
  * We currently do not support attempts to write or unlink files.
@@ -2006,234 +2278,30 @@ typedef struct __attribute__((__packed__)) gdb_client_stat {
 static void km_gdb_handle_vfilepacket(char* packet, char* output, int outputl)
 {
    char* p;
-   unsigned char* f;
-   char filename_in_hex[512];
-   char filename[sizeof(filename_in_hex) / 2];
-   int rc = -1;
-   int open_flags;
-   int file_mode;
-   int gdb_fd;
-   int linux_fd;
-   int gdb_errno;
-   struct stat statb;
-   int bytes_read;
-   size_t count;
-   off_t offset;
    int n;
-   int body_len;
-   int prefix_len;
+   struct {
+      char* cmd;
+      void (*cmd_func)(char*, char*, int);
+   } cmd_vector[] = {{"pread:", handle_vfile_pread},
+                     {"fstat:", handle_vfile_fstat},
+                     {"open:", handle_vfile_open},
+                     {"close:", handle_vfile_close},
+                     {"setfs:", handle_vfile_setfs},
+                     {"readlink:", handle_vfile_readlink},
+                     {NULL, NULL}};
 
    output[0] = 0;
-   p = &packet[6];
-   if (strncmp(p, "open:", 5) == 0) {
-      char* commap;
-
-      // Get the filename
-      commap = strchr(&p[5], ',');
-      if (commap == NULL) {
-         send_error_msg();
+   p = &packet[strlen("vFile:")];
+   for (n = 0; cmd_vector[n].cmd != NULL; n++) {
+      int l = strlen(cmd_vector[n].cmd);
+      if (strncmp(p, cmd_vector[n].cmd, l) == 0) {
+         (*cmd_vector[n].cmd_func)(&p[l], output, outputl);
          return;
       }
-      *commap = 0;
-      f = hex2mem(&p[5], (unsigned char*)filename, strlen(&p[5]) / 2);
-      *f = 0;
-      *commap = ',';
-
-      n = sscanf(commap + 1, "%x,%x", &open_flags, &file_mode);
-      if (n == 2) {
-         km_infox(KM_TRACE_GDB, "vfile open %s, flags 0x%x, mode 0x%x", filename, open_flags, file_mode);
-         if (open_flags != GDB_O_RDONLY && open_flags != GDB_O_EXCL) {
-            gdb_errno = GDB_EACCES;
-            goto error_reply;
-         }
-         // See if we have any free fd's.
-         gdb_fd = gdb_fd_alloc();
-         if (gdb_fd < 0) {
-            gdb_errno = GDB_ENFILE;
-            goto error_reply;
-         }
-         /*
-          * Form the path to open by prepending the contents of the symlink
-          * /proc/XXX/root to the path supplied in the open request.
-          */
-         char open_filename[PATH_MAX];
-         char procrootdirsymlink[100];
-         snprintf(procrootdirsymlink,
-                  sizeof(procrootdirsymlink),
-                  "/proc/%d/root",
-                  gdbstub.vfile_state.current_fs);
-         rc = readlink(procrootdirsymlink, open_filename, sizeof(open_filename));
-         if (rc < 0) {
-            gdb_errno = errno_linux2gdb(errno);
-            km_info(KM_TRACE_GDB, "Couldn't read symlink %s", procrootdirsymlink);
-            goto error_reply;
-         }
-         open_filename[rc] = 0;
-         if (strcmp(open_filename, "/") == 0) {
-            strcpy(open_filename, filename);
-         } else {
-            stringcat(open_filename, "/", sizeof(open_filename));
-            stringcat(open_filename, filename, sizeof(open_filename));
-         }
-         linux_fd = open(open_filename, O_RDONLY);
-         if (linux_fd < 0) {
-            gdb_errno = errno_linux2gdb(errno);
-            gdb_fd_free(gdb_fd);
-            km_info(KM_TRACE_GDB, "Couldn't open %s", open_filename);
-            goto error_reply;
-         }
-         gdb_fd_set(gdb_fd, linux_fd);
-         sprintf(output, "F%08x", gdb_fd);
-      } else {
-         gdb_errno = GDB_EINVAL;
-         goto error_reply;
-      }
-   } else if (strncmp(p, "close:", 6) == 0) {
-      if (sscanf(&p[6], "%x", &gdb_fd) == 1) {
-         linux_fd = gdb_fd_find(gdb_fd);
-         if (linux_fd < 0) {
-            gdb_errno = GDB_EBADF;
-            goto error_reply;
-         }
-         close(linux_fd);
-         gdb_fd_free(gdb_fd);
-         sprintf(output, "F0");
-      } else {
-         gdb_errno = GDB_EINVAL;
-         goto error_reply;
-      }
-   } else if (strncmp(p, "pread:", 6) == 0) {
-      if (sscanf(&p[6], "%x, %lx, %lx", &gdb_fd, &count, &offset) == 3) {
-         linux_fd = gdb_fd_find(gdb_fd);
-         if (linux_fd < 0) {
-            gdb_errno = GDB_EBADF;
-            goto error_reply;
-         }
-         const int VFILE_READ_PREFIX_SIZE = 10;
-         if (count + VFILE_READ_PREFIX_SIZE > sizeof(registers)) {   // reduce read size to fit
-                                                                     // available buffer
-            km_infox(KM_TRACE_GDB,
-                     "vFile:pread reducing read size from %ld to %ld bytes",
-                     count,
-                     sizeof(registers) - VFILE_READ_PREFIX_SIZE);
-            count = sizeof(registers) - VFILE_READ_PREFIX_SIZE;
-         }
-         bytes_read = pread(linux_fd, registers, count, offset);
-         if (bytes_read >= 0) {
-            int bytes_copied;
-            //  Reply format: Flength;attachment
-            body_len = gdb_binary_escape_add((char*)registers,
-                                             bytes_read,
-                                             &bytes_copied,
-                                             &output[VFILE_READ_PREFIX_SIZE],
-                                             outputl - VFILE_READ_PREFIX_SIZE);
-            sprintf(output, "F%08x", bytes_copied);
-            output[VFILE_READ_PREFIX_SIZE - 1] = ';';
-            send_binary_packet(output, VFILE_READ_PREFIX_SIZE + body_len);
-            return;
-         } else {
-            gdb_errno = errno_linux2gdb(errno);
-            goto error_reply;
-         }
-      } else {
-         gdb_errno = GDB_EINVAL;
-         goto error_reply;
-      }
-   } else if (strncmp(p, "fstat:", 6) == 0) {
-      struct stat statb;
-      gdb_client_stat_t gdb_stat;
-      int bytes_copied;
-
-      if (sscanf(&p[6], "%x", &gdb_fd) == 1) {
-         linux_fd = gdb_fd_find(gdb_fd);
-         if (linux_fd < 0) {
-            gdb_errno = GDB_EBADF;
-            goto error_reply;
-         }
-         rc = fstat(linux_fd, &statb);
-         if (rc < 0) {
-            gdb_errno = errno_linux2gdb(errno);
-            goto error_reply;
-         }
-         put_uint32((uint8_t*)&gdb_stat.st_dev, 1);
-         put_uint32((uint8_t*)&gdb_stat.st_ino, statb.st_ino);
-         put_uint32((uint8_t*)&gdb_stat.st_mode, statb.st_mode);
-         put_uint32((uint8_t*)&gdb_stat.st_nlink, statb.st_nlink);
-         put_uint32((uint8_t*)&gdb_stat.st_uid, statb.st_uid);
-         put_uint32((uint8_t*)&gdb_stat.st_gid, statb.st_gid);
-         put_uint32((uint8_t*)&gdb_stat.st_rdev, statb.st_rdev);
-         put_uint64((uint8_t*)&gdb_stat.st_size, statb.st_size);
-         put_uint64((uint8_t*)&gdb_stat.st_blksize, statb.st_blksize);
-         put_uint64((uint8_t*)&gdb_stat.st_blocks, statb.st_blocks);
-         put_uint32((uint8_t*)&gdb_stat.st_atimex, statb.st_atime);
-         put_uint32((uint8_t*)&gdb_stat.st_mtimex, statb.st_mtime);
-         put_uint32((uint8_t*)&gdb_stat.st_ctimex, statb.st_ctime);
-
-         sprintf(output, "F%08lx;", sizeof(gdb_stat));
-         prefix_len = strlen(output);
-         body_len = gdb_binary_escape_add((char*)&gdb_stat,
-                                          sizeof(gdb_stat),
-                                          &bytes_copied,
-                                          &output[prefix_len],
-                                          outputl - prefix_len);
-         assert(bytes_copied == sizeof(gdb_stat));
-         send_binary_packet(output, prefix_len + body_len);
-         return;
-      } else {
-         gdb_errno = GDB_EINVAL;
-         goto error_reply;
-      }
-   } else if (strncmp(p, "readlink:", 9) == 0) {
-      f = hex2mem(&p[9], (unsigned char*)filename, strlen(&p[9]));
-      *f = 0;
-      rc = readlink(filename, (char*)registers, sizeof(registers));
-      if (rc < 0) {
-         gdb_errno = errno_linux2gdb(errno);
-         goto error_reply;
-      }
-      sprintf(output, "F0;");
-      mem2hex(registers, &output[strlen(output)], rc);
-   } else if (strncmp(p, "setfs:", 6) == 0) {
-      pid_t pid;
-      char* endptr;
-      /*
-       * All we do here is verify that the pid is valid and remember the
-       * pid for future open requests.
-       * When an open happens, we just read the symlink /proc/pid/root and
-       * prepend that to the path supplied with the open request.
-       */
-      pid = strtol(&p[6], &endptr, 16);
-      if (*endptr != 0) {
-         send_error_msg();
-         return;
-      }
-      if (pid == 0) {
-         pid = getpid();
-      }
-      snprintf(filename, sizeof(filename), "/proc/%d/root", pid);
-      rc = stat(filename, &statb);
-      if (rc != 0) {
-         gdb_errno = errno_linux2gdb(errno);
-         goto error_reply;
-      }
-      if (pid == 1) {   // external pid to our real pid
-         pid = getpid();
-      }
-      gdbstub.vfile_state.current_fs = pid;
-      sprintf(output, "F0");
-   } else {
-      // We don't support pwrite or unlink yet.
-      // Or, any other strange undocumented request the client sent us.
-      send_not_supported_msg();
-      return;
    }
-
-   send_packet(output);
-   return;
-
-error_reply:;
-   sprintf(output, "F-%x,%08x", rc, gdb_errno);
-   send_packet(output);
+   // We don't support pwrite or unlink yet.
+   // Or, any other strange undocumented request the client sent us.
+   send_not_supported_msg();
 }
 
 /*
@@ -2686,8 +2754,9 @@ static void km_vcpu_resume_all(void)
    km_mutex_unlock(&machine.pause_mtx);
 }
 
-void km_gdb_wait_for_dynlink_to_finish(void)
+static void km_gdb_wait_for_dynlink_to_finish(void)
 {
+   Elf64_Addr payload_entry = km_guest.km_ehdr.e_entry + km_guest.km_load_adjust;
    /*
     * The dynamic linker is present and the user wants gdb to attach at _start
     * (not at entry to the dynamic linker).  So, we put a breakpoint on _start,
@@ -2696,21 +2765,14 @@ void km_gdb_wait_for_dynlink_to_finish(void)
     * event and drop into the main part of gdbstub.
     */
    km_infox(KM_TRACE_GDB, "Begin waiting for dynamic linker to complete");
-   if (km_gdb_add_breakpoint(GDB_BREAKPOINT_HW, km_guest.km_ehdr.e_entry + km_guest.km_load_adjust, 1) !=
-       0) {
-      errx(3,
-           "Failed to plant breakpoint on payload entry point 0x%lx",
-           km_guest.km_ehdr.e_entry + km_guest.km_load_adjust);
+   if (km_gdb_add_breakpoint(GDB_BREAKPOINT_HW, payload_entry, 1) != 0) {
+      errx(3, "Failed to plant breakpoint on payload entry point 0x%lx", payload_entry);
    }
    km_vcpu_resume_all();                  // start the payload main thread
    km_wait_on_eventfd(machine.intr_fd);   // wait for the breakpoint we planted to be hit
    km_infox(KM_TRACE_GDB, "dynamic linker is done");
-   if (km_gdb_remove_breakpoint(GDB_BREAKPOINT_HW,
-                                km_guest.km_ehdr.e_entry + km_guest.km_load_adjust,
-                                1) != 0) {
-      errx(4,
-           "Failed to remove breakpoint on payload entry point 0x%lx",
-           km_guest.km_ehdr.e_entry + km_guest.km_load_adjust);
+   if (km_gdb_remove_breakpoint(GDB_BREAKPOINT_HW, payload_entry, 1) != 0) {
+      errx(4, "Failed to remove breakpoint on payload entry point 0x%lx", payload_entry);
    }
    pthread_mutex_lock(&gdbstub.notify_mutex);
    gdb_event_t* gep = TAILQ_FIRST(&gdbstub.event_queue);

@@ -23,7 +23,7 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 		regions_test.c mprotect_test.c pthread_cancel_test.c filesys_test.c filepath_test.c socket_test.c \
 		dl_iterate_phdr_test.c env_test.c locale_test.c munmap_monitor_maps_test.c \
 		gdb_server_entry_race_test.c gdb_qsupported_test.c gdb_delete_breakpoint_test.c gdb_nextstep_test.c \
-		mmap_1_test.c madvise_test.c misc_test.c
+		mmap_1_test.c madvise_test.c misc_test.c dlopen_exp.c
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
@@ -36,7 +36,7 @@ BUILDENV_PATH  := ./gdb
 TESTENV_PATH := .
 
 CFLAGS = -Wall $(COPTS) -ggdb3 -fPIC -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
-LDFLAGS = -ggdb3 -pthread
+LDFLAGS = -ggdb3 -pthread -ldl
 KCC := kontain-gcc
 DEPS = ${SRC:%.c=%.d} ${SHRSRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}

@@ -1,5 +1,5 @@
 #!/bin/bash
-# invoke gcc with extra params for Kontain link
+#invoke gcc with extra params for Kontain link
 
 TMP_SPEC="/tmp/gcc-${BASHPID}.spec"
 
@@ -13,17 +13,19 @@ cmd=`basename ${BASH_SOURCE[0]}`
 dir=`dirname ${BASH_SOURCE[0]}`
 KM_TOP=`realpath $dir/..`
 PREFIX=/opt/kontain
-# check if this is run in local build tree and use the local libs then
+#check if this is run in local build tree and use the local libs then
 if [[ x${KM_TOP} == x${PREFIX}/* ]] ; then
    LIB="-L ${PREFIX}/lib64"
    CRT="${PREFIX}/lib64"
    SPEC="${PREFIX}/lib64"
    SHR_LIBC="-L${PREFIX}/lib64 libc.so"
+   KM_LDSO=${PREFIX}/lib64/libc.so
 else
    LIB="-L ${PREFIX}/lib64 -L ${KM_TOP}/build/runtime"
    CRT="${KM_TOP}/build/runtime/musl/crt"
    SPEC="${KM_TOP}"
    SHR_LIBC="-L${KM_TOP}/build/runtime -l:libc.so"
+   KM_LDSO=${KM_TOP}/build/runtime/libc.so
 fi
 SHR_LIBSTDCPP=
 
@@ -54,7 +56,7 @@ cat <<EOF > ${TMP_SPEC}
 %{!shared: crtend.o%s} %{shared: crtendS.o%s} ${CRT}/x86_64/crtn.o%s
 
 *link:
-%(old_link) %{!shared:%{!rdynamic:-static} -Ttext-segment=0x200000 -e_start} %{rdynamic:--rpath=${PREFIX}/lib64 --dynamic-linker=__km_dynlink__ ${SHR_LIBC} ${SHR_LIBSTDCPP} -export-dynamic} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
+%(old_link) %{!shared:%{!rdynamic:-static} -Ttext-segment=0x200000 -e_start} %{rdynamic:--rpath=${PREFIX}/lib64 --dynamic-linker=${KM_LDSO} ${SHR_LIBC} ${SHR_LIBSTDCPP} -export-dynamic} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
 EOF
 
 "${REALGCC}" -specs=${TMP_SPEC} "$@" ${LIB}

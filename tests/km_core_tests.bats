@@ -113,7 +113,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    tmp=/tmp/hello$$ ; cp hello_test $tmp.km
    run km_with_timeout $tmp # Linux executable instead of $ext
    assert_failure
-   assert_line "km: PT_INTERP does not contain km marker. expect:'__km_dynlink__' got:'/lib64/ld-linux-x86-64.so.2'"   XXXXXXX
+   assert_line --partial "Non-KM binary: cannot find interrupt handler"
    rm $tmp.km # may leave dirt if the tests above fail
 
    log=`mktemp`
@@ -337,7 +337,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    km_gdb_default_port=2159
 
    # test with attach at dynamic linker entry point
-   km_with_timeout -G stray_test$ext stray &
+   km_with_timeout -g -A stray_test$ext stray &
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
       --ex="source cmd_for_sharedlib_test.gdb" --ex=q
    assert_success
@@ -358,6 +358,15 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 
    # There is no explicit test for vFile remote commands.  gdb uses vFile as part of
    # processing the "info sharedlibrary" command.
+
+   # test for symbols from libcrypt brought in by dlopen()
+   km_with_timeout -g dlopen_exp$ext &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+      --ex="source cmd_for_dlopen_test.gdb" --ex=q
+   assert_success
+   assert_line --partial "Yes (*)     target:/usr/lib64/libcrypt.so"
+   assert_line --partial "Dump of assembler code for function xcrypt"
+   wait_and_check 0
 }
 
 @test "unused_memory_protection($test_type): check that unused memory is protected (mprotect_test$ext)" {

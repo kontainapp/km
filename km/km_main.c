@@ -44,8 +44,7 @@ static inline void usage()
         "'regexp'\n"
         "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 2159) "
         "before running payload\n"
-        "\t--gdb-server-port-attach-dynlink[=port] - Listen for gdb on <port> before running "
-        "dynamic linker\n"
+        "\t--attach-before-dynlink             - gdb attaches before dynamic linker runs\n"
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--log-to=file_name                  - Stream stdout and stderr to file_name\n"
         "\t--putenv key=value                  - Add environment 'key' to payload\n"
@@ -108,7 +107,7 @@ static struct option long_options[] = {
     {"putenv", required_argument, 0, 'e'},
     {"copyenv", no_argument, 0, 'E'},
     {"gdb-server-port", optional_argument, 0, 'g'},
-    {"gdb-server-port-attach-dynlink", optional_argument, 0, 'G'},
+    {"attach-before-dynlink", no_argument, 0, 'A'},
     {"verbose", optional_argument, 0, 'V'},
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
     {"version", no_argument, 0, 'v'},
@@ -131,10 +130,10 @@ int main(int argc, char* const argv[])
    int envc = 1;                             // count of elements in envp (including NULL)
    int putenv_used = 0, copyenv_used = 0;    // they are mutually exclusive
 
-   km_gdb_gdbstub_init();
+   km_gdbstub_init();
 
    assert(envp != NULL);
-   while ((opt = getopt_long(argc, argv, "+g::G::V::P:vC:", long_options, &longopt_index)) != -1) {
+   while ((opt = getopt_long(argc, argv, "+g::AV::P:vC:", long_options, &longopt_index)) != -1) {
       switch (opt) {
          case 0:
             /* If this option set a flag, do nothing else now. */
@@ -143,7 +142,9 @@ int main(int argc, char* const argv[])
             }
             // Put here handling of longopts which do not have related short opt
             break;
-         case 'G':
+         case 'A':
+            gdbstub.attach_at_dynlink = 1;
+            break;
          case 'g':
             if (optarg == NULL) {
                port = GDB_DEFAULT_PORT;
@@ -152,13 +153,6 @@ int main(int argc, char* const argv[])
                usage();
             }
             km_gdb_port_set(port);
-            if (opt == 'G') {
-               // enter gdb before running dynamic linker
-               gdbstub.attach_at_dynlink = 1;
-            } else {
-               // enter gdb before running payload
-               gdbstub.attach_at_dynlink = 0;
-            }
             break;
          case 'l':
             if (freopen(optarg, "a", stdout) == NULL || freopen(optarg, "a", stderr) == NULL) {

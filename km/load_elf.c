@@ -195,14 +195,17 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
            interp_adjust);
    }
    if (strncmp(interp_kma, KM_DYNLINKER_STR, interp_len) != 0) {
-      errx(2, "PT_INTERP does not contain km marker. expect:'%s' got:'%s'", KM_DYNLINKER_STR, interp_kma);
+      // Use the dynamic linker in the .interp section
+      km_dynlinker.km_filename = interp_kma;
+   } else {
+      // Use the dynamic linker mentioned on  the command line
+      km_dynlinker.km_filename = km_dynlinker_file;
    }
 
    struct stat st;
-   if (stat(km_dynlinker_file, &st) != 0) {
-      err(2, "KM dynamic linker %s", km_dynlinker_file);
+   if (stat(km_dynlinker.km_filename, &st) != 0) {
+      err(2, "KM dynamic linker %s", km_dynlinker.km_filename);
    }
-   km_dynlinker.km_filename = km_dynlinker_file;
 
    Elf* e;
    int fd;
@@ -264,13 +267,7 @@ uint64_t km_load_elf(const char* file)
     * Read symbol table and look for symbols of interest to KM
     */
    km_find_hook_symbols(e, adjust);
-   if (km_guest.km_interp_vaddr == 0 && (km_guest.km_handlers == 0 || km_guest.km_sigreturn == 0)) {
-      errx(1,
-           "Non-KM binary: cannot find interrupt handler%s or sigreturn%s. Trying to "
-           "run regular Linux executable in KM?",
-           km_guest.km_handlers == 0 ? "(*)" : "",
-           km_guest.km_sigreturn == 0 ? "(*)" : "");
-   }
+
    /*
     * Read program headers, store them in km_guest for future use, and process PT_LOAD ones
     */
@@ -286,5 +283,19 @@ uint64_t km_load_elf(const char* file)
       load_dynlink(km_guest.km_interp_vaddr, km_guest.km_interp_len, adjust);
    }
    km_guest.km_load_adjust = adjust;
+
+   /*
+    * For dynamically linked executables, the interrupt handlers etc are in the
+    * dynamic linker.  For static the interrupt handlers are part of the executable.
+    * Do this check after both the executable are loaded and the dynamic linker is
+    * loaded if needed.
+    */
+   if (km_guest.km_handlers == 0 || km_guest.km_sigreturn == 0) {
+      errx(1,
+           "Non-KM binary: cannot find interrupt handler%s or sigreturn%s. Trying to "
+           "run regular Linux executable in KM?",
+           km_guest.km_handlers == 0 ? "(*)" : "",
+           km_guest.km_sigreturn == 0 ? "(*)" : "");
+   }
    return adjust;
 }
