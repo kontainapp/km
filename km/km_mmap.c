@@ -788,6 +788,36 @@ km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... 
    return ret;
 }
 
+// Determine if a GVA is valid for a particular access level.
+int km_is_gva_valid(km_gva_t gva, size_t size, int prot)
+{
+   km_mmap_reg_t* reg = NULL;
+
+   // give low memory a pass
+   if (gva < machine.brk) {
+      return 1;
+   }
+   mmaps_lock();
+   if ((reg = km_find_reg_nolock(gva)) == NULL) {
+      mmaps_unlock();
+      return 0;
+   }
+   /*
+    * Just laziness. Don't feel like getting multiple regions
+    * until there is a compelling reason.
+    */
+   if (gva + size > reg->start + reg->size) {
+      mmaps_unlock();
+      return 0;
+   }
+   if ((reg->protection & prot) != prot) {
+      mmaps_unlock();
+      return 0;
+   }
+   mmaps_unlock();
+   return 1;
+}
+
 /*
  * Need access to mmaps to drop core, so this is here for now.
  */

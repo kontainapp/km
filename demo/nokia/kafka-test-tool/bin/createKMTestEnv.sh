@@ -50,7 +50,7 @@ EOF
 # Use -Djava.compiler=NONE to disable JIT
 # JIT: -XX:+PrintCompilation -XX:+PrintCodeCacheOnCompilation \
 (cd ${KM_BASE}/payloads/java/jdk-11+28; \
-${KM_BASE}/build/km/km -Vsignals --dynlinker=${KM_BASE}/build/runtime/libc.so \
+${KM_BASE}/build/km/km --dynlinker=${KM_BASE}/build/runtime/libc.so \
   --putenv="LD_LIBRARY_PATH=${KM_BASE}/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/lib/server:${KM_BASE}/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/lib:/opt/kontain/lib64:/lib64" \
   ${KM_BASE}/payloads/java/jdk-11+28/build/linux-x86_64-server-release/images/jdk/bin/java.kmd \
   -Xmx512M -Xms512M -server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 \
