@@ -825,7 +825,7 @@ km_is_payload_gva_accessable(km_payload_t* payload, km_gva_t gva, size_t size, i
  */
 int km_is_gva_accessable(km_gva_t gva, size_t size, int prot)
 {
-   if (gva >= machine.brk && gva < machine.tbrk) {
+   if (km_gva_to_kma(gva) == NULL) {
       return 0;
    }
 
