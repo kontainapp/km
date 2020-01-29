@@ -1,9 +1,31 @@
+/*
+ * Copyright © 2020 Kontain Inc. All rights reserved.
+ *
+ * Kontain Inc CONFIDENTIAL
+ *
+ * This file includes unpublished proprietary source code of Kontain Inc. The
+ * copyright notice above does not evidence any actual or intended publication
+ * of such source code. Disclosure of this source code or any related
+ * proprietary information is strictly prohibited without the express written
+ * permission of Kontain Inc.
+ */
 #define _GNU_SOURCE
 #include <dlfcn.h>
 #include <link.h>
 #include <math.h>
 #include <stdio.h>
 #include <time.h>
+
+/*
+ * A simple test program to load libcrypt.so at runtime and call crypt().
+ * This program is used together with cmd_for_dlopen_test.gdb.
+ * That gdb script runs "info sharedlibrary" and uses the value of
+ * a dynamically loaded symbol to verify the library is loaded and we
+ * are getting symbols from the library.
+ * We also have code to follow the list of link_map structures in the
+ * running image.  This is more for curiousity sake.  It can be used to
+ * verify that libcrypt.so is loaded though.
+ */
 
 #define CRYPT_SYMBOL "crypt"
 #define CRYPT_LIB "/usr/lib64/libcrypt.so"
@@ -19,15 +41,11 @@ static void __attribute__((noinline)) hit_breakpoint(void* symvalue)
 
 int main(int argc, char* argv[])
 {
-   float result;
    void* n;
    struct link_map* lmp;
    struct link_map* lmnext;
    int rc;
    void* symvalue = NULL;
-
-   result = cos(M_PI * 2 / 8);   // 45 degrees
-   printf("cosine of 45 degrees %f\n", result);
 
    // Dynamically load libcrypt and call crypt().
    void* c = dlopen(CRYPT_LIB, RTLD_LAZY);
