@@ -788,6 +788,82 @@ km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... 
    return ret;
 }
 
+static inline int
+km_is_payload_gva_accessable(km_payload_t* payload, km_gva_t gva, size_t size, int prot)
+{
+   for (int i = 0; i < payload->km_ehdr.e_phnum; i++) {
+      Elf64_Phdr* phdr = &payload->km_phdr[i];
+      if (gva < phdr->p_vaddr + payload->km_load_adjust ||
+          gva + size > phdr->p_vaddr + payload->km_load_adjust + phdr->p_memsz) {
+         continue;
+      }
+      int rprot = 0;
+      if (phdr->p_flags & PF_R) {
+         rprot |= PROT_READ;
+      }
+      if (phdr->p_flags & PF_W) {
+         rprot |= PROT_WRITE;
+      }
+      if (phdr->p_flags & PF_X) {
+         rprot |= PROT_EXEC;
+      }
+      if (rprot == 0 || (prot & rprot) != prot) {
+         return 0;
+      }
+      return 1;
+   }
+   return 0;
+}
+
+/*
+ * Determine is a GVA range is accessable at a particular
+ * protection level.
+ * @param gva   starting gva of range.
+ * @param size  length of range
+ * @param prot  protection flag(s) [PROT_READ, PROT_WRITE, PROT_EXEC]
+ * @returns 1 if range is accessable, 0 if not.
+ */
+int km_is_gva_accessable(km_gva_t gva, size_t size, int prot)
+{
+   if (gva >= machine.brk && gva < machine.tbrk) {
+      return 0;
+   }
+
+   if (gva < machine.brk) {
+      if (km_is_payload_gva_accessable(&km_guest, gva, size, prot)) {
+         return 1;
+      }
+      if (km_is_payload_gva_accessable(&km_dynlinker, gva, size, prot)) {
+         return 1;
+      }
+      return 0;
+   }
+
+   // Must be in mmap memory.
+   km_mmap_reg_t* reg = NULL;
+   int ret = 1;
+   mmaps_lock();
+   if ((reg = km_find_reg_nolock(gva)) == NULL) {
+      ret = 0;
+      goto done;
+   }
+   /*
+    * The entire requested range must be described by a single region.
+    * This is just laziness. Don't feel like checking against multiple
+    * regions until there is a compelling reason.
+    */
+   if (gva + size > reg->start + reg->size) {
+      errx(2, "range spanned mmap region gva:0x%lx size:0x%lx", gva, size);
+   }
+   if ((reg->protection & prot) != prot) {
+      ret = 0;
+      goto done;
+   }
+done:
+   mmaps_unlock();
+   return ret;
+}
+
 /*
  * Need access to mmaps to drop core, so this is here for now.
  */
