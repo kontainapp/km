@@ -276,6 +276,47 @@ TEST test_sigmask()
    PASS();
 }
 
+/*
+ * Emulate OpenJDK safepoint algorithm.
+ *
+ * OpenJDK uses a page protection mechanism to implement global pause
+ * for JIT generated code. The idea is maintain a page that is normally
+ * readable but is set PROT_NONE when a global pause is needed. Threads
+ * access the page when they get to 'safepoints'. The PROT_NONE generates
+ * a SIGSEGV and the pause happens in the context of the SIGSEGV handler.
+ * This signal handler uses info->si_addr to determine whether this is a
+ * safepoint or a real error.
+ */
+int safepoint_size = 4096;
+void* safepoint_page = NULL;
+siginfo_t safepoint_siginfo;
+void safepoint_sigaction(int signo, siginfo_t* info, void* uc)
+{
+   safepoint_siginfo = *info;
+   mprotect(safepoint_page, safepoint_size, PROT_READ);
+}
+
+TEST test_safepoint()
+{
+   struct sigaction sa = {.sa_sigaction = safepoint_sigaction, .sa_flags = SA_SIGINFO};
+   struct sigaction old_sa = {};
+
+   ASSERT_EQ(0, sigaction(SIGSEGV, &sa, &old_sa));
+   safepoint_page = mmap(0, safepoint_size, PROT_NONE, 0, -1, 0);
+   ASSERT_NOT_EQ(MAP_FAILED, safepoint_page);
+
+   asm volatile("mov %0, %%r10\n\t"
+                "test %%rax, (%%r10)"
+                : /* No output */
+                : "r"(safepoint_page)
+                : "%r10");
+
+   ASSERT_EQ(safepoint_page, safepoint_siginfo.si_addr);
+   ASSERT_EQ(0, munmap(safepoint_page, safepoint_size));
+   ASSERT_EQ(0, sigaction(SIGSEGV, &old_sa, NULL));
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -295,6 +336,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_kill);
    RUN_TEST(test_tkill);
    RUN_TEST(test_sigmask);
+   RUN_TEST(test_safepoint);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
