@@ -16,15 +16,16 @@
 
 #include <string.h>
 #include <sys/utsname.h>
+#include "syscall.h"
 
 int uname(struct utsname* uts)
 {
+   int ret = syscall(SYS_uname, uts);
    // Buffers are all for 65 bytes (hardcoded in musl, so we are good)
    strcpy(uts->sysname, "kontain-runtime");
-   strcpy(uts->nodename, "kontain-local");
    strcpy(uts->release, "1.0");
    strcpy(uts->version, "preview");
    strcpy(uts->machine, "kontain_VM");
 
-   return 0;
+   return ret;
 }
