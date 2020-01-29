@@ -539,7 +539,7 @@ static void* km_faulting_address(km_vcpu_t* vcpu)
             __FUNCTION__,
             vcpu->regs.rip,
             vcpu->regs.r10);
-   if (!km_is_gva_valid(vcpu->regs.rip, 3, PROT_READ | PROT_EXEC)) {
+   if (!km_is_gva_accessable(vcpu->regs.rip, 3, PROT_READ | PROT_EXEC)) {
       km_infox(KM_TRACE_SIGNALS, "FAULT rip=0x%llx", vcpu->regs.rip);
       return (void*)vcpu->regs.rip;
    }
@@ -573,10 +573,11 @@ static void* km_faulting_address(km_vcpu_t* vcpu)
       // int reg1 = (instr[2] >> 3) & 0x7;
       int reg2 = instr[2] & 0x7;
       uint64_t* regp = km_reg_ptr(vcpu, b, reg2);
-      if (mode == 0 && regp != NULL && !km_is_gva_valid(*regp, sizeof(uint64_t), PROT_READ)) {
+      if (mode == 0 && regp != NULL && !km_is_gva_accessable(*regp, sizeof(uint64_t), PROT_READ)) {
          return (void*)*regp;
       }
    }
+   warnx("EFAULT - Unknown failing address. RIP=0x%llx", vcpu->regs.rip);
    return NULL;
 }
 
