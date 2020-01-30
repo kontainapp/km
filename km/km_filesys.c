@@ -237,6 +237,7 @@ uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
 uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
+   km_infox(KM_TRACE_FILESYS, "close(%d)", fd);
    if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
@@ -1050,24 +1051,4 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
    }
    int ret = __syscall_4(SYS_prlimit64, pid, resource, (uintptr_t)new_limit, (uintptr_t)old_limit);
    return ret;
-}
-
-// procfdname() produces /proc/self/fd/<number> name for given fd
-uint64_t km_fs_procfdname(km_vcpu_t* vcpu, char* buf, int fd)
-{
-   int host_fd = guestfd_to_hostfd(fd);
-   if (host_fd < 0) {
-      strcpy(buf, "/proc/nonexistent");
-      return -EBADF;
-   }
-   /*
-    * This is used from inside musl, for instance in an implementation of realpath(). We obviously
-    * need to transate the fd number so we make it into a pypercall. We could've make realpath()
-    * into a hypercall but procfdname() is used in half a dozen other places in musl.
-    *
-    * The buffer is provided with (alomst) fixed size expressed as ``char buf[15+3*sizeof(int)];''
-    * or once as `char procname[sizeof "/proc/self/fd/" + 3*sizeof(int) + 2];'' so we play along.
-    */
-   sprintf(buf, "/proc/self/fd/%d", host_fd);
-   return 0;
 }

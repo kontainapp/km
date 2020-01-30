@@ -1123,18 +1123,6 @@ static km_hc_ret_t km_unittest_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 #endif
 }
 
-static km_hc_ret_t procfdname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-   // musl specific call: void __procfdname(char *buf, unsigned fd)
-   void* buf = km_gva_to_kma(arg->arg1);
-   if (buf == NULL) {
-      arg->hc_ret = -EFAULT;
-      return HC_CONTINUE;
-   }
-   arg->hc_ret = km_fs_procfdname(vcpu, buf, arg->arg2);
-   return HC_CONTINUE;
-}
-
 static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    arg->hc_ret =
@@ -1393,7 +1381,6 @@ void km_hcalls_init(void)
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;
-   km_hcalls_table[HC_procfdname] = procfdname_hcall;
    km_hcalls_table[HC_unmapself] = unmapself_hcall;
 }
 

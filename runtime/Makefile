@@ -24,7 +24,7 @@ SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix 
 
 # these musl files will be dropped from all libs (static and dynamic)
 KM_REPLACED_SRCS := __set_thread_area.s __unmapself.s syscall.s syscall_cp.s getenv.c uname.c preadv.c pwritev.c \
-						  fcntl.c procfdname.c sigaltstack.c clone.s getpagesize.c fcntl/open.c
+						  fcntl.c sigaltstack.c clone.s getpagesize.c fcntl/open.c
 # These KM files will be added to all libs (static and dynamic)
 KM_EXTRA_SRCS := $(wildcard *_km.c) $(wildcard *.s)
 # These KM files are not applicable to dynamic (DL or SO) libs, and will be in static only
