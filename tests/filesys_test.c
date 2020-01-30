@@ -383,6 +383,22 @@ TEST test_bad_fd()
    PASS();
 }
 
+TEST test_proc_fd()
+{
+   char* fname = "/dev/null";
+   int fd = open(fname, O_RDWR);
+   ASSERT_NOT_EQ(-1, fd);
+   char procname[128];
+   snprintf(procname, sizeof(procname), "/proc/self/fd/%d", fd);
+
+   char slink[128];
+   ASSERT_NOT_EQ(-1, readlink(procname, slink, sizeof(slink)));
+   fprintf(stderr, "slink=%s\n", slink);
+   ASSERT_EQ(0, strcmp(slink, fname));
+   close(fd);
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -402,6 +418,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_eventfd);
    RUN_TEST(test_getrlimit_nofiles);
    RUN_TEST(test_bad_fd);
+   RUN_TEST(test_proc_fd);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)

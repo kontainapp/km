@@ -217,8 +217,6 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
                          int resource,
                          const struct rlimit* new_limit,
                          struct rlimit* old_limit);
-// procfdname() produces /proc/self/fd/<number> name for given fd
-uint64_t km_fs_procfdname(km_vcpu_t* vcpu, char* buf, int fd);
 
 #define KM_TRACE_FILESYS "filesys"
 #endif
