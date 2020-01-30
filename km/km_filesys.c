@@ -396,7 +396,9 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
    int ret;
    if (strncmp(pathname, procfd, strlen(procfd)) == 0) {
       int fd;
-      sscanf(pathname, "/proc/self/fd/%d", &fd);
+      if (sscanf(pathname, "/proc/self/fd/%d", &fd) != 1) {
+         return -ENOENT;
+      }
       if (fd < 0 || fd >= machine.filesys.nfdmap || machine.filesys.guestfd_to_name_map[fd] == 0) {
          return -ENOENT;
       }
