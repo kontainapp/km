@@ -1227,14 +1227,15 @@ static km_hc_ret_t uname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    if (arg->arg1 == 0 || (name = km_gva_to_kma(arg->arg1)) == NULL ||
        km_gva_to_kma(arg->arg1 + sizeof(*name) - 1) == NULL) {
       arg->hc_ret = -1;
-   } else {
-      arg->hc_ret = uname(name);
-      // Overwrite Kontain specific info. Buffers 65 bytes each, hardcoded in musl, so we are good
-      strcpy(name->sysname, "kontain-runtime");
-      strcpy(name->release, "1.0");
-      strcpy(name->version, "preview");
-      strcpy(name->machine, "kontain_VM");
+      return HC_CONTINUE;
    }
+
+   arg->hc_ret = uname(name);
+   // Overwrite Kontain specific info. Buffers 65 bytes each, hardcoded in musl, so we are good
+   strcpy(name->sysname, "kontain-runtime");
+   strcpy(name->release, "0.8");
+   strcpy(name->version, "preview");
+   strcpy(name->machine, "kontain_VM");
    return HC_CONTINUE;
 }
 
