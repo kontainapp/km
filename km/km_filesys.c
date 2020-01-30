@@ -392,7 +392,27 @@ uint64_t km_fs_link(km_vcpu_t* vcpu, char* old, char* new)
 // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
 uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz)
 {
-   int ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
+   char* procfd = "/proc/self/fd/";
+   int ret;
+   if (strncmp(pathname, procfd, strlen(procfd)) == 0) {
+      char* fdnum = pathname + strlen(procfd);
+      char* p;
+      int fd = strtol(fdnum, &p, 10);
+      if (p == NULL || *p != '\0') {
+         return -ENOENT;
+      }
+      if (fd < 0 || fd >= machine.filesys.nfdmap || machine.filesys.guestfd_to_name_map[fd] == 0) {
+         return -ENOENT;
+      }
+      strncpy(buf, machine.filesys.guestfd_to_name_map[fd], bufsz);
+      ret = strlen(machine.filesys.guestfd_to_name_map[fd]);
+      if (ret > bufsz) {
+         ret = bufsz;
+      }
+      goto done;
+   }
+   ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
+done:
    km_infox(KM_TRACE_FILESYS, "%s buf: %s", pathname, buf);
    return ret;
 }
