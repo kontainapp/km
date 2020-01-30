@@ -23,7 +23,7 @@ SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq)
 SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/ crt/ ldso/)))
 
 # these musl files will be dropped from all libs (static and dynamic)
-KM_REPLACED_SRCS := __set_thread_area.s __unmapself.s syscall.s syscall_cp.s getenv.c uname.c preadv.c pwritev.c \
+KM_REPLACED_SRCS := __set_thread_area.s __unmapself.s syscall.s syscall_cp.s getenv.c preadv.c pwritev.c \
 						  fcntl.c sigaltstack.c clone.s getpagesize.c fcntl/open.c
 # These KM files will be added to all libs (static and dynamic)
 KM_EXTRA_SRCS := $(wildcard *_km.c) $(wildcard *.s)
