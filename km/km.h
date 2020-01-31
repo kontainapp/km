@@ -365,6 +365,8 @@ extern km_info_trace_t km_info_trace;
 
 #define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)   // 1 for yes, 0 for no
 
+#define km_trace_tag_enabled(tag)                                                                  \
+   (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)
 /*
  * Trace something and add perror() output to end of the line.
  */
