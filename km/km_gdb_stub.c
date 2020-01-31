@@ -50,6 +50,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -199,6 +200,8 @@ int km_gdb_wait_for_connect(const char* image_name)
 static int km_gdb_vcpu_disengage(km_vcpu_t* vcpu, uint64_t unused)
 {
    vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RUNNING;
+   gdbstub.stepping = 0;
+   km_gdb_update_vcpu_debug(vcpu, 0);
    return 0;
 }
 
@@ -218,6 +221,8 @@ static void km_gdb_disable(void)
    if (km_gdb_is_enabled() != 1) {
       return;
    }
+
+   km_gdb_remove_all_breakpoints();
 
    // Disconnect gdb from all of the vcpu's
    km_vcpu_apply_all(km_gdb_vcpu_disengage, 0);
@@ -370,6 +375,137 @@ static void send_packet(const char* buffer)
 {
    for (char ch = '\0'; ch != '+';) {
       send_packet_no_ack(buffer);
+      if ((ch = recv_char()) == -1) {
+         return;
+      }
+   }
+}
+
+/*
+ * Append src to the string described by dest and destmaxlen, growing the string
+ * if necessary and then update *dest and *destmaxlen if the string was made bigger.
+ * The destination can be null initially signifying the destination is empty.
+ * The src string is assumed to be null terminated.
+ * Returns:
+ *  true - src was successfully appened to *dest.
+ *  false - src was not appended because the string could not be grown to hold src
+ */
+static bool string_append(char** dest, size_t* destmaxlen, char* src)
+{
+   size_t curdestlen = (*dest != NULL) ? strlen(*dest) : 0;
+   size_t cursrclen = strlen(src);
+
+   if (*dest == NULL || (*destmaxlen - curdestlen) < (cursrclen + 1)) {   // not big enough, grow
+                                                                          // the destionation string
+      size_t bigger_size;
+      char* bigger_dest;
+
+      // Keep doubling the size until the destination can hold the source string
+      bigger_size = *destmaxlen;
+      if (bigger_size == 0) {
+         bigger_size = 1024;
+      }
+      while (bigger_size - curdestlen < cursrclen + 1) {
+         bigger_size += bigger_size;
+      }
+      bigger_dest = realloc(*dest, bigger_size);
+      if (bigger_dest == NULL) {
+         km_infox(KM_TRACE_GDB, "Failed to grow string at %p to %lu bytes", dest, bigger_size);
+         return false;
+      }
+      km_infox(KM_TRACE_GDB, "String at %p grew from %lu to %lu bytes", dest, *destmaxlen, bigger_size);
+      *dest = bigger_dest;
+      *destmaxlen = bigger_size;
+   }
+   memcpy(&(*dest)[curdestlen], src, cursrclen);
+   (*dest)[curdestlen + cursrclen] = 0;
+
+   return true;
+}
+
+/*
+ * Escape any special characters }, $, #, and * in the input buffer.
+ * The buffer will expand in place if any chars are escaped.
+ * Parameters:
+ *   buffer - the buffer containing characters
+ *   buflen - address of the number of bytes in the buffer.
+ *      On return this will contain the size after any characters have been escaped.
+ *   bufmax - the maximum number of characters that can be put in buffer.
+ * Returns:
+ *   0 - success
+ *   -1 - there was not enough space in buffer to expand all special chars. The
+ *      buffer is not cleaned up.
+ */
+static int gdb_add_escapes(uint8_t* buffer, size_t* buflen, size_t bufmax)
+{
+   int i;
+
+   for (i = 0; i < *buflen; i++) {
+      if (buffer[i] == '}' || buffer[i] == '$' || buffer[i] == '#' || buffer[i] == '*') {
+         if ((bufmax - *buflen) == 0) {
+            return -1;
+         }
+         memmove(&buffer[i + 1], &buffer[i], *buflen - i);
+         buffer[i] = '}';
+         buffer[i + 1] ^= 0x20;
+         (*buflen)++;
+         i++;
+      }
+   }
+   return 0;
+}
+
+/*
+ * Store a 32 bit int into a buffer in big endian order.
+ */
+static void put_uint32(uint8_t* b, uint32_t value)
+{
+   b[0] = (value >> 24);
+   b[1] = (value >> 16);
+   b[2] = (value >> 8);
+   b[3] = value;
+}
+
+/*
+ * Store a 64 bit int into a buffer in big endian order.
+ */
+static void put_uint64(uint8_t* b, uint64_t value)
+{
+   b[0] = (value >> 56);
+   b[1] = (value >> 48);
+   b[2] = (value >> 40);
+   b[3] = (value >> 32);
+   b[4] = (value >> 24);
+   b[5] = (value >> 16);
+   b[6] = (value >> 8);
+   b[7] = value;
+}
+
+static void send_binary_packet_no_ack(const char* buffer, size_t buflen)
+{
+   unsigned char checksum;
+   int count;
+
+   km_infox(KM_TRACE_GDB, "sending binary reply, length %ld", buflen);
+   // TODO trace hex dump of the reply.
+   for (count = 0, checksum = 0; count < buflen; count++) {
+      checksum += buffer[count];
+   }
+   send_char('$');
+   send(gdbstub.sock_fd, buffer, buflen, 0);
+   send_char('#');
+   send_char(hexchars[checksum >> 4]);
+   send_char(hexchars[checksum % 16]);
+}
+
+/*
+ * Send a packet in binary.  The caller is expected to have already escaped
+ * '$', $#', '}', and '*'.
+ */
+static void send_binary_packet(const char* buffer, size_t buflen)
+{
+   for (char ch = '\0'; ch != '+';) {
+      send_binary_packet_no_ack(buffer, buflen);
       if ((ch = recv_char()) == -1) {
          return;
       }
@@ -706,7 +842,10 @@ static void handle_qsupported(char* packet, char* obuf)
            "qXfer:threads:read+;"
            "swbreak+;"
            "hwbreak+;"
-           "vContSupported+",
+           "vContSupported+;"
+           "qXfer:auxv:read+;"
+           "qXfer:exec-file:read+;"
+           "qXfer:libraries-svr4:read+",
            BUFMAX - 1);
    send_packet(obuf);
 }
@@ -919,6 +1058,284 @@ static void handle_qgettlsaddr(char* packet, char* obuf)
    }
 }
 
+/*
+ * Return the number of chars in look_for_these are present in the input
+ * memory pointed to by s.  The block of memory pointed to by s is sl
+ * bytes in length.
+ */
+static uint32_t gdb_char_counter(uint8_t* s, uint32_t sl, char* look_for_these)
+{
+   int i;
+   int j;
+   uint32_t count = 0;
+
+   for (i = 0; i < sl; i++) {
+      for (j = 0; look_for_these[j] != 0; j++) {
+         if (s[i] == look_for_these[j]) {
+            count++;
+            break;
+         }
+      }
+   }
+   return count;
+}
+
+/*
+ * Handle the "qXfer:auxv:read" request.
+ */
+static uint8_t* gdb_auxv_copy;
+static uint32_t gdb_auxv_len;
+
+static void handle_qxfer_auxv_read(char* packet, char* obuf)
+{
+   int offset;
+   int length;
+   int n;
+   size_t bytes_to_deliver = 0;
+
+   n = sscanf(packet, "qXfer:auxv:read::%x,%x", &offset, &length);
+   if (n == 2) {
+      if (offset == 0) {
+         // Build a copy of the auxv
+         if (gdb_auxv_copy != NULL) {
+            free(gdb_auxv_copy);
+         }
+         gdb_auxv_len =
+             machine.auxv_size +
+             gdb_char_counter(machine.auxv, machine.auxv_size, GDB_REMOTEPROTO_SPECIALCHARS);
+         gdb_auxv_copy = malloc(gdb_auxv_len);
+         if (gdb_auxv_copy == NULL) {
+            send_error_msg();
+            km_infox(KM_TRACE_GDB, "Couldn't allocate auxv buffer, len %d", gdb_auxv_len);
+            return;
+         }
+
+         // Make our copy of auvx with special gdb chars escaped.
+         memcpy(gdb_auxv_copy, machine.auxv, machine.auxv_size);
+         size_t buflen = machine.auxv_size;
+         if (gdb_add_escapes(gdb_auxv_copy, &buflen, machine.auxv_size) != 0) {
+            send_error_msg();
+            free(gdb_auxv_copy);
+            gdb_auxv_copy = NULL;
+            km_infox(KM_TRACE_GDB, "Couldn't escape special chars in auxv");
+            return;
+         }
+      }
+      if (offset >= gdb_auxv_len) {
+         obuf[0] = 'l';
+         obuf[1] = 0;
+      } else {
+         bytes_to_deliver = gdb_auxv_len - offset;
+         if (bytes_to_deliver > length) {
+            bytes_to_deliver = length;
+            obuf[0] = 'm';
+         } else {
+            obuf[0] = 'l';
+         }
+         memcpy(&obuf[1], &gdb_auxv_copy[offset], bytes_to_deliver);
+      }
+   } else {
+      // not enough args, protocol violation
+      send_error_msg();
+   }
+   send_binary_packet(obuf, bytes_to_deliver + 1);
+}
+
+static char* gdb_execfile_name;
+static uint32_t gdb_execfile_len;
+
+static void handle_qxfer_execfile_read(const char* packet, char* obuf)
+{
+   int32_t offset;
+   int32_t length;
+
+   if (strncmp(packet, "qXfer:exec-file:read::", strlen("qXfer:exec-file:read::")) == 0) {
+      if (sscanf(packet, "qXfer:exec-file:read::%x,%x", &offset, &length) != 2) {
+         send_error_msg();
+         return;
+      }
+   } else {
+      /*
+       * We aren't handling pid yet.
+       * Since we don't claim to support multi-process debugging we shouldn't see a pid.
+       */
+      km_infox(KM_TRACE_GDB, "annex containing a pid is not supported");
+      send_not_supported_msg();
+      return;
+   }
+   if (offset == 0) {
+      // Generate the absolute path
+      if (gdb_execfile_name != NULL) {
+         free(gdb_execfile_name);
+      }
+      size_t buflen = strlen(km_guest.km_filename);
+      gdb_execfile_len =
+          1 + buflen +
+          gdb_char_counter((uint8_t*)km_guest.km_filename, buflen, GDB_REMOTEPROTO_SPECIALCHARS);
+      gdb_execfile_name = malloc(gdb_execfile_len);
+      if (gdb_execfile_name == NULL) {
+         send_error_msg();
+         km_infox(KM_TRACE_GDB, "Couldn't allocate %u bytes for the execfile name", gdb_execfile_len);
+         return;
+      }
+      strcpy(gdb_execfile_name, km_guest.km_filename);
+      if (gdb_add_escapes((uint8_t*)gdb_execfile_name, &buflen, gdb_execfile_len) != 0) {
+         send_error_msg();
+         free(gdb_execfile_name);
+         gdb_execfile_name = NULL;
+         km_infox(KM_TRACE_GDB, "Failed to escape special chars in execfile name");
+         return;
+      }
+   }
+   if (offset > gdb_execfile_len) {
+      obuf[0] = 'l';
+      obuf[1] = 0;
+   } else {
+      uint32_t bytes_to_deliver = gdb_execfile_len - offset;
+      if (bytes_to_deliver > length) {
+         bytes_to_deliver = length;
+         obuf[0] = 'm';
+      } else {
+         obuf[0] = 'l';
+      }
+      memcpy(&obuf[1], &gdb_execfile_name[offset], bytes_to_deliver);
+      obuf[1 + bytes_to_deliver] = 0;
+   }
+   send_packet(obuf);
+}
+
+/*
+ * Handler for the "qXfer:libraries-svr4:read:annex:offset,length" command.
+ * We should produce a response similar to:
+ *  <library-list-svr4 version="1.0" main-lm="0x777777">
+ *    <library name="/lib/ld-linux.so.2" lm="0x88888" l_addr="0x1111111" l_ld="0x222222"/>
+ *    <library name="/lib/libc.so.6" lm="0x9999" l_addr="0xaaaaaa" l_ld="0xbbbbbb"/>
+ *  </library-list-svr4>
+ */
+#define GDB_LIBRARY_DESC_LEN 200
+typedef struct gdb_linkmap_arg {
+   uint8_t count;
+   char** bufp;
+   size_t* bufl;
+} gdb_linkmap_arg_t;
+
+/*
+ * Visitor function for traversing the list of dynamically loaded libraries.
+ * This function is called once for each library.
+ */
+static int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
+{
+   gdb_linkmap_arg_t* lmargp = (gdb_linkmap_arg_t*)argp;
+   int worked;
+   char temp[GDB_LIBRARY_DESC_LEN + PATH_MAX];
+   char* libname = (char*)km_gva_to_kma((km_gva_t)kmap->l_name);
+   char dynlinker_absolute[PATH_MAX];
+   uint8_t is_dynlinker;
+
+   is_dynlinker = (strcmp(libname, KM_DYNLINKER_STR) == 0);
+   if (is_dynlinker != 0) {
+      if (km_dynlinker_file[0] != '/') {
+         if (getcwd(dynlinker_absolute, sizeof(dynlinker_absolute)) == NULL) {
+            km_info(KM_TRACE_GDB, "getcwd() failied");
+            return 1;
+         }
+         snprintf(&dynlinker_absolute[strlen(dynlinker_absolute)],
+                  sizeof(dynlinker_absolute) - strlen(dynlinker_absolute),
+                  "/%s",
+                  km_dynlinker_file);
+      } else {
+         snprintf(dynlinker_absolute, sizeof(dynlinker_absolute), "%s", km_dynlinker_file);
+      }
+   }
+
+   if (lmargp->count == 0) {
+      snprintf(temp,
+               sizeof(temp),
+               "<library-list-svr4 version=\"1.0\" main-lm=\"0x%lx\">\n",
+               (uint64_t)gvap);
+   } else {
+      snprintf(temp,
+               sizeof(temp),
+               "  <library name=\"%s\" lm=\"%p\" l_addr=\"0x%lx\" l_ld=\"0x%lx\"/>\n",
+               is_dynlinker != 0 ? dynlinker_absolute : libname,
+               gvap,
+               kmap->l_addr,
+               kmap->l_ld);
+   }
+   worked = string_append(lmargp->bufp, lmargp->bufl, temp);
+   if (worked == false) {
+      km_infox(KM_TRACE_GDB, "Out of buffer space producing libraries-svr4 list");
+      return 1;
+   }
+   lmargp->count++;
+
+   return 0;
+}
+
+/*
+ * The current list of libraries.
+ */
+static char* gdb_libsvr4_listp;
+static size_t gdb_libsvr4_listl;
+
+/*
+ * Process the qXfer:libraries-svr4:read command.
+ * We traverse the list of libraries and return a list of the information
+ * from the link_map for each of the found libraries.
+ */
+static void handle_qxfer_librariessvr4_read(const char* packet, char* obuf)
+{
+   uint32_t offset;
+   uint32_t length;
+   uint32_t bytes_to_deliver;
+
+   if (sscanf(packet, "qXfer:libraries-svr4:read::%x,%x", &offset, &length) != 2) {
+      km_infox(KM_TRACE_GDB, "Error parsing qXfer:libraries-svr4:read");
+      send_error_msg();
+      return;
+   }
+
+   // Build up a new library list if starting from zero.
+   if (offset == 0) {
+      gdb_linkmap_arg_t lmstate = {
+          .count = 0,
+          .bufp = &gdb_libsvr4_listp,
+          .bufl = &gdb_libsvr4_listl,
+      };
+      if (gdb_libsvr4_listp != NULL) {
+         gdb_libsvr4_listp[0] = 0;
+      }
+      int rc = km_link_map_walk(km_gdb_linkmap_visit, &lmstate);
+      if (rc != 0) {   // not enough space to hold the library list
+         km_infox(KM_TRACE_GDB, "Error while producing library list");
+         send_error_msg();
+         return;
+      }
+      if (lmstate.count == 0) {   // nothing there
+         string_append(&gdb_libsvr4_listp, &gdb_libsvr4_listl, "<library-list-svr4 version=\"1.0\" />");
+      } else {
+         string_append(&gdb_libsvr4_listp, &gdb_libsvr4_listl, "</library-list-svr4>");
+      }
+   }
+
+   // Send a chunk of the library list.
+   if (offset >= gdb_libsvr4_listl) {   // asking for beyond the end of the list
+      obuf[0] = 'l';
+      obuf[1] = 0;
+   } else {
+      bytes_to_deliver = gdb_libsvr4_listl - offset;
+      if (bytes_to_deliver > length) {
+         bytes_to_deliver = length;
+         obuf[0] = 'm';
+      } else {
+         obuf[0] = 'l';
+      }
+      memcpy(&obuf[1], &gdb_libsvr4_listp[offset], bytes_to_deliver);
+      obuf[bytes_to_deliver + 1] = 0;
+   }
+   send_packet(obuf);
+}
+
 // The guest tid we send back in the thread extra info is expected to be smaller than 64.
 const int MAX_GUEST_TID_SIZE = 64;
 
@@ -968,6 +1385,12 @@ static void km_gdb_general_query(char* packet, char* obuf)
       handle_qxfer_threads_read(packet, obuf);
    } else if (strncmp(packet, "qGetTLSAddr:", strlen("qGetTLSAddr:")) == 0) {
       handle_qgettlsaddr(packet, obuf);
+   } else if (strncmp(packet, "qXfer:auxv:read::", strlen("qXfer:auxv:read::")) == 0) {
+      handle_qxfer_auxv_read(packet, obuf);
+   } else if (strncmp(packet, "qXfer:exec-file:read:", strlen("qXfer:exec-file:read:")) == 0) {
+      handle_qxfer_execfile_read(packet, obuf);
+   } else if (strncmp(packet, "qXfer:libraries-svr4:read:", strlen("qXfer:libraries-svr4:read:")) == 0) {
+      handle_qxfer_librariessvr4_read(packet, obuf);
    } else {
       send_not_supported_msg();
    }
@@ -1065,7 +1488,7 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
  * km_vcpu_apply_all() helper function to count how many threads are in
  * each gdb runstate.
  */
-int km_gdb_count_thread_states(km_vcpu_t* vcpu, uint64_t ta)
+static int km_gdb_count_thread_states(km_vcpu_t* vcpu, uint64_t ta)
 {
    int i = vcpu->vcpu_id;
    threadaction_blob_t* threadactionblob = (threadaction_blob_t*)ta;
@@ -1102,11 +1525,9 @@ static int verify_vcont(threadaction_blob_t* threadactionblob)
 
    km_vcpu_apply_all(km_gdb_count_thread_states, (uint64_t)threadactionblob);
 
-   // Ensure either 1 thread is stepping or all threads are running.
-   if ((threadactionblob->running != 0 &&
-        (threadactionblob->paused != 0 || threadactionblob->stepping != 0)) ||
-       (threadactionblob->stepping == 1 && threadactionblob->running != 0) ||
-       threadactionblob->stepping > 1) {
+   // Ensure either 1 thread is stepping or 1 thread is running or all threads are running.
+   if ((threadactionblob->running != 0 && threadactionblob->stepping != 0) ||
+       ((threadactionblob->running + threadactionblob->stepping) > 1 && threadactionblob->paused != 0)) {
       km_infox(KM_TRACE_GDB,
                "Unsupported combination of running %d, stepping %d, and paused %d threads",
                threadactionblob->running,
@@ -1344,12 +1765,553 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
 }
 
 /*
+ * Meaning of the flag bits supplied in a gdb remote protocol file open request.
+ */
+#define GDB_O_RDONLY 0x0
+#define GDB_O_WRONLY 0x1
+#define GDB_O_RDWR 0x2
+#define GDB_O_APPEND 0x8
+#define GDB_O_CREAT 0x200
+#define GDB_O_TRUNC 0x400
+#define GDB_O_EXCL 0x800
+
+/*
+ * gdb errno values.
+ */
+#define GDB_EPERM 1
+#define GDB_ENOENT 2
+#define GDB_EINTR 4
+#define GDB_EBADF 9
+#define GDB_EACCES 13
+#define GDB_EFAULT 14
+#define GDB_EBUSY 16
+#define GDB_EEXIST 17
+#define GDB_ENODEV 19
+#define GDB_ENOTDIR 20
+#define GDB_EISDIR 21
+#define GDB_EINVAL 22
+#define GDB_ENFILE 23
+#define GDB_EMFILE 24
+#define GDB_EFBIG 27
+#define GDB_ENOSPC 28
+#define GDB_ESPIPE 29
+#define GDB_EROFS 30
+#define GDB_ENAMETOOLONG 91
+#define GDB_EUNKNOWN 9999
+
+static void km_gdb_vfile_init(void)
+{
+   int i;
+
+   for (i = 0; i < MAX_GDB_VFILE_OPEN_FD; i++) {
+      gdbstub.vfile_state.fd[i] = GDB_VFILE_FD_FREE_SLOT;
+   }
+}
+
+void km_gdbstub_init(void)
+{
+   km_gdb_vfile_init();
+}
+
+/*
+ * Allocate a gdb file descriptor and return it.
+ * If there are no free gdb file descriptors return -1;
+ */
+static int gdb_fd_alloc(void)
+{
+   int i;
+
+   for (i = 0; i < MAX_GDB_VFILE_OPEN_FD; i++) {
+      if (gdbstub.vfile_state.fd[i] == GDB_VFILE_FD_FREE_SLOT) {
+         gdbstub.vfile_state.fd[i] = -2;
+         return i;
+      }
+   }
+   return -1;
+}
+
+/*
+ * Free the passed gdb_fd.
+ * If the gdb_fd is valid, free its slot and return 0.
+ * If the gdb_fd is invalid or not open return an error.
+ */
+static int gdb_fd_free(int gdb_fd)
+{
+   if (gdb_fd < 0 || gdb_fd >= MAX_GDB_VFILE_OPEN_FD) {
+      return EMFILE;
+   }
+   if (gdbstub.vfile_state.fd[gdb_fd] == GDB_VFILE_FD_FREE_SLOT) {
+      return EBADF;
+   }
+   gdbstub.vfile_state.fd[gdb_fd] = GDB_VFILE_FD_FREE_SLOT;
+   return 0;
+}
+
+/*
+ * Return the linux fd that is bound to the passed gdb fd.
+ * If the passed gdb fd is bad return -1.
+ */
+static int gdb_fd_find(int gdb_fd)
+{
+   if (gdb_fd >= 0 && gdb_fd < MAX_GDB_VFILE_OPEN_FD) {
+      if (gdbstub.vfile_state.fd[gdb_fd] >= 0) {
+         return gdbstub.vfile_state.fd[gdb_fd];
+      }
+   }
+   return -1;
+}
+
+static void gdb_fd_set(int gdb_fd, int linux_fd)
+{
+   assert(gdb_fd >= 0 && gdb_fd < MAX_GDB_VFILE_OPEN_FD);
+   assert(linux_fd >= 0);
+
+   gdbstub.vfile_state.fd[gdb_fd] = linux_fd;
+}
+
+/*
+ * Convert from linux errno values to gdb errno values.
+ */
+static int errno_linux2gdb(int linux_errno)
+{
+   int gdb_errno;
+
+   switch (linux_errno) {
+      case EPERM:
+         gdb_errno = GDB_EPERM;
+         break;
+      case ENOENT:
+         gdb_errno = GDB_ENOENT;
+         break;
+      case EINTR:
+         gdb_errno = GDB_EINTR;
+         break;
+      case EBADF:
+         gdb_errno = GDB_EBADF;
+         break;
+      case EACCES:
+         gdb_errno = GDB_EACCES;
+         break;
+      case EFAULT:
+         gdb_errno = GDB_EFAULT;
+         break;
+      case EBUSY:
+         gdb_errno = GDB_EBUSY;
+         break;
+      case EEXIST:
+         gdb_errno = GDB_EEXIST;
+         break;
+      case ENODEV:
+         gdb_errno = GDB_ENODEV;
+         break;
+      case ENOTDIR:
+         gdb_errno = GDB_ENOTDIR;
+         break;
+      case EISDIR:
+         gdb_errno = GDB_EISDIR;
+         break;
+      case EINVAL:
+         gdb_errno = GDB_EINVAL;
+         break;
+      case ENFILE:
+         gdb_errno = GDB_ENFILE;
+         break;
+      case EMFILE:
+         gdb_errno = GDB_EMFILE;
+         break;
+      case EFBIG:
+         gdb_errno = GDB_EFBIG;
+         break;
+      case ENOSPC:
+         gdb_errno = GDB_ENOSPC;
+         break;
+      case ESPIPE:
+         gdb_errno = GDB_ESPIPE;
+         break;
+      case EROFS:
+         gdb_errno = GDB_EROFS;
+         break;
+      case ENAMETOOLONG:
+         gdb_errno = GDB_ENAMETOOLONG;
+         break;
+      default:
+         gdb_errno = GDB_EUNKNOWN;
+         break;
+   }
+   return gdb_errno;
+}
+
+/*
+ * When the gdb server returns a binary string to the gdb client certain special
+ * characters must be escaped.  This function copies the input to the output
+ * and adds escape chars as needed.  When all of the input is copied and escaped
+ * or the output buffer is filled we stop.
+ * We return the size of the output produced and the amount of the input buffer
+ * consumed.  The caller must handle cases where all of the input was not
+ * processed.
+ */
+static int
+gdb_binary_escape_add(char* input, int inputl, int* input_consumed, char* output, int outputl)
+{
+   int i;
+   int o;
+
+   i = 0;
+   o = 0;
+   while (i < inputl) {
+      if (input[i] == '}' || input[i] == '#' || input[i] == '$' || input[i] == '*') {
+         if (o + 2 > outputl) {   // there isn't enough space
+            break;
+         }
+         output[o] = '}';
+         output[o + 1] = input[i] ^ 0x20;
+         o += 2;
+      } else {
+         if (o + 1 > outputl) {   // There isn't enough space
+            break;
+         }
+         output[o] = input[i];
+         o++;
+      }
+      i++;
+   }
+   *input_consumed = i;
+   return o;
+}
+
+/*
+ * The stat structure the gdb client wants to see.
+ */
+typedef struct __attribute__((__packed__)) gdb_client_stat {
+   uint32_t st_dev;     /* device */
+   uint32_t st_ino;     /* inode */
+   uint32_t st_mode;    /* protection */
+   uint32_t st_nlink;   /* number of hard links */
+   uint32_t st_uid;     /* user ID of owner */
+   uint32_t st_gid;     /* group ID of owner */
+   uint32_t st_rdev;    /* device type (if inode device) */
+   uint64_t st_size;    /* total size, in bytes */
+   uint64_t st_blksize; /* blocksize for filesystem I/O */
+   uint64_t st_blocks;  /* number of blocks allocated */
+   uint32_t st_atimex;  /* time of last access */
+   uint32_t st_mtimex;  /* time of last modification */
+   uint32_t st_ctimex;  /* time of last change */
+} gdb_client_stat_t;
+
+static void handle_vfile_open(char* packet, char* output, int outputl)
+{
+   int n;
+   int rc;
+   int open_flags;
+   int file_mode;
+   char* commap;
+   char filename[PATH_MAX / 2];
+   int gdb_fd;
+   int linux_fd;
+   int gdb_errno;
+   unsigned char* f;
+
+   // Get the filename
+   commap = strchr(packet, ',');
+   if (commap == NULL) {
+      send_error_msg();
+      return;
+   }
+   *commap = 0;
+   f = hex2mem(packet, (unsigned char*)filename, strlen(packet) / 2);
+   *f = 0;
+   *commap = ',';
+
+   n = sscanf(commap + 1, "%x,%x", &open_flags, &file_mode);
+   if (n == 2) {
+      km_infox(KM_TRACE_GDB, "vfile open %s, flags 0x%x, mode 0x%x", filename, open_flags, file_mode);
+      if (open_flags != GDB_O_RDONLY && open_flags != GDB_O_EXCL) {
+         gdb_errno = GDB_EACCES;
+         goto error_reply;
+      }
+      // See if we have any free fd's.
+      gdb_fd = gdb_fd_alloc();
+      if (gdb_fd < 0) {
+         gdb_errno = GDB_ENFILE;
+         goto error_reply;
+      }
+      /*
+       * Form the path to open by prepending the contents of the symlink
+       * /proc/XXX/root to the path supplied in the open request.
+       */
+      char open_filename[PATH_MAX];
+      char procrootdirsymlink[100];
+      snprintf(procrootdirsymlink,
+               sizeof(procrootdirsymlink),
+               "/proc/%d/root",
+               gdbstub.vfile_state.current_fs);
+      rc = readlink(procrootdirsymlink, open_filename, sizeof(open_filename));
+      if (rc < 0) {
+         gdb_fd_free(gdb_fd);
+         gdb_errno = errno_linux2gdb(errno);
+         km_info(KM_TRACE_GDB, "Couldn't read symlink %s", procrootdirsymlink);
+         goto error_reply;
+      }
+      open_filename[rc] = 0;
+      if (strcmp(open_filename, "/") == 0) {
+         strcpy(open_filename, filename);
+      } else {
+         stringcat(open_filename, "/", sizeof(open_filename));
+         stringcat(open_filename, filename, sizeof(open_filename));
+      }
+      linux_fd = open(open_filename, O_RDONLY);
+      if (linux_fd < 0) {
+         gdb_errno = errno_linux2gdb(errno);
+         gdb_fd_free(gdb_fd);
+         km_info(KM_TRACE_GDB, "Couldn't open %s", open_filename);
+         goto error_reply;
+      }
+      gdb_fd_set(gdb_fd, linux_fd);
+      sprintf(output, "F%08x", gdb_fd);
+      send_packet(output);
+      return;
+   } else {
+      gdb_errno = GDB_EINVAL;
+      goto error_reply;
+   }
+
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+static void handle_vfile_close(char* packet, char* output, int outputl)
+{
+   int gdb_fd;
+   int gdb_errno;
+   int linux_fd;
+
+   if (sscanf(packet, "%x", &gdb_fd) == 1) {
+      linux_fd = gdb_fd_find(gdb_fd);
+      if (linux_fd < 0) {
+         gdb_errno = GDB_EBADF;
+         goto error_reply;
+      }
+      close(linux_fd);
+      gdb_fd_free(gdb_fd);
+      sprintf(output, "F0");
+      send_packet(output);
+      return;
+   } else {
+      gdb_errno = GDB_EINVAL;
+      goto error_reply;
+   }
+
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+static void handle_vfile_pread(char* packet, char* output, int outputl)
+{
+   int gdb_fd;
+   int linux_fd;
+   size_t count;
+   off_t offset;
+   int body_len;
+   ssize_t bytes_read;
+   int gdb_errno;
+
+   if (sscanf(packet, "%x, %lx, %lx", &gdb_fd, &count, &offset) == 3) {
+      linux_fd = gdb_fd_find(gdb_fd);
+      if (linux_fd < 0) {
+         gdb_errno = GDB_EBADF;
+         goto error_reply;
+      }
+      const int VFILE_READ_PREFIX_SIZE = 10;
+      if (count + VFILE_READ_PREFIX_SIZE > sizeof(registers)) {   // reduce read size to fit
+                                                                  // available buffer
+         km_infox(KM_TRACE_GDB,
+                  "vFile:pread reducing read size from %ld to %ld bytes",
+                  count,
+                  sizeof(registers) - VFILE_READ_PREFIX_SIZE);
+         count = sizeof(registers) - VFILE_READ_PREFIX_SIZE;
+      }
+      bytes_read = pread(linux_fd, registers, count, offset);
+      if (bytes_read >= 0) {
+         int bytes_copied;
+         //  Reply format: Flength;attachment
+         body_len = gdb_binary_escape_add((char*)registers,
+                                          bytes_read,
+                                          &bytes_copied,
+                                          &output[VFILE_READ_PREFIX_SIZE],
+                                          outputl - VFILE_READ_PREFIX_SIZE);
+         sprintf(output, "F%08x", bytes_copied);
+         output[VFILE_READ_PREFIX_SIZE - 1] = ';';
+         send_binary_packet(output, VFILE_READ_PREFIX_SIZE + body_len);
+         return;
+      } else {
+         gdb_errno = errno_linux2gdb(errno);
+         goto error_reply;
+      }
+   } else {
+      gdb_errno = GDB_EINVAL;
+      goto error_reply;
+   }
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+static void handle_vfile_fstat(char* packet, char* output, int outputl)
+{
+   int gdb_fd;
+   int linux_fd;
+   struct stat statb;
+   gdb_client_stat_t gdb_stat;
+   int bytes_copied;
+   int body_len;
+   int prefix_len;
+   int gdb_errno;
+
+   if (sscanf(packet, "%x", &gdb_fd) == 1) {
+      linux_fd = gdb_fd_find(gdb_fd);
+      if (linux_fd < 0) {
+         gdb_errno = GDB_EBADF;
+         goto error_reply;
+      }
+      if (fstat(linux_fd, &statb) < 0) {
+         gdb_errno = errno_linux2gdb(errno);
+         goto error_reply;
+      }
+      put_uint32((uint8_t*)&gdb_stat.st_dev, 1);
+      put_uint32((uint8_t*)&gdb_stat.st_ino, statb.st_ino);
+      put_uint32((uint8_t*)&gdb_stat.st_mode, statb.st_mode);
+      put_uint32((uint8_t*)&gdb_stat.st_nlink, statb.st_nlink);
+      put_uint32((uint8_t*)&gdb_stat.st_uid, statb.st_uid);
+      put_uint32((uint8_t*)&gdb_stat.st_gid, statb.st_gid);
+      put_uint32((uint8_t*)&gdb_stat.st_rdev, statb.st_rdev);
+      put_uint64((uint8_t*)&gdb_stat.st_size, statb.st_size);
+      put_uint64((uint8_t*)&gdb_stat.st_blksize, statb.st_blksize);
+      put_uint64((uint8_t*)&gdb_stat.st_blocks, statb.st_blocks);
+      put_uint32((uint8_t*)&gdb_stat.st_atimex, statb.st_atime);
+      put_uint32((uint8_t*)&gdb_stat.st_mtimex, statb.st_mtime);
+      put_uint32((uint8_t*)&gdb_stat.st_ctimex, statb.st_ctime);
+
+      sprintf(output, "F%08lx;", sizeof(gdb_stat));
+      prefix_len = strlen(output);
+      body_len = gdb_binary_escape_add((char*)&gdb_stat,
+                                       sizeof(gdb_stat),
+                                       &bytes_copied,
+                                       &output[prefix_len],
+                                       outputl - prefix_len);
+      assert(bytes_copied == sizeof(gdb_stat));
+      send_binary_packet(output, prefix_len + body_len);
+      return;
+   } else {
+      gdb_errno = GDB_EINVAL;
+      goto error_reply;
+   }
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+static void handle_vfile_readlink(char* packet, char* output, int outputl)
+{
+   char filename[PATH_MAX];
+   unsigned char* f;
+   int gdb_errno;
+   int l;
+   f = hex2mem(packet, (unsigned char*)filename, strlen(packet));
+   *f = 0;
+   if ((l = readlink(filename, (char*)registers, sizeof(registers))) < 0) {
+      gdb_errno = errno_linux2gdb(errno);
+      goto error_reply;
+   }
+   sprintf(output, "F0;");
+   mem2hex(registers, &output[strlen(output)], l);
+   send_packet(output);
+   return;
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+static void handle_vfile_setfs(char* packet, char* output, int outputl)
+{
+   pid_t pid;
+   char* endptr;
+   char filename[PATH_MAX];
+   int gdb_errno;
+   struct stat statb;
+   /*
+    * All we do here is verify that the pid is valid and remember the
+    * pid for future open requests.
+    * When an open happens, we just read the symlink /proc/pid/root and
+    * prepend that to the path supplied with the open request.
+    */
+   pid = strtol(packet, &endptr, 16);
+   if (*endptr != 0) {
+      send_error_msg();
+      return;
+   }
+   if (pid == 1) {   // external pid to our real pid
+      pid = getpid();
+   }
+   if (pid == 0) {
+      pid = getpid();
+   }
+   snprintf(filename, sizeof(filename), "/proc/%d/root", pid);
+   if (stat(filename, &statb) != 0) {
+      gdb_errno = errno_linux2gdb(errno);
+      goto error_reply;
+   }
+   gdbstub.vfile_state.current_fs = pid;
+   sprintf(output, "F0");
+   send_packet(output);
+   return;
+error_reply:
+   sprintf(output, "F-1,%08x", gdb_errno);
+   send_packet(output);
+}
+
+/*
+ * Handle gdb client requests to open and read files.
+ * We currently do not support attempts to write or unlink files.
+ */
+static void km_gdb_handle_vfilepacket(char* packet, char* output, int outputl)
+{
+   char* p;
+   int n;
+   struct {
+      char* cmd;
+      void (*cmd_func)(char*, char*, int);
+   } cmd_vector[] = {{"pread:", handle_vfile_pread},
+                     {"fstat:", handle_vfile_fstat},
+                     {"open:", handle_vfile_open},
+                     {"close:", handle_vfile_close},
+                     {"setfs:", handle_vfile_setfs},
+                     {"readlink:", handle_vfile_readlink},
+                     {NULL, NULL}};
+
+   output[0] = 0;
+   p = &packet[strlen("vFile:")];
+   for (n = 0; cmd_vector[n].cmd != NULL; n++) {
+      int l = strlen(cmd_vector[n].cmd);
+      if (strncmp(p, cmd_vector[n].cmd, l) == 0) {
+         (*cmd_vector[n].cmd_func)(&p[l], output, outputl);
+         return;
+      }
+   }
+   // We don't support pwrite or unlink yet.
+   // Or, any other strange undocumented request the client sent us.
+   send_not_supported_msg();
+}
+
+/*
  * The general v packet handler.
  * We currently handle:
  *  vCont? - gdb client finding out if we support vCont.
  *  vCont - gdb client tells us to continue or step instruction
+ *  vFile - gdb remote file i/o requests
  */
-static void km_gdb_handle_vpackets(char* packet, char* obuf, int* resume)
+static void km_gdb_handle_vpackets(char* packet, char* obuf, int obufl, int* resume)
 {
    *resume = 0;
    if (strncmp(packet, "vCont?", strlen("vCont?")) == 0) {
@@ -1363,6 +2325,9 @@ static void km_gdb_handle_vpackets(char* packet, char* obuf, int* resume)
    } else if (strncmp(packet, "vCont", strlen("vCont")) == 0) {
       /* gdb client wants us to run the app. */
       km_gdb_handle_vcontpacket(packet, obuf, resume);
+   } else if (strncmp(packet, "vFile:", strlen("vFile:")) == 0) {
+      /* gdb client wants us to run the app. */
+      km_gdb_handle_vfilepacket(packet, obuf, obufl);
    } else {
       /* We don't support this. */
       send_not_supported_msg();
@@ -1692,7 +2657,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
          case 'v': {
             int resume;
 
-            km_gdb_handle_vpackets(packet, obuf, &resume);
+            km_gdb_handle_vpackets(packet, obuf, sizeof(obuf), &resume);
             if (resume) {
                /* A vCont command has started the payload running */
                goto done;
@@ -1711,7 +2676,7 @@ done:;
 }
 
 // Read and discard pending eventfd reads, if any. Non-blocking.
-static void km_empty_out_eventfd(int fd)
+void km_empty_out_eventfd(int fd)
 {
    int flags = fcntl(fd, F_GETFL);
    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
@@ -1719,7 +2684,7 @@ static void km_empty_out_eventfd(int fd)
    fcntl(fd, F_SETFL, flags);
 }
 
-void gdb_delete_stale_events(void)
+static void gdb_delete_stale_events(void)
 {
    gdb_event_t* gep;
    gdb_event_t* nextgep;
@@ -1789,6 +2754,37 @@ static void km_vcpu_resume_all(void)
    km_mutex_unlock(&machine.pause_mtx);
 }
 
+static void km_gdb_wait_for_dynlink_to_finish(void)
+{
+   Elf64_Addr payload_entry = km_guest.km_ehdr.e_entry + km_guest.km_load_adjust;
+   /*
+    * The dynamic linker is present and the user wants gdb to attach at _start
+    * (not at entry to the dynamic linker).  So, we put a breakpoint on _start,
+    * let the payload main thread run and then wait for the breakpoint to hit.
+    * When the breakpoint fires, delete the breakpoint, delete the breakpoint
+    * event and drop into the main part of gdbstub.
+    */
+   km_infox(KM_TRACE_GDB, "Begin waiting for dynamic linker to complete");
+   if (km_gdb_add_breakpoint(GDB_BREAKPOINT_HW, payload_entry, 1) != 0) {
+      errx(3, "Failed to plant breakpoint on payload entry point 0x%lx", payload_entry);
+   }
+   km_vcpu_resume_all();                  // start the payload main thread
+   km_wait_on_eventfd(machine.intr_fd);   // wait for the breakpoint we planted to be hit
+   km_infox(KM_TRACE_GDB, "dynamic linker is done");
+   if (km_gdb_remove_breakpoint(GDB_BREAKPOINT_HW, payload_entry, 1) != 0) {
+      errx(4, "Failed to remove breakpoint on payload entry point 0x%lx", payload_entry);
+   }
+   pthread_mutex_lock(&gdbstub.notify_mutex);
+   gdb_event_t* gep = TAILQ_FIRST(&gdbstub.event_queue);
+   assert(gep != NULL);
+   if (gep->signo == GDB_KMSIGNAL_KVMEXIT) {
+      // remove the breakpoint event.
+      TAILQ_REMOVE(&gdbstub.event_queue, gep, link);
+      gep->entry_is_active = false;
+   }
+   pthread_mutex_unlock(&gdbstub.notify_mutex);
+}
+
 /*
  * Loop on waiting on either ^C from gdb client, or a vcpu exit from kvm_run for a reason relevant
  * to gdb. When a wait is over (for either of the reasons), stops all vcpus and lets GDB handle the
@@ -1803,6 +2799,11 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
    int ret;
 
    km_wait_on_eventfd(machine.intr_fd);   // Wait for km_vcpu_run_main to start
+
+   if (km_dynlinker.km_filename != NULL && gdbstub.attach_at_dynlink == 0) {
+      km_gdb_wait_for_dynlink_to_finish();
+   }
+
    km_gdb_vcpu_set(main_vcpu);
 
    gdb_event_t ge = (gdb_event_t){
@@ -1811,6 +2812,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
    };
    gdb_handle_remote_commands(&ge);   // Talk to GDB first time, before any vCPU run
 
+   gdbstub.session_requested = 0;
    km_vcpu_resume_all();
    while (km_gdb_is_enabled() == 1) {
       // Poll two fds described above in fds[], with no timeout ("-1")

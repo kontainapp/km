@@ -44,6 +44,7 @@ static inline void usage()
         "'regexp'\n"
         "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 2159) "
         "before running payload\n"
+        "\t--attach-before-dynlink             - gdb attaches before dynamic linker runs\n"
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--log-to=file_name                  - Stream stdout and stderr to file_name\n"
         "\t--putenv key=value                  - Add environment 'key' to payload\n"
@@ -106,6 +107,7 @@ static struct option long_options[] = {
     {"putenv", required_argument, 0, 'e'},
     {"copyenv", no_argument, 0, 'E'},
     {"gdb-server-port", optional_argument, 0, 'g'},
+    {"attach-before-dynlink", no_argument, 0, 'A'},
     {"verbose", optional_argument, 0, 'V'},
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
     {"version", no_argument, 0, 'v'},
@@ -128,8 +130,10 @@ int main(int argc, char* const argv[])
    int envc = 1;                             // count of elements in envp (including NULL)
    int putenv_used = 0, copyenv_used = 0;    // they are mutually exclusive
 
+   km_gdbstub_init();
+
    assert(envp != NULL);
-   while ((opt = getopt_long(argc, argv, "+g::V::P:vC:", long_options, &longopt_index)) != -1) {
+   while ((opt = getopt_long(argc, argv, "+g::AV::P:vC:", long_options, &longopt_index)) != -1) {
       switch (opt) {
          case 0:
             /* If this option set a flag, do nothing else now. */
@@ -137,6 +141,9 @@ int main(int argc, char* const argv[])
                break;
             }
             // Put here handling of longopts which do not have related short opt
+            break;
+         case 'A':
+            gdbstub.attach_at_dynlink = 1;
             break;
          case 'g':
             if (optarg == NULL) {
@@ -242,12 +249,11 @@ int main(int argc, char* const argv[])
                              km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust,
                              guest_args,
                              0) != 0) {
-         err(1, "failed to set main vcpu to run");
+         err(1, "failed to set main vcpu to run dynlinker");
       }
-
    } else {
       if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry + adjust, guest_args, 0) != 0) {
-         err(1, "failed to set main vcpu to run");
+         err(1, "failed to set main vcpu to run payload main()");
       }
    }
    if (wait_for_signal == 1) {

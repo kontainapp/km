@@ -53,7 +53,7 @@
 #include "km_gdb.h"
 #include "km_mem.h"
 
-struct breakpoint_t {
+typedef struct breakpoint_t {
    gdb_breakpoint_type_t type;
    km_gva_t addr;
    size_t len;
@@ -61,7 +61,7 @@ struct breakpoint_t {
    uint8_t saved_insn; /* for software breakpoints */
 
    SLIST_ENTRY(breakpoint_t) entries;
-};
+} breakpoint_t;
 
 SLIST_HEAD(breakpoints_head, breakpoint_t);
 static struct breakpoints_head sw_breakpoints;
@@ -479,6 +479,41 @@ int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t l
       return -1;
    }
    return km_gdb_update_guest_debug();
+}
+
+/*
+ * Remove all active breakpoints, both hw and sw.
+ * Return 0 for success, -1 if some breakpoints weren't removed.
+ */
+int km_gdb_remove_all_breakpoints(void)
+{
+   int rc;
+   int finalrc = 0;
+   breakpoint_t* bp;
+   breakpoint_t* tempbp;
+
+   SLIST_FOREACH_SAFE (bp, &sw_breakpoints, entries, tempbp) {
+      rc = km_gdb_remove_breakpoint(bp->type, bp->addr, bp->len);
+      if (rc != 0) {
+         km_infox(KM_TRACE_GDB,
+                  "Failed to remove sw breakpoint at gva 0x%lx, length %lu",
+                  bp->addr,
+                  bp->len);
+         finalrc = rc;
+      }
+   }
+   SLIST_FOREACH_SAFE (bp, &hw_breakpoints, entries, tempbp) {
+      rc = km_gdb_remove_breakpoint(bp->type, bp->addr, bp->len);
+      if (rc != 0) {
+         km_infox(KM_TRACE_GDB,
+                  "Failed to remove hw breakpoint at gva 0x%lx, length %lu",
+                  bp->addr,
+                  bp->len);
+         finalrc = rc;
+      }
+   }
+
+   return finalrc;
 }
 
 /*
