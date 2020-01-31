@@ -67,5 +67,6 @@
          "[\"--max-line-length\", \"100\"]"
       ],
       "editor.wordWrapColumn": 100,
+      "editor.wordWrap": "on",
    }
 }
