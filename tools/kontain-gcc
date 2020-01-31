@@ -13,19 +13,18 @@ cmd=`basename ${BASH_SOURCE[0]}`
 dir=`dirname ${BASH_SOURCE[0]}`
 KM_TOP=`realpath $dir/..`
 PREFIX=/opt/kontain
+KM_LDSO=${PREFIX}/runtime/libc.so
 #check if this is run in local build tree and use the local libs then
 if [[ x${KM_TOP} == x${PREFIX}/* ]] ; then
    LIB="-L ${PREFIX}/lib64"
    CRT="${PREFIX}/lib64"
    SPEC="${PREFIX}/lib64"
    SHR_LIBC="-L${PREFIX}/lib64 libc.so"
-   KM_LDSO=${PREFIX}/lib64/libc.so
 else
    LIB="-L ${PREFIX}/lib64 -L ${KM_TOP}/build/runtime"
    CRT="${KM_TOP}/build/runtime/musl/crt"
    SPEC="${KM_TOP}"
    SHR_LIBC="-L${KM_TOP}/build/runtime -l:libc.so"
-   KM_LDSO=${KM_TOP}/build/runtime/libc.so
 fi
 SHR_LIBSTDCPP=
 

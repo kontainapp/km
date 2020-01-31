@@ -174,6 +174,9 @@ buildenv-local-fedora:  ## make local build environment for KM
 	docker create --name tmp_env $(BUILDENV_IMG)
 	sudo docker cp tmp_env:/opt/kontain /opt
 	docker rm tmp_env
+	sudo mkdir -p ${KM_OPT}/runtime
+	sudo chgrp users ${KM_OPT}/runtime
+	sudo chmod 777 ${KM_OPT}/runtime
 
 # Info for making runenv-image and validate-runenv-image targets
 #
