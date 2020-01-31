@@ -69,6 +69,10 @@ USER root
 RUN mkdir -p $PREFIX && make -C build_gcc/x86_64-pc-linux-gnu/libstdc++-v3 install && make -C build_gcc/x86_64-pc-linux-gnu/libgcc install
 RUN make -C libffi install
 
+RUN mkdir -p $PREFIX/runtime \
+   && chgrp users $PREFIX/runtime \
+   && chmod 777 $PREFIX/runtime
+
 FROM buildenv-base AS buildenv
 LABEL version="1.1" maintainer="Mark Sterin <msterin@kontain.app>"
 USER $USER

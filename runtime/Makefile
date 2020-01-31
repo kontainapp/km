@@ -84,7 +84,7 @@ $(CRT_OBJS): CFLAGS += -DCRT
 $(SO_OBJS) $(DL_OBJS): CFLAGS += -fPIC
 ${BLDDIR}musl/crt/Scrt1.o ${BLDDIR}musl/crt/rcrt1.o: CFLAGS += -fPIC
 
-all: $(addprefix ${BLDDIR},libm.a libpthread.a libc.so) ${CRT_OBJS}
+all: $(addprefix ${BLDDIR},libm.a libpthread.a) ${KM_OPT}/runtime/libc.so ${CRT_OBJS}
 
 $(addprefix ${BLDDIR}, libm.a):
 	@echo "Making " $@; rm -f $@; ${AR} crs $@
@@ -94,6 +94,9 @@ $(addprefix ${BLDDIR}, libpthread.a): ${PTHREAD_OBJS}
 
 $(addprefix ${BLDDIR}, libc.so): ${SO_OBJS} ${DL_OBJS}
 	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} /usr/lib/gcc/x86_64-redhat-linux/9/libgcc.a
+
+${KM_OPT}/runtime/libc.so: $(addprefix ${BLDDIR}, libc.so)
+	cp $(addprefix ${BLDDIR}/, libc.so) $@
 
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 
