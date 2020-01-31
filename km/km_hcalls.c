@@ -19,6 +19,7 @@
 #include <sys/sysinfo.h>
 #include <sys/time.h>
 #include <sys/times.h>
+#include <sys/utsname.h>
 #include <asm/prctl.h>
 #include <linux/futex.h>
 #include <linux/stat.h>
@@ -1219,6 +1220,25 @@ static km_hc_ret_t times_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t uname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int uname(struct utsname *name);
+   struct utsname* name;
+   if (arg->arg1 == 0 || (name = km_gva_to_kma(arg->arg1)) == NULL ||
+       km_gva_to_kma(arg->arg1 + sizeof(*name) - 1) == NULL) {
+      arg->hc_ret = -1;
+      return HC_CONTINUE;
+   }
+
+   arg->hc_ret = uname(name);
+   // Overwrite Kontain specific info. Buffers 65 bytes each, hardcoded in musl, so we are good
+   strcpy(name->sysname, "kontain-runtime");
+   strcpy(name->release, "0.8");
+   strcpy(name->version, "preview");
+   strcpy(name->machine, "kontain_VM");
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t execve_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    warnx("%s(%s, %p, %p)",
@@ -1378,6 +1398,8 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_execve] = execve_hcall;
    km_hcalls_table[SYS_fork] = fork_hcall;
    km_hcalls_table[SYS_times] = times_hcall;
+
+   km_hcalls_table[SYS_uname] = uname_hcall;
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;
