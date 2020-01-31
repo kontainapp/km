@@ -155,6 +155,9 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
    km_infox(KM_TRACE_SIGNALS, "    RFLAGS: 0x%lx", iframe->rflags);
    km_infox(KM_TRACE_SIGNALS, "       RSP: 0x%lx", iframe->rsp);
    km_infox(KM_TRACE_SIGNALS, "        SS: 0x%lx", iframe->ss);
+   if (km_trace_tag_enabled(KM_TRACE_SIGNALS) != 0) {
+      km_dump_vcpu(vcpu);
+   }
 
    // Restore register to what they were before the interrupt.
    vcpu->regs.rip = iframe->rip;
@@ -188,7 +191,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
          break;
 
       case X86_INTR_PF:   // Page fault: SIGSEGV
-         warnx("Page Fault: 0x%llx", vcpu->sregs.cr2);
+         km_infox(KM_TRACE_SIGNALS, "Page Fault: 0x%llx", vcpu->sregs.cr2);
          info.si_signo = SIGSEGV;
          info.si_addr = (void*)vcpu->sregs.cr2;
          break;
@@ -211,11 +214,12 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
          break;
    }
 
-   warnx("Guest Fault: type:%d (%s) --> signal:%d (%s)",
-         events.exception.nr,
-         str_intr[events.exception.nr],
-         info.si_signo,
-         strsignal(info.si_signo));
+   km_infox(KM_TRACE_SIGNALS,
+            "Guest Fault: type:%d (%s) --> signal:%d (%s)",
+            events.exception.nr,
+            str_intr[events.exception.nr],
+            info.si_signo,
+            strsignal(info.si_signo));
 
    km_post_signal(vcpu, &info);
 }
