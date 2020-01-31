@@ -192,6 +192,15 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    diff <(echo -e "$linux_out")  <(echo -e "$output")
 }
 
+# placeholder for multiple small tests... we can put them all in misc_test.c
+@test "misc_tests($test_type): Misc APIs, i.e. uname (misc_test$ext)" {
+   run km_with_timeout misc_test$ext
+   assert_success
+   assert_line "nodename=$(uname -n)"
+   assert_line sysname=kontain-runtime
+   assert_line machine=kontain_VM
+}
+
 @test "mem_mmap($test_type): mmap and munmap with addr=0 (mmap_test$ext)" {
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
