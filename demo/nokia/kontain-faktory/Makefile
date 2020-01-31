@@ -16,50 +16,55 @@
 
 TOP := $(shell git rev-parse --show-cdup)
 
-# JDK version we are dealing with
-JDK_VERSION ?= jdk-11+28
+# instructions for building Kontainers
+DOCKERFILE := kontain.dockerfile
 
-# Kontain files land here in the produced containers
-KONTAIN_DIR := /opt/kontain
-KONTAIN_JAVA_DIR := ${KONTAIN_DIR}/${JDK_VERSION}
-KONTAIN_JAVA_BIN := ${KONTAIN_JAVA_DIR}/bin
+# Kontain specific files to land in the container JAVA/bin
+KM_FILES = ${KM_BIN} ${KM_LDSO} ${TOP}${JDK_LOC}/images/jdk/bin/java.km
 
-# location for kontain files in the build tree
-# all files from it will be placed to KONTAIN_DIR in the produced image
+# Place for docker to pick up stuff from
 DOCKER_DIR := .dockerdir
+# packaged and stripped files (.so, km, etc...)
+KM_JAVA_TAR := ${DOCKER_DIR}/km_java_files.tar
 
+# JDK version we use from Kontain repo
+JDK_VERSION ?= jdk-11+28
+# Kontain dependency libs live here
+KONTAIN_DIR := /opt/kontain
 # location of java bins and libs in KM repo, relative to TOP
 JDK_LOC = payloads/java/${JDK_VERSION}/build/linux-x86_64-server-release
 
-# Kontain specific fails to land in the container JDK bin.
-# We also need 'env' since some old env's do not support '-S'
-KM_FILES = ${KM_BIN} ${KM_LDSO} ${TOP}${JDK_LOC}/images/jdk/bin/java.kmd /usr/bin/env
-
-# Targets to build locally before transferring data to dockerfile
-JAVA_SHEBANG = ${DOCKER_DIR}/${JDK_VERSION}/bin/java
-KONTAIN_LIBS = ${DOCKER_DIR}/lib64
+# we need .km for shebang, so if we have only .kmd, simply copy it
+%.km: %.kmd
+	cp $^ $@
 
 # Docker repo to take the images from
 REPO := kontainstage.azurecr.io/nokia/ckaf
+CLIENT_REPO := kontainstage.azurecr.io/nokia/atg
 # prefix for target containers
 KONTAIN_REPO = kontain/nokia
 # source containers names in repo. Hardcoded per component, to simplify the Makefile
 Z_VERSION := zookeeper:2.0.0-3.4.14-2696
 K_VERSION := kafka:2.0.0-5.3.1-2696
+CLIENT_VERSION := kafka-client:4.1.2-2
 
-DOCKERFILE := kontain.dockerfile
+
+# JDK locations in the java containers we convert. We assume all images have the same java version
+ORIG_JDK_DIR := $(shell docker run --rm ${REPO}/${Z_VERSION} \
+					 bash -c 'dirname $$(dirname $$(realpath $${JAVA_HOME:-/usr}/bin/java))')
+ORIG_JDK_BIN := ${ORIG_JDK_DIR}/bin
 
 all = $(DOCKER_DIR)/.all
 .PHONY: all
 all: ${all} ## Build all
 
-${all}: ${KONTAIN_LIBS} ${JAVA_SHEBANG} ${DOCKERFILE} Makefile
+${all}: ${KM_JAVA_TAR} ${DOCKERFILE} Makefile
 	@for item in ${Z_VERSION} ${K_VERSION} ; do \
 		tag=${KONTAIN_REPO}/$$item ; echo Building $$tag ; \
 		${DOCKER_BUILD} -q -f ${DOCKERFILE} ${DOCKER_DIR} \
 		--build-arg FROM_IMAGE=$(REPO)/$$item \
 		--build-arg KONTAIN_DIR="${KONTAIN_DIR}" \
-		--build-arg JDK_VERSION="${JDK_VERSION}" \
+		--build-arg ORIG_JDK_DIR="${ORIG_JDK_DIR}" \
 		 -t ${KONTAIN_REPO}/$$item ; \
 	done
 	@docker image ls '${KONTAIN_REPO}/*'
@@ -67,41 +72,48 @@ ${all}: ${KONTAIN_LIBS} ${JAVA_SHEBANG} ${DOCKERFILE} Makefile
 
 # Copy all files and create 'java' file as a shebang calling KM with proper params.
 # Use 'make KMFLAGS="..."' to generate container with proper flags passed to KM.
-${JAVA_SHEBANG}: ${KM_FILES} Makefile
-	@echo Copying KM files; \
+${KM_JAVA_TAR} : $(KM_FILES) ${KONTAIN_DIR} Makefile
+	@if [ ! -d ${DOCKER_DIR} ] ; then mkdir -p ${DOCKER_DIR} ; fi
+	@echo Copying ${KONTAIN_DIR}/lib64 ;\
+		tar -C ${KONTAIN_DIR} -cf - lib64 | tar -C ${DOCKER_DIR} -xf -
+	@## We need 'env' since some old env's (e.g. one in centos7-minimal) do not support '-S'
+	@echo Copying env...; \
+		cp $(shell which env) ${DOCKER_DIR}
+	@echo Copying KM files ;\
 		bin=${DOCKER_DIR}/${JDK_VERSION}/bin; mkdir -p $$bin && cp --preserve=all $(KM_FILES) $$bin
-	@echo Copying libs and conf from ${jdk_image_dir} ; \
-		cp -rf --preserve=all ${jdk_image_dir}/{lib,conf} ${DOCKER_DIR}/${JDK_VERSION}
-	@find ${DOCKER_DIR}/${JDK_VERSION}/lib -name '*.so' -size +10k | xargs strip
-	@echo Creating $@ ; \
-		echo "#!${KONTAIN_JAVA_BIN}/env -S ${KONTAIN_JAVA_BIN}/$(notdir ${KM_BIN}) ${KMFLAGS} --dynlinker=${KONTAIN_JAVA_BIN}/$(notdir ${KM_LDSO}) --copyenv" > $@
-	@cp $@.kmd $@.km # hack to allow KM to see java.km , not java.kmd
-	@chmod a+x $@
+	@echo Copying libs and release info from ${jdk_image_dir} ; \
+		cp -rf --preserve=all ${jdk_image_dir}/{lib,release} ${DOCKER_DIR}/${JDK_VERSION}
+	@echo Stripping Kontain Java .so files... ; \
+		find ${DOCKER_DIR}/${JDK_VERSION}/lib -name '*.so' -size +10k | xargs strip
+	@echo Creating java shebang file...; \
+		shebang=${DOCKER_DIR}/${JDK_VERSION}/bin/java; \
+		echo "#!/usr/bin/env -S ${ORIG_JDK_BIN}/$(notdir ${KM_BIN}) ${KMFLAGS} --dynlinker=${ORIG_JDK_BIN}/$(notdir ${KM_LDSO}) --copyenv" > $$shebang ; chmod a+x $$shebang
+	@echo Packaging Kontain and java files for Docker build...;\
+		tar -C ${DOCKER_DIR}/${JDK_VERSION} -cf ${KM_JAVA_TAR} . ; rm -rf ${DOCKER_DIR}/${JDK_VERSION}
 
-${KONTAIN_LIBS}: |
-	@echo Copying Kontain libs; mkdir -p $@; tar -C /opt/kontain -cf - lib64 | tar -C ${DOCKER_DIR} -xf -
+base: base-pull  ## pull nokia containers - prerequsite for 'make all'
 
-base: base-pull base-retag ## pull and retag nokia containers - prerequsite for 'make all'
-
-base-retag: ## retag images pulled from cloud repo to 'latest' - needed by 'make all'
-	docker tag $(REPO)/$(Z_VERSION) $(REPO)/zookeeper:latest
-	docker tag $(REPO)/$(K_VERSION) $(REPO)/kafka:latest
-
-base-pull: ## A helper to pull images from repository.
+base-pull: ## A helper to pull images from repository (alias to base)
 	@echo DO NOT FORGET TO: make login
 	docker pull $(REPO)/$(Z_VERSION)
 	docker pull $(REPO)/$(K_VERSION)
+	docker pull $(CLIENT_REPO)/$(CLIENT_VERSION)
 
 login: ## helper to log in Azure and the registry
 	make -C $(TOP)cloud/azure login-cli
 	az acr login -n kontainstage
 
+
+clean-disks:
+	-sudo rm -r $$(dirname ${BLDDIR})/disks
+	-docker rm -f kafka-test-client zookeeper-server kafka-broker-1 kafka-broker-3 kafka-broker-3
+
 clean: ## Clean temp files and containers
-	@rm -rf $(DOCKER_DIR) $(COMPONENTS) ${test_data_dir}/zookeeper
-	@id=$$(docker ps -q --filter=name=${DOCKER_NAME}); if [ ! -z "$$id" ] ; then docker rm -f ${DOCKER_NAME} ; fi
-	@ids=$$(docker image ls -q "${KONTAIN_REPO}/*") ; if [ ! -z "$$ids" ] ; then \
+	sudo rm -rf $(DOCKER_DIR) $(COMPONENTS) ${test_data_dir}/zookeeper
+	id=$$(docker ps -q --filter=name=${DOCKER_NAME}); if [ ! -z "$$id" ] ; then docker rm -f ${DOCKER_NAME} ; fi
+	ids=$$(docker image ls -q "${KONTAIN_REPO}/*") ; if [ ! -z "$$ids" ] ; then \
 			echo docker rmi $$ids; docker rmi $$ids; fi
-	@echo Done
+	@echo -e "${GREEN}Done${NOCOLOR}"
 
 # For tests, volume mount java .so libs from location below. This is a hack to get it going
 jdk_image_dir := $(realpath ${TOP}/${JDK_LOC}/images/jdk)

@@ -18,14 +18,12 @@ ARG FROM_IMAGE
 FROM $FROM_IMAGE
 
 ARG KONTAIN_DIR
-ARG JDK_VERSION
+ARG ORIG_JDK_DIR
+ENV LD_LIBRARY_PATH ${ORIG_JDK_DIR}/lib/server:${ORIG_JDK_DIR}/lib:${KONTAIN_DIR}/lib64:/lib64
 
-ENV KONTAIN_JAVA_DIR ${KONTAIN_DIR}/${JDK_VERSION}
-ENV JAVA_HOME ${KONTAIN_JAVA_DIR}
-
-ENV LD_LIBRARY_PATH ${KONTAIN_JAVA_DIR}/lib/server:${KONTAIN_JAVA_DIR}/lib:${KONTAIN_DIR}/lib64:/lib64
-
-# TODO: fix JIT support. For now turning it off
-ENV KAFKA_OPTS=-Djava.compiler
-
-ADD . ${KONTAIN_DIR}/
+ADD lib64 ${KONTAIN_DIR}/lib64
+ADD env /usr/bin/
+# TODO: We need to force-override bin and lib, but we need to keep old files in conf...
+# The current code may kill conf customization, e.g. for logs
+ADD km_java_files.tar $ORIG_JDK_DIR
+RUN ln -s $ORIG_JDK_DIR/bin/java.km /usr/bin
