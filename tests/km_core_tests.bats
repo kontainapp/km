@@ -15,10 +15,10 @@ load test_helper
 # not_needed_{generic,static,dynamic,shared} - skip since it's not needed
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
 not_needed_generic=""
-not_needed_static=""
+not_needed_static="gdb_sharedlib"
 # note: these are generally redundant as they are tested in 'static' pass
 not_needed_dynamic="setup_load mem_slots cli km_main_env mem_brk"
-not_needed_so="setup_load cli mem_brk"
+not_needed_so="setup_load cli mem_brk gdb_sharedlib"
 todo_generic="futex_example"
 todo_static=""
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
@@ -113,7 +113,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    tmp=/tmp/hello$$ ; cp hello_test $tmp.km
    run km_with_timeout $tmp # Linux executable instead of $ext
    assert_failure
-   assert_line "km: PT_INTERP does not contain km marker. expect:'__km_dynlink__' got:'/lib64/ld-linux-x86-64.so.2'"   XXXXXXX
+   assert_line --partial "Non-KM binary: cannot find interrupt handler"
    rm $tmp.km # may leave dirt if the tests above fail
 
    log=`mktemp`
@@ -319,6 +319,54 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # Verify we "step"ed into step_into_this_function()
    assert_line --partial "step_into_this_function () at gdb_nextstep_test.c"
    wait_and_check 0 # expect KM to exit normally
+}
+
+#
+# Tests to exercise gdb remote protocol requests:
+#   qXfer:auxv:read
+#   qXfer:exec-file:read
+#   qXfer:libraries-svr4:read
+#   vFile:{open,pread,close,fstat,setfs}  readlink is supported but not yet tested.
+# Also test the new -G flag to build/km/km.  This allows us to attach gdb to km before
+# the dynamic linker starts. -g attachs at the _start entry point.
+# We test qXfer:exec-file:read by not supplying the name of the executable on the
+# gdb command line.  This forces the client to query for the executable file name.
+# The executable we run for this test is not very important.
+#
+@test "gdb_sharedlib($test_type): gdb shared libary related remote commands" {
+   km_gdb_default_port=2159
+
+   # test with attach at dynamic linker entry point
+   km_with_timeout -g -A stray_test$ext stray &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+      --ex="source cmd_for_sharedlib_test.gdb" --ex=q
+   assert_success
+   refute_line --regexp "0x[0-9a-f]* in _start ()"
+   wait_and_check 11 # expect KM to exit with SIGSEGV
+
+   # test with attach at _start entry point
+   km_with_timeout -g stray_test$ext stray &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+      --ex="source cmd_for_sharedlib_test.gdb" --ex=q
+   assert_success
+   assert_line --regexp "0x[0-9a-f]* in _start ()"
+   # Check for some output from "info auxv"
+   assert_line --regexp "31   AT_EXECFN            File name of executable *0x[0-9a-f]*.*stray_test.kmd"
+   # Check for some output from "info sharedlibrary"
+   assert_line --regexp "0x[0-9a-f]*  0x[0-9a-f]*  Yes         target:.*libc.so"
+   wait_and_check 11 # expect KM to exit with SIGSEGV
+
+   # There is no explicit test for vFile remote commands.  gdb uses vFile as part of
+   # processing the "info sharedlibrary" command.
+
+   # test for symbols from libcrypt brought in by dlopen()
+   km_with_timeout -g dlopen_exp$ext &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+      --ex="source cmd_for_dlopen_test.gdb" --ex=q
+   assert_success
+   assert_line --partial "Yes (*)     target:/usr/lib64/libcrypt.so"
+   assert_line --partial "Dump of assembler code for function xcrypt"
+   wait_and_check 0
 }
 
 @test "unused_memory_protection($test_type): check that unused memory is protected (mprotect_test$ext)" {

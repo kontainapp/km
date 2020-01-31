@@ -97,6 +97,7 @@ extern int km_gdb_enable_ss(void);
 extern int km_gdb_disable_ss(void);
 extern int km_gdb_add_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
 extern int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
+extern int km_gdb_remove_all_breakpoints(void);
 extern int
 km_gdb_find_breakpoint(km_gva_t trigger_addr, gdb_breakpoint_type_t* type, km_gva_t* addr, size_t* len);
 extern void km_gdb_vcpu_state_init(km_vcpu_t*);
@@ -119,17 +120,31 @@ struct __attribute__((__packed__)) km_gdb_regs {
 
 #define GDB_INTERRUPT_PKT 0x3   // aka ^C
 
+// Characters that must be escaped to appear in remote protocol messages
+#define GDB_REMOTEPROTO_SPECIALCHARS "}$#*"
+
+#define MAX_GDB_VFILE_OPEN_FD                                                                      \
+   32   // our gdb server will only allow 32 concurrent open vfile handles
+#define GDB_VFILE_FD_FREE_SLOT -1
+typedef struct gdbstub_vfile {
+   int fd[MAX_GDB_VFILE_OPEN_FD];
+   pid_t current_fs;   // we use the root directory for this process for opens
+} gdbstub_vfile_t;
+
 // Define the gdb event queue head structure.
 TAILQ_HEAD(gdb_event_queue, gdb_event);
 typedef struct gdb_event_queue gdb_event_queue_t;
 
 typedef struct gdbstub_info {
-   int port;                           // Port the stub is listening for gdb client. 0 means NO GDB
-   int sock_fd;                        // socket to communicate to gdb client
-   int session_requested;              // set to 1 when payload threads need to pause on exit
-   bool stepping;                      // single step mode (stepi)
-   km_vcpu_t* gdb_vcpu;                // VCPU which GDB is asking us to work on.
-   pthread_mutex_t notify_mutex;       // serialize calls to km_gdb_notify_and_wait()
+   int port;                       // Port the stub is listening for gdb client. 0 means NO GDB
+   int sock_fd;                    // socket to communicate to gdb client
+   uint8_t attach_at_dynlink;      // if true and dynlinker is being used we arrange for gdb client
+                                   //  to attach before the dynamic linker runs.  normally we attach
+                                   //  just before the payload runs.
+   int session_requested;          // set to 1 when payload threads need to pause on exit
+   bool stepping;                  // single step mode (stepi)
+   km_vcpu_t* gdb_vcpu;            // VCPU which GDB is asking us to work on.
+   pthread_mutex_t notify_mutex;   // serialize calls to km_gdb_notify_and_wait()
    gdb_event_queue_t event_queue;      // queue of pending gdb events
    int exit_reason;                    // last KVM exit reason
    int send_threadevents;              // if non-zero send thread create and terminate events
@@ -144,6 +159,7 @@ typedef struct gdbstub_info {
    uint8_t clientsup_vcontsupported;   // gdb client can send vCont and vCont? requests
    uint8_t clientsup_qthreadevents;    // gdb client can send QThreadEvents requests
    // Note: we use km_vcpu_get_tid() as gdb payload thread id
+   gdbstub_vfile_t vfile_state;   // state for the vfile operations
 } gdbstub_info_t;
 
 extern gdbstub_info_t gdbstub;
@@ -188,6 +204,7 @@ static inline int km_fd_is_gdb(int fd)
    return (fd == gdbstub.sock_fd);
 }
 
+extern void km_gdbstub_init(void);
 extern int km_gdb_wait_for_connect(const char* image_name);
 extern void km_gdb_main_loop(km_vcpu_t* main_vcpu);
 extern void km_gdb_fini(int ret);
@@ -196,5 +213,6 @@ extern void km_gdb_notify(km_vcpu_t* vcpu, int signo);
 extern char* mem2hex(const unsigned char* mem, char* buf, size_t count);
 extern void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len);
 extern int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, uint64_t unused);
+extern void km_empty_out_eventfd(int fd);
 
 #endif /* __KM_GDB_H__ */

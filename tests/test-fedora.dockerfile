@@ -1,4 +1,4 @@
-# Copyright © 2019 Kontain Inc. All rights reserved.
+# Copyright © 2019-2020 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
 #
@@ -20,9 +20,13 @@ ARG branch
 ENV TIME_INFO /tests/time_info.txt
 ENV KM_BIN /tests/km
 ENV KM_LDSO /tests/libc.so
+ENV KM_LDSO /opt/kontain/runtime/libc.so
 ENV KM_LDSO_PATH /opt/kontain/lib64:/lib64
 ENV BRANCH=${branch}
 
 COPY --chown=appuser:appuser . /tests
+COPY libc.so $PREFIX/runtime
+RUN chmod 777 /tests
+
 WORKDIR /tests
 ENV PATH=/tests/bats/bin:.:$PATH
