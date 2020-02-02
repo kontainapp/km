@@ -140,7 +140,7 @@ DOCKER_NAME=kontain_nokia_test
 test: all ## Sanity checking for the zookeeper Kontainer built with this make
 	mkdir -p ${test_data_dir}/zookeeper/log ${test_data_dir}/zookeeper/data
 	@id=$$(docker ps -q --filter=name=${DOCKER_NAME}); if [ ! -z "$$id" ] ; then docker rm -f ${DOCKER_NAME} ; fi
-	docker run ${DOCKER_TI} --rm --device=/dev/kvm --name ${DOCKER_NAME} \
+	docker run ${DOCKER_TI} --rm --device=/dev/kvm --name ${DOCKER_NAME} --network=kafka-net\
 		${TEST_SCRIPT_ENV} \
 		${KONTAIN_REPO}/${Z_VERSION} ${ARGS}
 
