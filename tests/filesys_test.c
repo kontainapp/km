@@ -385,8 +385,8 @@ TEST test_bad_fd()
 
 TEST test_proc_fd()
 {
-   char* fname = "/dev/null";
-   int fd = open(fname, O_RDWR);
+   char* fname = ".";
+   int fd = open(fname, O_RDONLY);
    ASSERT_NOT_EQ(-1, fd);
    char procname[128];
    snprintf(procname, sizeof(procname), "/proc/self/fd/%d", fd);
@@ -394,7 +394,7 @@ TEST test_proc_fd()
    char slink[128];
    ASSERT_NOT_EQ(-1, readlink(procname, slink, sizeof(slink)));
    fprintf(stderr, "slink=%s\n", slink);
-   ASSERT_EQ(0, strcmp(slink, fname));
+   ASSERT_EQ(0, strcmp(slink, realpath(fname, NULL)));
    close(fd);
    PASS();
 }
