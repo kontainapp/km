@@ -15,11 +15,14 @@ JDK_VERSION=jdk-11+28
 all:
 
 fromsrc: jtreg
-	git clone https://github.com/openjdk/jdk ${JDK_VERSION}
+	git clone https://github.com/openjdk/jdk ${JDK_VERSION} -b ${JDK_VERSION}
 	cd ${JDK_VERSION} && bash configure --enable-headless-only  \
 		--disable-warnings-as-errors --with-native-debug-symbols=internal \
 		--with-jvm-variants=server --with-zlib=bundled --with-jtreg=../jtreg
 	make -C ${JDK_VERSION} images
+	./link_km.sh
+
+link:
 	./link_km.sh
 
 jtreg:

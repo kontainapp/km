@@ -32,7 +32,7 @@ JDK_VERSION ?= jdk-11+28
 # Kontain dependency libs live here
 KONTAIN_DIR := /opt/kontain
 # location of java bins and libs in KM repo, relative to TOP
-JDK_LOC = payloads/java/${JDK_VERSION}/build/linux-x86_64-server-release
+JDK_LOC = payloads/java/${JDK_VERSION}/build/linux-x86_64-normal-server-release
 
 # we need .km for shebang, so if we have only .kmd, simply copy it
 %.km: %.kmd
@@ -75,7 +75,7 @@ ${all}: ${KM_JAVA_TAR} ${DOCKERFILE} Makefile
 ${KM_JAVA_TAR} : $(KM_FILES) ${KONTAIN_DIR} Makefile
 	@if [ ! -d ${DOCKER_DIR} ] ; then mkdir -p ${DOCKER_DIR} ; fi
 	@echo Copying ${KONTAIN_DIR}/lib64 ;\
-		tar -C ${KONTAIN_DIR} -cf - lib64 | tar -C ${DOCKER_DIR} -xf -
+		tar -C ${KONTAIN_DIR} -cf - lib64 runtime | tar -C ${DOCKER_DIR} -xf -
 	@## We need 'env' since some old env's (e.g. one in centos7-minimal) do not support '-S'
 	@echo Copying env...; \
 		cp $(shell which env) ${DOCKER_DIR}
