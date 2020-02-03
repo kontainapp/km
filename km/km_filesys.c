@@ -408,7 +408,7 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
        * /proc/self/fd symlinks contain full path name of file, so try to get that.
        */
       char* mpath = machine.filesys.guestfd_to_name_map[fd];
-      char* rpath = realpath(machine.filesys.guestfd_to_name_map[fd], NULL);
+      char* rpath = realpath(mpath, NULL);
       if (rpath != NULL) {
          mpath = rpath;
       }
