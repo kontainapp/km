@@ -403,10 +403,22 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
       if (fd < 0 || fd >= machine.filesys.nfdmap || machine.filesys.guestfd_to_name_map[fd] == 0) {
          return -ENOENT;
       }
-      strncpy(buf, machine.filesys.guestfd_to_name_map[fd], bufsz);
-      ret = strlen(machine.filesys.guestfd_to_name_map[fd]);
+
+      /*
+       * /proc/self/fd symlinks contain full path name of file, so try to get that.
+       */
+      char* mpath = machine.filesys.guestfd_to_name_map[fd];
+      char* rpath = realpath(mpath, NULL);
+      if (rpath != NULL) {
+         mpath = rpath;
+      }
+      strncpy(buf, mpath, bufsz);
+      ret = strlen(mpath);
       if (ret > bufsz) {
          ret = bufsz;
+      }
+      if (rpath != NULL) {
+         free(rpath);
       }
       goto done;
    }
