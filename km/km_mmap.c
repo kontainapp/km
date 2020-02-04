@@ -402,19 +402,21 @@ static void km_mmap_busy_check_or_abort(void)
 
       assert(prev->start + prev->size == reg->start);
       if (ok_to_concat(prev, reg)) {
-         warnx("%s FAILED: prev start= 0x%lx size = 0x%lx prot 0x%x flags 0x%x km_fl 0x%x",
+         warnx("%s FAILED: prev start= 0x%lx size = 0x%lx prot 0x%x flags 0x%x fn %s km_fl 0x%x",
                __FUNCTION__,
                prev->start,
                prev->size,
                prev->protection,
                prev->flags,
+               reg->filename,
                prev->km_flags.data32);
-         warnx("%s       : curr start= 0x%lx size = 0x%lx prot 0x%x flags 0x%x km_fl 0x%x",
+         warnx("%s       : curr start= 0x%lx size = 0x%lx prot 0x%x flags 0x%x fn %s km_fl 0x%x",
                __FUNCTION__,
                reg->start,
                reg->size,
                reg->protection,
                reg->flags,
+               reg->filename,
                reg->km_flags.data32);
          assert("INVESTIGATE THIS" == NULL);
       }
@@ -594,11 +596,12 @@ static km_gva_t km_guest_mmap_impl(km_gva_t gva,
 {
    km_gva_t ret;
    km_infox(KM_TRACE_MMAP,
-            "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x allocation type 0x%x)",
+            "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x fd %d alloc 0x%x)",
             gva,
             size,
             prot,
             flags,
+            fd,
             allocation_type);
    if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
