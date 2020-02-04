@@ -384,6 +384,43 @@ static int km_mmap_busy_check_contiguous(km_gva_t addr, size_t size)
    return 0;
 }
 
+static void km_mmap_busy_check_or_abort(void)
+{
+   km_mmap_list_t* list = &machine.mmaps.busy;   // list of mapped regions
+   km_mmap_reg_t* prev = NULL;
+   km_mmap_reg_t* reg;
+
+   if (TAILQ_EMPTY(list)) {
+      return;
+   }
+
+   TAILQ_FOREACH (reg, list, link) {
+      if (prev == NULL || prev->start + prev->size < reg->start) {
+         prev = reg;
+         continue;
+      }
+
+      assert(prev->start + prev->size == reg->start);
+      if (ok_to_concat(prev, reg)) {
+         warnx("%s FAILED: prev start= 0x%lx size = 0x%lx prot 0x%x flags 0x%x km_fl 0x%x",
+               __FUNCTION__,
+               prev->start,
+               prev->size,
+               prev->protection,
+               prev->flags,
+               prev->km_flags.data32);
+         warnx("%s       : curr start= 0x%lx size = 0x%lx prot 0x%x flags 0x%x km_fl 0x%x",
+               __FUNCTION__,
+               reg->start,
+               reg->size,
+               reg->protection,
+               reg->flags,
+               reg->km_flags.data32);
+         assert("INVESTIGATE THIS" == NULL);
+      }
+   }
+}
+
 // Guest mprotect implementation. Params should be already checked and locks taken.
 static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 {
@@ -408,6 +445,7 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
 {
    assert(advise == MADV_DONTNEED);
+   km_mmap_busy_check_or_abort();
    if (madvise(km_gva_to_kma_nocheck(addr), size, advise) != 0) {
       return -errno;
    }
@@ -417,6 +455,7 @@ static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
       km_infox(KM_TRACE_MMAP, "madvise area not fully mapped");
       return -ENOMEM;
    }
+   km_mmap_busy_check_or_abort();
    return 0;
 }
 
@@ -530,7 +569,9 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
    }
    reg->offset = offset;
    km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
+   km_mmap_busy_check_or_abort();
    km_mmap_insert_busy(reg);
+   km_mmap_busy_check_or_abort();
    return map_start;
 }
 
@@ -563,7 +604,10 @@ static km_gva_t km_guest_mmap_impl(km_gva_t gva,
    }
    size = roundup(size, KM_PAGE_SIZE);
    mmaps_lock();
+   km_mmap_busy_check_or_abort();
    ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset, allocation_type);
+   km_mmap_busy_check_or_abort();
+
    mmaps_unlock();
    if (km_syscall_ok(ret) && fd >= 0) {
       km_kma_t kma = km_gva_to_kma(ret);
@@ -636,7 +680,11 @@ int km_guest_munmap(km_gva_t addr, size_t size)
       return ret;
    }
    mmaps_lock();
+   km_mmap_busy_check_or_abort();
+
    ret = km_guest_munmap_nolock(addr, size);
+   km_mmap_busy_check_or_abort();
+
    mmaps_unlock();
    km_infox(KM_TRACE_MMAP, "== munmap ret=%d", ret);
    return ret;
@@ -657,7 +705,10 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
       return -EINVAL;
    }
    mmaps_lock();
+   km_mmap_busy_check_or_abort();
+
    int ret = km_guest_mprotect_nolock(addr, size, prot);
+   km_mmap_busy_check_or_abort();
    mmaps_unlock();
    return ret;
 }
@@ -672,7 +723,10 @@ int km_guest_madvise(km_gva_t addr, size_t size, int advise)
       return -EINVAL;
    }
    mmaps_lock();
+   km_mmap_busy_check_or_abort();
+
    int ret = km_guest_madvise_nolock(addr, size, advise);
+   km_mmap_busy_check_or_abort();
    mmaps_unlock();
    return ret;
 }
@@ -683,6 +737,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
 {
    km_mmap_reg_t* next;
    size_t needed = size - old_size;
+   km_mmap_busy_check_or_abort();
 
    assert(ptr->km_flags.km_mmap_monitor == 0);
    assert(old_addr >= ptr->start && old_addr < ptr->start + ptr->size &&
@@ -705,6 +760,8 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
          donor->size -= needed;
       }
 
+      km_mmap_busy_check_or_abort();
+
       return old_addr;
    }
 
@@ -724,6 +781,8 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    if (km_syscall_ok(km_guest_munmap_nolock(old_addr, old_size)) == -1) {
       err(1, "Failed to unmap after remapping");
    }
+   km_mmap_busy_check_or_abort();
+
    return ret;
 }
 
@@ -735,6 +794,8 @@ static km_gva_t km_mremap_shrink(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t o
    if (km_syscall_ok(km_guest_munmap_nolock(old_addr + size, old_size - size)) == -1) {
       return -EFAULT;
    }
+   km_mmap_busy_check_or_abort();
+
    return old_addr;
 }
 
@@ -782,7 +843,10 @@ km_guest_mremap(km_gva_t old_addr, size_t old_size, size_t size, int flags, ... 
    }
 
    mmaps_lock();
+   km_mmap_busy_check_or_abort();
    ret = km_guest_mremap_nolock(old_addr, old_size, size, flags);
+   km_mmap_busy_check_or_abort();
+
    mmaps_unlock();
    km_infox(KM_TRACE_MMAP, "mremap: ret=0x%lx", ret);
    return ret;
