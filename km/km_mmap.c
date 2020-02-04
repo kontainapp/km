@@ -418,6 +418,7 @@ static void km_mmap_busy_check_or_abort(void)
                reg->km_flags.data32);
          assert("INVESTIGATE THIS" == NULL);
       }
+      prev = reg;
    }
 }
 
