@@ -58,3 +58,16 @@ __km_sigreturn:
     out %eax, %dx           # Enter KM
     .cfi_endproc
 __km_sigreturn_end:        # We'll need this to define the the DWARF 
+
+/*
+ * Trampoline for x86 exception and interrupt handling. IDT entries point here.
+ */
+.align 16
+__km_handle_interrupt:
+    .type __km_handle_interrupt, @function
+    .global __km_handle_interrupt
+    mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
+    mov $0xffff81fd, %edx   # HC_guest_interrupt
+retry:
+    out %eax, %dx           # Enter KM
+    jmp retry               # Should never hit here.
