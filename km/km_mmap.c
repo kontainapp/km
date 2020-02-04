@@ -763,6 +763,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
          donor->start += needed;
          donor->size -= needed;
       }
+      km_mmap_concat(ptr, &machine.mmaps.busy);
 
       km_mmap_busy_check_or_abort();
 
