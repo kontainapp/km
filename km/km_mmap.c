@@ -524,7 +524,7 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
             err(2, "system mmap failed");
          }
       }
-      reg->flags = flags;
+      reg->flags = flags & ~MAP_FIXED;
       reg->protection = prot;
       km_mmap_concat(reg, &machine.mmaps.busy);
       return gva;
