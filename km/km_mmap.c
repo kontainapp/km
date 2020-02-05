@@ -532,6 +532,7 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
       }
       reg->flags = flags;
       reg->protection = prot;
+      km_mmap_concat(reg, &machine.mmaps.busy);
       return gva;
    }
    if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
