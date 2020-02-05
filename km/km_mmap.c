@@ -160,7 +160,7 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
    km_mmap_reg_t* left = TAILQ_PREV(reg, km_mmap_list, link);
    km_mmap_reg_t* right = TAILQ_NEXT(reg, link);
 
-   assert(reg != left && reg != right);   // out of paranoia, check for cycles
+   assert(reg != NULL && reg != left && reg != right);   // out of paranoia, check for cycles
    if (left != NULL && ok_to_concat(left, reg) == 1) {
       reg->start = left->start;
       reg->size += left->size;
@@ -486,45 +486,39 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
    km_mmap_reg_t* extra;
    km_gva_t ret;
 
-   if ((flags & MAP_FIXED)) {
-      // Only allow MAP_FIXED for already mapped regions (for MUSL dynlink.c)
+   if ((flags & MAP_FIXED)) {   // Only allow MAP_FIXED for already mapped regions (for MUSL dynlink.c)
       if ((reg = km_find_reg_nolock(gva)) == NULL || reg->start + reg->size < gva + size) {
          return -EINVAL;
       }
 
-      if (reg->start < gva) {
-         // Split front
+      if (reg->start < gva) {   // Split front of reg
          extra = malloc(sizeof(km_mmap_reg_t));
          assert(extra != NULL);
          *extra = *reg;
          extra->size = gva - reg->start;
          if (reg->filename) {
             extra->filename = strdup(reg->filename);
+            reg->offset += extra->size;
          }
          reg->start = gva;
          reg->size -= extra->size;
-         reg->offset += extra->size;
          km_mmap_insert_busy_before(reg, extra);
       }
-      if (gva + size < reg->start + reg->size) {
-         // Split rear
+      if (gva + size < reg->start + reg->size) {   // Split rear of reg
          extra = malloc(sizeof(km_mmap_reg_t));
          assert(extra != NULL);
          *extra = *reg;
          extra->start += size;
          extra->size -= size;
-         extra->offset += size;
          if (reg->filename) {
             extra->filename = strdup(reg->filename);
+            extra->offset += size;
          }
-         reg->start = gva;
+         assert(reg->start == gva);   // per code above reg should start at gva
          reg->size = size;
          km_mmap_insert_busy_after(reg, extra);
       }
       if (fd < 0) {
-         // free(reg->filename);
-         // reg->filename = NULL;
-         // mmap
          void* ret = mmap(km_gva_to_kma(gva), size, prot, flags, fd, offset);
          if (ret == MAP_FAILED) {
             err(2, "system mmap failed");
