@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -81,29 +81,72 @@ static const uint8_t int3 = 0xcc;   // trap instruction used for software breakp
 static int kvm_arch_insert_sw_breakpoint(struct breakpoint_t* bp)
 {
    uint8_t* insn;   // existing instructions at the bp location
+   void* pageaddr;
 
    if ((insn = (uint8_t*)km_gva_to_kma(bp->addr)) == NULL) {
       warn("failed to insert bp - address %lx is not in guest va space", bp->addr);
       return -1;
    }
    bp->saved_insn = *insn;
+   pageaddr = (void *)((unsigned long)insn & KM_PAGE_MASK);
+
+   // Make the page writeable if not already writeable.
+   int prot;
+   if ((prot = km_gva_prot(bp->addr, 1)) == -1) {
+      err(28, "Can't determine mem protection at gva 0x%lx", bp->addr);
+   }
+   if ((prot & PROT_WRITE) == 0) {
+      if (mprotect(pageaddr, KM_PAGE_SIZE, prot | PROT_WRITE) < 0) {
+         err(29, "Can't mark page at gva 0x%lx writeable", bp->addr);
+         return -1;
+      }
+   }
+
    /*
     * The debugger keeps track of the length of the instruction. We only need to manipulate the
     * first byte.
     */
    *insn = int3;
+
+   if ((prot & PROT_WRITE) == 0) {
+      if (mprotect(pageaddr, KM_PAGE_SIZE, prot) < 0) {
+         err(29, "Can't remove write protect from page 0x%lx", bp->addr);
+         return -1;
+      }
+   }
    return 0;
 }
 
 static int kvm_arch_remove_sw_breakpoint(struct breakpoint_t* bp)
 {
    uint8_t* insn;
+   void* pageaddr;
 
    if ((insn = (uint8_t*)km_gva_to_kma(bp->addr)) == NULL) {
       return -1;
    }
+   pageaddr = (void *)((unsigned long)insn & KM_PAGE_MASK);
+
+   int prot;
+   if ((prot = km_gva_prot(bp->addr, 1)) == -1) {
+      err(28, "Can't determine mem protection at gva 0x%lx", bp->addr);
+   }
+   if ((prot & PROT_WRITE) == 0) {
+      if (mprotect(pageaddr, KM_PAGE_SIZE, prot | PROT_WRITE) < 0) {
+         err(29, "Can't mark page at gva 0x%lx writeable", bp->addr);
+         return -1;
+      }
+   }
+
    assert(*insn == int3);
    *insn = bp->saved_insn;
+
+   if ((prot & PROT_WRITE) == 0) {
+      if (mprotect(pageaddr, KM_PAGE_SIZE, prot) < 0) {
+         err(29, "Can't remove write protect from page at gva 0x%lx", bp->addr);
+         return -1;
+      }
+   }
    return 0;
 }
 
