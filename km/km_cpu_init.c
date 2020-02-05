@@ -416,7 +416,7 @@ void km_machine_init(km_machine_init_params_t* params)
            sizeof(kvm_run_t));
    }
    if ((machine.cpuid =
-            malloc(sizeof(kvm_cpuid2_t) + CPUID_ENTRIES * sizeof(struct kvm_cpuid_entry2))) == NULL) {
+            calloc(1, sizeof(kvm_cpuid2_t) + CPUID_ENTRIES * sizeof(struct kvm_cpuid_entry2))) == NULL) {
       err(1, "KVM: no memory for CPUID");
    }
    machine.cpuid->nent = CPUID_ENTRIES;
