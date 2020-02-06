@@ -223,8 +223,10 @@ static inline int protection_adjust(int prot)
 }
 
 void km_mem_init(km_machine_init_params_t* params);
+void km_mem_fini(void);
 void km_guest_page_free(km_gva_t addr, size_t size);
 void km_guest_mmap_init(void);
+void km_guest_mmap_fini(void);
 km_gva_t km_mem_brk(km_gva_t brk);
 km_gva_t km_mem_tbrk(km_gva_t tbrk);
 km_gva_t km_guest_mmap_simple(size_t stack_size);
