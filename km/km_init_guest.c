@@ -64,7 +64,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
 
    // Set environ - copy strings and prep the envp array
    char* km_envp[envc + 1];
-   memcpy(km_envp, envp, sizeof(km_envp));
+   memcpy(km_envp, envp, sizeof(km_envp) - sizeof(char*));
    for (int i = 0; i < envc - 1; i++) {
       int len = strnlen(km_envp[i], PATH_MAX) + 1;
 
