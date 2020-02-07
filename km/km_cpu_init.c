@@ -90,6 +90,17 @@ void km_machine_fini(void)
    km_wait_on_eventfd(machine.shutdown_fd);
    close(machine.shutdown_fd);
    assert(machine.vm_vcpu_run_cnt == 0);
+   free(machine.auxv);
+   if (km_guest.km_filename != NULL) {
+      free(km_guest.km_filename);
+   }
+   if (km_guest.km_phdr != NULL) {
+      free(km_guest.km_phdr);
+   }
+   if (km_dynlinker.km_phdr != NULL) {
+      free(km_dynlinker.km_phdr);
+   }
+   km_mem_fini();
    km_signal_fini();
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       km_vcpu_t* vcpu;

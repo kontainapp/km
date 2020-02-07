@@ -209,6 +209,13 @@ int km_fs_init(void)
 
 void km_fs_fini(void)
 {
+   for (int i = 0; i < 3; i++) {
+      free(machine.filesys.guestfd_to_name_map[i]);
+   }
+   if (machine.filesys.guestfd_to_name_map != NULL) {
+      free(machine.filesys.guestfd_to_name_map);
+      machine.filesys.guestfd_to_name_map = NULL;
+   }
    if (machine.filesys.guestfd_to_hostfd_map != NULL) {
       free(machine.filesys.guestfd_to_hostfd_map);
       machine.filesys.guestfd_to_hostfd_map = NULL;
