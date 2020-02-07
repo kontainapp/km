@@ -267,6 +267,11 @@ void km_mem_init(km_machine_init_params_t* params)
    km_guest_mmap_init();
 }
 
+void km_mem_fini(void)
+{
+   km_guest_mmap_fini();
+}
+
 #define MAX_PDE_SLOT PDE_SLOT(GUEST_MEM_TOP_VA)
 #define MAX_PDPTE_SLOT PDPTE_SLOT(GUEST_MEM_TOP_VA)
 

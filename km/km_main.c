@@ -273,6 +273,10 @@ int main(int argc, char* const argv[])
       }
       km_gdb_main_loop(vcpu);
    }
+   if (envp != __environ) {
+      free(envp);
+   }
    km_machine_fini();
+   regfree(&km_info_trace.tags);
    exit(machine.exit_status);
 }
