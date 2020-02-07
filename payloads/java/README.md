@@ -114,7 +114,7 @@ Results written to /home/muth/kontain/km/payloads/java/jdk/JTwork
 ## Run from anywhere
 ```bash
 cd /tmp
-$ ~/kontain/km/build/km/km --dynlinker=/home/muth/kontain/km/build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64:/home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk/lib/:/opt/kontain/lib64:/lib64:/home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk/lib/server" /home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk.km/bin/java.kmd Hello 
+$ ~/kontain/km/build/km/km --dynlinker=/home/muth/kontain/km/build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64:/home/muth/kontain/km/payloads/java/jdk-11.0.6+10/build/linux-x86_64-server-release/jdk/lib/:/opt/kontain/lib64:/lib64:/home/muth/kontain/km/payloads/java/jdk-11.0.6+10/build/linux-x86_64-server-release/jdk/lib/server" /home/muth/kontain/km/payloads/java/jdk-11.0.6+10/build/linux-x86_64-server-release/jdk.km/bin/java.kmd Hello 
 runtime_km: call to unsupported `execve', generating core dump
 km: Write coredump to './kmcore'
 km: guest: Bad system call (core dumped)
@@ -122,6 +122,6 @@ km: guest: Bad system call (core dumped)
 
 With LD_LIBRARY_PATH in this order it works:
 ```bash
-$  ~/kontain/km/build/km/km  --dynlinker=/home/muth/kontain/km/build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk/lib/server:/home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk/lib:/opt/kontain/lib64:/lib64" /home/muth/kontain/km/payloads/java/jdk-11+28/build/linux-x86_64-server-release/jdk/bin/java.kmd -cp /tmp Hello
+$  ~/kontain/km/build/km/km  --dynlinker=/home/muth/kontain/km/build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/home/muth/kontain/km/payloads/java/jdk-11.0.6+10/build/linux-x86_64-server-release/jdk/lib/server:/home/muth/kontain/km/payloads/java/jdk-11.0.6+10/build/linux-x86_64-server-release/jdk/lib:/opt/kontain/lib64:/lib64" /home/muth/kontain/km/payloads/java/jdk-11.0.6+10/build/linux-x86_64-server-release/jdk/bin/java.kmd -cp /tmp Hello
 Hello, World!
 ```

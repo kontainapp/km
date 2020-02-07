@@ -18,7 +18,7 @@ fromsrc: jtreg
 	git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
 	cd ${JDK_VERSION} && bash configure \
 		--disable-warnings-as-errors --with-native-debug-symbols=internal \
-		--with-jvm-variants=server --with-zlib=bundled --with-jtreg=$(shell pwd)/jtreg \
+		--with-jvm-variants=server --with-zlib=bundled --with-jtreg=$(realpath jtreg) \
 		--enable-jtreg-failure-handler
 	make -C ${JDK_VERSION} images
 	./link_km.sh
