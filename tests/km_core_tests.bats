@@ -17,12 +17,12 @@ load test_helper
 not_needed_generic=""
 not_needed_static="gdb_sharedlib"
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic="setup_load mem_slots cli km_main_env mem_brk"
-not_needed_so="setup_load cli mem_brk gdb_sharedlib"
+not_needed_dynamic="setup_load mem_slots cli km_main_env mem_brk mmap_1"
+not_needed_so="setup_load cli mem_brk gdb_sharedlib mmap_1"
 todo_generic="futex_example"
 todo_static=""
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
-todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep exception cpp_ctors dl_iterate_phdr monitor_maps mem_mmap_1"
+todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep exception cpp_ctors dl_iterate_phdr monitor_maps"
 
 
 # Now the actual tests.
@@ -209,7 +209,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert [ $status -eq $expected_status ]
 }
 
-@test "mem_mmap_1($test_type): mmap then smaller mprotect (mmap_1_test$ext)" {
+@test "mmap_1($test_type): mmap then smaller mprotect (mmap_1_test$ext)" {
    run km_with_timeout mmap_1_test$ext
    assert_success
 }
@@ -636,6 +636,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 @test "monitor_maps($test_type): munmap gdt and idt (munmap_monitor_maps_test$ext)" {
    run km_with_timeout munmap_monitor_maps_test$ext
    assert_success
+   assert_line --partial "conflicts with monitor region 0x7fffffdfe000 size 0x2000"
 }
 
 @test "hypercall args($test_type): test hcall args passing" {

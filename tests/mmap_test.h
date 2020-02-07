@@ -16,8 +16,17 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include "../km/km_unittest.h"
+#include "greatest/greatest.h"
 #include "km_mem.h"
+#include "km_unittest.h"
+
+extern int main(int argc, char** argv);
+#define KM_PAYLOAD() ((uint64_t)&main < 4 * MIB)   // in KM, we load from 2Mb, In Linux, from 4MB
+#define ASSERT_MMAPS_COUNT(_c)                                                                     \
+   if (KM_PAYLOAD() == 1) {                                                                        \
+      get_maps(greatest_get_verbosity());                                                          \
+      ASSERT_EQ_FMT((_c), info->ntotal, "%d");                                                     \
+   }
 
 // Type of operation invoked by a single line in test tables
 typedef enum {
@@ -78,32 +87,39 @@ static int get_maps(int verbose) UNUSED;
 static int get_maps(int verbose)
 {
    int ret;
-
+   if (KM_PAYLOAD() != 1) {
+      printf("not running in payload, skipping get_maps (%s)\n", __FUNCTION__);
+      return -1;
+   }
    if (info == NULL) {
       info = calloc(1, sizeof(km_ut_get_mmaps_t) + MAX_MAPS * sizeof(km_mmap_reg_t));
       assert(info != NULL);
    }
    info->ntotal = MAX_MAPS;
    if ((ret = syscall(HC_km_unittest, KM_UT_GET_MMAPS_INFO, info)) == -EAGAIN) {
-      printf("WOW, Km reported too many maps: %d", info->ntotal);
+      printf("Wow, Km reported too many maps: %d\n", info->ntotal);
       return -1;
    }
    if (ret == -ENOTSUP) {
-      return 0;   // silent skip
+      printf("HC_km_unittest returned NOT SUPPORTED\n");
+      return 0;
    }
    if (info->ntotal < 2) {   // we always have at least 2 mmaps: stack + IDT/GDT
-      printf("WOW, Km reported too few maps: %d", info->ntotal);
+      printf("Wow, Km reported too few maps: %d\n", info->ntotal);
       return -1;
    }
    size_t old_end = info->maps[0].start;
+   if (verbose) {
+      printf("maps: total %d free %d busy %d\n", info->ntotal, info->nfree, info->ntotal - info->nfree);
+   }
    for (km_mmap_reg_t* reg = info->maps; reg < info->maps + info->ntotal; reg++) {
       char* type = (reg < info->maps + info->nfree ? "free" : "busy");
       if (reg == info->maps + info->nfree) {   // reset distance on 'busy' list stat
          old_end = reg->start;
       }
       if (verbose > 0) {
-         printf("mmap %s: 0x%lx size 0x%lx (%s) distance 0x%lx (%s), flags 0x%x prot 0x%x km_flags "
-                "0x%x\n",
+         printf("%s 0x%08lx size 0x%08lx (%10s) distance 0x%04lx (%3s), flags 0x%02x prot "
+                "0x%02x km_flags 0x%02x fn %s\n",
                 type,
                 reg->start,
                 reg->size,
@@ -112,7 +128,8 @@ static int get_maps(int verbose)
                 out_sz(reg->start - old_end),
                 reg->flags,
                 reg->protection,
-                reg->km_flags.data32);
+                reg->km_flags.data32,
+                reg->filename);
       }
       old_end = reg->start + reg->size;
    }

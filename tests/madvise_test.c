@@ -25,7 +25,6 @@
 #include <sys/param.h>
 #include "syscall.h"
 
-#include "greatest/greatest.h"
 #include "mmap_test.h"
 
 TEST simple_test()

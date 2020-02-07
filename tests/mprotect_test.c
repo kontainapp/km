@@ -25,7 +25,6 @@
 #include <sys/param.h>
 #include "syscall.h"
 
-#include "greatest/greatest.h"
 #include "mmap_test.h"
 
 // check that write() syscall is propertly handing wrong address, and that reaching above brk() fails
