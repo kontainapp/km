@@ -26,3 +26,6 @@ cscope.out
 **/cscope.out
 .vscode/tags
 .*.swp
+perf*.data
+perf*.data.old
+*.svg
