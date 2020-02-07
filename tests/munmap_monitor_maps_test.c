@@ -29,68 +29,31 @@
 #include <sys/types.h>
 
 #include "greatest/greatest.h"
-
-#include "../km/km_unittest.h"
-#include "km_hcalls.h"
-#include "km_mem.h"
-#include "syscall.h"
-
-static const int MAX_MAPS = 4096;
-static km_ut_get_mmaps_t* info;
-static km_mmap_reg_t saved_entry;
-
-static int get_maps(bool verify)
-{
-   int ret;
-
-   if (info == NULL) {
-      info = calloc(1, sizeof(km_ut_get_mmaps_t) + MAX_MAPS * sizeof(km_mmap_reg_t));
-      assert(info != NULL);
-   }
-   info->ntotal = MAX_MAPS;
-   if ((ret = syscall(HC_km_unittest, KM_UT_GET_MMAPS_INFO, info)) == -EAGAIN) {
-      printf("WOW, Km reported too many maps: %d", info->ntotal);
-      return -1;
-   }
-   if (ret == -ENOTSUP) {
-      printf("Km reported ioctl not supported\n");
-      return -1;
-   }
-   ASSERT_EQ_FMTm("verify total map count", 2, info->ntotal, "%d");
-   ASSERT_EQ_FMTm("verify free map count", 0, info->nfree, "%d");
-   if (verify == false) {
-      saved_entry = info->maps[0];
-   } else {
-      if ((info->maps[0].start != saved_entry.start) || (info->maps[0].size != saved_entry.size) ||
-          (info->maps[0].flags != saved_entry.flags) ||
-          (info->maps[0].km_flags.data32 != saved_entry.km_flags.data32)) {
-         return 1;
-      }
-   }
-   return 0;
-}
+#include "mmap_test.h"
 
 TEST munmap_monitor_maps_test(void)
 {
    void* gdtaddr = (void*)GUEST_MEM_TOP_VA - KM_PAGE_SIZE;
    void* idtaddr = gdtaddr - KM_PAGE_SIZE;
+   int ret;
 
-   ASSERT_EQ_FMTm("Fetch initial maps", 0, get_maps(false), "%d");
+   ret = munmap(gdtaddr, KM_PAGE_SIZE);
+   // we are expected to skip the monitor area and warn, but return OK
+   ASSERT_EQ_FMTm("Unmap first page", 0, ret, "%d");
+   ASSERT_MMAPS_COUNT(2);
 
-   ASSERT_EQ_FMTm("Unmap first page", 0, munmap(gdtaddr, KM_PAGE_SIZE), "%d");
-   ASSERT_EQ_FMTm("Verify after first unmap", 0, get_maps(true), "%d");
+   ret = munmap(idtaddr, KM_PAGE_SIZE);
+   ASSERT_EQ_FMTm("Unmap first page", 0, ret, "%d");
 
-   ASSERT_EQ_FMTm("Unmap first page", 0, munmap(idtaddr, KM_PAGE_SIZE), "%d");
-   ASSERT_EQ_FMTm("Verify after second unmap", 0, get_maps(true), "%d");
+   // mprotect should fail on 'contiguious' check
+   ret = mprotect(gdtaddr, GUEST_STACK_SIZE, PROT_NONE);
+   ASSERT_EQ_FMTm("change protection to NONE", -1, ret, "%d");
 
-   ASSERT_EQ_FMTm("change protection to NONE", 0, mprotect(gdtaddr, GUEST_STACK_SIZE, PROT_NONE), "%d");
-   ASSERT_EQ_FMTm("Verify after mprotect", 0, get_maps(true), "%d");
-
-   void *remap_address = mremap(gdtaddr, GUEST_STACK_SIZE, GUEST_STACK_SIZE * 2, MREMAP_MAYMOVE);
+   void* remap_address = mremap(gdtaddr, GUEST_STACK_SIZE, GUEST_STACK_SIZE * 2, MREMAP_MAYMOVE);
    (void)remap_address;
    ASSERT_EQ_FMTm("remap to increase size", EFAULT, errno, "%d");
-   ASSERT_EQ_FMTm("Verify after mprotect", 0, get_maps(true), "%d");
 
+   ASSERT_MMAPS_COUNT(2);
    PASS();
 }
 

@@ -38,9 +38,9 @@ if $argc == 0
    set $count = 1
    while $item != 0
       set $distance = $item->start - $last_end
-      printf "%3d 0x%-12lx next 0x%-12lx start= 0x%lx size = 0x%05x (%ld) prot 0x%x flags 0x%x km_fl 0x%x distance %d (%ld)\n", \
+      printf "%3d 0x%-12lx next 0x%-12lx start= 0x%lx size = 0x%05x (%08ld) prot 0x%x flags 0x%x fn %s km_fl 0x%x distance %d (%ld)\n", \
                $count, $item, $item->link->tqe_next, $item->start/4096ul, $item->size/4096ul, \
-               $item->size, $item->protection, $item->flags, $item->km_flags.data32, $distance/4096ul, $distance
+               $item->size, $item->protection, $item->flags, $item->filename, $item->km_flags.data32, $distance/4096ul, $distance
       set $count++
       set $last_end = $item->start + $item->size
       set $item=$item->link->tqe_next
