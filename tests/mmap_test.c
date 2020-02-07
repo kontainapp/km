@@ -27,15 +27,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "greatest/greatest.h"
-#include "mmap_test.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
 #include "km_hcalls.h"
 #include "syscall.h"
+
+#include "mmap_test.h"
 
 // positive tests
 // After this set , the free/busy lists in mmaps should be empty and tbrk
@@ -58,7 +53,7 @@ static mmap_test_t _36_tests[] = {
     {__LINE__, "simple map to set addr for test", TYPE_MMAP, 0, 1 * MIB, PROT_READ | PROT_WRITE, flags},
     // we ignore addr but it's legit to send it
     {__LINE__, "Wrong-args-mmap-addr", TYPE_MMAP, 400 * MIB, 8 * MIB, PROT_READ | PROT_WRITE, flags},
-    {__LINE__, "Wrong-args-mmap-fixed", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags | MAP_FIXED, EINVAL},
+    {__LINE__, "Wrong-args-mmap-fixed", TYPE_MMAP, 0, 8 * MIB, PROT_READ | PROT_WRITE, flags | MAP_FIXED, EPERM},
     {__LINE__, "Wrong-args-munmap", TYPE_MUNMAP, 300 * MIB + 20, 1 * MIB, 0, 0, EINVAL},
     {__LINE__, "simple unmap to clean up ", TYPE_MUNMAP, 0, 1 * MIB, 0, 0},
 
@@ -252,8 +247,10 @@ TEST mremap_test()
 
 TEST mmap_file_test()
 {
-   printf("===== mmap_file: Testing mmap() with file\n");
    static char fname[] = "/tmp/mmap_test_XXXXXX";
+   if (greatest_get_verbosity() == 1) {
+      printf("===== %s file template %s\n", __FUNCTION__, fname);
+   }
    int fd = mkstemp(fname);
    ASSERT_NOT_EQ(-1, fd);
 
@@ -266,7 +263,7 @@ TEST mmap_file_test()
 
    // mmap whole file.
    void* m = mmap(NULL, nbufs * sizeof(buffer), PROT_READ | PROT_EXEC, MAP_PRIVATE, fd, 0);
-   ASSERT_NOT_EQ((void*)-1, m);
+   ASSERT_NOT_EQ(MAP_FAILED, m);
 
    // Check contents
    char* s = m;

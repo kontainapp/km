@@ -71,46 +71,39 @@ void km_guest_mmap_fini(void)
 #define MAP_FIXED_NOREPLACE 0x100000
 #endif
 
-void km_mmap_show_map(const km_mmap_list_t* list, const char* name)
-{
-   km_mmap_reg_t* reg;
-
-   km_infox(KM_TRACE_MMAP, "%s", name);
-   TAILQ_FOREACH (reg, list, link) {
-      km_infox(KM_TRACE_MMAP,
-               "start 0x%lx size 0x%lx flags 0x%x protection 0x%x km_flags 0x%x filename %s offset "
-               "0x%lx",
-               reg->start,
-               reg->size,
-               reg->flags,
-               reg->protection,
-               reg->km_flags.data32,
-               reg->filename,
-               reg->offset);
-   }
-}
-
-void km_mmap_show_maps(void)
-{
-   km_mmap_show_map(&machine.mmaps.free, "Free list");
-   km_mmap_show_map(&machine.mmaps.busy, "Busy list");
-}
-
-// Checks for stuff we do not support.
+/*
+ * Checks for stuff we do not support, and also convert fd to hostfd
+ * Note that
+ *  - We do not convert gva because we will need both gva and kma addr
+ *  - we do convert fd because we will only need host_fd going forward
+ *  - on errors, we expect the values of misc params to be traced upstairs so we are laconic here
+ * */
 static inline int
-mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
+mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int* fd, off_t offset)
 {
    if (flags & MAP_FIXED_NOREPLACE) {
-      km_infox(KM_TRACE_MMAP, "mmap: wrong fd, offset or flags");
+      km_infox(KM_TRACE_MMAP, "*** MAP_FIXED_NOREPLACE is not supported");
       return -EINVAL;
    }
    if ((flags & MAP_FIXED) && addr == 0) {
-      km_infox(KM_TRACE_MMAP, "mmap: bad fixed address");
-      return -EINVAL;
+      km_infox(KM_TRACE_MMAP, "*** bad fixed address");
+      return -EPERM;
    }
    if (size >= GUEST_MEM_ZONE_SIZE_VA) {
-      km_infox(KM_TRACE_MMAP, "mmap: size is too large");
+      km_infox(KM_TRACE_MMAP, "*** size is too large");
       return -ENOMEM;
+   }
+   if (*fd >= 0 && (*fd = guestfd_to_hostfd(*fd)) < 0) {
+      km_infox(KM_TRACE_MMAP, "*** can't convert to host fd");
+      return -EBADF;
+   }
+   if (*fd > 0 && flags & MAP_ANONYMOUS) {
+      km_infox(KM_TRACE_MMAP, "*** fd is mutually exclusive with MAP_ANONYMOUS");
+      return -EBADF;
+   }
+   if (*fd < 0 && (flags & MAP_ANONYMOUS) == 0) {
+      km_infox(KM_TRACE_MMAP, "*** no fd and no MAP_ANONYMOUS flag");
+      return -EBADF;
    }
    return 0;
 }
@@ -179,16 +172,22 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
    km_mmap_reg_t* left = TAILQ_PREV(reg, km_mmap_list, link);
    km_mmap_reg_t* right = TAILQ_NEXT(reg, link);
 
-   assert(reg != left && reg != right);   // out of paranoia, check for cycles
+   assert(reg != NULL && reg != left && reg != right);   // out of paranoia, check for cycles
    if (left != NULL && ok_to_concat(left, reg) == 1) {
       reg->start = left->start;
       reg->size += left->size;
       TAILQ_REMOVE(list, left, link);
+      if (left->filename != NULL) {
+         free(left->filename);
+      }
       free(left);
    }
    if (right != NULL && ok_to_concat(reg, right) == 1) {
       reg->size += right->size;
       TAILQ_REMOVE(list, right, link);
+      if (right->filename != NULL) {
+         free(right->filename);
+      }
       free(right);
    }
 }
@@ -301,6 +300,19 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
    km_mmap_insert_free(reg);
 }
 
+// Callback for when busy_range_apply needs to prepare one big empty region covering the range
+static void km_mmap_region_fixed(km_mmap_reg_t* reg)
+{
+   reg->flags = MAP_FIXED;
+   reg->protection = PROT_NONE;
+   reg->offset = 0;
+   if (reg->filename != NULL) {
+      free(reg->filename);
+      reg->filename = NULL;
+   }
+   km_mmap_concat(reg, &machine.mmaps.busy);
+}
+
 typedef void (*km_mmap_action)(km_mmap_reg_t*);
 /*
  * Apply 'action(reg)' to all mmap regions completely within the (addr, addr+size-1) range in
@@ -316,7 +328,8 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
 {
    km_mmap_reg_t *reg, *next;
 
-   assert(action == km_mmap_mprotect || action == km_mmap_move_to_free);
+   assert(action == km_mmap_mprotect || action == km_mmap_move_to_free ||
+          action == km_mmap_region_fixed);
    TAILQ_FOREACH_SAFE (reg, &machine.mmaps.busy, link, next) {
       km_mmap_reg_t* extra;
 
@@ -326,13 +339,13 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
       if (reg->start >= addr + size) {
          break;   // we passed the range and are done
       }
-      if (reg->km_flags.km_mmap_monitor == 1) {
-         warnx("munmap/mprotect called on monitor allocated range requested addr 0x%lx size 0x%lx "
-               "region start 0x%lx size 0x%lx",
-               addr,
-               size,
-               reg->start,
-               reg->size);
+      if (reg->km_flags.km_mmap_monitor == 1) {   // skip internal maps... not expected, so warn
+         km_err_msg(ENOTSUP,
+                    "Range addr 0x%lx size 0x%lx conflicts with monitor region 0x%lx size 0x%lx",
+                    addr,
+                    size,
+                    reg->start,
+                    reg->size);
          continue;
       }
       if (reg->start < addr) {   // overlaps on the start
@@ -369,7 +382,8 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
       assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range
       reg->protection = prot;
       action(reg);
-      if (action == km_mmap_mprotect && next != TAILQ_END(&machine.mmaps.busy)) {
+      // action() may concat maps and thus 'next' may need adjustment
+      if (action != km_mmap_move_to_free && next != TAILQ_END(&machine.mmaps.busy)) {
          next = TAILQ_NEXT(reg, link);
       }
    }
@@ -395,12 +409,13 @@ static int km_mmap_busy_check_contiguous(km_gva_t addr, size_t size)
          }
          return -1;   // gap at the end of the range
       }
-      if ((last_end != 0 && last_end != reg->start) || (last_end == 0 && reg->start > addr)) {
-         return -1;   // gap in the beginning or before current reg
+      if ((last_end != 0 && last_end != reg->start) || (last_end == 0 && reg->start > addr) ||
+          (reg->km_flags.km_mmap_monitor == 1)) {
+         return -1;   // gap in the beginning or before current reg, or stepped on monitor
       }
       last_end = reg->start + reg->size;
    }
-   return 0;
+   return last_end == 0 ? -1 : 0;
 }
 
 // Guest mprotect implementation. Params should be already checked and locks taken.
@@ -439,6 +454,7 @@ static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
    return 0;
 }
 
+// Returns pointer to a region containing <gva>, or NULL
 static km_mmap_reg_t* km_find_reg_nolock(km_gva_t gva)
 {
    km_mmap_reg_t* reg;
@@ -450,67 +466,22 @@ static km_mmap_reg_t* km_find_reg_nolock(km_gva_t gva)
    return NULL;
 }
 
-// Guest mmap implementation. Params should be already checked and locks taken..
-static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
-                                     size_t size,
-                                     int prot,
-                                     int flags,
-                                     int fd,
-                                     off_t offset,
-                                     mmap_allocation_type_e allocation_type)
+// Guest munmap implementation. Params should be already checked and locks taken. Returns 0 or -errno
+static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
+{
+   return km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
+}
+
+/*
+ * Add an new mmap region. Returns guest address for the region, or -errno
+ * Address range is carved from free regions list, or allocated by moving machine.tbrk down
+ */
+static km_gva_t km_mmap_add_region(
+    km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, mmap_allocation_type_e at)
 {
    km_mmap_reg_t* reg;
-   km_mmap_reg_t* extra;
    km_gva_t ret;
 
-   if ((flags & MAP_FIXED)) {
-      // Only allow MAP_FIXED for already mapped regions (for MUSL dynlink.c)
-      if ((reg = km_find_reg_nolock(gva)) == NULL || reg->start + reg->size < gva + size) {
-         return -EINVAL;
-      }
-
-      if (reg->start < gva) {
-         // Split front
-         extra = malloc(sizeof(km_mmap_reg_t));
-         assert(extra != NULL);
-         *extra = *reg;
-         extra->size = gva - reg->start;
-         if (reg->filename) {
-            extra->filename = strdup(reg->filename);
-         }
-         reg->start = gva;
-         reg->size -= extra->size;
-         reg->offset += extra->size;
-         km_mmap_insert_busy_before(reg, extra);
-      }
-      if (gva + size < reg->start + reg->size) {
-         // Split rear
-         extra = malloc(sizeof(km_mmap_reg_t));
-         assert(extra != NULL);
-         *extra = *reg;
-         extra->start += size;
-         extra->size -= size;
-         extra->offset += size;
-         if (reg->filename) {
-            extra->filename = strdup(reg->filename);
-         }
-         reg->start = gva;
-         reg->size = size;
-         km_mmap_insert_busy_after(reg, extra);
-      }
-      if (fd < 0) {
-         // free(reg->filename);
-         // reg->filename = NULL;
-         // mmap
-         void* ret = mmap(km_gva_to_kma(gva), size, prot, flags, fd, offset);
-         if (ret == MAP_FAILED) {
-            err(2, "system mmap failed");
-         }
-      }
-      reg->flags = flags;
-      reg->protection = prot;
-      return gva;
-   }
    if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
       assert(size <= reg->size);
       if (reg->size > size) {   // free mmap has extra room to be kept in 'free'
@@ -542,7 +513,7 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
    reg->flags = flags;
    reg->protection = prot;
    reg->km_flags.data32 = 0;
-   reg->km_flags.km_mmap_monitor = ((allocation_type == MMAP_ALLOC_MONITOR) ? 1 : 0);
+   reg->km_flags.km_mmap_monitor = ((at == MMAP_ALLOC_MONITOR) ? 1 : 0);
    char* filename = km_guestfd_name(NULL, fd);
    if (filename != NULL) {
       reg->filename = realpath(filename, NULL);
@@ -551,6 +522,62 @@ static km_gva_t km_guest_mmap_nolock(km_gva_t gva,
    km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
    km_mmap_insert_busy(reg);
    return map_start;
+}
+
+// Guest mmap implementation. Returns gva or -errno. Params should be already checked and locks taken...
+static km_gva_t km_guest_mmap_nolock(
+    km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, mmap_allocation_type_e type)
+{
+   int ret;
+
+   if ((flags & MAP_ANONYMOUS) == MAP_ANONYMOUS) {
+      fd = -1;   // per mmap(3) fd can be ignored if MAP_ANONYMOUS is set
+   }
+   if ((flags & MAP_FIXED) == MAP_FIXED) {
+      if (km_mmap_busy_check_contiguous(gva, size) != 0) {
+         km_infox(KM_TRACE_MMAP, "Found un-mmaped addresses in MAP_FIXED-requested range");
+         return -EINVAL;
+      }
+   } else {   // ignore the hint and grab a map
+      gva = km_mmap_add_region(0, size, prot, flags, fd, offset, type);
+      if (km_syscall_ok(gva) < 0) {
+         km_info(KM_TRACE_MMAP, "Failed to allocate new mmap region");
+         return gva;
+      }
+   }
+   if ((flags & MAP_FIXED) != MAP_FIXED && fd < 0) {   // no fd and no fixed - we are done
+      return gva;
+   }
+   assert(type == MMAP_ALLOC_GUEST);   // further code is expected to apply to guest requests only
+
+   // By now, a contigious region(s) should already exist, so let's ask system to mmap there
+   km_kma_t kma = km_gva_to_kma(gva);
+   assert(kma != NULL);
+   if (mmap(kma, size, prot, flags | MAP_FIXED, fd, offset) != kma) {
+      km_err_msg(errno, "System mmap failed, gva 0x%lx kma %p fd %d off 0x%lx", gva, kma, fd, offset);
+      return -errno;
+   }
+   // Now glue the underlying regions together
+   if ((ret = km_mmap_busy_range_apply(gva, size, km_mmap_region_fixed, PROT_NONE)) != 0) {
+      errno = -ret;
+      km_info(KM_TRACE_MMAP, "Failed to apply km_mmap_region_fixed");
+      return ret;
+   }
+
+   // Update the formed busy map to correct info
+   // TODO: change range_apply to return km_mmap_reg_t* , and drop the extra search here
+   km_mmap_reg_t* reg = km_find_reg_nolock(gva);
+   assert(reg != NULL);   // we just created it above
+   assert(reg->start == gva && reg->size == size);
+   reg->flags = flags & ~MAP_FIXED;   // we don't care it was FIXED once
+   reg->protection = prot;
+   char* filename = km_guestfd_name(NULL, fd);
+   if (filename != NULL) {
+      reg->filename = realpath(filename, NULL);
+      reg->offset = offset;
+   }
+   km_mmap_concat(reg, &machine.mmaps.busy);
+   return gva;
 }
 
 /*
@@ -571,32 +598,21 @@ static km_gva_t km_guest_mmap_impl(km_gva_t gva,
 {
    km_gva_t ret;
    km_infox(KM_TRACE_MMAP,
-            "mmap guest(0x%lx, 0x%lx, prot 0x%x flags 0x%x allocation type 0x%x)",
+            "0x%lx, 0x%lx, prot 0x%x flags 0x%x fd %d alloc 0x%x",
             gva,
             size,
             prot,
             flags,
+            fd,
             allocation_type);
-   if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
+   // Note that after this operation 'fd' contains host fd
+   if ((ret = mmap_check_params(gva, size, prot, flags, &fd, offset)) != 0) {
       return ret;
    }
    size = roundup(size, KM_PAGE_SIZE);
    mmaps_lock();
    ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset, allocation_type);
    mmaps_unlock();
-   if (km_syscall_ok(ret) && fd >= 0) {
-      km_kma_t kma = km_gva_to_kma(ret);
-      int hfd = guestfd_to_hostfd(fd);
-      if (hfd >= 0) {
-         if (mmap(kma, size, prot, flags | MAP_FIXED, hfd, offset) == (void*)-1) {
-            ret = -errno;
-            // TODO (muth): undo mmap operation from above.
-            warn("%s: file mmap failed", __FUNCTION__);
-         }
-      } else {
-         ret = -EINVAL;
-      }
-   }
    km_infox(KM_TRACE_MMAP, "== mmap guest ret=0x%lx", ret);
    return ret;
 }
@@ -629,12 +645,6 @@ km_gva_t km_guest_mmap_simple(size_t size)
 {
    return km_syscall_ok(
        km_guest_mmap_impl(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, MMAP_ALLOC_GUEST));
-}
-
-// Guest munmap implementation. Params should be already checked and locks taken.
-static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
-{
-   return km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
 }
 
 /*
@@ -723,7 +733,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
          donor->start += needed;
          donor->size -= needed;
       }
-
+      km_mmap_concat(ptr, &machine.mmaps.busy);
       return old_addr;
    }
 

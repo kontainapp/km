@@ -385,9 +385,9 @@ extern km_info_trace_t km_info_trace;
          km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                  \
    } while (0)
 
-#define km_err_msg(errno, msg)                                                                     \
+#define km_err_msg(errno, fmt, ...)                                                                \
    do {                                                                                            \
-      km_trace(errno, __FUNCTION__, __LINE__, msg);                                                \
+      km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                 \
    } while (0)
 
 #define km_mutex_lock(mutex)                                                                       \

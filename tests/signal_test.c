@@ -302,7 +302,7 @@ TEST test_safepoint()
    struct sigaction old_sa = {};
 
    ASSERT_EQ(0, sigaction(SIGSEGV, &sa, &old_sa));
-   safepoint_page = mmap(0, safepoint_size, PROT_NONE, 0, -1, 0);
+   safepoint_page = mmap(0, safepoint_size, PROT_NONE, MAP_ANONYMOUS, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, safepoint_page);
 
    asm volatile("mov %0, %%r10\n\t"
