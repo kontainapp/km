@@ -28,7 +28,7 @@ DOCKER_DIR := .dockerdir
 KM_JAVA_TAR := ${DOCKER_DIR}/km_java_files.tar
 
 # JDK version we use from Kontain repo
-JDK_VERSION ?= jdk-11+28
+JDK_VERSION ?= jdk-11.0.6+10
 # Kontain dependency libs live here
 KONTAIN_DIR := /opt/kontain
 # location of java bins and libs in KM repo, relative to TOP
