@@ -4,7 +4,7 @@
 #
 set -x
 
-JDK_DIR=jdk-11+28/build/linux-x86_64-normal-server-release/
+JDK_DIR=jdk-11.0.6+10/build/linux-x86_64-normal-server-release/
 KM_TOP=$(git rev-parse --show-cdup) 
 ${KM_TOP}/tools/kontain-gcc -rdynamic -Wl,--rpath=/opt/kontain/lib64:/lib64:${JDK_DIR}jdk/lib:${JDK_DIR}jdk/lib/server \
     -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL \
