@@ -47,6 +47,25 @@ void km_guest_mmap_init(void)
    TAILQ_INIT(&machine.mmaps.busy);
 }
 
+static void km_clean_list(km_mmap_list_t* list)
+{
+   km_mmap_reg_t *reg, *next;
+
+   TAILQ_FOREACH_SAFE (reg, list, link, next) {
+      TAILQ_REMOVE(list, reg, link);
+      if (reg->filename != NULL) {
+         free(reg->filename);
+      }
+      free(reg);
+   }
+}
+
+void km_guest_mmap_fini(void)
+{
+   km_clean_list(&machine.mmaps.busy);
+   km_clean_list(&machine.mmaps.free);
+}
+
 // on ubuntu and older kernels, this is not defined. We need symbol to check (and reject) flags
 #ifndef MAP_FIXED_NOREPLACE
 #define MAP_FIXED_NOREPLACE 0x100000
