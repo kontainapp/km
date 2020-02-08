@@ -15,28 +15,25 @@
 #
 
 TOP := $(shell git rev-parse --show-cdup)
+include ${TOP}make/locations.mk
 
 # instructions for building Kontainers
 DOCKERFILE := kontain.dockerfile
-
-# Kontain specific files to land in the container JAVA/bin
-KM_FILES = ${KM_BIN} ${KM_LDSO} ${TOP}${JDK_LOC}/images/jdk/bin/java.km
-
-# Place for docker to pick up stuff from
-DOCKER_DIR := .dockerdir
-# packaged and stripped files (.so, km, etc...)
-KM_JAVA_TAR := ${DOCKER_DIR}/km_java_files.tar
 
 # JDK version we use from Kontain repo
 JDK_VERSION ?= jdk-11.0.6+10
 # Kontain dependency libs live here
 KONTAIN_DIR := /opt/kontain
 # location of java bins and libs in KM repo, relative to TOP
-JDK_LOC = payloads/java/${JDK_VERSION}/build/linux-x86_64-normal-server-release
+JDK_LOC := payloads/java/${JDK_VERSION}/build/linux-x86_64-normal-server-release
 
-# we need .km for shebang, so if we have only .kmd, simply copy it
-%.km: %.kmd
-	cp $^ $@
+# Kontain specific files to land in the container JAVA/bin
+KM_FILES := ${KM_BIN} ${KM_LDSO} ${TOP}${JDK_LOC}/images/jdk/bin/java.km
+
+# Place for docker to pick up stuff from
+DOCKER_DIR := .dockerdir
+# packaged and stripped files (.so, km, etc...)
+KM_JAVA_TAR := ${DOCKER_DIR}/km_java_files.tar
 
 # Docker repo to take the images from
 REPO := kontainstage.azurecr.io/nokia/ckaf
@@ -48,7 +45,6 @@ Z_VERSION := zookeeper:2.0.0-3.4.14-2696
 K_VERSION := kafka:2.0.0-5.3.1-2696
 CLIENT_VERSION := kafka-client:4.1.2-2
 
-
 # JDK locations in the java containers we convert. We assume all images have the same java version
 ORIG_JDK_DIR := $(shell docker run --rm ${REPO}/${Z_VERSION} \
 					 bash -c 'dirname $$(dirname $$(realpath $${JAVA_HOME:-/usr}/bin/java))')
@@ -59,6 +55,9 @@ all = $(DOCKER_DIR)/.all
 all: ${all} ## Build all
 
 ${all}: ${KM_JAVA_TAR} ${DOCKERFILE} Makefile
+	@if [ ! -d ${KONTAIN_DIR}/runtime ] ; then \
+		echo "Missing ${KONTAIN_DIR}/runtime. Please run 'make pull-buildenv-image buildenv-local-fedora' in km/tests" ; false; \
+	fi
 	@for item in ${Z_VERSION} ${K_VERSION} ; do \
 		tag=${KONTAIN_REPO}/$$item ; echo Building $$tag ; \
 		${DOCKER_BUILD} -q -f ${DOCKERFILE} ${DOCKER_DIR} \
@@ -68,6 +67,10 @@ ${all}: ${KM_JAVA_TAR} ${DOCKERFILE} Makefile
 		 -t ${KONTAIN_REPO}/$$item ; \
 	done
 	@docker image ls '${KONTAIN_REPO}/*'
+	@if ! docker network list | grep -q kafka-net ; then \
+		echo -e "${CYAN}Warning: kafka-net is missing. Run 'docker network create kafka-net'${NOCOLOR}"; fi
+	@if [ -z "$$(rpm -qa sysstat)" ] ; then \
+		echo -e "${CYAN}Warning: sysstat is missing. Run 'sudo dnf install sysstat -y'${NOCOLOR}"  ; fi
 	@touch $@
 
 # Copy all files and create 'java' file as a shebang calling KM with proper params.
@@ -92,6 +95,7 @@ ${KM_JAVA_TAR} : $(KM_FILES) ${KONTAIN_DIR} Makefile
 		tar -C ${DOCKER_DIR}/${JDK_VERSION} -cf ${KM_JAVA_TAR} . ; rm -rf ${DOCKER_DIR}/${JDK_VERSION}
 
 base: base-pull  ## pull nokia containers - prerequsite for 'make all'
+pull: base  # alias
 
 base-pull: ## A helper to pull images from repository (alias to base)
 	@echo DO NOT FORGET TO: make login
@@ -102,7 +106,6 @@ base-pull: ## A helper to pull images from repository (alias to base)
 login: ## helper to log in Azure and the registry
 	make -C $(TOP)cloud/azure login-cli
 	az acr login -n kontainstage
-
 
 clean-disks:
 	-sudo rm -r $$(dirname ${BLDDIR})/disks
@@ -130,9 +133,6 @@ TEST_SCRIPT_ENV := \
 	-v ${test_data_dir}/zookeeper/data:/var/lib/zookeeper/data:z \
 	--ulimit nofile=122880:122880
 
-# not used yet. we will use it to locate and clean up old .so files.
-java_loc=/etc/alternatives/jre_openjdk/lib
-
 # a helper to run truly interactive if needed - i.e. 'make test DOCKER_TI=-ti ARGS=bash'
 DOCKER_TI ?= -t
 # kontainer name, so we can delete it by name
@@ -144,4 +144,6 @@ test: all ## Sanity checking for the zookeeper Kontainer built with this make
 		${TEST_SCRIPT_ENV} \
 		${KONTAIN_REPO}/${Z_VERSION} ${ARGS}
 
-include ${TOP}make/locations.mk
+# we need .km for shebang, so if we have only .kmd, simply copy it
+%.km: %.kmd
+	cp $^ $@
