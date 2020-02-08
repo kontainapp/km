@@ -569,7 +569,30 @@ static void* km_faulting_address(km_vcpu_t* vcpu)
          return (void*)*regp;
       }
    }
-   warnx("EFAULT - Unknown faulting address. RIP=0x%llx", vcpu->regs.rip);
+   /*
+    * If we did not handle the instruction at the failure RIP, we don't know what exactly it was
+    * addressing and so we do not know the exact faulting address. So we cannot properly fill in
+    * sa_addr, and payload handlers will get 0 in sa_addr... For now we saw this in JIT only and
+    * it's handled above.
+    * TODO for the rest of instructions (https://github.com/kontainapp/km/issues/436)
+    */
+   km_err_msg(errno,
+              "EFAULT - Unknown faulting address. RIP=0x%llx Instr 0x%x 0x%x 0x%x",
+              vcpu->regs.rip,
+              instr[0],
+              instr[1],
+              instr[2]);
+   if (km_is_gva_accessable(vcpu->regs.rip, 8, PROT_READ | PROT_EXEC) == 0) {
+      km_err_msg(errno,
+                 "EFAULT - ... 0x%x 0x%x 0x%x 0x%x 0x%x",
+                 instr[3],
+                 instr[4],
+                 instr[5],
+                 instr[6],
+                 instr[7]);
+   } else {
+      km_err_msg(errno, "No access to the last 5 bytes");
+   }
    return NULL;
 }
 
