@@ -111,7 +111,7 @@ int mmap_test(mmap_test_t* tests)
                          out_sz(new_size));
                }
                if (old_size < new_size) {   // WE ASSUME PROT_READ for the parent map !
-                  printf("VALUE %d at %p\n", *(int*)(new_addr + old_size), new_addr);
+                  printf("%s: VALUE %d at %p\n", __FUNCTION__, *(int*)(new_addr + old_size), new_addr);
                   ASSERT_EQm("new range in remap should be zeroed", 0, *(int*)(new_addr + old_size));
                }
                memset(new_addr, '2', new_size);   // just core dumps if something is wrong
