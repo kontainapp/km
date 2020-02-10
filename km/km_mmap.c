@@ -75,27 +75,19 @@ void km_guest_mmap_fini(void)
 static inline int
 mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
 {
-   if (flags & MAP_FIXED_NOREPLACE) {
-      km_infox(KM_TRACE_MMAP, "*** MAP_FIXED_NOREPLACE is not supported");
-      return -EINVAL;
-   }
-   if ((flags & MAP_FIXED) && addr == 0) {
-      km_infox(KM_TRACE_MMAP, "*** bad fixed address");
-      return -EPERM;
-   }
    if (size >= GUEST_MEM_ZONE_SIZE_VA) {
       km_infox(KM_TRACE_MMAP, "*** size is too large");
       return -ENOMEM;
    }
-   if (fd >= 0 && (fd = guestfd_to_hostfd(fd)) < 0) {
-      km_infox(KM_TRACE_MMAP, "*** can't convert to host fd");
-      return -EBADF;
+   if ((flags & MAP_FIXED_NOREPLACE) != 0) {
+      km_infox(KM_TRACE_MMAP, "*** MAP_FIXED_NOREPLACE is not supported");
+      return -EINVAL;
    }
-   if (fd > 0 && flags & MAP_ANONYMOUS) {
-      km_infox(KM_TRACE_MMAP, "Ignoring fd due to MAP_ANONYMOUS");
-      return -EBADF;
+   if ((flags & MAP_FIXED) != 0 && addr == 0) {
+      km_infox(KM_TRACE_MMAP, "*** bad fixed address");
+      return -EPERM;
    }
-   if (fd < 0 && (flags & MAP_ANONYMOUS) == 0) {
+   if ((flags & MAP_ANONYMOUS) == 0 && fd < 0) {
       km_infox(KM_TRACE_MMAP, "*** no fd and no MAP_ANONYMOUS flag");
       return -EBADF;
    }
@@ -470,8 +462,8 @@ static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
  * Add an new mmap region. Returns guest address for the region, or -errno
  * Address range is carved from free regions list, or allocated by moving machine.tbrk down
  */
-static km_gva_t km_mmap_add_region(
-    km_gva_t gva, size_t size, int prot, int flags, int unused1, off_t unused2, mmap_allocation_type_e at)
+static km_gva_t
+km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, mmap_allocation_type_e at)
 {
    km_mmap_reg_t* reg;
    km_gva_t ret;
@@ -523,15 +515,22 @@ static km_gva_t km_guest_mmap_nolock(
    int ret;
 
    if ((flags & MAP_ANONYMOUS) == MAP_ANONYMOUS) {
+      km_infox(KM_TRACE_MMAP, "Ignoring fd due to MAP_ANONYMOUS");
       fd = -1;   // per mmap(3) fd can be ignored if MAP_ANONYMOUS is set
+   }
+   // Now that we are under lock, make sure we can get correct fd
+   int hostfd = -1;
+   if (fd >= 0 && (hostfd = guestfd_to_hostfd(fd)) < 0) {
+      km_infox(KM_TRACE_MMAP, "***failed to convert fd %d to host fd", fd);
+      return -EBADF;
    }
    if ((flags & MAP_FIXED) == MAP_FIXED) {
       if (km_mmap_busy_check_contiguous(gva, size) != 0) {
-         km_infox(KM_TRACE_MMAP, "Found un-mmaped addresses in MAP_FIXED-requested range");
+         km_infox(KM_TRACE_MMAP, "Found not maped addresses in MAP_FIXED-requested range");
          return -EINVAL;
       }
    } else {   // ignore the hint and grab an address range
-      gva = km_mmap_add_region(0, size, prot, flags, -1, 0, type);
+      gva = km_mmap_add_region(0, size, prot, flags, type);
       if (km_syscall_ok(gva) < 0) {
          km_info(KM_TRACE_MMAP, "Failed to allocate new mmap region");
          return gva;
@@ -545,8 +544,8 @@ static km_gva_t km_guest_mmap_nolock(
    // By now, a contigious region(s) should already exist, so let's ask system to mmap there
    km_kma_t kma = km_gva_to_kma(gva);
    assert(kma != NULL);
-   if (mmap(kma, size, prot, flags | MAP_FIXED, guestfd_to_hostfd(fd), offset) != kma) {
-      km_err_msg(errno, "System mmap failed. gva 0x%lx kma %p guest fd %d off 0x%lx", gva, kma, fd, offset);
+   if (mmap(kma, size, prot, flags | MAP_FIXED, hostfd, offset) != kma) {
+      km_err_msg(errno, "System mmap failed. gva 0x%lx kma %p host fd %d off 0x%lx", gva, kma, hostfd, offset);
       return -errno;
    }
    // Now glue the underlying regions together
