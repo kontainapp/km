@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -891,63 +891,6 @@ int km_is_gva_accessable(km_gva_t gva, size_t size, int prot)
 done:
    mmaps_unlock();
    return ret;
-}
-
-/*
- * Return the access allowed to the supplied address range.
- * If the desired region was not in the payload, return -1.
- */
-static int
-km_payload_gva_prot(km_payload_t* payload, km_gva_t gva, size_t size)
-{
-   for (int i = 0; i < payload->km_ehdr.e_phnum; i++) {
-      Elf64_Phdr* phdr = &payload->km_phdr[i];
-      if (gva >= phdr->p_vaddr + payload->km_load_adjust &&
-          gva + size <= phdr->p_vaddr + payload->km_load_adjust + phdr->p_memsz) {
-         int rprot = 0;
-         if (phdr->p_flags & PF_R) {
-            rprot |= PROT_READ;
-         }
-         if (phdr->p_flags & PF_W) {
-            rprot |= PROT_WRITE;
-         }
-         if (phdr->p_flags & PF_X) {
-            rprot |= PROT_EXEC;
-         }
-         return rprot;
-      }
-   }
-   return -1;
-}
-
-/*
- * Return the protection of the supplied address range.
- * The returned value is a combination of PROT_{READ,WRITE,EXEC}.
- * If we don't know the protection of the page containing gva, return -1.
- */
-int km_gva_prot(km_gva_t gva, size_t size)
-{
-   int prot;
-
-   if ((prot = km_payload_gva_prot(&km_guest, gva, size)) != -1) {
-      return prot;
-   }
-   if ((prot = km_payload_gva_prot(&km_dynlinker, gva, size)) != -1) {
-      return prot;
-   }
-
-   km_mmap_reg_t* reg = NULL;
-   mmaps_lock();
-   if ((reg = km_find_reg_nolock(gva)) == NULL) {
-      prot = -1;
-   } else {
-      if (gva + size > reg->start + reg->size) {
-         errx(2, "range spanned mmap region gva:0x%lx size:0x%lx", gva, size);
-      }
-      prot = reg->protection;
-   }
-   mmaps_unlock();
-   return prot;
 }
 
 /*

@@ -46,6 +46,7 @@
 
 #include <linux/kvm.h>
 #include <linux/kvm_para.h>
+#include <stdio.h>
 
 #include "bsd_queue.h"
 
@@ -78,6 +79,48 @@ static uint32_t nr_hw_breakpoints = 0;
 
 static const uint8_t int3 = 0xcc;   // trap instruction used for software breakpoints
 
+/*
+ * Read /proc/self/maps looking for the entry that covers the address
+ * supplied by the addr argument.  When a matching range is found,
+ * return the PROT_{READ,WRITE,EXEC} equivalent of the rwxp field in *protection
+ * If no matching addr range is found or we couldn't open the maps
+ * file return a negative value.
+ * If a page protection was found return 0.
+ */
+#define PROC_SELF_MAPS "/proc/self/maps"
+int km_get_page_protection(km_kma_t addr, int* protection)
+{
+   FILE* procmaps;
+   char linebuffer[256];
+   uint64_t start;
+   uint64_t end;
+   char prot[strlen("rwxp") + 4];
+   int rv = -1;
+
+   procmaps = fopen(PROC_SELF_MAPS, "r");
+   if (procmaps == NULL) {
+      km_infox(KM_TRACE_MEM, "can't open %s for reading", PROC_SELF_MAPS);
+      return -2;
+   }
+
+   while (fgets(linebuffer, sizeof(linebuffer), procmaps) != NULL) {
+      if (sscanf(linebuffer, "%lx-%lx %5s ", &start, &end, prot) == 3) {
+         if ((uint64_t)addr >= start && (uint64_t)addr < end) {
+            *protection = (prot[0] == 'r' ? PROT_READ : 0) |
+                          (prot[1] == 'w' ? PROT_WRITE : 0) |
+                          (prot[2] == 'x' ? PROT_EXEC : 0);
+            rv = 0;
+            break;
+         }
+      } else {
+         // Ignore a mangled line
+      }
+   }
+
+   fclose(procmaps);
+   return rv;
+}
+
 static int kvm_arch_insert_sw_breakpoint(struct breakpoint_t* bp)
 {
    uint8_t* insn;   // existing instructions at the bp location
@@ -92,12 +135,16 @@ static int kvm_arch_insert_sw_breakpoint(struct breakpoint_t* bp)
 
    // Make the page writeable if not already writeable.
    int prot;
-   if ((prot = km_gva_prot(bp->addr, 1)) == -1) {
-      err(28, "Can't determine mem protection at gva 0x%lx", bp->addr);
+   if ((km_get_page_protection(insn, &prot)) == -1) {
+      warn("Can't determine mem protection at gva 0x%lx", bp->addr);
+      return -1;
+   }
+   if ((prot & PROT_EXEC) == 0) { // Do we care if they try to put breakpoints in non-executable pages?
+      warn("Putting breakpoint in non-executable page at gva %lx", bp->addr);
    }
    if ((prot & PROT_WRITE) == 0) {
       if (mprotect(pageaddr, KM_PAGE_SIZE, prot | PROT_WRITE) < 0) {
-         err(29, "Can't mark page at gva 0x%lx writeable", bp->addr);
+         warn("Can't mark page at gva 0x%lx writeable", bp->addr);
          return -1;
       }
    }
@@ -110,8 +157,8 @@ static int kvm_arch_insert_sw_breakpoint(struct breakpoint_t* bp)
 
    if ((prot & PROT_WRITE) == 0) {
       if (mprotect(pageaddr, KM_PAGE_SIZE, prot) < 0) {
-         err(29, "Can't remove write protect from page 0x%lx", bp->addr);
-         return -1;
+         // On failure we leave the page writable for the duration of the payload.
+         warn("Can't remove write protect from page 0x%lx, leaving it writable", bp->addr);
       }
    }
    return 0;
@@ -128,12 +175,13 @@ static int kvm_arch_remove_sw_breakpoint(struct breakpoint_t* bp)
    pageaddr = (void *)((unsigned long)insn & KM_PAGE_MASK);
 
    int prot;
-   if ((prot = km_gva_prot(bp->addr, 1)) == -1) {
-      err(28, "Can't determine mem protection at gva 0x%lx", bp->addr);
+   if (km_get_page_protection(insn, &prot) == -1) {
+      warn("Can't determine mem protection at gva 0x%lx", bp->addr);
+      return -1;
    }
    if ((prot & PROT_WRITE) == 0) {
       if (mprotect(pageaddr, KM_PAGE_SIZE, prot | PROT_WRITE) < 0) {
-         err(29, "Can't mark page at gva 0x%lx writeable", bp->addr);
+         warn("Can't mark page at gva 0x%lx writeable", bp->addr);
          return -1;
       }
    }
@@ -143,8 +191,7 @@ static int kvm_arch_remove_sw_breakpoint(struct breakpoint_t* bp)
 
    if ((prot & PROT_WRITE) == 0) {
       if (mprotect(pageaddr, KM_PAGE_SIZE, prot) < 0) {
-         err(29, "Can't remove write protect from page at gva 0x%lx", bp->addr);
-         return -1;
+         warn("Can't remove write protect from page at gva 0x%lx, leaving it writable", bp->addr);
       }
    }
    return 0;

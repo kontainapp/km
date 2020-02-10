@@ -618,8 +618,10 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
             vcpu->cpu_run->exit_reason,
             kvm_reason_name(vcpu->cpu_run->exit_reason));
 
-   km_read_registers(vcpu);
-   km_read_sregisters(vcpu);
+   if (km_trace_enabled() || km_gdb_client_is_attached()) {
+      km_read_registers(vcpu);
+      km_read_sregisters(vcpu);
+   }
 
    if (rc != 0) {
       km_info(KM_TRACE_KVM,

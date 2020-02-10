@@ -27,16 +27,21 @@
  * verify that libcrypt.so is loaded though.
  */
 
-#define CRYPT_SYMBOL "crypt"
+#define CRYPT_SYMBOL "xcrypt"
 #define CRYPT_LIB "/usr/lib64/libcrypt.so"
 
 /*
- * gcc -g -o dlopen_exp dlopen_exp.c -lm -ldl
+ * gcc -g -o gdb_sharelib2_test gdb_sharelib2_test.c -ldl -lz
  */
 
 static void __attribute__((noinline)) hit_breakpoint(void* symvalue)
 {
    printf("time returns %ld, symvalue %p\n", time(NULL), symvalue);
+}
+
+static void __attribute__((noinline))got_symbol_breakpoint(void)
+{
+   printf("do something to trick the compiler\n");
 }
 
 int main(int argc, char* argv[])
@@ -60,6 +65,7 @@ int main(int argc, char* argv[])
          printf("Couldn't find the value of symbol %s, error %s\n", CRYPT_SYMBOL, dlsym_error);
       } else {
          char* (*cryptfuncp)(char*, char*);
+         got_symbol_breakpoint();
          cryptfuncp = symvalue;
          char* phrase = (*cryptfuncp)("mary had a little lamb", "salt");
          printf("%s returned phrase %s\n", CRYPT_SYMBOL, phrase);

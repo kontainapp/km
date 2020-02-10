@@ -360,12 +360,13 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # processing the "info sharedlibrary" command.
 
    # test for symbols from libcrypt brought in by dlopen()
-   km_with_timeout -g dlopen_exp$ext &
+   km_with_timeout -g gdb_sharedlib2_test$ext &
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
-      --ex="source cmd_for_dlopen_test.gdb" --ex=q
+      --ex="source cmd_for_sharedlib2_test.gdb" --ex=q
    assert_success
    assert_line --partial "Yes (*)     target:/usr/lib64/libcrypt.so"
    assert_line --partial "Dump of assembler code for function xcrypt"
+   assert_line --partial "Hit the breakpoint at xcrypt"
    wait_and_check 0
 }
 
@@ -374,11 +375,11 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 # Then detach and then attach and detach again.
 # Then finally attach one more time to shut the test down.
 #
-@test "gdb_attach($test_type): gdb asynchronous client attach test" {
+@test "gdb_attach($test_type): gdb asynchronous client attach test (gdb_lots_of_threads_test$ext)" {
    km_gdb_default_port=2159
 
    # test asynch gdb client attach to the target
-   km_with_timeout lots_of_threads$ext &
+   km_with_timeout gdb_lots_of_threads_test$ext &
    run gdb_with_timeout -q -nx \
       --ex="target remote :$km_gdb_default_port" \
       --ex="source cmd_for_attach_test.gdb" --ex=q

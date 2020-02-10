@@ -1,14 +1,12 @@
 # Test to verify that the gdb client can asynchronously attach and detach, attach and detach
 # repeatedly.
 #
-#  shell_1> ../build/km/km ./lots_of_threads.kmd
+#  shell_1> ../build/km/km ./gdb_lots_of_threads_test.kmd
 #  shell_2> gdb -q -nx --ex="target remote :2159"  \
 #                      --ex="set stop_running=[0|1]" \
 #                      --ex="source cmd_for_attach_test.gdb"  --ex q
 #
-
 set pagination off
-
 print stop_running
 
 # just do something to prove we are attached to the target
