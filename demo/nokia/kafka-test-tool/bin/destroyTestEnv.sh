@@ -10,5 +10,5 @@ docker stop zookeeper-server  kafka-test-client
 
 for (( i=1; i<=$NUMBER_OF_INSTANCE; i++ ))
 do
-    echo docker stop kafka-broker-$i
+    docker stop kafka-broker-$i
 done
