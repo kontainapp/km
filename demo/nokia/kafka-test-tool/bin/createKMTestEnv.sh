@@ -45,7 +45,7 @@ EOF
 #  ${IMAGE_DIR}/etc_kafka/km_zookeeper.properties > ${BASE_DIR}/zookeeper/out.txt 2>&1
 #) &
 #sleep 5
-#exit 0 
+#exit 0
 
 # Use -Djava.compiler=NONE to disable JIT
 # JIT: -XX:+PrintCompilation -XX:+PrintCodeCacheOnCompilation \
@@ -73,7 +73,7 @@ do
 # zookeeper.connect=zookeeper-server:2181
 # advertised.listeners=PLAINTEXT://kafka-broker-1:9092
     mkdir -p $BASE_DIR/kafka-broker-$i/data && \
-    mkdir -p $BASE_DIR/kafka-broker-$i/log 
+    mkdir -p $BASE_DIR/kafka-broker-$i/log
     cat <<-EOF > ${BASE_DIR}/kafka-broker-$i/kafka.properties
 log.dirs=${BASE_DIR}/kafka-broker-$i/log
 listeners=PLAINTEXT://127.0.1.$i:9092
@@ -96,7 +96,7 @@ EOF
        kafka.Kafka ${BASE_DIR}/kafka-broker-$i/kafka.properties > ${BASE_DIR}/kafka-broker-$i/out.txt 2>&1
     ) &
     sleep 5
-done 
+done
 sleep 20
 exit 0
 docker run --name zookeeper-server -p 2181:2181 --network kafka-net -e ZOOKEEPER_CLIENT_PORT=2181 \
@@ -123,7 +123,7 @@ do
         -v $BASE_DIR/kafka-broker-$i/data:/var/lib/kafka/data:z \
         -v $BASE_DIR/kafka-broker-$i/log:/var/log/kafka:z \
         --ulimit nofile=122880:122880 \
-        --rm -d ${CPREFIX}/ckaf/kafka:2.0.0-5.3.1-2696
+        -d ${CPREFIX}/ckaf/kafka:2.0.0-5.3.1-2696
 done
 
 
@@ -133,7 +133,7 @@ docker run --name kafka-test-client \
     --ulimit nofile=122880:122880 \
     --rm -d \
     ${CPREFIX}/atg/kafka-client:4.1.2-2 \
-    tail -f /dev/null 
+    tail -f /dev/null
 
 
 
