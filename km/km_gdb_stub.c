@@ -136,18 +136,15 @@ static unsigned char* hex2mem(const char* buf, unsigned char* mem, size_t count)
 
 /*
  * Listens on (global) port and  when connection accepted/established, sets
- * global gdbstub.sock_fd and returns 0.
+ * global gdbstub.listen_socket_fd and returns 0.
  * Returns -1 in case of failures.
  */
-int km_gdb_wait_for_connect(const char* image_name)
+int km_gdb_setup_listen(void)
 {
    int listen_socket_fd;
-   struct sockaddr_in server_addr, client_addr;
-   struct in_addr ip_addr;
-   socklen_t len;
+   struct sockaddr_in server_addr;
    int opt = 1;
 
-   assert(km_gdb_is_enabled() == 1);
    listen_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
    if (listen_socket_fd == -1) {
       warn("Could not create socket");
@@ -157,32 +154,61 @@ int km_gdb_wait_for_connect(const char* image_name)
    if (setsockopt(listen_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
       warn("setsockopt(SO_REUSEADDR) failed");
    }
+
+   if (gdbstub.port == 0) {  // use the gdb default port from /etc/services if no override supplied
+      struct servent *sep;
+
+      if ((sep = getservbyname("gdbremote", "tcp")) == NULL) {
+         warn("getservbyname failed");
+         close(listen_socket_fd);
+         return -1;
+      }
+      gdbstub.port = ntohs(sep->s_port);
+   }
+
    server_addr.sin_family = AF_INET;
    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
    server_addr.sin_port = htons(km_gdb_port_get());
 
    if (bind(listen_socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
       warn("bind failed");
+      close(listen_socket_fd);
       return -1;
    }
 
    if (listen(listen_socket_fd, 1) == -1) {
       warn("listen failed");
+      close(listen_socket_fd);
       return -1;
    }
 
-   warnx("Waiting for a debugger. Connect to it like this:");
-   warnx("\tgdb --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n",
-         km_gdb_port_get(),
-         image_name);
+   gdbstub.listen_socket_fd = listen_socket_fd;
+
+   return 0;
+}
+
+void km_gdb_destroy_listen(void)
+{
+   close(gdbstub.listen_socket_fd);
+   gdbstub.listen_socket_fd = 0;
+}
+
+static int km_gdb_accept_connection(void)
+{
+   struct in_addr ip_addr;
+   struct sockaddr_in client_addr;
+   socklen_t len;
+   int opt = 1;
 
    len = sizeof(client_addr);
-   gdbstub.sock_fd = accept(listen_socket_fd, (struct sockaddr*)&client_addr, &len);
+   gdbstub.sock_fd = accept(gdbstub.listen_socket_fd, (struct sockaddr*)&client_addr, &len);
    if (gdbstub.sock_fd == -1) {
+      if (errno == EINVAL) {  // process exit caused a shutdown( listen_socket_fd, SHUT_RD )
+         return EINVAL;
+      }
       warn("accept failed");
       return -1;
    }
-   close(listen_socket_fd);
 
    if (setsockopt(gdbstub.sock_fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
       warn("Setting TCP_NODELAY failed, continuing...");
@@ -190,6 +216,30 @@ int km_gdb_wait_for_connect(const char* image_name)
    ip_addr.s_addr = client_addr.sin_addr.s_addr;
    warnx("Connection from debugger at %s", inet_ntoa(ip_addr));
    return 0;
+}
+
+/*
+ * When the payload exits we need to get the km main thread out of the accept()
+ * call in km_gdb_accept_connection().  Call this function to have that
+ * happen.
+ */
+void km_gdb_accept_stop(void)
+{
+   int rc;
+
+   km_infox(KM_TRACE_GDB, "Stop accepting new gdb client connections");
+   if (gdbstub.gdb_client_attached == 0) {
+      rc = shutdown(gdbstub.listen_socket_fd, SHUT_RD);
+      if (rc != 0) {
+         km_info(KM_TRACE_GDB, "shutdown on listening socket failed");
+      }
+   }
+}
+
+static void km_gdb_destroy_connection(void)
+{
+   close(gdbstub.sock_fd);
+   gdbstub.sock_fd = -1;
 }
 
 /*
@@ -215,24 +265,24 @@ void km_gdb_vcpu_state_init(km_vcpu_t* vcpu)
    vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RUNNING;
 }
 
-/* closes the gdb socket and set port to 0 */
-static void km_gdb_disable(void)
-{
-   if (km_gdb_is_enabled() != 1) {
-      return;
-   }
 
+static void gdb_fd_garbage_collect(void);
+
+/*
+ * Cleanup gdb state on gdb client detach.
+ */
+static void km_gdb_detach(void)
+{
    km_gdb_remove_all_breakpoints();
+
+   gdb_fd_garbage_collect();
 
    // Disconnect gdb from all of the vcpu's
    km_vcpu_apply_all(km_gdb_vcpu_disengage, 0);
 
-   km_gdb_port_set(0);
-   warnx("Disabling gdb");
-   if (gdbstub.sock_fd > 0) {
-      close(gdbstub.sock_fd);
-      gdbstub.sock_fd = -1;
-   }
+   gdbstub.gdb_client_attached = 0;
+
+   warnx("gdb client disconnected");
 }
 
 static int send_char(char ch)
@@ -251,7 +301,7 @@ static char recv_char(void)
       ;   // ignore interrupts
    }
    if (ret <= 0) {
-      km_gdb_disable();
+      km_gdb_detach();
       return -1;
    }
    /*
@@ -855,7 +905,7 @@ static void handle_qsupported(char* packet, char* obuf)
  * It will look like this:
  *  <?xml version="1.0"?>
  *  <threads>
- *    <thread id="id" core="0" name="name" handle="handle">
+ *    <thread id="id" core="0x0" name="name" handle="handle">
  *    ... description ...
  *    </thread>
  *  </threads>
@@ -905,7 +955,7 @@ static bool stringcat(char* dest, char* src, int destlen)
 const int MAX_THREADNAME_SIZE = 32;
 /*
  * The largest size we expect for an entry in the gdb thread list.
- * sizeof("  <thread id=\"%08x\" core=\"%08x\" name=\"%s\">\n  </thread>\n")
+ * sizeof("  <thread id=\"%08x\" core=\"0x%08x\" name=\"%s\">\n  </thread>\n")
  */
 const int MAX_THREADLISTENTRY_SIZE = 512;
 
@@ -927,7 +977,7 @@ static int build_thread_list_entry(km_vcpu_t* vcpu, uint64_t data)
 
    snprintf(threadlistentry,
             sizeof(threadlistentry),
-            "  <thread id=\"%08x\" core=\"%08x\" name=\"%s\">\n"
+            "  <thread id=\"%08x\" core=\"0x%08x\" name=\"%s\">\n"
             "  </thread>\n",
             km_vcpu_get_tid(vcpu),
             vcpu->vcpu_id,
@@ -1870,6 +1920,24 @@ static void gdb_fd_set(int gdb_fd, int linux_fd)
 }
 
 /*
+ * Close all open fd's.
+ * Called when a gdb client detachs from the target.  The
+ * gdb clients are not good about closing open handles.
+ */
+static void gdb_fd_garbage_collect(void)
+{
+   int i;
+
+   for (i = 0; i < MAX_GDB_VFILE_OPEN_FD; i++) {
+      if (gdbstub.vfile_state.fd[i] != GDB_VFILE_FD_FREE_SLOT) {
+         km_info(KM_TRACE_GDB, "Closing gdb vFile fd %d which maps to linux fd %d", i, gdbstub.vfile_state.fd[i]);
+         close(gdbstub.vfile_state.fd[i]);
+         gdbstub.vfile_state.fd[i] = GDB_VFILE_FD_FREE_SLOT;
+      }
+   }
+}
+
+/*
  * Convert from linux errno values to gdb errno values.
  */
 static int errno_linux2gdb(int linux_errno)
@@ -2647,7 +2715,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
          case 'D': {   // Detach
             warnx("Debugger detached");
             send_okay_msg();
-            km_gdb_disable();
+            km_gdb_detach();
             goto done;
          }
          case 'q': {   // General query
@@ -2768,8 +2836,10 @@ static void km_gdb_wait_for_dynlink_to_finish(void)
    if (km_gdb_add_breakpoint(GDB_BREAKPOINT_HW, payload_entry, 1) != 0) {
       errx(3, "Failed to plant breakpoint on payload entry point 0x%lx", payload_entry);
    }
+   gdbstub.gdb_client_attached = 1;       // this little hack gets us woken up when breakpoint fires
    km_vcpu_resume_all();                  // start the payload main thread
    km_wait_on_eventfd(machine.intr_fd);   // wait for the breakpoint we planted to be hit
+   gdbstub.gdb_client_attached = 0;
    km_infox(KM_TRACE_GDB, "dynamic linker is done");
    if (km_gdb_remove_breakpoint(GDB_BREAKPOINT_HW, payload_entry, 1) != 0) {
       errx(4, "Failed to remove breakpoint on payload entry point 0x%lx", payload_entry);
@@ -2793,7 +2863,7 @@ static void km_gdb_wait_for_dynlink_to_finish(void)
 void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 {
    struct pollfd fds[] = {
-       {.fd = gdbstub.sock_fd, .events = POLLIN | POLLERR},
+       {.fd = -1, .events = POLLIN | POLLERR},
        {.fd = machine.intr_fd, .events = POLLIN | POLLERR},
    };
    int ret;
@@ -2804,7 +2874,27 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       km_gdb_wait_for_dynlink_to_finish();
    }
 
-   km_gdb_vcpu_set(main_vcpu);
+   if (gdbstub.wait_for_connect == 0) {
+      km_vcpu_resume_all();
+   } else {
+      warnx("Waiting for a debugger. Connect to it like this:");
+      warnx("\tgdb --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n",
+            km_gdb_port_get(),
+            km_guest.km_filename);
+   }
+
+accept_connection:;
+   ret = km_gdb_accept_connection();
+   if (ret == EINVAL) {  // all target threads have exited while we waited in accept()
+      km_infox(KM_TRACE_GDB, "gdb listening socket is shutdown");
+      return;
+   }
+   assert(ret == 0);  // not sure what to do with errors here yet.
+   gdbstub.gdb_client_attached = 1;
+   fds[0].fd = gdbstub.sock_fd;
+   km_vcpu_pause_all();
+
+   km_gdb_vcpu_set(main_vcpu);   // gdb default thread
 
    gdb_event_t ge = (gdb_event_t){
        .signo = 0,
@@ -2814,7 +2904,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 
    gdbstub.session_requested = 0;
    km_vcpu_resume_all();
-   while (km_gdb_is_enabled() == 1) {
+   while (gdbstub.gdb_client_attached != 0) {
       // Poll two fds described above in fds[], with no timeout ("-1")
       while ((ret = poll(fds, 2, -1) == -1) && (errno == EAGAIN || errno == EINTR)) {
          ;   // ignore signals which may interrupt the poll
@@ -2825,7 +2915,8 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       if (machine.vm_vcpu_run_cnt == 0) {
          ge.signo = ret;
          send_response('W', &ge, true);   // inferior normal exit
-         km_gdb_disable();
+         km_gdb_detach();
+         km_gdb_destroy_connection();
          return;
       }
       km_infox(KM_TRACE_GDB, "Signalling vCPUs to pause");
@@ -2877,6 +2968,9 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 
       km_mutex_unlock(&gdbstub.notify_mutex);   // Allow vcpus to wakeup us now
    }
+
+   km_gdb_destroy_connection();
+   goto accept_connection;
 }
 
 /*

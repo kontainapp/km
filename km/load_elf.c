@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -86,14 +86,6 @@ static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
    }
    if (phdr->p_flags & PF_X) {
       pr |= PROT_EXEC;
-      {
-         // When debugging, make sure all EXEC sections are
-         // writable so sw breakpoints can be inserted.
-         // TODO - manage protection dynamically on set/clear breakpoints
-         if (km_gdb_is_enabled() == 1) {
-            pr |= PROT_WRITE;
-         }
-      }
    }
    if (mprotect(addr - extra, p_memsz + extra, protection_adjust(pr)) < 0) {
       err(2, "failed to set guest memory protection");

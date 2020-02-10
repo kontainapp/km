@@ -54,7 +54,7 @@ km_machine_t machine = {
  */
 void km_signal_machine_fini(void)
 {
-   if (km_gdb_is_enabled() == 1) {
+   if (km_gdb_client_is_attached() != 0) {
       eventfd_write(machine.intr_fd, 1);   // unblock gdb main_loop poll()
    }
    if (eventfd_write(machine.shutdown_fd, 1) == -1) {
@@ -376,7 +376,7 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, uint64_t 
    if ((rc = ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &regs)) < 0) {
       return rc;
    }
-   if (km_gdb_is_enabled() == 1) {
+   if (km_gdb_client_is_attached() != 0) {
       km_gdb_update_vcpu_debug(vcpu, 0);
    }
    return 0;
