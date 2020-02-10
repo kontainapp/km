@@ -239,6 +239,5 @@ km_gva_t km_guest_mremap(km_gva_t old_address, size_t old_size, size_t new_size,
 int km_guest_mprotect(km_gva_t addr, size_t size, int prot);
 int km_guest_madvise(km_gva_t addr, size_t size, int advise);
 int km_is_gva_accessable(km_gva_t addr, size_t size, int prot);
-int km_gva_prot(km_gva_t addr, size_t size);
 
 #endif /* #ifndef __KM_MEM_H__ */
