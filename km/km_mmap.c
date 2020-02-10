@@ -71,15 +71,9 @@ void km_guest_mmap_fini(void)
 #define MAP_FIXED_NOREPLACE 0x100000
 #endif
 
-/*
- * Checks for stuff we do not support, and also convert fd to hostfd
- * Note that
- *  - We do not convert gva because we will need both gva and kma addr
- *  - we do convert fd because we will only need host_fd going forward
- *  - on errors, we expect the values of misc params to be traced upstairs so we are laconic here
- * */
+// Checks for stuff we do not support. Returns 0 on success, -errno on error
 static inline int
-mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int* fd, off_t offset)
+mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
 {
    if (flags & MAP_FIXED_NOREPLACE) {
       km_infox(KM_TRACE_MMAP, "*** MAP_FIXED_NOREPLACE is not supported");
@@ -93,15 +87,15 @@ mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int* fd, off_
       km_infox(KM_TRACE_MMAP, "*** size is too large");
       return -ENOMEM;
    }
-   if (*fd >= 0 && (*fd = guestfd_to_hostfd(*fd)) < 0) {
+   if (fd >= 0 && (fd = guestfd_to_hostfd(fd)) < 0) {
       km_infox(KM_TRACE_MMAP, "*** can't convert to host fd");
       return -EBADF;
    }
-   if (*fd > 0 && flags & MAP_ANONYMOUS) {
-      km_infox(KM_TRACE_MMAP, "*** fd is mutually exclusive with MAP_ANONYMOUS");
+   if (fd > 0 && flags & MAP_ANONYMOUS) {
+      km_infox(KM_TRACE_MMAP, "Ignoring fd due to MAP_ANONYMOUS");
       return -EBADF;
    }
-   if (*fd < 0 && (flags & MAP_ANONYMOUS) == 0) {
+   if (fd < 0 && (flags & MAP_ANONYMOUS) == 0) {
       km_infox(KM_TRACE_MMAP, "*** no fd and no MAP_ANONYMOUS flag");
       return -EBADF;
    }
@@ -477,7 +471,7 @@ static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
  * Address range is carved from free regions list, or allocated by moving machine.tbrk down
  */
 static km_gva_t km_mmap_add_region(
-    km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, mmap_allocation_type_e at)
+    km_gva_t gva, size_t size, int prot, int flags, int unused1, off_t unused2, mmap_allocation_type_e at)
 {
    km_mmap_reg_t* reg;
    km_gva_t ret;
@@ -513,15 +507,13 @@ static km_gva_t km_mmap_add_region(
    reg->flags = flags;
    reg->protection = prot;
    reg->km_flags.data32 = 0;
+   reg->filename = NULL;
+   reg->offset = 0;
    reg->km_flags.km_mmap_monitor = ((at == MMAP_ALLOC_MONITOR) ? 1 : 0);
-   char* filename = km_guestfd_name(NULL, fd);
-   if (filename != NULL) {
-      reg->filename = realpath(filename, NULL);
-   }
-   reg->offset = offset;
-   km_gva_t map_start = reg->start;   // reg->start can be modified if there is concat in insert_busy
+
+   ret = reg->start;   // reg->start can be modified if there is concat in insert_busy
    km_mmap_insert_busy(reg);
-   return map_start;
+   return ret;
 }
 
 // Guest mmap implementation. Returns gva or -errno. Params should be already checked and locks taken...
@@ -538,8 +530,8 @@ static km_gva_t km_guest_mmap_nolock(
          km_infox(KM_TRACE_MMAP, "Found un-mmaped addresses in MAP_FIXED-requested range");
          return -EINVAL;
       }
-   } else {   // ignore the hint and grab a map
-      gva = km_mmap_add_region(0, size, prot, flags, fd, offset, type);
+   } else {   // ignore the hint and grab an address range
+      gva = km_mmap_add_region(0, size, prot, flags, -1, 0, type);
       if (km_syscall_ok(gva) < 0) {
          km_info(KM_TRACE_MMAP, "Failed to allocate new mmap region");
          return gva;
@@ -553,8 +545,8 @@ static km_gva_t km_guest_mmap_nolock(
    // By now, a contigious region(s) should already exist, so let's ask system to mmap there
    km_kma_t kma = km_gva_to_kma(gva);
    assert(kma != NULL);
-   if (mmap(kma, size, prot, flags | MAP_FIXED, fd, offset) != kma) {
-      km_err_msg(errno, "System mmap failed, gva 0x%lx kma %p fd %d off 0x%lx", gva, kma, fd, offset);
+   if (mmap(kma, size, prot, flags | MAP_FIXED, guestfd_to_hostfd(fd), offset) != kma) {
+      km_err_msg(errno, "System mmap failed. gva 0x%lx kma %p guest fd %d off 0x%lx", gva, kma, fd, offset);
       return -errno;
    }
    // Now glue the underlying regions together
@@ -571,6 +563,10 @@ static km_gva_t km_guest_mmap_nolock(
    assert(reg->start == gva && reg->size == size);
    reg->flags = flags & ~MAP_FIXED;   // we don't care it was FIXED once
    reg->protection = prot;
+   if (reg->filename != NULL) {   // clean up old name, if there is one
+      free(reg->filename);
+      reg->filename = NULL;
+   }
    char* filename = km_guestfd_name(NULL, fd);
    if (filename != NULL) {
       reg->filename = realpath(filename, NULL);
@@ -605,8 +601,7 @@ static km_gva_t km_guest_mmap_impl(km_gva_t gva,
             flags,
             fd,
             allocation_type);
-   // Note that after this operation 'fd' contains host fd
-   if ((ret = mmap_check_params(gva, size, prot, flags, &fd, offset)) != 0) {
+   if ((ret = mmap_check_params(gva, size, prot, flags, fd, offset)) != 0) {
       return ret;
    }
    size = roundup(size, KM_PAGE_SIZE);
