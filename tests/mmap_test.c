@@ -180,11 +180,15 @@ TEST mmap_protect()
       printf("Handled SIGSEGV on write-protected mem violation... continuing...\n");
    }
 
-   // now unmap the leftovers
-   ASSERT_EQ_FMTm("Unmap head", 0, munmap(addr, 10 * MIB), "%d");
-   ASSERT_EQ_FMTm("Unmap from the middle again", 0, munmap(addr1, 1 * MIB), "%d");
-   ASSERT_EQ_FMTm("Unmap tail", 0, munmap(addr1 + 1 * MIB, 200 * MIB - 10 * MIB - MIB), "%d");
+   // now unmap the leftovers. (ASSERT can call argument multiple times on failure, so using 'ret')
+   ret = munmap(addr, 10 * MIB);
+   ASSERT_EQ_FMTm("Unmap head", 0, ret, "%d");
+   ret = munmap(addr1, 1 * MIB);
+   ASSERT_EQ_FMTm("Unmap from the middle again", 0, ret, "%d");
+   ret = munmap(addr1 + 1 * MIB, 200 * MIB - 10 * MIB - MIB);
+   ASSERT_EQ_FMTm("Unmap tail", 0, ret, "%d");
 
+   ASSERT_MMAPS_COUNT(2);
    signal(SIGSEGV, SIG_DFL);
    PASS();
 }
@@ -240,8 +244,10 @@ TEST mremap_test()
 
    printf("===== mremap: Testing mremap() functionality\n");
    tests = mremap_tests;
-   get_maps(greatest_get_verbosity());
+
+   ASSERT_MMAPS_COUNT(2);
    CHECK_CALL(mmap_test(tests));
+   ASSERT_MMAPS_COUNT(2);
    PASS();
 }
 
@@ -275,17 +281,81 @@ TEST mmap_file_test()
    void* t =
        mmap(s + sizeof(buffer), sizeof(buffer), PROT_READ, MAP_PRIVATE | MAP_FIXED, fd, sizeof(buffer) * 2);
    ASSERT_NOT_EQ(MAP_FAILED, t);
+   close(fd);
    ASSERT_EQ(s + sizeof(buffer), t);
    ASSERT_EQ('a' + 2, s[sizeof(buffer)]);
-   ASSERT_EQ(0, munmap(m, nbufs * sizeof(buffer)));
-   close(fd);
+   int ret = munmap(m, nbufs * sizeof(buffer));
+   ASSERT_EQ_FMT(0, ret, "%d");
    unlink(fname);
    PASS();
 }
 
-/* Inserts misc defintions */
-GREATEST_MAIN_DEFS();
+TEST mmap_file_test_ex(void* arg0)
+{
+   static const int bad_fd = 222;
+   struct stat statbuf;
+   int ret;
+   void* t;
 
+   int fd = open(arg0, O_RDONLY);
+   fstat(fd, &statbuf);
+
+   // should fail: bad FD (not convertable)
+   t = mmap(0, statbuf.st_size, PROT_READ, MAP_PRIVATE, bad_fd, 0);
+   ASSERT_EQ(MAP_FAILED, t);
+   ASSERT_EQ_FMT(EBADF, errno, "%d");
+
+   // should fail: MAP_FIXED with addr=0
+   t = mmap(0, statbuf.st_size, PROT_READ, MAP_FIXED | MAP_PRIVATE, fd, 0);
+   ASSERT_EQ(MAP_FAILED, t);
+   ASSERT_EQ_FMT(EPERM, errno, "%d");
+
+   // should fail on KM: size > GUEST_MEM_ZONE_SIZE_VA
+   if (KM_PAYLOAD() == 1) {
+      t = mmap(0, 600 * GIB, PROT_READ, MAP_PRIVATE, fd, 0);
+      ASSERT_EQ(MAP_FAILED, t);
+      ASSERT_EQ_FMT(ENOMEM, errno, "%d");
+   }
+
+   // success test  - check we open argv0 and it's really ELF
+   t = mmap(0, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+   ASSERT_NOT_EQ(MAP_FAILED, t);
+   ASSERT_MMAPS_COUNT(3);
+   close(fd);
+
+   char buf[KM_PAGE_SIZE];   // check we really have ELF there
+   memcpy(buf, t, KM_PAGE_SIZE);
+   ret = strncmp(buf + 1, "ELF", 3);
+   ASSERT_EQ_FMT(0, ret, "%d");
+   ret = munmap(t, statbuf.st_size);
+   ASSERT_EQ_FMT(0, ret, "%d");
+
+   // success test - ask for a file over pre-created mapping
+   fd = open(arg0, O_RDONLY);
+   fstat(fd, &statbuf);
+
+   ASSERT_MMAPS_COUNT(2);
+   t = mmap(0, statbuf.st_size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+   ASSERT_NOT_EQ(MAP_FAILED, t);
+
+   // quick check that without MAP_FIXED the hint is ignored, so this should get a new map
+   void* fmap = mmap(t, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+   ASSERT_NOT_EQ_FMT(t, fmap, "%p");
+   ASSERT_MMAPS_COUNT(4);
+   ret = munmap(fmap, statbuf.st_size);
+
+   // And this should use the existing map
+   fmap = mmap(t, statbuf.st_size, PROT_READ, MAP_PRIVATE | MAP_FIXED, fd, 0);
+   ASSERT_EQ_FMT(t, fmap, "%p");
+   ASSERT_MMAPS_COUNT(3);
+
+   close(fd);
+   ret = munmap(t, statbuf.st_size);
+   ASSERT_EQ_FMT(0, ret, "%d");
+   PASS();
+}
+
+GREATEST_MAIN_DEFS();
 int main(int argc, char** argv)
 {
    GREATEST_MAIN_BEGIN();
@@ -296,6 +366,7 @@ int main(int argc, char** argv)
    RUN_TEST(mmap_protect);
    RUN_TEST(mremap_test);
    RUN_TEST(mmap_file_test);
+   RUN_TEST1(mmap_file_test_ex, argv[0]);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
