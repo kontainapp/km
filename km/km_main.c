@@ -146,13 +146,14 @@ int main(int argc, char* const argv[])
             gdbstub.attach_at_dynlink = 1;
             break;
          case 'g':
-            if (optarg == NULL) {
-               port = GDB_DEFAULT_PORT;
-            } else if ((port = atoi(optarg)) == 0) {
-               warnx("Wrong gdb port number '%s'", optarg);
-               usage();
+            if (optarg != NULL) {
+               if ((port = atoi(optarg)) == 0) {
+                  warnx("Wrong gdb port number '%s'", optarg);
+                  usage();
+               }
+               km_gdb_port_set(port);
             }
-            km_gdb_port_set(port);
+            gdbstub.wait_for_connect = 1;
             break;
          case 'l':
             if (freopen(optarg, "a", stdout) == NULL || freopen(optarg, "a", stderr) == NULL) {
@@ -260,22 +261,21 @@ int main(int argc, char* const argv[])
       warnx("Waiting for kill -SIGUSR1  %d", getpid());
       km_wait_for_signal(SIGUSR1);
    }
-   if (km_gdb_is_enabled() == 1) {
-      km_vcpu_pause_all();
-   }
+   km_vcpu_pause_all();
    if (km_run_vcpu_thread(vcpu, km_vcpu_run_main) < 0) {
       err(2, "Failed to create main run_vcpu thread");
-   }
-   if (km_gdb_is_enabled() == 1) {   // TODO: think about 'attach' on signal
-      km_infox(KM_TRACE_GDB, "Enabling gdbserver on port %d...", km_gdb_port_get());
-      if (km_gdb_wait_for_connect(payload_file) == -1) {
-         errx(1, "Failed to connect to gdb");
-      }
-      km_gdb_main_loop(vcpu);
    }
    if (envp != __environ) {
       free(envp);
    }
+
+   // Become the gdb server
+   if (km_gdb_setup_listen() != 0) {
+      err(3, "Failed to setup gdb listening port");
+   }
+   km_gdb_main_loop(vcpu);
+   km_gdb_destroy_listen();
+
    km_machine_fini();
    regfree(&km_info_trace.tags);
    exit(machine.exit_status);

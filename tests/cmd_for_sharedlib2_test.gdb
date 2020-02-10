@@ -1,11 +1,19 @@
 # Test to verify that symbols brought in by dlopen() are available.
 #
-#  shell_1> ../build/km/km -g ./dlopen_exp.kmd
+#  shell_1> ../build/km/km -g ./gdb_sharedlib2_test.kmd
 #  shell_2> gdb -q -nx --ex="target remote :2159"  \
-#                      --ex="source cmd_for_dleopn_exp_test.gdb"  --ex c --ex q
+#                      --ex="source cmd_for_sharedlib2_test.gdb"  --ex c --ex q
 #
 
 set pagination off
+
+# at this point libcrypt.so is loaded so place a breakpoint using a symbol
+# from the loaded library
+br got_symbol_breakpoint
+commands
+  br xcrypt
+  continue
+end
 
 br hit_breakpoint
 commands
@@ -15,7 +23,12 @@ commands
   continue
 end
 
-#
+continue
+
+# we've hit the breakpoint placed on xcrypt
+printf "Hit the breakpoint at xcrypt\n"
+backtrace
+print $rip
 continue
 
 

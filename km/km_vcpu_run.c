@@ -618,8 +618,7 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
             vcpu->cpu_run->exit_reason,
             kvm_reason_name(vcpu->cpu_run->exit_reason));
 
-   // If we need them, harvest the registers once upon return.
-   if (km_trace_enabled() || km_gdb_is_enabled()) {
+   if (km_trace_enabled() || km_gdb_client_is_attached()) {
       km_read_registers(vcpu);
       km_read_sregisters(vcpu);
    }
@@ -691,7 +690,7 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
     */
    km_mutex_lock(&machine.pause_mtx);
    while (machine.pause_requested == 1 ||
-          (km_gdb_is_enabled() != 0 && vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
+          (km_gdb_client_is_attached() != 0 && vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
       km_infox(KM_TRACE_VCPU,
                "pause_requested %d, gvs_gdb_run_state %d, waiting for gdb",
                machine.pause_requested,
@@ -752,7 +751,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                           vcpu->regs.rsp,
                           vcpu->sregs.cr2,
                           hc);
-                  if (km_gdb_is_enabled() != 0 &&
+                  if (km_gdb_client_is_attached() != 0 &&
                       km_vcpu_apply_all(km_vcpu_is_running, (uint64_t)vcpu) == 0) {
                      /*
                       * We notify gdb but don't wait because we need to go on and park the vcpu
@@ -774,13 +773,14 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                           vcpu->sregs.cr2,
                           hc,
                           machine.exit_status);
+                  km_gdb_accept_stop();
                   km_vcpu_exit_all(vcpu);
                   break;
             }
             break;   // exit_reason, case KVM_EXIT_IO
 
          case KVM_EXIT_DEBUG:
-            if (km_gdb_is_enabled() == 1) {
+            if (km_gdb_client_is_attached() != 0) {
                /*
                 * We handle stepping through a range of addresses here.
                 * If we are in the address stepping range, we just turn around and keep
@@ -844,7 +844,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             break;
       }   // switch(reason)
       if (km_signal_ready(vcpu)) {
-         if (km_gdb_is_enabled() == 1) {
+         if (km_gdb_client_is_attached() != 0) {
             siginfo_t info;
             km_dequeue_signal(vcpu, &info);
             km_gdb_notify(vcpu, info.si_signo);
@@ -871,10 +871,8 @@ void* km_vcpu_run_main(km_vcpu_t* unused)
    km_install_sighandler(SIGPIPE, km_forward_fd_signal);
    km_install_sighandler(SIGIO, km_forward_fd_signal);
 
-   if (km_gdb_is_enabled() == 1) {
-      while (eventfd_write(machine.intr_fd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
-         ;   // ignore signals during the write
-      }
+   while (eventfd_write(machine.intr_fd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
+      ;   // ignore signals during the write
    }
    return km_vcpu_run(vcpu);
 }
