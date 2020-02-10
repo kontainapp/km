@@ -22,7 +22,7 @@ not_needed_so="setup_load cli mem_brk gdb_sharedlib mmap_1"
 todo_generic="futex_example"
 todo_static=""
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
-todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep exception cpp_ctors dl_iterate_phdr monitor_maps"
+todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach exception cpp_ctors dl_iterate_phdr monitor_maps"
 
 
 # Now the actual tests.
@@ -369,12 +369,51 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # processing the "info sharedlibrary" command.
 
    # test for symbols from libcrypt brought in by dlopen()
-   km_with_timeout -g dlopen_exp$ext &
+   km_with_timeout -g gdb_sharedlib2_test$ext &
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
-      --ex="source cmd_for_dlopen_test.gdb" --ex=q
+      --ex="source cmd_for_sharedlib2_test.gdb" --ex=q
    assert_success
    assert_line --partial "Yes (*)     target:/usr/lib64/libcrypt.so"
    assert_line --partial "Dump of assembler code for function xcrypt"
+   assert_line --partial "Hit the breakpoint at xcrypt"
+   wait_and_check 0
+}
+
+#
+# Verify that gdb client can attach to a running km and payload.
+# Then detach and then attach and detach again.
+# Then finally attach one more time to shut the test down.
+#
+@test "gdb_attach($test_type): gdb asynchronous client attach test (gdb_lots_of_threads_test$ext)" {
+   km_gdb_default_port=2159
+
+   # test asynch gdb client attach to the target
+   km_with_timeout gdb_lots_of_threads_test$ext &
+   run gdb_with_timeout -q -nx \
+      --ex="target remote :$km_gdb_default_port" \
+      --ex="source cmd_for_attach_test.gdb" --ex=q
+   assert_success
+   assert_line --partial "Thread 6 \"vcpu-5\""
+   assert_line --partial "in do_nothing_thread (instance"
+   assert_line --partial "Inferior 1 (Remote target) detached"
+
+   # 2nd try to test asynch gdb client attach to the target
+   run gdb_with_timeout -q -nx \
+      --ex="target remote :$km_gdb_default_port" \
+      --ex="source cmd_for_attach_test.gdb" --ex=q
+   assert_success
+   assert_line --partial "Thread 8 \"vcpu-7\""
+   assert_line --partial "in do_nothing_thread (instance"
+   assert_line --partial "Inferior 1 (Remote target) detached"
+
+   # ok, gdb client attach seems to be working, shut the test program down.
+   run gdb_with_timeout -q -nx \
+      --ex="target remote :$km_gdb_default_port" \
+      --ex="set stop_running=1" \
+      --ex="source cmd_for_attach_test.gdb" --ex=q
+   assert_success
+   assert_line --partial "Inferior 1 (Remote target) detached"
+
    wait_and_check 0
 }
 

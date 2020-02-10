@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -22,6 +22,7 @@
 #include "km.h"
 
 #define KM_PAGE_SIZE 0x1000ul   // standard 4k page
+#define KM_PAGE_MASK (~(KM_PAGE_SIZE-1))
 #define MIB 0x100000ul          // MByte
 #define GIB 0x40000000ul        // GByte
 

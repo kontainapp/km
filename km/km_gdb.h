@@ -136,11 +136,15 @@ TAILQ_HEAD(gdb_event_queue, gdb_event);
 typedef struct gdb_event_queue gdb_event_queue_t;
 
 typedef struct gdbstub_info {
-   int port;                       // Port the stub is listening for gdb client. 0 means NO GDB
+   int port;                       // Port the stub is listening for gdb client.
+   int listen_socket_fd;           // listen for gdb client connections on this fd.
    int sock_fd;                    // socket to communicate to gdb client
+   uint8_t wait_for_connect;       // if true, wait for gdb client attach before running payload
+                                   // if false, just start the payload up, gdb client can attach later
    uint8_t attach_at_dynlink;      // if true and dynlinker is being used we arrange for gdb client
                                    //  to attach before the dynamic linker runs.  normally we attach
                                    //  just before the payload runs.
+   uint8_t gdb_client_attached;    // if true, gdb client is attached.
    int session_requested;          // set to 1 when payload threads need to pause on exit
    bool stepping;                  // single step mode (stepi)
    km_vcpu_t* gdb_vcpu;            // VCPU which GDB is asking us to work on.
@@ -184,9 +188,9 @@ static inline int km_gdb_is_enabled(void)
    return km_gdb_port_get() != 0 ? 1 : 0;
 }
 
-static inline int km_gdb_want_threadevents(void)
+static inline int km_gdb_client_is_attached(void)
 {
-   return (km_gdb_is_enabled() && gdbstub.send_threadevents);
+   return gdbstub.gdb_client_attached;
 }
 
 static inline km_vcpu_t* km_gdb_vcpu_get(void)
@@ -214,5 +218,8 @@ extern char* mem2hex(const unsigned char* mem, char* buf, size_t count);
 extern void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len);
 extern int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, uint64_t unused);
 extern void km_empty_out_eventfd(int fd);
+extern int km_gdb_setup_listen(void);
+extern void km_gdb_destroy_listen(void);
+extern void km_gdb_accept_stop(void);
 
 #endif /* __KM_GDB_H__ */
