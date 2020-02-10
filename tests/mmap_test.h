@@ -88,7 +88,9 @@ static int get_maps(int verbose)
 {
    int ret;
    if (KM_PAYLOAD() != 1) {
-      printf("not running in payload, skipping get_maps (%s)\n", __FUNCTION__);
+      if (verbose == 1) {
+         printf("not running in payload, skipping get_maps (%s)\n", __FUNCTION__);
+      }
       return -1;
    }
    if (info == NULL) {
@@ -119,7 +121,7 @@ static int get_maps(int verbose)
       }
       if (verbose > 0) {
          printf("%s 0x%08lx size 0x%08lx (%10s) distance 0x%04lx (%3s), flags 0x%02x prot "
-                "0x%02x km_flags 0x%02x fn %s\n",
+                "0x%02x km_flags 0x%02x fn %p\n",
                 type,
                 reg->start,
                 reg->size,
