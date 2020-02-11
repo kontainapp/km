@@ -26,6 +26,7 @@ docker run --rm \
     -v ${NGINX_TOP}:/nginx:Z \
     -w /nginx \
     --name ${BUILDENV_CONTAINER_NAME} \
+    -u $(id -u ${USER}):$(id -g ${USER}) \
     ${BUILDENV_IMAGE_NAME}
 
 docker exec -w /nginx ${BUILDENV_CONTAINER_NAME} \

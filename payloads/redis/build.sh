@@ -21,5 +21,6 @@ fi
 docker run --rm \
     -v ${REDIS_TOP}:/redis:Z \
     -w /redis \
+    -u $(id -u ${USER}):$(id -g ${USER}) \
     ${BUILDENV_IMAGE_NAME} \
     make
