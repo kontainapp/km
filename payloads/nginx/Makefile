@@ -10,13 +10,24 @@
 #
 # Makefile for building and packing Nginx payload runtime for KM
 
-all:
-	./build.py
+NGINX_REPO = "git@github.com:nginx/nginx.git"
+NGINX_BRANCH = "branches/stable-1.16"
+
+all: build link
+
+nginx: |
+	git clone ${NGINX_REPO} -b ${NGINX_BRANCH}
+
+fromsrc: nginx build link
+
+build:
+	./build.sh
+
+link:
 	./link-km.sh
 
-clobber:
+clobber: clean
 	rm -rf nginx
 
 clean:
 	rm -rf nginx.kmd
-	cd nginx; make clean
