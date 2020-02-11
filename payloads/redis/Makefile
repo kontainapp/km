@@ -10,17 +10,25 @@
 #
 # Makefile for building and packing Redis payload runtime for KM
 
-TOP := $(shell git rev-parse --show-cdup)
-REAL_TOP := $(realpath ${TOP})
-CURRENT := ${REAL_TOP}/payloads/redis
 
-all:
-	./build.py
+REDIS_REPO = "git@github.com:antirez/redis.git"
+REDIS_BRANCH = "6.0"
+
+all: build link ## Build and Link
+
+redis: |
+	git clone ${REDIS_REPO} -b ${REDIS_BRANCH}
+
+fromsrc: redis build link ## Building starting from cloning the source
+
+build:
+	./build.sh
+
+link:
 	./link-km.sh
 
-clobber:
+clobber: clean ## Cleans everything
 	rm -rf redis
 
-clean:
+clean: ## Clean the build artifacts. Doesn't clean redis source code.
 	rm -f ${CURRENT}/redis-server.kmd
-	cd ${CURRENT}/redis; make clean
