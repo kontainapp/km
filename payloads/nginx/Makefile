@@ -19,3 +19,4 @@ clobber:
 
 clean:
 	rm -rf nginx.kmd
+	cd nginx; make clean
