@@ -40,3 +40,6 @@ clobber: clean ## Cleans everything
 clean: ## Clean the build artifacts. Doesn't clean redis source code.
 	rm -f ${REDIS_KM}
 	-cd ${REDIS_TOP} && make clean
+
+test: ${REDIS_KM}
+	./test.sh ${REAL_TOP}/build/km/km ${REDIS_KM}
