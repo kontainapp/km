@@ -20,6 +20,12 @@ fi
 
 BUILDENV_CONTAINER_NAME="kontain-nginx-payload-build"
 
+# Clean up any running build container. This will only happen if the previous
+# build process is interrupted.
+if [ "$(docker ps -a -q -f name=${BUILDENV_CONTAINER_NAME})" ]; then
+    docker rm -f ${BUILDENV_CONTAINER_NAME}
+fi
+
 docker run --rm \
     -it \
     -d \
