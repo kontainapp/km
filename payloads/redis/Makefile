@@ -11,8 +11,8 @@
 # Makefile for building and packing Redis payload runtime for KM
 
 
-REDIS_REPO = "git@github.com:antirez/redis.git"
-REDIS_BRANCH = "6.0"
+REDIS_REPO := git@github.com:antirez/redis.git
+REDIS_BRANCH := 6.0
 
 all: build link ## Build and Link
 

@@ -10,8 +10,8 @@
 #
 # Makefile for building and packing Nginx payload runtime for KM
 
-NGINX_REPO = "git@github.com:nginx/nginx.git"
-NGINX_BRANCH = "branches/stable-1.16"
+NGINX_REPO := git@github.com:nginx/nginx.git
+NGINX_BRANCH := branches/stable-1.16
 
 all: build link
 
