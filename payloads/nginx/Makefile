@@ -10,24 +10,32 @@
 #
 # Makefile for building and packing Nginx payload runtime for KM
 
+TOP := $(shell git rev-parse --show-cdup)
+REAL_TOP := $(realpath ${TOP})
+CURRENT := ${REAL_TOP}/payloads/nginx
+NGINX_TOP := ${CURRENT}/nginx
+NGINX_EXECUTABLE := ${NGINX_TOP}/objs/nginx
+NGINX_KM := ${CURRENT}/nginx.kmd
+
 NGINX_REPO := git@github.com:nginx/nginx.git
 NGINX_BRANCH := branches/stable-1.16
 
-all: build link
+all: ${NGINX_KM}
 
-nginx: |
-	git clone ${NGINX_REPO} -b ${NGINX_BRANCH}
+fromsrc: ${NGINX_KM}
 
-fromsrc: nginx build link
-
-build:
-	./build.sh
-
-link:
+${NGINX_KM}: ${NGINX_EXECUTABLE}
 	./link-km.sh
 
+${NGINX_EXECUTABLE}: ${NGINX_TOP}
+	./build.sh
+
+${NGINX_TOP}: |
+	git clone ${NGINX_REPO} -b ${NGINX_BRANCH}
+
 clobber: clean
-	rm -rf nginx
+	rm -rf ${NGINX_TOP}
 
 clean:
-	rm -rf nginx.kmd
+	rm -rf ${NGINX_KM}
+	-cd ${NGINX_TOP} && make clean
