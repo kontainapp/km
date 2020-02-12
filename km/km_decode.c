@@ -208,7 +208,7 @@ static inline void decode_sib(km_vcpu_t* vcpu, struct x86_instruction* ins)
 static inline int km_mem_is_source(km_vcpu_t* vcpu, unsigned char opcode)
 {
    // TODO: Only works for Opcodes 0x8X
-   return (opcode & 0xfe) == 0x88;
+   return (opcode & 0xfe) == 0x8a;
 }
 
 static void decode_opcode(km_vcpu_t* vcpu, struct x86_instruction* ins)
@@ -291,9 +291,11 @@ static void decode_opcode(km_vcpu_t* vcpu, struct x86_instruction* ins)
 
       if (ins->sib_present == 0) {
          uint64_t* regp = NULL;
-         if (km_mem_is_source(vcpu, opcode) != 1) {
+         if (km_mem_is_source(vcpu, opcode) != 0) {
+            km_infox(KM_TRACE_DECODE, "get reg1");
             regp = km_reg_ptr(vcpu, ins->rex_r, ins->modrm_reg1);
          } else {
+            km_infox(KM_TRACE_DECODE, "get reg2");
             regp = km_reg_ptr(vcpu, ins->rex_b, ins->modrm_reg2);
          }
          ins->failed_addr = *regp + ins->disp;
@@ -324,6 +326,10 @@ static km_gva_t km_x86_decode_fault(km_vcpu_t* vcpu, km_gva_t rip)
 {
    struct x86_instruction ins = {.curip = rip};
 
+   km_infox(KM_TRACE_DECODE, "rip=0x%lx", rip);
+   if (km_trace_tag_enabled(KM_TRACE_DECODE)) {
+      km_dump_vcpu(vcpu);
+   }
    decode_get_byte(vcpu, &ins);
    if (ins.failed_addr != 0) {
       goto out;
