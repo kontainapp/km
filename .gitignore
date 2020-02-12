@@ -2,9 +2,9 @@ build/**
 *.o
 *.a
 *.d
+*.km
+*.kmd
 tests/*_test
-tests/*.km
-tests/*.kmd
 tests/*.so
 tests/*.musl
 tests/km
@@ -20,6 +20,8 @@ kmcore
 payloads/node/node
 payloads/java/jdk*
 payloads/java/jtreg
+payloads/redis/redis
+payloads/nginx/nginx
 cscope.out
 **/cscope.out
 .vscode/tags
