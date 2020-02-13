@@ -68,10 +68,11 @@ TEST mode0_test()
    ASSERT_EQ(0, setup());
 
    asm volatile("mov %0, %%r10\n\t"
+                "xor %%rax, %%rax\n\t"
                 "test %%rax, (%%r10)"
                 : /* No output */
                 : "r"(datapage_page)
-                : "%r10");
+                : "%r10", "%rax");
 
    ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
    ASSERT_EQ(datapage_page, failing_page());
@@ -85,10 +86,11 @@ TEST mode1_test()
    ASSERT_EQ(0, setup());
 
    asm volatile("mov %0, %%r10\n\t"
+                "xor %%rax, %%rax\n\t"
                 "test %%rax, 100(%%r10)"
                 : /* No output */
                 : "r"(datapage_page)
-                : "%r10");
+                : "%r10", "%rax");
 
    ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
    ASSERT_EQ(datapage_page, failing_page());

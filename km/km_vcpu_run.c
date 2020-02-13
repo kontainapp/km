@@ -160,6 +160,22 @@ static char* dump_regs(km_vcpu_t* vcpu, char* buf, size_t len)
            vcpu->regs.r15);
 
    FMT_BUF(cur, rem, "RIP: 0x%-16llx RFLAGS: 0x%llx\n", vcpu->regs.rip, vcpu->regs.rflags);
+
+   unsigned char* instr = km_gva_to_kma(vcpu->regs.rip);
+   if (instr != NULL) {
+      FMT_BUF(cur,
+              rem,
+              "0x%-16llx: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
+              vcpu->regs.rip,
+              instr[0],
+              instr[1],
+              instr[2],
+              instr[3],
+              instr[4],
+              instr[5],
+              instr[6],
+              instr[7]);
+   }
    return cur;
 }
 
@@ -568,8 +584,8 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
     * changing them.
     */
    km_mutex_lock(&machine.pause_mtx);
-   while (machine.pause_requested == 1 ||
-          (km_gdb_client_is_attached() != 0 && vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
+   while (machine.pause_requested == 1 || (km_gdb_client_is_attached() != 0 &&
+                                           vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
       km_infox(KM_TRACE_VCPU,
                "pause_requested %d, gvs_gdb_run_state %d, waiting for gdb",
                machine.pause_requested,
@@ -702,6 +718,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             break;
 
          case KVM_EXIT_FAIL_ENTRY:
+            warnx("KVM_EXIT_FAIL_ENTRY");
+            km_dump_vcpu(vcpu);
             run_errx(1, "KVM: fail entry 0x%llx", vcpu->cpu_run->fail_entry.hardware_entry_failure_reason);
             break;
 
