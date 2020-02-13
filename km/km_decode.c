@@ -8,12 +8,19 @@
  * of such source code. Disclosure of this source code or any related
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
+ *
+ * Decode and memory as X86_64 instruction and interpret that instruction
+ * in order to determine a GVA that caused a memory access failure. Used
+ * by km_vcpu_one_kvm_run() when GPA physical protection cases EFAULT to be
+ * returned by ioctl(KVM_RUN).
+ *
+ * See SDM Volume 2 for instruction formats.
  */
 
 #include "km.h"
 #include "km_mem.h"
 
-struct x86_instruction {
+typedef struct x86_instruction {
    km_gva_t failed_addr;    // Initialized to 0
    km_gva_t curip;          // current instruction byte address
    unsigned char curbyte;   // current instruction byte
@@ -35,9 +42,9 @@ struct x86_instruction {
    unsigned char sib_base;
    // Disp
    int32_t disp;
-};
+} x86_instruction_t;
 
-static inline void decode_get_byte(km_vcpu_t* vcpu, struct x86_instruction* ins)
+static inline void decode_get_byte(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    unsigned char* pc = km_gva_to_kma(ins->curip);
    if (pc == NULL) {
@@ -48,7 +55,7 @@ static inline void decode_get_byte(km_vcpu_t* vcpu, struct x86_instruction* ins)
    ins->curbyte = *pc;
 }
 
-static inline void decode_consume_byte(km_vcpu_t* vcpu, struct x86_instruction* ins)
+static inline void decode_consume_byte(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    ins->curip++;
    decode_get_byte(vcpu, ins);
@@ -60,57 +67,61 @@ static inline void decode_consume_byte(km_vcpu_t* vcpu, struct x86_instruction* 
  */
 static inline uint64_t* km_reg_ptr(km_vcpu_t* vcpu, int b, int reg)
 {
-   if (b < 0 || b > 1) {
-      return NULL;
-   }
-   if (reg < 0 || reg >= 8) {
-      return NULL;
-   }
-   if (b) {
+   switch (b) {
+      case 0:
+         // RAX-RDI
+         switch (reg) {
+            case 0:
+               return (uint64_t*)&vcpu->regs.rax;
+            case 1:
+               return (uint64_t*)&vcpu->regs.rcx;
+            case 2:
+               return (uint64_t*)&vcpu->regs.rdx;
+            case 3:
+               return (uint64_t*)&vcpu->regs.rbx;
+            case 4:
+               return (uint64_t*)&vcpu->regs.rsp;
+            case 5:
+               return (uint64_t*)&vcpu->regs.rbp;
+            case 6:
+               return (uint64_t*)&vcpu->regs.rsi;
+            case 7:
+               return (uint64_t*)&vcpu->regs.rdi;
+            default:
+               break;
+         }
+         break;
       // R8-R15
-      switch (reg) {
-         case 0:
-            return (uint64_t*)&vcpu->regs.r8;
-         case 1:
-            return (uint64_t*)&vcpu->regs.r9;
-         case 2:
-            return (uint64_t*)&vcpu->regs.r10;
-         case 3:
-            return (uint64_t*)&vcpu->regs.r11;
-         case 4:
-            return (uint64_t*)&vcpu->regs.r12;
-         case 5:
-            return (uint64_t*)&vcpu->regs.r13;
-         case 6:
-            return (uint64_t*)&vcpu->regs.r14;
-         case 7:
-            return (uint64_t*)&vcpu->regs.r15;
-      }
-   } else {
-      // RAX-
-      switch (reg) {
-         case 0:
-            return (uint64_t*)&vcpu->regs.rax;
-         case 1:
-            return (uint64_t*)&vcpu->regs.rcx;
-         case 2:
-            return (uint64_t*)&vcpu->regs.rdx;
-         case 3:
-            return (uint64_t*)&vcpu->regs.rbx;
-         case 4:
-            return (uint64_t*)&vcpu->regs.rsp;
-         case 5:
-            return (uint64_t*)&vcpu->regs.rbp;
-         case 6:
-            return (uint64_t*)&vcpu->regs.rsi;
-         case 7:
-            return (uint64_t*)&vcpu->regs.rdi;
-      }
+      case 1:
+         switch (reg) {
+            case 0:
+               return (uint64_t*)&vcpu->regs.r8;
+            case 1:
+               return (uint64_t*)&vcpu->regs.r9;
+            case 2:
+               return (uint64_t*)&vcpu->regs.r10;
+            case 3:
+               return (uint64_t*)&vcpu->regs.r11;
+            case 4:
+               return (uint64_t*)&vcpu->regs.r12;
+            case 5:
+               return (uint64_t*)&vcpu->regs.r13;
+            case 6:
+               return (uint64_t*)&vcpu->regs.r14;
+            case 7:
+               return (uint64_t*)&vcpu->regs.r15;
+            default:
+               break;
+         }
+         break;
+      default:
+         break;
    }
+   km_infox(KM_TRACE_DECODE, "bad b or reg: b=%d reg=%d", b, reg);
    return NULL;
 }
 
-static inline void decode_legacy_prefixes(km_vcpu_t* vcpu, struct x86_instruction* ins)
+static inline void decode_legacy_prefixes(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    // TODO : Legacy Prefixes...
    for (;;) {
@@ -167,7 +178,7 @@ static inline void decode_legacy_prefixes(km_vcpu_t* vcpu, struct x86_instructio
    return;
 }
 
-static inline void decode_rex_prefix(km_vcpu_t* vcpu, struct x86_instruction* ins)
+static inline void decode_rex_prefix(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    if ((ins->curbyte & 0xf0) != 0x40) {
       return;
@@ -189,7 +200,7 @@ static inline void decode_rex_prefix(km_vcpu_t* vcpu, struct x86_instruction* in
    return;
 }
 
-static inline void decode_modrm(km_vcpu_t* vcpu, struct x86_instruction* ins)
+static inline void decode_modrm(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    ins->modrm_present = 1;
    ins->modrm_mode = (ins->curbyte >> 6) & 0x03;
@@ -197,7 +208,7 @@ static inline void decode_modrm(km_vcpu_t* vcpu, struct x86_instruction* ins)
    ins->modrm_reg2 = ins->curbyte & 0x07;
 }
 
-static inline void decode_sib(km_vcpu_t* vcpu, struct x86_instruction* ins)
+static inline void decode_sib(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    ins->sib_present = 1;
    ins->sib_scale = (ins->curbyte >> 6) & 0x03;
@@ -211,7 +222,7 @@ static inline int km_mem_is_source(km_vcpu_t* vcpu, unsigned char opcode)
    return (opcode & 0xfe) == 0x8a;
 }
 
-static void decode_opcode(km_vcpu_t* vcpu, struct x86_instruction* ins)
+static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    if (ins->failed_addr != 0) {
       return;
@@ -308,7 +319,7 @@ static void decode_opcode(km_vcpu_t* vcpu, struct x86_instruction* ins)
       km_infox(KM_TRACE_DECODE, "base:0x%lx index:0x%lx scale=%ld disp=%d", *basep, *indexp, scale, ins->disp);
       ins->failed_addr = *basep + (*indexp * scale) + ins->disp;
    } else if (opcode == 0xa5) {
-      // MOVS/MOVSB/MOVSW/MOVSQ
+      // MOVS/MOVSB/MOVSW/MOVSQ - These do moves based on RSI and RDI
       km_infox(KM_TRACE_DECODE, "MOVS: RSI:0x%llx RDI:0x%llx", vcpu->regs.rsi, vcpu->regs.rdi);
       if (km_is_gva_accessable(vcpu->regs.rsi, sizeof(uint64_t), PROT_READ) == 0) {
          ins->failed_addr = vcpu->regs.rsi;
@@ -324,7 +335,7 @@ static void decode_opcode(km_vcpu_t* vcpu, struct x86_instruction* ins)
 
 static km_gva_t km_x86_decode_fault(km_vcpu_t* vcpu, km_gva_t rip)
 {
-   struct x86_instruction ins = {.curip = rip};
+   x86_instruction_t ins = {.curip = rip};
 
    km_infox(KM_TRACE_DECODE, "rip=0x%lx", rip);
    if (km_trace_tag_enabled(KM_TRACE_DECODE)) {

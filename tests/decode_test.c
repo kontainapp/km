@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -28,8 +28,12 @@ struct sigaction old_sa = {};
 
 void datapage_sigaction(int signo, siginfo_t* info, void* uc)
 {
-   datapage_siginfo = *info;
-   mprotect(datapage_page, datapage_size, PROT_READ | PROT_WRITE);
+   if (mprotect(datapage_page, datapage_size, PROT_READ | PROT_WRITE) < 0) {
+      perror("sigaction mprotect");
+   } else {
+      // Only set siginfo if mprotect succeeds.
+      datapage_siginfo = *info;
+   }
 }
 
 int setup()
