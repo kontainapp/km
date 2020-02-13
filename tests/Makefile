@@ -23,7 +23,8 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 		regions_test.c mprotect_test.c pthread_cancel_test.c filesys_test.c filepath_test.c socket_test.c \
 		dl_iterate_phdr_test.c env_test.c locale_test.c munmap_monitor_maps_test.c \
 		gdb_server_entry_race_test.c gdb_qsupported_test.c gdb_delete_breakpoint_test.c gdb_nextstep_test.c \
-		mmap_1_test.c madvise_test.c misc_test.c gdb_sharedlib2_test.c gdb_lots_of_threads_test.c
+		mmap_1_test.c madvise_test.c misc_test.c gdb_sharedlib2_test.c gdb_lots_of_threads_test.c \
+		decode_test.c
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
