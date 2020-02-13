@@ -1,7 +1,6 @@
 
 TOP := $(shell git rev-parse --show-cdup)
 REAL_TOP := $(realpath ${TOP})
-CURRENT := $(REAL_TOP)/payloads/pause
 
 SRCS = pause.c
 BIN = pause
