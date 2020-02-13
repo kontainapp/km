@@ -103,11 +103,12 @@ Report written to /home/muth/kontain/km/payloads/java/jdk/JTreport/html/report.h
 Results written to /home/muth/kontain/km/payloads/java/jdk/JTwork
 
 ```
-```
 
 # Java Tips and Tricks
 
-`--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
+* `--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
+* `java -Xint` runs interpretter only, no JIT. Useful for base testing.
+* When Java crashes it (sometimes) creates a file called `hs_err_pid<pid>/log`. In our case pid=1.
 
 # Issues
 
