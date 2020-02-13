@@ -535,6 +535,7 @@ static inline void km_signal_unlock(void)
 #define KM_TRACE_MMAP "mmap"
 #define KM_TRACE_COREDUMP "coredump"
 #define KM_TRACE_SIGNALS "signals"
+#define KM_TRACE_DECODE "decode"
 
 /*
  * The km definition of the link_map structure in runtime/musl/include/link.h
@@ -551,5 +552,9 @@ typedef struct km_link_map {
 typedef int(link_map_visit_function_t)(link_map_t* kma, link_map_t* gva, void* visitargp);
 
 extern int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp);
+
+// km_decode.c
+void* km_find_faulting_address(km_vcpu_t* vcpu);
+void km_x86decode(km_vcpu_t* vcpu);
 
 #endif /* #ifndef __KM_H__ */

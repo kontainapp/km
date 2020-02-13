@@ -691,3 +691,8 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    run km_with_timeout --overcommit-memory hcallargs_test$ext
    assert_success
 }
+
+@test "decode($test_type): test KM EFAULT decode" {
+   run km_with_timeout decode_test$ext
+   assert_success
+}
