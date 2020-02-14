@@ -54,15 +54,16 @@ static inline void km_core_write(int fd, void* buffer, size_t length)
 
    while (remain > 0) {
       if ((rc = write(fd, cur, remain)) == -1) {
-         errx(2,
-              "%s - write error - errno=%d [%s] cur=%p remain=0x%lx buffer=%p length=0x%lx\n",
-              __FUNCTION__,
-              errno,
-              strerror(errno),
-              cur,
-              remain,
-              buffer,
-              length);
+         km_err_msg(errno,
+                    "%s - write error - errno=%d [%s] cur=%p remain=0x%lx buffer=%p length=0x%lx\n",
+                    __FUNCTION__,
+                    errno,
+                    strerror(errno),
+                    cur,
+                    remain,
+                    buffer,
+                    length);
+         errx(2, "exiting...\n");
       }
       remain -= rc;
       cur += rc;
@@ -440,30 +441,12 @@ static inline size_t km_core_notes_length()
    return roundup(alloclen, KM_PAGE_SIZE);
 }
 
-/*
- * Need access to mmaps to drop core, so this is here for now.
- */
-void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
+// Calculates the number of PHDRs in the core file.
+static inline int km_core_count_phdrs(km_vcpu_t* vcpu, km_gva_t* endloadp)
 {
-   char* core_path = km_get_coredump_path();
-   int fd;
-   int phnum = 1;   // 1 for PT_NOTE
-   size_t offset;   // Data offset
    km_mmap_reg_t* ptr;
-   char* notes_buffer;
-   size_t notes_length = km_core_notes_length();
-   size_t notes_used = 0;
-   km_gva_t end_load = 0;
-
-   if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0666)) < 0) {
-      errx(2, "Cannot open corefile '%s' - %s\n", core_path, strerror(errno));
-   }
-   warnx("Write coredump to '%s'", core_path);
-
-   if ((notes_buffer = (char*)calloc(1, notes_length)) == NULL) {
-      errx(2, "%s - cannot allocate notes buffer", __FUNCTION__);
-   }
-   memset(notes_buffer, 0, notes_length);
+   int phnum = 1;   // 1 for PT_NOTE
+   km_gva_t endload = 0;
 
    // Count up phdrs for mmaps and set offset where data will start.
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
@@ -471,21 +454,21 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
          continue;
       }
       km_gva_t pend = km_guest.km_phdr[i].p_vaddr + km_guest.km_phdr[i].p_memsz;
-      if (pend > end_load) {
-         end_load = pend;
+      if (pend > endload) {
+         endload = pend;
       }
 
       phnum++;
    }
-   end_load += km_guest.km_load_adjust;
+   endload += km_guest.km_load_adjust;
    if (km_dynlinker.km_filename != NULL) {
       for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
          if (km_dynlinker.km_phdr[i].p_type != PT_LOAD) {
             continue;
          }
          km_gva_t pend = km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_phdr[i].p_memsz;
-         if (pend > end_load) {
-            end_load = pend;
+         if (pend > endload) {
+            endload = pend;
          }
 
          phnum++;
@@ -498,27 +481,39 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       phnum++;
    }
    // Account for brk beyond elf segments.
-   if (end_load != 0 && end_load < machine.brk) {
+   if (endload != 0 && endload < machine.brk) {
       phnum++;
    }
-   offset = sizeof(Elf64_Ehdr) + phnum * sizeof(Elf64_Phdr);
+
+   *endloadp = endload;
+   return phnum;
+}
+
+static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
+                                       int fd,
+                                       int phnum,
+                                       km_gva_t end_load,
+                                       char* notes_buffer,
+                                       size_t notes_length,
+                                       size_t* offsetp)
+{
+   km_mmap_reg_t* ptr;
 
    // write elf header
    km_core_write_elf_header(fd, phnum);
    // Create PT_NOTE in memory and write the header
-   notes_used = km_core_write_notes(vcpu, fd, offset, notes_buffer, notes_length);
-   offset += notes_used;
+   *offsetp += km_core_write_notes(vcpu, fd, *offsetp, notes_buffer, notes_length);
    // Write headers for segments from ELF
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
       if (km_guest.km_phdr[i].p_type != PT_LOAD) {
          continue;
       }
       km_core_write_load_header(fd,
-                                offset,
+                                *offsetp,
                                 km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
                                 km_guest.km_phdr[i].p_memsz,
                                 km_guest.km_phdr[i].p_flags);
-      offset += km_guest.km_phdr[i].p_memsz;
+      *offsetp += km_guest.km_phdr[i].p_memsz;
    }
    if (km_dynlinker.km_filename != NULL) {
       for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
@@ -526,11 +521,11 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
             continue;
          }
          km_core_write_load_header(fd,
-                                   offset,
+                                   *offsetp,
                                    km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust,
                                    km_dynlinker.km_phdr[i].p_memsz,
                                    km_dynlinker.km_phdr[i].p_flags);
-         offset += km_dynlinker.km_phdr[i].p_memsz;
+         *offsetp += km_dynlinker.km_phdr[i].p_memsz;
       }
    }
    // Headers for MMAPs
@@ -542,14 +537,48 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       static uint8_t mmap_to_elf_flags[8] =
           {0, PF_R, PF_W, (PF_R | PF_W), PF_X, (PF_R | PF_X), (PF_W | PF_X), (PF_R | PF_W | PF_X)};
 
-      km_core_write_load_header(fd, offset, ptr->start, ptr->size, mmap_to_elf_flags[ptr->protection & 0x7]);
-      offset += ptr->size;
+      km_core_write_load_header(fd,
+                                *offsetp,
+                                ptr->start,
+                                ptr->size,
+                                mmap_to_elf_flags[ptr->protection & 0x7]);
+      *offsetp += ptr->size;
    }
    // HDR for space between end of elf load and brk
    if (end_load != 0 && end_load < machine.brk) {
-      km_core_write_load_header(fd, offset, end_load, machine.brk - end_load, PF_R | PF_W);
-      offset += machine.brk - end_load;
+      km_core_write_load_header(fd, *offsetp, end_load, machine.brk - end_load, PF_R | PF_W);
+      *offsetp += machine.brk - end_load;
    }
+}
+
+/*
+ * Drop a core file containing the guest image.
+ */
+void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
+{
+   char* core_path = km_get_coredump_path();
+   int fd;
+   size_t offset;   // Data offset
+   km_mmap_reg_t* ptr;
+   char* notes_buffer;
+   size_t notes_length = km_core_notes_length();
+   km_gva_t end_load = 0;
+   int phnum = km_core_count_phdrs(vcpu, &end_load);
+
+   if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0666)) < 0) {
+      km_err_msg(errno, "Cannot open corefile '%s'", core_path);
+      errx(2, "exiting...");
+   }
+   warnx("Write coredump to '%s'", core_path);
+
+   if ((notes_buffer = (char*)calloc(1, notes_length)) == NULL) {
+      km_err_msg(errno, "cannot allocate notes buffer");
+      errx(2, "exiting...\n");
+   }
+   memset(notes_buffer, 0, notes_length);
+   offset = sizeof(Elf64_Ehdr) + phnum * sizeof(Elf64_Phdr);
+
+   km_core_write_phdrs(vcpu, fd, phnum, end_load, notes_buffer, notes_length, &offset);
 
    // Write the actual data.
    km_core_write(fd, notes_buffer, notes_length);
@@ -582,13 +611,15 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       // make sure we can read the mapped memory (e.g. it can be EXEC only)
       if ((ptr->protection & PROT_READ) != PROT_READ) {
          if (mprotect(start, ptr->size, ptr->protection | PROT_READ) != 0) {
-            err(1, "%s: failed to make %p,0x%lx readable for dump", __FUNCTION__, start, ptr->size);
+            km_err_msg(0, "failed to make %p,0x%lx readable for dump", start, ptr->size);
+            errx(2, "exiting...");
          }
       }
       km_guestmem_write(fd, ptr->start, ptr->size);
       // recover protection, in case it's a live coredump and we are not exiting yet
       if (mprotect(start, ptr->size, ptr->protection) != 0) {
-         err(1, "%s: failed to set %p,0x%lx prot to 0x%x", __FUNCTION__, start, ptr->size, ptr->protection);
+         km_err_msg(errno, "failed to set %p,0x%lx prot to 0x%x", start, ptr->size, ptr->protection);
+         errx(2, "exiting...");
       }
    }
    // Data for space between end of elf load and brk
