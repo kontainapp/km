@@ -55,10 +55,7 @@ static inline void km_core_write(int fd, void* buffer, size_t length)
    while (remain > 0) {
       if ((rc = write(fd, cur, remain)) == -1) {
          km_err_msg(errno,
-                    "%s - write error - errno=%d [%s] cur=%p remain=0x%lx buffer=%p length=0x%lx\n",
-                    __FUNCTION__,
-                    errno,
-                    strerror(errno),
+                    "write error - cur=%p remain=0x%lx buffer=%p length=0x%lx\n",
                     cur,
                     remain,
                     buffer,
