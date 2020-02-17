@@ -39,7 +39,7 @@ KM_JAVA_TAR := ${DOCKER_DIR}/km_java_files.tar
 REPO := kontainstage.azurecr.io/nokia/ckaf
 CLIENT_REPO := kontainstage.azurecr.io/nokia/atg
 # prefix for target containers
-KONTAIN_REPO = kontain/nokia
+KONTAIN_REPO := kontain/nokia
 # source containers names in repo. Hardcoded per component, to simplify the Makefile
 Z_VERSION := zookeeper:2.0.0-3.4.14-2696
 K_VERSION := kafka:2.0.0-5.3.1-2696
@@ -58,13 +58,13 @@ ${all}: ${KM_JAVA_TAR} ${DOCKERFILE} Makefile
 	@if [ ! -d ${KONTAIN_DIR}/runtime ] ; then \
 		echo "Missing ${KONTAIN_DIR}/runtime. Please run 'make pull-buildenv-image buildenv-local-fedora' in km/tests" ; false; \
 	fi
-	@for item in ${Z_VERSION} ${K_VERSION} ; do \
-		tag=${KONTAIN_REPO}/$$item ; echo Building $$tag ; \
-		${DOCKER_BUILD} -q -f ${DOCKERFILE} ${DOCKER_DIR} \
-		--build-arg FROM_IMAGE=$(REPO)/$$item \
+	@set -x ; for item in ${Z_VERSION} ${K_VERSION} ; do \
+		tag=${KONTAIN_REPO}/$$item ; echo -e "${GREEN}Building $$tag${NOCOLOR}" ; \
+		${DOCKER_BUILD} -q -t $$tag \
+		--build-arg FROM_IMAGE=${REPO}/$$item \
 		--build-arg KONTAIN_DIR="${KONTAIN_DIR}" \
 		--build-arg ORIG_JDK_DIR="${ORIG_JDK_DIR}" \
-		 -t ${KONTAIN_REPO}/$$item ; \
+		-f ${DOCKERFILE} ${DOCKER_DIR} ; \
 	done
 	@docker image ls '${KONTAIN_REPO}/*'
 	@if ! docker network list | grep -q kafka-net ; then \
@@ -79,14 +79,14 @@ ${KM_JAVA_TAR} : $(KM_FILES) ${KONTAIN_DIR} Makefile
 	@if [ ! -d ${DOCKER_DIR} ] ; then mkdir -p ${DOCKER_DIR} ; fi
 	@echo Copying ${KONTAIN_DIR}/lib64 ;\
 		tar -C ${KONTAIN_DIR} -cf - lib64 runtime | tar -C ${DOCKER_DIR} -xf -
-	@## We need 'env' since some old env's (e.g. one in centos7-minimal) do not support '-S'
+	@# We need 'env' since some old env's (e.g. one in centos7-minimal) do not support '-S'
 	@echo Copying env...; \
 		cp $(shell which env) ${DOCKER_DIR}
 	@echo Copying KM files ;\
 		bin=${DOCKER_DIR}/${JDK_VERSION}/bin; mkdir -p $$bin && cp --preserve=all $(KM_FILES) $$bin
 	@echo Copying libs and release info from ${jdk_image_dir} ; \
 		cp -rf --preserve=all ${jdk_image_dir}/{lib,release} ${DOCKER_DIR}/${JDK_VERSION}
-	@echo Stripping Kontain Java .so files... ; \
+	@echo -e "${GREEN}Stripping Kontain Java .so files...${NOCOLOR}" ; \
 		find ${DOCKER_DIR}/${JDK_VERSION}/lib -name '*.so' -size +10k | xargs strip
 	@echo Creating java shebang file...; \
 		shebang=${DOCKER_DIR}/${JDK_VERSION}/bin/java; \
@@ -94,10 +94,22 @@ ${KM_JAVA_TAR} : $(KM_FILES) ${KONTAIN_DIR} Makefile
 	@echo Packaging Kontain and java files for Docker build...;\
 		tar -C ${DOCKER_DIR}/${JDK_VERSION} -cf ${KM_JAVA_TAR} . ; rm -rf ${DOCKER_DIR}/${JDK_VERSION}
 
-base: base-pull  ## pull nokia containers - prerequsite for 'make all'
-pull: base  # alias
+flatten: all ## Flatten images with buildah tool. Results will have prefix 'flat-'
+	@if [ -z "$$(rpm -qa buildah)" ] ; then \
+		echo -e "${CYAN}Warning: buildah is missing. Run 'sudo dnf install buildah -y'${NOCOLOR}"  ; false; \
+	fi
+	@echo -e "${GREEN}Flattening images with buildah tool${NOCOLOR}" ; \
+	set -x; for item in ${Z_VERSION} ${K_VERSION} ; do \
+		tag=${KONTAIN_REPO}/$$item ; \
+		container=$$(buildah from docker-daemon:$$tag) ; \
+		buildah commit --squash $$container docker-daemon:flat-${KONTAIN_REPO}/$$item ; \
+		buildah rm $$container ; \
+	done
+	@docker image ls '*${KONTAIN_REPO}/*'
 
-base-pull: ## A helper to pull images from repository (alias to base)
+base pull: base-pull  ## aliases for base-pull
+
+base-pull: ## pull nokia containers from azure container registry - prerequsite for 'make all'
 	@echo DO NOT FORGET TO: make login
 	docker pull $(REPO)/$(Z_VERSION)
 	docker pull $(REPO)/$(K_VERSION)
@@ -107,7 +119,7 @@ login: ## helper to log in Azure and the registry
 	make -C $(TOP)cloud/azure login-cli
 	az acr login -n kontainstage
 
-clean-disks:
+clean-disks: ## clean disks and containers for Nokia Kafka test run
 	-sudo rm -r $$(dirname ${BLDDIR})/disks
 	-docker rm -f kafka-test-client zookeeper-server kafka-broker-1 kafka-broker-3 kafka-broker-3
 
