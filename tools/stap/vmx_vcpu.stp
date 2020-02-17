@@ -1,0 +1,12 @@
+#!/usr/bin/env -S stap
+
+# simple example how to trace execution of random lines of kernel code and print variable values
+
+probe module("kvm_intel").statement("vmx_vcpu_run@arch/x86/kvm/vmx/vmx.c:6510")
+{
+        printf("vcpu_id 0x%x emulation_required %d nested %d fixed_pmc %d\n",
+                $vcpu->vcpu_id,                                           /* local */
+                @cast($vcpu, "struct vcpu_vmx")->rflags,                  /* local with cast */
+                @var("nested"),                                           /* global/static in this file */
+                @var("fixed_pmc_events@arch/x86/kvm/vmx/pmu_intel.c")[2]) /* global in a separate file */
+}

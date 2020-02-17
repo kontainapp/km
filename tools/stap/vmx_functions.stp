@@ -1,0 +1,32 @@
+#!/usr/bin/env -S stap -w
+
+# list function calls and returns in kvm/x86.c and kvm/vmx/vmx.c
+#
+//   ns   thread(tid)
+//      0 vcpu-0(441186):   -> kvm_arch_vcpu_ioctl_get_sregs
+//   1174 vcpu-0(441186):      -> kvm_arch_vcpu_load
+//   2020 vcpu-0(441186):         -> vmx_vcpu_load
+//   2740 vcpu-0(441186):            -> vmx_vcpu_load_vmcs
+//   3472 vcpu-0(441186):            <- vmx_vcpu_load_vmcs
+// ...
+
+function __indent_timestamp()
+{
+        return gettimeofday_ns()
+}
+
+probe module("kvm_intel").function("*@arch/x86/kvm/vmx/vmx.c").call {
+   printf ("%s -> %s\n", thread_indent(3), ppfunc())
+}
+
+probe module("kvm_intel").function("*@arch/x86/kvm/vmx/vmx.c").return {
+   printf ("%s <- %s\n", thread_indent(-3), ppfunc())
+}
+
+probe module("kvm").function("*@arch/x86/kvm/x86.c").call {
+   printf ("%s -> %s\n", thread_indent(3), ppfunc())
+}
+
+probe module("kvm").function("*@arch/x86/kvm/x86.c").return {
+   printf ("%s <- %s\n", thread_indent(-3), ppfunc())
+}

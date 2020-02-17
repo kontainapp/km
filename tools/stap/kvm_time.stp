@@ -1,0 +1,33 @@
+#!/usr/bin/env -S stap
+
+# prints function call statistics (average, min, max, count) on the path from km KVM_RUN ioctl
+#
+# Usage: sudo ./tools/stap/kvm_time.stp -c './build/km/km tests/hcperf_test.km 100000 1'
+
+global in_func, enter
+
+// probe process("/home/serge/workspace/km/build/km/km").function("km_vcpu_one_kvm_run")
+probe process("/home/serge/workspace/km/build/km/km").statement("km_vcpu_one_kvm_run@/home/serge/workspace/km/km/km_vcpu_run.c:612"),
+      module("kvm_intel").function("vmx_vcpu_run"),
+      module("kvm_intel").function("handle_io"),
+      module("kvm").function("complete_fast_pio_out")
+{
+   enter[ppfunc()] = gettimeofday_ns()
+}
+
+probe process("/home/serge/workspace/km/build/km/km").statement("km_vcpu_one_kvm_run@/home/serge/workspace/km/km/km_vcpu_run.c:614"),
+      module("kvm_intel").function("vmx_vcpu_run").return,
+      module("kvm_intel").function("handle_io").return,
+      module("kvm").function("complete_fast_pio_out").return
+{
+   f = ppfunc()
+   in_func[f] <<< (gettimeofday_ns() - enter[f])
+}
+
+probe end
+{
+   printf(   "%24s: %8s [%8s %8s] - %s\n", "func name", "avg ns", "min ns", "max ns", "count")
+   foreach(f in in_func) {
+      printf("%24s: %8d [%8d %8d] - %d\n", f, @avg(in_func[f]), @min(in_func[f]), @max(in_func[f]), @count(in_func[f]))
+   }
+}
