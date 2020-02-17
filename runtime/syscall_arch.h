@@ -107,3 +107,15 @@ static __inline long __syscall6(long n, long a1, long a2, long a3, long a4, long
                         : "memory");
    return arg.hc_ret;
 }
+
+/*
+ * Now that the vvar and vdso segments are mapped into the payload's virtual address
+ * space we define these symbols so that harmless syscalls are turned into calls to
+ * functions in vdso.
+ */
+#define VDSO_USEFUL
+#define VDSO_CGT_SYM "__vdso_clock_gettime"
+#define VDSO_CGT_VER "LINUX_2.6"
+#define VDSO_GETCPU_SYM "__vdso_getcpu"
+#define VDSO_GETCPU_VER "LINUX_2.6"
+

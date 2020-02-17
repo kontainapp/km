@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -16,6 +16,8 @@
 
 /*
  * structures/typedefs/defines from Intel® 64 and IA-32 Architectures Intel SDM, Vol3
+ * These structures are defined for M having a value of 52.
+ * See the Interl SDM volume 3 to read about M.
  */
 /*
  * Intel SDM, Vol3, Figure 3-8. Segment Descriptor
@@ -114,6 +116,45 @@ typedef struct x86_pde_2m {
    uint64_t pkey : 4;            // protection key if CR4.PKE = 1
    uint64_t xd : 1;              // exec disable
 } x86_pde_2m_t;
+
+/*
+ * Intel SDM, Vol3, Table 4-18. pde refering to a page table referring to 4KB pages
+ */
+typedef struct x86_pde_4k {
+   uint64_t p : 1;               // present
+   uint64_t r_w : 1;             // read/write
+   uint64_t u_s : 1;             // user/supervisor
+   uint64_t pwt : 1;             // page write through
+   uint64_t pcd : 1;             // page cache disable
+   uint64_t accessed : 1;        //
+   uint64_t ign_6 : 1;           //
+   uint64_t ps : 1;              // page size, must be 0
+   uint64_t ignored_11_08 : 4;   //
+   uint64_t pta : 40;            // physical address of a page table for 4k pages
+   uint64_t ignored_62_52 : 11;  //
+   uint64_t xd : 1;              // exec disable
+} x86_pde_4k_t;
+
+/*
+ * Intel SDM, Vol3, Table 4-19. pte refering to a 4k page
+ */
+typedef struct x86_pte_4k {
+   uint64_t p : 1;            // present
+   uint64_t r_w : 1;          // read/write
+   uint64_t u_s : 1;          // user/supervisor
+   uint64_t pwt : 1;          // page write through
+   uint64_t pcd : 1;          // page cache disable
+   uint64_t accessed : 1;     //
+   uint64_t dirty : 1;        // the page has been written on
+   uint64_t pat : 1;          //
+   uint64_t global : 1;       //
+   uint64_t ign_11_09 : 3;    //
+   uint64_t page : 40;        // page physical address
+   uint64_t ign_58_52 : 7;    //
+   uint64_t pkey : 4;         // protection key
+   uint64_t xd : 1;           // execute disable
+} x86_pte_4k_t;
+
 
 /*
  * Intel SDM, Vol3, 2.5 CONTROL REGISTERS, Figure 2-7 and surrounding text

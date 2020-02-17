@@ -37,6 +37,7 @@ static const int RSV_PDPT_OFFSET = 1 * KM_PAGE_SIZE;
 static const int RSV_PDPT2_OFFSET = 2 * KM_PAGE_SIZE;
 static const int RSV_PD_OFFSET = 3 * KM_PAGE_SIZE;
 static const int RSV_PD2_OFFSET = 4 * KM_PAGE_SIZE;
+static const int RSV_PT_OFFSET = 5 * KM_PAGE_SIZE;
 static const int RSV_IDMAP_OFFSET = RSV_MEM_SIZE;   // next page after reserved area
 /*
  * convert the above to guest physical offsets
@@ -44,6 +45,7 @@ static const int RSV_IDMAP_OFFSET = RSV_MEM_SIZE;   // next page after reserved 
 #define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
 
 static const int KM_RSRV_MEMSLOT = 0;
+static const int KM_RSRV_VDSOSLOT = 41;
 
 static const km_gva_t GUEST_MEM_START_VA = 2 * MIB;
 // ceiling for guest virt. address. 2MB shift down to make it aligned on GB with physical address
@@ -193,6 +195,8 @@ static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
    return KM_USER_MEM_BASE + gva_to_gpa_nocheck(gva);
 }
 
+km_kma_t km_gva2kma_thehardway(km_gva_t gva);
+
 /*
  * Translates guest virtual address to km address, checking for validity.
  * @param gva Guest virtual address
@@ -205,9 +209,16 @@ static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
  */
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
+   if (gva >= GUEST_MEM_TOP_VA) { // handle gdb references to vdso pages
+      km_kma_t kma;
+      kma = km_gva2kma_thehardway(gva);
+      if (kma == NULL) {
+         errno = EFAULT;
+      }
+      return kma;
+   }
    if (gva < GUEST_MEM_START_VA ||
-       (roundup(machine.brk, KM_PAGE_SIZE) <= gva && gva < rounddown(machine.tbrk, KM_PAGE_SIZE)) ||
-       GUEST_MEM_TOP_VA < gva) {
+       (roundup(machine.brk, KM_PAGE_SIZE) <= gva && gva < rounddown(machine.tbrk, KM_PAGE_SIZE))) {
       errno = EFAULT;
       return NULL;
    }

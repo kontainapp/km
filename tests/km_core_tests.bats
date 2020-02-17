@@ -696,3 +696,9 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    run km_with_timeout decode_test$ext
    assert_success
 }
+
+@test "vdso_test($test_type): use function verion of some syscalls (vdso_test$ext)" {
+   run km_with_timeout vdso_test$ext
+   assert_success
+   refute_line --regexp "exceeds .* the time of SYS"
+}

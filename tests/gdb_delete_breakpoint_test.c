@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#include <syscall.h>
 
 /*
  * A breakpoint target so we don't need to place a breakpoint on a source
@@ -32,19 +34,27 @@
  */
 static time_t __attribute__((noinline)) hit_breakpoint1(void)
 {
-   return time(NULL);
+   struct timespec ts;
+   syscall(SYS_clock_gettime, CLOCK_REALTIME, &ts);
+   return ts.tv_sec;
 }
 static time_t __attribute__((noinline)) hit_breakpoint2(void)
 {
-   return time(NULL);
+   struct timespec ts;
+   syscall(SYS_clock_gettime, CLOCK_REALTIME, &ts);
+   return ts.tv_sec;
 }
 static time_t __attribute__((noinline)) hit_breakpoint_t1(void)
 {
-   return time(NULL);
+   struct timespec ts;
+   syscall(SYS_clock_gettime, CLOCK_REALTIME, &ts);
+   return ts.tv_sec;
 }
 static time_t __attribute__((noinline)) hit_breakpoint_t2(void)
 {
-   return time(NULL);
+   struct timespec ts;
+   syscall(SYS_clock_gettime, CLOCK_REALTIME, &ts);
+   return ts.tv_sec;
 }
 
 /*
