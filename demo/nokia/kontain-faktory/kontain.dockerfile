@@ -25,10 +25,8 @@ ENV LD_LIBRARY_PATH ${ORIG_JDK_DIR}/lib/server:${ORIG_JDK_DIR}/lib/jli:${ORIG_JD
 ADD lib64 ${KONTAIN_DIR}/lib64
 ADD runtime ${KONTAIN_DIR}/runtime
 ADD env /usr/bin/
-# TODO: We need to force-override bin and lib, but we need to keep old files in conf...
-# The current code may kill conf customization, e.g. for logs
-# RUN rm -r $ORIG_JDK_DIR/{lib,bin}/*  $ORIG_JDK_DIR/release
+# We need to force-override bin and lib, but we need to keep old files in conf...
 RUN rm -r $ORIG_JDK_DIR/lib/*  $ORIG_JDK_DIR/release
 ADD km_java_files.tar $ORIG_JDK_DIR
-RUN ln -s $ORIG_JDK_DIR/bin/java.km /usr/bin
-# On the host, do this: echo '/tmp/core.%h.%e.%t' > /proc/sys/kernel/core_pattern ; ulimit -c unlimited
+RUN ln -s $ORIG_JDK_DIR/bin/java.km /usr/bin/java.km
+# Note: to retain core dumps in /tmp, do this on the host: echo '/tmp/core.%h.%e.%t' > /proc/sys/kernel/core_pattern ; ulimit -c unlimited
