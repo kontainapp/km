@@ -205,22 +205,28 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
-   run km_with_timeout mmap_test$ext -v
+   run gdb_with_timeout --ex="source gdb_simple_test.py" --ex="handle SIGUSR1 nostop"\
+       --ex="run-test" --ex="q" --args ${KM_BIN} mmap_test$ext -v
    assert [ $status -eq $expected_status ]
+   assert_line --partial 'fail: 0'
 
    # check the failure codes on linux
    run ./mmap_test -v -t mmap_file_test_ex
    assert_success
 
    # make sure there is a filename somwewhere in the maps
-   run km_with_timeout mmap_test$ext -v -t mmap_file_test_ex # KM test
+   run gdb_with_timeout ex="set pagination off" -ex="handle SIGUSR1 nostop"\
+      -ex="source $BATS_TEST_DIRNAME" -ex="run-test"\
+      -ex="q" --args ${KM_BIN} mmap_test$ext -v -t mmap_file_test_ex # KM test
    assert_success
-   assert_line --regexp 'flags 0x02 prot 0x01 km_flags 0x00 fn 0x[^0]'
+
 }
 
 @test "mmap_1($test_type): mmap then smaller mprotect (mmap_1_test$ext)" {
-   run km_with_timeout mmap_1_test$ext
+   run gdb_with_timeout --ex="set pagination off" --ex="handle SIGUSR1 nostop" \
+      --ex="source gdb_simple_test.py" --ex="run-test" --ex="q" --args ${KM_BIN} mmap_1_test$ext
    assert_success
+   assert_line --partial 'fail: 0'
 }
 
 @test "futex_example($test_type)" {
@@ -682,9 +688,11 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "monitor_maps($test_type): munmap gdt and idt (munmap_monitor_maps_test$ext)" {
-   run km_with_timeout munmap_monitor_maps_test$ext
+   run gdb_with_timeout ex="set pagination off" -ex="handle SIGUSR1 nostop"\
+      -ex="source BATS_TEST_DIRNAME" -ex="run-test" -ex="q" --args ${KM_BIN} munmap_monitor_maps_test$ext
    assert_success
    assert_line --partial "conflicts with monitor region 0x7fffffdfe000 size 0x2000"
+   assert_line --partial 'fail: 0'
 }
 
 @test "hypercall args($test_type): test hcall args passing" {
@@ -695,4 +703,12 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 @test "decode($test_type): test KM EFAULT decode" {
    run km_with_timeout decode_test$ext
    assert_success
+}
+
+@test "vdso_test($test_type): use function verion of some syscalls (vdso_test$ext)" {
+   run km_with_timeout vdso_test$ext
+   assert_success
+   refute_line --partial "auxv[AT_SYSINFO_EHDR] not available"
+   refute_line --partial "expected sleep duration between"
+   refute_line --regexp "exceeds .* the time of SYS"
 }

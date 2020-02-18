@@ -29,6 +29,7 @@
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_syscall.h"
+#include "km_proc.h"
 
 /*
  * Allocate stack for main thread and initialize it according to ABI:
@@ -172,7 +173,9 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    NEW_AUXV_ENT(AT_CLKTCK, sysconf(_SC_CLK_TCK));
    NEW_AUXV_ENT(AT_PAGESZ, KM_PAGE_SIZE);
    // TODO: AT_HWCAP
-   // TODO: AT_SYSINFO_EHDR
+   if (km_vvar_vdso_base[1] != 0) {
+      NEW_AUXV_ENT(AT_SYSINFO_EHDR, km_vvar_vdso_base[1]);
+   }
 #undef NEW_AUXV_ENT
 
    // A safe copy of auxv for coredump (if needed)

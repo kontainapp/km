@@ -25,6 +25,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#include <syscall.h>
+#include <errno.h>
+
+/*
+ * When time() utilizes the time functions in the vdso page, things
+ * run faster which reduces the frequency of the race we are trying
+ * to produce.  So, add this delay to ensure the race does happen.
+ */
+struct timespec vdso_compensate = { 0, 1200 };  // 1.2us
 
 /*
  * A breakpoint target so we don't need to place a breakpoint on a source
@@ -32,18 +42,30 @@
  */
 static time_t __attribute__((noinline)) hit_breakpoint1(void)
 {
+   int r;
+   r = nanosleep(&vdso_compensate, NULL);
+   assert(r == 0 || errno == EINTR);
    return time(NULL);
 }
 static time_t __attribute__((noinline)) hit_breakpoint2(void)
 {
+   int r;
+   r = nanosleep(&vdso_compensate, NULL);
+   assert(r == 0 || errno == EINTR);
    return time(NULL);
 }
 static time_t __attribute__((noinline)) hit_breakpoint_t1(void)
 {
+   int r;
+   r = nanosleep(&vdso_compensate, NULL);
+   assert(r == 0 || errno == EINTR);
    return time(NULL);
 }
 static time_t __attribute__((noinline)) hit_breakpoint_t2(void)
 {
+   int r;
+   r = nanosleep(&vdso_compensate, NULL);
+   assert(r == 0 || errno == EINTR);
    return time(NULL);
 }
 

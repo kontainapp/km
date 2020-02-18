@@ -24,7 +24,8 @@ SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix 
 
 # these musl files will be dropped from all libs (static and dynamic)
 KM_REPLACED_SRCS := __set_thread_area.s __unmapself.s syscall.s syscall_cp.s getenv.c preadv.c pwritev.c \
-						  fcntl.c sigaltstack.c clone.s getpagesize.c fcntl/open.c
+						fcntl.c sigaltstack.c clone.s getpagesize.c fcntl/open.c \
+						clock_gettime.c
 # These KM files will be added to all libs (static and dynamic)
 KM_EXTRA_SRCS := $(wildcard *_km.c) $(wildcard *.s)
 # These KM files are not applicable to dynamic (DL or SO) libs, and will be in static only
@@ -84,7 +85,7 @@ $(CRT_OBJS): CFLAGS += -DCRT
 $(SO_OBJS) $(DL_OBJS): CFLAGS += -fPIC
 ${BLDDIR}musl/crt/Scrt1.o ${BLDDIR}musl/crt/rcrt1.o: CFLAGS += -fPIC
 
-all: $(addprefix ${BLDDIR},libm.a libpthread.a) ${KM_OPT}/runtime/libc.so ${CRT_OBJS}
+all: $(addprefix ${BLDDIR},libm.a libpthread.a) ${KM_OPT_LDSO} ${CRT_OBJS}
 
 $(addprefix ${BLDDIR}, libm.a):
 	@echo "Making " $@; rm -f $@; ${AR} crs $@
@@ -95,8 +96,11 @@ $(addprefix ${BLDDIR}, libpthread.a): ${PTHREAD_OBJS}
 $(addprefix ${BLDDIR}, libc.so): ${SO_OBJS} ${DL_OBJS}
 	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} /usr/lib/gcc/x86_64-redhat-linux/9/libgcc.a
 
-${KM_OPT}/runtime/libc.so: $(addprefix ${BLDDIR}, libc.so)
-	cp $(addprefix ${BLDDIR}/, libc.so) $@
+${KM_OPT_LDSO}: ${KM_OPT_RT} ${KM_LDSO}
+	cp ${KM_LDSO} $@
+
+${KM_OPT_RT}: |
+	sudo mkdir -p $@ && sudo chgrp users $@ && sudo chmod 777 $@
 
 ${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 

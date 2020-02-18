@@ -24,7 +24,7 @@ SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_valu
 		dl_iterate_phdr_test.c env_test.c locale_test.c munmap_monitor_maps_test.c \
 		gdb_server_entry_race_test.c gdb_qsupported_test.c gdb_delete_breakpoint_test.c gdb_nextstep_test.c \
 		mmap_1_test.c madvise_test.c misc_test.c gdb_sharedlib2_test.c gdb_lots_of_threads_test.c \
-		decode_test.c hcperf_test.c
+		decode_test.c hcperf_test.c vdso_test.c
 
 SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
 
@@ -168,16 +168,13 @@ test-all-withdocker: test-withdocker ## alias for test-withdocker
 
 # install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
 # TODO: maybe make it generic to scan folders
-buildenv-local-fedora:  ## make local build environment for KM
+buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
 	@if ! docker image inspect ${BUILDENV_IMG} > /dev/null ; then \
 		echo -e "$(RED)${BUILDENV_IMG} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
 	sudo dnf install -y `docker history --format "{{ .CreatedBy }}" --no-trunc ${BUILDENV_IMG} | sed -rn '/dnf install/s/.*dnf install -y([^&]*)(.*)/\1/p'`
 	docker create --name tmp_env $(BUILDENV_IMG)
 	sudo docker cp tmp_env:/opt/kontain /opt
 	docker rm tmp_env
-	sudo mkdir -p ${KM_OPT}/runtime
-	sudo chgrp users ${KM_OPT}/runtime
-	sudo chmod 777 ${KM_OPT}/runtime
 
 # Info for making runenv-image and validate-runenv-image targets
 #
