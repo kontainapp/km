@@ -36,7 +36,8 @@ void timespec_sub(struct timespec *result, struct timespec *subfrom, struct time
   }
 }
 
-#define NTIMES	1000000
+// 1 million iterations times out on azure
+#define NTIMES	10000
 
 int main(int argc, char* argv[])
 {
@@ -79,10 +80,15 @@ int main(int argc, char* argv[])
 
    // Compare the duration of the runs to see if clock_gettime() is faster
    printf("\n");
-   printf("SYS_clock_gettime syscall duration %ld.%09ld seconds for %d iterations\n", syscall_duration.tv_sec, syscall_duration.tv_nsec, NTIMES);
-   printf("clock_gettime() func call duration %ld.%09ld seconds for %d iterations\n", funccall_duration.tv_sec, funccall_duration.tv_nsec, NTIMES);
-   if (funcdur_float > sysdur_float / 80.) {
-      printf("clock_gettime() %f exceeds 1/80 the time of SYS_clock_gettime %f\n", funcdur_float, sysdur_float);
+   printf("SYS_clock_gettime syscall duration %ld.%09ld seconds for %d iterations\n",
+          syscall_duration.tv_sec, syscall_duration.tv_nsec,
+          NTIMES);
+   printf("clock_gettime() func call duration %ld.%09ld seconds for %d iterations\n",
+          funccall_duration.tv_sec,
+          funccall_duration.tv_nsec, NTIMES);
+#define VDSO_CG_FACTOR 10.0
+   if (funcdur_float * VDSO_CG_FACTOR > sysdur_float) {
+      printf("clock_gettime() %f exceeds 1/%f the time of SYS_clock_gettime %f\n", funcdur_float, VDSO_CG_FACTOR, sysdur_float);
    }
 
 
@@ -110,10 +116,15 @@ int main(int argc, char* argv[])
    sysdur_float = (double)syscall_duration.tv_sec + ((double)syscall_duration.tv_nsec / 1000000000.);
 
    printf("\n");
-   printf("SYS_getcpu syscall duration %ld.%09ld seconds for %d iterations\n", syscall_duration.tv_sec, syscall_duration.tv_nsec, NTIMES);
-   printf("sched_getcpu() func call duration %ld.%09ld seconds for %d iterations\n", funccall_duration.tv_sec, funccall_duration.tv_nsec, NTIMES);
-   if (funcdur_float > sysdur_float / 60) {
-      printf("sched_getcpu() %f exceeds 1/60 the time of SYS_getcpu %f\n", funcdur_float, sysdur_float);
+   printf("SYS_getcpu syscall duration %ld.%09ld seconds for %d iterations\n",
+          syscall_duration.tv_sec,
+          syscall_duration.tv_nsec, NTIMES);
+   printf("sched_getcpu() func call duration %ld.%09ld seconds for %d iterations\n",
+          funccall_duration.tv_sec,
+          funccall_duration.tv_nsec, NTIMES);
+#define VDSO_SGC_FACTOR 10.0
+   if (funcdur_float * VDSO_SGC_FACTOR > sysdur_float) {
+      printf("sched_getcpu() %f exceeds 1/%f the time of SYS_getcpu %f\n", funcdur_float, VDSO_SGC_FACTOR, sysdur_float);
    }
 
    return 0;
