@@ -328,7 +328,7 @@ extern void km_trace(int errnum, const char* function, int linenumber, const cha
     __attribute__((__format__(__printf__, 4, 5)));
 
 // Interrupt handling.
-void km_init_guest_idt(km_gva_t handlers);
+void km_init_guest_idt(km_gva_t default_handler, km_gva_t handler_table_base);
 void km_handle_interrupt(km_vcpu_t* vcpu);
 
 #define KM_SIGVCPUSTOP SIGUSR1   //  After km start, used to signal VCP thread to force KVM exit
