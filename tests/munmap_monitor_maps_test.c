@@ -40,7 +40,7 @@ TEST munmap_monitor_maps_test(void)
    ret = munmap(gdtaddr, KM_PAGE_SIZE);
    // we are expected to skip the monitor area and warn, but return OK
    ASSERT_EQ_FMTm("Unmap first page", 0, ret, "%d");
-   ASSERT_MMAPS_COUNT(6);
+   ASSERT_MMAPS_COUNT(6, TOTAL_MMAPS);
 
    ret = munmap(idtaddr, KM_PAGE_SIZE);
    ASSERT_EQ_FMTm("Unmap first page", 0, ret, "%d");
@@ -53,7 +53,7 @@ TEST munmap_monitor_maps_test(void)
    (void)remap_address;
    ASSERT_EQ_FMTm("remap to increase size", EFAULT, errno, "%d");
 
-   ASSERT_MMAPS_COUNT(6);
+   ASSERT_MMAPS_COUNT(6, TOTAL_MMAPS);
    PASS();
 }
 
