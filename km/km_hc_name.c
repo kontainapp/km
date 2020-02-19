@@ -365,7 +365,6 @@ static void km_hc_name_init(void)
    hc_name[433] = "fspick";
    hc_name[HC_unmapself] = "unmapself";
    hc_name[HC_reserved3] = "reserved3";
-   hc_name[HC_km_unittest] = "km_unittest";
    hc_name[HC_guest_interrupt] = "guest_interrupt";
 }
 

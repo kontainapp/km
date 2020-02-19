@@ -30,7 +30,6 @@
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_syscall.h"
-#include "km_unittest.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -153,6 +152,7 @@ static km_hc_ret_t prwv_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
+
    arg->hc_ret = km_fs_prwv(vcpu, hc, arg->arg1, buf, arg->arg3, arg->arg4);
    return HC_CONTINUE;
 }
@@ -1109,21 +1109,6 @@ static km_hc_ret_t fchmod_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
-// provides misc internal info for KM unittests
-static km_hc_ret_t km_unittest_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-#ifdef _KM_UNITTEST
-   km_infox(KM_TRACE_HC, "km_unittest");
-   // int km_guest_unittest(int operation, void *param);
-   arg->hc_ret = km_guest_unittest(vcpu, arg->arg1, km_gva_to_kma(arg->arg2));
-   return HC_CONTINUE;
-#else
-   warn("km_unittest is not supported in production workloads");
-   arg->hc_ret = -ENOTSUP;
-   return HC_CONTINUE;
-#endif
-}
-
 static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    arg->hc_ret =
@@ -1402,7 +1387,6 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_uname] = uname_hcall;
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
-   km_hcalls_table[HC_km_unittest] = km_unittest_hcall;
    km_hcalls_table[HC_unmapself] = unmapself_hcall;
 }
 

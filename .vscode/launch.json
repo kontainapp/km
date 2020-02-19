@@ -338,6 +338,16 @@
             "--skip",
             "${workspaceFolder}/payloads/python/extensions/skip_builtins.txt"
          ]
+      },
+      {
+         "name": "Python: gdb_simple_test.py",
+         "type": "python",
+         "request": "launch",
+         "program": "${workspaceFolder}/tests/gdb_simple_test.py",
+         "console": "integratedTerminal",
+         "stopOnEntry": true,
+         "cwd": "${workspaceFolder}/tests",
+         "args": []
       }
    ],
    "inputs": [
