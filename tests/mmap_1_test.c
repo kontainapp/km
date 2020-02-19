@@ -246,9 +246,7 @@ TEST mmap_fixed_incompat()
    // grabbing something too high, so it steps on Monitor reserved - KM only test
    if (KM_PAYLOAD() == 1) {
       errno = 0;
-      get_maps(1);
       insert = mmap(area, area_sz + insert1_sz, rw, MAP_FIXED | flags, -1, 0);
-      get_maps(1);
       ASSERT_EQ_FMT(MAP_FAILED, insert, "%p");
       ASSERT_EQ_FMT(EINVAL, errno, "%d");
    }
@@ -277,14 +275,12 @@ GREATEST_MAIN_DEFS();
 int main(int argc, char** argv)
 {
    GREATEST_MAIN_BEGIN();
-
    RUN_TEST(mmap_overlap);
    RUN_TEST(mmap_mprotect_overlap);
    RUN_TEST(mmap_fixed_basic);
    RUN_TEST(mmap_fixed_concat_both_sides);
    RUN_TEST(mmap_fixed_over_multiple_regions);
    RUN_TEST(mmap_fixed_incompat);
-
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
 }
