@@ -48,8 +48,29 @@ int main(int argc, char* argv[])
    struct timespec start, end;
    struct timespec syscall_duration;
    struct timespec funccall_duration;
+   struct timespec sleep_duration;
+   struct timespec sleep_this_long = { 1, 0 };
    double sysdur_float;
    double funcdur_float;
+   double sleepdur_float;
+
+   // Verify that time advances using clock_gettime() from the vdso
+   r = clock_gettime(CLOCK_REALTIME, &start);
+   assert(r == 0);
+   r = nanosleep(&sleep_this_long, NULL);
+   assert(r == 0);
+   r = clock_gettime(CLOCK_REALTIME, &end);
+   assert(r == 0);
+   timespec_sub(&sleep_duration, &end, &start);
+   sleepdur_float = (double)sleep_duration.tv_sec + ((double)sleep_duration.tv_nsec / 1000000000.);
+#define ALLOWED_SLEEP_DEVIATION 0.10
+   if (sleepdur_float < ((1.0 - ALLOWED_SLEEP_DEVIATION) * sleep_this_long.tv_sec) ||
+       sleepdur_float > ((1.0 + ALLOWED_SLEEP_DEVIATION) * sleep_this_long.tv_sec)) {
+      printf("expected sleep duration between %f and %f seconds, actual %f\n",
+             ((1.0 - ALLOWED_SLEEP_DEVIATION) * sleep_this_long.tv_sec),
+             ((1.0 + ALLOWED_SLEEP_DEVIATION) * sleep_this_long.tv_sec),
+             sleepdur_float);
+   }
 
    // Run syscall(SYS_clock_gettime,...) a few times
    r = clock_gettime(CLOCK_REALTIME, &start);
