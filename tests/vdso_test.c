@@ -23,6 +23,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <sched.h>
+#include <sys/auxv.h>
 #include "syscall.h"
 
 void timespec_sub(struct timespec *result, struct timespec *subfrom, struct timespec *subme)
@@ -53,6 +54,14 @@ int main(int argc, char* argv[])
    double sysdur_float;
    double funcdur_float;
    double sleepdur_float;
+   uint64_t vdso_base;
+
+   vdso_base = getauxval(AT_SYSINFO_EHDR);
+   if (vdso_base == 0) {
+      printf("auxv[AT_SYSINFO_EHDR] not available?\n");
+      return 0;
+   }
+   printf("auxv[AT_SYSINFO_EHDR] = 0x%lx\n", vdso_base);
 
    // Verify that time advances using clock_gettime() from the vdso
    r = clock_gettime(CLOCK_REALTIME, &start);

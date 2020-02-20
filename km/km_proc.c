@@ -26,7 +26,7 @@
 #include "km.h"
 #include "km_proc.h"
 
-#define PROC_SELF_MAPS "/proc/self/maps"
+static const char* PROC_SELF_MAPS = "/proc/self/maps";
 
 /*
  * Read /proc/self/maps looking for the entries that match the names supplied.
@@ -39,7 +39,9 @@ int km_find_maps_regions(maps_region_t* regions, uint32_t nregions)
    int rv = -1;
    int foundcount = 0;
 
-   for (int i = 0; i < nregions; i++) regions[i].found = 0;
+   for (int i = 0; i < nregions; i++) {
+      regions[i].found = 0;
+   }
 
    procmaps = fopen(PROC_SELF_MAPS, "r");
    if (procmaps == NULL) {
@@ -66,6 +68,7 @@ int km_find_maps_regions(maps_region_t* regions, uint32_t nregions)
          }
       }
       if (foundcount >= nregions) {
+         rv = 0;
          break;
       }
    }

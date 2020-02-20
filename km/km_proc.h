@@ -21,6 +21,12 @@ typedef struct maps_region {
    uint8_t found;
 } maps_region_t;
 
+#define vvar_vdso_regions_count	2
+const static int vvar_region_index = 0;
+const static int vdso_region_index = 1;
+extern km_gva_t km_vvar_vdso_base[2];
+extern uint32_t km_vvar_vdso_size;
+
 extern int km_find_maps_regions(maps_region_t* regions, uint32_t nregions);
 
 #endif // !defined(__KM_PROC_H__)

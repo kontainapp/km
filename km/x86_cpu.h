@@ -17,7 +17,7 @@
 /*
  * structures/typedefs/defines from Intel® 64 and IA-32 Architectures Intel SDM, Vol3
  * These structures are defined for M having a value of 52.
- * See the Interl SDM volume 3 to read about M.
+ * See the Intel SDM volume 3 to read about M.
  */
 /*
  * Intel SDM, Vol3, Figure 3-8. Segment Descriptor

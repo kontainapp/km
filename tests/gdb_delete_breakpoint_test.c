@@ -27,6 +27,14 @@
 #include <time.h>
 #include <unistd.h>
 #include <syscall.h>
+#include <errno.h>
+
+/*
+ * When time() utilizes the time functions in the vdso page, things
+ * run faster which reduces the frequency of the race we are trying
+ * to produce.  So, add this delay to ensure the race does happen.
+ */
+struct timespec vdso_compensate = { 0, 1200 };  // 1.2us
 
 /*
  * A breakpoint target so we don't need to place a breakpoint on a source
@@ -34,27 +42,31 @@
  */
 static time_t __attribute__((noinline)) hit_breakpoint1(void)
 {
-   struct timespec ts;
-   syscall(SYS_clock_gettime, CLOCK_REALTIME, &ts);
-   return ts.tv_sec;
+   int r;
+   r = nanosleep(&vdso_compensate, NULL);
+   assert(r == 0 || errno == EINTR);
+   return time(NULL);
 }
 static time_t __attribute__((noinline)) hit_breakpoint2(void)
 {
-   struct timespec ts;
-   syscall(SYS_clock_gettime, CLOCK_REALTIME, &ts);
-   return ts.tv_sec;
+   int r;
+   r = nanosleep(&vdso_compensate, NULL);
+   assert(r == 0 || errno == EINTR);
+   return time(NULL);
 }
 static time_t __attribute__((noinline)) hit_breakpoint_t1(void)
 {
-   struct timespec ts;
-   syscall(SYS_clock_gettime, CLOCK_REALTIME, &ts);
-   return ts.tv_sec;
+   int r;
+   r = nanosleep(&vdso_compensate, NULL);
+   assert(r == 0 || errno == EINTR);
+   return time(NULL);
 }
 static time_t __attribute__((noinline)) hit_breakpoint_t2(void)
 {
-   struct timespec ts;
-   syscall(SYS_clock_gettime, CLOCK_REALTIME, &ts);
-   return ts.tv_sec;
+   int r;
+   r = nanosleep(&vdso_compensate, NULL);
+   assert(r == 0 || errno == EINTR);
+   return time(NULL);
 }
 
 /*

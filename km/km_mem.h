@@ -20,6 +20,7 @@
 #include <sys/param.h>
 #include <linux/kvm.h>
 #include "km.h"
+#include "km_proc.h"
 
 #define KM_PAGE_SIZE 0x1000ul   // standard 4k page
 #define KM_PAGE_MASK (~(KM_PAGE_SIZE-1))
@@ -50,6 +51,8 @@ static const int KM_RSRV_VDSOSLOT = 41;
 static const km_gva_t GUEST_MEM_START_VA = 2 * MIB;
 // ceiling for guest virt. address. 2MB shift down to make it aligned on GB with physical address
 static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
+
+static const km_gva_t GUEST_VVAR_VDSO_BASE_VA = (GUEST_MEM_TOP_VA + (1 * MIB));
 
 // VA offset from PA for addresses over machine.tbrk. Last 2MB of VA stay unused for symmetry.
 #define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA - (machine.guest_max_physmem - 2 * MIB))
@@ -195,8 +198,6 @@ static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
    return KM_USER_MEM_BASE + gva_to_gpa_nocheck(gva);
 }
 
-km_kma_t km_gva2kma_thehardway(km_gva_t gva);
-
 /*
  * Translates guest virtual address to km address, checking for validity.
  * @param gva Guest virtual address
@@ -209,16 +210,13 @@ km_kma_t km_gva2kma_thehardway(km_gva_t gva);
  */
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
-   if (gva >= GUEST_MEM_TOP_VA) { // handle gdb references to vdso pages
-      km_kma_t kma;
-      kma = km_gva2kma_thehardway(gva);
-      if (kma == NULL) {
-         errno = EFAULT;
-      }
-      return kma;
+   if (gva >= GUEST_VVAR_VDSO_BASE_VA &&
+       gva < GUEST_VVAR_VDSO_BASE_VA + km_vvar_vdso_size) { // handle gdb references to vvar and vdso pages
+      return (km_kma_t)machine.vm_mem_regs[KM_RSRV_VDSOSLOT].userspace_addr + (gva - GUEST_VVAR_VDSO_BASE_VA);
    }
    if (gva < GUEST_MEM_START_VA ||
-       (roundup(machine.brk, KM_PAGE_SIZE) <= gva && gva < rounddown(machine.tbrk, KM_PAGE_SIZE))) {
+       (roundup(machine.brk, KM_PAGE_SIZE) <= gva && gva < rounddown(machine.tbrk, KM_PAGE_SIZE)) ||
+       GUEST_MEM_TOP_VA < gva) {
       errno = EFAULT;
       return NULL;
    }

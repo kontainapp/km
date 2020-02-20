@@ -91,9 +91,7 @@ static void pde_4k_set(x86_pde_4k_t* pde, uint64_t addr)
   pde->p = 1;
   pde->r_w = 1;
   pde->u_s = 1;
-  pde->ps = 0;
   pde->pta = addr >> 12;
-  pde->xd = 0;
 }
 
 static void pte_set(x86_pte_4k_t* pte, uint64_t addr)
@@ -102,7 +100,6 @@ static void pte_set(x86_pte_4k_t* pte, uint64_t addr)
   pte->r_w = 1;
   pte->u_s = 1;
   pte->page = addr >> 12;
-  pte->xd = 0;
 }
 
 /*
@@ -204,8 +201,8 @@ static inline int PDPTE_SLOT(km_gva_t __addr)
  * Base of [vvar] pages in [0]
  * Base of [vdso] pages in [1].
  */
-#define vvar_vdso_regions_count 2
-km_gva_t km_vvar_vdso_base[vvar_vdso_regions_count];
+km_gva_t km_vvar_vdso_base[2];
+uint32_t km_vvar_vdso_size;
 
 /*
  * Put the [vvar] and [vdso] pages from km's address space into the payload's
@@ -218,27 +215,31 @@ static void km_add_vvar_vdso_to_payload_address_space(km_kma_t mem)
       { .name_substring = "[vdso]" }
    };   // the order of these entries is important.  don't change.
    kvm_mem_reg_t* reg;
-   uint32_t vdso_size;
+   int rc;
 
    // Get the km addresses of vvar and vdso pages
-   km_find_maps_regions(vvar_vdso_regions, vvar_vdso_regions_count);
+   rc = km_find_maps_regions(vvar_vdso_regions, vvar_vdso_regions_count);
+   if (rc != 0) {
+      km_infox(KM_TRACE_MMAP, "Couldn't find vvar/vdso memory segments, not using vdso");
+      return;
+   }
 
    // This code assumes [vvar] and [vdso] are adjacent.
-   assert(vvar_vdso_regions[0].end_addr == vvar_vdso_regions[1].begin_addr);
+   assert(vvar_vdso_regions[vvar_region_index].end_addr == vvar_vdso_regions[vdso_region_index].begin_addr);
 
-   vdso_size = (vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr) +
-               (vvar_vdso_regions[1].end_addr - vvar_vdso_regions[1].begin_addr);
+   km_vvar_vdso_size = (vvar_vdso_regions[vvar_region_index].end_addr - vvar_vdso_regions[vvar_region_index].begin_addr) +
+                       (vvar_vdso_regions[vdso_region_index].end_addr - vvar_vdso_regions[vdso_region_index].begin_addr);
 
    // Map vvar and vdso at this guest virtual address
-   km_vvar_vdso_base[0] = GUEST_MEM_TOP_VA + (1 * MIB);
+   km_vvar_vdso_base[0] = GUEST_VVAR_VDSO_BASE_VA;
    km_vvar_vdso_base[1] = km_vvar_vdso_base[0] + (vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr);
 
    // Put the vdso and vvar pages into the payload's physical address space.
    reg = &machine.vm_mem_regs[KM_RSRV_VDSOSLOT];
    reg->slot = KM_RSRV_VDSOSLOT;
    reg->userspace_addr = (typeof(reg->userspace_addr))vvar_vdso_regions[0].begin_addr;
-   reg->guest_phys_addr = km_vvar_vdso_base[0] - GUEST_VA_OFFSET;
-   reg->memory_size = vdso_size;
+   reg->guest_phys_addr = gva_to_gpa_nocheck(km_vvar_vdso_base[0]);
+   reg->memory_size = km_vvar_vdso_size;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
       err(1, "KVM: set vvar/vdso region failed");
@@ -254,7 +255,6 @@ static void km_add_vvar_vdso_to_payload_address_space(km_kma_t mem)
    // add entry to page directory
    idx = PDE_SLOT(virtaddr);
    pde_4k_set(pde + idx, RSV_GUEST_PA(RSV_PT_OFFSET));
-km_infox(KM_TRACE_MMAP, "vvar virtaddr 0x%lx, idx %d", virtaddr, idx);
 
    // add vvar and vdso pages to page table
    memset(mem + RSV_PT_OFFSET, 0, KM_PAGE_SIZE);    // clear page, no usable entries yet
@@ -361,12 +361,10 @@ void km_mem_init(km_machine_init_params_t* params)
    if (ioctl(machine.mach_fd, KVM_SET_IDENTITY_MAP_ADDR, &idmap) < 0) {
       err(1, "KVM: set identity map addr failed");
    }
-
    init_pml4((km_kma_t)reg->userspace_addr);
 
    // Add the [vvar] and [vdso] pages from km into the physical and virtual address space for the payload
    km_add_vvar_vdso_to_payload_address_space((km_kma_t)reg->userspace_addr);
-
 
    machine.brk = GUEST_MEM_START_VA;
    machine.tbrk = GUEST_MEM_TOP_VA;
@@ -713,93 +711,4 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
    machine.tbrk = tbrk;
    km_mem_unlock();
    return error == 0 ? tbrk : -error;
-}
-
-/*
- * Convert the passed guest virtual address to a kontain monitor address
- * the hard way by following the page tables to yield the monitor address.
- * If the gva can't be mapped, return NULL.
- * If gva can be mapped, return the kma.
- */
-km_kma_t km_gva2kma_thehardway(km_gva_t gva)
-{
-   uint8_t* cr3;
-   x86_pml4e_t* pml4p;
-   x86_pdpte_t* pdptp;
-   uint64_t gpa = 0;
-   uint64_t kma = 0;
-   uint8_t page_present = 0;
-   uint64_t km_reloc = 0x100000000000;  // hack hack hack
-   int index;
-
-   // the base of the page table hierarchy
-   cr3 = (uint8_t*)machine.vm_mem_regs[KM_RSRV_MEMSLOT].userspace_addr + RSV_PML4_OFFSET;
-
-   index = (gva >> 39) & 0x1ff;
-   pml4p = (x86_pml4e_t*)cr3 + index;
-km_infox(KM_TRACE_MMAP, "gva 0x%lx, pml4p (x86_pml4e_t*)%p, index %d", gva, pml4p, index);
-   if (pml4p->p != 0) { // pml4 entry is present
-      index = (gva >> 30) & 0x1ff;
-      pdptp = (x86_pdpte_t*)(((uint64_t)pml4p->pdpt << 12) + km_reloc) + index;
-km_infox(KM_TRACE_MMAP, "gva 0x%lx, pdptp (x86_pdpte_t*)%p, index %d", gva, pdptp, index);
-      if (pdptp->p != 0) { // pdpt entry is present
-         if (pdptp->ps == 0) { // pdpt entry describes a page directory of 2mb pages
-            x86_pde_2m_t* pdep;
-            index = (gva >> 21) & 0x1ff;
-            pdep = (x86_pde_2m_t*)(((uint64_t)pdptp->pd << 12) + km_reloc) + index;
-km_infox(KM_TRACE_MMAP, "gva 0x%lx, pdep (x86_pde_2m_t*)%p, index %d", gva, pdep, index);
-            if (pdep->p != 0) { // page directory is present
-               if (pdep->ps != 0) { // describes a 2mb page
-                  gpa = (pdep->page << 21) + (gva & 0x1fffff);
-                  page_present = 1;
-               } else { // describes a page table of 4k pages
-                  x86_pde_4k_t* pde4kp = (x86_pde_4k_t*)pdep;
-                  x86_pte_4k_t* ptp;
-                  index = (gva >> 12) & 0x1ff;
-                  ptp = (x86_pte_4k_t*)(((uint64_t)pde4kp->pta << 12) + km_reloc) + index;
-km_infox(KM_TRACE_MMAP, "gva 0x%lx, ptp (x86_pte_4k_t*)%p, index %d", gva, ptp, index);
-                  if (ptp->p != 0) { // page is present
-                     gpa = ((uint64_t)ptp->page << 12) + (gva & 0xfff);
-                     page_present = 1;
-                  } else {
-                     // page is not present
-                  }
-               }
-            } else {
-               // page directory is not present
-            }
-         } else {  // pdpt entry describes a 1 gb page
-            x86_pdpte_1g_t* pdpt1gp = (x86_pdpte_1g_t*)pdptp;
-            gpa = (pdpt1gp->page << 30) + (gva & 0x3fffffff) + km_reloc;
-            page_present = 1;
-         }
-      } else {
-         // pdpt entry is not present
-      }
-   } else {
-      // pml4 entry is not present
-   }
-   if (page_present == 0) {
-      km_infox(KM_TRACE_MMAP, "Couldn't map gva 0x%lx to a guest physical address", gva);
-   } else {
-      // Check for physical address too large
-      if (gpa >= machine.guest_max_physmem) {
-         km_infox(KM_TRACE_MMAP, "gpa 0x%ld exceeds guest max physical address 0x%ld", gpa, machine.guest_max_physmem);
-         return (km_kma_t)kma;
-      }
-      // map guest physical addr to km virtual
-      int i;
-      for (i = KM_RSRV_VDSOSLOT; i <= KM_RSRV_VDSOSLOT; i++) {
-         if (gpa >= machine.vm_mem_regs[i].guest_phys_addr &&
-             gpa < machine.vm_mem_regs[i].guest_phys_addr + machine.vm_mem_regs[i].memory_size) {
-            kma = machine.vm_mem_regs[i].userspace_addr + (gpa - machine.vm_mem_regs[i].guest_phys_addr);
-            break;
-         }
-      }
-      if (kma == 0) {
-         km_infox(KM_TRACE_MMAP, "Couldn't map gpa 0x%lx to kma", gpa);
-      }
-   }
-km_infox(KM_TRACE_MMAP, "gva 0x%lx -> gpa 0x%lx -> kma 0x%lx", gva, gpa, kma);
-   return (km_kma_t)kma;
 }
