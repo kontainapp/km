@@ -539,6 +539,7 @@ static inline void km_signal_unlock(void)
 #define KM_TRACE_COREDUMP "coredump"
 #define KM_TRACE_SIGNALS "signals"
 #define KM_TRACE_DECODE "decode"
+#define KM_TRACE_PROC "proc"
 
 /*
  * The km definition of the link_map structure in runtime/musl/include/link.h

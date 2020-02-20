@@ -208,7 +208,7 @@ uint32_t km_vvar_vdso_size;
  * Put the [vvar] and [vdso] pages from km's address space into the payload's
  * physical and virtual address spaces.
  */
-static void km_add_vvar_vdso_to_payload_address_space(km_kma_t mem)
+static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
 {
    maps_region_t vvar_vdso_regions[vvar_vdso_regions_count] = {
       { .name_substring = "[vvar]" },
@@ -220,7 +220,7 @@ static void km_add_vvar_vdso_to_payload_address_space(km_kma_t mem)
    // Get the km addresses of vvar and vdso pages
    rc = km_find_maps_regions(vvar_vdso_regions, vvar_vdso_regions_count);
    if (rc != 0) {
-      km_infox(KM_TRACE_MMAP, "Couldn't find vvar/vdso memory segments, not using vdso");
+      km_infox(KM_TRACE_MEM, "Couldn't find vvar/vdso memory segments, not using vdso");
       return;
    }
 
@@ -259,7 +259,7 @@ static void km_add_vvar_vdso_to_payload_address_space(km_kma_t mem)
    // add vvar and vdso pages to page table
    memset(mem + RSV_PT_OFFSET, 0, KM_PAGE_SIZE);    // clear page, no usable entries yet
    for (int i = 0; i < vvar_vdso_regions_count; i++) {
-      km_infox(KM_TRACE_MMAP, "%s: km vaddr 0x%lx, payload paddr 0x%lx, payload vaddr 0x%lx",
+      km_infox(KM_TRACE_MEM, "%s: km vaddr 0x%lx, payload paddr 0x%lx, payload vaddr 0x%lx",
                vvar_vdso_regions[i].name_substring,
                vvar_vdso_regions[i].begin_addr,
                physaddr,
@@ -364,7 +364,7 @@ void km_mem_init(km_machine_init_params_t* params)
    init_pml4((km_kma_t)reg->userspace_addr);
 
    // Add the [vvar] and [vdso] pages from km into the physical and virtual address space for the payload
-   km_add_vvar_vdso_to_payload_address_space((km_kma_t)reg->userspace_addr);
+   km_add_vvar_vdso_to_guest_address_space((km_kma_t)reg->userspace_addr);
 
    machine.brk = GUEST_MEM_START_VA;
    machine.tbrk = GUEST_MEM_TOP_VA;

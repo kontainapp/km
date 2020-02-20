@@ -49,8 +49,14 @@ int km_find_maps_regions(maps_region_t* regions, uint32_t nregions)
       return -2;
    }
 
+   linebuffer[sizeof(linebuffer)-1] = 0;
    while (fgets(linebuffer, sizeof(linebuffer), procmaps) != NULL) {
       int i;
+      if (linebuffer[sizeof(linebuffer)-1] != 0) {
+         km_infox(KM_TRACE_PROC, "Ignoring line from %s that exceeds buffer length", PROC_SELF_MAPS);
+         linebuffer[sizeof(linebuffer)-1] = 0;
+         continue;
+      }
       for (i = 0; i < nregions; i++) {
          if (regions[i].found == 0 && strstr(linebuffer, regions[i].name_substring) != NULL) {
             break;

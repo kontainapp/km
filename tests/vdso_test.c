@@ -152,7 +152,7 @@ int main(int argc, char* argv[])
    printf("sched_getcpu() func call duration %ld.%09ld seconds for %d iterations\n",
           funccall_duration.tv_sec,
           funccall_duration.tv_nsec, NTIMES);
-#define VDSO_SGC_FACTOR 10.0
+#define VDSO_SGC_FACTOR 9.0
    if (funcdur_float * VDSO_SGC_FACTOR > sysdur_float) {
       printf("sched_getcpu() %f exceeds 1/%f the time of SYS_getcpu %f\n", funcdur_float, VDSO_SGC_FACTOR, sysdur_float);
    }
