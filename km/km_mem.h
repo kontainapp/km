@@ -20,6 +20,7 @@
 #include <sys/param.h>
 #include <linux/kvm.h>
 #include "km.h"
+#include "km_proc.h"
 
 #define KM_PAGE_SIZE 0x1000ul   // standard 4k page
 #define KM_PAGE_MASK (~(KM_PAGE_SIZE-1))
@@ -37,6 +38,7 @@ static const int RSV_PDPT_OFFSET = 1 * KM_PAGE_SIZE;
 static const int RSV_PDPT2_OFFSET = 2 * KM_PAGE_SIZE;
 static const int RSV_PD_OFFSET = 3 * KM_PAGE_SIZE;
 static const int RSV_PD2_OFFSET = 4 * KM_PAGE_SIZE;
+static const int RSV_PT_OFFSET = 5 * KM_PAGE_SIZE;
 static const int RSV_IDMAP_OFFSET = RSV_MEM_SIZE;   // next page after reserved area
 /*
  * convert the above to guest physical offsets
@@ -44,10 +46,13 @@ static const int RSV_IDMAP_OFFSET = RSV_MEM_SIZE;   // next page after reserved 
 #define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
 
 static const int KM_RSRV_MEMSLOT = 0;
+static const int KM_RSRV_VDSOSLOT = 41;
 
 static const km_gva_t GUEST_MEM_START_VA = 2 * MIB;
 // ceiling for guest virt. address. 2MB shift down to make it aligned on GB with physical address
 static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
+
+static const km_gva_t GUEST_VVAR_VDSO_BASE_VA = (GUEST_MEM_TOP_VA + (1 * MIB));
 
 // VA offset from PA for addresses over machine.tbrk. Last 2MB of VA stay unused for symmetry.
 #define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA - (machine.guest_max_physmem - 2 * MIB))
@@ -205,6 +210,10 @@ static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
  */
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
+   if (gva >= GUEST_VVAR_VDSO_BASE_VA &&
+       gva < GUEST_VVAR_VDSO_BASE_VA + km_vvar_vdso_size) { // handle gdb references to vvar and vdso pages
+      return (km_kma_t)machine.vm_mem_regs[KM_RSRV_VDSOSLOT].userspace_addr + (gva - GUEST_VVAR_VDSO_BASE_VA);
+   }
    if (gva < GUEST_MEM_START_VA ||
        (roundup(machine.brk, KM_PAGE_SIZE) <= gva && gva < rounddown(machine.tbrk, KM_PAGE_SIZE)) ||
        GUEST_MEM_TOP_VA < gva) {
