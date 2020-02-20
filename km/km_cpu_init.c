@@ -248,8 +248,9 @@ km_vcpu_t* km_vcpu_get(void)
          return new;
       }
    }
+   km_err_msg(0, "VCPU allocation failed");
    km_vcpu_fini(new);
-   free(new);
+   // km_vcpu_fini frees 'new'
    return NULL;
 }
 
