@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -23,10 +23,12 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/param.h>
+#include <stdio.h>
 
 #include "km.h"
 #include "km_mem.h"
 #include "x86_cpu.h"
+#include "km_proc.h"
 
 /*
  * Physical memory layout:
@@ -82,6 +84,22 @@ static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
    pde->ps = 1;
    pde->glb = 1;
    pde->page = addr >> 21;
+}
+
+static void pde_4k_set(x86_pde_4k_t* pde, uint64_t addr)
+{
+  pde->p = 1;
+  pde->r_w = 1;
+  pde->u_s = 1;
+  pde->pta = addr >> 12;
+}
+
+static void pte_set(x86_pte_4k_t* pte, uint64_t addr)
+{
+  pte->p = 1;
+  pte->r_w = 1;
+  pte->u_s = 1;
+  pte->page = addr >> 12;
 }
 
 /*
@@ -152,12 +170,21 @@ static const uint64_t PDPTE_REGION = GIB;
 static const uint64_t PDE_REGION = 2 * MIB;
 
 /*
+ * Slot number in a page table for gva
+ */
+static inline int PTE_SLOT(km_gva_t __addr)
+{
+   return ((__addr) % (2 * 1024 * 1024)) >> 12;
+}
+
+/*
  * Slot number in PDE table for gva '_addr'.
  * Logically: (__addr % PDPTE_REGION) / PDE_REGION
  */
 static inline int PDE_SLOT(km_gva_t __addr)
 {
-   return ((__addr)&0x3ffffffful) >> 21;
+   return (__addr >> 21) & 0x1ff;
+   //return ((__addr)&0x3ffffffful) >> 21;
 }
 
 /*
@@ -167,6 +194,83 @@ static inline int PDE_SLOT(km_gva_t __addr)
 static inline int PDPTE_SLOT(km_gva_t __addr)
 {
    return ((__addr)&0x7ffffffffful) >> 30;
+}
+
+/*
+ * Remember these payload virtual addresses for placement in auxv[].
+ * Base of [vvar] pages in [0]
+ * Base of [vdso] pages in [1].
+ */
+km_gva_t km_vvar_vdso_base[2];
+uint32_t km_vvar_vdso_size;
+
+/*
+ * Put the [vvar] and [vdso] pages from km's address space into the payload's
+ * physical and virtual address spaces.
+ */
+static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
+{
+   maps_region_t vvar_vdso_regions[vvar_vdso_regions_count] = {
+      { .name_substring = "[vvar]" },
+      { .name_substring = "[vdso]" }
+   };   // the order of these entries is important.  don't change.
+   kvm_mem_reg_t* reg;
+   int rc;
+
+   // Get the km addresses of vvar and vdso pages
+   rc = km_find_maps_regions(vvar_vdso_regions, vvar_vdso_regions_count);
+   if (rc != 0) {
+      km_infox(KM_TRACE_MEM, "Couldn't find vvar/vdso memory segments, not using vdso");
+      return;
+   }
+
+   // This code assumes [vvar] and [vdso] are adjacent.
+   assert(vvar_vdso_regions[vvar_region_index].end_addr == vvar_vdso_regions[vdso_region_index].begin_addr);
+
+   km_vvar_vdso_size = (vvar_vdso_regions[vvar_region_index].end_addr - vvar_vdso_regions[vvar_region_index].begin_addr) +
+                       (vvar_vdso_regions[vdso_region_index].end_addr - vvar_vdso_regions[vdso_region_index].begin_addr);
+
+   // Map vvar and vdso at this guest virtual address
+   km_vvar_vdso_base[0] = GUEST_VVAR_VDSO_BASE_VA;
+   km_vvar_vdso_base[1] = km_vvar_vdso_base[0] + (vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr);
+
+   // Put the vdso and vvar pages into the payload's physical address space.
+   reg = &machine.vm_mem_regs[KM_RSRV_VDSOSLOT];
+   reg->slot = KM_RSRV_VDSOSLOT;
+   reg->userspace_addr = (typeof(reg->userspace_addr))vvar_vdso_regions[0].begin_addr;
+   reg->guest_phys_addr = gva_to_gpa_nocheck(km_vvar_vdso_base[0]);
+   reg->memory_size = km_vvar_vdso_size;
+   reg->flags = 0;
+   if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+      err(1, "KVM: set vvar/vdso region failed");
+   }
+
+   // Now add vdso and vvar to the payload's virtual address space
+   int idx;
+   uint64_t virtaddr = km_vvar_vdso_base[0];
+   uint64_t physaddr = virtaddr - GUEST_VA_OFFSET;
+   x86_pde_4k_t* pde = mem + RSV_PD2_OFFSET;
+   x86_pte_4k_t* pte = mem + RSV_PT_OFFSET;
+
+   // add entry to page directory
+   idx = PDE_SLOT(virtaddr);
+   pde_4k_set(pde + idx, RSV_GUEST_PA(RSV_PT_OFFSET));
+
+   // add vvar and vdso pages to page table
+   memset(mem + RSV_PT_OFFSET, 0, KM_PAGE_SIZE);    // clear page, no usable entries yet
+   for (int i = 0; i < vvar_vdso_regions_count; i++) {
+      km_infox(KM_TRACE_MEM, "%s: km vaddr 0x%lx, payload paddr 0x%lx, payload vaddr 0x%lx",
+               vvar_vdso_regions[i].name_substring,
+               vvar_vdso_regions[i].begin_addr,
+               physaddr,
+               virtaddr);
+      for (uint64_t b = vvar_vdso_regions[i].begin_addr; b < vvar_vdso_regions[i].end_addr; b += KM_PAGE_SIZE) {
+         idx = PTE_SLOT(virtaddr);
+         pte_set(pte + idx, physaddr);
+         virtaddr += KM_PAGE_SIZE;
+         physaddr += KM_PAGE_SIZE;
+      }
+   }
 }
 
 static void init_pml4(km_kma_t mem)
@@ -198,6 +302,7 @@ static void init_pml4(km_kma_t mem)
    idx = PDE_SLOT(GUEST_MEM_TOP_VA);
    pdpte_set(pdpe + idx, RSV_GUEST_PA(RSV_PD2_OFFSET));
 
+   // Clear the 2 page directory pages
    memset(mem + RSV_PD_OFFSET, 0, KM_PAGE_SIZE);    // clear page, no usable entries
    memset(mem + RSV_PD2_OFFSET, 0, KM_PAGE_SIZE);   // clear page, no usable entries
 }
@@ -257,6 +362,9 @@ void km_mem_init(km_machine_init_params_t* params)
       err(1, "KVM: set identity map addr failed");
    }
    init_pml4((km_kma_t)reg->userspace_addr);
+
+   // Add the [vvar] and [vdso] pages from km into the physical and virtual address space for the payload
+   km_add_vvar_vdso_to_guest_address_space((km_kma_t)reg->userspace_addr);
 
    machine.brk = GUEST_MEM_START_VA;
    machine.tbrk = GUEST_MEM_TOP_VA;

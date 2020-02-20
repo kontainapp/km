@@ -232,7 +232,10 @@ typedef struct km_mmap_cb {   // control block
 static const int CPUID_ENTRIES = 100;   // A little padding, kernel says 80
 #define KVM_MAX_VCPUS 288
 
-#define KM_MEM_SLOTS 41   // We use 35 on 512GB machine, 41 on 4TB, out of 509 KVM_USER_MEM_SLOTS
+#define KM_MEM_SLOTS 42   // We use 36 on 512GB machine, 42 on 4TB, out of 509 KVM_USER_MEM_SLOTS
+                          // slot 0 is used for pages tables and some other things
+                          // slot 41 is used to map the vdso and vvar pages into the payload address
+                          //  space
 
 typedef struct km_machine {
    int kvm_fd;                                // /dev/kvm file descriptor
@@ -536,6 +539,7 @@ static inline void km_signal_unlock(void)
 #define KM_TRACE_COREDUMP "coredump"
 #define KM_TRACE_SIGNALS "signals"
 #define KM_TRACE_DECODE "decode"
+#define KM_TRACE_PROC "proc"
 
 /*
  * The km definition of the link_map structure in runtime/musl/include/link.h
