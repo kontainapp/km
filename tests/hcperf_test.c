@@ -18,7 +18,7 @@ int main(int argc, char** argv)
    long count = atol(argv[1]);
    long load = atol(argv[2]);
    for (long i = 0; i < count; i++) {
-      volatile long x;
+      volatile long x __attribute__((unused));
       for (int j = 0; j < load; j++) {
          x = j / (i + 1);
       }
