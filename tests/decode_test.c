@@ -142,6 +142,28 @@ TEST copyout_test()
    PASS();
 }
 
+TEST mem_source_test()
+{
+   ASSERT_EQ(0, setup());
+
+   /*
+    * Make sure we decode correctly when memory is the source.
+    * Use RDX because it is also used by guest interrupt
+    * handlers and this makes sure it gets restored correctly.
+    */
+   asm volatile("mov %0, %%rdx\n\t"
+                "mov (%%rdx), %%rax"
+                : /* No output */
+                : "r"(datapage_page)
+                : "%rdx", "%rax");
+
+   ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
+   ASSERT_EQ(datapage_page, failing_page());
+
+   ASSERT_EQ(0, teardown());
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char* argv[])
@@ -154,6 +176,7 @@ int main(int argc, char* argv[])
    RUN_TEST(memset_test);
    RUN_TEST(copyin_test);
    RUN_TEST(copyout_test);
+   RUN_TEST(mem_source_test);
 
    GREATEST_PRINT_REPORT();
    return greatest_info.failed;
