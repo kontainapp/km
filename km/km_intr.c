@@ -61,7 +61,7 @@ static inline void build_idt_entry(x86_idt_entry_t* idt, km_gva_t handler, int i
    idt->type = X86_DSCT_INTR_GATE;
 }
 
-void km_init_guest_idt(km_gva_t handlers_gva)
+void km_init_guest_idt(km_gva_t default_handler, km_gva_t handler_table_gva)
 {
    km_gva_t gdt_base;
    km_gva_t idt_base;
@@ -93,8 +93,17 @@ void km_init_guest_idt(km_gva_t handlers_gva)
    }
    idte = (x86_idt_entry_t*)km_gva_to_kma_nocheck(idt_base);
 
+   int handler_index = 0;
+   uint64_t* handler_table_kma = km_gva_to_kma(handler_table_gva);
    for (int i = 0; i < X86_IDT_NENTRY; i++) {
-      build_idt_entry(&idte[i], handlers_gva, 1);
+      if (handler_table_kma != NULL && handler_table_kma[handler_index] != 0) {
+         build_idt_entry(&idte[i],
+                         handler_table_kma[handler_index] + km_guest.km_interrupt_table_adjust,
+                         1);
+         handler_index++;
+      } else {
+         build_idt_entry(&idte[i], default_handler, 1);
+      }
    }
 
    machine.idt = idt_base;
@@ -123,25 +132,21 @@ static uint8_t error_included[32] = {
  */
 void km_handle_interrupt(km_vcpu_t* vcpu)
 {
-   kvm_vcpu_events_t events;
-   uint8_t enumber;
-
-   //  Get event and determine interrupt number
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_VCPU_EVENTS, &events) < 0) {
-      errx(1, "KVM_GET_VCPU_EVENTS failed %d (%s)\n", errno, strerror(errno));
-   }
-   enumber = events.exception.nr;
-   if (enumber >= sizeof(error_included)) {
-      errx(1, "Interrupt out of range - %d", events.exception.nr);
-   }
-   if (error_included[enumber] == -1) {
-      errx(1, "Unexpected Interrupt - %d", enumber);
-   }
-
    km_read_registers(vcpu);
    km_read_sregisters(vcpu);
 
+   uint64_t enumber = vcpu->regs.rbx;
+   if (enumber >= sizeof(error_included)) {
+      errx(1, "Interrupt out of range - %ld", enumber);
+   }
+   if (error_included[enumber] == -1) {
+      errx(1, "Unexpected Interrupt - %ld", enumber);
+   }
+
    uint64_t* rsp_kma = km_gva_to_kma_nocheck(vcpu->regs.rsp);
+   vcpu->regs.rax = *rsp_kma++;
+   vcpu->regs.rbx = *rsp_kma++;
+   vcpu->regs.rdx = *rsp_kma++;
    uint64_t error_code = 0;
    x86_interrupt_frame_t* iframe = (x86_interrupt_frame_t*)rsp_kma;
    if (error_included[enumber]) {
@@ -172,7 +177,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
     * https://software.intel.com/sites/default/files/article/402129/mpx-linux64-abi.pdf
     */
    siginfo_t info = {.si_code = SI_KERNEL};
-   switch (events.exception.nr) {
+   switch (enumber) {
       case X86_INTR_DE:   // Divide error: SIGFPE
       case X86_INTR_NM:   // Device not available (math coprocessor)
       case X86_INTR_MF:   // Math Fault
@@ -186,8 +191,10 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
 
       case X86_INTR_OF:   // Overflow
       case X86_INTR_SS:   // Stack-Segment fault
+         break;
       case X86_INTR_GP:   // General Protection: SIGSEGV
          info.si_signo = SIGSEGV;
+         info.si_addr = km_find_faulting_address(vcpu);
          break;
 
       case X86_INTR_PF:   // Page fault: SIGSEGV
@@ -215,9 +222,9 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
    }
 
    km_infox(KM_TRACE_SIGNALS,
-            "Guest Fault: type:%d (%s) --> signal:%d (%s)",
-            events.exception.nr,
-            str_intr[events.exception.nr],
+            "Guest Fault: type:%ld (%s) --> signal:%d (%s)",
+            enumber,
+            str_intr[enumber],
             info.si_signo,
             strsignal(info.si_signo));
 

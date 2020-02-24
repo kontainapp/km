@@ -118,9 +118,14 @@ static inline int km_find_hook_symbols(Elf* e, km_gva_t adjust)
             } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_DLOPEN_SYM_NAME) == 0) {
                km_guest.km_dlopen = sym.st_value + adjust;
+            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_TABL_SYM_NAME) == 0) {
+               km_guest.km_interrupt_table = sym.st_value + adjust;
+               km_guest.km_interrupt_table_adjust = adjust;
             }
             if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0 &&
-                km_guest.km_clone_child != 0 && km_guest.km_dlopen != 0) {
+                km_guest.km_clone_child != 0 && km_guest.km_dlopen != 0 &&
+                km_guest.km_interrupt_table != 0) {
                all_found = 1;
                break;
             }

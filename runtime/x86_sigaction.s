@@ -66,8 +66,78 @@ __km_sigreturn_end:        # We'll need this to define the the DWARF
 __km_handle_interrupt:
     .type __km_handle_interrupt, @function
     .global __km_handle_interrupt
+    push %rdx
+    push %rbx
+    push %rax
+    mov $0xdeadbeef, %rbx
     mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
     mov $0xffff81fd, %edx   # HC_guest_interrupt
 retry:
     out %eax, %dx           # Enter KM
     jmp retry               # Should never hit here.
+
+.macro intr_hand name, num
+    .text
+.align 16
+handler\name :
+    push %rdx
+    push %rbx
+    push %rax
+    mov $\num, %rbx
+    mov %rsp, %rax          # KM Setup km_hc_args_t on stack for us to use
+    mov $0xffff81fd, %edx   # HC_guest_interrupt
+retry\name :
+    out %eax, %dx           # Enter KM
+    jmp retry\name           # Should never hit here.
+    
+.endm
+
+/*
+ * Interrupt handlers
+ */
+    .align 16
+intr_hand UNEX, 0xff
+intr_hand DE, 0
+intr_hand OF, 4
+intr_hand BR, 5
+intr_hand UD, 6
+intr_hand NM, 7
+intr_hand DF, 8
+intr_hand GP, 13
+intr_hand PF, 14
+intr_hand MF, 16
+intr_hand AC, 17
+intr_hand MC, 18
+intr_hand XM, 19
+intr_hand VE, 20
+intr_hand CP, 21
+
+    .data
+    .align 16
+    .type __km_interrupt_table, @object
+    .global __km_interrupt_table
+__km_interrupt_table:
+    .quad handlerDE         # 0  #DE
+    .quad handlerUNEX       # 1  #DB
+    .quad handlerUNEX       # 2  NMI
+    .quad handlerUNEX       # 3  #BP
+    .quad handlerOF         # 4  #OF
+    .quad handlerBR         # 5  #BR
+    .quad handlerUD         # 6  #UD
+    .quad handlerNM         # 7  #NM
+    .quad handlerDF         # 8  #DF
+    .quad handlerUNEX       # 9  Coprocessor segment overrun
+    .quad handlerUNEX       # 10 #TS
+    .quad handlerUNEX       # 11 #NP
+    .quad handlerUNEX       # 12 #SS
+    .quad handlerGP         # 13 #GP
+    .quad handlerPF         # 14 #PF
+    .quad handlerUNEX       # 15 Reserved
+    .quad handlerMF         # 16 #MF
+    .quad handlerAC         # 17 #AC
+    .quad handlerMC         # 18 #MC
+    .quad handlerXM         # 19 #XM
+    .quad handlerVE         # 20 #VE
+    .quad handlerCP         # 21 #CP
+    .quad handlerUNEX       # Rest unexpected
+    .quad 0                 # Terminate list

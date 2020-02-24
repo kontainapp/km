@@ -55,7 +55,7 @@ cat <<EOF > ${TMP_SPEC}
 %{!shared: crtend.o%s} %{shared: crtendS.o%s} ${CRT}/x86_64/crtn.o%s
 
 *link:
-%(old_link) %{!shared:%{!rdynamic:-static} -Ttext-segment=0x200000 -e_start} %{rdynamic:--rpath=${PREFIX}/lib64 --dynamic-linker=${KM_LDSO} ${SHR_LIBC} ${SHR_LIBSTDCPP} -export-dynamic} -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
+%(old_link) %{!shared:%{!rdynamic:-static} -Ttext-segment=0x200000 -e_start} %{rdynamic:--rpath=${PREFIX}/lib64 --dynamic-linker=${KM_LDSO} ${SHR_LIBC} ${SHR_LIBSTDCPP} -export-dynamic} -u__km_interrupt_table -u__km_sigreturn -u__km_handle_interrupt -u__km_clone_run_child --gc-sections -zseparate-code -znorelro -zmax-page-size=0x1000
 EOF
 
 "${REALGCC}" -specs=${TMP_SPEC} "$@" ${LIB}
