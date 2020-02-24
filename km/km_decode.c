@@ -33,8 +33,8 @@ typedef struct x86_instruction {
    // ModR/M fields
    unsigned char modrm_present;
    unsigned char modrm_mode;
-   unsigned char modrm_reg1;
-   unsigned char modrm_reg2;
+   unsigned char modrm_reg;
+   unsigned char modrm_rm;
    // SIB fields
    unsigned char sib_present;
    unsigned char sib_scale;
@@ -204,8 +204,8 @@ static inline void decode_modrm(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    ins->modrm_present = 1;
    ins->modrm_mode = (ins->curbyte >> 6) & 0x03;
-   ins->modrm_reg1 = (ins->curbyte >> 3) & 0x07;
-   ins->modrm_reg2 = ins->curbyte & 0x07;
+   ins->modrm_reg = (ins->curbyte >> 3) & 0x07;
+   ins->modrm_rm = ins->curbyte & 0x07;
 }
 
 static inline void decode_sib(km_vcpu_t* vcpu, x86_instruction_t* ins)
@@ -214,12 +214,6 @@ static inline void decode_sib(km_vcpu_t* vcpu, x86_instruction_t* ins)
    ins->sib_scale = (ins->curbyte >> 6) & 0x03;
    ins->sib_index = (ins->curbyte >> 3) & 0x07;
    ins->sib_base = ins->curbyte & 0x07;
-}
-
-static inline int km_mem_is_source(km_vcpu_t* vcpu, unsigned char opcode)
-{
-   // TODO: Only works for Opcodes 0x8X
-   return (opcode & 0xfe) == 0x8a;
 }
 
 static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
@@ -241,12 +235,12 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
       }
       decode_modrm(vcpu, ins);
       km_infox(KM_TRACE_DECODE,
-               "opcode: 0x%02x modrm: present:%d mode:%d reg1:%d reg2:%d",
+               "opcode: 0x%02x modrm: present:%d mode:%d reg:%d rm:%d",
                opcode,
                ins->modrm_present,
                ins->modrm_mode,
-               ins->modrm_reg1,
-               ins->modrm_reg2);
+               ins->modrm_reg,
+               ins->modrm_rm);
       decode_consume_byte(vcpu, ins);
       if (ins->failed_addr != 0) {
          return;
@@ -255,7 +249,7 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
          km_infox(KM_TRACE_DECODE, "Register to register");
          return;
       }
-      if (ins->modrm_reg1 == 0x04 || ins->modrm_reg2 == 0x04) {
+      if (ins->modrm_reg == 0x04 || ins->modrm_rm == 0x04) {
          decode_sib(vcpu, ins);
          km_infox(KM_TRACE_DECODE,
                   " sib: scale:%d index:%d base:%d",
@@ -302,13 +296,8 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
 
       if (ins->sib_present == 0) {
          uint64_t* regp = NULL;
-         if (km_mem_is_source(vcpu, opcode) != 0) {
-            km_infox(KM_TRACE_DECODE, "get reg1");
-            regp = km_reg_ptr(vcpu, ins->rex_r, ins->modrm_reg1);
-         } else {
-            km_infox(KM_TRACE_DECODE, "get reg2");
-            regp = km_reg_ptr(vcpu, ins->rex_b, ins->modrm_reg2);
-         }
+         km_infox(KM_TRACE_DECODE, "get rm");
+         regp = km_reg_ptr(vcpu, ins->rex_b, ins->modrm_rm);
          ins->failed_addr = *regp + ins->disp;
          return;
       }
