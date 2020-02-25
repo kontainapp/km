@@ -64,8 +64,10 @@ steps:
       cat /proc/version
       echo "=== Docker version:"
       docker version
-      echo  =======================
+      echo ==== Environment Variables
       env
+      echo ==== CPU Info
+      lscpu
     displayName: Print build environment info
 
   - bash: make -C cloud/azure login-cli
