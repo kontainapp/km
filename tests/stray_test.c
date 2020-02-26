@@ -53,6 +53,7 @@ int hc_test(int optind, int argc, char* argv[]);
 int hc_badarg_test(int optind, int argc, char* argv[]);
 int close_test(int optind, int argc, char* argv[]);
 int thread_test(int optind, int argc, char* argv[]);
+int syscall_test(int optind, int argc, char* argv[]);
 
 struct stray_op {
    char* op;                                          // Operation name on command line
@@ -81,6 +82,7 @@ struct stray_op {
      .description = "<call> - make hypercall with number <call> and a bad argument."},
     {.op = "close", .func = close_test, .description = "<fd> - close file descriptor fd"},
     {.op = "thread", .func = thread_test, .description = "test pthread create/join"},
+    {.op = "syscall", .func = syscall_test, .description = "Generate a SYSCALL instruction"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -248,6 +250,28 @@ int thread_test(int optind, int optarg, char* argv[])
    pthread_create(&thr, NULL, thread_main2, NULL);
    void* ret;
    pthread_join(thr, &ret);
+   return 0;
+}
+
+/*
+ * Print using SYSCALL instruction.
+ * Make sure that a real syscall instruction in the payload gets mapped to
+ * a hypercall.
+ */
+int syscall_test(int optind, int optarg, char* argv[])
+{
+   int syscall_num = 1;   // write()
+   int fd = 1;
+   char* msg = "Hello from SYSCALL\n";
+   size_t msgsz = strlen(msg);
+   int rc;
+
+   asm volatile("\tsyscall"
+                : "=a"(rc)
+                : "a"(syscall_num), "D"(fd), "S"(msg), "d"(msgsz));
+   if (rc != msgsz) {
+      return 1;
+   }
    return 0;
 }
 
