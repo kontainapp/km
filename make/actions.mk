@@ -143,6 +143,21 @@ ${BLDDIR}%.o: %.S
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
 		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
+${BLDDIR}%.lo: %.c
+	@echo $(CC) -c ${CFLAGS} $< -o $@
+	@$(CC) -c ${CFLAGS} $< -o $@ |& \
+		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+
+${BLDDIR}%.lo: %.s
+	@echo $(CC) -c ${CFLAGS} $< -o $@
+	@$(CC) -c ${CFLAGS} $< -o $@ |& \
+		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+
+${BLDDIR}%.lo: %.S
+	@echo $(CC) -c ${CFLAGS} $< -o $@
+	@$(CC) -c ${CFLAGS} $< -o $@ |& \
+		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+
 # note ${BLDDIR} in the .d file - this is what tells make to get .o from ${BLDDIR}
 #
 ${BLDDIR}%.d: %.c

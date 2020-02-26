@@ -110,21 +110,6 @@ ${SO_OBJS} ${DL_OBJS}: | ${OBJDIRS}	${EXTRA_OBJDIRS} # order only prerequisite -
 ${EXTRA_OBJDIRS}:
 	mkdir -p $@
 
-${BLDDIR}%.lo: %.c
-	@echo $(CC) -c ${CFLAGS} $< -o $@
-	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
-
-${BLDDIR}%.lo: %.s
-	@echo $(CC) -c ${CFLAGS} $< -o $@
-	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
-
-${BLDDIR}%.lo: %.S
-	@echo $(CC) -c ${CFLAGS} $< -o $@
-	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
-
 ${BLDDIR}${SRCDIR}include/bits/alltypes.h: $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in
 	mkdir -p $(dir $@)
 	sed -f $(SRCDIR)tools/mkalltypes.sed $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in > $@
