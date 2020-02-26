@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -102,7 +102,15 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    strcpy(stack_top_kma, pstr);
    km_gva_t platform_gva = stack_top;
 
-   // TODO: AT_RANDOM random data for seeds (16 bytes)
+   // AT_RANDOM random data for seeds (16 bytes)
+   pstr_len = 16;
+   stack_top -= pstr_len;
+   stack_top_kma -= pstr_len;
+   ssize_t rc = getrandom(stack_top_kma, pstr_len, 0);
+   if (rc != pstr_len) {
+      err(2, "getrandom() didn't return enough bytes");
+   }
+   km_gva_t at_random = stack_top;
 
    /*
     * ABI wants the stack 16 bytes aligned at the end of this, when we place
@@ -133,7 +141,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    NEW_AUXV_ENT(0, 0);
    NEW_AUXV_ENT(AT_PLATFORM, platform_gva);
    NEW_AUXV_ENT(AT_EXECFN, argv_km[0]);
-   // TODO: AT_RANDOM
+   NEW_AUXV_ENT(AT_RANDOM, at_random);
    NEW_AUXV_ENT(AT_SECURE, 0);
    NEW_AUXV_ENT(AT_EGID, 0);
    NEW_AUXV_ENT(AT_GID, 0);
