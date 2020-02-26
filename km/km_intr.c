@@ -210,6 +210,55 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
          break;
 
       case X86_INTR_UD:   // Undefined instruction: SIGILL
+      {
+         unsigned char* ins = km_gva_to_kma(iframe->rip);
+         /*
+          * Special case if not SYSCALL then SIGILL.
+          * If is SYSCALL, try to emulate.
+          */
+         if (ins == NULL || ins[0] != 0x0f || ins[1] != 0x05) {
+            info.si_signo = SIGILL;
+            break;
+         }
+
+         /*
+          * Linux SYSCALL convention:
+          * RAX = syscall number
+          * RDI = 1st parameter
+          * RSI = 2nd parameter
+          * RDX = 3rd parameter
+          * R10 = 4th parameter
+          * R8  = 5th parameter
+          * R9  = 6th parameter
+          * Return value saved in RAX
+          */
+         int hc = vcpu->regs.rax;
+         if (hc < 0 || hc >= KM_MAX_HCALL || km_hcalls_table[hc] == NULL) {
+            // If we don't support the syscall, Treat it as a SIGILL
+            info.si_signo = SIGILL;
+            break;
+         }
+         km_hc_args_t args = {
+             .arg1 = vcpu->regs.rdi,
+             .arg2 = vcpu->regs.rsi,
+             .arg3 = vcpu->regs.rdx,
+             .arg4 = vcpu->regs.r10,
+             .arg5 = vcpu->regs.r8,
+             .arg6 = vcpu->regs.r9,
+         };
+         km_err_msg(0, "SYSCALL call hc=%d (%s)", hc, km_hc_name_get(hc));
+         km_hc_ret_t hc_ret = km_hcalls_table[hc](vcpu, hc, &args);
+         if (hc_ret != HC_CONTINUE) {
+            // TODO: Handle stop conditions
+            errx(2, "SYSCALL returned no continue: %d", hc_ret);
+         }
+         vcpu->regs.rax = args.hc_ret;
+         vcpu->regs.rip += 2;   // consume SYSCALL instruction
+         km_write_registers(vcpu);
+
+         return;
+      }
+
       case X86_INTR_NP:   // Segment not present
       case X86_INTR_BR:   // BOUND Range
       case X86_INTR_MC:   // Machine Check
