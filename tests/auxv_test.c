@@ -20,18 +20,21 @@ int main(int argc, char* argv[])
    auxval = (char*)getauxval(AT_PLATFORM);
    if (auxval == NULL) {
       printf("AT_PLATFORM is missing\n");
+     return 1;
    } else {
       printf("AT_PLATFORM     %s\n", auxval);
    }
    auxval = (char*)getauxval(AT_EXECFN);
    if (auxval == NULL) {
       printf("AT_EXECFN is missing\n");
+     return 1;
    } else {
       printf("AT_EXECFN       %s\n", auxval);
    }
    auxval = (char*)getauxval(AT_RANDOM);
    if (auxval == NULL) {
       printf("AT_RANDOM is missing\n");
+     return 1;
    } else {
       printf("AT_RANDOM      ");
       for (int i = 0; i < 16; i++) {

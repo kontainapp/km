@@ -718,5 +718,4 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 @test "auxv_test($test_type): validate km aux vector (auxv_test$ext)" {
    run km_with_timeout auxv_test$ext
    assert_success
-   refute_line --regexp "AT_.* is missing"
 }

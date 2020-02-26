@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <linux/futex.h>
+#include <sys/random.h>
 
 #include "km.h"
 #include "km_gdb.h"
@@ -103,14 +104,18 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    km_gva_t platform_gva = stack_top;
 
    // AT_RANDOM random data for seeds (16 bytes)
+   km_gva_t at_random = 0;
    pstr_len = 16;
    stack_top -= pstr_len;
    stack_top_kma -= pstr_len;
    ssize_t rc = getrandom(stack_top_kma, pstr_len, 0);
    if (rc != pstr_len) {
-      err(2, "getrandom() didn't return enough bytes");
+      km_err_msg(0, "getrandom() didn't return enough bytes, expected %d, got %ld", pstr_len, rc);
+      stack_top += pstr_len;
+      stack_top_kma += pstr_len;
+   } else {
+      at_random = stack_top;
    }
-   km_gva_t at_random = stack_top;
 
    /*
     * ABI wants the stack 16 bytes aligned at the end of this, when we place
@@ -141,7 +146,9 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    NEW_AUXV_ENT(0, 0);
    NEW_AUXV_ENT(AT_PLATFORM, platform_gva);
    NEW_AUXV_ENT(AT_EXECFN, argv_km[0]);
-   NEW_AUXV_ENT(AT_RANDOM, at_random);
+   if (at_random != 0) {
+      NEW_AUXV_ENT(AT_RANDOM, at_random);
+   }
    NEW_AUXV_ENT(AT_SECURE, 0);
    NEW_AUXV_ENT(AT_EGID, 0);
    NEW_AUXV_ENT(AT_GID, 0);
