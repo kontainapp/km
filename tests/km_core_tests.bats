@@ -70,6 +70,9 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_failure 31  #SIGSYS
    assert_output --partial "Bad system call"
 
+   run km_with_timeout stray_test$ext syscall
+   assert_success
+   assert_output --partial "Hello from SYSCALL"
 }
 
 @test "km_main_signal($test_type): wait on signal (hello_test$ext)" {

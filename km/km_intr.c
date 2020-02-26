@@ -246,7 +246,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
              .arg5 = vcpu->regs.r8,
              .arg6 = vcpu->regs.r9,
          };
-         km_err_msg(0, "SYSCALL call hc=%d", hc);
+         km_err_msg(0, "SYSCALL call hc=%d (%s)", hc, km_hc_name_get(hc));
          km_hc_ret_t hc_ret = km_hcalls_table[hc](vcpu, hc, &args);
          if (hc_ret != HC_CONTINUE) {
             // TODO: Handle stop conditions

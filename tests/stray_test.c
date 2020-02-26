@@ -255,19 +255,23 @@ int thread_test(int optind, int optarg, char* argv[])
 
 /*
  * Print using SYSCALL instruction.
+ * Make sure that a real syscall instruction in the payload gets mapped to
+ * a hypercall.
  */
 int syscall_test(int optind, int optarg, char* argv[])
 {
-   int syscall_num = 1;
+   int syscall_num = 1;   // write()
    int fd = 1;
    char* msg = "Hello from SYSCALL\n";
    size_t msgsz = strlen(msg);
    int rc;
 
-   asm volatile("mov $1, %%rax\n\t"
-                "syscall"
+   asm volatile("\tsyscall"
                 : "=a"(rc)
                 : "a"(syscall_num), "D"(fd), "S"(msg), "d"(msgsz));
+   if (rc != msgsz) {
+      return 1;
+   }
    return 0;
 }
 
