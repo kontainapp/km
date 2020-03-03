@@ -1,0 +1,47 @@
+# Kontaind contains all artifacts to run as daemonset on nodes that are running
+# kontain. Combine the kvm device plugin and kontain installer into one
+# package.
+# 
+# The original device plugin is just for kvm. We adapted to include a step to
+# install the nesserary kontain components on the node.
+# From kubernetes-device-plugins/manifests/kvm-ds.yml
+# License: MIT
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    name: kontaind
+  name: kontaind
+spec:
+  selector:
+    matchLabels:
+      name: kontaind
+  template:
+    metadata:
+      labels:
+        name: kontaind
+    spec:
+      containers:
+      - name: device-plugin-kvm
+        image: quay.io/kubevirt/device-plugin-kvm
+        args: ["-v", "3", "-logtostderr"]
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - name: device-plugin
+            mountPath: /var/lib/kubelet/device-plugins
+      initContainers:
+      - name: kontain-installer
+        image: docker.io/kontainapp/runenv-kontain-installer:0.1
+        imagePullPolicy: Always
+        volumeMounts:
+          - name: install-path
+            mountPath: /opt
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: install-path
+          hostPath:
+            path: /opt
