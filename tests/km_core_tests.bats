@@ -719,3 +719,15 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    run km_with_timeout auxv_test$ext
    assert_success
 }
+
+# Test fix for issue #459 - short write in core dump
+# checks that coredump writing completed sucessfully.
+@test "trunc_mmap($test_type): truncate a mmaped file and dump core (trunc_mmap$ext)" {
+   CORE=/tmp/kmcore.$$
+   FILE=/tmp/trunc_mmap.$$
+   run km_with_timeout --coredump=${CORE} stray_test$ext trunc_mmap ${FILE}
+   assert_failure 6  # SIGABRT
+   assert_output --partial "Aborted (core dumped)"
+   assert [ -f ${CORE} ]
+   rm -f ${FILE} ${CORE}
+}

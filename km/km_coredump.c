@@ -46,7 +46,7 @@ static inline char* km_get_coredump_path()
 /*
  * Write a buffer in KM memory.
  */
-static inline void km_core_write(int fd, void* buffer, size_t length)
+static inline void km_core_write_mem(int fd, void* buffer, size_t length, int is_guestmem)
 {
    int rc;
    char* cur = buffer;
@@ -54,18 +54,30 @@ static inline void km_core_write(int fd, void* buffer, size_t length)
 
    while (remain > 0) {
       if ((rc = write(fd, cur, remain)) == -1) {
-         km_err_msg(errno,
-                    "write error - errno:%d cur=%p remain=0x%lx buffer=%p length=0x%lx\n",
-                    errno,
-                    cur,
-                    remain,
-                    buffer,
-                    length);
-         errx(2, "exiting...\n");
+         if (errno == EFAULT && is_guestmem) {
+            if (lseek(fd, remain, SEEK_CUR) < 0) {
+               km_err_msg(errno, "lseek error fd=%d cur=%p remain=0x%lx", fd, cur, remain);
+               errx(errno, "exiting...");
+            }
+            rc = remain;
+         } else {
+            km_err_msg(errno,
+                       "write error - cur=%p remain=0x%lx buffer=%p length=0x%lx\n",
+                       cur,
+                       remain,
+                       buffer,
+                       length);
+            errx(errno, "exiting...\n");
+         }
       }
       remain -= rc;
       cur += rc;
    }
+}
+
+static inline void km_core_write(int fd, void* buffer, size_t length)
+{
+   return km_core_write_mem(fd, buffer, length, 0);
 }
 
 static inline void km_core_write_elf_header(int fd, int phnum)
@@ -410,7 +422,7 @@ static inline void km_guestmem_write(int fd, km_gva_t base, size_t length)
    while (remain > 0) {
       size_t wsz = MIN(remain, maxwrite);
 
-      km_core_write(fd, km_gva_to_kma_nocheck(current), wsz);
+      km_core_write_mem(fd, km_gva_to_kma_nocheck(current), wsz, 1);
       current += wsz;
       remain -= wsz;
    }

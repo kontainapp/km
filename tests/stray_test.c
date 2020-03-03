@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
@@ -25,6 +26,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "km_hcalls.h"
 #include "syscall.h"
@@ -54,6 +57,7 @@ int hc_badarg_test(int optind, int argc, char* argv[]);
 int close_test(int optind, int argc, char* argv[]);
 int thread_test(int optind, int argc, char* argv[]);
 int syscall_test(int optind, int argc, char* argv[]);
+int trunc_mmap_test(int optind, int argc, char* argv[]);
 
 struct stray_op {
    char* op;                                          // Operation name on command line
@@ -83,6 +87,7 @@ struct stray_op {
     {.op = "close", .func = close_test, .description = "<fd> - close file descriptor fd"},
     {.op = "thread", .func = thread_test, .description = "test pthread create/join"},
     {.op = "syscall", .func = syscall_test, .description = "Generate a SYSCALL instruction"},
+    {.op = "trunc_mmap", .func = trunc_mmap_test, .description = "Truncate an mmaped file and crash"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -266,12 +271,44 @@ int syscall_test(int optind, int optarg, char* argv[])
    size_t msgsz = strlen(msg);
    int rc;
 
-   asm volatile("\tsyscall"
-                : "=a"(rc)
-                : "a"(syscall_num), "D"(fd), "S"(msg), "d"(msgsz));
+   asm volatile("\tsyscall" : "=a"(rc) : "a"(syscall_num), "D"(fd), "S"(msg), "d"(msgsz));
    if (rc != msgsz) {
       return 1;
    }
+   return 0;
+}
+
+/*
+ * Recreate Issue #459 - Short write in coredump.
+ * This occurs when a file is truncated while mmap'ed.
+ */
+int trunc_mmap_test(int optind, int argc, char* argv[])
+{
+   // create a  2 page file.
+   int fd = open(argv[optind], O_RDWR | O_CREAT, 0666);
+   if (fd < 0) {
+      perror("open");
+      return 1;
+   }
+   if (ftruncate(fd, 8192) < 0) {
+      perror("ftruncate");
+      return 1;
+   }
+
+   // mmap it
+   void* ptr = mmap(NULL, 8192, PROT_READ, MAP_SHARED, fd, 0);
+   if (ptr == MAP_FAILED) {
+      perror("mmap");
+      return 1;
+   }
+
+   // truncate file and drop core.
+   if (ftruncate(fd, 1024) < 0) {
+      perror("ftruncate2");
+      return 1;
+   }
+   abort();
+
    return 0;
 }
 
