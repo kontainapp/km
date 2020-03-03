@@ -56,19 +56,18 @@ static inline void km_core_write_mem(int fd, void* buffer, size_t length, int is
       if ((rc = write(fd, cur, remain)) == -1) {
          if (errno == EFAULT && is_guestmem) {
             if (lseek(fd, remain, SEEK_CUR) < 0) {
-               km_err_msg(errno, "lseek error");
-               errx(2, "exiting...");
+               km_err_msg(errno, "lseek error fd=%d cur=%p remain=0x%lx", fd, cur, remain);
+               errx(errno, "exiting...");
             }
             rc = remain;
          } else {
             km_err_msg(errno,
-                       "write error - errno:%d cur=%p remain=0x%lx buffer=%p length=0x%lx\n",
-                       errno,
+                       "write error - cur=%p remain=0x%lx buffer=%p length=0x%lx\n",
                        cur,
                        remain,
                        buffer,
                        length);
-            errx(2, "exiting...\n");
+            errx(errno, "exiting...\n");
          }
       }
       remain -= rc;
