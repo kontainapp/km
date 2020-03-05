@@ -22,6 +22,8 @@
 #include "km.h"
 #include "km_signal.h"
 
+#define GDB_DEFAULT_PORT 2159   // per /etc/services, this is gdbremote default
+
 /* GDB breakpoint/watchpoint types */
 typedef enum {
    /*
