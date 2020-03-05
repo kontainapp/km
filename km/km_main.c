@@ -27,8 +27,6 @@
 #include "km_mem.h"
 #include "km_signal.h"
 
-#define GDB_DEFAULT_PORT 2159   // per /etc/services, this is gdbremote default
-
 km_info_trace_t km_info_trace;
 
 extern int vcpu_dump;
