@@ -759,3 +759,9 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert [ -f ${CORE} ]
    rm -f ${FILE} ${CORE}
 }
+
+@test "raw_clone($test_type): raw clone syscall (clone_test$ext)" {
+   run km_with_timeout clone_test$ext
+   assert_success
+   assert_output --partial "Hello from clone"
+}

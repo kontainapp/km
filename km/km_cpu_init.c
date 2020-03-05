@@ -145,9 +145,10 @@ void km_machine_fini(void)
    km_fs_fini();
 }
 
-static int kvm_vcpu_init_sregs(int fd, uint64_t fs)
+static void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
 {
-   kvm_sregs_t sregs = (kvm_sregs_t){
+   assert(machine.idt != 0);
+   vcpu->sregs = (kvm_sregs_t){
        .cr0 = X86_CR0_PE | X86_CR0_PG | X86_CR0_WP | X86_CR0_NE,
        .cr3 = RSV_MEM_START + RSV_PML4_OFFSET,
        .cr4 = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE | X86_CR4_OSFXSR | X86_CR4_OSXMMEXCPT,
@@ -161,17 +162,13 @@ static int kvm_vcpu_init_sregs(int fd, uint64_t fs)
               .g = 1},
        .tr = {.type = 11, /* 64-bit TSS, busy */
               .present = 1},
-       .fs.base = fs,
+       .fs.base = vcpu->guest_thr,
+       .idt.base = machine.idt,
+       .idt.limit = machine.idt_size,
+       .gdt.base = machine.gdt,
+       .gdt.limit = machine.gdt_size,
    };
-
-   if (machine.idt == 0) {
-      errx(1, "Should not happen - no IDT");
-   }
-   sregs.idt.base = machine.idt;
-   sregs.idt.limit = machine.idt_size;
-   sregs.gdt.base = machine.gdt;
-   sregs.gdt.limit = machine.gdt_size;
-   return ioctl(fd, KVM_SET_SREGS, &sregs);
+   vcpu->sregs_valid = 1;
 }
 
 /*
@@ -351,34 +348,49 @@ void km_vcpu_put(km_vcpu_t* vcpu)
  * Set RIP, SP, RFLAGS, and function args - RDI, RSI, clear the rest of the regs.
  * VCPU is ready to run starting with instruction @RIP, RDI and RSI are the first two function arg.
  */
-int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, uint64_t arg2)
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg)
 {
-   int rc;
-   km_gva_t sp;
-
-   // invalidate cached registers
-   vcpu->regs_valid = 0;
-   vcpu->sregs_valid = 0;
-
-   if ((rc = kvm_vcpu_init_sregs(vcpu->kvm_vcpu_fd, vcpu->guest_thr)) < 0) {
-      return rc;
-   }
-
-   sp = vcpu->stack_top;   // where we put argv
+   km_gva_t sp = vcpu->stack_top;   // where we put argv
    assert((sp & 0x7) == 0);
 
-   kvm_regs_t regs = {
+   kvm_vcpu_init_sregs(vcpu);
+   vcpu->regs = (kvm_regs_t){
        .rip = start,
-       .rdi = arg1,   // first function argument
-       .rsi = arg2,   // second function argument
+       .rdi = arg,   // first function argument
        .rflags = X86_RFLAGS_FIXED,
        .rsp = sp,
    };
-   if ((rc = ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &regs)) < 0) {
-      return rc;
-   }
+   vcpu->regs_valid = 1;
+
+   km_write_registers(vcpu);
+   km_write_sregisters(vcpu);
+
    if (km_gdb_client_is_attached() != 0) {
       km_gdb_update_vcpu_debug(vcpu, 0);
+   }
+   return 0;
+}
+
+int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
+{
+   km_gva_t sp = new_vcpu->stack_top;   // where we put argv
+   assert((sp & 0x7) == 0);
+
+   kvm_vcpu_init_sregs(new_vcpu);
+
+   km_vcpu_sync_rip(vcpu);
+   vcpu->regs_valid = 0;
+   km_read_registers(vcpu);
+   new_vcpu->regs = vcpu->regs;
+   new_vcpu->regs.rsp = sp;
+   *((uint64_t*)km_gva_to_kma_nocheck(sp)) = 0;   // hc return value
+   new_vcpu->regs_valid = 1;
+
+   km_write_registers(new_vcpu);
+   km_write_sregisters(new_vcpu);
+
+   if (km_gdb_client_is_attached() != 0) {
+      km_gdb_update_vcpu_debug(new_vcpu, 0);
    }
    return 0;
 }

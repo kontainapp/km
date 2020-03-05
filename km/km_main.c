@@ -246,12 +246,11 @@ int main(int argc, char* const argv[])
    if (km_dynlinker.km_filename != NULL) {
       if (km_vcpu_set_to_run(vcpu,
                              km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust,
-                             guest_args,
-                             0) != 0) {
+                             guest_args) != 0) {
          err(1, "failed to set main vcpu to run dynlinker");
       }
    } else {
-      if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry + adjust, guest_args, 0) != 0) {
+      if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry + adjust, guest_args) != 0) {
          err(1, "failed to set main vcpu to run payload main()");
       }
    }
