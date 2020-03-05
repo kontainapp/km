@@ -152,6 +152,10 @@ TEST mmap_protect()
 {
    void *addr, *addr1;
    int ret;
+   int initial_busy_count;
+
+   // Remember the number of mmap entries before the test started.
+   ASSERT_MMAPS_INIT(initial_busy_count);
 
    printf("===== mmap_protect: Testing protection for unmapped area\n");
    signal(SIGSEGV, sig_handler);
@@ -188,7 +192,7 @@ TEST mmap_protect()
    ret = munmap(addr1 + 1 * MIB, 200 * MIB - 10 * MIB - MIB);
    ASSERT_EQ_FMTm("Unmap tail", 0, ret, "%d");
 
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
    signal(SIGSEGV, SIG_DFL);
    PASS();
 }
@@ -241,13 +245,17 @@ TEST mremap_test()
 
        {0, NULL},
    };
+   int initial_busy_count;
+
+   // Remember the number of mmap entries before the test.
+   ASSERT_MMAPS_INIT(initial_busy_count);
 
    printf("===== mremap: Testing mremap() functionality\n");
    tests = mremap_tests;
 
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
    CHECK_CALL(mmap_test(tests));
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
    PASS();
 }
 
@@ -296,6 +304,10 @@ TEST mmap_file_test_ex(void* arg0)
    struct stat statbuf;
    int ret;
    void* t;
+   int initial_busy_count;
+
+   // Remember the number of mmap entries before the test.
+   ASSERT_MMAPS_INIT(initial_busy_count);
 
    int fd = open(arg0, O_RDONLY);
    fstat(fd, &statbuf);
@@ -320,7 +332,7 @@ TEST mmap_file_test_ex(void* arg0)
    // success test  - check we open argv0 and it's really ELF
    t = mmap(0, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
    ASSERT_NOT_EQ(MAP_FAILED, t);
-   ASSERT_MMAPS_COUNT(3);
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);
    close(fd);
 
    char buf[KM_PAGE_SIZE];   // check we really have ELF there
@@ -334,20 +346,20 @@ TEST mmap_file_test_ex(void* arg0)
    fd = open(arg0, O_RDONLY);
    fstat(fd, &statbuf);
 
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
    t = mmap(0, statbuf.st_size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, t);
 
    // quick check that without MAP_FIXED the hint is ignored, so this should get a new map
    void* fmap = mmap(t, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
    ASSERT_NOT_EQ_FMT(t, fmap, "%p");
-   ASSERT_MMAPS_COUNT(4);
+   ASSERT_MMAPS_CHANGE(2, initial_busy_count);
    ret = munmap(fmap, statbuf.st_size);
 
    // And this should use the existing map
    fmap = mmap(t, statbuf.st_size, PROT_READ, MAP_PRIVATE | MAP_FIXED, fd, 0);
    ASSERT_EQ_FMT(t, fmap, "%p");
-   ASSERT_MMAPS_COUNT(3);
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    close(fd);
    ret = munmap(t, statbuf.st_size);

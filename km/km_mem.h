@@ -24,6 +24,7 @@
 
 #define KM_PAGE_SIZE 0x1000ul   // standard 4k page
 #define KM_PAGE_MASK (~(KM_PAGE_SIZE-1))
+#define KIB 0x400ul             // KByte
 #define MIB 0x100000ul          // MByte
 #define GIB 0x40000000ul        // GByte
 
@@ -45,14 +46,18 @@ static const int RSV_IDMAP_OFFSET = RSV_MEM_SIZE;   // next page after reserved 
  */
 #define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
 
+// Special slots in machine.vm_mem_regs[]
 static const int KM_RSRV_MEMSLOT = 0;
 static const int KM_RSRV_VDSOSLOT = 41;
+static const int KM_RSRV_KMGUESTMEM_SLOT = 42;
 
 static const km_gva_t GUEST_MEM_START_VA = 2 * MIB;
 // ceiling for guest virt. address. 2MB shift down to make it aligned on GB with physical address
 static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
 
 static const km_gva_t GUEST_VVAR_VDSO_BASE_VA = (GUEST_MEM_TOP_VA + (1 * MIB));
+
+static const km_gva_t GUEST_KMGUESTMEM_BASE_VA = (GUEST_MEM_TOP_VA + (1 *MIB) + (32 * KIB));
 
 // VA offset from PA for addresses over machine.tbrk. Last 2MB of VA stay unused for symmetry.
 #define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA - (machine.guest_max_physmem - 2 * MIB))
@@ -214,6 +219,10 @@ static inline km_kma_t km_gva_to_kma(km_gva_t gva)
        gva < GUEST_VVAR_VDSO_BASE_VA + km_vvar_vdso_size) { // handle gdb references to vvar and vdso pages
       return (km_kma_t)machine.vm_mem_regs[KM_RSRV_VDSOSLOT].userspace_addr + (gva - GUEST_VVAR_VDSO_BASE_VA);
    }
+   if (gva >= GUEST_KMGUESTMEM_BASE_VA &&
+       gva < GUEST_KMGUESTMEM_BASE_VA + machine.vm_mem_regs[KM_RSRV_KMGUESTMEM_SLOT].memory_size) {
+      return (km_kma_t)machine.vm_mem_regs[KM_RSRV_KMGUESTMEM_SLOT].userspace_addr + (gva - GUEST_KMGUESTMEM_BASE_VA);
+   }
    if (gva < GUEST_MEM_START_VA ||
        (roundup(machine.brk, KM_PAGE_SIZE) <= gva && gva < rounddown(machine.tbrk, KM_PAGE_SIZE)) ||
        GUEST_MEM_TOP_VA < gva) {
@@ -248,5 +257,6 @@ km_gva_t km_guest_mremap(km_gva_t old_address, size_t old_size, size_t new_size,
 int km_guest_mprotect(km_gva_t addr, size_t size, int prot);
 int km_guest_madvise(km_gva_t addr, size_t size, int advise);
 int km_is_gva_accessable(km_gva_t addr, size_t size, int prot);
+int km_monitor_pages_in_guest(km_gva_t gva, size_t size, int protection, char* tag);
 
 #endif /* #ifndef __KM_MEM_H__ */

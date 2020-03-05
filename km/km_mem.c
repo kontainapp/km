@@ -29,6 +29,7 @@
 #include "km_mem.h"
 #include "x86_cpu.h"
 #include "km_proc.h"
+#include "km_guest.h"
 
 /*
  * Physical memory layout:
@@ -271,6 +272,75 @@ static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
          physaddr += KM_PAGE_SIZE;
       }
    }
+
+   rc = km_monitor_pages_in_guest(km_vvar_vdso_base[0],
+                             vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr,
+                             PROT_READ,
+                             "[vvar]");
+   assert(rc == 0);
+   rc = km_monitor_pages_in_guest(km_vvar_vdso_base[1],
+                             vvar_vdso_regions[1].end_addr - vvar_vdso_regions[1].begin_addr,
+                             PROT_EXEC,
+                             "[vdso]");
+   assert(rc == 0);
+}
+
+/*
+ * Insert the km_guest code that resides in the km address space into the
+ * guest's physical and virtual address spaces.
+ */
+static void km_add_code_to_guest_address_space(void)
+{
+   kvm_mem_reg_t* reg;
+   km_gva_t virtaddr = GUEST_KMGUESTMEM_BASE_VA;
+   uint64_t physaddr = gva_to_gpa_nocheck(virtaddr);
+   int idx;
+
+   // km_guest pages must start on a page boundary and must be a multiple of the page size in length.
+   assert(((uint64_t)&km_guest_start & (KM_PAGE_SIZE-1)) == 0);
+   assert((((uint64_t)&km_guest_end - (uint64_t)&km_guest_end) & (KM_PAGE_SIZE-1)) == 0);
+
+   // Map the km_guest pages into the guest physical address space
+   reg = &machine.vm_mem_regs[KM_RSRV_KMGUESTMEM_SLOT];
+   reg->slot = KM_RSRV_KMGUESTMEM_SLOT;
+   reg->userspace_addr = (uint64_t)&km_guest_start;
+   reg->memory_size = &km_guest_end - &km_guest_start;
+   reg->guest_phys_addr = physaddr;
+   reg->flags = 0;
+   if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+      err(1, "KVM: set km_guest mem region failed");
+   }
+
+   /*
+    * We know this is the page table the km_guest page addresses will be placed into.
+    * If you change the value of GUEST_KMGUESTMEM_BASE_VA be sure you verify that we
+    * are updating the correct page table.
+    */
+   x86_pte_4k_t* pte = (x86_pte_4k_t*)(machine.vm_mem_regs[KM_RSRV_MEMSLOT].userspace_addr + RSV_PT_OFFSET);
+
+   // Add the km_guest pages into the guest virtual address space
+   for (uint8_t* p = &km_guest_start; p < &km_guest_end; p += KM_PAGE_SIZE) {
+      idx = PTE_SLOT(virtaddr);
+      pte_set(pte + idx, physaddr);
+      virtaddr += KM_PAGE_SIZE;
+      physaddr += KM_PAGE_SIZE;
+   }
+
+   /*
+    * Put the km_guest pages into the busy memory list so they will be included in
+    * core dumps and /proc/pid/maps.
+    */
+   int rc;
+   rc = km_monitor_pages_in_guest(GUEST_KMGUESTMEM_BASE_VA,
+                                  &km_guest_data_start - &km_guest_start,
+                                  PROT_EXEC,
+                                  "[km_guest_text]");
+   assert(rc == 0);
+   rc = km_monitor_pages_in_guest(GUEST_KMGUESTMEM_BASE_VA + (&km_guest_data_start - &km_guest_start),
+                                  &km_guest_end - &km_guest_data_start,
+                                  PROT_READ,
+                                  "[km_guest_data]");
+   assert(rc == 0);
 }
 
 static void init_pml4(km_kma_t mem)
@@ -363,9 +433,6 @@ void km_mem_init(km_machine_init_params_t* params)
    }
    init_pml4((km_kma_t)reg->userspace_addr);
 
-   // Add the [vvar] and [vdso] pages from km into the physical and virtual address space for the payload
-   km_add_vvar_vdso_to_guest_address_space((km_kma_t)reg->userspace_addr);
-
    machine.brk = GUEST_MEM_START_VA;
    machine.tbrk = GUEST_MEM_TOP_VA;
    machine.guest_mid_physmem = machine.guest_max_physmem >> 1;
@@ -373,6 +440,12 @@ void km_mem_init(km_machine_init_params_t* params)
    // Place for the last 2MB of PA. We do not allocate it to make memregs mirrored
    machine.last_mem_idx = (machine.mid_mem_idx << 1) + 1;
    km_guest_mmap_init();
+
+   // Add the [vvar] and [vdso] pages from km into the physical and virtual address space for the payload
+   km_add_vvar_vdso_to_guest_address_space((km_kma_t)reg->userspace_addr);
+
+   // Map guest code resident in km into the guest's address space
+   km_add_code_to_guest_address_space();
 }
 
 void km_mem_fini(void)

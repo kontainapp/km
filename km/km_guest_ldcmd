@@ -1,0 +1,26 @@
+/*
+ * An ld script to be included using --script=km_guest_ldcmd
+ * when km is linked.
+ * It aligns the km guest code built into km on a 4k boundary.
+ * The data is also 4k aligned.
+ * The last page should be padded out to a 4k alignment.
+ * And, finally these sections are placed at the very end of km
+ * after the .ldata section.
+ */
+SECTIONS
+{
+   .km_guest_text ALIGN(CONSTANT (MAXPAGESIZE)) :
+   {
+      km_guest_start = .;
+      km_guest_text_start = .;
+      *(.km_guest_text)
+   }
+   .km_guest_data ALIGN(CONSTANT (MAXPAGESIZE)) :
+   {
+      km_guest_data_start = .;
+      *(.km_guest_data)
+   }
+   . = ALIGN(CONSTANT (MAXPAGESIZE));
+   km_guest_end = .;
+}
+INSERT AFTER .ldata

@@ -190,7 +190,8 @@ static void km_reg_make_clean(km_mmap_reg_t* reg)
 // wrapper for mprotect() on a single mmap region.
 static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
 {
-   if (mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, protection_adjust(reg->protection)) != 0) {
+   if (reg->km_flags.km_mmap_part_of_monitor == 0 &&
+       mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, protection_adjust(reg->protection)) != 0) {
       warn("%s: Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)",
            __FUNCTION__,
            reg->start,
@@ -335,7 +336,8 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
       if (reg->start >= addr + size) {
          break;   // we passed the range and are done
       }
-      if (reg->km_flags.km_mmap_monitor == 1) {   // skip internal maps... not expected, so warn
+      if (reg->km_flags.km_mmap_monitor == 1 ||   // skip internal maps... not expected, so warn
+          reg->km_flags.km_mmap_part_of_monitor == 1) {
          km_err_msg(ENOTSUP,
                     "Range addr 0x%lx size 0x%lx conflicts with monitor region 0x%lx size 0x%lx",
                     addr,
@@ -406,7 +408,7 @@ static int km_mmap_busy_check_contiguous(km_gva_t addr, size_t size)
          return -1;   // gap at the end of the range
       }
       if ((last_end != 0 && last_end != reg->start) || (last_end == 0 && reg->start > addr) ||
-          (reg->km_flags.km_mmap_monitor == 1)) {
+          (reg->km_flags.km_mmap_monitor == 1) || reg->km_flags.km_mmap_part_of_monitor == 1) {
          return -1;   // gap in the beginning or before current reg, or stepped on monitor
       }
       last_end = reg->start + reg->size;
@@ -651,6 +653,43 @@ km_gva_t km_guest_mmap_simple(size_t size)
 }
 
 /*
+ * Add an entry to the busy mmap list for a part of the km address space
+ * that has been added to the guest's address space.  This is useful
+ * for memory we want in the guest code dumps and in the guest's
+ * /proc/X/maps file.
+ * This is for things like the vdso page or the parts of the guest
+ * that are really extensions of the operating system.  Things like
+ * the signal return trampoline, or the code stubs the idt points to.
+ * The tag arg should be something like "[vvar]" or "[vdso]".
+ * Returns:
+ *   0 - success
+ *   != 0 - failure
+ */
+int km_monitor_pages_in_guest(km_gva_t gva, size_t size, int protection, char* tag)
+{
+   km_mmap_reg_t* reg;
+   char* tagcopy = NULL;
+
+   km_infox(KM_TRACE_MMAP, "gva 0x%lx, sizeof %ld, protection 0x%x, tag %s", gva, size, protection, tag);
+   if ((reg = calloc(1, sizeof(km_mmap_reg_t))) == NULL) {
+     return ENOMEM;
+   }
+  if (tag != NULL && (tagcopy = strdup(tag)) == NULL) {
+     free(reg);
+     return ENOMEM;
+  }
+   reg->start = gva;
+   reg->size = size;
+   reg->flags = 0;
+   reg->protection = protection;
+   reg->km_flags.km_mmap_part_of_monitor = 1;
+   reg->filename = tagcopy;
+   reg->offset = 0;
+   km_mmap_insert_busy(reg);
+   return 0;
+}
+
+/*
  * Unmaps address range in guest virtual space.
  * Per per munmap(3) it is ok if some pages within the range were already unmapped.
  *
@@ -716,7 +755,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    km_mmap_reg_t* next;
    size_t needed = size - old_size;
 
-   assert(ptr->km_flags.km_mmap_monitor == 0);
+   assert(ptr->km_flags.km_mmap_monitor == 0 && ptr->km_flags.km_mmap_part_of_monitor == 0);
    assert(old_addr >= ptr->start && old_addr < ptr->start + ptr->size &&
           old_addr + old_size <= ptr->start + ptr->size && size > old_size);
 
@@ -792,7 +831,7 @@ static km_gva_t km_guest_mremap_nolock(km_gva_t old_addr, size_t old_size, size_
       km_infox(KM_TRACE_MMAP, "mremap: requested mmap is not fully within existing map");
       return -EFAULT;
    }
-   if (ptr->km_flags.km_mmap_monitor == 1) {
+   if (ptr->km_flags.km_mmap_monitor == 1 || ptr->km_flags.km_mmap_part_of_monitor == 1) {
       return -EFAULT;
    }
    // found the map and it's a legit size

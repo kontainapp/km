@@ -23,6 +23,7 @@
 #include "km_mem.h"
 #include "km_signal.h"
 #include "x86_cpu.h"
+#include "km_guest.h"
 
 static char* str_intr[256] = {
     "Divide Error",
@@ -98,7 +99,7 @@ void km_init_guest_idt(km_gva_t default_handler, km_gva_t handler_table_gva)
    for (int i = 0; i < X86_IDT_NENTRY; i++) {
       if (handler_table_kma != NULL && handler_table_kma[handler_index] != 0) {
          build_idt_entry(&idte[i],
-                         handler_table_kma[handler_index] + km_guest.km_interrupt_table_adjust,
+                         km_guest_kma_to_gva(__km_interrupt_table[handler_index]),
                          1);
          handler_index++;
       } else {

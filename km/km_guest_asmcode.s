@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -12,10 +12,13 @@
  * Signal trampoline for KM guests. KM starts signal handling at the guest signal 
  * guest signal handler itself with the stack setup for return to __km_sigreturn.
  * Most of this file is about describing the stack so it can be correctly unwound.
+ * Since this code is now part of km and mapped into the guest address
+ * space the information from the .cfi directives is not available to
+ * guest space debuggers.  Let's keep the .cfi directives in case we
+ * find a way to use in the future.
  */
-
-    nop
-.align 16
+    .section .km_guest_text, "ax", @progbits
+    .align 16
 __km_sigreturn:
     .type __km_sigreturn, @function
     .global __km_sigreturn
@@ -60,11 +63,28 @@ __km_sigreturn:
 __km_sigreturn_end:        # We'll need this to define the the DWARF 
 
 /*
+ * Trampoline for x86 exception and interrupt handling. IDT entries point here.
+ */
+    .section .km_guest_text, "ax", @progbits
+    .align 16
+__km_handle_interrupt:
+    .type __km_handle_interrupt, @function
+    .global __km_handle_interrupt
+    push %rdx
+    push %rbx
+    push %rax
+    mov $0xdeadbeef, %rbx
+    mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
+    mov $0xffff81fd, %edx   # HC_guest_interrupt
+retry:
+    out %eax, %dx           # Enter KM
+    jmp retry               # Should never hit here.
+
+/*
  * Convienience macro for exception and interrupt handlers.
  */
 .macro intr_hand name, num
-    .text
-.align 16
+    .align 16
 handler\name :
     push %rdx
     push %rbx
@@ -82,11 +102,7 @@ retry\name :
  * Interrupt handlers
  */
     .align 16
-__km_handle_interrupt:
-    .type __km_handle_interrupt, @function
-    .global __km_handle_interrupt
 intr_hand UNEX, 0xff
-
 intr_hand DE, 0
 intr_hand OF, 4
 intr_hand BR, 5
@@ -105,7 +121,7 @@ intr_hand CP, 21
 /*
  * Table used by KM to build IDT entries.
  */
-    .data
+    .section .km_guest_data, "da", @progbits
     .align 16
     .type __km_interrupt_table, @object
     .global __km_interrupt_table
@@ -148,7 +164,7 @@ __km_interrupt_table:
  * R9  = 6th parameter
  * Return value saved in RAX
  */
-    .text
+    .section .km_guest_text, "ax", @progbits
     .align 16
     .type __km_syscall_handler, @function
     .global __km_syscall_handler
