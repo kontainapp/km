@@ -155,15 +155,8 @@ int km_gdb_setup_listen(void)
       warn("setsockopt(SO_REUSEADDR) failed");
    }
 
-   if (gdbstub.port == 0) {  // use the gdb default port from /etc/services if no override supplied
-      struct servent *sep;
-
-      if ((sep = getservbyname("gdbremote", "tcp")) == NULL) {
-         warn("getservbyname failed");
-         close(listen_socket_fd);
-         return -1;
-      }
-      gdbstub.port = ntohs(sep->s_port);
+   if (gdbstub.port == 0) {
+      gdbstub.port = GDB_DEFAULT_PORT;
    }
 
    server_addr.sin_family = AF_INET;
