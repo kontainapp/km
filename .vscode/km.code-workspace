@@ -10,6 +10,11 @@
          "*.mak": "makefile",
          "*.h": "c",
          "Dockerfile.*": "dockerfile",
+         "*.tcc": "c",
+         "bitset": "c",
+         "cstdlib": "c",
+         "shared_mutex": "c",
+         "regex": "c"
       },
       "files.exclude": {
          "{GPATH,GRTAGS,GTAGS}": true,

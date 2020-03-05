@@ -394,18 +394,9 @@ static inline void fill_ucontext(km_vcpu_t* vcpu, ucontext_t* uc)
  */
 static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigaction_t* act)
 {
-   /*
-    * This is to sync the registers, specifically RIP, with KVM. When we are in hypercall the RIP
-    * points to the OUT instruction rather than the next one, so if we return from the singal
-    * handler we'll restart the OUT instruction instead of continuing with the next. The ioctl()
-    * with immediate_exit doesn't execute any guest code but sets the registers, advancing RIP to
-    * the right location.
-    */
    vcpu->regs_valid = 0;
    vcpu->sregs_valid = 0;
-   vcpu->cpu_run->immediate_exit = 1;
-   ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
-   vcpu->cpu_run->immediate_exit = 0;
+   km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
    km_read_registers(vcpu);
    km_info(KM_TRACE_KVM,
            "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx",

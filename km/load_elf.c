@@ -92,14 +92,13 @@ static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
    }
 }
 
-static inline int km_find_hook_symbols(Elf* e, km_gva_t adjust)
+static void km_find_hook_symbols(Elf* e, km_gva_t adjust)
 {
-   int all_found = 0;
    for (Elf_Scn* scn = NULL; (scn = elf_nextscn(e, scn)) != NULL;) {
       GElf_Shdr shdr;
 
       gelf_getshdr(scn, &shdr);
-      if (shdr.sh_type == SHT_SYMTAB) {
+      if (shdr.sh_type == SHT_SYMTAB) {   // assume there is only one symtab, break after processing
          Elf_Data* data = elf_getdata(scn, NULL);
 
          for (int i = 0; i < shdr.sh_size / shdr.sh_entsize; i++) {
@@ -113,9 +112,6 @@ static inline int km_find_hook_symbols(Elf* e, km_gva_t adjust)
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
                km_guest.km_sigreturn = sym.st_value + adjust;
             } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_CLONE_CHILD_SYM_NAME) == 0) {
-               km_guest.km_clone_child = sym.st_value + adjust;
-            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_DLOPEN_SYM_NAME) == 0) {
                km_guest.km_dlopen = sym.st_value + adjust;
             } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
@@ -126,17 +122,15 @@ static inline int km_find_hook_symbols(Elf* e, km_gva_t adjust)
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SYSCALL_HAND_SYM_NAME) == 0) {
                km_guest.km_syscall_handler = sym.st_value + adjust;
             }
-            if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0 &&
-                km_guest.km_clone_child != 0 && km_guest.km_dlopen != 0 &&
+            if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0 && km_guest.km_dlopen != 0 &&
                 km_guest.km_interrupt_table != 0 && km_guest.km_syscall_handler != 0) {
-               all_found = 1;
                break;
             }
          }
          break;
       }
    }
-   return all_found;
+   return;
 }
 
 static Elf* km_open_elf_file(km_payload_t* payload, int* fd)
