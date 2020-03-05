@@ -28,17 +28,17 @@ SRC_VERSION := $(shell git rev-parse HEAD)
 BUILD_TIME := $(shell date -Iminutes)
 
 # all build results (including obj etc..)  go under this one
-BLDTOP := ${TOP}/build/
+BLDTOP := ${TOP}/build
 # Build results go here.
 # For different build types (e.g. coverage), pass BLDTYPE=<type>/, e.g BLDTYPE=coverage/ (with trailing /)
-BLDDIR = ${BLDTOP}${FROMTOP}$(BLDTYPE)
+BLDDIR = ${BLDTOP}/${FROMTOP}$(BLDTYPE)
 
 # km location needs to be fixed no matter what is the FROMTOP,
 # so we can use KM from different places
-KM_BLDDIR := ${BLDTOP}km/$(BLDTYPE)
+KM_BLDDIR := ${BLDTOP}/km/$(BLDTYPE)
 KM_BIN := ${KM_BLDDIR}km
 KM_OPT := /opt/kontain
-KM_LDSO := ${BLDTOP}runtime/libc.so
+KM_LDSO := ${BLDTOP}/runtime/libc.so
 KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_LDSO := ${KM_OPT_RT}/libc.so
 KM_LDSO_PATH := "/opt/kontain/lib64:/lib64"
