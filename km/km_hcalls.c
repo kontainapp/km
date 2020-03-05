@@ -1126,8 +1126,9 @@ static km_hc_ret_t km_unittest_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret =
-       km_clone(vcpu, arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, km_gva_to_kma(arg->arg6));
+   // Raw clone system call signature for x86_64 is:
+   // long clone(unsigned long flags, void* child_stack, int* ptid, int* ctid, unsigned long newtls);
+   arg->hc_ret = km_clone(vcpu, arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5);
    return HC_CONTINUE;
 }
 

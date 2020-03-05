@@ -24,6 +24,7 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <linux/kvm.h>
+#include <sys/ioctl.h>
 
 #include "bsd_queue.h"
 #include "km_elf.h"
@@ -306,25 +307,39 @@ int km_clone(km_vcpu_t* vcpu,
              uint64_t child_stack,
              km_gva_t ptid,
              km_gva_t ctid,
-             unsigned long newtls,
-             void** cargs);
+             unsigned long newtls);
 uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr);
 void km_exit(km_vcpu_t* vcpu);
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
 void km_vcpu_put(km_vcpu_t* vcpu);
-int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg1, uint64_t arg2);
+int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg);
+int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);
 void km_vcpu_detach(km_vcpu_t* vcpu);
 
 typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, uint64_t data);   // return 0 if all is good
-extern int km_vcpu_apply_used(km_vcpu_apply_cb func, uint64_t data);
-extern int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data);
-extern int km_vcpu_count(void);
-extern void km_vcpu_pause_all(void);
-extern km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
+int km_vcpu_apply_used(km_vcpu_apply_cb func, uint64_t data);
+int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data);
+int km_vcpu_count(void);
+void km_vcpu_pause_all(void);
+km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
+static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
+{
+   /*
+    * This is to sync the registers, specifically RIP, with KVM.
+    * Turns out there is a difference between KVM or azure and local machines. When we are in
+    * hypercall the RIP points to the OUT instruction (local machine) or the next one (azure).
+    * To return from signal handler, or to start new thread in clone, we need to get consistent RIP
+    * to the next instruction. The ioctl() with immediate_exit doesn't execute any guest code but
+    * sets the registers, advancing RIP to the right location.
+    */
+   vcpu->cpu_run->immediate_exit = 1;
+   (void)ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
+   vcpu->cpu_run->immediate_exit = 0;
+}
 
-extern void km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
+void km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
     __attribute__((__format__(__printf__, 4, 5)));
 
 // Interrupt handling.
@@ -555,7 +570,7 @@ typedef struct km_link_map {
 // Helper function to visit entries in the dynamically loaded modules list.
 typedef int(link_map_visit_function_t)(link_map_t* kma, link_map_t* gva, void* visitargp);
 
-extern int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp);
+int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp);
 
 // km_decode.c
 void* km_find_faulting_address(km_vcpu_t* vcpu);

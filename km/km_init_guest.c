@@ -308,14 +308,15 @@ int km_clone(km_vcpu_t* vcpu,
              uint64_t child_stack,
              km_gva_t ptid,
              km_gva_t ctid,
-             unsigned long newtls,
-             void** cargs)
+             unsigned long newtls)
 {
-   // threads only
-   if ((flags & CLONE_THREAD) == 0) {
+   if ((flags & CLONE_THREAD) == 0) {   // threads only
       return -ENOTSUP;
    }
-
+   child_stack -= 16;   // child_stack is the first byte *above* the usable stack, adjust
+   if (child_stack != rounddown(child_stack, 16) || km_gva_to_kma(child_stack) == NULL) {
+      return -EINVAL;
+   }
    km_vcpu_t* new_vcpu = km_vcpu_get();
    if (new_vcpu == NULL) {
       return -EAGAIN;
@@ -327,13 +328,9 @@ int km_clone(km_vcpu_t* vcpu,
    if ((flags & CLONE_CHILD_CLEARTID) != 0) {
       new_vcpu->clear_child_tid = ctid;
    }
-
-   new_vcpu->stack_top = (uintptr_t)child_stack;
-   // want this on odd 8 byte boundary to account for clone trampoline.
-   new_vcpu->stack_top -= (new_vcpu->stack_top + 8) % 16;
+   new_vcpu->stack_top = child_stack;
    new_vcpu->guest_thr = newtls;
-   int rc =
-       km_vcpu_set_to_run(new_vcpu, km_guest.km_clone_child, (km_gva_t)cargs[0], (km_gva_t)cargs[1]);
+   int rc = km_vcpu_clone_to_run(vcpu, new_vcpu);
    if (rc < 0) {
       km_vcpu_put(new_vcpu);
       return rc;

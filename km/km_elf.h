@@ -22,7 +22,6 @@
 #define KM_INT_TABL_SYM_NAME "__km_interrupt_table"
 #define KM_INT_HNDL_SYM_NAME "__km_handle_interrupt"
 #define KM_SIG_RTRN_SYM_NAME "__km_sigreturn"
-#define KM_CLONE_CHILD_SYM_NAME "__km_clone_run_child"
 #define KM_SYSCALL_HAND_SYM_NAME "__km_syscall_handler"
 #define KM_DLOPEN_SYM_NAME "dlopen"
 
@@ -36,7 +35,6 @@ typedef struct km_payload {
    Elf64_Phdr* km_phdr;                    // elf program headers
    Elf64_Addr km_handlers;                 // interrupt/exception handler
    Elf64_Addr km_sigreturn;                // signal trampoline function
-   Elf64_Addr km_clone_child;              // clone child trampoline function
    Elf64_Addr km_dlopen;                   // dlopen() address to find link_map chain
    Elf64_Addr km_load_adjust;              // elf->guest vaddr adjustment
    char* km_filename;                      // elf file name
