@@ -338,7 +338,7 @@ void km_dump_vcpu(km_vcpu_t* vcpu)
  */
 void km_read_registers(km_vcpu_t* vcpu)
 {
-   if (vcpu->regs_valid) {
+   if (vcpu->regs_valid != 0) {
       return;
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &vcpu->regs) < 0) {
@@ -350,7 +350,7 @@ void km_read_registers(km_vcpu_t* vcpu)
 
 void km_write_registers(km_vcpu_t* vcpu)
 {
-   if (!vcpu->regs_valid) {
+   if (vcpu->regs_valid == 0) {
       errx(2, "%s - registers not valid", __FUNCTION__);
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &vcpu->regs) < 0) {
@@ -364,7 +364,7 @@ void km_write_registers(km_vcpu_t* vcpu)
  */
 void km_read_sregisters(km_vcpu_t* vcpu)
 {
-   if (vcpu->sregs_valid) {
+   if (vcpu->sregs_valid != 0) {
       return;
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &vcpu->sregs) < 0) {
@@ -376,7 +376,7 @@ void km_read_sregisters(km_vcpu_t* vcpu)
 
 void km_write_sregisters(km_vcpu_t* vcpu)
 {
-   if (!vcpu->sregs_valid) {
+   if (vcpu->sregs_valid == 0) {
       errx(2, "%s - sregisters not valid", __FUNCTION__);
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_SREGS, &vcpu->sregs) < 0) {
