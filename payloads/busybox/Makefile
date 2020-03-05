@@ -10,10 +10,10 @@
 #
 # Makefile for building and packing Python payload runtime for KM
 
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 
 SHELL :=/bin/bash
-PATH := $(realpath ${TOP}tools):${PATH}
+PATH := $(realpath ${TOP}/tools):${PATH}
 
 # KM monitor path
 KM_BIN=${TOP}/build/km/km
@@ -36,4 +36,4 @@ test-all:
 	@${KM_BIN} ${PAYLOAD_KM} echo Basic Test passed
 	@echo More TBD
 
-include ${TOP}make/distro.mk
+include ${TOP}/make/distro.mk

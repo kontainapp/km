@@ -22,7 +22,7 @@ SUBDIRS := km runtime tests payloads
 # build VMM and runtime library before trying to build tests
 tests: km runtime
 
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 
 # On mac $(MAKE) evaluates to '/Applications/Xcode.app/Contents/Developer/usr/bin/make'
 ifeq ($(shell uname), Darwin)
@@ -36,4 +36,4 @@ git-hooks-init: ## make git use GITHOOK_DIR (default .githooks) for pre-commit a
 git-hooks-reset: ## reset git hooks location to git default of .git/hooks (not version controlled)
 	git config core.hooksPath .git/hooks
 
-include ${TOP}make/actions.mk
+include ${TOP}/make/actions.mk

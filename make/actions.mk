@@ -10,7 +10,7 @@
 #
 # To be included throughout the KONTAIN project
 # TOP has to be defined before inclusion, usually as
-#  		TOP := $(shell git rev-parse --show-cdup)
+#  		TOP := $(shell git rev-parse --show-toplevel)
 #
 # There are three possible builds depending on the including Makefile,
 # depending which of the following is defined:
@@ -24,17 +24,12 @@
 #
 SHELL=/bin/bash
 
-# make sure the value is non-empty - if we are
-# already at the top, we can get empty line from upstairs
-# (Note that below we'll expect the trailing '/' in directories)
-ifeq ($(strip ${TOP}),)
-TOP := ./
-endif
+TOP ?= $(shell git rev-parse --show-toplevel)
 
 # all locations/file names
-include ${TOP}make/locations.mk
+include ${TOP}/make/locations.mk
 # customization of build should be in custom.mk
-include ${TOP}make/custom.mk
+include ${TOP}/make/custom.mk
 
 CFLAGS = ${COPTS} ${LOCAL_COPTS} -Wall -ggdb3 -pthread $(addprefix -I , ${INCLUDES})
 DEPS = $(addprefix ${BLDDIR}, $(addsuffix .d, $(basename ${SOURCES})))
@@ -85,7 +80,7 @@ ${BLDEXEC}: $(OBJS)
 
 # if VERSION_SRC is defined, force-rebuild these sources on 'git info' changes
 ifneq (${VERSION_SRC},)
-${VERSION_SRC}: ${TOP}.git/HEAD ${TOP}.git/index
+${VERSION_SRC}: ${TOP}/.git/HEAD ${TOP}/.git/index
 	touch $@
 
 ${BLDDIR}$(subst .c,.o,${VERSION_SRC}): CFLAGS += -DSRC_BRANCH='"${SRC_BRANCH}"' -DSRC_VERSION='"${SRC_VERSION}"' -DBUILD_TIME='"${BUILD_TIME}"'

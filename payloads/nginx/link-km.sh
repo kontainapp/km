@@ -2,10 +2,9 @@
 #
 # Link nginx.kmd
 
-TOP=$(git rev-parse --show-cdup)
-REAL_TOP=$(realpath ${TOP})
-KONTAIN_GCC=${REAL_TOP}/tools/kontain-gcc
-CURRENT=${REAL_TOP}/payloads/nginx
+TOP=$(git rev-parse --show-toplevel)
+KONTAIN_GCC=${TOP}/tools/kontain-gcc
+CURRENT=${TOP}/payloads/nginx
 NGINX_TOP=${CURRENT}/nginx
 
 ${KONTAIN_GCC} -rdynamic \

@@ -10,9 +10,8 @@
 #
 # Makefile for building and packing Nginx payload runtime for KM
 
-TOP := $(shell git rev-parse --show-cdup)
-REAL_TOP := $(realpath ${TOP})
-CURRENT := ${REAL_TOP}/payloads/nginx
+TOP := $(shell git rev-parse --show-toplevel)
+CURRENT := ${TOP}/payloads/nginx
 NGINX_TOP := ${CURRENT}/nginx
 NGINX_EXECUTABLE := ${NGINX_TOP}/objs/nginx
 NGINX_KM := ${CURRENT}/nginx.kmd

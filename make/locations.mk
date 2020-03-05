@@ -13,20 +13,22 @@
 
 default: all
 
+TOP ?= $(shell git rev-parse --show-toplevel)
+
 # this is the path from the TOP to current dir
 FROMTOP := $(shell git rev-parse --show-prefix)
 # Current branch and SHA(for making different names unique per branch, e.g. Docker tags)
 SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
 SRC_SHA ?= $(shell git rev-parse HEAD)
 
-PATH := $(realpath ${TOP}tools):${PATH}
+PATH := $(realpath ${TOP}/tools):${PATH}
 
 # sha and build time for further reporting
 SRC_VERSION := $(shell git rev-parse HEAD)
 BUILD_TIME := $(shell date -Iminutes)
 
 # all build results (including obj etc..)  go under this one
-BLDTOP := ${TOP}build/
+BLDTOP := ${TOP}/build/
 # Build results go here.
 # For different build types (e.g. coverage), pass BLDTYPE=<type>/, e.g BLDTYPE=coverage/ (with trailing /)
 BLDDIR = ${BLDTOP}${FROMTOP}$(BLDTYPE)
@@ -69,7 +71,7 @@ CLOUD ?= azure
 
 ifneq ($(CLOUD),)
 # now bring all cloud-specific stuff needed in forms on 'key = value'
-CLOUD_SCRIPTS := $(TOP)cloud/$(CLOUD)
+CLOUD_SCRIPTS := $(TOP)/cloud/$(CLOUD)
 include $(CLOUD_SCRIPTS)/cloud_config.mk
 endif
 

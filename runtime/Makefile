@@ -8,7 +8,7 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 
 # SUBDIRS := idt
 
@@ -56,7 +56,7 @@ CRT_SOURCES := $(filter musl/crt/%,$(ALL_SOURCES))
 
 H_DIRS := arch/$(ARCH) arch/generic src/include src/internal src/errno include
 # has to be recursive assignment as BLDDIR is defined in an include below
-INCLUDES = . ${TOP}include $(addprefix ${SRCDIR}, ${H_DIRS}) ${BLDDIR}${SRCDIR}include
+INCLUDES = . ${TOP}/include $(addprefix ${SRCDIR}, ${H_DIRS}) ${BLDDIR}${SRCDIR}include
 
 CWERRS := -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith
 CWARNS := -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable \
@@ -70,7 +70,7 @@ COPTS := -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 	-fno-tree-loop-distribute-patterns -fno-stack-protector \
 	${CWERRS} ${CWARNS}
 
-include ${TOP}make/actions.mk
+include ${TOP}/make/actions.mk
 
 # all objects needed in libc.so
 SO_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, \

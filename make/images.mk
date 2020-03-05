@@ -27,15 +27,12 @@
 #		for examples
 #
 
-# make sure the value is non-empty and has trailing /
-ifeq ($(strip ${TOP}),)
-TOP := ./
-endif
+TOP ?= $(shell git rev-parse --show-toplevel)
 
 ifeq ($(COMPONENT),)
 $(error "COMPONENT is undefined - please add COMPONENT=component_name in your Makefile")
 endif
-include ${TOP}make/locations.mk
+include ${TOP}/make/locations.mk
 
 # Image names and location for image builds
 TEST_IMG := kontain/test-${COMPONENT}-${DTYPE}
@@ -112,7 +109,7 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 	fi
 
 # We generate test pod specs from this template
-TEST_POD_TEMPLATE := $(TOP)cloud/k8s/test-pod-template.yaml
+TEST_POD_TEMPLATE := $(TOP)/cloud/k8s/test-pod-template.yaml
 
 # CONTAINER_TEST_CMD could be overriden, let's keep the original one so we can use it for help messages
 CONTAINER_TEST_CMD_HELP := $(CONTAINER_TEST_CMD)
@@ -176,7 +173,7 @@ EOF
 endef
 
 runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
-	@$(TOP)make/check-docker.sh
+	@$(TOP)/make/check-docker.sh
 	@-docker rmi -f ${RUNENV_IMG}:latest 2>/dev/null
 	cp ${KM_BIN} ${PAYLOAD_KM}  ${RUNENV_PATH}
 	echo '#!/km --copyenv' > $(RUNENV_PATH)$(COMPONENT) ; chmod a+x $(RUNENV_PATH)$(COMPONENT)

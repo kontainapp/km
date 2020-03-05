@@ -12,7 +12,7 @@
 # TODO : rework apply -f, it is a hack for now
 
 SHELL=/bin/bash
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 include cloud_config.mk
 
 default:  help
@@ -20,7 +20,7 @@ default:  help
 resources:  ## Provision Azure resources (resource group and account)
 	./create_initial_resources.sh
 
-K8S_KVM_DEVICE_PLUGIN := ${TOP}cloud/k8s/kvm-ds.yml
+K8S_KVM_DEVICE_PLUGIN := ${TOP}/cloud/k8s/kvm-ds.yml
 cluster: ## Provision Kubernetes cluster on pre-provisioned Resource Group
 	./create_kube_cluster.sh
 	kubectl apply -f ${K8S_KVM_DEVICE_PLUGIN}
@@ -108,12 +108,12 @@ endif
 
 # Helpers to avoid cut-n-paste in pipeline definition.
 ci-prepare-testenv:
-	make -C $(TOP)$(LOCATION) pull-buildenv-image all
-	make -C $(TOP)$(LOCATION) testenv-image push-testenv-image
+	make -C $(TOP)/$(LOCATION) pull-buildenv-image all
+	make -C $(TOP)/$(LOCATION) testenv-image push-testenv-image
 
 ci-run-tests:
 	@# Note that we can get pod name from make, but to simplify the code we get it also from upstairs
-	make -C $(TOP)$(LOCATION) test-withk8s
+	make -C $(TOP)/$(LOCATION) test-withk8s
 	kubectl wait --for=condition=Ready --timeout=2m $(POD_NAME)
 	kubectl logs -f $(POD_NAME)
 	@if [[ "$$(kubectl get ${POD_NAME} -o 'jsonpath={..terminated.exitCode}')" != "0" ]] ; then \
@@ -137,5 +137,5 @@ clearow: ## clear openwhisk machines. You can just run 'apply_openwhisk_vms.sh d
 listow: ## list openwhisk machines. You can just run 'apply_openwhisk_vms.sh ls' instead
 	@./apply_openwhisk_vms.sh ls
 
-include $(TOP)make/locations.mk
+include $(TOP)/make/locations.mk
 
