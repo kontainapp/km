@@ -99,10 +99,10 @@ endif
 .PHONY: coverage covclean .cov_clean
 ifneq (${COVERAGE},)
 coverage:
-	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" COPTS="$(COPTS) --coverage"
+	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" COPTS="$(COPTS) --coverage"
 
 covclean:
-	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
+	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
 
 .cov_clean:
 	rm -rf ${BLDDIR}

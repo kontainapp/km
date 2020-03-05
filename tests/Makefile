@@ -127,12 +127,12 @@ ifneq ($(.SHELLSTATUS),0)
 endif
 
 covclean: ## Clean up code coverage build artifacts
-	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
+	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
 
 coverage: all  ## Build with code coverage, then run tests and generate reports
-	@$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .coverage
+	@$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .coverage
 
-ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
+ifeq (${BLDTYPE},$(COV_BLDTYPE))
 # we need this nesting to pass COV_BLDTYPE and set env. properly
 .PHONY: .coverage .cov_init .cov_clean
 .cov_clean:
