@@ -407,11 +407,48 @@ static int bp_list_remove(gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
 /*
  * Read and hex encode guest memory correcting for SW breakpoints
  */
-void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
+int km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
 {
    unsigned char mbuf[len];
+   km_kma_t tmpkma;
+   km_kma_t aligned_kma;
+   int tmplen;
+   int lenremaining = len;
+   int prot;
+   int mbuf_index = 0;
 
-   memcpy(mbuf, kma, len);
+   // Copy page by page checking permissions and enabling access if needed
+   for (tmpkma = kma; tmpkma < kma + len;) {
+      tmplen = KM_PAGE_SIZE - ((uint64_t)tmpkma & (KM_PAGE_SIZE-1));
+      if (tmplen > lenremaining) {
+         tmplen = lenremaining;
+      }
+      if (km_get_page_protection(tmpkma, &prot) != 0) {
+         km_infox(KM_TRACE_GDB, "Couldn't get memory permissions for address %p", tmpkma);
+         return -1;
+      }
+      aligned_kma = (void*)((uint64_t)tmpkma & ~(KM_PAGE_SIZE-1));
+      // Unprotect if needed
+      if ((prot & PROT_READ) == 0) {
+         if (mprotect(aligned_kma, KM_PAGE_SIZE, prot | PROT_READ) != 0) {
+            return -1;
+         }
+         km_infox(KM_TRACE_GDB, "Making page at %p temprarily readable", aligned_kma);
+      }
+      memcpy(&mbuf[mbuf_index], tmpkma, tmplen);
+      tmpkma += tmplen;
+      mbuf_index += tmplen;
+      lenremaining -= tmplen;
+      // Reprotect the page.
+      if ((prot & PROT_READ) == 0) {
+         if (mprotect(aligned_kma, KM_PAGE_SIZE, prot) != 0) {
+            km_info(KM_TRACE_GDB, "Unable to remove read access to page at %p", aligned_kma);
+            return -1;
+         }
+      }
+   }
+
+   // Put instructions back where breakpoints have been planted
    for (int i = 0; i < len; i++) {
       struct breakpoint_t* bp;
 
@@ -420,6 +457,69 @@ void km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
       }
    }
    mem2hex(mbuf, obuf, len);
+
+   return 0;
+}
+
+/*
+ * Convert count bytes of acsii hex in buf to binary and write to kma.
+ * Make pages written to temporarily writable if necessary.
+ * Return 0 on success.
+ */
+int km_guest_hex2mem(const char* buf, size_t count, km_kma_t kma)
+{
+   unsigned char mbuf[count/2];
+   km_kma_t tmpkma;
+   km_kma_t aligned_kma;
+   int len;
+   int tmplen;
+   int lenremaining;
+   int prot;
+   int mbuf_index = 0;
+
+   // Convert contents of buf to binary in mbuf
+   len = hex2mem(buf, mbuf, count) - mbuf;
+   lenremaining = len;
+
+   // Copy data in mbuf[] into the guest's virtual address space pointed to by kma.
+   for (tmpkma = kma; tmpkma < (kma + len); ) {
+      tmplen = KM_PAGE_SIZE - ((uint64_t)tmpkma & (KM_PAGE_SIZE-1));
+      if (tmplen > lenremaining) {
+         tmplen = lenremaining;
+      }
+      if (km_get_page_protection(tmpkma, &prot) != 0) {
+         km_infox(KM_TRACE_GDB, "Couldn't get memory permissions for address %p", tmpkma);
+         return -1;
+      }
+      if ((prot & PROT_EXEC) != 0) {
+         // We may change our mind on this in the future as we learn more.
+         km_infox(KM_TRACE_GDB, "Not allowing write on page at %p marked executable", tmpkma);
+         return -1;
+      }
+      aligned_kma = (void*)((uint64_t)tmpkma & ~(KM_PAGE_SIZE-1));
+      if ((prot & PROT_WRITE) == 0) {
+         if (mprotect(aligned_kma, KM_PAGE_SIZE, prot | PROT_WRITE) != 0) {
+            return -1;
+         }
+         km_infox(KM_TRACE_GDB, "Making page at %p temporarily writable", aligned_kma);
+      }
+
+km_infox(KM_TRACE_GDB, "tmpkma %p, &mbuf[%d] %p, len %d", tmpkma, mbuf_index, &mbuf[mbuf_index], len);
+      // Copy into the guest's memory
+      memcpy(tmpkma, &mbuf[mbuf_index], tmplen);
+      tmpkma += tmplen;
+      mbuf_index += tmplen;
+      lenremaining -= tmplen;
+
+      // Reprotect the page.
+      if ((prot & PROT_WRITE) == 0) {
+         if (mprotect(aligned_kma, KM_PAGE_SIZE, prot) != 0) {
+            km_info(KM_TRACE_GDB, "Unable to remove write access to page at %p", aligned_kma);
+            return -1;
+         }
+      }
+   }
+   return 0;
 }
 
 /*
