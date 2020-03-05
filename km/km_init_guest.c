@@ -22,15 +22,33 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/random.h>
 #include <sys/syscall.h>
 #include <linux/futex.h>
-#include <sys/random.h>
 
 #include "km.h"
 #include "km_gdb.h"
 #include "km_mem.h"
-#include "km_syscall.h"
 #include "km_proc.h"
+#include "km_syscall.h"
+#include "x86_cpu.h"
+
+static inline void km_init_syscall_handler(km_vcpu_t* vcpu, km_gva_t syscall_handler_gva)
+{
+   struct kvm_msrs* msrs = malloc(sizeof(struct kvm_msrs) + 3 * sizeof(struct kvm_msr_entry));
+   msrs->nmsrs = 3;
+   msrs->entries[0].index = MSR_IA32_FMASK;
+   msrs->entries[0].data = 0;
+   msrs->entries[1].index = MSR_IA32_LSTAR;
+   msrs->entries[1].data = syscall_handler_gva;
+   msrs->entries[2].index = MSR_IA32_STAR;
+   msrs->entries[2].data = 0;
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_MSRS, msrs) < 0) {
+      err(2, "KVM_SET_MSRS");
+   }
+   free(msrs);
+}
 
 /*
  * Allocate stack for main thread and initialize it according to ABI:
@@ -58,6 +76,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
 
    assert(km_guest.km_handlers != 0);
    km_init_guest_idt(km_guest.km_handlers, km_guest.km_interrupt_table);
+   km_init_syscall_handler(vcpu, km_guest.km_syscall_handler);
    if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
    }
