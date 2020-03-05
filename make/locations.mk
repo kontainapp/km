@@ -15,7 +15,7 @@ default: all
 
 TOP ?= $(shell git rev-parse --show-toplevel)
 
-# this is the path from the TOP to current dir
+# this is the path from the TOP to current dir. Note this has a trailing /
 FROMTOP := $(shell git rev-parse --show-prefix)
 # Current branch and SHA(for making different names unique per branch, e.g. Docker tags)
 SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
