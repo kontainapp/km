@@ -141,3 +141,48 @@ __km_interrupt_table:
     .quad handlerCP         # 21 #CP
     .quad handlerUNEX       # Rest unexpected
     .quad 0                 # Terminate list
+
+/*
+ * SYSCALL handling.
+ * Linux SYSCALL convention:
+ * RAX = syscall number
+ * RDI = 1st parameter
+ * RSI = 2nd parameter
+ * RDX = 3rd parameter
+ * R10 = 4th parameter
+ * R8  = 5th parameter
+ * R9  = 6th parameter
+ * Return value saved in RAX
+ */
+    .text
+    .align 16
+    .type __km_syscall_handler, @function
+    .global __km_syscall_handler
+__km_syscall_handler:
+    // create a km_hcall_t on the stack.
+    push %R9    # arg6
+    push %R8    # arg5
+    push %R10   # arg4
+    push %rdx   # arg3
+    push %rsi   # arg2
+    push %rdi   # arg1
+    push %RAX   # hc_ret
+
+    // Do the KM HCall
+    xor %rdx, %rdx
+    mov %ax, %dx
+    or $0x8000, %dx
+    mov %rsp, %rax
+    outl %eax, (%dx)
+
+    // Get return code into RAX
+    mov (%rsp), %rax
+    // Restore stack
+    add $56, %rsp
+
+    /*
+     * SYSRET is hardcoded to return to PL=3, so
+     * we can't use it. We don't change PL or RFLAGS
+     * so we can just jump back.
+     */
+    jmp %rcx
