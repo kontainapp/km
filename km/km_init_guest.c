@@ -36,7 +36,9 @@
 
 static inline void km_init_syscall_handler(km_vcpu_t* vcpu, km_gva_t syscall_handler_gva)
 {
-   struct kvm_msrs* msrs = malloc(sizeof(struct kvm_msrs) + 3 * sizeof(struct kvm_msr_entry));
+   size_t allocsz = sizeof(struct kvm_msrs) + 3 * sizeof(struct kvm_msr_entry);
+   struct kvm_msrs* msrs = calloc(allocsz, 1);
+
    msrs->nmsrs = 3;
    msrs->entries[0].index = MSR_IA32_FMASK;
    msrs->entries[0].data = 0;
@@ -45,7 +47,7 @@ static inline void km_init_syscall_handler(km_vcpu_t* vcpu, km_gva_t syscall_han
    msrs->entries[2].index = MSR_IA32_STAR;
    msrs->entries[2].data = 0;
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_MSRS, msrs) < 0) {
-      err(2, "KVM_SET_MSRS");
+      err(errno, "KVM_SET_MSRS");
    }
    free(msrs);
 }

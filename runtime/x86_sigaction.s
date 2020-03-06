@@ -175,8 +175,9 @@ __km_syscall_handler:
     mov %rsp, %rax
     outl %eax, (%dx)
 
-    // Restore stack
+    // Get return code into RAX
     mov (%rsp), %rax
+    // Restore stack
     add $56, %rsp
 
     /*
