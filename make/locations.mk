@@ -21,7 +21,7 @@ FROMTOP := $(shell git rev-parse --show-prefix)
 SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
 SRC_SHA ?= $(shell git rev-parse HEAD)
 
-PATH := $(realpath ${TOP}/tools):${PATH}
+PATH := $(abspath ${TOP}/tools):${PATH}
 
 # sha and build time for further reporting
 SRC_VERSION := $(shell git rev-parse HEAD)
@@ -31,11 +31,12 @@ BUILD_TIME := $(shell date -Iminutes)
 BLDTOP := ${TOP}/build
 # Build results go here.
 # For different build types (e.g. coverage), pass BLDTYPE=<type>, e.g BLDTYPE=coverage
-BLDDIR = ${BLDTOP}/${FROMTOP}$(BLDTYPE)
+
+BLDDIR := $(abspath ${BLDTOP}/${FROMTOP}/${BLDTYPE})
 
 # km location needs to be fixed no matter what is the FROMTOP,
 # so we can use KM from different places
-KM_BLDDIR := ${BLDTOP}/km/$(BLDTYPE)
+KM_BLDDIR := $(abspath ${BLDTOP}/km/${BLDTYPE})
 KM_BIN := ${KM_BLDDIR}/km
 KM_OPT := /opt/kontain
 KM_LDSO := ${BLDTOP}/runtime/libc.so

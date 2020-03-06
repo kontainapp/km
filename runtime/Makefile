@@ -56,7 +56,7 @@ CRT_SOURCES := $(filter musl/crt/%,$(ALL_SOURCES))
 
 H_DIRS := arch/$(ARCH) arch/generic src/include src/internal src/errno include
 # has to be recursive assignment as BLDDIR is defined in an include below
-INCLUDES = . ${TOP}/include $(addprefix ${SRCDIR}, ${H_DIRS}) ${BLDDIR}${SRCDIR}include
+INCLUDES = . ${TOP}/include $(addprefix ${SRCDIR}, ${H_DIRS}) ${BLDDIR}/${SRCDIR}include
 
 CWERRS := -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith
 CWARNS := -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable \
@@ -73,27 +73,27 @@ COPTS := -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 include ${TOP}/make/actions.mk
 
 # all objects needed in libc.so
-SO_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, \
+SO_OBJS = $(addprefix ${BLDDIR}/, $(addsuffix .lo, \
 		$(basename $(filter-out ${KM_STATIC_ONLY_SRCS},${SOURCES}) ${PTHREAD_SRCS})))
 # dynlink obj files
-DL_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .lo, $(basename ${DL_SOURCES})))
+DL_OBJS = $(addprefix ${BLDDIR}/, $(addsuffix .lo, $(basename ${DL_SOURCES})))
 # c run time init/start and  finish/end obj files
-CRT_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${CRT_SOURCES})))
-PTHREAD_OBJS = $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${PTHREAD_SRCS})))
+CRT_OBJS = $(addprefix ${BLDDIR}/, $(addsuffix .o, $(basename ${CRT_SOURCES})))
+PTHREAD_OBJS = $(addprefix ${BLDDIR}/, $(addsuffix .o, $(basename ${PTHREAD_SRCS})))
 
 $(CRT_OBJS): CFLAGS += -DCRT
 $(SO_OBJS) $(DL_OBJS): CFLAGS += -fPIC
-${BLDDIR}musl/crt/Scrt1.o ${BLDDIR}musl/crt/rcrt1.o: CFLAGS += -fPIC
+${BLDDIR}/musl/crt/Scrt1.o ${BLDDIR}/musl/crt/rcrt1.o: CFLAGS += -fPIC
 
-all: $(addprefix ${BLDDIR},libm.a libpthread.a) ${KM_OPT_LDSO} ${CRT_OBJS}
+all: $(addprefix ${BLDDIR}/,libm.a libpthread.a) ${KM_OPT_LDSO} ${CRT_OBJS}
 
-$(addprefix ${BLDDIR}, libm.a):
+$(addprefix ${BLDDIR}/, libm.a):
 	@echo "Making " $@; rm -f $@; ${AR} crs $@
 
-$(addprefix ${BLDDIR}, libpthread.a): ${PTHREAD_OBJS}
+$(addprefix ${BLDDIR}/, libpthread.a): ${PTHREAD_OBJS}
 	@echo "Making " $@; rm -f $@; ld -r ${PTHREAD_OBJS} -o $*.o; ${AR} crs $@ -o $*.o
 
-$(addprefix ${BLDDIR}, libc.so): ${SO_OBJS} ${DL_OBJS}
+$(addprefix ${BLDDIR}/, libc.so): ${SO_OBJS} ${DL_OBJS}
 	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} /usr/lib/gcc/x86_64-redhat-linux/9/libgcc.a
 
 ${KM_OPT_LDSO}: ${KM_OPT_RT} ${KM_LDSO}
@@ -102,7 +102,7 @@ ${KM_OPT_LDSO}: ${KM_OPT_RT} ${KM_LDSO}
 ${KM_OPT_RT}: |
 	sudo mkdir -p $@ && sudo chgrp users $@ && sudo chmod 777 $@
 
-${DEPS}: | $(addprefix ${BLDDIR}${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
+${DEPS}: | $(addprefix ${BLDDIR}/${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
 
 EXTRA_OBJDIRS = $(sort $(dir ${DL_OBJS})) $(sort $(dir ${CRT_OBJS}))
 ${SO_OBJS} ${DL_OBJS}: | ${OBJDIRS}	${EXTRA_OBJDIRS} # order only prerequisite - just make sure it exists
@@ -110,30 +110,30 @@ ${SO_OBJS} ${DL_OBJS}: | ${OBJDIRS}	${EXTRA_OBJDIRS} # order only prerequisite -
 ${EXTRA_OBJDIRS}:
 	mkdir -p $@
 
-${BLDDIR}%.lo: %.c
+${BLDDIR}/%.lo: %.c
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
 		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
-${BLDDIR}%.lo: %.s
+${BLDDIR}/%.lo: %.s
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
 		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
-${BLDDIR}%.lo: %.S
+${BLDDIR}/%.lo: %.S
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
 		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
-${BLDDIR}${SRCDIR}include/bits/alltypes.h: $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in
+${BLDDIR}/${SRCDIR}include/bits/alltypes.h: $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in
 	mkdir -p $(dir $@)
 	sed -f $(SRCDIR)tools/mkalltypes.sed $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in > $@
 
-${BLDDIR}${SRCDIR}include/bits/syscall.h: $(SRCDIR)arch/$(ARCH)/bits/syscall.h.in
+${BLDDIR}/${SRCDIR}include/bits/syscall.h: $(SRCDIR)arch/$(ARCH)/bits/syscall.h.in
 	mkdir -p $(dir $@)
 	cp $< $@
 	sed -n -e s/__NR_/SYS_/p < $< >> $@
 
-${BLDDIR}${SRCDIR}include/version.h: $(wildcard $(SRCDIR)VERSION $(SRCDIR).git)
+${BLDDIR}/${SRCDIR}include/version.h: $(wildcard $(SRCDIR)VERSION $(SRCDIR).git)
 	mkdir -p $(dir $@)
 	printf '#define VERSION "%s"\n' "$$(cd $(SRCDIR); sh tools/version.sh)" > $@
