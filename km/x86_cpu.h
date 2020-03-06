@@ -121,40 +121,39 @@ typedef struct x86_pde_2m {
  * Intel SDM, Vol3, Table 4-18. pde refering to a page table referring to 4KB pages
  */
 typedef struct x86_pde_4k {
-   uint64_t p : 1;               // present
-   uint64_t r_w : 1;             // read/write
-   uint64_t u_s : 1;             // user/supervisor
-   uint64_t pwt : 1;             // page write through
-   uint64_t pcd : 1;             // page cache disable
-   uint64_t accessed : 1;        //
-   uint64_t ign_6 : 1;           //
-   uint64_t ps : 1;              // page size, must be 0
-   uint64_t ignored_11_08 : 4;   //
-   uint64_t pta : 40;            // physical address of a page table for 4k pages
-   uint64_t ignored_62_52 : 11;  //
-   uint64_t xd : 1;              // exec disable
+   uint64_t p : 1;                // present
+   uint64_t r_w : 1;              // read/write
+   uint64_t u_s : 1;              // user/supervisor
+   uint64_t pwt : 1;              // page write through
+   uint64_t pcd : 1;              // page cache disable
+   uint64_t accessed : 1;         //
+   uint64_t ign_6 : 1;            //
+   uint64_t ps : 1;               // page size, must be 0
+   uint64_t ignored_11_08 : 4;    //
+   uint64_t pta : 40;             // physical address of a page table for 4k pages
+   uint64_t ignored_62_52 : 11;   //
+   uint64_t xd : 1;               // exec disable
 } x86_pde_4k_t;
 
 /*
  * Intel SDM, Vol3, Table 4-19. pte refering to a 4k page
  */
 typedef struct x86_pte_4k {
-   uint64_t p : 1;            // present
-   uint64_t r_w : 1;          // read/write
-   uint64_t u_s : 1;          // user/supervisor
-   uint64_t pwt : 1;          // page write through
-   uint64_t pcd : 1;          // page cache disable
-   uint64_t accessed : 1;     //
-   uint64_t dirty : 1;        // the page has been written on
-   uint64_t pat : 1;          //
-   uint64_t global : 1;       //
-   uint64_t ign_11_09 : 3;    //
-   uint64_t page : 40;        // page physical address
-   uint64_t ign_58_52 : 7;    //
-   uint64_t pkey : 4;         // protection key
-   uint64_t xd : 1;           // execute disable
+   uint64_t p : 1;           // present
+   uint64_t r_w : 1;         // read/write
+   uint64_t u_s : 1;         // user/supervisor
+   uint64_t pwt : 1;         // page write through
+   uint64_t pcd : 1;         // page cache disable
+   uint64_t accessed : 1;    //
+   uint64_t dirty : 1;       // the page has been written on
+   uint64_t pat : 1;         //
+   uint64_t global : 1;      //
+   uint64_t ign_11_09 : 3;   //
+   uint64_t page : 40;       // page physical address
+   uint64_t ign_58_52 : 7;   //
+   uint64_t pkey : 4;        // protection key
+   uint64_t xd : 1;          // execute disable
 } x86_pte_4k_t;
-
 
 /*
  * Intel SDM, Vol3, 2.5 CONTROL REGISTERS, Figure 2-7 and surrounding text
@@ -313,4 +312,12 @@ typedef struct x86_interrupt_frame {
    uint64_t rsp;
    uint64_t ss;
 } x86_interrupt_frame_t;
+
+/*
+ * Handy MSR Values
+ * Intel SDM, Volume 4
+ */
+#define MSR_IA32_STAR 0xc0000081
+#define MSR_IA32_LSTAR 0xc0000082
+#define MSR_IA32_FMASK 0xc0000084
 #endif

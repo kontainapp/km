@@ -151,7 +151,7 @@ static int kvm_vcpu_init_sregs(int fd, uint64_t fs)
        .cr0 = X86_CR0_PE | X86_CR0_PG | X86_CR0_WP | X86_CR0_NE,
        .cr3 = RSV_MEM_START + RSV_PML4_OFFSET,
        .cr4 = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE | X86_CR4_OSFXSR | X86_CR4_OSXMMEXCPT,
-       .efer = X86_EFER_LME | X86_EFER_LMA,
+       .efer = X86_EFER_LME | X86_EFER_LMA | X86_EFER_SCE,
 
        .cs = {.limit = 0xffffffff,
               .type = 9, /* Execute-only, accessed */

@@ -122,10 +122,13 @@ static inline int km_find_hook_symbols(Elf* e, km_gva_t adjust)
                        strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_TABL_SYM_NAME) == 0) {
                km_guest.km_interrupt_table = sym.st_value + adjust;
                km_guest.km_interrupt_table_adjust = adjust;
+            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SYSCALL_HAND_SYM_NAME) == 0) {
+               km_guest.km_syscall_handler = sym.st_value + adjust;
             }
             if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0 &&
                 km_guest.km_clone_child != 0 && km_guest.km_dlopen != 0 &&
-                km_guest.km_interrupt_table != 0) {
+                km_guest.km_interrupt_table != 0 && km_guest.km_syscall_handler != 0) {
                all_found = 1;
                break;
             }
