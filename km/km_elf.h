@@ -23,6 +23,7 @@
 #define KM_INT_HNDL_SYM_NAME "__km_handle_interrupt"
 #define KM_SIG_RTRN_SYM_NAME "__km_sigreturn"
 #define KM_CLONE_CHILD_SYM_NAME "__km_clone_run_child"
+#define KM_SYSCALL_HAND_SYM_NAME "__km_syscall_handler"
 #define KM_DLOPEN_SYM_NAME "dlopen"
 
 #define KM_DYNLINKER_STR "__km_dynlink__"
@@ -44,6 +45,7 @@ typedef struct km_payload {
    Elf64_Addr km_min_vaddr;                // minimum vaddr
    Elf64_Addr km_interrupt_table;          // interrupt/exception handler table
    Elf64_Addr km_interrupt_table_adjust;   // interrupt table adjustment
+   Elf64_Addr km_syscall_handler;          // system call handler
 } km_payload_t;
 
 typedef struct km_tls_module {

@@ -2,4 +2,4 @@
 # see km_elf.h for the list of symbols which need to stay in the stripped executable
 exec strip \
    -K __libc -K __start_thread__ -K __km_handle_interrupt -K __km_interrupt_table -K __pthread_tsd_size -K pthread_create -K __km_sigreturn \
-   -K __km_clone_run_child "$@"
+   -K __km_clone_run_child -K __km_syscall_handler "$@"

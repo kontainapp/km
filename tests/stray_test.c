@@ -58,6 +58,7 @@ int close_test(int optind, int argc, char* argv[]);
 int thread_test(int optind, int argc, char* argv[]);
 int syscall_test(int optind, int argc, char* argv[]);
 int trunc_mmap_test(int optind, int argc, char* argv[]);
+int hc_overhead_test(int optind, int argc, char* argv[]);
 
 struct stray_op {
    char* op;                                          // Operation name on command line
@@ -88,6 +89,7 @@ struct stray_op {
     {.op = "thread", .func = thread_test, .description = "test pthread create/join"},
     {.op = "syscall", .func = syscall_test, .description = "Generate a SYSCALL instruction"},
     {.op = "trunc_mmap", .func = trunc_mmap_test, .description = "Truncate an mmaped file and crash"},
+    {.op = "hc_overhead", .func = hc_overhead_test, .description = "Test overhead of Syscalls"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -309,6 +311,29 @@ int trunc_mmap_test(int optind, int argc, char* argv[])
    }
    abort();
 
+   return 0;
+}
+
+int hc_overhead_test(int optind, int argc, char* argv[])
+{
+   int do_syscall = 0;
+   int uid;
+
+   if (strcmp(argv[optind], "-s") == 0) {
+      do_syscall = 1;
+      optind++;
+   }
+   int loops = atoi(argv[optind]);
+
+   for (int i = 0; i < loops; i++) {
+      if (do_syscall) {
+         int syscall_num = 102;   // getuid
+         asm volatile("\tsyscall" : "=a"(uid) : "a"(syscall_num));
+      } else {
+         uid = getuid();
+      }
+      (void)uid;
+   }
    return 0;
 }
 
