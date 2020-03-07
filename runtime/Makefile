@@ -17,10 +17,10 @@ LIB := runtime
 # following it to compute SOURCES, picking up all .c files from relevant dirs
 # (i.e. skipping SKIP_SRC_DIR). Then drop the base implementations for the sake of
 # arch specific ones based on ARCH.
-SRCDIR := musl/
+SRCDIR := musl
 ARCH := x86_64
-SKIP_SRC_DIR := $(addprefix $(SRCDIR)src/, ipc mq)
-SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR),src/*/ crt/ ldso/)))
+SKIP_SRC_DIR := $(addprefix $(SRCDIR)/src/, ipc mq)
+SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR)/,src/*/ crt/ ldso/)))
 
 # these musl files will be dropped from all libs (static and dynamic)
 KM_REPLACED_SRCS := __set_thread_area.s __unmapself.s syscall.s syscall_cp.s getenv.c preadv.c pwritev.c \
@@ -56,7 +56,7 @@ CRT_SOURCES := $(filter musl/crt/%,$(ALL_SOURCES))
 
 H_DIRS := arch/$(ARCH) arch/generic src/include src/internal src/errno include
 # has to be recursive assignment as BLDDIR is defined in an include below
-INCLUDES = . ${TOP}/include $(addprefix ${SRCDIR}, ${H_DIRS}) ${BLDDIR}/${SRCDIR}include
+INCLUDES = . ${TOP}/include $(addprefix ${SRCDIR}/, ${H_DIRS}) ${BLDDIR}/${SRCDIR}/include
 
 CWERRS := -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith
 CWARNS := -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable \
@@ -102,7 +102,7 @@ ${KM_OPT_LDSO}: ${KM_OPT_RT} ${KM_LDSO}
 ${KM_OPT_RT}: |
 	sudo mkdir -p $@ && sudo chgrp users $@ && sudo chmod 777 $@
 
-${DEPS}: | $(addprefix ${BLDDIR}/${SRCDIR}include/, bits/alltypes.h bits/syscall.h version.h)
+${DEPS}: | $(addprefix ${BLDDIR}/${SRCDIR}/include/, bits/alltypes.h bits/syscall.h version.h)
 
 EXTRA_OBJDIRS = $(sort $(dir ${DL_OBJS})) $(sort $(dir ${CRT_OBJS}))
 ${SO_OBJS} ${DL_OBJS}: | ${OBJDIRS}	${EXTRA_OBJDIRS} # order only prerequisite - just make sure it exists
@@ -125,15 +125,15 @@ ${BLDDIR}/%.lo: %.S
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
 		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
-${BLDDIR}/${SRCDIR}include/bits/alltypes.h: $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in
+${BLDDIR}/${SRCDIR}/include/bits/alltypes.h: $(SRCDIR)/arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)/include/alltypes.h.in
 	mkdir -p $(dir $@)
-	sed -f $(SRCDIR)tools/mkalltypes.sed $(SRCDIR)arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)include/alltypes.h.in > $@
+	sed -f $(SRCDIR)/tools/mkalltypes.sed $(SRCDIR)/arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)/include/alltypes.h.in > $@
 
-${BLDDIR}/${SRCDIR}include/bits/syscall.h: $(SRCDIR)arch/$(ARCH)/bits/syscall.h.in
+${BLDDIR}/${SRCDIR}/include/bits/syscall.h: $(SRCDIR)/arch/$(ARCH)/bits/syscall.h.in
 	mkdir -p $(dir $@)
 	cp $< $@
 	sed -n -e s/__NR_/SYS_/p < $< >> $@
 
-${BLDDIR}/${SRCDIR}include/version.h: $(wildcard $(SRCDIR)VERSION $(SRCDIR).git)
+${BLDDIR}/${SRCDIR}/include/version.h: $(wildcard $(SRCDIR)/VERSION $(SRCDIR)/.git)
 	mkdir -p $(dir $@)
 	printf '#define VERSION "%s"\n' "$$(cd $(SRCDIR); sh tools/version.sh)" > $@
