@@ -24,7 +24,9 @@
 #
 SHELL=/bin/bash
 
-TOP ?= $(shell git rev-parse --show-toplevel)
+ifeq (${TOP},)
+  $(error "TOP needs to be set before including this mk file ") 
+endif
 
 # all locations/file names
 include ${TOP}/make/locations.mk

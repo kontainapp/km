@@ -13,7 +13,9 @@
 
 default: all
 
-TOP ?= $(shell git rev-parse --show-toplevel)
+ifeq (${TOP},)
+  $(error "TOP needs to be set before including this mk file ") 
+endif
 
 # this is the path from the TOP to current dir. Note this has a trailing /
 FROMTOP := $(shell git rev-parse --show-prefix)
