@@ -255,24 +255,28 @@ int main(int argc, char* const argv[])
          err(1, "failed to set main vcpu to run payload main()");
       }
    }
+   if (envp != __environ) {   // if there was no --putenv, we do not need envp array
+      free(envp);
+   }
    if (wait_for_signal == 1) {
       warnx("Waiting for kill -SIGUSR1  %d", getpid());
       km_wait_for_signal(SIGUSR1);
    }
-   km_vcpu_pause_all();
+
+   if (km_gdb_setup_listen() == 0) {   // Try to become the gdb server
+      km_vcpu_pause_all();
+   } else {
+      km_err_msg(0, "Failed to setup gdb listening port %d, disabling gdb support", gdbstub.port);
+      km_gdb_enable(0);   // disable gdb
+   }
+
    if (km_run_vcpu_thread(vcpu, km_vcpu_run_main) < 0) {
       err(2, "Failed to create main run_vcpu thread");
    }
-   if (envp != __environ) {
-      free(envp);
+   if (km_gdb_is_enabled() == 1) {
+      km_gdb_main_loop(vcpu);
+      km_gdb_destroy_listen();
    }
-
-   // Become the gdb server
-   if (km_gdb_setup_listen() != 0) {
-      err(3, "Failed to setup gdb listening port");
-   }
-   km_gdb_main_loop(vcpu);
-   km_gdb_destroy_listen();
 
    km_machine_fini();
    regfree(&km_info_trace.tags);
