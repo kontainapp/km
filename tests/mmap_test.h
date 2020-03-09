@@ -19,26 +19,41 @@
 #include "greatest/greatest.h"
 #include "km_mem.h"
 
-static int in_gdb = 1;
+int in_gdb = 1;
 
 extern int main(int argc, char** argv);
 #define KM_PAYLOAD() ((uint64_t)&main < 4 * MIB)   // in KM, we load from 2Mb, In Linux, from 4MB
 #define ASSERT_MMAPS_COUNT(expected_count, query)                                                  \
-   if (KM_PAYLOAD() == 1 && in_gdb == 1) {                                                         \
-      /*get_maps(greatest_get_verbosity());*/                                                      \
-      char read_check_result[256];                                                                 \
-      int verbosity = greatest_get_verbosity() >= 1;                                               \
-      sprintf(read_check_result, "%i,%i,%i", query, verbosity, expected_count);                    \
-      int ret = read(-2020, read_check_result, sizeof(read_check_result));                         \
-      ASSERT_EQ_FMT(-1, ret, "%d");                                                                \
-      if (errno == EBADF) {                                                                        \
-         fprintf(stderr, "\nPlease run this test in gdb\n");                                       \
-         in_gdb = 0;                                                                               \
-      } else {                                                                                     \
-         ASSERT_EQ_FMT(ESPIPE, errno, "%d");                                                       \
-         ASSERT_NOT_EQm(NULL, strstr("True", read_check_result), "Got False");                     \
+   {                                                                                               \
+      int ret = maps_count(expected_count, query);                                                 \
+      if (ret == -1) {                                                                             \
+         FAILm("MMAP count != count");                                                             \
       }                                                                                            \
    }
+
+int maps_count(expected_count, query)
+{
+   if (KM_PAYLOAD() == 1 && in_gdb == 1) {
+      char read_check_result[256];
+      int verbosity = greatest_get_verbosity() >= 1;
+      sprintf(read_check_result, "%i,%i,%i", query, verbosity, expected_count);
+      int ret = read(-2020, read_check_result, sizeof(read_check_result));
+      // ASSERT_EQ_FMT(-1, ret, "%d");
+      if (errno == EBADF) {
+         fprintf(stderr, "\nPlease run this test in gdb\n");
+         in_gdb = 0;
+      } else {
+         ASSERT_EQ_FMT(ESPIPE, errno, "%d");
+         int k = strstr(" True ", read_check_result) == NULL;
+         if (k != 0) {
+            printf("Got False\n");
+            return -1;
+         }
+         return 0;
+      }
+   }
+   return -1;
+}
 
 // Type of operation invoked by a single line in test tables
 typedef enum {

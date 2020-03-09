@@ -338,7 +338,7 @@
             "--skip",
             "${workspaceFolder}/payloads/python/extensions/skip_builtins.txt"
          ]
-      },
+      }
    ],
    "inputs": [
       {

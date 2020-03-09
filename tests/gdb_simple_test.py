@@ -1,51 +1,48 @@
+# Copyright © 2018-2020 Kontain Inc. All rights reserved.
+
+# Kontain Inc CONFIDENTIAL
+
+# This file includes unpublished proprietary source code of Kontain Inc. The
+# copyright notice above does not evidence any actual or intended publication
+# of such source code. Disclosure of this source code or any related
+# proprietary information is strictly prohibited without the express written
+# permission of Kontain Inc.
+
 import gdb
+import pylint
 
 func = "km_fs_prw"
 total_count = 0
+special_fd = -2020
+busy_mmaps = '1'
+free_mmaps = '2'
+total_mmaps = '3'
 
 
 def bp_handler(event):
     if event.breakpoint.location == func:
-        i = gdb.selected_inferior()
-        print("_____________________")
         gdb.write("Special bp hit\n")
-        s = gdb.parse_and_eval("fd")
-        if s == -2020:
+        fd_val = gdb.parse_and_eval("fd")
+        if fd_val == special_fd:
             t = str(gdb.parse_and_eval("(char*)buf"))
             address = gdb.parse_and_eval("buf")
             tsplit = t.split(",")
             tsplit = t.split('"')
             infosplit = tsplit[1].split(",")
             query = infosplit[0]
-            verbosity = infosplit[1]
-            expected_count = infosplit[2]
-            if int(verbosity) > 0:
-                print("fd in: ", s)
-                print("buf in: ", t)
-                print("Address: ", str(address))
-                print("query: ", query)
-                print("verbosity: ", verbosity)
-                print("expected_count: ", expected_count)
-
-            if query == '1':
-                r = gdb.parse_and_eval("&machine.mmaps.busy")
-                x = str(print_tailq(r, verbosity, expected_count))
-                i.write_memory(address, x)
-            elif query == '2':
-                r = gdb.parse_and_eval("&machine.mmaps.free")
-                x = str(print_tailq(r, verbosity, expected_count))
-                i = gdb.selected_inferior()
-                i.write_memory(address, x)
-
-            elif query == '3':
-                r = gdb.parse_and_eval("&machine.mmaps.free")
-                x = str(print_tailq(r, verbosity, expected_count))
-                r = gdb.parse_and_eval("&machine.mmaps.busy")
-                x = str(print_tailq(r, verbosity, expected_count))
-                i.write_memory(address, x)
-                total_count = 0
-            else:
-                i.write_memory(address, "invalid query")
+            verbosity = int(infosplit[1])
+            expected_count = int(infosplit[2])
+            if verbosity > 0:
+                print(f"""
+                fd in: {fd_val}
+                buf in: {t}
+                Address: {str(address)}
+                query: {query}
+                verbosity: {verbosity}
+                expected_count: {expected_count}
+                """)
+            # Busy maps only query = 1, Free Maps only query = 2, Total = 3
+            query_mmaps(query, 1, expected_count)
 
     # don't stop, continue
     gdb.execute("return -29")
@@ -64,30 +61,70 @@ def set_breakpoint():
 
 def run():
     gdb.execute("run")
-    # gdb.execute("handle SIGUSR1 nostop")
-    # gdb.execute("c")
+
+# Busy maps only query = 1, Free Maps only query = 2, Total = 3
 
 
-def print_tailq(tailq, verbosity, expected_count):
+def query_mmaps(query, verbosity, expected_count):
+    inferior = gdb.selected_inferior()
+
+    if query == busy_mmaps:
+        mmap = gdb.parse_and_eval("&machine.mmaps.busy")
+        ret = count_mmaps(mmap, verbosity)
+        if ret == expected_count:
+            output = "True"
+        else:
+            output = "False"
+        inferior.write_memory(gdb.parse_and_eval("buf"), output)
+    elif query == free_mmaps:
+        mmap = gdb.parse_and_eval("&machine.mmaps.free")
+        ret = count_mmaps(mmap, verbosity)
+        if ret == expected_count:
+            output = "True"
+        else:
+            output = "False"
+        inferior.write_memory(gdb.parse_and_eval("buf"), output)
+
+    elif query == total_mmaps:
+        mmap = gdb.parse_and_eval("&machine.mmaps.free")
+        ret = count_mmaps(mmap, verbosity)
+        mmap = gdb.parse_and_eval("&machine.mmaps.busy")
+        ret = ret + count_mmaps(mmap, verbosity)
+        print("count: ", ret)
+        print("expected_count: ", expected_count)
+        if ret == expected_count:
+            print("true")
+            output = " True "
+        else:
+            print("false")
+            output = " False "
+        inferior.write_memory(gdb.parse_and_eval("buf"), output)
+    else:
+        inferior.write_memory(gdb.parse_and_eval("buf"), "invalid query")
+
+
+def count_mmaps(tailq, verbosity):
     tq = tailq["tqh_first"]
     le = tq["start"]
     count = 0
+    if verbosity == 1:
+        print_tailq(tailq)
     while tq:
         count = count + 1
-
-        if int(verbosity) == 1:
-            distance = tq['start'] - le
-            print(f"{count}  {tq} start={tq['start']} next={tq['link']['tqe_next']} size={tq['size']} prot={tq['protection']} flags={tq['flags']} fn={tq['filename']} km_fl={tq['km_flags']['data32']} distance= {distance}")
-            le = tq["start"] + tq["size"]
-            print("Count: " + str(count) +
-                  "  |  Expected Count: " + str(expected_count))
-
         tq = tq["link"]["tqe_next"]
-    if total_count > 0:
-        count = count + total_count
-    if int(expected_count) == count:
-        return True
-    return False
+    return count
+
+
+def print_tailq(tailq):
+    tq = tailq["tqh_first"]
+    le = tq["start"]
+    counter = 0
+    while tq:
+        counter = counter + 1
+        distance = tq['start'] - le
+        print(f"{counter}  {tq} start={tq['start']} next={tq['link']['tqe_next']} size={tq['size']} prot={tq['protection']} flags={tq['flags']} fn={tq['filename']} km_fl={tq['km_flags']['data32']} distance= {distance}")
+        le = tq["start"] + tq["size"]
+        tq = tq["link"]["tqe_next"]
 
 
 def in_gdb_notifier():
@@ -104,7 +141,7 @@ class print_mmaps (gdb.Command):
         a = gdb.parse_and_eval(arg)
         print("Arg = ", str(arg))
         print("A = ", str(a))
-        print_tailq(a, 1, 0)
+        print_tailq(a)
 
 
 print_mmaps()

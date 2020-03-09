@@ -152,7 +152,6 @@ static km_hc_ret_t prwv_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-
    arg->hc_ret = km_fs_prwv(vcpu, hc, arg->arg1, buf, arg->arg3, arg->arg4);
    return HC_CONTINUE;
 }

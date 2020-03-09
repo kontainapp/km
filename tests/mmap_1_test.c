@@ -259,7 +259,6 @@ GREATEST_MAIN_DEFS();
 int main(int argc, char** argv)
 {
    GREATEST_MAIN_BEGIN();
-   // greatest_set_verbosity(1);
    RUN_TEST(mmap_overlap);
    RUN_TEST(mmap_mprotect_overlap);
    ASSERT_MMAPS_COUNT(2, TOTAL_MMAPS);
