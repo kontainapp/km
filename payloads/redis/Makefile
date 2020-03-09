@@ -11,9 +11,8 @@
 # Makefile for building and packing Redis payload runtime for KM
 
 
-TOP := $(shell git rev-parse --show-cdup)
-REAL_TOP := $(realpath ${TOP})
-CURRENT := ${REAL_TOP}/payloads/redis
+TOP := $(shell git rev-parse --show-toplevel)
+CURRENT := ${TOP}/payloads/redis
 REDIS_TOP := ${CURRENT}/redis
 REDIS_EXECUTABLE := ${REDIS_TOP}/src/redis-server
 REDIS_KM := ${CURRENT}/redis-server.kmd

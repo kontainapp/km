@@ -10,7 +10,7 @@
 #
 # A helper include for makefiles which need to build disto packages or publish to registries.#
 
-include $(TOP)make/locations.mk
+include $(TOP)/make/locations.mk
 
 # Image name for KM, build in KM dir.
 KM_IMAGE_FULL_NAME := kontain/km:$(IMAGE_VERSION)
@@ -42,7 +42,7 @@ DOCKERFILE_CONTENT := \
 	ENTRYPOINT [ \"/km\"]
 
 distro: all
-	@$(TOP)make/check-docker.sh
+	@$(TOP)/make/check-docker.sh
 	@tar -cf $(TAR_FILE) $(PAYLOAD_FILES)
 	@-echo "Cleaning old image"; \
 		docker rmi -f ${PAYLOAD_BRANCH} ${PAYLOAD_LATEST} 2>/dev/null

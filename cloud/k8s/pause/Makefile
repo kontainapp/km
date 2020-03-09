@@ -1,6 +1,5 @@
 
-TOP := $(shell git rev-parse --show-cdup)
-REAL_TOP := $(realpath ${TOP})
+TOP := $(shell git rev-parse --show-toplevel)
 
 SRCS = pause.c
 BIN = pause
@@ -20,7 +19,7 @@ $(BIN): $(OBJS)
 	cc $(CFLAGS) -o $@ $^
 
 $(BIN_KM): $(OBJS)
-	${REAL_TOP}/tools/kontain-gcc $(CFLAGS) -o $@ $^
+	${TOP}/tools/kontain-gcc $(CFLAGS) -o $@ $^
 
 PAUSE_CONTAINER = kontain/pause-km
 

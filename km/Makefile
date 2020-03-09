@@ -8,7 +8,7 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 
 EXEC := km
 SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c km_mem.c km_mmap.c \
@@ -17,11 +17,11 @@ SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c km_mem.c
 		km_proc.c
 LOCAL_COPTS := -D_KM_UNITTEST
 VERSION_SRC := km_main.c # it has branch/version info, so rebuild it if git info changes
-INCLUDES := ${TOP}include
+INCLUDES := ${TOP}/include
 LLIBS := elf z
 COVERAGE := yes
 
-include ${TOP}make/actions.mk
+include ${TOP}/make/actions.mk
 
 #
 # Building Docker Image with KM (and related shared libs), and running sanity check.
@@ -40,7 +40,7 @@ KM_IMAGE_FULL_NAME := kontain/$(EXEC):$(IMAGE_VERSION)
 # Build  a docker image with KM only, to be used as base image if needed
 # We build KM static, put it in a bare docker container, and validate it
 distro: ${BLDEXEC}
-	@$(TOP)make/check-docker.sh
+	@$(TOP)/make/check-docker.sh
 	@echo "Creating docker image '$(KM_IMAGE_FULL_NAME)'..." ; docker rmi -f $(KM_IMAGE_FULL_NAME) 2>/dev/null
 	tar -C $(dir $(BLDEXEC)) -c $(notdir $(BLDEXEC)) | docker import -m '$(KM_IMAGE_MESSAGE)' -c '$(KM_IMAGE_LABEL)' - $(KM_IMAGE_FULL_NAME)
 	@echo -e "Docker image created: $(GREEN)`docker image ls $(KM_IMAGE_FULL_NAME) --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"

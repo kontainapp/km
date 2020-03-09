@@ -15,7 +15,7 @@ We also keep here the `./k8s` dir with the code to customize payload deployments
       * Also, if building payloadimages only, Docker image for `km` needs to be pre-built.
     * Doing `make distro` from top level will build KM base Docker image first, and then build payload  Docker images.
 * `make publish` will push them to container registry. You need to be logged in the proper registry (Azure ACR, dockerhub, etc.. - see below)
-  * $(TOP)make/`locations.mk` defines the CLOUD variable as `azure`, so by default, it will try to push to Azure Container Registry.
+  * $(TOP)/make/`locations.mk` defines the CLOUD variable as `azure`, so by default, it will try to push to Azure Container Registry.
   * Registry name is defined in `./k8s/azure/kustomization.yml`.
   * You can redefine where to push when running make, e.g.  `make CLOUD=minikube publish` will push to registry defined in `./k8s/cloud/minikube/kustomization.yml`.
 * `make distroclean` and `make publishclean` are cleaning the artifacts

@@ -1,8 +1,7 @@
 #!/bin/bash
 
-TOP=$(git rev-parse --show-cdup)
-REAL_TOP=$(realpath ${TOP})
-CURRENT=${REAL_TOP}/payloads/redis
+TOP=$(git rev-parse --show-toplevel)
+CURRENT=${TOP}/payloads/redis
 REDIS_TOP=${CURRENT}/redis
 
 BUILDENV_IMAGE_NAME="kontain/buildenv-redis-alpine"

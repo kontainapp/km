@@ -10,7 +10,7 @@
 #
 # Makefile for building and packing Node.js payload runtime for KM
 
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 
 BUILD ?= Release
 VERS ?= v12.4.0
@@ -36,14 +36,13 @@ PAYLOAD_NAME := NodeJs12.4
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
 
-REALPATH_TOP := $(realpath ${TOP})
 # either run all in 'blank' container, or local.
 # in blank: link + tar + create shebang
 # fromsrc local: link + create shebang
 # regular local: just run docker
 all:
 ifneq ($(shell test -d node/.git && echo OK),OK)
-	${DOCKER_RUN} -w /src -v ${REALPATH_TOP}:/src:Z kontain/buildenv-node-fedora /bin/bash -x -c "make -C payloads/node in-blank-container"
+	${DOCKER_RUN} -w /src -v ${TOP}:/src:Z kontain/buildenv-node-fedora /bin/bash -x -c "make -C payloads/node in-blank-container"
 else
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 endif
@@ -97,4 +96,4 @@ export define runenv_prep
 	cp -r scripts $(RUNENV_PATH)
 endef
 
-include ${TOP}make/images.mk
+include ${TOP}/make/images.mk
