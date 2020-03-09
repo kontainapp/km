@@ -10,10 +10,6 @@
 #
 # A helper include for makefiles which need to build disto packages or publish to registries.#
 
-ifeq (${TOP},)
-  $(error "TOP needs to be set before including this mk file ") 
-endif
-
 include $(TOP)/make/locations.mk
 
 # Image name for KM, build in KM dir.

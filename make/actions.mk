@@ -24,10 +24,6 @@
 #
 SHELL=/bin/bash
 
-ifeq (${TOP},)
-  $(error "TOP needs to be set before including this mk file ") 
-endif
-
 # all locations/file names
 include ${TOP}/make/locations.mk
 # customization of build should be in custom.mk

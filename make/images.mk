@@ -31,10 +31,6 @@ ifeq ($(COMPONENT),)
 $(error "COMPONENT is undefined - please add COMPONENT=component_name in your Makefile")
 endif
 
-ifeq (${TOP},)
-  $(error "TOP needs to be set before including this mk file ") 
-endif
-
 include ${TOP}/make/locations.mk
 
 # Image names and location for image builds
