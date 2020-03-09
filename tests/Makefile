@@ -8,13 +8,13 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 SHELL=/bin/bash
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 
 COMPONENT := km
 # this is how we run tests in containers:
 CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
 
-include ${TOP}make/images.mk
+include ${TOP}/make/images.mk
 
 SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_value_test.c hcallargs_test.c \
 		load_test.c  hello_loop_test.c hello_2_loops_test.c memslot_test.c mutex_test.c futex_test.c \
@@ -36,7 +36,7 @@ SHRSRC := dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c
 BUILDENV_PATH  := ./gdb
 TESTENV_PATH := .
 
-CFLAGS = -Wall $(COPTS) -ggdb3 -fPIC -fno-stack-protector -pthread -I$(TOP)include -I$(TOP)km
+CFLAGS = -Wall $(COPTS) -ggdb3 -fPIC -fno-stack-protector -pthread -I${TOP}/include -I${TOP}/km
 LDFLAGS = -ggdb3 -pthread -ldl
 KCC := kontain-gcc
 DEPS = ${SRC:%.c=%.d} ${SHRSRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
@@ -57,7 +57,7 @@ MATCH ?= .*
 
 all: ${EXECS} ${SEXECS} ${DEXECS} ## Build all test, for Linux and KM
 
-${KM_PAYLOADS}: ${TOP}build/runtime
+${KM_PAYLOADS}: ${TOP}/build/runtime
 
 # Run all or some of tests (needs /dev/kvm)
 # ignore test failure when building coverage
@@ -127,12 +127,12 @@ ifneq ($(.SHELLSTATUS),0)
 endif
 
 covclean: ## Clean up code coverage build artifacts
-	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
+	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
 
 coverage: all  ## Build with code coverage, then run tests and generate reports
-	@$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .coverage
+	@$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .coverage
 
-ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
+ifeq (${BLDTYPE},$(COV_BLDTYPE))
 # we need this nesting to pass COV_BLDTYPE and set env. properly
 .PHONY: .coverage .cov_init .cov_clean
 .cov_clean:
@@ -146,7 +146,7 @@ COVERAGE_THRESHOLDS :=  --fail-under-branch 40  --fail-under-line 55
 endif
 
 # example: gcovr ../build/km/coverage/ -r ../km --html-details -o ../build/km/coverage/report/km.html
-COVERAGE_CMD_FLAGS  :=  -r ${TOP}km --html --html-details -o ${COVERAGE_REPORT} ${KM_BLDDIR} \
+COVERAGE_CMD_FLAGS  :=  -r ${TOP}/km --html --html-details -o ${COVERAGE_REPORT} ${KM_BLDDIR} \
 		 --html-title "Kontain Monitor Code Coverage report" --print-summary -j 4 --exclude-unreachable-branches --delete
 
 .coverage: test
@@ -160,7 +160,7 @@ COVERAGE_CMD_FLAGS  :=  -r ${TOP}km --html --html-details -o ${COVERAGE_REPORT} 
 	@echo -e "COVERAGE: ${GREEN}Running tests with code coverage...${NOCOLOR}"
 
 test: .cov_init
-endif # ifeq (${BLDTYPE},$(COV_BLDTYPE)/)
+endif # ifeq (${BLDTYPE},$(COV_BLDTYPE))
 
 test-all: test ## alias for test
 

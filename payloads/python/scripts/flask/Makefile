@@ -13,7 +13,7 @@
 #
 # pass DTYPE=type for different distros (see DTYPES below for the list)
 
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 
 # test label is used only to simplify searching for containers build in this makefile
 TEST_LABEL := flask-km-test
@@ -89,7 +89,7 @@ help:  ## Prints help on 'make' targets
 	@echo 'For specific help in folders, try "(cd <dir>; make help)"'
 	@echo ""
 
-include $(TOP)make/locations.mk
+include $(TOP)/make/locations.mk
 
 
 try:

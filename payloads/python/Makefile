@@ -10,7 +10,7 @@
 #
 # Makefile for building and packing Python payload runtime for KM
 
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 VERS ?= v3.7.4
 SHELL=/bin/bash
 
@@ -39,9 +39,6 @@ PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dl
 # 'yes' if cpython was build from src (based on existable of .git repo)
 FROMSRC=$(shell test -d $(PYTHONTOP)/.git && echo yes)
 
-# full path to top of the git repo
-PATH_TOP=$(realpath ${TOP})
-
 # Python build artifacts are prepared by either
 #   'fromsrc' in which case there is full cpython .git repo and we do full cpython build locally
 # or
@@ -61,7 +58,7 @@ endef
 
 all:
 ifneq ($(FROMSRC),yes)
-	${DOCKER_RUN} -v $(PATH_TOP):$(PATH_TOP):Z -w $(PATH_TOP) ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+	${DOCKER_RUN} -v ${TOP}:${TOP}:Z -w ${TOP} ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
 			make -C payloads/python in-blank-container \
 				EXTRA_LINKFILES="${EXTRA_LINKFILES}"  CUSTOM_KM="${CUSTOM_KM}"
 else
@@ -144,4 +141,4 @@ clobber: ## Clobber cpython build by removing cpython dir
 clobber-modules:
 	cd cpython; git clean -xdff Lib Modules
 
-include ${TOP}make/images.mk
+include ${TOP}/make/images.mk

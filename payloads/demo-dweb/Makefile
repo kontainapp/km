@@ -10,7 +10,7 @@
 #
 # Makefile for building and packing dweb-demo
 
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 KM_BIN=${TOP}/build/km/km
 
 
@@ -29,7 +29,7 @@ demo: all ##  Run Simple web server demo as Linux process
 
 kmdemo:  all ## Run Simple web server demo as Kontain VM Payload
 	@echo use "http://localhost:${PORT1}" to access the demo running as Linux process
-	${TOP}build/km/km ./dweb/dweb.km ${PORT1} dweb
+	${TOP}/build/km/km ./dweb/dweb.km ${PORT1} dweb
 
 dockerdemo: all distro ## Run Simple web server demo as Kontain VM payload in Docker
 	@echo use "http://localhost:${PORT1}" to access the demo running as a Kontain VM packaged in Docker
@@ -55,4 +55,4 @@ PAYLOAD_NAME := DWebSrvDemo
 # a list to be passed to tar to be packed into container image
 PAYLOAD_FILES := $(PAYLOAD_KM) dweb/css dweb/fonts dweb/js dweb/index.html dweb/kontain_logo_transparent.png
 
-include ${TOP}make/distro.mk
+include ${TOP}/make/distro.mk

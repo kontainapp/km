@@ -1,8 +1,7 @@
 #!/bin/bash
 
-TOP=$(git rev-parse --show-cdup)
-REAL_TOP=$(realpath ${TOP})
-CURRENT=${REAL_TOP}/payloads/nginx
+TOP=$(git rev-parse --show-toplevel)
+CURRENT=${TOP}/payloads/nginx
 NGINX_TOP=${CURRENT}/nginx
 
 BUILDENV_IMAGE_NAME="kontain/buildenv-nginx-alpine"

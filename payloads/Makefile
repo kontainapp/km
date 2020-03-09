@@ -23,5 +23,5 @@ default test coverage:
 # use this target to force payloads build
 link build: $(SUBDIRS)
 
-TOP := $(shell git rev-parse --show-cdup)
-include ${TOP}make/actions.mk
+TOP := $(shell git rev-parse --show-toplevel)
+include ${TOP}/make/actions.mk

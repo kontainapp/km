@@ -10,11 +10,11 @@
 #
 # create buildenv images and push them to Azure registry
 
-TOP=$(git rev-parse --show-cdup)
+TOP=$(git rev-parse --show-toplevel)
 source `dirname $0`/cloud_config.mk
 
 DTYPE=$1
-BUILDENV_PATH=${TOP}docker/build
+BUILDENV_PATH=${TOP}/docker/build
 BUILDENV_DOCKERFILE=${TOP}/tests/buildenv-${DTYPE}.dockerfile
 BUILDENV_KM_IMG=${REGISTRY}/buildenv-km-${DTYPE}
 

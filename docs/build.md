@@ -132,9 +132,9 @@ Build system uses tried-and-true `make` and related tricks. Generally, each dir 
 
 This Makefile need to have the following:
 
-* The location of TOP of the repository, using  `TOP := $(shell git rev-parse --show-cdup)`
+* The location of TOP of the repository, using  `TOP := $(shell git rev-parse --show-toplevel)`
 * A few variables to tell system what to build (e.g. `LIB := runtime`), and what to build it from (`SOURCES := a.c, x.c …`), compile options (`COPTS := -Os -D_GNU_SOURCE …`) and include dirs (`INCLUDES := ${TOP}/include`)
-* `include ${TOP}make/actions.mk` or include for `images.mk`
+* `include ${TOP}/make/actions.mk` or include for `images.mk`
 * Config info is in `make/locations.mk`**
 
 **Customization you may want to do to compile flags and the likes for you private builds are in `make/custom.mk`**
