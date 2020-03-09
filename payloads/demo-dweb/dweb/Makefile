@@ -1,4 +1,4 @@
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 
 OBJS=dweb.o dwebsvr.o cpuid.o
 
@@ -10,7 +10,7 @@ dweb: $(OBJS)
 	$(CC) -static $(CLFAGS) -pthread  -o $@ $^
 
 dweb.km: $(OBJS)
-	${TOP}tools/kontain-gcc -static -no-pie $(CLFAGS) -pthread  -o $@ $^ && chmod a-x $@
+	${TOP}/tools/kontain-gcc -static -no-pie $(CLFAGS) -pthread  -o $@ $^ && chmod a-x $@
 
 .PHONY: clean
 clean:

@@ -14,8 +14,8 @@
 # Places all Kontain files (in container) into KONTAIN_JAVA_BIN
 #
 
-TOP := $(shell git rev-parse --show-cdup)
-include ${TOP}make/locations.mk
+TOP := $(shell git rev-parse --show-toplevel)
+include ${TOP}/make/locations.mk
 
 # instructions for building Kontainers
 DOCKERFILE := kontain.dockerfile
@@ -28,7 +28,7 @@ KONTAIN_DIR := /opt/kontain
 JDK_LOC := payloads/java/${JDK_VERSION}/build/linux-x86_64-normal-server-release
 
 # Kontain specific files to land in the container JAVA/bin
-KM_FILES := ${KM_BIN} ${KM_LDSO} ${TOP}${JDK_LOC}/images/jdk/bin/java.km
+KM_FILES := ${KM_BIN} ${KM_LDSO} ${TOP}/${JDK_LOC}/images/jdk/bin/java.km
 
 # Place for docker to pick up stuff from
 DOCKER_DIR := .dockerdir
@@ -116,7 +116,7 @@ base-pull: ## pull nokia containers from azure container registry - prerequsite 
 	docker pull $(CLIENT_REPO)/$(CLIENT_VERSION)
 
 login: ## helper to log in Azure and the registry
-	make -C $(TOP)cloud/azure login-cli
+	make -C $(TOP)/cloud/azure login-cli
 	az acr login -n kontainstage
 
 clean-disks: ## clean disks and containers for Nokia Kafka test run

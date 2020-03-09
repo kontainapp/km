@@ -10,7 +10,7 @@
 #
 # To be included throughout the KONTAIN project
 # TOP has to be defined before inclusion, usually as
-#  		TOP := $(shell git rev-parse --show-cdup)
+#  		TOP := $(shell git rev-parse --show-toplevel)
 #
 # There are three possible builds depending on the including Makefile,
 # depending which of the following is defined:
@@ -24,23 +24,16 @@
 #
 SHELL=/bin/bash
 
-# make sure the value is non-empty - if we are
-# already at the top, we can get empty line from upstairs
-# (Note that below we'll expect the trailing '/' in directories)
-ifeq ($(strip ${TOP}),)
-TOP := ./
-endif
-
 # all locations/file names
-include ${TOP}make/locations.mk
+include ${TOP}/make/locations.mk
 # customization of build should be in custom.mk
-include ${TOP}make/custom.mk
+include ${TOP}/make/custom.mk
 
 CFLAGS = ${COPTS} ${LOCAL_COPTS} -Wall -ggdb3 -pthread $(addprefix -I , ${INCLUDES})
-DEPS = $(addprefix ${BLDDIR}, $(addsuffix .d, $(basename ${SOURCES})))
-OBJS = $(sort $(addprefix ${BLDDIR}, $(addsuffix .o, $(basename ${SOURCES}))))
-BLDEXEC = $(addprefix ${BLDDIR},${EXEC})
-BLDLIB = $(addprefix ${BLDDIR}lib,$(addsuffix .a,${LIB}))
+DEPS = $(addprefix ${BLDDIR}/, $(addsuffix .d, $(basename ${SOURCES})))
+OBJS = $(sort $(addprefix ${BLDDIR}/, $(addsuffix .o, $(basename ${SOURCES}))))
+BLDEXEC = $(addprefix ${BLDDIR}/,${EXEC})
+BLDLIB = $(addprefix ${BLDDIR}/lib,$(addsuffix .a,${LIB}))
 
 ifneq (${SUBDIRS},)
 
@@ -85,10 +78,10 @@ ${BLDEXEC}: $(OBJS)
 
 # if VERSION_SRC is defined, force-rebuild these sources on 'git info' changes
 ifneq (${VERSION_SRC},)
-${VERSION_SRC}: ${TOP}.git/HEAD ${TOP}.git/index
+${VERSION_SRC}: ${TOP}/.git/HEAD ${TOP}/.git/index
 	touch $@
 
-${BLDDIR}$(subst .c,.o,${VERSION_SRC}): CFLAGS += -DSRC_BRANCH='"${SRC_BRANCH}"' -DSRC_VERSION='"${SRC_VERSION}"' -DBUILD_TIME='"${BUILD_TIME}"'
+${BLDDIR}/$(subst .c,.o,${VERSION_SRC}): CFLAGS += -DSRC_BRANCH='"${SRC_BRANCH}"' -DSRC_VERSION='"${SRC_VERSION}"' -DBUILD_TIME='"${BUILD_TIME}"'
 endif
 
 endif
@@ -104,10 +97,10 @@ endif
 .PHONY: coverage covclean .cov_clean
 ifneq (${COVERAGE},)
 coverage:
-	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" COPTS="$(COPTS) --coverage"
+	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" COPTS="$(COPTS) --coverage"
 
 covclean:
-	$(MAKE) BLDTYPE=$(COV_BLDTYPE)/ MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
+	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
 
 .cov_clean:
 	rm -rf ${BLDDIR}
@@ -128,26 +121,26 @@ ${OBJDIRS}:
 # \\1 - filename :\\2:\\3: - position (note \\3: is optional) \\4 - severity \\5 - message
 # The sed transformation adds ${FROMTOP} prefix to file names to facilitate looking for files
 #
-${BLDDIR}%.o: %.c
+${BLDDIR}/%.o: %.c
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
 		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
-${BLDDIR}%.o: %.s
+${BLDDIR}/%.o: %.s
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
 		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
-${BLDDIR}%.o: %.S
+${BLDDIR}/%.o: %.S
 	@echo $(CC) -c ${CFLAGS} $< -o $@
 	@$(CC) -c ${CFLAGS} $< -o $@ |& \
 		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 # note ${BLDDIR} in the .d file - this is what tells make to get .o from ${BLDDIR}
 #
-${BLDDIR}%.d: %.c
-	@echo $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@
-	@set -e; rm -f $@; $(CC) -MT ${BLDDIR}$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
+${BLDDIR}/%.d: %.c
+	@echo $(CC) -MT ${BLDDIR}/$*.o -MT $@ -MM ${CFLAGS} $< -o $@
+	@set -e; rm -f $@; $(CC) -MT ${BLDDIR}/$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
 		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
 
 test test-all: all

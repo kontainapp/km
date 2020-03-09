@@ -2,10 +2,9 @@
 #
 # Link redis.kmd
 
-TOP=$(git rev-parse --show-cdup)
-REAL_TOP=$(realpath ${TOP})
-KONTAIN_GCC=${REAL_TOP}/tools/kontain-gcc
-CURRENT=${REAL_TOP}/payloads/redis
+TOP=$(git rev-parse --show-toplevel)
+KONTAIN_GCC=${TOP}/tools/kontain-gcc
+CURRENT=${TOP}/payloads/redis
 REDIS_TOP=${CURRENT}/redis
 REDIS_SRC=${REDIS_TOP}/src
 

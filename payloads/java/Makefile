@@ -9,7 +9,7 @@
 #  Kontain Inc.
 #
 # Makefile for building and packing Python payload runtime for KM
-TOP := $(shell git rev-parse --show-cdup)
+TOP := $(shell git rev-parse --show-toplevel)
 COMPONENT := java-11
 
 JDK_VERSION := jdk-11.0.6+10
@@ -49,4 +49,4 @@ clobber:
 clean:
 	make -C ${JDK_VERSION} clean
 
-include ${TOP}make/images.mk
+include ${TOP}/make/images.mk
