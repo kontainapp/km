@@ -404,47 +404,51 @@ static int bp_list_remove(gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
    return 0;
 }
 
+static km_kma_t nextpage(km_kma_t addr)
+{
+   return (km_kma_t)rounddown(((uint64_t)addr + KM_PAGE_SIZE), KM_PAGE_SIZE);
+}
+
 /*
  * Read and hex encode guest memory correcting for SW breakpoints
  */
 int km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
 {
    unsigned char mbuf[len];
-   km_kma_t tmpkma;
-   km_kma_t aligned_kma;
    int tmplen;
-   int lenremaining = len;
    int prot;
    int mbuf_index = 0;
 
    // Copy page by page checking permissions and enabling access if needed
-   for (tmpkma = kma; tmpkma < kma + len;) {
-      tmplen = KM_PAGE_SIZE - ((uint64_t)tmpkma & (KM_PAGE_SIZE-1));
-      if (tmplen > lenremaining) {
-         tmplen = lenremaining;
+   for (km_kma_t tmpkma = kma; tmpkma < kma + len;) {
+      // Compute the amount of data to copy from this page.
+      tmplen = nextpage(tmpkma) - tmpkma;
+      if (tmplen > (kma + len) - tmpkma) {
+         tmplen = (kma + len) - tmpkma;
       }
+
+      // Unprotect if needed
       if (km_get_page_protection(tmpkma, &prot) != 0) {
          km_infox(KM_TRACE_GDB, "Couldn't get memory permissions for address %p", tmpkma);
          return -1;
       }
-      aligned_kma = (void*)((uint64_t)tmpkma & ~(KM_PAGE_SIZE-1));
-      // Unprotect if needed
+      km_kma_t aligned_kma = (km_kma_t)rounddown((uint64_t)tmpkma, KM_PAGE_SIZE);
       if ((prot & PROT_READ) == 0) {
          if (mprotect(aligned_kma, KM_PAGE_SIZE, prot | PROT_READ) != 0) {
             return -1;
          }
-         km_infox(KM_TRACE_GDB, "Making page at %p temprarily readable", aligned_kma);
+         km_infox(KM_TRACE_GDB, "Making page at %p temporarily readable", aligned_kma);
       }
+
+      // Copy out the requested data.
       memcpy(&mbuf[mbuf_index], tmpkma, tmplen);
       tmpkma += tmplen;
       mbuf_index += tmplen;
-      lenremaining -= tmplen;
+
       // Reprotect the page.
-      if ((prot & PROT_READ) == 0) {
-         if (mprotect(aligned_kma, KM_PAGE_SIZE, prot) != 0) {
-            km_info(KM_TRACE_GDB, "Unable to remove read access to page at %p", aligned_kma);
-            return -1;
-         }
+      if ((prot & PROT_READ) == 0 && mprotect(aligned_kma, KM_PAGE_SIZE, prot) != 0) {
+         km_info(KM_TRACE_GDB, "Unable to remove read access to page at %p", aligned_kma);
+         return -1;
       }
    }
 
@@ -469,34 +473,28 @@ int km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
 int km_guest_hex2mem(const char* buf, size_t count, km_kma_t kma)
 {
    unsigned char mbuf[count/2];
-   km_kma_t tmpkma;
-   km_kma_t aligned_kma;
    int len;
    int tmplen;
-   int lenremaining;
    int prot;
    int mbuf_index = 0;
 
    // Convert contents of buf to binary in mbuf
    len = hex2mem(buf, mbuf, count) - mbuf;
-   lenremaining = len;
 
    // Copy data in mbuf[] into the guest's virtual address space pointed to by kma.
-   for (tmpkma = kma; tmpkma < (kma + len); ) {
-      tmplen = KM_PAGE_SIZE - ((uint64_t)tmpkma & (KM_PAGE_SIZE-1));
-      if (tmplen > lenremaining) {
-         tmplen = lenremaining;
+   for (km_kma_t tmpkma = kma; tmpkma < (kma + len); ) {
+      // How much data can we write to this page.
+      tmplen = nextpage(tmpkma) - tmpkma;
+      if (tmplen > (kma + len) - tmpkma) {
+         tmplen = (kma + len) - tmpkma;
       }
+
+      // If needed unprotect this page to write the data.
       if (km_get_page_protection(tmpkma, &prot) != 0) {
          km_infox(KM_TRACE_GDB, "Couldn't get memory permissions for address %p", tmpkma);
          return -1;
       }
-      if ((prot & PROT_EXEC) != 0) {
-         // We may change our mind on this in the future as we learn more.
-         km_infox(KM_TRACE_GDB, "Not allowing write on page at %p marked executable", tmpkma);
-         return -1;
-      }
-      aligned_kma = (void*)((uint64_t)tmpkma & ~(KM_PAGE_SIZE-1));
+      km_kma_t aligned_kma = (km_kma_t)rounddown((uint64_t)tmpkma, KM_PAGE_SIZE);
       if ((prot & PROT_WRITE) == 0) {
          if (mprotect(aligned_kma, KM_PAGE_SIZE, prot | PROT_WRITE) != 0) {
             return -1;
@@ -504,19 +502,15 @@ int km_guest_hex2mem(const char* buf, size_t count, km_kma_t kma)
          km_infox(KM_TRACE_GDB, "Making page at %p temporarily writable", aligned_kma);
       }
 
-km_infox(KM_TRACE_GDB, "tmpkma %p, &mbuf[%d] %p, len %d", tmpkma, mbuf_index, &mbuf[mbuf_index], len);
-      // Copy into the guest's memory
+      // Copy data into the guest's memory
       memcpy(tmpkma, &mbuf[mbuf_index], tmplen);
       tmpkma += tmplen;
       mbuf_index += tmplen;
-      lenremaining -= tmplen;
 
       // Reprotect the page.
-      if ((prot & PROT_WRITE) == 0) {
-         if (mprotect(aligned_kma, KM_PAGE_SIZE, prot) != 0) {
-            km_info(KM_TRACE_GDB, "Unable to remove write access to page at %p", aligned_kma);
-            return -1;
-         }
+      if ((prot & PROT_WRITE) == 0 && mprotect(aligned_kma, KM_PAGE_SIZE, prot) != 0) {
+         km_info(KM_TRACE_GDB, "Unable to remove write access to page at %p", aligned_kma);
+         return -1;
       }
    }
    return 0;
