@@ -173,10 +173,11 @@ endif
 	-t ${RUNENV_IMG}:${IMAGE_VERSION} -f ${RUNENV_DOCKERFILE} ${RUNENV_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
+# We use km from ${KM_BIN} here from the build tree instead of what's on the host under ${KM_OPT_BIN}.
 validate-runenv-image: ## Validate runtime image
 	${DOCKER_RUN_TEST} \
 	-v ${RUNENV_VALIDATE_SCRIPT}:/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT}):z \
-	-v ${KM_BIN}:/opt/kontain/bin/km:z \
+	-v ${KM_BIN}:${KM_OPT_BIN}:z \
 	${RUNENV_IMG}:${IMAGE_VERSION} \
 	/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT})
 
