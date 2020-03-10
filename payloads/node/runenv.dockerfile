@@ -1,3 +1,3 @@
 FROM scratch
 COPY . /
-ENTRYPOINT [ "/km", "--copyenv", "node.km" ]
+ENTRYPOINT [ "/opt/kontain/bin/km", "--copyenv", "node.km" ]

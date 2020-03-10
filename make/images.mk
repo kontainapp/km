@@ -174,7 +174,11 @@ endif
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
 validate-runenv-image: ## Validate runtime image
-	${DOCKER_RUN_TEST} -v ${RUNENV_VALIDATE_SCRIPT}:/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT}):z ${RUNENV_IMG}:${IMAGE_VERSION} /scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT})
+	${DOCKER_RUN_TEST} \
+	-v ${RUNENV_VALIDATE_SCRIPT}:/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT}):z \
+	-v ${KM_BIN}:/opt/kontain/bin/km:z \
+	${RUNENV_IMG}:${IMAGE_VERSION} \
+	/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT})
 
 push-runenv-image:  ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \

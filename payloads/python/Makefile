@@ -131,7 +131,7 @@ test-all-withdocker: test-withdocker # alias for test-withdocker
 # Set info for runenv-image build
 RUNENV_VALIDATE_SCRIPT := $(abspath scripts/hello_again.py)
 export define runenv_prep
-	cp ${KM_BIN} ${PAYLOAD_KM} ${RUNENV_PATH}
+	cp ${PAYLOAD_KM} ${RUNENV_PATH}
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
 endef
 

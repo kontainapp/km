@@ -93,7 +93,7 @@ RUNENV_VALIDATE_SCRIPT = $(abspath scripts/hello.js)
 # if something needs to be copied/modified before building runenv image in Docker,
 # define this function
 export define runenv_prep
-	cp ${KM_BIN} ${PAYLOAD_KM} ${RUNENV_PATH}
+	cp ${PAYLOAD_KM} ${RUNENV_PATH}
 endef
 
 include ${TOP}/make/images.mk
