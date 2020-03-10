@@ -49,9 +49,8 @@ clobber:
 clean:
 	make -C ${JDK_VERSION} clean
 
-# TODO: Fix the runenv-image for java.
-export define runenv_prep
-	cp ${KM_BIN} ${PAYLOAD_KM} Hello.java ${RUNENV_PATH}
-endef
-
 include ${TOP}/make/images.mk
+
+# TODO: Fix the runenv-image for java.
+runenv-image validate-runenv-image push-runenv-image pull-runenv-image distro:
+	@echo $(notdir $(CURDIR)): unsupported right now '$@'
