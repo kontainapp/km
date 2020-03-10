@@ -163,7 +163,6 @@ __km_syscall_handler:
     push %rax   # hc_ret - don't care about value. %rax is convienent.
 
     // Do the KM HCall
-    //xor %rdx, %rdx
     mov %ax, %dx
     or $0x8000, %dx
     mov %rsp, %rax
