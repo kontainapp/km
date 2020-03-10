@@ -174,23 +174,10 @@ buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
 	sudo docker cp tmp_env:/opt/kontain /opt
 	docker rm tmp_env
 
-# Info for making runenv-image and validate-runenv-image targets
-#
-# A little hackery here. PAYLOAD_KM is generally things like node.km or python.km, so we can call 'km payload_km'
-# for validation we usually use RUNENV_VALIDATE_SCRIPT (e.g. hello.js) so overall command looks like 'km node.km hello.js'
-# Hower for KM Only, we want to run 'km validat_cmd.km' right away, so we set PAYLOAD_KM to validation script.
-# Note that we support runenv and validate-runenv here for consistency only, the real value is in payloads/ dir.
-PAYLOAD_KM := hello_test.km
-PAYLOAD_NAME := KontainMonitor
-RUNENV_VALIDATE_SCRIPT := $(abspath ${PAYLOAD_KM})
-# make sure validation script is copied to runenv path before building docker image
-export define runenv_prep
-	cp ${KM_BIN} $(RUNENV_PATH)
-endef
-
 .PHONY: all clean test help gdb coverage covclean
 
 include ${TOP}/make/images.mk
 
-distroclean publish publishclean:
+# No runenv for tests.
+runenv-image validate-runenv-image push-runenv-image pull-runenv-image distro:
 	@echo $(notdir $(CURDIR)): nothing to do for target '$@'
