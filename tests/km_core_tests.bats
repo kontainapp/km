@@ -17,8 +17,8 @@ load test_helper
 not_needed_generic=""
 not_needed_static="gdb_sharedlib"
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic="setup_load mem_slots cli km_main_env mem_brk mmap_1"
-not_needed_so="setup_load cli mem_brk gdb_sharedlib mmap_1"
+not_needed_dynamic="setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many"
+not_needed_so="setup_load cli mem_brk gdb_sharedlib mmap_1 km_many"
 todo_generic="futex_example"
 todo_static=""
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
@@ -81,6 +81,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "km_main_args($test_type): optargs (hello_test$ext)" {
+   set +x
    # -v flag prints version and branch
    run km_with_timeout -v -- hello_test$ext
    assert_success
@@ -229,6 +230,15 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 @test "futex_example($test_type)" {
    run km_with_timeout futex$ext
    assert_success
+}
+
+@test "km_many($test_type): running multiple KMs (hello_test$ext)" {
+   ${KM_BIN} ${KM_ARGS} pthread_cancel_test$ext & # this will do a few sec wait internally
+   pid=$!
+   run km_with_timeout hello_test$ext
+   assert_success
+   assert_line --partial "disabling gdb support"
+   wait $pid
 }
 
 @test "gdb_basic($test_type): gdb support (gdb_test$ext)" {

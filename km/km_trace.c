@@ -46,7 +46,7 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
    gmtime_r(&ts.tv_sec, &tm);   // UTC!
    snprintf(traceline,
             sizeof(traceline),
-            "%02d:%02d:%02d.%06ld %-20.20s %5d %-6.6s ",
+            "%02d:%02d:%02d.%06ld %-20.20s %-4d %-7.7s ",
             tm.tm_hour,
             tm.tm_min,
             tm.tm_sec,
@@ -60,8 +60,13 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
 
    if (errnum != 0) {
       tlen = strlen(traceline);
-      if ((sizeof(traceline) - tlen) > 2) {
-         strerror_r(errnum, &traceline[tlen], sizeof(traceline) - tlen);
+      if ((sizeof(traceline) - tlen) > 5) {   // be safe
+         strcpy(traceline + tlen, ": ");
+         tlen = strlen(traceline);
+         char* s = strerror_r(errnum, &traceline[tlen], sizeof(traceline) - tlen);
+         if (s != traceline + tlen) {   // see 'man 3 strerror_r'
+            strncpy(traceline + tlen, s, sizeof(traceline) - tlen);
+         }
       }
    }
 

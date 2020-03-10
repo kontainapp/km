@@ -145,45 +145,41 @@ int km_gdb_setup_listen(void)
    struct sockaddr_in server_addr;
    int opt = 1;
 
+   assert(gdbstub.port != 0);
+   assert(gdbstub.listen_socket_fd == -1);
    listen_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
    if (listen_socket_fd == -1) {
-      warn("Could not create socket");
+      km_err_msg(errno, "Could not create socket");
       return -1;
    }
-
    if (setsockopt(listen_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
-      warn("setsockopt(SO_REUSEADDR) failed");
+      km_err_msg(errno, "setsockopt(SO_REUSEADDR) failed");
    }
-
-   if (gdbstub.port == 0) {
-      gdbstub.port = GDB_DEFAULT_PORT;
-   }
-
    server_addr.sin_family = AF_INET;
    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
    server_addr.sin_port = htons(km_gdb_port_get());
 
    if (bind(listen_socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
-      warn("bind failed");
+      km_err_msg(errno, "bind failed");
       close(listen_socket_fd);
       return -1;
    }
-
    if (listen(listen_socket_fd, 1) == -1) {
-      warn("listen failed");
+      km_err_msg(errno, "listen failed");
       close(listen_socket_fd);
       return -1;
    }
 
    gdbstub.listen_socket_fd = listen_socket_fd;
-
    return 0;
 }
 
 void km_gdb_destroy_listen(void)
 {
-   close(gdbstub.listen_socket_fd);
-   gdbstub.listen_socket_fd = 0;
+   if (gdbstub.listen_socket_fd != -1) {
+      close(gdbstub.listen_socket_fd);
+      gdbstub.listen_socket_fd = -1;
+   }
 }
 
 static int km_gdb_accept_connection(void)
@@ -196,7 +192,7 @@ static int km_gdb_accept_connection(void)
    len = sizeof(client_addr);
    gdbstub.sock_fd = accept(gdbstub.listen_socket_fd, (struct sockaddr*)&client_addr, &len);
    if (gdbstub.sock_fd == -1) {
-      if (errno == EINVAL) {  // process exit caused a shutdown( listen_socket_fd, SHUT_RD )
+      if (errno == EINVAL) {   // process exit caused a shutdown( listen_socket_fd, SHUT_RD )
          return EINVAL;
       }
       warn("accept failed");
@@ -257,7 +253,6 @@ void km_gdb_vcpu_state_init(km_vcpu_t* vcpu)
 {
    vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RUNNING;
 }
-
 
 static void gdb_fd_garbage_collect(void);
 
@@ -1854,6 +1849,8 @@ static void km_gdb_vfile_init(void)
 void km_gdbstub_init(void)
 {
    km_gdb_vfile_init();
+   gdbstub.port = GDB_DEFAULT_PORT;
+   gdbstub.listen_socket_fd = -1;
 }
 
 /*
@@ -1923,7 +1920,7 @@ static void gdb_fd_garbage_collect(void)
 
    for (i = 0; i < MAX_GDB_VFILE_OPEN_FD; i++) {
       if (gdbstub.vfile_state.fd[i] != GDB_VFILE_FD_FREE_SLOT) {
-         km_info(KM_TRACE_GDB, "Closing gdb vFile fd %d which maps to linux fd %d", i, gdbstub.vfile_state.fd[i]);
+         km_info(KM_TRACE_GDB, "Closing gdb vFile fd %d, linux fd %d", i, gdbstub.vfile_state.fd[i]);
          close(gdbstub.vfile_state.fd[i]);
          gdbstub.vfile_state.fd[i] = GDB_VFILE_FD_FREE_SLOT;
       }
@@ -2884,11 +2881,11 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 
 accept_connection:;
    ret = km_gdb_accept_connection();
-   if (ret == EINVAL) {  // all target threads have exited while we waited in accept()
+   if (ret == EINVAL) {   // all target threads have exited while we waited in accept()
       km_infox(KM_TRACE_GDB, "gdb listening socket is shutdown");
       return;
    }
-   assert(ret == 0);  // not sure what to do with errors here yet.
+   assert(ret == 0);   // not sure what to do with errors here yet.
    gdbstub.gdb_client_attached = 1;
    fds[0].fd = gdbstub.sock_fd;
    km_vcpu_pause_all();
