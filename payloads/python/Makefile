@@ -129,12 +129,13 @@ test test-all: ${PAYLOAD_KM} ${TEST_KM}
 test-all-withdocker: test-withdocker # alias for test-withdocker
 
 # Set info for runenv-image build
-DOCKER_ENV = ENV PYTHONPATH=/cpython/Lib PYTHONHOME=foo:bar
 RUNENV_VALIDATE_CMD= scripts/hello_again.py
 export define runenv_prep
+	cp ${KM_BIN} ${PAYLOAD_KM} ${RUNENV_PATH}
 	cp -r scripts $(RUNENV_PATH)
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
 endef
+
 clobber: ## Clobber cpython build by removing cpython dir
 	rm -rf cpython
 

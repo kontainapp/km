@@ -49,4 +49,9 @@ clobber:
 clean:
 	make -C ${JDK_VERSION} clean
 
+# TODO: Fix the runenv-image for java.
+export define runenv_prep
+	cp ${KM_BIN} ${PAYLOAD_KM} Hello.java ${RUNENV_PATH}
+endef
+
 include ${TOP}/make/images.mk
