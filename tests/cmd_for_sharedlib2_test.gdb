@@ -7,11 +7,11 @@
 
 set pagination off
 
-# at this point libcrypt.so is loaded so place a breakpoint using a symbol
+# at this point the shared library is loaded so place a breakpoint using a symbol
 # from the loaded library
 br got_symbol_breakpoint
 commands
-  br xcrypt
+  br do_function
   continue
 end
 
@@ -25,8 +25,8 @@ end
 
 continue
 
-# we've hit the breakpoint placed on xcrypt
-printf "Hit the breakpoint at xcrypt\n"
+# we've hit the breakpoint placed on do_function
+printf "Hit the breakpoint at do_function\n"
 backtrace
 print $rip
 continue

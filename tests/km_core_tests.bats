@@ -371,14 +371,14 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # There is no explicit test for vFile remote commands.  gdb uses vFile as part of
    # processing the "info sharedlibrary" command.
 
-   # test for symbols from libcrypt brought in by dlopen()
-   km_with_timeout -g gdb_sharedlib2_test$ext &
+   # test for symbols from a shared library brought in by dlopen()
+   km_with_timeout -g --putenv="LD_LIBRARY_PATH=`pwd`" gdb_sharedlib2_test$ext &
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
       --ex="source cmd_for_sharedlib2_test.gdb" --ex=q
    assert_success
-   assert_line --partial "Yes (*)     target:/usr/lib64/libcrypt.so"
-   assert_line --partial "Dump of assembler code for function xcrypt"
-   assert_line --partial "Hit the breakpoint at xcrypt"
+   assert_line --regexp "Yes         target:.*/dlopen_test_lib.so"
+   assert_line --partial "Dump of assembler code for function do_function"
+   assert_line --partial "Hit the breakpoint at do_function"
    wait_and_check 0
 }
 
