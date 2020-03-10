@@ -119,7 +119,7 @@ char* mem2hex(const unsigned char* mem, char* buf, size_t count)
  * Converts the hex string in buf into binary in mem.
  * Returns a pointer to the character AFTER the last byte written.
  */
-static unsigned char* hex2mem(const char* buf, unsigned char* mem, size_t count)
+unsigned char* hex2mem(const char* buf, unsigned char* mem, size_t count)
 {
    size_t i;
    unsigned char ch;
@@ -2623,7 +2623,10 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
                send_error_msg();
                break;
             }
-            km_guest_mem2hex(addr, kma, obuf, len);
+            if (km_guest_mem2hex(addr, kma, obuf, len) != 0) {
+               send_error_msg();
+               break;
+            }
             send_packet(obuf);
             break;
          }
@@ -2637,7 +2640,10 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
                send_error_msg();
                break;
             }
-            hex2mem(obuf, kma, len);
+            if (km_guest_hex2mem(obuf, len, kma) != 0) {
+               send_error_msg();
+               break;
+            }
             send_okay_msg();
             break;
          }

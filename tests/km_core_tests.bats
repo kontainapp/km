@@ -22,7 +22,7 @@ not_needed_so="setup_load cli mem_brk gdb_sharedlib mmap_1"
 todo_generic="futex_example"
 todo_static=""
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
-todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach exception cpp_ctors dl_iterate_phdr monitor_maps"
+todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach exception cpp_ctors dl_iterate_phdr monitor_maps gdb_protected_mem"
 
 
 # Now the actual tests.
@@ -417,6 +417,24 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_success
    assert_line --partial "Inferior 1 (Remote target) detached"
 
+   wait_and_check 0
+}
+
+#
+# Verify that gdb can read and write pages that disallow read and write
+#
+@test "gdb_protected_mem($test_type): gdb access protected memory test (gdb_protected_mem_test$ext)" {
+   km_gdb_default_port=2159
+
+   # test gdb can read from and write to protected memory pages.
+   km_with_timeout -g gdb_protected_mem_test$ext &
+   run gdb_with_timeout -q -nx \
+      --ex="target remote :$km_gdb_default_port" \
+      --ex="source cmd_for_protected_mem_test.gdb" --ex=q
+   assert_success
+   assert_line --partial "first word  0x7fffffbfc000:	0x1111111111111111"
+   assert_line --partial "spanning pages  0x7fffffbfcffc:	0xff0000ffff0000ff"
+   assert_line --partial "last word  0x7fffffbfdff8:	0xeeeeeeeeeeeeeeee"
    wait_and_check 0
 }
 
