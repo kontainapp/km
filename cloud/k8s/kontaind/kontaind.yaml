@@ -33,8 +33,7 @@ spec:
             mountPath: /var/lib/kubelet/device-plugins
       initContainers:
       - name: kontain-installer
-        image: docker.io/kontainapp/runenv-kontain-installer:0.1
-        imagePullPolicy: Always
+        image: docker.io/kontainapp/runenv-kontain-installer:latest
         volumeMounts:
           - name: install-path
             mountPath: /opt

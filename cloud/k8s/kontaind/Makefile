@@ -14,16 +14,8 @@ TOP := $(shell git rev-parse --show-toplevel)
 CURRENT := ${TOP}/cloud/k8s/kontaind
 
 COMPONENT = kontain-installer
-IMAGE_VERSION = 0.1
+IMAGE_VERSION = latest
 CLOUD ?= dockerhub
-include ${TOP}/make/images.mk
-
-.PHONY: runenv-image
-runenv-image:
-	@$(TOP)/make/check-docker.sh
-	-docker rmi -f ${RUNENV_IMG}:${IMAGE_VERSION} 2>/dev/null
-	cp ${KM_BIN} ${RUNENV_PATH}/km
-	${DOCKER_BUILD} -t ${RUNENV_IMG}:${IMAGE_VERSION} -f ${CURRENT}/installer.dockerfile ${RUNENV_PATH}
 
 INSTALL_CONFIG ?= kontaind.yaml
 
@@ -44,3 +36,12 @@ test:
 	kubectl create -f ${TEST_SPEC}
 	kubectl wait --for=condition=Ready pod/${TEST_POD} --timeout=10s
 	-kubectl delete -f ${TEST_SPEC}
+
+include ${TOP}/make/images.mk
+.PHONY: runenv-image
+runenv-image:
+	@$(TOP)/make/check-docker.sh
+	-docker rmi -f ${RUNENV_IMG}:${IMAGE_VERSION} 2>/dev/null
+	mkdir -p ${RUNENV_PATH}/bin
+	cp ${KM_BIN} ${RUNENV_PATH}/bin/km
+	${DOCKER_BUILD} -t ${RUNENV_IMG}:${IMAGE_VERSION} -f ${CURRENT}/installer.dockerfile ${RUNENV_PATH}
