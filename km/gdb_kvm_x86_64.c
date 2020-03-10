@@ -415,24 +415,24 @@ static km_kma_t nextpage(km_kma_t addr)
 int km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
 {
    unsigned char mbuf[len];
-   int tmplen;
+   int count;
    int prot;
-   int mbuf_index = 0;
 
    // Copy page by page checking permissions and enabling access if needed
-   for (km_kma_t tmpkma = kma; tmpkma < kma + len;) {
+   km_kma_t src = kma;
+   for (uint8_t *dest = mbuf; src < kma + len; dest += count, src += count) {
       // Compute the amount of data to copy from this page.
-      tmplen = nextpage(tmpkma) - tmpkma;
-      if (tmplen > (kma + len) - tmpkma) {
-         tmplen = (kma + len) - tmpkma;
+      count = nextpage(src) - src;
+      if (count > (kma + len) - src) {
+         count = (kma + len) - src;
       }
 
       // Unprotect if needed
-      if (km_get_page_protection(tmpkma, &prot) != 0) {
-         km_infox(KM_TRACE_GDB, "Couldn't get memory permissions for address %p", tmpkma);
+      if (km_get_page_protection(src, &prot) != 0) {
+         km_infox(KM_TRACE_GDB, "Couldn't get memory permissions for address %p", src);
          return -1;
       }
-      km_kma_t aligned_kma = (km_kma_t)rounddown((uint64_t)tmpkma, KM_PAGE_SIZE);
+      km_kma_t aligned_kma = (km_kma_t)rounddown((uint64_t)src, KM_PAGE_SIZE);
       if ((prot & PROT_READ) == 0) {
          if (mprotect(aligned_kma, KM_PAGE_SIZE, prot | PROT_READ) != 0) {
             return -1;
@@ -441,9 +441,7 @@ int km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
       }
 
       // Copy out the requested data.
-      memcpy(&mbuf[mbuf_index], tmpkma, tmplen);
-      tmpkma += tmplen;
-      mbuf_index += tmplen;
+      memcpy(dest, src, count);
 
       // Reprotect the page.
       if ((prot & PROT_READ) == 0 && mprotect(aligned_kma, KM_PAGE_SIZE, prot) != 0) {
@@ -470,31 +468,31 @@ int km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
  * Make pages written to temporarily writable if necessary.
  * Return 0 on success.
  */
-int km_guest_hex2mem(const char* buf, size_t count, km_kma_t kma)
+int km_guest_hex2mem(const char* buf, size_t bufcount, km_kma_t kma)
 {
-   unsigned char mbuf[count/2];
+   unsigned char mbuf[bufcount/2];
    int len;
-   int tmplen;
+   int count;
    int prot;
-   int mbuf_index = 0;
 
    // Convert contents of buf to binary in mbuf
-   len = hex2mem(buf, mbuf, count) - mbuf;
+   len = hex2mem(buf, mbuf, bufcount) - mbuf;
 
    // Copy data in mbuf[] into the guest's virtual address space pointed to by kma.
-   for (km_kma_t tmpkma = kma; tmpkma < (kma + len); ) {
+   uint8_t *src = mbuf;
+   for (km_kma_t dest = kma; dest < (kma + len); dest += count, src += count) {
       // How much data can we write to this page.
-      tmplen = nextpage(tmpkma) - tmpkma;
-      if (tmplen > (kma + len) - tmpkma) {
-         tmplen = (kma + len) - tmpkma;
+      count = nextpage(dest) - dest;
+      if (count > (kma + len) - dest) {
+         count = (kma + len) - dest;
       }
 
       // If needed unprotect this page to write the data.
-      if (km_get_page_protection(tmpkma, &prot) != 0) {
-         km_infox(KM_TRACE_GDB, "Couldn't get memory permissions for address %p", tmpkma);
+      if (km_get_page_protection(dest, &prot) != 0) {
+         km_infox(KM_TRACE_GDB, "Couldn't get memory permissions for address %p", dest);
          return -1;
       }
-      km_kma_t aligned_kma = (km_kma_t)rounddown((uint64_t)tmpkma, KM_PAGE_SIZE);
+      km_kma_t aligned_kma = (km_kma_t)rounddown((uint64_t)dest, KM_PAGE_SIZE);
       if ((prot & PROT_WRITE) == 0) {
          if (mprotect(aligned_kma, KM_PAGE_SIZE, prot | PROT_WRITE) != 0) {
             return -1;
@@ -503,9 +501,7 @@ int km_guest_hex2mem(const char* buf, size_t count, km_kma_t kma)
       }
 
       // Copy data into the guest's memory
-      memcpy(tmpkma, &mbuf[mbuf_index], tmplen);
-      tmpkma += tmplen;
-      mbuf_index += tmplen;
+      memcpy(dest, src, count);
 
       // Reprotect the page.
       if ((prot & PROT_WRITE) == 0 && mprotect(aligned_kma, KM_PAGE_SIZE, prot) != 0) {
