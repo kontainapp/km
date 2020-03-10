@@ -146,6 +146,7 @@ int km_gdb_setup_listen(void)
    int opt = 1;
 
    assert(gdbstub.port != 0);
+   assert(gdbstub.listen_socket_fd == -1);
    listen_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
    if (listen_socket_fd == -1) {
       km_err_msg(errno, "Could not create socket");
@@ -175,9 +176,9 @@ int km_gdb_setup_listen(void)
 
 void km_gdb_destroy_listen(void)
 {
-   if (gdbstub.listen_socket_fd != 0) {
+   if (gdbstub.listen_socket_fd != -1) {
       close(gdbstub.listen_socket_fd);
-      gdbstub.listen_socket_fd = 0;
+      gdbstub.listen_socket_fd = -1;
    }
 }
 
@@ -1849,6 +1850,7 @@ void km_gdbstub_init(void)
 {
    km_gdb_vfile_init();
    gdbstub.port = GDB_DEFAULT_PORT;
+   gdbstub.listen_socket_fd = -1;
 }
 
 /*
