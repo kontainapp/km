@@ -26,6 +26,8 @@ PAYLOAD_FILES := ${PAYLOAD_KM} \
 	dweb/text.txt\
 	dweb/basic.htm
 
+IMAGE_VERSION := latest
+
 .PHONY: all build clean
 all build clean:
 	$(MAKE) -C dweb $@
@@ -44,12 +46,16 @@ kmdemo:  all ## Run Simple web server demo as Kontain VM Payload
 	${KM_BIN} ${PAYLOAD_KM} ${PORT1}
 
 dockerdemo: all distro ## Run Simple web server demo as Kontain VM payload in Docker
-	@echo use "http://localhost:${PORT1}" to access the demo running as a Kontain VM packaged in Docker
-	@echo DO NOT FORGET TO run make dockerclean
-	${DOCKER_RUN_TEST} -p ${PORT1}:${PORT1} ${RUNENV_IMG} ${PORT1}
+	$(info use "http://localhost:${PORT1}" to access the demo running as a Kontain VM packaged in Docker)
+	$(info DO NOT FORGET TO run make dockerclean)
+	${DOCKER_RUN_TEST} \
+	-v ${KM_BIN}:${KM_OPT_BIN} \
+	-p ${PORT1}:${PORT1} \
+	${RUNENV_IMG}:${IMAGE_VERSION} \
+	${PORT1}
 
 dockerclean: ## Clean up results of 'make dockerdemo' if it was killed with ^C
-	-docker rm -f `docker ps -qa -f label=Vendor=Kontain.app`
+	-docker rm -f `docker ps -qa -f ancestor=${RUNENV_IMG}:${IMAGE_VERSION}`
 
 test-all: all ## Builds dweb all and runs simple test
 	@echo -en "Testing dweb.km start/stop"

@@ -60,7 +60,7 @@ file dweb dweb.km
 ~/workspace/km/build/km/km ./dweb.km 8080
 
 # Build Docker container with dweb
-(cd ..; docker build -t dweb .)
+(cd ..; docker build -t dweb . -f dweb-demo.dockerfile)
 
 # Show start time ('-x' to exit from server right awayzoom)
 time docker run --rm  dweb  /dweb/dweb -x
@@ -103,6 +103,8 @@ docker images | grep python | grep latest
 ```
 
 ## Operations
+
+TODO: Work In Progress!
 
 Goals:
 
