@@ -31,6 +31,8 @@
 #include <syscall.h>
 #include <errno.h>
 
+struct timespec _100ms = { 0, 100000000 };
+
 int enable_disable_ready = 0;
 int breakpointer_ready = 0;
 pthread_barrier_t barrier;
@@ -128,7 +130,12 @@ int main()
       t1 = disable_breakpoint();
       t2 = enable_breakpoint();
       if (((t1 + t2) / 2 - starttime) > RUNTIME) {
-         sleep(1);   // pause to let the other thread block in barrier wait
+         struct timespec st = _100ms;
+         struct timespec rem;
+         // pause to let the other thread block in barrier wait
+         while (nanosleep(&st, &rem) != 0 && errno == EINTR) {
+            st = rem;
+         }
          stop_now = 1;
       }
       i++;
