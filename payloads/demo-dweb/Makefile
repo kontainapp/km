@@ -11,8 +11,20 @@
 # Makefile for building and packing dweb-demo
 
 TOP := $(shell git rev-parse --show-toplevel)
-KM_BIN=${TOP}/build/km/km
+COMPONENT := dweb
 
+PAYLOAD_KM := dweb/dweb.km
+PAYLOAD_NAME := DWebSrvDemo
+# a list to be passed to tar to be packed into container image
+PAYLOAD_FILES := ${PAYLOAD_KM} \
+	dweb/css \
+	dweb/fonts \
+	dweb/js \
+	dweb/index.html \
+	dweb/kontain_logo_transparent.png \
+	dweb/favicon.ico \
+	dweb/text.txt\
+	dweb/basic.htm
 
 .PHONY: all build clean
 all build clean:
@@ -23,36 +35,30 @@ clean: ## Clean up the build
 
 PORT = 8080
 PORT1 = 8081
-demo: all ##  Run Simple web server demo as Linux process
+demo: all ## Run Simple web server demo as Linux process
 	@echo use "http://localhost:${PORT}" to access the demo running as Linux process
 	./dweb/dweb ${PORT} dweb
 
 kmdemo:  all ## Run Simple web server demo as Kontain VM Payload
 	@echo use "http://localhost:${PORT1}" to access the demo running as Linux process
-	${TOP}/build/km/km ./dweb/dweb.km ${PORT1} dweb
+	${KM_BIN} ${PAYLOAD_KM} ${PORT1}
 
 dockerdemo: all distro ## Run Simple web server demo as Kontain VM payload in Docker
 	@echo use "http://localhost:${PORT1}" to access the demo running as a Kontain VM packaged in Docker
 	@echo DO NOT FORGET TO run make dockerclean
-	docker run --device /dev/kvm -t --rm -p ${PORT1}:${PORT1} ${PAYLOAD_IMAGE_NAME} \
-		dweb.km ${PORT1}
+	${DOCKER_RUN_TEST} -p ${PORT1}:${PORT1} ${RUNENV_IMG} ${PORT1}
 
-dockerclean: ## CLean up results of 'make dockerdemo' if it was killed with ^C
+dockerclean: ## Clean up results of 'make dockerdemo' if it was killed with ^C
 	-docker rm -f `docker ps -qa -f label=Vendor=Kontain.app`
 
 test-all: all ## Builds dweb all and runs simple test
-	@echo -en "Testing dweb.km start/stop"; cd dweb; \
-		../${KM_BIN} dweb.km -x | grep -q 'Exiting as requested' && echo ...passed
+	@echo -en "Testing dweb.km start/stop"
+	@${KM_BIN} ${PAYLOAD_KM} -x | grep -q 'Exiting as requested' && echo ...passed
 
-# Info for packaging into Docker Image
+# runenv-image
+export define runenv_prep
+	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
+endef
+RUNENV_VALIDATE_CMD := "-x"
 
-# KM file name, relative to currentdir.
-PAYLOAD_KM := dweb/dweb.km
-# image name, without repo and version tag
-PAYLOAD_IMAGE_SHORT_NAME := dweb-km
-# name to be added to label(s)
-PAYLOAD_NAME := DWebSrvDemo
-# a list to be passed to tar to be packed into container image
-PAYLOAD_FILES := $(PAYLOAD_KM) dweb/css dweb/fonts dweb/js dweb/index.html dweb/kontain_logo_transparent.png
-
-include ${TOP}/make/distro.mk
+include ${TOP}/make/images.mk
