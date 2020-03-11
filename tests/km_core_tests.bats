@@ -325,6 +325,14 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_success
    assert grep -q "Deleted breakpoint, discard event:" $km_trace_file
    wait_and_check 0 # expect KM to exit normally
+   # These grep's are useful when we start seeing failures of this test.
+   # They let us see how many interations the test is going through
+   # and how often the race is being seen.
+   # On idle personal test systems we see about 300-500 instances of
+   # the race during 700 iterations.  Let's keep these commented greps around
+   # for a while.
+   #grep "Deleted break" $km_trace_file | wc -l >/dev/tty
+   #grep "iterations" $km_trace_file >/dev/tty
    rm -fr $km_trace_file
 }
 
