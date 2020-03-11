@@ -88,12 +88,12 @@ test-all-withdocker: ## a special helper to run more node.km tests. TODO - does 
 BUILDENV_PATH  := ./scripts
 
 # Param for 'make validate-runenv-image'. Used to do a quick validation of runtime environment.
-RUNENV_VALIDATE_CMD = scripts/hello.js
+RUNENV_VALIDATE_SCRIPT = $(abspath scripts/hello.js)
 
 # if something needs to be copied/modified before building runenv image in Docker,
 # define this function
 export define runenv_prep
-	cp -r scripts $(RUNENV_PATH)
+	cp ${PAYLOAD_KM} ${RUNENV_PATH}
 endef
 
 include ${TOP}/make/images.mk

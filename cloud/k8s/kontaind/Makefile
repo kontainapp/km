@@ -37,11 +37,10 @@ test:
 	kubectl wait --for=condition=Ready pod/${TEST_POD} --timeout=10s
 	-kubectl delete -f ${TEST_SPEC}
 
-include ${TOP}/make/images.mk
-.PHONY: runenv-image
-runenv-image:
-	@$(TOP)/make/check-docker.sh
-	-docker rmi -f ${RUNENV_IMG}:${IMAGE_VERSION} 2>/dev/null
+# runenv-image information
+export define runenv_prep
 	mkdir -p ${RUNENV_PATH}/bin
 	cp ${KM_BIN} ${RUNENV_PATH}/bin/km
-	${DOCKER_BUILD} -t ${RUNENV_IMG}:${IMAGE_VERSION} -f ${CURRENT}/installer.dockerfile ${RUNENV_PATH}
+endef
+
+include ${TOP}/make/images.mk

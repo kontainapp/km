@@ -128,6 +128,7 @@ kubectl port-forward `kubectl get pod --selector=app=dweb -o jsonpath='{.items[0
 kubectl delete deploy kontain-dweb-deployment-azure-demo
 
 # Optional: same demo for python microservice
+# TODO: Work In Progress!
 make -C ~/workspace/km/payloads/python publish
 kubectl apply -k ~/workspace/km/payloads/k8s/azure/python
 kubectl get pod --selector=app=pykm  # make sure it shows as Running
@@ -140,6 +141,7 @@ kubectl delete deploy kontain-pykm-deployment-azure-demo
 ```
 
 ## (optional) Local docker with our payloads
+TODO: Work In Progress!
 
 ```bash
 docker run -p 8080:8080 -t --rm --device /dev/kvm kontain/python-km /cpython/python.km -S "/scripts/micro_srv.py"
