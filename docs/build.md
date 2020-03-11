@@ -169,10 +169,8 @@ These are obsolete and need to be converted to new images. Until they are, we ke
 
 Currently docker images are constructed in 2 layers:
 
- 1. **KM + KM shared libs**. `make -C km distro` makes it, the result is `kontain/km:<tag>` image. `tag` is essentially the current branch name converted to a valid tag syntax, e.g. 'msterin-somebranch'. Just doing `make distro` in the top level will also build it as well as other distro packages.
  1. **python.km with python modules. and ALL payloads** `cd payloads/python; make distro` or just `make distro` in payloads or even at the top of the repo.
  1. Azure: Tag and push to Azure Container Registry: `make publish`. This assumes auth is all set, specifically than `az acr login -n kontainKubeACR' succeeded so docker login credentials are populated
- 1. Use `make publishclean` to clean up the published stuff ()
 
 Note that we do not tag any image as `latest` since I am not sure which one to tag :-)
 

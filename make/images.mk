@@ -18,8 +18,7 @@
 # The first 2 are explained in docs/build.md and docs/images-targets.md
 #
 # The runenv-image is a bare bones image for specific payload.
-# 		Can be built with 'make runenv-image' or 'make distro'. The following info
-#		needs to be defined in Makefile for it to work
+# 		Can be built with 'make runenv-image'. The following info needs to be defined in Makefile for it to work
 #		- BUILDENV_PATH is the location for Docker to use. Default is build/payloads/component
 #		- runenv_prep function is (optional) code to copy stuff to the BUILDENV_PATH, or modify it
 #				before running Docker. E.g. if BUILDENV_PATH=. , the runenv_prpe is likely not needed
