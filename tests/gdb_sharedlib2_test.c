@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
    // Dynamically load our test shared library
    void* c = dlopen(SHARED_LIB, RTLD_LAZY);
    if (c == NULL) {
-      printf("Couldn't dlopen() %s\n", SHARED_LIB);
+      printf("Couldn't dlopen() %s, does your LD_LIBRARY_PATH env var contain the tests directory\n", SHARED_LIB);
    } else {
       dlerror();
       symvalue = dlsym(c, SHARED_LIB_SYMBOL);
