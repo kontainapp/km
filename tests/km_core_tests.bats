@@ -234,11 +234,11 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 
 @test "km_many($test_type): running multiple KMs (hello_test$ext)" {
    ${KM_BIN} ${KM_ARGS} pthread_cancel_test$ext & # this will do a few sec wait internally
-   pid=$!
+   sleep 1
    run km_with_timeout hello_test$ext
    assert_success
    assert_line --partial "disabling gdb support"
-   wait $pid
+   wait %%
 }
 
 @test "gdb_basic($test_type): gdb support (gdb_test$ext)" {
