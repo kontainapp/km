@@ -17,18 +17,19 @@
 #include <time.h>
 
 /*
- * A simple test program to load libcrypt.so at runtime and call crypt().
+ * A simple test program to load a shared library at runtime and call a
+ * function in the library.
  * This program is used together with cmd_for_dlopen_test.gdb.
  * That gdb script runs "info sharedlibrary" and uses the value of
  * a dynamically loaded symbol to verify the library is loaded and we
  * are getting symbols from the library.
  * We also have code to follow the list of link_map structures in the
  * running image.  This is more for curiousity sake.  It can be used to
- * verify that libcrypt.so is loaded though.
+ * verify that the share library is loaded.
  */
 
-#define CRYPT_SYMBOL "xcrypt"
-#define CRYPT_LIB "/usr/lib64/libcrypt.so"
+#define SHARED_LIB "dlopen_test_lib.so"
+#define SHARED_LIB_SYMBOL "do_function"
 
 /*
  * gcc -g -o gdb_sharelib2_test gdb_sharelib2_test.c -ldl -lz
@@ -52,23 +53,23 @@ int main(int argc, char* argv[])
    int rc;
    void* symvalue = NULL;
 
-   // Dynamically load libcrypt and call crypt().
-   void* c = dlopen(CRYPT_LIB, RTLD_LAZY);
+   // Dynamically load our test shared library
+   void* c = dlopen(SHARED_LIB, RTLD_LAZY);
    if (c == NULL) {
-      printf("Couldn't dlopen() %s\n", CRYPT_LIB);
+      printf("Couldn't dlopen() %s, does your LD_LIBRARY_PATH env var contain the tests directory\n", SHARED_LIB);
    } else {
       dlerror();
-      symvalue = dlsym(c, CRYPT_SYMBOL);
-      printf("symbol %s has value %p\n", CRYPT_SYMBOL, symvalue);
+      symvalue = dlsym(c, SHARED_LIB_SYMBOL);
+      printf("symbol %s has value %p\n", SHARED_LIB_SYMBOL, symvalue);
       char* dlsym_error = dlerror();
       if (dlsym_error != NULL) {
-         printf("Couldn't find the value of symbol %s, error %s\n", CRYPT_SYMBOL, dlsym_error);
+         printf("Couldn't find the value of symbol %s, error %s\n", SHARED_LIB_SYMBOL, dlsym_error);
       } else {
-         char* (*cryptfuncp)(char*, char*);
+         int (*do_function)(void);
          got_symbol_breakpoint();
-         cryptfuncp = symvalue;
-         char* phrase = (*cryptfuncp)("mary had a little lamb", "salt");
-         printf("%s returned phrase %s\n", CRYPT_SYMBOL, phrase);
+         do_function = symvalue;
+         int rv = (*do_function)();
+         printf("%s returned %d\n", SHARED_LIB_SYMBOL, rv);
       }
       dlclose(c);
    }
