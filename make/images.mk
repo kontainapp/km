@@ -188,6 +188,7 @@ endif
 validate-runenv-image: ## Validate runtime image
 	${DOCKER_RUN_TEST} \
 		-v ${KM_BIN}:${KM_OPT_BIN}:z \
+		-v ${KM_OPT_RT}:${KM_OPT_RT}:z \
 		${SCRIPT_MOUNT} \
 		${RUNENV_IMG}:${IMAGE_VERSION} \
 		${VALIDATE_CMD}
