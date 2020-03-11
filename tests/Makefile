@@ -177,7 +177,3 @@ buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
 .PHONY: all clean test help gdb coverage covclean
 
 include ${TOP}/make/images.mk
-
-# No runenv for tests.
-runenv-image validate-runenv-image push-runenv-image pull-runenv-image distro:
-	@echo $(notdir $(CURDIR)): nothing to do for target '$@'
