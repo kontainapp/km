@@ -14,8 +14,6 @@ COMPONENT := km
 # this is how we run tests in containers:
 CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
 
-include ${TOP}/make/images.mk
-
 SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_value_test.c hcallargs_test.c \
 		load_test.c  hello_loop_test.c hello_2_loops_test.c memslot_test.c mutex_test.c futex_test.c \
 		getline_test.c mem_test.c exit_grp_test.c intr_test.c brk_map_test.c crash_test.c cpuid_test.c \
@@ -176,20 +174,10 @@ buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
 	sudo docker cp tmp_env:/opt/kontain /opt
 	docker rm tmp_env
 
-# Info for making runenv-image and validate-runenv-image targets
-#
-# A little hackery here. PAYLOAD_KM is generally things like node.km or python.km, so we can call 'km payload_km'
-# for validation we usually use RUNENV_VALIDATE_CMD (e.g. hello.js) so overall command looks like 'km node.km hello.js'
-# Hower for KM Only, we want to run 'km validat_cmd.km' right away, so we set PAYLOAD_KM to validation script.
-# Note that we support runenv and validate-runenv here for consistency only, the real value is in payloads/ dir.
-PAYLOAD_KM := hello_test.km
-PAYLOAD_NAME := KontainMonitor
-# make sure validation script is copied to runenv path before building docker image
-export define runenv_prep
-	cp ${PAYLOAD_KM} $(RUNENV_PATH)
-endef
-
 .PHONY: all clean test help gdb coverage covclean
 
-distroclean publish publishclean:
+include ${TOP}/make/images.mk
+
+# No runenv for tests.
+runenv-image validate-runenv-image push-runenv-image pull-runenv-image distro:
 	@echo $(notdir $(CURDIR)): nothing to do for target '$@'

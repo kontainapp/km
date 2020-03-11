@@ -9,6 +9,7 @@
 #  Kontain Inc.
 #
 # A helper include for makefiles which need to build disto packages or publish to registries.#
+# Deprecated: Please use ${TOP}/make/image.mk instead
 
 include $(TOP)/make/locations.mk
 
