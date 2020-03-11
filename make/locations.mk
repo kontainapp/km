@@ -41,6 +41,7 @@ BLDDIR := $(abspath ${BLDTOP}/${FROMTOP}/${BLDTYPE})
 KM_BLDDIR := $(abspath ${BLDTOP}/km/${BLDTYPE})
 KM_BIN := ${KM_BLDDIR}/km
 KM_OPT := /opt/kontain
+KM_OPT_BIN := ${KM_OPT}/bin/km
 KM_LDSO := ${BLDTOP}/runtime/libc.so
 KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_LDSO := ${KM_OPT_RT}/libc.so
@@ -60,7 +61,10 @@ BUILDENV_IMG  ?= kontain/buildenv-${COMPONENT}-${DTYPE}
 CURRENT_UID := $(shell id -u)
 CURRENT_GID := $(shell id -g)
 
-DOCKER_BUILD := docker build --label "KONTAIN:BRANCH=$(SRC_BRANCH)" --label "KONTAIN:SHA=$(SRC_SHA)"
+DOCKER_BUILD := docker build \
+	--label "KONTAIN:BRANCH=$(SRC_BRANCH)" \
+	--label "KONTAIN:SHA=$(SRC_SHA)"
+
 # Use DOCKER_RUN_CLEANUP="" if container is needed after a run
 DOCKER_RUN_CLEANUP ?= --rm
 DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP} -t -u${CURRENT_UID}:${CURRENT_GID}
