@@ -36,4 +36,4 @@ test-all:
 	@${KM_BIN} ${PAYLOAD_KM} echo Basic Test passed
 	@echo More TBD
 
-include ${TOP}/make/distro.mk
+include ${TOP}/make/image.mk
