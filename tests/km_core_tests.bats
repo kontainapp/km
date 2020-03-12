@@ -206,7 +206,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
    run gdb_with_timeout -ex="source gdb_simple_test.py" -ex="handle SIGUSR1 nostop"\
-       -ex="c" -ex="q" --args ${KM_BIN} mmap_test$ext -v
+       -ex="run-test" -ex="q" --args ${KM_BIN} mmap_test$ext -v
    assert [ $status -eq $expected_status ]
    assert_line --partial 'fail: 0'
 
