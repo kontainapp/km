@@ -14,7 +14,7 @@
 default: all
 
 ifeq (${TOP},)
-  $(error "TOP needs to be set before including this mk file ") 
+  $(error "TOP needs to be set before including this mk file ")
 endif
 
 # this is the path from the TOP to current dir. Note this has a trailing /
@@ -87,11 +87,8 @@ IMAGE_VERSION ?= latest
 BUILDENV_IMAGE_VERSION ?= ${IMAGE_VERSION}
 
 
-# Code coverage support. If enabled, build with code coverage in dedicate dir
+# Build with code coverage if BLDTYPE set to this.
 COV_BLDTYPE := coverage
-
-# location for html coverage report
-COVERAGE_REPORT  = $(KM_BLDDIR)/coverage.html
 
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
