@@ -7,10 +7,11 @@
 #   such source code. Disclosure of this source code or any related proprietary
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
-SHELL=/bin/bash
-TOP := $(shell git rev-parse --show-toplevel)
 
+TOP := $(shell git rev-parse --show-toplevel)
 COMPONENT := km
+include ${TOP}/make/images.mk
+
 # this is how we run tests in containers:
 CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
 
@@ -130,8 +131,8 @@ covclean: ## Clean up code coverage build artifacts
 coverage: all  ## Build with code coverage, then run tests and generate reports
 	@$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .coverage
 
-ifeq (${BLDTYPE},$(COV_BLDTYPE))
-# we need this nesting to pass COV_BLDTYPE and set env. properly
+ifeq (${BLDTYPE},${COV_BLDTYPE})
+# we need this nesting (.cov* targets) to pass BLDTYPE and set env.
 .PHONY: .coverage .cov_init .cov_clean
 .cov_clean:
 	rm -rf ${BLDDIR}
@@ -176,4 +177,3 @@ buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
 
 .PHONY: all clean test help gdb coverage covclean
 
-include ${TOP}/make/images.mk
