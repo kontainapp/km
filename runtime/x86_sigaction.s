@@ -185,4 +185,4 @@ __km_syscall_handler:
      * we can't use it. We don't change PL or RFLAGS
      * so we can just jump back.
      */
-    jmp %rcx
+    jmp *%rcx
