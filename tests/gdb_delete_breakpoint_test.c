@@ -9,12 +9,14 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * Helper for gdb server entry race between a breakpoint and a seg fault.
- * The basic test is to have one thread hit a breakpoint and then have another
- * thread cause a seg fault.  We arrange for the breapointing thread to stall
- * in km_gdb_notify_and_wait() to give another thread a chance to get the
- * seg fault.  The sigill should take priority over the preceeding breakpoint
- * and should be reported back to the gdb client.
+ * Helper for gdb delete breakpoint test where one thread hits a breakpoint in a loop
+ * and the main thread disables and enables the other thread's breakpoint.
+ * The goal is to have the breakpoint disabled while the thread hits that
+ * breakpoint.  This resuls in a situation where the breakpoint that disables
+ * and the breakpoint that is disabled happen in that order and close enough
+ * in time that we have a pending gdb event for a breakpoint that no longer
+ * exists.  gdb should handle that.
+ * This test program runs with the gdb script cmd_for_delete_breakpoint_test.gdb
  */
 #include <assert.h>
 #include <pthread.h>
@@ -29,60 +31,45 @@
 #include <syscall.h>
 #include <errno.h>
 
-/*
- * When time() utilizes the time functions in the vdso page, things
- * run faster which reduces the frequency of the race we are trying
- * to produce.  So, add this delay to ensure the race does happen.
- */
-struct timespec vdso_compensate = { 0, 1200 };  // 1.2us
+struct timespec _100ms = { 0, 100000000 };
+
+int enable_disable_ready = 0;
+int breakpointer_ready = 0;
+pthread_barrier_t barrier;
+int stop_now = 0;
 
 /*
  * A breakpoint target so we don't need to place a breakpoint on a source
  * file line number.
  */
-static time_t __attribute__((noinline)) hit_breakpoint1(void)
+static time_t __attribute__((noinline)) disable_breakpoint(void)
 {
-   int r;
-   r = nanosleep(&vdso_compensate, NULL);
-   assert(r == 0 || errno == EINTR);
    return time(NULL);
 }
-static time_t __attribute__((noinline)) hit_breakpoint2(void)
+static time_t __attribute__((noinline)) enable_breakpoint(void)
 {
-   int r;
-   r = nanosleep(&vdso_compensate, NULL);
-   assert(r == 0 || errno == EINTR);
    return time(NULL);
 }
-static time_t __attribute__((noinline)) hit_breakpoint_t1(void)
+static time_t __attribute__((noinline)) hit_breakpoint(void)
 {
-   int r;
-   r = nanosleep(&vdso_compensate, NULL);
-   assert(r == 0 || errno == EINTR);
-   return time(NULL);
-}
-static time_t __attribute__((noinline)) hit_breakpoint_t2(void)
-{
-   int r;
-   r = nanosleep(&vdso_compensate, NULL);
-   assert(r == 0 || errno == EINTR);
    return time(NULL);
 }
 
 /*
- * The test driver will start this program under gdb and then
- * the gdb client will be driven from cmd_for_gdb_breakpoint_delete_test.gdb
- * This program creates 2 threads that just loop calling functions that will
- * have a breakpoint set on them.
- * Both threads will keep hitting breakpoints while the main thread hits
- * 2 breakpoints repeatedly.
- * The breakpoint handler for main thread hit_breakpoint1() will delete the breakpoint
- * for hit_breakpoint_thread2() and the breakpoint handler for hit_breakpoint2()
- * will add the breakpoint for hit_breakpoint_t2().
- * The breakpoint handler for hit_breakpoint_t1 and hit_breakpoint_t2() will continue.
- * The goal is to delete the breakpoint at hit_breakpoint_t2() while a breakpoint for that location
- * is pending but not delivered to the gdb client yet.  When the breakpoint
- * is deleted its pending breakpoint should also be deleted.
+ * The bats test driver will start this program under gdb and then
+ * the gdb client will be driven from cmd_for_delete_breakpoint_test.gdb
+ * This program creates one thread that just loops hitting a breakpoint.
+ * The main thread hits 2 breakpoints repeatedly.  One breakpoint disables
+ * the other thread's breakpoint and the other breakpoint enables the
+ * other thread's breakpoint.
+ * The goal is to have the main thread's breakpoint disable happen just before
+ * the second thread's breakpoint is hit.  This condition leads to a deleted
+ * breakpoint happening just after a breakpoint is hit.
+ * We use a pthread barrier to get the 2 threads approximately synchronized.
+ * And then we use flags for each thread to signal to the other that they
+ * are about to hit their respective breakpoints.  Each thread waits in a
+ * spin loop for the other thread to be ready.  All of this just helps
+ * increase the odds of the desired race happening.
  * We can grep for a km_trace() in the output from km noting that a triggered
  * breakpoint was deleted because it was pending and the breakpoint that
  * caused it was deleted.
@@ -90,42 +77,21 @@ static time_t __attribute__((noinline)) hit_breakpoint_t2(void)
 
 #define RUNTIME 1   // seconds
 
-void* hit_breakpoint_thread1(void* arg)
+void* hit_breakpoint_thread(void* arg)
 {
-   time_t starttime;
-   time_t t;
    int i = 0;
 
    printf("%s starting\n", __FUNCTION__);
 
-   starttime = time(NULL);
    while (true) {
-      t = hit_breakpoint_t1();
-      if ((t - starttime) > RUNTIME) {
+      pthread_barrier_wait(&barrier);
+      if (stop_now != 0) {
          break;
       }
-      i++;
-   }
-
-   printf("%s ending, %d iterations\n", __FUNCTION__, i);
-
-   return NULL;
-}
-
-void* hit_breakpoint_thread2(void* arg)
-{
-   time_t starttime;
-   time_t t;
-   int i = 0;
-
-   printf("%s starting\n", __FUNCTION__);
-
-   starttime = time(NULL);
-   while (true) {
-      t = hit_breakpoint_t2();
-      if ((t - starttime) > RUNTIME) {
-         break;
-      }
+      breakpointer_ready = 1;
+      while (enable_disable_ready == 0);
+      for (int j = 0; j < 100; j++);
+      (void)hit_breakpoint();
       i++;
    }
 
@@ -137,26 +103,40 @@ void* hit_breakpoint_thread2(void* arg)
 int main()
 {
    int rc;
-   pthread_t sfthread1;
-   pthread_t sfthread2;
+   pthread_t hitbp_thread;
    time_t starttime;
    time_t t1;
    time_t t2;
    int i = 0;
 
-   // Start the breakpoint hitting threads
-   rc = pthread_create(&sfthread1, NULL, hit_breakpoint_thread1, NULL);
-   assert(rc == 0);
-   rc = pthread_create(&sfthread2, NULL, hit_breakpoint_thread2, NULL);
+   pthread_barrier_init(&barrier, NULL, 2);
+
+   // Start the breakpoint hitting thread
+   rc = pthread_create(&hitbp_thread, NULL, hit_breakpoint_thread, NULL);
    assert(rc == 0);
 
+   // Enable and disable the breakpoint in the hit_breakpoint_thread()
    starttime = time(NULL);
    while (true) {
-      // Hit our breakpoints over and over again.
-      t1 = hit_breakpoint1();
-      t2 = hit_breakpoint2();
-      if (((t1 + t2) / 2 - starttime) > RUNTIME) {
+      enable_disable_ready = 0;
+      breakpointer_ready = 0;
+      pthread_barrier_wait(&barrier);
+      if (stop_now != 0) {
          break;
+      }
+      enable_disable_ready = 1;
+      while (breakpointer_ready == 0);
+      //for (int j = 0; j < 100; j++);
+      t1 = disable_breakpoint();
+      t2 = enable_breakpoint();
+      if (((t1 + t2) / 2 - starttime) > RUNTIME) {
+         struct timespec st = _100ms;
+         struct timespec rem;
+         // pause to let the other thread block in barrier wait
+         while (nanosleep(&st, &rem) != 0 && errno == EINTR) {
+            st = rem;
+         }
+         stop_now = 1;
       }
       i++;
    }

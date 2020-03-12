@@ -7,36 +7,22 @@
 #             --ex=q gdb_delete_breakpoint_test.km
 #
 
-set $bp2ordinal = 4
-
-br hit_breakpoint1
+br disable_breakpoint
 commands
-  printf "Hit breakpoint1, bp2ordinal %d\n", $bp2ordinal
-  del br $bp2ordinal
+  disable breakpoint 3
   continue
 end
 
-br hit_breakpoint2
+br enable_breakpoint
 commands
-  printf "Hit breakpoint2, bp2ordinal %d\n", $bp2ordinal
-  br hit_breakpoint_t2
-  commands
-    print "Hit breakpoint_t2"
-    continue
-  end
-  set $bp2ordinal += 1
+  enable breakpoint 3
   continue
 end
 
-br hit_breakpoint_t1
+# This is breakpoint 3
+br hit_breakpoint
 commands
-  print "Hit breakpoint_t1"
-  continue
-end
-
-br hit_breakpoint_t2
-commands
-  print "Hit breakpoint_t2"
+  print "Hit breakpoint"
   continue
 end
 
