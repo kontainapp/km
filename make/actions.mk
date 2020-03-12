@@ -58,10 +58,6 @@ pull-runenv-image: subdirs ## Pulls runtime images from a cloud registry. IMAGE_
 validate-runenv-image: subdirs ## Runs basic validation command for runtime image
 test-withdocker: subdirs ##
 test-all-withdocker: subdirs ## build all and run KM and payload tests
-distro: subdirs ## package demo binaries for the current branch as Docker Container Images
-distroclean: subdirs ## remove demo packages created by 'make distro'
-publish: subdirs ## publish demo packages for the current branch online (e.g to Azure ACR - see distro.mk)
-publishclean: subdirs ## (TODO) remove demo packages from online repos
 
 $(SUBDIRS):
 	$(MAKE) -C $@  MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=

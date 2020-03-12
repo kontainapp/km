@@ -18,7 +18,6 @@ This document describes the *default* path to take during the demo.
   * If docker is already installed, check version with `docker version -f 'Client: {{.Client.Version}}'`
   * For `docker-CE`, see [Docker installation info](https://docs.docker.com/install/linux/docker-ce/fedora/). As of the moment of this writing, they did not support Fedora30 so --releasever=29 needs to be passed to dnf
    * For `moby-engine`, just `dnf install` it.
-* `make distro` should pass so km base container is available
 * If docker image size comparison is needed, it's a good idea to pre-pull default Python images: `docker pull python`
 * [kubectl (1.14+)](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux) and Azure [az CLI (latest)](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-yum?view=azure-cli-latest) should be installed for Kubernetes/Azure part of the demo
 * for meltdown demo, the hardware has to be Intel CPU supporting TSX instructions, and  meltdown mitigation should be turned off (`pti=off` on boot line)
@@ -60,7 +59,7 @@ file dweb dweb.km
 ~/workspace/km/build/km/km ./dweb.km 8080
 
 # Build Docker container with dweb
-(cd ..; docker build -t dweb .)
+(cd ..; docker build -t dweb . -f dweb-demo.dockerfile)
 
 # Show start time ('-x' to exit from server right awayzoom)
 time docker run --rm  dweb  /dweb/dweb -x
@@ -103,6 +102,8 @@ docker images | grep python | grep latest
 ```
 
 ## Operations
+
+TODO: Work In Progress!
 
 Goals:
 

@@ -29,7 +29,7 @@ PAYLOAD_KM := cpython/python.km
 # name to be added to label(s)
 PAYLOAD_NAME := Python3.7
 
-# a list to be passed to tar to be packed into container image by 'make distro'.TODO: drop 'make distro' target and related code
+# a list to be passed to tar to be packed into container image by 'make runenv-image'.
 PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.exe' --exclude '*.whl' \
 	cpython/Lib cpython/Modules/Setup
 
