@@ -172,20 +172,19 @@ endif
 	-t ${RUNENV_IMG}:${IMAGE_VERSION} -f ${RUNENV_DOCKERFILE} ${RUNENV_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
+ifneq (${RUNENV_VALIDATE_SCRIPT},)
+SCRIPT_MOUNT = -v ${RUNENV_VALIDATE_SCRIPT}:/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT}):z
+VALIDATE_CMD = /scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT})
+else
+VALIDATE_CMD = ${RUNENV_VALIDATE_CMD}
+endif
 # We use km from ${KM_BIN} here from the build tree instead of what's on the host under ${KM_OPT_BIN}.
 validate-runenv-image: ## Validate runtime image
-ifneq (${RUNENV_VALIDATE_SCRIPT},)
 	${DOCKER_RUN_TEST} \
 		-v ${KM_BIN}:${KM_OPT_BIN}:z \
-		-v ${RUNENV_VALIDATE_SCRIPT}:/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT}):z \
+		${SCRIPT_MOUNT} \
 		${RUNENV_IMG}:${IMAGE_VERSION} \
-		/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT})
-else
-	${DOCKER_RUN_TEST} \
-		-v ${KM_BIN}:${KM_OPT_BIN}:z \
-		${RUNENV_IMG}:${IMAGE_VERSION} \
-		${RUNENV_VALIDATE_CMD}
-endif
+		${VALIDATE_CMD}
 
 push-runenv-image:  ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \

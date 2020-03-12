@@ -104,7 +104,7 @@ Each payload also supports the same targets supported for KM, but uses payload-s
 
 ## Additional Makefiles changes
 
-* All targets for manipulating buildenv and test images are in `make/images.mk`. Note that this copy is temporary, until  we have a way to install KM+runk and use *runk* to executed Kontainers.
+* All targets for manipulating buildenv and test images are in `make/images.mk`. Note that this copy is temporary, until  we have a way to install KM+runk (runk: Kontain runtime for docker and k8s, if we choose to ship our own) and use *runk* to executed Kontainers.
 
 * Makefiles in payloads and tests include `images.mk` only. KM and runtime include `actions.mk`, and ignores image-related targets.
 
