@@ -31,7 +31,9 @@ PAYLOAD_NAME := Python3.7
 
 # a list to be passed to tar to be packed into container image by 'make runenv-image'.
 PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.exe' --exclude '*.whl' \
-	cpython/Lib cpython/Modules/Setup
+	cpython/Lib \
+	cpython/Modules/Setup \
+	cpython/build/lib.linux-x86_64-3.7
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)
@@ -128,17 +130,17 @@ test test-all: ${PAYLOAD_KM} ${TEST_KM}
 
 test-all-withdocker: test-withdocker # alias for test-withdocker
 
-# Set info for runenv-image build
-RUNENV_VALIDATE_SCRIPT := $(abspath scripts/hello_again.py)
-export define runenv_prep
-	cp ${PAYLOAD_KM} ${RUNENV_PATH}
-	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
-endef
-
 clobber: ## Clobber cpython build by removing cpython dir
 	rm -rf cpython
 
 clobber-modules:
 	cd cpython; git clean -xdff Lib Modules
+
+# Set info for runenv-image build
+RUNENV_VALIDATE_SCRIPT := $(abspath scripts/hello_again.py)
+export define runenv_prep
+	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
+	cp ${PAYLOAD_KM} ${RUNENV_PATH}
+endef
 
 include ${TOP}/make/images.mk
