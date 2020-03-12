@@ -18,8 +18,7 @@
 # The first 2 are explained in docs/build.md and docs/images-targets.md
 #
 # The runenv-image is a bare bones image for specific payload.
-# 		Can be built with 'make runenv-image' or 'make distro'. The following info
-#		needs to be defined in Makefile for it to work
+# 		Can be built with 'make runenv-image'. The following info needs to be defined in Makefile for it to work
 #		- BUILDENV_PATH is the location for Docker to use. Default is build/payloads/component
 #		- runenv_prep function is (optional) code to copy stuff to the BUILDENV_PATH, or modify it
 #				before running Docker. E.g. if BUILDENV_PATH=. , the runenv_prpe is likely not needed
@@ -173,13 +172,19 @@ endif
 	-t ${RUNENV_IMG}:${IMAGE_VERSION} -f ${RUNENV_DOCKERFILE} ${RUNENV_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
+ifneq (${RUNENV_VALIDATE_SCRIPT},)
+SCRIPT_MOUNT = -v ${RUNENV_VALIDATE_SCRIPT}:/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT}):z
+VALIDATE_CMD = /scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT})
+else
+VALIDATE_CMD = ${RUNENV_VALIDATE_CMD}
+endif
 # We use km from ${KM_BIN} here from the build tree instead of what's on the host under ${KM_OPT_BIN}.
 validate-runenv-image: ## Validate runtime image
 	${DOCKER_RUN_TEST} \
-	-v ${RUNENV_VALIDATE_SCRIPT}:/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT}):z \
-	-v ${KM_BIN}:${KM_OPT_BIN}:z \
-	${RUNENV_IMG}:${IMAGE_VERSION} \
-	/scripts/$(notdir ${RUNENV_VALIDATE_SCRIPT})
+		-v ${KM_BIN}:${KM_OPT_BIN}:z \
+		${SCRIPT_MOUNT} \
+		${RUNENV_IMG}:${IMAGE_VERSION} \
+		${VALIDATE_CMD}
 
 push-runenv-image:  ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
