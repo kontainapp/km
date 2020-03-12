@@ -95,7 +95,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # -g[port] turns on gdb and tested in gdb coverage. Let's validate a failure case
    run km_with_timeout -gfoobar -- hello_test$ext
    assert_failure
-   assert_line  "km: Wrong gdb port number 'foobar'"
+   assert_line --partial "Invalid gdb port number 'foobar'"
 
    corefile=/tmp/km$$
    run km_with_timeout -Vcoredump -C $corefile -- hello_test$ext # -C sets coredump file name
@@ -233,9 +233,9 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "km_many($test_type): running multiple KMs (hello_test$ext)" {
-   ${KM_BIN} ${KM_ARGS} pthread_cancel_test$ext & # this will do a few sec wait internally
+   ${KM_BIN} -g -Wno ${KM_ARGS} pthread_cancel_test$ext & # this will do a few sec wait internally
    sleep 1
-   run km_with_timeout hello_test$ext
+   run km_with_timeout -g -Wno hello_test$ext
    assert_success
    assert_line --partial "disabling gdb support"
    wait %%
@@ -367,7 +367,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    km_gdb_default_port=2159
 
    # test with attach at dynamic linker entry point
-   km_with_timeout -g -A stray_test$ext stray &
+   km_with_timeout -g -Wdynlink stray_test$ext stray &
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
       --ex="source cmd_for_sharedlib_test.gdb" --ex=q
    assert_success
@@ -405,11 +405,11 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 # Then detach and then attach and detach again.
 # Then finally attach one more time to shut the test down.
 #
-@test "gdb_attach($test_type): gdb asynchronous client attach test (gdb_lots_of_threads_test$ext)" {
+@test "gdb_attach($test_type): gdb client attach test (gdb_lots_of_threads_test$ext)" {
    km_gdb_default_port=2159
 
    # test asynch gdb client attach to the target
-   km_with_timeout gdb_lots_of_threads_test$ext &
+   km_with_timeout -g -Wno gdb_lots_of_threads_test$ext &
    run gdb_with_timeout -q -nx \
       --ex="target remote :$km_gdb_default_port" \
       --ex="source cmd_for_attach_test.gdb" --ex=q
@@ -436,6 +436,14 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_line --partial "Inferior 1 (Remote target) detached"
 
    wait_and_check 0
+
+   # Try to attach to a payload where gdb server is not listening.
+   # Leave this test commented out since the gdb client connect timeout
+   # is about 15 seconds which is too long for CI testing.
+   #km_with_timeout gdb_lots_of_threads_test$ext -a 1 &
+   #run gdb_with_timeout -q --ex="target remote :$km_gdb_default_port" --ex=q
+   #assert_line --partial "Connection timed out"
+   #wait_and_check 0
 }
 
 #

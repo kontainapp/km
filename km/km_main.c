@@ -40,9 +40,8 @@ static inline void usage()
         "\nOptions:\n"
         "\t--verbose[=regexp] (-V[regexp])     - Verbose print where internal info tag matches "
         "'regexp'\n"
-        "\t--gdb-server-port[=port] (-g[port]) - Listen for gbd on <port> (default 2159) "
-        "before running payload\n"
-        "\t--attach-before-dynlink             - gdb attaches before dynamic linker runs\n"
+        "\t--gdb-server-port[=port] (-g[port]) - Enable gbd server listening on <port> (default 2159)\n"
+        "\t--wait-for-attach[=no|start|dynlink] - Wait for gdb client attach before running payload (default start)\n"
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--log-to=file_name                  - Stream stdout and stderr to file_name\n"
         "\t--putenv key=value                  - Add environment 'key' to payload\n"
@@ -105,7 +104,7 @@ static struct option long_options[] = {
     {"putenv", required_argument, 0, 'e'},
     {"copyenv", no_argument, 0, 'E'},
     {"gdb-server-port", optional_argument, 0, 'g'},
-    {"attach-before-dynlink", no_argument, 0, 'A'},
+    {"wait-for-attach", optional_argument, 0, 'W'},
     {"verbose", optional_argument, 0, 'V'},
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
     {"version", no_argument, 0, 'v'},
@@ -117,7 +116,7 @@ static struct option long_options[] = {
 int main(int argc, char* const argv[])
 {
    int opt;
-   int port;
+   uint64_t port;
    km_vcpu_t* vcpu;
    char* payload_file;
    int gpbits = 0;   // Width of guest physical memory bus.
@@ -131,7 +130,7 @@ int main(int argc, char* const argv[])
    km_gdbstub_init();
 
    assert(envp != NULL);
-   while ((opt = getopt_long(argc, argv, "+g::AV::P:vC:", long_options, &longopt_index)) != -1) {
+   while ((opt = getopt_long(argc, argv, "+g::W::AV::P:vC:", long_options, &longopt_index)) != -1) {
       switch (opt) {
          case 0:
             /* If this option set a flag, do nothing else now. */
@@ -140,18 +139,40 @@ int main(int argc, char* const argv[])
             }
             // Put here handling of longopts which do not have related short opt
             break;
-         case 'A':
-            gdbstub.attach_at_dynlink = 1;
-            break;
-         case 'g':
+         case 'W':   // Where should we wait for the gdb client to attach?
             if (optarg != NULL) {
-               if ((port = atoi(optarg)) == 0) {
-                  warnx("Wrong gdb port number '%s'", optarg);
+               if (strcmp(optarg, "no") == 0) {
+                  gdbstub.wait_for_attach = GDB_DONT_WAIT_FOR_ATTACH;
+               } else if (strcmp(optarg, "dynlink") == 0) {
+                  gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_DYNLINK;
+               } else if (strcmp(optarg, "start") == 0) {
+                  gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
+               } else {
+                  km_err_msg(0, "Unsupported wait-for-attach option: %s", optarg);
+                  usage();  // usage() will call exit()
+               }
+            } else {
+               gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
+            }
+            km_gdb_enable(1);
+            break;
+         case 'g':    // enable the gdb server and specify a port to listen on
+            if (optarg != NULL) {
+               char* endp = NULL;
+               errno = 0;
+               port = strtoul(optarg, &endp, 0);
+               if (errno != 0 || (endp != NULL && *endp != 0)) {
+                  km_err_msg(0, "Invalid gdb port number '%s'", optarg);
                   usage();
                }
-               km_gdb_port_set(port);
+            } else {
+               port = GDB_DEFAULT_PORT;
             }
-            gdbstub.wait_for_connect = 1;
+            km_gdb_port_set(port);
+            km_gdb_enable(1);
+            if (gdbstub.wait_for_attach == GDB_WAIT_FOR_ATTACH_UNSPECIFIED) {  // wait at _start by default
+               gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
+            }
             break;
          case 'l':
             if (freopen(optarg, "a", stdout) == NULL || freopen(optarg, "a", stderr) == NULL) {
@@ -262,11 +283,13 @@ int main(int argc, char* const argv[])
       km_wait_for_signal(SIGUSR1);
    }
 
-   if (km_gdb_setup_listen() == 0) {   // Try to become the gdb server
-      km_vcpu_pause_all();
-   } else {
-      km_err_msg(0, "Failed to setup gdb listening port %d, disabling gdb support", gdbstub.port);
-      km_gdb_enable(0);   // disable gdb
+   if (km_gdb_is_enabled() != 0) {
+      if (km_gdb_setup_listen() == 0) {   // Try to become the gdb server
+         km_vcpu_pause_all();
+      } else {
+         km_err_msg(0, "Failed to setup gdb listening port %d, disabling gdb support", gdbstub.port);
+         km_gdb_enable(0);   // disable gdb
+      }
    }
 
    if (km_run_vcpu_thread(vcpu, km_vcpu_run_main) < 0) {
