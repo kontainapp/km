@@ -266,7 +266,6 @@ int main(int argc, char** argv)
    RUN_TEST(mmap_fixed_concat_both_sides);
    RUN_TEST(mmap_fixed_over_multiple_regions);
    RUN_TEST(mmap_fixed_incompat);
-
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
 }

@@ -42,10 +42,9 @@ def bp_handler(event):
                 expected_count: {expected_count}
                 """)
             # Busy maps only query = 1, Free Maps only query = 2, Total = 3
-            query_mmaps(query, 1, expected_count)
+            query_mmaps(query, verbosity, expected_count)
 
     # don't stop, continue
-    gdb.execute("return -29")
     gdb.execute("continue")
 
 
@@ -71,20 +70,9 @@ def query_mmaps(query, verbosity, expected_count):
     if query == busy_mmaps:
         mmap = gdb.parse_and_eval("&machine.mmaps.busy")
         ret = count_mmaps(mmap, verbosity)
-        if ret == expected_count:
-            output = "True"
-        else:
-            output = "False"
-        inferior.write_memory(gdb.parse_and_eval("buf"), output)
     elif query == free_mmaps:
         mmap = gdb.parse_and_eval("&machine.mmaps.free")
         ret = count_mmaps(mmap, verbosity)
-        if ret == expected_count:
-            output = "True"
-        else:
-            output = "False"
-        inferior.write_memory(gdb.parse_and_eval("buf"), output)
-
     elif query == total_mmaps:
         mmap = gdb.parse_and_eval("&machine.mmaps.free")
         ret = count_mmaps(mmap, verbosity)
@@ -92,15 +80,14 @@ def query_mmaps(query, verbosity, expected_count):
         ret = ret + count_mmaps(mmap, verbosity)
         print("count: ", ret)
         print("expected_count: ", expected_count)
-        if ret == expected_count:
-            print("true")
-            output = " True "
-        else:
-            print("false")
-            output = " False "
-        inferior.write_memory(gdb.parse_and_eval("buf"), output)
     else:
-        inferior.write_memory(gdb.parse_and_eval("buf"), "invalid query")
+        ret = expected_count + 1
+        gdb.write("Invalid query: ", query)
+
+    if ret == expected_count:
+        gdb.execute("return 0")
+    else:
+        gdb.execute("return -29")
 
 
 def count_mmaps(tailq, verbosity):
