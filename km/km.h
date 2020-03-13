@@ -21,10 +21,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/eventfd.h>
+#include <sys/ioctl.h>
 #include <sys/param.h>
 #include <sys/types.h>
 #include <linux/kvm.h>
-#include <sys/ioctl.h>
 
 #include "bsd_queue.h"
 #include "km_elf.h"
@@ -203,6 +203,7 @@ typedef struct km_mmap_list km_mmap_list_t;
 typedef union {
    struct {
       uint32_t km_mmap_monitor : 1;   // 1 if area is allocated by monitor
+      uint32_t km_mmap_clean : 1;     // doesn't need zeroing when exposed to payload
       uint32_t km_unused : 30;
    };
    uint32_t data32;
@@ -233,10 +234,12 @@ typedef struct km_mmap_cb {   // control block
 static const int CPUID_ENTRIES = 100;   // A little padding, kernel says 80
 #define KVM_MAX_VCPUS 288
 
-#define KM_MEM_SLOTS 42   // We use 36 on 512GB machine, 42 on 4TB, out of 509 KVM_USER_MEM_SLOTS
-                          // slot 0 is used for pages tables and some other things
-                          // slot 41 is used to map the vdso and vvar pages into the payload address
-                          //  space
+/*
+ * We use 36 on 512GB machine, 42 on 4TB, out of 509 KVM_USER_MEM_SLOTS slot 0 is used for pages
+ * tables and some other things slot 41 is used to map the vdso and vvar pages into the payload
+ * address space
+ */
+#define KM_MEM_SLOTS 42
 
 typedef struct km_machine {
    int kvm_fd;                                // /dev/kvm file descriptor

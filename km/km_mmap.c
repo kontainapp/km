@@ -178,6 +178,15 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
    }
 }
 
+static void km_reg_make_clean(km_mmap_reg_t* reg)
+{
+   if (reg->protection != PROT_NONE && reg->km_flags.km_mmap_clean == 0) {
+      madvise(km_gva_to_kma_nocheck(reg->start), reg->size, MADV_DONTNEED);
+      reg->km_flags.km_mmap_clean = 1;
+      km_infox(KM_TRACE_MMAP, "zero km 0x%lx sz 0x%lx", reg->start, reg->size);
+   }
+}
+
 // wrapper for mprotect() on a single mmap region.
 static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
 {
@@ -188,6 +197,7 @@ static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
            reg->size,
            reg->protection);
    }
+   km_reg_make_clean(reg);
 }
 
 // mprotects 'reg' and concats with adjustment neighbors
@@ -258,8 +268,8 @@ static inline void km_mmap_insert_free(km_mmap_reg_t* reg)
       reg->filename = NULL;
    }
    reg->offset = 0;
+   reg->km_flags.km_mmap_clean = 0;
    km_mmap_insert(reg, list);
-   madvise(km_gva_to_kma_nocheck(reg->start), reg->size, MADV_DONTNEED);   // zero out on next use
    km_mmap_concat(reg, list);
    if (reg->start == km_mem_tbrk(0)) {   // adjust tbrk() if needed
       km_mem_tbrk(reg->start + reg->size);
@@ -287,10 +297,10 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
 }
 
 // Callback for when busy_range_apply needs to prepare one big empty region covering the range
-static void km_mmap_region_fixed(km_mmap_reg_t* reg)
+static void km_mmap_region_clean_concat(km_mmap_reg_t* reg)
 {
-   reg->flags = MAP_FIXED;
-   reg->protection = PROT_NONE;
+   reg->flags = -1;   // fake flag to guarantee reg will not concat with left and right neighbors
+   km_reg_make_clean(reg);
    reg->offset = 0;
    if (reg->filename != NULL) {
       free(reg->filename);
@@ -315,7 +325,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
    km_mmap_reg_t *reg, *next;
 
    assert(action == km_mmap_mprotect || action == km_mmap_move_to_free ||
-          action == km_mmap_region_fixed);
+          action == km_mmap_region_clean_concat);
    TAILQ_FOREACH_SAFE (reg, &machine.mmaps.busy, link, next) {
       km_mmap_reg_t* extra;
 
@@ -428,14 +438,13 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
 {
    assert(advise == MADV_DONTNEED);
-   if (madvise(km_gva_to_kma_nocheck(addr), size, advise) != 0) {
-      return -errno;
-   }
-   return 0;
-
    if (km_mmap_busy_check_contiguous(addr, size) != 0) {
       km_infox(KM_TRACE_MMAP, "madvise area not fully mapped");
       return -ENOMEM;
+   }
+   // TODO: assumes linear virt and phys mem. Do in loop by regs instead
+   if (madvise(km_gva_to_kma_nocheck(addr), size, advise) != 0) {
+      return -errno;
    }
    return 0;
 }
@@ -549,14 +558,14 @@ static km_gva_t km_guest_mmap_nolock(
       return -errno;
    }
    // Now glue the underlying regions together
-   if ((ret = km_mmap_busy_range_apply(gva, size, km_mmap_region_fixed, PROT_NONE)) != 0) {
+   if ((ret = km_mmap_busy_range_apply(gva, size, km_mmap_region_clean_concat, prot)) != 0) {
       errno = -ret;
-      km_info(KM_TRACE_MMAP, "Failed to apply km_mmap_region_fixed");
+      km_info(KM_TRACE_MMAP, "Failed to apply km_mmap_region_clean_concat");
       return ret;
    }
 
    // Update the formed busy map to correct info
-   // TODO: change range_apply to return km_mmap_reg_t* , and drop the extra search here
+   // TODO: change range_apply to return km_mmap_reg_t*, and drop the extra search here
    km_mmap_reg_t* reg = km_find_reg_nolock(gva);
    assert(reg != NULL);   // we just created it above
    assert(reg->start == gva && reg->size == size);
@@ -719,6 +728,14 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
       km_mmap_reg_t* donor = km_mmap_find_address(&machine.mmaps.free, ptr->start + ptr->size);
       assert(donor != NULL && donor->size >= needed);   // MUST have free slot due to gap in busy
       ptr->size += needed;
+
+      if (ptr->km_flags.km_mmap_clean == 1) {   // no km_init_init will be called on the whole ptr region
+         km_mmap_reg_t extra = (km_mmap_reg_t){.start = donor->start,
+                                               .size = needed,
+                                               .protection = PROT_WRITE,
+                                               .km_flags.km_mmap_clean = 0};
+         km_reg_make_clean(&extra);
+      }
       km_mmap_mprotect_region(ptr);
       if (donor->size == needed) {
          km_mmap_remove_free(donor);
