@@ -18,7 +18,7 @@ After it is done, you can pass `cpython/python.km` to KM as a payload, e.g. `../
 
 ## Building distro package and publishing it
 
-`make distro` and `make publish` will build Docker image and publish it to Azure ACR. We expect that KM is already packaged as a container, and you logged in to ACR 9for publish. So generally, it's better to do `make distro` from top level - this will build KM image as well (or you can `make -C ../../km distro` to get KM image built)
+`make runenv-image` and `make push-runenv-image` will build Docker image and publish it to Azure ACR. 
 
 ## Known issues
 

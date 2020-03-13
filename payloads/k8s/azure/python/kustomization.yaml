@@ -14,6 +14,6 @@ nameSuffix: -azure-demo
 # for now, just assume it's latest
 images:
   - name: "python-km"
-    newName: kontainkubecr.azurecr.io/python-km
+    newName: docker.io/kontainapp/runenv-python-demo
     newTag: latest
 

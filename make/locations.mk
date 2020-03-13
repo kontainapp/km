@@ -61,9 +61,14 @@ BUILDENV_IMG  ?= kontain/buildenv-${COMPONENT}-${DTYPE}
 CURRENT_UID := $(shell id -u)
 CURRENT_GID := $(shell id -g)
 
-DOCKER_BUILD := docker build \
+DOCKER_BUILD_LABEL := \
+	--label "Vendor=Kontain.app" \
+	--label "Version=0.1" \
+	--label "Description=${PAYLOAD_NAME} in Kontain" \
 	--label "KONTAIN:BRANCH=$(SRC_BRANCH)" \
 	--label "KONTAIN:SHA=$(SRC_SHA)"
+
+DOCKER_BUILD := docker build ${DOCKER_BUILD_LABEL}
 
 # Use DOCKER_RUN_CLEANUP="" if container is needed after a run
 DOCKER_RUN_CLEANUP ?= --rm

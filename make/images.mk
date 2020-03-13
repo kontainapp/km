@@ -37,20 +37,27 @@ TEST_IMG := kontain/test-${COMPONENT}-${DTYPE}
 BUILDENV_IMG := kontain/buildenv-${COMPONENT}-${DTYPE}
 # runenv does not include anything linix distro specific, so it does not have 'DTYPE'
 RUNENV_IMG := kontain/runenv-${COMPONENT}
+# runenv demo image produce a demo based on the runenv image
+RUNENV_DEMO_IMG := ${RUNENV_IMG}-demo
 
 # image names with proper registry
 TEST_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(TEST_IMG))
 BUILDENV_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(BUILDENV_IMG))
-RUNENV_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(RUNENV_IMG))
+# runenv images are pushed to dockerhub public registry.
+RUNENV_REG := docker.io/kontainapp
+RUNENV_IMG_REG := $(subst kontain/,$(RUNENV_REG)/,$(RUNENV_IMG))
+RUNENV_DEMO_IMG_REG := $(subst kontain/,$(RUNENV_REG)/,$(RUNENV_DEMO_IMG))
 
 TEST_DOCKERFILE ?= test-${DTYPE}.dockerfile
 BUILDENV_DOCKERFILE ?= buildenv-${DTYPE}.dockerfile
 RUNENV_DOCKERFILE ?= runenv.dockerfile
+RUNENV_DEMO_DOCKERFILE ?= runenv-demo.dockerfile
 
 # Path 'docker build' uses for build, test and run environments
 BUILDENV_PATH ?= .
 TESTENV_PATH ?= .
 RUNENV_PATH ?= ${BLDDIR}
+RUNENV_DEMO_PATH ?= .
 
 TESTENV_EXTRA_FILES = ${KM_BIN} ${KM_LDSO}
 testenv-image: ## build test image with test tools and code
@@ -158,6 +165,9 @@ pull-buildenv-image: ## Pulls the buildenv image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
 		FROM=$(BUILDENV_IMG_REG):$(BUILDENV_IMAGE_VERSION) TO=$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION)
 
+NO_RUNENV ?= false
+ifeq (${NO_RUNENV}, false)
+
 runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
 	@$(TOP)/make/check-docker.sh
 	@-docker rmi -f ${RUNENV_IMG}:latest 2>/dev/null
@@ -165,11 +175,7 @@ ifdef runenv_prep
 	@echo -e "Executing prep steps"
 	eval $(runenv_prep)
 endif
-	${DOCKER_BUILD} \
-	--label "Vendor=Kontain.app" \
-	--label "Version=0.1" \
-	--label "Description=${PAYLOAD_NAME} in Kontain" \
-	-t ${RUNENV_IMG}:${IMAGE_VERSION} -f ${RUNENV_DOCKERFILE} ${RUNENV_PATH}
+	${DOCKER_BUILD} -t ${RUNENV_IMG}:${IMAGE_VERSION} -f ${RUNENV_DOCKERFILE} ${RUNENV_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
 ifneq (${RUNENV_VALIDATE_SCRIPT},)
@@ -198,6 +204,22 @@ pull-runenv-image: ## pulls test image.
 
 distro: runenv-image ## an alias for runenv-image
 publish: push-runenv-image
+
+runenv-demo-image:
+ifeq ($(shell test -e ${RUNENV_DEMO_DOCKERFILE} && echo -n yes),yes)
+	@-docker rmi -f ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} 2>/dev/null
+	${DOCKER_BUILD} -t ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} -f ${RUNENV_DEMO_DOCKERFILE} ${RUNENV_DEMO_PATH}
+	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_DEMO_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
+else
+	@echo -e "No demo dockerfile ${RUNENV_DEMO_DOCKERFILE} define. Skipping..."
+endif
+
+push-runenv-demo-image:
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)"\
+		FROM=$(RUNENV_DEMO_IMG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
+
+endif # ifeq (${NO_RUNENV},)
 
 ${BLDDIR}:
 	mkdir -p ${BLDDIR}
