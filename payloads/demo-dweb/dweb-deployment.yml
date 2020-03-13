@@ -29,5 +29,12 @@ spec:
               devices.kubevirt.io/kvm: "1"
               cpu: 2
               memory: "500Mi"
+        args: [ "8080"]
+        volumeMounts:
+            - name: kontain-monitor
+              mountPath: /opt/kontain
+      volumes:
+        - name: kontain-monitor
+          hostPath:
+            path: /opt/kontain
 
-        args: [ "dweb.km", "8080"]
