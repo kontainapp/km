@@ -33,9 +33,12 @@ void sig_handler(int signal)
    }
    siglongjmp(jbuf, SIGSEGV);
 }
-int mmap_test(mmap_test_t* tests)
+
+#define _ERR_FLAG "\n***** ERROR "   // prefix for misc. messages
+
+enum greatest_test_res mmap_test(mmap_test_t* tests)
 {
-   int ret;
+   int ret;                        //
    void* remapped_addr;            // address mremap uses (usually last_addr + offset)
    void* new_addr = MAP_FAILED;    // address mremap on map returns.
    void* last_addr = MAP_FAILED;   // changed by successful mmap
@@ -61,7 +64,7 @@ int mmap_test(mmap_test_t* tests)
                ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);   // print errno out if test fails
                ASSERT_NOT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
                if ((t->prot & PROT_READ) != 0) {
-                  ASSERT_EQm("Mmaped memory should be zeroed", 0, *(int*)new_addr);
+                  ASSERT_EQm(_ERR_FLAG "Mmaped memory should be zeroed", 0, *(int*)new_addr);
                }
                if ((t->prot & PROT_WRITE) != 0) {
                   if (greatest_get_verbosity() == 1) {
@@ -112,20 +115,23 @@ int mmap_test(mmap_test_t* tests)
                }
                if (old_size < new_size) {   // WE ASSUME PROT_READ for the parent map !
                   printf("%s: VALUE %d at %p\n", __FUNCTION__, *(int*)(new_addr + old_size), new_addr);
-                  ASSERT_EQm("new range in remap should be zeroed", 0, *(int*)(new_addr + old_size));
+                  ASSERT_EQm(_ERR_FLAG "new range in remap should be zeroed",
+                             0,
+                             *(int*)(new_addr + old_size));
                }
                memset(new_addr, '2', new_size);   // just core dumps if something is wrong
                signal(SIGSEGV, sig_handler);
                if ((ret = sigsetjmp(jbuf, 1)) == 0) {
                   if (new_addr != remapped_addr) {   // old memory should be not accessible now
                      memset(remapped_addr, '2', old_size);
-                     FAILm("memset to new address is successful and should be not");
+                     FAILm(_ERR_FLAG "memset to new address is successful and should be not");
                   } else if (old_size > new_size) {   // shrinking. Extra should be unmapped by now
                      ASSERT_EQ(new_addr, remapped_addr);
                      void* unmapped_addr = remapped_addr + new_size;
                      size_t unmapped_size = old_size - new_size;
                      memset(unmapped_addr, '2', unmapped_size);
-                     printf("memset to removed %p size 0x%lx (%s) should have failed but did not\n",
+                     printf(_ERR_FLAG
+                            "memset to removed %p size 0x%lx (%s) should have failed but did not\n",
                             unmapped_addr,
                             unmapped_size,
                             out_sz(unmapped_size));
@@ -165,7 +171,8 @@ int mmap_test(mmap_test_t* tests)
             signal(t->expected, sig_handler);
             if ((ret = sigsetjmp(jbuf, 1)) == 0) {
                memset(last_addr + t->offset, (char)t->prot, t->size);
-               printf("Write to %p (sz 0x%lx) was successful and should be not (line %d)\n",
+               printf(_ERR_FLAG
+                      "Write to %p (sz 0x%lx) was successful and should be not (line %d)\n",
                       last_addr + t->offset,
                       t->size,
                       t->line);
@@ -183,9 +190,9 @@ int mmap_test(mmap_test_t* tests)
                   volatile char c = *(char*)(last_addr + t->offset + i);
                   if (t->prot == 0) {   // if t->prot 0 expect 0's, else expect c to equal
                                         // t->prot to verify proper read in
-                     ASSERT_EQm("read in not 0's even though it should be", c, t->prot);
+                     ASSERT_EQm(_ERR_FLAG "read in not 0's even though it should be", c, t->prot);
                   } else {
-                     ASSERT_EQm("t->prot should equal c", c, (char)t->prot);
+                     ASSERT_EQm(_ERR_FLAG "t->prot should equal c", c, (char)t->prot);
                   }
 
                   assert(c != c + 1);   // stop gcc from complaining,but generate code
@@ -199,10 +206,10 @@ int mmap_test(mmap_test_t* tests)
                   volatile char c = *(char*)(last_addr + t->offset + i);
                   assert(c != c + 1);   // stop gcc from complaining,but generate code
                }
-               FAILm("Read successful and should be not");   // return
-               assert(ret == SIGSEGV);                       // we use that value in longjmp
+               FAILm(_ERR_FLAG "Read successful and should be not");   // return
+               assert(ret == SIGSEGV);   // we use that value in longjmp
                signal(t->expected, SIG_DFL);
-               ASSERT_EQm("signal handler caught unexpected signal", 0, fail);
+               ASSERT_EQm(_ERR_FLAG "signal handler caught unexpected signal", 0, fail);
             }
             break;
          case TYPE_MADVISE:
@@ -218,7 +225,7 @@ int mmap_test(mmap_test_t* tests)
             }
             break;
          default:
-            ASSERT_EQ(NULL, "Not reachable");
+            ASSERT_EQ(NULL, _ERR_FLAG "Not reachable");
       }   // switch
    }      // for
    PASS();
