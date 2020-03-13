@@ -89,6 +89,8 @@ Each payload also supports the same targets supported for KM, but uses payload-s
 * `make push-testenv-image` - re-tags and pushes test image to registry, mainly for CI
 * `make runenv-image` - builds bare minimum image to be released.
 * `make push-runenv-image` - retag and pushes runenv image to registry.
+* `make runenv-demo-image` - builds an application demo using the runenv-images. Used for python and node.
+* `make push-runenv-demo-image` - retag and pushes runenv demo image to registry.
 
 ## CI/CD
 

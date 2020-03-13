@@ -29,5 +29,11 @@ spec:
               devices.kubevirt.io/kvm: "1"
               cpu: 2
               memory: "500Mi"
-
-        args: [ "/cpython/python.km", "-u", "../scripts/micro_srv.py"]
+        args: [ "/scripts/micro_srv.py", "8080"]
+        volumeMounts:
+            - name: kontain-monitor
+              mountPath: /opt/kontain
+      volumes:
+        - name: kontain-monitor
+          hostPath:
+            path: /opt/kontain

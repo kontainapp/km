@@ -14,7 +14,7 @@ This document describes the *default* path to take during the demo.
 
 * The demo hardware is expected to have KM repo checked out in `~/workspace/km`
 * KM build is successful
-* Docker v18.x should be installed for `make distro` and `make publish` to work. You can use docker-ce or moby-engine, they both install docker v18.x.
+* Docker v18.x should be installed for `make runenv-image` and `make push-runenv-image` to work. You can use docker-ce or moby-engine, they both install docker v18.x.
   * If docker is already installed, check version with `docker version -f 'Client: {{.Client.Version}}'`
   * For `docker-CE`, see [Docker installation info](https://docs.docker.com/install/linux/docker-ce/fedora/). As of the moment of this writing, they did not support Fedora30 so --releasever=29 needs to be passed to dnf
    * For `moby-engine`, just `dnf install` it.
@@ -22,12 +22,20 @@ This document describes the *default* path to take during the demo.
 * [kubectl (1.14+)](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux) and Azure [az CLI (latest)](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-yum?view=azure-cli-latest) should be installed for Kubernetes/Azure part of the demo
 * for meltdown demo, the hardware has to be Intel CPU supporting TSX instructions, and  meltdown mitigation should be turned off (`pti=off` on boot line)
 * `jq` installed for pretty output formatting.
-* Azure publish and Kubernetes deploy require interactive login:
-```bash
-az login
-az acr login -n kontainkubecr
-az aks get-credentials --resource-group kontainKubeRG --name kontainKubeCluster --overwrite-existing
-```
+* Configure a k8s cluster
+  * Using Azure. AKS and Kubernetes deploy require interactive login:
+  ```bash
+  az login
+  az acr login -n kontainkubecr
+  az aks get-credentials --resource-group kontainKubeRG --name kontainKubeCluster --overwrite-existing
+  ```
+  * Or start your own k8s cluster and properly configure kubectl.
+  * Deploy `kontaind`
+  ```bash
+  make -C ~/workspace/km/cloud/k8s/kontaind runenv-image
+  make -C ~/workspace/km/cloud/k8s/kontaind push-runenv-image
+  make -C ~/workspace/km/cloud/k8s/kontaind install
+  ```
 
 ## VM level isolation and start time; build from the same (unmodified) source
 
@@ -95,15 +103,13 @@ curl -s -d "type=demo&subject=Kontain"  localhost:8080 | jq . # shows simple APi
 
 # Artifact size - compared off the shelf Python container with km-based one
 # While we are here, let's compare container sizes for another payload, Python:
-make -C ~/workspace/km/payloads/python distro
+make -C ~/workspace/km/payloads/python runenv-image
 docker pull python
 docker images | grep python | grep latest
 
 ```
 
 ## Operations
-
-TODO: Work In Progress!
 
 Goals:
 
@@ -117,20 +123,20 @@ Goals:
 # we don't use sh vars there so demo-time cut-n-paste from the text below does not depend on it
 
 # Note: detailed guidance is in ~/workspace/km/cloud/README.md
-make -C ~/workspace/km distro
+make -C ~/workspace/km runenv-image
 
 # now push to docker registry and deploy the app
-make -C ~/workspace/km/payloads/demo-dweb publish
+make -C ~/workspace/km/payloads/demo-dweb push-runenv-image
 kubectl apply -k ~/workspace/km/payloads/k8s/azure/dweb
 kubectl get pod --selector=app=dweb  # make sure it shows as Running
 kubectl port-forward `kubectl get pod --selector=app=dweb -o jsonpath='{.items[0].metadata.name}'` 8080:8080
 # Manual: browser to localhost:8080, show test
 # clean up
-kubectl delete deploy kontain-dweb-deployment-azure-demo
+kubectl delete -k ~/workspace/km/payloads/k8s/azure/dweb
 
 # Optional: same demo for python microservice
-# TODO: Work In Progress!
-make -C ~/workspace/km/payloads/python publish
+make -C ~/workspace/km/payloads/python runenv-demo-image 
+make -C ~/workspace/km/payloads/python push-runenv-demo-image
 kubectl apply -k ~/workspace/km/payloads/k8s/azure/python
 kubectl get pod --selector=app=pykm  # make sure it shows as Running
 kubectl port-forward `kubectl get pod --selector=app=pykm -o jsonpath='{.items[0].metadata.name}'` 8080:8080
@@ -138,15 +144,17 @@ kubectl port-forward `kubectl get pod --selector=app=pykm -o jsonpath='{.items[0
 curl -s localhost:8080 | jq .  # shows os.uname()
 curl -s -d "type=demo&subject=Kontain"  localhost:8080 | jq . # shows simple APi call
 # clean up
-kubectl delete deploy kontain-pykm-deployment-azure-demo
+kubectl delete -k ~/workspace/km/payloads/k8s/azure/python
 ```
 
 ## (optional) Local docker with our payloads
-TODO: Work In Progress!
 
 ```bash
-docker run -p 8080:8080 -t --rm --device /dev/kvm kontain/python-km /cpython/python.km -S "/scripts/micro_srv.py"
-docker run -p 8080:8080 -t --rm --device /dev/kvm kontain/dweb-km dweb.km 8080
+docker run -p 8080:8080 -t --rm --device /dev/kvm \
+  -v ~/workspace/km/build/km/km:/opt/kontain/bin/km:z  \
+  -v ~/workspace/km/payloads/python/scripts/micro_srv.py:/scripts/micro_srv.py \
+  kontain/runenv-python -S "/scripts/micro_srv.py" "8080"
+docker run -p 8080:8080 -t --rm --device /dev/kvm -v ~/workspace/km/build/km/km:/opt/kontain/bin/km:z kontain/runenv-dweb 8080
 ```
 
 ## Meltdown

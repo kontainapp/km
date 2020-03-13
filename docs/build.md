@@ -161,30 +161,20 @@ See ../tests/Makefile. This one is work in progress and will change to be more g
 
 ### Build docker images
 
-We have 3 type of images - "buildenv" allowing to build in a container, "testenv" allowing to test in a container (with all test and test tools included) and "runenv" allowing to run in a container. See `docs/image-targets.md` for details
-
-#### Images for old(er) demo
-
-These are obsolete and need to be converted to new images. Until they are, we keep the instructions below:
-
-Currently docker images are constructed in 2 layers:
-
- 1. **python.km with python modules. and ALL payloads** `cd payloads/python; make distro` or just `make distro` in payloads or even at the top of the repo.
- 1. Azure: Tag and push to Azure Container Registry: `make publish`. This assumes auth is all set, specifically than `az acr login -n kontainKubeACR' succeeded so docker login credentials are populated
-
-Note that we do not tag any image as `latest` since I am not sure which one to tag :-)
+We have 3 type of images - "buildenv" allowing to build in a container, "testenv" allowing to test in a container (with all test and test tools included) and "runenv" allowing to run in a container. See `docs/image-targets.md` for details.
 
 ### Run under Docker
 
-Here is how to build and validated runenv image for KM:
+The runenv image will only contain KM payloads. KM is designed to be
+installed on the host and mounted into the container when running. Here is
+how to build and validated runenv image for KM payloads:
 
 ```sh
-make -C tests runenv-image validate-runenv-image
+make -C payloads runenv-image 
+make -C payloads validate-runenv-image
 ```
 
-This will build `kontain/runenv-km` and run a test.
-
-To run another  payload with KM, just run docker with `--device=/dev/kvm`, a volume to access your payload and paylod (.km) name
+This builds `kontain/runenv-<payloads>` and run a test.
 
 ### Run under Kubernetes
 
@@ -196,24 +186,31 @@ To run another  payload with KM, just run docker with `--device=/dev/kvm`, a vol
 
 ##### [only needed for new clusters] Prep cluster to allow /dev/kvm access
 
-We do not want to run privileged containers there (and often policy blocks it anyways) and Kubernetes does not allow to simply configure access to devices , to avoid conflicts between different apps, so we use github.com/kubevirt/kubernetes-device-plugins/pkg/kvm to expose /dev/kvm to the pods.
+We do not want to run privileged containers there (and often policy blocks it
+anyways) and Kubernetes does not allow to configure access to devices
+, to avoid conflicts between different apps. KM also needs to be installed
+onto each node. We combined these functionalities into `kontaind`. `kontaind` uses
+github.com/kubevirt/kubernetes-device-plugins/pkg/kvm to expose /dev/kvm to
+the pods, and a installer of our own implementation.
 
-* build the KVM plugin (we can use pre-built shared or have our own)
-  * in plugins dir, do `dep ensure; make build-kvm`
-* deploy to cluster as DaemonSet
-  * `kubectl apply  -f <path>/kubernetes-device-plugins/manifests/kvm-ds.yaml`
+* deploy `kontaind`
+```sh
+make -C cloud/k8s/kontaind runenv-image
+make -C cloud/k8s/kontaind push-runenv-image
+make -C cloud/k8s/kontaind install
+```
 
 #### Push and Run demo apps
 
 From the top of the repo, build and push demo containers:
 
 ```sh
-make distro
-make publish
+make runenv-image
+make push-runenv-image
 ```
 
 * To deploy KM-based apps:  `kubectl apply -k ./payloads/k8s/azure/python/`
-* To clean up: `kubectl delete deployments.apps kontain-pykm-deployment-azure-demo`
+* To clean up: `kubectl delete -k ./payloads/k8s/azure/python/`
 
 :point_right: **Note** we use `kustomize` support in kubectl, it's discussion is beyond the scope of this doc, especially for demo. See `payloads/demo_script.md` for more info on the demo
 

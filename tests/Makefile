@@ -10,6 +10,8 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 COMPONENT := km
+
+NO_RUNENV = true
 include ${TOP}/make/images.mk
 
 # this is how we run tests in containers:
@@ -176,4 +178,3 @@ buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
 	docker rm tmp_env
 
 .PHONY: all clean test help gdb coverage covclean
-
