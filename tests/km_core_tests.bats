@@ -219,7 +219,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # make sure there is a filename somwewhere in the maps
    run km_with_timeout mmap_test$ext -v -t mmap_file_test_ex # KM test
    assert_success
-   assert_line --regexp 'flags 0x02 prot 0x01 km_flags 0x00 fn 0x[^0]'
+   assert_line --regexp 'flags 0x02 prot 0x01 km_flags 0x02 fn 0x[^0]'
 }
 
 @test "mmap_1($test_type): mmap then smaller mprotect (mmap_1_test$ext)" {
