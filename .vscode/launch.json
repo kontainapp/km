@@ -66,7 +66,7 @@
             "-g",
             "tests/${input:test_payload}.km"
          ],
-         "stopAtEntry": false,
+         "stopAtEntry": true,
          "cwd": "${workspaceFolder}",
          "environment": [],
          "externalConsole": false,
