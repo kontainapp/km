@@ -140,5 +140,5 @@ static int get_maps(int verbose)
 
 sigjmp_buf jbuf;
 int fail;
-int mmap_test(mmap_test_t* tests);
+enum greatest_test_res mmap_test(mmap_test_t* tests);
 void sig_handler(int signal);
