@@ -60,22 +60,8 @@ __km_sigreturn:
 __km_sigreturn_end:        # We'll need this to define the the DWARF 
 
 /*
- * Trampoline for x86 exception and interrupt handling. IDT entries point here.
+ * Convienience macro for exception and interrupt handlers.
  */
-.align 16
-__km_handle_interrupt:
-    .type __km_handle_interrupt, @function
-    .global __km_handle_interrupt
-    push %rdx
-    push %rbx
-    push %rax
-    mov $0xdeadbeef, %rbx
-    mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
-    mov $0xffff81fd, %edx   # HC_guest_interrupt
-retry:
-    out %eax, %dx           # Enter KM
-    jmp retry               # Should never hit here.
-
 .macro intr_hand name, num
     .text
 .align 16
@@ -85,10 +71,10 @@ handler\name :
     push %rax
     mov $\num, %rbx
     mov %rsp, %rax          # KM Setup km_hc_args_t on stack for us to use
-    mov $0xffff81fd, %edx   # HC_guest_interrupt
+    mov $0x81fd, %dx        # HC_guest_interrupt
 retry\name :
-    out %eax, %dx           # Enter KM
-    jmp retry\name           # Should never hit here.
+    outl %eax, (%dx)        # Enter KM
+    jmp retry\name          # Should never hit here.
     
 .endm
 
@@ -96,7 +82,11 @@ retry\name :
  * Interrupt handlers
  */
     .align 16
+__km_handle_interrupt:
+    .type __km_handle_interrupt, @function
+    .global __km_handle_interrupt
 intr_hand UNEX, 0xff
+
 intr_hand DE, 0
 intr_hand OF, 4
 intr_hand BR, 5
@@ -112,6 +102,9 @@ intr_hand XM, 19
 intr_hand VE, 20
 intr_hand CP, 21
 
+/*
+ * Table used by KM to build IDT entries.
+ */
     .data
     .align 16
     .type __km_interrupt_table, @object
@@ -143,7 +136,8 @@ __km_interrupt_table:
     .quad 0                 # Terminate list
 
 /*
- * SYSCALL handling.
+ * SYSCALL handling. This function converts a syscall into
+ * the coresponding KM Hypercall.
  * Linux SYSCALL convention:
  * RAX = syscall number
  * RDI = 1st parameter
@@ -160,16 +154,15 @@ __km_interrupt_table:
     .global __km_syscall_handler
 __km_syscall_handler:
     // create a km_hcall_t on the stack.
-    push %R9    # arg6
-    push %R8    # arg5
-    push %R10   # arg4
+    push %r9    # arg6
+    push %r8    # arg5
+    push %r10   # arg4
     push %rdx   # arg3
     push %rsi   # arg2
     push %rdi   # arg1
-    push %RAX   # hc_ret
+    push %rax   # hc_ret - don't care about value. %rax is convienent.
 
     // Do the KM HCall
-    xor %rdx, %rdx
     mov %ax, %dx
     or $0x8000, %dx
     mov %rsp, %rax
