@@ -26,9 +26,13 @@ DEP_PACKAGES := java-11-openjdk java-11-openjdk-devel  \
 # 'yes' if java was build from src (based on existable of .git repo)
 FROMSRC=$(shell test -d $(JDK_VERSION)/.git && echo yes)
 
-# info for building 'runenv' images'
+# docker build dir for runenv-image
 RUNENV_PATH := .
-RUNENV_VALIDATE_CMD := -cp /tmp Hello
+# config for image validation
+RUNENV_VALIDATE_DIR := scripts
+RUNENV_VALIDATE_CMD := -cp /scripts Hello
+RUNENV_VALIDATE_EXPECTED := Hello, World!
+RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class
 
 all: ## Link java.kmd based on either full build or build artifats in docker image
 ifneq ($(FROMSRC),yes)
@@ -53,12 +57,7 @@ fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
 ${JDK_VERSION}:
 	git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
 
-test: Hello.class
-	jdk=$$(realpath ${JDK_BUILD_DIR}/images/jdk) ; \
-	${KM_BIN} --putenv=LD_LIBRARY_PATH=$$jdk/lib/server:$$jdk/lib/jli:$$jdk/lib:/lib64: \
-		$$jdk/bin/java.kmd Hello | grep 'Hello, World!'
-
-%.class: %.java
+scripts/%.class: scripts/%.java
 	${JDK_BUILD_DIR}/images/jdk/bin/javac $?
 
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually

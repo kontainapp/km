@@ -24,7 +24,11 @@
          "cpython/*": true,
          "payloads/java/{java,jtreg,jdk-11*}": true,
          "runtime/**/{WHATSNEW,aarch64,arm,m68k,microblaze,mips*,mipsn32,or1k,powerpc*,s390x,sh}": true,
-         "tests/{*_test,*.km,*.kmd,*.so,km-bats-*.dynamic,km-bats-*.static}": true
+         "tests/{*_test,*.km,*.kmd,*.so,km-bats-*.dynamic,km-bats-*.static}": true,
+         "**/.classpath": true,
+         "**/.project": true,
+         "**/.settings": true,
+         "**/.factorypath": true
       },
       "editor.tabSize": 3,
       "cSpell.words": [
