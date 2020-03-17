@@ -36,6 +36,8 @@ This document describes the *default* path to take during the demo.
   make -C ~/workspace/km/cloud/k8s/kontaind push-runenv-image
   make -C ~/workspace/km/cloud/k8s/kontaind install
   ```
+* Login into Kontain Docker Hub
+  * runenv images are pushed to kontain docker hub. If you need to be added to the kontain dockerhub, register an account first and contract @msterin to be added.
 
 ## VM level isolation and start time; build from the same (unmodified) source
 
