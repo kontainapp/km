@@ -66,5 +66,6 @@ export define runenv_prep
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
 endef
 RUNENV_VALIDATE_CMD := "-x"
+RUNENV_VALIDATE_EXPECTED := I am DWEB
 
 include ${TOP}/make/images.mk
