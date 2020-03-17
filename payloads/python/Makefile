@@ -137,7 +137,8 @@ clobber-modules:
 	cd cpython; git clean -xdff Lib Modules
 
 # Set info for runenv-image build
-RUNENV_VALIDATE_SCRIPT := $(abspath scripts/hello_again.py)
+RUNENV_VALIDATE_DIR := scripts
+RUNENV_VALIDATE_CMD := scripts/hello_again.py
 export define runenv_prep
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
 	cp ${PAYLOAD_KM} ${RUNENV_PATH}
