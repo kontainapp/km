@@ -20,10 +20,10 @@ default:  help
 resources:  ## Provision Azure resources (resource group and account)
 	./create_initial_resources.sh
 
-K8S_KVM_DEVICE_PLUGIN := ${TOP}/cloud/k8s/kvm-ds.yml
+KONTAIND_DIR := ${TOP}/cloud/k8s/kontaind
 cluster: ## Provision Kubernetes cluster on pre-provisioned Resource Group
 	./create_kube_cluster.sh
-	kubectl apply -f ${K8S_KVM_DEVICE_PLUGIN}
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${KONTAIND_DIR} install
 
 cleancluster: ## Delete Kubernetes cluster
 	-./clear_kube_cluster.sh
