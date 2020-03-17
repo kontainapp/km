@@ -14,10 +14,15 @@ This document describes the *default* path to take during the demo.
 
 * The demo hardware is expected to have KM repo checked out in `~/workspace/km`
 * KM build is successful
-* Docker v18.x should be installed for `make runenv-image` and `make push-runenv-image` to work. You can use docker-ce or moby-engine, they both install docker v18.x.
+* Docker v18.x+ should be installed for `make runenv-image` and `make push-runenv-image` to work. You can use docker-ce or moby-engine, they both install docker v18.x+.
   * If docker is already installed, check version with `docker version -f 'Client: {{.Client.Version}}'`
-  * For `docker-CE`, see [Docker installation info](https://docs.docker.com/install/linux/docker-ce/fedora/). As of the moment of this writing, they did not support Fedora30 so --releasever=29 needs to be passed to dnf
-   * For `moby-engine`, just `dnf install` it.
+  * For `docker-CE`, see [Docker installation info](https://docs.docker.com/install/linux/docker-ce/fedora/).
+  * For `moby-engine`, just `dnf install` it.
+* Python needs to be built from source for `link-km.sh` step to work in the host, not in container.
+  ```bash
+  make -C ~/workspace/km/payloads/python clobber
+  make -C ~/workspace/km/payloads/python fromsrc
+  ```
 * If docker image size comparison is needed, it's a good idea to pre-pull default Python images: `docker pull python`
 * [kubectl (1.14+)](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux) and Azure [az CLI (latest)](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-yum?view=azure-cli-latest) should be installed for Kubernetes/Azure part of the demo
 * for meltdown demo, the hardware has to be Intel CPU supporting TSX instructions, and  meltdown mitigation should be turned off (`pti=off` on boot line)
@@ -25,9 +30,9 @@ This document describes the *default* path to take during the demo.
 * Configure a k8s cluster
   * Using Azure. AKS and Kubernetes deploy require interactive login:
   ```bash
-  az login
-  az acr login -n kontainkubecr
-  az aks get-credentials --resource-group kontainKubeRG --name kontainKubeCluster --overwrite-existing
+  make -C ~/workspace/km/cloud/azure login
+   or
+  make -C ~/workspace/km/cloud/azure login-cli
   ```
   * Or start your own k8s cluster and properly configure kubectl.
   * Deploy `kontaind`
@@ -38,6 +43,9 @@ This document describes the *default* path to take during the demo.
   ```
 * Login into Kontain Docker Hub
   * runenv images are pushed to kontain docker hub. If you need to be added to the kontain dockerhub, register an account first and contract @msterin to be added.
+  * there are multiple ways of logging into docker hub:
+    * `docker login -u <username> -p <password>` or
+    * place a token under `~/.docker/token` and your dockerhub username under `~/.docker/username`. run `make -C ~/workplace/km/cloud/dockerhub login`. To obtain a token, goto dockerhub Account Setting -> Security -> Access Tokens.
 
 ## VM level isolation and start time; build from the same (unmodified) source
 
@@ -137,7 +145,7 @@ kubectl port-forward `kubectl get pod --selector=app=dweb -o jsonpath='{.items[0
 kubectl delete -k ~/workspace/km/payloads/k8s/azure/dweb
 
 # Optional: same demo for python microservice
-make -C ~/workspace/km/payloads/python runenv-demo-image 
+make -C ~/workspace/km/payloads/python runenv-demo-image
 make -C ~/workspace/km/payloads/python push-runenv-demo-image
 kubectl apply -k ~/workspace/km/payloads/k8s/azure/python
 kubectl get pod --selector=app=pykm  # make sure it shows as Running

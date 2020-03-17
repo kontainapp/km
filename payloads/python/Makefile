@@ -116,9 +116,6 @@ test-modules: ## Basic test pass - rebuilds python, rebuilds and pushes all modu
 	./extensions/test.sh
 	@echo TODO: run test over custom KM, including new modules test
 
-login: ## personal helper for token-based login.
-	cat  ~/.docker/token  | docker login -u $(shell cat ~/.docker/username) --password-stdin
-
 clean:
 	rm -rf $(PYTHONTOP)/*.km $(PYTHONTOP)/python $(foreach m,${ALL_MODULES},$(PYTHONTOP)/Modules/$m)
 	rm -rf $(RUNENV_PATH)
