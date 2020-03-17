@@ -147,6 +147,7 @@ COVERAGE_THRESHOLDS :=  --fail-under-branch 40  --fail-under-line 55
 endif
 
 # example: gcovr ../build/km/coverage/ -r ../km --html-details -o ../build/km/coverage/report/km.html
+COVERAGE_REPORT := ${KM_BLDDIR}/report.html
 COVERAGE_CMD_FLAGS  :=  -r ${TOP}/km --html --html-details -o ${COVERAGE_REPORT} ${KM_BLDDIR} \
 		 --html-title "Kontain Monitor Code Coverage report" --print-summary -j 4 --exclude-unreachable-branches --delete
 
