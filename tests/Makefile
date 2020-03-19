@@ -7,6 +7,8 @@
 #   such source code. Disclosure of this source code or any related proprietary
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
+
+# Ubuntu default is dash. We invoke this by make -C tests ... in CI which is Ubuntu
 SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-toplevel)
 COMPONENT := km
