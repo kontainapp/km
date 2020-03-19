@@ -1,23 +1,36 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+name: ci-nightly-$(BuildID) $(Date:yyyyMMdd)$(Rev:.r)
+
+# Must explicitly opt out of pr trigger.
+pr: none
 
 schedules:
-- cron: "0 0 * * *"
-  displayName: Daily midnight build
+- cron: "0 7 * * *"
+  displayName: Daily build midnight pacific time (UTC + 7)
   branches:
     include:
     - master
 
+variables:
+  VM_IMAGE: "ubuntu-18.04"
+  CLUSTER_NAME: "aks-kontain-ci-nightly-$(Build.BuildId)"
+  # Choose a vm size to avoid the vcpu quota on azure.
+  VM_SIZE: "Standard_D2_v3"
+  # TRACE: true
+
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: $(VM_IMAGE)
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- template: templates/setup.yaml
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- bash: cloud/azure/aks_ci_create.sh $(CLUSTER_NAME) $(SP_appId) $(SP_password)
+  displayName: Create k8s Cluster
+
+- bash: cloud/azure/aks_ci_destroy.sh $(CLUSTER_NAME)
+  displayName: Tear down k8s Cluster
+
+- bash: |
+    rm -f ~/.kube/config
+    az logout
+  condition: always()
+  displayName: Cleanup and logout
