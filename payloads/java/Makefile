@@ -43,7 +43,7 @@ else
 endif
 
 fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
-	@if [ "${FROM_SRC}" != "yes" ] ; then \
+	@if [ "${FROMSRC}" != "yes" ] ; then \
 		echo -e "${RED}${JDK_VERSION} is not a git repo. Did you do 'make clobber' first ? ${NOCOLOR}" ; \
 		fail; \
 	fi
