@@ -1,0 +1,21 @@
+steps:
+  - checkout: self
+    submodules: true
+
+  - bash: |
+      echo ====Environment info===
+      echo "SHA: $(git rev-parse HEAD)"
+      echo "=== Last 10 commits:"
+      git log -n 10 --graph --pretty=format:'%h% %d %s %cr %ce'
+      echo "=== VM/OS:"
+      cat /proc/version
+      echo "=== Docker version:"
+      docker version
+      echo ==== Environment Variables
+      env
+      echo ==== CPU Info
+      lscpu
+    displayName: Print build environment info
+
+  - bash: make -C cloud/azure login-cli
+    displayName: Login to Azure, container registry and Kubernetes
