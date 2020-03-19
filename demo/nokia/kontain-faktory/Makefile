@@ -77,9 +77,12 @@ $(DOCKER_DIR)/.files: $(KM_FILES) ${KONTAIN_DIR} Makefile copy_needed_files.sh
 	export KM_FILES="$(KM_FILES)" ;\
 	export KMFLAGS="$(KMFLAGS)"; \
 	./copy_needed_files.sh ${JDK_VERSION} ${DOCKER_DIR}
-	touch $@
+	@touch $@
 
-flatten: all ## Flatten images with buildah tool. Results will have prefix 'flat-'
+flatten: all $(DOCKER_DIR)/.flatten ## Flatten images with buildah tool. Results will have prefix 'flat-'
+	@docker image ls '*${KONTAIN_REPO}/*'
+
+$(DOCKER_DIR)/.flatten:
 	@if [ -z "$$(rpm -qa buildah)" ] ; then \
 		echo -e "${CYAN}Warning: buildah is missing. Run 'sudo dnf install buildah -y'${NOCOLOR}"  ; false; \
 	fi
@@ -90,7 +93,8 @@ flatten: all ## Flatten images with buildah tool. Results will have prefix 'flat
 		buildah commit --squash $$container docker-daemon:flat-${KONTAIN_REPO}/$$item ; \
 		buildah rm $$container ; \
 	done
-	@docker image ls '*${KONTAIN_REPO}/*'
+	@touch $@
+
 
 base pull: base-pull  ## aliases for base-pull
 
