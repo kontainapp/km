@@ -6,9 +6,12 @@ The KM version of the java interpreter is `payloads/java/jdk-11.0.6+10/build/lin
 
 ```
 cd jdk-11.0.6+10
-../../../build/km/km --dynlinker=../../../build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64:./build/linux-x86_64-server-release/jdk/lib/" ./build/linux-x86_64-server-release/jdk/bin/java.kmd --version
+../../../build/km/km  --putenv="LD_LIBRARY_PATH=$(pwd)/build/linux-x86_64-normal-server-release/jdk/lib/server:$(pwd)/build/linux-x86_64-normal-server-release/jdk/lib/jli:$(pwd)/build/linux-x86_64-normal-server-release/jdk/lib:/opt/kontain/lib64:/lib64" $(pwd)/build/linux-x86_64-normal-server-release/images/jdk/bin/java.kmd --version
 ```
 
+`make runenv-image` creates a self contained Docker image with KM Java.
+
+`make validate-runenv-image` tests the Docker image.
 ## Java Tips and Tricks
 
 * `--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
@@ -24,7 +27,7 @@ cd jdk-11.0.6+10
 * https://betsol.com/java-memory-management-for-java-virtual-machine-jvm/
 * https://shipilev.net/jvm/anatomy-quarks/
 
-The OpenJDK Compressed OOPS feature does problematic things when it's `mmap(2)` hints are not honored.
+The OpenJDK Compressed OOPS feature does problematic things when it's `mmap(2)` hints are not honored. Use `-XX:-UseCompressedOops` to disable Compressed OOPS.
 
 ### Java Signal Handling
 
