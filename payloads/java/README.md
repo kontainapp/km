@@ -1,46 +1,53 @@
-# Java Under KM
+# Java 11 Under KM
 
+Run `make -C payloads/java fromsrc` to get and build Java. This builds OpenJDK in  `payloads/java/(jdk-11.0.6+10)`. See `payloads/java/Makefile` for details.
 
+The KM version of the java interpreter is `payloads/java/jdk-11.0.6+10/build/linux-x86_64-normal-server-release/images/jdk/bin/java.kmd`. To run it:
 
-* `https://www.infoq.com/articles/OpenJDK-HotSpot-What-the-JIT/`
+```
+cd jdk-11.0.6+10
+../../../build/km/km  --putenv="LD_LIBRARY_PATH=$(pwd)/build/linux-x86_64-normal-server-release/jdk/lib/server:$(pwd)/build/linux-x86_64-normal-server-release/jdk/lib/jli:$(pwd)/build/linux-x86_64-normal-server-release/jdk/lib:/opt/kontain/lib64:/lib64" $(pwd)/build/linux-x86_64-normal-server-release/images/jdk/bin/java.kmd --version
+```
+
+`make runenv-image` creates a self contained Docker image with KM Java.
+
+`make validate-runenv-image` tests the Docker image.
+## Java Tips and Tricks
+
+* `--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
+* `java -Xint` runs interpretter only, no JIT. Useful for base testing.
+* When Java crashes it (sometimes) creates a file called `hs_err_pid<pid>/log`. In our case pid=1.
+* `-XX:+PrintFlagsFinal` displays all settable parameters.
+
+## Internals
+
+### Java Memory Management and GC
+
+* https://openjdk.java.net/jeps/270 - Stacks, yellow and red zones.
+* https://betsol.com/java-memory-management-for-java-virtual-machine-jvm/
+* https://shipilev.net/jvm/anatomy-quarks/
+
+The OpenJDK Compressed OOPS feature does problematic things when it's `mmap(2)` hints are not honored. Use `-XX:-UseCompressedOops` to disable Compressed OOPS.
+
+### Java Signal Handling
+
+Java uses the `si_addr` field for `SIGSEGV` to implement the following features:
+* Safepoint synchronization
+* Stack yellow and red zones
+* (anything else?)
+
+## Useful Links
+
 * `https://openjdk.java.net/groups/hotspot/docs/RuntimeOverview.html`
+* `https://www.infoq.com/articles/OpenJDK-HotSpot-What-the-JIT/`
 
-## Building Java
-
-According to Wikipedia (https://en.wikipedia.org/wiki/Java_version_history), in the beginning of 220 the current Long Term Supported (Oracle LTS) version of Java is 11. We'll use that for now.
-Required packages for OpenJDK build are:
-```
-sudo dnf install java-openjdk-devel
-sudo dnf install libXtst-devel libXt-devel libXrender-devel libXrandr-devel libXi-devel
-sudo dnf install cups-devel
-sudo dnf install fontconfig-devel
-sudo dnf install alsa-lib-devel
-```
-Run `make -C payloads/java fromsrc` to get and build Java. 
-
-Build java.kmd:
-```
-../../tools/kontain-gcc -rdynamic -Wl,--rpath=/opt/kontain/lib64:/lib64:build/linux-x86_64-server-release/jdk/lib:build/linux-x86_64-server-release/jdk/lib/server -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/../lib -Ljdk/build/linux-x86_64-server-release/support/modules_libs/java.base -o jdk/build/linux-x86_64-server-release/jdk/bin/java.kmd jdk/build/linux-x86_64-server-release/support/native/java.base/java/main.o -ljli -lpthread -ldl
-
-```
-
-Run:
-```
-cd jdk
-../../../build/km/km --dynlinker=../../../build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/opt/kontain/lib64:/lib64:./build/linux-x86_64-server-release/jdk/lib/" ./build/linux-x86_64-server-release/jdk/bin/java.kmd Hello
-```
-
-## Testing Notes
-_John Muth's Notes_
+## Java Test Suite Notes
 
 OpenJDK uses a tool called `jtreg` for testing. While `jtreg` can be built from source, that requires a installing bunch of dependencies. (See `https://openjdk.java.net/jtreg/build.html` for details).
 
 The JDK 'Adoption Group' (`https://openjdk.java.net/jtreg/build.htmc`) publishes prebuilt tarballs (`https://ci.adoptopenjdk.net/view/Dependencies/job/jtreg/`). That's what we use (`jtreg-4.2-b16.tar.gz`).
 
 `jtreg` compiles the source for test program(s), runs the test(s), and deletes the object files (`.class` and `.jar`).
-
-
-
 
 For example:
 
@@ -102,20 +109,4 @@ Test results: passed: 1
 Report written to /home/muth/kontain/km/payloads/java/jdk/JTreport/html/report.html
 Results written to /home/muth/kontain/km/payloads/java/jdk/JTwork
 
-```
-
-# Java Tips and Tricks
-
-* `--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
-* `java -Xint` runs interpretter only, no JIT. Useful for base testing.
-* When Java crashes it (sometimes) creates a file called `hs_err_pid<pid>/log`. In our case pid=1.
-
-# Issues
-
-## Run from anywhere
-
-With LD_LIBRARY_PATH in this order it works:
-```bash
-~/kontain/km/build/km/km  --dynlinker=/home/muth/kontain/km/build/runtime/libc.so --putenv="LD_LIBRARY_PATH=/home/muth/kontain/km/payloads/java/jdk-11.0.6+10/build/linux-x86_64-normal-server-release/jdk/lib/server:/home/muth/kontain/km/payloads/java/jdk-11.0.6+10/build/linux-x86_64-normal-server-release/jdk/lib/jli:/home/muth/kontain/km/payloads/java/jdk-11.0.6+10/build/linux-x86_64-normal-server-release/jdk/lib:/opt/kontain/lib64:/lib64"  jdk-11.0.6+10/build/linux-x86_64-normal-server-release/images/jdk/bin/java.kmd Hello`
-Hello, World!
 ```
