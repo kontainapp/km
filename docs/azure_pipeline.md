@@ -123,3 +123,12 @@ pod "msterin-test-ci-695" deleted
 ```
 
 Note: a good set of recipes for kubectl interacting with a pod is, for example, [here](https://kubernetes.io/blog/2015/10/some-things-you-didnt-know-about-kubectl_28/)
+
+### Secrets and Pipeline variables
+
+  We use service principal extensively in the azure pipeline. To pass the
+crendentials of existing service principals, we use the variables in azure
+pipeline. For example, you will see variables such as `SP_appId`,
+`SP_password`, `SP_tenant`, `SP_displayName`. These are set in the pipeline
+UI by design. For reference, follow this:
+https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables
