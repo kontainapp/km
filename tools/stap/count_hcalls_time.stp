@@ -1,0 +1,29 @@
+#!/usr/bin/env -S stap -w
+
+# counts hypercalls called by the payload
+#
+# Usage: sudo ./tools/stap/count_hcalls.stp  -c './build/km/km payload.km <payload args>'
+
+global hcalls
+global exit, hc
+
+probe module("kvm*").function("handle_io")
+{
+   if (hc[$vcpu->vcpu_id] != 0) {
+      hcalls[hc[$vcpu->vcpu_id]] <<< gettimeofday_ns() - exit[$vcpu->vcpu_id]
+      hc[$vcpu->vcpu_id] = 0
+   }
+}
+
+probe module("kvm").function("kvm_fast_pio").return
+{
+   exit[$vcpu->vcpu_id] = gettimeofday_ns()
+   hc[$vcpu->vcpu_id] = $port - 1024*32
+}
+
+probe end
+{
+   foreach ([x-] in hcalls) {
+      printf("% 24s(%4d) called\t %9d times, %d ns avg, %d total msecs_to_string\n", syscall_name(x), x, @count(hcalls[x]), @avg(hcalls[x]), @sum(hcalls[x])/1000)
+   }
+}
