@@ -32,14 +32,12 @@ KM_FILES := ${KM_BIN} ${KM_LDSO} ${TOP}/${JDK_LOC}/images/jdk/bin/java.km
 
 # Place for docker to pick up stuff from
 DOCKER_DIR := .dockerdir
-# packaged and stripped files (.so, km, etc...)
-KM_JAVA_TAR := ${DOCKER_DIR}/km_java_files.tar
 
 # Docker repo to take the images from
 REPO := kontainstage.azurecr.io/nokia/ckaf
 CLIENT_REPO := kontainstage.azurecr.io/nokia/atg
 # prefix for target containers
-KONTAIN_REPO := kontain/nokia
+KONTAIN_REPO ?= kontain/nokia
 # source containers names in repo. Hardcoded per component, to simplify the Makefile
 Z_VERSION := zookeeper:2.0.0-3.4.14-2696
 K_VERSION := kafka:2.0.0-5.3.1-2696
@@ -50,11 +48,10 @@ ORIG_JDK_DIR := $(shell docker run --rm ${REPO}/${Z_VERSION} \
 					 bash -c 'dirname $$(dirname $$(realpath $${JAVA_HOME:-/usr}/bin/java))')
 ORIG_JDK_BIN := ${ORIG_JDK_DIR}/bin
 
-all = $(DOCKER_DIR)/.all
 .PHONY: all
-all: ${all} ## Build all
+all: $(DOCKER_DIR)/.all ## Build all
 
-${all}: ${KM_JAVA_TAR} ${DOCKERFILE} Makefile
+$(DOCKER_DIR)/.all: $(DOCKER_DIR)/.files ${DOCKERFILE} Makefile
 	@if [ ! -d ${KONTAIN_DIR}/runtime ] ; then \
 		echo "Missing ${KONTAIN_DIR}/runtime. Please run 'make pull-buildenv-image buildenv-local-fedora' in km/tests" ; false; \
 	fi
@@ -64,6 +61,7 @@ ${all}: ${KM_JAVA_TAR} ${DOCKERFILE} Makefile
 		--build-arg FROM_IMAGE=${REPO}/$$item \
 		--build-arg KONTAIN_DIR="${KONTAIN_DIR}" \
 		--build-arg ORIG_JDK_DIR="${ORIG_JDK_DIR}" \
+		--build-arg JDK_VERSION="${JDK_VERSION}" \
 		-f ${DOCKERFILE} ${DOCKER_DIR} ; \
 	done
 	@docker image ls '${KONTAIN_REPO}/*'
@@ -75,26 +73,16 @@ ${all}: ${KM_JAVA_TAR} ${DOCKERFILE} Makefile
 
 # Copy all files and create 'java' file as a shebang calling KM with proper params.
 # Use 'make KMFLAGS="..."' to generate container with proper flags passed to KM.
-${KM_JAVA_TAR} : $(KM_FILES) ${KONTAIN_DIR} Makefile
-	@if [ ! -d ${DOCKER_DIR} ] ; then mkdir -p ${DOCKER_DIR} ; fi
-	@echo Copying ${KONTAIN_DIR}/lib64 ;\
-		tar -C ${KONTAIN_DIR} -cf - lib64 runtime | tar -C ${DOCKER_DIR} -xf -
-	@# We need 'env' since some old env's (e.g. one in centos7-minimal) do not support '-S'
-	@echo Copying env...; \
-		cp $(shell which env) ${DOCKER_DIR}
-	@echo Copying KM files ;\
-		bin=${DOCKER_DIR}/${JDK_VERSION}/bin; mkdir -p $$bin && cp --preserve=all $(KM_FILES) $$bin
-	@echo Copying libs and release info from ${jdk_image_dir} ; \
-		cp -rf --preserve=all ${jdk_image_dir}/{lib,release} ${DOCKER_DIR}/${JDK_VERSION}
-	@echo -e "${GREEN}Stripping Kontain Java .so files...${NOCOLOR}" ; \
-		find ${DOCKER_DIR}/${JDK_VERSION}/lib -name '*.so' -size +10k | xargs strip
-	@echo Creating java shebang file...; \
-		shebang=${DOCKER_DIR}/${JDK_VERSION}/bin/java; \
-		echo "#!/usr/bin/env -S ${ORIG_JDK_BIN}/$(notdir ${KM_BIN}) ${KMFLAGS} --dynlinker=${ORIG_JDK_BIN}/$(notdir ${KM_LDSO}) --copyenv" > $$shebang ; chmod a+x $$shebang
-	@echo Packaging Kontain and java files for Docker build...;\
-		tar -C ${DOCKER_DIR}/${JDK_VERSION} -cf ${KM_JAVA_TAR} . ; rm -rf ${DOCKER_DIR}/${JDK_VERSION}
+$(DOCKER_DIR)/.files: $(KM_FILES) ${KONTAIN_DIR} Makefile copy_needed_files.sh
+	export KM_FILES="$(KM_FILES)" ;\
+	export KMFLAGS="$(KMFLAGS)"; \
+	./copy_needed_files.sh ${JDK_VERSION} ${DOCKER_DIR}
+	@touch $@
 
-flatten: all ## Flatten images with buildah tool. Results will have prefix 'flat-'
+flatten: all $(DOCKER_DIR)/.flatten ## Flatten images with buildah tool. Results will have prefix 'flat-'
+	@docker image ls '*${KONTAIN_REPO}/*'
+
+$(DOCKER_DIR)/.flatten:
 	@if [ -z "$$(rpm -qa buildah)" ] ; then \
 		echo -e "${CYAN}Warning: buildah is missing. Run 'sudo dnf install buildah -y'${NOCOLOR}"  ; false; \
 	fi
@@ -105,7 +93,8 @@ flatten: all ## Flatten images with buildah tool. Results will have prefix 'flat
 		buildah commit --squash $$container docker-daemon:flat-${KONTAIN_REPO}/$$item ; \
 		buildah rm $$container ; \
 	done
-	@docker image ls '*${KONTAIN_REPO}/*'
+	@touch $@
+
 
 base pull: base-pull  ## aliases for base-pull
 
@@ -126,12 +115,10 @@ clean-disks: ## clean disks and containers for Nokia Kafka test run
 clean: ## Clean temp files and containers
 	sudo rm -rf $(DOCKER_DIR) $(COMPONENTS) ${test_data_dir}/zookeeper
 	id=$$(docker ps -q --filter=name=${DOCKER_NAME}); if [ ! -z "$$id" ] ; then docker rm -f ${DOCKER_NAME} ; fi
-	ids=$$(docker image ls -q "${KONTAIN_REPO}/*") ; if [ ! -z "$$ids" ] ; then \
+	ids=$$(docker image ls -q "*${KONTAIN_REPO}/*") ; if [ ! -z "$$ids" ] ; then \
 			echo docker rmi $$ids; docker rmi $$ids; fi
 	@echo -e "${GREEN}Done${NOCOLOR}"
 
-# For tests, volume mount java .so libs from location below. This is a hack to get it going
-jdk_image_dir := $(realpath ${TOP}/${JDK_LOC}/images/jdk)
 # zookeper logs and data will go here
 test_data_dir=/tmp
 
@@ -149,7 +136,7 @@ TEST_SCRIPT_ENV := \
 DOCKER_TI ?= -t
 # kontainer name, so we can delete it by name
 DOCKER_NAME=kontain_nokia_test
-test: all ## Sanity checking for the zookeeper Kontainer built with this make
+test:  ## Sanity checking for the zookeeper Kontainer built with this make
 	mkdir -p ${test_data_dir}/zookeeper/log ${test_data_dir}/zookeeper/data
 	@id=$$(docker ps -q --filter=name=${DOCKER_NAME}); if [ ! -z "$$id" ] ; then docker rm -f ${DOCKER_NAME} ; fi
 	docker run ${DOCKER_TI} --rm --device=/dev/kvm --name ${DOCKER_NAME} --network=kafka-net\
