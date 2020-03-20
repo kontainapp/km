@@ -26,6 +26,7 @@
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_snapshot.h"
 
 km_info_trace_t km_info_trace;
 
@@ -58,6 +59,9 @@ static inline void usage()
         "\t--dynlinker=file_name               - Set dynamic linker file (default: "
         "/opt/kontain/lib64/libc.so)\n"
         "\t--hcall-stats (-S)                  - Collect and print hypercall stats\n"
+        "\t--coredump=file_name                - File name for coredump\n"
+        "\t--snapshot=file_name                - File name for snapshot\n"
+        "\t--resume                            - Resume from a snapshot\n"
 
         "\n\tOverride auto detection:\n"
         "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. "
@@ -104,6 +108,7 @@ static km_machine_init_params_t km_machine_init_params = {
 };
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
+static int resume_snapshot = 0;
 static struct option long_options[] = {
     {"wait-for-signal", no_argument, &wait_for_signal, 1},
     {"dump-shutdown", no_argument, 0, 'D'},
@@ -125,6 +130,8 @@ static struct option long_options[] = {
     {"hcall-stats", no_argument, 0, 'S'},
     {"use-kvm", no_argument, &(km_machine_init_params.use_virt), KM_FLAG_FORCE_KVM},
     {"use-kkm", no_argument, &(km_machine_init_params.use_virt), KM_FLAG_FORCE_KKM},
+    {"snapshot", required_argument, 0, 's'},
+    {"resume", no_argument, &resume_snapshot, 1},
 
     {0, 0, 0, 0},
 };
@@ -133,7 +140,7 @@ int main(int argc, char* const argv[])
 {
    int opt;
    uint64_t port;
-   km_vcpu_t* vcpu;
+   km_vcpu_t* vcpu = NULL;
    char* payload_file;
    int gpbits = 0;   // Width of guest physical memory bus.
    char* ep = NULL;
@@ -142,6 +149,7 @@ int main(int argc, char* const argv[])
    char** envp = calloc(1, sizeof(char*));   // NULL terminated array of env pointers
    int envc = 1;                             // count of elements in envp (including NULL)
    int putenv_used = 0, copyenv_used = 0;    // they are mutually exclusive
+   int dynlinker_used = 0;
 
    km_gdbstub_init();
 
@@ -217,6 +225,9 @@ int main(int argc, char* const argv[])
          case 'C':
             km_set_coredump_path(optarg);
             break;
+         case 's':
+            km_set_snapshot_path(optarg);
+            break;
          case 'D':
             vcpu_dump = 1;
             break;
@@ -253,6 +264,7 @@ int main(int argc, char* const argv[])
             break;
          case 'L':
             km_dynlinker_file = optarg;
+            dynlinker_used++;
             break;
          case 'S':
             km_collect_hc_stats = 1;
@@ -269,24 +281,37 @@ int main(int argc, char* const argv[])
 
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
-   km_gva_t adjust = km_load_elf(payload_file);
-   if ((vcpu = km_vcpu_get()) == NULL) {
-      err(1, "Failed to get main vcpu");
-   }
-   km_gva_t guest_args = km_init_main(vcpu, argc - optind, argv + optind, envc, envp);
-   if (km_dynlinker.km_filename != NULL) {
-      if (km_vcpu_set_to_run(vcpu,
-                             km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust,
-                             guest_args) != 0) {
-         err(1, "failed to set main vcpu to run dynlinker");
+
+   if (resume_snapshot != 0) {
+      if (putenv_used != 0 || copyenv_used != 0 || dynlinker_used != 0) {
+         km_err_msg(0, "cannot set new environment or dynlinker when resuming a snapshot");
+         err(1, "exiting...");
       }
+      if (km_snapshot_restore(payload_file) < 0) {
+         err(1, "failed to restore from snapshot %s", payload_file);
+      }
+      vcpu = machine.vm_vcpus[0];
    } else {
-      if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry + adjust, guest_args) != 0) {
-         err(1, "failed to set main vcpu to run payload main()");
+      // new guest start
+      km_gva_t adjust = km_load_elf(payload_file);
+      if ((vcpu = km_vcpu_get()) == NULL) {
+         err(1, "Failed to get main vcpu");
       }
-   }
-   if (envp != __environ) {   // if there was no --putenv, we do not need envp array
-      free(envp);
+      km_gva_t guest_args = km_init_main(vcpu, argc - optind, argv + optind, envc, envp);
+      if (km_dynlinker.km_filename != NULL) {
+         if (km_vcpu_set_to_run(vcpu,
+                                km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust,
+                                guest_args) != 0) {
+            err(1, "failed to set main vcpu to run dynlinker");
+         }
+      } else {
+         if (km_vcpu_set_to_run(vcpu, km_guest.km_ehdr.e_entry + adjust, guest_args) != 0) {
+            err(1, "failed to set main vcpu to run payload main()");
+         }
+      }
+      if (envp != __environ) {   // if there was no --putenv, we do not need envp array
+         free(envp);
+      }
    }
    if (wait_for_signal == 1) {
       warnx("Waiting for kill -SIGUSR1  %d", getpid());
@@ -302,9 +327,10 @@ int main(int argc, char* const argv[])
       }
    }
 
-   if (km_run_vcpu_thread(vcpu, km_vcpu_run_main) < 0) {
-      err(2, "Failed to create main run_vcpu thread");
+   if (km_start_vcpus() < 0) {
+      err(2, "Failed to start guest");
    }
+
    if (km_gdb_is_enabled() == 1) {
       km_gdb_main_loop(vcpu);
       km_gdb_destroy_listen();

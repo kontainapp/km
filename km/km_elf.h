@@ -18,6 +18,7 @@
 
 #include <gelf.h>
 #include <stdint.h>
+#include <sys/mman.h>
 
 #define KM_DLOPEN_SYM_NAME "dlopen"
 
@@ -39,20 +40,29 @@ typedef struct km_payload {
    Elf64_Addr km_min_vaddr;       // minimum vaddr
 } km_payload_t;
 
-typedef struct km_tls_module {
-   struct km_tls_module* next;
-   void* image;
-   size_t len;
-   size_t size;
-   size_t align;
-   size_t offset;
-} km_tls_module_t;
-
 extern km_payload_t km_guest;
 extern km_payload_t km_dynlinker;
 extern char* km_dynlinker_file;
-extern km_tls_module_t km_main_tls;
+
+/*
+ * Translate ELF region protection mmap to mmap protection flag
+ */
+static inline int prot_elf_to_mmap(Elf64_Word p_flags)
+{
+   int flags = 0;
+   if ((p_flags & PF_R) != 0) {
+      flags |= PROT_READ;
+   }
+   if ((p_flags & PF_W) != 0) {
+      flags |= PROT_WRITE;
+   }
+   if ((p_flags & PF_X) != 0) {
+      flags |= PROT_EXEC;
+   }
+   return flags;
+}
 
 uint64_t km_load_elf(const char* file);
+Elf* km_open_elf_file(char* filename, km_payload_t* payload, int* fd);
 
 #endif /* #ifndef __KM_H__ */

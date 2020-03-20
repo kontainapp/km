@@ -25,10 +25,12 @@
 #include <linux/stat.h>
 
 #include "km.h"
+#include "km_coredump.h"
 #include "km_filesys.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_snapshot.h"
 #include "km_syscall.h"
 
 /*
@@ -1353,6 +1355,16 @@ static km_hc_ret_t  getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // TODO: Stop the world.
+   warnx("SNAPSHOT");
+   km_read_registers(vcpu);
+   ((km_vcpu_t*)vcpu)->regs.rip++;   // Skip out instruction
+   km_dump_core(km_get_snapshot_path(), vcpu, NULL);
+   return HC_ALLSTOP;
+}
+
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 km_hc_stats_t* km_hcalls_stats;
 
@@ -1506,6 +1518,7 @@ void km_hcalls_init(void)
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_unmapself] = unmapself_hcall;
+   km_hcalls_table[HC_snapshot] = snapshot_hcall;
 
    if (km_collect_hc_stats == 1) {
       if ((km_hcalls_stats = calloc(KM_MAX_HCALL, sizeof(km_hc_stats_t))) == NULL) {
