@@ -76,9 +76,8 @@ __km_handle_interrupt:
     mov $0xdeadbeef, %rbx
     mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
     mov $0xffff81fd, %edx   # HC_guest_interrupt
-retry:
     out %eax, %dx           # Enter KM
-    jmp retry               # Should never hit here.
+    hlt                     # Should never hit here.
 
 /*
  * Convienience macro for exception and interrupt handlers.
@@ -92,9 +91,8 @@ handler\name :
     mov $\num, %rbx
     mov %rsp, %rax          # KM Setup km_hc_args_t on stack for us to use
     mov $0x81fd, %dx        # HC_guest_interrupt
-retry\name :
     outl %eax, (%dx)        # Enter KM
-    jmp retry\name          # Should never hit here.
+    hlt                     # Should never hit here.
     
 .endm
 

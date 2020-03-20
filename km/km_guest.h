@@ -39,13 +39,14 @@ extern uint8_t km_guest_end;
  * Compute the guest virtual address of the km addresses that live
  * in km_guest*.[cs]
  */
-static inline km_gva_t km_guest_kma_to_gva(km_kma_t km_guest_addr) {
-  km_gva_t gva;
-  assert((uint64_t)km_guest_addr >= (uint64_t)&km_guest_start &&
-         (uint64_t)km_guest_addr < (uint64_t)&km_guest_end);
-  gva = GUEST_KMGUESTMEM_BASE_VA + ((uint64_t)km_guest_addr - (uint64_t)&km_guest_start);
-  km_infox(KM_TRACE_MEM, "guest kma %p -> gva 0x%lx", km_guest_addr, gva);
-  return gva;
+static inline km_gva_t km_guest_kma_to_gva(km_kma_t km_guest_addr)
+{
+   km_gva_t gva;
+   assert((uint64_t)km_guest_addr >= (uint64_t)&km_guest_start &&
+          (uint64_t)km_guest_addr < (uint64_t)&km_guest_end);
+   gva = GUEST_KMGUESTMEM_BASE_VA + ((uint64_t)km_guest_addr - (uint64_t)&km_guest_start);
+   km_infox(KM_TRACE_MEM, "guest kma %p -> gva 0x%lx", km_guest_addr, gva);
+   return gva;
 }
 
 #endif /* !defined(__KM_GUEST_H__) */

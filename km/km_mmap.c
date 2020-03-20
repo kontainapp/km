@@ -672,12 +672,12 @@ int km_monitor_pages_in_guest(km_gva_t gva, size_t size, int protection, char* t
 
    km_infox(KM_TRACE_MMAP, "gva 0x%lx, sizeof %ld, protection 0x%x, tag %s", gva, size, protection, tag);
    if ((reg = calloc(1, sizeof(km_mmap_reg_t))) == NULL) {
-     return ENOMEM;
+      return ENOMEM;
    }
-  if (tag != NULL && (tagcopy = strdup(tag)) == NULL) {
-     free(reg);
-     return ENOMEM;
-  }
+   if (tag != NULL && (tagcopy = strdup(tag)) == NULL) {
+      free(reg);
+      return ENOMEM;
+   }
    reg->start = gva;
    reg->size = size;
    reg->flags = 0;

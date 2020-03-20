@@ -17,19 +17,19 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/param.h>
-#include <stdio.h>
 
 #include "km.h"
 #include "km_mem.h"
-#include "x86_cpu.h"
-#include "km_proc.h"
 #include "km_guest.h"
+#include "km_proc.h"
+#include "x86_cpu.h"
 
 /*
  * Physical memory layout:
@@ -89,18 +89,18 @@ static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
 
 static void pde_4k_set(x86_pde_4k_t* pde, uint64_t addr)
 {
-  pde->p = 1;
-  pde->r_w = 1;
-  pde->u_s = 1;
-  pde->pta = addr >> 12;
+   pde->p = 1;
+   pde->r_w = 1;
+   pde->u_s = 1;
+   pde->pta = addr >> 12;
 }
 
 static void pte_set(x86_pte_4k_t* pte, uint64_t addr)
 {
-  pte->p = 1;
-  pte->r_w = 1;
-  pte->u_s = 1;
-  pte->page = addr >> 12;
+   pte->p = 1;
+   pte->r_w = 1;
+   pte->u_s = 1;
+   pte->page = addr >> 12;
 }
 
 /*
@@ -185,7 +185,7 @@ static inline int PTE_SLOT(km_gva_t __addr)
 static inline int PDE_SLOT(km_gva_t __addr)
 {
    return (__addr >> 21) & 0x1ff;
-   //return ((__addr)&0x3ffffffful) >> 21;
+   // return ((__addr)&0x3ffffffful) >> 21;
 }
 
 /*
@@ -211,10 +211,9 @@ uint32_t km_vvar_vdso_size;
  */
 static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
 {
-   maps_region_t vvar_vdso_regions[vvar_vdso_regions_count] = {
-      { .name_substring = "[vvar]" },
-      { .name_substring = "[vdso]" }
-   };   // the order of these entries is important.  don't change.
+   maps_region_t vvar_vdso_regions[vvar_vdso_regions_count] =
+       {{.name_substring = "[vvar]"},
+        {.name_substring = "[vdso]"}};   // the order of these entries is important.  don't change.
    kvm_mem_reg_t* reg;
    int rc;
 
@@ -226,14 +225,18 @@ static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
    }
 
    // This code assumes [vvar] and [vdso] are adjacent.
-   assert(vvar_vdso_regions[vvar_region_index].end_addr == vvar_vdso_regions[vdso_region_index].begin_addr);
+   assert(vvar_vdso_regions[vvar_region_index].end_addr ==
+          vvar_vdso_regions[vdso_region_index].begin_addr);
 
-   km_vvar_vdso_size = (vvar_vdso_regions[vvar_region_index].end_addr - vvar_vdso_regions[vvar_region_index].begin_addr) +
-                       (vvar_vdso_regions[vdso_region_index].end_addr - vvar_vdso_regions[vdso_region_index].begin_addr);
+   km_vvar_vdso_size = (vvar_vdso_regions[vvar_region_index].end_addr -
+                        vvar_vdso_regions[vvar_region_index].begin_addr) +
+                       (vvar_vdso_regions[vdso_region_index].end_addr -
+                        vvar_vdso_regions[vdso_region_index].begin_addr);
 
    // Map vvar and vdso at this guest virtual address
    km_vvar_vdso_base[0] = GUEST_VVAR_VDSO_BASE_VA;
-   km_vvar_vdso_base[1] = km_vvar_vdso_base[0] + (vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr);
+   km_vvar_vdso_base[1] =
+       km_vvar_vdso_base[0] + (vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr);
 
    // Put the vdso and vvar pages into the payload's physical address space.
    reg = &machine.vm_mem_regs[KM_RSRV_VDSOSLOT];
@@ -258,14 +261,16 @@ static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
    pde_4k_set(pde + idx, RSV_GUEST_PA(RSV_PT_OFFSET));
 
    // add vvar and vdso pages to page table
-   memset(mem + RSV_PT_OFFSET, 0, KM_PAGE_SIZE);    // clear page, no usable entries yet
+   memset(mem + RSV_PT_OFFSET, 0, KM_PAGE_SIZE);   // clear page, no usable entries yet
    for (int i = 0; i < vvar_vdso_regions_count; i++) {
-      km_infox(KM_TRACE_MEM, "%s: km vaddr 0x%lx, payload paddr 0x%lx, payload vaddr 0x%lx",
+      km_infox(KM_TRACE_MEM,
+               "%s: km vaddr 0x%lx, payload paddr 0x%lx, payload vaddr 0x%lx",
                vvar_vdso_regions[i].name_substring,
                vvar_vdso_regions[i].begin_addr,
                physaddr,
                virtaddr);
-      for (uint64_t b = vvar_vdso_regions[i].begin_addr; b < vvar_vdso_regions[i].end_addr; b += KM_PAGE_SIZE) {
+      for (uint64_t b = vvar_vdso_regions[i].begin_addr; b < vvar_vdso_regions[i].end_addr;
+           b += KM_PAGE_SIZE) {
          idx = PTE_SLOT(virtaddr);
          pte_set(pte + idx, physaddr);
          virtaddr += KM_PAGE_SIZE;
@@ -274,14 +279,14 @@ static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
    }
 
    rc = km_monitor_pages_in_guest(km_vvar_vdso_base[0],
-                             vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr,
-                             PROT_READ,
-                             "[vvar]");
+                                  vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr,
+                                  PROT_READ,
+                                  "[vvar]");
    assert(rc == 0);
    rc = km_monitor_pages_in_guest(km_vvar_vdso_base[1],
-                             vvar_vdso_regions[1].end_addr - vvar_vdso_regions[1].begin_addr,
-                             PROT_EXEC,
-                             "[vdso]");
+                                  vvar_vdso_regions[1].end_addr - vvar_vdso_regions[1].begin_addr,
+                                  PROT_EXEC,
+                                  "[vdso]");
    assert(rc == 0);
 }
 
@@ -297,8 +302,8 @@ static void km_add_code_to_guest_address_space(void)
    int idx;
 
    // km_guest pages must start on a page boundary and must be a multiple of the page size in length.
-   assert(((uint64_t)&km_guest_start & (KM_PAGE_SIZE-1)) == 0);
-   assert((((uint64_t)&km_guest_end - (uint64_t)&km_guest_end) & (KM_PAGE_SIZE-1)) == 0);
+   assert(((uint64_t)&km_guest_start & (KM_PAGE_SIZE - 1)) == 0);
+   assert((((uint64_t)&km_guest_end - (uint64_t)&km_guest_end) & (KM_PAGE_SIZE - 1)) == 0);
 
    // Map the km_guest pages into the guest physical address space
    reg = &machine.vm_mem_regs[KM_RSRV_KMGUESTMEM_SLOT];
@@ -316,7 +321,7 @@ static void km_add_code_to_guest_address_space(void)
     * If you change the value of GUEST_KMGUESTMEM_BASE_VA be sure you verify that we
     * are updating the correct page table.
     */
-   x86_pte_4k_t* pte = (x86_pte_4k_t*)(machine.vm_mem_regs[KM_RSRV_MEMSLOT].userspace_addr + RSV_PT_OFFSET);
+   x86_pte_4k_t* pte = (x86_pte_4k_t*)(km_resv_kma() + RSV_PT_OFFSET);
 
    // Add the km_guest pages into the guest virtual address space
    for (uint8_t* p = &km_guest_start; p < &km_guest_end; p += KM_PAGE_SIZE) {
