@@ -3,7 +3,7 @@
 This directory contains demo work for Nokia Software. The directories
 are:
 
-* kontain-faktory - build system for building Java Kontainers from Nokia Kafka and zookeeper images. See `kontain-faktory/README.md` for information on how to build the images. You `need` to build them before you can run Nokia Kafka perf tests against Kontainers  (i.e. Java  unikernel in Kontain CVM)
+* kontain-faktory - build system for building Java Kontainers from Nokia Kafka and zookeeper images. See `kontain-faktory/README.md` for information on how to build the images. You `need` to build them before you can run Nokia Kafka perf tests against Kontainers  (i.e. Java  unikernel in Kontain VM)
 * kafka-test-tool - Java based Kafka Tests. See `kafka-test-tools/README.md` for Nokia's instructions on this.
 * test-app - Python machine learning. (Suspended work for now)
 
@@ -25,7 +25,7 @@ make -C kontain-faktory pull
 
 * `sudo dnf install sysstat` is required for tests which collect `sar` files:
 * `sudo dnf install buildah` is required for flattening Kontainers (flattening is optional, but it does shrink Kontainers by half)
-* in case you want to visualize `sar` output, install ksar from [here](https://github.com/vlsi/ksar)
+* in case you want to visualize `sar` output, install `ksar` from [here](https://github.com/vlsi/ksar)
 
 ## Build java.km
 
@@ -34,7 +34,8 @@ make -C ~/workspace/km
 make -C ~/workspace/km/payloads/java
 ```
 
-Optionally, validate the java.km build: `make -C ~/workspace/km/payloads/java runenv-image validate-runenv-image`
+Optionally, validate the java.km build:
+`make -C ~/workspace/km/payloads/java runenv-image validate-runenv-image`
 
 ## Build the Kontainers
 

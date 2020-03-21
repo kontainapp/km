@@ -63,4 +63,8 @@ The script stops for 10 sec after running each container. Environment SLEEP is n
 
 For some reason, Nokia script use *--nofile=122880:122880* to set files rlimit in the container. It wastes memory,  and actually useless in java.km. You may change it, to say 1024 with `setenv NOFILE=1024:1024`
 
+### KAFKA_OPTS
+
+This is not really test script configuration, but rather an environment variable used inside the zookeeper & kafka containers we use. If it's set (in dockerfile as `ENV` or in `docker run`), it's value will be added to java command line. It's a convenient way to pass flags to java inside of containers (or Kontainers) in nokia kafka tests, bypassing all the layers and scripts on the way.
+
 *** END OF DOCUMENT ***
