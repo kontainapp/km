@@ -108,7 +108,7 @@ login: ## helper to log in Azure and the registry
 
 clean-disks: ## clean disks and containers for Nokia Kafka test run
 	-sudo rm -r $$(dirname ${BLDDIR})/disks
-	-docker rm -f kafka-test-client zookeeper-server kafka-broker-1 kafka-broker-3 kafka-broker-3
+	-docker rm -f kafka-test-client zookeeper-server kafka-broker-1 kafka-broker-2 kafka-broker-3
 
 clean: ## Clean temp files and containers
 	sudo rm -rf $(DOCKER_DIR) $(COMPONENTS) ${test_data_dir}/zookeeper
