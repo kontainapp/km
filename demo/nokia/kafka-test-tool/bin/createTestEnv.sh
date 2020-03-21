@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 # Nokia environment create modified for Kontain build environment.
 
 #set -o errexit
@@ -9,6 +9,11 @@ BASE_DIR=${KM_BASE}/build/demo/nokia/disks
 # set CPREFIX environment (before running test) to run Kontain inages.E.g. 'export CPREFIX=kontain/nokia'
 CPREFIX=${CPREFIX:-kontainstage.azurecr.io/nokia/ckaf}
 CPREFIX_CLIENT=${CPREFIX_CLIENT:-kontainstage.azurecr.io/nokia/atg}
+SLEEP=${SLEEP:-10}
+# use RM_FLAG="--label whatever" to cancel container removal at the end of the run
+RM_FLAG=${RM_FLAG:---rm}
+# original was 122880:122880, not sure why
+NOFILE=${NOFILE:-122880:122880}
 
 if [ -z $1 ]; then
     echo "usage: createTestEnv.sh <number_of_instance>"
@@ -30,9 +35,9 @@ docker run --device=/dev/kvm --name zookeeper-server -p 2181:2181 --network kafk
     -e IS_RESTORE=false \
     -v $BASE_DIR/zookeeper/log:/var/lib/zookeeper/log:z \
     -v $BASE_DIR/zookeeper/data:/var/lib/zookeeper/data:z \
-    --ulimit nofile=122880:122880 \
-   --rm -d ${CPREFIX}/zookeeper:2.0.0-3.4.14-2696
-   sleep 10
+    --ulimit nofile=${NOFILE} \
+   ${RM_FLAG} -d ${CPREFIX}/zookeeper:2.0.0-3.4.14-2696
+   sleep ${SLEEP}
 
 
 for (( i=1; i<=$NUMBER_OF_INSTANCE; i++ ))
@@ -48,16 +53,16 @@ do
         -e EXTERNAL_SECURITY_PROTOCOL=PLAINTEXT \
         -v $BASE_DIR/kafka-broker-$i/data:/var/lib/kafka/data:z \
         -v $BASE_DIR/kafka-broker-$i/log:/var/log/kafka:z \
-        --ulimit nofile=122880:122880 \
-        --rm -d ${CPREFIX}/kafka:2.0.0-5.3.1-2696
-        sleep 10
+        --ulimit nofile=${NOFILE} \
+        ${RM_FLAG} -d ${CPREFIX}/kafka:2.0.0-5.3.1-2696
+        sleep ${SLEEP}
 done
 
 
 echo "Run test client"
 docker run --name kafka-test-client \
     --network kafka-net \
-    --ulimit nofile=122880:122880 \
+    --ulimit nofile=${NOFILE} \
     --rm -d \
     ${CPREFIX_CLIENT}/kafka-client:4.1.2-2 \
     tail -f /dev/null

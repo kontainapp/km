@@ -96,9 +96,7 @@ $(DOCKER_DIR)/.flatten:
 	@touch $@
 
 
-base pull: base-pull  ## aliases for base-pull
-
-base-pull: ## pull nokia containers from azure container registry - prerequsite for 'make all'
+pull: ## pull nokia containers from azure container registry - prerequsite for 'make all'
 	@echo DO NOT FORGET TO: make login
 	docker pull $(REPO)/$(Z_VERSION)
 	docker pull $(REPO)/$(K_VERSION)
