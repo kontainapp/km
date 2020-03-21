@@ -7,7 +7,7 @@ Typical sequence of commands:
 
 ```bash
 make login # login to Azure and Azure private registry
-make pull # One time, for pulling and tagging orginal images. Assumes login.
+make pull # One time, for pulling and tagging original images. Assumes login.
 make all  # same as 'make' - builds kontain/nokia-* images from the base ones
 make test # validate Kontainer with zookeeper .... just make sure it starts to listen
 ```
@@ -19,14 +19,14 @@ To generate Kontainer with extra KM flags, use `make clean all KMFLAGS="..."` (`
 To start zookeeper Kontainer with bash so you can navigate
 `make test DOCKER_TI="-ti" ARGS=bash`. To kill the test, ^Z and then 'kill -9 %%'
 
-To clean up Kafka disks and kill Nokia test containers `make clean-disks`. Note that this target may reporte container names errors, this just indicates that these containers are already gone, and can be ignored.
+To clean up Kafka disks and kill Nokia test containers `make clean-disks`. Note that this target may report container names errors, this just indicates that these containers are already gone, and can be ignored.
 
 ## Running tests
 
 After `make flatten`, you will have 3 types of Docker images:
 
 * original Nokia ones, i.e `kontainstage.azurecr.io/nokia/ckaf/kafka`
-* mutilayer Kontainer image (with KM inside), i.e. `kontain/nokia/kafka`
+* multilayer Kontainer image (with KM inside), i.e. `kontain/nokia/kafka`
 * flattened out Kontainer image (with KM inside), i.e. `flat-kontain/nokia/kafka`
 
 The Kontainer multilayer and flat are functionally identical, but differ in size.
@@ -39,7 +39,7 @@ Then, in ../kafka-test-tools/bin, run `./startTest.sh test-case-ckaf-01`.
 
 We did a few changes to these script to control which image to use (original or Kontainer), how long to sleep before starts, and if it is needed to remove containers after runs.
 
-Since entrypoints and behavior of Containers and Kontainers is the same, we use Nokia script essentially not modified (with the exception of the config stuff above)
+Since entry points and behavior of Containers and Kontainers is the same, we use Nokia script essentially not modified (with the exception of the config stuff above)
 
 We use environment vars to control the following:
 
@@ -61,7 +61,7 @@ The script stops for 10 sec after running each container. Environment SLEEP is n
 
 ### NOFILES
 
-For some reason, Nokia script use *--nofile=122880:122880* to set files rlimit in the container. It wastes memory,  and actually useless in java.km. You may change it, to say 1024 with `setenv NOFILE=1024:1024`
+For some reason, Nokia script use *--nofile=122880:122880* to set files rlimit in the container. It wastes memory, and actually useless in java.km. You may change it, to say 1024 with `setenv NOFILE=1024:1024`
 
 ### KAFKA_OPTS
 
