@@ -175,7 +175,7 @@ static const uint64_t PDE_REGION = 2 * MIB;
  */
 static inline int PTE_SLOT(km_gva_t __addr)
 {
-   return ((__addr) % (2 * 1024 * 1024)) >> 12;
+   return (__addr >> 12) & 0x1ff;
 }
 
 /*
@@ -185,7 +185,6 @@ static inline int PTE_SLOT(km_gva_t __addr)
 static inline int PDE_SLOT(km_gva_t __addr)
 {
    return (__addr >> 21) & 0x1ff;
-   // return ((__addr)&0x3ffffffful) >> 21;
 }
 
 /*
