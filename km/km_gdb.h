@@ -125,8 +125,9 @@ struct __attribute__((__packed__)) km_gdb_regs {
 // Characters that must be escaped to appear in remote protocol messages
 #define GDB_REMOTEPROTO_SPECIALCHARS "}$#*"
 
-#define MAX_GDB_VFILE_OPEN_FD                                                                      \
-   32   // our gdb server will only allow 32 concurrent open vfile handles
+// our gdb server will only allow 32 concurrent open vfile handles
+#define MAX_GDB_VFILE_OPEN_FD 32
+
 #define GDB_VFILE_FD_FREE_SLOT -1
 typedef struct gdbstub_vfile {
    int fd[MAX_GDB_VFILE_OPEN_FD];
@@ -137,15 +138,25 @@ typedef struct gdbstub_vfile {
 TAILQ_HEAD(gdb_event_queue, gdb_event);
 typedef struct gdb_event_queue gdb_event_queue_t;
 
+typedef enum gdb_wait_for_attach {
+   GDB_WAIT_FOR_ATTACH_UNSPECIFIED,  // no value selected
+   GDB_DONT_WAIT_FOR_ATTACH,         // run the payload without waiting for gdb client attach
+   GDB_WAIT_FOR_ATTACH_AT_DYNLINK,   // wait for client attach before running dynamic linker
+                                     //  (if statically linked, wait at _start)
+   GDB_WAIT_FOR_ATTACH_AT_START,     // wait for client attach before running _start (this
+                                     //  let's the dynamic linker run)
+} gdb_wait_for_attach_t;
+
 typedef struct gdbstub_info {
    int port;                       // Port the stub is listening for gdb client.
    int listen_socket_fd;           // listen for gdb client connections on this fd.
    int sock_fd;                    // socket to communicate to gdb client
-   uint8_t wait_for_connect;       // if true, wait for gdb client attach before running payload
-                                   // if false, just start the payload up, gdb client can attach later
-   uint8_t attach_at_dynlink;      // if true and dynlinker is being used we arrange for gdb client
-                                   //  to attach before the dynamic linker runs.  normally we attach
-                                   //  just before the payload runs.
+   uint8_t enabled;                // if true the gdb server is enabled and will be listening
+                                   //  on network port specified by port.
+   gdb_wait_for_attach_t wait_for_attach;
+                                   // if gdb server is enabled, should the gdb server wait
+                                   //  for attach from the client before running the payload
+                                   //  and where should it wait for attach.
    uint8_t gdb_client_attached;    // if true, gdb client is attached.
    int session_requested;          // set to 1 when payload threads need to pause on exit
    bool stepping;                  // single step mode (stepi)
@@ -180,14 +191,14 @@ static inline void km_gdb_port_set(int port)
    gdbstub.port = port;
 }
 
-static inline void km_gdb_enable(int port)
+static inline void km_gdb_enable(int enabled)
 {
-   km_gdb_port_set(port);
+   gdbstub.enabled = enabled;
 }
 
 static inline int km_gdb_is_enabled(void)
 {
-   return km_gdb_port_get() != 0 ? 1 : 0;
+   return gdbstub.enabled;
 }
 
 static inline int km_gdb_client_is_attached(void)
