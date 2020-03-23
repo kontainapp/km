@@ -1851,6 +1851,8 @@ void km_gdbstub_init(void)
    km_gdb_vfile_init();
    gdbstub.port = GDB_DEFAULT_PORT;
    gdbstub.listen_socket_fd = -1;
+   gdbstub.enabled = 0;
+   gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_UNSPECIFIED;
 }
 
 /*
@@ -2866,11 +2868,12 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 
    km_wait_on_eventfd(machine.intr_fd);   // Wait for km_vcpu_run_main to start
 
-   if (km_dynlinker.km_filename != NULL && gdbstub.attach_at_dynlink == 0) {
+   assert(gdbstub.wait_for_attach != GDB_WAIT_FOR_ATTACH_UNSPECIFIED);
+   if (km_dynlinker.km_filename != NULL && gdbstub.wait_for_attach == GDB_WAIT_FOR_ATTACH_AT_START) {
       km_gdb_wait_for_dynlink_to_finish();
    }
 
-   if (gdbstub.wait_for_connect == 0) {
+   if (gdbstub.wait_for_attach == GDB_DONT_WAIT_FOR_ATTACH) {
       km_vcpu_resume_all();
    } else {
       warnx("Waiting for a debugger. Connect to it like this:");
