@@ -141,7 +141,7 @@ static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
  */
 int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
 {
-   if (hostfd < 0) {
+   if (hostfd < 0 || hostfd >= machine.filesys.nfdmap) {
       return -ENOENT;
    }
    int guest_fd = __atomic_load_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], __ATOMIC_SEQ_CST);
