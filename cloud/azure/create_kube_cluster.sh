@@ -25,7 +25,7 @@ appPwd=`az ad sp create-for-rbac --name ${K8_SERVICE_PRINCIPAL} --skip-assignmen
 echo Do not lose it PWD $appPwd . TODO: switch to pre-generated PEM certs
 [ "$TRACE" ] && set -x
 acrId=`az acr show --resource-group ${CLOUD_RESOURCE_GROUP} --name ${REGISTRY_NAME} --query "id" --output tsv`
-sp_id=`az ad sp list  --query "[?contains(servicePrincipalNames,'$K8_SERVICE_PRINCIPAL')].{Id: objectId}"  --output tsv`
+sp_id=`az ad sp list  --query "[?contains(servicePrincipalNames,'$K8_SERVICE_PRINCIPAL')].{Id: objectId}" --all --output tsv`
 appId=`az ad sp show --id ${sp_id}  --query appId --output tsv`
 sleep 5 # give azure time to propagate the data. TODO - drop 'sleep' and make it wait on whatever is needed here
 az role assignment create --assignee ${appId} --scope ${acrId} --role acrpull --output ${out_type}

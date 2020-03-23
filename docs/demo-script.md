@@ -37,7 +37,6 @@ This document describes the *default* path to take during the demo.
   * Or start your own k8s cluster and properly configure kubectl.
   * Deploy `kontaind`
   ```bash
-  make -C ~/workspace/km/cloud/k8s/kontaind runenv-image
   make -C ~/workspace/km/cloud/k8s/kontaind push-runenv-image
   make -C ~/workspace/km/cloud/k8s/kontaind install
   ```
