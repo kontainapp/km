@@ -33,6 +33,7 @@
 #include "km_proc.h"
 #include "km_syscall.h"
 #include "x86_cpu.h"
+#include "km_guest.h"
 
 static inline void km_init_syscall_handler(km_vcpu_t* vcpu, km_gva_t syscall_handler_gva)
 {
@@ -76,9 +77,8 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
 {
    km_gva_t map_base;
 
-   assert(km_guest.km_handlers != 0);
-   km_init_guest_idt(km_guest.km_handlers, km_guest.km_interrupt_table);
-   km_init_syscall_handler(vcpu, km_guest.km_syscall_handler);
+   km_init_guest_idt(km_guest_kma_to_gva(&__km_handle_interrupt), km_guest_kma_to_gva(&__km_interrupt_table));
+   km_init_syscall_handler(vcpu, km_guest_kma_to_gva(&__km_syscall_handler));
    if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
    }

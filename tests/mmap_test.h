@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -26,6 +26,32 @@ extern int main(int argc, char** argv);
    if (KM_PAYLOAD() == 1) {                                                                        \
       get_maps(greatest_get_verbosity());                                                          \
       ASSERT_EQ_FMT((_c), info->ntotal, "%d");                                                     \
+   }
+
+/*
+ * The expected number of busy memory regions for a freshly started payload.
+ * If you add regions to km's busy memory list, you will need to change
+ * this value.
+ */
+#define INITIAL_BUSY_MEMORY_REGIONS	6
+
+// Get the initial busy count for use in later calls to ASSERT_MMAPS_CHANGE()
+#define ASSERT_MMAPS_INIT(initial_busy)                  \
+   initial_busy = 0;                                     \
+   if (KM_PAYLOAD() == 1) {                              \
+      get_maps(greatest_get_verbosity());                \
+      initial_busy = (info->ntotal - info->nfree);       \
+      ASSERT_EQ_FMT(INITIAL_BUSY_MEMORY_REGIONS,         \
+                    initial_busy, "%d");                 \
+   }
+   
+// Check to see if busy memory region count is as expected.
+#define ASSERT_MMAPS_CHANGE(expected_change, initial_busy) \
+   if (KM_PAYLOAD() == 1) {                                \
+      get_maps(greatest_get_verbosity());                  \
+      ASSERT_EQ_FMT((expected_change),                     \
+                    (info->ntotal - info->nfree) - (initial_busy), \
+                    "%d");                                 \
    }
 
 // Type of operation invoked by a single line in test tables

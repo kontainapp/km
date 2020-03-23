@@ -29,6 +29,7 @@
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_guest.h"
 
 void km_install_sighandler(int signum, sa_action_t func)
 {
@@ -391,6 +392,8 @@ static inline void fill_ucontext(km_vcpu_t* vcpu, ucontext_t* uc)
 
 /*
  * Do the dirty-work to get a signal handler called in the guest.
+ * We set everything up so the next time the vcpu runs it will be running the
+ * signal handler.
  */
 static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigaction_t* act)
 {
@@ -409,7 +412,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
 
    frame->info = *info;
    frame->regs = vcpu->regs;
-   frame->return_addr = km_guest.km_sigreturn;
+   frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
    fill_ucontext(vcpu, &frame->ucontext);
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
    if ((act->sa_flags & SA_SIGINFO) != 0) {

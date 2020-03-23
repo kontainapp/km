@@ -36,41 +36,46 @@ TEST mmap_overlap()
 {
    static const size_t map_size = 1024 * 1024;
    static const size_t guard_size = 4 * 1024;
+   int initial_busy_count;
 
    if (greatest_get_verbosity() > 0) {
       printf("==== %s\n", __FUNCTION__);
    }
+   ASSERT_MMAPS_INIT(initial_busy_count);
    void* s1 = mmap(0, map_size + 2 * guard_size, PROT_NONE, MAP_PRIVATE, -1, 0);
    ASSERT_EQ_FMT(MAP_FAILED, s1, "%p");   // no fds, no ANON and no FIXED should fail
    ASSERT_EQ_FMT(EBADF, errno, "%d");
 
    s1 = mmap(0, map_size + 2 * guard_size, PROT_NONE, flags, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, s1);
-   ASSERT_MMAPS_COUNT(3);
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    mprotect(s1 + guard_size, map_size, PROT_READ | PROT_WRITE);
    munmap(s1, map_size + 2 * guard_size);
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
    PASS();
 }
 
 TEST mmap_mprotect_overlap()
 {
+   int initial_busy_count;
+
    if (greatest_get_verbosity() > 0) {
       printf("==== mmap_mprotect_overlap\n");
    }
+   ASSERT_MMAPS_INIT(initial_busy_count);
    void* s1 = mmap(0, 1 * GIB, PROT_NONE, flags, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, s1);
-   ASSERT_MMAPS_COUNT(3);
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);
    mprotect(s1 + 1 * MIB, 1 * MIB, PROT_READ | PROT_WRITE);
    mprotect(s1 + 3 * MIB, 1 * MIB, PROT_READ | PROT_WRITE);   // gap 1MB
-   ASSERT_MMAPS_COUNT(7);
+   ASSERT_MMAPS_CHANGE(5, initial_busy_count);
    mprotect(s1 + 2 * MIB, 2 * MIB, PROT_READ | PROT_WRITE);   // fill in the gap and some more
    mprotect(s1 + 2 * MIB, 1 * MIB, PROT_READ | PROT_WRITE);
-   ASSERT_MMAPS_COUNT(5);
+   ASSERT_MMAPS_CHANGE(3, initial_busy_count);
 
    munmap(s1, 1 * GIB);
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
    PASS();
 }
 
@@ -85,6 +90,7 @@ TEST mmap_fixed_basic()
 {
    void *inside, *fixed;
    static const int rw = PROT_READ | PROT_WRITE;
+   int initial_busy_count;
 
    if (greatest_get_verbosity() > 0) {
       printf("==== %s: Concat fixed on the right\n", __FUNCTION__);
@@ -93,6 +99,8 @@ TEST mmap_fixed_basic()
    const size_t offset1 = 100 * MIB;
    const size_t insert1_sz = 200 * MIB;
 
+   ASSERT_MMAPS_INIT(initial_busy_count);
+
    // addr=0  MAP_FIXED should fail
    void* area = mmap(0, area_sz, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
    ASSERT_EQ(MAP_FAILED, area);
@@ -100,13 +108,13 @@ TEST mmap_fixed_basic()
 
    area = mmap(0, area_sz, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, area);
-   ASSERT_MMAPS_COUNT(3);
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    errno = 0;
    inside = area + offset1;
    fixed = mmap(inside, insert1_sz, rw, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
    ASSERT_EQ_FMT(inside, fixed, "%p");
-   ASSERT_MMAPS_COUNT(5);
+   ASSERT_MMAPS_CHANGE(3, initial_busy_count);
 
    inside = area + offset1 + insert1_sz;   // this goes over the end of existing range
    fixed = mmap(inside, area_sz - insert1_sz, rw, MAP_FIXED | MAP_PRIVATE, -1, 0);
@@ -121,10 +129,10 @@ TEST mmap_fixed_basic()
    inside = area + offset1 + insert1_sz;
    fixed = mmap(inside, area_sz - insert1_sz - offset1, rw, MAP_FIXED | flags, -1, 0);
    ASSERT_EQ(inside, fixed);
-   ASSERT_MMAPS_COUNT(3);   // stack and our rw map should have merged
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    munmap(area, area_sz);
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
    PASS();
 }
 
@@ -133,41 +141,43 @@ TEST mmap_fixed_basic()
 TEST mmap_fixed_concat_both_sides()
 {
    void *inside, *fixed, *area;
+   int initial_busy_count;
 
    if (greatest_get_verbosity() > 0) {
       printf("==== %s: Concat fixed on the both sides, but not to the full extent\n", __FUNCTION__);
    }
+   ASSERT_MMAPS_INIT(initial_busy_count);
    area = mmap(0, area_sz, PROT_NONE, flags, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, area);
-   ASSERT_MMAPS_COUNT(3);
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    inside = area + offset1;
    fixed = mmap(inside, insert1_sz, rw, MAP_FIXED | flags, -1, 0);
    ASSERT_EQ_FMT(inside, fixed, "%p");
-   ASSERT_MMAPS_COUNT(5);
+   ASSERT_MMAPS_CHANGE(3, initial_busy_count);
 
    inside = area + offset1 + insert1_sz;
    fixed = mmap(inside, area_sz - insert1_sz - offset1 - 10 * MIB, rw, MAP_FIXED | flags, -1, 0);
    ASSERT_EQ(inside, fixed);
-   ASSERT_MMAPS_COUNT(5);
+   ASSERT_MMAPS_CHANGE(3, initial_busy_count);
 
    fixed = mmap(area + 1 * MIB, offset1 - 1 * MIB, rw, MAP_FIXED | flags, -1, 0);
    ASSERT_EQ(area + 1 * MIB, fixed);
-   ASSERT_MMAPS_COUNT(5);
+   ASSERT_MMAPS_CHANGE(3, initial_busy_count);
 
    // fill the left gap
    fixed = mmap(area, 1 * MIB, rw, MAP_FIXED | flags, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, fixed);
-   ASSERT_MMAPS_COUNT(4);
+   ASSERT_MMAPS_CHANGE(2, initial_busy_count);
 
    // fill the right gap - it should merge all with prior map
    fixed =
        mmap(area + offset1 + insert1_sz, area_sz - offset1 - insert1_sz, rw, MAP_FIXED | flags, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, fixed);
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
 
    munmap(area, area_sz);
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
 
    PASS();
 }
@@ -176,13 +186,15 @@ TEST mmap_fixed_concat_both_sides()
 TEST mmap_fixed_over_multiple_regions()
 {
    void *inside, *fixed, *area;
+   int initial_busy_count;
 
    if (greatest_get_verbosity() > 0) {
       printf("==== %s: fixed map over multiple regions\n", __FUNCTION__);
    }
+   ASSERT_MMAPS_INIT(initial_busy_count);
    area = mmap(0, area_sz, PROT_NONE, flags, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, area);
-   ASSERT_MMAPS_COUNT(3);
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    size_t offset2 = offset1 + insert1_sz + 10 * MIB;
    size_t insert2_sz = 1 * MIB;
@@ -190,19 +202,19 @@ TEST mmap_fixed_over_multiple_regions()
    inside = area + offset1;
    fixed = mmap(inside, insert1_sz, rw, MAP_FIXED | flags, -1, 0);
    ASSERT_EQ_FMT(inside, fixed, "%p");
-   ASSERT_MMAPS_COUNT(5);
+   ASSERT_MMAPS_CHANGE(3, initial_busy_count);
 
    inside = area + offset2;
    fixed = mmap(inside, insert2_sz, rw, MAP_FIXED | flags, -1, 0);
    ASSERT_EQ_FMT(inside, fixed, "%p");
-   ASSERT_MMAPS_COUNT(7);
+   ASSERT_MMAPS_CHANGE(5, initial_busy_count);
 
    fixed = mmap(area + 10 * MIB, area_sz - 20 * MIB, rw, MAP_FIXED | flags, -1, 0);
    ASSERT_EQ_FMT(area + 10 * MIB, fixed, "%p");
-   ASSERT_MMAPS_COUNT(5);
+   ASSERT_MMAPS_CHANGE(3, initial_busy_count);
 
    munmap(area, area_sz);
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
    PASS();
 }
 
@@ -210,13 +222,15 @@ TEST mmap_fixed_over_multiple_regions()
 TEST mmap_fixed_incompat()
 {
    void *area, *insert;
+   int initial_busy_count;
 
    if (greatest_get_verbosity() > 0) {
       printf("==== %s: fixed map should fail over unallocated \n", __FUNCTION__);
    }
+   ASSERT_MMAPS_INIT(initial_busy_count);
    area = mmap(0, area_sz, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, area);
-   ASSERT_MMAPS_COUNT(3);
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    // grabbing something before tbrk
    errno = 0;
@@ -231,7 +245,9 @@ TEST mmap_fixed_incompat()
    // grabbing something too high, so it steps on Monitor reserved - KM only test
    if (KM_PAYLOAD() == 1) {
       errno = 0;
+get_maps(1);
       insert = mmap(area, area_sz + insert1_sz, rw, MAP_FIXED | flags, -1, 0);
+get_maps(1);
       ASSERT_EQ_FMT(MAP_FAILED, insert, "%p");
       ASSERT_EQ_FMT(EINVAL, errno, "%d");
    }
@@ -250,7 +266,7 @@ TEST mmap_fixed_incompat()
    }
 
    munmap(area, area_sz);
-   ASSERT_MMAPS_COUNT(2);
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
    PASS();
 }
 
@@ -263,7 +279,6 @@ int main(int argc, char** argv)
 
    RUN_TEST(mmap_overlap);
    RUN_TEST(mmap_mprotect_overlap);
-   ASSERT_MMAPS_COUNT(2);
    RUN_TEST(mmap_fixed_basic);
    RUN_TEST(mmap_fixed_concat_both_sides);
    RUN_TEST(mmap_fixed_over_multiple_regions);
