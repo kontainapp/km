@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -19,10 +19,6 @@
 #include <gelf.h>
 #include <stdint.h>
 
-#define KM_INT_TABL_SYM_NAME "__km_interrupt_table"
-#define KM_INT_HNDL_SYM_NAME "__km_handle_interrupt"
-#define KM_SIG_RTRN_SYM_NAME "__km_sigreturn"
-#define KM_SYSCALL_HAND_SYM_NAME "__km_syscall_handler"
 #define KM_DLOPEN_SYM_NAME "dlopen"
 
 #define KM_DYNLINKER_STR "__km_dynlink__"
@@ -33,17 +29,12 @@
 typedef struct km_payload {
    Elf64_Ehdr km_ehdr;                     // elf file header
    Elf64_Phdr* km_phdr;                    // elf program headers
-   Elf64_Addr km_handlers;                 // interrupt/exception handler
-   Elf64_Addr km_sigreturn;                // signal trampoline function
    Elf64_Addr km_dlopen;                   // dlopen() address to find link_map chain
    Elf64_Addr km_load_adjust;              // elf->guest vaddr adjustment
    char* km_filename;                      // elf file name
    Elf64_Addr km_interp_vaddr;             // interpreter name vaddr (if exist)
    Elf64_Off km_interp_len;                // interpreter name length (if exist)
    Elf64_Addr km_min_vaddr;                // minimum vaddr
-   Elf64_Addr km_interrupt_table;          // interrupt/exception handler table
-   Elf64_Addr km_interrupt_table_adjust;   // interrupt table adjustment
-   Elf64_Addr km_syscall_handler;          // system call handler
 } km_payload_t;
 
 typedef struct km_tls_module {

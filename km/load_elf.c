@@ -106,24 +106,10 @@ static void km_find_hook_symbols(Elf* e, km_gva_t adjust)
 
             gelf_getsym(data, i, &sym);
             if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_HNDL_SYM_NAME) == 0) {
-               km_guest.km_handlers = sym.st_value + adjust;
-            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SIG_RTRN_SYM_NAME) == 0) {
-               km_guest.km_sigreturn = sym.st_value + adjust;
-            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_DLOPEN_SYM_NAME) == 0) {
+                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_DLOPEN_SYM_NAME) == 0) {
                km_guest.km_dlopen = sym.st_value + adjust;
-            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT) &&
-                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_INT_TABL_SYM_NAME) == 0) {
-               km_guest.km_interrupt_table = sym.st_value + adjust;
-               km_guest.km_interrupt_table_adjust = adjust;
-            } else if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                       strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_SYSCALL_HAND_SYM_NAME) == 0) {
-               km_guest.km_syscall_handler = sym.st_value + adjust;
             }
-            if (km_guest.km_handlers != 0 && km_guest.km_sigreturn != 0 && km_guest.km_dlopen != 0 &&
-                km_guest.km_interrupt_table != 0 && km_guest.km_syscall_handler != 0) {
+            if (km_guest.km_dlopen != 0) {
                break;
             }
          }
@@ -278,18 +264,7 @@ uint64_t km_load_elf(const char* file)
    }
    km_guest.km_load_adjust = adjust;
 
-   /*
-    * For dynamically linked executables, the interrupt handlers etc are in the
-    * dynamic linker.  For static the interrupt handlers are part of the executable.
-    * Do this check after both the executable are loaded and the dynamic linker is
-    * loaded if needed.
-    */
-   if (km_guest.km_handlers == 0 || km_guest.km_sigreturn == 0) {
-      errx(1,
-           "Non-KM binary: cannot find interrupt handler%s or sigreturn%s. Trying to "
-           "run regular Linux executable in KM?",
-           km_guest.km_handlers == 0 ? "(*)" : "",
-           km_guest.km_sigreturn == 0 ? "(*)" : "");
-   }
+   // We need to verify the payload is a km executable, issue #512.
+
    return adjust;
 }

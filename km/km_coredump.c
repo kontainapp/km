@@ -109,7 +109,7 @@ km_core_write_load_header(int fd, off_t offset, km_gva_t base, size_t size, int 
 {
    Elf64_Phdr phdr = {};
 
-   km_infox(KM_TRACE_COREDUMP, "PT_LOAD: base=0x%lx size=0x%lx flags=0x%x", base, offset, flags);
+   km_infox(KM_TRACE_COREDUMP, "PT_LOAD: base=0x%lx offset=0x%lx flags=0x%x", base, offset, flags);
 
    phdr.p_type = PT_LOAD;
    phdr.p_offset = offset;
@@ -619,7 +619,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       }
       km_kma_t start = km_gva_to_kma_nocheck(ptr->start);
       // make sure we can read the mapped memory (e.g. it can be EXEC only)
-      if ((ptr->protection & PROT_READ) != PROT_READ) {
+      if (ptr->km_flags.km_mmap_part_of_monitor == 0 && (ptr->protection & PROT_READ) != PROT_READ) {
          if (mprotect(start, ptr->size, ptr->protection | PROT_READ) != 0) {
             km_err_msg(0, "failed to make %p,0x%lx readable for dump", start, ptr->size);
             errx(2, "exiting...");
@@ -627,7 +627,9 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       }
       km_guestmem_write(fd, ptr->start, ptr->size);
       // recover protection, in case it's a live coredump and we are not exiting yet
-      if (mprotect(start, ptr->size, ptr->protection) != 0) {
+      if (ptr->km_flags.km_mmap_part_of_monitor == 0 &&
+          (ptr->protection & PROT_READ) != PROT_READ &&
+          mprotect(start, ptr->size, ptr->protection) != 0) {
          km_err_msg(errno, "failed to set %p,0x%lx prot to 0x%x", start, ptr->size, ptr->protection);
          errx(2, "exiting...");
       }
