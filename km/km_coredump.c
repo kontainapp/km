@@ -490,10 +490,6 @@ static inline int km_core_count_phdrs(km_vcpu_t* vcpu, km_gva_t* endloadp)
       }
       phnum++;
    }
-   // Account for brk beyond elf segments.
-   if (endload != 0 && endload < machine.brk) {
-      phnum++;
-   }
 
    *endloadp = endload;
    return phnum;
@@ -518,10 +514,16 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
       if (km_guest.km_phdr[i].p_type != PT_LOAD) {
          continue;
       }
+      size_t wrsz = km_guest.km_phdr[i].p_memsz;
+      if (end_load != 0 && end_load < machine.brk &&
+          km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust + km_guest.km_phdr[i].p_memsz ==
+              end_load) {
+         wrsz += machine.brk - end_load;
+      }
       km_core_write_load_header(fd,
                                 *offsetp,
                                 km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
-                                km_guest.km_phdr[i].p_memsz,
+                                wrsz,
                                 km_guest.km_phdr[i].p_flags);
       *offsetp += km_guest.km_phdr[i].p_memsz;
    }
@@ -530,10 +532,17 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
          if (km_dynlinker.km_phdr[i].p_type != PT_LOAD) {
             continue;
          }
+         size_t wrsz = km_dynlinker.km_phdr[i].p_memsz;
+         if (end_load != 0 && end_load < machine.brk &&
+             km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust +
+                     km_dynlinker.km_phdr[i].p_memsz ==
+                 end_load) {
+            wrsz += machine.brk - end_load;
+         }
          km_core_write_load_header(fd,
                                    *offsetp,
                                    km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust,
-                                   km_dynlinker.km_phdr[i].p_memsz,
+                                   wrsz,
                                    km_dynlinker.km_phdr[i].p_flags);
          *offsetp += km_dynlinker.km_phdr[i].p_memsz;
       }
@@ -553,11 +562,6 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
                                 ptr->size,
                                 mmap_to_elf_flags[ptr->protection & 0x7]);
       *offsetp += ptr->size;
-   }
-   // HDR for space between end of elf load and brk
-   if (end_load != 0 && end_load < machine.brk) {
-      km_core_write_load_header(fd, *offsetp, end_load, machine.brk - end_load, PF_R | PF_W);
-      *offsetp += machine.brk - end_load;
    }
 }
 
@@ -627,8 +631,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       }
       km_guestmem_write(fd, ptr->start, ptr->size);
       // recover protection, in case it's a live coredump and we are not exiting yet
-      if (ptr->km_flags.km_mmap_part_of_monitor == 0 &&
-          (ptr->protection & PROT_READ) != PROT_READ &&
+      if (ptr->km_flags.km_mmap_part_of_monitor == 0 && (ptr->protection & PROT_READ) != PROT_READ &&
           mprotect(start, ptr->size, ptr->protection) != 0) {
          km_err_msg(errno, "failed to set %p,0x%lx prot to 0x%x", start, ptr->size, ptr->protection);
          errx(2, "exiting...");

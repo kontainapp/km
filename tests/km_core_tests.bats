@@ -564,7 +564,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'div0 ('
    # Check number of segments. Shoudl be 8
    nload=`readelf -l ${CORE} | grep LOAD | wc -l`
-   assert [ "${nload}" == "13" ]
+   assert [ "${nload}" == "12" ]
    rm -f ${CORE}
 
    # invalid opcode
