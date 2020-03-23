@@ -264,19 +264,7 @@ uint64_t km_load_elf(const char* file)
    }
    km_guest.km_load_adjust = adjust;
 
-#if 0
-   /*
-    * For dynamically linked executables, the interrupt handlers etc are in the
-    * dynamic linker.  For static the interrupt handlers are part of the executable.
-    * Do this check after both the executable are loaded and the dynamic linker is
-    * loaded if needed.
-    */
-   if (km_guest.km_sigreturn == 0) {
-      errx(1,
-           "Non-KM binary: cannot find sigreturn%s. Trying to "
-           "run regular Linux executable in KM?",
-           km_guest.km_sigreturn == 0 ? "(*)" : "");
-   }
-#endif
+   // We need to verify the payload is a km executable, issue #512.
+
    return adjust;
 }

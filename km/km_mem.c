@@ -296,8 +296,6 @@ static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
 static void km_add_code_to_guest_address_space(void)
 {
    kvm_mem_reg_t* reg;
-   km_gva_t virtaddr = GUEST_KMGUESTMEM_BASE_VA;
-   uint64_t physaddr = gva_to_gpa_nocheck(virtaddr);
    int idx;
 
    // km_guest pages must start on a page boundary and must be a multiple of the page size in length.
@@ -305,6 +303,8 @@ static void km_add_code_to_guest_address_space(void)
    assert((((uint64_t)&km_guest_end - (uint64_t)&km_guest_end) & (KM_PAGE_SIZE - 1)) == 0);
 
    // Map the km_guest pages into the guest physical address space
+   km_gva_t virtaddr = GUEST_KMGUESTMEM_BASE_VA;
+   uint64_t physaddr = gva_to_gpa_nocheck(virtaddr);
    reg = &machine.vm_mem_regs[KM_RSRV_KMGUESTMEM_SLOT];
    reg->slot = KM_RSRV_KMGUESTMEM_SLOT;
    reg->userspace_addr = (uint64_t)&km_guest_start;

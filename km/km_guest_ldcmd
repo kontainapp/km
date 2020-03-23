@@ -9,18 +9,18 @@
  */
 SECTIONS
 {
-   .km_guest_text ALIGN(CONSTANT (MAXPAGESIZE)) :
+   .km_guest_text ALIGN(CONSTANT (COMMONPAGESIZE)) :
    {
       km_guest_start = .;
       km_guest_text_start = .;
       *(.km_guest_text)
    }
-   .km_guest_data ALIGN(CONSTANT (MAXPAGESIZE)) :
+   .km_guest_data ALIGN(CONSTANT (COMMONPAGESIZE)) :
    {
       km_guest_data_start = .;
       *(.km_guest_data)
    }
-   . = ALIGN(CONSTANT (MAXPAGESIZE));
+   . = ALIGN(CONSTANT (COMMONPAGESIZE));
    km_guest_end = .;
 }
 INSERT AFTER .ldata
