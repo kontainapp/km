@@ -41,7 +41,8 @@ static inline void usage()
         "\t--verbose[=regexp] (-V[regexp])     - Verbose print where internal info tag matches "
         "'regexp'\n"
         "\t--gdb-server-port[=port] (-g[port]) - Enable gbd server listening on <port> (default 2159)\n"
-        "\t--wait-for-attach[=no|start|dynlink] - Wait for gdb client attach before running payload (default start)\n"
+        "\t--gdb-listen                        - gdb server listens for client while payload runs\n"
+        "\t--gdb-dynlink                       - gdb server waits for client attach before dyn link runs\n"
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--log-to=file_name                  - Stream stdout and stderr to file_name\n"
         "\t--putenv key=value                  - Add environment 'key' to payload\n"
@@ -86,6 +87,10 @@ static inline void show_version(void)
         BUILD_TIME);
 }
 
+// Option names we use elsewhere.
+#define GDB_LISTEN  "gdb-listen"
+#define GDB_DYNLINK "gdb-dynlink"
+
 static km_machine_init_params_t km_machine_init_params = {
     .force_pdpe1g = KM_FLAG_FORCE_ENABLE,
     .overcommit_memory = KM_FLAG_FORCE_DISABLE,
@@ -104,7 +109,8 @@ static struct option long_options[] = {
     {"putenv", required_argument, 0, 'e'},
     {"copyenv", no_argument, 0, 'E'},
     {"gdb-server-port", optional_argument, 0, 'g'},
-    {"wait-for-attach", optional_argument, 0, 'W'},
+    {GDB_LISTEN, no_argument, NULL, 0},
+    {GDB_DYNLINK, no_argument, NULL, 0},
     {"verbose", optional_argument, 0, 'V'},
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
     {"version", no_argument, 0, 'v'},
@@ -133,28 +139,18 @@ int main(int argc, char* const argv[])
    while ((opt = getopt_long(argc, argv, "+g::W::AV::P:vC:", long_options, &longopt_index)) != -1) {
       switch (opt) {
          case 0:
+            if (strcmp(long_options[longopt_index].name, GDB_LISTEN) == 0) {
+               gdbstub.wait_for_attach = GDB_DONT_WAIT_FOR_ATTACH;
+               km_gdb_enable(1);
+            } else if (strcmp(long_options[longopt_index].name, GDB_DYNLINK) == 0) {
+               gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_DYNLINK;
+               km_gdb_enable(1);
+            }
             /* If this option set a flag, do nothing else now. */
             if (long_options[longopt_index].flag != 0) {
                break;
             }
             // Put here handling of longopts which do not have related short opt
-            break;
-         case 'W':   // Where should we wait for the gdb client to attach?
-            if (optarg != NULL) {
-               if (strcmp(optarg, "no") == 0) {
-                  gdbstub.wait_for_attach = GDB_DONT_WAIT_FOR_ATTACH;
-               } else if (strcmp(optarg, "dynlink") == 0) {
-                  gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_DYNLINK;
-               } else if (strcmp(optarg, "start") == 0) {
-                  gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
-               } else {
-                  km_err_msg(0, "Unsupported wait-for-attach option: %s", optarg);
-                  usage();  // usage() will call exit()
-               }
-            } else {
-               gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
-            }
-            km_gdb_enable(1);
             break;
          case 'g':    // enable the gdb server and specify a port to listen on
             if (optarg != NULL) {

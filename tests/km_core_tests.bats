@@ -232,10 +232,13 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_success
 }
 
+# Both km instances run the gdb server but one can't successfully listen
+# for a gdb client connection so it proceeds without allowing a gdb client
+# to attach.
 @test "km_many($test_type): running multiple KMs (hello_test$ext)" {
-   ${KM_BIN} -g -Wno ${KM_ARGS} pthread_cancel_test$ext & # this will do a few sec wait internally
+   ${KM_BIN} -g --gdb-listen ${KM_ARGS} pthread_cancel_test$ext & # this will do a few sec wait internally
    sleep 1
-   run km_with_timeout -g -Wno hello_test$ext
+   run km_with_timeout -g --gdb-listen hello_test$ext
    assert_success
    assert_line --partial "disabling gdb support"
    wait %%
@@ -367,7 +370,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    km_gdb_default_port=2159
 
    # test with attach at dynamic linker entry point
-   km_with_timeout -g -Wdynlink stray_test$ext stray &
+   km_with_timeout -g --gdb-dynlink stray_test$ext stray &
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
       --ex="source cmd_for_sharedlib_test.gdb" --ex=q
    assert_success
@@ -409,7 +412,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    km_gdb_default_port=2159
 
    # test asynch gdb client attach to the target
-   km_with_timeout -g -Wno gdb_lots_of_threads_test$ext &
+   km_with_timeout -g --gdb-listen gdb_lots_of_threads_test$ext &
    run gdb_with_timeout -q -nx \
       --ex="target remote :$km_gdb_default_port" \
       --ex="source cmd_for_attach_test.gdb" --ex=q
