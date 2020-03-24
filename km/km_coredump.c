@@ -506,6 +506,15 @@ static inline int km_core_count_phdrs(km_vcpu_t* vcpu, km_gva_t* endloadp)
    return phnum;
 }
 
+/*
+ * We add the data upto machine.brk to PT_LOAD for the last loaded ELF segment.
+ * This allows snapshot restore to use mmapsince everything is page aligned.
+ */
+static inline int km_core_last_load_phdr(Elf64_Phdr* phdr, km_gva_t end_load)
+{
+   return phdr->p_vaddr + km_guest.km_load_adjust + phdr->p_memsz == end_load;
+}
+
 static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
                                        int fd,
                                        int phnum,
@@ -525,39 +534,34 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
       if (km_guest.km_phdr[i].p_type != PT_LOAD) {
          continue;
       }
-      size_t wrsz = km_guest.km_phdr[i].p_memsz;
-      if (end_load != 0 && end_load < machine.brk &&
-          km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust + km_guest.km_phdr[i].p_memsz ==
-              end_load) {
-         wrsz += machine.brk - end_load;
+      size_t write_size = km_guest.km_phdr[i].p_memsz;
+      if (km_core_last_load_phdr(&km_guest.km_phdr[i], end_load) != 0) {
+         write_size += machine.brk - end_load;
       }
       *offsetp = roundup(*offsetp, KM_PAGE_SIZE);
       km_core_write_load_header(fd,
                                 *offsetp,
                                 km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
-                                wrsz,
+                                write_size,
                                 km_guest.km_phdr[i].p_flags);
-      *offsetp += wrsz;
+      *offsetp += write_size;
    }
    if (km_dynlinker.km_filename != NULL) {
       for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
          if (km_dynlinker.km_phdr[i].p_type != PT_LOAD) {
             continue;
          }
-         size_t wrsz = km_dynlinker.km_phdr[i].p_memsz;
-         if (end_load != 0 && end_load < machine.brk &&
-             km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust +
-                     km_dynlinker.km_phdr[i].p_memsz ==
-                 end_load) {
-            wrsz += machine.brk - end_load;
+         size_t write_size = km_dynlinker.km_phdr[i].p_memsz;
+         if (km_core_last_load_phdr(&km_dynlinker.km_phdr[i], end_load) != 0) {
+            write_size += machine.brk - end_load;
          }
          *offsetp = roundup(*offsetp, KM_PAGE_SIZE);
          km_core_write_load_header(fd,
                                    *offsetp,
                                    km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust,
-                                   wrsz,
+                                   write_size,
                                    km_dynlinker.km_phdr[i].p_flags);
-         *offsetp += wrsz;
+         *offsetp += write_size;
       }
    }
    // Headers for MMAPs
@@ -615,13 +619,11 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
       if (km_guest.km_phdr[i].p_type != PT_LOAD) {
          continue;
       }
-      size_t wrsz = km_guest.km_phdr[i].p_memsz;
-      if (end_load != 0 && end_load < machine.brk &&
-          km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust + km_guest.km_phdr[i].p_memsz ==
-              end_load) {
-         wrsz += machine.brk - end_load;
+      size_t write_size = km_guest.km_phdr[i].p_memsz;
+      if (km_core_last_load_phdr(&km_guest.km_phdr[i], end_load) != 0) {
+         write_size += machine.brk - end_load;
       }
-      km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust, wrsz);
+      km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust, write_size);
    }
    if (km_dynlinker.km_filename != NULL) {
       km_infox(KM_TRACE_COREDUMP, "Dump dynlinker");
@@ -629,14 +631,11 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
          if (km_dynlinker.km_phdr[i].p_type != PT_LOAD) {
             continue;
          }
-         size_t wrsz = km_dynlinker.km_phdr[i].p_memsz;
-         if (end_load != 0 && end_load < machine.brk &&
-             km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust +
-                     km_dynlinker.km_phdr[i].p_memsz ==
-                 end_load) {
-            wrsz += machine.brk - end_load;
+         size_t write_size = km_dynlinker.km_phdr[i].p_memsz;
+         if (km_core_last_load_phdr(&km_dynlinker.km_phdr[i], end_load) != 0) {
+            write_size += machine.brk - end_load;
          }
-         km_guestmem_write(fd, km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust, wrsz);
+         km_guestmem_write(fd, km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust, write_size);
       }
    }
    km_infox(KM_TRACE_COREDUMP, "Dump mmaps");
@@ -660,13 +659,6 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
          errx(2, "exiting...");
       }
    }
-#if 0
-   // Data for space between end of elf load and brk
-   if (end_load != 0 && end_load < machine.brk) {
-      km_infox(KM_TRACE_COREDUMP, "Dump brk area");
-      km_guestmem_write(fd, end_load, machine.brk - end_load);
-   }
-#endif
 
    free(notes_buffer);
    (void)close(fd);
