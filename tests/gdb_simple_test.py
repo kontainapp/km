@@ -11,19 +11,18 @@
 import gdb
 import pylint
 
-func = "km_fs_prw"
-total_count = 0
-special_fd = -2020
-busy_mmaps = '1'
-free_mmaps = '2'
-total_mmaps = '3'
+FUNC = "km_fs_prw"
+SPECIAL_FD = -2020
+BUSY_MMAPS = '1'
+FREE_MMAPS = '2'
+TOTAL_MMAPS = '3'
 
 
 def bp_handler(event):
-    if event.breakpoint.location == func:
+    if event.breakpoint.location == FUNC:
         gdb.write("Special bp hit\n")
         fd_val = gdb.parse_and_eval("fd")
-        if fd_val == special_fd:
+        if fd_val == SPECIAL_FD:
             t = str(gdb.parse_and_eval("(char*)buf"))
             address = gdb.parse_and_eval("buf")
             tsplit = t.split(",")
@@ -54,8 +53,10 @@ def register_bp_handler():
 
 
 def set_breakpoint():
-    gdb.Breakpoint(func)
-    print("breakpoint at:", func)
+    gdb.Breakpoint(FUNC
+                   )
+    print("breakpoint at:", FUNC
+          )
 
 
 def run():
@@ -67,13 +68,13 @@ def run():
 def query_mmaps(query, verbosity, expected_count):
     inferior = gdb.selected_inferior()
 
-    if query == busy_mmaps:
+    if query == BUSY_MMAPS:
         mmap = gdb.parse_and_eval("&machine.mmaps.busy")
         ret = count_mmaps(mmap, verbosity)
-    elif query == free_mmaps:
+    elif query == FREE_MMAPS:
         mmap = gdb.parse_and_eval("&machine.mmaps.free")
         ret = count_mmaps(mmap, verbosity)
-    elif query == total_mmaps:
+    elif query == TOTAL_MMAPS:
         mmap = gdb.parse_and_eval("&machine.mmaps.free")
         ret = count_mmaps(mmap, verbosity)
         mmap = gdb.parse_and_eval("&machine.mmaps.busy")
@@ -87,6 +88,7 @@ def query_mmaps(query, verbosity, expected_count):
     if ret == expected_count:
         gdb.execute("return 0")
     else:
+        # ENOPIPE ernno = 29
         gdb.execute("return -29")
 
 
@@ -94,10 +96,13 @@ def count_mmaps(tailq, verbosity):
     tq = tailq["tqh_first"]
     le = tq["start"]
     count = 0
-    if verbosity == 1:
-        print_tailq(tailq)
     while tq:
         count = count + 1
+        if verbosity == 1:
+            distance = tq['start'] - le
+            print(
+                f"{counter}  {tq} start={tq['start']} next={tq['link']['tqe_next']} size={tq['size']} prot={tq['protection']} flags={tq['flags']} fn={tq['filename']} km_fl={tq['km_flags']['data32']} distance= {distance}")
+            le = tq["start"] + tq["size"]
         tq = tq["link"]["tqe_next"]
     return count
 

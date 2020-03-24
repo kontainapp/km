@@ -23,9 +23,9 @@ int in_gdb = 1;
 
 extern int main(int argc, char** argv);
 #define KM_PAYLOAD() ((uint64_t)&main < 4 * MIB)   // in KM, we load from 2Mb, In Linux, from 4MB
-#define ASSERT_MMAPS_COUNT(expected_count, query)                                                  \
+#define ASSERT_MMAPS_COUNT(_expected_count, _query)                                                \
    {                                                                                               \
-      int ret = maps_count(expected_count, query);                                                 \
+      int ret = maps_count(_expected_count, _query);                                               \
       ASSERT_NOT_EQ(ret, -1);                                                                      \
    }
 
@@ -39,7 +39,9 @@ int maps_count(expected_count, query)
    sprintf(read_check_result, "%i,%i,%i", query, verbosity, expected_count);
    int ret = read(-2020, read_check_result, sizeof(read_check_result));
    if (ret == -1 && errno == EBADF) {
-      fprintf(stderr, "\nPlease run this test in gdb\n");
+      fprintf(stderr,
+              "\nWarning: Ignoring map counts. Please run this test in gdb to validate mmap "
+              "counts\n");
       in_gdb = 0;
       return 0;
    }
