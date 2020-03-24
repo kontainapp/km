@@ -20,7 +20,7 @@ VERSION_SRC := km_main.c # it has branch/version info, so rebuild it if git info
 INCLUDES := ${TOP}/include
 LLIBS := elf z
 COVERAGE := yes
-LDOPTS := -Wl,--script=km_guest_ldcmd
+LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd
 
 include ${TOP}/make/actions.mk
 
