@@ -1276,6 +1276,22 @@ static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
+km_hc_stats_t* km_hcalls_stats;
+
+static void km_print_hcall_stats(void)
+{
+   for (int hc = 0; hc < KM_MAX_HCALL; hc++) {
+      if (km_hcalls_stats[hc].count != 0) {
+         printf("%24s(%3d) called\t %9ld times, latency msecs %9ld avg %9ld min %9ld max\n",
+                km_hc_name_get(hc),
+                hc,
+                km_hcalls_stats[hc].count,
+                km_hcalls_stats[hc].total / km_hcalls_stats[hc].count / 1000,
+                km_hcalls_stats[hc].min / 1000,
+                km_hcalls_stats[hc].max / 1000);
+      }
+   }
+}
 
 void km_hcalls_init(void)
 {
@@ -1405,6 +1421,16 @@ void km_hcalls_init(void)
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_km_unittest] = km_unittest_hcall;
    km_hcalls_table[HC_unmapself] = unmapself_hcall;
+
+   if (km_collect_hc_stats == 1) {
+      if ((km_hcalls_stats = calloc(KM_MAX_HCALL, sizeof(km_hc_stats_t))) == NULL) {
+         err(1, "KVM: no memory for hcall stats");
+      }
+      for (int i = 0; i < KM_MAX_HCALL; i++) {
+         km_hcalls_stats[i].min = UINT64_MAX;
+      }
+      atexit(km_print_hcall_stats);
+   }
 }
 
 void km_hcalls_fini(void)

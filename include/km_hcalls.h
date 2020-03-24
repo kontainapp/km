@@ -48,8 +48,15 @@ typedef enum {
 typedef km_hc_ret_t (*km_hcall_fn_t)(void* vcpu,
                                      int hc __attribute__((__unused__)),
                                      km_hc_args_t* guest_addr);
+typedef struct {
+   uint64_t count;   // times called
+   uint64_t total;   // usecs in hypercall
+   uint64_t min;     // min usecs
+   uint64_t max;     // max usecs
+} km_hc_stats_t;
 
 extern km_hcall_fn_t km_hcalls_table[];
+extern km_hc_stats_t* km_hcalls_stats;
 
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
