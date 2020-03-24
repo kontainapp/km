@@ -40,9 +40,11 @@ static inline void usage()
         "\nOptions:\n"
         "\t--verbose[=regexp] (-V[regexp])     - Verbose print where internal info tag matches "
         "'regexp'\n"
-        "\t--gdb-server-port[=port] (-g[port]) - Enable gbd server listening on <port> (default 2159)\n"
+        "\t--gdb-server-port[=port] (-g[port]) - Enable gbd server listening on <port> (default "
+        "2159)\n"
         "\t--gdb-listen                        - gdb server listens for client while payload runs\n"
-        "\t--gdb-dynlink                       - gdb server waits for client attach before dyn link runs\n"
+        "\t--gdb-dynlink                       - gdb server waits for client attach before dyn "
+        "link runs\n"
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--log-to=file_name                  - Stream stdout and stderr to file_name\n"
         "\t--putenv key=value                  - Add environment 'key' to payload\n"
@@ -55,6 +57,7 @@ static inline void usage()
         "\t                                      See 'sysctl vm.overcommit_memory'\n"
         "\t--dynlinker=file_name               - Set dynamic linker file (default: "
         "/opt/kontain/lib64/libc.so)\n"
+        "\t--hcall-stats                       - Collect and print hypercall stats\n"
 
         "\n\tOverride auto detection:\n"
         "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. "
@@ -88,7 +91,7 @@ static inline void show_version(void)
 }
 
 // Option names we use elsewhere.
-#define GDB_LISTEN  "gdb-listen"
+#define GDB_LISTEN "gdb-listen"
 #define GDB_DYNLINK "gdb-dynlink"
 
 static km_machine_init_params_t km_machine_init_params = {
@@ -115,6 +118,7 @@ static struct option long_options[] = {
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
     {"version", no_argument, 0, 'v'},
     {"dynlinker", required_argument, 0, 'L'},
+    {"hcall-stats", no_argument, 0, 'S'},
 
     {0, 0, 0, 0},
 };
@@ -136,7 +140,7 @@ int main(int argc, char* const argv[])
    km_gdbstub_init();
 
    assert(envp != NULL);
-   while ((opt = getopt_long(argc, argv, "+g::W::AV::P:vC:", long_options, &longopt_index)) != -1) {
+   while ((opt = getopt_long(argc, argv, "+g::AV::P:vC:S", long_options, &longopt_index)) != -1) {
       switch (opt) {
          case 0:
             if (strcmp(long_options[longopt_index].name, GDB_LISTEN) == 0) {
@@ -152,7 +156,7 @@ int main(int argc, char* const argv[])
             }
             // Put here handling of longopts which do not have related short opt
             break;
-         case 'g':    // enable the gdb server and specify a port to listen on
+         case 'g':   // enable the gdb server and specify a port to listen on
             if (optarg != NULL) {
                char* endp = NULL;
                errno = 0;
@@ -166,7 +170,8 @@ int main(int argc, char* const argv[])
             }
             km_gdb_port_set(port);
             km_gdb_enable(1);
-            if (gdbstub.wait_for_attach == GDB_WAIT_FOR_ATTACH_UNSPECIFIED) {  // wait at _start by default
+            if (gdbstub.wait_for_attach ==
+                GDB_WAIT_FOR_ATTACH_UNSPECIFIED) {   // wait at _start by default
                gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
             }
             break;
@@ -178,7 +183,8 @@ int main(int argc, char* const argv[])
          case 'e':   // --putenv
             putenv_used++;
             if (copyenv_used != 0) {
-               warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
+               warnx("Wrong options: '--copyenv' cannot be used with together with "
+                     "'--putenv'");
                usage();
             }
             envp[envc - 1] = optarg;
@@ -194,7 +200,8 @@ int main(int argc, char* const argv[])
                break;
             }
             if (putenv_used != 0) {
-               warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
+               warnx("Wrong options: '--copyenv' cannot be used with together with "
+                     "'--putenv'");
                usage();
             }
             for (envc = 0; __environ[envc] != NULL; envc++) {
@@ -242,6 +249,9 @@ int main(int argc, char* const argv[])
             break;
          case 'L':
             km_dynlinker_file = optarg;
+            break;
+         case 'S':
+            km_collect_hc_stats = 1;
             break;
          case '?':
          default:
