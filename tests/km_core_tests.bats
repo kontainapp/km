@@ -561,6 +561,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_failure 8 # SIGFPE
    echo $output | grep -F 'Floating point exception (core dumped)'
    assert [ -f ${CORE} ]
+   check_kmcore ${CORE}
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'div0 ('
    # Check number of segments. Shoudl be 8
    nload=`readelf -l ${CORE} | grep LOAD | wc -l`
@@ -573,6 +574,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_failure 4 # SIGILL
    echo $output | grep -F 'Illegal instruction (core dumped)'
    assert [ -f ${CORE} ]
+   check_kmcore ${CORE}
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'undefined_op ('
    rm -f ${CORE}
 
@@ -582,6 +584,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_failure 11 # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    assert [ -f ${CORE} ]
+   check_kmcore ${CORE}
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'stray_reference ('
    rm -f ${CORE}
 
@@ -591,6 +594,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_failure 31 # SIGSYS
    echo $output | grep -F 'Bad system call (core dumped)'
    assert [ -f ${CORE} ]
+   check_kmcore ${CORE}
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'main ('
    rm -f ${CORE}
 
@@ -600,6 +604,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_failure 11  # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    [ -f ${CORE} ]
+   check_kmcore ${CORE}
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'write_text ('
    assert rm -f ${CORE}
 
@@ -609,6 +614,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_failure 6  # SIGABRT
    echo $output | grep -F 'Aborted (core dumped)'
    assert [ -f ${CORE} ]
+   check_kmcore ${CORE}
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'abort ('
    rm -f ${CORE}
 
@@ -618,6 +624,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_failure 3  # SIGQUIT
    echo $output | grep -F 'Quit (core dumped)'
    assert [ -f ${CORE} ]
+   check_kmcore ${CORE}
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'kill ('
    rm -f ${CORE}
 
@@ -767,6 +774,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_failure 6  # SIGABRT
    assert_output --partial "Aborted (core dumped)"
    assert [ -f ${CORE} ]
+   check_kmcore ${CORE}
    rm -f ${FILE} ${CORE}
 }
 

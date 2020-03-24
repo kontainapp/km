@@ -184,3 +184,8 @@ skip_if_needed() {
       return
    fi
 }
+
+# ensure all LOAD regions in a core file are at page aligned offsets
+check_kmcore() {
+   readelf -l $1 | grep LOAD | awk '{if (substr($2, length($2)-2) != "000") exit 1}'
+}
