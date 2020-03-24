@@ -116,7 +116,7 @@ ci-run-tests:
 	make -C $(TOP)/$(LOCATION) test-withk8s
 	kubectl wait --for=condition=Ready --timeout=2m $(POD_NAME)
 	kubectl logs -f $(POD_NAME)
-	@if [[ "$$(kubectl get ${POD_NAME} -o 'jsonpath={..terminated.exitCode}')" != "0" ]] ; then \
+	if [[ "$$(kubectl get ${POD_NAME} -o 'jsonpath={.status.phase}')" != "Succeeded" ]] ; then \
 		echo "##vso[task.logissue type=error]$@ failed in pod '${POD_NAME}' , LOCATION=$(LOCATION)" ; \
 		exit 1; \
 	fi
