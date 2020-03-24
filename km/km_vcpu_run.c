@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include "km.h"
@@ -29,6 +30,7 @@
 #include "km_signal.h"
 
 int vcpu_dump = 0;
+int km_collect_hc_stats = 0;
 
 /*
  * run related err and errx - get regs, print RIP and the supplied message
@@ -436,6 +438,19 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
       km_post_signal(vcpu, &info);
       return -1;
    }
+   if (km_collect_hc_stats) {
+      struct timespec start, stop;
+      km_hc_stats_t* hstat = &km_hcalls_stats[*hc];
+      clock_gettime(CLOCK_MONOTONIC, &start);
+      km_hc_ret_t ret = km_hcalls_table[*hc](vcpu, *hc, ga_kma);
+      clock_gettime(CLOCK_MONOTONIC, &stop);
+      uint64_t msecs = (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec;
+      hstat->min = MIN(msecs, hstat->min);
+      hstat->max = MAX(msecs, hstat->max);
+      hstat->total += msecs;
+      hstat->count++;
+      return ret;
+   }
    return km_hcalls_table[*hc](vcpu, *hc, ga_kma);
 }
 
@@ -493,8 +508,8 @@ static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unu
 
 /*
  * Call ioctl(KVM_RUN) once, and handles error return from ioctl.
- * Returns 0 on success -1 on ioctl error (an indication that normal exit_reason handling should be
- * skipped upstairs)
+ * Returns 0 on success -1 on ioctl error (an indication that normal exit_reason handling should
+ * be skipped upstairs)
  */
 static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 {
@@ -578,10 +593,10 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
     *
     * In case of gdb the stub will set .pause_requested to 0 and broadcast the cv. The threads
     * then re-evaluate if they can run. gdb stub conveys desired run state in the .gdb_run_state.
-    * It can allow all threads to run (gdb continue); or pause all but one, which will be stepping
-    * (gdb next or step). gdb stub changes these fields *only* when .pause_requested is set to 1,
-    * hence it is safe to check them here, even though gdb stub doesn't keep the pause_mtx lock when
-    * changing them.
+    * It can allow all threads to run (gdb continue); or pause all but one, which will be
+    * stepping (gdb next or step). gdb stub changes these fields *only* when .pause_requested is
+    * set to 1, hence it is safe to check them here, even though gdb stub doesn't keep the
+    * pause_mtx lock when changing them.
     */
    km_mutex_lock(&machine.pause_mtx);
    while (machine.pause_requested == 1 || (km_gdb_client_is_attached() != 0 &&
@@ -634,11 +649,11 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                case HC_STOP:
                   /*
                    * This thread has executed pthread_exit() or SYS_exit and is terminating. If
-                   * there is more than one thread and all of the other threads are paused we need
-                   * to let gdb know that this thread is gone so that it can give the user a chance
-                   * to get at least one of the other threads going. We need to wake gdb before
-                   * calling km_vcpu_stopped() because km_vcpu_stopped() will block until a new
-                   * thread is created and reuses this vcpu.
+                   * there is more than one thread and all of the other threads are paused we
+                   * need to let gdb know that this thread is gone so that it can give the user a
+                   * chance to get at least one of the other threads going. We need to wake gdb
+                   * before calling km_vcpu_stopped() because km_vcpu_stopped() will block until
+                   * a new thread is created and reuses this vcpu.
                    */
                   km_info(KM_TRACE_KVM,
                           "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: hypercall %d stop",
@@ -693,8 +708,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                 * To find out which breakpoint fired we need to look into this processors kvm_run
                 * structure. In particular the kvm_debug_exit_arch structure. We use the pseudo
                 * signal GDB_KMSIGNAL_KVMEXIT to cause the gdb payload handler to look into the
-                * vcpu's kvm_run structure to figure out what has happened so that it can generate
-                * the correct gdb stop reply.
+                * vcpu's kvm_run structure to figure out what has happened so that it can
+                * generate the correct gdb stop reply.
                 */
                km_gdb_notify(vcpu, GDB_KMSIGNAL_KVMEXIT);
             } else {
