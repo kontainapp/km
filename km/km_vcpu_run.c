@@ -508,8 +508,8 @@ static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unu
 
 /*
  * Call ioctl(KVM_RUN) once, and handles error return from ioctl.
- * Returns 0 on success -1 on ioctl error (an indication that normal exit_reason handling should
- * be skipped upstairs)
+ * Returns 0 on success -1 on ioctl error (an indication that normal exit_reason handling should be
+ * skipped upstairs)
  */
 static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 {
@@ -591,12 +591,11 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
     * vcpu threads pause in cv_wait below. In case of exit_grp() and fatal signal they never run
     * again as we are exiting.
     *
-    * In case of gdb the stub will set .pause_requested to 0 and broadcast the cv. The threads
-    * then re-evaluate if they can run. gdb stub conveys desired run state in the .gdb_run_state.
-    * It can allow all threads to run (gdb continue); or pause all but one, which will be
-    * stepping (gdb next or step). gdb stub changes these fields *only* when .pause_requested is
-    * set to 1, hence it is safe to check them here, even though gdb stub doesn't keep the
-    * pause_mtx lock when changing them.
+    * In case of gdb the stub will set .pause_requested to 0 and broadcast the cv. The threads then
+    * re-evaluate if they can run. gdb stub conveys desired run state in the .gdb_run_state. It can
+    * allow all threads to run (gdb continue); or pause all but one, which will be stepping (gdb next
+    * or step). gdb stub changes these fields *only* when .pause_requested is set to 1, hence it is
+    * safe to check them here, even though gdb stub doesn't keep the pause_mtx lock when changing them.
     */
    km_mutex_lock(&machine.pause_mtx);
    while (machine.pause_requested == 1 || (km_gdb_client_is_attached() != 0 &&
@@ -649,11 +648,11 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                case HC_STOP:
                   /*
                    * This thread has executed pthread_exit() or SYS_exit and is terminating. If
-                   * there is more than one thread and all of the other threads are paused we
-                   * need to let gdb know that this thread is gone so that it can give the user a
-                   * chance to get at least one of the other threads going. We need to wake gdb
-                   * before calling km_vcpu_stopped() because km_vcpu_stopped() will block until
-                   * a new thread is created and reuses this vcpu.
+                   * there is more than one thread and all of the other threads are paused we need
+                   * to let gdb know that this thread is gone so that it can give the user a chance
+                   * to get at least one of the other threads going. We need to wake gdb before
+                   * calling km_vcpu_stopped() because km_vcpu_stopped() will block until a new
+                   * thread is created and reuses this vcpu.
                    */
                   km_info(KM_TRACE_KVM,
                           "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: hypercall %d stop",
@@ -708,17 +707,17 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                 * To find out which breakpoint fired we need to look into this processors kvm_run
                 * structure. In particular the kvm_debug_exit_arch structure. We use the pseudo
                 * signal GDB_KMSIGNAL_KVMEXIT to cause the gdb payload handler to look into the
-                * vcpu's kvm_run structure to figure out what has happened so that it can
-                * generate the correct gdb stop reply.
+                * vcpu's kvm_run structure to figure out what has happened so that it can generate
+                * the correct gdb stop reply.
                 */
                km_gdb_notify(vcpu, GDB_KMSIGNAL_KVMEXIT);
             } else {
                /*
                 * We got a KVM_EXIT_DEBUG but gdb is disabled.
                 * This can happen if the gdb client disconnects the connection to the gdb server
-                * because the gdb server sent something unexpected.  We should try to continue on
-                * here.  But, we also need to understand what the gdb server did to upset the gdb
-                * client and fix that too.
+                * because the gdb server sent something unexpected.  We should try to continue on here.
+                * But, we also need to understand what the gdb server did to upset the gdb client
+                * and fix that too.
                 */
                run_warn("KVM: vcpu-%d debug exit while gdb is disabled, gdb_run_state %d, "
                         "pause_requested %d",
@@ -771,6 +770,12 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    }
 }
 
+// docker stop sends this. Need to do exit() to call atexit callbacks
+static void km_term_handler(int signo, siginfo_t* unused, void* ucontext_unused)
+{
+   exit(0);
+}
+
 /*
  * Main vcpu in presence of gdb needs to pause before entering guest main() and wait for gdb
  * client connection. The client will control the execution by continue or step commands.
@@ -782,6 +787,7 @@ void* km_vcpu_run_main(km_vcpu_t* unused)
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
    km_install_sighandler(SIGPIPE, km_forward_fd_signal);
    km_install_sighandler(SIGIO, km_forward_fd_signal);
+   km_install_sighandler(SIGTERM, km_term_handler);
 
    while (eventfd_write(machine.intr_fd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
       ;   // ignore signals during the write

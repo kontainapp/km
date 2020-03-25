@@ -1272,9 +1272,7 @@ static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    arg->hc_ret = -ENOTSUP;
    return HC_CONTINUE;
 }
-/*
- * Maximum hypercall number, defines the size of the km_hcalls_table
- */
+
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 km_hc_stats_t* km_hcalls_stats;
 
@@ -1282,7 +1280,7 @@ static void km_print_hcall_stats(void)
 {
    for (int hc = 0; hc < KM_MAX_HCALL; hc++) {
       if (km_hcalls_stats[hc].count != 0) {
-         printf("%24s(%3d) called\t %9ld times, latency msecs %9ld avg %9ld min %9ld max\n",
+         printf("%24s(%3d) called\t %9ld times, latency usecs %9ld avg %9ld min %9ld max\n",
                 km_hc_name_get(hc),
                 hc,
                 km_hcalls_stats[hc].count,
