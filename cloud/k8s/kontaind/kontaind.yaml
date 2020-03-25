@@ -33,10 +33,15 @@ spec:
             mountPath: /var/lib/kubelet/device-plugins
       initContainers:
       - name: kontain-installer
-        image: docker.io/kontainapp/runenv-kontain-installer:latest
+        image: kontainkubecr.azurecr.io/runenv-kontain-installer
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
         volumeMounts:
           - name: install-path
             mountPath: /opt
+          - name: kvm-device
+            mountPath: /dev/kvm
       volumes:
         - name: device-plugin
           hostPath:
@@ -44,3 +49,6 @@ spec:
         - name: install-path
           hostPath:
             path: /opt
+        - name: kvm-device
+          hostPath:
+            path: /dev/kvm

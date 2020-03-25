@@ -14,8 +14,9 @@ schedules:
 variables:
   VM_IMAGE: "ubuntu-18.04"
   CLUSTER_NAME: "aks-kontain-ci-nightly-$(Build.BuildId)"
-  # Choose a vm size to avoid the vcpu quota on azure.
-  VM_SIZE: "Standard_D2_v3"
+  VM_SIZE: "Standard_D2_v3" # choose a vm size to avoid the vcpu quota on azure
+  BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
+  IMAGE_VERSION: ci-nightly-$(Build.BuildId) # use this for all other containers
   # TRACE: true
 
 pool:
@@ -26,6 +27,10 @@ steps:
 
 - bash: cloud/azure/aks_ci_create.sh $(CLUSTER_NAME) $(SP_appId) $(SP_password)
   displayName: Create k8s Cluster
+
+- bash: |
+    make -C cloud/k8s/kontaind install
+  displayName: deploy and verify kontaind
 
 - bash: cloud/azure/aks_ci_destroy.sh $(CLUSTER_NAME)
   displayName: Tear down k8s Cluster
