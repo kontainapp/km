@@ -510,9 +510,12 @@ static inline int km_core_count_phdrs(km_vcpu_t* vcpu, km_gva_t* endloadp)
  * We add the data upto machine.brk to PT_LOAD for the last loaded ELF segment.
  * This allows snapshot restore to use mmapsince everything is page aligned.
  */
-static inline int km_core_last_load_phdr(Elf64_Phdr* phdr, km_gva_t end_load)
+static inline int km_core_last_load_adjust(Elf64_Phdr* phdr, km_gva_t end_load)
 {
-   return phdr->p_vaddr + km_guest.km_load_adjust + phdr->p_memsz == end_load;
+   if (phdr->p_vaddr + km_guest.km_load_adjust + phdr->p_memsz == end_load) {
+      return machine.brk - end_load;
+   }
+   return 0;
 }
 
 static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
@@ -535,9 +538,7 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
          continue;
       }
       size_t write_size = km_guest.km_phdr[i].p_memsz;
-      if (km_core_last_load_phdr(&km_guest.km_phdr[i], end_load) != 0) {
-         write_size += machine.brk - end_load;
-      }
+      write_size += km_core_last_load_adjust(&km_guest.km_phdr[i], end_load);
       *offsetp = roundup(*offsetp, KM_PAGE_SIZE);
       km_core_write_load_header(fd,
                                 *offsetp,
@@ -552,9 +553,7 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
             continue;
          }
          size_t write_size = km_dynlinker.km_phdr[i].p_memsz;
-         if (km_core_last_load_phdr(&km_dynlinker.km_phdr[i], end_load) != 0) {
-            write_size += machine.brk - end_load;
-         }
+         write_size += km_core_last_load_adjust(&km_dynlinker.km_phdr[i], end_load);
          *offsetp = roundup(*offsetp, KM_PAGE_SIZE);
          km_core_write_load_header(fd,
                                    *offsetp,
@@ -620,9 +619,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
          continue;
       }
       size_t write_size = km_guest.km_phdr[i].p_memsz;
-      if (km_core_last_load_phdr(&km_guest.km_phdr[i], end_load) != 0) {
-         write_size += machine.brk - end_load;
-      }
+      write_size += km_core_last_load_adjust(&km_guest.km_phdr[i], end_load);
       km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust, write_size);
    }
    if (km_dynlinker.km_filename != NULL) {
@@ -632,9 +629,7 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
             continue;
          }
          size_t write_size = km_dynlinker.km_phdr[i].p_memsz;
-         if (km_core_last_load_phdr(&km_dynlinker.km_phdr[i], end_load) != 0) {
-            write_size += machine.brk - end_load;
-         }
+         write_size += km_core_last_load_adjust(&km_dynlinker.km_phdr[i], end_load);
          km_guestmem_write(fd, km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust, write_size);
       }
    }
