@@ -12,6 +12,6 @@ nameSuffix: -azure-demo
 # see https://kubectl.docs.kubernetes.io/pages/app_management/container_images.html
 images:
   - name: "dweb-km"
-    newName: docker.io/kontainapp/runenv-dweb
+    newName: kontainkubecr.azurecr.io/runenv-dweb
     newTag: latest
 

@@ -17,6 +17,12 @@ steps:
       lscpu
     displayName: Print build environment info
 
+  - bash: |
+      curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+      sudo cp kustomize /usr/local/bin/kustomize
+      which kustomize
+    displayName: Install kustomize
+
   - bash: make -C cloud/azure login-cli
       SP_APPID=$(SP_appId) SP_PASSWORD=$(SP_password) SP_TENANT=$(SP_tenant) SP_DISPLAYNAME=$(SP_displayName)
     displayName: Login to Azure, container registry and Kubernetes
