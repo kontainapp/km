@@ -14,9 +14,13 @@ schedules:
 variables:
   VM_IMAGE: "ubuntu-18.04"
   CLUSTER_NAME: "aks-kontain-ci-nightly-$(Build.BuildId)"
-  VM_SIZE: "Standard_D2_v3" # choose a vm size to avoid the vcpu quota on azure
+  VM_SIZE: "Standard_D4_v3" # choose a vm size to avoid the vcpu quota on azure
   BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
   IMAGE_VERSION: ci-nightly-$(Build.BuildId) # use this for all other containers
+  # TODO: what to do with different DTYPE?
+  pod_test_km: "pod/test-km-fedora-ci-nightly-$(Build.BuildId)"
+  pod_test_node: "pod/test-node-fedora-ci-nightly-$(Build.BuildId)"
+  pod_test_python: "pod/test-python-fedora-ci-nightly-$(Build.BuildId)"
   # TRACE: true
 
 pool:
@@ -25,12 +29,16 @@ pool:
 steps:
 - template: templates/setup.yaml
 
+- template: templates/build.yaml
+
 - bash: cloud/azure/aks_ci_create.sh $(CLUSTER_NAME) $(SP_appId) $(SP_password)
   displayName: Create k8s Cluster
 
 - bash: |
     make -C cloud/k8s/kontaind install
   displayName: deploy and verify kontaind
+
+- template: templates/ci_normal.yaml
 
 - bash: cloud/azure/aks_ci_destroy.sh $(CLUSTER_NAME)
   displayName: Tear down k8s Cluster

@@ -11,3 +11,24 @@ steps:
   - bash: |
       make -C cloud/k8s/kontaind/installer push-runenv-image
     displayName: build and push kontaind
+
+  - bash: |
+      make -C cloud/azure ci-prepare-testenv LOCATION=payloads/python
+    displayName: Python.km build - set build environment, build, create test container and push it to registry
+
+  - bash: |
+      make -C payloads/python build-modules pack-modules MODULES="markupsafe wrapt"
+      make -C payloads/python custom CUSTOM_MODULES="markupsafe wrapt"
+    displayName: Python.km custom build
+
+  - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/node
+    displayName: Node.km build - set build environment, build, create test container and push it to registry
+
+  - bash: make -C payloads/python clean all runenv-image
+    displayName: Python.km build runenv
+
+  - bash: make -C payloads/node clean all runenv-image
+    displayName: Node.km build runenv
+
+  - bash: make -C payloads/java clean pull-buildenv-image all runenv-image
+    displayName: Java.kmd build and Java 'runenv' build

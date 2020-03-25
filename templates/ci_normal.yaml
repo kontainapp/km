@@ -1,0 +1,12 @@
+steps:
+  - bash: make -C cloud/azure ci-run-tests LOCATION=tests POD_NAME=$(pod_test_km)
+    displayName: KM tests - run on Kubernetes
+    timeoutInMinutes: 15
+
+  - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/python POD_NAME=$(pod_test_python)
+    displayName: Python.km tests - run on Kubernetes
+    timeoutInMinutes: 5
+
+  - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/node POD_NAME=$(pod_test_node)
+    displayName: Node.km tests - run on Kubernetes
+    timeoutInMinutes: 5
