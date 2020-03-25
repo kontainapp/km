@@ -57,7 +57,7 @@ static inline void usage()
         "\t                                      See 'sysctl vm.overcommit_memory'\n"
         "\t--dynlinker=file_name               - Set dynamic linker file (default: "
         "/opt/kontain/lib64/libc.so)\n"
-        "\t--hcall-stats                       - Collect and print hypercall stats\n"
+        "\t--hcall-stats (-S)                  - Collect and print hypercall stats\n"
 
         "\n\tOverride auto detection:\n"
         "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. "
@@ -183,8 +183,7 @@ int main(int argc, char* const argv[])
          case 'e':   // --putenv
             putenv_used++;
             if (copyenv_used != 0) {
-               warnx("Wrong options: '--copyenv' cannot be used with together with "
-                     "'--putenv'");
+               warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
                usage();
             }
             envp[envc - 1] = optarg;
@@ -200,8 +199,7 @@ int main(int argc, char* const argv[])
                break;
             }
             if (putenv_used != 0) {
-               warnx("Wrong options: '--copyenv' cannot be used with together with "
-                     "'--putenv'");
+               warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
                usage();
             }
             for (envc = 0; __environ[envc] != NULL; envc++) {
