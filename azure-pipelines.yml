@@ -125,7 +125,7 @@ steps:
 
   - bash: make -C payloads/java clean pull-buildenv-image all runenv-image
     displayName: Java.kmd build and Java 'runenv' build
-    timeoutInMinutes: 2
+    timeoutInMinutes: 5
 
   - bash: |
       [ "$TRACE" ] && set -x

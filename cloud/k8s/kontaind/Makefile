@@ -13,19 +13,21 @@
 TOP := $(shell git rev-parse --show-toplevel)
 CURRENT := ${TOP}/cloud/k8s/kontaind
 
-COMPONENT = kontain-installer
-IMAGE_VERSION = latest
-CLOUD ?= dockerhub
-
-INSTALL_CONFIG ?= kontaind.yaml
+IMAGE_VERSION ?= latest
+INSTALLER_IMAGE ?= kontainkubecr.azurecr.io/runenv-kontain-installer:${IMAGE_VERSION}
+# TODO: set the right image and version once we have over own device plugin 
+DEVICE_PLUGIN_KVM_IMAGE ?= quay.io/kubevirt/device-plugin-kvm:latest
+INSTALL_CONFIG ?= ${CURRENT}
 
 .PHONY: install
 install:
-	kubectl create -f ${INSTALL_CONFIG}
+	kustomize edit set image ${INSTALLER_IMAGE} 
+	kustomize edit set image ${DEVICE_PLUGIN_KVM_IMAGE}
+	kubectl create -k ${INSTALL_CONFIG}
 
 .PHONY: uninstall
 uninstall:
-	kubectl delete -f ${INSTALL_CONFIG}
+	kubectl delete -k ${INSTALL_CONFIG}
 
 TEST_SPEC ?= ${CURRENT}/tests/dweb-service.yaml
 TEST_POD ?= dweb
@@ -34,13 +36,6 @@ TEST_POD ?= dweb
 test:
 	-kubectl delete -f ${TEST_SPEC}
 	kubectl create -f ${TEST_SPEC}
-	kubectl wait --for=condition=Ready pod/${TEST_POD} --timeout=10s
+	kubectl wait --for=condition=Ready pod/${TEST_POD} --timeout=1m
+	kubectl logs ${TEST_POD}
 	-kubectl delete -f ${TEST_SPEC}
-
-# runenv-image information
-export define runenv_prep
-	mkdir -p ${RUNENV_PATH}/bin
-	cp ${KM_BIN} ${RUNENV_PATH}/bin/km
-endef
-
-include ${TOP}/make/images.mk

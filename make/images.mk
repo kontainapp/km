@@ -43,10 +43,9 @@ RUNENV_DEMO_IMG := ${RUNENV_IMG}-demo
 # image names with proper registry
 TEST_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(TEST_IMG))
 BUILDENV_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(BUILDENV_IMG))
-# runenv images are pushed to dockerhub public registry.
-RUNENV_REG := docker.io/kontainapp
-RUNENV_IMG_REG := $(subst kontain/,$(RUNENV_REG)/,$(RUNENV_IMG))
-RUNENV_DEMO_IMG_REG := $(subst kontain/,$(RUNENV_REG)/,$(RUNENV_DEMO_IMG))
+
+RUNENV_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(RUNENV_IMG))
+RUNENV_DEMO_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(RUNENV_DEMO_IMG))
 
 TEST_DOCKERFILE ?= test-${DTYPE}.dockerfile
 BUILDENV_DOCKERFILE ?= buildenv-${DTYPE}.dockerfile
@@ -59,7 +58,7 @@ TESTENV_PATH ?= .
 RUNENV_PATH ?= ${BLDDIR}
 RUNENV_DEMO_PATH ?= .
 
-TESTENV_EXTRA_FILES = ${KM_BIN} ${KM_LDSO}
+TESTENV_EXTRA_FILES ?= ${KM_BIN} ${KM_LDSO}
 testenv-image: ## build test image with test tools and code
 	@# Copy KM there. TODO - remove when we support pre-installed KM
 	$(foreach f,${TESTENV_EXTRA_FILES}, cp $f ${TESTENV_PATH};)
@@ -170,7 +169,7 @@ ifeq (${NO_RUNENV}, false)
 
 runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
 	@$(TOP)/make/check-docker.sh
-	@-docker rmi -f ${RUNENV_IMG}:latest 2>/dev/null
+	@-docker rmi -f ${RUNENV_IMG}:${IMAGE_VERSION} 2>/dev/null
 ifdef runenv_prep
 	@echo -e "Executing prep steps"
 	eval $(runenv_prep)
@@ -193,7 +192,7 @@ validate-runenv-image: $(RUNENV_VALIDATE_DEPENDENCIES) ## Validate runtime image
 		${RUNENV_IMG}:${IMAGE_VERSION} \
 		${RUNENV_VALIDATE_CMD} | grep "${RUNENV_VALIDATE_EXPECTED}"
 
-push-runenv-image:  ## pushes image.
+push-runenv-image:  runenv-image ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)"\
 		FROM=$(RUNENV_IMG):$(IMAGE_VERSION) TO=$(RUNENV_IMG_REG):$(IMAGE_VERSION)
