@@ -111,16 +111,6 @@ ci-prepare-testenv:
 	make -C $(TOP)/$(LOCATION) pull-buildenv-image all
 	make -C $(TOP)/$(LOCATION) testenv-image push-testenv-image
 
-ci-run-tests:
-	@# Note that we can get pod name from make, but to simplify the code we get it also from upstairs
-	make -C $(TOP)/$(LOCATION) test-withk8s
-	kubectl wait --for=condition=Ready --timeout=2m $(POD_NAME)
-	kubectl logs -f $(POD_NAME)
-	if [[ "$$(kubectl get ${POD_NAME} -o 'jsonpath={.status.phase}')" != "Succeeded" ]] ; then \
-		echo "##vso[task.logissue type=error]$@ failed in pod '${POD_NAME}' , LOCATION=$(LOCATION)" ; \
-		exit 1; \
-	fi
-
 dashboard: login # Interactive login, and then forward port/open Kubernetes Dashboard
 	az aks browse --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER)
 
