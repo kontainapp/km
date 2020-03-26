@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: kontain-test
+  name: NAME()
 spec:
   containers:
-    - name: kontain-test
-      image: test-image
+    - name: NAME()
+      image: IMAGE()
       imagePullPolicy: Always
       securityContext:
         privileged: false

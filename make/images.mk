@@ -129,20 +129,16 @@ test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to
 # IMAGE_VERSION needs to be defined outside, and correspond to existing (in REGISTRY) image
 # For example, to run image generated on ci-695, use 'make test-withk8s IMAGE_VERSION=ci-695
 K8S_RUNTEST := $(TOP)/cloud/k8s/tests/k8s-run-tests.sh
-K8S_RUNTEST_OPT := default
-test-withk8s: TEST_K8S_IMAGE := $(USER_NAME)$(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)
-test-withk8s: TEST_K8S_SUFFIX := $(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])
-test-withk8s: .check_vars
-	${K8S_RUNTEST} "${K8S_RUNTEST_OPT}" "${TEST_K8S_IMAGE}" "${TEST_K8S_SUFFIX}" "${CONTAINER_TEST_CMD}"
+TEST_K8S_IMAGE := $(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)
+TEST_K8S_NAME := test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])
+test-withk8s: .check_vars ## run tests on a k8s cluster
+	${K8S_RUNTEST} "default" "${TEST_K8S_IMAGE}" "${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
 
 # Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image
 # Adds 'user-' prefix to names and puts container to sleep so we can exec into it
-test-withk8s-manual : .test-withk8s-manual ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=ci-695'
-ifneq ($(findstring test-withk8s-manual,${MAKECMDGOALS}),)
-USER_NAME := $(shell id -un)-
-override K8S_RUNTEST_OPT := manual
-.test-withk8s-manual : test-withk8s ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=ci-695'
-endif
+test-withk8s-manual: USER_NAME := $(shell id -un)
+test-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
+	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER_NAME}-${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
 
 # Build env image push. For this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
 # to the version you want to push. BE CAREFUL - it pushes to shared image !!!
