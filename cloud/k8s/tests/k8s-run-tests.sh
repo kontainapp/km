@@ -24,7 +24,7 @@ readonly RUNTIME_DIR=$(mktemp -d)
 readonly TEST_POD_TEMPLATE_NAME="test-pod-template.yaml"
 readonly POD_WAIT_TIMEOUT=${K8S_POD_WAIT_TIMEOUT:-2m}
 
-if ! [ ${PIPELINE_WORKSPACE} ]; then
+if [[ -n ${PIPELINE_WORKSPACE} ]]; then
     readonly GREEN=\\e[32m
     readonly NOCOLOR=\\e[0m
 fi
@@ -81,7 +81,7 @@ function check_bin {
 
     for bin_name in $bin_names
     do
-        if ! [ -x "$(command -v ${bin_name})" ]; then
+        if [[ ! -x $(command -v ${bin_name}) ]]; then
             echo "Error: ${bin_name} is not installed"
             exit 1
         fi
@@ -100,19 +100,12 @@ function cleanup {
     local pod_name=$1
     local error=$2
 
-    if [ "$error" != "0" ]; then
+    if [[ $error != 0 ]]; then
         kubectl describe pod ${pod_name}
         kubectl get pod/${pod_name} -o json
     fi
 
-    # For manual, we don't do any form of clean up. Users want to examine the
-    # testenv container manually.
-    if [[ ! -z $MANUAL ]]; then
-        manual_usage $pod_name
-        exit $error
-    fi
-
-    if [ "$error" != "0" ] && [[ ! -z $ERR_NO_CLEANUP ]]; then
+    if [[ $error != 0 ]] && [[ -n $ERR_NO_CLEANUP ]]; then
         echo "Won't clean up on error"
         exit $error
     fi
@@ -130,12 +123,22 @@ function main {
     local pod_name=$(kubectl create -f ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME} -o jsonpath='{.metadata.name}')
 
     kubectl wait pod/${pod_name} --for=condition=Ready --timeout=${POD_WAIT_TIMEOUT}
-    if ! [ "$?" = "0" ]; then
-        cleanup $pod_name $?
+    local exit_code=$?
+    if [[ $exit_code != 0 ]]; then
+        cleanup $pod_name $exit_code
     fi
 
     kubectl exec -it ${pod_name} -- ${TEST_COMMAND}
-    cleanup $pod_name $?
+    local exit_code=$?
+
+    # For manual, we don't do any form of clean up. Users want to examine the
+    # testenv container manually.
+    if [[ -n $MANUAL ]]; then
+        manual_usage $pod_name
+        exit $exit_code
+    fi
+
+    cleanup $pod_name $exit_code
 }
 
 main
