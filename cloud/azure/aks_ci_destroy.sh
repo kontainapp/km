@@ -30,7 +30,11 @@ function load_default_configs() {
 }
 
 function destroy() {
-    az aks delete -y --resource-group "${CLOUD_RESOURCE_GROUP}"  --name "${CLUSTER_NAME}" --output ${OUT_TYPE}
+    az aks delete -y \
+        --resource-group "${CLOUD_RESOURCE_GROUP}" \
+        --name "${CLUSTER_NAME}" \
+        --output ${OUT_TYPE} \
+        --no-wait
 }
 
 function main() {
