@@ -30,9 +30,6 @@ pr:
 
 variables:
   vmImage: "ubuntu-18.04"
-  pod_test_km: "pod/test-km-$(buildenv.type)-ci-$(Build.BuildId)"
-  pod_test_node: "pod/test-node-$(buildenv.type)-ci-$(Build.BuildId)"
-  pod_test_python: "pod/test-python-$(buildenv.type)-ci-$(Build.BuildId)"
   # NOTE: In Azure pipeline setting a variable also makes variable's UPPCASE_NAME
   # exposed in environment for all tasks. E.g. 'dtype=fedora' means all tasks will have
   # an environment DTYPE=fedora.
@@ -52,53 +49,11 @@ pool:
   vmImage: $(vmImage)
 
 steps:
-  - checkout: self
-    submodules: true
+  - template: templates/setup.yaml
 
-  - bash: |
-      echo ====Environment info===
-      echo "SHA: $(git rev-parse HEAD)"
-      echo "=== Last 10 commits:"
-      git log -n 10 --graph --pretty=format:'%h% %d %s %cr %ce'
-      echo "=== VM/OS:"
-      cat /proc/version
-      echo "=== Docker version:"
-      docker version
-      echo ==== Environment Variables
-      env
-      echo ==== CPU Info
-      lscpu
-    displayName: Print build environment info
+  - template: templates/build.yaml
 
-  - bash: make -C cloud/azure login-cli
-      SP_APPID=$(SP_appId) SP_PASSWORD=$(SP_password) SP_TENANT=$(SP_tenant) SP_DISPLAYNAME=$(SP_displayName)
-    displayName: Login to Azure, container registry and Kubernetes
-
-  - bash: |
-      set -e
-      [ "$TRACE" ] && set -x
-      make -C tests pull-buildenv-image
-      make -j withdocker
-      make -C tests testenv-image push-testenv-image
-    displayName: KM build - set build environment, build, create test container and push it to registry
-
-  - bash: make -C cloud/azure ci-run-tests LOCATION=tests POD_NAME=$(pod_test_km)
-    displayName: KM tests - run on Kubernetes
-    timeoutInMinutes: 15
-
-  - bash: |
-      make -C cloud/azure ci-prepare-testenv LOCATION=payloads/python
-    displayName: Python.km build - set build environment, build, create test container and push it to registry
-
-  - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/python POD_NAME=$(pod_test_python)
-    displayName: Python.km tests - run on Kubernetes
-    timeoutInMinutes: 5
-
-  - bash: |
-      make -C payloads/python build-modules pack-modules MODULES="markupsafe wrapt"
-      make -C payloads/python custom CUSTOM_MODULES="markupsafe wrapt"
-    displayName: Python.km custom build
-    timeoutInMinutes: 5
+  - template: templates/ci_normal.yaml
 
   - bash: make -C payloads/python clean all runenv-image
     displayName: Python.km build runenv
@@ -108,19 +63,8 @@ steps:
     displayName: Python.km runenv test (TODO)
     timeoutInMinutes: 2
 
-  - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/node
-    displayName: Node.km build - set build environment, build, create test container and push it to registry
-
-  - bash: make -C cloud/azure ci-run-tests LOCATION=payloads/node POD_NAME=$(pod_test_node)
-    displayName: Node.km tests - run on Kubernetes
-    timeoutInMinutes: 5
-
   - bash: make -C payloads/node clean all runenv-image
     displayName: Node.km build runenv
-    timeoutInMinutes: 2
-
-  - bash: echo TODO push-runenv-image and test in kubernetes... see make validate-runenv-image
-    displayName: Node.km test runenv (TODO)
     timeoutInMinutes: 2
 
   - bash: make -C payloads/java clean pull-buildenv-image all runenv-image
@@ -133,7 +77,6 @@ steps:
       # TODO - if the **test** failed (especially with kmcore), we want to keep these pods for a few days
       # Setting vars doc: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables
       echo "======= Printing statuses and cleaning up ======"
-      for p in $(pod_test_km) $(pod_test_python) $(pod_test_node); do  kubectl get $p -o json; kubectl delete $p; done
       rm -f ~/.kube/config
       az logout
     condition: always()

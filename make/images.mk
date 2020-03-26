@@ -125,32 +125,20 @@ __CONTAINER_TEST_CMD = $(wordlist 2,100,$(foreach item,$(CONTAINER_TEST_CMD), , 
 test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
 	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_CMD}
 
-# define commands to preprocess kubernetes pod template and pass to 'kubectl apply'.
-export define preprocess_and_apply
-m4 -D NAME="$(USER_NAME)test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])" \
-	-D IMAGE="$(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)" \
-	-D COMMAND="$(__CONTAINER_TEST_CMD)" $(TEST_POD_TEMPLATE) | kubectl apply -f - -o jsonpath='{.metadata.name}'
-endef
-
 # Run test in Kubernetes. Image is formed as current-testenv-image:$IMAGE_VERSION
 # IMAGE_VERSION needs to be defined outside, and correspond to existing (in REGISTRY) image
 # For example, to run image generated on ci-695, use 'make test-withk8s IMAGE_VERSION=ci-695
-test-withk8s :  .check_vars ## Run tests in Kubernetes. IMAGE_VERSION need to be passed
-	@echo '$(preprocess_and_apply)'
-	@name=$$($(preprocess_and_apply)) ;\
-		echo -e "Run bash in your pod '$$name' using '${GREEN}kubectl exec $$name -it -- bash${NOCOLOR}'" ; \
-		echo -e "Run tests inside your pod using '${GREEN}${CONTAINER_TEST_CMD_HELP}${NOCOLOR}'" ; \
-		echo -e "When you are done, do not forget to '${GREEN}kubectl delete pod $$name${NOCOLOR}'"
+K8S_RUNTEST := $(TOP)/cloud/k8s/tests/k8s-run-tests.sh
+TEST_K8S_IMAGE := $(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)
+TEST_K8S_NAME := test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])
+test-withk8s: .check_vars ## run tests on a k8s cluster
+	${K8S_RUNTEST} "default" "${TEST_K8S_IMAGE}" "${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
 
 # Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image
 # Adds 'user-' prefix to names and puts container to sleep so we can exec into it
-test-withk8s-manual : .test-withk8s-manual ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=ci-695'
-ifneq ($(findstring test-withk8s-manual,${MAKECMDGOALS}),)
-USER_NAME := $(shell id -un)-
-POD_TTL_SEC := 3600
-override CONTAINER_TEST_CMD := sleep ${POD_TTL_SEC}
-.test-withk8s-manual : test-withk8s ## create pod with existing testenv image for manual debug. e.g. 'make test-withk8s-manual IMAGE_VERSION=ci-695'
-endif
+test-withk8s-manual: USER_NAME := $(shell id -un)
+test-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
+	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER_NAME}-${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
 
 # Build env image push. For this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
 # to the version you want to push. BE CAREFUL - it pushes to shared image !!!
