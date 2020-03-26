@@ -17,10 +17,6 @@ variables:
   VM_SIZE: "Standard_D4_v3" # choose a vm size to avoid the vcpu quota on azure
   BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
   IMAGE_VERSION: ci-nightly-$(Build.BuildId) # use this for all other containers
-  # TODO: what to do with different DTYPE?
-  pod_test_km: "pod/test-km-fedora-ci-nightly-$(Build.BuildId)"
-  pod_test_node: "pod/test-node-fedora-ci-nightly-$(Build.BuildId)"
-  pod_test_python: "pod/test-python-fedora-ci-nightly-$(Build.BuildId)"
   # TRACE: true
 
 pool:
