@@ -24,7 +24,7 @@ readonly RUNTIME_DIR=$(mktemp -d)
 readonly TEST_POD_TEMPLATE_NAME="test-pod-template.yaml"
 readonly POD_WAIT_TIMEOUT=${K8S_POD_WAIT_TIMEOUT:-2m}
 
-if [[ -n ${PIPELINE_WORKSPACE} ]]; then
+if [[ -z ${PIPELINE_WORKSPACE} ]]; then
     readonly GREEN=\\e[32m
     readonly NOCOLOR=\\e[0m
 fi
@@ -57,6 +57,7 @@ function manual_usage {
     echo -e "Run bash in your pod '$pod_name' using '${GREEN}kubectl exec $pod_name -it -- bash${NOCOLOR}'"
     echo -e "Run tests inside your pod using '${GREEN}${TEST_COMMAND}${NOCOLOR}'"
     echo -e "When you are done, do not forget to '${GREEN}kubectl delete pod $pod_name${NOCOLOR}'"
+    echo -e "Deployment spec is written to '${GREEN}${RUNTIME_DIR}${NOCOLOR}'"
 }
 
 function process_op {
@@ -128,7 +129,7 @@ function main {
         cleanup $pod_name $exit_code
     fi
 
-    kubectl exec -it ${pod_name} -- ${TEST_COMMAND}
+    kubectl exec -it ${pod_name} --request-timeout=0 -- bash -c "${TEST_COMMAND}"
     local exit_code=$?
 
     # For manual, we don't do any form of clean up. Users want to examine the

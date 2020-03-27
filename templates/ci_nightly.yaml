@@ -1,0 +1,12 @@
+steps:
+  - bash: make -C tests test-all-withk8s
+    displayName: KM tests - run on Kubernetes
+    timeoutInMinutes: 15
+
+  - bash: make -C payloads/python test-all-withk8s
+    displayName: Python.km tests - run on Kubernetes
+    timeoutInMinutes: 15
+
+  - bash: make -C payloads/node test-all-withk8s
+    displayName: Node.km tests - run on Kubernetes
+    timeoutInMinutes: 30
