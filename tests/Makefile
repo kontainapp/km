@@ -168,8 +168,6 @@ endif # ifeq (${BLDTYPE},$(COV_BLDTYPE))
 
 test-all: test ## alias for test
 
-test-all-withdocker: test-withdocker ## alias for test-withdocker
-
 # install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
 # TODO: maybe make it generic to scan folders
 buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM

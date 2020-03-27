@@ -55,21 +55,17 @@ steps:
 
   - template: templates/ci_normal.yaml
 
-  - bash: make -C payloads/python clean all runenv-image
-    displayName: Python.km build runenv
-    timeoutInMinutes: 2
-
   - bash: echo TODO push-runenv-image and test in kubernetes... see make validate-runenv-image
     displayName: Python.km runenv test (TODO)
     timeoutInMinutes: 2
 
-  - bash: make -C payloads/node clean all runenv-image
-    displayName: Node.km build runenv
+  - bash: echo TODO push-runenv-image and test in kubernetes... see make validate-runenv-image
+    displayName: Node.km runenv test (TODO)
     timeoutInMinutes: 2
 
-  - bash: make -C payloads/java clean pull-buildenv-image all runenv-image
-    displayName: Java.kmd build and Java 'runenv' build
-    timeoutInMinutes: 5
+  - bash: echo TODO push-runenv-image and test in kubernetes... see make validate-runenv-image
+    displayName: Java.kmd runenv test (TODO)
+    timeoutInMinutes: 2
 
   - bash: |
       [ "$TRACE" ] && set -x

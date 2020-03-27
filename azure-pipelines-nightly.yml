@@ -17,6 +17,7 @@ variables:
   VM_SIZE: "Standard_D4_v3" # choose a vm size to avoid the vcpu quota on azure
   BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
   IMAGE_VERSION: ci-nightly-$(Build.BuildId) # use this for all other containers
+  K8S_TEST_ERR_NO_CLEANUP: true # OK to not clean up after error for nightly
   # TRACE: true
 
 pool:
@@ -34,7 +35,7 @@ steps:
     make -C cloud/k8s/kontaind install
   displayName: deploy and verify kontaind
 
-- template: templates/ci_normal.yaml
+- template: templates/ci_nightly.yaml
 
 - bash: cloud/azure/aks_ci_destroy.sh $(CLUSTER_NAME)
   displayName: Tear down k8s Cluster

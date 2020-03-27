@@ -101,45 +101,6 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 	docker rmi $(FROM)
 	@echo -e "Pulled image ${GREEN}${TO}${NOCOLOR}"
 
-# Helper when we need to make sure IMAGE_VERSION is defined and not 'latest', and command is defined
-.check_vars:
-	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == latest ]] ; then \
-		echo -e "${RED}IMAGE_VERSION should be set to something existing in Registry, e.g. ci-695. Current value='${IMAGE_VERSION}'${NOCOLOR}" ; \
-		false; \
-	fi
-	@if [[ -z "${CONTAINER_TEST_CMD}" ]] ; then \
-		echo -e "${RED}CONTAINER_TEST_CMD needs to be defined to use this target${NOCOLOR}"; \
-		false; \
-	fi
-
-# We generate test pod specs from this template
-TEST_POD_TEMPLATE := $(TOP)/cloud/k8s/test-pod-template.yaml
-
-# CONTAINER_TEST_CMD could be overriden, let's keep the original one so we can use it for help messages
-CONTAINER_TEST_CMD_HELP := $(CONTAINER_TEST_CMD)
-
-# Pod spec needs a json list as a container's command, so generate it first from a "command params" string
-__CONTAINER_TEST_CMD = $(wordlist 2,100,$(foreach item,$(CONTAINER_TEST_CMD), , \"$(item)\"))
-
-# Run full suite of tests regarless of being asked to run full or abbreviated set
-test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
-	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_CMD}
-
-# Run test in Kubernetes. Image is formed as current-testenv-image:$IMAGE_VERSION
-# IMAGE_VERSION needs to be defined outside, and correspond to existing (in REGISTRY) image
-# For example, to run image generated on ci-695, use 'make test-withk8s IMAGE_VERSION=ci-695
-K8S_RUNTEST := $(TOP)/cloud/k8s/tests/k8s-run-tests.sh
-TEST_K8S_IMAGE := $(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)
-TEST_K8S_NAME := test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])
-test-withk8s: .check_vars ## run tests on a k8s cluster
-	${K8S_RUNTEST} "default" "${TEST_K8S_IMAGE}" "${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
-
-# Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image
-# Adds 'user-' prefix to names and puts container to sleep so we can exec into it
-test-withk8s-manual: USER_NAME := $(shell id -un)
-test-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
-	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER_NAME}-${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
-
 # Build env image push. For this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
 # to the version you want to push. BE CAREFUL - it pushes to shared image !!!
 push-buildenv-image: ## Pushes to buildnev image. PROTECTED TARGET
@@ -208,6 +169,56 @@ push-runenv-demo-image:
 		FROM=$(RUNENV_DEMO_IMG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
 
 endif # ifeq (${NO_RUNENV},)
+
+# Default to something that gurantee to fail.
+CONTAINER_TEST_CMD ?= \
+	echo -e "${RED}CONTAINER_TEST_CMD needs to be defined to use this target${NOCOLOR}"; \
+	false;
+
+CONTAINER_TEST_ALL_CMD ?= ${CONTAINER_TEST_CMD}
+
+test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_CMD}
+
+test-all-withdocker: ## a special helper to run more node.km tests.
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_ALL_CMD} 
+
+# Helper when we need to make sure IMAGE_VERSION is defined and not 'latest', and command is defined
+.check_vars:
+	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == latest ]] ; then \
+		echo -e "${RED}IMAGE_VERSION should be set to something existing in Registry, e.g. ci-695. Current value='${IMAGE_VERSION}'${NOCOLOR}" ; \
+		false; \
+	fi
+
+# We generate test pod specs from this template
+TEST_POD_TEMPLATE := $(TOP)/cloud/k8s/test-pod-template.yaml
+
+# Run test in Kubernetes. Image is formed as current-testenv-image:$IMAGE_VERSION
+# IMAGE_VERSION needs to be defined outside, and correspond to existing (in REGISTRY) image
+# For example, to run image generated on ci-695, use 'make test-withk8s IMAGE_VERSION=ci-695
+K8S_RUNTEST := $(TOP)/cloud/k8s/tests/k8s-run-tests.sh
+TEST_K8S_IMAGE := $(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)
+TEST_K8S_NAME := test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])
+ifneq (${K8S_TEST_ERR_NO_CLEANUP},)
+	TEST_K8S_OPT := "err_no_cleanup" 
+else
+	TEST_K8S_OPT := "default"
+endif
+test-withk8s: .check_vars ## run tests on a k8s cluster
+	${K8S_RUNTEST} ${TEST_K8S_OPT} "${TEST_K8S_IMAGE}" "${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
+
+test-all-withk8s: .check_vars
+	${K8S_RUNTEST} ${TEST_K8S_OPT} "${TEST_K8S_IMAGE}" "${TEST_K8S_NAME}" "${CONTAINER_TEST_ALL_CMD}"
+
+# Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image
+# Adds 'user-' prefix to names and puts container to sleep so we can exec into it
+test-withk8s-manual: USER_NAME := $(shell id -un)
+test-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
+	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER_NAME}-${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
+
+test-all-withk8s-manual: USER_NAME := $(shell id -un)
+test-all-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
+	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER_NAME}-${TEST_K8S_NAME}" "${CONTAINER_TEST_ALL_CMD}"
 
 ${BLDDIR}:
 	mkdir -p ${BLDDIR}
