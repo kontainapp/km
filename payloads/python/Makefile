@@ -125,8 +125,6 @@ clean:
 test test-all: ${PAYLOAD_KM} ${TEST_KM}
 	scripts/test-run.sh ${KM_BIN} ${PAYLOAD_KM}
 
-test-all-withdocker: test-withdocker # alias for test-withdocker
-
 clobber: ## Clobber cpython build by removing cpython dir
 	rm -rf cpython
 
