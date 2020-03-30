@@ -11,6 +11,7 @@
 # Makefile for building and packing dweb-demo
 
 TOP := $(shell git rev-parse --show-toplevel)
+SHELL=/bin/bash
 COMPONENT := dweb
 
 PAYLOAD_KM := dweb/dweb.km
@@ -25,8 +26,6 @@ PAYLOAD_FILES := ${PAYLOAD_KM} \
 	dweb/favicon.ico \
 	dweb/text.txt\
 	dweb/basic.htm
-
-IMAGE_VERSION := latest
 
 .PHONY: all build clean
 all build clean:
