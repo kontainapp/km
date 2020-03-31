@@ -57,7 +57,7 @@ function manual_usage {
     echo -e "Run bash in your pod '$pod_name' using '${GREEN}kubectl exec $pod_name -it -- bash${NOCOLOR}'"
     echo -e "Run tests inside your pod using '${GREEN}${TEST_COMMAND}${NOCOLOR}'"
     echo -e "When you are done, do not forget to '${GREEN}kubectl delete pod $pod_name${NOCOLOR}'"
-    echo -e "Deployment spec is written to '${GREEN}${RUNTIME_DIR}${NOCOLOR}'"
+    echo -e "Note: Deployment spec is written to '${GREEN}${RUNTIME_DIR}${NOCOLOR}'"
 }
 
 function process_op {

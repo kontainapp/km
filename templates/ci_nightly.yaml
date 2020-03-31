@@ -10,3 +10,15 @@ steps:
   - bash: make -C payloads/node test-all-withk8s
     displayName: Node.km tests - run on Kubernetes
     timeoutInMinutes: 30
+
+  - bash: make -C payloads/demo-dweb validate-runenv-withk8s
+    displayName: demo dweb runenv validation - run on Kubernetes
+    timeoutInMinutes: 2
+
+  - bash: make -C payloads/python validate-runenv-withk8s
+    displayName: Python.km runenv validation - run on Kubernetes
+    timeoutInMinutes: 2
+
+  - bash: make -C payloads/node validate-runenv-withk8s
+    displayName: Node.km runenv validation - run on Kubernetes
+    timeoutInMinutes: 2

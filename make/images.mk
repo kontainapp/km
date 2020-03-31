@@ -157,13 +157,17 @@ publish: push-runenv-image
 runenv-demo-image:
 ifeq ($(shell test -e ${RUNENV_DEMO_DOCKERFILE} && echo -n yes),yes)
 	@-docker rmi -f ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} 2>/dev/null
-	${DOCKER_BUILD} -t ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} -f ${RUNENV_DEMO_DOCKERFILE} ${RUNENV_DEMO_PATH}
+	${DOCKER_BUILD} \
+		-t ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
+		--build-arg runenv_image_version=${IMAGE_VERSION} \
+		-f ${RUNENV_DEMO_DOCKERFILE} \
+		${RUNENV_DEMO_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_DEMO_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 else
 	@echo -e "No demo dockerfile ${RUNENV_DEMO_DOCKERFILE} define. Skipping..."
 endif
 
-push-runenv-demo-image:
+push-runenv-demo-image: runenv-demo-image
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)"\
 		FROM=$(RUNENV_DEMO_IMG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
@@ -185,13 +189,10 @@ test-all-withdocker: ## a special helper to run more node.km tests.
 
 # Helper when we need to make sure IMAGE_VERSION is defined and not 'latest', and command is defined
 .check_vars:
-	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == latest ]] ; then \
+	@if [[ -z ${IMAGE_VERSION} || ${IMAGE_VERSION} == latest ]] ; then \
 		echo -e "${RED}IMAGE_VERSION should be set to something existing in Registry, e.g. ci-695. Current value='${IMAGE_VERSION}'${NOCOLOR}" ; \
 		false; \
 	fi
-
-# We generate test pod specs from this template
-TEST_POD_TEMPLATE := $(TOP)/cloud/k8s/test-pod-template.yaml
 
 # Run test in Kubernetes. Image is formed as current-testenv-image:$IMAGE_VERSION
 # IMAGE_VERSION needs to be defined outside, and correspond to existing (in REGISTRY) image
@@ -219,6 +220,20 @@ test-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual i
 test-all-withk8s-manual: USER_NAME := $(shell id -un)
 test-all-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
 	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER_NAME}-${TEST_K8S_NAME}" "${CONTAINER_TEST_ALL_CMD}"
+
+
+ifeq (${NO_RUNENV}, false)
+K8S_RUN_VALIDATION := $(TOP)/cloud/k8s/tests/k8s-run-validation.sh
+VALIDATION_K8S_IMAGE := $(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
+VALIDATION_K8S_NAME := validation-${COMPONENT}-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])
+
+# We use the runenv-demo image for validation. Runenv only contain the bare
+# minimum and no other application, so we use the runenv-demo image which
+# contains all the applications.
+validate-runenv-withk8s: .check_vars
+	${K8S_RUN_VALIDATION} "${VALIDATION_K8S_IMAGE}" "${VALIDATION_K8S_NAME}"
+
+endif # ifeq (${NO_RUNENV}, false)
 
 ${BLDDIR}:
 	mkdir -p ${BLDDIR}

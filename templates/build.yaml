@@ -24,11 +24,15 @@ steps:
   - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/node
     displayName: Node.km build - set build environment, build, create test container and push it to registry
 
-  - bash: make -C payloads/python clean all runenv-image
+  - bash: make -C payloads/python clean all runenv-image push-runenv-demo-image
     displayName: Python.km build runenv
 
-  - bash: make -C payloads/node clean all runenv-image
+  - bash: make -C payloads/node clean all runenv-image push-runenv-demo-image
     displayName: Node.km build runenv
 
+    # TODO: make push-runenv-demo-image work as well.
   - bash: make -C payloads/java clean pull-buildenv-image all runenv-image
     displayName: Java.kmd build and Java 'runenv' build
+
+  - bash: make -C payloads/demo-dweb clean all runenv-image push-runenv-demo-image
+    displayName: demo dweb build runenv
