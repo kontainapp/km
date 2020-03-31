@@ -106,7 +106,8 @@ TEST mmap_fixed_basic()
    ASSERT_EQ(MAP_FAILED, area);
    ASSERT_EQ_FMT(EPERM, errno, "%d");
 
-   area = mmap(0, area_sz, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+   // fd=1 should be ignored with log message. The rest should work
+   area = mmap(0, area_sz, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, area);
    ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
@@ -245,9 +246,9 @@ TEST mmap_fixed_incompat()
    // grabbing something too high, so it steps on Monitor reserved - KM only test
    if (KM_PAYLOAD() == 1) {
       errno = 0;
-get_maps(1);
+      get_maps(1);
       insert = mmap(area, area_sz + insert1_sz, rw, MAP_FIXED | flags, -1, 0);
-get_maps(1);
+      get_maps(1);
       ASSERT_EQ_FMT(MAP_FAILED, insert, "%p");
       ASSERT_EQ_FMT(EINVAL, errno, "%d");
    }
