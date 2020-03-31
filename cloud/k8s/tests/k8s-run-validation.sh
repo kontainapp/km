@@ -8,6 +8,8 @@
 #  such source code. Disclosure of this source code or any related proprietary
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
+#
+# This script is used for validation logic for runenv images on k8s.
 
 [ "${TRACE}" ] && set -x
 
