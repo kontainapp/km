@@ -10,6 +10,9 @@
 #
 # Makefile for building and packing dweb-demo
 
+# To avoid default shell configs on systems like Ubuntu. All of our shell scripts assume bash.
+SHELL=/bin/bash
+
 TOP := $(shell git rev-parse --show-toplevel)
 COMPONENT := dweb
 
@@ -25,8 +28,6 @@ PAYLOAD_FILES := ${PAYLOAD_KM} \
 	dweb/favicon.ico \
 	dweb/text.txt\
 	dweb/basic.htm
-
-IMAGE_VERSION := latest
 
 .PHONY: all build clean
 all build clean:
