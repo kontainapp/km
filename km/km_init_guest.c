@@ -34,6 +34,7 @@
 #include "km_proc.h"
 #include "km_syscall.h"
 #include "x86_cpu.h"
+#include "km_guest.h"
 
 /*
  * Allocate stack for main thread and initialize it according to ABI:
@@ -59,12 +60,16 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
 {
    km_gva_t map_base;
 
+#if 0
    km_init_guest_idt();
+   km_init_syscall_handler(vcpu);
+#endif
    if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
    }
    km_gva_t stack_top = map_base + GUEST_STACK_SIZE;
    km_kma_t stack_top_kma = km_gva_to_kma_nocheck(stack_top);
+km_infox(KM_TRACE_MEM, "stack_top 0x%lx, stack_top_kma %p", stack_top, stack_top_kma);
 
    // Set environ - copy strings and prep the envp array
    char* km_envp[envc + 1];

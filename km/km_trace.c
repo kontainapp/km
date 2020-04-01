@@ -46,13 +46,14 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
    gmtime_r(&ts.tv_sec, &tm);   // UTC!
    snprintf(traceline,
             sizeof(traceline),
-            "%02d:%02d:%02d.%06ld %-20.20s %-4d %-7.7s ",
+            "%02d:%02d:%02d.%06ld %-20.20s %-4d %4d.%-7.7s ",
             tm.tm_hour,
             tm.tm_min,
             tm.tm_sec,
             ts.tv_nsec / 1000,   // convert to microseconds
             function,
             linenumber,
+            machine.pid,
             threadname);
    tlen = strlen(traceline);
    p = &traceline[tlen];

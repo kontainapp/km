@@ -25,7 +25,7 @@ not_needed_so="setup_load cli mem_brk gdb_sharedlib mmap_1 km_many"
 todo_generic="futex_example"
 todo_static=""
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
-todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach exception cpp_ctors dl_iterate_phdr monitor_maps gdb_protected_mem"
+todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach exception cpp_ctors dl_iterate_phdr monitor_maps gdb_protected_mem sigsuspend"
 
 
 # Now the actual tests.
@@ -289,7 +289,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 @test "gdb_server_race($test_type): gdb server concurrent wakeup test" {
    km_gdb_default_port=2159
    km_trace_file=/tmp/gdb_server_race_test_static_$$.out
-   # Test with breakpoints triggering and SIGILL being happending continuously
+   # Test with breakpoints triggering and SIGILL happending continuously
    # Save output to a log file for our own check using grep below.
    echo trace in $km_trace_file
    km_with_timeout -V -g gdb_server_entry_race_test$ext >$km_trace_file 2>&1 &
@@ -809,5 +809,47 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 
 @test "sigaltstack($test_type): sigaltstack syscall (sigaltstack_test$ext)" {
    run km_with_timeout sigaltstack_test$ext
+   assert_success
+}
+
+@test "fork($test_type): fork, exec, wait test (fork_test$ext)" {
+   run km_with_timeout fork_test$ext
+   assert_success
+}
+
+# Test the sigsuspend() system call
+# And verify that signals sent to km are forwarded to the payload
+@test "sigsuspend($test_type): sigsuspend() and signal forwarding (sigsuspend_test$ext)" {
+   ./sigsuspend_test &
+   pid=$!
+   while [ `pidof km` != $pid ]
+   do
+      sleep .01
+   done
+   kill -SIGUSR1 $pid
+   kill -SIGUSR1 $pid
+   kill -SIGUSR2 $pid
+   wait $pid
+   linuxout=$output
+
+   $KM_BIN sigsuspend_test$ext &
+#   km_with_timeout sigsuspend_test$ext &
+   pid=$!
+   while [ `pidof km` != $pid ]
+   do
+      sleep .01
+   done
+   kill -SIGUSR1 $pid
+   kill -SIGUSR1 $pid
+   kill -SIGUSR2 $pid
+   wait $pid
+   kmout=$output
+
+   diff <(echo -e "$linuxout")  <(echo -e "$kmout")
+   assert_success
+}
+
+@test "itimer($test_type): test setitimer() getitimer() hypercalls (itimer_test$ext)" {
+   run km_with_timeout itimer_test$ext
    assert_success
 }

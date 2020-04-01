@@ -103,6 +103,22 @@ static inline int mumap_check_params(km_gva_t addr, size_t size)
    return 0;
 }
 
+void km_mmap_dump_lists(const char* tag)
+{
+   km_mmap_reg_t* ptr;
+
+   km_infox(KM_TRACE_MMAP, "%s: begin mmap", tag);
+   TAILQ_FOREACH (ptr, &machine.mmaps.free, link) {
+      km_infox(KM_TRACE_MMAP, "free %p: start 0x%lx, size %ld, flags 0x%x, km_flags 0x%x, file %s",
+               ptr, ptr->start, ptr->size, ptr->flags, ptr->km_flags.data32, ptr->filename);
+   }
+   TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
+      km_infox(KM_TRACE_MMAP, "busy %p: start 0x%lx, size %ld, flags 0x%x, km_flags 0x%x, file %s",
+               ptr, ptr->start, ptr->size, ptr->flags, ptr->km_flags.data32, ptr->filename);
+   }
+   km_infox(KM_TRACE_MMAP, "%s: end mmap", tag);
+}
+
 // find any free mmap larger or equal to 'size'
 static km_mmap_reg_t* km_mmap_find_free(size_t size)
 {
@@ -224,7 +240,15 @@ static inline void km_mmap_insert(km_mmap_reg_t* reg, km_mmap_list_t* list)
             break;
          }
          // double check that there are no overlaps (we don't support overlapping mmaps)
+#if 0
          assert(ptr->start < reg->start && (ptr->start + ptr->size <= reg->start));
+#else
+         if (!(ptr->start < reg->start && (ptr->start + ptr->size <= reg->start))) {
+km_infox(KM_TRACE_MMAP, "ptr %p, reg %p, failed assert", ptr, reg);
+            km_mmap_dump_lists(__FUNCTION__);
+            abort();
+         }
+#endif
       }
 
       if (ptr == TAILQ_END(list)) {
@@ -660,6 +684,7 @@ km_gva_t km_guest_mmap_simple_monitor(size_t size)
  */
 km_gva_t km_guest_mmap_simple(size_t size)
 {
+km_mmap_dump_lists(__FUNCTION__);
    return km_syscall_ok(
        km_guest_mmap_impl(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, MMAP_ALLOC_GUEST));
 }
@@ -724,7 +749,7 @@ int km_guest_munmap(km_vcpu_t* vcpu, km_gva_t addr, size_t size)
     * exit() call afterwards.
     * We check if we are indeed trying to unmap our own stack, and delay the unmap till the exit().
     */
-   if (addr <= vcpu->stack_top && vcpu->stack_top < addr + size) {
+   if (vcpu != NULL && addr <= vcpu->stack_top && vcpu->stack_top < addr + size) {
       assert(vcpu->mapself_base == 0 && vcpu->mapself_size == 0);
       vcpu->mapself_base = addr;
       vcpu->mapself_size = size;

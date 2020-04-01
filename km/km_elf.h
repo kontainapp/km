@@ -53,6 +53,7 @@ extern km_payload_t km_dynlinker;
 extern char* km_dynlinker_file;
 extern km_tls_module_t km_main_tls;
 
-uint64_t km_load_elf(const char* file);
+uint64_t km_load_elf(const char* file, int elf_fd);
+void km_payload_deinit(km_payload_t* payload);
 
 #endif /* #ifndef __KM_H__ */

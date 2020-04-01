@@ -30,6 +30,17 @@
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_guest.h"
+#include "km_gdb.h"
+
+/*
+ * Threads that wait for a signal's arrive are enqueued on the
+ * km_signal_wait_queue until the signal arrives.  Each vcpu
+ * has its own condition variable that it waits on.
+ */
+pthread_mutex_t km_signal_wait_mutex = PTHREAD_MUTEX_INITIALIZER;
+TAILQ_HEAD(km_signal_wait_queue, km_vcpu);
+struct km_signal_wait_queue km_signal_wait_queue;
 
 void km_install_sighandler(int signum, sa_action_t func)
 {
@@ -42,7 +53,7 @@ void km_install_sighandler(int signum, sa_action_t func)
 }
 
 /*
- * Make current thread block until signal is sent to it via pthread_kill().
+ * Make current km thread (not payload thread) block until signal is sent to it via pthread_kill().
  * Note that for the thread to not die on the signal it also needs
  * to block it, so to use in multi-threaded code other threads (or parent)
  * needs to block it or handle it too.
@@ -165,6 +176,8 @@ void km_signal_init(void)
    km_sigaddset(&def_ign_signals, SIGCHLD);
    km_sigaddset(&def_ign_signals, SIGURG);
    km_sigaddset(&def_ign_signals, SIGWINCH);
+
+   TAILQ_INIT(&km_signal_wait_queue);
 }
 
 void km_signal_fini(void)
@@ -335,12 +348,67 @@ void km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info)
    return;
 }
 
+/*
+ * Enqueue the passed vcpu on the "wait for signal arrival" queue and
+ * then sleep until an ublocked signal arrives.
+ */
+static void km_suspend_for_payload_signal(km_vcpu_t* vcpu)
+{
+   km_mutex_lock(&km_signal_wait_mutex);
+   TAILQ_INSERT_TAIL(&km_signal_wait_queue, vcpu, signal_link);
+   int rc = pthread_cond_wait(&vcpu->signal_wait_cv, &km_signal_wait_mutex);
+   assert(rc == 0);
+   km_infox(KM_TRACE_VCPU, "done waiting for signal arrival");
+   // The waker has removed us from the queue.
+   km_mutex_unlock(&km_signal_wait_mutex);
+
+}
+
+/*
+ * Look for vcpu's blocked in sigsuspend() that are waiting for the passed
+ * signal.  Enqueue the signal on the first found thread's pending queue
+ * and wake all vcpu's waiting for the signal.
+ * Returns the number of woken vcpu's
+ * Do we wake a single thread or all suspended threads?
+ */
+int km_wakeup_suspended_thread(siginfo_t* info)
+{
+   km_vcpu_t* vcpu;
+   km_vcpu_t* prev;
+   int wake_count = 0;
+   int signal_delivered = 0;
+
+   km_mutex_lock(&km_signal_wait_mutex);
+   TAILQ_FOREACH_SAFE(vcpu, &km_signal_wait_queue, signal_link, prev) {
+      if (km_sigismember(&vcpu->sigmask, info->si_signo) == 0) {  // this signal is not blocked on this vcpu
+         assert(vcpu->in_sigsuspend != 0);
+         km_infox(KM_TRACE_VCPU, "Waking sigsuspend()'ed vcpu %d with signal %d", vcpu->vcpu_id, info->si_signo);
+         TAILQ_REMOVE(&km_signal_wait_queue, vcpu, signal_link);
+         if (signal_delivered == 0) {
+            enqueue_signal(&vcpu->sigpending, info);
+            signal_delivered = 1;
+         }
+         int rc = pthread_cond_signal(&vcpu->signal_wait_cv);
+         assert(rc == 0);
+         wake_count++;
+      }
+   }
+   km_mutex_unlock(&km_signal_wait_mutex);
+
+   return wake_count;
+}
+
 void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 {
    /*
     * non-RT signals are consolidated in while pending.
     */
    if (info->si_signo < SIGRTMIN && signal_pending(vcpu, info)) {
+      km_infox(KM_TRACE_VCPU, "signal %d already pending", info->si_signo);
+      return;
+   }
+   // See if this signal can wake a thread in sigsuspend().
+   if (km_wakeup_suspended_thread(info) > 0) {
       return;
    }
    if (vcpu == 0) {
@@ -401,6 +469,13 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    vcpu->sregs_valid = 0;
    km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
    km_read_registers(vcpu);
+   km_infox(KM_TRACE_KVM,
+           "sched signal handler, vcpu %d, sig %d, RIP 0x%0llx RSP 0x%0llx CR2 0x%llx",
+           vcpu->vcpu_id,
+           info->si_signo,
+           vcpu->regs.rip,
+           vcpu->regs.rsp,
+           vcpu->sregs.cr2);
 
    km_gva_t sframe_gva;
    // Check if sigaltstack is set, requested, and not in use yet, and use it then
@@ -460,7 +535,7 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
       return;
    }
    if (act->handler == (km_gva_t)SIG_DFL) {
-      if (km_sigismember(&def_ign_signals, info->si_signo != 0)) {
+      if (km_sigismember(&def_ign_signals, info->si_signo) != 0) {
          return;
       }
 
@@ -649,4 +724,72 @@ uint64_t km_rt_sigpending(km_vcpu_t* vcpu, km_sigset_t* set, size_t sigsetsize)
    }
    get_pending_signals(vcpu, set);
    return 0;
+}
+
+uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize)
+{
+   if (masksize != sizeof(km_sigset_t)) {
+      return -EINVAL;
+   }
+   km_infox(KM_TRACE_VCPU, "start waiting for signal, new mask 0x%lx, prev mask 0x%lx", mask[0], vcpu->sigmask);
+   vcpu->in_sigsuspend = 1;
+   vcpu->saved_sigmask = vcpu->sigmask;
+   vcpu->sigmask = *mask;
+   km_suspend_for_payload_signal(vcpu);
+   return -EINTR;
+}
+
+/*
+ * This is the signal handler for some of the signals sent to km but really
+ * are for the payload.
+ * We then propagate these signals on to the vcpu threads.
+ * We need to be careful to not take mutexes that could be held by the thread this
+ * signal handler is running on.  The intent is that signal handler only run on
+ * km's main thread which should only be running gdbstub.
+ * So, we only take mutexes that the km main thread will not be holding.
+ */
+void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext)
+{
+   siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
+
+   km_infox(KM_TRACE_VCPU, "Deliver signal %d", signo);
+
+   km_post_signal(NULL, &info);
+}
+
+/*
+ * We need to propagate to the payload some signals that are directed to km.
+ * This function sets up the signal handlers for these passed thru signals.
+ * We chose the initial set of signals for this treatment based on the needs of
+ * nginx.  We can add more as needed.
+ */
+void km_setup_signal_propagate(void)
+{
+   struct sigaction sa;
+
+   sa.sa_sigaction = km_signal_passthru;
+   sigemptyset(&sa.sa_mask);
+   sa.sa_flags = SA_SIGINFO;
+   sa.sa_restorer = NULL;
+
+   // Setup handlers for the signals we are passing through km to the payload threads.
+   int rc;
+   rc = sigaction(SIGTERM, &sa, NULL);
+   assert(rc == 0);
+   rc = sigaction(SIGHUP, &sa, NULL);
+   assert(rc == 0);
+   rc = sigaction(SIGQUIT, &sa, NULL);
+   assert(rc == 0);
+   rc = sigaction(SIGUSR1, &sa, NULL);
+   assert(rc == 0);
+   rc = sigaction(SIGUSR2, &sa, NULL);
+   assert(rc == 0);
+   rc = sigaction(SIGWINCH, &sa, NULL);
+   assert(rc == 0);
+   rc = sigaction(SIGALRM, &sa, NULL);
+   assert(rc == 0);
+   rc = sigaction(SIGVTALRM, &sa, NULL);
+   assert(rc == 0);
+   rc = sigaction(SIGPROF, &sa, NULL);
+   assert(rc == 0);
 }

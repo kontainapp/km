@@ -89,7 +89,7 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
  */
 void km_machine_fini(void)
 {
-   km_wait_on_eventfd(machine.shutdown_fd);
+//   km_wait_on_eventfd(machine.shutdown_fd);
    close(machine.shutdown_fd);
    assert(machine.vm_vcpu_run_cnt == 0);
    free(machine.auxv);
@@ -147,7 +147,7 @@ void km_machine_fini(void)
    km_fs_fini();
 }
 
-static void km_init_syscall_handler(km_vcpu_t* vcpu)
+void km_init_syscall_handler(km_vcpu_t* vcpu)
 {
    size_t allocsz = sizeof(struct kvm_msrs) + 3 * sizeof(struct kvm_msr_entry);
    struct kvm_msrs* msrs = calloc(allocsz, 1);
@@ -163,7 +163,7 @@ static void km_init_syscall_handler(km_vcpu_t* vcpu)
    free(msrs);
 }
 
-static void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
+void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
 {
    assert(machine.idt != 0);
    vcpu->sregs = (kvm_sregs_t){
@@ -192,7 +192,7 @@ static void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
 /*
  * Create vcpu with KVM, map the control region.
  */
-static int km_vcpu_init(km_vcpu_t* vcpu)
+int km_vcpu_init(km_vcpu_t* vcpu)
 {
    int rc;
 
@@ -214,6 +214,7 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
    vcpu->sigpending = (km_signal_list_t){.head = TAILQ_HEAD_INITIALIZER(vcpu->sigpending.head)};
    vcpu->thr_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    vcpu->thr_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
+   vcpu->signal_wait_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
    return 0;
 }
 
@@ -372,6 +373,8 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg)
    km_gva_t sp = vcpu->stack_top;   // where we put argv
    assert((sp & 0x7) == 0);
 
+   km_infox(KM_TRACE_VCPU, "vcpu %p, start 0x%lx, arg 0x%lx, sp 0x%lx", vcpu, start, arg, sp);
+
    kvm_vcpu_init_sregs(vcpu);
    vcpu->regs = (kvm_regs_t){
        .rip = start,
@@ -416,22 +419,13 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 }
 
 /*
- * initial steps setting our VM
- *
- * talk to KVM
- * create VM
- * set VM run memory region
- * prepare cpuid
- *
- * Any failure is fatal, hence void
+ * Setup the basic virtual machine.
  */
-void km_machine_init(km_machine_init_params_t* params)
+void km_machine_setup(km_machine_init_params_t* params)
 {
    int rc;
 
-   if (km_fs_init() < 0) {
-      err(1, "KM: k_init_guest_files() failed");
-   }
+   km_infox(KM_TRACE_KVM, "begin");
    if ((machine.intr_fd = eventfd(0, 0)) == -1) {
       err(1, "KM: Failed to create machine intr_fd");
    }
@@ -561,6 +555,25 @@ void km_machine_init(km_machine_init_params_t* params)
          machine.guest_max_physmem = params->guest_physmem;
       }
    }
+}
+
+/*
+ * initial steps setting our VM
+ *
+ * talk to KVM
+ * create VM
+ * set VM run memory region
+ * prepare cpuid
+ *
+ * Any failure is fatal, hence void
+ */
+void km_machine_init(km_machine_init_params_t* params)
+{
+   if (km_fs_init() < 0) {
+      err(1, "KM: k_init_guest_files() failed");
+   }
+   machine.pid = 1;
+   km_machine_setup(params);
    km_mem_init(params);
    km_signal_init();
 }

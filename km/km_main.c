@@ -26,6 +26,9 @@
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_guest.h"
+#include "km_exec.h"
+#include "km_fork.h"
 
 km_info_trace_t km_info_trace;
 
@@ -97,7 +100,7 @@ static inline void show_version(void)
 #define GDB_LISTEN "gdb-listen"
 #define GDB_DYNLINK "gdb-dynlink"
 
-static km_machine_init_params_t km_machine_init_params = {
+km_machine_init_params_t km_machine_init_params = {
     .force_pdpe1g = KM_FLAG_FORCE_ENABLE,
     .overcommit_memory = KM_FLAG_FORCE_DISABLE,
     .use_virt = KM_FLAG_FORCE_DEFAULT,
@@ -266,14 +269,30 @@ int main(int argc, char* const argv[])
       usage();
    }
    payload_file = argv[optind];
+   char** localargv = (char**)&argv[optind];
+   int localargc = argc - optind;
+   char** localenvp = envp;
+   int localenvc = envc;
+   int elf_fd = -1;
 
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
-   km_gva_t adjust = km_load_elf(payload_file);
+   km_init_guest_idt();
    if ((vcpu = km_vcpu_get()) == NULL) {
       err(1, "Failed to get main vcpu");
    }
-   km_gva_t guest_args = km_init_main(vcpu, argc - optind, argv + optind, envc, envp);
+   km_init_syscall_handler(vcpu);
+
+load_again:;
+   km_gva_t adjust = km_load_elf(payload_file, elf_fd);
+   km_gva_t guest_args = km_init_main(vcpu, localargc, localargv, localenvc, localenvp);
+   if (km_exec_state.exec_in_progress != 0) {
+      free(km_exec_state.argp_envp);
+      km_exec_state.argp_envp = NULL;
+      km_exec_state.exec_in_progress = 0;
+      assert(vcpu->is_used == 0);
+      vcpu->is_used = 1;
+   }
    if (km_dynlinker.km_filename != NULL) {
       if (km_vcpu_set_to_run(vcpu,
                              km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust,
@@ -286,7 +305,10 @@ int main(int argc, char* const argv[])
       }
    }
    if (envp != __environ) {   // if there was no --putenv, we do not need envp array
-      free(envp);
+      if (envp != NULL) {
+         free(envp);
+         envp = NULL;
+      }
    }
    if (wait_for_signal == 1) {
       warnx("Waiting for kill -SIGUSR1  %d", getpid());
@@ -302,15 +324,50 @@ int main(int argc, char* const argv[])
       }
    }
 
+   km_setup_signal_propagate();
    if (km_run_vcpu_thread(vcpu, km_vcpu_run_main) < 0) {
       err(2, "Failed to create main run_vcpu thread");
    }
    if (km_gdb_is_enabled() == 1) {
       km_gdb_main_loop(vcpu);
       km_gdb_destroy_listen();
+      if (km_fork_state.fork_in_progress != 0) {
+         // We are the child process.  Get the child vm running.
+         km_reinit_for_fork_child();
+         km_fork_state.fork_in_progress = 0;
+      }
+   }
+
+   // Wait for payload termination or execve() hypercall or the child side of a fork() hypercall
+wait_for_child_to_exit:;
+   km_wait_on_eventfd(machine.shutdown_fd);
+   km_infox(KM_TRACE_PROC, "fork in progress %d", km_fork_state.fork_in_progress);
+   if (km_fork_state.fork_in_progress != 0) {
+      if (km_dofork() == 0) {  //child process
+         km_reinit_for_fork_child();
+      }
+      km_fork_state.fork_in_progress = 0;
+      goto wait_for_child_to_exit;
+   }
+
+   km_infox(KM_TRACE_PROC, "exec in progress %d", km_exec_state.exec_in_progress);
+   if (km_exec_state.exec_in_progress != 0) {  // not really terminated, payload exec()'ed to another executable
+      km_infox(KM_TRACE_PROC, "start exec processing, file %s, fd %d", km_exec_state.filename, km_exec_state.fd);
+      localargc = km_exec_state.argc;
+      localargv = km_exec_state.argp;
+      localenvc = km_exec_state.envc + 1;      // include the null pointer, the dyn linker depends on this
+      localenvp = km_exec_state.envp;
+      payload_file = km_exec_state.filename;
+      elf_fd = km_exec_state.fd;
+      wait_for_signal = 0;
+      machine.park_all = 0;
+      machine.pause_requested = 0;
+      km_reinit_for_exec();
+      goto load_again;
    }
 
    km_machine_fini();
+   km_infox(KM_TRACE_PROC, "exit status %d", machine.exit_status);
    regfree(&km_info_trace.tags);
    exit(machine.exit_status);
 }

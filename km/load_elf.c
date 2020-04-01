@@ -119,14 +119,10 @@ static void km_find_hook_symbols(Elf* e, km_gva_t adjust)
    return;
 }
 
-static Elf* km_open_elf_file(km_payload_t* payload, int* fd)
+static Elf* km_setup_elf_file(km_payload_t* payload, int fd)
 {
    Elf* e;
-   if ((*fd = open(payload->km_filename, O_RDONLY, 0)) < 0) {
-      warn("open %s failed", payload->km_filename);
-      return NULL;
-   }
-   if ((e = elf_begin(*fd, ELF_C_READ, NULL)) == NULL) {
+   if ((e = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
       warnx("elf_begin() failed: %s", elf_errmsg(-1));
       return NULL;
    }
@@ -163,6 +159,16 @@ static Elf* km_open_elf_file(km_payload_t* payload, int* fd)
    }
    return e;
 }
+
+static Elf* km_open_elf_file(km_payload_t* payload, int* fd)
+{
+   if ((*fd = open(payload->km_filename, O_RDONLY, 0)) < 0) {
+      warn("open %s failed", payload->km_filename);
+      return NULL;
+   }
+   return km_setup_elf_file(payload, *fd);
+}
+
 /*
  * load the dynamic linker. Currently only support MUSL dynlink built with KM hypercalls.
  */
@@ -180,10 +186,13 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    }
    if (strncmp(interp_kma, KM_DYNLINKER_STR, interp_len) != 0) {
       // Use the dynamic linker in the .interp section
-      km_dynlinker.km_filename = interp_kma;
+      km_dynlinker.km_filename = strdup(interp_kma);
    } else {
       // Use the dynamic linker mentioned on  the command line
-      km_dynlinker.km_filename = km_dynlinker_file;
+      km_dynlinker.km_filename = strdup(km_dynlinker_file);
+   }
+   if (km_dynlinker.km_filename == NULL) {
+      err(2, "Can't allocate memory for dynamic linker filename");
    }
 
    struct stat st;
@@ -221,29 +230,41 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
 /*
  * Read elf executable file and initialize mem with the content of the program
  * segments. Set entry point.
+ * If fd < 0 then open file to read the elf file
+ * If fd >= then fd is already open on the elf file
  * All errors are fatal.
  */
-uint64_t km_load_elf(const char* file)
+uint64_t km_load_elf(const char* file, int fd)
 {
    char fn[strlen(file + 3)];
-   int fd;
    Elf* e;
    GElf_Ehdr* ehdr = &km_guest.km_ehdr;
 
    if (elf_version(EV_CURRENT) == EV_NONE) {
       errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
    }
-   if (strcmp(".km", file + strlen(file) - 3) != 0 &&
-       strcmp(".kmd", file + strlen(file) - 4) != 0 && strcmp(".so", file + strlen(file) - 3) != 0) {
-      sprintf(fn, "%s.km", file);
-      file = fn;
-   }
-   if ((km_guest.km_filename = realpath(file, NULL)) == NULL) {
-      err(2, "%s realpath failed: %s", __FUNCTION__, file);
-   }
+   if (fd < 0) {
+      // Open the km exectutable
+      if (strcmp(".km", file + strlen(file) - 3) != 0 &&
+          strcmp(".kmd", file + strlen(file) - 4) != 0 && strcmp(".so", file + strlen(file) - 3) != 0) {
+         sprintf(fn, "%s.km", file);
+         file = fn;
+      }
+      if ((km_guest.km_filename = realpath(file, NULL)) == NULL) {
+         err(2, "%s realpath failed: %s", __FUNCTION__, file);
+      }
 
-   if ((e = km_open_elf_file(&km_guest, &fd)) == NULL) {
-      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, km_dynlinker.km_filename);
+      if ((e = km_open_elf_file(&km_guest, &fd)) == NULL) {
+         errx(2, "%s km_open_elf failed: %s", __FUNCTION__, km_dynlinker.km_filename);
+      }
+   } else {
+      // Use the passed fd that is open on the km executable.
+      if ((km_guest.km_filename = strdup(file)) == NULL) {
+         err(2, "strdup failed: %s", file);
+      }
+      if ((e = km_setup_elf_file(&km_guest, fd)) == NULL) {
+         errx(2, "km_setup_elf_file failed, execfd %d", fd);
+      }
    }
 
    km_gva_t adjust = 0;
@@ -288,4 +309,14 @@ uint64_t km_load_elf(const char* file)
    // TODO: need to verify the payload is a km executable, issue #512.
 
    return adjust;
+}
+
+/*
+ * Return a km_payload_t to its initial state.
+ */
+void km_payload_deinit(km_payload_t* plp)
+{
+   free(plp->km_phdr);
+   free(plp->km_filename);
+   memset(plp, 0, sizeof(*plp));
 }

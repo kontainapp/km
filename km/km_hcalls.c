@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -10,6 +10,7 @@
  * permission of Kontain Inc.
  */
 
+#define _GNU_SOURCE
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -23,6 +24,8 @@
 #include <asm/prctl.h>
 #include <linux/futex.h>
 #include <linux/stat.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 
 #include "km.h"
 #include "km_filesys.h"
@@ -30,6 +33,9 @@
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_syscall.h"
+#include "km_exec.h"
+#include "km_gdb.h"
+#include "km_fork.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -895,10 +901,22 @@ static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t getuid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = getuid();
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t geteuid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = geteuid();
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t getpid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // pid_t getpid(void);
-   arg->hc_ret = 1;
+   arg->hc_ret = machine.pid;
    return HC_CONTINUE;
 }
 
@@ -1005,6 +1023,18 @@ static km_hc_ret_t rt_sigpending_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
    arg->hc_ret = km_rt_sigpending(vcpu, sigset, arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t rt_sigsuspend_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int rt_sigsuspend(const sigset_t *mask)
+   km_sigset_t* mask = NULL;
+   if (arg->arg1 != 0 && (mask = km_gva_to_kma(arg->arg1)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_rt_sigsuspend(vcpu, mask, arg->arg2);
    return HC_CONTINUE;
 }
 
@@ -1272,39 +1302,250 @@ static km_hc_ret_t uname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   char* pathname = km_gva_to_kma(arg->arg2);
+   /*
+    * int execveat(int dirfd,
+    *              const char *pathname,
+    *              char *const argv[],
+    *              char *const envp[],
+    *              int flags);
+    * flags can be AT_EMPTY_PATH and AT_SYMLINK_NOFOLLOW
+    */
+   km_infox(KM_TRACE_HC, "dirfd %lu, pathname %s, flags 0x%lx", arg->arg1, pathname, arg->arg5);
+   assert(km_exec_state.exec_in_progress == 0);
+   km_exec_state.exec_in_progress = 1;
+
+   // Get the args into km address space.
+   int error = km_copy_argvenv_to_km((char**)arg->arg3, (char**)arg->arg4);
+   if (error != 0) {
+      arg->hc_ret = -error;
+      km_exec_state.exec_in_progress = 0;
+      return HC_CONTINUE;
+   }
+
+   int flags = O_RDONLY;
+   if ((arg->arg5 & AT_SYMLINK_NOFOLLOW) != 0) {
+      flags |= O_NOFOLLOW;
+   }
+   errno = EBADF;    // if the fd is bad
+   if (arg->arg1 == AT_FDCWD || *pathname == '/') {
+      km_exec_state.fd = open(pathname, flags);
+   } else if ((arg->arg5 & AT_EMPTY_PATH) != 0) {
+      if ((km_exec_state.fd = guestfd_to_hostfd(arg->arg1)) < 0) {
+         errno = EBADF;
+      }
+   } else {
+      km_exec_state.fd = openat(arg->arg1, pathname, flags);
+   }
+   if (km_exec_state.fd < 0) {
+      arg->hc_ret = -errno;
+      free(km_exec_state.argp_envp);
+      km_exec_state.exec_in_progress = 0;
+      return HC_CONTINUE;
+   }
+
+   // Stop all vcpu's and give control to the km main thread which finishes doing the exec
+   arg->hc_ret = 0;
+   return HC_PARKALL;
+}
+
 static km_hc_ret_t execve_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   warnx("%s(%s, %p, %p)",
-         __FUNCTION__,
-         (char*)km_gva_to_kma(arg->arg1),
-         km_gva_to_kma(arg->arg2),
-         km_gva_to_kma(arg->arg3));
-   uint64_t* ap = km_gva_to_kma(arg->arg2);
-   if (ap != 0) {
-      while (*ap != 0) {
-         warnx("arg: %s", (char*)km_gva_to_kma(*ap));
-         ap++;
+   km_infox(KM_TRACE_HC, "filename %s", (char*)km_gva_to_kma(arg->arg1));
+
+   // Save the args where the km main thread can pick them up.
+   assert(km_exec_state.exec_in_progress == 0);
+   km_exec_state.exec_in_progress = 1;
+   km_exec_state.fd = -1;
+   int error = km_copy_argvenv_to_km((char**)arg->arg2, (char**)arg->arg3);
+   if (error == 0) {
+      if (strlen(km_gva_to_kma(arg->arg1)) >= sizeof(km_exec_state.filename)) {
+         error = ENAMETOOLONG;
+      } else {
+         strcpy(km_exec_state.filename, km_gva_to_kma(arg->arg1));
       }
    }
-   ap = km_gva_to_kma(arg->arg3);
-   if (ap != 0) {
-      while (*ap != 0) {
-         warnx("env: %s", (char*)km_gva_to_kma(*ap));
-         ap++;
-      }
+
+   /*
+    * Be sure we are going to perform the execve() operation.
+    * This means verifying many things as described in the execve() man page.
+    * For now we are trying to make sure we can perform the fundamentals of
+    * of an execve() system call so we don't do any of these checks.
+    */
+   if (error != 0) {
+      arg->hc_ret = -error;
+      km_exec_state.exec_in_progress = 0;
+      return HC_CONTINUE;
    }
-   arg->hc_ret = -ENOTSUP;
-   siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
-   km_post_signal(vcpu, &info);
-   return HC_CONTINUE;
+
+   // This is the point of no return.
+
+   // We perform a park all to get all payload threads to park themselves and get
+   // control back to the km main thread where the execve() processing continues.
+   arg->hc_ret = 0;
+   return HC_PARKALL;
 }
 
 static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = -ENOTSUP;
+   // Advance rip beyond the hypercall out instruction
+   km_vcpu_sync_rip(vcpu);
+
+   // Save this thread's vcpu state for the child process
+   if (ioctl(((km_vcpu_t*)vcpu)->kvm_vcpu_fd, KVM_GET_REGS, &km_fork_state.regs) < 0) {
+      arg->hc_ret = -errno;
+      return HC_CONTINUE;
+   }
+
+   /*
+    * Find out about the fork()ing thread's stack so the recreated vcpu thread in the
+    * child can use its copy of the stack.
+    * Free this on the parent process side after the fork() call returns.
+    * I'm not sure if it is safe to free this on the child size of the fork().
+    * It may not matter, the child will probably call execve() shortly.
+    */
+   int rc;
+   if ((rc = pthread_getattr_np(pthread_self(), &km_fork_state.thread_attr)) != 0) {
+      arg->hc_ret = -rc;
+      return HC_CONTINUE;
+   }
+
+   assert(km_fork_state.fork_in_progress == 0);
+   km_fork_state.fork_in_progress = 1;
+   km_fork_state.child_pid = km_newpid(); // allocate a km pid for the new process
+   km_fork_state.arg = arg;
+   km_fork_state.vcpu = vcpu;
+
+   /*
+    * We want the fork() system call to happen in the km main thread
+    * because we want the main thread to be the surviving thread in the child.
+    * So we gather up the needed state and put it in km_fork_state,
+    * then arrange for all vcpu's to be stopped, and then wakeup the
+    * km main thread.  The main thread does the fork() and this thread
+    * regains control to resume the parent process.
+    */
+   return HC_DOFORK;
+}
+
+/*
+ * pid_t wait4(pid_t pid, int *wstatus, int options, struct rusage *rusage);
+ */
+static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   pid_t linux_pid;
+   pid_t wait4_rv;
+
+   km_infox(KM_TRACE_VCPU, "pid %ld, wstatus 0x%lx, options 0x%lx, rusage 0x%lx",
+            arg->arg1, arg->arg2, arg->arg3, arg->arg4);
+
+   if ((int64_t)arg->arg1 < -1 || arg->arg1 == 0) {
+      assert("no process group support yet" == NULL);
+   }
+   if (arg->arg1 == -1) {
+      linux_pid = 0;
+   } else {
+      linux_pid = km_pid_xlate_kpid(arg->arg1);
+   }
+
+   km_infox(KM_TRACE_HC, "waiting for km pid %ld, linux pid %d", arg->arg1, linux_pid);
+   wait4_rv = wait4(linux_pid, (int*)km_gva_to_kma(arg->arg2), (int)arg->arg3, (struct rusage*)km_gva_to_kma(arg->arg4));
+   km_infox(KM_TRACE_HC, "wait4 returns %d, errno %d", wait4_rv, errno);
+   if (wait4_rv < 0) {
+      arg->hc_ret = -errno;
+   } else {
+      if (wait4_rv != 0) {
+         arg->hc_ret = km_pid_xlate_lpid(wait4_rv);
+         km_pid_free(arg->hc_ret);
+      } else {
+         arg->hc_ret = 0;
+      }
+   }
+   km_infox(KM_TRACE_HC, "hc_ret %ld", arg->hc_ret);
    return HC_CONTINUE;
 }
 
+/*
+ * int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
+ */
+static km_hc_ret_t waitid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   siginfo_t* sip = km_gva_to_kma(arg->arg3);
+   pid_t linux_pid = 0;
+
+   if (sip == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
+   switch ((idtype_t)arg->arg1) {
+   case P_PID:
+      linux_pid = km_pid_xlate_kpid(arg->arg2);
+      break;
+   case P_ALL:
+      linux_pid = 0;
+      break;
+   case P_PGID:
+      assert("Can't wait for process group id yet" == NULL);
+      break;
+   }
+
+   km_infox(KM_TRACE_HC, "waiting for km pid %lu, linux pid %d, options 0x%lx", arg->arg2, linux_pid, arg->arg4);
+   sip->si_pid = 0;
+   if (waitid((idtype_t)arg->arg1, linux_pid, sip, (int)arg->arg4) < 0) {
+      arg->hc_ret = -errno;
+   } else {
+      // Return the km pid converted from the linux pid.
+      if (sip->si_pid != 0) {
+         sip->si_pid = km_pid_xlate_lpid(sip->si_pid);
+         km_pid_free(sip->si_pid);
+      }
+      km_infox(KM_TRACE_HC, "returns si_pid %d", sip->si_pid);
+      arg->hc_ret = 0;
+   }
+   return HC_CONTINUE;
+}
+
+/*
+ * int setitimer(int which, const struct itimerval *new_value,
+ *               struct itimerval *old_value);
+ */
+static km_hc_ret_t  setitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct itimerval* old = NULL;
+   struct itimerval* new = km_gva_to_kma(arg->arg2);
+   if (new == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (arg->arg3 != 0) {
+      if ((old = km_gva_to_kma(arg->arg3)) == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+   }
+   arg->hc_ret = setitimer(arg->arg1, new, old);
+   return HC_CONTINUE;
+}
+
+/*
+ * int getitimer(int which, struct itimerval *curr_value);
+ */
+static km_hc_ret_t  getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct itimerval* curr = km_gva_to_kma(arg->arg2);
+   if (curr == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = getitimer(arg->arg1, curr);
+   return HC_CONTINUE;
+}
+
+/*
+ * Maximum hypercall number, defines the size of the km_hcalls_table
+ */
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 km_hc_stats_t* km_hcalls_stats;
 
@@ -1421,6 +1662,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_rt_sigaction] = rt_sigaction_hcall;
    km_hcalls_table[SYS_rt_sigreturn] = rt_sigreturn_hcall;
    km_hcalls_table[SYS_rt_sigpending] = rt_sigpending_hcall;
+   km_hcalls_table[SYS_rt_sigsuspend] = rt_sigsuspend_hcall;
    km_hcalls_table[SYS_sigaltstack] = sigaltstack_hcall;
    km_hcalls_table[SYS_kill] = kill_hcall;
    km_hcalls_table[SYS_tkill] = tkill_hcall;
@@ -1430,10 +1672,15 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_gettid] = gettid_hcall;
 
    km_hcalls_table[SYS_getrusage] = getrusage_hcall;
-   km_hcalls_table[SYS_geteuid] = dummy_hcall;
-   km_hcalls_table[SYS_getuid] = dummy_hcall;
+   km_hcalls_table[SYS_geteuid] = geteuid_hcall;
+   km_hcalls_table[SYS_getuid] = getuid_hcall;
    km_hcalls_table[SYS_getegid] = dummy_hcall;
    km_hcalls_table[SYS_getgid] = dummy_hcall;
+   /*
+    * setgid() and setuid() do more than you think.
+    * All threads in a process must have the same uid and gid and
+    * the kernel doesn't do this, libc does it.
+    */
    km_hcalls_table[SYS_sched_yield] = dummy_hcall;
    km_hcalls_table[SYS_setpriority] = dummy_hcall;
    km_hcalls_table[SYS_sched_getaffinity] = sched_getaffinity_hcall;
@@ -1447,10 +1694,16 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_sysinfo] = sysinfo_hcall;
 
    km_hcalls_table[SYS_execve] = execve_hcall;
+   km_hcalls_table[SYS_execveat] = execveat_hcall;
    km_hcalls_table[SYS_fork] = fork_hcall;
+   km_hcalls_table[SYS_wait4] = wait4_hcall;
+   km_hcalls_table[SYS_waitid] = waitid_hcall;
    km_hcalls_table[SYS_times] = times_hcall;
 
    km_hcalls_table[SYS_uname] = uname_hcall;
+
+   km_hcalls_table[SYS_setitimer] = setitimer_hcall;
+   km_hcalls_table[SYS_getitimer] = getitimer_hcall;
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_unmapself] = unmapself_hcall;
@@ -1462,10 +1715,12 @@ void km_hcalls_init(void)
       for (int i = 0; i < KM_MAX_HCALL; i++) {
          km_hcalls_stats[i].min = UINT64_MAX;
       }
-      atexit(km_print_hcall_stats);
    }
 }
 
 void km_hcalls_fini(void)
-{ /* empty for now */
+{
+   if (km_collect_hc_stats == 1) {
+      km_print_hcall_stats();
+   }
 }

@@ -144,7 +144,11 @@ typedef struct km_vcpu {
    kvm_regs_t regs;           // Cached register values.
    kvm_sregs_t sregs;         // Cached segment register values.
    km_sigset_t sigmask;       // blocked signals for thread
-   km_signal_list_t sigpending;   // List of signals sent to thread
+   km_signal_list_t sigpending;      // List of signals sent to thread
+   pthread_cond_t signal_wait_cv;    // wait for signals with this cv
+   int in_sigsuspend;                // if true thread is blocked waiting for signal arrival
+   km_sigset_t saved_sigmask;        // sigmask saved by sigsuspend()
+   TAILQ_ENTRY(km_vcpu) signal_link; // link for signal waiting queue
    /*
     * Linux/Pthread handshake hacks. These are actually part of the standard.
     */
@@ -189,9 +193,15 @@ typedef struct km_machine_init_params {
                                         // OOM killer to kick in
    km_flag_force_t use_virt;            // force using kvm or kkm
 } km_machine_init_params_t;
+extern km_machine_init_params_t km_machine_init_params;
 
+void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, void* ucontext_unused);
+void km_forward_fd_signal(int signo, siginfo_t* sinfo, void * ucontext_unused);
+
+void km_machine_setup(km_machine_init_params_t* params);
 void km_machine_init(km_machine_init_params_t* params);
 void km_signal_machine_fini(void);
+void km_vcpu_fini(km_vcpu_t* vcpu);
 void km_machine_fini(void);
 void* km_vcpu_run_main(km_vcpu_t* unused);
 void* km_vcpu_run(km_vcpu_t* vcpu);
@@ -201,6 +211,7 @@ void km_read_registers(km_vcpu_t* vcpu);
 void km_write_registers(km_vcpu_t* vcpu);
 void km_read_sregisters(km_vcpu_t* vcpu);
 void km_write_sregisters(km_vcpu_t* vcpu);
+void kvm_vcpu_init_sregs(km_vcpu_t* vcpu);
 
 void km_hcalls_init(void);
 void km_hcalls_fini(void);
@@ -291,6 +302,7 @@ typedef struct km_machine {
    int intr_fd;                  // eventfd used to signal to listener that a vCPU stopped
    int shutdown_fd;              // eventfd to coordinate final shutdown
    int exit_group;               // 1 if processing exit_group() call now.
+   int park_all;                 // 1 if all vcpus should park themselves, used by execve()
    int pause_requested;   // 1 if all VCPUs are being paused. Used to prevent race with new vcpu threads
    int exit_status;       // return code from payload's main thread
    pthread_mutex_t pause_mtx;   // protects .pause_requested and indirectly gdb_run_state in vcpus
@@ -308,6 +320,7 @@ typedef struct km_machine {
    km_mmap_cb_t mmaps;   // guest memory regions managed with mmaps/mprotect/munmap
    void* auxv;           // Copy of process AUXV (used if core is dumped)
    size_t auxv_size;     // size of process AUXV (used if core is dumped)
+   pid_t pid;            // the payload's process id
 } km_machine_t;
 
 extern km_machine_t machine;
@@ -326,6 +339,7 @@ static inline int km_wait_on_eventfd(int fd)
    return value;
 }
 
+void km_init_syscall_handler(km_vcpu_t* vcpu);
 km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[]);
 int km_pthread_create(
     km_vcpu_t* vcpu, pthread_tid_t* restrict pid, const km_kma_t attr, km_gva_t start, km_gva_t args);
@@ -342,6 +356,7 @@ void km_exit(km_vcpu_t* vcpu);
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
+int km_vcpu_init(km_vcpu_t* vcpu);
 void km_vcpu_put(km_vcpu_t* vcpu);
 int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg);
 int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);
@@ -376,7 +391,7 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
 void km_init_guest_idt(void);
 void km_handle_interrupt(km_vcpu_t* vcpu);
 
-#define KM_SIGVCPUSTOP SIGUSR1   //  After km start, used to signal VCP thread to force KVM exit
+#define KM_SIGVCPUSTOP (SIGRTMAX-1)   //  After km start, used to signal VCP thread to force KVM exit
 
 /*
  * To check for success/failure from plain system calls and similar logic, returns -1 and sets

@@ -762,6 +762,7 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
       return machine.tbrk;
    }
    if (GUEST_MEM_TOP_VA < tbrk || tbrk < GUEST_MEM_TOP_VA - GUEST_MEM_ZONE_SIZE_VA) {
+      km_infox(KM_TRACE_MEM, "tbrk 0x%lx out of range", tbrk);
       return -ENOMEM;
    }
    km_mem_lock();
@@ -770,6 +771,7 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
    km_gva_t tbrk_pa = gva_to_gpa(tbrk);
    if (rounddown(brk_pa, PDPTE_REGION) >= rounddown(tbrk_pa, PDPTE_REGION)) {
       km_mem_unlock();
+      km_infox(KM_TRACE_MEM, "new tbrk 0x%lx collides with brk 0x%lx", tbrk, machine.brk);
       return -ENOMEM;
    }
 

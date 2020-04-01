@@ -59,6 +59,7 @@
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_fork.h"
 
 /*
  * A note about multi threaded debugging.
@@ -190,10 +191,12 @@ static int km_gdb_accept_connection(void)
    int opt = 1;
 
    len = sizeof(client_addr);
-   gdbstub.sock_fd = accept(gdbstub.listen_socket_fd, (struct sockaddr*)&client_addr, &len);
-   if (gdbstub.sock_fd == -1) {
+   while ((gdbstub.sock_fd = accept(gdbstub.listen_socket_fd, (struct sockaddr*)&client_addr, &len)) == -1) {
       if (errno == EINVAL) {   // process exit caused a shutdown( listen_socket_fd, SHUT_RD )
          return EINVAL;
+      }
+      if (errno == EINTR) {
+         continue;
       }
       warn("accept failed");
       return -1;
@@ -244,6 +247,32 @@ static int km_gdb_vcpu_disengage(km_vcpu_t* vcpu, uint64_t unused)
    return 0;
 }
 
+static void gdb_fd_garbage_collect(void);
+
+/*
+ * Reset gdb state in the child process that results from a payload
+ * fork() system call.  The parent is connected to the gdb client.
+ * The child is not connected to the gdb client.
+ */
+void km_gdb_fork_reset(void)
+{
+   if (gdbstub.sock_fd >= 0) {
+      close(gdbstub.sock_fd);
+      gdbstub.sock_fd = -1;
+   }
+   if (gdbstub.listen_socket_fd >= 0) {
+      close(gdbstub.listen_socket_fd);
+      gdbstub.listen_socket_fd = -1;
+   }
+   gdbstub.enabled = 0;
+   gdbstub.gdb_client_attached = 0;
+   gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_UNSPECIFIED;
+   gdbstub.session_requested = 0;
+   TAILQ_INIT(&gdbstub.event_queue);
+   gdb_fd_garbage_collect();
+// start listening again????
+}
+
 /*
  * Initialize gdb's per vcpu state.
  * Called when a vcpu (a thread) comes to life.
@@ -253,8 +282,6 @@ void km_gdb_vcpu_state_init(km_vcpu_t* vcpu)
 {
    vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RUNNING;
 }
-
-static void gdb_fd_garbage_collect(void);
 
 /*
  * Cleanup gdb state on gdb client detach.
@@ -1922,7 +1949,7 @@ static void gdb_fd_garbage_collect(void)
 
    for (i = 0; i < MAX_GDB_VFILE_OPEN_FD; i++) {
       if (gdbstub.vfile_state.fd[i] != GDB_VFILE_FD_FREE_SLOT) {
-         km_info(KM_TRACE_GDB, "Closing gdb vFile fd %d, linux fd %d", i, gdbstub.vfile_state.fd[i]);
+         km_infox(KM_TRACE_GDB, "Closing gdb vFile fd %d, linux fd %d", i, gdbstub.vfile_state.fd[i]);
          close(gdbstub.vfile_state.fd[i]);
          gdbstub.vfile_state.fd[i] = GDB_VFILE_FD_FREE_SLOT;
       }
@@ -2409,6 +2436,12 @@ static gdb_event_t* gdb_select_event(void)
     */
    km_mutex_lock(&gdbstub.notify_mutex);
    TAILQ_FOREACH (foundgep, &gdbstub.event_queue, link) {
+      if (foundgep->signo == GDB_KMSIGNAL_DOFORK) {    // gdb needs to let a fork() hypercall happen
+         TAILQ_REMOVE(&gdbstub.event_queue, foundgep, link);
+         foundgep->entry_is_active = false;
+         km_mutex_unlock(&gdbstub.notify_mutex);
+         return foundgep;
+      }
       if (foundgep->signo == GDB_KMSIGNAL_THREADEXIT) {
          send_response('S', foundgep, true);
          break;
@@ -2812,7 +2845,7 @@ static void gdb_delete_stale_events(void)
    km_mutex_unlock(&gdbstub.notify_mutex);
 }
 
-static void km_vcpu_resume_all(void)
+void km_vcpu_resume_all(void)
 {
    km_mutex_lock(&machine.pause_mtx);
    machine.pause_requested = 0;
@@ -2952,6 +2985,13 @@ accept_connection:;
 
       gdb_event_t* foundgep;
       while ((foundgep = gdb_select_event()) != NULL) {
+         if (foundgep->signo == GDB_KMSIGNAL_DOFORK) {
+            if (km_dofork() == 0) { // We are the child, just return to the main thread
+               return;
+            } else {           // We are the parent process, just pretend nothing happened
+               continue;
+            }
+         }
          // process commands from the gdb client
          gdb_handle_remote_commands(foundgep);
          // Delete gdb_events for breakpoints that have been deleted
@@ -3086,7 +3126,6 @@ static int linux_signo(gdb_signal_number_t gdb_signo)
  * Parameters:
  *  vcpu - the thread/vcpu the signal fired on.
  *  signo - the linux signal number
- *  need_wait - set to true if the caller wants to wait until gdb tells us to go again.
  */
 void km_gdb_notify(km_vcpu_t* vcpu, int signo)
 {

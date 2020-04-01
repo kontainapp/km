@@ -28,6 +28,7 @@
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_fork.h"
 
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;
@@ -344,7 +345,7 @@ void km_read_registers(km_vcpu_t* vcpu)
       return;
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &vcpu->regs) < 0) {
-      warn("%s - KVM_GET_REGS failed", __FUNCTION__);
+      km_err_msg(errno, "KVM_GET_REGS failed");
       return;
    }
    vcpu->regs_valid = 1;
@@ -499,7 +500,7 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
  * Calling km_info() and km_infox() from this function seems to occassionally cause a mutex
  * deadlock in the regular expression code called from km_info*().
  */
-static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, void* ucontext_unused)
+void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, void* ucontext_unused)
 {
    // NOOP
 }
@@ -508,7 +509,7 @@ static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, 
  * Forward a signal file descriptor received by KM into the guest signal system.
  * This relies on info->si_fd being populated.
  */
-static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unused)
+void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unused)
 {
    int guest_fd = hostfd_to_guestfd(NULL, sinfo->si_fd);
    if (guest_fd < 0) {
@@ -531,7 +532,9 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
    vcpu->cpu_run->exit_reason = KVM_EXIT_UNKNOWN;   // Clear exit_reason from the preceeding ioctl
    vcpu->regs_valid = 0;                            // Invalidate cached registers
    vcpu->sregs_valid = 0;
-   km_infox(KM_TRACE_VCPU, "about to ioctl( KVM_RUN )");
+km_read_registers(vcpu);
+   km_infox(KM_TRACE_VCPU, "about to ioctl( KVM_RUN ), rip 0x%llx", vcpu->regs.rip);
+vcpu->regs_valid = 0;
    rc = ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
    vcpu->is_running = 0;
    km_infox(KM_TRACE_VCPU,
@@ -613,8 +616,9 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
    while (machine.pause_requested == 1 || (km_gdb_client_is_attached() != 0 &&
                                            vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
       km_infox(KM_TRACE_VCPU,
-               "pause_requested %d, gvs_gdb_run_state %d, waiting for gdb",
+               "pause_requested %d, park_all %d, gvs_gdb_run_state %d, waiting for gdb",
                machine.pause_requested,
+               machine.park_all,
                vcpu->gdb_vcpu_state.gdb_run_state);
       km_cond_wait(&machine.pause_cv, &machine.pause_mtx);
    }
@@ -644,6 +648,9 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
               kvm_reason_name(reason));
       switch (reason) {
          case KVM_EXIT_INTR:   // handled in km_vcpu_one_kvm_run
+            if (machine.park_all != 0) {
+               km_vcpu_stopped(vcpu);
+            }
             break;
 
          case KVM_EXIT_IO:
@@ -696,6 +703,27 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                           machine.exit_status);
                   km_gdb_accept_stop();
                   km_vcpu_exit_all(vcpu);
+                  break;
+
+               case HC_PARKALL:
+                  // Tell the other vcpu's to park themselves and then we park to.
+                  machine.park_all = 1;
+                  km_vcpu_pause_all();
+                  km_vcpu_stopped(vcpu);
+                  break;
+
+               case HC_DOFORK:
+                  // Give control to the km main thread which might be waiting for process
+                  // exit or could be sleeping in gdbstub.  The fork() is done in km main.
+                  if (km_gdb_client_is_attached() != 0) {
+                     km_gdb_notify(vcpu, GDB_KMSIGNAL_DOFORK);
+                  } else {
+                     km_vcpu_pause_all();
+                     if (eventfd_write(machine.shutdown_fd, 1) == -1) {
+                        errx(2, "Failed to send machine_fini signal");
+                     }
+                  }
+                  // Now go block in km_vcpu_handle_pause()
                   break;
             }
             break;   // exit_reason, case KVM_EXIT_IO
@@ -778,14 +806,9 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
              */
             km_deliver_next_signal(vcpu);
          }
+         km_rt_sigsuspend_revert(vcpu);
       }
    }
-}
-
-// docker stop sends this. Need to do exit() to call atexit callbacks
-static void km_term_handler(int signo, siginfo_t* unused, void* ucontext_unused)
-{
-   exit(0);
 }
 
 /*
@@ -799,7 +822,7 @@ void* km_vcpu_run_main(km_vcpu_t* unused)
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
    km_install_sighandler(SIGPIPE, km_forward_fd_signal);
    km_install_sighandler(SIGIO, km_forward_fd_signal);
-   km_install_sighandler(SIGTERM, km_term_handler);
+   km_install_sighandler(SIGCLD, km_forward_sigchild);
 
    while (eventfd_write(machine.intr_fd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
       ;   // ignore signals during the write
