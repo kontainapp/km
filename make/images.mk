@@ -154,7 +154,7 @@ pull-runenv-image: ## pulls test image.
 distro: runenv-image ## an alias for runenv-image
 publish: push-runenv-image
 
-runenv-demo-image:
+runenv-demo-image: ${RUNENV_DEMO_DEPENDENCIES}
 ifeq ($(shell test -e ${RUNENV_DEMO_DOCKERFILE} && echo -n yes),yes)
 	@-docker rmi -f ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} 2>/dev/null
 	${DOCKER_BUILD} \

@@ -44,6 +44,7 @@ RUNENV_VALIDATE_DIR := scripts
 RUNENV_VALIDATE_CMD := -cp /scripts Hello
 RUNENV_VALIDATE_EXPECTED := Hello, World!
 RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class
+RUNENV_DEMO_DEPENDENCIES := scripts/SimpleHttpServer.class
 
 all: ## Link java.kmd based on either full build or build artifats in docker image
 ifneq ($(FROMSRC),yes)
