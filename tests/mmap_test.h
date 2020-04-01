@@ -19,7 +19,7 @@
 #include "greatest/greatest.h"
 #include "km_mem.h"
 
-int in_gdb = 1;
+static int in_gdb = 1;
 
 extern int main(int argc, char** argv);
 #define KM_PAYLOAD() ((uint64_t)&main < 4 * MIB)   // in KM, we load from 2Mb, In Linux, from 4MB
