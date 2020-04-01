@@ -11,6 +11,7 @@
 # Makefile for building and packing Java payload runtime for KM
 
 TOP := $(shell git rev-parse --show-toplevel)
+CURRENT := ${TOP}/payloads/java
 JDK_VERSION := jdk-11.0.6+10
 # COMPONENT is used in docker image names so no '+' allowed, and we don't care about minor opt
 COMPONENT := jdk-11.0.6
@@ -19,9 +20,19 @@ PAYLOAD_NAME := ${COMPONENT}
 JDK_BUILD_DIR = ${JDK_VERSION}/build/linux-x86_64-normal-server-release
 
 # Needed to build Java from source - the same list as in buildenv-fedora.dockerfile
-DEP_PACKAGES := java-11-openjdk java-11-openjdk-devel  \
-	autoconf zip unzip fontconfig-devel cups-devel  alsa-lib-devel \
-   libXtst-devel libXt-devel libXrender-devel libXrandr-devel libXi-devel
+DEP_PACKAGES := java-11-openjdk \
+	java-11-openjdk-devel  \
+	autoconf \
+	zip \
+	unzip \
+	fontconfig-devel \
+	cups-devel  \
+	alsa-lib-devel \
+   	libXtst-devel \
+	libXt-devel \
+	libXrender-devel \
+	libXrandr-devel \
+	libXi-devel
 
 # 'yes' if java was build from src (based on existable of .git repo)
 FROMSRC=$(shell test -d $(JDK_VERSION)/.git && echo yes)
@@ -58,7 +69,11 @@ ${JDK_VERSION}:
 	git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
 
 scripts/%.class: scripts/%.java
-	${JDK_BUILD_DIR}/images/jdk/bin/javac $?
+	${DOCKER_RUN} \
+		-v ${TOP}:${TOP}:Z \
+		-w ${CURRENT} \
+		${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+		${JDK_BUILD_DIR}/images/jdk/bin/javac $?
 
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
 	mkdir -p ${JDK_BUILD_DIR}
@@ -81,7 +96,8 @@ clobber:
 	rm -rf jtreg ${JDK_VERSION}
 
 clean:
-	rm -f *.class ${JDK_BUILD_DIR}/images/jdk/bin/java.k*
+	rm -f ${JDK_BUILD_DIR}/images/jdk/bin/java.k*
+	find . -name "*.class" -type f -delete
 
 include ${TOP}/make/images.mk
 
