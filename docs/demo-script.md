@@ -40,6 +40,10 @@ This document describes the *default* path to take during the demo.
   make -C ~/workspace/km/cloud/k8s/kontaind push-runenv-image
   make -C ~/workspace/km/cloud/k8s/kontaind install
   ```
+* Pull `buildenv` images. Building these images locally takes too long.
+  ```bash
+  make -C ~/workspace/km pull-buildenv-image
+  ```
 
 ## VM level isolation and start time; build from the same (unmodified) source
 
@@ -90,7 +94,8 @@ Goal:
 #!/bin/bash
 
 # Build from the same code/object files:
-cd ~/workspace/km/payloads/python; ./link-km.sh
+cd ~/workspace/km/payloads/python; make clean
+make
 
 # Show how python sees it's environment, in Linux and in km
 cd cpython; ./python -c 'import os; print(os.uname())'
