@@ -219,3 +219,25 @@ int mmap_test(mmap_test_t* tests)
    }      // for
    PASS();
 }
+
+int maps_count(expected_count, query)
+{
+   if (KM_PAYLOAD() == 0 || in_gdb == 0) {
+      return 0;
+   }
+   char read_check_result[256];
+   int verbosity = greatest_get_verbosity() >= 1;
+   sprintf(read_check_result, "%i,%i,%i", query, verbosity, expected_count);
+   int ret = read(-2020, read_check_result, sizeof(read_check_result));
+   if (ret == -1 && errno == EBADF) {
+      fprintf(stderr,
+              "\nWarning: Ignoring map counts. Please run this test in gdb to validate mmap "
+              "counts\n");
+      in_gdb = 0;
+      return 0;
+   }
+   if (ret == -1) {
+      ASSERT_EQ_FMT(ESPIPE, errno, "%d");
+   }
+   return ret;
+}

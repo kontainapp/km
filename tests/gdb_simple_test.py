@@ -16,6 +16,8 @@ SPECIAL_FD = -2020
 BUSY_MMAPS = '1'
 FREE_MMAPS = '2'
 TOTAL_MMAPS = '3'
+RET_SUCCESS = 0
+RET_ESPIPE = -29
 
 
 def bp_handler(event):
@@ -53,10 +55,8 @@ def register_bp_handler():
 
 
 def set_breakpoint():
-    gdb.Breakpoint(FUNC
-                   )
-    print("breakpoint at:", FUNC
-          )
+    gdb.Breakpoint(FUNC)
+    print("breakpoint at:", FUNC)
 
 
 def run():
@@ -86,10 +86,10 @@ def query_mmaps(query, verbosity, expected_count):
         gdb.write("Invalid query: ", query)
 
     if ret == expected_count:
-        gdb.execute("return 0")
+        gdb.execute(f"return {RET_SUCCESS}")
     else:
         # ENOPIPE ernno = 29
-        gdb.execute("return -29")
+        gdb.execute(f"return {RET_ESPIPE}")
 
 
 def count_mmaps(tailq, verbosity):
@@ -101,7 +101,7 @@ def count_mmaps(tailq, verbosity):
         if verbosity == 1:
             distance = tq['start'] - le
             print(
-                f"{counter}  {tq} start={tq['start']} next={tq['link']['tqe_next']} size={tq['size']} prot={tq['protection']} flags={tq['flags']} fn={tq['filename']} km_fl={tq['km_flags']['data32']} distance= {distance}")
+                f"{count}  {tq} start={tq['start']} next={tq['link']['tqe_next']} size={tq['size']} prot={tq['protection']} flags={tq['flags']} fn={tq['filename']} km_fl={tq['km_flags']['data32']} distance= {distance}")
             le = tq["start"] + tq["size"]
         tq = tq["link"]["tqe_next"]
     return count
@@ -131,8 +131,6 @@ class print_mmaps (gdb.Command):
 
     def invoke(self, arg, from_tty):
         a = gdb.parse_and_eval(arg)
-        print("Arg = ", str(arg))
-        print("A = ", str(a))
         print_tailq(a)
 
 
