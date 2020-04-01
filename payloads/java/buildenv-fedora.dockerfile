@@ -54,4 +54,4 @@ COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/lib images/jdk
 # This will allow to compile .java files with correct java version
 COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/bin/javac images/jdk/bin/javac
 
-# TODO: check if we can build JRE instead of JDL to make less junk
+# TODO: check if we can build JRE instead of JDK to make less junk
