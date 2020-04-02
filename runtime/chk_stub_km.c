@@ -222,12 +222,6 @@ pid_t gettid(void)
    return __syscall(SYS_gettid);
 }
 
-// better to do weak_alias (__poll, poll) but don't want to touch musl files
-int __poll(struct pollfd* fds, nfds_t nfds, int timeout)
-{
-   return poll(fds, nfds, timeout);
-}
-
 /* Note: Python on Ubuntu also wants  __wcscat_chk */
 
 char* __realpath_chk(const char* buf, char* resolved, size_t resolvedlen)
