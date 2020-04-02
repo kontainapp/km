@@ -450,6 +450,18 @@ static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
    }
    return 0;
 }
+static int km_guest_msync_nolock(km_gva_t addr, size_t size, int flag)
+{
+   if (km_mmap_busy_check_contiguous(addr, size) != 0) {
+      km_infox(KM_TRACE_MMAP, "msync area not fully mapped");
+      return -ENOMEM;
+   }
+   // TODO: assumes linear virt and phys mem. Do in loop by regs instead
+   if (msync(km_gva_to_kma_nocheck(addr), size, flag) != 0) {
+      return -errno;
+   }
+   return 0;
+}
 
 // Returns pointer to a region containing <gva>, or NULL
 static km_mmap_reg_t* km_find_reg_nolock(km_gva_t gva)
@@ -744,6 +756,18 @@ int km_guest_madvise(km_gva_t addr, size_t size, int advise)
    }
    mmaps_lock();
    int ret = km_guest_madvise_nolock(addr, size, advise);
+   mmaps_unlock();
+   return ret;
+}
+
+int km_guest_msync(km_gva_t addr, size_t size, int flag)
+{
+   km_infox(KM_TRACE_MMAP, "msync guest(0x%lx 0x%lx advise %x)", addr, size, flag);
+   if (addr != rounddown(addr, KM_PAGE_SIZE)) {
+      return -EINVAL;
+   }
+   mmaps_lock();
+   int ret = km_guest_msync_nolock(addr, size, flag);
    mmaps_unlock();
    return ret;
 }

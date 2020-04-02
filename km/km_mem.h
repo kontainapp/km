@@ -200,9 +200,9 @@ static inline uint64_t memreg_size(int idx)
  */
 static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
 {
-   if (gva >= GUEST_VVAR_VDSO_BASE_VA && gva < GUEST_VVAR_VDSO_BASE_VA +
-                                                   km_vvar_vdso_size) {   // handle gdb references
-                                                                          // to vvar and vdso pages
+   if (gva >= GUEST_VVAR_VDSO_BASE_VA &&
+       gva < GUEST_VVAR_VDSO_BASE_VA + km_vvar_vdso_size) {   // handle gdb references
+                                                              // to vvar and vdso pages
       return (km_kma_t)machine.vm_mem_regs[KM_RSRV_VDSOSLOT].userspace_addr +
              (gva - GUEST_VVAR_VDSO_BASE_VA);
    }
@@ -262,6 +262,7 @@ int km_guest_munmap(km_gva_t addr, size_t length);
 km_gva_t km_guest_mremap(km_gva_t old_address, size_t old_size, size_t new_size, int flags, ...);
 int km_guest_mprotect(km_gva_t addr, size_t size, int prot);
 int km_guest_madvise(km_gva_t addr, size_t size, int advise);
+int km_guest_msync(km_gva_t addr, size_t size, int flag);
 int km_is_gva_accessable(km_gva_t addr, size_t size, int prot);
 int km_monitor_pages_in_guest(km_gva_t gva, size_t size, int protection, char* tag);
 
