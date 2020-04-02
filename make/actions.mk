@@ -58,6 +58,7 @@ pull-runenv-image: subdirs ## Pulls runtime images from a cloud registry. IMAGE_
 validate-runenv-image: subdirs ## Runs basic validation command for runtime image
 runenv-demo-image: subdirs ## builds a demo image based off runenv-image
 push-runenv-demo-image: subdirs ## push runtime demo images to cloud registry. IMAGE_VERSION can be used used to modify tag name
+validate-runenv-withk8s: subdirs ##
 test-withdocker: subdirs ##
 test-all-withdocker: subdirs ## build all and run KM and payload tests
 test-withk8s: subdirs ## run tests using k8s
