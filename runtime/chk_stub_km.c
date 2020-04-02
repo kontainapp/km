@@ -140,16 +140,7 @@ char* __strncat_chk(char* s1, const char* s2, size_t n, __attribute__((unused)) 
    return strncat(s1, s2, n);
 }
 
-char* __strdup(const char* string)
-{
-   return strdup(string);
-}
-
-char* __strndup(const char* s, size_t n)
-{
-   return strndup(s, n);
-}
-
+// isnan is a macro, so we cannot use alias mechanism here
 int __isnan(double arg)
 {
    return isnan(arg);
@@ -225,11 +216,6 @@ char* __stpcpy_chk(char* dest, const char* src, size_t dest_len)
    return (char*)memcpy(dest, src, len + 1) + len;
 }
 
-int __open_2(const char* file, int flags)
-{
-   return open(file, flags);
-}
-
 pid_t gettid(void)
 {
    return __syscall(SYS_gettid);
@@ -241,10 +227,7 @@ int __poll(struct pollfd* fds, nfds_t nfds, int timeout)
    return poll(fds, nfds, timeout);
 }
 
-/* Python on Ubuntu also wants these:
- __open64_2 // alias to open + params check
- __wcscat_chk
- */
+/* Note: Python on Ubuntu also wants  __wcscat_chk */
 
 char* __realpath_chk(const char* buf, char* resolved, size_t resolvedlen)
 {
