@@ -1,6 +1,8 @@
 #!/bin/bash
 #
 # Link redis.kmd
+set -e
+[ "$TRACE" ] && set -x
 
 TOP=$(git rev-parse --show-toplevel)
 KONTAIN_GCC=${TOP}/tools/kontain-gcc
