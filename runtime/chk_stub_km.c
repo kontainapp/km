@@ -208,9 +208,9 @@ int __vasprintf_chk(char** result_ptr, __attribute__((unused)) int flags, const 
 
 char* __strncpy_chk(char* s1, const char* s2, size_t n, size_t s1_len)
 {
-   if (__builtin_expect(s1_len < n, 0))
+   if (__builtin_expect(s1_len < n, 0)) {
       __chk_fail();
-
+   }
    return strncpy(s1, s2, n);
 }
 
@@ -219,9 +219,9 @@ char* __stpcpy_chk(char* dest, const char* src, size_t dest_len)
 {
    size_t len;
 
-   if ((len = strlen(src)) >= dest_len)
+   if ((len = strlen(src)) >= dest_len) {
       __chk_fail();
-
+   }
    return (char*)memcpy(dest, src, len + 1) + len;
 }
 
@@ -243,7 +243,6 @@ int __poll(struct pollfd* fds, nfds_t nfds, int timeout)
 
 /* Python on Ubuntu also wants these:
  __open64_2 // alias to open + params check
- __strncpy_chk
  __wcscat_chk
  */
 
