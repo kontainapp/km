@@ -1,3 +1,6 @@
+# This file should contain all the build steps. This will be shared between
+# multiple pipelines to build all the artifacts.
+
 steps:
   - bash: |
       set -e

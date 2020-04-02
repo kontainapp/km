@@ -1,3 +1,9 @@
+/*
+ * A simple static http server using only Java SE dependencies.
+ *
+ * To test: curl localhost:8080
+*/
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -6,11 +12,6 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-/*
- * a simple static http server
- *
- * To test: curl localhost:8080
-*/
 public class SimpleHttpServer {
 
   public static void main(String[] args) throws Exception {

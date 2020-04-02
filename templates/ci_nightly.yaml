@@ -1,3 +1,7 @@
+# Contains:
+# 1. All the long running tests and tests that run in normal CI.
+# 2. All the validation the requires a refresh k8s cluster.
+
 steps:
   - bash: make -C tests test-all-withk8s
     displayName: KM tests - run on Kubernetes

@@ -11,7 +11,7 @@
 # Makefile for building and packing Java payload runtime for KM
 
 TOP := $(shell git rev-parse --show-toplevel)
-CURRENT := ${TOP}/payloads/java
+CURRENT_DIR := ${TOP}/payloads/java
 JDK_VERSION := jdk-11.0.6+10
 # COMPONENT is used in docker image names so no '+' allowed, and we don't care about minor opt
 COMPONENT := jdk-11.0.6
@@ -72,7 +72,7 @@ ${JDK_VERSION}:
 scripts/%.class: scripts/%.java
 	${DOCKER_RUN} \
 		-v ${TOP}:${TOP}:Z \
-		-w ${CURRENT} \
+		-w ${CURRENT_DIR} \
 		${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
 		${JDK_BUILD_DIR}/images/jdk/bin/javac $?
 
