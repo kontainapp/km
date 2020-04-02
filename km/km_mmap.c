@@ -525,7 +525,7 @@ static km_gva_t km_guest_mmap_nolock(
 {
    int ret;
 
-   if ((flags & MAP_ANONYMOUS) == MAP_ANONYMOUS) {
+   if ((flags & MAP_ANONYMOUS) == MAP_ANONYMOUS && fd != -1) {
       km_infox(KM_TRACE_MMAP, "Ignoring fd due to MAP_ANONYMOUS");
       fd = -1;   // per mmap(3) fd can be ignored if MAP_ANONYMOUS is set
    }
