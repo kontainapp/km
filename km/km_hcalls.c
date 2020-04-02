@@ -505,15 +505,19 @@ static km_hc_ret_t clock_time_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
-/*
- * TODO: only see advice 4, MADV_DONTNEED so far. Might want to pass that to the host to expedite
- * freeing resources, assuming it has to be our memory
- */
 static km_hc_ret_t madvise_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int madvise(void* addr, size_t length, int advice);
    km_infox(KM_TRACE_HC, "hc = %d (madvise), %ld %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3);
    arg->hc_ret = km_guest_madvise(arg->arg1, arg->arg2, arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t msync_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int msync(void *addr, size_t length, int flags);
+   km_infox(KM_TRACE_HC, "hc = %d (msync), %ld %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3);
+   arg->hc_ret = km_guest_msync(arg->arg1, arg->arg2, arg->arg3);
    return HC_CONTINUE;
 }
 
@@ -1337,6 +1341,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_clock_getres] = clock_time_hcall;
    km_hcalls_table[SYS_clock_settime] = clock_time_hcall;
    km_hcalls_table[SYS_madvise] = madvise_hcall;
+   km_hcalls_table[SYS_msync] = msync_hcall;
 
    km_hcalls_table[SYS_umask] = umask_hcall;
    km_hcalls_table[SYS_readlink] = readlink_hcall;
