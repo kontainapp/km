@@ -181,8 +181,9 @@ void __explicit_bzero_chk(void* dst, size_t len, size_t dstlen)
 
 int __poll_chk(struct pollfd* fds, nfds_t nfds, int timeout, __SIZE_TYPE__ fdslen)
 {
-   if (fdslen / sizeof(*fds) < nfds)
+   if (fdslen / sizeof(*fds) < nfds) {
       __chk_fail();
+   }
 
    return poll(fds, nfds, timeout);
 }
