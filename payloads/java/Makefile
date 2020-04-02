@@ -12,7 +12,7 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 JDK_VERSION := jdk-11.0.6+10
-# COMPONENT In used in docker image names so no '+' allowed, and we don't care about minor opt
+# COMPONENT is used in docker image names so no '+' allowed, and we don't care about minor opt
 COMPONENT := jdk-11.0.6
 PAYLOAD_NAME := ${COMPONENT}
 
