@@ -11,25 +11,23 @@
 # The image will be used to install kontain artifacts on each node.
 
 TOP := $(shell git rev-parse --show-toplevel)
-CURRENT := ${TOP}/cloud/k8s/kontaind
+CURRENT_DIR := ${TOP}/cloud/k8s/kontaind
 
 IMAGE_VERSION ?= latest
 INSTALLER_IMAGE ?= kontainkubecr.azurecr.io/runenv-kontain-installer:${IMAGE_VERSION}
 # TODO: set the right image and version once we have over own device plugin 
 DEVICE_PLUGIN_KVM_IMAGE ?= quay.io/kubevirt/device-plugin-kvm:latest
-INSTALL_CONFIG ?= ${CURRENT}
+INSTALL_SCRIPT := ${CURRENT_DIR}/install.sh
 
 .PHONY: install
 install:
-	kustomize edit set image ${INSTALLER_IMAGE} 
-	kustomize edit set image ${DEVICE_PLUGIN_KVM_IMAGE}
-	kubectl create -k ${INSTALL_CONFIG}
+	${INSTALL_SCRIPT} install ${INSTALLER_IMAGE} ${DEVICE_PLUGIN_KVM_IMAGE}
 
 .PHONY: uninstall
 uninstall:
-	kubectl delete -k ${INSTALL_CONFIG}
+	${INSTALL_SCRIPT} uninstall 
 
-TEST_SPEC ?= ${CURRENT}/tests/dweb-service.yaml
+TEST_SPEC ?= ${CURRENT_DIR}/tests/dweb-service.yaml
 TEST_POD ?= dweb
 
 .PHONY: test
