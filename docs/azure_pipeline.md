@@ -122,13 +122,42 @@ command terminated with exit code 127
 pod "msterin-test-ci-695" deleted
 ```
 
-Note: a good set of recipes for kubectl interacting with a pod is, for example, [here](https://kubernetes.io/blog/2015/10/some-things-you-didnt-know-about-kubectl_28/)
+Note: a good set of recipes for kubectl interacting with a pod is, for
+example,
+[here](https://kubernetes.io/blog/2015/10/some-things-you-didnt-know-about-kubectl_28/)
 
 ### Secrets and Pipeline variables
 
-  We use service principal extensively in the azure pipeline. To pass the
+We use service principal extensively in the azure pipeline. To pass the
 crendentials of existing service principals, we use the variables in azure
 pipeline. For example, you will see variables such as `SP_appId`,
 `SP_password`, `SP_tenant`, `SP_displayName`. These are set in the pipeline
 UI by design. For reference, follow this:
 https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables
+
+## Nightly CI pipeline
+
+In addition to all the unit test we run in the normal CI pipeline, there are
+often tests that takes longer to run. We deploy these tests into a seperate
+nightly pipeline that is triggered at the midnight pacific time every night.
+Also the nightly pipeline will run on a fresh k8s cluster from Azure AKS. For
+details, take a look at `azure-pipelines-nightly.yml`
+
+The nightly pipeline uses the `test-all-withk8s` targets. In the case when
+there is no long running test, `test-all-withk8s` will defaults to the same
+test as `test-withk8s`. The script that drives these tests are under
+`cloud/azure/tests`. It also has a similar `test-all-withk8s-manual` target.
+
+As part of the nightly pipeline, there is a validation target
+`validate-runenv-withk8s`. This target uses the `runenv-demo-image`, which
+contains a sample application, to validate the runenv image. Since
+`runenv-image` contains absolutly the bare minimum, the image is not likely
+deployed to the k8s direcly in production. For some payloads such as Nginx or
+the Demo Dweb application, the `runenv-image` and the `runenv-demo-image`
+will be the same, since the payload is the application itself.
+
+### Pull Request to change the nightly pipeline.
+
+Due to the time needed to run the nightly pipeline, it is not triggered
+automatically when PR or commits take place. After opening a PR, we should
+manually run the nightly pipeline to make sure everything looks OK.

@@ -127,7 +127,7 @@ endif
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
 ifneq (${RUNENV_VALIDATE_DIR},)
-SCRIPT_MOUNT = -v $(realpath ${RUNENV_VALIDATE_DIR}):/$(notdir ${RUNENV_VALIDATE_DIR}):z
+SCRIPT_MOUNT := -v $(realpath ${RUNENV_VALIDATE_DIR}):/$(notdir ${RUNENV_VALIDATE_DIR}):z
 endif
 RUNENV_VALIDATE_CMD ?= PlaceValidateCommandHere
 RUNENV_VALIDATE_EXPECTED ?= Hello

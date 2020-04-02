@@ -40,11 +40,10 @@ This document describes the *default* path to take during the demo.
   make -C ~/workspace/km/cloud/k8s/kontaind push-runenv-image
   make -C ~/workspace/km/cloud/k8s/kontaind install
   ```
-* Login into Kontain Docker Hub
-  * runenv images are pushed to kontain docker hub. If you need to be added to the kontain dockerhub, register an account first and contract @msterin to be added.
-  * there are multiple ways of logging into docker hub:
-    * `docker login -u <username> -p <password>` or
-    * place a token under `~/.docker/token` and your dockerhub username under `~/.docker/username`. run `make -C ~/workplace/km/cloud/dockerhub login`. To obtain a token, goto dockerhub Account Setting -> Security -> Access Tokens.
+* Pull `buildenv` images. Building these images locally takes too long.
+  ```bash
+  make -C ~/workspace/km pull-buildenv-image
+  ```
 
 ## VM level isolation and start time; build from the same (unmodified) source
 
@@ -95,7 +94,8 @@ Goal:
 #!/bin/bash
 
 # Build from the same code/object files:
-cd ~/workspace/km/payloads/python; ./link-km.sh
+cd ~/workspace/km/payloads/python; make clean
+make
 
 # Show how python sees it's environment, in Linux and in km
 cd cpython; ./python -c 'import os; print(os.uname())'
