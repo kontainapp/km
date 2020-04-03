@@ -156,10 +156,6 @@ static Elf* km_open_elf_file(km_payload_t* payload, int* fd)
          payload->km_interp_vaddr = phdr->p_vaddr;
          payload->km_interp_len = phdr->p_filesz;
       }
-      if (phdr->p_type == PT_DYNAMIC) {
-         payload->km_dynamic_vaddr = phdr->p_vaddr;
-         payload->km_dynamic_len = phdr->p_filesz;
-      }
    }
    return e;
 }
@@ -246,24 +242,7 @@ uint64_t km_load_elf(const char* file)
       errx(2, "%s km_open_elf failed: %s", __FUNCTION__, km_dynlinker.km_filename);
    }
 
-   km_gva_t adjust = 0;
-   /*
-    * Tell static vs dynamic executable.
-    *
-    * DYNAMIC section indicates dynamically linked executable or static PIE. The later also has
-    * PT_INTERPRETER.
-    *
-    * We load pure static (no DYNAMIC) at the addresses in ELF file, i.e. adjust == 0. For our own
-    * .km files they will load starting at GUEST_MEM_START_VA because its the way we build them.
-    * Others will go where they request, typical Linux exec would start at 4MB.
-    *
-    * We load DYNAMIC starting at GUEST_MEM_START_VA, adjust will tell how much shift there was. For
-    * loading PIE that doesn't matter, but we need to keep ot for coredump and such. For dynamic
-    * linking adjust is passed to the dynamic linker so it know how to do relocations.
-    */
-   if (km_guest.km_dynamic_vaddr != 0 && km_guest.km_dynamic_len != 0) {
-      adjust = GUEST_MEM_START_VA - km_guest.km_min_vaddr;
-   }
+   km_gva_t adjust = GUEST_MEM_START_VA - km_guest.km_min_vaddr;
    /*
     * Read symbol table and look for symbols of interest to KM
     */
@@ -285,7 +264,7 @@ uint64_t km_load_elf(const char* file)
    }
    km_guest.km_load_adjust = adjust;
 
-   // TODO: need to verify the payload is a km executable, issue #512.
+   // We need to verify the payload is a km executable, issue #512.
 
    return adjust;
 }
