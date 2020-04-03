@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: device-plugin-kvm
-        image: quay.io/kubevirt/device-plugin-kvm
+        image: DEVICE_PLUGIN_IMAGE()
         args: ["-v", "3", "-logtostderr"]
         securityContext:
           privileged: true
@@ -33,7 +33,7 @@ spec:
             mountPath: /var/lib/kubelet/device-plugins
       initContainers:
       - name: kontain-installer
-        image: kontainkubecr.azurecr.io/runenv-kontain-installer
+        image: INSTALLER_IMAGE()
         imagePullPolicy: Always
         securityContext:
           privileged: true
