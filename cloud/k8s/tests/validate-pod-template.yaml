@@ -19,9 +19,14 @@ spec:
           cpu: "1"
       volumeMounts:
         - name: kontain-monitor
-          mountPath: /opt/kontain
+          mountPath: /opt/kontain/bin/km
+        - name: kontain-linker
+          mountPath: /opt/kontain/runtime/libc.so
   restartPolicy: Never
   volumes:
     - name: kontain-monitor
       hostPath:
-        path: /opt/kontain
+        path: /opt/kontain/bin/km
+    - name: kontain-linker
+      hostPath:
+        path: /opt/kontain/runtime/libc.so
