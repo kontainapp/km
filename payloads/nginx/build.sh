@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+[ "$TRACE" ] && set -x
 
 TOP=$(git rev-parse --show-toplevel)
 CURRENT=${TOP}/payloads/nginx
@@ -36,9 +38,9 @@ docker run --rm \
 
 docker exec -w /nginx ${BUILDENV_CONTAINER_NAME} \
     ./auto/configure \
-    --prefix=/opt/nginx
+    --prefix=/opt/kontain/nginx
 
 docker exec -w /nginx ${BUILDENV_CONTAINER_NAME} \
-    make
+    make -j $(nproc)
 
 docker stop ${BUILDENV_CONTAINER_NAME}
