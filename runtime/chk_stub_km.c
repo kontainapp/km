@@ -15,16 +15,27 @@
 
 #define _GNU_SOURCE
 #include <assert.h>
+#include <fcntl.h>
+#include <math.h>
+#include <poll.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <unistd.h>
 #include <wchar.h>
 #include <sys/select.h>
 
 #include "musl/include/setjmp.h"
 #include "musl/include/sys/param.h"
+#include "syscall.h"
+
+void __chk_fail(void) __attribute__((__noreturn__));
+void __chk_fail(void)
+{
+   abort();
+}
 
 int __fprintf_chk(FILE* f, __attribute__((unused)) int flag, const char* format, ...)
 {
@@ -129,6 +140,17 @@ char* __strncat_chk(char* s1, const char* s2, size_t n, __attribute__((unused)) 
    return strncat(s1, s2, n);
 }
 
+// isnan is a macro, so we cannot use alias mechanism here
+int __isnan(double arg)
+{
+   return isnan(arg);
+}
+
+void __syslog_chk(int priority, __attribute__((unused)) int flag, const char* format)
+{
+   syslog(priority, format);
+}
+
 void __longjmp_chk(jmp_buf env, int val)
 {
    longjmp(env, val);
@@ -157,17 +179,50 @@ void __explicit_bzero_chk(void* dst, size_t len, size_t dstlen)
    asm volatile("" ::: "memory");
 }
 
-/* Python on Ubuntu also wants these:
-__open64_2 // alias to open + params check
-__strncpy_chk
-__wcscat_chk
-*/
-
-void __chk_fail(void) __attribute__((__noreturn__));
-void __chk_fail(void)
+int __poll_chk(struct pollfd* fds, nfds_t nfds, int timeout, __SIZE_TYPE__ fdslen)
 {
-   abort();
+   if (fdslen / sizeof(*fds) < nfds) {
+      __chk_fail();
+   }
+
+   return poll(fds, nfds, timeout);
 }
+
+int __asprintf_chk(char** result_ptr, __attribute__((unused)) int flags, const char* format, va_list args)
+{
+   return asprintf(result_ptr, format, args);
+}
+
+int __vasprintf_chk(char** result_ptr, __attribute__((unused)) int flags, const char* format, va_list args)
+{
+   return asprintf(result_ptr, format, args);
+}
+
+char* __strncpy_chk(char* s1, const char* s2, size_t n, size_t s1_len)
+{
+   if (__builtin_expect(s1_len < n, 0)) {
+      __chk_fail();
+   }
+   return strncpy(s1, s2, n);
+}
+
+/* Copy src to dest, returning the address of the terminating '\0' in dest.  */
+char* __stpcpy_chk(char* dest, const char* src, size_t dest_len)
+{
+   size_t len;
+
+   if ((len = strlen(src)) >= dest_len) {
+      __chk_fail();
+   }
+   return (char*)memcpy(dest, src, len + 1) + len;
+}
+
+pid_t gettid(void)
+{
+   return __syscall(SYS_gettid);
+}
+
+/* Note: Python on Ubuntu also wants  __wcscat_chk */
 
 char* __realpath_chk(const char* buf, char* resolved, size_t resolvedlen)
 {

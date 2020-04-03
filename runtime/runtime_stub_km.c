@@ -47,6 +47,7 @@ __stub__(sigaltstack);
 __stub__(statfs);
 __stub_core__(__sched_cpualloc);
 __stub_core__(__sched_cpufree);
+__stub_core__(__register_atfork);   // TODO: may need to implement when doing fork() and dlopen
 __stub__(shmget);
 __stub__(shmat);
 __stub__(shmdt);
