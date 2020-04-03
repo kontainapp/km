@@ -142,7 +142,7 @@ TEST test_socketpair()
 }
 
 /*
- * Tests that lowest availble file descriptor is used for open
+ * Tests that lowest available file descriptor is used for open
  */
 TEST test_open_fd_fill()
 {
@@ -166,6 +166,36 @@ TEST test_open_fd_fill()
    ASSERT_EQ(0, rc);
    rc = close(fd3);
    ASSERT_EQ(0, rc);
+
+   PASS();
+}
+
+TEST test_openat()
+{
+   int fd;
+   struct stat st1, st2;
+
+   fd = openat(-1, "/", O_RDONLY);
+   ASSERT_NOT_EQ(-1, fd);
+   fstat(fd, &st1);
+   stat("/", &st2);
+   ASSERT_EQ(st1.st_ino, st2.st_ino);
+   close(fd);
+
+   fd = openat(AT_FDCWD, "Makefile", O_RDONLY);
+   ASSERT_NOT_EQ(-1, fd);
+   fstat(fd, &st1);
+   stat("Makefile", &st2);
+   ASSERT_EQ(st1.st_ino, st2.st_ino);
+   close(fd);
+
+   int fd1 = open("..", O_RDONLY);
+   fd = openat(fd1, "tests", O_RDONLY);
+   ASSERT_NOT_EQ(-1, fd);
+   fstat(fd, &st1);
+   stat("../tests", &st2);
+   ASSERT_EQ(st1.st_ino, st2.st_ino);
+   close(fd);
 
    PASS();
 }
@@ -412,6 +442,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_stat);
    RUN_TEST(test_getdents);
    RUN_TEST(test_socketpair);
+   RUN_TEST(test_openat);
    RUN_TEST(test_open_fd_fill);
    RUN_TEST(test_dup_fd_fill);
    RUN_TEST(test_dup);
