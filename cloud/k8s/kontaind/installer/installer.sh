@@ -18,3 +18,4 @@ chmod 666 /dev/kvm
 [ -e /dev/kvm ]
 [ -d /opt/kontain ]
 [ -f /opt/kontain/bin/km ]
+[ -f /opt/kontain/runtime/libc.so ]
