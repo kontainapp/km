@@ -123,6 +123,13 @@ function main {
 
     local pod_name=$(kubectl create -f ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME} -o jsonpath='{.metadata.name}')
 
+    # For manual, we don't run the test automatically. Users can examine the
+    # testenv container manually.
+    if [[ -n $MANUAL ]]; then
+        manual_usage $pod_name
+        exit 0
+    fi
+
     kubectl wait pod/${pod_name} --for=condition=Ready --timeout=${POD_WAIT_TIMEOUT}
     local exit_code=$?
     if [[ $exit_code != 0 ]]; then
@@ -131,14 +138,6 @@ function main {
 
     kubectl exec -it ${pod_name} --request-timeout=0 -- bash -c "${TEST_COMMAND}"
     local exit_code=$?
-
-    # For manual, we don't do any form of clean up. Users want to examine the
-    # testenv container manually.
-    if [[ -n $MANUAL ]]; then
-        manual_usage $pod_name
-        exit $exit_code
-    fi
-
     cleanup $pod_name $exit_code
 }
 
