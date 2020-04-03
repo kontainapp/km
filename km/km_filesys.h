@@ -51,6 +51,9 @@ int km_fs_init(void);
 void km_fs_fini(void);
 // int open(char *pathname, int flags, mode_t mode)
 uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode);
+// int openat(int dirfd, const char *pathname, int flags);
+// int openat(int dirfd, const char* pathname, int flags, mode_t mode);
+uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mode_t mode);
 // int close(fd)
 uint64_t km_fs_close(km_vcpu_t* vcpu, int fd);
 // int shutdown(int sockfd, int how);
