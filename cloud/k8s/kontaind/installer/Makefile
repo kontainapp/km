@@ -10,6 +10,7 @@
 # 
 # The image will be used to install kontain artifacts on each node.
 
+SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-toplevel)
 CURRENT := ${TOP}/cloud/k8s/kontaind/installer
 
@@ -22,8 +23,8 @@ clean:
 
 # runenv-image configs
 export define runenv_prep
-	mkdir -p ${RUNENV_PATH}/kontain/bin
-	cp ${KM_BIN} ${RUNENV_PATH}/kontain/bin/km
+	mkdir -p ${RUNENV_PATH}/kontain/bin && cp ${KM_BIN} $$_
+	mkdir -p ${RUNENV_PATH}/kontain/runtime && cp ${KM_LDSO} $$_ 
 	cp installer.sh ${RUNENV_PATH}/installer.sh
 endef
 
