@@ -12,18 +12,19 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 CURRENT := ${TOP}/payloads/nginx
+COMPONENT := nginx
 NGINX_TOP := ${CURRENT}/nginx
 NGINX_EXECUTABLE := ${NGINX_TOP}/objs/nginx
-NGINX_KM := ${CURRENT}/nginx.kmd
+NGINX_KM := ${CURRENT}/nginx.km
 
 NGINX_REPO := git@github.com:nginx/nginx.git
 NGINX_BRANCH := branches/stable-1.16
 
 all: ${NGINX_KM}
 
-fromsrc: ${NGINX_KM}
+fromsrc: ${NGINX_KM}  ## Clone the repo if needed, and build nginx (default)
 
-${NGINX_KM}: ${NGINX_EXECUTABLE}
+${NGINX_KM}: .check ${NGINX_EXECUTABLE}
 	./link-km.sh
 
 ${NGINX_EXECUTABLE}: ${NGINX_TOP}
@@ -32,9 +33,27 @@ ${NGINX_EXECUTABLE}: ${NGINX_TOP}
 ${NGINX_TOP}: |
 	git clone ${NGINX_REPO} -b ${NGINX_BRANCH}
 
-clobber: clean
-	rm -rf ${NGINX_TOP}
+clobber: ## remove all sources and build artifacs
+	rm -rf ${NGINX_TOP} ${NGINX_KM}
 
-clean:
+clean: ## keep sources but clean up build artifacts
 	rm -rf ${NGINX_KM}
 	-cd ${NGINX_TOP} && make clean
+
+install: ${NGINX_KM} ## install to /opt/kontain/nginx (as root)
+	sudo make -C nginx install
+
+try: ${NGINX_KM} ## try to run nginx (*as root)
+	sudo ${KM_BIN} -Vhyper ${NGINX_KM}
+
+DEP_PACKAGES := pcre-static
+.PHONY: .check
+.check: # a helper to check for needed packages
+	@for i in ${DEP_PACKAGES} ; do \
+		if ! rpm -qa | grep $$i -q ; then \
+			failed=1; echo -e "Missing $$i. To install, run \nsudo dnf install $$i" ; \
+		fi ; \
+		if [ -n "$$failed" ] ; then false ; fi \
+	done
+
+include ${TOP}/make/images.mk
