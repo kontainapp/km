@@ -1,3 +1,7 @@
+# Contains:
+# 1. All the long running tests and tests that run in normal CI.
+# 2. All the validation the requires a refresh k8s cluster.
+
 steps:
   - bash: make -C tests test-all-withk8s
     displayName: KM tests - run on Kubernetes
@@ -11,14 +15,6 @@ steps:
     displayName: Node.km tests - run on Kubernetes
     timeoutInMinutes: 30
 
-  - bash: make -C payloads/demo-dweb validate-runenv-withk8s
-    displayName: demo dweb runenv validation - run on Kubernetes
-    timeoutInMinutes: 2
-
-  - bash: make -C payloads/python validate-runenv-withk8s
-    displayName: Python.km runenv validation - run on Kubernetes
-    timeoutInMinutes: 2
-
-  - bash: make -C payloads/node validate-runenv-withk8s
-    displayName: Node.km runenv validation - run on Kubernetes
-    timeoutInMinutes: 2
+  - bash: make -C payloads validate-runenv-withk8s
+    displayName: payloads runenv validation - run on Kubernetes
+    timeoutInMinutes: 5

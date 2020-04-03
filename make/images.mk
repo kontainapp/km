@@ -154,7 +154,7 @@ pull-runenv-image: ## pulls test image.
 distro: runenv-image ## an alias for runenv-image
 publish: push-runenv-image
 
-runenv-demo-image:
+runenv-demo-image: ${RUNENV_DEMO_DEPENDENCIES}
 ifeq ($(shell test -e ${RUNENV_DEMO_DOCKERFILE} && echo -n yes),yes)
 	@-docker rmi -f ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} 2>/dev/null
 	${DOCKER_BUILD} \
@@ -198,8 +198,10 @@ test-all-withdocker: ## a special helper to run more node.km tests.
 # IMAGE_VERSION needs to be defined outside, and correspond to existing (in REGISTRY) image
 # For example, to run image generated on ci-695, use 'make test-withk8s IMAGE_VERSION=ci-695
 K8S_RUNTEST := $(TOP)/cloud/k8s/tests/k8s-run-tests.sh
+PROCESSED_COMPONENT_NAME := $(shell echo ${COMPONENT} | tr . -)
+PROCESSED_IMAGE_VERION := $(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])
 TEST_K8S_IMAGE := $(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)
-TEST_K8S_NAME := test-$(COMPONENT)-$(DTYPE)-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])
+TEST_K8S_NAME := test-${PROCESSED_COMPONENT_NAME}-$(DTYPE)-${PROCESSED_IMAGE_VERION}
 ifneq (${K8S_TEST_ERR_NO_CLEANUP},)
 	TEST_K8S_OPT := "err_no_cleanup" 
 else
@@ -225,7 +227,7 @@ test-all-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manu
 ifeq (${NO_RUNENV}, false)
 K8S_RUN_VALIDATION := $(TOP)/cloud/k8s/tests/k8s-run-validation.sh
 VALIDATION_K8S_IMAGE := $(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
-VALIDATION_K8S_NAME := validation-${COMPONENT}-$(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])
+VALIDATION_K8S_NAME := validation-${PROCESSED_COMPONENT_NAME}-${PROCESSED_IMAGE_VERION}
 
 # We use the runenv-demo image for validation. Runenv only contain the bare
 # minimum and no other application, so we use the runenv-demo image which
