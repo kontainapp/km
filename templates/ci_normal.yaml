@@ -1,3 +1,6 @@
+# This file contains all the tests that are designed to run for every PR. Tests
+# here should be short. Longer tests should be moved to ci_nighly pipeline.
+
 steps:
   - bash: make -C tests test-withk8s
     displayName: KM tests - run on Kubernetes

@@ -1,3 +1,6 @@
+# Put all the setup steps here. This file is designed to be shared by different
+# pipelines.
+
 steps:
   - checkout: self
     submodules: true
