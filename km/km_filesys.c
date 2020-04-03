@@ -240,6 +240,27 @@ uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
    return guestfd;
 }
 
+uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mode_t mode)
+{
+   int host_dirfd = dirfd;
+
+   if (dirfd != AT_FDCWD && pathname[0] != '/') {
+      if ((host_dirfd = guestfd_to_hostfd(dirfd)) < 0) {
+         return -EBADF;
+      }
+   }
+   int guestfd;
+
+   int hostfd = __syscall_4(SYS_openat, host_dirfd, (uintptr_t)pathname, flags, mode);
+   if (hostfd >= 0) {
+      guestfd = add_guest_fd(vcpu, hostfd, 0, pathname);
+   } else {
+      guestfd = hostfd;
+   }
+   km_infox(KM_TRACE_FILESYS, "openat(%s, %d, %o) - %d", pathname, flags, mode, guestfd);
+   return guestfd;
+}
+
 // int close(fd)
 uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
 {

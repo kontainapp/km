@@ -566,6 +566,19 @@ static km_hc_ret_t open_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t openat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int openat(int dirfd, const char *pathname, int flags);
+   // int openat(int dirfd, const char* pathname, int flags, mode_t mode);
+   void* pathname = km_gva_to_kma(arg->arg2);
+   if (pathname == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_openat(vcpu, arg->arg1, pathname, arg->arg3, arg->arg4);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t lseek_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // off_t lseek(int fd, off_t offset, int whence);
@@ -1347,6 +1360,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_readlink] = readlink_hcall;
    km_hcalls_table[SYS_getrandom] = getrandom_hcall;
    km_hcalls_table[SYS_open] = open_hcall;
+   km_hcalls_table[SYS_openat] = openat_hcall;
    km_hcalls_table[SYS_lseek] = lseek_hcall;
    km_hcalls_table[SYS_rename] = rename_hcall;
    km_hcalls_table[SYS_link] = symlink_hcall;
