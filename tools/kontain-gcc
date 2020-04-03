@@ -1,12 +1,13 @@
 #!/bin/bash
-#invoke gcc with extra params for Kontain link
+# Invoke gcc with extra params for Kontain link
+set -e
+[ "$TRACE" ] && set -x
 
 TMP_SPEC="/tmp/gcc-${BASHPID}.spec"
 
 function cleanup() {
    rm -rf ${TMP_SPEC}
 }
-
 trap cleanup EXIT
 
 cmd=`basename ${BASH_SOURCE[0]}`
