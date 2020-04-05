@@ -67,6 +67,8 @@ typedef struct km_signal_list {
    sigset_t mask;   // Signals in list.
 } km_signal_list_t;
 
+typedef stack_t km_stack_t;
+
 typedef unsigned long int pthread_tid_t;
 
 /*
@@ -280,6 +282,8 @@ typedef struct km_machine {
    km_signal_list_t sigpending;    // List of signals pending for guest
    km_signal_list_t sigfree;       // Freelist of signal entries.
    km_sigaction_t sigactions[_NSIG];
+   pthread_mutex_t sas_mutex;   // protect sigaltstack manipulations
+   km_stack_t sigaltstack;
    km_filesys_t filesys;
    km_mmap_cb_t mmaps;   // guest memory regions managed with mmaps/mprotect/munmap
    void* auxv;           // Copy of process AUXV (used if core is dumped)
@@ -551,6 +555,16 @@ static inline void km_signal_lock(void)
 static inline void km_signal_unlock(void)
 {
    km_mutex_unlock(&machine.signal_mutex);
+}
+
+static inline void km_sas_lock(void)
+{
+   km_mutex_lock(&machine.sas_mutex);
+}
+
+static inline void km_sas_unlock(void)
+{
+   km_mutex_unlock(&machine.sas_mutex);
 }
 
 // tags for different traces

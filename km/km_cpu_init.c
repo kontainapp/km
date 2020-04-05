@@ -39,6 +39,7 @@ km_machine_t machine = {
     .mach_fd = -1,
     .brk_mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal_mutex = PTHREAD_MUTEX_INITIALIZER,
+    .sas_mutex = PTHREAD_MUTEX_INITIALIZER,
     .sigpending.head = TAILQ_HEAD_INITIALIZER(machine.sigpending.head),
     .sigfree.head = TAILQ_HEAD_INITIALIZER(machine.sigfree.head),
     .mmaps.free = TAILQ_HEAD_INITIALIZER(machine.mmaps.free),

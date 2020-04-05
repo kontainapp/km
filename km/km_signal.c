@@ -407,9 +407,22 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
            vcpu->regs.rsp,
            vcpu->sregs.cr2);
 
-   km_gva_t sframe_gva = vcpu->regs.rsp - RED_ZONE - sizeof(km_signal_frame_t);
+   km_gva_t sframe_gva;
+   if ((act->sa_flags & SA_ONSTACK) == SA_ONSTACK) {
+      // Check if sigaltstack is set and not in use yet, and use it then
+      km_sas_lock();
+      if (machine.sigaltstack.ss_size != 0 && machine.sigaltstack.ss_flags != SS_ONSTACK) {
+         machine.sigaltstack.ss_flags = SS_ONSTACK;
+         sframe_gva = (km_gva_t)machine.sigaltstack.ss_sp + machine.sigaltstack.ss_size;
+      } else {
+         sframe_gva = vcpu->regs.rsp - RED_ZONE;
+      }
+      km_sas_unlock();
+   } else {
+      sframe_gva = vcpu->regs.rsp - RED_ZONE;
+   }
+   sframe_gva -= sizeof(km_signal_frame_t);
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
-
    frame->info = *info;
    frame->regs = vcpu->regs;
    frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
@@ -477,6 +490,15 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
    do_guest_handler(vcpu, info, act);
 }
 
+static inline int on_sigaltstack(km_gva_t sp)
+{
+   km_gva_t ss_sp = (km_gva_t)machine.sigaltstack.ss_sp;
+   if (ss_sp <= sp && sp < ss_sp + machine.sigaltstack.ss_size) {
+      return 1;
+   }
+   return 0;
+}
+
 void km_rt_sigreturn(km_vcpu_t* vcpu)
 {
    km_read_registers(vcpu);
@@ -487,8 +509,16 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
     *       leak information into guest.
     */
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(km_gva_t));
-   memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
+   // check if sigaltstack is used, we are using it, and we are leaving it now
+   km_sas_lock();
+   if (machine.sigaltstack.ss_flags == SS_ONSTACK) {
+      if (on_sigaltstack(vcpu->regs.rsp) == 1 && on_sigaltstack(frame->regs.rsp) == 0) {
+         machine.sigaltstack.ss_flags = 0;
+      }
+   }
    vcpu->regs = frame->regs;
+   km_sas_unlock();
+   memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
    vcpu->regs.rip = frame->ucontext.uc_mcontext.gregs[REG_RIP];
    km_write_registers(vcpu);
 }
@@ -561,6 +591,44 @@ km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t*
       }
    }
    km_signal_unlock();
+   return 0;
+}
+
+uint64_t km_sigaltstack(km_vcpu_t* vcpu, km_stack_t* new, km_stack_t* old)
+{
+   km_sas_lock();
+   if (old != NULL) {
+      old->ss_sp = machine.sigaltstack.ss_sp;
+      old->ss_size = machine.sigaltstack.ss_size;
+      old->ss_flags = old->ss_size == 0 ? SS_DISABLE : machine.sigaltstack.ss_flags;
+   }
+   if (new != NULL) {
+      if ((machine.sigaltstack.ss_flags & SS_ONSTACK) == SS_ONSTACK) {   // in use
+         km_sas_unlock();
+         return -EPERM;
+      }
+      if (new->ss_flags != SS_DISABLE && new->ss_flags != SS_ONSTACK && new->ss_flags != 0) {
+         km_sas_unlock();
+         return -EINVAL;
+      }
+      if (new->ss_flags == SS_DISABLE) {
+         machine.sigaltstack.ss_size = 0;
+         machine.sigaltstack.ss_sp = NULL;
+      } else {
+         if (new->ss_size < MINSIGSTKSZ) {
+            km_sas_unlock();
+            return -ENOMEM;
+         }
+         if (km_gva_to_kma((km_gva_t) new->ss_sp) == NULL) {
+            km_sas_unlock();
+            return -EFAULT;
+         }
+         machine.sigaltstack.ss_sp = (void*)new->ss_sp;
+         machine.sigaltstack.ss_size = new->ss_size;
+         machine.sigaltstack.ss_flags = 0;
+      }
+   }
+   km_sas_unlock();
    return 0;
 }
 
