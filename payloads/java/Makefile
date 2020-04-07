@@ -17,6 +17,8 @@ JDK_VERSION := jdk-11.0.6+10
 COMPONENT := jdk-11.0.6
 PAYLOAD_NAME := ${COMPONENT}
 
+CONTAINER_TEST_CMD := ./scripts/test-run.sh
+
 JDK_BUILD_DIR = ${JDK_VERSION}/build/linux-x86_64-normal-server-release
 
 # Needed to build Java from source - the same list as in buildenv-fedora.dockerfile
