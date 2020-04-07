@@ -29,6 +29,7 @@ uint64_t
 km_rt_sigprocmask(km_vcpu_t* vcpu, int how, km_sigset_t* set, km_sigset_t* oldset, size_t sigsetsize);
 uint64_t
 km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t* oldact, size_t sigsetsize);
+uint64_t km_sigaltstack(km_vcpu_t* vcpu, km_stack_t* new, km_stack_t* old);
 void km_rt_sigreturn(km_vcpu_t* vcpu);
 uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo);
 uint64_t km_tkill(km_vcpu_t* vcpu, pid_t tid, int signo);

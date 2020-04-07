@@ -67,6 +67,8 @@ typedef struct km_signal_list {
    sigset_t mask;   // Signals in list.
 } km_signal_list_t;
 
+typedef stack_t km_stack_t;
+
 typedef unsigned long int pthread_tid_t;
 
 /*
@@ -130,9 +132,11 @@ typedef struct km_vcpu {
    uint8_t is_running;        // 1 means the vcpu is in guest, aka ioctl (KVM_RUN)
    uint8_t regs_valid;        // Are registers valid?
    uint8_t sregs_valid;       // Are segment registers valid?
+   uint8_t on_sigaltstack;    //
                               //
    km_gva_t stack_top;        // also available in guest_thr
    km_gva_t guest_thr;        // guest pthread, FS reg in the guest
+   km_stack_t sigaltstack;    //
                               //
    kvm_regs_t regs;           // Cached register values.
    kvm_sregs_t sregs;         // Cached segment register values.
@@ -148,6 +152,12 @@ typedef struct km_vcpu {
                           // the processor's debugging facilities in DR0 - DR3.
    gdb_vcpu_state_t gdb_vcpu_state;   // gdb's per thread (vcpu) state.
 } km_vcpu_t;
+
+static inline int km_on_altstack(km_vcpu_t* vcpu, km_gva_t sp)
+{
+   return (km_gva_t)vcpu->sigaltstack.ss_sp <= sp &&
+          sp < (km_gva_t)vcpu->sigaltstack.ss_sp + vcpu->sigaltstack.ss_size;
+}
 
 /*
  * Produce tid for this vcpu. This should match km_vcpu_fetch_by_tid()
@@ -341,6 +351,7 @@ static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
     */
    vcpu->cpu_run->immediate_exit = 1;
    (void)ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
+   errno = 0;   // reset EINTR from ioctl above
    vcpu->cpu_run->immediate_exit = 0;
 }
 
