@@ -38,7 +38,7 @@ BUILDENV_IMG := kontain/buildenv-${COMPONENT}-${DTYPE}
 # runenv does not include anything linix distro specific, so it does not have 'DTYPE'
 RUNENV_IMG := kontain/runenv-${COMPONENT}
 # runenv demo image produce a demo based on the runenv image
-RUNENV_DEMO_IMG := ${RUNENV_IMG}-demo
+RUNENV_DEMO_IMG := kontain/demo-runenv-${COMPONENT}
 
 # image names with proper registry
 TEST_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(TEST_IMG))
@@ -50,7 +50,7 @@ RUNENV_DEMO_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(RUNENV_DEMO_IMG))
 TEST_DOCKERFILE ?= test-${DTYPE}.dockerfile
 BUILDENV_DOCKERFILE ?= buildenv-${DTYPE}.dockerfile
 RUNENV_DOCKERFILE ?= runenv.dockerfile
-RUNENV_DEMO_DOCKERFILE ?= runenv-demo.dockerfile
+DEMO_RUNENV_DOCKERFILE ?= demo-runenv.dockerfile
 
 # Path 'docker build' uses for build, test and run environments
 BUILDENV_PATH ?= .
@@ -154,20 +154,20 @@ pull-runenv-image: ## pulls test image.
 distro: runenv-image ## an alias for runenv-image
 publish: push-runenv-image
 
-runenv-demo-image: ${RUNENV_DEMO_DEPENDENCIES}
-ifeq ($(shell test -e ${RUNENV_DEMO_DOCKERFILE} && echo -n yes),yes)
+demo-runenv-image: ${RUNENV_DEMO_DEPENDENCIES}
+ifeq ($(shell test -e ${DEMO_RUNENV_DOCKERFILE} && echo -n yes),yes)
 	@-docker rmi -f ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} 2>/dev/null
 	${DOCKER_BUILD} \
 		-t ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
 		--build-arg runenv_image_version=${IMAGE_VERSION} \
-		-f ${RUNENV_DEMO_DOCKERFILE} \
+		-f ${DEMO_RUNENV_DOCKERFILE} \
 		${RUNENV_DEMO_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_DEMO_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 else
-	@echo -e "No demo dockerfile ${RUNENV_DEMO_DOCKERFILE} define. Skipping..."
+	@echo -e "No demo dockerfile ${DEMO_RUNENV_DOCKERFILE} define. Skipping..."
 endif
 
-push-runenv-demo-image: runenv-demo-image
+push-demo-runenv-image: demo-runenv-image
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)"\
 		FROM=$(RUNENV_DEMO_IMG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
@@ -229,8 +229,8 @@ K8S_RUN_VALIDATION := $(TOP)/cloud/k8s/tests/k8s-run-validation.sh
 VALIDATION_K8S_IMAGE := $(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
 VALIDATION_K8S_NAME := validation-${PROCESSED_COMPONENT_NAME}-${PROCESSED_IMAGE_VERION}
 
-# We use the runenv-demo image for validation. Runenv only contain the bare
-# minimum and no other application, so we use the runenv-demo image which
+# We use the demo-runenv image for validation. Runenv only contain the bare
+# minimum and no other application, so we use the demo-runenv image which
 # contains all the applications.
 validate-runenv-withk8s: .check_vars
 	${K8S_RUN_VALIDATION} "${VALIDATION_K8S_IMAGE}" "${VALIDATION_K8S_NAME}"
