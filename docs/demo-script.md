@@ -144,8 +144,8 @@ kubectl port-forward `kubectl get pod --selector=app=dweb -o jsonpath='{.items[0
 kubectl delete -k ~/workspace/km/payloads/k8s/azure/dweb
 
 # Optional: same demo for python microservice
-make -C ~/workspace/km/payloads/python runenv-demo-image
-make -C ~/workspace/km/payloads/python push-runenv-demo-image
+make -C ~/workspace/km/payloads/python demo-runenv-image
+make -C ~/workspace/km/payloads/python push-demo-runenv-image
 kubectl apply -k ~/workspace/km/payloads/k8s/azure/python
 kubectl get pod --selector=app=pykm  # make sure it shows as Running
 kubectl port-forward `kubectl get pod --selector=app=pykm -o jsonpath='{.items[0].metadata.name}'` 8080:8080
