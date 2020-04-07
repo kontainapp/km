@@ -31,5 +31,5 @@ steps:
   - bash: make -C payloads/java pull-buildenv-image 
     displayName: Java.kmd build and Java 'runenv' build
 
-  - bash: make -C payloads clean all runenv-image push-runenv-demo-image
-    displayName: payload build runenv and runenv-demo images
+  - bash: make -C payloads clean all runenv-image push-demo-runenv-image
+    displayName: payload build runenv and demo-runenv images

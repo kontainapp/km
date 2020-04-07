@@ -149,11 +149,11 @@ test as `test-withk8s`. The script that drives these tests are under
 `cloud/azure/tests`. It also has a similar `test-all-withk8s-manual` target.
 
 As part of the nightly pipeline, there is a validation target
-`validate-runenv-withk8s`. This target uses the `runenv-demo-image`, which
+`validate-runenv-withk8s`. This target uses the `demo-runenv-image`, which
 contains a sample application, to validate the runenv image. Since
 `runenv-image` contains absolutly the bare minimum, the image is not likely
 deployed to the k8s direcly in production. For some payloads such as Nginx or
-the Demo Dweb application, the `runenv-image` and the `runenv-demo-image`
+the Demo Dweb application, the `runenv-image` and the `demo-runenv-image`
 will be the same, since the payload is the application itself.
 
 ### Pull Request to change the nightly pipeline.

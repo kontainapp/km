@@ -205,8 +205,8 @@ make -C cloud/k8s/kontaind install
 From the top of the repo, build and push demo containers:
 
 ```sh
-make runenv-demo-image
-make push-runenv-demo-image
+make demo-runenv-image
+make push-demo-runenv-image
 ```
 
 * To deploy KM-based apps:  `kubectl apply -k ./payloads/k8s/azure/python/`
