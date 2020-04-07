@@ -27,9 +27,8 @@ steps:
   - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/node
     displayName: Node.km build - set build environment, build, create test container and push it to registry
 
-    # TODO: make `ci-prepare-testenv` work with payloads/java
-  - bash: make -C payloads/java pull-buildenv-image 
+  - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/java
     displayName: Java.kmd build and Java 'runenv' build
 
-  - bash: make -C payloads clean all runenv-image push-demo-runenv-image
+  - bash: make -C payloads runenv-image push-demo-runenv-image
     displayName: payload build runenv and demo-runenv images
