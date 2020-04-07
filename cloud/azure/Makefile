@@ -116,8 +116,7 @@ endif
 
 # Helpers to avoid cut-n-paste in pipeline definition.
 ci-prepare-testenv:
-	make -C $(TOP)/$(LOCATION) pull-buildenv-image all
-	make -C $(TOP)/$(LOCATION) testenv-image push-testenv-image
+	make -C $(TOP)/$(LOCATION) pull-buildenv-image clean all testenv-image push-testenv-image
 
 dashboard: login # Interactive login, and then forward port/open Kubernetes Dashboard
 	az aks browse --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER)
