@@ -26,10 +26,10 @@
 #include "bsd_queue.h"
 #include "km.h"
 #include "km_coredump.h"
+#include "km_guest.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
-#include "km_guest.h"
 
 void km_install_sighandler(int signum, sa_action_t func)
 {
@@ -401,13 +401,17 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    vcpu->sregs_valid = 0;
    km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
    km_read_registers(vcpu);
-   km_info(KM_TRACE_KVM,
-           "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx",
-           vcpu->regs.rip,
-           vcpu->regs.rsp,
-           vcpu->sregs.cr2);
 
-   km_gva_t sframe_gva = vcpu->regs.rsp - RED_ZONE - sizeof(km_signal_frame_t);
+   km_gva_t sframe_gva;
+   // Check if sigaltstack is set, requested, and not in use yet, and use it then
+   if ((act->sa_flags & SA_ONSTACK) == SA_ONSTACK && vcpu->sigaltstack.ss_size != 0 &&
+       km_on_altstack(vcpu, vcpu->regs.rsp) == 0) {
+      sframe_gva = (km_gva_t)vcpu->sigaltstack.ss_sp + vcpu->sigaltstack.ss_size;
+      vcpu->on_sigaltstack = 1;
+   } else {
+      sframe_gva = vcpu->regs.rsp - RED_ZONE;
+   }
+   sframe_gva -= sizeof(km_signal_frame_t);
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
 
    frame->info = *info;
@@ -428,6 +432,8 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    vcpu->regs.rdx = sframe_gva + offsetof(km_signal_frame_t, ucontext);
 
    km_write_registers(vcpu);
+
+   km_info(KM_TRACE_KVM, "RIP 0x%0llx RSP 0x%0llx", vcpu->regs.rip, vcpu->regs.rsp);
 }
 
 void km_deliver_next_signal(km_vcpu_t* vcpu)
@@ -487,8 +493,13 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
     *       leak information into guest.
     */
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(km_gva_t));
-   memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
+   // check if we use sigaltstack is used, and we are leaving it now
+   if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1 && km_on_altstack(vcpu, frame->regs.rsp) == 0) {
+      vcpu->sigaltstack.ss_flags = 0;
+      vcpu->on_sigaltstack = 0;
+   }
    vcpu->regs = frame->regs;
+   memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
    vcpu->regs.rip = frame->ucontext.uc_mcontext.gregs[REG_RIP];
    km_write_registers(vcpu);
 }
@@ -561,6 +572,40 @@ km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t*
       }
    }
    km_signal_unlock();
+   return 0;
+}
+
+uint64_t km_sigaltstack(km_vcpu_t* vcpu, km_stack_t* new, km_stack_t* old)
+{
+   if (old != NULL) {
+      old->ss_sp = vcpu->sigaltstack.ss_sp;
+      old->ss_size = vcpu->sigaltstack.ss_size;
+      old->ss_flags = old->ss_size == 0 ? SS_DISABLE : vcpu->sigaltstack.ss_flags;
+   }
+   if (new != NULL) {
+      if (new->ss_flags != SS_DISABLE && new->ss_flags != SS_ONSTACK && new->ss_flags != 0) {
+         return -EINVAL;
+      }
+      km_read_registers(vcpu);
+      if (km_on_altstack(vcpu, vcpu->regs.rsp)) {   // in use
+         return -EPERM;
+      }
+      if (new->ss_flags == SS_DISABLE) {
+         vcpu->sigaltstack.ss_size = 0;
+         vcpu->sigaltstack.ss_sp = NULL;
+      } else {
+         if (new->ss_size < MINSIGSTKSZ) {
+            return -ENOMEM;
+         }
+         if (km_gva_to_kma((km_gva_t) new->ss_sp) == NULL) {
+            return -EFAULT;
+         }
+         vcpu->sigaltstack.ss_sp = (void*)new->ss_sp;
+         vcpu->sigaltstack.ss_size = new->ss_size;
+         vcpu->sigaltstack.ss_flags = 0;
+         km_infox(KM_TRACE_HC, "new sigaltstack 0x%lx 0x%lx", (km_gva_t) new->ss_sp, new->ss_size);
+      }
+   }
    return 0;
 }
 

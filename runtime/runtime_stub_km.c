@@ -43,7 +43,6 @@ __stub__(getcontext);
 __stub__(setcontext);
 __stub__(makecontext);
 __stub__(swapcontext);
-__stub__(sigaltstack);
 __stub__(statfs);
 __stub_core__(__sched_cpualloc);
 __stub_core__(__sched_cpufree);
