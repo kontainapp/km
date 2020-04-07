@@ -952,6 +952,24 @@ static km_hc_ret_t rt_sigreturn_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t sigaltstack_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int sigaltstack(const stack_t *ss, stack_t *old_ss);
+   km_stack_t* old = NULL;
+   km_stack_t* new = NULL;
+
+   if (arg->arg1 != 0 && (new = km_gva_to_kma(arg->arg1)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (arg->arg2 != 0 && (old = km_gva_to_kma(arg->arg2)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_sigaltstack(vcpu, new, old);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t kill_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int kill(pid_t pid, int sig)
@@ -1405,6 +1423,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_rt_sigaction] = rt_sigaction_hcall;
    km_hcalls_table[SYS_rt_sigreturn] = rt_sigreturn_hcall;
    km_hcalls_table[SYS_rt_sigpending] = rt_sigpending_hcall;
+   km_hcalls_table[SYS_sigaltstack] = sigaltstack_hcall;
    km_hcalls_table[SYS_kill] = kill_hcall;
    km_hcalls_table[SYS_tkill] = tkill_hcall;
 

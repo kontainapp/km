@@ -347,6 +347,7 @@
          "default": "hello",
          "type": "pickString",
          "options": [
+            "sigaltstack_test",
             "pthread_cancel_test",
             "var_storage_test",
             "exit_value_test",

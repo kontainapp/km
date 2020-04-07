@@ -415,16 +415,28 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
       return -1;
    }
    /*
-    * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of
-    * the args address. Two assumptions made here: hcall args passed are on
-    * stack in the guest, and the stack is less than 4GB long, i.e. the address
-    * is withint 4GB range below the top of the stack.
+    * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of the args address.
+    * Two assumptions made here: hcall args passed are on stack in the guest, and the stack is less
+    * than 4GB long, i.e. the address is withint 4GB range below the top of the stack.
     *
-    * We set the high four bytes to the same as top of the stack, and check for
-    * underflow.
+    * We set the high four bytes to the same as top of the stack, and check for underflow.
     */
    /* high four bytes */
-   km_gva_t stack_top_high = vcpu->stack_top & ~0xfffffffful;
+   km_gva_t stack_top_high;
+   if (vcpu->on_sigaltstack == 1) {
+      // we were on sigaltstack bit could've left via longjmp, so need to confirm
+      km_read_registers(vcpu);
+      if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1) {
+         stack_top_high = (km_gva_t)vcpu->sigaltstack.ss_sp + vcpu->sigaltstack.ss_size;
+      } else {
+         // mark that we have left sigaltstack so we don't need to retrive registers to confirm next time
+         vcpu->on_sigaltstack = 0;
+         stack_top_high = vcpu->stack_top;
+      }
+   } else {
+      stack_top_high = vcpu->stack_top;
+   }
+   stack_top_high &= ~0xfffffffful;
    /* Recover high 4 bytes, but check for roll under 4GB boundary */
    ga = *(uint32_t*)((km_kma_t)r + r->io.data_offset) | stack_top_high;
    if (ga > vcpu->stack_top) {
