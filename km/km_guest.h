@@ -18,6 +18,8 @@
 #ifndef __KM_GUEST_H__
 #define __KM_GUEST_H__
 
+#include "km_mem.h"
+
 /*
  * Definition of symbols defined in the .km_guest_{test,data} sections.
  *
