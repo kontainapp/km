@@ -119,7 +119,7 @@ static const uint64_t GUEST_ARG_MAX = 32 * KM_PAGE_SIZE;
  * randomly choose to start guest memory allocation from 0x100000000000, which happens to be 16TB.
  * It has an advantage of being numerically the guest physical addresses with bit 0x100000000000 set.
  */
-static km_kma_t KM_USER_MEM_BASE = (void*)0x100000000000ul;   // 16TiB
+static const km_kma_t KM_USER_MEM_BASE = (void*)0x100000000000ul;   // 16TiB
 
 /*
  * Knowing memory layout and how pml4 is set, convert between guest virtual address and km address.
