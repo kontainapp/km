@@ -30,5 +30,5 @@ steps:
   - bash: make -C cloud/azure ci-prepare-testenv LOCATION=payloads/java
     displayName: Java.kmd build and Java 'runenv' build
 
-  - bash: make -C payloads runenv-image push-demo-runenv-image
+  - bash: make -C payloads clean all runenv-image push-demo-runenv-image
     displayName: payload build runenv and demo-runenv images
