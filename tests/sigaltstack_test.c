@@ -12,10 +12,25 @@
 #include "greatest/greatest.h"
 #include "syscall.h"
 
-sigjmp_buf jbuf;
+/*
+ * Test sigaltstack call. We set sigaltstack and sigaction to use it for SIGSEGV. In the handler we
+ * first check if address of local var matches the sigaltstack range, and then remedy the SIGSEGV.
+ *
+ * There are two scenarios - jumping from signal handler via siglongjmp (handler_lj() and sas_lj()),
+ * and returning from handler via regular return (handler() and sas()). The two are checking that we
+ * correctly track return from sigaltstack.
+ *
+ * Each scenario triggers SIGSEGV by writing into pointer called `bad'. In the first case it points
+ * to 0, signal handler mallocs new memory and assigns bad to it. siglongjmp restarts execution at
+ * the line above the assignment. In the second case bad point into allocated memory that is
+ * mprotected to readonly, and signal handler changes protection, so returning from the handler
+ * restarts the very instruction that caused SIGSEGV.
+ */
 
 stack_t ss;
 int* bad = 0;
+
+sigjmp_buf jbuf;
 
 void handler_lj(int sig, siginfo_t* info, void* ucontext)
 {
@@ -24,20 +39,6 @@ void handler_lj(int sig, siginfo_t* info, void* ucontext)
    if (sig == SIGSEGV && ss.ss_sp <= sp && sp < ss.ss_sp + ss.ss_size) {
       bad = malloc(1024);
       siglongjmp(jbuf, SIGSEGV);
-   } else {
-      abort();
-   }
-}
-
-void handler(int sig, siginfo_t* info, void* ucontext)
-{
-   void* sp = &sig;
-
-   if (sig == SIGSEGV && ss.ss_sp <= sp && sp < ss.ss_sp + ss.ss_size) {
-      if (greatest_get_verbosity() == 1) {
-         printf("allowing writes on %p\n", bad);
-      }
-      mprotect(bad, 4096, PROT_WRITE | PROT_READ);
    } else {
       abort();
    }
@@ -85,6 +86,20 @@ TEST sas_lj()
    free(bad);
    bad = 0;
    PASS();
+}
+
+void handler(int sig, siginfo_t* info, void* ucontext)
+{
+   void* sp = &sig;
+
+   if (sig == SIGSEGV && ss.ss_sp <= sp && sp < ss.ss_sp + ss.ss_size) {
+      if (greatest_get_verbosity() == 1) {
+         printf("allowing writes on %p\n", bad);
+      }
+      mprotect(bad, 4096, PROT_WRITE | PROT_READ);
+   } else {
+      abort();
+   }
 }
 
 TEST sas()
