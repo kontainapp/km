@@ -424,7 +424,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
    /* high four bytes */
    km_gva_t stack_top_high;
    if (vcpu->on_sigaltstack == 1) {
-      // we were on sigaltstack bit could've left via longjmp, so need to confirm
+      // we were on sigaltstack but could've left via longjmp, so need to confirm
       km_read_registers(vcpu);
       if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1) {
          stack_top_high = (km_gva_t)vcpu->sigaltstack.ss_sp + vcpu->sigaltstack.ss_size;
