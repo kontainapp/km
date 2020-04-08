@@ -133,11 +133,15 @@ function main {
     kubectl wait pod/${pod_name} --for=condition=Ready --timeout=${POD_WAIT_TIMEOUT}
     local exit_code=$?
     if [[ $exit_code != 0 ]]; then
+        echo "Failed to launch test pod: ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME}"
         cleanup $pod_name $exit_code
     fi
 
-    kubectl exec -it ${pod_name} --request-timeout=0 -- bash -c "${TEST_COMMAND}"
+    kubectl exec ${pod_name} -- bash -c "${TEST_COMMAND}"
     local exit_code=$?
+    if [[ $exit_code != 0 ]]; then
+        echo "Failed to run command: ${TEST_COMMAND}"
+    fi
     cleanup $pod_name $exit_code
 }
 

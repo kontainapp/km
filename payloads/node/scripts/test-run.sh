@@ -32,6 +32,7 @@ case "$1" in
    BUILD=$3
 	cd ${NODETOP}
    /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* | tr '\n' ','` default addons js-native-api node-api
+   echo "Tests are Successful"
   ;;
 
   *)

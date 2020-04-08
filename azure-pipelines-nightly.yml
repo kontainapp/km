@@ -11,39 +11,43 @@ schedules:
     include:
     - master
 
-variables:
-  VM_IMAGE: "ubuntu-18.04"
-  CLUSTER_NAME: "aks-kontain-ci-nightly-$(Build.BuildId)"
-  VM_SIZE: "Standard_D4_v3" # choose a vm size to avoid the vcpu quota on azure
-  BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
-  IMAGE_VERSION: ci-nightly-$(Build.BuildId) # use this for all other containers
-  K8S_TEST_ERR_NO_CLEANUP: true # OK to not clean up after error for nightly
-  # TRACE: true
+jobs:
+  - job: nightly_ci
+    variables:
+      VM_IMAGE: "ubuntu-18.04"
+      CLUSTER_NAME: "aks-kontain-ci-nightly-$(Build.BuildId)"
+      VM_SIZE: "Standard_D4_v3" # choose a vm size to avoid the vcpu quota on azure
+      BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
+      IMAGE_VERSION: ci-nightly-$(Build.BuildId) # use this for all other containers
+      K8S_TEST_ERR_NO_CLEANUP: true # OK to not clean up after error for nightly
+      # TRACE: true
 
-pool:
-  vmImage: $(VM_IMAGE)
+    # Default job has a 60 minutes timeout. Sets this to 0 to use the max
+    # 360 minutes timeout.
+    timeoutInMinutes: 0
+    pool:
+      vmImage: $(VM_IMAGE)
+    steps:
+    - template: templates/setup.yaml
 
-steps:
-- template: templates/setup.yaml
+    - template: templates/build.yaml
 
-- template: templates/build.yaml
+    - bash: cloud/azure/aks_ci_create.sh $(CLUSTER_NAME) $(SP_appId) $(SP_password)
+      displayName: Create k8s Cluster
 
-- bash: cloud/azure/aks_ci_create.sh $(CLUSTER_NAME) $(SP_appId) $(SP_password)
-  displayName: Create k8s Cluster
+    - bash: |
+        make -C cloud/k8s/kontaind install
+      displayName: deploy and verify kontaind
 
-- bash: |
-    make -C cloud/k8s/kontaind install
-  displayName: deploy and verify kontaind
+    - template: templates/ci_nightly.yaml
 
-- template: templates/ci_nightly.yaml
+    - bash: cloud/azure/aks_ci_destroy.sh $(CLUSTER_NAME)
+      displayName: Tear down k8s Cluster
 
-- bash: cloud/azure/aks_ci_destroy.sh $(CLUSTER_NAME)
-  displayName: Tear down k8s Cluster
-
-- bash: |
-    [ "$TRACE" ] && set -x
-    make -C cloud/azure ci-image-purge CI_IMAGE_DRY_RUN=""
-    rm -f ~/.kube/config
-    az logout
-  condition: always()
-  displayName: Cleanup and logout
+    - bash: |
+        [ "$TRACE" ] && set -x
+        make -C cloud/azure ci-image-purge CI_IMAGE_DRY_RUN=""
+        rm -f ~/.kube/config
+        az logout
+      condition: always()
+      displayName: Cleanup and logout
