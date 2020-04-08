@@ -794,3 +794,8 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_success
    assert_output --partial "Hello from clone"
 }
+
+@test "sigaltstack($test_type): sigaltstack syscall (sigaltstack_test$ext)" {
+   run km_with_timeout sigaltstack_test$ext
+   assert_success
+}
