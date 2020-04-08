@@ -232,7 +232,6 @@ static inline km_kma_t km_gva_to_kma(km_gva_t gva)
         !(gva >= GUEST_VVAR_VDSO_BASE_VA && gva < GUEST_VVAR_VDSO_BASE_VA + km_vvar_vdso_size) &&
         !(gva >= GUEST_KMGUESTMEM_BASE_VA &&
           gva < GUEST_KMGUESTMEM_BASE_VA + machine.vm_mem_regs[KM_RSRV_KMGUESTMEM_SLOT].memory_size))) {
-      errno = EFAULT;
       return NULL;
    }
    return km_gva_to_kma_nocheck(gva);
