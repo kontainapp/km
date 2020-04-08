@@ -241,6 +241,11 @@ typedef struct km_mmap_cb {   // control block
    pthread_mutex_t mutex;     // global map lock
 } km_mmap_cb_t;
 
+typedef enum vm_type {
+   VM_TYPE_KVM = 0,
+   VM_TYPE_KKM
+} vm_type_t;
+
 /*
  * kernel include/linux/kvm_host.h
  */
@@ -257,6 +262,7 @@ static const int CPUID_ENTRIES = 100;   // A little padding, kernel says 80
 
 typedef struct km_machine {
    int kvm_fd;                                // /dev/kvm file descriptor
+   vm_type_t vm_type;                         // VM type kvm or kkm
    int mach_fd;                               // VM file descriptor
    size_t vm_run_size;                        // size of the run control region
                                               //
@@ -361,7 +367,7 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
     __attribute__((__format__(__printf__, 4, 5)));
 
 // Interrupt handling.
-void km_init_guest_idt(km_gva_t default_handler, km_gva_t handler_table_base);
+void km_init_guest_idt(void);
 void km_handle_interrupt(km_vcpu_t* vcpu);
 
 #define KM_SIGVCPUSTOP SIGUSR1   //  After km start, used to signal VCP thread to force KVM exit

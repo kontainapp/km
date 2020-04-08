@@ -131,6 +131,12 @@ bus_width() {
    echo $bw
 }
 
+vm_type() {
+   vmtype='kvm'
+   [[ -a /dev/kkm ]] && vmtype='kkm'
+   echo $vmtype
+}
+
 # Setup and teardown for each test.
 # Note that printing to stdout/stderr in these functions only shows up on errors.
 # For print on success too, redirect to >&3

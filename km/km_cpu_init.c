@@ -37,6 +37,7 @@ static const char cpu_vendor_id[3 * sizeof(u_int32_t) + 1] = "Kontain";
 
 km_machine_t machine = {
     .kvm_fd = -1,
+    .vm_type = VM_TYPE_KVM,
     .mach_fd = -1,
     .brk_mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal_mutex = PTHREAD_MUTEX_INITIALIZER,
@@ -427,6 +428,8 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 void km_machine_init(km_machine_init_params_t* params)
 {
    int rc;
+   struct stat sb;
+   char linkbuf[16]; // no need for more than 16 bytes
 
    if (km_fs_init() < 0) {
       err(1, "KM: k_init_guest_files() failed");
@@ -439,6 +442,19 @@ void km_machine_init(km_machine_init_params_t* params)
    }
    if ((machine.kvm_fd = open("/dev/kvm", O_RDWR /* | O_CLOEXEC */)) < 0) {
       err(1, "KVM: Can't open /dev/kvm");
+   }
+   // identify type of virtual machine kvm or kkm
+   if (lstat("/dev/kvm", &sb) < 0) {
+      err(1, "KVM: stat on device failed");
+   }
+   if ((sb.st_mode & S_IFMT) == S_IFLNK) {
+      memset(linkbuf, 0, sizeof(linkbuf));
+      if (readlink("/dev/kvm", linkbuf, sizeof(linkbuf)) < 0) {
+         err(1, "KVM: readlink failed of /dev/kvm");
+      }
+      if (strcmp(linkbuf, "/dev/kkm") == 0) {
+         machine.vm_type = VM_TYPE_KKM;
+      }
    }
    if ((rc = ioctl(machine.kvm_fd, KVM_GET_API_VERSION, 0)) < 0) {
       err(1, "KVM: get API version failed");
@@ -522,13 +538,17 @@ void km_machine_init(km_machine_init_params_t* params)
       machine.guest_max_physmem = MIN(2 * GIB, machine.guest_max_physmem);
    }
    if (params->guest_physmem != 0) {
-      if (params->guest_physmem > machine.guest_max_physmem) {
-         errx(1,
-              "Cannot set guest memory size to '0x%lx'. Max supported=0x%lx",
-              params->guest_physmem,
-              machine.guest_max_physmem);
+      if ((machine.vm_type == VM_TYPE_KKM) && (params->guest_physmem != GUEST_MAX_PHYSMEM_SUPPORTED)) {
+         errx(1, "Only 512GB physical memory supported with KKM driver");
+      } else {
+         if (params->guest_physmem > machine.guest_max_physmem) {
+            errx(1,
+                 "Cannot set guest memory size to '0x%lx'. Max supported=0x%lx",
+                 params->guest_physmem,
+                 machine.guest_max_physmem);
+         }
+         machine.guest_max_physmem = params->guest_physmem;
       }
-      machine.guest_max_physmem = params->guest_physmem;
    }
    km_mem_init(params);
    km_signal_init();

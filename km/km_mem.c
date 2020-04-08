@@ -48,9 +48,26 @@
  * determine that the by analyzing CPUID and store in machine.guest_max_physmem
  */
 
+#define PT_ENTRIES (512)
+typedef struct page_tables {
+   x86_pml4e_t pml4[PT_ENTRIES];
+   x86_pdpte_t pdpt0[PT_ENTRIES];
+   x86_pdpte_t pdpt1[PT_ENTRIES];
+   x86_pdpte_t pdpt2[PT_ENTRIES];
+   x86_pde_4k_t pd0[PT_ENTRIES];
+   x86_pde_4k_t pd1[PT_ENTRIES];
+   x86_pde_4k_t pd2[PT_ENTRIES];
+   x86_pte_4k_t pt1[PT_ENTRIES];
+} page_tables_t;
+
 static inline km_kma_t km_resv_kma(void)
 {
    return (km_kma_t)machine.vm_mem_regs[KM_RSRV_MEMSLOT].userspace_addr;
+}
+
+static inline page_tables_t* km_page_table(void)
+{
+   return (page_tables_t*)km_resv_kma();
 }
 
 static void pml4e_set(x86_pml4e_t* pml4e, uint64_t pdpt)
@@ -208,7 +225,7 @@ uint32_t km_vvar_vdso_size;
  * Put the [vvar] and [vdso] pages from km's address space into the payload's
  * physical and virtual address spaces.
  */
-static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
+static void km_add_vvar_vdso_to_guest_address_space(void)
 {
    maps_region_t vvar_vdso_regions[vvar_vdso_regions_count] =
        {{.name_substring = "[vvar]"},
@@ -241,7 +258,7 @@ static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
    reg = &machine.vm_mem_regs[KM_RSRV_VDSOSLOT];
    reg->slot = KM_RSRV_VDSOSLOT;
    reg->userspace_addr = (typeof(reg->userspace_addr))vvar_vdso_regions[0].begin_addr;
-   reg->guest_phys_addr = gva_to_gpa_nocheck(km_vvar_vdso_base[0]);
+   reg->guest_phys_addr = GUEST_VVAR_VDSO_BASE_GPA;
    reg->memory_size = km_vvar_vdso_size;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
@@ -251,16 +268,9 @@ static void km_add_vvar_vdso_to_guest_address_space(km_kma_t mem)
    // Now add vdso and vvar to the payload's virtual address space
    int idx;
    uint64_t virtaddr = km_vvar_vdso_base[0];
-   uint64_t physaddr = virtaddr - GUEST_VA_OFFSET;
-   x86_pde_4k_t* pde = mem + RSV_PD2_OFFSET;
-   x86_pte_4k_t* pte = mem + RSV_PT_OFFSET;
+   uint64_t physaddr = GUEST_VVAR_VDSO_BASE_GPA;
+   x86_pte_4k_t* pte = km_page_table()->pt1;
 
-   // add entry to page directory
-   idx = PDE_SLOT(virtaddr);
-   pde_4k_set(pde + idx, RSV_GUEST_PA(RSV_PT_OFFSET));
-
-   // add vvar and vdso pages to page table
-   memset(mem + RSV_PT_OFFSET, 0, KM_PAGE_SIZE);   // clear page, no usable entries yet
    for (int i = 0; i < vvar_vdso_regions_count; i++) {
       km_infox(KM_TRACE_MEM,
                "%s: km vaddr 0x%lx, payload paddr 0x%lx, payload vaddr 0x%lx",
@@ -304,7 +314,7 @@ static void km_add_code_to_guest_address_space(void)
 
    // Map the km_guest pages into the guest physical address space
    km_gva_t virtaddr = GUEST_KMGUESTMEM_BASE_VA;
-   uint64_t physaddr = gva_to_gpa_nocheck(virtaddr);
+   uint64_t physaddr = GUEST_KMGUESTMEM_BASE_GPA;
    reg = &machine.vm_mem_regs[KM_RSRV_KMGUESTMEM_SLOT];
    reg->slot = KM_RSRV_KMGUESTMEM_SLOT;
    reg->userspace_addr = (uint64_t)&km_guest_start;
@@ -320,7 +330,7 @@ static void km_add_code_to_guest_address_space(void)
     * If you change the value of GUEST_KMGUESTMEM_BASE_VA be sure you verify that we
     * are updating the correct page table.
     */
-   x86_pte_4k_t* pte = (x86_pte_4k_t*)(km_resv_kma() + RSV_PT_OFFSET);
+   x86_pte_4k_t* pte = km_page_table()->pt1;
 
    // Add the km_guest pages into the guest virtual address space
    for (uint8_t* p = &km_guest_start; p < &km_guest_end; p += KM_PAGE_SIZE) {
@@ -349,36 +359,35 @@ static void km_add_code_to_guest_address_space(void)
 
 static void init_pml4(km_kma_t mem)
 {
-   x86_pml4e_t* pml4e;
-   x86_pdpte_t* pdpe;
    int idx;
+   page_tables_t* pt = mem;
+   page_tables_t* pt_phys = (page_tables_t*)(uint64_t)RSV_MEM_START;
 
    // The code assumes that a single PML4 slot can cover all available physical memory.
    assert(machine.guest_max_physmem <= PML4E_REGION);
    // The code assumes that PA and VA are aligned within PDE table (which covers PDPTE_REGION)
    assert(GUEST_VA_OFFSET % PDPTE_REGION == 0);
 
-   pml4e = mem + RSV_PML4_OFFSET;
-   memset(pml4e, 0, KM_PAGE_SIZE);
-   pml4e_set(pml4e, RSV_GUEST_PA(RSV_PDPT_OFFSET));   // entry #0
+   // initialize all page table entries
+   memset(pt, 0, sizeof(page_tables_t));
 
-   pdpe = mem + RSV_PDPT_OFFSET;
-   memset(pdpe, 0, KM_PAGE_SIZE);
-   pdpte_set(pdpe, RSV_GUEST_PA(RSV_PD_OFFSET));   // first entry for the first GB
+   // covers 0 to 512GB - 1
+   pml4e_set(&pt->pml4[0], (uint64_t)pt_phys->pdpt0);
+   pdpte_set(&pt->pdpt0[0], (uint64_t)pt_phys->pd0);
 
-   // Since in our mem layout the two mem regions are always more
-   // than 512 GB apart, make the second pml4 entry pointing to the second pdpt page
+   // covers 512GB to 1TB - 1
+   idx = GUEST_PRIVATE_MEM_START_VA / PML4E_REGION;
+   pml4e_set(&pt->pml4[idx], (uint64_t)pt_phys->pdpt1);
+   pdpte_set(&pt->pdpt1[0], (uint64_t)pt_phys->pd1);
+   idx = PDE_SLOT(GUEST_VVAR_VDSO_BASE_VA);
+   pde_4k_set(&pt->pd1[idx], (uint64_t)pt_phys->pt1);
+
+   // 128TB - 512GB to 128TB
    idx = (GUEST_MEM_TOP_VA - 1) / PML4E_REGION;
-   pml4e_set(pml4e + idx, RSV_GUEST_PA(RSV_PDPT2_OFFSET));
-   pdpe = mem + RSV_PDPT2_OFFSET;
-   memset(pdpe, 0, KM_PAGE_SIZE);
+   pml4e_set(&pt->pml4[idx], (uint64_t)pt_phys->pdpt2);
 
    idx = PDE_SLOT(GUEST_MEM_TOP_VA);
-   pdpte_set(pdpe + idx, RSV_GUEST_PA(RSV_PD2_OFFSET));
-
-   // Clear the 2 page directory pages
-   memset(mem + RSV_PD_OFFSET, 0, KM_PAGE_SIZE);    // clear page, no usable entries
-   memset(mem + RSV_PD2_OFFSET, 0, KM_PAGE_SIZE);   // clear page, no usable entries
+   pdpte_set(&pt->pdpt2[idx], (uint64_t)pt_phys->pd2);
 }
 
 static int overcommit_memory;   // controls how we request memory for payload from Linux
@@ -446,7 +455,7 @@ void km_mem_init(km_machine_init_params_t* params)
    km_guest_mmap_init();
 
    // Add the [vvar] and [vdso] pages from km into the physical and virtual address space for the payload
-   km_add_vvar_vdso_to_guest_address_space((km_kma_t)reg->userspace_addr);
+   km_add_vvar_vdso_to_guest_address_space();
 
    // Map guest code resident in km into the guest's address space
    km_add_code_to_guest_address_space();
@@ -467,8 +476,9 @@ void km_mem_fini(void)
  */
 static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
 {
-   x86_pde_2m_t* pde = km_resv_kma() + RSV_PD_OFFSET;
-   x86_pdpte_1g_t* pdpe = km_resv_kma() + RSV_PDPT_OFFSET;
+   page_tables_t* pt = km_page_table();
+   x86_pde_2m_t* pde = (x86_pde_2m_t*)pt->pd0;
+   x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt0;
    int old_2m_slot = PDE_SLOT(old_brk);
    int new_2m_slot = PDE_SLOT(new_brk);
    int old_1g_slot = PDPTE_SLOT(old_brk);
@@ -521,8 +531,9 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
 
 static inline void fixup_top_page_tables(km_gva_t old_brk, km_gva_t new_brk)
 {
-   x86_pde_2m_t* pde = km_resv_kma() + RSV_PD2_OFFSET;
-   x86_pdpte_1g_t* pdpe = km_resv_kma() + RSV_PDPT2_OFFSET;
+   page_tables_t* pt = km_page_table();
+   x86_pde_2m_t* pde = (x86_pde_2m_t*)pt->pd2;
+   x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt2;
    int old_2m_slot = PDE_SLOT(old_brk);
    int new_2m_slot = PDE_SLOT(new_brk);
    int old_1g_slot = PDPTE_SLOT(old_brk);
@@ -580,16 +591,17 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
 {
    size_t size = reg->memory_size;
    km_gva_t base = reg->guest_phys_addr;
+   page_tables_t* pt = km_page_table();
 
    if (size < PDPTE_REGION) {
-      x86_pde_2m_t* pde = km_resv_kma() + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
+      x86_pde_2m_t* pde = (x86_pde_2m_t*)(upper_va ? pt->pd2 : pt->pd0);
       for (uint64_t addr = base; addr < base + size; addr += PDE_REGION) {
          // virtual and physical mem aligned the same on PDE_REGION, so we can use use addr for virt.addr
          pde_2mb_set(pde + PDE_SLOT(addr), addr);
       }
    } else {
       assert(machine.pdpe1g != 0);
-      x86_pdpte_1g_t* pdpe = km_resv_kma() + (upper_va ? RSV_PDPT2_OFFSET : RSV_PDPT_OFFSET);
+      x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)(upper_va ? pt->pdpt2 : pt->pdpt0);
       uint64_t gva = upper_va ? gpa_to_upper_gva(base) : base;
       for (uint64_t addr = gva; addr < gva + size; addr += PDPTE_REGION, base += PDPTE_REGION) {
          pdpte_1g_set(pdpe + PDPTE_SLOT(addr), base);
@@ -601,9 +613,10 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
 {
    uint64_t size = reg->memory_size;
    uint64_t base = reg->guest_phys_addr;
+   page_tables_t* pt = km_page_table();
 
    if (size < PDPTE_REGION) {
-      x86_pde_2m_t* pde = km_resv_kma() + (upper_va ? RSV_PD2_OFFSET : RSV_PD_OFFSET);
+      x86_pde_2m_t* pde = (x86_pde_2m_t*)(upper_va ? pt->pd2 : pt->pd0);
       for (uint64_t addr = base; addr < base + size; addr += PDE_REGION) {
          // virtual and physical mem aligned the same on PDE_REGION, so we can use phys. address in
          // PDE_SLOT()
@@ -611,7 +624,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
       }
    } else {
       assert(machine.pdpe1g != 0);   // no 1GB pages support
-      x86_pdpte_1g_t* pdpe = km_resv_kma() + (upper_va ? RSV_PDPT2_OFFSET : RSV_PDPT_OFFSET);
+      x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)(upper_va ? pt->pdpt2 : pt->pdpt0);
       uint64_t gva = upper_va ? gpa_to_upper_gva(base) : base;
       for (uint64_t addr = gva; addr < gva + size; addr += PDPTE_REGION, base += PDPTE_REGION) {
          memset(pdpe + PDPTE_SLOT(addr), 0, sizeof(*pdpe));

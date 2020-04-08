@@ -59,8 +59,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
 {
    km_gva_t map_base;
 
-   km_init_guest_idt(km_guest_kma_to_gva(&__km_handle_interrupt),
-                     km_guest_kma_to_gva(&__km_interrupt_table));
+   km_init_guest_idt();
    if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
    }
