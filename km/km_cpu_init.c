@@ -28,6 +28,7 @@
 #include "km.h"
 #include "km_filesys.h"
 #include "km_gdb.h"
+#include "km_guest.h"
 #include "km_mem.h"
 #include "x86_cpu.h"
 
@@ -145,6 +146,22 @@ void km_machine_fini(void)
    km_fs_fini();
 }
 
+static void km_init_syscall_handler(km_vcpu_t* vcpu)
+{
+   size_t allocsz = sizeof(struct kvm_msrs) + 3 * sizeof(struct kvm_msr_entry);
+   struct kvm_msrs* msrs = calloc(allocsz, 1);
+
+   msrs->nmsrs = 3;
+   msrs->entries[0].index = MSR_IA32_FMASK;
+   msrs->entries[1].index = MSR_IA32_LSTAR;
+   msrs->entries[1].data = km_guest_kma_to_gva(&__km_syscall_handler);
+   msrs->entries[2].index = MSR_IA32_STAR;
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_MSRS, msrs) < 0) {
+      err(errno, "KVM_SET_MSRS");
+   }
+   free(msrs);
+}
+
 static void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
 {
    assert(machine.idt != 0);
@@ -192,6 +209,7 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       warn("KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
       return -1;
    }
+   km_init_syscall_handler(vcpu);
    vcpu->sigpending = (km_signal_list_t){.head = TAILQ_HEAD_INITIALIZER(vcpu->sigpending.head)};
    vcpu->thr_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    vcpu->thr_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
@@ -373,11 +391,12 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg)
 
 int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 {
-   km_gva_t sp = new_vcpu->stack_top;   // where we put argv
-   assert((sp & 0x7) == 0);
-
    kvm_vcpu_init_sregs(new_vcpu);
 
+   /*
+    * pretend we have hc_args on the stack so clone wrapper behaves the same wy for child and parent
+    */
+   km_gva_t sp = new_vcpu->stack_top - sizeof(km_hc_args_t);
    km_vcpu_sync_rip(vcpu);
    vcpu->regs_valid = 0;
    km_read_registers(vcpu);

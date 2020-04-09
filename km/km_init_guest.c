@@ -29,29 +29,11 @@
 
 #include "km.h"
 #include "km_gdb.h"
+#include "km_guest.h"
 #include "km_mem.h"
 #include "km_proc.h"
 #include "km_syscall.h"
 #include "x86_cpu.h"
-#include "km_guest.h"
-
-static inline void km_init_syscall_handler(km_vcpu_t* vcpu, km_gva_t syscall_handler_gva)
-{
-   size_t allocsz = sizeof(struct kvm_msrs) + 3 * sizeof(struct kvm_msr_entry);
-   struct kvm_msrs* msrs = calloc(allocsz, 1);
-
-   msrs->nmsrs = 3;
-   msrs->entries[0].index = MSR_IA32_FMASK;
-   msrs->entries[0].data = 0;
-   msrs->entries[1].index = MSR_IA32_LSTAR;
-   msrs->entries[1].data = syscall_handler_gva;
-   msrs->entries[2].index = MSR_IA32_STAR;
-   msrs->entries[2].data = 0;
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_MSRS, msrs) < 0) {
-      err(errno, "KVM_SET_MSRS");
-   }
-   free(msrs);
-}
 
 /*
  * Allocate stack for main thread and initialize it according to ABI:
@@ -77,8 +59,8 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
 {
    km_gva_t map_base;
 
-   km_init_guest_idt(km_guest_kma_to_gva(&__km_handle_interrupt), km_guest_kma_to_gva(&__km_interrupt_table));
-   km_init_syscall_handler(vcpu, km_guest_kma_to_gva(&__km_syscall_handler));
+   km_init_guest_idt(km_guest_kma_to_gva(&__km_handle_interrupt),
+                     km_guest_kma_to_gva(&__km_interrupt_table));
    if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
       err(1, "Failed to allocate memory for main stack");
    }
@@ -313,8 +295,9 @@ int km_clone(km_vcpu_t* vcpu,
    if ((flags & CLONE_THREAD) == 0) {   // threads only
       return -ENOTSUP;
    }
-   child_stack -= 16;   // child_stack is the first byte *above* the usable stack, adjust
-   if (child_stack != rounddown(child_stack, 16) || km_gva_to_kma(child_stack) == NULL) {
+
+   child_stack &= ~0x7;
+   if (km_gva_to_kma(child_stack - 8) == NULL) {   // check if the stack points to legitimate memory
       return -EINVAL;
    }
    km_vcpu_t* new_vcpu = km_vcpu_get();
@@ -350,6 +333,11 @@ int km_clone(km_vcpu_t* vcpu,
       *gtid = km_vcpu_get_tid(new_vcpu);
    }
 
+   km_infox(KM_TRACE_VCPU,
+            "starting new thread on vcpu-%d: RIP 0x%0llx RSP 0x%0llx",
+            new_vcpu->vcpu_id,
+            new_vcpu->regs.rip,
+            new_vcpu->regs.rsp);
    if (km_run_vcpu_thread(new_vcpu, km_vcpu_run) < 0) {
       km_vcpu_put(new_vcpu);
       return -EAGAIN;
