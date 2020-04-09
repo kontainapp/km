@@ -161,9 +161,6 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
    km_infox(KM_TRACE_SIGNALS, "    RFLAGS: 0x%lx", iframe->rflags);
    km_infox(KM_TRACE_SIGNALS, "       RSP: 0x%lx", iframe->rsp);
    km_infox(KM_TRACE_SIGNALS, "        SS: 0x%lx", iframe->ss);
-   if (km_trace_tag_enabled(KM_TRACE_SIGNALS) != 0) {
-      km_dump_vcpu(vcpu);
-   }
 
    // Restore register to what they were before the interrupt.
    vcpu->regs.rip = iframe->rip;

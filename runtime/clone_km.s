@@ -19,8 +19,9 @@ __clone:
    mov %rsp, %rax
    outl %eax, (%dx)
    mov (%rsp), %eax # Get return code into %rax
+   add $56, %rsp
    test %eax,%eax
-   jnz 1f       # parent jumps
+   jnz 1f         # parent jumps
    # child - on a new stack now
    mov %rdi, %r9  # fn
    mov %rcx, %rdi # args
@@ -32,5 +33,4 @@ __clone:
    outl %eax, (%dx)
    hlt
 1:
-   add $56, %rsp
    ret
