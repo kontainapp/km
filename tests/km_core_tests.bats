@@ -59,16 +59,16 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_output --partial "Bad system call"
 
    run km_with_timeout stray_test$ext hc -10
-   assert_failure 31  #SIGSYS
-   assert_output --partial "Bad system call"
+   assert_failure 7   #SIGBUS
+   assert_output --partial "Bus error"
 
    run km_with_timeout stray_test$ext hc 1000
-   assert_failure 31  #SIGSYS
-   assert_output --partial "Bad system call"
+   assert_failure 7   #SIGBUS
+   assert_output --partial "Bus error"
 
    run km_with_timeout stray_test$ext hc-badarg 3
-   assert_failure 31  #SIGSYS
-   assert_output --partial "Bad system call"
+   assert_failure 11  #SIGSEGV
+   assert_output --partial "Segmentation fault"
 
    run km_with_timeout stray_test$ext syscall
    assert_success
