@@ -9,7 +9,7 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * Signal trampoline for KM guests. KM starts signal handling at the guest signal 
+ * Signal trampoline for KM guests. KM starts signal handling at the guest signal
  * guest signal handler itself with the stack setup for return to __km_sigreturn.
  * Most of this file is about describing the stack so it can be correctly unwound.
  * Since this code is now part of km and mapped into the guest address
@@ -33,7 +33,7 @@ __km_sigreturn:
      *   Second parameter is DWARF stack offset for the register. The
      *   layout conforms to the contents of kvm_regs_t.
      * This code must be kept in sync with signal code in KM to ensure that
-     * GDB can interpret stacks that include a signal from KM. 
+     * GDB can interpret stacks that include a signal from KM.
      */
     .set HCARG_SIZE, 56     # size of km_hc_args_t at top of stack
 
@@ -60,7 +60,7 @@ __km_sigreturn:
     mov $0xffff800f, %edx   # SYS_rt_sigreturn
     out %eax, %dx           # Enter KM
     .cfi_endproc
-__km_sigreturn_end:        # We'll need this to define the the DWARF 
+__km_sigreturn_end:        # We'll need this to define the the DWARF
 
 /*
  * Trampoline for x86 exception and interrupt handling. IDT entries point here.
@@ -93,7 +93,7 @@ handler\name :
     mov $0x81fd, %dx        # HC_guest_interrupt
     outl %eax, (%dx)        # Enter KM
     hlt                     # Should never hit here.
-    
+
 .endm
 
 /*
@@ -176,20 +176,17 @@ __km_syscall_handler:
     push %rdi   # arg1
     push %rax   # hc_ret - don't care about value. %rax is convienent.
 
-    // Do the KM HCall
-    mov %ax, %dx
+    mov %ax, %dx     # Do the KM HCall
     or $0x8000, %dx
-    mov %rsp, %rax
+    mov %rsp, %rax   # km_hcall_t on the stack
     outl %eax, (%dx)
 
-    // Get return code into RAX
-    mov (%rsp), %rax
-    // Restore stack
-    add $56, %rsp
+    mov (%rsp), %rax # Get return code into RAX
+    add $56, %rsp    # Restore stack
 
     /*
-     * SYSRET is hardcoded to return to PL=3, so
-     * we can't use it. We don't change PL or RFLAGS
-     * so we can just jump back.
+     * SYSCALL saved address of the next instruction in %rcx.
+     * SYSRET is hardcoded to return to PL=3, so we can't use it.
+     * We don't change PL or RFLAGS so we can just jump back.
      */
     jmp *%rcx
