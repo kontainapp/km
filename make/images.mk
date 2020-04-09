@@ -215,13 +215,11 @@ test-all-withk8s: .check_vars
 
 # Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image
 # Adds 'user-' prefix to names and puts container to sleep so we can exec into it
-test-withk8s-manual: USER_NAME := $(shell id -un)
 test-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
-	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER_NAME}-${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
+	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER}-${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
 
-test-all-withk8s-manual: USER_NAME := $(shell id -un)
 test-all-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
-	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER_NAME}-${TEST_K8S_NAME}" "${CONTAINER_TEST_ALL_CMD}"
+	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER}-${TEST_K8S_NAME}" "${CONTAINER_TEST_ALL_CMD}"
 
 
 ifeq (${NO_RUNENV}, false)
