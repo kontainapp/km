@@ -83,9 +83,9 @@ ${VERSION_SRC}: ${TOP}/.git/HEAD ${TOP}/.git/index
 	touch $@
 
 ${BLDDIR}/$(subst .c,.o,${VERSION_SRC}): CFLAGS += -DSRC_BRANCH='"${SRC_BRANCH}"' -DSRC_VERSION='"${SRC_VERSION}"' -DBUILD_TIME='"${BUILD_TIME}"'
-endif
+endif # ifneq (${VERSION_SRC},)
 
-endif
+endif # ifneq (${EXEC},)
 
 ifneq (${LIB},)
 
@@ -93,7 +93,7 @@ all: ${BLDLIB}
 ${BLDLIB}: $(OBJS)
 	@echo "Making " $@; rm -f $@; ${AR} crs $@ $(OBJS)
 
-endif
+endif # ifneq (${LIB},)
 
 .PHONY: coverage covclean .cov_clean
 ifneq (${COVERAGE},)
