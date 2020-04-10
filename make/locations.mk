@@ -31,9 +31,9 @@ BUILD_TIME := $(shell date -Iminutes)
 
 # all build results (including obj etc..)  go under this one
 BLDTOP := ${TOP}/build
+
 # Build results go here.
 # For different build types (e.g. coverage), pass BLDTYPE=<type>, e.g BLDTYPE=coverage
-
 BLDDIR := $(abspath ${BLDTOP}/${FROMTOP}/${BLDTYPE})
 
 # km location needs to be fixed no matter what is the FROMTOP,
@@ -87,10 +87,9 @@ CLOUD_SCRIPTS := $(TOP)/cloud/$(CLOUD)
 include $(CLOUD_SCRIPTS)/cloud_config.mk
 endif
 
-# Use current branch as image version (tag) for doccker images.
+# Use current branch as image version (tag) for docker images.
 IMAGE_VERSION ?= latest
 BUILDENV_IMAGE_VERSION ?= ${IMAGE_VERSION}
-
 
 # Build with code coverage if BLDTYPE set to this.
 COV_BLDTYPE := coverage
