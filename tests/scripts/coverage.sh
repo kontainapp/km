@@ -9,7 +9,7 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
-# Script to run coverage using gcovr
+# Script to run test coverage analysis
 
 readonly PROGNAME=$(basename $0)
 readonly INPUT_SRC_DIR=$1
@@ -25,20 +25,16 @@ function usage() {
     cat <<- EOF
 usage: $PROGNAME <INPUT_SRC_DIR> <INPUT_COVERAGE_SEARCH_DIR> <OUTPUT_DIR> 
 
+Run test coverage analysis. 
+
 EOF
     exit 1
 }
 
 function check_params() {
-    if [[ -z ${INPUT_SRC_DIR} ]]; then
-        usage
-    fi
-    if [[ -z ${INPUT_COVERAGE_SEARCH_DIR} ]]; then
-        usage
-    fi
-    if [[ -z ${OUTPUT_DIR} ]]; then
-        usage
-    fi
+    if [[ -z ${INPUT_SRC_DIR} ]]; then usage; fi
+    if [[ -z ${INPUT_COVERAGE_SEARCH_DIR} ]]; then usage; fi
+    if [[ -z ${OUTPUT_DIR} ]]; then usage; fi
 }
 
 function main() {
@@ -50,13 +46,13 @@ function main() {
     fi
 
     ${COVERAGE_CMD_NAME} \
-        ${COVERAGE_THRESHOLDS} \
-        --root ${INPUT_SRC_DIR} \
+        --html-title "Kontain Monitor Code Coverage Report" \
         --html \
         --html-details \
+        ${COVERAGE_THRESHOLDS} \
+        --root ${INPUT_SRC_DIR} \
         --output ${COVERAGE_REPORT} \
         ${INPUT_COVERAGE_SEARCH_DIR} \
-        --html-title "Kontain Monitor Code Coverage Report" \
         --print-summary \
         -j ${PARALLEL} \
         --exclude-unreachable-branches \
