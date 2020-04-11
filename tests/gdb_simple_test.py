@@ -35,7 +35,7 @@ def bp_handler(event):
             # Fetch data from command in 'buf'. Command format is "query,verbosity,expected_count", e.g. "2,1,12"
             frame = gdb.selected_frame()
             block = frame.block()
-            value = block['buf'].value(frame)
+            value = gdb.lookup_symbol('buf', block)[0].value(frame)
             str_t = gdb.lookup_type('char').pointer()
             command = value.cast(str_t).string()
             query, verbosity, expected_count = [
