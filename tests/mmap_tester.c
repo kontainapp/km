@@ -23,6 +23,7 @@
 
 #include "mmap_test.h"
 
+int in_gdb = 1;
 int fail = 0;
 
 void sig_handler(int signal)
