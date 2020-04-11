@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
 {
    unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD |
                     CLONE_SYSVSEM | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_DETACHED;
-   char* stack;     /* Start of stack buffer */
+   char* stack; /* Start of stack buffer */
    pid_t pid, tid;
 
    stack = malloc(STACK_SIZE);
@@ -40,6 +40,6 @@ int main(int argc, char* argv[])
    }
    printf("clone() returned %ld\n", (long)pid);
 
-   usleep(1000);
+   usleep(100000);
    exit(EXIT_SUCCESS);
 }

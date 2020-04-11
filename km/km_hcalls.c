@@ -470,7 +470,6 @@ static km_hc_ret_t mmap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t munmap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int munmap(void *addr, size_t length);
-
    arg->hc_ret = km_guest_munmap(vcpu, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 };
