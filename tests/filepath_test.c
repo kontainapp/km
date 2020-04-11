@@ -126,6 +126,26 @@ TEST test_symlink()
    ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFDIR, (st.st_mode & S_IFMT));
 
+   memset(linkval, 0, PATH_MAX);
+   rc = readlinkat(AT_FDCWD, linkpath, linkval, PATH_MAX);
+   ASSERT_NOT_EQ(-1, rc);
+   rc = strcmp(linkval, oldpath);
+   ASSERT_EQ(0, rc);
+   rc = stat(linkpath, &st);
+   ASSERT_EQ(0, rc);
+   ASSERT_EQ(S_IFDIR, (st.st_mode & S_IFMT));
+
+   memset(linkval, 0, PATH_MAX);
+   int fd = open(".", O_RDONLY);
+   rc = readlinkat(fd, linkpath, linkval, PATH_MAX);
+   ASSERT_NOT_EQ(-1, rc);
+   rc = strcmp(linkval, oldpath);
+   ASSERT_EQ(0, rc);
+   rc = stat(linkpath, &st);
+   ASSERT_EQ(0, rc);
+   ASSERT_EQ(S_IFDIR, (st.st_mode & S_IFMT));
+   close(fd);
+
    rc = readlink((char*)-1, linkval, PATH_MAX);
    ASSERT_EQ(-1, rc);
    ASSERT_EQ(EFAULT, errno);

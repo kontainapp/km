@@ -418,40 +418,69 @@ uint64_t km_fs_link(km_vcpu_t* vcpu, char* old, char* new)
    return ret;
 }
 
+/*
+ * check if pathname is in "/proc/self/fd/", process if it is.
+ * Return 0 if doesn't match, negative for error, positive for result strlen
+ */
+#define PROCFD "/proc/self/fd/"
+
+static int readlink_procself(const char* pathname, char* buf, size_t bufsz)
+{
+   if (strncmp(pathname, PROCFD, strlen(PROCFD)) != 0) {
+      return 0;
+   }
+   int ret;
+   int fd;
+   if (sscanf(pathname, PROCFD "%d", &fd) != 1) {
+      return -ENOENT;
+   }
+   char* mpath = machine.filesys.guestfd_to_name_map[fd];
+   if (fd < 0 || fd >= machine.filesys.nfdmap || mpath == 0) {
+      return -ENOENT;
+   }
+   /*
+    * /proc/self/fd symlinks contain full path name of file, so try to get that.
+    */
+   char* rpath = realpath(mpath, NULL);
+   if (rpath != NULL) {
+      mpath = rpath;
+   }
+   strncpy(buf, mpath, bufsz);
+   ret = strlen(mpath);
+   if (ret > bufsz) {
+      ret = bufsz;
+   }
+   if (rpath != NULL) {
+      free(rpath);
+   }
+   return ret;
+}
+
 // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
 uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz)
 {
-   char* procfd = "/proc/self/fd/";
    int ret;
-   if (strncmp(pathname, procfd, strlen(procfd)) == 0) {
-      int fd;
-      if (sscanf(pathname, "/proc/self/fd/%d", &fd) != 1) {
-         return -ENOENT;
-      }
-      if (fd < 0 || fd >= machine.filesys.nfdmap || machine.filesys.guestfd_to_name_map[fd] == 0) {
-         return -ENOENT;
-      }
-
-      /*
-       * /proc/self/fd symlinks contain full path name of file, so try to get that.
-       */
-      char* mpath = machine.filesys.guestfd_to_name_map[fd];
-      char* rpath = realpath(mpath, NULL);
-      if (rpath != NULL) {
-         mpath = rpath;
-      }
-      strncpy(buf, mpath, bufsz);
-      ret = strlen(mpath);
-      if (ret > bufsz) {
-         ret = bufsz;
-      }
-      if (rpath != NULL) {
-         free(rpath);
-      }
-      goto done;
+   if ((ret = readlink_procself(pathname, buf, bufsz)) == 0) {
+      ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
    }
-   ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
-done:
+   km_infox(KM_TRACE_FILESYS, "%s buf: %s", pathname, buf);
+   return ret;
+}
+
+// ssize_t readlinkat(it dirfd, const char *pathname, char *buf, size_t bufsiz);
+uint64_t km_fs_readlinkat(km_vcpu_t* vcpu, int dirfd, char* pathname, char* buf, size_t bufsz)
+{
+   int ret;
+   if ((ret = readlink_procself(pathname, buf, bufsz)) == 0) {
+      int host_dirfd = dirfd;
+
+      if (dirfd != AT_FDCWD && pathname[0] != '/') {
+         if ((host_dirfd = guestfd_to_hostfd(dirfd)) < 0) {
+            return -EBADF;
+         }
+      }
+      ret = __syscall_4(SYS_readlinkat, host_dirfd, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
+   }
    km_infox(KM_TRACE_FILESYS, "%s buf: %s", pathname, buf);
    return ret;
 }
