@@ -268,7 +268,7 @@ int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*))
 void km_vcpu_stopped(km_vcpu_t* vcpu)
 {
    km_lock_vcpu_thr(vcpu);
-   km_exit(vcpu);   // release user space thread list lock
+   km_exit(vcpu);   // release user space thread list lock, do delayed stack unmap
    km_vcpu_put(vcpu);
 
    // if (--machine.vm_vcpu_run_cnt == 0) {
@@ -362,4 +362,5 @@ void km_exit(km_vcpu_t* vcpu)
          __syscall_6(SYS_futex, (uintptr_t)ctid, FUTEX_WAKE, 1, 0, 0, 0);
       }
    }
+   km_delayed_munmap(vcpu);
 }
