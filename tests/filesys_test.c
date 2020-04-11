@@ -420,11 +420,22 @@ TEST test_proc_fd()
    ASSERT_NOT_EQ(-1, fd);
    char procname[128];
    snprintf(procname, sizeof(procname), "/proc/self/fd/%d", fd);
+   char* realname = realpath(fname, NULL);
 
    char slink[128];
+
    ASSERT_NOT_EQ(-1, readlink(procname, slink, sizeof(slink)));
    fprintf(stderr, "slink=%s\n", slink);
-   ASSERT_EQ(0, strcmp(slink, realpath(fname, NULL)));
+   ASSERT_EQ(0, strcmp(slink, realname));
+
+   ASSERT_NOT_EQ(-1, readlinkat(fd, procname, slink, sizeof(slink)));
+   fprintf(stderr, "slink=%s\n", slink);
+   ASSERT_EQ(0, strcmp(slink, realname));
+
+   ASSERT_NOT_EQ(-1, readlinkat(AT_FDCWD, procname, slink, sizeof(slink)));
+   fprintf(stderr, "slink=%s\n", slink);
+   ASSERT_EQ(0, strcmp(slink, realname));
+
    close(fd);
    PASS();
 }

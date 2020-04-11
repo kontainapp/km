@@ -530,13 +530,26 @@ static km_hc_ret_t umask_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t readlink_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
-   void* pathname = km_gva_to_kma(arg->arg1);
-   void* buf = km_gva_to_kma(arg->arg2);
+   km_kma_t pathname = km_gva_to_kma(arg->arg1);
+   km_kma_t buf = km_gva_to_kma(arg->arg2);
    if (pathname == NULL || buf == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
    arg->hc_ret = km_fs_readlink(vcpu, pathname, buf, arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t readlinkat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // ssize_t readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz);
+   km_kma_t pathname = km_gva_to_kma(arg->arg2);
+   km_kma_t buf = km_gva_to_kma(arg->arg3);
+   if (pathname == NULL || buf == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_readlinkat(vcpu, arg->arg1, pathname, buf, arg->arg4);
    return HC_CONTINUE;
 }
 
@@ -1360,6 +1373,7 @@ void km_hcalls_init(void)
 
    km_hcalls_table[SYS_umask] = umask_hcall;
    km_hcalls_table[SYS_readlink] = readlink_hcall;
+   km_hcalls_table[SYS_readlinkat] = readlinkat_hcall;
    km_hcalls_table[SYS_getrandom] = getrandom_hcall;
    km_hcalls_table[SYS_open] = open_hcall;
    km_hcalls_table[SYS_openat] = openat_hcall;
