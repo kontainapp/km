@@ -97,6 +97,8 @@ uint64_t km_fs_link(km_vcpu_t* vcpu, char* old, char* new);
 uint64_t km_fs_symlink(km_vcpu_t* vcpu, char* target, char* linkpath);
 // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
 uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz);
+// ssize_t readlinkat(it dirfd, const char *pathname, char *buf, size_t bufsiz);
+uint64_t km_fs_readlinkat(km_vcpu_t* vcpu, int dirfd, char* pathname, char* buf, size_t bufsz);
 // int getcwd(char *buf, size_t size);
 uint64_t km_fs_getcwd(km_vcpu_t* vcpu, char* buf, size_t bufsz);
 // int chdir(const char *path);
