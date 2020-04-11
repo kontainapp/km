@@ -742,7 +742,8 @@ void km_delayed_munmap(km_vcpu_t* vcpu)
 {
    if (vcpu->mapself_size > 0) {
       mmaps_lock();
-      km_guest_munmap_nolock(vcpu->mapself_base, vcpu->mapself_size);
+      int rc = km_guest_munmap_nolock(vcpu->mapself_base, vcpu->mapself_size);
+      assert(rc == 0);
       mmaps_unlock();
       vcpu->mapself_base = 0;
       vcpu->mapself_size = 0;
