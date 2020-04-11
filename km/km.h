@@ -137,6 +137,8 @@ typedef struct km_vcpu {
    km_gva_t stack_top;        // also available in guest_thr
    km_gva_t guest_thr;        // guest pthread, FS reg in the guest
    km_stack_t sigaltstack;    //
+   km_gva_t mapself_base;     // delayed unmap address
+   size_t mapself_size;       // and size
                               //
    kvm_regs_t regs;           // Cached register values.
    kvm_sregs_t sregs;         // Cached segment register values.

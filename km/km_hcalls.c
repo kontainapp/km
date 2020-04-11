@@ -470,7 +470,8 @@ static km_hc_ret_t mmap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t munmap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int munmap(void *addr, size_t length);
-   arg->hc_ret = km_guest_munmap(arg->arg1, arg->arg2);
+
+   arg->hc_ret = km_guest_munmap(vcpu, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 };
 
@@ -1174,7 +1175,7 @@ static km_hc_ret_t unmapself_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // pthread_exit() does this at the end to unmap the stack and exit:
    // _Noreturn void__unmapself(void* base, size_t size);
-   (void)km_guest_munmap(arg->arg1, arg->arg2);
+   (void)km_guest_munmap(vcpu, arg->arg1, arg->arg2);
    return HC_STOP;
 }
 
