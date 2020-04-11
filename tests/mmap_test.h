@@ -19,7 +19,6 @@
 #include "greatest/greatest.h"
 #include "km_mem.h"
 
-static int in_gdb = 1;
 
 extern int main(int argc, char** argv);
 #define ASSERT_MMAP_FD -2020 //This should be the same as used in gdb_simple_test.py
@@ -27,7 +26,7 @@ extern int main(int argc, char** argv);
 #define ASSERT_MMAPS_COUNT(_expected_count, _query)                                                \
    {                                                                                               \
       int ret = maps_count(_expected_count, _query);                                               \
-      ASSERT_NOT_EQm(ret, -1, "Expected mmaps counts does not match ");                                                                      \
+      ASSERT_NOT_EQm("Expected mmaps counts does not match ", -1, ret);                                                                      \
    }
 
 /*
