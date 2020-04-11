@@ -41,7 +41,7 @@ SHRSRC := dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c
 BUILDENV_PATH  := ./gdb
 TESTENV_PATH := .
 
-CFLAGS = -Wall $(COPTS) -ggdb3 -fPIC -fno-stack-protector -pthread -I${TOP}/include -I${TOP}/km
+CFLAGS = -Wall -Werror $(COPTS) -ggdb3 -fPIC -fno-stack-protector -pthread -I${TOP}/include -I${TOP}/km
 LDFLAGS = -ggdb3 -pthread -ldl
 KCC := kontain-gcc
 DEPS = ${SRC:%.c=%.d} ${SHRSRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
@@ -137,7 +137,7 @@ coverage: all ## Build with code coverage, then run tests and generate reports
 	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .coverage
 
 .coverage: test
-	${COVERAGE_SCRIPT} ${TOP}/km ${KM_BLDDIR} ${KM_BLDDIR} 
+	${COVERAGE_SCRIPT} ${TOP}/km ${KM_BLDDIR} ${KM_BLDDIR}
 
 covclean: ## Clean up code coverage build artifacts
 	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
