@@ -709,7 +709,7 @@ int km_monitor_pages_in_guest(km_gva_t gva, size_t size, int protection, char* t
  * -EINVAL if the part of the FULL requested region is not mapped
  * -ENOMEM if fails to allocate memory for control structures
  */
-int km_guest_munmap(km_gva_t addr, size_t size)
+int km_guest_munmap(km_vcpu_t* vcpu, km_gva_t addr, size_t size)
 {
    int ret;
 
@@ -718,11 +718,35 @@ int km_guest_munmap(km_gva_t addr, size_t size)
    if ((ret = mumap_check_params(addr, size)) != 0) {
       return ret;
    }
+   /*
+    * Detached pthreads unmap their stack before exiting. See __pthread_exit() calling
+    * __unmap_self(). It's a problem for us as we need the stack to return result, and to accept
+    * exit() call afterwards.
+    * We check if we are indeed trying to unmap our own stack, and delay the unmap till the exit().
+    */
+   if (addr <= vcpu->stack_top && vcpu->stack_top < addr + size) {
+      assert(vcpu->mapself_base == 0 && vcpu->mapself_size == 0);
+      vcpu->mapself_base = addr;
+      vcpu->mapself_size = size;
+      km_infox(KM_TRACE_MMAP, "== delaying munmap, ret=%d", ret);
+      return 0;
+   }
    mmaps_lock();
    ret = km_guest_munmap_nolock(addr, size);
    mmaps_unlock();
    km_infox(KM_TRACE_MMAP, "== munmap ret=%d", ret);
    return ret;
+}
+
+void km_delayed_munmap(km_vcpu_t* vcpu)
+{
+   if (vcpu->mapself_size > 0) {
+      mmaps_lock();
+      km_guest_munmap_nolock(vcpu->mapself_base, vcpu->mapself_size);
+      mmaps_unlock();
+      vcpu->mapself_base = 0;
+      vcpu->mapself_size = 0;
+   }
 }
 
 /*
