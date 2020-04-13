@@ -241,9 +241,10 @@ typedef struct km_mmap_cb {   // control block
    pthread_mutex_t mutex;     // global map lock
 } km_mmap_cb_t;
 
+ // enumerate type of virtual machine
 typedef enum vm_type {
-   VM_TYPE_KVM = 0,
-   VM_TYPE_KKM
+   VM_TYPE_KVM = 0,           // Kernel Virtual Machine
+   VM_TYPE_KKM                // Kontain Kernel Module
 } vm_type_t;
 
 /*

@@ -62,12 +62,6 @@ static inline void build_idt_entry(x86_idt_entry_t* idt, km_gva_t handler, int i
    idt->type = X86_DSCT_INTR_GATE;
 }
 
-static inline km_gva_t km_kva_to_guestmem_address(uint8_t *address)
-{
-   assert((address >= &km_guest_start) && (address < &km_guest_end));
-   return address - &km_guest_start + GUEST_KMGUESTMEM_BASE_VA;
-}
-
 void km_init_guest_idt(void)
 {
    km_gva_t gdt_base;
@@ -114,7 +108,7 @@ void km_init_guest_idt(void)
          handler_address = __km_interrupt_table[handler_index];
          handler_index++;
       }
-      build_idt_entry(&idte[i], km_kva_to_guestmem_address(handler_address), 1);
+      build_idt_entry(&idte[i], km_guest_kma_to_gva(handler_address), 1);
    }
 
    machine.idt = idt_base;

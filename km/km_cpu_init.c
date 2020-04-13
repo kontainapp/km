@@ -428,8 +428,6 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 void km_machine_init(km_machine_init_params_t* params)
 {
    int rc;
-   struct stat sb;
-   char linkbuf[16]; // no need for more than 16 bytes
 
    if (km_fs_init() < 0) {
       err(1, "KM: k_init_guest_files() failed");
@@ -441,20 +439,11 @@ void km_machine_init(km_machine_init_params_t* params)
       err(1, "KM: Failed to create machine shutdown_fd");
    }
    if ((machine.kvm_fd = open("/dev/kvm", O_RDWR /* | O_CLOEXEC */)) < 0) {
-      err(1, "KVM: Can't open /dev/kvm");
-   }
-   // identify type of virtual machine kvm or kkm
-   if (lstat("/dev/kvm", &sb) < 0) {
-      err(1, "KVM: stat on device failed");
-   }
-   if ((sb.st_mode & S_IFMT) == S_IFLNK) {
-      memset(linkbuf, 0, sizeof(linkbuf));
-      if (readlink("/dev/kvm", linkbuf, sizeof(linkbuf)) < 0) {
-         err(1, "KVM: readlink failed of /dev/kvm");
+      // /dev/kvm is not available try /dev/kkm
+      if ((machine.kvm_fd = open("/dev/kkm", O_RDWR /* | O_CLOEXEC */)) < 0) {
+         err(1, "KVM: Can't open /dev/kvm and /dev/kkm");
       }
-      if (strcmp(linkbuf, "/dev/kkm") == 0) {
-         machine.vm_type = VM_TYPE_KKM;
-      }
+      machine.vm_type = VM_TYPE_KKM;
    }
    if ((rc = ioctl(machine.kvm_fd, KVM_GET_API_VERSION, 0)) < 0) {
       err(1, "KVM: get API version failed");
@@ -539,7 +528,7 @@ void km_machine_init(km_machine_init_params_t* params)
    }
    if (params->guest_physmem != 0) {
       if ((machine.vm_type == VM_TYPE_KKM) && (params->guest_physmem != GUEST_MAX_PHYSMEM_SUPPORTED)) {
-         errx(1, "Only 512GB physical memory supported with KKM driver");
+         errx(1, "Only %ldGiB physical memory supported with KKM driver", GUEST_MAX_PHYSMEM_SUPPORTED / GIB);
       } else {
          if (params->guest_physmem > machine.guest_max_physmem) {
             errx(1,

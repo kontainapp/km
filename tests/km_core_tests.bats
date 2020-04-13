@@ -108,12 +108,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 
    vmtype=$(vm_type)
    run km_with_timeout -P32 -- hello_test$ext
-   if [ $vmtype = 'kvm' ]; then
-      assert_success
-   else
-      assert_failure
-      assert_line --partial "Only 512GB physical memory supported with KKM driver"
-   fi
+   check_optional_mem_size_failure
 
    run km_with_timeout -X # invalid option
    assert_failure
@@ -529,12 +524,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    if [ $(bus_width) -gt 36 ] ; then
       vmtype=$(vm_type)
       run km_with_timeout -P 33 hello_test$ext
-      if [ $vmtype = 'kvm' ]; then
-         assert_success
-      else
-         assert_failure
-         assert_line --partial "Only 512GB physical memory supported with KKM driver"
-      fi
+      check_optional_mem_size_failure
    fi
    run km_with_timeout -P `expr $(bus_width) + 1` hello_test$ext # Don't support guest bus larger the host bus
    assert_failure
@@ -548,12 +538,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    vmtype=$(vm_type)
    if [ $(bus_width) -gt 36 ] ; then
       run km_with_timeout -P33 brk_map_test$ext -- 33
-      if [ $vmtype = 'kvm' ]; then
-         assert_success
-      else
-         assert_failure
-         assert_line --partial "Only 512GB physical memory supported with KKM driver"
-      fi
+      check_optional_mem_size_failure
    fi
    # make sure we fail gracefully if there is no 1G pages supported. Also checks longopt
    run km_with_timeout --membus-width=33 --disable-1g-pages brk_map_test$ext -- 33
