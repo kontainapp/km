@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 #
 # This is a wrapper to run a test suite. We want it separate from Makefile
 # so we don't need to place all out Make infra (e.g. ../make/locations.mk) into
