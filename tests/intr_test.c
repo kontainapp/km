@@ -52,7 +52,7 @@ void* subrun(void* data)
       }
    }
    printf("**** NOW IS THE END VCPU %d***\n", n);
-   exit(self);
+   exit((uint64_t)self);
 }
 
 TEST intrtest(void)
