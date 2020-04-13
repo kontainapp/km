@@ -22,12 +22,12 @@
 
 int main(int argc, char* argv[])
 {
-   printf("Testing getenv/putenv,  __environ = %p\n", __environ);
-   for (int i = 0; __environ[i] != 0; i++) {
+   printf("Testing getenv/putenv,  environ = %p\n", environ);
+   for (int i = 0; environ[i] != 0; i++) {
       char name[MAX_ENV_VAR_SIZE];   // var name bufer
-      char* c = strchrnul(__environ[i], '=');
-      strncpy(name, __environ[i], c - __environ[i]);
-      name[c - __environ[i]] = 0;
+      char* c = strchrnul(environ[i], '=');
+      strncpy(name, environ[i], c - environ[i]);
+      name[c - environ[i]] = 0;
       char* v = getenv(name);
       printf("getenv: %s=%s\n", name, v);
    }

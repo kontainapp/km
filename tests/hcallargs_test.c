@@ -58,7 +58,7 @@ void* run(void* unused)
 #define MEM_THREAD(__id, __entry)                                                                  \
    {                                                                                               \
       (void)pthread_create(&(__id), NULL, __entry, NULL);                                          \
-      printf("started %s 0x%lx\n", #__id, __id);                                                   \
+      printf("started %s 0x%lx\n", #__id, (uint64_t)__id);                                         \
    }
 
 void* run_mmap(void* unused)
@@ -83,13 +83,13 @@ void* run_mmap(void* unused)
    return NULL;
 }
 
-#define MEM_JOIN(__id)                                                                             \
-   {                                                                                               \
-      void* thr_ret = NULL;                                                                        \
-      int ret = pthread_join(__id, &thr_ret);                                                      \
-      printf("joined %s 0x%lx ret=%d err_count=%ld\n", #__id, __id, ret, (uint64_t)thr_ret);       \
-      ASSERT_EQ(ret, 0);                                                                           \
-      errors += (uint64_t)thr_ret;                                                                 \
+#define MEM_JOIN(__id)                                                                                 \
+   {                                                                                                   \
+      void* thr_ret = NULL;                                                                            \
+      int ret = pthread_join(__id, &thr_ret);                                                          \
+      printf("joined %s 0x%lx ret=%d err_count=%ld\n", #__id, (uint64_t)__id, ret, (uint64_t)thr_ret); \
+      ASSERT_EQ(ret, 0);                                                                               \
+      errors += (uint64_t)thr_ret;                                                                     \
    }
 
 TEST nested_threads(void)

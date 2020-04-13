@@ -93,14 +93,15 @@ $(addprefix ${BLDDIR}/, libm.a):
 $(addprefix ${BLDDIR}/, libpthread.a): ${PTHREAD_OBJS}
 	@echo "Making " $@; rm -f $@; ld -r ${PTHREAD_OBJS} -o $*.o; ${AR} crs $@ -o $*.o
 
+LIBGCC := $(shell gcc --print-file-name libgcc.a)
 $(addprefix ${BLDDIR}/, libc.so): ${SO_OBJS} ${DL_OBJS}
-	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} /usr/lib/gcc/x86_64-redhat-linux/9/libgcc.a
+	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} ${LIBGCC}
 
 ${KM_OPT_LDSO}: ${KM_OPT_RT} ${KM_LDSO}
 	cp ${KM_LDSO} $@
 
 ${KM_OPT_RT}: |
-	sudo mkdir -p $@ && sudo chgrp users $@ && sudo chmod 777 $@
+	${SUDO} mkdir -p $@ && ${SUDO} chgrp users $@ && ${SUDO} chmod 777 $@
 
 ${DEPS}: | $(addprefix ${BLDDIR}/${SRCDIR}/include/, bits/alltypes.h bits/syscall.h version.h)
 

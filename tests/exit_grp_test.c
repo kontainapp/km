@@ -56,7 +56,7 @@ TEST tests_in_flight(void)
    for (int i = 0; i < PCOUNT - 1; i++) {
       char buf[64];
       int ret = pthread_create(&thr[i], NULL, run_thr, (void*)(i % 2 == 0 ? 1ul : 4096ul * 1024));   // odd run longer
-      sprintf(buf, "Started %d (0x%lx)", i, thr[i]);
+      sprintf(buf, "Started %d (%p)", i, (void*)thr[i]);
       ASSERT_EQm(buf, 0, ret);
       if (greatest_get_verbosity() > 0) {
          printf("%s\n", buf);
@@ -70,7 +70,7 @@ TEST wait_for_some(void)
    void* retval;
    for (int i = 0; i < PCOUNT - 1; i += 2) {
       char buf[64];
-      sprintf(buf, "Join %d (0x%lx)", i, thr[i]);
+      sprintf(buf, "Join %d (%p)", i, (void*)thr[i]);
       int ret = pthread_join(thr[i], &retval);
       ASSERT_EQm(buf, 0, ret);
       if (greatest_get_verbosity() > 0) {
