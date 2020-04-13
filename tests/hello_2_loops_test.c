@@ -40,7 +40,7 @@ void make_mystr(char* msg)
    pthread_once(&mykeycreated, mykeycreate);
 
    str = malloc(128);
-   sprintf(str, "I'm 0x%lx", pthread_self());
+   sprintf(str, "I'm %p", (void*)pthread_self());
 
    pthread_setspecific(mystr_key, str);
    pthread_setspecific(mystr_key_2, strdup(msg));
@@ -82,11 +82,11 @@ void* run(void* msg)
       if (detached == 0) {
          pthread_join(pt2, NULL);
          if (greatest_get_verbosity() != 0) {
-            printf(" ... joined 0x%lx\n", pt2);
+            printf(" ... joined %p\n", (void*)pt2);
          }
          pthread_join(pt1, NULL);
          if (greatest_get_verbosity() != 0) {
-            printf(" ... joined 0x%lx\n", pt1);
+            printf(" ... joined %p\n", (void*)pt1);
          }
       }
    }
@@ -105,36 +105,36 @@ TEST nested_threads(void)
    // assert macro can use params more than once, so using separate <ret>
    ASSERT_EQ(0, ret);
    if (greatest_get_verbosity() != 0) {
-      printf("started 0x%lx\n", pt1);
+      printf("started %p\n", (void*)pt1);
    }
 
    ret = pthread_create(&pt2, NULL, run, NULL);
    ASSERT_EQ(0, ret);
    if (greatest_get_verbosity() != 0) {
-      printf("started 0x%lx\n", pt2);
+      printf("started %p\n", (void*)pt2);
    }
 
    if (greatest_get_verbosity() != 0) {
-      printf("joining 0x%lx ... \n", pt1);
+      printf("joining %p ... \n", (void*)pt1);
    }
    ret = pthread_join(pt1, NULL);
    ASSERT_EQ(0, ret);
    if (greatest_get_verbosity() != 0) {
-      printf("joined 0x%lx, %d\n", pt1, ret);
+      printf("joined %p, %d\n", (void*)pt1, ret);
    }
 
    if (greatest_get_verbosity() != 0) {
-      printf("joining 0x%lx ... \n", pt2);
+      printf("joining %p ... \n", (void*)pt2);
    }
    ret = pthread_join(pt2, NULL);
    ASSERT_EQ(0, ret);
-   
+
    ASSERT_EQ((void*)0x17, pthread_getspecific(mystr_key_2));
    ASSERT_EQ(pthread_key_delete(mystr_key_2), 0);
    ASSERT_EQ(0, pthread_getspecific(mystr_key_2));
 
    if (greatest_get_verbosity() != 0) {
-      printf("joined 0x%lx, %d\n", pt2, ret);
+      printf("joined %p, %d\n", (void*)pt2, ret);
    }
 
    PASS();
