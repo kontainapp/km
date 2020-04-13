@@ -48,7 +48,9 @@ DEPS = ${SRC:%.c=%.d} ${SHRSRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
 EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
 
-SEXECS := ${SHRSRC:%.c=%.so} ${KM_PAYLOADS:%.km=%.so}
+# No need to build/test .so when we have full dyn.linked .kmd
+# SEXECS := ${SHRSRC:%.c=%.so} ${KM_PAYLOADS:%.km=%.so}
+
 DEXECS := ${SRC:%.c=%.kmd} ${SRC_CPP:%.cpp=%.kmd}
 
 CXXFLAGS=${CFLAGS}
@@ -81,6 +83,7 @@ test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by
 	./run_bats_tests.sh --km=${KM_BIN} --pretty ${IGNORE_FAILURE} --match="${MATCH}"
 test-all: test ## alias for test
 
+%_test: LDFLAGS += -static
 %.so: %.o
 	${KCC} -shared ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
 
