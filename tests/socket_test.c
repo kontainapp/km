@@ -116,7 +116,7 @@ TEST test_tcp()
    saddr.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &saddr.sin_addr);
    saddr.sin_port = TEST_PORT;
-   rc = bind(sfd, &saddr, sizeof(saddr));
+   rc = bind(sfd, (struct sockaddr*)&saddr, sizeof(saddr));
    ASSERT_EQ(0, rc);
 
    pthread_t thr;
@@ -134,7 +134,7 @@ TEST test_tcp()
    inet_pton(AF_INET, "127.0.0.1", &caddr.sin_addr);
 
    sleep(1);
-   rc = connect(cfd, &caddr, sizeof(caddr));
+   rc = connect(cfd, (struct sockaddr*)&caddr, sizeof(caddr));
    ASSERT_EQ(0, rc);
 
    struct sockaddr_storage addr;
@@ -174,7 +174,7 @@ TEST test_udp()
    addr1.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &addr1.sin_addr);
    addr1.sin_port = TEST_UDP_PORT1;
-   rc = bind(fd1, &addr1, sizeof(addr1));
+   rc = bind(fd1, (struct sockaddr*)&addr1, sizeof(addr1));
    ASSERT_EQ(0, rc);
 
    int fd2;
@@ -184,7 +184,7 @@ TEST test_udp()
    addr2.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &addr2.sin_addr);
    addr2.sin_port = TEST_UDP_PORT2;
-   rc = bind(fd2, &addr2, sizeof(addr2));
+   rc = bind(fd2, (struct sockaddr*)&addr2, sizeof(addr2));
    ASSERT_EQ(0, rc);
 
    struct epoll_event event = {.events = EPOLLIN | EPOLLERR, .data.fd = fd2};
@@ -192,7 +192,7 @@ TEST test_udp()
    ASSERT_EQ(0, rc);
 
    char* msg = "Hello from KM";
-   int sent = sendto(fd1, msg, strlen(msg) + 1, 0, &addr2, sizeof(addr2));
+   int sent = sendto(fd1, msg, strlen(msg) + 1, 0, (struct sockaddr*)&addr2, sizeof(addr2));
    ASSERT_EQ(strlen(msg) + 1, sent);
 
    struct epoll_event revents[5];
@@ -228,7 +228,7 @@ TEST test_bad_fd()
       int opt;
       socklen_t optlen = sizeof(opt);
       rc = getsockopt(badfd[i], 0, 0, &opt, &optlen);
-      ASSERT_EQ(-1, rc);
+      ASSERT_EQ_FMT(-1, rc, "%d");
       ASSERT_EQ(EBADF, errno);
    }
    // setsockopt

@@ -22,9 +22,11 @@
 __thread char my_str[128] = "I'm 0x";
 __thread char* my_msg;
 
+#define PTHREAD_SELF() ((uint64_t)pthread_self())
+
 void make_mystr(char* msg)
 {
-   sprintf(my_str + strlen(my_str), "%lx", pthread_self());
+   sprintf(my_str + strlen(my_str), "%lx", PTHREAD_SELF());
    my_msg = msg;
 }
 
@@ -34,12 +36,12 @@ int check_mystr(char* msg)
    long delta;
 
    //  knowing how things are placed, check the addresses
-   delta = pthread_self() - (long)MIN(my_str, &my_msg);
+   delta = PTHREAD_SELF() - (long)MIN(my_str, &my_msg);
    if (delta <= 0 || delta > roundup(sizeof(my_str) + sizeof(msg), 16)) {
       return 2;
    }
    // now check for expected content
-   sprintf(str + strlen(str), "%lx", pthread_self());
+   sprintf(str + strlen(str), "%lx", PTHREAD_SELF());
    if (strcmp(str, my_str) != 0) {
       return 1;
    }
@@ -75,11 +77,11 @@ void* run(void* msg)
       pthread_create(&pt2, NULL, (void* (*)(void*))subrun, (void*)dust_msg);
       pthread_join(pt2, &rc2);
       if (greatest_get_verbosity() != 0) {
-         printf(" ... joined 0x%lx %ld\n", pt2, (long)rc2);
+         printf(" ... joined %p %ld\n", pt2, (long)rc2);
       }
       pthread_join(pt1, &rc1);
       if (greatest_get_verbosity() != 0) {
-         printf(" ... joined 0x%lx %ld\n", pt1, (long)rc1);
+         printf(" ... joined %p %ld\n", pt1, (long)rc1);
       }
       if (rc1 != 0 || rc2 != 0) {
          pthread_exit((void*)1);
@@ -99,32 +101,32 @@ TEST nested_threads(void)
    // assert macro can use params more than once, so using separate <ret>
    ASSERT_EQ(0, ret);
    if (greatest_get_verbosity() != 0) {
-      printf("started 0x%lx\n", pt1);
+      printf("started %p\n", pt1);
    }
 
    ret = pthread_create(&pt2, NULL, run, NULL);
    ASSERT_EQ(0, ret);
    if (greatest_get_verbosity() != 0) {
-      printf("started 0x%lx\n", pt2);
+      printf("started %p\n", pt2);
    }
 
    if (greatest_get_verbosity() != 0) {
-      printf("joining 0x%lx ... \n", pt1);
+      printf("joining %p ... \n", pt1);
    }
    ret = pthread_join(pt1, &rc1);
    ASSERT_EQ(ret, 0);
    if (greatest_get_verbosity() != 0) {
-      printf("joined 0x%lx, %d\n", pt1, ret);
+      printf("joined %p, %d\n", pt1, ret);
    }
    ASSERT_EQ(rc1, 0);
 
    if (greatest_get_verbosity() != 0) {
-      printf("joining 0x%lx ... \n", pt2);
+      printf("joining %p ... \n", pt2);
    }
    ret = pthread_join(pt2, &rc2);
    ASSERT_EQ(ret, 0);
    if (greatest_get_verbosity() != 0) {
-      printf("joined 0x%lx, %d\n", pt2, ret);
+      printf("joined %p, %d\n", pt2, ret);
    }
    ASSERT_EQ(rc2, 0);
 
