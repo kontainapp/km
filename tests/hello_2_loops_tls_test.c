@@ -11,6 +11,7 @@
  */
 #include <limits.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,11 +78,11 @@ void* run(void* msg)
       pthread_create(&pt2, NULL, (void* (*)(void*))subrun, (void*)dust_msg);
       pthread_join(pt2, &rc2);
       if (greatest_get_verbosity() != 0) {
-         printf(" ... joined %p %ld\n", pt2, (long)rc2);
+         printf(" ... joined %p %ld\n", (void*)pt2, (long)rc2);
       }
       pthread_join(pt1, &rc1);
       if (greatest_get_verbosity() != 0) {
-         printf(" ... joined %p %ld\n", pt1, (long)rc1);
+         printf(" ... joined %p %ld\n", (void*)pt1, (long)rc1);
       }
       if (rc1 != 0 || rc2 != 0) {
          pthread_exit((void*)1);
@@ -101,32 +102,32 @@ TEST nested_threads(void)
    // assert macro can use params more than once, so using separate <ret>
    ASSERT_EQ(0, ret);
    if (greatest_get_verbosity() != 0) {
-      printf("started %p\n", pt1);
+      printf("started %p\n", (void*)pt1);
    }
 
    ret = pthread_create(&pt2, NULL, run, NULL);
    ASSERT_EQ(0, ret);
    if (greatest_get_verbosity() != 0) {
-      printf("started %p\n", pt2);
+      printf("started %p\n", (void*)pt2);
    }
 
    if (greatest_get_verbosity() != 0) {
-      printf("joining %p ... \n", pt1);
+      printf("joining %p ... \n", (void*)pt1);
    }
    ret = pthread_join(pt1, &rc1);
    ASSERT_EQ(ret, 0);
    if (greatest_get_verbosity() != 0) {
-      printf("joined %p, %d\n", pt1, ret);
+      printf("joined %p, %d\n", (void*)pt1, ret);
    }
    ASSERT_EQ(rc1, 0);
 
    if (greatest_get_verbosity() != 0) {
-      printf("joining %p ... \n", pt2);
+      printf("joining %p ... \n", (void*)pt2);
    }
    ret = pthread_join(pt2, &rc2);
    ASSERT_EQ(ret, 0);
    if (greatest_get_verbosity() != 0) {
-      printf("joined %p, %d\n", pt2, ret);
+      printf("joined %p, %d\n", (void*)pt2, ret);
    }
    ASSERT_EQ(rc2, 0);
 
