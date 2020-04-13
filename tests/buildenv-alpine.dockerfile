@@ -8,23 +8,25 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 #
-# Dockerfile for builds.
-# Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
+# Dockerfile for build base image for alpine-based builds, both for .km files and Linux native executables.
+#
 
-FROM alpine
+FROM alpine:3.11.5
 
 LABEL version="1.0" maintainer="Mark Sterin <msterin@kontain.app>"
-
 ARG USER=appuser
 # Dedicated arbitrary in-image uid/gid, mainly for file access
 ARG UID=1001
 ARG GID=117
+RUN apk update && apk upgrade && apk add --no-cache \
+   alpine-sdk sudo gdb elfutils-libelf zlib-dev libffi-dev git gcovr bash libc-dev linux-headers \
+   elfutils-dev ncurses coreutils shadow curl go
+RUN sed -i -e 's/# \(%wheel.*NOPASSWD\)/\1/' /etc/sudoers &&  groupadd -f -g $GID $USER && \
+   useradd -r -m -u $UID -g $GID $USER -G wheel && \
+   mkdir -p /opt/kontain/runtime; chmod -R 777 /opt/kontain
+USER $USER
 
-RUN apk add --no-cache \
-   build-base  elfutils-libelf zlib-dev gdb git gcovr bash \
-   libc-dev linux-headers elfutils-dev \
-   ncurses coreutils shadow curl
-
-RUN groupadd -f -g $GID appuser && useradd -r -u $UID -g $GID appuser
-USER appuser
 ENV TERM=xterm
+ENV USER=$USER
+WORKDIR /home/$USER
+ENTRYPOINT ["/bin/bash"]
