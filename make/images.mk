@@ -185,7 +185,7 @@ test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to
 	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_CMD}
 
 test-all-withdocker: ## a special helper to run more node.km tests.
-	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_ALL_CMD} 
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_ALL_CMD}
 
 # Helper when we need to make sure IMAGE_VERSION is defined and not 'latest', and command is defined
 .check_vars:
@@ -199,11 +199,11 @@ test-all-withdocker: ## a special helper to run more node.km tests.
 # For example, to run image generated on ci-695, use 'make test-withk8s IMAGE_VERSION=ci-695
 K8S_RUNTEST := $(TOP)/cloud/k8s/tests/k8s-run-tests.sh
 PROCESSED_COMPONENT_NAME := $(shell echo ${COMPONENT} | tr . -)
-PROCESSED_IMAGE_VERION := $(shell echo $(IMAGE_VERSION) | tr [A-Z] [a-z])
+PROCESSED_IMAGE_VERION := $(shell echo $(IMAGE_VERSION) | tr '[A-Z]' '[a-z]')
 TEST_K8S_IMAGE := $(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)
 TEST_K8S_NAME := test-${PROCESSED_COMPONENT_NAME}-$(DTYPE)-${PROCESSED_IMAGE_VERION}
 ifneq (${K8S_TEST_ERR_NO_CLEANUP},)
-	TEST_K8S_OPT := "err_no_cleanup" 
+	TEST_K8S_OPT := "err_no_cleanup"
 else
 	TEST_K8S_OPT := "default"
 endif

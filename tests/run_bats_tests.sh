@@ -9,7 +9,7 @@
 cd $(dirname ${BASH_SOURCE[0]})
 
 DEFAULT_TESTS="km_core_tests.bats"
-DEFAULT_TEST_TYPE="static dynamic so"
+DEFAULT_TEST_TYPE="static dynamic "
 
 usage() {
 cat <<EOF
@@ -106,7 +106,7 @@ fi
 $DEBUG export TIME_INFO=$time_info_file
 $DEBUG export KM_BIN=$km_bin
 
-# Generate files for bats, one file per type (e.g. so), from source
+# Generate files for bats, one file per type (e.g. km), from source
 for t in $test_type ; do
    tmp_file=${bats_src_generated}.$t
    echo export KM_TEST_TYPE=$t > $tmp_file
