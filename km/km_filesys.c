@@ -434,8 +434,9 @@ static int readlink_procself(const char* pathname, char* buf, size_t bufsz)
    if (sscanf(pathname, PROCFD "%d", &fd) != 1) {
       return -ENOENT;
    }
-   char* mpath = machine.filesys.guestfd_to_name_map[fd];
-   if (fd < 0 || fd >= machine.filesys.nfdmap || mpath == 0) {
+   char* mpath;
+   if (fd < 0 || fd >= machine.filesys.nfdmap ||
+       (mpath = machine.filesys.guestfd_to_name_map[fd]) == 0) {
       return -ENOENT;
    }
    /*
