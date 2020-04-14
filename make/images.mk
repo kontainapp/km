@@ -70,6 +70,10 @@ testenv-image: ## build test image with test tools and code
 	$(foreach f,${TESTENV_EXTRA_FILES},rm ${TESTENV_PATH}/$(notdir $f);)
 
 buildenv-image: ## make build image based on ${DTYPE}
+ifdef buildenv_prep
+	@echo -e "Executing $@ prep steps"
+	eval $(buildenv_prep)
+endif
 	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} ${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 
 push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other

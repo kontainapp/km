@@ -8,95 +8,107 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
-# Ubuntu default is dash. We invoke this by make -C tests ... in CI which is Ubuntu
+# Ubuntu default is "dash". We invoke this by make -C tests ... in CI which is Ubuntu
 SHELL=/bin/bash
+
 TOP := $(shell git rev-parse --show-toplevel)
 CURRENT_DIR := ${TOP}/tests
 COMPONENT := km
 
 NO_RUNENV = true
+# Building image here so we can pick up alpine libs via prep_alpine_libs.sh during 'buidenv_prep'
+BUILDENV_PATH = ${KM_OPT}
+
+# Prep alpine and kontain libs before docker build
+export define buildenv_prep
+	${CURRENT_DIR}/prep_alpine_libs.sh
+endef
+
+# unfortunately buildenv_prep a few vars have to be defined BEFORE this include, and much of the rest AFTER
+# this is due to 'ifdef` in the image.mk processed by Make on file read.
+# so it' stuck here in the middle of the file by design
 include ${TOP}/make/images.mk
 
 # this is how we run tests in containers:
 CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
 
-SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_value_test.c hcallargs_test.c \
-		load_test.c  hello_loop_test.c hello_2_loops_test.c memslot_test.c mutex_test.c futex_test.c \
-		getline_test.c mem_test.c exit_grp_test.c intr_test.c brk_map_test.c crash_test.c cpuid_test.c \
-		longjmp_test.c cpuid_print_details_test.c stray_test.c signal_test.c hello_2_loops_tls_test.c \
-		regions_test.c mprotect_test.c pthread_cancel_test.c filesys_test.c filepath_test.c socket_test.c \
-		dl_iterate_phdr_test.c env_test.c locale_test.c munmap_monitor_maps_test.c \
-		gdb_server_entry_race_test.c gdb_qsupported_test.c gdb_delete_breakpoint_test.c gdb_nextstep_test.c \
-		mmap_1_test.c madvise_test.c misc_test.c gdb_sharedlib2_test.c gdb_lots_of_threads_test.c \
-		decode_test.c hcperf_test.c vdso_test.c auxv_test.c gdb_protected_mem_test.c clone_test.c \
-		sigaltstack_test.c sigsuspend_test.c itimer_test.c
+# Build from these sources. Note that test may be skipped using "skip" support in out bats files
+SRC_C := $(wildcard *_test.c)
+SRC_CPP := $(wildcard *_test.cpp)
+HELPER_SRC := $(wildcard *_helper.c)
 
-SRC_CPP = var_storage_test.cpp throw_basic_test.cpp
+# Test driver and shared libs for KM dlopen test, plus extra stuff we need to buid .so from
+SRC_SHR := dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c
 
-HELPER_SRC = mmap_tester.c
-
-SHRSRC := dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c
-
-# Use existing small dir for buildenv image builds (saves on sending data to docker svc)
-BUILDENV_PATH  := ./gdb
-TESTENV_PATH := .
-
-CFLAGS = -Wall -Werror $(COPTS) -ggdb3 -fPIC -fno-stack-protector -pthread -I${TOP}/include -I${TOP}/km
-LDFLAGS = -ggdb3 -pthread -ldl
-KCC := kontain-gcc
-DEPS = ${SRC:%.c=%.d} ${SHRSRC:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
-KM_PAYLOADS := ${SRC:%.c=%.km} ${SRC_CPP:%.cpp=%.km}
-EXECS := ${KM_PAYLOADS} ${KM_PAYLOADS:%.km=%}
-
-# No need to build/test .so when we have full dyn.linked .kmd
-# SEXECS := ${SHRSRC:%.c=%.so} ${KM_PAYLOADS:%.km=%.so}
-
-DEXECS := ${SRC:%.c=%.kmd} ${SRC_CPP:%.cpp=%.kmd}
-
+DEBUG ?= -ggdb3
+CFLAGS = -Wall -Werror $(COPTS) ${DEBUG} -fPIC -fno-stack-protector -pthread -I${TOP}/include -I${TOP}/km
 CXXFLAGS=${CFLAGS}
-${SRC_CPP:%.cpp=%.km}: KCC=kontain-g++
-${SRC_CPP:%.cpp=%.kmd}: KCC=kontain-g++
-${SRC_CPP:%.cpp=%.so}: KCC=kontain-g++
-${SRC_CPP:%.cpp=%}: CC=g++
+
+LDLIBS  :=  -pthread -ldl -L. -lhelper
+LDFLAGS := ${DEBUG}
+
+DEPS = ${SRC_C:%.c=%.d} ${SRC_SHR:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
+
+SUFFIXES := .km .kmd .km.so .native.km .native.kmd
+TESTS := ${SRC_C:%.c=%} ${SRC_CPP:%.cpp=%}
+EXECS := ${TESTS} \
+	$(foreach s,${SUFFIXES},$(addsuffix ${s},${TESTS}))
+
+# misc. other .so files
+SEXECS := ${SRC_SHR:%.c=%.so}
 
 # Only tests matching this regexp will be run
 MATCH ?= .*
 
-all: ${EXECS} ${SEXECS} ${DEXECS} ## Build all test, for Linux and KM
+all: ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
 
-${KM_PAYLOADS}: ${TOP}/build/runtime
+${EXECS} ${SEXECS}: libhelper.a
 
-# Run all or some of tests (needs /dev/kvm)
+libhelper.a: ${HELPER_SRC:%.c=%.o}
+	rm -f $@; ar rv $@ $^
+
 # ignore test failure when building coverage
-
 ifneq ($(findstring coverage,${MAKECMDGOALS}),)
 IGNORE_FAILURE := --ignore-failure
 endif
 
-libhelper.a: ${HELPER_SRC:%.c=%.o}
-	ar rv $@ $<
-
-$(EXECS) $(SEXECS) ${DEXECS}: libhelper.a
-KM_LDFLAGS +=  -L. -lhelper
-
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
-	./run_bats_tests.sh --km=${KM_BIN} --pretty ${IGNORE_FAILURE} --match="${MATCH}"
+	time ./run_bats_tests.sh --km=${KM_BIN} --pretty ${IGNORE_FAILURE} --match="${MATCH}"
+
 test-all: test ## alias for test
 
-%_test: LDFLAGS += -static
+KCC := kontain-gcc
+KCXX := kontain-g++
+
+# use g++ link libs when sources were C++
+${SRC_CPP:%.cpp=%}: CC=${CXX}
+${SRC_CPP:%.cpp=%.km}: KCC=${KCXX}
+${SRC_CPP:%.cpp=%.kmd}: KCC=${KCXX}
+${SRC_CPP:%.cpp=%.native.km}:KCC=${KCXX}
+${SRC_CPP:%.cpp=%.native.kmd}: KCC=${KCXX}
+${SRC_CPP:%.cpp=%.km.so}: KCC=${KCXX}
+
 %.so: %.o
-	${KCC} -shared ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
+	${CC} -shared ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.km: %.o
-	${KCC} ${LDFLAGS} $< -o $@ ${KM_LDFLAGS}
+	${KCC} -static ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.kmd: %.o
-	${KCC} ${LDFLAGS} -rdynamic $< -o $@ ${KM_LDFLAGS}
+	${KCC} -dynamic ${LDFLAGS} $< ${LDLIBS} -o $@
+
+%.native.km: %.o
+	${KCC} -static -alpine ${LDFLAGS} $< ${LDLIBS} -o $@
+
+%.native.kmd: %.o
+	${KCC} -dynamic -alpine ${LDFLAGS} $< ${LDLIBS} -o $@
+
+%.km.so: %.o
+	${KCC} -shared ${LDFLAGS} $< -o $@ ${LDLIBS}
 
 .PHONY: load_expected_size
-load_expected_size: load_test.km load_test.so
+load_expected_size: load_test.km # load_test.so
 	@nm load_test.km | awk '/ _end/{ print "0x" $$1}'
-	@nm load_test.so | awk '/ _end/{ print "0x" $$1}'
 
 %.d: %.c
 	@# print the command we really need to run
@@ -125,7 +137,7 @@ load_expected_size: load_test.km load_test.so
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d $(EXECS) $(SEXECS) ${DEXECS} kmcore libhelper.a
+	rm -f *.o *.d ${EXECS} ${SEXECS} kmcore libhelper.a
 
 #
 # do not generate .d file for some targets
@@ -149,7 +161,6 @@ covclean: ## Clean up code coverage build artifacts
 	rm -rf ${BLDDIR}
 
 # install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
-# TODO: maybe make it generic to scan folders
 buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
 	@if ! docker image inspect ${BUILDENV_IMG} > /dev/null ; then \
 		echo -e "$(RED)${BUILDENV_IMG} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi

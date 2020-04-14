@@ -29,12 +29,18 @@ if [ -z "$KM_BIN" ] ; then
    exit 10
 fi
 
+PREFIX=/opt/kontain
+RT=${PREFIX}/runtime
+LC=${PREFIX}/alpine-lib/usr/lib
+
+# Note: the /opt/kontain/runtime/libc.so is hardcoded in GDB support, so when using
+# from other locations some shared lib GDB files location may break
 if [ -z "$KM_LDSO" ] ; then
-   KM_LDSO=/opt/kontain/runtime/libc.so
+   KM_LDSO=${RT}/libc.so
 fi
 
 if [ -z "$KM_LDSO_PATH" ] ; then
-   KM_LDSO_PATH="/opt/kontain/lib64:/lib64"
+   KM_LDSO_PATH=${RT}:${LC}
 fi
 
 if [ -z "$TIME_INFO" ] ; then
@@ -56,14 +62,19 @@ case $test_type in
       ;;
    dynamic)
       ext=.kmd
-      KM_ARGS="${KM_ARGS} --dynlinker=${KM_LDSO} --putenv LD_LIBRARY_PATH=${KM_LDSO_PATH}"
+      ;;
+   native_static)
+      ext=.native.km
+      ;;
+   native_dynamic)
+      ext=.native.km
       ;;
    so)
-      ext=.so
+      ext=.km.so
       KM_ARGS="${KM_ARGS} ${KM_LDSO} --library-path=${KM_LDSO_PATH}"
       ;;
    *)
-      echo "Unknown test type: $test_type, should be 'static', 'dynamic' or 'so'"
+      echo "Unknown test type: $test_type, should be 'static', 'dynamic', 'native_static', 'native_dynamic' or 'so'"
       export KM_BIN=fail
       ;;
 esac
@@ -193,7 +204,7 @@ skip_if_needed() {
    todo="todo_$test_type"
    # note that lists have to have header and trailer space, so adding here
    if name_in_list $test " $not_needed_generic ${!nn} " ; then
-      skip "not needed in '$test_type' test pass"
+      skip "(not needed in '$test_type' test pass)"
       return
    fi
    if name_in_list $test " $todo_generic ${!todo} " ; then

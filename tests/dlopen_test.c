@@ -16,12 +16,18 @@
 
 #include "greatest/greatest.h"
 
+#define ASSERT_DL(_dl, _lib)                                                                       \
+   if (_dl == NULL) {                                                                              \
+      printf("%s. File=%s (%s:%d) \n", dlerror(), _lib, __FUNCTION__, __LINE__);                   \
+      ASSERT_NOT_EQ(NULL, _dl);                                                                    \
+   }
+
 TEST dlopen_test()
 {
    void* dl = dlopen("./dlopen_test_lib.so", RTLD_NOW);
-   ASSERT_NOT_EQ(NULL, dl);
+   ASSERT_DL(dl, "./dlopen_test_lib.so");
    void* dl2 = dlopen("./dlopen_test_lib2.so", RTLD_NOW);
-   ASSERT_NOT_EQ(NULL, dl2);
+   ASSERT_DL(dl2, "./dlopen_test_lib2.so");
    int (*fn)() = dlsym(dl, "do_function");
    ASSERT_NOT_EQ(NULL, fn);
    int (*fn2)() = dlsym(dl2, "do_function");

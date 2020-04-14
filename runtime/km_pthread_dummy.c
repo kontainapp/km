@@ -1,0 +1,1 @@
+// Intentionally empty; used to generate empty libpthread.so

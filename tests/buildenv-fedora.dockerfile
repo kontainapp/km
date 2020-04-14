@@ -42,39 +42,14 @@ RUN dnf install -y \
    expat-static jq googler python3-jinja2 \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/dnf
 
-FROM buildenv-base AS buildenv-gcc-base
-# no need to clean up after dnf as it is a temp image anyways
-RUN dnf install -y gmp-devel mpfr-devel libmpc-devel isl-devel flex m4 \
-   autoconf automake libtool texinfo
-
-FROM buildenv-gcc-base AS build-libstdcpp
-ARG LIBSTDCPPVER=gcc-9_2_0-kontain
-USER $USER
-
-RUN git clone https://github.com/kontainapp/gcc.git -b $LIBSTDCPPVER
-RUN mkdir -p build_gcc && cd build_gcc \
-   && ../gcc/configure --prefix=$PREFIX --enable-clocale=generic --disable-bootstrap --enable-languages=c,c++ \
-   --enable-threads=posix --enable-checking=release --disable-multilib --with-system-zlib --enable-__cxa_atexit \
-   --disable-libunwind-exceptions --enable-gnu-unique-object --enable-linker-build-id --with-gcc-major-version-only \
-   --with-linker-hash-style=gnu --enable-plugin --enable-initfini-array --with-isl --without-cuda-driver \
-   --enable-gnu-indirect-function --enable-cet --with-tune=generic \
-   && make -j`expr 2 \* $(nproc)` && cd x86_64-pc-linux-gnu/libstdc++-v3 && make clean \
-   && sed -i -e 's/^#define *HAVE___CXA_THREAD_ATEXIT_IMPL.*$/\/* & *\//' config.h \
-   && make -j`expr 2 \* $(nproc)`
-
-RUN git clone https://github.com/libffi/libffi -b v3.2.1
-RUN cd libffi && ./autogen.sh && ./configure --prefix=$PREFIX && make -j
-
-USER root
-RUN mkdir -p $PREFIX && make -C build_gcc/x86_64-pc-linux-gnu/libstdc++-v3 install && make -C build_gcc/x86_64-pc-linux-gnu/libgcc install
-RUN make -C libffi install
-
-RUN mkdir -p $PREFIX/runtime \
-   && chgrp users $PREFIX/runtime \
-   && chmod 777 $PREFIX/runtime
-
 FROM buildenv-base AS buildenv
 LABEL version="1.1" maintainer="Mark Sterin <msterin@kontain.app>"
-USER $USER
 
-COPY --from=build-libstdcpp $PREFIX/ $PREFIX
+USER root
+# Prep both alpine-lib and kontain runtime dirs
+RUN for i in runtime alpine-lib ; do \
+   mkdir -p $PREFIX/$i && chgrp users $PREFIX/$i && chmod 777 $PREFIX/$i ; \
+   done
+
+USER $USER
+COPY alpine-lib $PREFIX/

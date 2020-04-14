@@ -9,7 +9,7 @@
 cd $(dirname ${BASH_SOURCE[0]})
 
 DEFAULT_TESTS="km_core_tests.bats"
-DEFAULT_TEST_TYPE="static dynamic "
+DEFAULT_TEST_TYPE="static dynamic so native_static"
 
 usage() {
 cat <<EOF
@@ -110,7 +110,9 @@ $DEBUG export KM_BIN=$km_bin
 for t in $test_type ; do
    tmp_file=${bats_src_generated}.$t
    echo export KM_TEST_TYPE=$t > $tmp_file
-   cat $tests >> $tmp_file
+   # we want the line  numbers in the tmp file to match the original
+   # remove 2nd line - it is an empty comment in Kontain file headers
+   sed 2d $tests >> $tmp_file
    test_list="$test_list $tmp_file"
 done
 
