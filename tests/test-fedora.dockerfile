@@ -21,7 +21,9 @@ ENV TIME_INFO /tests/time_info.txt
 ENV KM_BIN /tests/km
 ENV KM_LDSO /tests/libc.so
 ENV KM_LDSO /opt/kontain/runtime/libc.so
-ENV KM_LDSO_PATH /opt/kontain/lib64:/lib64
+
+# TODO: this is likely broken - fox when testing build to Ubuntu
+ENV KM_LDSO_PATH /opt/kontain/runtime:/opt/kontain/alpine-lib/usr/lib
 ENV BRANCH=${branch}
 
 COPY --chown=appuser:appuser . /tests

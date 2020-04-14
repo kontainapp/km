@@ -1,3 +1,4 @@
 #!/bin/sh
-# see km_elf.h for the list of symbols which need to stay in the stripped executable
-exec strip -K __km_handle_interrupt -K __km_interrupt_table -K __km_sigreturn -K __km_syscall_handler "$@"
+# This one is here for cross-compile support (e.g. busybox)
+# which need <prefix>- added to tools
+exec strip "$@"
