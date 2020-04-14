@@ -97,6 +97,7 @@ CI_IMAGE_REPOS_TO_PURGE := \
 	test-km-fedora \
 	test-node-fedora \
 	test-python-fedora \
+	test-jdk-11.0.6-fedora \
 	demo-runenv-dweb \
 	demo-runenv-python \
 	demo-runenv-node \
