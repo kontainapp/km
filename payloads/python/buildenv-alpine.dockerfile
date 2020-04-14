@@ -24,8 +24,8 @@ USER root
 RUN apk add bzip2-static bzip2-dev zlib-static zlib-dev  gdbm-dev openssl-libs-static python3-dev
 RUN apk add librdkafka-dev librdkafka-static heimdal-dev
 
-# While Fedora has it pre-installed via dnf, alpine needs jinja2 explicitly
-RUN pip3 install --upgrade pip && pip3 install jinja2
+# We seem to install it via py3-jinja2 when installing alpine-sdk
+# RUN pip3 install --upgrade pip && pip3 install jinja2
 
 USER $USER
 WORKDIR /home/$USER/

@@ -12,6 +12,7 @@ steps:
       git log -n 10 --graph --pretty=format:'%h% %d %s %cr %ce'
       echo "=== VM/OS:"
       cat /proc/version
+      cat /etc/os-release
       echo "=== Docker version:"
       docker version
       echo ==== Environment Variables

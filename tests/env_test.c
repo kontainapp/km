@@ -12,7 +12,7 @@
  * Simple test of env vars
  */
 #undef _FORTIFY_SOURCE   // TODO : this is needed on Ubuntu; to make right we need to define _
-#define _GNU_SOURCE
+//#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,10 +22,14 @@
 
 int main(int argc, char* argv[])
 {
+   extern char** environ;
    printf("Testing getenv/putenv,  environ = %p\n", environ);
    for (int i = 0; environ[i] != 0; i++) {
       char name[MAX_ENV_VAR_SIZE];   // var name bufer
-      char* c = strchrnul(environ[i], '=');
+      char* c = strchr(environ[i], '=');
+      if (c == NULL) {   // emulate strchrnul()
+         c = environ[i] + strlen(environ[i]);
+      }
       strncpy(name, environ[i], c - environ[i]);
       name[c - environ[i]] = 0;
       char* v = getenv(name);

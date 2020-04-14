@@ -17,6 +17,8 @@ ifeq (${TOP},)
   $(error "TOP needs to be set before including this mk file ")
 endif
 
+SUDO ?= sudo
+
 # this is the path from the TOP to current dir. Note this has a trailing /
 FROMTOP := $(shell git rev-parse --show-prefix)
 # Current branch and SHA(for making different names unique per branch, e.g. Docker tags)
@@ -41,11 +43,16 @@ BLDDIR := $(abspath ${BLDTOP}/${FROMTOP}/${BLDTYPE})
 KM_BLDDIR := $(abspath ${BLDTOP}/km/${BLDTYPE})
 KM_BIN := ${KM_BLDDIR}/km
 KM_OPT := /opt/kontain
-KM_OPT_BIN := ${KM_OPT}/bin/km
-KM_LDSO := ${BLDTOP}/runtime/libc.so
-KM_OPT_RT := ${KM_OPT}/runtime
-KM_OPT_LDSO := ${KM_OPT_RT}/libc.so
-KM_LDSO_PATH := "/opt/kontain/lib64:/lib64"
+KM_OPT_BIN = ${KM_OPT}/bin/km
+KM_LDSO = ${BLDTOP}/runtime/libc.so
+KM_OPT_RT = ${KM_OPT}/runtime
+KM_OPT_LDSO = ${KM_OPT_RT}/libc.so
+
+KM_OPT_ALPINELIB = ${KM_OPT}/alpine-lib/usr/lib
+# Reminder: should match kontain-gcc
+KM_OPT_GCCLIB = ${KM_OPT}/alpine-lib/usr/lib/gcc/x86_64-alpine-linux-musl/9.2.0/
+
+KM_LDSO_PATH = "${KM_OPT_RT}:${KM_OPT_ALPINELIB}"
 
 # dockerized build
 # TODO: Some of these values should be moved to images.mk , but we have multiple
@@ -65,7 +72,7 @@ HYPERVISOR_DEVICE ?= /dev/kvm
 
 DOCKER_BUILD_LABEL := \
 	--label "Vendor=Kontain.app" \
-	--label "Version=0.1" \
+	--label "Version=0.8" \
 	--label "Description=${PAYLOAD_NAME} in Kontain" \
 	--label "KONTAIN:BRANCH=$(SRC_BRANCH)" \
 	--label "KONTAIN:SHA=$(SRC_SHA)"

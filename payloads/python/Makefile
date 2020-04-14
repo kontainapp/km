@@ -60,7 +60,7 @@ endef
 
 all:
 ifneq ($(FROMSRC),yes)
-	${DOCKER_RUN} -v ${TOP}:${TOP}:Z -w ${TOP} ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+	${DOCKER_RUN} -v ${TOP}:${TOP}:Z -v ${KM_OPT}:${KM_OPT}:Z -w ${TOP} ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
 			make -C payloads/python in-blank-container \
 				EXTRA_LINKFILES="${EXTRA_LINKFILES}"  CUSTOM_KM="${CUSTOM_KM}"
 else

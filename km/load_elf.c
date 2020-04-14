@@ -48,10 +48,9 @@ static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
 {
    km_gva_t top = phdr->p_paddr + phdr->p_memsz + base;
    /*
-    * There is no memory in the first 2MB of virtual address space. We use gcc-km.spec file to drive
-    * memory allocation during linking, based on default linking script. The relevant line is:
-    * ``... -Ttext-segment=0x1FF000 ... -z norelro %(old_link) --build-id=none''
-    * In combination with the default linking script this lands the beginning of text segment at
+    * There is no memory in the first 2MB of virtual address space. We use flags in kontain-gcc
+    * script to drive memory allocation during linking. The relevant line is:
+    * ``... -Ttext-segment=0x1FF000 ... ''. This lands the beginning of text segment at
     * 2MB. Obviously 0x1FF000 is one page before that, but the linking script does
     * ``. = SEGMENT_START("text-segment", 0x400000) + SIZEOF_HEADERS;'' and later
     * ``. = ALIGN(CONSTANT (MAXPAGESIZE));''
