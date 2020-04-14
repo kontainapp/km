@@ -11,6 +11,8 @@
 #
 # Script to run test coverage analysis
 
+[ "$TRACE" ] && set -x
+
 readonly PROGNAME=$(basename $0)
 readonly INPUT_SRC_DIR=$1
 readonly INPUT_COVERAGE_SEARCH_DIR=$2
@@ -23,9 +25,9 @@ readonly PARALLEL=$(nproc --all)
 
 function usage() {
     cat <<- EOF
-usage: $PROGNAME <INPUT_SRC_DIR> <INPUT_COVERAGE_SEARCH_DIR> <OUTPUT_DIR> 
+usage: $PROGNAME <INPUT_SRC_DIR> <INPUT_COVERAGE_SEARCH_DIR> <OUTPUT_DIR>
 
-Run test coverage analysis. 
+Run test coverage analysis.
 
 EOF
     exit 1

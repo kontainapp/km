@@ -18,21 +18,41 @@ not_needed_generic=""
 if [ $vmtype = 'kkm' ]; then
    not_needed_generic="gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp mem_test"
 fi
-not_needed_static="gdb_sharedlib"
-# note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic="setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many"
-not_needed_so="setup_load cli mem_brk gdb_sharedlib mmap_1 km_many"
 todo_generic="futex_example"
+
+not_needed_static="gdb_sharedlib"
 todo_static=""
+
+not_needed_native_static="linux_exec setup_link setup_load gdb_sharedlib"
+todo_native_static="mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys"
+
+not_needed_native_dynamic=$not_needed_native_static
+todo_native_dynamic=$todo_native_static
+
+# note: these are generally redundant as they are tested in 'static' pass
+not_needed_dynamic="linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many"
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
 todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach exception cpp_ctors dl_iterate_phdr monitor_maps gdb_protected_mem sigsuspend"
 
+not_needed_so="linux_exec setup_load cli mem_brk mem_test  mmap_1 km_many hc_check mem_slots mem_mmap \
+   gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach \
+   gdb_protected_mem gdb_sharedlib \
+   exception cpp_ctors dl_iterate_phdr monitor_maps  pthread_cancel mutex vdso filepath threads_mutex"
 
 # Now the actual tests.
 # They can be invoked by either 'make test [MATCH=<filter>]' or ./run_bats_tests.sh [--match=filter]
 # <filter> is a regexp or substring matching test name
 
-@test "setup_link($test_type): check if linking produced text segment where we expect" {
+@test "linux_exec($test_type) make sure *some* linux tests actually pass" {
+   # Note: needed only once, expected to run only in static pass
+   # TODO actual run. MANY TESTS FAILS - need to review. Putting in a scaffolding hack for now
+   for test in hello mmap_1 mem locale env misc mutex longjmp memslot mprotect; do
+      echo Running ${test}_test
+      ./${test}_test
+   done
+}
+
+@test "setup_link($test_type): check if linking produced text segment where we expect (load_test$ext)" {
    run objdump -wp load_test$ext
    if [ $test_type == so ] ; then
       expected_location=0x000000
@@ -235,8 +255,9 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_line --partial 'fail: 0'
 }
 
+# this one requires manual stop and thus skipped (see skip lists)
 @test "futex_example($test_type)" {
-   run km_with_timeout futex$ext
+   run km_with_timeout futex_test$ext
    assert_success
 }
 
@@ -768,7 +789,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_success
 }
 
-@test "vdso_test($test_type): use function verion of some syscalls (vdso_test$ext)" {
+@test "vdso($test_type): use function verion of some syscalls (vdso_test$ext)" {
    run km_with_timeout vdso_test$ext
    assert_success
    refute_line --partial "auxv[AT_SYSINFO_EHDR] not available"
