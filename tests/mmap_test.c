@@ -128,7 +128,7 @@ TEST mmap_from_free()
    // 3.
    addr1 = mmap(0, 50 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
    ASSERT_NOT_EQ(MAP_FAILED, addr1);
-   ASSERT_EQ(addr + 50 * MIB, addr1);
+   ASSERT_EQ(addr + 100 * MIB, addr1); //here is issue #1 50 vs 100 also fixed issue #2
    ret = munmap(addr1, 50 * MIB);
    ASSERT_EQ(0, ret);
 
@@ -165,7 +165,7 @@ TEST mmap_protect()
    addr1 = addr + 10 * MIB;
    ASSERT_EQ_FMTm("Unmap from the middle", 0, munmap(addr1, 1 * MIB), "%d");
    if ((ret = sigsetjmp(jbuf, 1)) == 0) {
-      strcpy((char*)addr1, "writing to unmapped area");
+      strcpy((char*)addr1, "writing to unmapped area"); //here is issue #2
       FAILm("Write successful and should be not");
    } else {
       ASSERT_EQm("Did not get expected signal", ret, SIGSEGV);
@@ -173,7 +173,7 @@ TEST mmap_protect()
    }
    // now lets' check we respect PROT flags
    void* mapped = mmap(0, 1 * MIB, PROT_READ, flags, -1, 0);
-   ASSERT_EQ_FMT(addr1, mapped, "%p");   // we expect to grab the btarea just released
+   ASSERT_EQ_FMT(addr1, mapped, "%p");   // we expect to grab the btarea just released; and issue #3 followed by sigsegv
    uint8_t buf[1024];
    memcpy(buf, (uint8_t*)addr1, sizeof(buf));   // read should succeed
    if ((ret = sigsetjmp(jbuf, 1)) == 0) {
