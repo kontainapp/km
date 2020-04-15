@@ -13,3 +13,6 @@
 [submodule "tests/bats-assert"]
 	path = tests/bats-assert
 	url = https://github.com/ztombol/bats-assert
+[submodule "kkm"]
+	path = kkm
+	url = https://github.com/kontainapp/kkm.git
