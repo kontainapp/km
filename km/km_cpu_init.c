@@ -443,11 +443,14 @@ void km_machine_init(km_machine_init_params_t* params)
          if ((machine.kvm_fd = open("/dev/kvm", O_RDWR)) < 0) {
             err(1, "KVM: Can't open /dev/kvm");
          }
+         km_infox(KM_TRACE_KVM, "KVM: Using /dev/kvm");
          break;
       case KM_FLAG_FORCE_KKM:
          if ((machine.kvm_fd = open("/dev/kkm", O_RDWR)) < 0) {
             err(1, "KVM: Can't open /dev/kkm");
          }
+         machine.vm_type = VM_TYPE_KKM;
+         km_infox(KM_TRACE_KVM, "KVM: Using /dev/kkm");
          break;
       default:
          if ((machine.kvm_fd = open("/dev/kvm", O_RDWR)) < 0) {
@@ -455,7 +458,10 @@ void km_machine_init(km_machine_init_params_t* params)
             if ((machine.kvm_fd = open("/dev/kkm", O_RDWR)) < 0) {
                err(1, "KVM: Can't open /dev/kvm and /dev/kkm");
             }
+            km_infox(KM_TRACE_KVM, "KVM: Using /dev/kkm");
             machine.vm_type = VM_TYPE_KKM;
+         } else {
+            km_infox(KM_TRACE_KVM, "KVM: Using /dev/kvm");
          }
          break;
    }
