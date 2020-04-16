@@ -137,6 +137,8 @@ vm_type() {
    echo $vmtype
 }
 
+vm_type
+
 check_optional_mem_size_failure() {
    if [ $vmtype = 'kvm' ]; then
       assert_success

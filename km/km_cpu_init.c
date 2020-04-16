@@ -168,7 +168,7 @@ static void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
    assert(machine.idt != 0);
    vcpu->sregs = (kvm_sregs_t){
        .cr0 = X86_CR0_PE | X86_CR0_PG | X86_CR0_WP | X86_CR0_NE,
-       .cr3 = RSV_MEM_START + RSV_PML4_OFFSET,
+       .cr3 = RSV_MEM_START,
        .cr4 = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE | X86_CR4_OSFXSR | X86_CR4_OSXMMEXCPT,
        .efer = X86_EFER_LME | X86_EFER_LMA | X86_EFER_SCE,
 
@@ -438,12 +438,26 @@ void km_machine_init(km_machine_init_params_t* params)
    if ((machine.shutdown_fd = eventfd(0, 0)) == -1) {
       err(1, "KM: Failed to create machine shutdown_fd");
    }
-   if ((machine.kvm_fd = open("/dev/kvm", O_RDWR /* | O_CLOEXEC */)) < 0) {
-      // /dev/kvm is not available try /dev/kkm
-      if ((machine.kvm_fd = open("/dev/kkm", O_RDWR /* | O_CLOEXEC */)) < 0) {
-         err(1, "KVM: Can't open /dev/kvm and /dev/kkm");
-      }
-      machine.vm_type = VM_TYPE_KKM;
+   switch (params->use_virt) {
+      case KM_FLAG_FORCE_KVM:
+         if ((machine.kvm_fd = open("/dev/kvm", O_RDWR)) < 0) {
+            err(1, "KVM: Can't open /dev/kvm");
+         }
+         break;
+      case KM_FLAG_FORCE_KKM:
+         if ((machine.kvm_fd = open("/dev/kkm", O_RDWR)) < 0) {
+            err(1, "KVM: Can't open /dev/kkm");
+         }
+         break;
+      default:
+         if ((machine.kvm_fd = open("/dev/kvm", O_RDWR)) < 0) {
+            // /dev/kvm is not available try /dev/kkm
+            if ((machine.kvm_fd = open("/dev/kkm", O_RDWR)) < 0) {
+               err(1, "KVM: Can't open /dev/kvm and /dev/kkm");
+            }
+            machine.vm_type = VM_TYPE_KKM;
+         }
+         break;
    }
    if ((rc = ioctl(machine.kvm_fd, KVM_GET_API_VERSION, 0)) < 0) {
       err(1, "KVM: get API version failed");
@@ -528,7 +542,9 @@ void km_machine_init(km_machine_init_params_t* params)
    }
    if (params->guest_physmem != 0) {
       if ((machine.vm_type == VM_TYPE_KKM) && (params->guest_physmem != GUEST_MAX_PHYSMEM_SUPPORTED)) {
-         errx(1, "Only %ldGiB physical memory supported with KKM driver", GUEST_MAX_PHYSMEM_SUPPORTED / GIB);
+         errx(1,
+              "Only %ldGiB physical memory supported with KKM driver",
+              GUEST_MAX_PHYSMEM_SUPPORTED / GIB);
       } else {
          if (params->guest_physmem > machine.guest_max_physmem) {
             errx(1,

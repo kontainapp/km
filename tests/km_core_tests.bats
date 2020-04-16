@@ -15,6 +15,9 @@ load test_helper
 # not_needed_{generic,static,dynamic,shared} - skip since it's not needed
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
 not_needed_generic=""
+if [ $vmtype = 'kkm' ]; then
+   not_needed_generic="gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp"
+fi
 not_needed_static="gdb_sharedlib"
 # note: these are generally redundant as they are tested in 'static' pass
 not_needed_dynamic="setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many"
@@ -106,7 +109,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_failure
    assert_line  "km: Guest memory bus width must be between 32 and 63 - got '31'"
 
-   vmtype=$(vm_type)
    run km_with_timeout -P32 -- hello_test$ext
    check_optional_mem_size_failure
 
@@ -522,7 +524,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # run hello test in a guest with a 33 bit memory bus.
    # TODO: instead of bus_width, we should look at pdpe1g - without 1g pages, we only support 2GB of memory anyways
    if [ $(bus_width) -gt 36 ] ; then
-      vmtype=$(vm_type)
       run km_with_timeout -P 33 hello_test$ext
       check_optional_mem_size_failure
    fi
@@ -535,7 +536,6 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "brk_map_test($test_type): test brk and map w/physical memory override (brk_map_test$ext)" {
-   vmtype=$(vm_type)
    if [ $(bus_width) -gt 36 ] ; then
       run km_with_timeout -P33 brk_map_test$ext -- 33
       check_optional_mem_size_failure

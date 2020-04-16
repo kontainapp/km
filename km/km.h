@@ -45,6 +45,7 @@ typedef struct kvm_regs kvm_regs_t;
 typedef struct kvm_vcpu_events kvm_vcpu_events_t;
 
 typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload space)
+typedef uint64_t km_gpa_t;   // guest physical address (i.e. address in payload space)
 typedef void* km_kma_t;      // kontain monitor address (i.e. address in km process space)
 
 typedef uint64_t km_sigset_t;
@@ -173,7 +174,10 @@ static inline pid_t km_vcpu_get_tid(km_vcpu_t* vcpu)
 typedef enum {
    KM_FLAG_FORCE_ENABLE = 1,
    KM_FLAG_FORCE_DISABLE = -1,
-   KM_FLAG_FORCE_KEEP = 0
+   KM_FLAG_FORCE_KEEP = 0,
+   KM_FLAG_FORCE_DEFAULT = 0,
+   KM_FLAG_FORCE_KVM = 1,
+   KM_FLAG_FORCE_KKM = 2,
 } km_flag_force_t;
 
 // struct for passing command line / config information into different inits.
@@ -183,6 +187,7 @@ typedef struct km_machine_init_params {
    km_flag_force_t overcommit_memory;   // memory overcommit (i.e. MAP_NORESERVE in mmap)
                                         // Note: if too much of it is accessed, we expect Linux
                                         // OOM killer to kick in
+   km_flag_force_t use_virt;            // force using kvm or kkm
 } km_machine_init_params_t;
 
 void km_machine_init(km_machine_init_params_t* params);
@@ -241,10 +246,10 @@ typedef struct km_mmap_cb {   // control block
    pthread_mutex_t mutex;     // global map lock
 } km_mmap_cb_t;
 
- // enumerate type of virtual machine
+// enumerate type of virtual machine
 typedef enum vm_type {
-   VM_TYPE_KVM = 0,           // Kernel Virtual Machine
-   VM_TYPE_KKM                // Kontain Kernel Module
+   VM_TYPE_KVM = 0,   // Kernel Virtual Machine
+   VM_TYPE_KKM        // Kontain Kernel Module
 } vm_type_t;
 
 /*

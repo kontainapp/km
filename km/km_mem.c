@@ -26,8 +26,8 @@
 #include <sys/param.h>
 
 #include "km.h"
-#include "km_mem.h"
 #include "km_guest.h"
+#include "km_mem.h"
 #include "km_proc.h"
 #include "x86_cpu.h"
 
@@ -44,10 +44,17 @@
  * - last GB is reserved for stacks. The first thread stack is 2MB at the top of
  *   that GB
  *
- * We are forced to stay within width of the CPU physical memory bus. We
- * determine that the by analyzing CPUID and store in machine.guest_max_physmem
+ * When using kvm driver
+ * - We are forced to stay within width of the CPU physical memory bus. We
+ *   determine that the by analyzing CPUID and store in machine.guest_max_physmem
+ * When using kkm driver
+ * - fixed 512GB of memory is supported.
  */
 
+/*
+ * This structure fixes the relative position of page table hierarchy used by km guests.
+ * This maps to RSV_MEM_START. When making changes make sure not to exceed RSV_MEM_SIZE.
+ */
 #define PT_ENTRIES (512)
 typedef struct page_tables {
    x86_pml4e_t pml4[PT_ENTRIES];
@@ -60,14 +67,9 @@ typedef struct page_tables {
    x86_pte_4k_t pt1[PT_ENTRIES];
 } page_tables_t;
 
-static inline km_kma_t km_resv_kma(void)
-{
-   return (km_kma_t)machine.vm_mem_regs[KM_RSRV_MEMSLOT].userspace_addr;
-}
-
 static inline page_tables_t* km_page_table(void)
 {
-   return (page_tables_t*)km_resv_kma();
+   return (page_tables_t*)(KM_USER_MEM_BASE + RSV_MEM_START);
 }
 
 static void pml4e_set(x86_pml4e_t* pml4e, uint64_t pdpt)

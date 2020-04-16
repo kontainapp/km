@@ -20,10 +20,10 @@
 
 #include "km_coredump.h"
 #include "km_gdb.h"
+#include "km_guest.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "x86_cpu.h"
-#include "km_guest.h"
 
 static char* str_intr[256] = {
     "Divide Error",
