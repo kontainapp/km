@@ -34,13 +34,8 @@ static const int RSV_MEM_SIZE = KM_PAGE_SIZE * 63;
  * Mandatory data structures in reserved area to enable 64 bit CPU.
  * These numbers are offsets from the start of reserved area
  */
-static const int RSV_PML4_OFFSET = 0 * KM_PAGE_SIZE;
-static const int RSV_PDPT_OFFSET = 1 * KM_PAGE_SIZE;
-static const int RSV_PDPT2_OFFSET = 2 * KM_PAGE_SIZE;
-static const int RSV_PD_OFFSET = 3 * KM_PAGE_SIZE;
-static const int RSV_PD2_OFFSET = 4 * KM_PAGE_SIZE;
-static const int RSV_PT_OFFSET = 5 * KM_PAGE_SIZE;
 static const int RSV_IDMAP_OFFSET = RSV_MEM_SIZE;   // next page after reserved area
+
 /*
  * convert the above to guest physical offsets
  */
@@ -52,12 +47,15 @@ static const int KM_RSRV_VDSOSLOT = 41;
 static const int KM_RSRV_KMGUESTMEM_SLOT = 42;
 
 static const km_gva_t GUEST_MEM_START_VA = 2 * MIB;
+static const km_gva_t GUEST_PRIVATE_MEM_START_VA = 512 * GIB;
 // ceiling for guest virt. address. 2MB shift down to make it aligned on GB with physical address
 static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
 
-static const km_gva_t GUEST_VVAR_VDSO_BASE_VA = (GUEST_MEM_TOP_VA + (1 * MIB));
+static const km_gva_t GUEST_VVAR_VDSO_BASE_VA = GUEST_PRIVATE_MEM_START_VA;
+static const km_gpa_t GUEST_VVAR_VDSO_BASE_GPA = 0x7ffff00000;
 
-static const km_gva_t GUEST_KMGUESTMEM_BASE_VA = (GUEST_MEM_TOP_VA + (1 * MIB) + (32 * KIB));
+static const km_gva_t GUEST_KMGUESTMEM_BASE_VA = GUEST_PRIVATE_MEM_START_VA + (32 * KIB);
+static const km_gpa_t GUEST_KMGUESTMEM_BASE_GPA = 0x7ffff08000;
 
 // VA offset from PA for addresses over machine.tbrk. Last 2MB of VA stay unused for symmetry.
 #define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA - (machine.guest_max_physmem - 2 * MIB))

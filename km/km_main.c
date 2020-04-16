@@ -62,8 +62,11 @@ static inline void usage()
         "\n\tOverride auto detection:\n"
         "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. "
         "32 means 4GiB, 33 8GiB, 34 16GiB, etc. \n"
-        "\t--enable-1g-pages  - Force enable 1G pages support (default). Assumes hardware support\n"
-        "\t--disable-1g-pages - Force disable 1G pages support");
+        "\t--enable-1g-pages                   - Force enable 1G pages support (default). Assumes "
+        "hardware support\n"
+        "\t--disable-1g-pages                  - Force disable 1G pages support\n"
+        "\t--use-kvm                           - Use kvm driver\n"
+        "\t--use-kkm                           - Use kkm driver");
 }
 
 // Version info. SCM_* is supposed to be set by the build
@@ -97,6 +100,7 @@ static inline void show_version(void)
 static km_machine_init_params_t km_machine_init_params = {
     .force_pdpe1g = KM_FLAG_FORCE_ENABLE,
     .overcommit_memory = KM_FLAG_FORCE_DISABLE,
+    .use_virt = KM_FLAG_FORCE_DEFAULT,
 };
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
@@ -119,6 +123,8 @@ static struct option long_options[] = {
     {"version", no_argument, 0, 'v'},
     {"dynlinker", required_argument, 0, 'L'},
     {"hcall-stats", no_argument, 0, 'S'},
+    {"use-kvm", no_argument, &(km_machine_init_params.use_virt), KM_FLAG_FORCE_KVM},
+    {"use-kkm", no_argument, &(km_machine_init_params.use_virt), KM_FLAG_FORCE_KKM},
 
     {0, 0, 0, 0},
 };
