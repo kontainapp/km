@@ -131,6 +131,23 @@ bus_width() {
    echo $bw
 }
 
+vm_type() {
+   vmtype='kvm'
+   [[ -a /dev/kkm ]] && vmtype='kkm'
+   echo $vmtype
+}
+
+vm_type
+
+check_optional_mem_size_failure() {
+   if [ $vmtype = 'kvm' ]; then
+      assert_success
+   else
+      assert_failure
+      assert_line --partial "Only 512GiB physical memory supported with KKM driver"
+   fi
+}
+
 # Setup and teardown for each test.
 # Note that printing to stdout/stderr in these functions only shows up on errors.
 # For print on success too, redirect to >&3

@@ -37,6 +37,7 @@ static const char cpu_vendor_id[3 * sizeof(u_int32_t) + 1] = "Kontain";
 
 km_machine_t machine = {
     .kvm_fd = -1,
+    .vm_type = VM_TYPE_KVM,
     .mach_fd = -1,
     .brk_mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal_mutex = PTHREAD_MUTEX_INITIALIZER,
@@ -167,7 +168,7 @@ static void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
    assert(machine.idt != 0);
    vcpu->sregs = (kvm_sregs_t){
        .cr0 = X86_CR0_PE | X86_CR0_PG | X86_CR0_WP | X86_CR0_NE,
-       .cr3 = RSV_MEM_START + RSV_PML4_OFFSET,
+       .cr3 = RSV_MEM_START,
        .cr4 = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE | X86_CR4_OSFXSR | X86_CR4_OSXMMEXCPT,
        .efer = X86_EFER_LME | X86_EFER_LMA | X86_EFER_SCE,
 
@@ -437,8 +438,32 @@ void km_machine_init(km_machine_init_params_t* params)
    if ((machine.shutdown_fd = eventfd(0, 0)) == -1) {
       err(1, "KM: Failed to create machine shutdown_fd");
    }
-   if ((machine.kvm_fd = open("/dev/kvm", O_RDWR /* | O_CLOEXEC */)) < 0) {
-      err(1, "KVM: Can't open /dev/kvm");
+   switch (params->use_virt) {
+      case KM_FLAG_FORCE_KVM:
+         if ((machine.kvm_fd = open("/dev/kvm", O_RDWR)) < 0) {
+            err(1, "KVM: Can't open /dev/kvm");
+         }
+         km_infox(KM_TRACE_KVM, "KVM: Using /dev/kvm");
+         break;
+      case KM_FLAG_FORCE_KKM:
+         if ((machine.kvm_fd = open("/dev/kkm", O_RDWR)) < 0) {
+            err(1, "KVM: Can't open /dev/kkm");
+         }
+         machine.vm_type = VM_TYPE_KKM;
+         km_infox(KM_TRACE_KVM, "KVM: Using /dev/kkm");
+         break;
+      default:
+         if ((machine.kvm_fd = open("/dev/kvm", O_RDWR)) < 0) {
+            // /dev/kvm is not available try /dev/kkm
+            if ((machine.kvm_fd = open("/dev/kkm", O_RDWR)) < 0) {
+               err(1, "KVM: Can't open /dev/kvm and /dev/kkm");
+            }
+            km_infox(KM_TRACE_KVM, "KVM: Using /dev/kkm");
+            machine.vm_type = VM_TYPE_KKM;
+         } else {
+            km_infox(KM_TRACE_KVM, "KVM: Using /dev/kvm");
+         }
+         break;
    }
    if ((rc = ioctl(machine.kvm_fd, KVM_GET_API_VERSION, 0)) < 0) {
       err(1, "KVM: get API version failed");
@@ -522,13 +547,19 @@ void km_machine_init(km_machine_init_params_t* params)
       machine.guest_max_physmem = MIN(2 * GIB, machine.guest_max_physmem);
    }
    if (params->guest_physmem != 0) {
-      if (params->guest_physmem > machine.guest_max_physmem) {
+      if ((machine.vm_type == VM_TYPE_KKM) && (params->guest_physmem != GUEST_MAX_PHYSMEM_SUPPORTED)) {
          errx(1,
-              "Cannot set guest memory size to '0x%lx'. Max supported=0x%lx",
-              params->guest_physmem,
-              machine.guest_max_physmem);
+              "Only %ldGiB physical memory supported with KKM driver",
+              GUEST_MAX_PHYSMEM_SUPPORTED / GIB);
+      } else {
+         if (params->guest_physmem > machine.guest_max_physmem) {
+            errx(1,
+                 "Cannot set guest memory size to '0x%lx'. Max supported=0x%lx",
+                 params->guest_physmem,
+                 machine.guest_max_physmem);
+         }
+         machine.guest_max_physmem = params->guest_physmem;
       }
-      machine.guest_max_physmem = params->guest_physmem;
    }
    km_mem_init(params);
    km_signal_init();

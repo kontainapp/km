@@ -20,10 +20,10 @@
 
 #include "km_coredump.h"
 #include "km_gdb.h"
+#include "km_guest.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "x86_cpu.h"
-#include "km_guest.h"
 
 static char* str_intr[256] = {
     "Divide Error",
@@ -62,7 +62,7 @@ static inline void build_idt_entry(x86_idt_entry_t* idt, km_gva_t handler, int i
    idt->type = X86_DSCT_INTR_GATE;
 }
 
-void km_init_guest_idt(km_gva_t default_handler, km_gva_t handler_table_gva)
+void km_init_guest_idt(void)
 {
    km_gva_t gdt_base;
    km_gva_t idt_base;
@@ -94,17 +94,21 @@ void km_init_guest_idt(km_gva_t default_handler, km_gva_t handler_table_gva)
    }
    idte = (x86_idt_entry_t*)km_gva_to_kma_nocheck(idt_base);
 
+   /*
+    * normal kma to gva does not work here,
+    * code is in km code area
+    * take offset from begining of section and add to GUESTMEM base
+    */
    int handler_index = 0;
-   uint64_t* handler_table_kma = km_gva_to_kma(handler_table_gva);
    for (int i = 0; i < X86_IDT_NENTRY; i++) {
-      if (handler_table_kma != NULL && handler_table_kma[handler_index] != 0) {
-         build_idt_entry(&idte[i],
-                         km_guest_kma_to_gva(__km_interrupt_table[handler_index]),
-                         1);
+      uint8_t* handler_address = &__km_handle_interrupt;
+
+      if (__km_interrupt_table[handler_index] != NULL) {
+         // override when special handler exists
+         handler_address = __km_interrupt_table[handler_index];
          handler_index++;
-      } else {
-         build_idt_entry(&idte[i], default_handler, 1);
       }
+      build_idt_entry(&idte[i], km_guest_kma_to_gva(handler_address), 1);
    }
 
    machine.idt = idt_base;

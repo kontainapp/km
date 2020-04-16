@@ -15,6 +15,9 @@ load test_helper
 # not_needed_{generic,static,dynamic,shared} - skip since it's not needed
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
 not_needed_generic=""
+if [ $vmtype = 'kkm' ]; then
+   not_needed_generic="gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp"
+fi
 not_needed_static="gdb_sharedlib"
 # note: these are generally redundant as they are tested in 'static' pass
 not_needed_dynamic="setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many"
@@ -107,7 +110,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_line  "km: Guest memory bus width must be between 32 and 63 - got '31'"
 
    run km_with_timeout -P32 -- hello_test$ext
-   assert_success
+   check_optional_mem_size_failure
 
    run km_with_timeout -X # invalid option
    assert_failure
@@ -522,7 +525,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # TODO: instead of bus_width, we should look at pdpe1g - without 1g pages, we only support 2GB of memory anyways
    if [ $(bus_width) -gt 36 ] ; then
       run km_with_timeout -P 33 hello_test$ext
-      assert_success
+      check_optional_mem_size_failure
    fi
    run km_with_timeout -P `expr $(bus_width) + 1` hello_test$ext # Don't support guest bus larger the host bus
    assert_failure
@@ -535,7 +538,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 @test "brk_map_test($test_type): test brk and map w/physical memory override (brk_map_test$ext)" {
    if [ $(bus_width) -gt 36 ] ; then
       run km_with_timeout -P33 brk_map_test$ext -- 33
-      assert_success
+      check_optional_mem_size_failure
    fi
    # make sure we fail gracefully if there is no 1G pages supported. Also checks longopt
    run km_with_timeout --membus-width=33 --disable-1g-pages brk_map_test$ext -- 33
@@ -552,9 +555,11 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "cpuid($test_type): test cpu vendor id (cpuid_test$ext)" {
+   cpuidexpected='Kontain'
+   [[ -a /dev/kkm ]] && cpuidexpected='GenuineIntel'
    run km_with_timeout cpuid_test$ext
    assert_success
-   assert_line --partial 'Kontain'
+   assert_line --partial $cpuidexpected
 }
 
 @test "longjmp_test($test_type): basic setjmp/longjump" {
