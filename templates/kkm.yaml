@@ -1,0 +1,13 @@
+# Contains steps to build kkm
+steps:
+  - bash: cd kkm/kkm; make
+    displayName: build kkm
+
+  - bash: sudo insmod kkm/kkm/kkm.ko
+    displayName: install kkm
+
+  - bash: cd kkm/test_kkm; make
+    displayName: build test kkm
+
+  - bash: sudo ./kkm/test_kkm/test_kkm
+    displayName: test kkm

@@ -1,0 +1,47 @@
+name: ci-$(BuildID) $(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+      - master
+      - kkm/ci/* # Force CI run. For example, kkm/ci/some-changes
+  paths:
+    exclude:
+      - README.md
+      - compile_commands.json
+      - .vscode/*
+      - docs/*
+      - demo/nokia/*
+
+pr:
+  branches:
+    include:
+      - master
+  paths:
+    exclude:
+      - README.md
+      - compile_commands.json
+      - .vscode/*
+      - docs/*
+      - demo/nokia/*
+
+jobs:
+  - job: kkm_ci
+    variables:
+      vmImage: "ubuntu-18.04"
+
+    # Default job has a 60 minutes timeout. Sets this to 0 to use the max
+    # 360 minutes timeout.
+    timeoutInMinutes: 0
+    pool:
+      vmImage: $(vmImage)
+    steps:
+      - template: templates/setup.yaml
+
+      - template: templates/kkm.yaml
+
+      - bash: |
+          set -ex
+          az logout
+        condition: always()
+        displayName: Cleanup and logout
