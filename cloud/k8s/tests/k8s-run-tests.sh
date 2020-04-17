@@ -22,7 +22,7 @@ readonly TEST_COMMAND=$4
 # Using a /tmp directory so we can have a fresh record for every run.
 readonly RUNTIME_DIR=$(mktemp -d)
 readonly TEST_POD_TEMPLATE_NAME="test-pod-template.yaml"
-readonly POD_WAIT_TIMEOUT=${K8S_POD_WAIT_TIMEOUT:-2m}
+readonly POD_WAIT_TIMEOUT=${K8S_POD_WAIT_TIMEOUT:-5m}
 
 if [[ -z ${PIPELINE_WORKSPACE} ]]; then
     readonly GREEN=\\e[32m
