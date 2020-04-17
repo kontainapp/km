@@ -59,18 +59,6 @@ jobs:
 
       - template: templates/ci_normal.yaml
 
-      - bash: echo TODO push-runenv-image and test in kubernetes... see make validate-runenv-image
-        displayName: Python.km runenv test (TODO)
-        timeoutInMinutes: 2
-
-      - bash: echo TODO push-runenv-image and test in kubernetes... see make validate-runenv-image
-        displayName: Node.km runenv test (TODO)
-        timeoutInMinutes: 2
-
-      - bash: echo TODO push-runenv-image and test in kubernetes... see make validate-runenv-image
-        displayName: Java.kmd runenv test (TODO)
-        timeoutInMinutes: 2
-
       - bash: |
           [ "$TRACE" ] && set -x
           # TODO - if the **test** failed (especially with kmcore), we want to keep these pods for a few days
