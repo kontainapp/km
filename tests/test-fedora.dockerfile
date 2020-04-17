@@ -9,24 +9,22 @@
 #   Kontain Inc.
 #
 # Dockerfile for tests.
-# Usage will be 'docker run -it --rm --env BRANCH=$(git rev-parse --abbrev-ref HEAD) --device=/dev/kvm --user 0 test-km-fedora km_cdocker run <container> make TARGET=<target> - see ../../Makefile
-#
+
 ARG DTYPE=fedora
 ARG BUILDENV_IMAGE_VERSION=latest
 FROM kontain/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
 
 ARG branch
-
-ENV TIME_INFO /tests/time_info.txt
-ENV KM_BIN /tests/km
-ENV KM_LDSO /tests/libc.so
-ENV KM_LDSO /opt/kontain/runtime/libc.so
-ENV KM_LDSO_PATH /opt/kontain/lib64:/lib64
 ENV BRANCH=${branch}
 
-COPY --chown=appuser:appuser . /tests
-COPY libc.so $PREFIX/runtime
-RUN chmod 777 /tests
+COPY libc.so /opt/kontain/runtime
 
-WORKDIR /tests
-ENV PATH=/tests/bats/bin:.:$PATH
+ENV KM_TOP=/home/appuser/km
+ENV KM_TEST_TOP=${KM_TOP}/tests
+RUN mkdir -p ${KM_TOP}
+RUN chown appuser ${KM_TOP}
+COPY --chown=appuser:appuser . ${KM_TEST_TOP}
+WORKDIR /home/appuser/km/tests
+
+ENV PATH=${KM_TEST_TOP}}/bats/bin:.:$PATH
+ENV TIME_INFO ${KM_TEST_TOP}}/time_info.txt

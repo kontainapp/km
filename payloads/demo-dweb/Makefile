@@ -10,9 +10,6 @@
 #
 # Makefile for building and packing dweb-demo
 
-# To avoid default shell configs on systems like Ubuntu. All of our shell scripts assume bash.
-SHELL=/bin/bash
-
 TOP := $(shell git rev-parse --show-toplevel)
 COMPONENT := dweb
 

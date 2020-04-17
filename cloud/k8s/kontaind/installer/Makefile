@@ -10,7 +10,6 @@
 # 
 # The image will be used to install kontain artifacts on each node.
 
-SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-toplevel)
 CURRENT := ${TOP}/cloud/k8s/kontaind/installer
 

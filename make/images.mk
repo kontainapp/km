@@ -58,16 +58,24 @@ TESTENV_PATH ?= .
 RUNENV_PATH ?= ${BLDDIR}
 RUNENV_DEMO_PATH ?= .
 
+check_files = $(foreach f,${1}, [[ -f $f ]];)
+copy_files = $(foreach f,${1}, cp $f ${2};)
+rm_files = $(foreach f,${1}, rm $f;)
+define clean_container_image 
+	@-docker rmi -f ${1} 2>/dev/null
+endef
+
 TESTENV_EXTRA_FILES ?= ${KM_BIN} ${KM_LDSO}
 testenv-image: ## build test image with test tools and code
-	@# Copy KM there. TODO - remove when we support pre-installed KM
-	$(foreach f,${TESTENV_EXTRA_FILES}, cp $f ${TESTENV_PATH};)
+	$(call clean_container_image,${TEST_IMG}:${IMAGE_VERSION})
+	$(call check_files,${TESTENV_EXTRA_FILES})
+	$(call copy_files,${TESTENV_EXTRA_FILES},${TESTENV_PATH})
 	${DOCKER_BUILD} --no-cache \
 			--build-arg branch=${SRC_SHA} \
 			--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
 			-t ${TEST_IMG}:${IMAGE_VERSION} \
 			${TESTENV_PATH} -f ${TEST_DOCKERFILE}
-	$(foreach f,${TESTENV_EXTRA_FILES},rm ${TESTENV_PATH}/$(notdir $f);)
+	$(call rm_files,$(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}}))
 
 buildenv-image: ## make build image based on ${DTYPE}
 	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} ${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
@@ -118,7 +126,7 @@ ifeq (${NO_RUNENV}, false)
 
 runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
 	@$(TOP)/make/check-docker.sh
-	@-docker rmi -f ${RUNENV_IMG}:${IMAGE_VERSION} 2>/dev/null
+	$(call clean_container_image,${RUNENV_IMG}:${IMAGE_VERSION})
 ifdef runenv_prep
 	@echo -e "Executing prep steps"
 	eval $(runenv_prep)
@@ -156,7 +164,7 @@ publish: push-runenv-image
 
 demo-runenv-image: ${RUNENV_DEMO_DEPENDENCIES}
 ifeq ($(shell test -e ${DEMO_RUNENV_DOCKERFILE} && echo -n yes),yes)
-	@-docker rmi -f ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} 2>/dev/null
+	$(call clean_container_image,${RUNENV_DEMO_IMG}:${IMAGE_VERSION})
 	${DOCKER_BUILD} \
 		-t ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
 		--build-arg runenv_image_version=${IMAGE_VERSION} \

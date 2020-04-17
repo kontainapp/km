@@ -12,7 +12,6 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-SHELL :=/bin/bash
 PATH := $(realpath ${TOP}/tools):${PATH}
 
 # KM monitor path

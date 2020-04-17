@@ -50,7 +50,7 @@ RUNENV_DEMO_DEPENDENCIES := scripts/SimpleHttpServer.class
 
 all: ## Link java.kmd based on either full build or build artifats in docker image
 ifneq ($(FROMSRC),yes)
-	${DOCKER_RUN} -v ${TOP}:${TOP}:Z -w ${TOP} ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+	${DOCKER_RUN_BUILD} -v ${TOP}:${TOP}:Z -w ${TOP} ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
 		make -C payloads/java in-blank-container
 else
 	./link_km.sh ${JDK_BUILD_DIR}
@@ -72,7 +72,7 @@ ${JDK_VERSION}:
 	git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
 
 scripts/%.class: scripts/%.java
-	${DOCKER_RUN} \
+	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
 		-w ${CURRENT_DIR} \
 		${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \

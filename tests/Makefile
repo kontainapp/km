@@ -8,17 +8,18 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
-# Ubuntu default is dash. We invoke this by make -C tests ... in CI which is Ubuntu
-SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-toplevel)
 CURRENT_DIR := ${TOP}/tests
 COMPONENT := km
 
-NO_RUNENV = true
+NO_RUNENV := true
 include ${TOP}/make/images.mk
 
+# We use coverage version of km to test. 
+TESTENV_EXTRA_FILES := ${COVERAGE_KM_BIN} ${KM_LDSO}
+
 # this is how we run tests in containers:
-CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
+CONTAINER_TEST_CMD :=  ${DOCKER_KM_TOP}/tests/run_bats_tests.sh --km=${DOCKER_KM_TOP}/tests/km
 
 SRC = hello_test.c hello_html_test.c brk_test.c mmap_test.c gdb_test.c exit_value_test.c hcallargs_test.c \
 		load_test.c  hello_loop_test.c hello_2_loops_test.c memslot_test.c mutex_test.c futex_test.c \
@@ -144,6 +145,17 @@ covclean: ## Clean up code coverage build artifacts
 
 .cov_clean:
 	rm -rf ${BLDDIR}
+
+# Test coverage on a k8s cluster. Since coverage is only relevent to km, put it
+# here instead of image.mk
+K8S_TEST_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/k8s-run-coverage.sh
+K8S_TEST_COVERAGE_IMAGE := ${TEST_K8S_IMAGE} 
+K8S_TEST_COVERAGE_NAME := test-coverage-${PROCESSED_IMAGE_VERION}
+DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage.sh
+DOCKER_COVERAGE_CMD := ${DOCKER_COVERAGE_SCRIPT} ${DOCKER_KM_TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR}
+coverage-withk8s:
+	${K8S_TEST_COVERAGE_SCRIPT} ${K8S_TEST_COVERAGE_IMAGE} ${K8S_TEST_COVERAGE_NAME} "${CONTAINER_TEST_CMD}" ${COVERAGE_KM_BLDDIR}
+	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD} 
 
 # install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
 # TODO: maybe make it generic to scan folders

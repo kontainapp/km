@@ -10,7 +10,6 @@
 #
 # Makefile for building and packing Python payload runtime for KM
 
-SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-toplevel)
 VERS ?= v3.7.4
 
@@ -60,7 +59,7 @@ endef
 
 all:
 ifneq ($(FROMSRC),yes)
-	${DOCKER_RUN} -v ${TOP}:${TOP}:Z -w ${TOP} ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+	${DOCKER_RUN_BUILD} -v ${TOP}:${TOP}:Z -w ${TOP} ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
 			make -C payloads/python in-blank-container \
 				EXTRA_LINKFILES="${EXTRA_LINKFILES}"  CUSTOM_KM="${CUSTOM_KM}"
 else
@@ -119,7 +118,6 @@ test-modules: ## Basic test pass - rebuilds python, rebuilds and pushes all modu
 clean:
 	rm -rf $(PYTHONTOP)/*.km $(PYTHONTOP)/python $(foreach m,${ALL_MODULES},$(PYTHONTOP)/Modules/$m)
 	rm -rf $(RUNENV_PATH)
-	images=`docker image ls -q  'kpython/*'` ; if [ -n "$$images" ] ; then docker rmi $$images ; fi
 	@echo -e "${GREEN}Note: use 'make clobber' to clean up cpython build.${NOCOLOR}"
 
 test test-all: ${PAYLOAD_KM} ${TEST_KM}

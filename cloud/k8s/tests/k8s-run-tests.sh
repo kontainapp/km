@@ -97,10 +97,11 @@ function prepare_template {
         ${CURRENT}/${TEST_POD_TEMPLATE_NAME} > ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME}
 }
 
-function cleanup {
+function cleanup_and_exit {
     local pod_name=$1
     local error=$2
 
+    kubectl logs pod/${pod_name}
     if [[ $error != 0 ]]; then
         kubectl describe pod ${pod_name}
         kubectl get pod/${pod_name} -o json
@@ -134,7 +135,7 @@ function main {
     local exit_code=$?
     if [[ $exit_code != 0 ]]; then
         echo "Failed to launch test pod: ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME}"
-        cleanup $pod_name $exit_code
+        cleanup_and_exit $pod_name $exit_code
     fi
 
     kubectl exec ${pod_name} -- bash -c "${TEST_COMMAND}"
@@ -142,7 +143,7 @@ function main {
     if [[ $exit_code != 0 ]]; then
         echo "Failed to run command: ${TEST_COMMAND}"
     fi
-    cleanup $pod_name $exit_code
+    cleanup_and_exit $pod_name $exit_code
 }
 
 main

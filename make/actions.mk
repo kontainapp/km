@@ -22,7 +22,6 @@
 # - INCLUDES: directories to search for include files
 # - LLIBS: to link with -l ${LLIBS}
 #
-SHELL=/bin/bash
 
 # all locations/file names
 include ${TOP}/make/locations.mk
@@ -177,9 +176,9 @@ withdocker: ## Build using Docker container for build environment. 'make withdoc
 	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${BUILDENV_IMG} ; then \
 		echo -e "$(CYAN)${BUILDENV_IMG} is missing locally, will try to pull from registry. Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
 ifneq ($(__testing),)  # only add --device=/dev/kvm is we are testing
-	${DOCKER_RUN_TEST} -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(BUILDENV_IMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+	${DOCKER_RUN_TEST} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP}/${FROMTOP} $(BUILDENV_IMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 else
-	${DOCKER_RUN} -v $(realpath ${TOP}):/src:Z -w /src/${FROMTOP} $(BUILDENV_IMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP}/${FROMTOP} $(BUILDENV_IMG) $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 endif
 
 .PHONY: all clean test help withdocker
