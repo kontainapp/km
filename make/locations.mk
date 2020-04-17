@@ -61,6 +61,8 @@ BUILDENV_IMG  ?= kontain/buildenv-${COMPONENT}-${DTYPE}
 CURRENT_UID := $(shell id -u)
 CURRENT_GID := $(shell id -g)
 
+HYPERVISOR_DEVICE ?= /dev/kvm
+
 DOCKER_BUILD_LABEL := \
 	--label "Vendor=Kontain.app" \
 	--label "Version=0.1" \
@@ -72,8 +74,9 @@ DOCKER_BUILD := docker build ${DOCKER_BUILD_LABEL}
 
 # Use DOCKER_RUN_CLEANUP="" if container is needed after a run
 DOCKER_RUN_CLEANUP ?= --rm
-DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP} -t -u${CURRENT_UID}:${CURRENT_GID}
-DOCKER_RUN_TEST := ${DOCKER_RUN} -i --device=/dev/kvm
+DOCKER_INTERACTIVE ?= -it
+DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP} -u${CURRENT_UID}:${CURRENT_GID}
+DOCKER_RUN_TEST := ${DOCKER_RUN} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE}
 
 # cloud-related stuff. By default set to Azure
 #
