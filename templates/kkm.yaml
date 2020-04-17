@@ -6,8 +6,11 @@ steps:
   - bash: sudo insmod kkm/kkm/kkm.ko
     displayName: install kkm
 
+  - bash: sudo chmod 666 /dev/kkm
+    displayName: fix kkm permission
+
   - bash: make -C kkm/test_kkm
     displayName: build test kkm
 
-  - bash: sudo ./kkm/test_kkm/test_kkm
+  - bash: ./kkm/test_kkm/test_kkm
     displayName: test kkm
