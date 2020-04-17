@@ -49,6 +49,12 @@ KM_LDSO := ${BLDTOP}/runtime/libc.so
 KM_LDSO_PATH := ${KM_OPT_RT}:${KM_OPT_ALPINELIB}/usr/lib
 
 
+# Build with code coverage if BLDTYPE set to this.
+COV_BLDTYPE := coverage
+
+COVERAGE_KM_BLDDIR := $(abspath ${BLDTOP}/km/${COV_BLDTYPE})
+COVERAGE_KM_BIN := ${COVERAGE_KM_BLDDIR}/km
+
 # dockerized build
 # TODO: Some of these values should be moved to images.mk , but we have multiple
 # dependencies on that , so keeping it here for now
@@ -60,11 +66,6 @@ USER  ?= appuser
 # needed in 'make withdocker' so duplicating it here, for now
 BUILDENV_IMG  ?= kontain/buildenv-${COMPONENT}-${DTYPE}
 
-CURRENT_UID := $(shell id -u)
-CURRENT_GID := $(shell id -g)
-
-HYPERVISOR_DEVICE ?= /dev/kvm
-
 DOCKER_BUILD_LABEL := \
 	--label "Vendor=Kontain.app" \
 	--label "Version=0.8" \
@@ -74,11 +75,32 @@ DOCKER_BUILD_LABEL := \
 
 DOCKER_BUILD := docker build ${DOCKER_BUILD_LABEL}
 
+CURRENT_UID := $(shell id -u)
+CURRENT_GID := $(shell id -g)
+
+# Default hypervisor to kvm.
+HYPERVISOR_DEVICE ?= /dev/kvm
 # Use DOCKER_RUN_CLEANUP="" if container is needed after a run
 DOCKER_RUN_CLEANUP ?= --rm
+# When running tests in containers on CI, we can't use tty and interactive
 DOCKER_INTERACTIVE ?= -it
-DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP} -u${CURRENT_UID}:${CURRENT_GID}
+# When we need to write files to the volumes mapped in, we need to map the
+# current used into the container, since containers are using `appuser`, which
+# is different from user on the host.
+DOCKER_RUN_MAP_CURRENT_USER := -u${CURRENT_UID}:${CURRENT_GID}
+
+DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP}
+# DOCKER_RUN_BUILD are used for building and other operations that requires
+# output of files to volumes.
+DOCKER_RUN_BUILD := ${DOCKER_RUN} ${DOCKER_RUN_MAP_CURRENT_USER}
 DOCKER_RUN_TEST := ${DOCKER_RUN} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE}
+
+# Inside docker image (buildenv + testenv), appuser will be the user created
+# inside the container.
+DOCKER_HOME_PATH := /home/appuser
+DOCKER_KM_TOP := ${DOCKER_HOME_PATH}/km
+DOCKER_BLDTOP := ${DOCKER_KM_TOP}/build
+DOCKER_COVERAGE_KM_BLDDIR := ${DOCKER_BLDTOP}/km/coverage
 
 # cloud-related stuff. By default set to Azure
 #
@@ -94,10 +116,7 @@ endif
 
 # Use current branch as image version (tag) for docker images.
 IMAGE_VERSION ?= latest
-BUILDENV_IMAGE_VERSION ?= ${IMAGE_VERSION}
-
-# Build with code coverage if BLDTYPE set to this.
-COV_BLDTYPE := coverage
+BUILDENV_IMAGE_VERSION ?= latest
 
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
@@ -111,6 +130,10 @@ YELLOW := \033[33m
 CYAN := \033[36m
 NOCOLOR := \033[0m
 endif
+
+# All of our .sh script assumes bash. On system such as Ubuntu, the makefile
+# needs to explicitly points to bash.
+SHELL=/bin/bash
 
 # common targets. They won't interfere with default targets due to 'default:all' at the top
 

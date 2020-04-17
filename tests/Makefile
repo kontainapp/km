@@ -8,9 +8,6 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
-# Ubuntu default is "dash". We invoke this by make -C tests ... in CI which is Ubuntu
-SHELL=/bin/bash
-
 TOP := $(shell git rev-parse --show-toplevel)
 CURRENT_DIR := ${TOP}/tests
 COMPONENT := km
@@ -25,8 +22,29 @@ BUILDENV_PATH = ${BLDDIR}
 # So this include is stuck here in the middle of the file by design.
 include ${TOP}/make/images.mk
 
+# We use coverage version of km to test. 
+TESTENV_EXTRA_FILES := ${COVERAGE_KM_BIN} ${KM_LDSO}
+
+# We need to put both KM_BIN and COVERAGE_KM_BIN into the testenv. Since km
+# binaries have the same name, special care is required. As part of the copy,
+# we rename the coverage km into km.coverage, so we won't have issue with
+# copying both of them into the TESTENV_PATH. testenv.dockerfile will take care
+# of copying the km into the right place.
+override define testenv_prep =
+	cp ${KM_BIN} ${TESTENV_PATH}
+	cp ${KM_LDSO} ${TESTENV_PATH}
+	cp ${COVERAGE_KM_BIN} ${TESTENV_PATH}/km.coverage
+endef
+
+override define testenv_cleanup =
+	rm ./km
+	rm ./libc.so
+	rm km.coverage
+endef
+
 # this is how we run tests in containers:
-CONTAINER_TEST_CMD :=  run_bats_tests.sh --km=/tests/km
+CONTAINER_TEST_CMD :=  ${DOCKER_KM_TOP}/tests/run_bats_tests.sh --km=/opt/kontain/bin/km
+CONTAINER_COVERAGE_TEST_CMD :=  ${DOCKER_KM_TOP}/tests/run_bats_tests.sh --km=/opt/kontain/bin/coverage/km
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
 SRC_C := $(wildcard *_test.c)
@@ -156,6 +174,38 @@ covclean: ## Clean up code coverage build artifacts
 .cov_clean:
 	rm -rf ${BLDDIR}
 
+# Since coverage is only relevent to km, put it here instead of image.mk
+DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage.sh
+DOCKER_COVERAGE_CMD := ${DOCKER_COVERAGE_SCRIPT} ${DOCKER_KM_TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR}
+DOCKER_COVERAGE_NAME := kontain-coverage-test
+# Because coverage runs the test inside and generates .gcda files which needs
+# to be placed on the host to run analysis, we have to keep the container
+# running after the test is done. We can't map the volume into the test
+# container because the tests are run with the `appuser` user and the volume
+# will be owned by the host user. We can't map the current user into container,
+# because all the testfiles are owned by appuser. So the only solution is to let
+# the files be generated inside the container, and docker cp out onto the host.
+coverage-withdocker:
+	docker create --device=${HYPERVISOR_DEVICE} --name ${DOCKER_COVERAGE_NAME} ${TEST_IMG}:${IMAGE_VERSION} tail -f /dev/null
+	docker start ${DOCKER_COVERAGE_NAME}
+	docker exec ${DOCKER_COVERAGE_NAME} ${CONTAINER_COVERAGE_TEST_CMD} 
+	docker cp ${DOCKER_COVERAGE_NAME}:${DOCKER_KM_TOP}/build/km/coverage/. ${TOP}/build/km/coverage/.
+	docker rm --force ${DOCKER_COVERAGE_NAME}
+	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD} 
+
+K8S_TEST_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/k8s-run-coverage.sh
+K8S_TEST_COVERAGE_IMAGE := ${TEST_K8S_IMAGE} 
+K8S_TEST_COVERAGE_NAME := test-coverage-${PROCESSED_IMAGE_VERION}
+coverage-withk8s:
+	${K8S_TEST_COVERAGE_SCRIPT} ${K8S_TEST_COVERAGE_IMAGE} ${K8S_TEST_COVERAGE_NAME} "${CONTAINER_COVERAGE_TEST_CMD}" ${COVERAGE_KM_BLDDIR}
+	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD} 
+
+# install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
+# TODO: maybe make it generic to scan folders
+buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
+	@if ! docker image inspect ${BUILDENV_IMG} > /dev/null ; then \
+		echo -e "$(RED)${BUILDENV_IMG} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
+	sudo dnf install -y `docker history --format "{{ .CreatedBy }}" --no-trunc ${BUILDENV_IMG} | sed -rn '/dnf install/s/.*dnf install -y([^&]*)(.*)/\1/p'`
 # Install stuff needed for buil, based on docker image info.
 # Assume BUILDENV_IMG either built or pulled
 buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local build environment for KM

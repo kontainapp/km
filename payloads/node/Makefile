@@ -14,7 +14,6 @@ TOP := $(shell git rev-parse --show-toplevel)
 
 BUILD ?= Release
 VERS ?= v12.4.0
-SHELL=/bin/bash
 
 # Location of Node sources. When building in container, it is set in buildenv dockerfile.
 NODETOP ?= node
@@ -42,7 +41,11 @@ NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
 # regular local: just run docker
 all:
 ifneq ($(shell test -d node/.git && echo OK),OK)
-	${DOCKER_RUN} -v ${TOP}:/src:Z -v ${KM_OPT_RT}:${KM_OPT_RT}:Z  -w /src $(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
+	${DOCKER_RUN_BUILD} \
+		-v ${TOP}:/src:Z \
+		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z  \
+		-w /src \
+		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
 		/bin/bash -x -c "make -C payloads/node in-blank-container"
 else
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
@@ -69,7 +72,6 @@ clobber:
 
 clean:
 	rm -rf $(RUNENV_PATH)
-	images=`docker image ls -q  '${RUNENV_IMG}'` ; if [ -n "$$images" ] ; then docker rmi $$images ; fi
 	@echo "Note - 'clean' doesn't remove ./node artifacts. use 'clobber' to force remove build artifacts"
 
 test: ${PAYLOAD_KM} ${TEST_KM}

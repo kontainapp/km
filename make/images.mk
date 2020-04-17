@@ -58,16 +58,24 @@ TESTENV_PATH ?= .
 RUNENV_PATH ?= ${BLDDIR}
 RUNENV_DEMO_PATH ?= .
 
+clean_container_image = @-docker rmi -f ${1} 2>/dev/null
+
 TESTENV_EXTRA_FILES ?= ${KM_BIN} ${KM_LDSO}
+copy_files = $(foreach f,${1}, cp $f ${2};)
+rm_files = $(foreach f,${1}, rm $f;)
+testenv_prep = $(call copy_files,${TESTENV_EXTRA_FILES},${TESTENV_PATH})
+testenv_cleanup = $(call rm_files,$(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}}))
+
 testenv-image: ## build test image with test tools and code
-	@# Copy KM there. TODO - remove when we support pre-installed KM
-	$(foreach f,${TESTENV_EXTRA_FILES}, cp $f ${TESTENV_PATH};)
+	$(call clean_container_image,${TEST_IMG}:${IMAGE_VERSION})
+	$(call testenv_prep)
 	${DOCKER_BUILD} --no-cache \
 			--build-arg branch=${SRC_SHA} \
 			--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
 			-t ${TEST_IMG}:${IMAGE_VERSION} \
-			${TESTENV_PATH} -f ${TEST_DOCKERFILE}
-	$(foreach f,${TESTENV_EXTRA_FILES},rm ${TESTENV_PATH}/$(notdir $f);)
+			-f ${TEST_DOCKERFILE} \
+			${TESTENV_PATH} 
+	$(call testenv_cleanup)
 
 buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
 	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
@@ -120,7 +128,7 @@ ifeq (${NO_RUNENV}, false)
 
 runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
 	@$(TOP)/make/check-docker.sh
-	@-docker rmi -f ${RUNENV_IMG}:${IMAGE_VERSION} 2>/dev/null
+	$(call clean_container_image,${RUNENV_IMG}:${IMAGE_VERSION})
 ifdef runenv_prep
 	@echo -e "Executing prep steps"
 	eval $(runenv_prep)
@@ -158,7 +166,7 @@ publish: push-runenv-image
 
 demo-runenv-image: ${RUNENV_DEMO_DEPENDENCIES}
 ifeq ($(shell test -e ${DEMO_RUNENV_DOCKERFILE} && echo -n yes),yes)
-	@-docker rmi -f ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} 2>/dev/null
+	$(call clean_container_image,${RUNENV_DEMO_IMG}:${IMAGE_VERSION})
 	${DOCKER_BUILD} \
 		-t ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
 		--build-arg runenv_image_version=${IMAGE_VERSION} \
@@ -183,8 +191,10 @@ CONTAINER_TEST_CMD ?= \
 
 CONTAINER_TEST_ALL_CMD ?= ${CONTAINER_TEST_CMD}
 
+test_withdocker = ${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${1}
+
 test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
-	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_CMD}
+	$(call test_withdocker,${CONTAINER_TEST_CMD})
 
 test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_ALL_CMD}
