@@ -16,7 +16,7 @@ load test_helper
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
 not_needed_generic=""
 if [ $vmtype = 'kkm' ]; then
-   not_needed_generic="gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp"
+   not_needed_generic="gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp mem_test"
 fi
 not_needed_static="gdb_sharedlib"
 # note: these are generally redundant as they are tested in 'static' pass
