@@ -6,8 +6,22 @@ steps:
   - bash: sudo insmod kkm/kkm/kkm.ko
     displayName: install kkm
 
+  - bash: sudo chmod 666 /dev/kkm
+    displayName: fix kkm permission
+
   - bash: make -C kkm/test_kkm
     displayName: build test kkm
 
-  - bash: sudo ./kkm/test_kkm/test_kkm
+  - bash: ./kkm/test_kkm/test_kkm
     displayName: test kkm
+
+  - bash: |
+      set -e
+      [ "$TRACE" ] && set -x
+      make -C tests pull-buildenv-image
+      make -j withdocker
+      make -C tests testenv-image
+    displayName: KM build - set build environment, build, create test container
+
+  - bash: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+    displayName: Test with kkm
