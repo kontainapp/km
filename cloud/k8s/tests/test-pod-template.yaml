@@ -17,5 +17,5 @@ spec:
         limits:
           devices.kubevirt.io/kvm: "1"
           cpu: "1"
-      command: ["sh", "-c", "sleep infinity"]
+      command: ["sh", "-c", "tail -f /dev/null"]
   restartPolicy: Never
