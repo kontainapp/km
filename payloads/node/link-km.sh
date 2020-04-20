@@ -1,8 +1,7 @@
-#!/bin/bash
-
+#!/bin/bash -e
+#
 # Create node.km by linking the objects files from build artifacts located at $1 (like /home/appuser/node in a "blank")
 # and put the result into location at $2
-
 [ "$TRACE" ] && set -x
 
 if [[ $# -ne 0 ]] ; then NODE=$1 ; else exit 1 ; fi
@@ -35,7 +34,7 @@ link_node() {
       $NODE/obj.target/tools/icu/libicustubdata.a \
       $NODE/obj.target/tools/v8_gypfiles/libv8_snapshot.a \
       $NODE/obj.target/tools/v8_gypfiles/libgenerate_snapshot.a \
-   -Wl,--end-group
+   -Wl,--end-group -pthread
 }
 
 link_cctest() {
@@ -79,7 +78,7 @@ link_cctest() {
       $NODE/obj.target/tools/icu/libicustubdata.a \
       $NODE/obj.target/tools/v8_gypfiles/libv8_snapshot.a \
       $NODE/obj.target/tools/v8_gypfiles/libgenerate_snapshot.a \
-   -Wl,--end-group
+   -Wl,--end-group -pthread
 }
 
 link_node

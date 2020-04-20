@@ -69,12 +69,10 @@ testenv-image: ## build test image with test tools and code
 			${TESTENV_PATH} -f ${TEST_DOCKERFILE}
 	$(foreach f,${TESTENV_EXTRA_FILES},rm ${TESTENV_PATH}/$(notdir $f);)
 
-buildenv-image: ## make build image based on ${DTYPE}
-ifdef buildenv_prep
-	@echo -e "Executing $@ prep steps"
-	eval $(buildenv_prep)
-endif
-	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} ${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
+buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
+	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+		--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
+		${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 
 push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_test_image_version .push-image \
@@ -139,7 +137,7 @@ RUNENV_VALIDATE_EXPECTED ?= Hello
 # We use km from ${KM_BIN} here from the build tree instead of what's on the host under ${KM_OPT_BIN}.
 validate-runenv-image: $(RUNENV_VALIDATE_DEPENDENCIES) ## Validate runtime image
 	${DOCKER_RUN_TEST} \
-		-v ${KM_BIN}:${KM_OPT_BIN}:z \
+		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:z \
 		-v ${KM_OPT_RT}:${KM_OPT_RT}:z \
 		${SCRIPT_MOUNT} \
 		${RUNENV_IMG}:${IMAGE_VERSION} \

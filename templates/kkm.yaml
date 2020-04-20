@@ -18,7 +18,7 @@ steps:
   - bash: |
       set -e
       [ "$TRACE" ] && set -x
-      make -C tests pull-buildenv-image
+      make -C tests pull-buildenv-image .buildenv-local-lib
       make -j withdocker
       make -C tests testenv-image
     displayName: KM build - set build environment, build, create test container
