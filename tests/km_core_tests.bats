@@ -820,9 +820,12 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 # Test the sigsuspend() system call
 # And verify that signals sent to km are forwarded to the payload
 @test "sigsuspend($test_type): sigsuspend() and signal forwarding (sigsuspend_test$ext)" {
-   ./sigsuspend_test &
+   FLAGFILE=/tmp/sigsuspend_test.$$
+
+   rm -f $FLAGFILE
+   ./sigsuspend_test $FLAGFILE &
    pid=$!
-   while [ "`pidof sigsuspend_test`" != $pid ]
+   while [ ! -e $FLAGFILE ]
    do
       sleep .01
    done
@@ -832,10 +835,11 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    wait $pid
    linuxout=$output
 
-   $KM_BIN sigsuspend_test$ext &
-#   km_with_timeout sigsuspend_test$ext &
+   rm -f $FLAGFILE
+   $KM_BIN sigsuspend_test$ext $FLAGFILE &
+#   km_with_timeout sigsuspend_test$ext $FLAGFILE &
    pid=$!
-   while [ "`pidof km`" != $pid ]
+   while [ ! -e $FLAGFILE ]
    do
       sleep .01
    done
@@ -844,6 +848,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    kill -SIGUSR2 $pid
    wait $pid
    kmout=$output
+   rm -f $FLAGFILE
 
    diff <(echo -e "$linuxout")  <(echo -e "$kmout")
    assert_success

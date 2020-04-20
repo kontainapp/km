@@ -20,11 +20,14 @@
  */
 #include <stdio.h>
 #include <signal.h>
-#define SIGSET_INITIALIZER { 0 }
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/param.h>
 
 void sighandler_usr1(int signo)
 {
@@ -44,13 +47,23 @@ void sighandler_usr2(int signo, siginfo_t* sip, void* ucontext)
    assert(bytes == strlen(message));
 }
 
-int main(int argc, char *argvp[])
+int main(int argc, char *argv[])
 {
    sigset_t blocked;
    sigset_t blockusr2;
    struct sigaction sigaction_usr1;
    struct sigaction sigaction_usr2;
    int rc;
+   char* flagfile = NULL;
+   struct stat statb;
+
+   if (argc == 2) {
+      flagfile = argv[1];
+      if (stat(flagfile, &statb) == 0) {
+         fprintf(stderr, "%s exists, it shouldn't, remove before running this test\n", flagfile);
+         return 1;
+      }
+   }
 
    sigaction_usr1.sa_handler = sighandler_usr1;
    sigemptyset(&sigaction_usr1.sa_mask);
@@ -71,11 +84,31 @@ int main(int argc, char *argvp[])
    rc = sigprocmask(SIG_SETMASK, &blockusr2, NULL);
    assert(rc == 0);
 
+   /*
+    * This flag file is used to tell the test driver when it is almost
+    * safe to start sending signals to this program.  If you are running
+    * this test by hand you don't need to worry about this.  When being
+    * run under azure things can be so slow that the test script is ready
+    * before the this program is even spun off into the background.
+    */
+   if (flagfile != NULL) {
+      int ff_fd = open(flagfile, O_CREAT, 0777);
+      if (ff_fd < 0) {
+         fprintf(stderr, "Couldn't create %s, %s\n", flagfile, strerror(errno));
+         return 1;
+      }
+      close(ff_fd);
+   }
+
    sigemptyset(&blocked);
    sigaddset(&blocked, SIGUSR1);
    rc = sigsuspend(&blocked);
    printf("sigsuspend returned %d, errno %d\n", rc, errno);
    assert(rc < 0 && errno == EINTR);
+
+   if (flagfile != NULL) {
+      unlink(flagfile);
+   }
 
    return 0;
 }
