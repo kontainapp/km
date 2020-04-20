@@ -12,7 +12,8 @@
 # Basic build for kontain payloads
 
 # scan all these and  'make' stuff there
-SUBDIRS := python demo-dweb node java
+# demo-dweb is removed from SUBDIRS. TODO: get it back !
+SUBDIRS := python node java
 #  Note about ./busybox - we don't use busybox and there are build issues. Dropping for now.
 
 # Filter out 'make test' requests' to assure that 'make test' only builds/tests KM. If payload needs to be tested, uses 'make test-all'

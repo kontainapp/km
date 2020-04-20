@@ -13,6 +13,16 @@
 # To avoid default shell configs on systems like Ubuntu. All of our shell scripts assume bash.
 SHELL=/bin/bash
 
+# ifeq ($(ImageOS),ubuntu18)
+
+# On Ubuntu18, ld refuses to deal with alpine:3.11.5  crt1.o with error
+# '/usr/bin/ld: /opt/kontain/alpine-lib/usr/lib/crt1.o: unable to initialize decompress status for section .debug_info'
+# googling shows it's a result of binutils/elfutils version mismatch.
+# blocking dweb build on CI for now.
+# .DEFAULT:
+# 	@echo Building ${PAYLOAD_KM} on ${ImageOS} is not supported, ignoring target \'$@\'
+# else
+
 TOP := $(shell git rev-parse --show-toplevel)
 COMPONENT := dweb
 
@@ -50,7 +60,7 @@ dockerdemo: all distro ## Run Simple web server demo as Kontain VM payload in Do
 	$(info use "http://localhost:${PORT1}" to access the demo running as a Kontain VM packaged in Docker)
 	$(info DO NOT FORGET TO run make dockerclean)
 	${DOCKER_RUN_TEST} \
-	-v ${KM_BIN}:${KM_OPT_BIN} \
+	-v ${KM_OPT_BIN}:${KM_OPT_BIN} \
 	-p ${PORT1}:${PORT1} \
 	${RUNENV_IMG}:${IMAGE_VERSION} \
 	${PORT1}
@@ -70,3 +80,5 @@ RUNENV_VALIDATE_CMD := "-x"
 RUNENV_VALIDATE_EXPECTED := I am DWEB
 
 include ${TOP}/make/images.mk
+
+# endif

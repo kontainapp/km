@@ -109,6 +109,7 @@ To build with docker, make sure `docker` and  `make` are installed, and buildenv
 *Building with docker* will use a docker container with all necessary pre-requisites installed; will use local source tree exposed to Docker via a docker volume, and will place the results in the local *build* directory - so the end result is exactly the same as regular 'make', but it does not require pre-reqs installed on the local machine. One the the key use cases for build with docker is cloud-based CI/CD pipeline.
 
 ```sh
+ make -C tests .buildenv-local-lib # one time to prep host machine (see tests/readme.md)
  make withdocker
  make withdocker TARGET=test
 ```
@@ -170,7 +171,7 @@ installed on the host and mounted into the container when running. Here is
 how to build and validated runenv image for KM payloads:
 
 ```sh
-make -C payloads runenv-image 
+make -C payloads runenv-image
 make -C payloads validate-runenv-image
 ```
 
