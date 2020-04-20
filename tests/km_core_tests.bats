@@ -15,8 +15,9 @@ load test_helper
 # not_needed_{generic,static,dynamic,shared} - skip since it's not needed
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
 not_needed_generic=""
+# exclude more tests for Kontain Kernel Module
 if [ $vmtype = 'kkm' ]; then
-   not_needed_generic="gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp mem_test"
+   not_needed_generic="$not_needed_generic gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp mem_test"
 fi
 todo_generic="futex_example"
 
@@ -43,10 +44,14 @@ not_needed_so="linux_exec setup_load cli mem_brk mem_test  mmap_1 km_many hc_che
 # They can be invoked by either 'make test [MATCH=<filter>]' or ./run_bats_tests.sh [--match=filter]
 # <filter> is a regexp or substring matching test name
 
+@test "Hypervisor($test_type) Check access to /dev/$vmtype" {
+   assert [ -a /dev/$vmtype ]
+}
+
 @test "linux_exec($test_type) make sure *some* linux tests actually pass" {
    # Note: needed only once, expected to run only in static pass
    # TODO actual run. MANY TESTS FAILS - need to review. Putting in a scaffolding hack for now
-   for test in hello mmap_1 mem locale env misc mutex longjmp memslot mprotect; do
+   for test in hello mmap_1 mem env misc mutex longjmp memslot mprotect; do
       echo Running ${test}_test
       ./${test}_test
    done

@@ -142,13 +142,8 @@ bus_width() {
    echo $bw
 }
 
-vm_type() {
-   vmtype='kvm'
-   [[ -a /dev/kkm ]] && vmtype='kkm'
-   echo $vmtype
-}
-
-vm_type
+vmtype='kvm'
+if [ -a /dev/kkm ] ; then vmtype='kkm' ; fi
 
 check_optional_mem_size_failure() {
    if [ $vmtype = 'kvm' ]; then

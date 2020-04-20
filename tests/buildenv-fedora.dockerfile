@@ -8,15 +8,34 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 #
-# Dockerfile for build image. There are three stages:
+# Dockerfile for buildenv image - these are tha base image for KM , tests and payload buildss
 #
-# buildenv-base - basic from OS image with the necessary packages installed
-# build-libstdcpp - clone gcc source, then build and install libstdc++
-# buildenv - based on buildenv-base and just copy the installed part from the previous
+# There are three stages:
+#
+# alpine-lib-image - build image with  alpine libs we need for runtime
+# buildenv - fedora + DNF packages we need, and alpine packages for runtime
 #
 # Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
 
-FROM fedora:31 AS buildenv-base
+# Form alpine-based container to extract alpine-libs from
+# This is a temp stage, so we don't care about layers count.
+FROM alpine:3.11.5 as alpine-lib-image
+ENV PREFIX=/opt/kontain
+
+RUN apk add bash make git g++ gcc musl-dev libffi-dev
+
+# Prepare $PREFIX/alpine-lib while trying to filter out irrelevant stuff
+RUN mkdir -p $PREFIX/alpine-lib
+RUN tar cf - -C /  lib usr/lib \
+   --exclude include\* --exclude finclude --exclude install\* \
+   --exclude plugin --exclude pkgconfig --exclude apk \
+   --exclude firmware --exclude mdev --exclude bash \
+   --exclude engines-\* | tar xf - -C $PREFIX/alpine-lib
+
+# Save the path to gcc versioned libs for the future
+RUN dirname $(gcc --print-file-name libgcc.a) > $PREFIX/alpine-lib/gcc-libs-path.txt
+
+FROM fedora:31 AS buildenv
 ARG USER=appuser
 # Dedicated arbitrary in-image uid/gid, mainly for file access
 ARG UID=1001
@@ -29,9 +48,9 @@ ENV USER=$USER
 ENV PREFIX=/opt/kontain
 WORKDIR /home/$USER
 
-# some of the packages needed only for payloads and /or faktory, but we land them here for convenience
+# Some of the packages needed only for payloads and /or faktory, but we land them here for convenience.
 # Also, this list is used on generating local build environment, so we explicitly add
-# some packages which are alwyas present on Fedora31 but may be missing on Fedora30 (e.g jinja2)
+# some packages which are alwyas present on Fedora31 but may be missing on Fedora30 (e.g python3-jinja2).
 RUN dnf install -y \
    gcc gcc-c++ make gdb git-core gcovr \
    time patch file findutils diffutils which procps-ng python2 \
@@ -40,16 +59,7 @@ RUN dnf install -y \
    zlib-static bzip2-static xz-static \
    openssl-devel openssl-static \
    expat-static jq googler python3-jinja2 \
-   && dnf upgrade -y && dnf clean all && rm -rf /var/cache/dnf
+   && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 
-FROM buildenv-base AS buildenv
-LABEL version="1.1" maintainer="Mark Sterin <msterin@kontain.app>"
-
-USER root
-# Prep both alpine-lib and kontain runtime dirs
-RUN for i in runtime alpine-lib ; do \
-   mkdir -p $PREFIX/$i && chgrp users $PREFIX/$i && chmod 777 $PREFIX/$i ; \
-   done
-
+COPY --from=alpine-lib-image $PREFIX $PREFIX/
 USER $USER
-COPY alpine-lib $PREFIX/

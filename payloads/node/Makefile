@@ -42,7 +42,8 @@ NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
 # regular local: just run docker
 all:
 ifneq ($(shell test -d node/.git && echo OK),OK)
-	${DOCKER_RUN} -w /src -v ${TOP}:/src:Z kontain/buildenv-node-fedora /bin/bash -x -c "make -C payloads/node in-blank-container"
+	${DOCKER_RUN} -v ${TOP}:/src:Z -v ${KM_OPT_RT}:${KM_OPT_RT}:Z  -w /src $(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
+		/bin/bash -x -c "make -C payloads/node in-blank-container"
 else
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 endif

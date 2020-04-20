@@ -15,15 +15,16 @@
 
 ARG MODE=Release
 ARG VERS=v12.4.0
+ARG BUILDENV_IMAGE_VERSION=latest
 
-FROM kontain/buildenv-km-fedora AS buildenv-node
+FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} AS buildenv-node
 ARG MODE
 ARG VERS
 
 RUN git clone https://github.com/nodejs/node.git -b $VERS
 RUN cd node && ./configure --gdb `[[ $MODE == Debug ]] && echo -n --debug` && make -j`expr 2 \* $(nproc)` && make jstest
 
-FROM kontain/buildenv-km-fedora
+FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION}
 ARG MODE
 ARG VERS
 ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node

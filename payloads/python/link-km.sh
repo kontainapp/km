@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/bash -e
 #
 # Links Python.km from python libs and km 'dlstatic' builditns mentioned in $target/linkline_km.txt
 #
-set -e
 [ "$TRACE" ] && set -x
+
 if [ "$1" == "--help" ] ; then
   cat << EOF
 Link cpython.km:

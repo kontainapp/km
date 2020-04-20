@@ -50,10 +50,10 @@ RUNENV_DEMO_DEPENDENCIES := scripts/SimpleHttpServer.class
 
 all: ## Link java.kmd based on either full build or build artifats in docker image
 ifneq ($(FROMSRC),yes)
-	${DOCKER_RUN} -v ${TOP}:${TOP}:Z -w ${TOP} ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+	${DOCKER_RUN} -v ${TOP}:${TOP}:Z -v ${KM_OPT_RT}:${KM_OPT_RT}:Z -w ${TOP} ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
 		make -C payloads/java in-blank-container
 else
-	./link_km.sh ${JDK_BUILD_DIR}
+	./link-km.sh ${JDK_BUILD_DIR}
 endif
 
 fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
@@ -66,7 +66,7 @@ fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
 		--with-jvm-variants=server --with-zlib=bundled --with-jtreg=$(realpath jtreg) \
 		--enable-jtreg-failure-handler
 	make -C ${JDK_VERSION} images
-	./link_km.sh ${JDK_BUILD_DIR}
+	./link-km.sh ${JDK_BUILD_DIR}
 
 ${JDK_VERSION}:
 	git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
@@ -81,7 +81,7 @@ scripts/%.class: scripts/%.java
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
 	mkdir -p ${JDK_BUILD_DIR}
 	tar -C /home/appuser/java -cf - . | tar -C ${JDK_BUILD_DIR} -xf -
-	./link_km.sh ${JDK_BUILD_DIR}
+	./link-km.sh ${JDK_BUILD_DIR}
 
 .PHONY: .check
 .check: # a helper to check for needed packages
