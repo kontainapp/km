@@ -16,17 +16,13 @@ CURRENT_DIR := ${TOP}/tests
 COMPONENT := km
 
 NO_RUNENV = true
-# Building image here so we can pick up alpine libs via prep_alpine_libs.sh during 'buidenv_prep'
-BUILDENV_PATH = ${KM_OPT}
+# Build somewhere with very few files to avoid sending them to dockerd
+BUILDENV_PATH = ${BLDDIR}
 
-# Prep alpine and kontain libs before docker build
-export define buildenv_prep
-	${CURRENT_DIR}/prep_alpine_libs.sh
-endef
-
-# unfortunately buildenv_prep a few vars have to be defined BEFORE this include, and much of the rest AFTER
-# this is due to 'ifdef` in the image.mk processed by Make on file read.
-# so it' stuck here in the middle of the file by design
+# Unfortunately a few vars have to be defined BEFORE this include, and much of 'coverage'
+# targets should be AFTER this include, due to 'ifdef`
+# in include file's ifdef() handled during file readby Make during file read.
+# So this include is stuck here in the middle of the file by design.
 include ${TOP}/make/images.mk
 
 # this is how we run tests in containers:
@@ -160,13 +156,28 @@ covclean: ## Clean up code coverage build artifacts
 .cov_clean:
 	rm -rf ${BLDDIR}
 
-# install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
-buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
-	@if ! docker image inspect ${BUILDENV_IMG} > /dev/null ; then \
-		echo -e "$(RED)${BUILDENV_IMG} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
-	sudo dnf install -y `docker history --format "{{ .CreatedBy }}" --no-trunc ${BUILDENV_IMG} | sed -rn '/dnf install/s/.*dnf install -y([^&]*)(.*)/\1/p'`
-	docker create --name tmp_env $(BUILDENV_IMG)
+# Install stuff needed for buil, based on docker image info.
+# Assume BUILDENV_IMG either built or pulled
+buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local build environment for KM
+
+# Get a list of DNF packages from buildenv-image and install it on the host
+.buildenv-local-dnf: .buildenv-local-check-image
+	sudo dnf install -y `docker history --format "{{ .CreatedBy }}" --no-trunc ${BUILDENV_IMG}:$(BUILDENV_IMAGE_VERSION) | sed -rn '/dnf install/s/.*dnf install -y([^&]*)(.*)/\1/p'`
+
+# Fetches alpine libs, and preps writeable 'runtime' dir.
+# It'd a prerequisite for all further builds and needs to be called right after building
+ #or pull the buildenv-image.Call it via 'make buildenv-local-fedora' or 'make .buildenv-local-lib'
+# so that libs are on the host and can be copied to runenv-image and testenv-image
+.buildenv-local-lib: ${KM_OPT_RT} .buildenv-local-check-image
+	docker create --name tmp_env $(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION)
 	sudo docker cp tmp_env:/opt/kontain /opt
 	docker rm tmp_env
+
+.buildenv-local-check-image:
+	@if ! docker image inspect ${BUILDENV_IMG}:$(BUILDENV_IMAGE_VERSION) > /dev/null ; then \
+		echo -e "$(RED)${BUILDENV_IMG}:$(BUILDENV_IMAGE_VERSION) is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
+
+${KM_OPT_RT}: |
+	sudo sh -c "mkdir -p $@ && chgrp users $@ && chmod 777 $@"
 
 .PHONY: all clean test help gdb coverage covclean

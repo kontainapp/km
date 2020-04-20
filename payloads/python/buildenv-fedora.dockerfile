@@ -15,8 +15,9 @@
 
 ARG MODE=Release
 ARG VERS=v3.7.4
+ARG BUILDENV_IMAGE_VERSION=latest
 
-FROM kontain/buildenv-km-fedora AS buildenv-cpython
+FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} AS buildenv-cpython
 ARG VERS
 
 RUN git clone https://github.com/python/cpython.git -b $VERS
@@ -30,7 +31,7 @@ RUN ../extensions/prepare_extension.py bear.out --no_mung --log=quiet --skip ../
    tar cf - $files | (mkdir builtins; tar -C builtins -xf -)
 
 # Build the target image
-FROM kontain/buildenv-km-fedora
+FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION}
 ENV PYTHONTOP=/home/$USER/cpython
 #
 # The following copies two sets of artifacts - objects needed to build (link) python.km,

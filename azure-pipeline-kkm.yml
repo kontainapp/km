@@ -29,6 +29,8 @@ jobs:
   - job: kkm_ci
     variables:
       vmImage: "ubuntu-18.04"
+      buildenv_image_version: alpine_libs # use this for all buildenv containers
+      trace: true # uncomment to enable '-x' in all bash scripts
 
     # Default job has a 60 minutes timeout. Sets this to 0 to use the max
     # 360 minutes timeout.

@@ -12,10 +12,11 @@
 
 ARG MODE=Release
 ARG JDK_VERSION=jdk-11.0.6+10
+ARG BUILDENV_IMAGE_VERSION=latest
 
 # Intermediate image with Java source, where Java is built.
 # Thrown away after the the build results are taken from it
-FROM kontain/buildenv-km-fedora AS build-jdk
+FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} AS build-jdk
 ARG JDK_VERSION
 # ENV JDK_VERSION=$JDK_VERSION
 
@@ -42,7 +43,7 @@ RUN find ${BUILD} -name '*.so' | xargs strip
 RUN rm ${BUILD}/images/jdk/lib/src.zip
 
 # Build the target image
-FROM kontain/buildenv-km-fedora
+FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION}
 
 ARG BUILD=/home/$USER/jdk-11.0.6+10/build/linux-x86_64-normal-server-release/
 ENV JAVATOP=/home/$USER/java

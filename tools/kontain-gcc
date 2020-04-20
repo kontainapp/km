@@ -20,7 +20,7 @@
 # * A few extra warnings fr flags redundancy/overlaps
 #
 # TODO:
-# * need to add checks/warninga for conflicts around -pie/-nopie and other options we enforces
+# * need to add checks/warnings for conflicts around -pie/-nopie and other options we enforces
 
 [ "$TRACE" ] && set -x
 
@@ -99,10 +99,16 @@ fi
 RT=${PREFIX}/runtime
 LC=${PREFIX}/alpine-lib/usr/lib
 LL=${PREFIX}/alpine-lib/lib
-# NOTE:
-# * this depends on gcc version in alpine contaier (see tests/alpine-lib.dockerfile)
-# * this has to match with LIBGCC path in locations.mk
-LGCC=${PREFIX}/alpine-lib/usr/lib/gcc/x86_64-alpine-linux-musl/9.2.0
+
+# NOTE: libgcc location depends on gcc version in alpine container
+# We save it during docker build (see tests/alpine-lib.dockerfile) and extract
+# during 'make .buildenv-local-lib' (see tests/Makefile)
+gcc_path_file=$PREFIX/alpine-lib/gcc-libs-path.txt
+if [ ! -f $gcc_path_file ] ; then
+   echo "Error: $gcc_path_file is not found - check installation."
+   exit 1
+fi
+LGCC=${PREFIX}/$(cat $gcc_path_file)
 
 # For both static and dynamic buids, locations to scout for libs, and common flags
 ALPINE_PATH="-B${LL} -B${LC} -B${LGCC}"
