@@ -460,7 +460,7 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
       return;
    }
    if (act->handler == (km_gva_t)SIG_DFL) {
-      if (km_sigismember(&def_ign_signals, info->si_signo != 0)) {
+      if (km_sigismember(&def_ign_signals, info->si_signo) != 0) {
          return;
       }
 
