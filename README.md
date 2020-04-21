@@ -1,4 +1,6 @@
-[![Build Status for 'master'](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=4&branchName=master)
+[![Build Status for Normal CI](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=4&branchName=master)
+[![Build Status for Nightly CI](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km-nightly?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=5&branchName=master)
+[![Build Status for KKM CI](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km-kkm?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=7&branchName=master)
 # KM (Kontain Monitor) and related payloads for Kontain.app VMs
 
 All terminology and content is subject to change without notice.
