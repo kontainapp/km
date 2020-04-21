@@ -807,6 +807,9 @@ void* km_vcpu_run_main(km_vcpu_t* unused)
    km_install_sighandler(SIGUSR1, km_signal_passthru);
    km_install_sighandler(SIGUSR2, km_signal_passthru);
    km_install_sighandler(SIGWINCH, km_signal_passthru);
+   km_install_sighandler(SIGALRM, km_signal_passthru);
+   km_install_sighandler(SIGVTALRM, km_signal_passthru);
+   km_install_sighandler(SIGPROF, km_signal_passthru);
 
    while (eventfd_write(machine.intr_fd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
       ;   // ignore signals during the write

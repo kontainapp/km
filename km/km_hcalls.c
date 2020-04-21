@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -1317,6 +1317,42 @@ static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+/*
+ * int setitimer(int which, const struct itimerval *new_value,
+ *               struct itimerval *old_value);
+ */
+static km_hc_ret_t  setitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct itimerval* old = NULL;
+   struct itimerval* new = km_gva_to_kma(arg->arg2);
+   if (new == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (arg->arg3 != 0) {
+      if ((old = km_gva_to_kma(arg->arg3)) == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+   }
+   arg->hc_ret = setitimer(arg->arg1, new, old);
+   return HC_CONTINUE;
+}
+
+/*
+ * int getitimer(int which, struct itimerval *curr_value);
+ */
+static km_hc_ret_t  getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct itimerval* curr = km_gva_to_kma(arg->arg2);
+   if (curr == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = getitimer(arg->arg1, curr);
+   return HC_CONTINUE;
+}
+
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 km_hc_stats_t* km_hcalls_stats;
 
@@ -1464,6 +1500,9 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_times] = times_hcall;
 
    km_hcalls_table[SYS_uname] = uname_hcall;
+
+   km_hcalls_table[SYS_setitimer] = setitimer_hcall;
+   km_hcalls_table[SYS_getitimer] = getitimer_hcall;
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_unmapself] = unmapself_hcall;
