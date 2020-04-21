@@ -708,7 +708,8 @@ uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
       return -EBADF;
    }
    int host_newfd;
-   if ((host_newfd = guestfd_to_hostfd(newfd)) < 0) {
+   if ((host_newfd = guestfd_to_hostfd(newfd)) <= 2) {
+      // Target fd not open or is stdin, stdout, or stderr
       if ((host_newfd = open("/", O_RDONLY)) < 0) {
          return -errno;
       }
