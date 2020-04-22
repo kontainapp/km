@@ -134,6 +134,7 @@ typedef struct km_vcpu {
    uint8_t regs_valid;        // Are registers valid?
    uint8_t sregs_valid;       // Are segment registers valid?
    uint8_t on_sigaltstack;    //
+   uint8_t in_sigsuspend;     // if true thread is running in the sigsuspend() hypercall
                               //
    km_gva_t stack_top;        // also available in guest_thr
    km_gva_t guest_thr;        // guest pthread, FS reg in the guest
@@ -145,6 +146,9 @@ typedef struct km_vcpu {
    kvm_sregs_t sregs;         // Cached segment register values.
    km_sigset_t sigmask;       // blocked signals for thread
    km_signal_list_t sigpending;   // List of signals sent to thread
+   pthread_cond_t signal_wait_cv;    // wait for signals with this cv
+   km_sigset_t saved_sigmask;        // sigmask saved by sigsuspend()
+   TAILQ_ENTRY(km_vcpu) signal_link; // link for signal waiting queue
    /*
     * Linux/Pthread handshake hacks. These are actually part of the standard.
     */
@@ -376,7 +380,7 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
 void km_init_guest_idt(void);
 void km_handle_interrupt(km_vcpu_t* vcpu);
 
-#define KM_SIGVCPUSTOP SIGUSR1   //  After km start, used to signal VCP thread to force KVM exit
+static const int KM_SIGVCPUSTOP = (__SIGRTMAX-1);  // After km start, used to signal VCPU thread to force KVM exit
 
 /*
  * To check for success/failure from plain system calls and similar logic, returns -1 and sets
