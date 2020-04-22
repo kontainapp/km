@@ -214,6 +214,7 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
    vcpu->sigpending = (km_signal_list_t){.head = TAILQ_HEAD_INITIALIZER(vcpu->sigpending.head)};
    vcpu->thr_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    vcpu->thr_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
+   vcpu->signal_wait_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
    return 0;
 }
 
