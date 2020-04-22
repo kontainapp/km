@@ -25,7 +25,7 @@ not_needed_so="setup_load cli mem_brk gdb_sharedlib mmap_1 km_many"
 todo_generic="futex_example"
 todo_static=""
 todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
-todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach exception cpp_ctors dl_iterate_phdr monitor_maps gdb_protected_mem"
+todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach exception cpp_ctors dl_iterate_phdr monitor_maps gdb_protected_mem sigsuspend"
 
 
 # Now the actual tests.
@@ -212,7 +212,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
-   run gdb_with_timeout --ex="source gdb_simple_test.py" --ex="handle SIGUSR1 nostop"\
+   run gdb_with_timeout --ex="source gdb_simple_test.py" --ex="handle SIG63 nostop"\
        --ex="run-test" --ex="q" --args ${KM_BIN} mmap_test$ext -v
    assert [ $status -eq $expected_status ]
    assert_line --partial 'fail: 0'
@@ -222,7 +222,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    assert_line --partial 'fail: 0'
 
    # make sure there is a filename somwewhere in the maps
-   run gdb_with_timeout -ex="set pagination off" -ex="handle SIGUSR1 nostop"\
+   run gdb_with_timeout -ex="set pagination off" -ex="handle SIG63 nostop"\
       -ex="source gdb_simple_test.py" -ex="run-test"\
       -ex="q" --args ${KM_BIN} mmap_test$ext -v -t mmap_file_test_ex # KM test
    assert_line --partial 'fail: 0'
@@ -230,7 +230,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "mmap_1($test_type): mmap then smaller mprotect (mmap_1_test$ext)" {
-   run gdb_with_timeout --ex="set pagination off" --ex="handle SIGUSR1 nostop" \
+   run gdb_with_timeout --ex="set pagination off" --ex="handle SIG63 nostop" \
       --ex="source gdb_simple_test.py" --ex="run-test" --ex="q" --args ${KM_BIN} mmap_1_test$ext
    assert_line --partial 'fail: 0'
 }
@@ -751,7 +751,7 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 }
 
 @test "monitor_maps($test_type): munmap gdt and idt (munmap_monitor_maps_test$ext)" {
-   run gdb_with_timeout -ex="set pagination off" -ex="handle SIGUSR1 nostop"\
+   run gdb_with_timeout -ex="set pagination off" -ex="handle SIG63 nostop"\
       -ex="source gdb_simple_test.py" -ex="run-test" -ex="q" --args ${KM_BIN} munmap_monitor_maps_test$ext
    assert_success
    assert_line --partial "conflicts with monitor region 0x7fffffdfe000 size 0x2000"
@@ -809,5 +809,42 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
 
 @test "sigaltstack($test_type): sigaltstack syscall (sigaltstack_test$ext)" {
    run km_with_timeout sigaltstack_test$ext
+   assert_success
+}
+
+# Test the sigsuspend() system call
+# And verify that signals sent to km are forwarded to the payload
+@test "sigsuspend($test_type): sigsuspend() and signal forwarding (sigsuspend_test$ext)" {
+   FLAGFILE=/tmp/sigsuspend_test.$$
+
+   rm -f $FLAGFILE
+   ./sigsuspend_test $FLAGFILE &
+   pid=$!
+   while [ ! -e $FLAGFILE ]
+   do
+      sleep .01
+   done
+   kill -SIGUSR1 $pid
+   kill -SIGUSR1 $pid
+   kill -SIGUSR2 $pid
+   wait $pid
+   linuxout=$output
+
+   rm -f $FLAGFILE
+   $KM_BIN sigsuspend_test$ext $FLAGFILE &
+#   km_with_timeout sigsuspend_test$ext $FLAGFILE &
+   pid=$!
+   while [ ! -e $FLAGFILE ]
+   do
+      sleep .01
+   done
+   kill -SIGUSR1 $pid
+   kill -SIGUSR1 $pid
+   kill -SIGUSR2 $pid
+   wait $pid
+   kmout=$output
+   rm -f $FLAGFILE
+
+   diff <(echo -e "$linuxout")  <(echo -e "$kmout")
    assert_success
 }

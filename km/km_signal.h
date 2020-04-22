@@ -38,6 +38,8 @@ uint64_t km_rt_sigpending(km_vcpu_t* vcpu, km_sigset_t* set, size_t sigsetsize);
 extern void km_wait_for_signal(int sig);
 typedef void (*sa_action_t)(int, siginfo_t*, void*);
 extern void km_install_sighandler(int signum, sa_action_t hander_func);
+extern uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize);
+extern void km_signal_passthru(int signo, siginfo_t* sinfo, void * ucontext);
 
 static inline int km_sigindex(int signo)
 {
@@ -70,4 +72,20 @@ static inline int km_sigismember(const km_sigset_t* set, int signo)
    }
    return (*set & (1UL << km_sigindex(signo))) != 0;
 }
+
+/*
+ * Called to restore the thread's signal mask after sigsuspend() is done.
+ * Call this after the signal that woke up the sigsuspend() hypercall has
+ * been delivered.
+ * This is km_rt_sigsuspends()'s "destructor".
+ */
+static inline void km_rt_sigsuspend_revert(km_vcpu_t* vcpu)
+{
+   if (vcpu->in_sigsuspend != 0) {
+      km_infox(KM_TRACE_VCPU, "revert save_sigmask 0x%lx to sigmask 0x%lx", vcpu->saved_sigmask, vcpu->sigmask);
+      vcpu->sigmask = vcpu->saved_sigmask;
+      vcpu->in_sigsuspend = 0;
+   }
+}
+
 #endif /* __KM_SIGNAL_H__ */
