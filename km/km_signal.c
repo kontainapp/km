@@ -32,9 +32,8 @@
 #include "km_signal.h"
 
 /*
- * Threads that wait for a signal's arrive are enqueued on the
- * km_signal_wait_queue until the signal arrives.  Each vcpu
- * has its own condition variable that it waits on.
+ * Threads that wait for a signal's arrive are enqueued on the km_signal_wait_queue until the signal
+ * arrives.  Each vcpu has its own condition variable that it waits on.
  */
 pthread_mutex_t km_signal_wait_mutex = PTHREAD_MUTEX_INITIALIZER;
 TAILQ_HEAD(km_signal_wait_queue, km_vcpu);
@@ -340,8 +339,7 @@ static void km_suspend_for_payload_signal(km_vcpu_t* vcpu)
 {
    km_mutex_lock(&km_signal_wait_mutex);
    TAILQ_INSERT_TAIL(&km_signal_wait_queue, vcpu, signal_link);
-   int rc = pthread_cond_wait(&vcpu->signal_wait_cv, &km_signal_wait_mutex);
-   assert(rc == 0);
+   km_cond_wait(&vcpu->signal_wait_cv, &km_signal_wait_mutex);
    km_infox(KM_TRACE_VCPU, "done waiting for signal arrival");
    // The waker has removed us from the queue.
    km_mutex_unlock(&km_signal_wait_mutex);
@@ -349,11 +347,9 @@ static void km_suspend_for_payload_signal(km_vcpu_t* vcpu)
 }
 
 /*
- * Look for vcpu's blocked in sigsuspend() that are waiting for the passed
- * signal.  Enqueue the signal on the first found thread's pending queue
- * and wake all vcpu's waiting for the signal.
- * Returns the number of woken vcpu's
- * Do we wake a single thread or all suspended threads?
+ * Look for vcpu's blocked in sigsuspend() that are waiting for the passed signal. Enqueue the
+ * signal on the first found thread's pending queue and wake all vcpu's waiting for the signal.
+ * Returns the number of woken vcpu's. Do we wake a single thread or all suspended threads?
  */
 int km_wakeup_suspended_thread(siginfo_t* info)
 {
@@ -372,8 +368,7 @@ int km_wakeup_suspended_thread(siginfo_t* info)
             enqueue_signal(&vcpu->sigpending, info);
             signal_delivered = 1;
          }
-         int rc = pthread_cond_signal(&vcpu->signal_wait_cv);
-         assert(rc == 0);
+         km_cond_signal(&vcpu->signal_wait_cv);
          wake_count++;
       }
    }
@@ -730,13 +725,11 @@ uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize)
 }
 
 /*
- * This is the signal handler for some of the signals sent to km but really
- * are for the payload.
- * We then propagate these signals on to the vcpu threads.
- * We need to be careful to not take mutexes that could be held by the thread this
- * signal handler is running on.  The intent is that signal handler only run on
- * km's main thread which should only be running gdbstub.
- * So, we only take mutexes that the km main thread will not be holding.
+ * This is the signal handler for some of the signals sent to km but really are for the payload. We
+ * then propagate these signals on to the vcpu threads.
+ * We need to be careful to not take mutexes that could be held by the thread this signal handler is
+ * running on.  The intent is that signal handler only run on km's main thread which should only be
+ * running gdbstub. So, we only take mutexes that the km main thread will not be holding.
  */
 void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext)
 {

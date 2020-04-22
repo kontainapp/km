@@ -15,8 +15,7 @@
  * Block reception of SIGUSR1.
  * Sleeps waiting for SIGUSR2 with sigsuspend().
  * Test by sending SIGUSR1 and then SIGUSR2.
- * You should see the SIGUSR2 message on stdout first and then the
- * SIGUSR1 message.
+ * You should see the SIGUSR2 message on stdout first and then the SIGUSR1 message.
  */
 #include <stdio.h>
 #include <signal.h>
@@ -47,7 +46,7 @@ void sighandler_usr2(int signo, siginfo_t* sip, void* ucontext)
    assert(bytes == strlen(message));
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
    sigset_t blocked;
    sigset_t blockusr2;

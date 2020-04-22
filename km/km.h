@@ -380,7 +380,7 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
 void km_init_guest_idt(void);
 void km_handle_interrupt(km_vcpu_t* vcpu);
 
-#define KM_SIGVCPUSTOP (SIGRTMAX-1)   //  After km start, used to signal VCPU thread to force KVM exit
+static const int KM_SIGVCPUSTOP = (__SIGRTMAX-1);  // After km start, used to signal VCPU thread to force KVM exit
 
 /*
  * To check for success/failure from plain system calls and similar logic, returns -1 and sets
