@@ -25,3 +25,4 @@ steps:
 
   - bash: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
     displayName: Test with kkm
+    timeoutInMinutes: 15
