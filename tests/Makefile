@@ -166,7 +166,7 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 
 # Fetches alpine libs, and preps writeable 'runtime' dir.
 # It'd a prerequisite for all further builds and needs to be called right after building
- #or pull the buildenv-image.Call it via 'make buildenv-local-fedora' or 'make .buildenv-local-lib'
+# or pull the buildenv-image. Call it via 'make buildenv-local-fedora' or 'make .buildenv-local-lib'
 # so that libs are on the host and can be copied to runenv-image and testenv-image
 .buildenv-local-lib: ${KM_OPT_RT} .buildenv-local-check-image
 	docker create --name tmp_env $(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION)
