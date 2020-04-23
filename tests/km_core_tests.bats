@@ -848,3 +848,8 @@ todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_serv
    diff <(echo -e "$linuxout")  <(echo -e "$kmout")
    assert_success
 }
+
+@test "itimer($test_type): test setitimer() getitimer() hypercalls (itimer_test$ext)" {
+   run km_with_timeout itimer_test$ext
+   assert_success
+}
