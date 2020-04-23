@@ -9,9 +9,6 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * Test reaching out above brk to see if mprotect catches it
- * Also tests that mprotect/munmap/mmap combination sets proper mprotect-ed areas
- *
  * Note that mmap_test.c is the test coverign mmap() protection flag test, as well as basic
  * protection for munmapped areas, so here we mainly focus on madvise call
  */
