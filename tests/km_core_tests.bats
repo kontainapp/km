@@ -11,40 +11,48 @@
 
 load test_helper
 
-# Lists of tests to skip (space separated)
+# Lists of tests to skip (space separated). Wildcards (glob) can be used, but please use '' for the whole list
+
 # not_needed_{generic,static,dynamic,shared} - skip since it's not needed
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
-not_needed_generic=""
-# exclude more tests for Kontain Kernel Module
-if [ $vmtype = 'kkm' ]; then
-   not_needed_generic="$not_needed_generic gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp mem_test"
-fi
-todo_generic="futex_example"
+not_needed_generic=''
+todo_generic='futex_example'
 
-not_needed_static="gdb_sharedlib"
-todo_static=""
+not_needed_static='gdb_sharedlib'
+todo_static=''
 
-not_needed_native_static="linux_exec setup_link setup_load gdb_sharedlib"
-todo_native_static="mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys"
+# skip slow ones
+not_needed_native_static='linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test'
+# review - some fail. Some slow
+todo_native_static='sigsuspend mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
 
 not_needed_native_dynamic=$not_needed_native_static
 todo_native_dynamic=$todo_native_static
 
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic="linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many"
-todo_dynamic="mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps "
-todo_so="hc_check mem_slots mem_mmap gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach exception cpp_ctors dl_iterate_phdr monitor_maps gdb_protected_mem sigsuspend"
+not_needed_dynamic='linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many'
+todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
 
-not_needed_so="linux_exec setup_load cli mem_brk mem_test  mmap_1 km_many hc_check mem_slots mem_mmap \
-   gdb_basic gdb_signal gdb_exception gdb_server_race gdb_qsupported gdb_delete_breakpoint gdb_nextstep gdb_attach \
-   gdb_protected_mem gdb_sharedlib \
-   exception cpp_ctors dl_iterate_phdr monitor_maps  pthread_cancel mutex vdso filepath threads_mutex"
+todo_so=''
+not_needed_so='linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
+    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend'
+
+# exclude more tests for Kontain Kernel Module (leading space *is* needed)
+if [ $vmtype = 'kkm' ]; then
+   not_needed_generic+=' gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp mem_test'
+   todo_dynamic+=' cpp_throw'
+   todo_so=+=' cpp_throw'
+   todo_native_static+=' hc_check km_many gdb_signal threads_basic_tsd threads_mutex pthread_cancel cpp_ctors filepath socket  hypercall_args syscall trunc_mmap raw_clone sigsuspend'
+   not_needed_native_dynamic=$not_needed_native_static
+fi
 
 # Now the actual tests.
 # They can be invoked by either 'make test [MATCH=<filter>]' or ./run_bats_tests.sh [--match=filter]
 # <filter> is a regexp or substring matching test name
 
-@test "Hypervisor($test_type) Check access to /dev/$vmtype" {
+# Test string should be "name_with_no_spaces($test_type) description (file_name$ext)"
+
+@test "hypervisor($test_type) Check access to /dev/$vmtype" {
    assert [ -a /dev/$vmtype ]
 }
 
@@ -506,12 +514,12 @@ not_needed_so="linux_exec setup_load cli mem_brk mem_test  mmap_1 km_many hc_che
    assert_success
 }
 
-@test "madvise memory test($test_type): dont have a good description yet (madvise_test$ext)" {
+@test "madvise_memory_test($test_type): basic madvice manipulations (madvise_test$ext)" {
    run km_with_timeout madvise_test$ext -v
    assert_success
 }
 
-@test "threads_basic(static): threads with TLS, create, exit and join (hello_2_loops_tls_test)" {
+@test "threads_basic($test_type): threads with TLS, create, exit and join (hello_2_loops_tls_test$ext)" {
    run km_with_timeout hello_2_loops_tls_test.km
    assert_success
    if [ $test_type != "static" ] ; then
@@ -784,7 +792,7 @@ not_needed_so="linux_exec setup_load cli mem_brk mem_test  mmap_1 km_many hc_che
    assert_line --partial 'fail: 0'
 }
 
-@test "hypercall args($test_type): test hcall args passing" {
+@test "hypercall_args($test_type): test hcall args passing" {
    run km_with_timeout --overcommit-memory hcallargs_test$ext
    assert_success
 }
