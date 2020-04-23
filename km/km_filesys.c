@@ -43,8 +43,9 @@
 /*
  * Adds a host fd to the guest. Returns the guest fd number assigned.
  * Assigns lowest available guest fd, just like the kernel.
+ * TODO: Support open flags (O_CLOEXEC in particular)
  */
-static int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name)
+static int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags)
 {
    assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
    assert(start_guestfd >= 0 && start_guestfd < machine.filesys.nfdmap);
@@ -119,8 +120,9 @@ char* km_guestfd_name(km_vcpu_t* vcpu, int fd)
 
 /*
  * Replaces the mapping for a guest file descriptor. Used by dup2(2) and dup(3).
+ * TODO: Support open flags (O_CLOEXEC in particular)
  */
-static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd)
+static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd, int flags)
 {
    assert(guest_fd >= 0 && guest_fd < machine.filesys.nfdmap);
    assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
@@ -232,7 +234,7 @@ uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
    int guestfd = -1;
    int hostfd = __syscall_3(SYS_open, (uintptr_t)pathname, flags, mode);
    if (hostfd >= 0) {
-      guestfd = add_guest_fd(vcpu, hostfd, 0, pathname);
+      guestfd = add_guest_fd(vcpu, hostfd, 0, pathname, flags);
    } else {
       guestfd = hostfd;
    }
@@ -253,7 +255,7 @@ uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mod
 
    int hostfd = __syscall_4(SYS_openat, host_dirfd, (uintptr_t)pathname, flags, mode);
    if (hostfd >= 0) {
-      guestfd = add_guest_fd(vcpu, hostfd, 0, pathname);
+      guestfd = add_guest_fd(vcpu, hostfd, 0, pathname, flags);
    } else {
       guestfd = hostfd;
    }
@@ -283,14 +285,12 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
     */
    del_guest_fd(vcpu, fd, host_fd);
    int ret = 0;
-   // stdin, stdout, and stderr shared with KM so guest can't close them.
-   if (fd > 2) {
+   // KM guest can't close host's stdin, stdout, and stderr.
+   if (host_fd > 2) {
       ret = __syscall_1(SYS_close, host_fd);
-   } else {
-      warnx("guest closing fd=%d", fd);
-   }
-   if (ret != 0) {
-      warnx("close of guest fd %d (hostfd %d) returned an error: %d", fd, host_fd, ret);
+      if (ret != 0) {
+         warn("close of guest fd %d (hostfd %d) returned an error: %d", fd, host_fd, ret);
+      }
    }
    return ret;
 }
@@ -376,7 +376,7 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
    int ret = __syscall_3(SYS_fcntl, host_fd, cmd, farg);
    if (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) {
       if (ret >= 0) {
-         ret = add_guest_fd(vcpu, ret, arg, km_guestfd_name(vcpu, fd));
+         ret = add_guest_fd(vcpu, ret, arg, km_guestfd_name(vcpu, fd), (cmd == F_DUPFD) ? 0 : O_CLOEXEC);
       }
    }
    return ret;
@@ -692,31 +692,7 @@ uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
    assert(name != NULL);
    int ret = __syscall_1(SYS_dup, host_fd);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, name);
-   }
-   return ret;
-}
-
-// int dup2(int oldfd, int newfd);
-uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
-{
-   int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
-      return -EBADF;
-   }
-   if (newfd < 0 || newfd >= machine.filesys.nfdmap) {
-      return -EBADF;
-   }
-   int host_newfd;
-   if ((host_newfd = guestfd_to_hostfd(newfd)) <= 2) {
-      // Target fd not open or is stdin, stdout, or stderr
-      if ((host_newfd = open("/", O_RDONLY)) < 0) {
-         return -errno;
-      }
-   }
-   int ret = __syscall_2(SYS_dup2, host_fd, host_newfd);
-   if (ret >= 0) {
-      ret = replace_guest_fd(vcpu, newfd, ret);
+      ret = add_guest_fd(vcpu, ret, 0, name, 0);
    }
    return ret;
 }
@@ -724,21 +700,45 @@ uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
 // int dup3(int oldfd, int newfd, int flags);
 uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
 {
+   if (fd == newfd) {
+      return -EINVAL;
+   }
+   if ((flags & ~O_CLOEXEC) != 0) {
+      return -EINVAL;
+   }
+   if (newfd < 0 || newfd >= machine.filesys.nfdmap) {
+      return -EBADF;
+   }
+
    int host_fd;
    if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
       return -EBADF;
    }
-   int host_newfd;
-   if ((host_newfd = guestfd_to_hostfd(newfd)) < 0) {
-      if ((host_newfd = open("/", O_RDONLY)) < 0) {
-         return -errno;
+   int host_newfd = guestfd_to_hostfd(newfd);
+
+   char* name = km_guestfd_name(vcpu, fd);
+   assert(name != NULL);
+   int ret = __syscall_1(SYS_dup, host_fd);
+   if (ret >= 0) {
+      ret = replace_guest_fd(vcpu, newfd, ret, flags);
+      // leave host's std fd's open.
+      if (host_newfd > 2) {
+         int ret2 = __syscall_1(SYS_close, host_newfd);
+         if (ret2 < 0) {
+            warn("close host fd %d failed", host_newfd);
+         }
       }
    }
-   int ret = __syscall_3(SYS_dup3, host_fd, host_newfd, flags);
-   if (ret >= 0) {
-      ret = replace_guest_fd(vcpu, newfd, ret);
-   }
    return ret;
+}
+
+// int dup2(int oldfd, int newfd);
+uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
+{
+   if (fd == newfd) {
+      return fd;
+   }
+   return km_fs_dup3(vcpu, fd, newfd, 0);
 }
 
 // int pipe(int pipefd[2]);
@@ -746,8 +746,8 @@ uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2])
 {
    int ret = __syscall_1(SYS_pipe, (uintptr_t)pipefd);
    if (ret == 0) {
-      pipefd[0] = add_guest_fd(vcpu, pipefd[0], 0, "[pipe[0]]");
-      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0, "[pipe[1]]");
+      pipefd[0] = add_guest_fd(vcpu, pipefd[0], 0, "[pipe[0]]", 0);
+      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0, "[pipe[1]]", 0);
    }
    return ret;
 }
@@ -757,8 +757,8 @@ uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags)
 {
    int ret = __syscall_2(SYS_pipe2, (uintptr_t)pipefd, flags);
    if (ret == 0) {
-      pipefd[0] = add_guest_fd(vcpu, pipefd[0], 1, "[pipe2[0]]");
-      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0, "[pipe2[0]]");
+      pipefd[0] = add_guest_fd(vcpu, pipefd[0], 1, "[pipe2[0]]", 0);
+      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0, "[pipe2[0]]", 0);
    }
    return ret;
 }
@@ -768,7 +768,7 @@ uint64_t km_fs_eventfd2(km_vcpu_t* vcpu, int initval, int flags)
 {
    int ret = __syscall_2(SYS_eventfd2, initval, flags);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, "[eventfd2]");
+      ret = add_guest_fd(vcpu, ret, 0, "[eventfd2]", 0);
    }
    return ret;
 }
@@ -778,7 +778,7 @@ uint64_t km_fs_socket(km_vcpu_t* vcpu, int domain, int type, int protocol)
 {
    int ret = __syscall_3(SYS_socket, domain, type, protocol);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, "[socket]");
+      ret = add_guest_fd(vcpu, ret, 0, "[socket]", 0);
    }
    return ret;
 }
@@ -900,7 +900,7 @@ uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockle
    }
    int ret = __syscall_3(SYS_accept, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, "[accept]");
+      ret = add_guest_fd(vcpu, ret, 0, "[accept]", 0);
    }
    return ret;
 }
@@ -921,8 +921,8 @@ uint64_t km_fs_socketpair(km_vcpu_t* vcpu, int domain, int type, int protocol, i
 {
    int ret = __syscall_4(SYS_socketpair, domain, type, protocol, (uintptr_t)sv);
    if (ret == 0) {
-      sv[0] = add_guest_fd(vcpu, sv[0], 0, "[socketpair[0]]");
-      sv[1] = add_guest_fd(vcpu, sv[1], 0, "[socketpair[1]]");
+      sv[0] = add_guest_fd(vcpu, sv[0], 0, "[socketpair[0]]", 0);
+      sv[1] = add_guest_fd(vcpu, sv[1], 0, "[socketpair[1]]", 0);
    }
    return ret;
 }
@@ -937,7 +937,7 @@ km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* add
    }
    int ret = __syscall_4(SYS_accept4, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen, flags);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, "[accept4]");
+      ret = add_guest_fd(vcpu, ret, 0, "[accept4]", 0);
    }
    return ret;
 }
@@ -1057,7 +1057,7 @@ uint64_t km_fs_epoll_create1(km_vcpu_t* vcpu, int flags)
 {
    int ret = __syscall_1(SYS_epoll_create1, flags);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, "[epoll_create1]");
+      ret = add_guest_fd(vcpu, ret, 0, "[epoll_create1]", 0);
    }
    return ret;
 }

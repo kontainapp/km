@@ -275,6 +275,30 @@ TEST test_dup()
    rc = close(ret);
    ASSERT_EQ(0, rc);
 
+   /*
+    * Interestingly, this is a place where
+    * the musl implementation doesn't strictly
+    * match the man page. In particular, the
+    * man page says EINVAL is returned when
+    * "flags contain an invalid value". That's not
+    * actually what MUSL does. If O_CLOEXEC is
+    * not set, then MUSL unconditionally calls
+    * dup2, ignoring potential garbage in flags.
+    */
+   rc = dup3(fd5, fd2, 0xffff | O_CLOEXEC);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EINVAL, errno);
+
+   /*
+    * dup to self. dup2 and dup3 behave slightly differently.
+    */
+   rc = dup2(fd5, fd5);
+   ASSERT_EQ(fd5, rc);
+
+   rc = dup3(fd5, fd5, 0);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EINVAL, errno);
+
    rc = close(fd1);
    ASSERT_EQ(0, rc);
    rc = close(fd3);
