@@ -121,7 +121,7 @@ $(addprefix ${BLDDIR}/, libpthread.so): km_pthread_dummy.c
 # Libc.so target. Depends on libgcc.a, which should be of the correct (for other libs) version.
 # LIBGCC is something like "/opt/kontain/alpine-lib/usr/lib/gcc/x86_64-alpine-linux-musl/8.3.0/libgcc.a"
 # File with path to libgcc.a is generated during the buildenv container creation.
-# TODO: maybe just slap a symlink /opt/kontain/alpine-lib/usr/lib/gcc/x86_64-alpine-linux-musl/current ->8.3.0 ?
+# TODO: maybe just slap a symlink current ->8.3.0 instead of this .txt file ?
 LIBGCC = ${KM_OPT_ALPINELIB}$(shell cat ${KM_OPT}/alpine-lib/gcc-libs-path.txt)/libgcc.a
 $(addprefix ${BLDDIR}/, libc.so): ${SO_OBJS} ${DL_OBJS}
 	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} ${LIBGCC}

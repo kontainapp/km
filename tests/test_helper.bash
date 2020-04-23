@@ -181,10 +181,15 @@ EOF
 # These need to be defined in the actual test and contain lists of tests to skip.
 # See km*.bats for example.
 
-# Checks if word "$1" is in list "$2"
-# There HAS to be a space before and after each word in the list, so there is always leading and trailing space in the lists
+# Checks if word "$1" is in list "$2".
+# Elements of $2 could be wildcards, but list has to be in ''
 name_in_list() {
-   [ -z "${2##* $1 *}" ]
+   set -o noglob
+   for pattern in ${2} ; do
+      if [[ _xx$1 == _xx$pattern ]] ; then set +o noglob; return 0 ; fi
+   done
+   set +o noglob
+   return 1
 }
 
 # Skip test if it's on one of "skip" or "todo" lists
