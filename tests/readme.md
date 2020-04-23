@@ -1,6 +1,7 @@
 # Notes on build with alpine libs
 
 We extract all necessary libs to build complex runtime from alpine. We do that because they are pre-built for musl.
+
 We build stuff on fedora to avoid messing with nested containers inside of our buildenv containers.
 
 * For native alpine executables we just point gcc/g++ to libs fetched from Alpine.
@@ -15,7 +16,7 @@ We build alpine-based container with libs and extract libs. At a minimum we need
 * apk add make git gcc bash musl-dev g++
 * more for things like libffi-dev for python c interface
 
-`prep_alpine_libs.sh` does the job. It is called BEFORE building buildenv-image in ./tests, so the alpine libs can end up in the image
+It is built as a *docker build* stage before building buildenv-image in ./tests, so the alpine libs end up in the image.
 
 ## Set symlinks
 
@@ -30,7 +31,7 @@ We set a few symlinks to make gcc happy with all defaults
 
 it now has 2 phases:
 
-* build alpine image, extract libs to ./opt/kontain
+* build alpine image, extract libs to /opt/kontain
 * build fedora-based buidenv, add libs
 
 **WE USE FIXED LOCATION /opt/kontain with ./alpine-lib and ./runtime subdirs***, to simplify the whole story
@@ -60,11 +61,11 @@ kontain-gcc hello_test.o -o hello_test.km
 kontain-gcc -kontain -dynamic hello_test.o -o hello_test.kmd
 kontain-gcc hello_test.o -o hello_test.so
 # build alpine executables
-kontain-g++ -alpine var_storage_test.o  -o var_storage_test.native.km
+kontain-g++ -alpine var_storage_test.o -o var_storage_test.native.km
 kontain-gcc -dynamic -alpine hcallargs_test.o -o hcallargs_test.native.kmd libhelper.a
 
 # '-kv' prints some kontain flags and final gcc command
-kontain-g++ -kv -alpine var_storage_test.o  -o var_storage_test.native.km
+kontain-g++ -kv -alpine var_storage_test.o -o var_storage_test.native.km
 ```
 
 #### gcc '-pthread' weirdness
@@ -97,10 +98,12 @@ So while I don't like it, it seems the less painful and most reliable way of doi
 
 ### Practical results and things to know about /opt/kontain
 
-* /opt/kontain/alpine-lib/* `MUST BE present` for runtime builds. It is created during buildenv-image creation, kept  and kept there and extracted to host during buildev-local-fedora target. **DO NOT FORGET TO RUN make -C buildenv-local-fedora**.
+* /opt/kontain/alpine-lib/* `MUST BE present` for runtime builds. It is created during buildenv-image creation, kept and kept there and extracted to host during buildev-local-fedora target. **DO NOT FORGET TO RUN make -C tests buildenv-local-fedora AFTER building or pulling buildenv-km-fedora**.
+You can also run `make -C tests .buildenv-local-lib` if all DNF packages on your box are good or you plan to use only dockerized build. It will do the same as the above, minus dnf update.
+  * 'withdocker' needs writeable /opt/kontain/runtime to export results
+  * testenv and runenv (and CI) need so libs are available
 * `/opt/kontain/{runtime,km}` are created during ./runtime and ./km build correspondently, and saved on the host where build is running.
-  * To support that, `make withddocker` an
-  d make `test-withdocker` volume-mount the above folders
+  * To support that, `make withddocker` and make `test-withdocker` volume-mount the above folders
 * payload "blank" containers behave similarly - they have all payload-specific stuff, including alpine-libs - but no `runtime`. It is volume-mounted from the build host
 * `testenv` images are self contained, and have all libs (alpine-lib and runtime), as well as KM, inside the images
 * `runenv` images have what needs runs in VM (and only that), i.e. the actual payload and libs (alpine-lib and runtime). KM runs outside of the VM and is volume-mounted on 'docker run'
@@ -108,16 +111,13 @@ So while I don't like it, it seems the less painful and most reliable way of doi
 * On production Kubernetes, kontaind installation process lands bin/km on the box so runenv-image can run by having bin/km volume-mounted.
 * Dynamic executables in their ELF info have hardcoded interpreter and RPATH pointing to /opt/kontain.
 
-## TODO and Issues
-
 ### TODO
 
 NOW
 
 * recover buildenv-image tag in azure pipelines to latest (from alpine_libs)
-* fix and enable demo-dweb - Maybe just revert to Aline:3.10 or Alpine:3.8 ? Fails with a mix  between ubuntu gcc /ninutils/elfutils and latest alpine stuff
+* fix and enable demo-dweb - Maybe just revert to Aline:3.10 or Alpine:3.8 ? Fails with a mix between ubuntu gcc /ninutils/elfutils and latest alpine stuff
 * drop useless ls -L and trace in build.yaml and pipeline
-
 
 LATER
 
@@ -126,13 +126,5 @@ LATER
   * remove -v from testenv and runenv usage - and only mount BIN for testenv
 * review install of the above on kontaind/kuberneres as optimization (see kontaind/installer)
 * reconcile docker run option s to test/run/build env - we seem to be repeating them multple times
-
-### Issues
-
-* Buildenv image ALONE is not enough for dockerized builds to work.
-  * 'withdocker' need writeable /opt/kontain/runtime to export results
-  * testenv and runenv (and CI) need `make -C tests .buildenv-local-lib` so libs are available
-
-  Both issues are easy to cure, but for now they sty
 
 *** END OF DOCUMENT ***

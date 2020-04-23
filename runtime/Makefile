@@ -124,6 +124,7 @@ $(addprefix ${BLDDIR}/, libpthread.so): km_pthread_dummy.c
 # TODO: maybe just slap a symlink current ->8.3.0 instead of this .txt file ?
 LIBGCC = ${KM_OPT_ALPINELIB}$(shell cat ${KM_OPT}/alpine-lib/gcc-libs-path.txt)/libgcc.a
 $(addprefix ${BLDDIR}/, libc.so): ${SO_OBJS} ${DL_OBJS}
+	@if [ ! -f ${LIBGCC} ] ; then echo -e  "${RED}${LIBGCC} is not found. Check installation${NOCOLOR}"; false; fi
 	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} ${LIBGCC}
 
 ${DEPS}: | $(addprefix ${BLDDIR}/${SRCDIR}/include/, bits/alltypes.h bits/syscall.h version.h)

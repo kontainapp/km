@@ -101,8 +101,8 @@ LC=${PREFIX}/alpine-lib/usr/lib
 LL=${PREFIX}/alpine-lib/lib
 
 # NOTE: libgcc location depends on gcc version in alpine container
-# We save it during docker build (see tests/alpine-lib.dockerfile) and extract
-# during 'make .buildenv-local-lib' (see tests/Makefile)
+# We save it during docker build (see tests/buildenv-fedora.dockerfile)
+# and we use it during 'make .buildenv-local-lib'
 gcc_path_file=$PREFIX/alpine-lib/gcc-libs-path.txt
 if [ ! -f $gcc_path_file ] ; then
    echo "Error: $gcc_path_file is not found - check installation."
