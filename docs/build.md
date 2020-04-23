@@ -114,6 +114,12 @@ To build with docker, make sure `docker` and  `make` are installed, and buildenv
  make withdocker TARGET=test
 ```
 
+We use `make -C tests .buildenv-local-lib` even for dockerized builds because of the following:
+
+* We need a writable /opt/kontain/runtime on the host for dynlinker (libc.so). We generate this on runtime build, and then volume-mount and use it during the rest of the build.
+* Creating this dir needs `sudo`, so we piggyback on the target above to also create writable /opt/kontain/runtime/.
+* Instead of the above, you can simply do `make -C tests /opt/kontain/runtime` and get the box prepared for dockerized build
+
 ### Building directly on the box
 
 First, Install all dependencies using `make -C tests buildenv-local-fedora` make target (specific steps are above, and detailed  explanation of images is `in docs/image-targets.md`

@@ -8,14 +8,14 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 #
-# Dockerfile for buildenv image - these are tha base image for KM , tests and payload buildss
+# Dockerfile for buildenv image - these are thr base images for KM, tests and payload builds.
 #
 # There are three stages:
 #
-# alpine-lib-image - build image with  alpine libs we need for runtime
+# alpine-lib-image - build image with alpine libs we need for runtime
 # buildenv - fedora + DNF packages we need, and alpine packages for runtime
 #
-# Usage will be 'docker run <container> make TARGET=<target> - see ../../Makefile
+# Usage: 'docker run <container> make TARGET=<target>
 
 # Form alpine-based container to extract alpine-libs from
 # This is a temp stage, so we don't care about layers count.
@@ -26,7 +26,7 @@ RUN apk add bash make git g++ gcc musl-dev libffi-dev
 
 # Prepare $PREFIX/alpine-lib while trying to filter out irrelevant stuff
 RUN mkdir -p $PREFIX/alpine-lib
-RUN tar cf - -C /  lib usr/lib \
+RUN tar cf - -C / lib usr/lib \
    --exclude include\* --exclude finclude --exclude install\* \
    --exclude plugin --exclude pkgconfig --exclude apk \
    --exclude firmware --exclude mdev --exclude bash \
