@@ -285,6 +285,11 @@ TEST test_dup()
     * not set, then MUSL unconditionally calls
     * dup2, ignoring potential garbage in flags.
     */
+
+   rc = dup3(fd5, fd2, 0xffff);
+   ASSERT_NOT_EQ(-1, rc);
+   close(rc);
+
    rc = dup3(fd5, fd2, 0xffff | O_CLOEXEC);
    ASSERT_EQ(-1, rc);
    ASSERT_EQ(EINVAL, errno);
@@ -464,6 +469,19 @@ TEST test_proc_fd()
    PASS();
 }
 
+TEST test_close_stdio()
+{
+   struct stat st;
+   int rc = fstat(0, &st);
+   ASSERT_EQ(0, rc);
+   close(0);
+   rc = fstat(0, &st);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EBADF, errno);
+
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -485,6 +503,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_getrlimit_nofiles);
    RUN_TEST(test_bad_fd);
    RUN_TEST(test_proc_fd);
+   RUN_TEST(test_close_stdio);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)

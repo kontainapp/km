@@ -758,7 +758,7 @@ uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags)
    int ret = __syscall_2(SYS_pipe2, (uintptr_t)pipefd, flags);
    if (ret == 0) {
       pipefd[0] = add_guest_fd(vcpu, pipefd[0], 1, "[pipe2[0]]", 0);
-      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0, "[pipe2[0]]", 0);
+      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0, "[pipe2[1]]", 0);
    }
    return ret;
 }
