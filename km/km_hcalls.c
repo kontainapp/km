@@ -10,9 +10,11 @@
  * permission of Kontain Inc.
  */
 
+#define _GNU_SOURCE
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
@@ -32,6 +34,7 @@
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
+#include "km_exec.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -1286,30 +1289,121 @@ static km_hc_ret_t uname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static int do_exec(char* filename, char** argv, char** envp)
+{
+   // Add some km state to the environment.
+   char** newenv = km_exec_build_env(envp);
+   if (newenv == NULL) {
+      return -ENOMEM;
+   }
+   // Build argv line with km program and args before the payload's args.
+   char** newargv = km_exec_build_argv(filename, argv);
+   if (newargv == NULL) {
+      return -ENOMEM;
+   }
+
+   // Start km again with the new payload program
+   execve(newargv[0], newargv, newenv);
+   // If we are here, execve() failed.  So we need to cleanup.
+   free(newargv);
+   free(newenv);
+   return -errno;
+}
+
+/*
+ * int execve(const char *filename, char *const argv[], char *const envp[]);
+ */
 static km_hc_ret_t execve_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   warnx("%s(%s, %p, %p)",
-         __FUNCTION__,
-         (char*)km_gva_to_kma(arg->arg1),
-         km_gva_to_kma(arg->arg2),
-         km_gva_to_kma(arg->arg3));
-   uint64_t* ap = km_gva_to_kma(arg->arg2);
-   if (ap != 0) {
-      while (*ap != 0) {
-         warnx("arg: %s", (char*)km_gva_to_kma(*ap));
-         ap++;
-      }
+   char* filename = km_gva_to_kma(arg->arg1);
+   char** argv = km_gva_to_kma(arg->arg2);
+   char** envp = km_gva_to_kma(arg->arg3);
+
+   if (filename == NULL || argv == NULL || envp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
-   ap = km_gva_to_kma(arg->arg3);
-   if (ap != 0) {
-      while (*ap != 0) {
-         warnx("env: %s", (char*)km_gva_to_kma(*ap));
-         ap++;
-      }
+
+   arg->hc_ret = do_exec(filename, argv, envp);
+   return HC_CONTINUE;
+}
+
+static int execveat_openexe(int dirfd, char* pathname, int flag, int open_flag)
+{
+   int exefd;
+   if ((flag & AT_EMPTY_PATH) != 0) {
+      exefd = dirfd;
+   } else if (dirfd == AT_FDCWD || *pathname == '/') {
+      exefd = open(pathname, open_flag);
+   } else {
+      exefd = openat(dirfd, pathname, open_flag);
    }
-   arg->hc_ret = -ENOTSUP;
-   siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
-   km_post_signal(vcpu, &info);
+   if (exefd < 0) {
+      exefd = -errno;
+   }
+   return exefd;
+}
+
+static int execveat_fd2path(int exefd, char* linkbuf, size_t linkbuf_size)
+{
+   char procfdbuf[32];
+   snprintf(procfdbuf, sizeof(procfdbuf), "/proc/self/fd/%d", exefd);
+   ssize_t linkbytes = readlink(procfdbuf, linkbuf, linkbuf_size);
+   if (linkbytes < 0) {
+      return -errno;
+   }
+   linkbuf[linkbytes] = 0;
+   return 0;
+}
+
+/*
+ * int execveat(int dirfd, const char *pathname,
+ *              char *const argv[], char *const envp[],
+ *              int flags);
+ * flags can be AT_EMPTY_PATH and AT_SYMLINK_NOFOLLOW
+ */
+static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   int dirfd = AT_FDCWD;
+   char* pathname = NULL;
+   char** argv = km_gva_to_kma(arg->arg3);
+   char** envp = km_gva_to_kma(arg->arg4);
+   int open_flag = O_RDONLY | ((arg->arg5 & AT_SYMLINK_NOFOLLOW) != 0 ? O_NOFOLLOW : 0);
+
+   // Validate the arguments.
+   if (arg->arg1 != AT_FDCWD && (dirfd = guestfd_to_hostfd(arg->arg1)) < 0) {
+      arg->hc_ret = -EBADF;
+      return HC_CONTINUE;
+   }
+   if (arg->arg2 != 0 && (pathname = km_gva_to_kma(arg->arg2)) == NULL) {
+      arg->hc_ret = -EINVAL;
+      return HC_CONTINUE;
+   }
+   if (argv == NULL || envp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (dirfd == AT_FDCWD && ((arg->arg5 & AT_EMPTY_PATH) != 0 || pathname == NULL)) {
+      arg->hc_ret = -EINVAL;
+      return HC_CONTINUE;
+   }
+
+   // Resolve dirfd and pathname to an fd open on the km executable
+   int exefd;
+   if ((int64_t)(arg->hc_ret = exefd = execveat_openexe(dirfd, pathname, arg->arg5, open_flag)) < 0) {
+      return HC_CONTINUE;
+   }
+
+   // Get the filename for the open km payload executable.
+   char linkbuf[MAXPATHLEN];
+   if ((int64_t)(arg->hc_ret = execveat_fd2path(exefd, linkbuf, sizeof(linkbuf))) < 0) {
+      return HC_CONTINUE;
+   }
+   if (exefd != dirfd) {
+      close(exefd);
+   }
+
+   arg->hc_ret = do_exec(linkbuf, argv, envp);
    return HC_CONTINUE;
 }
 
@@ -1508,6 +1602,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_sysinfo] = sysinfo_hcall;
 
    km_hcalls_table[SYS_execve] = execve_hcall;
+   km_hcalls_table[SYS_execveat] = execveat_hcall;
    km_hcalls_table[SYS_fork] = fork_hcall;
    km_hcalls_table[SYS_times] = times_hcall;
 
