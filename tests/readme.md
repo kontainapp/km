@@ -115,9 +115,7 @@ You can also run `make -C tests .buildenv-local-lib` if all DNF packages on your
 
 NOW
 
-* recover buildenv-image tag in azure pipelines to latest (from alpine_libs)
 * fix and enable demo-dweb - Maybe just revert to Aline:3.10 or Alpine:3.8 ? Fails with a mix between ubuntu gcc /ninutils/elfutils and latest alpine stuff
-* drop useless ls -L and trace in build.yaml and pipeline
 
 LATER
 
@@ -125,6 +123,6 @@ LATER
   * try to put only NEEDED libraries
   * remove -v from testenv and runenv usage - and only mount BIN for testenv
 * review install of the above on kontaind/kuberneres as optimization (see kontaind/installer)
-* reconcile docker run option s to test/run/build env - we seem to be repeating them multple times
+* reconcile docker run option for test/run/build env - we seem to be repeating them multiple times
 
 *** END OF DOCUMENT ***
