@@ -17,7 +17,7 @@ jobs:
       VM_IMAGE: "ubuntu-18.04"
       CLUSTER_NAME: "aks-kontain-ci-nightly-$(Build.BuildId)"
       VM_SIZE: "Standard_D4_v3" # choose a vm size to avoid the vcpu quota on azure
-      buildenv_image_version: alpine_libs # use this for all buildenv containers
+      buildenv_image_version: latest # use this for all buildenv containers
       # BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers. TODO - rollback to latest when we all rebase
       IMAGE_VERSION: ci-nightly-$(Build.BuildId) # use this for all other containers
       K8S_TEST_ERR_NO_CLEANUP: true # OK to not clean up after error for nightly
