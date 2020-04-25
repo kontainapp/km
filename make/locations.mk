@@ -51,8 +51,7 @@ KM_LDSO_PATH := ${KM_OPT_RT}:${KM_OPT_ALPINELIB}/usr/lib
 
 # Build with code coverage if BLDTYPE set to this.
 COV_BLDTYPE := coverage
-
-COVERAGE_KM_BLDDIR := $(abspath ${BLDTOP}/km/${COV_BLDTYPE})
+COVERAGE_KM_BLDDIR := ${BLDTOP}/km/${COV_BLDTYPE}
 COVERAGE_KM_BIN := ${COVERAGE_KM_BLDDIR}/km
 
 # dockerized build

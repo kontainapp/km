@@ -61,10 +61,8 @@ RUNENV_DEMO_PATH ?= .
 clean_container_image = @-docker rmi -f ${1} 2>/dev/null
 
 TESTENV_EXTRA_FILES ?= ${KM_BIN} ${KM_LDSO}
-copy_files = $(foreach f,${1}, cp $f ${2};)
-rm_files = $(foreach f,${1}, rm $f;)
-testenv_prep = $(call copy_files,${TESTENV_EXTRA_FILES},${TESTENV_PATH})
-testenv_cleanup = $(call rm_files,$(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}}))
+testenv_prep = cp ${TESTENV_EXTRA_FILES} ${TESTENV_PATH}
+testenv_cleanup = rm $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}})
 
 testenv-image: ## build test image with test tools and code
 	$(call clean_container_image,${TEST_IMG}:${IMAGE_VERSION})
@@ -191,10 +189,8 @@ CONTAINER_TEST_CMD ?= \
 
 CONTAINER_TEST_ALL_CMD ?= ${CONTAINER_TEST_CMD}
 
-test_withdocker = ${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${1}
-
 test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
-	$(call test_withdocker,${CONTAINER_TEST_CMD})
+	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_CMD}
 
 test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_ALL_CMD}

@@ -34,13 +34,20 @@ usage: $PROGNAME <TEST_IMAGE> <TEST_NAME> <TEST_COMMAND> <HOST_COVERAGE_DEST>
 Program is a helper to run coverage tests on k8s cluster. Assume kubectl is
 already configured.
 EOF
+    exit 1
+}
+
+function check_variables {
+    if [[ -z $TEST_IMAGE ]]; then usage; fi
+    if [[ -z $TEST_NAME ]]; then usage; fi
+    if [[ -z $TEST_COMMAND ]]; then usage; fi
+    if [[ -z $HOST_COVERAGE_DEST ]]; then usage; fi
 }
 
 function check_bin {
     local bin_names=$@
 
-    for bin_name in $bin_names
-    do
+    for bin_name in $bin_names; do
         if [[ ! -x $(command -v ${bin_name}) ]]; then
             echo "Error: ${bin_name} is not installed"
             exit 1
@@ -72,6 +79,7 @@ function cleanup_and_exit {
 }
 
 function main {
+    check_variables
     check_bin kubectl m4
     prepare_template
 

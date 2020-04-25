@@ -20,7 +20,7 @@ steps:
       [ "$TRACE" ] && set -x
       make -C tests pull-buildenv-image .buildenv-local-lib
       make -j withdocker
-      TARGET=coverage make -C km -j withdocker 
+      make -C km -j withdocker TARGET=coverage 
       make -C tests testenv-image
     displayName: KM build - set build environment, build, create test container
 

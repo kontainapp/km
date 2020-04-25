@@ -111,7 +111,7 @@ To build with docker, make sure `docker` and  `make` are installed, and buildenv
 ```sh
  make -C tests .buildenv-local-lib # one time to prep host machine (see tests/readme.md)
  make withdocker
- TARGET=tes tmake withdocker
+ make withdocker TARGET=test
 ```
 
 We use `make -C tests .buildenv-local-lib` even for dockerized builds because of the following:
@@ -229,9 +229,8 @@ including FAQ (e.g how to run CI containers manually)
 
 ### Coverage
 
-To maintain the quality of code, we implemented code coverage for `km` only.
-First, we need to build a version of km with a few extra compile flags
-(`--coverage`).
+To maintain the quality of code, we implemented code coverage for `km`.
+First, we need to build a version of km with extra flag `--coverage`.
 ```
 make -C km coverage
 ```
@@ -239,7 +238,9 @@ The newly built km coverage binary will be locationed at
 `$TOP/build/km/coverage/km` along with the object files and `.gcno` filed
 used for testing coverage. With the compile flags, `km` now outputs extra
 files to track the coverage. We run the same tests using this binary to
-obtain the test coverage. To run tests for coverage analysis:
+obtain the test coverage. For extra details, see `gcov(1)` and `gcc(1)`.
+
+To run tests for coverage analysis:
 ```
 make -C tests coverage
 ```
@@ -254,7 +255,7 @@ is no easy way to change this path at runtime.
 We also have the option to run coverage tests inside the container. First, we
 need to build the km binary inside the container.
 ```
-TARGET=coverage make -C km withdocker
+make -C km withdocker TARGET=coverage
 ```
 The we can run the tests:
 ```
@@ -262,7 +263,7 @@ make -C tests coverage-withdocker
 ```
 Or we can run both steps together with:
 ```
-TARGET=coverage make withdocker
+make withdocker TARGET=coverage
 ```
 Note, because output of coverage files like `.gcda` files are configured at
 compile time, and because the filesystem structure inside the buildenv and on
@@ -273,14 +274,12 @@ path is hardcoded at compile time.
 
 #### Coverage with k8s
 
-To run coverage on k8s, we need to ship a testenv image to registry, so k8s
-cluster can pull the image. Testenv is designed to contain both versions of
-`km` binary. The regular `km` is located under `/opt/kontain/bin/km` and the
-coverage version `km` is located under `/opt/kontain/bin/coverage/km`.
-Testenv doesn't include any source files, by design, so the analysis of
-coverage using `gcov` needs to take place on the host, where it can have
-access to source code. Therefore, scripts will copy the `.gcda` files onto
-the host. To run:
+Testenv is designed to contain both versions of `km` binary. The regular `km`
+is located under `/opt/kontain/bin/km` and the coverage version `km` is
+located under `/opt/kontain/bin/coverage/km`. Testenv doesn't include any
+source files, by design, so the analysis of coverage using `gcov` needs to
+take place on the host, where it can have access to source code. Therefore,
+scripts will copy the `.gcda` files onto the host. To run:
 ```
 make -C tests coverage-withk8s
 ```
