@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <syscall.h>
+#include <sys/socket.h>
 #include "km_hcalls.h"
 
 int __dummy_stub(void)
@@ -83,4 +84,14 @@ const int gnu_dev_makedev(int x, int y)
 {
    return ((((x)&0xfffff000ULL) << 32) | (((x)&0x00000fffULL) << 8) | (((y)&0xffffff00ULL) << 12) |
            (((y)&0x000000ffULL)));
+}
+
+char** backtrace_symbols(void* const* buffer, int size)
+{
+   return NULL;
+}
+
+struct cmsghdr* __cmsg_nxthdr(struct msghdr* msgh, struct cmsghdr* cmsg)
+{
+   return CMSG_NXTHDR(msgh, cmsg);
 }

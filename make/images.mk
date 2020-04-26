@@ -63,8 +63,9 @@ testenv-image: ## build test image with test tools and code
 	@# Copy KM there. TODO - remove when we support pre-installed KM
 	$(foreach f,${TESTENV_EXTRA_FILES}, cp $f ${TESTENV_PATH};)
 	${DOCKER_BUILD} --no-cache \
-			--build-arg branch=${SRC_SHA} \
+			--build-arg=branch=${SRC_SHA} \
 			--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
+			--build-arg=MODE=${BUILD} \
 			-t ${TEST_IMG}:${IMAGE_VERSION} \
 			${TESTENV_PATH} -f ${TEST_DOCKERFILE}
 	$(foreach f,${TESTENV_EXTRA_FILES},rm ${TESTENV_PATH}/$(notdir $f);)
