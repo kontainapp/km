@@ -75,7 +75,7 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 
 fromsrc: ## Clean build cpython from source. Use 'make clobber' to prepare for this one
 	git clone https://github.com/python/cpython.git -b ${VERS}
-	cd cpython && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
+	cd cpython && ./configure && make -j`expr 2 \* $$(nproc)` | tee bear.out
 	cd cpython && patch -p1 < ../unittest.patch
 	eval $(prepare_builtins)
 	eval $(link_cpython_km)

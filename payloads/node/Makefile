@@ -60,7 +60,7 @@ in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke 
 
 fromsrc:
 	git clone https://github.com/nodejs/node.git -b ${VERS}
-	cd ${NODETOP} && ./configure --gdb `[[ $BUILD == Debug ]] && echo -n --debug` && make -j`expr 2 \* $(nproc)` && make jstest
+	cd ${NODETOP} && ./configure --gdb `[[ ${BUILD} == Debug ]] && echo -n --debug` && make -j`expr 2 \* $$(nproc)` && make jstest
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 
