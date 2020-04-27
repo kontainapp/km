@@ -320,4 +320,6 @@ typedef struct x86_interrupt_frame {
 #define MSR_IA32_STAR 0xc0000081
 #define MSR_IA32_LSTAR 0xc0000082
 #define MSR_IA32_FMASK 0xc0000084
+#define MSR_IA32_TSC 0x00000010
+
 #endif
