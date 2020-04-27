@@ -761,6 +761,12 @@ fi
 @test "filesys($test_type): guest file system operations (filesys_test$ext)" {
    run km_with_timeout filesys_test$ext -v
    assert_success
+
+   # stdout redirect test is part of stray_test
+   run km_with_timeout stray_test$ext redir_std
+   assert_success
+   refute_line --partial "From redir"
+   assert_output --partial "After restore"
 }
 
 @test "filepath($test_type): guest file path operations (filepathtest$ext)" {
