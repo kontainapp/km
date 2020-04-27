@@ -16,7 +16,7 @@ load test_helper
 # not_needed_{generic,static,dynamic,shared} - skip since it's not needed
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
 not_needed_generic=''
-todo_generic='futex_example'
+todo_generic='futex_example clock_gettime'
 
 not_needed_static='gdb_sharedlib'
 todo_static=''
@@ -954,3 +954,8 @@ fi
    assert_line --partial "env[0] = 'ONE=one'"
    assert_line --partial "env[3] = 'FOUR=four'"
 }
+@test "clock_gettime($test_type): VDSO clock_gettime, dependency on TSC (clock_gettime$ext)" {
+   run km_with_timeout clock_gettime_test$ext -v
+   assert_success
+}
+

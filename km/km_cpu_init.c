@@ -149,8 +149,8 @@ void km_machine_fini(void)
 
 static void km_init_syscall_handler(km_vcpu_t* vcpu)
 {
-   size_t allocsz = sizeof(struct kvm_msrs) + 3 * sizeof(struct kvm_msr_entry);
-   struct kvm_msrs* msrs = calloc(allocsz, 1);
+   char tmp[sizeof(struct kvm_msrs) + 3 * sizeof(struct kvm_msr_entry)] = {};
+   struct kvm_msrs* msrs = (struct kvm_msrs*)tmp;
 
    msrs->nmsrs = 3;
    msrs->entries[0].index = MSR_IA32_FMASK;
@@ -160,7 +160,28 @@ static void km_init_syscall_handler(km_vcpu_t* vcpu)
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_MSRS, msrs) < 0) {
       err(errno, "KVM_SET_MSRS");
    }
-   free(msrs);
+}
+
+static inline uint64_t rdtsc(void)
+{
+   uint64_t edx, eax;
+   __asm__ __volatile__("rdtsc" : "=a"(eax), "=d"(edx));
+   return edx << 32 | eax;
+}
+
+// Set the TSC value to that of the physical machine to make clock_gettime VDSO logic happy
+static void km_init_tsc(km_vcpu_t* vcpu)
+{
+   char tmp[sizeof(struct kvm_msrs) + sizeof(struct kvm_msr_entry)] = {};
+   struct kvm_msrs* msrs = (struct kvm_msrs*)tmp;
+
+   msrs->nmsrs = 1;
+   msrs->entries[0].index = MSR_IA32_TSC;
+   msrs->entries[0].data = rdtsc();
+   // TODO: Consider adding some value here to compensate for the time it takes to set the value
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_MSRS, msrs) < 0) {
+      err(errno, "KVM_SET_MSRS for TSC");
+   }
 }
 
 static void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
@@ -211,6 +232,9 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
       return -1;
    }
    km_init_syscall_handler(vcpu);
+   if (vcpu->vcpu_id == 0) {
+      km_init_tsc(vcpu);
+   }
    vcpu->sigpending = (km_signal_list_t){.head = TAILQ_HEAD_INITIALIZER(vcpu->sigpending.head)};
    vcpu->thr_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    vcpu->thr_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
