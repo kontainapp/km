@@ -59,6 +59,7 @@ int thread_test(int optind, int argc, char* argv[]);
 int syscall_test(int optind, int argc, char* argv[]);
 int trunc_mmap_test(int optind, int argc, char* argv[]);
 int hc_overhead_test(int optind, int argc, char* argv[]);
+int redir_std_test(int optind, int argc, char* argv[]);
 
 struct stray_op {
    char* op;                                          // Operation name on command line
@@ -90,6 +91,7 @@ struct stray_op {
     {.op = "syscall", .func = syscall_test, .description = "Generate a SYSCALL instruction"},
     {.op = "trunc_mmap", .func = trunc_mmap_test, .description = "Truncate an mmaped file and crash"},
     {.op = "hc_overhead", .func = hc_overhead_test, .description = "Test overhead of Syscalls"},
+    {.op = "redir_std", .func = redir_std_test, .description = "Test redisrect std err"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -334,6 +336,34 @@ int hc_overhead_test(int optind, int argc, char* argv[])
       }
       (void)uid;
    }
+   return 0;
+}
+
+int redir_std_test(int optind, int argc, char* argv[])
+{
+   int fd = open("/dev/null", O_RDWR);
+   if (fd < 0) {
+      perror("open /dev/null");
+      return 1;
+   }
+   int sav_stdout = dup(2);
+   if (sav_stdout < 0) {
+      perror("dup stdout - sav");
+      return 1;
+   }
+   fprintf(stdout, "Before redir\n");
+   fflush(stdout);
+   if (dup2(fd, 1) < 0) {
+      perror("dup3 stdout - redir");
+      return 1;
+   }
+   fprintf(stdout, "From redir\n");
+   fflush(stdout);
+   if (dup3(sav_stdout, 1, 0) < 0) {
+      perror("dup3 stdout - restore");
+      return 1;
+   }
+   fprintf(stdout, "After restore\n");
    return 0;
 }
 
