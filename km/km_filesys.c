@@ -723,10 +723,7 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
       ret = replace_guest_fd(vcpu, newfd, ret, flags);
       // leave host's std fd's open.
       if (host_newfd > 2) {
-         int ret2 = __syscall_1(SYS_close, host_newfd);
-         if (ret2 < 0) {
-            warn("close host fd %d failed", host_newfd);
-         }
+         __syscall_1(SYS_close, host_newfd);
       }
    }
    return ret;
