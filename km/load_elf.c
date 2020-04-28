@@ -76,16 +76,7 @@ static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
    uint64_t extra = addr - (km_kma_t)rounddown((uint64_t)addr, KM_PAGE_SIZE);
    my_mmap(fd, addr - extra, p_filesz + extra, phdr->p_offset - extra);
    memset(addr + p_filesz, 0, p_memsz - p_filesz);
-   int pr = 0;
-   if (phdr->p_flags & PF_R) {
-      pr |= PROT_READ;
-   }
-   if (phdr->p_flags & PF_W) {
-      pr |= PROT_WRITE;
-   }
-   if (phdr->p_flags & PF_X) {
-      pr |= PROT_EXEC;
-   }
+   int pr = prot_elf_to_mmap(phdr->p_flags);
    if (mprotect(addr - extra, p_memsz + extra, protection_adjust(pr)) < 0) {
       err(2, "failed to set guest memory protection");
    }
@@ -118,13 +109,14 @@ static void km_find_hook_symbols(Elf* e, km_gva_t adjust)
    return;
 }
 
-static Elf* km_open_elf_file(km_payload_t* payload, int* fd)
+Elf* km_open_elf_file(char* filename, km_payload_t* payload, int* fd)
 {
    Elf* e;
-   if ((*fd = open(payload->km_filename, O_RDONLY, 0)) < 0) {
-      warn("open %s failed", payload->km_filename);
+   if ((*fd = open(filename, O_RDONLY, 0)) < 0) {
+      warn("open %s failed", filename);
       return NULL;
    }
+   payload->km_filename = filename;
    if ((e = elf_begin(*fd, ELF_C_READ, NULL)) == NULL) {
       warnx("elf_begin() failed: %s", elf_errmsg(-1));
       return NULL;
@@ -148,6 +140,7 @@ static Elf* km_open_elf_file(km_payload_t* payload, int* fd)
       if (gelf_getphdr(e, i, phdr) == NULL) {
          errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
       }
+      // TODO: This doesn't apply to snapshots. SHould move to load_elf().
       if (phdr->p_type == PT_LOAD && phdr->p_vaddr < payload->km_min_vaddr) {
          payload->km_min_vaddr = phdr->p_vaddr;
       }
@@ -169,6 +162,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
 {
    // Make sure interpreter string contains KM dynlink marker.
    char* interp_kma = km_gva_to_kma(interp_vaddr + interp_adjust);
+   char* filename = NULL;
    if (interp_kma == NULL || km_gva_to_kma(interp_vaddr + interp_adjust + interp_len - 1) == NULL) {
       errx(2,
            "%s: PT_INTERP vaddr map error: vaddr=0x%lx len=0x%lx adjust=0x%lx",
@@ -179,22 +173,21 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    }
    if (strncmp(interp_kma, KM_DYNLINKER_STR, interp_len) != 0) {
       // Use the dynamic linker in the .interp section
-      km_dynlinker.km_filename = interp_kma;
+      filename = interp_kma;
    } else {
       // Use the dynamic linker mentioned on  the command line
-      km_dynlinker.km_filename = km_dynlinker_file;
+      filename = km_dynlinker_file;
    }
 
    struct stat st;
-   if (stat(km_dynlinker.km_filename, &st) != 0) {
-      err(2, "KM dynamic linker %s", km_dynlinker.km_filename);
+   if (stat(filename, &st) != 0) {
+      err(2, "KM dynamic linker %s", filename);
    }
 
    Elf* e;
    int fd;
-   GElf_Ehdr* ehdr = &km_dynlinker.km_ehdr;
-   if ((e = km_open_elf_file(&km_dynlinker, &fd)) == NULL) {
-      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, km_dynlinker.km_filename);
+   if ((e = km_open_elf_file(filename, &km_dynlinker, &fd)) == NULL) {
+      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, filename);
    }
 
    km_gva_t base = km_mem_brk(0);
@@ -206,6 +199,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
 
    km_find_hook_symbols(e, adjust);
 
+   GElf_Ehdr* ehdr = &km_dynlinker.km_ehdr;
    for (int i = 0; i < ehdr->e_phnum; i++) {
       GElf_Phdr* phdr = &km_dynlinker.km_phdr[i];
       if (phdr->p_type == PT_LOAD) {
@@ -237,12 +231,13 @@ uint64_t km_load_elf(const char* file)
       sprintf(fn, "%s.km", file);
       file = fn;
    }
-   if ((km_guest.km_filename = realpath(file, NULL)) == NULL) {
+   char* filename = NULL;
+   if ((filename = realpath(file, NULL)) == NULL) {
       err(2, "%s realpath failed: %s", __FUNCTION__, file);
    }
 
-   if ((e = km_open_elf_file(&km_guest, &fd)) == NULL) {
-      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, km_dynlinker.km_filename);
+   if ((e = km_open_elf_file(filename, &km_guest, &fd)) == NULL) {
+      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, filename);
    }
 
    km_gva_t adjust = 0;

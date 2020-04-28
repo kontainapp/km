@@ -17,6 +17,7 @@ GTAGS
 GPATH
 GRTAGS
 kmcore
+kmsnap
 payloads/node/node
 payloads/java/jdk*
 payloads/java/jtreg

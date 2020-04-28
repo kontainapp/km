@@ -494,31 +494,6 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
 }
 
 /*
- * Signal handler. Used when we want VCPU to stop. The signal causes KVM_RUN exit with -EINTR, so
- * the actual handler is noop - it just needs to exist.
- * Calling km_info() and km_infox() from this function seems to occassionally cause a mutex
- * deadlock in the regular expression code called from km_info*().
- */
-static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, void* ucontext_unused)
-{
-   // NOOP
-}
-
-/*
- * Forward a signal file descriptor received by KM into the guest signal system.
- * This relies on info->si_fd being populated.
- */
-static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unused)
-{
-   int guest_fd = hostfd_to_guestfd(NULL, sinfo->si_fd);
-   if (guest_fd < 0) {
-      return;
-   }
-   siginfo_t info = {.si_signo = signo, .si_code = SI_KERNEL};
-   km_post_signal(NULL, &info);
-}
-
-/*
  * Call ioctl(KVM_RUN) once, and handles error return from ioctl.
  * Returns 0 on success -1 on ioctl error (an indication that normal exit_reason handling should be
  * skipped upstairs)
@@ -727,9 +702,9 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                /*
                 * We got a KVM_EXIT_DEBUG but gdb is disabled.
                 * This can happen if the gdb client disconnects the connection to the gdb server
-                * because the gdb server sent something unexpected.  We should try to continue on here.
-                * But, we also need to understand what the gdb server did to upset the gdb client
-                * and fix that too.
+                * because the gdb server sent something unexpected.  We should try to continue on
+                * here. But, we also need to understand what the gdb server did to upset the gdb
+                * client and fix that too.
                 */
                run_warn("KVM: vcpu-%d debug exit while gdb is disabled, gdb_run_state %d, "
                         "pause_requested %d",
@@ -783,20 +758,47 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    }
 }
 
+static int km_start_single_vcpu(km_vcpu_t* vcpu, uint64_t arg)
+{
+   if (km_run_vcpu_thread(vcpu, km_vcpu_run) < 0) {
+      km_err_msg(0, "cannot start vcpu thread vcpu_id=%d", vcpu->vcpu_id - 1);
+   }
+   return 0;
+}
+
+/*
+ * Signal handler. Used when we want VCPU to stop. The signal causes KVM_RUN exit with -EINTR, so
+ * the actual handler is noop - it just needs to exist.
+ * Calling km_info() and km_infox() from this function seems to occassionally cause a mutex
+ * deadlock in the regular expression code called from km_info*().
+ */
+static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, void* ucontext_unused)
+{
+   // NOOP
+}
+
+/*
+ * Forward a signal file descriptor received by KM into the guest signal system.
+ * This relies on info->si_fd being populated.
+ */
+static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unused)
+{
+   int guest_fd = hostfd_to_guestfd(NULL, sinfo->si_fd);
+   if (guest_fd < 0) {
+      return;
+   }
+   siginfo_t info = {.si_signo = signo, .si_code = SI_KERNEL};
+   km_post_signal(NULL, &info);
+}
+
 // docker stop sends this. Need to do exit() to call atexit callbacks
 static void km_term_handler(int signo, siginfo_t* unused, void* ucontext_unused)
 {
    exit(0);
 }
 
-/*
- * Main vcpu in presence of gdb needs to pause before entering guest main() and wait for gdb
- * client connection. The client will control the execution by continue or step commands.
- */
-void* km_vcpu_run_main(km_vcpu_t* unused)
+int km_start_vcpus()
 {
-   km_vcpu_t* vcpu = km_main_vcpu();
-
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
    km_install_sighandler(SIGPIPE, km_forward_fd_signal);
    km_install_sighandler(SIGIO, km_forward_fd_signal);
@@ -814,5 +816,8 @@ void* km_vcpu_run_main(km_vcpu_t* unused)
    while (eventfd_write(machine.intr_fd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
       ;   // ignore signals during the write
    }
-   return km_vcpu_run(vcpu);
+
+   // Start the VCPU's
+   km_vcpu_apply_all(km_start_single_vcpu, 0);
+   return 0;
 }

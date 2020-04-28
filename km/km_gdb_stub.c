@@ -2866,7 +2866,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
    };
    int ret;
 
-   km_wait_on_eventfd(machine.intr_fd);   // Wait for km_vcpu_run_main to start
+   km_wait_on_eventfd(machine.intr_fd);   // Wait for km_start_vcpus to be called
 
    assert(gdbstub.wait_for_attach != GDB_WAIT_FOR_ATTACH_UNSPECIFIED);
    if (km_dynlinker.km_filename != NULL && gdbstub.wait_for_attach == GDB_WAIT_FOR_ATTACH_AT_START) {

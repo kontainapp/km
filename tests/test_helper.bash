@@ -213,7 +213,7 @@ skip_if_needed() {
    fi
 }
 
-# ensure all LOAD regions in a core file are at page aligned offsets
+# ensure all LOAD regions in a core file have the same file page offset and virtual address page offset.
 check_kmcore() {
-   readelf -l $1 | grep LOAD | awk '{if (substr($2, length($2)-2) != "000") exit 1}'
+   readelf -l $1 | awk '/LOAD/ {if (substr($2, length($2)-2) != substr($3, length($3)-2)) exit 1}'
 }

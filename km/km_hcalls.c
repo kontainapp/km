@@ -25,10 +25,12 @@
 #include <linux/stat.h>
 
 #include "km.h"
+#include "km_coredump.h"
 #include "km_filesys.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_snapshot.h"
 #include "km_syscall.h"
 
 /*
@@ -1321,7 +1323,7 @@ static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  * int setitimer(int which, const struct itimerval *new_value,
  *               struct itimerval *old_value);
  */
-static km_hc_ret_t  setitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+static km_hc_ret_t setitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    struct itimerval* old = NULL;
    struct itimerval* new = km_gva_to_kma(arg->arg2);
@@ -1342,7 +1344,7 @@ static km_hc_ret_t  setitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 /*
  * int getitimer(int which, struct itimerval *curr_value);
  */
-static km_hc_ret_t  getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+static km_hc_ret_t getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    struct itimerval* curr = km_gva_to_kma(arg->arg2);
    if (curr == NULL) {
@@ -1351,6 +1353,16 @@ static km_hc_ret_t  getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    }
    arg->hc_ret = getitimer(arg->arg1, curr);
    return HC_CONTINUE;
+}
+
+static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // TODO: Stop the world.
+   warnx("SNAPSHOT");
+   km_vcpu_sync_rip(vcpu);
+   km_read_registers(vcpu);
+   km_dump_core(km_get_snapshot_path(), vcpu, NULL);
+   return HC_ALLSTOP;
 }
 
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
@@ -1506,6 +1518,7 @@ void km_hcalls_init(void)
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_unmapself] = unmapself_hcall;
+   km_hcalls_table[HC_snapshot] = snapshot_hcall;
 
    if (km_collect_hc_stats == 1) {
       if ((km_hcalls_stats = calloc(KM_MAX_HCALL, sizeof(km_hc_stats_t))) == NULL) {
