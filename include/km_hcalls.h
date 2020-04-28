@@ -73,7 +73,8 @@ enum km_internal_hypercalls {
    HC_reserved3 = KM_MAX_HCALL - 5,
    HC_reserved4 = KM_MAX_HCALL - 4,
    HC_unmapself = KM_MAX_HCALL - 6,
-   HC_start = KM_MAX_HCALL - 7,   // must be last in list
+   HC_snapshot = KM_MAX_HCALL - 7,
+   HC_start = KM_MAX_HCALL - 8,   // must be last in list
 };
 
 extern const char* const km_hc_name_get(int hc);

@@ -29,7 +29,7 @@
 #include "km_filesys.h"
 #include "km_mem.h"
 
-// TODO: Need to figure out where the corefile default should go.
+// TODO: Need to figure out where the corefile and snapshotdefault should go.
 static char* coredump_path = "./kmcore";
 
 void km_set_coredump_path(char* path)
@@ -38,7 +38,7 @@ void km_set_coredump_path(char* path)
    coredump_path = path;
 }
 
-static inline char* km_get_coredump_path()
+char* km_get_coredump_path()
 {
    return coredump_path;
 }
@@ -197,16 +197,44 @@ typedef struct {
    km_vcpu_t* pr_vcpu;   // 'current', already output. skip
    char* pr_cur;
    size_t pr_remain;
-} km_core_dump_prstatus_t;
+} km_core_list_context_t;
 
 static int km_core_dump_threads(km_vcpu_t* vcpu, uint64_t arg)
 {
-   km_core_dump_prstatus_t* ctx = (km_core_dump_prstatus_t*)arg;
+   km_core_list_context_t* ctx = (km_core_list_context_t*)arg;
    if (vcpu == ctx->pr_vcpu) {
       return 0;
    }
    size_t ret;
    ret = km_make_dump_prstatus(vcpu, ctx->pr_cur, ctx->pr_remain);
+   ctx->pr_cur += ret;
+   ctx->pr_remain -= ret;
+   return ret;
+}
+
+// Dump KM specific data
+static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, uint64_t arg)
+{
+   struct km_nt_vcpu vnote = {.vcpu_id = vcpu->vcpu_id,
+                              .stack_top = vcpu->stack_top,
+                              .guest_thr = vcpu->guest_thr,
+                              .set_child_tid = vcpu->set_child_tid,
+                              .clear_child_tid = vcpu->clear_child_tid,
+                              .on_sigaltstack = vcpu->on_sigaltstack,
+                              .sigaltstack_sp = (Elf64_Addr)vcpu->sigaltstack.ss_sp,
+                              .sigaltstack_flags = vcpu->sigaltstack.ss_flags,
+                              .sigaltstack_size = vcpu->sigaltstack.ss_size,
+                              .mapself_base = vcpu->mapself_base,
+                              .mapself_size = vcpu->mapself_size};
+
+   km_core_list_context_t* ctx = (km_core_list_context_t*)arg;
+   char* cur = ctx->pr_cur;
+   size_t remain = ctx->pr_remain;
+   cur += km_add_note_header(cur, remain, "KMSP", NT_KM_VCPU, sizeof(struct km_nt_vcpu));
+   memcpy(cur, &vnote, sizeof(struct km_nt_vcpu));
+   cur += sizeof(struct km_nt_vcpu);
+
+   size_t ret = cur - ctx->pr_cur;
    ctx->pr_cur += ret;
    ctx->pr_remain -= ret;
    return ret;
@@ -360,6 +388,32 @@ static inline int km_core_dump_auxv(km_vcpu_t* vcpu, char* buf, size_t length)
    return roundup(cur - buf, 4);
 }
 
+/*
+ * Writes the PT_NOTE record for a KM payload record (km_guest or km_dynlinker)
+ */
+static inline int km_core_dump_payload_note(km_payload_t* payload, int tag, char* buf, size_t length)
+{
+   char* cur = buf;
+   size_t remain = length;
+
+   cur += km_add_note_header(cur,
+                             remain,
+                             "KMSP",
+                             tag,
+                             sizeof(km_nt_guest_t) + payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
+                                 strlen(payload->km_filename) + 1);
+   km_nt_guest_t* guest = (km_nt_guest_t*)cur;
+   guest->load_adjust = payload->km_load_adjust;
+   guest->ehdr = payload->km_ehdr;
+   cur += sizeof(km_nt_guest_t);
+   memcpy(cur, payload->km_phdr, payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr));
+   cur += payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr);
+   strcpy(cur, payload->km_filename);
+   cur += strlen(payload->km_filename) + 1;
+
+   return roundup(cur - buf, 4);
+}
+
 static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t size)
 {
    Elf64_Phdr phdr = {};
@@ -378,7 +432,7 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
    cur += ret;
    remain -= ret;
 
-   km_core_dump_prstatus_t ctx = {.pr_vcpu = vcpu, .pr_cur = cur, .pr_remain = remain};
+   km_core_list_context_t ctx = {.pr_vcpu = vcpu, .pr_cur = cur, .pr_remain = remain};
    km_vcpu_apply_all(km_core_dump_threads, (uint64_t)&ctx);
    cur = ctx.pr_cur;
    remain = ctx.pr_remain;
@@ -392,6 +446,23 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
    ret = km_core_dump_auxv(vcpu, cur, remain);
    cur += ret;
    remain -= ret;
+
+   // NT_KM_PROC - KM specific
+   ctx.pr_vcpu = NULL;
+   ctx.pr_cur = cur;
+   ctx.pr_remain = remain;
+   ret = km_vcpu_apply_all(km_core_dump_vcpu, (uint64_t)&ctx);
+   cur = ctx.pr_cur;
+   remain = ctx.pr_remain;
+
+   ret = km_core_dump_payload_note(&km_guest, NT_KM_GUEST, cur, remain);
+   cur += ret;
+   remain -= ret;
+   if (km_dynlinker.km_filename != NULL) {
+      ret = km_core_dump_payload_note(&km_dynlinker, NT_KM_DYNLINKER, cur, remain);
+      cur += ret;
+      remain -= ret;
+   }
 
    // TODO: Other notes sections in real core files.
    //  NT_PRPSINFO (prpsinfo structure)
@@ -459,6 +530,19 @@ static inline size_t km_core_notes_length()
    alloclen += km_mappings_size(NULL, NULL) + sizeof(Elf64_Nhdr);
    alloclen += machine.auxv_size + sizeof(Elf64_Nhdr);
 
+   // Kontain specific per CPU info (for snapshot restore)
+   alloclen += sizeof(Elf64_Nhdr) + nvcpu * sizeof(struct km_nt_vcpu);
+
+   // Kontain specific guest info(for snapshot restore)
+   alloclen += sizeof(Elf64_Nhdr) + sizeof(km_nt_guest_t) +
+               km_guest.km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
+               roundup(strlen(km_guest.km_filename) + 1, 4);
+   if (km_dynlinker.km_filename != NULL) {
+      alloclen += sizeof(Elf64_Nhdr) + sizeof(km_nt_guest_t) +
+                  km_dynlinker.km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
+                  roundup(strlen(km_dynlinker.km_filename) + 1, 4);
+   }
+
    return roundup(alloclen, KM_PAGE_SIZE);
 }
 
@@ -518,6 +602,28 @@ static inline int km_core_last_load_adjust(Elf64_Phdr* phdr, km_gva_t end_load)
    return 0;
 }
 
+static inline size_t
+km_core_write_payload_phdr(km_payload_t* payload, km_gva_t end_load, int fd, size_t offset)
+{
+   for (int i = 0; i < payload->km_ehdr.e_phnum; i++) {
+      Elf64_Phdr* phdr = &payload->km_phdr[i];
+      if (phdr->p_type != PT_LOAD) {
+         continue;
+      }
+      size_t write_size = phdr->p_memsz;
+      write_size += km_core_last_load_adjust(phdr, end_load);
+      size_t extra = phdr->p_vaddr - rounddown(phdr->p_vaddr, KM_PAGE_SIZE);
+      offset = roundup(offset, KM_PAGE_SIZE);
+      km_core_write_load_header(fd,
+                                offset,
+                                rounddown(phdr->p_vaddr + payload->km_load_adjust, KM_PAGE_SIZE),
+                                write_size + extra,
+                                phdr->p_flags);
+      offset += write_size + extra;
+   }
+   return offset;
+}
+
 static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
                                        int fd,
                                        int phnum,
@@ -533,35 +639,9 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
    // Create PT_NOTE in memory and write the header
    *offsetp += km_core_write_notes(vcpu, fd, *offsetp, notes_buffer, notes_length);
    // Write headers for segments from ELF
-   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
-      if (km_guest.km_phdr[i].p_type != PT_LOAD) {
-         continue;
-      }
-      size_t write_size = km_guest.km_phdr[i].p_memsz;
-      write_size += km_core_last_load_adjust(&km_guest.km_phdr[i], end_load);
-      *offsetp = roundup(*offsetp, KM_PAGE_SIZE);
-      km_core_write_load_header(fd,
-                                *offsetp,
-                                km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust,
-                                write_size,
-                                km_guest.km_phdr[i].p_flags);
-      *offsetp += write_size;
-   }
+   *offsetp = km_core_write_payload_phdr(&km_guest, end_load, fd, *offsetp);
    if (km_dynlinker.km_filename != NULL) {
-      for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
-         if (km_dynlinker.km_phdr[i].p_type != PT_LOAD) {
-            continue;
-         }
-         size_t write_size = km_dynlinker.km_phdr[i].p_memsz;
-         write_size += km_core_last_load_adjust(&km_dynlinker.km_phdr[i], end_load);
-         *offsetp = roundup(*offsetp, KM_PAGE_SIZE);
-         km_core_write_load_header(fd,
-                                   *offsetp,
-                                   km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust,
-                                   write_size,
-                                   km_dynlinker.km_phdr[i].p_flags);
-         *offsetp += write_size;
-      }
+      *offsetp = km_core_write_payload_phdr(&km_dynlinker, end_load, fd, *offsetp);
    }
    // Headers for MMAPs
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
@@ -585,9 +665,9 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
 /*
  * Drop a core file containing the guest image.
  */
-void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
+void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
 {
-   char* core_path = km_get_coredump_path();
+   // char* core_path = km_get_coredump_path();
    int fd;
    size_t offset;   // Data offset
    km_mmap_reg_t* ptr;
@@ -615,22 +695,30 @@ void km_dump_core(km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
    km_core_write(fd, notes_buffer, notes_length);
    km_infox(KM_TRACE_COREDUMP, "Dump executable");
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
-      if (km_guest.km_phdr[i].p_type != PT_LOAD) {
+      Elf64_Phdr* phdr = &km_guest.km_phdr[i];
+      if (phdr->p_type != PT_LOAD) {
          continue;
       }
-      size_t write_size = km_guest.km_phdr[i].p_memsz;
-      write_size += km_core_last_load_adjust(&km_guest.km_phdr[i], end_load);
-      km_guestmem_write(fd, km_guest.km_phdr[i].p_vaddr + km_guest.km_load_adjust, write_size);
+      size_t write_size = phdr->p_memsz;
+      write_size += km_core_last_load_adjust(phdr, end_load);
+      size_t extra = phdr->p_vaddr - rounddown(phdr->p_vaddr, KM_PAGE_SIZE);
+      km_guestmem_write(fd,
+                        rounddown(phdr->p_vaddr + km_guest.km_load_adjust, KM_PAGE_SIZE),
+                        write_size + extra);
    }
    if (km_dynlinker.km_filename != NULL) {
       km_infox(KM_TRACE_COREDUMP, "Dump dynlinker");
       for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
-         if (km_dynlinker.km_phdr[i].p_type != PT_LOAD) {
+         Elf64_Phdr* phdr = &km_dynlinker.km_phdr[i];
+         if (phdr->p_type != PT_LOAD) {
             continue;
          }
-         size_t write_size = km_dynlinker.km_phdr[i].p_memsz;
-         write_size += km_core_last_load_adjust(&km_dynlinker.km_phdr[i], end_load);
-         km_guestmem_write(fd, km_dynlinker.km_phdr[i].p_vaddr + km_dynlinker.km_load_adjust, write_size);
+         size_t write_size = phdr->p_memsz;
+         write_size += km_core_last_load_adjust(phdr, end_load);
+         size_t extra = phdr->p_vaddr - rounddown(phdr->p_vaddr, KM_PAGE_SIZE);
+         km_guestmem_write(fd,
+                           rounddown(phdr->p_vaddr + km_dynlinker.km_load_adjust, KM_PAGE_SIZE),
+                           write_size + extra);
       }
    }
    km_infox(KM_TRACE_COREDUMP, "Dump mmaps");

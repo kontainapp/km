@@ -26,6 +26,7 @@
 #include "bsd_queue.h"
 #include "km.h"
 #include "km_coredump.h"
+#include "km_filesys.h"
 #include "km_guest.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
@@ -343,7 +344,6 @@ static void km_suspend_for_payload_signal(km_vcpu_t* vcpu)
    km_infox(KM_TRACE_VCPU, "done waiting for signal arrival");
    // The waker has removed us from the queue.
    km_mutex_unlock(&km_signal_wait_mutex);
-
 }
 
 /*
@@ -359,10 +359,14 @@ int km_wakeup_suspended_thread(siginfo_t* info)
    int signal_delivered = 0;
 
    km_mutex_lock(&km_signal_wait_mutex);
-   TAILQ_FOREACH_SAFE(vcpu, &km_signal_wait_queue, signal_link, prev) {
-      if (km_sigismember(&vcpu->sigmask, info->si_signo) == 0) {  // this signal is not blocked on this vcpu
+   TAILQ_FOREACH_SAFE (vcpu, &km_signal_wait_queue, signal_link, prev) {
+      if (km_sigismember(&vcpu->sigmask, info->si_signo) ==
+          0) {   // this signal is not blocked on this vcpu
          assert(vcpu->in_sigsuspend != 0);
-         km_infox(KM_TRACE_VCPU, "Waking sigsuspend()'ed vcpu %d with signal %d", vcpu->vcpu_id, info->si_signo);
+         km_infox(KM_TRACE_VCPU,
+                  "Waking sigsuspend()'ed vcpu %d with signal %d",
+                  vcpu->vcpu_id,
+                  info->si_signo);
          TAILQ_REMOVE(&km_signal_wait_queue, vcpu, signal_link);
          if (signal_delivered == 0) {
             enqueue_signal(&vcpu->sigpending, info);
@@ -530,7 +534,7 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
       km_vcpu_pause_all();
       if ((km_sigismember(&perror_signals, info->si_signo) != 0) || (info->si_signo == SIGQUIT)) {
          extern int debug_dump_on_err;
-         km_dump_core(vcpu, NULL);
+         km_dump_core(km_get_coredump_path(), vcpu, NULL);
          if (debug_dump_on_err) {
             abort();
          }
@@ -716,7 +720,10 @@ uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize)
    if (masksize != sizeof(km_sigset_t)) {
       return -EINVAL;
    }
-   km_infox(KM_TRACE_VCPU, "start waiting for signal, new mask 0x%lx, prev mask 0x%lx", mask[0], vcpu->sigmask);
+   km_infox(KM_TRACE_VCPU,
+            "start waiting for signal, new mask 0x%lx, prev mask 0x%lx",
+            mask[0],
+            vcpu->sigmask);
    vcpu->in_sigsuspend = 1;
    vcpu->saved_sigmask = vcpu->sigmask;
    vcpu->sigmask = *mask;

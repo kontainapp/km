@@ -136,6 +136,9 @@ static km_mmap_reg_t* km_mmap_find_address(km_mmap_list_t* list, km_gva_t addres
 // return 1 if ok to concat. Relies on 'free' mmaps all having 0 in protection and flags.
 static inline int ok_to_concat(km_mmap_reg_t* left, km_mmap_reg_t* right)
 {
+   if (machine.mmaps.recovery_mode != 0) {
+      return 0;
+   }
    if (left->filename != NULL) {
       if (right->filename == NULL || strcmp(left->filename, right->filename) != 0) {
          return 0;
@@ -401,7 +404,7 @@ static int km_mmap_busy_check_contiguous(km_gva_t addr, size_t size)
       if (reg->start + reg->size < addr) {
          continue;
       }
-      if (reg->start > addr + size) {
+      if (reg->start >= addr + size) {
          if (last_end >= addr + size) {
             return 0;
          }
@@ -990,4 +993,29 @@ int km_is_gva_accessable(km_gva_t gva, size_t size, int prot)
 done:
    mmaps_unlock();
    return ret;
+}
+
+/*
+ * Only set during snapshot recovery. Single threaded by defintion.
+ */
+void km_mmap_set_recovery_mode(int mode)
+{
+   machine.mmaps.recovery_mode = mode;
+}
+
+void km_mmap_set_filename(km_gva_t base, km_gva_t limit, char* filename)
+{
+   if (base < machine.tbrk) {
+      return;
+   }
+   // TODO: filter out km_guest/vdso/etc.
+
+   // Must be in mmap memory.
+   km_mmap_reg_t* reg = NULL;
+   if ((reg = km_find_reg_nolock(base)) == NULL) {
+      errx(2, "cannot find region base=0x%lx", base);
+   }
+   if (reg->filename == NULL) {
+      reg->filename = strdup(filename);
+   }
 }
