@@ -272,6 +272,37 @@ km_vcpu_t* km_vcpu_get(void)
 }
 
 /*
+ * Gets a VCPU in a specific slot. Used by snapshot resume.
+ * This is called at initialization time (single threaded)
+ * so there is no need to worry about concurency;
+ */
+km_vcpu_t* km_vcpu_restore(int tid)
+{
+   int slot = tid - 1;
+
+   if (slot < 0 || slot >= KVM_MAX_VCPUS) {
+      return NULL;
+   }
+
+   if (machine.vm_vcpus[slot] != 0) {
+      km_err_msg(0, "tid % d already allocated", tid);
+      return NULL;
+   }
+   km_vcpu_t* vcpu = calloc(1, sizeof(km_vcpu_t));
+   vcpu->is_used = 1;
+   vcpu->vcpu_id = slot;
+   if (km_vcpu_init(vcpu) < 0) {
+      km_err_msg(0, "km_vcpu_init failed - cannot restore snapshot");
+      free(vcpu);
+      return NULL;
+   }
+   km_gdb_vcpu_state_init(vcpu);
+   kvm_vcpu_init_sregs(vcpu);
+   machine.vm_vcpus[slot] = vcpu;
+   return vcpu;
+}
+
+/*
  * Apply callback for each used VCPU.
  * Returns a sum of returned from func() - i.e. 0 if all return 0.
  *
@@ -564,4 +595,5 @@ void km_machine_init(km_machine_init_params_t* params)
    }
    km_mem_init(params);
    km_signal_init();
+   km_init_guest_idt();
 }

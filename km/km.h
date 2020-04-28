@@ -197,7 +197,7 @@ typedef struct km_machine_init_params {
 void km_machine_init(km_machine_init_params_t* params);
 void km_signal_machine_fini(void);
 void km_machine_fini(void);
-void* km_vcpu_run_main(km_vcpu_t* unused);
+int km_start_vcpus();
 void* km_vcpu_run(km_vcpu_t* vcpu);
 int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*));
 void km_dump_vcpu(km_vcpu_t* vcpu);
@@ -248,6 +248,7 @@ typedef struct km_mmap_cb {   // control block
    km_mmap_list_t free;       // list of free regions
    km_mmap_list_t busy;       // list of mapped regions
    pthread_mutex_t mutex;     // global map lock
+   int recovery_mode;         // disable region consolidation
 } km_mmap_cb_t;
 
 // enumerate type of virtual machine
@@ -346,6 +347,7 @@ void km_exit(km_vcpu_t* vcpu);
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
+km_vcpu_t* km_vcpu_restore(int tid);   // Used by snapshot restore
 void km_vcpu_put(km_vcpu_t* vcpu);
 int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg);
 int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);

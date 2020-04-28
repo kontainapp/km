@@ -191,6 +191,23 @@ static inline uint64_t memreg_size(int idx)
 }
 
 /*
+ * Returns true if gva is in vdso
+ */
+static inline int km_vdso_gva(km_gva_t gva)
+{
+   return gva >= GUEST_VVAR_VDSO_BASE_VA && gva < GUEST_VVAR_VDSO_BASE_VA + km_vvar_vdso_size;
+}
+
+/*
+ * Returns true if gva is in KM guest unikernel
+ */
+static inline int km_guestmem_gva(km_gva_t gva)
+{
+   return gva >= GUEST_KMGUESTMEM_BASE_VA &&
+          gva < GUEST_KMGUESTMEM_BASE_VA + machine.vm_mem_regs[KM_RSRV_KMGUESTMEM_SLOT].memory_size;
+}
+
+/*
  * Translates guest virtual address to km address, assuming the guest address is valid.
  * To be used to make it obvious that gva is *known* to be valid.
  * @param gva Guest virtual address
@@ -198,14 +215,11 @@ static inline uint64_t memreg_size(int idx)
  */
 static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
 {
-   if (gva >= GUEST_VVAR_VDSO_BASE_VA &&
-       gva < GUEST_VVAR_VDSO_BASE_VA + km_vvar_vdso_size) {   // handle gdb references
-                                                              // to vvar and vdso pages
+   if (km_vdso_gva(gva) != 0) {
       return (km_kma_t)machine.vm_mem_regs[KM_RSRV_VDSOSLOT].userspace_addr +
              (gva - GUEST_VVAR_VDSO_BASE_VA);
    }
-   if (gva >= GUEST_KMGUESTMEM_BASE_VA &&
-       gva < GUEST_KMGUESTMEM_BASE_VA + machine.vm_mem_regs[KM_RSRV_KMGUESTMEM_SLOT].memory_size) {
+   if (km_guestmem_gva(gva) != 0) {
       return (km_kma_t)machine.vm_mem_regs[KM_RSRV_KMGUESTMEM_SLOT].userspace_addr +
              (gva - GUEST_KMGUESTMEM_BASE_VA);
    }
@@ -263,5 +277,7 @@ int km_guest_madvise(km_gva_t addr, size_t size, int advise);
 int km_guest_msync(km_gva_t addr, size_t size, int flag);
 int km_is_gva_accessable(km_gva_t addr, size_t size, int prot);
 int km_monitor_pages_in_guest(km_gva_t gva, size_t size, int protection, char* tag);
+void km_mmap_set_recovery_mode(int mode);
+void km_mmap_set_filename(km_gva_t base, km_gva_t limit, char* filename);
 
 #endif /* #ifndef __KM_MEM_H__ */

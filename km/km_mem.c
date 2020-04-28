@@ -657,7 +657,7 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
    reg->memory_size = size;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      warn("KVM: failed to plug memory region %d", idx);
+      km_err_msg(errno, "KVM: failed to plug memory region %d", idx);
       km_guest_page_free(base, size);
       memset(reg, 0, sizeof(*reg));
       return -errno;
