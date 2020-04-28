@@ -1323,7 +1323,7 @@ static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  * int setitimer(int which, const struct itimerval *new_value,
  *               struct itimerval *old_value);
  */
-static km_hc_ret_t  setitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+static km_hc_ret_t setitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    struct itimerval* old = NULL;
    struct itimerval* new = km_gva_to_kma(arg->arg2);
@@ -1344,7 +1344,7 @@ static km_hc_ret_t  setitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 /*
  * int getitimer(int which, struct itimerval *curr_value);
  */
-static km_hc_ret_t  getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+static km_hc_ret_t getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    struct itimerval* curr = km_gva_to_kma(arg->arg2);
    if (curr == NULL) {
@@ -1359,8 +1359,8 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // TODO: Stop the world.
    warnx("SNAPSHOT");
+   km_vcpu_sync_rip(vcpu);
    km_read_registers(vcpu);
-   ((km_vcpu_t*)vcpu)->regs.rip++;   // Skip out instruction
    km_dump_core(km_get_snapshot_path(), vcpu, NULL);
    return HC_ALLSTOP;
 }
