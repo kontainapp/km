@@ -902,30 +902,31 @@ fi
    SNAP=/tmp/snap.$$
    CORE=/tmp/core.$$
 
-   # snapshot resume the successfully exits
-   run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext
-   assert_success
-   assert [ -f ${SNAP} ]
-   assert [ ! -f ${CORE} ]
-   check_kmcore ${SNAP}
-   run km_with_timeout --resume ${SNAP}
-   assert_success
-   assert_output --partial "Hello from thread"
-   assert [ ! -f ${CORE} ]
-   rm -f ${SNAP} 
+   for i in $(seq 100) ; do
+      # snapshot resume the successfully exits
+      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext
+      assert_success
+      assert [ -f ${SNAP} ]
+      assert [ ! -f ${CORE} ]
+      check_kmcore ${SNAP}
+      run km_with_timeout --resume ${SNAP}
+      assert_success
+      assert_output --partial "Hello from thread"
+      assert [ ! -f ${CORE} ]
+      rm -f ${SNAP} 
 
-   # snapshot resume that core dumps
-   run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -a
-   assert_success
-   assert [ -f ${SNAP} ]
-   check_kmcore ${SNAP}
-   run km_with_timeout --coredump=${CORE} --resume ${SNAP}
-   assert_failure 6  # SIGABRT
-   assert [ -f ${CORE} ]
-   assert_output --partial "Hello from thread"
-   if ["$ext" -ne ".so"]; then
-      gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
-   fi
-
-   rm -f ${SNAP} ${CORE}
+      # snapshot resume that core dumps
+      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -a
+      assert_success
+      assert [ -f ${SNAP} ]
+      check_kmcore ${SNAP}
+      run km_with_timeout --coredump=${CORE} --resume ${SNAP}
+      assert_failure 6  # SIGABRT
+      assert [ -f ${CORE} ]
+      assert_output --partial "Hello from thread"
+      if ["$ext" -ne ".so"]; then
+         gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
+      fi
+      rm -f ${SNAP} ${CORE}
+   done
 }
