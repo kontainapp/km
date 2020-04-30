@@ -1389,8 +1389,9 @@ static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    }
 
    // Resolve dirfd and pathname to an fd open on the km executable
-   int exefd;
-   if ((int64_t)(arg->hc_ret = exefd = execveat_openexe(dirfd, pathname, arg->arg5, open_flag)) < 0) {
+   int exefd = execveat_openexe(dirfd, pathname, arg->arg5, open_flag);
+   if (exefd < 0) {
+      arg->hc_ret = exefd;
       return HC_CONTINUE;
    }
 
