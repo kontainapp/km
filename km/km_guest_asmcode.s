@@ -160,6 +160,8 @@ __km_interrupt_table:
  * R10 = 4th parameter
  * R8  = 5th parameter
  * R9  = 6th parameter
+ * On entry: rcx contains the return address and r11 contains the
+ * callers eflags register.
  * Return value saved in RAX
  */
     .section .km_guest_text, "ax", @progbits
@@ -181,8 +183,13 @@ __km_syscall_handler:
     mov %rsp, %rax   # km_hcall_t on the stack
     outl %eax, (%dx)
 
+    mov 24(%rsp), %rdx  # restore rdx
     mov (%rsp), %rax # Get return code into RAX
     add $56, %rsp    # Restore stack
+
+    andq $0x3C7FD7, %r11    # restore the flag register
+    push %r11
+    popfq
 
     /*
      * SYSCALL saved address of the next instruction in %rcx.
