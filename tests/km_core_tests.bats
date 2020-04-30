@@ -938,3 +938,21 @@ fi
       rm -f ${SNAP} ${CORE}
    done
 }
+
+@test "exec($test_type): test execve and execveat nypercalls (exec_test$ext)" {
+   # Test execve()
+   run km_with_timeout --copyenv exec_test$ext
+   assert_success
+   assert_line --regexp "argv.0. = .*print_argenv_test.km"
+   assert_line --partial "argv[4] = 'd4'"
+   assert_line --partial "env[0] = 'ONE=one'"
+   assert_line --partial "env[3] = 'FOUR=four'"
+
+   # test execveat() which is fexecve()
+   run km_with_timeout --copyenv exec_test$ext -f
+   assert_success
+   assert_line --regexp "argv.0. = .*print_argenv_test.km"
+   assert_line --partial "argv[4] = 'd4'"
+   assert_line --partial "env[0] = 'ONE=one'"
+   assert_line --partial "env[3] = 'FOUR=four'"
+}
