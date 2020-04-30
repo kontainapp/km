@@ -27,6 +27,7 @@
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
+#include "km_exec.h"
 
 km_info_trace_t km_info_trace;
 
@@ -280,7 +281,9 @@ int main(int argc, char* const argv[])
    payload_file = argv[optind];
 
    km_hcalls_init();
+   km_exec_init(argc, (char**)argv);
    km_machine_init(&km_machine_init_params);
+   km_exec_fini();
 
    if (resume_snapshot != 0) {
       if (putenv_used != 0 || copyenv_used != 0 || dynlinker_used != 0) {
