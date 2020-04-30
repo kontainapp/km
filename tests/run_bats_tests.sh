@@ -24,6 +24,7 @@ Usage:  ${BASH_SOURCE[0]} [options]
   --km-args="args...."    Optional argument to pass to each KM invocation
   --ignore-failure        Return success even if some tests fail.
   --dry-run               print commands instead of executing them
+  --usevirt=virtmanager   optional argument to override virtualization platform kvm or kkm"
 EOF
 }
 
@@ -69,6 +70,9 @@ while [ $# -gt 0 ]; do
     --test-type=*)
       test_type="${1#*=}"
       ;;
+    --usevirt=*)
+      usevirt="${1#*=}"
+      ;;
     *)
       usage
       exit 1
@@ -98,6 +102,25 @@ if [ "$pretty" == "-p" ] ; then
    NOCOLOR="\033[0m"
 fi
 
+if [ "$usevirt" != 'kvm' ] && [ "$usevirt" != 'kkm' ] ; then
+   if [ -c '/dev/kvm' ] ; then
+      usevirt="kvm"
+   elif [ -c '/dev/kkm' ] ; then
+      usevirt="kkm"
+   else
+      echo -e "${RED}**ERROR** '$usevirt' not in kvm or kkm. Only kvm or kkm based virtualization supported.${NOCOLOR}"
+      exit 1
+   fi
+fi
+
+device_node="/dev/$usevirt"
+if [ ! -c $device_node ] ; then
+   echo -e "${RED}**ERROR** char device check for '$device_node' failed.${NOCOLOR}"
+   exit 1
+fi
+
+echo -e "${GREEN}**Running tests with virtualization $usevirt.${NOCOLOR}"
+
 if [ ! -x $km_bin ] ; then
    echo -e "${RED}**ERROR** '$km_bin' does not exist or does not have exec permission ${NOCOLOR}"
    exit 1
@@ -105,6 +128,7 @@ fi
 
 $DEBUG export TIME_INFO=$time_info_file
 $DEBUG export KM_BIN=$km_bin
+$DEBUG export USE_VIRT=$usevirt
 
 # Generate files for bats, one file per type (e.g. km), from source
 for t in $test_type ; do
