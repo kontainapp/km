@@ -24,7 +24,7 @@ todo_static=''
 # skip slow ones
 not_needed_native_static='linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test'
 # review - some fail. Some slow
-todo_native_static='sigsuspend mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
+todo_native_static='mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
 
 not_needed_native_dynamic=$not_needed_native_static
 todo_native_dynamic=$todo_native_static
@@ -860,9 +860,13 @@ fi
    rm -f $FLAGFILE
    ./sigsuspend_test $FLAGFILE &
    pid=$!
+   trys=0
    while [ ! -e $FLAGFILE ]
    do
       sleep .01
+      trys=`expr $trys + 1`
+      test $trys -lt 1000
+      assert_success
    done
    kill -SIGUSR1 $pid
    kill -SIGUSR1 $pid
@@ -874,9 +878,13 @@ fi
    $KM_BIN sigsuspend_test$ext $FLAGFILE &
 #   km_with_timeout sigsuspend_test$ext $FLAGFILE &
    pid=$!
+   trys=0
    while [ ! -e $FLAGFILE ]
    do
       sleep .01
+      trys=`expr $trys + 1`
+      test $trys -lt 1000
+      assert_success
    done
    kill -SIGUSR1 $pid
    kill -SIGUSR1 $pid
