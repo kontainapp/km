@@ -9,8 +9,8 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * This program generates exceptions in guest in order to test guest coredumps
- * and other processing.
+ * Simple test for snapshots. Two threads, main and a worker. Worker initiates
+ * snapshot. Ensure state from prior to the snapshot is restored properly.
  */
 
 #define _GNU_SOURCE
@@ -32,20 +32,55 @@ void usage()
    fprintf(stderr, "%s [-a]\n", cmdname);
 }
 
+pthread_mutex_t long_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+
 pthread_mutex_t lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
 int flag = 0;
-
-// Perform a snapshot
-void* thread_main(void* arg)
+static inline void block()
 {
-   km_hc_args_t snapshotargs = {};
-   km_hcall(HC_snapshot, &snapshotargs);
+   pthread_mutex_lock(&lock);
+   while (flag == 0) {
+      pthread_cond_wait(&cond, &lock);
+   }
+   pthread_mutex_unlock(&lock);
+}
 
+static inline void wakeup()
+{
    pthread_mutex_lock(&lock);
    flag = 1;
    pthread_cond_broadcast(&cond);
    pthread_mutex_unlock(&lock);
+}
+
+/*
+ * Subthread to take snapshot. After snapshot, ensure mutex state
+ * is restored and wake up the main thread.
+ */
+void* thread_main(void* arg)
+{
+   /*
+    * Take the snapshot.
+    */
+   km_hc_args_t snapshotargs = {};
+   km_hcall(HC_snapshot, &snapshotargs);
+
+   /*
+    * Snapshot resumes here.
+    * - long_lock should still be held by main thread.
+    */
+   if (pthread_mutex_trylock(&long_lock) == 0) {
+      fprintf(stderr, "long_lock state not restored\n");
+      exit(1);
+   }
+   wakeup();
+#if 0
+   pthread_mutex_lock(&lock);
+   flag = 1;
+   pthread_cond_broadcast(&cond);
+   pthread_mutex_unlock(&lock);
+#endif
 
    fprintf(stderr, "Hello from thread\n");
    return NULL;
@@ -67,17 +102,23 @@ int main(int argc, char* argv[])
             break;
       }
    }
+
+   pthread_mutex_lock(&long_lock);
+
    pthread_t thr;
    if (pthread_create(&thr, NULL, thread_main, NULL) != 0) {
       perror("pthread_create");
       return 1;
    }
 
+   block();
+#if 0
    pthread_mutex_lock(&lock);
    while (flag == 0) {
       pthread_cond_wait(&cond, &lock);
    }
    pthread_mutex_unlock(&lock);
+#endif
 
    void* rval;
    if (pthread_join(thr, &rval) != 0) {
@@ -87,6 +128,7 @@ int main(int argc, char* argv[])
    if (do_abort != 0) {
       abort();
    }
+   pthread_mutex_unlock(&long_lock);
    fprintf(stderr, "Success\n");
    return 0;
 }
