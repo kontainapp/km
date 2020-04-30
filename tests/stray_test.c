@@ -270,13 +270,18 @@ int thread_test(int optind, int optarg, char* argv[])
 int syscall_test(int optind, int optarg, char* argv[])
 {
    int syscall_num = 1;   // write()
-   int fd = 1;
+   int fd = 1;            // stdout
    char* msg = "Hello from SYSCALL\n";
    size_t msgsz = strlen(msg);
    int rc;
 
    asm volatile("\tsyscall" : "=a"(rc) : "a"(syscall_num), "D"(fd), "S"(msg), "d"(msgsz));
+   if (rc < 0) {
+      fprintf(stderr, "write to stdout failed, %s\n", strerror(errno));
+      return 1;
+   }
    if (rc != msgsz) {
+      fprintf(stderr, "write length wrong, expected %ld, got %d\n", msgsz, rc);
       return 1;
    }
    return 0;

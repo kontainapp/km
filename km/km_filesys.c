@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -38,6 +38,7 @@
 #include "km_filesys.h"
 #include "km_mem.h"
 #include "km_syscall.h"
+#include "km_exec.h"
 
 #define MAX_OPEN_FILES (1024)
 /*
@@ -45,7 +46,7 @@
  * Assigns lowest available guest fd, just like the kernel.
  * TODO: Support open flags (O_CLOEXEC in particular)
  */
-static int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags)
+int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags)
 {
    assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
    assert(start_guestfd >= 0 && start_guestfd < machine.filesys.nfdmap);
@@ -189,22 +190,24 @@ int km_fs_init(void)
    machine.filesys.guestfd_to_name_map = calloc(lim.rlim_cur, sizeof(char*));
    assert(machine.filesys.guestfd_to_name_map != NULL);
 
-   // setup guest std file streams.
-   for (int i = 0; i < 3; i++) {
-      machine.filesys.guestfd_to_hostfd_map[i] = i;
-      machine.filesys.hostfd_to_guestfd_map[i] = i;
-      switch (i) {
-         case 0:
-            machine.filesys.guestfd_to_name_map[i] = strdup("[stdin]");
-            break;
-         case 1:
-            machine.filesys.guestfd_to_name_map[i] = strdup("[stdout]");
-            break;
-         case 2:
-            machine.filesys.guestfd_to_name_map[i] = strdup("[stderr]");
-            break;
+   if (km_exec_recover_guestfd() != 0) {
+      // setup guest std file streams.
+      for (int i = 0; i < 3; i++) {
+         machine.filesys.guestfd_to_hostfd_map[i] = i;
+         machine.filesys.hostfd_to_guestfd_map[i] = i;
+         switch (i) {
+            case 0:
+               machine.filesys.guestfd_to_name_map[i] = strdup("[stdin]");
+               break;
+            case 1:
+               machine.filesys.guestfd_to_name_map[i] = strdup("[stdout]");
+               break;
+            case 2:
+               machine.filesys.guestfd_to_name_map[i] = strdup("[stderr]");
+               break;
+         }
+         assert(machine.filesys.guestfd_to_name_map[i] != NULL);
       }
-      assert(machine.filesys.guestfd_to_name_map[i] != NULL);
    }
    return 0;
 }
