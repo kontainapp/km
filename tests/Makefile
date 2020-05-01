@@ -69,7 +69,7 @@ IGNORE_FAILURE := --ignore-failure
 endif
 
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
-	time ./run_bats_tests.sh --km=${KM_BIN} --pretty ${IGNORE_FAILURE} --match="${MATCH}"
+	time ./run_bats_tests.sh --km=${KM_BIN} --pretty ${IGNORE_FAILURE} --match="${MATCH}" --usevirt="${USEVIRT}"
 
 test-all: test ## alias for test
 
