@@ -109,7 +109,7 @@ static char* km_exec_g2h_var(void)
    p += bytes_needed;
 
    for (int i = 0; i < km_fs_max_guestfd(); i++) {
-      int hostfd = km_guestfd_to_hostfd(i);
+      int hostfd = km_fs_g2h_fd(i);
       if (hostfd >= 0) {
          bytes_needed = snprintf(p, bytes_avail, fdcount == 0 ? "%d:%d" : ",%d:%d", i, hostfd);
          if (bytes_needed + 1 > bytes_avail) {

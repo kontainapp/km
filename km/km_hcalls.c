@@ -1371,7 +1371,7 @@ static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    int open_flag = O_RDONLY | ((arg->arg5 & AT_SYMLINK_NOFOLLOW) != 0 ? O_NOFOLLOW : 0);
 
    // Validate the arguments.
-   if (arg->arg1 != AT_FDCWD && (dirfd = km_guestfd_to_hostfd(arg->arg1)) < 0) {
+   if (arg->arg1 != AT_FDCWD && (dirfd = km_fs_g2h_fd(arg->arg1)) < 0) {
       arg->hc_ret = -EBADF;
       return HC_CONTINUE;
    }
