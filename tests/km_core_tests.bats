@@ -38,8 +38,8 @@ not_needed_so='linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_che
     exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend'
 
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
-if [ $vmtype = 'kkm' ]; then
-   not_needed_generic+=' gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp mem_test'
+if [ "${USE_VIRT}" = 'kkm' ]; then
+   not_needed_generic+=' gdb_qsupported gdb_delete_breakpoint gdb_nextstep threads_exit_grp mem_test snapshot'
    todo_dynamic+=' cpp_throw'
    todo_so=+=' cpp_throw'
    todo_native_static+=' hc_check km_many gdb_signal threads_basic_tsd threads_mutex pthread_cancel cpp_ctors filepath socket  hypercall_args syscall trunc_mmap raw_clone sigsuspend'
@@ -52,8 +52,8 @@ fi
 
 # Test string should be "name_with_no_spaces($test_type) description (file_name$ext)"
 
-@test "hypervisor($test_type) Check access to /dev/$vmtype" {
-   assert [ -a /dev/$vmtype ]
+@test "hypervisor($test_type) Check access to /dev/${USE_VIRT}" {
+   assert [ -c /dev/${USE_VIRT} ]
 }
 
 @test "linux_exec($test_type) make sure *some* linux tests actually pass" {
@@ -590,7 +590,9 @@ fi
 
 @test "cpuid($test_type): test cpu vendor id (cpuid_test$ext)" {
    cpuidexpected='Kontain'
-   [[ -a /dev/kkm ]] && cpuidexpected='GenuineIntel'
+   if [ "${USE_VIRT}" = 'kkm' ]; then
+      cpuidexpected='GenuineIntel'
+   fi
    run km_with_timeout cpuid_test$ext
    assert_success
    assert_line --partial $cpuidexpected
@@ -903,10 +905,6 @@ fi
 }
 
 @test "snapshot($test_type): snapshot and resume(snapshot_test$ext)" {
-   if [ $vmtype = 'kkm' ]; then
-      skip
-   fi
-   
    SNAP=/tmp/snap.$$
    CORE=/tmp/core.$$
 

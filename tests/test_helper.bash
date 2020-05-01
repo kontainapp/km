@@ -29,6 +29,12 @@ if [ -z "$KM_BIN" ] ; then
    exit 10
 fi
 
+# virtualization type
+if [ -z "$USE_VIRT" ] ; then
+   echo "Please make sure USE_VIRT env is defined." >&3
+   exit 10
+fi
+
 PREFIX=/opt/kontain
 RT=${PREFIX}/runtime
 LC=${PREFIX}/alpine-lib/usr/lib
@@ -78,6 +84,16 @@ case $test_type in
       export KM_BIN=fail
       ;;
 esac
+
+# USE_VIRT is exported by run_bats_tests.sh
+if [ "${USE_VIRT}" = 'kvm' ] ; then
+   KM_ARGS="--use-kvm $KM_ARGS"
+elif [ "${USE_VIRT}" = 'kkm' ] ; then
+   KM_ARGS="--use-kkm $KM_ARGS"
+else
+   echo "Unknown virtualization type : ${USE_VIRT}"
+   exit 10
+fi
 
 # we will kill any test if takes longer
 timeout=150s
@@ -142,11 +158,8 @@ bus_width() {
    echo $bw
 }
 
-vmtype='kvm'
-if [ -a /dev/kkm ] ; then vmtype='kkm' ; fi
-
 check_optional_mem_size_failure() {
-   if [ $vmtype = 'kvm' ]; then
+   if [ "${USE_VIRT}" = 'kvm' ]; then
       assert_success
    else
       assert_failure
