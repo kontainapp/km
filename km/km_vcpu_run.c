@@ -783,7 +783,7 @@ static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, 
  */
 static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unused)
 {
-   int guest_fd = hostfd_to_guestfd(NULL, sinfo->si_fd);
+   int guest_fd = km_hostfd_to_guestfd(sinfo->si_fd);
    if (guest_fd < 0) {
       return;
    }

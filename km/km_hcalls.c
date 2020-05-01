@@ -12,9 +12,9 @@
 
 #define _GNU_SOURCE
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
@@ -28,13 +28,13 @@
 
 #include "km.h"
 #include "km_coredump.h"
+#include "km_exec.h"
 #include "km_filesys.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
-#include "km_exec.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -1371,7 +1371,7 @@ static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    int open_flag = O_RDONLY | ((arg->arg5 & AT_SYMLINK_NOFOLLOW) != 0 ? O_NOFOLLOW : 0);
 
    // Validate the arguments.
-   if (arg->arg1 != AT_FDCWD && (dirfd = guestfd_to_hostfd(arg->arg1)) < 0) {
+   if (arg->arg1 != AT_FDCWD && (dirfd = km_guestfd_to_hostfd(arg->arg1)) < 0) {
       arg->hc_ret = -EBADF;
       return HC_CONTINUE;
    }
