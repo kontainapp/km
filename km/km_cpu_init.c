@@ -16,6 +16,7 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -426,16 +427,24 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 {
    kvm_vcpu_init_sregs(new_vcpu);
 
-   /*
-    * pretend we have hc_args on the stack so clone wrapper behaves the same wy for child and parent
-    */
-   km_gva_t sp = new_vcpu->stack_top - sizeof(km_hc_args_t);
    km_vcpu_sync_rip(vcpu);
    vcpu->regs_valid = 0;
    km_read_registers(vcpu);
    new_vcpu->regs = vcpu->regs;
+
+   /*
+    * pretend we have hc_args on the stack so clone wrapper behaves the same wy for child and parent
+    */
+   km_gva_t sp = new_vcpu->stack_top;
+   if ((machine.vm_type == VM_TYPE_KVM) || (machine.ex_type == EXE_TYPE_KM) ||
+       (machine.ex_type == EXE_TYPE_KMD) || (machine.ex_type == EXE_TYPE_KMDSO)) {
+      sp -= sizeof(km_hc_args_t);
+      *((uint64_t*)km_gva_to_kma_nocheck(sp)) = 0;   // hc return value
+   } else {
+      new_vcpu->regs.rax = 0;
+   }
+
    new_vcpu->regs.rsp = sp;
-   *((uint64_t*)km_gva_to_kma_nocheck(sp)) = 0;   // hc return value
    new_vcpu->regs_valid = 1;
 
    km_write_registers(new_vcpu);

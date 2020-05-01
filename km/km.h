@@ -145,10 +145,10 @@ typedef struct km_vcpu {
    kvm_regs_t regs;           // Cached register values.
    kvm_sregs_t sregs;         // Cached segment register values.
    km_sigset_t sigmask;       // blocked signals for thread
-   km_signal_list_t sigpending;   // List of signals sent to thread
-   pthread_cond_t signal_wait_cv;    // wait for signals with this cv
-   km_sigset_t saved_sigmask;        // sigmask saved by sigsuspend()
-   TAILQ_ENTRY(km_vcpu) signal_link; // link for signal waiting queue
+   km_signal_list_t sigpending;        // List of signals sent to thread
+   pthread_cond_t signal_wait_cv;      // wait for signals with this cv
+   km_sigset_t saved_sigmask;          // sigmask saved by sigsuspend()
+   TAILQ_ENTRY(km_vcpu) signal_link;   // link for signal waiting queue
    /*
     * Linux/Pthread handshake hacks. These are actually part of the standard.
     */
@@ -257,6 +257,14 @@ typedef enum vm_type {
    VM_TYPE_KKM        // Kontain Kernel Module
 } vm_type_t;
 
+// enumarate executable type
+typedef enum km_ex_type {
+   EXE_TYPE_KM = 0,       // static linked
+   EXE_TYPE_KMD,          // dynamic linked
+   EXE_TYPE_NATIVE_KM,    // native static linkage
+   EXE_TYPE_NATIVE_KMD,   // native dynamic linkage
+   EXE_TYPE_KMDSO,        // shared object
+} km_ex_type_t;
 /*
  * kernel include/linux/kvm_host.h
  */
@@ -274,6 +282,7 @@ static const int CPUID_ENTRIES = 100;   // A little padding, kernel says 80
 typedef struct km_machine {
    int kvm_fd;                                // /dev/kvm file descriptor
    vm_type_t vm_type;                         // VM type kvm or kkm
+   km_ex_type_t ex_type;                      // executable type
    int mach_fd;                               // VM file descriptor
    size_t vm_run_size;                        // size of the run control region
                                               //
@@ -382,7 +391,8 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
 void km_init_guest_idt(void);
 void km_handle_interrupt(km_vcpu_t* vcpu);
 
-static const int KM_SIGVCPUSTOP = (__SIGRTMAX-1);  // After km start, used to signal VCPU thread to force KVM exit
+static const int KM_SIGVCPUSTOP =
+    (__SIGRTMAX - 1);   // After km start, used to signal VCPU thread to force KVM exit
 
 /*
  * To check for success/failure from plain system calls and similar logic, returns -1 and sets

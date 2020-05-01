@@ -231,6 +231,20 @@ uint64_t km_load_elf(const char* file)
       sprintf(fn, "%s.km", file);
       file = fn;
    }
+ 
+   int fn_length = strlen(file);
+   if ((fn_length > 11) && (strcmp(".native.kmd", file + fn_length - 11) == 0)) {
+      machine.ex_type = EXE_TYPE_NATIVE_KMD;
+   } else if ((fn_length > 10) && (strcmp(".native.km", file + fn_length - 10) == 0)) {
+      machine.ex_type = EXE_TYPE_NATIVE_KM;
+   } else if ((fn_length > 3) && (strcmp(".km", file + fn_length - 3) == 0)) {
+      machine.ex_type = EXE_TYPE_KM;
+   } else if ((fn_length > 4) && (strcmp(".kmd", file + fn_length - 4) == 0)) {
+      machine.ex_type = EXE_TYPE_KMD;
+   } else {
+      machine.ex_type = EXE_TYPE_KMDSO;
+   }
+
    char* filename = NULL;
    if ((filename = realpath(file, NULL)) == NULL) {
       err(2, "%s realpath failed: %s", __FUNCTION__, file);
