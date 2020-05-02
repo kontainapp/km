@@ -44,9 +44,10 @@
  * not exist. Used by SIGPIPE/SIGIO signal handlers and select.
  * Note: vcpu is NULL if called from km signal handler.
  */
-int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd);
-int guestfd_to_hostfd(int guestfd);
-int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags);
+int km_fs_h2g_fd(int hostfd);
+int km_fs_g2h_fd(int guestfd);
+int km_fs_max_guestfd();
+int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags);
 char* km_guestfd_name(km_vcpu_t* vcpu, int fd);
 int km_fs_init(void);
 void km_fs_fini(void);

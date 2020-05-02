@@ -10,6 +10,7 @@
  * permission of Kontain Inc.
  */
 
+#include "km_exec.h"
 #include <assert.h>
 #include <fcntl.h>
 #include <stddef.h>
@@ -20,7 +21,6 @@
 #include <sys/param.h>
 #include "km_filesys.h"
 #include "km_mem.h"
-#include "km_exec.h"
 
 /*
  * The execve hypercall builds the following environment variables which are appended to
@@ -35,8 +35,8 @@
 #define KM_EXEC_VARS 4
 static const int KM_EXEC_VERNUM = 1;
 static char KM_EXEC_VERS[] = "KM_EXEC_VERS";
-static char KM_EXEC_VMFDS[]="KM_EXEC_VMFDS";
-static char KM_EXEC_EVENTFDS[]= "KM_EXEC_EVENTFDS";
+static char KM_EXEC_VMFDS[] = "KM_EXEC_VMFDS";
+static char KM_EXEC_EVENTFDS[] = "KM_EXEC_EVENTFDS";
 static char KM_EXEC_GUESTFDS[] = "KM_EXEC_GUESTFDS";
 
 /*
@@ -76,7 +76,7 @@ static char* km_exec_vers_var(void)
    int bufl = sizeof(KM_EXEC_VERS) + 1 + 4 + sizeof(",fffff");
    char* bufp = malloc(bufl);
    if (bufp != NULL) {
-      if (snprintf(bufp, bufl, "%s=%d,%d", KM_EXEC_VERS, KM_EXEC_VERNUM, machine.filesys.nfdmap) + 1 >
+      if (snprintf(bufp, bufl, "%s=%d,%d", KM_EXEC_VERS, KM_EXEC_VERNUM, km_fs_max_guestfd()) + 1 >
           bufl) {
          free(bufp);
          bufp = NULL;
@@ -90,7 +90,7 @@ static char* km_exec_vers_var(void)
  */
 static char* km_exec_g2h_var(void)
 {
-   int bufl = sizeof(KM_EXEC_GUESTFDS) + 1 + machine.filesys.nfdmap * sizeof("gggg:hhhh,");
+   int bufl = sizeof(KM_EXEC_GUESTFDS) + 1 + km_fs_max_guestfd() * sizeof("gggg:hhhh,");
    char* bufp = malloc(bufl);
    int bytes_avail = bufl;
    char* p = bufp;
@@ -108,13 +108,10 @@ static char* km_exec_g2h_var(void)
    bytes_avail -= bytes_needed;
    p += bytes_needed;
 
-   for (int i = 0; i < machine.filesys.nfdmap; i++) {
-      if (machine.filesys.guestfd_to_hostfd_map[i] >= 0) {
-         bytes_needed = snprintf(p,
-                                 bytes_avail,
-                                 fdcount == 0 ? "%d:%d" : ",%d:%d",
-                                 i,
-                                 machine.filesys.guestfd_to_hostfd_map[i]);
+   for (int i = 0; i < km_fs_max_guestfd(); i++) {
+      int hostfd = km_fs_g2h_fd(i);
+      if (hostfd >= 0) {
+         bytes_needed = snprintf(p, bytes_avail, fdcount == 0 ? "%d:%d" : ",%d:%d", i, hostfd);
          if (bytes_needed + 1 > bytes_avail) {
             free(bufp);
             return NULL;
@@ -210,10 +207,8 @@ char** km_exec_build_env(char** envp)
    }
 
    // env var builder function addresses
-   char* (*envvar_build[KM_EXEC_VARS])(void) = {km_exec_vers_var,
-                                                km_exec_g2h_var,
-                                                km_exec_vmfd_var,
-                                                km_exec_eventfd_var};
+   char* (*envvar_build[KM_EXEC_VARS])(
+       void) = {km_exec_vers_var, km_exec_g2h_var, km_exec_vmfd_var, km_exec_eventfd_var};
 
    // Add exec vars to the new env
    int j;
@@ -413,11 +408,11 @@ int km_exec_recover_guestfd(void)
          err(2, "Can't get filename for hostfd %d, link %s", execstatep->guestfd_hostfd[i].hostfd, linkname);
       }
       linkname[bytes] = 0;
-      int chosen_guestfd = add_guest_fd(NULL,
-                                        execstatep->guestfd_hostfd[i].hostfd,
-                                        execstatep->guestfd_hostfd[i].guestfd,
-                                        linkbuf,
-                                        0);
+      int chosen_guestfd = km_add_guest_fd(NULL,
+                                           execstatep->guestfd_hostfd[i].hostfd,
+                                           execstatep->guestfd_hostfd[i].guestfd,
+                                           linkbuf,
+                                           0);
       assert(chosen_guestfd == execstatep->guestfd_hostfd[i].guestfd);
    }
    return 0;
