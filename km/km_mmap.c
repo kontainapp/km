@@ -546,7 +546,7 @@ static km_gva_t km_guest_mmap_nolock(
    }
    // Now that we are under lock, make sure we can get correct fd
    int hostfd = -1;
-   if (fd >= 0 && (hostfd = guestfd_to_hostfd(fd)) < 0) {
+   if (fd >= 0 && (hostfd = km_fs_g2h_fd(fd)) < 0) {
       km_infox(KM_TRACE_MMAP, "***failed to convert fd %d to host fd", fd);
       return -EBADF;
    }

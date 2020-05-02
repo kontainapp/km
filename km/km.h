@@ -145,10 +145,10 @@ typedef struct km_vcpu {
    kvm_regs_t regs;           // Cached register values.
    kvm_sregs_t sregs;         // Cached segment register values.
    km_sigset_t sigmask;       // blocked signals for thread
-   km_signal_list_t sigpending;   // List of signals sent to thread
-   pthread_cond_t signal_wait_cv;    // wait for signals with this cv
-   km_sigset_t saved_sigmask;        // sigmask saved by sigsuspend()
-   TAILQ_ENTRY(km_vcpu) signal_link; // link for signal waiting queue
+   km_signal_list_t sigpending;        // List of signals sent to thread
+   pthread_cond_t signal_wait_cv;      // wait for signals with this cv
+   km_sigset_t saved_sigmask;          // sigmask saved by sigsuspend()
+   TAILQ_ENTRY(km_vcpu) signal_link;   // link for signal waiting queue
    /*
     * Linux/Pthread handshake hacks. These are actually part of the standard.
     */
@@ -209,12 +209,11 @@ void km_write_sregisters(km_vcpu_t* vcpu);
 void km_hcalls_init(void);
 void km_hcalls_fini(void);
 
-typedef struct km_filesys {
-   int* guestfd_to_hostfd_map;   // file descriptor map
-   int* hostfd_to_guestfd_map;   // reverse file descriptor map
-   char** guestfd_to_name_map;   // guest file name
-   int nfdmap;                   // size of file descriptor maps
-} km_filesys_t;
+/*
+ * Actual `struct km_filesys` format is private to km_filesys.c
+ */
+struct km_filesys;
+typedef struct km_filesys* km_filesys_ptr_t;
 
 // mmaps lists typedefs
 TAILQ_HEAD(km_mmap_list, km_mmap_reg);
@@ -309,7 +308,7 @@ typedef struct km_machine {
    km_signal_list_t sigpending;    // List of signals pending for guest
    km_signal_list_t sigfree;       // Freelist of signal entries.
    km_sigaction_t sigactions[_NSIG];
-   km_filesys_t filesys;
+   km_filesys_ptr_t filesys;
    km_mmap_cb_t mmaps;   // guest memory regions managed with mmaps/mprotect/munmap
    void* auxv;           // Copy of process AUXV (used if core is dumped)
    size_t auxv_size;     // size of process AUXV (used if core is dumped)
@@ -382,7 +381,8 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
 void km_init_guest_idt(void);
 void km_handle_interrupt(km_vcpu_t* vcpu);
 
-static const int KM_SIGVCPUSTOP = (__SIGRTMAX-1);  // After km start, used to signal VCPU thread to force KVM exit
+// After km start, used to signal VCPU thread to force KVM exit
+static const int KM_SIGVCPUSTOP = (__SIGRTMAX - 1);
 
 /*
  * To check for success/failure from plain system calls and similar logic, returns -1 and sets
