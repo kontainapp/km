@@ -35,38 +35,51 @@
 #include <sys/uio.h>
 
 #include "km.h"
+#include "km_exec.h"
 #include "km_filesys.h"
 #include "km_mem.h"
 #include "km_syscall.h"
-#include "km_exec.h"
 
 #define MAX_OPEN_FILES (1024)
+
+typedef struct km_filesys {
+   int* guestfd_to_hostfd_map;   // file descriptor map
+   int* hostfd_to_guestfd_map;   // reverse file descriptor map
+   char** guestfd_to_name_map;   // guest file name
+   int nfdmap;                   // size of file descriptor maps
+   struct km_fd* fds;
+} km_filesys_t;
+
+static inline km_filesys_t* km_fs()
+{
+   return (km_filesys_t*)machine.filesys;
+}
 /*
  * Adds a host fd to the guest. Returns the guest fd number assigned.
  * Assigns lowest available guest fd, just like the kernel.
  * TODO: Support open flags (O_CLOEXEC in particular)
  */
-int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags)
+int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags)
 {
-   assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
-   assert(start_guestfd >= 0 && start_guestfd < machine.filesys.nfdmap);
+   assert(host_fd >= 0 && host_fd < km_fs()->nfdmap);
+   assert(start_guestfd >= 0 && start_guestfd < km_fs()->nfdmap);
    int guest_fd = -1;
-   for (int i = start_guestfd; i < machine.filesys.nfdmap; i++) {
+   for (int i = start_guestfd; i < km_fs()->nfdmap; i++) {
       int fd_available = -1;
-      if (__atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[i],
+      if (__atomic_compare_exchange_n(&km_fs()->guestfd_to_hostfd_map[i],
                                       &fd_available,
                                       host_fd,
                                       0,
                                       __ATOMIC_SEQ_CST,
                                       __ATOMIC_SEQ_CST) != 0) {
-         __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[host_fd], i, __ATOMIC_SEQ_CST);
+         __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[host_fd], i, __ATOMIC_SEQ_CST);
          void* newval = NULL;
          if (name != NULL) {
             newval = strdup(name);
             assert(newval != NULL);
          }
          void* oldval = NULL;
-         __atomic_exchange(&machine.filesys.guestfd_to_name_map[i], &newval, &oldval, __ATOMIC_SEQ_CST);
+         __atomic_exchange(&km_fs()->guestfd_to_name_map[i], &newval, &oldval, __ATOMIC_SEQ_CST);
          if (oldval != NULL) {
             free(oldval);
          }
@@ -85,8 +98,8 @@ int add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, in
  */
 static inline void del_guest_fd(km_vcpu_t* vcpu, int guestfd, int hostfd)
 {
-   assert(hostfd >= 0 && hostfd < machine.filesys.nfdmap);
-   int rc = __atomic_compare_exchange_n(&machine.filesys.hostfd_to_guestfd_map[hostfd],
+   assert(hostfd >= 0 && hostfd < km_fs()->nfdmap);
+   int rc = __atomic_compare_exchange_n(&km_fs()->hostfd_to_guestfd_map[hostfd],
                                         &guestfd,
                                         -1,
                                         0,
@@ -94,8 +107,8 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int guestfd, int hostfd)
                                         __ATOMIC_SEQ_CST);
    assert(rc != 0);
 
-   assert(guestfd >= 0 && guestfd < machine.filesys.nfdmap);
-   rc = __atomic_compare_exchange_n(&machine.filesys.guestfd_to_hostfd_map[guestfd],
+   assert(guestfd >= 0 && guestfd < km_fs()->nfdmap);
+   rc = __atomic_compare_exchange_n(&km_fs()->guestfd_to_hostfd_map[guestfd],
                                     &hostfd,
                                     -1,
                                     0,
@@ -105,7 +118,7 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int guestfd, int hostfd)
 
    void* newval = NULL;
    void* oldval = NULL;
-   __atomic_exchange(&machine.filesys.guestfd_to_name_map[guestfd], &newval, &oldval, __ATOMIC_SEQ_CST);
+   __atomic_exchange(&km_fs()->guestfd_to_name_map[guestfd], &newval, &oldval, __ATOMIC_SEQ_CST);
    if (oldval != NULL) {
       free(oldval);
    }
@@ -113,10 +126,10 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int guestfd, int hostfd)
 
 char* km_guestfd_name(km_vcpu_t* vcpu, int fd)
 {
-   if (fd < 0 || fd >= machine.filesys.nfdmap) {
+   if (fd < 0 || fd >= km_fs()->nfdmap) {
       return NULL;
    }
-   return machine.filesys.guestfd_to_name_map[fd];
+   return km_fs()->guestfd_to_name_map[fd];
 }
 
 /*
@@ -125,11 +138,11 @@ char* km_guestfd_name(km_vcpu_t* vcpu, int fd)
  */
 static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd, int flags)
 {
-   assert(guest_fd >= 0 && guest_fd < machine.filesys.nfdmap);
-   assert(host_fd >= 0 && host_fd < machine.filesys.nfdmap);
+   assert(guest_fd >= 0 && guest_fd < km_fs()->nfdmap);
+   assert(host_fd >= 0 && host_fd < km_fs()->nfdmap);
    int close_fd =
-       __atomic_exchange_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], host_fd, __ATOMIC_SEQ_CST);
-   __atomic_store_n(&machine.filesys.hostfd_to_guestfd_map[host_fd], guest_fd, __ATOMIC_SEQ_CST);
+       __atomic_exchange_n(&km_fs()->guestfd_to_hostfd_map[guest_fd], host_fd, __ATOMIC_SEQ_CST);
+   __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[host_fd], guest_fd, __ATOMIC_SEQ_CST);
    // don't close stdin, stdout, or stderr
    if (close_fd > 2) {
       __syscall_1(SYS_close, close_fd);
@@ -142,13 +155,13 @@ static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd, int flag
  * not exist. Used by SIGPIPE/SIGIO signal handlers and select.
  * Note: vcpu is NULL if called from km signal handler.
  */
-int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
+int km_fs_h2g_fd(int hostfd)
 {
-   if (hostfd < 0 || hostfd >= machine.filesys.nfdmap) {
+   if (hostfd < 0 || hostfd >= km_fs()->nfdmap) {
       return -ENOENT;
    }
-   int guest_fd = __atomic_load_n(&machine.filesys.hostfd_to_guestfd_map[hostfd], __ATOMIC_SEQ_CST);
-   if (__atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[guest_fd], __ATOMIC_SEQ_CST) != hostfd) {
+   int guest_fd = __atomic_load_n(&km_fs()->hostfd_to_guestfd_map[hostfd], __ATOMIC_SEQ_CST);
+   if (__atomic_load_n(&km_fs()->guestfd_to_hostfd_map[guest_fd], __ATOMIC_SEQ_CST) != hostfd) {
       guest_fd = -ENOENT;
    }
    return guest_fd;
@@ -158,15 +171,20 @@ int hostfd_to_guestfd(km_vcpu_t* vcpu, int hostfd)
  * Translates guest fd to host fd. Returns negative errno if
  * mapping does not exist.
  */
-int guestfd_to_hostfd(int fd)
+int km_fs_g2h_fd(int fd)
 {
-   if (fd < 0 || fd >= machine.filesys.nfdmap) {
+   if (fd < 0 || fd >= km_fs()->nfdmap) {
       return -1;
    }
-   int ret = __atomic_load_n(&machine.filesys.guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
-   assert((ret == -1) || (machine.filesys.hostfd_to_guestfd_map[ret] == fd) ||
-          (machine.filesys.hostfd_to_guestfd_map[ret] == -1));
+   int ret = __atomic_load_n(&km_fs()->guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
+   assert((ret == -1) || (km_fs()->hostfd_to_guestfd_map[ret] == fd) ||
+          (km_fs()->hostfd_to_guestfd_map[ret] == -1));
    return ret;
+}
+
+int km_fs_max_guestfd()
+{
+   return km_fs()->nfdmap;
 }
 
 int km_fs_init(void)
@@ -177,36 +195,38 @@ int km_fs_init(void)
       return -errno;
    }
 
+   machine.filesys = calloc(1, sizeof(km_filesys_t));
+
    lim.rlim_cur = MAX_OPEN_FILES;   // Limit max open files. Temporary change till we support config.
    size_t mapsz = lim.rlim_cur * sizeof(int);
 
-   machine.filesys.guestfd_to_hostfd_map = malloc(mapsz);
-   assert(machine.filesys.guestfd_to_hostfd_map != NULL);
-   memset(machine.filesys.guestfd_to_hostfd_map, 0xff, mapsz);
-   machine.filesys.hostfd_to_guestfd_map = malloc(mapsz);
-   assert(machine.filesys.hostfd_to_guestfd_map != NULL);
-   memset(machine.filesys.hostfd_to_guestfd_map, 0xff, mapsz);
-   machine.filesys.nfdmap = lim.rlim_cur;
-   machine.filesys.guestfd_to_name_map = calloc(lim.rlim_cur, sizeof(char*));
-   assert(machine.filesys.guestfd_to_name_map != NULL);
+   km_fs()->guestfd_to_hostfd_map = malloc(mapsz);
+   assert(km_fs()->guestfd_to_hostfd_map != NULL);
+   memset(km_fs()->guestfd_to_hostfd_map, 0xff, mapsz);
+   km_fs()->hostfd_to_guestfd_map = malloc(mapsz);
+   assert(km_fs()->hostfd_to_guestfd_map != NULL);
+   memset(km_fs()->hostfd_to_guestfd_map, 0xff, mapsz);
+   km_fs()->nfdmap = lim.rlim_cur;
+   km_fs()->guestfd_to_name_map = calloc(lim.rlim_cur, sizeof(char*));
+   assert(km_fs()->guestfd_to_name_map != NULL);
 
    if (km_exec_recover_guestfd() != 0) {
       // setup guest std file streams.
       for (int i = 0; i < 3; i++) {
-         machine.filesys.guestfd_to_hostfd_map[i] = i;
-         machine.filesys.hostfd_to_guestfd_map[i] = i;
+         km_fs()->guestfd_to_hostfd_map[i] = i;
+         km_fs()->hostfd_to_guestfd_map[i] = i;
          switch (i) {
             case 0:
-               machine.filesys.guestfd_to_name_map[i] = strdup("[stdin]");
+               km_fs()->guestfd_to_name_map[i] = strdup("[stdin]");
                break;
             case 1:
-               machine.filesys.guestfd_to_name_map[i] = strdup("[stdout]");
+               km_fs()->guestfd_to_name_map[i] = strdup("[stdout]");
                break;
             case 2:
-               machine.filesys.guestfd_to_name_map[i] = strdup("[stderr]");
+               km_fs()->guestfd_to_name_map[i] = strdup("[stderr]");
                break;
          }
-         assert(machine.filesys.guestfd_to_name_map[i] != NULL);
+         assert(km_fs()->guestfd_to_name_map[i] != NULL);
       }
    }
    return 0;
@@ -215,19 +235,19 @@ int km_fs_init(void)
 void km_fs_fini(void)
 {
    for (int i = 0; i < 3; i++) {
-      free(machine.filesys.guestfd_to_name_map[i]);
+      free(km_fs()->guestfd_to_name_map[i]);
    }
-   if (machine.filesys.guestfd_to_name_map != NULL) {
-      free(machine.filesys.guestfd_to_name_map);
-      machine.filesys.guestfd_to_name_map = NULL;
+   if (km_fs()->guestfd_to_name_map != NULL) {
+      free(km_fs()->guestfd_to_name_map);
+      km_fs()->guestfd_to_name_map = NULL;
    }
-   if (machine.filesys.guestfd_to_hostfd_map != NULL) {
-      free(machine.filesys.guestfd_to_hostfd_map);
-      machine.filesys.guestfd_to_hostfd_map = NULL;
+   if (km_fs()->guestfd_to_hostfd_map != NULL) {
+      free(km_fs()->guestfd_to_hostfd_map);
+      km_fs()->guestfd_to_hostfd_map = NULL;
    }
-   if (machine.filesys.hostfd_to_guestfd_map != NULL) {
-      free(machine.filesys.hostfd_to_guestfd_map);
-      machine.filesys.hostfd_to_guestfd_map = NULL;
+   if (km_fs()->hostfd_to_guestfd_map != NULL) {
+      free(km_fs()->hostfd_to_guestfd_map);
+      km_fs()->hostfd_to_guestfd_map = NULL;
    }
 }
 
@@ -237,7 +257,7 @@ uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
    int guestfd = -1;
    int hostfd = __syscall_3(SYS_open, (uintptr_t)pathname, flags, mode);
    if (hostfd >= 0) {
-      guestfd = add_guest_fd(vcpu, hostfd, 0, pathname, flags);
+      guestfd = km_add_guest_fd(vcpu, hostfd, 0, pathname, flags);
    } else {
       guestfd = hostfd;
    }
@@ -250,7 +270,7 @@ uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mod
    int host_dirfd = dirfd;
 
    if (dirfd != AT_FDCWD && pathname[0] != '/') {
-      if ((host_dirfd = guestfd_to_hostfd(dirfd)) < 0) {
+      if ((host_dirfd = km_fs_g2h_fd(dirfd)) < 0) {
          return -EBADF;
       }
    }
@@ -258,7 +278,7 @@ uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mod
 
    int hostfd = __syscall_4(SYS_openat, host_dirfd, (uintptr_t)pathname, flags, mode);
    if (hostfd >= 0) {
-      guestfd = add_guest_fd(vcpu, hostfd, 0, pathname, flags);
+      guestfd = km_add_guest_fd(vcpu, hostfd, 0, pathname, flags);
    } else {
       guestfd = hostfd;
    }
@@ -271,7 +291,7 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
    km_infox(KM_TRACE_FILESYS, "close(%d)", fd);
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    /*
@@ -302,7 +322,7 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
 int km_fs_shutdown(km_vcpu_t* vcpu, int sockfd, int how)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_2(SYS_shutdown, host_fd, how);
@@ -316,7 +336,7 @@ int km_fs_shutdown(km_vcpu_t* vcpu, int sockfd, int how)
 uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, const void* buf, size_t count, off_t offset)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_4(scall, host_fd, (uintptr_t)buf, count, offset);
@@ -331,7 +351,7 @@ uint64_t
 km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, size_t iovcnt, off_t offset)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
 
@@ -355,7 +375,7 @@ km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, si
 uint64_t km_fs_ioctl(km_vcpu_t* vcpu, int fd, unsigned long request, void* arg)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_ioctl, host_fd, request, (uintptr_t)arg);
@@ -366,7 +386,7 @@ uint64_t km_fs_ioctl(km_vcpu_t* vcpu, int fd, unsigned long request, void* arg)
 uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    uint64_t farg = arg;
@@ -379,7 +399,7 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
    int ret = __syscall_3(SYS_fcntl, host_fd, cmd, farg);
    if (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) {
       if (ret >= 0) {
-         ret = add_guest_fd(vcpu, ret, arg, km_guestfd_name(vcpu, fd), (cmd == F_DUPFD) ? 0 : O_CLOEXEC);
+         ret = km_add_guest_fd(vcpu, ret, arg, km_guestfd_name(vcpu, fd), (cmd == F_DUPFD) ? 0 : O_CLOEXEC);
       }
    }
    return ret;
@@ -389,7 +409,7 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
 uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_lseek, host_fd, offset, whence);
@@ -400,7 +420,7 @@ uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence)
 uint64_t km_fs_getdents64(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_getdents64, host_fd, (uintptr_t)dirp, count);
@@ -438,8 +458,7 @@ static int readlink_procself(const char* pathname, char* buf, size_t bufsz)
       return -ENOENT;
    }
    char* mpath;
-   if (fd < 0 || fd >= machine.filesys.nfdmap ||
-       (mpath = machine.filesys.guestfd_to_name_map[fd]) == 0) {
+   if (fd < 0 || fd >= km_fs()->nfdmap || (mpath = km_fs()->guestfd_to_name_map[fd]) == 0) {
       return -ENOENT;
    }
    /*
@@ -479,7 +498,7 @@ uint64_t km_fs_readlinkat(km_vcpu_t* vcpu, int dirfd, char* pathname, char* buf,
       int host_dirfd = dirfd;
 
       if (dirfd != AT_FDCWD && pathname[0] != '/') {
-         if ((host_dirfd = guestfd_to_hostfd(dirfd)) < 0) {
+         if ((host_dirfd = km_fs_g2h_fd(dirfd)) < 0) {
             return -EBADF;
          }
       }
@@ -507,7 +526,7 @@ uint64_t km_fs_chdir(km_vcpu_t* vcpu, char* pathname)
 uint64_t km_fs_fchdir(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_1(SYS_fchdir, host_fd);
@@ -525,7 +544,7 @@ uint64_t km_fs_truncate(km_vcpu_t* vcpu, char* pathname, off_t length)
 uint64_t km_fs_ftruncate(km_vcpu_t* vcpu, int fd, off_t length)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_2(SYS_ftruncate, host_fd, length);
@@ -536,7 +555,7 @@ uint64_t km_fs_ftruncate(km_vcpu_t* vcpu, int fd, off_t length)
 uint64_t km_fs_fsync(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_1(SYS_fsync, host_fd);
@@ -547,7 +566,7 @@ uint64_t km_fs_fsync(km_vcpu_t* vcpu, int fd)
 uint64_t km_fs_fdatasync(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_1(SYS_fdatasync, host_fd);
@@ -600,7 +619,7 @@ uint64_t km_fs_lchown(km_vcpu_t* vcpu, char* pathname, uid_t uid, gid_t gid)
 uint64_t km_fs_fchown(km_vcpu_t* vcpu, int fd, uid_t uid, gid_t gid)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_fchown, host_fd, uid, gid);
@@ -618,7 +637,7 @@ uint64_t km_fs_chmod(km_vcpu_t* vcpu, char* pathname, mode_t mode)
 uint64_t km_fs_fchmod(km_vcpu_t* vcpu, int fd, mode_t mode)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_2(SYS_fchmod, host_fd, mode);
@@ -653,7 +672,7 @@ km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int 
    int host_fd = dirfd;
 
    if (dirfd != AT_FDCWD && pathname[0] != '/') {
-      if ((host_fd = guestfd_to_hostfd(dirfd)) < 0) {
+      if ((host_fd = km_fs_g2h_fd(dirfd)) < 0) {
          return -EBADF;
       }
    }
@@ -665,7 +684,7 @@ km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int 
 uint64_t km_fs_fstat(km_vcpu_t* vcpu, int fd, struct stat* statbuf)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_2(SYS_fstat, host_fd, (uintptr_t)statbuf);
@@ -688,14 +707,14 @@ uint64_t km_fs_access(km_vcpu_t* vcpu, const char* pathname, int mode)
 uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
 {
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    char* name = km_guestfd_name(vcpu, fd);
    assert(name != NULL);
    int ret = __syscall_1(SYS_dup, host_fd);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, name, 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, name, 0);
    }
    return ret;
 }
@@ -709,15 +728,15 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    if ((flags & ~O_CLOEXEC) != 0) {
       return -EINVAL;
    }
-   if (newfd < 0 || newfd >= machine.filesys.nfdmap) {
+   if (newfd < 0 || newfd >= km_fs()->nfdmap) {
       return -EBADF;
    }
 
    int host_fd;
-   if ((host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
-   int host_newfd = guestfd_to_hostfd(newfd);
+   int host_newfd = km_fs_g2h_fd(newfd);
 
    char* name = km_guestfd_name(vcpu, fd);
    assert(name != NULL);
@@ -746,8 +765,8 @@ uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2])
 {
    int ret = __syscall_1(SYS_pipe, (uintptr_t)pipefd);
    if (ret == 0) {
-      pipefd[0] = add_guest_fd(vcpu, pipefd[0], 0, "[pipe[0]]", 0);
-      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0, "[pipe[1]]", 0);
+      pipefd[0] = km_add_guest_fd(vcpu, pipefd[0], 0, "[pipe[0]]", 0);
+      pipefd[1] = km_add_guest_fd(vcpu, pipefd[1], 0, "[pipe[1]]", 0);
    }
    return ret;
 }
@@ -757,8 +776,8 @@ uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags)
 {
    int ret = __syscall_2(SYS_pipe2, (uintptr_t)pipefd, flags);
    if (ret == 0) {
-      pipefd[0] = add_guest_fd(vcpu, pipefd[0], 1, "[pipe2[0]]", 0);
-      pipefd[1] = add_guest_fd(vcpu, pipefd[1], 0, "[pipe2[1]]", 0);
+      pipefd[0] = km_add_guest_fd(vcpu, pipefd[0], 1, "[pipe2[0]]", 0);
+      pipefd[1] = km_add_guest_fd(vcpu, pipefd[1], 0, "[pipe2[1]]", 0);
    }
    return ret;
 }
@@ -768,7 +787,7 @@ uint64_t km_fs_eventfd2(km_vcpu_t* vcpu, int initval, int flags)
 {
    int ret = __syscall_2(SYS_eventfd2, initval, flags);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, "[eventfd2]", 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, "[eventfd2]", 0);
    }
    return ret;
 }
@@ -778,7 +797,7 @@ uint64_t km_fs_socket(km_vcpu_t* vcpu, int domain, int type, int protocol)
 {
    int ret = __syscall_3(SYS_socket, domain, type, protocol);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, "[socket]", 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, "[socket]", 0);
    }
    return ret;
 }
@@ -788,7 +807,7 @@ uint64_t
 km_fs_getsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optval, socklen_t* optlen)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret =
@@ -801,7 +820,7 @@ uint64_t
 km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optval, socklen_t optlen)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_5(SYS_setsockopt, host_sockfd, level, optname, (uintptr_t)optval, optlen);
@@ -813,7 +832,7 @@ km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optv
 uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr* msg, int flag)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(scall, host_sockfd, (uintptr_t)msg, flag);
@@ -824,10 +843,10 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
 uint64_t km_fs_sendfile(km_vcpu_t* vcpu, int out_fd, int in_fd, off_t* offset, size_t count)
 {
    int host_outfd, host_infd;
-   if ((host_outfd = guestfd_to_hostfd(out_fd)) < 0) {
+   if ((host_outfd = km_fs_g2h_fd(out_fd)) < 0) {
       return -EBADF;
    }
-   if ((host_infd = guestfd_to_hostfd(in_fd)) < 0) {
+   if ((host_infd = km_fs_g2h_fd(in_fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_4(SYS_sendfile, host_outfd, host_infd, (uintptr_t)offset, count);
@@ -840,10 +859,10 @@ uint64_t km_fs_copy_file_range(
     km_vcpu_t* vcpu, int fd_in, off_t* off_in, int fd_out, off_t* off_out, size_t len, unsigned int flags)
 {
    int host_outfd, host_infd;
-   if ((host_outfd = guestfd_to_hostfd(fd_out)) < 0) {
+   if ((host_outfd = km_fs_g2h_fd(fd_out)) < 0) {
       return -EBADF;
    }
-   if ((host_infd = guestfd_to_hostfd(fd_in)) < 0) {
+   if ((host_infd = km_fs_g2h_fd(fd_in)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_6(SYS_copy_file_range,
@@ -862,7 +881,7 @@ uint64_t
 km_fs_get_sock_peer_name(km_vcpu_t* vcpu, int hc, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(hc, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
@@ -873,7 +892,7 @@ km_fs_get_sock_peer_name(km_vcpu_t* vcpu, int hc, int sockfd, struct sockaddr* a
 uint64_t km_fs_bind(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_bind, host_sockfd, (uintptr_t)addr, addrlen);
@@ -884,7 +903,7 @@ uint64_t km_fs_bind(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_
 uint64_t km_fs_listen(km_vcpu_t* vcpu, int sockfd, int backlog)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_2(SYS_listen, host_sockfd, backlog);
@@ -895,12 +914,12 @@ uint64_t km_fs_listen(km_vcpu_t* vcpu, int sockfd, int backlog)
 uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_accept, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, "[accept]", 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, "[accept]", 0);
    }
    return ret;
 }
@@ -909,7 +928,7 @@ uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockle
 uint64_t km_fs_connect(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_3(SYS_connect, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
@@ -921,8 +940,8 @@ uint64_t km_fs_socketpair(km_vcpu_t* vcpu, int domain, int type, int protocol, i
 {
    int ret = __syscall_4(SYS_socketpair, domain, type, protocol, (uintptr_t)sv);
    if (ret == 0) {
-      sv[0] = add_guest_fd(vcpu, sv[0], 0, "[socketpair[0]]", 0);
-      sv[1] = add_guest_fd(vcpu, sv[1], 0, "[socketpair[1]]", 0);
+      sv[0] = km_add_guest_fd(vcpu, sv[0], 0, "[socketpair[0]]", 0);
+      sv[1] = km_add_guest_fd(vcpu, sv[1], 0, "[socketpair[1]]", 0);
    }
    return ret;
 }
@@ -932,12 +951,12 @@ uint64_t
 km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen, int flags)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_4(SYS_accept4, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen, flags);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, "[accept4]", 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, "[accept4]", 0);
    }
    return ret;
 }
@@ -953,7 +972,7 @@ uint64_t km_fs_sendto(km_vcpu_t* vcpu,
                       socklen_t addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret =
@@ -967,7 +986,7 @@ uint64_t km_fs_recvfrom(
     km_vcpu_t* vcpu, int sockfd, void* buf, size_t len, int flags, struct sockaddr* addr, socklen_t* addrlen)
 {
    int host_sockfd;
-   if ((host_sockfd = guestfd_to_hostfd(sockfd)) < 0) {
+   if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
    int ret =
@@ -1012,7 +1031,7 @@ uint64_t km_fs_select(km_vcpu_t* vcpu,
                          (uintptr_t)timeout);
    if (ret > 0) {
       for (int i = 0; i < nfds; i++) {
-         int guest_fd = hostfd_to_guestfd(vcpu, i);
+         int guest_fd = km_fs_h2g_fd(i);
          if (guest_fd < 0) {
             continue;
          }
@@ -1037,7 +1056,7 @@ uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeou
 
    // fds checked before this is called.
    for (int i = 0; i < nfds; i++) {
-      if ((host_fds[i].fd = guestfd_to_hostfd(fds[i].fd)) < 0) {
+      if ((host_fds[i].fd = km_fs_g2h_fd(fds[i].fd)) < 0) {
          return -EBADF;
       }
       host_fds[i].events = fds[i].events;
@@ -1057,7 +1076,7 @@ uint64_t km_fs_epoll_create1(km_vcpu_t* vcpu, int flags)
 {
    int ret = __syscall_1(SYS_epoll_create1, flags);
    if (ret >= 0) {
-      ret = add_guest_fd(vcpu, ret, 0, "[epoll_create1]", 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, "[epoll_create1]", 0);
    }
    return ret;
 }
@@ -1068,7 +1087,7 @@ uint64_t km_fs_epoll_ctl(km_vcpu_t* vcpu, int epfd, int op, int fd, struct epoll
    int host_epfd;
    int host_fd;
 
-   if ((host_epfd = guestfd_to_hostfd(epfd)) < 0 || (host_fd = guestfd_to_hostfd(fd)) < 0) {
+   if ((host_epfd = km_fs_g2h_fd(epfd)) < 0 || (host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
    int ret = __syscall_4(SYS_epoll_ctl, host_epfd, op, host_fd, (uintptr_t)event);
@@ -1086,7 +1105,7 @@ uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
                            int sigsetsize)
 {
    int host_epfd;
-   if ((host_epfd = guestfd_to_hostfd(epfd)) < 0) {
+   if ((host_epfd = km_fs_g2h_fd(epfd)) < 0) {
       return -EBADF;
    }
 
@@ -1117,7 +1136,7 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
     *       RLIMIT_SIGPENDING - Maximum number of pending signals.
     *       RLIMIT_STACK - maximum size of process stack.
     */
-   if (resource == RLIMIT_NOFILE && new_limit != NULL && new_limit->rlim_cur > machine.filesys.nfdmap) {
+   if (resource == RLIMIT_NOFILE && new_limit != NULL && new_limit->rlim_cur > km_fs()->nfdmap) {
       return -EPERM;
    }
    int ret = __syscall_4(SYS_prlimit64, pid, resource, (uintptr_t)new_limit, (uintptr_t)old_limit);
