@@ -210,7 +210,7 @@ void km_hcalls_init(void);
 void km_hcalls_fini(void);
 
 /*
- * Actual struct km_filesys format is provate to km_filesys.c
+ * Actual `struct km_filesys` format is private to km_filesys.c
  */
 struct km_filesys;
 typedef struct km_filesys* km_filesys_ptr_t;
