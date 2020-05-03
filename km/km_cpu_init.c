@@ -436,6 +436,14 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    new_vcpu->regs = vcpu->regs;
    new_vcpu->regs.rsp = sp;
    *((uint64_t*)km_gva_to_kma_nocheck(sp)) = 0;   // hc return value
+   if (machine.vm_type == VM_TYPE_KKM) {
+      // copy KKM blob from parent to child currently 8 bytes
+      kvm_run_t* parent_r = vcpu->cpu_run;
+      uint32_t offset = parent_r->io.data_offset;
+      *(uint64_t*)((km_kma_t)new_vcpu->cpu_run + offset) =
+          *(uint64_t*)((km_kma_t)vcpu->cpu_run + offset);
+      new_vcpu->regs.rax = 0;
+   }
    new_vcpu->regs_valid = 1;
 
    km_write_registers(new_vcpu);
