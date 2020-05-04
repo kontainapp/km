@@ -78,6 +78,8 @@ function cleanup_and_exit {
     exit $error
 }
 
+# creates a pod for coverage test run and executes test run there. Then copies
+# coverage data back to host for coverage analysis
 function main {
     check_variables
     check_bin kubectl m4

@@ -9,7 +9,7 @@ steps:
       make -C tests pull-buildenv-image .buildenv-local-lib
       make -j withdocker
       make -C km -j withdocker TARGET=coverage 
-      make -C tests push-testenv-image
+      make -C tests testenv-image push-testenv-image
     displayName: KM build - set build environment, build, create test container and push it to registry
 
   # Order is important here. We need km built before we build kontaind.

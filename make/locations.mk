@@ -83,15 +83,13 @@ HYPERVISOR_DEVICE ?= /dev/kvm
 DOCKER_RUN_CLEANUP ?= --rm
 # When running tests in containers on CI, we can't use tty and interactive
 DOCKER_INTERACTIVE ?= -it
-# When we need to write files to the volumes mapped in, we need to map the
-# current used into the container, since containers are using `appuser`, which
-# is different from user on the host.
-DOCKER_RUN_MAP_CURRENT_USER := -u${CURRENT_UID}:${CURRENT_GID}
 
 DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP}
 # DOCKER_RUN_BUILD are used for building and other operations that requires
-# output of files to volumes.
-DOCKER_RUN_BUILD := ${DOCKER_RUN} ${DOCKER_RUN_MAP_CURRENT_USER}
+# output of files to volumes. When we need to write files to the volumes mapped
+# in, we need to map the current used into the container, since containers are
+# using `appuser`, which is different from user on the host.
+DOCKER_RUN_BUILD := ${DOCKER_RUN} -u${CURRENT_UID}:${CURRENT_GID}
 DOCKER_RUN_TEST := ${DOCKER_RUN} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE}
 
 # Inside docker image (buildenv + testenv), appuser will be the user created
