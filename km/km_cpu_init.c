@@ -48,6 +48,8 @@ km_machine_t machine = {
     .mmaps.mutex = PTHREAD_MUTEX_INITIALIZER,
     .pause_mtx = PTHREAD_MUTEX_INITIALIZER,
     .pause_cv = PTHREAD_COND_INITIALIZER,
+    .pid = 1,
+    .next_pid = 1000,
 };
 
 /*
@@ -89,7 +91,6 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
  */
 void km_machine_fini(void)
 {
-   km_wait_on_eventfd(machine.shutdown_fd);
    close(machine.shutdown_fd);
    assert(machine.vm_vcpu_run_cnt == 0);
    free(machine.auxv);
@@ -184,7 +185,7 @@ static void km_init_tsc(km_vcpu_t* vcpu)
    }
 }
 
-static void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
+void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
 {
    assert(machine.idt != 0);
    vcpu->sregs = (kvm_sregs_t){
@@ -501,13 +502,10 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
  *
  * Any failure is fatal, hence void
  */
-void km_machine_init(km_machine_init_params_t* params)
+void km_machine_setup(km_machine_init_params_t* params)
 {
    int rc;
 
-   if (km_fs_init() < 0) {
-      err(1, "KM: k_init_guest_files() failed");
-   }
    if ((machine.intr_fd = eventfd(0, 0)) == -1) {
       err(1, "KM: Failed to create machine intr_fd");
    }
@@ -637,6 +635,24 @@ void km_machine_init(km_machine_init_params_t* params)
          machine.guest_max_physmem = params->guest_physmem;
       }
    }
+}
+
+/*
+ * initial steps setting our VM
+ *
+ * talk to KVM
+ * create VM
+ * set VM run memory region
+ * prepare cpuid
+ *
+ * Any failure is fatal, hence void
+ */
+void km_machine_init(km_machine_init_params_t* params)
+{
+   if (km_fs_init() < 0) {
+      err(1, "KM: km_fs_init() failed");
+   }
+   km_machine_setup(params);
    km_mem_init(params);
    km_signal_init();
    km_init_guest_idt();

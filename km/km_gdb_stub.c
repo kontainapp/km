@@ -59,6 +59,7 @@
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_fork.h"
 
 /*
  * A note about multi threaded debugging.
@@ -252,9 +253,34 @@ static int km_gdb_vcpu_disengage(km_vcpu_t* vcpu, uint64_t unused)
 void km_gdb_vcpu_state_init(km_vcpu_t* vcpu)
 {
    vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RUNNING;
+   vcpu->gdb_vcpu_state.event.entry_is_active = 0;
 }
 
 static void gdb_fd_garbage_collect(void);
+
+/*
+ * Reset gdb state in the child process that results from a payload
+ * fork() system call.  The parent is connected to the gdb client.
+ * The child is not connected to the gdb client.
+ */
+void km_gdb_fork_reset(void)
+{
+   if (gdbstub.sock_fd >= 0) {
+      close(gdbstub.sock_fd);
+      gdbstub.sock_fd = -1;
+   }
+   if (gdbstub.listen_socket_fd >= 0) {
+      close(gdbstub.listen_socket_fd);
+      gdbstub.listen_socket_fd = -1;
+   }
+   gdbstub.enabled = 0;
+   gdbstub.gdb_client_attached = 0;
+   gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_UNSPECIFIED;
+   gdbstub.session_requested = 0;
+   TAILQ_INIT(&gdbstub.event_queue);
+   gdb_fd_garbage_collect();
+// start listening on a different port again????
+}
 
 /*
  * Cleanup gdb state on gdb client detach.
@@ -2409,6 +2435,12 @@ static gdb_event_t* gdb_select_event(void)
     */
    km_mutex_lock(&gdbstub.notify_mutex);
    TAILQ_FOREACH (foundgep, &gdbstub.event_queue, link) {
+      if (foundgep->signo == GDB_KMSIGNAL_DOFORK) {    // gdb needs to let a fork() hypercall happen
+         TAILQ_REMOVE(&gdbstub.event_queue, foundgep, link);
+         foundgep->entry_is_active = false;
+         km_mutex_unlock(&gdbstub.notify_mutex);
+         return foundgep;
+      }
       if (foundgep->signo == GDB_KMSIGNAL_THREADEXIT) {
          send_response('S', foundgep, true);
          break;
@@ -2812,7 +2844,7 @@ static void gdb_delete_stale_events(void)
    km_mutex_unlock(&gdbstub.notify_mutex);
 }
 
-static void km_vcpu_resume_all(void)
+void km_vcpu_resume_all(void)
 {
    km_mutex_lock(&machine.pause_mtx);
    machine.pause_requested = 0;
@@ -2952,6 +2984,15 @@ accept_connection:;
 
       gdb_event_t* foundgep;
       while ((foundgep = gdb_select_event()) != NULL) {
+         if (foundgep->signo == GDB_KMSIGNAL_DOFORK) {
+            int in_child;
+            km_dofork(&in_child);
+            if (in_child != 0) { // We are the child, just return to the main thread
+               return;
+            } else {           // We are the parent process, just pretend nothing happened
+               continue;
+            }
+         }
          // process commands from the gdb client
          gdb_handle_remote_commands(foundgep);
          // Delete gdb_events for breakpoints that have been deleted

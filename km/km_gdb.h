@@ -90,6 +90,7 @@ typedef enum {
 #define GDB_SIGNAL_LAST 1000   // arbitarily chosen large value
 #define GDB_KMSIGNAL_KVMEXIT (GDB_SIGNAL_LAST + 20)
 #define GDB_KMSIGNAL_THREADEXIT (GDB_SIGNAL_LAST + 21)
+#define GDB_KMSIGNAL_DOFORK  (GDB_SIGNAL_LAST + 22)
 
 #define KM_TRACE_GDB "gdb"
 
@@ -236,5 +237,7 @@ extern void km_empty_out_eventfd(int fd);
 extern int km_gdb_setup_listen(void);
 extern void km_gdb_destroy_listen(void);
 extern void km_gdb_accept_stop(void);
+extern void km_gdb_fork_reset(void);
+extern void km_vcpu_resume_all(void);
 
 #endif /* __KM_GDB_H__ */

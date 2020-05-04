@@ -193,10 +193,14 @@ typedef struct km_machine_init_params {
                                         // OOM killer to kick in
    km_flag_force_t use_virt;            // force using kvm or kkm
 } km_machine_init_params_t;
+extern km_machine_init_params_t km_machine_init_params;
 
+void km_machine_setup(km_machine_init_params_t* params);
 void km_machine_init(km_machine_init_params_t* params);
 void km_signal_machine_fini(void);
+void km_vcpu_fini(km_vcpu_t* vcpu);
 void km_machine_fini(void);
+void kvm_vcpu_init_sregs(km_vcpu_t* vcpu);
 int km_start_vcpus();
 void* km_vcpu_run(km_vcpu_t* vcpu);
 int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*));
@@ -312,6 +316,8 @@ typedef struct km_machine {
    km_mmap_cb_t mmaps;   // guest memory regions managed with mmaps/mprotect/munmap
    void* auxv;           // Copy of process AUXV (used if core is dumped)
    size_t auxv_size;     // size of process AUXV (used if core is dumped)
+   pid_t pid;            // the payload's km pid
+   pid_t next_pid;       // the pid for a forked payload process
 } km_machine_t;
 
 extern km_machine_t machine;
@@ -593,6 +599,8 @@ static inline void km_signal_unlock(void)
 #define KM_TRACE_SIGNALS "signals"
 #define KM_TRACE_DECODE "decode"
 #define KM_TRACE_PROC "proc"
+#define KM_TRACE_EXEC "exec"
+#define KM_TRACE_FORK "fork"      // also clone() for a process.
 
 /*
  * The km definition of the link_map structure in runtime/musl/include/link.h
