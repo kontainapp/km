@@ -10,11 +10,8 @@
 #
 # Makefile for building and packing dweb-demo
 
-# To avoid default shell configs on systems like Ubuntu. All of our shell scripts assume bash.
-SHELL=/bin/bash
-
+# TODO: Needs to be resolved
 # ifeq ($(ImageOS),ubuntu18)
-
 # On Ubuntu18, ld refuses to deal with alpine:3.11.5  crt1.o with error
 # '/usr/bin/ld: /opt/kontain/alpine-lib/usr/lib/crt1.o: unable to initialize decompress status for section .debug_info'
 # googling shows it's a result of binutils/elfutils version mismatch.

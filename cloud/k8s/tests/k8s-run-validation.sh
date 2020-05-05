@@ -57,6 +57,7 @@ function main {
         kubectl get pod/${pod_name} -o json
     fi
 
+    kubectl logs ${pod_name}
     kubectl delete -f ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME}
     rm -rf ${RUNTIME_DIR}
     exit $exit_code
