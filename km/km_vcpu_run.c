@@ -736,6 +736,11 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             abort();
             break;
 
+         case KVM_EXIT_HLT:
+            km_dump_vcpu(vcpu);
+            run_errx(1, "KVM: exit. reason=%d (%s)", reason, kvm_reason_name(reason));
+            break;
+
          case KVM_EXIT_EXCEPTION:
          default:
             run_errx(1, "KVM: exit. reason=%d (%s)", reason, kvm_reason_name(reason));
