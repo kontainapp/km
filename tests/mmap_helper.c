@@ -25,6 +25,8 @@
 
 int in_gdb = 1;
 int fail = 0;
+sigjmp_buf jbuf;
+int fail;
 
 void sig_handler(int signal)
 {

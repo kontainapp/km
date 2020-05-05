@@ -19,14 +19,13 @@
 #include "greatest/greatest.h"
 #include "km_mem.h"
 
-
 extern int main(int argc, char** argv);
-#define ASSERT_MMAP_FD -2020 //This should be the same as used in gdb_simple_test.py
+#define ASSERT_MMAP_FD -2020   // This should be the same as used in gdb_simple_test.py
 #define KM_PAYLOAD() ((uint64_t)&main < 4 * MIB)   // in KM, we load from 2Mb, In Linux, from 4MB
 #define ASSERT_MMAPS_COUNT(_expected_count, _query)                                                \
    {                                                                                               \
       int ret = maps_count(_expected_count, _query);                                               \
-      ASSERT_NOT_EQm("Expected mmaps counts does not match ", -1, ret);                                                                      \
+      ASSERT_NOT_EQm("Expected mmaps counts does not match ", -1, ret);                            \
    }
 
 /*
@@ -34,22 +33,22 @@ extern int main(int argc, char** argv);
  * If you add regions to km's busy memory list, you will need to change
  * this value.
  */
-#define INITIAL_BUSY_MEMORY_REGIONS	6
+#define INITIAL_BUSY_MEMORY_REGIONS 6
 
 // Get the initial busy count for use in later calls to ASSERT_MMAPS_CHANGE()
-#define ASSERT_MMAPS_INIT(initial_busy)                  \
-{\
-   initial_busy = INITIAL_BUSY_MEMORY_REGIONS;                                     \
-   int ret = maps_count(initial_busy, BUSY_MMAPS); \
-   ASSERT_NOT_EQ(ret, -1);                                                                      \
+#define ASSERT_MMAPS_INIT(initial_busy)                                                            \
+   {                                                                                               \
+      initial_busy = INITIAL_BUSY_MEMORY_REGIONS;                                                  \
+      int ret = maps_count(initial_busy, BUSY_MMAPS);                                              \
+      ASSERT_NOT_EQ(ret, -1);                                                                      \
    }
-   
+
 // Check to see if busy memory region count is as expected.
-#define ASSERT_MMAPS_CHANGE(expected_change, initial_busy)\
-      {\
-      int expected_count = expected_change + initial_busy;\
-      int ret = maps_count(expected_count, TOTAL_MMAPS);\
-      ASSERT_NOT_EQ(ret, -1);\
+#define ASSERT_MMAPS_CHANGE(expected_change, initial_busy)                                         \
+   {                                                                                               \
+      int expected_count = expected_change + initial_busy;                                         \
+      int ret = maps_count(expected_count, TOTAL_MMAPS);                                           \
+      ASSERT_NOT_EQ(ret, -1);                                                                      \
    }
 
 // Type of operation invoked by a single line in test tables
@@ -108,8 +107,8 @@ static char* out_sz(uint64_t val)
    return buf;
 }
 
-sigjmp_buf jbuf;
-int fail;
+extern sigjmp_buf jbuf;
+extern int fail;
 enum greatest_test_res mmap_test(mmap_test_t* tests);
 void sig_handler(int signal);
 int maps_count(int expected_count, int query);
