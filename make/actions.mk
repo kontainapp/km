@@ -22,7 +22,6 @@
 # - INCLUDES: directories to search for include files
 # - LLIBS: to link with -l ${LLIBS}
 #
-SHELL=/bin/bash
 
 # all locations/file names
 include ${TOP}/make/locations.mk
@@ -169,12 +168,13 @@ endif # (${SUBDIRS},)
 #  	<make-target> is "all" by default (same as in regular make, with no docker)
 #  	<os-type> is "fedora" by default. See ${TOP}/docker/build for supported OSes
 #
-__testing := $(strip $(findstring test,$(TARGET)) $(findstring coverage,$(TARGET)))
+
+__testing := $(strip $(findstring test,$(TARGET)))
 ifneq ($(__testing),)
-    # add --device=/dev/kvm and hypervisor type
+	# Testing requires a different set of options to docker run commands.
 	_CMD := ${DOCKER_RUN_TEST}
 else
-	_CMD := ${DOCKER_RUN}
+	_CMD := ${DOCKER_RUN_BUILD}
 endif
 
 ${BLDDIR}: |
@@ -184,8 +184,13 @@ ${BLDDIR}: |
 COMPONENT := km
 withdocker: ## Build using Docker container for build environment. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${BUILDENV_IMG} ; then \
-		echo -e "$(CYAN)${BUILDENV_IMG} is missing locally, will try to pull from registry. Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
-	${_CMD} -v $(realpath ${TOP}):/src:Z  -v ${KM_OPT_RT}:${KM_OPT_RT}:Z -w /src/${FROMTOP} $(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION)   \
-			$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+		echo -e "$(CYAN)${BUILDENV_IMG} is missing locally, will try to pull from registry. \
+		Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
+	${_CMD} \
+		-v ${TOP}:${DOCKER_KM_TOP}:Z \
+		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
+		-w ${DOCKER_KM_TOP}/${FROMTOP} \
+		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
+		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
 
 .PHONY: all clean test help withdocker

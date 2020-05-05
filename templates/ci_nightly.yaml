@@ -7,6 +7,10 @@ steps:
     displayName: KM tests - run on Kubernetes
     timeoutInMinutes: 15
 
+  - bash: make -C tests coverage-withk8s
+    displayName: KM tests with coverage - run on Kubernetes
+    timeoutInMinutes: 15
+
   - bash: make -C payloads/python test-all-withk8s
     displayName: Python.km tests - run on Kubernetes
     timeoutInMinutes: 15
