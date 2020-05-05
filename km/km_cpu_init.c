@@ -422,6 +422,25 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg)
    return 0;
 }
 
+/*
+ * KKM clone child handling changes depending on
+ * child is created using hypercall or syscall.
+ * Parent save this information in cpu_run area next to io data.
+ * Copy this from parent to child
+ */
+static inline void km_vmmonitor_clone(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
+{
+   kvm_run_t* parent_r = vcpu->cpu_run;
+   uint32_t offset = parent_r->io.data_offset;
+
+   if (machine.vm_type == VM_TYPE_KKM) {
+      // copy KKM blob from parent to child currently 8 bytes
+      *(uint64_t*)((km_kma_t)new_vcpu->cpu_run + offset) =
+          *(uint64_t*)((km_kma_t)vcpu->cpu_run + offset);
+      new_vcpu->regs.rax = 0;
+   }
+}
+
 int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 {
    kvm_vcpu_init_sregs(new_vcpu);
@@ -436,6 +455,7 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    new_vcpu->regs = vcpu->regs;
    new_vcpu->regs.rsp = sp;
    *((uint64_t*)km_gva_to_kma_nocheck(sp)) = 0;   // hc return value
+   km_vmmonitor_clone(vcpu, new_vcpu);
    new_vcpu->regs_valid = 1;
 
    km_write_registers(new_vcpu);
