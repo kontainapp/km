@@ -917,7 +917,7 @@ fi
       assert_success
       assert_output --partial "Hello from thread"
       assert [ ! -f ${CORE} ]
-      rm -f ${SNAP} 
+      rm -f ${SNAP}
 
       # snapshot resume that core dumps
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -a
@@ -928,7 +928,7 @@ fi
       assert_failure 6  # SIGABRT
       assert [ -f ${CORE} ]
       assert_output --partial "Hello from thread"
-      if ["$ext" -ne ".so"]; then
+      if [ "$ext" = ".so" ]; then
          gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
       fi
       rm -f ${SNAP} ${CORE}
