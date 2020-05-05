@@ -11,7 +11,6 @@
 # create/destroy stuff in azure, an deploy to kube there
 # TODO : rework apply -f, it is a hack for now
 
-SHELL=/bin/bash
 TOP := $(shell git rev-parse --show-toplevel)
 include cloud_config.mk
 
