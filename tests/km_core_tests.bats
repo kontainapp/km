@@ -928,7 +928,7 @@ fi
       assert_failure 6  # SIGABRT
       assert [ -f ${CORE} ]
       assert_output --partial "Hello from thread"
-      if [ $test_type == so ] ; then
+      if [ "$test_type" = ".km.so" ]; then
          gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
       fi
       rm -f ${SNAP} ${CORE}
