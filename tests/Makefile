@@ -22,7 +22,7 @@ BUILDENV_PATH = ${BLDDIR}
 # So this include is stuck here in the middle of the file by design.
 include ${TOP}/make/images.mk
 
-# We use coverage version of km to test. 
+# We use coverage version of km to test.
 TESTENV_EXTRA_FILES := ${COVERAGE_KM_BIN} ${KM_LDSO}
 
 # We need to put both KM_BIN and COVERAGE_KM_BIN into the testenv. Since km
@@ -31,6 +31,7 @@ TESTENV_EXTRA_FILES := ${COVERAGE_KM_BIN} ${KM_LDSO}
 # copying both of them into the TESTENV_PATH. testenv.dockerfile will take care
 # of copying the km into the right place.
 override define testenv_prep =
+	${MAKE} -j -C ${TOP}/km coverage
 	cp ${KM_BIN} ${TESTENV_PATH}
 	cp ${KM_LDSO} ${TESTENV_PATH}
 	cp ${COVERAGE_KM_BIN} ${TESTENV_PATH}/km.coverage
@@ -43,8 +44,8 @@ override define testenv_cleanup =
 endef
 
 # this is how we run tests in containers:
-CONTAINER_TEST_CMD :=  ${DOCKER_KM_TOP}/tests/run_bats_tests.sh --km=/opt/kontain/bin/km
-CONTAINER_COVERAGE_TEST_CMD :=  ${DOCKER_KM_TOP}/tests/run_bats_tests.sh --km=/opt/kontain/bin/coverage/km
+CONTAINER_TEST_CMD := ${DOCKER_KM_TOP}/tests/run_bats_tests.sh --km=/opt/kontain/bin/km --match="${MATCH}" --usevirt="${USEVIRT}"
+CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/run_bats_tests.sh --km=/opt/kontain/bin/coverage/km --match="${MATCH}" --usevirt="${USEVIRT}"
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
 SRC_C := $(wildcard *_test.c)
@@ -151,7 +152,7 @@ load_expected_size: load_test.km # load_test.so
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d ${EXECS} ${SEXECS} kmcore libhelper.a
+	rm -f *.o *.d ${EXECS} ${SEXECS} kmcore km km.coverage *.a *.so
 
 #
 # do not generate .d file for some targets
@@ -188,17 +189,17 @@ DOCKER_COVERAGE_NAME := kontain-coverage-test
 coverage-withdocker:
 	docker create --device=${HYPERVISOR_DEVICE} --name ${DOCKER_COVERAGE_NAME} ${TEST_IMG}:${IMAGE_VERSION} tail -f /dev/null
 	docker start ${DOCKER_COVERAGE_NAME}
-	docker exec ${DOCKER_COVERAGE_NAME} ${CONTAINER_COVERAGE_TEST_CMD} 
+	docker exec ${DOCKER_COVERAGE_NAME} ${CONTAINER_COVERAGE_TEST_CMD}
 	docker cp ${DOCKER_COVERAGE_NAME}:${DOCKER_KM_TOP}/build/km/coverage/. ${TOP}/build/km/coverage/.
 	docker rm --force ${DOCKER_COVERAGE_NAME}
-	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD} 
+	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD}
 
 K8S_TEST_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/k8s-run-coverage.sh
-K8S_TEST_COVERAGE_IMAGE := ${TEST_K8S_IMAGE} 
+K8S_TEST_COVERAGE_IMAGE := ${TEST_K8S_IMAGE}
 K8S_TEST_COVERAGE_NAME := test-coverage-${PROCESSED_IMAGE_VERION}
 coverage-withk8s:
 	${K8S_TEST_COVERAGE_SCRIPT} ${K8S_TEST_COVERAGE_IMAGE} ${K8S_TEST_COVERAGE_NAME} "${CONTAINER_COVERAGE_TEST_CMD}" ${COVERAGE_KM_BLDDIR}
-	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD} 
+	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD}
 
 # install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
 # TODO: maybe make it generic to scan folders
