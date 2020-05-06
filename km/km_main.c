@@ -23,11 +23,11 @@
 #include "km.h"
 #include "km_coredump.h"
 #include "km_elf.h"
+#include "km_exec.h"
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
-#include "km_exec.h"
 
 km_info_trace_t km_info_trace;
 
@@ -155,7 +155,7 @@ int main(int argc, char* const argv[])
    km_gdbstub_init();
 
    assert(envp != NULL);
-   while ((opt = getopt_long(argc, argv, "+g::AV::P:vC:S", long_options, &longopt_index)) != -1) {
+   while ((opt = getopt_long(argc, argv, "+g::e:AEV::P:vC:S", long_options, &longopt_index)) != -1) {
       switch (opt) {
          case 0:
             if (strcmp(long_options[longopt_index].name, GDB_LISTEN) == 0) {
