@@ -54,6 +54,7 @@ extern int main(int argc, char** argv);
 // Type of operation invoked by a single line in test tables
 typedef enum {
    TYPE_MMAP,   // see mmap_test_t below
+   TYPE_MMAP_AUX,
    TYPE_MUNMAP,
    TYPE_MPROTECT,
    TYPE_MREMAP,   // for remapped memory, PROT_WRITE should have been set on mmmap (test will write!)
@@ -61,6 +62,7 @@ typedef enum {
    TYPE_WRITE,    // do a write to <offset, offset+size> from last mmap (use 'prot' for data)
    TYPE_USE_MREMAP_ADDR,   // in further tests, base all on address returned by last mremap (not mmap)
    TYPE_MADVISE,
+
 } call_type_t;
 
 typedef enum { BUSY_MMAPS = 1, FREE_MMAPS = 2, TOTAL_MMAPS = 3 } write_querry_t;

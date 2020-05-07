@@ -59,6 +59,7 @@ enum greatest_test_res mmap_test(mmap_test_t* tests)
       }
       switch (t->type) {
          case TYPE_MMAP:
+         case TYPE_MMAP_AUX:
             new_addr = mmap((void*)t->offset, t->size, t->prot, t->flags, -1, 0);
             if (greatest_get_verbosity() == 1) {
                printf("return: %p (%s)\n", new_addr, out_sz((uint64_t)new_addr));
@@ -78,7 +79,10 @@ enum greatest_test_res mmap_test(mmap_test_t* tests)
                   }
                   memset(new_addr, '2', t->size);
                }
-               last_addr = new_addr;
+
+               if (t->type == TYPE_MMAP) {
+                  last_addr = new_addr;
+               }
             } else {
                ASSERT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
                ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
@@ -237,7 +241,8 @@ int maps_count(int expected_count, int query)
    }
    char read_check_result[256];
    int verbosity = greatest_get_verbosity() >= 1;
-   // Forming a request. Example: 2,1,12 would mean mean 'check BUSY maps (BUSY=2); with verbosity=1 and expect the count of 12
+   // Forming a request. Example: 2,1,12 would mean mean 'check BUSY maps (BUSY=2); with verbosity=1
+   // and expect the count of 12
    sprintf(read_check_result, "%i,%i,%i", query, verbosity, expected_count);
    int ret = read(ASSERT_MMAP_FD, read_check_result, sizeof(read_check_result));
    if (ret == -1 && errno == EBADF) {
