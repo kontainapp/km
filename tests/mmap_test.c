@@ -211,7 +211,7 @@ TEST mremap_test()
        {__LINE__, "1f5 mremap param - wrong flags", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, 0x44, EINVAL},
 
        {__LINE__, "1 mremap shrink makes 1mb hole", TYPE_MREMAP, 0, 2 * MIB, 1 * MIB, MREMAP_MAYMOVE, OK},
-       {__LINE__, "1 mmap refill the hole", TYPE_MMAP, 1 * MIB, 1 * MIB, prot, flags, OK},
+       {__LINE__, "1 mmap refill the hole", TYPE_MMAP_AUX, 1 * MIB, 1 * MIB, prot, flags, OK},
        {__LINE__, "1 cleanup (unmap)", TYPE_MUNMAP, -1 * MIB, 10 * MIB, PROT_NONE, flags, OK},   //// BUG
 
        // grow should move ptr; old area should be unaccessible.
