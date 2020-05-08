@@ -26,7 +26,7 @@ COPY --chown=appuser:appuser cpython/Modules cpython/Modules/
 COPY --chown=appuser:appuser cpython/Lib cpython/Lib/
 COPY --chown=appuser:appuser cpython/build/lib.linux-x86_64-3.7 cpython/build/lib.linux-x86_64-3.7
 COPY --chown=appuser:appuser cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py cpython/Lib/
-# Create 'python' shebang file. Shebang length is limited on some linux distros, so let's make sure it's short
-RUN ln -s ${PHOME}cpython/Lib plib ; ln -s ${PHOME}/cpython/build/lib.linux-x86_64-3.7 pbuild && \
-   echo "#!/usr/bin/env -S ${PHOME}km --putenv=PYTHONPATH=plib:pbuild --putenv=PYTHONHOME=foo:foo" > python && chmod +x ./python
+RUN ln -s km python
+ENV PYTHONPATH=${PHOME}cpython/Lib:${PHOME}/cpython/build/lib.linux-x86_64-3.7 PYTHONHOME=foo:foo
+ENV KM_VERBOSE="GENERIC"
 

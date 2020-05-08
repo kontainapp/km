@@ -21,6 +21,5 @@ ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node
 COPY --chown=appuser:appuser node /home/$USER/node
 COPY --chown=appuser:appuser skip_* km /home/$USER/
 COPY --chown=appuser:appuser scripts /home/$USER/scripts
-RUN echo '#!/home/'$USER'/km --copyenv' > /home/$USER/node/out/${MODE}/node && chmod +x /home/$USER/node/out/${MODE}/node
-
+RUN ln -s /home/$USER/km /home/$USER/node/out/${MODE}/node
 WORKDIR /home/$USER/

@@ -11,7 +11,9 @@
  */
 
 #include <err.h>
+#include <fcntl.h>
 #include <getopt.h>
+#include <libgen.h>
 #include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -51,8 +53,10 @@ static inline void usage()
         "link runs\n"
         "\t--version (-v)                      - Print version info and exit\n"
         "\t--log-to=file_name                  - Stream stdout and stderr to file_name\n"
-        "\t--putenv key=value                  - Add environment 'key' to payload\n"
-        "\t--copyenv                           - Copy all KM env. variables into payload\n"
+        "\t--copyenv                           - Copy all KM env. variables into payload "
+        "(default)\n"
+        "\t--putenv key=value                  - Add environment 'key' to payload (cancels "
+        "--copyenv)\n"
         "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
         "\t--dump-shutdown                     - Produce register dump on VCPU error\n"
         "\t--core-on-err                       - generate KM core dump when exiting on err, "
@@ -139,169 +143,265 @@ static struct option long_options[] = {
     {0, 0, 0, 0},
 };
 
-int main(int argc, char* const argv[])
+static const char* SHEBANG = "#!";
+static const size_t SHEBANG_LEN = 2;               // strlen(SHEBANG)
+static const size_t SHEBANG_MAX_LINE_LEN = 1000;   // note: grabbed on stack
+
+static char* KM_BIN_NAME = "km";
+static char* PAYLOAD_SUFFIX = ".km";
+
+/*
+ * Checks if the passed file is a shebang, and if it is gets payload file name from there.
+ * Either way fills the passed buffer with the payload file name.
+ * Returns 0 on success, -1 on failure
+ *
+ * TODO: we also need to fetch the rest of the shebang line, and insert it to the payload args
+ */
+static int km_get_payload_name(char* payload_file, char fname_buf[])
+{
+   char line_buf[SHEBANG_MAX_LINE_LEN + 1];
+   int fd;
+   int count;
+
+   if ((fd = open(payload_file, O_RDONLY, 0)) < 0) {
+      return -1;
+   }
+   count = pread(fd, line_buf, SHEBANG_MAX_LINE_LEN, 0);
+   close(fd);
+
+   if (count < SHEBANG_LEN) {
+      km_err_msg(errno, "Failed to read %s", payload_file);   // failed to read even 2 bytes...
+      return -1;
+   }
+
+   line_buf[count] = 0;   // null terminate the string
+   if (strncmp(line_buf, SHEBANG, SHEBANG_LEN) == 0) {
+      km_tracex("Extracting payload name from shebang %s", payload_file);
+      char* c = strpbrk(line_buf + SHEBANG_LEN, " \t\n\0");
+      if (c != NULL) {
+         *c = 0;   // null terminate the string
+         payload_file = line_buf + SHEBANG_LEN;
+         km_tracex("Using payload from '%s'", payload_file);
+      } else {
+         km_tracex("Ignoring shebang due to wrong format: '%s'", line_buf);
+      }
+   }
+
+   strncpy(fname_buf, payload_file, PATH_MAX);
+   return 0;
+}
+
+// parses args, returns index of payload name in argv[]
+static int km_parse_args(int argc, char* argv[], char** envp_p[], int* envc_p)
 {
    int opt;
    uint64_t port;
-   km_vcpu_t* vcpu = NULL;
-   char* payload_file;
-   int gpbits = 0;   // Width of guest physical memory bus.
+   int gpbits = 0;         // Width of guest physical memory bus.
+   int copyenv_used = 1;   // By default copy environment from host
+   int putenv_used = 0;
+   int dynlinker_used = 0;
    char* ep = NULL;
    int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
-   int longopt_index;
+   int longopt_index;                        // flag index in longopt array
+   int payload_index;                        // payload_name index in argv array
    char** envp = calloc(1, sizeof(char*));   // NULL terminated array of env pointers
    int envc = 1;                             // count of elements in envp (including NULL)
-   int putenv_used = 0, copyenv_used = 0;    // they are mutually exclusive
-   int dynlinker_used = 0;
-
-   km_gdbstub_init();
 
    assert(envp != NULL);
-   while ((opt = getopt_long(argc, argv, "+g::e:AEV::P:vC:S", long_options, &longopt_index)) != -1) {
-      switch (opt) {
-         case 0:
-            if (strcmp(long_options[longopt_index].name, GDB_LISTEN) == 0) {
-               gdbstub.wait_for_attach = GDB_DONT_WAIT_FOR_ATTACH;
-               km_gdb_enable(1);
-            } else if (strcmp(long_options[longopt_index].name, GDB_DYNLINK) == 0) {
-               gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_DYNLINK;
-               km_gdb_enable(1);
-            }
-            /* If this option set a flag, do nothing else now. */
-            if (long_options[longopt_index].flag != 0) {
+
+   // Special check for tracing
+   // TODO: handle generic KM_CLI_FLAGS here, and reuse code below
+   char* trace_regex = getenv("KM_VERBOSE");
+   if (trace_regex != NULL) {
+      km_info_trace.level = KM_TRACE_INFO;
+      if (*trace_regex == 0) {
+         trace_regex = ".*";   // trace all if regex is not passed
+      }
+      regcomp(&km_info_trace.tags, trace_regex, regex_flags);
+   }
+
+   if (strcmp(basename(argv[0]), KM_BIN_NAME) != 0) {   // Called on behalf of a payload - pass args as is
+      /*
+       * We are called on behalf of payload, e.g as /usr/bin/python.
+       * Form the full path to payload and load it, pass args as is but do form the env
+       */
+      char* payload_name = calloc(1, strlen(argv[0]) + strlen(PAYLOAD_SUFFIX) + 1);
+      assert(payload_name != NULL);   // no need to continue if we are already OOM
+      sprintf(payload_name, "%s%s", argv[0], PAYLOAD_SUFFIX);
+      argv[0] = payload_name;
+      payload_index = 0;
+      km_tracex("Setting payload name to %s", payload_name);
+   } else {   // regular KM invocation - parse KM args
+      while ((opt = getopt_long(argc, argv, "+g::e:AEV::P:vC:S", long_options, &longopt_index)) != -1) {
+         switch (opt) {
+            case 0:
+               // If this option set a flag, do nothing else now.
+               if (long_options[longopt_index].flag != 0) {
+                  break;
+               }
+               // Put here handling of longopts which do not have related short opt
+               if (strcmp(long_options[longopt_index].name, GDB_LISTEN) == 0) {
+                  gdbstub.wait_for_attach = GDB_DONT_WAIT_FOR_ATTACH;
+                  km_gdb_enable(1);
+               } else if (strcmp(long_options[longopt_index].name, GDB_DYNLINK) == 0) {
+                  gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_DYNLINK;
+                  km_gdb_enable(1);
+               }
                break;
-            }
-            // Put here handling of longopts which do not have related short opt
-            break;
-         case 'g':   // enable the gdb server and specify a port to listen on
-            if (optarg != NULL) {
-               char* endp = NULL;
-               errno = 0;
-               port = strtoul(optarg, &endp, 0);
-               if (errno != 0 || (endp != NULL && *endp != 0)) {
-                  km_err_msg(0, "Invalid gdb port number '%s'", optarg);
+            case 'g':   // enable the gdb server and specify a port to listen on
+               if (optarg != NULL) {
+                  char* endp = NULL;
+                  errno = 0;
+                  port = strtoul(optarg, &endp, 0);
+                  if (errno != 0 || (endp != NULL && *endp != 0)) {
+                     km_err_msg(0, "Invalid gdb port number '%s'", optarg);
+                     usage();
+                  }
+               } else {
+                  port = GDB_DEFAULT_PORT;
+               }
+               km_gdb_port_set(port);
+               km_gdb_enable(1);
+               if (gdbstub.wait_for_attach == GDB_WAIT_FOR_ATTACH_UNSPECIFIED) {   // wait at _start
+                                                                                   // by default
+                  gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
+               }
+               break;
+            case 'l':
+               if (freopen(optarg, "a", stdout) == NULL || freopen(optarg, "a", stderr) == NULL) {
+                  err(1, optarg);
+               }
+               break;
+            case 'e':                    // --putenv
+               if (copyenv_used > 1) {   // if --copyenv was on the command line, something is wrong
+                  warnx("Wrong options: '--putenv' cannot be used with together with '--copyenv'");
                   usage();
                }
-            } else {
-               port = GDB_DEFAULT_PORT;
-            }
-            km_gdb_port_set(port);
-            km_gdb_enable(1);
-            if (gdbstub.wait_for_attach ==
-                GDB_WAIT_FOR_ATTACH_UNSPECIFIED) {   // wait at _start by default
-               gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
-            }
-            break;
-         case 'l':
-            if (freopen(optarg, "a", stdout) == NULL || freopen(optarg, "a", stderr) == NULL) {
-               err(1, optarg);
-            }
-            break;
-         case 'e':   // --putenv
-            putenv_used++;
-            if (copyenv_used != 0) {
-               warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
-               usage();
-            }
-            envp[envc - 1] = optarg;
-            envc++;
-            if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
-               err(1, "Failed to alloc memory for putenv %s", optarg);
-            }
-            envp[envc - 1] = NULL;
-            break;
-         case 'E':   // --copyenv
-            if (copyenv_used++ != 0) {
-               warnx("Ignoring redundant '--copyenv' option");
+               copyenv_used = 0;   // --putenv cancels 'default' --copyenv
+               putenv_used++;
+               envp[envc - 1] = optarg;
+               envc++;
+               if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
+                  err(1, "Failed to alloc memory for putenv %s", optarg);
+               }
+               envp[envc - 1] = NULL;
                break;
-            }
-            if (putenv_used != 0) {
-               warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
+            case 'E':   // --copyenv
+               if (putenv_used != 0) {
+                  warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
+                  usage();
+               }
+               copyenv_used++;
+               break;
+            case 'C':
+               km_set_coredump_path(optarg);
+               break;
+            case 's':
+               km_set_snapshot_path(optarg);
+               break;
+            case 'D':
+               vcpu_dump = 1;
+               break;
+            case 'P':
+               ep = NULL;
+               gpbits = strtol(optarg, &ep, 0);
+               if (ep == NULL || *ep != '\0') {
+                  warnx("Wrong memory bus size '%s'", optarg);
+                  usage();
+               }
+               if (gpbits < 32 || gpbits >= 63) {
+                  warnx("Guest memory bus width must be between 32 and 63 - got '%d'", gpbits);
+                  usage();
+               }
+               km_machine_init_params.guest_physmem = 1UL << gpbits;
+               if (km_machine_init_params.guest_physmem > GUEST_MAX_PHYSMEM_SUPPORTED) {
+                  warnx("Guest physical memory must be < 0x%lx - got 0x%lx (bus width %d)",
+                        GUEST_MAX_PHYSMEM_SUPPORTED,
+                        km_machine_init_params.guest_physmem,
+                        gpbits);
+                  usage();
+               }
+               break;
+            case 'V':
+               if (optarg == NULL) {
+                  regcomp(&km_info_trace.tags, ".*", regex_flags);
+               } else if (regcomp(&km_info_trace.tags, optarg, regex_flags) != 0) {
+                  warnx("Failed to compile -V regexp '%s'", optarg);
+                  usage();
+               }
+               km_info_trace.level = KM_TRACE_INFO;
+               break;
+            case 'v':
+               show_version();
+               break;
+            case 'L':
+               km_dynlinker_file = optarg;
+               dynlinker_used++;
+               break;
+            case 'S':
+               km_collect_hc_stats = 1;
+               break;
+            case ':':
+               printf("Missing arg for %c\n", optopt);
                usage();
-            }
-            for (envc = 0; __environ[envc] != NULL; envc++) {
-               ;   // count env vars
-            }
-            envc++;             // account for terminating NULL
-            envp = __environ;   // pointers and strings will be copied to guest stack later
-            break;
-         case 'C':
-            km_set_coredump_path(optarg);
-            break;
-         case 's':
-            km_set_snapshot_path(optarg);
-            break;
-         case 'D':
-            vcpu_dump = 1;
-            break;
-         case 'P':
-            gpbits = strtol(optarg, &ep, 0);
-            if (ep == NULL || *ep != '\0') {
-               warnx("Wrong memory bus size '%s'", optarg);
+            default:
                usage();
-            }
-            if (gpbits < 32 || gpbits >= 63) {
-               warnx("Guest memory bus width must be between 32 and 63 - got '%d'", gpbits);
-               usage();
-            }
-            km_machine_init_params.guest_physmem = 1UL << gpbits;
-            if (km_machine_init_params.guest_physmem > GUEST_MAX_PHYSMEM_SUPPORTED) {
-               warnx("Guest physical memory must be < 0x%lx - got 0x%lx (bus width %d)",
-                     GUEST_MAX_PHYSMEM_SUPPORTED,
-                     km_machine_init_params.guest_physmem,
-                     gpbits);
-               usage();
-            }
-            break;
-         case 'V':
-            if (optarg == NULL) {
-               regcomp(&km_info_trace.tags, ".*", regex_flags);
-            } else if (regcomp(&km_info_trace.tags, optarg, regex_flags) != 0) {
-               warnx("Failed to compile -V regexp '%s'", optarg);
-               usage();
-            }
-            km_info_trace.level = KM_TRACE_INFO;
-            break;
-         case 'v':
-            show_version();
-            break;
-         case 'L':
-            km_dynlinker_file = optarg;
-            dynlinker_used++;
-            break;
-         case 'S':
-            km_collect_hc_stats = 1;
-            break;
-         case '?':
-         default:
-            usage();
+         }
+      }
+      payload_index = optind;
+      if (resume_snapshot != 0 && (putenv_used != 0 || copyenv_used != 0 || dynlinker_used != 0)) {
+         km_err_msg(0, "cannot set new environment or dynlinker when resuming a snapshot");
+         err(1, "exiting...");
       }
    }
-   if (optind == argc) {
+   if (copyenv_used != 0) {       // copy env from host
+      assert(putenv_used == 0);   // TODO - we can merge existing and --putenv here
+      for (envc = 0; __environ[envc] != NULL; envc++) {
+         ;   // count env vars
+      }
+      envc++;             // account for terminating NULL
+      envp = __environ;   // pointers and strings will be copied to guest stack later
+   }
+   *envp_p = envp;
+   *envc_p = envc;
+   return payload_index;
+}
+
+int main(int argc, char* argv[])
+{
+   km_vcpu_t* vcpu = NULL;
+   char** envp;
+   int envc;
+   int index;   // index of payload_name in argv
+
+   km_gdbstub_init();
+   index = km_parse_args(argc, argv, &envp, &envc);
+   if (index == argc) {   // no payload file
       usage();
    }
-   payload_file = argv[optind];
+   char* payload_file = argv[index];
 
    km_hcalls_init();
    km_exec_init(argc, (char**)argv);
    km_machine_init(&km_machine_init_params);
    km_exec_fini();
-   if (resume_snapshot != 0) {
-      if (putenv_used != 0 || copyenv_used != 0 || dynlinker_used != 0) {
-         km_err_msg(0, "cannot set new environment or dynlinker when resuming a snapshot");
-         err(1, "exiting...");
-      }
+
+   if (resume_snapshot != 0) {   // snapshot restore
       if (km_snapshot_restore(payload_file) < 0) {
          err(1, "failed to restore from snapshot %s", payload_file);
       }
       vcpu = machine.vm_vcpus[0];
-   } else {
-      // new guest start
-      km_gva_t adjust = km_load_elf(payload_file);
+   } else {   // new guest start
+      // first check if it's a shebanh and find the correct payload name
+      char fname_buf[PATH_MAX + 1];
+      if (km_get_payload_name(payload_file, fname_buf) != 0) {
+         err(1, "Failed to get path for %s", payload_file);
+      }
+      km_gva_t adjust = km_load_elf(fname_buf);
       if ((vcpu = km_vcpu_get()) == NULL) {
          err(1, "Failed to get main vcpu");
       }
-      km_gva_t guest_args = km_init_main(vcpu, argc - optind, argv + optind, envc, envp);
+      km_gva_t guest_args = km_init_main(vcpu, argc - index, argv + index, envc, envp);
       if (km_dynlinker.km_filename != NULL) {
          if (km_vcpu_set_to_run(vcpu,
                                 km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust,
@@ -317,6 +417,7 @@ int main(int argc, char* const argv[])
          free(envp);
       }
    }
+
    if (wait_for_signal == 1) {
       warnx("Waiting for kill -SIGUSR1  %d", getpid());
       km_wait_for_signal(SIGUSR1);
