@@ -201,6 +201,14 @@ coverage-withk8s:
 	${K8S_TEST_COVERAGE_SCRIPT} ${K8S_TEST_COVERAGE_IMAGE} ${K8S_TEST_COVERAGE_NAME} "${CONTAINER_COVERAGE_TEST_CMD}" ${COVERAGE_KM_BLDDIR}
 	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD}
 
+UPLOAD_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/upload-coverage.sh
+upload-coverage: .check_vars
+	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${PROCESSED_IMAGE_VERION} ${GITHUB_TOKEN}
+
+MANUAL_UPLOAD_REPORT_NAME := manual-${USER}-${PROCESSED_IMAGE_VERION}
+upload-coverage-manual: .check_vars
+	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME} ${GITHUB_TOKEN} 
+
 # install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
 # TODO: maybe make it generic to scan folders
 buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
