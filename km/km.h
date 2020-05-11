@@ -316,6 +316,7 @@ typedef struct km_machine {
    km_mmap_cb_t mmaps;   // guest memory regions managed with mmaps/mprotect/munmap
    void* auxv;           // Copy of process AUXV (used if core is dumped)
    size_t auxv_size;     // size of process AUXV (used if core is dumped)
+   pid_t ppid;           // parent pid, 1 for the leader
    pid_t pid;            // the payload's km pid
    pid_t next_pid;       // the pid for a forked payload process
 } km_machine_t;

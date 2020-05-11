@@ -48,6 +48,7 @@ km_machine_t machine = {
     .mmaps.mutex = PTHREAD_MUTEX_INITIALIZER,
     .pause_mtx = PTHREAD_MUTEX_INITIALIZER,
     .pause_cv = PTHREAD_COND_INITIALIZER,
+    .ppid = 1,
     .pid = 1,
     .next_pid = 1000,
 };

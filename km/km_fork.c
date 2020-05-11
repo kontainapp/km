@@ -35,7 +35,8 @@ typedef struct km_fork_state {
    uint8_t is_clone;             // if true, do a clone() hypercall, else fork()
    uint8_t fork_in_progress;
    km_hc_args_t* arg;
-   pid_t km_child_pid;
+   pid_t km_parent_pid;          // kontain pid
+   pid_t km_child_pid;           // kontain pid
    kvm_regs_t regs;
    km_gva_t stack_top;
    km_gva_t guest_thr;
@@ -187,6 +188,7 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
    }
    km_fork_state.fork_in_progress = 1;
    km_fork_state.is_clone = is_clone;
+   km_fork_state.km_parent_pid = machine.pid;
    km_fork_state.km_child_pid = km_newpid();
    km_fork_state.arg = arg;
    km_fork_state.stack_top = vcpu->stack_top;
@@ -230,6 +232,7 @@ int km_dofork(int* in_child)
       // Set the child's km pid immediately so km_info() reports correct process id.
       machine.pid = km_fork_state.km_child_pid;
       km_infox(KM_TRACE_FORK, "child: after fork/clone");
+      machine.ppid = km_fork_state.km_parent_pid;
       km_fork_state.fork_in_progress = 0;
       km_fork_state.mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
       km_fork_state.cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;

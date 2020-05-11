@@ -915,7 +915,7 @@ static km_hc_ret_t getpid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t getppid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // pid_t getppid(void);
-   arg->hc_ret = 0;
+   arg->hc_ret = machine.ppid;
    return HC_CONTINUE;
 }
 

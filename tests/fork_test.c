@@ -15,24 +15,24 @@
  * and pipe system calls.
  */
 #define _GNU_SOURCE
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <errno.h>
-#include <sys/wait.h>
-#include <assert.h>
-#include <sys/stat.h>
 #include <sys/param.h>
-#include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
-#include <sched.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define HELLO_WORLD_TEST "hello_test.kmd"
 
-static char* args[] = { HELLO_WORLD_TEST, "one", "two", "three", "four", NULL };
-static char* env[] = { "ONE=one", "TWO=two", "THREE=three", "FOUR=four", "FIVE=five", NULL };
+static char* args[] = {HELLO_WORLD_TEST, "one", "two", "three", "four", NULL};
+static char* env[] = {"ONE=one", "TWO=two", "THREE=three", "FOUR=four", "FIVE=five", NULL};
 static char cwd[MAXPATHLEN];
 #define READ_FD 0
 #define WRITE_FD 1
@@ -58,7 +58,7 @@ static int fork_exec_1(void)
       fprintf(stderr, "%s: fork failed, %s\n", __FUNCTION__, strerror(errno));
       return 1;
    }
-   if (pid != 0) { // parent process
+   if (pid != 0) {   // parent process
       fprintf(stderr, "Child process pid %d\n", pid);
       int wstatus = 0;
       rc = wait4(pid, &wstatus, 0, NULL);
@@ -77,10 +77,13 @@ static int fork_exec_1(void)
          return 1;
       }
       if (WEXITSTATUS(wstatus) != 0) {
-         fprintf(stderr, "%s: child process exited with non-zero status %d\n", __FUNCTION__, WEXITSTATUS(wstatus));
+         fprintf(stderr,
+                 "%s: child process exited with non-zero status %d\n",
+                 __FUNCTION__,
+                 WEXITSTATUS(wstatus));
          return WEXITSTATUS(wstatus);
       }
-   } else {  // the child process
+   } else {   // the child process
 #if 0
       /*
        * TODO
@@ -130,10 +133,14 @@ static int fork_exec_0(void)
       fprintf(stderr, "%s: Fork failed, errno %d\n", __FUNCTION__, errno);
       return 1;
    } else if (pid == 0) {
-      fprintf(stderr, "%s: After fork in the child process, getpid() returns %d\n", __FUNCTION__, getpid());
+      fprintf(stderr,
+              "%s: After fork in the child process, getpid() returns %d\n",
+              __FUNCTION__,
+              getpid());
 
       // Try out the pipe
-      if (write(parent_read_end[WRITE_FD], "message from the child", strlen("message from the child")) < 0) {
+      if (write(parent_read_end[WRITE_FD], "message from the child", strlen("message from the child")) <
+          0) {
          fprintf(stderr, "Child couldn't write to pipe, %s\n", strerror(errno));
       }
       if (read(parent_write_end[READ_FD], buf, sizeof(buf)) < 0) {
@@ -150,7 +157,9 @@ static int fork_exec_0(void)
       printf("After fork in the parent, child pid %d\n", pid);
       assert(pid > 0);
       // Try out the pipe
-      if (write(parent_write_end[WRITE_FD], "message from the parent", strlen("message from the parent")) < 0) {
+      if (write(parent_write_end[WRITE_FD],
+                "message from the parent",
+                strlen("message from the parent")) < 0) {
          fprintf(stderr, "Parent couldn't write to pipe, %s\n", strerror(errno));
       }
       if (read(parent_read_end[READ_FD], buf, sizeof(buf)) < 0) {
@@ -169,7 +178,11 @@ static int fork_exec_0(void)
          return 1;
       }
       if (siginfo.si_pid != pid) {
-         fprintf(stderr, "%s: waitpid() returned wrong pid, expected %d, got %d\n", __FUNCTION__, pid, siginfo.si_pid);
+         fprintf(stderr,
+                 "%s: waitpid() returned wrong pid, expected %d, got %d\n",
+                 __FUNCTION__,
+                 pid,
+                 siginfo.si_pid);
          return 1;
       }
    }
@@ -207,11 +220,80 @@ int clone_exec_0(void)
          return 1;
       }
       if (siginfo.si_pid != pid) {
-         fprintf(stderr, "%s: waitpid() returned wrong pid, expected %d, got %d\n", __FUNCTION__, pid, siginfo.si_pid);
+         fprintf(stderr,
+                 "%s: waitpid() returned wrong pid, expected %d, got %d\n",
+                 __FUNCTION__,
+                 pid,
+                 siginfo.si_pid);
          return 1;
       }
    }
    return 0;
+}
+
+/*
+ * fork down a few levels verifying that getppid() returns the value we think it should.
+ * Returns:
+ *   0 - parent pids are as expected
+ *   != 0 - unexpected parent pid
+ */
+int getppid_fork_test_0(void)
+{
+   pid_t expected_ppid;
+   int current_fork_depth = 0;
+   int max_fork_depth = 5;   // arbitrarily chosen
+
+   // Output delimiter
+   fprintf(stderr, "\nTest: %s\n", __FUNCTION__);
+
+fork_again:;
+   expected_ppid = getpid();
+   pid_t fpid = fork();
+   if (fpid < 0) {
+      exit(1);
+   }
+   if (fpid == 0) {   // child process, verify parent pid, try to fork again
+      pid_t parentpid = getppid();
+      if (parentpid != expected_ppid) {
+         fprintf(stderr, "expected parent pid %d, getppid() returned %d\n", expected_ppid, parentpid);
+         exit(1);   // parent pid is not as expected
+      }
+      if (++current_fork_depth <= max_fork_depth) {
+         fprintf(stderr,
+                 "current_fork_depth %d, max_fork_depth %d, expected_ppid %d, parentpid %d\n",
+                 current_fork_depth,
+                 max_fork_depth,
+                 expected_ppid,
+                 parentpid);
+         goto fork_again;
+      }
+      exit(0);
+
+   } else {   // the parent process, wait for child to finish
+      siginfo_t siginfo;
+      memset(&siginfo, 0, sizeof(siginfo));
+      int rc = waitid(P_PID, fpid, &siginfo, WEXITED);
+      fprintf(stderr,
+              "waitid() returned %d, errno %d, siginfo.si_pid %d, si_status 0x%x\n",
+              rc,
+              errno,
+              siginfo.si_pid,
+              siginfo.si_status);
+      if (rc < 0) {
+         fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, fpid, strerror(errno));
+         return 1;
+      }
+      if (siginfo.si_pid != fpid) {
+         fprintf(stderr,
+                 "%s: waitpid() returned wrong pid, expected %d, got %d\n",
+                 __FUNCTION__,
+                 fpid,
+                 siginfo.si_pid);
+         return 1;
+      }
+      // check to see if the child thought parent pid was ok.
+      return (WIFEXITED(siginfo.si_status) && WEXITSTATUS(siginfo.si_status) == 0) ? 0 : 1;
+   }
 }
 
 int main(int argc, char* argv[])
@@ -224,7 +306,7 @@ int main(int argc, char* argv[])
       fprintf(stderr, "getcwd() failed\n");
       return 1;
    }
-   if (stat(HELLO_WORLD_TEST, &statb) != 0) {  // Can we find hello_world?
+   if (stat(HELLO_WORLD_TEST, &statb) != 0) {   // Can we find hello_world?
       fprintf(stderr, "stat() on %s/%s failed, %s\n", cwd, HELLO_WORLD_TEST, strerror(errno));
       return 1;
    }
@@ -251,6 +333,11 @@ int main(int argc, char* argv[])
    }
 
    rvtmp = clone_exec_0();
+   if (rv == 0) {
+      rv = rvtmp;
+   }
+
+   rvtmp = getppid_fork_test_0();
    if (rv == 0) {
       rv = rvtmp;
    }
