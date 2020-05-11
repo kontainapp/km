@@ -31,7 +31,7 @@
  * KM_EXEC_VMFDS=kvmfd,machfd,vcpufd,vcpufd,vcpufd,vcpufd,......
  * KM_EXEC_EVENTFDS=intrfd,shutdownfd
  * KM_EXEC_GUESTFDS=gfd:hfd,gfd:hfd,.....
- * KM_EXEC_PIDINFO=mypid,nextpid
+ * KM_EXEC_PIDINFO=parentpid,mypid,nextpid
  */
 #define KM_EXEC_VARS 5
 static const int KM_EXEC_VERNUM = 1;
@@ -54,6 +54,7 @@ typedef struct fdmap {
 
 typedef struct km_exec_state {
    int version;
+   pid_t ppid;
    pid_t pid;
    pid_t next_pid;
    int shutdown_fd;
@@ -194,12 +195,12 @@ static char* km_exec_eventfd_var(void)
  */
 static char* km_exec_pidinfo_var(void)
 {
-   int bufl = sizeof(KM_EXEC_PIDINFO) + 1 + sizeof("pppppppp,nnnnnnnn");
+   int bufl = sizeof(KM_EXEC_PIDINFO) + 1 + sizeof("pppppppp,mmmmmmmm,nnnnnnnn");
    char* bufp = malloc(bufl);
    if (bufp == NULL) {
       return NULL;
    }
-   int bytes_needed = snprintf(bufp, bufl, "%s=%d,%d", KM_EXEC_PIDINFO, machine.pid, machine.next_pid);
+   int bytes_needed = snprintf(bufp, bufl, "%s=%d,%d,%d", KM_EXEC_PIDINFO, machine.ppid, machine.pid, machine.next_pid);
    if (bytes_needed + 1 > bufl) {
       free(bufp);
       return NULL;
@@ -425,8 +426,8 @@ int km_exec_recover_kmstate(void)
    }
 
    // Get the pid information
-   n = sscanf(pidinfo, "%d,%d", &execstatep->pid, &execstatep->next_pid);
-   if (n != 2) {
+   n = sscanf(pidinfo, "%d,%d,%d", &execstatep->ppid, &execstatep->pid, &execstatep->next_pid);
+   if (n != 3) {
       km_infox(KM_TRACE_EXEC, "couldn't scan pidinfo %s, n %d", pidinfo, n);
       return -1;
    }
@@ -499,6 +500,7 @@ void km_exec_init(int argc, char** argv)
          break;
       case 1:   // payload did an exec, close open fd's
          km_exec_vmclean();
+         machine.ppid = execstatep->ppid;
          machine.pid = execstatep->pid;
          machine.next_pid = execstatep->next_pid;
          break;

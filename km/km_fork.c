@@ -53,8 +53,6 @@ static void km_fork_setup_child_vmstate(void)
    km_infox(KM_TRACE_FORK, "begin");
 
    // Reinit some fields in machine.  We do not want a structure assignment here.
-   machine.kvm_fd = -1;
-   machine.mach_fd = -1;
    machine.brk_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    machine.signal_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    TAILQ_INIT(&machine.sigpending.head);
@@ -62,7 +60,6 @@ static void km_fork_setup_child_vmstate(void)
    machine.mmaps.mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    machine.pause_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    machine.pause_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
-   machine.pid = km_fork_state.km_child_pid;
 
    // No need to call km_hcalls_init().  It's all setup from the parent process.
    // No need to call km_fs_init().  We use the guest fd <--> host fd maps from the parent.
