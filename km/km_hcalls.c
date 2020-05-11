@@ -1456,6 +1456,7 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    warnx("SNAPSHOT");
    km_vcpu_sync_rip(vcpu);
    km_read_registers(vcpu);
+   km_vcpu_pause_all();
    km_dump_core(km_get_snapshot_path(), vcpu, NULL);
    return HC_ALLSTOP;
 }
