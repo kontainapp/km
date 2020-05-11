@@ -15,7 +15,7 @@ load test_helper
 
 # not_needed_{generic,static,dynamic,shared} - skip since it's not needed
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
-not_needed_generic='snapshot'
+not_needed_generic=''
 todo_generic='futex_example clock_gettime'
 
 not_needed_static='gdb_sharedlib'
