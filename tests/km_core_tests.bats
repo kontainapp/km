@@ -39,8 +39,8 @@ not_needed_so='linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_che
 
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
 if [ "${USE_VIRT}" = 'kkm' ]; then
-   not_needed_generic+=' gdb_qsupported gdb_delete_breakpoint gdb_nextstep '
-   todo_native_static+=' km_many threads_basic_tsd pthread_cancel cpp_ctors hypercall_args sigsuspend snapshot '
+   not_needed_generic+=' gdb_qsupported gdb_delete_breakpoint gdb_nextstep snapshot '
+   todo_native_static+=' km_many threads_basic_tsd pthread_cancel cpp_ctors hypercall_args sigsuspend '
    not_needed_native_dynamic=$not_needed_native_static
 fi
 
