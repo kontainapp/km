@@ -93,6 +93,8 @@ function main {
     git commit -a -m "KM Coverage Report: ${TIME} ${REPORT_NAME}"
     git tag $REPORT_NAME
     git push --tags
+
+    rm -rf ${REPORT_REPO_WORKDIR}
 }
 
 main
