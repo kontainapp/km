@@ -1,0 +1,10 @@
+version: '3.4'
+
+services:
+  helloworld:
+    image: helloworld
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8000
