@@ -296,6 +296,21 @@ Page to serve these html files. To access the latest reports:
 https://kontainapp.github.io/km-coverage-report. To access older reports,
 checkout the repo and search using the tags.
 
+To manually look up the reports uploaded:
+```bash
+# Clone the report repo. You can change where to download the repo.
+git clone git@github.com:kontainapp/km-coverage-report.git
+
+cd km-coverage-report
+
+# Check all the versions of the report. Each report is tagged with a version.
+git tag
+
+# Check out the report. Look at the index.html or report/report.html. Both of
+# these are linked together.
+git checkout $VERSION -b <your branch>
+```
+
 ### Other repos
 
 This repo uses a set of submodules - e.g. musl C lib and bats testing suite

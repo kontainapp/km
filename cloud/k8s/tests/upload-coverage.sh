@@ -54,6 +54,19 @@ EOF
     exit 1
 }
 
+function check_tag {
+    local tag=$1
+
+    if [[ -z $tag ]]; then usage; fi
+
+    # Need to error out if tag already exists.
+    git tag | grep $tag
+    if [[ $? == 0 ]]; then
+        echo "Version $tag already exist"
+        exit 1
+    fi
+}
+
 function main {
     if [[ -z $REPORT_PATH ]]; then usage; fi
     if [[ -z $REPORT_NAME ]]; then usage; fi
@@ -66,6 +79,10 @@ function main {
         git config user.email "azure-nightly-pipeline@kontain.app"
         git config user.name "Azure Nightly Pipeline"
     fi
+
+    # Git will not automatically fetch all the tags, so we force it here.
+    git fetch --tags --force
+    check_tag $REPORT_NAME
 
     # Replace the existing report with the latest reports. Commit the new
     # changes and tag the commit with a name.

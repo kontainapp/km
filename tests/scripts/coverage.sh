@@ -19,9 +19,11 @@ readonly INPUT_COVERAGE_SEARCH_DIR=$2
 readonly OUTPUT_DIR=$3
 
 readonly COVERAGE_CMD_NAME=gcovr
-readonly COVERAGE_THRESHOLDS="--fail-under-branch 40  --fail-under-line 55"
 readonly COVERAGE_REPORT=${OUTPUT_DIR}/report.html
 readonly PARALLEL=$(nproc --all)
+if [[ ! -z ${MATCH} ]]; then
+    readonly COVERAGE_THRESHOLDS="--fail-under-branch 40  --fail-under-line 55"
+fi
 
 function usage() {
     cat <<- EOF
@@ -59,6 +61,10 @@ function main() {
         -j ${PARALLEL} \
         --exclude-unreachable-branches \
         --delete
+
+    if [[ -f ${COVERAGE_REPORT} ]]; then
+        echo "Report is located at ${COVERAGE_REPORT}" 
+    fi
 }
 
 main
