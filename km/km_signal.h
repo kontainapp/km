@@ -39,7 +39,7 @@ extern void km_wait_for_signal(int sig);
 typedef void (*sa_action_t)(int, siginfo_t*, void*);
 extern void km_install_sighandler(int signum, sa_action_t hander_func);
 extern uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize);
-extern void km_signal_passthru(int signo, siginfo_t* sinfo, void * ucontext);
+extern void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext);
 
 static inline int km_sigindex(int signo)
 {
@@ -82,7 +82,10 @@ static inline int km_sigismember(const km_sigset_t* set, int signo)
 static inline void km_rt_sigsuspend_revert(km_vcpu_t* vcpu)
 {
    if (vcpu->in_sigsuspend != 0) {
-      km_infox(KM_TRACE_VCPU, "revert save_sigmask 0x%lx to sigmask 0x%lx", vcpu->saved_sigmask, vcpu->sigmask);
+      km_infox(KM_TRACE_VCPU,
+               "revert save_sigmask 0x%lx to sigmask 0x%lx",
+               vcpu->saved_sigmask,
+               vcpu->sigmask);
       vcpu->sigmask = vcpu->saved_sigmask;
       vcpu->in_sigsuspend = 0;
    }
