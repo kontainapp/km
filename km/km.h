@@ -602,7 +602,7 @@ static inline void km_signal_unlock(void)
 #define KM_TRACE_DECODE "decode"
 #define KM_TRACE_PROC "proc"
 #define KM_TRACE_EXEC "exec"
-#define KM_TRACE_FORK "fork"      // also clone() for a process.
+#define KM_TRACE_FORK "fork"   // also clone() for a process.
 
 /*
  * The km definition of the link_map structure in runtime/musl/include/link.h

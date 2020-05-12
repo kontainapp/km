@@ -13,33 +13,32 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <setjmp.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
 #include <sys/times.h>
 #include <sys/utsname.h>
+#include <sys/wait.h>
 #include <asm/prctl.h>
 #include <linux/futex.h>
 #include <linux/stat.h>
-#include <sys/resource.h>
-#include <sys/wait.h>
-#include <setjmp.h>
 
 #include "km.h"
 #include "km_coredump.h"
 #include "km_exec.h"
 #include "km_filesys.h"
+#include "km_fork.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
-#include "km_exec.h"
-#include "km_fork.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -1184,7 +1183,7 @@ static km_hc_ret_t fchmod_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  *  ret = INLINE_SYSCALL_CALL (clone, flags, 0, NULL, ctid, 0)
  * so the code is written to support this.
  */
-static int km_clone_process(km_vcpu_t* vcpu, km_hc_args_t*arg)
+static int km_clone_process(km_vcpu_t* vcpu, km_hc_args_t* arg)
 {
    int rc;
    if (arg->arg4 != 0 && km_gva_to_kma(arg->arg4) == NULL) {
@@ -1196,8 +1195,6 @@ static int km_clone_process(km_vcpu_t* vcpu, km_hc_args_t*arg)
    }
    return rc;
 }
-      
-      
 
 static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
@@ -1457,8 +1454,12 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    pid_t linux_pid;
    pid_t wait4_rv;
 
-   km_infox(KM_TRACE_VCPU, "pid %ld, wstatus 0x%lx, options 0x%lx, rusage 0x%lx",
-            arg->arg1, arg->arg2, arg->arg3, arg->arg4);
+   km_infox(KM_TRACE_VCPU,
+            "pid %ld, wstatus 0x%lx, options 0x%lx, rusage 0x%lx",
+            arg->arg1,
+            arg->arg2,
+            arg->arg3,
+            arg->arg4);
 
    if ((int64_t)arg->arg1 < -1 || arg->arg1 == 0) {
       assert("no process group support yet" == NULL);
@@ -1470,7 +1471,10 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    }
 
    km_infox(KM_TRACE_HC, "waiting for km pid %ld, linux pid %d", arg->arg1, linux_pid);
-   wait4_rv = wait4(linux_pid, (int*)km_gva_to_kma(arg->arg2), (int)arg->arg3, (struct rusage*)km_gva_to_kma(arg->arg4));
+   wait4_rv = wait4(linux_pid,
+                    (int*)km_gva_to_kma(arg->arg2),
+                    (int)arg->arg3,
+                    (struct rusage*)km_gva_to_kma(arg->arg4));
    km_infox(KM_TRACE_HC, "wait4 returns %d, errno %d", wait4_rv, errno);
    if (wait4_rv < 0) {
       arg->hc_ret = -errno;
@@ -1500,21 +1504,25 @@ static km_hc_ret_t waitid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    }
 
    switch ((idtype_t)arg->arg1) {
-   case P_PID:
-      linux_pid = km_pid_xlate_kpid(arg->arg2);
-      break;
-   case P_ALL:
-      linux_pid = 0;
-      break;
-   case P_PGID:
-      errx(2, "Can't wait for process group id yet");
-      break;
-   default:
-      errx(2, "Unknown idtype %lu", arg->arg1);
-      break;
+      case P_PID:
+         linux_pid = km_pid_xlate_kpid(arg->arg2);
+         break;
+      case P_ALL:
+         linux_pid = 0;
+         break;
+      case P_PGID:
+         errx(2, "Can't wait for process group id yet");
+         break;
+      default:
+         errx(2, "Unknown idtype %lu", arg->arg1);
+         break;
    }
 
-   km_infox(KM_TRACE_HC, "waiting for km pid %lu, linux pid %d, options 0x%lx", arg->arg2, linux_pid, arg->arg4);
+   km_infox(KM_TRACE_HC,
+            "waiting for km pid %lu, linux pid %d, options 0x%lx",
+            arg->arg2,
+            linux_pid,
+            arg->arg4);
    sip->si_pid = 0;
    if (waitid((idtype_t)arg->arg1, linux_pid, sip, (int)arg->arg4) < 0) {
       arg->hc_ret = -errno;

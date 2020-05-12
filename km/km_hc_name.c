@@ -364,8 +364,8 @@ static void km_hc_name_init(void)
    hc_name[432] = "fsmount";
    hc_name[433] = "fspick";
    hc_name[HC_unmapself] = "unmapself";
-   //reserved to be compatible with earlier-built payloads. 
-   //TODO: drop before release, we do not need compat with pre-release payoads
+   // reserved to be compatible with earlier-built payloads.
+   // TODO: drop before release, we do not need compat with pre-release payloads
    hc_name[HC_reserved3] = "reserved3";
    hc_name[HC_reserved4] = "reserved4";
    hc_name[HC_guest_interrupt] = "guest_interrupt";
