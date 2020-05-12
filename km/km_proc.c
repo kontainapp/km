@@ -15,11 +15,11 @@
  * And it may be used for handling the payload's synthesized /proc filesystem.
  */
 
-#include <stdio.h>
 #include <errno.h>
 #include <sched.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 
@@ -49,12 +49,12 @@ int km_find_maps_regions(maps_region_t* regions, uint32_t nregions)
       return -2;
    }
 
-   linebuffer[sizeof(linebuffer)-1] = 0;
+   linebuffer[sizeof(linebuffer) - 1] = 0;
    while (fgets(linebuffer, sizeof(linebuffer), procmaps) != NULL) {
       int i;
-      if (linebuffer[sizeof(linebuffer)-1] != 0) {
+      if (linebuffer[sizeof(linebuffer) - 1] != 0) {
          km_infox(KM_TRACE_PROC, "Ignoring line from %s that exceeds buffer length", PROC_SELF_MAPS);
-         linebuffer[sizeof(linebuffer)-1] = 0;
+         linebuffer[sizeof(linebuffer) - 1] = 0;
          continue;
       }
       for (i = 0; i < nregions; i++) {
@@ -62,8 +62,9 @@ int km_find_maps_regions(maps_region_t* regions, uint32_t nregions)
             break;
          }
       }
-      if (i < nregions) {  // We want this one, harvest the information
-         if (sscanf(linebuffer, "%lx-%lx %5s ", &regions[i].begin_addr, &regions[i].end_addr, prot) == 3) {
+      if (i < nregions) {   // We want this one, harvest the information
+         if (sscanf(linebuffer, "%lx-%lx %5s ", &regions[i].begin_addr, &regions[i].end_addr, prot) ==
+             3) {
             regions[i].allowed_access = (prot[0] == 'r' ? PROT_READ : 0) |
                                         (prot[1] == 'w' ? PROT_WRITE : 0) |
                                         (prot[2] == 'x' ? PROT_EXEC : 0);

@@ -10,19 +10,19 @@
  * permission of Kontain Inc.
  */
 
-#include <pthread.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <assert.h>
-#include <sys/mman.h>
+#include <pthread.h>
 #include <string.h>
-#include <sys/wait.h>
+#include <unistd.h>
+#include <sys/mman.h>
 #include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "km.h"
-#include "km_mem.h"
-#include "km_gdb.h"
 #include "km_fork.h"
+#include "km_gdb.h"
+#include "km_mem.h"
 
 /*
  * fork() or clone() state from the parent process thread that needs to be present in the thread in
@@ -31,12 +31,12 @@
  */
 typedef struct km_fork_state {
    pthread_mutex_t mutex;
-   pthread_cond_t cond;          // to serialize concurrent fork requests
-   uint8_t is_clone;             // if true, do a clone() hypercall, else fork()
+   pthread_cond_t cond;   // to serialize concurrent fork requests
+   uint8_t is_clone;      // if true, do a clone() hypercall, else fork()
    uint8_t fork_in_progress;
    km_hc_args_t* arg;
-   pid_t km_parent_pid;          // kontain pid
-   pid_t km_child_pid;           // kontain pid
+   pid_t km_parent_pid;   // kontain pid
+   pid_t km_child_pid;    // kontain pid
    kvm_regs_t regs;
    km_gva_t stack_top;
    km_gva_t guest_thr;
@@ -44,8 +44,8 @@ typedef struct km_fork_state {
 } km_fork_state_t;
 
 static km_fork_state_t km_fork_state = {
-   .mutex = PTHREAD_MUTEX_INITIALIZER,
-   .fork_in_progress = 0,
+    .mutex = PTHREAD_MUTEX_INITIALIZER,
+    .fork_in_progress = 0,
 };
 
 /*
@@ -81,8 +81,8 @@ static void km_fork_setup_child_vmstate(void)
    km_machine_setup(&km_machine_init_params);
 
    /*
-    * No need to call km_mem_init(). we use the memslots and busy/free lists as they are in the parent.
-    * We just need to tell kvm how the memory looks.
+    * No need to call km_mem_init(). we use the memslots and busy/free lists as they are in the
+    * parent. We just need to tell kvm how the memory looks.
     */
    for (int i = 0; i < KM_MEM_SLOTS; i++) {
       if (machine.vm_mem_regs[i].memory_size != 0) {
@@ -92,11 +92,11 @@ static void km_fork_setup_child_vmstate(void)
       }
    }
 
-   km_signal_init();             // initalize signal wait queue and the signal entry free list
+   km_signal_init();   // initalize signal wait queue and the signal entry free list
 
    // No need to call km_init_guest_idt(). Use what was inherited from the parent process.
 
-   km_vcpu_t* vcpu = km_vcpu_get();    // Get a new vcpu for the child's only thread.
+   km_vcpu_t* vcpu = km_vcpu_get();   // Get a new vcpu for the child's only thread.
    if (vcpu == NULL) {
       err(2, "couldn't get a vcpu");
    }
@@ -108,7 +108,10 @@ static void km_fork_setup_child_vmstate(void)
     * The following is similar to km_vcpu_set_to_run() but we want to use the stack and registers
     * the thread was using in the parent process.  So, we cobble things together for this to work.
     */
-   km_infox(KM_TRACE_VCPU, "setting up child vcpu: rip 0x%llx, rsp 0x%llx", km_fork_state.regs.rip, km_fork_state.regs.rsp);
+   km_infox(KM_TRACE_VCPU,
+            "setting up child vcpu: rip 0x%llx, rsp 0x%llx",
+            km_fork_state.regs.rip,
+            km_fork_state.regs.rsp);
    kvm_vcpu_init_sregs(vcpu);
    vcpu->regs = km_fork_state.regs;
    vcpu->regs_valid = 1;
@@ -181,7 +184,7 @@ static void km_fork_child_vm_init(void)
    // Create a new vm and a single vcpu for the payload thread that survives the fork.
    km_fork_setup_child_vmstate();
 
-   km_start_vcpus();     // get the payload going
+   km_start_vcpus();   // get the payload going
 }
 
 /*
@@ -230,7 +233,10 @@ int km_dofork(int* in_child)
    if (in_child != NULL) {
       *in_child = 0;
    }
-   km_infox(KM_TRACE_FORK, "fork_in_progress %d, is_clone %d", km_fork_state.fork_in_progress, km_fork_state.is_clone);
+   km_infox(KM_TRACE_FORK,
+            "fork_in_progress %d, is_clone %d",
+            km_fork_state.fork_in_progress,
+            km_fork_state.is_clone);
    km_mutex_lock(&km_fork_state.mutex);
    if (km_fork_state.fork_in_progress == 0) {
       km_mutex_unlock(&km_fork_state.mutex);
@@ -245,15 +251,15 @@ int km_dofork(int* in_child)
    int rc = sigprocmask(SIG_BLOCK, &blockthese, &formermask);
    assert(rc == 0);
 
-   km_trace_include_pid(1);       // include the pid in trace output
+   km_trace_include_pid(1);   // include the pid in trace output
    if (km_fork_state.is_clone != 0) {
       km_hc_args_t* arg = km_fork_state.arg;
-      linux_child_pid = syscall(SYS_clone, arg->arg1, arg->arg2, arg->arg3, (uint64_t)km_gva_to_kma(arg->arg4), arg->arg5);
+      linux_child_pid =
+          syscall(SYS_clone, arg->arg1, arg->arg2, arg->arg3, (uint64_t)km_gva_to_kma(arg->arg4), arg->arg5);
    } else {
       linux_child_pid = fork();
    }
    if (linux_child_pid == 0) {   // this is the child process
-      
       // Set the child's km pid immediately so km_info() reports correct process id.
       machine.pid = km_fork_state.km_child_pid;
       km_infox(KM_TRACE_FORK, "child: after fork/clone");
@@ -263,16 +269,19 @@ int km_dofork(int* in_child)
       km_fork_state.cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
       km_fork_state.arg->hc_ret = 0;
 
-      km_fork_child_vm_init();           // create the vm and a single vcpu for the child payload thread
+      km_fork_child_vm_init();   // create the vm and a single vcpu for the child payload thread
       if (in_child != NULL) {
          *in_child = 1;
       }
-   } else { // We are the parent process here.
-      km_infox(KM_TRACE_FORK, "parent: after fork/clone linux_child_pid %d, errno %d", linux_child_pid, errno);
+   } else {   // We are the parent process here.
+      km_infox(KM_TRACE_FORK,
+               "parent: after fork/clone linux_child_pid %d, errno %d",
+               linux_child_pid,
+               errno);
       if (linux_child_pid >= 0) {
          km_pid_insert(km_fork_state.km_child_pid, linux_child_pid);
          km_fork_state.arg->hc_ret = km_fork_state.km_child_pid;
-      } else {  // fork failed
+      } else {   // fork failed
          km_fork_state.arg->hc_ret = -errno;
       }
       km_fork_state.fork_in_progress = 0;
@@ -284,7 +293,7 @@ int km_dofork(int* in_child)
    rc = sigprocmask(SIG_SETMASK, &formermask, NULL);
    assert(rc == 0);
 
-   km_vcpu_resume_all();    // let the vcpu's get back to work
+   km_vcpu_resume_all();   // let the vcpu's get back to work
    return 1;
 }
 

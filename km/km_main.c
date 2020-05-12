@@ -13,24 +13,23 @@
 #include <err.h>
 #include <getopt.h>
 #include <pthread.h>
+#include <setjmp.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <setjmp.h>
 
 #include "km.h"
 #include "km_coredump.h"
 #include "km_elf.h"
 #include "km_exec.h"
+#include "km_fork.h"
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
-#include "km_exec.h"
-#include "km_fork.h"
 
 km_info_trace_t km_info_trace;
 

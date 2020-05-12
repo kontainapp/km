@@ -20,4 +20,4 @@ extern int km_exec_recover_guestfd(void);
 extern void km_exec_init(int argc, char** argv);
 extern void km_exec_fini(void);
 
-#endif // !defined(__KM_EXEC_H__)
+#endif   // !defined(__KM_EXEC_H__)

@@ -56,10 +56,10 @@
 #include <netinet/tcp.h>
 
 #include "km.h"
+#include "km_fork.h"
 #include "km_gdb.h"
 #include "km_mem.h"
 #include "km_signal.h"
-#include "km_fork.h"
 
 /*
  * A note about multi threaded debugging.
@@ -279,7 +279,7 @@ void km_gdb_fork_reset(void)
    gdbstub.session_requested = 0;
    TAILQ_INIT(&gdbstub.event_queue);
    gdb_fd_garbage_collect();
-// start listening on a different port again????
+   // start listening on a different port again????
 }
 
 /*
@@ -2435,7 +2435,7 @@ static gdb_event_t* gdb_select_event(void)
     */
    km_mutex_lock(&gdbstub.notify_mutex);
    TAILQ_FOREACH (foundgep, &gdbstub.event_queue, link) {
-      if (foundgep->signo == GDB_KMSIGNAL_DOFORK) {    // gdb needs to let a fork() hypercall happen
+      if (foundgep->signo == GDB_KMSIGNAL_DOFORK) {   // gdb needs to let a fork() hypercall happen
          TAILQ_REMOVE(&gdbstub.event_queue, foundgep, link);
          foundgep->entry_is_active = false;
          km_mutex_unlock(&gdbstub.notify_mutex);
@@ -2987,9 +2987,9 @@ accept_connection:;
          if (foundgep->signo == GDB_KMSIGNAL_DOFORK) {
             int in_child;
             km_dofork(&in_child);
-            if (in_child != 0) { // We are the child, just return to the main thread
+            if (in_child != 0) {   // We are the child, just return to the main thread
                return;
-            } else {           // We are the parent process, just pretend nothing happened
+            } else {   // We are the parent process, just pretend nothing happened
                continue;
             }
          }

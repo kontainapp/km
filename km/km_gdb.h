@@ -90,7 +90,7 @@ typedef enum {
 #define GDB_SIGNAL_LAST 1000   // arbitarily chosen large value
 #define GDB_KMSIGNAL_KVMEXIT (GDB_SIGNAL_LAST + 20)
 #define GDB_KMSIGNAL_THREADEXIT (GDB_SIGNAL_LAST + 21)
-#define GDB_KMSIGNAL_DOFORK  (GDB_SIGNAL_LAST + 22)
+#define GDB_KMSIGNAL_DOFORK (GDB_SIGNAL_LAST + 22)
 
 #define KM_TRACE_GDB "gdb"
 
@@ -140,29 +140,29 @@ TAILQ_HEAD(gdb_event_queue, gdb_event);
 typedef struct gdb_event_queue gdb_event_queue_t;
 
 typedef enum gdb_wait_for_attach {
-   GDB_WAIT_FOR_ATTACH_UNSPECIFIED,  // no value selected
-   GDB_DONT_WAIT_FOR_ATTACH,         // run the payload without waiting for gdb client attach
-   GDB_WAIT_FOR_ATTACH_AT_DYNLINK,   // wait for client attach before running dynamic linker
-                                     //  (if statically linked, wait at _start)
-   GDB_WAIT_FOR_ATTACH_AT_START,     // wait for client attach before running _start (this
-                                     //  let's the dynamic linker run)
+   GDB_WAIT_FOR_ATTACH_UNSPECIFIED,   // no value selected
+   GDB_DONT_WAIT_FOR_ATTACH,          // run the payload without waiting for gdb client attach
+   GDB_WAIT_FOR_ATTACH_AT_DYNLINK,    // wait for client attach before running dynamic linker
+                                      //  (if statically linked, wait at _start)
+   GDB_WAIT_FOR_ATTACH_AT_START,      // wait for client attach before running _start (this
+                                      //  let's the dynamic linker run)
 } gdb_wait_for_attach_t;
 
 typedef struct gdbstub_info {
-   int port;                       // Port the stub is listening for gdb client.
-   int listen_socket_fd;           // listen for gdb client connections on this fd.
-   int sock_fd;                    // socket to communicate to gdb client
-   uint8_t enabled;                // if true the gdb server is enabled and will be listening
-                                   //  on network port specified by port.
+   int port;               // Port the stub is listening for gdb client.
+   int listen_socket_fd;   // listen for gdb client connections on this fd.
+   int sock_fd;            // socket to communicate to gdb client
+   uint8_t enabled;        // if true the gdb server is enabled and will be listening
+                           //  on network port specified by port.
    gdb_wait_for_attach_t wait_for_attach;
-                                   // if gdb server is enabled, should the gdb server wait
-                                   //  for attach from the client before running the payload
-                                   //  and where should it wait for attach.
-   uint8_t gdb_client_attached;    // if true, gdb client is attached.
-   int session_requested;          // set to 1 when payload threads need to pause on exit
-   bool stepping;                  // single step mode (stepi)
-   km_vcpu_t* gdb_vcpu;            // VCPU which GDB is asking us to work on.
-   pthread_mutex_t notify_mutex;   // serialize calls to km_gdb_notify_and_wait()
+   // if gdb server is enabled, should the gdb server wait
+   //  for attach from the client before running the payload
+   //  and where should it wait for attach.
+   uint8_t gdb_client_attached;        // if true, gdb client is attached.
+   int session_requested;              // set to 1 when payload threads need to pause on exit
+   bool stepping;                      // single step mode (stepi)
+   km_vcpu_t* gdb_vcpu;                // VCPU which GDB is asking us to work on.
+   pthread_mutex_t notify_mutex;       // serialize calls to km_gdb_notify_and_wait()
    gdb_event_queue_t event_queue;      // queue of pending gdb events
    int exit_reason;                    // last KVM exit reason
    int send_threadevents;              // if non-zero send thread create and terminate events

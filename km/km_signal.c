@@ -27,11 +27,11 @@
 #include "km.h"
 #include "km_coredump.h"
 #include "km_filesys.h"
+#include "km_fork.h"
 #include "km_guest.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
-#include "km_fork.h"
 
 /*
  * Threads that wait for a signal's arrive are enqueued on the km_signal_wait_queue until the signal
@@ -683,7 +683,7 @@ uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo)
       return -EINVAL;
    }
    pid_t linux_pid = km_pid_xlate_kpid(pid);
-   if (linux_pid != pid) {    // signal to another instance of km
+   if (linux_pid != pid) {   // signal to another instance of km
       if (kill(linux_pid, signo) < 0) {
          return -errno;
       }
