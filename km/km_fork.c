@@ -57,7 +57,7 @@ static km_fork_state_t km_fork_state = {
  * memory regions that kvm knows about.  Then we need to create a vcpu for the
  * payload thread that survives the fork operation.  Plus we must transplant
  * the stack, tls, and alternate signal stack from that thread's vcpu into the
- * fresh vcpu. The signal handlers are instact after a fork/clone so we don't
+ * fresh vcpu. The signal handlers are intact after a fork/clone so we don't
  * need to reinitialize those, but, I think we do.
  * If you add code to this function consider whether similar code needs to be
  * added to km_machine_init().
@@ -237,7 +237,7 @@ int km_dofork(int* in_child)
       return 0;
    }
 
-   // We need to block more signals here, this just gets the simple test passing.
+   // TODO: We need to block more signals here, this just gets the simple test passing.
    sigset_t blockthese;
    sigset_t formermask;
    sigemptyset(&blockthese);
