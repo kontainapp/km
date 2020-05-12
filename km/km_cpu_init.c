@@ -646,7 +646,9 @@ void km_machine_setup(km_machine_init_params_t* params)
  * set VM run memory region
  * prepare cpuid
  *
- * Any failure is fatal, hence void
+ * Any failure is fatal, hence void is returned.
+ *
+ * If you add code here, consider whether it also needs to be added in km_fork_setup_child_vmstate().
  */
 void km_machine_init(km_machine_init_params_t* params)
 {

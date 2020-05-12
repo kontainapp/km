@@ -48,6 +48,20 @@ static km_fork_state_t km_fork_state = {
    .fork_in_progress = 0,
 };
 
+/*
+ * This function is modeled after km_machine_init(). There are differences
+ * because after a fork or clone hypercall we want to use some of the state
+ * inherited from the parent process. We get all of the memory from the parent
+ * so we don't need to initialize the memory maps, but since we must destroy this
+ * process' references to the parents kvm related fd's we need to recreate the
+ * memory regions that kvm knows about.  Then we need to create a vcpu for the
+ * payload thread that survives the fork operation.  Plus we must transplant
+ * the stack, tls, and alternate signal stack from that thread's vcpu into the
+ * fresh vcpu. The signal handlers are instact after a fork/clone so we don't
+ * need to reinitialize those, but, I think we do.
+ * If you add code to this function consider whether similar code needs to be
+ * added to km_machine_init().
+ */
 static void km_fork_setup_child_vmstate(void)
 {
    km_infox(KM_TRACE_FORK, "begin");
@@ -80,6 +94,8 @@ static void km_fork_setup_child_vmstate(void)
 
    km_signal_init();             // initalize signal wait queue and the signal entry free list
 
+   // No need to call km_init_guest_idt(). Use what was inherited from the parent process.
+
    km_vcpu_t* vcpu = km_vcpu_get();    // Get a new vcpu for the child's only thread.
    if (vcpu == NULL) {
       err(2, "couldn't get a vcpu");
@@ -98,9 +114,6 @@ static void km_fork_setup_child_vmstate(void)
    vcpu->regs_valid = 1;
    km_write_registers(vcpu);
    km_write_sregisters(vcpu);
-
-   // Now we are ready for km_run_vcpu_thread() to be called for this vcpu.
-   km_run_vcpu_thread(vcpu, km_vcpu_run);
 }
 
 /*
@@ -157,16 +170,18 @@ static void km_fork_remove_parent_vmstate(void)
  */
 static void km_fork_child_vm_init(void)
 {
-   // TODO: COnditionally block to let gdb attach to the child km process before we get going.
-
    // Disconnect gdb client
    km_gdb_fork_reset();
+
+   // TODO: Conditionally block to let gdb attach to the child km process before we get going.
 
    // Close the kvm related fd's.  These are from the parent process.
    km_fork_remove_parent_vmstate();
 
    // Create a new vm and a single vcpu for the payload thread that survives the fork.
    km_fork_setup_child_vmstate();
+
+   km_start_vcpus();     // get the payload going
 }
 
 /*
@@ -205,6 +220,8 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
  * Returns:
  *   0 - fork or clone was not requested
  *   1 - fork or clone requested and performed
+ * in_child - returns to the caller whether we are returning in the
+ *   child process or the parent process.
  */
 int km_dofork(int* in_child)
 {
@@ -219,6 +236,16 @@ int km_dofork(int* in_child)
       km_mutex_unlock(&km_fork_state.mutex);
       return 0;
    }
+
+   // We need to block more signals here, this just gets the simple test passing.
+   sigset_t blockthese;
+   sigset_t formermask;
+   sigemptyset(&blockthese);
+   sigaddset(&blockthese, SIGUSR1);
+   int rc = sigprocmask(SIG_BLOCK, &blockthese, &formermask);
+   assert(rc == 0);
+
+   km_trace_include_pid(1);       // include the pid in trace output
    if (km_fork_state.is_clone != 0) {
       km_hc_args_t* arg = km_fork_state.arg;
       linux_child_pid = syscall(SYS_clone, arg->arg1, arg->arg2, arg->arg3, (uint64_t)km_gva_to_kma(arg->arg4), arg->arg5);
@@ -226,6 +253,7 @@ int km_dofork(int* in_child)
       linux_child_pid = fork();
    }
    if (linux_child_pid == 0) {   // this is the child process
+      
       // Set the child's km pid immediately so km_info() reports correct process id.
       machine.pid = km_fork_state.km_child_pid;
       km_infox(KM_TRACE_FORK, "child: after fork/clone");
@@ -251,6 +279,11 @@ int km_dofork(int* in_child)
       km_cond_signal(&km_fork_state.cond);
       km_mutex_unlock(&km_fork_state.mutex);
    }
+
+   // fork/clone is done, unblock signals.
+   rc = sigprocmask(SIG_SETMASK, &formermask, NULL);
+   assert(rc == 0);
+
    km_vcpu_resume_all();    // let the vcpu's get back to work
    return 1;
 }

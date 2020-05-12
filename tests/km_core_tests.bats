@@ -958,7 +958,7 @@ fi
    assert_success
 }
 
-@test "fork($test_type): fork, clone, exec, wait test (fork_test$ext)" {
+@test "fork($test_type): fork, clone, exec, wait, kill test (fork_test$ext)" {
    run km_with_timeout fork_test$ext
    assert_success
 }

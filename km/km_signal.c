@@ -31,6 +31,7 @@
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_fork.h"
 
 /*
  * Threads that wait for a signal's arrive are enqueued on the km_signal_wait_queue until the signal
@@ -540,7 +541,10 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
          }
          core_dumped = 1;
       }
-      errx(info->si_signo, "guest: %s %s", strsignal(info->si_signo), (core_dumped) ? "(core dumped)" : "");
+      errx(info->si_signo,
+           "guest: Terminated by signal: %s %s",
+           strsignal(info->si_signo),
+           (core_dumped) ? "(core dumped)" : "");
    }
 
    assert(act->handler != (km_gva_t)SIG_IGN);
@@ -675,16 +679,23 @@ uint64_t km_sigaltstack(km_vcpu_t* vcpu, km_stack_t* new, km_stack_t* old)
 
 uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo)
 {
-   if (pid != 0 && pid != 1) {
-      return -EINVAL;
-   }
    if (signo < 1 || signo >= NSIG) {
       return -EINVAL;
    }
+   pid_t linux_pid = km_pid_xlate_kpid(pid);
+   if (linux_pid != pid) {    // signal to another instance of km
+      if (kill(linux_pid, signo) < 0) {
+         return -errno;
+      }
+   } else {
+      if (pid != 0 && pid != machine.pid) {
+         return -ESRCH;
+      }
 
-   // Process-wide signal.
-   siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
-   km_post_signal(NULL, &info);
+      // Process-wide signal.
+      siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
+      km_post_signal(NULL, &info);
+   }
    return 0;
 }
 

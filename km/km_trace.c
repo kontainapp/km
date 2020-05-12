@@ -21,6 +21,8 @@
 #include <sys/syscall.h>
 #include "km.h"
 
+uint8_t km_trace_pid = 0;
+
 /*
  * Verbose trace function.
  * We get a timestamp, function name, line number, and thread id in the trace line
@@ -44,17 +46,30 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
    km_getname_np(pthread_self(), threadname, sizeof(threadname));
    clock_gettime(CLOCK_REALTIME, &ts);
    gmtime_r(&ts.tv_sec, &tm);   // UTC!
-   snprintf(traceline,
-            sizeof(traceline),
-            "%02d:%02d:%02d.%06ld %-20.20s %-4d %4d.%-7.7s ",
-            tm.tm_hour,
-            tm.tm_min,
-            tm.tm_sec,
-            ts.tv_nsec / 1000,   // convert to microseconds
-            function,
-            linenumber,
-            machine.pid,
-            threadname);
+   if (km_trace_pid != 0) {
+      snprintf(traceline,
+               sizeof(traceline),
+               "%02d:%02d:%02d.%06ld %-20.20s %-4d %4d.%-7.7s ",
+               tm.tm_hour,
+               tm.tm_min,
+               tm.tm_sec,
+               ts.tv_nsec / 1000,   // convert to microseconds
+               function,
+               linenumber,
+               machine.pid,
+               threadname);
+   } else {
+      snprintf(traceline,
+               sizeof(traceline),
+               "%02d:%02d:%02d.%06ld %-20.20s %-4d %-7.7s ",
+               tm.tm_hour,
+               tm.tm_min,
+               tm.tm_sec,
+               ts.tv_nsec / 1000,   // convert to microseconds
+               function,
+               linenumber,
+               threadname);
+   }
    tlen = strlen(traceline);
    p = &traceline[tlen];
    vsnprintf(p, sizeof(traceline) - tlen, fmt, ap);
@@ -86,4 +101,9 @@ void km_trace(int errnum, const char* function, int linenumber, const char* fmt,
     * We probably want fflush(stderr) so we get the last bit of output if we abort/fault
     */
    fflush(stderr);
+}
+
+void km_trace_include_pid(uint8_t trace_pid)
+{
+   km_trace_pid = trace_pid;
 }

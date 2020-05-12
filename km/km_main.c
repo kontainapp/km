@@ -341,11 +341,9 @@ int main(int argc, char* const argv[])
       km_gdb_destroy_listen();
    }
 
-exit_wait:;
-   km_wait_on_eventfd(machine.shutdown_fd);
-   if (km_dofork(NULL) != 0) {   // perform fork or clone if that's why main was woken
-      goto exit_wait;
-   }
+   do {
+      km_wait_on_eventfd(machine.shutdown_fd);
+   } while (km_dofork(NULL) != 0);
 
    km_machine_fini();
    regfree(&km_info_trace.tags);

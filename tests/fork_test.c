@@ -11,7 +11,7 @@
  */
 
 /*
- * Simple test of the fork, execve, execveat (really fexecve), wait4, waitid,
+ * Simple test of the fork, execve, execveat (really fexecve), wait4, waitid, kill,
  * and pipe system calls.
  */
 #define _GNU_SOURCE
@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -146,13 +147,14 @@ static int fork_exec_0(void)
       if (read(parent_write_end[READ_FD], buf, sizeof(buf)) < 0) {
          fprintf(stderr, "Child couldn't read from pipe, %s\n", strerror(errno));
       } else {
-         fprintf(stdout, "Child read: <%s> from parent\n", buf);
+         fprintf(stdout, "Child %d read: <%s> from parent\n", getpid(), buf);
+         fflush(stdout);
       }
 
       // Try out execve()
       execve(HELLO_WORLD_TEST, args, env);
       fprintf(stderr, "%s: execve() failed %s\n", __FUNCTION__, strerror(errno));
-      return 1;
+      exit(1);
    } else {
       printf("After fork in the parent, child pid %d\n", pid);
       assert(pid > 0);
@@ -165,7 +167,8 @@ static int fork_exec_0(void)
       if (read(parent_read_end[READ_FD], buf, sizeof(buf)) < 0) {
          fprintf(stderr, "Parent couldn't read from pipe, %s\n", strerror(errno));
       } else {
-         fprintf(stdout, "Parent read: <%s> from child\n", buf);
+         fprintf(stdout, "Parent %d read: <%s> from child\n", getpid(), buf);
+         fflush(stdout);
       }
 
       // Wait for the child to finish.
@@ -209,6 +212,7 @@ int clone_exec_0(void)
       // Try out execve()
       execve(HELLO_WORLD_TEST, args, env);
       fprintf(stderr, "%s: execve() failed %s\n", __FUNCTION__, strerror(errno));
+      exit(1);
    } else {
       // Wait for the child to finish.
       siginfo_t siginfo;
@@ -281,7 +285,10 @@ fork_again:;
               siginfo.si_status);
       if (rc < 0) {
          fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, fpid, strerror(errno));
-         return 1;
+         if (getpid() == 1) {
+            return 1;
+         }
+         exit(1);
       }
       if (siginfo.si_pid != fpid) {
          fprintf(stderr,
@@ -289,11 +296,123 @@ fork_again:;
                  __FUNCTION__,
                  fpid,
                  siginfo.si_pid);
-         return 1;
+         if (getpid() == 1) {
+            return 1;
+         }
+         exit(1);
       }
       // check to see if the child thought parent pid was ok.
-      return (WIFEXITED(siginfo.si_status) && WEXITSTATUS(siginfo.si_status) == 0) ? 0 : 1;
+      int rv = (WIFEXITED(siginfo.si_status) && WEXITSTATUS(siginfo.si_status) == 0) ? 0 : 1;
+      if (rv != 0) {
+         fprintf(stderr, "%s: unexpected exit status 0x%x, pid %d\n", __FUNCTION__, siginfo.si_status, getpid());
+      }
+      if (getpid() == 1) {
+         return rv;
+      } else {
+         exit(rv);
+      }
    }
+}
+
+int fork_kill_test_0_got_signal = 0;
+pid_t fork_kill_test_0_sender_pid;
+void fork_kill_test_0_signal_handler(int signo, siginfo_t* siginfo, void* ucontext)
+{
+   fork_kill_test_0_sender_pid = siginfo->si_pid;
+   fork_kill_test_0_got_signal = 1;
+}
+
+/*
+ * Test xlate of the pid argument passed to the kill hypercall.
+ * We fork a child then the child will wait for a signal.  The parent will send a signal to
+ * the child.
+ */
+int fork_kill_test_0(void)
+{
+   // Output delimiter
+   fprintf(stderr, "\nTest: %s\n", __FUNCTION__);
+
+   // install signal handler, the child process will inherit.
+   struct sigaction sa = {.sa_sigaction = fork_kill_test_0_signal_handler, .sa_flags = SA_SIGINFO};
+   sigemptyset(&sa.sa_mask);
+   if (sigaction(SIGUSR1, &sa, NULL) < 0) {
+      fprintf(stderr, "%s: couldn't install signal handler, %s\n", __FUNCTION__, strerror(errno));
+      exit(1);
+   }
+
+   pid_t child_pid = fork();
+   if (child_pid < 0) {
+      fprintf(stderr, "%s: Fork failed, errno %d\n", __FUNCTION__, errno);
+      return 1;
+   }
+   int rv = 0;
+   if (child_pid == 0) {   // child process
+#if 0
+      /*
+       * payload pause() doesn't seem to work as it should.  So, for now we sleep to allow the
+       * signal time to arrive.  This probably will give endless trouble in azure.  Bleh!
+       */
+      pause();             // wait for signal arrival.
+#else
+      struct timespec tv;
+      tv.tv_sec = 1;
+      tv.tv_nsec = 0;
+      nanosleep(&tv, NULL);
+#endif
+      fprintf(stderr, "%s: fork_kill_test_0_got_signal %d, fork_kill_test_0_sender_pid %d, parent pid %d\n",
+              __FUNCTION__,
+              fork_kill_test_0_got_signal,
+              fork_kill_test_0_sender_pid,
+              getppid());
+      if (fork_kill_test_0_got_signal != 0) {    // check for signal 
+         exit(0);
+      } else {
+         fprintf(stderr, "%s: expected signal did not arrive, pid %d\n", __FUNCTION__, getpid());
+         exit(1);
+      }
+   } else {                // parent process
+#if 1
+      /*
+       * Pause before sending a signal to the child.  This gives the fork a chance to complete.
+       * This should be handled by blocking signals during fork processing. This is a stopgap measure!
+       */
+      struct timespec tv;
+      tv.tv_sec = 0;
+      tv.tv_nsec = 50000000;
+      nanosleep(&tv, NULL);
+#endif
+      fprintf(stderr, "%s: pid %d has forked child %d\n", __FUNCTION__, getpid(), child_pid);
+      // send signal to the child
+      if (kill(child_pid, SIGUSR1) != 0) {
+         fprintf(stderr, "%s: kill to pid %d failed, %s\n", __FUNCTION__, child_pid, strerror(errno));
+         return 1;
+      }
+      // Wait for child to terminate
+      siginfo_t siginfo;
+      memset(&siginfo, 0, sizeof(siginfo));
+      int rc = waitid(P_PID, child_pid, &siginfo, WEXITED);
+      fprintf(stderr, "waitid() returned %d, errno %d, siginfo.si_pid %d\n", rc, errno, siginfo.si_pid);
+      if (rc < 0) {
+         fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, child_pid, strerror(errno));
+         return 1;
+      }
+      if (siginfo.si_pid != child_pid) {
+         fprintf(stderr,
+                 "%s: waitpid() returned wrong pid, expected %d, got %d\n",
+                 __FUNCTION__,
+                 child_pid,
+                 siginfo.si_pid);
+         return 1;
+      }
+      // See if child received the signal
+      if (WIFEXITED(siginfo.si_status) && WEXITSTATUS(siginfo.si_status) == 0) {
+         rv = 0;
+      } else {
+         fprintf(stderr, "%s: unexpected exit status 0x%x, from child pid %d\n", __FUNCTION__, siginfo.si_status, child_pid);
+         rv = 1;
+      }
+   }
+   return rv;
 }
 
 int main(int argc, char* argv[])
@@ -333,6 +452,11 @@ int main(int argc, char* argv[])
    }
 
    rvtmp = clone_exec_0();
+   if (rv == 0) {
+      rv = rvtmp;
+   }
+
+   rvtmp = fork_kill_test_0();
    if (rv == 0) {
       rv = rvtmp;
    }

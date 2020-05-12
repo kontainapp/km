@@ -383,6 +383,7 @@ static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
 
 void km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
     __attribute__((__format__(__printf__, 4, 5)));
+void km_trace_include_pid(uint8_t trace_pid);
 
 // Interrupt handling.
 void km_init_guest_idt(void);
