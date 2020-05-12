@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <setjmp.h>
 
 #include "km.h"
 #include "km_coredump.h"
@@ -28,6 +29,8 @@
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
+#include "km_exec.h"
+#include "km_fork.h"
 
 km_info_trace_t km_info_trace;
 
@@ -102,7 +105,7 @@ static inline void show_version(void)
 #define GDB_LISTEN "gdb-listen"
 #define GDB_DYNLINK "gdb-dynlink"
 
-static km_machine_init_params_t km_machine_init_params = {
+km_machine_init_params_t km_machine_init_params = {
     .force_pdpe1g = KM_FLAG_FORCE_ENABLE,
     .overcommit_memory = KM_FLAG_FORCE_DISABLE,
     .use_virt = KM_FLAG_FORCE_DEFAULT,
@@ -284,7 +287,6 @@ int main(int argc, char* const argv[])
    km_exec_init(argc, (char**)argv);
    km_machine_init(&km_machine_init_params);
    km_exec_fini();
-
    if (resume_snapshot != 0) {
       if (putenv_used != 0 || copyenv_used != 0 || dynlinker_used != 0) {
          km_err_msg(0, "cannot set new environment or dynlinker when resuming a snapshot");
@@ -338,6 +340,10 @@ int main(int argc, char* const argv[])
       km_gdb_main_loop(vcpu);
       km_gdb_destroy_listen();
    }
+
+   do {
+      km_wait_on_eventfd(machine.shutdown_fd);
+   } while (km_dofork(NULL) != 0);
 
    km_machine_fini();
    regfree(&km_info_trace.tags);

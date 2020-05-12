@@ -43,6 +43,7 @@ typedef enum {
    HC_CONTINUE = 0,
    HC_STOP,
    HC_ALLSTOP,
+   HC_DOFORK,
 } km_hc_ret_t;
 
 typedef km_hc_ret_t (*km_hcall_fn_t)(void* vcpu,

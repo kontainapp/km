@@ -935,7 +935,7 @@ fi
    done
 }
 
-@test "exec($test_type): test execve and execveat nypercalls (exec_test$ext)" {
+@test "exec($test_type): test execve and execveat hypercalls (exec_test$ext)" {
    # Test execve()
    run km_with_timeout --copyenv exec_test$ext
    assert_success
@@ -952,8 +952,13 @@ fi
    assert_line --partial "env[0] = 'ONE=one'"
    assert_line --partial "env[3] = 'FOUR=four'"
 }
+
 @test "clock_gettime($test_type): VDSO clock_gettime, dependency on TSC (clock_gettime$ext)" {
    run km_with_timeout clock_gettime_test$ext -v
    assert_success
 }
 
+@test "fork($test_type): fork, clone, exec, wait, kill test (fork_test$ext)" {
+   run km_with_timeout fork_test$ext
+   assert_success
+}
