@@ -205,7 +205,7 @@ TEST test_kill()
 {
    // Another process - we are 1, hence we use 2
    ASSERT_EQ(-1, kill(2, SIGUSR1));
-   ASSERT_EQ(EINVAL, errno);
+   ASSERT_EQ(ESRCH, errno);
 
    // test bad signal numbers
    ASSERT_EQ(-1, kill(0, 0));
