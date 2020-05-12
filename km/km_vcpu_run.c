@@ -25,11 +25,11 @@
 #include "km.h"
 #include "km_coredump.h"
 #include "km_filesys.h"
+#include "km_fork.h"
 #include "km_gdb.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
-#include "km_fork.h"
 
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;

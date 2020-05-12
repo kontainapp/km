@@ -44,9 +44,9 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
+#include <stdio.h>
 #include <linux/kvm.h>
 #include <linux/kvm_para.h>
-#include <stdio.h>
 
 #include "bsd_queue.h"
 
@@ -105,8 +105,7 @@ int km_get_page_protection(km_kma_t addr, int* protection)
    while (fgets(linebuffer, sizeof(linebuffer), procmaps) != NULL) {
       if (sscanf(linebuffer, "%lx-%lx %5s ", &start, &end, prot) == 3) {
          if ((uint64_t)addr >= start && (uint64_t)addr < end) {
-            *protection = (prot[0] == 'r' ? PROT_READ : 0) |
-                          (prot[1] == 'w' ? PROT_WRITE : 0) |
+            *protection = (prot[0] == 'r' ? PROT_READ : 0) | (prot[1] == 'w' ? PROT_WRITE : 0) |
                           (prot[2] == 'x' ? PROT_EXEC : 0);
             rv = 0;
             break;
@@ -130,7 +129,7 @@ static int kvm_arch_insert_sw_breakpoint(struct breakpoint_t* bp)
       return -1;
    }
    bp->saved_insn = *insn;
-   pageaddr = (void *)((unsigned long)insn & KM_PAGE_MASK);
+   pageaddr = (void*)((unsigned long)insn & KM_PAGE_MASK);
 
    // Make the page writeable if not already writeable.
    int prot;
@@ -138,7 +137,7 @@ static int kvm_arch_insert_sw_breakpoint(struct breakpoint_t* bp)
       km_err_msg(0, "Can't determine mem protection at gva 0x%lx", bp->addr);
       return -1;
    }
-   if ((prot & PROT_EXEC) == 0) { // Do we care if they try to put breakpoints in non-executable pages?
+   if ((prot & PROT_EXEC) == 0) {   // Do we care if they try to put breakpoints in non-executable pages?
       km_err_msg(0, "Putting breakpoint in non-executable page at gva %lx", bp->addr);
    }
    if ((prot & PROT_WRITE) == 0) {
@@ -171,7 +170,7 @@ static int kvm_arch_remove_sw_breakpoint(struct breakpoint_t* bp)
    if ((insn = (uint8_t*)km_gva_to_kma(bp->addr)) == NULL) {
       return -1;
    }
-   pageaddr = (void *)((unsigned long)insn & KM_PAGE_MASK);
+   pageaddr = (void*)((unsigned long)insn & KM_PAGE_MASK);
 
    int prot;
    if (km_get_page_protection(insn, &prot) == -1) {
@@ -420,7 +419,7 @@ int km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
 
    // Copy page by page checking permissions and enabling access if needed
    km_kma_t src = kma;
-   for (uint8_t *dest = mbuf; src < kma + len; dest += count, src += count) {
+   for (uint8_t* dest = mbuf; src < kma + len; dest += count, src += count) {
       // Compute the amount of data to copy from this page.
       count = nextpage(src) - src;
       if (count > (kma + len) - src) {
@@ -470,7 +469,7 @@ int km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len)
  */
 int km_guest_hex2mem(const char* buf, size_t bufcount, km_kma_t kma)
 {
-   unsigned char mbuf[bufcount/2];
+   unsigned char mbuf[bufcount / 2];
    int len;
    int count;
    int prot;
@@ -479,7 +478,7 @@ int km_guest_hex2mem(const char* buf, size_t bufcount, km_kma_t kma)
    len = hex2mem(buf, mbuf, bufcount) - mbuf;
 
    // Copy data in mbuf[] into the guest's virtual address space pointed to by kma.
-   uint8_t *src = mbuf;
+   uint8_t* src = mbuf;
    for (km_kma_t dest = kma; dest < (kma + len); dest += count, src += count) {
       // How much data can we write to this page.
       count = nextpage(dest) - dest;

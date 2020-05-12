@@ -200,7 +200,8 @@ static char* km_exec_pidinfo_var(void)
    if (bufp == NULL) {
       return NULL;
    }
-   int bytes_needed = snprintf(bufp, bufl, "%s=%d,%d,%d", KM_EXEC_PIDINFO, machine.ppid, machine.pid, machine.next_pid);
+   int bytes_needed =
+       snprintf(bufp, bufl, "%s=%d,%d,%d", KM_EXEC_PIDINFO, machine.ppid, machine.pid, machine.next_pid);
    if (bytes_needed + 1 > bufl) {
       free(bufp);
       return NULL;
