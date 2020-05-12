@@ -21,6 +21,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+
 #include "km.h"
 #include "km_coredump.h"
 #include "km_filesys.h"
@@ -28,6 +29,7 @@
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_fork.h"
 
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;
@@ -445,7 +447,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
    km_infox(KM_TRACE_HC, "calling hc = %d (%s)", *hc, km_hc_name_get(*hc));
    km_kma_t ga_kma;
    if ((ga_kma = km_gva_to_kma(ga)) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
-      km_infox(KM_TRACE_SIGNALS, "hc: %d bad km_hc_args_t address:0x%lx", *hc, ga);
+      km_infox(KM_TRACE_SIGNALS, "hc: %d bad stack_top km_hc_args_t address:0x%lx", *hc, ga);
       siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
       km_post_signal(vcpu, &info);
       return -1;
@@ -672,6 +674,21 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                   km_gdb_accept_stop();
                   km_vcpu_exit_all(vcpu);
                   break;
+
+               case HC_DOFORK:
+                  // Give control to the km main thread which might be waiting for process
+                  // exit or could be sleeping in gdbstub.  The fork() or clone() is done in km main.
+                  km_infox(KM_TRACE_FORK, "xfer control to km main thread");
+                  if (km_gdb_client_is_attached() != 0) {
+                     km_gdb_notify(vcpu, GDB_KMSIGNAL_DOFORK);
+                  } else {
+                     km_vcpu_pause_all();
+                     if (eventfd_write(machine.shutdown_fd, 1) == -1) {
+                        errx(2, "Failed to send machine_fini signal");
+                     }
+                  }
+                  // Now go block in km_vcpu_handle_pause()
+                  break;
             }
             break;   // exit_reason, case KVM_EXIT_IO
 
@@ -791,18 +808,11 @@ static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unu
    km_post_signal(NULL, &info);
 }
 
-// docker stop sends this. Need to do exit() to call atexit callbacks
-static void km_term_handler(int signo, siginfo_t* unused, void* ucontext_unused)
-{
-   exit(0);
-}
-
 int km_start_vcpus()
 {
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
    km_install_sighandler(SIGPIPE, km_forward_fd_signal);
    km_install_sighandler(SIGIO, km_forward_fd_signal);
-   km_install_sighandler(SIGTERM, km_term_handler);
    km_install_sighandler(SIGTERM, km_signal_passthru);
    km_install_sighandler(SIGHUP, km_signal_passthru);
    km_install_sighandler(SIGQUIT, km_signal_passthru);
@@ -812,6 +822,7 @@ int km_start_vcpus()
    km_install_sighandler(SIGALRM, km_signal_passthru);
    km_install_sighandler(SIGVTALRM, km_signal_passthru);
    km_install_sighandler(SIGPROF, km_signal_passthru);
+   km_install_sighandler(SIGCHLD, km_forward_sigchild);
 
    while (eventfd_write(machine.intr_fd, 1) == -1 && errno == EINTR) {   // unblock gdb loop
       ;   // ignore signals during the write

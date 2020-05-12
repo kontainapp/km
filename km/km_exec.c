@@ -31,13 +31,15 @@
  * KM_EXEC_VMFDS=kvmfd,machfd,vcpufd,vcpufd,vcpufd,vcpufd,......
  * KM_EXEC_EVENTFDS=intrfd,shutdownfd
  * KM_EXEC_GUESTFDS=gfd:hfd,gfd:hfd,.....
+ * KM_EXEC_PIDINFO=parentpid,mypid,nextpid
  */
-#define KM_EXEC_VARS 4
+#define KM_EXEC_VARS 5
 static const int KM_EXEC_VERNUM = 1;
 static char KM_EXEC_VERS[] = "KM_EXEC_VERS";
 static char KM_EXEC_VMFDS[] = "KM_EXEC_VMFDS";
 static char KM_EXEC_EVENTFDS[] = "KM_EXEC_EVENTFDS";
 static char KM_EXEC_GUESTFDS[] = "KM_EXEC_GUESTFDS";
+static char KM_EXEC_PIDINFO[] = "KM_EXEC_PIDINFO";
 
 /*
  * An instance of this holds all of the exec state that the execing program puts
@@ -52,6 +54,9 @@ typedef struct fdmap {
 
 typedef struct km_exec_state {
    int version;
+   pid_t ppid;
+   pid_t pid;
+   pid_t next_pid;
    int shutdown_fd;
    int intr_fd;
    int kvm_fd;
@@ -111,6 +116,14 @@ static char* km_exec_g2h_var(void)
    for (int i = 0; i < km_fs_max_guestfd(); i++) {
       int hostfd = km_fs_g2h_fd(i);
       if (hostfd >= 0) {
+         int fdflags = fcntl(hostfd, F_GETFD);
+         if (fdflags < 0) {
+            km_info(KM_TRACE_EXEC, "fcntl() on guestfd %d failed, ignoring it, ", i);
+            continue;
+         }
+         if ((fdflags & FD_CLOEXEC) != 0) {
+            continue;
+         }
          bytes_needed = snprintf(p, bytes_avail, fdcount == 0 ? "%d:%d" : ",%d:%d", i, hostfd);
          if (bytes_needed + 1 > bytes_avail) {
             free(bufp);
@@ -178,6 +191,24 @@ static char* km_exec_eventfd_var(void)
 }
 
 /*
+ * Build "KM_EXEC_PIDINFO=....." environment variable for exec to pass on the exec'ed program.
+ */
+static char* km_exec_pidinfo_var(void)
+{
+   int bufl = sizeof(KM_EXEC_PIDINFO) + 1 + sizeof("pppppppp,mmmmmmmm,nnnnnnnn");
+   char* bufp = malloc(bufl);
+   if (bufp == NULL) {
+      return NULL;
+   }
+   int bytes_needed = snprintf(bufp, bufl, "%s=%d,%d,%d", KM_EXEC_PIDINFO, machine.ppid, machine.pid, machine.next_pid);
+   if (bytes_needed + 1 > bufl) {
+      free(bufp);
+      return NULL;
+   }
+   return bufp;
+}
+
+/*
  * Called before exec.
  * Append km exec related state to the passed environment and return
  * a pointer to the combined environment.
@@ -207,8 +238,11 @@ char** km_exec_build_env(char** envp)
    }
 
    // env var builder function addresses
-   char* (*envvar_build[KM_EXEC_VARS])(
-       void) = {km_exec_vers_var, km_exec_g2h_var, km_exec_vmfd_var, km_exec_eventfd_var};
+   char* (*envvar_build[KM_EXEC_VARS])(void) = {km_exec_vers_var,
+                                                km_exec_g2h_var,
+                                                km_exec_vmfd_var,
+                                                km_exec_eventfd_var,
+                                                km_exec_pidinfo_var};
 
    // Add exec vars to the new env
    int j;
@@ -344,26 +378,32 @@ int km_exec_recover_kmstate(void)
    char* vmfds = getenv(KM_EXEC_VMFDS);
    char* eventfds = getenv(KM_EXEC_EVENTFDS);
    char* guestfds = getenv(KM_EXEC_GUESTFDS);
+   char* pidinfo = getenv(KM_EXEC_PIDINFO);
    int version;
    int nfdmap;
    int n;
 
-   if (vernum == NULL || vmfds == NULL || eventfds == NULL || guestfds == NULL) {
+   km_infox(KM_TRACE_EXEC, "recovering km exec state, vernum %s", vernum);
+
+   if (vernum == NULL || vmfds == NULL || eventfds == NULL || guestfds == NULL || pidinfo == NULL) {
       // If we don't have them all, then this isn't an exec().
       // And, if one is missing they all need to be missing.
-      assert(vernum == NULL && vmfds == NULL && eventfds == NULL && guestfds == NULL);
+      assert(vernum == NULL && vmfds == NULL && eventfds == NULL && guestfds == NULL && pidinfo == NULL);
       return 0;
    }
    n = sscanf(vernum, "%d,%d", &version, &nfdmap);
    if (n != 2) {
+      km_infox(KM_TRACE_EXEC, "couldn't process vernum %s, n %d", vernum, n);
       return -1;
    }
    if (version != KM_EXEC_VERNUM) {
       // Hmmm, did they install a new version of km while we were running?
+      km_infox(KM_TRACE_EXEC, "exec state verion mismatch, got %d, expect %d", version, KM_EXEC_VERNUM);
       return -1;
    }
    execstatep = calloc(1, sizeof(*execstatep) + (sizeof(fdmap_t) * nfdmap));
    if (execstatep == NULL) {
+      km_infox(KM_TRACE_EXEC, "couldn't allocate fd map, nfdmap %d", nfdmap);
       return -1;
    }
    execstatep->version = version;
@@ -376,13 +416,23 @@ int km_exec_recover_kmstate(void)
    // Get the event fd's
    n = sscanf(eventfds, "%d,%d", &execstatep->intr_fd, &execstatep->shutdown_fd);
    if (n != 2) {
+      km_infox(KM_TRACE_EXEC, "couldn't get event fd's %s, n %d", eventfds, n);
       return -1;
    }
 
    if (km_exec_get_guestfds(guestfds) != 0) {
+      km_infox(KM_TRACE_EXEC, "couldn't parse guestfds %s", guestfds);
       return -1;
    }
 
+   // Get the pid information
+   n = sscanf(pidinfo, "%d,%d,%d", &execstatep->ppid, &execstatep->pid, &execstatep->next_pid);
+   if (n != 3) {
+      km_infox(KM_TRACE_EXEC, "couldn't scan pidinfo %s, n %d", pidinfo, n);
+      return -1;
+   }
+
+   km_infox(KM_TRACE_EXEC, "km exec state recovered successfully");
    return 1;
 }
 
@@ -408,6 +458,11 @@ int km_exec_recover_guestfd(void)
          err(2, "Can't get filename for hostfd %d, link %s", execstatep->guestfd_hostfd[i].hostfd, linkname);
       }
       linkname[bytes] = 0;
+      km_infox(KM_TRACE_EXEC,
+               "guestfd %d, hostfd %d, name %s",
+               execstatep->guestfd_hostfd[i].guestfd,
+               execstatep->guestfd_hostfd[i].hostfd,
+               linkbuf);
       int chosen_guestfd = km_add_guest_fd(NULL,
                                            execstatep->guestfd_hostfd[i].hostfd,
                                            execstatep->guestfd_hostfd[i].guestfd,
@@ -445,6 +500,9 @@ void km_exec_init(int argc, char** argv)
          break;
       case 1:   // payload did an exec, close open fd's
          km_exec_vmclean();
+         machine.ppid = execstatep->ppid;
+         machine.pid = execstatep->pid;
+         machine.next_pid = execstatep->next_pid;
          break;
       default:   // exec state is messed up
          errx(2, "Problems in performing post exec processing");

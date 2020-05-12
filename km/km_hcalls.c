@@ -25,6 +25,9 @@
 #include <asm/prctl.h>
 #include <linux/futex.h>
 #include <linux/stat.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
+#include <setjmp.h>
 
 #include "km.h"
 #include "km_coredump.h"
@@ -35,6 +38,8 @@
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
+#include "km_exec.h"
+#include "km_fork.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -903,14 +908,14 @@ static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t getpid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // pid_t getpid(void);
-   arg->hc_ret = 1;
+   arg->hc_ret = machine.pid;
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t getppid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // pid_t getppid(void);
-   arg->hc_ret = 0;
+   arg->hc_ret = machine.ppid;
    return HC_CONTINUE;
 }
 
@@ -1173,10 +1178,35 @@ static km_hc_ret_t fchmod_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+/*
+ * musl c library seems to use the fork system call for the fork() function.
+ * glibc uses the clone() system call to perform forks.  And it uses the following arguments:
+ *  ret = INLINE_SYSCALL_CALL (clone, flags, 0, NULL, ctid, 0)
+ * so the code is written to support this.
+ */
+static int km_clone_process(km_vcpu_t* vcpu, km_hc_args_t*arg)
+{
+   int rc;
+   if (arg->arg4 != 0 && km_gva_to_kma(arg->arg4) == NULL) {
+      rc = -EFAULT;
+   } else {
+      // Advance rip beyond the hypercall out instruction
+      km_vcpu_sync_rip(vcpu);
+      rc = km_before_fork(vcpu, arg, 1);
+   }
+   return rc;
+}
+      
+      
+
 static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // Raw clone system call signature for x86_64 is:
    // long clone(unsigned long flags, void* child_stack, int* ptid, int* ctid, unsigned long newtls);
+   if ((arg->arg1 & CLONE_THREAD) == 0) {
+      arg->hc_ret = km_clone_process(vcpu, arg);
+      return arg->hc_ret == 0 ? HC_DOFORK : HC_CONTINUE;
+   }
    arg->hc_ret = km_clone(vcpu, arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5);
    return HC_CONTINUE;
 }
@@ -1410,7 +1440,93 @@ static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = -ENOTSUP;
+   // Advance rip beyond the hypercall out instruction
+   km_vcpu_sync_rip(vcpu);
+
+   // Save this thread's vcpu state for the child process And, serialize concurrent forks.
+   int rc = km_before_fork(vcpu, arg, 0);
+   arg->hc_ret = rc;
+   return rc == 0 ? HC_DOFORK : HC_CONTINUE;
+}
+
+/*
+ * pid_t wait4(pid_t pid, int *wstatus, int options, struct rusage *rusage);
+ */
+static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   pid_t linux_pid;
+   pid_t wait4_rv;
+
+   km_infox(KM_TRACE_VCPU, "pid %ld, wstatus 0x%lx, options 0x%lx, rusage 0x%lx",
+            arg->arg1, arg->arg2, arg->arg3, arg->arg4);
+
+   if ((int64_t)arg->arg1 < -1 || arg->arg1 == 0) {
+      assert("no process group support yet" == NULL);
+   }
+   if (arg->arg1 == -1) {
+      linux_pid = 0;
+   } else {
+      linux_pid = km_pid_xlate_kpid(arg->arg1);
+   }
+
+   km_infox(KM_TRACE_HC, "waiting for km pid %ld, linux pid %d", arg->arg1, linux_pid);
+   wait4_rv = wait4(linux_pid, (int*)km_gva_to_kma(arg->arg2), (int)arg->arg3, (struct rusage*)km_gva_to_kma(arg->arg4));
+   km_infox(KM_TRACE_HC, "wait4 returns %d, errno %d", wait4_rv, errno);
+   if (wait4_rv < 0) {
+      arg->hc_ret = -errno;
+   } else {
+      if (wait4_rv != 0) {
+         arg->hc_ret = km_pid_xlate_lpid(wait4_rv);
+         km_pid_free(arg->hc_ret);
+      } else {
+         arg->hc_ret = 0;
+      }
+   }
+   km_infox(KM_TRACE_HC, "hc_ret %ld", arg->hc_ret);
+   return HC_CONTINUE;
+}
+
+/*
+ * int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
+ */
+static km_hc_ret_t waitid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   siginfo_t* sip = km_gva_to_kma(arg->arg3);
+   pid_t linux_pid = 0;
+
+   if (sip == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
+   switch ((idtype_t)arg->arg1) {
+   case P_PID:
+      linux_pid = km_pid_xlate_kpid(arg->arg2);
+      break;
+   case P_ALL:
+      linux_pid = 0;
+      break;
+   case P_PGID:
+      errx(2, "Can't wait for process group id yet");
+      break;
+   default:
+      errx(2, "Unknown idtype %lu", arg->arg1);
+      break;
+   }
+
+   km_infox(KM_TRACE_HC, "waiting for km pid %lu, linux pid %d, options 0x%lx", arg->arg2, linux_pid, arg->arg4);
+   sip->si_pid = 0;
+   if (waitid((idtype_t)arg->arg1, linux_pid, sip, (int)arg->arg4) < 0) {
+      arg->hc_ret = -errno;
+   } else {
+      // Return the km pid converted from the linux pid.
+      if (sip->si_pid != 0) {
+         sip->si_pid = km_pid_xlate_lpid(sip->si_pid);
+         km_pid_free(sip->si_pid);
+      }
+      km_infox(KM_TRACE_HC, "returns si_pid %d", sip->si_pid);
+      arg->hc_ret = 0;
+   }
    return HC_CONTINUE;
 }
 
@@ -1606,6 +1722,8 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_execve] = execve_hcall;
    km_hcalls_table[SYS_execveat] = execveat_hcall;
    km_hcalls_table[SYS_fork] = fork_hcall;
+   km_hcalls_table[SYS_wait4] = wait4_hcall;
+   km_hcalls_table[SYS_waitid] = waitid_hcall;
    km_hcalls_table[SYS_times] = times_hcall;
 
    km_hcalls_table[SYS_uname] = uname_hcall;
@@ -1624,10 +1742,12 @@ void km_hcalls_init(void)
       for (int i = 0; i < KM_MAX_HCALL; i++) {
          km_hcalls_stats[i].min = UINT64_MAX;
       }
-      atexit(km_print_hcall_stats);
    }
 }
 
 void km_hcalls_fini(void)
-{ /* empty for now */
+{
+   if (km_collect_hc_stats == 1) {
+      km_print_hcall_stats();
+   }
 }
