@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 #  Copyright © 2018-2020 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
@@ -102,7 +102,7 @@ function main {
     mv ${TEMP_REPORT} ${REPORT_DIR}
     git commit -a -m "KM Coverage Report: ${TIME} ${REPORT_NAME}"
     git tag $REPORT_NAME
-    git push --tags
+    git push origin tag $REPORT_NAME
 }
 
 main

@@ -291,24 +291,25 @@ These will be uploaded to
 [km-coverage-report](https://github.com/kontainapp/km-coverage-report). There
 is an option to manually upload these reports, if users choose to. `make -C
 tests upload-coverage-manual`. Note, we tag each commits using the
-`IMAGE_VERSION`, so it needs to be set. The repo is configured to use Github
-Page to serve these html files. To access the latest reports:
-https://kontainapp.github.io/km-coverage-report. To access older reports,
-checkout the repo and search using the tags.
+`IMAGE_VERSION`, so it needs to be set to some unique id of your choice ,
+compliant with 'git tag' format. The repo is configured to use Github
+Page to serve these html files. To access the latest reports, use the
+following url: https://kontainapp.github.io/km-coverage-report. To access
+older reports, checkout the repo and search using the tags.
 
-To manually look up the reports uploaded:
+To see coverage for your tag, run the following:
 ```bash
-# Clone the report repo. You can change where to download the repo.
-git clone git@github.com:kontainapp/km-coverage-report.git
+cd ~/workspace 
+git clone -b **your_tag** git@github.com:kontainapp/km-coverage-report.git
+google-chrome   km-coverage-report/index.html
+```
 
-cd km-coverage-report
+or check out the repo once and simply run in it's dir:
 
-# Check all the versions of the report. Each report is tagged with a version.
-git tag
-
-# Check out the report. Look at the index.html or report/report.html. Both of
-# these are linked together.
-git checkout $VERSION -b <your branch>
+```bash
+git fetch -p
+get checkout **your tag**
+google-chrome index.html
 ```
 
 ### Other repos

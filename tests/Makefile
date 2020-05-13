@@ -163,11 +163,12 @@ ifneq ($(.SHELLSTATUS),0)
 endif
 
 COVERAGE_SCRIPT := ${CURRENT_DIR}/scripts/coverage.sh
+COVERAGE_REPORT_TITLE := ${IMAGE_VERSION}
 coverage: all ## Build with code coverage, then run tests and generate reports
 	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .coverage
 
 .coverage: test
-	${COVERAGE_SCRIPT} ${TOP}/km ${KM_BLDDIR} ${KM_BLDDIR}
+	${COVERAGE_SCRIPT} ${TOP}/km ${KM_BLDDIR} ${KM_BLDDIR} ${COVERAGE_REPORT_VERSION}
 
 covclean: ## Clean up code coverage build artifacts
 	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
