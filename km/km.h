@@ -381,7 +381,7 @@ static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
    vcpu->cpu_run->immediate_exit = 0;
 }
 
-void km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
+void __km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
     __attribute__((__format__(__printf__, 4, 5)));
 void km_trace_include_pid(uint8_t trace_pid);
 
@@ -431,27 +431,37 @@ extern int km_collect_hc_stats;
 
 #define km_trace_tag_enabled(tag)                                                                  \
    (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)
-/*
- * Trace something and add perror() output to end of the line.
- */
+
+// Trace something if tag matches, and add perror() output to end of the line.
 #define km_info(tag, fmt, ...)                                                                     \
    do {                                                                                            \
       if (km_trace_tag_enabled(tag) != 0)                                                          \
-         km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                              \
+         __km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                            \
    } while (0)
 
-/*
- * Trace something to stderr but don't include perror() output.
- */
+// Trace something to stderr but don't include perror() output.
 #define km_infox(tag, fmt, ...)                                                                    \
    do {                                                                                            \
       if (km_trace_tag_enabled(tag) != 0)                                                          \
-         km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                  \
+         __km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                \
+   } while (0)
+
+// trave no matter what the tag is, but inly if -V is enabled
+#define km_trace(fmt, ...)                                                                         \
+   do {                                                                                            \
+      if (km_trace_enabled() != 0)                                                                 \
+         __km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                            \
+   } while (0)
+
+#define km_tracex(fmt, ...)                                                                        \
+   do {                                                                                            \
+      if (km_trace_enabled() != 0)                                                                 \
+         __km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                \
    } while (0)
 
 #define km_err_msg(errno, fmt, ...)                                                                \
    do {                                                                                            \
-      km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                 \
+      __km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                               \
    } while (0)
 
 #define km_mutex_lock(mutex)                                                                       \

@@ -31,7 +31,7 @@ uint8_t km_trace_pid = 0;
  * in the hope that trace lines are not broken when multiple threads are tracing
  * concurrently.
  */
-void km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
+void __km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
 {
    char traceline[512];
    char threadname[16];

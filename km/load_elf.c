@@ -218,18 +218,12 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
  */
 uint64_t km_load_elf(const char* file)
 {
-   char fn[strlen(file + 3)];
    int fd;
    Elf* e;
    GElf_Ehdr* ehdr = &km_guest.km_ehdr;
 
    if (elf_version(EV_CURRENT) == EV_NONE) {
       errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
-   }
-   if (strcmp(".km", file + strlen(file) - 3) != 0 &&
-       strcmp(".kmd", file + strlen(file) - 4) != 0 && strcmp(".so", file + strlen(file) - 3) != 0) {
-      sprintf(fn, "%s.km", file);
-      file = fn;
    }
    char* filename = NULL;
    if ((filename = realpath(file, NULL)) == NULL) {
