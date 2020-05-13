@@ -56,7 +56,7 @@ function main() {
     fi
 
     ${COVERAGE_CMD_NAME} \
-        --html-title ${REPORT_TITLE} \
+        --html-title "${REPORT_TITLE}" \
         --html \
         --html-details \
         ${COVERAGE_THRESHOLDS} \
