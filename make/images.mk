@@ -198,7 +198,7 @@ test-all-withdocker: ## a special helper to run more node.km tests.
 
 # Helper when we need to make sure IMAGE_VERSION is defined and not 'latest', and command is defined
 .check_vars:
-	@if [[ -z "${IMAGE_VERSION}" ]] || [[ "${IMAGE_VERSION}" == "latest" ]] ; then \
+	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == "latest" ]] ; then \
 		echo -e "${RED}IMAGE_VERSION should be set to an unique value. i.e. ci-695 for Azure CI images. Current value='${IMAGE_VERSION}'${NOCOLOR}" ; \
 		false; \
 	fi
