@@ -21,8 +21,8 @@ readonly GITHUB_TOKEN=$3
 
 readonly TIME=$(date -u)
 
-readonly WORKDIR=$(mktemp -d)
-readonly REPORT_REPO_WORKDIR=${WORKDIR}/km-coverage-report
+readonly TOP=$(git rev-parse --show-toplevel)
+readonly REPORT_REPO_WORKDIR=${TOP}/build/km-coverage-report
 readonly TEMP_REPORT=${REPORT_REPO_WORKDIR}/.report
 readonly REPORT_DIR=${REPORT_REPO_WORKDIR}/report
 
@@ -60,8 +60,7 @@ function check_tag {
     if [[ -z $tag ]]; then usage; fi
 
     # Need to error out if tag already exists.
-    git tag | grep $tag
-    if [[ $? == 0 ]]; then
+    if [[ $(git tag -l $tag) != "" ]]; then
         echo "Version $tag already exist"
         exit 1
     fi
@@ -71,8 +70,19 @@ function main {
     if [[ -z $REPORT_PATH ]]; then usage; fi
     if [[ -z $REPORT_NAME ]]; then usage; fi
 
-    git clone ${REPORT_REPO_URL} ${REPORT_REPO_WORKDIR}
-    cd ${REPORT_REPO_WORKDIR}
+    # Process the repo. If the report repo don't exist, we need to clone it. If
+    # the repo exist, we need to reset any local changes to match the remote.
+    if [[ -d ${REPORT_REPO_WORKDIR} ]]; then
+        cd ${REPORT_REPO_WORKDIR}
+        git checkout master
+        git fetch
+        # Use this to clean any residule changes on local. For a new upload, we
+        # need to be in sync with the remote master.
+        git reset --hard origin/master
+    else
+        git clone ${REPORT_REPO_URL} ${REPORT_REPO_WORKDIR}
+        cd ${REPORT_REPO_WORKDIR}
+    fi
 
     # On azure pipeline, git needs to be configure.
     if [[ ! -z ${PIPELINE_WORKSPACE} ]]; then
@@ -93,8 +103,6 @@ function main {
     git commit -a -m "KM Coverage Report: ${TIME} ${REPORT_NAME}"
     git tag $REPORT_NAME
     git push --tags
-
-    rm -rf ${REPORT_REPO_WORKDIR}
 }
 
 main
