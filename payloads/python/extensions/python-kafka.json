@@ -1,0 +1,12 @@
+{
+   "header": [
+      "# Configuration for building python-custom.km",
+      "# Defines extra packages to link in"
+   ],
+   "modules": [
+      {
+         "name": "confluent-kafka",
+         "comment": "when version is not defined, pick up 'latest"
+      }
+   ]
+}

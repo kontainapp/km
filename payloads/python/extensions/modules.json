@@ -311,6 +311,21 @@
          "setupLocation": "lib/py/",
          "status": "built",
          "comment": "TODO: setup.py in setupLocation, 'make custom' needs to handle this"
+      },
+      {
+         "name": "confluent-kafka",
+         "git": "https://github.com/confluentinc/confluent-kafka-python",
+         "abstract": "Confluent's Python Client for Apache Kafka",
+         "versions": [
+            "v1.3.0"
+         ],
+         "hasSo": "true",
+         "status": "unknown",
+         "dockerRepo": "kpython/confluent-kafka",
+         "comment": "requires ",
+         "dependsOn": {
+            "tool": "confluent-librdkafka"
+         }
       }
    ],
    "dependencies": [
@@ -321,6 +336,15 @@
             "type": "dnf",
             "package": "python3-Cython",
             "full-name": "python3-Cython-0.29.13-2.fc31.x86_64"
+         }
+      },
+      {
+         "comment": "Confluent confluent-community-2.12. https://docs.confluent.io/current/installation/installing_cp/index.html",
+         "name": "confluent-librdkafka",
+         "provided by": {
+            "type": "dnf",
+            "package": "confluent-community-2.12",
+            "repo": "key+repo support TBD"
          }
       },
       {
