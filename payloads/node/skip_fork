@@ -478,3 +478,4 @@ parallel/test-child-process-fork-exec-path.js
 parallel/test-stdin-from-file
 parallel/test-stdout-to-file.js
 parallel/test-worker-process-env.js
+known_issues/test-dgram-bind-shared-ports-after-port-0.js
