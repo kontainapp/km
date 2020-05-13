@@ -19,6 +19,7 @@
  * This test program runs with the gdb script cmd_for_delete_breakpoint_test.gdb
  */
 #include <assert.h>
+#include <errno.h>
 #include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -26,12 +27,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syscall.h>
 #include <time.h>
 #include <unistd.h>
-#include <syscall.h>
-#include <errno.h>
 
-struct timespec _100ms = { 0, 100000000 };
+struct timespec _100ms = {0, 100000000};
 
 int enable_disable_ready = 0;
 int breakpointer_ready = 0;
@@ -70,7 +70,7 @@ static time_t __attribute__((noinline)) hit_breakpoint(void)
  * are about to hit their respective breakpoints.  Each thread waits in a
  * spin loop for the other thread to be ready.  All of this just helps
  * increase the odds of the desired race happening.
- * We can grep for a km_trace() in the output from km noting that a triggered
+ * We can grep for a km_trace() output from km noting that a triggered
  * breakpoint was deleted because it was pending and the breakpoint that
  * caused it was deleted.
  */
@@ -89,8 +89,10 @@ void* hit_breakpoint_thread(void* arg)
          break;
       }
       breakpointer_ready = 1;
-      while (enable_disable_ready == 0);
-      for (int j = 0; j < 100; j++);
+      while (enable_disable_ready == 0)
+         ;
+      for (int j = 0; j < 100; j++)
+         ;
       (void)hit_breakpoint();
       i++;
    }
@@ -125,8 +127,9 @@ int main()
          break;
       }
       enable_disable_ready = 1;
-      while (breakpointer_ready == 0);
-      //for (int j = 0; j < 100; j++);
+      while (breakpointer_ready == 0)
+         ;
+      // for (int j = 0; j < 100; j++);
       t1 = disable_breakpoint();
       t2 = enable_breakpoint();
       if (((t1 + t2) / 2 - starttime) > RUNTIME) {

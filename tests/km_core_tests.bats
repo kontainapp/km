@@ -22,7 +22,7 @@ not_needed_static='gdb_sharedlib'
 todo_static=''
 
 # skip slow ones
-not_needed_native_static='linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test'
+not_needed_native_static='km_main_argv0 linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test'
 # review - some fail. Some slow
 todo_native_static='mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
 
@@ -30,11 +30,11 @@ not_needed_native_dynamic=$not_needed_native_static
 todo_native_dynamic=$todo_native_static
 
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic='linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many'
+not_needed_dynamic='km_main_argv0 linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many'
 todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
 
 todo_so=''
-not_needed_so='linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
+not_needed_so='km_main_argv0 linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
     exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend'
 
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
@@ -147,13 +147,6 @@ fi
    assert_failure
    assert_line --partial "invalid option"
 
-   # KM will auto-add '.km' to file name, so create a .km file with Linux executable
-   #tmp=/tmp/hello$$ ; cp hello_test $tmp.km
-   #run km_with_timeout $tmp # Linux executable instead of $ext
-   #assert_failure
-   #assert_line --partial "Non-KM binary: cannot find sigreturn"
-   #rm $tmp.km # may leave dirt if the tests above fail
-
    log=`mktemp`
    echo Log location: $log
    run km_with_timeout -V --log-to=$log -- hello_test$ext # check --log-to option
@@ -166,23 +159,45 @@ fi
    assert_failure
 }
 
+@test "km_main_argv0($test_type): redirecting argv0 to argv0.km payload (q$ext)" {
+   # test that KM redirects to proper payload.km when invoked as `./payload`
+   local payload=argv0_test
+   if [ ! -L $payload ]  ; then ln -s $KM_BIN $payload ; fi
+   if [ ! -L $payload.km ] ; then ln -s hello_test.km $payload.km ; fi
+   KM_VERBOSE=generic run ./$payload SomeArg
+   assert_success
+   assert_line --partial "Setting payload name to ./$payload.km"
+   assert_line --partial "argv[1] = 'SomeArg'"
+}
+
 @test "km_main_env($test_type): passing environment to payloads (env_test$ext)" {
    val=`pwd`/$$
+
+   # --putenv defines an env var and cancels 'default' --copyenv
    run km_with_timeout --putenv PATH=$val env_test$ext
    assert_success
    assert_output --partial "PATH=$val"
+   refute_output --partial "getenv: PATH=$PATH"
 
-   run km_with_timeout --copyenv --copyenv env_test$ext
+   # by default, --copyenv is enabled
+   run km_with_timeout  env_test$ext
    assert_success
-   assert_line "km: Ignoring redundant '--copyenv' option"
    assert_line "getenv: PATH=$PATH"
 
+   # Putting --copyenv on command line is harmless
+   run km_with_timeout --copyenv --copyenv env_test$ext
+   assert_success
+   assert_line "getenv: PATH=$PATH"
 
+   # both --copyenv and --putenv on command line is not supported
    run km_with_timeout --copyenv --putenv MORE=less env_test$ext
    assert_failure
-
    run km_with_timeout --putenv PATH=testingpath --copyenv env_test$ext
    assert_failure
+
+   run km_with_timeout --putenv PATH=$val env_test$ext
+   assert_success
+   assert_output --partial "PATH=$val"
 }
 
 @test "mem_slots($test_type): KVM memslot / phys mem sizes (memslot_test$ext)" {

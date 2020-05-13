@@ -35,7 +35,7 @@ PAYLOAD_NAME := NodeJs12.4
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
 
-# either run all in 'blank' container, or local.
+# Either run all in 'blank' container, or local.
 # in blank: link + tar + create shebang
 # fromsrc local: link + create shebang
 # regular local: just run docker
@@ -50,11 +50,7 @@ ifneq ($(shell test -d node/.git && echo OK),OK)
 else
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 endif
-	@# Create node file with ``#!${KM_BIN} --copyenv''. Invoking that will call ``${KM_BIN} node <args>''.
-	@# km will add .km suffix. --copyenv is needed as test.py passes info to the tests via environment
-	@# We need this so unmodified node tests can be executed
-	echo "#!`realpath ${KM_BIN}` --copyenv" > ${NODEOUT}/node.sh && chmod +x ${NODEOUT}/node.sh
-	ln -sf node.sh ${NODEOUT}/node
+	ln -sf `realpath ${KM_BIN}` ${NODEOUT}/node
 
 in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
 	mkdir -p ${NODEOUT}
