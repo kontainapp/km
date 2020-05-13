@@ -349,6 +349,10 @@ static int km_parse_args(int argc, char* argv[], char** envp_p[], int* envc_p)
          }
       }
       payload_index = optind;
+
+      if (resume_snapshot != 0 && copyenv_used == 1) {
+         copyenv_used = 0;   // when resuming snapshot, default behavior is NOT to copy env
+      }
       if (resume_snapshot != 0 && (putenv_used != 0 || copyenv_used != 0 || dynlinker_used != 0)) {
          km_err_msg(0, "cannot set new environment or dynlinker when resuming a snapshot");
          err(1, "exiting...");
