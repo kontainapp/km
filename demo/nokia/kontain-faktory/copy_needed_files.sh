@@ -22,11 +22,7 @@ if [ ! -d ${DOCKER_DIR} ] ; then mkdir -p ${DOCKER_DIR} ; fi
 rm -rf ${DOCKER_DIR}/*
 
 echo Copying ${KONTAIN_DIR}...
-tar -C ${KONTAIN_DIR} --exclude='*.a' -cf - runtime lib64 | tar -C ${DOCKER_DIR} -xf -
-
-# We need 'env' since some old env (e.g. one in centos7-minimal) do not support '-S'
-echo Copying env...
-cp $(which env) ${DOCKER_DIR}
+tar -C ${KONTAIN_DIR} --exclude='*.a' -cf - . | tar -C ${DOCKER_DIR} -xf -
 
 echo Copying KM files
 bin=${DOCKER_DIR}/${JDK_VERSION}/bin
@@ -40,7 +36,4 @@ echo Stripping Kontain and Java .so files... this saves ~600MB of unneeded debug
 # find and strip all .so* files in lib64 and jdk which are actual ELF files (there are some .py stuff, and symlinks there too)
 find ${DOCKER_DIR} -name '*.so*' -size +10k  | grep -v runtime | xargs file -h | awk -F: '/ELF/ {print $1}' | xargs strip
 
-# TODO: use bash, shebang has size limits !!!
-echo Creating java shebang file...
-shebang=${DOCKER_DIR}/${JDK_VERSION}/bin/java;
-echo "#!/usr/bin/env -S /opt/kontain/bin/km ${KMFLAGS} --copyenv" > $shebang ; chmod a+x $shebang
+ln -sf /opt/kontain/bin/km ${DOCKER_DIR}/${JDK_VERSION}/bin/java

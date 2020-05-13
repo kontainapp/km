@@ -14,7 +14,9 @@
          "bitset": "c",
          "cstdlib": "c",
          "shared_mutex": "c",
-         "regex": "c"
+         "regex": "c",
+         "cerrno": "c",
+         "cctype": "c"
       },
       "files.exclude": {
          "{GPATH,GRTAGS,GTAGS}": true,
