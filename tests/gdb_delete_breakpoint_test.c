@@ -70,7 +70,7 @@ static time_t __attribute__((noinline)) hit_breakpoint(void)
  * are about to hit their respective breakpoints.  Each thread waits in a
  * spin loop for the other thread to be ready.  All of this just helps
  * increase the odds of the desired race happening.
- * We can grep for a __km_trace() in the output from km noting that a triggered
+ * We can grep for a km_trace() output from km noting that a triggered
  * breakpoint was deleted because it was pending and the breakpoint that
  * caused it was deleted.
  */

@@ -147,8 +147,8 @@ static const char* SHEBANG = "#!";
 static const size_t SHEBANG_LEN = 2;               // strlen(SHEBANG)
 static const size_t SHEBANG_MAX_LINE_LEN = 1000;   // note: grabbed on stack
 
-static char* KM_BIN_NAME = "km";
-static char* PAYLOAD_SUFFIX = ".km";
+static const char* KM_BIN_NAME = "km";
+static const char* PAYLOAD_SUFFIX = ".km";
 
 /*
  * Checks if the passed file is a shebang, and if it is gets payload file name from there.
@@ -177,7 +177,7 @@ static int km_get_payload_name(char* payload_file, char fname_buf[])
    line_buf[count] = 0;   // null terminate the string
    if (strncmp(line_buf, SHEBANG, SHEBANG_LEN) == 0) {
       km_tracex("Extracting payload name from shebang %s", payload_file);
-      char* c = strpbrk(line_buf + SHEBANG_LEN, " \t\n\0");
+      char* c = strpbrk(line_buf + SHEBANG_LEN, " \t\n\0");   // find a whitespace or string end
       if (c != NULL) {
          *c = 0;   // null terminate the string
          payload_file = line_buf + SHEBANG_LEN;
@@ -220,11 +220,8 @@ static int km_parse_args(int argc, char* argv[], char** envp_p[], int* envc_p)
       regcomp(&km_info_trace.tags, trace_regex, regex_flags);
    }
 
-   if (strcmp(basename(argv[0]), KM_BIN_NAME) != 0) {   // Called on behalf of a payload - pass args as is
-      /*
-       * We are called on behalf of payload, e.g as /usr/bin/python.
-       * Form the full path to payload and load it, pass args as is but do form the env
-       */
+   if (strcmp(basename(argv[0]), KM_BIN_NAME) != 0) {   // Called on behalf of a payload
+      // Form the full path to payload and load it, pass args as is but do form the env
       char* payload_name = calloc(1, strlen(argv[0]) + strlen(PAYLOAD_SUFFIX) + 1);
       assert(payload_name != NULL);   // no need to continue if we are already OOM
       sprintf(payload_name, "%s%s", argv[0], PAYLOAD_SUFFIX);
@@ -396,7 +393,7 @@ int main(int argc, char* argv[])
       }
       vcpu = machine.vm_vcpus[0];
    } else {   // new guest start
-      // first check if it's a shebanh and find the correct payload name
+      // first check if it's a shebang and find the correct payload name
       char fname_buf[PATH_MAX + 1];
       if (km_get_payload_name(payload_file, fname_buf) != 0) {
          err(1, "Failed to get path for %s", payload_file);
