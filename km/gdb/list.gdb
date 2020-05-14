@@ -1,3 +1,5 @@
+handle SIG63 pass nostop
+
 #
 # print BSD list content (see 'man queue')
 # Can be used for printing mmaps free/busy query

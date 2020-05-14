@@ -31,6 +31,33 @@
          ]
       },
       {
+         "name": "KM exec_test",
+         "type": "cppdbg",
+         "request": "launch",
+         "program": "${workspaceFolder}/build/km/km",
+         "args": [
+            "exec_test.km",
+            "-f"
+         ],
+         "stopAtEntry": true,
+         "cwd": "${workspaceFolder}/tests",
+         "environment": [],
+         "externalConsole": false,
+         "MIMode": "gdb",
+         "setupCommands": [
+            {
+               "description": "Enable pretty-printing for gdb",
+               "text": "-enable-pretty-printing",
+               "ignoreFailures": true
+            },
+            {
+               "description": "Load KM specific commands",
+               "text": "source ${workspaceFolder}/km/gdb/list.gdb",
+               "ignoreFailures": false
+            }
+         ]
+      },
+      {
          "name": "KM with a dynamic test payload",
          "type": "cppdbg",
          "request": "launch",
@@ -372,7 +399,10 @@
             "exit_grp_test",
             "stray_test",
             "signal_test",
-            "madvise_test"
+            "madvise_test",
+            "argv0_test",
+            "shebang_test",
+            "exec_test"
          ]
       },
       {

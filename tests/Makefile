@@ -64,7 +64,7 @@ LDFLAGS := ${DEBUG}
 
 DEPS = ${SRC_C:%.c=%.d} ${SRC_SHR:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 
-SUFFIXES := .km .kmd .km.so .native.km .native.kmd
+SUFFIXES := .km .kmd .km.so .alpine.km .alpine.kmd .${DTYPE}
 TESTS := ${SRC_C:%.c=%} ${SRC_CPP:%.cpp=%}
 EXECS := ${TESTS} \
 	$(foreach s,${SUFFIXES},$(addsuffix ${s},${TESTS}))
@@ -96,12 +96,19 @@ KCC := kontain-gcc
 KCXX := kontain-g++
 
 # use g++ link libs when sources were C++
-${SRC_CPP:%.cpp=%}: CC=${CXX}
+# ${SRC_CPP:%.cpp=%}: CC=${CXX}
+${SRC_CPP:%.cpp=%.fedora}: CC=${CXX}
 ${SRC_CPP:%.cpp=%.km}: KCC=${KCXX}
 ${SRC_CPP:%.cpp=%.kmd}: KCC=${KCXX}
-${SRC_CPP:%.cpp=%.native.km}:KCC=${KCXX}
-${SRC_CPP:%.cpp=%.native.kmd}: KCC=${KCXX}
+${SRC_CPP:%.cpp=%.alpine.km}:KCC=${KCXX}
+${SRC_CPP:%.cpp=%.alpine.kmd}: KCC=${KCXX}
 ${SRC_CPP:%.cpp=%.km.so}: KCC=${KCXX}
+
+%.${DTYPE}: %.o
+	${CC} ${LDFLAGS} $< ${LDLIBS} -o $@
+
+%_test: ${KM_BIN}
+	ln -sf $$(realpath --relative-to=${CURDIR} $<) $@ ; touch $@
 
 %.so: %.o
 	${CC} -shared ${LDFLAGS} $< ${LDLIBS} -o $@
@@ -112,10 +119,10 @@ ${SRC_CPP:%.cpp=%.km.so}: KCC=${KCXX}
 %.kmd: %.o
 	${KCC} -dynamic ${LDFLAGS} $< ${LDLIBS} -o $@
 
-%.native.km: %.o
+%.alpine.km: %.o
 	${KCC} -static -alpine ${LDFLAGS} $< ${LDLIBS} -o $@
 
-%.native.kmd: %.o
+%.alpine.kmd: %.o
 	${KCC} -dynamic -alpine ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.km.so: %.o
@@ -152,7 +159,7 @@ load_expected_size: load_test.km # load_test.so
 	@mv $*.d.tmp $*.d
 
 clean:
-	rm -f *.o *.d ${EXECS} ${SEXECS} kmcore km km.coverage *.a *.so *.km *_test
+	rm -f *.o *.d ${EXECS} ${SEXECS} kmcore km km.coverage *.a *.so *.km *.kmd *_test *.${DTYPE}
 
 #
 # do not generate .d file for some targets
@@ -208,7 +215,7 @@ upload-coverage: .check_vars
 
 MANUAL_UPLOAD_REPORT_NAME := manual-${USER}-${PROCESSED_IMAGE_VERION}
 upload-coverage-manual: .check_vars
-	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME} ${GITHUB_TOKEN} 
+	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME} ${GITHUB_TOKEN}
 
 # install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
 # TODO: maybe make it generic to scan folders
