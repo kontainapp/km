@@ -73,13 +73,11 @@ endif
 # Copy python artifacts to the outside, and link there with in-source-tree runtime
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
 	tar -C ${PYTHONTOP}/.. -cf - ${PYTHON_DISTRO_FILES} | tar -xf -
-	cd cpython && patch -p1 < ../unittest.patch
 	eval $(link_cpython_km)
 
 fromsrc: ## Clean build cpython from source. Use 'make clobber' to prepare for this one
 	git clone https://github.com/python/cpython.git -b ${VERS}
 	cd cpython && ./configure && make -j`expr 2 \* $$(nproc)` | tee bear.out
-	cd cpython && patch -p1 < ../unittest.patch
 	eval $(prepare_builtins)
 	eval $(link_cpython_km)
 
