@@ -43,7 +43,7 @@ static char KM_EXEC_PIDINFO[] = "KM_EXEC_PIDINFO";
 
 /*
  * An instance of this holds all of the exec state that the execing program puts
- * into the above environment variables.  The exec'ed instance of km retreives the
+ * into the above environment variables.  The exec'ed instance of km retrieves the
  * environment variables and builds an instance of this structure which is then
  * used to restore needed km state for the new payload to continue.
  */
@@ -65,6 +65,7 @@ typedef struct km_exec_state {
    int nfdmap;
    fdmap_t guestfd_hostfd[0];
 } km_exec_state_t;
+
 static km_exec_state_t* execstatep;
 
 // The args from main so that exec can rebuild the km command line
@@ -270,17 +271,13 @@ char** km_exec_build_argv(char* filename, char** argv)
 {
    char** nargv;
    int nargc;
-
-   // Count km related args from the invoking program.
-   int tmpargc;
-   for (tmpargc = 1; tmpargc < km_exec_argc && km_exec_argv[tmpargc][0] == '-'; tmpargc++) {
-   }
    int argc;
+
    for (argc = 0; argv[argc] != NULL; argc++) {
    }
 
    // Allocate memory for the km args plus the passed args
-   nargc = tmpargc + argc + 1;
+   nargc = km_exec_argc + argc + 1;
    nargv = calloc(nargc, sizeof(char*));
    if (nargv == NULL) {
       return NULL;
@@ -288,7 +285,7 @@ char** km_exec_build_argv(char* filename, char** argv)
 
    // Copy km related args in
    int i;
-   for (i = 0; i < tmpargc; i++) {
+   for (i = 0; i < km_exec_argc; i++) {
       nargv[i] = km_exec_argv[i];
    }
 
@@ -454,7 +451,7 @@ int km_exec_recover_guestfd(void)
    }
    for (int i = 0; i < execstatep->nfdmap && execstatep->guestfd_hostfd[i].guestfd >= 0; i++) {
       ssize_t bytes;
-      snprintf(linkname, sizeof(linkname), "/proc/self/fd/%d", execstatep->guestfd_hostfd[i].hostfd);
+      snprintf(linkname, sizeof(linkname), PROC_SELF_FD, execstatep->guestfd_hostfd[i].hostfd);
       if ((bytes = readlink(linkname, linkbuf, sizeof(linkbuf))) < 0) {
          err(2, "Can't get filename for hostfd %d, link %s", execstatep->guestfd_hostfd[i].hostfd, linkname);
       }
