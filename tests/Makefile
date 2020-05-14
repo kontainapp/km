@@ -163,11 +163,12 @@ ifneq ($(.SHELLSTATUS),0)
 endif
 
 COVERAGE_SCRIPT := ${CURRENT_DIR}/scripts/coverage.sh
+COVERAGE_REPORT_TITLE := ${IMAGE_VERSION}
 coverage: all ## Build with code coverage, then run tests and generate reports
 	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .coverage
 
 .coverage: test
-	${COVERAGE_SCRIPT} ${TOP}/km ${KM_BLDDIR} ${KM_BLDDIR}
+	${COVERAGE_SCRIPT} ${TOP}/km ${KM_BLDDIR} ${KM_BLDDIR} ${COVERAGE_REPORT_VERSION}
 
 covclean: ## Clean up code coverage build artifacts
 	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
@@ -200,6 +201,14 @@ K8S_TEST_COVERAGE_NAME := test-coverage-${PROCESSED_IMAGE_VERION}
 coverage-withk8s:
 	${K8S_TEST_COVERAGE_SCRIPT} ${K8S_TEST_COVERAGE_IMAGE} ${K8S_TEST_COVERAGE_NAME} "${CONTAINER_COVERAGE_TEST_CMD}" ${COVERAGE_KM_BLDDIR}
 	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD}
+
+UPLOAD_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/upload-coverage.sh
+upload-coverage: .check_vars
+	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${PROCESSED_IMAGE_VERION} ${GITHUB_TOKEN}
+
+MANUAL_UPLOAD_REPORT_NAME := manual-${USER}-${PROCESSED_IMAGE_VERION}
+upload-coverage-manual: .check_vars
+	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME} ${GITHUB_TOKEN} 
 
 # install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
 # TODO: maybe make it generic to scan folders
