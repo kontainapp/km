@@ -28,6 +28,8 @@ RUN mkdir -p ${KM_TOP}
 RUN chown appuser ${KM_TOP}
 COPY --chown=appuser:appuser . ${KM_TEST_TOP}
 WORKDIR /home/appuser/km/tests
+# this is needed for symlinks to work
+RUN mkdir -p ../build/km ; cp km ../build/km
 
 ENV PATH=${KM_TEST_TOP}}/bats/bin:.:$PATH
 ENV TIME_INFO ${KM_TEST_TOP}}/time_info.txt

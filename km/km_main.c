@@ -10,6 +10,7 @@
  * permission of Kontain Inc.
  */
 
+#include <ctype.h>
 #include <err.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -22,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
 
 #include "km.h"
 #include "km_coredump.h"
@@ -144,55 +146,78 @@ static struct option long_options[] = {
 };
 
 static const_string_t SHEBANG = "#!";
-static const size_t SHEBANG_LEN = 2;               // strlen(SHEBANG)
-static const size_t SHEBANG_MAX_LINE_LEN = 1000;   // note: grabbed on stack
+static const size_t SHEBANG_LEN = 2;              // strlen(SHEBANG)
+static const size_t SHEBANG_MAX_LINE_LEN = 512;   // note: grabbed on stack
 
 static const_string_t KM_BIN_NAME = "km";
 static const_string_t PAYLOAD_SUFFIX = ".km";
 
+// malloced full host path to payload file. needed for guest /proc/self/exe
+static char* payload_name = NULL;
+
 /*
  * Checks if the passed file is a shebang, and if it is gets payload file name from there.
- * Either way fills the passed buffer with the payload file name.
- * Returns 0 on success, -1 on failure
  *
- * TODO: we also need to fetch the rest of the shebang line, and insert it to the payload args
+ * Returns strdup-ed payload name on success, NULL on failure
+ *
  */
-static int km_get_payload_name(char* payload_file, char fname_buf[])
+static char* km_get_payload_name(char* payload_file, char** extra_arg)
 {
-   char line_buf[SHEBANG_MAX_LINE_LEN + 1];
+   char line_buf[SHEBANG_MAX_LINE_LEN + 1];   // first line of shebang file
    int fd;
    int count;
 
-   if ((fd = open(payload_file, O_RDONLY, 0)) < 0) {
-      return -1;
+   if (payload_name != NULL || (fd = open(payload_file, O_RDONLY, 0)) < 0) {
+      return NULL;
    }
    count = pread(fd, line_buf, SHEBANG_MAX_LINE_LEN, 0);
    close(fd);
 
-   if (count < SHEBANG_LEN) {
-      km_err_msg(errno, "Failed to read %s", payload_file);   // failed to read even 2 bytes...
-      return -1;
+   if (count <= SHEBANG_LEN) {
+      km_err_msg(errno, "Failed to read even %ld bytes from %s", SHEBANG_LEN, payload_file);
+      return NULL;
    }
 
-   line_buf[count] = 0;   // null terminate the string
+   line_buf[count] = 0;   // null terminate whatever we read
    if (strncmp(line_buf, SHEBANG, SHEBANG_LEN) == 0) {
-      km_tracex("Extracting payload name from shebang %s", payload_file);
-      char* c = strpbrk(line_buf + SHEBANG_LEN, " \t\n\0");   // find a whitespace or string end
-      if (c != NULL) {
-         *c = 0;   // null terminate the string
-         payload_file = line_buf + SHEBANG_LEN;
-         km_tracex("Using payload from '%s'", payload_file);
-      } else {
-         km_tracex("Ignoring shebang due to wrong format: '%s'", line_buf);
+      km_tracex("Extracting payload name from shebang file '%s'", payload_file);
+      char* c;
+      for (c = line_buf + SHEBANG_LEN; isspace(*c) == 0 && *c != '\0'; c++)
+         ;   // find args, if any
+      if (*c == '\0') {
+         km_tracex("Warning: shebang line too long, truncating to %ld", SHEBANG_MAX_LINE_LEN);
       }
+
+      if (*c != '\n' && *c != '\0') {
+         char* arg_end = strpbrk(line_buf + SHEBANG_LEN, "\r\n");
+         if (arg_end != NULL) {   // arg found
+            *arg_end = '\0';
+            *extra_arg = strdup(c + 1);
+         }
+      }
+      payload_file = line_buf + SHEBANG_LEN;
+      *c = 0;   // null terminate the payload file name
+   }
+   km_tracex("Payload requested: %s", payload_file);
+
+   // If the payload name is a symlink to KM, then we need to add suffix to form the actual payload
+   // name (e.g. /usr/bin/python.km) instead avoid passing KM binary to KM :-)
+   char fname_buf[PATH_MAX + 1];
+   if (readlink(payload_file, fname_buf, PATH_MAX) != -1 &&
+       strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {
+      snprintf(fname_buf, PATH_MAX, "%s%s", payload_file, PAYLOAD_SUFFIX);   // reuse the buffer
+      payload_file = fname_buf;
+      km_tracex("Setting payload name to %s", payload_file);
    }
 
-   strncpy(fname_buf, payload_file, PATH_MAX);
-   return 0;
+   payload_name = realpath(payload_file, NULL);   // save in global.
+   return payload_name;
 }
 
-// parses args, returns index of payload name in argv[]
-static int km_parse_args(int argc, char* argv[], char** envp_p[], int* envc_p)
+// parses args, returns index of payload_name in argv[].
+// also fills *argc_p, *argv_p, *envc_p and *envp_p with args/env info for payload
+static int
+km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p, char** envp_p[])
 {
    int opt;
    uint64_t port;
@@ -220,14 +245,10 @@ static int km_parse_args(int argc, char* argv[], char** envp_p[], int* envc_p)
       regcomp(&km_info_trace.tags, trace_regex, regex_flags);
    }
 
-   if (strcmp(basename(argv[0]), KM_BIN_NAME) != 0) {   // Called on behalf of a payload
-      // Form the full path to payload and load it, pass args as is but do form the env
-      char* payload_name = calloc(1, strlen(argv[0]) + strlen(PAYLOAD_SUFFIX) + 1);
-      assert(payload_name != NULL);   // no need to continue if we are already OOM
-      sprintf(payload_name, "%s%s", argv[0], PAYLOAD_SUFFIX);
-      argv[0] = payload_name;
+   char fname_buf[PATH_MAX + 1];
+   if (readlink(argv[0], fname_buf, PATH_MAX) != -1 &&
+       strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {   // Called on behalf of a payload
       payload_index = 0;
-      km_tracex("Setting payload name to %s", payload_name);
    } else {   // regular KM invocation - parse KM args
       while ((opt = getopt_long(argc, argv, "+g::e:AEV::P:vC:S", long_options, &longopt_index)) != -1) {
          switch (opt) {
@@ -271,7 +292,8 @@ static int km_parse_args(int argc, char* argv[], char** envp_p[], int* envc_p)
                break;
             case 'e':                    // --putenv
                if (copyenv_used > 1) {   // if --copyenv was on the command line, something is wrong
-                  warnx("Wrong options: '--putenv' cannot be used with together with '--copyenv'");
+                  warnx("Wrong options: '--putenv' cannot be used with together with "
+                        "'--copyenv'");
                   usage();
                }
                copyenv_used = 0;   // --putenv cancels 'default' --copyenv
@@ -285,7 +307,8 @@ static int km_parse_args(int argc, char* argv[], char** envp_p[], int* envc_p)
                break;
             case 'E':   // --copyenv
                if (putenv_used != 0) {
-                  warnx("Wrong options: '--copyenv' cannot be used with together with '--putenv'");
+                  warnx("Wrong options: '--copyenv' cannot be used with together with "
+                        "'--putenv'");
                   usage();
                }
                copyenv_used++;
@@ -363,24 +386,52 @@ static int km_parse_args(int argc, char* argv[], char** envp_p[], int* envc_p)
       envc++;             // account for terminating NULL
       envp = __environ;   // pointers and strings will be copied to guest stack later
    }
+   // Configure payload's anv and args
    *envp_p = envp;
    *envc_p = envc;
+   *argc_p = argc - payload_index;
+   *argv_p = argv + payload_index;
+
+   // handle shebang and payload_name->km symlinks in shebang unless it's a snapshot
+   if (resume_snapshot == 0) {
+      char* extra_arg = NULL;   // shebang arg (if any) will be placed here, strdup-ed
+      km_get_payload_name(argv[payload_index], &extra_arg);
+      if (payload_name == NULL) {
+         err(1, "Failed to get payload name for %s", argv[payload_index]);
+      }
+      if (extra_arg != NULL) {
+         km_tracex("Adding extra arg '%s'", extra_arg);
+         (*argc_p)++;
+         *argv_p = calloc(*argc_p, sizeof(char*));
+         // (*argv_p)[0] = payload_name;
+         (*argv_p)[0] = argv[payload_index];
+         (*argv_p)[1] = extra_arg;
+         // if there are payload args passed on KM cmdline, add them to payload args
+         memcpy(argv_p + 2, argv + payload_index + 1, sizeof(char*) * (*argc_p - 2));
+         // for (int i = 2, j = payload_index + 1; i < *argc_p; i++, j++) {
+         //    (*argv_p)[i] = argv[j];
+         // }
+      }
+   } else {
+      payload_name = argv[payload_index];
+   }
    return payload_index;
 }
 
 int main(int argc, char* argv[])
 {
    km_vcpu_t* vcpu = NULL;
+   int envc;   // payload env
    char** envp;
-   int envc;
-   int index;   // index of payload_name in argv
+   int argc_p;      // payload's argc
+   char** argv_p;   // payload's argc (*not* in ABI format)
+   int index;       // index of payload_name in KM's argv
 
    km_gdbstub_init();
-   index = km_parse_args(argc, argv, &envp, &envc);
+   index = km_parse_args(argc, argv, &argc_p, &argv_p, &envc, &envp);
    if (index == argc) {   // no payload file
       usage();
    }
-   char* payload_file = argv[index];
 
    km_hcalls_init();
    km_exec_init(index, (char**)argv);
@@ -388,21 +439,16 @@ int main(int argc, char* argv[])
    km_exec_fini();
 
    if (resume_snapshot != 0) {   // snapshot restore
-      if (km_snapshot_restore(payload_file) < 0) {
-         err(1, "failed to restore from snapshot %s", payload_file);
+      if (km_snapshot_restore(payload_name) < 0) {
+         err(1, "failed to restore from snapshot %s", payload_name);
       }
       vcpu = machine.vm_vcpus[0];
-   } else {   // new guest start
-      // first check if it's a shebang and find the correct payload name
-      char fname_buf[PATH_MAX + 1];
-      if (km_get_payload_name(payload_file, fname_buf) != 0) {
-         err(1, "Failed to get path for %s", payload_file);
-      }
-      km_gva_t adjust = km_load_elf(fname_buf);
+   } else {
+      km_gva_t adjust = km_load_elf(payload_name);
       if ((vcpu = km_vcpu_get()) == NULL) {
          err(1, "Failed to get main vcpu");
       }
-      km_gva_t guest_args = km_init_main(vcpu, argc - index, argv + index, envc, envp);
+      km_gva_t guest_args = km_init_main(vcpu, argc_p, argv_p, envc, envp);
       if (km_dynlinker.km_filename != NULL) {
          if (km_vcpu_set_to_run(vcpu,
                                 km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust,
