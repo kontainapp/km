@@ -1374,7 +1374,7 @@ static int execveat_openexe(int dirfd, char* pathname, int flag, int open_flag)
 static int execveat_fd2path(int exefd, char* linkbuf, size_t linkbuf_size)
 {
    char procfdbuf[32];
-   snprintf(procfdbuf, sizeof(procfdbuf), "/proc/self/fd/%d", exefd);
+   snprintf(procfdbuf, sizeof(procfdbuf), PROC_SELF_FD, exefd);
    ssize_t linkbytes = readlink(procfdbuf, linkbuf, linkbuf_size);
    if (linkbytes < 0) {
       return -errno;

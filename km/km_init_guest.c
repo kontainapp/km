@@ -97,7 +97,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
       strncpy(stack_top_kma, argv[i], len);
    }
 
-   static const char* pstr = "X86_64";
+   static const_string_t pstr = "X86_64";
    int pstr_len = strlen(pstr) + 1;
    stack_top -= pstr_len;
    stack_top_kma -= pstr_len;
