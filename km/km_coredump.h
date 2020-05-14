@@ -60,9 +60,19 @@ typedef struct km_nt_guest {
 #define NT_KM_GUEST 0x4b4d4754       // "KMGT"
 #define NT_KM_DYNLINKER 0x4b4d444c   // "KMDL"
 
+typedef struct km_nt_file {
+   Elf64_Word fd;
+   Elf64_Word flags;   // open(2) flags
+   Elf64_Word mode;    // file mode
+   Elf64_Off position;
+   // Followed by file name
+} km_nt_file_t;
+#define NT_KM_FILE 0x4b4d4644   // "KMFD"
+
 // Core dump guest.
 void km_dump_core(char* filename, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe);
 void km_set_coredump_path(char* path);
 char* km_get_coredump_path();
+int km_add_note_header(char* buf, size_t length, char* owner, int type, size_t descsz);
 
 #endif

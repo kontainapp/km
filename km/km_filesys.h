@@ -225,5 +225,7 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
                          const struct rlimit* new_limit,
                          struct rlimit* old_limit);
 
+size_t km_fs_core_notes_length();
+size_t km_fs_core_notes_write(char* cur, size_t remain);
 #define KM_TRACE_FILESYS "filesys"
 #endif

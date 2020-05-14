@@ -14,6 +14,7 @@
  */
 
 #define _GNU_SOURCE
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -103,6 +104,8 @@ int main(int argc, char* argv[])
       }
    }
 
+   int fd = open("/dev/zero", O_RDONLY);
+
    pthread_mutex_lock(&long_lock);
 
    pthread_t thr;
@@ -119,6 +122,8 @@ int main(int argc, char* argv[])
    }
    pthread_mutex_unlock(&lock);
 #endif
+
+   close(fd);
 
    void* rval;
    if (pthread_join(thr, &rval) != 0) {

@@ -128,7 +128,7 @@ km_core_write_load_header(int fd, off_t offset, km_gva_t base, size_t size, int 
 }
 
 // TODO padding?
-static int km_add_note_header(char* buf, size_t length, char* owner, int type, size_t descsz)
+int km_add_note_header(char* buf, size_t length, char* owner, int type, size_t descsz)
 {
    Elf64_Nhdr* nhdr;
    char* cur = buf;
@@ -464,6 +464,10 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
       remain -= ret;
    }
 
+   ret = km_fs_core_notes_write(cur, remain);
+   cur += ret;
+   remain -= ret;
+
    // TODO: Other notes sections in real core files.
    //  NT_PRPSINFO (prpsinfo structure)
    //  NT_SIGINFO (siginfo_t data)
@@ -542,6 +546,8 @@ static inline size_t km_core_notes_length()
                   km_dynlinker.km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
                   roundup(strlen(km_dynlinker.km_filename) + 1, 4);
    }
+
+   alloclen += km_fs_core_notes_length();
 
    return roundup(alloclen, KM_PAGE_SIZE);
 }
