@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 #  Copyright © 2018-2020 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
@@ -17,15 +17,23 @@ readonly PROGNAME=$(basename $0)
 readonly INPUT_SRC_DIR=$1
 readonly INPUT_COVERAGE_SEARCH_DIR=$2
 readonly OUTPUT_DIR=$3
+readonly REPORT_VERSION=$4
+if [[ -z ${REPORT_VERSION} ]]; then
+    readonly REPORT_TITLE="Kontain Monitor Code Coverage Report"
+else
+    readonly REPORT_TITLE="Kontain Monitor Code Coverage Report - ${REPORT_VERSION}"
+fi
 
 readonly COVERAGE_CMD_NAME=gcovr
-readonly COVERAGE_THRESHOLDS="--fail-under-branch 40  --fail-under-line 55"
 readonly COVERAGE_REPORT=${OUTPUT_DIR}/report.html
 readonly PARALLEL=$(nproc --all)
+if [[ -z ${MATCH} || ${MATCH} == '.*' ]]; then
+    readonly COVERAGE_THRESHOLDS="--fail-under-branch 40  --fail-under-line 55"
+fi
 
 function usage() {
     cat <<- EOF
-usage: $PROGNAME <INPUT_SRC_DIR> <INPUT_COVERAGE_SEARCH_DIR> <OUTPUT_DIR>
+usage: $PROGNAME <INPUT_SRC_DIR> <INPUT_COVERAGE_SEARCH_DIR> <OUTPUT_DIR> <Optional REPORT_VERSION>
 
 Run test coverage analysis.
 
@@ -48,7 +56,7 @@ function main() {
     fi
 
     ${COVERAGE_CMD_NAME} \
-        --html-title "Kontain Monitor Code Coverage Report" \
+        --html-title "${REPORT_TITLE}" \
         --html \
         --html-details \
         ${COVERAGE_THRESHOLDS} \
@@ -59,6 +67,10 @@ function main() {
         -j ${PARALLEL} \
         --exclude-unreachable-branches \
         --delete
+
+    if [[ -f ${COVERAGE_REPORT} ]]; then
+        echo "Report is located at ${COVERAGE_REPORT}" 
+    fi
 }
 
 main

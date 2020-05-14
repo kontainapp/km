@@ -284,6 +284,34 @@ scripts will copy the `.gcda` files onto the host. To run:
 make -C tests coverage-withk8s
 ```
 
+#### Upload coverage
+
+Coverage on the CI pipeline will generates a list of reports (html files).
+These will be uploaded to
+[km-coverage-report](https://github.com/kontainapp/km-coverage-report). There
+is an option to manually upload these reports, if users choose to. `make -C
+tests upload-coverage-manual`. Note, we tag each commits using the
+`IMAGE_VERSION`, so it needs to be set to some unique id of your choice ,
+compliant with 'git tag' format. The repo is configured to use Github
+Page to serve these html files. To access the latest reports, use the
+following url: https://kontainapp.github.io/km-coverage-report. To access
+older reports, checkout the repo and search using the tags.
+
+To see coverage for your tag, run the following:
+```bash
+cd ~/workspace 
+git clone -b **your_tag** git@github.com:kontainapp/km-coverage-report.git
+google-chrome   km-coverage-report/index.html
+```
+
+or check out the repo once and simply run in it's dir:
+
+```bash
+git fetch -p
+get checkout **your tag**
+google-chrome index.html
+```
+
 ### Other repos
 
 This repo uses a set of submodules - e.g. musl C lib and bats testing suite
