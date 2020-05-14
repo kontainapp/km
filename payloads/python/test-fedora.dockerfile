@@ -16,7 +16,7 @@ FROM kontain/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
 
 ENV PHOME /home/$USER/python/
 
-RUN mkdir -p ${PHOME}/cpython ${PHOME}/cpython/build/lib.linux-x86_64-3.7/
+RUN mkdir -p ${PHOME}/cpython ${PHOME}/cpython/build/lib.linux-x86_64-3.7
 WORKDIR ${PHOME}
 
 COPY --chown=appuser:appuser scripts scripts/
@@ -26,7 +26,6 @@ COPY --chown=appuser:appuser cpython/Modules cpython/Modules/
 COPY --chown=appuser:appuser cpython/Lib cpython/Lib/
 COPY --chown=appuser:appuser cpython/build/lib.linux-x86_64-3.7 cpython/build/lib.linux-x86_64-3.7
 COPY --chown=appuser:appuser cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py cpython/Lib/
-RUN ln -s km python
-ENV PYTHONPATH=${PHOME}cpython/Lib:${PHOME}/cpython/build/lib.linux-x86_64-3.7 PYTHONHOME=foo:foo
+RUN ln -s km python && echo -e "home = ${PHOME}/cpython\ninclude-system-site-packages = false\nruntime = kontain" > pyvenv.cfg
 ENV KM_VERBOSE="GENERIC"
 
