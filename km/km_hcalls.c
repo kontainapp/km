@@ -583,6 +583,7 @@ static km_hc_ret_t open_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
+   // TODO - check with readlink_proc_self_exe
    arg->hc_ret = km_fs_open(vcpu, pathname, arg->arg2, arg->arg3);
    return HC_CONTINUE;
 }
@@ -596,6 +597,7 @@ static km_hc_ret_t openat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
+   // TODO - check with readlink_proc_self_exe
    arg->hc_ret = km_fs_openat(vcpu, arg->arg1, pathname, arg->arg3, arg->arg4);
    return HC_CONTINUE;
 }
@@ -1310,7 +1312,9 @@ static km_hc_ret_t uname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    arg->hc_ret = uname(name);
    // Overwrite Kontain specific info. Buffers 65 bytes each, hardcoded in musl, so we are good
    strcpy(name->sysname, "kontain-runtime");
-   strcpy(name->release, "0.8");
+   // used by some libs (eg. libc) as kernel version check, numbers too low (e.g. 0.8)
+   // may cause "kernel too old" failures.
+   strcpy(name->release, "4.1");
    strcpy(name->version, "preview");
    strcpy(name->machine, "kontain_VM");
    return HC_CONTINUE;
@@ -1371,23 +1375,14 @@ static int execveat_openexe(int dirfd, char* pathname, int flag, int open_flag)
    return exefd;
 }
 
-static int execveat_fd2path(int exefd, char* linkbuf, size_t linkbuf_size)
-{
-   char procfdbuf[32];
-   snprintf(procfdbuf, sizeof(procfdbuf), PROC_SELF_FD, exefd);
-   ssize_t linkbytes = readlink(procfdbuf, linkbuf, linkbuf_size);
-   if (linkbytes < 0) {
-      return -errno;
-   }
-   linkbuf[linkbytes] = 0;
-   return 0;
-}
-
 /*
  * int execveat(int dirfd, const char *pathname,
  *              char *const argv[], char *const envp[],
  *              int flags);
  * flags can be AT_EMPTY_PATH and AT_SYMLINK_NOFOLLOW
+ *
+ * Note that fexecve() is implemented as a subset of execveat() so this
+ * hcall covers the both
  */
 static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
@@ -1415,7 +1410,7 @@ static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
 
-   // Resolve dirfd and pathname to an fd open on the km executable
+   // Resolve dirfd and pathname to a host fd open
    int exefd = execveat_openexe(dirfd, pathname, arg->arg5, open_flag);
    if (exefd < 0) {
       arg->hc_ret = exefd;
@@ -1423,15 +1418,13 @@ static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    }
 
    // Get the filename for the open km payload executable.
-   char linkbuf[MAXPATHLEN];
-   if ((int64_t)(arg->hc_ret = execveat_fd2path(exefd, linkbuf, sizeof(linkbuf))) < 0) {
-      return HC_CONTINUE;
-   }
+   char* exe_path = km_guestfd_name(vcpu, km_fs_h2g_fd(exefd));
+   assert(exe_path != NULL);
    if (exefd != dirfd) {
       close(exefd);
    }
 
-   arg->hc_ret = do_exec(linkbuf, argv, envp);
+   arg->hc_ret = do_exec(exe_path, argv, envp);
    return HC_CONTINUE;
 }
 

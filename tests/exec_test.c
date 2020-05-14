@@ -10,32 +10,26 @@
  * permission of Kontain Inc.
  */
 
-#include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 /*
  * A simple program to test execve() and execveat() (fexecve())
  * Use the -f flag to test fexecve().
  */
 
-#if 0
-// Use this value if you want to run the test under linux
 #define EXEC_TEST "print_argenv_test"
-#else
-// Use this value if you want to run this program as a km payload
-#define EXEC_TEST "print_argenv_test.km"
-#endif
 
 int main(int argc, char** argv)
 {
    int rc;
-   char* testargv[] = { EXEC_TEST, "a1", "b2", "c3", "d4", NULL };
-   char* testenvp[] = { "ONE=one", "TWO=two", "THREE=three", "FOUR=four", NULL };
+   char* testargv[] = {EXEC_TEST, "a1", "b2", "c3", "d4", NULL};
+   char* testenvp[] = {"ONE=one", "TWO=two", "THREE=three", "FOUR=four", NULL};
 
    if (argc == 2 && strcmp(argv[1], "-f") == 0) {
       int exefd = open(EXEC_TEST, O_RDONLY);

@@ -40,11 +40,11 @@ it now has 2 phases:
 
 ## Build of .km and .kmd
 
-See kontain-gcc for vars and paths used to link Kontain unikernels (.km and .kmd) and alpine native executables (.native.km and .native.kmd) in our Fedora-based build environment.
+See kontain-gcc for vars and paths used to link Kontain unikernels (.km and .kmd) and alpine native executables (.alpine.km and .alpine.kmd) in our Fedora-based build environment.
 
-.native.km and .native.kmd are just convenience suffixes for us, these are linux binaries and can be run as such - they are just linked against Alpine (musl-based) libs.
+.alpine.km and .alpine.kmd are just convenience suffixes for us, these are linux binaries and can be run as such - they are just linked against Alpine (musl-based) libs.
 
-### Build .km (with hcalls) and .native.km (with syscalls)
+### Build .km (with hcalls) and .alpine.km (with syscalls)
 
 kontain-gcc and kontain-g++ wrap the settings.
 
@@ -61,11 +61,11 @@ kontain-gcc hello_test.o -o hello_test.km
 kontain-gcc -kontain -dynamic hello_test.o -o hello_test.kmd
 kontain-gcc hello_test.o -o hello_test.so
 # build alpine executables
-kontain-g++ -alpine var_storage_test.o -o var_storage_test.native.km
-kontain-gcc -dynamic -alpine hcallargs_test.o -o hcallargs_test.native.kmd libhelper.a
+kontain-g++ -alpine var_storage_test.o -o var_storage_test.alpine.km
+kontain-gcc -dynamic -alpine hcallargs_test.o -o hcallargs_test.alpine.kmd libhelper.a
 
 # '-kv' prints some kontain flags and final gcc command
-kontain-g++ -kv -alpine var_storage_test.o -o var_storage_test.native.km
+kontain-g++ -kv -alpine var_storage_test.o -o var_storage_test.alpine.km
 ```
 
 #### gcc '-pthread' weirdness

@@ -47,7 +47,6 @@ static inline km_gva_t km_guest_kma_to_gva(km_kma_t km_guest_addr)
    assert((uint64_t)km_guest_addr >= (uint64_t)&km_guest_start &&
           (uint64_t)km_guest_addr < (uint64_t)&km_guest_end);
    gva = GUEST_KMGUESTMEM_BASE_VA + ((uint64_t)km_guest_addr - (uint64_t)&km_guest_start);
-   km_infox(KM_TRACE_MEM, "guest kma %p -> gva 0x%lx", km_guest_addr, gva);
    return gva;
 }
 

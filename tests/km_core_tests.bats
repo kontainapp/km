@@ -22,7 +22,7 @@ not_needed_static='gdb_sharedlib'
 todo_static=''
 
 # skip slow ones
-not_needed_native_static='km_main_argv0 linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test'
+not_needed_native_static='km_main_argv0 km_main_shebang linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test'
 # review - some fail. Some slow
 todo_native_static='mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
 
@@ -30,12 +30,15 @@ not_needed_native_dynamic=$not_needed_native_static
 todo_native_dynamic=$todo_native_static
 
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic='km_main_argv0 linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many'
+not_needed_dynamic='km_main_argv0 km_main_shebang linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many'
 todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
 
 todo_so=''
-not_needed_so='km_main_argv0 linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
+not_needed_so='km_main_argv0 km_main_shebang linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
     exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend'
+
+# make sure it does not leak in from the outer shell, it can mess out the output
+unset KM_VERBOSE
 
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
 if [ "${USE_VIRT}" = 'kkm' ]; then
@@ -58,8 +61,8 @@ fi
    # Note: needed only once, expected to run only in static pass
    # TODO actual run. MANY TESTS FAILS - need to review. Putting in a scaffolding hack for now
    for test in hello mmap_1 mem env misc mutex longjmp memslot mprotect; do
-      echo Running ${test}_test
-      ./${test}_test
+      echo Running ${test}_test.fedora
+      ./${test}_test.fedora
    done
 }
 
@@ -159,15 +162,20 @@ fi
    assert_failure
 }
 
-@test "km_main_argv0($test_type): redirecting argv0 to argv0.km payload (q$ext)" {
+@test "km_main_argv0($test_type): redirecting argv0 to argv0.km payload messages (hello_test$ext)" {
    # test that KM redirects to proper payload.km when invoked as `./payload`
-   local payload=argv0_test
-   if [ ! -L $payload ]  ; then ln -s $KM_BIN $payload ; fi
-   if [ ! -L $payload.km ] ; then ln -s hello_test.km $payload.km ; fi
+   local payload=hello_test
    KM_VERBOSE=generic run ./$payload SomeArg
    assert_success
    assert_line --partial "Setting payload name to ./$payload.km"
    assert_line --partial "argv[1] = 'SomeArg'"
+}
+
+@test "km_main_shebang($test_type): shebang file handling (shebang$ext)" {
+   KM_VERBOSE=generic run $KM_BIN shebang_test.sh
+   assert_success
+   assert_line --partial "Extracting payload name from shebang file 'shebang_test.sh'"
+   assert_line --partial "Adding extra arg 'arguments to test, should be one'"
 }
 
 @test "km_main_env($test_type): passing environment to payloads (env_test$ext)" {
@@ -219,7 +227,7 @@ fi
 
 @test "hc_basic($test_type): basic run and print hello world (hello_test$ext)" {
    args="more_flags to_check: -f and check --args !"
-   run ./hello_test $args
+   run ./hello_test.fedora $args
    assert_success
    linux_out="${output}"
 
@@ -232,7 +240,7 @@ fi
 @test "hc_socket($test_type): basic HTTP/socket I/O (hello_html_test$ext)" {
    local address="http://127.0.0.1:8002"
 
-   (./hello_html_test &)
+   (./hello_html_test.fedora &)
    sleep 0.5s
    run curl -s $address
    assert_success
@@ -264,7 +272,7 @@ fi
    assert_line --partial 'fail: 0'
 
    # check the failure codes on linux
-   run ./mmap_test -v -t mmap_file_test_ex
+   run ./mmap_test.fedora -v -t mmap_file_test_ex
    assert_line --partial 'fail: 0'
 
    # make sure there is a filename somwewhere in the maps
@@ -613,7 +621,7 @@ fi
 
 @test "longjmp_test($test_type): basic setjmp/longjump" {
    args="more_flags to_check: -f and check --args !"
-   run ./longjmp_test $args
+   run ./longjmp_test.fedora $args
    assert_success
    linux_out="${output}"
 
@@ -763,7 +771,7 @@ fi
 
 
 @test "cpp_throw($test_type): basic throw and unwind (throw_basic_test$ext)" {
-   run ./throw_basic_test
+   run ./throw_basic_test.fedora
    assert_success
    linux_out="${output}"
 
@@ -878,7 +886,7 @@ fi
 
    echo "# === start linux sigsuspend === " >&3
    rm -f $FLAGFILE $KMTRACE
-   ./sigsuspend_test $FLAGFILE >$LINUXOUT &
+   ./sigsuspend_test.fedora $FLAGFILE >$LINUXOUT &
    pid=$!
    start=`date +%s`
    while [ ! -e $FLAGFILE ]
@@ -970,7 +978,7 @@ fi
    # Test execve()
    run km_with_timeout --copyenv exec_test$ext
    assert_success
-   assert_line --regexp "argv.0. = .*print_argenv_test.km"
+   assert_line --regexp "argv.0. = .*print_argenv_test"
    assert_line --partial "argv[4] = 'd4'"
    assert_line --partial "env[0] = 'ONE=one'"
    assert_line --partial "env[3] = 'FOUR=four'"
@@ -978,7 +986,7 @@ fi
    # test execveat() which is fexecve()
    run km_with_timeout --copyenv exec_test$ext -f
    assert_success
-   assert_line --regexp "argv.0. = .*print_argenv_test.km"
+   assert_line --regexp "argv.0. = .*print_argenv_test"
    assert_line --partial "argv[4] = 'd4'"
    assert_line --partial "env[0] = 'ONE=one'"
    assert_line --partial "env[3] = 'FOUR=four'"
