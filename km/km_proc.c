@@ -26,8 +26,6 @@
 #include "km.h"
 #include "km_proc.h"
 
-static const char* PROC_SELF_MAPS = "/proc/self/maps";
-
 /*
  * Read /proc/self/maps looking for the entries that match the names supplied.
  */

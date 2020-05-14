@@ -85,8 +85,8 @@ typedef struct mmap_test {
 #define OK 0   // expected good result
 
 #define UNUSED __attribute__((unused))
-static const char* errno_fmt UNUSED = "errno 0x%x";   // format for offsets/types error msg
-static const char* ret_fmt UNUSED = "ret 0x%x";       // format for offsets/types error msg
+static const char* const errno_fmt UNUSED = "errno 0x%x";   // format for offsets/types error msg
+static const char* const ret_fmt UNUSED = "ret 0x%x";       // format for offsets/types error msg
 // just to type less going forward
 static const int flags = (MAP_PRIVATE | MAP_ANONYMOUS);
 

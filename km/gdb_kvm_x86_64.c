@@ -80,14 +80,11 @@ static uint32_t nr_hw_breakpoints = 0;
 static const uint8_t int3 = 0xcc;   // trap instruction used for software breakpoints
 
 /*
- * Read /proc/self/maps looking for the entry that covers the address
- * supplied by the addr argument.  When a matching range is found,
- * return the PROT_{READ,WRITE,EXEC} equivalent of the rwxp field in *protection
- * If no matching addr range is found or we couldn't open the maps
- * file return a negative value.
- * If a page protection was found return 0.
+ * Read /proc/self/maps looking for the entry that covers the address supplied by the addr argument.
+ * When a matching range is found, return the PROT_{READ,WRITE,EXEC} equivalent of the rwxp field in
+ * *protection. If no matching addr range is found or we couldn't open the maps file return a
+ * negative value. If a page protection was found return 0.
  */
-#define PROC_SELF_MAPS "/proc/self/maps"
 int km_get_page_protection(km_kma_t addr, int* protection)
 {
    FILE* procmaps;

@@ -25,8 +25,8 @@
 #include <string.h>
 #include <unistd.h>
 #include "greatest/greatest.h"
-#include "sys/mman.h"
-#include "syscall.h"
+#include <sys/mman.h>
+#include <syscall.h>
 
 #define GIB (1024 * 1024 * 1024ul)
 
@@ -39,8 +39,8 @@ static inline char* simple_mmap(size_t size)
    return mmap(0, size, PROT_NONE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 }
 
-static const char* brick_msg = "brick in the wall ";
-static const char* dust_msg = "one bites the dust";
+static const char* const brick_msg = "brick in the wall ";
+static const char* const dust_msg = "one bites the dust";
 const long step = 100ul;
 
 void* run(void* unused)

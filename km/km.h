@@ -33,6 +33,8 @@
 #define rounddown(x, y)                                                                            \
    (__builtin_constant_p(y) && powerof2(y) ? ((x) & ~((y)-1)) : (((x) / (y)) * (y)))
 
+typedef const char* const const_string_t;
+
 /*
  * Types from linux/kvm.h
  */

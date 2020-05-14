@@ -13,6 +13,10 @@
 #ifndef __KM_PROC_H__
 #define __KM_PROC_H__
 
+static const_string_t PROC_SELF_MAPS = "/proc/self/maps";
+static const_string_t PROC_SELF_FD = "/proc/self/fd/%d";
+static const_string_t PROC_SELF_EXE = "/proc/self/exe";
+
 typedef struct maps_region {
    char* name_substring;   // caller supplies this, the rest is filled in if name is found
    uint64_t begin_addr;

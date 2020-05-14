@@ -92,7 +92,7 @@ static void km_fork_setup_child_vmstate(void)
       }
    }
 
-   km_signal_init();   // initalize signal wait queue and the signal entry free list
+   km_signal_init();   // initialize signal wait queue and the signal entry free list
 
    // No need to call km_init_guest_idt(). Use what was inherited from the parent process.
 
@@ -215,16 +215,14 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
 }
 
 /*
- * If needed, perform a fork() or clone() system call.
- * Call this from km's main() thread.  We want the
- * km main thread to be the surviving thread in the child
- * process since it is involved with payload termination
- * and the gdb server runs in the main thread context.
+ * If needed, perform a fork() or clone() system call. Call this from km's main() thread.  We want
+ * the km main thread to be the surviving thread in the child process since it is involved with
+ * payload termination and the gdb server runs in the main thread context.
+ *
  * Returns:
  *   0 - fork or clone was not requested
  *   1 - fork or clone requested and performed
- * in_child - returns to the caller whether we are returning in the
- *   child process or the parent process.
+ * in_child - returns to the caller whether we are returning in the child process or the parent process.
  */
 int km_dofork(int* in_child)
 {
@@ -312,10 +310,9 @@ void km_forward_sigchild(int signo, siginfo_t* sinfo, void* ucontext_unused)
 // TODO: pidmap belongs in its own source file.
 
 /*
- * This small group of code maps between km pids and their associated linux pids.
- * This is here so that the various wait() hypercalls can map a km pid into a linux
- * pid where needed before calling the kernel's wait() system call.
- * We also convert linux pids returned by wait back into km pid's.
+ * This small group of code maps between km pids and their associated linux pids. This is here so
+ * that the various wait() hypercalls can map a km pid into a linux pid where needed before calling
+ * the kernel's wait() system call. We also convert linux pids returned by wait back into km pid's.
  * And this is because the linux kernel has no knowledge of the km pids.
  */
 typedef struct km_linux_kontain_pidmap {

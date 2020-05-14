@@ -83,7 +83,7 @@ static char in_buffer[BUFMAX];   // TODO: malloc/free these two
 static unsigned char registers[BUFMAX];
 
 #define GDB_ERROR_MSG "E01"   // The actual error code is ignored by GDB, so any number will do
-static const char hexchars[] = "0123456789abcdef";
+static const_string_t hexchars = "0123456789abcdef";
 
 static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply);
 
