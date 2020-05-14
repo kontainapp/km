@@ -102,7 +102,7 @@ function main {
     mv ${TEMP_REPORT} ${REPORT_DIR}
     git commit -a -m "KM Coverage Report: ${TIME} ${REPORT_NAME}"
     git tag $REPORT_NAME
-    git push origin tag $REPORT_NAME
+    git push && git push origin tag $REPORT_NAME
 }
 
 main
