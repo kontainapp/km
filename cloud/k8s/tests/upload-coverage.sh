@@ -100,7 +100,13 @@ function main {
     cp ${REPORT_PATH}/*.html ${TEMP_REPORT}/
     rm -rf ${REPORT_DIR}
     mv ${TEMP_REPORT} ${REPORT_DIR}
+    git add ${REPORT_DIR}
     git commit -a -m "KM Coverage Report: ${TIME} ${REPORT_NAME}"
+    if [ ! -z "$(git status --porcelain)" ]; then 
+        echo "git status is not clean"
+        git status
+        exit 1
+    fi
     git tag $REPORT_NAME
     git push && git push origin tag $REPORT_NAME
 }
