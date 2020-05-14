@@ -143,12 +143,12 @@ static struct option long_options[] = {
     {0, 0, 0, 0},
 };
 
-static const char* SHEBANG = "#!";
+static const_string_t SHEBANG = "#!";
 static const size_t SHEBANG_LEN = 2;               // strlen(SHEBANG)
 static const size_t SHEBANG_MAX_LINE_LEN = 1000;   // note: grabbed on stack
 
-static const char* KM_BIN_NAME = "km";
-static const char* PAYLOAD_SUFFIX = ".km";
+static const_string_t KM_BIN_NAME = "km";
+static const_string_t PAYLOAD_SUFFIX = ".km";
 
 /*
  * Checks if the passed file is a shebang, and if it is gets payload file name from there.
@@ -383,7 +383,7 @@ int main(int argc, char* argv[])
    char* payload_file = argv[index];
 
    km_hcalls_init();
-   km_exec_init(argc, (char**)argv);
+   km_exec_init(index, (char**)argv);
    km_machine_init(&km_machine_init_params);
    km_exec_fini();
 

@@ -34,6 +34,8 @@
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;
 
+static const_string_t fx = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
+
 /*
  * run related err and errx - get regs, print RIP and the supplied message
  */
@@ -43,7 +45,6 @@ __run_err(void (*fn)(int, const char*, __builtin_va_list), km_vcpu_t* vcpu, int 
 static void
 __run_err(void (*fn)(int, const char*, __builtin_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
 {
-   static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
    int save_errno = errno;
    va_list args;
    char fmt[strlen(f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];
@@ -66,7 +67,6 @@ __run_warn(void (*fn)(const char*, __builtin_va_list), km_vcpu_t* vcpu, const ch
     __attribute__((format(printf, 3, 4)));   // define attributes
 static void __run_warn(void (*fn)(const char*, __builtin_va_list), km_vcpu_t* vcpu, const char* f, ...)
 {
-   static const char fx[] = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
    va_list args;
    char fmt[strlen(f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];
 
@@ -96,7 +96,7 @@ static const char* kvm_reason_name(int reason)
 {
 #define __KVM_REASON_MAX (KVM_EXIT_HYPERV + 1)   // this is the current max
 #define __KVM_REASON_NAME(__r) [__r] = #__r
-   static const char* const reasons[__KVM_REASON_MAX] = {
+   static const_string_t reasons[__KVM_REASON_MAX] = {
        __KVM_REASON_NAME(KVM_EXIT_UNKNOWN),      __KVM_REASON_NAME(KVM_EXIT_EXCEPTION),
        __KVM_REASON_NAME(KVM_EXIT_IO),           __KVM_REASON_NAME(KVM_EXIT_HYPERCALL),
        __KVM_REASON_NAME(KVM_EXIT_DEBUG),        __KVM_REASON_NAME(KVM_EXIT_HLT),

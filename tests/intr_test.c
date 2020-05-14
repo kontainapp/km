@@ -19,8 +19,8 @@
 
 #include "greatest/greatest.h"
 
-static const char* brick_msg = "brick in the wall ";
-static const char* dust_msg = "one bites the dust";
+static const char* const brick_msg = "brick in the wall ";
+static const char* const dust_msg = "one bites the dust";
 const long step = 100 * 1024 * 1024 * 1024ul;
 
 // simple thread create with check. assert macro can use params more than once, so using separate <ret>

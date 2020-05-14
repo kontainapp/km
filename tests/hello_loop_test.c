@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include "syscall.h"
 
-static const char* msg1 = "Hello, I am a loop ";
+static const char* const msg1 = "Hello, I am a loop ";
 
 void run_forever(void)
 {

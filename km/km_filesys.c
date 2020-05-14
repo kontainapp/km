@@ -445,17 +445,11 @@ uint64_t km_fs_link(km_vcpu_t* vcpu, char* old, char* new)
  * check if pathname is in "/proc/self/fd/", process if it is.
  * Return 0 if doesn't match, negative for error, positive for result strlen
  */
-#define PROCFD "/proc/self/fd/"
-
-static int readlink_procself(const char* pathname, char* buf, size_t bufsz)
+static int readlink_proc_self_fd(const char* pathname, char* buf, size_t bufsz)
 {
-   if (strncmp(pathname, PROCFD, strlen(PROCFD)) != 0) {
-      return 0;
-   }
-   int ret;
    int fd;
-   if (sscanf(pathname, PROCFD "%d", &fd) != 1) {
-      return -ENOENT;
+   if (sscanf(pathname, PROC_SELF_FD, &fd) != 1) {
+      return 0;
    }
    char* mpath;
    if (fd < 0 || fd >= km_fs()->nfdmap || (mpath = km_fs()->guestfd_to_name_map[fd]) == 0) {
@@ -469,7 +463,7 @@ static int readlink_procself(const char* pathname, char* buf, size_t bufsz)
       mpath = rpath;
    }
    strncpy(buf, mpath, bufsz);
-   ret = strlen(mpath);
+   int ret = strlen(mpath);
    if (ret > bufsz) {
       ret = bufsz;
    }
@@ -479,14 +473,32 @@ static int readlink_procself(const char* pathname, char* buf, size_t bufsz)
    return ret;
 }
 
+/*
+ * check if pathname is in "/proc/self/exe", process if it is.
+ * Return 0 if doesn't match, negative for error, positive for result strlen
+ */
+static int readlink_proc_self_exe(const char* pathname, char* buf, size_t bufsz)
+{
+   if (strcmp(pathname, PROC_SELF_EXE) != 0) {
+      return 0;
+   }
+   strncpy(buf, km_guest.km_filename, bufsz);
+   int ret = strlen(km_guest.km_filename);
+   if (ret > bufsz) {
+      ret = bufsz;
+   }
+   return ret;
+}
+
 // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
 uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz)
 {
    int ret;
-   if ((ret = readlink_procself(pathname, buf, bufsz)) == 0) {
+   if ((ret = readlink_proc_self_fd(pathname, buf, bufsz)) == 0 &&
+       (ret = readlink_proc_self_exe(pathname, buf, bufsz)) == 0) {
       ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
    }
-   km_infox(KM_TRACE_FILESYS, "%s buf: %s", pathname, buf);
+   km_infox(KM_TRACE_FILESYS, "%s buf: %*s", pathname, ret, buf);
    return ret;
 }
 
@@ -494,7 +506,8 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
 uint64_t km_fs_readlinkat(km_vcpu_t* vcpu, int dirfd, char* pathname, char* buf, size_t bufsz)
 {
    int ret;
-   if ((ret = readlink_procself(pathname, buf, bufsz)) == 0) {
+   if ((ret = readlink_proc_self_fd(pathname, buf, bufsz)) == 0 &&
+       (ret = readlink_proc_self_exe(pathname, buf, bufsz)) == 0) {
       int host_dirfd = dirfd;
 
       if (dirfd != AT_FDCWD && pathname[0] != '/') {
@@ -504,7 +517,7 @@ uint64_t km_fs_readlinkat(km_vcpu_t* vcpu, int dirfd, char* pathname, char* buf,
       }
       ret = __syscall_4(SYS_readlinkat, host_dirfd, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
    }
-   km_infox(KM_TRACE_FILESYS, "%s buf: %s", pathname, buf);
+   km_infox(KM_TRACE_FILESYS, "%s buf: %*s", pathname, ret, buf);
    return ret;
 }
 
