@@ -105,4 +105,12 @@ John writes *I think what here is reasonable, but we are going to think through 
 I agree, and I think we should put something in the elf file so we know it's a snapshot and then just resume. This way we can snapshot java, put in java.km and place in container, and the rest is supposed to work .
 
 
+## On symlinks to KM
+
+ Usually shebang files (e.g. gunicorn) are parsed by the kernel,
+but when shebang is passed to KM as a payload (e.g. on execve("gunincorn")), KM parses the shebang and extracts the payload name from there.
+However, the payload name may point to something executable by KM (e.g. GO static binary) , or to a symlink to KM (e.g. "node").
+We do not want KM to load elf of KM itself, so KM now does the same operation as it does with payload name - for payloads which are a symlink to KM,
+the original payload name + .km is used
+
 *** end of document ***

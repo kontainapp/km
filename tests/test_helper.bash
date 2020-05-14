@@ -70,10 +70,10 @@ case $test_type in
       ext=.kmd
       ;;
    native_static)
-      ext=.native.km
+      ext=.alpine.km
       ;;
    native_dynamic)
-      ext=.native.km
+      ext=.alpine.kmd
       ;;
    so)
       ext=.km.so

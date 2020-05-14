@@ -1,3 +1,7 @@
 km-bats-*.*
 gdb.txt
 .native*
+*.fedora
+*.ubuntu
+*.alpine
+!shebang*

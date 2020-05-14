@@ -52,7 +52,7 @@ typedef struct km_filesys {
 
 static inline km_filesys_t* km_fs()
 {
-   return (km_filesys_t*)machine.filesys;
+   return machine.filesys;
 }
 /*
  * Adds a host fd to the guest. Returns the guest fd number assigned.
