@@ -190,6 +190,7 @@ withdocker: ## Build using Docker container for build environment. 'make withdoc
 	${_CMD} \
 		-v ${TOP}:${DOCKER_KM_TOP}:Z \
 		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
+		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:Z \
 		-w ${DOCKER_KM_TOP}/${FROMTOP} \
 		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
 		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
