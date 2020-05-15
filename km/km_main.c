@@ -176,11 +176,14 @@ char* km_get_self_name()
  * Check if the passed file is a shebang or symlink to km, and if it is get payload file name from
  * there. Returns strdup-ed payload name on success, NULL on failure.
  */
-static char* km_get_payload_name(char* payload_file, char** extra_arg)
+char* km_get_payload_name(char* payload_file, char** extra_arg)
 {
    char line_buf[SHEBANG_MAX_LINE_LEN + 1];   // first line of shebang file
    int fd;
    int count;
+
+   *extra_arg = NULL;
+   km_infox(KM_TRACE_EXEC, "input payload_file %s", payload_file);
 
    if (payload_file == NULL || (fd = open(payload_file, O_RDONLY, 0)) < 0) {
       return NULL;
@@ -212,8 +215,8 @@ static char* km_get_payload_name(char* payload_file, char** extra_arg)
       }
       payload_file = line_buf + SHEBANG_LEN;
       *c = 0;   // null terminate the payload file name
+      km_tracex("Payload file from shebang: %s", payload_file);
    }
-   km_tracex("Payload requested: %s", payload_file);
 
    // If the payload name is a symlink to KM, then we need to add suffix to form the actual
    // payload name (e.g. /usr/bin/python.km) instead avoid passing KM binary to KM :-)
@@ -226,7 +229,11 @@ static char* km_get_payload_name(char* payload_file, char** extra_arg)
          km_tracex("Setting payload name to %s", payload_file);
       }
    }
-   return realpath(payload_file, NULL);
+   char* plf = realpath(payload_file, NULL);
+   if (plf == NULL) {
+      km_info(KM_TRACE_ARGS, "realpath for %s failed: ", payload_file);
+   }
+   return plf;
 }
 
 // parses args, returns payload_name based on argv[], symlink, or shebang.

@@ -109,6 +109,12 @@ function km_with_timeout () {
             shift
             break
             ;;
+         --putenv)
+            # The putenv arg may contain $ext, so grab the arg here to avoid *$ext below
+            __args="$__args $1"
+            shift
+            __args="$__args $1"
+            ;;
          *$ext)
             break
             ;;

@@ -107,3 +107,8 @@ void km_trace_include_pid(uint8_t trace_pid)
 {
    km_trace_pid = trace_pid;
 }
+
+uint8_t km_trace_include_pid_value(void)
+{
+   return km_trace_pid;
+}

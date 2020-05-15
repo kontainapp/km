@@ -1334,20 +1334,25 @@ static km_hc_ret_t uname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static int do_exec(char* filename, char** argv, char** envp)
 {
+   char** newenv;
+   char** newargv;
+
    // Add some km state to the environment.
-   char** newenv = km_exec_build_env(envp);
+   newenv = km_exec_build_env(envp);
    if (newenv == NULL) {
       return -ENOMEM;
    }
    // Build argv line with km program and args before the payload's args.
-   char** newargv = km_exec_build_argv(filename, argv);
+   newargv = km_exec_build_argv(filename, argv);
    if (newargv == NULL) {
+      free(newenv);
       return -ENOMEM;
    }
 
    // Start km again with the new payload program
    execve(km_get_self_name(), newargv, newenv);
    // If we are here, execve() failed.  So we need to cleanup.
+   km_info(KM_TRACE_HC, "execve failed, error %d", errno);
    free(newargv);
    free(newenv);
    return -errno;
