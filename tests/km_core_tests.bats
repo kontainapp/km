@@ -977,3 +977,8 @@ fi
    run km_with_timeout fork_test$ext
    assert_success
 }
+
+@test "perf($test_type): measure time taken for dummy hypercall and page fault (perf_test$ext)" {
+   run km_with_timeout perf_test$ext
+   assert_success
+}
