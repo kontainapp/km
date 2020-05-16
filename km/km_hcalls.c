@@ -266,7 +266,7 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   msg.msg_name = km_gva_to_kma_nocheck((uint64_t)msg_kma->msg_name);   // optional
+   msg.msg_name = km_gva_to_kma((uint64_t)msg_kma->msg_name);   // optional
    msg.msg_namelen = msg_kma->msg_namelen;
    msg.msg_iovlen = msg_kma->msg_iovlen;
    struct iovec iov[msg.msg_iovlen];
@@ -281,7 +281,7 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       iov[i].iov_len = iov_kma[i].iov_len;
    }
    msg.msg_iov = iov;
-   msg.msg_control = km_gva_to_kma_nocheck((uint64_t)msg_kma->msg_control);   // optional
+   msg.msg_control = km_gva_to_kma((uint64_t)msg_kma->msg_control);   // optional
    msg.msg_controllen = msg_kma->msg_controllen;
    msg.msg_flags = msg_kma->msg_flags;
    arg->hc_ret = km_fs_sendrecvmsg(vcpu, hc, arg->arg1, &msg, arg->arg3);
