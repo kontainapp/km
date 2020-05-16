@@ -145,6 +145,7 @@ static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd, int flag
    __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[host_fd], guest_fd, __ATOMIC_SEQ_CST);
    // don't close stdin, stdout, or stderr
    if (close_fd > 2) {
+      __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[close_fd], -1, __ATOMIC_SEQ_CST);
       __syscall_1(SYS_close, close_fd);
    }
    return guest_fd;
@@ -254,7 +255,7 @@ void km_fs_fini(void)
 // int open(char *pathname, int flags, mode_t mode)
 uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
 {
-   int guestfd = -1;
+   int guestfd;
    int hostfd = __syscall_3(SYS_open, (uintptr_t)pathname, flags, mode);
    if (hostfd >= 0) {
       guestfd = km_add_guest_fd(vcpu, hostfd, 0, pathname, flags);
@@ -749,17 +750,12 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    if ((host_fd = km_fs_g2h_fd(fd)) < 0) {
       return -EBADF;
    }
-   int host_newfd = km_fs_g2h_fd(newfd);
 
    char* name = km_guestfd_name(vcpu, fd);
    assert(name != NULL);
    int ret = __syscall_1(SYS_dup, host_fd);
    if (ret >= 0) {
       ret = replace_guest_fd(vcpu, newfd, ret, flags);
-      // leave host's std fd's open.
-      if (host_newfd > 2) {
-         __syscall_1(SYS_close, host_newfd);
-      }
    }
    return ret;
 }
@@ -848,7 +844,29 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
    if ((host_sockfd = km_fs_g2h_fd(sockfd)) < 0) {
       return -EBADF;
    }
+   if (scall == SYS_sendmsg) {
+      // translate sent file descriptors if any
+      for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+         if (cmsg->cmsg_type == SCM_RIGHTS) {
+            int guest_fd = *(int*)CMSG_DATA(cmsg);
+            int host_fd = km_fs_g2h_fd(guest_fd);
+            *(int*)CMSG_DATA(cmsg) = host_fd;
+            km_infox(KM_TRACE_FILESYS, "send guest fd %d as host %d\n", guest_fd, host_fd);
+         }
+      }
+   }
    int ret = __syscall_3(scall, host_sockfd, (uintptr_t)msg, flag);
+   if (scall == SYS_recvmsg) {
+      // receive file descriptors if any
+      for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+         if (cmsg->cmsg_type == SCM_RIGHTS) {
+            int host_fd = *(int*)CMSG_DATA(cmsg);
+            int guest_fd = km_add_guest_fd(vcpu, host_fd, 0, "[recvmsg]", flag);
+            *(int*)CMSG_DATA(cmsg) = guest_fd;
+            km_infox(KM_TRACE_FILESYS, "received host fd %d as guest %d\n", host_fd, guest_fd);
+         }
+      }
+   }
    return ret;
 }
 
@@ -1122,7 +1140,7 @@ uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
       return -EBADF;
    }
 
-   int ret = __syscall_6(SYS_epoll_wait,
+   int ret = __syscall_6(SYS_epoll_pwait,
                          host_epfd,
                          (uintptr_t)events,
                          maxevents,
