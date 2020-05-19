@@ -223,8 +223,11 @@ static char* km_get_payload_name(char* payload_file, char** extra_arg)
    // If the payload name is a symlink to KM, then we need to add suffix to form the actual
    // payload name (e.g. /usr/bin/python.km) instead avoid passing KM binary to KM :-)
    char fname_buf[PATH_MAX + 1];
-   if (readlink(payload_file, fname_buf, PATH_MAX) != -1 &&
-       strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {
+   int bytes = readlink(payload_file, fname_buf, PATH_MAX);
+   if (bytes != -1) {
+      fname_buf[bytes] = '\0';
+   }
+   if (bytes != -1 && strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {
       snprintf(fname_buf, PATH_MAX, "%s%s", payload_file, PAYLOAD_SUFFIX);   // reuse the buffer
       payload_file = fname_buf;
       km_tracex("Setting payload name to %s", payload_file);
@@ -266,8 +269,11 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    }
 
    char fname_buf[PATH_MAX + 1];
-   if (readlink(argv[0], fname_buf, PATH_MAX) != -1 &&
-       strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {   // Called on behalf of a payload
+   int bytes = readlink(argv[0], fname_buf, PATH_MAX);
+   if (bytes != -1) {
+      fname_buf[bytes] = '\0';
+   }
+   if (bytes != -1 && strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {   // Called on behalf of a payload
       payload_index = 0;
    } else {   // regular KM invocation - parse KM args
       while ((opt = getopt_long(argc, argv, "+g::e:AEV::P:vC:S", long_options, &longopt_index)) != -1) {
