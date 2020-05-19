@@ -149,11 +149,31 @@ static const_string_t SHEBANG = "#!";
 static const size_t SHEBANG_LEN = 2;              // strlen(SHEBANG)
 static const size_t SHEBANG_MAX_LINE_LEN = 512;   // note: grabbed on stack
 
-static const_string_t KM_BIN_NAME = "km";
 static const_string_t PAYLOAD_SUFFIX = ".km";
+// TODO: drop and compare realpath(payload) with km_get_self_name()
+static const_string_t KM_BIN_NAME = "km";
 
-// malloced full host path to payload file. needed for guest /proc/self/exe
-static char* payload_name = NULL;
+// TODO - drop this and use payload->km_file
+static char* payload_name;
+
+char* km_get_self_name()
+{
+   // full path to KM (pointed to by /proc/self/exe).
+   static char* km_bin_name;   // TODO - better place for it ?
+
+   if (km_bin_name == NULL) {
+      char buf[PATH_MAX + 1];
+      int bytes;
+
+      if ((bytes = readlink(PROC_SELF_EXE, buf, PATH_MAX)) < 0) {
+         km_err_msg(errno, "Failed to read %s", PROC_SELF_EXE);
+         return NULL;
+      }
+      buf[bytes] = '\0';
+      km_bin_name = strdup(buf);
+   }
+   return km_bin_name;
+}
 
 /*
  * Checks if the passed file is a shebang, and if it is gets payload file name from there.
@@ -182,8 +202,8 @@ static char* km_get_payload_name(char* payload_file, char** extra_arg)
    if (strncmp(line_buf, SHEBANG, SHEBANG_LEN) == 0) {
       km_tracex("Extracting payload name from shebang file '%s'", payload_file);
       char* c;
-      for (c = line_buf + SHEBANG_LEN; isspace(*c) == 0 && *c != '\0'; c++)
-         ;   // find args, if any
+      for (c = line_buf + SHEBANG_LEN; isspace(*c) == 0 && *c != '\0'; c++) {   // find args, if any
+      }
       if (*c == '\0') {
          km_tracex("Warning: shebang line too long, truncating to %ld", SHEBANG_MAX_LINE_LEN);
       }
@@ -200,8 +220,8 @@ static char* km_get_payload_name(char* payload_file, char** extra_arg)
    }
    km_tracex("Payload requested: %s", payload_file);
 
-   // If the payload name is a symlink to KM, then we need to add suffix to form the actual payload
-   // name (e.g. /usr/bin/python.km) instead avoid passing KM binary to KM :-)
+   // If the payload name is a symlink to KM, then we need to add suffix to form the actual
+   // payload name (e.g. /usr/bin/python.km) instead avoid passing KM binary to KM :-)
    char fname_buf[PATH_MAX + 1];
    if (readlink(payload_file, fname_buf, PATH_MAX) != -1 &&
        strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {
@@ -397,20 +417,17 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
       char* extra_arg = NULL;   // shebang arg (if any) will be placed here, strdup-ed
       km_get_payload_name(argv[payload_index], &extra_arg);
       if (payload_name == NULL) {
-         err(1, "Failed to get payload name for %s", argv[payload_index]);
+         km_err_msg(errno, "Failed to get payload name for %s (idx=%d)", argv[payload_index], payload_index);
+         exit(1);
       }
       if (extra_arg != NULL) {
          km_tracex("Adding extra arg '%s'", extra_arg);
          (*argc_p)++;
          *argv_p = calloc(*argc_p, sizeof(char*));
-         // (*argv_p)[0] = payload_name;
-         (*argv_p)[0] = argv[payload_index];
-         (*argv_p)[1] = extra_arg;
+         (*argv_p)[0] = payload_name;
+         (*argv_p)[1] = extra_arg;   // shebang has only one arg
          // if there are payload args passed on KM cmdline, add them to payload args
-         memcpy(argv_p + 2, argv + payload_index + 1, sizeof(char*) * (*argc_p - 2));
-         // for (int i = 2, j = payload_index + 1; i < *argc_p; i++, j++) {
-         //    (*argv_p)[i] = argv[j];
-         // }
+         memcpy(*argv_p + 2, argv + payload_index + 1, sizeof(char*) * (*argc_p - 2));
       }
    } else {
       payload_name = argv[payload_index];

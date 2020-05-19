@@ -387,6 +387,8 @@ void __km_trace(int errnum, const char* function, int linenumber, const char* fm
     __attribute__((__format__(__printf__, 4, 5)));
 void km_trace_include_pid(uint8_t trace_pid);
 
+char* km_get_self_name(void);
+
 // Interrupt handling.
 void km_init_guest_idt(void);
 void km_handle_interrupt(km_vcpu_t* vcpu);
