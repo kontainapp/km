@@ -13,35 +13,47 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 /*
- * A simple program to test execve() and execveat() (fexecve())
+ * A simple program to test execve() and execveat() (fexecve()) by exec to "print_argenv_test"
+ *
  * Use the -f flag to test fexecve().
+ * Set KM_EXEC_TEST_EXE environment to override what it being exec-ed into
+ *
+ * TODO: execveat() is only tested for fexecve() subset, need to add test
+ *
  */
 
-#define EXEC_TEST "print_argenv_test"
+#define EXEC_TEST_EXE_ENV "KM_EXEC_TEST_EXE"
+#define EXEC_TEST_EXE_DEFAULT "print_argenv_test"
 
 int main(int argc, char** argv)
 {
    int rc;
-   char* testargv[] = {EXEC_TEST, "a1", "b2", "c3", "d4", NULL};
+   char* exec_test = getenv(EXEC_TEST_EXE_ENV);
+   if (exec_test == NULL) {
+      exec_test = EXEC_TEST_EXE_DEFAULT;
+   }
+
+   char* testargv[] = {exec_test, "a1", "b2", "c3", "d4", NULL};
    char* testenvp[] = {"ONE=one", "TWO=two", "THREE=three", "FOUR=four", NULL};
 
    if (argc == 2 && strcmp(argv[1], "-f") == 0) {
-      int exefd = open(EXEC_TEST, O_RDONLY);
+      int exefd = open(exec_test, O_RDONLY);
       if (exefd < 0) {
-         printf("open() of %s failed, %s\n", EXEC_TEST, strerror(errno));
+         printf("open() of %s failed, %s\n", exec_test, strerror(errno));
       } else {
          rc = fexecve(exefd, testargv, testenvp);
          printf("fexecve() failed, errno %d, %s\n", errno, strerror(errno));
          close(exefd);
       }
    } else {
-      rc = execve(EXEC_TEST, testargv, testenvp);
+      rc = execve(exec_test, testargv, testenvp);
       printf("execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
    }
 
