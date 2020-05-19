@@ -871,45 +871,56 @@ fi
 # And verify that signals sent to km are forwarded to the payload
 @test "sigsuspend($test_type): sigsuspend() and signal forwarding (sigsuspend_test$ext)" {
    FLAGFILE=/tmp/sigsuspend_test.$$
+   KMTRACE=/tmp/sigsuspend_kmtrace.$$
+   WAIT=5
+   LINUXOUT=/tmp/sigsuspend_linuxout.$$
+   KMOUT=/tmp/sigsuspend_kmout.$$
 
-   rm -f $FLAGFILE
-   ./sigsuspend_test $FLAGFILE &
+   rm -f $FLAGFILE $KMTRACE
+   ./sigsuspend_test $FLAGFILE >$LINUXOUT &
    pid=$!
-   trys=0
+   start=`date +%s`
    while [ ! -e $FLAGFILE ]
    do
-      sleep .01
-      trys=`expr $trys + 1`
-      test $trys -lt 1000
+      sleep .1
+      now=`date +%s`
+      test `expr $now - $start` -lt $WAIT
       assert_success
    done
    kill -SIGUSR1 $pid
    kill -SIGUSR1 $pid
    kill -SIGUSR2 $pid
    wait $pid
-   linuxout=$output
 
-   rm -f $FLAGFILE
-   $KM_BIN sigsuspend_test$ext $FLAGFILE &
-#   km_with_timeout sigsuspend_test$ext $FLAGFILE &
+   rm -f $FLAGFILE $KMTRACE
+   $KM_BIN -V sigsuspend_test$ext $FLAGFILE >$KMOUT 2>$KMTRACE &
+#   km_with_timeout sigsuspend_test$ext $FLAGFILE >$KMOUNT 2>$KMTRACE &
    pid=$!
-   trys=0
+   start=`date +%s`
    while [ ! -e $FLAGFILE ]
    do
-      sleep .01
-      trys=`expr $trys + 1`
-      test $trys -lt 1000
-      assert_success
+      sleep .1
+      now=`date +%s`
+      if test `expr $now - $start` -ge $WAIT
+      then
+         # Put the km trace in the TAP stream
+         echo "# === Begin $KMTRACE =====" >&3
+         sed -e "s/^/# /" <$KMTRACE >&3
+         echo "# === End   $KMTRACE =====" >&3
+         fail "$FLAGFILE does not exist after $WAIT seconds!"
+      fi
    done
    kill -SIGUSR1 $pid
    kill -SIGUSR1 $pid
    kill -SIGUSR2 $pid
    wait $pid
-   kmout=$output
    rm -f $FLAGFILE
 
-   diff <(echo -e "$linuxout")  <(echo -e "$kmout")
+   # Debug.
+   diff $LINUXOUT $KMOUT
    assert_success
+
+   rm -f $KMTRACE $LINUXOUT $KMOUT
 }
 
 @test "itimer($test_type): test setitimer() getitimer() hypercalls (itimer_test$ext)" {
