@@ -276,10 +276,16 @@ char** km_exec_build_argv(char* filename, char** argv)
    for (argc = 0; argv[argc] != NULL; argc++) {
    }
 
+   // int inserting = 0;
+   if (km_exec_argc == 0) {   // we were called via symlink - make sure argv[0] for KM is itself
+      km_exec_argc = 1;
+      km_exec_argv[0] = km_get_self_name();
+      // inserting = 1;   // start further args from this position
+      km_infox(KM_TRACE_EXEC, "Inserting SELF %s", km_exec_argv[0]);
+   }
    // Allocate memory for the km args plus the passed args
    nargc = km_exec_argc + argc + 1;
-   nargv = calloc(nargc, sizeof(char*));
-   if (nargv == NULL) {
+   if ((nargv = calloc(nargc, sizeof(char*))) == NULL) {
       return NULL;
    }
 
@@ -287,6 +293,7 @@ char** km_exec_build_argv(char* filename, char** argv)
    int i;
    for (i = 0; i < km_exec_argc; i++) {
       nargv[i] = km_exec_argv[i];
+      km_infox(KM_TRACE_EXEC, "km arg %d %s", i, nargv[i]);
    }
 
    // Copy passed args in
@@ -490,7 +497,7 @@ static void km_exec_vmclean(void)
 void km_exec_init(int argc, char** argv)
 {
    // Remember this in case the guest performs an execve().
-   km_exec_argc = argc;
+   km_exec_argc = argc;   // km-specific argc ... all args after that belong to payload
    km_exec_argv = argv;
 
    switch (km_exec_recover_kmstate()) {

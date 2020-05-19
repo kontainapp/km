@@ -1334,7 +1334,7 @@ static int do_exec(char* filename, char** argv, char** envp)
    }
 
    // Start km again with the new payload program
-   execve(newargv[0], newargv, newenv);
+   execve(km_get_self_name(), newargv, newenv);
    // If we are here, execve() failed.  So we need to cleanup.
    free(newargv);
    free(newenv);
