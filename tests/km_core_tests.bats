@@ -876,6 +876,7 @@ fi
    LINUXOUT=/tmp/sigsuspend_linuxout.$$
    KMOUT=/tmp/sigsuspend_kmout.$$
 
+echo "# === start linux sigsuspend === " >&3
    rm -f $FLAGFILE $KMTRACE
    ./sigsuspend_test $FLAGFILE >$LINUXOUT &
    pid=$!
@@ -884,6 +885,7 @@ fi
    do
       sleep .1
       now=`date +%s`
+echo "# === now $now ===" >&3
       test `expr $now - $start` -lt $WAIT
       assert_success
    done
@@ -892,6 +894,7 @@ fi
    kill -SIGUSR2 $pid
    wait $pid
 
+echo "# === start km sigsuspend ===" >&3
    rm -f $FLAGFILE $KMTRACE
    $KM_BIN -V sigsuspend_test$ext $FLAGFILE >$KMOUT 2>$KMTRACE &
 #   km_with_timeout sigsuspend_test$ext $FLAGFILE >$KMOUNT 2>$KMTRACE &
@@ -901,6 +904,7 @@ fi
    do
       sleep .1
       now=`date +%s`
+echo "# === now $now ===" >&3
       if test `expr $now - $start` -ge $WAIT
       then
          # Put the km trace in the TAP stream
@@ -915,6 +919,7 @@ fi
    kill -SIGUSR2 $pid
    wait $pid
    rm -f $FLAGFILE
+echo "# === done with km sigsuspend test ===" >&3
 
    # Debug.
    diff $LINUXOUT $KMOUT
