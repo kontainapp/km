@@ -2131,7 +2131,7 @@ static void handle_vfile_open(char* packet, char* output, int outputl)
                sizeof(procrootdirsymlink),
                "/proc/%d/root",
                gdbstub.vfile_state.current_fs);
-      rc = readlink(procrootdirsymlink, open_filename, sizeof(open_filename));
+      rc = readlink(procrootdirsymlink, open_filename, sizeof(open_filename) - 1);
       if (rc < 0) {
          gdb_fd_free(gdb_fd);
          gdb_errno = errno_linux2gdb(errno);
@@ -2306,10 +2306,11 @@ static void handle_vfile_readlink(char* packet, char* output, int outputl)
    int l;
    f = hex2mem(packet, (unsigned char*)filename, strlen(packet));
    *f = 0;
-   if ((l = readlink(filename, (char*)registers, sizeof(registers))) < 0) {
+   if ((l = readlink(filename, (char*)registers, sizeof(registers) - 1)) < 0) {
       gdb_errno = errno_linux2gdb(errno);
       goto error_reply;
    }
+   registers[l] = '\0';
    sprintf(output, "F0;");
    mem2hex(registers, &output[strlen(output)], l);
    send_packet(output);
