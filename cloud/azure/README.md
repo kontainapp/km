@@ -64,3 +64,20 @@ To stop all vms so they are not billed to us, run `apply_openwhisk_vms.sh deallo
 
 All targets assume `make login` succeded.
 
+## Debugging CI
+
+To debug an issue that only happens on CI, we use launch a VM with the same kernel.
+
+```bash
+# To create the VM. IP address will be printed.
+VM_IMAGE="Canonical:UbuntuServer:16.04-LTS:latest" $TOP/cloud/azure/azure_vm.sh create <name>
+
+# To look up the IP address
+$TOP/cloud/azure/azure_vm.sh ls <name>
+
+# ssh into the machine and clone the km repo.
+ssh kontain@<ip>
+
+# To delete when finished.
+$TOP/cloud/azure/azure_vm.sh delete <name>
+```
