@@ -171,13 +171,6 @@ fi
    assert_line --partial "argv[1] = 'SomeArg'"
 }
 
-@test "km_main_shebang($test_type): shebang file handling (shebang$ext)" {
-   KM_VERBOSE=generic run $KM_BIN shebang_test.sh
-   assert_success
-   assert_line --partial "Extracting payload name from shebang file 'shebang_test.sh'"
-   assert_line --partial "Adding extra arg 'arguments to test, should be one'"
-}
-
 @test "km_main_env($test_type): passing environment to payloads (env_test$ext)" {
    val=`pwd`/$$
 
@@ -974,6 +967,16 @@ fi
    done
 }
 
+
+@test "km_main_shebang($test_type): shebang file handling (shebang$ext)" {
+   KM_VERBOSE=generic run $KM_BIN shebang_test.sh AndEvenMore
+   assert_success
+   assert_line --partial "Extracting payload name from shebang file 'shebang_test.sh'"
+   assert_line --partial "Adding extra arg 'arguments to test, should be one'"
+   assert_line --partial "argv[2] = 'AndEvenMore'"
+
+}
+
 @test "exec($test_type): test execve and execveat hypercalls (exec_test$ext)" {
    # Test execve()
    run km_with_timeout --copyenv exec_test$ext
@@ -990,6 +993,17 @@ fi
    assert_line --partial "argv[4] = 'd4'"
    assert_line --partial "env[0] = 'ONE=one'"
    assert_line --partial "env[3] = 'FOUR=four'"
+
+   # test exec into shebang
+   KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout exec_test$ext
+   assert_line --regexp 'argv\[0\] = .*tests/hello_test.km'
+   assert_line --partial "argv[1] = 'arguments to test, should be one'"
+   assert_line --partial "argv[5] = 'd4'"
+   KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout --copyenv exec_test$ext -f
+   assert_line --partial "argv[1] = 'arguments to test, should be one'"
+   assert_line --partial "argv[5] = 'd4'"
+
+
 }
 
 @test "clock_gettime($test_type): VDSO clock_gettime, dependency on TSC (clock_gettime$ext)" {
