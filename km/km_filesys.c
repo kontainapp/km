@@ -1267,3 +1267,11 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
    }
    return cur - buf;
 }
+
+int km_fs_recover_open_file(char* ptr, size_t length)
+{
+   km_nt_file_t* file = (km_nt_file_t*)ptr;
+   char* name = ptr + sizeof(km_nt_file_t);
+   warnx("fd=%d name=%s", file->fd, name);
+   return 0;
+}
