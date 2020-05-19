@@ -75,7 +75,7 @@ VM_IMAGE="Canonical:UbuntuServer:16.04-LTS:latest" $TOP/cloud/azure/azure_vm.sh 
 # To look up the IP address
 $TOP/cloud/azure/azure_vm.sh ls <name>
 
-# ssh into the machine and clone the km repo.
+# ssh into the machine and clone the km repo and sync the submodule.
 ssh kontain@<ip>
 
 # To delete when finished.
