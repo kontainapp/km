@@ -459,10 +459,10 @@ int km_exec_recover_guestfd(void)
    for (int i = 0; i < execstatep->nfdmap && execstatep->guestfd_hostfd[i].guestfd >= 0; i++) {
       ssize_t bytes;
       snprintf(linkname, sizeof(linkname), PROC_SELF_FD, execstatep->guestfd_hostfd[i].hostfd);
-      if ((bytes = readlink(linkname, linkbuf, sizeof(linkbuf))) < 0) {
+      if ((bytes = readlink(linkname, linkbuf, sizeof(linkbuf) - 1)) < 0) {
          err(2, "Can't get filename for hostfd %d, link %s", execstatep->guestfd_hostfd[i].hostfd, linkname);
       }
-      linkname[bytes] = 0;
+      linkbuf[bytes] = 0;
       km_infox(KM_TRACE_EXEC,
                "guestfd %d, hostfd %d, name %s",
                execstatep->guestfd_hostfd[i].guestfd,
