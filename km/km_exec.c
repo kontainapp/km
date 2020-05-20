@@ -388,7 +388,7 @@ int km_exec_recover_kmstate(void)
    int nfdmap;
    int n;
 
-   km_infox(KM_TRACE_EXEC, "recovering km exec state, vernum: %s", vernum ? vernum : "parent");
+   km_infox(KM_TRACE_EXEC, "recovering km exec state, vernum: %s", vernum != NULL ? vernum : "parent");
 
    if (vernum == NULL || vmfds == NULL || eventfds == NULL || guestfds == NULL || pidinfo == NULL) {
       // If we don't have them all, then this isn't an exec().
