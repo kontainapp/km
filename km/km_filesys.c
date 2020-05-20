@@ -40,6 +40,7 @@
 #include "km_exec.h"
 #include "km_filesys.h"
 #include "km_mem.h"
+#include "km_snapshot.h"
 #include "km_syscall.h"
 
 #define MAX_OPEN_FILES (1024)
@@ -1200,15 +1201,9 @@ size_t km_fs_core_notes_length()
    for (int i = 0; i < km_fs()->nfdmap; i++) {
       km_file_t* file = &km_fs()->guest_files[i];
       if (file->inuse != 0) {
-         warnx("fd:%d hfd:%d name:%s sz:%ld",
-               i,
-               file->hostfd,
-               file->name,
-               sizeof(Elf64_Nhdr) + roundup(sizeof(km_nt_file_t) + strlen(file->name) + 1, 4));
          ret += sizeof(Elf64_Nhdr) + sizeof(km_nt_file_t) + roundup(strlen(file->name) + 1, 4);
       }
    }
-   warnx("ret=%ld", ret);
    return ret;
 }
 
@@ -1242,25 +1237,26 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
 
          switch (st.st_mode & __S_IFMT) {
             case __S_IFDIR:
-               warnx("fd:%d IFDIR", i);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFDIR", i);
                break;
 
             case __S_IFREG:
-               warnx("fd:%d IFREG", i);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFREG", i);
+               fnote->position = lseek(file->hostfd, 0, SEEK_CUR);
                break;
 
             case __S_IFLNK:
-               warnx("fd:%d IFLNK", i);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFLNK", i);
                break;
 
             case __S_IFCHR:
-               warnx("fd:%d IFCHR: %s", i, file->name);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFCHR: %s", i, file->name);
                break;
 
             case __S_IFBLK:
             case __S_IFIFO:
             case __S_IFSOCK:
-               warnx("fd:%d not supported mode:%o", i, st.st_mode & __S_IFMT);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d not supported mode:%o", i, st.st_mode & __S_IFMT);
                break;
          }
       }
@@ -1270,8 +1266,45 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
 
 int km_fs_recover_open_file(char* ptr, size_t length)
 {
-   km_nt_file_t* file = (km_nt_file_t*)ptr;
+   km_nt_file_t* nt_file = (km_nt_file_t*)ptr;
    char* name = ptr + sizeof(km_nt_file_t);
-   warnx("fd=%d name=%s", file->fd, name);
+   km_infox(KM_TRACE_SNAPSHOT, "fd=%d name=%s", nt_file->fd, name);
+
+   // Std files always set by KM
+   if (nt_file->fd <= 2) {
+      return 0;
+   }
+
+   int fd = open(name, nt_file->flags, 0);
+   if (fd < 0) {
+      km_err_msg(errno, "cannon open %s", name);
+      return -1;
+   }
+
+   struct stat st;
+   if (fstat(fd, &st) < 0) {
+      km_err_msg(errno, "cannon fstat %s", name);
+      return -1;
+   }
+   if (st.st_mode != nt_file->mode) {
+      km_err_msg(0, "file mode mistmatch expect %o got %o %s", nt_file->mode, st.st_mode, name);
+      return -1;
+   }
+
+   km_file_t* file = &km_fs()->guest_files[nt_file->fd];
+   file->inuse = 1;
+   file->guestfd = nt_file->fd;
+   file->hostfd = fd;
+   file->flags = nt_file->flags;
+   file->name = strdup(name);
+
+   km_fs()->hostfd_to_guestfd_map[fd] = nt_file->fd;
+
+   if ((nt_file->mode & __S_IFMT) == __S_IFREG && nt_file->position != 0) {
+      if (lseek(fd, nt_file->position, SEEK_SET) != nt_file->position) {
+         km_err_msg(errno, "lseek failed");
+         return -1;
+      }
+   }
    return 0;
 }

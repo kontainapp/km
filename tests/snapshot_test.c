@@ -20,10 +20,86 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <linux/futex.h>
 
 #include "km_hcalls.h"
+
+pthread_mutex_t long_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+
+pthread_mutex_t lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
+int flag = 0;
+int zerofd = -1;   // fd to '/dev/zero'
+int filefd = -1;   // fd to '/etc/passwd' O_RDONLY
+
+typedef struct process_state {
+   int zerofail;         // zerofd stat failed
+   struct stat zerost;   // zerofd stat
+   int filefail;         // filefd stat failed
+   struct stat filest;   // filefd stat
+   off_t fileoff;
+} process_state_t;
+
+process_state_t presnap;
+process_state_t postsnap;
+
+void setup_process_state()
+{
+   zerofd = open("/dev/zero", O_RDONLY);
+   filefd = open("/etc/passwd", O_RDONLY);
+   lseek(filefd, 100, SEEK_SET);
+   return;
+}
+
+void teardown_process_state()
+{
+   close(filefd);
+   close(zerofd);
+}
+
+void get_process_state(process_state_t* state)
+{
+   if (fstat(zerofd, &state->zerost) < 0) {
+      state->zerofail = 1;
+      perror("fstat zerofd");
+   }
+   if (fstat(filefd, &state->filest) < 0) {
+      state->filefail = 1;
+      perror("fstat filefd");
+   }
+   if ((state->fileoff = lseek(filefd, 0, SEEK_CUR)) == -1) {
+      perror("lseek filefd");
+   }
+   return;
+}
+
+int compare_process_state(process_state_t* prestate, process_state_t* poststate)
+{
+   int ret = 0;
+   if (prestate->zerofail != 0 || prestate->filefail != 0) {
+      fprintf(stderr, "prestate fstat failure");
+      ret = -1;
+   }
+   if (prestate->zerofail != 0 || prestate->filefail != 0) {
+      fprintf(stderr, "postestate fstat failure");
+      ret = -1;
+   }
+   if (prestate->zerost.st_mode != poststate->zerost.st_mode) {
+      fprintf(stderr, "/dev/zero mode changed\n");
+      ret = -1;
+   }
+   if (prestate->filest.st_mode != poststate->filest.st_mode) {
+      fprintf(stderr, "/etc/passwd mode changed\n");
+      ret = -1;
+   }
+   if (prestate->fileoff != poststate->fileoff) {
+      fprintf(stderr, "/etc/passwd offset changed\n");
+      ret = -1;
+   }
+   return ret;
+}
 
 char* cmdname = "???";
 int do_abort = 0;
@@ -33,11 +109,6 @@ void usage()
    fprintf(stderr, "%s [-a]\n", cmdname);
 }
 
-pthread_mutex_t long_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
-
-pthread_mutex_t lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
-int flag = 0;
 static inline void block()
 {
    pthread_mutex_lock(&lock);
@@ -76,12 +147,6 @@ void* thread_main(void* arg)
       exit(1);
    }
    wakeup();
-#if 0
-   pthread_mutex_lock(&lock);
-   flag = 1;
-   pthread_cond_broadcast(&cond);
-   pthread_mutex_unlock(&lock);
-#endif
 
    fprintf(stderr, "Hello from thread\n");
    return NULL;
@@ -104,7 +169,8 @@ int main(int argc, char* argv[])
       }
    }
 
-   int fd = open("/dev/zero", O_RDONLY);
+   setup_process_state();
+   get_process_state(&presnap);
 
    pthread_mutex_lock(&long_lock);
 
@@ -115,21 +181,18 @@ int main(int argc, char* argv[])
    }
 
    block();
-#if 0
-   pthread_mutex_lock(&lock);
-   while (flag == 0) {
-      pthread_cond_wait(&cond, &lock);
-   }
-   pthread_mutex_unlock(&lock);
-#endif
-
-   close(fd);
 
    void* rval;
    if (pthread_join(thr, &rval) != 0) {
       perror("pthread_join");
       return 1;
    }
+
+   get_process_state(&postsnap);
+   if (compare_process_state(&presnap, &postsnap) != 0) {
+      fprintf(stderr, "!!! state restoration error !!!\n");
+   }
+
    if (do_abort != 0) {
       abort();
    }
