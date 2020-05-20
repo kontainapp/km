@@ -1000,9 +1000,21 @@ static km_hc_ret_t kill_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t tgkill_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int tgkill(int tgid, int tid, int sig);
+   km_infox(KM_TRACE_HC, "Ignoring tgid %ld", arg->arg1);
+   arg->hc_ret = km_tkill(vcpu, arg->arg2, arg->arg3);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t tkill_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int tkill(pid_t tid, int sig)
+   // From man(3): "tkill() is an obsolete predecessor to tgkill().  It allows only the target
+   // thread ID to be specified, which may result in the wrong thread being signaled if a thread
+   // terminates and its thread  ID is recycled.Avoid using this system call"
+   km_infox(KM_TRACE_HC, "tkill usage is not recommended, %ld can be reused", arg->arg1);
    arg->hc_ret = km_tkill(vcpu, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 }
@@ -1698,6 +1710,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_sigaltstack] = sigaltstack_hcall;
    km_hcalls_table[SYS_kill] = kill_hcall;
    km_hcalls_table[SYS_tkill] = tkill_hcall;
+   km_hcalls_table[SYS_tgkill] = tgkill_hcall;
 
    km_hcalls_table[SYS_getpid] = getpid_hcall;
    km_hcalls_table[SYS_getppid] = getppid_hcall;
