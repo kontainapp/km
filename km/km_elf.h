@@ -62,7 +62,7 @@ static inline int prot_elf_to_mmap(Elf64_Word p_flags)
    return flags;
 }
 
-uint64_t km_load_elf(const char* file);
+uint64_t km_load_elf(char* file);
 Elf* km_open_elf_file(char* filename, km_payload_t* payload, int* fd);
 
 #endif /* #ifndef __KM_H__ */

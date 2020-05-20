@@ -212,11 +212,10 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
 }
 
 /*
- * Read elf executable file and initialize mem with the content of the program
- * segments. Set entry point.
- * All errors are fatal.
+ * Read elf executable file and initialize mem with the content of the program segments. Set entry
+ * point. All errors are fatal.
  */
-uint64_t km_load_elf(const char* file)
+uint64_t km_load_elf(char* file)
 {
    int fd;
    Elf* e;
@@ -225,13 +224,8 @@ uint64_t km_load_elf(const char* file)
    if (elf_version(EV_CURRENT) == EV_NONE) {
       errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
    }
-   char* filename = NULL;
-   if ((filename = realpath(file, NULL)) == NULL) {
-      err(2, "%s realpath failed: %s", __FUNCTION__, file);
-   }
-
-   if ((e = km_open_elf_file(filename, &km_guest, &fd)) == NULL) {
-      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, filename);
+   if ((e = km_open_elf_file(file, &km_guest, &fd)) == NULL) {
+      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, file);
    }
 
    km_gva_t adjust = 0;
