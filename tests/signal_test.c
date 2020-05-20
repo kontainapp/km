@@ -227,6 +227,11 @@ TEST test_tkill()
    ASSERT_EQ(-1, syscall(SYS_tkill, 2, SIGUSR1));
    ASSERT_EQ(EINVAL, errno);
 
+   // sanity check for tgkill - same 'unused KM vcpu' as for tkill.
+   // group id (100) is supposed to be ignored, we will check in in bats
+   ASSERT_EQ(-1, syscall(SYS_tgkill, 100, 2, SIGUSR1));
+   ASSERT_EQ(EINVAL, errno);
+
    // bad signal numbers
    ASSERT_EQ(-1, syscall(SYS_tkill, 0, 0));
    ASSERT_EQ(EINVAL, errno);

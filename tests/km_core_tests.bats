@@ -742,8 +742,9 @@ fi
 }
 
 @test "signals($test_type): signals in the guest (signals)" {
-   run km_with_timeout signal_test$ext -v
+   run km_with_timeout -Vhyper signal_test$ext -v
    assert_success
+   assert_line --partial "Ignoring tgid 100"
 }
 
 @test "pthread_cancel($test_type): (pthread_cancel_test$ext)" {
