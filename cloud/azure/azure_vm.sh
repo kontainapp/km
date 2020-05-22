@@ -51,7 +51,7 @@ case $OP in
             --image ${VM_IMAGE} \
             --size ${VM_SIZE} \
             --admin-username ${ADMIN} \
-            --query ${QUERY} \
+            --query "${QUERY}" \
             --output tsv
         ;;
     ls)
@@ -59,7 +59,7 @@ case $OP in
             --show-details \
             --resource-group ${RESOURCE_GROUP} \
             --name ${VM_NAME} \
-            --query ${QUERY} \
+            --query "${QUERY}" \
             -o tsv
         ;;
     start|stop|deallocate)
