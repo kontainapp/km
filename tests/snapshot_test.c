@@ -26,6 +26,10 @@
 
 #include "km_hcalls.h"
 
+char* cmdname = "???";
+int do_abort = 0;
+int no_snap = 0;
+
 pthread_mutex_t long_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 
 pthread_mutex_t lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
@@ -101,9 +105,6 @@ int compare_process_state(process_state_t* prestate, process_state_t* poststate)
    return ret;
 }
 
-char* cmdname = "???";
-int do_abort = 0;
-
 void usage()
 {
    fprintf(stderr, "%s [-a]\n", cmdname);
@@ -135,8 +136,10 @@ void* thread_main(void* arg)
    /*
     * Take the snapshot.
     */
-   km_hc_args_t snapshotargs = {};
-   km_hcall(HC_snapshot, &snapshotargs);
+   if (no_snap == 0) {
+      km_hc_args_t snapshotargs = {};
+      km_hcall(HC_snapshot, &snapshotargs);
+   }
 
    /*
     * Snapshot resumes here.
@@ -157,10 +160,14 @@ int main(int argc, char* argv[])
    int c;
 
    cmdname = argv[0];
-   while ((c = getopt(argc, argv, "a")) != -1) {
+   while ((c = getopt(argc, argv, "an")) != -1) {
       switch (c) {
          case 'a':
             do_abort = 1;
+            break;
+
+         case 'n':
+            no_snap = 1;
             break;
 
          default:
