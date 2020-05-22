@@ -10,14 +10,14 @@
 
 ```bash
 # Build docker image
-make image-build
+make build
 
 # Push to kontainapp docker hub
-make image-push
+make push
 
 # Deploy to knative
-make knative-deploy
+make deploy
 
 # Delete from knative
-make knative-delete
+make delete
 ```
