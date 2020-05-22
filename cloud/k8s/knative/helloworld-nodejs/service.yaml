@@ -1,0 +1,16 @@
+apiVersion: serving.knative.dev/v1 # Current version of Knative
+kind: Service
+metadata:
+  name: kontain-helloworld-nodejs # The name of the app
+  namespace: default # The namespace the app will use
+spec:
+  template:
+    spec:
+      containers:
+        - image: docker.io/kontainapp/helloworld-nodejs:latest
+          resources:
+            # Need kvm device for kontain monitor
+            requests:
+              devices.kubevirt.io/kvm: "1"
+            limits:
+              devices.kubevirt.io/kvm: "1"
