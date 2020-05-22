@@ -1,3 +1,4 @@
+// basic hello world server listening on port env PORT (default 8080)
 const http = require('http');
 const server = http.createServer(function (request, response) {
     console.log('Hello world received a request.');
