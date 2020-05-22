@@ -37,3 +37,80 @@ For investigation, I installed Knative into k83/Azure cluster, did a few experim
 * Docs https://knative.dev/docs
 * Knative Autoscaling architecture https://github.com/knative/serving/blob/master/docs/scaling/DEVELOPMENT.md
 * Scaling config (to zero and back) https://medium.com/@kamesh_sampath/knative-as-a-pod-time-machine-3c1ca0cfb48a
+
+## Demo (May 18th, 2020) "status: investigating/planning"
+
+Goal: deploy the current kontain stack on AKS showing a functional demo.
+
+### Knative Cluster
+
+First, launch a new AKS cluster. Use `cloud/azure/aks_ci_create.sh` to create
+a new aks cluster. The script requires a service principle appid and token.
+After the cluster is launched successfully, run 
+`az aks get-credentials --resource-group kontainKubeRG --name <name of the cluster>`
+to get credential.
+
+Second, deploy `istio` onto the cluster. Use the instruction
+[here](https://istio.io/docs/setup/getting-started/).
+
+Third, install `knative`. Use the instruction
+[here](https://knative.dev/docs/install/any-kubernetes-cluster/). Skip the
+part of `istio` in this instruction because it's deprecated as of now.
+
+Fourth, disable container tag resolution. To access images from azure
+container registry, AKS will embed a service principle into the cluster, for
+accessing images from ACR. The secret is loaded on the machine where kubelet
+runs, so kubelet can correctly pull the image with the right authentication.
+Normally, this works because kubelet is the only service need to pull
+container images. In knative, the control plane services also want to pull
+the metadata of the image to support the "revision" feature. However, there
+requires complicated work arounds. For now, use the instruction
+[here](https://knative.dev/docs/serving/tag-resolution/) to disable this
+feature. Another
+[ref](https://github.com/knative/serving/issues/6114#issuecomment-619262974)
+to the issue. Use `kubectl get pods --namespace knative-serving` to make sure
+all the knative components are up.
+
+### Demo Deploy
+
+First, deploy kontaind using the instruction under `TOP/cloud/k8s/kontaind`.
+
+To deploy:
+```bash
+cd TOP/cloud/k8s/knative/helloworld-nodejs
+
+# Build and push image. You can skip this if you want.
+make image-build
+make image-push
+
+# Deploy
+make knative-deploy
+```
+
+After the setup, to check the deployment is ok. 
+```bash
+# Note the external IP and port of istio ingress gateway. For example:
+# 192.168.39.228:32198
+kubectl --namespace istio-system get service istio-ingressgateway
+
+# Note the URL of the service deployed. For example:
+# helloworld-go.default.example.com
+kubectl get ksvc
+
+# Use curl to test in this way:
+curl -H "Host: kontain-helloworld-nodejs.default.example.com" http://192.168.39.228:32198
+```
+
+Using curl is a workaround to setting up a real DNS for the services. The
+instruction is
+[here](https://knative.dev/docs/install/any-kubernetes-cluster/) under
+`configure DNS` section. You can also use the xio.ip magic DNS. Instruction
+under the same doc.
+
+### Notes:
+1. Knative uses service mesh for configuring network, and this means sidecar
+pattern.
+2. Volume mount is disallowed except for configmaps and secrets.
+Specifically, hostPath is disallowed for knative. For now, we need to package
+km inside the docker container.
+3. Device plugin works out of box, so that’s good.
