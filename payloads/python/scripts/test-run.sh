@@ -1,18 +1,11 @@
-#!/usr/bin/bash -ex
+#!/usr/bin/bash -e
 #
-# wrapper/entrypoint for running tests
+# Wrapper/entrypoint for running tests.
+#   test-run.sh PYTHON
+#   where PYTHON could be path to python->km symlink, or "km_path python.km_path"
 #
+PYTHON=${1:-Please_pass_python_interpreter}
 
-usage() {
-   cat <<EOF
-Run python tests. Usually called from Makefile or Docker Entry with proper params
-Usage: test-run.sh KM_BIN PAYLOAD_KM
-EOF
-   exit 1
-}
-
-KM_BIN=$1
-PAYLOAD_KM=$2
-
-${KM_BIN} ${PAYLOAD_KM} ./test_unittest.py
-${KM_BIN} ${PAYLOAD_KM} ./cpython/Lib/unittest/test/
+${PYTHON} ./scripts/sanity_test.py
+${PYTHON} ./test_unittest.py
+${PYTHON} ./cpython/Lib/unittest/test/

@@ -19,7 +19,7 @@ PYTHONTOP ?= cpython
 # component id for docker images
 COMPONENT := python
 
-# this is how we run python,km tests in container
+# this is how we run python.km tests in container
 CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
 
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
@@ -62,6 +62,7 @@ ifneq ($(FROMSRC),yes)
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
 		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
+		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:Z \
 		-w ${TOP}/payloads/python \
 		${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
 		make in-blank-container EXTRA_LINKFILES="${EXTRA_LINKFILES}" CUSTOM_KM="${CUSTOM_KM}"
@@ -119,12 +120,14 @@ test-modules: ## Basic test pass - rebuilds python, rebuilds and pushes all modu
 	@echo TODO: run test over custom KM, including new modules test
 
 clean:
-	rm -rf $(PYTHONTOP)/*.km $(PYTHONTOP)/python $(foreach m,${ALL_MODULES},$(PYTHONTOP)/Modules/$m)
+	rm -rf $(PYTHONTOP)/*.km ./python $(PYTHONTOP)/python $(foreach m,${ALL_MODULES},$(PYTHONTOP)/Modules/$m)
 	rm -rf $(RUNENV_PATH)
 	@echo -e "${GREEN}Note: use 'make clobber' to clean up cpython build.${NOCOLOR}"
 
+# test locally same way as in container
 test test-all: ${PAYLOAD_KM} ${TEST_KM}
-	scripts/test-run.sh ${KM_BIN} ${PAYLOAD_KM}
+	ln -sf cpython/python .
+	${CONTAINER_TEST_CMD}
 
 clobber: ## Clobber cpython build by removing cpython dir
 	rm -rf cpython
@@ -134,7 +137,7 @@ clobber-modules:
 
 # Set info for runenv-image build
 RUNENV_VALIDATE_DIR := scripts
-RUNENV_VALIDATE_CMD := scripts/hello_again.py
+RUNENV_VALIDATE_CMD := scripts/sanity_test.py
 export define runenv_prep
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
 	cp ${PAYLOAD_KM} ${RUNENV_PATH}

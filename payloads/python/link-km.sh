@@ -25,9 +25,29 @@ PATH=$(realpath ${KM_TOP}/tools):$PATH
 BUILD=$(realpath ${1:-cpython})
 OUT=$(realpath ${2:-cpython})
 
+KM_OPT_BIN=/opt/kontain/bin
+
+# Useful hint in .cfg file
+PYTHON_VERSION=3.7
+
 cd $OUT
 kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
    @linkline_km.txt ${EXTRA_FILES} \
    ${BUILD}/libpython3*.a -lz -lssl -lcrypto $LDLIBS \
    -o ${NAME} && chmod a-x ${NAME} && echo Linked: ${OUT}/${NAME}
 
+# Add python->km symlink and make python to looking for libs in correct place
+# We want it to work in containers and dev boxes, so locking to /opt/kontain and
+# making KM_BLDDIR placement optional
+rm -f python ; ln -s ${KM_OPT_BIN}/km python
+cat > ${KM_OPT_BIN}/pyvenv.cfg <<- EOF
+home = ${OUT}
+include-system-site-packages = false
+version = ${PYTHON_VERSION}
+runtime = kontain
+runtime_branch = ${SRC_BRANCH}
+runtime_sha = ${SRC+SHA}
+EOF
+if [ -d "${KM_BLDDIR}" ] ; then
+   cp ${KM_OPT_BIN}/pyvenv.cfg ${KM_BLDDIR}
+fi

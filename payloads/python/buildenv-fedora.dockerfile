@@ -20,6 +20,10 @@ ARG BUILDENV_IMAGE_VERSION=latest
 FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} AS buildenv-cpython
 ARG VERS
 
+USER root
+RUN dnf install libffi-devel xz-devel -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
+USER $USER
+
 RUN git clone https://github.com/python/cpython.git -b $VERS
 RUN cd cpython && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
 
@@ -44,7 +48,8 @@ RUN mkdir -p ${BUILD_LOC} && chown $USER ${BUILD_LOC}
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/builtins cpython/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Lib/ cpython/Lib/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Modules/ cpython/Modules/
-COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py \
+COPY --from=buildenv-cpython --chown=appuser:appuser \
+   /home/$USER/cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py \
    cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/build/temp.linux-x86_64-3.7 cpython/build/temp.linux-x86_64-3.7/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Programs/python.o cpython/Programs/python.o
