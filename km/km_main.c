@@ -150,7 +150,6 @@ static const size_t SHEBANG_LEN = 2;              // strlen(SHEBANG)
 static const size_t SHEBANG_MAX_LINE_LEN = 512;   // note: grabbed on stack
 
 static const_string_t PAYLOAD_SUFFIX = ".km";
-// TODO: drop and compare realpath(payload) with km_get_self_name()
 static const_string_t KM_BIN_NAME = "km";
 
 char* km_get_self_name()
@@ -229,6 +228,26 @@ static char* km_get_payload_name(char* payload_file, char** extra_arg)
    return realpath(payload_file, NULL);
 }
 
+// returns strdup-ed name of the final symlink (NOT the final file), NULL if there was none
+static char* km_traverse_symlinks(char* name, char* buf, size_t buf_size)
+{
+   int bytes;
+   // we need to keep prior symlink name so the upstairs can locate the payload
+   char* last_symlink = NULL;
+
+   name = strdup(name);
+   while ((bytes = readlink(name, buf, buf_size - 1)) != -1) {
+      buf[bytes] = '\0';
+      if (last_symlink != NULL) {
+         free(last_symlink);
+      }
+      last_symlink = name;
+      name = strdup(buf);
+   }
+   free(name);
+   return last_symlink;
+}
+
 // parses args, returns payload_name based on argv[], symlink, or shebang.
 // also fills *argc_p, *argv_p, *envc_p and *envp_p with args/env info for payload
 static char*
@@ -260,12 +279,10 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
       regcomp(&km_info_trace.tags, trace_regex, regex_flags);
    }
 
-   char fname_buf[PATH_MAX + 1];
-   int bytes = readlink(argv[0], fname_buf, PATH_MAX);
-   if (bytes != -1) {
-      fname_buf[bytes] = '\0';
-   }
-   if (bytes != -1 && strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {   // Called on behalf of a payload
+   char fname_buf[PATH_MAX];
+   char* name = km_traverse_symlinks(argv[0], fname_buf, PATH_MAX);
+   if (name != NULL && strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {   // Called on behalf of a payload
+      argv[0] = name;
       payload_index = 0;
    } else {   // regular KM invocation - parse KM args
       while ((opt = getopt_long(argc, argv, "+g::e:AEV::P:vC:S", long_options, &longopt_index)) != -1) {
@@ -444,7 +461,7 @@ int main(int argc, char* argv[])
 
    km_gdbstub_init();
    if ((payload_name = km_parse_args(argc, argv, &argc_p, &argv_p, &envc, &envp)) == NULL) {
-      warnx("Failed to determine payload name");
+      warnx("Failed to determine payload name or find .km file for %s", argv[0]);
       usage();
    }
 
