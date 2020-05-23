@@ -22,7 +22,7 @@
 FROM alpine:3.11.5 as alpine-lib-image
 ENV PREFIX=/opt/kontain
 
-RUN apk add bash make git g++ gcc musl-dev libffi-dev
+RUN apk upgrade && apk add bash make git g++ gcc musl-dev libffi-dev sqlite-static
 
 # Prepare $PREFIX/alpine-lib while trying to filter out irrelevant stuff
 RUN mkdir -p $PREFIX/alpine-lib
@@ -58,6 +58,7 @@ RUN dnf install -y \
    elfutils-libelf-devel elfutils-libelf-devel-static bzip2-devel \
    zlib-static bzip2-static xz-static \
    openssl-devel openssl-static \
+   sqlite-devel \
    expat-static jq googler python3-jinja2 \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 
