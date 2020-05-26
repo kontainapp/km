@@ -215,6 +215,7 @@ int km_fs_init(void)
    lim.rlim_cur = MAX_OPEN_FILES;   // Limit max open files. Temporary change till we support config.
    size_t mapsz = lim.rlim_cur * sizeof(int);
 
+   km_infox(KM_TRACE_FILESYS, "lim.rlim_cur=%ld", lim.rlim_cur);
    km_fs()->nfdmap = lim.rlim_cur;
    km_fs()->guest_files = calloc(lim.rlim_cur, sizeof(km_file_t));
    assert(km_fs()->guest_files != NULL);
@@ -1217,11 +1218,12 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
       if (file->inuse != 0) {
          cur += km_add_note_header(cur,
                                    remain,
-                                   "KMSP",
+                                   KM_NT_NAME,
                                    NT_KM_FILE,
                                    sizeof(km_nt_file_t) + roundup(strlen(file->name) + 1, 4));
          km_nt_file_t* fnote = (km_nt_file_t*)cur;
          cur += sizeof(km_nt_file_t);
+         fnote->size = sizeof(km_nt_file_t);
          fnote->fd = file->guestfd;
          fnote->flags = file->flags;
 
@@ -1267,12 +1269,21 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
 int km_fs_recover_open_file(char* ptr, size_t length)
 {
    km_nt_file_t* nt_file = (km_nt_file_t*)ptr;
+   if (nt_file->size != sizeof(km_nt_file_t)) {
+      km_err_msg(0, "nt_km_file_t size mismatch - old snapshot?");
+      return -1;
+   }
    char* name = ptr + sizeof(km_nt_file_t);
    km_infox(KM_TRACE_SNAPSHOT, "fd=%d name=%s", nt_file->fd, name);
 
    // Std files always set by KM
    if (nt_file->fd <= 2) {
       return 0;
+   }
+
+   if (nt_file->fd < 0 || nt_file->fd >= km_fs()->nfdmap) {
+      km_err_msg(EBADF, "bad file descriptor=%d", nt_file->fd);
+      return -1;
    }
 
    int fd = open(name, nt_file->flags, 0);

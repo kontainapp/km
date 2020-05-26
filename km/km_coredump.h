@@ -25,6 +25,12 @@
  */
 
 /*
+ * String for Note 'owner'('name') field.
+ * "KMSP" = KM Snapshot Protocol
+ */
+#define KM_NT_NAME "KMSP"
+
+/*
  * KM specific per-VCPU state (NT_KM_VCPU)
  * for snapshot recovery
  */
@@ -60,11 +66,15 @@ typedef struct km_nt_guest {
 #define NT_KM_GUEST 0x4b4d4754       // "KMGT"
 #define NT_KM_DYNLINKER 0x4b4d444c   // "KMDL"
 
+/*
+ * Elf note record for open file.
+ */
 typedef struct km_nt_file {
-   Elf64_Word fd;
-   Elf64_Word flags;   // open(2) flags
-   Elf64_Word mode;    // file mode
-   Elf64_Off position;
+   Elf64_Word size;      // Size of record
+   Elf64_Word fd;        // Open fd number
+   Elf64_Word flags;     // open(2) flags
+   Elf64_Word mode;      // file mode (includes type)
+   Elf64_Off position;   // lseek(2) position (if applicable)
    // Followed by file name
 } km_nt_file_t;
 #define NT_KM_FILE 0x4b4d4644   // "KMFD"

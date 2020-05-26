@@ -230,7 +230,7 @@ static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, uint64_t arg)
    km_core_list_context_t* ctx = (km_core_list_context_t*)arg;
    char* cur = ctx->pr_cur;
    size_t remain = ctx->pr_remain;
-   cur += km_add_note_header(cur, remain, "KMSP", NT_KM_VCPU, sizeof(struct km_nt_vcpu));
+   cur += km_add_note_header(cur, remain, KM_NT_NAME, NT_KM_VCPU, sizeof(struct km_nt_vcpu));
    memcpy(cur, &vnote, sizeof(struct km_nt_vcpu));
    cur += sizeof(struct km_nt_vcpu);
 
@@ -398,7 +398,7 @@ static inline int km_core_dump_payload_note(km_payload_t* payload, int tag, char
 
    cur += km_add_note_header(cur,
                              remain,
-                             "KMSP",
+                             KM_NT_NAME,
                              tag,
                              sizeof(km_nt_guest_t) + payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
                                  strlen(payload->km_filename) + 1);
