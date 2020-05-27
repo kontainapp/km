@@ -26,6 +26,7 @@
 #include "km.h"
 #include "km_coredump.h"
 #include "km_elf.h"
+#include "km_filesys.h"
 #include "km_mem.h"
 #include "km_snapshot.h"
 
@@ -420,6 +421,9 @@ int km_snapshot_restore(const char* file)
       errx(2, "recover file maps failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_DYNLINKER, km_ss_recover_dynlinker) < 0) {
+      errx(2, "recover file maps failed");
+   }
+   if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_FILE, km_fs_recover_open_file) < 0) {
       errx(2, "recover file maps failed");
    }
 
