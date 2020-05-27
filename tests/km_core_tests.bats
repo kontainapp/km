@@ -43,7 +43,7 @@ unset KM_VERBOSE
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
 if [ "${USE_VIRT}" = 'kkm' ]; then
    not_needed_generic+=' gdb_qsupported gdb_delete_breakpoint gdb_nextstep snapshot '
-   todo_native_static+=' km_many threads_basic_tsd pthread_cancel cpp_ctors hypercall_args sigsuspend fork '
+   todo_native_static+=' km_many threads_basic_tsd pthread_cancel cpp_ctors hypercall_args sigsuspend fork popen '
    not_needed_native_dynamic=$not_needed_native_static
 fi
 
@@ -1019,5 +1019,29 @@ fi
 
 @test "perf($test_type): measure time taken for dummy hypercall and page fault (perf_test$ext)" {
    run km_with_timeout perf_test$ext
+   assert_success
+}
+
+@test "popen($test_type): popen pclose test (popen_test$ext)" {
+   # use pipetarget_test to read /etc/group and pass through a popen pipe into a result file
+   rm -f /tmp/f{1,2}
+   run km_with_timeout popen_test$ext /etc/group /tmp/f1 /tmp/f2
+   assert_success
+   diff /etc/group /tmp/f1
+   assert_success
+   diff /etc/group /tmp/f2
+   assert_success
+
+   # now test with a relative path to pipetarget_test but no place to find it, should fail
+   run km_with_timeout --putenv TESTPROG=pipetarget_test popen_test$ext /etc/group /tmp/f1 /tmp/f2
+   assert_failure 1
+
+   # now test with a relative path to pipetarget_test but with a PATH var
+   run km_with_timeout --putenv TESTPROG=pipetarget_test --putenv PATH="/usr/bin:." popen_test$ext /etc/group /tmp/f1 /tmp/f2
+   assert_success
+
+   # now test with full path to pipetarget_test and no PATH var
+echo " === last test ===" >&3
+   run km_with_timeout -V --putenv TESTPROG=`pwd`/pipetarget_test.kmd -V popen_test$ext /etc/group /tmp/f1 /tmp/f2 2>/tmp/xx
    assert_success
 }

@@ -34,6 +34,7 @@
 #include "km_proc.h"
 #include "km_syscall.h"
 #include "x86_cpu.h"
+#include "km_exec.h"
 
 /*
  * Allocate stack for main thread and initialize it according to ABI:
@@ -205,6 +206,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    stack_top_kma -= envp_sz;
    stack_top -= envp_sz;
    memcpy(stack_top_kma, km_envp, envp_sz);
+   km_exec_payload_env = stack_top_kma;
 
    // place argv array
    stack_top_kma -= sizeof(argv_km);
