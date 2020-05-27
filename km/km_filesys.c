@@ -141,7 +141,6 @@ char* km_guestfd_name(km_vcpu_t* vcpu, int fd)
 
 /*
  * Replaces the mapping for a guest file descriptor. Used by dup2(2) and dup(3).
- * TODO: Support open flags (O_CLOEXEC in particular)
  */
 static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd, int flags)
 {
@@ -154,7 +153,12 @@ static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd, int flag
    int close_fd = __atomic_exchange_n(&file->hostfd, host_fd, __ATOMIC_SEQ_CST);
    __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[host_fd], guest_fd, __ATOMIC_SEQ_CST);
    if (was_inuse != 0) {
-      // don't close stdin, stdout, or stderr
+      /*
+       * stdin, stdout, and stderr are shared with KM,
+       * we don't want to close them.
+       * TODO(maybe): If there is more than one cycle of this on
+       * std fd,
+       */
       if (close_fd > 2) {
          __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[close_fd], -1, __ATOMIC_SEQ_CST);
          __syscall_1(SYS_close, close_fd);
@@ -678,7 +682,7 @@ uint64_t km_fs_fchmod(km_vcpu_t* vcpu, int fd, mode_t mode)
    return ret;
 }
 
-// int rename(const char *oldpath, const char *newpath);
+// int rename(const char *roundup(strlenoldpath, const char *newpath);
 uint64_t km_fs_rename(km_vcpu_t* vcpu, char* oldpath, char* newpath)
 {
    int ret = __syscall_2(SYS_rename, (uintptr_t)oldpath, (uintptr_t)newpath);
@@ -1202,7 +1206,7 @@ size_t km_fs_core_notes_length()
    for (int i = 0; i < km_fs()->nfdmap; i++) {
       km_file_t* file = &km_fs()->guest_files[i];
       if (file->inuse != 0) {
-         ret += sizeof(Elf64_Nhdr) + sizeof(km_nt_file_t) + roundup(strlen(file->name) + 1, 4);
+         ret += sizeof(Elf64_Nhdr) + sizeof(km_nt_file_t) + km_nt_file_padded_size(file->name);
       }
    }
    return ret;
@@ -1220,7 +1224,7 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
                                    remain,
                                    KM_NT_NAME,
                                    NT_KM_FILE,
-                                   sizeof(km_nt_file_t) + roundup(strlen(file->name) + 1, 4));
+                                   sizeof(km_nt_file_t) + km_nt_file_padded_size(file->name));
          km_nt_file_t* fnote = (km_nt_file_t*)cur;
          cur += sizeof(km_nt_file_t);
          fnote->size = sizeof(km_nt_file_t);
@@ -1228,7 +1232,7 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
          fnote->flags = file->flags;
 
          strcpy(cur, file->name);
-         cur += roundup(strlen(file->name) + 1, 4);
+         cur += km_nt_file_padded_size(file->name);
 
          struct stat st;
          if (fstat(file->hostfd, &st) < 0) {
@@ -1238,13 +1242,16 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
          fnote->mode = st.st_mode;
 
          switch (st.st_mode & __S_IFMT) {
-            case __S_IFDIR:
-               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFDIR", i);
-               break;
-
             case __S_IFREG:
                km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFREG", i);
                fnote->position = lseek(file->hostfd, 0, SEEK_CUR);
+               break;
+
+            /*
+             * TODO(muth): Fill in the rest of these cases.
+             */
+            case __S_IFDIR:
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFDIR", i);
                break;
 
             case __S_IFLNK:
@@ -1256,9 +1263,23 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
                break;
 
             case __S_IFBLK:
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFBLK: %s", i, file->name);
+               break;
+
             case __S_IFIFO:
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFIFO: %s", i, file->name);
+               break;
+
             case __S_IFSOCK:
-               km_infox(KM_TRACE_SNAPSHOT, "fd:%d not supported mode:%o", i, st.st_mode & __S_IFMT);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d ISOCK: %s", i, file->name);
+               break;
+
+            default:
+               km_infox(KM_TRACE_SNAPSHOT,
+                        "fd:%d mode %o NOT recognized: %s",
+                        i,
+                        st.st_mode & __S_IFMT,
+                        file->name);
                break;
          }
       }
@@ -1276,6 +1297,12 @@ int km_fs_recover_open_file(char* ptr, size_t length)
    char* name = ptr + sizeof(km_nt_file_t);
    km_infox(KM_TRACE_SNAPSHOT, "fd=%d name=%s", nt_file->fd, name);
 
+   /*
+    * TODO: currently, the std fd's are always inherited from KM
+    * for restored snapshots. This means we don't support
+    * processes that mess with the std fd's. This needs to be
+    * fixed.
+    */
    // Std files always set by KM
    if (nt_file->fd <= 2) {
       return 0;

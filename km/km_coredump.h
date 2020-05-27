@@ -13,6 +13,8 @@
 #ifndef KM_COREDUMP_H_
 #define KM_COREDUMP_H_
 
+#include <string.h>
+
 #include "km.h"
 #include "x86_cpu.h"
 
@@ -51,7 +53,7 @@ typedef struct km_nt_vcpu {
     * TODO: Debug registers?
     */
 } km_nt_vcpu_t;
-#define NT_KM_VCPU 0x4b4d5052   // "KMPR"
+#define NT_KM_VCPU 0x4b4d5052   // "KMPR" no null term
 
 /*
  * Description of original guest exec and dynlinker.
@@ -63,8 +65,8 @@ typedef struct km_nt_guest {
    Elf64_Ehdr ehdr;
    // Followed by PHDR list and filename
 } km_nt_guest_t;
-#define NT_KM_GUEST 0x4b4d4754       // "KMGT"
-#define NT_KM_DYNLINKER 0x4b4d444c   // "KMDL"
+#define NT_KM_GUEST 0x4b4d4754       // "KMGT" no null term
+#define NT_KM_DYNLINKER 0x4b4d444c   // "KMDL" no null term
 
 /*
  * Elf note record for open file.
@@ -77,7 +79,11 @@ typedef struct km_nt_file {
    Elf64_Off position;   // lseek(2) position (if applicable)
    // Followed by file name
 } km_nt_file_t;
-#define NT_KM_FILE 0x4b4d4644   // "KMFD"
+#define NT_KM_FILE 0x4b4d4644   // "KMFD" no null term
+static inline size_t km_nt_file_padded_size(char* str)
+{
+   return roundup(strlen(str) + 1, 4);
+}
 
 // Core dump guest.
 void km_dump_core(char* filename, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe);

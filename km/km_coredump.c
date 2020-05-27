@@ -540,11 +540,11 @@ static inline size_t km_core_notes_length()
    // Kontain specific guest info(for snapshot restore)
    alloclen += sizeof(Elf64_Nhdr) + sizeof(km_nt_guest_t) +
                km_guest.km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
-               roundup(strlen(km_guest.km_filename) + 1, 4);
+               km_nt_file_padded_size(km_guest.km_filename);
    if (km_dynlinker.km_filename != NULL) {
       alloclen += sizeof(Elf64_Nhdr) + sizeof(km_nt_guest_t) +
                   km_dynlinker.km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
-                  roundup(strlen(km_dynlinker.km_filename) + 1, 4);
+                  km_nt_file_padded_size(km_dynlinker.km_filename);
    }
 
    alloclen += km_fs_core_notes_length();
