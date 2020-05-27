@@ -386,6 +386,7 @@ static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
 void __km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
     __attribute__((__format__(__printf__, 4, 5)));
 void km_trace_include_pid(uint8_t trace_pid);
+uint8_t km_trace_include_pid_value(void);
 
 char* km_get_self_name(void);
 
@@ -617,6 +618,7 @@ static inline void km_signal_unlock(void)
 #define KM_TRACE_PROC "proc"
 #define KM_TRACE_EXEC "exec"
 #define KM_TRACE_FORK "fork"   // also clone() for a process.
+#define KM_TRACE_ARGS "args"
 
 /*
  * The km definition of the link_map structure in runtime/musl/include/link.h
