@@ -22,11 +22,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/param.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -163,6 +165,13 @@ static int fork_exec_0(void)
                 "message from the parent",
                 strlen("message from the parent")) < 0) {
          fprintf(stderr, "Parent couldn't write to pipe, %s\n", strerror(errno));
+      }
+      fd_set fdset;
+      struct timeval timeout = {.tv_sec = 3};
+      FD_ZERO(&fdset);
+      FD_SET(parent_read_end[READ_FD], &fdset);
+      if (select(parent_read_end[READ_FD] + 1, &fdset, NULL, NULL, &timeout) < 0) {
+         fprintf(stderr, "select failed, %s\n", strerror(errno));
       }
       if (read(parent_read_end[READ_FD], buf, sizeof(buf)) < 0) {
          fprintf(stderr, "Parent couldn't read from pipe, %s\n", strerror(errno));
@@ -304,7 +313,11 @@ fork_again:;
       // check to see if the child thought parent pid was ok.
       int rv = (WIFEXITED(siginfo.si_status) && WEXITSTATUS(siginfo.si_status) == 0) ? 0 : 1;
       if (rv != 0) {
-         fprintf(stderr, "%s: unexpected exit status 0x%x, pid %d\n", __FUNCTION__, siginfo.si_status, getpid());
+         fprintf(stderr,
+                 "%s: unexpected exit status 0x%x, pid %d\n",
+                 __FUNCTION__,
+                 siginfo.si_status,
+                 getpid());
       }
       if (getpid() == 1) {
          return rv;
@@ -359,18 +372,19 @@ int fork_kill_test_0(void)
       tv.tv_nsec = 0;
       nanosleep(&tv, NULL);
 #endif
-      fprintf(stderr, "%s: fork_kill_test_0_got_signal %d, fork_kill_test_0_sender_pid %d, parent pid %d\n",
+      fprintf(stderr,
+              "%s: fork_kill_test_0_got_signal %d, fork_kill_test_0_sender_pid %d, parent pid %d\n",
               __FUNCTION__,
               fork_kill_test_0_got_signal,
               fork_kill_test_0_sender_pid,
               getppid());
-      if (fork_kill_test_0_got_signal != 0) {    // check for signal 
+      if (fork_kill_test_0_got_signal != 0) {   // check for signal
          exit(0);
       } else {
          fprintf(stderr, "%s: expected signal did not arrive, pid %d\n", __FUNCTION__, getpid());
          exit(1);
       }
-   } else {                // parent process
+   } else {   // parent process
 #if 1
       /*
        * Pause before sending a signal to the child.  This gives the fork a chance to complete.
@@ -408,7 +422,11 @@ int fork_kill_test_0(void)
       if (WIFEXITED(siginfo.si_status) && WEXITSTATUS(siginfo.si_status) == 0) {
          rv = 0;
       } else {
-         fprintf(stderr, "%s: unexpected exit status 0x%x, from child pid %d\n", __FUNCTION__, siginfo.si_status, child_pid);
+         fprintf(stderr,
+                 "%s: unexpected exit status 0x%x, from child pid %d\n",
+                 __FUNCTION__,
+                 siginfo.si_status,
+                 child_pid);
          rv = 1;
       }
    }

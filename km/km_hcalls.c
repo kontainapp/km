@@ -1297,6 +1297,7 @@ static km_hc_ret_t sysinfo_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t times_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   // clock_t times(struct tms *buf);
    struct tms* t = km_gva_to_kma(arg->arg1);
    if (t == NULL) {
       arg->hc_ret = -EFAULT;
@@ -1308,6 +1309,13 @@ static km_hc_ret_t times_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
    arg->hc_ret = ret;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t getpgrp_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // pid_t getpgrp(void);
+   arg->hc_ret = 1;
    return HC_CONTINUE;
 }
 
@@ -1744,6 +1752,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_wait4] = wait4_hcall;
    km_hcalls_table[SYS_waitid] = waitid_hcall;
    km_hcalls_table[SYS_times] = times_hcall;
+   km_hcalls_table[SYS_getpgrp] = getpgrp_hcall;
 
    km_hcalls_table[SYS_uname] = uname_hcall;
 
