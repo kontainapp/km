@@ -79,6 +79,10 @@ void get_process_state(process_state_t* state)
    return;
 }
 
+/*
+ * Compare prestate (gathered before the snapshot) and poststate (gathered
+ * after the snapshot). Returns 0 is OK, -12 if mismatch.
+ */
 int compare_process_state(process_state_t* prestate, process_state_t* poststate)
 {
    int ret = 0;
@@ -177,17 +181,29 @@ int main(int argc, char* argv[])
    }
 
    setup_process_state();
+
+   // Gather state prior to snapshot.
    get_process_state(&presnap);
 
    pthread_mutex_lock(&long_lock);
 
    pthread_t thr;
+   /*
+    * Everything prior to here is
+    * unquestionably prior to the snapshot resume.
+    */
    if (pthread_create(&thr, NULL, thread_main, NULL) != 0) {
       perror("pthread_create");
       return 1;
    }
 
+   /*
+    * when code is here it's state is ambiguous WRT the snapshot resume.
+    */
    block();
+   /*
+    * Everything after here is unquestionably in the snapshot resume.
+    */
 
    void* rval;
    if (pthread_join(thr, &rval) != 0) {
@@ -195,6 +211,10 @@ int main(int argc, char* argv[])
       return 1;
    }
 
+   /*
+    * get state after snapshot resume and insure it matches state
+    * prior to resume.
+    */
    get_process_state(&postsnap);
    if (compare_process_state(&presnap, &postsnap) != 0) {
       fprintf(stderr, "!!! state restoration error !!!\n");
