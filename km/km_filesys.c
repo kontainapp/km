@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <sys/resource.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -798,10 +799,11 @@ uint64_t km_fs_dup2(km_vcpu_t* vcpu, int fd, int newfd)
 // int pipe(int pipefd[2]);
 uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2])
 {
-   int ret = __syscall_1(SYS_pipe, (uintptr_t)pipefd);
+   int host_pipefd[2];
+   int ret = __syscall_1(SYS_pipe, (uintptr_t)host_pipefd);
    if (ret == 0) {
-      pipefd[0] = km_add_guest_fd(vcpu, pipefd[0], 0, "[pipe[0]]", 0);
-      pipefd[1] = km_add_guest_fd(vcpu, pipefd[1], 0, "[pipe[1]]", 0);
+      pipefd[0] = km_add_guest_fd(vcpu, host_pipefd[0], 0, "[pipe[0]]", 0);
+      pipefd[1] = km_add_guest_fd(vcpu, host_pipefd[1], 0, "[pipe[1]]", 0);
    }
    return ret;
 }
@@ -809,10 +811,11 @@ uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2])
 // int pipe2(int pipefd[2], int flags);
 uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags)
 {
-   int ret = __syscall_2(SYS_pipe2, (uintptr_t)pipefd, flags);
+   int host_pipefd[2];
+   int ret = __syscall_2(SYS_pipe2, (uintptr_t)host_pipefd, flags);
    if (ret == 0) {
-      pipefd[0] = km_add_guest_fd(vcpu, pipefd[0], 1, "[pipe2[0]]", 0);
-      pipefd[1] = km_add_guest_fd(vcpu, pipefd[1], 0, "[pipe2[1]]", 0);
+      pipefd[0] = km_add_guest_fd(vcpu, host_pipefd[0], 1, "[pipe2[0]]", 0);
+      pipefd[1] = km_add_guest_fd(vcpu, host_pipefd[1], 0, "[pipe2[1]]", 0);
    }
    return ret;
 }
@@ -1065,29 +1068,58 @@ uint64_t km_fs_select(km_vcpu_t* vcpu,
    fd_set host_readfds_;
    fd_set host_writefds_;
    fd_set host_exceptfds_;
-
-   FD_ZERO(&host_readfds_);
-   FD_ZERO(&host_writefds_);
-   FD_ZERO(&host_exceptfds_);
+   int host_nfds = -1;
 
    if (readfds != NULL) {
+      FD_ZERO(&host_readfds_);
       host_readfds = &host_readfds_;
    }
    if (writefds != NULL) {
+      FD_ZERO(&host_writefds_);
       host_writefds = &host_writefds_;
    }
    if (exceptfds != NULL) {
+      FD_ZERO(&host_exceptfds_);
       host_exceptfds = &host_exceptfds_;
    }
 
+   for (int i = 0; i < nfds; i++) {
+      int host_fd = km_fs_g2h_fd(i);
+      if (host_fd < 0) {
+         continue;
+      }
+      if (readfds != NULL && FD_ISSET(i, readfds)) {
+         FD_SET(host_fd, host_readfds);
+         host_nfds = MAX(host_nfds, host_fd);
+      }
+      if (writefds != NULL && FD_ISSET(i, writefds)) {
+         FD_SET(host_fd, host_writefds);
+         host_nfds = MAX(host_nfds, host_fd);
+      }
+      if (exceptfds != NULL && FD_ISSET(i, exceptfds)) {
+         FD_SET(host_fd, host_exceptfds);
+         host_nfds = MAX(host_nfds, host_fd);
+      }
+   }
+   host_nfds++;   // per select(2) nfds is highest-numbered file descriptor in any of the three sets, plus 1
    int ret = __syscall_5(SYS_select,
-                         nfds,
+                         host_nfds,
                          (uintptr_t)host_readfds,
                          (uintptr_t)host_writefds,
                          (uintptr_t)host_exceptfds,
                          (uintptr_t)timeout);
+
    if (ret > 0) {
-      for (int i = 0; i < nfds; i++) {
+      if (readfds != NULL) {
+         FD_ZERO(readfds);
+      }
+      if (writefds != NULL) {
+         FD_ZERO(writefds);
+      }
+      if (exceptfds != NULL) {
+         FD_ZERO(exceptfds);
+      }
+      for (int i = 0; i < host_nfds; i++) {
          int guest_fd = km_fs_h2g_fd(i);
          if (guest_fd < 0) {
             continue;
