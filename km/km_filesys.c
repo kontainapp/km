@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,25 +36,34 @@
 #include <sys/uio.h>
 
 #include "km.h"
+#include "km_coredump.h"
 #include "km_exec.h"
 #include "km_filesys.h"
 #include "km_mem.h"
+#include "km_snapshot.h"
 #include "km_syscall.h"
 
 #define MAX_OPEN_FILES (1024)
 
+typedef struct km_file {
+   int inuse;
+   int guestfd;
+   int hostfd;
+   int flags;   // Open flags
+   char* name;
+} km_file_t;
+
 typedef struct km_filesys {
-   int* guestfd_to_hostfd_map;   // file descriptor map
-   int* hostfd_to_guestfd_map;   // reverse file descriptor map
-   char** guestfd_to_name_map;   // guest file name
    int nfdmap;                   // size of file descriptor maps
-   struct km_fd* fds;
+   km_file_t* guest_files;       // Indexed by guestfd
+   int* hostfd_to_guestfd_map;   // reverse file descriptor map
 } km_filesys_t;
 
 static inline km_filesys_t* km_fs()
 {
    return machine.filesys;
 }
+
 /*
  * Adds a host fd to the guest. Returns the guest fd number assigned.
  * Assigns lowest available guest fd, just like the kernel.
@@ -65,23 +75,25 @@ int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name,
    assert(start_guestfd >= 0 && start_guestfd < km_fs()->nfdmap);
    int guest_fd = -1;
    for (int i = start_guestfd; i < km_fs()->nfdmap; i++) {
-      int fd_available = -1;
-      if (__atomic_compare_exchange_n(&km_fs()->guestfd_to_hostfd_map[i],
-                                      &fd_available,
-                                      host_fd,
+      int available = 0;
+      int taken = 1;
+      if (__atomic_compare_exchange_n(&km_fs()->guest_files[i].inuse,
+                                      &available,
+                                      taken,
                                       0,
                                       __ATOMIC_SEQ_CST,
                                       __ATOMIC_SEQ_CST) != 0) {
+         km_file_t* file = &km_fs()->guest_files[i];
+         file->guestfd = i;
+         file->hostfd = host_fd;
+         file->name = strdup(name);
+         file->flags = flags;
+
          __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[host_fd], i, __ATOMIC_SEQ_CST);
          void* newval = NULL;
          if (name != NULL) {
             newval = strdup(name);
             assert(newval != NULL);
-         }
-         void* oldval = NULL;
-         __atomic_exchange(&km_fs()->guestfd_to_name_map[i], &newval, &oldval, __ATOMIC_SEQ_CST);
-         if (oldval != NULL) {
-            free(oldval);
          }
          guest_fd = i;
          break;
@@ -108,19 +120,14 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int guestfd, int hostfd)
    assert(rc != 0);
 
    assert(guestfd >= 0 && guestfd < km_fs()->nfdmap);
-   rc = __atomic_compare_exchange_n(&km_fs()->guestfd_to_hostfd_map[guestfd],
-                                    &hostfd,
-                                    -1,
-                                    0,
-                                    __ATOMIC_SEQ_CST,
-                                    __ATOMIC_SEQ_CST);
-   assert(rc != 0);
+   km_file_t* file = &km_fs()->guest_files[guestfd];
+   int allocated = 1;
+   rc = __atomic_compare_exchange_n(&file->inuse, &allocated, 0, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
 
-   void* newval = NULL;
-   void* oldval = NULL;
-   __atomic_exchange(&km_fs()->guestfd_to_name_map[guestfd], &newval, &oldval, __ATOMIC_SEQ_CST);
-   if (oldval != NULL) {
-      free(oldval);
+   assert(rc != 0);
+   if (file->name != NULL) {
+      free(file->name);
+      file->name = NULL;
    }
 }
 
@@ -129,24 +136,33 @@ char* km_guestfd_name(km_vcpu_t* vcpu, int fd)
    if (fd < 0 || fd >= km_fs()->nfdmap) {
       return NULL;
    }
-   return km_fs()->guestfd_to_name_map[fd];
+   return km_fs()->guest_files[fd].name;
 }
 
 /*
  * Replaces the mapping for a guest file descriptor. Used by dup2(2) and dup(3).
- * TODO: Support open flags (O_CLOEXEC in particular)
  */
 static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd, int flags)
 {
    assert(guest_fd >= 0 && guest_fd < km_fs()->nfdmap);
    assert(host_fd >= 0 && host_fd < km_fs()->nfdmap);
-   int close_fd =
-       __atomic_exchange_n(&km_fs()->guestfd_to_hostfd_map[guest_fd], host_fd, __ATOMIC_SEQ_CST);
+   km_file_t* file = &km_fs()->guest_files[guest_fd];
+   int was_inuse = __atomic_exchange_n(&file->inuse, 1, __ATOMIC_SEQ_CST);
+   __atomic_store_n(&file->guestfd, guest_fd, __ATOMIC_SEQ_CST);
+   file->flags = flags;
+   int close_fd = __atomic_exchange_n(&file->hostfd, host_fd, __ATOMIC_SEQ_CST);
    __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[host_fd], guest_fd, __ATOMIC_SEQ_CST);
-   // don't close stdin, stdout, or stderr
-   if (close_fd > 2) {
-      __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[close_fd], -1, __ATOMIC_SEQ_CST);
-      __syscall_1(SYS_close, close_fd);
+   if (was_inuse != 0) {
+      /*
+       * stdin, stdout, and stderr are shared with KM,
+       * we don't want to close them.
+       * TODO(maybe): If there is more than one cycle of this on
+       * std fd,
+       */
+      if (close_fd > 2) {
+         __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[close_fd], -1, __ATOMIC_SEQ_CST);
+         __syscall_1(SYS_close, close_fd);
+      }
    }
    return guest_fd;
 }
@@ -162,7 +178,7 @@ int km_fs_h2g_fd(int hostfd)
       return -ENOENT;
    }
    int guest_fd = __atomic_load_n(&km_fs()->hostfd_to_guestfd_map[hostfd], __ATOMIC_SEQ_CST);
-   if (__atomic_load_n(&km_fs()->guestfd_to_hostfd_map[guest_fd], __ATOMIC_SEQ_CST) != hostfd) {
+   if (__atomic_load_n(&km_fs()->guest_files[guest_fd].hostfd, __ATOMIC_SEQ_CST) != hostfd) {
       guest_fd = -ENOENT;
    }
    return guest_fd;
@@ -177,7 +193,10 @@ int km_fs_g2h_fd(int fd)
    if (fd < 0 || fd >= km_fs()->nfdmap) {
       return -1;
    }
-   int ret = __atomic_load_n(&km_fs()->guestfd_to_hostfd_map[fd], __ATOMIC_SEQ_CST);
+   if (__atomic_load_n(&km_fs()->guest_files[fd].inuse, __ATOMIC_SEQ_CST) == 0) {
+      return -1;
+   }
+   int ret = __atomic_load_n(&km_fs()->guest_files[fd].hostfd, __ATOMIC_SEQ_CST);
    assert((ret == -1) || (km_fs()->hostfd_to_guestfd_map[ret] == fd) ||
           (km_fs()->hostfd_to_guestfd_map[ret] == -1));
    return ret;
@@ -197,37 +216,41 @@ int km_fs_init(void)
    }
 
    machine.filesys = calloc(1, sizeof(km_filesys_t));
-
    lim.rlim_cur = MAX_OPEN_FILES;   // Limit max open files. Temporary change till we support config.
    size_t mapsz = lim.rlim_cur * sizeof(int);
 
-   km_fs()->guestfd_to_hostfd_map = malloc(mapsz);
-   assert(km_fs()->guestfd_to_hostfd_map != NULL);
-   memset(km_fs()->guestfd_to_hostfd_map, 0xff, mapsz);
+   km_infox(KM_TRACE_FILESYS, "lim.rlim_cur=%ld", lim.rlim_cur);
+   km_fs()->nfdmap = lim.rlim_cur;
+   km_fs()->guest_files = calloc(lim.rlim_cur, sizeof(km_file_t));
+   assert(km_fs()->guest_files != NULL);
+
    km_fs()->hostfd_to_guestfd_map = malloc(mapsz);
    assert(km_fs()->hostfd_to_guestfd_map != NULL);
    memset(km_fs()->hostfd_to_guestfd_map, 0xff, mapsz);
-   km_fs()->nfdmap = lim.rlim_cur;
-   km_fs()->guestfd_to_name_map = calloc(lim.rlim_cur, sizeof(char*));
-   assert(km_fs()->guestfd_to_name_map != NULL);
 
    if (km_exec_recover_guestfd() != 0) {
       // setup guest std file streams.
       for (int i = 0; i < 3; i++) {
-         km_fs()->guestfd_to_hostfd_map[i] = i;
+         km_file_t* file = &km_fs()->guest_files[i];
+         file->inuse = 1;
+         file->guestfd = i;
+         file->hostfd = i;
+
          km_fs()->hostfd_to_guestfd_map[i] = i;
          switch (i) {
             case 0:
-               km_fs()->guestfd_to_name_map[i] = strdup("[stdin]");
+               file->name = strdup("[stdin]");
+               file->flags = O_RDONLY;
                break;
             case 1:
-               km_fs()->guestfd_to_name_map[i] = strdup("[stdout]");
+               file->name = strdup("[stdout]");
+               file->flags = O_WRONLY;
                break;
             case 2:
-               km_fs()->guestfd_to_name_map[i] = strdup("[stderr]");
+               file->name = strdup("[stderr]");
+               file->flags = O_WRONLY;
                break;
          }
-         assert(km_fs()->guestfd_to_name_map[i] != NULL);
       }
    }
    return 0;
@@ -235,16 +258,17 @@ int km_fs_init(void)
 
 void km_fs_fini(void)
 {
-   for (int i = 0; i < 3; i++) {
-      free(km_fs()->guestfd_to_name_map[i]);
+   if (km_fs() == NULL) {
+      return;
    }
-   if (km_fs()->guestfd_to_name_map != NULL) {
-      free(km_fs()->guestfd_to_name_map);
-      km_fs()->guestfd_to_name_map = NULL;
-   }
-   if (km_fs()->guestfd_to_hostfd_map != NULL) {
-      free(km_fs()->guestfd_to_hostfd_map);
-      km_fs()->guestfd_to_hostfd_map = NULL;
+   if (km_fs()->guest_files != NULL) {
+      for (int i = 0; i < km_fs()->nfdmap; i++) {
+         km_file_t* file = &km_fs()->guest_files[i];
+         if (file->name != NULL) {
+            free(file->name);
+         }
+      }
+      free(km_fs()->guest_files);
    }
    if (km_fs()->hostfd_to_guestfd_map != NULL) {
       free(km_fs()->hostfd_to_guestfd_map);
@@ -453,7 +477,7 @@ static int readlink_proc_self_fd(const char* pathname, char* buf, size_t bufsz)
       return 0;
    }
    char* mpath;
-   if (fd < 0 || fd >= km_fs()->nfdmap || (mpath = km_fs()->guestfd_to_name_map[fd]) == 0) {
+   if (fd < 0 || fd >= km_fs()->nfdmap || (mpath = km_fs()->guest_files[fd].name) == 0) {
       return -ENOENT;
    }
    /*
@@ -658,7 +682,7 @@ uint64_t km_fs_fchmod(km_vcpu_t* vcpu, int fd, mode_t mode)
    return ret;
 }
 
-// int rename(const char *oldpath, const char *newpath);
+// int rename(const char *roundup(strlenoldpath, const char *newpath);
 uint64_t km_fs_rename(km_vcpu_t* vcpu, char* oldpath, char* newpath)
 {
    int ret = __syscall_2(SYS_rename, (uintptr_t)oldpath, (uintptr_t)newpath);
@@ -730,6 +754,7 @@ uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
    if (ret >= 0) {
       ret = km_add_guest_fd(vcpu, ret, 0, name, 0);
    }
+   km_infox(KM_TRACE_FILESYS, "dup(%d) - %d", fd, ret);
    return ret;
 }
 
@@ -757,6 +782,7 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    if (ret >= 0) {
       ret = replace_guest_fd(vcpu, newfd, ret, flags);
    }
+   km_infox(KM_TRACE_FILESYS, "dup3(%d, %d, 0x%x) - %d", fd, newfd, flags, ret);
    return ret;
 }
 
@@ -1172,4 +1198,151 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
    }
    int ret = __syscall_4(SYS_prlimit64, pid, resource, (uintptr_t)new_limit, (uintptr_t)old_limit);
    return ret;
+}
+
+size_t km_fs_core_notes_length()
+{
+   size_t ret = 0;
+   for (int i = 0; i < km_fs()->nfdmap; i++) {
+      km_file_t* file = &km_fs()->guest_files[i];
+      if (file->inuse != 0) {
+         ret += sizeof(Elf64_Nhdr) + sizeof(km_nt_file_t) + km_nt_file_padded_size(file->name);
+      }
+   }
+   return ret;
+}
+
+size_t km_fs_core_notes_write(char* buf, size_t length)
+{
+   char* cur = buf;
+   size_t remain = length;
+
+   for (int i = 0; i < km_fs()->nfdmap; i++) {
+      km_file_t* file = &km_fs()->guest_files[i];
+      if (file->inuse != 0) {
+         cur += km_add_note_header(cur,
+                                   remain,
+                                   KM_NT_NAME,
+                                   NT_KM_FILE,
+                                   sizeof(km_nt_file_t) + km_nt_file_padded_size(file->name));
+         km_nt_file_t* fnote = (km_nt_file_t*)cur;
+         cur += sizeof(km_nt_file_t);
+         fnote->size = sizeof(km_nt_file_t);
+         fnote->fd = file->guestfd;
+         fnote->flags = file->flags;
+
+         strcpy(cur, file->name);
+         cur += km_nt_file_padded_size(file->name);
+
+         struct stat st;
+         if (fstat(file->hostfd, &st) < 0) {
+            km_err_msg(errno, "fstat failed fd=%d(%d) name=%s", file->guestfd, file->hostfd, file->name);
+            continue;
+         }
+         fnote->mode = st.st_mode;
+
+         switch (st.st_mode & __S_IFMT) {
+            case __S_IFREG:
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFREG", i);
+               fnote->position = lseek(file->hostfd, 0, SEEK_CUR);
+               break;
+
+            /*
+             * TODO(muth): Fill in the rest of these cases.
+             */
+            case __S_IFDIR:
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFDIR", i);
+               break;
+
+            case __S_IFLNK:
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFLNK", i);
+               break;
+
+            case __S_IFCHR:
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFCHR: %s", i, file->name);
+               break;
+
+            case __S_IFBLK:
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFBLK: %s", i, file->name);
+               break;
+
+            case __S_IFIFO:
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFIFO: %s", i, file->name);
+               break;
+
+            case __S_IFSOCK:
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d ISOCK: %s", i, file->name);
+               break;
+
+            default:
+               km_infox(KM_TRACE_SNAPSHOT,
+                        "fd:%d mode %o NOT recognized: %s",
+                        i,
+                        st.st_mode & __S_IFMT,
+                        file->name);
+               break;
+         }
+      }
+   }
+   return cur - buf;
+}
+
+int km_fs_recover_open_file(char* ptr, size_t length)
+{
+   km_nt_file_t* nt_file = (km_nt_file_t*)ptr;
+   if (nt_file->size != sizeof(km_nt_file_t)) {
+      km_err_msg(0, "nt_km_file_t size mismatch - old snapshot?");
+      return -1;
+   }
+   char* name = ptr + sizeof(km_nt_file_t);
+   km_infox(KM_TRACE_SNAPSHOT, "fd=%d name=%s", nt_file->fd, name);
+
+   /*
+    * TODO: currently, the std fd's are always inherited from KM
+    * for restored snapshots. This means we don't support
+    * processes that mess with the std fd's. This needs to be
+    * fixed.
+    */
+   // Std files always set by KM
+   if (nt_file->fd <= 2) {
+      return 0;
+   }
+
+   if (nt_file->fd < 0 || nt_file->fd >= km_fs()->nfdmap) {
+      km_err_msg(EBADF, "bad file descriptor=%d", nt_file->fd);
+      return -1;
+   }
+
+   int fd = open(name, nt_file->flags, 0);
+   if (fd < 0) {
+      km_err_msg(errno, "cannon open %s", name);
+      return -1;
+   }
+
+   struct stat st;
+   if (fstat(fd, &st) < 0) {
+      km_err_msg(errno, "cannon fstat %s", name);
+      return -1;
+   }
+   if (st.st_mode != nt_file->mode) {
+      km_err_msg(0, "file mode mistmatch expect %o got %o %s", nt_file->mode, st.st_mode, name);
+      return -1;
+   }
+
+   km_file_t* file = &km_fs()->guest_files[nt_file->fd];
+   file->inuse = 1;
+   file->guestfd = nt_file->fd;
+   file->hostfd = fd;
+   file->flags = nt_file->flags;
+   file->name = strdup(name);
+
+   km_fs()->hostfd_to_guestfd_map[fd] = nt_file->fd;
+
+   if ((nt_file->mode & __S_IFMT) == __S_IFREG && nt_file->position != 0) {
+      if (lseek(fd, nt_file->position, SEEK_SET) != nt_file->position) {
+         km_err_msg(errno, "lseek failed");
+         return -1;
+      }
+   }
+   return 0;
 }
