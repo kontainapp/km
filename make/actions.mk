@@ -46,6 +46,7 @@ test-all: subdirs ## run extended tests(KM tests full payload tests)
 coverage: subdirs ## build and run tests with code coverage support
 covclean: subdirs ## clean coverage-related build artifacts
 buildenv-image: subdirs ## builds and packages all build environment image
+buildenv-local-fedora: subdirs ## make local build environment for KM
 push-buildenv-image: subdirs ## Push buildenv images to a cloud registry. PROTECTED OPERATION.
 pull-buildenv-image: subdirs ## Pulls buildenv images from a cloud registry
 testenv-image: subdirs ## builds and packages testable image

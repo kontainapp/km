@@ -1,0 +1,11 @@
+--- /home/serge/platform.py	2020-05-27 17:38:32.970703906 -0700
++++ ./cpython/Lib/platform.py	2020-05-28 11:31:19.083226637 -0700
+@@ -1031,7 +1031,7 @@
+                 processor = 'VAX'
+     if not processor:
+         # Get processor information from the uname system command
+-        processor = _syscmd_uname('-p', '')
++        processor = 'x86_64' if os.uname().machine == 'kontain_VM' else _syscmd_uname('-p', '')
+ 
+     #If any unknowns still exist, replace them with ''s, which are more portable
+     if system == 'unknown':

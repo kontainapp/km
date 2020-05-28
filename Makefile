@@ -16,7 +16,7 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
-# scan all these and  'make' stuff there
+# scan all these and 'make' stuff there
 SUBDIRS := km runtime tests payloads
 
 # build VMM and runtime library before trying to build tests
