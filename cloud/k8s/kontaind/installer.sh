@@ -8,14 +8,18 @@
 #  such source code. Disclosure of this source code or any related proprietary
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
-# 
+#
 # Install kontain related artifacts and do verification.
+#
+# Runs in cluster and expects /opt to be mounted and /dev/kvm available
 
-rm -rf /opt/kontain
+[ -d /opt ]
+[ -e /dev/kvm ]
+
 cp -r /kontain /opt/kontain
+# non-privileged containers using kvm device plugin needs access
 chmod 666 /dev/kvm
 
-[ -e /dev/kvm ]
 [ -d /opt/kontain ]
-[ -f /opt/kontain/bin/km ]
+[ -x /opt/kontain/bin/km ]
 [ -f /opt/kontain/runtime/libc.so ]

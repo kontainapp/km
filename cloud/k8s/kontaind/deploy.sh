@@ -9,7 +9,9 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
-# Scripts to help install or uninstall kontaind.
+# Scripts to help deploy or delete kontaind into/from a kube cluster.
+#
+# Note: set 'DEBUG=echo' for dry run
 
 [ "${TRACE}" ] && set -x
 
@@ -25,38 +27,39 @@ readonly KONTAIND_DEPLOY_TEMPLATE_NAME=kontaind.yaml
 
 function usage() {
     cat <<- EOF
-usage: $PROGNAME <OP> <INSTALLER_IMAGE> <DEVICE_PLUGIN_IAGE> 
+usage: $PROGNAME <OP> <INSTALLER_IMAGE> <DEVICE_PLUGIN_IAGE>
 
-Install or uninstall kontaind.
+Deploys or deletes kontaind.
 
 OP:
-    install                 Install kontaind.
-    uninstall               Uninstall kontaind.
+    deploy               Deploys kontaind to a cluster.
+    delete               Deletes kontaind from a cluster
+
+Cluster is pointed to by kubectl config current-context
 EOF
 }
 
-function install() {
-    rm -rf ${KONTAIND_DEPLOY_DIR} && mkdir -p ${KONTAIND_DEPLOY_DIR}
-    m4 \
+function deploy() {
+    ${DEBUG} rm -rf ${KONTAIND_DEPLOY_DIR} && ${DEBUG} mkdir -p ${KONTAIND_DEPLOY_DIR}
+    ${DEBUG} m4 \
         -D INSTALLER_IMAGE=${INSTALLER_IMAGE} \
         -D DEVICE_PLUGIN_IMAGE=${DEVICE_PLUGIN_IMAGE} \
-        ${CURRENT_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME} > \
-        ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
-
-    kubectl create -f ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
+        ${CURRENT_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME} > ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
+    echo using manifest ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
+    ${DEBUG} kubectl create -f ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
 }
 
-function uninstall() {
-    kubectl delete -f ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
+function delete() {
+    ${DEBUG} kubectl delete -f ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
 }
 
 function main() {
     case $OP in
-    "install")
-        install
+    "deploy")
+        deploy
         ;;
-    "uninstall")
-        uninstall
+    "delete")
+        delete
         ;;
     *)
         usage

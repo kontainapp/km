@@ -1,10 +1,20 @@
+# Kontaind install and validation
+
 Kontaind is a daemon set running on all nodes that are running kontain. Currently, there are two components:
+
 1. A installer to set up the node, running as a initContainer.
-2. A k8s device plugin that provide /dev/kvm device to the containers.
+2. A k8s device plugin that provides /dev/kvm device to the containers.
 
 To run:
 ```bash
-make -C installer push-runenv-image
-make install
-make test
+# Build and push image for initContaint
+# set CLOUD=dockerhub to use public docker.io/kontainapp instead of private Azure ACR
+make runenv-image push-runenv-image
+make deploy  # deploys daemon-set with initContainer
+make test    # Validates demo-dweb deployment. Assumes demo-dweb runenv-image was pushed to dockerhub
 ```
+
+## Test notes
+
+test simply makes sure 'km dweb' starts and exits properly. It uses `docker.io/kontainapp/runenv-dweb:latest` so the test needs to be pushed with `CLOUD=dockerhub make -C payloads/demo-dweb runenv-image push-runenv-image`
+
