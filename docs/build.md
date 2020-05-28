@@ -74,22 +74,61 @@ cat $file  | jq -r  '"export SP_APPID=\(.appId)",
 
 ### Pull the 'buildenv' image from Azure Container Registry
 
+We maintain docker build environment docker images that contain all build prerequisites.
+There is one build environment image for km, and one for each payload.
+They are called `kontain/buildenv-km-fedora` for km and `kontain/buildenv-`_payload_`-fedora` (e.g. `kontain/buildenv-python-fedora`).
+The km one is maintained by `Makefile` in `tests` directory, the payload ones in corresponding payload directories.
+Top directory goes down the tree recursively.
+
+To fetch a buildenv-image for km only:
+
+
 ```sh
 make -C tests pull-buildenv-image
 ```
 
-#### build the 'buildenv' image locally using Docker
+And for specific payload (e.g. python):
 
-An alternative way is to build 'build environment' images locally:
 
 ```sh
-make -C tests buildenv-image  # this will take VERY LONG time as it builds gcc and C++ libs
+make -C python pull-buildenv-image
 ```
+
+```sh
+make pull-buildenv-image
+```
+
+from the top will getch all of the build environments.
+
+
+#### build the 'buildenv' image locally using Docker
+
+An alternative way is to build 'build environment' images locally. Similarly to the above, this could be done in a specific directory (tests for km), or recursively to build them all.
+
+For km build environment:
+
+```sh
+make -C tests buildenv-image  # this will take VERY LONG time
+```
+
+and so forth.
 
 #### Install dependencies on the local machine (after buildenv image is available)
 
+Build environments also used to install the necessary packages and dependencies on the local system.
+Again it is maintained per directory in the same way as above.
+
+For km only:
+
+
 ```sh
 make -C tests buildenv-local-fedora  # currently supported on fedora only !
+```
+
+Or for all of the payloads and km:
+
+```sh
+make buildenv-local-fedora  # currently supported on fedora only !
 ```
 
 ### Building with Docker
@@ -299,7 +338,7 @@ older reports, checkout the repo and search using the tags.
 
 To see coverage for your tag, run the following:
 ```bash
-cd ~/workspace 
+cd ~/workspace
 git clone -b **your_tag** git@github.com:kontainapp/km-coverage-report.git
 google-chrome   km-coverage-report/index.html
 ```

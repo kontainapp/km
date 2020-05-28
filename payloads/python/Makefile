@@ -54,6 +54,7 @@ FROMSRC=$(shell test -d $(PYTHONTOP)/.git && echo yes)
 # Compile built-in extensions (if needed) and link python.km
 export define link_cpython_km
 	${MAKE} -C cpython -f dlstatic_km.mk   # compile built-in modules
+	patch -p0 < platform_uname.patch
 	./link-km.sh ${PYTHONTOP} cpython "${EXTRA_LINKFILES}" "${CUSTOM_KM}"
 endef
 

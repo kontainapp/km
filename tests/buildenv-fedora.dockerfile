@@ -57,8 +57,7 @@ RUN dnf install -y \
    glibc-devel glibc-static libstdc++-static \
    elfutils-libelf-devel elfutils-libelf-devel-static bzip2-devel \
    zlib-static bzip2-static xz-static \
-   openssl-devel openssl-static \
-   expat-static jq googler python3-jinja2 \
+   openssl-devel openssl-static jq googler \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 
 COPY --from=alpine-lib-image $PREFIX $PREFIX/

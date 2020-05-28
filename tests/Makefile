@@ -217,33 +217,6 @@ MANUAL_UPLOAD_REPORT_NAME := manual-${USER}-${PROCESSED_IMAGE_VERION}
 upload-coverage-manual: .check_vars
 	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME} ${GITHUB_TOKEN}
 
-# install stuff for fedora per docker image info. Assume buildenv-image either built or pulled
-# TODO: maybe make it generic to scan folders
-buildenv-local-fedora:  ${KM_OPT_RT} ## make local build environment for KM
-	@if ! docker image inspect ${BUILDENV_IMG} > /dev/null ; then \
-		echo -e "$(RED)${BUILDENV_IMG} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
-	sudo dnf install -y `docker history --format "{{ .CreatedBy }}" --no-trunc ${BUILDENV_IMG} | sed -rn '/dnf install/s/.*dnf install -y([^&]*)(.*)/\1/p'`
-# Install stuff needed for buil, based on docker image info.
-# Assume BUILDENV_IMG either built or pulled
-buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local build environment for KM
-
-# Get a list of DNF packages from buildenv-image and install it on the host
-.buildenv-local-dnf: .buildenv-local-check-image
-	sudo dnf install -y `docker history --format "{{ .CreatedBy }}" --no-trunc ${BUILDENV_IMG}:$(BUILDENV_IMAGE_VERSION) | sed -rn '/dnf install/s/.*dnf install -y([^&]*)(.*)/\1/p'`
-
-# Fetches alpine libs, and preps writeable 'runtime' dir.
-# It'd a prerequisite for all further builds and needs to be called right after building
-# or pull the buildenv-image. Call it via 'make buildenv-local-fedora' or 'make .buildenv-local-lib'
-# so that libs are on the host and can be copied to runenv-image and testenv-image
-.buildenv-local-lib: ${KM_OPT_RT} ${KM_OPT_BIN} .buildenv-local-check-image
-	docker create --name tmp_env $(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION)
-	sudo docker cp tmp_env:/opt/kontain /opt
-	docker rm tmp_env
-
-.buildenv-local-check-image:
-	@if ! docker image inspect ${BUILDENV_IMG}:$(BUILDENV_IMAGE_VERSION) > /dev/null ; then \
-		echo -e "$(RED)${BUILDENV_IMG}:$(BUILDENV_IMAGE_VERSION) is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
-
 ${KM_OPT_RT} ${KM_OPT_BIN}: |
 	sudo sh -c "mkdir -p $@ && chgrp users $@ && chmod 777 $@"
 
