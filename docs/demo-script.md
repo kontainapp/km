@@ -38,8 +38,8 @@ This document describes the *default* path to take during the demo.
   * Deploy `kontaind`
   ```bash
   make -C ~/workspace/km/cloud/k8s/kontaind push-runenv-image
-  make -C ~/workspace/km/cloud/k8s/kontaind install
-  ```
+  ```  make -C ~/workspace/km/cloud/k8s/kontaind deploy
+
 * Pull `buildenv` images. Building these images locally takes too long.
   ```bash
   make -C ~/workspace/km pull-buildenv-image
