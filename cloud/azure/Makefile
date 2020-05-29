@@ -19,10 +19,9 @@ default:  help
 resources:  ## Provision Azure resources (resource group and account)
 	./create_initial_resources.sh
 
-KONTAIND_DIR := ${TOP}/cloud/k8s/kontaind
 cluster: ## Provision Kubernetes cluster on pre-provisioned Resource Group
 	./create_kube_cluster.sh
-	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${KONTAIND_DIR} install
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/cloud/k8s/kontaind deploy
 
 cleancluster: ## Delete Kubernetes cluster
 	-./clear_kube_cluster.sh
