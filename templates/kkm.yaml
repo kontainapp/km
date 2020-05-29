@@ -27,3 +27,7 @@ steps:
   - bash: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
     displayName: Test with kkm
     timeoutInMinutes: 15
+
+  - bash: cloud/aws/kkm-regression.bash $(SP_AWS_ACCESS_KEY_ID) $(SP_AWS_SECRET_ACCESS_KEY) $(SP_AWS_FEDORA_PASSWD) $(System.PullRequest.SourceBranch)
+    displayName: Test with kkm on aws
+    timeoutInMinutes: 15
