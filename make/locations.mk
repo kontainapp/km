@@ -45,6 +45,7 @@ KM_OPT_BIN := ${KM_OPT}/bin
 KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
 KM_OPT_LDSO := ${KM_OPT_RT}/libc.so
+KM_OPT_KM := ${KM_OPT_BIN}/km
 KM_LDSO := ${BLDTOP}/runtime/libc.so
 KM_LDSO_PATH := ${KM_OPT_RT}:${KM_OPT_ALPINELIB}/usr/lib
 
