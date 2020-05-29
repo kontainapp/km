@@ -144,8 +144,8 @@ RUNENV_VALIDATE_EXPECTED ?= Hello
 # We use km from ${KM_BIN} here from the build tree instead of what's on the host under ${KM_OPT_BIN}.
 validate-runenv-image: $(RUNENV_VALIDATE_DEPENDENCIES) ## Validate runtime image
 	${DOCKER_RUN_TEST} \
-		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:z \
-		-v ${KM_OPT_RT}:${KM_OPT_RT}:z \
+		-v ${KM_OPT_KM}:${KM_OPT_KM}:z \
+		-v ${KM_OPT_LDSO}:${KM_OPT_LDSO}:z \
 		${SCRIPT_MOUNT} \
 		${RUNENV_IMG}:${IMAGE_VERSION} \
 		${RUNENV_VALIDATE_CMD} | grep "${RUNENV_VALIDATE_EXPECTED}"
