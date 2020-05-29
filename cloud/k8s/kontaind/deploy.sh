@@ -11,7 +11,6 @@
 #
 # Scripts to help deploy or delete kontaind into/from a kube cluster.
 #
-# Note: set 'DEBUG=echo' for dry run
 
 [ "${TRACE}" ] && set -x
 
@@ -40,17 +39,17 @@ EOF
 }
 
 function deploy() {
-    ${DEBUG} rm -rf ${KONTAIND_DEPLOY_DIR} && ${DEBUG} mkdir -p ${KONTAIND_DEPLOY_DIR}
-    ${DEBUG} m4 \
+    rm -rf ${KONTAIND_DEPLOY_DIR} && mkdir -p ${KONTAIND_DEPLOY_DIR}
+    echo Creating manifest ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
+    m4 \
         -D INSTALLER_IMAGE=${INSTALLER_IMAGE} \
         -D DEVICE_PLUGIN_IMAGE=${DEVICE_PLUGIN_IMAGE} \
         ${CURRENT_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME} > ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
-    echo using manifest ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
-    ${DEBUG} kubectl create -f ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
+    kubectl create -f ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
 }
 
 function delete() {
-    ${DEBUG} kubectl delete -f ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
+    kubectl delete -f ${KONTAIND_DEPLOY_DIR}/${KONTAIND_DEPLOY_TEMPLATE_NAME}
 }
 
 function main() {

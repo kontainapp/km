@@ -7,8 +7,9 @@ Kontaind is a daemon set running on all nodes that are running kontain. Currentl
 
 To run:
 ```bash
-# Build and push image for initContaint
-# set CLOUD=dockerhub to use public docker.io/kontainapp instead of private Azure ACR
+# Build and push image for initContaint to either Azure ACR or docker.io.
+# For Azure/ACR, make sure you are logged in
+# For public docker.io/kontainapp, use CLOUD=dockerhub
 make runenv-image push-runenv-image
 make deploy  # deploys daemon-set with initContainer
 make test    # Validates demo-dweb deployment. Assumes demo-dweb runenv-image was pushed to dockerhub

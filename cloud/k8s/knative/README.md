@@ -46,7 +46,7 @@ Goal: deploy the current kontain stack on AKS showing a functional demo.
 
 First, launch a new AKS cluster. Use `cloud/azure/aks_ci_create.sh` to create
 a new aks cluster. The script requires a service principle appid and token.
-After the cluster is launched successfully, run 
+After the cluster is launched successfully, run
 `az aks get-credentials --resource-group kontainKubeRG --name <name of the cluster>`
 to get credential.
 
@@ -73,21 +73,21 @@ all the knative components are up.
 
 ### Demo Deploy
 
-First, deploy kontaind using the instruction under `TOP/cloud/k8s/kontaind`.
+First, deploy kontaind using `make deploy` in `TOP/cloud/k8s/kontaind`.
 
-To deploy:
+Secondly, deploy the demo:
 ```bash
 cd TOP/cloud/k8s/knative/helloworld-nodejs
 
 # Build and push image. You can skip this if you want.
-make image-build
-make image-push
+make build
+make push
 
 # Deploy
-make knative-deploy
+make deploy
 ```
 
-After the setup, to check the deployment is ok. 
+After the setup, to check the deployment is ok.
 ```bash
 # Note the external IP and port of istio ingress gateway. For example:
 # 192.168.39.228:32198

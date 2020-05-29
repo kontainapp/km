@@ -36,7 +36,7 @@ jobs:
       - bash: cloud/azure/aks_ci_create.sh $(CLUSTER_NAME) $(SP_appId) $(SP_password)
         displayName: Create k8s Cluster
 
-      - bash: make -C cloud/k8s/kontaind install
+      - bash: make -C cloud/k8s/kontaind deploy
         displayName: deploy and verify kontaind
 
       - template: templates/ci_nightly.yaml
