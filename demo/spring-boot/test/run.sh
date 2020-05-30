@@ -9,13 +9,32 @@
 #  such source code. Disclosure of this source code or any related proprietary
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
-# 
-# This is a minimal script used to get time to active readings.
 #
 set -e
 [ "$TRACE" ] && set -x
 
+attempt_counter=0
+max_attempts=250
+
+START=$(date +%s%N)
+
+/opt/kontain/bin/km /opt/kontain/java/bin/java.kmd -jar /app.jar &
+#/opt/kontain/bin/km --resume kmsnap &
+PID=$!
+
+DFINISH=$(date +%s%N)
+
 until $(curl --output /dev/null --silent --fail http://localhost:8080/greeting); do
-    sleep 1
+    if [ ${attempt_counter} -eq ${max_attempts} ];then
+      echo "Max attempts reached"
+      kill $PID
+      exit 1
+    fi
+
+    attempt_counter=$(($attempt_counter+1))
+    sleep 0.01
 done
-echo $(date +%s%N)
+FINISH=$(date +%s%N)
+echo $((${DFINISH} - ${START})), $((${FINISH} - ${DFINISH})), $((${FINISH} - ${START}))
+
+kill $PID
