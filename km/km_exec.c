@@ -18,6 +18,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/param.h>
+
 #include "km.h"
 #include "km_exec.h"
 #include "km_filesys.h"
@@ -75,10 +76,16 @@ static int km_exec_argc;
 static char** km_exec_argv;
 char** km_exec_payload_env;
 
+int km_is_exec(void)
+{
+   if (execstatep != NULL && execstatep->version != 0) {
+      return 1;
+   }
+   return 0;
+}
 /*
- * Build an "KM_EXEC_VERS=1,xxxx" string to put in the environment for an
- * execve() so that the exec'ed instance of km can know how to put the
- * payload environment back together.
+ * Build an "KM_EXEC_VERS=1,xxxx" string to put in the environment for an execve() so that the
+ * exec'ed instance of km can know how to put the payload environment back together.
  */
 static char* km_exec_vers_var(void)
 {
@@ -282,7 +289,11 @@ static char* km_payload_getenv(char* varname)
    km_infox(KM_TRACE_ARGS, "km_exec_payload_env %p, varname %s", km_exec_payload_env, varname);
    for (varp = km_exec_payload_env; *varp != NULL; varp++) {
       char* var_kma = km_gva_to_kma((km_gva_t)*varp);
-      km_infox(KM_TRACE_ARGS, "var %p, var_kma %p, %s", *varp, var_kma, var_kma != NULL ? var_kma : "bad address");
+      km_infox(KM_TRACE_ARGS,
+               "var %p, var_kma %p, %s",
+               *varp,
+               var_kma,
+               var_kma != NULL ? var_kma : "bad address");
       assert(var_kma != NULL);
       if (strncmp(var_kma, varname, vnl) == 0 && *(var_kma + vnl) == '=') {
          return var_kma + vnl + 1;
@@ -295,17 +306,17 @@ static char* km_payload_getenv(char* varname)
  * Resolve the passed command name to a km payload path which can be provided to km for exec.
  * Payloads specified with a relative path are resolve using the guest's PATH env var.
  */
-static char* km_resolve_cmdname(char* cmdname, char* returnedpath, int returnedpathl, char**shebangarg)
+static char* km_resolve_cmdname(char* cmdname, char* returnedpath, int returnedpathl, char** shebangarg)
 {
    char* p = NULL;
 
    // Get an absolute path or a path relative to the current working dir.
-   if (*cmdname == '/' || strncmp(cmdname, "./", 2) == 0) {  // path is specified
+   if (*cmdname == '/' || strncmp(cmdname, "./", 2) == 0) {   // path is specified
       snprintf(returnedpath, returnedpathl, "%s", cmdname);
       p = km_get_payload_name(returnedpath, shebangarg);
    } else {
       char* path = km_payload_getenv("PATH");
-      if (path == NULL) {  // relative path and no payload PATH variable, can't help you
+      if (path == NULL) {   // relative path and no payload PATH variable, can't help you
          km_infox(KM_TRACE_EXEC, "Couldn't get payload PATH env var");
          return NULL;
       }
@@ -314,13 +325,13 @@ static char* km_resolve_cmdname(char* cmdname, char* returnedpath, int returnedp
       char temp[MAXPATHLEN];
       char* trailingcolon;
       char* pvp;
-      for(pvp = path; pvp != NULL; pvp = trailingcolon) {
-         if (*pvp == ':') {  // sometimes there is no leading ':'
+      for (pvp = path; pvp != NULL; pvp = trailingcolon) {
+         if (*pvp == ':') {   // sometimes there is no leading ':'
             pvp++;
          }
          trailingcolon = strchr(pvp, ':');
          size_t l;
-         if (trailingcolon == NULL) {  // no trailing colon
+         if (trailingcolon == NULL) {   // no trailing colon
             l = strlen(pvp);
          } else {
             l = trailingcolon - pvp;
@@ -333,7 +344,7 @@ static char* km_resolve_cmdname(char* cmdname, char* returnedpath, int returnedp
             p = km_get_payload_name(returnedpath, shebangarg);
             if (p != NULL) {
                break;
-           }
+            }
          } else {
             km_infox(KM_TRACE_EXEC, "ignoring path %s: too long", pvp);
          }
@@ -350,7 +361,7 @@ static char* km_resolve_cmdname(char* cmdname, char* returnedpath, int returnedp
    }
    strcpy(returnedpath, p);
    free(p);
-   
+
    return returnedpath;
 }
 
@@ -382,7 +393,7 @@ char** km_exec_build_argv(char* filename, char** argv)
          return NULL;
       }
       // Resolve newargv[0] to a path to a km payload
-      char resolvedpath[MAXPATHLEN * 2];     // * 2 for compiler pacification :-(
+      char resolvedpath[MAXPATHLEN * 2];   // * 2 for compiler pacification :-(
       filename = km_resolve_cmdname(newargv[0], resolvedpath, sizeof(resolvedpath), &shebong);
       if (filename == NULL) {
          freevector(newargv);
@@ -496,6 +507,22 @@ static int km_exec_get_guestfds(char* guestfds)
    return 0;
 }
 
+/*
+ * Called in the exec'ed program before setting up the vm to get rid of open file descriptors from
+ * exec. If we mark these fd's as close on exec, we wouldn't need to do this.
+ */
+static void km_exec_vmclean(void)
+{
+   assert(execstatep != NULL);
+   close(execstatep->intr_fd);
+   close(execstatep->shutdown_fd);
+   close(execstatep->kvm_fd);
+   close(execstatep->mach_fd);
+   for (int i = 0; i < KVM_MAX_VCPUS && execstatep->kvm_vcpu_fd[i] >= 0; i++) {
+      close(execstatep->kvm_vcpu_fd[i]);
+   }
+}
+
 // Called before running the execed program.  Picks up what was saved by km_exec_save_kmstate()
 int km_exec_recover_kmstate(void)
 {
@@ -516,8 +543,7 @@ int km_exec_recover_kmstate(void)
       assert(vernum == NULL && vmfds == NULL && eventfds == NULL && guestfds == NULL && pidinfo == NULL);
       return 0;
    }
-   n = sscanf(vernum, "%d,%d", &version, &nfdmap);
-   if (n != 2) {
+   if ((n = sscanf(vernum, "%d,%d", &version, &nfdmap)) != 2) {
       km_infox(KM_TRACE_EXEC, "couldn't process vernum %s, n %d", vernum, n);
       return -1;
    }
@@ -526,8 +552,7 @@ int km_exec_recover_kmstate(void)
       km_infox(KM_TRACE_EXEC, "exec state verion mismatch, got %d, expect %d", version, KM_EXEC_VERNUM);
       return -1;
    }
-   execstatep = calloc(1, sizeof(*execstatep) + (sizeof(fdmap_t) * nfdmap));
-   if (execstatep == NULL) {
+   if ((execstatep = calloc(1, sizeof(*execstatep) + (sizeof(fdmap_t) * nfdmap))) == NULL) {
       km_infox(KM_TRACE_EXEC, "couldn't allocate fd map, nfdmap %d", nfdmap);
       return -1;
    }
@@ -539,8 +564,7 @@ int km_exec_recover_kmstate(void)
    }
 
    // Get the event fd's
-   n = sscanf(eventfds, "%d,%d", &execstatep->intr_fd, &execstatep->shutdown_fd);
-   if (n != 2) {
+   if ((n = sscanf(eventfds, "%d,%d", &execstatep->intr_fd, &execstatep->shutdown_fd)) != 2) {
       km_infox(KM_TRACE_EXEC, "couldn't get event fd's %s, n %d", eventfds, n);
       return -1;
    }
@@ -551,17 +575,20 @@ int km_exec_recover_kmstate(void)
    }
 
    // Get the pid information
-   n = sscanf(pidinfo,
-              "%d,%d,%d,%d",
-              &execstatep->tracepid,
-              &execstatep->ppid,
-              &execstatep->pid,
-              &execstatep->next_pid);
-   if (n != 4) {
+   if ((n = sscanf(pidinfo,
+                   "%d,%d,%d,%d",
+                   &execstatep->tracepid,
+                   &execstatep->ppid,
+                   &execstatep->pid,
+                   &execstatep->next_pid)) != 4) {
       km_infox(KM_TRACE_EXEC, "couldn't scan pidinfo %s, n %d", pidinfo, n);
       return -1;
    }
-
+   km_exec_vmclean();
+   machine.ppid = execstatep->ppid;
+   machine.pid = execstatep->pid;
+   machine.next_pid = execstatep->next_pid;
+   km_trace_include_pid(execstatep->tracepid);
    km_infox(KM_TRACE_EXEC, "km exec state recovered successfully");
    return 1;
 }
@@ -603,42 +630,11 @@ int km_exec_recover_guestfd(void)
    return 0;
 }
 
-/*
- * Called in the exec'ed program before setting up the vm to get rid of open file descriptors from
- * exec. If we mark these fd's as close on exec, we wouldn't need to do this.
- */
-static void km_exec_vmclean(void)
-{
-   assert(execstatep != NULL);
-   close(execstatep->intr_fd);
-   close(execstatep->shutdown_fd);
-   close(execstatep->kvm_fd);
-   close(execstatep->mach_fd);
-   for (int i = 0; i < KVM_MAX_VCPUS && execstatep->kvm_vcpu_fd[i] >= 0; i++) {
-      close(execstatep->kvm_vcpu_fd[i]);
-   }
-}
-
-void km_exec_init(int argc, char** argv)
+void km_exec_init_args(int argc, char** argv)
 {
    // Remember this in case the guest performs an execve().
    km_exec_argc = argc;   // km-specific argc ... all args after that belong to payload
    km_exec_argv = argv;
-
-   switch (km_exec_recover_kmstate()) {
-      case 0:   // this invocation is not a result of a payload execve()
-         break;
-      case 1:   // payload did an exec, close open fd's
-         km_exec_vmclean();
-         machine.ppid = execstatep->ppid;
-         machine.pid = execstatep->pid;
-         machine.next_pid = execstatep->next_pid;
-         km_trace_include_pid(execstatep->tracepid);
-         break;
-      default:   // exec state is messed up
-         errx(2, "Problems in performing post exec processing");
-         break;
-   }
 }
 
 void km_exec_fini(void)
@@ -668,15 +664,15 @@ static char* get_quoted_string(char** spp)
          }
       } else if (*e != quote) {
          e++;
-      } else {  // terminating quote
+      } else {   // terminating quote
          char* a = malloc(e - s);
-         if (a == NULL) {  // no memory
+         if (a == NULL) {   // no memory
             return NULL;
          }
          char* d = a;
          char* t = s + 1;
          while (*t != 0) {
-            if (*t == '\\') {  // skip escaped char marker
+            if (*t == '\\') {   // skip escaped char marker
                t++;
                assert(*t != 0);
             }
@@ -732,31 +728,31 @@ static char** km_parse_shell_cmd_line(char* cmdline)
       // skip leading whistspace
       while (*s != 0 && (*s == ' ' || *s == '\t')) {
          s++;
-     }
-     if (*s == 0) { // nothing left
-        break;
-     }
+      }
+      if (*s == 0) {   // nothing left
+         break;
+      }
 
-     char* a;
-     if (*s == '"' || *s =='\'') { // Handle quoted string
-        a = get_quoted_string(&s);
-     } else {  // whitespace delimited string
-        int l;
-        char* e = strpbrk(s, " \t");
-        if (e == NULL) {
-           l = strlen(s);
-        } else {
-           l = e - s;
-        }
-        a = malloc(l + 1);
-        if (a == NULL) {
-           km_infox(KM_TRACE_EXEC, "Couldn't allocate %d bytes", l + 1);
-           freevector(sv);
-           return NULL;
-        }
-        strncpy(a, s, l);
-        a[l] = 0;
-        s += l;
+      char* a;
+      if (*s == '"' || *s == '\'') {   // Handle quoted string
+         a = get_quoted_string(&s);
+      } else {   // whitespace delimited string
+         int l;
+         char* e = strpbrk(s, " \t");
+         if (e == NULL) {
+            l = strlen(s);
+         } else {
+            l = e - s;
+         }
+         a = malloc(l + 1);
+         if (a == NULL) {
+            km_infox(KM_TRACE_EXEC, "Couldn't allocate %d bytes", l + 1);
+            freevector(sv);
+            return NULL;
+         }
+         strncpy(a, s, l);
+         a[l] = 0;
+         s += l;
       }
       km_infox(KM_TRACE_EXEC, "arg[%d] = %s", svi, a);
       newsv = realloc(sv, (svi + 2) * sizeof(char*));
@@ -773,4 +769,3 @@ static char** km_parse_shell_cmd_line(char* cmdline)
    km_infox(KM_TRACE_EXEC, "returning sv at %p with %d elements", sv, svi);
    return sv;
 }
-
