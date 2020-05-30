@@ -41,6 +41,9 @@ extern int vcpu_dump;
 
 static inline void usage()
 {
+   if (km_is_exec() == 1) {
+      exit(1);
+   }
    errx(1,
         "Kontain Monitor - runs 'payload-file [payload args]' in Kontain VM\n"
         "Usage: km [options] payload-file[.km] [payload_args ... ]\n"
@@ -456,7 +459,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    } else {
       payload_name = argv[payload_index];
    }
-   km_exec_init(payload_index, (char**)argv);
+   km_exec_init_args(payload_index, (char**)argv);
    return payload_name;
 }
 
@@ -470,6 +473,11 @@ int main(int argc, char* argv[])
    char* payload_name;
 
    km_gdbstub_init();
+   
+   if (km_exec_recover_kmstate() < 0) {   // exec state is messed up
+      errx(2, "Problems in performing post exec processing");
+   }
+
    if ((payload_name = km_parse_args(argc, argv, &argc_p, &argv_p, &envc, &envp)) == NULL) {
       warnx("Failed to determine payload name or find .km file for %s", argv[0]);
       usage();
