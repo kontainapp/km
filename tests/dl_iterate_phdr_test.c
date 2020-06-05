@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <sys/auxv.h>
 #include "greatest/greatest.h"
+#include "mmap_test.h"
 
 struct dl_phdr_info buffer[100];
 int info_idx;
@@ -80,14 +81,22 @@ TEST test(void)
 
    dl_iterate_phdr(callback, NULL);
 
-   ASSERT_EQ(0x200040, phdr);
+   if (KM_PAYLOAD()) {
+      ASSERT_EQ(0x200040, phdr);
+      ASSERT_EQ(1, info_idx);
+      ASSERT_EQ(buffer[0].dlpi_phnum, 7);
+      ASSERT_EQ(buffer[0].dlpi_phdr[0].p_type, PT_LOAD);
+      ASSERT_EQ(buffer[0].dlpi_phdr[0].p_flags, 4);
+      ASSERT_EQ(buffer[0].dlpi_phdr[0].p_vaddr, 0x200000);
+   } else {
+      ASSERT_EQ(0x400040, phdr);
+      ASSERT_EQ(6, info_idx);
+      ASSERT_EQ(buffer[0].dlpi_phnum, 11);
+      ASSERT_EQ(buffer[0].dlpi_phdr[0].p_type, PT_PHDR);
+      ASSERT_EQ(buffer[0].dlpi_phdr[0].p_flags, 4);
+      ASSERT_EQ(buffer[0].dlpi_phdr[0].p_vaddr, 0x400040);
+   }
    ASSERT_EQ(0x38, phent);
-
-   ASSERT_EQ(1, info_idx);
-   ASSERT_EQ(buffer[0].dlpi_phnum, 7);
-   ASSERT_EQ(buffer[0].dlpi_phdr[0].p_type, PT_LOAD);
-   ASSERT_EQ(buffer[0].dlpi_phdr[0].p_flags, 4);
-   ASSERT_EQ(buffer[0].dlpi_phdr[0].p_vaddr, 0x200000);
 
    PASS();
 }

@@ -9,7 +9,7 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * print out CPU Vendor Id - should be 'Kontain.app' (km_cpu_init.c:cpu_vendor_id) in the Payload
+ * print out CPU Vendor Id - should be 'Kontain' (km_cpu_init.c:cpu_vendor_id) in the Payload
  */
 
 #include <cpuid.h>
