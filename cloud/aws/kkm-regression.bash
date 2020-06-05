@@ -17,13 +17,13 @@
 # The following variables are stored in azure pipeline
 # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_FEDORA_PASSWD
 #
-# paramters are AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_FEDORA_PASSWD TEST_BRANCH
+# paramters are TEST_BRANCH
 #
 
-export AWS_ACCESS_KEY_ID=$1
-export AWS_SECRET_ACCESS_KEY=$2
-export AWS_FEDORA_PASSWD=$3
-readonly TEST_BRANCH=$4
+export AWS_ACCESS_KEY_ID=$KONTAIN_AWS_ACCESS_KEY_ID
+export AWS_SECRET_ACCESS_KEY=$KONTAIN_AWS_SECRET_ACCESS_KEY
+readonly AWS_FEDORA_PASSWD=$KONTAIN_AWS_FEDORA_PASSWD
+readonly TEST_BRANCH=$1
 
 export AWS_DEFAULT_OUTPUT='text'
 export AWS_DEFAULT_REGION='us-east-2'
@@ -75,7 +75,6 @@ fi
 echo "New instance ${INSTANCE_ID} created"
 echo "Waiting for new instance ${INSTANCE_ID} to enter running state"
 
-
 # wait for instance to enter running state
 
 wait_for_state ${INSTANCE_ID} 'running'
@@ -97,14 +96,15 @@ echo "Instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
 
 # run tests on newly created instance
 
-sshpass -p ${AWS_FEDORA_PASSWD} scp -oStrictHostKeyChecking=no cloud/aws/kkm-test.bash fedora@${INSTANCE_IP}:bin/kkm-test.bash
+export readonly SSHPASS=$AWS_FEDORA_PASSWD
+sshpass -e scp -oStrictHostKeyChecking=no cloud/aws/kkm-test.bash fedora@${INSTANCE_IP}:bin/kkm-test.bash
 if [ $? -ne 0 ]
 then
       error_exit "Copying test script failed for ${INSTANCE_ID}"
 fi
 
 echo "Starting tests on instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
-TEST_STRING=`sshpass -p ${AWS_FEDORA_PASSWD} ssh -oStrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}`
+TEST_STRING=`sshpass -e ssh -oStrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}`
 if [[ $TEST_STRING == *"tests successfull"* ]]; then
    echo "TEST PASSED"
 else

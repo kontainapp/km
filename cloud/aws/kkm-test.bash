@@ -15,8 +15,8 @@
 [ "$TRACE" ] && set -x
 
 export TERM=linux
-ROOT_DIR="/home/fedora/src/"
-LOG_DIR="/home/fedora/src/log/"
+ROOT_DIR="${HOME}/src/"
+LOG_DIR="${ROOT_DIR}/log/"
 
 function error_exit {
    echo -e $1
@@ -61,10 +61,6 @@ then
    error_exit "building kkm test failed"
 fi
 echo "Building kkm and kkm_test success"
-
-#make -C cloud/azure login
-#make pull-buildenv-image
-#make -C tests buildenv-local-fedora
 
 make -j >& ${LOG_DIR}/build-km
 if [ ! -f build/km/km ]

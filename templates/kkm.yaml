@@ -28,6 +28,10 @@ steps:
     displayName: Test with kkm
     timeoutInMinutes: 15
 
-  - bash: cloud/aws/kkm-regression.bash $(SP_AWS_ACCESS_KEY_ID) $(SP_AWS_SECRET_ACCESS_KEY) $(SP_AWS_FEDORA_PASSWD) $(System.PullRequest.SourceBranch)
+  - bash: cloud/aws/kkm-regression.bash $(System.PullRequest.SourceBranch)
     displayName: Test with kkm on aws
     timeoutInMinutes: 15
+    env:
+      KONTAIN_AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      KONTAIN_AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+      KONTAIN_AWS_FEDORA_PASSWD: $(AWS_FEDORA_PASSWD)
