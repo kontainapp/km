@@ -428,9 +428,11 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
     * GDB interprts the first prstatus as it's initial current thread, so
     * it is important the the failing thread be the first one in the list.
     */
-   ret = km_make_dump_prstatus(vcpu, cur, remain);
-   cur += ret;
-   remain -= ret;
+   if (vcpu != NULL) {
+      ret = km_make_dump_prstatus(vcpu, cur, remain);
+      cur += ret;
+      remain -= ret;
+   }
 
    km_core_list_context_t ctx = {.pr_vcpu = vcpu, .pr_cur = cur, .pr_remain = remain};
    km_vcpu_apply_all(km_core_dump_threads, (uint64_t)&ctx);
@@ -467,6 +469,8 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
    ret = km_fs_core_notes_write(cur, remain);
    cur += ret;
    remain -= ret;
+
+   assert(cur <= buf + size);
 
    // TODO: Other notes sections in real core files.
    //  NT_PRPSINFO (prpsinfo structure)
@@ -523,26 +527,28 @@ static int km_count_vcpu(km_vcpu_t* vcpu, uint64_t unused)
  * Returns buffer allocation size for core PT_NOTES section based on the
  * number of active vcpu's (threads).
  */
-static inline size_t km_core_notes_length()
+static inline size_t km_core_notes_length(km_vcpu_t* vcpu)
 {
    int nvcpu = km_vcpu_apply_all(km_count_vcpu, 0);
+   int nvcpu_inc = (vcpu == NULL) ? 0 : 1;
    /*
     * nvcpu is incremented because the current vcpu is wrtten twice.
     * At the beginning ats the default and again in position.
     */
-   size_t alloclen = sizeof(Elf64_Nhdr) + ((nvcpu + 1) * sizeof(struct elf_prstatus));
-   alloclen += km_mappings_size(NULL, NULL) + sizeof(Elf64_Nhdr);
-   alloclen += machine.auxv_size + sizeof(Elf64_Nhdr);
+   size_t alloclen =
+       (sizeof(Elf64_Nhdr) + strlen(KM_NT_NAME) + sizeof(struct elf_prstatus)) * (nvcpu + nvcpu_inc);
+   alloclen += km_mappings_size(NULL, NULL) + strlen(KM_NT_NAME) + sizeof(Elf64_Nhdr);
+   alloclen += machine.auxv_size + sizeof(Elf64_Nhdr) + strlen(KM_NT_NAME);
 
    // Kontain specific per CPU info (for snapshot restore)
-   alloclen += sizeof(Elf64_Nhdr) + nvcpu * sizeof(struct km_nt_vcpu);
+   alloclen += (sizeof(Elf64_Nhdr) + strlen(KM_NT_NAME) + sizeof(struct km_nt_vcpu)) * nvcpu;
 
    // Kontain specific guest info(for snapshot restore)
-   alloclen += sizeof(Elf64_Nhdr) + sizeof(km_nt_guest_t) +
+   alloclen += sizeof(Elf64_Nhdr) + strlen(KM_NT_NAME) + sizeof(km_nt_guest_t) +
                km_guest.km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
                km_nt_file_padded_size(km_guest.km_filename);
    if (km_dynlinker.km_filename != NULL) {
-      alloclen += sizeof(Elf64_Nhdr) + sizeof(km_nt_guest_t) +
+      alloclen += sizeof(Elf64_Nhdr) + strlen(KM_NT_NAME) + sizeof(km_nt_guest_t) +
                   km_dynlinker.km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
                   km_nt_file_padded_size(km_dynlinker.km_filename);
    }
@@ -678,7 +684,7 @@ void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* ifram
    size_t offset;   // Data offset
    km_mmap_reg_t* ptr;
    char* notes_buffer;
-   size_t notes_length = km_core_notes_length();
+   size_t notes_length = km_core_notes_length(vcpu);
    km_gva_t end_load = 0;
    int phnum = km_core_count_phdrs(vcpu, &end_load);
 
