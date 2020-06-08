@@ -26,6 +26,7 @@
 #include <sys/resource.h>
 
 #include "km.h"
+#include "km_exec.h"
 #include "km_filesys.h"
 #include "km_gdb.h"
 #include "km_guest.h"
@@ -613,9 +614,8 @@ void km_machine_setup(km_machine_init_params_t* params)
    }
    if (machine.pdpe1g == 0) {
       /*
-       * In the absence of 1gb pages we can only support 2GB, first for
-       * text+data, and the second for the stack. See assert() in
-       * set_pml4_hierarchy()
+       * In the absence of 1gb pages we can only support 2GB, first for text+data, and the second
+       * for the stack. See assert() in set_pml4_hierarchy()
        */
       km_infox(KM_TRACE_MEM,
                "KVM: 1gb pages are not supported (pdpe1g=0), setting VM max mem to 2 GiB");
@@ -654,6 +654,11 @@ void km_machine_init(km_machine_init_params_t* params)
 {
    if (km_fs_init() < 0) {
       err(1, "KM: km_fs_init() failed");
+   }
+   if (km_called_via_exec() == 1) {
+      machine.ppid = km_exec_ppid();
+      machine.pid = km_exec_pid();
+      machine.next_pid = km_exec_next_pid();
    }
    km_machine_setup(params);
    km_mem_init(params);

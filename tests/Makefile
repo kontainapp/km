@@ -66,7 +66,7 @@ DEPS = ${SRC_C:%.c=%.d} ${SRC_SHR:%.c=%.d} ${SRC_CPP:%.cpp=%.d}
 
 SUFFIXES := .km .kmd .km.so .alpine.km .alpine.kmd .${DTYPE}
 TESTS := ${SRC_C:%.c=%} ${SRC_CPP:%.cpp=%}
-EXECS := ${TESTS} \
+EXECS := ${TESTS} hello_test_link \
 	$(foreach s,${SUFFIXES},$(addsuffix ${s},${TESTS}))
 
 # misc. other .so files
@@ -109,6 +109,9 @@ ${SRC_CPP:%.cpp=%.km.so}: KCC=${KCXX}
 
 %_test: ${KM_BIN}
 	ln -sf $$(realpath --relative-to=${CURDIR} $<) $@ ; touch $@
+
+%_test_link: %_test
+	ln -sf $$(realpath --no-symlinks --relative-to=${CURDIR} $<) $@
 
 %.so: %.o
 	${CC} -shared ${LDFLAGS} $< ${LDLIBS} -o $@
