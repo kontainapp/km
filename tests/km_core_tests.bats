@@ -969,7 +969,7 @@ fi
    assert_success
    assert_line --partial "Extracting payload name from shebang file 'shebang_test.sh'"
    assert_line --partial "Adding extra arg 'arguments to test, should be one'"
-   assert_line --partial "argv[2] = 'AndEvenMore'"
+   assert_line --partial "argv[3] = 'AndEvenMore'"
 
 }
 
@@ -994,10 +994,10 @@ fi
    KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout exec_test$ext
    assert_line --regexp 'argv\[0\] = .*tests/hello_test.km'
    assert_line --partial "argv[1] = 'arguments to test, should be one'"
-   assert_line --partial "argv[5] = 'd4'"
+   assert_line --partial "argv[6] = 'd4'"
    KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout --copyenv exec_test$ext -f
    assert_line --partial "argv[1] = 'arguments to test, should be one'"
-   assert_line --partial "argv[5] = 'd4'"
+   assert_line --partial "argv[6] = 'd4'"
 
 
 }
@@ -1028,7 +1028,7 @@ fi
    assert_success
 
    # now test with a relative path to pipetarget_test but no place to find it, should fail
-   run km_with_timeout --putenv TESTPROG=pipetarget_test popen_test$ext /etc/group /tmp/f1 /tmp/f2
+   run km_with_timeout --putenv TESTPROG=../pipetarget_test popen_test$ext /etc/group /tmp/f1 /tmp/f2
    assert_failure 1
 
    # now test with a relative path to pipetarget_test but with a PATH var
@@ -1036,6 +1036,6 @@ fi
    assert_success
 
    # now test with full path to pipetarget_test and no PATH var
-   run km_with_timeout -V --putenv TESTPROG=`pwd`/pipetarget_test.kmd -V popen_test$ext /etc/group /tmp/f1 /tmp/f2 2>/tmp/xx
+   run km_with_timeout -V --putenv TESTPROG=`pwd`/pipetarget_test -V popen_test$ext /etc/group /tmp/f1 /tmp/f2 2>/tmp/xx
    assert_success
 }

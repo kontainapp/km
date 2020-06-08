@@ -9,7 +9,7 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  */
-
+#define _GNU_SOURCE   // strdupa
 #include <ctype.h>
 #include <err.h>
 #include <fcntl.h>
@@ -23,6 +23,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/auxv.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "km.h"
@@ -158,7 +160,6 @@ static const size_t SHEBANG_LEN = 2;              // strlen(SHEBANG)
 static const size_t SHEBANG_MAX_LINE_LEN = 512;   // note: grabbed on stack
 
 static const_string_t PAYLOAD_SUFFIX = ".km";
-static const_string_t KM_BIN_NAME = "km";
 
 char* km_get_self_name()
 {
@@ -179,20 +180,78 @@ char* km_get_self_name()
    return km_bin_name;
 }
 
+static int one_readlink(const char* name, char* buf, size_t buf_size)
+{
+   int rc;
+   if ((rc = readlink(name, buf, buf_size)) < 0) {
+      return -1;
+   }
+   if (*buf == '/') {
+      return rc;
+   }
+
+   // link is relative - construct full path name
+   buf[rc] = 0;
+   char* name_l = strdupa(name);
+   char* link = strdupa(buf);
+   snprintf(buf, buf_size - 1, "%s/%s", dirname(name_l), link);
+   return strlen(buf);
+}
+
+// check if name point to km ourselves. Return -1 for errors, 1 if we are km, 0 if not
+static int km_check_for_km(const char* name)
+{
+   struct stat stb, stb_self;
+
+   if (stat("/proc/self/exe", &stb_self) != 0 || stat(name, &stb) != 0) {
+      return -1;
+   }
+   return (stb_self.st_dev == stb.st_dev && stb_self.st_ino == stb.st_ino) ? 1 : 0;
+}
+
+// returns strdup-ed name of the final symlink (NOT the final file), NULL if there was none
+char* km_traverse_payload_symlinks(const char* arg)
+{
+   char buf[PATH_MAX + 1];
+   int bytes;
+   // we need to keep prior symlink name so the upstairs can locate the payload
+   char* last_symlink = NULL;
+   char* name = strdup(arg);
+   km_infox(KM_TRACE_EXEC, "input %s", arg);
+
+   while ((bytes = one_readlink(name, buf, PATH_MAX)) != -1) {
+      buf[bytes] = '\0';
+      if (last_symlink != NULL) {
+         free(last_symlink);
+      }
+      last_symlink = name;
+      name = strdup(buf);
+   }
+   free(name);
+   if (last_symlink != NULL) {
+      snprintf(buf, PATH_MAX, "%s%s", last_symlink, PAYLOAD_SUFFIX);
+      free(last_symlink);
+      km_tracex("Setting payload name to %s", buf);
+      last_symlink = realpath(buf, NULL);
+   }
+   return last_symlink;
+}
+
 /*
- * Check if the passed file is a shebang or symlink to km, and if it is get payload file name from
- * there. Returns strdup-ed payload name on success, NULL on failure.
+ * Check if the passed file is a shebang, and if it is get payload file name from there. Returns
+ * strdup-ed payload name on success, NULL on failure.
  */
-char* km_get_payload_name(char* payload_file, char** extra_arg)
+char* km_parse_shebang(const char* payload_file, char** extra_arg)
 {
    char line_buf[SHEBANG_MAX_LINE_LEN + 1];   // first line of shebang file
    int fd;
    int count;
 
-   *extra_arg = NULL;
+   assert(payload_file != NULL);
    km_infox(KM_TRACE_EXEC, "input payload_file %s", payload_file);
+   *extra_arg = NULL;
 
-   if (payload_file == NULL || (fd = open(payload_file, O_RDONLY, 0)) < 0) {
+   if ((fd = open(payload_file, O_RDONLY, 0)) < 0) {
       return NULL;
    }
    count = pread(fd, line_buf, SHEBANG_MAX_LINE_LEN, 0);
@@ -204,63 +263,34 @@ char* km_get_payload_name(char* payload_file, char** extra_arg)
    }
 
    line_buf[count] = 0;   // null terminate whatever we read
-   if (strncmp(line_buf, SHEBANG, SHEBANG_LEN) == 0) {
-      km_tracex("Extracting payload name from shebang file '%s'", payload_file);
-      char* c;
-      for (c = line_buf + SHEBANG_LEN; isspace(*c) == 0 && *c != '\0'; c++) {   // find args, if any
-      }
-      if (*c == '\0') {
-         km_tracex("Warning: shebang line too long, truncating to %ld", SHEBANG_MAX_LINE_LEN);
-      }
-
-      if (*c != '\n' && *c != '\0') {
-         char* arg_end = strpbrk(line_buf + SHEBANG_LEN, "\r\n");
-         if (arg_end != NULL) {   // arg found
-            *arg_end = '\0';
-            *extra_arg = strdup(c + 1);
-         }
-      }
-      payload_file = line_buf + SHEBANG_LEN;
-      *c = 0;   // null terminate the payload file name
-      km_tracex("Payload file from shebang: %s", payload_file);
+   if (strncmp(line_buf, SHEBANG, SHEBANG_LEN) != 0) {
+      return NULL;
+   }
+   km_tracex("Extracting payload name from shebang file '%s'", payload_file);
+   char* c;
+   for (c = line_buf + SHEBANG_LEN; isspace(*c) == 0 && *c != '\0'; c++) {   // find args, if any
+   }
+   if (*c == '\0') {
+      km_tracex("Warning: shebang line too long, truncating to %ld", SHEBANG_MAX_LINE_LEN);
    }
 
-   // If the payload name is a symlink to KM, then we need to add suffix to form the actual
-   // payload name (e.g. /usr/bin/python.km) instead avoid passing KM binary to KM :-)
-   char fname_buf[PATH_MAX + 1];
-   if ((count = readlink(payload_file, fname_buf, PATH_MAX)) != -1) {
-      fname_buf[count] = '\0';
-      if (strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {
-         snprintf(fname_buf, PATH_MAX, "%s%s", payload_file, PAYLOAD_SUFFIX);   // reuse the buffer
-         payload_file = fname_buf;
-         km_tracex("Setting payload name to %s", payload_file);
+   if (*c != '\n' && *c != '\0') {
+      char* arg_end = strpbrk(line_buf + SHEBANG_LEN, "\r\n");
+      if (arg_end != NULL) {   // arg found
+         *arg_end = '\0';
+         *extra_arg = strdup(c + 1);
+         km_tracex("Adding extra arg '%s'", *extra_arg);
       }
    }
-   char* plf = realpath(payload_file, NULL);
+   payload_file = line_buf + SHEBANG_LEN;
+   *c = 0;   // null terminate the payload file name
+   km_tracex("Payload file from shebang: %s", payload_file);
+
+   char* plf = km_traverse_payload_symlinks(payload_file);
    if (plf == NULL) {
       km_info(KM_TRACE_ARGS, "realpath for %s failed: ", payload_file);
    }
    return plf;
-}
-
-// returns strdup-ed name of the final symlink (NOT the final file), NULL if there was none
-static char* km_traverse_symlinks(char* name, char* buf, size_t buf_size)
-{
-   int bytes;
-   // we need to keep prior symlink name so the upstairs can locate the payload
-   char* last_symlink = NULL;
-
-   name = strdup(name);
-   while ((bytes = readlink(name, buf, buf_size - 1)) != -1) {
-      buf[bytes] = '\0';
-      if (last_symlink != NULL) {
-         free(last_symlink);
-      }
-      last_symlink = name;
-      name = strdup(buf);
-   }
-   free(name);
-   return last_symlink;
 }
 
 // parses args, returns payload_name based on argv[], symlink, or shebang.
@@ -277,9 +307,9 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    char* ep = NULL;
    int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int longopt_index;    // flag index in longopt array
-   int payload_index;    // payload_name index in argv array
+   int pl_index;         // payload_name index in argv array
    char** envp = NULL;   // NULL terminated array of env pointers
-   int envc = 1;         // count of elements in envp (including NULL)
+   int envc = 1;         // count of elements in envp (including NULL), see realloc below in case 'e'
 
    // Special check for tracing
    // TODO: handle generic KM_CLI_FLAGS here, and reuse code below
@@ -291,12 +321,12 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
       }
       regcomp(&km_info_trace.tags, trace_regex, regex_flags);
    }
-
-   char fname_buf[PATH_MAX];
-   char* name = km_traverse_symlinks(argv[0], fname_buf, PATH_MAX);
-   if (name != NULL && strcmp(basename(fname_buf), KM_BIN_NAME) == 0) {   // Called on behalf of a payload
-      argv[0] = name;
-      payload_index = 0;
+   char* pl_name;
+   // first one works for symlinks, including found in PATH.
+   // But for shebang the first is shebang file itself, hence the second one
+   if ((pl_name = km_traverse_payload_symlinks((const char*)getauxval(AT_EXECFN))) != NULL ||
+       (pl_name = km_traverse_payload_symlinks((const char*)argv[0])) != NULL) {
+      pl_index = 0;
    } else {   // regular KM invocation - parse KM args
       while ((opt = getopt_long(argc, argv, "+g::e:AEV::P:vC:S", long_options, &longopt_index)) != -1) {
          switch (opt) {
@@ -414,7 +444,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                usage();
          }
       }
-      payload_index = optind;
+      pl_index = optind;
 
       if (resume_snapshot != 0 && copyenv_used == 1) {
          copyenv_used = 0;   // when resuming snapshot, default behavior is NOT to copy env
@@ -436,31 +466,48 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    // Configure payload's env and args
    *envp_p = envp;
    *envc_p = envc;
-   *argc_p = argc - payload_index;
-   *argv_p = argv + payload_index;
+   *argc_p = argc - pl_index;
+   *argv_p = argv + pl_index;
 
-   char* payload_name;
-   // handle shebang and payload_name->km symlinks in shebang unless it's a snapshot
-   if (resume_snapshot == 0) {
+   /*
+    * If we were called by shebang/symlink, shebang was processed by the system and symlink at the
+    * top of this function. However there is a case when we explicitly call km with shebang
+    * argument. Note that km_parse_shebang() follows symlinks via open() so symlinks to shebang also
+    * works.
+    */
+   if (pl_name == NULL) {
       char* extra_arg = NULL;   // shebang arg (if any) will be placed here, strdup-ed
-      if ((payload_name = km_get_payload_name(argv[payload_index], &extra_arg)) == NULL) {
-         km_trace("Failed to get payload name for %s (idx=%d)", argv[payload_index], payload_index);
-         return NULL;
+      if (resume_snapshot == 0 && (pl_name = km_parse_shebang(argv[pl_index], &extra_arg)) != NULL) {
+         int idx = 0;
+         (*argc_p)++;   // room for shebang file name
+         if (extra_arg != NULL) {
+            (*argc_p)++;   // room for shebang arg
+            *argv_p = calloc(*argc_p, sizeof(char*));
+            (*argv_p)[idx++] = pl_name;
+            (*argv_p)[idx++] = extra_arg;   // shebang has only one arg
+         } else {
+            *argv_p = calloc(*argc_p, sizeof(char*));
+            (*argv_p)[idx++] = pl_name;
+         }
+         (*argv_p)[idx++] = argv[pl_index];   // shebang file
+
+         memcpy(*argv_p + idx, argv + pl_index + 1, sizeof(char*) * (*argc_p - idx));   // payload args
+      } else {
+         /*
+          * We didn't find .km file either through symlink or shebang. This could be legitimate .km
+          * file or some garbage, and we'll know for sure when we try to load it as ELF. However,
+          * since we now have symlinks to km executable lying around check we are not trying to load
+          * ourselves as payload.
+          */
+         if (km_check_for_km(argv[pl_index]) == 0) {
+            pl_name = strdup(argv[pl_index]);
+         }
       }
-      if (extra_arg != NULL) {
-         km_tracex("Adding extra arg '%s'", extra_arg);
-         (*argc_p)++;
-         *argv_p = calloc(*argc_p, sizeof(char*));
-         (*argv_p)[0] = payload_name;
-         (*argv_p)[1] = extra_arg;   // shebang has only one arg
-         // if there are payload args passed on KM cmdline, add them to payload args
-         memcpy(*argv_p + 2, argv + payload_index + 1, sizeof(char*) * (*argc_p - 2));
-      }
-   } else {
-      payload_name = argv[payload_index];
    }
-   km_exec_init_args(payload_index, (char**)argv);
-   return payload_name;
+   // check we are not trying to run km in km
+
+   km_exec_init_args(pl_index, (char**)argv);
+   return pl_name;
 }
 
 int main(int argc, char* argv[])
@@ -473,7 +520,7 @@ int main(int argc, char* argv[])
    char* payload_name;
 
    km_gdbstub_init();
-   
+
    if (km_exec_recover_kmstate() < 0) {   // exec state is messed up
       errx(2, "Problems in performing post exec processing");
    }
