@@ -89,6 +89,7 @@ static inline size_t km_nt_file_padded_size(char* str)
 void km_dump_core(char* filename, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe);
 void km_set_coredump_path(char* path);
 char* km_get_coredump_path();
+size_t km_note_header_size(char* owner);
 int km_add_note_header(char* buf, size_t length, char* owner, int type, size_t descsz);
 
 #endif
