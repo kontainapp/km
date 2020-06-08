@@ -1346,21 +1346,19 @@ static int do_exec(char* filename, char** argv, char** envp)
    char** newargv;
 
    // Add some km state to the environment.
-   newenv = km_exec_build_env(envp);
-   if (newenv == NULL) {
+   if ((newenv = km_exec_build_env(envp)) == NULL) {
       return -ENOMEM;
    }
    // Build argv line with km program and args before the payload's args.
-   newargv = km_exec_build_argv(filename, argv);
-   if (newargv == NULL) {
+   if ((newargv = km_exec_build_argv(filename, argv, envp)) == NULL) {
       free(newenv);
-      return -ENOMEM;
+      return -ENOEXEC;
    }
 
    // Start km again with the new payload program
    execve(km_get_self_name(), newargv, newenv);
    // If we are here, execve() failed.  So we need to cleanup.
-   km_info(KM_TRACE_HC, "execve failed, error %d", errno);
+   km_info(KM_TRACE_HC, "execve failed");
    free(newargv);
    free(newenv);
    return -errno;

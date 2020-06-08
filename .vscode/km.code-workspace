@@ -65,6 +65,7 @@
          "runc",
          "shdr",
          "sregs",
+         "symlink",
          "vcpu",
          "vmexit",
          "vpcu",

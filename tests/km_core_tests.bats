@@ -22,7 +22,7 @@ not_needed_static='gdb_sharedlib'
 todo_static=''
 
 # skip slow ones
-not_needed_native_static='km_main_argv0 km_main_shebang linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test'
+not_needed_native_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test'
 # review - some fail. Some slow
 todo_native_static='mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
 
@@ -30,11 +30,11 @@ not_needed_native_dynamic=$not_needed_native_static
 todo_native_dynamic=$todo_native_static
 
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic='km_main_argv0 km_main_shebang linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many'
+not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many'
 todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
 
 todo_so=''
-not_needed_so='km_main_argv0 km_main_shebang linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
+not_needed_so='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
     exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore'
 
 # make sure it does not leak in from the outer shell, it can mess out the output
@@ -963,14 +963,30 @@ fi
    done
 }
 
-
 @test "km_main_shebang($test_type): shebang file handling (shebang$ext)" {
    KM_VERBOSE=generic run $KM_BIN shebang_test.sh AndEvenMore
    assert_success
    assert_line --partial "Extracting payload name from shebang file 'shebang_test.sh'"
    assert_line --partial "Adding extra arg 'arguments to test, should be one'"
-   assert_line --partial "argv[2] = 'AndEvenMore'"
+   assert_line --partial "argv[3] = 'AndEvenMore'"
 
+   # shebang to nested symlink
+   KM_VERBOSE=generic run $KM_BIN shebang_test_link.sh AndEvenMore
+   assert_success
+   assert_line --partial "Extracting payload name from shebang file 'shebang_test_link.sh'"
+   assert_line --partial "Adding extra arg 'arguments to test, should be one'"
+   assert_line --partial "argv[3] = 'AndEvenMore'"
+}
+
+@test "km_main_symlink($test_type): symlink handling" {
+   run hello_test AndEvenMore
+   assert_success
+   assert_line --partial "argv[1] = 'AndEvenMore'"
+
+   # shebang to nested symlink
+   run hello_test_link AndEvenMore
+   assert_success
+   assert_line --partial "argv[1] = 'AndEvenMore'"
 }
 
 @test "exec($test_type): test execve and execveat hypercalls (exec_test$ext)" {
@@ -994,12 +1010,14 @@ fi
    KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout exec_test$ext
    assert_line --regexp 'argv\[0\] = .*tests/hello_test.km'
    assert_line --partial "argv[1] = 'arguments to test, should be one'"
-   assert_line --partial "argv[5] = 'd4'"
+   assert_line --partial "argv[6] = 'd4'"
    KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout --copyenv exec_test$ext -f
    assert_line --partial "argv[1] = 'arguments to test, should be one'"
-   assert_line --partial "argv[5] = 'd4'"
-
-
+   assert_line --partial "argv[6] = 'd4'"
+   KM_EXEC_TEST_EXE=shebang_test_link.sh run km_with_timeout exec_test$ext
+   assert_line --regexp 'argv\[0\] = .*tests/hello_test.km'
+   assert_line --partial "argv[1] = 'arguments to test, should be one'"
+   assert_line --partial "argv[6] = 'd4'"
 }
 
 @test "clock_gettime($test_type): VDSO clock_gettime, dependency on TSC (clock_gettime$ext)" {
@@ -1036,7 +1054,7 @@ fi
    assert_success
 
    # now test with full path to pipetarget_test and no PATH var
-   run km_with_timeout --timeout 5s -V --putenv TESTPROG=`pwd`/pipetarget_test.kmd -V popen_test$ext /etc/group /tmp/f1 /tmp/f2 2>/tmp/xx
+   run km_with_timeout --timeout 5s -V --putenv TESTPROG=`pwd`/pipetarget_test -V popen_test$ext /etc/group /tmp/f1 /tmp/f2 2>/tmp/xx
    assert_success
 }
 
