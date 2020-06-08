@@ -636,6 +636,9 @@ typedef int(link_map_visit_function_t)(link_map_t* kma, link_map_t* gva, void* v
 
 int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp);
 
+char* km_traverse_payload_symlinks(const char* name);
+char* km_parse_shebang(const char* payload_file, char** extra_arg);
+
 // km_decode.c
 void* km_find_faulting_address(km_vcpu_t* vcpu);
 void km_x86decode(km_vcpu_t* vcpu);

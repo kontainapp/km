@@ -5,6 +5,7 @@ build/**
 *.km
 *.kmd
 tests/*_test
+tests/*_test_link
 tests/*.so
 tests/*.musl
 tests/km
