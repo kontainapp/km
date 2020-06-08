@@ -9,8 +9,9 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  */
-
+#define _GNU_SOURCE
 #include <assert.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -18,6 +19,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/param.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "km.h"
 #include "km_exec.h"
@@ -74,15 +77,30 @@ static km_exec_state_t* execstatep;
 // The args from main so that exec can rebuild the km command line
 static int km_exec_argc;
 static char** km_exec_argv;
-char** km_exec_payload_env;
 
-int km_is_exec(void)
+pid_t km_exec_pid(void)
+{
+   return execstatep->pid;
+}
+
+pid_t km_exec_ppid(void)
+{
+   return execstatep->ppid;
+}
+
+pid_t km_exec_next_pid(void)
+{
+   return execstatep->next_pid;
+}
+
+int km_called_via_exec(void)
 {
    if (execstatep != NULL && execstatep->version != 0) {
       return 1;
    }
    return 0;
 }
+
 /*
  * Build an "KM_EXEC_VERS=1,xxxx" string to put in the environment for an execve() so that the
  * exec'ed instance of km can know how to put the payload environment back together.
@@ -282,12 +300,12 @@ char** km_exec_build_env(char** envp)
 /*
  * Walk through the payload's environment vars to find the requested variable.
  */
-static char* km_payload_getenv(char* varname)
+static char* km_payload_getenv(const char* varname, char** envp)
 {
    size_t vnl = strlen(varname);
    char** varp;
-   km_infox(KM_TRACE_ARGS, "km_exec_payload_env %p, varname %s", km_exec_payload_env, varname);
-   for (varp = km_exec_payload_env; *varp != NULL; varp++) {
+   km_infox(KM_TRACE_ARGS, "varname %s", varname);
+   for (varp = envp; *varp != NULL; varp++) {
       char* var_kma = km_gva_to_kma((km_gva_t)*varp);
       km_infox(KM_TRACE_ARGS,
                "var %p, var_kma %p, %s",
@@ -302,143 +320,235 @@ static char* km_payload_getenv(char* varname)
    return NULL;
 }
 
-/*
- * Resolve the passed command name to a km payload path which can be provided to km for exec.
- * Payloads specified with a relative path are resolve using the guest's PATH env var.
- */
-static char* km_resolve_cmdname(char* cmdname, char* returnedpath, int returnedpathl, char** shebangarg)
+// Resolve the passed command name using the guest's PATH
+static char* km_resolve_cmdname(const char* cmdname, const char* path, char* temp, size_t temp_len)
 {
-   char* p = NULL;
-
-   // Get an absolute path or a path relative to the current working dir.
-   if (*cmdname == '/' || strncmp(cmdname, "./", 2) == 0) {   // path is specified
-      snprintf(returnedpath, returnedpathl, "%s", cmdname);
-      p = km_get_payload_name(returnedpath, shebangarg);
-   } else {
-      char* path = km_payload_getenv("PATH");
-      if (path == NULL) {   // relative path and no payload PATH variable, can't help you
-         km_infox(KM_TRACE_EXEC, "Couldn't get payload PATH env var");
-         return NULL;
-      }
+   if (*cmdname == '/' || strncmp(cmdname, "./", 2) == 0 || strncmp(cmdname, "../", 3 == 0)) {
+      return strncpy(temp, cmdname, temp_len);
+   }
+   // try path if specified, and the file name isn't full
+   if (path != NULL) {
       km_infox(KM_TRACE_EXEC, "Using PATH=%s", path);
       // Parse the value of the PATH var and try to find the path of the payload
-      char temp[MAXPATHLEN];
-      char* trailingcolon;
-      char* pvp;
-      for (pvp = path; pvp != NULL; pvp = trailingcolon) {
-         if (*pvp == ':') {   // sometimes there is no leading ':'
-            pvp++;
-         }
-         trailingcolon = strchr(pvp, ':');
-         size_t l;
-         if (trailingcolon == NULL) {   // no trailing colon
-            l = strlen(pvp);
-         } else {
-            l = trailingcolon - pvp;
-         }
-         if (l < sizeof(path)) {
-            strncpy(temp, pvp, l);
-            temp[l] = 0;
-            snprintf(returnedpath, returnedpathl, "%s/%s", temp, cmdname);
-            // Handle payloads that are shebang files or the shebang resolves to a symlink
-            p = km_get_payload_name(returnedpath, shebangarg);
-            if (p != NULL) {
-               break;
-            }
-         } else {
-            km_infox(KM_TRACE_EXEC, "ignoring path %s: too long", pvp);
+      for (const char* pvp = strtok(strdupa(path), ":"); pvp != NULL; pvp = strtok(NULL, ":")) {
+         struct stat statbuf;
+
+         snprintf(temp, temp_len, "%s/%s", pvp, cmdname);
+         if (stat(temp, &statbuf) == 0 && (statbuf.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0) {
+            km_infox(KM_TRACE_EXEC, "Resolved cmd %s to path %s", cmdname, temp);
+            return temp;
          }
       }
    }
-   km_infox(KM_TRACE_EXEC, "Resolved cmd %s to path %s", cmdname, p);
-   if (p == NULL) {
-      return NULL;
-   }
-   if (strlen(p) >= returnedpathl) {
-      km_info(KM_TRACE_EXEC, "Not enough space to return path %s", p);
-      free(p);
-      return NULL;
-   }
-   strcpy(returnedpath, p);
-   free(p);
+   return NULL;
+}
 
-   return returnedpath;
+static void freevector(char** sv, int deep)
+{
+   km_infox(KM_TRACE_EXEC, "freeing arg vector %p", sv);
+   if (sv != NULL) {
+      if (deep != 0) {
+         for (int i = 0; sv[i] != NULL; i++) {
+            km_infox(KM_TRACE_EXEC, "freeing %p", sv[i]);
+            free(sv[i]);
+         }
+      }
+      free(sv);
+   }
 }
 
 /*
- * Build an argv[] by taking the current km's args other than the payload args and
- * appending the argv passed to execve().
- * If they are trying to run the shell, we don't want to do that for security reasons.
- * Instead we parse the command line that would be passed to the shell and form a new
- * argv[] which will be appended to the km command line as would be done if a km payload
- * was being exec'ed.
+ * Get a quoted string.  The first char is the quote char. Allow escaped chars in the string.
+ * Return a pointer to allocated memory containing the string without the quoting chars at the
+ * beginning and end of the string.
  */
-static char** km_parse_shell_cmd_line(char* cmdline);
-static void freevector(char** sv);
-char** km_exec_build_argv(char* filename, char** argv)
+static char* get_quoted_string(char** spp)
 {
-   char** nargv;
-   int nargc;
-   int argc;
-   char** newargv = NULL;
-   char* shebong;
+   char* s = *spp;
+   char quote = *s;
+   char* e = s + 1;
 
-   if (strcmp(filename, SHELL_PATH) == 0) {   // so that popen() calls from the payload can work
-      assert(argv[0] != NULL && argv[1] != NULL && argv[2] != NULL);
-      assert(strcmp(km_gva_to_kma((km_gva_t)argv[1]), "-c") == 0);
-      char* cmdline = km_gva_to_kma((km_gva_t)argv[2]);
-      km_infox(KM_TRACE_EXEC, "Parsing shell command: %s", cmdline);
-      newargv = km_parse_shell_cmd_line(cmdline);
-      if (newargv == NULL) {
-         return NULL;
-      }
-      // Resolve newargv[0] to a path to a km payload
-      char resolvedpath[MAXPATHLEN * 2];   // * 2 for compiler pacification :-(
-      filename = km_resolve_cmdname(newargv[0], resolvedpath, sizeof(resolvedpath), &shebong);
-      if (filename == NULL) {
-         freevector(newargv);
-         return NULL;
-      }
-
-      for (argc = 0; newargv[argc] != NULL; argc++) {
-      }
-      if (shebong != NULL) {
-         argc++;
-      }
-   } else {   // a km payload file
-      for (argc = 0; argv[argc] != NULL; argc++) {
+   while (*e != 0) {
+      if (*e == '\\') {
+         if (*(e + 1) != 0) {
+            e += 2;
+         } else {   // backslash followed by string terminator?
+            return NULL;
+         }
+      } else if (*e != quote) {
+         e++;
+      } else {   // terminating quote
+         char* a = malloc(e - s);
+         if (a == NULL) {   // no memory
+            return NULL;
+         }
+         char* d = a;
+         char* t = s + 1;
+         while (*t != 0) {
+            if (*t == '\\') {   // skip escaped char marker
+               t++;
+               assert(*t != 0);
+            }
+            *d++ = *t++;
+         }
+         *d = 0;
+         *spp = e + 1;
+         return a;
       }
    }
+   // No terminating quote?
+   return NULL;
+}
 
-   // Allocate memory for the km args plus the payload args
-   nargc = 1 + argc + 1;
-   if ((nargv = calloc(nargc, sizeof(char*))) == NULL) {
-      freevector(newargv);
+/*
+ * Parse a shell command line and return the arguments in an allocated address vector.  The
+ * caller is responsible for freeing the address vector and the memory pointed to by the vector
+ * elements. This function will fail if it finds any special shell constructs, like: i/o
+ * redirection backgrounding pipelining shell variables regular expressions command evaluation
+ * like `echo abc` compound commands (&& ||) Returns: vector address on success NULL on failure
+ */
+static char** km_parse_shell_cmd_line(char* s, int* cnt)
+{
+   int svi = 0;
+   char** sv = NULL;
+   km_infox(KM_TRACE_EXEC, "parsing cmdline %s", s);
+
+   for (;;) {
+      // skip leading whitespace
+      while (*s != 0 && (*s == ' ' || *s == '\t')) {
+         s++;
+      }
+      if (*s == 0) {   // nothing left
+         break;
+      }
+
+      char* a;
+      if (*s == '"' || *s == '\'') {   // Handle quoted string
+         a = get_quoted_string(&s);
+      } else {   // whitespace delimited string
+         int l;
+         char* e = strpbrk(s, " \t");
+         if (e == NULL) {
+            l = strlen(s);
+         } else {
+            l = e - s;
+         }
+         if ((a = malloc(l + 1)) == NULL) {
+            km_infox(KM_TRACE_EXEC, "Couldn't allocate %d bytes", l + 1);
+            freevector(sv, 1);
+            return NULL;
+         }
+         strncpy(a, s, l);
+         a[l] = 0;
+         s += l;
+      }
+      km_infox(KM_TRACE_EXEC, "arg[%d] = %s", svi, a);
+      if ((sv = realloc(sv, (svi + 2) * sizeof(char*))) == NULL) {
+         km_infox(KM_TRACE_EXEC, "realloc() failed, needed %lu bytes", (svi + 1) * sizeof(char*));
+         freevector(sv, 1);
+         return NULL;
+      }
+      sv[svi++] = a;
+      sv[svi] = NULL;
+      *cnt = svi;
+   }
+
+   km_infox(KM_TRACE_EXEC, "returning sv at %p with %d elements", sv, svi);
+   return sv;
+}
+
+/*
+ * Build an argv[] by taking the current km's args other than the payload args and appending the
+ * argv passed to execve().
+ *
+ * If they are trying to run the shell, we don't want to do that for security reasons. Instead we
+ * parse the command line that would be passed to the shell and form a new argv[] which will be
+ * appended to the km command line as would be done if a km payload was being exec'ed.
+ */
+char** km_exec_build_argv(char* filename, char** argv, char** envp)
+{
+   char** nargv;
+   int argc;
+   char buf[PATH_MAX];
+   int shell;
+
+   /*
+    * If this is popen build new argv and argc from cmd line.
+    * Otherwise compute argc and copy argv from guest address space
+    */
+   if (strcmp(filename, SHELL_PATH) == 0) {   // so that popen() calls from the payload can work
+      if (argv[0] == NULL || argv[1] == NULL || argv[2] == NULL || argv[3] != NULL ||
+          strcmp(km_gva_to_kma((km_gva_t)argv[1]), "-c") != 0) {
+         return NULL;
+      }
+      char* cmdline = km_gva_to_kma((km_gva_t)argv[2]);
+
+      shell = 1;
+      km_infox(KM_TRACE_EXEC, "Parsing shell command: %s", cmdline);
+      if ((nargv = km_parse_shell_cmd_line(cmdline, &argc)) == NULL) {
+         return NULL;
+      }
+      filename = km_resolve_cmdname(nargv[0], km_payload_getenv("PATH", envp), buf, sizeof(buf));
+      if (filename == NULL) {
+         freevector(nargv, 1);
+         return NULL;
+      }
+   } else {
+      shell = 0;
+      for (argc = 0; argv[argc] != NULL; argc++) {
+      }
+      if ((nargv = calloc(argc, sizeof(char*))) == NULL) {
+         return NULL;
+      }
+      for (int idx = 0; argv[idx] != NULL; idx++) {
+         nargv[idx] = km_gva_to_kma((km_gva_t)argv[idx]);
+      }
+   }
+   argv = nargv;
+
+   /*
+    * First check for shebang as executable.
+    * Note that km_parse_shebang() follows symlinks via open() so symlink to shebang also works.
+    */
+   char* pl_name;
+   char* extra_arg = NULL;   // shebang arg (if any) will be placed here, strdup-ed
+   if ((pl_name = km_parse_shebang(filename, &extra_arg)) != NULL) {
+      int idx = 1;   // 0 is km executable (assigned below), followed by arguments
+      if (extra_arg != NULL) {
+         // km exec, shebang arg, shebang, cnt, and NULL
+         if ((nargv = calloc(1 + 2 + argc + 1, sizeof(char*))) == NULL) {
+            freevector(argv, shell);
+            return NULL;
+         }
+         nargv[idx++] = pl_name;
+         nargv[idx++] = extra_arg;   // single shebang arg
+      } else {
+         // km exec, payload, shebang, cnt, and NULL
+         if ((nargv = calloc(1 + 1 + argc + 1, sizeof(char*))) == NULL) {
+            freevector(argv, shell);
+            return NULL;
+         }
+         nargv[idx++] = pl_name;
+      }
+      nargv[idx++] = filename;   // shebang file
+
+      memcpy(nargv + idx, argv + 1, sizeof(char*) * (argc - 1));   // payload args
+      nargv[0] = km_get_self_name();                               // km exec
+      return nargv;
+   }
+   // not shebang, got to be symlink
+   if ((pl_name = km_traverse_payload_symlinks(filename)) == NULL) {
+      freevector(argv, shell);
       return NULL;
    }
 
-   // Copy km related args in.  Still deciding what else to include
-   int i = 0;
-   nargv[i++] = km_get_self_name();
-
-   // path to the km payload being "exec"ed
-   nargv[i] = filename;
-   if (shebong != NULL) {
-      nargv[++i] = shebong;
+   if ((nargv = calloc(1 + argc + 1, sizeof(char*))) == NULL) {   // km exec, cnt, and NULL
+      freevector(argv, shell);
+      return NULL;
    }
-
-   // Copy passed args in
-   int j;
-   for (j = 1; j < argc; j++) {
-      nargv[i + j] = newargv != NULL ? newargv[j] : km_gva_to_kma((km_gva_t)argv[j]);
-      if (nargv[i + j] == NULL) {
-         free(nargv);
-         freevector(newargv);
-         return NULL;
-      }
-   }
-   nargv[i + j] = NULL;
-
+   nargv[0] = km_get_self_name();   // km exec
+   nargv[1] = pl_name;
+   memcpy(nargv + 2, argv + 1, sizeof(char*) * (argc - 1));
    return nargv;
 }
 
@@ -508,8 +618,8 @@ static int km_exec_get_guestfds(char* guestfds)
 }
 
 /*
- * Called in the exec'ed program before setting up the vm to get rid of open file descriptors from
- * exec. If we mark these fd's as close on exec, we wouldn't need to do this.
+ * Called in the exec'ed program before setting up the vm to get rid of open file descriptors
+ * from exec. If we mark these fd's as close on exec, we wouldn't need to do this.
  */
 static void km_exec_vmclean(void)
 {
@@ -556,6 +666,17 @@ int km_exec_recover_kmstate(void)
       km_infox(KM_TRACE_EXEC, "couldn't allocate fd map, nfdmap %d", nfdmap);
       return -1;
    }
+   // Get the pid information
+   if ((n = sscanf(pidinfo,
+                   "%d,%d,%d,%d",
+                   &execstatep->tracepid,
+                   &execstatep->ppid,
+                   &execstatep->pid,
+                   &execstatep->next_pid)) != 4) {
+      km_infox(KM_TRACE_EXEC, "couldn't scan pidinfo %s, n %d", pidinfo, n);
+      return -1;
+   }
+   km_trace_include_pid(execstatep->tracepid);
    execstatep->version = version;
    execstatep->nfdmap = nfdmap;
 
@@ -573,22 +694,7 @@ int km_exec_recover_kmstate(void)
       km_infox(KM_TRACE_EXEC, "couldn't parse guestfds %s", guestfds);
       return -1;
    }
-
-   // Get the pid information
-   if ((n = sscanf(pidinfo,
-                   "%d,%d,%d,%d",
-                   &execstatep->tracepid,
-                   &execstatep->ppid,
-                   &execstatep->pid,
-                   &execstatep->next_pid)) != 4) {
-      km_infox(KM_TRACE_EXEC, "couldn't scan pidinfo %s, n %d", pidinfo, n);
-      return -1;
-   }
    km_exec_vmclean();
-   machine.ppid = execstatep->ppid;
-   machine.pid = execstatep->pid;
-   machine.next_pid = execstatep->next_pid;
-   km_trace_include_pid(execstatep->tracepid);
    km_infox(KM_TRACE_EXEC, "km exec state recovered successfully");
    return 1;
 }
@@ -641,131 +747,4 @@ void km_exec_fini(void)
 {
    free(execstatep);
    execstatep = NULL;
-}
-
-/*
- * Get a quoted string.  The first char is the quote char.
- * Allow escaped chars in the string.
- * Return a pointer to allocated memory containing the string without the quoting chars
- * at the beginning and end of the string.
- */
-static char* get_quoted_string(char** spp)
-{
-   char* s = *spp;
-   char quote = *s;
-   char* e = s + 1;
-
-   while (*e != 0) {
-      if (*e == '\\') {
-         if (*(e + 1) != 0) {
-            e += 2;
-         } else {   // backslash followed by string terminator?
-            return NULL;
-         }
-      } else if (*e != quote) {
-         e++;
-      } else {   // terminating quote
-         char* a = malloc(e - s);
-         if (a == NULL) {   // no memory
-            return NULL;
-         }
-         char* d = a;
-         char* t = s + 1;
-         while (*t != 0) {
-            if (*t == '\\') {   // skip escaped char marker
-               t++;
-               assert(*t != 0);
-            }
-            *d++ = *t++;
-         }
-         *d = 0;
-         *spp = e + 1;
-         return a;
-      }
-   }
-   // No terminating quote?
-   return NULL;
-}
-
-static void freevector(char** sv)
-{
-   km_infox(KM_TRACE_EXEC, "freeing arg vector %p", sv);
-   if (sv != NULL) {
-      for (int i = 0; sv[i] != NULL; i++) {
-         km_infox(KM_TRACE_EXEC, "freeing %p", sv[i]);
-         free(sv[i]);
-      }
-      free(sv);
-   }
-}
-
-/*
- * Parse a shell command line and return the arguments in an allocated
- * address vector.  The caller is responsible for freeing the address vector
- * and the memory pointed to by the vector elements.
- * This function will fail if it finds any special shell constructs, like:
- *   i/o redirection
- *   backgrounding
- *   pipelining
- *   shell variables
- *   regular expressions
- *   command evaluation like `echo abc`
- *   compound commands (&& ||)
- * Returns:
- *   vector address on success
- *   NULL on failure
- */
-static char** km_parse_shell_cmd_line(char* cmdline)
-{
-   char* s = cmdline;
-   int svi = 0;
-   char** sv = NULL;
-   char** newsv;
-
-   km_infox(KM_TRACE_EXEC, "parsing cmdline %s", cmdline);
-
-   for (;;) {
-      // skip leading whistspace
-      while (*s != 0 && (*s == ' ' || *s == '\t')) {
-         s++;
-      }
-      if (*s == 0) {   // nothing left
-         break;
-      }
-
-      char* a;
-      if (*s == '"' || *s == '\'') {   // Handle quoted string
-         a = get_quoted_string(&s);
-      } else {   // whitespace delimited string
-         int l;
-         char* e = strpbrk(s, " \t");
-         if (e == NULL) {
-            l = strlen(s);
-         } else {
-            l = e - s;
-         }
-         a = malloc(l + 1);
-         if (a == NULL) {
-            km_infox(KM_TRACE_EXEC, "Couldn't allocate %d bytes", l + 1);
-            freevector(sv);
-            return NULL;
-         }
-         strncpy(a, s, l);
-         a[l] = 0;
-         s += l;
-      }
-      km_infox(KM_TRACE_EXEC, "arg[%d] = %s", svi, a);
-      newsv = realloc(sv, (svi + 2) * sizeof(char*));
-      if (newsv == NULL) {
-         km_infox(KM_TRACE_EXEC, "realloc() failed, needed %lu bytes", (svi + 1) * sizeof(char*));
-         freevector(sv);
-         return NULL;
-      }
-      sv = newsv;
-      sv[svi++] = a;
-      sv[svi] = NULL;
-   }
-
-   km_infox(KM_TRACE_EXEC, "returning sv at %p with %d elements", sv, svi);
-   return sv;
 }
