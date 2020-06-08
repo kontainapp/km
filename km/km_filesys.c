@@ -1238,7 +1238,8 @@ size_t km_fs_core_notes_length()
    for (int i = 0; i < km_fs()->nfdmap; i++) {
       km_file_t* file = &km_fs()->guest_files[i];
       if (file->inuse != 0) {
-         ret += sizeof(Elf64_Nhdr) + sizeof(km_nt_file_t) + km_nt_file_padded_size(file->name);
+         ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_file_t) +
+                km_nt_file_padded_size(file->name);
       }
    }
    return ret;
