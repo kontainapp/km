@@ -127,6 +127,11 @@ km_core_write_load_header(int fd, off_t offset, km_gva_t base, size_t size, int 
    km_core_write(fd, &phdr, sizeof(Elf64_Phdr));
 }
 
+size_t km_note_header_size(char* owner)
+{
+   return sizeof(Elf64_Nhdr) + strlen(owner);
+}
+
 // TODO padding?
 int km_add_note_header(char* buf, size_t length, char* owner, int type, size_t descsz)
 {
@@ -536,19 +541,19 @@ static inline size_t km_core_notes_length(km_vcpu_t* vcpu)
     * At the beginning ats the default and again in position.
     */
    size_t alloclen =
-       (sizeof(Elf64_Nhdr) + strlen(KM_NT_NAME) + sizeof(struct elf_prstatus)) * (nvcpu + nvcpu_inc);
+       (km_note_header_size(KM_NT_NAME) + sizeof(struct elf_prstatus)) * (nvcpu + nvcpu_inc);
    alloclen += km_mappings_size(NULL, NULL) + strlen(KM_NT_NAME) + sizeof(Elf64_Nhdr);
-   alloclen += machine.auxv_size + sizeof(Elf64_Nhdr) + strlen(KM_NT_NAME);
+   alloclen += machine.auxv_size + km_note_header_size(KM_NT_NAME);
 
    // Kontain specific per CPU info (for snapshot restore)
-   alloclen += (sizeof(Elf64_Nhdr) + strlen(KM_NT_NAME) + sizeof(struct km_nt_vcpu)) * nvcpu;
+   alloclen += (km_note_header_size(KM_NT_NAME) + sizeof(struct km_nt_vcpu)) * nvcpu;
 
    // Kontain specific guest info(for snapshot restore)
-   alloclen += sizeof(Elf64_Nhdr) + strlen(KM_NT_NAME) + sizeof(km_nt_guest_t) +
+   alloclen += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_guest_t) +
                km_guest.km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
                km_nt_file_padded_size(km_guest.km_filename);
    if (km_dynlinker.km_filename != NULL) {
-      alloclen += sizeof(Elf64_Nhdr) + strlen(KM_NT_NAME) + sizeof(km_nt_guest_t) +
+      alloclen += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_guest_t) +
                   km_dynlinker.km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
                   km_nt_file_padded_size(km_dynlinker.km_filename);
    }
