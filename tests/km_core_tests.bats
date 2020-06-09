@@ -1039,3 +1039,8 @@ fi
    run km_with_timeout -V --putenv TESTPROG=`pwd`/pipetarget_test.kmd -V popen_test$ext /etc/group /tmp/f1 /tmp/f2 2>/tmp/xx
    assert_success
 }
+
+@test "semaphore($test_type): semaphore in shared memory test (semaphore_test$ext)" {
+   run km_with_timeout semaphore_test$ext
+   assert_success
+}

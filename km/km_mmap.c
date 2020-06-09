@@ -297,6 +297,16 @@ static inline void km_mmap_remove_free(km_mmap_reg_t* reg)
 static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
 {
    km_mmap_remove_busy(reg);
+   if ((reg->flags & MAP_SHARED) != 0) {
+      km_kma_t start_kma = km_gva_to_kma(reg->start);
+      int new_flags = (reg->flags & ~MAP_SHARED) | MAP_PRIVATE;
+      void* tmp = mmap(start_kma, reg->size, reg->protection, new_flags | MAP_FIXED, -1, 0);
+      if (tmp != start_kma) {
+         km_infox(KM_TRACE_MMAP, "Couldn't turn off MAP_SHARED at kma %p", start_kma);
+      } else {
+         reg->flags = new_flags;
+      }
+   }
    km_mmap_insert_free(reg);
 }
 
@@ -489,13 +499,15 @@ static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
  * Address range is carved from free regions list, or allocated by moving machine.tbrk down
  */
 static km_gva_t
-km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, mmap_allocation_type_e at)
+km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, int hostfd, mmap_allocation_type_e at)
 {
    km_mmap_reg_t* reg;
    km_gva_t ret;
+   int existing_flags;
 
    if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
       assert(size <= reg->size);
+      existing_flags = reg->flags;
       if (reg->size > size) {   // free mmap has extra room to be kept in 'free'
          km_mmap_reg_t* busy;
          if ((busy = calloc(1, sizeof(km_mmap_reg_t))) == NULL) {
@@ -521,6 +533,7 @@ km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, mmap_allocati
       }
       reg->start = ret;   //  place requested mmap region in the newly allocated memory
       reg->size = size;
+      existing_flags = MAP_ANON | MAP_PRIVATE;
    }
    reg->flags = flags;
    reg->protection = prot;
@@ -528,6 +541,24 @@ km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, mmap_allocati
    reg->filename = NULL;
    reg->offset = 0;
    reg->km_flags.km_mmap_monitor = ((at == MMAP_ALLOC_MONITOR) ? 1 : 0);
+
+   if ((existing_flags & (MAP_PRIVATE | MAP_SHARED)) != (flags & (MAP_PRIVATE | MAP_SHARED))) {
+      // change from private to shared or vice versa
+      km_kma_t start_kma = km_gva_to_kma(reg->start);
+      void* tmp = mmap(start_kma, reg->size, reg->protection, MAP_FIXED | flags, hostfd, 0);
+      if (tmp != (void*)start_kma) {
+         km_info(KM_TRACE_MMAP,
+                 "Changing page 0x%lx from 0x%x to 0x%x failed, tmp %p",
+                 reg->start,
+                 existing_flags,
+                 reg->flags,
+                 tmp);
+         km_mmap_insert_free(reg);
+         return -errno;
+      }
+      reg->flags &= ~(MAP_PRIVATE | MAP_SHARED);
+      reg->flags |= flags & (MAP_PRIVATE | MAP_SHARED);
+   }
 
    ret = reg->start;   // reg->start can be modified if there is concat in insert_busy
    km_mmap_insert_busy(reg);
@@ -556,7 +587,7 @@ static km_gva_t km_guest_mmap_nolock(
          return -EINVAL;
       }
    } else {   // ignore the hint and grab an address range
-      gva = km_mmap_add_region(0, size, prot, flags, type);
+      gva = km_mmap_add_region(0, size, prot, flags, hostfd, type);
       if (km_syscall_ok(gva) < 0) {
          km_info(KM_TRACE_MMAP, "Failed to allocate new mmap region");
          return gva;
