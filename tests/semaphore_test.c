@@ -162,6 +162,7 @@ int main(int argc, char* argv[])
 
    // fork a child process
    pid_t pid = fork();
+   fprintf(stdout, "fork() returns %d, getpid() = %d\n", pid, getpid());
    switch (pid) {
       case -1:   // error
          break;
@@ -198,5 +199,6 @@ int main(int argc, char* argv[])
    } else {
       catprocpidmaps(PARENT_SIDE " after unmapping shared mem");
    }
+   fprintf(stdout, "process %d returning %d\n", getpid(), rv);
    return rv;
 }
