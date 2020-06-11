@@ -36,4 +36,9 @@ git-hooks-init: ## make git use GITHOOK_DIR (default .githooks) for pre-commit a
 git-hooks-reset: ## reset git hooks location to git default of .git/hooks (not version controlled)
 	git config core.hooksPath .git/hooks
 
+compile-commands: ## rebuild compile_commands.json. Assumes 'bear' is installed
+	make clean
+	bear make -j
+	sed -i 's-${CURDIR}-$${workspaceFolder}-' compile_commands.json
+
 include ${TOP}/make/actions.mk
