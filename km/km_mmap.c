@@ -302,7 +302,7 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
       int new_flags = (reg->flags & ~MAP_SHARED) | MAP_PRIVATE;
       void* tmp = mmap(start_kma, reg->size, reg->protection, new_flags | MAP_FIXED, -1, 0);
       if (tmp != start_kma) {
-         km_infox(KM_TRACE_MMAP, "Couldn't turn off MAP_SHARED at kma %p", start_kma);
+         km_err_msg(errno, "Couldn't turn off MAP_SHARED at kma %p", start_kma);
       } else {
          reg->flags = new_flags;
       }
@@ -523,6 +523,7 @@ km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, int hostfd, m
          km_mmap_remove_free(reg);
       }
    } else {   // nothing useful in the free list, get fresh memory by moving tbrk down
+      existing_flags = MAP_ANON | MAP_PRIVATE;
       if ((reg = calloc(1, sizeof(km_mmap_reg_t))) == NULL) {
          return -ENOMEM;
       }
@@ -533,7 +534,6 @@ km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, int hostfd, m
       }
       reg->start = ret;   //  place requested mmap region in the newly allocated memory
       reg->size = size;
-      existing_flags = MAP_ANON | MAP_PRIVATE;
    }
    reg->flags = flags;
    reg->protection = prot;
@@ -547,7 +547,7 @@ km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, int hostfd, m
       km_kma_t start_kma = km_gva_to_kma(reg->start);
       void* tmp = mmap(start_kma, reg->size, reg->protection, MAP_FIXED | flags, hostfd, 0);
       if (tmp != (void*)start_kma) {
-         km_info(KM_TRACE_MMAP,
+         km_err_msg(errno,
                  "Changing page 0x%lx from 0x%x to 0x%x failed, tmp %p",
                  reg->start,
                  existing_flags,

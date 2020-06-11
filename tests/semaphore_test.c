@@ -16,30 +16,35 @@
  * shared memory segment using a semphore to serialize access to the shared memory.
  */
 
-#include <stdio.h>
-#include <semaphore.h>
-#include <sys/mman.h>
-#include <string.h>
 #include <errno.h>
-#include <time.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <stdlib.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <sched.h>
+#include <semaphore.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
-const static int shared_mem_size = 4096;
+#include "mmap_test.h"
+#include "greatest/greatest.h"
+GREATEST_MAIN_DEFS();
+
+const static int shared_mem_size = 3 * 4096;
 
 #define PARENT_SIDE "parent side"
 #define CHILD_SIDE "child side"
 
+#define STRING_SIZE 128
 typedef struct sm {
    sem_t semaphore;
-   char string[128];
-   char parent_side[128];
-   char child_side[128];
+   char string[STRING_SIZE];
+   char parent_side[STRING_SIZE];
+   char child_side[STRING_SIZE];
 } sm_t;
 
 /*
@@ -47,9 +52,14 @@ typedef struct sm {
  * /proc/self/maps says after an operation completes.  This function dumps a copy
  * onto stdout.
  */
+#define MAX_EXPECTED_MAPS_FILE_SIZE (16 * 1024)
 void catprocpidmaps(char* tag)
 {
    char* procpidmaps = "/proc/self/maps";
+
+   if (GREATEST_IS_VERBOSE() == 0) {
+      return;
+   }
 
    fprintf(stdout, "Reading maps %s:\n", tag);
    int fd = open(procpidmaps, O_RDONLY);
@@ -57,8 +67,8 @@ void catprocpidmaps(char* tag)
       fprintf(stderr, "Couldn't open %s, %s\n", procpidmaps, strerror(errno));
       return;
    }
-   char buf[16*1024];
-   size_t br = read(fd, buf, sizeof(buf));
+   char buf[MAX_EXPECTED_MAPS_FILE_SIZE];
+   ssize_t br = read(fd, buf, sizeof(buf) - 1);
    if (br < 0) {
       fprintf(stderr, "Couldn't read %s, %s\n", procpidmaps, strerror(errno));
    } else {
@@ -69,136 +79,165 @@ void catprocpidmaps(char* tag)
    close(fd);
 }
 
-
-int work_func(sm_t* smp, char* tag)
+TEST work_func(sm_t* smp, char* tag)
 {
    char string[128];
+   int rv;
 
-   fprintf(stdout, "begin: %s, smp %p\n", tag, smp);
+   if (GREATEST_IS_VERBOSE()) {
+      fprintf(stdout, "begin: %s, smp %p\n", tag, smp);
+   }
    for (int j = 0; j < 5; j++) {
-      if (sem_wait(&smp->semaphore) < 0) {
-         fprintf(stderr, "%s: pid %d: sem_wait() failed, %s\n", __FUNCTION__, getpid(), strerror(errno));
-         return 1;
+      rv = sem_wait(&smp->semaphore);
+      ASSERT_NOT_EQm("sem_wait() failed", -1, rv);
+
+      if (GREATEST_IS_VERBOSE()) {
+         fprintf(stdout, "%s: holding semaphore\n", tag);
       }
-      fprintf(stdout, "%s: holding semaphore\n", tag);
-      
+
       for (int i = 0; i < 20; i++) {
          snprintf(string, sizeof(string), "%s %d", tag, i);
          strcpy(smp->string, string);
-         struct timespec ts = { 0, 1000000 };
+         struct timespec ts = {0, 1000000};
          if (nanosleep(&ts, NULL) < 0 && errno != EINTR) {
             fprintf(stderr, "%s: pid %d: nanosleep() failed, %s\n", __FUNCTION__, getpid(), strerror(errno));
             return 1;
          }
-         if (strcmp(smp->string, string) != 0) {
-            fprintf(stderr, "%s: pid %d: string miscompare, expected %s, found %s\n", __FUNCTION__, getpid(), string, smp->string);
-         }
+         ASSERT_STR_EQm("test string miscompare", string, smp->string);
       }
-      if (sem_post(&smp->semaphore) < 0) {
-         fprintf(stderr, "%s: pid %d: sem_post() failed, %s\n", __FUNCTION__, getpid(), strerror(errno));
-         return 1;
+      rv = sem_post(&smp->semaphore);
+      ASSERT_NOT_EQm("sem_post() failed", -1, rv);
+
+      if (GREATEST_IS_VERBOSE()) {
+         fprintf(stdout, "%s: released semaphore\n", tag);
       }
-      fprintf(stdout, "%s: released semaphore\n", tag);
-      struct timespec delay = {0,2000000};
-      nanosleep(&delay, NULL);    // give the other side a chance to get the semaphore
+
+      struct timespec delay = {0, 2000000};
+      nanosleep(&delay, NULL);   // give the other side a chance to get the semaphore
    }
-   fprintf(stdout, "end: %s\n", tag);
-   return 0;
+   if (GREATEST_IS_VERBOSE()) {
+      fprintf(stdout, "end: %s\n", tag);
+   }
+   PASS();
 }
 
 int child_side(sm_t* smp)
 {
    strcpy(smp->child_side, CHILD_SIDE);
    catprocpidmaps(CHILD_SIDE);
+
    int rv = work_func(smp, CHILD_SIDE);
-   fprintf(stdout, "%s: child_side[] \"%s\", parent_side[] \"%s\"\n", __FUNCTION__, smp->child_side, smp->parent_side);
-   if (strcmp(smp->parent_side, PARENT_SIDE) != 0) {
-      fprintf(stderr, "%s does not see changes made to shared mem by parent\n", CHILD_SIDE);
-      rv = 1;
+   GREATEST_CHECK_CALL(rv);
+
+   if (GREATEST_IS_VERBOSE()) {
+      fprintf(stdout,
+              "%s: child_side[] \"%s\", parent_side[] \"%s\"\n",
+              __FUNCTION__,
+              smp->child_side,
+              smp->parent_side);
    }
-   // Change the childs copy of shared memory to private.
-   void* tmp = mmap(smp, shared_mem_size, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANON | MAP_PRIVATE, -1, 0);
-   if (tmp == MAP_FAILED) {
-      fprintf(stderr, "%s: %s couldn't set shared mem segment to private, %s\n", __FUNCTION__, CHILD_SIDE, strerror(errno));
-      rv = 1;
-   } else {
-      catprocpidmaps(CHILD_SIDE " after marking mem private");
-   }
-   return rv;
+
+   ASSERT_STR_EQm("child doesn't see parent's changes in shared memory", PARENT_SIDE, smp->parent_side);
+
+   void* tmp;
+
+   ASSERT_MMAPS_COUNT(9, BUSY_MMAPS);
+
+   // Make the middle 4k of the shared memory private.  This should add 2 busy map entries.
+   tmp = mmap((void*)smp + 4096, 4096, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANON | MAP_PRIVATE, -1, 0);
+   ASSERT_NOT_EQm("couldn't unshare middle of memory region", MAP_FAILED, tmp);
+   catprocpidmaps(CHILD_SIDE " after marking middle of mem private");
+
+   ASSERT_MMAPS_COUNT(11, BUSY_MMAPS);
+
+   // Change the child's copy of shared memory to private. This should collapse 3 busy entries to one.
+   tmp = mmap(smp, shared_mem_size, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANON | MAP_PRIVATE, -1, 0);
+   ASSERT_NOT_EQm("couldn't unshare memory region", MAP_FAILED, tmp);
+   catprocpidmaps(CHILD_SIDE " after marking mem private");
+
+   ASSERT_MMAPS_COUNT(9, BUSY_MMAPS);
+
+   PASS();
 }
 
 int parent_side(sm_t* smp)
 {
    strcpy(smp->parent_side, PARENT_SIDE);
    catprocpidmaps(PARENT_SIDE);
+
    int rv = work_func(smp, PARENT_SIDE);
-   fprintf(stdout, "%s: child_side[] \"%s\", parent_side[] \"%s\"\n", __FUNCTION__, smp->child_side, smp->parent_side);
-   if (strcmp(smp->child_side, CHILD_SIDE) != 0) {
-      fprintf(stderr, "%s does not see changes made to shared mem by child\n", PARENT_SIDE);
-      rv = 1;
+   GREATEST_CHECK_CALL(rv);
+
+   if (GREATEST_IS_VERBOSE()) {
+      fprintf(stdout,
+              "%s: child_side[] \"%s\", parent_side[] \"%s\"\n",
+              __FUNCTION__,
+              smp->child_side,
+              smp->parent_side);
    }
-   return rv;
+
+   ASSERT_STR_EQm("parent doesn't see child's changes to shared memory", CHILD_SIDE, smp->child_side);
+
+   PASS();
 }
 
-
-int main(int argc, char* argv[])
+TEST shared_semaphore(void)
 {
    sm_t* smp;
+   int rv = 0;
 
    // create shared memory segment
-   smp = mmap(NULL, shared_mem_size, PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED, -1, 0);
-   if (smp == MAP_FAILED) {
-      fprintf(stderr, "%s: couldn't create anon/shared mem segment, %s\n", __FUNCTION__, strerror(errno));
-      return 1;
-   }
+   smp = mmap(NULL, shared_mem_size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
+   ASSERT_NOT_EQm("couldn't create anon/shared mem segment", MAP_FAILED, smp);
 
    // init semaphore in the shared memory
-   if (sem_init(&smp->semaphore, 1, 1) < 0) {
-      fprintf(stderr, "%s: couldn't init semaphore, %s\n", __FUNCTION__, strerror(errno));
-      return 1;
-   }
+   rv = sem_init(&smp->semaphore, 1, 1);
+   ASSERT_NOT_EQm("couldn't init semaphore", -1, rv);
 
-   int rv = 0;
 
    // fork a child process
    pid_t pid = fork();
-   fprintf(stdout, "fork() returns %d, getpid() = %d\n", pid, getpid());
-   switch (pid) {
-      case -1:   // error
-         break;
-      case 0:    // child process
-         exit(child_side(smp));
-         break;
-      default:   // parent process
-         if (parent_side(smp) != 0) {
-            rv++;
-         }
-         int wstatus;
-         if (waitpid(pid, &wstatus, 0) != pid) {
-            fprintf(stderr, "waitpid for pid %d failed, %s\n", pid, strerror(errno));
-            rv++;
-         } else {
-            fprintf(stdout, "child pid %d, wstatus 0x%x\n", pid, wstatus);
-            if (WIFEXITED(wstatus)) {
-               if (WEXITSTATUS(wstatus) != 0) {
-                  rv++;
-               }
-            } else {
-               rv++;
-            }
-         }
-         break;
+   ASSERT_NOT_EQm("couldn't fork", -1, pid);
+   if (GREATEST_IS_VERBOSE()) {
+      fprintf(stdout, "fork() returns %d, getpid() = %d\n", pid, getpid());
    }
-   if (sem_destroy(&smp->semaphore) < 0) {
-      fprintf(stderr, "%s: sem_destroy() failed, %s\n", __FUNCTION__, strerror(errno));
-      rv++;
-   }
-   if (munmap(smp, shared_mem_size) < 0) {
-      fprintf(stderr, "%s: munmap() failed, %s\n", __FUNCTION__, strerror(errno));
-      rv++;
+   if (pid == 0) {   // child process
+      exit(child_side(smp));
    } else {
-      catprocpidmaps(PARENT_SIDE " after unmapping shared mem");
+      rv = parent_side(smp);
+      ASSERT_EQ(0, rv);
+
+      int wstatus;
+      pid_t reaped_pid;
+      reaped_pid = waitpid(pid, &wstatus, 0);
+      ASSERT_EQm("waitpid didn't return expected pid", pid, reaped_pid);
+      ASSERT_NOT_EQm("child did not exit normally", 0, WIFEXITED(wstatus));
+      ASSERT_EQm("child returned non-zero exit status", 0, WEXITSTATUS(wstatus));
+
+      if (GREATEST_IS_VERBOSE()) {
+         fprintf(stdout, "child pid %d, wstatus 0x%x\n", pid, wstatus);
+      }
    }
-   fprintf(stdout, "process %d returning %d\n", getpid(), rv);
-   return rv;
+   rv = sem_destroy(&smp->semaphore);
+   ASSERT_NOT_EQm("sem_destroy() failed", -1, rv);
+
+   rv = munmap(smp, shared_mem_size);
+   ASSERT_NOT_EQm("munmap() failed", -1, rv);
+
+   catprocpidmaps(PARENT_SIDE " after unmapping shared mem");
+
+   PASS();
+}
+
+int main(int argc, char* argv[])
+{
+   GREATEST_MAIN_BEGIN();
+
+   if (GREATEST_IS_VERBOSE()) {
+      fprintf(stdout, "shared memory region size %d bytes\n", shared_mem_size);
+   }
+
+   RUN_TEST(shared_semaphore);
+
+   GREATEST_MAIN_END();
 }
