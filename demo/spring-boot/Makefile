@@ -41,8 +41,7 @@ DEMO_CONTAINER ?= kontainapp_sprint_boot_demo
 .PHONY: build/demo
 # Docker requires relative path to the building context
 build/demo: TARGET_JAR_PATH := $(shell realpath --relative-to="${TOP_DIR}" "${APP_JAR}")
-build/demo:
-	$(call clean_container_image,${DEMO_IMAGE})
+build/demo: clean/image
 	docker build -t ${DEMO_IMAGE} --build-arg TARGET_JAR_PATH=${TARGET_JAR_PATH} -f kontain.dockerfile ${TOP_DIR}
 
 KONTAIN_ENGINE_VOLUME_MAPPING := -v /opt/kontain/bin:/opt/kontain/bin 
@@ -59,11 +58,20 @@ clean/build:
 .PHONY: clean/demo
 clean/demo:
 	$(call clean_container,${DEMO_CONTAINER})
+
+.PHONY: clean/image
+clean/image:
 	$(call clean_container_image,${DEMO_IMAGE})
 
 .PHONY: clean
-clean: clean/build clean/demo
+clean: clean/build clean/demo clean/image
 
 .PHONY: test
-test:
-	nn
+test: clean/test
+	docker run --rm -d --device=/dev/kvm ${KONTAIN_ENGINE_VOLUME_MAPPING} -p 8080:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE}
+	${TOP_DIR}/test/test.sh
+	$(call clean_container,${DEMO_CONTAINER})
+
+.PHONY: clean/test
+clean/test:
+	$(call clean_container,${DEMO_CONTAINER})
