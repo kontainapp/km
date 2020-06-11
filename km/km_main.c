@@ -85,14 +85,19 @@ static inline void usage()
 // Version info. SCM_* is supposed to be set by the build
 static const int ver_major = 0;
 static const int ver_minor = 3;
+
+// these 2 macros allow to -Dsome_var=str_value without double quotes around str_value
+#define __STR(_x) #_x
+#define _STR_VALUE(_x) __STR(_x)
+
 #ifndef SRC_BRANCH   // branch name
-#define SRC_BRANCH "?"
+#define SRC_BRANCH ?
 #endif
 #ifndef SRC_VERSION   // SHA
-#define SRC_VERSION "?"
+#define SRC_VERSION ?
 #endif
 #ifndef BUILD_TIME
-#define BUILD_TIME "?"
+#define BUILD_TIME ?
 #endif
 
 static inline void show_version(void)
@@ -101,9 +106,9 @@ static inline void show_version(void)
         "Kontain Monitor version %d.%d\nBranch: %s sha: %s build_time: %s",
         ver_major,
         ver_minor,
-        SRC_BRANCH,
-        SRC_VERSION,
-        BUILD_TIME);
+        _STR_VALUE(SRC_BRANCH),
+        _STR_VALUE(SRC_VERSION),
+        _STR_VALUE(BUILD_TIME));
 }
 
 // Option names we use elsewhere.
