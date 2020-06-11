@@ -13,6 +13,8 @@ SRC_REPO_DIR := ${TOP_DIR}/rest-service-11
 SRC_DIR := ${SRC_REPO_DIR}/complete
 APP_JAR := ${SRC_DIR}/build/libs/rest-service-0.0.1-SNAPSHOT.jar
 
+DEFAULT_DEMO_PORT := 8080
+
 clean_container = @-docker rm --force ${1} 2>/dev/null
 clean_container_image = @-docker rmi -f ${1} 2>/dev/null
 
@@ -30,7 +32,7 @@ ${SRC_REPO_DIR}:
 BUILDER_CONTAINER := spring-boot-demo-builder
 ${APP_JAR}:
 	$(call clean_container,${BUILDER_CONTAINER})
-	docker run --rm -it -d -v ${SRC_REPO_DIR}:/app --name ${BUILDER_CONTAINER} java
+	docker run --rm -it -d -v ${SRC_REPO_DIR}:/app:z --name ${BUILDER_CONTAINER} java
 	docker exec -w /app/complete -u $(shell id -u):$(shell id -g) ${BUILDER_CONTAINER} ./gradlew build
 	$(call clean_container,${BUILDER_CONTAINER})
 
@@ -44,11 +46,11 @@ build/demo: TARGET_JAR_PATH := $(shell realpath --relative-to="${TOP_DIR}" "${AP
 build/demo: clean/image
 	docker build -t ${DEMO_IMAGE} --build-arg TARGET_JAR_PATH=${TARGET_JAR_PATH} -f kontain.dockerfile ${TOP_DIR}
 
-KONTAIN_ENGINE_VOLUME_MAPPING := -v /opt/kontain/bin:/opt/kontain/bin 
-KONTAIN_ENGINE_VOLUME_MAPPING += -v /opt/kontain/runtime:/opt/kontain/runtime 
+KONTAIN_ENGINE_VOLUME_MAPPING := -v /opt/kontain/bin:/opt/kontain/bin:z 
+KONTAIN_ENGINE_VOLUME_MAPPING += -v /opt/kontain/runtime:/opt/kontain/runtime:z 
 .PHONY: run/demo
 run/demo:
-	docker run --rm -d --device=/dev/kvm ${KONTAIN_ENGINE_VOLUME_MAPPING} -p 8080:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE}
+	docker run --rm -d --device=/dev/kvm ${KONTAIN_ENGINE_VOLUME_MAPPING} -p ${DEFAULT_DEMO_PORT}:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE}
 
 .PHONY: clean/build
 clean/build:
@@ -68,7 +70,7 @@ clean: clean/build clean/demo clean/image
 
 .PHONY: test
 test: clean/test
-	docker run --rm -d --device=/dev/kvm ${KONTAIN_ENGINE_VOLUME_MAPPING} -p 8080:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE}
+	docker run --rm -d --device=/dev/kvm ${KONTAIN_ENGINE_VOLUME_MAPPING} -p ${DEFAULT_DEMO_PORT}:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE}
 	${TOP_DIR}/test/test.sh
 	$(call clean_container,${DEMO_CONTAINER})
 
