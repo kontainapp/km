@@ -83,7 +83,7 @@ ifneq (${VERSION_SRC},)
 ${VERSION_SRC}: ${TOP}/.git/HEAD ${TOP}/.git/index
 	touch $@
 
-${BLDDIR}/$(subst .c,.o,${VERSION_SRC}): CFLAGS += -DSRC_BRANCH='"${SRC_BRANCH}"' -DSRC_VERSION='"${SRC_VERSION}"' -DBUILD_TIME='"${BUILD_TIME}"'
+${BLDDIR}/$(subst .c,.o,${VERSION_SRC}): CFLAGS += -DSRC_BRANCH=${SRC_BRANCH} -DSRC_VERSION=${SRC_VERSION} -DBUILD_TIME=${BUILD_TIME}
 endif # ifneq (${VERSION_SRC},)
 
 endif # ifneq (${EXEC},)
