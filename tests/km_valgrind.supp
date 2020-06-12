@@ -8,6 +8,5 @@
    fun:allocate_stack
    fun:pthread_create*
    fun:km_run_vcpu_thread
-   fun:km_run_vcpu_thread
    ...
 }
