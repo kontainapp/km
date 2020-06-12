@@ -90,7 +90,7 @@ DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP}
 # output of files to volumes. When we need to write files to the volumes mapped
 # in, we need to map the current used into the container, since containers are
 # using `appuser`, which is different from user on the host.
-DOCKER_RUN_BUILD := ${DOCKER_RUN} -u${CURRENT_UID}:${CURRENT_GID}
+DOCKER_RUN_BUILD := ${DOCKER_RUN} -u ${CURRENT_UID}:${CURRENT_GID}
 DOCKER_RUN_TEST := ${DOCKER_RUN} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE}
 
 # Inside docker image (buildenv + testenv), appuser will be the user created
@@ -99,6 +99,14 @@ DOCKER_HOME_PATH := /home/appuser
 DOCKER_KM_TOP := ${DOCKER_HOME_PATH}/km
 DOCKER_BLDTOP := ${DOCKER_KM_TOP}/build
 DOCKER_COVERAGE_KM_BLDDIR := ${DOCKER_BLDTOP}/km/coverage
+
+# These volumes needs to be mapped into runenv images. At the moment, they
+# contain km and km linkers.
+KM_DOCKER_VOLUME := -v ${KM_OPT_KM}:${KM_OPT_KM}:z -v ${KM_OPT_LDSO}:${KM_OPT_LDSO}:z
+
+# Utility functions for common docker operations.
+clean_container = @-docker rm --force ${1} 2>/dev/null
+clean_container_image = @-docker rmi -f ${1} 2>/dev/null
 
 # cloud-related stuff. By default set to Azure
 #

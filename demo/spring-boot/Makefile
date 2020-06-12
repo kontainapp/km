@@ -8,15 +8,16 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 
-TOP_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-SRC_REPO_DIR := ${TOP_DIR}/rest-service-11
+TOP := $(shell git rev-parse --show-toplevel)
+
+include ${TOP}/make/locations.mk
+
+CURRENT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+SRC_REPO_DIR := ${CURRENT_DIR}/rest-service-11
 SRC_DIR := ${SRC_REPO_DIR}/complete
 APP_JAR := ${SRC_DIR}/build/libs/rest-service-0.0.1-SNAPSHOT.jar
 
 DEFAULT_DEMO_PORT := 8080
-
-clean_container = @-docker rm --force ${1} 2>/dev/null
-clean_container_image = @-docker rmi -f ${1} 2>/dev/null
 
 .PHONY: all
 all: | build build/demo
@@ -36,21 +37,19 @@ ${APP_JAR}:
 	docker exec -w /app/complete -u $(shell id -u):$(shell id -g) ${BUILDER_CONTAINER} ./gradlew build
 	$(call clean_container,${BUILDER_CONTAINER})
 
-DEMO_VERSION ?= 1.0
-DEMO_IMAGE ?= kontainapp/spring-boot-demo:${DEMO_VERSION}
+DEMO_IMAGE ?= kontainapp/spring-boot-demo:${IMAGE_VERSION}
 DEMO_CONTAINER ?= kontainapp_sprint_boot_demo
 
 .PHONY: build/demo
 # Docker requires relative path to the building context
-build/demo: TARGET_JAR_PATH := $(shell realpath --relative-to="${TOP_DIR}" "${APP_JAR}")
+build/demo: TARGET_JAR_PATH := $(shell realpath --canonicalize-missing --relative-to="${CURRENT_DIR}" "${APP_JAR}")
 build/demo: clean/image
-	docker build -t ${DEMO_IMAGE} --build-arg TARGET_JAR_PATH=${TARGET_JAR_PATH} -f kontain.dockerfile ${TOP_DIR}
+	${DOCKER_BUILD} -t ${DEMO_IMAGE} --build-arg TARGET_JAR_PATH=${TARGET_JAR_PATH} -f kontain.dockerfile ${CURRENT_DIR}
 
-KONTAIN_ENGINE_VOLUME_MAPPING := -v /opt/kontain/bin:/opt/kontain/bin:z 
-KONTAIN_ENGINE_VOLUME_MAPPING += -v /opt/kontain/runtime:/opt/kontain/runtime:z 
+run_demo = ${DOCKER_RUN} -d --device=${HYPERVISOR_DEVICE} ${KM_DOCKER_VOLUME} -p ${DEFAULT_DEMO_PORT}:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE}
 .PHONY: run/demo
 run/demo:
-	docker run --rm -d --device=/dev/kvm ${KONTAIN_ENGINE_VOLUME_MAPPING} -p ${DEFAULT_DEMO_PORT}:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE}
+	$(call run_demo)
 
 .PHONY: clean/build
 clean/build:
@@ -70,8 +69,8 @@ clean: clean/build clean/demo clean/image
 
 .PHONY: test
 test: clean/test
-	docker run --rm -d --device=/dev/kvm ${KONTAIN_ENGINE_VOLUME_MAPPING} -p ${DEFAULT_DEMO_PORT}:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE}
-	${TOP_DIR}/test/test.sh
+	$(call run_demo)
+	${CURRENT_DIR}/test/test.sh
 	$(call clean_container,${DEMO_CONTAINER})
 
 .PHONY: clean/test
