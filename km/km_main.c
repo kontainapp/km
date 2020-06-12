@@ -273,12 +273,10 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    int dynlinker_used = 0;
    char* ep = NULL;
    int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
-   int longopt_index;                        // flag index in longopt array
-   int payload_index;                        // payload_name index in argv array
-   char** envp = calloc(1, sizeof(char*));   // NULL terminated array of env pointers
-   int envc = 1;                             // count of elements in envp (including NULL)
-
-   assert(envp != NULL);
+   int longopt_index;    // flag index in longopt array
+   int payload_index;    // payload_name index in argv array
+   char** envp = NULL;   // NULL terminated array of env pointers
+   int envc = 1;         // count of elements in envp (including NULL)
 
    // Special check for tracing
    // TODO: handle generic KM_CLI_FLAGS here, and reuse code below
@@ -344,11 +342,11 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                }
                copyenv_used = 0;   // --putenv cancels 'default' --copyenv
                putenv_used++;
-               envp[envc - 1] = optarg;
                envc++;
                if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
                   err(1, "Failed to alloc memory for putenv %s", optarg);
                }
+               envp[envc - 2] = optarg;
                envp[envc - 1] = NULL;
                break;
             case 'E':   // --copyenv
