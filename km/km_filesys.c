@@ -275,6 +275,7 @@ void km_fs_fini(void)
       free(km_fs()->hostfd_to_guestfd_map);
       km_fs()->hostfd_to_guestfd_map = NULL;
    }
+   free(machine.filesys);
 }
 
 // int open(char *pathname, int flags, mode_t mode)
