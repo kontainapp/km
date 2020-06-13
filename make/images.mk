@@ -58,8 +58,6 @@ TESTENV_PATH ?= .
 RUNENV_PATH ?= ${BLDDIR}
 RUNENV_DEMO_PATH ?= .
 
-clean_container_image = @-docker rmi -f ${1} 2>/dev/null
-
 TESTENV_EXTRA_FILES ?= ${KM_BIN} ${KM_LDSO}
 testenv_prep = cp ${TESTENV_EXTRA_FILES} ${TESTENV_PATH}
 testenv_cleanup = rm $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}})
@@ -144,8 +142,7 @@ RUNENV_VALIDATE_EXPECTED ?= Hello
 # We use km from ${KM_BIN} here from the build tree instead of what's on the host under ${KM_OPT_BIN}.
 validate-runenv-image: $(RUNENV_VALIDATE_DEPENDENCIES) ## Validate runtime image
 	${DOCKER_RUN_TEST} \
-		-v ${KM_OPT_KM}:${KM_OPT_KM}:z \
-		-v ${KM_OPT_LDSO}:${KM_OPT_LDSO}:z \
+		${KM_DOCKER_VOLUME} \
 		${SCRIPT_MOUNT} \
 		${RUNENV_IMG}:${IMAGE_VERSION} \
 		${RUNENV_VALIDATE_CMD} | grep "${RUNENV_VALIDATE_EXPECTED}"
