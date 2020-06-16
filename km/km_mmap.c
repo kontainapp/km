@@ -494,6 +494,27 @@ static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
    return km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
 }
 
+static int km_mmap_change_region_sharing(km_mmap_reg_t* reg, int existing_flags, int desired_flags, int hostfd)
+{
+   if ((existing_flags & (MAP_PRIVATE | MAP_SHARED)) != (desired_flags & (MAP_PRIVATE | MAP_SHARED))) {
+      // change from private to shared or vice versa
+      km_kma_t start_kma = km_gva_to_kma(reg->start);
+      void* tmp = mmap(start_kma, reg->size, reg->protection, MAP_FIXED | desired_flags, hostfd, 0);
+      if (tmp != (void*)start_kma) {
+         km_err_msg(errno,
+                 "Changing page 0x%lx from 0x%x to 0x%x failed, tmp %p",
+                 reg->start,
+                 existing_flags,
+                 desired_flags,
+                 tmp);
+         return -errno;
+      }
+      reg->flags &= ~(MAP_PRIVATE | MAP_SHARED);
+      reg->flags |= desired_flags & (MAP_PRIVATE | MAP_SHARED);
+   }
+   return 0;
+}
+
 /*
  * Add an new mmap region. Returns guest address for the region, or -errno
  * Address range is carved from free regions list, or allocated by moving machine.tbrk down
@@ -542,22 +563,10 @@ km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, int hostfd, m
    reg->offset = 0;
    reg->km_flags.km_mmap_monitor = ((at == MMAP_ALLOC_MONITOR) ? 1 : 0);
 
-   if ((existing_flags & (MAP_PRIVATE | MAP_SHARED)) != (flags & (MAP_PRIVATE | MAP_SHARED))) {
-      // change from private to shared or vice versa
-      km_kma_t start_kma = km_gva_to_kma(reg->start);
-      void* tmp = mmap(start_kma, reg->size, reg->protection, MAP_FIXED | flags, hostfd, 0);
-      if (tmp != (void*)start_kma) {
-         km_err_msg(errno,
-                 "Changing page 0x%lx from 0x%x to 0x%x failed, tmp %p",
-                 reg->start,
-                 existing_flags,
-                 reg->flags,
-                 tmp);
-         km_mmap_insert_free(reg);
-         return -errno;
-      }
-      reg->flags &= ~(MAP_PRIVATE | MAP_SHARED);
-      reg->flags |= flags & (MAP_PRIVATE | MAP_SHARED);
+   int rc = km_mmap_change_region_sharing(reg, existing_flags, flags, hostfd);
+   if (rc < 0) {
+      km_mmap_insert_free(reg);
+      return rc;
    }
 
    ret = reg->start;   // reg->start can be modified if there is concat in insert_busy
