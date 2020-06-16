@@ -43,7 +43,7 @@ int setup()
    if (sigaction(SIGSEGV, &sa, &old_sa) != 0) {
       return -1;
    }
-   datapage_page = mmap(0, datapage_size, PROT_NONE, MAP_ANONYMOUS, -1, 0);
+   datapage_page = mmap(0, datapage_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
    if (datapage_page == MAP_FAILED) {
       return -1;
    }
