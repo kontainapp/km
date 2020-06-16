@@ -100,6 +100,7 @@ timeout=150s
 
 # this is how we invoke KM - with a timeout and reporting run time
 function km_with_timeout () {
+   local t=$timeout
    # Treat all before '--' as KM arguments, and all after '--' as payload arguments
    # With no '--', finding $ext (.km, .kmd. .so) has the same effect.
    # Note that we whitespace split KM args always, so no spaces inside of KM args are allowed
@@ -108,6 +109,10 @@ function km_with_timeout () {
          --)
             shift
             break
+            ;;
+         --timeout)
+            shift
+            t=$1
             ;;
          --putenv)
             # The putenv arg may contain $ext, so grab the arg here to avoid *$ext below
@@ -127,9 +132,9 @@ function km_with_timeout () {
    KM_ARGS="$__args $KM_ARGS"
 
    /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
-      timeout --signal=SIGABRT --foreground $timeout \
+      timeout --signal=SIGABRT --foreground $t \
          ${KM_BIN} ${KM_ARGS} "$@"
-   s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi
+   s=$?; if [ $s -eq 124 ] ; then echo -e "\nTimed out in $t" ; fi
    return $s
 }
 
