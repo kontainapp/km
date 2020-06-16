@@ -32,7 +32,7 @@ void* SYS_break(void const* addr)
 
 static inline char* simple_addr_reserve(size_t size)
 {
-   return mmap(0, size, PROT_NONE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+   return mmap(0, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
 
 static void const* __39_bit_mem = (void*)(512 * GIB);   // 512GB

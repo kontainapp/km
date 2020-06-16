@@ -35,7 +35,7 @@ todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
 
 todo_so=''
 not_needed_so='km_main_argv0 km_main_shebang linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
-    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend'
+    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore'
 
 # make sure it does not leak in from the outer shell, it can mess out the output
 unset KM_VERBOSE
@@ -43,7 +43,7 @@ unset KM_VERBOSE
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
 if [ "${USE_VIRT}" = 'kkm' ]; then
    not_needed_generic+=' gdb_qsupported gdb_delete_breakpoint gdb_nextstep snapshot '
-   todo_native_static+=' km_many threads_basic_tsd pthread_cancel cpp_ctors hypercall_args sigsuspend fork popen '
+   todo_native_static+=' km_many threads_basic_tsd pthread_cancel cpp_ctors hypercall_args sigsuspend fork popen semaphore '
    not_needed_native_dynamic=$not_needed_native_static
 fi
 
@@ -60,7 +60,7 @@ fi
 @test "linux_exec($test_type) make sure *some* linux tests actually pass" {
    # Note: needed only once, expected to run only in static pass
    # TODO actual run. MANY TESTS FAILS - need to review. Putting in a scaffolding hack for now
-   for test in hello mmap_1 mem env misc mutex longjmp memslot mprotect; do
+   for test in hello mmap_1 mem env misc mutex longjmp memslot mprotect semaphore; do
       echo Running ${test}_test.fedora
       ./${test}_test.fedora
    done
@@ -1038,4 +1038,12 @@ fi
    # now test with full path to pipetarget_test and no PATH var
    run km_with_timeout -V --putenv TESTPROG=`pwd`/pipetarget_test.kmd -V popen_test$ext /etc/group /tmp/f1 /tmp/f2 2>/tmp/xx
    assert_success
+}
+
+@test "semaphore($test_type): semaphore in shared memory test (semaphore_test$ext)" {
+   run gdb_with_timeout -ex="set pagination off" -ex="handle SIG63 nostop"\
+      -ex="source gdb_simple_test.py" -ex="run-test"\
+      -ex="q" --args ${KM_BIN} semaphore_test$ext -v
+   assert_success
+   assert_line --partial 'fail: 0'
 }
