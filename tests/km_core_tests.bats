@@ -1028,15 +1028,15 @@ fi
    assert_success
 
    # now test with a relative path to pipetarget_test but no place to find it, should fail
-   run km_with_timeout --putenv TESTPROG=pipetarget_test popen_test$ext /etc/group /tmp/f1 /tmp/f2
+   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test popen_test$ext /etc/group /tmp/f1 /tmp/f2
    assert_failure 1
 
    # now test with a relative path to pipetarget_test but with a PATH var
-   run km_with_timeout --putenv TESTPROG=pipetarget_test --putenv PATH="/usr/bin:." popen_test$ext /etc/group /tmp/f1 /tmp/f2
+   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test --putenv PATH="/usr/bin:." popen_test$ext /etc/group /tmp/f1 /tmp/f2
    assert_success
 
    # now test with full path to pipetarget_test and no PATH var
-   run km_with_timeout -V --putenv TESTPROG=`pwd`/pipetarget_test.kmd -V popen_test$ext /etc/group /tmp/f1 /tmp/f2 2>/tmp/xx
+   run km_with_timeout --timeout 5s -V --putenv TESTPROG=`pwd`/pipetarget_test.kmd -V popen_test$ext /etc/group /tmp/f1 /tmp/f2 2>/tmp/xx
    assert_success
 }
 
