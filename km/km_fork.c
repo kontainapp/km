@@ -330,6 +330,9 @@ int km_dofork(int* in_child)
       km_fork_state.mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
       km_fork_state.cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
       km_fork_state.arg->hc_ret = 0;
+      if (machine.vm_type == VM_TYPE_KKM) {
+         km_fork_state.regs.rax = km_fork_state.arg->hc_ret;
+      }
 
       km_fork_child_vm_init();   // create the vm and a single vcpu for the child payload thread
       if (in_child != NULL) {

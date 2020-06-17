@@ -23,6 +23,9 @@ cd $BATS_ROOT/.. # bats sits under tests, so this will move us to tests
 load 'bats-support/load' # see manual in bats-support/README.md
 load 'bats-assert/load'  # see manual in bats-assert/README.mnd
 
+# set umask to 0. Some of the tests use 0666 as file create permissions.
+umask 0
+
 # KM binary location.
 if [ -z "$KM_BIN" ] ; then
    echo "Please make sure KM_BIN env is defined and points to KM executable." >&3
