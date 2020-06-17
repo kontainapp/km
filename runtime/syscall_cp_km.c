@@ -31,6 +31,10 @@ long __syscall_cp_asm(int* c, long n, long a1, long a2, long a3, long a4, long a
                            :
                            : "a"((uint32_t)((uint64_t)&arg)), "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
                            : "memory");
+      __asm__ __volatile__("\n"
+                           :
+                           :
+                           : "rax");
       __asm__("__cp_end:");
       return arg.hc_ret;
    }
