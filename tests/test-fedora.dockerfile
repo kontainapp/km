@@ -31,5 +31,5 @@ WORKDIR /home/appuser/km/tests
 # this is needed for symlinks to work
 RUN mkdir -p ../build/km ; cp km ../build/km
 
-ENV PATH=${KM_TEST_TOP}}/bats/bin:.:$PATH
-ENV TIME_INFO ${KM_TEST_TOP}}/time_info.txt
+ENV PATH=${KM_TEST_TOP}/bats/bin:.:$PATH
+ENV TIME_INFO ${KM_TEST_TOP}/time_info.txt

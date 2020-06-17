@@ -979,12 +979,13 @@ fi
 }
 
 @test "km_main_symlink($test_type): symlink handling" {
-   run hello_test AndEvenMore
+   # single symlink
+   run ./hello_test AndEvenMore
    assert_success
    assert_line --partial "argv[1] = 'AndEvenMore'"
 
-   # shebang to nested symlink
-   run hello_test_link AndEvenMore
+   # double symlink
+   run ./hello_test_link AndEvenMore
    assert_success
    assert_line --partial "argv[1] = 'AndEvenMore'"
 }
