@@ -1065,4 +1065,5 @@ fi
       -ex="q" --args ${KM_BIN} semaphore_test$ext -v
    assert_success
    assert_line --partial 'fail: 0'
+   refute_line --partial "Couldn't turn off MAP_SHARED at kma"
 }
