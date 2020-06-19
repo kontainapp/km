@@ -299,7 +299,7 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
    km_mmap_remove_busy(reg);
    if ((reg->flags & MAP_SHARED) != 0) {
       km_kma_t start_kma = km_gva_to_kma(reg->start);
-      int new_flags = (reg->flags & ~MAP_SHARED) | MAP_PRIVATE;
+      int new_flags = (reg->flags & ~MAP_SHARED) | MAP_PRIVATE | MAP_ANONYMOUS;
       void* tmp = mmap(start_kma, reg->size, reg->protection, new_flags | MAP_FIXED, -1, 0);
       if (tmp != start_kma) {
          km_err_msg(errno, "Couldn't turn off MAP_SHARED at kma %p", start_kma);
