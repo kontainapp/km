@@ -30,8 +30,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "mmap_test.h"
 #include "greatest/greatest.h"
+#include "mmap_test.h"
 GREATEST_MAIN_DEFS();
 
 const static int shared_mem_size = 3 * 4096;
@@ -46,6 +46,9 @@ typedef struct sm {
    char parent_side[STRING_SIZE];
    char child_side[STRING_SIZE];
 } sm_t;
+
+int fd = -1;   // file to mmap, -1 for ANON
+int initial_busy_count;
 
 /*
  * To verify that mmap() operations did what we expected, it is useful to see what
@@ -141,21 +144,23 @@ int child_side(sm_t* smp)
 
    void* tmp;
 
-   ASSERT_MMAPS_COUNT(9, BUSY_MMAPS);
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);   // initial shared region
 
    // Make the middle 4k of the shared memory private.  This should add 2 busy map entries.
-   tmp = mmap((void*)smp + 4096, 4096, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANON | MAP_PRIVATE, -1, 0);
+   tmp =
+       mmap((void*)smp + 4096, 4096, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANON | MAP_PRIVATE, -1, 0);
    ASSERT_NOT_EQm("couldn't unshare middle of memory region", MAP_FAILED, tmp);
    catprocpidmaps(CHILD_SIDE " after marking middle of mem private");
 
-   ASSERT_MMAPS_COUNT(11, BUSY_MMAPS);
+   ASSERT_MMAPS_CHANGE(3, initial_busy_count);   // shared, private, shared
 
    // Change the child's copy of shared memory to private. This should collapse 3 busy entries to one.
    tmp = mmap(smp, shared_mem_size, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANON | MAP_PRIVATE, -1, 0);
    ASSERT_NOT_EQm("couldn't unshare memory region", MAP_FAILED, tmp);
+
    catprocpidmaps(CHILD_SIDE " after marking mem private");
 
-   ASSERT_MMAPS_COUNT(9, BUSY_MMAPS);
+   ASSERT_MMAPS_CHANGE(1, initial_busy_count);   // now all private
 
    PASS();
 }
@@ -186,14 +191,16 @@ TEST shared_semaphore(void)
    sm_t* smp;
    int rv = 0;
 
+   ASSERT_MMAPS_INIT(initial_busy_count);
+
    // create shared memory segment
-   smp = mmap(NULL, shared_mem_size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
-   ASSERT_NOT_EQm("couldn't create anon/shared mem segment", MAP_FAILED, smp);
+   int flags = MAP_SHARED | (fd == -1 ? MAP_ANON : 0);
+   smp = mmap(NULL, shared_mem_size, PROT_READ | PROT_WRITE, flags, fd, 0);
+   ASSERT_NOT_EQm("couldn't create shared mem segment", MAP_FAILED, smp);
 
    // init semaphore in the shared memory
    rv = sem_init(&smp->semaphore, 1, 1);
    ASSERT_NOT_EQm("couldn't init semaphore", -1, rv);
-
 
    // fork a child process
    pid_t pid = fork();
@@ -237,6 +244,11 @@ int main(int argc, char* argv[])
       fprintf(stdout, "shared memory region size %d bytes\n", shared_mem_size);
    }
 
+   RUN_TEST(shared_semaphore);
+   char tmp[] = "/tmp/sem_testXXXXXX";
+
+   fd = mkstemp(tmp);
+   ftruncate(fd, shared_mem_size);
    RUN_TEST(shared_semaphore);
 
    GREATEST_MAIN_END();
