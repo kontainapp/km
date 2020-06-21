@@ -273,7 +273,7 @@ fi
       -ex="source gdb_simple_test.py" -ex="run-test"\
       -ex="q" --args ${KM_BIN} mmap_test$ext -v -t mmap_file_test_ex # KM test
    assert_line --partial 'fail: 0'
-   assert_line --regexp 'prot=1 flags=2 fn=0x'
+   assert_line --regexp 'prot=1 flags=2 .* fn=0x'
 }
 
 @test "mmap_1($test_type): mmap then smaller mprotect (mmap_1_test$ext)" {
@@ -1060,10 +1060,19 @@ fi
 }
 
 @test "semaphore($test_type): semaphore in shared memory test (semaphore_test$ext)" {
-   run gdb_with_timeout -ex="set pagination off" -ex="handle SIG63 nostop"\
-      -ex="source gdb_simple_test.py" -ex="run-test"\
-      -ex="q" --args ${KM_BIN} semaphore_test$ext -v
+   # anon shared memory
+   run gdb_with_timeout -ex="set pagination off" -ex="handle SIG63 nostop" -ex="set follow-fork-mode child" \
+      -ex="source gdb_simple_test.py" -ex="run-test" -ex="q" --args ${KM_BIN} semaphore_test$ext -v
    assert_success
    assert_line --partial 'fail: 0'
    refute_line --partial "Couldn't turn off MAP_SHARED at kma"
+   refute_line "Warning: Ignoring map counts. Please run this test in gdb to validate mmap counts"
+
+   # file backed shared memory
+   run gdb_with_timeout -ex="set pagination off" -ex="handle SIG63 nostop" -ex="set follow-fork-mode child" \
+      -ex="source gdb_simple_test.py" -ex="run-test" -ex="q" --args ${KM_BIN} semaphore_test$ext file -v
+   assert_success
+   assert_line --partial 'fail: 0'
+   refute_line --partial "Couldn't turn off MAP_SHARED at kma"
+   refute_line "Warning: Ignoring map counts. Please run this test in gdb to validate mmap counts"
 }
