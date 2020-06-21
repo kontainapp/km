@@ -48,6 +48,7 @@ typedef struct sm {
 } sm_t;
 
 int fd = -1;   // file to mmap, -1 for ANON
+char fname[] = "/tmp/sem_testXXXXXX";
 int initial_busy_count;
 
 /*
@@ -144,6 +145,10 @@ int child_side(sm_t* smp)
 
    void* tmp;
 
+   /*
+    * We are in child after fork. In order for ASSERT_MMAPS_* family to work gdb has to ru with
+    * "set follow-fork-mode child"
+    */
    ASSERT_MMAPS_CHANGE(1, initial_busy_count);   // initial shared region
 
    // Make the middle 4k of the shared memory private.  This should add 2 busy map entries.
@@ -160,7 +165,7 @@ int child_side(sm_t* smp)
 
    catprocpidmaps(CHILD_SIDE " after marking mem private");
 
-   ASSERT_MMAPS_CHANGE(1, initial_busy_count);   // now all private
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);   // now all private, so it merges with stack
 
    PASS();
 }
@@ -236,19 +241,31 @@ TEST shared_semaphore(void)
    PASS();
 }
 
+void cleanup(void)
+{
+   if (fd >= 0) {
+      close(fd);
+      unlink(fname);
+   }
+}
+
 int main(int argc, char* argv[])
 {
    GREATEST_MAIN_BEGIN();
+
+   // if requested create and open file to back up memory
+   if (argc > 1 && strcmp(argv[1], "file") == 0) {
+      fd = mkstemp(fname);
+      ASSERT_NOT_EQm("mkstemp", -1, fd);
+      int rc = ftruncate(fd, shared_mem_size);
+      ASSERT_EQm("ftruncate(shared_mem_size)", 0, rc);
+      atexit(cleanup);
+   }
 
    if (GREATEST_IS_VERBOSE()) {
       fprintf(stdout, "shared memory region size %d bytes\n", shared_mem_size);
    }
 
-   RUN_TEST(shared_semaphore);
-   char tmp[] = "/tmp/sem_testXXXXXX";
-
-   fd = mkstemp(tmp);
-   ftruncate(fd, shared_mem_size);
    RUN_TEST(shared_semaphore);
 
    GREATEST_MAIN_END();
