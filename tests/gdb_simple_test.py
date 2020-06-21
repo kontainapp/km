@@ -20,9 +20,9 @@ ESPIPE = 29
 
 
 def bp_handler(event):
-    """ 
+    """
     Callback for gdb hitting a breakpoint on FUNC
-    Used to check values of internal KM vars. 
+    Used to check values of internal KM vars.
     For special fd, does the validation based on the request in the read buffer, and
     returns success/failure via the FUNC.
     For all other fds or other functions, this is a noop
@@ -73,7 +73,7 @@ def run():
 
 def query_mmaps(query, verbosity, expected_count):
     """
-    Compares expected_count to count_mmaps return, and returns RET_SUCCESS in FUNC 
+    Compares expected_count to count_mmaps return, and returns RET_SUCCESS in FUNC
     for handling in mmap_tester.c, map_count()
     """
     if query == BUSY_MMAPS:
@@ -108,7 +108,7 @@ def count_mmaps(tailq, verbosity):
         if verbosity == 1:
             distance = tq['start'] - le
             print(
-                f"{count}  {tq} start={tq['start']} next={tq['link']['tqe_next']} size={tq['size']} prot={tq['protection']} flags={tq['flags']} fn={tq['filename']} km_fl={tq['km_flags']['data32']} distance= {distance}")
+                f"{count}  {tq} next={tq['link']['tqe_next']} start={hex(tq['start']/4096)} size={hex(tq['size']/4096)} prot={tq['protection']} flags={tq['flags']} km_fl={tq['km_flags']['data32']} distance= {hex(distance/4096)} fn={tq['filename']}")
             le = tq["start"] + tq["size"]
         tq = tq["link"]["tqe_next"]
     return count
