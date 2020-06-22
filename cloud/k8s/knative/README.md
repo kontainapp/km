@@ -114,3 +114,19 @@ pattern.
 Specifically, hostPath is disallowed for knative. For now, we need to package
 km inside the docker container.
 3. Device plugin works out of box, so that’s good.
+
+## knative/autoscale
+
+`autoscale` is the testing image used in benchmark. To benchmark kontain, we
+need to kontainerize the test_image.
+
+## knative/helloworld-*
+
+These are knative serving services that runs helloworld. Currently, we have
+nodejs and golang as examples.
+
+## knative/performance
+
+For this, this directory contains the `load-test-zero` benchmark from
+`knative/serving` using `make-stub`. For details, see
+`knative/performance/readme.md`.
