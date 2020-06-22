@@ -1,0 +1,15 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: load-test-zero
+spec:
+  template:
+    metadata:
+      annotations:
+        # Only hook the activator in at zero
+        autoscaling.knative.dev/targetBurstCapacity: "0"
+    spec:
+      containers:
+        - image: ko://knative.dev/serving/test/test_images/autoscale
+      containerConcurrency: 0 # Explicitly set the default, since it might be overridden in CM.
+
