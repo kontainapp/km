@@ -11,9 +11,9 @@
  */
 
 /*
- * A simple test to create a shared memory segment, create a semphore in the shared memory
+ * A simple test to create a shared memory segment, create a semaphore in the shared memory
  * segment, then fork() a child process, and then have parent and child operate on the
- * shared memory segment using a semphore to serialize access to the shared memory.
+ * shared memory segment using a semaphore to serialize access to the shared memory.
  */
 
 #include <errno.h>
@@ -105,7 +105,7 @@ TEST work_func(sm_t* smp, char* tag)
          struct timespec ts = {0, 1000000};
          if (nanosleep(&ts, NULL) < 0 && errno != EINTR) {
             fprintf(stderr, "%s: pid %d: nanosleep() failed, %s\n", __FUNCTION__, getpid(), strerror(errno));
-            return 1;
+            FAIL();
          }
          ASSERT_STR_EQm("test string miscompare", string, smp->string);
       }
@@ -125,7 +125,7 @@ TEST work_func(sm_t* smp, char* tag)
    PASS();
 }
 
-int child_side(sm_t* smp)
+TEST child_side(sm_t* smp)
 {
    strcpy(smp->child_side, CHILD_SIDE);
    catprocpidmaps(CHILD_SIDE);
@@ -146,7 +146,7 @@ int child_side(sm_t* smp)
    void* tmp;
 
    /*
-    * We are in child after fork. In order for ASSERT_MMAPS_* family to work gdb has to ru with
+    * We are in child after fork. In order for ASSERT_MMAPS_* family to work gdb has to run with
     * "set follow-fork-mode child"
     */
    ASSERT_MMAPS_CHANGE(1, initial_busy_count);   // initial shared region
@@ -170,7 +170,7 @@ int child_side(sm_t* smp)
    PASS();
 }
 
-int parent_side(sm_t* smp)
+TEST parent_side(sm_t* smp)
 {
    strcpy(smp->parent_side, PARENT_SIDE);
    catprocpidmaps(PARENT_SIDE);
@@ -214,10 +214,11 @@ TEST shared_semaphore(void)
       fprintf(stdout, "fork() returns %d, getpid() = %d\n", pid, getpid());
    }
    if (pid == 0) {   // child process
-      exit(child_side(smp));
+      CHECK_CALL(child_side(smp));
+      PASS();
+      // back to main() to report results from child
    } else {
-      rv = parent_side(smp);
-      ASSERT_EQ(0, rv);
+      CHECK_CALL(parent_side(smp));
 
       int wstatus;
       pid_t reaped_pid;
