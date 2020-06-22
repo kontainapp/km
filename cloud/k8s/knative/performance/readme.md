@@ -2,10 +2,14 @@
 
 ## Mako stub
 
+Information on mako can be found [here](https://github.com/google/mako).
+
 Knative benchmark uses mako as a database and dashboard. The real mako
 service is only accessible to to Google internal people, so `mako-stub` is
-used. The code is located at
+used. The stub will store the results locally to be retrived later instead of
+sending to the mako service. The code is located at
 `https://github.com/knative/pkg/tree/master/test/mako/stub-sidecar`.
+
 
 ## `ko` tools
 Knative projects uses `ko` tools extensively. Many of the services are
