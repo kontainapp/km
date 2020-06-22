@@ -25,7 +25,7 @@ extern int main(int argc, char** argv);
 #define ASSERT_MMAPS_COUNT(_expected_count, _query)                                                \
    {                                                                                               \
       int ret = maps_count(_expected_count, _query);                                               \
-      ASSERT_NOT_EQm("Expected mmaps counts does not match ", -1, ret);                            \
+      ASSERT_NOT_EQm("Expected mmaps counts does not match", -1, ret);                             \
    }
 
 /*
@@ -40,7 +40,7 @@ extern int main(int argc, char** argv);
    {                                                                                               \
       initial_busy = INITIAL_BUSY_MEMORY_REGIONS;                                                  \
       int ret = maps_count(initial_busy, BUSY_MMAPS);                                              \
-      ASSERT_NOT_EQ(ret, -1);                                                                      \
+      ASSERT_NOT_EQm("Expected mmaps init does not match", -1, ret);                               \
    }
 
 // Check to see if busy memory region count is as expected.
@@ -48,7 +48,7 @@ extern int main(int argc, char** argv);
    {                                                                                               \
       int expected_count = expected_change + initial_busy;                                         \
       int ret = maps_count(expected_count, TOTAL_MMAPS);                                           \
-      ASSERT_NOT_EQ(ret, -1);                                                                      \
+      ASSERT_NOT_EQm("Expected mmaps change does not match", -1, ret);                             \
    }
 
 // Type of operation invoked by a single line in test tables
@@ -57,7 +57,7 @@ typedef enum {
    TYPE_MMAP_AUX,
    TYPE_MUNMAP,
    TYPE_MPROTECT,
-   TYPE_MREMAP,   // for remapped memory, PROT_WRITE should have been set on mmmap (test will write!)
+   TYPE_MREMAP,   // for remapped memory, PROT_WRITE should have been set on mmap (test will write!)
    TYPE_READ,     // do a read to <offset, offset+size> from last mmap or mremap
    TYPE_WRITE,    // do a write to <offset, offset+size> from last mmap (use 'prot' for data)
    TYPE_USE_MREMAP_ADDR,   // in further tests, base all on address returned by last mremap (not mmap)
