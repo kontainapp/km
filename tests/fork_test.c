@@ -184,7 +184,12 @@ static int fork_exec_0(void)
       siginfo_t siginfo;
       memset(&siginfo, 0, sizeof(siginfo));
       int rc = waitid(P_PID, pid, &siginfo, WEXITED);
-      fprintf(stderr, "waitid() returned %d, errno %d, siginfo.si_pid %d, siginfo.si_status 0x%x\n", rc, errno, siginfo.si_pid, siginfo.si_status);
+      fprintf(stderr,
+              "waitid() returned %d, errno %d, siginfo.si_pid %d, siginfo.si_status 0x%x\n",
+              rc,
+              errno,
+              siginfo.si_pid,
+              siginfo.si_status);
       if (rc < 0) {
          fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, pid, strerror(errno));
          return 1;
@@ -236,7 +241,12 @@ int clone_exec_0(void)
       siginfo_t siginfo;
       memset(&siginfo, 0, sizeof(siginfo));
       int rc = waitid(P_PID, pid, &siginfo, WEXITED);
-      fprintf(stderr, "waitid() returned %d, errno %d, siginfo.si_pid %d, siginfo.si_status 0x%x\n", rc, errno, siginfo.si_pid, siginfo.si_status);
+      fprintf(stderr,
+              "waitid() returned %d, errno %d, siginfo.si_pid %d, siginfo.si_status 0x%x\n",
+              rc,
+              errno,
+              siginfo.si_pid,
+              siginfo.si_status);
       if (rc < 0) {
          fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, pid, strerror(errno));
          return 1;
@@ -423,8 +433,13 @@ int fork_kill_test_0(void)
       siginfo_t siginfo;
       memset(&siginfo, 0, sizeof(siginfo));
       int rc = waitid(P_PID, child_pid, &siginfo, WEXITED);
-      fprintf(stderr, "waitid() returned %d, errno %d, siginfo.si_pid %d, si_code %d, si_status %d\n",
-              rc, errno, siginfo.si_pid, siginfo.si_code, siginfo.si_status);
+      fprintf(stderr,
+              "waitid() returned %d, errno %d, siginfo.si_pid %d, si_code %d, si_status %d\n",
+              rc,
+              errno,
+              siginfo.si_pid,
+              siginfo.si_code,
+              siginfo.si_status);
       if (rc < 0) {
          fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, child_pid, strerror(errno));
          return 1;
