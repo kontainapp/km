@@ -31,19 +31,21 @@ class TestModules(unittest.TestCase):
 
         number_of_modules = len(set(moduleNames))
 
-        # Import them all.
+        # Import them all, and check modules have expected fields - that should check Kontain modules link-in.
         import importlib
         modules = list(map(lambda x: importlib.import_module(x), moduleNames))
-        for name in ['__name__', '__doc__', '__package__', '__loader__', '__spec__']:
-            for module in modules:
-                self.assertIn(name, module.__dict__.keys())
+        for module in modules:
+            if not isinstance(module, type(importlib)): # skip non-module classes, if any
+               continue
+            for name in ['__name__', '__doc__', '__package__', '__loader__', '__spec__']:
+               self.assertIn(name, module.__dict__.keys())
 
         # Verify
         names = sorted(set(map(lambda x: x.__name__, modules)))
 
         """
         stackoverflow:
-        'os.path works in a funny way. It looks like os should be a package with a submodule path, 
+        'os.path works in a funny way. It looks like os should be a package with a submodule path,
         but in reality os is a normal module that does magic with sys.modules to inject os.pah'
         """
         self.assertEqual(set(moduleNames) - set(names), {'os.path'})

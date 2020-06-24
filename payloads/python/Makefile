@@ -11,7 +11,19 @@
 # Makefile for building and packing Python payload runtime for KM
 
 TOP := $(shell git rev-parse --show-toplevel)
-VERS ?= v3.7.4
+
+# Git tag to fetch
+TAG ?= v3.7.4
+# TAG ?= v3.8.3
+
+# Version (used in python paths) and ABI flags (used in *some* paths)
+VERS = $(shell echo ${TAG} | sed -e 's/^v//' -e 's/.[0-9]*$$//')
+# in Python 3.8+ ABI flag 'm' is no longer used, see https://bugs.python.org/issue36707.
+ABI = $(shell if [ $$(echo ${VERS} | sed 's/^[0-9]*.//') -le 7 ] ; then echo m; fi)
+
+BUILDENV_IMAGE_EXTRA_ARGS = --build-arg=VERS=${VERS} --build-arg=ABI=${ABI} --build-arg=TAG=${TAG}
+TESTENV_IMAGE_EXTRA_ARGS  = --build-arg=VERS=${VERS} --build-arg=ABI=${ABI}
+RUNENV_IMAGE_EXTRA_ARGS   = --build-arg=VERS=${VERS}
 
 # Location of cpython sources. When building in container, it is set in buildenv dockerfile.
 PYTHONTOP ?= cpython
@@ -26,13 +38,13 @@ CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
 PAYLOAD_KM := cpython/python.km
 
 # name to be added to label(s)
-PAYLOAD_NAME := Python3.7
+PAYLOAD_NAME := ${COMPONENT}_${VERS}
 
 # a list to be passed to tar to be packed into container image by 'make runenv-image'.
 PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.exe' --exclude '*.whl' \
 	cpython/Lib \
 	cpython/Modules/Setup \
-	cpython/build/lib.linux-x86_64-3.7
+	'cpython/build/lib.linux-x86_64-3.*'
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)
@@ -64,7 +76,7 @@ ifneq ($(FROMSRC),yes)
 		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
 		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:Z \
 		-w ${TOP}/payloads/python \
-		${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+		${BUILDENV_IMG_TAGGED} \
 		make in-blank-container EXTRA_LINKFILES="${EXTRA_LINKFILES}" CUSTOM_KM="${CUSTOM_KM}"
 else
 	 eval $(link_cpython_km)
@@ -76,7 +88,7 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 	eval $(link_cpython_km)
 
 fromsrc: ## Clean build cpython from source. Use 'make clobber' to prepare for this one
-	git clone https://github.com/python/cpython.git -b ${VERS}
+	git clone https://github.com/python/cpython.git -b ${TAG}
 	cd cpython && ./configure && make -j`expr 2 \* $$(nproc)` | tee bear.out
 	@# Note: this patch also needs to be applied in Docker build - see ./buildenv-fedora.dockerfile
 	patch -p0 < platform_uname.patch

@@ -16,15 +16,18 @@
 # Supposed to make it easier to use static dlopen() by automating the copy of .km.id to the right location
 # set -x
 modules="${1}"
-if [[ -z "$modules" ]] ; then echo "Usage: ${BASH_SOURCE[0]} modules [sources_loc] [libs_loc]" ; exit 1; fi
+if [[ -z "$modules" ]] ; then echo "Usage: ${BASH_SOURCE[0]} modules [sources_loc] [libs_loc] [version]" ; exit 1; fi
 
 sources_loc=${2:-"cpython/Modules"}
 libs_loc=${3:-"cpython/Lib"}
 python_layout="yes"
+# TODO - calculate version from source_loc instead of hardcoding 3.7 here
+VERS="3.7"
+
 set -x
 for m in $modules ; do
    if [[ ! -z "$python_layout" ]] ; then
-      from="$sources_loc/$m/build/lib.linux-x86_64-3.7"
+      from="$sources_loc/$m/build/lib.linux-x86_64-${VERS}"
    else
       from="$sources_loc"
    fi
