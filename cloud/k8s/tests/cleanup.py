@@ -64,6 +64,7 @@ def get_stale_pods(pods_date_map: Dict[str, datetime.datetime]) -> List[str]:
 
 
 def main():
+    print(f"Cleaning stale tests older than {MAX_DAYS} days")
     pods: List[str] = get_pods()
     pods_date_map: Dict[str, datetime.datetime] = dict(
         (pod, get_pod_create_time(pod)) for pod in pods)
