@@ -43,7 +43,6 @@ EOF
 # set defaults for global vars.
 ext_file=$(realpath extensions/modules.json)
 generate_files=$(realpath extensions/prepare_extension.py)
-path_ids=$(realpath extensions/create_ids.sh)
 
 get_validated_module_names() {
    cat $ext_file | jq -r  ".modules[] | select (.hasSo==\"true\") | select(.status | IN(\"validated\", \"built\")) | .name"
@@ -88,7 +87,7 @@ build_one_module() {
    make_cmd=$(${generate_files} $src/$setupLocation/bear.out | grep 'make -C')
    echo $make_cmd
    $make_cmd
-   # TODO: use it to copy files out $path_ids $name $(realpath ..) $(realpath ../../Lib)
+   # TODO: use create_ids.sh to automatically copy IDs
 }
 
 # generate/build neccessary .a/.o files for static dlopen()

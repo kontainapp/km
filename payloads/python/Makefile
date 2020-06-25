@@ -29,7 +29,7 @@ RUNENV_IMAGE_EXTRA_ARGS   = --build-arg=VERS=${VERS}
 PYTHONTOP ?= cpython
 
 # component id for docker images
-COMPONENT := python
+COMPONENT := python${VERS}
 
 # this is how we run python.km tests in container
 CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
@@ -38,13 +38,13 @@ CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
 PAYLOAD_KM := cpython/python.km
 
 # name to be added to label(s)
-PAYLOAD_NAME := ${COMPONENT}_${VERS}
+PAYLOAD_NAME := ${COMPONENT}
 
 # a list to be passed to tar to be packed into container image by 'make runenv-image'.
 PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.exe' --exclude '*.whl' \
 	cpython/Lib \
 	cpython/Modules/Setup \
-	'cpython/build/lib.linux-x86_64-3.*'
+	'cpython/build/lib.linux-x86_64-${VERS}'
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)

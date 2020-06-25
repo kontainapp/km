@@ -59,11 +59,11 @@ dockerdemo: all distro ## Run Simple web server demo as Kontain VM payload in Do
 	${DOCKER_RUN_TEST} \
 	-v ${KM_OPT_BIN}:${KM_OPT_BIN} \
 	-p ${PORT1}:${PORT1} \
-	${RUNENV_IMG}:${IMAGE_VERSION} \
+	${RUNENV_IMG_TAGGED} \
 	${PORT1}
 
 dockerclean: ## Clean up results of 'make dockerdemo' if it was killed with ^C
-	-docker rm -f `docker ps -qa -f ancestor=${RUNENV_IMG}:${IMAGE_VERSION}`
+	-docker rm -f `docker ps -qa -f ancestor=${RUNENV_IMG_TAGGED}`
 
 test-all: all ## Builds dweb all and runs simple test
 	@echo -en "Testing dweb.km start/stop"
