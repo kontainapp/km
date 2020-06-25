@@ -536,10 +536,10 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
       nargv[0] = km_get_self_name();                               // km exec
       return nargv;
    }
-   // not shebang, see if it is a symlink
+   // not shebang, got to be symlink
    if ((pl_name = km_traverse_payload_symlinks(filename)) == NULL) {
-      // not a symlink, just use the filename
-      pl_name = filename;
+      freevector(argv, shell);
+      return NULL;
    }
 
    if ((nargv = calloc(1 + argc + 1, sizeof(char*))) == NULL) {   // km exec, cnt, and NULL

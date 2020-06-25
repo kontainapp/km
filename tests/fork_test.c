@@ -32,7 +32,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define HELLO_WORLD_TEST "hello_test.kmd"
+#define HELLO_WORLD_TEST "hello_test"
 
 static char* args[] = {HELLO_WORLD_TEST, "one", "two", "three", "four", NULL};
 static char* env[] = {"ONE=one", "TWO=two", "THREE=three", "FOUR=four", "FIVE=five", NULL};
