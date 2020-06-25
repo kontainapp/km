@@ -33,7 +33,9 @@ usage() {
 Usage:  ${BASH_SOURCE[0]} [options] [module_list]
   Options:
   --[build|generate|pack|pull|push] Operation requested. Default 'build'.
-                                    'build' is 'clone+compile+generate+pack'.
+                                    'build' is 'clone+compile+generate+pack'
+                                    'generate' creates Kontain specific files
+                                    Pack packages in (pushable) local docker image
     module_list   Build named modules (space separated list), no matter if validated or not.
                   By default, we use validated modules from modules.json. I
 EOF
@@ -61,6 +63,10 @@ get_module_repo() { get_module_data "$1" dockerRepo; }
 # Expects to be executed in cpython dir
 build_one_module() {
    name=$1     # module name
+   if [[ `get_module_data $name hasSo` != true ]] ; then
+      echo "*** Warning: No .so files in $name. Just 'pip3 install' into cpython/Lib or your virtuenv"
+      return
+   fi
    version=$(get_module_data $name 'versions[-1]')
    url=$(get_module_data $name git)
    deps="$(get_module_data $name dependsOn)"
