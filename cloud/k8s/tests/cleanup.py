@@ -42,10 +42,9 @@ def get_pod_create_time(pod) -> datetime.datetime:
         "pods",
         pod,
         "-o",
-        "json",
+        "jsonpath='{.status.startTime}'",
     ])
-    out_json = json.loads(out)
-    return datetime.datetime.strptime(out_json["status"]["startTime"], "%Y-%m-%dT%H:%M:%SZ")
+    return datetime.datetime.strptime(str(out, 'utf-8'), "%Y-%m-%dT%H:%M:%SZ")
 
 
 def delete_pods(pods: List[str]):
