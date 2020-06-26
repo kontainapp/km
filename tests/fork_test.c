@@ -32,7 +32,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define HELLO_WORLD_TEST "hello_test.kmd"
+#define HELLO_WORLD_TEST "hello_test"
 
 static char* args[] = {HELLO_WORLD_TEST, "one", "two", "three", "four", NULL};
 static char* env[] = {"ONE=one", "TWO=two", "THREE=three", "FOUR=four", "FIVE=five", NULL};
@@ -97,20 +97,20 @@ static int fork_exec_1(void)
       rc = execveat(AT_FDCWD, HELLO_WORLD_TEST, args, env, AT_SYMLINK_NOFOLLOW);
       if (rc < 0) {
          fprintf(stderr, "%s: execveat() failed, %s\n", __FUNCTION__, strerror(errno));
-         return 1;
+         exit(1);
       }
 #else
       // We test with fexecve() if the syscall wrapper is missing
       int exefd = open(HELLO_WORLD_TEST, O_RDONLY);
       if (exefd < 0) {
          fprintf(stderr, "%s: open %s failed, %s\n", __FUNCTION__, HELLO_WORLD_TEST, strerror(errno));
-         return 1;
+         exit(1);
       }
       rc = fexecve(exefd, args, env);
       if (rc < 0) {   // fexecve() does not return if successful.
-         fprintf(stderr, "%s: execveat() failed, %s\n", __FUNCTION__, strerror(errno));
+         fprintf(stderr, "%s: fexecve() failed, %s\n", __FUNCTION__, strerror(errno));
          close(exefd);
-         return 1;
+         exit(1);
       }
 #endif
    }
@@ -184,7 +184,12 @@ static int fork_exec_0(void)
       siginfo_t siginfo;
       memset(&siginfo, 0, sizeof(siginfo));
       int rc = waitid(P_PID, pid, &siginfo, WEXITED);
-      fprintf(stderr, "waitid() returned %d, errno %d, siginfo.si_pid %d\n", rc, errno, siginfo.si_pid);
+      fprintf(stderr,
+              "waitid() returned %d, errno %d, siginfo.si_pid %d, siginfo.si_status 0x%x\n",
+              rc,
+              errno,
+              siginfo.si_pid,
+              siginfo.si_status);
       if (rc < 0) {
          fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, pid, strerror(errno));
          return 1;
@@ -195,6 +200,15 @@ static int fork_exec_0(void)
                  __FUNCTION__,
                  pid,
                  siginfo.si_pid);
+         return 1;
+      }
+      if (siginfo.si_code == CLD_EXITED) {
+         if (siginfo.si_status != 0) {
+            fprintf(stderr, "%s: child exited with status %d\n", __FUNCTION__, siginfo.si_status);
+            return 1;
+         }
+      } else {
+         fprintf(stderr, "%s: child terminated by signal %d\n", __FUNCTION__, siginfo.si_status);
          return 1;
       }
    }
@@ -227,7 +241,12 @@ int clone_exec_0(void)
       siginfo_t siginfo;
       memset(&siginfo, 0, sizeof(siginfo));
       int rc = waitid(P_PID, pid, &siginfo, WEXITED);
-      fprintf(stderr, "waitid() returned %d, errno %d, siginfo.si_pid %d\n", rc, errno, siginfo.si_pid);
+      fprintf(stderr,
+              "waitid() returned %d, errno %d, siginfo.si_pid %d, siginfo.si_status 0x%x\n",
+              rc,
+              errno,
+              siginfo.si_pid,
+              siginfo.si_status);
       if (rc < 0) {
          fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, pid, strerror(errno));
          return 1;
@@ -238,6 +257,15 @@ int clone_exec_0(void)
                  __FUNCTION__,
                  pid,
                  siginfo.si_pid);
+         return 1;
+      }
+      if (siginfo.si_code == CLD_EXITED) {
+         if (siginfo.si_status != 0) {
+            fprintf(stderr, "%s: child exited with status %d\n", __FUNCTION__, siginfo.si_status);
+            return 1;
+         }
+      } else {
+         fprintf(stderr, "%s: child terminated by signal %d\n", __FUNCTION__, siginfo.si_status);
          return 1;
       }
    }
@@ -405,7 +433,13 @@ int fork_kill_test_0(void)
       siginfo_t siginfo;
       memset(&siginfo, 0, sizeof(siginfo));
       int rc = waitid(P_PID, child_pid, &siginfo, WEXITED);
-      fprintf(stderr, "waitid() returned %d, errno %d, siginfo.si_pid %d\n", rc, errno, siginfo.si_pid);
+      fprintf(stderr,
+              "waitid() returned %d, errno %d, siginfo.si_pid %d, si_code %d, si_status %d\n",
+              rc,
+              errno,
+              siginfo.si_pid,
+              siginfo.si_code,
+              siginfo.si_status);
       if (rc < 0) {
          fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, child_pid, strerror(errno));
          return 1;
@@ -419,14 +453,18 @@ int fork_kill_test_0(void)
          return 1;
       }
       // See if child received the signal
-      if (WIFEXITED(siginfo.si_status) && WEXITSTATUS(siginfo.si_status) == 0) {
-         rv = 0;
+      rv = 0;
+      if (siginfo.si_code == CLD_EXITED) {
+         if (siginfo.si_status != 0) {
+            fprintf(stderr,
+                    "%s: unexpected exit status 0x%x, from child pid %d\n",
+                    __FUNCTION__,
+                    siginfo.si_status,
+                    child_pid);
+            rv = 1;
+         }
       } else {
-         fprintf(stderr,
-                 "%s: unexpected exit status 0x%x, from child pid %d\n",
-                 __FUNCTION__,
-                 siginfo.si_status,
-                 child_pid);
+         fprintf(stderr, "%s: child terminated by signal %d\n", __FUNCTION__, siginfo.si_status);
          rv = 1;
       }
    }
