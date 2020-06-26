@@ -10,24 +10,28 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
-# A simple helper to copy .km.id files from build place to lib place
+# A simple MANUAL helper to copy .km.id files from build place to lib place.
 # by default assumes that it runs from payload/python and copies .id files from Modules to Lib
 #
 # Supposed to make it easier to use static dlopen() by automating the copy of .km.id to the right location
-# set -x
+[ "$TRACE" ] && set -x
+
 modules="${1}"
-if [[ -z "$modules" ]] ; then echo "Usage: ${BASH_SOURCE[0]} modules [sources_loc] [libs_loc]" ; exit 1; fi
+if [[ -z "$modules" ]] ; then echo "Usage: ${BASH_SOURCE[0]} modules [sources_loc] [libs_loc] [version]" ; exit 1; fi
 
 sources_loc=${2:-"cpython/Modules"}
 libs_loc=${3:-"cpython/Lib"}
 python_layout="yes"
-set -x
+# pass VERS as env if 3.8 is not what you need
+VERS=${VERS:-3.8}
+
 for m in $modules ; do
    if [[ ! -z "$python_layout" ]] ; then
-      from="$sources_loc/$m/build/lib.linux-x86_64-3.7"
+      from="$sources_loc/$m/build/lib.linux-x86_64-${VERS}"
    else
       from="$sources_loc"
    fi
+   if [ ! -d $from ] ; then echo Please check if you have passed correct Python VERS as env var ; exit 1; fi
    if [ -d $from/$m ] ; then from="$from/$m" ; fi #  there is a 'module-name' dir for multimodule packages
 
    to=$libs_loc
