@@ -34,9 +34,15 @@ include ${TOP}/make/locations.mk
 
 # Image names and location for image builds
 TEST_IMG := kontain/test-${COMPONENT}-${DTYPE}
+TEST_IMG_TAGGED := ${TEST_IMG}:${IMAGE_VERSION}
+
 BUILDENV_IMG := kontain/buildenv-${COMPONENT}-${DTYPE}
+BUILDENV_IMG_TAGGED := ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION}
+
 # runenv does not include anything linix distro specific, so it does not have 'DTYPE'
 RUNENV_IMG := kontain/runenv-${COMPONENT}
+RUNENV_IMG_TAGGED := ${RUNENV_IMG}:${IMAGE_VERSION}
+
 # runenv demo image produce a demo based on the runenv image
 RUNENV_DEMO_IMG := kontain/demo-runenv-${COMPONENT}
 
@@ -63,20 +69,22 @@ testenv_prep = cp ${TESTENV_EXTRA_FILES} ${TESTENV_PATH}
 testenv_cleanup = rm $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}})
 
 testenv-image: ## build test image with test tools and code
-	$(call clean_container_image,${TEST_IMG}:${IMAGE_VERSION})
+	$(call clean_container_image,${TEST_IMG_TAGGED})
 	$(call testenv_prep)
 	${DOCKER_BUILD} --no-cache \
 			--build-arg=branch=${SRC_SHA} \
 			--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
 			--build-arg=MODE=${BUILD} \
-			-t ${TEST_IMG}:${IMAGE_VERSION} \
+			${TESTENV_IMAGE_EXTRA_ARGS} \
+			-t ${TEST_IMG_TAGGED} \
 			-f ${TEST_DOCKERFILE} \
 			${TESTENV_PATH}
 	$(call testenv_cleanup)
 
 buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
-	${DOCKER_BUILD} -t ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+	${DOCKER_BUILD} -t ${BUILDENV_IMG_TAGGED} \
 		--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
+		${BUILDENV_IMAGE_EXTRA_ARGS} \
 		${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 
 push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
@@ -125,12 +133,13 @@ ifeq (${NO_RUNENV}, false)
 
 runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
 	@$(TOP)/make/check-docker.sh
-	$(call clean_container_image,${RUNENV_IMG}:${IMAGE_VERSION})
+	$(call clean_container_image,${RUNENV_IMG_TAGGED})
 ifdef runenv_prep
 	@echo -e "Executing prep steps"
 	eval $(runenv_prep)
 endif
-	${DOCKER_BUILD} -t ${RUNENV_IMG}:${IMAGE_VERSION} -f ${RUNENV_DOCKERFILE} ${RUNENV_PATH}
+	${DOCKER_BUILD} ${RUNENV_IMAGE_EXTRA_ARGS} \
+		-t ${RUNENV_IMG_TAGGED} -f ${RUNENV_DOCKERFILE} ${RUNENV_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
 ifneq (${RUNENV_VALIDATE_DIR},)
@@ -144,7 +153,7 @@ validate-runenv-image: $(RUNENV_VALIDATE_DEPENDENCIES) ## Validate runtime image
 	${DOCKER_RUN_TEST} \
 		${KM_DOCKER_VOLUME} \
 		${SCRIPT_MOUNT} \
-		${RUNENV_IMG}:${IMAGE_VERSION} \
+		${RUNENV_IMG_TAGGED} \
 		${RUNENV_VALIDATE_CMD} | grep "${RUNENV_VALIDATE_EXPECTED}"
 
 push-runenv-image:  runenv-image ## pushes image.
@@ -188,10 +197,10 @@ CONTAINER_TEST_CMD ?= \
 CONTAINER_TEST_ALL_CMD ?= ${CONTAINER_TEST_CMD}
 
 test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
-	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_CMD}
+	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_CMD}
 
 test-all-withdocker: ## a special helper to run more node.km tests.
-	${DOCKER_RUN_TEST} ${TEST_IMG}:${IMAGE_VERSION} ${CONTAINER_TEST_ALL_CMD}
+	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
 
 # Helper when we need to make sure IMAGE_VERSION is defined and not 'latest', and command is defined
 .check_vars:
@@ -246,26 +255,24 @@ ${BLDDIR}:
 
 # install stuff for fedora per buildenv-image info. Assume buildenv-image either built or pulled
 buildenv-local-fedora: ${KM_OPT_RT} .buildenv-local-dnf .buildenv-local-lib ## make local build environment for KM
-	@if ! docker image inspect ${BUILDENV_IMG} > /dev/null ; then \
-		echo -e "$(RED)${BUILDENV_IMG} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
-	sudo dnf install -y `docker history --format "{{ .CreatedBy }}" --no-trunc ${BUILDENV_IMG} | sed -rn '/dnf install/s/.*dnf install -y([^&]*)(.*)/\1/p'`
 
 # Get a list of DNF packages from buildenv-image and install it on the host
 .buildenv-local-dnf: .buildenv-local-check-image
-	sudo dnf install -y `docker history --format "{{ .CreatedBy }}" --no-trunc ${BUILDENV_IMG}:$(BUILDENV_IMAGE_VERSION) | sed -rn '/dnf install/s/.*dnf install -y([^&]*)(.*)/\1/p'`
+	sudo dnf install -y `docker history --format "{{ .CreatedBy }}" --no-trunc ${BUILDENV_IMG_TAGGED} | sed -rn '/dnf install/s/.*dnf install -y([^&]*)(.*)/\1/p'` \
+	                 |& grep -v 'is already installed'
 
 # Fetches alpine libs, and preps writeable 'runtime' dir.
 # It'd a prerequisite for all further builds and needs to be called right after building
 # or pull the buildenv-image. Call it via 'make buildenv-local-fedora' or 'make .buildenv-local-lib'
 # so that libs are on the host and can be copied to runenv-image and testenv-image
 .buildenv-local-lib: ${KM_OPT_RT} ${KM_OPT_BIN} .buildenv-local-check-image
-	docker create --name tmp_env $(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION)
+	docker create --name tmp_env ${BUILDENV_IMG_TAGGED}
 	sudo docker cp tmp_env:/opt/kontain /opt
 	docker rm tmp_env
 
 .buildenv-local-check-image:
-	@if ! docker image inspect ${BUILDENV_IMG}:$(BUILDENV_IMAGE_VERSION) > /dev/null ; then \
-		echo -e "$(RED)${BUILDENV_IMG}:$(BUILDENV_IMAGE_VERSION) is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
+	@if ! docker image inspect ${BUILDENV_IMG_TAGGED} > /dev/null ; then \
+		echo -e "$(RED)${BUILDENV_IMG_TAGGED} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
 
 .DEFAULT:
 	@echo $(notdir $(CURDIR)): ignoring target '$@'

@@ -198,7 +198,7 @@ DOCKER_COVERAGE_NAME := kontain-coverage-test
 # because all the testfiles are owned by appuser. So the only solution is to let
 # the files be generated inside the container, and docker cp out onto the host.
 coverage-withdocker:
-	docker create --device=${HYPERVISOR_DEVICE} --name ${DOCKER_COVERAGE_NAME} ${TEST_IMG}:${IMAGE_VERSION} tail -f /dev/null
+	docker create --device=${HYPERVISOR_DEVICE} --name ${DOCKER_COVERAGE_NAME} ${TEST_IMG_TAGGED} tail -f /dev/null
 	docker start ${DOCKER_COVERAGE_NAME}
 	docker exec ${DOCKER_COVERAGE_NAME} ${CONTAINER_COVERAGE_TEST_CMD}
 	docker cp ${DOCKER_COVERAGE_NAME}:${DOCKER_KM_TOP}/build/km/coverage/. ${TOP}/build/km/coverage/.
