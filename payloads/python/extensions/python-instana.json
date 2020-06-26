@@ -1,0 +1,18 @@
+{
+   "header": [
+      "# Configuration for building python-custom.km",
+      "# Defines extra packages to link in"
+   ],
+   "modules": [
+      {
+         "name": "instana"
+      },
+      {
+         "name": "protobuf"
+      },
+      {
+         "name": "wrapt",
+         "comment": "when version is not defined, pick up 'latest"
+      }
+   ]
+}

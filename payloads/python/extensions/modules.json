@@ -91,6 +91,17 @@
          "status": "validated"
       },
       {
+         "name": "autowrapt",
+         "versions": [
+            "1.0"
+         ],
+         "git": "https://github.com/GrahamDumpleton/autowrapt",
+         "abstract": "Boostrap mechanism for monkey patches. Contribute to GrahamDumpleton/autowrapt development by creating an account on GitHub",
+         "hasSo": "false",
+         "dockerRepo": "kpython/autowrapt",
+         "status": "unknown"
+      },
+      {
          "name": "Pillow",
          "versions": [
             "6.2.1",
@@ -156,6 +167,78 @@
       },
       {
          "name": "requests",
+         "hasSo": "false"
+      },
+      {
+         "name": "urllib3",
+         "git": "https://github.com/urllib3/urllib3",
+         "abstract": "Python HTTP library with thread-safe connection pooling, file post support, sanity friendly, and more. - urllib3/urllib3.",
+         "versions": [
+            "1.25.8"
+         ],
+         "hasSo": "false"
+      },
+      {
+         "name": "idna",
+         "git": "https://github.com/kjd/idna",
+         "abstract": "Internationalized Domain Names in Applications IDNA 2008",
+         "versions": [
+            "3.0.4"
+         ],
+         "hasSo": "false"
+      },
+      {
+         "name": "chardet",
+         "git": "https://github.com/chardet/chardet",
+         "abstract": "Chardet: The Universal Character Encoding Detector",
+         "versions": [
+            "3.0.4"
+         ],
+         "hasSo": "false"
+      },
+      {
+         "name": "opentracing",
+         "git": "https://github.com/opentracing",
+         "abstract": "Consistent, expressive, vendor-neutral APIs for distributed tracing and context propagation - OpenTracing API.",
+         "hasSo": "false"
+      },
+      {
+         "name": "basictracer",
+         "git": "https://github.com/opentracing/basictracer-python",
+         "abstract": "The examples/ directory contains a sample of how the BasicTracer implementation could be used to display spans in the console. Development. Tests. virtualenv ...",
+         "versions": [
+            "3.1.0"
+         ],
+         "hasSo": "false",
+         "status": "unknown",
+         "dependsOn": {
+            "modules": "protobuf  opentracing  six"
+         }
+      },
+      {
+         "name": "certifi",
+         "git": "https://github.com/certifi/python-certifi",
+         "abstract": "Certifi provides Mozilla's carefully curated collection of Root Certificates for validating the trustworthiness of SSL certificates while verifying the identity of TLS hosts.",
+         "hasSo": "false",
+         "status": "unknown"
+      },
+      {
+         "name": "fysom",
+         "git": "https://github.com/mriehl/fysom",
+         "abstract": "Finite State Machine for Python (based on Jake Gordon's javascript-state-machine). Star 338. ",
+         "versions": [
+            "v1.0.14"
+         ],
+         "hasSo": "false",
+         "status": "unknown"
+      },
+      {
+         "name": "setuptools",
+         "git": "https://github.com/pypa/setuptools",
+         "abstract": "See the Installation Instructions in the Python Packaging User's Guide for instructions on installing, upgrading, and uninstalling Setuptools. ",
+         "versions": [
+            "38.2.5"
+         ],
          "hasSo": "false"
       },
       {
@@ -264,6 +347,19 @@
          "comment": "Undefined: `__vasprintf_chk `__realpath_chk` SZ_encoder_enabled `SZ_BufftoBuffDecompress"
       },
       {
+         "name": "instana",
+         "git": "https://github.com/instana/python-sensor",
+         "abstract": "The instana Python package collects key metrics and distributed traces for Instana.",
+         "versions": [
+            "master"
+         ],
+         "hasSo": "false",
+         "status": "unknown",
+         "dependsOn": {
+            "modules": "autowrapt  basictracer  certifi  fysom  opentracing  requests  urllib3"
+         }
+      },
+      {
          "name": "grpcio",
          "versions": [
             "??"
@@ -276,10 +372,13 @@
       },
       {
          "name": "protobuf",
+         "abstract": "Protocol Buffers - Google's data interchange format",
          "versions": [
-            "v3.10.1"
+            "v3.10.1",
+            "v3.12.3"
          ],
          "git": "https://github.com/protocolbuffers/protobuf",
+         "setupLocation": "python",
          "hasSo": "true",
          "dockerRepo": "kpython/protobuf",
          "status": "fail",
