@@ -225,7 +225,6 @@ static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, uint64_t arg)
                               .guest_thr = vcpu->guest_thr,
                               .set_child_tid = vcpu->set_child_tid,
                               .clear_child_tid = vcpu->clear_child_tid,
-                              .on_sigaltstack = vcpu->on_sigaltstack,
                               .sigaltstack_sp = (Elf64_Addr)vcpu->sigaltstack.ss_sp,
                               .sigaltstack_flags = vcpu->sigaltstack.ss_flags,
                               .sigaltstack_size = vcpu->sigaltstack.ss_size,

@@ -207,10 +207,9 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
       km_cond_wait(&km_fork_state.cond, &km_fork_state.mutex);
    }
 
-   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &km_fork_state.regs) < 0) {
-      km_mutex_unlock(&km_fork_state.mutex);
-      return -errno;
-   }
+   km_fork_state.regs = vcpu->cpu_run->s.regs.regs;
+   km_infox(KM_TRACE_FORK, "get general registers, rsp 0x%llx", km_fork_state.regs.rsp);
+
    if (is_clone != 0) {
       km_infox(KM_TRACE_FORK,
                "clone args: flags 0x%lx, child_stack 0x%lx, ptid 0x%lx, ctid 0x%lx, newtls 0x%lx",

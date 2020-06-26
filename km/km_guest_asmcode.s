@@ -17,6 +17,8 @@
  * guest space debuggers.  Let's keep the .cfi directives in case we
  * find a way to use in the future.
  */
+    .equiv KM_HCALL_PORT_BASE, 0x8000
+
     .section .km_guest_text, "ax", @progbits
     .align 16
 __km_sigreturn:
@@ -56,8 +58,8 @@ __km_sigreturn:
     .cfi_offset 16, 120 + HCARG_SIZE     # Saved RIP
 
     /* The actual code itself */
-    mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
-    mov $0xffff800f, %edx   # SYS_rt_sigreturn
+    mov %rsp, %rax           # address of unused km_hc_args_t
+    mov $KM_HCALL_PORT_BASE|0xf, %edx   # KM_HCALL_PORT_BASE + SYS_rt_sigreturn
     out %eax, %dx           # Enter KM
     .cfi_endproc
 __km_sigreturn_end:        # We'll need this to define the the DWARF
@@ -70,12 +72,12 @@ __km_sigreturn_end:        # We'll need this to define the the DWARF
 __km_handle_interrupt:
     .type __km_handle_interrupt, @function
     .global __km_handle_interrupt
-    push %rdx
-    push %rbx
-    push %rax
+    push %rdx               # arg2
+    push %rbx               # arg1
+    push %rax               # hc_ret
     mov $0xdeadbeef, %rbx
-    mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
-    mov $0xffff81fd, %edx   # HC_guest_interrupt
+    mov %rsp, %rax          # address of km_hc_args_t on stack in rax
+    mov $KM_HCALL_PORT_BASE|0x1fd, %edx   # KM_HCALL_PORT_BASE + HC_guest_interrupt
     out %eax, %dx           # Enter KM
     hlt                     # Should never hit here.
 
@@ -89,8 +91,8 @@ handler\name :
     push %rbx
     push %rax
     mov $\num, %rbx
-    mov %rsp, %rax          # KM Setup km_hc_args_t on stack for us to use
-    mov $0x81fd, %dx        # HC_guest_interrupt
+    mov %rsp, %rax            # KM Setup address of km_hc_args_t on stack for us to use
+    mov $KM_HCALL_PORT_BASE|0x1fd, %dx        # KM_HCALL_PORT_BASE + HC_guest_interrupt
     outl %eax, (%dx)        # Enter KM
     hlt                     # Should never hit here.
 
@@ -169,7 +171,7 @@ __km_interrupt_table:
     .type __km_syscall_handler, @function
     .global __km_syscall_handler
 __km_syscall_handler:
-    // create a km_hcall_t on the stack.
+    // create a km_hc_args_t on the stack.
     push %r9    # arg6
     push %r8    # arg5
     push %r10   # arg4
@@ -179,8 +181,8 @@ __km_syscall_handler:
     push %rax   # hc_ret - don't care about value. %rax is convienent.
 
     mov %ax, %dx     # Do the KM HCall
-    or $0x8000, %dx
-    mov %rsp, %rax   # km_hcall_t on the stack
+    or $KM_HCALL_PORT_BASE, %dx  # or in KM_HCALL_PORT_BASE
+    mov %rsp, %rax     # rax is the address of km_hc_args_t on the stack
     outl %eax, (%dx)
 
     mov 24(%rsp), %rdx  # restore rdx

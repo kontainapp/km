@@ -27,9 +27,11 @@ long __syscall_cp_asm(int* c, long n, long a1, long a2, long a3, long a4, long a
       arg.arg4 = a4;
       arg.arg5 = a5;
       arg.arg6 = a6;
-      __asm__ __volatile__("outl %0, %1"
+      __asm__ __volatile__("lea %0,%%rax;"
+                           "outl %%eax, %1"
                            :
-                           : "a"((uint32_t)((uint64_t)&arg)), "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
+                           : "m"(arg),
+                             "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
                            : "memory");
       __asm__ __volatile__("\n"
                            :

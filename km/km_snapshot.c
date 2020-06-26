@@ -270,7 +270,6 @@ static int km_ss_recover_vcpu_info(char* ptr, size_t length)
    vcpu->guest_thr = nt->guest_thr;
    vcpu->set_child_tid = nt->set_child_tid;
    vcpu->clear_child_tid = nt->clear_child_tid;
-   vcpu->on_sigaltstack = nt->on_sigaltstack;
    vcpu->sigaltstack.ss_sp = (void*)nt->sigaltstack_sp;
    vcpu->sigaltstack.ss_flags = nt->sigaltstack_flags;
    vcpu->sigaltstack.ss_size = nt->sigaltstack_size;
