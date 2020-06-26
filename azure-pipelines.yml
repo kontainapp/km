@@ -42,7 +42,7 @@ jobs:
 
     # Default job has a 60 minutes timeout. Sets this to 0 to use the max
     # 360 minutes timeout.
-    timeoutInMinutes: 0
+    timeoutInMinutes: "0"
     pool:
       vmImage: $(vmImage)
     strategy:
@@ -64,6 +64,7 @@ jobs:
           # TODO - if the **test** failed (especially with kmcore), we want to keep these pods for a few days
           # Setting vars doc: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables
           echo "======= Printing statuses and cleaning up ======"
+          make -C tests clean-stale-test-k8s
           rm -f ~/.kube/config
           az logout
         condition: always()
