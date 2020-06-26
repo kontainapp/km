@@ -236,6 +236,9 @@ test-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual i
 test-all-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
 	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER}-${TEST_K8S_NAME}" "${CONTAINER_TEST_ALL_CMD}"
 
+CLEAN_STALE_TEST_SCRIPTS := ${TOP}/cloud/k8s/tests/cleanup.py
+clean-stale-test-k8s:
+	${CLEAN_STALE_TEST_SCRIPTS}
 
 ifeq (${NO_RUNENV}, false)
 K8S_RUN_VALIDATION := $(TOP)/cloud/k8s/tests/k8s-run-validation.sh
