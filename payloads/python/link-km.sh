@@ -27,9 +27,6 @@ OUT=$(realpath ${2:-cpython})
 
 KM_OPT_BIN=/opt/kontain/bin
 
-# Useful hint in .cfg file
-PYTHON_VERSION=3.7
-
 cd $OUT
 kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
    @linkline_km.txt ${EXTRA_FILES} \

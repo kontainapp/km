@@ -54,7 +54,7 @@ ifneq ($(FROMSRC),yes)
 		-v ${TOP}:${TOP}:Z \
 		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
 		-w ${TOP} \
-		${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+		${BUILDENV_IMG_TAGGED} \
 		make -C payloads/java in-blank-container
 else
 	./link-km.sh ${JDK_BUILD_DIR}
@@ -79,7 +79,7 @@ scripts/%.class: scripts/%.java
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
 		-w ${CURRENT_DIR} \
-		${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION} \
+		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/javac $?
 
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually

@@ -14,7 +14,10 @@
 # linkenv - based on km-build-env and just copy the objects and test files
 
 ARG MODE=Release
-ARG VERS=v3.7.4
+# Git tag to fetch. Needs to be passed via build args. E.g. v3.8.3
+ARG TAG
+# Version to use in paths. Needs to be passed via args. E.g. 3.8
+ARG VERS
 ARG BUILDENV_IMAGE_VERSION=latest
 
 # Form alpine-based container to extract alpine-libs from
@@ -33,13 +36,14 @@ RUN tar cf - -C / lib usr/lib \
    --exclude engines-\* | tar xf - -C $PREFIX/alpine-lib
 
 FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} AS buildenv-cpython
-ARG VERS
+ARG TAG
+# ARG VERS
 
 USER root
 RUN dnf install libffi-devel xz-devel sqlite-devel expat-static python3-jinja2 -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 USER $USER
 
-RUN git clone https://github.com/python/cpython.git -b $VERS
+RUN git clone https://github.com/python/cpython.git -b $TAG
 RUN cd cpython && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
 COPY platform_uname.patch platform_uname.patch
 # Note: this patch also needs to be applied in 'make fromsrc'- see ./Makefile
@@ -59,19 +63,22 @@ ENV PYTHONTOP=/home/$USER/cpython
 # The following copies two sets of artifacts - objects needed to build (link) python.km,
 # and the sets of files to run set of tests. The former is used by link-km.sh,
 # the latter is copied to the output by Makefile using NODE_DISTRO_FILES.
-#
-ARG BUILD_LOC="/home/$USER/cpython/build/lib.linux-x86_64-3.7/ /home/$USER/cpython/build/temp.linux-x86_64-3.7"
+
+# Python VERS and ABI flags **MUST** be passed from upstairs
+ARG VERS
+ARG ABI
 
 COPY --from=alpine-lib-image $PREFIX $PREFIX/
 
-RUN mkdir -p ${BUILD_LOC} && chown $USER ${BUILD_LOC}
+RUN BUILD_LOC="/home/$USER/cpython/build/lib.linux-x86_64-${VERS}/ /home/$USER/cpython/build/temp.linux-x86_64-${VERS}"; \
+   mkdir -p ${BUILD_LOC} && chown $USER ${BUILD_LOC}
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/builtins cpython/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Lib/ cpython/Lib/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Modules/ cpython/Modules/
 COPY --from=buildenv-cpython --chown=appuser:appuser \
-   /home/$USER/cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py \
-   cpython/build/lib.linux-x86_64-3.7/_sysconfigdata_m_linux_x86_64-linux-gnu.py
-COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/build/temp.linux-x86_64-3.7 cpython/build/temp.linux-x86_64-3.7/
+   /home/$USER/cpython/build/lib.linux-x86_64-${VERS}/_sysconfigdata_${ABI}_linux_x86_64-linux-gnu.py \
+   cpython/build/lib.linux-x86_64-${VERS}/_sysconfigdata_${ABI}_linux_x86_64-linux-gnu.py
+COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/build/temp.linux-x86_64-${VERS} cpython/build/temp.linux-x86_64-${VERS}/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Programs/python.o cpython/Programs/python.o
-COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/libpython3.7m.a cpython/
+COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/libpython${VERS}${ABI}.a cpython/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/pybuilddir.txt cpython/
