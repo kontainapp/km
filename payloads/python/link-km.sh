@@ -18,12 +18,13 @@ EOF
    exit 0
 fi
 
-EXTRA_FILES="$3"
-NAME=${4:-python.km}
-KM_TOP=$(git rev-parse --show-toplevel)
-PATH=$(realpath ${KM_TOP}/tools):$PATH
 BUILD=$(realpath ${1:-cpython})
 OUT=$(realpath ${2:-cpython})
+EXTRA_FILES="$3"
+NAME=${4:-python.km}
+
+KM_TOP=$(git rev-parse --show-toplevel)
+PATH=$(realpath ${KM_TOP}/tools):$PATH
 
 KM_OPT_BIN=/opt/kontain/bin
 

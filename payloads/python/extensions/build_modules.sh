@@ -64,7 +64,7 @@ get_module_repo() { get_module_data "$1" dockerRepo; }
 build_one_module() {
    name=$1     # module name
    if [[ `get_module_data $name hasSo` != true ]] ; then
-      echo "*** Warning: No .so files in $name. Just 'pip3 install' into cpython/Lib or your virtuenv"
+      echo "*** Warning: No .so files in $name. Just 'pip3 install' into cpython/Lib or your virtual env"
       return
    fi
    version=$(get_module_data $name 'versions[-1]')
