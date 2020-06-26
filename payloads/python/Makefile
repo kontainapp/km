@@ -12,7 +12,7 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-# Git tag to fetch
+# Git tag to fetch.
 TAG ?= v3.7.4
 # TAG ?= v3.8.3
 
@@ -21,15 +21,17 @@ VERS = $(shell echo ${TAG} | sed -e 's/^v//' -e 's/.[0-9]*$$//')
 # in Python 3.8+ ABI flag 'm' is no longer used, see https://bugs.python.org/issue36707.
 ABI = $(shell if [ $$(echo ${VERS} | sed 's/^[0-9]*.//') -le 7 ] ; then echo m; fi)
 
-BUILDENV_IMAGE_EXTRA_ARGS = --build-arg=VERS=${VERS} --build-arg=ABI=${ABI} --build-arg=TAG=${TAG}
-TESTENV_IMAGE_EXTRA_ARGS  = --build-arg=VERS=${VERS} --build-arg=ABI=${ABI}
-RUNENV_IMAGE_EXTRA_ARGS   = --build-arg=VERS=${VERS}
+BUILDENV_IMAGE_EXTRA_ARGS = --label "VERS=${VERS}" --build-arg=VERS=${VERS} --build-arg=ABI=${ABI} --build-arg=TAG=${TAG}
+TESTENV_IMAGE_EXTRA_ARGS  = --label "VERS=${VERS}" --build-arg=VERS=${VERS} --build-arg=ABI=${ABI}
+RUNENV_IMAGE_EXTRA_ARGS   = --label "VERS=${VERS}" --build-arg=VERS=${VERS}
 
 # Location of cpython sources. When building in container, it is set in buildenv dockerfile.
 PYTHONTOP ?= cpython
 
-# component id for docker images
-COMPONENT := python${VERS}
+# Component id for docker images.
+# Note that for now it is version-independent (i.e. not python${VERS})
+# to avoid version dependencies downstream in FROM/demo images etc.
+COMPONENT := python
 
 # this is how we run python.km tests in container
 CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
