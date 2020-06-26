@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-# clean up stale pods in the testing cluster
+
+""" Clean up stale pods in the testing cluster.
+
+    When pushing a new commit before the current CI finishes, CI is
+    immediatly interrupted. We don't a chance to clean up for this case, so
+    this script will be used to clean up staled pods in the testing cluster.
+    We assume `kubectl` is correctly configured with the credentials.
+"""
 
 import subprocess
 import json
