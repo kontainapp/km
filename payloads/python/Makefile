@@ -45,8 +45,8 @@ PAYLOAD_NAME := ${COMPONENT}
 # a list to be passed to tar to be packed into container image by 'make runenv-image'.
 PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.exe' --exclude '*.whl' \
 	cpython/Lib \
-	cpython/Modules/Setup \
-	'cpython/build/lib.linux-x86_64-${VERS}'
+	cpython/Modules/Setup
+PAYLOAD_STUBS := $(shell find cpython/build/lib.linux-x86_64-${VERS} -name '*.so')
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)
@@ -154,7 +154,9 @@ RUNENV_VALIDATE_DIR := scripts
 RUNENV_VALIDATE_CMD := scripts/sanity_test.py
 export define runenv_prep
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
-	cp ${PAYLOAD_KM} ${RUNENV_PATH}
+	install -s ${PAYLOAD_KM} ${RUNENV_PATH}
+	mkdir -p $(addprefix ${RUNENV_PATH}/,$(dir ${PAYLOAD_STUBS}))
+	touch $(addprefix ${RUNENV_PATH}/,${PAYLOAD_STUBS})
 endef
 
 include ${TOP}/make/images.mk

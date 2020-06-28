@@ -44,7 +44,7 @@ index 3933c3a..b4abda1 100644
  	make clean -C libkdump
 +
 +physical_reader.km: physical_reader.o libkdump/libkdump.a
-+	cc $^ -o $@ -specs=${KM_TOP}/gcc-km.spec -L ${KM_TOP}/build/runtime
++	$(realpath ${KM_TOP}/tools)/kontain-gcc -pthread $^ -o $@
 diff --git a/libkdump/libkdump.c b/libkdump/libkdump.c
 index c590391..68df002 100644
 --- a/libkdump/libkdump.c
