@@ -246,6 +246,25 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
 }
 
 /*
+ * KKM driver keeps debug and syscall state.
+ * When KM reuses VCPU this state becomes stale.
+ * This ioctl bring KKM and KM state to sync.
+ */
+static inline int km_vmmonitor_vcpu_reinit(km_vcpu_t* vcpu)
+{
+   int retval = 0;
+
+   if (machine.vm_type == VM_TYPE_KKM) {
+#define KKM_KONTEXT_REUSE _IO(KVMIO, 0xf5)
+      if ((retval = ioctl(vcpu->kvm_vcpu_fd, KKM_KONTEXT_REUSE)) != 0) {
+         km_err_msg(retval, "VCPU reinit failed");
+      }
+#undef KKM_KONTEXT_REUSE
+   }
+   return retval;
+}
+
+/*
  * km_vcpu_get() atomically finds the first vcpu slot that can be used for a new vcpu. It could be
  * previously used slot left by exited thread, or a new one. vcpu->is_used == 0 marks the unused slot.
  */
@@ -265,6 +284,9 @@ km_vcpu_t* km_vcpu_get(void)
       unused = 0;
       if (__atomic_compare_exchange_n(&vcpu->is_used, &unused, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
          km_gdb_vcpu_state_init(vcpu);
+         if (km_vmmonitor_vcpu_reinit(vcpu) != 0) {
+            continue;
+         }
          return vcpu;
       }
    }
