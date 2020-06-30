@@ -43,9 +43,11 @@ PAYLOAD_KM := cpython/python.km
 PAYLOAD_NAME := ${COMPONENT}
 
 # a list to be passed to tar to be packed into container image by 'make runenv-image'.
-PAYLOAD_FILES := --exclude='*/test/*' --exclude='*/__pycache__/*' --exclude '*.exe' --exclude '*.whl' \
+PAYLOAD_FILES := --exclude='*/test' --exclude='*/__pycache__' --exclude '*.exe' --exclude '*.whl' \
 	cpython/Lib \
-	cpython/Modules/Setup
+	cpython/Modules/Setup \
+	cpython/pybuilddir.txt
+
 PAYLOAD_STUBS := $(shell find cpython/build/lib.linux-x86_64-${VERS} -name '*.so')
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
