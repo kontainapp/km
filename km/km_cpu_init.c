@@ -250,14 +250,18 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
  * When KM reuses VCPU this state becomes stale.
  * This ioctl bring KKM and KM state to sync.
  */
-static inline int km_vmmonitor_vcpu_reinit(km_vcpu_t* vcpu)
+static inline int km_vmmonitor_vcpu_init(km_vcpu_t* vcpu)
 {
    int retval = 0;
 
    if (machine.vm_type == VM_TYPE_KKM) {
 #define KKM_KONTEXT_REUSE _IO(KVMIO, 0xf5)
-      if ((retval = ioctl(vcpu->kvm_vcpu_fd, KKM_KONTEXT_REUSE)) != 0) {
-         km_err_msg(retval, "VCPU reinit failed");
+      if ((retval = ioctl(vcpu->kvm_vcpu_fd, KKM_KONTEXT_REUSE)) == -1) {
+         km_err_msg(retval,
+                    "VCPU reinit failed vcpu id %d vcpu fd %d with error %s",
+                    vcpu->vcpu_id,
+                    vcpu->kvm_vcpu_fd,
+                    strerror(errno));
       }
 #undef KKM_KONTEXT_REUSE
    }
@@ -284,7 +288,8 @@ km_vcpu_t* km_vcpu_get(void)
       unused = 0;
       if (__atomic_compare_exchange_n(&vcpu->is_used, &unused, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
          km_gdb_vcpu_state_init(vcpu);
-         if (km_vmmonitor_vcpu_reinit(vcpu) != 0) {
+         if (km_vmmonitor_vcpu_init(vcpu) != 0) {
+            __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_used, 0, __ATOMIC_SEQ_CST);
             continue;
          }
          return vcpu;
