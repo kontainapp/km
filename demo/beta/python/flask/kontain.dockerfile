@@ -14,6 +14,6 @@ EXPOSE 8080
 # to /dev/kvm. As result, we can't run km python during container build due to
 # lack of /dev/kvm.
 RUN mv /usr/bin/python3.8 /usr/bin/python3.8.old && \
-    ln -s /opt/kontain/bin/km /usr/bin/python3.8
+    ln -s /opt/kontain/bin/python3.8 /usr/bin/python3.8
 
 CMD [ "gunicorn", "--bind", "0.0.0.0:8080", "app:app" ]
