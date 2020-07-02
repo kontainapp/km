@@ -38,6 +38,13 @@ if [ -z "$USE_VIRT" ] ; then
    exit 10
 fi
 
+GDB_DEFAULT_PORT=2159
+if [ -z "$USE_GDB_PORT" ] ; then
+   GDB_PORT=${GDB_DEFAULT_PORT}
+else
+   GDB_PORT=${USE_GDB_PORT}
+fi
+
 PREFIX=/opt/kontain
 RT=${PREFIX}/runtime
 LC=${PREFIX}/alpine-lib/usr/lib
