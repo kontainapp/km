@@ -12,9 +12,11 @@ make -C ${TOP}/payloads/python make runenv-image
 make -C ${TOP}/payloads/python make validate-runenv-image
 
 # Build all the container targets
-# * kontainapp/python:3.7
-# * kontainapp/flask-demo-3.7:docker 
-# * kontainapp/kontainapp/flask-demo-3.7:kontain
+# * kontainapp/python:3.8
+# * kontainapp/flask-demo-3.8:docker 
+# * kontainapp/flask-demo-3.8:kontain
+# * kontainapp/django-demo-3.8:docker 
+# * kontainapp/django-demo-3.8:kontain
 make
 
 # To run kontain flask demo in the background
