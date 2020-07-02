@@ -292,19 +292,20 @@ fi
 # for a gdb client connection so it proceeds without allowing a gdb client
 # to attach.
 @test "km_many($test_type): running multiple KMs (hello_test$ext)" {
-   ${KM_BIN} -g --gdb-listen ${KM_ARGS} pthread_cancel_test$ext & # this will do a few sec wait internally
+   km_gdb_port=${GDB_PORT}
+   ${KM_BIN} -g$km_gdb_port --gdb-listen ${KM_ARGS} pthread_cancel_test$ext & # this will do a few sec wait internally
    sleep 1
-   run km_with_timeout -g --gdb-listen hello_test$ext
+   run km_with_timeout -g$km_gdb_port --gdb-listen hello_test$ext
    assert_success
    assert_line --partial "disabling gdb support"
    wait %%
 }
 
 @test "gdb_basic($test_type): gdb support (gdb_test$ext)" {
-   km_gdb_default_port=2159
+   km_gdb_port=${GDB_PORT}
    # start KM in background, give it time to start, and connect with gdb client
-   km_with_timeout -g gdb_test$ext &
-   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_test.gdb" \
+   km_with_timeout -g$km_gdb_port gdb_test$ext &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test$ext
    # check that gdb found what it is supposed to find
    assert_line --partial 'SUCCESS'
@@ -313,9 +314,9 @@ fi
 
 # Test with signals
 @test "gdb_signal($test_type): gdb signal support (stray_test$ext)" {
-   km_gdb_default_port=2159
-   km_with_timeout -g stray_test$ext signal &
-   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_signal_test.gdb" \
+   km_gdb_port=${GDB_PORT}
+   km_with_timeout -g$km_gdb_port stray_test$ext signal &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_signal_test.gdb" \
          --ex=c --ex=q stray_test$ext
    assert_success
    assert_line --partial 'received signal SIGUSR1'
@@ -324,10 +325,10 @@ fi
 }
 
 @test "gdb_exception($test_type): gdb exception support (stray_test$ext)" {
-   km_gdb_default_port=2159
+   km_gdb_port=${GDB_PORT}
    # Test with signals
-   km_with_timeout -g stray_test$ext stray &
-   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_exception_test.gdb" \
+   km_with_timeout -g$km_gdb_port stray_test$ext stray &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_exception_test.gdb" \
          --ex=c --ex=q stray_test$ext
    assert_success
    assert_line --partial  'received signal SIGSEGV'
@@ -335,13 +336,13 @@ fi
 }
 
 @test "gdb_server_race($test_type): gdb server concurrent wakeup test" {
-   km_gdb_default_port=2159
+   km_gdb_port=${GDB_PORT}
    km_trace_file=/tmp/gdb_server_race_test_static_$$.out
    # Test with breakpoints triggering and SIGILL being happending continuously
    # Save output to a log file for our own check using grep below.
    echo trace in $km_trace_file
-   km_with_timeout -V -g gdb_server_entry_race_test$ext >$km_trace_file 2>&1 &
-   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
+   km_with_timeout -V -g$km_gdb_port gdb_server_entry_race_test$ext >$km_trace_file 2>&1 &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
          --ex=c --ex=q gdb_server_entry_race_test$ext
    assert_success
    wait_and_check 0 # expect KM to exit normally
@@ -349,11 +350,11 @@ fi
 }
 
 @test "gdb_qsupported($test_type): gdb qsupport/vcont test" {
-   km_gdb_default_port=2159
+   km_gdb_port=${GDB_PORT}
    # Verify that qSupported, vCont?, vCont, and qXfer:threads:read remote
    # commands are being used.
-   km_with_timeout -g gdb_qsupported_test$ext &
-   run gdb_with_timeout -q -nx --ex="set debug remote 1" --ex="target remote :$km_gdb_default_port" \
+   km_with_timeout -g$km_gdb_port gdb_qsupported_test$ext &
+   run gdb_with_timeout -q -nx --ex="set debug remote 1" --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_qsupported_test.gdb" --ex=q gdb_qsupported_test$ext
    assert_success
 
@@ -375,11 +376,11 @@ fi
 }
 
 @test "gdb_delete_breakpoint($test_type): gdb delete breakpoint test" {
-   km_gdb_default_port=2159
+   km_gdb_port=${GDB_PORT}
    km_trace_file=/tmp/gdb_delete_breakpoint_test_$$.out
 
-   km_with_timeout -V -g gdb_delete_breakpoint_test$ext >$km_trace_file 2>&1 &
-   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+   km_with_timeout -V -g$km_gdb_port gdb_delete_breakpoint_test$ext >$km_trace_file 2>&1 &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_delete_breakpoint_test.gdb" --ex=q gdb_delete_breakpoint_test$ext
    assert_success
    assert grep -q "Deleted breakpoint, discard event:" $km_trace_file
@@ -396,10 +397,10 @@ fi
 }
 
 @test "gdb_nextstep($test_type): gdb next step test" {
-   km_gdb_default_port=2159
+   km_gdb_port=${GDB_PORT}
 
-   km_with_timeout -g gdb_nextstep_test$ext &
-   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+   km_with_timeout -g$km_gdb_port gdb_nextstep_test$ext &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_nextstep_test.gdb" --ex=q gdb_nextstep_test$ext
    assert_success
 
@@ -423,19 +424,19 @@ fi
 # The executable we run for this test is not very important.
 #
 @test "gdb_sharedlib($test_type): gdb shared libary related remote commands" {
-   km_gdb_default_port=2159
+   km_gdb_port=${GDB_PORT}
 
    # test with attach at dynamic linker entry point
-   km_with_timeout -g --gdb-dynlink stray_test$ext stray &
-   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+   km_with_timeout -g$km_gdb_port --gdb-dynlink stray_test$ext stray &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_sharedlib_test.gdb" --ex=q
    assert_success
    refute_line --regexp "0x[0-9a-f]* in _start ()"
    wait_and_check 11 # expect KM to exit with SIGSEGV
 
    # test with attach at _start entry point
-   km_with_timeout -g stray_test$ext stray &
-   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+   km_with_timeout -g$km_gdb_port stray_test$ext stray &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_sharedlib_test.gdb" --ex=q
    assert_success
    assert_line --regexp "0x[0-9a-f]* in _start ()"
@@ -449,8 +450,8 @@ fi
    # processing the "info sharedlibrary" command.
 
    # test for symbols from a shared library brought in by dlopen()
-   km_with_timeout -g --putenv="LD_LIBRARY_PATH=`pwd`" gdb_sharedlib2_test$ext &
-   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_default_port" \
+   km_with_timeout -g$km_gdb_port --putenv="LD_LIBRARY_PATH=`pwd`" gdb_sharedlib2_test$ext &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_sharedlib2_test.gdb" --ex=q
    assert_success
    assert_line --regexp "Yes         target:.*/dlopen_test_lib.so"
@@ -465,12 +466,12 @@ fi
 # Then finally attach one more time to shut the test down.
 #
 @test "gdb_attach($test_type): gdb client attach test (gdb_lots_of_threads_test$ext)" {
-   km_gdb_default_port=2159
+   km_gdb_port=${GDB_PORT}
 
    # test asynch gdb client attach to the target
-   km_with_timeout -g --gdb-listen gdb_lots_of_threads_test$ext &
+   km_with_timeout -g$km_gdb_port --gdb-listen gdb_lots_of_threads_test$ext &
    run gdb_with_timeout -q -nx \
-      --ex="target remote :$km_gdb_default_port" \
+      --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_attach_test.gdb" --ex=q
    assert_success
    assert_line --partial "Thread 6 \"vcpu-5\""
@@ -479,7 +480,7 @@ fi
 
    # 2nd try to test asynch gdb client attach to the target
    run gdb_with_timeout -q -nx \
-      --ex="target remote :$km_gdb_default_port" \
+      --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_attach_test.gdb" --ex=q
    assert_success
    assert_line --partial "Thread 8 \"vcpu-7\""
@@ -488,7 +489,7 @@ fi
 
    # ok, gdb client attach seems to be working, shut the test program down.
    run gdb_with_timeout -q -nx \
-      --ex="target remote :$km_gdb_default_port" \
+      --ex="target remote :$km_gdb_port" \
       --ex="set stop_running=1" \
       --ex="source cmd_for_attach_test.gdb" --ex=q
    assert_success
@@ -500,7 +501,7 @@ fi
    # Leave this test commented out since the gdb client connect timeout
    # is about 15 seconds which is too long for CI testing.
    #km_with_timeout gdb_lots_of_threads_test$ext -a 1 &
-   #run gdb_with_timeout -q --ex="target remote :$km_gdb_default_port" --ex=q
+   #run gdb_with_timeout -q --ex="target remote :$km_gdb_port" --ex=q
    #assert_line --partial "Connection timed out"
    #wait_and_check 0
 }
@@ -509,12 +510,12 @@ fi
 # Verify that gdb can read and write pages that disallow read and write
 #
 @test "gdb_protected_mem($test_type): gdb access protected memory test (gdb_protected_mem_test$ext)" {
-   km_gdb_default_port=2159
+   km_gdb_port=${GDB_PORT}
 
    # test gdb can read from and write to protected memory pages.
-   km_with_timeout -g gdb_protected_mem_test$ext &
+   km_with_timeout -g$km_gdb_port gdb_protected_mem_test$ext &
    run gdb_with_timeout -q -nx \
-      --ex="target remote :$km_gdb_default_port" \
+      --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_protected_mem_test.gdb" --ex=q
    assert_success
    assert_line --partial "first word  0x7fffffbfc000:	0x1111111111111111"
