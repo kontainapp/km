@@ -25,6 +25,7 @@ Usage:  ${BASH_SOURCE[0]} [options]
   --ignore-failure        Return success even if some tests fail.
   --dry-run               print commands instead of executing them
   --usevirt=virtmanager   optional argument to override virtualization platform kvm or kkm"
+  --usegdbport=gdbport    optional argument to override gdb listening port"
 EOF
 }
 
@@ -72,6 +73,9 @@ while [ $# -gt 0 ]; do
       ;;
     --usevirt=*)
       usevirt="${1#*=}"
+      ;;
+    --usegdbport=*)
+      usegdbport="${1#*=}"
       ;;
     *)
       usage
@@ -129,6 +133,7 @@ fi
 $DEBUG export TIME_INFO=$time_info_file
 $DEBUG export KM_BIN=$km_bin
 $DEBUG export USE_VIRT=$usevirt
+$DEBUG export USE_GDB_PORT=$usegdbport
 
 # Generate files for bats, one file per type (e.g. km), from source
 for t in $test_type ; do
