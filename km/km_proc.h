@@ -16,6 +16,11 @@
 static const_string_t PROC_SELF_MAPS = "/proc/self/maps";
 static const_string_t PROC_SELF_FD = "/proc/self/fd/%d";
 static const_string_t PROC_SELF_EXE = "/proc/self/exe";
+static const_string_t PROC_SELF = "/proc/self";
+
+static const_string_t PROC_PID_FD = "/proc/%u/fd/%%d";
+static const_string_t PROC_PID_EXE = "/proc/%u/exe";
+static const_string_t PROC_PID = "/proc/%u";
 
 typedef struct maps_region {
    char* name_substring;   // caller supplies this, the rest is filled in if name is found
