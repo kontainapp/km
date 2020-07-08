@@ -469,13 +469,15 @@ uint64_t km_fs_link(km_vcpu_t* vcpu, char* old, char* new)
 }
 
 /*
- * check if pathname is in "/proc/self/fd/", process if it is.
+ * check if pathname is in "/proc/self/fd/" or "/proc/`getpid()`/fd", process if it is.
  * Return 0 if doesn't match, negative for error, positive for result strlen
  */
 static int readlink_proc_self_fd(const char* pathname, char* buf, size_t bufsz)
 {
+   char pattern[PATH_MAX];
    int fd;
-   if (sscanf(pathname, PROC_SELF_FD, &fd) != 1) {
+   snprintf(pattern, PATH_MAX, PROC_PID_FD, machine.pid);
+   if (sscanf(pathname, PROC_SELF_FD, &fd) != 1 && sscanf(pathname, pattern, &fd) != 1) {
       return 0;
    }
    char* mpath;
@@ -506,7 +508,9 @@ static int readlink_proc_self_fd(const char* pathname, char* buf, size_t bufsz)
  */
 static int readlink_proc_self_exe(const char* pathname, char* buf, size_t bufsz)
 {
-   if (strcmp(pathname, PROC_SELF_EXE) != 0) {
+   char pattern[PATH_MAX];
+   snprintf(pattern, PATH_MAX, PROC_PID_EXE, machine.pid);
+   if (strcmp(pathname, PROC_SELF_EXE) != 0 && strcmp(pathname, pattern) != 0) {
       return 0;
    }
    strncpy(buf, km_guest.km_filename, bufsz);
