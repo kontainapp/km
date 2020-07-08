@@ -500,7 +500,9 @@ TEST test_proc_sched()
    ASSERT_NOT_EQ(-1, pid_rc);
 
    ASSERT_EQ(self_rc, pid_rc);
-   ASSERT_EQ(0, strcmp(buf_pid, buf_pid));
+   strtok(buf_pid, "\n");
+   strtok(buf_self, "\n");
+   ASSERT_EQ(0, strcmp(buf_pid, buf_self));
 
    close(self_fd);
    close(pid_fd);
