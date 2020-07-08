@@ -46,6 +46,11 @@
 
 #define MAX_OPEN_FILES (1024)
 
+static char proc_pid_fd[128];
+static char proc_pid_exe[128];
+static char proc_pid[128];
+static int proc_pid_length;
+
 typedef struct km_file {
    int inuse;
    int guestfd;
@@ -254,6 +259,10 @@ int km_fs_init(void)
          }
       }
    }
+   snprintf(proc_pid_exe, sizeof(proc_pid_exe), PROC_PID_EXE, machine.pid);
+   snprintf(proc_pid_fd, sizeof(proc_pid_fd), PROC_PID_FD, machine.pid);
+   snprintf(proc_pid, sizeof(proc_pid), PROC_PID, machine.pid);
+   proc_pid_length = strlen(proc_pid);
    return 0;
 }
 
@@ -279,8 +288,16 @@ void km_fs_fini(void)
 }
 
 // int open(char *pathname, int flags, mode_t mode)
-uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
+uint64_t km_fs_open(km_vcpu_t* vcpu, char* pn_arg, int flags, mode_t mode)
 {
+   char* pathname;
+   if (strncmp(pn_arg, proc_pid, proc_pid_length) == 0) {
+      int len = strlen(pn_arg) - proc_pid_length + strlen(PROC_SELF) + 1;
+      pathname = alloca(len);
+      snprintf(pathname, len, "%s%s", PROC_SELF, pn_arg + proc_pid_length);
+   } else {
+      pathname = pn_arg;
+   }
    int guestfd;
    int hostfd = __syscall_3(SYS_open, (uintptr_t)pathname, flags, mode);
    if (hostfd >= 0) {
@@ -292,14 +309,22 @@ uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
    return guestfd;
 }
 
-uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mode_t mode)
+uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pn_arg, int flags, mode_t mode)
 {
    int host_dirfd = dirfd;
 
-   if (dirfd != AT_FDCWD && pathname[0] != '/') {
+   if (dirfd != AT_FDCWD && pn_arg[0] != '/') {
       if ((host_dirfd = km_fs_g2h_fd(dirfd)) < 0) {
          return -EBADF;
       }
+   }
+   char* pathname;
+   if (strncmp(pn_arg, proc_pid, proc_pid_length) == 0) {
+      int len = strlen(pn_arg) - proc_pid_length + sizeof(PROC_SELF);
+      pathname = alloca(len);
+      snprintf(pathname, len, "%s%s", PROC_SELF, pn_arg + proc_pid_length);
+   } else {
+      pathname = pn_arg;
    }
    int guestfd;
 
@@ -474,10 +499,8 @@ uint64_t km_fs_link(km_vcpu_t* vcpu, char* old, char* new)
  */
 static int readlink_proc_self_fd(const char* pathname, char* buf, size_t bufsz)
 {
-   char pattern[PATH_MAX];
    int fd;
-   snprintf(pattern, PATH_MAX, PROC_PID_FD, machine.pid);
-   if (sscanf(pathname, PROC_SELF_FD, &fd) != 1 && sscanf(pathname, pattern, &fd) != 1) {
+   if (sscanf(pathname, PROC_SELF_FD, &fd) != 1 && sscanf(pathname, proc_pid_fd, &fd) != 1) {
       return 0;
    }
    char* mpath;
@@ -503,14 +526,12 @@ static int readlink_proc_self_fd(const char* pathname, char* buf, size_t bufsz)
 }
 
 /*
- * check if pathname is in "/proc/self/exe", process if it is.
+ * check if pathname is in "/proc/self/exe" or "/proc/`getpid()`/exe", process if it is.
  * Return 0 if doesn't match, negative for error, positive for result strlen
  */
 static int readlink_proc_self_exe(const char* pathname, char* buf, size_t bufsz)
 {
-   char pattern[PATH_MAX];
-   snprintf(pattern, PATH_MAX, PROC_PID_EXE, machine.pid);
-   if (strcmp(pathname, PROC_SELF_EXE) != 0 && strcmp(pathname, pattern) != 0) {
+   if (strcmp(pathname, PROC_SELF_EXE) != 0 && strcmp(pathname, proc_pid_exe) != 0) {
       return 0;
    }
    strncpy(buf, km_guest.km_filename, bufsz);
