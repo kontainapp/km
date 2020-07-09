@@ -550,7 +550,11 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
        (ret = readlink_proc_self_exe(pathname, buf, bufsz)) == 0) {
       ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
    }
-   km_infox(KM_TRACE_FILESYS, "%s buf: %*s", pathname, ret, buf);
+   if (ret < 0) {
+      km_infox(KM_TRACE_FILESYS, "%s : %s", pathname, strerror(-ret));
+   } else {
+      km_infox(KM_TRACE_FILESYS, "%s -> %.*s", pathname, ret, buf);
+   }
    return ret;
 }
 
@@ -569,7 +573,11 @@ uint64_t km_fs_readlinkat(km_vcpu_t* vcpu, int dirfd, char* pathname, char* buf,
       }
       ret = __syscall_4(SYS_readlinkat, host_dirfd, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
    }
-   km_infox(KM_TRACE_FILESYS, "%s buf: %*s", pathname, ret, buf);
+   if (ret < 0) {
+      km_infox(KM_TRACE_FILESYS, "%s : %s", pathname, strerror(-ret));
+   } else {
+      km_infox(KM_TRACE_FILESYS, "%s -> %.*s", pathname, ret, buf);
+   }
    return ret;
 }
 
