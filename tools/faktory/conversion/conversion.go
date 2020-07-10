@@ -8,7 +8,6 @@ import (
 
 // Convert ...
 func Convert(containerName string, baseName string) error {
-
 	logrus.WithFields(logrus.Fields{
 		"container name": containerName,
 		"base name":      baseName,

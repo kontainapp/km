@@ -12,6 +12,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func CreateImage(target string) error {
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create a docker client")
+	}
+
+	return nil
+}
+
 // GetLayers gets a list of layers, in order from top to base using refname
 func GetLayers(refname string) ([]string, error) {
 	ctx := context.Background()
