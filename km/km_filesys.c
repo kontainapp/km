@@ -71,6 +71,22 @@ static inline km_filesys_t* km_fs()
 }
 
 /*
+ * Get file name for file descriptors that are not files - socket, pipe, and such
+ */
+static char* km_get_nonfile_name(int hostfd)
+{
+   char buf[PATH_MAX + 1];
+   char fn[128];
+   snprintf(fn, sizeof(fn), PROC_SELF_FD, hostfd);
+
+   int ret = readlink(fn, buf, PATH_MAX);
+   if (ret < 0) {
+      return NULL;
+   }
+   return strndup(buf, ret);
+}
+
+/*
  * Adds a host fd to the guest. Returns the guest fd number assigned.
  * Assigns lowest available guest fd, just like the kernel.
  * TODO: Support open flags (O_CLOEXEC in particular)
@@ -92,7 +108,11 @@ int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name,
          km_file_t* file = &km_fs()->guest_files[i];
          file->guestfd = i;
          file->hostfd = host_fd;
-         file->name = strdup(name);
+         if (name == NULL) {
+            file->name = km_get_nonfile_name(host_fd);
+         } else {
+            file->name = strdup(name);
+         }
          file->flags = flags;
 
          __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[host_fd], i, __ATOMIC_SEQ_CST);
@@ -836,8 +856,8 @@ uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2])
    int host_pipefd[2];
    int ret = __syscall_1(SYS_pipe, (uintptr_t)host_pipefd);
    if (ret == 0) {
-      pipefd[0] = km_add_guest_fd(vcpu, host_pipefd[0], 0, "[pipe[0]]", 0);
-      pipefd[1] = km_add_guest_fd(vcpu, host_pipefd[1], 0, "[pipe[1]]", 0);
+      pipefd[0] = km_add_guest_fd(vcpu, host_pipefd[0], 0, NULL, 0);
+      pipefd[1] = km_add_guest_fd(vcpu, host_pipefd[1], 0, NULL, 0);
    }
    return ret;
 }
@@ -848,8 +868,8 @@ uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags)
    int host_pipefd[2];
    int ret = __syscall_2(SYS_pipe2, (uintptr_t)host_pipefd, flags);
    if (ret == 0) {
-      pipefd[0] = km_add_guest_fd(vcpu, host_pipefd[0], 1, "[pipe2[0]]", 0);
-      pipefd[1] = km_add_guest_fd(vcpu, host_pipefd[1], 0, "[pipe2[1]]", 0);
+      pipefd[0] = km_add_guest_fd(vcpu, host_pipefd[0], 1, NULL, 0);
+      pipefd[1] = km_add_guest_fd(vcpu, host_pipefd[1], 0, NULL, 0);
    }
    return ret;
 }
@@ -859,7 +879,7 @@ uint64_t km_fs_eventfd2(km_vcpu_t* vcpu, int initval, int flags)
 {
    int ret = __syscall_2(SYS_eventfd2, initval, flags);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, "[eventfd2]", 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, NULL, 0);
    }
    return ret;
 }
@@ -869,7 +889,7 @@ uint64_t km_fs_socket(km_vcpu_t* vcpu, int domain, int type, int protocol)
 {
    int ret = __syscall_3(SYS_socket, domain, type, protocol);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, "[socket]", 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, NULL, 0);
    }
    return ret;
 }
@@ -924,7 +944,7 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
       for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
          if (cmsg->cmsg_type == SCM_RIGHTS) {
             int host_fd = *(int*)CMSG_DATA(cmsg);
-            int guest_fd = km_add_guest_fd(vcpu, host_fd, 0, "[recvmsg]", flag);
+            int guest_fd = km_add_guest_fd(vcpu, host_fd, 0, NULL, flag);
             *(int*)CMSG_DATA(cmsg) = guest_fd;
             km_infox(KM_TRACE_FILESYS, "received host fd %d as guest %d\n", host_fd, guest_fd);
          }
@@ -1013,7 +1033,7 @@ uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockle
    }
    int ret = __syscall_3(SYS_accept, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, "[accept]", 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, NULL, 0);
    }
    return ret;
 }
@@ -1034,8 +1054,8 @@ uint64_t km_fs_socketpair(km_vcpu_t* vcpu, int domain, int type, int protocol, i
 {
    int ret = __syscall_4(SYS_socketpair, domain, type, protocol, (uintptr_t)sv);
    if (ret == 0) {
-      sv[0] = km_add_guest_fd(vcpu, sv[0], 0, "[socketpair[0]]", 0);
-      sv[1] = km_add_guest_fd(vcpu, sv[1], 0, "[socketpair[1]]", 0);
+      sv[0] = km_add_guest_fd(vcpu, sv[0], 0, NULL, 0);
+      sv[1] = km_add_guest_fd(vcpu, sv[1], 0, NULL, 0);
    }
    return ret;
 }
@@ -1050,7 +1070,7 @@ km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* add
    }
    int ret = __syscall_4(SYS_accept4, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen, flags);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, "[accept4]", 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, NULL, 0);
    }
    return ret;
 }
@@ -1199,7 +1219,7 @@ uint64_t km_fs_epoll_create1(km_vcpu_t* vcpu, int flags)
 {
    int ret = __syscall_1(SYS_epoll_create1, flags);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, "[epoll_create1]", 0);
+      ret = km_add_guest_fd(vcpu, ret, 0, NULL, 0);
    }
    return ret;
 }
