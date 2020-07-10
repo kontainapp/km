@@ -679,13 +679,13 @@ void km_machine_setup(km_machine_init_params_t* params)
  */
 void km_machine_init(km_machine_init_params_t* params)
 {
-   if (km_fs_init() < 0) {
-      err(1, "KM: km_fs_init() failed");
-   }
    if (km_called_via_exec() == 1) {
       machine.ppid = km_exec_ppid();
       machine.pid = km_exec_pid();
       machine.next_pid = km_exec_next_pid();
+   }
+   if (km_fs_init() < 0) {
+      err(1, "KM: km_fs_init() failed");
    }
    km_machine_setup(params);
    km_mem_init(params);
