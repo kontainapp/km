@@ -13,13 +13,19 @@
 #
 # Runs in cluster and expects /opt to be mounted and /dev/kvm available
 
+set -ex
+
 [ -d /opt ]
 [ -e /dev/kvm ]
 
-cp -r /kontain /opt/kontain
+rm -rf /opt/kontain/*
+cp -r /kontain/* /opt/kontain/
 # non-privileged containers using kvm device plugin needs access
 chmod 666 /dev/kvm
 
 [ -d /opt/kontain ]
 [ -x /opt/kontain/bin/km ]
 [ -f /opt/kontain/runtime/libc.so ]
+
+# log the version information for debugging purpose
+/opt/kontain/bin/km -v
