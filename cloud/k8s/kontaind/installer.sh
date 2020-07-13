@@ -18,6 +18,7 @@ set -ex
 [ -d /opt ]
 [ -e /dev/kvm ]
 
+mkdir -p /opt/kontain
 rm -rf /opt/kontain/*
 cp -r /kontain/* /opt/kontain/
 # non-privileged containers using kvm device plugin needs access
