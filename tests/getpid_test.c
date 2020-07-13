@@ -1,3 +1,15 @@
+/*
+ * Copyright © 2020 Kontain Inc. All rights reserved.
+ *
+ * Kontain Inc CONFIDENTIAL
+ *
+ * This file includes unpublished proprietary source code of Kontain Inc. The
+ * copyright notice above does not evidence any actual or intended publication
+ * of such source code. Disclosure of this source code or any related
+ * proprietary information is strictly prohibited without the express written
+ * permission of Kontain Inc.
+ */
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <sys/types.h>
@@ -84,14 +96,26 @@ int main(int argc, char* argv[])
 {
    int i;
    int rc;
+   int nthreads;
    pthread_t threadids[NTHREADS];
    struct timespec start;
    struct timespec now;
 
+   if (argc == 2) {
+      nthreads = atoi(argv[1]);
+   } else {
+      nthreads = NTHREADS;
+   }
+   if (nthreads > NTHREADS) {
+      fprintf(stderr, "Maximum number of threads is %d, if you need more change this programs\n", NTHREADS);
+      return 1;
+   }
+   printf("Running tests with %d threads\n", nthreads);
+
    clock_gettime(CLOCK_MONOTONIC, &start);
 
    // Start a gaggle of threads
-   for (i = 0; i < NTHREADS; i++) {
+   for (i = 0; i < nthreads; i++) {
       rc = pthread_create(&threadids[i], NULL, dosyscalls, NULL);
       if (rc != 0) {
          fprintf(stderr, "Couldn't create thread %d, %s\n", i, strerror(errno));
@@ -100,7 +124,7 @@ int main(int argc, char* argv[])
    }
 
    // Wait for the threads to finish
-   for (i = 0; i < NTHREADS; i++) {
+   for (i = 0; i < nthreads; i++) {
       void* retval;
       rc = pthread_join(threadids[i], &retval);
       if (rc != 0) {
