@@ -492,6 +492,13 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
             vcpu->cpu_run->exit_reason,
             kvm_reason_name(vcpu->cpu_run->exit_reason));
 
+   if (machine.sync_regs_not_supported != 0) {
+      if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &vcpu->regs) < 0) {
+         err(1, "%s - KVM_GET_REGS failed", __FUNCTION__);
+      }
+      vcpu->regs_valid = 1;
+      vcpu->cpu_run->s.regs.regs = vcpu->regs;
+   }
    if (km_trace_enabled() || km_gdb_client_is_attached()) {
       km_read_registers(vcpu);
       km_read_sregisters(vcpu);

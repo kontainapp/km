@@ -547,6 +547,13 @@ void km_machine_setup(km_machine_init_params_t* params)
    if (rc != KVM_API_VERSION) {
       errx(1, "KVM: API version mismatch");
    }
+   if ((rc = ioctl(machine.kvm_fd, KVM_CHECK_EXTENSION, KVM_CAP_SYNC_REGS)) < 0) {
+      err(1, "KVM: can't check for KVM_CAP_SYNC_REGS support?");
+   }
+   if (rc == 0) {
+      km_infox(KM_TRACE_KVM, "**** KVM_CAP_SYNC_REGS not supported, using GET_REGS ioctl ****");
+      machine.sync_regs_not_supported = 1;
+   }
    if ((machine.mach_fd = ioctl(machine.kvm_fd, KVM_CREATE_VM, NULL)) < 0) {
       err(1, "KVM: create VM failed");
    }

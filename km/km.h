@@ -320,6 +320,7 @@ typedef struct km_machine {
    pid_t ppid;           // parent pid, 1 for the leader
    pid_t pid;            // the payload's km pid
    pid_t next_pid;       // the pid for a forked payload process
+   uint8_t sync_regs_not_supported;  // if != 0, kvm can't sync registers for KVM_RUN
 } km_machine_t;
 
 extern km_machine_t machine;
@@ -378,6 +379,13 @@ static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
     */
    vcpu->cpu_run->immediate_exit = 1;
    (void)ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
+   if (machine.sync_regs_not_supported != 0) {
+      if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &vcpu->regs) < 0) {
+         err(1, "%s - KVM_GET_REGS failed", __FUNCTION__);
+      }
+      vcpu->regs_valid = 1;
+      vcpu->cpu_run->s.regs.regs = vcpu->regs;
+   }
    errno = 0;   // reset EINTR from ioctl above
    vcpu->cpu_run->immediate_exit = 0;
 }
