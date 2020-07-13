@@ -1,2 +1,2 @@
-# fake dockerfile just to allow 'make buildenv-image' from top to succeeed
-from fedora
+ARG BUILDENV_IMAGE_VERSION=latest
+FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} 
