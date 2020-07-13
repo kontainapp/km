@@ -38,7 +38,13 @@ PAYLOAD_FILES := ${PAYLOAD_KM} \
 
 .PHONY: all build clean
 all build clean:
-	$(MAKE) -C dweb $@
+	${DOCKER_RUN_BUILD} \
+		-v ${TOP}:${TOP}:Z \
+		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
+		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:Z \
+		-w ${TOP}/payloads/demo-dweb\
+		${BUILDENV_IMG_TAGGED} \
+		make -C dweb $@
 
 all: ## builds Linux and KM for payload in this folder
 clean: ## Clean up the build

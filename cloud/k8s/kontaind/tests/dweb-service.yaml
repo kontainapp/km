@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
     - name: dweb
-      image: docker.io/kontainapp/runenv-dweb:latest
+      image: kontainkubecr.azurecr.io/demo-runenv-dweb:latest
       imagePullPolicy: Always
       securityContext:
         privileged: false
@@ -20,8 +20,8 @@ spec:
           cpu: "1"
       command: ["/opt/kontain/bin/km", "/dweb/dweb.km", "8080"]
       volumeMounts:
-          - name: kontain-monitor
-            mountPath: /opt/kontain
+        - name: kontain-monitor
+          mountPath: /opt/kontain
   volumes:
     - name: kontain-monitor
       hostPath:
