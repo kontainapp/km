@@ -84,6 +84,33 @@ TEST test_stat()
    rc = syscall(SYS_statx, AT_FDCWD, "/", 0, STATX_ALL, &stx);
    ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFDIR, stx.stx_mode & S_IFMT);
+
+   fd = open("/proc/self", O_RDONLY);
+   rc = syscall(SYS_statx, fd, "exe", 0, STATX_ALL, &stx);
+   ASSERT_EQ_FMT(0, rc, "%d");
+   close(fd);
+
+   fd = open("/proc/self/exe", O_RDONLY);
+   rc = syscall(SYS_statx, fd, "..", 0, STATX_ALL, &stx);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EINVAL, errno);
+   rc = syscall(SYS_fchown, fd, 777, 777);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ_FMT(EPERM, errno, "%d");
+   rc = syscall(SYS_fchmod, fd, 0444);
+   ASSERT_EQ(0, rc);
+   rc = syscall(SYS_chown, "/proc/self/exe", 777, 777);
+   ASSERT_EQ_FMT(-1, rc, "%d");
+   ASSERT_EQ_FMT(EPERM, errno, "%d");
+   rc = syscall(SYS_lchown, "/proc/self/exe", 777, 777);
+   ASSERT_EQ_FMT(-1, rc, "%d");
+   ASSERT_EQ_FMT(EPERM, errno, "%d");
+   rc = syscall(SYS_chmod, "/proc/self/exe", 0333);
+   ASSERT_EQ(0, rc);
+   rc = syscall(SYS_chmod, "/proc/self/exe", 0775);   // restore sanity
+
+   close(fd);
+
    PASS();
 }
 
@@ -503,6 +530,7 @@ TEST test_proc_sched()
    strtok(buf_pid, "\n");
    strtok(buf_self, "\n");
    ASSERT_EQ(0, strcmp(buf_pid, buf_self));
+   printf("%s\n", buf_self);
 
    close(self_fd);
    close(pid_fd);
