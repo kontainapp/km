@@ -23,7 +23,12 @@
 export AWS_ACCESS_KEY_ID=$KONTAIN_AWS_ACCESS_KEY_ID
 export AWS_SECRET_ACCESS_KEY=$KONTAIN_AWS_SECRET_ACCESS_KEY
 readonly AWS_FEDORA_PASSWD=$KONTAIN_AWS_FEDORA_PASSWD
-readonly TEST_BRANCH=$1
+export readonly SSHPASS=$AWS_FEDORA_PASSWD
+readonly TEST_BRANCH=${1:-master}
+# aws instance is still booting up. Wait time for it to respond to ssh requests.
+readonly WAIT_TIME_TO_READY=30
+
+echo "Running regressions on $TEST_BRANCH"
 
 export AWS_DEFAULT_OUTPUT='text'
 export AWS_DEFAULT_REGION='us-east-2'
@@ -65,6 +70,22 @@ function wait_for_state {
    fi
 }
 
+function display_aws_kkm_test_logs {
+   echo "########### script output ############"
+   echo -e $1
+
+   sshpass -e scp -oStrictHostKeyChecking=no -r fedora@${INSTANCE_IP}:src/log/ log-aws-kkm
+   if [ $? -ne 0 ]
+   then
+         error_exit "Fetching test logs from ${INSTANCE_ID} failed"
+   fi
+   for logfilename in git-clone build-kkm build-kkm-test build-km insmod-kkm chmod-log test-km
+   do
+      echo "################# Contents of $logfilename #################"
+      cat log-aws-kkm/$logfilename
+   done
+}
+
 # make new instance from AMI
 
 INSTANCE_ID=`aws ec2 run-instances --image-id $TEST_AMI --count 1 --instance-type $TEST_VM_TYPE  --key-name km --security-group-ids $TEST_SG --query "Instances[].InstanceId"`
@@ -82,7 +103,7 @@ echo "Instance ${INSTANCE_ID} entered running state"
 
 # give it a couple of seconds
 
-sleep 5
+sleep $WAIT_TIME_TO_READY
 
 # get the public IP address from newly created instance
 
@@ -96,7 +117,6 @@ echo "Instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
 
 # run tests on newly created instance
 
-export readonly SSHPASS=$AWS_FEDORA_PASSWD
 sshpass -e scp -oStrictHostKeyChecking=no cloud/aws/kkm-test.bash fedora@${INSTANCE_IP}:bin/kkm-test.bash
 if [ $? -ne 0 ]
 then
@@ -105,6 +125,7 @@ fi
 
 echo "Starting tests on instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
 TEST_STRING=`sshpass -e ssh -oStrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}`
+display_aws_kkm_test_logs "$TEST_STRING"
 if [[ $TEST_STRING == *"tests successfull"* ]]; then
    echo "TEST PASSED"
 else
