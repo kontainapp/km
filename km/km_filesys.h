@@ -39,15 +39,29 @@
 #include "km_mem.h"
 #include "km_syscall.h"
 
+// types for file names conversion
+typedef int (*km_file_open_t)(const char* guest_fn, char* host_fn, size_t host_fn_sz);
+typedef int (*km_file_readlink_t)(const char* guest_fn, char* buf, size_t buf_sz);
+typedef int (*km_file_read_t)(int fd, char* buf, size_t buf_sz);
+typedef int (*km_file_getdents_t)(int fd, /* struct linux_dirent64 */ void* buf, size_t buf_sz);
+
+typedef struct {
+   km_file_open_t open_g2h;
+   km_file_read_t read_g2h;
+   km_file_getdents_t getdents_g2h;
+   km_file_readlink_t readlink_g2h;
+} km_file_ops_t;
+
 /*
  * maps a host fd to a guest fd. Returns a negative error number if mapping does
  * not exist. Used by SIGPIPE/SIGIO signal handlers and select.
  * Note: vcpu is NULL if called from km signal handler.
  */
 int km_fs_h2g_fd(int hostfd);
-int km_fs_g2h_fd(int guestfd);
+int km_fs_g2h_fd(int guestfd, km_file_ops_t** ops);
 int km_fs_max_guestfd();
-int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags);
+int km_add_guest_fd(
+    km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags, km_file_ops_t* ops);
 char* km_guestfd_name(km_vcpu_t* vcpu, int fd);
 int km_fs_init(void);
 void km_fs_fini(void);
@@ -64,7 +78,7 @@ int km_fs_shutdown(km_vcpu_t* vcpu, int sockfd, int how);
 // ssize_t write(int fd, const void *buf, size_t count);
 // ssize_t pread(int fd, void *buf, size_t count, off_t offset);
 // ssize_t pwrite(int fd, const void* buf, size_t count, off_t offset);
-uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, const void* buf, size_t count, off_t offset);
+uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, void* buf, size_t count, off_t offset);
 // ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
 // ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
 // ssize_t preadv(int fd, const struct iovec* iov, int iovcnt, off_t offset);

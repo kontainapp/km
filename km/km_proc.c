@@ -41,8 +41,7 @@ int km_find_maps_regions(maps_region_t* regions, uint32_t nregions)
       regions[i].found = 0;
    }
 
-   procmaps = fopen(PROC_SELF_MAPS, "r");
-   if (procmaps == NULL) {
+   if ((procmaps = fopen(PROC_SELF_MAPS, "r")) == NULL) {
       km_info(KM_TRACE_MEM, "can't open %s for reading", PROC_SELF_MAPS);
       return -2;
    }

@@ -583,7 +583,6 @@ static km_hc_ret_t open_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   // TODO - check with readlink_proc_self_exe
    arg->hc_ret = km_fs_open(vcpu, pathname, arg->arg2, arg->arg3);
    return HC_CONTINUE;
 }
@@ -597,7 +596,6 @@ static km_hc_ret_t openat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   // TODO - check with readlink_proc_self_exe
    arg->hc_ret = km_fs_openat(vcpu, arg->arg1, pathname, arg->arg3, arg->arg4);
    return HC_CONTINUE;
 }
@@ -1416,7 +1414,8 @@ static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    int open_flag = O_RDONLY | ((arg->arg5 & AT_SYMLINK_NOFOLLOW) != 0 ? O_NOFOLLOW : 0);
 
    // Validate the arguments.
-   if (arg->arg1 != AT_FDCWD && (dirfd = km_fs_g2h_fd(arg->arg1)) < 0) {
+   km_file_ops_t* ops;
+   if (arg->arg1 != AT_FDCWD && ((dirfd = km_fs_g2h_fd(arg->arg1, &ops)) < 0 || ops != NULL)) {
       arg->hc_ret = -EBADF;
       return HC_CONTINUE;
    }
