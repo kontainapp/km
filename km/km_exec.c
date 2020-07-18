@@ -143,7 +143,7 @@ static char* km_exec_g2h_var(void)
    p += bytes_needed;
 
    for (int i = 0; i < km_fs_max_guestfd(); i++) {
-      int hostfd = km_fs_g2h_fd(i);
+      int hostfd = km_fs_g2h_fd(i, NULL);   // TODO: FILENAMEVIRT pass and accept opd
       if (hostfd >= 0) {
          int fdflags = fcntl(hostfd, F_GETFD);
          if (fdflags < 0) {
@@ -730,7 +730,8 @@ int km_exec_recover_guestfd(void)
                                            execstatep->guestfd_hostfd[i].hostfd,
                                            execstatep->guestfd_hostfd[i].guestfd,
                                            linkbuf,
-                                           0);
+                                           0,
+                                           NULL);   // TODO: FILENAMEVIRT
       assert(chosen_guestfd == execstatep->guestfd_hostfd[i].guestfd);
    }
    return 0;
