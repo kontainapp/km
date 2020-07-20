@@ -19,24 +19,28 @@ long __syscall_cp_asm(int* c, long n, long a1, long a2, long a3, long a4, long a
 {
    __asm__("__cp_begin:");
    if (*c == 0) {
-      km_hc_args_t arg;
+      long hc_ret;
 
-      arg.arg1 = a1;
-      arg.arg2 = a2;
-      arg.arg3 = a3;
-      arg.arg4 = a4;
-      arg.arg5 = a5;
-      arg.arg6 = a6;
-      __asm__ __volatile__("outl %0, %1"
+      __asm__ __volatile__("mov %0,%%gs:8;"
+                           "mov %1,%%gs:16;"
+                           "mov %2,%%gs:24;"
+                           "mov %3,%%gs:32;"
+                           "mov %4,%%gs:40;"
+                           "mov %5,%%gs:48;"
+                           "outl %6, %7"
                            :
-                           : "a"((uint32_t)((uint64_t)&arg)), "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
+                           : "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(a5), "r"(a6),
+                             "a"((uint32_t)0),
+                             "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
                            : "memory");
       __asm__ __volatile__("\n"
                            :
                            :
                            : "rax");
+      __asm__ __volatile__("mov %%gs:0,%0"
+                           : "=r"(hc_ret));
       __asm__("__cp_end:");
-      return arg.hc_ret;
+      return hc_ret;
    }
    _Pragma("GCC diagnostic ignored \"-Wreturn-type\"");   // shut up gcc about lack of 'return'
    __asm__("__cp_cancel:"

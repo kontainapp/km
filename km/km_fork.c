@@ -26,6 +26,7 @@
 #include "km_fork.h"
 #include "km_gdb.h"
 #include "km_mem.h"
+#include "km_guest.h"
 
 /*
  * fork() or clone() state from the parent process thread that needs to be present in the thread in
@@ -37,7 +38,8 @@ typedef struct km_fork_state {
    pthread_cond_t cond;   // to serialize concurrent fork requests
    uint8_t is_clone;      // if true, do a clone() hypercall, else fork()
    uint8_t fork_in_progress;
-   km_hc_args_t* arg;
+   km_hc_args_t* arg;     // args from the thread that issued fork or clone
+   km_hc_args_t* childarg;// arg area for the child's only thread
    pid_t km_parent_pid;   // kontain pid
    pid_t km_child_pid;    // kontain pid
    kvm_regs_t regs;
@@ -106,15 +108,17 @@ static void km_fork_setup_child_vmstate(void)
    vcpu->stack_top = km_fork_state.stack_top;
    vcpu->guest_thr = km_fork_state.guest_thr;
    vcpu->sigaltstack = km_fork_state.sigaltstack;
+   km_fork_state.childarg = &km_hcargs[vcpu->vcpu_id];
 
    /*
     * The following is similar to km_vcpu_set_to_run() but we want to use the stack and registers
     * the thread was using in the parent process.  So, we cobble things together for this to work.
     */
    km_infox(KM_TRACE_VCPU,
-            "setting up child vcpu: rip 0x%llx, rsp 0x%llx",
+            "setting up child vcpu: rip 0x%llx, rsp 0x%llx, childarg %p",
             km_fork_state.regs.rip,
-            km_fork_state.regs.rsp);
+            km_fork_state.regs.rsp,
+            km_fork_state.childarg);
    kvm_vcpu_init_sregs(vcpu);
    vcpu->regs = km_fork_state.regs;
    vcpu->regs_valid = 1;
@@ -239,12 +243,7 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
     */
    if (is_clone != 0 && arg->arg2 != 0) {
       km_fork_state.stack_top = arg->arg2;
-
-      km_kma_t kma_sp = km_gva_to_kma(km_fork_state.arg->arg2);
-      kma_sp -= sizeof(km_hc_args_t);
-      memcpy(kma_sp, km_fork_state.arg, sizeof(km_hc_args_t));
-      *(uint64_t*)kma_sp = 0;
-      km_fork_state.regs.rsp = km_fork_state.arg->arg2 - sizeof(km_hc_args_t);
+      km_fork_state.regs.rsp = arg->arg2;
    } else {
       km_fork_state.stack_top = vcpu->stack_top;
    }
@@ -329,12 +328,13 @@ int km_dofork(int* in_child)
       km_fork_state.fork_in_progress = 0;
       km_fork_state.mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
       km_fork_state.cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
-      km_fork_state.arg->hc_ret = 0;
+
+      km_fork_child_vm_init();   // create the vm and a single vcpu for the child payload thread
+      km_fork_state.childarg->hc_ret = 0;
       if (machine.vm_type == VM_TYPE_KKM) {
          km_fork_state.regs.rax = km_fork_state.arg->hc_ret;
       }
 
-      km_fork_child_vm_init();   // create the vm and a single vcpu for the child payload thread
       if (in_child != NULL) {
          *in_child = 1;
       }

@@ -205,12 +205,14 @@ void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
        .tr = {.type = 11, /* 64-bit TSS, busy */
               .present = 1},
        .fs.base = vcpu->guest_thr,
+       .gs.base = km_guest_kma_to_gva(&km_hcargs[vcpu->vcpu_id]),
        .idt.base = machine.idt,
        .idt.limit = machine.idt_size,
        .gdt.base = machine.gdt,
        .gdt.limit = machine.gdt_size,
    };
    vcpu->sregs_valid = 1;
+km_infox(KM_TRACE_VCPU, "vcpu_id %d, sregs.gs.base 0x%llx", vcpu->vcpu_id, vcpu->sregs.gs.base);
 }
 
 /*
@@ -502,13 +504,13 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    /*
     * pretend we have hc_args on the stack so clone wrapper behaves the same wy for child and parent
     */
-   km_gva_t sp = new_vcpu->stack_top - sizeof(km_hc_args_t);
    km_vcpu_sync_rip(vcpu);
    vcpu->regs_valid = 0;
    km_read_registers(vcpu);
    new_vcpu->regs = vcpu->regs;
-   new_vcpu->regs.rsp = sp;
-   *((uint64_t*)km_gva_to_kma_nocheck(sp)) = 0;   // hc return value
+   new_vcpu->regs.rsp = new_vcpu->stack_top;
+   km_hc_args_t* childarg = &km_hcargs[new_vcpu->vcpu_id];
+   childarg->hc_ret = 0;   // hc return value to child thread
    km_vmmonitor_clone(vcpu, new_vcpu);
    new_vcpu->regs_valid = 1;
 

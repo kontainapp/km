@@ -123,6 +123,7 @@ typedef struct {
  * in and out of the guest -> .is_running == 1 km_vcpu_one_kvm_run()
  * and back to unused in km_vcpu_stopped()
  */
+#define HCRET_STACK_MAX 8
 typedef struct km_vcpu {
    int vcpu_id;               // uniq ID
    int kvm_vcpu_fd;           // this VCPU file descriptor
@@ -135,7 +136,6 @@ typedef struct km_vcpu {
    uint8_t is_running;        // 1 means the vcpu is in guest, aka ioctl (KVM_RUN)
    uint8_t regs_valid;        // Are registers valid?
    uint8_t sregs_valid;       // Are segment registers valid?
-   uint8_t on_sigaltstack;    //
    uint8_t in_sigsuspend;     // if true thread is running in the sigsuspend() hypercall
                               //
    km_gva_t stack_top;        // also available in guest_thr

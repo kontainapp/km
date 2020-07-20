@@ -6,30 +6,32 @@ __clone:
    and $-16, %rsi    # rounddown(stack, 16)
    mov 8(%rsp), %r10 # ctid, 7th arg from stack
    # fn in %rdi, args in %rcx
-   # hc_args structure
-   sub $8, %rsp # arg6
-   push %r9     # newtls
-   push %r10    # ctid
-   push %r8     # ptid
-   push %rsi    # stack
-   push %rdx    # flags
-   sub $8, %rsp # hc_ret
+
+   # fill in this threads hc_args structure
+   mov %r9,%gs:40     # newtls, arg5
+   mov %r10,%gs:32    # ctid,  arg4
+   mov %r8,%gs:24     # ptid,  arg3
+   mov %rsi,%gs:16    # stack, arg2
+   mov %rdx,%gs:8     # flags, arg1
+
    # clone hc
-   mov $0x8038, %edx
-   mov %rsp, %rax
+   mov $0x8038, %edx  # KM_HCALL_PORT_BASE | SYS_clone
+   mov %gs, %rax
    outl %eax, (%dx)
-   mov (%rsp), %eax # Get return code into %rax
-   add $56, %rsp
+   mov %gs:0, %eax    # Get hc_ret into %rax
+
    test %eax,%eax
-   jnz 1f         # parent jumps
+   jnz 1f             # parent jumps
+
    # child - on a new stack now
    mov %rdi, %r9  # fn
    mov %rcx, %rdi # args
    call *%r9
    # fn returns, exit now
-   sub $56, %rsp
-   mov %rsp, %rax
-   mov $0x803c, %edx # exit
+
+   mov %rax, %gs:8  # return value of fn to arg1 of SYS_exit
+   mov %gs, %rax
+   mov $0x803c, %edx # KM_HCALL_PORT_BASE | SYS_exit
    outl %eax, (%dx)
    hlt
 1:

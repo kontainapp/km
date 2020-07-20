@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -10,15 +10,14 @@
  * permission of Kontain Inc.
  */
 
-#include "km_hcalls.h"
 #include "syscall.h"
 
+#ifndef ARCH_SET_FS
+#define ARCH_SET_FS 0x1002
+#endif
+
+extern unsigned long *km_hcargs_guest;
 uint64_t __set_thread_area(uint64_t addr)
 {
-   km_hc_args_t args;
-   args.arg1 = 0x1002;   // ARCH_SET_FS
-   args.arg2 = addr;
-
-   km_hcall(SYS_arch_prctl, &args);
-   return args.hc_ret;
+   return syscall(SYS_arch_prctl, ARCH_SET_FS, addr);
 }

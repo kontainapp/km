@@ -2652,6 +2652,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
                break;
             }
             if ((kma = km_gva_to_kma(addr)) == NULL) {
+               km_infox(KM_TRACE_GDB, "Can't convert gva 0x%lx to kma", addr);
                send_error_msg();
                break;
             }

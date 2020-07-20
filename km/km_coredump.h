@@ -42,7 +42,6 @@ typedef struct km_nt_vcpu {
    Elf64_Addr guest_thr;
    Elf64_Addr set_child_tid;
    Elf64_Addr clear_child_tid;
-   Elf64_Word on_sigaltstack;      //
    Elf64_Addr sigaltstack_sp;      //
    Elf64_Word sigaltstack_flags;   //
    Elf64_Off sigaltstack_size;     //

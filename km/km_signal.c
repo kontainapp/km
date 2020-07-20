@@ -462,6 +462,7 @@ static inline void fill_ucontext(km_vcpu_t* vcpu, ucontext_t* uc)
  */
 static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigaction_t* act)
 {
+
    vcpu->regs_valid = 0;
    vcpu->sregs_valid = 0;
    km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
@@ -472,7 +473,6 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    if ((act->sa_flags & SA_ONSTACK) == SA_ONSTACK && vcpu->sigaltstack.ss_size != 0 &&
        km_on_altstack(vcpu, vcpu->regs.rsp) == 0) {
       sframe_gva = (km_gva_t)vcpu->sigaltstack.ss_sp + vcpu->sigaltstack.ss_size;
-      vcpu->on_sigaltstack = 1;
    } else {
       sframe_gva = vcpu->regs.rsp - RED_ZONE;
    }
@@ -487,6 +487,11 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    if ((act->sa_flags & SA_SIGINFO) != 0) {
       vcpu->sigmask |= act->sa_mask;
    }
+
+   // Remember hc_ret in case signal handler makes a syscall.
+   km_hc_args_t* hcargs = &km_hcargs[vcpu->vcpu_id];
+   frame->hcargs.hc_ret = hcargs->hc_ret;
+
    // Defer this signal.
    km_sigaddset(&vcpu->sigmask, info->si_signo);
 
@@ -561,15 +566,14 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
     *       leak information into guest.
     */
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(km_gva_t));
-   // check if we use sigaltstack is used, and we are leaving it now
-   if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1 && km_on_altstack(vcpu, frame->regs.rsp) == 0) {
-      vcpu->sigaltstack.ss_flags = 0;
-      vcpu->on_sigaltstack = 0;
-   }
    vcpu->regs = frame->regs;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
    vcpu->regs.rip = frame->ucontext.uc_mcontext.gregs[REG_RIP];
    km_write_registers(vcpu);
+
+   // Restore hc_ret if the signal handler overwrote the vcpu static copy
+   km_hc_args_t* hcargs = &km_hcargs[vcpu->vcpu_id];
+   hcargs->hc_ret = frame->hcargs.hc_ret;
 }
 
 uint64_t

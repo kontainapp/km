@@ -103,10 +103,6 @@ fi
    assert_failure 7   #SIGBUS
    assert_output --partial "Bus error"
 
-   run km_with_timeout stray_test$ext hc-badarg 3
-   assert_failure 11  #SIGSEGV
-   assert_output --partial "Segmentation fault"
-
    run km_with_timeout stray_test$ext syscall
    assert_success
    assert_output --partial "Hello from SYSCALL"

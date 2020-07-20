@@ -354,7 +354,7 @@ static void km_add_code_to_guest_address_space(void)
    assert(rc == 0);
    rc = km_monitor_pages_in_guest(GUEST_KMGUESTMEM_BASE_VA + (&km_guest_data_start - &km_guest_start),
                                   &km_guest_end - &km_guest_data_start,
-                                  PROT_READ,
+                                  PROT_READ | PROT_WRITE,
                                   "[km_guest_data]");
    assert(rc == 0);
 }

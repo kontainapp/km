@@ -141,8 +141,7 @@ void* thread_main(void* arg)
     * Take the snapshot.
     */
    if (no_snap == 0) {
-      km_hc_args_t snapshotargs = {};
-      km_hcall(HC_snapshot, &snapshotargs);
+      syscall(HC_snapshot);
    }
 
    /*

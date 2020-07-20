@@ -56,7 +56,7 @@ __km_sigreturn:
     .cfi_offset 16, 120 + HCARG_SIZE     # Saved RIP
 
     /* The actual code itself */
-    mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
+    mov %gs, %eax           # gs to km but it doesn't need this.
     mov $0xffff800f, %edx   # SYS_rt_sigreturn
     out %eax, %dx           # Enter KM
     .cfi_endproc
@@ -70,12 +70,11 @@ __km_sigreturn_end:        # We'll need this to define the the DWARF
 __km_handle_interrupt:
     .type __km_handle_interrupt, @function
     .global __km_handle_interrupt
-    push %rdx
+    push %rdx               # these pushed registers are picked up by km_handle_interrupt()
     push %rbx
     push %rax
-    mov $0xdeadbeef, %rbx
-    mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
-    mov $0xffff81fd, %edx   # HC_guest_interrupt
+    mov $0xdeadbeef, %rbx   # interrupt number
+    mov $0xffff81fd, %edx   # KM_HCALL_PORT_BASE | HC_guest_interrupt
     out %eax, %dx           # Enter KM
     hlt                     # Should never hit here.
 
@@ -85,12 +84,11 @@ __km_handle_interrupt:
 .macro intr_hand name, num
     .align 16
 handler\name :
-    push %rdx
+    push %rdx               # these pushed registers are picked up by km_handle_interrupt()
     push %rbx
     push %rax
-    mov $\num, %rbx
-    mov %rsp, %rax          # KM Setup km_hc_args_t on stack for us to use
-    mov $0x81fd, %dx        # HC_guest_interrupt
+    mov $\num, %rbx         # the interrupt number
+    mov $0x81fd, %dx        # KM_HCALL_PORT_BASE | HC_guest_interrupt
     outl %eax, (%dx)        # Enter KM
     hlt                     # Should never hit here.
 
@@ -150,6 +148,17 @@ __km_interrupt_table:
     .quad 0                 # Terminate list
 
 /*
+ * Array of per vcpu km_hc_args_t structures.
+ */
+    .section .km_guest_data_rw, "dwa", @progbits
+    .align 64
+    .type km_hcargs, @object
+    .global km_hcargs
+    .set KVM_MAX_VCPUS, 288
+km_hcargs:
+    .space KVM_MAX_VCPUS * HCARG_SIZE, 0
+
+/*
  * SYSCALL handling. This function converts a syscall into
  * the coresponding KM Hypercall.
  * Linux SYSCALL convention:
@@ -169,26 +178,24 @@ __km_interrupt_table:
     .type __km_syscall_handler, @function
     .global __km_syscall_handler
 __km_syscall_handler:
-    // create a km_hcall_t on the stack.
-    push %r9    # arg6
-    push %r8    # arg5
-    push %r10   # arg4
-    push %rdx   # arg3
-    push %rsi   # arg2
-    push %rdi   # arg1
-    push %rax   # hc_ret - don't care about value. %rax is convienent.
+    // Save args into this vcpu's private km_hc_args_t
+    mov %r9,%gs:48    # arg6
+    mov %r8,%gs:40    # arg5
+    mov %r10,%gs:32   # arg4
+    mov %rdx,%gs:24   # arg3
+    mov %rsi,%gs:16   # arg2
+    mov %rdi,%gs:8    # arg1
 
     mov %ax, %dx     # Do the KM HCall
     or $0x8000, %dx
-    mov %rsp, %rax   # km_hcall_t on the stack
+    mov %gs, %rax    # give gs to km but not really needed
     outl %eax, (%dx)
 
-    mov 24(%rsp), %rdx  # restore rdx
-    mov (%rsp), %rax # Get return code into RAX
-    add $56, %rsp    # Restore stack
+    mov %gs:24, %rdx  # restore rdx, !! signal handlers can stomp on this, fix!!
+    mov %gs:0, %rax   # Get return code into RAX
 
     andq $0x3C7FD7, %r11    # restore the flag register
-    push %r11
+    push %r11         # stomping on the red zone?
     popfq
 
     /*

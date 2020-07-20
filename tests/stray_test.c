@@ -53,7 +53,6 @@ int signal_abort_test(int optind, int argc, char* argv[]);
 int block_segv_test(int optind, int argc, char* argv[]);
 int sigpipe_test(int optind, int argc, char* argv[]);
 int hc_test(int optind, int argc, char* argv[]);
-int hc_badarg_test(int optind, int argc, char* argv[]);
 int close_test(int optind, int argc, char* argv[]);
 int thread_test(int optind, int argc, char* argv[]);
 int syscall_test(int optind, int argc, char* argv[]);
@@ -83,9 +82,6 @@ struct stray_op {
     {.op = "hc",
      .func = hc_test,
      .description = "<call> - make hypercall with number <call>. exit 0 means success."},
-    {.op = "hc-badarg",
-     .func = hc_badarg_test,
-     .description = "<call> - make hypercall with number <call> and a bad argument."},
     {.op = "close", .func = close_test, .description = "<fd> - close file descriptor fd"},
     {.op = "thread", .func = thread_test, .description = "test pthread create/join"},
     {.op = "syscall", .func = syscall_test, .description = "Generate a SYSCALL instruction"},
@@ -215,20 +211,6 @@ int hc_test(int optind, int optarg, char* argv[])
       return 100;
    }
    syscall(callid, 0);
-   return 0;
-}
-
-// Generate a hypercall with a known bad argument.
-int hc_badarg_test(int optind, int optarg, char* argv[])
-{
-   char* ep = NULL;
-   int callid = strtol(argv[optind], &ep, 0);
-   if (ep == NULL || *ep != '\0') {
-      fprintf(stderr, "callid '%s' is not a number", argv[optind]);
-      usage();
-      return 100;
-   }
-   km_hcall(callid, (km_hc_args_t*)-1LL);
    return 0;
 }
 

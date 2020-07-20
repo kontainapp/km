@@ -30,6 +30,7 @@
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_guest.h"
 
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;
@@ -395,7 +396,6 @@ void km_write_sregisters(km_vcpu_t* vcpu)
 static int hypercall(km_vcpu_t* vcpu, int* hc)
 {
    kvm_run_t* r = vcpu->cpu_run;
-   km_gva_t ga;
 
    /* Sanity checks */
    *hc = r->io.port - KM_HCALL_PORT_BASE;
@@ -416,47 +416,14 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
       km_post_signal(vcpu, &info);
       return -1;
    }
-   /*
-    * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of the args address.
-    * Two assumptions made here: hcall args passed are on stack in the guest, and the stack is less
-    * than 4GB long, i.e. the address is withint 4GB range below the top of the stack.
-    *
-    * We set the high four bytes to the same as top of the stack, and check for underflow.
-    */
-   /* high four bytes */
-   km_gva_t stack_top_high;
-   if (vcpu->on_sigaltstack == 1) {
-      // we were on sigaltstack but could've left via longjmp, so need to confirm
-      km_read_registers(vcpu);
-      if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1) {
-         stack_top_high = (km_gva_t)vcpu->sigaltstack.ss_sp + vcpu->sigaltstack.ss_size;
-      } else {
-         // mark that we have left sigaltstack so we don't need to retrive registers to confirm next time
-         vcpu->on_sigaltstack = 0;
-         stack_top_high = vcpu->stack_top;
-      }
-   } else {
-      stack_top_high = vcpu->stack_top;
-   }
-   stack_top_high &= ~0xfffffffful;
-   /* Recover high 4 bytes, but check for roll under 4GB boundary */
-   ga = *(uint32_t*)((km_kma_t)r + r->io.data_offset) | stack_top_high;
-   if (ga > vcpu->stack_top) {
-      ga -= 4 * GIB;
-   }
-   km_infox(KM_TRACE_HC, "calling hc = %d (%s)", *hc, km_hc_name_get(*hc));
-   km_kma_t ga_kma;
-   if ((ga_kma = km_gva_to_kma(ga)) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
-      km_infox(KM_TRACE_SIGNALS, "hc: %d bad stack_top km_hc_args_t address:0x%lx", *hc, ga);
-      siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
-      km_post_signal(vcpu, &info);
-      return -1;
-   }
+   km_kma_t ga_kma = &km_hcargs[vcpu->vcpu_id];
+   km_infox(KM_TRACE_HC, "calling hc = %d (%s) args %p", *hc, km_hc_name_get(*hc), ga_kma);
+   km_hc_ret_t ret;
    if (km_collect_hc_stats) {
       struct timespec start, stop;
       km_hc_stats_t* hstat = &km_hcalls_stats[*hc];
       clock_gettime(CLOCK_MONOTONIC, &start);
-      km_hc_ret_t ret = km_hcalls_table[*hc](vcpu, *hc, ga_kma);
+      ret = km_hcalls_table[*hc](vcpu, *hc, ga_kma);
       clock_gettime(CLOCK_MONOTONIC, &stop);
       uint64_t msecs = (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec;
       hstat->min = MIN(msecs, hstat->min);
@@ -464,8 +431,11 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
       hstat->total += msecs;
       hstat->count++;
       return ret;
+   } else {
+      ret = km_hcalls_table[*hc](vcpu, *hc, ga_kma);
    }
-   return km_hcalls_table[*hc](vcpu, *hc, ga_kma);
+   km_infox(KM_TRACE_HC, "hc %s returns hc_ret 0x%lx", km_hc_name_get(*hc), km_hcargs[vcpu->vcpu_id].hc_ret);
+   return ret;
 }
 
 static int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
