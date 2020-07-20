@@ -8,3 +8,7 @@ bin/faktory:
 .PHONY: clean
 clean:
 	rm -rf bin
+
+.PHONY: test
+test: bin/faktory
+	go test ./tests/...

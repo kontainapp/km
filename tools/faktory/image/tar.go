@@ -8,7 +8,7 @@ import (
 )
 
 func Tar(src string, destination string) error {
-	cmd := exec.Command("tar", "-cvf", destination, src)
+	cmd := exec.Command("tar", "-cvf", destination, "-C", src+"/", ".")
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(err, fmt.Sprintf("Failed to tar from %s into %s", src, destination))
 	}

@@ -90,6 +90,7 @@ func Convert(containerName string, resultName string, baseName string) error {
 
 	conversionBase := getConversionBase(id)
 	overlayfsPath := getOverlayFSBase(conversionBase)
+	tarSrcPath := path.Join(overlayfsPath, "merged")
 	tarPath := getTarPath(conversionBase, id)
 
 	logrus.WithFields(logrus.Fields{
@@ -102,7 +103,7 @@ func Convert(containerName string, resultName string, baseName string) error {
 		return errors.Wrap(err, "Failed to create a merged layers with overlayfs")
 	}
 
-	if err := image.Tar(overlayfsPath, tarPath); err != nil {
+	if err := image.Tar(tarSrcPath, tarPath); err != nil {
 		return errors.Wrap(err, "Failed to tar the merged rootfs")
 	}
 
