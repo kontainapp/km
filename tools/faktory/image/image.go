@@ -3,7 +3,6 @@ package image
 import (
 	"context"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/docker/docker/api/types"
@@ -112,45 +111,4 @@ func GetLayers(id string) ([]string, error) {
 	}).Debug("Combining Upper and Lower")
 
 	return layers, nil
-}
-
-// PythonSplitLayers split the layers with application and os system with python
-func PythonSplitLayers(layers []string) ([]string, error) {
-	keep := []string{}
-
-	for _, layer := range layers {
-		exists, err := pythonSearch(layer)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to search the layer")
-		}
-
-		if exists {
-			return keep, nil
-		}
-
-		keep = append(keep, layer)
-	}
-
-	return nil, errors.New("Didn't find python in any layers")
-}
-
-func pythonSearch(base string) (bool, error) {
-	var pythonTargets = []string{
-		"usr/local/bin/python3",
-		"usr/local/bin/python",
-	}
-
-	for _, target := range pythonTargets {
-		targetPath := path.Join(base, target)
-
-		if _, err := os.Stat(targetPath); err == nil {
-			return true, nil
-		} else if os.IsNotExist(err) {
-			continue
-		} else {
-			return false, err
-		}
-	}
-
-	return false, nil
 }

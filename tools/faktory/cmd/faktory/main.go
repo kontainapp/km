@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -10,20 +11,22 @@ import (
 
 func cmdConvert() *cobra.Command {
 	var cmd = &cobra.Command{
-		Use:   "convert [container-name]",
-		Short: "convert from container to kontain",
-		Args:  cobra.ExactArgs(1),
+		Use:   "convert [from] [to] [using as base]",
+		Short: "convert @from container @to kontain using @base",
+		Args:  cobra.ExactArgs(3),
 		PreRun: func(cmd *cobra.Command, args []string) {
 			logrus.WithField("args", args).Debug("convert command is called")
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			containerName := args[0]
-			baseName, err := c.Flags().GetString("base")
-			if err != nil {
-				return err
+			resultName := args[1]
+			baseName := args[2]
+
+			if containerName == "" || resultName == "" || baseName == "" {
+				return errors.New("Arguements can't be empty")
 			}
 
-			if err := conversion.Convert(containerName, baseName); err != nil {
+			if err := conversion.Convert(containerName, resultName, baseName); err != nil {
 				return err
 			}
 

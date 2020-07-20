@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"kontain.app/km/tools/faktory/image"
+	"kontain.app/km/tools/faktory/splitter"
 )
 
 func getConversionBase(containerName string) string {
@@ -24,15 +25,12 @@ func getTarPath(base string, containerName string) string {
 }
 
 // Convert ...
-func Convert(containerName string, baseName string) error {
+func Convert(containerName string, resultName string, baseName string) error {
 	logrus.WithFields(logrus.Fields{
 		"container name": containerName,
+		"result name":    resultName,
 		"base name":      baseName,
 	}).Debug("Converting container to kontainer")
-
-	if baseName == "" {
-		return errors.New("--base flag is required and can't be empty")
-	}
 
 	id, err := image.RefnameToID(containerName)
 	if err != nil {
@@ -50,7 +48,9 @@ func Convert(containerName string, baseName string) error {
 		"layers": layers,
 	}).Debug("Get container layers")
 
-	keep, err := image.PythonSplitLayers(layers)
+	pythonSplitter := splitter.PythonSplitter{}
+
+	keep, err := pythonSplitter.Split(layers)
 	if err != nil {
 		return errors.Wrap(err, "Failed to split layers")
 	}
@@ -106,7 +106,7 @@ func Convert(containerName string, baseName string) error {
 		return errors.Wrap(err, "Failed to tar the merged rootfs")
 	}
 
-	if err := image.ImportImage(tarPath, "kontainapp/test:latest"); err != nil {
+	if err := image.ImportImage(tarPath, resultName); err != nil {
 		return errors.Wrap(err, "Failed to import docker image")
 	}
 
