@@ -3015,6 +3015,23 @@ accept_connection:;
 }
 
 /*
+ * The musl library uses internal signal numbers for some operation.  If gdb client
+ * is attached to km, these signals will be forwarded to the gdb client and the
+ * gdb client just sends them back to the km gdb server.  We need to translate
+ * these signal numbers to some signal number that is not part of the gdb signal
+ * space.
+ */
+#ifndef SIGTIMER
+#define SIGTIMER 32
+#endif
+#ifndef SIGCANCEL
+#define SIGCANCEL 33
+#endif
+#ifndef SIGSYNCCALL
+#define SIGSYNCCALL 34
+#endif
+
+/*
  * GDB uses it's own notion of signal number which is different that the native signal
  * number. See https://sourceware.org/gdb/onlinedocs/gdb/Stop-Reply-Packets.html.
  * GDB's signal numbers are the 'Sparc and Alpha' numbers defined in 'man 7 signal'.
@@ -3027,41 +3044,48 @@ static inline gdb_signal_number_t gdb_signo(int linuxsig)
 {
    gdb_signal_number_t linuxsig2gdbsig[] = {
        0,
-       GDB_SIGNAL_HUP,      // SIGHUP    1
-       GDB_SIGNAL_INT,      // SIGINT    2
-       GDB_SIGNAL_QUIT,     // SIGQUIT   3
-       GDB_SIGNAL_ILL,      // SIGILL    4
-       GDB_SIGNAL_TRAP,     // SIGTRAP   5
-       GDB_SIGNAL_ABRT,     // SIGABRT   6
-       GDB_SIGNAL_BUS,      // SIGBUS    7
-       GDB_SIGNAL_FPE,      // SIGFPE    8
-       GDB_SIGNAL_KILL,     // SIGKILL   9
-       GDB_SIGNAL_USR1,     // SIGUSR1   10
-       GDB_SIGNAL_SEGV,     // SIGSEGV   11
-       GDB_SIGNAL_USR2,     // SIGUSR2   12
-       GDB_SIGNAL_PIPE,     // SIGPIPE   13
-       GDB_SIGNAL_ALRM,     // SIGALRM   14
-       GDB_SIGNAL_TERM,     // SIGTERM   15
-       0,                   // SIGSTKFLT 16
-       GDB_SIGNAL_CHLD,     // SIGCHLD   17
-       GDB_SIGNAL_CONT,     // SIGCONT   18
-       GDB_SIGNAL_STOP,     // SIGSTOP   19
-       GDB_SIGNAL_TSTP,     // SIGTSTP   20
-       GDB_SIGNAL_TTIN,     // SIGTTIN   21
-       GDB_SIGNAL_TTOU,     // SIGTTOU   22
-       GDB_SIGNAL_URG,      // SIGURG    23
-       GDB_SIGNAL_XCPU,     // SIGXCPU   24
-       GDB_SIGNAL_XFSZ,     // SIGXFSZ   25
-       GDB_SIGNAL_VTALRM,   // SIGVTALRM 26
-       GDB_SIGNAL_PROF,     // SIGPROF   27
-       GDB_SIGNAL_WINCH,    // SIGWINCH  28
-       GDB_SIGNAL_IO,       // SIGIO     29
-       GDB_SIGNAL_POLL,     // SIGPOLL   29
-       GDB_SIGNAL_PWR,      // SIGPWR    30
-       GDB_SIGNAL_SYS,      // SIGSYS    31
+       [SIGHUP] = GDB_SIGNAL_HUP,         // SIGHUP    1
+       [SIGQUIT] = GDB_SIGNAL_INT,        // SIGINT    2
+       [SIGQUIT] = GDB_SIGNAL_QUIT,       // SIGQUIT   3
+       [SIGILL] = GDB_SIGNAL_ILL,         // SIGILL    4
+       [SIGTRAP] = GDB_SIGNAL_TRAP,       // SIGTRAP   5
+       [SIGABRT] = GDB_SIGNAL_ABRT,       // SIGABRT   6
+       [SIGBUS] = GDB_SIGNAL_BUS,         // SIGBUS    7
+       [SIGFPE] = GDB_SIGNAL_FPE,         // SIGFPE    8
+       [SIGKILL] = GDB_SIGNAL_KILL,       // SIGKILL   9
+       [SIGUSR1] = GDB_SIGNAL_USR1,       // SIGUSR1   10
+       [SIGSEGV] = GDB_SIGNAL_SEGV,       // SIGSEGV   11
+       [SIGUSR2] = GDB_SIGNAL_USR2,       // SIGUSR2   12
+       [SIGPIPE] = GDB_SIGNAL_PIPE,       // SIGPIPE   13
+       [SIGALRM] = GDB_SIGNAL_ALRM,       // SIGALRM   14
+       [SIGTERM] = GDB_SIGNAL_TERM,       // SIGTERM   15
+       [SIGSTKFLT] = 0,                   // SIGSTKFLT 16
+       [SIGCHLD] = GDB_SIGNAL_CHLD,       // SIGCHLD   17
+       [SIGCONT] = GDB_SIGNAL_CONT,       // SIGCONT   18
+       [SIGSTOP] = GDB_SIGNAL_STOP,       // SIGSTOP   19
+       [SIGTSTP] = GDB_SIGNAL_TSTP,       // SIGTSTP   20
+       [SIGTTIN] = GDB_SIGNAL_TTIN,       // SIGTTIN   21
+       [SIGTTOU] = GDB_SIGNAL_TTOU,       // SIGTTOU   22
+       [SIGURG] = GDB_SIGNAL_URG,         // SIGURG    23
+       [SIGXCPU] = GDB_SIGNAL_XCPU,       // SIGXCPU   24
+       [SIGXFSZ] = GDB_SIGNAL_XFSZ,       // SIGXFSZ   25
+       [SIGVTALRM] = GDB_SIGNAL_VTALRM,   // SIGVTALRM 26
+       [SIGPROF] = GDB_SIGNAL_PROF,       // SIGPROF   27
+       [SIGWINCH] = GDB_SIGNAL_WINCH,     // SIGWINCH  28
+       [SIGIO] = GDB_SIGNAL_IO,           // SIGIO     29
+       [SIGPOLL] = GDB_SIGNAL_POLL,       // SIGPOLL   29
+       [SIGPWR] = GDB_SIGNAL_PWR,         // SIGPWR    30
+       [SIGSYS] = GDB_SIGNAL_SYS,         // SIGSYS    31
+       // The following are not really gdb signals.  They just let us xlate from musl
+       // internal signals to values we can xlated back when the gdb client sends them
+       // back to gdb server
+       [SIGTIMER] = GDB_SIGNAL_REALTIME_34,      // SIGTIMER  32, arbitrarily chosen
+       [SIGCANCEL] = GDB_SIGNAL_CANCEL,          // SIGCANCEL 33
+       [SIGSYNCCALL] = GDB_SIGNAL_REALTIME_33,   // SIGSYNCCALL 34, arbitrarily chosen
    };
 
-   if (linuxsig > SIGSYS || linuxsig2gdbsig[linuxsig] == 0) {
+   if (linuxsig > sizeof(linuxsig2gdbsig) / sizeof(linuxsig2gdbsig[0]) ||
+       linuxsig2gdbsig[linuxsig] == 0) {
       // out of range, just give them what they passed in
       km_infox(KM_TRACE_GDB, "No gdb signal for linux signal %d", linuxsig);
       return (gdb_signal_number_t)linuxsig;
@@ -3075,43 +3099,47 @@ static inline gdb_signal_number_t gdb_signo(int linuxsig)
 static int linux_signo(gdb_signal_number_t gdb_signo)
 {
    int gdbsig2linuxsig[] = {
-       0,
-       SIGHUP,      // GDB_SIGNAL_HUP  1
-       SIGINT,      // GDB_SIGNAL_INT  2
-       SIGQUIT,     // GDB_SIGNAL_QUIT 3
-       SIGILL,      // GDB_SIGNAL_ILL  4
-       SIGTRAP,     // GDB_SIGNAL_TRAP 5
-       SIGABRT,     // GDB_SIGNAL_ABRT 6
-       0,           // GDB_SIGNAL_EMT  7
-       SIGFPE,      // GDB_SIGNAL_FPE  8
-       SIGKILL,     // GDB_SIGNAL_KILL 9
-       SIGBUS,      // GDB_SIGNAL_BUS  10
-       SIGSEGV,     // GDB_SIGNAL_SEGV 11
-       SIGSYS,      // GDB_SIGNAL_SYS  12
-       SIGPIPE,     // GDB_SIGNAL_PIPE 13
-       SIGALRM,     // GDB_SIGNAL_ALRM 14
-       SIGTERM,     // GDB_SIGNAL_TERM 15
-       SIGURG,      // GDB_SIGNAL_URG  16
-       SIGSTOP,     // GDB_SIGNAL_STOP 17
-       SIGTSTP,     // GDB_SIGNAL_TSTP 18
-       SIGCONT,     // GDB_SIGNAL_CONT 19
-       SIGCHLD,     // GDB_SIGNAL_CHLD 20
-       SIGTTIN,     // GDB_SIGNAL_TTIN 21
-       SIGTTOU,     // GDB_SIGNAL_TTOU 22
-       SIGIO,       // GDB_SIGNAL_IO   23
-       SIGXCPU,     // GDB_SIGNAL_XCPU 24
-       SIGXFSZ,     // GDB_SIGNAL_XFSZ 25
-       SIGVTALRM,   // GDB_SIGNAL_VTALRM 26
-       SIGPROF,     // GDB_SIGNAL_PROF  27
-       SIGWINCH,    // GDB_SIGNAL_WINCH 28
-       0,           // GDB_SIGNAL_LOST  29
-       SIGUSR1,     // GDB_SIGNAL_USR1  30
-       SIGUSR2,     // GDB_SIGNAL_USR2  31
-       SIGPWR,      // GDB_SIGNAL_PWR   32
-       SIGPOLL,     // GDB_SIGNAL_POLL  33
+       [0] = 0,
+       [GDB_SIGNAL_HUP] = SIGHUP,                // GDB_SIGNAL_HUP  1
+       [GDB_SIGNAL_INT] = SIGINT,                // GDB_SIGNAL_INT  2
+       [GDB_SIGNAL_QUIT] = SIGQUIT,              // GDB_SIGNAL_QUIT 3
+       [GDB_SIGNAL_ILL] = SIGILL,                // GDB_SIGNAL_ILL  4
+       [GDB_SIGNAL_TRAP] = SIGTRAP,              // GDB_SIGNAL_TRAP 5
+       [GDB_SIGNAL_ABRT] = SIGABRT,              // GDB_SIGNAL_ABRT 6
+       [GDB_SIGNAL_EMT] = 0,                     // GDB_SIGNAL_EMT  7
+       [GDB_SIGNAL_FPE] = SIGFPE,                // GDB_SIGNAL_FPE  8
+       [GDB_SIGNAL_KILL] = SIGKILL,              // GDB_SIGNAL_KILL 9
+       [GDB_SIGNAL_BUS] = SIGBUS,                // GDB_SIGNAL_BUS  10
+       [GDB_SIGNAL_SEGV] = SIGSEGV,              // GDB_SIGNAL_SEGV 11
+       [GDB_SIGNAL_SYS] = SIGSYS,                // GDB_SIGNAL_SYS  12
+       [GDB_SIGNAL_PIPE] = SIGPIPE,              // GDB_SIGNAL_PIPE 13
+       [GDB_SIGNAL_ALRM] = SIGALRM,              // GDB_SIGNAL_ALRM 14
+       [GDB_SIGNAL_TERM] = SIGTERM,              // GDB_SIGNAL_TERM 15
+       [GDB_SIGNAL_URG] = SIGURG,                // GDB_SIGNAL_URG  16
+       [GDB_SIGNAL_STOP] = SIGSTOP,              // GDB_SIGNAL_STOP 17
+       [GDB_SIGNAL_TSTP] = SIGTSTP,              // GDB_SIGNAL_TSTP 18
+       [GDB_SIGNAL_CONT] = SIGCONT,              // GDB_SIGNAL_CONT 19
+       [GDB_SIGNAL_CHLD] = SIGCHLD,              // GDB_SIGNAL_CHLD 20
+       [GDB_SIGNAL_TTIN] = SIGTTIN,              // GDB_SIGNAL_TTIN 21
+       [GDB_SIGNAL_TTOU] = SIGTTOU,              // GDB_SIGNAL_TTOU 22
+       [GDB_SIGNAL_IO] = SIGIO,                  // GDB_SIGNAL_IO   23
+       [GDB_SIGNAL_XCPU] = SIGXCPU,              // GDB_SIGNAL_XCPU 24
+       [GDB_SIGNAL_XFSZ] = SIGXFSZ,              // GDB_SIGNAL_XFSZ 25
+       [GDB_SIGNAL_VTALRM] = SIGVTALRM,          // GDB_SIGNAL_VTALRM 26
+       [GDB_SIGNAL_PROF] = SIGPROF,              // GDB_SIGNAL_PROF  27
+       [GDB_SIGNAL_WINCH] = SIGWINCH,            // GDB_SIGNAL_WINCH 28
+       [GDB_SIGNAL_LOST] = 0,                    // GDB_SIGNAL_LOST  29
+       [GDB_SIGNAL_USR1] = SIGUSR1,              // GDB_SIGNAL_USR1  30
+       [GDB_SIGNAL_USR2] = SIGUSR2,              // GDB_SIGNAL_USR2  31
+       [GDB_SIGNAL_PWR] = SIGPWR,                // GDB_SIGNAL_PWR   32
+       [GDB_SIGNAL_POLL] = SIGPOLL,              // GDB_SIGNAL_POLL  33
+       [GDB_SIGNAL_REALTIME_34] = SIGTIMER,      // GDB_SIGNAL_REALTIME_34
+       [GDB_SIGNAL_CANCEL] = SIGCANCEL,          // GDB_SIGNAL_CANCEL
+       [GDB_SIGNAL_REALTIME_33] = SIGSYNCCALL,   // GDB_SIGNAL_REALTIME_33
    };
 
-   if (gdb_signo > GDB_SIGNAL_POLL || gdbsig2linuxsig[gdb_signo] == 0) {
+   if (gdb_signo > sizeof(gdbsig2linuxsig) / sizeof(gdbsig2linuxsig[0]) ||
+       gdbsig2linuxsig[gdb_signo] == 0) {
       // Just let the untranslatable values through
       km_infox(KM_TRACE_GDB, "no linux signal for gdb signal %d", gdb_signo);
       return gdb_signo;
