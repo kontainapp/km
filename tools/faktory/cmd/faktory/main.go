@@ -12,7 +12,7 @@ import (
 func cmdConvert() *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "convert [from] [to] [using as base]",
-		Short: "convert @from container @to kontain using @base",
+		Short: "convert from container to kontain using base",
 		Args:  cobra.ExactArgs(3),
 		PreRun: func(cmd *cobra.Command, args []string) {
 			logrus.WithField("args", args).Debug("convert command is called")
@@ -33,8 +33,6 @@ func cmdConvert() *cobra.Command {
 			return nil
 		},
 	}
-
-	cmd.Flags().String("base", "", "container that will be used as the base")
 
 	return cmd
 }
