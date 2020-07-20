@@ -26,6 +26,7 @@ func merged(target string) string {
 func mountOverlayFS(layers []string, target string) error {
 	logrus.WithFields(logrus.Fields{
 		"layers": layers,
+		"target": target,
 	}).Debug("Mounting overlayfs")
 
 	upper := upper(target)
@@ -44,10 +45,6 @@ func mountOverlayFS(layers []string, target string) error {
 		return err
 	}
 
-	for _, layer := range layers {
-		logrus.Info(layer)
-	}
-
 	opts := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s",
 		strings.Join(layers, ":"), upper, working)
 
@@ -55,6 +52,20 @@ func mountOverlayFS(layers []string, target string) error {
 
 	if err := unix.Mount("overlay", merged, "overlay", 0, opts); err != nil {
 		return errors.Wrap(err, "Failed to mount overlay")
+	}
+
+	return nil
+}
+
+func unmountOverlayFS(target string) error {
+	logrus.WithFields(logrus.Fields{
+		"target": target,
+	}).Debug("Unmounting overlayfs")
+
+	merged := merged(target)
+
+	if err := unix.Unmount(merged, 0); err != nil {
+		return errors.Wrap(err, "Failed to unmount the overlayfs")
 	}
 
 	return nil

@@ -1,10 +1,27 @@
 package conversion
 
 import (
+	"fmt"
+	"path"
+
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"kontain.app/km/tools/faktory/image"
 )
+
+func getConversionBase(containerName string) string {
+	base := "/tmp/faktory"
+
+	return path.Join(base, containerName)
+}
+
+func getOverlayFSBase(base string) string {
+	return path.Join(base, "overlayfs")
+}
+
+func getTarPath(base string, containerName string) string {
+	return path.Join(base, fmt.Sprintf("%s.tar.gz", containerName))
+}
 
 // Convert ...
 func Convert(containerName string, baseName string) error {
@@ -17,13 +34,19 @@ func Convert(containerName string, baseName string) error {
 		return errors.New("--base flag is required and can't be empty")
 	}
 
-	layers, err := image.GetLayers(containerName)
+	id, err := image.RefnameToID(containerName)
+	if err != nil {
+		return errors.Wrap(err, "Failed to get image id")
+	}
+
+	layers, err := image.GetLayers(id)
 	if err != nil {
 		return errors.Wrap(err, "Failed to get layers")
 	}
 
 	logrus.WithFields(logrus.Fields{
 		"name":   containerName,
+		"id":     id,
 		"layers": layers,
 	}).Debug("Get container layers")
 
@@ -34,16 +57,23 @@ func Convert(containerName string, baseName string) error {
 
 	logrus.WithFields(logrus.Fields{
 		"name":           containerName,
+		"id":             id,
 		"layers to keep": keep,
 	}).Debug("Compute layers to be kept")
 
-	baseLayers, err := image.GetLayers(baseName)
+	baseID, err := image.RefnameToID(baseName)
+	if err != nil {
+		return errors.Wrap(err, "Failed to get id from base image")
+	}
+
+	baseLayers, err := image.GetLayers(baseID)
 	if err != nil {
 		return errors.Wrap(err, "Failed to get layers for the base image")
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"name":   containerName,
+		"name":   baseName,
+		"baseID": baseID,
 		"layers": baseLayers,
 	}).Debug("Get base layers")
 
@@ -54,11 +84,34 @@ func Convert(containerName string, baseName string) error {
 
 	logrus.WithFields(logrus.Fields{
 		"name":   containerName,
+		"id":     id,
 		"layers": merged,
 	}).Debug("Final merged layers")
 
-	if err := mountOverlayFS(merged, "/tmp/faktory/first"); err != nil {
+	conversionBase := getConversionBase(id)
+	overlayfsPath := getOverlayFSBase(conversionBase)
+	tarPath := getTarPath(conversionBase, id)
+
+	logrus.WithFields(logrus.Fields{
+		"conversion_base": conversionBase,
+		"overlayfs":       overlayfsPath,
+		"tar":             tarPath,
+	}).Debug("Conversion Paths")
+
+	if err := mountOverlayFS(merged, overlayfsPath); err != nil {
 		return errors.Wrap(err, "Failed to create a merged layers with overlayfs")
+	}
+
+	if err := image.Tar(overlayfsPath, tarPath); err != nil {
+		return errors.Wrap(err, "Failed to tar the merged rootfs")
+	}
+
+	if err := image.ImportImage(tarPath, "kontainapp/test:latest"); err != nil {
+		return errors.Wrap(err, "Failed to import docker image")
+	}
+
+	if err := unmountOverlayFS(overlayfsPath); err != nil {
+		return errors.Wrap(err, "Failed to unmount overlayfs")
 	}
 
 	return nil
