@@ -442,10 +442,11 @@ uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence)
    if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
       return -EBADF;
    }
-   if (ops != NULL && ops->read_g2h != NULL) {
+   if (ops != NULL && ops->read_g2h != NULL && whence != SEEK_SET && offset != 0) {
       /*
        * File was matched on open with read op overwritten. Currently there are two,
-       * /proc/(self|getpid())/sched. It's hard to keep track of file pointer, and nobody does lseek.
+       * /proc/(self|getpid())/sched. It's hard to keep track of file pointer, and nobody does lseek
+       * other than rewind/lseek(0)
        */
       km_err_msg(0, "unsupported lseek on %s", km_guestfd_name(vcpu, fd));
       return -EINVAL;
