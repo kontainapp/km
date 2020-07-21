@@ -1,1 +1,0 @@
-FROM kontainapp/runenv-python

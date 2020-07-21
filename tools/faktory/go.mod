@@ -28,4 +28,5 @@ require (
 	google.golang.org/grpc v1.23.1 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
+	github.com/hashicorp/go-retryablehttp v0.6.6
 )

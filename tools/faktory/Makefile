@@ -11,4 +11,5 @@ clean:
 
 .PHONY: test
 test: bin/faktory
-	go test ./tests/...
+	# sudo is required to run tests
+	sudo -E env "GOPATH=${GOPATH}" env "GOBIN=${GOBIN}" /usr/local/go/bin/go test -v ./tests/...
