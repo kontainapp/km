@@ -1586,12 +1586,6 @@ static inline int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 // called on the read of /proc/self/sched - need to replace the first line
 static int proc_sched_read(int fd, char* buf, size_t buf_sz)
 {
-   int ret = snprintf(buf,
-                      buf_sz,
-                      "%s (%u, #threads: %u)\n",
-                      km_guest.km_filename,
-                      machine.pid,
-                      km_vcpu_apply_all(km_vcpu_count_running, 0));
    fd = dup(fd);
    FILE* fp = fdopen(fd, "r");
    if (fp == NULL) {
@@ -1602,9 +1596,33 @@ static int proc_sched_read(int fd, char* buf, size_t buf_sz)
    }
    char tmp[128];
    fgets(tmp, sizeof(tmp), fp);   // skip the first line
+   if (feof(fp)) {                // second read, to make sure we are at end of file
+      fclose(fp);
+      return 0;
+   }
+   int ret = snprintf(buf,
+                      buf_sz,
+                      "%s (%u, #threads: %u)\n",
+                      km_guest.km_filename,
+                      machine.pid,
+                      km_vcpu_apply_all(km_vcpu_count_running, 0));
    ret += fread(buf + ret, 1, buf_sz - ret, fp);
    fclose(fp);
    return ret;
+}
+
+// called on the read of /proc/self/cmdline
+static int proc_cmdline_read(int fd, char* buf, size_t buf_sz)
+{
+   char tmp[4096];
+   if (read(fd, tmp, sizeof(tmp)) == 0) {
+      return 0;   // second read, to make sure we are at end of file
+   }
+   // read till eof so on the second call we know we need to return 0 bytes
+   while (read(fd, tmp, sizeof(tmp)) != 0) {
+      ;
+   }
+   return km_exec_cmdline(buf, buf_sz);
 }
 
 static int proc_self_getdents(int fd, /* struct linux_dirent64* */ void* buf, size_t buf_sz)
@@ -1642,6 +1660,10 @@ static km_filename_table_t km_filename_table[] = {
         .ops = {.read_g2h = proc_sched_read},
     },
     {
+        .pattern = "^/proc/self/cmdline$",
+        .ops = {.read_g2h = proc_cmdline_read},
+    },
+    {
         .pattern = "^/proc/%u/fd/[[:digit:]]+$",
         .ops = {.open_g2h = proc_self_fd_name, .readlink_g2h = proc_self_fd_name},
     },
@@ -1656,6 +1678,10 @@ static km_filename_table_t km_filename_table[] = {
     {
         .pattern = "^/proc/%u/sched$",
         .ops = {.open_g2h = proc_sched_open, .read_g2h = proc_sched_read},
+    },
+    {
+        .pattern = "^/proc/%u/cmdline$",
+        .ops = {.read_g2h = proc_cmdline_read},
     },
     {},
 };
