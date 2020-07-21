@@ -123,7 +123,6 @@ typedef struct {
  * in and out of the guest -> .is_running == 1 km_vcpu_one_kvm_run()
  * and back to unused in km_vcpu_stopped()
  */
-#define HCRET_STACK_MAX 8
 typedef struct km_vcpu {
    int vcpu_id;               // uniq ID
    int kvm_vcpu_fd;           // this VCPU file descriptor
