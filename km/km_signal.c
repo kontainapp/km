@@ -426,7 +426,7 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
  */
 typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
-   km_hc_args_t hcargs;    // HC argument array for __km_sigreturn.
+   km_hc_args_t hcargs;    // save area for km_hc_args_t
    kvm_regs_t regs;        // Saved registers
    siginfo_t info;         // Passed to guest signal handler
    ucontext_t ucontext;    // Passed to guest signal handler
@@ -488,9 +488,8 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
       vcpu->sigmask |= act->sa_mask;
    }
 
-   // Remember hc_ret in case signal handler makes a syscall.
-   km_hc_args_t* hcargs = &km_hcargs[vcpu->vcpu_id];
-   frame->hcargs.hc_ret = hcargs->hc_ret;
+   // Remember at least hc_ret in case the signal handler makes a syscall.
+   frame->hcargs = km_hcargs[vcpu->vcpu_id];
 
    // Defer this signal.
    km_sigaddset(&vcpu->sigmask, info->si_signo);
@@ -571,9 +570,8 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
    vcpu->regs.rip = frame->ucontext.uc_mcontext.gregs[REG_RIP];
    km_write_registers(vcpu);
 
-   // Restore hc_ret if the signal handler overwrote the vcpu static copy
-   km_hc_args_t* hcargs = &km_hcargs[vcpu->vcpu_id];
-   hcargs->hc_ret = frame->hcargs.hc_ret;
+   // Restore hc_args in case the signal handler overwrote the per vcpu static copy
+   km_hcargs[vcpu->vcpu_id] = frame->hcargs;
 }
 
 uint64_t

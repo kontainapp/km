@@ -212,7 +212,7 @@ void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
        .gdt.limit = machine.gdt_size,
    };
    vcpu->sregs_valid = 1;
-km_infox(KM_TRACE_VCPU, "vcpu_id %d, sregs.gs.base 0x%llx", vcpu->vcpu_id, vcpu->sregs.gs.base);
+   km_infox(KM_TRACE_VCPU, "vcpu_id %d, sregs.gs.base 0x%llx", vcpu->vcpu_id, vcpu->sregs.gs.base);
 }
 
 /*

@@ -56,7 +56,6 @@ __km_sigreturn:
     .cfi_offset 16, 120 + HCARG_SIZE     # Saved RIP
 
     /* The actual code itself */
-    mov %gs, %eax           # gs to km but it doesn't need this.
     mov $0xffff800f, %edx   # SYS_rt_sigreturn
     out %eax, %dx           # Enter KM
     .cfi_endproc
@@ -188,10 +187,9 @@ __km_syscall_handler:
 
     mov %ax, %dx     # Do the KM HCall
     or $0x8000, %dx
-    mov %gs, %rax    # give gs to km but not really needed
     outl %eax, (%dx)
 
-    mov %gs:24, %rdx  # restore rdx, !! signal handlers can stomp on this, fix!!
+    mov %gs:24, %rdx  # restore rdx
     mov %gs:0, %rax   # Get return code into RAX
 
     andq $0x3C7FD7, %r11    # restore the flag register
