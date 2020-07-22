@@ -11,19 +11,15 @@
  *
  * Notes on File Descriptors
  * -------------------------
- * Every file descriptor opened by a guest payload has a coresponding open file
- * descriptor in KM. The the guest's file descriptor table is virtualized and
- * a guest file decriptor number is mapped to a KM process file descriptor number.
- * Likewise host file descriptor numbers are mapped to guest file descriptor
- * numbers when events involving file descriptors need to be forwarded to the
- * guest payload.
- *
+ * Payload file descriptors are numerically preserved.
+ * KM files are duped to the upper area (MAX_OPEN_FILES - MAX_KM_FILES) so there is no conflict.
  */
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,7 +41,8 @@
 #include "km_snapshot.h"
 #include "km_syscall.h"
 
-#define MAX_OPEN_FILES (1024)
+static const int MAX_OPEN_FILES = 1024;
+static const int MAX_KM_FILES = KVM_MAX_VCPUS + 2 + 2 + 2 + 2;   // eventfds, kvm, gdb, snap
 
 static char proc_pid_fd[128];
 static char proc_pid_exe[128];
@@ -54,17 +51,14 @@ static int proc_pid_length;
 
 typedef struct km_file {
    int inuse;
-   int guestfd;
-   int hostfd;
    int flags;            // Open flags
    km_file_ops_t* ops;   // Overwritten file ops for file matched at open
    char* name;
 } km_file_t;
 
 typedef struct km_filesys {
-   int nfdmap;                   // size of file descriptor maps
-   km_file_t* guest_files;       // Indexed by guestfd
-   int* hostfd_to_guestfd_map;   // reverse file descriptor map
+   int nfdmap;               // size of file descriptor maps
+   km_file_t* guest_files;   // Indexed by guestfd
 } km_filesys_t;
 
 // file name conversion functions forward declarations
@@ -97,46 +91,29 @@ static char* km_get_nonfile_name(int hostfd)
  * Assigns lowest available guest fd, just like the kernel.
  * TODO: Support open flags (O_CLOEXEC in particular)
  */
-int km_add_guest_fd(
-    km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags, km_file_ops_t* ops)
+int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, char* name, int flags, km_file_ops_t* ops)
 {
    assert(host_fd >= 0 && host_fd < km_fs()->nfdmap);
-   assert(start_guestfd >= 0 && start_guestfd < km_fs()->nfdmap);
-   int guest_fd = -1;
-   for (int i = start_guestfd; i < km_fs()->nfdmap; i++) {
-      int available = 0;
-      int taken = 1;
-      if (__atomic_compare_exchange_n(&km_fs()->guest_files[i].inuse,
-                                      &available,
-                                      taken,
-                                      0,
-                                      __ATOMIC_SEQ_CST,
-                                      __ATOMIC_SEQ_CST) != 0) {
-         km_file_t* file = &km_fs()->guest_files[i];
-         file->guestfd = i;
-         file->hostfd = host_fd;
-         file->ops = ops;
-         if (name == NULL) {
-            file->name = km_get_nonfile_name(host_fd);
-         } else {
-            file->name = strdup(name);
-         }
-         file->flags = flags;
-
-         __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[host_fd], i, __ATOMIC_SEQ_CST);
-         void* newval = NULL;
-         if (name != NULL) {
-            newval = strdup(name);
-            assert(newval != NULL);
-         }
-         guest_fd = i;
-         break;
-      }
+   int available = 0;
+   int taken = 1;
+   if (__atomic_compare_exchange_n(&km_fs()->guest_files[host_fd].inuse,
+                                   &available,
+                                   taken,
+                                   0,
+                                   __ATOMIC_SEQ_CST,
+                                   __ATOMIC_SEQ_CST) == 0) {
+      km_err_msg(0, "file slot %d is taken unexpectedly", host_fd);
+      abort();
    }
-   if (guest_fd < 0) {
-      err(2, "%s: no space to add guestfd", __FUNCTION__);
+   km_file_t* file = &km_fs()->guest_files[host_fd];
+   file->ops = ops;
+   if (name == NULL) {
+      file->name = km_get_nonfile_name(host_fd);
+   } else {
+      file->name = strdup(name);
    }
-   return guest_fd;
+   file->flags = flags;
+   return host_fd;
 }
 
 /*
@@ -144,24 +121,15 @@ int km_add_guest_fd(
  */
 static inline void del_guest_fd(km_vcpu_t* vcpu, int guestfd, int hostfd)
 {
+   assert(guestfd == hostfd);
    assert(hostfd >= 0 && hostfd < km_fs()->nfdmap);
-   int rc = __atomic_compare_exchange_n(&km_fs()->hostfd_to_guestfd_map[hostfd],
-                                        &guestfd,
-                                        -1,
-                                        0,
-                                        __ATOMIC_SEQ_CST,
-                                        __ATOMIC_SEQ_CST);
-   assert(rc != 0);
-
-   assert(guestfd >= 0 && guestfd < km_fs()->nfdmap);
    km_file_t* file = &km_fs()->guest_files[guestfd];
-   int allocated = 1;
-   rc = __atomic_compare_exchange_n(&file->inuse, &allocated, 0, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-
-   assert(rc != 0);
-   if (file->name != NULL) {
-      free(file->name);
-      file->name = NULL;
+   if (__atomic_exchange_n(&file->inuse, 0, __ATOMIC_SEQ_CST) != 0) {
+      file->ops = NULL;
+      if (file->name != NULL) {
+         free(file->name);
+         file->name = NULL;
+      }
    }
 }
 
@@ -174,35 +142,6 @@ char* km_guestfd_name(km_vcpu_t* vcpu, int fd)
 }
 
 /*
- * Replaces the mapping for a guest file descriptor. Used by dup2(2) and dup(3).
- */
-static int replace_guest_fd(km_vcpu_t* vcpu, int guest_fd, int host_fd, int flags, km_file_ops_t* ops)
-{
-   assert(guest_fd >= 0 && guest_fd < km_fs()->nfdmap);
-   assert(host_fd >= 0 && host_fd < km_fs()->nfdmap);
-   km_file_t* file = &km_fs()->guest_files[guest_fd];
-   int was_inuse = __atomic_exchange_n(&file->inuse, 1, __ATOMIC_SEQ_CST);
-   __atomic_store_n(&file->guestfd, guest_fd, __ATOMIC_SEQ_CST);
-   file->flags = flags;
-   file->ops = ops;
-   int close_fd = __atomic_exchange_n(&file->hostfd, host_fd, __ATOMIC_SEQ_CST);
-   __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[host_fd], guest_fd, __ATOMIC_SEQ_CST);
-   if (was_inuse != 0) {
-      /*
-       * stdin, stdout, and stderr are shared with KM,
-       * we don't want to close them.
-       * TODO(maybe): If there is more than one cycle of this on
-       * std fd,
-       */
-      if (close_fd > 2) {
-         __atomic_store_n(&km_fs()->hostfd_to_guestfd_map[close_fd], -1, __ATOMIC_SEQ_CST);
-         __syscall_1(SYS_close, close_fd);
-      }
-   }
-   return guest_fd;
-}
-
-/*
  * maps a host fd to a guest fd. Returns a negative error number if mapping does not exist. Used by
  * SIGPIPE/SIGIO signal handlers and select. Note: vcpu is NULL if called from km signal handler.
  */
@@ -211,11 +150,10 @@ int km_fs_h2g_fd(int hostfd)
    if (hostfd < 0 || hostfd >= km_fs()->nfdmap) {
       return -ENOENT;
    }
-   int guest_fd = __atomic_load_n(&km_fs()->hostfd_to_guestfd_map[hostfd], __ATOMIC_SEQ_CST);
-   if (__atomic_load_n(&km_fs()->guest_files[guest_fd].hostfd, __ATOMIC_SEQ_CST) != hostfd) {
-      guest_fd = -ENOENT;
+   if (__atomic_load_n(&km_fs()->guest_files[hostfd].inuse, __ATOMIC_SEQ_CST) == 0) {
+      return -ENOENT;
    }
-   return guest_fd;
+   return hostfd;
 }
 
 /*
@@ -229,13 +167,10 @@ int km_fs_g2h_fd(int fd, km_file_ops_t** ops)
    if (__atomic_load_n(&km_fs()->guest_files[fd].inuse, __ATOMIC_SEQ_CST) == 0) {
       return -1;
    }
-   int ret = __atomic_load_n(&km_fs()->guest_files[fd].hostfd, __ATOMIC_SEQ_CST);
-   assert((ret == -1) || (km_fs()->hostfd_to_guestfd_map[ret] == fd) ||
-          (km_fs()->hostfd_to_guestfd_map[ret] == -1));
    if (ops != NULL) {
       *ops = km_fs()->guest_files[fd].ops;
    }
-   return ret;
+   return fd;
 }
 
 int km_fs_max_guestfd()
@@ -259,7 +194,7 @@ uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
    int hostfd = __syscall_3(SYS_open, (uintptr_t)pathname, flags, mode);
    int guestfd;
    if (hostfd >= 0) {
-      guestfd = km_add_guest_fd(vcpu, hostfd, 0, pathname, flags, ops);
+      guestfd = km_add_guest_fd(vcpu, hostfd, pathname, flags, ops);
    } else {
       guestfd = hostfd;
    }
@@ -293,7 +228,7 @@ uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mod
    int hostfd = __syscall_4(SYS_openat, host_dirfd, (uintptr_t)pathname, flags, mode);
    int guestfd;
    if (hostfd >= 0) {
-      guestfd = km_add_guest_fd(vcpu, hostfd, 0, pathname, flags, ops);
+      guestfd = km_add_guest_fd(vcpu, hostfd, pathname, flags, ops);
    } else {
       guestfd = hostfd;
    }
@@ -424,12 +359,11 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
       farg = (uint64_t)km_gva_to_kma(arg);
    } else if (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) {
       // Let kernel pick hostfd destination. Satisfy the fd number request for guest below.
-      farg = 0;
+      farg = arg;
    }
    int ret = __syscall_3(SYS_fcntl, host_fd, cmd, farg);
    if ((cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) && ret >= 0) {
-      ret =
-          km_add_guest_fd(vcpu, ret, arg, km_guestfd_name(vcpu, fd), (cmd == F_DUPFD) ? 0 : O_CLOEXEC, ops);
+      ret = km_add_guest_fd(vcpu, ret, km_guestfd_name(vcpu, fd), (cmd == F_DUPFD) ? 0 : O_CLOEXEC, ops);
    }
    return ret;
 }
@@ -518,7 +452,7 @@ static int proc_self_fd_name(const char* pathname, char* buf, size_t bufsz)
       return -ENOENT;
    }
    char* mpath;
-   if (fd < 0 || fd >= km_fs()->nfdmap || (mpath = km_fs()->guest_files[fd].name) == 0) {
+   if ((mpath = km_guestfd_name(NULL, fd)) == NULL) {
       return -ENOENT;
    }
    /*
@@ -926,7 +860,7 @@ uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
    assert(name != NULL);
    int ret = __syscall_1(SYS_dup, host_fd);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, name, 0, ops);
+      ret = km_add_guest_fd(vcpu, ret, name, 0, ops);
    }
    km_infox(KM_TRACE_FILESYS, "dup(%d) - %d", fd, ret);
    return ret;
@@ -954,9 +888,10 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
 
    char* name = km_guestfd_name(vcpu, fd);
    assert(name != NULL);
-   int ret = __syscall_1(SYS_dup, host_fd);
+   int ret = __syscall_3(SYS_dup3, host_fd, newfd, flags);
    if (ret >= 0) {
-      ret = replace_guest_fd(vcpu, newfd, ret, flags, ops);
+      del_guest_fd(vcpu, ret, ret);
+      ret = km_add_guest_fd(vcpu, ret, name, flags, ops);
    }
    km_infox(KM_TRACE_FILESYS, "dup3(%d, %d, 0x%x) - %d", fd, newfd, flags, ret);
    return ret;
@@ -977,8 +912,8 @@ uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2])
    int host_pipefd[2];
    int ret = __syscall_1(SYS_pipe, (uintptr_t)host_pipefd);
    if (ret == 0) {
-      pipefd[0] = km_add_guest_fd(vcpu, host_pipefd[0], 0, NULL, 0, NULL);
-      pipefd[1] = km_add_guest_fd(vcpu, host_pipefd[1], 0, NULL, 0, NULL);
+      pipefd[0] = km_add_guest_fd(vcpu, host_pipefd[0], NULL, 0, NULL);
+      pipefd[1] = km_add_guest_fd(vcpu, host_pipefd[1], NULL, 0, NULL);
    }
    return ret;
 }
@@ -989,8 +924,8 @@ uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags)
    int host_pipefd[2];
    int ret = __syscall_2(SYS_pipe2, (uintptr_t)host_pipefd, flags);
    if (ret == 0) {
-      pipefd[0] = km_add_guest_fd(vcpu, host_pipefd[0], 1, NULL, 0, NULL);
-      pipefd[1] = km_add_guest_fd(vcpu, host_pipefd[1], 0, NULL, 0, NULL);
+      pipefd[0] = km_add_guest_fd(vcpu, host_pipefd[0], NULL, 0, NULL);
+      pipefd[1] = km_add_guest_fd(vcpu, host_pipefd[1], NULL, 0, NULL);
    }
    return ret;
 }
@@ -1000,7 +935,7 @@ uint64_t km_fs_eventfd2(km_vcpu_t* vcpu, int initval, int flags)
 {
    int ret = __syscall_2(SYS_eventfd2, initval, flags);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, NULL, 0, NULL);
+      ret = km_add_guest_fd(vcpu, ret, NULL, 0, NULL);
    }
    return ret;
 }
@@ -1010,7 +945,7 @@ uint64_t km_fs_socket(km_vcpu_t* vcpu, int domain, int type, int protocol)
 {
    int ret = __syscall_3(SYS_socket, domain, type, protocol);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, NULL, 0, NULL);
+      ret = km_add_guest_fd(vcpu, ret, NULL, 0, NULL);
    }
    return ret;
 }
@@ -1065,7 +1000,7 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
       for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
          if (cmsg->cmsg_type == SCM_RIGHTS) {
             int host_fd = *(int*)CMSG_DATA(cmsg);
-            int guest_fd = km_add_guest_fd(vcpu, host_fd, 0, NULL, flag, NULL);
+            int guest_fd = km_add_guest_fd(vcpu, host_fd, NULL, flag, NULL);
             *(int*)CMSG_DATA(cmsg) = guest_fd;
             km_infox(KM_TRACE_FILESYS, "received host fd %d as guest %d\n", host_fd, guest_fd);
          }
@@ -1164,7 +1099,7 @@ uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockle
    }
    int ret = __syscall_3(SYS_accept, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, NULL, 0, NULL);
+      ret = km_add_guest_fd(vcpu, ret, NULL, 0, NULL);
    }
    return ret;
 }
@@ -1185,8 +1120,8 @@ uint64_t km_fs_socketpair(km_vcpu_t* vcpu, int domain, int type, int protocol, i
 {
    int ret = __syscall_4(SYS_socketpair, domain, type, protocol, (uintptr_t)sv);
    if (ret == 0) {
-      sv[0] = km_add_guest_fd(vcpu, sv[0], 0, NULL, 0, NULL);
-      sv[1] = km_add_guest_fd(vcpu, sv[1], 0, NULL, 0, NULL);
+      sv[0] = km_add_guest_fd(vcpu, sv[0], NULL, 0, NULL);
+      sv[1] = km_add_guest_fd(vcpu, sv[1], NULL, 0, NULL);
    }
    return ret;
 }
@@ -1201,7 +1136,7 @@ km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* add
    }
    int ret = __syscall_4(SYS_accept4, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen, flags);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, NULL, 0, NULL);
+      ret = km_add_guest_fd(vcpu, ret, NULL, 0, NULL);
    }
    return ret;
 }
@@ -1350,7 +1285,7 @@ uint64_t km_fs_epoll_create1(km_vcpu_t* vcpu, int flags)
 {
    int ret = __syscall_1(SYS_epoll_create1, flags);
    if (ret >= 0) {
-      ret = km_add_guest_fd(vcpu, ret, 0, NULL, 0, NULL);
+      ret = km_add_guest_fd(vcpu, ret, NULL, 0, NULL);
    }
    return ret;
 }
@@ -1435,8 +1370,8 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
    char* cur = buf;
    size_t remain = length;
 
-   for (int i = 0; i < km_fs()->nfdmap; i++) {
-      km_file_t* file = &km_fs()->guest_files[i];
+   for (int fd = 0; fd < km_fs()->nfdmap; fd++) {
+      km_file_t* file = &km_fs()->guest_files[fd];
       if (file->inuse != 0) {
          cur += km_add_note_header(cur,
                                    remain,
@@ -1446,56 +1381,56 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
          km_nt_file_t* fnote = (km_nt_file_t*)cur;
          cur += sizeof(km_nt_file_t);
          fnote->size = sizeof(km_nt_file_t);
-         fnote->fd = file->guestfd;
+         fnote->fd = fd;
          fnote->flags = file->flags;
 
          strcpy(cur, file->name);
          cur += km_nt_file_padded_size(file->name);
 
          struct stat st;
-         if (fstat(file->hostfd, &st) < 0) {
-            km_err_msg(errno, "fstat failed fd=%d(%d) name=%s", file->guestfd, file->hostfd, file->name);
+         if (fstat(fd, &st) < 0) {
+            km_err_msg(errno, "fstat failed fd=%d name=%s", fd, file->name);
             continue;
          }
          fnote->mode = st.st_mode;
 
          switch (st.st_mode & __S_IFMT) {
             case __S_IFREG:
-               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFREG", i);
-               fnote->position = lseek(file->hostfd, 0, SEEK_CUR);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFREG", fd);
+               fnote->position = lseek(fd, 0, SEEK_CUR);
                break;
 
             /*
              * TODO(muth): Fill in the rest of these cases.
              */
             case __S_IFDIR:
-               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFDIR", i);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFDIR", fd);
                break;
 
             case __S_IFLNK:
-               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFLNK", i);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFLNK", fd);
                break;
 
             case __S_IFCHR:
-               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFCHR: %s", i, file->name);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFCHR: %s", fd, file->name);
                break;
 
             case __S_IFBLK:
-               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFBLK: %s", i, file->name);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFBLK: %s", fd, file->name);
                break;
 
             case __S_IFIFO:
-               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFIFO: %s", i, file->name);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d IFIFO: %s", fd, file->name);
                break;
 
             case __S_IFSOCK:
-               km_infox(KM_TRACE_SNAPSHOT, "fd:%d ISOCK: %s", i, file->name);
+               km_infox(KM_TRACE_SNAPSHOT, "fd:%d ISOCK: %s", fd, file->name);
                break;
 
             default:
                km_infox(KM_TRACE_SNAPSHOT,
                         "fd:%d mode %o NOT recognized: %s",
-                        i,
+                        fd,
                         st.st_mode & __S_IFMT,
                         file->name);
                break;
@@ -1533,8 +1468,14 @@ int km_fs_recover_open_file(char* ptr, size_t length)
 
    int fd = open(name, nt_file->flags, 0);
    if (fd < 0) {
-      km_err_msg(errno, "cannon open %s", name);
-      return -1;
+   }
+   if (fd != nt_file->fd) {
+      if (nt_file->fd != dup2(fd, nt_file->fd)) {
+         km_err_msg(errno, "cannon dup2 %s to %d", name, nt_file->fd);
+         return -1;
+      }
+      close(fd);
+      fd = nt_file->fd;
    }
 
    struct stat st;
@@ -1549,12 +1490,8 @@ int km_fs_recover_open_file(char* ptr, size_t length)
 
    km_file_t* file = &km_fs()->guest_files[nt_file->fd];
    file->inuse = 1;
-   file->guestfd = nt_file->fd;
-   file->hostfd = fd;
    file->flags = nt_file->flags;
    file->name = strdup(name);
-
-   km_fs()->hostfd_to_guestfd_map[fd] = nt_file->fd;
 
    if ((nt_file->mode & __S_IFMT) == __S_IFREG && nt_file->position != 0) {
       if (lseek(fd, nt_file->position, SEEK_SET) != nt_file->position) {
@@ -1627,8 +1564,26 @@ static int proc_cmdline_read(int fd, char* buf, size_t buf_sz)
 
 static int proc_self_getdents(int fd, /* struct linux_dirent64* */ void* buf, size_t buf_sz)
 {
-   km_err_msg(0, "getdents on /proc/self or similar");
-   return __syscall_3(SYS_getdents64, fd, (uint64_t)buf, buf_sz);
+   struct linux_dirent64 {
+      ino64_t d_ino;           /* 64-bit inode number */
+      off64_t d_off;           /* 64-bit offset to next structure */
+      unsigned short d_reclen; /* Size of this dirent */
+      unsigned char d_type;    /* File type */
+      char d_name[];           /* Filename (null-terminated) */
+   };
+   int ret = __syscall_3(SYS_getdents64, fd, (uint64_t)buf, buf_sz);
+   struct linux_dirent64* e;
+   for (off64_t offset = 0; offset < ret; offset += e->d_reclen) {
+      e = (struct linux_dirent64*)(buf + offset);
+      if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) {
+         continue;
+      }
+      ino64_t ino;
+      if (sscanf(e->d_name, "%lu", &ino) != 1 || ino >= MAX_OPEN_FILES - MAX_KM_FILES) {
+         return offset;
+      }
+   }
+   return ret;
 }
 
 /*
@@ -1652,7 +1607,7 @@ static km_filename_table_t km_filename_table[] = {
         .ops = {.open_g2h = proc_self_exe_name, .readlink_g2h = proc_self_exe_name},
     },
     {
-        .pattern = "^/proc/self$",
+        .pattern = "^/proc/self/fd$",
         .ops = {.getdents_g2h = proc_self_getdents},
     },
     {
@@ -1672,7 +1627,7 @@ static km_filename_table_t km_filename_table[] = {
         .ops = {.open_g2h = proc_self_exe_name, .readlink_g2h = proc_self_exe_name},
     },
     {
-        .pattern = "^/proc/%u$",
+        .pattern = "^/proc/%u/fd$",
         .ops = {.getdents_g2h = proc_self_getdents},
     },
     {
@@ -1788,27 +1743,18 @@ int km_fs_init(void)
    }
 
    machine.filesys = calloc(1, sizeof(km_filesys_t));
-   lim.rlim_cur = MAX_OPEN_FILES;   // Limit max open files. Temporary change till we support config.
-   size_t mapsz = lim.rlim_cur * sizeof(int);
+   lim.rlim_cur = MAX_OPEN_FILES - MAX_KM_FILES;   // Limit max open files. TODO: config
 
    km_infox(KM_TRACE_FILESYS, "lim.rlim_cur=%ld", lim.rlim_cur);
    km_fs()->nfdmap = lim.rlim_cur;
    km_fs()->guest_files = calloc(lim.rlim_cur, sizeof(km_file_t));
    assert(km_fs()->guest_files != NULL);
 
-   km_fs()->hostfd_to_guestfd_map = malloc(mapsz);
-   assert(km_fs()->hostfd_to_guestfd_map != NULL);
-   memset(km_fs()->hostfd_to_guestfd_map, 0xff, mapsz);
-
    if (km_exec_recover_guestfd() != 0) {
       // setup guest std file streams.
       for (int i = 0; i < 3; i++) {
          km_file_t* file = &km_fs()->guest_files[i];
          file->inuse = 1;
-         file->guestfd = i;
-         file->hostfd = i;
-
-         km_fs()->hostfd_to_guestfd_map[i] = i;
          switch (i) {
             case 0:
                file->name = strdup("[stdin]");
@@ -1848,9 +1794,41 @@ void km_fs_fini(void)
       }
       free(km_fs()->guest_files);
    }
-   if (km_fs()->hostfd_to_guestfd_map != NULL) {
-      free(km_fs()->hostfd_to_guestfd_map);
-      km_fs()->hostfd_to_guestfd_map = NULL;
-   }
    free(machine.filesys);
+}
+
+static int internal_fd = MAX_OPEN_FILES - MAX_KM_FILES;
+
+// dup internal fd to km private area
+static int km_internal_fd(int fd)
+{
+   int newfd = dup2(fd, internal_fd++);
+   if (newfd >= MAX_OPEN_FILES - MAX_KM_FILES) {
+      close(fd);
+   }
+   return newfd;
+}
+
+int km_internal_open(const char* name, int flag)
+{
+   int fd = open(name, flag);
+   return km_internal_fd(fd);
+}
+
+int km_internal_eventfd(unsigned int initval, int flags)
+{
+   int fd = eventfd(initval, flags);
+   return km_internal_fd(fd);
+}
+
+int km_internal_fd_ioctl(int fd, unsigned long request, ...)
+{
+   void* arg;
+   va_list ap;
+   va_start(ap, request);
+   arg = va_arg(ap, void*);
+   va_end(ap);
+
+   int retfd = ioctl(fd, request, arg);
+   return km_internal_fd(retfd);
 }

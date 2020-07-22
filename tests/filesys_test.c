@@ -117,25 +117,55 @@ TEST test_stat()
 TEST test_getdents()
 {
    // from 'man 2 getdents64
-   static const int ndirent = 1000;
+   static const int bufsize = 24 * 4;
    struct linux_dirent64 {
       ino64_t d_ino;           /* 64-bit inode number */
       off64_t d_off;           /* 64-bit offset to next structure */
       unsigned short d_reclen; /* Size of this dirent */
       unsigned char d_type;    /* File type */
       char d_name[];           /* Filename (null-terminated) */
-   } dbuf[ndirent];
+   };
+   char dbuf[bufsize];
 
    int fd = open("/", O_RDONLY);
    ASSERT_NOT_EQ(-1, fd);
-   int rc = syscall(SYS_getdents64, fd, dbuf, ndirent);
+   int rc = syscall(SYS_getdents64, fd, dbuf, bufsize);
    ASSERT_NOT_EQ(-1, rc);
    rc = close(fd);
    ASSERT_EQ(0, rc);
 
-   rc = syscall(SYS_getdents64, fd, dbuf, ndirent);
+   rc = syscall(SYS_getdents64, fd, dbuf, bufsize);
    ASSERT_EQ(-1, rc);
    ASSERT_EQ(EBADF, errno);
+
+   fd = open("/proc/self/fd", O_RDONLY);
+   ASSERT_NOT_EQ(-1, fd);
+   while ((rc = syscall(SYS_getdents64, fd, dbuf, bufsize)) > 0) {
+      if (greatest_get_verbosity() > 0) {
+         printf("----- getdents %d\n", rc);
+      }
+      struct linux_dirent64* entry;
+      for (off64_t offset = 0; offset < rc; offset += entry->d_reclen) {
+         entry = (struct linux_dirent64*)(dbuf + offset);
+         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+         }
+         if (greatest_get_verbosity() > 0) {
+            char tmp[256] = "/proc/self/fd/";
+            strcat(tmp, entry->d_name);
+            char buf[256];
+            int idx = readlink(tmp, buf, sizeof(buf));
+            buf[idx] = 0;
+            printf("name <%s> is <%s>\n", tmp, buf);
+         }
+         ino64_t ino = atol(entry->d_name);
+         ASSERT(0 <= ino && ino <= 5);
+      }
+   }
+   ASSERT_NOT_EQ(-1, rc);
+   rc = close(fd);
+   ASSERT_EQ(0, rc);
+
    PASS();
 }
 
@@ -277,7 +307,7 @@ TEST test_dup()
 
    // fcntl dup sets a starting point for new fd search.
    int ret = fcntl(fd1, F_DUPFD, fd3);
-   ASSERT_EQ(fd4, ret);
+   ASSERT_EQ_FMT(fd4, ret, "%d");
    rc = close(ret);
    ASSERT_EQ(0, rc);
    ret = fcntl(fd1, F_DUPFD_CLOEXEC, fd3);
