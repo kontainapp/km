@@ -537,6 +537,29 @@ TEST test_proc_sched()
    PASS();
 }
 
+TEST test_proc_cmdline()
+{
+   char procname[128], buf_self[4096], buf_pid[4096];
+   snprintf(procname, sizeof(procname), "/proc/%d/cmdline", getpid());
+
+   int self_fd = open("/proc/self/cmdline", O_RDONLY);
+   ASSERT_NOT_EQ(-1, self_fd);
+
+   int pid_fd = open(procname, O_RDONLY);
+   ASSERT_NOT_EQ(-1, pid_fd);
+
+   int self_rc = read(self_fd, buf_self, sizeof(buf_self));
+   ASSERT_NOT_EQ(-1, self_rc);
+   int pid_rc = read(pid_fd, buf_pid, sizeof(buf_pid));
+   ASSERT_NOT_EQ(-1, pid_rc);
+   ASSERT_EQ(self_rc, pid_rc);
+   ASSERT_EQ(0, memcmp(buf_pid, buf_self, self_rc));
+
+   close(self_fd);
+   close(pid_fd);
+   PASS();
+}
+
 TEST test_close_stdio()
 {
    struct stat st;
@@ -572,6 +595,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_bad_fd);
    RUN_TEST(test_proc_fd);
    RUN_TEST(test_proc_sched);
+   RUN_TEST(test_proc_cmdline);
    RUN_TEST(test_close_stdio);
 
    GREATEST_PRINT_REPORT();

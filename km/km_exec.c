@@ -744,6 +744,22 @@ void km_exec_init_args(int argc, char** argv)
    km_exec_argv = argv;
 }
 
+// Fills buf with zero terminated components of argv array, exactly like /proc/self/cmdline
+// Returns the number of bytes put in buf including all terminating zeroes
+int km_exec_cmdline(char* buf, size_t bufsz)
+{
+   int ret = 0;
+   buf[0] = '\0';
+   for (int i = 0; i < km_exec_argc; i++) {
+      int len = strlen(km_exec_argv[i]) + 1;   // trailing zero
+      strncpy(buf, km_exec_argv[i], bufsz);
+      buf += len;
+      bufsz -= len;
+      ret += len;
+   }
+   return ret;
+}
+
 void km_exec_fini(void)
 {
    free(execstatep);

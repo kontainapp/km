@@ -510,7 +510,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
          }
       }
    }
-   km_exec_init_args(pl_index, (char**)argv);
+   km_exec_init_args(*argc_p, *argv_p);
    return pl_name;
 }
 
