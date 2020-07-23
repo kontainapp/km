@@ -39,6 +39,7 @@
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
+#include "km_guest.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -1594,9 +1595,11 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    // TODO: Stop the world.
    warnx("SNAPSHOT");
    km_vcpu_sync_rip(vcpu);
+   ((km_vcpu_t*)vcpu)->regs_valid = 0;   // force register reread after the sync_rip
    km_read_registers(vcpu);
    km_vcpu_pause_all();
    km_dump_core(km_get_snapshot_path(), vcpu, NULL);
+km_infox(KM_TRACE_VCPU, "hcargs[0] %p, hcargs[1] %p", km_hcargs[0], km_hcargs[1]);
    return HC_ALLSTOP;
 }
 

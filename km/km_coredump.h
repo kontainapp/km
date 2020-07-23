@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -48,6 +48,7 @@ typedef struct km_nt_vcpu {
    Elf64_Off sigaltstack_size;     //
    Elf64_Addr mapself_base;        // delayed unmap address
    Elf64_Off mapself_size;         // and size
+   Elf64_Addr hcarg;               // current value of km_hcarg[vcpu_id]
    /*
     * TODO: SIGMASK
     * TODO: Debug registers?

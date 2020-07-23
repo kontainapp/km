@@ -1,0 +1,21 @@
+/*
+ * Assembler version of symbols from the c code.
+ */
+
+// Constants from various c header files
+.set KVM_MAX_VCPUS, 288
+.set KM_HCALL_PORT_BASE, 0x8000
+.set SYS_rt_sigreturn, 15
+.set HC_guest_interrupt, 0x1fd
+.set BYTES_PER_UINT64, 8
+
+// Field names for km_hc_args_t
+.set hc_rsp, 0
+.set hc_ret, 8
+.set hc_arg1, 16
+.set hc_arg2, 24
+.set hc_arg3, 32
+.set hc_arg4, 40
+.set hc_arg5, 48
+.set hc_arg6, 56
+.set HCARG_SIZE, 64

@@ -20,16 +20,21 @@ long __syscall_cp_asm(int* c, long n, long a1, long a2, long a3, long a4, long a
    __asm__("__cp_begin:");
    if (*c == 0) {
       km_hc_args_t arg;
+      register uint64_t rsp asm("rsp");
 
+      arg.hc_rsp = rsp;
       arg.arg1 = a1;
       arg.arg2 = a2;
       arg.arg3 = a3;
       arg.arg4 = a4;
       arg.arg5 = a5;
       arg.arg6 = a6;
-      __asm__ __volatile__("outl %0, %1"
+      __asm__ __volatile__("mov %0,%%gs:0;"
+                           "outl %1, %2"
                            :
-                           : "a"((uint32_t)((uint64_t)&arg)), "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
+                           : "r"(&arg),
+                             "a"(0),
+                             "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
                            : "memory");
       __asm__ __volatile__("\n"
                            :

@@ -163,6 +163,7 @@ static void km_init_syscall_handler(km_vcpu_t* vcpu)
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_MSRS, msrs) < 0) {
       err(errno, "KVM_SET_MSRS");
    }
+   km_infox(KM_TRACE_VCPU, "__km_syscall_handler gva 0x%llx", msrs->entries[1].data);
 }
 
 static inline uint64_t rdtsc(void)
@@ -205,12 +206,18 @@ void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
        .tr = {.type = 11, /* 64-bit TSS, busy */
               .present = 1},
        .fs.base = vcpu->guest_thr,
+       .gs.base = km_guest_kma_to_gva(&km_hcargs[vcpu->vcpu_id]),
        .idt.base = machine.idt,
        .idt.limit = machine.idt_size,
        .gdt.base = machine.gdt,
        .gdt.limit = machine.gdt_size,
    };
    vcpu->sregs_valid = 1;
+   km_infox(KM_TRACE_VCPU,
+            "vcpu_id %d, sregs.gs.base: gva 0x%llx, kma %p",
+            vcpu->vcpu_id,
+            vcpu->sregs.gs.base,
+            &km_hcargs[vcpu->vcpu_id]);
 }
 
 /*

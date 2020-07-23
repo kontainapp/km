@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -28,6 +28,7 @@
 #include "km_coredump.h"
 #include "km_filesys.h"
 #include "km_mem.h"
+#include "km_guest.h"
 
 // TODO: Need to figure out where the corefile and snapshotdefault should go.
 static char* coredump_path = "./kmcore";
@@ -230,7 +231,8 @@ static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, uint64_t arg)
                               .sigaltstack_flags = vcpu->sigaltstack.ss_flags,
                               .sigaltstack_size = vcpu->sigaltstack.ss_size,
                               .mapself_base = vcpu->mapself_base,
-                              .mapself_size = vcpu->mapself_size};
+                              .mapself_size = vcpu->mapself_size,
+                              .hcarg = (Elf64_Addr)km_hcargs[vcpu->vcpu_id]};
 
    km_core_list_context_t* ctx = (km_core_list_context_t*)arg;
    char* cur = ctx->pr_cur;

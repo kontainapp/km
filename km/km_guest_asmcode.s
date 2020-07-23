@@ -17,6 +17,8 @@
  * guest space debuggers.  Let's keep the .cfi directives in case we
  * find a way to use in the future.
  */
+.include "km_guest.asmh"
+
     .section .km_guest_text, "ax", @progbits
     .align 16
 __km_sigreturn:
@@ -35,8 +37,6 @@ __km_sigreturn:
      * This code must be kept in sync with signal code in KM to ensure that
      * GDB can interpret stacks that include a signal from KM.
      */
-    .set HCARG_SIZE, 56     # size of km_hc_args_t at top of stack
-
     .cfi_offset 0, -8 + HCARG_SIZE       # Saved RAX
     .cfi_offset 3, 0 + HCARG_SIZE        # Saved RBX
     .cfi_offset 2, 8 + HCARG_SIZE        # Saved RCX
@@ -56,7 +56,7 @@ __km_sigreturn:
     .cfi_offset 16, 120 + HCARG_SIZE     # Saved RIP
 
     /* The actual code itself */
-    mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
+    mov %rsp, %gs:0          # KM Setup km_hc_args_t on stack for us to use
     mov $0xffff800f, %edx   # SYS_rt_sigreturn
     out %eax, %dx           # Enter KM
     .cfi_endproc
@@ -74,7 +74,7 @@ __km_handle_interrupt:
     push %rbx
     push %rax
     mov $0xdeadbeef, %rbx
-    mov %esp, %eax          # KM Setup km_hc_args_t on stack for us to use
+    mov %rsp, %gs:0         # KM Setup km_hc_args_t on stack for us to use
     mov $0xffff81fd, %edx   # HC_guest_interrupt
     out %eax, %dx           # Enter KM
     hlt                     # Should never hit here.
@@ -150,6 +150,16 @@ __km_interrupt_table:
     .quad 0                 # Terminate list
 
 /*
+ * Array of per vcpu km_hc_args_t structures.
+ */
+    .section .km_guest_data_rw, "dwa", @progbits
+    .align 64
+    .type km_hcargs, @object
+    .global km_hcargs
+km_hcargs:
+    .space KVM_MAX_VCPUS * BYTES_PER_UINT64, 0
+
+/*
  * SYSCALL handling. This function converts a syscall into
  * the coresponding KM Hypercall.
  * Linux SYSCALL convention:
@@ -177,15 +187,16 @@ __km_syscall_handler:
     push %rsi   # arg2
     push %rdi   # arg1
     push %rax   # hc_ret - don't care about value. %rax is convienent.
+    push %rsp   # sp for alt stack check
+    mov %rsp,%gs:0  # set this thread's hcargs pointer
 
     mov %ax, %dx     # Do the KM HCall
-    or $0x8000, %dx
-    mov %rsp, %rax   # km_hcall_t on the stack
+    or $KM_HCALL_PORT_BASE, %dx
     outl %eax, (%dx)
 
-    mov 24(%rsp), %rdx  # restore rdx
-    mov (%rsp), %rax # Get return code into RAX
-    add $56, %rsp    # Restore stack
+    mov hc_arg3(%rsp), %rdx  # restore rdx
+    mov hc_ret(%rsp), %rax   # Get return code into RAX
+    add $HCARG_SIZE, %rsp    # Restore stack
 
     andq $0x3C7FD7, %r11    # restore the flag register
     push %r11

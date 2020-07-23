@@ -32,6 +32,8 @@ extern uint8_t km_guest_start;
 extern uint8_t km_guest_text_start;
 extern uint8_t km_guest_data_start;
 extern void* __km_interrupt_table[];
+extern uint8_t km_guest_data_rw_start;
+extern km_hc_args_t* km_hcargs[KVM_MAX_VCPUS];
 extern uint8_t __km_handle_interrupt;
 extern uint8_t __km_syscall_handler;
 extern uint8_t __km_sigreturn;

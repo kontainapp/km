@@ -30,6 +30,7 @@
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_guest.h"
 
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;
@@ -439,12 +440,16 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
       stack_top_high = vcpu->stack_top;
    }
    stack_top_high &= ~0xfffffffful;
+#if 0
    /* Recover high 4 bytes, but check for roll under 4GB boundary */
    ga = *(uint32_t*)((km_kma_t)r + r->io.data_offset) | stack_top_high;
    if (ga > vcpu->stack_top) {
       ga -= 4 * GIB;
    }
-   km_infox(KM_TRACE_HC, "calling hc = %d (%s)", *hc, km_hc_name_get(*hc));
+#else
+   ga = (km_gva_t)km_hcargs[vcpu->vcpu_id];
+#endif
+   km_infox(KM_TRACE_HC, "calling hc = %d (%s), hcargs gva 0x%lx", *hc, km_hc_name_get(*hc), ga);
    km_kma_t ga_kma;
    if ((ga_kma = km_gva_to_kma(ga)) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
       km_infox(KM_TRACE_SIGNALS, "hc: %d bad stack_top km_hc_args_t address:0x%lx", *hc, ga);
@@ -452,6 +457,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
       km_post_signal(vcpu, &info);
       return -1;
    }
+km_infox(KM_TRACE_VCPU, "hcargs gva 0x%lx, kma %p", ga, ga_kma);
    if (km_collect_hc_stats) {
       struct timespec start, stop;
       km_hc_stats_t* hstat = &km_hcalls_stats[*hc];
