@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"kontain.app/km/tools/faktory/conversion"
+	"kontain.app/km/tools/faktory/splitter"
 )
 
 func cmdConvert() *cobra.Command {
@@ -26,7 +27,13 @@ func cmdConvert() *cobra.Command {
 				return errors.New("Arguements can't be empty")
 			}
 
-			if err := conversion.Convert(containerName, resultName, baseName); err != nil {
+			splitter := splitter.PythonSplitter{}
+			converter, err := conversion.NewConverter(baseName, splitter)
+			if err != nil {
+				return err
+			}
+
+			if err := converter.Convert(containerName, resultName); err != nil {
 				return err
 			}
 

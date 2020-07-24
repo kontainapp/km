@@ -46,7 +46,7 @@ func testDocker(t *testing.T) error {
 		return errors.Wrap(err, "Failed to build the testing image")
 	}
 
-	if err := exec.Command(faktoryBin, "convert", FROM, TO, BASE).Run(); err != nil {
+	if err := exec.Command(faktoryBin, "--debug", "convert", FROM, TO, BASE).Run(); err != nil {
 		return errors.Wrap(err, "Failed to convert")
 	}
 
@@ -160,15 +160,15 @@ func testKontain(t *testing.T) error {
 
 func TestFlask(t *testing.T) {
 
-	// t.Run("Test with docker images", func(t *testing.T) {
-	// 	if err := testDocker(t); err != nil {
-	// 		t.Fatalf("Failed test: %v", err)
-	// 	}
-	// })
-	t.Run("Test with kontain images", func(t *testing.T) {
-		if err := testKontain(t); err != nil {
+	t.Run("Test with docker images", func(t *testing.T) {
+		if err := testDocker(t); err != nil {
 			t.Fatalf("Failed test: %v", err)
 		}
 	})
+	// t.Run("Test with kontain images", func(t *testing.T) {
+	// 	if err := testKontain(t); err != nil {
+	// 		t.Fatalf("Failed test: %v", err)
+	// 	}
+	// })
 
 }
