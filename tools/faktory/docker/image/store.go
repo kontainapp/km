@@ -49,7 +49,7 @@ func (s *Store) Get(id string) (*Image, error) {
 	s.RLock()
 	defer s.RUnlock()
 
-	dgst := digest.FromString(id)
+	dgst := digest.NewDigestFromHex(digest.SHA256.String(), id)
 	content, err := ioutil.ReadFile(s.contentFile(dgst))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get digest %s", dgst)

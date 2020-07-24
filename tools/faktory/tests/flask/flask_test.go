@@ -46,7 +46,7 @@ func testDocker(t *testing.T) error {
 		return errors.Wrap(err, "Failed to build the testing image")
 	}
 
-	if err := exec.Command(faktoryBin, "--debug", "convert", FROM, TO, BASE).Run(); err != nil {
+	if err := exec.Command(faktoryBin, "convert", FROM, TO, BASE).Run(); err != nil {
 		return errors.Wrap(err, "Failed to convert")
 	}
 
@@ -58,9 +58,7 @@ func testDocker(t *testing.T) error {
 
 	ret, err := cli.ContainerCreate(ctx,
 		&container.Config{
-			Image:      TO,
-			WorkingDir: "/app",
-			Cmd:        []string{"gunicorn", "--bind", "0.0.0.0:8080", "app:app"},
+			Image: TO,
 			ExposedPorts: nat.PortSet{
 				"8080/tcp": {},
 			},

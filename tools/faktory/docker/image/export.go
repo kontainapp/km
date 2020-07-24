@@ -36,6 +36,11 @@ type ExportedImage struct {
 }
 
 func (img *ExportedImage) Commit() error {
+
+	logrus.WithFields(logrus.Fields{
+		"workdir": img.config.Config.WorkingDir,
+	}).Debug("Commit Images")
+
 	newConfigData, err := json.Marshal(img.config)
 	if err != nil {
 		return errors.Wrap(err, "Failed to marshal configs")
@@ -72,6 +77,12 @@ func (img *ExportedImage) Commit() error {
 
 func (img *ExportedImage) UpdateName(name string) {
 	img.manifest.RepoTags = []string{name}
+}
+
+// PatchMetadata patch the export image's metadata with the src image passed in. Not
+// all metadata is patched. We will patch as many as needed.
+func (img *ExportedImage) PatchMetadata(src *Image) {
+	img.config.Config = src.Config
 }
 
 func loadManifest(path string) (*manifest, error) {

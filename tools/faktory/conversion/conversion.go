@@ -132,6 +132,10 @@ func (c Converter) Convert(from string, to string) error {
 		return errors.Wrap(err, "Failed to fix the metadata")
 	}
 
+	if err := image.Delete(fusedRefname); err != nil {
+		return errors.Wrap(err, "Failed to clean up the intermediate fused image")
+	}
+
 	return nil
 }
 
@@ -199,28 +203,23 @@ func (c Converter) fixMetadata(target string, srcID string, resultName string) e
 	}
 
 	// We need to merge the metadata from the source and the target.
-	// srcMetadata, err := image.GetMetadataFromStore(srcID)
-	// if err != nil {
-	// 	return errors.Wrap(err, "Failed to read source metadata")
-	// }
-
 	targetExportedImage, err := dockerimage.LoadExportedImage(tarUnpackSaved)
 	if err != nil {
 		return errors.Wrap(err, "Failed to load the exported image")
 	}
 
 	targetExportedImage.UpdateName(resultName)
+
+	srcMetadata, err := image.GetMetadataFromStore(srcID)
+	if err != nil {
+		return errors.Wrap(err, "Failed to read source metadata")
+	}
+
+	targetExportedImage.PatchMetadata(srcMetadata)
+
 	if err := targetExportedImage.Commit(); err != nil {
 		return errors.Wrap(err, "Failed to write the new exported image")
 	}
-
-	// targetMetadata, err := dockerimage.ExportGetMetadata(tarUnpackSaved)
-	// if err != nil {
-	// 	return errors.Wrap(err, "Failed to target source metadata")
-	// }
-
-	// Fix the image name
-	// Fix the metadata
 
 	tarFixed := filepath.Join(c.fix, fmt.Sprintf("%s-fixed.tar.gz", target))
 	if err := tar(tarUnpackSaved, tarFixed); err != nil {
