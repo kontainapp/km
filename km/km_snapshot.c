@@ -29,6 +29,7 @@
 #include "km_filesys.h"
 #include "km_mem.h"
 #include "km_snapshot.h"
+#include "km_guest.h"
 
 // TODO: Need to figure out where the snapshot default should go.
 static char* snapshot_path = "./kmsnap";
@@ -270,12 +271,12 @@ static int km_ss_recover_vcpu_info(char* ptr, size_t length)
    vcpu->guest_thr = nt->guest_thr;
    vcpu->set_child_tid = nt->set_child_tid;
    vcpu->clear_child_tid = nt->clear_child_tid;
-   vcpu->on_sigaltstack = nt->on_sigaltstack;
    vcpu->sigaltstack.ss_sp = (void*)nt->sigaltstack_sp;
    vcpu->sigaltstack.ss_flags = nt->sigaltstack_flags;
    vcpu->sigaltstack.ss_size = nt->sigaltstack_size;
    vcpu->mapself_base = nt->mapself_base;
    vcpu->mapself_size = nt->mapself_size;
+   km_hcargs[HC_ARGS_INDEX(nt->vcpu_id)] = (km_hc_args_t*)nt->hcarg;
    return 0;
 }
 

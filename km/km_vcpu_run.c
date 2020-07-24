@@ -30,6 +30,7 @@
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_guest.h"
 
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;
@@ -416,37 +417,11 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
       km_post_signal(vcpu, &info);
       return -1;
    }
-   /*
-    * Hcall via OUTL only passes 4 bytes, but we need to recover full 8 bytes of the args address.
-    * Two assumptions made here: hcall args passed are on stack in the guest, and the stack is less
-    * than 4GB long, i.e. the address is withint 4GB range below the top of the stack.
-    *
-    * We set the high four bytes to the same as top of the stack, and check for underflow.
-    */
-   /* high four bytes */
-   km_gva_t stack_top_high;
-   if (vcpu->on_sigaltstack == 1) {
-      // we were on sigaltstack but could've left via longjmp, so need to confirm
-      km_read_registers(vcpu);
-      if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1) {
-         stack_top_high = (km_gva_t)vcpu->sigaltstack.ss_sp + vcpu->sigaltstack.ss_size;
-      } else {
-         // mark that we have left sigaltstack so we don't need to retrive registers to confirm next time
-         vcpu->on_sigaltstack = 0;
-         stack_top_high = vcpu->stack_top;
-      }
-   } else {
-      stack_top_high = vcpu->stack_top;
-   }
-   stack_top_high &= ~0xfffffffful;
-   /* Recover high 4 bytes, but check for roll under 4GB boundary */
-   ga = *(uint32_t*)((km_kma_t)r + r->io.data_offset) | stack_top_high;
-   if (ga > vcpu->stack_top) {
-      ga -= 4 * GIB;
-   }
-   km_infox(KM_TRACE_HC, "calling hc = %d (%s)", *hc, km_hc_name_get(*hc));
-   km_kma_t ga_kma;
-   if ((ga_kma = km_gva_to_kma(ga)) == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
+   // We assume hypercall args are built are on stack in the guest, but nothing in km depends on this.
+   ga = (km_gva_t)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)];
+   km_kma_t ga_kma = km_gva_to_kma(ga);
+   km_infox(KM_TRACE_HC, "calling hc = %d (%s), hcargs gva 0x%lx, kma %p", *hc, km_hc_name_get(*hc), ga, ga_kma);
+   if (ga_kma == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
       km_infox(KM_TRACE_SIGNALS, "hc: %d bad stack_top km_hc_args_t address:0x%lx", *hc, ga);
       siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
       km_post_signal(vcpu, &info);
