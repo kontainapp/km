@@ -14,13 +14,12 @@ __clone:
    push %rsi    # stack
    push %rdx    # flags
    sub $8, %rsp # hc_ret
-   push %rsp    # hc_rsp
    # clone hc
    mov $0x8038, %edx
    mov %rsp, %gs:0
    outl %eax, (%dx)
-   mov 8(%rsp), %eax # Get return code into %rax
-   add $64, %rsp
+   mov 0(%rsp), %eax # Get return code into %rax
+   add $56, %rsp
    test %eax,%eax
    jnz 1f         # parent jumps
    # child - on a new stack now
@@ -28,8 +27,7 @@ __clone:
    mov %rcx, %rdi # args
    call *%r9
    # fn returns, exit now
-   sub $64, %rsp
-   mov %rsp, (%rsp)
+   sub $56, %rsp
    mov %rsp, %gs:0      # tell km where the hypercall args are
    mov $0x803c, %edx # exit
    outl %eax, (%dx)

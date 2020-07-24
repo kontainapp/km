@@ -22,7 +22,6 @@
 static const int KM_HCALL_PORT_BASE = 0x8000;
 
 typedef struct km_hc_args {
-   uint64_t hc_rsp;
    uint64_t hc_ret;
    uint64_t arg1;
    uint64_t arg2;

@@ -20,9 +20,7 @@ long __syscall_cp_asm(int* c, long n, long a1, long a2, long a3, long a4, long a
    __asm__("__cp_begin:");
    if (*c == 0) {
       km_hc_args_t arg;
-      register uint64_t rsp asm("rsp");
 
-      arg.hc_rsp = rsp;
       arg.arg1 = a1;
       arg.arg2 = a2;
       arg.arg3 = a3;

@@ -1599,7 +1599,6 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    km_read_registers(vcpu);
    km_vcpu_pause_all();
    km_dump_core(km_get_snapshot_path(), vcpu, NULL);
-km_infox(KM_TRACE_VCPU, "hcargs[0] %p, hcargs[1] %p", km_hcargs[0], km_hcargs[1]);
    return HC_ALLSTOP;
 }
 

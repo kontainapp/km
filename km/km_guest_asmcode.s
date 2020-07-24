@@ -187,7 +187,6 @@ __km_syscall_handler:
     push %rsi   # arg2
     push %rdi   # arg1
     push %rax   # hc_ret - don't care about value. %rax is convienent.
-    push %rsp   # sp for alt stack check
     mov %rsp,%gs:0  # set this thread's hcargs pointer
 
     mov %ax, %dx     # Do the KM HCall

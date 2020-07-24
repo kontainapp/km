@@ -243,7 +243,6 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
       km_hc_args_t* childarg = (km_hc_args_t*)km_gva_to_kma(km_fork_state.arg->arg2);
       childarg--;
       *childarg = *km_fork_state.arg;
-      childarg->hc_rsp = 0;
       childarg->hc_ret = 0;
 
       km_fork_state.regs.rsp = km_fork_state.arg->arg2 - sizeof(km_hc_args_t);
