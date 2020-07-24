@@ -1349,6 +1349,9 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
       return -EPERM;
    }
    int ret = __syscall_4(SYS_prlimit64, pid, resource, (uintptr_t)new_limit, (uintptr_t)old_limit);
+   if (resource == RLIMIT_NOFILE && old_limit != NULL && old_limit->rlim_cur > km_fs()->nfdmap) {
+      old_limit->rlim_cur = km_fs()->nfdmap;
+   }
    return ret;
 }
 
