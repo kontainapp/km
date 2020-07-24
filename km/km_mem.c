@@ -352,24 +352,11 @@ static void km_add_code_to_guest_address_space(void)
                                   PROT_EXEC,
                                   "[km_guest_text]");
    assert(rc == 0);
-#if 0
-   rc = km_monitor_pages_in_guest(GUEST_KMGUESTMEM_BASE_VA + (&km_guest_data_start - &km_guest_start),
-                                  &km_guest_data_rw_start - &km_guest_data_start,
-                                  PROT_READ,
-                                  "[km_guest_data]");
-   assert(rc == 0);
-   rc = km_monitor_pages_in_guest(GUEST_KMGUESTMEM_BASE_VA + (&km_guest_data_rw_start - &km_guest_start),
-                                  &km_guest_end - &km_guest_data_rw_start,
-                                  PROT_READ | PROT_WRITE,
-                                  "[km_guest_data_rw]");
-   assert(rc == 0);
-#else
    rc = km_monitor_pages_in_guest(GUEST_KMGUESTMEM_BASE_VA + (&km_guest_data_start - &km_guest_start),
                                   &km_guest_end - &km_guest_data_start,
                                   PROT_READ,
                                   "[km_guest_data]");
    assert(rc == 0);
-#endif
 }
 
 static void init_pml4(km_kma_t mem)
