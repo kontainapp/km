@@ -1,0 +1,1 @@
+Copied from "github.com/docker/docker/image" with changes. Commit: 39e6def2194045cb206160b66bf309f486bd7e64
