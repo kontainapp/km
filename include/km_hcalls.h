@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2019 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2020 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -33,9 +33,12 @@ typedef struct km_hc_args {
 
 static inline void km_hcall(int n, km_hc_args_t* arg)
 {
-   __asm__ __volatile__("outl %0, %1"
+   __asm__ __volatile__("mov %0,%%gs:0;"
+                        "outl %1, %2"
                         :
-                        : "a"((uint32_t)((uint64_t)arg)), "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
+                        : "r"(arg),
+                          "a"(0),
+                          "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
                         : "memory");
 }
 

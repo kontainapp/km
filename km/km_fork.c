@@ -240,10 +240,11 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
    if (is_clone != 0 && arg->arg2 != 0) {
       km_fork_state.stack_top = arg->arg2;
 
-      km_kma_t kma_sp = km_gva_to_kma(km_fork_state.arg->arg2);
-      kma_sp -= sizeof(km_hc_args_t);
-      memcpy(kma_sp, km_fork_state.arg, sizeof(km_hc_args_t));
-      *(uint64_t*)kma_sp = 0;
+      km_hc_args_t* childarg = (km_hc_args_t*)km_gva_to_kma(km_fork_state.arg->arg2);
+      childarg--;
+      *childarg = *km_fork_state.arg;
+      childarg->hc_ret = 0;
+
       km_fork_state.regs.rsp = km_fork_state.arg->arg2 - sizeof(km_hc_args_t);
    } else {
       km_fork_state.stack_top = vcpu->stack_top;

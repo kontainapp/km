@@ -16,9 +16,9 @@ __clone:
    sub $8, %rsp # hc_ret
    # clone hc
    mov $0x8038, %edx
-   mov %rsp, %rax
+   mov %rsp, %gs:0
    outl %eax, (%dx)
-   mov (%rsp), %eax # Get return code into %rax
+   mov 0(%rsp), %eax # Get return code into %rax
    add $56, %rsp
    test %eax,%eax
    jnz 1f         # parent jumps
@@ -28,7 +28,7 @@ __clone:
    call *%r9
    # fn returns, exit now
    sub $56, %rsp
-   mov %rsp, %rax
+   mov %rsp, %gs:0      # tell km where the hypercall args are
    mov $0x803c, %edx # exit
    outl %eax, (%dx)
    hlt

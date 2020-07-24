@@ -472,7 +472,6 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    if ((act->sa_flags & SA_ONSTACK) == SA_ONSTACK && vcpu->sigaltstack.ss_size != 0 &&
        km_on_altstack(vcpu, vcpu->regs.rsp) == 0) {
       sframe_gva = (km_gva_t)vcpu->sigaltstack.ss_sp + vcpu->sigaltstack.ss_size;
-      vcpu->on_sigaltstack = 1;
    } else {
       sframe_gva = vcpu->regs.rsp - RED_ZONE;
    }
@@ -564,7 +563,6 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
    // check if we use sigaltstack is used, and we are leaving it now
    if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1 && km_on_altstack(vcpu, frame->regs.rsp) == 0) {
       vcpu->sigaltstack.ss_flags = 0;
-      vcpu->on_sigaltstack = 0;
    }
    vcpu->regs = frame->regs;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));

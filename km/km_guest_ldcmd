@@ -20,6 +20,11 @@ SECTIONS
       km_guest_data_start = .;
       *(.km_guest_data)
    }
+   .km_guest_data_rw ALIGN(CONSTANT (COMMONPAGESIZE)) :
+   {
+      km_guest_data_rw_start = .;
+      *(.km_guest_data_rw)
+   }
    . = ALIGN(CONSTANT (COMMONPAGESIZE));
    km_guest_end = .;
 }
