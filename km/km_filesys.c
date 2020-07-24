@@ -119,11 +119,10 @@ int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, char* name, int flags, km_file
 /*
  * deletes an exist guestfd to hostfd mapping (used by km_fs_close())
  */
-static inline void del_guest_fd(km_vcpu_t* vcpu, int guestfd, int hostfd)
+static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
 {
-   assert(guestfd == hostfd);
-   assert(hostfd >= 0 && hostfd < km_fs()->nfdmap);
-   km_file_t* file = &km_fs()->guest_files[guestfd];
+   assert(fd >= 0 && fd < km_fs()->nfdmap);
+   km_file_t* file = &km_fs()->guest_files[fd];
    if (__atomic_exchange_n(&file->inuse, 0, __ATOMIC_SEQ_CST) != 0) {
       file->ops = NULL;
       if (file->name != NULL) {
@@ -239,9 +238,8 @@ uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mod
 // int close(fd)
 uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
 {
-   int host_fd;
    km_infox(KM_TRACE_FILESYS, "close(%d)", fd);
-   if ((host_fd = km_fs_g2h_fd(fd, NULL)) < 0) {
+   if (km_fs_g2h_fd(fd, NULL) < 0) {
       return -EBADF;
    }
    /*
@@ -256,13 +254,13 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
     * Hence the hostfd/guestfd mappings are cleared unconditionally
     * before close(2) is called.
     */
-   del_guest_fd(vcpu, fd, host_fd);
+   del_guest_fd(vcpu, fd);
    int ret = 0;
    // KM guest can't close host's stdin, stdout, and stderr.
-   if (host_fd > 2) {
-      ret = __syscall_1(SYS_close, host_fd);
+   if (fd > 2) {
+      ret = __syscall_1(SYS_close, fd);
       if (ret != 0) {
-         warn("close of guest fd %d (hostfd %d) returned an error: %d", fd, host_fd, ret);
+         warn("close of guest fd %d returned an error: %d", fd, ret);
       }
    }
    return ret;
@@ -890,7 +888,7 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    assert(name != NULL);
    int ret = __syscall_3(SYS_dup3, host_fd, newfd, flags);
    if (ret >= 0) {
-      del_guest_fd(vcpu, ret, ret);
+      del_guest_fd(vcpu, ret);
       ret = km_add_guest_fd(vcpu, ret, name, flags, ops);
    }
    km_infox(KM_TRACE_FILESYS, "dup3(%d, %d, 0x%x) - %d", fd, newfd, flags, ret);
@@ -1345,12 +1343,18 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
     *       RLIMIT_SIGPENDING - Maximum number of pending signals.
     *       RLIMIT_STACK - maximum size of process stack.
     */
-   if (resource == RLIMIT_NOFILE && new_limit != NULL && new_limit->rlim_cur > km_fs()->nfdmap) {
-      return -EPERM;
+   struct rlimit tmp;
+   if (resource == RLIMIT_NOFILE && new_limit != NULL) {
+      if (new_limit->rlim_cur > km_fs()->nfdmap) {
+         return -EPERM;
+      }
+      tmp.rlim_cur += MAX_KM_FILES;
+      tmp = *new_limit;
+      new_limit = &tmp;
    }
    int ret = __syscall_4(SYS_prlimit64, pid, resource, (uintptr_t)new_limit, (uintptr_t)old_limit);
-   if (resource == RLIMIT_NOFILE && old_limit != NULL && old_limit->rlim_cur > km_fs()->nfdmap) {
-      old_limit->rlim_cur = km_fs()->nfdmap;
+   if (resource == RLIMIT_NOFILE && old_limit != NULL) {
+      old_limit->rlim_cur -= MAX_KM_FILES;
    }
    return ret;
 }
