@@ -20,6 +20,10 @@
 
 #include "km_mem.h"
 
+#define CACHE_LINE_LENGTH 64 // bytes
+#define BYTES_PER_POINTER 8
+#define HC_ARGS_INDEX(vcpu_id) ((vcpu_id) * (CACHE_LINE_LENGTH / BYTES_PER_POINTER))
+
 /*
  * Definition of symbols defined in the .km_guest_{test,data} sections.
  *
@@ -32,6 +36,8 @@ extern uint8_t km_guest_start;
 extern uint8_t km_guest_text_start;
 extern uint8_t km_guest_data_start;
 extern void* __km_interrupt_table[];
+extern uint8_t km_guest_data_rw_start;
+extern km_hc_args_t* km_hcargs[HC_ARGS_INDEX(KVM_MAX_VCPUS)];
 extern uint8_t __km_handle_interrupt;
 extern uint8_t __km_syscall_handler;
 extern uint8_t __km_sigreturn;

@@ -369,6 +369,7 @@ static void km_hc_name_init(void)
    hc_name[HC_reserved3] = "reserved3";
    hc_name[HC_reserved4] = "reserved4";
    hc_name[HC_guest_interrupt] = "guest_interrupt";
+   hc_name[HC_snapshot] = "snapshot";
 }
 
 const char* const km_hc_name_get(int hc)
