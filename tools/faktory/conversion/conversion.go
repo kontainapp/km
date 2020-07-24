@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+	dockerimage "kontain.app/km/tools/faktory/docker/image"
 	"kontain.app/km/tools/faktory/image"
 	"kontain.app/km/tools/faktory/splitter"
 )
@@ -197,10 +198,21 @@ func (c Converter) fixMetadata(target string, srcID string, resultName string) e
 		return errors.Wrap(err, "Failed to unpack saved")
 	}
 
+	// We need to merge the metadata from the source and the target.
 	// srcMetadata, err := image.GetMetadataFromStore(srcID)
 	// if err != nil {
 	// 	return errors.Wrap(err, "Failed to read source metadata")
 	// }
+
+	targetExportedImage, err := dockerimage.LoadExportedImage(tarUnpackSaved)
+	if err != nil {
+		return errors.Wrap(err, "Failed to load the exported image")
+	}
+
+	targetExportedImage.UpdateName(resultName)
+	if err := targetExportedImage.Commit(); err != nil {
+		return errors.Wrap(err, "Failed to write the new exported image")
+	}
 
 	// targetMetadata, err := dockerimage.ExportGetMetadata(tarUnpackSaved)
 	// if err != nil {
