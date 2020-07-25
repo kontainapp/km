@@ -227,7 +227,7 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
 {
    int rc;
 
-   if ((vcpu->kvm_vcpu_fd = ioctl(machine.mach_fd, KVM_CREATE_VCPU, vcpu->vcpu_id)) < 0) {
+   if ((vcpu->kvm_vcpu_fd = km_internal_fd_ioctl(machine.mach_fd, KVM_CREATE_VCPU, vcpu->vcpu_id)) < 0) {
       warn("KVM: create VCPU %d failed", vcpu->vcpu_id);
       return vcpu->kvm_vcpu_fd;
    }
@@ -542,30 +542,30 @@ void km_machine_setup(km_machine_init_params_t* params)
 {
    int rc;
 
-   if ((machine.intr_fd = eventfd(0, 0)) == -1) {
+   if ((machine.intr_fd = km_internal_eventfd(0, 0)) < 0) {
       err(1, "KM: Failed to create machine intr_fd");
    }
-   if ((machine.shutdown_fd = eventfd(0, 0)) == -1) {
+   if ((machine.shutdown_fd = km_internal_eventfd(0, 0)) < 0) {
       err(1, "KM: Failed to create machine shutdown_fd");
    }
    switch (params->use_virt) {
       case KM_FLAG_FORCE_KVM:
-         if ((machine.kvm_fd = open("/dev/kvm", O_RDWR)) < 0) {
+         if ((machine.kvm_fd = km_internal_open("/dev/kvm", O_RDWR)) < 0) {
             err(1, "KVM: Can't open /dev/kvm");
          }
          km_infox(KM_TRACE_KVM, "KVM: Using /dev/kvm");
          break;
       case KM_FLAG_FORCE_KKM:
-         if ((machine.kvm_fd = open("/dev/kkm", O_RDWR)) < 0) {
+         if ((machine.kvm_fd = km_internal_open("/dev/kkm", O_RDWR)) < 0) {
             err(1, "KVM: Can't open /dev/kkm");
          }
          machine.vm_type = VM_TYPE_KKM;
          km_infox(KM_TRACE_KVM, "KVM: Using /dev/kkm");
          break;
       default:
-         if ((machine.kvm_fd = open("/dev/kvm", O_RDWR)) < 0) {
+         if ((machine.kvm_fd = km_internal_open("/dev/kvm", O_RDWR)) < 0) {
             // /dev/kvm is not available try /dev/kkm
-            if ((machine.kvm_fd = open("/dev/kkm", O_RDWR)) < 0) {
+            if ((machine.kvm_fd = km_internal_open("/dev/kkm", O_RDWR)) < 0) {
                err(1, "KVM: Can't open /dev/kvm and /dev/kkm");
             }
             km_infox(KM_TRACE_KVM, "KVM: Using /dev/kkm");
@@ -581,7 +581,7 @@ void km_machine_setup(km_machine_init_params_t* params)
    if (rc != KVM_API_VERSION) {
       errx(1, "KVM: API version mismatch");
    }
-   if ((machine.mach_fd = ioctl(machine.kvm_fd, KVM_CREATE_VM, NULL)) < 0) {
+   if ((machine.mach_fd = km_internal_fd_ioctl(machine.kvm_fd, KVM_CREATE_VM, NULL)) < 0) {
       err(1, "KVM: create VM failed");
    }
    if ((machine.vm_run_size = ioctl(machine.kvm_fd, KVM_GET_VCPU_MMAP_SIZE, 0)) < 0) {
