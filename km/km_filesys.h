@@ -45,12 +45,22 @@ typedef int (*km_file_readlink_t)(const char* guest_fn, char* buf, size_t buf_sz
 typedef int (*km_file_read_t)(int fd, char* buf, size_t buf_sz);
 typedef int (*km_file_getdents_t)(int fd, /* struct linux_dirent64 */ void* buf, size_t buf_sz);
 
+// types for file names conversion
 typedef struct {
    km_file_open_t open_g2h;
    km_file_read_t read_g2h;
    km_file_getdents_t getdents_g2h;
    km_file_readlink_t readlink_g2h;
 } km_file_ops_t;
+
+typedef struct {
+   char* pattern;
+   km_file_ops_t ops;
+   regex_t regex;
+} km_filename_table_t;
+
+int km_filename_table_line(km_file_ops_t* o);
+km_file_ops_t* km_file_ops(int i);
 
 /*
  * maps a host fd to a guest fd. Returns a negative error number if mapping does
