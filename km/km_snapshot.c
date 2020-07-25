@@ -28,6 +28,7 @@
 #include "km_elf.h"
 #include "km_filesys.h"
 #include "km_mem.h"
+#include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_guest.h"
 
@@ -105,7 +106,7 @@ static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
    km_ss_recover_memory_limits(payload, &mingva, &rbrk, &rtbrk);
 
    /*
-    * Allocate sll of lower memory in one go.
+    * Allocate all of lower memory in one go.
     */
    if (km_mem_brk(rbrk) != rbrk) {
       err(2, "brk recover failure");
@@ -350,8 +351,7 @@ static inline int km_ss_recover_dynlinker(char* ptr, size_t length)
    return km_ss_recover_payload(ptr, length, &km_dynlinker);
 }
 
-static inline int
-km_snapshot_notes_apply(char* notebuf, size_t notesize, int type, int (*func)(char*, size_t))
+int km_snapshot_notes_apply(char* notebuf, size_t notesize, int type, int (*func)(char*, size_t))
 {
    char* cur = notebuf;
    while (cur - notebuf < notesize) {
@@ -419,13 +419,16 @@ int km_snapshot_restore(const char* file)
       errx(2, "recover file maps failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_GUEST, km_ss_recover_guest) < 0) {
-      errx(2, "recover file maps failed");
+      errx(2, "recover guest payload failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_DYNLINKER, km_ss_recover_dynlinker) < 0) {
-      errx(2, "recover file maps failed");
+      errx(2, "recover dynlinker payload maps failed");
    }
-   if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_FILE, km_fs_recover_open_file) < 0) {
-      errx(2, "recover file maps failed");
+   if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_SIGHAND, km_sig_snapshot_recover) < 0) {
+      errx(2, "recover signal handlers failed");
+   }
+   if (km_fs_recover(notebuf, notesize) < 0) {
+      errx(2, "recover open files failed");
    }
 
    /*

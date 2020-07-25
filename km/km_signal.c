@@ -32,6 +32,7 @@
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
+#include "km_snapshot.h"
 
 /*
  * Threads that wait for a signal's arrive are enqueued on the km_signal_wait_queue until the signal
@@ -754,4 +755,57 @@ void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext)
    km_infox(KM_TRACE_VCPU, "Deliver signal %d", signo);
 
    km_post_signal(NULL, &info);
+}
+
+/*
+ * Dump in elf format
+ */
+size_t km_sig_core_notes_length()
+{
+   size_t ret = 0;
+   for (int i = 1; i <= _NSIG; i++) {
+      km_sigaction_t* sa = &machine.sigactions[km_sigindex(i)];
+      if (sa->handler != (uintptr_t)SIG_DFL) {
+         ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_sighand_t);
+      }
+   }
+   return ret;
+}
+
+size_t km_sig_core_notes_write(char* buf, size_t length)
+{
+   char* cur = buf;
+   size_t remain = length;
+   for (int i = 1; i <= _NSIG; i++) {
+      km_sigaction_t* sa = &machine.sigactions[km_sigindex(i)];
+      if (sa->handler != (uintptr_t)SIG_DFL) {
+         cur += km_add_note_header(cur, remain, KM_NT_NAME, NT_KM_SIGHAND, sizeof(km_nt_sighand_t));
+         km_nt_sighand_t* nt_sa = (km_nt_sighand_t*)cur;
+         nt_sa->size = sizeof(km_nt_sighand_t);
+         nt_sa->signo = i;
+         nt_sa->handler = sa->handler;
+         nt_sa->mask = sa->sa_mask;
+         nt_sa->flags = sa->sa_flags;
+
+         cur += sizeof(km_nt_sighand_t);
+      }
+   }
+   return cur - buf;
+}
+
+int km_sig_snapshot_recover(char* buf, size_t length)
+{
+   km_nt_sighand_t* nt_sa = (km_nt_sighand_t*)buf;
+   if (nt_sa->size != sizeof(km_nt_sighand_t)) {
+      km_err_msg(0, "km_nt_sighand_t size mismatch - old snapshot?");
+      return -1;
+   }
+   km_infox(KM_TRACE_SNAPSHOT, "signal %d handler=0x%lx", nt_sa->signo, nt_sa->handler);
+   km_sigaction_t sa = {
+       .handler = nt_sa->handler,
+       .sa_flags = nt_sa->flags,
+       .sa_mask = nt_sa->mask,
+   };
+   machine.sigactions[km_sigindex(nt_sa->signo)] = sa;
+   return 0;
 }

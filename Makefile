@@ -17,7 +17,7 @@
 #   Kontain Inc.
 
 # scan all these and 'make' stuff there
-SUBDIRS := km runtime tests payloads
+SUBDIRS := km km_cli runtime tests payloads
 
 # build VMM and runtime library before trying to build tests
 tests: km runtime

@@ -91,4 +91,8 @@ static inline void km_rt_sigsuspend_revert(km_vcpu_t* vcpu)
    }
 }
 
+size_t km_sig_core_notes_length();
+size_t km_sig_core_notes_write(char* buf, size_t length);
+int km_sig_snapshot_recover(char* buf, size_t length);
+
 #endif /* __KM_SIGNAL_H__ */

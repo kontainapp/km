@@ -29,6 +29,7 @@
 #include "km_filesys.h"
 #include "km_mem.h"
 #include "km_guest.h"
+#include "km_signal.h"
 
 // TODO: Need to figure out where the corefile and snapshotdefault should go.
 static char* coredump_path = "./kmcore";
@@ -415,7 +416,7 @@ static inline int km_core_dump_payload_note(km_payload_t* payload, int tag, char
    memcpy(cur, payload->km_phdr, payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr));
    cur += payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr);
    strcpy(cur, payload->km_filename);
-   cur += strlen(payload->km_filename) + 1;
+   cur += km_nt_file_padded_size(payload->km_filename);
 
    return roundup(cur - buf, 4);
 }
@@ -476,8 +477,11 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
    cur += ret;
    remain -= ret;
 
-   assert(cur <= buf + size);
+   ret = km_sig_core_notes_write(cur, remain);
+   cur += ret;
+   remain -= ret;
 
+   assert(cur <= buf + size);
    // TODO: Other notes sections in real core files.
    //  NT_PRPSINFO (prpsinfo structure)
    //  NT_SIGINFO (siginfo_t data)
@@ -500,12 +504,14 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
 /*
  * Write a contiguous area in guest memory. Since write can
  * be very large, break it up into reasonably sized pieces (1MB).
- * We assume we'll always be able to write 1MB.
+ * We assume we'll always be able to write 1MB. Always write whole
+ * pages. This won't hurt since we seek to page boundaries.
  */
 static inline void km_guestmem_write(int fd, km_gva_t base, size_t length)
 {
    km_gva_t current = base;
-   size_t remain = length;
+   // roundup here to catch the whole page.
+   size_t remain = roundup(length, KM_PAGE_SIZE);
    static size_t maxwrite = MIB;
 
    // Page Align
@@ -514,7 +520,7 @@ static inline void km_guestmem_write(int fd, km_gva_t base, size_t length)
       off = roundup(off, KM_PAGE_SIZE);
       lseek(fd, off, SEEK_SET);
    }
-   km_infox(KM_TRACE_COREDUMP, "base=0x%lx length=0x%lx off=0x%lx", base, length, off);
+   km_infox(KM_TRACE_COREDUMP, "base=0x%lx length=0x%lx off=0x%lx", base, remain, off);
    while (remain > 0) {
       size_t wsz = MIN(remain, maxwrite);
 
@@ -560,6 +566,7 @@ static inline size_t km_core_notes_length(km_vcpu_t* vcpu)
    }
 
    alloclen += km_fs_core_notes_length();
+   alloclen += km_sig_core_notes_length();
 
    return roundup(alloclen, KM_PAGE_SIZE);
 }
