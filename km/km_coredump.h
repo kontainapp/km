@@ -72,18 +72,82 @@ typedef struct km_nt_guest {
  * Elf note record for open file.
  */
 typedef struct km_nt_file {
-   Elf64_Word size;      // Size of record
-   Elf64_Word fd;        // Open fd number
-   Elf64_Word flags;     // open(2) flags
-   Elf64_Word mode;      // file mode (includes type)
-   Elf64_Off position;   // lseek(2) position (if applicable)
+   Elf64_Word size;    // Size of record
+   Elf64_Word fd;      // Open fd number
+   Elf64_Word how;     // How file was created
+   Elf64_Word flags;   // open(2) flags
+   Elf64_Word mode;    // file mode (includes type)
+   /*
+    * The contents of data depends on the file type
+    *   __S_IFREG  - lseek position
+    *   __S_IFDIR  - lseek position
+    *   __S_IFIFO  - 'other' fd in pipe
+    *   __S_ISOCK  - 'other' fd in socketpair
+    */
+   Elf64_Off data;   // depends on file type.
    // Followed by file name
 } km_nt_file_t;
 #define NT_KM_FILE 0x4b4d4644   // "KMFD" no null term
+
+typedef struct km_nt_socket {
+   Elf64_Word size;      // Size of record
+   Elf64_Word fd;        // Open fd number
+   Elf64_Word how;       // How socket was created
+   Elf64_Word state;     // state of socket
+   Elf64_Word backlog;   // listen backlog
+   Elf64_Word domain;
+   Elf64_Word type;
+   Elf64_Word protocol;
+   Elf64_Word other;   // 'other' fd for socketpair(2)
+   Elf64_Word addrlen;
+   // Address follows
+} km_nt_socket_t;
+#define NT_KM_SOCKET 0x4b4d534b   // "KMSK" no null term
+
+// values for 'how' field
+#define KM_NT_SKHOW_SOCKETPAIR 0
+#define KM_NT_SKHOW_SOCKET 1
+#define KM_NT_SKHOW_ACCEPT 2
+
+#define KM_NT_SKSTATE_OPEN 0
+#define KM_NT_SKSTATE_BIND 1
+#define KM_NT_SKSTATE_LISTEN 2
+#define KM_NT_SKSTATE_ACCEPT 3
+#define KM_NT_SKSTATE_CONNECT 4
+
 static inline size_t km_nt_file_padded_size(char* str)
 {
    return roundup(strlen(str) + 1, 4);
 }
+
+// Single event on eventfd (epoll_create)
+typedef struct km_nt_event {
+   Elf64_Word fd;   // fd to monitor
+   Elf64_Word event;
+   Elf64_Xword data;
+} km_nt_event_t;
+
+// eventfd (epoll_create)
+typedef struct km_nt_eventfd {
+   Elf64_Word size;         // Size of record
+   Elf64_Word fd;           // Open event fd
+   Elf64_Word flags;        // flags
+   Elf64_Word event_size;   // size of event records that follow
+   Elf64_Word nevent;       // number of event records that follow
+} km_nt_eventfd_t;
+#define NT_KM_EVENTFD 0x4b4d4556   // "KMEV" no null term
+
+/*
+ * Elf note record for signal handler.
+ */
+typedef struct km_nt_sighand {
+   Elf64_Word size;   // size of struct (for validation)
+   Elf64_Word signo;
+   Elf64_Addr handler;
+   Elf64_Word flags;   // sigaction flags
+   Elf64_Word mask;    // sigmask
+} km_nt_sighand_t;
+#define NT_KM_SIGHAND 0x4b4d5348   // "KMSH" no null term
 
 // Core dump guest.
 void km_dump_core(char* filename, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe);

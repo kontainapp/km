@@ -2,6 +2,7 @@
    "files.associations": {
       "Dockerfile*": "dockerfile",
       "*.h": "c",
+      "cstdlib": "c"
    },
    "editor.formatOnSave": true,
    "editor.formatOnType": true,
