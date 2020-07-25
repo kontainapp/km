@@ -240,10 +240,13 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
 
 size_t km_fs_core_notes_length();
 size_t km_fs_core_notes_write(char* cur, size_t remain);
-int km_fs_recover_open_file(char* ptr, size_t length);
 
 int km_internal_open(const char* name, int flag);
 int km_internal_eventfd(unsigned int initval, int flags);
 int km_internal_fd_ioctl(int fd, unsigned long reques, ...);
+int km_internal_socket(int domain, int type, int protocol);
+int km_internal_accept(int fd, struct sockaddr* addr, socklen_t* addrlen);
+
+int km_fs_recover(char* ptr, size_t length);
 #define KM_TRACE_FILESYS "filesys"
 #endif

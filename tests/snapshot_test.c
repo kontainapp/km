@@ -28,7 +28,10 @@
 
 char* cmdname = "???";
 int do_abort = 0;
-int no_snap = 0;
+#define SNAP_NORMAL 0
+#define SNAP_NONE 1
+#define SNAP_PAUSE 2
+int snap_flag = SNAP_NORMAL;
 
 pthread_mutex_t long_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 
@@ -109,11 +112,6 @@ int compare_process_state(process_state_t* prestate, process_state_t* poststate)
    return ret;
 }
 
-void usage()
-{
-   fprintf(stderr, "%s [-a]\n", cmdname);
-}
-
 static inline void block()
 {
    pthread_mutex_lock(&lock);
@@ -140,9 +138,11 @@ void* thread_main(void* arg)
    /*
     * Take the snapshot.
     */
-   if (no_snap == 0) {
+   if (snap_flag == SNAP_NORMAL) {
       km_hc_args_t snapshotargs = {};
       km_hcall(HC_snapshot, &snapshotargs);
+   } else if (snap_flag == SNAP_PAUSE) {
+      pause();
    }
 
    /*
@@ -159,19 +159,31 @@ void* thread_main(void* arg)
    return NULL;
 }
 
+void usage()
+{
+   fprintf(stderr, "%s [-a] [-sn] [-sp]\n", cmdname);
+   fprintf(stderr, " -a  Abort after snapshot resume\n");
+   fprintf(stderr, " -sn Don't create snapshot. Runs to completion\n");
+   fprintf(stderr, " -sp pause instead of creating snapshot. Runs to completion\n");
+}
+
 int main(int argc, char* argv[])
 {
    int c;
 
    cmdname = argv[0];
-   while ((c = getopt(argc, argv, "an")) != -1) {
+   while ((c = getopt(argc, argv, "anp")) != -1) {
       switch (c) {
          case 'a':
             do_abort = 1;
             break;
 
          case 'n':
-            no_snap = 1;
+            snap_flag = SNAP_NONE;
+            break;
+
+         case 'p':
+            snap_flag = SNAP_PAUSE;
             break;
 
          default:

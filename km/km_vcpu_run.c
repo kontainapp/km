@@ -427,20 +427,20 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
       km_post_signal(vcpu, &info);
       return -1;
    }
+   struct timespec start, stop;
+   clock_gettime(CLOCK_MONOTONIC, &start);
+   km_hc_ret_t ret = km_hcalls_table[*hc](vcpu, *hc, ga_kma);
+   clock_gettime(CLOCK_MONOTONIC, &stop);
+   uint64_t msecs = (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec;
+   km_infox(KM_TRACE_HC, "calling hc = %d (%s) time=%ld", *hc, km_hc_name_get(*hc), msecs);
    if (km_collect_hc_stats) {
-      struct timespec start, stop;
       km_hc_stats_t* hstat = &km_hcalls_stats[*hc];
-      clock_gettime(CLOCK_MONOTONIC, &start);
-      km_hc_ret_t ret = km_hcalls_table[*hc](vcpu, *hc, ga_kma);
-      clock_gettime(CLOCK_MONOTONIC, &stop);
-      uint64_t msecs = (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec;
       hstat->min = MIN(msecs, hstat->min);
       hstat->max = MAX(msecs, hstat->max);
       hstat->total += msecs;
       hstat->count++;
-      return ret;
    }
-   return km_hcalls_table[*hc](vcpu, *hc, ga_kma);
+   return ret;
 }
 
 static int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)

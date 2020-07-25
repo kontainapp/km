@@ -9,20 +9,14 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * Kontain VM Snapshot/Restart.
+ * KM Management/Control Plane
  */
 
-#ifndef KM_SNAPSHOT_H_
-#define KM_SNAPSHOT_H_
+#ifndef KM_MANAGEMENT_H_
+#define KM_MANAGEMENT_H_
 
 #include "km.h"
-#include "km_elf.h"
 
-void km_set_snapshot_path(char* path);
-char* km_get_snapshot_path();
-int km_snapshot_restore(const char* file);
-int km_snapshot_notes_apply(char* notebuf, size_t notesize, int type, int (*func)(char*, size_t));
-
-#define KM_TRACE_SNAPSHOT "snapshot"
-
+void km_mgt_init(char* path);
+void km_mgt_fini();
 #endif

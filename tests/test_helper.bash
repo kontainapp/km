@@ -141,6 +141,7 @@ function km_with_timeout () {
    done
    KM_ARGS="$__args $KM_ARGS"
 
+   rm -f /tmp/km.sock
    /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
       timeout --signal=SIGABRT --foreground $t \
          ${KM_BIN} ${KM_ARGS} "$@"

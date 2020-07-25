@@ -33,6 +33,7 @@
 #include "km_exec.h"
 #include "km_fork.h"
 #include "km_gdb.h"
+#include "km_management.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
@@ -84,7 +85,8 @@ static inline void usage()
         "hardware support\n"
         "\t--disable-1g-pages                  - Force disable 1G pages support\n"
         "\t--use-kvm                           - Use kvm driver\n"
-        "\t--use-kkm                           - Use kkm driver");
+        "\t--use-kkm                           - Use kkm driver\n"
+        "\t--mgtpipe <path>                    - Name for management pipe default: /tmp/km.sock");
 }
 
 // Version info. SCM_* is supposed to be set by the build
@@ -128,6 +130,7 @@ km_machine_init_params_t km_machine_init_params = {
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
 static int resume_snapshot = 0;
+static char* mgtpipe = "/tmp/km.sock";
 static struct option long_options[] = {
     {"wait-for-signal", no_argument, &wait_for_signal, 1},
     {"dump-shutdown", no_argument, 0, 'D'},
@@ -151,6 +154,7 @@ static struct option long_options[] = {
     {"use-kkm", no_argument, &(km_machine_init_params.use_virt), KM_FLAG_FORCE_KKM},
     {"snapshot", required_argument, 0, 's'},
     {"resume", no_argument, &resume_snapshot, 1},
+    {"mgtpipe", required_argument, 0, 'm'},
 
     {0, 0, 0, 0},
 };
@@ -312,7 +316,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    int longopt_index;    // flag index in longopt array
    int pl_index;         // payload_name index in argv array
    char** envp = NULL;   // NULL terminated array of env pointers
-   int envc = 1;         // count of elements in envp (including NULL), see realloc below in case 'e'
+   int envc = 1;   // count of elements in envp (including NULL), see realloc below in case 'e'
 
    // Special check for tracing
    // TODO: handle generic KM_CLI_FLAGS here, and reuse code below
@@ -440,6 +444,9 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             case 'S':
                km_collect_hc_stats = 1;
                break;
+            case 'm':
+               mgtpipe = optarg;
+               break;
             case ':':
                printf("Missing arg for %c\n", optopt);
                usage();
@@ -538,6 +545,7 @@ int main(int argc, char* argv[])
    km_machine_init(&km_machine_init_params);
    km_exec_fini();
 
+   km_mgt_init(mgtpipe);
    if (resume_snapshot != 0) {   // snapshot restore
       if (km_snapshot_restore(payload_name) < 0) {
          err(1, "failed to restore from snapshot %s", payload_name);
@@ -593,6 +601,7 @@ int main(int argc, char* argv[])
    } while (km_dofork(NULL) != 0);
 
    km_machine_fini();
+   km_mgt_fini();
    regfree(&km_info_trace.tags);
    exit(machine.exit_status);
 }
