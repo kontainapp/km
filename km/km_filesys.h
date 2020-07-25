@@ -60,8 +60,7 @@ typedef struct {
 int km_fs_h2g_fd(int hostfd);
 int km_fs_g2h_fd(int guestfd, km_file_ops_t** ops);
 int km_fs_max_guestfd();
-int km_add_guest_fd(
-    km_vcpu_t* vcpu, int host_fd, int start_guestfd, char* name, int flags, km_file_ops_t* ops);
+int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, char* name, int flags, km_file_ops_t* ops);
 char* km_guestfd_name(km_vcpu_t* vcpu, int fd);
 int km_fs_init(void);
 void km_fs_fini(void);
@@ -242,5 +241,9 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
 size_t km_fs_core_notes_length();
 size_t km_fs_core_notes_write(char* cur, size_t remain);
 int km_fs_recover_open_file(char* ptr, size_t length);
+
+int km_internal_open(const char* name, int flag);
+int km_internal_eventfd(unsigned int initval, int flags);
+int km_internal_fd_ioctl(int fd, unsigned long reques, ...);
 #define KM_TRACE_FILESYS "filesys"
 #endif
