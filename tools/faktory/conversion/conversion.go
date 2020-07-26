@@ -33,6 +33,7 @@ func untar(src string, destination string) error {
 	return nil
 }
 
+// Converter is used to group all the data and methods used to do the convert.
 type Converter struct {
 	// Path to store artifacts of the conversion process
 	root string
@@ -51,6 +52,7 @@ type Converter struct {
 	identifier string
 }
 
+// NewConverter ...
 func NewConverter(base string, splitter splitter.Splitter) (Converter, error) {
 	ret := Converter{
 		base:     base,
@@ -82,6 +84,7 @@ func NewConverter(base string, splitter splitter.Splitter) (Converter, error) {
 	return ret, nil
 }
 
+// Convert is the main methods to do the convert.
 func (c Converter) Convert(from string, to string) error {
 	logrus.WithFields(logrus.Fields{
 		"from":      from,
@@ -139,7 +142,8 @@ func (c Converter) Convert(from string, to string) error {
 	return nil
 }
 
-// Fuse layers into a intermediate container with refname
+// Fuse layers into a intermediate container with refname. `docker import` will
+// import as an image with refname.
 func (c Converter) fuseLayers(layers []string, refname string) error {
 	upper := filepath.Join(c.fuse, "upper")
 	if err := os.MkdirAll(upper, 0700); err != nil {
@@ -180,14 +184,17 @@ func (c Converter) fuseLayers(layers []string, refname string) error {
 	return nil
 }
 
-// Fix the metadata of `target` container with the metadata of `src`
+// Fix the metadata of `target` container with the metadata of `src`. The src is
+// the original container and target is the converted result. `docker load` the
+// image with the resultName.
 func (c Converter) fixMetadata(target string, srcID string, resultName string) error {
-
 	targetID, err := image.RefnameToID(target)
 	if err != nil {
 		return errors.Wrap(err, "Failed to find ID")
 	}
 
+	// `docker save` will export a docker image as a tar file. We will need to
+	// unpack the tar in order to make edits.
 	tarSave := filepath.Join(c.fix, fmt.Sprintf("%s-save.tar.gz", target))
 	if err := image.Save(targetID, tarSave); err != nil {
 		return errors.Wrap(err, "Failed to save the image")
@@ -202,7 +209,8 @@ func (c Converter) fixMetadata(target string, srcID string, resultName string) e
 		return errors.Wrap(err, "Failed to unpack saved")
 	}
 
-	// We need to merge the metadata from the source and the target.
+	// We need to merge the metadata from the source and the target. Loading
+	// the unpacked directory into something we can manipulate.
 	targetExportedImage, err := dockerimage.LoadExportedImage(tarUnpackSaved)
 	if err != nil {
 		return errors.Wrap(err, "Failed to load the exported image")
@@ -210,6 +218,7 @@ func (c Converter) fixMetadata(target string, srcID string, resultName string) e
 
 	targetExportedImage.UpdateName(resultName)
 
+	// Source data can be read, but not directly edited.
 	srcMetadata, err := image.GetMetadataFromStore(srcID)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read source metadata")

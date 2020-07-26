@@ -163,6 +163,7 @@ func TestFlask(t *testing.T) {
 			t.Fatalf("Failed test: %v", err)
 		}
 	})
+	// TODO: this doesn't work yet.
 	// t.Run("Test with kontain images", func(t *testing.T) {
 	// 	if err := testKontain(t); err != nil {
 	// 		t.Fatalf("Failed test: %v", err)

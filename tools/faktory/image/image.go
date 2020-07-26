@@ -14,6 +14,9 @@ import (
 	dockerimage "kontain.app/km/tools/faktory/docker/image"
 )
 
+// RefnameToID translate the refname into ID. We assume for now refname and ID
+// are both unique. In reality, refname and ID can potentially be many to one
+// relationship.
 func RefnameToID(refname string) (string, error) {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -43,6 +46,7 @@ func RefnameToID(refname string) (string, error) {
 	return id, nil
 }
 
+// Import will call `docker import`
 func Import(src string, refname string) error {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -116,6 +120,7 @@ func GetLayers(id string) ([]string, error) {
 	return layers, nil
 }
 
+// Save will call `docker save`
 func Save(id string, destination string) error {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -146,6 +151,7 @@ func Save(id string, destination string) error {
 	return nil
 }
 
+// Load will call `docker load`
 func Load(src string) error {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -167,6 +173,7 @@ func Load(src string) error {
 	return nil
 }
 
+// Delete will call `docker delete`. Used to delete intermediate images.
 func Delete(refname string) error {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -195,6 +202,7 @@ func isTar(path string) bool {
 	return ext == "tar.gz" || ext == "tar"
 }
 
+// GetMetadataFromStore ...
 func GetMetadataFromStore(id string) (*dockerimage.Image, error) {
 	const root = "/var/lib/docker/image/overlay2/imagedb"
 

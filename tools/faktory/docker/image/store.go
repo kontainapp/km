@@ -45,6 +45,7 @@ func (s *Store) metadataDir(dgst digest.Digest) string {
 	return filepath.Join(s.root, metadataDirName, string(dgst.Algorithm()), dgst.Hex())
 }
 
+// Get will read the metadata from docker internal store.
 func (s *Store) Get(id string) (*Image, error) {
 	s.RLock()
 	defer s.RUnlock()

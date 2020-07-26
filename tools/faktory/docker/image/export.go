@@ -29,12 +29,16 @@ type manifest struct {
 	LayerSources map[DiffID]distribution.Descriptor `json:",omitempty"`
 }
 
+// ExportedImage contains unmarshaled information read from unpacked image from
+// `docker save`.
 type ExportedImage struct {
 	path     string
 	manifest *manifest
 	config   *Image
 }
 
+// Commit will write the existing data back. We choose to write in place here,
+// so the old metadata is overwritten.
 func (img *ExportedImage) Commit() error {
 
 	logrus.WithFields(logrus.Fields{
@@ -75,6 +79,8 @@ func (img *ExportedImage) Commit() error {
 	return nil
 }
 
+// UpdateName updates the name of the image. `docker load` will only read the
+// image tag name from the manifest, not as an arguement.
 func (img *ExportedImage) UpdateName(name string) {
 	img.manifest.RepoTags = []string{name}
 }
@@ -130,6 +136,7 @@ func loadConfig(path string) (*Image, error) {
 	return &out, nil
 }
 
+// LoadExportedImage ....
 func LoadExportedImage(path string) (*ExportedImage, error) {
 	logrus.WithFields(logrus.Fields{
 		"path": path,
