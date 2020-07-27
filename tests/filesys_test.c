@@ -159,7 +159,7 @@ TEST test_getdents()
             printf("name <%s> is <%s>\n", tmp, buf);
          }
          ino64_t ino = atol(entry->d_name);
-         ASSERT(0 <= ino && ino <= 5);
+         ASSERT(0 <= ino && ino <= 6);
       }
    }
    ASSERT_NOT_EQ(-1, rc);

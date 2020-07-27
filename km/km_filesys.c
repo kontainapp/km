@@ -1850,13 +1850,6 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
    return 0;
 }
 
-// types for file names conversion
-typedef struct {
-   char* pattern;
-   km_file_ops_t ops;
-   regex_t regex;
-} km_filename_table_t;
-
 // return filename to open for the request for /proc/`getpid()`/sched
 static int proc_sched_open(const char* guest_fn, char* host_fn, size_t host_fn_sz)
 {
@@ -1988,6 +1981,26 @@ static km_filename_table_t km_filename_table[] = {
     },
     {},
 };
+
+// Given pointer to ops field from the table above, return line # in that table, or -1
+
+#define container_of(ptr, type, member) ((type*)((char*)(ptr) - __builtin_offsetof(type, member)))
+int km_filename_table_line(km_file_ops_t* o)
+{
+   if (o == NULL) {
+      return -1;
+   }
+   return container_of(o, km_filename_table_t, ops) - km_filename_table;
+}
+
+// given line # retreive ops
+km_file_ops_t* km_file_ops(int i)
+{
+   if (i < 0) {
+      return NULL;
+   }
+   return &km_filename_table[i].ops;
+}
 
 /*
  * For now every entry in the table starts with "/proc". Most files wont match, so we check for
