@@ -66,7 +66,7 @@ fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
 		fail; \
 	fi
 	cd ${JDK_VERSION} && bash configure \
-		--disable-warnings-as-errors --with-native-debug-symbols=internal \
+		--disable-warnings-as-errors --with-native-debug-symbols=none \
 		--with-jvm-variants=server --with-zlib=bundled --with-jtreg=$(realpath jtreg) \
 		--enable-jtreg-failure-handler
 	make -C ${JDK_VERSION} images
