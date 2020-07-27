@@ -10,6 +10,28 @@
  * permission of Kontain Inc.
  */
 
+/*
+ * This is a small program that runs 3 syscalls/hypercalls that hopefully do very little in
+ * the kernel.  The intent is to measure in a squishy way how adding arguments to syscalls
+ * increases the overhead.  The syscalls chosen have no arguments, 1 argument, and 6 arguments.
+ * Each syscall is run 5 million times and the length of time is measured and printed.
+ * In addition 1 or more threads can be doing these syscall runs concurrently to see how
+ * syscall argument passing scales.  You might think scaling effects should be minimal and
+ * they are for the current km scheme of allocating km_hc_arg_t's.  We were considering having
+ * a pool of km_hc_arg_t's and allocating one for each syscall and then freeing it when the
+ * syscall returns.  This method would have affects on scaling.  This was being considered for
+ * running go programs under km.
+ *
+ * Running this program by itself just gives you a set of data points for a particular way
+ * of passing hypercall arguments to km.  This program should be run for each hypercall arg
+ * passing method to get timing data for each and then comparisons can be made to decide
+ * which method is better.
+ *
+ * One more thing to consider when trying to measure syscall overhead is you need to actually
+ * disassemble the syscall c library function to see what is really going on.  Some of the
+ * c library functions that invoke a syscall actually do more than you would think.
+ */
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <sys/types.h>
