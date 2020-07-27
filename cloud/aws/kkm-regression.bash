@@ -26,16 +26,17 @@ readonly AWS_FEDORA_PASSWD=$KONTAIN_AWS_FEDORA_PASSWD
 export readonly SSHPASS=$AWS_FEDORA_PASSWD
 readonly TEST_BRANCH=${1:-master}
 # aws instance is still booting up. Wait time for it to respond to ssh requests.
-readonly WAIT_TIME_TO_READY=30
+readonly WAIT_TIME_TO_READY=60
 
 echo "Running regressions on $TEST_BRANCH"
 
 export AWS_DEFAULT_OUTPUT='text'
 export AWS_DEFAULT_REGION='us-east-2'
 
-readonly TEST_AMI='ami-0e3c11c690a214de5'
+readonly TEST_AMI='ami-040f8a978dd6daa9b'
 readonly TEST_VM_TYPE='m5.large'
 readonly TEST_SG='sg-0a319ac77d674c77f'
+readonly SSH_OPTIONS='-o StrictHostKeyChecking=no -o ConnectionAttempts=10 -o ConnectTimeout=10'
 
 function error_exit {
    echo $1
@@ -74,12 +75,12 @@ function display_aws_kkm_test_logs {
    echo "########### script output ############"
    echo -e $1
 
-   sshpass -e scp -oStrictHostKeyChecking=no -r fedora@${INSTANCE_IP}:src/log/ log-aws-kkm
+   sshpass -e scp -o StrictHostKeyChecking=no -r fedora@${INSTANCE_IP}:src/log/ log-aws-kkm
    if [ $? -ne 0 ]
    then
          error_exit "Fetching test logs from ${INSTANCE_ID} failed"
    fi
-   for logfilename in git-clone build-kkm build-kkm-test build-km insmod-kkm chmod-log test-km
+   for logfilename in git-clone build-kkm build-kkm-test build-km build-km-all insmod-kkm chmod-log test-km
    do
       echo "################# Contents of $logfilename #################"
       cat log-aws-kkm/$logfilename
@@ -117,14 +118,14 @@ echo "Instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
 
 # run tests on newly created instance
 
-sshpass -e scp -oStrictHostKeyChecking=no cloud/aws/kkm-test.bash fedora@${INSTANCE_IP}:bin/kkm-test.bash
+sshpass -e scp $SSH_OPTIONS cloud/aws/kkm-test.bash fedora@${INSTANCE_IP}:bin/kkm-test.bash
 if [ $? -ne 0 ]
 then
       error_exit "Copying test script failed for ${INSTANCE_ID}"
 fi
 
 echo "Starting tests on instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
-TEST_STRING=`sshpass -e ssh -oStrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}`
+TEST_STRING=`timeout --preserve-status 800 sshpass -e ssh -o StrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}`
 display_aws_kkm_test_logs "$TEST_STRING"
 if [[ $TEST_STRING == *"tests successfull"* ]]; then
    echo "TEST PASSED"
