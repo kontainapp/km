@@ -35,7 +35,7 @@ todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
 
 todo_so=''
 not_needed_so='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
-    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore'
+    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore files_on_exec'
 
 # make sure it does not leak in from the outer shell, it can mess out the output
 unset KM_VERBOSE
@@ -1077,4 +1077,11 @@ fi
    assert_line --partial 'fail: 0'
    refute_line --partial "Couldn't turn off MAP_SHARED at kma"
    refute_line "Warning: Ignoring map counts. Please run this test in gdb to validate mmap counts"
+}
+
+@test "files_on_exec($test_type): passing /proc and such to execed process (fs_exec_test$ext)" {
+   run km_with_timeout --timeout 5s fs_exec_test$ext parent
+   assert_success
+   assert_line --regexp "parent cmdline: fs_exec_test$ext parent"
+   assert_line --regexp "child  cmdline: /[^[:space:]]*/tests/fs_exec_test.km child"
 }

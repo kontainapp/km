@@ -53,8 +53,8 @@ static char KM_EXEC_PIDINFO[] = "KM_EXEC_PIDINFO";
  * used to restore needed km state for the new payload to continue.
  */
 typedef struct fdmap {
-   int guestfd;
-   int hostfd;
+   int fd;
+   int idx;   // index in km_filename_table or -1
 } fdmap_t;
 
 typedef struct km_exec_state {
@@ -143,7 +143,8 @@ static char* km_exec_g2h_var(void)
    p += bytes_needed;
 
    for (int i = 0; i < km_fs_max_guestfd(); i++) {
-      int hostfd = km_fs_g2h_fd(i, NULL);   // TODO: FILENAMEVIRT pass and accept ops
+      km_file_ops_t* ops;
+      int hostfd = km_fs_g2h_fd(i, &ops);
       if (hostfd >= 0) {
          int fdflags = fcntl(hostfd, F_GETFD);
          if (fdflags < 0) {
@@ -153,7 +154,8 @@ static char* km_exec_g2h_var(void)
          if ((fdflags & FD_CLOEXEC) != 0) {
             continue;
          }
-         bytes_needed = snprintf(p, bytes_avail, fdcount == 0 ? "%d:%d" : ",%d:%d", i, hostfd);
+         bytes_needed =
+             snprintf(p, bytes_avail, fdcount == 0 ? "%d:%d" : ",%d:%d", i, km_filename_table_line(ops));
          if (bytes_needed + 1 > bytes_avail) {
             free(bufp);
             return NULL;
@@ -604,7 +606,7 @@ static int km_exec_get_guestfds(char* guestfds)
       if (i >= execstatep->nfdmap) {   // too many fd's?
          return -1;
       }
-      n = sscanf(p, "%d:%d", &execstatep->guestfd_hostfd[i].guestfd, &execstatep->guestfd_hostfd[i].hostfd);
+      n = sscanf(p, "%d:%d", &execstatep->guestfd_hostfd[i].fd, &execstatep->guestfd_hostfd[i].idx);
       if (n != 2) {
          return -1;
       }
@@ -612,7 +614,7 @@ static int km_exec_get_guestfds(char* guestfds)
    }
    free(guestfds_copy);
    if (i < execstatep->nfdmap) {   // if there is room, add a terminator
-      execstatep->guestfd_hostfd[i].guestfd = -1;
+      execstatep->guestfd_hostfd[i].fd = -1;
    }
    return 0;
 }
@@ -714,24 +716,24 @@ int km_exec_recover_guestfd(void)
    if (execstatep == NULL) {
       return 1;
    }
-   for (int i = 0; i < execstatep->nfdmap && execstatep->guestfd_hostfd[i].guestfd >= 0; i++) {
+   for (int i = 0; i < execstatep->nfdmap && execstatep->guestfd_hostfd[i].fd >= 0; i++) {
       ssize_t bytes;
-      snprintf(linkname, sizeof(linkname), PROC_SELF_FD, execstatep->guestfd_hostfd[i].hostfd);
+      snprintf(linkname, sizeof(linkname), PROC_SELF_FD, execstatep->guestfd_hostfd[i].fd);
       if ((bytes = readlink(linkname, linkbuf, sizeof(linkbuf) - 1)) < 0) {
-         err(2, "Can't get filename for hostfd %d, link %s", execstatep->guestfd_hostfd[i].hostfd, linkname);
+         err(2, "Can't get filename for hostfd %d, link %s", execstatep->guestfd_hostfd[i].fd, linkname);
       }
       linkbuf[bytes] = 0;
       km_infox(KM_TRACE_EXEC,
-               "guestfd %d, hostfd %d, name %s",
-               execstatep->guestfd_hostfd[i].guestfd,
-               execstatep->guestfd_hostfd[i].hostfd,
+               "fd %d, idx %d, name %s",
+               execstatep->guestfd_hostfd[i].fd,
+               execstatep->guestfd_hostfd[i].idx,
                linkbuf);
       int chosen_guestfd = km_add_guest_fd(NULL,
-                                           execstatep->guestfd_hostfd[i].hostfd,
+                                           execstatep->guestfd_hostfd[i].fd,
                                            linkbuf,
                                            0,
-                                           NULL);   // TODO: FILENAMEVIRT
-      assert(chosen_guestfd == execstatep->guestfd_hostfd[i].guestfd);
+                                           km_file_ops(execstatep->guestfd_hostfd[i].idx));
+      assert(chosen_guestfd == execstatep->guestfd_hostfd[i].fd);
    }
    return 0;
 }
