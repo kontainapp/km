@@ -14,14 +14,22 @@
 
 [ "$TRACE" ] && set -x
 
+set -x
+
 export TERM=linux
 ROOT_DIR="${HOME}/src/"
 LOG_DIR="${ROOT_DIR}/log/"
 
+function log_message {
+   time_now=$(date +"%T-%N")
+   echo -e $time_now:$@
+}
+
 function error_exit {
-   echo -e $1
+   log_message $1
    exit 0
 }
+
 
 if [ $# -ne 1 ]
 then
@@ -30,23 +38,23 @@ fi
 
 BRANCH_NAME=$1
 
-rm -fr ${ROOT_DIR}
-sudo rm -fr /opt/kontain/bin/
-sudo rm -fr /opt/kontain/runtime/
+umask 0
 sudo chmod 0777 /opt/kontain/
-sudo mkdir -p /opt/kontain/runtime/
-sudo chmod 0777 /opt/kontain/runtime/
+DIRLIST="/opt/kontain/bin/ /opt/kontain/runtime/ ${ROOT_DIR} ${LOG_DIR}"
+for entry in ${DIRLIST}
+do
+   sudo rm -fr $entry
+   sudo mkdir -m 0777 -p $entry
+done
 
-mkdir -p ${ROOT_DIR}
 cd ${ROOT_DIR}
-mkdir -p ${LOG_DIR}
 
 git clone --branch ${BRANCH_NAME} --recurse-submodules git@github.com:kontainapp/km.git >& ${LOG_DIR}/git-clone
 if [ $? -ne 0 ]
 then
    error_exit "Failed to clone repository"
 fi
-echo "KM repo clone success"
+log_message "KM repo clone success"
 
 cd km
 make -C kkm/kkm >& ${LOG_DIR}/build-kkm
@@ -60,14 +68,15 @@ if [ ! -f kkm/test_kkm/test_kkm ]
 then
    error_exit "building kkm test failed"
 fi
-echo "Building kkm and kkm_test success"
+log_message "Building kkm and kkm_test success"
 
 make -j >& ${LOG_DIR}/build-km
+make all >& ${LOG_DIR}/build-km-all
 if [ ! -f build/km/km ]
 then
    error_exit "building km failed"
 fi
-echo "Building km success"
+log_message "Building km success"
 
 sudo insmod kkm/kkm/kkm.ko >& ${LOG_DIR}/insmod-kkm
 if [ ! -e /dev/kkm ]
@@ -75,9 +84,9 @@ then
    error_exit "cannot find /dev/kkm"
 fi
 sudo chmod 0666 /dev/kkm >& ${LOG_DIR}/chmod-log
-echo "KKM module init success"
+log_message "KKM module init success"
 
-make -C tests test USEVIRT=kkm >& ${LOG_DIR}/test-km
+make test USEVIRT=kkm >& ${LOG_DIR}/test-km
 if [ $? -ne 0 ]
 then
    error_exit "tests failed"
@@ -88,6 +97,6 @@ if [ $? -ne 0 ]
 then
    error_exit "tests failed"
 fi
-echo "tests successfull"
+log_message "tests successfull"
 
 exit 0
