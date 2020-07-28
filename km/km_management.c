@@ -58,7 +58,6 @@ static void* mgt_main(void* arg)
 void km_mgt_init(char* path)
 {
    if (path == NULL) {
-      errx(2, "path is NULL");
       return;
    }
    if (strlen(path) + 1 > sizeof(addr.sun_path)) {
