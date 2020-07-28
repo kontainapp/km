@@ -224,7 +224,22 @@ func (c Converter) fixMetadata(target string, srcID string, resultName string) e
 		return errors.Wrap(err, "Failed to read source metadata")
 	}
 
-	targetExportedImage.PatchMetadata(srcMetadata)
+	baseID, err := image.RefnameToID(c.base)
+	if err != nil {
+		return errors.Wrap(err, "Failed to get id from base image")
+	}
+
+	baseMetadata, err := image.GetMetadataFromStore(baseID)
+	if err != nil {
+		return errors.Wrap(err, "Failed to read base metadata")
+	}
+
+	processedMetadata, err := processMetadata(baseMetadata, srcMetadata)
+	if err != nil {
+		return errors.Wrap(err, "Failed to process base metadata with src")
+	}
+
+	targetExportedImage.PatchMetadata(processedMetadata)
 
 	if err := targetExportedImage.Commit(); err != nil {
 		return errors.Wrap(err, "Failed to write the new exported image")
@@ -240,4 +255,15 @@ func (c Converter) fixMetadata(target string, srcID string, resultName string) e
 	}
 
 	return nil
+}
+
+func processMetadata(base, src *dockerimage.Image) (*dockerimage.Image, error) {
+	result, err := dockerimage.NewFromJSON(src.RawJSON())
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to make a copy of source metadata")
+	}
+
+	result.Config.Env = append(base.Config.Env, src.Config.Env...)
+
+	return result, nil
 }
