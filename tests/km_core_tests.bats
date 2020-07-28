@@ -1087,7 +1087,7 @@ fi
 }
 
 @test "readlink_argv($test_type): readlink(argv[0]) should return .km file (readlink_argv0_test$ext)" {
-   run readlink_argv0_test
+   run ./readlink_argv0_test
    assert_success
    assert_line --regexp "slink=/[^[:space:]]*/tests/readlink_argv0_test$ext"
 }
