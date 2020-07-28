@@ -86,7 +86,7 @@ static inline void usage()
         "\t--disable-1g-pages                  - Force disable 1G pages support\n"
         "\t--use-kvm                           - Use kvm driver\n"
         "\t--use-kkm                           - Use kkm driver\n"
-        "\t--mgtpipe <path>                    - Name for management pipe default: /tmp/km.sock");
+        "\t--mgtpipe <path>                    - Name for management pipe.\n");
 }
 
 // Version info. SCM_* is supposed to be set by the build
@@ -130,7 +130,7 @@ km_machine_init_params_t km_machine_init_params = {
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
 static int resume_snapshot = 0;
-static char* mgtpipe = "/tmp/km.sock";
+static char* mgtpipe = NULL;
 static struct option long_options[] = {
     {"wait-for-signal", no_argument, &wait_for_signal, 1},
     {"dump-shutdown", no_argument, 0, 'D'},
