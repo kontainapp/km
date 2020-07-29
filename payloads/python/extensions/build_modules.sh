@@ -23,6 +23,8 @@ if [ ! -d cpython/Modules ]; then
     exit 1
 fi
 
+pip3 install --user -q setuptools
+
 cleanup() {
    echo Exiting ...
 }
@@ -89,7 +91,7 @@ build_one_module() {
       git clone $url -b $version $src
    fi
 
-   (cd $src/$setupLocation ; python3 setup.py build |& tee bear.out)
+   pushd $src/$setupLocation ; python3 setup.py build |& tee bear.out ; popd
    make_cmd=$(${generate_files} $src/$setupLocation/bear.out | grep 'make -C')
    echo $make_cmd
    $make_cmd

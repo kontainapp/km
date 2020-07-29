@@ -100,6 +100,7 @@ makefile_template = """#
 #   compiles (-c) base.km.symbols.c file
 #   builds .a for each .so
 #   links the result by passing .o files explicitly and .a files as -l
+SHELL=/bin/bash
 
 # TODO: the line below relies on specific locations in the source tree, need to use (and populate) /opt/kontain/include
 KM_RUNTIME_INCLUDES ?=  $(shell echo ${CURDIR} | sed 's-payloads/python/.*-runtime-')
