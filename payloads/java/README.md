@@ -1,4 +1,13 @@
-# Java 11 Under KM
+# Controlling Java Release Sizes
+
+Modern JDK's don't come with a separate JRE anymore. The come with `jlink` which builds a Java runtime directory with a specified set of components. For example:
+```
+jlink --no-headers-files --no-man-pages --compress=2 --add-modules java.base,java.logging --output runtime
+```
+
+Builds a directory `runtime` with just the pieces needed for `java.base` and `java.logging`, resulting in a substantial space savings.
+
+# Building Java 11 Under KM
 
 Run `make -C payloads/java fromsrc` to get and build Java. This builds OpenJDK in  `payloads/java/(jdk-11.0.6+10)`. See `payloads/java/Makefile` for details.
 
