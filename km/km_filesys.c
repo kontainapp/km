@@ -52,6 +52,8 @@ static char proc_pid_exe[128];
 static char proc_pid[128];
 static int proc_pid_length;
 
+static char* km_my_exec;   // my executable per /proc/self/exe to check with in readlink
+
 typedef struct km_fd_socket {
    int state;
    int backlog;
@@ -569,9 +571,6 @@ static int proc_self_fd_name(const char* pathname, char* buf, size_t bufsz)
  */
 static int proc_self_exe_name(const char* pathname, char* buf, size_t bufsz)
 {
-   if (strcmp(pathname, PROC_SELF_EXE) != 0 && strcmp(pathname, proc_pid_exe) != 0) {
-      return -ENOENT;
-   }
    strncpy(buf, km_guest.km_filename, bufsz);
    int ret = strlen(km_guest.km_filename);
    if (ret > bufsz) {
@@ -585,7 +584,15 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
 {
    int ret;
    if ((ret = km_fs_g2h_readlink(pathname, buf, bufsz)) == 0) {
-      ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
+      char tmp[PATH_MAX + 1];
+      if (realpath(pathname, tmp) != NULL && strcmp(tmp, km_my_exec) == 0) {
+         strncpy(buf, km_guest.km_filename, bufsz);
+         if ((ret = strlen(tmp)) > bufsz) {
+            ret = bufsz;
+         }
+      } else {
+         ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
+      }
    }
    if (ret < 0) {
       km_infox(KM_TRACE_FILESYS, "%s : %s", pathname, strerror(-ret));
@@ -2074,7 +2081,7 @@ static int km_fs_g2h_readlink(const char* name, char* buf, size_t bufsz)
 static void km_fs_filename_init(void)
 {
    for (km_filename_table_t* t = km_filename_table; t->pattern != NULL; t++) {
-      if (strncmp(t->pattern, PROC_PID, strlen(PROC_PID))) {
+      if (strncmp(t->pattern + 1, PROC_PID, strlen(PROC_PID)) == 0) {   // +1 to skip ^
          char pat[128];
          snprintf(pat, sizeof(pat), t->pattern, machine.pid);
          if (regcomp(&t->regex, pat, REG_EXTENDED | REG_NOSUB) != 0) {
@@ -2086,6 +2093,9 @@ static void km_fs_filename_init(void)
          }
       }
    }
+   if ((km_my_exec = realpath(PROC_SELF_EXE, NULL)) == NULL) {
+      err(1, "realpath /proc/self/exe failed");
+   }
 }
 
 static void km_fs_filename_fini(void)
@@ -2093,6 +2103,7 @@ static void km_fs_filename_fini(void)
    for (km_filename_table_t* t = km_filename_table; t->pattern != NULL; t++) {
       regfree(&t->regex);
    }
+   free(km_my_exec);
 }
 
 int km_fs_init(void)

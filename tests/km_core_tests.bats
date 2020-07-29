@@ -22,7 +22,7 @@ not_needed_static='gdb_sharedlib'
 todo_static=''
 
 # skip slow ones
-not_needed_native_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test'
+not_needed_native_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv'
 # review - some fail. Some slow
 todo_native_static='mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
 
@@ -30,12 +30,12 @@ not_needed_native_dynamic=$not_needed_native_static
 todo_native_dynamic=$todo_native_static
 
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many'
+not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many readlink_argv'
 todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
 
 todo_so=''
 not_needed_so='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
-    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore files_on_exec'
+    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore files_on_exec readlink_argv'
 
 # make sure it does not leak in from the outer shell, it can mess out the output
 unset KM_VERBOSE
@@ -1084,4 +1084,10 @@ fi
    assert_success
    assert_line --regexp "parent cmdline: fs_exec_test$ext parent"
    assert_line --regexp "child  cmdline: /[^[:space:]]*/tests/fs_exec_test.km child"
+}
+
+@test "readlink_argv($test_type): readlink(argv[0]) should return .km file (readlink_argv0_test$ext)" {
+   run ./readlink_argv0_test
+   assert_success
+   assert_line --regexp "slink=/[^[:space:]]*/tests/readlink_argv0_test$ext"
 }
