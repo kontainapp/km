@@ -31,7 +31,7 @@ pr:
 jobs:
   - job: normal_ci
     variables:
-      vmImage: "ubuntu-18.04"
+      vmImage: "ubuntu-20.04"
       # NOTE: In Azure pipeline setting a variable also makes variable's UPPCASE_NAME
       # exposed in environment for all tasks. E.g. 'dtype=fedora' means all tasks will have
       # an environment DTYPE=fedora.
