@@ -42,12 +42,6 @@ PAYLOAD_KM := cpython/python.km
 # name to be added to label(s)
 PAYLOAD_NAME := ${COMPONENT}
 
-# a list to be passed to tar to be packed into container image by 'make runenv-image'.
-PAYLOAD_FILES := --exclude='*/test' --exclude='*/__pycache__' --exclude '*.exe' --exclude '*.whl' \
-	cpython/Lib \
-	cpython/Modules/Setup
-PAYLOAD_STUBS := $(shell find cpython/build/lib.linux-x86_64-${VERS} -name '*.so')
-
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)
 
@@ -150,26 +144,13 @@ clobber-modules:
 	cd cpython; git clean -xdff Lib Modules
 
 # Set info for runenv-image build
+
+RUNENV_ROOTFS_SCRIPT := runenv/rootfs.sh
 RUNENV_VALIDATE_DIR := scripts
 RUNENV_VALIDATE_CMD := scripts/sanity_test.py
+
 export define runenv_prep
-	rm -rf ${RUNENV_PATH}/*
-
-	# Install python.km into usr/local/bin inside the container. Note, rootfs
-	# will map from RUNENV_PATH
-	mkdir -p ${RUNENV_PATH}/usr/local/bin
-	install -s ${PAYLOAD_KM} ${RUNENV_PATH}/usr/local/bin/python3.km
-	ln -s /opt/kontain/bin/km ${RUNENV_PATH}/usr/local/bin/python3 
-
-	# Install rest of python payload files
-	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
-
-	# Install .so thumb stone files into RUNENV_PATH
-	mkdir -p $(addprefix ${RUNENV_PATH}/,$(dir ${PAYLOAD_STUBS}))
-	touch $(addprefix ${RUNENV_PATH}/,${PAYLOAD_STUBS})
-
-	# Install pyvenv.cfg into where python will be located.
-	cp runenv/pyvenv.cfg ${RUNENV_PATH}/usr/local/bin/pyvenv.cfg
+	${RUNENV_ROOTFS_SCRIPT} ${PYTHONTOP} ${RUNENV_PATH} ${VERS}
 endef
 
 include ${TOP}/make/images.mk
