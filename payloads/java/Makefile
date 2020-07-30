@@ -14,12 +14,12 @@ TOP := $(shell git rev-parse --show-toplevel)
 CURRENT_DIR := ${TOP}/payloads/java
 JDK_VERSION := jdk-11.0.8+10
 # COMPONENT is used in docker image names so no '+' allowed, and we don't care about minor opt
-COMPONENT := jdk-11
+COMPONENT := km_jdk-11
 PAYLOAD_NAME := ${COMPONENT}
 
 CONTAINER_TEST_CMD := ./scripts/test-run.sh
 
-JDK_BUILD_DIR = ${JDK_VERSION}/build/linux-x86_64-normal-server-release
+JDK_BUILD_DIR = ${COMPONENT}/build/linux-x86_64-normal-server-release
 
 # Needed to build Java from source - the same list as in buildenv-fedora.dockerfile
 DEP_PACKAGES := java-11-openjdk \
@@ -86,7 +86,7 @@ scripts/%.class: scripts/%.java
 
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
 	mkdir -p ${JDK_BUILD_DIR}
-	tar -C /home/appuser/java -cf - . | tar -C ${JDK_BUILD_DIR} -xf -
+	tar -C /home/appuser/java -cf - . | tar -C ${COMPONTENT} -xf -
 	./link-km.sh ${JDK_BUILD_DIR}
 
 .PHONY: .check
