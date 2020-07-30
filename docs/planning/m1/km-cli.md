@@ -2,19 +2,24 @@
 
 This is a working document for "use case 2" (Provide CLI/Toolkit) from [Kontain Platform Requirments](https://docs.google.com/document/d/1LPeGZEuRdgeGx-fvsZ3Gs8ltYp6xOB7MCk10zFwtpsE/edit#)
 
+## Status: draft
+
 ## Goal
 
 Installable package that allows to build .km files and run them via lines, similar to `km` but with full support of virtualization (FS, network etc.) on par with Docker.
 
 ## Constraints
 
-We keep OCI image format and related tools. We do not claim start speed compared to Docker This use case is really integration and spread-the-word effort,
+* We keep OCI image format and related tools.
+* We focus on integration enablement and spread-the-word effort,
 
 ## Requirements
 
 Currently `km` CLI nicely starts KM with payload, but Virtualization is not completed - e.g. we are missing network, there are known gaps in pid and FS (e.g. /proc) files, there is no support for mount or explicit pivot_root, etc.  P0 is to solve that. Here is a longer list:
 
 * P0: Namespaces/RootFS/networking is not natively virtualized
+* P0: Anything in the payload image can be run **only** in Kontain VM when started via this CLI.
+  * P1: only payload specific files should be in the image. KM itself is installed on the host. This is needed to assure KM itself cannot be messed with (e.g. replaced with a malicious script  :-)) in a customer image
 * P1: Config is somewhat limited to command line, would make it much harder for integrations
 * P1: Does not comply with any standard so "yet another thing to learn" for devs doing integration
 
@@ -30,9 +35,10 @@ Currently `km` CLI nicely starts KM with payload, but Virtualization is not comp
 * we have a big chunk of PoC code in 'runk' which was done by Eric in GO, using early KM builds.
   * This code should be consulted when needed, but the performance is 2x as fast with C implementation (and redhat is planning to make it default) so we will stick with it
   * Some of the features in KM, e.g. --wait-for-signal , were done specifically for this. These features, and best integration approach, need to be revisited
+    * From Eric: "Just to clarify, this feature was not used anymore. OCI spec states that runk create should set up everything up until the payload fork and exec, then wait. Runk start should call fork and exec to launch the payload process. However, when calling runk create and runk start back to back, there is a race condition where runc create calls km --wait-signal but runc create returned before km actually waits on the signal. So far, I can only think a named pipe would avoid this race condition where waiter and caller needs to both enter to be valid."
 * `crun` is a library and a CLI wrapper. We will have to look at the both and decide if we use library directly or use the CLI.
-   * If we use crun library from KM), we can extend the runtime spec with KM-specific info and read the spe
-   * if we decide to use 'krun' CLI derived from crun directly, we can still extend the spec and use the info to form proper command line flags.
+  * If we use crun library from KM), we can extend the runtime spec with KM-specific info and read the spe
+  * if we decide to use 'krun' CLI derived from crun directly, we can still extend the spec and use the info to form proper command line flags.
 
 ## Work items and costs
 

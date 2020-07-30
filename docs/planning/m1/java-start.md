@@ -1,10 +1,12 @@
-# Release planning - use case  Acceleration of Java based microservices"
+# Release planning - use case  "Acceleration of Java based microservices"
 
 This is a working document for "use case 1" ( Acceleration of Java based microservices) from [Kontain Platform Requirments](https://docs.google.com/document/d/1LPeGZEuRdgeGx-fvsZ3Gs8ltYp6xOB7MCk10zFwtpsE/edit#)
 
+## Status: draft
+
 ## Goal
 
-Installable package that allows customers to run their services under Kontain and take snapshots, and then start them from snapshot without java boot warm-up overheade.
+Installable package that allows customers to run their services under Kontain and take snapshots, and then start them from snapshot without Java boot warm-up overhead.
 
 ## Constraints and assumptions
 
@@ -13,7 +15,6 @@ Installable package that allows customers to run their services under Kontain an
 * Customer’s host should be able to launch the container.
 
 ## Requirements
-
 
 
 ## Approach and workflow
@@ -72,8 +73,7 @@ Customer workflow run-through:
 Costs estimation is TBD
 
 P0:
-* Minimize Java installed components in Kontainer. Currently we include everything JDK.
-  * https://stackoverflow.com/questions/51403071/create-jre-from-openjdk-windows talks about using the ‘jlink’ command to create a minimal environment. The ‘jdep’ command will give a list of the components needed.
+
 * Update Java source we are building from. We build from 11.0.6+10, Fedora 31 has 11.0.7.10-0, github at 11.0.8-ga.
 * Design CLI/SaaS flow. What does the customer provide, what Kontain produces?
 * Improve KM magt API (for creating snapshot file).
@@ -82,14 +82,17 @@ P0:
   * P0 for design / API , implementation delayed until customer feedback
 
 P1-P2:
+
+* P1: Minimize Java installed components in Kontainer. Currently we include everything JDK.
+  * https://stackoverflow.com/questions/51403071/create-jre-from-openjdk-windows talks about using the ‘jlink’ command to create a minimal environment. The ‘jdep’ command will give a list of the components needed.
 * P1: Java Test Suite.
-  * Need to validate our java binaries, unless we move to unmodified binaries.
-* P1: KM mmap alignment. W
-  * e run with CompressedOOPS disabled so we don’t fall into pathological behavior b/c we don’t support mmap hints. Fix this?
+  * Need to validate our Java binaries, unless we move to unmodified binaries.
+* P1: KM mmap alignment.
+  * We run with CompressedOOPS disabled so we don’t fall into pathological behavior b/c we don’t support mmap hints. Fix this?
 * err msg if assumptions are violated (e.g. JDBC connection is pulled)
-  * Decision: P1: support/document payload API (including java support a snapshot on client calling  a dedicated API to the endpoint
-* P2: Integration with customer build system (Maven and/or Gradle).
-  * 7/28 * Build systems (maven/gradle) - postponed…. No actions in the first release
+  * Decision: P1: support/document payload API (including Java support a snapshot on client calling  a dedicated API to the endpoint
+* P2: Integration with customer build system (maven and/or gradle).
+  * 7/28 * Build systems (maven/gradle) - postponed …. No actions in the first release
 
 ## Open Items
 
@@ -103,14 +106,10 @@ Open items may be resolved after an explicit investigation and discussion, or af
   * Also , can we issue inotify for open files on snapshot restore ?
 * How do we deal with env vars changing  ?
   * e.g. “replica_number” env which is different per invocation and used internally for forming DB key (e.g. Kafka/confluent)
-* Should we have a manifest (Heroku-style), etc…
+* Should we have a manifest (Heroku-style), etc …
   * Eric will think about it
 * Supporting GLIBC and using openjdk pre-built vs. building and test multiple versions ourselves  in the initial product
-  * Decision: use the latest fixed kontain-build for now ( 11.08) add investigation/decision/execution to after the initial produc
+  * Decision: use the latest fixed kontain-build for now (11.0.8+10) add investigation/decision/execution to after the initial product is out
 * Choice: keep a dedicated socket as today.
   * John to decide
-* should we make KOntainer mandatory as a build target ?
-
-
-
-
+* should we make Kontainer mandatory as a build target ?
