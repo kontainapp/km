@@ -23,10 +23,24 @@
 
 readonly PROGNAME=$(basename $0)
 readonly CURRENT=$(readlink -m $(dirname $0))
+
+function usage() {
+    cat <<- EOF
+usage: $PROGNAME <PYTHON SRC> <RUNENV PATH> <PYTHON VERSION>
+
+Script used to create a rootfs for python runenv image.
+
+EOF
+}
+
+if [[ $# != 3 ]]; then
+    usage
+    exit 1
+fi
+
 readonly PYTHON_SRC=$(readlink -m $1)
 readonly RUNENV_PATH=$(readlink -m $2)
 readonly PYTHON_VERSION=$3
-
 
 readonly RUNENV_PYTHON_BIN=/usr/local/bin
 readonly RUNENV_PYTHON_LIB=/usr/local/lib/python${PYTHON_VERSION}
@@ -39,25 +53,7 @@ readonly RUNENV_PYTHON_LIB_STUBS=$(echo ${PYTHON_SRC_LIB_STUBS} | sed "s|${PYTHO
 
 readonly RUNENV_EXCLUDE='--exclude=*/test --exclude=*/__pycache__ --exclude *.exe --exclude *.whl'
 
-function usage() {
-    cat <<- EOF
-usage: $PROGNAME <PYTHON SRC> <RUNENV PATH> <PYTHON VERSION>
-
-Script used to create a rootfs for python runenv image.
-
-EOF
-}
-
-function check_variables {
-    if [[ -z $PYTHON_SRC || -z $RUNENV_PATH || -z $PYTHON_VERSION ]]; then
-        usage
-        exit 1
-    fi
-}
-
-
 function main() {
-    check_variables
 
     echo "Creating rootfs from ${PYTHON_SRC} inside ${RUNENV_PATH} for python${PYTHON_VERSION}..."
 
