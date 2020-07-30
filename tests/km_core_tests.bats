@@ -140,7 +140,7 @@ fi
 
    run km_with_timeout -P 31 -- hello_test$ext # -P sets Physical memory bus width
    assert_failure
-   assert_line  "km: Guest memory bus width must be between 32 and 63 - got '31'"
+   assert_line --partial "Guest memory bus width must be between 32 and 63 - got '31'"
 
    run km_with_timeout -P32 -- hello_test$ext
    check_optional_mem_size_failure

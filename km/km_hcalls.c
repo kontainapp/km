@@ -34,12 +34,12 @@
 #include "km_exec.h"
 #include "km_filesys.h"
 #include "km_fork.h"
+#include "km_guest.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
-#include "km_guest.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -1247,7 +1247,7 @@ static km_hc_ret_t sched_setaffinity_hcall(void* vcpu, int hc, km_hc_args_t* arg
 {
    // int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask);
    km_infox(KM_TRACE_SCHED, "%s(0x%lx, 0x%lx, 0x%lx)", __FUNCTION__, arg->arg1, arg->arg2, arg->arg3);
-   warnx("%s - Unsupported", __FUNCTION__);
+   km_warn_msgx("%s - Unsupported", __FUNCTION__);
    arg->hc_ret = -ENOTSUP;
    return HC_CONTINUE;
 }
@@ -1527,10 +1527,10 @@ static km_hc_ret_t waitid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
          linux_pid = 0;
          break;
       case P_PGID:
-         errx(2, "Can't wait for process group id yet");
+         km_err_msgx(2, "Can't wait for process group id yet");
          break;
       default:
-         errx(2, "Unknown idtype %lu", arg->arg1);
+         km_err_msgx(2, "Unknown idtype %lu", arg->arg1);
          break;
    }
 
@@ -1593,7 +1593,7 @@ static km_hc_ret_t getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // TODO: Stop the world.
-   warnx("SNAPSHOT");
+   km_warn_msgx("SNAPSHOT");
    km_vcpu_sync_rip(vcpu);
    ((km_vcpu_t*)vcpu)->regs_valid = 0;   // force register reread after the sync_rip
    km_read_registers(vcpu);

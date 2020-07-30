@@ -113,21 +113,21 @@ Elf* km_open_elf_file(char* filename, km_payload_t* payload, int* fd)
 {
    Elf* e;
    if ((*fd = open(filename, O_RDONLY, 0)) < 0) {
-      warn("open %s failed", filename);
+      km_warn_msg("open %s failed", filename);
       return NULL;
    }
    payload->km_filename = filename;
    if ((e = elf_begin(*fd, ELF_C_READ, NULL)) == NULL) {
-      warnx("elf_begin() failed: %s", elf_errmsg(-1));
+      km_warn_msgx("elf_begin() failed: %s", elf_errmsg(-1));
       return NULL;
    }
    if (elf_kind(e) != ELF_K_ELF) {
-      warnx("%s is not an ELF object", payload->km_filename);
+      km_warn_msgx("%s is not an ELF object", payload->km_filename);
       return NULL;
    }
    GElf_Ehdr* ehdr = &payload->km_ehdr;
    if (gelf_getehdr(e, ehdr) == NULL) {
-      errx(2, "gelf_getehdr %s", elf_errmsg(-1));
+      km_err_msgx(2, "gelf_getehdr %s", elf_errmsg(-1));
    }
    if ((payload->km_phdr = malloc(sizeof(Elf64_Phdr) * ehdr->e_phnum)) == NULL) {
       err(2, "no memory for elf program headers");
@@ -138,7 +138,7 @@ Elf* km_open_elf_file(char* filename, km_payload_t* payload, int* fd)
       GElf_Phdr* phdr = &payload->km_phdr[i];
 
       if (gelf_getphdr(e, i, phdr) == NULL) {
-         errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
+         km_err_msgx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
       }
       // TODO: This doesn't apply to snapshots. SHould move to load_elf().
       if (phdr->p_type == PT_LOAD && phdr->p_vaddr < payload->km_min_vaddr) {
@@ -164,12 +164,12 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    char* interp_kma = km_gva_to_kma(interp_vaddr + interp_adjust);
    char* filename = NULL;
    if (interp_kma == NULL || km_gva_to_kma(interp_vaddr + interp_adjust + interp_len - 1) == NULL) {
-      errx(2,
-           "%s: PT_INTERP vaddr map error: vaddr=0x%lx len=0x%lx adjust=0x%lx",
-           __FUNCTION__,
-           interp_vaddr,
-           interp_len,
-           interp_adjust);
+      km_err_msgx(2,
+                  "%s: PT_INTERP vaddr map error: vaddr=0x%lx len=0x%lx adjust=0x%lx",
+                  __FUNCTION__,
+                  interp_vaddr,
+                  interp_len,
+                  interp_adjust);
    }
    if (strncmp(interp_kma, KM_DYNLINKER_STR, interp_len) != 0) {
       // Use the dynamic linker in the .interp section
@@ -187,7 +187,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    Elf* e;
    int fd;
    if ((e = km_open_elf_file(filename, &km_dynlinker, &fd)) == NULL) {
-      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, filename);
+      km_err_msgx(2, "%s km_open_elf failed: %s", __FUNCTION__, filename);
    }
 
    km_gva_t base = km_mem_brk(0);
@@ -222,10 +222,10 @@ uint64_t km_load_elf(char* file)
    GElf_Ehdr* ehdr = &km_guest.km_ehdr;
 
    if (elf_version(EV_CURRENT) == EV_NONE) {
-      errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
+      km_err_msgx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
    }
    if ((e = km_open_elf_file(file, &km_guest, &fd)) == NULL) {
-      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, file);
+      km_err_msgx(2, "%s km_open_elf failed: %s", __FUNCTION__, file);
    }
 
    km_gva_t adjust = 0;

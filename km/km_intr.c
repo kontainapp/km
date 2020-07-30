@@ -142,10 +142,10 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
 
    uint64_t enumber = vcpu->regs.rbx;
    if (enumber >= sizeof(error_included)) {
-      errx(1, "Interrupt out of range - %ld", enumber);
+      km_err_msgx(1, "Interrupt out of range - %ld", enumber);
    }
    if (error_included[enumber] == -1) {
-      errx(1, "Unexpected Interrupt - %ld", enumber);
+      km_err_msgx(1, "Unexpected Interrupt - %ld", enumber);
    }
 
    uint64_t* rsp_kma = km_gva_to_kma_nocheck(vcpu->regs.rsp);

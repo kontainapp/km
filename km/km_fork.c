@@ -402,7 +402,7 @@ void km_pid_insert(pid_t kontain_pid, pid_t linux_pid)
       }
       // TODO check for duplicate entries
    }
-   errx(2, "Too many kontain to linux pid map entries");
+   km_err_msgx(2, "Too many kontain to linux pid map entries");
 }
 
 km_linux_kontain_pidmap_t* km_pid_find_lpid(pid_t linux_pid)

@@ -60,18 +60,16 @@ static inline void km_core_write_mem(int fd, void* buffer, size_t length, int is
       if ((rc = write(fd, cur, remain)) == -1) {
          if (errno == EFAULT && is_guestmem) {
             if (lseek(fd, remain, SEEK_CUR) < 0) {
-               km_err_msg(errno, "lseek error fd=%d cur=%p remain=0x%lx", fd, cur, remain);
-               errx(errno, "exiting...");
+               km_err_msg(errno, "lseek error fd=%d cur=%p remain=0x%lx \n exiting", fd, cur, remain);
             }
             rc = remain;
          } else {
             km_err_msg(errno,
-                       "write error - cur=%p remain=0x%lx buffer=%p length=0x%lx\n",
+                       "write error - cur=%p remain=0x%lx buffer=%p length=0x%lx\n exiting",
                        cur,
                        remain,
                        buffer,
                        length);
-            errx(errno, "exiting...\n");
          }
       }
       remain -= rc;
@@ -704,14 +702,12 @@ void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* ifram
    int phnum = km_core_count_phdrs(vcpu, &end_load);
 
    if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0666)) < 0) {
-      km_err_msg(errno, "Cannot open corefile '%s'", core_path);
-      errx(2, "exiting...");
+      km_err_msg(2, "Cannot open corefile '%s' \n exiting...", core_path);
    }
-   warnx("Write coredump to '%s'", core_path);
+   km_warn_msgx("Write coredump to '%s'", core_path);
 
    if ((notes_buffer = (char*)calloc(1, notes_length)) == NULL) {
-      km_err_msg(errno, "cannot allocate notes buffer");
-      errx(2, "exiting...\n");
+      km_err_msg(2, "cannot allocate notes buffer \n exiting...");
    }
    memset(notes_buffer, 0, notes_length);
    offset = sizeof(Elf64_Ehdr) + phnum * sizeof(Elf64_Phdr);
@@ -757,16 +753,14 @@ void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* ifram
       // make sure we can read the mapped memory (e.g. it can be EXEC only)
       if (ptr->km_flags.km_mmap_part_of_monitor == 0 && (ptr->protection & PROT_READ) != PROT_READ) {
          if (mprotect(start, ptr->size, ptr->protection | PROT_READ) != 0) {
-            km_err_msg(0, "failed to make %p,0x%lx readable for dump", start, ptr->size);
-            errx(2, "exiting...");
+            km_err_msg(2, "failed to make %p,0x%lx readable for dump \n exiting...", start, ptr->size);
          }
       }
       km_guestmem_write(fd, ptr->start, ptr->size);
       // recover protection, in case it's a live coredump and we are not exiting yet
       if (ptr->km_flags.km_mmap_part_of_monitor == 0 && (ptr->protection & PROT_READ) != PROT_READ &&
           mprotect(start, ptr->size, ptr->protection) != 0) {
-         km_err_msg(errno, "failed to set %p,0x%lx prot to 0x%x", start, ptr->size, ptr->protection);
-         errx(2, "exiting...");
+         km_err_msg(2, "failed to set %p,0x%lx prot to 0x%x \n exiting...", start, ptr->size, ptr->protection);
       }
    }
 

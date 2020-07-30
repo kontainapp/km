@@ -122,7 +122,7 @@ static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
    km_gva_t tbrk_gva = km_mem_tbrk(0);
    km_gva_t ptr = km_guest_mmap(0, tbrk_gva - rtbrk, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
    if (ptr != rtbrk) {
-      errx(2, "tbrk recover failure: expect=0x%lx got=0x%lx", rtbrk, ptr);
+      km_err_msgx(2, "tbrk recover failure: expect=0x%lx got=0x%lx", rtbrk, ptr);
    }
    for (int i = 0; i < ehdr->e_phnum; i++) {
       GElf_Phdr* phdr = &payload->km_phdr[i];
@@ -149,11 +149,10 @@ static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
                               phdr->p_offset);
                if (m == MAP_FAILED) {
                   km_err_msg(errno,
-                             "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx",
+                             "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx \nexiting",
                              i,
                              phdr->p_vaddr,
                              phdr->p_offset);
-                  err(errno, "exiting");
                }
             }
          } else {
@@ -168,11 +167,10 @@ static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
                            phdr->p_offset - extra);
             if (m == MAP_FAILED) {
                km_err_msg(errno,
-                          "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx",
+                          "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx \nexiting",
                           i,
                           phdr->p_vaddr,
                           phdr->p_offset);
-               err(errno, "exiting");
             }
          }
       }
@@ -196,7 +194,7 @@ static inline char* km_snapshot_read_notes(int fd, size_t* notesize, km_payload_
             if (rc < 0) {
                err(errno, "read notes failed:");
             } else {
-               errx(2, "read notes short: expect:%ld got:%d", phdr->p_filesz, rc);
+               km_err_msgx(2, "read notes short: expect:%ld got:%d", phdr->p_filesz, rc);
             }
          }
          *notesize = phdr->p_filesz;
@@ -217,7 +215,7 @@ static int km_ss_recover_prstatus(char* ptr, size_t length)
    struct elf_prstatus* pr = (struct elf_prstatus*)ptr;
    km_vcpu_t* vcpu = km_vcpu_restore(pr->pr_pid);
    if (vcpu == NULL) {
-      errx(2, "failed to restore vcpu %d", pr->pr_pid - 1);
+      km_err_msgx(2, "failed to restore vcpu %d", pr->pr_pid - 1);
    }
    vcpu->regs.r15 = pr->pr_reg[0];
    vcpu->regs.r14 = pr->pr_reg[1];
@@ -390,7 +388,7 @@ int km_snapshot_restore(const char* file)
    char* filename;
 
    if (elf_version(EV_CURRENT) == EV_NONE) {
-      errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
+      km_err_msgx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
    }
    if ((filename = realpath(file, NULL)) == NULL) {
       err(2, "%s realpath failed: %s", __FUNCTION__, file);
@@ -398,7 +396,7 @@ int km_snapshot_restore(const char* file)
 
    // Read ELF EHDR and PHDR into tmp_payload.
    if ((e = km_open_elf_file(filename, &tmp_payload, &fd)) == NULL) {
-      errx(2, "%s km_open_elf failed: %s", __FUNCTION__, filename);
+      km_err_msgx(2, "%s km_open_elf failed: %s", __FUNCTION__, filename);
    }
 
    // disable mmap consolodation during recovery
@@ -411,26 +409,26 @@ int km_snapshot_restore(const char* file)
    size_t notesize = 0;
    char* notebuf = km_snapshot_read_notes(fd, &notesize, &tmp_payload);
    if (notebuf == NULL) {
-      errx(2, "PT_NOTES not found");
+      km_err_msgx(2, "PT_NOTES not found");
    }
    if (km_ss_recover_vcpus(notebuf, notesize) < 0) {
-      errx(2, "VCPU restore failed");
+      km_err_msgx(2, "VCPU restore failed");
    }
 
    if (km_snapshot_notes_apply(notebuf, notesize, NT_FILE, km_ss_recover_file_maps) < 0) {
-      errx(2, "recover file maps failed");
+      km_err_msgx(2, "recover file maps failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_GUEST, km_ss_recover_guest) < 0) {
-      errx(2, "recover guest payload failed");
+      km_err_msgx(2, "recover guest payload failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_DYNLINKER, km_ss_recover_dynlinker) < 0) {
-      errx(2, "recover dynlinker payload maps failed");
+      km_err_msgx(2, "recover dynlinker payload maps failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_SIGHAND, km_sig_snapshot_recover) < 0) {
-      errx(2, "recover signal handlers failed");
+      km_err_msgx(2, "recover signal handlers failed");
    }
    if (km_fs_recover(notebuf, notesize) < 0) {
-      errx(2, "recover open files failed");
+      km_err_msgx(2, "recover open files failed");
    }
 
    /*

@@ -64,7 +64,7 @@ void km_signal_machine_fini(void)
       eventfd_write(machine.intr_fd, 1);   // unblock gdb main_loop poll()
    }
    if (eventfd_write(machine.shutdown_fd, 1) == -1) {
-      errx(2, "Failed to send machine_fini signal");
+      km_err_msgx(2, "Failed to send machine_fini signal");
    }
 }
 
@@ -122,7 +122,7 @@ void km_machine_fini(void)
          uint64_t mem_siz = mr->memory_size;
          mr->memory_size = 0;
          if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, mr) < 0) {
-            warn("KVM: failed to unplug memory region %d", i);
+            km_warn_msg("KVM: failed to unplug memory region %d", i);
          }
          km_guest_page_free(mr->guest_phys_addr, mem_siz);
          mr->userspace_addr = 0;
@@ -228,17 +228,17 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
    int rc;
 
    if ((vcpu->kvm_vcpu_fd = km_internal_fd_ioctl(machine.mach_fd, KVM_CREATE_VCPU, vcpu->vcpu_id)) < 0) {
-      warn("KVM: create VCPU %d failed", vcpu->vcpu_id);
+      km_warn_msg("KVM: create VCPU %d failed", vcpu->vcpu_id);
       return vcpu->kvm_vcpu_fd;
    }
    if ((rc = ioctl(vcpu->kvm_vcpu_fd, KVM_SET_CPUID2, machine.cpuid)) < 0) {
-      warn("KVM: set CPUID2 failed");
+      km_warn_msg("KVM: set CPUID2 failed");
       return rc;
    }
    if ((vcpu->cpu_run =
             mmap(NULL, machine.vm_run_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu->kvm_vcpu_fd, 0)) ==
        MAP_FAILED) {
-      warn("KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
+      km_warn_msg("KVM: failed mmap VCPU %d control region", vcpu->vcpu_id);
       return -1;
    }
    km_init_syscall_handler(vcpu);
@@ -264,11 +264,7 @@ static inline int km_vmmonitor_vcpu_init(km_vcpu_t* vcpu)
    if (machine.vm_type == VM_TYPE_KKM) {
 #define KKM_KONTEXT_REUSE _IO(KVMIO, 0xf5)
       if ((retval = ioctl(vcpu->kvm_vcpu_fd, KKM_KONTEXT_REUSE)) == -1) {
-         km_err_msg(retval,
-                    "VCPU reinit failed vcpu id %d vcpu fd %d with error %s",
-                    vcpu->vcpu_id,
-                    vcpu->kvm_vcpu_fd,
-                    strerror(errno));
+         km_warn_msg("VCPU reinit failed vcpu id %d vcpu fd %d", vcpu->vcpu_id, vcpu->kvm_vcpu_fd);
       }
 #undef KKM_KONTEXT_REUSE
    }
@@ -326,7 +322,7 @@ km_vcpu_t* km_vcpu_get(void)
          return new;
       }
    }
-   km_err_msg(0, "VCPU allocation failed");
+   km_warn_msgx("VCPU allocation failed");
    km_vcpu_fini(new);
    // km_vcpu_fini(new) frees 'new'
    return NULL;
@@ -346,14 +342,14 @@ km_vcpu_t* km_vcpu_restore(int tid)
    }
 
    if (machine.vm_vcpus[slot] != 0) {
-      km_err_msg(0, "tid % d already allocated", tid);
+      km_warn_msgx("tid % d already allocated", tid);
       return NULL;
    }
    km_vcpu_t* vcpu = calloc(1, sizeof(km_vcpu_t));
    vcpu->is_used = 1;
    vcpu->vcpu_id = slot;
    if (km_vcpu_init(vcpu) < 0) {
-      km_err_msg(0, "km_vcpu_init failed - cannot restore snapshot");
+      km_warn_msgx("km_vcpu_init failed - cannot restore snapshot");
       free(vcpu);
       return NULL;
    }
@@ -415,8 +411,9 @@ static int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
 {
    km_lock_vcpu_thr(vcpu);
    if (vcpu->is_active == 1) {
-      if (pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP) != 0) {
-         warnx("vcpu %d, pthread_kill failed, errno %d", vcpu->vcpu_id, errno);
+      int rc;
+      if ((rc = pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP)) != 0) {
+         km_warn_msgx("vcpu %d, pthread_kill failed, error %d", vcpu->vcpu_id, rc);
       }
       km_unlock_vcpu_thr(vcpu);
       km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
@@ -579,7 +576,7 @@ void km_machine_setup(km_machine_init_params_t* params)
       err(1, "KVM: get API version failed");
    }
    if (rc != KVM_API_VERSION) {
-      errx(1, "KVM: API version mismatch");
+      km_err_msgx(1, "KVM: API version mismatch");
    }
    if ((machine.mach_fd = km_internal_fd_ioctl(machine.kvm_fd, KVM_CREATE_VM, NULL)) < 0) {
       err(1, "KVM: create VM failed");
@@ -588,10 +585,10 @@ void km_machine_setup(km_machine_init_params_t* params)
       err(1, "KVM: get VM memory region size failed");
    }
    if (machine.vm_run_size < sizeof(kvm_run_t)) {
-      errx(1,
-           "KVM: suspicious VM memory region size %zu, expecting at least %zu",
-           machine.vm_run_size,
-           sizeof(kvm_run_t));
+      km_err_msgx(1,
+                  "KVM: suspicious VM memory region size %zu, expecting at least %zu",
+                  machine.vm_run_size,
+                  sizeof(kvm_run_t));
    }
    if ((machine.cpuid =
             calloc(1, sizeof(kvm_cpuid2_t) + CPUID_ENTRIES * sizeof(struct kvm_cpuid_entry2))) == NULL) {
@@ -657,15 +654,15 @@ void km_machine_setup(km_machine_init_params_t* params)
    }
    if (params->guest_physmem != 0) {
       if ((machine.vm_type == VM_TYPE_KKM) && (params->guest_physmem != GUEST_MAX_PHYSMEM_SUPPORTED)) {
-         errx(1,
-              "Only %ldGiB physical memory supported with KKM driver",
-              GUEST_MAX_PHYSMEM_SUPPORTED / GIB);
+         km_err_msgx(1,
+                     "Only %ldGiB physical memory supported with KKM driver",
+                     GUEST_MAX_PHYSMEM_SUPPORTED / GIB);
       } else {
          if (params->guest_physmem > machine.guest_max_physmem) {
-            errx(1,
-                 "Cannot set guest memory size to '0x%lx'. Max supported=0x%lx",
-                 params->guest_physmem,
-                 machine.guest_max_physmem);
+            km_err_msgx(1,
+                        "Cannot set guest memory size to '0x%lx'. Max supported=0x%lx",
+                        params->guest_physmem,
+                        machine.guest_max_physmem);
          }
          machine.guest_max_physmem = params->guest_physmem;
       }

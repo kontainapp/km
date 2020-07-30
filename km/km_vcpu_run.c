@@ -23,74 +23,66 @@
 #include <sys/ioctl.h>
 
 #include "km.h"
+
 #include "km_coredump.h"
 #include "km_filesys.h"
 #include "km_fork.h"
 #include "km_gdb.h"
+#include "km_guest.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
 #include "km_signal.h"
-#include "km_guest.h"
 
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;
 
 static const_string_t fx = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
 
-/*
- * run related err and errx - get regs, print RIP and the supplied message
- */
-static void
-__run_err(void (*fn)(int, const char*, __builtin_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
-    __attribute__((format(printf, 4, 5)));   // define attributes
-static void
-__run_err(void (*fn)(int, const char*, __builtin_va_list), km_vcpu_t* vcpu, int s, const char* f, ...)
-{
-   int save_errno = errno;
-   va_list args;
-   char fmt[strlen(f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];
+#define __run_err(vcpu, __s, __f, ...)                                                                     \
+   do {                                                                                                    \
+      char fmt[strlen(__f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];                            \
+      strcat(fmt, __f);                                                                                    \
+      strcat(fmt, fx);                                                                                     \
+      km_err_msg(__s, fmt, ##__VA_ARGS__, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2); \
+   } while (0)
 
-   va_start(args, f);
+#define __run_errx(vcpu, __s, __f, ...)                                                            \
+   do {                                                                                            \
+      char fmt[strlen(__f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];                    \
+      strcat(fmt, __f);                                                                            \
+      strcat(fmt, fx);                                                                             \
+      km_err_msgx(__s,                                                                             \
+                  fmt,                                                                             \
+                  ##__VA_ARGS__,                                                                   \
+                  vcpu->vcpu_id,                                                                   \
+                  vcpu->regs.rip,                                                                  \
+                  vcpu->regs.rsp,                                                                  \
+                  vcpu->sregs.cr2);                                                                \
+   } while (0)
 
-   sprintf(fmt, fx, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2);
-   strcat(fmt, f);
+#define run_err(__s, __f, ...) __run_err(vcpu, __s, __f, ##__VA_ARGS__)
+#define run_errx(__s, __f, ...) __run_errx(vcpu, __s, __f, ##__VA_ARGS__)
 
-   errno = save_errno;
-   (*fn)(s, fmt, args);
-   va_end(args);
-}
+#define __run_warn(vcpu, __f, ...)                                                                      \
+   do {                                                                                                 \
+      char fmt[strlen(__f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];                         \
+      strcat(fmt, __f);                                                                                 \
+      strcat(fmt, fx);                                                                                  \
+      km_warn_msgx(fmt, ##__VA_ARGS__, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2); \
+   } while (0)
 
-#define run_err(__s, __f, ...) __run_err(&verr, vcpu, __s, __f, ##__VA_ARGS__)
-#define run_errx(__s, __f, ...) __run_err(&verrx, vcpu, __s, __f, ##__VA_ARGS__)
+#define run_warn(__f, ...) __run_warn(vcpu, __f, ##__VA_ARGS__)
 
-static void
-__run_warn(void (*fn)(const char*, __builtin_va_list), km_vcpu_t* vcpu, const char* f, ...)
-    __attribute__((format(printf, 3, 4)));   // define attributes
-static void __run_warn(void (*fn)(const char*, __builtin_va_list), km_vcpu_t* vcpu, const char* f, ...)
-{
-   va_list args;
-   char fmt[strlen(f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];
-
-   va_start(args, f);
-
-   sprintf(fmt, fx, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2);
-   strcat(fmt, f);
-
-   (*fn)(fmt, args);
-   va_end(args);
-}
-
-#define run_warn(__f, ...) __run_warn(&vwarnx, vcpu, __f, ##__VA_ARGS__)
 // only show this for verbose ('-V') runs
 #define run_info(__f, ...)                                                                         \
    do {                                                                                            \
       if (km_trace_enabled() && regexec(&km_info_trace.tags, KM_TRACE_KVM, 0, NULL, 0) == 0)       \
-         __run_warn(&vwarn, vcpu, __f, ##__VA_ARGS__);                                             \
+         __run_warn(__f, ##__VA_ARGS__);                                                           \
    } while (0)
 #define run_infox(__f, ...)                                                                        \
    do {                                                                                            \
       if (km_trace_enabled() && regexec(&km_info_trace.tags, KM_TRACE_KVM, 0, NULL, 0) == 0)       \
-         __run_warn(&vwarnx, vcpu, __f, ##__VA_ARGS__);                                            \
+         __run_warn(vcpu, __f, ##__VA_ARGS__);                                                     \
    } while (0)
 
 static const char* kvm_reason_name(int reason)
@@ -331,11 +323,11 @@ void km_dump_vcpu(km_vcpu_t* vcpu)
 
    next = dump_events(vcpu, next, len);
    if (next == NULL) {
-      fprintf(stderr, "ERROR - NULL return from dump_events\n");
+      km_warn_msgx("ERROR - NULL return from dump_events");
       return;
    }
 
-   fprintf(stderr, "%s", buf);
+   km_warn_msgx(buf);
 }
 
 /*
@@ -347,7 +339,7 @@ void km_read_registers(km_vcpu_t* vcpu)
       return;
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_REGS, &vcpu->regs) < 0) {
-      warn("%s - KVM_GET_REGS failed", __FUNCTION__);
+      km_warn_msg("KVM_GET_REGS failed");
       return;
    }
    vcpu->regs_valid = 1;
@@ -356,10 +348,10 @@ void km_read_registers(km_vcpu_t* vcpu)
 void km_write_registers(km_vcpu_t* vcpu)
 {
    if (vcpu->regs_valid == 0) {
-      errx(2, "%s - registers not valid", __FUNCTION__);
+      km_err_msgx(2, "registers not valid");
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_REGS, &vcpu->regs) < 0) {
-      warn("%s - KVM_SET_REGS failed", __FUNCTION__);
+      km_warn_msg("KVM_SET_REGS failed");
       return;
    }
 }
@@ -373,7 +365,7 @@ void km_read_sregisters(km_vcpu_t* vcpu)
       return;
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_SREGS, &vcpu->sregs) < 0) {
-      warn("%s - KVM_GET_SREGS failed", __FUNCTION__);
+      km_warn_msg("%s - KVM_GET_SREGS failed", __FUNCTION__);
       return;
    }
    vcpu->sregs_valid = 1;
@@ -382,10 +374,10 @@ void km_read_sregisters(km_vcpu_t* vcpu)
 void km_write_sregisters(km_vcpu_t* vcpu)
 {
    if (vcpu->sregs_valid == 0) {
-      errx(2, "%s - sregisters not valid", __FUNCTION__);
+      km_err_msgx(2, "%s - sregisters not valid", __FUNCTION__);
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_SREGS, &vcpu->sregs) < 0) {
-      warn("%s - KVM_SET_SREGS failed", __FUNCTION__);
+      km_warn_msg("%s - KVM_SET_SREGS failed", __FUNCTION__);
       return;
    }
 }
@@ -412,7 +404,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
       return -1;
    }
    if (km_hcalls_table[*hc] == NULL) {
-      warnx("Unimplemented hypercall %d (%s)", *hc, km_hc_name_get(*hc));
+      km_warn_msgx("Unimplemented hypercall %d (%s)", *hc, km_hc_name_get(*hc));
       siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
       km_post_signal(vcpu, &info);
       return -1;
@@ -529,7 +521,7 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
             break;
          }
          default:
-            run_err(1, "KVM: vcpu run failed with errno %d (%s)", errno, strerror(errno));
+            run_err(1, "KVM: vcpu run failed");
       }
    }
 }
@@ -659,7 +651,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                   } else {
                      km_vcpu_pause_all();
                      if (eventfd_write(machine.shutdown_fd, 1) == -1) {
-                        errx(2, "Failed to send machine_fini signal");
+                        km_err_msgx(2, "Failed to send machine_fini signal");
                      }
                   }
                   // Now go block in km_vcpu_handle_pause()
@@ -711,7 +703,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             break;
 
          case KVM_EXIT_FAIL_ENTRY:
-            warnx("KVM_EXIT_FAIL_ENTRY");
+            run_warn("KVM_EXIT_FAIL_ENTRY");
             km_dump_vcpu(vcpu);
             run_errx(1, "KVM: fail entry 0x%llx", vcpu->cpu_run->fail_entry.hardware_entry_failure_reason);
             break;
@@ -753,7 +745,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 static int km_start_single_vcpu(km_vcpu_t* vcpu, uint64_t arg)
 {
    if (km_run_vcpu_thread(vcpu, km_vcpu_run) < 0) {
-      km_err_msg(0, "cannot start vcpu thread vcpu_id=%d", vcpu->vcpu_id - 1);
+      km_warn_msgx("cannot start vcpu thread vcpu_id=%d", vcpu->vcpu_id - 1);
    }
    return 0;
 }

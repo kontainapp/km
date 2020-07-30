@@ -541,10 +541,10 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
          }
          core_dumped = 1;
       }
-      errx(info->si_signo,
-           "guest: Terminated by signal: %s %s",
-           strsignal(info->si_signo),
-           (core_dumped) ? "(core dumped)" : "");
+      km_err_msgx(info->si_signo,
+                  "guest: Terminated by signal: %s %s",
+                  strsignal(info->si_signo),
+                  (core_dumped) ? "(core dumped)" : "");
    }
 
    assert(act->handler != (km_gva_t)SIG_IGN);
@@ -797,7 +797,7 @@ int km_sig_snapshot_recover(char* buf, size_t length)
 {
    km_nt_sighand_t* nt_sa = (km_nt_sighand_t*)buf;
    if (nt_sa->size != sizeof(km_nt_sighand_t)) {
-      km_err_msg(0, "km_nt_sighand_t size mismatch - old snapshot?");
+      km_warn_msgx("km_nt_sighand_t size mismatch - old snapshot?");
       return -1;
    }
    km_infox(KM_TRACE_SNAPSHOT, "signal %d handler=0x%lx", nt_sa->signo, nt_sa->handler);

@@ -28,13 +28,13 @@
 #include <linux/futex.h>
 
 #include "km.h"
+#include "km_exec.h"
 #include "km_gdb.h"
 #include "km_guest.h"
 #include "km_mem.h"
 #include "km_proc.h"
 #include "km_syscall.h"
 #include "x86_cpu.h"
-#include "km_exec.h"
 
 /*
  * Allocate stack for main thread and initialize it according to ABI:
@@ -75,7 +75,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
       stack_top -= len;
       stack_top_kma -= len;
       if (map_base + GUEST_STACK_SIZE - stack_top > GUEST_ARG_MAX) {
-         errx(2, "Environment list is too large");
+         km_err_msgx(2, "Environment list is too large");
       }
       strncpy(stack_top_kma, km_envp[i], len);
       km_envp[i] = (char*)stack_top;
@@ -91,7 +91,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
 
       stack_top -= len;
       if (map_base + GUEST_STACK_SIZE - stack_top > GUEST_ARG_MAX) {
-         errx(2, "Argument list is too large");
+         km_err_msgx(2, "Argument list is too large");
       }
       argv_km[i] = stack_top;
       stack_top_kma -= len;
@@ -112,7 +112,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    stack_top_kma -= pstr_len;
    ssize_t rc = getrandom(stack_top_kma, pstr_len, 0);
    if (rc != pstr_len) {
-      km_err_msg(0, "getrandom() didn't return enough bytes, expected %d, got %ld", pstr_len, rc);
+      km_warn_msgx("getrandom() didn't return enough bytes, expected %d, got %ld", pstr_len, rc);
       stack_top += pstr_len;
       stack_top_kma += pstr_len;
    } else {

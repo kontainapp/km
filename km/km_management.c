@@ -33,7 +33,7 @@ int kill_thread = 0;
 static void* mgt_main(void* arg)
 {
    if (listen(sock, 1) < 0) {
-      km_err_msg(errno, "listen");
+      km_warn_msg("listen");
       return NULL;
    }
 
@@ -44,7 +44,7 @@ static void* mgt_main(void* arg)
     */
    while (kill_thread == 0) {
       int nfd = km_internal_accept(sock, NULL, NULL);
-      warnx("Connection accepted");
+      km_warn_msgx("Connection accepted");
       close(nfd);
 
       km_vcpu_pause_all();
@@ -61,7 +61,7 @@ void km_mgt_init(char* path)
       return;
    }
    if (strlen(path) + 1 > sizeof(addr.sun_path)) {
-      errx(2, "mgmt path too long");
+      km_err_msgx(2, "mgmt path too long");
    }
    strcpy(addr.sun_path, path);
 
@@ -69,11 +69,11 @@ void km_mgt_init(char* path)
       err(2, "mgt socket(2)");
    }
    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-      km_err_msg(errno, "bind failure: %s", path);
+      km_warn_msg("bind failure: %s", path);
       goto err;
    }
    if (pthread_create(&thread, NULL, mgt_main, NULL) != 0) {
-      km_err_msg(errno, "phtread_create failure");
+      km_warn_msg("phtread_create failure");
       goto err;
    }
    return;

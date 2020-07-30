@@ -407,7 +407,7 @@ static void* km_guest_page_malloc(km_gva_t gpa_hint, size_t size, int prot)
       return NULL;
    }
    if (addr != gpa_hint + KM_USER_MEM_BASE) {
-      errx(1, "Problem getting guest memory, wanted %p, got %p", gpa_hint + KM_USER_MEM_BASE, addr);
+      km_err_msgx(1, "Problem getting guest memory, wanted %p, got %p", gpa_hint + KM_USER_MEM_BASE, addr);
    }
    return addr;
 }
@@ -657,7 +657,7 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
    reg->memory_size = size;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      km_err_msg(errno, "KVM: failed to plug memory region %d", idx);
+      km_warn_msg("KVM: failed to plug memory region %d", idx);
       km_guest_page_free(base, size);
       memset(reg, 0, sizeof(*reg));
       return -errno;
