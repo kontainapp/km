@@ -14,7 +14,7 @@ TOP := $(shell git rev-parse --show-toplevel)
 CURRENT_DIR := ${TOP}/payloads/java
 JDK_VERSION := jdk-11.0.8+10
 # COMPONENT is used in docker image names so no '+' allowed, and we don't care about minor opt
-COMPONENT := jdk-11.0.6
+COMPONENT := jdk-11
 PAYLOAD_NAME := ${COMPONENT}
 
 CONTAINER_TEST_CMD := ./scripts/test-run.sh
@@ -72,8 +72,10 @@ fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
 	make -C ${JDK_VERSION} images
 	./link-km.sh ${JDK_BUILD_DIR}
 
+# km_jdk-11 symlink isolates everything else from version changes
 ${JDK_VERSION}:
 	git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
+	ln -s ${JDK_VERSION} km_jdk-11
 
 scripts/%.class: scripts/%.java
 	${DOCKER_RUN_BUILD} \
@@ -100,7 +102,7 @@ jtreg:
 	tar xf jtreg-4.2-b16.tar.gz
 
 clobber:
-	rm -rf jtreg ${JDK_VERSION}
+	rm -rf jtreg ${JDK_VERSION} km_jdk-11
 
 clean:
 	rm -f ${JDK_BUILD_DIR}/images/jdk/bin/java.k*

@@ -12,7 +12,7 @@ if [ -z "${TOP}" ] ; then
    echo Failed to find git toplevel - the script needs to run inside of KM build tree ; false
 fi
 
-JDK_VERSION=${1:-jdk-11.0.6+10}
+JDK_VERSION=${1:-km_jdk-11}
 DOCKER_DIR=${2:-.dockerdir}
 KONTAIN_DIR=/opt/kontain
 jdk_image_dir=${TOP}/payloads/java/${JDK_VERSION}/build/linux-x86_64-normal-server-release/images/jdk
