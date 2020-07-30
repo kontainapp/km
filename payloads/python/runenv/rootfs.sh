@@ -62,7 +62,7 @@ function main() {
 	mkdir -p $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_LIB_DYNLOAD})
 	mkdir -p ${RUNENV_PATH}/opt/kontain/bin
 
-    echo "Installing km and symlinks..."
+    echo "Installing km and symlinks to ${RUNENV_PATH} ..."
     # Install python.km into /usr/local/bin
     install -s ${PYTHON_KM} $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python3.km)
     # Create the symlink to be used with km shebang
