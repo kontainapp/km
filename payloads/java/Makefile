@@ -86,7 +86,7 @@ scripts/%.class: scripts/%.java
 
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
 	mkdir -p ${JDK_BUILD_DIR}
-	tar -C /home/appuser/java -cf - . | tar -C ${COMPONTENT} -xf -
+	tar -C /home/appuser/java -chf - . | tar -C ${COMPONTENT} -xf -
 	./link-km.sh ${JDK_BUILD_DIR}
 
 .PHONY: .check
