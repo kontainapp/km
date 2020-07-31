@@ -11,7 +11,7 @@
 # Create image with pre-built java libs, so we can use it in fast linking of java.km
 
 ARG MODE=Release
-ARG JDK_VERSION=jdk-11.0.6+10
+ARG JDK_VERSION=jdk-11.0.8+10
 ARG BUILDENV_IMAGE_VERSION=latest
 
 # Intermediate image with Java source, where Java is built.
@@ -21,6 +21,7 @@ ARG JDK_VERSION
 # ENV JDK_VERSION=$JDK_VERSION
 
 # clone first, to save the layer if we need to modify further steps
+USER $USER
 RUN git config --global advice.detachedHead false
 RUN git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
 
@@ -37,7 +38,7 @@ RUN cd ${JDK_VERSION} && bash configure \
    --with-jvm-variants=server --with-zlib=bundled --with-jtreg=/home/$USER/jtreg \
    --enable-jtreg-failure-handler
 RUN make -C ${JDK_VERSION} images
-ARG BUILD=/home/$USER/jdk-11.0.6+10/build/linux-x86_64-normal-server-release/
+ARG BUILD=/home/$USER/jdk-11.0.8+10/build/linux-x86_64-normal-server-release/
 
 RUN find ${BUILD} -name '*.so' | xargs strip
 RUN rm ${BUILD}/images/jdk/lib/src.zip
@@ -45,7 +46,7 @@ RUN rm ${BUILD}/images/jdk/lib/src.zip
 # Build the target image
 FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION}
 
-ARG BUILD=/home/$USER/jdk-11.0.6+10/build/linux-x86_64-normal-server-release/
+ARG BUILD=/home/$USER/jdk-11.0.8+10/build/linux-x86_64-normal-server-release/
 ENV JAVATOP=/home/$USER/java
 
 RUN mkdir -p ${JAVATOP}

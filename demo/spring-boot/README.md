@@ -106,7 +106,7 @@ for `java -jar build/libs/springboot-poc-0.0.1-SNAPSHOT.jar`
 
 Docker file:
 ```
-FROM kontain/runenv-jdk-11.0.6:latest
+FROM kontain/runenv-jdk-11.0.8:latest
 COPY springboot-poc-0.0.1-SNAPSHOT.jar springboot-poc-0.0.1-SNAPSHOT.jar
 EXPOSE 9090/tcp
 ENV POSTGRE_URL jdbc:postgresql://localhost:5432
@@ -141,7 +141,7 @@ To run `java -jar build/libs/micronaut-poc-0.1-all.jar`
 
 Dokerfile:
 ```
-FROM kontain/runenv-jdk-11.0.6:latest
+FROM kontain/runenv-jdk-11.0.8:latest
 COPY micronaut-poc-0.1-all.jar micronaut-poc-0.1-all.jar 
 EXPOSE 9091/tcp
 

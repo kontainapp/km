@@ -9,12 +9,12 @@ Builds a directory `runtime` with just the pieces needed for `java.base` and `ja
 
 # Building Java 11 Under KM
 
-Run `make -C payloads/java fromsrc` to get and build Java. This builds OpenJDK in  `payloads/java/(jdk-11.0.6+10)`. See `payloads/java/Makefile` for details.
+Run `make -C payloads/java fromsrc` to get and build Java. This builds OpenJDK in  `payloads/java/(jdk-11.0.8+10)`. See `payloads/java/Makefile` for details.
 
-The KM version of the java interpreter is `payloads/java/jdk-11.0.6+10/build/linux-x86_64-normal-server-release/images/jdk/bin/java.kmd`. To run it:
+The KM version of the java interpreter is `payloads/java/jdk-11.0.8+10/build/linux-x86_64-normal-server-release/images/jdk/bin/java.kmd`. To run it:
 
 ```
-cd jdk-11.0.6+10
+cd jdk-11.0.8+10
 ../../../build/km/km  --putenv="LD_LIBRARY_PATH=$(pwd)/build/linux-x86_64-normal-server-release/jdk/lib/server:$(pwd)/build/linux-x86_64-normal-server-release/jdk/lib/jli:$(pwd)/build/linux-x86_64-normal-server-release/jdk/lib:/opt/kontain/lib64:/lib64" $(pwd)/build/linux-x86_64-normal-server-release/images/jdk/bin/java.kmd --version
 ```
 
