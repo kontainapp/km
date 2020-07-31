@@ -21,6 +21,7 @@ ARG JDK_VERSION
 # ENV JDK_VERSION=$JDK_VERSION
 
 # clone first, to save the layer if we need to modify further steps
+USER $USER
 RUN git config --global advice.detachedHead false
 RUN git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
 
