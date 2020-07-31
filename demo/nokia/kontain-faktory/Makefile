@@ -21,7 +21,7 @@ include ${TOP}/make/locations.mk
 DOCKERFILE := kontain.dockerfile
 
 # JDK version we use from Kontain repo
-JDK_VERSION ?= jdk-11.0.6+10
+JDK_VERSION ?= jdk-11.0.8+10
 # Kontain dependency libs live here
 KONTAIN_DIR := /opt/kontain
 # location of java bins and libs in KM repo, relative to TOP
