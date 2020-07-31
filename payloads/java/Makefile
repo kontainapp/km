@@ -12,9 +12,9 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 CURRENT_DIR := ${TOP}/payloads/java
-JDK_VERSION := jdk-11.0.6+10
+JDK_VERSION := jdk-11.0.8+10
 # COMPONENT is used in docker image names so no '+' allowed, and we don't care about minor opt
-COMPONENT := jdk-11.0.6
+COMPONENT := jdk-11.0.8
 PAYLOAD_NAME := ${COMPONENT}
 
 CONTAINER_TEST_CMD := ./scripts/test-run.sh

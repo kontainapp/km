@@ -95,11 +95,11 @@ CI_IMAGE_REPOS_TO_PURGE := \
 	test-km-fedora \
 	test-node-fedora \
 	test-python-fedora \
-	test-jdk-11.0.6-fedora \
+	test-jdk-11.0.8-fedora \
 	demo-runenv-dweb \
 	demo-runenv-python \
 	demo-runenv-node \
-	demo-runenv-jdk-11.0.6 \
+	demo-runenv-jdk-11.0.8 \
 	runenv-kontain-installer
 CI_IMAGE_DRY_RUN ?= --dry-run
 CI_IMAGE_PURGE_CMD="mcr.microsoft.com/acr/acr-cli:0.1 purge --registry {{.Run.Registry}} \
