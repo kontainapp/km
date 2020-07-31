@@ -10,6 +10,8 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
+set -e
+[ "$TRACE" ] && set -x
 
 # port: localhost:9090 sprintboot, 172.17.0.4:9091 micronaut
 
