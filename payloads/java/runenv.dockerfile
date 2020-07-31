@@ -14,7 +14,7 @@
 # TODO: switch to 'from scratch'. See https://github.com/kontainapp/km/issues/496
 FROM alpine:3.11.5
 
-ARG FROM=jdk-11.0.6+10/build/linux-x86_64-normal-server-release/images/jdk
+ARG FROM=jdk-11.0.8+10/build/linux-x86_64-normal-server-release/images/jdk
 ARG JAVA_DIR=/opt/kontain/java
 ENV LD_LIBRARY_PATH ${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime:/lib64
 
