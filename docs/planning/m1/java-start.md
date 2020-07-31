@@ -75,7 +75,8 @@ Costs estimation is TBD
 P0:
 
 * Update Java source we are building from. We build from 11.0.6+10, Fedora 31 has 11.0.7.10-0, github at 11.0.8-ga.
-* Design CLI/SaaS flow. What does the customer provide, what Kontain produces?
+* Design CLI/SaaS flow, including a list of what does the customer provide, and what Kontain produces
+  * Decision as of 6/31: we produce a manifest of what's needed to be in the final package (maybe just a Kontainer dockerfile/manifest), and we always produce a Kontainer. Eric owns the design
 * Improve KM magt API (for creating snapshot file).
 * Benchmarks. Replicate and enhance Springboot vs X. eg. https://medium.com/better-programming/which-java-microservice-framework-should-you-choose-in-2020-4e306a478e58
 * pre-take and post-recover hooks (in Java).
@@ -111,5 +112,4 @@ Open items may be resolved after an explicit investigation and discussion, or af
 * Supporting GLIBC and using openjdk pre-built vs. building and test multiple versions ourselves  in the initial product
   * Decision: use the latest fixed kontain-build for now (11.0.8+10) add investigation/decision/execution to after the initial product is out
 * Choice: keep a dedicated socket as today.
-  * John to decide
-* should we make Kontainer mandatory as a build target ?
+
