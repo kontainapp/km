@@ -1,6 +1,6 @@
 # m1 planning
 
-this dir contains dev planning docs (architecture, design, project plans/work items - if any) for M1 planning.
+This dir contains dev planning docs (architecture, design, project plans/work items - if any) for M1 planning.
 
 M1 is the release we want to put together by Oct'20.
 
