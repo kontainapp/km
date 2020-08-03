@@ -23,7 +23,6 @@ Installable package that allows customers to run their services under Kontain an
   * How to launch and tear down the container? We need information on how to run the container in order to take a snapshot. It may be a docker run or a docker compose. The container may require extra dependencies to run.
   * URL to health check or readiness probe. The format can follow k8s health check configuration in YAML.
   * Name of resulting image. We should not destroy the input image.
-  * TODO: @John anything else we need to take the snapshot?
 
 ### Output
 
@@ -38,7 +37,6 @@ Installable package that allows customers to run their services under Kontain an
   * The second step is to create the snapshot of the Kontainer.
 * These steps work for workloads other than Java as well in the future. Only the conversion step is Java specific.
 * Container is a better input than JAR file. There are too many things to be captured in addition to JAR, but a docker container captures almost all.
-* Do we need `jlink` or `jdep`?
 
 ## Work items and costs
 
@@ -50,7 +48,7 @@ P0:
 * Faktory implementation to convert container to kontainer. One version of Java is required.
 * Faktory implementation to produce snapshot from converted kontainer.
   * Require a design of the input and workflow.
-* Improve KM magt API (for creating snapshot file).
+* Document the API used to create the snapshot file.
 * Benchmarks. Replicate and enhance Springboot vs X. eg. https://medium.com/better-programming/which-java-microservice-framework-should-you-choose-in-2020-4e306a478e58
 * pre-take and post-recover hooks (in Java).
   * P0 for design / API , implementation delayed until customer feedback
