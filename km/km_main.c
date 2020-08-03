@@ -292,12 +292,27 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
    payload_file = line_buf + SHEBANG_LEN;
    *c = 0;   // null terminate the payload file name
    km_tracex("Payload file from shebang: %s", payload_file);
+   return km_traverse_payload_symlinks(payload_file);
+}
 
-   char* plf = km_traverse_payload_symlinks(payload_file);
-   if (plf == NULL) {
-      km_info(KM_TRACE_ARGS, "realpath for %s failed: ", payload_file);
+/*
+ * Change our argv strings to look like payload rather than km.
+ * This makes tools like ps show payload, and helps monitoring tools to discover payloads.
+ */
+static void km_mimic_argv(int argc, char** argv, int pl_index)
+{
+   if (pl_index > 0) {
+      char* end = argv[argc - 1] + strlen(argv[argc - 1]) + 1;
+      int size = end - argv[pl_index];
+      int shift = argv[pl_index] - argv[0];
+      assert(shift + size == end - argv[0]);
+
+      memmove(argv[0], argv[pl_index], size);
+      memset(argv[0] + size, 0, shift);
+      for (int i = 0; i < argc - pl_index; i++) {
+         argv[i] = argv[i + pl_index] - shift;
+      }
    }
-   return plf;
 }
 
 // parses args, returns payload_name based on argv[], symlink, or shebang.
@@ -386,7 +401,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
                   err(1, "Failed to alloc memory for putenv %s", optarg);
                }
-               envp[envc - 2] = optarg;
+               envp[envc - 2] = strdup(optarg);
                envp[envc - 1] = NULL;
                break;
             case 'E':   // --copyenv
@@ -476,8 +491,9 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    // Configure payload's env and args
    *envp_p = envp;
    *envc_p = envc;
+   km_mimic_argv(argc, argv, pl_index);
    *argc_p = argc - pl_index;
-   *argv_p = argv + pl_index;
+   *argv_p = argv;
 
    /*
     * If we were called by shebang/symlink, shebang was processed by the system and symlink at the
@@ -490,7 +506,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
          usage();
       }
       char* extra_arg = NULL;   // shebang arg (if any) will be placed here, strdup-ed
-      if (resume_snapshot == 0 && (pl_name = km_parse_shebang(argv[pl_index], &extra_arg)) != NULL) {
+      if (resume_snapshot == 0 && (pl_name = km_parse_shebang(argv[0], &extra_arg)) != NULL) {
          int idx = 0;
          (*argc_p)++;   // room for shebang file name
          if (extra_arg != NULL) {
@@ -502,9 +518,9 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             *argv_p = calloc(*argc_p, sizeof(char*));
             (*argv_p)[idx++] = pl_name;
          }
-         (*argv_p)[idx++] = argv[pl_index];   // shebang file
+         (*argv_p)[idx++] = argv[0];   // shebang file
 
-         memcpy(*argv_p + idx, argv + pl_index + 1, sizeof(char*) * (*argc_p - idx));   // payload args
+         memcpy(*argv_p + idx, argv + 1, sizeof(char*) * (*argc_p - idx));   // payload args
       } else {
          /*
           * We didn't find .km file either through symlink or shebang. This could be legitimate .km
@@ -512,8 +528,8 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
           * since we now have symlinks to km executable lying around check we are not trying to load
           * ourselves as payload.
           */
-         if (km_check_for_km(argv[pl_index]) == 0) {
-            pl_name = strdup(argv[pl_index]);
+         if (km_check_for_km(argv[0]) == 0) {
+            pl_name = strdup(argv[0]);
          }
       }
    }
@@ -569,6 +585,9 @@ int main(int argc, char* argv[])
          }
       }
       if (envp != __environ) {   // if there was no --putenv, we do not need envp array
+         for (int i = 0; i < envc; i++) {
+            free(envp[i]);
+         }
          free(envp);
       }
    }

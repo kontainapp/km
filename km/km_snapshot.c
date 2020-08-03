@@ -38,7 +38,7 @@ static char* snapshot_path = "./kmsnap";
 void km_set_snapshot_path(char* path)
 {
    km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot path to %s", path);
-   snapshot_path = path;
+   snapshot_path = strdup(path);
 }
 
 char* km_get_snapshot_path()
