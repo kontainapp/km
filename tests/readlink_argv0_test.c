@@ -44,9 +44,9 @@ char* argv0;
 TEST test_readlink_argv0()
 {
    char slink[128];
-   ASSERT_NOT_EQm("Need to be called via symlink to make sense",
-                  -1,
-                  readlink(argv0, slink, sizeof(slink)));
+   int rc = readlink(argv0, slink, sizeof(slink));
+   ASSERT_NOT_EQm("Need to be called via symlink to make sense", -1, rc);
+   slink[rc] = '\0';
    printf("slink=%s\n", slink);
    PASS();
 }
