@@ -587,7 +587,7 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
       char tmp[PATH_MAX + 1];
       if (realpath(pathname, tmp) != NULL && strcmp(tmp, km_my_exec) == 0) {
          strncpy(buf, km_guest.km_filename, bufsz);
-         if ((ret = strlen(tmp)) > bufsz) {
+         if ((ret = strlen(km_guest.km_filename)) > bufsz) {
             ret = bufsz;
          }
       } else {
@@ -1821,6 +1821,8 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
 
    int fd = open(name, nt_file->flags, 0);
    if (fd < 0) {
+      km_err_msg(errno, "cannon open %s", name);
+      return -1;
    }
    if (fd != nt_file->fd) {
       if (nt_file->fd != dup2(fd, nt_file->fd)) {
