@@ -1821,6 +1821,8 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
 
    int fd = open(name, nt_file->flags, 0);
    if (fd < 0) {
+      km_err_msg(errno, "cannon open %s", name);
+      return -1;
    }
    if (fd != nt_file->fd) {
       if (nt_file->fd != dup2(fd, nt_file->fd)) {
