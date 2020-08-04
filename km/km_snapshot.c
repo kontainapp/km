@@ -27,10 +27,10 @@
 #include "km_coredump.h"
 #include "km_elf.h"
 #include "km_filesys.h"
+#include "km_guest.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
-#include "km_guest.h"
 
 // TODO: Need to figure out where the snapshot default should go.
 static char* snapshot_path = "./kmsnap";
@@ -38,7 +38,9 @@ static char* snapshot_path = "./kmsnap";
 void km_set_snapshot_path(char* path)
 {
    km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot path to %s", path);
-   snapshot_path = strdup(path);
+   if ((snapshot_path = strdup(path)) == NULL) {
+      err(1, "Failed to alloc memory for snapshot path");
+   }
 }
 
 char* km_get_snapshot_path()

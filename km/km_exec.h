@@ -21,7 +21,6 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp);
 int km_exec_recover_kmstate(void);
 int km_exec_recover_guestfd(void);
 void km_exec_init_args(int argc, char** argv);
-int km_exec_cmdline(char* buf, size_t bufsz);
 void km_exec_fini(void);
 int km_called_via_exec(void);
 pid_t km_exec_pid(void);

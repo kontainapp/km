@@ -27,8 +27,8 @@
 #include "km.h"
 #include "km_coredump.h"
 #include "km_filesys.h"
-#include "km_mem.h"
 #include "km_guest.h"
+#include "km_mem.h"
 #include "km_signal.h"
 
 // TODO: Need to figure out where the corefile and snapshotdefault should go.
@@ -37,7 +37,9 @@ static char* coredump_path = "./kmcore";
 void km_set_coredump_path(char* path)
 {
    km_infox(KM_TRACE_COREDUMP, "Setting coredump path to %s", path);
-   coredump_path = strdup(path);
+   if ((coredump_path = strdup(path)) == NULL) {
+      err(1, "Failed to alloc memory for coredump path");
+   }
 }
 
 char* km_get_coredump_path()

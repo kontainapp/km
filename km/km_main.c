@@ -298,8 +298,15 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
 /*
  * Change our argv strings to look like payload rather than km.
  * This makes tools like ps show payload, and helps monitoring tools to discover payloads.
+ *
+ * argv array points to optarg strings. Optarg strings are stored as back to back null terminated
+ * strings. /proc/self/cmdline shows the content of that area, tools like ps do the same, likely
+ * just reading /prco/pid/cmdline.
+ * km args are organized so that km specific args go first, followed by guest args. This function
+ * will shift (memmove) guest optargs to the beginning of the optargs area, memzero the tail, and
+ * readjust argv pointers accordingly.
  */
-static void km_mimic_argv(int argc, char** argv, int pl_index)
+static void km_mimic_payload_argv(int argc, char** argv, int pl_index)
 {
    if (pl_index > 0) {
       char* end = argv[argc - 1] + strlen(argv[argc - 1]) + 1;
@@ -401,7 +408,9 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
                   err(1, "Failed to alloc memory for putenv %s", optarg);
                }
-               envp[envc - 2] = strdup(optarg);
+               if ((envp[envc - 2] = strdup(optarg)) == NULL) {
+                  err(1, "Failed to alloc memory for putenv %s value", optarg);
+               }
                envp[envc - 1] = NULL;
                break;
             case 'E':   // --copyenv
@@ -491,7 +500,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    // Configure payload's env and args
    *envp_p = envp;
    *envc_p = envc;
-   km_mimic_argv(argc, argv, pl_index);
+   km_mimic_payload_argv(argc, argv, pl_index);
    *argc_p = argc - pl_index;
    *argv_p = argv;
 
