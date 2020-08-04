@@ -1898,18 +1898,10 @@ static int proc_sched_read(int fd, char* buf, size_t buf_sz)
    return ret;
 }
 
-// called on the read of /proc/self/cmdline
-static int proc_cmdline_read(int fd, char* buf, size_t buf_sz)
+// called on the open of /proc/pid/cmdline
+static int proc_cmdline_open(const char* name, char* buf, size_t bufsz)
 {
-   char tmp[4096];
-   if (read(fd, tmp, sizeof(tmp)) == 0) {
-      return 0;   // second read, to make sure we are at end of file
-   }
-   // read till eof so on the second call we know we need to return 0 bytes
-   while (read(fd, tmp, sizeof(tmp)) != 0) {
-      ;
-   }
-   return km_exec_cmdline(buf, buf_sz);
+   return snprintf(buf, bufsz, "%s%s", PROC_SELF, name + proc_pid_length);
 }
 
 static int proc_self_getdents(int fd, /* struct linux_dirent64* */ void* buf, size_t buf_sz)
@@ -1965,10 +1957,6 @@ static km_filename_table_t km_filename_table[] = {
         .ops = {.read_g2h = proc_sched_read},
     },
     {
-        .pattern = "^/proc/self/cmdline$",
-        .ops = {.read_g2h = proc_cmdline_read},
-    },
-    {
         .pattern = "^/proc/%u/fd/[[:digit:]]+$",
         .ops = {.open_g2h = proc_self_fd_name, .readlink_g2h = proc_self_fd_name},
     },
@@ -1986,7 +1974,7 @@ static km_filename_table_t km_filename_table[] = {
     },
     {
         .pattern = "^/proc/%u/cmdline$",
-        .ops = {.read_g2h = proc_cmdline_read},
+        .ops = {.open_g2h = proc_cmdline_open},
     },
     {},
 };

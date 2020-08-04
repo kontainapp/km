@@ -39,6 +39,9 @@
 
 #include "greatest/greatest.h"
 
+int ac;
+char** av;
+
 TEST test_close()
 {
    int rc = close(-1);
@@ -569,8 +572,16 @@ TEST test_proc_sched()
 
 TEST test_proc_cmdline()
 {
-   char procname[128], buf_self[4096], buf_pid[4096];
+   char procname[128], buf_self[4096], buf_pid[4096], buf[4096];
    snprintf(procname, sizeof(procname), "/proc/%d/cmdline", getpid());
+
+   char* cp = buf;
+   int sz = sizeof(buf);
+   for (int i = 0; i < ac; i++) {
+      int cnt = snprintf(cp, sz, "%s", av[i]) + 1;
+      cp += cnt;
+      sz -= cnt;
+   }
 
    int self_fd = open("/proc/self/cmdline", O_RDONLY);
    ASSERT_NOT_EQ(-1, self_fd);
@@ -584,6 +595,7 @@ TEST test_proc_cmdline()
    ASSERT_NOT_EQ(-1, pid_rc);
    ASSERT_EQ(self_rc, pid_rc);
    ASSERT_EQ(0, memcmp(buf_pid, buf_self, self_rc));
+   ASSERT_EQ(0, memcmp(buf, buf_self, self_rc));
 
    close(self_fd);
    close(pid_fd);
@@ -608,6 +620,9 @@ GREATEST_MAIN_DEFS();
 int main(int argc, char** argv)
 {
    GREATEST_MAIN_BEGIN();
+
+   ac = argc;
+   av = argv;
 
    greatest_set_verbosity(1);   // needed if we want to pass through | greatest/contrib/greenest,
                                 // especially from KM payload
