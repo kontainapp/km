@@ -17,10 +17,10 @@
 # * dynlinker and rpath are hardcoded in ELF (Interpreter section, and NEEDED libs)
 #    to point to --prefix (/opt/kontain/ by default)
 # * Some link flags, text segment start and '-no-pie' or '-pie' are forced in some cases (see code below)
-# * A few extra warnings fr flags redundancy/overlaps
+# * A few extra warnings added about flags redundancy/overlaps
 #
 # TODO:
-# * need to add checks/warnings for conflicts around -pie/-nopie and other options we enforces
+# * need to add checks/warnings for conflicts around -pie/-nopie and other options we enforce
 
 [ "$TRACE" ] && set -x
 
@@ -44,7 +44,7 @@ TOP=$(realpath $dir/..)
 PREFIX=/opt/kontain
 
 # Note: the /opt/kontain/runtime/libc.so is hardcoded in GDB support, so when using
-# from other locations some shared lib GDB files location may break
+# some shared lib from other locations GDB files location may break
 KM_LDSO=${PREFIX}/runtime/libc.so
 
 # defaults
@@ -75,7 +75,7 @@ do
       -kv)
          verbose=1
          ;;
-      # TODO: use this to check some args for sanity
+      # TODO: use this to check args for sanity
       -no-pie)
          no_pie_requested=1
          cargs="$cargs \"$arg\""
