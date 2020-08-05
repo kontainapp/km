@@ -10,7 +10,6 @@
  * permission of Kontain Inc.
  */
 
-#include <err.h>
 #include <getopt.h>
 #include <pthread.h>
 #include <signal.h>

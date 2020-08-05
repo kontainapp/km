@@ -13,7 +13,6 @@
  */
 
 #define _GNU_SOURCE
-#include <err.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stddef.h>
@@ -48,7 +47,7 @@ void km_install_sighandler(int signum, sa_action_t func)
 
    sigemptyset(&sa.sa_mask);
    if (sigaction(signum, &sa, NULL) < 0) {
-      err(1, "Failed to set handler for signal %d", signum);
+      km_err(1, "Failed to set handler for signal %d", signum);
    }
 }
 
@@ -191,7 +190,7 @@ static inline void enqueue_signal(km_signal_list_t* slist, siginfo_t* info)
    km_signal_lock();
    if ((sig = TAILQ_FIRST(&machine.sigfree.head)) == NULL) {
       km_signal_unlock();
-      err(1, "No free signal entries");
+      km_err(1, "No free signal entries");
    }
    TAILQ_REMOVE(&machine.sigfree.head, sig, link);
    sig->info = *info;
@@ -541,10 +540,10 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
          }
          core_dumped = 1;
       }
-      km_err_msgx(info->si_signo,
-                  "guest: Terminated by signal: %s %s",
-                  strsignal(info->si_signo),
-                  (core_dumped) ? "(core dumped)" : "");
+      km_errx(info->si_signo,
+              "guest: Terminated by signal: %s %s",
+              strsignal(info->si_signo),
+              (core_dumped) ? "(core dumped)" : "");
    }
 
    assert(act->handler != (km_gva_t)SIG_IGN);
@@ -797,7 +796,7 @@ int km_sig_snapshot_recover(char* buf, size_t length)
 {
    km_nt_sighand_t* nt_sa = (km_nt_sighand_t*)buf;
    if (nt_sa->size != sizeof(km_nt_sighand_t)) {
-      km_warn_msgx("km_nt_sighand_t size mismatch - old snapshot?");
+      km_warnx("km_nt_sighand_t size mismatch - old snapshot?");
       return -1;
    }
    km_infox(KM_TRACE_SNAPSHOT, "signal %d handler=0x%lx", nt_sa->signo, nt_sa->handler);

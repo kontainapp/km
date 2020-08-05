@@ -45,7 +45,14 @@
 #include "km_syscall.h"
 
 static const int MAX_OPEN_FILES = 1024;
-static const int MAX_KM_FILES = KVM_MAX_VCPUS + 2 + 2 + 2 + 2;   // eventfds, kvm, gdb, snap
+static const int MAX_KM_FILES = KVM_MAX_VCPUS + 2 + 2 + 2 + 2 + 1;   // eventfds, kvm, gdb, snap, log
+
+static const int KM_GDB_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES;
+static const int KM_GDB_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 1;
+static const int KM_MGM_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES + 2;
+static const int KM_MGM_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 3;
+static const int KM_LOGGING = MAX_OPEN_FILES - MAX_KM_FILES + 5;
+static const int KM_START_FDS = MAX_OPEN_FILES - MAX_KM_FILES + 6;
 
 static char proc_pid_fd[128];
 static char proc_pid_exe[128];
@@ -144,7 +151,7 @@ int km_add_guest_fd_internal(km_vcpu_t* vcpu, int host_fd, char* name, int flags
                                    0,
                                    __ATOMIC_SEQ_CST,
                                    __ATOMIC_SEQ_CST) == 0) {
-      km_err_msgx(0, "file slot %d is taken unexpectedly", host_fd);
+      km_errx(0, "file slot %d is taken unexpectedly", host_fd);
    }
    km_file_t* file = &km_fs()->guest_files[host_fd];
    file->ops = ops;
@@ -296,7 +303,7 @@ uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mod
          return -EBADF;
       }
       if (ops != NULL && ops->getdents_g2h != NULL) {
-         km_warn_msgx("bad dirfd in openat");
+         km_warnx("bad dirfd in openat");
          return -EINVAL;   // no openat with base in /proc and such
       }
    }
@@ -345,7 +352,7 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    if (fd > 2) {
       ret = __syscall_1(SYS_close, fd);
       if (ret != 0) {
-         km_warn_msg(" error return from close of guest fd %d", fd);
+         km_warn(" error return from close of guest fd %d", fd);
       }
    }
    return ret;
@@ -376,7 +383,7 @@ uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, void* buf, size_t count, 
    int ret;
    if (ops != NULL && ops->read_g2h != NULL && (scall == SYS_read || scall == SYS_pread64)) {
       if (scall == SYS_pread64 && offset != 0) {
-         km_warn_msgx("unsupported %s", km_hc_name_get(scall));
+         km_warnx("unsupported %s", km_hc_name_get(scall));
          return -EINVAL;
       }
       ret = ops->read_g2h(host_fd, buf, count);
@@ -399,7 +406,7 @@ km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, si
       return -EBADF;
    }
    if (ops != NULL && ops->read_g2h != NULL && (scall == SYS_readv || scall == SYS_preadv)) {
-      km_warn_msgx("unsupported %s", km_hc_name_get(scall));
+      km_warnx("unsupported %s", km_hc_name_get(scall));
       return -EINVAL;
    }
    // ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
@@ -473,7 +480,7 @@ uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence)
        * /proc/(self|getpid())/sched. It's hard to keep track of file pointer, and nobody does lseek
        * other than rewind/lseek(0)
        */
-      km_warn_msgx("unsupported lseek on %s", km_guestfd_name(vcpu, fd));
+      km_warnx("unsupported lseek on %s", km_guestfd_name(vcpu, fd));
       return -EINVAL;
    }
    int ret = __syscall_3(SYS_lseek, host_fd, offset, whence);
@@ -503,12 +510,12 @@ uint64_t km_fs_symlink(km_vcpu_t* vcpu, char* target, char* linkpath)
 {
    int ret = km_fs_g2h_filename(linkpath, NULL, 0, NULL);
    if (ret != 0) {
-      km_warn_msgx("bad linkpath %s in symlink", linkpath);
+      km_warnx("bad linkpath %s in symlink", linkpath);
       return -EINVAL;
    }
    ret = km_fs_g2h_filename(target, NULL, 0, NULL);
    if (ret != 0) {
-      km_warn_msgx("bad target %s in symlink", target);
+      km_warnx("bad target %s in symlink", target);
       return -EINVAL;
    }
    ret = __syscall_2(SYS_symlink, (uintptr_t)target, (uintptr_t)linkpath);
@@ -520,12 +527,12 @@ uint64_t km_fs_link(km_vcpu_t* vcpu, char* old, char* new)
 {
    int ret = km_fs_g2h_filename(old, NULL, 0, NULL);
    if (ret != 0) {
-      km_warn_msgx("bad oldpath %s in rename", old);
+      km_warnx("bad oldpath %s in rename", old);
       return -EINVAL;
    }
    ret = km_fs_g2h_filename(new, NULL, 0, NULL);
    if (ret != 0) {
-      km_warn_msgx("bad new %s in rename", new);
+      km_warnx("bad new %s in rename", new);
       return -EINVAL;
    }
    ret = __syscall_2(SYS_link, (uintptr_t)old, (uintptr_t) new);
@@ -615,7 +622,7 @@ uint64_t km_fs_readlinkat(km_vcpu_t* vcpu, int dirfd, char* pathname, char* buf,
             return -EBADF;
          }
          if (ops != NULL) {
-            km_warn_msgx("bad dirfd in readlinkat");
+            km_warnx("bad dirfd in readlinkat");
             return -EINVAL;   // no redlinkat with base in /proc and such
          }
       }
@@ -641,7 +648,7 @@ uint64_t km_fs_chdir(km_vcpu_t* vcpu, char* pathname)
 {
    int ret = km_fs_g2h_filename(pathname, NULL, 0, NULL);
    if (ret != 0) {
-      km_warn_msgx("bad pathname %s in chdir", pathname);
+      km_warnx("bad pathname %s in chdir", pathname);
       return -EINVAL;
    }
    ret = __syscall_1(SYS_chdir, (uintptr_t)pathname);
@@ -658,7 +665,7 @@ uint64_t km_fs_fchdir(km_vcpu_t* vcpu, int fd)
       return -EBADF;
    }
    if (ops != NULL) {
-      km_warn_msgx("bad fd in fchdir");
+      km_warnx("bad fd in fchdir");
       return -EINVAL;   // no fchdir with base in /proc and such
    }
    int ret = __syscall_1(SYS_fchdir, host_fd);
@@ -897,7 +904,7 @@ km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int 
          return -EBADF;
       }
       if (ops != NULL && ops->readlink_g2h != NULL) {
-         km_warn_msgx("bad dirfd in statx");
+         km_warnx("bad dirfd in statx");
          return -EINVAL;   // no statx with base in /proc and such
       }
    }
@@ -1125,7 +1132,7 @@ uint64_t km_fs_sendfile(km_vcpu_t* vcpu, int out_fd, int in_fd, off_t* offset, s
       return -EBADF;
    }
    if (ops != NULL && ops->read_g2h != NULL) {
-      km_warn_msgx("bad fd in sendfile");
+      km_warnx("bad fd in sendfile");
       return -EINVAL;
    }
    int ret = __syscall_4(SYS_sendfile, host_outfd, host_infd, (uintptr_t)offset, count);
@@ -1146,7 +1153,7 @@ uint64_t km_fs_copy_file_range(
       return -EBADF;
    }
    if (ops != NULL && ops->read_g2h != NULL) {
-      km_warn_msgx("bad fd in copyfilerange");
+      km_warnx("bad fd in copyfilerange");
       return -EINVAL;
    }
    int ret = __syscall_6(SYS_copy_file_range,
@@ -1625,7 +1632,7 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
    } else if (file->sockinfo->state == KM_SOCK_STATE_LISTEN) {
       fnote->state = KM_NT_SKSTATE_LISTEN;
    } else if (file->sockinfo->state != KM_SOCK_STATE_OPEN) {
-      km_warn_msgx("Socket state not OPEN fd=%d state=%d", fd, file->sockinfo->state);
+      km_warnx("Socket state not OPEN fd=%d state=%d", fd, file->sockinfo->state);
    }
    fnote->backlog = file->sockinfo->backlog;
    cur += roundup(file->sockinfo->addrlen, 4);
@@ -1724,7 +1731,7 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name)
    int hostfd[2];
    int syscall_flags = nt_file->flags & ~O_WRONLY;
    if (pipe2(hostfd, syscall_flags) < 0) {
-      km_warn_msg("pip recover failure");
+      km_warn("pip recover failure");
       return -1;
    }
    /*
@@ -1753,7 +1760,7 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
 
    int host_fd = socket(nt_sock->domain, nt_sock->type, nt_sock->protocol);
    if (host_fd < 0) {
-      km_warn_msg("socket recover");
+      km_warn("socket recover");
       return -1;
    }
    km_fs_recover_fd(nt_sock->fd, host_fd, 0, "socket", -1, nt_sock->how);
@@ -1778,7 +1785,7 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
 {
    km_nt_file_t* nt_file = (km_nt_file_t*)ptr;
    if (nt_file->size != sizeof(km_nt_file_t)) {
-      km_warn_msgx("nt_km_file_t size mismatch - old snapshot?");
+      km_warnx("nt_km_file_t size mismatch - old snapshot?");
       return -1;
    }
    char* name = ptr + sizeof(km_nt_file_t);
@@ -1802,30 +1809,30 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
    }
 
    if (nt_file->fd < 0 || nt_file->fd >= km_fs()->nfdmap) {
-      km_warn_msgx("bad file descriptor=%d", nt_file->fd);
+      km_warnx("bad file descriptor=%d", nt_file->fd);
       return -1;
    }
 
    if ((nt_file->mode & __S_IFMT) == __S_IFSOCK) {
-      km_warn_msgx("TODO: recover __S_ISOCK data=0x%lx", nt_file->data);
+      km_warnx("TODO: recover __S_ISOCK data=0x%lx", nt_file->data);
       return -1;
    }
    if ((nt_file->mode & __S_IFMT) == __S_IFIFO) {
       return km_fs_recover_pipe(nt_file, name);
    }
    if ((nt_file->mode & __S_IFMT) == 0) {
-      km_warn_msgx("TODO: recover epollfd");
+      km_warnx("TODO: recover epollfd");
       return 0;
    }
 
    int fd = open(name, nt_file->flags, 0);
    if (fd < 0) {
-      km_warn_msg("cannon open %s", name);
+      km_warn("cannon open %s", name);
       return -1;
    }
    if (fd != nt_file->fd) {
       if (nt_file->fd != dup2(fd, nt_file->fd)) {
-         km_warn_msg("can not dup2 %s to %d got=%d", name, nt_file->fd, fd);
+         km_warn("can not dup2 %s to %d got=%d", name, nt_file->fd, fd);
          pause();
          return -1;
       }
@@ -1835,11 +1842,11 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
 
    struct stat st;
    if (fstat(fd, &st) < 0) {
-      km_warn_msg("cannon fstat %s", name);
+      km_warn("cannon fstat %s", name);
       return -1;
    }
    if (st.st_mode != nt_file->mode) {
-      km_warn_msgx("file mode mistmatch expect %o got %o %s", nt_file->mode, st.st_mode, name);
+      km_warnx("file mode mistmatch expect %o got %o %s", nt_file->mode, st.st_mode, name);
       return -1;
    }
 
@@ -1851,7 +1858,7 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
    km_fs_recover_fd(nt_file->fd, fd, nt_file->flags, name, nt_file->data, nt_file->how);
    if ((nt_file->mode & __S_IFMT) == __S_IFREG && nt_file->data != 0) {
       if (lseek(fd, nt_file->data, SEEK_SET) != nt_file->data) {
-         km_warn_msg("lseek failed");
+         km_warn("lseek failed");
          return -1;
       }
    }
@@ -2074,16 +2081,16 @@ static void km_fs_filename_init(void)
          char pat[128];
          snprintf(pat, sizeof(pat), t->pattern, machine.pid);
          if (regcomp(&t->regex, pat, REG_EXTENDED | REG_NOSUB) != 0) {
-            err(1, "filename regcomp failed, exiting...");
+            km_err(1, "filename regcomp failed, exiting...");
          }
       } else {
          if (regcomp(&t->regex, t->pattern, REG_EXTENDED | REG_NOSUB) != 0) {
-            err(1, "filename regcomp failed, exiting...");
+            km_err(1, "filename regcomp failed, exiting...");
          }
       }
    }
    if ((km_my_exec = realpath(PROC_SELF_EXE, NULL)) == NULL) {
-      err(1, "realpath /proc/self/exe failed");
+      km_err(1, "realpath /proc/self/exe failed");
    }
 }
 
@@ -2112,9 +2119,10 @@ int km_fs_init(void)
    assert(km_fs()->guest_files != NULL);
 
    if (km_exec_recover_guestfd() != 0) {
-      // setup guest std file streams.
+      // parent invocation - setup guest std file streams.
       for (int i = 0; i < 3; i++) {
          km_file_t* file = &km_fs()->guest_files[i];
+         assert(file->inuse != 1);
          file->inuse = 1;
          file->ofd = -1;
          switch (i) {
@@ -2163,15 +2171,21 @@ void km_fs_fini(void)
  * === KM internal fd management.
  */
 
-static int internal_fd = MAX_OPEN_FILES - MAX_KM_FILES;
+static int internal_fd = KM_START_FDS;
 
 // dup internal fd to km private area
-static int km_internal_fd(int fd)
+static int km_internal_fd(int fd, int km_fd)
 {
    if (fd < 0) {
       return fd;
    }
-   int newfd = dup2(fd, internal_fd++);
+   int newfd;
+   if (km_fd == -1) {
+      newfd = dup2(fd, internal_fd++);
+      assert(newfd >= 0 && newfd < MAX_OPEN_FILES);
+   } else {
+      newfd = dup2(fd, km_fd);
+   }
    if (newfd >= MAX_OPEN_FILES - MAX_KM_FILES) {
       close(fd);
    }
@@ -2181,13 +2195,13 @@ static int km_internal_fd(int fd)
 int km_internal_open(const char* name, int flag)
 {
    int fd = open(name, flag);
-   return km_internal_fd(fd);
+   return km_internal_fd(fd, -1);
 }
 
 int km_internal_eventfd(unsigned int initval, int flags)
 {
    int fd = eventfd(initval, flags);
-   return km_internal_fd(fd);
+   return km_internal_fd(fd, -1);
 }
 
 int km_internal_fd_ioctl(int fd, unsigned long request, ...)
@@ -2199,18 +2213,87 @@ int km_internal_fd_ioctl(int fd, unsigned long request, ...)
    va_end(ap);
 
    int retfd = ioctl(fd, request, arg);
-   return km_internal_fd(retfd);
-}
-int km_internal_socket(int domain, int type, int protocol)
-{
-   int fd = socket(domain, type, protocol);
-   return km_internal_fd(fd);
+   return km_internal_fd(retfd, -1);
 }
 
-int km_internal_accept(int fd, struct sockaddr* addr, socklen_t* addrlen)
+int km_gdb_listen(int domain, int type, int protocol)
+{
+   int fd = socket(domain, type, protocol);
+   return km_internal_fd(fd, KM_GDB_LISTEN);
+}
+
+int km_gdb_accept(int fd, struct sockaddr* addr, socklen_t* addrlen)
 {
    int newfd = accept(fd, addr, addrlen);
-   return km_internal_fd(newfd);
+   return km_internal_fd(newfd, KM_GDB_ACCEPT);
+}
+
+int km_mgt_listen(int domain, int type, int protocol)
+{
+   int fd = socket(domain, type, protocol);
+   return km_internal_fd(fd, KM_MGM_LISTEN);
+}
+
+int km_mgt_accept(int fd, struct sockaddr* addr, socklen_t* addrlen)
+{
+   int newfd = accept(fd, addr, addrlen);
+   return km_internal_fd(newfd, KM_MGM_ACCEPT);
+}
+
+/*
+ * Use the dup of fd 2 or a new one to open km_log_file in km dedicated fd area,
+ * to be used for km logging
+ */
+void km_redirect_msgs(const char* name)
+{
+   int fd, fd1;
+   if (name != NULL) {
+      fd1 = open(name, O_WRONLY);
+      fd = dup2(fd1, KM_LOGGING);
+      close(fd1);
+   } else {
+      fd = dup2(2, KM_LOGGING);
+   }
+   assert(fd == KM_LOGGING);
+
+   if ((km_log_file = fdopen(fd, "w")) == NULL) {
+      km_err(1, "Failed to redirect km log");
+   }
+   setlinebuf(km_log_file);
+}
+
+/*
+ * Close stdin, stdout, and stderr FILE* but keep the file descriptors open for guest use. Guest has
+ * its own stdio FILE* inside.
+ */
+void km_close_stdio(int log_to_fd)
+{
+   int fdin = dup(0);
+   fclose(stdin);
+   stdin = NULL;
+   dup2(fdin, 0);
+   close(fdin);
+
+   int fdout, fderr;
+   if (log_to_fd == -1) {
+      fdout = dup(1);
+      fderr = dup(2);
+   } else {
+      fdout = log_to_fd;
+      fderr = log_to_fd;
+   }
+   fclose(stdout);
+   fclose(stderr);
+   stdout = NULL;
+   stderr = NULL;
+   dup2(fdout, 1);
+   dup2(fderr, 2);
+   if (log_to_fd == -1) {
+      close(fdout);
+      close(fderr);
+   } else {
+      close(log_to_fd);
+   }
 }
 
 /*
@@ -2233,7 +2316,7 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
 
    int host_sv[2];
    if (socketpair(nt_sock->domain, nt_sock->type, nt_sock->protocol, host_sv) < 0) {
-      km_warn_msg("socketpair recovery failue");
+      km_warn("socketpair recovery failue");
       return -1;
    }
    if (nt_sock->how == KM_FILE_HOW_SOCKETPAIR0) {
@@ -2263,7 +2346,7 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
 {
    km_nt_socket_t* nt_sock = (km_nt_socket_t*)ptr;
    if (nt_sock->size != sizeof(km_nt_socket_t)) {
-      km_warn_msgx("nt_km_socket_t size mismatch - old snapshot?");
+      km_warnx("nt_km_socket_t size mismatch - old snapshot?");
       return -1;
    }
    if (nt_sock->how == KM_FILE_HOW_SOCKETPAIR0 || nt_sock->how == KM_FILE_HOW_SOCKETPAIR1) {
@@ -2289,12 +2372,12 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
    if (nt_sock->state == KM_SOCK_STATE_BIND || nt_sock->state == KM_SOCK_STATE_LISTEN) {
       int hostfd = km_fs_g2h_fd(nt_sock->fd, NULL);
       if (bind(hostfd, sa, nt_sock->addrlen) < 0) {
-         km_warn_msg("recover bind failed");
+         km_warn("recover bind failed");
          return -1;
       }
       if (nt_sock->state == KM_SOCK_STATE_LISTEN) {
          if (listen(hostfd, nt_sock->backlog) < 0) {
-            km_warn_msg("recover listen failed");
+            km_warn("recover listen failed");
             return -1;
          }
       }
@@ -2311,7 +2394,7 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
 
    km_infox(KM_TRACE_SNAPSHOT, "EVENTFD fd=%d", nt_eventfd->fd);
    if (nt_eventfd->size != sizeof(km_nt_eventfd_t)) {
-      km_warn_msgx("nt_km_eventfd_t size mismatch - old snapshot?");
+      km_warnx("nt_km_eventfd_t size mismatch - old snapshot?");
       return -1;
    }
 
@@ -2320,7 +2403,7 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
 
    int hostfd = epoll_create1(nt_eventfd->flags);
    if (hostfd < 0) {
-      km_warn_msg("epoll_create failed");
+      km_warn("epoll_create failed");
       return -1;
    }
    km_fs_recover_fd(nt_eventfd->fd, hostfd, 0, "eventfd", -1, KM_FILE_HOW_EVENTFD);
@@ -2328,12 +2411,12 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
       km_nt_event_t* nt_event = (km_nt_event_t*)cur;
       int host_efd = km_fs_g2h_fd(nt_event->fd, NULL);
       if (host_efd < 0) {
-         km_warn_msgx("monitored fd=%d does not exist", nt_event->fd);
+         km_warnx("monitored fd=%d does not exist", nt_event->fd);
          return -1;
       }
       struct epoll_event ev = {.events = nt_event->event, .data.u64 = nt_event->data};
       if (epoll_ctl(hostfd, EPOLL_CTL_ADD, host_efd, &ev) < 0) {
-         km_warn_msg("epoll_ctl for fd=%d failed", nt_event->fd);
+         km_warn("epoll_ctl for fd=%d failed", nt_event->fd);
          return -1;
       }
 
@@ -2351,13 +2434,13 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
 int km_fs_recover(char* notebuf, size_t notesize)
 {
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_FILE, km_fs_recover_open_file) < 0) {
-      km_err_msgx(2, "recover open files failed");
+      km_errx(2, "recover open files failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_SOCKET, km_fs_recover_open_socket) < 0) {
-      km_err_msgx(2, "recover open files failed");
+      km_errx(2, "recover open files failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_EVENTFD, km_fs_recover_eventfd) < 0) {
-      km_err_msgx(2, "recover open files failed");
+      km_errx(2, "recover open files failed");
    }
    return 0;
 }

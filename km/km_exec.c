@@ -720,7 +720,7 @@ int km_exec_recover_guestfd(void)
       ssize_t bytes;
       snprintf(linkname, sizeof(linkname), PROC_SELF_FD, execstatep->guestfd_hostfd[i].fd);
       if ((bytes = readlink(linkname, linkbuf, sizeof(linkbuf) - 1)) < 0) {
-         err(2, "Can't get filename for hostfd %d, link %s", execstatep->guestfd_hostfd[i].fd, linkname);
+         km_err(2, "Can't get filename for hostfd %d, link %s", execstatep->guestfd_hostfd[i].fd, linkname);
       }
       linkbuf[bytes] = 0;
       km_infox(KM_TRACE_EXEC,

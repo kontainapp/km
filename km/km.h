@@ -13,12 +13,12 @@
 #ifndef __KM_H__
 #define __KM_H__
 
-#include <err.h>
 #include <errno.h>
 #include <pthread.h>
 #include <regex.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
@@ -382,10 +382,13 @@ static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
    vcpu->cpu_run->immediate_exit = 0;
 }
 
+extern FILE* km_log_file;
+
 void __km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
     __attribute__((__format__(__printf__, 4, 5)));
 void km_trace_include_pid(uint8_t trace_pid);
 uint8_t km_trace_include_pid_value(void);
+void km_trace_set_noninteractive(void);
 
 char* km_get_self_name(void);
 
@@ -463,24 +466,24 @@ extern int km_collect_hc_stats;
          __km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                \
    } while (0)
 
-#define km_err_msgx(exit_status, fmt, ...)                                                         \
+#define km_errx(exit_status, fmt, ...)                                                             \
    do {                                                                                            \
       __km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                   \
       exit(exit_status);                                                                           \
    } while (0)
 
-#define km_err_msg(exit_status, fmt, ...)                                                          \
+#define km_err(exit_status, fmt, ...)                                                              \
    do {                                                                                            \
       __km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                               \
       exit(exit_status);                                                                           \
    } while (0)
 
-#define km_warn_msgx(fmt, ...)                                                                     \
+#define km_warnx(fmt, ...)                                                                         \
    do {                                                                                            \
       __km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                   \
    } while (0)
 
-#define km_warn_msg(fmt, ...)                                                                      \
+#define km_warn(fmt, ...)                                                                          \
    do {                                                                                            \
       __km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                               \
    } while (0)
@@ -489,7 +492,7 @@ extern int km_collect_hc_stats;
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_mutex_lock(mutex)) != 0) {                                                \
-         km_err_msg(ret, "pthread_mutex_lock(" #mutex ") Failed");                                 \
+         km_err(ret, "pthread_mutex_lock(" #mutex ") Failed");                                     \
       }                                                                                            \
    } while (0)
 
@@ -497,7 +500,7 @@ extern int km_collect_hc_stats;
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_mutex_unlock(mutex)) != 0) {                                              \
-         km_err_msg(ret, "pthread_mutex_unlock(" #mutex ") Failed");                               \
+         km_err(ret, "pthread_mutex_unlock(" #mutex ") Failed");                                   \
       }                                                                                            \
    } while (0)
 
@@ -505,7 +508,7 @@ extern int km_collect_hc_stats;
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_cond_broadcast(cond)) != 0) {                                             \
-         km_err_msg(ret, "pthread_cond_broadcast(" #cond ") Failed");                              \
+         km_err(ret, "pthread_cond_broadcast(" #cond ") Failed");                                  \
       }                                                                                            \
    } while (0)
 
@@ -513,7 +516,7 @@ extern int km_collect_hc_stats;
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_cond_signal(cond)) != 0) {                                                \
-         km_err_msg(ret, "pthread_cond_signal(" #cond ") Failed");                                 \
+         km_err(ret, "pthread_cond_signal(" #cond ") Failed");                                     \
       }                                                                                            \
    } while (0)
 
@@ -521,23 +524,23 @@ extern int km_collect_hc_stats;
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_cond_wait(cond, mutex)) != 0) {                                           \
-         km_err_msg(ret, "pthread_cond_wait(" #cond ", " #mutex ") Failed");                       \
+         km_err(ret, "pthread_cond_wait(" #cond ", " #mutex ") Failed");                           \
       }                                                                                            \
    } while (0)
 
-#define km_getname_np(target_thread, threadname, buflen)                                                 \
-   do {                                                                                                  \
-      int ret;                                                                                           \
-      if ((ret = pthread_getname_np(target_thread, threadname, buflen)) != 0) {                          \
-         km_err_msg(ret, "pthread_getname_np(" #target_thread ", " #threadname ", " #buflen ") Failed"); \
-      }                                                                                                  \
+#define km_getname_np(target_thread, threadname, buflen)                                             \
+   do {                                                                                              \
+      int ret;                                                                                       \
+      if ((ret = pthread_getname_np(target_thread, threadname, buflen)) != 0) {                      \
+         km_err(ret, "pthread_getname_np(" #target_thread ", " #threadname ", " #buflen ") Failed"); \
+      }                                                                                              \
    } while (0)
 
 #define km_setname_np(target_thread, name)                                                         \
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_setname_np(target_thread, name)) != 0) {                                  \
-         km_err_msg(ret, "pthread_setname_np(" #target_thread ", " #name ") Failed");              \
+         km_err(ret, "pthread_setname_np(" #target_thread ", " #name ") Failed");                  \
       }                                                                                            \
    } while (0)
 
@@ -545,7 +548,7 @@ extern int km_collect_hc_stats;
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_attr_setstacksize(attr, stacksize)) != 0) {                               \
-         km_err_msg(ret, "pthread_attr_setstacksize(" #attr ", " #stacksize ") Failed");           \
+         km_err(ret, "pthread_attr_setstacksize(" #attr ", " #stacksize ") Failed");               \
       }                                                                                            \
    } while (0)
 
@@ -553,7 +556,7 @@ extern int km_collect_hc_stats;
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_attr_init(attr)) != 0) {                                                  \
-         km_err_msg(ret, "pthread_attr_init(" #attr ") Failed");                                   \
+         km_err(ret, "pthread_attr_init(" #attr ") Failed");                                       \
       }                                                                                            \
    } while (0)
 
@@ -561,7 +564,7 @@ extern int km_collect_hc_stats;
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_attr_destroy(attr)) != 0) {                                               \
-         km_err_msg(ret, "pthread_attr_destroy(" #attr ") Failed");                                \
+         km_err(ret, "pthread_attr_destroy(" #attr ") Failed");                                    \
       }                                                                                            \
    } while (0)
 
@@ -569,7 +572,7 @@ extern int km_collect_hc_stats;
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_sigmask(how, set, oldset)) != 0) {                                        \
-         km_err_msg(ret, "pthread_sigmask(" #how ", " #set ", " #oldset ") Failed");               \
+         km_err(ret, "pthread_sigmask(" #how ", " #set ", " #oldset ") Failed");                   \
       }                                                                                            \
    } while (0)
 
@@ -577,7 +580,7 @@ extern int km_collect_hc_stats;
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_kill(threadid, signo)) != 0) {                                            \
-         km_err_msg(ret, "pthread_kill(" #threadid ", " #signo ") Failed ");                       \
+         km_err(ret, "pthread_kill(" #threadid ", " #signo ") Failed ");                           \
       }                                                                                            \
    } while (0)
 

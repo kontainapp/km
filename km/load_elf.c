@@ -10,7 +10,6 @@
  * Kontain Inc.
  */
 
-#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -34,7 +33,7 @@ static void my_mmap(int fd, void* buf, size_t count, off_t offset)
    if (count > 0) {
       if (mmap(buf, roundup(count, KM_PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
           MAP_FAILED) {
-         err(2, "error mmap elf");
+         km_err(2, "error mmap elf");
       }
    }
 }
@@ -66,7 +65,7 @@ static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
    /* Extent memory if necessary */
    if (top >= km_mem_brk(0)) {
       if (km_mem_brk(top) != top) {
-         err(2, "No memory to load elf");
+         km_err(2, "No memory to load elf");
       }
    }
 
@@ -78,7 +77,7 @@ static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
    memset(addr + p_filesz, 0, p_memsz - p_filesz);
    int pr = prot_elf_to_mmap(phdr->p_flags);
    if (mprotect(addr - extra, p_memsz + extra, protection_adjust(pr)) < 0) {
-      err(2, "failed to set guest memory protection");
+      km_err(2, "failed to set guest memory protection");
    }
 }
 
@@ -113,24 +112,24 @@ Elf* km_open_elf_file(char* filename, km_payload_t* payload, int* fd)
 {
    Elf* e;
    if ((*fd = open(filename, O_RDONLY, 0)) < 0) {
-      km_warn_msg("open %s failed", filename);
+      km_warn("open %s failed", filename);
       return NULL;
    }
    payload->km_filename = filename;
    if ((e = elf_begin(*fd, ELF_C_READ, NULL)) == NULL) {
-      km_warn_msgx("elf_begin() failed: %s", elf_errmsg(-1));
+      km_warnx("elf_begin() failed: %s", elf_errmsg(-1));
       return NULL;
    }
    if (elf_kind(e) != ELF_K_ELF) {
-      km_warn_msgx("%s is not an ELF object", payload->km_filename);
+      km_warnx("%s is not an ELF object", payload->km_filename);
       return NULL;
    }
    GElf_Ehdr* ehdr = &payload->km_ehdr;
    if (gelf_getehdr(e, ehdr) == NULL) {
-      km_err_msgx(2, "gelf_getehdr %s", elf_errmsg(-1));
+      km_errx(2, "gelf_getehdr %s", elf_errmsg(-1));
    }
    if ((payload->km_phdr = malloc(sizeof(Elf64_Phdr) * ehdr->e_phnum)) == NULL) {
-      err(2, "no memory for elf program headers");
+      km_err(2, "no memory for elf program headers");
    }
 
    payload->km_min_vaddr = -1U;
@@ -138,7 +137,7 @@ Elf* km_open_elf_file(char* filename, km_payload_t* payload, int* fd)
       GElf_Phdr* phdr = &payload->km_phdr[i];
 
       if (gelf_getphdr(e, i, phdr) == NULL) {
-         km_err_msgx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
+         km_errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
       }
       // TODO: This doesn't apply to snapshots. SHould move to load_elf().
       if (phdr->p_type == PT_LOAD && phdr->p_vaddr < payload->km_min_vaddr) {
@@ -164,12 +163,11 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    char* interp_kma = km_gva_to_kma(interp_vaddr + interp_adjust);
    char* filename = NULL;
    if (interp_kma == NULL || km_gva_to_kma(interp_vaddr + interp_adjust + interp_len - 1) == NULL) {
-      km_err_msgx(2,
-                  "%s: PT_INTERP vaddr map error: vaddr=0x%lx len=0x%lx adjust=0x%lx",
-                  __FUNCTION__,
-                  interp_vaddr,
-                  interp_len,
-                  interp_adjust);
+      km_errx(2,
+              "PT_INTERP vaddr map error: vaddr=0x%lx len=0x%lx adjust=0x%lx",
+              interp_vaddr,
+              interp_len,
+              interp_adjust);
    }
    if (strncmp(interp_kma, KM_DYNLINKER_STR, interp_len) != 0) {
       // Use the dynamic linker in the .interp section
@@ -181,13 +179,13 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
 
    struct stat st;
    if (stat(filename, &st) != 0) {
-      err(2, "KM dynamic linker %s", filename);
+      km_err(2, "KM dynamic linker %s", filename);
    }
 
    Elf* e;
    int fd;
    if ((e = km_open_elf_file(filename, &km_dynlinker, &fd)) == NULL) {
-      km_err_msgx(2, "%s km_open_elf failed: %s", __FUNCTION__, filename);
+      km_errx(2, "km_open_elf failed: %s", filename);
    }
 
    km_gva_t base = km_mem_brk(0);
@@ -222,10 +220,10 @@ uint64_t km_load_elf(char* file)
    GElf_Ehdr* ehdr = &km_guest.km_ehdr;
 
    if (elf_version(EV_CURRENT) == EV_NONE) {
-      km_err_msgx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
+      km_errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
    }
    if ((e = km_open_elf_file(file, &km_guest, &fd)) == NULL) {
-      km_err_msgx(2, "%s km_open_elf failed: %s", __FUNCTION__, file);
+      km_errx(2, "km_open_elf failed: %s", file);
    }
 
    km_gva_t adjust = 0;

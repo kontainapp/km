@@ -36,7 +36,6 @@
 
 #define _GNU_SOURCE
 #include <assert.h>
-#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -122,7 +121,7 @@ static int kvm_arch_insert_sw_breakpoint(struct breakpoint_t* bp)
    void* pageaddr;
 
    if ((insn = (uint8_t*)km_gva_to_kma(bp->addr)) == NULL) {
-      km_warn_msgx("failed to insert bp - address %lx is not in guest va space", bp->addr);
+      km_warnx("failed to insert bp - address %lx is not in guest va space", bp->addr);
       return -1;
    }
    bp->saved_insn = *insn;
@@ -131,15 +130,15 @@ static int kvm_arch_insert_sw_breakpoint(struct breakpoint_t* bp)
    // Make the page writeable if not already writeable.
    int prot;
    if ((km_get_page_protection(insn, &prot)) == -1) {
-      km_warn_msgx("Can't determine mem protection at gva 0x%lx", bp->addr);
+      km_warnx("Can't determine mem protection at gva 0x%lx", bp->addr);
       return -1;
    }
    if ((prot & PROT_EXEC) == 0) {   // Do we care if they try to put breakpoints in non-executable pages?
-      km_warn_msgx("Putting breakpoint in non-executable page at gva %lx", bp->addr);
+      km_warnx("Putting breakpoint in non-executable page at gva %lx", bp->addr);
    }
    if ((prot & PROT_WRITE) == 0) {
       if (mprotect(pageaddr, KM_PAGE_SIZE, prot | PROT_WRITE) < 0) {
-         km_warn_msgx("Can't mark page at gva 0x%lx writeable", bp->addr);
+         km_warnx("Can't mark page at gva 0x%lx writeable", bp->addr);
          return -1;
       }
    }
@@ -153,7 +152,7 @@ static int kvm_arch_insert_sw_breakpoint(struct breakpoint_t* bp)
    if ((prot & PROT_WRITE) == 0) {
       if (mprotect(pageaddr, KM_PAGE_SIZE, prot) < 0) {
          // On failure we leave the page writable for the duration of the payload.
-         km_warn_msg("Can't remove write protect from page 0x%lx, leaving it writable", bp->addr);
+         km_warn("Can't remove write protect from page 0x%lx, leaving it writable", bp->addr);
       }
    }
    return 0;
@@ -171,12 +170,12 @@ static int kvm_arch_remove_sw_breakpoint(struct breakpoint_t* bp)
 
    int prot;
    if (km_get_page_protection(insn, &prot) == -1) {
-      km_warn_msgx("Can't determine mem protection at gva 0x%lx", bp->addr);
+      km_warnx("Can't determine mem protection at gva 0x%lx", bp->addr);
       return -1;
    }
    if ((prot & PROT_WRITE) == 0) {
       if (mprotect(pageaddr, KM_PAGE_SIZE, prot | PROT_WRITE) < 0) {
-         km_warn_msgx("Can't mark page at gva 0x%lx writeable", bp->addr);
+         km_warnx("Can't mark page at gva 0x%lx writeable", bp->addr);
          return -1;
       }
    }
@@ -186,8 +185,7 @@ static int kvm_arch_remove_sw_breakpoint(struct breakpoint_t* bp)
 
    if ((prot & PROT_WRITE) == 0) {
       if (mprotect(pageaddr, KM_PAGE_SIZE, prot) < 0) {
-         km_warn_msgx("Can't remove write protect from page at gva 0x%lx, leaving it writable",
-                      bp->addr);
+         km_warnx("Can't remove write protect from page at gva 0x%lx, leaving it writable", bp->addr);
       }
    }
    return 0;
@@ -229,8 +227,7 @@ int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, uint64_t unused)
          DR7 |= ((uint32_t)mem_size_code[bp->len] << (18 + n * 4));   // memory length
          vcpu->dr_regs[n] = bp->addr;
          km_infox(KM_TRACE_GDB,
-                  "%s: hw breakpoint, n %d, type %d, addr 0x%lx, len %ld",
-                  __FUNCTION__,
+                  "hw breakpoint, n %d, type %d, addr 0x%lx, len %ld",
                   n,
                   bp->type,
                   bp->addr,
@@ -239,7 +236,7 @@ int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, uint64_t unused)
       }
    }
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_GUEST_DEBUG, &dbg) == -1) {
-      km_err_msg(1, "KVM_SET_GUEST_DEBUG failed");
+      km_err(1, "KVM_SET_GUEST_DEBUG failed");
       return -1;   // Not reachable
    }
    return 0;
@@ -249,7 +246,7 @@ static int km_gdb_update_guest_debug(void)
 {
    int count;
    if ((count = km_vcpu_apply_all(km_gdb_update_vcpu_debug, 0)) != 0) {
-      km_warn_msgx("Failed update guest debug info for %d VCPU(s)", count);
+      km_warnx("Failed update guest debug info for %d VCPU(s)", count);
       return -1;
    }
    return 0;
@@ -264,7 +261,7 @@ static struct breakpoint_t* bp_list_find(gdb_breakpoint_type_t type, km_gva_t ad
          SLIST_FOREACH (bp, &sw_breakpoints, entries) {
             if (bp->addr == addr) {
                if (bp->len != len) {
-                  km_warn_msgx("SW breakpoint of different len at 0x%lx", addr);
+                  km_warnx("SW breakpoint of different len at 0x%lx", addr);
                }
                return bp;
             }
@@ -278,7 +275,7 @@ static struct breakpoint_t* bp_list_find(gdb_breakpoint_type_t type, km_gva_t ad
          SLIST_FOREACH (bp, &hw_breakpoints, entries) {   // We only support hardware watchpoints.
             if (bp->addr == addr) {
                if (bp->len != len) {
-                  km_warn_msgx("HW breakpoint of different len at 0x%lx", addr);
+                  km_warnx("HW breakpoint of different len at 0x%lx", addr);
                }
                return bp;
             }
@@ -521,7 +518,7 @@ int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t* len)
    int ret;
 
    if (*len < sizeof(struct km_gdb_regs)) {
-      km_warn_msgx("%s: buffer too small", __FUNCTION__);
+      km_warnx("buffer too small");
       return -1;
    }
    km_read_registers(vcpu);
@@ -556,7 +553,7 @@ int km_gdb_read_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t* len)
 
    // TODO: Add KVM_GET_FPU
    if ((ret = ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, &fpuregs)) == -1) {
-      km_warn_msg("KVM_GET_FPU failed, ignoring");
+      km_warn("KVM_GET_FPU failed, ignoring");
    }
    // kvm gets 16 bytes per reg and names them differently. Will figure it out later
    km_infox(KM_TRACE_GDB, "FPU regs: not reporting for now (TODO)");
