@@ -2,18 +2,31 @@ package test
 
 import (
 	"net/http"
+	"os"
 	"os/exec"
 	"path"
 	"testing"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 const FROM string = "kontainapp/flask-test/from:latest"
 const TO string = "kontainapp/flask-test/to:latest"
 
 var faktoryBin string = path.Join("./", "../../bin/faktory")
+
+func runCommand(name string, args ...string) error {
+	logrus.WithFields(logrus.Fields{
+		"command": append([]string{name}, args...),
+	}).Info("run command")
+
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
 
 func runTest() error {
 	retryClient := retryablehttp.NewClient()
@@ -38,21 +51,21 @@ func testDocker(t *testing.T) error {
 	const TESTCONTAINER string = "faktory_test_docker"
 
 	// Build the from image
-	if err := exec.Command("docker", "build", "-t", FROM, "assets/").Run(); err != nil {
+	if err := runCommand("docker", "build", "-t", FROM, "assets/"); err != nil {
 		return errors.Wrap(err, "Failed to build the testing image")
 	}
 
-	if err := exec.Command(faktoryBin, "convert", FROM, TO, BASE).Run(); err != nil {
+	if err := runCommand(faktoryBin, "convert", FROM, TO, BASE); err != nil {
 		return errors.Wrap(err, "Failed to convert")
 	}
 
-	if err := exec.Command("docker",
+	if err := runCommand("docker",
 		"run",
 		"-d",
 		"--rm",
 		"-p", "8080:8080",
 		"--name", TESTCONTAINER,
-		TO).Run(); err != nil {
+		TO); err != nil {
 		return errors.Wrap(err, "Failed to create container")
 	}
 
@@ -60,12 +73,12 @@ func testDocker(t *testing.T) error {
 		return errors.Wrap(err, "Failed to test the converted image")
 	}
 
-	if err := exec.Command("docker", "stop", TESTCONTAINER).Run(); err != nil {
+	if err := runCommand("docker", "stop", TESTCONTAINER); err != nil {
 		return errors.Wrap(err, "Failed to stop testing container")
 	}
 
-	exec.Command("docker", "rmi", TO).Run()
-	exec.Command("docker", "rmi", FROM).Run()
+	runCommand("docker", "rmi", TO)
+	runCommand("docker", "rmi", FROM)
 
 	return nil
 }
@@ -75,15 +88,15 @@ func testKontain(t *testing.T) error {
 	const TESTCONTAINER string = "faktory_test_kontain"
 
 	// Build the from image
-	if err := exec.Command("docker", "build", "-t", FROM, "assets/").Run(); err != nil {
+	if err := runCommand("docker", "build", "-t", FROM, "assets/"); err != nil {
 		return errors.Wrap(err, "Failed to build the testing image")
 	}
 
-	if err := exec.Command(faktoryBin, "convert", FROM, TO, BASE).Run(); err != nil {
+	if err := runCommand(faktoryBin, "convert", FROM, TO, BASE); err != nil {
 		return errors.Wrap(err, "Failed to convert")
 	}
 
-	if err := exec.Command("docker",
+	if err := runCommand("docker",
 		"run",
 		"-d",
 		"--rm",
@@ -91,7 +104,7 @@ func testKontain(t *testing.T) error {
 		"-v", "/opt/kontain/bin/km:/opt/kontain/bin/km:z",
 		"-p", "8080:8080",
 		"--name", TESTCONTAINER,
-		TO).Run(); err != nil {
+		TO); err != nil {
 		return errors.Wrap(err, "Failed to create container")
 	}
 
@@ -99,12 +112,12 @@ func testKontain(t *testing.T) error {
 		return errors.Wrap(err, "Failed to test the converted image")
 	}
 
-	if err := exec.Command("docker", "stop", TESTCONTAINER).Run(); err != nil {
+	if err := runCommand("docker", "stop", TESTCONTAINER); err != nil {
 		return errors.Wrap(err, "Failed to stop testing container")
 	}
 
-	exec.Command("docker", "rmi", TO).Run()
-	exec.Command("docker", "rmi", FROM).Run()
+	runCommand("docker", "rmi", TO)
+	runCommand("docker", "rmi", FROM)
 
 	return nil
 }
