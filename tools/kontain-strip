@@ -1,4 +1,0 @@
-#!/bin/sh
-# This one is here for cross-compile support (e.g. busybox)
-# which need <prefix>- added to tools
-exec strip "$@"

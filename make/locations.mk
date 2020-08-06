@@ -23,7 +23,7 @@ FROMTOP := $(shell git rev-parse --show-prefix)
 SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
 SRC_SHA ?= $(shell git rev-parse HEAD)
 
-PATH := $(abspath ${TOP}/tools):${PATH}
+PATH := $(abspath ${TOP}/tools/bin):${PATH}
 
 # sha and build time for further reporting
 SRC_VERSION := $(shell git rev-parse HEAD)

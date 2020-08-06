@@ -24,7 +24,7 @@ EXTRA_FILES="$3"
 NAME=${4:-python.km}
 
 KM_TOP=$(git rev-parse --show-toplevel)
-PATH=$(realpath ${KM_TOP}/tools):$PATH
+PATH=$(realpath ${KM_TOP}/tools/bin):$PATH
 
 KM_OPT_BIN=/opt/kontain/bin
 
