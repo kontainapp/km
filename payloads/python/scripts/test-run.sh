@@ -1,4 +1,4 @@
-#!/usr/bin/bash -e
+#!/usr/bin/bash -ex
 #
 # Wrapper/entrypoint for running tests.
 #   test-run.sh PYTHON

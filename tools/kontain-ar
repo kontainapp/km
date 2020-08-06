@@ -1,3 +1,0 @@
-#!/bin/sh
-# When using cross-compile support (i.e. in busybox), `$(PREFIX)ar' executable is needed
-exec ar "$@"

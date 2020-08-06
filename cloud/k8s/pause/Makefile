@@ -19,7 +19,7 @@ $(BIN): $(OBJS)
 	cc $(CFLAGS) -o $@ $^
 
 $(BIN_KM): $(OBJS)
-	${TOP}/tools/kontain-gcc $(CFLAGS) -o $@ $^
+	${TOP}/tools/bin/kontain-gcc $(CFLAGS) -o $@ $^
 
 PAUSE_CONTAINER = kontain/pause-km
 
