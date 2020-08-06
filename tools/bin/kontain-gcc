@@ -1,0 +1,185 @@
+#!/bin/bash -e
+#
+# Invoke gcc or g++ with extra params for Kontain link.
+#
+# Links native Alpine binaries (musl with syscalls) or Kontain binaries
+# (musl with hcalls + some functions replacements/stubs/virtualization).
+#
+# Accepts the following extra options:
+# ------------------------------------
+# -kontain|-alpine Which binaries to build. Default 'kontain'
+# -kv              Print a few kontain-specific options and the final gcc command
+# --prefix=dir     Where to look for libs. Default /opt/kontain.This is internal debug option
+#
+# Changes to behavior:
+#--------------------------------------
+# * '-static' is default now, use '-dynamic' or 'shared' to change.
+# * dynlinker and rpath are hardcoded in ELF (Interpreter section, and NEEDED libs)
+#    to point to --prefix (/opt/kontain/ by default)
+# * Some link flags, text segment start and '-no-pie' or '-pie' are forced in some cases (see code below)
+# * A few extra warnings fr flags redundancy/overlaps
+#
+# TODO:
+# * need to add checks/warnings for conflicts around -pie/-nopie and other options we enforces
+
+[ "$TRACE" ] && set -x
+
+cmd=${BASH_SOURCE[0]}
+if [[ $cmd == *c++ || $cmd == *g++ ]] ; then
+    REALGCC=g++
+else
+    REALGCC=gcc
+fi
+if [[ $# -eq 0 ]] ; then exec "${REALGCC}" ; fi
+
+function cleanup() {
+   # placeholder
+   true
+}
+trap cleanup EXIT
+
+cmd=$(basename ${BASH_SOURCE[0]})
+dir=$(dirname ${BASH_SOURCE[0]})
+TOP=$(realpath $dir/..)
+PREFIX=/opt/kontain
+
+# Note: the /opt/kontain/runtime/libc.so is hardcoded in GDB support, so when using
+# from other locations some shared lib GDB files location may break
+KM_LDSO=${PREFIX}/runtime/libc.so
+
+# defaults
+target=kontain
+type=static
+
+# now check the args
+for arg in "$@"
+do
+   case "$arg" in
+      -static|-dynamic|-shared)
+         type="${1#*-}"
+         if [[ -n $type_set && $type != $type_set ]] ; then
+            echo "Warning: type was already set to '$type_set', resetting to '$1'"
+         fi
+         type_set=$type
+         ;;
+      -alpine|-kontain)
+         target="${1#*-}"
+         if [[ -n $target_set && $target != $target_set ]] ; then
+            echo "Warning: type was already set to '$target_set', resetting to '$1'"
+         fi
+         target_set=$target
+         ;;
+      --prefix=*)
+         PREFIX="${1#*=}"
+         ;;
+      -kv)
+         verbose=1
+         ;;
+      # TODO: use this to check some args for sanity
+      -no-pie)
+         no_pie_requested=1
+         cargs="$cargs \"$arg\""
+         ;;
+      -pie)
+         pie_requested=1
+         cargs="$cargs \"$arg\""
+         ;;
+      *)
+         cargs="$cargs \"$arg\""
+         ;;
+    esac
+    shift
+done
+
+if [ ! -d $PREFIX ] ; then
+   echo "Error: $PREFIX directory not found"
+   exit 1
+fi
+
+RT=${PREFIX}/runtime
+LC=${PREFIX}/alpine-lib/usr/lib
+LL=${PREFIX}/alpine-lib/lib
+
+# NOTE: libgcc location depends on gcc version in alpine container
+# We save it during docker build (see tests/buildenv-fedora.dockerfile)
+# and we use it during 'make .buildenv-local-lib'
+gcc_path_file=$PREFIX/alpine-lib/gcc-libs-path.txt
+if [ ! -f $gcc_path_file ] ; then
+   echo "Error: $gcc_path_file is not found - check installation."
+   exit 1
+fi
+LGCC=${PREFIX}/$(cat $gcc_path_file)
+
+# For both static and dynamic buids, locations to scout for libs, and common flags
+ALPINE_PATH="-B${LL} -B${LC} -B${LGCC}"
+HCALL_PATH="-B${RT} ${ALPINE_PATH} -zseparate-code -zmax-page-size=0x1000"
+
+# rpath for dynamic builds
+HCALL_RPATH="-Wl,-rpath=${RT} -Wl,-rpath=${LC} -Wl,-rpath=${LGCC}"
+ALPINE_RPATH="-Wl,-rpath=${LC} -Wl,-rpath=${LGCC}"
+
+# Flags for building kontain (hypercall-based) unikernels
+HCALL_STATIC="-static   ${HCALL_PATH}                -no-pie -Wl,-Ttext-segment=0x200000 -Wl,--gc-sections"
+HCALL_DYNAMIC="-dynamic ${HCALL_PATH} ${HCALL_RPATH} -no-pie -Wl,-Ttext-segment=0x200000 -Wl,--dynamic-linker=${RT}/libc.so"
+HCALL_SHARED="-shared   ${HCALL_PATH} ${HCALL_RPATH} -pie "
+
+# Flags for alpine native and kontain (hcall) builds
+# Note: Alpine native dynamic work under KM only if built with explicit --pie or --Ttext-segment
+ALPINE_STATIC="-static ${ALPINE_PATH}"
+ALPINE_DYNAMIC="-dynamic ${ALPINE_PATH} ${ALPINE_RPATH} -pie -Wl,--dynamic-linker=${LL}/ld-musl-x86_64.so.1"
+# not tested:
+APLINE_SHARED="-shared ${ALPINE_PATH} ${ALPINE_RPATH}"
+
+# pure paranoia - check targets and libs
+if [[ $target != alpine && $target != kontain ]] ; then
+      echo "Error: Unknown target: $target (only alpine and kontain are supported)"
+      exit 1
+fi
+for lib in ${RT}/libruntime.a ${RT}/libc.a  ${RT}/libc.so ${LC}/libc.so ${LC}/libc.so; do
+   if [ ! -r $lib ] ; then
+      echo "Error: can't find $lib - check installation"
+      exit 1
+   fi
+done
+
+
+# Now set correct search paths and args
+case $type in
+   static)
+      if [[ $target = kontain ]] ; then
+         KARGS=$HCALL_STATIC
+      else
+         KARGS=$ALPINE_STATIC
+      fi
+      ;;
+   dynamic)
+      if [[ $target = kontain ]] ; then
+         KARGS=$HCALL_DYNAMIC
+      else
+         KARGS=$ALPINE_DYNAMIC
+      fi
+      ;;
+   shared)
+      if [[ $target = kontain ]] ; then
+         KARGS=$HCALL_SHARED
+      else
+         echo "Warning: alpine -shared was not tested"
+         KARGS=$APLINE_SHARED
+      fi
+      ;;
+esac
+
+if [[ -n "$KARGS" ]] ; then
+   cargs="$KARGS $cargs"
+fi
+
+if [ -n "$verbose" ] ; then
+   cat <<EOF
+$(basename $0): Compiler='${REALGCC}', -type='$type', -target='$target', --prefix='$PREFIX'
+$(basename $0): pie_requested='$pie_requested' nopie_requested='$no_pie_requested' kverbose='$verbose'"
+$(basename $0): Command: ${REALGCC} $cargs
+
+EOF
+fi
+
+eval "${REALGCC}" "$cargs"

@@ -40,7 +40,7 @@ it now has 2 phases:
 
 ## Build of .km and .kmd
 
-See kontain-gcc for vars and paths used to link Kontain unikernels (.km and .kmd) and alpine native executables (.alpine.km and .alpine.kmd) in our Fedora-based build environment.
+See `tools/bin/kontain-gcc` for vars and paths used to link Kontain unikernels (.km and .kmd) and alpine native executables (.alpine.km and .alpine.kmd) in our Fedora-based build environment.
 
 .alpine.km and .alpine.kmd are just convenience suffixes for us, these are linux binaries and can be run as such - they are just linked against Alpine (musl-based) libs.
 
@@ -50,7 +50,7 @@ kontain-gcc and kontain-g++ wrap the settings.
 
 
 ```sh
-# info from tools/kontain-gcc:
+# info from tools/bin/kontain-gcc:
 #----
 # -kontain|-alpine Which binaries to build. Default 'kontain'
 # -kv              Print a few kontain-specific options and the final gcc command
