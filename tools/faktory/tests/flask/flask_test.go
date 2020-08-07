@@ -132,15 +132,14 @@ func testKontain(t *testing.T) error {
 	return nil
 }
 
-func TestFlask(t *testing.T) {
-	t.Run("Test with docker images", func(t *testing.T) {
-		if err := testDocker(t); err != nil {
-			t.Fatalf("Failed test: %v", err)
-		}
-	})
-	t.Run("Test with kontain images", func(t *testing.T) {
-		if err := testKontain(t); err != nil {
-			t.Fatalf("Failed test: %v", err)
-		}
-	})
+func TestDocker(t *testing.T) {
+	if err := testDocker(t); err != nil {
+		t.Fatalf("Failed test: %v", err)
+	}
+}
+
+func TestKontain(t *testing.T) {
+	if err := testKontain(t); err != nil {
+		t.Fatalf("Failed test: %v", err)
+	}
 }
