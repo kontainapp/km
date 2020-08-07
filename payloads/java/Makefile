@@ -87,6 +87,15 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 	tar -C /home/appuser/java -cf - . | tar -C ${JDK_BUILD_DIR} -xf -
 	./link-km.sh ${JDK_BUILD_DIR}
 
+
+JAVA_DIR := ${JDK_BUILD_DIR}/images/jdk
+JAVA_LD_PATH := ${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime:/lib64
+test: ${RUNENV_VALIDATE_DEPENDENCIES} ## Basic test run
+	${KM_BIN} --putenv=LD_LIBRARY_PATH=${JAVA_LD_PATH} \
+		${JDK_BUILD_DIR}/images/jdk/bin/java.kmd -cp ${RUNENV_VALIDATE_DIR} Hello | grep "${RUNENV_VALIDATE_EXPECTED}"
+
+test-all:test
+
 .PHONY: .check
 .check: # a helper to check for needed packages
 	@for i in ${DEP_PACKAGES} ; do \
