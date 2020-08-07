@@ -1,6 +1,6 @@
 FROM scratch
 
-# Python version must be passed obn build
+# Python version must be passed on build
 ARG VERS
 
 COPY . /
