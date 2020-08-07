@@ -59,3 +59,26 @@ possible.
 
 In the future, we can replace .so files with the zero length tombstones. We
 can also statically compile a new python.km with a list of .so files.
+
+## Test
+
+We implemented two simple integration tests under `tests`. The first one will
+use `python` image which will be the same image that used in the test. The
+goal will be to get the exact same image after the conversion. The second test
+will use `kontain/runenv-python` image as the base.
+
+### Prerequisite
+
+The test requires:
+
+- km be compiled and installed onto `/opt/kontain/bin/km` on the host.
+- `kontain/runenv-python` is built. `make -C TOP/payloads/python
+runenv-image`.
+
+When in question, consult the km and payload/python for more info.
+
+Note: Ideally, we want to pull the official `runenv-python` image, but
+currently that's not implemented yet. This repo should be able to stand on
+it's own and have as little dependencies as possible to the km and payload
+code. Whenever possible, faktory should only consume released version of km
+and payloads.
