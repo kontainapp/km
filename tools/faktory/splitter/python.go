@@ -44,6 +44,8 @@ func (ps PythonSplitter) Split(layers []string) ([]string, error) {
 
 func (PythonSplitter) search(base string) (bool, error) {
 	var pythonTargets = []string{
+		"usr/local/bin/pip",
+		"usr/local/bin/pip3",
 		"usr/local/bin/python3",
 		"usr/local/bin/python",
 	}
