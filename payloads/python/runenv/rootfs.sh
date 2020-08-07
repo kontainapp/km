@@ -57,20 +57,21 @@ function main() {
 
     echo "Creating rootfs from ${PYTHON_SRC} inside ${RUNENV_PATH} for python${PYTHON_VERSION}..."
 
-	rm -rf ${RUNENV_PATH} && mkdir -p ${RUNENV_PATH}
-	mkdir -p $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN})
-	mkdir -p $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_LIB_DYNLOAD})
-	mkdir -p ${RUNENV_PATH}/opt/kontain/bin
+    rm -rf ${RUNENV_PATH} && mkdir -p ${RUNENV_PATH}
+    mkdir -p $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN})
+    mkdir -p $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_LIB_DYNLOAD})
+    mkdir -p ${RUNENV_PATH}/opt/kontain/bin
 
     echo "Installing km and symlinks to ${RUNENV_PATH} ..."
     # Install python.km into /usr/local/bin
     install -s ${PYTHON_KM} $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python3.km)
     # Create the symlink to be used with km shebang
-	ln -s /opt/kontain/bin/km $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python3)
+    ln -s /opt/kontain/bin/km $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python3)
+    ln -s python3 $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python)
 
     echo "Installing module libs..."
     # Install module libs to /usr/local/lib/python{X,Y}
-	tar -cf - ${RUNENV_EXCLUDE} -C ${PYTHON_SRC}/Lib . | tar -C $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_LIB}) -xf -
+    tar -cf - ${RUNENV_EXCLUDE} -C ${PYTHON_SRC}/Lib . | tar -C $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_LIB}) -xf -
 
     echo "Installing platform libs as thumbstones..."
     # Install platform specific libs to /usr/lib/python{X,Y}/lib-dynload. The files are thumbstones.
