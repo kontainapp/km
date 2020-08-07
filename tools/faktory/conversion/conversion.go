@@ -170,6 +170,10 @@ func (c Converter) fuseLayers(layers []string, refname string) error {
 		return err
 	}
 
+	if err := isDuplicate(layers); err != nil {
+		return errors.Wrap(err, "fused layers container duplicated layers")
+	}
+
 	opts := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s",
 		strings.Join(layers, ":"), upper, working)
 	logrus.WithField("overlayfs opts", opts).Debug("mount overlay")
@@ -276,4 +280,18 @@ func processMetadata(base, src *dockerimage.Image) (*dockerimage.Image, error) {
 	result.Config.Env = append(base.Config.Env, src.Config.Env...)
 
 	return result, nil
+}
+
+func isDuplicate(layers []string) error {
+	hitmap := map[string]struct{}{}
+
+	for _, layer := range layers {
+		if _, exist := hitmap[layer]; exist {
+			return errors.Errorf("deplicate layers detected: %s", layer)
+		}
+
+		hitmap[layer] = struct{}{}
+	}
+
+	return nil
 }
