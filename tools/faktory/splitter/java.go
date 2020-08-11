@@ -17,13 +17,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-// PythonSplitter splits the image for python
-type PythonSplitter struct{}
-
-var _ Splitter = (*PythonSplitter)(nil)
+// JavaSplitter splits the image for java
+type JavaSplitter struct{}
 
 // Split for python requires searching for /usr/bin/python
-func (s PythonSplitter) Split(layers []string) ([]string, error) {
+func (s JavaSplitter) Split(layers []string) ([]string, error) {
 	keep := []string{}
 
 	for _, layer := range layers {
@@ -39,15 +37,12 @@ func (s PythonSplitter) Split(layers []string) ([]string, error) {
 		keep = append(keep, layer)
 	}
 
-	return nil, errors.New("Didn't find python in any layers")
+	return nil, errors.New("Didn't find Java in any layers")
 }
 
-func (PythonSplitter) search(base string) (bool, error) {
+func (JavaSplitter) search(base string) (bool, error) {
 	var targets = []string{
-		"usr/local/bin/pip",
-		"usr/local/bin/pip3",
-		"usr/local/bin/python3",
-		"usr/local/bin/python",
+		"usr/bin/java",
 	}
 
 	for _, target := range targets {
