@@ -14,6 +14,7 @@
  */
 
 #define _GNU_SOURCE
+#include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -70,14 +71,14 @@ void get_process_state(process_state_t* state)
 {
    if (fstat(zerofd, &state->zerost) < 0) {
       state->zerofail = 1;
-      perror("fstat zerofd");
+      fprintf(stderr, "fstat zerofd %d, %s\n", zerofd, strerror(errno));
    }
    if (fstat(filefd, &state->filest) < 0) {
       state->filefail = 1;
-      perror("fstat filefd");
+      fprintf(stderr, "fstat filefd %d, %s\n", filefd, strerror(errno));
    }
    if ((state->fileoff = lseek(filefd, 0, SEEK_CUR)) == -1) {
-      perror("lseek filefd");
+      fprintf(stderr, "lseek filefd %d, %s\n", filefd, strerror(errno));
    }
    return;
 }
@@ -175,7 +176,7 @@ int main(int argc, char* argv[])
    int c;
 
    cmdname = argv[0];
-   while ((c = getopt(argc, argv, "anp")) != -1) {
+   while ((c = getopt(argc, argv, "anpc")) != -1) {
       switch (c) {
          case 'a':
             do_abort = 1;
@@ -187,6 +188,12 @@ int main(int argc, char* argv[])
 
          case 'p':
             snap_flag = SNAP_PAUSE;
+            break;
+
+         case 'c':
+            fclose(stdin);
+            fclose(stdout);
+            fclose(stderr);
             break;
 
          default:

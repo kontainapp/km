@@ -945,7 +945,20 @@ fi
       run km_with_timeout --resume ${SNAP}
       assert_success
       assert_output --partial "Hello from thread"
-      refute_output --partial "state restoration error"
+      refute_line --partial "state restoration error"
+      assert [ ! -f ${CORE} ]
+      rm -f ${SNAP}
+
+      # snapshot with closed stdio
+      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -c
+      assert_success
+      assert [ -f ${SNAP} ]
+      assert [ ! -f ${CORE} ]
+      check_kmcore ${SNAP}
+      run km_with_timeout --resume ${SNAP}
+      assert_success
+      assert_output --partial "Hello from thread"
+      refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
       rm -f ${SNAP}
 
@@ -958,6 +971,7 @@ fi
       assert_failure 6  # SIGABRT
       assert [ -f ${CORE} ]
       assert_output --partial "Hello from thread"
+      refute_line --partial "state restoration error"
       if [ "$test_type" = ".km.so" ]; then
          gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
       fi

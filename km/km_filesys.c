@@ -54,6 +54,10 @@ static const int KM_MGM_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 3;
 static const int KM_LOGGING = MAX_OPEN_FILES - MAX_KM_FILES + 5;
 static const int KM_START_FDS = MAX_OPEN_FILES - MAX_KM_FILES + 6;
 
+static const_string_t stdin_name = "[stdin]";
+static const_string_t stdout_name = "[stdout]";
+static const_string_t stderr_name = "[stderr]";
+
 static char proc_pid_fd[128];
 static char proc_pid_exe[128];
 static char proc_pid[128];
@@ -347,13 +351,9 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
     * before close(2) is called.
     */
    del_guest_fd(vcpu, fd);
-   int ret = 0;
-   // KM guest can't close host's stdin, stdout, and stderr.
-   if (fd > 2) {
-      ret = __syscall_1(SYS_close, fd);
-      if (ret != 0) {
-         km_warn(" error return from close of guest fd %d", fd);
-      }
+   int ret = __syscall_1(SYS_close, fd);
+   if (ret != 0) {
+      km_warn(" error return from close of guest fd %d", fd);
    }
    return ret;
 }
@@ -1834,13 +1834,12 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
             nt_file->data);
 
    /*
-    * TODO: currently, the std fd's are always inherited from KM
-    * for restored snapshots. This means we don't support
-    * processes that mess with the std fd's. This needs to be
-    * fixed.
+    * If the std fds names are [std{in,out,err}] (as set in km_fs_init()) we inherit the fds from km,
+    * otherwise process them in a regular way. Note the dup2 in below will close the km inherited fd.
     */
-   // Std files always set by KM
-   if (nt_file->fd <= 2) {
+   if ((nt_file->fd == 0 && strcmp(name, stdin_name) == 0) ||
+       (nt_file->fd == 1 && strcmp(name, stdout_name) == 0) ||
+       (nt_file->fd == 2 && strcmp(name, stderr_name) == 0)) {
       return 0;
    }
 
