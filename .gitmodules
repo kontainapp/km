@@ -16,3 +16,6 @@
 [submodule "kkm"]
 	path = kkm
 	url = ../kkm.git
+[submodule "km-releases"]
+	path = km-releases
+	url = https://github.com/kontainapp/km-releases
