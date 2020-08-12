@@ -28,13 +28,13 @@
 #include <linux/futex.h>
 
 #include "km.h"
+#include "km_exec.h"
 #include "km_gdb.h"
 #include "km_guest.h"
 #include "km_mem.h"
 #include "km_proc.h"
 #include "km_syscall.h"
 #include "x86_cpu.h"
-#include "km_exec.h"
 
 /*
  * Allocate stack for main thread and initialize it according to ABI:
@@ -61,7 +61,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    km_gva_t map_base;
 
    if ((map_base = km_guest_mmap_simple(GUEST_STACK_SIZE)) < 0) {
-      err(1, "Failed to allocate memory for main stack");
+      km_err(1, "Failed to allocate memory for main stack");
    }
    km_gva_t stack_top = map_base + GUEST_STACK_SIZE;
    km_kma_t stack_top_kma = km_gva_to_kma_nocheck(stack_top);
@@ -75,7 +75,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
       stack_top -= len;
       stack_top_kma -= len;
       if (map_base + GUEST_STACK_SIZE - stack_top > GUEST_ARG_MAX) {
-         errx(2, "Environment list is too large");
+         km_errx(2, "Environment list is too large");
       }
       strncpy(stack_top_kma, km_envp[i], len);
       km_envp[i] = (char*)stack_top;
@@ -91,7 +91,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
 
       stack_top -= len;
       if (map_base + GUEST_STACK_SIZE - stack_top > GUEST_ARG_MAX) {
-         errx(2, "Argument list is too large");
+         km_errx(2, "Argument list is too large");
       }
       argv_km[i] = stack_top;
       stack_top_kma -= len;
@@ -112,7 +112,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    stack_top_kma -= pstr_len;
    ssize_t rc = getrandom(stack_top_kma, pstr_len, 0);
    if (rc != pstr_len) {
-      km_err_msg(0, "getrandom() didn't return enough bytes, expected %d, got %ld", pstr_len, rc);
+      km_warnx("getrandom() didn't return enough bytes, expected %d, got %ld", pstr_len, rc);
       stack_top += pstr_len;
       stack_top_kma += pstr_len;
    } else {
@@ -259,7 +259,7 @@ int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*))
    }
    if (rc != 0) {
       __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
-      err(1, "run_vcpu_thread: failed activating vcpu thread");
+      km_err(1, "run_vcpu_thread: failed activating vcpu thread");
    }
    return rc;
 }

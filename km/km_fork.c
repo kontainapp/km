@@ -90,7 +90,7 @@ static void km_fork_setup_child_vmstate(void)
    for (int i = 0; i < KM_MEM_SLOTS; i++) {
       if (machine.vm_mem_regs[i].memory_size != 0) {
          if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, &machine.vm_mem_regs[i]) < 0) {
-            err(2, "KVM: failed to plug in memory region %d", i);
+            km_err(2, "KVM: failed to plug in memory region %d", i);
          }
       }
    }
@@ -101,7 +101,7 @@ static void km_fork_setup_child_vmstate(void)
 
    km_vcpu_t* vcpu = km_vcpu_get();   // Get a new vcpu for the child's only thread.
    if (vcpu == NULL) {
-      err(2, "couldn't get a vcpu");
+      km_err(2, "couldn't get a vcpu");
    }
    vcpu->stack_top = km_fork_state.stack_top;
    vcpu->guest_thr = km_fork_state.guest_thr;
@@ -402,7 +402,7 @@ void km_pid_insert(pid_t kontain_pid, pid_t linux_pid)
       }
       // TODO check for duplicate entries
    }
-   errx(2, "Too many kontain to linux pid map entries");
+   km_errx(2, "Too many kontain to linux pid map entries");
 }
 
 km_linux_kontain_pidmap_t* km_pid_find_lpid(pid_t linux_pid)

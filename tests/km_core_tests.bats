@@ -140,7 +140,7 @@ fi
 
    run km_with_timeout -P 31 -- hello_test$ext # -P sets Physical memory bus width
    assert_failure
-   assert_line  "km: Guest memory bus width must be between 32 and 63 - got '31'"
+   assert_line --partial "Guest memory bus width must be between 32 and 63 - got '31'"
 
    run km_with_timeout -P32 -- hello_test$ext
    check_optional_mem_size_failure
@@ -154,8 +154,8 @@ fi
    run km_with_timeout -V --log-to=$log -- hello_test$ext # check --log-to option
    assert_success
    assert [ -e $log ]
-   assert grep -q 'Hello, world' $log       # stdout
-   assert grep -q 'Setting VendorId ' $log  # stderr
+   assert grep -q 'Hello, world' $log       # guest stdout redirected by --log-to
+   assert_output --partial 'Setting VendorId ' $log  # km stderr
    rm $log
    run km_with_timeout -V --log-to=/very/bad/place -- hello_test$ext
    assert_failure

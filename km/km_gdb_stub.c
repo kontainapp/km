@@ -56,6 +56,7 @@
 #include <netinet/tcp.h>
 
 #include "km.h"
+#include "km_filesys.h"
 #include "km_fork.h"
 #include "km_gdb.h"
 #include "km_mem.h"
@@ -148,25 +149,25 @@ int km_gdb_setup_listen(void)
 
    assert(gdbstub.port != 0);
    assert(gdbstub.listen_socket_fd == -1);
-   listen_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+   listen_socket_fd = km_gdb_listen(AF_INET, SOCK_STREAM, 0);
    if (listen_socket_fd == -1) {
-      km_err_msg(errno, "Could not create socket");
+      km_warn("Could not create socket");
       return -1;
    }
    if (setsockopt(listen_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
-      km_err_msg(errno, "setsockopt(SO_REUSEADDR) failed");
+      km_warn("setsockopt(SO_REUSEADDR) failed");
    }
    server_addr.sin_family = AF_INET;
    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
    server_addr.sin_port = htons(km_gdb_port_get());
 
    if (bind(listen_socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
-      km_err_msg(errno, "bind failed");
+      km_warn("bind failed");
       close(listen_socket_fd);
       return -1;
    }
    if (listen(listen_socket_fd, 1) == -1) {
-      km_err_msg(errno, "listen failed");
+      km_warn("listen failed");
       close(listen_socket_fd);
       return -1;
    }
@@ -191,20 +192,20 @@ static int km_gdb_accept_connection(void)
    int opt = 1;
 
    len = sizeof(client_addr);
-   gdbstub.sock_fd = accept(gdbstub.listen_socket_fd, (struct sockaddr*)&client_addr, &len);
+   gdbstub.sock_fd = km_gdb_accept(gdbstub.listen_socket_fd, (struct sockaddr*)&client_addr, &len);
    if (gdbstub.sock_fd == -1) {
       if (errno == EINVAL) {   // process exit caused a shutdown( listen_socket_fd, SHUT_RD )
          return EINVAL;
       }
-      warn("accept failed");
+      km_warn("accept failed");
       return -1;
    }
 
    if (setsockopt(gdbstub.sock_fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
-      warn("Setting TCP_NODELAY failed, continuing...");
+      km_warn("Setting TCP_NODELAY failed, continuing...");
    }
    ip_addr.s_addr = client_addr.sin_addr.s_addr;
-   warnx("Connection from debugger at %s", inet_ntoa(ip_addr));
+   km_warnx("Connection from debugger at %s", inet_ntoa(ip_addr));
    return 0;
 }
 
@@ -296,7 +297,7 @@ static void km_gdb_detach(void)
 
    gdbstub.gdb_client_attached = 0;
 
-   warnx("gdb client disconnected");
+   km_warnx("gdb client disconnected");
 }
 
 static int send_char(char ch)
@@ -361,7 +362,7 @@ static char* recv_packet(void)
          buffer[count] = ch;
       }
       if (count == BUFMAX - 1) {
-         warnx("gdb message too long, disconnecting");
+         km_warnx("gdb message too long, disconnecting");
          return NULL;
       }
       buffer[count] = '\0';   // Make this a C string.
@@ -378,21 +379,20 @@ static char* recv_packet(void)
       xmitcsum += hex(ch);
 
       if (checksum != xmitcsum) {
-         warnx("Failed checksum from GDB. "
-               "Calculated= 0x%x, received=0x%x. buf=%s",
-               checksum,
-               xmitcsum,
-               buffer);
+         km_warnx("Failed checksum from GDB. Calculated = 0x%x, received = 0x%x. buf=%s",
+                  checksum,
+                  xmitcsum,
+                  buffer);
          if (send_char('-') == -1) {
             // Unsuccessful reply to a failed checksum
-            warnx("GDB: Could not send an ACK- to the debugger.");
+            km_warnx("GDB: Could not send an ACK- to the debugger.");
             return NULL;
          }
       } else {
          km_infox(KM_TRACE_GDB, "'%s', ack", buffer);
          if (send_char('+') == -1) {
             // Unsuccessful reply to a successful transfer
-            err(1, "GDB: Could not send an ACK+ to the debugger.");
+            km_err(1, "GDB: Could not send an ACK+ to the debugger.");
             return NULL;
          }
          // if a sequence char is present, reply the sequence ID
@@ -1113,7 +1113,7 @@ static void handle_qgettlsaddr(char* packet, char* obuf)
          send_packet(obuf);
       } else {
          // unknown thread id
-         warnx("qGetTLSAddr: VCPU for thread %#x is not found", threadid);
+         km_warnx("qGetTLSAddr: VCPU for thread %#x is not found", threadid);
          send_error_msg();
       }
    } else {
@@ -1426,12 +1426,12 @@ static void km_gdb_general_query(char* packet, char* obuf)
       km_vcpu_t* vcpu;
 
       if (sscanf(packet, "qThreadExtraInfo,%x", &thread_id) != 1) {
-         warnx("qThreadExtraInfo: wrong packet '%s'", packet);
+         km_warnx("qThreadExtraInfo: wrong packet '%s'", packet);
          send_error_msg();
          return;
       }
       if ((vcpu = km_vcpu_fetch_by_tid(thread_id)) == NULL) {
-         warnx("qThreadExtraInfo: VCPU for thread %#x is not found", thread_id);
+         km_warnx("qThreadExtraInfo: VCPU for thread %#x is not found", thread_id);
          send_error_msg();
          return;
       }
@@ -2534,12 +2534,12 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
             vcpu = km_main_vcpu();   // TODO: use 1st vcpu in_use here !
 
             if (sscanf(packet, "H%c%x", &cmd, &thread_id) != 2 || (cmd != 'g' && cmd != 'c')) {
-               warnx("Wrong 'H' packet '%s'", packet);
+               km_warnx("Wrong 'H' packet '%s'", packet);
                send_error_msg();
                break;
             }
             if (thread_id > 0 && (vcpu = km_vcpu_fetch_by_tid(thread_id)) == NULL) {
-               warnx("Can't find vcpu for tid %d (%#x) ", thread_id, thread_id);
+               km_warnx("Can't find vcpu for tid %d (%#x) ", thread_id, thread_id);
                send_error_msg();
                break;
             }
@@ -2738,13 +2738,13 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
             break;
          }
          case 'k': {   // quit ('kill the inferior')
-            warnx("Debugger asked us to quit");
+            km_warnx("Debugger asked us to quit");
             send_okay_msg();
-            errx(1, "Quiting per debugger request");
+            km_errx(1, "Quiting per debugger request");
             goto done;   // not reachable
          }
          case 'D': {   // Detach
-            warnx("Debugger detached");
+            km_warnx("Debugger detached");
             send_okay_msg();
             km_gdb_detach();
             goto done;
@@ -2865,7 +2865,7 @@ static void km_gdb_wait_for_dynlink_to_finish(void)
     */
    km_infox(KM_TRACE_GDB, "Begin waiting for dynamic linker to complete");
    if (km_gdb_add_breakpoint(GDB_BREAKPOINT_HW, payload_entry, 1) != 0) {
-      errx(3, "Failed to plant breakpoint on payload entry point 0x%lx", payload_entry);
+      km_errx(3, "Failed to plant breakpoint on payload entry point 0x%lx", payload_entry);
    }
    gdbstub.gdb_client_attached = 1;       // this little hack gets us woken up when breakpoint fires
    km_vcpu_resume_all();                  // start the payload main thread
@@ -2873,7 +2873,7 @@ static void km_gdb_wait_for_dynlink_to_finish(void)
    gdbstub.gdb_client_attached = 0;
    km_infox(KM_TRACE_GDB, "dynamic linker is done");
    if (km_gdb_remove_breakpoint(GDB_BREAKPOINT_HW, payload_entry, 1) != 0) {
-      errx(4, "Failed to remove breakpoint on payload entry point 0x%lx", payload_entry);
+      km_errx(4, "Failed to remove breakpoint on payload entry point 0x%lx", payload_entry);
    }
    pthread_mutex_lock(&gdbstub.notify_mutex);
    gdb_event_t* gep = TAILQ_FIRST(&gdbstub.event_queue);
@@ -2908,11 +2908,6 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 
    if (gdbstub.wait_for_attach == GDB_DONT_WAIT_FOR_ATTACH) {
       km_vcpu_resume_all();
-   } else {
-      warnx("Waiting for a debugger. Connect to it like this:");
-      warnx("\tgdb --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n",
-            km_gdb_port_get(),
-            km_guest.km_filename);
    }
 
 accept_connection:;
@@ -2942,7 +2937,7 @@ accept_connection:;
          ;   // ignore signals which may interrupt the poll
       }
       if (ret < 0) {
-         err(1, "%s: poll failed ret=%d.", __FUNCTION__, ret);
+         km_err(1, "poll failed ret=%d.", ret);
       }
       if (machine.vm_vcpu_run_cnt == 0) {
          ge.signo = ret;
