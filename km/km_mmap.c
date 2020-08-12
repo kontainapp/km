@@ -12,7 +12,6 @@
  * Support for payload mmap() and related API
  */
 #define _GNU_SOURCE
-#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -195,11 +194,7 @@ static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
 {
    if (reg->km_flags.km_mmap_part_of_monitor == 0 &&
        mprotect(km_gva_to_kma_nocheck(reg->start), reg->size, protection_adjust(reg->protection)) != 0) {
-      warn("%s: Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)",
-           __FUNCTION__,
-           reg->start,
-           reg->size,
-           reg->protection);
+      km_warn("Failed to mprotect addr 0x%lx sz 0x%lx prot 0x%x)", reg->start, reg->size, reg->protection);
    }
    km_reg_make_clean(reg);
 }
@@ -302,7 +297,7 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
       int new_flags = (reg->flags & ~MAP_SHARED) | MAP_PRIVATE | MAP_ANONYMOUS;
       void* tmp = mmap(start_kma, reg->size, reg->protection, new_flags | MAP_FIXED, -1, 0);
       if (tmp != start_kma) {
-         km_err_msg(errno, "Couldn't turn off MAP_SHARED at kma %p", start_kma);
+         km_warn("Couldn't turn off MAP_SHARED at kma %p", start_kma);
       } else {
          reg->flags = new_flags;
       }
@@ -351,12 +346,11 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
       }
       if (reg->km_flags.km_mmap_monitor == 1 ||   // skip internal maps... not expected, so warn
           reg->km_flags.km_mmap_part_of_monitor == 1) {
-         km_err_msg(ENOTSUP,
-                    "Range addr 0x%lx size 0x%lx conflicts with monitor region 0x%lx size 0x%lx",
-                    addr,
-                    size,
-                    reg->start,
-                    reg->size);
+         km_warnx("Range addr 0x%lx size 0x%lx conflicts with monitor region 0x%lx size 0x%lx",
+                  addr,
+                  size,
+                  reg->start,
+                  reg->size);
          continue;
       }
       if (reg->start < addr) {   // overlaps on the start
@@ -494,15 +488,15 @@ static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
    return km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
 }
 
-static int km_mmap_change_region_sharing(km_mmap_reg_t* reg, int existing_flags, int desired_flags, int hostfd)
+static int
+km_mmap_change_region_sharing(km_mmap_reg_t* reg, int existing_flags, int desired_flags, int hostfd)
 {
    if ((existing_flags & (MAP_PRIVATE | MAP_SHARED)) != (desired_flags & (MAP_PRIVATE | MAP_SHARED))) {
       // change from private to shared or vice versa
       km_kma_t start_kma = km_gva_to_kma(reg->start);
       void* tmp = mmap(start_kma, reg->size, reg->protection, MAP_FIXED | desired_flags, hostfd, 0);
       if (tmp != (void*)start_kma) {
-         km_err_msg(errno,
-                 "Changing page 0x%lx from 0x%x to 0x%x failed, tmp %p",
+         km_warn("Changing page 0x%lx from 0x%x to 0x%x failed, tmp %p",
                  reg->start,
                  existing_flags,
                  desired_flags,
@@ -612,7 +606,7 @@ static km_gva_t km_guest_mmap_nolock(
    km_kma_t kma = km_gva_to_kma(gva);
    assert(kma != NULL);
    if (mmap(kma, size, prot, flags | MAP_FIXED, hostfd, offset) != kma) {
-      km_err_msg(errno, "System mmap failed. gva 0x%lx kma %p host fd %d off 0x%lx", gva, kma, hostfd, offset);
+      km_warn("System mmap failed. gva 0x%lx kma %p host fd %d off 0x%lx", gva, kma, hostfd, offset);
       return -errno;
    }
    // Now glue the underlying regions together
@@ -894,7 +888,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    assert(from != NULL);         // should have been checked before, in hcalls
    memcpy(to, from, old_size);   // WARNING: this may be slow, see issue #198
    if (km_syscall_ok(km_guest_munmap_nolock(old_addr, old_size)) == -1) {
-      err(1, "Failed to unmap after remapping");
+      km_err(1, "Failed to unmap after remapping");
    }
    return ret;
 }
@@ -1025,7 +1019,7 @@ int km_is_gva_accessable(km_gva_t gva, size_t size, int prot)
     * regions until there is a compelling reason.
     */
    if (gva + size > reg->start + reg->size) {
-      errx(2, "range spanned mmap region gva:0x%lx size:0x%lx", gva, size);
+      km_errx(2, "range spanned mmap region gva:0x%lx size:0x%lx", gva, size);
    }
    if ((reg->protection & prot) != prot) {
       ret = 0;
@@ -1054,7 +1048,7 @@ void km_mmap_set_filename(km_gva_t base, km_gva_t limit, char* filename)
    // Must be in mmap memory.
    km_mmap_reg_t* reg = NULL;
    if ((reg = km_find_reg_nolock(base)) == NULL) {
-      errx(2, "cannot find region base=0x%lx", base);
+      km_errx(2, "cannot find region base=0x%lx", base);
    }
    if (reg->filename == NULL) {
       reg->filename = strdup(filename);

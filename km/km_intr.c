@@ -73,7 +73,7 @@ void km_init_guest_idt(void)
     * Create a GDT. Allocate a page. We only need entry 1 for the IDT.
     */
    if ((gdt_base = km_guest_mmap_simple_monitor(KM_PAGE_SIZE)) < 0) {
-      err(1, "Failed to allocate guest IDT memory");
+      km_err(1, "Failed to allocate guest IDT memory");
    }
    gdt = (x86_seg_d_t*)km_gva_to_kma_nocheck(gdt_base);
    gdt[1].limit_lo = 0xffff;
@@ -90,7 +90,7 @@ void km_init_guest_idt(void)
     * Create the IDT.
     */
    if ((idt_base = km_guest_mmap_simple_monitor(X86_IDT_SIZE)) < 0) {
-      err(1, "Failed to allocate guest IDT memory");
+      km_err(1, "Failed to allocate guest IDT memory");
    }
    idte = (x86_idt_entry_t*)km_gva_to_kma_nocheck(idt_base);
 
@@ -142,10 +142,10 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
 
    uint64_t enumber = vcpu->regs.rbx;
    if (enumber >= sizeof(error_included)) {
-      errx(1, "Interrupt out of range - %ld", enumber);
+      km_errx(1, "Interrupt out of range - %ld", enumber);
    }
    if (error_included[enumber] == -1) {
-      errx(1, "Unexpected Interrupt - %ld", enumber);
+      km_errx(1, "Unexpected Interrupt - %ld", enumber);
    }
 
    uint64_t* rsp_kma = km_gva_to_kma_nocheck(vcpu->regs.rsp);

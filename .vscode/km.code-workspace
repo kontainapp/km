@@ -16,7 +16,9 @@
          "shared_mutex": "c",
          "regex": "c",
          "cerrno": "c",
-         "cctype": "c"
+         "cctype": "c",
+         "chrono": "c",
+         "algorithm": "c"
       },
       "files.exclude": {
          "{GPATH,GRTAGS,GTAGS}": true,

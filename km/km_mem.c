@@ -14,7 +14,6 @@
 
 #define _GNU_SOURCE
 #include <assert.h>
-#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -264,7 +263,7 @@ static void km_add_vvar_vdso_to_guest_address_space(void)
    reg->memory_size = km_vvar_vdso_size;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      err(1, "KVM: set vvar/vdso region failed");
+      km_err(1, "KVM: set vvar/vdso region failed");
    }
 
    // Now add vdso and vvar to the payload's virtual address space
@@ -324,7 +323,7 @@ static void km_add_code_to_guest_address_space(void)
    reg->guest_phys_addr = physaddr;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      err(1, "KVM: set km_guest mem region failed");
+      km_err(1, "KVM: set km_guest mem region failed");
    }
 
    /*
@@ -407,7 +406,7 @@ static void* km_guest_page_malloc(km_gva_t gpa_hint, size_t size, int prot)
       return NULL;
    }
    if (addr != gpa_hint + KM_USER_MEM_BASE) {
-      errx(1, "Problem getting guest memory, wanted %p, got %p", gpa_hint + KM_USER_MEM_BASE, addr);
+      km_errx(1, "Problem getting guest memory, wanted %p, got %p", gpa_hint + KM_USER_MEM_BASE, addr);
    }
    return addr;
 }
@@ -428,7 +427,7 @@ void km_mem_init(km_machine_init_params_t* params)
    overcommit_memory = (params->overcommit_memory == KM_FLAG_FORCE_ENABLE);
    reg = &machine.vm_mem_regs[KM_RSRV_MEMSLOT];
    if ((ptr = km_guest_page_malloc(RSV_MEM_START, RSV_MEM_SIZE, PROT_READ | PROT_WRITE)) == NULL) {
-      err(1, "KVM: no memory for reserved pages");
+      km_err(1, "KVM: no memory for reserved pages");
    }
    reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
    reg->slot = KM_RSRV_MEMSLOT;
@@ -436,7 +435,7 @@ void km_mem_init(km_machine_init_params_t* params)
    reg->memory_size = RSV_MEM_SIZE;
    reg->flags = 0;   // set to KVM_MEM_READONLY for readonly
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      err(1, "KVM: set reserved region failed");
+      km_err(1, "KVM: set reserved region failed");
    }
    /*
     * Move identity map page out of the way. It only gets used if unrestricted_guest support is off,
@@ -444,7 +443,7 @@ void km_mem_init(km_machine_init_params_t* params)
     */
    uint64_t idmap = RSV_GUEST_PA(RSV_IDMAP_OFFSET);
    if (ioctl(machine.mach_fd, KVM_SET_IDENTITY_MAP_ADDR, &idmap) < 0) {
-      err(1, "KVM: set identity map addr failed");
+      km_err(1, "KVM: set identity map addr failed");
    }
    init_pml4((km_kma_t)reg->userspace_addr);
 
@@ -657,7 +656,7 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
    reg->memory_size = size;
    reg->flags = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      km_err_msg(errno, "KVM: failed to plug memory region %d", idx);
+      km_warn("KVM: failed to plug memory region %d", idx);
       km_guest_page_free(base, size);
       memset(reg, 0, sizeof(*reg));
       return -errno;
@@ -675,7 +674,7 @@ static void km_free_region(int idx, int upper_va)
    clear_pml4_hierarchy(reg, upper_va);
    reg->memory_size = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      err(1, "KVM: failed to unplug memory region %d", idx);
+      km_err(1, "KVM: failed to unplug memory region %d", idx);
    }
    km_guest_page_free(reg->guest_phys_addr, size);
    reg->userspace_addr = 0;
