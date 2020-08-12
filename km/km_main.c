@@ -43,6 +43,24 @@ km_info_trace_t km_info_trace;
 
 extern int vcpu_dump;
 
+/*
+ * Logging and printing.
+ *
+ * We separate km file descriptors from payload file descriptors. The former are in the separate
+ * range, upper MAX_KM_FILES, guest fds have the same numerical value in the guest and in km.
+ *
+ * Standard err()/warn() functions are not used any more (other than in parsing argvs). The
+ * stdout/stderr in km are closed after argvs parsing is done, so printf() and such will not work.
+ * Use km_warnx() instead.
+ *
+ * The functions we should use going forward are:
+ * - km_info()/km_infox() - goes by -V option or KM_TRACE environment variable, printing trace
+ *                          messages per facility
+ * - km_trace()/km_tracex() - Generic trace messages enabled by any -V
+ * - km_warn()/km_warnx() - unconditionally prints message and continues (use for printf and such)
+ * - km_err()/km_errx() - unconditionally prints message and exits
+ */
+
 static inline void usage()
 {
    if (km_called_via_exec() == 1) {
