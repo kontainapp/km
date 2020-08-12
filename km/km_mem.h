@@ -14,7 +14,6 @@
 #define __KM_MEM_H__
 
 #include <assert.h>
-#include <err.h>
 #include <stdint.h>
 #include <sys/mman.h>
 #include <sys/param.h>

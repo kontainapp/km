@@ -19,17 +19,21 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+
 #include "km.h"
+#include "km_exec.h"
 
 uint8_t km_trace_pid = 0;
+uint8_t km_trace_noniteractive = 0;
+
+FILE* km_log_file;
 
 /*
  * Verbose trace function.
- * We get a timestamp, function name, line number, and thread id in the trace line
- * in addition to whatever the caller is trying to trace.
- * In addition we build all of this into a single buffer which we feed to fputs()
- * in the hope that trace lines are not broken when multiple threads are tracing
- * concurrently.
+ * We get a timestamp, function name, line number, and thread id in the trace line in addition to
+ * whatever the caller is trying to trace. In addition we build all of this into a single buffer
+ * which we feed to fputs() in the hope that trace lines are not broken when multiple threads are
+ * tracing concurrently.
  */
 void __km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
 {
@@ -95,17 +99,26 @@ void __km_trace(int errnum, const char* function, int linenumber, const char* fm
 
    va_end(ap);
 
-   fputs(traceline, stderr);
-
-   /*
-    * We probably want fflush(stderr) so we get the last bit of output if we abort/fault
-    */
-   fflush(stderr);
+   if (km_log_file != NULL) {
+      fputs(traceline, km_log_file);
+   }
+   if (stderr != NULL) {
+      if (km_trace_noniteractive == 1 || km_trace_pid == 0 || km_called_via_exec() == 1) {
+         fputs(traceline, stderr);
+      } else {
+         fputs(p, stderr);
+      }
+   }
 }
 
 void km_trace_include_pid(uint8_t trace_pid)
 {
    km_trace_pid = trace_pid;
+}
+
+void km_trace_set_noninteractive(void)
+{
+   km_trace_noniteractive = 1;
 }
 
 uint8_t km_trace_include_pid_value(void)
