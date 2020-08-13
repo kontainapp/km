@@ -93,12 +93,15 @@ int compare_process_state(process_state_t* prestate, process_state_t* poststate)
       fprintf(stderr, "prestate fstat failure");
       ret = -1;
    }
-   if (prestate->zerofail != 0 || prestate->filefail != 0) {
+   if (poststate->zerofail != 0 || poststate->filefail != 0) {
       fprintf(stderr, "postestate fstat failure");
       ret = -1;
    }
    if (prestate->zerost.st_mode != poststate->zerost.st_mode) {
-      fprintf(stderr, "/dev/zero mode changed\n");
+      fprintf(stderr,
+              "/dev/zero mode changed: expect=%o got=%o\n",
+              prestate->zerost.st_mode,
+              poststate->zerost.st_mode);
       ret = -1;
    }
    if (prestate->filest.st_mode != poststate->filest.st_mode) {
