@@ -65,8 +65,10 @@ fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
 		echo -e "${RED}${JDK_VERSION} is not a git repo. Did you do 'make clobber' first ? ${NOCOLOR}" ; \
 		fail; \
 	fi
+	@# -fcommon gcc flag is needed for gcc10, see https://bugs.openjdk.java.net/browse/JDK-8235903
 	cd ${JDK_VERSION} && bash configure \
 		--disable-warnings-as-errors --with-native-debug-symbols=none \
+		--with-extra-cflags='-fcommon'  \
 		--with-jvm-variants=server --with-zlib=bundled --with-jtreg=$(realpath jtreg) \
 		--enable-jtreg-failure-handler
 	make -C ${JDK_VERSION} images
