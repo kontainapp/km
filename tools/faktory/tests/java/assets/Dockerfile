@@ -1,13 +1,10 @@
 FROM openjdk:13-jdk-alpine AS builder
-WORKDIR /target/dependency
-ARG APPJAR=target/*.jar
-COPY ${APPJAR} app.jar
-RUN jar -xf ./app.jar
+COPY gs-rest-service/complete /app
+WORKDIR /app
+RUN ./mvnw install
 
-FROM openjdk:13-jdk-alpine
-VOLUME /tmp
-ARG DEPENDENCY=target/dependency
-COPY --from=builder ${DEPENDENCY}/BOOT-INF/lib /app/lib
-COPY --from=builder ${DEPENDENCY}/META-INF /app/META-INF
-COPY --from=builder ${DEPENDENCY}/BOOT-INF/classes /app
-ENTRYPOINT ["java","-cp","app:app/lib/*","com.example.demo.DemoApplication"]
+FROM openjdk:13-jdk-alpine AS unpacker
+WORKDIR /app
+ARG APPJAR=/app/target/*.jar
+COPY --from=builder ${APPJAR} app.jar
+ENTRYPOINT ["java","-jar", "app.jar"]

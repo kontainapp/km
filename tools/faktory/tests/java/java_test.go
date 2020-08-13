@@ -15,7 +15,7 @@ import (
 const FROM string = "kontainapp/java-test/from:latest"
 
 var assetPath = "assets"
-var springbootPath = filepath.Join(assetPath, ".springboot")
+var springbootPath = filepath.Join(assetPath, "gs-rest-service")
 var dockerfile = filepath.Join(assetPath, "Dockerfile")
 
 var faktoryBin string = filepath.Join("./", "../../bin/faktory")
@@ -23,7 +23,7 @@ var faktoryBin string = filepath.Join("./", "../../bin/faktory")
 func runTest() error {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 5
-	resp, err := retryClient.Get("http://127.0.0.1:8080/actuator/health")
+	resp, err := retryClient.Get("http://127.0.0.1:8080/greeting")
 	if err != nil {
 		return errors.Wrap(err, "Failed to make the http call")
 	}
@@ -47,7 +47,7 @@ func setup() error {
 	}
 
 	{
-		downloadCmd := "curl https://start.spring.io/starter.tgz -d dependencies=webflux,actuator | tar -xzvf -"
+		downloadCmd := "git clone -b '2.1.6.RELEASE' --depth 1 https://github.com/spring-guides/gs-rest-service.git ."
 		cmd := utils.Command("bash", "-c", downloadCmd)
 		cmd.Dir = springbookAbs
 		if err := cmd.Run(); err != nil {
@@ -55,15 +55,7 @@ func setup() error {
 		}
 	}
 
-	{
-		cmd := utils.Command("./mvnw", "install")
-		cmd.Dir = springbookAbs
-		if err := cmd.Run(); err != nil {
-			return errors.Wrap(err, "Failed to setup springboot")
-		}
-	}
-
-	if err := utils.RunCommand("docker", "build", "-t", FROM, "-f", dockerfile, springbootPath); err != nil {
+	if err := utils.RunCommand("docker", "build", "-t", FROM, "-f", dockerfile, assetPath); err != nil {
 		return errors.Wrap(err, "Failed to build test image")
 	}
 
