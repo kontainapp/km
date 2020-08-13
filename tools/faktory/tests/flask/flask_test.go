@@ -65,7 +65,7 @@ func testDocker(t *testing.T) error {
 		return errors.Wrap(err, "Failed to build the testing image")
 	}
 
-	if err := runCommand(faktoryBin, "convert", FROM, TO, BASE); err != nil {
+	if err := runCommand(faktoryBin, "convert", "--type", "python", FROM, TO, BASE); err != nil {
 		return errors.Wrap(err, "Failed to convert")
 	}
 
@@ -102,7 +102,7 @@ func testKontain(t *testing.T) error {
 		return errors.Wrap(err, "Failed to build the testing image")
 	}
 
-	if err := runCommand(faktoryBin, "convert", FROM, TO, BASE); err != nil {
+	if err := runCommand(faktoryBin, "convert", "--type", "python", FROM, TO, BASE); err != nil {
 		return errors.Wrap(err, "Failed to convert")
 	}
 
