@@ -65,6 +65,8 @@ func cmdConvert() *cobra.Command {
 				return err
 			}
 
+			converter.Finished()
+
 			return nil
 		},
 	}
