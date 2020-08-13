@@ -945,6 +945,7 @@ fi
       run km_with_timeout --resume ${SNAP}
       assert_success
       assert_output --partial "Hello from thread"
+      refute_output --partial "state restoration error"
       assert [ ! -f ${CORE} ]
       rm -f ${SNAP}
 

@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 
 #include "km.h"
+#include "km_filesys.h"
 #include "km_gdb.h"
 #include "km_mem.h"
 
@@ -111,7 +112,7 @@ static void km_find_hook_symbols(Elf* e, km_gva_t adjust)
 Elf* km_open_elf_file(char* filename, km_payload_t* payload, int* fd)
 {
    Elf* e;
-   if ((*fd = open(filename, O_RDONLY, 0)) < 0) {
+   if ((*fd = km_internal_open(filename, O_RDONLY)) < 0) {
       km_warn("open %s failed", filename);
       return NULL;
    }
