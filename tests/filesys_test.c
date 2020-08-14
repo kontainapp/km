@@ -30,6 +30,7 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/vfs.h>
 
 #ifndef STATX_ALL
 #include <linux/stat.h>
@@ -615,6 +616,14 @@ TEST test_close_stdio()
    PASS();
 }
 
+TEST test_statfs()
+{
+   struct statfs stf;
+   ASSERT_EQ(0, statfs("/", &stf));
+   ASSERT_EQ(0, fstatfs(0, &stf));
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -627,6 +636,7 @@ int main(int argc, char** argv)
    greatest_set_verbosity(1);   // needed if we want to pass through | greatest/contrib/greenest,
                                 // especially from KM payload
    /* Tests can  be run as suites, or directly. Lets run directly. */
+   RUN_TEST(test_statfs);
    RUN_TEST(test_close);
    RUN_TEST(test_stat);
    RUN_TEST(test_getdents);

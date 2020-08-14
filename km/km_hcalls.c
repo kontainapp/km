@@ -1590,6 +1590,18 @@ static km_hc_ret_t getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t statfs_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_fs_statfs(vcpu, km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2));
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t fstatfs_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_fs_fstatfs(vcpu, arg->arg1, km_gva_to_kma(arg->arg2));
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // TODO: Stop the world.
@@ -1757,6 +1769,8 @@ void km_hcalls_init(void)
 
    km_hcalls_table[SYS_setitimer] = setitimer_hcall;
    km_hcalls_table[SYS_getitimer] = getitimer_hcall;
+   km_hcalls_table[SYS_statfs] = statfs_hcall;
+   km_hcalls_table[SYS_fstatfs] = fstatfs_hcall;
 
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_unmapself] = unmapself_hcall;
