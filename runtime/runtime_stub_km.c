@@ -44,7 +44,6 @@ __stub__(getcontext);
 __stub__(setcontext);
 __stub__(makecontext);
 __stub__(swapcontext);
-__stub__(statfs);
 __stub_core__(__sched_cpualloc);
 __stub_core__(__sched_cpufree);
 __stub_core__(__register_atfork);   // TODO: may need to implement when doing fork() and dlopen
