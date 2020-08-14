@@ -1592,13 +1592,24 @@ static km_hc_ret_t getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t statfs_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_fs_statfs(vcpu, km_gva_to_kma(arg->arg1), km_gva_to_kma(arg->arg2));
+   char* pathname = km_gva_to_kma(arg->arg1);
+   void* st = km_gva_to_kma(arg->arg2);
+   if (pathname == NULL || st == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_statfs(vcpu, pathname, st);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t fstatfs_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_fs_fstatfs(vcpu, arg->arg1, km_gva_to_kma(arg->arg2));
+   void* st = km_gva_to_kma(arg->arg2);
+   if (st == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_fstatfs(vcpu, arg->arg1, st);
    return HC_CONTINUE;
 }
 
