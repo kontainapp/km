@@ -31,11 +31,12 @@ var dockerfile = filepath.Join(assetPath, "Dockerfile")
 var faktoryBin string = filepath.Join("./", "../../bin/faktory")
 
 func runTest() error {
+	url := "http://127.0.0.1:8080/greeting"
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 5
-	resp, err := retryClient.Get("http://127.0.0.1:8080/greeting")
+	resp, err := retryClient.Get(url)
 	if err != nil {
-		return errors.Wrap(err, "Failed to make the http call")
+		return errors.Wrapf(err, "Failed to make the http call: %s", url)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -53,7 +54,7 @@ func setup() error {
 	os.MkdirAll(springbootPath, 0777)
 	springbookAbs, err := filepath.Abs(springbootPath)
 	if err != nil {
-		return errors.Wrap(err, "Failed to make springboot path abs path")
+		return errors.Wrapf(err, "Failed to make springboot path abs path: %s", springbootPath)
 	}
 
 	{
@@ -61,12 +62,17 @@ func setup() error {
 		cmd := utils.Command("bash", "-c", downloadCmd)
 		cmd.Dir = springbookAbs
 		if err := cmd.Run(); err != nil {
-			return errors.Wrap(err, "Failed to download the springboot")
+			return errors.Wrapf(
+				err,
+				"Failed to download the springboot. Running [%s] from [%s] ",
+				downloadCmd,
+				springbookAbs,
+			)
 		}
 	}
 
 	if err := utils.RunCommand("docker", "build", "-t", FROM, "-f", dockerfile, assetPath); err != nil {
-		return errors.Wrap(err, "Failed to build test image")
+		return errors.Wrapf(err, "Failed to build test image. dockerfile %s fs %s", dockerfile, assetPath)
 	}
 
 	return nil
@@ -105,7 +111,7 @@ func testDocker() error {
 		"-p", "8080:8080",
 		"--name", TESTCONTAINER,
 		TO); err != nil {
-		return errors.Wrap(err, "Failed to create container")
+		return errors.Wrapf(err, "Failed to create container %s", TESTCONTAINER)
 	}
 
 	if err := runTest(); err != nil {
@@ -146,7 +152,7 @@ func testKontain() error {
 		"-p", "8080:8080",
 		"--name", TESTCONTAINER,
 		TO); err != nil {
-		return errors.Wrap(err, "Failed to create container")
+		return errors.Wrapf(err, "Failed to create container %s", TESTCONTAINER)
 	}
 
 	if err := runTest(); err != nil {
