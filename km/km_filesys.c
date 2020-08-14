@@ -936,6 +936,24 @@ uint64_t km_fs_fstat(km_vcpu_t* vcpu, int fd, struct stat* statbuf)
    return ret;
 }
 
+// int statfs(int fd, struct statfs *statbuf);
+uint64_t km_fs_statfs(km_vcpu_t* vcpu, char* pathname, struct statfs* statbuf)
+{
+   uint64_t ret = __syscall_2(SYS_statfs, (uintptr_t)pathname, (uintptr_t)statbuf);
+   return ret;
+}
+
+// int fstatfs(int fd, struct statfs *statbuf);
+uint64_t km_fs_fstatfs(km_vcpu_t* vcpu, int fd, struct statfs* statbuf)
+{
+   int host_fd;
+   if ((host_fd = km_fs_g2h_fd(fd, NULL)) < 0) {
+      return -EBADF;
+   }
+   uint64_t ret = __syscall_2(SYS_fstatfs, host_fd, (uintptr_t)statbuf);
+   return ret;
+}
+
 // int access(const char *pathname, int mode);
 uint64_t km_fs_access(km_vcpu_t* vcpu, const char* pathname, int mode)
 {
