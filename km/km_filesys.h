@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/uio.h>
+#include <sys/vfs.h>
 
 #include "km.h"
 #include "km_mem.h"
@@ -153,6 +154,10 @@ uint64_t
 km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int mask, void* statxbuf);
 // int fstat(int fd, struct stat *statbuf);
 uint64_t km_fs_fstat(km_vcpu_t* vcpu, int fd, struct stat* statbuf);
+// int statfs(int fd, struct statfs *statbuf);
+uint64_t km_fs_statfs(km_vcpu_t* vcpu, char* pathname, struct statfs* statbuf);
+// int fstatfs(int fd, struct statfs *statbuf);
+uint64_t km_fs_fstatfs(km_vcpu_t* vcpu, int fd, struct statfs* statbuf);
 // int access(const char *pathname, int mode);
 uint64_t km_fs_access(km_vcpu_t* vcpu, const char* pathname, int mode);
 // int dup(int oldfd);
