@@ -30,7 +30,7 @@ steps:
 
   - bash: cloud/aws/kkm-regression.bash $(System.PullRequest.SourceBranch)
     displayName: Test with kkm on aws
-    timeoutInMinutes: 15
+    timeoutInMinutes: 20
     env:
       KONTAIN_AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
       KONTAIN_AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
