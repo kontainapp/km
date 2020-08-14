@@ -26,6 +26,8 @@ function log_message {
 }
 
 function error_exit {
+   touch ${LOG_DIR}/FAILED
+   sudo dmesg -c > ${LOG_DIR}/kernel-run-logs
    log_message $1
    exit 0
 }
@@ -57,46 +59,59 @@ fi
 log_message "KM repo clone success"
 
 cd km
-make -C kkm/kkm >& ${LOG_DIR}/build-kkm
-if [ ! -f kkm/kkm/kkm.ko ]
-then
-   error_exit "buiding driver failed"
-fi
 
-make -C kkm/test_kkm >& ${LOG_DIR}/build-kkm-test
-if [ ! -f kkm/test_kkm/test_kkm ]
-then
-   error_exit "building kkm test failed"
-fi
-log_message "Building kkm and kkm_test success"
+log_message "starting build"
+BUILD_DIRS="kkm/kkm kkm/test_kkm . payloads/python payloads/node payloads/java"
+for builddir in $BUILD_DIRS
+do
+   echo "################## build logs for $builddir" &>> ${LOG_DIR}/build-all
+   make -C $builddir &>> ${LOG_DIR}/build-all
+   log_message "$builddir build complete"
+done
 
-make -j >& ${LOG_DIR}/build-km
-make all >& ${LOG_DIR}/build-km-all
-if [ ! -f build/km/km ]
-then
-   error_exit "building km failed"
-fi
-log_message "Building km success"
+EXEC_LIST="kkm/kkm/kkm.ko kkm/test_kkm/test_kkm build/km/km"
+for execfile in $EXEC_LIST
+do
+   if [ ! -f $execfile ]
+   then
+      error_exit "cannot find $execfile file"
+   fi
+done
 
-sudo insmod kkm/kkm/kkm.ko >& ${LOG_DIR}/insmod-kkm
+# clear kernel logs
+sudo dmesg -c > ${LOG_DIR}/kernel-boot-logs
+
+echo "################## run logs for kkm" &>> ${LOG_DIR}/run-all
+sudo insmod kkm/kkm/kkm.ko &>> ${LOG_DIR}/run-all
 if [ ! -e /dev/kkm ]
 then
    error_exit "cannot find /dev/kkm"
 fi
-sudo chmod 0666 /dev/kkm >& ${LOG_DIR}/chmod-log
+sudo chmod 0666 /dev/kkm &>> ${LOG_DIR}/run-all
 log_message "KKM module init success"
 
-make test USEVIRT=kkm >& ${LOG_DIR}/test-km
-if [ $? -ne 0 ]
-then
-   error_exit "tests failed"
-fi
+#TEST_DIRS="tests payloads/python payloads/node payloads/java"
+#disable node and java tests untill they are reliable
+TEST_DIRS="tests payloads/python"
+log_message "starting test"
+for testdir in $TEST_DIRS
+do
+   echo "################## run logs for $testdir tests" &>> ${LOG_DIR}/run-all
+   make -C $testdir test USEVIRT=kkm &>> ${LOG_DIR}/run-all
+   if [ $? -ne 0 ]
+   then
+      error_exit "$testdir tests failed"
+   fi
+   log_message "$testdir test complete"
+done
 
-grep "0 failures" ${LOG_DIR}/test-km >& /dev/null
+sudo dmesg -c > ${LOG_DIR}/kernel-run-logs
+grep "0 failures" ${LOG_DIR}/run-all >& /dev/null
 if [ $? -ne 0 ]
 then
    error_exit "tests failed"
 fi
+touch ${LOG_DIR}/PASSED
 log_message "tests successfull"
 
 exit 0

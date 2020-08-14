@@ -71,28 +71,12 @@ function wait_for_state {
    fi
 }
 
-function display_aws_kkm_test_logs {
-   echo "########### script output ############"
-   echo -e $1
-
-   sshpass -e scp -o StrictHostKeyChecking=no -r fedora@${INSTANCE_IP}:src/log/ log-aws-kkm
-   if [ $? -ne 0 ]
-   then
-         error_exit "Fetching test logs from ${INSTANCE_ID} failed"
-   fi
-   for logfilename in git-clone build-kkm build-kkm-test build-km build-km-all insmod-kkm chmod-log test-km
-   do
-      echo "################# Contents of $logfilename #################"
-      cat log-aws-kkm/$logfilename
-   done
-}
-
 # make new instance from AMI
 
 INSTANCE_ID=`aws ec2 run-instances --image-id $TEST_AMI --count 1 --instance-type $TEST_VM_TYPE  --key-name km --security-group-ids $TEST_SG --query "Instances[].InstanceId"`
 if [ $? -ne 0 ]
 then
-      error_exit "New instance creation failed"
+   error_exit "New instance creation failed"
 fi
 echo "New instance ${INSTANCE_ID} created"
 echo "Waiting for new instance ${INSTANCE_ID} to enter running state"
@@ -111,7 +95,7 @@ sleep $WAIT_TIME_TO_READY
 INSTANCE_IP=`aws ec2 describe-instances --instance-ids ${INSTANCE_ID} --query "Reservations[].Instances[].PublicIpAddress"`
 if [ $? -ne 0 ]
 then
-      error_exit "Failed to obtain IP address for ${INSTANCE_ID}"
+   error_exit "Failed to obtain IP address for ${INSTANCE_ID}"
 fi
 
 echo "Instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
@@ -121,13 +105,27 @@ echo "Instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
 sshpass -e scp $SSH_OPTIONS cloud/aws/kkm-test.bash fedora@${INSTANCE_IP}:bin/kkm-test.bash
 if [ $? -ne 0 ]
 then
-      error_exit "Copying test script failed for ${INSTANCE_ID}"
+   error_exit "Copying test script failed for ${INSTANCE_ID}"
 fi
 
 echo "Starting tests on instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
-TEST_STRING=`timeout --preserve-status 800 sshpass -e ssh -o StrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}`
-display_aws_kkm_test_logs "$TEST_STRING"
-if [[ $TEST_STRING == *"tests successfull"* ]]; then
+timeout --preserve-status 900 sshpass -e ssh -o StrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}
+
+echo "copying test logs from aws instance ${INSTANCE_ID}"
+sshpass -e scp -o StrictHostKeyChecking=no -r fedora@${INSTANCE_IP}:src/log/ log-aws-kkm
+if [ $? -ne 0 ]
+then
+   error_exit "Fetching test logs from ${INSTANCE_ID} failed"
+fi
+
+for logfilename in git-clone build-all run-all kernel-boot-logs kernel-run-logs
+do
+   echo "################# Contents of $logfilename #################"
+   cat log-aws-kkm/$logfilename
+done
+
+if [ -f log-aws-kkm/PASSED ]
+then
    echo "TEST PASSED"
 else
    error_exit "TEST FAILED"
