@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,7 +24,11 @@ func RunCommand(name string, args ...string) error {
 	cmd := Command(name, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return errors.Wrapf(err, "Failed to run %s %v", name, args)
+	}
+
+	return nil
 }
 
 // Command is a wrapper of exec.Command with a log
