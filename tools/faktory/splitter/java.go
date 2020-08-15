@@ -43,6 +43,7 @@ func (s JavaSplitter) Split(layers []string) ([]string, error) {
 func (JavaSplitter) search(base string) (bool, error) {
 	var targets = []string{
 		"usr/bin/java",
+		"/opt/java/openjdk/bin/java",
 		"opt/openjdk-13/bin/java",
 		"opt/openjdk-14/bin/java",
 	}

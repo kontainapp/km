@@ -96,7 +96,7 @@ func TestMain(m *testing.M) {
 }
 
 func testDocker() error {
-	const BASE string = "openjdk:13-jdk-alpine"
+	const BASE string = "adoptopenjdk/openjdk11:alpine-jre"
 	const TO string = "kontainapp/java-docker-test/to:latest"
 	const TESTCONTAINER string = "faktory_test_docker"
 

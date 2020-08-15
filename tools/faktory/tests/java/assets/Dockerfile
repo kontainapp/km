@@ -8,12 +8,12 @@
 # proprietary information is strictly prohibited without the express written
 # permission of Kontain Inc.
 
-FROM openjdk:13-jdk-alpine AS builder
+FROM adoptopenjdk/openjdk11:alpine AS builder
 COPY gs-rest-service/complete /app
 WORKDIR /app
 RUN ./mvnw install
 
-FROM openjdk:13-jdk-alpine AS unpacker
+FROM adoptopenjdk/openjdk11:alpine-jre AS unpacker
 WORKDIR /app
 ARG APPJAR=/app/target/*.jar
 COPY --from=builder ${APPJAR} app.jar
