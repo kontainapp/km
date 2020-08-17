@@ -94,6 +94,11 @@ func NewConverter(base string, splitter splitter.Splitter) (Converter, error) {
 	return ret, nil
 }
 
+// Finished cleans up all the artifacts. Should be called after converter is done.
+func (c Converter) Finished() {
+	os.RemoveAll(c.root)
+}
+
 // Convert is the main methods to do the convert.
 func (c Converter) Convert(from string, to string) error {
 	logrus.WithFields(logrus.Fields{

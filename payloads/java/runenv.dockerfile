@@ -23,5 +23,6 @@ COPY ${FROM}/ ${JAVA_DIR}/
 RUN mkdir /lib64; ln -s /opt/kontain/runtime/libc.so /lib64/ld-linux-x86-64.so.2
 RUN ln -s /opt/kontain/bin/km  ${JAVA_DIR}/bin/java; \
    ln -s  ${JAVA_DIR}/bin/java.kmd ${JAVA_DIR}/bin/java.km
+RUN ln -s ${JAVA_DIR}/bin/java /usr/bin/java
 
-ENTRYPOINT [ "/opt/kontain/java/bin/java" ]
+ENTRYPOINT [ "java" ]
