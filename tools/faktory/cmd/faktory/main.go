@@ -11,9 +11,9 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"kontain.app/km/tools/faktory/conversion"
@@ -37,8 +37,26 @@ func cmdConvert() *cobra.Command {
 				return errors.New("Arguements can't be empty")
 			}
 
-			splitter := splitter.PythonSplitter{}
-			converter, err := conversion.NewConverter(baseName, splitter)
+			splitterType, err := c.Flags().GetString("type")
+			if err != nil {
+				return errors.Wrap(err, "Failed to get the --type flag")
+			}
+
+			if splitterType == "" {
+				return errors.New("--type flag is required")
+			}
+
+			var s splitter.Splitter
+			switch splitterType {
+			case "python":
+				s = splitter.PythonSplitter{}
+			case "java":
+				s = splitter.JavaSplitter{}
+			default:
+				return errors.Errorf("Unsupported type: %s", splitterType)
+			}
+
+			converter, err := conversion.NewConverter(baseName, s)
 			if err != nil {
 				return err
 			}
@@ -47,9 +65,13 @@ func cmdConvert() *cobra.Command {
 				return err
 			}
 
+			converter.Finished()
+
 			return nil
 		},
 	}
+
+	cmd.PersistentFlags().String("type", "", "The type of images to convert. Support: java, python.")
 
 	return cmd
 }

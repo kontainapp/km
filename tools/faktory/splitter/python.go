@@ -23,11 +23,11 @@ type PythonSplitter struct{}
 var _ Splitter = (*PythonSplitter)(nil)
 
 // Split for python requires searching for /usr/bin/python
-func (ps PythonSplitter) Split(layers []string) ([]string, error) {
+func (s PythonSplitter) Split(layers []string) ([]string, error) {
 	keep := []string{}
 
 	for _, layer := range layers {
-		exists, err := ps.search(layer)
+		exists, err := s.search(layer)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to search the layer")
 		}
@@ -43,14 +43,14 @@ func (ps PythonSplitter) Split(layers []string) ([]string, error) {
 }
 
 func (PythonSplitter) search(base string) (bool, error) {
-	var pythonTargets = []string{
+	var targets = []string{
 		"usr/local/bin/pip",
 		"usr/local/bin/pip3",
 		"usr/local/bin/python3",
 		"usr/local/bin/python",
 	}
 
-	for _, target := range pythonTargets {
+	for _, target := range targets {
 		targetPath := path.Join(base, target)
 
 		if _, err := os.Stat(targetPath); err == nil {
