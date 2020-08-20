@@ -2,10 +2,10 @@
 
 ## Dependencies and prerequisites
 
-### Install perf tool:
+### Install perf, stap, and Flame Graph visualizer:
 
 ```
-sudo dnf install perf.x86_64 systemtap.x86_64
+sudo dnf install perf.x86_64 systemtap.x86_64 flamegraph-stackcollapse-perf.noarch
 ```
 
 ### Kernel and libraries debuginfo
@@ -26,21 +26,19 @@ Note that the debuginfo doesn't get automatically updated when the packages are 
 `dnf upgrade`. To upgrade all debuginfo packages:
 
 ```
-dnf upgrade --enablerepo="*"-debuginfo "*-debuginfo"
+sudo dnf upgrade --enablerepo="*"-debuginfo "*-debuginfo"
 ```
 
 ### FlameGraph visualizer
 
-```
-git clone https://github.com/brendangregg/FlameGraph FGDIR
-```
+Flame Graph visualizer is now standard tool on Fedora. Instead of getting it from git it gets installed by dnf, above. No need to do anything.
 
 ## Record perf data and create flame graph
 
 ```
-sudo perf record -F 1000 --call-graph dwarf -o perf.data -- ../build/km/km cperf_test.km
+sudo perf record -F 9997 --call-graph dwarf -o perf.data -- ../build/km/km cperf_test.km
 sudo chown `id -u` perf.data
-perf script -i perf.data | FGDIR/stackcollapse-perf.pl | FGDIR/flamegraph.pl > perf.svg
+perf script -i perf.data | stackcollapse-perf.pl | flamegraph.pl > perf.svg
 ```
 
 The `perf.svg` file can be viewed in google chrome. It is explained in http://www.brendangregg.com/FlameGraphs/cpuflamegraphs.html. Basically it shows call stack with the width of the bars proportional to CPU percentage spend in the function.
