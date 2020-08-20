@@ -40,7 +40,10 @@ FROM kontainapp/runenv-jdk-11
 
 Here is an example dockerfile without kontain, to build and package the
 `springboot` starter `gs-rest-service` repo from `spring-guides` found
-[here](https://github.com/spring-guides/gs-rest-service.git). 
+[here](https://github.com/spring-guides/gs-rest-service.git). We use
+`adoptopenjdk/openjdk11:alpine` and `adoptopenjdk/openjdk11:alpine-jre` as
+base image as an example, but any java base image would work.
+
 ```dockerfile
 FROM adoptopenjdk/openjdk11:alpine AS builder
 COPY gs-rest-service/complete /app
