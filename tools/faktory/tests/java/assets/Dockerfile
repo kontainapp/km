@@ -13,7 +13,7 @@ COPY gs-rest-service/complete /app
 WORKDIR /app
 RUN ./mvnw install
 
-FROM adoptopenjdk/openjdk11:alpine-jre AS unpacker
+FROM adoptopenjdk/openjdk11:alpine-jre
 WORKDIR /app
 ARG APPJAR=/app/target/*.jar
 COPY --from=builder ${APPJAR} app.jar
