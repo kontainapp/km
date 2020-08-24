@@ -1177,7 +1177,7 @@ static void handle_qxfer_auxv_read(char* packet, char* obuf)
          // Make our copy of auvx with special gdb chars escaped.
          memcpy(gdb_auxv_copy, machine.auxv, machine.auxv_size);
          size_t buflen = machine.auxv_size;
-         if (gdb_add_escapes(gdb_auxv_copy, &buflen, machine.auxv_size) != 0) {
+         if (gdb_add_escapes(gdb_auxv_copy, &buflen, gdb_auxv_len) != 0) {
             send_error_msg();
             free(gdb_auxv_copy);
             gdb_auxv_copy = NULL;
