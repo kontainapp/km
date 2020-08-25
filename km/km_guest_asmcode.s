@@ -156,6 +156,7 @@ __km_interrupt_table:
     .align 64
     .type km_hcargs, @object
     .global km_hcargs
+    // Changes to the size of km_hcargs here should be reflected in km_guest.h
 km_hcargs:
     .space KVM_MAX_VCPUS * CACHE_LINE_LENGTH, 0
 
