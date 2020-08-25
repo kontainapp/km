@@ -8,6 +8,7 @@
 .set SYS_rt_sigreturn, 15
 .set HC_guest_interrupt, 0x1fd
 .set BYTES_PER_UINT64, 8
+.set CACHE_LINE_LENGTH, 64
 
 // Field names for km_hc_args_t
 .set hc_ret, 0

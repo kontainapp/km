@@ -157,7 +157,7 @@ __km_interrupt_table:
     .type km_hcargs, @object
     .global km_hcargs
 km_hcargs:
-    .space KVM_MAX_VCPUS * BYTES_PER_UINT64, 0
+    .space KVM_MAX_VCPUS * CACHE_LINE_LENGTH, 0
 
 /*
  * SYSCALL handling. This function converts a syscall into
