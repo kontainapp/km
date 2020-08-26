@@ -30,6 +30,7 @@ int main(int argc, char** argv)
       int parent_rc = readlink(name, parent_buf, sizeof(parent_buf));
       if (parent_rc > 0) {
          printf("parent exe: %.*s %s\n", parent_rc, parent_buf, argv[1]);
+         fflush(stdout);
       }
       char* testargv[] = {"fs_exec_test", "child", NULL};
       int rc = execve("fs_exec_test", testargv, environ);

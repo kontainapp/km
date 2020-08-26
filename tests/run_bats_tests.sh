@@ -11,7 +11,7 @@ set -e
 cd $(dirname ${BASH_SOURCE[0]})
 
 DEFAULT_TESTS="km_core_tests.bats"
-DEFAULT_TEST_TYPE="static dynamic so native_static"
+DEFAULT_TEST_TYPE="static dynamic so alpine_static glibc_static"
 
 usage() {
 cat <<EOF
