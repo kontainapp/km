@@ -22,6 +22,8 @@
 
 #define CACHE_LINE_LENGTH 64 // bytes
 #define BYTES_PER_POINTER 8
+
+// Changes in this macro should be reflected in the declaration of km_hcargs in km_guest_asmcode.s
 #define HC_ARGS_INDEX(vcpu_id) ((vcpu_id) * (CACHE_LINE_LENGTH / BYTES_PER_POINTER))
 
 /*
