@@ -22,12 +22,17 @@ not_needed_static='gdb_sharedlib'
 todo_static=''
 
 # skip slow ones
-not_needed_native_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv'
+not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv'
 # review - some fail. Some slow
-todo_native_static='mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
+todo_alpine_static='mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
 
-not_needed_native_dynamic=$not_needed_native_static
-todo_native_dynamic=$todo_native_static
+# glibc native. The only thing unblocked in km_main_env - the rest is blocked
+# TODO: kkm exception set may be wider, see below
+not_needed_glibc_static='hyper* km_many km_main_signal km_main_arg* setup* gdb* mem* hc* misc* futex* signal* gdb* unused* pthread* threads* mmap* madv* cpp* monitor* decode vdso itimer snapshot fork semaphore sigaltstack readlink* perf exec popen'
+todo_glibc_static='exception dl_iterate_phdr filesys hc_check file* cpuid long* auxv* trunc* sig* socket syscall raw_clone'
+
+not_needed_native_dynamic=$not_needed_alpine_static
+todo_native_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
 not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many readlink_argv'
