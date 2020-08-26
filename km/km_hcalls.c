@@ -1776,6 +1776,9 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_times] = times_hcall;
    km_hcalls_table[SYS_getpgrp] = getpgrp_hcall;
 
+   km_hcalls_table[SYS_set_robust_list] = dummy_hcall;
+   km_hcalls_table[SYS_get_robust_list] = dummy_hcall;
+
    km_hcalls_table[SYS_uname] = uname_hcall;
 
    km_hcalls_table[SYS_setitimer] = setitimer_hcall;

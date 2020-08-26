@@ -1096,7 +1096,7 @@ fi
 @test "files_on_exec($test_type): passing /proc and such to execed process (fs_exec_test$ext)" {
    run km_with_timeout --timeout 5s fs_exec_test$ext parent
    assert_success
-   assert_line --regexp "parent exe: fs_exec_test$ext parent"
+   assert_line --regexp "parent exe: /[^[:space:]]*/tests/fs_exec_test$ext parent"
    assert_line --regexp "child  exe: /[^[:space:]]*/tests/fs_exec_test.km child"
 }
 
