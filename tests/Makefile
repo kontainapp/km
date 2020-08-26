@@ -107,7 +107,8 @@ KCXX := kontain-g++
 
 # use g++ link libs when sources were C++
 # ${SRC_CPP:%.cpp=%}: CC=${CXX}
-${SRC_CPP:%.cpp=%.fedora}: CC=${CXX}
+${SRC_CPP:%.cpp=%.fedora}: CC=${CXX} -static
+${SRC_C:%.c=%.fedora}: LDLIBS += -static
 ${SRC_CPP:%.cpp=%.km}: KCC=${KCXX}
 ${SRC_CPP:%.cpp=%.kmd}: KCC=${KCXX}
 ${SRC_CPP:%.cpp=%.alpine.km}:KCC=${KCXX}
