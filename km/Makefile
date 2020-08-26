@@ -9,7 +9,6 @@
 #  Kontain Inc.
 
 TOP := $(shell git rev-parse --show-toplevel)
-#SUBDIRS := client
 
 EXEC := km
 SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c km_mem.c km_mmap.c \
@@ -26,3 +25,12 @@ LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd
 include ${TOP}/make/actions.mk
 
 ${BLDDIR}/km_guest_asmcode.o: CFLAGS += -fPIC
+
+# Package KM and libs+tools+docs for release
+KM_RELEASE := ${BLDTOP}/kontain.tar.gz
+release: ${KM_RELEASE}
+
+${KM_RELEASE}: ${KM_BIN} ## Build a release tar.gz file for KM
+	${TOP}/tools/bin/create_release.sh
+	ls -l ${KM_RELEASE} ${KM_BIN}
+

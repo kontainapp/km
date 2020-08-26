@@ -63,6 +63,7 @@ test-withdocker: subdirs ##
 test-all-withdocker: subdirs ## build all and run KM and payload tests
 test-withk8s: subdirs ## run tests using k8s
 test-all-withk8s: subdirs ## run all tests (with long running) using k8s
+release: subdirs ## Package .tar.gz files for external release to build dir
 
 $(SUBDIRS):
 	$(MAKE) -C $@  MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=
