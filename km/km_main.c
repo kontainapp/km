@@ -569,7 +569,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
           * ourselves as payload.
           */
          if (km_check_for_km(argv[0]) == 0) {
-            pl_name = strdup(argv[0]);
+            pl_name = realpath(argv[0], NULL);
          }
       }
    }
