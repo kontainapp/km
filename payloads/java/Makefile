@@ -96,6 +96,11 @@ test: ${RUNENV_VALIDATE_DEPENDENCIES} ## Basic test run
 	${KM_BIN} --putenv=LD_LIBRARY_PATH=${JAVA_LD_PATH} \
 		${JDK_BUILD_DIR}/images/jdk/bin/java.kmd -cp ${RUNENV_VALIDATE_DIR} Hello | grep "${RUNENV_VALIDATE_EXPECTED}"
 
+# TODO - we may simply document (in km-release) installing from docker image and do the push here
+# or we can create tar.gz to install on the host from
+release: ## placeholder for packaging a release
+	@echo -e "${GREEN}Placeholder for ${COMPONENT} release packaging${NOCOLOR}"
+
 test-all:test
 
 .PHONY: .check
