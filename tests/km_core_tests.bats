@@ -1113,7 +1113,7 @@ fi
 # internal files up to the top of the fd space.
 # In addition this may expose other problems such as misdeclared km arrays like km_hcargs[].
 #
-@test "create_threads($test_type): create a large number of threads that run briefly (gdb_lots_of_threads$ext)" {
+@test "threads_create($test_type): create a large number of threads that run briefly (gdb_lots_of_threads$ext)" {
    run km_with_timeout --timeout 5s gdb_lots_of_threads_test$ext -a 2 -t 100
    assert_success
 }
