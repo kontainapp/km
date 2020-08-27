@@ -490,22 +490,18 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
               vcpu->sregs.cr2);
       vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
       switch (errno) {
-         case EINTR: {
+         case EINTR:
             if (machine.exit_group == 1) {   // Interrupt from exit_group() - we are done.
                km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
                assert("Reached the unreachable" == NULL);
             }
-            km_mutex_lock(&machine.pause_mtx);
-            machine.pause_requested = 1;
-            km_mutex_unlock(&machine.pause_mtx);
             break;
-         }
+
          case EFAULT: {
             /*
-             * This happens when the guest violates memory protection, for example
-             * writes to the text area. This is a side-effect of how we protect
-             * guest memory (guest PT says page is writable, but kernel says it
-             * isn't).
+             * This happens when the guest violates memory protection, for example writes to the
+             * text area. This is a side-effect of how we protect guest memory (guest PT says page
+             * is writable, but kernel says it isn't).
              */
 
             siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
