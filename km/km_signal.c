@@ -315,7 +315,7 @@ int km_signal_ready(km_vcpu_t* vcpu)
    TAILQ_FOREACH (sig, &vcpu->sigpending.head, link) {
       if (is_deliverable(&vcpu->sigmask, sig->info.si_signo) == 1) {
          km_signal_unlock();
-         km_info(KM_TRACE_VCPU, "vcpu %d signal %d ready", vcpu->vcpu_id, sig->info.si_signo);
+         km_infox(KM_TRACE_VCPU, "vcpu %d signal %d ready", vcpu->vcpu_id, sig->info.si_signo);
          return sig->info.si_signo;
       }
    }
@@ -325,7 +325,7 @@ int km_signal_ready(km_vcpu_t* vcpu)
          TAILQ_REMOVE(&machine.sigpending.head, sig, link);
          TAILQ_INSERT_TAIL(&vcpu->sigpending.head, sig, link);
          km_signal_unlock();
-         km_info(KM_TRACE_VCPU, "VM signal %d ready", sig->info.si_signo);
+         km_infox(KM_TRACE_VCPU, "VM signal %d ready", sig->info.si_signo);
          return sig->info.si_signo;
       }
    }
