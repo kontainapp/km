@@ -1105,3 +1105,15 @@ fi
    assert_success
    assert_line --regexp "slink=/[^[:space:]]*/tests/readlink_argv0_test$ext"
 }
+
+#
+# Create 100 threads that run for 3 seconds and then terminate.
+# This tries to expose problems that may occur when there are many threads in a payload.
+# We should push this up to KVM_MAX_VCPU but that exposes a bug with how we dup fd's for km
+# internal files up to the top of the fd space.
+# In addition this may expose other problems such as misdeclared km arrays like km_hcargs[].
+#
+@test "create_threads($test_type): create a large number of threads that run briefly (gdb_lots_of_threads$ext)" {
+   run km_with_timeout --timeout 5s gdb_lots_of_threads_test$ext -a 2 -t 100
+   assert_success
+}
