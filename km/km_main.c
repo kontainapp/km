@@ -78,6 +78,7 @@ static inline void usage()
 "\t--gdb-dynlink                       - gdb server waits for client attach before dyn link runs\n"
 "\t--version (-v)                      - Print version info and exit\n"
 "\t--log-to=file_name (-l file_name)   - Stream guest stdout and stderr to file_name\n"
+"\t--km-log-to=file_name (-k file_name)- Stream km log to file_name\n"
 "\t--copyenv                           - Copy all KM env. variables into payload (default)\n"
 "\t--putenv key=value                  - Add environment 'key' to payload (cancels --copyenv)\n"
 "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
@@ -413,7 +414,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                }
                break;
             case 'l':
-               if ((log_to_fd = open(optarg, O_WRONLY)) < 0) {
+               if ((log_to_fd = open(optarg, O_WRONLY | O_CREAT, 0644)) < 0) {
                   km_err(1, "--log-to %s", optarg);
                }
 
