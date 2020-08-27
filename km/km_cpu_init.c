@@ -410,10 +410,7 @@ static int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
 {
    km_lock_vcpu_thr(vcpu);
    if (vcpu->is_active == 1) {
-      int rc;
-      if ((rc = pthread_kill(vcpu->vcpu_thread, KM_SIGVCPUSTOP)) != 0) {
-         km_warnx("vcpu %d, pthread_kill failed, error %d", vcpu->vcpu_id, rc);
-      }
+      km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
       km_unlock_vcpu_thr(vcpu);
       km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
       return 0;
