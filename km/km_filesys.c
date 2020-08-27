@@ -2283,7 +2283,7 @@ void km_redirect_msgs(const char* name)
 {
    int fd, fd1;
    if (name != NULL) {
-      fd1 = open(name, O_WRONLY);
+      fd1 = open(name, O_WRONLY | O_CREAT, 0644);
       fd = dup2(fd1, KM_LOGGING);
       close(fd1);
    } else {
