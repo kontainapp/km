@@ -31,7 +31,7 @@
 #include <string.h>
 #include <assert.h>
 
-#define MAX_THREADS	288	// KVM_MAX_VCPUS
+#define MAX_THREADS	287	// KVM_MAX_VCPUS - 1 (main() is a thread too)
 #define DEFAULT_THREADS	10
 #define MAX_DEPTH	10
 
