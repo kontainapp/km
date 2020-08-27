@@ -31,7 +31,8 @@
 #include <string.h>
 #include <assert.h>
 
-#define MAX_THREADS	10
+#define MAX_THREADS	288	// KVM_MAX_VCPUS
+#define DEFAULT_THREADS	10
 #define MAX_DEPTH	10
 
 int stop_running;
@@ -85,17 +86,48 @@ void* do_nothing_thread(void* instance)
    return NULL;
 }
 
+void usage(void)
+{
+   printf("Usage: gdb_lots_of_threads [-a seconds] [-t thread_count]\n"
+          "   -a = stop test after specified seconds, run forever if not specified\n"
+          "   -t = create more threads than the default %d\n",
+          DEFAULT_THREADS);
+}
+
 int main(int argc, char *argv[])
 {
    long i;
    pthread_t threadid[MAX_THREADS];
+   int max_threads = DEFAULT_THREADS;
    void* rv;
    struct timespec rs;
    int rc;
 
-   if (argc == 3 && strcmp(argv[1], "-a") == 0) {
-      stop_after_seconds = atoi(argv[2]);
-      printf("Stop running after %d seconds\n", stop_after_seconds);
+   for (int j = 1; j < argc; j++) {
+      if (strcmp(argv[j], "-a") == 0) {
+         if (j+1 >= argc) {
+            usage();
+            exit(1);
+         }
+         stop_after_seconds = atoi(argv[j+1]);
+         printf("Stop running after %d seconds\n", stop_after_seconds);
+         j++;
+      } else if (strcmp(argv[j], "-t") == 0) {
+         if (j+1 >= argc) {
+            usage();
+            exit(1);
+         }
+         max_threads = atoi(argv[j+1]);
+         if (max_threads > MAX_THREADS) {
+            printf("Number of threads can not exceed %d\n", MAX_THREADS);
+            exit(1);
+         }
+         j++;
+      } else {
+         printf("Unknown argument %s\n", argv[j]);
+         usage();
+         exit(1);
+      }
    }
 
    // Init random number generator for sleep times.
@@ -104,7 +136,7 @@ int main(int argc, char *argv[])
    srandom(rs.tv_nsec);
 
    // start up the do nothing threads
-   for (i = 0; i < MAX_THREADS; i++) {
+   for (i = 0; i < max_threads; i++) {
       rc = pthread_create(&threadid[i], NULL, do_nothing_thread, (void*)i);
       if (rc != 0) {
          printf("Couldn't create thread instance %ld, error %s\n", i, strerror(rc));
@@ -113,7 +145,7 @@ int main(int argc, char *argv[])
    }
    starttime = time(NULL);
    // Wait for threads to terminate
-   for (i = 0; i < MAX_THREADS; i++) {
+   for (i = 0; i < max_threads; i++) {
       if (threadid[i] != 0) {
          rc = pthread_join(threadid[i], &rv);
          if (rc != 0) {
