@@ -51,8 +51,8 @@ static const int KM_GDB_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES;
 static const int KM_GDB_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 1;
 static const int KM_MGM_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES + 2;
 static const int KM_MGM_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 3;
-static const int KM_LOGGING = MAX_OPEN_FILES - MAX_KM_FILES + 5;
-static const int KM_START_FDS = MAX_OPEN_FILES - MAX_KM_FILES + 6;
+static const int KM_LOGGING = MAX_OPEN_FILES - MAX_KM_FILES + 4;
+static const int KM_START_FDS = MAX_OPEN_FILES - MAX_KM_FILES + 5;
 
 static const_string_t stdin_name = "[stdin]";
 static const_string_t stdout_name = "[stdout]";
