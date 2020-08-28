@@ -411,6 +411,7 @@ int km_snapshot_restore(const char* file)
    if (notebuf == NULL) {
       km_errx(2, "PT_NOTES not found");
    }
+   (void)close(fd);   // close now to avoid collision with fd's that need restoring
    if (km_ss_recover_vcpus(notebuf, notesize) < 0) {
       km_errx(2, "VCPU restore failed");
    }
@@ -452,7 +453,6 @@ int km_snapshot_restore(const char* file)
    km_mmap_set_recovery_mode(0);
    free(notebuf);
    (void)elf_end(e);
-   (void)close(fd);
    free(tmp_payload.km_phdr);
    free(tmp_payload.km_filename);
 
