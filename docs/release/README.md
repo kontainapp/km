@@ -364,13 +364,114 @@ The running `./python` will result in running `/opt/kontain/bin/km ./python.km`.
 
 ## Faktory
 
-TODO
+Faktory converts a docker container to kontain kontainer. For reference,
+`container` will refer to docker container and `kontainer` with a `k` will
+refer to kontain kontainer.
+
+### Install Faktory
+
+TODO: fix the download link.
+```bash
+curl -sSL <download link TBD> | bash -s
+```
+
+### Java Example
+
+In this section, we will use a container build with JDK base image to
+illustrate how `faktory` works.
+
+#### Download kontain Java runtime environment
+
+Download the kontain JDK 11 image:
+
+```bash
+docker pull kontainapp/runenv-jdk-11:latest
+```
+
+#### Using faktory to convert an existing java based image
+
+To convert an existing image `example/existing-java:latest` into a kontain
+based image named `example/kontain-java:latest`:
+
+```bash
+# sudo may be required since faktory needs to look at files owned by dockerd
+# and containerd, which is owned by root under `/var/lib/docker`
+sudo faktory convert \
+    example/existing-java:latest \
+    example/kontain-java:latest \
+    kontainapp/runenv-jdk-11:latest \
+    --type java
+```
+
+### Use kontain Java in dockerfiles
+
+To use kontain java runtime environment with dockerfile, user can substitude
+the base image with kontain image.
+```dockerfile
+FROM kontainapp/runenv-jdk-11
+
+# rest of dockerfile remain the same ...
+```
+
+Here is an example dockerfile without kontain, to build and package the
+`springboot` starter `gs-rest-service` repo from `spring-guides` found
+[here](https://github.com/spring-guides/gs-rest-service.git). We use
+`adoptopenjdk/openjdk11:alpine` and `adoptopenjdk/openjdk11:alpine-jre` as
+base image as an example, but any java base image would work.
+
+```dockerfile
+FROM adoptopenjdk/openjdk11:alpine AS builder
+COPY gs-rest-service/complete /app
+WORKDIR /app
+RUN ./mvnw install
+
+FROM adoptopenjdk/openjdk11:alpine-jre
+WORKDIR /app
+ARG APPJAR=/app/target/*.jar
+COPY --from=builder ${APPJAR} app.jar
+ENTRYPOINT ["java","-jar", "app.jar"]
+```
+
+To package the same container using kontain:
+
+```dockerfile
+FROM adoptopenjdk/openjdk11:alpine AS builder
+COPY gs-rest-service/complete /app
+WORKDIR /app
+RUN ./mvnw install
+
+FROM kontainapp/runenv-jdk-11
+WORKDIR /app
+ARG APPJAR=/app/target/*.jar
+COPY --from=builder ${APPJAR} app.jar
+ENTRYPOINT ["java","-jar", "app.jar"]
+```
+
+Note: only the `FROM` from the final docker image is changed. Here we kept
+using a normal jdk docker image as the `builder` because the build
+environment is not affected by kontain.
+
+### Run
+
+To run a kontain based container image, the container will need access to
+`/dev/kvm` and kontain monitor `km`, so make sure the host has these
+avaliable. For Java we also requires kontain's version of `lic.so`.
+
+```bash
+docker run -it --rm \
+    --device /dev/kvm \
+    -v /opt/kontain/bin/km:/opt/kontain/bin/km:z \
+    -v /opt/kontain/runtime/libc.so:/opt/kontain/runtime/libc.so:z \
+    example/kontain-java
+```
 
 ## Architecture
 
 TODO
 
 ### Kontain Monitor (VM hardware model) and Kontain unikernels
+
+TODO. Outline:
 
 Link to google doc if we have something.
 System design diagram
@@ -387,9 +488,11 @@ Supported syscals and delegation to host
 
 ### Solution for no-nested-kvm
 
-KKM architecture (high level)
+KKM architecture (high level) goes here
 
-OPEN: how do we let people build it for their kernel if needed ?
+Amazon - pre-built AMIs to play with
+
+OPEN: compile-on-install
 
 ### Kontainers
 
@@ -411,7 +514,30 @@ krun - why and how to use
 
 ### Kubernetes
 
-* Kontaind and kvm plugin
+#### kontaind
+
+kontaind serves both as an installer for kontain and a device manager for
+kvm/kkm devices on a k8s cluster. To use kontain monitor within containers in
+k8s, we need to first install kontain monitor onto the node to which we want
+to deploy kontainers. Then we need a device manager for `kvm` devices so k8s
+knows how to scheudle workloads onto the right node. For this, we developed
+kontaind, a device manager for `kvm` and `kkm` device, running as a daemonset
+on nodes that has these devices avaliable.
+
+To deploy the latest version of `kontaind`, run:
+
+```bash
+kubectl apply \
+  -f https://github.com/kontainapp/km-releases/blob/master/k8s/kontaind/deployment.yaml?raw=true
+```
+
+Alternatively, you can download the yaml and make your own modification:
+
+``` bash
+wget https://github.com/kontainapp/km-releases/blob/master/k8s/kontaind/deployment.yaml?raw=true -O kontaind.yaml
+```
+
+TODO: fix the link here after deciding where the yaml file will be.
 
 ## dev guide
 
