@@ -427,6 +427,7 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
    km_hc_args_t hcargs;    // HC argument array for __km_sigreturn.
+   uint64_t rflags;        // saved rflags
    siginfo_t info;         // Passed to guest signal handler
    ucontext_t ucontext;    // Passed to guest signal handler
 } km_signal_frame_t;
@@ -501,6 +502,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    frame->info = *info;
    frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
    fill_ucontext(vcpu, &frame->ucontext);
+   frame->rflags = vcpu->regs.rflags;
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
    if ((act->sa_flags & SA_SIGINFO) != 0) {
       vcpu->sigmask |= act->sa_mask;
@@ -585,6 +587,7 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
       vcpu->sigaltstack.ss_flags = 0;
    }
    restore_ucontext(vcpu, &frame->ucontext);
+   vcpu->regs.rflags = frame->rflags;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
    km_write_registers(vcpu);
 }
