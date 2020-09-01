@@ -427,7 +427,6 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
    km_hc_args_t hcargs;    // HC argument array for __km_sigreturn.
-   kvm_regs_t regs;        // Saved registers
    siginfo_t info;         // Passed to guest signal handler
    ucontext_t ucontext;    // Passed to guest signal handler
 } km_signal_frame_t;
@@ -455,6 +454,27 @@ static inline void fill_ucontext(km_vcpu_t* vcpu, ucontext_t* uc)
    uc->uc_mcontext.gregs[REG_RIP] = vcpu->regs.rip;
 }
 
+static inline void restore_ucontext(km_vcpu_t* vcpu, ucontext_t* uc)
+{
+   vcpu->regs.rax = uc->uc_mcontext.gregs[REG_RAX];
+   vcpu->regs.rbx = uc->uc_mcontext.gregs[REG_RBX];
+   vcpu->regs.rcx = uc->uc_mcontext.gregs[REG_RCX];
+   vcpu->regs.rdx = uc->uc_mcontext.gregs[REG_RDX];
+   vcpu->regs.rsi = uc->uc_mcontext.gregs[REG_RSI];
+   vcpu->regs.rdi = uc->uc_mcontext.gregs[REG_RDI];
+   vcpu->regs.rbp = uc->uc_mcontext.gregs[REG_RBP];
+   vcpu->regs.rsp = uc->uc_mcontext.gregs[REG_RSP];
+   vcpu->regs.r8 = uc->uc_mcontext.gregs[REG_R8];
+   vcpu->regs.r9 = uc->uc_mcontext.gregs[REG_R9];
+   vcpu->regs.r10 = uc->uc_mcontext.gregs[REG_R10];
+   vcpu->regs.r11 = uc->uc_mcontext.gregs[REG_R11];
+   vcpu->regs.r12 = uc->uc_mcontext.gregs[REG_R12];
+   vcpu->regs.r13 = uc->uc_mcontext.gregs[REG_R13];
+   vcpu->regs.r14 = uc->uc_mcontext.gregs[REG_R14];
+   vcpu->regs.r15 = uc->uc_mcontext.gregs[REG_R15];
+   vcpu->regs.rip = uc->uc_mcontext.gregs[REG_RIP];
+}
+
 /*
  * Do the dirty-work to get a signal handler called in the guest.
  * We set everything up so the next time the vcpu runs it will be running the
@@ -479,7 +499,6 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
 
    frame->info = *info;
-   frame->regs = vcpu->regs;
    frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
    fill_ucontext(vcpu, &frame->ucontext);
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
@@ -561,13 +580,12 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
     */
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(km_gva_t));
    // check if we use sigaltstack is used, and we are leaving it now
-   if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1 && km_on_altstack(vcpu, frame->regs.rsp) == 0) {
+   if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1 &&
+       km_on_altstack(vcpu, frame->ucontext.uc_mcontext.gregs[REG_RSP]) == 0) {
       vcpu->sigaltstack.ss_flags = 0;
    }
-   vcpu->regs = frame->regs;
+   restore_ucontext(vcpu, &frame->ucontext);
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
-   vcpu->regs.rip = frame->ucontext.uc_mcontext.gregs[REG_RIP];
-   vcpu->regs.rsp = frame->ucontext.uc_mcontext.gregs[REG_RSP];
    km_write_registers(vcpu);
 }
 
