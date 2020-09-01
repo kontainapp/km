@@ -14,7 +14,7 @@ rm -f $TARBALL $TARBALL.gz
 
 # package by doing `tar -C locations[i] files[i]`
 declare -a locations; locations=(/opt/kontain ../..        ../..               ../../tools)
-declare -a files ;    files=(.                docs/product tests/hello_test.km bin)
+declare -a files ;    files=(.                docs/release tests/hello_test.km bin)
 
 for i in $(seq 0 $(("${#locations[@]}" - 1)) ) ; do
    echo "Packaging ${locations[$i]}/${files[$i]}"
