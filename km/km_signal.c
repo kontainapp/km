@@ -567,6 +567,7 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
    vcpu->regs = frame->regs;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
    vcpu->regs.rip = frame->ucontext.uc_mcontext.gregs[REG_RIP];
+   vcpu->regs.rsp = frame->ucontext.uc_mcontext.gregs[REG_RSP];
    km_write_registers(vcpu);
 }
 
