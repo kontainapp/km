@@ -91,7 +91,7 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 
 
 JAVA_DIR := ${JDK_BUILD_DIR}/images/jdk
-JAVA_LD_PATH := ${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime:/lib64
+JAVA_LD_PATH := ${CURDIR}/${JAVA_DIR}/lib/server:${CURDIR}/${JAVA_DIR}/lib/jli:${CURDIR}/${JAVA_DIR}/lib:/opt/kontain/runtime:/lib64
 test: ${RUNENV_VALIDATE_DEPENDENCIES} ## Basic test run
 	${KM_BIN} --putenv=LD_LIBRARY_PATH=${JAVA_LD_PATH} \
 		${JDK_BUILD_DIR}/images/jdk/bin/java.kmd -cp ${RUNENV_VALIDATE_DIR} Hello | grep "${RUNENV_VALIDATE_EXPECTED}"
