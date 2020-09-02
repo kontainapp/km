@@ -3,6 +3,8 @@
 #
 # Creates a release kontain.tar.gz for uploading to github. To unpackage, 'tar -C /opt/kontain -xvf kontain.tar.gz'
 #
+# May need to run as a `sudo` because objcopy modifies files in /opt/kontain
+#
 [ "$TRACE" ] && set -x
 
 cd "$( dirname "${BASH_SOURCE[0]}" )"
@@ -18,11 +20,11 @@ declare -a files ;    files=(.                docs/release tests/hello_test.km b
 
 for i in $(seq 0 $(("${#locations[@]}" - 1)) ) ; do
    source="${locations[$i]}/${files[$i]}"
-   decompress_list=`find $source -type f | xargs file  | egrep '(shared|archive)' | awk -F: '{print $1}'`
+   decompress_list=`find $source -type f | xargs file | egrep '(shared|archive|relocatable)' | awk -F: '{print $1}'`
    if [ -n "$decompress_list" ] ; then echo Decompressing .debug_info for `echo $decompress_list | wc -w` files ; fi
    for file in $decompress_list
    do
-      objcopy --decompress-debug-sections $file
+      objcopy --decompress-debug-sections --preserve-dates $file
    done
    echo "Packaging ${source}"
    tar -C ${locations[$i]} -rf $TARBALL ${files[$i]}
