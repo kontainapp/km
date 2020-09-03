@@ -99,7 +99,7 @@ void __km_trace(int errnum, const char* function, int linenumber, const char* fm
 
    va_end(ap);
 
-   if (km_log_file != NULL) {
+   if (km_log_file != NULL && stderr == NULL) {
       fputs(traceline, km_log_file);
    }
    if (stderr != NULL) {
