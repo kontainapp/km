@@ -8,7 +8,7 @@
          "type": "process",
          "command": "make",
          "args": [
-            "-j16",
+            "-j16"
          ],
          "group": {
             "kind": "build",
@@ -16,10 +16,7 @@
          },
          "problemMatcher": {
             "owner": "cpp",
-            "fileLocation": [
-               "relative",
-               "${workspaceFolder}"
-            ],
+            "base": "$gcc",
             "pattern": {
                "regexp": "^(.*?):(\\d+):(\\d+)?(?::)?\\s+(note|warning|error|fatal error):\\s+(.*)$",
                "file": 1,
@@ -29,6 +26,17 @@
                "message": 5
             }
          }
+      },
+      {
+         "label": "clean",
+         "type": "shell",
+         "linux": {
+            "command": "make",
+            "args": [
+               "clean"
+            ]
+         },
+         "problemMatcher": []
       },
       {
          "label": "saveKmCore",
