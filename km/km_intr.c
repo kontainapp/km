@@ -197,6 +197,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
       case X86_INTR_GP:   // General Protection: SIGSEGV
          info.si_signo = SIGSEGV;
          info.si_addr = km_find_faulting_address(vcpu);
+         km_infox(KM_TRACE_SIGNALS, "Fault Address: 0x%lx", (uintptr_t)info.si_addr);
          break;
 
       case X86_INTR_PF:   // Page fault: SIGSEGV
