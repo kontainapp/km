@@ -47,7 +47,7 @@ TEST test_simple_signal()
    ASSERT_EQ(1, signal_seen);
    // check stack alignment.
    ASSERT_NOT_EQ(0, (uintptr_t)stack_addr);
-   ASSERT_EQ(0, ((uintptr_t)stack_addr) % 16);
+   ASSERT_EQ(0, ((uintptr_t)stack_addr) % 64);
    signal(SIGTERM, SIG_DFL);
    PASS();
 }
@@ -61,6 +61,7 @@ TEST test_sigpending()
    sigset_t pending;
 
    signal_seen = 0;
+   stack_addr = NULL;
    signal(SIGUSR1, signal_handler);
    signal(SIGUSR2, signal_handler);
    sigemptyset(&ss);
@@ -75,6 +76,9 @@ TEST test_sigpending()
    ASSERT_EQ(0, signal_seen);
    ASSERT_EQ(0, sigprocmask(SIG_UNBLOCK, &ss, NULL));
    ASSERT_EQ(2, signal_seen);
+   // check stack alignment.
+   ASSERT_NOT_EQ(0, (uintptr_t)stack_addr);
+   ASSERT_EQ(0, ((uintptr_t)stack_addr) % 64);
    signal(SIGUSR1, SIG_DFL);
    signal(SIGUSR2, SIG_DFL);
 
@@ -96,6 +100,7 @@ TEST test_sigqueued()
    sigset_t pending;
 
    signal_seen = 0;
+   stack_addr = NULL;
    signal(SIGRTMIN, signal_handler);
    sigemptyset(&ss);
    sigaddset(&ss, SIGRTMIN);
@@ -107,6 +112,9 @@ TEST test_sigqueued()
    ASSERT_EQ(0, signal_seen);
    ASSERT_EQ(0, sigprocmask(SIG_UNBLOCK, &ss, NULL));
    ASSERT_EQ(2, signal_seen);
+   // check stack alignment.
+   ASSERT_NOT_EQ(0, (uintptr_t)stack_addr);
+   ASSERT_EQ(0, ((uintptr_t)stack_addr) % 64);
    signal(SIGRTMIN, SIG_DFL);
    PASS();
 }
@@ -120,6 +128,7 @@ TEST test_sigconsolodated()
    sigset_t pending;
 
    signal_seen = 0;
+   stack_addr = NULL;
    signal(SIGUSR1, signal_handler);
    sigemptyset(&ss);
    sigaddset(&ss, SIGUSR1);
@@ -131,6 +140,9 @@ TEST test_sigconsolodated()
    ASSERT_EQ(0, signal_seen);
    ASSERT_EQ(0, sigprocmask(SIG_UNBLOCK, &ss, NULL));
    ASSERT_EQ(1, signal_seen);
+   // check stack alignment.
+   ASSERT_NOT_EQ(0, (uintptr_t)stack_addr);
+   ASSERT_EQ(0, ((uintptr_t)stack_addr) % 64);
    signal(SIGUSR1, SIG_DFL);
    PASS();
 }
@@ -143,12 +155,16 @@ void first_signal_handler(int signo)
 TEST test_nested_signal()
 {
    signal_seen = 0;
+   stack_addr = NULL;
    signal(SIGUSR1, first_signal_handler);
    signal(SIGUSR2, signal_handler);
 
    ASSERT_EQ(0, signal_seen);
    kill(0, SIGUSR1);
    ASSERT_EQ(1, signal_seen);
+   // check stack alignment.
+   ASSERT_NOT_EQ(0, (uintptr_t)stack_addr);
+   ASSERT_EQ(0, ((uintptr_t)stack_addr) % 64);
 
    signal(SIGUSR1, SIG_DFL);
    signal(SIGUSR2, SIG_DFL);
