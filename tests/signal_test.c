@@ -27,9 +27,12 @@
 #include "syscall.h"
 
 int signal_seen = 0;
+void* stack_addr = NULL;
 
 void signal_handler(int signal)
 {
+   char buf[128];
+   stack_addr = buf;
    signal_seen++;
 }
 
@@ -42,6 +45,9 @@ TEST test_simple_signal()
    signal(SIGTERM, signal_handler);
    kill(0, SIGTERM);
    ASSERT_EQ(1, signal_seen);
+   // check stack alignment.
+   ASSERT_NOT_EQ(0, (uintptr_t)stack_addr);
+   ASSERT_EQ(0, ((uintptr_t)stack_addr) % 16);
    signal(SIGTERM, SIG_DFL);
    PASS();
 }
