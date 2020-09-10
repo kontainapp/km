@@ -62,6 +62,7 @@ Requirements and experience are documented in [Kontain Platform Requirements](ht
 - [ ] Security monitoring and control (investigate)
   - [ ] Seccomp vs hcall - define filters
 - [ ] Snapshot management (km_cli to relate snapshots to original, show relations, etc)
+- [ ] "this payload is not going to run" analysis tool (phase 1 -  what (if anything) can be done for known non-supported APIs ?)
 
 ### Release Process
 
