@@ -428,6 +428,7 @@ typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
    km_hc_args_t hcargs;    // HC argument array for __km_sigreturn.
    uint64_t rflags;        // saved rflags
+   uint64_t pad;           // ABI alignment for 16 byte alignment (ABI)
    siginfo_t info;         // Passed to guest signal handler
    ucontext_t ucontext;    // Passed to guest signal handler
 } km_signal_frame_t;
@@ -518,7 +519,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
 
    km_write_registers(vcpu);
 
-   km_info(KM_TRACE_KVM, "RIP 0x%0llx RSP 0x%0llx", vcpu->regs.rip, vcpu->regs.rsp);
+   km_info(KM_TRACE_SIGNALS, "Call: RIP 0x%0llx RSP 0x%0llx", vcpu->regs.rip, vcpu->regs.rsp);
 }
 
 void km_deliver_next_signal(km_vcpu_t* vcpu)
@@ -590,6 +591,7 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
    vcpu->regs.rflags = frame->rflags;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
    km_write_registers(vcpu);
+   km_info(KM_TRACE_SIGNALS, "Return: RIP 0x%0llx RSP 0x%0llx", vcpu->regs.rip, vcpu->regs.rsp);
 }
 
 uint64_t
