@@ -14,6 +14,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -328,6 +329,24 @@ TEST test_safepoint()
    PASS();
 }
 
+void* tmain(void* arg)
+{
+   static void* sav;
+   char buf[64];
+   sav = buf;
+   return sav;
+}
+
+TEST test_thread_stack_alignment()
+{
+   pthread_t t;
+   void* rval;
+   ASSERT_EQ(0, pthread_create(&t, NULL, tmain, NULL));
+   ASSERT_EQ(0, pthread_join(t, &rval));
+   ASSERT_EQ(0, ((uintptr_t)rval) % 16);
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -348,6 +367,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_tkill);
    RUN_TEST(test_sigmask);
    RUN_TEST(test_safepoint);
+   RUN_TEST(test_thread_stack_alignment);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
