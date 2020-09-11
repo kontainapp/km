@@ -3,16 +3,14 @@
 ## What's a release
 
 A release is Github collection of sources (autopackaged by github) and extra files (manually or script-added to the "release files) hosted on github.
-We create releases in km-release repo so KM sources are not released. For KM releases, we create a tagged release using github, and `manually` upload .tar.gz files with the content built in `km` repo.
+
+We create releases in public kontainapp/km-release repo so KM sources are not released but KM binaries can be picked up for evaluation.
 
 A release may include multiple .tar.gz file , but there is at least one - `kontain.tar.gz` with the KM binaries, libs and tools, which is created, and is expected to be installed before other tars. All files related to release are expected to be on gihub, with the exception of Docker images which can be on dockerhub
-
-For now we will hard-code release tag as 0.1-test for testing phase, and 0.1-beta when we are ready to release. The reason is that a release is a undeletable read only snapshot, we can only add files to it.
 
 ## How to create a release
 
 Release content is described in docs/planning/m1.
-
 
 We maintain releases on [github km-releases](https://github.com/kontainapp/km-releases/releases/) . We also maintain install script and basic install documentation there. This repo is a submodule to KM and is sitting in ./km-releases (after 'git submodule sync --init)
 
@@ -25,13 +23,37 @@ Each payload may decide to implement `release` make target which needs to packag
 To build a release, use `make release` from the appropriate dir (e.g. top-level `make release` will scan all dirs and try to build `release` target here).
 For payloads (or tests, or any other dir scanned from top) we assume that KM (and related libraries) are already installed and /opt/kontain exists.
 
-Release targets do the following:
+### Current process
 
-* Create a tar.gz using make.
-* Edit 0.1-test release on https://github.com/kontainapp/km-releases/releases , and update kontain.tar.gz from build/kontain.tar.gz or add your payload tar.gz
-  * This, as well as tag name creation and link to specific SHA on KM, will be automated later
-* Validate the release by following install instruction on https://github.com/kontainapp/km-releases
+For now we will hard-code release tag as 0.1-test for testing phase, and 0.1-beta when we are ready to release. The reason is that a release is a undeletable read only snapshot, we can only add files to it.
+
+1. Build release tarball using `make release` in KM repo
+1. Edit 0.1-test release on https://github.com/kontainapp/km-releases/releases UI, and `manually` update kontain.tar.gz from the one built above
+1. Add payliad tar.gz if needed (payloads are scanned durig the `make release` and may generate their own tarballs
+1. Validate the release by following install instruction on https://github.com/kontainapp/km-releases
   * if needed, update the instructions there, in your branch - follow regular GIT processes for submodules
+
+
+### Planned automation (target - mid-to-late September)
+
+We will use existing Azure pipeline mechanism to generate releases. A trigger for the release is creating a release/version branch in KM.
+
+Here is the use case:
+
+* We decide a specific master tag or SHA is good enough for release. It is already tested by existing pipelines
+* We decide to name this release, say v0.9-beta
+* We create a branch `releases/v0-9-beta`
+* This trigger a new Azure pipeline to generate and push the .
+  * Thus pipeline uses standard pipeline components to build the product
+  * It invokes `make release` to generate release artifacts
+  * It invokes `make push-release` to call a (new) script using github API
+    * The script uses the current branch name to identify release tag
+    * it generate a release on km-releases if it does not exist, and pushes the artifacts there.if the release already exists, it just  removes old artifacts and pushes new
+    * `NOTE` this may require extra credentials
+  * [second phase] it runs (new) `make test-release` target that invokes a (new) script to
+   * download and upack the release from km-releases
+   * run validation test described in GettingStarted.md in km-releases
+   * `NOTE`: this is phase 2, the 1st pass is just get it to build and push
 
 # Install
 
@@ -39,14 +61,10 @@ Install instructions are in km-release/README.md
 
 # TODO
 
-* create_release should re-tag KM sources, and add release to tar name
 * kontain_install should accept try to use the latest release (using GIT API) , overridable by env var
-* releases repo should have installation instruction (when the above is clear)
 * add test for the doc (basic). Going forward - need to build docs with m4 by including scripts ? and testing these scripts directly
-
 
 ## Questions
 
 * We need a license for releases. For now I put MIT there (no liability)
 * now is the last chance to switch to python from bash :-)  for install
-* there is no automation to tag something in KM (SHA), tag something in payload (SHA for our code an version of payload) and generate a release. It's OK to do stuff manually for now but if/when we need to keep going it needs to be re-designed
