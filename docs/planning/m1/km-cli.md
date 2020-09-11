@@ -141,30 +141,3 @@ The following docs will have to be written
 * timing comparison on simple things (start, )
 * contact info ( I guess just issues on github)
 
-## Work items and costs
-
-**THIS SECTION IS A PLACEHOLDER** @paulpopelka @msterin will update
-
-* Packaging
-  * Package km in tar.gz or image and provide installation script (to avoid rpm/etc... for now)
-  * adding tools (e.g. gcc-kontain)
-  * documentation for building KMs with gcc-kontain, examples of links
-    * we use OCI images, so the image work / examples have to be documented and tested but no code for image manipulation
-  * optionally pre-build python.km and maybe java.km
-* prep and push GPL repo, set CI on it (maybe just another submodule?)
-* add extra property to spec to indicate Kontain (can we automate it?), and extra dictionary for Kontain params
-  * maybe as a flag to 'krun spec'
-* add km invocation to 'krun create/start/run' and 'krun exec'
-  * KM and /dev/kvm (or /dev/kkm)  will auto-mount into kontainer namespaces
-* Analyze and integrate checkpoints... (not sure if snapshots are related)
-* Update and integrate pause/resume and kill
-* Test:
-  * Validate implementation: https://github.com/opencontainers/runtime-tools
-  * Pef validation
-  * testing with Docker (per doc above)
-  * P1: testing with CRI-O by setting additional runtime
-
-## Open Items
-
-* snapshot experience (it's is worked on in java-start.md and will have to be documented in the `documentation`)
-* more TBD - please expand as you see fit
