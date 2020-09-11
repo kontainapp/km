@@ -428,7 +428,6 @@ typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
    km_hc_args_t hcargs;    // HC argument array for __km_sigreturn.
    uint64_t rflags;        // saved rflags
-   uint64_t pad;           // ABI alignment for 16 byte alignment (ABI)
    siginfo_t info;         // Passed to guest signal handler
    ucontext_t ucontext;    // Passed to guest signal handler
 } km_signal_frame_t;
@@ -497,7 +496,8 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    } else {
       sframe_gva = vcpu->regs.rsp - RED_ZONE;
    }
-   sframe_gva -= sizeof(km_signal_frame_t);
+   // Align stack to 16 bytes per X86_64 ABI.
+   sframe_gva = rounddown(sframe_gva - sizeof(km_signal_frame_t), 16) - 8;
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
 
    frame->info = *info;
