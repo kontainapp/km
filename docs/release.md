@@ -29,9 +29,9 @@ For now we will hard-code release tag as 0.1-test for testing phase, and 0.1-bet
 
 1. Build release tarball using `make release` in KM repo
 1. Edit 0.1-test release on https://github.com/kontainapp/km-releases/releases UI, and `manually` update kontain.tar.gz from the one built above
-1. Add payliad tar.gz if needed (payloads are scanned durig the `make release` and may generate their own tarballs
+1. Add payload tar.gz if needed (payloads are scanned durig the `make release` and may generate their own tarballs
 1. Validate the release by following install instruction on https://github.com/kontainapp/km-releases
-  * if needed, update the instructions there, in your branch - follow regular GIT processes for submodules
+1. if needed, update the instructions there, in your branch - follow regular GIT processes for sub-modules
 
 
 ### Planned automation (target - mid-to-late September)
@@ -41,19 +41,23 @@ We will use existing Azure pipeline mechanism to generate releases. A trigger fo
 Here is the use case:
 
 * We decide a specific master tag or SHA is good enough for release. It is already tested by existing pipelines
-* We decide to name this release, say v0.9-beta
-* We create a branch `releases/v0-9-beta`
-* This trigger a new Azure pipeline to generate and push the .
+* We decide to name this release, say `v0.9-beta`
+* We create a tag `v0.9-beta`
+  * when/if we need a branch to work on patches, we will create `releases/v0.9-beta` and will be tagging it separately for sub-releases, e.g. `v0.9-beta-1`
+* This trigger a new Azure pipeline on `v0.*` tags to generate and push the artifacts
   * Thus pipeline uses standard pipeline components to build the product
   * It invokes `make release` to generate release artifacts
   * It invokes `make push-release` to call a (new) script using github API
     * The script uses the current branch name to identify release tag
-    * it generate a release on km-releases if it does not exist, and pushes the artifacts there.if the release already exists, it just  removes old artifacts and pushes new
+    * It removes existing release on `km-releases` with the given name including it's artifacts
+    * It creates a release (say `v0.9-beta`) and pushes the artifacts there.
     * `NOTE` this may require extra credentials
-  * [second phase] it runs (new) `make test-release` target that invokes a (new) script to
-   * download and upack the release from km-releases
-   * run validation test described in GettingStarted.md in km-releases
-   * `NOTE`: this is phase 2, the 1st pass is just get it to build and push
+  * [second phase] it runs validation
+    * provision a kvm-enabled VM
+    * Pull km-releases repo there
+    * Download and unpack the release artifact from km-releases
+    * run (new) `validate.py` script to execute steps described in GettingStarted.md
+    * `NOTE`: this is phase 2, the 1st pass is just get it to build and push
 
 # Install
 
@@ -67,4 +71,8 @@ Install instructions are in km-release/README.md
 ## Questions
 
 * We need a license for releases. For now I put MIT there (no liability)
-* now is the last chance to switch to python from bash :-)  for install
+
+
+## Languages
+
+* We will standardize on `python3` for helper scripts outside of Makefiles. While it may be a little overhead for trivial scripts, it is much better as the code get more complicated. Plus we will have our helper modules :-)
