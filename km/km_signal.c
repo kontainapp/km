@@ -434,7 +434,7 @@ typedef struct km_signal_frame {
 
 #define RED_ZONE (128)
 
-static inline void fill_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame)
+static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame)
 {
    ucontext_t* uc = &frame->ucontext;
    uc->uc_mcontext.gregs[REG_RAX] = vcpu->regs.rax;
@@ -510,7 +510,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
 
    frame->info = *info;
-   fill_signal_context(vcpu, frame);
+   save_signal_context(vcpu, frame);
    if ((act->sa_flags & SA_SIGINFO) != 0) {
       vcpu->sigmask |= act->sa_mask;
    }
