@@ -434,8 +434,9 @@ typedef struct km_signal_frame {
 
 #define RED_ZONE (128)
 
-static inline void fill_ucontext(km_vcpu_t* vcpu, ucontext_t* uc)
+static inline void fill_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame)
 {
+   ucontext_t* uc = &frame->ucontext;
    uc->uc_mcontext.gregs[REG_RAX] = vcpu->regs.rax;
    uc->uc_mcontext.gregs[REG_RBX] = vcpu->regs.rbx;
    uc->uc_mcontext.gregs[REG_RCX] = vcpu->regs.rcx;
@@ -453,10 +454,15 @@ static inline void fill_ucontext(km_vcpu_t* vcpu, ucontext_t* uc)
    uc->uc_mcontext.gregs[REG_R14] = vcpu->regs.r14;
    uc->uc_mcontext.gregs[REG_R15] = vcpu->regs.r15;
    uc->uc_mcontext.gregs[REG_RIP] = vcpu->regs.rip;
+
+   frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
+   frame->rflags = vcpu->regs.rflags;
+   memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
 }
 
-static inline void restore_ucontext(km_vcpu_t* vcpu, ucontext_t* uc)
+static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame)
 {
+   ucontext_t* uc = &frame->ucontext;
    vcpu->regs.rax = uc->uc_mcontext.gregs[REG_RAX];
    vcpu->regs.rbx = uc->uc_mcontext.gregs[REG_RBX];
    vcpu->regs.rcx = uc->uc_mcontext.gregs[REG_RCX];
@@ -474,6 +480,9 @@ static inline void restore_ucontext(km_vcpu_t* vcpu, ucontext_t* uc)
    vcpu->regs.r14 = uc->uc_mcontext.gregs[REG_R14];
    vcpu->regs.r15 = uc->uc_mcontext.gregs[REG_R15];
    vcpu->regs.rip = uc->uc_mcontext.gregs[REG_RIP];
+
+   vcpu->regs.rflags = frame->rflags;
+   memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
 }
 
 /*
@@ -501,10 +510,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
 
    frame->info = *info;
-   frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
-   fill_ucontext(vcpu, &frame->ucontext);
-   frame->rflags = vcpu->regs.rflags;
-   memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
+   fill_signal_context(vcpu, frame);
    if ((act->sa_flags & SA_SIGINFO) != 0) {
       vcpu->sigmask |= act->sa_mask;
    }
@@ -587,9 +593,7 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
        km_on_altstack(vcpu, frame->ucontext.uc_mcontext.gregs[REG_RSP]) == 0) {
       vcpu->sigaltstack.ss_flags = 0;
    }
-   restore_ucontext(vcpu, &frame->ucontext);
-   vcpu->regs.rflags = frame->rflags;
-   memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
+   restore_signal_context(vcpu, frame);
    km_write_registers(vcpu);
    km_info(KM_TRACE_SIGNALS, "Return: RIP 0x%0llx RSP 0x%0llx", vcpu->regs.rip, vcpu->regs.rsp);
 }
