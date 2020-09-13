@@ -287,17 +287,16 @@ fi
    assert_success
 }
 
-# Both km instances run the gdb server but one can't successfully listen
-# for a gdb client connection so it proceeds without allowing a gdb client
-# to attach.
+# Block gdb port by running a python http server on it,
+# then check that KM simply proceeds without gdb support
 @test "km_many($test_type): running multiple KMs (hello_test$ext)" {
    km_gdb_port=${GDB_PORT}
-   ${KM_BIN} -g$km_gdb_port --gdb-listen ${KM_ARGS} pthread_cancel_test$ext & # this will do a few sec wait internally
-   sleep 1
-   run km_with_timeout -g$km_gdb_port --gdb-listen hello_test$ext
+   python -c "from http.server import * ; HTTPServer( ('', ${km_gdb_port}), BaseHTTPRequestHandler).serve_forever()" &  \
+         curl --silent --retry 5 --retry-connrefused 127.0.0.1:${km_gdb_port}
+   run km_with_timeout -g${km_gdb_port} --gdb-listen hello_test$ext
+   kill %%
    assert_success
    assert_line --partial "disabling gdb support"
-   wait %%
 }
 
 @test "gdb_basic($test_type): gdb support (gdb_test$ext)" {
