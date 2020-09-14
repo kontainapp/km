@@ -734,7 +734,7 @@ uint64_t km_tkill(km_vcpu_t* vcpu, pid_t tid, int signo)
    }
 
    // Thread-targeted signal.
-   siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
+   siginfo_t info = {.si_signo = signo, .si_pid = machine.pid, .si_code = SI_TKILL};
    km_post_signal(target_vcpu, &info);
    return 0;
 }

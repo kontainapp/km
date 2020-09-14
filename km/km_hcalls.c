@@ -767,6 +767,23 @@ static km_hc_ret_t nanosleep_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t clock_nanosleep_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int clock_nanosleep(clockid_t clock_id,
+   //                     int flags,
+   //                     const struct timespec* request,
+   //                     struct timespec* remain);
+   // NULL is a legal value for rem.
+   uint64_t rem = km_gva_to_kml(arg->arg4);
+   if (rem == 0 && arg->arg4 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   uint64_t req = km_gva_to_kml(arg->arg3);
+   arg->hc_ret = __syscall_4(hc, arg->arg1, arg->arg2, req, rem);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t access_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int access(const char *pathname, int mode);
@@ -1720,6 +1737,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_pause] = pause_hcall;
    km_hcalls_table[SYS_sendto] = sendto_hcall;
    km_hcalls_table[SYS_nanosleep] = nanosleep_hcall;
+   km_hcalls_table[SYS_clock_nanosleep] = clock_nanosleep_hcall;
    km_hcalls_table[SYS_getsockname] = get_sock_peer_name_hcall;
    km_hcalls_table[SYS_getpeername] = get_sock_peer_name_hcall;
    km_hcalls_table[SYS_poll] = poll_hcall;

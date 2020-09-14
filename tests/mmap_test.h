@@ -12,6 +12,7 @@
  * Useful headers for mmap tests
  */
 #define _GNU_SOURCE /* See feature_test_macros(7) */
+#include <cpuid.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -21,7 +22,15 @@
 
 extern int main(int argc, char** argv);
 #define ASSERT_MMAP_FD -2020   // This should be the same as used in gdb_simple_test.py
-#define KM_PAYLOAD() ((uint64_t)&main < 4 * MIB)   // in KM, we load from 2Mb, In Linux, from 4MB
+
+static inline int KM_PAYLOAD(void)
+{
+   unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+
+   __get_cpuid(0, &eax, &ebx, &ecx, &edx);   // mov eax,0; cpuid
+   return ebx == 0x746e6f4b /* "Kont" */ && edx == 0x6e6961 /* "ain" */;
+}
+
 #define ASSERT_MMAPS_COUNT(_expected_count, _query)                                                \
    {                                                                                               \
       int ret = maps_count(_expected_count, _query);                                               \
