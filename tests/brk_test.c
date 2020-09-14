@@ -161,11 +161,11 @@ TEST brk_test(void)
 TEST brk_not_too_greedy()
 {
    static void* brk_up = (void*)(GIB * 200);
-   void* brk = sbrk(0);
+   void* brk = SYS_break(NULL);
 
    ASSERT_NOT_EQ(SYS_break(NULL), (void*)-1);
    ASSERT_EQ_FMT(SYS_break(brk_up), brk_up, "%p");
-   ASSERT_EQ(sbrk(0), brk_up);
+   ASSERT_EQ_FMT(SYS_break(NULL), brk_up, "%p");
    SYS_break(brk);
 
    PASS();
