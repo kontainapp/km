@@ -9,13 +9,21 @@
 #  such source code. Disclosure of this source code or any related proprietary
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
-# 
+#
 # This is a minimal script used to get time to active readings.
 #
 set -e
 [ "$TRACE" ] && set -x
 
+CONTAINER=KM_SpringBoot_Demo
+
 until $(curl --output /dev/null --silent --fail http://localhost:8080/greeting); do
-    sleep 1
+    sleep 0.01
 done
-echo $(date +%s%N)
+end=$(date +%s%N)
+
+docker cp $CONTAINER:/tmp/start_time /tmp/start_time
+
+dur=$(expr $end - $(cat /tmp/start_time))
+
+echo "Response time $(expr $dur / 1000000000).$(expr $dur % 1000000000 / 1000000) secs"
