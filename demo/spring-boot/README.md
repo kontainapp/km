@@ -30,14 +30,13 @@ docker run --privileged --rm -it --device=/dev/kvm \
 ```
 
 ### Step 3 Measure Base Startup Time
-Outside of the container run the program `demo/spring-boot/test/test.sh`.
-This program will print the time in nanoseconds when the server first responds.
+Outside of the container run the program `demo/spring-boot/test/test.sh` which prints the time in nanoseconds when the server first responds.
 
 Inside the container run
 ```
-date +%s%N ; /opt/kontain/bin/km /opt/kontain/java/bin/java.kmd -XX:-UseCompressedOops -jar /app.jar
+date +%s%N ; /opt/kontain/bin/km --mgtpipe=/tmp/km.sock /opt/kontain/java/bin/java.kmd -XX:-UseCompressedOops -jar /app.jar
 ```
-This prints the time in nanoseconds when we start the server.
+This prints the time in nanoseconds when we start the server. (Note: the `date` command on alpine (`busybox`) does not support nanosecond time).
 
 The difference between the two values is the time it took for the server to respond to requests in nanoseconds.
 
