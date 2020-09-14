@@ -496,7 +496,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                km_collect_hc_stats = 1;
                break;
             case 'm':
-               mgtpipe = optarg;
+               mgtpipe = strdup(optarg);
                break;
             case ':':
                km_warnx("Missing arg for %c", optopt);
