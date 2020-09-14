@@ -35,7 +35,7 @@ This program will print the time in nanoseconds when the server first responds.
 
 Inside the container run
 ```
-date +%s%N ; /opt/kontain/bin/km /opt/kontain/java/bin/java.kmd -XX:-UseCompressedOops -jar /app.jar
+/opt/kontain/bin/km --mgtpipe=/tmp/km.sock --print-start /opt/kontain/java/bin/java.kmd -XX:-UseCompressedOops -jar /app.jar
 ```
 This prints the time in nanoseconds when we start the server.
 
@@ -54,7 +54,7 @@ This program will print the time in nanoseconds when the server first responds.
 
 Inside the container run
 ```
-date +%s%N ; /opt/kontain/bin/km --resume kmsnap
+/opt/kontain/bin/km --print-start --resume kmsnap
 ```
 This prints the time in nanoseconds when we start the snapshot.
 

@@ -98,6 +98,7 @@ static inline void usage()
 "\t--disable-1g-pages                  - Force disable 1G pages support\n"
 "\t--use-kvm                           - Use kvm driver\n"
 "\t--use-kkm                           - Use kkm driver\n"
+"\t--print-start                       - Print start time in Nanosecs since epoch\n"
 "\t--mgtpipe <path>                    - Name for management pipe.\n");
    // clang-format on
 }
@@ -171,6 +172,7 @@ static struct option long_options[] = {
     {"snapshot", required_argument, 0, 's'},
     {"resume", no_argument, &resume_snapshot, 1},
     {"mgtpipe", required_argument, 0, 'm'},
+    {"print-start", no_argument, 0, 'p'},
 
     {0, 0, 0, 0},
 };
@@ -496,8 +498,14 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                km_collect_hc_stats = 1;
                break;
             case 'm':
-               mgtpipe = optarg;
+               mgtpipe = strdup(optarg);
                break;
+            case 'p': {
+               struct timespec ts;
+               clock_gettime(CLOCK_REALTIME, &ts);
+               km_warnx("start-time=%ld", ts.tv_sec * 1000000000 + ts.tv_nsec);
+               break;
+            }
             case ':':
                km_warnx("Missing arg for %c", optopt);
                usage();
