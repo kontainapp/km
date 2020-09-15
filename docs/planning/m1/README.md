@@ -46,10 +46,12 @@ Requirements and experience are documented in [Kontain Platform Requirements](ht
 ### Demo
 
 - The goal is to (1) present to investors (2) publish for release.
-- May use existing demos/etc. Desirably UI.
-- maybe reuse dweb or some Java based UI ? Would be nice to add snapshot there
+- Basic install I: create Azure VM. while it is installing , do faktory demo
+- Factory demo: https://github.com/kontainapp/km/tree/master/demo/faktory/java
+- Basic install II: Install gcc, fix /dev/kvm. Follow https://github.com/kontainapp/km-releases/blob/master/GettingStarted.md
+- Build + run first unikernel
 
-- [ ] TBD: other ideas  ?
+- [ ] TODO: fix snapshot (John is working on it), when it is fixed - demo it by following https://github.com/kontainapp/km/tree/master/demo/spring-boot
 
 ### Next Milestone - open
 
@@ -63,6 +65,10 @@ Requirements and experience are documented in [Kontain Platform Requirements](ht
   - [ ] Seccomp vs hcall - define filters
 - [ ] Snapshot management (km_cli to relate snapshots to original, show relations, etc)
 - [ ] "this payload is not going to run" analysis tool (phase 1 -  what (if anything) can be done for known non-supported APIs ?)
+- [ ] UI plugin for Visual Studio (Similar to Docker)
+  - [ ] list of Kontainer images and `running Kontain VMs`; stop/kill/snapshot operations, info on files etc.
+  - [ ] Faktory
+  - [ ] debugging
 
 ### Release Process
 
