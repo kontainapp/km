@@ -2356,21 +2356,27 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
       return -1;
    }
 
-   // Dup fd's to internal area to avoid collision.
-   host_sv[0] = km_internal_fd(host_sv[0], -1);
-   host_sv[1] = km_internal_fd(host_sv[1], -1);
-
+   int otherfd = nt_sock->other;
    if (nt_sock->how == KM_FILE_HOW_SOCKETPAIR0) {
+      if (otherfd == host_sv[0]) {
+         km_fs_recover_fd(otherfd,
+                          host_sv[1],
+                          0,
+                          km_get_nonfile_name(host_sv[1]),
+                          nt_sock->fd,
+                          KM_FILE_HOW_SOCKETPAIR1);
+         otherfd = -1;
+      }
       km_fs_recover_fd(nt_sock->fd,
                        host_sv[0],
                        0,
                        km_get_nonfile_name(host_sv[0]),
                        nt_sock->other,
                        KM_FILE_HOW_SOCKETPAIR0);
-      if (nt_sock->other == -1) {
+      if (otherfd == -1) {
          close(host_sv[1]);
       } else {
-         km_fs_recover_fd(nt_sock->other,
+         km_fs_recover_fd(otherfd,
                           host_sv[1],
                           0,
                           km_get_nonfile_name(host_sv[1]),
@@ -2378,16 +2384,25 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
                           KM_FILE_HOW_SOCKETPAIR1);
       }
    } else {
+      if (otherfd == host_sv[1]) {
+         km_fs_recover_fd(otherfd,
+                          host_sv[0],
+                          0,
+                          km_get_nonfile_name(host_sv[0]),
+                          nt_sock->fd,
+                          KM_FILE_HOW_SOCKETPAIR0);
+         otherfd = -1;
+      }
       km_fs_recover_fd(nt_sock->fd,
                        host_sv[1],
                        0,
                        km_get_nonfile_name(host_sv[1]),
                        nt_sock->other,
                        KM_FILE_HOW_SOCKETPAIR1);
-      if (nt_sock->other == -1) {
+      if (otherfd == -1) {
          close(host_sv[0]);
       } else {
-         km_fs_recover_fd(nt_sock->other,
+         km_fs_recover_fd(otherfd,
                           host_sv[0],
                           0,
                           km_get_nonfile_name(host_sv[0]),
