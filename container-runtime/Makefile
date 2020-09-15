@@ -17,10 +17,11 @@ TOP := $(shell git rev-parse --show-toplevel)
 # "make all" builds crun
 # "make test" runs crun's test suite
 
-# This list of dependencies was taken from crun's README.md file
-DONT_USE_PACKAGES := golang-github-cpuguy83-md2man
+# This list of dependencies was taken from crun's README.md file.
+# Note that we avoid using systemd-devl and golang-github-cpuguy83-md2man
+# To check, use the .check_packages target from dep_check.mk
 DEP_PACKAGES := python git gcc automake autoconf libcap-devel \
-		systemd-devel yajl-devel libseccomp-devel \
+		yajl-devel libseccomp-devel \
 		glibc-static python3-libmount libtool
 # The crun workspace is in the crun directory
 CRUNDIR := crun
@@ -28,16 +29,15 @@ CRUNDIR := crun
 
 include ${TOP}/make/actions.mk
 
-all:	$(CRUNDIR)/Makefile makefile_ok
-	make -C $(CRUNDIR) all
+all:	$(CRUNDIR)/Makefile .makefile_check
+	make -j1 -C $(CRUNDIR) all
 
 $(CRUNDIR)/Makefile:
 	cd $(CRUNDIR); ./autogen.sh; ./configure --disable-systemd
 
 # Run crun's tests
 test:	all
-	export OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/crun; \
-	make -C $(CRUNDIR) check-TESTS
+	OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/crun make -C $(CRUNDIR) check-TESTS
 
 clean:
 	make -C $(CRUNDIR) clean
@@ -47,27 +47,16 @@ clobber:
 	make -C $(CRUNDIR) clean distclean
 	rm -f $(CRUNDIR)/configure
 
-# Make sure we have all the installed software needed to build crun
-.PHONY: swdepcheck
-swdepcheck:
-	echo "Checking that packages needed for crun build are present"
-	@for i in ${DEP_PACKAGES} ; do \
-		if ! rpm -qa | grep $$i -q ; then \
-			failed=1; echo -e "Missing $$i. To install, run \nsudo dnf install $$i" ; \
-		fi ; \
-		if [ -n "$$failed" ] ; then false ; fi \
-	done
-
 # If they have a Makefile made for some other directory ask them to remake it
 # Switching between docker builds and non-docker builds in the same dir can cause this.
 .PHONY:	makefile_ok
-makefile_ok: $(CRUNDIR)/Makefile
-	ls -l $(CRUNDIR)
-	if ! grep "abs_builddir = $(CURDIR)" $(CRUNDIR)/Makefile >/dev/null; then \
-		echo "The crun Makefile is built to operate in directory:"; \
-		grep "abs_builddir =" $(CRUNDIR)/Makefile; \
+.makefile_check: $(CRUNDIR)/Makefile
+	if ! grep -q "abs_builddir = $(CURDIR)" $(CRUNDIR)/Makefile ; then \
+		echo "The crun Makefile is not built to operate in $(CURDIR),"; \
 		echo "rebuild by running make clobber all"; \
                 false; \
 	else \
 		true; \
         fi
+
+include ${TOP}/make/dep_check.mk
