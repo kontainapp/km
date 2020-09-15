@@ -2,7 +2,7 @@
 
 ## What's a release
 
-A release is Github collection of sources (autopackaged by github) and extra files (manually or script-added to the "release files) hosted on github.
+A release is Github collection of sources (auto-packaged by github) and extra files (manually or script-added to the "release files) hosted on github.
 
 We create releases in public kontainapp/km-release repo so KM sources are not released but KM binaries can be picked up for evaluation.
 
@@ -25,14 +25,14 @@ For payloads (or tests, or any other dir scanned from top) we assume that KM (an
 
 ### Current process
 
-For now we will hard-code release tag as 0.1-test for testing phase, and 0.1-beta when we are ready to release. The reason is that a release is a undeletable read only snapshot, we can only add files to it.
+For now we will hard-code release tag as `0.1-test` for automation dev and testing phase,
+and `0.10-beta` for manual uploads of anything we demo or give to people to try.
 
 1. Build release tarball using `make release` in KM repo
-1. Edit 0.1-test release on https://github.com/kontainapp/km-releases/releases UI, and `manually` update kontain.tar.gz from the one built above
+1. Edit 0.10-beta release on https://github.com/kontainapp/km-releases/releases UI, and `manually` update kontain.tar.gz from the one built above
 1. Add payload tar.gz if needed (payloads are scanned durig the `make release` and may generate their own tarballs
 1. Validate the release by following install instruction on https://github.com/kontainapp/km-releases
 1. if needed, update the instructions there, in your branch - follow regular GIT processes for sub-modules
-
 
 ### Planned automation (target - mid-to-late September)
 
@@ -59,19 +59,22 @@ Here is the use case:
     * run (new) `validate.py` script to execute steps described in GettingStarted.md
     * `NOTE`: this is phase 2, the 1st pass is just get it to build and push
 
-# Install
+### Release names
+
+For dev/test, we will use `0.1-test`. When automation is ready, we will keep `0.n-beta` (e.g. `0.11-beta`) as a release created by the process above and triggered with a new tag creation or manually, and `0.n-daily` (e.g. `0.10-daily`) to be replaced on every master update
+
+## Install
 
 Install instructions are in km-release/README.md
 
-# TODO
+## TODO
 
-* kontain_install should accept try to use the latest release (using GIT API) , overridable by env var
+* kontain_install.sh should accept try to use the latest release (using GIT API) , overridable by env var
 * add test for the doc (basic). Going forward - need to build docs with m4 by including scripts ? and testing these scripts directly
 
 ## Questions
 
 * We need a license for releases. For now I put MIT there (no liability)
-
 
 ## Languages
 
