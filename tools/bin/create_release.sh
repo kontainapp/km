@@ -15,12 +15,12 @@ readonly TARBALL=${BLDTOP}/kontain.tar
 rm -f $TARBALL $TARBALL.gz
 
 # package by doing `tar -C locations[i] files[i]`
-declare -a locations; locations=(/opt/kontain ../..        ../..               ../../tools)
-declare -a files ;    files=(.                docs/release tests/hello_test.km bin)
+declare -a locations; locations=(/opt/kontain ../..        ../..              ../../tools ../../tools/faktory )
+declare -a files ;        files=(.           docs/release tests/hello_test.km   bin           bin )
 
 for i in $(seq 0 $(("${#locations[@]}" - 1)) ) ; do
    source="${locations[$i]}/${files[$i]}"
-   decompress_list=$(find $source -type f -size +8b -exec file '{}' ';' |  awk -F: '/(shared|archive|relocatable)/ {print $1}')
+   decompress_list=$(find $source -type f -exec file '{}' ';' |  awk -F: '/(shared|archive|relocatable)/ {print $1}')
    if [ -n "$decompress_list" ] ; then
       echo Decompressing .debug_info for `echo $decompress_list | wc -w` files in $source
       if [ ! -w $source ] ; then
