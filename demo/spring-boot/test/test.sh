@@ -18,12 +18,10 @@ set -e
 CONTAINER=KM_SpringBoot_Demo
 
 until $(curl --output /dev/null --silent --fail http://localhost:8080/greeting); do
-    sleep 0.01
+   sleep 0.001
 done
+
 end=$(date +%s%N)
-
 docker cp $CONTAINER:/tmp/start_time /tmp/start_time
-
 dur=$(expr $end - $(cat /tmp/start_time))
-
-echo "Response time $(expr $dur / 1000000000).$(expr $dur % 1000000000 / 1000000) secs"
+echo "Response time $(expr $dur / 1000000000).$(printf "%.03d" $(expr $dur % 1000000000 / 1000000)) secs"
