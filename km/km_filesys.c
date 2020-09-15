@@ -1743,7 +1743,6 @@ static inline void km_fs_recover_fd(int guestfd, int hostfd, int flags, char* na
    if (guestfd != hostfd) {
       if (guestfd != dup2(hostfd, guestfd)) {
          km_warn("can not dup2 %s to %d", name, guestfd);
-         pause();
          return;
       }
       close(hostfd);
@@ -2356,6 +2355,12 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
       return -1;
    }
 
+   /*
+    * With guestfd == hostfd  dealing with the two file descriptors we got from
+    * socketpair(2) recovery is a bit tricky. In particular, we need to handle
+    * the case where the the 'other' fd was assigned the desired number for 'this'
+    * fd. If that happens, we reassign the fd number for 'other' first.
+    */
    int otherfd = nt_sock->other;
    if (nt_sock->how == KM_FILE_HOW_SOCKETPAIR0) {
       if (otherfd == host_sv[0]) {
