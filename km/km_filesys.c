@@ -1740,6 +1740,14 @@ static inline void km_fs_recover_fd(int guestfd, int hostfd, int flags, char* na
 {
    km_file_t* file = &km_fs()->guest_files[guestfd];
 
+   if (guestfd != hostfd) {
+      if (guestfd != dup2(hostfd, guestfd)) {
+         km_warn("can not dup2 %s to %d", name, guestfd);
+         return;
+      }
+      close(hostfd);
+   }
+
    file->inuse = 1;
    file->how = how;
    file->flags = flags;
@@ -1865,15 +1873,6 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
       km_warn("cannon open %s", name);
       return -1;
    }
-   if (fd != nt_file->fd) {
-      if (nt_file->fd != dup2(fd, nt_file->fd)) {
-         km_warn("can not dup2 %s to %d got=%d", name, nt_file->fd, fd);
-         pause();
-         return -1;
-      }
-      close(fd);
-      fd = nt_file->fd;
-   }
 
    struct stat st;
    if (fstat(fd, &st) < 0) {
@@ -1892,7 +1891,7 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
 
    km_fs_recover_fd(nt_file->fd, fd, nt_file->flags, name, nt_file->data, nt_file->how);
    if ((nt_file->mode & __S_IFMT) == __S_IFREG && nt_file->data != 0) {
-      if (lseek(fd, nt_file->data, SEEK_SET) != nt_file->data) {
+      if (lseek(nt_file->fd, nt_file->data, SEEK_SET) != nt_file->data) {
          km_warn("lseek failed");
          return -1;
       }
@@ -2338,9 +2337,10 @@ void km_close_stdio(int log_to_fd)
 static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
 {
    km_infox(KM_TRACE_SNAPSHOT,
-            "socketpair: fd=%d index=%d domain=%d type=%d protocol=%d",
+            "socketpair: fd=%d how=%d other=%d domain=%d type=%d protocol=%d",
             nt_sock->fd,
             nt_sock->how,
+            nt_sock->other,
             nt_sock->domain,
             nt_sock->type,
             nt_sock->protocol);
@@ -2354,17 +2354,34 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
       km_warn("socketpair recovery failue");
       return -1;
    }
+
+   /*
+    * With guestfd == hostfd  dealing with the two file descriptors we got from
+    * socketpair(2) recovery is a bit tricky. In particular, we need to handle
+    * the case where the the 'other' fd was assigned the desired number for 'this'
+    * fd. If that happens, we reassign the fd number for 'other' first.
+    */
+   int otherfd = nt_sock->other;
    if (nt_sock->how == KM_FILE_HOW_SOCKETPAIR0) {
+      if (otherfd == host_sv[0]) {
+         km_fs_recover_fd(otherfd,
+                          host_sv[1],
+                          0,
+                          km_get_nonfile_name(host_sv[1]),
+                          nt_sock->fd,
+                          KM_FILE_HOW_SOCKETPAIR1);
+         otherfd = -1;
+      }
       km_fs_recover_fd(nt_sock->fd,
                        host_sv[0],
                        0,
                        km_get_nonfile_name(host_sv[0]),
                        nt_sock->other,
                        KM_FILE_HOW_SOCKETPAIR0);
-      if (nt_sock->other == -1) {
+      if (otherfd == -1) {
          close(host_sv[1]);
       } else {
-         km_fs_recover_fd(nt_sock->other,
+         km_fs_recover_fd(otherfd,
                           host_sv[1],
                           0,
                           km_get_nonfile_name(host_sv[1]),
@@ -2372,16 +2389,25 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
                           KM_FILE_HOW_SOCKETPAIR1);
       }
    } else {
+      if (otherfd == host_sv[1]) {
+         km_fs_recover_fd(otherfd,
+                          host_sv[0],
+                          0,
+                          km_get_nonfile_name(host_sv[0]),
+                          nt_sock->fd,
+                          KM_FILE_HOW_SOCKETPAIR0);
+         otherfd = -1;
+      }
       km_fs_recover_fd(nt_sock->fd,
                        host_sv[1],
                        0,
                        km_get_nonfile_name(host_sv[1]),
                        nt_sock->other,
                        KM_FILE_HOW_SOCKETPAIR1);
-      if (nt_sock->other == -1) {
+      if (otherfd == -1) {
          close(host_sv[0]);
       } else {
-         km_fs_recover_fd(nt_sock->other,
+         km_fs_recover_fd(otherfd,
                           host_sv[0],
                           0,
                           km_get_nonfile_name(host_sv[0]),
@@ -2470,7 +2496,7 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
          return -1;
       }
       struct epoll_event ev = {.events = nt_event->event, .data.u64 = nt_event->data};
-      if (epoll_ctl(hostfd, EPOLL_CTL_ADD, host_efd, &ev) < 0) {
+      if (epoll_ctl(nt_eventfd->fd, EPOLL_CTL_ADD, host_efd, &ev) < 0) {
          km_warn("epoll_ctl for fd=%d failed", nt_event->fd);
          return -1;
       }
