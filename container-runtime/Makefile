@@ -29,6 +29,8 @@ CRUNDIR := crun
 
 include ${TOP}/make/actions.mk
 
+# Building crun shows errors indicating generated header files are not built yet,
+# so force single threading the make.
 all:	$(CRUNDIR)/Makefile .makefile_check
 	make -j1 -C $(CRUNDIR) all
 
@@ -49,7 +51,7 @@ clobber:
 
 # If they have a Makefile made for some other directory ask them to remake it
 # Switching between docker builds and non-docker builds in the same dir can cause this.
-.PHONY:	makefile_ok
+.PHONY:	.makefile_check
 .makefile_check: $(CRUNDIR)/Makefile
 	if ! grep -q "abs_builddir = $(CURDIR)" $(CRUNDIR)/Makefile ; then \
 		echo "The crun Makefile is not built to operate in $(CURDIR),"; \
