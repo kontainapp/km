@@ -67,14 +67,18 @@ process_state_t postsnap;
 
 #define CHECK_SYSCALL(x)                                                                           \
    {                                                                                               \
+      fprintf(stderr, #x "\n");                                                                    \
       if ((x) < 0) {                                                                               \
-         fprintf(stderr, "Setup error line %d error %d - exiting", __LINE__, errno);               \
-         exit(2);                                                                                  \
+         fprintf(stderr, "error line %d error %d - exiting\n", __LINE__, errno);                   \
+         abort();                                                                                  \
       }                                                                                            \
    }
 
 void setup_process_state()
 {
+   int tmpfd;
+   CHECK_SYSCALL(tmpfd = open("/dev/zero", O_RDONLY));
+   CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));
    CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));
    CHECK_SYSCALL(filefd = open("/etc/passwd", O_RDONLY));
    CHECK_SYSCALL(lseek(filefd, 100, SEEK_SET));
@@ -82,6 +86,8 @@ void setup_process_state()
    CHECK_SYSCALL(socketpair(AF_UNIX, SOCK_STREAM, 0, spairfd));
    CHECK_SYSCALL(socketfd = socket(AF_INET, SOCK_STREAM, 0));
    CHECK_SYSCALL(epollfd = epoll_create(1));
+   // leave a gap in FS space for recovery
+   CHECK_SYSCALL(close(tmpfd));
    return;
 }
 
