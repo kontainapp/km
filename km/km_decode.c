@@ -238,7 +238,7 @@ unsigned char x86_rdi_addressed[] = {0xaa,   // STOS/B
                                      0xaf,   // SCAS/W/D/Q
                                      0};
 
-// THese opcode use both RSI and RDI.
+// These opcode use both RSI and RDI.
 unsigned char x86_rsi_rdi_addressed[] = {0xa4,   // MOVS/B
                                          0xa5,   // MOVS/W/D/Q
                                          0xa6,   // CMPS/B
