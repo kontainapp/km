@@ -216,6 +216,35 @@ static inline void decode_sib(km_vcpu_t* vcpu, x86_instruction_t* ins)
    ins->sib_base = ins->curbyte & 0x07;
 }
 
+static inline int decode_in_list(unsigned char opcode, unsigned char* oplist)
+{
+   for (int i = 0; oplist[i] != 0; i++) {
+      if (opcode == oplist[i]) {
+         return 1;
+      }
+   }
+   return 0;
+}
+
+// These opcodes address memory through RSI. Memory type 'X' in SDM
+unsigned char x86_rsi_addressed[] = {0xac,   // LODS/B
+                                     0xad,   // LODS/W/D/Q
+                                     0};
+
+// These opcodes address memory through RDI. Memory type 'Y' in SDM
+unsigned char x86_rdi_addressed[] = {0xaa,   // STOS/B
+                                     0xab,   // STOS/W/D/Q
+                                     0xae,   // SCAS/B
+                                     0xaf,   // SCAS/W/D/Q
+                                     0};
+
+// These opcode use both RSI and RDI.
+unsigned char x86_rsi_rdi_addressed[] = {0xa4,   // MOVS/B
+                                         0xa5,   // MOVS/W/D/Q
+                                         0xa6,   // CMPS/B
+                                         0xa7,   // CMPS/W/D/Q
+                                         0};
+
 static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    if (ins->failed_addr != 0) {
@@ -225,6 +254,22 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
    unsigned char opcode = ins->curbyte;
    decode_consume_byte(vcpu, ins);
    if (ins->failed_addr != 0) {
+      return;
+   }
+   if (decode_in_list(opcode, x86_rsi_addressed) != 0) {
+      ins->failed_addr = vcpu->regs.rsi;
+      return;
+   }
+   if (decode_in_list(opcode, x86_rdi_addressed) != 0) {
+      ins->failed_addr = vcpu->regs.rdi;
+      return;
+   }
+   if (decode_in_list(opcode, x86_rsi_rdi_addressed) != 0) {
+      if (km_is_gva_accessable(vcpu->regs.rsi, sizeof(uint64_t), PROT_READ) == 0) {
+         ins->failed_addr = vcpu->regs.rsi;
+      } else {
+         ins->failed_addr = vcpu->regs.rdi;
+      }
       return;
    }
    // TEST, XCHG, MOV: ModR/M
