@@ -164,6 +164,64 @@ TEST mem_source_test()
    PASS();
 }
 
+TEST mem_RSIaddress_test()
+{
+   ASSERT_EQ(0, setup());
+   asm volatile("mov %0, %%rsi\n\t"
+                "lodsw"
+                : /* No output */
+                : "r"(datapage_page)
+                : "%rsi");
+   ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
+   ASSERT_EQ(datapage_page, failing_page());
+
+   ASSERT_EQ(0, teardown());
+   PASS();
+}
+
+TEST mem_RDIaddress_test()
+{
+   ASSERT_EQ(0, setup());
+   asm volatile("mov %0, %%rdi\n\t"
+                "stosw"
+                : /* No output */
+                : "r"(datapage_page)
+                : "%rdi");
+   ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
+   ASSERT_EQ(datapage_page, failing_page());
+
+   ASSERT_EQ(0, teardown());
+   PASS();
+}
+
+TEST mem_RSI_RDIaddress_test()
+{
+   // Compare RSI failing buf
+   ASSERT_EQ(0, setup());
+   asm volatile("mov %0, %%rsi\n\t"
+                "mov %1, %%rdi\n\t"
+                "cmpsw"
+                : /* No output */
+                : "r"(datapage_page), "r"(goodbuf)
+                : "%rsi", "%rdi");
+   ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
+   ASSERT_EQ(datapage_page, failing_page());
+   ASSERT_EQ(0, teardown());
+
+   // Compare RDI failing buf
+   ASSERT_EQ(0, setup());
+   asm volatile("mov %0, %%rsi\n\t"
+                "mov %1, %%rdi\n\t"
+                "cmpsw"
+                : /* No output */
+                : "r"(goodbuf), "r"(datapage_page)
+                : "%rsi", "%rdi");
+   ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
+   ASSERT_EQ(datapage_page, failing_page());
+   ASSERT_EQ(0, teardown());
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char* argv[])
@@ -177,6 +235,9 @@ int main(int argc, char* argv[])
    RUN_TEST(copyin_test);
    RUN_TEST(copyout_test);
    RUN_TEST(mem_source_test);
+   RUN_TEST(mem_RSIaddress_test);
+   RUN_TEST(mem_RDIaddress_test);
+   RUN_TEST(mem_RSI_RDIaddress_test);
 
    GREATEST_PRINT_REPORT();
    return greatest_info.failed;
