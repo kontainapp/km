@@ -19,7 +19,7 @@
 # /usr/local/lib/python{X,Y} (cpython/Lib)
 # /usr/local/lib/python{X,Y}/lib-dynload (cpython/build/lib.linux-x86_64-${X,Y})
 
-set -e ; [ "${TRACE}" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 readonly PROGNAME=$(basename $0)
 readonly CURRENT=$(readlink -m $(dirname $0))

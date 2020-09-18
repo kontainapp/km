@@ -2,7 +2,7 @@
 # Nokia environment create modified for Kontain build environment.
 
 #set -o errexit
-set -e ; [ "${TRACE}" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 KM_BASE=$(git rev-parse --show-toplevel)
 

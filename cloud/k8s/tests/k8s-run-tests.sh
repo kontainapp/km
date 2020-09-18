@@ -9,7 +9,7 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 
-[ "${TRACE}" ] && set -x
+[ "$TRACE" ] && set -x
 
 readonly PROGNAME=$(basename $0)
 readonly CURRENT=$(readlink -m $(dirname $0))
@@ -39,7 +39,7 @@ already configured.
 OP:
     default                 Designed to run normal CI workflow.
     manual                  Designed to run the test, but not clean up the testenv container.
-    err_no_cleanup          Designed to not clean up if there is error.              
+    err_no_cleanup          Designed to not clean up if there is error.
 
 Example:
 

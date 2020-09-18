@@ -2,7 +2,7 @@
 #
 # Link java.kmd
 #
-set -e ; [ "${TRACE}" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 KM_TOP=$(git rev-parse --show-toplevel)
 if [[ -z "$1" ]] ; then

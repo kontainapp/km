@@ -11,7 +11,7 @@
 #
 # Upload the coverage report to a github repo.
 
-set -e ; [ "${TRACE}" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 readonly PROGNAME=$(basename $0)
 readonly CURRENT=$(readlink -m $(dirname $0))
