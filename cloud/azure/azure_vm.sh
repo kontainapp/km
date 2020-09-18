@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 # Copyright © 2019 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
@@ -10,8 +10,7 @@
 #  Kontain Inc.
 #
 # Wrapper script to launch VM for debugging purposes.
-
-[ "$TRACE" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 readonly PROGNAME=$(basename $0)
 readonly CUR_DIR=$(readlink -m $(dirname $0))
@@ -29,7 +28,7 @@ readonly QUERY='{ IP:publicIps, FQDN:fqdns, Type:hardwareProfile.vmSize , Power:
 
 function usage() {
     cat <<- EOF
-usage: $PROGNAME <OP> <VM_NAME> 
+usage: $PROGNAME <OP> <VM_NAME>
 
 Program is a helper to launch new azure vm.
 

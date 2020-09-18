@@ -1,6 +1,5 @@
 #!/bin/bash
-set -e
-[ "$TRACE" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 TOP=$(git rev-parse --show-toplevel)
 CURRENT=${TOP}/payloads/redis

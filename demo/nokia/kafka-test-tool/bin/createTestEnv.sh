@@ -1,8 +1,9 @@
-#!/bin/bash -e
+#!/bin/bash
 # Nokia environment create modified for Kontain build environment.
 
 #set -o errexit
-set -x
+set -e ; [ "${TRACE}" ] && set -x
+
 KM_BASE=$(git rev-parse --show-toplevel)
 
 BASE_DIR=${KM_BASE}/build/demo/nokia/disks
