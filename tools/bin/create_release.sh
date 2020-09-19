@@ -1,11 +1,11 @@
-#!/bin/bash -e
+#!/bin/bash
 #  Copyright © 2018-2020 Kontain Inc. All rights reserved.
 #
 # Creates a release kontain.tar.gz for uploading to github. To unpackage, 'tar -C /opt/kontain -xvf kontain.tar.gz'
 #
 # May need to run as a `sudo` because objcopy modifies files in /opt/kontain
 #
-[ "$TRACE" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 cd "$( dirname "${BASH_SOURCE[0]}" )"
 

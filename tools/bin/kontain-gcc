@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 #
 # Invoke gcc or g++ with extra params for Kontain link.
 #
@@ -22,7 +22,7 @@
 # TODO:
 # * need to add checks/warnings for conflicts around -pie/-nopie and other options we enforce
 
-[ "$TRACE" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 cmd=${BASH_SOURCE[0]}
 if [[ $cmd == *c++ || $cmd == *g++ ]] ; then

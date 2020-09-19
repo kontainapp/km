@@ -1,8 +1,8 @@
-#!/bin/bash -e
+#!/bin/bash
 #
 # Links Python.km from python libs and km 'dlstatic' builditns mentioned in $target/linkline_km.txt
 #
-[ "$TRACE" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 if [ "$1" == "--help" ] ; then
   cat << EOF

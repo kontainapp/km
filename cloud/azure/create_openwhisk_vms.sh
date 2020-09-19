@@ -11,10 +11,9 @@
 #
 # Deploys VMs for Openwhisk demo to Azure.
 # Also preps this VM to fetch from Kontain github
-set -e
-[ "$TRACE" ] && set -x
 
 source `dirname $0`/cloud_config.mk
+set -e ; [ "$TRACE" ] && set -x
 
 VM_IMAGE=tunnelbiz:fedora:fedora30:0.0.4
 ADMIN=kontain

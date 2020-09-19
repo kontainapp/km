@@ -13,8 +13,7 @@
 
 source `dirname $0`/cloud_config.mk
 
-set -e
-[ "$TRACE" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 az account set -s ${CLOUD_SUBSCRIPTION}
 az configure --defaults location=${CLOUD_LOCATION}
 az group create --name ${CLOUD_RESOURCE_GROUP} --output ${OUT_TYPE}

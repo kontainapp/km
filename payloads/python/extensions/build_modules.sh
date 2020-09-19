@@ -13,8 +13,7 @@
 #
 # See extensions/README.md for more details on extensions
 #
-set -e
-[ "$TRACE" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 # we assume the script is in python/extensions, this puts us in payloads/python
 cd "$( dirname "${BASH_SOURCE[0]}")/.."
