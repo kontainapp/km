@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 #  Copyright © 2018-2020 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
@@ -11,7 +11,7 @@
 #
 # Script to run test coverage analysis
 
-[ "$TRACE" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 readonly PROGNAME=$(basename $0)
 readonly INPUT_SRC_DIR=$1
@@ -69,7 +69,7 @@ function main() {
         --delete
 
     if [[ -f ${COVERAGE_REPORT} ]]; then
-        echo "Report is located at ${COVERAGE_REPORT}" 
+        echo "Report is located at ${COVERAGE_REPORT}"
     fi
 }
 

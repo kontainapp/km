@@ -1,8 +1,7 @@
 #!/bin/bash
+set -e ; [ "$TRACE" ] && set -x
 
 src=busybox
-[ "$TRACE" ] && set -x
-set -e
 
 if [ ! -d $src ]; then
     git clone https://github.com/mirror/busybox.git $src

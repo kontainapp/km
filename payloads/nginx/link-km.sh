@@ -1,8 +1,7 @@
 #!/bin/bash
 #
 # Link nginx.kmd
-set -e
-[ "$TRACE" ] && set -x
+set -e; [ "$TRACE" ] && set -x
 
 TOP=$(git rev-parse --show-toplevel)
 KONTAIN_GCC=${TOP}/tools/bin/kontain-gcc

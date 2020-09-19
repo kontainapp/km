@@ -12,7 +12,7 @@
 # Scripts to help deploy or delete kontaind into/from a kube cluster.
 #
 
-[ "${TRACE}" ] && set -x
+[ "$TRACE" ] && set -x
 
 readonly PROGNAME=$(basename $0)
 readonly CURRENT_DIR=$(readlink -m $(dirname $0))

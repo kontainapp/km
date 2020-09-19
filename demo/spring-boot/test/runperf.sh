@@ -10,8 +10,7 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
-set -e
-[ "$TRACE" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 CONTAINER="kontainapp/spring-boot-demo:latest"
 
