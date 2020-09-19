@@ -12,8 +12,7 @@
 #
 # This is a minimal script used to get time to active readings.
 #
-set -e
-[ "$TRACE" ] && set -x
+set -e ; [ "$TRACE" ] && set -x
 
 CONTAINER=KM_SpringBoot_Demo
 

@@ -11,7 +11,7 @@
 #
 # Run km test coverage on k8s
 
-[ "${TRACE}" ] && set -x
+[ "$TRACE" ] && set -x
 
 readonly PROGNAME=$(basename $0)
 readonly CURRENT=$(readlink -m $(dirname $0))

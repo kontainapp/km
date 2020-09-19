@@ -1,7 +1,9 @@
-#!/bin/bash -e
+#!/bin/bash
 #
 # Copy KONTAIN_DIR with files needed for docker build of Kontainerized nokia kafka stuff,
 # using pre-build java.km libs in the build tree
+
+set -e ; [ "$TRACE" ] && set -x
 
 if [ -z "${KM_FILES}" ] ; then
    echo KM_FILES is not set; false
