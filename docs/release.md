@@ -36,7 +36,11 @@ and `v0.10-beta` for manual uploads of anything we demo or give to people to try
 
 ### Planned automation (target - mid-to-late September)
 
-We will use existing Azure pipeline mechanism to generate releases. A trigger for the release is creating a release/version branch in KM.
+We will use existing Azure pipeline mechanism to generate releases. A trigger
+for the release is creating `v*` version tag in KM. For example:
+```bash
+git tag v0.1-test; git push origin v0.1-test
+```
 
 Here is the use case:
 
@@ -63,6 +67,9 @@ Here is the use case:
 ### Release names
 
 For dev/test, we will use `0.1-test`. When automation is ready, we will keep `0.n-beta` (e.g. `0.11-beta`) as a release created by the process above and triggered with a new tag creation or manually, and `0.n-daily` (e.g. `0.10-daily`) to be replaced on every master update
+
+We will also use other suffixes (e.g. `0.10-demo`) as needed
+
 
 ## Install
 
