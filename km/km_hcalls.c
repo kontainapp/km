@@ -780,6 +780,10 @@ static km_hc_ret_t clock_nanosleep_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
    uint64_t req = km_gva_to_kml(arg->arg3);
+   if (req == 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
    arg->hc_ret = __syscall_4(hc, arg->arg1, arg->arg2, req, rem);
    return HC_CONTINUE;
 }
@@ -1352,7 +1356,11 @@ static km_hc_ret_t uname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    // may cause "kernel too old" failures.
    strcpy(name->release, "4.1");
    strcpy(name->version, "preview");
-   strcpy(name->machine, "kontain_VM");
+   if (machine.vm_type == VM_TYPE_KKM) {
+      strcpy(name->machine, "kontain_KKM");
+   } else {
+      strcpy(name->machine, "kontain_KVM");
+   }
    return HC_CONTINUE;
 }
 

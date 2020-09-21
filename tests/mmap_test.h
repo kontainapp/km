@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/utsname.h>
 
 #include "greatest/greatest.h"
 #include "km_mem.h"
@@ -25,10 +26,9 @@ extern int main(int argc, char** argv);
 
 static inline int KM_PAYLOAD(void)
 {
-   unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
-
-   __get_cpuid(0, &eax, &ebx, &ecx, &edx);   // mov eax,0; cpuid
-   return ebx == 0x746e6f4b /* "Kont" */ && edx == 0x6e6961 /* "ain" */;
+   struct utsname buf;
+   uname(&buf);
+   return strncmp(buf.machine, "kontain", strlen("kontain")) == 0 ? 1 : 0;
 }
 
 #define ASSERT_MMAPS_COUNT(_expected_count, _query)                                                \
