@@ -117,7 +117,7 @@ TEST work_func(sm_t* smp, char* tag)
       }
 
       struct timespec delay = {0, 2000000};
-      nanosleep(&delay, NULL);   // give the other side a chance to get the semaphore
+      clock_nanosleep(CLOCK_REALTIME, 0, &delay, NULL);   // give the other side a chance to get the semaphore
    }
    if (GREATEST_IS_VERBOSE()) {
       fprintf(stdout, "end: %s\n", tag);
