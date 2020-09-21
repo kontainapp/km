@@ -251,7 +251,7 @@ fi
    assert_success
    assert_line "nodename=$(uname -n)"
    assert_line sysname=kontain-runtime
-   assert_line machine=kontain_VM
+   assert_line machine=kontain_${USE_VIRT^^}
 }
 
 @test "mem_mmap($test_type): mmap and munmap with addr=0 (mmap_test$ext)" {
