@@ -1,4 +1,4 @@
-# Copyright © 2019 Kontain Inc. All rights reserved.
+# Copyright © 2019-2020 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
 #
@@ -51,6 +51,9 @@ WORKDIR /home/$USER
 # Some of the packages needed only for payloads and /or faktory, but we land them here for convenience.
 # Also, this list is used on generating local build environment, so we explicitly add
 # some packages which are alwyas present on Fedora31 but may be missing on Fedora30 (e.g python3-jinja2).
+# We have also added packages needed by crun's build:
+#   automake autoconf libcap-devel yajl-devel libseccomp-devel
+#   python3-libmount libtool
 RUN dnf install -y \
    gcc gcc-c++ make gdb git-core gcovr \
    time patch file findutils diffutils which procps-ng python2 \
@@ -58,6 +61,8 @@ RUN dnf install -y \
    elfutils-libelf-devel elfutils-libelf-devel-static bzip2-devel \
    zlib-static bzip2-static xz-static \
    openssl-devel openssl-static jq googler \
+   automake autoconf libcap-devel yajl-devel libseccomp-devel \
+   python3-libmount libtool \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 
 COPY --from=alpine-lib-image $PREFIX $PREFIX/
