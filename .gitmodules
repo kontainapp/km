@@ -19,3 +19,6 @@
 [submodule "km-releases"]
 	path = km-releases
 	url = https://github.com/kontainapp/km-releases
+[submodule "container-runtime/crun"]
+	path = container-runtime/crun
+	url = https://github.com/kontainapp/crun
