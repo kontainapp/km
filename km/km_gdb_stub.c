@@ -1700,7 +1700,7 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
                // Where ss is a signal number and tttt is a thread id
                if (sscanf(&tokenp[1], "%02x", &gdbsigno) == 1) {
                   // Validate signal number
-                  if (gdbsigno > 0 && gdbsigno <= 44) {
+                  if (gdbsigno > 0 && gdbsigno < GDB_SIGNAL_LAST) {
                      // Valid. Xlate the gdb signal number to the linux signal number
                      linuxsigno = linux_signo(gdbsigno);
                   } else {
@@ -2565,7 +2565,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
                // We should also check for the optional but unsupported addr argument.
 
                // Prevent out of range gdb signal numbers
-               if (signo < 0 || signo > 44) {
+               if (signo < 0 || signo >= GDB_SIGNAL_LAST) {
                   send_error_msg();
                   break;
                }
@@ -2613,7 +2613,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
                // We should also check for the optional but unsupported addr argument.
 
                // Prevent out of range gdb signal numbers
-               if (signo < 0 || signo > 44) {
+               if (signo < 0 || signo >= GDB_SIGNAL_LAST) {
                   send_error_msg();
                   break;
                }
