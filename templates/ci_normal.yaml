@@ -13,3 +13,8 @@ steps:
   - bash: make -C payloads/node test-withk8s
     displayName: Node.km tests - run on Kubernetes
     timeoutInMinutes: 5
+
+  - bash: |
+      apt-get install libseccomp libcap yajl
+      make -C container-runtime test
+    displayName: crun tests
