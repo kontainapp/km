@@ -17,10 +17,10 @@
 #   Kontain Inc.
 
 # scan all these and 'make' stuff there
-SUBDIRS := km km_cli runtime tests payloads
+SUBDIRS := km km_cli runtime tests payloads container-runtime
 
 # build VMM and runtime library before trying to build tests
-tests: km runtime
+tests: km runtime container-runtime
 
 TOP := $(shell git rev-parse --show-toplevel)
 
