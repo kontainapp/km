@@ -16,5 +16,8 @@ steps:
 
   - bash: |
       apt-get install libseccomp libcap yajl
+      # Fixup Makefile that contains container absolute paths
+      sed -e "s|\(/.*\)\(/container-runtime\)|`pwd`\2|" <container-runtime/crun/Makefile >container-runtime/crun/Makefile.hacked
+      mv container-runtime/crun/Makefile.hacked container-runtime/crun/Makefile
       make -C container-runtime test
     displayName: crun tests
