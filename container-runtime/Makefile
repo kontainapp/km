@@ -57,7 +57,7 @@ clobber: clean
 	@if ! grep -q "abs_builddir = $(CURDIR)" $(CRUNDIR)/Makefile ; then \
 		echo -e "${RED}The generated crun/Makefile uses dir different from the current one ($(CURDIR))${NOCOLOR}"; \
 		echo -e "${RED}Run 'make clobber' and then re-make${NOCOLOR}"; \
-      false; \
+		false; \
 	fi
 
 include ${TOP}/make/dep_check.mk
