@@ -25,9 +25,8 @@ DEP_PACKAGES := python git gcc automake autoconf libcap-devel \
 		glibc-static python3-libmount libtool
 # The crun workspace is in the crun directory
 CRUNDIR := crun
-#SUBDIRS := $(CRUNDIR)
 
-include ${TOP}/make/locations.mk
+include ${TOP}/make/actions.mk
 
 # Building crun shows errors indicating generated header files are not built yet,
 # so force single threading the make.
@@ -41,26 +40,24 @@ $(CRUNDIR)/Makefile:
 test:	all
 	OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/crun make -C $(CRUNDIR) check-TESTS
 
-clean:
-	-make -C $(CRUNDIR) clean
+clean::
+	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) clean
 	@# crun's clean removes this file, so git sees it as a change. Restore back to clean
 	cd $(CRUNDIR) && git checkout crun.1
 
 # Cleanup to force rebuilding of the crun Makefile in addition to crun
 clobber: clean
-	-make -C $(CRUNDIR) distclean
+	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) distclean
 	rm -f $(CRUNDIR)/configure
 
 # If they have a Makefile made for some other directory ask them to remake it
 # Switching between docker builds and non-docker builds in the same dir can cause this.
 .PHONY:	.makefile_check
 .makefile_check: $(CRUNDIR)/Makefile
-	if ! grep -q "abs_builddir = $(CURDIR)" $(CRUNDIR)/Makefile ; then \
-		echo "The crun Makefile is not built to operate in $(CURDIR),"; \
-		echo "rebuild by running make clobber all"; \
-                false; \
-	else \
-		true; \
-        fi
+	@if ! grep -q "abs_builddir = $(CURDIR)" $(CRUNDIR)/Makefile ; then \
+		echo -e "${RED}The generated crun/Makefile uses dir different from the current one ($(CURDIR))${NOCOLOR}"; \
+		echo -e "${RED}Run 'make clobber' and then re-make${NOCOLOR}"; \
+      false; \
+	fi
 
 include ${TOP}/make/dep_check.mk
