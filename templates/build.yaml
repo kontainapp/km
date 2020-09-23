@@ -33,3 +33,6 @@ steps:
 
   - bash: make -C payloads clean all runenv-image push-demo-runenv-image
     displayName: payload build runenv and demo-runenv images
+
+  - bash: make -C tools/faktory all
+    displayName: build faktory

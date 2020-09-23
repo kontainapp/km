@@ -34,3 +34,6 @@ ${KM_RELEASE}: ${KM_BIN} ## Build a release tar.gz file for KM
 	${TOP}/tools/bin/create_release.sh
 	ls -l ${KM_RELEASE} ${KM_BIN}
 
+RELEASE_TAG ?= v0.1-test
+push_release:
+	cd ${TOP}/tools/release; go run release.go ${KM_RELEASE} --tag_name ${RELEASE_TAG}
