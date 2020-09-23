@@ -75,7 +75,7 @@ else # not SUBDIRS, i.e. EXEC or LIB
 ifneq (${EXEC},)
 
 all: ${BLDEXEC}
-${BLDEXEC}: $(OBJS) ${KM_OPT_BIN}
+${BLDEXEC}: $(OBJS) | ${KM_OPT_BIN}
 	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(LOCAL_LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
 	@-cp $@ ${KM_OPT_BIN}
 

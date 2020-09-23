@@ -25,12 +25,12 @@ For payloads (or tests, or any other dir scanned from top) we assume that KM (an
 
 ### Current process
 
-For now we will hard-code release tag as `0.1-test` for automation dev and testing phase,
-and `0.10-beta` for manual uploads of anything we demo or give to people to try.
+For now we will hard-code release tag as `v0.1-test` for automation dev and testing phase,
+and `v0.10-beta` for manual uploads of anything we demo or give to people to try.
 
-1. Build release tarball using `make release` in KM repo
-1. Edit 0.10-beta release on https://github.com/kontainapp/km-releases/releases UI, and `manually` update kontain.tar.gz from the one built above
-1. Add payload tar.gz if needed (payloads are scanned durig the `make release` and may generate their own tarballs
+1. Build release tarball using `make -C km release` in KM repo
+1. Push the release using `RELEASE_TAG=v0.1-test make -C km push_release`.
+1. Add other payload tar.gz if needed (payloads are scanned durig the `make release` and may generate their own tarballs)
 1. Validate the release by following install instruction on https://github.com/kontainapp/km-releases
 1. if needed, update the instructions there, in your branch - follow regular GIT processes for sub-modules
 
@@ -40,18 +40,19 @@ We will use existing Azure pipeline mechanism to generate releases. A trigger fo
 
 Here is the use case:
 
-* We decide a specific master tag or SHA is good enough for release. It is already tested by existing pipelines
+* We decide a specific commit in master or release branch is good enough for release.  The commit should be tested by existing pipelines already
 * We decide to name this release, say `v0.9-beta`
-* We create a tag `v0.9-beta`
-  * when/if we need a branch to work on patches, we will create `releases/v0.9-beta` and will be tagging it separately for sub-releases, e.g. `v0.9-beta-1`
-* This trigger a new Azure pipeline on `v0.*` tags to generate and push the artifacts
+* We create a tag `v0.9-beta` on the commit and push the tag
+  * when/if we need a branch to work on patches, we will create `releases/v0.9-beta` and will be tagging it separately for sub-releases, e.g. `v0.9.1-beta`
+  * Note, in git, a tag is independent of branch and associated only with a commit. Therefore, when a tag is pushed, the pipeline will be triggered.
+* This trigger a new Azure pipeline on version `v*` tags to generate and push the artifacts
   * Thus pipeline uses standard pipeline components to build the product
   * It invokes `make release` to generate release artifacts
   * It invokes `make push-release` to call a (new) script using github API
     * The script uses the current branch name to identify release tag
-    * It removes existing release on `km-releases` with the given name including it's artifacts
     * It creates a release (say `v0.9-beta`) and pushes the artifacts there.
-    * `NOTE` this may require extra credentials
+    * `NOTE` this requires a github Personal Access Token (PAT).
+    * `NOTE2` if a release already exists, the release script will fail. If the intent is to replace an existing release, a user needs to manually delete the release and trigger this pipeline again.
   * [second phase] it runs validation
     * provision a kvm-enabled VM
     * Pull km-releases repo there
@@ -78,4 +79,4 @@ Install instructions are in km-release/README.md
 
 ## Languages
 
-* We will standardize on `python3` for helper scripts outside of Makefiles. While it may be a little overhead for trivial scripts, it is much better as the code get more complicated. Plus we will have our helper modules :-)
+* Turns out, the release is more of a tool than script, so writing it in Golang, as oppose to python3.
