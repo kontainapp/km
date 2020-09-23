@@ -380,7 +380,14 @@ fi
    km_with_timeout -V -g$km_gdb_port gdb_delete_breakpoint_test$ext >$km_trace_file 2>&1 &
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_delete_breakpoint_test.gdb" --ex=q gdb_delete_breakpoint_test$ext
-   assert_success
+   # After we sort out problems with this test, switch back to assert_success and don't
+   # cat km_trace_file.
+   #assert_success
+   exit_code=$?
+   if [ $exit_code -ne 0 ]; then
+      cat $km_trace_file >/dev/tty
+      fail "gdb client exit code $exit_code"
+   fi
    assert grep -q "Deleted breakpoint, discard event:" $km_trace_file
    wait_and_check 0 # expect KM to exit normally
    # These grep's are useful when we start seeing failures of this test.
