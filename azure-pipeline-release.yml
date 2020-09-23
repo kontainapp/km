@@ -1,6 +1,7 @@
 #
 # Kontain Monitor Azure Pipeline definition
 #
+# A pipeline to automate the release process outlined under `./doc/release.md`.
 name: release-$(BuildID) $(Date:yyyyMMdd)$(Rev:.r)
 
 trigger:
@@ -28,13 +29,9 @@ jobs:
     steps:
       - template: templates/setup.yaml
 
-      - bash: |
-          [ "$TRACE" ] && set -x
-          make -C tests pull-buildenv-image .buildenv-local-lib
-          make -j withdocker
-        displayName: KM build
+      - template: templates/build.yaml
 
-      - bash: sudo make release
+      - bash: sudo make -C km release -d
         displayName: build release tarball
 
       - bash: make -C km push_release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN) RELEASE_TAG=$(Build.SourceBranch)

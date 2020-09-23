@@ -28,8 +28,8 @@ For payloads (or tests, or any other dir scanned from top) we assume that KM (an
 For now we will hard-code release tag as `v0.1-test` for automation dev and testing phase,
 and `v0.10-beta` for manual uploads of anything we demo or give to people to try.
 
-1. Build release tarball using `make release` in KM repo
-1. Under `tools/release`, run `go run release.go --tag_name v0.1-test $(TOP)/build/kontain.tar.gz`.
+1. Build release tarball using `make -C km release` in KM repo
+1. Push the release using `RELEASE_TAG=v0.1-test make -C km push_release`.
 1. Add other payload tar.gz if needed (payloads are scanned durig the `make release` and may generate their own tarballs)
 1. Validate the release by following install instruction on https://github.com/kontainapp/km-releases
 1. if needed, update the instructions there, in your branch - follow regular GIT processes for sub-modules
