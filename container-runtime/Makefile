@@ -29,7 +29,7 @@ CRUNDIR := crun
 
 include ${TOP}/make/actions.mk
 
-# Building crun shows errors indicating generated header files are not built yet,
+# Building crun shows compilation errors indicating generated header files are not built yet,
 # so force single threading the make.
 all:	$(CRUNDIR)/Makefile .makefile_check
 	make -j1 -C $(CRUNDIR) all
@@ -41,12 +41,14 @@ $(CRUNDIR)/Makefile:
 test:	all
 	OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/crun make -C $(CRUNDIR) check-TESTS
 
+# Put crun.1 back because it is checked in but the makefile removes it?
 clean:
-	make -C $(CRUNDIR) clean
+	-make -C $(CRUNDIR) clean
+	cd $(CRUNDIR) && git checkout crun.1
 
 # Cleanup to force rebuilding of the crun Makefile in addition to crun
-clobber:
-	make -C $(CRUNDIR) clean distclean
+clobber:	clean
+	-make -C $(CRUNDIR) distclean
 	rm -f $(CRUNDIR)/configure
 
 # If they have a Makefile made for some other directory ask them to remake it
