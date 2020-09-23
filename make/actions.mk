@@ -148,7 +148,8 @@ ${BLDDIR}/%.d: %.c
 
 test test-all: all
 
-clean:
+# using :: allows other makefile to add rules for clean-up, and keep the same name
+clean::
 	rm -rf ${BLDDIR}
 
 #
