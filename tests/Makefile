@@ -220,7 +220,4 @@ MANUAL_UPLOAD_REPORT_NAME := manual-${USER}-${PROCESSED_IMAGE_VERION}
 upload-coverage-manual: .check_vars
 	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME} ${GITHUB_TOKEN}
 
-${KM_OPT_RT} ${KM_OPT_BIN}: |
-	sudo sh -c "mkdir -p $@ && chgrp users $@ && chmod 777 $@"
-
 .PHONY: all clean test help gdb coverage covclean
