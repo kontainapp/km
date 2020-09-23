@@ -1603,7 +1603,7 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
 {
    struct stat st = {};
    if (fstat(fd, &st) < 0) {
-      km_warn("fstat failed - ignore");
+      km_warn("fstat failed fd=%d errno=%d - ignore", fd, errno);
    }
 
    char* cur = buf;
@@ -1740,6 +1740,10 @@ static inline void km_fs_recover_fd(int guestfd, int hostfd, int flags, char* na
 {
    km_file_t* file = &km_fs()->guest_files[guestfd];
 
+   if (guestfd < 0) {
+      close(hostfd);
+      return;
+   }
    if (guestfd != hostfd) {
       if (guestfd != dup2(hostfd, guestfd)) {
          km_warn("can not dup2 %s to %d", name, guestfd);
@@ -1762,6 +1766,28 @@ static inline void km_fs_recover_fd(int guestfd, int hostfd, int flags, char* na
             name,
             ofd,
             how);
+}
+
+static inline void km_fs_recover_fdpair(int guestfd[2], int hostfd[2], int how[2], int flags[2])
+{
+   km_infox(KM_TRACE_SNAPSHOT,
+            "recover_fdpair: guest:%d,%d host:%d,%d how:%d,%d flags:%d,%d",
+            guestfd[0],
+            guestfd[1],
+            hostfd[0],
+            hostfd[1],
+            how[0],
+            how[1],
+            flags[0],
+            flags[1]);
+   // Ensure we don't overwrite hostfd[1] in error.
+   if (guestfd[0] == hostfd[1]) {
+      km_fs_recover_fd(guestfd[1], hostfd[1], flags[1], km_get_nonfile_name(hostfd[1]), guestfd[0], how[1]);
+      km_fs_recover_fd(guestfd[0], hostfd[0], flags[0], km_get_nonfile_name(hostfd[0]), guestfd[1], how[0]);
+   } else {
+      km_fs_recover_fd(guestfd[0], hostfd[0], flags[0], km_get_nonfile_name(hostfd[0]), guestfd[1], how[0]);
+      km_fs_recover_fd(guestfd[1], hostfd[1], flags[1], km_get_nonfile_name(hostfd[1]), guestfd[0], how[1]);
+   }
 }
 
 static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name)
@@ -1787,12 +1813,12 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name)
       rfd = nt_file->data;
       wfd = nt_file->fd;
    }
-   if (rfd >= 0) {
-      km_fs_recover_fd(rfd, hostfd[0], syscall_flags, km_get_nonfile_name(hostfd[0]), wfd, nt_file->how);
-   }
-   if (wfd >= 0) {
-      km_fs_recover_fd(wfd, hostfd[1], syscall_flags, km_get_nonfile_name(hostfd[1]), rfd, nt_file->how);
-   }
+   int guestfd[2] = {rfd, wfd};
+   int how[2] = {KM_FILE_HOW_PIPE_0, KM_FILE_HOW_PIPE_1};
+   int flags[2] = {syscall_flags, syscall_flags};
+
+   km_fs_recover_fdpair(guestfd, hostfd, how, flags);
+
    km_infox(KM_TRACE_SNAPSHOT, "recovered pipe: rfd=%d wfd=%d flags=0x%x", rfd, wfd, syscall_flags);
    return 0;
 }
@@ -2351,7 +2377,7 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
 
    int host_sv[2];
    if (socketpair(nt_sock->domain, nt_sock->type, nt_sock->protocol, host_sv) < 0) {
-      km_warn("socketpair recovery failue");
+      km_warn("socketpair recovery failure");
       return -1;
    }
 
@@ -2363,57 +2389,16 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
     */
    int otherfd = nt_sock->other;
    if (nt_sock->how == KM_FILE_HOW_SOCKETPAIR0) {
-      if (otherfd == host_sv[0]) {
-         km_fs_recover_fd(otherfd,
-                          host_sv[1],
-                          0,
-                          km_get_nonfile_name(host_sv[1]),
-                          nt_sock->fd,
-                          KM_FILE_HOW_SOCKETPAIR1);
-         otherfd = -1;
-      }
-      km_fs_recover_fd(nt_sock->fd,
-                       host_sv[0],
-                       0,
-                       km_get_nonfile_name(host_sv[0]),
-                       nt_sock->other,
-                       KM_FILE_HOW_SOCKETPAIR0);
-      if (otherfd == -1) {
-         close(host_sv[1]);
-      } else {
-         km_fs_recover_fd(otherfd,
-                          host_sv[1],
-                          0,
-                          km_get_nonfile_name(host_sv[1]),
-                          nt_sock->fd,
-                          KM_FILE_HOW_SOCKETPAIR1);
-      }
+      int guestfd[2] = {nt_sock->fd, otherfd};
+      int how[2] = {KM_FILE_HOW_SOCKETPAIR0, KM_FILE_HOW_SOCKETPAIR1};
+      int flags[2] = {0, 0};
+      km_fs_recover_fdpair(guestfd, host_sv, how, flags);
+
    } else {
-      if (otherfd == host_sv[1]) {
-         km_fs_recover_fd(otherfd,
-                          host_sv[0],
-                          0,
-                          km_get_nonfile_name(host_sv[0]),
-                          nt_sock->fd,
-                          KM_FILE_HOW_SOCKETPAIR0);
-         otherfd = -1;
-      }
-      km_fs_recover_fd(nt_sock->fd,
-                       host_sv[1],
-                       0,
-                       km_get_nonfile_name(host_sv[1]),
-                       nt_sock->other,
-                       KM_FILE_HOW_SOCKETPAIR1);
-      if (otherfd == -1) {
-         close(host_sv[0]);
-      } else {
-         km_fs_recover_fd(otherfd,
-                          host_sv[0],
-                          0,
-                          km_get_nonfile_name(host_sv[0]),
-                          nt_sock->fd,
-                          KM_FILE_HOW_SOCKETPAIR0);
-      }
+      int guestfd[2] = {otherfd, nt_sock->fd};
+      int how[2] = {KM_FILE_HOW_SOCKETPAIR1, KM_FILE_HOW_SOCKETPAIR0};
+      int flags[2] = {0, 0};
+      km_fs_recover_fdpair(guestfd, host_sv, how, flags);
    }
    return 0;
 }
