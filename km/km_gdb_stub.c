@@ -1548,59 +1548,7 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
    return rc;
 }
 
-/*
- * km_vcpu_apply_all() helper function to count how many threads are in
- * each gdb runstate.
- */
-static int km_gdb_count_thread_states(km_vcpu_t* vcpu, uint64_t ta)
-{
-   int i = vcpu->vcpu_id;
-   threadaction_blob_t* threadactionblob = (threadaction_blob_t*)ta;
-
-   switch (threadactionblob->threadaction[i].ta_newrunstate) {
-      case THREADSTATE_PAUSED:
-         threadactionblob->paused++;
-         break;
-      case THREADSTATE_STEPPING:
-      case THREADSTATE_RANGESTEPPING:
-         threadactionblob->stepping++;
-         break;
-      case THREADSTATE_RUNNING:
-         threadactionblob->running++;
-         break;
-      default:
-         km_infox(KM_TRACE_GDB,
-                  "thread %d, unhandled thread state %d",
-                  km_vcpu_get_tid(vcpu),
-                  threadactionblob->threadaction[i].ta_newrunstate);
-         assert("unhandled gdb thread state" == NULL);
-         break;
-   }
-   return 0;
-}
-
 static int linux_signo(gdb_signal_number_t);
-
-static int verify_vcont(threadaction_blob_t* threadactionblob)
-{
-   threadactionblob->running = 0;
-   threadactionblob->stepping = 0;
-   threadactionblob->paused = 0;
-
-   km_vcpu_apply_all(km_gdb_count_thread_states, (uint64_t)threadactionblob);
-
-   // Ensure either 1 thread is stepping or 1 thread is running or all threads are running.
-   if ((threadactionblob->running != 0 && threadactionblob->stepping != 0) ||
-       ((threadactionblob->running + threadactionblob->stepping) > 1 && threadactionblob->paused != 0)) {
-      km_infox(KM_TRACE_GDB,
-               "Unsupported combination of running %d, stepping %d, and paused %d threads",
-               threadactionblob->running,
-               threadactionblob->stepping,
-               threadactionblob->paused);
-      return 1;
-   }
-   return 0;
-}
 
 /*
  * We handle the vCont;action:tid:tid:tid:...][;action:tid:tid:...]... command
@@ -1804,14 +1752,6 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
    }
 
    km_vcpu_apply_all(km_gdb_set_default_runstate, (uint64_t)&threadactionblob);
-
-   /*
-    * Verify that all threads are running or a single thread is stepping.
-    */
-   if (verify_vcont(&threadactionblob) != 0) {
-      send_not_supported_msg();
-      return;
-   }
 
    /*
     * We made it through the vCont arguments, now apply what we were

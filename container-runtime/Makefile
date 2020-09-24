@@ -31,7 +31,7 @@ include ${TOP}/make/actions.mk
 # Building crun shows errors indicating generated header files are not built yet,
 # so force single threading the make.
 all:	$(CRUNDIR)/Makefile .makefile_check
-	make -j$$(nproc) -C $(CRUNDIR) all
+	make -j1 -C $(CRUNDIR) all
 
 $(CRUNDIR)/Makefile:
 	cd $(CRUNDIR); ./autogen.sh; ./configure --disable-systemd
