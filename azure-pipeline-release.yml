@@ -5,8 +5,14 @@
 name: release-$(BuildID) $(Date:yyyyMMdd)$(Rev:.r)
 
 trigger:
+  branches:
+    include:
+      # Testing branch for release pipeline (e.g. releases/myAlias/mytestbranch).
+      # No final release artifacts will be created
+      - releases/*/*
   tags:
     include:
+      # preferred way of cutting releases by putting a tag, e.g. v0.10-beta
       - v*
 
 pr: none
@@ -31,10 +37,15 @@ jobs:
 
       - template: templates/build.yaml
 
-      - bash: sudo make -C km release -d
+      - bash: make release
         displayName: build release tarball
 
-      - bash: make -C km push_release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN) RELEASE_TAG=$(Build.SourceBranch)
+      - bash: |
+          if [[ $(Build.SourceBranch) == refs/heads/releases/*/* ]]; then
+            echo Triggered by testing branch $(Build.SourceBranch), skip creating the actual release ...
+          else
+            make -C km push_release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN) RELEASE_TAG=$(Build.SourceBranch)
+          fi
         displayName: push release
 
       - bash: |
