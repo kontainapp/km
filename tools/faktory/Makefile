@@ -2,6 +2,9 @@
 .PHONY: all
 all: bin/faktory
 
+.PHONY: release
+release: all
+
 bin/faktory:
 	go build -o bin/faktory ./cmd/faktory/... 
 
