@@ -407,6 +407,15 @@ fi
    # Verify we "step"ed into step_into_this_function()
    assert_line --partial "step_into_this_function () at gdb_nextstep_test.c"
    wait_and_check 0 # expect KM to exit normally
+
+   km_with_timeout -g$km_gdb_port clone_test$ext &
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
+      --ex="source cmd_for_nextclone_test.gdb" --ex=q clone_test$ext
+   assert_success
+
+   # Verify we "next"ed thru clone()
+   assert_line --regexp "^#0  main.* at clone_test.c:38$"
+   wait_and_check 0 # expect KM to exit normally
 }
 
 #
