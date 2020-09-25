@@ -90,6 +90,10 @@ void mysleep(long c)
    (void)select(1, &rfds, NULL, NULL, &tv);
 }
 
+#define DISABLE_CANCEL_TEST NULL
+#define ASYNC_CANCEL_TEST (void*)1
+#define DEFERRED_CANCEL_TEST (void*)2
+
 static long thread_func(void* arg)
 {
    int s;
@@ -97,25 +101,24 @@ static long thread_func(void* arg)
    s = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
    ASSERT_EQ(0, s);
    print_msg("thread_func(): started; cancellation disabled\n");
-   if (arg == NULL) {
+   if (arg == DISABLE_CANCEL_TEST) {
       /* Disable cancellation for a while, so that we don't
          immediately react to a cancellation request */
-
-      struct timeval now;
-
       my_busysleep(5);
-      gettimeofday(&now, NULL);
-      ASSERT_FALSE(now.tv_sec - start.tv_sec <= 3);
+      print_msg("thread_func(): end of DISABLE_CANCEL_TEST\n");
    }
    print_msg("thread_func(): about to enable cancellation\n");
 
    s = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
    ASSERT_EQ(0, s);
 
-   s = pthread_setcanceltype(arg == (void*)2 ? PTHREAD_CANCEL_DEFERRED : PTHREAD_CANCEL_ASYNCHRONOUS,
+   s = pthread_setcanceltype(arg == DEFERRED_CANCEL_TEST ? PTHREAD_CANCEL_DEFERRED
+                                                         : PTHREAD_CANCEL_ASYNCHRONOUS,
                              NULL);
    ASSERT_EQ(0, s);
-   my_busysleep(5); /* Should get canceled while we sleep */
+   my_busysleep(5);
+   /* Should get canceled while we sleep if ASYNC_CANCEL_TEST */
+   print_msg(arg == DEFERRED_CANCEL_TEST ? "PTHREAD_CANCEL_DEFERRED\n" : "PTHREAD_CANCEL_ASYNCHRONOUS\n");
    usleep(1);
    pthread_exit((void*)0x17);   // Should never get here - 0x17 is a marker that we did get here
 }
@@ -131,7 +134,7 @@ TEST main_thread(void)
 
    /* Start a thread and then send it a cancellation request while it is canceldisable */
 
-   if ((s = pthread_create(&thr, NULL, (void* (*)(void*)) & thread_func, NULL)) != 0) {
+   if ((s = pthread_create(&thr, NULL, (void* (*)(void*)) & thread_func, DISABLE_CANCEL_TEST)) != 0) {
       handle_error_en(s, "pthread_create");
    }
    print_msg("main(): Give thread a chance to get started\n");
@@ -145,16 +148,12 @@ TEST main_thread(void)
    s = pthread_join(thr, &res);
    ASSERT_EQ(0, s);
    ASSERT_EQ_FMT(PTHREAD_CANCELED, res, "%p");
-
-   struct timeval now;
-   gettimeofday(&now, NULL);
-   ASSERT_FALSE(now.tv_sec - start.tv_sec <= 3);   // waited all 5 secs, didn't cancel
 
    gettimeofday(&start, NULL);
 
-   /* Start a thread and then send it a cancellation request cancel enable and in syscall */
+   /* Start a thread and then send it a cancellation request cancel enable and sync cancellation */
 
-   if ((s = pthread_create(&thr, NULL, (void* (*)(void*)) & thread_func, (void*)1)) != 0) {
+   if ((s = pthread_create(&thr, NULL, (void* (*)(void*)) & thread_func, ASYNC_CANCEL_TEST)) != 0) {
       handle_error_en(s, "pthread_create");
    }
    print_msg("main(): Give thread a chance to get started\n");
@@ -168,15 +167,12 @@ TEST main_thread(void)
    s = pthread_join(thr, &res);
    ASSERT_EQ(0, s);
    ASSERT_EQ_FMT(PTHREAD_CANCELED, res, "%p");
-
-   gettimeofday(&now, NULL);
-   ASSERT_FALSE(now.tv_sec - start.tv_sec > 3);   // ASYNC, didn't wait all 5 secs
 
    gettimeofday(&start, NULL);
 
-   /* Start a thread and then send it a cancellation request cancel enable and in syscall */
+   /* Start a thread and then send it a cancellation request cancel enable and deferred */
 
-   if ((s = pthread_create(&thr, NULL, (void* (*)(void*)) & thread_func, (void*)2)) != 0) {
+   if ((s = pthread_create(&thr, NULL, (void* (*)(void*)) & thread_func, DEFERRED_CANCEL_TEST)) != 0) {
       handle_error_en(s, "pthread_create");
    }
    print_msg("main(): Give thread a chance to get started\n");
@@ -190,9 +186,6 @@ TEST main_thread(void)
    s = pthread_join(thr, &res);
    ASSERT_EQ(0, s);
    ASSERT_EQ_FMT(PTHREAD_CANCELED, res, "%p");
-
-   gettimeofday(&now, NULL);
-   ASSERT_FALSE(now.tv_sec - start.tv_sec <= 3);   // Deferred - waited all 5 secs
 
    PASS();
 }
