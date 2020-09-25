@@ -69,14 +69,14 @@ endef
 
 login:  .check_tools ## Interactive login to Azure, Azure Container Registry and Kubernetes cluster on Azure
 	az login -o table
-	az acr login -n $(REGISTRY_NAME)
-	az aks get-credentials --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER) --overwrite-existing
+	az acr login -n "$(REGISTRY_NAME)"
+	az aks get-credentials --resource-group "$(CLOUD_RESOURCE_GROUP)" --name "$(K8S_CLUSTER)" --overwrite-existing
 
 login-cli: .check_tools  ## Non-interactive login to Azure, Azure Container Registry and Kubernetes cluster on Azure
-	@echo az login ${SP_DISPLAYNAME}
-	@az login --service-principal -u ${SP_APPID} -p ${SP_PASSWORD} --tenant ${SP_TENANT} -o table
-	az acr login -n $(REGISTRY_NAME)
-	az aks get-credentials --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER) --overwrite-existing
+	@echo az login "${SP_DISPLAYNAME}"
+	@az login --service-principal -u "${SP_APPID}" -p "${SP_PASSWORD}" --tenant "${SP_TENANT}" -o table
+	az acr login -n "$(REGISTRY_NAME)"
+	az aks get-credentials --resource-group "$(CLOUD_RESOURCE_GROUP)" --name "$(K8S_CLUSTER)" --overwrite-existing
 
 .check_tools:
 	@if ! which az > /dev/null ; then \
