@@ -749,6 +749,9 @@ fi
 @test "pthread_cancel($test_type): (pthread_cancel_test$ext)" {
    run km_with_timeout pthread_cancel_test$ext -v
    assert_success
+   assert_line --partial "thread_func(): end of DISABLE_CANCEL_TEST"
+   refute_line --partial "PTHREAD_CANCEL_ASYNCHRONOUS"
+   assert_line --partial "PTHREAD_CANCEL_DEFERRED"
 }
 
 # C++ tests
