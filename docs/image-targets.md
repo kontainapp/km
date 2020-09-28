@@ -8,11 +8,11 @@ The design goals are as follows:
 
 * have all docker image based functionality in makefiles so they can be invoked and used locally and in CI
 * avoid make/CI code drift
-* Support fast build of payloads,as well as neccessary libs (e.g. libstdc++)
+* Support fast build of payloads,as well as necessary libs (e.g. libstdc++)
 
 ## Targets for local build and test of KM and runtime
 
-We support local `make` for build in local source tree using host environment (assumes prerequistes installed), and `make withdocker` for build in local tree using docker image.
+We support local `make` for build in local source tree using host environment (assumes prerequisites installed), and `make withdocker` for build in local tree using docker image.
 `make test` and `make withdocker TARGET=test` do testing of the local built executables, the former in the host environment, and the latter using the same docker image with build environment
 
 Docker images for build environment need to be built or pulled with `buildenv-image` or `pull-buildenv-image` target.
@@ -23,7 +23,7 @@ Docker images for build environment need to be built or pulled with `buildenv-im
 
 ### Docker image for build environment
 
-Dockerized build is using `buildenv-component-platform` images (i.e.`buildenv-km-fedora` or `buildenv-node-fedora`) which need to be either built once, or pulled into local docker cache once. Also, the same image is used when prereqs are being installed locally with `make -C tests buildenv-local-fedora`.
+Dockerized build is using `buildenv-component-platform` images (i.e.`buildenv-km-fedora` or `buildenv-node-fedora`) which need to be either built once, or pulled into local docker cache once. Also, the same image is used when prerequisites are being installed locally with `make -C tests buildenv-local-fedora`.
 
 * `make buildenv-image` - creates buildenv image (whole 9 yard  - includes libstdc++ build).**This is a long process as it installs many packages, clones gcc and builts libstdc++**
 * `make pull-buildenv-image` - pulls the image from (Azure) container registry and re-tags it for local use. We do this to avoid image name dependency on the specific registry it is pulled from.
@@ -38,12 +38,12 @@ We use the following environment (and Makefile) variables to control which versi
 * `IMAGE_VERSION` - use this version (aka Docker tag) for all container images. Default is `latest`
 * `BUILDENV_IMAGE_VERSION` - use this version (aka Docker tag) for all buildenv images. Default is `IMAGE_VERSION`
 
-For example, if IMAGE_VERSION is set to `myver`, then defaut for all buidlenv images will also be `myver`. If you want to use latest buldenv images with `myver` of test images, also et BUILDENV_IMAGE_VERSION to *latest*
+For example, if IMAGE_VERSION is set to `myver`, then default for all buildenv images will also be `myver`. If you want to use latest buildenv images with `myver` of test images, also et BUILDENV_IMAGE_VERSION to *latest*
 
 ### Testing in docker container, locally or remotely
 
 * `make testenv-image` - image with test environment - i.e. stuff needed for testing - bats code, /bin/time, timeout, etc.. (note: currently is *FROM buildenv*, can be scaled down if needed - since it's the only one pushed to Kubernetes for testing)
-* `make push-testenv-image` - pushes test image to registry. Since all test images are different, **we require to pass IMAGE_VERSION=version** for this target to work. **Version* can be SHA. or buildID, or other unique tag to diffirentiate images - e.g. CI uses `make testenv-image IMAGE_VERSION=ci-$(BuildId)`. We will block *:latest* tag to avoid accidental conflicts.
+* `make push-testenv-image` - pushes test image to registry. Since all test images are different, **we require to pass IMAGE_VERSION=version** for this target to work. **Version* can be SHA. or build ID, or other unique tag to differentiate images - e.g. CI uses `make testenv-image IMAGE_VERSION=ci-$(BuildId)`. We will block *:latest* tag to avoid accidental conflicts.
 
 To run full test in Docker container (based on testenv-image) we provide 2 simple wrappers:
 
@@ -61,9 +61,9 @@ All images are named `kontain/name-component-platform:version`.
 
 ## Payloads
 
-Dirs impacted: all dirs for .km payloads (other than tests above) - generally under km/payloads.
+All .km complex payloads (e.g. python, or jaa) are placed under `km/payloads`.
 
-km/payloads traverses down to individual payloads, so this is how *make* behaves from top level:
+Running `make` in `km/payloads` traverses down to individual payloads, so this is how *make* behaves from top level:
 
 Payload can be built from source (i.e. `git clone` first) or from pre-created docker images with build artifacts (i.e.`.a` libs). We refer to these images as `blanks`.
 
@@ -92,6 +92,28 @@ Each payload also supports the same targets supported for KM, but uses payload-s
 * `make demo-runenv-image` - builds an application demo using the runenv-images. Used for python and node.
 * `make push-demo-runenv-image` - retag and pushes runenv demo image to registry.
 
+### Payload versions
+
+**NOT IMPLEMENTED YET**
+
+Payloads generally are version depended. E.g. Python 3.8 and 2.7 are very different. We want to
+
+* Be specific when a specific version is expected
+* Use python-ish approach, e.g. "python" stands for the "latest version" and "python3" stands for the "latest 3.x version"
+
+this way, we can keep using images like `testenv-python` to refer to the latest Kontain supported (i.e. tested) version of python,
+`testenv-python-3` to the latest 3.x version, and`testenv-python-3.7` for the 3.7. We will not differentiate the minor versions (e.g. 3.5.2 and 3.5.4) and simply used "latest built in our build system"
+
+To support that, we will need to
+
+* introduce version into the all image names (buildenv, testenv and runenv)
+* when building, do additional tags for the "latest"
+* when pushing and pulling, also duplicate to the tags (if needed)
+
+Payload makefiles will have the info about the payload version, including "latest" to help with proper tagging.
+
+Note: we will **not** use Docker Image tags for that (e.g. python:3.7) and keep using tags for indication of source branch (e.g. python-3.7:my-branch)
+
 ## CI/CD
 
 * CI/CD yaml files  use the above `make` targets, instead of direct manipulation with code or scripts
@@ -106,7 +128,7 @@ Each payload also supports the same targets supported for KM, but uses payload-s
 
 ## Additional Makefiles changes
 
-* All targets for manipulating buildenv and test images are in `make/images.mk`. Note that this copy is temporary, until  we have a way to install KM+runk (runk: Kontain runtime for docker and k8s, if we choose to ship our own) and use *runk* to executed Kontainers.
+* All targets for manipulating buildenv and test images are in `make/images.mk`. Note that this copy is temporary, until  we have a way to install KM + runk (runk: Kontain runtime for docker and k8s, if we choose to ship our own) and use *runk* to executed Kontainers.
 
 * Makefiles in payloads and tests include `images.mk` only. KM and runtime include `actions.mk`, and ignores image-related targets.
 

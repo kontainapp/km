@@ -88,14 +88,17 @@ login-cli: .check_tools  ## Non-interactive login to Azure, Azure Container Regi
 		exit 1; \
 	fi
 
-# Support for manually purging old test images
+# Support for manually purging old test and demo images.
 # max age for purge, in 'duration string' format https://golang.org/pkg/time/
 CI_IMAGE_PURGE_AGE ?= 3d
 CI_IMAGE_REPOS_TO_PURGE := \
 	test-km-fedora \
 	test-node-fedora \
+	test-node-12.4-fedora \
 	test-python-fedora \
+	test-python-3.7-fedora \
 	test-jdk-11.0.8-fedora \
+	buildenv-python-3.7-fedora \
 	demo-runenv-dweb \
 	demo-runenv-python \
 	demo-runenv-node \

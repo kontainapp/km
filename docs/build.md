@@ -4,9 +4,9 @@
 
 We use the Visual Studio Code (VS Code) IDE. Our workspace (`km_repo_root/.vscode/km.code-workspace`) is configured to automatically run clang-format on file save.
 
-**If you are not useing VS Code, it is your responsibility to run clang-format with `.clang-format` (from the repo) before any PR**
+**If you are not using VS Code, it is your responsibility to run clang-format with `.clang-format` (from the repo) before any PR**
 
-Some of the style points we maintainin C which are not enforced by clang:
+Some of the style points we maintain in C which are not enforced by clang:
 
 * never use single line `if () statement;` - always use `{}` ,i.e. `if() {statement;}`
 * single line comments are usually `//` , multiple lines `/* ... */`
@@ -82,13 +82,11 @@ Top directory goes down the tree recursively.
 
 To fetch a buildenv-image for km only:
 
-
 ```sh
 make -C tests pull-buildenv-image
 ```
 
 And for specific payload (e.g. python):
-
 
 ```sh
 make -C python pull-buildenv-image
@@ -98,7 +96,7 @@ make -C python pull-buildenv-image
 make pull-buildenv-image
 ```
 
-from the top will getch all of the build environments.
+from the top will fetch all of the build environments.
 
 
 #### build the 'buildenv' image locally using Docker
@@ -351,8 +349,9 @@ get checkout **your tag**
 google-chrome index.html
 ```
 
-### Other repos
+### Submodule repos
 
-This repo uses a set of submodules - e.g. musl C lib and bats testing suite
+This repo uses a set of submodules - e.g. musl C lib and bats testing suite. It's recommended to set git to traverse these submodules on pull and fetch, by configuring it `git config --global fetch.recurseSubmodules true`
+
 
 === END OF DOCUMENT ===

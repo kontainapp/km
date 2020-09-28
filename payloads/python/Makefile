@@ -16,6 +16,11 @@ TOP := $(shell git rev-parse --show-toplevel)
 TAG ?= v3.7.4
 # TAG ?= v3.8.3
 
+# Component id for docker images.
+# Note that for now it is version-independent (i.e. not python${VERS})
+# to avoid version dependencies downstream in FROM/demo images etc.
+COMPONENT := python-3.7
+
 # Version (used in python paths) and ABI flags (used in *some* paths)
 VERS = $(shell echo ${TAG} | sed -e 's/^v//' -e 's/.[0-9]*$$//')
 # in Python 3.8+ ABI flag 'm' is no longer used, see https://bugs.python.org/issue36707.
@@ -27,11 +32,6 @@ RUNENV_IMAGE_EXTRA_ARGS   = --label "VERS=${VERS}" --build-arg=VERS=${VERS}
 
 # Location of cpython sources. When building in container, it is set in buildenv dockerfile.
 PYTHONTOP ?= cpython
-
-# Component id for docker images.
-# Note that for now it is version-independent (i.e. not python${VERS})
-# to avoid version dependencies downstream in FROM/demo images etc.
-COMPONENT := python
 
 # this is how we run python.km tests in container
 CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
@@ -152,5 +152,10 @@ RUNENV_VALIDATE_CMD := scripts/sanity_test.py
 export define runenv_prep
 	${RUNENV_ROOTFS_SCRIPT} ${PYTHONTOP} ${RUNENV_PATH} ${VERS}
 endef
+
+# TODO - we may simply document (in km-release) installing from docker image and do the push here
+# or we can create tar.gz to install on the host from
+release: ## placeholder for packaging a release
+	@echo -e "${GREEN}Placeholder for ${COMPONENT} release packaging${NOCOLOR}"
 
 include ${TOP}/make/images.mk

@@ -13,7 +13,7 @@
 TOP := $(shell git rev-parse --show-toplevel)
 
 BUILD ?= Release
-VERS ?= v12.4.0
+TAG ?= v12.4.0
 
 # Location of Node sources. When building in container, it is set in buildenv dockerfile.
 NODETOP ?= node
@@ -23,7 +23,7 @@ NODEBUILD = ${NODETOP}/out/$(BUILD)
 NODEOUT = node/out/$(BUILD)
 
 # component id for docker images
-COMPONENT := node
+COMPONENT := node-12.4
 
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := ${NODEOUT}/node.km
@@ -58,7 +58,7 @@ in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke 
 	tar -C ${NODETOP}/.. --exclude='.tmp*' -cf - ${NODE_DISTRO_FILES} | tar -xf -
 
 fromsrc:
-	git clone https://github.com/nodejs/node.git -b ${VERS}
+	git clone https://github.com/nodejs/node.git -b ${TAG}
 	cd ${NODETOP} && ./configure --gdb `[[ ${BUILD} == Debug ]] && echo -n --debug` && make -j`expr 2 \* $$(nproc)` && make jstest
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
@@ -92,5 +92,10 @@ RUNENV_VALIDATE_CMD := scripts/hello.js
 export define runenv_prep
 	cp ${PAYLOAD_KM} ${RUNENV_PATH}
 endef
+
+# TODO - we may simply document (in km-release) installing from docker image and do the push here
+# or we can create tar.gz to install on the host from
+release: ## placeholder for packaging a release
+	@echo -e "${GREEN}Placeholder for ${COMPONENT} release packaging${NOCOLOR}"
 
 include ${TOP}/make/images.mk

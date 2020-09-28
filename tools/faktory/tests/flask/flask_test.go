@@ -94,7 +94,7 @@ func testDocker(t *testing.T) error {
 }
 
 func testKontain(t *testing.T) error {
-	const BASE string = "kontain/runenv-python:latest"
+	const BASE string = "kontain/runenv-python-3.7:latest"
 	const TESTCONTAINER string = "faktory_test_kontain"
 
 	// Build the from image
