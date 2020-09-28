@@ -343,7 +343,15 @@ fi
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
          --ex=c --ex=q gdb_server_entry_race_test$ext
    assert_success
-   wait_and_check 0 # expect KM to exit normally
+   #wait_and_check 0 # expect KM to exit normally
+   wait %%
+   status=$?
+   if test $status -ne 0; then
+      echo "# === Begin $km_trace_file =====" >&3
+      sed -e "s/^/# /" <$km_trace_file >&3
+      echo "# === End   $km_trace_file =====" >&3
+      fail "km exit status $status not equal to zero"
+   fi
    rm -f $km_trace_file
 }
 
