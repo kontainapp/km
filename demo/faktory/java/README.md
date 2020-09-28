@@ -41,8 +41,8 @@ sudo tools/faktory/bin/faktory convert --type java \
     kontainapp/faktory-java-demo-kontain:latest \
     kontain/runenv-jdk-11.0.8:latest
 
-# To run the kontainer
-docker run -it --rm -p 8081:8080 \
+# To run the kontainer. --init makes ^C/^Z killing handled by runtime
+docker run -it --init --rm -p 8081:8080 \
     --name demo-kontain \
     --device /dev/kvm \
     -v /opt/kontain/bin/km:/opt/kontain/bin/km:z \
