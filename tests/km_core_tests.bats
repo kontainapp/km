@@ -26,10 +26,16 @@ not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_ex
 # review - some fail. Some slow
 todo_alpine_static='mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
 
-# glibc native. The only thing unblocked in km_main_env - the rest is blocked
-# TODO: kkm exception set may be wider, see below
-not_needed_glibc_static='hyper* km_many km_main_signal km_main_arg* setup* gdb* mem* hc* misc* futex* signal* gdb* unused* pthread* threads* mmap* madv* cpp* monitor* decode vdso itimer snapshot fork semaphore sigaltstack readlink* perf exec popen'
-todo_glibc_static='exception dl_iterate_phdr filesys hc_check file* cpuid long* auxv* trunc* sig* socket syscall raw_clone'
+# glibc native
+not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv'
+
+# exception - extra segment in kmcore
+# dl_iterate_phdr - load starts at 4MB instead of 2MB
+# filesys - dup3 flags check inconsistency between musl and glibc
+# gdb_nextstep - uses clone_test, same as raw_clone
+# raw_clone - glibc clone() wrapper needs pthread structure
+
+todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone'
 
 not_needed_native_dynamic=$not_needed_alpine_static
 todo_native_dynamic=$todo_alpine_static
@@ -99,7 +105,7 @@ fi
    assert_failure 31  #SIGSYS
    assert_output --partial "Bad system call"
 
-   run km_with_timeout stray_test$ext hc -10
+   run km_with_timeout stray_test$ext -- hc -10
    assert_failure 7   #SIGBUS
    assert_output --partial "Bus error"
 
@@ -495,7 +501,8 @@ fi
       --ex="source cmd_for_attach_test.gdb" --ex=q
    assert_success
    assert_line --partial "Thread 6 \"vcpu-5\""
-   assert_line --partial "in do_nothing_thread (instance"
+   # TODO: remove the check with glibc_static when stack trace is implemented
+   [ $test_type == "glibc_static" ] || assert_line --partial "in do_nothing_thread (instance"
    assert_line --partial "Inferior 1 (Remote target) detached"
 
    # 2nd try to test asynch gdb client attach to the target
@@ -504,7 +511,8 @@ fi
       --ex="source cmd_for_attach_test.gdb" --ex=q
    assert_success
    assert_line --partial "Thread 8 \"vcpu-7\""
-   assert_line --partial "in do_nothing_thread (instance"
+   # TODO: remove the check with glibc_static when stack trace is implemented
+   [ $test_type == "glibc_static" ] || assert_line --partial "in do_nothing_thread (instance"
    assert_line --partial "Inferior 1 (Remote target) detached"
 
    # ok, gdb client attach seems to be working, shut the test program down.
@@ -981,7 +989,9 @@ fi
       check_kmcore ${SNAP}
       run km_with_timeout --resume ${SNAP}
       assert_success
-      assert_output --partial "Hello from thread"
+      # TODO: remove the check with glibc_static when musl and glibc behave the same way
+      [ $test_type != "glibc_static" ] || refute_line --partial "Hello from thread"
+      [ $test_type == "glibc_static" ] || assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
       rm -f ${SNAP}
