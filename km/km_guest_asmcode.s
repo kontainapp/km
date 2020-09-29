@@ -89,7 +89,7 @@ handler\name :
     push %rbx
     push %rax
     mov $\num, %rbx
-    mov %rsp, %rax          # KM Setup km_hc_args_t on stack for us to use
+    mov %rsp, %gs:0         # KM Setup km_hc_args_t on stack for us to use
     mov $0x81fd, %dx        # HC_guest_interrupt
     outl %eax, (%dx)        # Enter KM
     hlt                     # Should never hit here.
