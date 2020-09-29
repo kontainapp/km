@@ -291,7 +291,7 @@ fi
 # then check that KM simply proceeds without gdb support
 @test "km_many($test_type): running multiple KMs (hello_test$ext)" {
    km_gdb_port=${GDB_PORT}
-   python -c "from http.server import * ; HTTPServer( ('', ${km_gdb_port}), BaseHTTPRequestHandler).serve_forever()" &  \
+   python3 -c "from http.server import * ; HTTPServer( ('', ${km_gdb_port}), BaseHTTPRequestHandler).serve_forever()" &  \
          curl --silent --retry 5 --retry-connrefused 127.0.0.1:${km_gdb_port}
    run km_with_timeout -g${km_gdb_port} --gdb-listen hello_test$ext
    kill %%
