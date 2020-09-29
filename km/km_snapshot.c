@@ -260,7 +260,7 @@ static int km_ss_recover_vcpu_info(char* ptr, size_t length)
     * This is a compile time check to remind developers to check
     * for snapshot implications when km_vcpu_t changes.
     */
-   static_assert(sizeof(km_vcpu_t) == 960,
+   static_assert(sizeof(km_vcpu_t) == 1376,
                  "sizeof(km_vcpu_t) changed. Check for snapshot implications");
 
    if (length < sizeof(km_nt_vcpu_t)) {

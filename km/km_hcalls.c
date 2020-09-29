@@ -1644,7 +1644,9 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    km_warnx("SNAPSHOT");
    km_vcpu_sync_rip(vcpu);
    ((km_vcpu_t*)vcpu)->regs_valid = 0;   // force register reread after the sync_rip
+   ((km_vcpu_t*)vcpu)->fpu_valid = 0;    // force fpu reread after the sync_rip
    km_read_registers(vcpu);
+   km_read_fpu(vcpu);
    km_vcpu_pause_all();
    km_dump_core(km_get_snapshot_path(), vcpu, NULL);
    return HC_ALLSTOP;

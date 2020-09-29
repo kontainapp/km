@@ -422,14 +422,14 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 
 /*
  * Signal handler caller stack frame. This is what RSP points at when a guest signal
- * handler is started.
+ * handler is started. Try to match the linux kernel as much as possible.
  */
 typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
-   km_hc_args_t hcargs;    // HC argument array for __km_sigreturn.
-   uint64_t rflags;        // saved rflags
-   siginfo_t info;         // Passed to guest signal handler
    ucontext_t ucontext;    // Passed to guest signal handler
+   siginfo_t info;         // Passed to guest signal handler
+   struct kvm_fpu fpu;     // floating point state
+   uint64_t rflags;        // saved rflags
 } km_signal_frame_t;
 
 #define RED_ZONE (128)
@@ -458,6 +458,9 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
    frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
    frame->rflags = vcpu->regs.rflags;
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
+
+   km_read_fpu(vcpu);
+   frame->fpu = vcpu->fpu;
 }
 
 static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame)
@@ -483,6 +486,9 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
 
    vcpu->regs.rflags = frame->rflags;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
+
+   vcpu->fpu = frame->fpu;
+   vcpu->fpu_valid = 1;
 }
 
 /*
@@ -494,6 +500,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
 {
    vcpu->regs_valid = 0;
    vcpu->sregs_valid = 0;
+   vcpu->fpu_valid = 0;
    km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
    km_read_registers(vcpu);
 
@@ -694,10 +701,13 @@ uint64_t km_sigaltstack(km_vcpu_t* vcpu, km_stack_t* new, km_stack_t* old)
          if (km_gva_to_kma((km_gva_t) new->ss_sp) == NULL) {
             return -EFAULT;
          }
+         if (km_gva_to_kma((km_gva_t) new->ss_sp + new->ss_size - 1) == NULL) {
+            return -EFAULT;
+         }
          vcpu->sigaltstack.ss_sp = (void*)new->ss_sp;
          vcpu->sigaltstack.ss_size = new->ss_size;
          vcpu->sigaltstack.ss_flags = 0;
-         km_infox(KM_TRACE_HC, "new sigaltstack 0x%lx 0x%lx", (km_gva_t) new->ss_sp, new->ss_size);
+         km_infox(KM_TRACE_SIGNALS, "new sigaltstack 0x%lx 0x%lx", (km_gva_t) new->ss_sp, new->ss_size);
       }
    }
    return 0;

@@ -44,6 +44,7 @@ typedef struct kvm_cpuid2 kvm_cpuid2_t;
 typedef struct kvm_segment kvm_seg_t;
 typedef struct kvm_sregs kvm_sregs_t;
 typedef struct kvm_regs kvm_regs_t;
+typedef struct kvm_fpu kvm_fpu_t;
 typedef struct kvm_vcpu_events kvm_vcpu_events_t;
 
 typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload space)
@@ -135,6 +136,7 @@ typedef struct km_vcpu {
    uint8_t is_running;        // 1 means the vcpu is in guest, aka ioctl (KVM_RUN)
    uint8_t regs_valid;        // Are registers valid?
    uint8_t sregs_valid;       // Are segment registers valid?
+   uint8_t fpu_valid;         // Is FPU state valid?
    uint8_t in_sigsuspend;     // if true thread is running in the sigsuspend() hypercall
                               //
    km_gva_t stack_top;        // also available in guest_thr
@@ -145,6 +147,7 @@ typedef struct km_vcpu {
                               //
    kvm_regs_t regs;           // Cached register values.
    kvm_sregs_t sregs;         // Cached segment register values.
+   kvm_fpu_t fpu;             // FPU state
    km_sigset_t sigmask;       // blocked signals for thread
    km_signal_list_t sigpending;        // List of signals sent to thread
    pthread_cond_t signal_wait_cv;      // wait for signals with this cv
@@ -210,6 +213,8 @@ void km_read_registers(km_vcpu_t* vcpu);
 void km_write_registers(km_vcpu_t* vcpu);
 void km_read_sregisters(km_vcpu_t* vcpu);
 void km_write_sregisters(km_vcpu_t* vcpu);
+void km_read_fpu(km_vcpu_t* vcpu);
+void km_write_fpu(km_vcpu_t* vcpu);
 
 void km_hcalls_init(void);
 void km_hcalls_fini(void);

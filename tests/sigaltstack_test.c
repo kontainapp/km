@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,6 +27,8 @@
  * mprotected to readonly, and signal handler changes protection, so returning from the handler
  * restarts the very instruction that caused SIGSEGV.
  */
+
+#define PAGE_SIZE 4096
 
 stack_t ss;
 int* bad = 0;
@@ -96,7 +99,7 @@ void handler(int sig, siginfo_t* info, void* ucontext)
       if (greatest_get_verbosity() == 1) {
          printf("allowing writes on %p\n", bad);
       }
-      mprotect(bad, 4096, PROT_WRITE | PROT_READ);
+      mprotect(bad, PAGE_SIZE, PROT_WRITE | PROT_READ);
    } else {
       abort();
    }
@@ -124,8 +127,17 @@ TEST sas()
       perror("sigaction");
       exit(EXIT_FAILURE);
    }
-   bad = malloc(4096);
-   mprotect(bad, 4096, PROT_READ);
+
+   // make sure we do the mprotect on a dedicated page.
+   void* ptr = malloc(PAGE_SIZE * 2);
+   uintptr_t badpg = (uintptr_t)ptr;
+   if (badpg % PAGE_SIZE != 0) {
+      // Next page boundary
+      badpg = (badpg + PAGE_SIZE) & ~(PAGE_SIZE - 1);
+   }
+   bad = (int*)badpg;
+
+   mprotect(bad, PAGE_SIZE, PROT_READ);
    if (greatest_get_verbosity() == 1) {
       printf("about to assign to %p\n", bad);
    }

@@ -375,6 +375,29 @@ void km_write_sregisters(km_vcpu_t* vcpu)
    }
 }
 
+void km_read_fpu(km_vcpu_t* vcpu)
+{
+   if (vcpu->fpu_valid != 0) {
+      return;
+   }
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, &vcpu->fpu) < 0) {
+      km_warn("KVM_GET_FPU failed");
+      return;
+   }
+   vcpu->fpu_valid = true;
+}
+
+void km_write_fpu(km_vcpu_t* vcpu)
+{
+   if (vcpu->fpu_valid != 0) {
+      km_errx(2, "fpu not valid");
+   }
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_FPU, &vcpu->fpu) < 0) {
+      km_warn("KVM_SET_FPU failed");
+      return;
+   }
+}
+
 /*
  * return non-zero and set status if guest halted
  */
@@ -468,6 +491,7 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
    vcpu->cpu_run->exit_reason = KVM_EXIT_UNKNOWN;   // Clear exit_reason from the preceeding ioctl
    vcpu->regs_valid = 0;                            // Invalidate cached registers
    vcpu->sregs_valid = 0;
+   vcpu->fpu_valid = 0;
    km_infox(KM_TRACE_VCPU, "about to ioctl( KVM_RUN )");
    rc = ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
    vcpu->is_running = 0;
