@@ -1517,6 +1517,23 @@ uint64_t km_fs_epoll_ctl(km_vcpu_t* vcpu, int epfd, int op, int fd, struct epoll
    return ret;
 }
 
+// int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+uint64_t
+km_fs_epoll_wait(km_vcpu_t* vcpu, int epfd, struct epoll_event* events, int maxevents, int timeout)
+{
+   int host_epfd;
+   if ((host_epfd = km_fs_g2h_fd(epfd, NULL)) < 0) {
+      return -EBADF;
+   }
+
+   int ret = __syscall_4(SYS_epoll_wait,
+                         host_epfd,
+                         (uintptr_t)events,
+                         maxevents,
+                         timeout);
+   return ret;
+}
+
 // int epoll_pwait(int epfd, struct epoll_event *events, int maxevents, int timeout,
 //  const sigset_t *sigmask);
 uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
