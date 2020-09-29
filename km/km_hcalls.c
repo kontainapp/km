@@ -503,6 +503,44 @@ static km_hc_ret_t mprotect_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 };
 
+static km_hc_ret_t time_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // time_t time(time_t* tloc);
+   // glibc 2.31 moved away from time() syscall and uses clock_gettime(CLOCK_REALTIME)
+   // We just do the same
+   struct timespec ts;
+   time_t* arg_t = km_gva_to_kma(arg->arg1);
+   if (arg->arg1 != 0 && arg_t == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   int rc = __syscall_2(SYS_clock_gettime, CLOCK_REALTIME, (uint64_t)&ts);
+   if (rc < 0) {
+      arg->hc_ret = rc;
+      return HC_CONTINUE;
+   }
+   if (arg_t != NULL) {
+      *arg_t = ts.tv_sec;
+   }
+   arg->hc_ret = ts.tv_sec;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t gettimeofday_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int gettimeofday(struct timeval *tv, struct timezone *tz);
+   if (km_gva_to_kml(arg->arg1) == 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (arg->arg2 != 0 && km_gva_to_kml(arg->arg2) == 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2));
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t clock_time_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int clock_gettime(clockid_t clk_id, struct timespec *tp);
@@ -1065,8 +1103,9 @@ static km_hc_ret_t rt_sigsuspend_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t epoll1_create_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   // int epoll_create(int size);
    // int epoll_create1(int flags);
-   arg->hc_ret = km_fs_epoll_create1(vcpu, arg->arg1);
+   arg->hc_ret = km_fs_epoll_create1(vcpu, hc == SYS_epoll_create ? 0 : arg->arg1);
    return HC_CONTINUE;
 }
 
@@ -1080,6 +1119,18 @@ static km_hc_ret_t epoll_ctl_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
    arg->hc_ret = km_fs_epoll_ctl(vcpu, arg->arg1, arg->arg2, arg->arg3, event);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t epoll_wait_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+   void* events = km_gva_to_kma(arg->arg2);
+   if (events == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_epoll_wait(vcpu, arg->arg1, events, arg->arg3, arg->arg4);
    return HC_CONTINUE;
 }
 
@@ -1710,6 +1761,8 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_munmap] = munmap_hcall;
    km_hcalls_table[SYS_mremap] = mremap_hcall;
    km_hcalls_table[SYS_mprotect] = mprotect_hcall;
+   km_hcalls_table[SYS_time] = time_hcall;
+   km_hcalls_table[SYS_gettimeofday] = gettimeofday_hcall;
    km_hcalls_table[SYS_clock_gettime] = clock_time_hcall;
    km_hcalls_table[SYS_clock_getres] = clock_time_hcall;
    km_hcalls_table[SYS_clock_settime] = clock_time_hcall;
@@ -1752,7 +1805,9 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_accept4] = accept4_hcall;
    km_hcalls_table[SYS_recvfrom] = recvfrom_hcall;
    km_hcalls_table[SYS_epoll_create1] = epoll1_create_hcall;
+   km_hcalls_table[SYS_epoll_create] = epoll1_create_hcall;
    km_hcalls_table[SYS_epoll_ctl] = epoll_ctl_hcall;
+   km_hcalls_table[SYS_epoll_wait] = epoll_wait_hcall;
    km_hcalls_table[SYS_epoll_pwait] = epoll_pwait_hcall;
    km_hcalls_table[SYS_access] = access_hcall;
    km_hcalls_table[SYS_dup] = dup_hcall;
