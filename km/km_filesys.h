@@ -237,6 +237,9 @@ uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeou
 uint64_t km_fs_epoll_create1(km_vcpu_t* vcpu, int flags);
 // int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
 uint64_t km_fs_epoll_ctl(km_vcpu_t* vcpu, int epfd, int op, int fd, struct epoll_event* event);
+// int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+uint64_t
+km_fs_epoll_wait(km_vcpu_t* vcpu, int epfd, struct epoll_event* events, int maxevents, int timeout);
 // int epoll_pwait(int epfd, struct epoll_event *events, int maxevents, int timeout,
 //  const sigset_t *sigmask);
 uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
