@@ -36,6 +36,7 @@ struct timespec _100ms = {0, 100000000};
 int enable_disable_ready = 0;
 int breakpointer_ready = 0;
 pthread_barrier_t barrier;
+pthread_barrier_t end_barrier;
 int stop_now = 0;
 
 /*
@@ -80,11 +81,13 @@ static time_t __attribute__((noinline)) hit_breakpoint(void)
 void* hit_breakpoint_thread(void* arg)
 {
    int i = 0;
+   int rc;
 
    printf("%s starting\n", __FUNCTION__);
 
    while (true) {
-      pthread_barrier_wait(&barrier);
+      rc = pthread_barrier_wait(&barrier);
+      assert(rc == 0 || rc == PTHREAD_BARRIER_SERIAL_THREAD);
       if (stop_now != 0) {
          break;
       }
@@ -95,6 +98,10 @@ void* hit_breakpoint_thread(void* arg)
          ;
       (void)hit_breakpoint();
       i++;
+
+      // Wait for both threads to finish their part of the test before doing another iteration
+      rc = pthread_barrier_wait(&end_barrier);
+      assert(rc == 0 || rc == PTHREAD_BARRIER_SERIAL_THREAD);
    }
 
    printf("%s ending, %d iterations\n", __FUNCTION__, i);
@@ -111,7 +118,10 @@ int main()
    time_t t2;
    int i = 0;
 
-   pthread_barrier_init(&barrier, NULL, 2);
+   rc = pthread_barrier_init(&barrier, NULL, 2);
+   assert(rc == 0);
+   rc = pthread_barrier_init(&end_barrier, NULL, 2);
+   assert(rc == 0);
 
    // Start the breakpoint hitting thread
    rc = pthread_create(&hitbp_thread, NULL, hit_breakpoint_thread, NULL);
@@ -142,6 +152,10 @@ int main()
          stop_now = 1;
       }
       i++;
+
+      // Wait for both threads to finish their part of the test before doing another iteration
+      rc = pthread_barrier_wait(&end_barrier);
+      assert(rc == 0 || rc == PTHREAD_BARRIER_SERIAL_THREAD);
    }
 
    printf("%s ending, %d iterations\n", __FUNCTION__, i);
