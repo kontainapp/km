@@ -1,0 +1,36 @@
+# Daemon set to open access to core files
+# Changes kernel setting to put cores in regular files, and maintains access to that directory
+# Adapted from https://docs.microsoft.com/en-us/answers/questions/29354/how-can-i-access-the-core-dump-file-if-a-container.html
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: init-node-cored
+spec:
+  selector:
+    matchLabels:
+      job: init-node-cored
+  template:
+    metadata:
+      labels:
+        job: init-node-cored
+    spec:
+      hostPID: true
+      restartPolicy: Always
+      containers:
+      - image: alpine:3.12.0
+        name: init-node-cored
+        securityContext:
+          privileged: true
+        command: ["/bin/sh"]
+        args: [
+           "-c",
+           "nsenter -t 1 -m -- su -c \"mkdir -p /core && chmod a+rw /core && echo \\\"/core/core.%e.%P.%t\\\" > /proc/sys/kernel/core_pattern\" && sleep infinity"
+        ]
+        volumeMounts:
+          - name: core
+            mountPath: /core
+      volumes:
+         - name: core
+           hostPath:
+             path: /core

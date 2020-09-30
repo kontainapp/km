@@ -1,9 +1,9 @@
 # Kontaind contains all artifacts to run as daemonset on nodes that are running
 # kontain. Combine the kvm device plugin and kontain installer into one
 # package.
-# 
+#
 # The original device plugin is just for kvm. We adapted to include a step to
-# install the nesserary kontain components on the node.
+# install the necessary kontain components on the node.
 # From kubernetes-device-plugins/manifests/kvm-ds.yml
 # License: MIT
 
