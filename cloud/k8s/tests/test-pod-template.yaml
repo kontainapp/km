@@ -18,4 +18,11 @@ spec:
           devices.kubevirt.io/kvm: "1"
           cpu: "1"
       command: ["sh", "-c", "tail -f /dev/null"]
+      volumeMounts:
+        - name: core
+          mountPath: /core
+  volumes:
+    - name: core
+      hostPath:
+        path: /core
   restartPolicy: Never
