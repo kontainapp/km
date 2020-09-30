@@ -126,6 +126,27 @@ Note: a good set of recipes for kubectl interacting with a pod is, for
 example,
 [here](https://kubernetes.io/blog/2015/10/some-things-you-didnt-know-about-kubectl_28/)
 
+### How to gain access to core file on Kubernetes
+
+If something dropped core while running test on CI (most likely `km`) the core file is retained in `/core` directory on the host.
+This directory is also accessible in the CI pod if you running tests manually via `kubectl exec ...` as described above.
+In addition there is a separate long living pod named `init-node-cored` that also has access to that directory.
+The core files have names template `/core/core.%e.%P.%t` as per `man core.5`.
+
+To access the core files, first run `kubectl get pod | grep init-node-cored` to get the name of the long running pod.
+Then you could either
+
+```bash
+kubectl exec <pod_name> -it -- /bin/sh
+```
+
+and access `/core` from there, or you could do something like:
+
+```bash
+kubectl exec <pod_name> -it -- /bin/ls -lh /core
+kubectl cp <pod_name>:/core/<specific_file_name> <local_core_name>
+```
+
 ### Secrets and Pipeline variables
 
 We use service principal extensively in the azure pipeline. To pass the
