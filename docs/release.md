@@ -102,3 +102,18 @@ For example, python will have the following tag:
 1. runenv-python-3.7:SHA
 
 Currently supported release: `payload/python` `payload/node` `payload/java`
+
+To perform the final push to dockerhub, we use `release-runenv` target for
+each payloads. While one can invoke `make release-runenv` from the root, for
+better control, we want to run from each individual directory to avoid
+messing up. For example, to release python, run:
+```bash
+# Optional: build the runenv image 
+make -C payload/python all runenv-image
+
+# Optional: login into dockerhub
+make -C cloud/dockerhub login
+
+# Release the runenv-python image to dockerhub
+make -C payload/python release-runenv
+```
