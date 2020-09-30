@@ -130,10 +130,10 @@ example,
 
 If something dropped core while running test on CI (most likely `km`) the core file is retained in `/core` directory on the host.
 This directory is also accessible in the CI pod if you running tests manually via `kubectl exec ...` as described above.
-In addition there is a separate long living pod named `init-node-cored` that also has access to that directory.
+In addition there is a separate long living pod named `coredump-accessd-gtzjg` that also has access to that directory.
 The core files have names template `/core/core.%e.%P.%t` as per `man core.5`.
 
-To access the core files, first run `kubectl get pod | grep init-node-cored` to get the name of the long running pod.
+To access the core files, first run `kubectl get pod | grep coredump-accessd` to get the name of the long running pod.
 Then you could either
 
 ```bash
