@@ -5,27 +5,27 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: init-node-cored
+  name: coredump-accessd
 spec:
   selector:
     matchLabels:
-      job: init-node-cored
+      job: coredump-accessd
   template:
     metadata:
       labels:
-        job: init-node-cored
+        job: coredump-accessd
     spec:
       hostPID: true
       restartPolicy: Always
       containers:
       - image: alpine:3.12.0
-        name: init-node-cored
+        name: coredump-accessd
         securityContext:
           privileged: true
         command: ["/bin/sh"]
         args: [
            "-c",
-           "nsenter -t 1 -m -- su -c \"mkdir -p /core && chmod a+rw /core && echo \\\"/core/core.%e.%P.%t\\\" > /proc/sys/kernel/core_pattern\" && sleep infinity"
+           "nsenter -t 1 -m -- su -c \"mkdir -p /core && chmod a+rw /core && echo \\\"/core/core.%e.%P.%t\\\" > /proc/sys/kernel/core_pattern\" && while sleep 15m; do find /core -mtime +7 -delete; done"
         ]
         volumeMounts:
           - name: core
