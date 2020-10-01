@@ -18,7 +18,6 @@ if [ -z "$BATS_TEST_FILENAME" ] ; then "exec" "`dirname $0`/bats/bin/bats" "$0" 
 #  - ./bats*/README.md and man/ files)
 #  - The same docs is available on github in bats-core bats-assist and bats-support repositories
 #
-[ "$TRACE" ] && set -x
 cd $BATS_ROOT/.. # bats sits under tests, so this will move us to tests
 load 'bats-support/load' # see manual in bats-support/README.md
 load 'bats-assert/load'  # see manual in bats-assert/README.mnd
@@ -96,7 +95,7 @@ case $test_type in
       KM_ARGS="${KM_ARGS} ${KM_LDSO} --library-path=${KM_LDSO_PATH}"
       ;;
    *)
-      echo "Unknown test type: $test_type, should be 'static', 'dynamic', 'alpine_static', 'glibc_static'. 'native_dynamic' or 'so'. =$BATS_TEST_NAME="
+      echo "Unknown test type: $test_type, should be 'static', 'dynamic', 'alpine_static', 'glibc_static'. 'native_dynamic' or 'so'."
       export KM_BIN=fail
       return 1
       ;;
