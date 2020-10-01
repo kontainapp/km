@@ -537,7 +537,7 @@ static km_hc_ret_t gettimeofday_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   arg->hc_ret = __syscall_2(hc, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2));
+   arg->hc_ret = __syscall_2(SYS_gettimeofday, km_gva_to_kml(arg->arg1), km_gva_to_kml(arg->arg2));
    return HC_CONTINUE;
 }
 
