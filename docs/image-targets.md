@@ -31,6 +31,23 @@ Dockerized build is using `buildenv-component-platform` images (i.e.`buildenv-km
 * `make push-buildenv-image` - rare op, updates buildenv image
 * `make -C tests buildenv-local-fedora` is a convenience target which extracts prerequisites (DNF package list and libstdc++ lib) from buildenv image and installs on on local box, thus allowing to run regular `make`
 
+#### Build environment on dockerhub
+
+For some usecases, we want to access `buildenv` images through dockerhub, instead of our
+private container registry on azure. To pull from dockerhub:
+```bash
+CLOUD=dockerhub make pull-buildenv-image
+```
+
+In the same way, to push the `buildenv` image to dockerhub:
+```bash
+# Optional: login into dockerhub
+make -C cloud/dockerhub login
+
+# Push to dockerhub
+CLOUD=dockerhub FORCE_BUILDENV_PUSH=force make push-buildenv-image
+```
+
 ### Image Versions
 
 We use the following environment (and Makefile) variables to control which versions are used:
