@@ -87,3 +87,33 @@ Install instructions are in km-release/README.md
 ## Languages
 
 * Turns out, the release is more of a tool than script, so writing it in Golang, as oppose to python3.
+
+## Payload release
+Payload will release a `runenv` image to dockerhub under `docker.io/kontainapp`. Each payload already create
+`runenv` image. The release will push the `runenv` image to dockerhub.
+
+The versioning works differently compare to `km` release versioning. We will have 
+`runenv-<payload>:latest` and `runenv-<payload>:<SHA>`. Some payloads may have alias to be tagged as well.
+
+For example, python will have the following tag:
+1. runenv-python:latest
+1. runenv-python:SHA
+1. runenv-python-3.7:latest
+1. runenv-python-3.7:SHA
+
+Currently supported release: `payload/python` `payload/node` `payload/java`
+
+To perform the final push to dockerhub, we use `release-runenv` target for
+each payloads. While one can invoke `make release-runenv` from the root, for
+better control, we want to run from each individual directory to avoid
+messing up. For example, to release python, run:
+```bash
+# Optional: build the runenv image 
+make -C payload/python all runenv-image
+
+# Optional: login into dockerhub
+make -C cloud/dockerhub login
+
+# Release the runenv-python image to dockerhub
+make -C payload/python release-runenv
+```

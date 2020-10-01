@@ -138,8 +138,11 @@ ifdef runenv_prep
 	@echo -e "Executing prep steps"
 	eval $(runenv_prep)
 endif
-	${DOCKER_BUILD} ${RUNENV_IMAGE_EXTRA_ARGS} \
-		-t ${RUNENV_IMG_TAGGED} -f ${RUNENV_DOCKERFILE} ${RUNENV_PATH}
+	${DOCKER_BUILD} \
+		${RUNENV_IMAGE_EXTRA_ARGS} \
+		-t ${RUNENV_IMG_TAGGED} \
+		-f ${RUNENV_DOCKERFILE} \
+		${RUNENV_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 
 ifneq (${RUNENV_VALIDATE_DIR},)
@@ -279,6 +282,17 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib | ${KM_OPT_RT} ##
 
 ${KM_OPT_RT} ${KM_OPT_BIN}:
 	sudo sh -c "mkdir -p $@ && chgrp users $@ && chmod 777 $@"
+
+RELEASE_REG := docker.io/kontainapp
+release-runenv:
+	for tag in ${RELEASE_TAG} ; do \
+		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
+			IMAGE_VERSION="$(IMAGE_VERSION)"\
+			FROM=$(RUNENV_IMG_TAGGED) TO=$(RELEASE_REG)/runenv-$$tag:latest; \
+		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
+			IMAGE_VERSION="$(IMAGE_VERSION)"\
+			FROM=$(RUNENV_IMG_TAGGED) TO=$(RELEASE_REG)/runenv-$$tag:${SRC_SHA}; \
+	done
 
 .DEFAULT:
 	@echo $(notdir $(CURDIR)): ignoring target '$@'
