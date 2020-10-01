@@ -67,7 +67,13 @@ void subrun(char* msg)
 
 void* run(void* msg)
 {
-   for (long run_count = 0; run_count < 1024; run_count++) {
+   /*
+    * For joinable threads we first join and then fire a new one, so total number of threads is
+    * limited to 7, 1024 is just number if iterations. But with detached there is no way to know
+    * thread is complete and it is possible *all* of the started will be running in parallel, so we
+    * limit it to 128 here not to run out of VCPUs.
+    */
+   for (long run_count = 0; run_count < (detached == 0 ? 1024 : 128); run_count++) {
       pthread_t pt1, pt2;
       pthread_attr_t attr;
 
@@ -76,8 +82,16 @@ void* run(void* msg)
       if (detached == 1) {
          pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
       }
-      pthread_create(&pt1, &attr, (void* (*)(void*))subrun, (void*)brick_msg);
-      pthread_create(&pt2, &attr, (void* (*)(void*))subrun, (void*)dust_msg);
+      int rc;
+
+      if ((rc = pthread_create(&pt1, &attr, (void* (*)(void*))subrun, (void*)brick_msg)) != 0) {
+         printf("pthread_create() %d, %s", rc, strerror(errno));
+         return (void*)(long)rc;
+      }
+      if ((rc = pthread_create(&pt2, &attr, (void* (*)(void*))subrun, (void*)dust_msg)) != 0) {
+         printf("pthread_create() %d, %s", rc, strerror(errno));
+         return (void*)(long)rc;
+      }
       pthread_attr_destroy(&attr);
       if (detached == 0) {
          pthread_join(pt2, NULL);
@@ -97,6 +111,7 @@ TEST nested_threads(void)
 {
    pthread_t pt1, pt2;
    int ret;
+   void* status;
 
    pthread_key_create(&mystr_key_2, free_key);
    pthread_setspecific(mystr_key_2, (void*)0x17);
@@ -117,8 +132,9 @@ TEST nested_threads(void)
    if (greatest_get_verbosity() != 0) {
       printf("joining %p ... \n", (void*)pt1);
    }
-   ret = pthread_join(pt1, NULL);
+   ret = pthread_join(pt1, &status);
    ASSERT_EQ(0, ret);
+   ASSERT_EQ_FMT(NULL, status, "%p");
    if (greatest_get_verbosity() != 0) {
       printf("joined %p, %d\n", (void*)pt1, ret);
    }
@@ -126,8 +142,9 @@ TEST nested_threads(void)
    if (greatest_get_verbosity() != 0) {
       printf("joining %p ... \n", (void*)pt2);
    }
-   ret = pthread_join(pt2, NULL);
+   ret = pthread_join(pt2, &status);
    ASSERT_EQ(0, ret);
+   ASSERT_EQ_FMT(NULL, status, "%p");
 
    ASSERT_EQ((void*)0x17, pthread_getspecific(mystr_key_2));
    ASSERT_EQ(pthread_key_delete(mystr_key_2), 0);

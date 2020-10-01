@@ -313,6 +313,7 @@ km_vcpu_t* km_vcpu_get(void)
       // if (machine.vm_vcpus[i] == NULL) machine.vm_vcpus[i] = new;
       if (__atomic_compare_exchange_n(&machine.vm_vcpus[i], &old, new, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
          new->vcpu_id = i;
+         km_infox(KM_TRACE_VCPU, "Allocating new vcpu-%d", i);
          if (km_vcpu_init(new) < 0) {
             __atomic_store_n(&machine.vm_vcpus[i], NULL, __ATOMIC_SEQ_CST);
             break;
