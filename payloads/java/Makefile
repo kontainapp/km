@@ -122,5 +122,7 @@ clean:
 	rm -f ${JDK_BUILD_DIR}/images/jdk/bin/java.k*
 	find . -name "*.class" -type f -delete
 
+RELEASE_TAG := java-11
+
 include ${TOP}/make/images.mk
 
