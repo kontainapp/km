@@ -10,7 +10,7 @@
          "request": "launch",
          "program": "${workspaceFolder}/build/km/km",
          "args": [
-            "tests/${input:test_payload}.km"
+            "tests/${input:test_payload}.${input:payload_type}"
          ],
          "stopAtEntry": true,
          "cwd": "${workspaceFolder}",
@@ -27,17 +27,22 @@
                "description": "Load KM specific commands",
                "text": "source ${workspaceFolder}/km/gdb/list.gdb",
                "ignoreFailures": false
+            },
+            {
+               "description": "Ignore VCPUSTOP signal",
+               "text": "handle SIG63 nostop",
+               "ignoreFailures": false
             }
          ]
       },
       {
-         "name": "KM exec_test",
+         "name": "KM with a test payload and an argument",
          "type": "cppdbg",
          "request": "launch",
          "program": "${workspaceFolder}/build/km/km",
          "args": [
-            "exec_test.km",
-            "-f"
+            "${input:test_payload}.${input:payload_type}",
+            "${input:payload_args}"
          ],
          "stopAtEntry": true,
          "cwd": "${workspaceFolder}/tests",
@@ -54,17 +59,22 @@
                "description": "Load KM specific commands",
                "text": "source ${workspaceFolder}/km/gdb/list.gdb",
                "ignoreFailures": false
+            },
+            {
+               "description": "Ignore VCPUSTOP signal",
+               "text": "handle SIG63 nostop",
+               "ignoreFailures": false
             }
          ]
       },
       {
-         "name": "KM with a dynamic test payload",
+         "name": "KM with GDB enabled, running a test payload",
          "type": "cppdbg",
          "request": "launch",
          "program": "${workspaceFolder}/build/km/km",
          "args": [
-            "--dynlinker=${workspaceFolder}/build/runtime/libc.so",
-            "tests/${input:test_payload}.kmd"
+            "-g",
+            "tests/${input:test_payload}.${input:payload_type}"
          ],
          "stopAtEntry": true,
          "cwd": "${workspaceFolder}",
@@ -78,20 +88,21 @@
                "ignoreFailures": true
             },
             {
-               "description": "Load KM specific commands",
-               "text": "source ${workspaceFolder}/km/gdb/list.gdb",
+               "description": "Ignore VCPUSTOP signal",
+               "text": "handle SIG63 nostop",
                "ignoreFailures": false
             }
          ]
       },
       {
-         "name": "KM with GDB enabled, running a test payload",
+         "name": "KM with GDB attach enabled, running a test payload",
          "type": "cppdbg",
          "request": "launch",
          "program": "${workspaceFolder}/build/km/km",
          "args": [
             "-g",
-            "tests/${input:test_payload}.km"
+            "--gdb-listen",
+            "tests/${input:test_payload}.${input:payload_type}"
          ],
          "stopAtEntry": true,
          "cwd": "${workspaceFolder}",
@@ -103,6 +114,11 @@
                "description": "Enable pretty-printing for gdb",
                "text": "-enable-pretty-printing",
                "ignoreFailures": true
+            },
+            {
+               "description": "Ignore VCPUSTOP signal",
+               "text": "handle SIG63 nostop",
+               "ignoreFailures": false
             }
          ]
       },
@@ -190,51 +206,6 @@
          "program": "${workspaceFolder}/build/km/km",
          "args": [],
          "coreDumpPath": "${workspaceFolder}/build/km/core",
-         "stopAtEntry": true,
-         "cwd": "${workspaceFolder}",
-         "environment": [],
-         "externalConsole": false,
-         "MIMode": "gdb",
-         "setupCommands": [
-            {
-               "description": "Enable pretty-printing for gdb",
-               "text": "-enable-pretty-printing",
-               "ignoreFailures": true
-            }
-         ]
-      },
-      {
-         "name": "KMcore: 'gdb node.km kmcore'",
-         "type": "cppdbg",
-         "request": "launch",
-         "cwd": "${workspaceFolder}/payloads/node",
-         "program": "${workspaceFolder}/payloads/node/node/out/Debug/node.km",
-         "coreDumpPath": "${workspaceFolder}/payloads/node/kmcore",
-         "args": [],
-         "stopAtEntry": true,
-         "environment": [],
-         "externalConsole": false,
-         "MIMode": "gdb",
-         "setupCommands": [
-            {
-               "description": "Enable pretty-printing for gdb",
-               "text": "-enable-pretty-printing",
-               "ignoreFailures": true
-            }
-         ]
-      },
-      {
-         "name": "brk_map_test (8GB)",
-         "type": "cppdbg",
-         "request": "launch",
-         "program": "${workspaceFolder}/build/km/km",
-         "args": [
-            "-P",
-            "33",
-            "tests/brk_map_test.km",
-            "--",
-            "33"
-         ],
          "stopAtEntry": true,
          "cwd": "${workspaceFolder}",
          "environment": [],
@@ -404,6 +375,25 @@
             "shebang_test",
             "exec_test"
          ]
+      },
+      {
+         "id": "payload_type",
+         "description": "Payload Type",
+         "default": "km",
+         "type": "pickString",
+         "options": [
+            "km",
+            "kmd",
+            "so",
+            "alpine.km",
+            "fedora"
+         ]
+      },
+      {
+         "id": "payload_args",
+         "description": "Arguments for the payload",
+         "default": "",
+         "type": "promptString"
       },
       {
          "id": "python_module",
