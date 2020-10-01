@@ -9,6 +9,7 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  */
+#include <errno.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -19,6 +20,8 @@
 #include <sys/param.h>
 #include "greatest/greatest.h"
 #include "syscall.h"
+
+int fedora;
 
 __thread char my_str[128] = "I'm 0x";
 __thread char* my_msg;
@@ -35,10 +38,11 @@ int check_mystr(char* msg)
 {
    char str[128] = "I'm 0x";
    long delta;
+   int allowed = fedora ? 256 : roundup(sizeof(my_str) + sizeof(msg), 16);
 
    //  knowing how things are placed, check the addresses
    delta = PTHREAD_SELF() - (long)MIN(my_str, &my_msg);
-   if (delta <= 0 || delta > roundup(sizeof(my_str) + sizeof(msg), 16)) {
+   if (delta <= 0 || delta > allowed) {
       return 2;
    }
    // now check for expected content
@@ -73,9 +77,17 @@ void* run(void* msg)
       pthread_t pt1, pt2;
       void* rc1;
       void* rc2;
+      int rc;
 
-      pthread_create(&pt1, NULL, (void* (*)(void*))subrun, (void*)brick_msg);
-      pthread_create(&pt2, NULL, (void* (*)(void*))subrun, (void*)dust_msg);
+      if ((rc = pthread_create(&pt1, NULL, (void* (*)(void*))subrun, (void*)brick_msg)) != 0) {
+         printf("pthread_create() %d, %s", rc, strerror(errno));
+         return (void*)(long)rc;
+      }
+      if ((rc = pthread_create(&pt2, NULL, (void* (*)(void*))subrun, (void*)dust_msg)) != 0) {
+         printf("pthread_create() %d, %s", rc, strerror(errno));
+         return (void*)(long)rc;
+      }
+
       pthread_join(pt2, &rc2);
       if (greatest_get_verbosity() != 0) {
          printf(" ... joined %p %ld\n", (void*)pt2, (long)rc2);
@@ -84,7 +96,7 @@ void* run(void* msg)
       if (greatest_get_verbosity() != 0) {
          printf(" ... joined %p %ld\n", (void*)pt1, (long)rc1);
       }
-      if (rc1 != 0 || rc2 != 0) {
+      if (rc1 != NULL || rc2 != NULL) {
          pthread_exit((void*)1);
       }
    }
@@ -119,7 +131,7 @@ TEST nested_threads(void)
    if (greatest_get_verbosity() != 0) {
       printf("joined %p, %d\n", (void*)pt1, ret);
    }
-   ASSERT_EQ(rc1, 0);
+   ASSERT_EQ_FMT(NULL, rc1, "%p");
 
    if (greatest_get_verbosity() != 0) {
       printf("joining %p ... \n", (void*)pt2);
@@ -129,7 +141,7 @@ TEST nested_threads(void)
    if (greatest_get_verbosity() != 0) {
       printf("joined %p, %d\n", (void*)pt2, ret);
    }
-   ASSERT_EQ(rc2, 0);
+   ASSERT_EQ_FMT(NULL, rc2, "%p");
 
    PASS();
 }
@@ -142,6 +154,9 @@ int main(int argc, char** argv)
    GREATEST_MAIN_BEGIN();   // init & parse command-line args
    // greatest_set_verbosity(1);
 
+   if (strstr(argv[0], ".fedora") != NULL) {
+      fedora = 1;
+   }
    /* Tests can  be run as suites, or directly. Lets run directly. */
    RUN_TEST(nested_threads);
 
