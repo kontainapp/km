@@ -90,9 +90,7 @@ fi
 sudo chmod 0666 /dev/kkm &>> ${LOG_DIR}/run-all
 log_message "KKM module init success"
 
-#TEST_DIRS="tests payloads/python payloads/node payloads/java"
-#disable node and java tests untill they are reliable
-TEST_DIRS="tests payloads/python"
+TEST_DIRS="tests payloads/python payloads/node payloads/java"
 log_message "starting test"
 for testdir in $TEST_DIRS
 do
