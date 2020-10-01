@@ -93,4 +93,6 @@ export define runenv_prep
 	cp ${PAYLOAD_KM} ${RUNENV_PATH}
 endef
 
+RELEASE_TAG := node node-12
+
 include ${TOP}/make/images.mk
