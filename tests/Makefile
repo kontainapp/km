@@ -43,9 +43,18 @@ override define testenv_cleanup =
 	rm km.coverage
 endef
 
+# To serialiaze, pass TEST_JOBS=1
+ifneq ($(TEST_JOBS),.)
+  __BATS_JOBS := --jobs=${TEST_JOBS}
+endif
+
+# Base command to run BATS, and derivatives - how to run outside of container, in container, etc..
+BATS_CMD := run_bats_tests.sh --match="${MATCH}" --usevirt="${USEVIRT}" ${IGNORE_FAILURE} ${__BATS_JOBS}
+# this is how we run in outside of container
+TEST_CMD := time ./${BATS_CMD} --km=${KM_BIN} --pretty
 # this is how we run tests in containers:
-CONTAINER_TEST_CMD := ${DOCKER_KM_TOP}/tests/run_bats_tests.sh --km=/opt/kontain/bin/km --match="${MATCH}" --usevirt="${USEVIRT}" --usegdbport="${USEGDBPORT}"
-CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/run_bats_tests.sh --km=/opt/kontain/bin/coverage/km --match="${MATCH}" --usevirt="${USEVIRT}" --usegdbport="${USEGDBPORT}"
+CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_BIN}/km
+CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_BIN}/coverage/km
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
 SRC_C := $(wildcard *_test.c)
@@ -88,7 +97,7 @@ IGNORE_FAILURE := --ignore-failure
 endif
 
 test: all  ## Run all or some of tests. Use 'MATCH=<string>' to limit the set by name
-	time ./run_bats_tests.sh --km=${KM_BIN} --pretty ${IGNORE_FAILURE} --match="${MATCH}" --usevirt="${USEVIRT}" --usegdbport="${USEGDBPORT}"
+	${TEST_CMD}
 
 test-all: test ## alias for test
 
