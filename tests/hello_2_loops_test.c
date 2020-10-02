@@ -67,6 +67,12 @@ void subrun(char* msg)
 
 void* run(void* msg)
 {
+   /*
+    * For joinable threads we first join and then fire a new one, so total number of threads is
+    * limited to 7, 1024 is just number if iterations. But with detached there is no way to know
+    * thread is complete and it is possible *all* of the started will be running in parallel, so we
+    * limit it to 128 here not to run out of VCPUs.
+    */
    for (long run_count = 0; run_count < (detached == 0 ? 1024 : 128); run_count++) {
       pthread_t pt1, pt2;
       pthread_attr_t attr;

@@ -299,7 +299,6 @@ int km_clone(km_vcpu_t* vcpu,
    }
    km_vcpu_t* new_vcpu = km_vcpu_get();
    if (new_vcpu == NULL) {
-      km_infox(KM_TRACE_VCPU, "Out of vcpu slots");
       return -EAGAIN;
    }
 

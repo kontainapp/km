@@ -21,7 +21,7 @@
 #include "greatest/greatest.h"
 #include "syscall.h"
 
-int fedora;
+int fedora;   // set to 1 if argv[0] is *.fedora
 
 __thread char my_str[128] = "I'm 0x";
 __thread char* my_msg;
@@ -38,9 +38,10 @@ int check_mystr(char* msg)
 {
    char str[128] = "I'm 0x";
    long delta;
+   // TLS layout is different for glibc and musl
    int allowed = fedora ? 256 : roundup(sizeof(my_str) + sizeof(msg), 16);
 
-   //  knowing how things are placed, check the addresses
+   // knowing how things are placed, check the addresses
    delta = PTHREAD_SELF() - (long)MIN(my_str, &my_msg);
    if (delta <= 0 || delta > allowed) {
       return 2;

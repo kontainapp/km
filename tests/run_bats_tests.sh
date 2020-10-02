@@ -139,7 +139,7 @@ $DEBUG export USE_GDB_PORT=$usegdbport
 for t in $test_type ; do
    tmp_file=${bats_src_generated}.$t
    echo export KM_TEST_TYPE=$t > $tmp_file
-   # we want the line  numbers in the tmp file to match the original
+   # we want the line numbers in the tmp file to match the original
    # remove 2nd line - it is an empty comment in Kontain file headers
    sed 2d $tests >> $tmp_file
    test_list="$test_list $tmp_file"

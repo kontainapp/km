@@ -54,7 +54,7 @@ unset KM_VERBOSE
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
 if [ "${USE_VIRT}" = 'kkm' ]; then
    todo_native_static+=' sigsuspend popen '
-   not_needed_native_dynamic=$not_needed_native_static
+   not_needed_native_dynamic=$not_needed_alpine_static
 fi
 
 # Now the actual tests.
