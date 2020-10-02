@@ -18,5 +18,5 @@ steps:
       make -C container-runtime clobber
       make -C container-runtime all
       make -C container-runtime test
-    displayName crun tests - run on the vm
+    displayName: crun tests - run on the vm
     timeoutInMinutes: 5
