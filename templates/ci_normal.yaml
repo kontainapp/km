@@ -13,3 +13,10 @@ steps:
   - bash: make -C payloads/node test-withk8s
     displayName: Node.km tests - run on Kubernetes
     timeoutInMinutes: 5
+
+  - bash: |
+      make -C container-runtime clobber
+      make -C container-runtime all
+      make -C container-runtime test
+    displayName crun tests - run on the vm
+    timeoutInMinutes: 5
