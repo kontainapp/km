@@ -82,10 +82,7 @@ case $test_type in
       ext=.alpine.km
       port_range_start=16000
       ;;
-   glibc_static)
-      ext=.fedora
-      ;;
-   native_dynamic)
+   alpine_dynamic)
       ext=.alpine.kmd
       port_range_start=17000
       ;;
@@ -94,8 +91,12 @@ case $test_type in
       port_range_start=18000
       KM_ARGS="${KM_ARGS} ${KM_LDSO} --library-path=${KM_LDSO_PATH}"
       ;;
+   glibc_static)
+      ext=.fedora
+      port_range_start=7000
+      ;;
    *)
-      echo "Unknown test type: $test_type, should be 'static', 'dynamic', 'alpine_static', 'glibc_static'. 'native_dynamic' or 'so'."
+      echo "Unknown test type: $test_type, should be 'static', 'dynamic', 'alpine_static', 'glibc_static', 'alpine_dynamic' or 'so'."
       export KM_BIN=fail
       return 1
       ;;

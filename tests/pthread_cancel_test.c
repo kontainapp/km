@@ -143,11 +143,11 @@ TEST main_thread(void)
    }
    print_msg("main(): Give thread a chance to get started\n");
 
-   mysleep(2); /* Give thread a chance to get started */
+   sleep(2); /* Give thread a chance to get started */
 
    print_msg("main(): sending cancellation request\n");
    s = pthread_cancel(thr);
-   ASSERT_EQ(0, s);
+   ASSERT(s == 0 || s == ESRCH);
    /* Join with thread to see what its exit status was */
    s = pthread_join(thr, &res);
    ASSERT_EQ(0, s);
@@ -162,11 +162,11 @@ TEST main_thread(void)
    }
    print_msg("main(): Give thread a chance to get started\n");
 
-   mysleep(2); /* Give thread a chance to get started */
+   sleep(2); /* Give thread a chance to get started */
 
    print_msg("main(): sending cancellation request\n");
    s = pthread_cancel(thr);
-   ASSERT_EQ(0, s);
+   ASSERT(s == 0 || s == ESRCH);
    /* Join with thread to see what its exit status was */
    s = pthread_join(thr, &res);
    ASSERT_EQ(0, s);
@@ -181,11 +181,11 @@ TEST main_thread(void)
    }
    print_msg("main(): Give thread a chance to get started\n");
 
-   mysleep(2); /* Give thread a chance to get started */
+   sleep(2); /* Give thread a chance to get started */
 
    print_msg("main(): sending cancellation request\n");
    s = pthread_cancel(thr);
-   ASSERT_EQ(0, s);
+   ASSERT(s == 0 || s == ESRCH);
    /* Join with thread to see what its exit status was */
    s = pthread_join(thr, &res);
    ASSERT_EQ(0, s);
