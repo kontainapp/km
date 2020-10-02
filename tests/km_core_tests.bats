@@ -26,7 +26,7 @@ todo_static=''
 # skip slow ones
 not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv'
 # review - some fail. Some slow
-todo_alpine_static='mem_mmap mmap_1 gdb_attach exception signals dl_iterate_phdr filesys hc_check'
+todo_alpine_static='dl_iterate_phdr'
 
 # glibc native
 not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv'
@@ -39,8 +39,8 @@ not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv'
 
 todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone'
 
-not_needed_native_dynamic=$not_needed_alpine_static
-todo_native_dynamic=$todo_alpine_static
+not_needed_alpine_dynamic=$not_needed_alpine_static
+todo_alpine_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
 not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many readlink_argv'
@@ -55,8 +55,9 @@ unset KM_VERBOSE
 
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
 if [ "${USE_VIRT}" = 'kkm' ]; then
-   todo_native_static+=' sigsuspend popen '
-   not_needed_native_dynamic=$not_needed_alpine_static
+   todo_alpine_static+=' sigsuspend popen signals '
+   todo_glibc_static+=' sigsuspend popen signals '
+   not_needed_alpine_dynamic=$not_needed_alpine_static
 fi
 
 # Now the actual tests.
@@ -265,8 +266,7 @@ fi
    sleep 0.5s
 	run curl -s $address
    assert_success
-   diff <(echo -e "$linux_out")  <(echo -e "$output")
-
+   diff <(echo -e "$linux_out") <(echo -e "$output")
 }
 
 # placeholder for multiple small tests... we can put them all in misc_test.c
@@ -282,7 +282,7 @@ fi
    # we expect 1 group of tests fail due to ENOMEM on 36 bit buses
    if [ $(bus_width) -eq 36 ] ; then expected_status=1 ; else  expected_status=0; fi
 
-   run gdb_with_timeout --ex="source gdb_simple_test.py" --ex="handle SIG63 nostop"\
+   run gdb_with_timeout --ex="source gdb_simple_test.py" --ex="handle SIG63 nostop" \
        --ex="run-test" --ex="q" --args ${KM_BIN} mmap_test$ext -v
    assert [ $status -eq $expected_status ]
    assert_line --partial 'fail: 0'
@@ -292,8 +292,8 @@ fi
    assert_line --partial 'fail: 0'
 
    # make sure there is a filename somwewhere in the maps
-   run gdb_with_timeout -ex="set pagination off" -ex="handle SIG63 nostop"\
-      -ex="source gdb_simple_test.py" -ex="run-test"\
+   run gdb_with_timeout -ex="set radix 0xa" -ex="set pagination off" -ex="handle SIG63 nostop" \
+      -ex="source gdb_simple_test.py" -ex="run-test" \
       -ex="q" --args ${KM_BIN} mmap_test$ext -v -t mmap_file_test_ex # KM test
    assert_line --partial 'fail: 0'
    assert_line --regexp 'prot=1 flags=2 .* fn=0x'
@@ -317,7 +317,7 @@ fi
    (# force new shell to prevent $! races
    local port_id=1
    local km_gdb_port=$(( $port_range_start + $port_id))
-   python3 -c "from http.server import * ; HTTPServer( ('', ${km_gdb_port}), BaseHTTPRequestHandler).serve_forever()" &  \
+   python3 -c "from http.server import * ; HTTPServer( ('', ${km_gdb_port}), BaseHTTPRequestHandler).serve_forever()" & \
          curl --silent --retry 5 --retry-connrefused 127.0.0.1:${km_gdb_port}
    local pid=$!
    run km_with_timeout -g${km_gdb_port} --gdb-listen hello_test$ext
@@ -541,7 +541,7 @@ fi
    assert_success
    assert_line --partial "Thread 6 \"vcpu-5\""
    # TODO: remove the check with glibc_static when stack trace is implemented
-   [ $test_type == "glibc_static" ] || assert_line --partial "in do_nothing_thread (instance"
+   [[ $test_type =~ (alpine|glibc)* ]] || assert_line --partial "in do_nothing_thread (instance"
    assert_line --partial "Inferior 1 (Remote target) detached"
 
    # 2nd try to test asynch gdb client attach to the target
@@ -551,7 +551,7 @@ fi
    assert_success
    assert_line --partial "Thread 8 \"vcpu-7\""
    # TODO: remove the check with glibc_static when stack trace is implemented
-   [ $test_type == "glibc_static" ] || assert_line --partial "in do_nothing_thread (instance"
+   [[ $test_type =~ (alpine|glibc)* ]] || assert_line --partial "in do_nothing_thread (instance"
    assert_line --partial "Inferior 1 (Remote target) detached"
 
    # ok, gdb client attach seems to be working, shut the test program down.
@@ -737,7 +737,7 @@ fi
    echo $output | grep -F 'Bad system call (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
-   gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'main ('
+   [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'main ('
    rm -f ${CORE}
 
    # write to text (protected memory)
@@ -757,7 +757,7 @@ fi
    echo $output | grep -F 'Aborted (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
-   gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'abort ('
+   [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'abort ('
    rm -f ${CORE}
 
    # quit
@@ -767,7 +767,7 @@ fi
    echo $output | grep -F 'Quit (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
-   gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'kill ('
+   [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'kill ('
    rm -f ${CORE}
 
    # term
@@ -783,8 +783,8 @@ fi
    assert_failure 6  # SIGABRT
    echo $output | grep -F 'Aborted'
    assert [  -f ${CORE} ]
-   gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'abort ('
-   gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'signal_abort_handler ('
+   [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'abort ('
+   [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'signal_abort_handler ('
    # With km_sigreturn in km itself as opposed to libruntine, stack
    # traces going across a signal handler don't work very well.
    #gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F '<signal handler called>'
@@ -1030,8 +1030,8 @@ fi
       run km_with_timeout --resume ${SNAP}
       assert_success
       # TODO: remove the check with glibc_static when musl and glibc behave the same way
-      [ $test_type != "glibc_static" ] || refute_line --partial "Hello from thread"
-      [ $test_type == "glibc_static" ] || assert_output --partial "Hello from thread"
+      [[ $test_type =~ glibc* ]] && refute_line --partial "Hello from thread"
+      [[ $test_type =~ glibc* ]] || assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
       rm -f ${SNAP}
