@@ -21,6 +21,8 @@ steps:
       export XDG_RUNTIME_DIR=/tmp/run/user/appuser
       mkdir -p ${XDG_RUNTIME_DIR}
       make -C container-runtime test
+      cat /etc/subgid
+      cat /etc/subuid
       cat container-runtime/crun/test-suite.log
       cat container-runtime/crun/tests/*.log
       cat container-runtime/crun/tests/*.trs
