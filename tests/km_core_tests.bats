@@ -362,11 +362,12 @@ fi
    # Save output to a log file for our own check using grep below.
    echo trace in $km_trace_file
    km_with_timeout -V -g$km_gdb_port gdb_server_entry_race_test$ext >$km_trace_file 2>&1 &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
          --ex=c --ex=q gdb_server_entry_race_test$ext
    assert_success # check gdb exit $status
    # wait for KM to exit
-   wait $!
+   wait $pid
    status=$?
    if [ $status -ne 0 ] ; then
       echo "# === Begin $km_trace_file for km, status=$status =====" >&3
