@@ -73,23 +73,23 @@ test_type=${KM_TEST_TYPE:-static}
 case $test_type in
    static)
       ext=.km
-      port_range_start=2000
+      port_range_start=14000
       ;;
    dynamic)
       ext=.kmd
-      port_range_start=3000
+      port_range_start=15000
       ;;
    native_static)
       ext=.alpine.km
-      port_range_start=4000
+      port_range_start=16000
       ;;
    native_dynamic)
       ext=.alpine.kmd
-      port_range_start=5000
+      port_range_start=17000
       ;;
    so)
       ext=.km.so
-      port_range_start=6000
+      port_range_start=18000
       KM_ARGS="${KM_ARGS} ${KM_LDSO} --library-path=${KM_LDSO_PATH}"
       ;;
    *)
