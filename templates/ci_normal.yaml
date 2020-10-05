@@ -19,5 +19,8 @@ steps:
       make -C container-runtime clobber
       make -C container-runtime all
       make -C container-runtime test
+      cat container-runtime/crun/test-suite.log
+      cat container-runtime/crun/tests/*.log
+      cat container-runtime/crun/tests/*.trs
     displayName: crun tests - run on the vm
     timeoutInMinutes: 5
