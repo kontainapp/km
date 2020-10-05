@@ -15,7 +15,7 @@ steps:
     timeoutInMinutes: 5
 
   - bash: |
-      sudo apt-get install libcap libseccomp
+      sudo apt-get install libcap-devel libseccomp-devel yajl-devel
       make -C container-runtime clobber
       make -C container-runtime all
       make -C container-runtime test
