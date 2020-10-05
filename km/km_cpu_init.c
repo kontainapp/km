@@ -30,6 +30,7 @@
 #include "km_filesys.h"
 #include "km_gdb.h"
 #include "km_guest.h"
+#include "km_kkm.h"
 #include "km_mem.h"
 #include "x86_cpu.h"
 
@@ -262,11 +263,7 @@ static inline int km_vmmonitor_vcpu_init(km_vcpu_t* vcpu)
    int retval = 0;
 
    if (machine.vm_type == VM_TYPE_KKM) {
-#define KKM_KONTEXT_REUSE _IO(KVMIO, 0xf5)
-      if ((retval = ioctl(vcpu->kvm_vcpu_fd, KKM_KONTEXT_REUSE)) == -1) {
-         km_warn("VCPU reinit failed vcpu id %d vcpu fd %d", vcpu->vcpu_id, vcpu->kvm_vcpu_fd);
-      }
-#undef KKM_KONTEXT_REUSE
+      km_kkm_vcpu_init(vcpu);
    }
    return retval;
 }

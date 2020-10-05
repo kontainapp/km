@@ -15,6 +15,7 @@
 #define _GNU_SOURCE
 #include <pthread.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +30,7 @@
 #include "km_fork.h"
 #include "km_guest.h"
 #include "km_hcalls.h"
+#include "km_kkm.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
@@ -430,6 +432,10 @@ typedef struct km_signal_frame {
    uint64_t rflags;        // saved rflags
    siginfo_t info;         // Passed to guest signal handler
    ucontext_t ucontext;    // Passed to guest signal handler
+   uint8_t ksi_valid;
+   uint8_t kx_valid;
+   kkm_save_info_t ksi;
+   kkm_xstate_t kx;
 } km_signal_frame_t;
 
 #define RED_ZONE (128)
@@ -458,6 +464,12 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
    frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
    frame->rflags = vcpu->regs.rflags;
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
+
+   if (machine.vm_type == VM_TYPE_KKM) {
+      frame->ksi_valid = (km_kkm_get_save_info(vcpu, &frame->ksi) == 0) ? 1 : 0;
+
+      frame->kx_valid = (km_kkm_get_xstate(vcpu, &frame->kx) == 0) ? 1 : 0;
+   }
 }
 
 static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame)
@@ -483,6 +495,12 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
 
    vcpu->regs.rflags = frame->rflags;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
+
+   if (machine.vm_type == VM_TYPE_KKM) {
+      km_kkm_set_save_info(vcpu, frame->ksi_valid, &frame->ksi);
+
+      km_kkm_set_xstate(vcpu, frame->kx_valid, &frame->kx);
+   }
 }
 
 /*
@@ -769,11 +787,11 @@ uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize)
 }
 
 /*
- * This is the signal handler for some of the signals sent to km but really are for the payload. We
- * then propagate these signals on to the vcpu threads.
- * We need to be careful to not take mutexes that could be held by the thread this signal handler is
- * running on.  The intent is that signal handler only run on km's main thread which should only be
- * running gdbstub. So, we only take mutexes that the km main thread will not be holding.
+ * This is the signal handler for some of the signals sent to km but really are for the payload.
+ * We then propagate these signals on to the vcpu threads. We need to be careful to not take
+ * mutexes that could be held by the thread this signal handler is running on.  The intent is
+ * that signal handler only runs on km's main thread which should only be running gdbstub. So, we
+ * only take mutexes that the km main thread will not be holding.
  */
 void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext)
 {
