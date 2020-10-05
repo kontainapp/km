@@ -37,7 +37,7 @@ not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv'
 # gdb_nextstep - uses clone_test, same as raw_clone
 # raw_clone - glibc clone() wrapper needs pthread structure
 
-todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone'
+todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test '
 
 not_needed_alpine_dynamic=$not_needed_alpine_static
 todo_alpine_dynamic=$todo_alpine_static
@@ -58,6 +58,10 @@ if [ "${USE_VIRT}" = 'kkm' ]; then
    todo_alpine_static+=' sigsuspend popen signals '
    todo_glibc_static+=' sigsuspend popen signals '
    not_needed_alpine_dynamic=$not_needed_alpine_static
+fi
+
+if [ "${USE_VIRT}" = 'kvm' ]; then
+  todo_generic+=' xstate_test'
 fi
 
 # Now the actual tests.
@@ -1195,5 +1199,10 @@ fi
 #
 @test "threads_create($test_type): create a large number of threads that run briefly (gdb_lots_of_threads$ext)" {
    run km_with_timeout --timeout 5s gdb_lots_of_threads_test$ext -a 2 -t 287
+   assert_success
+}
+
+@test "xstate_test($test_type): verify cpu extended state during context switch and signal handing (xstate_test$ext)" {
+   run km_with_timeout xstate_test$ext
    assert_success
 }
