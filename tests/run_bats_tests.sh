@@ -5,6 +5,8 @@
 # test containers
 #
 #
+set -e
+[ "$TRACE" ] && set -x
 
 cd $(dirname ${BASH_SOURCE[0]})
 
@@ -24,8 +26,8 @@ Usage:  ${BASH_SOURCE[0]} [options]
   --km-args="args...."    Optional argument to pass to each KM invocation
   --ignore-failure        Return success even if some tests fail.
   --dry-run               print commands instead of executing them
-  --usevirt=virtmanager   optional argument to override virtualization platform kvm or kkm"
-  --usegdbport=gdbport    optional argument to override gdb listening port"
+  --usevirt=virtmanager   optional argument to override virtualization platform kvm or kkm
+  --jobs=count            optional argument to override parallel runs. Default is the result of nproc command (`nproc`)
 EOF
 }
 
@@ -74,8 +76,8 @@ while [ $# -gt 0 ]; do
     --usevirt=*)
       usevirt="${1#*=}"
       ;;
-    --usegdbport=*)
-      usegdbport="${1#*=}"
+    --jobs=*)
+      jobs_count="${1#*=}"
       ;;
     *)
       usage
@@ -84,12 +86,26 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+pretty=${pretty:--t}
+if [ "$pretty" == "-p" ] ; then
+   RED="\033[31m"
+   GREEN="\033[32m"
+   NOCOLOR="\033[0m"
+fi
+
 tests=${tests:-"$DEFAULT_TESTS"}
 match=${match:-'.*'}
 time_info_file=${time_info_file:-/tmp/km_test_time_info_$$}
-pretty=${pretty:--t}
 ignore_failure=${ignore_failure:-no}
 test_type=${test_type:-"$DEFAULT_TEST_TYPE"}
+jobs_count=${jobs_count:-$(nproc)}
+if [ $jobs_count != 1 ] ; then
+   # adding --jobs param delays log prining till the end of the run, so let's add it only
+   # if it's really parallel
+   echo -e "${GREEN}**Running tests with --jobs $jobs_count${NOCOLOR}"
+   jobs="--jobs $jobs_count"
+fi
+
 # find km_bin if --km was not passed. Try to use ./km first, then revert to git
 km_bin="${km}"
 if [ -z "$km_bin" ] ; then
@@ -98,12 +114,6 @@ if [ -z "$km_bin" ] ; then
    else
       km_bin="$(git rev-parse --show-toplevel)/build/km/km"
    fi
-fi
-
-if [ "$pretty" == "-p" ] ; then
-   RED="\033[31m"
-   GREEN="\033[32m"
-   NOCOLOR="\033[0m"
 fi
 
 if [ "$usevirt" != 'kvm' ] && [ "$usevirt" != 'kkm' ] ; then
@@ -133,7 +143,6 @@ fi
 $DEBUG export TIME_INFO=$time_info_file
 $DEBUG export KM_BIN=$km_bin
 $DEBUG export USE_VIRT=$usevirt
-$DEBUG export USE_GDB_PORT=$usegdbport
 
 # Generate files for bats, one file per type (e.g. km), from source
 for t in $test_type ; do
@@ -145,7 +154,7 @@ for t in $test_type ; do
    test_list="$test_list $tmp_file"
 done
 
-$DEBUG bats/bin/bats $pretty -f "$match" $test_list
+$DEBUG bats/bin/bats $jobs $pretty -f "$match" $test_list
 exit_code=$?
 if [ $exit_code == 0 ] ; then
    echo '------------------------------------------------------------------------------'

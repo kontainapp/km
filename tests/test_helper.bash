@@ -38,13 +38,6 @@ if [ -z "$USE_VIRT" ] ; then
    exit 10
 fi
 
-GDB_DEFAULT_PORT=2159
-if [ -z "$USE_GDB_PORT" ] ; then
-   GDB_PORT=${GDB_DEFAULT_PORT}
-else
-   GDB_PORT=${USE_GDB_PORT}
-fi
-
 PREFIX=/opt/kontain
 RT=${PREFIX}/runtime
 LC=${PREFIX}/alpine-lib/usr/lib
@@ -69,24 +62,34 @@ if [ -z "$BRANCH" ] ; then
 fi
 
 # Now find out what test type we were asked to run ('static' is default)
-# and set appropriate extension and km args
+# and set appropriate extension and km args.
+#
+# We also use this to set port range for different test types to allow for parallel testing.
+# E.g. gdb or http tests require a port, and it need to be unique so parallel tests
+# do not step on each other. We set a range of 1000 ports per test type (500 for KVM and 500 for KKM),
+# give range start here, per test type, adjust for virt if needed and then within km_core_tests.bats will assign offset per test which needs a port
 test_type=${KM_TEST_TYPE:-static}
 
 case $test_type in
    static)
       ext=.km
+      port_range_start=14000
       ;;
    dynamic)
       ext=.kmd
+      port_range_start=15000
       ;;
    native_static)
       ext=.alpine.km
+      port_range_start=16000
       ;;
    native_dynamic)
       ext=.alpine.kmd
+      port_range_start=17000
       ;;
    so)
       ext=.km.so
+      port_range_start=18000
       KM_ARGS="${KM_ARGS} ${KM_LDSO} --library-path=${KM_LDSO_PATH}"
       ;;
    *)
@@ -100,11 +103,11 @@ if [ "${USE_VIRT}" = 'kvm' ] ; then
    KM_ARGS="--use-kvm $KM_ARGS"
 elif [ "${USE_VIRT}" = 'kkm' ] ; then
    KM_ARGS="--use-kkm $KM_ARGS"
+   port_range_start=$(( $port_range_start + 500 ))
 else
    echo "Unknown virtualization type : ${USE_VIRT}"
    exit 10
 fi
-
 # we will kill any test if takes longer
 timeout=150s
 
@@ -152,10 +155,10 @@ function km_with_timeout () {
 # For commands NOT using 'run' but put in the background, use this function to wait and
 # check for expected eror code (or 0, if expecting success)
 # e.g.
-#     wait_and_check 124 - wait for the last job put into background
+#     wait_and_check pid 124 - wait for the last job put into background
 wait_and_check()
 {
-   s=0; wait %% || s=$? ; assert_equal $s $1
+   s=0; wait $1 || s=$? ; assert_equal $s $2
 }
 
 if grep -iq 'vendor_id.*:.*intel' /proc/cpuinfo

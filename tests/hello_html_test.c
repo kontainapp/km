@@ -20,7 +20,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-static const in_port_t PORT = 8002;
+static in_port_t PORT = 8002;
 
 void tcp_close(int sd)
 {
@@ -100,7 +100,11 @@ int main(int argc, char const* argv[])
    int listen_sd, sd;
    size_t ret;
 
+   if (argc == 2) {
+      PORT = atoi(argv[1]);
+   }
    listen_sd = tcp_listen();
+   printf("Listening on %d\n", PORT);
    sd = tcp_accept(listen_sd);
    ret = read(sd, buf, 4096);
    ret = write(sd, wbuf, sizeof(wbuf));
