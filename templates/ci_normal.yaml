@@ -21,11 +21,10 @@ steps:
       export XDG_RUNTIME_DIR=/tmp/run/user/appuser
       mkdir -p ${XDG_RUNTIME_DIR}
       make -C container-runtime test
-      id
-      cat /etc/subgid
-      cat /etc/subuid
-      cat container-runtime/crun/test-suite.log
-      cat container-runtime/crun/tests/*.log
-      cat container-runtime/crun/tests/*.trs
+      grep "^FAIL:" container-runtime/crun/test-suite.log | sed -e "s/^FAIL: //" | grep -v "\.py" | sort -u | \
+        while read testname; do \
+          echo "============= container-runtime/crun/$testname.log ================"; cat container-runtime/crun/$testname.log; \
+          echo "============= container-runtime/crun/$testname.trs ================"; cat container-runtime/crun/$testname.trs; \
+        done
     displayName: crun tests - run on the vm
     timeoutInMinutes: 5
