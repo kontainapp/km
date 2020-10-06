@@ -16,7 +16,9 @@ load test_helper
 # not_needed_{generic,static,dynamic,shared} - skip since it's not needed
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
 not_needed_generic=''
-todo_generic='futex_example clock_gettime'
+# TODO: gdb_delete_breakpoint and gdb_server_race are caused by race described in https://github.com/kontainapp/km/issues/821.
+# Disable them for now to improve signal/noise ratio
+todo_generic='gdb_delete_breakpoint gdb_server_race futex_example clock_gettime'
 
 not_needed_static='gdb_sharedlib'
 todo_static=''
