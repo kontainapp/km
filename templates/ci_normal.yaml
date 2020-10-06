@@ -2,7 +2,7 @@
 # here should be short. Longer tests should be moved to ci_nighly pipeline.
 
 steps:
-  - bash: make -C tests test-withk8s
+  - bash: make -C tests test-withk8s TEST_JOBS=2
     displayName: KM tests - run on Kubernetes
     timeoutInMinutes: 15
 
