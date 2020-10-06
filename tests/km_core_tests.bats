@@ -47,10 +47,18 @@ if [ "${USE_VIRT}" = 'kkm' ]; then
 fi
 
 # Now the actual tests.
+#
 # They can be invoked by either 'make test [MATCH=<filter>]' or ./run_bats_tests.sh [--match=filter]
 # <filter> is a regexp or substring matching test name
-
+#
 # Test string should be "name_with_no_spaces($test_type) description (file_name$ext)"
+
+# Note about port usage:
+# In order to run tests in parallel, each test which needs a port is configured to use a UNIQUE port.
+# $port_range_start indicates the beginning of the range.
+# Due to bats implementation peculiarities, it's hard to automate port number assignement so each test
+# manually defines a unique (for this .bats file) port id (offset within the range),
+# and uses port=$(( $port_range_start + $port_id))
 
 @test "hypervisor($test_type) Check access to /dev/${USE_VIRT}" {
    assert [ -c /dev/${USE_VIRT} ]
@@ -230,19 +238,22 @@ fi
 }
 
 @test "hc_socket($test_type): basic HTTP/socket I/O (hello_html_test$ext)" {
-   local address="http://127.0.0.1:8002"
+   local port_id=0
+   local port=$(( $port_range_start + $port_id))
+   local address="http://127.0.0.1:$port"
 
-   (./hello_html_test.fedora &)
+   (./hello_html_test.fedora $port &)
    sleep 0.5s
    run curl -s $address
    assert_success
    linux_out="${output}"
 
-   (km_with_timeout hello_html_test$ext &)
+   (km_with_timeout hello_html_test$ext $port &)
    sleep 0.5s
 	run curl -s $address
    assert_success
    diff <(echo -e "$linux_out")  <(echo -e "$output")
+
 }
 
 # placeholder for multiple small tests... we can put them all in misc_test.c
@@ -290,76 +301,91 @@ fi
 # Block gdb port by running a python http server on it,
 # then check that KM simply proceeds without gdb support
 @test "km_many($test_type): running multiple KMs (hello_test$ext)" {
-   km_gdb_port=${GDB_PORT}
+   (# force new shell to prevent $! races
+   local port_id=1
+   local km_gdb_port=$(( $port_range_start + $port_id))
    python3 -c "from http.server import * ; HTTPServer( ('', ${km_gdb_port}), BaseHTTPRequestHandler).serve_forever()" &  \
          curl --silent --retry 5 --retry-connrefused 127.0.0.1:${km_gdb_port}
+   pid=$!
    run km_with_timeout -g${km_gdb_port} --gdb-listen hello_test$ext
-   kill %%
+   kill $pid
    assert_success
    assert_line --partial "disabling gdb support"
+   )
 }
 
 @test "gdb_basic($test_type): gdb support (gdb_test$ext)" {
-   km_gdb_port=${GDB_PORT}
+   local port_id=2
+   local km_gdb_port=$(( $port_range_start + $port_id))
    # start KM in background, give it time to start, and connect with gdb client
    km_with_timeout -g$km_gdb_port gdb_test$ext &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test$ext
    # check that gdb found what it is supposed to find
    assert_line --partial 'SUCCESS'
-   wait_and_check 0 # expect KM to exit normally
+   wait_and_check $pid 0 # expect KM to exit normally
 }
 
 # Test with signals
 @test "gdb_signal($test_type): gdb signal support (stray_test$ext)" {
-   km_gdb_port=${GDB_PORT}
+   local port_id=3
+   local km_gdb_port=$(( $port_range_start + $port_id))
    km_with_timeout -g$km_gdb_port stray_test$ext signal &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_signal_test.gdb" \
          --ex=c --ex=q stray_test$ext
    assert_success
    assert_line --partial 'received signal SIGUSR1'
    assert_line --partial 'received signal SIGABRT'
-   wait_and_check 6 # expect KM to errx(6,...)
+   wait_and_check $pid 6 # expect KM to errx(6,...)
 }
 
 @test "gdb_exception($test_type): gdb exception support (stray_test$ext)" {
-   km_gdb_port=${GDB_PORT}
+   local port_id=4
+   local km_gdb_port=$(( $port_range_start + $port_id))
    # Test with signals
    km_with_timeout -g$km_gdb_port stray_test$ext stray &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_exception_test.gdb" \
          --ex=c --ex=q stray_test$ext
    assert_success
    assert_line --partial  'received signal SIGSEGV'
-   wait_and_check 11 # expect KM to exit with SIGSEGV
+   wait_and_check $pid 11 # expect KM to exit with SIGSEGV
 }
 
 @test "gdb_server_race($test_type): gdb server concurrent wakeup test" {
-   km_gdb_port=${GDB_PORT}
+   local port_id=5
+   local km_gdb_port=$(( $port_range_start + $port_id))
    km_trace_file=/tmp/gdb_server_race_test_static_$$.out
    # Test with breakpoints triggering and SIGILL being happending continuously
    # Save output to a log file for our own check using grep below.
    echo trace in $km_trace_file
    km_with_timeout -V -g$km_gdb_port gdb_server_entry_race_test$ext >$km_trace_file 2>&1 &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
          --ex=c --ex=q gdb_server_entry_race_test$ext
-   assert_success
-   #wait_and_check 0 # expect KM to exit normally
-   wait %%
+   assert_success # check gdb exit $status
+   # wait for KM to exit
+   wait $pid
    status=$?
-   if test $status -ne 0; then
-      echo "# === Begin $km_trace_file =====" >&3
+   if [ $status -ne 0 ] ; then
+      echo "# === Begin $km_trace_file for km, status=$status =====" >&3
       sed -e "s/^/# /" <$km_trace_file >&3
       echo "# === End   $km_trace_file =====" >&3
-      fail "km exit status $status not equal to zero"
+   else
+      rm -f $km_trace_file
    fi
-   rm -f $km_trace_file
+   assert_success  # check KM exit $status
 }
 
 @test "gdb_qsupported($test_type): gdb qsupport/vcont test" {
-   km_gdb_port=${GDB_PORT}
+   local port_id=6
+   local km_gdb_port=$(( $port_range_start + $port_id))
    # Verify that qSupported, vCont?, vCont, and qXfer:threads:read remote
    # commands are being used.
    km_with_timeout -g$km_gdb_port gdb_qsupported_test$ext &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="set debug remote 1" --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_qsupported_test.gdb" --ex=q gdb_qsupported_test$ext
    assert_success
@@ -378,19 +404,21 @@ fi
    fi
    # Verify that we now see the switching threads message
    assert_line --partial "Switching to Thread 2"
-   wait_and_check 0 # expect KM to exit normally
+   wait_and_check $pid 0 # expect KM to exit normally
 }
 
 @test "gdb_delete_breakpoint($test_type): gdb delete breakpoint test" {
-   km_gdb_port=${GDB_PORT}
+   local port_id=7
+   local km_gdb_port=$(( $port_range_start + $port_id))
    km_trace_file=/tmp/gdb_delete_breakpoint_test_$$.out
 
    km_with_timeout -V -g$km_gdb_port gdb_delete_breakpoint_test$ext >$km_trace_file 2>&1 &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_delete_breakpoint_test.gdb" --ex=q gdb_delete_breakpoint_test$ext
    assert_success
    assert grep -q "Deleted breakpoint, discard event:" $km_trace_file
-   wait_and_check 0 # expect KM to exit normally
+   wait_and_check $pid 0 # expect KM to exit normally
    # These grep's are useful when we start seeing failures of this test.
    # They let us see how many interations the test is going through
    # and how often the race is being seen.
@@ -403,9 +431,11 @@ fi
 }
 
 @test "gdb_nextstep($test_type): gdb next step test" {
-   km_gdb_port=${GDB_PORT}
+   local port_id=8
+   local km_gdb_port=$(( $port_range_start + $port_id))
 
    km_with_timeout -g$km_gdb_port gdb_nextstep_test$ext &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_nextstep_test.gdb" --ex=q gdb_nextstep_test$ext
    assert_success
@@ -414,16 +444,17 @@ fi
    refute_line --partial "next_thru_this_function () at gdb_nextstep_test.c"
    # Verify we "step"ed into step_into_this_function()
    assert_line --partial "step_into_this_function () at gdb_nextstep_test.c"
-   wait_and_check 0 # expect KM to exit normally
+   wait_and_check $pid 0 # expect KM to exit normally
 
    km_with_timeout -g$km_gdb_port clone_test$ext &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_nextclone_test.gdb" --ex=q clone_test$ext
    assert_success
 
    # Verify we "next"ed thru clone()
    assert_line --regexp "^#0  main.* at clone_test.c:38$"
-   wait_and_check 0 # expect KM to exit normally
+   wait_and_check $pid 0 # expect KM to exit normally
 }
 
 #
@@ -439,18 +470,21 @@ fi
 # The executable we run for this test is not very important.
 #
 @test "gdb_sharedlib($test_type): gdb shared libary related remote commands" {
-   km_gdb_port=${GDB_PORT}
+   local port_id=9
+   local km_gdb_port=$(( $port_range_start + $port_id))
 
    # test with attach at dynamic linker entry point
    km_with_timeout -g$km_gdb_port --gdb-dynlink stray_test$ext stray &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_sharedlib_test.gdb" --ex=q
    assert_success
    refute_line --regexp "0x[0-9a-f]* in _start ()"
-   wait_and_check 11 # expect KM to exit with SIGSEGV
+   wait_and_check $pid 11 # expect KM to exit with SIGSEGV
 
    # test with attach at _start entry point
    km_with_timeout -g$km_gdb_port stray_test$ext stray &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_sharedlib_test.gdb" --ex=q
    assert_success
@@ -459,20 +493,21 @@ fi
    assert_line --regexp "31   AT_EXECFN            File name of executable *0x[0-9a-f]*.*stray_test.kmd"
    # Check for some output from "info sharedlibrary"
    assert_line --regexp "0x[0-9a-f]*  0x[0-9a-f]*  Yes         target:.*libc.so"
-   wait_and_check 11 # expect KM to exit with SIGSEGV
+   wait_and_check $pid 11 # expect KM to exit with SIGSEGV
 
    # There is no explicit test for vFile remote commands.  gdb uses vFile as part of
    # processing the "info sharedlibrary" command.
 
    # test for symbols from a shared library brought in by dlopen()
    km_with_timeout -g$km_gdb_port --putenv="LD_LIBRARY_PATH=`pwd`" gdb_sharedlib2_test$ext &
+   pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_sharedlib2_test.gdb" --ex=q
    assert_success
    assert_line --regexp "Yes         target:.*/dlopen_test_lib.so"
    assert_line --partial "Dump of assembler code for function do_function"
    assert_line --partial "Hit the breakpoint at do_function"
-   wait_and_check 0
+   wait_and_check $pid 0
 }
 
 #
@@ -481,10 +516,12 @@ fi
 # Then finally attach one more time to shut the test down.
 #
 @test "gdb_attach($test_type): gdb client attach test (gdb_lots_of_threads_test$ext)" {
-   km_gdb_port=${GDB_PORT}
+   local port_id=10
+   local km_gdb_port=$(( $port_range_start + $port_id))
 
    # test asynch gdb client attach to the target
    km_with_timeout -g$km_gdb_port --gdb-listen gdb_lots_of_threads_test$ext &
+   pid=$!
    run gdb_with_timeout -q -nx \
       --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_attach_test.gdb" --ex=q
@@ -510,25 +547,28 @@ fi
    assert_success
    assert_line --partial "Inferior 1 (Remote target) detached"
 
-   wait_and_check 0
+   wait_and_check $pid 0
 
    # Try to attach to a payload where gdb server is not listening.
    # Leave this test commented out since the gdb client connect timeout
    # is about 15 seconds which is too long for CI testing.
    #km_with_timeout gdb_lots_of_threads_test$ext -a 1 &
+   #pid=$!
    #run gdb_with_timeout -q --ex="target remote :$km_gdb_port" --ex=q
    #assert_line --partial "Connection timed out"
-   #wait_and_check 0
+   #wait_and_check $pid 0
 }
 
 #
 # Verify that gdb can read and write pages that disallow read and write
 #
 @test "gdb_protected_mem($test_type): gdb access protected memory test (gdb_protected_mem_test$ext)" {
-   km_gdb_port=${GDB_PORT}
+   local port_id=11
+   local km_gdb_port=$(( $port_range_start + $port_id))
 
    # test gdb can read from and write to protected memory pages.
    km_with_timeout -g$km_gdb_port gdb_protected_mem_test$ext &
+   pid=$!
    run gdb_with_timeout -q -nx \
       --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_protected_mem_test.gdb" --ex=q
@@ -536,7 +576,7 @@ fi
    assert_line --partial "first word  0x7fffffbfc000:	0x1111111111111111"
    assert_line --partial "spanning pages  0x7fffffbfcffc:	0xff0000ffff0000ff"
    assert_line --partial "last word  0x7fffffbfdff8:	0xeeeeeeeeeeeeeeee"
-   wait_and_check 0
+   wait_and_check $pid 0
 }
 
 @test "unused_memory_protection($test_type): check that unused memory is protected (mprotect_test$ext)" {
@@ -913,10 +953,8 @@ fi
    kill -SIGUSR1 $pid
    kill -SIGUSR2 $pid
    wait $pid
-
    rm -f $FLAGFILE $KMTRACE
    $KM_BIN -V sigsuspend_test$ext $FLAGFILE >$KMOUT 2>$KMTRACE &
-#   km_with_timeout sigsuspend_test$ext $FLAGFILE >$KMOUNT 2>$KMTRACE &
    pid=$!
    start=`date +%s`
    while [ ! -e $FLAGFILE ]
@@ -1073,25 +1111,31 @@ fi
 
 @test "popen($test_type): popen pclose test (popen_test$ext)" {
    # use pipetarget_test to read /etc/group and pass through a popen pipe into a result file
-   rm -f /tmp/f{1,2}
-   run km_with_timeout popen_test$ext /etc/group /tmp/f1 /tmp/f2
+   f1=/tmp/f1$$
+   f2=/tmp/f2$$
+   flog=/tmp/xx$$
+
+   run km_with_timeout popen_test$ext /etc/group $f1 $f2
    assert_success
-   diff /etc/group /tmp/f1
+   diff /etc/group $f1
    assert_success
-   diff /etc/group /tmp/f2
+   diff /etc/group $f2
    assert_success
 
    # now test with a relative path to pipetarget_test but no place to find it, should fail
-   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test popen_test$ext /etc/group /tmp/f1 /tmp/f2
+   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test popen_test$ext /etc/group $f1 $f2
    assert_failure 1
 
    # now test with a relative path to pipetarget_test but with a PATH var
-   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test --putenv PATH="/usr/bin:." popen_test$ext /etc/group /tmp/f1 /tmp/f2
+   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test --putenv PATH="/usr/bin:." popen_test$ext /etc/group $f1 $f2
    assert_success
 
-   # now test with full path to pipetarget_test and no PATH var
-   run km_with_timeout --timeout 5s -V --putenv TESTPROG=`pwd`/pipetarget_test -V popen_test$ext /etc/group /tmp/f1 /tmp/f2 2>/tmp/xx
+   # now test with full path to pipetarget_test and no PATH var.
+   echo Error log is in $flog
+   run km_with_timeout --timeout 5s -V --putenv TESTPROG=`pwd`/pipetarget_test -V popen_test$ext /etc/group $f1 $f2 2>$flog
    assert_success
+
+   rm $f1 $f2
 }
 
 @test "semaphore($test_type): semaphore in shared memory test (semaphore_test$ext)" {

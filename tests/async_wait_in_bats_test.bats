@@ -8,7 +8,7 @@
 # proprietary information is strictly prohibited without the express written
 # permission of Kontain Inc.
 #
-# A simple test to validate bats bug in 'run wait' whicn returns 255 instead of 124 on timeout.
+# A simple test to validate bats bug in 'run wait' which returns 255 instead of 124 on timeout.
 # To run:
 #   ./bats/bin/bats ./async_wait_in_bats_test.bats
 # Expect:
