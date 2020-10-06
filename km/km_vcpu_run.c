@@ -428,9 +428,11 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
    return ret;
 }
 
-static int km_vcpu_print(km_vcpu_t* vcpu, uint64_t unused)
+static int km_vcpu_print(km_vcpu_t* vcpu, uint64_t my_id)
 {
-   km_infox(KM_TRACE_VCPU, "VCPU %d still running: thread %#lx", vcpu->vcpu_id, vcpu->vcpu_thread);
+   if (vcpu->vcpu_id != my_id) {
+      km_infox(KM_TRACE_VCPU, "VCPU %d still running: thread %#lx", vcpu->vcpu_id, vcpu->vcpu_thread);
+   }
    return 0;
 }
 
@@ -444,7 +446,7 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
     * like futex wait. There isn't much we can do about them, so just force the exit.
     */
    for (int count = 0; count < 10 && machine.vm_vcpu_run_cnt > 1; count++) {
-      km_vcpu_apply_all(km_vcpu_print, 0);
+      km_vcpu_apply_all(km_vcpu_print, vcpu->vcpu_id);
       nanosleep(&_1ms, NULL);
    }
    // TODO - consider an unforced solution
@@ -582,6 +584,11 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          case KVM_EXIT_IO:
             switch (hypercall(vcpu, &hc)) {
                case HC_CONTINUE:
+                  if (machine.exit_group == 1) {   // exit_group() - we are done.
+                     km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
+                     assert("Reached the unreachable" == NULL);
+                  }
+
                   km_infox(KM_TRACE_VCPU,
                            "return from hc = %d (%s), gdb_run_state %d, pause_requested %d",
                            hc,
