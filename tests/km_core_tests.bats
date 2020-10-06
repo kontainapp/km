@@ -308,7 +308,7 @@ fi
    local km_gdb_port=$(( $port_range_start + $port_id))
    python3 -c "from http.server import * ; HTTPServer( ('', ${km_gdb_port}), BaseHTTPRequestHandler).serve_forever()" &  \
          curl --silent --retry 5 --retry-connrefused 127.0.0.1:${km_gdb_port}
-   pid=$!
+   local pid=$!
    run km_with_timeout -g${km_gdb_port} --gdb-listen hello_test$ext
    kill $pid
    assert_success
@@ -321,7 +321,7 @@ fi
    local km_gdb_port=$(( $port_range_start + $port_id))
    # start KM in background, give it time to start, and connect with gdb client
    km_with_timeout -g$km_gdb_port gdb_test$ext &
-   pid=$!
+   local pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_test.gdb" \
          --ex=c --ex=q gdb_test$ext
    # check that gdb found what it is supposed to find
@@ -334,7 +334,7 @@ fi
    local port_id=3
    local km_gdb_port=$(( $port_range_start + $port_id))
    km_with_timeout -g$km_gdb_port stray_test$ext signal &
-   pid=$!
+   local pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_signal_test.gdb" \
          --ex=c --ex=q stray_test$ext
    assert_success
@@ -348,7 +348,7 @@ fi
    local km_gdb_port=$(( $port_range_start + $port_id))
    # Test with signals
    km_with_timeout -g$km_gdb_port stray_test$ext stray &
-   pid=$!
+   local pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_exception_test.gdb" \
          --ex=c --ex=q stray_test$ext
    assert_success
@@ -364,7 +364,7 @@ fi
    # Save output to a log file for our own check using grep below.
    echo trace in $km_trace_file
    km_with_timeout -V -g$km_gdb_port gdb_server_entry_race_test$ext >$km_trace_file 2>&1 &
-   pid=$!
+   local pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="source cmd_for_gdbserverrace_test.gdb" \
          --ex=c --ex=q gdb_server_entry_race_test$ext
    assert_success # check gdb exit $status
@@ -387,7 +387,7 @@ fi
    # Verify that qSupported, vCont?, vCont, and qXfer:threads:read remote
    # commands are being used.
    km_with_timeout -g$km_gdb_port gdb_qsupported_test$ext &
-   pid=$!
+   local pid=$!
    run gdb_with_timeout -q -nx --ex="set debug remote 1" --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_qsupported_test.gdb" --ex=q gdb_qsupported_test$ext
    assert_success
@@ -415,7 +415,7 @@ fi
    km_trace_file=/tmp/gdb_delete_breakpoint_test_$$.out
 
    km_with_timeout -V -g$km_gdb_port gdb_delete_breakpoint_test$ext >$km_trace_file 2>&1 &
-   pid=$!
+   local pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_delete_breakpoint_test.gdb" --ex=q gdb_delete_breakpoint_test$ext
    assert_success
@@ -437,7 +437,7 @@ fi
    local km_gdb_port=$(( $port_range_start + $port_id))
 
    km_with_timeout -g$km_gdb_port gdb_nextstep_test$ext &
-   pid=$!
+   local pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_nextstep_test.gdb" --ex=q gdb_nextstep_test$ext
    assert_success
@@ -477,7 +477,7 @@ fi
 
    # test with attach at dynamic linker entry point
    km_with_timeout -g$km_gdb_port --gdb-dynlink stray_test$ext stray &
-   pid=$!
+   local pid=$!
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_sharedlib_test.gdb" --ex=q
    assert_success
@@ -523,7 +523,7 @@ fi
 
    # test asynch gdb client attach to the target
    km_with_timeout -g$km_gdb_port --gdb-listen gdb_lots_of_threads_test$ext &
-   pid=$!
+   local pid=$!
    run gdb_with_timeout -q -nx \
       --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_attach_test.gdb" --ex=q
@@ -570,7 +570,7 @@ fi
 
    # test gdb can read from and write to protected memory pages.
    km_with_timeout -g$km_gdb_port gdb_protected_mem_test$ext &
-   pid=$!
+   local pid=$!
    run gdb_with_timeout -q -nx \
       --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_protected_mem_test.gdb" --ex=q
@@ -942,7 +942,7 @@ fi
 
    rm -f $FLAGFILE $KMTRACE
    ./sigsuspend_test.fedora $FLAGFILE >$LINUXOUT &
-   pid=$!
+   local pid=$!
    start=`date +%s`
    while [ ! -e $FLAGFILE ]
    do

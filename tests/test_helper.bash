@@ -147,7 +147,10 @@ function km_with_timeout () {
    /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
       timeout --signal=SIGABRT --foreground $t \
          ${KM_BIN} ${KM_ARGS} "$@"
-   s=$?; if [ $s -eq 124 ] ; then echo -e "\nTimed out in $t" ; fi
+   # Per timeout(1) it returns 124 or 12+signal sent on timeout
+   s=$?; if [[ $s == 124 || $s == 130 ]] ; then
+      echo -e "\nTime out in $t with status $s: ${KM_BIN} ${KM_ARGS} $@"
+   fi
    return $s
 }
 
