@@ -33,7 +33,7 @@ echo "Running regressions on $TEST_BRANCH"
 export AWS_DEFAULT_OUTPUT='text'
 export AWS_DEFAULT_REGION='us-east-2'
 
-readonly TEST_AMI='ami-05b300d9ca825128d'
+readonly TEST_AMI='ami-0e3c657ed31038054'
 readonly TEST_VM_TYPE='m5.large'
 readonly TEST_SG='sg-0a319ac77d674c77f'
 readonly SSH_OPTIONS='-o StrictHostKeyChecking=no -o ConnectionAttempts=10 -o ConnectTimeout=10'
