@@ -279,8 +279,8 @@ int main(int argc, char* argv[])
     * Everything prior to here is
     * unquestionably prior to the snapshot resume.
     */
-   if (pthread_create(&thr, NULL, thread_main, NULL) != 0) {
-      perror("pthread_create");
+   if ((c = pthread_create(&thr, NULL, thread_main, NULL)) != 0) {
+      fprintf(stderr, "pthread_create %s", strerror(c));
       return 1;
    }
 
@@ -293,8 +293,8 @@ int main(int argc, char* argv[])
     */
 
    void* rval;
-   if (pthread_join(thr, &rval) != 0) {
-      perror("pthread_join");
+   if ((c = pthread_join(thr, &rval)) != 0) {
+      fprintf(stderr, "pthread_join %s", strerror(c));
       return 1;
    }
 
