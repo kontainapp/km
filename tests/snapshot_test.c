@@ -280,7 +280,7 @@ int main(int argc, char* argv[])
     * unquestionably prior to the snapshot resume.
     */
    if ((c = pthread_create(&thr, NULL, thread_main, NULL)) != 0) {
-      fprintf(stderr, "pthread_create %s", strerror(c));
+      fprintf(stderr, "pthread_create %s:%d, %s\n", __FILE__, __LINE__, strerror(c));
       return 1;
    }
 
@@ -294,7 +294,7 @@ int main(int argc, char* argv[])
 
    void* rval;
    if ((c = pthread_join(thr, &rval)) != 0) {
-      fprintf(stderr, "pthread_join %s", strerror(c));
+      fprintf(stderr, "pthread_join %s:%d, %s\n", __FILE__, __LINE__, strerror(c));
       return 1;
    }
 

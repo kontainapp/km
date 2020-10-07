@@ -479,10 +479,14 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                }
                break;
             case 'V':
-               km_info_trace.level = (optarg == NULL) ? KM_TRACE_INFO : KM_TRACE_TAG;
-               if (regcomp(&km_info_trace.tags, (optarg == NULL) ? ".*" : optarg, regex_flags) != 0) {
-                  km_warnx("Failed to compile -V regexp '%s'", optarg);
-                  usage();
+               if (optarg != NULL) {
+                  km_info_trace.level = KM_TRACE_TAG;
+                  if (regcomp(&km_info_trace.tags, optarg, regex_flags) != 0) {
+                     km_warnx("Failed to compile -V regexp '%s'", optarg);
+                     usage();
+                  }
+               } else {
+                  km_info_trace.level = KM_TRACE_INFO;
                }
                break;
             case 'v':
