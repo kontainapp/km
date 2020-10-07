@@ -367,11 +367,10 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    if (trace_regex != NULL) {
       if (*trace_regex == 0) {
          km_info_trace.level = KM_TRACE_INFO;
-         trace_regex = ".*";   // trace all if regex is not passed
       } else {
          km_info_trace.level = KM_TRACE_TAG;
+         regcomp(&km_info_trace.tags, trace_regex, regex_flags);
       }
-      regcomp(&km_info_trace.tags, trace_regex, regex_flags);
    }
    char* pl_name;
    // first one works for symlinks, including found in PATH.
