@@ -50,18 +50,18 @@ WORKDIR /home/$USER
 
 # Some of the packages needed only for payloads and /or faktory, but we land them here for convenience.
 #
-# Also, this list is used on generating local build environment, so we explicitly add
-# some packages which are always present on Fedora32 but may be missing on Fedora31 (e.g. python3-markupsafe).
-# We have also added packages needed by python.km extensions json generation (jq, googler) and crun's build:
-#   automake autoconf libcap-devel yajl-devel libseccomp-devel
-#   python3-libmount libtool
+# Also, this list is used on generating local build environment, so we explicitly add some packages :
+# - the ones always present on Fedora32 but may be missing on Fedora31 (e.g. python3-markupsafe)
+# - helpers (e.g. moreutils for timestsamping (ts) , googler and jq got python.km extension json generation,
+#   parallel for 'bats --jobs')
+# - environment for crun build (automake autoconf libcap-devel yajl-devel libseccomp-devel python3-libmount libtool)
 RUN dnf install -y \
    gcc gcc-c++ make gdb git-core gcovr \
    time patch file findutils diffutils which procps-ng python2 \
    glibc-devel glibc-static libstdc++-static \
    elfutils-libelf-devel elfutils-libelf-devel-static bzip2-devel \
    zlib-static bzip2-static xz-static \
-   openssl-devel openssl-static jq googler \
+   openssl-devel openssl-static jq googler moreutils \
    python3-markupsafe parallel \
    automake autoconf libcap-devel yajl-devel libseccomp-devel \
    python3-libmount libtool \
