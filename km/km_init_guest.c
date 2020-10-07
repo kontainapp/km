@@ -274,10 +274,6 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
    if (__atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST) == 0) {
       km_signal_machine_fini();
    }
-   if (machine.exit_group == 1) {
-      km_unlock_vcpu_thr(vcpu);
-      pthread_exit(NULL);
-   }
    while (vcpu->is_active == 0) {
       km_cond_wait(&vcpu->thr_cv, &vcpu->thr_mtx);
    }
