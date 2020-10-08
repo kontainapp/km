@@ -1238,7 +1238,7 @@ static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = km_clone_process(vcpu, arg);
       return arg->hc_ret == 0 ? HC_DOFORK : HC_CONTINUE;
    }
-   arg->hc_ret = km_clone(vcpu, arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5);
+   km_clone(vcpu, arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, &arg->hc_ret);
    return HC_CONTINUE;
 }
 

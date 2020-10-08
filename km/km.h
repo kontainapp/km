@@ -340,12 +340,13 @@ static inline int km_wait_on_eventfd(int fd)
 
 km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, char* const envp[]);
 
-int km_clone(km_vcpu_t* vcpu,
-             unsigned long flags,
-             uint64_t child_stack,
-             km_gva_t ptid,
-             km_gva_t ctid,
-             unsigned long newtls);
+void km_clone(km_vcpu_t* vcpu,
+              unsigned long flags,
+              uint64_t child_stack,
+              km_gva_t ptid,
+              km_gva_t ctid,
+              unsigned long newtls,
+              uint64_t* retp);
 uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr);
 void km_exit(km_vcpu_t* vcpu);
 

@@ -280,22 +280,25 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
    km_unlock_vcpu_thr(vcpu);
 }
 
-int km_clone(km_vcpu_t* vcpu,
-             unsigned long flags,
-             uint64_t child_stack,
-             km_gva_t ptid,
-             km_gva_t ctid,
-             unsigned long newtls)
+void km_clone(km_vcpu_t* vcpu,
+              unsigned long flags,
+              uint64_t child_stack,
+              km_gva_t ptid,
+              km_gva_t ctid,
+              unsigned long newtls,
+              uint64_t* retp)
 {
    assert((flags & CLONE_THREAD) != 0);   // we only have thread clone here.
 
    child_stack &= ~0x7;
    if (km_gva_to_kma(child_stack - 8) == NULL) {   // check if the stack points to legitimate memory
-      return -EINVAL;
+      *retp = -EINVAL;
+      return;
    }
    km_vcpu_t* new_vcpu = km_vcpu_get();
    if (new_vcpu == NULL) {
-      return -EAGAIN;
+      *retp = -EAGAIN;
+      return;
    }
 
    if ((flags & CLONE_CHILD_SETTID) != 0) {
@@ -309,7 +312,8 @@ int km_clone(km_vcpu_t* vcpu,
    int rc = km_vcpu_clone_to_run(vcpu, new_vcpu);
    if (rc < 0) {
       km_vcpu_put(new_vcpu);
-      return rc;
+      *retp = rc;
+      return;
    }
 
    // Obey parent set tid protocol
@@ -326,6 +330,8 @@ int km_clone(km_vcpu_t* vcpu,
       *gtid = km_vcpu_get_tid(new_vcpu);
    }
 
+   // We know the guest tid of the new thread. Get it to the user now.
+   *retp = km_vcpu_get_tid(new_vcpu);
    km_infox(KM_TRACE_VCPU,
             "starting new thread on vcpu-%d: RIP 0x%0llx RSP 0x%0llx",
             new_vcpu->vcpu_id,
@@ -333,10 +339,8 @@ int km_clone(km_vcpu_t* vcpu,
             new_vcpu->regs.rsp);
    if (km_run_vcpu_thread(new_vcpu, km_vcpu_run) < 0) {
       km_vcpu_put(new_vcpu);
-      return -EAGAIN;
+      *retp = -EAGAIN;
    }
-
-   return km_vcpu_get_tid(new_vcpu);
 }
 
 uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr)
