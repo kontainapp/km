@@ -354,7 +354,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    int putenv_used = 0;
    int dynlinker_used = 0;
    char* ep = NULL;
-   int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
+   static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int longopt_index;    // flag index in longopt array
    int pl_index;         // payload_name index in argv array
    char** envp = NULL;   // NULL terminated array of env pointers
@@ -365,11 +365,12 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    // TODO: handle generic KM_CLI_FLAGS here, and reuse code below
    char* trace_regex = getenv("KM_VERBOSE");
    if (trace_regex != NULL) {
-      km_info_trace.level = KM_TRACE_INFO;
       if (*trace_regex == 0) {
-         trace_regex = ".*";   // trace all if regex is not passed
+         km_info_trace.level = KM_TRACE_INFO;
+      } else {
+         km_info_trace.level = KM_TRACE_TAG;
+         regcomp(&km_info_trace.tags, trace_regex, regex_flags);
       }
-      regcomp(&km_info_trace.tags, trace_regex, regex_flags);
    }
    char* pl_name;
    // first one works for symlinks, including found in PATH.
@@ -477,13 +478,15 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                }
                break;
             case 'V':
-               if (optarg == NULL) {
-                  regcomp(&km_info_trace.tags, ".*", regex_flags);
-               } else if (regcomp(&km_info_trace.tags, optarg, regex_flags) != 0) {
-                  km_warnx("Failed to compile -V regexp '%s'", optarg);
-                  usage();
+               if (optarg != NULL) {
+                  km_info_trace.level = KM_TRACE_TAG;
+                  if (regcomp(&km_info_trace.tags, optarg, regex_flags) != 0) {
+                     km_warnx("Failed to compile -V regexp '%s'", optarg);
+                     usage();
+                  }
+               } else {
+                  km_info_trace.level = KM_TRACE_INFO;
                }
-               km_info_trace.level = KM_TRACE_INFO;
                break;
             case 'v':
                show_version();

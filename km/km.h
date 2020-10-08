@@ -422,6 +422,7 @@ typedef struct km_info_trace {
    regex_t tags;   // only trace the tags matching this regexp
    enum {
       KM_TRACE_NONE,
+      KM_TRACE_TAG,
       KM_TRACE_INFO,
       KM_TRACE_WARN,
       KM_TRACE_ERR
@@ -431,10 +432,11 @@ extern km_info_trace_t km_info_trace;
 
 extern int km_collect_hc_stats;
 
-#define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)   // 1 for yes, 0 for no
+#define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)      // 1 for yes, 0 for no
+#define km_trace_enabled_tag() (km_info_trace.level == KM_TRACE_TAG)   // 1 for yes, 0 for no
 
 #define km_trace_tag_enabled(tag)                                                                  \
-   (km_trace_enabled() && regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0)
+   (km_trace_enabled() && (km_trace_enabled_tag() == 0 || regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0))
 
 // Trace something if tag matches, and add perror() output to end of the line.
 #define km_info(tag, fmt, ...)                                                                     \

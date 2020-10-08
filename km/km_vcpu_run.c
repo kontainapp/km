@@ -69,12 +69,14 @@ static const_string_t fx = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
 // only show this for verbose ('-V') runs
 #define run_info(__f, ...)                                                                         \
    do {                                                                                            \
-      if (km_trace_enabled() && regexec(&km_info_trace.tags, KM_TRACE_KVM, 0, NULL, 0) == 0)       \
+      if (km_trace_enabled() && (km_trace_enabled_tag() == 0 ||                                    \
+                                 regexec(&km_info_trace.tags, KM_TRACE_KVM, 0, NULL, 0) == 0))     \
          __run_warn(__f, ##__VA_ARGS__);                                                           \
    } while (0)
 #define run_infox(__f, ...)                                                                        \
    do {                                                                                            \
-      if (km_trace_enabled() && regexec(&km_info_trace.tags, KM_TRACE_KVM, 0, NULL, 0) == 0)       \
+      if (km_trace_enabled() && (km_trace_enabled_tag() == 0 ||                                    \
+                                 regexec(&km_info_trace.tags, KM_TRACE_KVM, 0, NULL, 0) == 0))     \
          __run_warn(vcpu, __f, ##__VA_ARGS__);                                                     \
    } while (0)
 
