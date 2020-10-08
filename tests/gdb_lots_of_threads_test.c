@@ -103,6 +103,13 @@ int main(int argc, char *argv[])
    struct timespec rs;
    int rc;
 
+   // Init random number generator for sleep times.
+   rc = clock_gettime(CLOCK_REALTIME, &rs);
+   assert(rc == 0);
+   srandom(rs.tv_nsec);
+   
+   starttime = time(NULL);
+
    for (int j = 1; j < argc; j++) {
       if (strcmp(argv[j], "-a") == 0) {
          if (j+1 >= argc) {
@@ -130,11 +137,6 @@ int main(int argc, char *argv[])
       }
    }
 
-   // Init random number generator for sleep times.
-   rc = clock_gettime(CLOCK_REALTIME, &rs);
-   assert(rc == 0);
-   srandom(rs.tv_nsec);
-
    // start up the do nothing threads
    for (i = 0; i < max_threads; i++) {
       rc = pthread_create(&threadid[i], NULL, do_nothing_thread, (void*)i);
@@ -143,7 +145,6 @@ int main(int argc, char *argv[])
          threadid[i] = 0;
       }
    }
-   starttime = time(NULL);
    // Wait for threads to terminate
    for (i = 0; i < max_threads; i++) {
       if (threadid[i] != 0) {
