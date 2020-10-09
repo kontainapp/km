@@ -36,6 +36,38 @@
          ]
       },
       {
+         "name": "KM with a test payload and KM arg",
+         "type": "cppdbg",
+         "request": "launch",
+         "program": "${workspaceFolder}/build/km/km",
+         "args": [
+            "${input:km_args}",
+            "tests/${input:test_payload}.${input:payload_type}"
+         ],
+         "stopAtEntry": true,
+         "cwd": "${workspaceFolder}",
+         "environment": [],
+         "externalConsole": false,
+         "MIMode": "gdb",
+         "setupCommands": [
+            {
+               "description": "Enable pretty-printing for gdb",
+               "text": "-enable-pretty-printing",
+               "ignoreFailures": true
+            },
+            {
+               "description": "Load KM specific commands",
+               "text": "source ${workspaceFolder}/km/gdb/list.gdb",
+               "ignoreFailures": false
+            },
+            {
+               "description": "Ignore VCPUSTOP signal",
+               "text": "handle SIG63 nostop",
+               "ignoreFailures": false
+            }
+         ]
+      },
+      {
          "name": "KM with a test payload and an argument",
          "type": "cppdbg",
          "request": "launch",
@@ -392,6 +424,12 @@
       {
          "id": "payload_args",
          "description": "Arguments for the payload",
+         "default": "",
+         "type": "promptString"
+      },
+      {
+         "id": "km_args",
+         "description": "Arguments for the km",
          "default": "",
          "type": "promptString"
       },
