@@ -66,7 +66,7 @@ COPTS := -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 	-fomit-frame-pointer -fno-unwind-tables -fno-asynchronous-unwind-tables \
 	-ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math \
 	-fno-tree-loop-distribute-patterns -fno-stack-protector \
-	${CWERRS} ${CWARNS}
+	${CWERRS} ${CWARNS} -ffile-prefix-map=${CURDIR}/=
 
 include ${TOP}/make/actions.mk
 
@@ -136,19 +136,13 @@ ${EXTRA_OBJDIRS}:
 	mkdir -p $@
 
 ${BLDDIR}/%.lo: %.c
-	@echo $(CC) -c ${CFLAGS} $< -o $@
-	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	$(CC) -c ${CFLAGS} $(abspath $<) -o $@
 
 ${BLDDIR}/%.lo: %.s
-	@echo $(CC) -c ${CFLAGS} $< -o $@
-	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	$(CC) -c ${CFLAGS} $(abspath $<) -o $@
 
 ${BLDDIR}/%.lo: %.S
-	@echo $(CC) -c ${CFLAGS} $< -o $@
-	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	$(CC) -c ${CFLAGS} $(abspath $<) -o $@
 
 ${BLDDIR}/${SRCDIR}/include/bits/alltypes.h: $(SRCDIR)/arch/$(ARCH)/bits/alltypes.h.in $(SRCDIR)/include/alltypes.h.in
 	mkdir -p $(dir $@)
