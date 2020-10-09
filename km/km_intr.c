@@ -11,6 +11,7 @@
  *
  * Enable and handle traps/exceptions in guest.
  */
+#define _GNU_SOURCE
 #include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
