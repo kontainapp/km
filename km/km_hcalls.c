@@ -1708,13 +1708,13 @@ static void km_print_hcall_stats(void)
 {
    for (int hc = 0; hc < KM_MAX_HCALL; hc++) {
       if (km_hcalls_stats[hc].count != 0) {
-         printf("%24s(%3d) called\t %9ld times, latency usecs %9ld avg %9ld min %9ld max\n",
-                km_hc_name_get(hc),
-                hc,
-                km_hcalls_stats[hc].count,
-                km_hcalls_stats[hc].total / km_hcalls_stats[hc].count / 1000,
-                km_hcalls_stats[hc].min / 1000,
-                km_hcalls_stats[hc].max / 1000);
+         km_warnx("%24s(%3d) called\t %9ld times, latency usecs %9ld avg %9ld min %9ld max",
+                  km_hc_name_get(hc),
+                  hc,
+                  km_hcalls_stats[hc].count,
+                  km_hcalls_stats[hc].total / km_hcalls_stats[hc].count / 1000,
+                  km_hcalls_stats[hc].min / 1000,
+                  km_hcalls_stats[hc].max / 1000);
       }
    }
 }
