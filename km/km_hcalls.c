@@ -1238,6 +1238,14 @@ static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = km_clone_process(vcpu, arg);
       return arg->hc_ret == 0 ? HC_DOFORK : HC_CONTINUE;
    }
+
+   /*
+    * Create a new thread.
+    * Note: km_clone has a different calling syntax than most of the other second
+    * level hypercall handlers. In particular, we set the return value that the guest
+    * sees inside km_clone instead of returning it to be set here. See comments in
+    * km_clone for details.
+    */
    km_clone(vcpu, arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, &arg->hc_ret);
    return HC_CONTINUE;
 }

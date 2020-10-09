@@ -330,6 +330,12 @@ void km_clone(km_vcpu_t* vcpu,
       *gtid = km_vcpu_get_tid(new_vcpu);
    }
 
+   /*
+    * We know the tid of the new thread now. Set it in the guests hc_ret
+    * now. This is to deal with a race between km_clone and taking a
+    * snapshot. In that race, hc_ret was never set by KM and MUSL
+    * interpretted that as a failed pthread_create.
+    */
    // We know the guest tid of the new thread. Get it to the user now.
    *retp = km_vcpu_get_tid(new_vcpu);
    km_infox(KM_TRACE_VCPU,
