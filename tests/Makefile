@@ -58,15 +58,15 @@ CONTAINER_TEST_CMD := time -p ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_B
 CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_BIN}/coverage/km
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
-SRC_C := $(wildcard *_test.c)
-SRC_CPP := $(wildcard *_test.cpp)
-HELPER_SRC := $(wildcard *_helper.c)
+SRC_C := $(abspath $(wildcard *_test.c))
+SRC_CPP := $(abspath $(wildcard *_test.cpp))
+HELPER_SRC := $(abspath $(wildcard *_helper.c))
 
 # Test driver and shared libs for KM dlopen test, plus extra stuff we need to buid .so from
-SRC_SHR := dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c
+SRC_SHR := $(abspath dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c)
 
 DEBUG ?= -ggdb3
-CFLAGS = -Wall -Werror $(COPTS) ${DEBUG} -fPIC -fno-stack-protector -pthread -I${TOP}/include -I${TOP}/km
+CFLAGS = -Wall -Werror $(COPTS) ${DEBUG} -fPIC -fno-stack-protector -pthread -I${TOP}/include -I${TOP}/km -ffile-prefix-map=${CURDIR}/=
 CXXFLAGS=${CFLAGS}
 
 LDLIBS  :=  -pthread -ldl -L. -lhelper
@@ -76,7 +76,7 @@ DEPS = ${SRC_C:%.c=%.d} ${SRC_SHR:%.c=%.d} ${SRC_CPP:%.cpp=%.d} ${HELPER_SRC:%.c
 
 SUFFIXES := .km .kmd .km.so .alpine.km .alpine.kmd .${DTYPE}
 TESTS := ${SRC_C:%.c=%} ${SRC_CPP:%.cpp=%}
-EXECS := ${TESTS} hello_test_link \
+EXECS := ${TESTS} $(abspath hello_test_link) \
 	$(foreach s,${SUFFIXES},$(addsuffix ${s},${TESTS}))
 
 # misc. other .so files
@@ -146,30 +146,10 @@ load_expected_size: load_test.km # load_test.so
 	@nm load_test.km | awk '/ _end/{ print "0x" $$1}'
 
 %.d: %.c
-	@# print the command we really need to run
-	@echo $(CC) -MT $*.o -MT $@ -MM ${CFLAGS} $< -o $@
-	@# run the command and adjust it's error messages so VS Code navigates properly
-	@set -e; rm -f $@; \
-	  $(CC) -MT $*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
-	  sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
-	@# make sure dependencies are rebuilt if needed.
-	@# sed strips everything before colon, removes leading and trailing spaces, then splits words into individual lines
-	@# and trailing ':'. See - http://scottmcpeak.com/autodepend/autodepend.html for explanation
-	@sed -e 's/^.*: *//' -e 's/ *\\$$//'  -e 's/^ *//' -e 's/ \+/:\n/g'  -e 's/$$/:/' $*.d | cat $*.d - > $*.d.tmp
-	@mv $*.d.tmp $*.d
+	$(CC) -MT $*.o -MT $@ -MM ${CFLAGS} $< -o $@
 
 %.d: %.cpp
-	@# print the command we really need to run
-	@echo $(CXX) -MT $*.o -MT $@ -MM ${CXXFLAGS} ${CPPFLAGS} $< -o $@
-	@# run the command and adjust it's error messages so VS Code navigates properly
-	@set -e; rm -f $@; \
-	  $(CXX) -MT $*.o -MT $@ -MM ${CXXFLAGS} ${CPPFLAGS} $< -o $@ |& \
-	  sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
-	@# make sure dependencies are rebuilt if needed.
-	@# sed strips everything before colon, removes leading and trailing spaces, then splits words into individual lines
-	@# and trailing ':'. See - http://scottmcpeak.com/autodepend/autodepend.html for explanation
-	@sed -e 's/^.*: *//' -e 's/ *\\$$//'  -e 's/^ *//' -e 's/ \+/:\n/g'  -e 's/$$/:/' $*.d | cat $*.d - > $*.d.tmp
-	@mv $*.d.tmp $*.d
+	$(CXX) -MT $*.o -MT $@ -MM ${CXXFLAGS} ${CPPFLAGS} $< -o $@
 
 clean:
 	rm -f *.o *.d ${EXECS} ${SEXECS} kmcore km km.coverage *.a *.so *.km *.kmd *_test *.${DTYPE}

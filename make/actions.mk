@@ -28,7 +28,7 @@ include ${TOP}/make/locations.mk
 # customization of build should be in custom.mk
 include ${TOP}/make/custom.mk
 
-CFLAGS = ${COPTS} ${LOCAL_COPTS} -Wall -ggdb3 -pthread $(addprefix -I , ${INCLUDES})
+CFLAGS = ${COPTS} ${LOCAL_COPTS} -Wall -ggdb3 -pthread $(addprefix -I , ${INCLUDES}) -ffile-prefix-map=${CURDIR}/=
 DEPS = $(addprefix ${BLDDIR}/, $(addsuffix .d, $(basename ${SOURCES})))
 OBJS = $(sort $(addprefix ${BLDDIR}/, $(addsuffix .o, $(basename ${SOURCES}))))
 BLDEXEC = $(addprefix ${BLDDIR}/,${EXEC})
@@ -125,26 +125,18 @@ ${OBJDIRS}:
 # The sed transformation adds ${FROMTOP} prefix to file names to facilitate looking for files
 #
 ${BLDDIR}/%.o: %.c
-	@echo $(CC) -c ${CFLAGS} $< -o $@
-	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	$(CC) -c ${CFLAGS} $(abspath $<) -o $@
 
 ${BLDDIR}/%.o: %.s
-	@echo $(CC) -c ${CFLAGS} $< -o $@
-	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	$(CC) -c ${CFLAGS} $(abspath $<) -o $@
 
 ${BLDDIR}/%.o: %.S
-	@echo $(CC) -c ${CFLAGS} $< -o $@
-	@$(CC) -c ${CFLAGS} $< -o $@ |& \
-		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	$(CC) -c ${CFLAGS} $(abspath $<) -o $@
 
 # note ${BLDDIR} in the .d file - this is what tells make to get .o from ${BLDDIR}
 #
 ${BLDDIR}/%.d: %.c
-	@echo $(CC) -MT ${BLDDIR}/$*.o -MT $@ -MM ${CFLAGS} $< -o $@
-	@set -e; rm -f $@; $(CC) -MT ${BLDDIR}/$*.o -MT $@ -MM ${CFLAGS} $< -o $@ |& \
-		sed -r -e "s=^(.*?):([0-9]+):([0-9]+)?:?\\s+(note|warning|error|fatal error):\\s+(.*)$$=${FROMTOP}&="
+	$(CC) -MT ${BLDDIR}/$*.o -MT $@ -MM ${CFLAGS} $(abspath $<) -o $@
 
 test test-all: all
 
