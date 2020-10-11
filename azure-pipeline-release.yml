@@ -48,6 +48,11 @@ jobs:
           fi
         displayName: push release
 
+      # create a temp key pair for passwordless ssh to testing VM
+      - bash: ssh-keygen -b 2048 -t rsa -q -N "" -f ~/.ssh/id_rsa
+
+      - bash: cd tools/release/tests ./test_release_remote.py
+
       - bash: |
           az logout
         condition: always()
