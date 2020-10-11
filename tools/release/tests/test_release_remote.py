@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+""" test_release_remote
+
+    Test the release install process on a remote azure VM.
+"""
 
 import subprocess
 import json
@@ -53,46 +57,57 @@ def clean_up():
         "az", "group", "delete",
         "-y",
         "--name", RESOURCE_GROUP,
-    ])
+    ], check=False)
 
 
-def ssh_execute(ip, cmd):
+def ssh_execute(remote_ip, cmd):
+    """ ssh_execute execute the cmd through ssh
+    """
     ssh_execute_cmd = [
         "ssh",
         "-o", "StrictHostKeyChecking=no",
         "-o", "UserKnownHostsFile=/dev/null",
-        f"{TESTING_VM_ADMIN}@{ip}",
+        f"{TESTING_VM_ADMIN}@{remote_ip}",
         cmd,
     ]
 
     subprocess.run(ssh_execute_cmd, check=True)
 
 
-def test(ip):
+def test(remote_ip):
+    """ test
+
+        Copy the local tests to the remote VM and execute.
+    """
+
     logger = logging.getLogger("test")
-    logger.info(f"start testing in {ip}")
-    ssh_execute(ip, "python3 --version")
+    logger.info("start testing in %s", remote_ip)
+    ssh_execute(remote_ip, "python3 --version")
     subprocess.run([
         "scp",
         "-o", "StrictHostKeyChecking=no",
         "-o", "UserKnownHostsFile=/dev/null",
         "-r",
         "test_release_local",
-        f"{TESTING_VM_ADMIN}@{ip}:~/"
-    ])
+        f"{TESTING_VM_ADMIN}@{remote_ip}:~/"
+    ], check=True)
     ssh_execute(
-        ip, "sudo mkdir -p /opt/kontain ; sudo chown kontain /opt/kontain")
-    ssh_execute(ip, "sudo apt install -y gcc")
-    ssh_execute(ip, "sudo chmod 666 /dev/kvm")
-    ssh_execute(ip, "cd test_release_local; python3 test_release_local.py")
+        remote_ip, "sudo mkdir -p /opt/kontain ; sudo chown kontain /opt/kontain")
+    ssh_execute(remote_ip, "sudo apt install -y gcc")
+    ssh_execute(remote_ip, "sudo chmod 666 /dev/kvm")
+    ssh_execute(
+        remote_ip, "cd test_release_local; python3 test_release_local.py")
     logger.info("successfully tested")
 
 
 def main():
+    """ main method
+    """
+
     logging.basicConfig(level=logging.INFO)
     try:
-        ip = setup()
-        test(ip)
+        remote_ip = setup()
+        test(remote_ip)
     finally:
         clean_up()
 
