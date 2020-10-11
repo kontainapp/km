@@ -901,11 +901,11 @@ fi
 }
 
 @test "vdso($test_type): use function verion of some syscalls (vdso_test$ext)" {
-   run km_with_timeout vdso_test$ext
+   run km_with_timeout -S vdso_test$ext
    assert_success
    refute_line --partial "auxv[AT_SYSINFO_EHDR] not available"
-   refute_line --partial "expected sleep duration between"
-   refute_line --regexp "exceeds .* the time of SYS"
+   refute_line --partial "clock_gettime(228) called"
+   refute_line --regexp "getcpu(309) called"
 }
 
 @test "syscall($test_type): test SYSCALL instruction emulation" {
