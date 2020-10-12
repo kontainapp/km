@@ -16,3 +16,26 @@ go run release.go --help
 
 This tool require a Github PAT to authenticate with Github APIs, and will
 read it from `GITHUB_RELEASE_TOKEN` env variable.
+
+# Testing
+
+We need to verify the install process works as expected. Under
+`$TOP/tools/release/tests`, we have two tests, one test the install process
+locally and another test the install process on an VM on azure. Each script
+are expected to run where the script is located.
+
+To run the local test:
+```bash
+# Optional: make sure /opt/kontain is created with the right ownership
+cd ${TOP}/tools/release/tests/test_release_local; ./test_release_local.py
+```
+
+To run the remote test:
+```bash
+# Optional: login into azure
+# Optional: make sure there is a default ssh key generated under $HOME/.ssh/id_rsa
+cd ${TOP}/tools/release/tests; ./test_release_remote.py
+```
+
+The same tests is also triggered as part of azure CI. See
+`$TOP/azure-pipeline-release.yaml` for details.
