@@ -17,6 +17,7 @@
 import subprocess
 import json
 import logging
+import argparse
 
 RESOURCE_GROUP = "kontain-release-testing"
 RESOURCE_GROUP_LOCATION = "westus"
@@ -84,7 +85,7 @@ def ssh_execute(remote_ip, cmd):
     subprocess.run(ssh_execute_cmd, check=True)
 
 
-def test(remote_ip):
+def test(remote_ip, version):
     """ test
 
         Copy the local tests to the remote VM and execute.
@@ -106,18 +107,39 @@ def test(remote_ip):
     ssh_execute(remote_ip, "sudo apt install -y gcc")
     ssh_execute(remote_ip, "sudo chmod 666 /dev/kvm")
     ssh_execute(
-        remote_ip, "cd test_release_local; python3 test_release_local.py")
+        remote_ip, f"cd test_release_local; python3 test_release_local.py --version {version}")
     logger.info("successfully tested")
 
 
-def main():
-    """ main method
+def validate_version(version):
+    """ validate_version
+
+        Validate the formate the the version string. Version should start either:
+        * v*
+        * refs/tags/v* (from azure pipeline)
     """
+
+    if version is "":
+        return version
+
+    clean_version = version
+    if version.startwith("refs/tags/v"):
+        clean_version = version.removeprefix("refs/tags/")
+
+    return clean_version
+
+
+def main():
+    """ main method """
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version", help="version of km to be tested")
+    args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
     try:
         remote_ip = setup()
-        test(remote_ip)
+        test(remote_ip, args.version)
     finally:
         clean_up()
 

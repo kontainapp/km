@@ -21,6 +21,7 @@ import os
 import tempfile
 import shutil
 import subprocess
+import argparse
 
 OPT_KONTAIN = "/opt/kontain"
 OPT_KONTAIN_BIN = f"{OPT_KONTAIN}/bin"
@@ -32,11 +33,19 @@ INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km-releases/master/k
 def main():
     """ main method """
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version", help="version of km to be tested")
+    args = parser.parse_args()
+
     # Clean up the /opt/kontain so we have a clean test run
     subprocess.run(["rm", "-rf", f"{OPT_KONTAIN}/*"], check=False)
 
     # Download and install
-    os.system(f"wget {INSTALL_URL} -O - -q | bash")
+    install_cmd = f"wget {INSTALL_URL} -O - -q | bash"
+    if args.version is not "":
+        install_cmd = f"wget {INSTALL_URL} -O - -q | bash -s {args.version}"
+
+    os.system(install_cmd)
 
     # Test: compile helloworld with kontain-gcc
     work_dir = tempfile.mkdtemp()
