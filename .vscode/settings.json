@@ -7,10 +7,14 @@
    "editor.formatOnSave": true,
    "editor.formatOnType": true,
    "files.exclude": {
+      "**/kmcore": true,
+      "**/*.{fedora,native_static}": true,
       "**/*.{o,d,km}": true
    },
    "cSpell.words": [
       "FUTEX",
+      "Kontain",
+      "KM",
       "HCALL",
       "Kontain",
       "Kontainer",
