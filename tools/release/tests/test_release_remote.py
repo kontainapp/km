@@ -26,6 +26,40 @@ TESTING_VM_IMAGE = "Canonical:UbuntuServer:18.04-LTS:latest"
 TESTING_VM_SIZE = "Standard_D2s_v3"
 TESTING_VM_ADMIN = "kontain"
 
+TESTING_DEFAULT_VERSION = "v0.1-test"
+
+
+def validate_version(version):
+    """ validate_version
+
+        Validate the formate the the version string. Version should start either:
+        * v*
+        * refs/tags/v* (from azure pipeline)
+        * refs/heads/* (from azure pipeline testing branch) -> default version v0.1-test
+    """
+
+    logger = logging.getLogger("validate_version")
+
+    if version is None or version == "":
+        logger.warning(
+            "No version is set. Will use default latest version from install")
+        return version
+
+    if version.startswith("refs/tags/v"):
+        clean_version = version[len("refs/tags/"):]
+    elif version.startswith("refs/heads/"):
+        logger.warning(
+            "Version is triggered through testing branch. Using default version %s", TESTING_DEFAULT_VERSION)
+        clean_version = TESTING_DEFAULT_VERSION
+    else:
+        clean_version = version
+
+    if not clean_version.startswith("v"):
+        logger.warning(
+            "Version %s is not conforming to v* pattern.", clean_version)
+
+    return clean_version
+
 
 def setup():
     """ setup
@@ -106,27 +140,15 @@ def test(remote_ip, version):
         remote_ip, "sudo mkdir -p /opt/kontain ; sudo chown kontain /opt/kontain")
     ssh_execute(remote_ip, "sudo apt install -y gcc")
     ssh_execute(remote_ip, "sudo chmod 666 /dev/kvm")
+
+    if version is None or version == "":
+        version_flag = ""
+    else:
+        version_flag = f"--version {version}"
+
     ssh_execute(
-        remote_ip, f"cd test_release_local; python3 test_release_local.py --version {version}")
+        remote_ip, f"cd test_release_local; python3 test_release_local.py {version_flag}")
     logger.info("successfully tested")
-
-
-def validate_version(version):
-    """ validate_version
-
-        Validate the formate the the version string. Version should start either:
-        * v*
-        * refs/tags/v* (from azure pipeline)
-    """
-
-    if version is "":
-        return version
-
-    clean_version = version
-    if version.startwith("refs/tags/v"):
-        clean_version = version.removeprefix("refs/tags/")
-
-    return clean_version
 
 
 def main():
@@ -138,8 +160,9 @@ def main():
 
     logging.basicConfig(level=logging.INFO)
     try:
+        version = validate_version(args.version)
         remote_ip = setup()
-        test(remote_ip, args.version)
+        test(remote_ip, version)
     finally:
         clean_up()
 

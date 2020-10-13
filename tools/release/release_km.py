@@ -9,7 +9,11 @@
 # proprietary information is strictly prohibited without the express written
 # permission of Kontain Inc.
 
-""" release_km """
+""" release_km
+
+    This tool is used to release km from `kontainapp/km` repo to
+    `kontainapp/km-releases` repo
+"""
 
 import argparse
 import os
@@ -49,33 +53,42 @@ def main():
     if version.startswith("refs/tags/"):
         version = version[len("refs/tags/"):]
 
+    if not version.startswith("v"):
+        logger.warning("Triggered by a non-standard version. Use default test version %s",
+                       RELEASE_DEFAULT_VERSION)
+        version = RELEASE_DEFAULT_VERSION
+
     client = github.Github(token)
     release_repo = client.get_repo(RELEASE_REPO_FULLNAME)
+
+    # We will create the new release at the master of the `km-releases` repo.
     master = release_repo.get_git_ref("heads/master")
     master_commit_sha = master.object.sha
 
+    # Github releases requires an unique name. If the version is the default
+    # testing version, we will delete the release and the relavent reference
+    # without question. Otherwise, we will have to error out.
     try:
         release = release_repo.get_release(version)
     except github.UnknownObjectException:
         # 404 indicating no release with this version name has been created. This is expected
         pass
     else:
-        if version is not RELEASE_DEFAULT_VERSION:
+        if version != RELEASE_DEFAULT_VERSION:
             raise ValueError(f"Release {version} already exist...")
 
-        # If the release is the default testing version, we delete the release
-        # with no question asked
         logger.info("Override exisitng default testing release")
         release.delete_release()
-
     try:
         ref = release_repo.get_git_ref(f"tags/{version}")
     except github.UnknownObjectException:
         # 404 indicating no reference with this version name has been created. This is expected
         pass
     else:
-        if version is not RELEASE_DEFAULT_VERSION:
-            raise ValueError(f"Release {version} already exist...")
+        if version != RELEASE_DEFAULT_VERSION:
+            raise ValueError(f"Reference {version} already exist...")
+
+        logger.info("Override exisitng default testing references")
         ref.delete()
 
     # Create a reference and a release based on the reference. Also upload any
@@ -87,7 +100,7 @@ def main():
             version, version, args.message)
 
         for asset in args.assets:
-            uploaded_asset = release.upload_asset(asset)
+            uploaded_asset = created_release.upload_asset(asset)
             logger.info("Successfully uploaded %s url: %s",
                         uploaded_asset.name, uploaded_asset.url)
     except github.GithubException:

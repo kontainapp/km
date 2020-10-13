@@ -42,7 +42,7 @@ def main():
 
     # Download and install
     install_cmd = f"wget {INSTALL_URL} -O - -q | bash"
-    if args.version is not "":
+    if args.version is not None and args.version != "":
         install_cmd = f"wget {INSTALL_URL} -O - -q | bash -s {args.version}"
 
     os.system(install_cmd)
