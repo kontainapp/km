@@ -23,6 +23,7 @@
 #include <sys/mman.h>
 #include <sys/param.h>
 #include <sys/resource.h>
+#include <sys/utsname.h>
 
 #include "km.h"
 #include "km_exec.h"
@@ -522,6 +523,31 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    return 0;
 }
 
+static const int KVM_OLDEST_KERNEL = 0x040f;   // Ubuntu 16.04 with 4.15 kernel
+static const int KKM_OLDEST_KERNEL = 0x0500;   // KKM only tested on 5+ for now
+
+void km_check_kernel(void)
+{
+   struct utsname uts;
+   int mj, mn;
+
+   /* Try the uname system call.  */
+   if (uname(&uts) != 0) {
+      km_err(3, "Cannot determine kernel version.");
+   }
+   if (sscanf(uts.release, "%d.%d", &mj, &mn) != 2) {
+      km_errx(3, "Unexpected kernel version format %s", uts.release);
+   }
+   int oldest_kernel = (machine.vm_type == VM_TYPE_KVM) ? KVM_OLDEST_KERNEL : KKM_OLDEST_KERNEL;
+   if (mj * 0x100 + mn < oldest_kernel) {
+      km_errx(3,
+              "Kernel %s is too old. The oldest supported kernel is %d.%d",
+              uts.release,
+              KVM_OLDEST_KERNEL / 0x100,
+              KVM_OLDEST_KERNEL % 0x100);
+   }
+}
+
 /*
  * initial steps setting our VM
  *
@@ -569,6 +595,7 @@ void km_machine_setup(km_machine_init_params_t* params)
          }
          break;
    }
+   km_check_kernel();   // exit there if too old
    if ((rc = ioctl(machine.kvm_fd, KVM_GET_API_VERSION, 0)) < 0) {
       km_err(1, "KVM: get API version failed");
    }
