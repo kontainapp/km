@@ -92,8 +92,6 @@ def setup():
 
     output = json.loads(ret.stdout)
 
-    time.sleep(30)
-
     return output["publicIpAddress"]
 
 
@@ -113,8 +111,10 @@ def clean_up():
 
 
 def ssh_execute(remote_ip, cmd):
-    """ ssh_execute execute the cmd through ssh
-    """
+    """ ssh_execute execute the cmd through ssh """
+
+    logger = logging.getLogger("ssh_execute")
+
     ssh_execute_cmd = [
         "ssh",
         "-o", "StrictHostKeyChecking=no",
@@ -123,7 +123,23 @@ def ssh_execute(remote_ip, cmd):
         cmd,
     ]
 
-    subprocess.run(ssh_execute_cmd, check=True)
+    max_retry = 3
+    run = 0
+    while run < max_retry:
+        try:
+            subprocess.run(ssh_execute_cmd, check=True)
+        except subprocess.CalledProcessError:
+            if run + 1 == max_retry:
+                raise
+
+            logger.warning(
+                "Failed ssh execute... Retry %d out of %d", run + 1, max_retry)
+            time.sleep(1)
+            continue
+        else:
+            break
+        finally:
+            run += 1
 
 
 def test(remote_ip, version):
