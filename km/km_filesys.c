@@ -2319,17 +2319,71 @@ int km_mgt_accept(int fd, struct sockaddr* addr, socklen_t* addrlen)
 
 /*
  * Use the dup of fd 2 or a new one to open km_log_file in km dedicated fd area,
- * to be used for km logging
+ * to be used for km logging.
+ * We also must not hold open the payload's stderr if it is a pipe or socket.
+ * The parent process may be waiting for the pipe or connection to close before
+ * proceeding.
+ * We also need to handle being cornered where we can't use stderr and we can't
+ * open a file because the filesystem the container runs in is readonly.  So,
+ * we must tolerate not being able to log at all.
+ * TODO: support logging to syslog or journal.
+ * name - the name of a file to log to. in addition name can be:
+ *  NULL: causing us to continue to log to stderr if it is not a pipe.
+ *  "none": causing no km logging.
+ *  "stderr": causing km to log to stderr no matter what.  (This is useful for the
+ *    bats tests)
  */
+char km_nologging_reason[128];   // leave a clue to why there is no km logging
 void km_redirect_msgs(const char* name)
 {
    int fd, fd1;
    if (name != NULL) {
-      fd1 = open(name, O_WRONLY | O_CREAT, 0644);
-      fd = dup2(fd1, KM_LOGGING);
-      close(fd1);
+      if (strcmp(name, "stderr") == 0) {
+        // If they ask, let them log to stderr no matter what.  Mostly useful for the bats tests.
+        fd = dup2(2, KM_LOGGING);
+      } else if (strcmp(name, "none") == 0) {
+        // We need to be able to test having no logging at all.  km could run in a container with
+        // read only filesystems and we may not be able to use stderr either.
+        snprintf(km_nologging_reason, sizeof(km_nologging_reason), "logging turned off by request");
+        return;
+      } else {
+        fd1 = open(name, O_WRONLY | O_CREAT, 0644);
+        fd = dup2(fd1, KM_LOGGING);
+        close(fd1);
+      }
    } else {
-      fd = dup2(2, KM_LOGGING);
+      struct stat statb;
+      if (fstat(2, &statb) == 0) {
+        if (S_ISFIFO(statb.st_mode) || S_ISSOCK(statb.st_mode)) {
+          /*
+           * We don't want to hold open pipes or sockets to the payload's stderr.
+           * This interferes with the other end of the pipeline's ability to detect
+           * that the pipe or socket has been closed by the payload.
+           * If we can create and open /tmp/km_XXXXX.log then log there.  If we can't
+           * create the log file, then /tmp could be on a readonly filesystem, so we don't log.
+           */
+          char filename[32];
+          snprintf(filename, sizeof(filename), "/tmp/km_%d.log", getpid());
+          fd1 = open(filename, O_CREAT | O_WRONLY, 0644);
+          if (fd1 < 0) {
+            km_warn("Unable to switch km logging away from a pipe or socket, couldn't create %s", filename);
+            snprintf(km_nologging_reason, sizeof(km_nologging_reason), "couldn't open log file %s, error %d", filename, errno);
+            return;
+          } else {
+            km_warnx("Switch km logging to %s", filename);
+            fd = dup2(fd1, KM_LOGGING);
+            close(fd1);
+          }
+        } else {
+          // stderr is not a pipeline the parent process maybe waiting on
+          fd = dup2(2, KM_LOGGING);
+        }
+      } else {
+        // we don't know what stderr is.
+        km_warn("Unable to stat stderr, km logging disabled, errno %d", errno);
+        snprintf(km_nologging_reason, sizeof(km_nologging_reason), "couldn't fstat stderr, error %d", errno);
+        return;
+      }
    }
    assert(fd == KM_LOGGING);
 

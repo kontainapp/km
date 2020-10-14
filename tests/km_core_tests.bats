@@ -9,6 +9,10 @@
 # permission of Kontain Inc.
 #
 
+# km normally tries to avoid sending its message to stderr when stderr is a pipe.
+# The bats tests need this behavour so, tell it to keep logging to stderr.
+KM_ARGS="--km-log-to=stderr"
+
 load test_helper
 
 # Lists of tests to skip (space separated). Wildcards (glob) can be used, but please use '' for the whole list
@@ -888,7 +892,7 @@ fi
 
 @test "monitor_maps($test_type): munmap gdt and idt (munmap_monitor_maps_test$ext)" {
    run gdb_with_timeout -ex="set pagination off" -ex="handle SIG63 nostop"\
-      -ex="source gdb_simple_test.py" -ex="run-test" -ex="q" --args ${KM_BIN} munmap_monitor_maps_test$ext
+      -ex="source gdb_simple_test.py" -ex="run-test" -ex="q" --args ${KM_BIN} ${KM_ARGS} munmap_monitor_maps_test$ext
    assert_success
    assert_line --partial "conflicts with monitor region 0x7fffffdfe000 size 0x2000"
    assert_line --partial 'fail: 0'
@@ -1058,14 +1062,14 @@ fi
 }
 
 @test "km_main_shebang($test_type): shebang file handling (shebang$ext)" {
-   KM_VERBOSE=generic run $KM_BIN shebang_test.sh AndEvenMore
+   KM_VERBOSE=generic run $KM_BIN ${KM_ARGS} shebang_test.sh AndEvenMore
    assert_success
    assert_line --partial "Extracting payload name from shebang file 'shebang_test.sh'"
    assert_line --partial "Adding extra arg 'arguments to test, should be one'"
    assert_line --partial "argv[3] = 'AndEvenMore'"
 
    # shebang to nested symlink
-   KM_VERBOSE=generic run $KM_BIN shebang_test_link.sh AndEvenMore
+   KM_VERBOSE=generic run $KM_BIN ${KM_ARGS} shebang_test_link.sh AndEvenMore
    assert_success
    assert_line --partial "Extracting payload name from shebang file 'shebang_test_link.sh'"
    assert_line --partial "Adding extra arg 'arguments to test, should be one'"
@@ -1205,4 +1209,51 @@ fi
 @test "xstate_test($test_type): verify cpu extended state during context switch and signal handing (xstate_test$ext)" {
    run km_with_timeout xstate_test$ext
    assert_success
+}
+
+@test km_logging_test($test_type): test the --km-log-to flag (hello_test$ext)" {
+   LOGFILE="km_$$.log"
+   # We need KM_ARGS but we need to control the logging settings for this test
+   KM_ARGS_PRIVATE=`echo $KM_ARGS | sed -e "s/--km-log-to=stderr//"`
+
+   # Verify logging goes to stderr
+   rm -f $LOGFILE
+   assert ${KM_BIN} -V ${KM_ARGS_PRIVATE} hello_test$ext 2>$LOGFILE
+   assert test -e $LOGFILE
+   assert grep -q "calling hc = 231 (exit_group)" $LOGFILE
+   rm -f LOGFILE
+
+   # Verify that logging when stderr is a pipe will switch logging to /tmp/km_XXXXX.log
+   ${KM_BIN} -V ${KM_ARGS_PRIVATE} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
+   assert_success
+   run grep -q "calling hc = 231 (exit_group)" $LOGFILE
+   assert_failure
+   run grep -q "Switch km logging to" $LOGFILE
+   assert_success
+   KMLOGFILE=`grep "Switch km logging to" $LOGFILE | sed -e "s/Switch km logging to //"`
+   assert test -e $KMLOGFILE
+   assert grep -q "calling hc = 231 (exit_group)" $KMLOGFILE
+   rm -f $KMLOGFILE
+   rm -f LOGFILE
+
+   # Verify that we can force logging to stderr even if it is a pipe
+   ${KM_BIN} -V --km-log-to=stderr ${KM_ARGS_PRIVATE} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
+   assert_success
+   test -e $LOGFILE
+   assert_success
+   run grep -q "Switch km logging to" $LOGFILE
+   assert_failure
+   run grep -q "calling hc = 231 (exit_group)" $LOGFILE
+   assert_success
+   rm -f $LOGFILE
+
+   # Verify that we can force logging to be disabled
+   # Note that some logging does happen before it can be disabled
+   ${KM_BIN} -V --km-log-to=none ${KM_ARGS_PRIVATE} hello_test$ext &>$LOGFILE
+   assert_success
+   test -e $LOGFILE
+   assert_success
+   run grep -q "calling hc = 231 (exit_group)" $LOGFILE
+   assert_failure
+   rm -f $LOGFILE
 }
