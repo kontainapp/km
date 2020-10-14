@@ -95,14 +95,18 @@ def setup():
 
 
 def clean_up():
-    """ clean up deletes everything
-    """
+    """ clean up deletes everything """
+
+    logger = logging.getLogger("clean_up")
+    logger.info("Starts to clean up")
 
     subprocess.run([
         "az", "group", "delete",
         "-y",
         "--name", RESOURCE_GROUP,
     ], check=False)
+
+    logger.info("Clean up successful")
 
 
 def ssh_execute(remote_ip, cmd):
