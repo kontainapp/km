@@ -102,7 +102,7 @@ void __km_trace(int errnum, const char* function, int linenumber, const char* fm
    if (km_log_file != NULL) {
       fputs(traceline, km_log_file);
    } else if (stderr != NULL) {
-      if (km_trace_noniteractive == 1 || km_trace_pid == 0 || km_called_via_exec() == 1) {
+      if (km_trace_noniteractive == 1 || km_trace_pid != 0 || km_called_via_exec() == 1) {
          fputs(traceline, stderr);
       } else {
          fputs(p, stderr);

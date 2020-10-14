@@ -588,7 +588,6 @@ int main(int argc, char* argv[])
    int argc_p;      // payload's argc
    char** argv_p;   // payload's argc (*not* in ABI format)
    char* payload_name;
-   km_log_file = stderr;
 
    km_gdbstub_init();
 
