@@ -18,6 +18,7 @@ import subprocess
 import json
 import logging
 import argparse
+import time
 
 RESOURCE_GROUP = "kontain-release-testing"
 RESOURCE_GROUP_LOCATION = "westus"
@@ -90,6 +91,8 @@ def setup():
     logger.info("successfully created a new vm")
 
     output = json.loads(ret.stdout)
+
+    time.sleep(30)
 
     return output["publicIpAddress"]
 
