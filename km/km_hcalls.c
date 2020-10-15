@@ -1691,13 +1691,15 @@ static km_hc_ret_t fstatfs_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   // TODO: Stop the world.
    km_warnx("SNAPSHOT");
+
+   // Ensure this VCPU's RIP points at the instruction after the HCALL.
    km_vcpu_sync_rip(vcpu);
    ((km_vcpu_t*)vcpu)->regs_valid = 0;   // force register reread after the sync_rip
    km_read_registers(vcpu);
-   km_vcpu_pause_all();
-   km_dump_core(km_get_snapshot_path(), vcpu, NULL);
+
+   // Create the snapshot.
+   km_snapshot_create(vcpu, 0);
    return HC_ALLSTOP;
 }
 
