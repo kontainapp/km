@@ -136,16 +136,17 @@ typedef struct km_vcpu {
    uint8_t regs_valid;        // Are registers valid?
    uint8_t sregs_valid;       // Are segment registers valid?
    uint8_t in_sigsuspend;     // if true thread is running in the sigsuspend() hypercall
-                              //
-   km_gva_t stack_top;        // also available in guest_thr
-   km_gva_t guest_thr;        // guest pthread, FS reg in the guest
-   km_stack_t sigaltstack;    //
-   km_gva_t mapself_base;     // delayed unmap address
-   size_t mapself_size;       // and size
-                              //
-   kvm_regs_t regs;           // Cached register values.
-   kvm_sregs_t sregs;         // Cached segment register values.
-   km_sigset_t sigmask;       // blocked signals for thread
+   uint8_t is_paused;         // true if thread is paused at 'km_vcpu_handle_pause'
+   //
+   km_gva_t stack_top;                 // also available in guest_thr
+   km_gva_t guest_thr;                 // guest pthread, FS reg in the guest
+   km_stack_t sigaltstack;             //
+   km_gva_t mapself_base;              // delayed unmap address
+   size_t mapself_size;                // and size
+                                       //
+   kvm_regs_t regs;                    // Cached register values.
+   kvm_sregs_t sregs;                  // Cached segment register values.
+   km_sigset_t sigmask;                // blocked signals for thread
    km_signal_list_t sigpending;        // List of signals sent to thread
    pthread_cond_t signal_wait_cv;      // wait for signals with this cv
    km_sigset_t saved_sigmask;          // sigmask saved by sigsuspend()
@@ -436,7 +437,8 @@ extern int km_collect_hc_stats;
 #define km_trace_enabled_tag() (km_info_trace.level == KM_TRACE_TAG)   // 1 for yes, 0 for no
 
 #define km_trace_tag_enabled(tag)                                                                  \
-   (km_trace_enabled() && (km_trace_enabled_tag() == 0 || regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0))
+   (km_trace_enabled() &&                                                                          \
+    (km_trace_enabled_tag() == 0 || regexec(&km_info_trace.tags, tag, 0, NULL, 0) == 0))
 
 // Trace something if tag matches, and add perror() output to end of the line.
 #define km_info(tag, fmt, ...)                                                                     \
