@@ -35,11 +35,10 @@ uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo);
 uint64_t km_tkill(km_vcpu_t* vcpu, pid_t tid, int signo);
 uint64_t km_rt_sigpending(km_vcpu_t* vcpu, km_sigset_t* set, size_t sigsetsize);
 
-extern void km_wait_for_signal(int sig);
+void km_wait_for_signal(int sig);
 typedef void (*sa_action_t)(int, siginfo_t*, void*);
-extern void km_install_sighandler(int signum, sa_action_t hander_func);
-extern uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize);
-extern void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext);
+void km_install_sighandler(int signum, sa_action_t hander_func);
+uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize);
 
 static inline int km_sigindex(int signo)
 {

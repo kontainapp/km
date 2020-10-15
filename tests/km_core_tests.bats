@@ -876,6 +876,11 @@ fi
    rm -rf /tmp/${DIRNAME}
 }
 
+@test "sigpipe($test_type): sigpipe delivery (sigpipe_test$ext)" {
+   run km_with_timeout sigpipe_test$ext
+   assert_success
+}
+
 @test "socket($test_type): guest socket operations (socket_test$ext)" {
    run km_with_timeout socket_test$ext
    assert_success

@@ -787,22 +787,6 @@ uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize)
 }
 
 /*
- * This is the signal handler for some of the signals sent to km but really are for the payload.
- * We then propagate these signals on to the vcpu threads. We need to be careful to not take
- * mutexes that could be held by the thread this signal handler is running on.  The intent is
- * that signal handler only runs on km's main thread which should only be running gdbstub. So, we
- * only take mutexes that the km main thread will not be holding.
- */
-void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext)
-{
-   siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
-
-   km_infox(KM_TRACE_VCPU, "Deliver signal %d", signo);
-
-   km_post_signal(NULL, &info);
-}
-
-/*
  * Dump in elf format
  */
 size_t km_sig_core_notes_length()
