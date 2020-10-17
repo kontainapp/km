@@ -27,6 +27,7 @@
 #include "km_coredump.h"
 #include "km_elf.h"
 #include "km_filesys.h"
+#include "km_gdb.h"
 #include "km_guest.h"
 #include "km_mem.h"
 #include "km_signal.h"
@@ -475,6 +476,23 @@ static int km_vcpu_snapshot_kick(km_vcpu_t* vcpu, uint64_t unused)
 
 int km_snapshot_create(km_vcpu_t* vcpu, int live)
 {
+   // No snapshots while GDB is running
+   if (km_gdb_is_enabled() != 0) {
+      km_warnx("Cannot create snapshot with GDB running");
+      return -EBUSY;
+   }
+
+   static pthread_mutex_t snap_mutex = PTHREAD_MUTEX_INITIALIZER;
+   static int in_snapshot = 0;
+   pthread_mutex_lock(&snap_mutex);
+   if (in_snapshot != 0) {
+      pthread_mutex_unlock(&snap_mutex);
+      km_warnx("Only one snapshot request allowed at a time");
+      return -EBUSY;
+   }
+   in_snapshot = 1;
+   pthread_mutex_unlock(&snap_mutex);
+
    /*
     * km_vcpu_pause_all ensures all VCPU's are in KM.
     */
@@ -503,5 +521,8 @@ int km_snapshot_create(km_vcpu_t* vcpu, int live)
    if (live != 0) {
       // TODO: Restart everything for a live snapshot.
    }
+   pthread_mutex_lock(&snap_mutex);
+   in_snapshot = 0;
+   pthread_mutex_unlock(&snap_mutex);
    return 0;
 }
