@@ -27,6 +27,7 @@
 #include "km_coredump.h"
 #include "km_elf.h"
 #include "km_filesys.h"
+#include "km_gdb.h"
 #include "km_guest.h"
 #include "km_mem.h"
 #include "km_signal.h"
@@ -456,5 +457,72 @@ int km_snapshot_restore(const char* file)
    free(tmp_payload.km_phdr);
    free(tmp_payload.km_filename);
 
+   return 0;
+}
+static int km_vcpu_count_not_paused(km_vcpu_t* vcpu, uint64_t unused)
+{
+   return (vcpu->is_paused == 0) ? 1 : 0;
+}
+
+static int km_vcpu_snapshot_kick(km_vcpu_t* vcpu, uint64_t unused)
+{
+   km_lock_vcpu_thr(vcpu);
+   if (vcpu->is_paused == 0) {
+      km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
+   }
+   km_unlock_vcpu_thr(vcpu);
+   return 0;
+}
+
+int km_snapshot_create(km_vcpu_t* vcpu, int live)
+{
+   // No snapshots while GDB is running
+   if (km_gdb_is_enabled() != 0) {
+      km_warnx("Cannot create snapshot with GDB running");
+      return -EBUSY;
+   }
+
+   static pthread_mutex_t snap_mutex = PTHREAD_MUTEX_INITIALIZER;
+   static int in_snapshot = 0;
+   pthread_mutex_lock(&snap_mutex);
+   if (in_snapshot != 0) {
+      pthread_mutex_unlock(&snap_mutex);
+      km_warnx("Only one snapshot request allowed at a time");
+      return -EBUSY;
+   }
+   in_snapshot = 1;
+   pthread_mutex_unlock(&snap_mutex);
+
+   /*
+    * km_vcpu_pause_all ensures all VCPU's are in KM.
+    */
+   km_vcpu_pause_all();
+
+   /*
+    * Wait for everyone to get to the pause point.
+    */
+   if (vcpu != NULL) {
+      vcpu->is_paused = 1;
+   }
+   for (;;) {
+      if (km_vcpu_apply_all(km_vcpu_count_not_paused, 0) == 0) {
+         break;
+      }
+      nanosleep(&_1ms, NULL);
+      // kick any lagging threads.
+      km_vcpu_apply_all(km_vcpu_snapshot_kick, 0);
+   }
+
+   km_dump_core(km_get_snapshot_path(), vcpu, NULL);
+   if (vcpu != NULL) {
+      vcpu->is_paused = 0;
+   }
+
+   if (live != 0) {
+      // TODO: Restart everything for a live snapshot.
+   }
+   pthread_mutex_lock(&snap_mutex);
+   in_snapshot = 0;
+   pthread_mutex_unlock(&snap_mutex);
    return 0;
 }
