@@ -47,8 +47,9 @@ static void* mgt_main(void* arg)
       km_warnx("Connection accepted");
       close(nfd);
 
-      km_vcpu_pause_all();
-      km_dump_core(km_get_snapshot_path(), NULL, NULL);
+      if (km_snapshot_create(NULL, 0) != 0) {
+         continue;
+      }
       unlink(addr.sun_path);
       exit(0);
    }

@@ -553,7 +553,9 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
                "pause_requested %d, gvs_gdb_run_state %d, waiting for gdb",
                machine.pause_requested,
                vcpu->gdb_vcpu_state.gdb_run_state);
+      vcpu->is_paused = 1;
       km_cond_wait(&machine.pause_cv, &machine.pause_mtx);
+      vcpu->is_paused = 0;
    }
    km_mutex_unlock(&machine.pause_mtx);
 }
