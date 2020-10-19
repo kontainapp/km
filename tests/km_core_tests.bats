@@ -55,8 +55,8 @@ unset KM_VERBOSE
 
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
 if [ "${USE_VIRT}" = 'kkm' ]; then
-   todo_alpine_static+=' sigsuspend popen signals '
-   todo_glibc_static+=' sigsuspend popen signals '
+   todo_alpine_static+=' sigsuspend popen signals sigpipe '
+   todo_glibc_static+=' sigsuspend popen signals sigpipe '
    not_needed_alpine_dynamic=$not_needed_alpine_static
 fi
 
@@ -874,6 +874,11 @@ fi
    run km_with_timeout filepath_test$ext ${DIRNAME} 500
    assert_success
    rm -rf /tmp/${DIRNAME}
+}
+
+@test "sigpipe($test_type): sigpipe delivery (sigpipe_test$ext)" {
+   run km_with_timeout sigpipe_test$ext
+   assert_success
 }
 
 @test "socket($test_type): guest socket operations (socket_test$ext)" {
