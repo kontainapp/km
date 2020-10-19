@@ -15,7 +15,6 @@ SOURCES := km_client.c
 VERSION_SRC := km_client.c # it has branch/version info, so rebuild it if git info changes
 #INCLUDES := ${TOP}/include ${TOP}/km
 #LLIBS := elf z
-COVERAGE := yes
 LOCAL_COPTS := -Werror
 LOCAL_LDOPTS := -Wl,--script=${TOP}/km/km_guest_ldcmd
 
