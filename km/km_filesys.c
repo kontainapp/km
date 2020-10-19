@@ -2345,6 +2345,7 @@ void km_redirect_msgs(const char* name)
         // We need to be able to test having no logging at all.  km could run in a container with
         // read only filesystems and we may not be able to use stderr either.
         snprintf(km_nologging_reason, sizeof(km_nologging_reason), "logging turned off by request");
+        km_tracex("change km logging to none by request");
         return;
       } else {
         fd1 = open(name, O_WRONLY | O_CREAT, 0644);
