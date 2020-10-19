@@ -35,24 +35,31 @@ jobs:
     steps:
       - template: templates/setup.yaml
 
-      - template: templates/build.yaml
+      - bash: |
+          set -e ; [ "$TRACE" ] && set -x
+          # Pull buildenv image from the cloud and install libs needed for build in containers
+          make -C tests pull-buildenv-image .buildenv-local-lib
+          make -j withdocker
+        displayName: KM build
 
-      - bash: make release
+      - bash: make -C tools/faktory all
+        displayName: build faktory
+
+      - bash: cd tools/release; pip install -r requirements.txt
+        displayName: install dependencies
+
+      - bash: make withdocker TARGET=release
         displayName: build release tarball
 
       - bash: |
-          if [[ $(Build.SourceBranch) == refs/heads/releases/*/* ]]; then
-            echo Triggered by testing branch $(Build.SourceBranch), skip creating the actual release ...
-          else
-            make -C km push_release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN) RELEASE_TAG=$(Build.SourceBranch)
-          fi
+          make -C km push_release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN) RELEASE_TAG=$(Build.SourceBranch)
         displayName: push release
 
       # create a temp key pair for passwordless ssh to testing VM
       - bash: ssh-keygen -b 2048 -t rsa -q -N "" -f ~/.ssh/id_rsa
         displayName: creating ssh key pairs
 
-      - bash: cd tools/release/tests; ./test_release_remote.py
+      - bash: cd tools/release/tests; ./test_release_remote.py --version $(Build.SourceBranch)
         displayName: release remote test
 
       - bash: |
