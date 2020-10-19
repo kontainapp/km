@@ -765,21 +765,35 @@ static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, 
  * Forward a signal file descriptor received by KM into the guest signal system.
  * This relies on info->si_fd being populated.
  */
-static void km_forward_fd_signal(int signo, siginfo_t* sinfo, void* ucontext_unused)
+static void km_forward_sigio(int signo, siginfo_t* sinfo, void* ucontext_unused)
 {
    int guest_fd = km_fs_h2g_fd(sinfo->si_fd);
    if (guest_fd < 0) {
       return;
    }
-   siginfo_t info = {.si_signo = signo, .si_code = SI_KERNEL};
+   siginfo_t info = *sinfo;
+   info.si_fd = guest_fd;
+   km_post_signal(NULL, &info);
+}
+
+/*
+ * This is the signal handler for some of the signals sent to km but really are for the payload.
+ * We then propagate these signals on to the vcpu threads. We need to be careful to not take
+ * mutexes that could be held by the thread this signal handler is running on.  The intent is
+ * that signal handler only runs on km's main thread which should only be running gdbstub. So, we
+ * only take mutexes that the km main thread will not be holding.
+ */
+static void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext)
+{
+   siginfo_t info = *sinfo;
    km_post_signal(NULL, &info);
 }
 
 int km_start_vcpus()
 {
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
-   km_install_sighandler(SIGPIPE, km_forward_fd_signal);
-   km_install_sighandler(SIGIO, km_forward_fd_signal);
+   km_install_sighandler(SIGPIPE, km_signal_passthru);
+   km_install_sighandler(SIGIO, km_forward_sigio);
    km_install_sighandler(SIGTERM, km_signal_passthru);
    km_install_sighandler(SIGHUP, km_signal_passthru);
    km_install_sighandler(SIGQUIT, km_signal_passthru);
