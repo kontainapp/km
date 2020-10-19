@@ -6,10 +6,19 @@ detailed explaination of the requirements can be found
 
 # Usage
 
-While we can compile `release.go` into binary, it's easier to use `go run` directly.
-
+Install dependencies:
 ```bash
-go run release.go --help
+pip install -r requirement.txt
+```
+
+If the artifacts released is under `${TOP}/build/kontain.tar.gz`, to run:
+```bash
+./release_km.py ${TOP}/build/kontain.tar.gz --version v0.1-test
+```
+
+For other usages:
+```bash
+./release_km.py -h
 ```
 
 ## Github Personal Access Token (PAT)
@@ -27,14 +36,14 @@ are expected to run where the script is located.
 To run the local test:
 ```bash
 # Optional: make sure /opt/kontain is created with the right ownership
-cd ${TOP}/tools/release/tests/test_release_local; ./test_release_local.py
+cd ${TOP}/tools/release/tests/test_release_local; ./test_release_local.py --version v0.1-test
 ```
 
 To run the remote test:
 ```bash
 # Optional: login into azure
 # Optional: make sure there is a default ssh key generated under $HOME/.ssh/id_rsa
-cd ${TOP}/tools/release/tests; ./test_release_remote.py
+cd ${TOP}/tools/release/tests; ./test_release_remote.py --version v0.1-test
 ```
 
 The same tests is also triggered as part of azure CI. See

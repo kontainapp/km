@@ -86,7 +86,7 @@ Install instructions are in km-release/README.md
 
 ## Languages
 
-* Turns out, the release is more of a tool than script, so writing it in Golang, as oppose to python3.
+* Python3
 
 ## Payload release
 Payload will release a `runenv` image to dockerhub under `docker.io/kontainapp`. Each payload already create
