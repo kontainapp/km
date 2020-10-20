@@ -52,10 +52,11 @@ endif
 BATS_CMD := run_bats_tests.sh --match="${MATCH}" --usevirt="${USEVIRT}" ${IGNORE_FAILURE} ${__BATS_JOBS}
 # this is how we run in outside of container
 TEST_CMD := time ./${BATS_CMD} --km=${KM_BIN} --pretty
+COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${COVERAGE_KM_BIN} --pretty
 # this is how we run tests in containers:
 CONTAINER_TEST_CMD := time -p ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_BIN}/km | \
 	if type ts ; then ts '%b %d %H:%M:%.S'; else cat ; fi
-CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_BIN}/coverage/km
+CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_COVERAGE_BIN}/km
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
 SRC_C := $(abspath $(wildcard *_test.c))
@@ -165,17 +166,9 @@ endif
 
 COVERAGE_SCRIPT := ${CURRENT_DIR}/scripts/coverage.sh
 COVERAGE_REPORT_TITLE := ${IMAGE_VERSION}
-coverage: all ## Build with code coverage, then run tests and generate reports
-	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .coverage
-
-.coverage: test
-	${COVERAGE_SCRIPT} ${TOP}/km ${KM_BLDDIR} ${KM_BLDDIR} ${COVERAGE_REPORT_VERSION}
-
-covclean: ## Clean up code coverage build artifacts
-	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" .cov_clean
-
-.cov_clean:
-	rm -rf ${BLDDIR}
+test-coverage:
+	${COVERAGE_TEST_CMD}
+	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${COVERAGE_REPORT_VERSION}
 
 # Since coverage is only relevent to km, put it here instead of image.mk
 DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage.sh
@@ -189,6 +182,7 @@ DOCKER_COVERAGE_NAME := kontain-coverage-test
 # because all the testfiles are owned by appuser. So the only solution is to let
 # the files be generated inside the container, and docker cp out onto the host.
 coverage-withdocker:
+	-docker rm --force ${DOCKER_COVERAGE_NAME}
 	docker create --device=${HYPERVISOR_DEVICE} --name ${DOCKER_COVERAGE_NAME} ${TEST_IMG_TAGGED} tail -f /dev/null
 	docker start ${DOCKER_COVERAGE_NAME}
 	docker exec ${DOCKER_COVERAGE_NAME} ${CONTAINER_COVERAGE_TEST_CMD}
@@ -211,4 +205,4 @@ MANUAL_UPLOAD_REPORT_NAME := manual-${USER}-${PROCESSED_IMAGE_VERION}
 upload-coverage-manual: .check_vars
 	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME} ${GITHUB_TOKEN}
 
-.PHONY: all clean test help gdb coverage covclean
+.PHONY: all clean test help gdb test-coverage

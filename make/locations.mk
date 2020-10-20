@@ -45,7 +45,6 @@ KM_OPT_BIN := ${KM_OPT}/bin
 KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
 KM_OPT_LDSO := ${KM_OPT_RT}/libc.so
-KM_OPT_KM := ${KM_OPT_BIN}/km
 KM_LDSO := ${BLDTOP}/runtime/libc.so
 KM_LDSO_PATH := ${KM_OPT_RT}:${KM_OPT_ALPINELIB}/usr/lib
 
@@ -54,6 +53,9 @@ KM_LDSO_PATH := ${KM_OPT_RT}:${KM_OPT_ALPINELIB}/usr/lib
 COV_BLDTYPE := coverage
 COVERAGE_KM_BLDDIR := ${BLDTOP}/km/${COV_BLDTYPE}
 COVERAGE_KM_BIN := ${COVERAGE_KM_BLDDIR}/km
+KM_OPT_COVERAGE := ${KM_OPT}/${COV_BLDTYPE}
+KM_OPT_COVERAGE_BIN := ${KM_OPT_COVERAGE}/bin
+KM_OPT_COVERAGE_BIN_KM := ${KM_OPT_COVERAGE_BIN}/km
 
 # dockerized build
 # TODO: Some of these values should be moved to images.mk , but we have multiple
@@ -102,6 +104,13 @@ DOCKER_COVERAGE_KM_BLDDIR := ${DOCKER_BLDTOP}/km/coverage
 
 # These volumes needs to be mapped into runenv images. At the moment, they
 # contain km and km linkers.
+ifeq (${BLDTYPE}, ${COV_BLDTYPE})
+	KM_OPT_BIN_PATH := ${KM_OPT_COVERAGE_BIN}
+else
+	KM_OPT_BIN_PATH := ${KM_OPT_BIN}
+endif
+
+KM_OPT_KM := ${KM_OPT_BIN_PATH}/km
 KM_DOCKER_VOLUME := -v ${KM_OPT_KM}:${KM_OPT_KM}:z -v ${KM_OPT_LDSO}:${KM_OPT_LDSO}:z
 
 # Utility functions for common docker operations.
