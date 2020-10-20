@@ -41,6 +41,8 @@ km_machine_t machine = {
     .kvm_fd = -1,
     .vm_type = VM_TYPE_KVM,
     .mach_fd = -1,
+    .vm_idle_vcpus.head = SLIST_HEAD_INITIALIZER(machine.vm_idle_vcpus.head),
+    .vm_vcpu_mtx = PTHREAD_MUTEX_INITIALIZER,
     .brk_mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal_mutex = PTHREAD_MUTEX_INITIALIZER,
     .sigpending.head = TAILQ_HEAD_INITIALIZER(machine.sigpending.head),
@@ -259,53 +261,37 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
  */
 km_vcpu_t* km_vcpu_get(void)
 {
-   int unused;
-   int i;
+   km_vcpu_t* vcpu;
 
-   // First look for previously used slots
-   for (i = 0; i < KVM_MAX_VCPUS; i++) {
-      km_vcpu_t* vcpu = machine.vm_vcpus[i];
-
-      if (__atomic_load_n(&vcpu, __ATOMIC_SEQ_CST) == NULL) {
-         break;
-      }
-      // if (machine.vm_vcpus[i].is_used == 0) ...is_used = 1;
-      unused = 0;
-      if (__atomic_compare_exchange_n(&vcpu->is_used, &unused, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
-         km_gdb_vcpu_state_init(vcpu);
-         km_vmdriver_vcpu_init(vcpu);
-         return vcpu;
-      }
+   km_mutex_lock(&machine.vm_vcpu_mtx);
+   if ((vcpu = SLIST_FIRST(&machine.vm_idle_vcpus.head)) != 0) {
+      assert(vcpu->is_used == 0);
+      SLIST_REMOVE_HEAD(&machine.vm_idle_vcpus.head, next_idle);
+      km_mutex_unlock(&machine.vm_vcpu_mtx);
+      vcpu->is_used = 1;
+      km_gdb_vcpu_state_init(vcpu);
+      km_vmmonitor_vcpu_init(vcpu);
+      return vcpu;
    }
-   if (i >= KVM_MAX_VCPUS) {
+   // no idle VCPUs, try to allocate a new one
+   if (machine.vm_vcpu_cnt == KVM_MAX_VCPUS || (vcpu = calloc(1, sizeof(km_vcpu_t))) == NULL) {
+      km_mutex_unlock(&machine.vm_vcpu_mtx);
       return NULL;
    }
-   // no unused slots, need to alloc and init a new one
-   km_vcpu_t* new;
-   km_vcpu_t* old = NULL;
+   km_infox(KM_TRACE_VCPU, "Allocating new vcpu-%d", machine.vm_vcpu_cnt);
+   vcpu->vcpu_id = machine.vm_vcpu_cnt++;
 
-   if ((new = calloc(1, sizeof(km_vcpu_t))) == NULL) {
+   vcpu->is_used = 1;
+   if (km_vcpu_init(vcpu) != 0) {
+      km_mutex_unlock(&machine.vm_vcpu_mtx);
+      km_warnx("VCPU init failed");
+      km_vcpu_fini(vcpu);
       return NULL;
    }
-
-   new->is_used = 1;   // so it won't get snatched right after its inserted
-   for (; i < KVM_MAX_VCPUS; i++) {
-      // if (machine.vm_vcpus[i] == NULL) machine.vm_vcpus[i] = new;
-      if (__atomic_compare_exchange_n(&machine.vm_vcpus[i], &old, new, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
-         new->vcpu_id = i;
-         km_infox(KM_TRACE_VCPU, "Allocating new vcpu-%d", i);
-         if (km_vcpu_init(new) < 0) {
-            __atomic_store_n(&machine.vm_vcpus[i], NULL, __ATOMIC_SEQ_CST);
-            break;
-         }
-         km_gdb_vcpu_state_init(new);
-         return new;
-      }
-   }
-   km_warnx("VCPU allocation failed");
-   km_vcpu_fini(new);
-   // km_vcpu_fini(new) frees 'new'
-   return NULL;
+   km_gdb_vcpu_state_init(vcpu);
+   machine.vm_vcpus[vcpu->vcpu_id] = vcpu;
+   km_mutex_unlock(&machine.vm_vcpu_mtx);
+   return vcpu;
 }
 
 /*
@@ -422,11 +408,14 @@ void km_vcpu_pause_all(void)
  */
 void km_vcpu_put(km_vcpu_t* vcpu)
 {
+   km_mutex_lock(&machine.vm_vcpu_mtx);
    vcpu->guest_thr = 0;
-   vcpu->stack_top = 0;
+   // vcpu->stack_top = 0; Reused by slist
    vcpu->is_running = 0;
    vcpu->is_active = 0;
-   __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_used, 0, __ATOMIC_SEQ_CST);
+   vcpu->is_used = 0;
+   SLIST_INSERT_HEAD(&machine.vm_idle_vcpus.head, vcpu, next_idle);
+   km_mutex_unlock(&machine.vm_vcpu_mtx);
 }
 
 /*

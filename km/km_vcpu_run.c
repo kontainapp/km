@@ -745,14 +745,6 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    }
 }
 
-static int km_start_single_vcpu(km_vcpu_t* vcpu, uint64_t arg)
-{
-   if (km_run_vcpu_thread(vcpu, km_vcpu_run) < 0) {
-      km_warnx("cannot start vcpu thread vcpu_id=%d", vcpu->vcpu_id - 1);
-   }
-   return 0;
-}
-
 /*
  * Signal handler. Used when we want VCPU to stop. The signal causes KVM_RUN exit with -EINTR, so
  * the actual handler is noop - it just needs to exist.
@@ -792,7 +784,12 @@ static void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext)
    km_post_signal(NULL, &info);
 }
 
-int km_start_vcpus()
+static int km_start_single_vcpu(km_vcpu_t* vcpu, uint64_t arg)
+{
+   return km_run_vcpu_thread(vcpu);
+}
+
+void km_start_vcpus()
 {
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
    km_install_sighandler(SIGPIPE, km_signal_passthru);
@@ -813,6 +810,7 @@ int km_start_vcpus()
    }
 
    // Start the VCPU's
-   km_vcpu_apply_all(km_start_single_vcpu, 0);
-   return 0;
+   if (km_vcpu_apply_all(km_start_single_vcpu, 0) != 0) {
+      km_err(2, "Failed to start guest");
+   }
 }
