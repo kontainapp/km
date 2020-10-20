@@ -234,23 +234,23 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
  * thread running on that vcpu. .is_running is set/cleared when we enter/exit ioctl(KMV_RUN), so it
  * indicates that vcpu is executing payload instruction.
  */
-int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*))
+int km_run_vcpu_thread(km_vcpu_t* vcpu)
 {
    int rc = 0;
 
    __atomic_add_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt++
    if (vcpu->vcpu_thread == 0) {
-      pthread_attr_t vcpu_thr_att;
+      pthread_attr_t att;
 
-      km_attr_init(&vcpu_thr_att);
-      km_attr_setstacksize(&vcpu_thr_att, 16 * KM_PAGE_SIZE);
+      km_attr_init(&att);
+      km_attr_setstacksize(&att, 16 * KM_PAGE_SIZE);
       km_lock_vcpu_thr(vcpu);
       vcpu->is_active = 1;
-      if ((rc = -pthread_create(&vcpu->vcpu_thread, &vcpu_thr_att, (void* (*)(void*))run, vcpu)) != 0) {
+      if ((rc = -pthread_create(&vcpu->vcpu_thread, &att, (void* (*)(void*))km_vcpu_run, vcpu)) != 0) {
          vcpu->is_active = 0;
       }
       km_unlock_vcpu_thr(vcpu);
-      km_attr_destroy(&vcpu_thr_att);
+      km_attr_destroy(&att);
    } else {
       km_lock_vcpu_thr(vcpu);
       vcpu->is_active = 1;
@@ -259,7 +259,7 @@ int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*))
    }
    if (rc != 0) {
       __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
-      km_err(1, "run_vcpu_thread: failed activating vcpu thread");
+      km_info(KM_TRACE_VCPU, "run_vcpu_thread: failed activating vcpu thread");
    }
    return rc;
 }
@@ -331,7 +331,7 @@ int km_clone(km_vcpu_t* vcpu,
             new_vcpu->vcpu_id,
             new_vcpu->regs.rip,
             new_vcpu->regs.rsp);
-   if (km_run_vcpu_thread(new_vcpu, km_vcpu_run) < 0) {
+   if (km_run_vcpu_thread(new_vcpu) < 0) {
       km_vcpu_put(new_vcpu);
       return -EAGAIN;
    }
