@@ -443,6 +443,9 @@ typedef struct km_signal_kkm_frame {
 /*
  * Signal handler caller stack frame. This is what RSP points at when a guest signal
  * handler is started.
+ *
+ * This structure must be kept in sync with with signal return code in km_guest_asmcode.s
+ * in order for stack unwind to work.
  */
 typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
@@ -495,7 +498,7 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
             km_warn("KVM_GET_FPU failed");
          }
          if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_XSAVE, &kvm_frame->xsave) < 0) {
-            km_warn("KVM_GET_FPU failed");
+            km_warn("KVM_GET_XSAVE failed");
          }
          break;
       }
@@ -539,10 +542,10 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
       case VM_TYPE_KVM: {
          km_signal_kvm_frame_t* kvm_frame = (km_signal_kvm_frame_t*)(frame + 1);
          if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_FPU, &kvm_frame->fpu) < 0) {
-            km_warn("KVM_GET_FPU failed");
+            km_warn("KVM_SET_FPU failed");
          }
          if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_XSAVE, &kvm_frame->xsave) < 0) {
-            km_warn("KVM_GET_FPU failed");
+            km_warn("KVM_SET_XSAVE failed");
          }
          break;
       }
