@@ -116,6 +116,10 @@ typedef struct {
    gdb_event_t event;                  // the thread event that has woken the gdb server
 } gdb_vcpu_state_t;
 
+typedef struct km_vcpu_list {
+   SLIST_HEAD(, km_vcpu) head;
+} km_vcpu_list_t;
+
 /*
  * VPCU state transition:
  * unused/unallocated -> used: .is_used == 1 km_vcpu_get()
@@ -123,6 +127,7 @@ typedef struct {
  * in and out of the guest -> .is_running == 1 km_vcpu_one_kvm_run()
  * and back to unused in km_vcpu_stopped()
  */
+
 typedef struct km_vcpu {
    int vcpu_id;               // uniq ID
    int kvm_vcpu_fd;           // this VCPU file descriptor
@@ -137,8 +142,11 @@ typedef struct km_vcpu {
    uint8_t sregs_valid;       // Are segment registers valid?
    uint8_t in_sigsuspend;     // if true thread is running in the sigsuspend() hypercall
    uint8_t is_paused;         // true if thread is paused at 'km_vcpu_handle_pause'
-   //
-   km_gva_t stack_top;                 // also available in guest_thr
+                              //
+   union {
+      km_gva_t stack_top;               // also available in guest_thr
+      SLIST_ENTRY(km_vcpu) next_idle;   // next in idle list
+   };
    km_gva_t guest_thr;                 // guest pthread, FS reg in the guest
    km_stack_t sigaltstack;             //
    km_gva_t mapself_base;              // delayed unmap address
@@ -203,9 +211,9 @@ void km_signal_machine_fini(void);
 void km_vcpu_fini(km_vcpu_t* vcpu);
 void km_machine_fini(void);
 void kvm_vcpu_init_sregs(km_vcpu_t* vcpu);
-int km_start_vcpus();
+void km_start_vcpus();
 void* km_vcpu_run(km_vcpu_t* vcpu);
-int km_run_vcpu_thread(km_vcpu_t* vcpu, void* run(km_vcpu_t*));
+int km_run_vcpu_thread(km_vcpu_t* vcpu);
 void km_dump_vcpu(km_vcpu_t* vcpu);
 void km_read_registers(km_vcpu_t* vcpu);
 void km_write_registers(km_vcpu_t* vcpu);
@@ -282,8 +290,11 @@ typedef struct km_machine {
    int mach_fd;                               // VM file descriptor
    size_t vm_run_size;                        // size of the run control region
                                               //
+   pthread_mutex_t vm_vcpu_mtx;               // serialize vcpu start/stop, protects four below
    int vm_vcpu_run_cnt;                       // count of still running VCPUs
+   int vm_vcpu_cnt;                           // count of allocated VCPUs
    km_vcpu_t* vm_vcpus[KVM_MAX_VCPUS];        // VCPUs we created
+   km_vcpu_list_t vm_idle_vcpus;              // Parked vcpu ready for reuse
                                               //
    kvm_mem_reg_t vm_mem_regs[KM_MEM_SLOTS];   // guest physical memory regions
    km_gva_t brk;                 // program break (highest address in bottom VA, i.e. txt/data)
