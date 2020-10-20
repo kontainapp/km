@@ -36,11 +36,16 @@ all:	$(CRUNDIR)/Makefile .makefile_check
 $(CRUNDIR)/Makefile:
 	cd $(CRUNDIR); ./autogen.sh; ./configure --disable-systemd
 
+$(CURDIR)/$(CRUNDIR)/krun:
+	cd $(CURDIR)/$(CRUNDIR); ln -s crun krun
+
 # Run crun's tests
-test:	all
+test:	all $(CURDIR)/$(CRUNDIR)/krun
+	OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/krun make -C $(CRUNDIR) check-TESTS
 	OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/crun make -C $(CRUNDIR) check-TESTS
 
 clean::
+	rm $(CURDIR)/$(CRUNDIR)/krun
 	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) clean
 	@# crun's clean removes this file, so git sees it as a change. Restore back to clean
 	cd $(CRUNDIR) && git checkout crun.1
