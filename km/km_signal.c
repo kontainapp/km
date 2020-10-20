@@ -423,19 +423,36 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 }
 
 /*
+ * VM Monitor specific signal frame info for KVM
+ */
+typedef struct km_signal_kvm_frame {
+   struct kvm_fpu fpu;
+   struct kvm_xsave xsave;
+} km_signal_kvm_frame_t;
+
+/*
+ * VM Monitor specific signal frame info for KKM
+ */
+typedef struct km_signal_kkm_frame {
+   uint8_t ksi_valid;
+   uint8_t kx_valid;
+   kkm_save_info_t ksi;
+   kkm_xstate_t kx;
+} km_signal_kkm_frame_t;
+
+/*
  * Signal handler caller stack frame. This is what RSP points at when a guest signal
  * handler is started.
  */
 typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
-   km_hc_args_t hcargs;    // HC argument array for __km_sigreturn.
-   uint64_t rflags;        // saved rflags
-   siginfo_t info;         // Passed to guest signal handler
    ucontext_t ucontext;    // Passed to guest signal handler
-   uint8_t ksi_valid;
-   uint8_t kx_valid;
-   kkm_save_info_t ksi;
-   kkm_xstate_t kx;
+   siginfo_t info;         // Passed to guest signal handler
+   uint64_t rflags;        // saved rflags
+   /*
+    * Followed by monitor dependent state.
+    * km_signal_kvm_frame_t or km_signal_kkm_frame_t
+    */
 } km_signal_frame_t;
 
 #define RED_ZONE (128)
@@ -465,10 +482,26 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
    frame->rflags = vcpu->regs.rflags;
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
 
-   if (machine.vm_type == VM_TYPE_KKM) {
-      frame->ksi_valid = (km_kkm_get_save_info(vcpu, &frame->ksi) == 0) ? 1 : 0;
-
-      frame->kx_valid = (km_kkm_get_xstate(vcpu, &frame->kx) == 0) ? 1 : 0;
+   switch (machine.vm_type) {
+      case VM_TYPE_KKM: {
+         km_signal_kkm_frame_t* kkm_frame = (km_signal_kkm_frame_t*)(frame + 1);
+         kkm_frame->ksi_valid = (km_kkm_get_save_info(vcpu, &kkm_frame->ksi) == 0) ? 1 : 0;
+         kkm_frame->kx_valid = (km_kkm_get_xstate(vcpu, &kkm_frame->kx) == 0) ? 1 : 0;
+         break;
+      }
+      case VM_TYPE_KVM: {
+         km_signal_kvm_frame_t* kvm_frame = (km_signal_kvm_frame_t*)(frame + 1);
+         if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, &kvm_frame->fpu) < 0) {
+            km_warn("KVM_GET_FPU failed");
+         }
+         if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_XSAVE, &kvm_frame->xsave) < 0) {
+            km_warn("KVM_GET_FPU failed");
+         }
+         break;
+      }
+      default:
+         km_warnx("Unrecognized VM monitor type: %d", machine.vm_type);
+         break;
    }
 }
 
@@ -496,10 +529,26 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
    vcpu->regs.rflags = frame->rflags;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
 
-   if (machine.vm_type == VM_TYPE_KKM) {
-      km_kkm_set_save_info(vcpu, frame->ksi_valid, &frame->ksi);
-
-      km_kkm_set_xstate(vcpu, frame->kx_valid, &frame->kx);
+   switch (machine.vm_type) {
+      case VM_TYPE_KKM: {
+         km_signal_kkm_frame_t* kkm_frame = (km_signal_kkm_frame_t*)(frame + 1);
+         km_kkm_set_save_info(vcpu, kkm_frame->ksi_valid, &kkm_frame->ksi);
+         km_kkm_set_xstate(vcpu, kkm_frame->kx_valid, &kkm_frame->kx);
+         break;
+      }
+      case VM_TYPE_KVM: {
+         km_signal_kvm_frame_t* kvm_frame = (km_signal_kvm_frame_t*)(frame + 1);
+         if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_FPU, &kvm_frame->fpu) < 0) {
+            km_warn("KVM_GET_FPU failed");
+         }
+         if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_XSAVE, &kvm_frame->xsave) < 0) {
+            km_warn("KVM_GET_FPU failed");
+         }
+         break;
+      }
+      default:
+         km_warnx("Unrecognized VM monitor type: %d", machine.vm_type);
+         break;
    }
 }
 
@@ -510,6 +559,7 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
  */
 static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigaction_t* act)
 {
+   km_infox(KM_TRACE_SIGNALS, "Enter: signo=%d", info->si_signo);
    vcpu->regs_valid = 0;
    vcpu->sregs_valid = 0;
    km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
@@ -523,8 +573,12 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    } else {
       sframe_gva = vcpu->regs.rsp - RED_ZONE;
    }
+   size_t mstate_size = sizeof(km_signal_kvm_frame_t);
+   if (machine.vm_type == VM_TYPE_KKM) {
+      mstate_size = sizeof(km_signal_kkm_frame_t);
+   }
    // Align stack to 16 bytes per X86_64 ABI.
-   sframe_gva = rounddown(sframe_gva - sizeof(km_signal_frame_t), 16) - 8;
+   sframe_gva = rounddown(sframe_gva - (sizeof(km_signal_frame_t) + mstate_size), 16) - 8;
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
 
    frame->info = *info;
@@ -543,7 +597,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
 
    km_write_registers(vcpu);
 
-   km_info(KM_TRACE_SIGNALS, "Call: RIP 0x%0llx RSP 0x%0llx", vcpu->regs.rip, vcpu->regs.rsp);
+   km_infox(KM_TRACE_SIGNALS, "Call: RIP 0x%0llx RSP 0x%0llx", vcpu->regs.rip, vcpu->regs.rsp);
 }
 
 void km_deliver_next_signal(km_vcpu_t* vcpu)
