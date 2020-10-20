@@ -546,6 +546,22 @@ void km_check_kernel(void)
 }
 
 /*
+ * KVM specific machine setup processing
+ */
+static void km_machine_setup_kvm()
+{
+   // does kvm support xsave?
+   if (ioctl(machine.mach_fd, KVM_CHECK_EXTENSION, KVM_CAP_XSAVE) == 1) {
+      machine.vmtype_u.kvm.xsave = 1;
+   }
+}
+
+static void km_machine_setup_kkm()
+{
+   // TODO: is there anything to do here?
+}
+
+/*
  * initial steps setting our VM
  *
  * talk to KVM
@@ -687,6 +703,20 @@ void km_machine_setup(km_machine_init_params_t* params)
          }
          machine.guest_max_physmem = params->guest_physmem;
       }
+   }
+
+   /*
+    * VM driver specific initialization.
+    */
+   switch (machine.vm_type) {
+      case VM_TYPE_KVM:
+         km_machine_setup_kvm();
+         break;
+      case VM_TYPE_KKM:
+         km_machine_setup_kkm();
+         break;
+      default:
+         km_errx(2, "Unrecognized VM driver type %d", machine.vm_type);
    }
 }
 

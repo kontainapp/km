@@ -321,6 +321,16 @@ typedef struct km_machine {
    pid_t ppid;           // parent pid, 1 for the leader
    pid_t pid;            // the payload's km pid
    pid_t next_pid;       // the pid for a forked payload process
+
+   // VM Driver Specific Information
+   union {
+      // KVM specific data
+      struct {
+         uint8_t xsave;   // Is KVM_GET_XSAVE supported.
+      } kvm;
+      // TBD Add KKM specific data (if any).
+      int dummy;
+   } vmtype_u;
 } km_machine_t;
 
 extern km_machine_t machine;

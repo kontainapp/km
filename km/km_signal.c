@@ -423,14 +423,6 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 }
 
 /*
- * VM Monitor specific signal frame info for KVM
- */
-typedef struct km_signal_kvm_frame {
-   struct kvm_fpu fpu;
-   struct kvm_xsave xsave;
-} km_signal_kvm_frame_t;
-
-/*
  * VM Monitor specific signal frame info for KKM
  */
 typedef struct km_signal_kkm_frame {
@@ -454,7 +446,10 @@ typedef struct km_signal_frame {
    uint64_t rflags;        // saved rflags
    /*
     * Followed by monitor dependent state.
-    * km_signal_kvm_frame_t or km_signal_kkm_frame_t
+    * For KVM this depends on the value of KVM_CAP_XSAVE.
+    *   struct kvm_xsave if XSAVE is enabled
+    *   struct kvm_fpu otherwise
+    * For KKM this is km_signal_kkm_frame_t.
     */
 } km_signal_frame_t;
 
@@ -493,12 +488,15 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
          break;
       }
       case VM_TYPE_KVM: {
-         km_signal_kvm_frame_t* kvm_frame = (km_signal_kvm_frame_t*)(frame + 1);
-         if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, &kvm_frame->fpu) < 0) {
-            km_warn("KVM_GET_FPU failed");
-         }
-         if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_XSAVE, &kvm_frame->xsave) < 0) {
-            km_warn("KVM_GET_XSAVE failed");
+         void* kvm_frame = (frame + 1);
+         if (machine.vmtype_u.kvm.xsave == 0) {
+            if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, kvm_frame) < 0) {
+               km_warn("KVM_GET_FPU failed");
+            }
+         } else {
+            if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_XSAVE, kvm_frame) < 0) {
+               km_warn("KVM_GET_XSAVE failed");
+            }
          }
          break;
       }
@@ -540,12 +538,15 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
          break;
       }
       case VM_TYPE_KVM: {
-         km_signal_kvm_frame_t* kvm_frame = (km_signal_kvm_frame_t*)(frame + 1);
-         if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_FPU, &kvm_frame->fpu) < 0) {
-            km_warn("KVM_SET_FPU failed");
-         }
-         if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_XSAVE, &kvm_frame->xsave) < 0) {
-            km_warn("KVM_SET_XSAVE failed");
+         void* kvm_frame = (frame + 1);
+         if (machine.vmtype_u.kvm.xsave == 0) {
+            if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_FPU, kvm_frame) < 0) {
+               km_warn("KVM_SET_FPU failed");
+            }
+         } else {
+            if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_XSAVE, kvm_frame) < 0) {
+               km_warn("KVM_SET_XSAVE failed");
+            }
          }
          break;
       }
@@ -576,12 +577,19 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    } else {
       sframe_gva = vcpu->regs.rsp - RED_ZONE;
    }
-   size_t mstate_size = sizeof(km_signal_kvm_frame_t);
-   if (machine.vm_type == VM_TYPE_KKM) {
-      mstate_size = sizeof(km_signal_kkm_frame_t);
+   // Calculate size of saved floating point state (depends on VM driver)
+   size_t fstate_size = 0;
+   switch (machine.vm_type) {
+      case VM_TYPE_KVM:
+         fstate_size =
+             (machine.vmtype_u.kvm.xsave == 0) ? sizeof(struct kvm_fpu) : sizeof(struct kvm_xsave);
+         break;
+      case VM_TYPE_KKM:
+         fstate_size = sizeof(km_signal_kkm_frame_t);
+         break;
    }
    // Align stack to 16 bytes per X86_64 ABI.
-   sframe_gva = rounddown(sframe_gva - (sizeof(km_signal_frame_t) + mstate_size), 16) - 8;
+   sframe_gva = rounddown(sframe_gva - (sizeof(km_signal_frame_t) + fstate_size), 16) - 8;
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
 
    frame->info = *info;
