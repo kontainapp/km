@@ -70,6 +70,9 @@ static void km_fork_setup_child_vmstate(void)
    km_infox(KM_TRACE_FORK, "begin");
 
    // Reinit some fields in machine.  We do not want a structure assignment here.
+
+   SLIST_INIT(&machine.vm_idle_vcpus.head);
+   machine.vm_vcpu_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    machine.brk_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    machine.signal_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    TAILQ_INIT(&machine.sigpending.head);

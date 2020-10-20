@@ -652,9 +652,7 @@ int main(int argc, char* argv[])
       km_close_stdio(log_to_fd);
    }
 
-   if (km_start_vcpus() < 0) {
-      km_err(2, "Failed to start guest");
-   }
+   km_start_vcpus();
 
    if (km_gdb_is_enabled() == 1) {
       if (gdbstub.wait_for_attach != GDB_DONT_WAIT_FOR_ATTACH) {
