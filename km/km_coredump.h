@@ -33,6 +33,21 @@
 #define KM_NT_NAME "KMSP"
 
 /*
+ * Information about the KM monitor environment that
+ * created the coredump.
+ */
+typedef struct km_nt_monitor {
+   Elf64_Word monitor_type;
+} km_nt_monitor_t;
+#define NT_KM_MONITOR 0x4b4d4d4e   // "KMMN" no null term
+
+/*
+ * monitor_type values
+ */
+#define KM_NT_MONITOR_TYPE_KVM 0
+#define KM_NT_MONITOR_TYPE_KKM 1
+
+/*
  * KM specific per-VCPU state (NT_KM_VCPU)
  * for snapshot recovery
  */
