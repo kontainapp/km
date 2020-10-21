@@ -221,18 +221,14 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
 }
 
 /*
- * vcpu was obtained by km_vcpu_get() and has .is_used set. The registers and memory is fully
- * prepared to go. We need to create a thread if this is brand new vcpu, or signal the thread if it
- * is reused vcpu. We use .is_active to make sure the thread starts running when we really mean it.
+ * vcpu was obtained by km_vcpu_get(), state is STARTING. The registers and memory is fully prepared
+ * to go. We need to create a thread if this is brand new vcpu, or signal the thread if it is reused
+ * vcpu. Setting state to HYPERCALL signals the thread to start running.
  *
  * machine.vm_vcpu_run_cnt **is not**the same as number of used vcpu slots, it is a number of active
  * running vcpu threads. It is adjusted up right before vcpu thread starts, and down when an vcpu
  * exits, in km_vcpu_stopped(). If the vm_vcpu_run_cnt drops to 0 there are no running vcpus any
  * more, payload is done.
- *
- * Don't confuse .is_running with .is_active. The latter is set here and means there is active
- * thread running on that vcpu. .is_running is set/cleared when we enter/exit ioctl(KMV_RUN), so it
- * indicates that vcpu is executing payload instruction.
  */
 int km_run_vcpu_thread(km_vcpu_t* vcpu)
 {
@@ -245,21 +241,22 @@ int km_run_vcpu_thread(km_vcpu_t* vcpu)
       km_attr_init(&att);
       km_attr_setstacksize(&att, 16 * KM_PAGE_SIZE);
       km_lock_vcpu_thr(vcpu);
-      vcpu->is_active = 1;
+      vcpu->state = HYPERCALL;
       if ((rc = -pthread_create(&vcpu->vcpu_thread, &att, (void* (*)(void*))km_vcpu_run, vcpu)) != 0) {
-         vcpu->is_active = 0;
+         vcpu->state = PARKED_IDLE;
       }
       km_unlock_vcpu_thr(vcpu);
       km_attr_destroy(&att);
    } else {
       km_lock_vcpu_thr(vcpu);
-      vcpu->is_active = 1;
+      vcpu->state = HYPERCALL;
       km_cond_signal(&vcpu->thr_cv);
       km_unlock_vcpu_thr(vcpu);
    }
    if (rc != 0) {
       __atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST);   // vm_vcpu_run_cnt--
       km_info(KM_TRACE_VCPU, "run_vcpu_thread: failed activating vcpu thread");
+      km_vcpu_fini(vcpu);
    }
    return rc;
 }
@@ -274,7 +271,7 @@ void km_vcpu_stopped(km_vcpu_t* vcpu)
    if (__atomic_sub_fetch(&machine.vm_vcpu_run_cnt, 1, __ATOMIC_SEQ_CST) == 0) {
       km_signal_machine_fini();
    }
-   while (vcpu->is_active == 0) {
+   while (vcpu->state != HYPERCALL) {
       km_cond_wait(&vcpu->thr_cv, &vcpu->thr_mtx);
    }
    km_unlock_vcpu_thr(vcpu);
