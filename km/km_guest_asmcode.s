@@ -19,6 +19,13 @@
  */
 .include "km_guest.asmh"
 
+    .section .km_guest_text, "ax", @progbits	
+    .align 16	
+__km_sigreturn:	
+    .type __km_sigreturn, @function	
+    .global __km_sigreturn
+    mov $15, %rax
+	syscall
 /*
  * Trampoline for x86 exception and interrupt handling. IDT entries point here.
  */

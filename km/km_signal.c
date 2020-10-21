@@ -35,6 +35,11 @@
 #include "km_signal.h"
 #include "km_snapshot.h"
 
+// SA_RESTORER is GNU/Linux i386/amd64 specific.
+#ifndef SA_RESTORER
+#define SA_RESTORER 0x4000000
+#endif
+
 /*
  * Threads that wait for a signal's arrive are enqueued on the km_signal_wait_queue until the signal
  * arrives.  Each vcpu has its own condition variable that it waits on.
@@ -527,7 +532,11 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
 
    frame->info = *info;
    save_signal_context(vcpu, frame);
-   frame->return_addr = act->restorer;
+   if ((act->sa_flags & SA_RESTORER) != 0) {
+      frame->return_addr = act->restorer;
+   } else {
+      frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
+   }
    if ((act->sa_flags & SA_SIGINFO) != 0) {
       vcpu->sigmask |= act->sa_mask;
    }
