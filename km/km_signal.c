@@ -480,30 +480,8 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
    frame->rflags = vcpu->regs.rflags;
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
 
-   switch (machine.vm_type) {
-      case VM_TYPE_KKM: {
-         km_signal_kkm_frame_t* kkm_frame = (km_signal_kkm_frame_t*)(frame + 1);
-         kkm_frame->ksi_valid = (km_kkm_get_save_info(vcpu, &kkm_frame->ksi) == 0) ? 1 : 0;
-         kkm_frame->kx_valid = (km_kkm_get_xstate(vcpu, &kkm_frame->kx) == 0) ? 1 : 0;
-         break;
-      }
-      case VM_TYPE_KVM: {
-         void* kvm_frame = (frame + 1);
-         if (machine.vmtype_u.kvm.xsave == 0) {
-            if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, kvm_frame) < 0) {
-               km_warn("KVM_GET_FPU failed");
-            }
-         } else {
-            if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_XSAVE, kvm_frame) < 0) {
-               km_warn("KVM_GET_XSAVE failed");
-            }
-         }
-         break;
-      }
-      default:
-         km_warnx("Unrecognized VM monitor type: %d", machine.vm_type);
-         break;
-   }
+   void* fp_frame = (frame + 1);
+   km_vmdriver_save_signal(vcpu, fp_frame);
 }
 
 static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame)
@@ -530,30 +508,8 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
    vcpu->regs.rflags = frame->rflags;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
 
-   switch (machine.vm_type) {
-      case VM_TYPE_KKM: {
-         km_signal_kkm_frame_t* kkm_frame = (km_signal_kkm_frame_t*)(frame + 1);
-         km_kkm_set_save_info(vcpu, kkm_frame->ksi_valid, &kkm_frame->ksi);
-         km_kkm_set_xstate(vcpu, kkm_frame->kx_valid, &kkm_frame->kx);
-         break;
-      }
-      case VM_TYPE_KVM: {
-         void* kvm_frame = (frame + 1);
-         if (machine.vmtype_u.kvm.xsave == 0) {
-            if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_FPU, kvm_frame) < 0) {
-               km_warn("KVM_SET_FPU failed");
-            }
-         } else {
-            if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_XSAVE, kvm_frame) < 0) {
-               km_warn("KVM_SET_XSAVE failed");
-            }
-         }
-         break;
-      }
-      default:
-         km_warnx("Unrecognized VM monitor type: %d", machine.vm_type);
-         break;
-   }
+   void* fp_frame = (frame + 1);
+   km_vmdriver_restore_signal(vcpu, fp_frame);
 }
 
 /*
@@ -578,16 +534,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
       sframe_gva = vcpu->regs.rsp - RED_ZONE;
    }
    // Calculate size of saved floating point state (depends on VM driver)
-   size_t fstate_size = 0;
-   switch (machine.vm_type) {
-      case VM_TYPE_KVM:
-         fstate_size =
-             (machine.vmtype_u.kvm.xsave == 0) ? sizeof(struct kvm_fpu) : sizeof(struct kvm_xsave);
-         break;
-      case VM_TYPE_KKM:
-         fstate_size = sizeof(km_signal_kkm_frame_t);
-         break;
-   }
+   size_t fstate_size = km_vmdriver_signal_size();
    // Align stack to 16 bytes per X86_64 ABI.
    sframe_gva = rounddown(sframe_gva - (sizeof(km_signal_frame_t) + fstate_size), 16) - 8;
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);

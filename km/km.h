@@ -661,4 +661,13 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg);
 void* km_find_faulting_address(km_vcpu_t* vcpu);
 void km_x86decode(km_vcpu_t* vcpu);
 
+// km_vmdriver.c
+void km_vmdriver_machine_init();
+void km_vmdriver_vcpu_init(km_vcpu_t* vcpu);
+int km_vmdriver_lowest_kernel();
+size_t km_vmdriver_signal_size();
+void km_vmdriver_save_signal(km_vcpu_t* vcpu, void* addr);
+void km_vmdriver_restore_signal(km_vcpu_t* vcpu, void* addr);
+void km_vmdriver_clone(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);
+
 #endif /* #ifndef __KM_H__ */
