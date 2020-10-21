@@ -123,11 +123,13 @@ typedef struct km_vcpu_list {
 // VPCU state
 typedef enum {
    PARKED_IDLE = 0,   // Idle, parked for reuse. Thread waits on thr_cv or doesn't exist. VCPU
-                      // queued in SLIST off off machine.vm_idle_vcpus
+                      // queued in SLIST off of machine.vm_idle_vcpus
    STARTING,   // Being initialized. Thread waits on thr_cv or doesn't exist. VCPU removed from the SLIST
-   HYPERCALL,   // Running in KM
-   IN_GUEST,    // Running in ioctl( KVM_RUN )
-   PAUSED       // paused in km_vcpu_handle_pause
+   HYPERCALL,    // Running in KM
+   HCALL_INT,    // Hypercall was interrupted by KM_SIGVCPUSTOP
+   UHYPERCALL,   // Running in KM in uninterruptible hypercall, e.g. mmap or clone
+   IN_GUEST,     // Running in ioctl( KVM_RUN )
+   PAUSED        // Paused in km_vcpu_handle_pause
 } km_vcpu_state_t;
 
 typedef struct km_vcpu {

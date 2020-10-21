@@ -75,11 +75,28 @@ static inline uint64_t km_gva_to_kml(uint64_t gva)
    return (uint64_t)km_gva_to_kma(gva);
 }
 
+// critical section for uninterruptible hypercalls
+
+static sigset_t sigvcpustop;
+static void km_enter_uhcall(km_vcpu_t* vcpu)
+{
+   int rc = sigprocmask(SIG_BLOCK, &sigvcpustop, NULL);
+   assert(rc == 0);
+   vcpu->state = UHYPERCALL;
+}
+
+static void km_exit_uhcall(void* vcpu)
+{
+   int rc = sigprocmask(SIG_UNBLOCK, &sigvcpustop, NULL);
+   assert(rc == 0);
+}
+
 /*
  * FS reg used to store guest_thread pointer
  */
 static km_hc_ret_t arch_prctl_hcall(void* v, int hc, km_hc_args_t* arg)
 {
+   km_enter_uhcall(v);
    // int arch_prctl(int code, unsigned long addr);
    // int arch_prctl(int code, unsigned long* addr);
    km_vcpu_t* vcpu = v;
@@ -112,6 +129,7 @@ static km_hc_ret_t arch_prctl_hcall(void* v, int hc, km_hc_args_t* arg)
          arg->hc_ret = -ENOTSUP;
          break;
    }
+   km_exit_uhcall(v);
    return HC_CONTINUE;
 }
 
@@ -437,7 +455,9 @@ static km_hc_ret_t shutdown_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t brk_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   km_enter_uhcall(vcpu);
    arg->hc_ret = km_mem_brk(arg->arg1);
+   km_exit_uhcall(vcpu);
    return HC_CONTINUE;
 }
 
@@ -472,20 +492,25 @@ static km_hc_ret_t futex_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t mmap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   km_enter_uhcall(vcpu);
    // void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
    arg->hc_ret = km_guest_mmap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, arg->arg6);
+   km_exit_uhcall(vcpu);
    return HC_CONTINUE;
 };
 
 static km_hc_ret_t munmap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   km_enter_uhcall(vcpu);
    // int munmap(void *addr, size_t length);
    arg->hc_ret = km_guest_munmap(vcpu, arg->arg1, arg->arg2);
+   km_exit_uhcall(vcpu);
    return HC_CONTINUE;
 };
 
 static km_hc_ret_t mremap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   km_enter_uhcall(vcpu);
    // void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ... /* void
    // *new_address */);
    if (km_gva_to_kma(arg->arg1) == NULL) {
@@ -493,13 +518,16 @@ static km_hc_ret_t mremap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    } else {
       arg->hc_ret = km_guest_mremap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5);
    }
+   km_exit_uhcall(vcpu);
    return HC_CONTINUE;
 };
 
 static km_hc_ret_t mprotect_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   km_enter_uhcall(vcpu);
    //  int mprotect(void *addr, size_t len, int prot);
    arg->hc_ret = km_guest_mprotect(arg->arg1, arg->arg2, arg->arg3);
+   km_exit_uhcall(vcpu);
    return HC_CONTINUE;
 };
 
@@ -554,17 +582,21 @@ static km_hc_ret_t clock_time_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t madvise_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   km_enter_uhcall(vcpu);
    // int madvise(void* addr, size_t length, int advice);
    km_infox(KM_TRACE_HC, "hc = %d (madvise), %ld %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3);
    arg->hc_ret = km_guest_madvise(arg->arg1, arg->arg2, arg->arg3);
+   km_exit_uhcall(vcpu);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t msync_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   km_enter_uhcall(vcpu);
    // int msync(void *addr, size_t length, int flags);
    km_infox(KM_TRACE_HC, "hc = %d (msync), %ld %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3);
    arg->hc_ret = km_guest_msync(arg->arg1, arg->arg2, arg->arg3);
+   km_exit_uhcall(vcpu);
    return HC_CONTINUE;
 }
 
@@ -987,7 +1019,9 @@ static km_hc_ret_t gettid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t guest_interrupt_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   km_enter_uhcall(vcpu);
    km_handle_interrupt(vcpu);
+   km_exit_uhcall(vcpu);
    return HC_CONTINUE;
 }
 
@@ -1029,7 +1063,9 @@ static km_hc_ret_t rt_sigaction_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t rt_sigreturn_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   km_enter_uhcall(vcpu);
    km_rt_sigreturn(vcpu);   // don't care about arg or return code.
+   km_exit_uhcall(vcpu);
    return HC_CONTINUE;
 }
 
@@ -1873,6 +1909,9 @@ void km_hcalls_init(void)
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_unmapself] = unmapself_hcall;
    km_hcalls_table[HC_snapshot] = snapshot_hcall;
+
+   sigemptyset(&sigvcpustop);
+   sigaddset(&sigvcpustop, KM_SIGVCPUSTOP);
 
    if (km_collect_hc_stats == 1) {
       if ((km_hcalls_stats = calloc(KM_MAX_HCALL, sizeof(km_hc_stats_t))) == NULL) {
