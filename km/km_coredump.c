@@ -481,6 +481,19 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
    cur += ret;
    remain -= ret;
 
+   /*
+    * Add KM monitor info
+    */
+   cur += km_add_note_header(cur, remain, KM_NT_NAME, NT_KM_MONITOR, sizeof(km_nt_monitor_t));
+   remain -= sizeof(km_nt_monitor_t);
+   km_nt_monitor_t* monitor = (km_nt_monitor_t*)cur;
+   *monitor = (km_nt_monitor_t){.monitor_type = KM_NT_MONITOR_TYPE_KVM};
+   if (machine.vm_type == VM_TYPE_KKM) {
+      monitor->monitor_type = KM_NT_MONITOR_TYPE_KKM;
+   }
+   cur += sizeof(km_nt_monitor_t);
+   remain -= sizeof(km_nt_monitor_t);
+
    assert(cur <= buf + size);
    // TODO: Other notes sections in real core files.
    //  NT_PRPSINFO (prpsinfo structure)
@@ -551,6 +564,7 @@ static inline size_t km_core_notes_length(km_vcpu_t* vcpu)
        (km_note_header_size(KM_NT_NAME) + sizeof(struct elf_prstatus)) * (nvcpu + nvcpu_inc);
    alloclen += km_mappings_size(NULL, NULL) + strlen(KM_NT_NAME) + sizeof(Elf64_Nhdr);
    alloclen += machine.auxv_size + km_note_header_size(KM_NT_NAME);
+   alloclen += sizeof(km_nt_monitor_t) + km_note_header_size(KM_NT_NAME);
 
    // Kontain specific per CPU info (for snapshot restore)
    alloclen += (km_note_header_size(KM_NT_NAME) + sizeof(struct km_nt_vcpu)) * nvcpu;

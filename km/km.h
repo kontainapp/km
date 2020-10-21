@@ -321,6 +321,16 @@ typedef struct km_machine {
    pid_t ppid;           // parent pid, 1 for the leader
    pid_t pid;            // the payload's km pid
    pid_t next_pid;       // the pid for a forked payload process
+
+   // VM Driver Specific Information
+   union {
+      // KVM specific data
+      struct {
+         uint8_t xsave;   // Is KVM_GET_XSAVE supported.
+      } kvm;
+      // TBD Add KKM specific data (if any).
+      int dummy;
+   } vmtype_u;
 } km_machine_t;
 
 extern km_machine_t machine;
@@ -650,5 +660,14 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg);
 // km_decode.c
 void* km_find_faulting_address(km_vcpu_t* vcpu);
 void km_x86decode(km_vcpu_t* vcpu);
+
+// km_vmdriver.c
+void km_vmdriver_machine_init();
+void km_vmdriver_vcpu_init(km_vcpu_t* vcpu);
+int km_vmdriver_lowest_kernel();
+size_t km_vmdriver_signal_size();
+void km_vmdriver_save_signal(km_vcpu_t* vcpu, void* addr);
+void km_vmdriver_restore_signal(km_vcpu_t* vcpu, void* addr);
+void km_vmdriver_clone(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);
 
 #endif /* #ifndef __KM_H__ */
