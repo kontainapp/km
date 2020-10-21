@@ -423,16 +423,6 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 }
 
 /*
- * VM Monitor specific signal frame info for KKM
- */
-typedef struct km_signal_kkm_frame {
-   uint8_t ksi_valid;
-   uint8_t kx_valid;
-   kkm_save_info_t ksi;
-   kkm_xstate_t kx;
-} km_signal_kkm_frame_t;
-
-/*
  * Signal handler caller stack frame. This is what RSP points at when a guest signal
  * handler is started.
  *
