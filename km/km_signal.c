@@ -425,17 +425,22 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 /*
  * Signal handler caller stack frame. This is what RSP points at when a guest signal
  * handler is started.
+ *
+ * This structure must be kept in sync with with signal return code in km_guest_asmcode.s
+ * in order for stack unwind to work.
  */
 typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
-   km_hc_args_t hcargs;    // HC argument array for __km_sigreturn.
-   uint64_t rflags;        // saved rflags
-   siginfo_t info;         // Passed to guest signal handler
    ucontext_t ucontext;    // Passed to guest signal handler
-   uint8_t ksi_valid;
-   uint8_t kx_valid;
-   kkm_save_info_t ksi;
-   kkm_xstate_t kx;
+   siginfo_t info;         // Passed to guest signal handler
+   uint64_t rflags;        // saved rflags
+   /*
+    * Followed by monitor dependent state.
+    * For KVM this depends on the value of KVM_CAP_XSAVE.
+    *   struct kvm_xsave if XSAVE is enabled
+    *   struct kvm_fpu otherwise
+    * For KKM this is km_signal_kkm_frame_t.
+    */
 } km_signal_frame_t;
 
 #define RED_ZONE (128)
@@ -465,11 +470,8 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
    frame->rflags = vcpu->regs.rflags;
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
 
-   if (machine.vm_type == VM_TYPE_KKM) {
-      frame->ksi_valid = (km_kkm_get_save_info(vcpu, &frame->ksi) == 0) ? 1 : 0;
-
-      frame->kx_valid = (km_kkm_get_xstate(vcpu, &frame->kx) == 0) ? 1 : 0;
-   }
+   void* fp_frame = (frame + 1);
+   km_vmdriver_save_signal(vcpu, fp_frame);
 }
 
 static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame)
@@ -496,11 +498,8 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
    vcpu->regs.rflags = frame->rflags;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
 
-   if (machine.vm_type == VM_TYPE_KKM) {
-      km_kkm_set_save_info(vcpu, frame->ksi_valid, &frame->ksi);
-
-      km_kkm_set_xstate(vcpu, frame->kx_valid, &frame->kx);
-   }
+   void* fp_frame = (frame + 1);
+   km_vmdriver_restore_signal(vcpu, fp_frame);
 }
 
 /*
@@ -510,6 +509,7 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
  */
 static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigaction_t* act)
 {
+   km_infox(KM_TRACE_SIGNALS, "Enter: signo=%d", info->si_signo);
    vcpu->regs_valid = 0;
    vcpu->sregs_valid = 0;
    km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
@@ -523,8 +523,10 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
    } else {
       sframe_gva = vcpu->regs.rsp - RED_ZONE;
    }
+   // Calculate size of saved floating point state (depends on VM driver)
+   size_t fstate_size = km_vmdriver_signal_size();
    // Align stack to 16 bytes per X86_64 ABI.
-   sframe_gva = rounddown(sframe_gva - sizeof(km_signal_frame_t), 16) - 8;
+   sframe_gva = rounddown(sframe_gva - (sizeof(km_signal_frame_t) + fstate_size), 16) - 8;
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
 
    frame->info = *info;
@@ -543,7 +545,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
 
    km_write_registers(vcpu);
 
-   km_info(KM_TRACE_SIGNALS, "Call: RIP 0x%0llx RSP 0x%0llx", vcpu->regs.rip, vcpu->regs.rsp);
+   km_infox(KM_TRACE_SIGNALS, "Call: RIP 0x%0llx RSP 0x%0llx", vcpu->regs.rip, vcpu->regs.rsp);
 }
 
 void km_deliver_next_signal(km_vcpu_t* vcpu)

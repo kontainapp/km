@@ -254,21 +254,6 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
 }
 
 /*
- * KKM driver keeps debug and syscall state.
- * When KM reuses VCPU this state becomes stale.
- * This ioctl bring KKM and KM state to sync.
- */
-static inline int km_vmmonitor_vcpu_init(km_vcpu_t* vcpu)
-{
-   int retval = 0;
-
-   if (machine.vm_type == VM_TYPE_KKM) {
-      km_kkm_vcpu_init(vcpu);
-   }
-   return retval;
-}
-
-/*
  * km_vcpu_get() atomically finds the first vcpu slot that can be used for a new vcpu. It could be
  * previously used slot left by exited thread, or a new one. vcpu->is_used == 0 marks the unused slot.
  */
@@ -288,10 +273,7 @@ km_vcpu_t* km_vcpu_get(void)
       unused = 0;
       if (__atomic_compare_exchange_n(&vcpu->is_used, &unused, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
          km_gdb_vcpu_state_init(vcpu);
-         if (km_vmmonitor_vcpu_init(vcpu) != 0) {
-            __atomic_store_n(&machine.vm_vcpus[vcpu->vcpu_id]->is_used, 0, __ATOMIC_SEQ_CST);
-            continue;
-         }
+         km_vmdriver_vcpu_init(vcpu);
          return vcpu;
       }
    }
@@ -475,25 +457,6 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg)
    return 0;
 }
 
-/*
- * KKM clone child handling changes depending on
- * child is created using hypercall or syscall.
- * Parent save this information in cpu_run area next to io data.
- * Copy this from parent to child
- */
-static inline void km_vmmonitor_clone(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
-{
-   kvm_run_t* parent_r = vcpu->cpu_run;
-   uint32_t offset = parent_r->io.data_offset;
-
-   if (machine.vm_type == VM_TYPE_KKM) {
-      // copy KKM blob from parent to child currently 8 bytes
-      *(uint64_t*)((km_kma_t)new_vcpu->cpu_run + offset) =
-          *(uint64_t*)((km_kma_t)vcpu->cpu_run + offset);
-      new_vcpu->regs.rax = 0;
-   }
-}
-
 int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 {
    kvm_vcpu_init_sregs(new_vcpu);
@@ -508,7 +471,7 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    new_vcpu->regs = vcpu->regs;
    new_vcpu->regs.rsp = sp;
    *((uint64_t*)km_gva_to_kma_nocheck(sp)) = 0;   // hc return value
-   km_vmmonitor_clone(vcpu, new_vcpu);
+   km_vmdriver_clone(vcpu, new_vcpu);
    new_vcpu->regs_valid = 1;
 
    km_write_registers(new_vcpu);
@@ -519,9 +482,6 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    }
    return 0;
 }
-
-static const int KVM_OLDEST_KERNEL = 0x040f;   // Ubuntu 16.04 with 4.15 kernel
-static const int KKM_OLDEST_KERNEL = 0x0500;   // KKM only tested on 5+ for now
 
 void km_check_kernel(void)
 {
@@ -535,13 +495,13 @@ void km_check_kernel(void)
    if (sscanf(uts.release, "%d.%d", &mj, &mn) != 2) {
       km_errx(3, "Unexpected kernel version format %s", uts.release);
    }
-   int oldest_kernel = (machine.vm_type == VM_TYPE_KVM) ? KVM_OLDEST_KERNEL : KKM_OLDEST_KERNEL;
+   int oldest_kernel = km_vmdriver_lowest_kernel();
    if (mj * 0x100 + mn < oldest_kernel) {
       km_errx(3,
               "Kernel %s is too old. The oldest supported kernel is %d.%d",
               uts.release,
-              KVM_OLDEST_KERNEL / 0x100,
-              KVM_OLDEST_KERNEL % 0x100);
+              km_vmdriver_lowest_kernel() / 0x100,
+              km_vmdriver_lowest_kernel() % 0x100);
    }
 }
 
@@ -592,6 +552,12 @@ void km_machine_setup(km_machine_init_params_t* params)
          }
          break;
    }
+
+   /*
+    * VM Driver specific initialization
+    */
+   km_vmdriver_machine_init();   // initialize vmdriver specifics
+
    km_check_kernel();   // exit there if too old
    if ((rc = ioctl(machine.kvm_fd, KVM_GET_API_VERSION, 0)) < 0) {
       km_err(1, "KVM: get API version failed");
