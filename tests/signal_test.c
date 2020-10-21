@@ -347,6 +347,42 @@ TEST test_thread_stack_alignment()
    PASS();
 }
 
+void floating_point_sigaction(int signo, siginfo_t* info, void* uc)
+{
+   uint64_t two = 2;
+   asm volatile("movq %0, %%xmm0"
+                : /* No output */
+                : "r"(two)
+                : "%xmm0");
+}
+
+TEST test_floating_point_restore()
+{
+   struct sigaction sa = {.sa_sigaction = floating_point_sigaction, .sa_flags = SA_SIGINFO};
+   struct sigaction old_sa = {};
+
+   ASSERT_EQ(0, sigaction(SIGUSR1, &sa, &old_sa));
+   uint64_t one = 1;
+   // Set XMM0
+   asm volatile("movq %0, %%xmm0"
+                : /* No output */
+                : "r"(one)
+                : "%xmm0");
+
+   // signal handler clobbers XMM0
+   kill(0, SIGUSR1);
+
+   // ensure XMM0 is restored after signal.
+   uint64_t val = -1;
+   asm volatile("movq %%xmm0, %0"
+                : "=r"(val)
+                : /* No input */
+                :);
+   ASSERT_EQ(one, val);
+   ASSERT_EQ(0, sigaction(SIGUSR1, &old_sa, NULL));
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -368,6 +404,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_sigmask);
    RUN_TEST(test_safepoint);
    RUN_TEST(test_thread_stack_alignment);
+   RUN_TEST(test_floating_point_restore);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
