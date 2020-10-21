@@ -120,13 +120,15 @@ typedef struct km_vcpu_list {
    SLIST_HEAD(, km_vcpu) head;
 } km_vcpu_list_t;
 
-/*
- * VPCU state transition:
- * unused/unallocated -> used: .is_used == 1 km_vcpu_get()
- * used -> active: .is_active == 1 km_run_vcpu_thread()
- * in and out of the guest -> .is_running == 1 km_vcpu_one_kvm_run()
- * and back to unused in km_vcpu_stopped()
- */
+// VPCU state
+typedef enum {
+   PARKED_IDLE = 0,   // Idle, parked for reuse. Thread waits on thr_cv or doesn't exist. VCPU
+                      // queued in SLIST off off machine.vm_idle_vcpus
+   STARTING,   // Being initialized. Thread waits on thr_cv or doesn't exist. VCPU removed from the SLIST
+   HYPERCALL,   // Running in KM
+   IN_GUEST,    // Running in ioctl( KVM_RUN )
+   PAUSED       // paused in km_vcpu_handle_pause
+} km_vcpu_state_t;
 
 typedef struct km_vcpu {
    int vcpu_id;               // uniq ID
@@ -135,14 +137,13 @@ typedef struct km_vcpu {
    pthread_t vcpu_thread;     // km pthread
    pthread_mutex_t thr_mtx;   // protects the three fields below
    pthread_cond_t thr_cv;     // used by vcpu_pthread to block while vcpu isn't in use
-   uint8_t is_used;           // 1 means slot is taken, 0 means 'ready for reuse'
-   uint8_t is_active;         // 1 VCPU thread is running, 0 means it is "parked" or not started yet
-   uint8_t is_running;        // 1 means the vcpu is in guest, aka ioctl (KVM_RUN)
+   km_vcpu_state_t state;     // state
    uint8_t regs_valid;        // Are registers valid?
    uint8_t sregs_valid;       // Are segment registers valid?
    uint8_t in_sigsuspend;     // if true thread is running in the sigsuspend() hypercall
-   uint8_t is_paused;         // true if thread is paused at 'km_vcpu_handle_pause'
                               //
+   // When vcpu is used (i.e. not PARKED_IDLE) the field is used for stack_top.
+   // PARKED_IDLE vcpus are queued in SLIST using next_idle as stack_top isn't needed
    union {
       km_gva_t stack_top;               // also available in guest_thr
       SLIST_ENTRY(km_vcpu) next_idle;   // next in idle list

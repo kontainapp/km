@@ -15,6 +15,7 @@
  *    - Open file descriptors (both FS and sockets)
  *    - Snapshot versioning
  */
+#define _GNU_SOURCE
 #include <assert.h>
 #include <fcntl.h>
 #include <string.h>
@@ -446,7 +447,7 @@ int km_snapshot_restore(const char* file)
    for (int i = 0; i < top_vcpu; i++) {
       if (machine.vm_vcpus[i] == NULL) {
          machine.vm_vcpus[i] = km_vcpu_restore(i + 1);
-         machine.vm_vcpus[i]->is_used = 0;
+         km_vcpu_put(machine.vm_vcpus[i]);
       }
    }
 
@@ -461,16 +462,14 @@ int km_snapshot_restore(const char* file)
 }
 static int km_vcpu_count_not_paused(km_vcpu_t* vcpu, uint64_t unused)
 {
-   return (vcpu->is_paused == 0) ? 1 : 0;
+   return (vcpu->state != PAUSED) ? 1 : 0;
 }
 
 static int km_vcpu_snapshot_kick(km_vcpu_t* vcpu, uint64_t unused)
 {
-   km_lock_vcpu_thr(vcpu);
-   if (vcpu->is_paused == 0) {
+   if (vcpu->state != PAUSED) {
       km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
    }
-   km_unlock_vcpu_thr(vcpu);
    return 0;
 }
 
@@ -502,7 +501,7 @@ int km_snapshot_create(km_vcpu_t* vcpu, int live)
     * Wait for everyone to get to the pause point.
     */
    if (vcpu != NULL) {
-      vcpu->is_paused = 1;
+      vcpu->state = PAUSED;
    }
    for (;;) {
       if (km_vcpu_apply_all(km_vcpu_count_not_paused, 0) == 0) {
@@ -515,7 +514,7 @@ int km_snapshot_create(km_vcpu_t* vcpu, int live)
 
    km_dump_core(km_get_snapshot_path(), vcpu, NULL);
    if (vcpu != NULL) {
-      vcpu->is_paused = 0;
+      vcpu->state = PAUSED;
    }
 
    if (live != 0) {

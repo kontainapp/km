@@ -1950,7 +1950,7 @@ static int proc_sched_open(const char* guest_fn, char* host_fn, size_t host_fn_s
 
 static inline int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 {
-   return vcpu->is_active;
+   return vcpu->state != PARKED_IDLE;
 }
 
 // called on the read of /proc/self/sched - need to replace the first line

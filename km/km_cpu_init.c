@@ -256,8 +256,25 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
 }
 
 /*
- * km_vcpu_get() atomically finds the first vcpu slot that can be used for a new vcpu. It could be
- * previously used slot left by exited thread, or a new one. vcpu->is_used == 0 marks the unused slot.
+ * KKM driver keeps debug and syscall state.
+ * When KM reuses VCPU this state becomes stale.
+ * This ioctl bring KKM and KM state to sync.
+ */
+static inline int km_vmmonitor_vcpu_init(km_vcpu_t* vcpu)
+{
+   int retval = 0;
+
+   if (machine.vm_type == VM_TYPE_KKM) {
+      km_kkm_vcpu_init(vcpu);
+   }
+   return retval;
+}
+
+/*
+ * km_vcpu_get() finds vcpu slot that can be used for a new vcpu.
+ * It could be previously used slot left by exited thread, or a new one. Previously used vcpus are
+ * maintained in an SLIST. If that SLIST is empty we allocate and initialize a new one. When a
+ * thread exits km_vcpu_put() will place the vcpu on the SLIST for reuse.
  */
 km_vcpu_t* km_vcpu_get(void)
 {
@@ -265,10 +282,10 @@ km_vcpu_t* km_vcpu_get(void)
 
    km_mutex_lock(&machine.vm_vcpu_mtx);
    if ((vcpu = SLIST_FIRST(&machine.vm_idle_vcpus.head)) != 0) {
-      assert(vcpu->is_used == 0);
+      assert(vcpu->state == PARKED_IDLE);
       SLIST_REMOVE_HEAD(&machine.vm_idle_vcpus.head, next_idle);
+      vcpu->state = STARTING;
       km_mutex_unlock(&machine.vm_vcpu_mtx);
-      vcpu->is_used = 1;
       km_gdb_vcpu_state_init(vcpu);
       km_vmmonitor_vcpu_init(vcpu);
       return vcpu;
@@ -281,13 +298,13 @@ km_vcpu_t* km_vcpu_get(void)
    km_infox(KM_TRACE_VCPU, "Allocating new vcpu-%d", machine.vm_vcpu_cnt);
    vcpu->vcpu_id = machine.vm_vcpu_cnt++;
 
-   vcpu->is_used = 1;
    if (km_vcpu_init(vcpu) != 0) {
       km_mutex_unlock(&machine.vm_vcpu_mtx);
       km_warnx("VCPU init failed");
       km_vcpu_fini(vcpu);
       return NULL;
    }
+   vcpu->state = STARTING;
    km_gdb_vcpu_state_init(vcpu);
    machine.vm_vcpus[vcpu->vcpu_id] = vcpu;
    km_mutex_unlock(&machine.vm_vcpu_mtx);
@@ -312,7 +329,7 @@ km_vcpu_t* km_vcpu_restore(int tid)
       return NULL;
    }
    km_vcpu_t* vcpu = calloc(1, sizeof(km_vcpu_t));
-   vcpu->is_used = 1;
+   vcpu->state = STARTING;
    vcpu->vcpu_id = slot;
    if (km_vcpu_init(vcpu) < 0) {
       km_warnx("km_vcpu_init failed - cannot restore snapshot");
@@ -342,7 +359,7 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data)
       if ((vcpu = machine.vm_vcpus[i]) == NULL) {
          break;   // since we allocate vcpus sequentially, no reason to scan after NULL
       }
-      if (vcpu->is_used == 1 && (ret = (*func)(vcpu, data)) != 0) {
+      if (vcpu->state != PARKED_IDLE && (ret = (*func)(vcpu, data)) != 0) {
          km_infox(KM_TRACE_VCPU, "func ret %d for VCPU %d", ret, vcpu->vcpu_id);
          total += ret;
       }
@@ -356,7 +373,7 @@ km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
    km_vcpu_t* vcpu;
 
    if (tid > 0 && tid < KVM_MAX_VCPUS && (vcpu = machine.vm_vcpus[tid - 1]) != NULL) {
-      return vcpu->is_used == 1 ? vcpu : NULL;
+      return vcpu->state != PARKED_IDLE ? vcpu : NULL;
    }
    return NULL;
 }
@@ -366,7 +383,7 @@ km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
  */
 static inline int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 {
-   return vcpu->is_running;
+   return vcpu->state == IN_GUEST ? 1 : 0;
 }
 
 /*
@@ -376,7 +393,7 @@ static inline int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
 static int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
 {
    km_lock_vcpu_thr(vcpu);
-   if (vcpu->is_active == 1) {
+   if (vcpu->state == IN_GUEST) {
       km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
       km_unlock_vcpu_thr(vcpu);
       km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
@@ -411,9 +428,7 @@ void km_vcpu_put(km_vcpu_t* vcpu)
    km_mutex_lock(&machine.vm_vcpu_mtx);
    vcpu->guest_thr = 0;
    // vcpu->stack_top = 0; Reused by slist
-   vcpu->is_running = 0;
-   vcpu->is_active = 0;
-   vcpu->is_used = 0;
+   vcpu->state = PARKED_IDLE;
    SLIST_INSERT_HEAD(&machine.vm_idle_vcpus.head, vcpu, next_idle);
    km_mutex_unlock(&machine.vm_vcpu_mtx);
 }
