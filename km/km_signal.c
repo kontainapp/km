@@ -425,9 +425,6 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 /*
  * Signal handler caller stack frame. This is what RSP points at when a guest signal
  * handler is started.
- *
- * This structure must be kept in sync with with signal return code in km_guest_asmcode.s
- * in order for stack unwind to work.
  */
 typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
@@ -466,7 +463,6 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
    uc->uc_mcontext.gregs[REG_R15] = vcpu->regs.r15;
    uc->uc_mcontext.gregs[REG_RIP] = vcpu->regs.rip;
 
-   frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
    frame->rflags = vcpu->regs.rflags;
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
 
@@ -531,6 +527,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
 
    frame->info = *info;
    save_signal_context(vcpu, frame);
+   frame->return_addr = act->restorer;
    if ((act->sa_flags & SA_SIGINFO) != 0) {
       vcpu->sigmask |= act->sa_mask;
    }
@@ -602,12 +599,13 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
 {
    km_read_registers(vcpu);
    /*
-    * Return from handle moved rsp past the return address. Subtract size of
-    * the address to account to it.
-    * TODO: ensure everything we are copying from is really in guest memory, Don't want to
-    *       leak information into guest.
+    * The guest's signal restorer makes a syscall which goes into the KM syscall handler.
+    * We add 0x30 to RSP to account for the things that the KM syscall handler adds to
+    * the stack.
+    *
+    * Note: this needs to be kept in sync with __km_syscall_handler.
     */
-   km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(km_gva_t));
+   km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp + 0x30);
    // check if we use sigaltstack is used, and we are leaving it now
    if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1 &&
        km_on_altstack(vcpu, frame->ucontext.uc_mcontext.gregs[REG_RSP]) == 0) {
