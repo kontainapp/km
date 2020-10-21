@@ -980,13 +980,12 @@ static int build_thread_list_entry(km_vcpu_t* vcpu, uint64_t data)
    char threadlistentry[MAX_THREADLISTENTRY_SIZE];
 
    km_lock_vcpu_thr(vcpu);
-   if (vcpu->is_active != 0) {
-      km_getname_np(vcpu->vcpu_thread, threadname, sizeof(threadname));
-   } else {
+   if (vcpu->state == STARTING) {
       // This thread is not fully instantiated.
       km_unlock_vcpu_thr(vcpu);
       return 0;
    }
+   km_getname_np(vcpu->vcpu_thread, threadname, sizeof(threadname));
    km_unlock_vcpu_thr(vcpu);
 
    snprintf(threadlistentry,
@@ -1505,7 +1504,7 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
    int i = vcpu->vcpu_id;
    threadaction_blob_t* threadactionblob = (threadaction_blob_t*)ta;
 
-   assert(vcpu->is_running == 0);
+   assert(vcpu->state != IN_GUEST);
    switch (threadactionblob->threadaction[i].ta_newrunstate) {
       case THREADSTATE_NONE:
          km_infox(KM_TRACE_GDB, "vcpu %d no runstate set?", i);

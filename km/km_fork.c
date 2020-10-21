@@ -52,25 +52,23 @@ static km_fork_state_t km_fork_state = {
 };
 
 /*
- * This function is modeled after km_machine_init(). There are differences
- * because after a fork or clone hypercall we want to use some of the state
- * inherited from the parent process. We get all of the memory from the parent
- * so we don't need to initialize the memory maps, but since we must destroy this
- * process' references to the parents kvm related fd's we need to recreate the
- * memory regions that kvm knows about.  Then we need to create a vcpu for the
- * payload thread that survives the fork operation.  Plus we must transplant
- * the stack, tls, and alternate signal stack from that thread's vcpu into the
- * fresh vcpu. The signal handlers are intact after a fork/clone so we don't
+ * This function is modeled after km_machine_init(). There are differences because after a fork or
+ * clone hypercall we want to use some of the state inherited from the parent process. We get all of
+ * the memory from the parent so we don't need to initialize the memory maps, but since we must
+ * destroy this process' references to the parents kvm related fd's we need to recreate the memory
+ * regions that kvm knows about.  Then we need to create a vcpu for the payload thread that survives
+ * the fork operation.  Plus we must transplant the stack, tls, and alternate signal stack from that
+ * thread's vcpu into the fresh vcpu. The signal handlers are intact after a fork/clone so we don't
  * need to reinitialize those, but, I think we do.
- * If you add code to this function consider whether similar code needs to be
- * added to km_machine_init().
+ * If you add code to this function consider whether similar code needs to be added to
+ * km_machine_init().
  */
 static void km_fork_setup_child_vmstate(void)
 {
    km_infox(KM_TRACE_FORK, "begin");
 
    // Reinit some fields in machine.  We do not want a structure assignment here.
-
+   machine.vm_vcpu_cnt = 0;
    SLIST_INIT(&machine.vm_idle_vcpus.head);
    machine.vm_vcpu_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    machine.brk_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
@@ -140,10 +138,9 @@ static void km_fork_remove_parent_vmstate(void)
    km_signal_fini();
 
    // Should try to free all of the stacks for the now defunt vcpu threads?
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+   for (int i = 0; i < machine.vm_vcpu_cnt; i++) {
       if (machine.vm_vcpus[i] != NULL) {
          km_vcpu_fini(machine.vm_vcpus[i]);
-         machine.vm_vcpus[i] = NULL;
       }
    }
 
