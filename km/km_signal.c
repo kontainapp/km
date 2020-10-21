@@ -609,12 +609,14 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
    km_read_registers(vcpu);
    /*
     * The guest's signal restorer makes a syscall which goes into the KM syscall handler.
-    * We add 0x30 to RSP to account for the things that the KM syscall handler adds to
-    * the stack.
+    * We add the size of the km_hc_args_t that out syscall handler adds to the stack.
+    * We substract the size of an address to account for the fact that the return address
+    * (in the frame) was consumed by the return to the signal restorer.
     *
     * Note: this needs to be kept in sync with __km_syscall_handler.
     */
-   km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp + 0x30);
+   km_signal_frame_t* frame =
+       km_gva_to_kma_nocheck(vcpu->regs.rsp + sizeof(km_hc_args_t) - sizeof(km_gva_t));
    // check if we use sigaltstack is used, and we are leaving it now
    if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1 &&
        km_on_altstack(vcpu, frame->ucontext.uc_mcontext.gregs[REG_RSP]) == 0) {
