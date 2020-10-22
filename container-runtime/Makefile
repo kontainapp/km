@@ -45,7 +45,7 @@ test:	all $(CURDIR)/$(CRUNDIR)/krun
 	OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/crun make -C $(CRUNDIR) check-TESTS
 
 clean::
-	rm $(CURDIR)/$(CRUNDIR)/krun
+	rm -f $(CURDIR)/$(CRUNDIR)/krun
 	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) clean
 	@# crun's clean removes this file, so git sees it as a change. Restore back to clean
 	cd $(CRUNDIR) && git checkout crun.1
