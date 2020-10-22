@@ -136,7 +136,8 @@ BUILDENV_IMAGE_VERSION ?= latest
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
 # regexp for targets which should not try to build dependencies (.d)
-NO_DEPS_TARGETS := (clean|clobber|.*-image|.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help)
+NO_DEPS_TARGETS := (clean|clobber|.*-image|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help)
+NO_DEPS_TARGETS := ${NO_DEPS_TARGETS}( ${NO_DEPS_TARGETS})*
 # colors for pretty output. Unless we are in Azure pipelines
 ifeq (${PIPELINE_WORKSPACE},)
 RED := \033[31m

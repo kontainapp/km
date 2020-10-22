@@ -147,8 +147,8 @@ clean::
 #
 # do not generate .d file for some targets
 #
-$(shell [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${MAKEFLAGS}" =~ "n" ]] )
-ifneq ($(.SHELLSTATUS),0)
+no_deps := $(shell [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${MAKEFLAGS}" =~ "n" ]] && echo -n match)
+ifneq ($(no_deps),match)
 -include ${DEPS}
 endif
 
