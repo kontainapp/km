@@ -553,11 +553,6 @@ void km_machine_setup(km_machine_init_params_t* params)
          break;
    }
 
-   /*
-    * VM Driver specific initialization
-    */
-   km_vmdriver_machine_init();   // initialize vmdriver specifics
-
    km_check_kernel();   // exit there if too old
    if ((rc = ioctl(machine.kvm_fd, KVM_GET_API_VERSION, 0)) < 0) {
       km_err(1, "KVM: get API version failed");
@@ -654,6 +649,11 @@ void km_machine_setup(km_machine_init_params_t* params)
          machine.guest_max_physmem = params->guest_physmem;
       }
    }
+
+   /*
+    * VM Driver specific initialization
+    */
+   km_vmdriver_machine_init();   // initialize vmdriver specifics
 }
 
 /*
