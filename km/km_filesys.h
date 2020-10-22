@@ -45,11 +45,13 @@ typedef int (*km_file_open_t)(const char* guest_fn, char* host_fn, size_t host_f
 typedef int (*km_file_readlink_t)(const char* guest_fn, char* buf, size_t buf_sz);
 typedef int (*km_file_read_t)(int fd, char* buf, size_t buf_sz);
 typedef int (*km_file_getdents_t)(int fd, /* struct linux_dirent64 */ void* buf, size_t buf_sz);
+typedef int (*km_file_getdents32_t)(int fd, /* struct linux_dirent */ void* buf, size_t buf_sz);
 
 // types for file names conversion
 typedef struct {
    km_file_open_t open_g2h;
    km_file_read_t read_g2h;
+   km_file_getdents32_t getdents32_g2h;
    km_file_getdents_t getdents_g2h;
    km_file_readlink_t readlink_g2h;
 } km_file_ops_t;
@@ -115,6 +117,8 @@ uint64_t km_fs_chmod(km_vcpu_t* vcpu, char* pathname, mode_t mode);
 uint64_t km_fs_fchmod(km_vcpu_t* vcpu, int fd, mode_t mode);
 // int unlink(const char *path);
 uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname);
+// int getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count);
+uint64_t km_fs_getdents(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count);
 // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);
 uint64_t km_fs_getdents64(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count);
 // int link(const char *oldpath, const char *newpath);

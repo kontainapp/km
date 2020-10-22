@@ -40,6 +40,7 @@ static const_string_t fx = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
 #define __run_err(vcpu, __s, __f, ...)                                                                 \
    do {                                                                                                \
       char fmt[strlen(__f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];                        \
+      fmt[0] = 0;                                                                                      \
       strcat(fmt, __f);                                                                                \
       strcat(fmt, fx);                                                                                 \
       km_err(__s, fmt, ##__VA_ARGS__, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2); \
@@ -48,6 +49,7 @@ static const_string_t fx = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
 #define __run_errx(vcpu, __s, __f, ...)                                                                 \
    do {                                                                                                 \
       char fmt[strlen(__f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];                         \
+      fmt[0] = 0;                                                                                       \
       strcat(fmt, __f);                                                                                 \
       strcat(fmt, fx);                                                                                  \
       km_errx(__s, fmt, ##__VA_ARGS__, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2); \
@@ -59,6 +61,7 @@ static const_string_t fx = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
 #define __run_warn(vcpu, __f, ...)                                                                  \
    do {                                                                                             \
       char fmt[strlen(__f) + strlen(fx) + 3 * strlen("1234567890123456") + 64];                     \
+      fmt[0] = 0;                                                                                   \
       strcat(fmt, __f);                                                                             \
       strcat(fmt, fx);                                                                              \
       km_warnx(fmt, ##__VA_ARGS__, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2); \
