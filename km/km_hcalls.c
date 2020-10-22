@@ -397,6 +397,18 @@ static km_hc_ret_t fstat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+// int getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count);
+static km_hc_ret_t getdents_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   void* dirp = km_gva_to_kma(arg->arg2);
+   if (dirp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_getdents(vcpu, arg->arg1, dirp, arg->arg3);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t getdirents_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);
@@ -1754,6 +1766,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_lstat] = lstat_hcall;
    km_hcalls_table[SYS_statx] = statx_hcall;
    km_hcalls_table[SYS_fstat] = fstat_hcall;
+   km_hcalls_table[SYS_getdents] = getdents_hcall;
    km_hcalls_table[SYS_getdents64] = getdirents_hcall;
    km_hcalls_table[SYS_getcwd] = getcwd_hcall;
    km_hcalls_table[SYS_close] = close_hcall;

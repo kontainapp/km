@@ -118,7 +118,69 @@ TEST test_stat()
    PASS();
 }
 
+
 TEST test_getdents()
+{
+   // from 'man 2 getdents
+   static const int bufsize = 24 * 4;
+   struct linux_dirent {
+      unsigned long  d_ino;     /* Inode number */
+      unsigned long  d_off;     /* Offset to next linux_dirent */
+      unsigned short d_reclen;  /* Length of this linux_dirent */
+      char           d_name[];  /* Filename (null-terminated) */
+                                /* length is actually (d_reclen - 2 -
+                                   offsetof(struct linux_dirent, d_name)) */
+      /*
+      char           pad;       // Zero padding byte
+      char           d_type;    // File type (only since Linux
+                                // 2.6.4); offset is (d_reclen - 1)
+      */
+   };
+   char dbuf[bufsize];
+
+   int fd = open("/", O_RDONLY);
+   ASSERT_NOT_EQ(-1, fd);
+   int rc = syscall(SYS_getdents, fd, dbuf, bufsize);
+   ASSERT_NOT_EQ(-1, rc);
+   rc = close(fd);
+   ASSERT_EQ(0, rc);
+
+   rc = syscall(SYS_getdents, fd, dbuf, bufsize);
+   ASSERT_EQ(-1, rc);
+   ASSERT_EQ(EBADF, errno);
+
+   fd = open("/proc/self/fd", O_RDONLY);
+   ASSERT_NOT_EQ(-1, fd);
+   while ((rc = syscall(SYS_getdents, fd, dbuf, bufsize)) > 0) {
+      if (greatest_get_verbosity() > 0) {
+         printf("----- getdents %d\n", rc);
+      }
+      struct linux_dirent* entry;
+      for (off64_t offset = 0; offset < rc; offset += entry->d_reclen) {
+         entry = (struct linux_dirent*)(dbuf + offset);
+         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+         }
+         if (greatest_get_verbosity() > 0) {
+            char tmp[256] = "/proc/self/fd/";
+            strcat(tmp, entry->d_name);
+            char buf[256];
+            int idx = readlink(tmp, buf, sizeof(buf));
+            buf[idx] = 0;
+            printf("name <%s> is <%s>\n", tmp, buf);
+         }
+         ino64_t ino = atol(entry->d_name);
+         ASSERT(0 <= ino && ino <= 6);
+      }
+   }
+   ASSERT_NOT_EQ(-1, rc);
+   rc = close(fd);
+   ASSERT_EQ(0, rc);
+
+   PASS();
+}
+
+TEST test_getdents64()
 {
    // from 'man 2 getdents64
    static const int bufsize = 24 * 4;
@@ -146,7 +208,7 @@ TEST test_getdents()
    ASSERT_NOT_EQ(-1, fd);
    while ((rc = syscall(SYS_getdents64, fd, dbuf, bufsize)) > 0) {
       if (greatest_get_verbosity() > 0) {
-         printf("----- getdents %d\n", rc);
+         printf("----- getdents64 %d\n", rc);
       }
       struct linux_dirent64* entry;
       for (off64_t offset = 0; offset < rc; offset += entry->d_reclen) {
@@ -640,6 +702,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_close);
    RUN_TEST(test_stat);
    RUN_TEST(test_getdents);
+   RUN_TEST(test_getdents64);
    RUN_TEST(test_socketpair);
    RUN_TEST(test_openat);
    RUN_TEST(test_open_fd_fill);
