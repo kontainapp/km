@@ -487,6 +487,24 @@ uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence)
    return ret;
 }
 
+// int getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count);
+uint64_t km_fs_getdents(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count)
+{
+   int host_fd;
+   km_file_ops_t* ops;
+
+   if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
+      return -EBADF;
+   }
+   int ret;
+   if (ops != NULL && ops->getdents32_g2h != NULL) {
+      ret = ops->getdents32_g2h(host_fd, dirp, count);
+   } else {
+      ret = __syscall_3(SYS_getdents, host_fd, (uintptr_t)dirp, count);
+   }
+   return ret;
+}
+
 // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);
 uint64_t km_fs_getdents64(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count)
 {
@@ -1987,6 +2005,37 @@ static int proc_cmdline_open(const char* name, char* buf, size_t bufsz)
    return snprintf(buf, bufsz, "%s%s", PROC_SELF, name + proc_pid_length);
 }
 
+static int proc_self_getdents32(int fd, /* struct linux_dirent* */ void* buf, size_t buf_sz)
+{
+   struct linux_dirent {
+      unsigned long  d_ino;     /* Inode number */
+      unsigned long  d_off;     /* Offset to next linux_dirent */
+      unsigned short d_reclen;  /* Length of this linux_dirent */
+      char           d_name[];  /* Filename (null-terminated) */
+                                /* length is actually (d_reclen - 2 -
+                                   offsetof(struct linux_dirent, d_name)) */
+      /*
+      char           pad;       // Zero padding byte
+      char           d_type;    // File type (only since Linux
+                                // 2.6.4); offset is (d_reclen - 1)
+      */
+   };
+   int ret = __syscall_3(SYS_getdents, fd, (uint64_t)buf, buf_sz);
+   struct linux_dirent* e;
+   for (off64_t offset = 0; offset < ret; offset += e->d_reclen) {
+      e = (struct linux_dirent*)(buf + offset);
+      if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) {
+         continue;
+      }
+      uint64_t fdno;
+      if (sscanf(e->d_name, "%lu", &fdno) != 1 || fdno >= MAX_OPEN_FILES - MAX_KM_FILES) {
+         // Stop before getting into the km area of the fd space
+         return offset;
+      }
+   }
+   return ret;
+}
+
 static int proc_self_getdents(int fd, /* struct linux_dirent64* */ void* buf, size_t buf_sz)
 {
    struct linux_dirent64 {
@@ -2033,7 +2082,7 @@ static km_filename_table_t km_filename_table[] = {
     },
     {
         .pattern = "^/proc/self/fd$",
-        .ops = {.getdents_g2h = proc_self_getdents},
+        .ops = {.getdents_g2h = proc_self_getdents, .getdents32_g2h = proc_self_getdents32},
     },
     {
         .pattern = "^/proc/self/sched$",
@@ -2049,7 +2098,7 @@ static km_filename_table_t km_filename_table[] = {
     },
     {
         .pattern = "^/proc/%u/fd$",
-        .ops = {.getdents_g2h = proc_self_getdents},
+        .ops = {.getdents_g2h = proc_self_getdents, .getdents32_g2h = proc_self_getdents32},
     },
     {
         .pattern = "^/proc/%u/sched$",
