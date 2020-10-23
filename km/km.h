@@ -669,5 +669,7 @@ size_t km_vmdriver_signal_size();
 void km_vmdriver_save_signal(km_vcpu_t* vcpu, void* addr);
 void km_vmdriver_restore_signal(km_vcpu_t* vcpu, void* addr);
 void km_vmdriver_clone(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);
+void km_vmdriver_save_info(km_vcpu_t* vcpu, uint8_t* ksi_valid, void* ksi);
+void km_vmdriver_restore_info(km_vcpu_t* vcpu, uint8_t ksi_valid, void* ksi);
 
 #endif /* #ifndef __KM_H__ */
