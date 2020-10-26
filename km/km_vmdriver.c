@@ -149,3 +149,23 @@ void km_vmdriver_clone(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
       new_vcpu->regs.rax = 0;
    }
 }
+
+/*
+ * KKM internal state saved and restored between old and new vcpus
+ * currently used in fork
+ */
+void km_vmdriver_save_fork_info(km_vcpu_t* vcpu, uint8_t* ksi_valid, void* ksi)
+{
+   if (machine.vm_type == VM_TYPE_KKM) {
+      *ksi_valid = (km_kkm_get_save_info(vcpu, ksi) == 0) ? 1 : 0;
+      // km_kkm_get_save_info is destructive. restore it now before returning to caller.
+      km_kkm_set_save_info(vcpu, *ksi_valid, ksi);
+   }
+}
+
+void km_vmdriver_restore_fork_info(km_vcpu_t* vcpu, uint8_t ksi_valid, void* ksi)
+{
+   if (machine.vm_type == VM_TYPE_KKM) {
+      km_kkm_set_save_info(vcpu, ksi_valid, ksi);
+   }
+}

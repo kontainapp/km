@@ -25,6 +25,7 @@
 #include "km.h"
 #include "km_fork.h"
 #include "km_gdb.h"
+#include "km_kkm.h"
 #include "km_mem.h"
 
 /*
@@ -44,6 +45,8 @@ typedef struct km_fork_state {
    km_gva_t stack_top;
    km_gva_t guest_thr;
    km_stack_t sigaltstack;
+   uint8_t ksi_valid;
+   kkm_save_info_t ksi;
 } km_fork_state_t;
 
 static km_fork_state_t km_fork_state = {
@@ -119,6 +122,7 @@ static void km_fork_setup_child_vmstate(void)
    kvm_vcpu_init_sregs(vcpu);
    vcpu->regs = km_fork_state.regs;
    vcpu->regs_valid = 1;
+   km_vmdriver_restore_fork_info(vcpu, km_fork_state.ksi_valid, &km_fork_state.ksi);
    km_write_registers(vcpu);
    km_write_sregisters(vcpu);
 }
@@ -211,6 +215,7 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
       km_mutex_unlock(&km_fork_state.mutex);
       return -errno;
    }
+   km_vmdriver_save_fork_info(vcpu, &km_fork_state.ksi_valid, &km_fork_state.ksi);
    if (is_clone != 0) {
       km_infox(KM_TRACE_FORK,
                "clone args: flags 0x%lx, child_stack 0x%lx, ptid 0x%lx, ctid 0x%lx, newtls 0x%lx",
