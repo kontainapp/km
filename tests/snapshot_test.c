@@ -200,6 +200,9 @@ static inline void wakeup()
  */
 void* thread_main(void* arg)
 {
+   double a1 = 99.99;
+   register double a2 asm("xmm7") = 101.202;
+
    // Dirty XMM0
    uint64_t one = 1;
    asm volatile("movq %0, %%xmm0"
@@ -235,7 +238,7 @@ void* thread_main(void* arg)
                 : /* No input */
                 :);
 
-   if (val != one) {
+   if (val != one || a1 != 99.99 || a2 != 101.202) {
       fprintf(stderr, "ERROR: FP not restored\n");
       exit(1);
    }
