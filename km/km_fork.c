@@ -216,7 +216,6 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
       return -errno;
    }
    km_vmdriver_save_info(vcpu, &km_fork_state.ksi_valid, &km_fork_state.ksi);
-   km_vmdriver_restore_info(vcpu, km_fork_state.ksi_valid, &km_fork_state.ksi);
    if (is_clone != 0) {
       km_infox(KM_TRACE_FORK,
                "clone args: flags 0x%lx, child_stack 0x%lx, ptid 0x%lx, ctid 0x%lx, newtls 0x%lx",
