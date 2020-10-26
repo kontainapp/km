@@ -232,14 +232,23 @@ static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, uint64_t arg)
                               .sigaltstack_size = vcpu->sigaltstack.ss_size,
                               .mapself_base = vcpu->mapself_base,
                               .mapself_size = vcpu->mapself_size,
-                              .hcarg = (Elf64_Addr)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)]};
+                              .hcarg = (Elf64_Addr)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)],
+                              .fp_format = km_vmdriver_fp_format(vcpu)};
 
    km_core_list_context_t* ctx = (km_core_list_context_t*)arg;
    char* cur = ctx->pr_cur;
    size_t remain = ctx->pr_remain;
-   cur += km_add_note_header(cur, remain, KM_NT_NAME, NT_KM_VCPU, sizeof(struct km_nt_vcpu));
+   cur += km_add_note_header(cur,
+                             remain,
+                             KM_NT_NAME,
+                             NT_KM_VCPU,
+                             sizeof(struct km_nt_vcpu) + km_vmdriver_fpstate_size());
    memcpy(cur, &vnote, sizeof(struct km_nt_vcpu));
    cur += sizeof(struct km_nt_vcpu);
+
+   // Add floating point state
+   km_vmdriver_save_fpstate(vcpu, cur);
+   cur += km_vmdriver_fpstate_size();
 
    size_t ret = cur - ctx->pr_cur;
    ctx->pr_cur += ret;
@@ -567,7 +576,9 @@ static inline size_t km_core_notes_length(km_vcpu_t* vcpu)
    alloclen += sizeof(km_nt_monitor_t) + km_note_header_size(KM_NT_NAME);
 
    // Kontain specific per CPU info (for snapshot restore)
-   alloclen += (km_note_header_size(KM_NT_NAME) + sizeof(struct km_nt_vcpu)) * nvcpu;
+   alloclen +=
+       (km_note_header_size(KM_NT_NAME) + sizeof(struct km_nt_vcpu) + km_vmdriver_fpstate_size()) *
+       nvcpu;
 
    // Kontain specific guest info(for snapshot restore)
    alloclen += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_guest_t) +

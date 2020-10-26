@@ -280,6 +280,9 @@ static int km_ss_recover_vcpu_info(char* ptr, size_t length)
    vcpu->mapself_base = nt->mapself_base;
    vcpu->mapself_size = nt->mapself_size;
    km_hcargs[HC_ARGS_INDEX(nt->vcpu_id)] = (km_hc_args_t*)nt->hcarg;
+
+   // Restore Floating point unit/vector for this VCPU
+   km_vmdriver_restore_fpstate(vcpu, nt + 1);
    return 0;
 }
 

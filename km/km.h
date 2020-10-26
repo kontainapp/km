@@ -677,11 +677,12 @@ void km_x86decode(km_vcpu_t* vcpu);
 void km_vmdriver_machine_init();
 void km_vmdriver_vcpu_init(km_vcpu_t* vcpu);
 int km_vmdriver_lowest_kernel();
-size_t km_vmdriver_signal_size();
-void km_vmdriver_save_signal(km_vcpu_t* vcpu, void* addr);
-void km_vmdriver_restore_signal(km_vcpu_t* vcpu, void* addr);
+size_t km_vmdriver_fpstate_size();
+void km_vmdriver_save_fpstate(km_vcpu_t* vcpu, void* addr);
+void km_vmdriver_restore_fpstate(km_vcpu_t* vcpu, void* addr);
 void km_vmdriver_clone(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);
 void km_vmdriver_save_fork_info(km_vcpu_t* vcpu, uint8_t* ksi_valid, void* ksi);
 void km_vmdriver_restore_fork_info(km_vcpu_t* vcpu, uint8_t ksi_valid, void* ksi);
+int km_vmdriver_fp_format(km_vcpu_t* vcpu);
 
 #endif /* #ifndef __KM_H__ */

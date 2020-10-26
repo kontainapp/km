@@ -200,6 +200,13 @@ static inline void wakeup()
  */
 void* thread_main(void* arg)
 {
+   // Dirty XMM0
+   uint64_t one = 1;
+   asm volatile("movq %0, %%xmm0"
+                : /* No output */
+                : "r"(one)
+                : "%xmm0");
+
    /*
     * Take the snapshot.
     */
@@ -216,6 +223,20 @@ void* thread_main(void* arg)
     */
    if (pthread_mutex_trylock(&long_lock) == 0) {
       fprintf(stderr, "long_lock state not restored\n");
+      exit(1);
+   }
+
+   /*
+    * Ensure floating point state was restored.
+    */
+   uint64_t val = -1;
+   asm volatile("movq %%xmm0, %0"
+                : "=r"(val)
+                : /* No input */
+                :);
+
+   if (val != one) {
+      fprintf(stderr, "ERROR: FP not restored\n");
       exit(1);
    }
    wakeup();

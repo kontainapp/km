@@ -14,6 +14,7 @@
  */
 
 #include "km.h"
+#include "km_coredump.h"
 #include "km_kkm.h"
 
 void km_vmdriver_machine_init()
@@ -61,7 +62,7 @@ typedef struct km_signal_kkm_frame {
    kkm_xstate_t kx;
 } km_signal_kkm_frame_t;
 
-size_t km_vmdriver_signal_size()
+size_t km_vmdriver_fpstate_size()
 {
    size_t fstate_size = 0;
    switch (machine.vm_type) {
@@ -76,7 +77,7 @@ size_t km_vmdriver_signal_size()
    return fstate_size;
 }
 
-void km_vmdriver_save_signal(km_vcpu_t* vcpu, void* addr)
+void km_vmdriver_save_fpstate(km_vcpu_t* vcpu, void* addr)
 {
    switch (machine.vm_type) {
       case VM_TYPE_KKM: {
@@ -104,7 +105,7 @@ void km_vmdriver_save_signal(km_vcpu_t* vcpu, void* addr)
    }
 }
 
-void km_vmdriver_restore_signal(km_vcpu_t* vcpu, void* addr)
+void km_vmdriver_restore_fpstate(km_vcpu_t* vcpu, void* addr)
 {
    switch (machine.vm_type) {
       case VM_TYPE_KKM: {
@@ -168,4 +169,18 @@ void km_vmdriver_restore_fork_info(km_vcpu_t* vcpu, uint8_t ksi_valid, void* ksi
    if (machine.vm_type == VM_TYPE_KKM) {
       km_kkm_set_save_info(vcpu, ksi_valid, ksi);
    }
+}
+
+int km_vmdriver_fp_format(km_vcpu_t* vcpu)
+{
+   switch (machine.vm_type) {
+      case VM_TYPE_KVM:
+         if (machine.vmtype_u.kvm.xsave == 0) {
+            return NT_KM_VCPU_FPDATA_KVM_FPU;
+         }
+         return NT_KM_VCPU_FPDATA_KVM_XSAVE;
+      case VM_TYPE_KKM:
+         return NT_KM_VCPU_FPDATA_KKM_XSAVE;
+   }
+   return NT_KM_VCPU_FPDATA_NONE;
 }
