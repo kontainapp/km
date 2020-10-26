@@ -35,6 +35,11 @@
 #include "km_signal.h"
 #include "km_snapshot.h"
 
+// SA_RESTORER is GNU/Linux i386/amd64 specific.
+#ifndef SA_RESTORER
+#define SA_RESTORER 0x4000000
+#endif
+
 /*
  * Threads that wait for a signal's arrive are enqueued on the km_signal_wait_queue until the signal
  * arrives.  Each vcpu has its own condition variable that it waits on.
@@ -425,9 +430,6 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 /*
  * Signal handler caller stack frame. This is what RSP points at when a guest signal
  * handler is started.
- *
- * This structure must be kept in sync with with signal return code in km_guest_asmcode.s
- * in order for stack unwind to work.
  */
 typedef struct km_signal_frame {
    uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
@@ -466,7 +468,6 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
    uc->uc_mcontext.gregs[REG_R15] = vcpu->regs.r15;
    uc->uc_mcontext.gregs[REG_RIP] = vcpu->regs.rip;
 
-   frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
    frame->rflags = vcpu->regs.rflags;
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
 
@@ -531,6 +532,11 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
 
    frame->info = *info;
    save_signal_context(vcpu, frame);
+   if ((act->sa_flags & SA_RESTORER) != 0) {
+      frame->return_addr = act->restorer;
+   } else {
+      frame->return_addr = km_guest_kma_to_gva(&__km_sigreturn);
+   }
    if ((act->sa_flags & SA_SIGINFO) != 0) {
       vcpu->sigmask |= act->sa_mask;
    }
@@ -602,12 +608,15 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
 {
    km_read_registers(vcpu);
    /*
-    * Return from handle moved rsp past the return address. Subtract size of
-    * the address to account to it.
-    * TODO: ensure everything we are copying from is really in guest memory, Don't want to
-    *       leak information into guest.
+    * The guest's signal restorer makes a syscall which goes into the KM syscall handler.
+    * We add the size of the km_hc_args_t that out syscall handler adds to the stack.
+    * We substract the size of an address to account for the fact that the return address
+    * (in the frame) was consumed by the return to the signal restorer.
+    *
+    * Note: this needs to be kept in sync with __km_syscall_handler.
     */
-   km_signal_frame_t* frame = km_gva_to_kma_nocheck(vcpu->regs.rsp - sizeof(km_gva_t));
+   km_signal_frame_t* frame =
+       km_gva_to_kma_nocheck(vcpu->regs.rsp + sizeof(km_hc_args_t) - sizeof(km_gva_t));
    // check if we use sigaltstack is used, and we are leaving it now
    if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1 &&
        km_on_altstack(vcpu, frame->ucontext.uc_mcontext.gregs[REG_RSP]) == 0) {

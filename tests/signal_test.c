@@ -22,6 +22,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 
 #include "greatest/greatest.h"
@@ -383,6 +384,30 @@ TEST test_floating_point_restore()
    PASS();
 }
 
+int test_no_restorer_sigaction_called = 0;
+void test_no_restorer_sigaction(int signo, siginfo_t* info, void* uc)
+{
+   test_no_restorer_sigaction_called = 1;
+}
+
+TEST test_no_restorer()
+{
+   struct sigaction sa = {.sa_sigaction = test_no_restorer_sigaction, .sa_flags = SA_SIGINFO};
+   struct sigaction old_sa = {};
+
+   /*
+    * library call for sigaction inserts a SA_RESTORER. Use direct syscall instead.
+    */
+   ASSERT_EQ(0, syscall(SYS_rt_sigaction, SIGUSR1, &sa, &old_sa, 8));
+
+   kill(0, SIGUSR1);
+
+   ASSERT_EQ(1, test_no_restorer_sigaction_called);
+
+   ASSERT_EQ(0, sigaction(SIGUSR1, &old_sa, NULL));
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -405,6 +430,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_safepoint);
    RUN_TEST(test_thread_stack_alignment);
    RUN_TEST(test_floating_point_restore);
+   RUN_TEST(test_no_restorer);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
