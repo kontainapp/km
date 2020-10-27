@@ -59,8 +59,8 @@ unset KM_VERBOSE
 
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
 if [ "${USE_VIRT}" = 'kkm' ]; then
-   todo_alpine_static+=' sigsuspend popen sigpipe snapshot '
-   todo_glibc_static+=' sigsuspend popen sigpipe snapshot '
+   todo_alpine_static+=' sigsuspend popen sigpipe '
+   todo_glibc_static+=' sigsuspend popen sigpipe '
    not_needed_alpine_dynamic=$not_needed_alpine_static
 fi
 

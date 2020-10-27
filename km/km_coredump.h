@@ -67,8 +67,20 @@ typedef struct km_nt_vcpu {
     * TODO: SIGMASK
     * TODO: Debug registers?
     */
+   Elf64_Word fp_format;   // format of floating point data that follows
+   /*
+    * Floating point data follows
+    */
 } km_nt_vcpu_t;
 #define NT_KM_VCPU 0x4b4d5052   // "KMPR" no null term
+
+/*
+ * fp_format values for km_nt_vcpu
+ */
+#define NT_KM_VCPU_FPDATA_NONE 0      /* No fp data follows */
+#define NT_KM_VCPU_FPDATA_KVM_FPU 1   /* KVM_GET_FPU follows*/
+#define NT_KM_VCPU_FPDATA_KVM_XSAVE 2 /* KVM_GET_XSAVE follows*/
+#define NT_KM_VCPU_FPDATA_KKM_XSAVE 3 /* KKM_GET_XSAVE follows*/
 
 /*
  * Description of original guest exec and dynlinker.
