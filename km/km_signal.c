@@ -472,7 +472,7 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
 
    void* fp_frame = (frame + 1);
-   km_vmdriver_save_signal(vcpu, fp_frame);
+   km_vmdriver_save_fpstate(vcpu, fp_frame);
 }
 
 static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame)
@@ -500,7 +500,7 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
 
    void* fp_frame = (frame + 1);
-   km_vmdriver_restore_signal(vcpu, fp_frame);
+   km_vmdriver_restore_fpstate(vcpu, fp_frame);
 }
 
 /*
@@ -525,7 +525,7 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
       sframe_gva = vcpu->regs.rsp - RED_ZONE;
    }
    // Calculate size of saved floating point state (depends on VM driver)
-   size_t fstate_size = km_vmdriver_signal_size();
+   size_t fstate_size = km_vmdriver_fpstate_size();
    // Align stack to 16 bytes per X86_64 ABI.
    sframe_gva = rounddown(sframe_gva - (sizeof(km_signal_frame_t) + fstate_size), 16) - 8;
    km_signal_frame_t* frame = km_gva_to_kma_nocheck(sframe_gva);
