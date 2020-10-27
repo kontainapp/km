@@ -238,11 +238,11 @@ static void km_gdb_destroy_connection(void)
  * Essentially all of gdb's tenticles should be removed from the vcpu.
  * Always returns 0.
  */
-static int km_gdb_vcpu_disengage(km_vcpu_t* vcpu, uint64_t unused)
+static int km_gdb_vcpu_disengage(km_vcpu_t* vcpu, void* unused)
 {
    vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RUNNING;
    gdbstub.stepping = 0;
-   km_gdb_update_vcpu_debug(vcpu, 0);
+   km_gdb_update_vcpu_debug(vcpu, NULL);
    return 0;
 }
 
@@ -293,7 +293,7 @@ static void km_gdb_detach(void)
    gdb_fd_garbage_collect();
 
    // Disconnect gdb from all of the vcpu's
-   km_vcpu_apply_all(km_gdb_vcpu_disengage, 0);
+   km_vcpu_apply_all(km_gdb_vcpu_disengage, NULL);
 
    gdbstub.gdb_client_attached = 0;
 
@@ -787,9 +787,9 @@ static inline int km_gdb_thread_id(km_vcpu_t* vcpu)   // we use km_vcpu_get_tid 
 }
 
 // Add hex gdb_tid to the list of thread_ids for communication to gdb
-static int add_thread_id(km_vcpu_t* vcpu, uint64_t data)
+static int add_thread_id(km_vcpu_t* vcpu, void* data)
 {
-   char* obuf = (char*)data;
+   char* obuf = data;
 
    sprintf(obuf + strlen(obuf), "%x,", km_gdb_thread_id(vcpu));
    km_infox(KM_TRACE_GDB "threads", "add_thread_id: '%s'", obuf);
@@ -820,7 +820,7 @@ static void send_threads_list(void)
 {
    char obuf[BUFMAX] = "m";   // max thread is 288 (currently) so BUFMAX (16K) is more than enough
 
-   km_vcpu_apply_all(add_thread_id, (uint64_t)obuf);
+   km_vcpu_apply_all(add_thread_id, obuf);
    obuf[strlen(obuf) - 1] = '\0';   // strip trailing comma
    send_packet(obuf);
 }
@@ -973,7 +973,7 @@ const int MAX_THREADNAME_SIZE = 32;
  */
 const int MAX_THREADLISTENTRY_SIZE = 512;
 
-static int build_thread_list_entry(km_vcpu_t* vcpu, uint64_t data)
+static int build_thread_list_entry(km_vcpu_t* vcpu, void* data)
 {
    bool worked;
    char threadname[MAX_THREADNAME_SIZE];
@@ -1032,7 +1032,7 @@ static void handle_qxfer_threads_read(char* packet, char* obuf)
             return;
          }
          /* Generate a thread entry for each thread */
-         total = km_vcpu_apply_all(build_thread_list_entry, 0);
+         total = km_vcpu_apply_all(build_thread_list_entry, NULL);
          if (total != 0) {
             /* The output string is full */
             send_error_msg();
@@ -1483,10 +1483,10 @@ typedef struct threadaction_blob threadaction_blob_t;
 /*
  * Assign a threadstate to those threads that have not had it set.
  */
-static int km_gdb_set_default_runstate(km_vcpu_t* vcpu, uint64_t ta)
+static int km_gdb_set_default_runstate(km_vcpu_t* vcpu, void* ta)
 {
    int i = vcpu->vcpu_id;
-   threadaction_blob_t* threadactionblob = (threadaction_blob_t*)ta;
+   threadaction_blob_t* threadactionblob = ta;
 
    if (threadactionblob->threadaction[i].ta_newrunstate == THREADSTATE_NONE) {
       threadactionblob->threadaction[i].ta_newrunstate = THREADSTATE_PAUSED;
@@ -1498,11 +1498,11 @@ static int km_gdb_set_default_runstate(km_vcpu_t* vcpu, uint64_t ta)
  * Apply the vCont action to the vcpu for each thread.
  * See comment in km_vcpu_handle_pause() for locking assumptions.
  */
-static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
+static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, void* ta)
 {
    int rc;
    int i = vcpu->vcpu_id;
-   threadaction_blob_t* threadactionblob = (threadaction_blob_t*)ta;
+   threadaction_blob_t* threadactionblob = ta;
 
    assert(vcpu->state != IN_GUEST);
    switch (threadactionblob->threadaction[i].ta_newrunstate) {
@@ -1513,19 +1513,19 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, uint64_t ta)
       case THREADSTATE_RUNNING:
          vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RUNNING;
          gdbstub.stepping = false;
-         rc = km_gdb_update_vcpu_debug(vcpu, 0);
+         rc = km_gdb_update_vcpu_debug(vcpu, NULL);
          break;
       case THREADSTATE_RANGESTEPPING:
          vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_RANGESTEPPING;
          vcpu->gdb_vcpu_state.steprange_start = threadactionblob->threadaction[i].ta_steprange_start;
          vcpu->gdb_vcpu_state.steprange_end = threadactionblob->threadaction[i].ta_steprange_end;
          gdbstub.stepping = true;
-         rc = km_gdb_update_vcpu_debug(vcpu, 0);
+         rc = km_gdb_update_vcpu_debug(vcpu, NULL);
          break;
       case THREADSTATE_STEPPING:
          vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_STEPPING;
          gdbstub.stepping = true;
-         rc = km_gdb_update_vcpu_debug(vcpu, 0);
+         rc = km_gdb_update_vcpu_debug(vcpu, NULL);
          break;
       case THREADSTATE_PAUSED:
          vcpu->gdb_vcpu_state.gdb_run_state = THREADSTATE_PAUSED;
@@ -1750,7 +1750,7 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
       return;
    }
 
-   km_vcpu_apply_all(km_gdb_set_default_runstate, (uint64_t)&threadactionblob);
+   km_vcpu_apply_all(km_gdb_set_default_runstate, &threadactionblob);
 
    /*
     * We made it through the vCont arguments, now apply what we were
@@ -1758,7 +1758,7 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
     * Since km threads are each a vcpu, we just traverse the vcpus to
     * have each thread's vCont actions applied.
     */
-   if ((count = km_vcpu_apply_all(km_gdb_set_thread_vcont_actions, (uint64_t)&threadactionblob)) != 0) {
+   if ((count = km_vcpu_apply_all(km_gdb_set_thread_vcont_actions, &threadactionblob)) != 0) {
       km_info(KM_TRACE_GDB, "apply all vcpus failed, count %d", count);
       send_error_msg();
    } else {
@@ -2410,7 +2410,7 @@ static gdb_event_t* gdb_select_event(void)
    return NULL;
 }
 
-static int km_gdb_find_notpaused(km_vcpu_t* vcpu, uint64_t vcpuaddr)
+static int km_gdb_find_notpaused(km_vcpu_t* vcpu, void* vcpuaddr)
 {
    if (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) {
       return 0;
@@ -2424,7 +2424,7 @@ static km_vcpu_t* gdb_find_notpaused_vcpu(void)
 {
    km_vcpu_t* vcpu = NULL;
 
-   km_vcpu_apply_all(km_gdb_find_notpaused, (uint64_t)&vcpu);
+   km_vcpu_apply_all(km_gdb_find_notpaused, &vcpu);
    assert(vcpu != NULL);
    return vcpu;
 }
@@ -2538,7 +2538,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
             }
             gdbstub.stepping = true;
             vcpu = km_gdb_vcpu_get();
-            if (km_gdb_update_vcpu_debug(vcpu, 0) != 0) {
+            if (km_gdb_update_vcpu_debug(vcpu, NULL) != 0) {
                send_error_msg();
                break;
             }

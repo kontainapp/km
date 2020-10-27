@@ -348,7 +348,7 @@ km_vcpu_t* km_vcpu_restore(int tid)
  *
  * Note: may skip VCPus if vcpu_get() was called on a different thread during the apply_all op
  */
-int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data)
+int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data)
 {
    int ret;
    int total = 0;
@@ -381,7 +381,7 @@ km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
 /*
  * Returns 1 if the vcpu is still running (i.e.not paused)
  */
-static inline int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
+static inline int km_vcpu_count_running(km_vcpu_t* vcpu, void* unused)
 {
    return vcpu->state == IN_GUEST ? 1 : 0;
 }
@@ -390,7 +390,7 @@ static inline int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
  * Force KVM to exit by sending a signal to vcpu thread. The signal handler can be a noop, just
  * need to exist.
  */
-static int km_vcpu_pause(km_vcpu_t* vcpu, uint64_t unused)
+static int km_vcpu_pause(km_vcpu_t* vcpu, void* unused)
 {
    km_lock_vcpu_thr(vcpu);
    if (vcpu->state == IN_GUEST) {
@@ -410,9 +410,9 @@ void km_vcpu_pause_all(void)
    km_mutex_lock(&machine.pause_mtx);
    machine.pause_requested = 1;
    km_mutex_unlock(&machine.pause_mtx);
-   km_vcpu_apply_all(km_vcpu_pause, 0);
+   km_vcpu_apply_all(km_vcpu_pause, NULL);
 
-   for (int i = 0; i < 100 && (count = km_vcpu_apply_all(km_vcpu_count_running, 0)) != 0; i++) {
+   for (int i = 0; i < 100 && (count = km_vcpu_apply_all(km_vcpu_count_running, NULL)) != 0; i++) {
       nanosleep(&_1ms, NULL);
       km_infox(KM_TRACE_VCPU, "waiting for KVM_RUN to exit - %d", i);
    }
@@ -456,7 +456,7 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg)
    km_write_sregisters(vcpu);
 
    if (km_gdb_client_is_attached() != 0) {
-      km_gdb_update_vcpu_debug(vcpu, 0);
+      km_gdb_update_vcpu_debug(vcpu, NULL);
    }
    return 0;
 }
@@ -482,7 +482,7 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    km_write_sregisters(new_vcpu);
 
    if (km_gdb_client_is_attached() != 0) {
-      km_gdb_update_vcpu_debug(new_vcpu, 0);
+      km_gdb_update_vcpu_debug(new_vcpu, NULL);
    }
    return 0;
 }

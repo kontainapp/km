@@ -360,7 +360,7 @@ extern char* mem2hex(const unsigned char* mem, char* buf, size_t count);
 extern int km_guest_mem2hex(km_gva_t addr, km_kma_t kma, char* obuf, int len);
 extern unsigned char* hex2mem(const char* buf, unsigned char* mem, size_t count);
 extern int km_guest_hex2mem(const char* buf, size_t count, km_kma_t mem);
-extern int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, uint64_t unused);
+extern int km_gdb_update_vcpu_debug(km_vcpu_t* vcpu, void* unused);
 extern void km_empty_out_eventfd(int fd);
 extern int km_gdb_setup_listen(void);
 extern void km_gdb_destroy_listen(void);
