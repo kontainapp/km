@@ -1,0 +1,90 @@
+
+# run this in a bash to do the job automatically.
+# after this follow instruction from docs/build.md
+
+
+# install required packages
+
+dnf groupinstall -y "C Development Tools and Libraries" "Cloud Management Tools" "Development Tools" "RPM Development Tools" "System Tools"
+dnf groupinstall -y --with-optional virtualization
+
+dnf install -y dnf-plugins-core
+dnf install -y vim ncurses-devel rpm-build redhat-rpm-config rpmdevtools
+dnf install -y glibc-static zlib-static elfutils-libelf-devel elfutils-libelf-devel-static
+dnf install -y libstdc++-static.x86_64
+dnf install -y awscli
+dnf install -y bzip2-devel bzip2-static gcovr openssl-devel openssl-static xz-static googler jq python27 time
+dnf install -y moby-engine
+dnf install -y kernel-headers kernel-devel
+
+
+# install vscode
+
+sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
+
+dnf install -y code
+
+
+# install azure cli
+
+sh -c 'echo -e "[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/azure-cli.repo'
+
+dnf install -y azure-cli
+
+
+# install kubectl
+
+sh -c 'echo -e "[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg" > /etc/yum.repos.d/kubernetes.repo'
+
+dnf install -y kubectl
+
+
+# install chrome
+
+sh -c 'echo -e "[google-chrome]
+name=google-chrome
+baseurl=http://dl.google.com/linux/chrome/rpm/stable/x86_64
+enabled=1
+gpgcheck=1
+gpgkey=https://dl.google.com/linux/linux_signing_key.pub" > /etc/yum.repos.d/google-chrome.repo'
+
+dnf install -y google-chrome-stable
+
+
+# add users to docker group
+
+usermod -aG docker root
+usermod -aG docker fedora
+
+# enable docker if not already
+
+systemctl enable docker
+
+systemctl status docker
+
+
+# fetch kernel source matching with installed image
+
+# update to latest kernel
+
+dnf update
+
+# At this time system needs to reboot.
+# next few commands depend on what is current running kernel
+
+# dnf config-manager --set-enabled fedora-source
+# dnf download --source kernel
+# rpm -ivh <kerne-rpm-name>
+#    -- source code will be extracted to ${HOME}
+# dnf builddep rpmbuild/SPECS/kernel.spec
