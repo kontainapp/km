@@ -74,7 +74,7 @@ size_t km_vmdriver_fpstate_size()
          fstate_size = sizeof(km_signal_kkm_frame_t);
          break;
    }
-   return fstate_size;
+   return roundup(fstate_size, 4);
 }
 
 void km_vmdriver_save_fpstate(km_vcpu_t* vcpu, void* addr)
