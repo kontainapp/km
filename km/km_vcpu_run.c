@@ -433,9 +433,9 @@ static int hypercall(km_vcpu_t* vcpu, int* hc)
    return ret;
 }
 
-static int km_vcpu_print(km_vcpu_t* vcpu, uint64_t my_id)
+static int km_vcpu_print(km_vcpu_t* vcpu, void* skip_me)
 {
-   if (vcpu->vcpu_id != my_id) {
+   if (vcpu != skip_me) {
       km_infox(KM_TRACE_VCPU, "VCPU %d still running: thread %#lx", vcpu->vcpu_id, vcpu->vcpu_thread);
    }
    return 0;
@@ -451,7 +451,7 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
     * like futex wait. There isn't much we can do about them, so just force the exit.
     */
    for (int count = 0; count < 10 && machine.vm_vcpu_run_cnt > 1; count++) {
-      km_vcpu_apply_all(km_vcpu_print, vcpu->vcpu_id);
+      km_vcpu_apply_all(km_vcpu_print, vcpu);
       nanosleep(&_1ms, NULL);
    }
    // TODO - consider an unforced solution
@@ -525,11 +525,11 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 /*
  * Return 1 if the passed vcpu has been running or stepping.
  * Return 0 if the passed vcpu has been paused.
- * Skip the vcpu whose id matches me.
+ * Skip the vcpu skip_me.
  */
-int km_vcpu_is_running(km_vcpu_t* vcpu, uint64_t me)
+int km_vcpu_is_running(km_vcpu_t* vcpu, void* skip_me)
 {
-   if (vcpu == (km_vcpu_t*)me) {
+   if (vcpu == skip_me) {
       return 0;   // Don't count this vcpu
    }
    return (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) ? 0 : 1;
@@ -606,12 +606,13 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
                case HC_STOP:
                   /*
-                   * This thread has executed pthread_exit() or SYS_exit and is terminating. If
-                   * there is more than one thread and all of the other threads are paused we need
-                   * to let gdb know that this thread is gone so that it can give the user a chance
-                   * to get at least one of the other threads going. We need to wake gdb before
-                   * calling km_vcpu_stopped() because km_vcpu_stopped() will block until a new
-                   * thread is created and reuses this vcpu.
+                   * This thread has executed pthread_exit() or SYS_exit and is terminating. If we
+                   * running with gdb and there are no more running threads (either we are the only
+                   * thread or gdb paused all the others) we need to let gdb know that this thread
+                   * is gone so that it can notify the user (and in latter case give them a chance to
+                   * get at least one of the other threads going).
+                   * We need to wake gdb before calling km_vcpu_stopped() because km_vcpu_stopped()
+                   * will block until a new thread is created and reuses this vcpu.
                    */
                   km_info(KM_TRACE_KVM,
                           "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: hypercall %d stop",
@@ -620,7 +621,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                           vcpu->sregs.cr2,
                           hc);
                   if (km_gdb_client_is_attached() != 0 &&
-                      km_vcpu_apply_all(km_vcpu_is_running, (uint64_t)vcpu) == 0) {
+                      km_vcpu_apply_all(km_vcpu_is_running, vcpu) == 0) {
                      /*
                       * We notify gdb but don't wait because we need to go on and park the vcpu
                       * by calling km_vcpu_stopped().
@@ -784,7 +785,7 @@ static void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext)
    km_post_signal(NULL, &info);
 }
 
-static int km_start_single_vcpu(km_vcpu_t* vcpu, uint64_t arg)
+static int km_start_single_vcpu(km_vcpu_t* vcpu, void* unused)
 {
    return km_run_vcpu_thread(vcpu);
 }
@@ -810,7 +811,7 @@ void km_start_vcpus()
    }
 
    // Start the VCPU's
-   if (km_vcpu_apply_all(km_start_single_vcpu, 0) != 0) {
+   if (km_vcpu_apply_all(km_start_single_vcpu, NULL) != 0) {
       km_err(2, "Failed to start guest");
    }
 }
