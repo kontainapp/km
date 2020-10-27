@@ -206,9 +206,9 @@ typedef struct {
    size_t pr_remain;
 } km_core_list_context_t;
 
-static int km_core_dump_threads(km_vcpu_t* vcpu, uint64_t arg)
+static int km_core_dump_threads(km_vcpu_t* vcpu, void* arg)
 {
-   km_core_list_context_t* ctx = (km_core_list_context_t*)arg;
+   km_core_list_context_t* ctx = arg;
    if (vcpu == ctx->pr_vcpu) {
       return 0;
    }
@@ -220,7 +220,7 @@ static int km_core_dump_threads(km_vcpu_t* vcpu, uint64_t arg)
 }
 
 // Dump KM specific data
-static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, uint64_t arg)
+static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, void* arg)
 {
    struct km_nt_vcpu vnote = {.vcpu_id = vcpu->vcpu_id,
                               .stack_top = vcpu->stack_top,
@@ -235,7 +235,7 @@ static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, uint64_t arg)
                               .hcarg = (Elf64_Addr)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)],
                               .fp_format = km_vmdriver_fp_format(vcpu)};
 
-   km_core_list_context_t* ctx = (km_core_list_context_t*)arg;
+   km_core_list_context_t* ctx = arg;
    char* cur = ctx->pr_cur;
    size_t remain = ctx->pr_remain;
    cur += km_add_note_header(cur,
@@ -451,7 +451,7 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
    }
 
    km_core_list_context_t ctx = {.pr_vcpu = vcpu, .pr_cur = cur, .pr_remain = remain};
-   km_vcpu_apply_all(km_core_dump_threads, (uint64_t)&ctx);
+   km_vcpu_apply_all(km_core_dump_threads, &ctx);
    cur = ctx.pr_cur;
    remain = ctx.pr_remain;
 
@@ -469,7 +469,7 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
    ctx.pr_vcpu = NULL;
    ctx.pr_cur = cur;
    ctx.pr_remain = remain;
-   ret = km_vcpu_apply_all(km_core_dump_vcpu, (uint64_t)&ctx);
+   ret = km_vcpu_apply_all(km_core_dump_vcpu, &ctx);
    cur = ctx.pr_cur;
    remain = ctx.pr_remain;
 
@@ -552,7 +552,7 @@ static inline void km_guestmem_write(int fd, km_gva_t base, size_t length)
    }
 }
 
-static int km_count_vcpu(km_vcpu_t* vcpu, uint64_t unused)
+static int km_count_vcpu(km_vcpu_t* vcpu, void* unused)
 {
    return 1;
 }
@@ -563,7 +563,7 @@ static int km_count_vcpu(km_vcpu_t* vcpu, uint64_t unused)
  */
 static inline size_t km_core_notes_length(km_vcpu_t* vcpu)
 {
-   int nvcpu = km_vcpu_apply_all(km_count_vcpu, 0);
+   int nvcpu = km_vcpu_apply_all(km_count_vcpu, NULL);
    int nvcpu_inc = (vcpu == NULL) ? 0 : 1;
    /*
     * nvcpu is incremented because the current vcpu is wrtten twice.

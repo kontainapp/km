@@ -463,12 +463,13 @@ int km_snapshot_restore(const char* file)
 
    return 0;
 }
-static int km_vcpu_count_not_paused(km_vcpu_t* vcpu, uint64_t unused)
+
+static int km_vcpu_count_not_paused(km_vcpu_t* vcpu, void* unused)
 {
    return (vcpu->state != PAUSED) ? 1 : 0;
 }
 
-static int km_vcpu_snapshot_kick(km_vcpu_t* vcpu, uint64_t unused)
+static int km_vcpu_snapshot_kick(km_vcpu_t* vcpu, void* unused)
 {
    if (vcpu->state != PAUSED) {
       km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
@@ -509,12 +510,12 @@ int km_snapshot_create(km_vcpu_t* vcpu, int live)
       vcpu->state = PAUSED;
    }
    for (;;) {
-      if (km_vcpu_apply_all(km_vcpu_count_not_paused, 0) == 0) {
+      if (km_vcpu_apply_all(km_vcpu_count_not_paused, NULL) == 0) {
          break;
       }
       nanosleep(&_1ms, NULL);
       // kick any lagging threads.
-      km_vcpu_apply_all(km_vcpu_snapshot_kick, 0);
+      km_vcpu_apply_all(km_vcpu_snapshot_kick, NULL);
    }
 
    km_dump_core(km_get_snapshot_path(), vcpu, NULL);
