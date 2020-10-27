@@ -76,6 +76,7 @@ void* do_nothing_thread(void* instance)
       do_random_sleep((uint64_t)instance, &depth);
       iteration++;
       if (stop_running != 0) {
+         printf("Terminating instance %ld because stop_running is set\n", (uint64_t)instance);
          break;
       }
       if (stop_after_seconds != 0 && (time(NULL) - starttime) > stop_after_seconds) {
