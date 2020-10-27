@@ -380,12 +380,12 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg);
 int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);
 void km_vcpu_detach(km_vcpu_t* vcpu);
 
-typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, uint64_t data);   // return 0 if all is good
-int km_vcpu_apply_used(km_vcpu_apply_cb func, uint64_t data);
-int km_vcpu_apply_all(km_vcpu_apply_cb func, uint64_t data);
+typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, void* data);
+int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data);
 int km_vcpu_count(void);
 void km_vcpu_pause_all(void);
 km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
+
 static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
 {
    /*

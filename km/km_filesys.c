@@ -1966,7 +1966,7 @@ static int proc_sched_open(const char* guest_fn, char* host_fn, size_t host_fn_s
    return snprintf(host_fn, host_fn_sz, "%s%s", PROC_SELF, guest_fn + proc_pid_length);
 }
 
-static inline int km_vcpu_count_running(km_vcpu_t* vcpu, uint64_t unused)
+static inline int km_vcpu_count_running(km_vcpu_t* vcpu, void* unused)
 {
    return vcpu->state != PARKED_IDLE;
 }
@@ -1993,7 +1993,7 @@ static int proc_sched_read(int fd, char* buf, size_t buf_sz)
                       "%s (%u, #threads: %u)\n",
                       km_guest.km_filename,
                       machine.pid,
-                      km_vcpu_apply_all(km_vcpu_count_running, 0));
+                      km_vcpu_apply_all(km_vcpu_count_running, NULL));
    ret += fread(buf + ret, 1, buf_sz - ret, fp);
    fclose(fp);
    return ret;
