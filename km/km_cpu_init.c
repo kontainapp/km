@@ -391,7 +391,7 @@ km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
 static int km_vcpu_in_guest(km_vcpu_t* vcpu, void* skip_me)
 {
    if (vcpu->state == IN_GUEST && vcpu != skip_me) {
-      km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
+      km_pkill(vcpu, KM_SIGVCPUSTOP);
       km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
       return 1;
    }
@@ -402,7 +402,7 @@ static int km_vcpu_in_guest(km_vcpu_t* vcpu, void* skip_me)
 static int km_vcpu_not_paused(km_vcpu_t* vcpu, void* skip_me)
 {
    if (vcpu->state != PAUSED && vcpu != skip_me) {
-      km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
+      km_pkill(vcpu, KM_SIGVCPUSTOP);
       km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
       return 1;
    }

@@ -75,10 +75,9 @@ typedef stack_t km_stack_t;
 typedef unsigned long int pthread_tid_t;
 
 /*
- * When a thread hits a breakpoint, or a single step operation completes, or
- * a signal is generated, a gdb event is queued by the thread and then the
- * gdb server is woken.  The gdb server then processes the elements in the
- * queue.  This structure describes a thread's gdb event.
+ * When a thread hits a breakpoint, or a single step operation completes, or a signal is generated,
+ * a gdb event is queued by the thread and then the gdb server is woken.  The gdb server then
+ * processes the elements in the queue.  This structure describes a thread's gdb event.
  */
 typedef struct gdb_event {
    TAILQ_ENTRY(gdb_event) link;   // link field for being in gdb's event queue
@@ -89,14 +88,11 @@ typedef struct gdb_event {
 } gdb_event_t;
 
 /*
- * This enum describes states gdb can assign to a thread with the vCont
- * remote protocol command.
- * This defines what state the gdb client would like the thread to be
- * in when the payload is "running".
- * It may seem that there is overlap between the gdb state of a thread
- * and the vcpu's state as defined in km_vcpu but gdb_run_state_t just
- * defines gdb's intent for the thread whereas the km_vcpu state defines
- * what the vcpu is currently doing.
+ * This enum describes states gdb can assign to a thread with the vCont remote protocol command.
+ * This defines what state the gdb client would like the thread to be in when the payload is
+ * "running". It may seem that there is overlap between the gdb state of a thread and the vcpu's
+ * state as defined in km_vcpu but gdb_run_state_t just defines gdb's intent for the thread whereas
+ * the km_vcpu state defines what the vcpu is currently doing.
  */
 typedef enum {
    THREADSTATE_NONE,            // no state has been assigned
@@ -123,12 +119,13 @@ typedef struct km_vcpu_list {
 // VPCU state
 typedef enum {
    PARKED_IDLE = 0,   // Idle, parked for reuse. Thread waits on thr_cv or doesn't exist. VCPU
-                      // queued in SLIST off off machine.vm_idle_vcpus
+                      // queued in SLIST off of machine.vm_idle_vcpus
    STARTING,   // Being initialized. Thread waits on thr_cv or doesn't exist. VCPU removed from the SLIST
    HYPERCALL,   // Running in KM
+   HCALL_INT,   // Hypercall was interrupted by KM_SIGVCPUSTOP
    IN_GUEST,    // Running in ioctl( KVM_RUN )
-   PAUSED       // paused in km_vcpu_handle_pause
-} km_vcpu_state_t;
+   PAUSED       // Paused in km_vcpu_handle_pause
+} __attribute__((__packed__)) km_vcpu_state_t;
 
 typedef struct km_vcpu {
    int vcpu_id;               // uniq ID
@@ -137,11 +134,13 @@ typedef struct km_vcpu {
    pthread_t vcpu_thread;     // km pthread
    pthread_mutex_t thr_mtx;   // protects the three fields below
    pthread_cond_t thr_cv;     // used by vcpu_pthread to block while vcpu isn't in use
+   uint16_t hypercall;        // hypercall #
+   uint8_t restart;           // hypercall needs restarting
    km_vcpu_state_t state;     // state
    uint8_t regs_valid;        // Are registers valid?
    uint8_t sregs_valid;       // Are segment registers valid?
    uint8_t in_sigsuspend;     // if true thread is running in the sigsuspend() hypercall
-                              //
+   //
    // When vcpu is used (i.e. not PARKED_IDLE) the field is used for stack_top.
    // PARKED_IDLE vcpus are queued in SLIST using next_idle as stack_top isn't needed
    union {
@@ -386,7 +385,7 @@ int km_vcpu_count(void);
 
 typedef enum {
    GUEST_ONLY,   // signal only IN_GUEST vcpus
-   ALL,        // signal all vcpus
+   ALL,          // signal all vcpus
 } km_pause_t;
 
 void km_vcpu_pause_all(km_vcpu_t* vcpu, km_pause_t type);
@@ -605,11 +604,12 @@ extern int km_collect_hc_stats;
       }                                                                                            \
    } while (0)
 
-#define km_pkill(threadid, signo)                                                                  \
+#define km_pkill(vcpu, signo)                                                                      \
    do {                                                                                            \
       int ret;                                                                                     \
-      if ((ret = pthread_kill(threadid, signo)) != 0) {                                            \
-         km_err(ret, "pthread_kill(" #threadid ", " #signo ") Failed ");                           \
+      sigval_t val = {.sival_ptr = vcpu};                                                          \
+      if ((ret = pthread_sigqueue(vcpu->vcpu_thread, signo, val)) != 0) {                          \
+         km_err(ret, "pthread_sigqueue(" #vcpu "->vcpu_thread, " #signo ") Failed ");              \
       }                                                                                            \
    } while (0)
 
