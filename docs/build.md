@@ -1,5 +1,214 @@
 # Build, test, CI and sources layout
 
+## Setting out new Fedora machine
+
+Before anything can be built and tested on a local Fedora machine we need to install and configure a few components.
+This is usually done once, after the machine is freshly installed.
+
+Generally we install using dnf as much as possible,
+which makes it easy to maintain current versions of packages via `sudo dnf upgrade`.
+
+We assume the user has administrator privileges, i.e. is a member of group wheel.
+
+### sudo
+
+Some scripts need to be run as root.
+To make things easier it is best to enable passwordless sudo.
+Edit file `/etc/sudoers` using `sudo visudo`,
+comment out the line `%wheel        ALL=(ALL)       ALL` and uncomment out the line
+`%wheel  ALL=(ALL)       NOPASSWD: ALL`.
+Here is the relevant fragment of the file:
+
+```txt
+   ...
+
+## Allows people in group wheel to run all commands
+# %wheel        ALL=(ALL)       ALL
+
+## Same thing without a password
+%wheel  ALL=(ALL)       NOPASSWD: ALL
+
+## Allows members of the users group to mount and unmount the
+## cdrom as root
+# %users  ALL=/sbin/mount /mnt/cdrom, /sbin/umount /mnt/cdrom
+
+   ...
+```
+
+### Upgrade the system
+
+To make things up to date, run
+
+```bash
+sudo dnf upgrade --refresh -y
+```
+
+This could take a while as many packages are downloaded and installed.
+The system most likely needs to reboot after that to use new kernel,
+however that could wait till next step as docker requires reconfiguring kernel parameters.
+
+### Docker
+
+Install
+
+```bash
+sudo dnf install -y moby-engine
+```
+
+There are a bunch of glitched between latest docker and latest fedora 32 config.
+Here is a good summary / instruction for fixes: https://fedoramagazine.org/docker-and-fedora-32/.
+
+In short, you may run into cgroups v1 vs v2 issue.
+To enable v1 on fedora32:
+
+```bash
+sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
+```
+
+Also firewall rules blocking docker0. To fix:
+
+```bash
+sudo firewall-cmd --permanent --zone=trusted --add-interface=docker0
+sudo firewall-cmd --permanent --zone=FedoraWorkstation --add-masquerade
+sudo systemctl restart firewalld
+```
+
+To enable docker for unprivileged user:
+
+```bash
+sudo usermod -aG docker root
+sudo usermod -aG docker $(id -un)
+```
+
+At this point it makes sense to reboot `sudo reboot`.
+
+### Various - make, Azure CLI, kubectl
+
+```bash
+sudo sh -c 'echo -e "[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/azure-cli.repo'
+```
+```bash
+sudo sh -c 'echo -e "[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg" > /etc/yum.repos.d/kubernetes.repo'
+```
+
+```bash
+sudo dnf install -y make azure-cli kubectl
+```
+
+### Source tree and build environment
+
+These are quick steps to set up build environment.
+See "Build and test" below for full description.
+
+Sources are maintained in github in private repo.
+In order to get access to the repo we need to create public key and import it into github.
+Public/private key pair is create by `ssh-keygen`.
+The content of `~/.ssh/id_rsa.pub` file needs to be entered into `https://github.com/settings/keys` page.
+Githib will requests identity confirmation.
+
+It helps to configure local git settings and aliases in `~/.gitconfig`:
+
+```txt
+# This is Git's per-user configuration file.
+[user]
+# Please adapt and uncomment the following lines:
+	name = You Name
+	email = you_name@kontain.app
+
+[alias]
+        ls = log --graph --pretty=format:'%C(yellow)%h%Creset%C(cyan)%C(bold)%d%Creset %s (%C(cyan)%cr%Creset %C(green)%ce%Creset)'
+
+[help]
+	autocorrect = 1
+```
+
+Clone the source repo, make sure to update submodules:
+
+```bash
+git clone git@github.com:kontainapp/km.git
+cd km
+git submodule update --init
+```
+
+To configure local build environment and docker build environment we need to fetch a build environment image:
+
+```bash
+make -C cloud/azure login
+make -C tests pull-buildenv-image
+make -C tests buildenv-local-fedora
+```
+
+The last command will install local packages needed for build and test.
+
+Now we are ready for local build and test:
+
+```bash
+make -j
+make -C tests test
+```
+
+Or we can do build and test in docker containers in the same way CI system does it in the cloud.
+Note if you build locally before, you need to clean first:
+
+```bash
+make clean
+make -C container-runtime clobber
+```
+
+```bash
+make pull-buildenv-image
+make withdocker -j
+make -C payloads/python
+make -C payloads/python testenv-image
+make -C payloads/node
+make -C payloads/node testenv-image
+make -C payloads/java
+make -C payloads/java testenv-image
+make test-withdocker
+```
+
+## Following are various tools
+
+### Visual Studio Code
+
+```bash
+sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+sudo sh -c 'echo -e "[code]
+name=Visual Studio Code
+baseurl=https://packages.microsoft.com/yumrepos/vscode
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
+```
+```bash
+sudo dnf install -y code
+```
+
+### Google chrome
+
+```bash
+sudo sh -c 'echo -e "[google-chrome]
+name=google-chrome
+baseurl=http://dl.google.com/linux/chrome/rpm/stable/x86_64
+enabled=1
+gpgcheck=1
+gpgkey=https://dl.google.com/linux/linux_signing_key.pub" > /etc/yum.repos.d/google-chrome.repo'
+```
+```bash
+dnf install -y google-chrome-stable
+```
+
 ## Coding Style
 
 We use the Visual Studio Code (VS Code) IDE. Our workspace (`km_repo_root/.vscode/km.code-workspace`) is configured to automatically run clang-format on file save.
@@ -132,14 +341,6 @@ make buildenv-local-fedora  # currently supported on fedora only !
 ```
 
 ### Building with Docker
-
-#### Installing Docker
-
-Please see https://docs.docker.com/install/linux/docker-ce/fedora/ for instructions
-
-#### Configuring Docker
-
-By default Docker require root permission to run. Read the instructions at https://docs.docker.com/install/linux/linux-postinstall/ to run docker without being root.
 
 #### Building
 
