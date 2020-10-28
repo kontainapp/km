@@ -233,6 +233,8 @@ static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, void* arg)
                               .mapself_base = vcpu->mapself_base,
                               .mapself_size = vcpu->mapself_size,
                               .hcarg = (Elf64_Addr)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)],
+                              .hypercall = vcpu->hypercall,
+                              .restart = vcpu->restart,
                               .fp_format = km_vmdriver_fp_format(vcpu)};
 
    km_core_list_context_t* ctx = arg;

@@ -383,48 +383,58 @@ void km_write_sregisters(km_vcpu_t* vcpu)
 /*
  * return non-zero and set status if guest halted
  */
-static int hypercall(km_vcpu_t* vcpu, int* hc)
+static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
 {
    kvm_run_t* r = vcpu->cpu_run;
    km_gva_t ga;
+   uint16_t hc;
 
-   /* Sanity checks */
-   *hc = r->io.port - KM_HCALL_PORT_BASE;
-   if (!(r->io.direction == KVM_EXIT_IO_OUT && r->io.size == 4 && *hc >= 0 && *hc < KM_MAX_HCALL)) {
-      km_info(KM_TRACE_SIGNALS,
-              "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
-              r->io.port,
-              r->io.size,
-              r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
+   if (vcpu->restart != 0) {
+      hc = vcpu->hypercall;
+      vcpu->restart = 0;
+   } else {
+      /* Sanity checks */
+      hc = r->io.port - KM_HCALL_PORT_BASE;
+      if (!(r->io.direction == KVM_EXIT_IO_OUT && r->io.size == 4 && hc >= 0 && hc < KM_MAX_HCALL)) {
+         km_info(KM_TRACE_SIGNALS,
+                 "KVM: unexpected IO port activity, port 0x%x 0x%x bytes %s",
+                 r->io.port,
+                 r->io.size,
+                 r->io.direction == KVM_EXIT_IO_OUT ? "out" : "in");
 
-      siginfo_t info = {.si_signo = SIGBUS, .si_code = SI_KERNEL};
-      km_post_signal(vcpu, &info);
-      return -1;
-   }
-   if (km_hcalls_table[*hc] == NULL) {
-      km_warnx("Unimplemented hypercall %d (%s)", *hc, km_hc_name_get(*hc));
-      siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
-      km_post_signal(vcpu, &info);
-      return -1;
+         siginfo_t info = {.si_signo = SIGBUS, .si_code = SI_KERNEL};
+         km_post_signal(vcpu, &info);
+         return -1;
+      }
+      if (km_hcalls_table[hc] == NULL) {
+         km_warnx("Unimplemented hypercall %d (%s)", hc, km_hc_name_get(hc));
+         siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
+         km_post_signal(vcpu, &info);
+         return -1;
+      }
+      vcpu->hypercall = hc;
    }
    // We assume hypercall args are built are on stack in the guest, but nothing in km depends on this.
    ga = (km_gva_t)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)];
-   km_kma_t ga_kma = km_gva_to_kma(ga);
-   km_infox(KM_TRACE_HC, "calling hc = %d (%s), hcargs gva 0x%lx, kma %p", *hc, km_hc_name_get(*hc), ga, ga_kma);
+   km_hc_args_t* ga_kma = km_gva_to_kma(ga);
+   km_infox(KM_TRACE_HC, "calling hc = %d (%s), hcargs gva 0x%lx, kma %p", hc, km_hc_name_get(hc), ga, ga_kma);
    if (ga_kma == NULL || km_gva_to_kma(ga + sizeof(km_hc_args_t) - 1) == NULL) {
-      km_infox(KM_TRACE_SIGNALS, "hc: %d bad stack_top km_hc_args_t address:0x%lx", *hc, ga);
+      km_infox(KM_TRACE_SIGNALS, "hc: %d bad stack_top km_hc_args_t address:0x%lx", hc, ga);
       siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
       km_post_signal(vcpu, &info);
       return -1;
    }
    struct timespec start, stop;
-   clock_gettime(CLOCK_MONOTONIC, &start);
-   km_hc_ret_t ret = km_hcalls_table[*hc](vcpu, *hc, ga_kma);
-   clock_gettime(CLOCK_MONOTONIC, &stop);
-   uint64_t msecs = (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec;
-   km_infox(KM_TRACE_HC, "calling hc = %d (%s) time=%ld", *hc, km_hc_name_get(*hc), msecs);
-   if (km_collect_hc_stats) {
-      km_hc_stats_t* hstat = &km_hcalls_stats[*hc];
+   if (km_collect_hc_stats != 0) {
+      clock_gettime(CLOCK_MONOTONIC, &start);
+   }
+   km_hc_ret_t ret = km_hcalls_table[hc](vcpu, hc, ga_kma);
+   *hc_ret = ga_kma->hc_ret;
+   if (km_collect_hc_stats != 0) {
+      clock_gettime(CLOCK_MONOTONIC, &stop);
+      uint64_t msecs = (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec;
+      km_infox(KM_TRACE_HC, "calling hc = %d (%s) time=%ld", hc, km_hc_name_get(hc), msecs);
+      km_hc_stats_t* hstat = &km_hcalls_stats[hc];
       hstat->min = MIN(msecs, hstat->min);
       hstat->max = MAX(msecs, hstat->max);
       hstat->total += msecs;
@@ -498,10 +508,6 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
       vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
       switch (errno) {
          case EINTR:
-            if (machine.exit_group == 1) {   // Interrupt from exit_group() - we are done.
-               km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
-               assert("Reached the unreachable" == NULL);
-            }
             break;
 
          case EFAULT: {
@@ -510,7 +516,6 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
              * text area. This is a side-effect of how we protect guest memory (guest PT says page
              * is writable, but kernel says it isn't).
              */
-
             siginfo_t info = {.si_signo = SIGSEGV, .si_code = SI_KERNEL};
             info.si_addr = km_find_faulting_address(vcpu);
             km_post_signal(vcpu, &info);
@@ -535,8 +540,15 @@ static int km_vcpu_is_running(km_vcpu_t* vcpu, void* skip_me)
    return (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) ? 0 : 1;
 }
 
-static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
+static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
 {
+   if (machine.exit_group != 0) {   // exit_group() - we are done.
+      km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
+      assert("Reached the unreachable" == NULL);
+   }
+   if (machine.pause_requested == 0 && km_gdb_client_is_attached() == 0) {
+      return;
+   }
    /*
     * Interlock with machine.pause_requested. This is mostly for the benefits of gdb stub, but
     * also used to stop all vcpus in exit_grp() and in fatal signal. .pause_requested makes all
@@ -550,12 +562,20 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
     * safe to check them here, even though gdb stub doesn't keep the pause_mtx lock when changing them.
     */
    km_mutex_lock(&machine.pause_mtx);
-   while (machine.pause_requested == 1 || (km_gdb_client_is_attached() != 0 &&
+   while (machine.pause_requested != 0 || (km_gdb_client_is_attached() != 0 &&
                                            vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
       km_infox(KM_TRACE_VCPU,
-               "pause_requested %d, gvs_gdb_run_state %d, waiting for gdb",
+               "pause_requested %d, gvs_gdb_run_state %d, vcpu state %d",
                machine.pause_requested,
-               vcpu->gdb_vcpu_state.gdb_run_state);
+               vcpu->gdb_vcpu_state.gdb_run_state,
+               vcpu->state);
+      if (hc_ret == -EINTR && vcpu->state == HCALL_INT) {   // interrupted hypercall, need to restart
+         vcpu->regs_valid = 0;
+         km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
+         vcpu->restart = 1;
+      } else {
+         vcpu->restart = 0;
+      }
       vcpu->state = PAUSED;
       km_cond_wait(&machine.pause_cv, &machine.pause_mtx);
       vcpu->state = HYPERCALL;
@@ -565,7 +585,7 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu)
 
 void* km_vcpu_run(km_vcpu_t* vcpu)
 {
-   int hc;
+   int hc_ret = 0;
 
    char thread_name[16];   // see 'man pthread_getname_np'
    sprintf(thread_name, "vcpu-%d", vcpu->vcpu_id);
@@ -574,9 +594,13 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    while (1) {
       int reason;
 
-      km_vcpu_handle_pause(vcpu);
-      km_vcpu_one_kvm_run(vcpu);
-      reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
+      km_vcpu_handle_pause(vcpu, hc_ret);
+      if (vcpu->restart == 0) {
+         km_vcpu_one_kvm_run(vcpu);
+         reason = vcpu->cpu_run->exit_reason;   // just to save on code width down the road
+      } else {
+         reason = KVM_EXIT_IO;
+      }
       km_info(KM_TRACE_KVM,
               "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: exit reason=%d (%s)",
               vcpu->regs.rip,
@@ -589,17 +613,12 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             break;
 
          case KVM_EXIT_IO:
-            switch (hypercall(vcpu, &hc)) {
+            switch (hypercall(vcpu, &hc_ret)) {
                case HC_CONTINUE:
-                  if (machine.exit_group == 1) {   // exit_group() - we are done.
-                     km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
-                     assert("Reached the unreachable" == NULL);
-                  }
-
                   km_infox(KM_TRACE_VCPU,
                            "return from hc = %d (%s), gdb_run_state %d, pause_requested %d",
-                           hc,
-                           km_hc_name_get(hc),
+                           vcpu->hypercall,
+                           km_hc_name_get(vcpu->hypercall),
                            vcpu->gdb_vcpu_state.gdb_run_state,
                            machine.pause_requested);
                   break;
@@ -619,7 +638,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                           vcpu->regs.rip,
                           vcpu->regs.rsp,
                           vcpu->sregs.cr2,
-                          hc);
+                          vcpu->hypercall);
                   if (km_gdb_client_is_attached() != 0 &&
                       km_vcpu_apply_all(km_vcpu_is_running, vcpu) == 0) {
                      /*
@@ -640,7 +659,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                           vcpu->regs.rip,
                           vcpu->regs.rsp,
                           vcpu->sregs.cr2,
-                          hc,
+                          vcpu->hypercall,
                           machine.exit_status);
                   km_gdb_accept_stop();
                   km_vcpu_exit_all(vcpu);
@@ -742,14 +761,20 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 }
 
 /*
- * Signal handler. Used when we want VCPU to stop. The signal causes KVM_RUN exit with -EINTR, so
- * the actual handler is noop - it just needs to exist.
+ * Signal handler. Used when we want VCPU to stop. For vcpu->state == IN_GUEST the signal causes
+ * KVM_RUN exit with -EINTR. It also interrupts some system calls, which we mark with HCALL_INT.
+ *
  * Calling km_info() and km_infox() from this function seems to occassionally cause a mutex
  * deadlock in the regular expression code called from km_info*().
  */
-static void km_vcpu_pause_sighandler(int signum_unused, siginfo_t* info_unused, void* ucontext_unused)
+static void km_vcpu_pause_sighandler(int signum, siginfo_t* info, void* ucontext_unused)
 {
-   // NOOP
+   if (signum == KM_SIGVCPUSTOP) {
+      km_vcpu_t* vcpu = info->si_value.sival_ptr;
+      if (vcpu->state == HYPERCALL) {
+         vcpu->state = HCALL_INT;
+      }
+   }
 }
 
 /*
