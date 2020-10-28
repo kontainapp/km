@@ -444,18 +444,18 @@ static int km_vcpu_print(km_vcpu_t* vcpu, void* skip_me)
 static void km_vcpu_exit_all(km_vcpu_t* vcpu)
 {
    machine.exit_group = 1;   // make sure we exit and not waiting for gdb
-   km_vcpu_pause_all();
+   km_vcpu_pause_all(vcpu, KVM_ONLY);
    /*
     * At this point there are no threads in the guest (assert at the end of km_vcpu_pause_all).
     * However there are possibly threads in uninterruptible system calls on behalf of the guest,
     * like futex wait. There isn't much we can do about them, so just force the exit.
     */
-   for (int count = 0; count < 10 && machine.vm_vcpu_run_cnt > 1; count++) {
+   for (int count = 0; count < 10 && km_vcpu_run_cnt() > 1; count++) {
       km_vcpu_apply_all(km_vcpu_print, vcpu);
       nanosleep(&_1ms, NULL);
    }
    // TODO - consider an unforced solution
-   if (machine.vm_vcpu_run_cnt > 1) {
+   if (km_vcpu_run_cnt() > 1) {
       km_infox(KM_TRACE_VCPU, "Forcing exit_group() without cleanup");
       exit(machine.exit_status);
    }
@@ -527,7 +527,7 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
  * Return 0 if the passed vcpu has been paused.
  * Skip the vcpu skip_me.
  */
-int km_vcpu_is_running(km_vcpu_t* vcpu, void* skip_me)
+static int km_vcpu_is_running(km_vcpu_t* vcpu, void* skip_me)
 {
    if (vcpu == skip_me) {
       return 0;   // Don't count this vcpu
@@ -653,7 +653,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                   if (km_gdb_client_is_attached() != 0) {
                      km_gdb_notify(vcpu, GDB_KMSIGNAL_DOFORK);
                   } else {
-                     km_vcpu_pause_all();
+                     km_vcpu_pause_all(vcpu, KVM_ONLY);
                      if (eventfd_write(machine.shutdown_fd, 1) == -1) {
                         km_errx(2, "Failed to send machine_fini signal");
                      }

@@ -383,7 +383,13 @@ void km_vcpu_detach(km_vcpu_t* vcpu);
 typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, void* data);
 int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data);
 int km_vcpu_count(void);
-void km_vcpu_pause_all(void);
+
+typedef enum {
+   KVM_ONLY,   // signal only IN_GUEST vcpus
+   ALL,        // signal all vcpus
+} km_pause_t;
+
+void km_vcpu_pause_all(km_vcpu_t* vcpu, km_pause_t type);
 km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
 
 static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
@@ -606,6 +612,16 @@ extern int km_collect_hc_stats;
          km_err(ret, "pthread_kill(" #threadid ", " #signo ") Failed ");                           \
       }                                                                                            \
    } while (0)
+
+static inline int km_vcpu_run_cnt(void)
+{
+   int ret;
+
+   km_mutex_lock(&machine.vm_vcpu_mtx);
+   ret = machine.vm_vcpu_run_cnt;
+   km_mutex_unlock(&machine.vm_vcpu_mtx);
+   return ret;
+}
 
 static inline void km_lock_vcpu_thr(km_vcpu_t* vcpu)
 {
