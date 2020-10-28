@@ -63,6 +63,8 @@ typedef struct km_nt_vcpu {
    Elf64_Addr mapself_base;        // delayed unmap address
    Elf64_Off mapself_size;         // and size
    Elf64_Addr hcarg;               // current value of km_hcarg[vcpu_id]
+   Elf64_Half hypercall;
+   Elf64_Half restart;
    /*
     * TODO: SIGMASK
     * TODO: Debug registers?

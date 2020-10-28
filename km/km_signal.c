@@ -417,7 +417,7 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
    km_infox(KM_TRACE_VCPU, "enqueuing signal %d to vcpu %d", info->si_signo, vcpu->vcpu_id);
    enqueue_signal(&vcpu->sigpending, info);
    if (km_sigismember(&vcpu->sigmask, info->si_signo) == 0) {
-      km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
+      km_pkill(vcpu, KM_SIGVCPUSTOP);
    }
 }
 
