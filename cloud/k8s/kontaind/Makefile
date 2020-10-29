@@ -14,6 +14,7 @@ TOP := $(shell git rev-parse --show-toplevel)
 CURRENT_DIR := ${TOP}/cloud/k8s/kontaind
 
 COMPONENT = kontain-installer
+RELEASE_TAG := ${COMPONENT}
 RUNENV_PATH = ${BLDDIR}
 
 # runenv-image configs
