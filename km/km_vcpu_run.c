@@ -729,17 +729,12 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             run_errx(1, "KVM: exit. reason=%d (%s)", reason, kvm_reason_name(reason));
             break;
       }   // switch(reason)
-      if (km_signal_ready(vcpu)) {
+      siginfo_t info;
+      if (km_dequeue_signal(vcpu, &info) != 0) {
          if (km_gdb_client_is_attached() != 0) {
-            siginfo_t info;
-            km_dequeue_signal(vcpu, &info);
             km_gdb_notify(vcpu, info.si_signo);
          } else {
-            /*
-             * If there is a signal with a handler, setup the guest's registers to execute the
-             * handler in the the KVM_RUN.
-             */
-            km_deliver_next_signal(vcpu);
+            km_deliver_signal(vcpu, &info);
          }
          km_rt_sigsuspend_revert(vcpu);
       }
