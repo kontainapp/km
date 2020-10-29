@@ -70,6 +70,7 @@ usermod -aG docker fedora
 # enable docker if not already
 
 systemctl enable docker
+systemctl start docker
 
 systemctl status docker
 
@@ -88,3 +89,7 @@ dnf update
 # rpm -ivh <kerne-rpm-name>
 #    -- source code will be extracted to ${HOME}
 # dnf builddep rpmbuild/SPECS/kernel.spec
+#
+# enable cgroups v1
+# grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
+# reboot
