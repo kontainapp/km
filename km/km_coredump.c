@@ -552,18 +552,13 @@ static inline void km_guestmem_write(int fd, km_gva_t base, size_t length)
    }
 }
 
-static int km_count_vcpu(km_vcpu_t* vcpu, void* unused)
-{
-   return 1;
-}
-
 /*
  * Returns buffer allocation size for core PT_NOTES section based on the
  * number of active vcpu's (threads).
  */
 static inline size_t km_core_notes_length(km_vcpu_t* vcpu)
 {
-   int nvcpu = km_vcpu_apply_all(km_count_vcpu, NULL);
+   int nvcpu = km_vcpu_run_cnt();
    int nvcpu_inc = (vcpu == NULL) ? 0 : 1;
    /*
     * nvcpu is incremented because the current vcpu is wrtten twice.

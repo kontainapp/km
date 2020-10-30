@@ -1544,11 +1544,7 @@ km_fs_epoll_wait(km_vcpu_t* vcpu, int epfd, struct epoll_event* events, int maxe
       return -EBADF;
    }
 
-   int ret = __syscall_4(SYS_epoll_wait,
-                         host_epfd,
-                         (uintptr_t)events,
-                         maxevents,
-                         timeout);
+   int ret = __syscall_4(SYS_epoll_wait, host_epfd, (uintptr_t)events, maxevents, timeout);
    return ret;
 }
 
@@ -1966,11 +1962,6 @@ static int proc_sched_open(const char* guest_fn, char* host_fn, size_t host_fn_s
    return snprintf(host_fn, host_fn_sz, "%s%s", PROC_SELF, guest_fn + proc_pid_length);
 }
 
-static inline int km_vcpu_count_running(km_vcpu_t* vcpu, void* unused)
-{
-   return vcpu->state != PARKED_IDLE;
-}
-
 // called on the read of /proc/self/sched - need to replace the first line
 static int proc_sched_read(int fd, char* buf, size_t buf_sz)
 {
@@ -1993,7 +1984,7 @@ static int proc_sched_read(int fd, char* buf, size_t buf_sz)
                       "%s (%u, #threads: %u)\n",
                       km_guest.km_filename,
                       machine.pid,
-                      km_vcpu_apply_all(km_vcpu_count_running, NULL));
+                      km_vcpu_run_cnt());
    ret += fread(buf + ret, 1, buf_sz - ret, fp);
    fclose(fp);
    return ret;
@@ -2388,51 +2379,59 @@ void km_redirect_msgs(const char* name)
    int fd, fd1;
    if (name != NULL) {
       if (strcmp(name, "stderr") == 0) {
-        // If they ask, let them log to stderr no matter what.  Mostly useful for the bats tests.
-        fd = dup2(2, KM_LOGGING);
+         // If they ask, let them log to stderr no matter what.  Mostly useful for the bats tests.
+         fd = dup2(2, KM_LOGGING);
       } else if (strcmp(name, "none") == 0) {
-        // We need to be able to test having no logging at all.  km could run in a container with
-        // read only filesystems and we may not be able to use stderr either.
-        snprintf(km_nologging_reason, sizeof(km_nologging_reason), "logging turned off by request");
-        km_tracex("change km logging to none by request");
-        return;
+         // We need to be able to test having no logging at all.  km could run in a container with
+         // read only filesystems and we may not be able to use stderr either.
+         snprintf(km_nologging_reason, sizeof(km_nologging_reason), "logging turned off by request");
+         km_tracex("change km logging to none by request");
+         return;
       } else {
-        fd1 = open(name, O_WRONLY | O_CREAT, 0644);
-        fd = dup2(fd1, KM_LOGGING);
-        close(fd1);
+         fd1 = open(name, O_WRONLY | O_CREAT, 0644);
+         fd = dup2(fd1, KM_LOGGING);
+         close(fd1);
       }
    } else {
       struct stat statb;
       if (fstat(2, &statb) == 0) {
-        if (S_ISFIFO(statb.st_mode) || S_ISSOCK(statb.st_mode)) {
-          /*
-           * We don't want to hold open pipes or sockets to the payload's stderr.
-           * This interferes with the other end of the pipeline's ability to detect
-           * that the pipe or socket has been closed by the payload.
-           * If we can create and open /tmp/km_XXXXX.log then log there.  If we can't
-           * create the log file, then /tmp could be on a readonly filesystem, so we don't log.
-           */
-          char filename[32];
-          snprintf(filename, sizeof(filename), "/tmp/km_%d.log", getpid());
-          fd1 = open(filename, O_CREAT | O_WRONLY, 0644);
-          if (fd1 < 0) {
-            km_warn("Unable to switch km logging away from a pipe or socket, couldn't create %s", filename);
-            snprintf(km_nologging_reason, sizeof(km_nologging_reason), "couldn't open log file %s, error %d", filename, errno);
-            return;
-          } else {
-            km_warnx("Switch km logging to %s", filename);
-            fd = dup2(fd1, KM_LOGGING);
-            close(fd1);
-          }
-        } else {
-          // stderr is not a pipeline the parent process maybe waiting on
-          fd = dup2(2, KM_LOGGING);
-        }
+         if (S_ISFIFO(statb.st_mode) || S_ISSOCK(statb.st_mode)) {
+            /*
+             * We don't want to hold open pipes or sockets to the payload's stderr.
+             * This interferes with the other end of the pipeline's ability to detect
+             * that the pipe or socket has been closed by the payload.
+             * If we can create and open /tmp/km_XXXXX.log then log there.  If we can't
+             * create the log file, then /tmp could be on a readonly filesystem, so we don't log.
+             */
+            char filename[32];
+            snprintf(filename, sizeof(filename), "/tmp/km_%d.log", getpid());
+            fd1 = open(filename, O_CREAT | O_WRONLY, 0644);
+            if (fd1 < 0) {
+               km_warn("Unable to switch km logging away from a pipe or socket, couldn't create %s",
+                       filename);
+               snprintf(km_nologging_reason,
+                        sizeof(km_nologging_reason),
+                        "couldn't open log file %s, error %d",
+                        filename,
+                        errno);
+               return;
+            } else {
+               km_warnx("Switch km logging to %s", filename);
+               fd = dup2(fd1, KM_LOGGING);
+               close(fd1);
+            }
+         } else {
+            // stderr is not a pipeline the parent process maybe waiting on
+            fd = dup2(2, KM_LOGGING);
+         }
       } else {
-        // we don't know what stderr is.
-        km_warn("Unable to stat stderr, km logging disabled, errno %d", errno);
-        snprintf(km_nologging_reason, sizeof(km_nologging_reason), "couldn't fstat stderr, error %d", errno);
-        return;
+         // we don't know what stderr is.
+         km_warn("Unable to stat stderr, km logging disabled, errno %d", errno);
+         snprintf(km_nologging_reason,
+                  sizeof(km_nologging_reason),
+                  "couldn't fstat stderr, error %d",
+                  errno);
+         return;
       }
    }
    assert(fd == KM_LOGGING);

@@ -464,19 +464,6 @@ int km_snapshot_restore(const char* file)
    return 0;
 }
 
-static int km_vcpu_count_not_paused(km_vcpu_t* vcpu, void* unused)
-{
-   return (vcpu->state != PAUSED) ? 1 : 0;
-}
-
-static int km_vcpu_snapshot_kick(km_vcpu_t* vcpu, void* unused)
-{
-   if (vcpu->state != PAUSED) {
-      km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
-   }
-   return 0;
-}
-
 int km_snapshot_create(km_vcpu_t* vcpu, int live)
 {
    // No snapshots while GDB is running
@@ -496,32 +483,9 @@ int km_snapshot_create(km_vcpu_t* vcpu, int live)
    in_snapshot = 1;
    pthread_mutex_unlock(&snap_mutex);
 
-   /*
-    * km_vcpu_pause_all ensures all VCPU's are in KM.
-    */
-   km_vcpu_pause_all();
-
-   /*
-    * Wait for everyone to get to the pause point.
-    */
-   km_vcpu_state_t prev;
-   if (vcpu != NULL) {
-      prev = vcpu->state;
-      vcpu->state = PAUSED;
-   }
-   for (;;) {
-      if (km_vcpu_apply_all(km_vcpu_count_not_paused, NULL) == 0) {
-         break;
-      }
-      nanosleep(&_1ms, NULL);
-      // kick any lagging threads.
-      km_vcpu_apply_all(km_vcpu_snapshot_kick, NULL);
-   }
+   km_vcpu_pause_all(vcpu, ALL);   // Wait for everyone to get to the pause point.
 
    km_dump_core(km_get_snapshot_path(), vcpu, NULL);
-   if (vcpu != NULL) {
-      vcpu->state = prev;
-   }
 
    if (live != 0) {
       // TODO: Restart everything for a live snapshot.
