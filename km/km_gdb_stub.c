@@ -2858,7 +2858,7 @@ accept_connection:;
    assert(ret == 0);   // not sure what to do with errors here yet.
    gdbstub.gdb_client_attached = 1;
    fds[0].fd = gdbstub.sock_fd;
-   km_vcpu_pause_all();
+   km_vcpu_pause_all(NULL, GUEST_ONLY);
 
    km_gdb_vcpu_set(main_vcpu);   // gdb default thread
 
@@ -2878,7 +2878,7 @@ accept_connection:;
       if (ret < 0) {
          km_err(1, "poll failed ret=%d.", ret);
       }
-      if (machine.vm_vcpu_run_cnt == 0) {
+      if (km_vcpu_run_cnt() == 0) {
          ge.signo = ret;
          send_response('W', &ge, true);   // inferior normal exit
          km_gdb_detach();
@@ -2886,8 +2886,8 @@ accept_connection:;
          return;
       }
       km_infox(KM_TRACE_GDB, "Signalling vCPUs to pause");
-      km_vcpu_pause_all();
-      km_infox(KM_TRACE_GDB, "vCPUs paused. run_cnt %d", machine.vm_vcpu_run_cnt);
+      km_vcpu_pause_all(NULL, GUEST_ONLY);
+      km_infox(KM_TRACE_GDB, "vCPUs paused. run_cnt %d", km_vcpu_run_cnt());
       if (fds[0].revents) {   // got something from gdb client (hopefully ^C)
          int ch = recv_char();
          km_infox(KM_TRACE_GDB, "got a msg from a client. ch=%d", ch);

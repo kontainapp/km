@@ -642,7 +642,7 @@ int main(int argc, char* argv[])
 
    if (km_gdb_is_enabled() != 0) {
       if (km_gdb_setup_listen() == 0) {   // Try to become the gdb server
-         km_vcpu_pause_all();
+         km_vcpu_pause_all(vcpu, GUEST_ONLY);   // this just sets machine.pause_requested
       } else {
          km_warnx("Failed to setup gdb listening port %d, disabling gdb support", gdbstub.port);
          km_gdb_enable(0);   // disable gdb

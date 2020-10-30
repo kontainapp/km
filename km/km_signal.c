@@ -569,7 +569,7 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
       // Signals that get here terminate the process. The only question is: core or no core?
       int core_dumped = 0;
       assert(info->si_signo != SIGCHLD);   // KM does not support
-      km_vcpu_pause_all();
+      km_vcpu_pause_all(vcpu, GUEST_ONLY);
       if ((km_sigismember(&perror_signals, info->si_signo) != 0) || (info->si_signo == SIGQUIT)) {
          extern int debug_dump_on_err;
          km_dump_core(km_get_coredump_path(), vcpu, NULL);

@@ -97,7 +97,7 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
 void km_machine_fini(void)
 {
    close(machine.shutdown_fd);
-   assert(machine.vm_vcpu_run_cnt == 0);
+   assert(km_vcpu_run_cnt() == 0);
    free(machine.auxv);
    if (km_guest.km_filename != NULL) {
       free(km_guest.km_filename);
@@ -284,6 +284,7 @@ km_vcpu_t* km_vcpu_get(void)
    if ((vcpu = SLIST_FIRST(&machine.vm_idle_vcpus.head)) != 0) {
       assert(vcpu->state == PARKED_IDLE);
       SLIST_REMOVE_HEAD(&machine.vm_idle_vcpus.head, next_idle);
+      machine.vm_vcpu_run_cnt++;
       vcpu->state = STARTING;
       km_mutex_unlock(&machine.vm_vcpu_mtx);
       km_gdb_vcpu_state_init(vcpu);
@@ -296,7 +297,7 @@ km_vcpu_t* km_vcpu_get(void)
       return NULL;
    }
    km_infox(KM_TRACE_VCPU, "Allocating new vcpu-%d", machine.vm_vcpu_cnt);
-   vcpu->vcpu_id = machine.vm_vcpu_cnt++;
+   vcpu->vcpu_id = machine.vm_vcpu_cnt;
 
    if (km_vcpu_init(vcpu) != 0) {
       km_mutex_unlock(&machine.vm_vcpu_mtx);
@@ -304,6 +305,8 @@ km_vcpu_t* km_vcpu_get(void)
       km_vcpu_fini(vcpu);
       return NULL;
    }
+   machine.vm_vcpu_cnt++;
+   machine.vm_vcpu_run_cnt++;
    vcpu->state = STARTING;
    km_gdb_vcpu_state_init(vcpu);
    machine.vm_vcpus[vcpu->vcpu_id] = vcpu;
@@ -333,12 +336,14 @@ km_vcpu_t* km_vcpu_restore(int tid)
    vcpu->vcpu_id = slot;
    if (km_vcpu_init(vcpu) < 0) {
       km_warnx("km_vcpu_init failed - cannot restore snapshot");
-      free(vcpu);
+      km_vcpu_fini(vcpu);
       return NULL;
    }
    km_gdb_vcpu_state_init(vcpu);
    kvm_vcpu_init_sregs(vcpu);
    machine.vm_vcpus[slot] = vcpu;
+   machine.vm_vcpu_run_cnt++;
+   machine.vm_vcpu_cnt++;
    return vcpu;
 }
 
@@ -379,44 +384,57 @@ km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
 }
 
 /*
- * Returns 1 if the vcpu is still running (i.e.not paused)
+ * Force KVM to exit by sending a signal to vcpu thread that is IN_GUEST. The signal handler can be
+ * a noop, just need to exist.
+ * Returns 1 if the vcpu is IN_GUEST and 0 otherwise
  */
-static inline int km_vcpu_count_running(km_vcpu_t* vcpu, void* unused)
+static int km_vcpu_in_guest(km_vcpu_t* vcpu, void* skip_me)
 {
-   return vcpu->state == IN_GUEST ? 1 : 0;
-}
-
-/*
- * Force KVM to exit by sending a signal to vcpu thread. The signal handler can be a noop, just
- * need to exist.
- */
-static int km_vcpu_pause(km_vcpu_t* vcpu, void* unused)
-{
-   km_lock_vcpu_thr(vcpu);
-   if (vcpu->state == IN_GUEST) {
+   if (vcpu->state == IN_GUEST && vcpu != skip_me) {
       km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
-      km_unlock_vcpu_thr(vcpu);
       km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
-      return 0;
+      return 1;
    }
-   km_unlock_vcpu_thr(vcpu);
    return 0;
 }
 
-void km_vcpu_pause_all(void)
+// Returns 1 if the vcpu is not PAUSED and sends KM_SIGVCPUSTOP to it
+static int km_vcpu_not_paused(km_vcpu_t* vcpu, void* skip_me)
+{
+   if (vcpu->state != PAUSED && vcpu != skip_me) {
+      km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP);
+      km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
+      return 1;
+   }
+   return 0;
+}
+
+/*
+ * Depending on the type, stop IN_GUEST or all vcpus
+ */
+void km_vcpu_pause_all(km_vcpu_t* vcpu, km_pause_t type)
 {
    int count;
 
    km_mutex_lock(&machine.pause_mtx);
    machine.pause_requested = 1;
    km_mutex_unlock(&machine.pause_mtx);
-   km_vcpu_apply_all(km_vcpu_pause, NULL);
 
-   for (int i = 0; i < 100 && (count = km_vcpu_apply_all(km_vcpu_count_running, NULL)) != 0; i++) {
-      nanosleep(&_1ms, NULL);
-      km_infox(KM_TRACE_VCPU, "waiting for KVM_RUN to exit - %d", i);
+   switch (type) {
+      case GUEST_ONLY:
+         for (int i = 0; i < 100 && (count = km_vcpu_apply_all(km_vcpu_in_guest, vcpu)) != 0; i++) {
+            nanosleep(&_1ms, NULL);
+            km_infox(KM_TRACE_VCPU, "waiting for KVM_RUN to exit - %d", i);
+         }
+         assert(count == 0);
+         return;
+      case ALL:
+         while (km_vcpu_apply_all(km_vcpu_not_paused, vcpu) != 0) {
+            nanosleep(&_1ms, NULL);
+            km_infox(KM_TRACE_VCPU, "waiting for VCPUs to pause");
+         }
+         return;
    }
-   assert(count == 0);
 }
 
 /*
@@ -430,6 +448,9 @@ void km_vcpu_put(km_vcpu_t* vcpu)
    // vcpu->stack_top = 0; Reused by slist
    vcpu->state = PARKED_IDLE;
    SLIST_INSERT_HEAD(&machine.vm_idle_vcpus.head, vcpu, next_idle);
+   if (--machine.vm_vcpu_run_cnt == 0) {
+      km_signal_machine_fini();
+   }
    km_mutex_unlock(&machine.vm_vcpu_mtx);
 }
 
