@@ -11,6 +11,8 @@
    writing messages.
 */
 #define _GNU_SOURCE
+#include <assert.h>
+#include <err.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -22,15 +24,16 @@
 #include <sys/wait.h>
 #include <linux/futex.h>
 
-#define errExit(msg)                                                                               \
-   do {                                                                                            \
-      perror(msg);                                                                                 \
-      exit(EXIT_FAILURE);                                                                          \
-   } while (0)
+#include "km_hcalls.h"
 
-static int futex1;
-long nloops;
-long step = 1l << 23;
+#define errExit(msg) err(1, msg)
+
+int futex1, futex2;
+
+int do_snapshot;
+int verbose;
+
+long nloops = 1000;
 int var;
 
 static int
@@ -46,21 +49,11 @@ static void fwait(int* futexp)
 {
    int s;
 
-   /* __sync_bool_compare_and_swap(ptr, oldval, newval) is a gcc
-      built-in function.  It atomically performs the equivalent of:
-
-          if (*ptr == oldval)
-              *ptr = newval;
-
-      It returns true if the test yielded true and *ptr was updated.
-      The alternative here would be to employ the equivalent atomic
-      machine-language instructions.  For further information, see
-      the GCC Manual. */
-
    while (1) {
       /* Is the futex available? */
 
-      if (__sync_bool_compare_and_swap(futexp, 1, 0))
+      int one = 1;
+      if (__atomic_compare_exchange_n(futexp, &one, 0, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
          break; /* Yes */
 
       /* Futex is not available; wait */
@@ -78,10 +71,9 @@ static void fwait(int* futexp)
 static void fpost(int* futexp)
 {
    int s;
+   int zero = 0;
 
-   /* __sync_bool_compare_and_swap() was described in comments above */
-
-   if (__sync_bool_compare_and_swap(futexp, 0, 1)) {
+   if (__atomic_compare_exchange_n(futexp, &zero, 1, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
       s = futex(futexp, FUTEX_WAKE, 1, NULL, NULL, 0);
       if (s == -1)
          errExit("futex-FUTEX_WAKE");
@@ -93,8 +85,25 @@ void* child(void* arg)
    for (long j = 0; j < nloops; j++) {
       fwait(&futex1);
       ++var;
-      if ((j & (step - 1)) == 0) {
+      assert(var == 0);
+      usleep(70);
+      if (verbose) {
          printf("Child  %ld - %d\n", j, var);
+      }
+      fpost(&futex2);
+   }
+   return NULL;
+}
+
+void* parent(void* arg)
+{
+   for (long j = 0; j < nloops; j++) {
+      fwait(&futex2);
+      --var;
+      assert(var == -1);
+      usleep(30);
+      if (verbose) {
+         printf("Parent %ld - %d\n", j, var);
       }
       fpost(&futex1);
    }
@@ -103,20 +112,47 @@ void* child(void* arg)
 
 int main(int argc, char* argv[])
 {
-   pthread_t pt;
+   int c;
 
-   nloops = (argc > 1) ? atoi(argv[1]) : 1l << 40;
+   while ((c = getopt(argc, argv, "sl:v")) != -1) {
+      switch (c) {
+         case 's':
+            do_snapshot = 1;
+            break;
 
-   futex1 = 1;
+         case 'v':
+            verbose = 1;
+            break;
 
-   pthread_create(&pt, NULL, child, NULL);
+         case 'l':
+            nloops = atoi(optarg);
+            break;
 
-   for (long j = 0; j < nloops; j++) {
-      fwait(&futex1);
-      --var;
-      if ((j & (step - 1)) == 0) {
-         printf("Parent %ld - %d\n", j, var);
+         default:
+            errx(1,
+                 "Usage: %s -s -v -l <loops>\n"
+                 "\t-s do snapshot\n"
+                 "\t-v verbose\n"
+                 "\t-l <loops> loop that many times, default 1000\n",
+                 argv[0]);
+            break;
       }
-      fpost(&futex1);
    }
+
+   pthread_t pt1, pt2;
+
+   futex1 = 0;   // not avalable
+   futex2 = 1;   // avalable
+
+   pthread_create(&pt1, NULL, child, NULL);
+   pthread_create(&pt2, NULL, parent, NULL);
+
+   usleep(10000);   // let the threads start
+
+   if (do_snapshot != 0) {
+      km_hc_args_t snapshotargs = {};
+      km_hcall(HC_snapshot, &snapshotargs);
+   }
+   pthread_join(pt2, NULL);
+   pthread_join(pt1, NULL);
 }
