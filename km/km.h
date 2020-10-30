@@ -385,7 +385,7 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data);
 int km_vcpu_count(void);
 
 typedef enum {
-   KVM_ONLY,   // signal only IN_GUEST vcpus
+   GUEST_ONLY,   // signal only IN_GUEST vcpus
    ALL,        // signal all vcpus
 } km_pause_t;
 

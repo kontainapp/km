@@ -444,7 +444,7 @@ static int km_vcpu_print(km_vcpu_t* vcpu, void* skip_me)
 static void km_vcpu_exit_all(km_vcpu_t* vcpu)
 {
    machine.exit_group = 1;   // make sure we exit and not waiting for gdb
-   km_vcpu_pause_all(vcpu, KVM_ONLY);
+   km_vcpu_pause_all(vcpu, GUEST_ONLY);
    /*
     * At this point there are no threads in the guest (assert at the end of km_vcpu_pause_all).
     * However there are possibly threads in uninterruptible system calls on behalf of the guest,
@@ -653,7 +653,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                   if (km_gdb_client_is_attached() != 0) {
                      km_gdb_notify(vcpu, GDB_KMSIGNAL_DOFORK);
                   } else {
-                     km_vcpu_pause_all(vcpu, KVM_ONLY);
+                     km_vcpu_pause_all(vcpu, GUEST_ONLY);
                      if (eventfd_write(machine.shutdown_fd, 1) == -1) {
                         km_errx(2, "Failed to send machine_fini signal");
                      }

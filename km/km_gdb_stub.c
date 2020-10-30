@@ -2858,7 +2858,7 @@ accept_connection:;
    assert(ret == 0);   // not sure what to do with errors here yet.
    gdbstub.gdb_client_attached = 1;
    fds[0].fd = gdbstub.sock_fd;
-   km_vcpu_pause_all(NULL, KVM_ONLY);
+   km_vcpu_pause_all(NULL, GUEST_ONLY);
 
    km_gdb_vcpu_set(main_vcpu);   // gdb default thread
 
@@ -2886,7 +2886,7 @@ accept_connection:;
          return;
       }
       km_infox(KM_TRACE_GDB, "Signalling vCPUs to pause");
-      km_vcpu_pause_all(NULL, KVM_ONLY);
+      km_vcpu_pause_all(NULL, GUEST_ONLY);
       km_infox(KM_TRACE_GDB, "vCPUs paused. run_cnt %d", km_vcpu_run_cnt());
       if (fds[0].revents) {   // got something from gdb client (hopefully ^C)
          int ch = recv_char();

@@ -421,7 +421,7 @@ void km_vcpu_pause_all(km_vcpu_t* vcpu, km_pause_t type)
    km_mutex_unlock(&machine.pause_mtx);
 
    switch (type) {
-      case KVM_ONLY:
+      case GUEST_ONLY:
          for (int i = 0; i < 100 && (count = km_vcpu_apply_all(km_vcpu_in_guest, vcpu)) != 0; i++) {
             nanosleep(&_1ms, NULL);
             km_infox(KM_TRACE_VCPU, "waiting for KVM_RUN to exit - %d", i);
