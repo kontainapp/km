@@ -22,7 +22,7 @@ load test_helper
 not_needed_generic=''
 # TODO: gdb_delete_breakpoint and gdb_server_race are caused by race described in https://github.com/kontainapp/km/issues/821.
 # Disable them for now to improve signal/noise ratio
-todo_generic='gdb_delete_breakpoint gdb_server_race futex_example clock_gettime'
+todo_generic='gdb_delete_breakpoint gdb_server_race clock_gettime'
 
 not_needed_static='gdb_sharedlib'
 todo_static=''
@@ -311,8 +311,7 @@ fi
    assert_line --partial 'fail: 0'
 }
 
-# this one requires manual stop and thus skipped (see skip lists)
-@test "futex_example($test_type)" {
+@test "futex($test_type): basic futex operations" {
    run km_with_timeout futex_test$ext
    assert_success
 }
@@ -1019,7 +1018,7 @@ fi
    CORE=/tmp/core.$$
 
    for i in $(seq 100) ; do
-      # snapshot resume the successfully exits
+      # snapshot resume that successfully exits
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext
       assert_success
       assert [ -f ${SNAP} ]
@@ -1061,6 +1060,24 @@ fi
          gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
       fi
       rm -f ${SNAP} ${CORE}
+   done
+}
+
+@test "futex_snapshot($test_type): futex_snapshot and resume (futex_test$ext)" {
+   SNAP=/tmp/snap.$$
+   CORE=/tmp/core.$$
+
+   for i in $(seq 100) ; do
+      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} futex_test$ext -s -l 100
+      assert_success
+      assert [ -f ${SNAP} ]
+      assert [ ! -f ${CORE} ]
+      check_kmcore ${SNAP}
+      run km_with_timeout --resume ${SNAP}
+      assert_success
+      refute_line --partial "state restoration error"
+      assert [ ! -f ${CORE} ]
+      rm -f ${SNAP}
    done
 }
 
