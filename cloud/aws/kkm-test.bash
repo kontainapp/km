@@ -51,14 +51,14 @@ done
 
 cd ${ROOT_DIR}
 
-git clone --branch ${BRANCH_NAME} --recurse-submodules git@github.com:kontainapp/km.git >& ${LOG_DIR}/git-clone
+git clone --recurse-submodules git@github.com:kontainapp/km.git &> ${LOG_DIR}/git-clone
+cd km
+git checkout ${BRANCH_NAME} --recurse-submodules &>> ${LOG_DIR}/git-clone
 if [ $? -ne 0 ]
 then
    error_exit "Failed to clone repository"
 fi
 log_message "KM repo clone success"
-
-cd km
 
 log_message "starting build"
 BUILD_DIRS="kkm/kkm kkm/test_kkm . payloads/python payloads/node payloads/java"
