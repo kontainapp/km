@@ -24,7 +24,7 @@ steps:
     displayName: Test with kkm
     timeoutInMinutes: 15
 
-  - bash: cloud/aws/kkm-regression.bash $(System.PullRequest.SourceBranch)
+  - bash: cloud/aws/kkm-regression.bash ${SYSTEM_PULLREQUEST_SOURCEBRANCH:-${BUILD_SOURCEBRANCH#refs/heads/}}
     displayName: Test with kkm on aws
     timeoutInMinutes: 20
     env:
