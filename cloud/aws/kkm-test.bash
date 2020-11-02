@@ -87,7 +87,6 @@ if [ ! -e /dev/kkm ]
 then
    error_exit "cannot find /dev/kkm"
 fi
-sudo chmod 0666 /dev/kkm &>> ${LOG_DIR}/run-all
 log_message "KKM module init success"
 
 TEST_DIRS="tests payloads/python payloads/node payloads/java"
