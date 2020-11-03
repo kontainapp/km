@@ -731,7 +731,6 @@ void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* ifram
    if ((notes_buffer = (char*)calloc(1, notes_length)) == NULL) {
       km_err(2, "cannot allocate notes buffer, exiting");
    }
-   memset(notes_buffer, 0, notes_length);
    offset = sizeof(Elf64_Ehdr) + phnum * sizeof(Elf64_Phdr);
 
    km_core_write_phdrs(vcpu, fd, phnum, end_load, notes_buffer, notes_length, &offset);
