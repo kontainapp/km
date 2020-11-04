@@ -36,5 +36,5 @@ ${KM_RELEASE}: ${KM_BIN} ## Build a release tar.gz file for KM
 	ls -l ${KM_RELEASE} ${KM_BIN}
 
 RELEASE_TAG ?= v0.1-test
-push_release:
+publish-release:
 	cd ${TOP}/tools/release; ./release_km.py ${KM_RELEASE} --version ${RELEASE_TAG}
