@@ -56,6 +56,7 @@ pull-testenv-image: subdirs ## Pulls test images from a cloud registry. IMAGE_VE
 runenv-image: subdirs ## builds and packages image with runtime environment for each payload
 push-runenv-image: subdirs ## Push runtime images to a cloud registry. IMAGE_VERSION can be used used to modify tag name
 pull-runenv-image: subdirs ## Pulls runtime images from a cloud registry. IMAGE_VERSION an be used used to modify tag name
+publish-runenv-image: subdirs ## Publishes runtime images to dockerhub. Dockerhub login is assumed
 validate-runenv-image: subdirs ## Runs basic validation command for runtime image
 demo-runenv-image: subdirs ## builds a demo image based off runenv-image
 push-demo-runenv-image: subdirs ## push runtime demo images to cloud registry. IMAGE_VERSION can be used used to modify tag name
@@ -65,6 +66,7 @@ test-all-withdocker: subdirs ## build all and run KM and payload tests
 test-withk8s: subdirs ## run tests using k8s
 test-all-withk8s: subdirs ## run all tests (with long running) using k8s
 release: subdirs ## Package .tar.gz files for external release to build dir
+publish-release: subdirs ## Publish release tarballs to githib km-releases repo
 
 $(SUBDIRS):
 	$(MAKE) -C $@  MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=
