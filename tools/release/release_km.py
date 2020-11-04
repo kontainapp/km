@@ -17,8 +17,13 @@
 
 import argparse
 import os
+import sys
 import logging
-import github
+try:
+   import github
+except:
+   print("Error: Missing PyGitHub module")
+   sys.exit(2)
 
 RELEASE_REPO_OWNER = "kontainapp"
 RELEASE_REPO_FULLNAME = "kontainapp/km-releases"
@@ -65,30 +70,30 @@ def main():
     master = release_repo.get_git_ref("heads/master")
     master_commit_sha = master.object.sha
 
-    # Github releases requires an unique name. If the version is the default
-    # testing version, we will delete the release and the relavent reference
-    # without question. Otherwise, we will have to error out.
+    # Github releases require an unique name. If the version is the default
+    # testing version, we will delete the release and the relevant reference, no
+    # questions asked. Otherwise, we will error out.
     try:
         release = release_repo.get_release(version)
     except github.UnknownObjectException:
-        # 404 indicating no release with this version name has been created. This is expected
+        # 404 indicating no release with this version name has been created. This is expected.
         pass
     else:
         if version != RELEASE_DEFAULT_VERSION:
             raise ValueError(f"Release {version} already exist...")
 
-        logger.info("Override exisitng default testing release")
+        logger.info(f"Override existing default release {RELEASE_DEFAULT_VERSION}")
         release.delete_release()
     try:
         ref = release_repo.get_git_ref(f"tags/{version}")
     except github.UnknownObjectException:
-        # 404 indicating no reference with this version name has been created. This is expected
+        # 404 indicating no reference with this version name has been created. This is expected.
         pass
     else:
         if version != RELEASE_DEFAULT_VERSION:
             raise ValueError(f"Reference {version} already exist...")
 
-        logger.info("Override exisitng default testing references")
+        logger.info("Override existing default testing references")
         ref.delete()
 
     # Create a reference and a release based on the reference. Also upload any
@@ -105,7 +110,7 @@ def main():
                         uploaded_asset.name, uploaded_asset.url)
     except github.GithubException:
         logging.error("Failed to release... cleanup now...")
-        # If any of the release process fails, we will try to clean up
+        # If any of the release process fails, try to clean up.
         if created_release is not None:
             created_release.delete_release()
         if created_ref is not None:

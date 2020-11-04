@@ -52,7 +52,7 @@ jobs:
         displayName: build release tarball
 
       - bash: |
-          make -C km push_release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN) RELEASE_TAG=$(Build.SourceBranch)
+          make -C km publish-release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN) RELEASE_TAG=$(Build.SourceBranch)
         displayName: push release
 
       # create a temp key pair for passwordless ssh to testing VM
