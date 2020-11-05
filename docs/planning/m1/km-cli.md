@@ -24,7 +24,7 @@ With Kontain, we can break this dependency, and allow FaaS to run fully VM isola
 Since they generally integrated with containers, we need to be as close to container management stack as possible, to lower the integration entry barrier.
 
 Also, the work unit in FaaS is small and fleeting, so the only way to make FaaS work efficiently with container payloads is to minimize the amount of work containers management stack does in order to get a FaaS instruction stream running and completed. For us,
-that likely means short circuiting as much of containers as possible yet still API and CLI compatibility , with acceptable and documented deviations
+that likely means short circuiting as much of containers as possible yet still API and CLI compatibility, with acceptable and documented deviations
 
 To do that we need to own (or at least being able to modify and be familiar with) management stack  - which will be fulfilled by forking and using Redhat's crun and podman stacks.
 
@@ -60,7 +60,7 @@ Currently `km` CLI nicely starts KM with payload, but Virtualization is not comp
 
 * we have a big chunk of PoC code in 'runk' which was done by Eric in GO, using early KM builds.
   * `This code (and Eric) should be consulted when needed`, but the C implementation is twice as fast as our Go implementation (and redhat is planning to make it default) so we will stick with it
-  * Some of the features in KM, e.g. --wait-for-signal , were done specifically for this. These features, and best integration approach, will to be revisited (e.g. --wait-for-signal dropped in favor of non-racing solution, e.g. named pipe - see below)
+  * Some of the features in KM, e.g. --wait-for-signal, were done specifically for this. These features, and best integration approach, will to be revisited (e.g. --wait-for-signal dropped in favor of non-racing solution, e.g. named pipe - see below)
     * From Eric: "Just to clarify, this feature was not used anymore. OCI spec states that runk create should set up everything up until the payload fork and exec, then wait. Runk start should call fork and exec to launch the payload process. However, when calling runk create and runk start back to back, there is a race condition where runc create calls km --wait-signal but runc create returned before km actually waits on the signal. So far, I can only think a named pipe would avoid this race condition where waiter and caller needs to both enter to be valid."
 
 ## Burst creation behavior (P0 for info, P2 for fixes)
@@ -83,7 +83,7 @@ An alternative here is to have ash/sh and maybe even BASH working under .km
 
 Crun (and other OCI runtimes) do all fs/pid/uuid/network virtualization we need. We can just bind mount KM inside of the container and have it run under KM without any modifications. However, that removes control over what's going on and locks us to performance characteristics of podman (or docker) management stack
 
-While it's not the goal to have startup time dropped to minimum, we still want to be minimize if we see customers' interest - e.g. if integration attempts with FaaS are made. So the approach we take is using our own github fork of crun as "kontain" runtime , ask customer to use `--runtime=kontain` and adjust internals when needed - P0 for KM bind mount inside of the container.
+While it's not the goal to have startup time dropped to minimum, we still want to be minimize if we see customers' interest - e.g. if integration attempts with FaaS are made. So the approach we take is using our own github fork of crun as "kontain" runtime, ask customer to use `--runtime=kontain` and adjust internals when needed - P0 for KM bind mount inside of the container.
 
 Here is what we can certainly accelerate using this approach (but won't in the first release):
 
@@ -136,7 +136,7 @@ The following docs will have to be written
 * using with Kubernetes (existing Eric's work, no custom runtime)
 * krun runtime - how to use (really just extensions)
 * KM Architectures, advantages
-  * direct usage of KM monitor , including symlinks , forks
+  * direct usage of KM monitor, including symlinks, forks
   * logging
 * timing comparison on simple things (start, )
 * contact info ( I guess just issues on github)

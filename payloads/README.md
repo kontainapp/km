@@ -18,7 +18,7 @@ We also keep here the `./k8s` dir with the code to customize payload deployments
   * Registry name is defined in `./k8s/azure/kustomization.yml`.
   * You can redefine where to push when running make, e.g.  `make CLOUD=minikube publish` will push to registry defined in `./k8s/cloud/minikube/kustomization.yml`.
 * `kubectl apply -k k8s/<cloud>` to deploy to `<cloud>`, e.g `kubectl apply -k k8s/azure`
-  * This assunes your kubectl context is set to point to the correct cloud
+  * This assumes your kubectl context is set to point to the correct cloud
 
 
-Note that the actual deployment config yamls are in `./payloads/...` dirs , e.g. `./payloads/python/pykm-deployment.yml`, and `./k8/...` keeps customizations for which are applied on the top of payload .yml files.
+Note that the actual deployment config yamls are in `./payloads/...` dirs, e.g. `./payloads/python/pykm-deployment.yml`, and `./k8/...` keeps customizations for which are applied on the top of payload .yml files.

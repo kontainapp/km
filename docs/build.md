@@ -213,12 +213,12 @@ dnf install -y google-chrome-stable
 
 We use the Visual Studio Code (VS Code) IDE. Our workspace (`km_repo_root/.vscode/km.code-workspace`) is configured to automatically run clang-format on file save.
 
-**If you are not useing VS Code, it is your responsibility to run clang-format with `.clang-format` (from the repo) before any PR**
+**If you are not using VS Code, it is your responsibility to run clang-format with `.clang-format` (from the repo) before any PR**
 
 Some of the style points we maintainin C which are not enforced by clang:
 
-* never use single line `if () statement;` - always use `{}` ,i.e. `if() {statement;}`
-* single line comments are usually `//` , multiple lines `/* ... */`
+* never use single line `if () statement;` - always use `{}`,i.e. `if() {statement;}`
+* single line comments are usually `//`, multiple lines `/* ... */`
 * more to be documented
 
 In Python we follow [Pep 8](https://www.python.org/dev/peps/pep-0008/)
@@ -373,7 +373,7 @@ make test
 
 ## Build system structure
 
-At any dir, use `make help` to get help on targets. Or , if you use bash, type `make<tab>` to see the target list.
+At any dir, use `make help` to get help on targets. Or, if you use bash, type `make<tab>` to see the target list.
 
 Build system uses tried-and-true `make` and related tricks. Generally, each dir with sources (or with subdirs) needs to have a Makefile. Included makfiles are in `make/*mk`.
 
@@ -531,7 +531,7 @@ These will be uploaded to
 [km-coverage-report](https://github.com/kontainapp/km-coverage-report). There
 is an option to manually upload these reports, if users choose to. `make -C
 tests upload-coverage-manual`. Note, we tag each commits using the
-`IMAGE_VERSION`, so it needs to be set to some unique id of your choice ,
+`IMAGE_VERSION`, so it needs to be set to some unique id of your choice,
 compliant with 'git tag' format. The repo is configured to use Github
 Page to serve these html files. To access the latest reports, use the
 following url: https://kontainapp.github.io/km-coverage-report. To access
