@@ -163,7 +163,8 @@ def test(remote_ip, version):
     ], check=True)
     ssh_execute(
         remote_ip, "sudo mkdir -p /opt/kontain ; sudo chown kontain /opt/kontain")
-    ssh_execute(remote_ip, "sudo apt-get update && sudo apt-get install -y gcc")
+    ssh_execute(remote_ip, "sudo apt-get update")
+    ssh_execute(remote_ip, "sudo apt-get install -y gcc")
     ssh_execute(remote_ip, "sudo chmod 666 /dev/kvm")
 
     if version is None or version == "":
