@@ -44,6 +44,14 @@ test:	all $(CURDIR)/$(CRUNDIR)/krun
 	OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/krun make -C $(CRUNDIR) check-TESTS
 	OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/crun make -C $(CRUNDIR) check-TESTS
 
+TEST_REMOTE_SCRIPT := $(CURDIR)/test_remote.py
+test-remote:	
+ifeq (${TEST_REMOTE_TEST_ID},)
+	${TEST_REMOTE_SCRIPT}
+else
+	${TEST_REMOTE_SCRIPT} --test_id ${TEST_REMOTE_TEST_ID}
+endif
+
 clean::
 	rm -f $(CURDIR)/$(CRUNDIR)/krun
 	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) clean
