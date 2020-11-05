@@ -206,13 +206,13 @@ check_optional_mem_size_failure() {
 
 function setup() {
   skip_if_needed "$BATS_TEST_DESCRIPTION"
-  echo $(date): timing start: "$BATS_TEST_DESCRIPTION"
+  echo start: $(date --rfc-3339=ns) $BATS_TEST_DESCRIPTION
   echo --- Test script output:
 }
 
 teardown() {
    cat <<EOF
-$(date): timing end: "$BATS_TEST_DESCRIPTION"
+  end: $(date --rfc-3339=ns) $BATS_TEST_DESCRIPTION
 
 --- Command line:
 ${command}
