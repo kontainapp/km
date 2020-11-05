@@ -63,7 +63,7 @@ Buildenv image for python now places built-in .so through the conversion and lin
 
 `make custom` should be used to build a custom python.km. It uses the following:
 
-* a list of modules to link in. See `extension/python-custom.json` for example. Accepts `CUSTOM_NAME=name` , default is `custom`
+* a list of modules to link in. See `extension/python-custom.json` for example. Accepts `CUSTOM_NAME=name`. Default is `custom`
 * pre-built modules. See next section
 
 We pass the extra files to link to `../link-km.sh`.
@@ -110,7 +110,7 @@ See dlstatic_km.c in runtime.
   * To avoid the conflict, we register both .so name and .so name + md5 digest, and during dlopen() will be looking for the latter only if the former is not unique.
 * We add _km to symbols and .km patterns to files just to make it easier to grep
 * We *Generate the following per .so*  (`base` is filename stripped of .so suffix e.g. libffmpeg for libffmpeg.so.
-  * base.km.json file is created side by side with .so,  with metadata: so_name, md5digest, .o names, and symbols , FFU.
+  * base.km.json file is created side by side with .so,  with metadata: so_name, md5digest, .o names, and symbols, FFU.
   * base.km.symmap file in the same place has mapping "symbol symbol_ID_km" (in objcopy format - one sym map per line, space separated)
   * base.km.symbols.c file with tables for individual module.so. This file also has global constructor to register the "base_ID" .so for statically resolved dlopen/dlsym
 * The generated makefile does the following:
@@ -142,7 +142,7 @@ This is a working section and is intended to keep track of work  and issues with
 minor inconvenience:
 
 * build-modules is rebuilding all, maybe just skip if module already there and add either FORCE=yes or flag file ?
-  * same for pack-modules , but it's fast
+  * same for pack-modules, but it's fast
 
 ### dlopen/dlsym
 

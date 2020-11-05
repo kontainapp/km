@@ -51,7 +51,7 @@ P0:
 * Document the API used to create the snapshot file.
 * Benchmarks. Replicate and enhance Springboot vs X. eg. https://medium.com/better-programming/which-java-microservice-framework-should-you-choose-in-2020-4e306a478e58
 * pre-take and post-recover hooks (in Java).
-  * P0 for design / API , implementation delayed until customer feedback
+  * P0 for design / API, implementation delayed until customer feedback
 
 P1-P2:
 
@@ -75,7 +75,7 @@ Open items may be resolved after an explicit investigation and discussion, or af
   * Secrets are read from mounts and may use inotify
 * Production vs. Preparation: configuration during snapshot capture has to be production one
 * Do we support/use inotify to the payload  ?
-  * Also , can we issue inotify for open files on snapshot restore ?
+  * Also, can we issue inotify for open files on snapshot restore ?
 * How do we deal with env vars changing  ?
   * e.g. “replica_number” env which is different per invocation and used internally for forming DB key (e.g. Kafka/confluent)
 * Supporting GLIBC and using openjdk pre-built vs. building and test multiple versions ourselves  in the initial product

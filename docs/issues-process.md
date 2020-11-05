@@ -3,13 +3,13 @@
 We use GitHub issues as a tracking mechanism. No ZenBoards or other extensions for now. We will adjust the labels/projects/milestones as needed
 
 * An issue is open for things like bug, feature, improvement.
-* For large chunks of work , in the future,  we will create Projects ((e.g. CRI / KM / Runtime/ Node)).
+* For large chunks of work, in the future,  we will create Projects ((e.g. CRI / KM / Runtime/ Node)).
   * For now we do not use Projects, will add when we do separate per-project triages or planning
 
 Workflow:
 
 * An Issue is opened with label New, then triaged to be categorized (see categories in Labels, below).
-  * During the triage, we remove the `new` label , add necessary labels and/or Milestone, or may decide to close.
+  * During the triage, we remove the `new` label, add necessary labels and/or Milestone, or may decide to close.
   * Either fixing with 'Fixes #issue-number' string in the PR description - `github merge` will close the issue automatically
   * Or by putting in a label decribing the  reason (below) and manually closing the issue.
 
@@ -18,7 +18,7 @@ Workflow:
 ### Labels for Urgency
 
 * urgent (e.g. blocker - preempts other work)
-* normal (regular , needs to be done in the normal order)
+* normal (regular - needs to be done in the normal order)
 * low (done when idle)
 
 ### Labels for Severity

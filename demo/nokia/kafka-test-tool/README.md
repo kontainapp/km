@@ -1,6 +1,6 @@
 # Intructions from Nokia
 
-## Prerequisits 
+## Prerequisits
 
 Please install following softwares
 - Linux environment, ubuntu or centos
@@ -9,10 +9,10 @@ Please install following softwares
 - docker-compose (optional)
 
 
-## Setup Docker 
+## Setup Docker
 
 Perform post installation steps in following URL
-https://docs.docker.com/install/linux/linux-postinstall/ 
+https://docs.docker.com/install/linux/linux-postinstall/
 
 
 ## CSF Kafka Test Environment Setup
@@ -35,20 +35,20 @@ Fire the startTest.sh script with related test case, for example:
 The script startTest.sh performs following actions:
 - create a directory under results/<datetime>
 - the output of script is in results/<datetime>/<datetime>-output.log
-- start sar , the sar is in results/<datetime>/<datetime>-sar.txt
+- start sar, the sar is in results/<datetime>/<datetime>-sar.txt
 - call test case script
 - kill sar after the test case execution
 
 typical test case is performing following steps:
-- create environment , here 3 node cluster
+- create environment, here 3 node cluster
 - create topic for test, here 3 replica
-- perform load to kafka using kafka-client , 50000000 message
+- perform load to kafka using kafka-client, 50000000 message
 - output results
 - destroy the environment
 
 
 Ksar is nice tool to visualize the sar output, it requires jdk installation
-https://github.com/vlsi/ksar 
+https://github.com/vlsi/ksar
 
 
 

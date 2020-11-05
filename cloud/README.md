@@ -28,7 +28,7 @@ We expect the overall process to look like that:
   * Run, debug, etc..
   * Rinse, repeat
 * clean up resources (if needed) with `make -C <cloud> cleancluster` or `make -C <cloud> cleanresources` (or `make -C <cloud> clean` for both)
-* Rinse , repeat
+* Rinse, repeat
 
 # Known issues
 

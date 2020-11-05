@@ -25,28 +25,29 @@ See `make help` for more info
 
 * take original containers  (python only for now)
 * generate Kontain docker container (and Kontain runk kontainer when supported) with neccessary files:
-   * needed .PY files (.pyc can stay to accelerate start)
-   * python.km with needed shared libs linked in, and of the correct version
-   * python3 shebang with python versioning scheme and links
+  * needed .PY files (.pyc can stay to accelerate start)
+  * python.km with needed shared libs linked in, and of the correct version
+  * python3 shebang with python versioning scheme and links
 * validate the result is functioning @ sanity check
-   * potential: use requirements.txt and pip3 commands in dockerfile for this
-   * potential (later): automate loading and buidling the needed modules and then linking them into KM
+  * potential: use requirements.txt and pip3 commands in dockerfile for this
+  * potential (later): automate loading and building the needed modules and then linking them into KM
 * further optimization: only pickup needed modules, not all available
 * further optimization: freeze python.km after all needed modules are loaded and create optimized kontainer with faster start
 
 * the conversion code should NOT have any specifics about individual apps hacked in, instead it should be driven from the source docker image metadata and content
 
-
-### planned workflow
+### Planned workflow
 
 (as of 9/22/19, partially implemented)
-* Get source metadata - 'image inspect' results , and 'history' results. (potential: some manual input here, e.g. app name if invoked via script)
+
+* Get source metadata - 'image inspect' results, and 'history' results. (potential: some manual input here, e.g. app name if invoked via script)
 * In a container made 'FROM' the the source analyze content of the source image: python path, content of the folders, analyze imports
-   * export needed files, generate shebang files ,  config for proper python.km build (version shared libs, etc..), cmd/env/entrypoint for target kontainer
+   * export needed files, generate shebang files, config for proper python.km build (version shared libs, etc..), cmd/env/entrypoint for target kontainer
 * build proper .km files (if needed)
-* FROM kontain/km (for docker) or scratch (for runk) create kontainer image , using exported files data created above
+* FROM kontain/km (for docker) or scratch (for runk) create kontainer image, using exported files data created above
 
 pieces:
+
 * python script for analyzing source and generating all needed info for Kontainer (this one runs in our container build 'FROM' source)
 * python or bash script for collecting all metadata prior to run (this one runs on host)
 

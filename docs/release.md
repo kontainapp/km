@@ -6,7 +6,7 @@ A release is Github collection of sources (auto-packaged by github) and extra fi
 
 We create releases in public kontainapp/km-release repo so KM sources are not released but KM binaries can be picked up for evaluation.
 
-A release may include multiple .tar.gz file , but there is at least one - `kontain.tar.gz` with the KM binaries, libs and tools, which is created, and is expected to be installed before other tars. All files related to release are expected to be on gihub, with the exception of Docker images which can be on dockerhub.
+A release may include multiple .tar.gz file, but there is at least one - `kontain.tar.gz` with the KM binaries, libs and tools, which is created, and is expected to be installed before other tars. All files related to release are expected to be on gihub, with the exception of Docker images which can be on dockerhub.
 
 ## How to create a release
 
@@ -18,7 +18,7 @@ Everything else (including release documentation) is kept in [github km](https:/
 
 Note that km-release is public repo, so no authentication is needed for read access.
 
-Each payload may decide to implement `release` make target which needs to package files. The format, location and process is up to a payload but install process needs to be documented in km-releases/README.md. If files need to be uploaded to github (e.g. we can decide to use dockerhub for packaging a specific payload in which case no upload to github is needed) , wo do it
+Each payload may decide to implement `release` make target which needs to package files. The format, location and process is up to a payload but install process needs to be documented in km-releases/README.md.
 
 To build a release, use `make release` from the appropriate dir (e.g. top-level `make release` will scan all dirs and try to build `release` target here).
 For payloads (or tests, or any other dir scanned from top) we assume that KM (and related libraries) are already installed and /opt/kontain exists.
@@ -45,8 +45,8 @@ for the release is creating `v*` version tag in KM. For example:
 git tag v0.1-test-manual; git push origin v0.1-test-manual
 ```
 
-We also auto-trigger the same release pipeline for any bracnh named 'releases/*/* , e.g. `releases/beta/snapshot-api`
-The release pipeline builds , publishes and validates the release. See steps in `azure-pipeline-release.yml`
+We also auto-trigger the same release pipeline for any bracnh named 'releases/*/*, e.g. `releases/beta/snapshot-api`
+The release pipeline builds, publishes and validates the release. See steps in `azure-pipeline-release.yml`
 
 Here is the use case:
 

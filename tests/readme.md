@@ -91,7 +91,7 @@ If I put build dir (e.g. `/home/msterin/workspace/km/build/runtime/libc.so`) in 
 
 For libs, it's slightly easier (**setvenv LD_LIBRARY_PATH** can help) but super error prone unless the location is locked.
 
-As a result, shared libs are picked from locations 'RPATH' in ELF execs is pointing to ( /opt/kontain/{runtime,alpine-lib}), and it can be changed on runtime with LD_LIBRARY_PATH with or without separate 'install' phase. But libc.so HAS to be in /opt/kontain , so each dev build HAS to place it there
+As a result, shared libs are picked from locations 'RPATH' in ELF execs is pointing to ( /opt/kontain/{runtime,alpine-lib}), and it can be changed on runtime with LD_LIBRARY_PATH with or without separate 'install' phase. But libc.so HAS to be in /opt/kontain, so each dev build HAS to place it there
 
 So while I don't like it, it seems the less painful and most reliable way of doing things - just landing stuff to /opt/kontain on build, and doing NS virtualization if individual containers do not want to step on each other.
 
