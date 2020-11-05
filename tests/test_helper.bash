@@ -112,8 +112,8 @@ else
    echo "Unknown virtualization type : ${USE_VIRT}"
    exit 10
 fi
-# we will kill any test if takes longer
-timeout=150s
+# We will kill any individual test if takes longer than that
+timeout=250s
 
 # this is how we invoke KM - with a timeout and reporting run time
 function km_with_timeout () {
@@ -155,7 +155,7 @@ function km_with_timeout () {
    s=$?; if [[ $s == 124  ]] ; then
       echo -e "\nTime out in $t : ${KM_BIN} ${KM_ARGS} $@"
    elif [[ $s > 128 ]] ; then
-      echo -e "\nKilled by signal $(expr $s - 128) : ${KM_BIN} ${KM_ARGS} $@"
+      echo -e "\nKilled by signal. Timeout returns $s: ${KM_BIN} ${KM_ARGS} $@"
    fi
    return $s
 }
@@ -206,11 +206,14 @@ check_optional_mem_size_failure() {
 
 function setup() {
   skip_if_needed "$BATS_TEST_DESCRIPTION"
+  echo $(date): timing start: "$BATS_TEST_DESCRIPTION"
   echo --- Test script output:
 }
 
 teardown() {
    cat <<EOF
+$(date): timing end: "$BATS_TEST_DESCRIPTION"
+
 --- Command line:
 ${command}
 --- Command output:
