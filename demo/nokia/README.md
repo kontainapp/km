@@ -13,7 +13,7 @@ are:
 
 `make -C kontain-faktory login pull`.
 Note that this assumes you did configure non-interactive login (see `docs/azure_pipeline.md` for how-to).
-If you did not set up non-interactive login , run the following:
+If you did not set up non-interactive login, run the following:
 
 ```bash
 make -C ~/workspace/km/cloud/azure/ login

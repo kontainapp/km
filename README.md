@@ -61,7 +61,7 @@ We use Visual Studio Code as recommended IDE; install it and use `code km_repo_r
 * Generally, we pay attention to the code being easy to read.
   * Give short (but meaningful) names to all, do not save on comments, and try to stay within the look and feel of the other code.
   * Try to limit function / methods / blocks size to a readable page (50-60 lines). "50-60" is not a hard requirement, but please do not create multi-page functions.
-* Single line comments are `//` , multiple lines `/* ... */`
+* Single line comments are `//`, multiple lines `/* ... */`
 * We use km_underscore_notation for vars and functions.
 * Never use single lines `if (cond) do_something`. *Always* use `{}` - i.e.
 
