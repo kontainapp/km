@@ -24,6 +24,10 @@ For other usages:
 ./release_km.py -h
 ```
 
+Note: version `v0.1-test` is a special tag reserved for testing. The release
+script will try to clean up when this release tag exists. Otherwise, the
+release script will fail to prevent accidental override of existing releases.
+
 ## Github Personal Access Token (PAT)
 
 This tool require a Github PAT to authenticate with Github APIs, and will
