@@ -26,10 +26,10 @@ Wait for a few seconds for machine to start, connect button will activate.
 
 Click connect, this will show DNS name of your instance.
 
-use ssh login username/password:
+use ssh login with username fedora and password to be obtained from other sources:
 
 ```bash
-sshpass -p CMX596al ssh fedora@<IP number>
+sshpass -p <password> ssh fedora@<IP number>
 ```
 
 ## Once you login location of the required files
