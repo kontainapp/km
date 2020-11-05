@@ -108,14 +108,14 @@ We need to have multiple ways of KM building for test. They mainly differ in com
   * no suites or skips - and overall feels not worth spending time on.
 * [CUnit](http://cunit.sourceforge.net/doc/index.html)
   * Looks like a good unit test env. but an overkill for now
-  * Defines a bunch of helpful marcos for asserts, pass/fail reporting (see [CUnit site](http://cunit.sourceforge.net/doc/writing_tests.html#tests))
+  * Defines a bunch of helpful macros for asserts, pass/fail reporting (see [CUnit site](http://cunit.sourceforge.net/doc/writing_tests.html#tests))
   * Supports a live "test registry' where tests can be added programmatically
   * Supports test suits & groups (as array or description / functions)
   * supports output redirection/logs
   * feels unnecessary large and complex, requires "registry" for tracking tests, API to add to suites, etc.
 * [check](https://libcheck.github.io/check/) or `dnf install check`
-  * another unit testing , similar to the rest
-  * expects autoconf , libtool, pkg-config cmake , and does not seem to add much compared to , say , nUnit - thus we will pass.
+  * another unit testing, similar to the rest
+  * expects autoconf, libtool, pkg-config cmake, and does not seem to add much compared to, say, nUnit - thus we will pass.
 * [Criterion](https://github.com/Snaipe/Criterion)
   * Good:
     * Real nice framework, in active state, handles many aspects (e.g. signal testing, reports,  'theories' in TDD, etc...)
@@ -126,7 +126,7 @@ We need to have multiple ways of KM building for test. They mainly differ in com
     * Dependencies on much stuff, total 15M (uses klib, debugbreak, nanopb - protobuffers)
     * requires build with cmake/gcc and install, set lib
   * Conclusion
-    * **overkill for us** , skipping (for now), and not needed until we have a few full time test devs at least
+    * **overkill for us**, skipping (for now), and not needed until we have a few full time test devs at least
     * we can always add it if needed as another step in BATS runs, skipping for now
 
 BTW, `dependencies it uses need to be kept in mind` if we need good trees/streaming/json/etc, or protobufs, or debugreak in the code.
