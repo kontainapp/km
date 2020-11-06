@@ -12,6 +12,8 @@ trigger:
       - .vscode/*
       - docs/*
       - demo/nokia/*
+      - km-releases
+
 
 pr:
   branches:
@@ -24,6 +26,8 @@ pr:
       - .vscode/*
       - docs/*
       - demo/nokia/*
+      - km-releases
+
 
 jobs:
   - job: kkm_ci
