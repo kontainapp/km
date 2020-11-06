@@ -12,6 +12,8 @@ trigger:
       - .vscode/*
       - docs/*
       - demo/customer1/*
+      - km-releases
+
 
 pr:
   branches:
@@ -24,6 +26,8 @@ pr:
       - .vscode/*
       - docs/*
       - demo/customer1/*
+      - km-releases
+
 
 jobs:
   - job: kkm_ci
