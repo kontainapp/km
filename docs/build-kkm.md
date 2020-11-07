@@ -7,10 +7,11 @@ Each kernel version has its own set of dependencies.
 On fedora
 
 ```bash
-dnf config-manager --set-enabled fedora-source
-dnf download --source kernel
+sudo dnf install kernel-devel.x86_64
+sudo dnf config-manager --set-enabled fedora-source
+sudo dnf download --source kernel
 rpm -ivh <kernel-rpm-name>
-dnf builddep ${HOME}/rpmbuild/SPECS/kernel.spec
+sudo dnf builddep ${HOME}/rpmbuild/SPECS/kernel.spec
 ```
 
 # build kkm module

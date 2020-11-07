@@ -80,6 +80,19 @@ sudo usermod -aG docker root
 sudo usermod -aG docker $(id -un)
 ```
 
+Enable docker start on system boot, and start it:
+
+```bash
+sudo systemctl enable docker
+sudo systemctl start docker
+```
+
+Check everything is OK with docker:
+
+```bash
+docker ps
+```
+
 At this point it makes sense to reboot `sudo reboot`.
 
 ### Various - make, Azure CLI, kubectl
@@ -103,7 +116,35 @@ gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cl
 ```
 
 ```bash
-sudo dnf install -y make azure-cli kubectl
+sudo dnf install -y git python3-cffi make azure-cli kubectl
+```
+
+### All of the above in one script for easy cut and paste
+
+```bash
+sudo dnf upgrade --refresh -y
+sudo dnf install -y moby-engine
+sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
+sudo firewall-cmd --permanent --zone=trusted --add-interface=docker0
+sudo firewall-cmd --permanent --zone=FedoraWorkstation --add-masquerade
+sudo systemctl restart firewalld
+sudo usermod -aG docker root
+sudo usermod -aG docker $(id -un)
+sudo systemctl enable docker
+sudo sh -c 'echo -e "[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/azure-cli.repo'
+sudo sh -c 'echo -e "[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg" > /etc/yum.repos.d/kubernetes.repo'
+sudo dnf install -y git python3-cffi make azure-cli kubectl
 ```
 
 ### Source tree and build environment
@@ -122,7 +163,6 @@ It helps to configure local git settings and aliases in `~/.gitconfig`:
 ```txt
 # This is Git's per-user configuration file.
 [user]
-# Please adapt and uncomment the following lines:
 	name = You Name
 	email = you_name@kontain.app
 
