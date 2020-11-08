@@ -214,7 +214,8 @@ void* thread_main(void* arg)
     * Take the snapshot.
     */
    if (snap_flag == SNAP_NORMAL) {
-      km_hc_args_t snapshotargs = {};
+      km_hc_args_t snapshotargs = {.arg1 = (uint64_t) "snaptest_label",
+                                   .arg2 = (uint64_t) "Snapshot test applcation"};
       km_hcall(HC_snapshot, &snapshotargs);
    } else if (snap_flag == SNAP_PAUSE) {
       pause();
