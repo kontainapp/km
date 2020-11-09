@@ -8,8 +8,6 @@
 set -e
 [ "$TRACE" ] && set -x
 
-cd $(dirname ${BASH_SOURCE[0]})
-
 DEFAULT_TESTS="km_core_tests.bats"
 DEFAULT_TEST_TYPE="static dynamic so alpine_static glibc_static"
 
@@ -86,6 +84,8 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+$DEBUG export TESTS_BASE=$(dirname ${BASH_SOURCE[0]})
+
 pretty=${pretty:--t}
 if [ "$pretty" == "-p" ] ; then
    RED="\033[31m"
@@ -154,7 +154,7 @@ for t in $test_type ; do
    test_list="$test_list $tmp_file"
 done
 
-$DEBUG bats/bin/bats $jobs $pretty -f "$match" $test_list
+$DEBUG ${TESTS_BASE}/bats/bin/bats $jobs $pretty -f "$match" $test_list
 exit_code=$?
 if [ $exit_code == 0 ] ; then
    echo '------------------------------------------------------------------------------'

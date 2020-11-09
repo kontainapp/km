@@ -1414,6 +1414,10 @@ static km_hc_ret_t uname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
    arg->hc_ret = uname(name);
    // Overwrite Kontain specific info. Buffers 65 bytes each, hardcoded in musl, so we are good
+   /*
+    * Note: 'kontain-runtime' is checked in language API bindings. If this changes the bindings need to
+    * change too.
+    */
    strcpy(name->sysname, "kontain-runtime");
    // used by some libs (eg. libc) as kernel version check, numbers too low (e.g. 0.8)
    // may cause "kernel too old" failures.
@@ -1704,13 +1708,25 @@ static km_hc_ret_t fstatfs_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    km_warnx("SNAPSHOT");
+
+   char* label = km_gva_to_kma(arg->arg1);
+   if (arg->arg1 != 0 && label == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   char* description = km_gva_to_kma(arg->arg2);
+   if (arg->arg2 != 0 && description == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
    // Ensure this VCPU's RIP points at the instruction after the HCALL.
    km_vcpu_sync_rip(vcpu);
    ((km_vcpu_t*)vcpu)->regs_valid = 0;   // force register reread after the sync_rip
    km_read_registers(vcpu);
 
    // Create the snapshot.
-   if ((arg->hc_ret = km_snapshot_create(vcpu, 0)) != 0) {
+   if ((arg->hc_ret = km_snapshot_create(vcpu, label, description, 0)) != 0) {
       return HC_CONTINUE;
    }
    return HC_ALLSTOP;

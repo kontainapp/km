@@ -38,6 +38,11 @@
  */
 typedef struct km_nt_monitor {
    Elf64_Word monitor_type;
+   Elf64_Word label_length;
+   Elf64_Word description_length;
+   /*
+    * NULL terminated strings label and descrption follow
+    */
 } km_nt_monitor_t;
 #define NT_KM_MONITOR 0x4b4d4d4e   // "KMMN" no null term
 
@@ -179,7 +184,8 @@ typedef struct km_nt_sighand {
 #define NT_KM_SIGHAND 0x4b4d5348   // "KMSH" no null term
 
 // Core dump guest.
-void km_dump_core(char* filename, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe);
+void km_dump_core(
+    char* filename, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe, char* label, char* description);
 void km_set_coredump_path(char* path);
 char* km_get_coredump_path();
 size_t km_note_header_size(char* owner);

@@ -1016,6 +1016,7 @@ fi
 @test "snapshot($test_type): snapshot and resume(snapshot_test$ext)" {
    SNAP=/tmp/snap.$$
    CORE=/tmp/core.$$
+   KMLOG=/tmp/kmlog.$$
 
    for i in $(seq 100) ; do
       # snapshot resume that successfully exits
@@ -1024,12 +1025,14 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --resume ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} --resume ${SNAP}
       assert_success
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
+      assert grep 'label: snaptest_label' ${KMLOG}
+      assert grep 'description: Snapshot test applcation' ${KMLOG}
       assert [ ! -f ${CORE} ]
-      rm -f ${SNAP}
+      rm -f ${SNAP} ${KMLOG}
 
       # snapshot with closed stdio
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -c
@@ -1037,29 +1040,33 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --resume ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} --resume ${SNAP}
       assert_success
       # TODO: remove the check with glibc_static when musl and glibc behave the same way
       [[ $test_type =~ glibc* ]] && refute_line --partial "Hello from thread"
       [[ $test_type =~ glibc* ]] || assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
+      assert grep 'label: snaptest_label' ${KMLOG}
+      assert grep 'description: Snapshot test applcation' ${KMLOG}
       assert [ ! -f ${CORE} ]
-      rm -f ${SNAP}
+      rm -f ${SNAP} ${KMLOG}
 
       # snapshot resume that core dumps
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -a
       assert_success
       assert [ -f ${SNAP} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --coredump=${CORE} --resume ${SNAP}
+      run km_with_timeout --coredump=${CORE} --km-log-to=${KMLOG} --resume ${SNAP}
       assert_failure 6  # SIGABRT
       assert [ -f ${CORE} ]
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
+      assert grep 'label: snaptest_label' ${KMLOG}
+      assert grep 'description: Snapshot test applcation' ${KMLOG}
       if [ "$test_type" = ".km.so" ]; then
          gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
       fi
-      rm -f ${SNAP} ${CORE}
+      rm -f ${SNAP} ${CORE} ${KMLOG}
    done
 }
 

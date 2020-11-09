@@ -47,7 +47,7 @@ static void* mgt_main(void* arg)
       km_warnx("Connection accepted");
       close(nfd);
 
-      if (km_snapshot_create(NULL, 0) != 0) {
+      if (km_snapshot_create(NULL, NULL, NULL, 0) != 0) {
          continue;
       }
       unlink(addr.sun_path);

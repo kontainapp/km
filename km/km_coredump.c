@@ -432,7 +432,8 @@ static inline int km_core_dump_payload_note(km_payload_t* payload, int tag, char
    return roundup(cur - buf, 4);
 }
 
-static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, char* buf, size_t size)
+static inline int km_core_write_notes(
+    km_vcpu_t* vcpu, int fd, char* label, char* description, off_t offset, char* buf, size_t size)
 {
    Elf64_Phdr phdr = {};
 
@@ -495,15 +496,33 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu, int fd, off_t offset, cha
    /*
     * Add KM monitor info
     */
-   cur += km_add_note_header(cur, remain, KM_NT_NAME, NT_KM_MONITOR, sizeof(km_nt_monitor_t));
+   size_t label_sz = (label != NULL) ? strlen(label) + 1 : 0;
+   size_t description_sz = (description != NULL) ? strlen(description) + 1 : 0;
+   cur += km_add_note_header(cur,
+                             remain,
+                             KM_NT_NAME,
+                             NT_KM_MONITOR,
+                             sizeof(km_nt_monitor_t) + label_sz + description_sz);
    remain -= sizeof(km_nt_monitor_t);
    km_nt_monitor_t* monitor = (km_nt_monitor_t*)cur;
-   *monitor = (km_nt_monitor_t){.monitor_type = KM_NT_MONITOR_TYPE_KVM};
+   *monitor = (km_nt_monitor_t){.monitor_type = KM_NT_MONITOR_TYPE_KVM,
+                                .label_length = label_sz,
+                                .description_length = description_sz};
    if (machine.vm_type == VM_TYPE_KKM) {
       monitor->monitor_type = KM_NT_MONITOR_TYPE_KKM;
    }
    cur += sizeof(km_nt_monitor_t);
    remain -= sizeof(km_nt_monitor_t);
+   if (label != NULL) {
+      strcpy(cur, label);
+      cur += strlen(label) + 1;
+      remain -= strlen(label) + 1;
+   }
+   if (description != NULL) {
+      strcpy(cur, description);
+      cur += strlen(description) + 1;
+      remain -= strlen(description) + 1;
+   }
 
    assert(cur <= buf + size);
    // TODO: Other notes sections in real core files.
@@ -558,7 +577,7 @@ static inline void km_guestmem_write(int fd, km_gva_t base, size_t length)
  * Returns buffer allocation size for core PT_NOTES section based on the
  * number of active vcpu's (threads).
  */
-static inline size_t km_core_notes_length(km_vcpu_t* vcpu)
+static inline size_t km_core_notes_length(km_vcpu_t* vcpu, char* label, char* description)
 {
    int nvcpu = km_vcpu_run_cnt();
    int nvcpu_inc = (vcpu == NULL) ? 0 : 1;
@@ -571,6 +590,12 @@ static inline size_t km_core_notes_length(km_vcpu_t* vcpu)
    alloclen += km_mappings_size(NULL, NULL) + strlen(KM_NT_NAME) + sizeof(Elf64_Nhdr);
    alloclen += machine.auxv_size + km_note_header_size(KM_NT_NAME);
    alloclen += sizeof(km_nt_monitor_t) + km_note_header_size(KM_NT_NAME);
+   if (label != NULL) {
+      alloclen += strlen(label) + 1;
+   }
+   if (description != NULL) {
+      alloclen += strlen(description) + 1;
+   }
 
    // Kontain specific per CPU info (for snapshot restore)
    alloclen +=
@@ -677,6 +702,8 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
                                        km_gva_t end_load,
                                        char* notes_buffer,
                                        size_t notes_length,
+                                       char* label,
+                                       char* description,
                                        size_t* offsetp)
 {
    km_mmap_reg_t* ptr;
@@ -684,7 +711,7 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
    // write elf header
    km_core_write_elf_header(fd, phnum);
    // Create PT_NOTE in memory and write the header
-   *offsetp += km_core_write_notes(vcpu, fd, *offsetp, notes_buffer, notes_length);
+   *offsetp += km_core_write_notes(vcpu, fd, label, description, *offsetp, notes_buffer, notes_length);
    // Write headers for segments from ELF
    *offsetp = km_core_write_payload_phdr(&km_guest, end_load, fd, *offsetp);
    if (km_dynlinker.km_filename != NULL) {
@@ -712,14 +739,14 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
 /*
  * Drop a core file containing the guest image.
  */
-void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe)
+void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe, char* label, char* description)
 {
    // char* core_path = km_get_coredump_path();
    int fd;
    size_t offset;   // Data offset
    km_mmap_reg_t* ptr;
    char* notes_buffer;
-   size_t notes_length = km_core_notes_length(vcpu);
+   size_t notes_length = km_core_notes_length(vcpu, label, description);
    km_gva_t end_load = 0;
    int phnum = km_core_count_phdrs(vcpu, &end_load);
 
@@ -733,7 +760,7 @@ void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* ifram
    }
    offset = sizeof(Elf64_Ehdr) + phnum * sizeof(Elf64_Phdr);
 
-   km_core_write_phdrs(vcpu, fd, phnum, end_load, notes_buffer, notes_length, &offset);
+   km_core_write_phdrs(vcpu, fd, phnum, end_load, notes_buffer, notes_length, label, description, &offset);
 
    // Write the actual data.
    km_core_write(fd, notes_buffer, notes_length);
