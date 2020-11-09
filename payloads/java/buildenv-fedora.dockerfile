@@ -54,6 +54,7 @@ WORKDIR ${JAVATOP}
 COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/support/native/java.base/java/ support/native/java.base/java/
 COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/lib images/jdk/lib
 COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/conf images/jdk/conf
+COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/include images/jdk/include
 # This will allow to compile .java files with correct java version
 COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/bin/javac images/jdk/bin/javac
 

@@ -45,7 +45,9 @@ RUNENV_PATH := .
 RUNENV_VALIDATE_DIR := scripts
 RUNENV_VALIDATE_CMD := -cp /scripts Hello
 RUNENV_VALIDATE_EXPECTED := Hello, World!
-RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class
+RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
+	app/kontain/snapshots/Snapshot.class \
+	app/kontain/snapshots/libkm_java_native.so
 RUNENV_DEMO_DEPENDENCIES := scripts/SimpleHttpServer.class
 
 all: ## Link java.kmd based on either full build or build artifats in docker image
@@ -77,12 +79,26 @@ fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
 ${JDK_VERSION}:
 	git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
 
-scripts/%.class: scripts/%.java
+JAVA_DIR := ${JDK_BUILD_DIR}/images/jdk
+
+app/kontain/snapshots/%.class: app/kontain/snapshots/%.java
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
 		-w ${CURRENT_DIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/javac $?
+
+app/kontain/snapshots/libkm_java_native.so: app/kontain/snapshots/km_java_native_snapshot.c
+	gcc -shared -O3 -I/usr/include -I${JAVA_DIR}/include -I${JAVA_DIR}/include/linux \
+		$? -o $@
+#		app/kontain/app_kontain_api.c -o app/kontain/libapp_kontain_api.so
+
+scripts/%.class: scripts/%.java
+	${DOCKER_RUN_BUILD} \
+		-v ${TOP}:${TOP}:Z \
+		-w ${CURRENT_DIR} \
+		${BUILDENV_IMG_TAGGED} \
+		${JAVA_DIR}/bin/javac $?
 
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
 	mkdir -p ${JDK_BUILD_DIR}
@@ -90,11 +106,10 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 	./link-km.sh ${JDK_BUILD_DIR}
 
 
-JAVA_DIR := ${JDK_BUILD_DIR}/images/jdk
 JAVA_LD_PATH := ${CURDIR}/${JAVA_DIR}/lib/server:${CURDIR}/${JAVA_DIR}/lib/jli:${CURDIR}/${JAVA_DIR}/lib:/opt/kontain/runtime:/lib64
-test: ${RUNENV_VALIDATE_DEPENDENCIES} ## Basic test run
-	${KM_BIN} --putenv=LD_LIBRARY_PATH=${JAVA_LD_PATH} \
-		${JDK_BUILD_DIR}/images/jdk/bin/java.kmd -cp ${RUNENV_VALIDATE_DIR} Hello | grep "${RUNENV_VALIDATE_EXPECTED}"
+test: ${RUNENV_VALIDATE_DEPENDENCIES} test_java.bats ## Basic test run
+	JAVA_DIR=${CURDIR}/${JAVA_DIR} JDK_BUILD_DIR=${JDK_BUILD_DIR} JAVA_LD_PATH=${JAVA_LD_PATH} ${TOP}/tests/run_bats_tests.sh --km=${KM_BIN} \
+		--tests=${TOP}/payloads/java/test_java.bats --test-type=dynamic
 
 # TODO - we may simply document (in km-release) installing from docker image and do the push here
 # or we can create tar.gz to install on the host from
@@ -120,6 +135,8 @@ clobber:
 
 clean:
 	rm -f ${JDK_BUILD_DIR}/images/jdk/bin/java.k*
+	rm -f app/kontain/*.class app/kontain/*.so
+	rm -f app/kontain/snapshots/*.class app/kontain/snapshots/*.so
 	find . -name "*.class" -type f -delete
 
 RELEASE_TAG := java-11
