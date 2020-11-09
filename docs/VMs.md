@@ -29,7 +29,7 @@ Download the compressed image, decompress, and place in that directory
 ```bash
 mkdir ~/VMs
 cd ~/VMs
-wget ... fedora_server_32_base.qcow2.bz2
+wget https://vdisks.blob.core.windows.net/fedora/fedora_server_32_base.qcow2.bz2
 pbzip2 -d fedora_server_32_base.qcow2.bz2
 ```
 
@@ -167,10 +167,20 @@ Once you enable and start `sshd` you can connect from regular terminal window.
 
 When the system is done to your liking run `sudo fstrim /` and shut down the system.
 The disk file `$VM_DISK` will be your base image.
-It might make sense to try to compress it (although it didn't help much).
+It might make sense to try to compress it (although it didn't help much),
+and compress to minimize transfer time.
 
 ```bash
-qemu-img convert $VM_DISK $VM_DISK.base.qcow2
+qemu-img convert $VM_DISK $VM_DISK_base.qcow2
+chmod a-w $VM_DISK_base.qcow2
+pbzip2 -m1024 -k $VM_DISK_base.qcow2
 ```
 
 At this point we have the base image and ready to go from the top of this document.
+
+### Upload
+
+```bash
+az storage blob upload --auth-mode login --account-name vdisks --container-name fedora \
+   --name fedora_server_32_base.qcow2.bz2 --file /var//stuff/serge/VMs/fedora_32_base.qcow2.bz2
+```
