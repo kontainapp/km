@@ -387,6 +387,19 @@ static inline int km_ss_recover_vcpus(char* notebuf, size_t notesize)
    return 0;
 }
 
+static inline int km_ss_recover_km_monitor(char* notebuf, size_t notesize)
+{
+   km_nt_monitor_t* mon = (km_nt_monitor_t*)notebuf;
+   char* base = (char*)(mon + 1);
+   if (mon->label_length > 0) {
+      km_warnx("label: %s", base);
+   }
+   if (mon->description_length > 0) {
+      km_warnx("description: %s", base + mon->label_length);
+   }
+   return 0;
+}
+
 int km_snapshot_restore(const char* file)
 {
    int fd;
@@ -419,6 +432,9 @@ int km_snapshot_restore(const char* file)
       km_errx(2, "PT_NOTES not found");
    }
    (void)close(fd);   // close now to avoid collision with fd's that need restoring
+   if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_MONITOR, km_ss_recover_km_monitor) < 0) {
+      km_errx(2, "recover file maps failed");
+   }
    if (km_ss_recover_vcpus(notebuf, notesize) < 0) {
       km_errx(2, "VCPU restore failed");
    }
@@ -466,7 +482,7 @@ int km_snapshot_restore(const char* file)
    return 0;
 }
 
-int km_snapshot_create(km_vcpu_t* vcpu, int live)
+int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, int live)
 {
    // No snapshots while GDB is running
    if (km_gdb_is_enabled() != 0) {
@@ -487,7 +503,10 @@ int km_snapshot_create(km_vcpu_t* vcpu, int live)
 
    km_vcpu_pause_all(vcpu, ALL);   // Wait for everyone to get to the pause point.
 
-   km_dump_core(km_get_snapshot_path(), vcpu, NULL);
+   /*
+    * TODO: Work label and description into this.
+    */
+   km_dump_core(km_get_snapshot_path(), vcpu, NULL, label, description);
 
    if (live != 0) {
       // TODO: Restart everything for a live snapshot.

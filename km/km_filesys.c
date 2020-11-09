@@ -199,7 +199,7 @@ static inline int km_add_socket_fd(
 static inline void km_disconnect_file(km_vcpu_t* vcpu, int fd)
 {
    km_file_t* file = &km_fs()->guest_files[fd];
-   if (file->ofd != -1) {
+   if (file->ofd != -1 && file->inuse != 0) {
       km_file_t* other = &km_fs()->guest_files[file->ofd];
       assert(other->ofd == fd);
       other->ofd = -1;
