@@ -11,7 +11,6 @@
  *
  * Support for payload mmap() and related API
  */
-#define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>

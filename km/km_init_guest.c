@@ -13,7 +13,6 @@
  * This includes passing parameters to main.
  */
 
-#define _GNU_SOURCE   // Needed for clone(2) flag definitions.
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>

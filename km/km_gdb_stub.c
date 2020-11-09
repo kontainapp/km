@@ -35,7 +35,6 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define _GNU_SOURCE
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>

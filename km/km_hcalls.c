@@ -10,7 +10,6 @@
  * permission of Kontain Inc.
  */
 
-#define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <setjmp.h>

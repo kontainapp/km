@@ -9,7 +9,6 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  */
-#define _GNU_SOURCE
 #include <assert.h>
 #include <ctype.h>
 #include <fcntl.h>

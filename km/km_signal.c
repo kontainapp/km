@@ -12,7 +12,6 @@
  * Signal-related wrappers for KM threads/KVM vcpu runs.
  */
 
-#define _GNU_SOURCE
 #include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
