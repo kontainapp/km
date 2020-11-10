@@ -123,7 +123,7 @@ fi
    assert_failure 31  #SIGSYS
    assert_output --partial "Bad system call"
 
-   run km_with_timeout stray_test$ext -- hc -10
+   run km_with_timeout -- stray_test$ext -- hc -10
    assert_failure 7   #SIGBUS
    assert_output --partial "Bus error"
 
@@ -141,7 +141,7 @@ fi
 }
 
 @test "km_main_signal($test_type): wait on signal (hello_test$ext)" {
-   run timeout -s SIGUSR1 1s ${KM_BIN} --dynlinker=${KM_LDSO} --wait-for-signal hello_test$ext
+   run timeout -s SIGUSR1 1s ${KM_BIN} --km-log-to=stderr --dynlinker=${KM_LDSO} --wait-for-signal hello_test$ext
    assert_failure 124
 }
 
@@ -1014,7 +1014,9 @@ fi
    assert_success
 }
 
-@test "snapshot($test_type): snapshot and resume(snapshot_test$ext)" {
+# In this searies of test the "--" argument between --resume and ${SNAP} is important.
+# It helps km_with_timeout() recognize that ${SNAP} is the payload name.
+@test "basic_snapshot($test_type): snapshot and resume(snapshot_test$ext)" {
    SNAP=/tmp/snap.$$
    CORE=/tmp/core.$$
    KMLOG=/tmp/kmlog.$$
@@ -1026,7 +1028,7 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --km-log-to=${KMLOG} --resume ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} --resume -- ${SNAP}
       assert_success
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
@@ -1041,7 +1043,7 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --km-log-to=${KMLOG} --resume ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} --resume - ${SNAP}
       assert_success
       # TODO: remove the check with glibc_static when musl and glibc behave the same way
       [[ $test_type =~ glibc* ]] && refute_line --partial "Hello from thread"
@@ -1057,7 +1059,7 @@ fi
       assert_success
       assert [ -f ${SNAP} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --coredump=${CORE} --km-log-to=${KMLOG} --resume ${SNAP}
+      run km_with_timeout --coredump=${CORE} --km-log-to=${KMLOG} --resume -- ${SNAP}
       assert_failure 6  # SIGABRT
       assert [ -f ${CORE} ]
       assert_output --partial "Hello from thread"
@@ -1081,7 +1083,7 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --resume ${SNAP}
+      run km_with_timeout --resume -- ${SNAP}
       assert_success
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
@@ -1246,26 +1248,26 @@ fi
 
    # Verify logging goes to stderr
    rm -f $LOGFILE
-   assert ${KM_BIN} -V ${KM_ARGS_PRIVATE} hello_test$ext 2>$LOGFILE
+   assert ${KM_BIN} -V ${KM_ARGS_PRIVATE} ${KM_LDSO_ARGS} hello_test$ext 2>$LOGFILE
    assert test -e $LOGFILE
    assert grep -q "calling hc = 231 (exit_group)" $LOGFILE
    rm -f LOGFILE
 
    # Verify that logging when stderr is a pipe will switch logging to /tmp/km_XXXXX.log
-   ${KM_BIN} -V ${KM_ARGS_PRIVATE} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
+   ${KM_BIN} -V ${KM_ARGS_PRIVATE} ${KM_LDSO_ARGS} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
    assert_success
    run grep -q "calling hc = 231 (exit_group)" $LOGFILE
    assert_failure
    run grep -q "Switch km logging to" $LOGFILE
    assert_success
-   KMLOGFILE=`grep "Switch km logging to" $LOGFILE | sed -e "s/Switch km logging to //"`
+   KMLOGFILE=`grep "Switch km logging to" $LOGFILE | sed -e "s/Switch km logging to //" | sed -e "s/ on first attempt to log//"`
    assert test -e $KMLOGFILE
    assert grep -q "calling hc = 231 (exit_group)" $KMLOGFILE
    rm -f $KMLOGFILE
    rm -f LOGFILE
 
    # Verify that we can force logging to stderr even if it is a pipe
-   ${KM_BIN} -V --km-log-to=stderr ${KM_ARGS_PRIVATE} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
+   ${KM_BIN} -V --km-log-to=stderr ${KM_ARGS_PRIVATE} ${KM_LDSO_ARGS} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
    assert_success
    test -e $LOGFILE
    assert_success
@@ -1277,7 +1279,7 @@ fi
 
    # Verify that we can force logging to be disabled
    # Note that some logging does happen before it can be disabled
-   ${KM_BIN} -V --km-log-to=none ${KM_ARGS_PRIVATE} hello_test$ext &>$LOGFILE
+   ${KM_BIN} -V --km-log-to=none ${KM_ARGS_PRIVATE} ${KM_LDSO_ARGS} hello_test$ext &>$LOGFILE
    assert_success
    test -e $LOGFILE
    assert_success
