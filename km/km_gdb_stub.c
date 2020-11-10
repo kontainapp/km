@@ -219,7 +219,7 @@ void km_gdb_accept_stop(void)
    int rc;
 
    km_infox(KM_TRACE_GDB, "Stop accepting new gdb client connections");
-   if (gdbstub.gdb_client_attached == 0) {
+   if (gdbstub.gdb_client_attached == 0 && gdbstub.listen_socket_fd != -1) {
       rc = shutdown(gdbstub.listen_socket_fd, SHUT_RD);
       if (rc != 0) {
          km_info(KM_TRACE_GDB, "shutdown on listening socket failed");
