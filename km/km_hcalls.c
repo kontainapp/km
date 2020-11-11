@@ -1726,7 +1726,10 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    km_read_registers(vcpu);
 
    // Create the snapshot.
-   if ((arg->hc_ret = km_snapshot_create(vcpu, label, description, 0)) != 0) {
+   arg->hc_ret = km_snapshot_create(vcpu, label, description, 0);
+   // negative value means EBUSY or other similar condition.
+   // TODO: in case of live (non zero last arg) returning HC_CONTINUE should just work
+   if (arg->hc_ret < 0 /* || live != 0 */) {
       return HC_CONTINUE;
    }
    return HC_ALLSTOP;

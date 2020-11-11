@@ -508,11 +508,13 @@ int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, int live
     */
    km_dump_core(km_get_snapshot_path(), vcpu, NULL, label, description);
 
-   if (live != 0) {
-      // TODO: Restart everything for a live snapshot.
+   if (live == 0) {
+      machine.exit_group = 1;
    }
    pthread_mutex_lock(&snap_mutex);
    in_snapshot = 0;
    pthread_mutex_unlock(&snap_mutex);
+
+   km_vcpu_resume_all();
    return 0;
 }
