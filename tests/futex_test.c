@@ -141,8 +141,8 @@ int main(int argc, char* argv[])
 
    pthread_t pt1, pt2;
 
-   futex1 = 0;   // not avalable
-   futex2 = 1;   // avalable
+   futex1 = 0;   // not available
+   futex2 = 1;   // available
 
    pthread_create(&pt1, NULL, child, NULL);
    pthread_create(&pt2, NULL, parent, NULL);
