@@ -1,5 +1,19 @@
 # Working with VMs
 
+This document describes how to build and run a virtual machine with Fedora guest OS installed,
+ready to compile and run km and the payloads.
+
+While it was tested on Fedora host OS, the host OS is largely inconsequential.
+Other than initial prerequisites installation everything should work on other hosts.
+
+We describe how to create and run a VM based on a pre-made base disk image.
+This allows for a short time to km running inside a VM.
+The base image was created circa Oct 8th, 2020,
+using Fedora 32 server.
+
+We also describe how to make the base image starting from empty disk and installation media,
+so that it can be recreated as need with new versions of Fedora or different install configuration.
+
 ## Prerequisites
 
 ```bash
@@ -49,6 +63,15 @@ nohup qemu-system-x86_64 -accel kvm -cpu host -smp $VM_VCPUS -m $VM_MEMORY \
    -vnc :`expr $VM_CONSOLE - 5900` -hda $VM_DISK -net user,hostfwd=::$VM_SSH-:22 -net nic &
 ```
 
+If you want to run a VM with nested KVM disabled,
+e.g. to test kkm an AWS like machine,
+add `-vmx` to cpu specification:
+
+```bash
+nohup qemu-system-x86_64 -accel kvm -cpu host,-vmx -smp $VM_VCPUS -m $VM_MEMORY \
+   -vnc :`expr $VM_CONSOLE - 5900` -hda $VM_DISK -net user,hostfwd=::$VM_SSH-:22 -net nic &
+```
+
 To connect to the running VM's console use vncviewer and connect to `:$VM_CONSOLE`.
 This could be command line `vncviewer :$VM_CONSOLE` or via graphical dialog.
 
@@ -65,6 +88,20 @@ cat ~/.ssh/id_rsa.pub | ssh fedora@localhost -p $VM_SSH 'cat >> .ssh/authorized_
 If running a VM on a remote machine,
 like working from home accessing a machine in the office,
 here are handy trick.
+
+The examples below assume `kontain` is configured to ssh connect to the host machine,
+i.e. in `~/.ssh/config` there is an entry like this:
+
+```txt
+      ...
+   Host kontain
+	HostName 73.241.134.96
+	Port 2222
+	User serge
+	ForwardX11=yes
+	ForwardX11Trusted=yes
+      ...
+```
 
 To redirect ports to access the remote VM,
 when connecting from home use something like:
@@ -93,7 +130,6 @@ While the tests are running you can detach from screen typing `^a d`, and exit t
 The internal shell and other processes keep running.
 
 You can reconnect to the screen at a later time `screen -r`.
-
 
 ## How to prepare the base image
 
