@@ -9,7 +9,6 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  */
-#define _GNU_SOURCE   // strdupa
 #include <ctype.h>
 #include <err.h>
 #include <fcntl.h>
