@@ -10,7 +10,6 @@
  * permission of Kontain Inc.
  */
 
-#define _GNU_SOURCE
 #include <assert.h>
 #include <pthread.h>
 #include <sched.h>

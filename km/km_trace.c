@@ -10,7 +10,6 @@
  * permission of Kontain Inc.
  */
 
-#define _GNU_SOURCE
 #include <errno.h>
 #include <pthread.h>
 #include <stdarg.h>
