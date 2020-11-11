@@ -15,7 +15,6 @@
  *    - Open file descriptors (both FS and sockets)
  *    - Snapshot versioning
  */
-#define _GNU_SOURCE
 #include <assert.h>
 #include <fcntl.h>
 #include <string.h>
