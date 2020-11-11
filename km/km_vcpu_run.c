@@ -581,6 +581,11 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
       vcpu->state = HYPERCALL;
    }
    km_mutex_unlock(&machine.pause_mtx);
+   // if exit_group() or equivalent happened while we were sleeping, like destructive snapshot, handle it
+   if (machine.exit_group != 0) {   // exit_group() - we are done.
+      km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
+      assert("Reached the unreachable" == NULL);
+   }
 }
 
 void* km_vcpu_run(km_vcpu_t* vcpu)
@@ -653,14 +658,14 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 
                case HC_ALLSTOP:
                   // This thread has executed exit_group() and the payload is terminating.
-                  km_info(KM_TRACE_KVM,
-                          "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: hypercall %d allstop, status "
-                          "0x%x",
-                          vcpu->regs.rip,
-                          vcpu->regs.rsp,
-                          vcpu->sregs.cr2,
-                          vcpu->hypercall,
-                          machine.exit_status);
+                  km_infox(KM_TRACE_KVM,
+                           "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx KVM: hypercall %d allstop, status "
+                           "0x%x",
+                           vcpu->regs.rip,
+                           vcpu->regs.rsp,
+                           vcpu->sregs.cr2,
+                           vcpu->hypercall,
+                           machine.exit_status);
                   km_gdb_accept_stop();
                   km_vcpu_exit_all(vcpu);
                   break;
