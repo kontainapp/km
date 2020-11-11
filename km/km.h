@@ -690,7 +690,7 @@ void* km_find_faulting_address(km_vcpu_t* vcpu);
 void km_x86decode(km_vcpu_t* vcpu);
 
 // km_vmdriver.c
-void km_vmdriver_machine_init();
+void km_vmdriver_machine_init(void);
 void km_vmdriver_vcpu_init(km_vcpu_t* vcpu);
 int km_vmdriver_lowest_kernel();
 size_t km_vmdriver_fpstate_size();
