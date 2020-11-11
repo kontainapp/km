@@ -17,7 +17,7 @@
 #include "km_coredump.h"
 #include "km_kkm.h"
 
-void km_vmdriver_machine_init()
+void km_vmdriver_machine_init(void)
 {
    switch (machine.vm_type) {
       case VM_TYPE_KVM:
