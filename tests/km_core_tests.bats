@@ -60,7 +60,6 @@ unset KM_VERBOSE
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
 if [ "${USE_VIRT}" = 'kkm' ]; then
    not_needed_alpine_dynamic=$not_needed_alpine_static
-   todo_generic+=' futex_snapshot'
 fi
 
 if [ "${USE_VIRT}" = 'kvm' ]; then
