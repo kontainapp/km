@@ -8,7 +8,7 @@ index a7e1f07..7af9fde 100644
  *.so
 +*.km
 diff --git a/Makefile b/Makefile
-index 3933c3a..b4abda1 100644
+index 3933c3a..3bc6bd3 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,20 +1,27 @@
@@ -44,7 +44,7 @@ index 3933c3a..b4abda1 100644
  	make clean -C libkdump
 +
 +physical_reader.km: physical_reader.o libkdump/libkdump.a
-+	$(realpath ${KM_TOP}/tools)/kontain-gcc -pthread $^ -o $@
++	$(realpath ${KM_TOP}/tools/bin)/kontain-gcc -pthread $^ -o $@ -l pthread
 diff --git a/libkdump/libkdump.c b/libkdump/libkdump.c
 index c590391..68df002 100644
 --- a/libkdump/libkdump.c
