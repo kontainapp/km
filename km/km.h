@@ -414,6 +414,7 @@ void __km_trace(int errnum, const char* function, int linenumber, const char* fm
 void km_trace_include_pid(uint8_t trace_pid);
 uint8_t km_trace_include_pid_value(void);
 void km_trace_set_noninteractive(void);
+void km_trace_set_log_file_name(char* kmlog_file_name);
 
 char* km_get_self_name(void);
 
