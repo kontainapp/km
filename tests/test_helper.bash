@@ -89,7 +89,7 @@ case $test_type in
    so)
       ext=.km.so
       port_range_start=18000
-      KM_ARGS="${KM_ARGS} ${KM_LDSO} --library-path=${KM_LDSO_PATH}"
+      KM_LDSO_ARGS="${KM_LDSO} --library-path=${KM_LDSO_PATH}"
       ;;
    glibc_static)
       ext=.fedora
@@ -115,17 +115,34 @@ fi
 # We will kill any individual test if takes longer than that
 timeout=250s
 
+#
 # this is how we invoke KM - with a timeout and reporting run time
+# Just a reminder... We want a km command line that has the following order for args
+# km kmargs ... [ ldso related args ] [ -- ] payloadname payloadargs ...
+#
 function km_with_timeout () {
    local t=$timeout
    # Treat all before '--' as KM arguments, and all after '--' as payload arguments
    # With no '--', finding $ext (.km, .kmd. .so) has the same effect.
    # Note that we whitespace split KM args always, so no spaces inside of KM args are allowed
+   # The intention is that this loop only process km args.  Payload name and args should not
+   # be examined.  For some ambiguous cases, the call to km_with_timeout() will need to have
+   # the '--' flag to prevent this loop from straying into payload args.
+   resume=0
    while [ $# -gt 0 ]; do
       case "$1" in
          --)
+            if [ $resume -eq 0 ]; then
+               __args="$__args ${KM_LDSO_ARGS}"
+            fi
             shift
             break
+            ;;
+         --resume)
+            # snapshot resume does not need the ldso related km arguments, setup to avoid adding them
+            resume=1
+            __args="$__args $1"
+            shift
             ;;
          --timeout)
             shift
@@ -138,6 +155,9 @@ function km_with_timeout () {
             __args="$__args $1"
             ;;
          *$ext)
+            if [ $resume -eq 0 ]; then
+               __args="$__args ${KM_LDSO_ARGS}"
+            fi
             break
             ;;
          *)
@@ -146,7 +166,7 @@ function km_with_timeout () {
       esac
       shift
    done
-   KM_ARGS="$__args $KM_ARGS"
+   KM_ARGS="$KM_ARGS $__args"
 
    /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
       timeout --signal=SIGABRT --foreground $t \
@@ -186,7 +206,7 @@ function gdb_with_timeout () {
 TERM=xterm
 
 bus_width() {
-   bw=$(${KM_BIN} -V exit_value_test.km |& awk '/physical memory width/ {print $9;}')
+   bw=$(${KM_BIN} -V --km-log-to=stderr exit_value_test.km |& awk '/physical memory width/ {print $9;}')
    if [ -z "$bw" ] ; then bw=39 ; fi # default is enough memory, if the above failed
    echo $bw
 }

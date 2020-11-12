@@ -50,7 +50,7 @@ static const int KM_GDB_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES;
 static const int KM_GDB_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 1;
 static const int KM_MGM_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES + 2;
 static const int KM_MGM_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 3;
-static const int KM_LOGGING = MAX_OPEN_FILES - MAX_KM_FILES + 4;
+const int KM_LOGGING = MAX_OPEN_FILES - MAX_KM_FILES + 4;
 static const int KM_START_FDS = MAX_OPEN_FILES - MAX_KM_FILES + 5;
 
 static const_string_t stdin_name = "[stdin]";
@@ -2404,23 +2404,11 @@ void km_redirect_msgs(const char* name)
              */
             char filename[32];
             snprintf(filename, sizeof(filename), "/tmp/km_%d.log", getpid());
-            fd1 = open(filename, O_CREAT | O_WRONLY, 0644);
-            if (fd1 < 0) {
-               km_warn("Unable to switch km logging away from a pipe or socket, couldn't create %s",
-                       filename);
-               snprintf(km_nologging_reason,
-                        sizeof(km_nologging_reason),
-                        "couldn't open log file %s, error %d",
-                        filename,
-                        errno);
-               return;
-            } else {
-               km_warnx("Switch km logging to %s", filename);
-               fd = dup2(fd1, KM_LOGGING);
-               close(fd1);
-            }
+            km_warnx("Switch km logging to %s on first attempt to log", filename);
+            km_trace_set_log_file_name(filename);
+            return;
          } else {
-            // stderr is not a pipeline the parent process maybe waiting on
+            // stderr is not a pipeline the parent process could be waiting on
             fd = dup2(2, KM_LOGGING);
          }
       } else {
