@@ -1071,6 +1071,18 @@ fi
       fi
       rm -f ${SNAP} ${CORE} ${KMLOG}
    done
+
+   # make sure resume with payloads args fails
+   run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext
+   assert_success
+   assert [ -f ${SNAP} ]
+   assert [ ! -f ${CORE} ]
+   check_kmcore ${SNAP}
+   run km_with_timeout --km-log-to=${KMLOG} --resume -- ${SNAP} --some args
+   assert_failure
+   assert_output "cannot set payload arguments when resuming a snapshot"
+   assert [ ! -f ${CORE} ]
+   rm -f ${SNAP} ${KMLOG}
 }
 
 @test "futex_snapshot($test_type): futex_snapshot and resume (futex_test$ext)" {
