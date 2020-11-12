@@ -509,14 +509,18 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
       }
       pl_index = optind;
 
+      if (resume_snapshot != 0) {
+         if (copyenv_used == 1) {
+            copyenv_used = 0;   // when resuming snapshot, default behavior is NOT to copy env
+         }
+         if (putenv_used != 0 || dynlinker_used != 0) {
+            km_errx(1, "cannot set new environment or dynlinker when resuming a snapshot");
+         }
+         if (pl_index < argc - 1) {
+            km_errx(1, "cannot set payload arguments when resuming a snapshot");
+         }
+      }
       km_redirect_msgs(km_log_to);
-
-      if (resume_snapshot != 0 && copyenv_used == 1) {
-         copyenv_used = 0;   // when resuming snapshot, default behavior is NOT to copy env
-      }
-      if (resume_snapshot != 0 && (putenv_used != 0 || copyenv_used != 0 || dynlinker_used != 0)) {
-         km_err(1, "cannot set new environment or dynlinker when resuming a snapshot");
-      }
    }
 
    km_trace_set_noninteractive();
@@ -640,7 +644,7 @@ int main(int argc, char* argv[])
    }
 
    if (km_gdb_is_enabled() != 0) {
-      if (km_gdb_setup_listen() == 0) {   // Try to become the gdb server
+      if (km_gdb_setup_listen() == 0) {         // Try to become the gdb server
          km_vcpu_pause_all(vcpu, GUEST_ONLY);   // this just sets machine.pause_requested
       } else {
          km_warnx("Failed to setup gdb listening port %d, disabling gdb support", gdbstub.port);
