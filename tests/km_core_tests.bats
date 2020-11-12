@@ -123,7 +123,7 @@ fi
    assert_failure 31  #SIGSYS
    assert_output --partial "Bad system call"
 
-   run km_with_timeout -- stray_test$ext -- hc -10
+   run km_with_timeout stray_test$ext -- hc -10
    assert_failure 7   #SIGBUS
    assert_output --partial "Bus error"
 
@@ -1014,7 +1014,7 @@ fi
    assert_success
 }
 
-# In this searies of test the "--" argument between --resume and ${SNAP} is important.
+# In this series of test the "--" argument between --resume and ${SNAP} is important.
 # It helps km_with_timeout() recognize that ${SNAP} is the payload name.
 @test "basic_snapshot($test_type): snapshot and resume(snapshot_test$ext)" {
    SNAP=/tmp/snap.$$
@@ -1043,7 +1043,7 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --km-log-to=${KMLOG} --resume - ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} --resume -- ${SNAP}
       assert_success
       # TODO: remove the check with glibc_static when musl and glibc behave the same way
       [[ $test_type =~ glibc* ]] && refute_line --partial "Hello from thread"
