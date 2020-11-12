@@ -10,6 +10,7 @@
  * permission of Kontain Inc.
  */
 
+#include <stdio.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdarg.h>
@@ -18,6 +19,9 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "km.h"
 #include "km_exec.h"
@@ -26,6 +30,29 @@ uint8_t km_trace_pid = 0;
 uint8_t km_trace_noniteractive = 0;
 
 FILE* km_log_file;
+static char km_log_file_name[128];
+
+// To avoid having /tmp cluttered with empty km log files, we open the log on demand.
+static inline void km_trace_open_log_on_demand(void)
+{
+   extern const int KM_LOGGING;
+   if (km_log_file == NULL && km_log_file_name[0] != 0) {
+      int fd;
+      int fd1 = open(km_log_file_name, O_CREAT | O_WRONLY, 0644);
+      if (fd1 >= 0) {
+         fd = dup2(fd1, KM_LOGGING);
+         close(fd1);
+         km_log_file = fdopen(fd, "w");
+         if (km_log_file != NULL) {
+            setlinebuf(km_log_file);
+         } else {
+            close(KM_LOGGING);
+         }
+      }
+      // Only try "open on demand" once.
+      km_log_file_name[0] = 0;
+   }
+}
 
 /*
  * Verbose trace function.
@@ -43,6 +70,8 @@ void __km_trace(int errnum, const char* function, int linenumber, const char* fm
    struct tm tm;
    char* p;
    va_list ap;
+
+   km_trace_open_log_on_demand();
 
    va_start(ap, fmt);
 
@@ -122,4 +151,12 @@ void km_trace_set_noninteractive(void)
 uint8_t km_trace_include_pid_value(void)
 {
    return km_trace_pid;
+}
+
+void km_trace_set_log_file_name(char* kmlog_file_name)
+{
+   snprintf(km_log_file_name, sizeof(km_log_file_name), "%s", kmlog_file_name);
+   if (strlen(kmlog_file_name) >= sizeof(km_log_file_name)) {
+      km_warnx("Truncating log file name %s to %s", kmlog_file_name, km_log_file_name);
+   }
 }
