@@ -198,7 +198,7 @@ static inline int km_add_socket_fd(
 static inline void km_disconnect_file(km_vcpu_t* vcpu, int fd)
 {
    km_file_t* file = &km_fs()->guest_files[fd];
-   if (file->ofd != -1 && file->inuse != 0) {
+   if (file->ofd != -1) {
       km_file_t* other = &km_fs()->guest_files[file->ofd];
       assert(other->ofd == fd);
       other->ofd = -1;
@@ -1636,6 +1636,7 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
       km_warn("fstat failed fd=%d errno=%d - ignore", fd, errno);
    }
 
+   km_infox(KM_TRACE_SNAPSHOT, "fd=%d %s", fd, file->name);
    char* cur = buf;
    size_t remain = length;
    cur += km_add_note_header(cur,
@@ -1666,6 +1667,7 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
    char* cur = buf;
    size_t remain = length;
    assert(file->sockinfo != NULL);
+   km_infox(KM_TRACE_SNAPSHOT, "fd=%d %s", fd, file->name);
    cur += km_add_note_header(cur,
                              remain,
                              KM_NT_NAME,
@@ -1998,12 +2000,12 @@ static int proc_cmdline_open(const char* name, char* buf, size_t bufsz)
 static int proc_self_getdents32(int fd, /* struct linux_dirent* */ void* buf, size_t buf_sz)
 {
    struct linux_dirent {
-      unsigned long  d_ino;     /* Inode number */
-      unsigned long  d_off;     /* Offset to next linux_dirent */
-      unsigned short d_reclen;  /* Length of this linux_dirent */
-      char           d_name[];  /* Filename (null-terminated) */
-                                /* length is actually (d_reclen - 2 -
-                                   offsetof(struct linux_dirent, d_name)) */
+      unsigned long d_ino;     /* Inode number */
+      unsigned long d_off;     /* Offset to next linux_dirent */
+      unsigned short d_reclen; /* Length of this linux_dirent */
+      char d_name[];           /* Filename (null-terminated) */
+                               /* length is actually (d_reclen - 2 -
+                                  offsetof(struct linux_dirent, d_name)) */
       /*
       char           pad;       // Zero padding byte
       char           d_type;    // File type (only since Linux
@@ -2572,6 +2574,9 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
    }
 
    km_file_t* file = &km_fs()->guest_files[nt_eventfd->fd];
+   if (file->inuse) {
+      km_warnx("file %d in use. %s", nt_eventfd->fd, file->name);
+   }
    assert(file->inuse == 0);
 
    int hostfd = epoll_create1(nt_eventfd->flags);
