@@ -2241,21 +2241,25 @@ static void handle_vfile_readlink(char* packet, char* output, int outputl)
    char filename[PATH_MAX];
    unsigned char* f;
    int gdb_errno;
-   int l;
-   f = hex2mem(packet, (unsigned char*)filename, strlen(packet));
+   ssize_t bytes_read;
+   f = hex2mem(packet, (unsigned char*)filename, strlen(packet) / 2);
    *f = 0;
-   if ((l = readlink(filename, (char*)registers, sizeof(registers) - 1)) < 0) {
+   if ((bytes_read = readlink(filename, (char*)registers, sizeof(registers))) < 0) {
       gdb_errno = errno_linux2gdb(errno);
-      goto error_reply;
+      sprintf(output, "F-1,%08x", gdb_errno);
+      send_packet(output);
+      return;
    }
-   registers[l] = '\0';
-   sprintf(output, "F0;");
-   mem2hex(registers, &output[strlen(output)], l);
-   send_packet(output);
-   return;
-error_reply:
-   sprintf(output, "F-1,%08x", gdb_errno);
-   send_packet(output);
+   int bytes_copied;
+   const int VFILE_READLINK_PREFIX_SIZE = 10;
+   int body_len = gdb_binary_escape_add((char*)registers,
+                                        bytes_read,
+                                        &bytes_copied,
+                                        &output[VFILE_READLINK_PREFIX_SIZE],
+                                        outputl - VFILE_READLINK_PREFIX_SIZE);
+   sprintf(output, "F%08x", bytes_copied);
+   output[VFILE_READLINK_PREFIX_SIZE - 1] = ';';
+   send_binary_packet(output, VFILE_READLINK_PREFIX_SIZE + body_len);
 }
 
 static void handle_vfile_setfs(char* packet, char* output, int outputl)
