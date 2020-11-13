@@ -515,7 +515,14 @@ fi
    wait_and_check $pid 11 # expect KM to exit with SIGSEGV
 
    # There is no explicit test for vFile remote commands.  gdb uses vFile as part of
-   # processing the "info sharedlibrary" command.
+   # processing the "info sharedlibrary" command.  But we do need to use the gdb "info proc"
+   # command to try out vfile readlink.
+   km_with_timeout -g$km_gdb_port stray_test$ext stray &
+   pid=$!
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="info proc $pid" -ex=cont -ex=q
+   assert_success
+   assert_line --partial "exe = '"
+   wait_and_check $pid 11 # expect KM to exit with SIGSEGV
 
    # test for symbols from a shared library brought in by dlopen()
    km_with_timeout -g$km_gdb_port --putenv="LD_LIBRARY_PATH=`pwd`" gdb_sharedlib2_test$ext &
