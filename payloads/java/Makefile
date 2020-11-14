@@ -62,6 +62,8 @@ else
 	./link-km.sh ${JDK_BUILD_DIR}
 endif
 
+JAVA_DIR := ${JDK_BUILD_DIR}/images/jdk
+
 fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
 	@if [ "${FROMSRC}" != "yes" ] ; then \
 		echo -e "${RED}${JDK_VERSION} is not a git repo. Did you do 'make clobber' first ? ${NOCOLOR}" ; \
@@ -75,11 +77,15 @@ fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
 		--enable-jtreg-failure-handler
 	make -C ${JDK_VERSION} images
 	./link-km.sh ${JDK_BUILD_DIR}
+	# build HotSpot disassember plugin. Useful for failure analysis.
+	curl --output ${BLDDIR}/binutils-2.19.1.tar.bz2 https://ftp.gnu.org/gnu/binutils/binutils-2.19.1.tar.bz2
+	bunzip2 ${BLDDIR}/binutils-2.19.1.tar.bz2
+	(cd ${BLDDIR} ; tar --overwrite -xf binutils-2.19.1.tar)
+	make -C ${JDK_VERSION}/src/utils/hsdis BINUTILS=${BLDDIR}/binutils-2.19.1 CFLAGS="-Wno-error -fPIC" all64
+	cp ${JDK_VERSION}/src/utils/hsdis/build/linux-amd64/hsdis-amd64.so ${JAVA_DIR}/lib/hsdis-amd64.so
 
 ${JDK_VERSION}:
 	git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
-
-JAVA_DIR := ${JDK_BUILD_DIR}/images/jdk
 
 app/kontain/snapshots/%.class: app/kontain/snapshots/%.java
 	${DOCKER_RUN_BUILD} \
@@ -132,6 +138,7 @@ jtreg:
 
 clobber:
 	rm -rf jtreg ${JDK_VERSION}
+	rm -rf ${BLDDIR}/*
 
 clean:
 	rm -f ${JDK_BUILD_DIR}/images/jdk/bin/java.k*
