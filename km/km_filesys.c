@@ -195,17 +195,6 @@ static inline int km_add_socket_fd(
    return ret;
 }
 
-static inline void km_disconnect_file(km_vcpu_t* vcpu, int fd)
-{
-   km_file_t* file = &km_fs()->guest_files[fd];
-   if (file->ofd != -1) {
-      km_file_t* other = &km_fs()->guest_files[file->ofd];
-      assert(other->ofd == fd);
-      other->ofd = -1;
-      file->ofd = -1;
-   }
-}
-
 /*
  * deletes an exist guestfd to hostfd mapping (used by km_fs_close())
  */
@@ -224,7 +213,12 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
       free(file->sockinfo);
       file->sockinfo = NULL;
    }
-   km_disconnect_file(vcpu, fd);
+   if (file->ofd != -1) {
+      km_file_t* other = &km_fs()->guest_files[file->ofd];
+      assert(other->ofd == fd);
+      other->ofd = -1;
+      file->ofd = -1;
+   }
 }
 
 char* km_guestfd_name(km_vcpu_t* vcpu, int fd)
@@ -1029,7 +1023,9 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    assert(name != NULL);
    int ret = __syscall_3(SYS_dup3, host_fd, newfd, flags);
    if (ret >= 0) {
-      del_guest_fd(vcpu, ret);
+      if (km_fs()->guest_files[ret].inuse != 0) {
+         del_guest_fd(vcpu, ret);
+      }
       ret = km_add_guest_fd(vcpu, ret, name, flags, ops);
    }
    km_infox(KM_TRACE_FILESYS, "dup3(%d, %d, 0x%x) - %d", fd, newfd, flags, ret);
