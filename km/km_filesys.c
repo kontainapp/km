@@ -11,8 +11,11 @@
  *
  * Notes on File Descriptors
  * -------------------------
- * Payload file descriptors are numerically preserved.
- * KM files are duped to the upper area (MAX_OPEN_FILES - MAX_KM_FILES) so there is no conflict.
+ *
+ * There is no explicit mapping function to translate guest file descriptor to
+ * host file descriptor. To accomplish this, the guest is presented with a smaller
+ * RLIMIT_FSIZE then the KM process sees and high fd numbers are used for KM internal
+ * file descriptors (for example KVM/KKM control fd's).
  */
 
 #include <errno.h>
@@ -197,11 +200,16 @@ static inline int km_add_socket_fd(
 
 /*
  * deletes an exist guestfd to hostfd mapping (used by km_fs_close())
+ *
+ * Note: The caller must assure that the fd doesn't get re-used by another
+ *       thread before this function complete. In km_close() this is handled
+ *       by calling del_guest_fd before closing the fd itself.
  */
 static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
 {
    assert(fd >= 0 && fd < km_fs()->nfdmap);
    km_file_t* file = &km_fs()->guest_files[fd];
+   assert(file->inuse != 0);
    if (__atomic_exchange_n(&file->inuse, 0, __ATOMIC_SEQ_CST) != 0) {
       file->ops = NULL;
       if (file->name != NULL) {
@@ -215,9 +223,12 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
    }
    if (file->ofd != -1) {
       km_file_t* other = &km_fs()->guest_files[file->ofd];
-      assert(other->ofd == fd);
-      other->ofd = -1;
       file->ofd = -1;
+      /*
+       * We don't actually have a hold on other, so only do the update other->ofd
+       * contains fd.
+       */
+      __atomic_compare_exchange_n(&other->ofd, &fd, -1, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
    }
 }
 
@@ -2571,9 +2582,8 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
 
    km_file_t* file = &km_fs()->guest_files[nt_eventfd->fd];
    if (file->inuse) {
-      km_warnx("file %d in use. %s", nt_eventfd->fd, file->name);
+      km_errx(2, "file %d in use. %s", nt_eventfd->fd, file->name);
    }
-   assert(file->inuse == 0);
 
    int hostfd = epoll_create1(nt_eventfd->flags);
    if (hostfd < 0) {
