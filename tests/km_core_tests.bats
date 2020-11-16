@@ -388,9 +388,7 @@ fi
    wait $pid
    status=$?
    if [ $status -ne 0 ] ; then
-      echo "# === Begin $km_trace_file for km, status=$status =====" >&3
-      sed -e "s/^/# /" <$km_trace_file >&3
-      echo "# === End   $km_trace_file =====" >&3
+      file_contents_to_bats_log $km_trace_file $status
    else
       rm -f $km_trace_file
    fi
@@ -996,9 +994,7 @@ fi
       if test `expr $now - $start` -ge $WAIT
       then
          # Put the km trace in the TAP stream
-         echo "# === Begin $KMTRACE =====" >&3
-         sed -e "s/^/# /" <$KMTRACE >&3
-         echo "# === End   $KMTRACE =====" >&3
+         file_contents_to_bats_log $KMTRACE
          fail "$FLAGFILE does not exist after $WAIT seconds!"
       fi
    done
@@ -1010,7 +1006,12 @@ fi
 
    # Debug.
    diff $LINUXOUT $KMOUT
-   assert_success
+   if [ $? -ne 0 ]; then
+      # Put the 2 output files into the TAP stream to help debug this.
+      file_contents_to_bats_log $LINUXOUT
+      file_contents_to_bats_log $KMOUT
+      fail "output differs between sigsuspend_test.fedora and sigsuspend_test$ext"
+   fi
 
    rm -f $KMTRACE $LINUXOUT $KMOUT
 }
