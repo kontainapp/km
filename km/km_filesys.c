@@ -11,8 +11,11 @@
  *
  * Notes on File Descriptors
  * -------------------------
- * Payload file descriptors are numerically preserved.
- * KM files are duped to the upper area (MAX_OPEN_FILES - MAX_KM_FILES) so there is no conflict.
+ *
+ * There is no explicit mapping function to translate guest file descriptor to
+ * host file descriptor. To accomplish this, the guest is presented with a smaller
+ * RLIMIT_FSIZE then the KM process sees and high fd numbers are used for KM internal
+ * file descriptors (for example KVM/KKM control fd's).
  */
 
 #include <errno.h>
@@ -195,24 +198,18 @@ static inline int km_add_socket_fd(
    return ret;
 }
 
-static inline void km_disconnect_file(km_vcpu_t* vcpu, int fd)
-{
-   km_file_t* file = &km_fs()->guest_files[fd];
-   if (file->ofd != -1 && file->inuse != 0) {
-      km_file_t* other = &km_fs()->guest_files[file->ofd];
-      assert(other->ofd == fd);
-      other->ofd = -1;
-      file->ofd = -1;
-   }
-}
-
 /*
  * deletes an exist guestfd to hostfd mapping (used by km_fs_close())
+ *
+ * Note: The caller must assure that the fd doesn't get re-used by another
+ *       thread before this function complete. In km_close() this is handled
+ *       by calling del_guest_fd before closing the fd itself.
  */
 static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
 {
    assert(fd >= 0 && fd < km_fs()->nfdmap);
    km_file_t* file = &km_fs()->guest_files[fd];
+   assert(file->inuse != 0);
    if (__atomic_exchange_n(&file->inuse, 0, __ATOMIC_SEQ_CST) != 0) {
       file->ops = NULL;
       if (file->name != NULL) {
@@ -224,7 +221,15 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
       free(file->sockinfo);
       file->sockinfo = NULL;
    }
-   km_disconnect_file(vcpu, fd);
+   if (file->ofd != -1) {
+      km_file_t* other = &km_fs()->guest_files[file->ofd];
+      file->ofd = -1;
+      /*
+       * We don't actually have a hold on other, so only do the update other->ofd
+       * contains fd.
+       */
+      __atomic_compare_exchange_n(&other->ofd, &fd, -1, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+   }
 }
 
 char* km_guestfd_name(km_vcpu_t* vcpu, int fd)
@@ -1029,7 +1034,9 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    assert(name != NULL);
    int ret = __syscall_3(SYS_dup3, host_fd, newfd, flags);
    if (ret >= 0) {
-      del_guest_fd(vcpu, ret);
+      if (km_fs()->guest_files[ret].inuse != 0) {
+         del_guest_fd(vcpu, ret);
+      }
       ret = km_add_guest_fd(vcpu, ret, name, flags, ops);
    }
    km_infox(KM_TRACE_FILESYS, "dup3(%d, %d, 0x%x) - %d", fd, newfd, flags, ret);
@@ -1636,6 +1643,7 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
       km_warn("fstat failed fd=%d errno=%d - ignore", fd, errno);
    }
 
+   km_infox(KM_TRACE_SNAPSHOT, "fd=%d %s", fd, file->name);
    char* cur = buf;
    size_t remain = length;
    cur += km_add_note_header(cur,
@@ -1666,6 +1674,7 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
    char* cur = buf;
    size_t remain = length;
    assert(file->sockinfo != NULL);
+   km_infox(KM_TRACE_SNAPSHOT, "fd=%d %s", fd, file->name);
    cur += km_add_note_header(cur,
                              remain,
                              KM_NT_NAME,
@@ -1998,12 +2007,12 @@ static int proc_cmdline_open(const char* name, char* buf, size_t bufsz)
 static int proc_self_getdents32(int fd, /* struct linux_dirent* */ void* buf, size_t buf_sz)
 {
    struct linux_dirent {
-      unsigned long  d_ino;     /* Inode number */
-      unsigned long  d_off;     /* Offset to next linux_dirent */
-      unsigned short d_reclen;  /* Length of this linux_dirent */
-      char           d_name[];  /* Filename (null-terminated) */
-                                /* length is actually (d_reclen - 2 -
-                                   offsetof(struct linux_dirent, d_name)) */
+      unsigned long d_ino;     /* Inode number */
+      unsigned long d_off;     /* Offset to next linux_dirent */
+      unsigned short d_reclen; /* Length of this linux_dirent */
+      char d_name[];           /* Filename (null-terminated) */
+                               /* length is actually (d_reclen - 2 -
+                                  offsetof(struct linux_dirent, d_name)) */
       /*
       char           pad;       // Zero padding byte
       char           d_type;    // File type (only since Linux
@@ -2572,7 +2581,9 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
    }
 
    km_file_t* file = &km_fs()->guest_files[nt_eventfd->fd];
-   assert(file->inuse == 0);
+   if (file->inuse) {
+      km_errx(2, "file %d in use. %s", nt_eventfd->fd, file->name);
+   }
 
    int hostfd = epoll_create1(nt_eventfd->flags);
    if (hostfd < 0) {
