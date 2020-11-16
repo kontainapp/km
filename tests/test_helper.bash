@@ -286,3 +286,11 @@ skip_if_needed() {
 check_kmcore() {
    readelf -l $1 | awk '/LOAD/ {if (substr($2, length($2)-2) != substr($3, length($3)-2)) exit 1}'
 }
+
+# Stream the contents of the file passed as arg1 into the bats log file.
+# Also put the value of arg2 into the header message.  arg2 has no defined meaning.
+file_contents_to_bats_log() {
+      echo "# === Begin contents of $1, arg2=$2 =====" >&3
+      sed -e "s/^/# /" <$1 >&3
+      echo "# === End contents of $1 =====" >&3
+}
