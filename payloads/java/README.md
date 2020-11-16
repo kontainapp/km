@@ -21,6 +21,16 @@ cd jdk-11.0.8+10
 `make runenv-image` creates a self contained Docker image with KM Java.
 
 `make validate-runenv-image` tests the Docker image.
+
+The disassembly library, used for `hs_err` files:
+
+```
+cd payloads/java/jdk-11.0.8+10/src/utils/hsdis
+# Get https://ftp.gnu.org/gnu/binutils/binutils-2.19.1.tar.bz2
+# Untar to build/binutils-2.19.1
+make BINUTILS=build/binutils-2.19.1/ CFLAGS="-Wno-error -fPIC" all64
+cp 
+```
 ## Java Tips and Tricks
 
 * `--putenv _JAVA_LAUNCHER_DEBUG=1` displays launcher information.
