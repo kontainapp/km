@@ -189,6 +189,10 @@ class CRUNRemoteTest(RemoteTestAzure):
             remote_ip,
             "sudo apt-get install -y make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake"
         )
+        self.ssh_execute(
+            remote_ip,
+            "pip install --user libmount"
+        )
 
         self.scp_to_remote(remote_ip, "crun", "~/")
         self.scp_to_remote(remote_ip, "/opt/kontain/bin/km",
