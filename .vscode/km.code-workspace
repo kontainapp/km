@@ -68,6 +68,7 @@
          "shdr",
          "sregs",
          "symlink",
+         "unikernel",
          "vcpu",
          "vmexit",
          "vpcu",
