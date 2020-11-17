@@ -42,6 +42,15 @@ RUN make -C ${JDK_VERSION} images
 
 ARG BUILD=/home/$USER/jdk-11.0.8+10/build/linux-x86_64-normal-server-release/
 
+# Include disassembler library. Useful for debugging if java itself blows up.
+#
+# From jdk-11.0.8+10/src/utils/hsdis/README:
+#
+# "To build this project you a copy of GNU binutils to build against. It
+# is known to work with binutils 2.17 and binutils 2.19.1. Download a
+# copy of the software from http://directory.fsf.org/project/binutils or
+# one of it's mirrors.
+#
 RUN curl --output /tmp/binutils-2.19.1.tar.bz2 https://ftp.gnu.org/gnu/binutils/binutils-2.19.1.tar.bz2
 RUN bunzip2 /tmp/binutils-2.19.1.tar.bz2
 RUN tar --directory=/tmp --overwrite -xf /tmp/binutils-2.19.1.tar
