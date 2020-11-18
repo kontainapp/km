@@ -195,7 +195,7 @@ class CRUNRemoteTest(RemoteTestAzure):
         )
         self.ssh_execute(
             remote_ip,
-            "pip3 install --user libmount"
+            "sudo pip3 install libmount"
         )
 
         self.scp_to_remote(remote_ip, "crun", "~/")
