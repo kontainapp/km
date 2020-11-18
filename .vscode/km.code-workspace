@@ -36,6 +36,7 @@
       },
       "editor.tabSize": 3,
       "cSpell.words": [
+         "Dockerized",
          "FUTEX",
          "HCALL",
          "Kontain",
