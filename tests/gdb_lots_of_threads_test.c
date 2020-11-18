@@ -145,13 +145,23 @@ int main(int argc, char *argv[])
          printf("Couldn't create thread instance %ld, error %s\n", i, strerror(rc));
          threadid[i] = 0;
       }
+      if (stop_running != 0) {
+         printf("Couldn't start all requested threads before being told to stop\n");
+         break;
+      }
+      if (stop_after_seconds != 0 && (time(NULL) - starttime) > stop_after_seconds) {
+         printf("Couldn't start requested number of threads in the time alotted, %d seconds\n", stop_after_seconds);
+         break;
+      }
    }
+
    // Wait for threads to terminate
-   for (i = 0; i < max_threads; i++) {
-      if (threadid[i] != 0) {
-         rc = pthread_join(threadid[i], &rv);
+   printf("Done starting %ld of %d threads, begin waiting for them to finish\n", i, max_threads);
+   for (int j = 0; j < i; j++) {
+      if (threadid[j] != 0) {
+         rc = pthread_join(threadid[j], &rv);
          if (rc != 0) {
-            printf("Couldn't join thread instance %ld, error %s\n", i, strerror(rc));
+            printf("Couldn't join thread instance %d, error %s\n", j, strerror(rc));
          }
       }
    }

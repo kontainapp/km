@@ -888,7 +888,10 @@ fi
 }
 
 @test "socket($test_type): guest socket operations (socket_test$ext)" {
-   run km_with_timeout socket_test$ext
+   # This test uses 3 ports, the next free one is 15
+   local port_id=12
+   local socket_test_port=$(( $port_range_start + $port_id))
+   SOCKET_PORT=$socket_test_port run km_with_timeout socket_test$ext
    assert_success
 }
 
