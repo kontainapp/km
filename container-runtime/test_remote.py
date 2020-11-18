@@ -217,6 +217,8 @@ class CRUNRemoteTest(RemoteTestAzure):
         self.ssh_execute(
             remote_ip, "cd crun; OCI_RUNTIME=~/crun/crun make check-TESTS")
         self.ssh_execute(
+            remote_ip, "cat crun/test-suite.log; cat crun/tests/test_mounts.log; cat crun/tests/test_mounts.trs")
+        self.ssh_execute(
             remote_ip, "cd crun; OCI_RUNTIME=~/crun/krun make check-TESTS")
 
 
