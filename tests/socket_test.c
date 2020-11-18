@@ -73,7 +73,7 @@ TEST test_sockopt()
    PASS();
 }
 
-#define TEST_PORT (htons(6565))
+int TEST_PORT;
 void* tcp_server_main(void* arg)
 {
    static int rc = 0;
@@ -158,8 +158,8 @@ TEST test_tcp()
    PASS();
 }
 
-#define TEST_UDP_PORT1 (htons(6566))
-#define TEST_UDP_PORT2 (htons(6567))
+int TEST_UDP_PORT1;
+int TEST_UDP_PORT2;
 
 TEST test_udp()
 {
@@ -339,6 +339,18 @@ GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
 {
+   // Get some port numbers that won't interfere with other running instances of this test.
+   char* port = getenv("SOCKET_PORT");
+   uint16_t baseport = 6565;
+   if (port != NULL) {
+      baseport = atoi(port);
+   }
+   TEST_PORT = htons(baseport);
+   baseport++;
+   TEST_UDP_PORT1 = htons(baseport);
+   baseport++;
+   TEST_UDP_PORT2 = htons(baseport);
+
    GREATEST_MAIN_BEGIN();
    greatest_set_verbosity(1);   // needed if we want to pass through | greatest/contrib/greenest,
                                 // especially from KM payload
