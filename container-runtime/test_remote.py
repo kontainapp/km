@@ -187,7 +187,7 @@ class CRUNRemoteTest(RemoteTestAzure):
         )
         self.ssh_execute(
             remote_ip,
-            "sudo apt-get install -y make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake python3-pip libmount"
+            "sudo apt-get install -y make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake python3-pip libmount1"
         )
         self.ssh_execute(
             remote_ip,
