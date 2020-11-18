@@ -187,7 +187,7 @@ class CRUNRemoteTest(RemoteTestAzure):
         )
         self.ssh_execute(
             remote_ip,
-            "sudo apt-get install -y make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake python3-pip"
+            "sudo apt-get install -y make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake python3-pip libmount"
         )
         self.ssh_execute(
             remote_ip,
@@ -195,7 +195,7 @@ class CRUNRemoteTest(RemoteTestAzure):
         )
         self.ssh_execute(
             remote_ip,
-            "sudo pip3 install libmount"
+            "pip3 install --user libmount"
         )
 
         self.scp_to_remote(remote_ip, "crun", "~/")
