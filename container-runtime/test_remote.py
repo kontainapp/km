@@ -214,6 +214,9 @@ class CRUNRemoteTest(RemoteTestAzure):
             remote_ip, "cd crun; ln -s crun krun")
         self.ssh_execute(
             remote_ip, "sudo chmod 666 /dev/kvm")
+        # Some versions of python libmount have problems?
+        self.ssh_execute(
+            remote_ip, "ln -s /usr/lib64/libmount.so.1 /usr/lib64/libmount.so")
         self.ssh_execute(
             remote_ip, "cd crun; OCI_RUNTIME=~/crun/crun make check-TESTS")
         self.ssh_execute(
