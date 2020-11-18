@@ -187,20 +187,14 @@ class CRUNRemoteTest(RemoteTestAzure):
         )
         self.ssh_execute(
             remote_ip,
-            "sudo apt-get install -y make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake python3-pip libmount1"
+            "sudo apt-get install -y make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake python3-pip libmount-dev"
         )
-        self.ssh_execute(
-            remote_ip,
-            "pip3 install libmount"
-        )
+        self.ssh_execute(remote_ip, "pip3 install libmount")
 
         self.scp_to_remote(remote_ip, "crun", "~/")
-        self.scp_to_remote(remote_ip, "/opt/kontain/bin/km",
-                           "~/km")
-        self.ssh_execute(
-            remote_ip, "sudo mkdir -p /opt/kontain/bin; sudo mv ~/km /opt/kontain/bin/km")
-        self.scp_to_remote(remote_ip, "/opt/kontain/runtime/libc.so",
-                           "~/libc.so")
+        self.scp_to_remote(remote_ip, "/opt/kontain/bin/km", "~/km")
+        self.ssh_execute( remote_ip, "sudo mkdir -p /opt/kontain/bin; sudo mv ~/km /opt/kontain/bin/km")
+        self.scp_to_remote(remote_ip, "/opt/kontain/runtime/libc.so", "~/libc.so")
         self.ssh_execute(
             remote_ip, "sudo mkdir -p /opt/kontain/runtime; sudo mv ~/libc.so /opt/kontain/runtime/libc.so")
 
