@@ -29,7 +29,8 @@ USER root
 RUN dnf install -y \
    java-11-openjdk java-11-openjdk-devel \
    autoconf zip unzip fontconfig-devel cups-devel  alsa-lib-devel \
-   libXtst-devel libXt-devel libXrender-devel libXrandr-devel libXi-devel
+   libXtst-devel libXt-devel libXrender-devel libXrandr-devel libXi-devel \
+   bzip2
 USER $USER
 
 ADD jtreg-4.2-b16.tar.gz /home/$USER/
@@ -38,7 +39,23 @@ RUN cd ${JDK_VERSION} && bash configure \
    --with-jvm-variants=server --with-zlib=bundled --with-jtreg=/home/$USER/jtreg \
    --enable-jtreg-failure-handler
 RUN make -C ${JDK_VERSION} images
+
 ARG BUILD=/home/$USER/jdk-11.0.8+10/build/linux-x86_64-normal-server-release/
+
+# Include disassembler library. Useful for debugging if java itself blows up.
+#
+# From jdk-11.0.8+10/src/utils/hsdis/README:
+#
+# "To build this project you a copy of GNU binutils to build against. It
+# is known to work with binutils 2.17 and binutils 2.19.1. Download a
+# copy of the software from http://directory.fsf.org/project/binutils or
+# one of it's mirrors.
+#
+RUN curl --output /tmp/binutils-2.19.1.tar.bz2 https://ftp.gnu.org/gnu/binutils/binutils-2.19.1.tar.bz2
+RUN bunzip2 /tmp/binutils-2.19.1.tar.bz2
+RUN tar --directory=/tmp --overwrite -xf /tmp/binutils-2.19.1.tar
+RUN make -C ${JDK_VERSION}/src/utils/hsdis BINUTILS=/tmp/binutils-2.19.1 CFLAGS="-Wno-error -fPIC" all64
+RUN cp ${JDK_VERSION}/src/utils/hsdis/build/linux-amd64/hsdis-amd64.so ${BUILD}/images/jdk/lib/hsdis-amd64.so
 
 RUN find ${BUILD} -name '*.so' | xargs strip
 RUN rm ${BUILD}/images/jdk/lib/src.zip
