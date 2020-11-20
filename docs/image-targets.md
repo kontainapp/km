@@ -118,9 +118,26 @@ Each payload also supports the same targets supported for KM, but uses payload-s
 If a PRs needs changes to buildenv images, it needs to have these new buildenv images built, pushed to Azure
 and then used during CI run for this PR, all without as little impact to other runs as possible.
 
-Also, the PR may need to change ALL.
+Also, the PR may need to change ALL buildenv images if they are impacted by the base one.
 
-To support that use case we use BUILDENV_IMAGE_VERSION env variable used in makefiles.
+If the new buildenv image is just an extension of the existing one (and backward compatible), do the following:
+
+1. Make sure the image works by using PR with the custom image and BUILDENV_IMAGE_VERSION set (below)
+2. Make a small PR with just the image change. When approved, merge, and push the new image as :latest to Azure
+3. Drop custom image details from your original PR and merge when approved/tested
+
+If new buildenv image is NOT backward compatible and will break prior builds. Do the following:
+
+1. Make sure the image works by using PR with the custom image and BUILDENV_IMAGE_VERSION set (below)
+2. Merge it as is. This way anyone who rebases will still have working build
+3. Ask everyone to pause (ot submitting and not looking at PRs) .
+4. Make a small PR which rollbacks custom imagename. Push new image as :latest, merge the PR
+5. Let everyone know to rebase and resume
+.
+
+#### Testing custom image using BUILDENV_IMAGE_VERSION variable
+
+To support this use case BUILDENV_IMAGE_VERSION env variable is used in makefiles.
 If set, it will change the version (aka tag) of all buildenv images used in a specific makefile. It will impact all dockerfiles which will be doing `FROM whatever-image:$BUILDENV_IMAGE_VERSION` and all `docker build` which will tag new version with this tag.
 
 Also the pipeline (`azure-pipeline.yml`) defines this one as `buildenv_image_version: latest # use this for all buildenv containers`.
@@ -146,10 +163,15 @@ make testenv-image  BUILDENV_IMAGE_VERSION=myTag
 
 Then all the CI tests will use the test environment built from correct image
 
-### Merging of the PR with custom buildenv image
+To summarize, the steps to test with a custome buildenv image are as follows:
 
-When the PR is approved, the buildenv image needs to be pushed as "latest" (which is out standard mode of operation) and PR can be merged.
-Note that other PRs in flight may have issues if the buildenv is not backward compatible. To simplify the process, simply ask everyone on #engineering to rebase their PR to master after the PR is merged
+* build the image
+* tag it with a unique tag
+* push to azure with this tag
+* change azure yamls (in your PR only) to use this tag by passing BUILDENV_IMAGE_VERSION to the steps that need the custom image. E.g. add `BULDENV_IMAGE_VERSION=mytag` to a yaml line like this one:
+`make -C cloud/azure ci-prepare-testenv LOCATION=payloads/java prepare_testenv`
+
+
 ## Files layout
 
 * Dirs where buildenv and test images are build are defined by `BUILDENV_PATH` and `TESTENV_PATH` make vars.
