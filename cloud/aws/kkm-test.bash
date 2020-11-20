@@ -60,6 +60,9 @@ log_message "KM repo clone success"
 
 cd km
 
+make -C cloud/azure login-cli
+make pull-buildenv-image
+
 log_message "starting build"
 BUILD_DIRS="kkm/kkm kkm/test_kkm . payloads/python payloads/node payloads/java"
 for builddir in $BUILD_DIRS

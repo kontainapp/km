@@ -28,12 +28,29 @@ readonly TEST_BRANCH=${1:-master}
 # aws instance is still booting up. Wait time for it to respond to ssh requests.
 readonly WAIT_TIME_TO_READY=60
 
+# azure credentials
+export readonly SP_APPID="$KONTAIN_AWS_AZ_SP_APPID"
+export readonly SP_DISPLAYNAME="$KONTAIN_AWS_AZ_SP_DISPLAYNAME"
+export readonly SP_NAME="$KONTAIN_AWS_AZ_SP_NAME"
+export readonly SP_PASSWORD="$KONTAIN_AWS_AZ_SP_PASSWORD"
+export readonly SP_TENANT="$KONTAIN_AWS_AZ_SP_TENANT"
+
+#send variables using ssh config
+SSH_CONFIG_FILE=ssh_config
+rm -f $SSH_CONFIG_FILE
+echo "SendEnv SP_APPID" >> $SSH_CONFIG_FILE
+echo "SendEnv SP_DISPLAYNAME" >> $SSH_CONFIG_FILE
+echo "SendEnv SP_NAME" >> $SSH_CONFIG_FILE
+echo "SendEnv SP_PASSWORD" >> $SSH_CONFIG_FILE
+echo "SendEnv SP_TENANT" >> $SSH_CONFIG_FILE
+chmod 0400 $SSH_CONFIG_FILE
+
 echo "Running regressions on $TEST_BRANCH"
 
 export AWS_DEFAULT_OUTPUT='text'
 export AWS_DEFAULT_REGION='us-east-2'
 
-readonly TEST_AMI='ami-082bfbc090357f114'
+readonly TEST_AMI='ami-0942efae490cf4328'
 readonly TEST_VM_TYPE='m5.large'
 readonly TEST_SG='sg-0a319ac77d674c77f'
 readonly SSH_OPTIONS='-o StrictHostKeyChecking=no -o ConnectionAttempts=10 -o ConnectTimeout=10'
@@ -109,7 +126,7 @@ then
 fi
 
 echo "Starting tests on instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
-timeout --preserve-status 900 sshpass -e ssh -o StrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}
+timeout --preserve-status 900 sshpass -e ssh -F ${SSH_CONFIG_FILE} -o StrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}
 
 echo "copying test logs from aws instance ${INSTANCE_ID}"
 sshpass -e scp -o StrictHostKeyChecking=no -r fedora@${INSTANCE_IP}:src/log/ log-aws-kkm
