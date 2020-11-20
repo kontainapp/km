@@ -13,7 +13,7 @@ readonly OPT_KONTAIN_TMP=${BLDTOP}/opt_kontain
 
 rm -fr $TARBALL $TARBALL.gz $OPT_KONTAIN_TMP
 # we may need to modify all obj file so make sure we work on a copy
-cp -rf /opt/kontain $OPT_KONTAIN_TMP
+cp -rf --preserve=links /opt/kontain $OPT_KONTAIN_TMP
 
 # package by doing `tar -C locations[i] files[i]`
 declare -a locations; locations=($OPT_KONTAIN_TMP ../..        ../..              ../../tools ../../tools/faktory )
