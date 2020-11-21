@@ -8,24 +8,24 @@ The design goals are as follows:
 
 * have all docker image based functionality in makefiles so they can be invoked and used locally and in CI
 * avoid make/CI code drift
-* Support fast build of payloads,as well as neccessary libs (e.g. libstdc++)
+* Support fast build of payloads,as well as necessary libs (e.g. libstdc++)
 
 ## Targets for local build and test of KM and runtime
 
-We support local `make` for build in local source tree using host environment (assumes prerequistes installed), and `make withdocker` for build in local tree using docker image.
+We support local `make` for build in local source tree using host environment (assumes pre-requisites installed), and `make withdocker` for build in local tree using docker image.
 `make test` and `make withdocker TARGET=test` do testing of the local built executables, the former in the host environment, and the latter using the same docker image with build environment
 
 Docker images for build environment need to be built or pulled with `buildenv-image` or `pull-buildenv-image` target.
 
 * Note that **a set of pre-requisites need to be installed on the host in order for local `make` to work**.
-  * `tests/buildenv-fedora.dockerfile` has a list of dnf packages to install; another prereq is kontain libstdc++
+  * `tests/buildenv-fedora.dockerfile` has a list of dnf packages to install; another pre-requisites is kontain libstdc++
   * a simple way to get all in is to run `make -C tests buildenv-local-fedora` AFTER pulling ot building buildenv image
 
 ### Docker image for build environment
 
-Dockerized build is using `buildenv-component-platform` images (i.e.`buildenv-km-fedora` or `buildenv-node-fedora`) which need to be either built once, or pulled into local docker cache once. Also, the same image is used when prereqs are being installed locally with `make -C tests buildenv-local-fedora`.
+Dockerized build is using `buildenv-component-platform` images (i.e.`buildenv-km-fedora` or `buildenv-node-fedora`) which need to be either built once, or pulled into local docker cache once. Also, the same image is used when pre-requisites are being installed locally with `make -C tests buildenv-local-fedora`.
 
-* `make buildenv-image` - creates buildenv image (whole 9 yard  - includes libstdc++ build).**This is a long process as it installs many packages, clones gcc and builts libstdc++**
+* `make buildenv-image` - creates buildenv image (whole 9 yard  - includes libstdc++ build).**This is a long process as it installs many packages, clones gcc and builds libstdc++**
 * `make pull-buildenv-image` - pulls the image from (Azure) container registry and re-tags it for local use. We do this to avoid image name dependency on the specific registry it is pulled from.
   * Before pull from Azure, you need to install *az command line* (https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-yum?view=azure-cli-latest) and run `make -C cloud/azure login`
 * `make push-buildenv-image` - rare op, updates buildenv image
@@ -55,7 +55,7 @@ We use the following environment (and Makefile) variables to control which versi
 * `IMAGE_VERSION` - use this version (aka Docker tag) for all container images. Default is `latest`
 * `BUILDENV_IMAGE_VERSION` - use this version (aka Docker tag) for all buildenv images. Default is `IMAGE_VERSION`
 
-For example, if IMAGE_VERSION is set to `myver`, then defaut for all buidlenv images will also be `myver`. If you want to use latest buldenv images with `myver` of test images, also et BUILDENV_IMAGE_VERSION to *latest*
+For example, if IMAGE_VERSION is set to `myver`, then default for all buildenv images will also be `myver`. If you want to use latest buildenv images with `myver` of test images, set BUILDENV_IMAGE_VERSION to *latest*
 
 ### Testing in docker container, locally or remotely
 
@@ -112,13 +112,70 @@ Each payload also supports the same targets supported for KM, but uses payload-s
 ## CI/CD
 
 * CI/CD yaml files  use the above `make` targets, instead of direct manipulation with code or scripts
-* **TODO** We will clean up stale test image periodically
-* `one time` - we will clean up everything that is not `latest` in the repo remove accumulated dirt
+
+### Running a CI with custom buildenv images
+
+If a PRs needs changes to buildenv images, it needs to have these new buildenv images built, pushed to Azure
+and then used during CI run for this PR, all without as little impact to other runs as possible.
+
+Also, the PR may need to change ALL buildenv images if they are impacted by the base one.
+
+If the new buildenv image is just an extension of the existing one (and backward compatible), do the following:
+
+1. Make sure the image works by using PR with the custom image and BUILDENV_IMAGE_VERSION set (below)
+2. Make a small PR with just the image change. When approved, merge, and push the new image as :latest to Azure
+3. Drop custom image details from your original PR and merge when approved/tested
+
+If new buildenv image is NOT backward compatible and will break prior builds. Do the following:
+
+1. Make sure the image works by using PR with the custom image and BUILDENV_IMAGE_VERSION set (below)
+2. Merge it as is. This way anyone who rebases will still have working build
+3. Ask everyone to pause (ot submitting and not looking at PRs) .
+4. Make a small PR which rollbacks custom imagename. Push new image as :latest, merge the PR
+5. Let everyone know to rebase and resume
+.
+
+#### Testing custom image using BUILDENV_IMAGE_VERSION variable
+
+To support this use case BUILDENV_IMAGE_VERSION env variable is used in makefiles.
+If set, it will change the version (aka tag) of all buildenv images used in a specific makefile. It will impact all dockerfiles which will be doing `FROM whatever-image:$BUILDENV_IMAGE_VERSION` and all `docker build` which will tag new version with this tag.
+
+Also the pipeline (`azure-pipeline.yml`) defines this one as `buildenv_image_version: latest # use this for all buildenv containers`.
+
+So if generic changes to *all* buildenv images is needed, the env variable can be set in the shell for the duration of work, and the CI yml file in a PR can be changed to point to the new value. The **new value** is anything unique, usually the name of the branch without special characters
+
+If the change is needed for specific buildenv images only, then the variable needs to be passed indivdually to the needed Makefiles. E.g. if the buildenv image for Java has changed , these are the steps to build and push:
+
+```sh
+tag=myTag  # something uniqie e.g. branch name with no special char`
+cd payloads/java
+make buildenv-image
+eval $(make  print-BUILDENV_IMG)  # this will place the image name (sans tag) into $BUILDENV_IMG
+docker tag $BUILDENV_IMG:latest $BUILDENV_IMG:$tag
+make push-buildenv-image BUILDENV_IMAGE_VERSION=$tag
+```
+
+Then, the steps in the CI that use this buildenv image need to get the proper version passed, e.g. building of Java testenv:
+
+```sh
+make testenv-image  BUILDENV_IMAGE_VERSION=myTag
+```
+
+Then all the CI tests will use the test environment built from correct image
+
+To summarize, the steps to test with a custome buildenv image are as follows:
+
+* build the image
+* tag it with a unique tag
+* push to azure with this tag
+* change azure yamls (in your PR only) to use this tag by passing BUILDENV_IMAGE_VERSION to the steps that need the custom image. E.g. add `BULDENV_IMAGE_VERSION=mytag` to a yaml line like this one:
+`make -C cloud/azure ci-prepare-testenv LOCATION=payloads/java prepare_testenv`
+
 
 ## Files layout
 
 * Dirs where buildenv and test images are build are defined by `BUILDENV_PATH` and `TESTENV_PATH` make vars.
-* Each dir has *.dockerignore* to eliminate unneeded files from being copied to dockerd on build.
+* Each dir has *.dockerignore* to eliminate unneeded files from being copied to `dockerd` on build.
 * See `images.mk` for details
 
 ## Additional Makefiles changes
@@ -129,6 +186,7 @@ Each payload also supports the same targets supported for KM, but uses payload-s
 
 ### Extra TODOs
 
-* azure test images clean up- use ACR tasks for it, remove all images older than 3 days
+* We will do periodic clean of old version in the repo, to remove accumulated dirt. (https://github.com/kontainapp/km/issues/926)
+  * we can use ACR tasks for it, remove all images older than 3 days; or just piggyback on CI run clean up if it's not there already
 
 === END OF THE DOC ===
