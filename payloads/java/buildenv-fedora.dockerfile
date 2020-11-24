@@ -74,5 +74,7 @@ COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/conf images/jd
 COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/include images/jdk/include
 # This will allow to compile .java files with correct java version
 COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/bin/javac images/jdk/bin/javac
+COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/bin/jmod images/jdk/bin/jmod
+COPY --from=build-jdk --chown=appuser:appuser ${BUILD}/images/jdk/bin/javadoc images/jdk/bin/javadoc
 
 # TODO: check if we can build JRE instead of JDK to make less junk
