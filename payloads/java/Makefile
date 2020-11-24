@@ -11,6 +11,9 @@
 # Makefile for building and packing Java payload runtime for KM
 
 TOP := $(shell git rev-parse --show-toplevel)
+
+include ${TOP}/make/locations.mk 
+
 CURRENT_DIR := ${TOP}/payloads/java
 JDK_VERSION := jdk-11.0.8+10
 # COMPONENT is used in docker image names so no '+' allowed, and we don't care about minor opt
@@ -87,17 +90,46 @@ fromsrc: .check ${JDK_VERSION} jtreg ${KM_BIN} ${KM_LDSO}
 ${JDK_VERSION}:
 	git clone https://github.com/openjdk/jdk11u.git ${JDK_VERSION} -b ${JDK_VERSION}
 
-app/kontain/snapshots/%.class: app/kontain/snapshots/%.java
+JAVA_DIR := ${JDK_BUILD_DIR}/images/jdk
+
+# Build the API into a JPMS compatable JMOD file.
+# Output:
+#  ${BLDDIR}/mods  - Directory: KM API Java Pieces
+#  ${BLDDIR}/lib   - Directory: KM API native library(ies)
+#  ${BLDDIR}/html  - Directory: KM API documentation (javadoc)
+#  ${BLDDIR}/app.kontain.jmod - JPMS JMod file. Useful for customers to build 
+#                               custom runtimes with JLINK
+
+api: ${BLDDIR}/app.kontain.jmod ${BLDDIR}/html/index.html
+
+${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_native.so
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
 		-w ${CURRENT_DIR} \
 		${BUILDENV_IMG_TAGGED} \
-		${JDK_BUILD_DIR}/images/jdk/bin/javac $?
+		${JDK_BUILD_DIR}/images/jdk/bin/jmod create \
+		--class-path ${BLDDIR}/mods/app.kontain/ \
+		--libs ${BLDDIR}/lib $@
 
-app/kontain/snapshots/libkm_java_native.so: app/kontain/snapshots/km_java_native_snapshot.c
+${BLDDIR}/mods/app.kontain: app.kontain/module-info.java
+	[ -d ${BLDDIR}/mods ] || mkdir -p ${BLDDIR}/mods
+	${DOCKER_RUN_BUILD} \
+		-v ${TOP}:${TOP}:Z \
+		-w ${CURRENT_DIR} \
+		${BUILDENV_IMG_TAGGED} \
+		${JDK_BUILD_DIR}/images/jdk/bin/javac -d ${BLDDIR}/mods --module-source-path . --module app.kontain $?
+
+${BLDDIR}/lib/libkm_java_native.so: app.kontain/app/kontain/snapshots/km_java_native_snapshot.c
+	[ -d ${BLDDIR}/lib ] || mkdir -p ${BLDDIR}/lib
 	gcc -shared -O3 -I/usr/include -I${JAVA_DIR}/include -I${JAVA_DIR}/include/linux \
 		$? -o $@
-#		app/kontain/app_kontain_api.c -o app/kontain/libapp_kontain_api.so
+
+${BLDDIR}/html/index.html: app.kontain/app/kontain/snapshots/Snapshot.java
+	${DOCKER_RUN_BUILD} \
+		-v ${TOP}:${TOP}:Z \
+		-w ${CURRENT_DIR} \
+		${BUILDENV_IMG_TAGGED} \
+		${JDK_BUILD_DIR}/images/jdk/bin/javadoc -d ${BLDDIR}/html $?
 
 scripts/%.class: scripts/%.java
 	${DOCKER_RUN_BUILD} \
@@ -113,8 +145,9 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 
 
 JAVA_LD_PATH := ${CURDIR}/${JAVA_DIR}/lib/server:${CURDIR}/${JAVA_DIR}/lib/jli:${CURDIR}/${JAVA_DIR}/lib:/opt/kontain/runtime:/lib64
-test: ${RUNENV_VALIDATE_DEPENDENCIES} test_java.bats ## Basic test run
-	JAVA_DIR=${CURDIR}/${JAVA_DIR} JDK_BUILD_DIR=${JDK_BUILD_DIR} JAVA_LD_PATH=${JAVA_LD_PATH} ${TOP}/tests/run_bats_tests.sh --km=${KM_BIN} \
+test: ${RUNENV_VALIDATE_DEPENDENCIES} api test_java.bats ## Basic test run
+	JAVA_DIR=${CURDIR}/${JAVA_DIR} JAVA_LD_PATH=${JAVA_LD_PATH} BLDDIR=${BLDDIR} \
+		${TOP}/tests/run_bats_tests.sh --km=${KM_BIN} \
 		--tests=${TOP}/payloads/java/test_java.bats --test-type=dynamic
 
 # TODO - we may simply document (in km-release) installing from docker image and do the push here
@@ -145,6 +178,7 @@ clean:
 	rm -f app/kontain/*.class app/kontain/*.so
 	rm -f app/kontain/snapshots/*.class app/kontain/snapshots/*.so
 	find . -name "*.class" -type f -delete
+	rm -rf ${BLDDIR}/*
 
 RELEASE_TAG := java-11
 
