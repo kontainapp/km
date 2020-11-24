@@ -12,7 +12,10 @@
 package app.kontain.snapshots;
 
 /**
- * Java API for Kontain services.
+ * Java API for Kontain snapshots. A Kontain snapshot is a restartable guest process
+ * image.
+ * 
+ * @version 1.0
  */
 public class Snapshot {
     // Loads dynamic library when this is class is loaded

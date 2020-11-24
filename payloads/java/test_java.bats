@@ -23,8 +23,9 @@ load "${TESTS_BASE}/bats-assert/load.bash"  # see manual in bats-assert/README.m
   rm -f ${SNAP_FILE}
 
   run ${KM_BIN} --snapshot=${SNAP_FILE} \
-    --putenv=LD_LIBRARY_PATH=${JAVA_LD_PATH}:$(pwd)/app/kontain/snapshots \
-		${JAVA_DIR}/bin/java.kmd app/kontain/snapshots/Snapshot
+    --putenv=LD_LIBRARY_PATH=${JAVA_LD_PATH}:${BLDDIR}/lib \
+		${JAVA_DIR}/bin/java.kmd -cp ${BLDDIR}/mods/app.kontain \
+    app/kontain/snapshots/Snapshot
   assert_success
   assert_output --partial 'Kontain API'
   assert [ -f ${SNAP_FILE} ]

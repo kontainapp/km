@@ -1,12 +1,3 @@
-# Controlling Java Release Sizes
-
-Modern JDK's don't come with a separate JRE anymore. The come with `jlink` which builds a Java runtime directory with a specified set of components. For example:
-```
-jlink --no-headers-files --no-man-pages --compress=2 --add-modules java.base,java.logging --output runtime
-```
-
-Builds a directory `runtime` with just the pieces needed for `java.base` and `java.logging`, resulting in a substantial space savings.
-
 # Building Java 11 Under KM
 
 Run `make -C payloads/java fromsrc` to get and build Java. This builds OpenJDK in  `payloads/java/(jdk-11.0.8+10)`. See `payloads/java/Makefile` for details.
@@ -38,7 +29,41 @@ cp
 * When Java crashes it (sometimes) creates a file called `hs_err_pid<pid>/log`. In our case pid=1.
 * `-XX:+PrintFlagsFinal` displays all settable parameters.
 
-## Internals
+Maven has respositories. Both Maven and Gradle use Maven repositories. We should too.
+
+# Java Platform Module System (JPMS)
+
+Project Jigsaw (https://openjdk.java.net/projects/jigsaw/) introduced a standardized module system (JPMS) to Java staring with Java 9. One goal of JPMS  is "Make it easier for developers to construct and maintain libraries and large applications". The Kontain API for Java leverages JPMS. In particular the API is delivered as the following files:
+- `app.kontain.jmod` - used by customer when compiling their application with the KM API.
+
+Temporary notes:
+```
+/*
+ * From 'Getting Started' page: https://opemjdk.java.net/projects/jigsaw/quick-start
+ *
+ * javac -d mods/org.astro src/org.astro/module-info.java src/org.astro/org/astro/World.java 
+ * javac --module-path mods -d mods src/com.greetings/module-info.java src/com.greetings/com/greetings/Main.java
+ * jar --create --file=mlib/org.astro@1.0.jar --module-version=1.0 -C mods/org.astro .
+ * jar --create --file=mlib/com.greetings.jar --main-class=com.greetings.Main -C mods/com.greetings .
+ * java -p mlib -m com.greetings
+ */
+```
+
+# KM API for Java 
+
+The `app.kontain` directory contains the Java binding for the KM API. Currently the only thing exposed is taking a snapshot.
+
+# Controlling Java Release Sizes
+
+Modern JDK's don't come with a separate JRE anymore. The come with `jlink` which builds a Java runtime directory with a specified set of components. For example:
+```
+jlink --no-headers-files --no-man-pages --compress=2 --add-modules java.base,java.logging --output runtime
+```
+
+Builds a directory `runtime` with just the pieces needed for `java.base` and `java.logging`, resulting in a substantial space savings.
+
+
+# Internals
 
 ### Java Memory Management and GC
 
