@@ -245,11 +245,16 @@ static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, void* arg)
                              KM_NT_NAME,
                              NT_KM_VCPU,
                              sizeof(struct km_nt_vcpu) + km_vmdriver_fpstate_size());
+   struct km_nt_vcpu* sav = (struct km_nt_vcpu*)cur;
    memcpy(cur, &vnote, sizeof(struct km_nt_vcpu));
    cur += sizeof(struct km_nt_vcpu);
 
    // Add floating point state
-   km_vmdriver_save_fpstate(vcpu, cur);
+   if (km_vmdriver_save_fpstate(vcpu, cur, km_vmdriver_fp_format(vcpu)) < 0) {
+      km_warnx("Error saving FP state");
+      // Fixup to indicate no FP state
+      sav->fp_format = NT_KM_VCPU_FPDATA_NONE;
+   }
    cur += km_vmdriver_fpstate_size();
 
    size_t ret = cur - ctx->pr_cur;
