@@ -465,7 +465,10 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
 
    void* fp_frame = (frame + 1);
-   km_vmdriver_save_fpstate(vcpu, fp_frame);
+   if (km_vmdriver_save_fpstate(vcpu, fp_frame, km_vmdriver_fp_format(vcpu)) < 0) {
+      // TODO: SIGFPE?
+      km_warnx("Error saving FP state for signal");
+   }
 }
 
 static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame)
@@ -493,7 +496,10 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
 
    void* fp_frame = (frame + 1);
-   km_vmdriver_restore_fpstate(vcpu, fp_frame);
+   if (km_vmdriver_restore_fpstate(vcpu, fp_frame, km_vmdriver_fp_format(vcpu)) < 0) {
+      // TODO: SIGFPE?
+      km_warnx("Error restoring FP state on signal return");
+   }
 }
 
 /*
