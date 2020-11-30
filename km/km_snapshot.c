@@ -283,7 +283,9 @@ static int km_ss_recover_vcpu_info(char* ptr, size_t length)
    vcpu->restart = nt->restart;
 
    // Restore Floating point unit/vector for this VCPU
-   km_vmdriver_restore_fpstate(vcpu, nt + 1);
+   if (km_vmdriver_restore_fpstate(vcpu, nt + 1, nt->fp_format) < 0) {
+      km_warnx("Error restoring FP state");
+   }
    return 0;
 }
 
