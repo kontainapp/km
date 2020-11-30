@@ -77,61 +77,66 @@ size_t km_vmdriver_fpstate_size()
    return roundup(fstate_size, 4);
 }
 
-void km_vmdriver_save_fpstate(km_vcpu_t* vcpu, void* addr)
+int km_vmdriver_save_fpstate(km_vcpu_t* vcpu, void* addr, int fptype)
 {
-   switch (machine.vm_type) {
-      case VM_TYPE_KKM: {
+   switch (fptype) {
+      case NT_KM_VCPU_FPDATA_KVM_FPU: {
+         if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, addr) < 0) {
+            km_warn("KVM_GET_FPU failed - Ignore FPU dump");
+            return -1;
+         }
+         return 0;
+      }
+      case NT_KM_VCPU_FPDATA_KVM_XSAVE: {
+         if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_XSAVE, addr) < 0) {
+            km_warn("KVM_GET_XSAVE failed - Ignore XSAVE dump");
+            return -1;
+         }
+         return 0;
+      }
+      case NT_KM_VCPU_FPDATA_KKM_XSAVE: {
          km_signal_kkm_frame_t* kkm_frame = (km_signal_kkm_frame_t*)(addr);
          kkm_frame->ksi_valid = (km_kkm_get_save_info(vcpu, &kkm_frame->ksi) == 0) ? 1 : 0;
          kkm_frame->kx_valid = (km_kkm_get_xstate(vcpu, &kkm_frame->kx) == 0) ? 1 : 0;
-         break;
+         return 0;
       }
-      case VM_TYPE_KVM: {
-         void* kvm_frame = addr;
-         if (machine.vmtype_u.kvm.xsave == 0) {
-            if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_FPU, kvm_frame) < 0) {
-               km_warn("KVM_GET_FPU failed");
-            }
-         } else {
-            if (ioctl(vcpu->kvm_vcpu_fd, KVM_GET_XSAVE, kvm_frame) < 0) {
-               km_warn("KVM_GET_XSAVE failed");
-            }
-         }
-         break;
-      }
-      default:
-         km_warnx("Unrecognized VM monitor type: %d", machine.vm_type);
-         break;
+      case NT_KM_VCPU_FPDATA_NONE:
+         return 0;
    }
+   km_warnx("Unrecognized FP type=%d", fptype);
+   return -1;
 }
 
-void km_vmdriver_restore_fpstate(km_vcpu_t* vcpu, void* addr)
+int km_vmdriver_restore_fpstate(km_vcpu_t* vcpu, void* addr, int fptype)
 {
-   switch (machine.vm_type) {
-      case VM_TYPE_KKM: {
-         km_signal_kkm_frame_t* kkm_frame = (km_signal_kkm_frame_t*)addr;
+   switch (fptype) {
+      case NT_KM_VCPU_FPDATA_KVM_FPU: {
+         if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_FPU, addr) < 0) {
+            km_warn("KVM_GET_FPU failed - Ignore FPU dump");
+            return -1;
+         }
+         return 0;
+      }
+      case NT_KM_VCPU_FPDATA_KVM_XSAVE: {
+         if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_XSAVE, addr) < 0) {
+            km_warn("KVM_GET_XSAVE failed - Ignore XSAVE dump");
+            return -1;
+         }
+         return 0;
+      }
+      case NT_KM_VCPU_FPDATA_KKM_XSAVE: {
+         km_signal_kkm_frame_t* kkm_frame = (km_signal_kkm_frame_t*)(addr);
          km_kkm_set_save_info(vcpu, kkm_frame->ksi_valid, &kkm_frame->ksi);
          km_kkm_set_xstate(vcpu, kkm_frame->kx_valid, &kkm_frame->kx);
-         break;
+         return 0;
       }
-      case VM_TYPE_KVM: {
-         void* kvm_frame = addr;
-         if (machine.vmtype_u.kvm.xsave == 0) {
-            if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_FPU, kvm_frame) < 0) {
-               km_warn("KVM_SET_FPU failed");
-            }
-         } else {
-            if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_XSAVE, kvm_frame) < 0) {
-               km_warn("KVM_SET_XSAVE failed");
-            }
-         }
-         break;
-      }
-      default:
-         km_warnx("Unrecognized VM monitor type: %d", machine.vm_type);
-         break;
+      case NT_KM_VCPU_FPDATA_NONE:
+         return 0;
    }
+   km_warnx("Unrecognized FP type=%d", fptype);
+   return -1;
 }
+
 /*
  * KKM clone child handling changes depending on
  * child is created using hypercall or syscall.
