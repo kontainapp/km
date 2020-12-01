@@ -302,8 +302,8 @@ When you run interactive login, a browser will be open and you need to enter you
 For non-interactive login to work, you need to create and store personal credentials on your machine.  Here are the steps:
 
 1. Login to Azure interactively
-1. Create personal Security Principal for non-interactive logins: `az ad sp create-for-rbac -n "https://your_alias_noninteractive" --role contributor`, e.g. `az ad sp create-for-rbac -n "https://msterin_noninteractive" --role contributor`
-1. Save the results in local file, e.g. *~/.tokens/az_msterin_noninteractive*. Set chmod 400 on the file. This is secret data, so **DO NOT PUBLISH AND DO NOT SAVE TO GIT**.
+1. Create personal Security Principal for non-interactive logins: `az ad sp create-for-rbac -n "https://your_alias_noninteractive" --role contributor --years N`
+1. Save the results in local file, e.g. *~/.ssh/az_$(whoami)_noninteractive*. Set chmod 400 on the file. This is secret data, so **DO NOT PUBLISH AND DO NOT SAVE TO GIT**.
 1. Add credential to .bash_profile - code below (modify the file var first). If you use other shells, modify the script accordingly.
 1. `source ~/.bash_profile`
 1. **Test the login:** `make -C cloud/azure login-cli`
@@ -311,14 +311,16 @@ For non-interactive login to work, you need to create and store personal credent
 Code to convert `az ad sp create-for-rbac` results to env variables needed by Makefiles:
 
 ```sh
-file=~/.tokens/az_msterin_noninteractive
+file=~/.ssh/az_$(whoami)_noninteractive
+az ad sp create-for-rbac -n "https://az_$(whoami)_noninteractive" --role contributor --years 3 | tee $file
+chmod 400 $file
+echo -e "\n# Azure secret for non-interactive login. Created $(date)" >> ~/.bash_profile
 cat $file  | jq -r  '"export SP_APPID=\(.appId)",
                      "export SP_DISPLAYNAME=\(.displayName)",
                      "export SP_NAME=\(.name)",
                      "export SP_PASSWORD=\(.password)",
                      "export SP_TENANT=\(.tenant)"' \
                >> ~/.bash_profile
-
 ```
 
 ### Pull the 'buildenv' image from Azure Container Registry
