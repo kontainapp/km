@@ -32,17 +32,16 @@ include ${TOP}/make/actions.mk
 # so force single threading the make.
 all:	$(CRUNDIR)/Makefile .makefile_check
 	make -j1 -C $(CRUNDIR) all
+	cp $(CRUNDIR)/crun ${KM_OPT_BIN_PATH}
+	ln -f ${KM_OPT_BIN_PATH}/crun ${KM_OPT_BIN_PATH}/krun
 
 $(CRUNDIR)/Makefile:
 	cd $(CRUNDIR); ./autogen.sh; ./configure --disable-systemd
 
-$(CURDIR)/$(CRUNDIR)/krun:
-	cd $(CURDIR)/$(CRUNDIR); ln -s crun krun
-
 # Run crun's tests
-test:	all $(CURDIR)/$(CRUNDIR)/krun
-	OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/krun make -C $(CRUNDIR) check-TESTS
-	OCI_RUNTIME=$(CURDIR)/$(CRUNDIR)/crun make -C $(CRUNDIR) check-TESTS
+test:	all
+	OCI_RUNTIME=${KM_OPT_BIN_PATH}/krun make -C $(CRUNDIR) check-TESTS
+	OCI_RUNTIME=${KM_OPT_BIN_PATH}/crun make -C $(CRUNDIR) check-TESTS
 
 TEST_REMOTE_SCRIPT := $(CURDIR)/test_remote.py
 test-remote:	
@@ -53,7 +52,6 @@ else
 endif
 
 clean::
-	rm -f $(CURDIR)/$(CRUNDIR)/krun
 	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) clean
 	@# crun's clean removes this file, so git sees it as a change. Restore back to clean
 	cd $(CRUNDIR) && git checkout crun.1
