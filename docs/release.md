@@ -67,8 +67,7 @@ Here is the use case:
     * provision a kvm-enabled VM
     * Pull km-releases repo there
     * Download and unpack the release artifact from km-releases
-    * run (new) `validate.py` script to execute steps described in GettingStarted.md
-    * `NOTE`: this is phase 2, the 1st pass is just get it to build and push
+    * The installation script will run a quick validation when / if all is installed
 
 ### Release names agreement
 
