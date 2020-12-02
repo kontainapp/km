@@ -43,7 +43,7 @@ PAYLOAD_KM := cpython/python.km
 PAYLOAD_NAME := ${COMPONENT}
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
-PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)
+PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk) km_api.c
 
 # 'yes' if cpython was build from src (based on existable of .git repo)
 FROMSRC=$(shell test -d $(PYTHONTOP)/.git && echo yes)
