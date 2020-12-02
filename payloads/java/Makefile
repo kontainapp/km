@@ -12,8 +12,6 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-include ${TOP}/make/locations.mk 
-
 CURRENT_DIR := ${TOP}/payloads/java
 JDK_VERSION := jdk-11.0.8+10
 # COMPONENT is used in docker image names so no '+' allowed, and we don't care about minor opt
@@ -52,6 +50,8 @@ RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 	app/kontain/snapshots/Snapshot.class \
 	app/kontain/snapshots/libkm_java_native.so
 RUNENV_DEMO_DEPENDENCIES := scripts/SimpleHttpServer.class
+
+include ${TOP}/make/images.mk
 
 all: ## Link java.kmd based on either full build or build artifats in docker image
 ifneq ($(FROMSRC),yes)
@@ -181,6 +181,4 @@ clean:
 	rm -rf ${BLDDIR}/*
 
 RELEASE_TAG := java-11
-
-include ${TOP}/make/images.mk
 
