@@ -35,20 +35,40 @@ static PyObject* kontain_snapshot_take(PyObject* self, PyObject* args, PyObject*
 }
 
 static PyMethodDef KontainMethods[] = {
-    {.ml_name = "snapshot_take",
+    {.ml_name = "take",
      .ml_meth = kontain_snapshot_take,
      .ml_flags = METH_VARARGS | METH_KEYWORDS,
      .ml_doc = "Take process snapshot"},
     {} /* Sentinel */
 };
 
+static struct PyModuleDef kontain_snapshot_module = {.m_base = PyModuleDef_HEAD_INIT,
+                                                     .m_name = "snapshot",
+                                                     .m_doc = NULL,
+                                                     .m_size = -1,
+                                                     .m_methods = KontainMethods};
+
 static struct PyModuleDef kontain_module = {.m_base = PyModuleDef_HEAD_INIT,
                                             .m_name = "kontain",
                                             .m_doc = NULL,
                                             .m_size = -1,
-                                            .m_methods = KontainMethods};
+                                            .m_methods = NULL};
 
 PyMODINIT_FUNC PyInit_kontain(void)
 {
-   return PyModule_Create(&kontain_module);
+   PyObject* kontain_m = PyModule_Create(&kontain_module);
+   if (kontain_m == NULL) {
+      return NULL;
+   }
+   PyObject* kontain_snapshot_m = PyModule_Create(&kontain_snapshot_module);
+   if (kontain_snapshot_m == NULL) {
+      Py_DECREF(kontain_m);
+      return NULL;
+   }
+   if (PyModule_AddObject(kontain_m, "snapshots", kontain_snapshot_m) < 0) {
+      Py_DECREF(kontain_snapshot_m);
+      Py_DECREF(kontain_m);
+      return NULL;
+   }
+   return kontain_m;
 }

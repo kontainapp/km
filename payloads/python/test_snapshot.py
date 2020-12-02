@@ -1,7 +1,6 @@
 
-import kontain
+from kontain import snapshots
 
-print(kontain)
 print("before")
-kontain.snapshot_take(label="my label", description="snapshot for test", live=False)
+snapshots.take(label="my label", description="snapshot for test", live=False)
 print("after")
