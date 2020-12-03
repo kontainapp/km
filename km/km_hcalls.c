@@ -1414,8 +1414,8 @@ static km_hc_ret_t uname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    arg->hc_ret = uname(name);
    // Overwrite Kontain specific info. Buffers 65 bytes each, hardcoded in musl, so we are good
    /*
-    * Note: 'kontain-runtime' is checked in language API bindings. If this changes the bindings need to
-    * change too.
+    * Note: 'kontain-runtime' is checked in language API bindings. If this changes the bindings need
+    * to change too.
     */
    strcpy(name->sysname, "kontain-runtime");
    // used by some libs (eg. libc) as kernel version check, numbers too low (e.g. 0.8)
@@ -1718,6 +1718,7 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
+   int live = arg->arg3;
 
    // Ensure this VCPU's RIP points at the instruction after the HCALL.
    km_vcpu_sync_rip(vcpu);
@@ -1725,10 +1726,10 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    km_read_registers(vcpu);
 
    // Create the snapshot.
-   arg->hc_ret = km_snapshot_create(vcpu, label, description, 0);
+   arg->hc_ret = km_snapshot_create(vcpu, label, description, live);
    // negative value means EBUSY or other similar condition.
    // TODO: in case of live (non zero last arg) returning HC_CONTINUE should just work
-   if (arg->hc_ret < 0 /* || live != 0 */) {
+   if (arg->hc_ret < 0 || live != 0) {
       return HC_CONTINUE;
    }
    return HC_ALLSTOP;
