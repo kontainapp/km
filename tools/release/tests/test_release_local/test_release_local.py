@@ -29,6 +29,63 @@ KONTAIN_GCC = f"{OPT_KONTAIN_BIN}/kontain-gcc"
 KM = f"{OPT_KONTAIN_BIN}/km"
 INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh"
 
+DOCKER_CONFIG_DIR = "/etc/docker"
+DOCKER_CONFIG_FILE = f"{DOCKER_CONFIG_DIR}/daemon.json"
+
+def run_kontainer():
+    """
+    Configure krun into docker
+    Start docker
+    Pull the kontain python image
+    Run a simple container using krun as the runtime
+    """
+    # If we are missing libraries or the libs are the wrong version, surface that now.
+    # With docker involved it is harder to know what failed.
+    subprocess.run([
+        f"{OPT_KONTAIN_BIN}/krun",
+        "--help",
+    ], check=True)
+    subprocess.run([
+        "sudo",
+        "mkdir",
+        "-p",
+        DOCKER_CONFIG_DIR,
+    ], check=True)
+    subprocess.run([
+        "sudo",
+        "cp",
+        "assets/daemon.json",
+        DOCKER_CONFIG_FILE,
+    ], check=True)
+    subprocess.run([
+        "sudo",
+        "systemctl",
+        "enable",
+        "docker.service"
+    ], check=True)
+    subprocess.run([
+        "sudo",
+        "systemctl",
+        "reload-or-restart",
+        "docker.service"
+    ], check=True)
+    subprocess.run([
+        "sudo",
+        "docker",
+        "pull",
+        "kontainapp/runenv-python",
+    ], check=True)
+    # This runs python in the kontainer with the simple program following "-c"
+    subprocess.run([
+        "sudo",
+        "docker",
+        "run",
+        "--runtime",
+        "krun",
+        "kontainapp/runenv-python",
+        "-c",
+        "import os; print(os.uname())",
+    ], check=True)
 
 def main():
     """ main method """
@@ -47,6 +104,13 @@ def main():
 
     os.system(install_cmd)
 
+    # See what we got in the tarball.
+    subprocess.run([
+        "ls",
+        "-l",
+        OPT_KONTAIN_BIN,
+    ], check=True);
+
     # Test: compile helloworld with kontain-gcc
     work_dir = tempfile.mkdtemp()
     shutil.copytree("assets", os.path.join(work_dir, "assets"))
@@ -60,6 +124,9 @@ def main():
         KM,
         "helloworld",
     ], cwd=work_dir, check=True)
+
+    # Run a container with krun
+    run_kontainer()
 
     # Clean up
     shutil.rmtree(work_dir)
