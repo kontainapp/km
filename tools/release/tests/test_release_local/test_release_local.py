@@ -34,58 +34,26 @@ DOCKER_CONFIG_FILE = f"{DOCKER_CONFIG_DIR}/daemon.json"
 
 def run_kontainer():
     """
-    Configure krun into docker
-    Start docker
-    Pull the kontain python image
-    Run a simple container using krun as the runtime
+    Add krun to runtimes docker recognizes, start docker and run a container in krun runtime
     """
-    # If we are missing libraries or the libs are the wrong version, surface that now.
+    # If we are missing libraries or the libs are the wrong version, let's discover that here.
     # With docker involved it is harder to know what failed.
-    subprocess.run([
-        f"{OPT_KONTAIN_BIN}/krun",
-        "--help",
-    ], check=True)
-    subprocess.run([
-        "sudo",
-        "mkdir",
-        "-p",
-        DOCKER_CONFIG_DIR,
-    ], check=True)
-    subprocess.run([
-        "sudo",
-        "cp",
-        "assets/daemon.json",
-        DOCKER_CONFIG_FILE,
-    ], check=True)
-    subprocess.run([
-        "sudo",
-        "systemctl",
-        "enable",
-        "docker.service"
-    ], check=True)
-    subprocess.run([
-        "sudo",
-        "systemctl",
-        "reload-or-restart",
-        "docker.service"
-    ], check=True)
-    subprocess.run([
-        "sudo",
-        "docker",
-        "pull",
-        "kontainapp/runenv-python",
-    ], check=True)
+    subprocess.run([ f"{OPT_KONTAIN_BIN}/krun", "--help" ], check=True)
+
+    subprocess.run([ "sudo", "mkdir", "-p", DOCKER_CONFIG_DIR ], check=True)
+    subprocess.run([ "sudo", "cp", "assets/daemon.json", DOCKER_CONFIG_FILE ], check=True)
+    subprocess.run([ "sudo", "systemctl", "enable", "docker.service" ], check=True)
+    subprocess.run([ "sudo", "systemctl", "reload-or-restart", "docker.service" ], check=True)
+    subprocess.run([ "docker", "pull", "kontainapp/runenv-python" ], check=True)
+
     # This runs python in the kontainer with the simple program following "-c"
-    subprocess.run([
-        "sudo",
-        "docker",
-        "run",
-        "--runtime",
-        "krun",
-        "kontainapp/runenv-python",
-        "-c",
-        "import os; print(os.uname())",
-    ], check=True)
+    # It should return something like this in stdout:
+    # "posix.uname_result(sysname='kontain-runtime', nodename='420613c03875', release='4.1', version='preview', machine='kontain_KVM')"
+    result = subprocess.run([ "docker", "run", "--runtime", "krun", "kontainapp/runenv-python", "-c", "import os; print(os.uname())" ],
+        capture_output=True, text=True, check=True)
+    print(result.stdout);
+    if "posix.uname_result(sysname='kontain-runtime'," not in result.stdout:
+        raise ValueError("Kontainer returned unexpected output")
 
 def main():
     """ main method """
