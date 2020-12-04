@@ -23,7 +23,8 @@ import time
 RESOURCE_GROUP = "kontain-release-testing"
 RESOURCE_GROUP_LOCATION = "westus"
 TESTING_VM_NAME = "kontain-release-testing-vm"
-TESTING_VM_IMAGE = "Canonical:UbuntuServer:18.04-LTS:latest"
+#TESTING_VM_IMAGE = "Canonical:UbuntuServer:18.04-LTS:latest"
+TESTING_VM_IMAGE = "Canonical:0001-com-ubuntu-server-focal:20_04-lts:latest"
 TESTING_VM_SIZE = "Standard_D2s_v3"
 TESTING_VM_ADMIN = "kontain"
 
@@ -164,8 +165,9 @@ def test(remote_ip, version):
     ssh_execute(
         remote_ip, "sudo mkdir -p /opt/kontain ; sudo chown kontain /opt/kontain")
     ssh_execute(remote_ip, "sudo apt-get update")
-    ssh_execute(remote_ip, "sudo apt-get install -y gcc")
+    ssh_execute(remote_ip, "sudo apt-get install -y gcc docker.io libyajl2 libseccomp2 libcap2")
     ssh_execute(remote_ip, "sudo chmod 666 /dev/kvm")
+    ssh_execute(remote_ip, f"sudo usermod -G docker {TESTING_VM_ADMIN}")
 
     if version is None or version == "":
         version_flag = ""
