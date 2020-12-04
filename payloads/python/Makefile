@@ -85,6 +85,8 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 
 fromsrc: ## Clean build cpython from source. Use 'make clobber' to prepare for this one
 	git clone https://github.com/python/cpython.git -b ${TAG}
+	cp km_api.c cpython/Modules/km_api.c
+	echo "kontain km_api.c" >> cpython/Modules/Setup.local
 	cd cpython && ./configure && make -j`expr 2 \* $$(nproc)` | tee bear.out
 	@# Note: this patch also needs to be applied in Docker build - see ./buildenv-fedora.dockerfile
 	patch -p0 < platform_uname.patch

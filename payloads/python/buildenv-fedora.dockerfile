@@ -44,6 +44,8 @@ RUN dnf install libffi-devel xz-devel sqlite-devel expat-static python3-jinja2 -
 USER $USER
 
 RUN git clone https://github.com/python/cpython.git -b $TAG
+COPY km_api.c cpython/Modules/km_api.c
+RUN echo "kontain km_api.c" >> cpython/Modules/Setup.local
 RUN cd cpython && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
 COPY platform_uname.patch platform_uname.patch
 # Note: this patch also needs to be applied in 'make fromsrc'- see ./Makefile
