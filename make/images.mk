@@ -195,7 +195,7 @@ endif # ifeq (${NO_RUNENV},)
 
 # Default to something that gurantee to fail.
 CONTAINER_TEST_CMD ?= \
-	echo -e "${RED}CONTAINER_TEST_CMD needs to be defined to use this target${NOCOLOR}"; \
+	$(shell echo -e "${RED}CONTAINER_TEST_CMD needs to be defined to use this target${NOCOLOR}"); \
 	false;
 
 CONTAINER_TEST_ALL_CMD ?= ${CONTAINER_TEST_CMD}
