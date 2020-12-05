@@ -31,7 +31,7 @@ readonly WAIT_TIME_TO_READY=60
 # azure credentials
 export readonly SP_APPID="$KONTAIN_AWS_AZ_SP_APPID"
 export readonly SP_DISPLAYNAME="$KONTAIN_AWS_AZ_SP_DISPLAYNAME"
-export readonly SP_NAME="$KONTAIN_AWS_AZ_SP_NAME"
+export readonly SP_NAME="https://${KONTAIN_AWS_AZ_SP_DISPLAYNAME}"
 export readonly SP_PASSWORD="$KONTAIN_AWS_AZ_SP_PASSWORD"
 export readonly SP_TENANT="$KONTAIN_AWS_AZ_SP_TENANT"
 
