@@ -123,7 +123,7 @@ push-buildenv-image: ## Pushes to buildnev image. PROTECTED TARGET
 		echo -e "$(RED)Unforced push of 'latest' buildenv images is not supported without setting FORCE_BUILDENV_PUSH to force$(NOCOLOR)" && false; fi
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 		FROM=$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) TO=$(BUILDENV_IMG_REG):$(BUILDENV_IMAGE_VERSION)
-	echo -e "$(YELLOW)Reminder: you may also need to update AWS AMI. Check on slack #engineering for steps$(NOCOLOR)"
+	@echo -e "$(YELLOW)Reminder: you may also need to update AWS AMI. Check on slack #engineering for steps$(NOCOLOR)"
 
 pull-buildenv-image: ## Pulls the buildenv image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
@@ -195,7 +195,7 @@ endif # ifeq (${NO_RUNENV},)
 
 # Default to something that gurantee to fail.
 CONTAINER_TEST_CMD ?= \
-	echo -e "${RED}CONTAINER_TEST_CMD needs to be defined to use this target${NOCOLOR}"; \
+	$(shell echo -e "${RED}CONTAINER_TEST_CMD needs to be defined to use this target${NOCOLOR}"); \
 	false;
 
 CONTAINER_TEST_ALL_CMD ?= ${CONTAINER_TEST_CMD}

@@ -23,6 +23,9 @@
 TOP := $(shell git rev-parse --show-toplevel)
 COMPONENT := dweb
 
+# this is how we run dweb.km tests in container
+CONTAINER_TEST_CMD := ./dweb -x
+
 PAYLOAD_KM := dweb/dweb.km
 PAYLOAD_NAME := DWebSrvDemo
 # a list to be passed to tar to be packed into container image
@@ -32,7 +35,6 @@ PAYLOAD_FILES := ${PAYLOAD_KM} \
 	dweb/js \
 	dweb/index.html \
 	dweb/kontain_logo_transparent.png \
-	dweb/favicon.ico \
 	dweb/text.txt\
 	dweb/basic.htm
 

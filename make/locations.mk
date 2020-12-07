@@ -93,7 +93,7 @@ DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP}
 # in, we need to map the current used into the container, since containers are
 # using `appuser`, which is different from user on the host.
 DOCKER_RUN_BUILD := ${DOCKER_RUN} -u ${CURRENT_UID}:${CURRENT_GID}
-DOCKER_RUN_TEST := ${DOCKER_RUN} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE}
+DOCKER_RUN_TEST := ${DOCKER_RUN} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE} --init
 
 # Inside docker image (buildenv + testenv), appuser will be the user created
 # inside the container.
