@@ -188,7 +188,7 @@ void km_signal_fini(void)
 {
 }
 
-static inline void enqueue_signal_nl(km_signal_list_t* slist, siginfo_t* info)
+static inline void enqueue_signal_nolock(km_signal_list_t* slist, siginfo_t* info)
 {
    km_signal_t* sig;
 
@@ -203,7 +203,7 @@ static inline void enqueue_signal_nl(km_signal_list_t* slist, siginfo_t* info)
 static inline void enqueue_signal(km_signal_list_t* slist, siginfo_t* info)
 {
    km_signal_lock();
-   enqueue_signal_nl(slist, info);
+   enqueue_signal_nolock(slist, info);
    km_signal_unlock();
 }
 
@@ -295,7 +295,7 @@ int km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info)
  * If there are no pending signals, return 0.
  * The caller must have acquired the signal lock.
  */
-static int km_signal_ready_nl(km_vcpu_t* vcpu)
+static int km_signal_ready_nolock(km_vcpu_t* vcpu)
 {
    km_signal_t* sig;
    km_signal_t* next_sig;
@@ -328,7 +328,7 @@ static int km_signal_ready_nl(km_vcpu_t* vcpu)
 int km_signal_ready(km_vcpu_t* vcpu)
 {
    km_signal_lock();
-   int signo = km_signal_ready_nl(vcpu);
+   int signo = km_signal_ready_nolock(vcpu);
    km_signal_unlock();
    return signo;
 }
@@ -380,7 +380,7 @@ int km_wakeup_suspended_thread(siginfo_t* info)
                   vcpu->vcpu_id,
                   info->si_signo);
          TAILQ_REMOVE(&km_signal_wait_queue, vcpu, signal_link);
-         enqueue_signal_nl(&vcpu->sigpending, info);
+         enqueue_signal_nolock(&vcpu->sigpending, info);
          km_cond_signal(&vcpu->signal_wait_cv);
          wake_count++;
          break;
@@ -786,7 +786,7 @@ uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize)
    vcpu->saved_sigmask = vcpu->sigmask;
    vcpu->sigmask = *mask;
    TAILQ_INSERT_TAIL(&km_signal_wait_queue, vcpu, signal_link);
-   while ((signo = km_signal_ready_nl(vcpu)) == 0) {
+   while ((signo = km_signal_ready_nolock(vcpu)) == 0) {
       km_cond_wait(&vcpu->signal_wait_cv, &machine.signal_mutex);
       km_infox(KM_TRACE_VCPU, "waking up in sigsuspend");
    }
