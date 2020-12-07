@@ -986,6 +986,7 @@ fi
    kill -SIGUSR1 $pid
    kill -SIGUSR2 $pid
    wait $pid
+
    rm -f $FLAGFILE $KMTRACE
    $KM_BIN -V sigsuspend_test$ext $FLAGFILE >$KMOUT 2>$KMTRACE &
    pid=$!
@@ -1008,8 +1009,7 @@ fi
    rm -f $FLAGFILE
 
    # Debug.
-   diff $LINUXOUT $KMOUT
-   if [ $? -ne 0 ]; then
+   if !diff $LINUXOUT $KMOUT; then
       # Put the 2 output files into the TAP stream to help debug this.
       file_contents_to_bats_log $LINUXOUT
       file_contents_to_bats_log $KMOUT
