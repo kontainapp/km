@@ -36,6 +36,7 @@ int do_stdclose = 0;
 #define SNAP_NORMAL 0
 #define SNAP_NONE 1
 #define SNAP_PAUSE 2
+#define SNAP_LIVE 3
 int snap_flag = SNAP_NORMAL;
 
 pthread_mutex_t long_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
@@ -213,9 +214,10 @@ void* thread_main(void* arg)
    /*
     * Take the snapshot.
     */
-   if (snap_flag == SNAP_NORMAL) {
+   if (snap_flag == SNAP_NORMAL || snap_flag == SNAP_LIVE) {
       km_hc_args_t snapshotargs = {.arg1 = (uint64_t) "snaptest_label",
-                                   .arg2 = (uint64_t) "Snapshot test applcation"};
+                                   .arg2 = (uint64_t) "Snapshot test application",
+                                   .arg3 = (snap_flag == SNAP_LIVE) ? 1 : 0};
       km_hcall(HC_snapshot, &snapshotargs);
    } else if (snap_flag == SNAP_PAUSE) {
       pause();
@@ -262,7 +264,7 @@ int main(int argc, char* argv[])
    int c;
 
    cmdname = argv[0];
-   while ((c = getopt(argc, argv, "anpc")) != -1) {
+   while ((c = getopt(argc, argv, "anplc")) != -1) {
       switch (c) {
          case 'a':
             do_abort = 1;
@@ -274,6 +276,10 @@ int main(int argc, char* argv[])
 
          case 'p':
             snap_flag = SNAP_PAUSE;
+            break;
+
+         case 'l':
+            snap_flag = SNAP_LIVE;
             break;
 
          case 'c':

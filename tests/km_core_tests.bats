@@ -1043,7 +1043,7 @@ fi
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
       assert grep 'label: snaptest_label' ${KMLOG}
-      assert grep 'description: Snapshot test applcation' ${KMLOG}
+      assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
       rm -f ${SNAP} ${KMLOG}
 
@@ -1060,7 +1060,7 @@ fi
       [[ $test_type =~ glibc* ]] || assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
       assert grep 'label: snaptest_label' ${KMLOG}
-      assert grep 'description: Snapshot test applcation' ${KMLOG}
+      assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
       rm -f ${SNAP} ${KMLOG}
 
@@ -1075,11 +1075,26 @@ fi
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
       assert grep 'label: snaptest_label' ${KMLOG}
-      assert grep 'description: Snapshot test applcation' ${KMLOG}
+      assert grep 'description: Snapshot test application' ${KMLOG}
       if [ "$test_type" = ".km.so" ]; then
          gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
       fi
       rm -f ${SNAP} ${CORE} ${KMLOG}
+
+      # 'live' snapshot
+      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -l
+      assert_success
+      assert [ -f ${SNAP} ]
+      check_kmcore ${SNAP}
+      assert_output --partial "Hello from thread"
+      run km_with_timeout --km-log-to=${KMLOG} --resume -- ${SNAP}
+      assert_success
+      assert_output --partial "Hello from thread"
+      refute_line --partial "state restoration error"
+      assert grep 'label: snaptest_label' ${KMLOG}
+      assert grep 'description: Snapshot test application' ${KMLOG}
+      assert [ ! -f ${CORE} ]
+      rm -f ${SNAP} ${KMLOG}
    done
 
    # make sure resume with payloads args fails
