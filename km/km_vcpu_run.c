@@ -760,7 +760,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
              * The gdb client should send the signal back and gdb stub will call km_deliver_signal().
              * But, will the gdb client send the same signal back?  Or will the client eat the signal?
              * If we got here from sigsuspend() and the gdb client ate the signal or sent a different
-             * signal back, we should really go back to wait for an unblocked signal in siguspend().
+             * signal back, we should really go back to wait for an unblocked signal in sigsuspend().
              */
          } else {
             km_deliver_signal(vcpu, &info);
