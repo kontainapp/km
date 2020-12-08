@@ -26,7 +26,7 @@ steps:
 
   - bash: cloud/aws/kkm-regression.bash ${SYSTEM_PULLREQUEST_SOURCEBRANCH:-${BUILD_SOURCEBRANCH#refs/heads/}}
     displayName: Test with kkm on aws
-    timeoutInMinutes: 20
+    timeoutInMinutes: 30
     env:
       KONTAIN_AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
       KONTAIN_AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
