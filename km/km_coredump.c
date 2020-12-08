@@ -250,7 +250,7 @@ static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, void* arg)
    cur += sizeof(struct km_nt_vcpu);
 
    // Add floating point state
-   if (km_vmdriver_save_fpstate(vcpu, cur, km_vmdriver_fp_format(vcpu)) < 0) {
+   if (km_vmdriver_save_fpstate(vcpu, cur, km_vmdriver_fp_format(vcpu), 1) < 0) {
       km_warnx("Error saving FP state");
       // Fixup to indicate no FP state
       sav->fp_format = NT_KM_VCPU_FPDATA_NONE;
