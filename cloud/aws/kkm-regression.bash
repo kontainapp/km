@@ -126,7 +126,7 @@ then
 fi
 
 echo "Starting tests on instance ${INSTANCE_ID} IP address ${INSTANCE_IP}"
-timeout --preserve-status 900 sshpass -e ssh -F ${SSH_CONFIG_FILE} -o StrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}
+timeout --preserve-status 1500 sshpass -e ssh -F ${SSH_CONFIG_FILE} -o StrictHostKeyChecking=no fedora@${INSTANCE_IP} /home/fedora/bin/kkm-test.bash ${TEST_BRANCH}
 
 echo "copying test logs from aws instance ${INSTANCE_ID}"
 sshpass -e scp -o StrictHostKeyChecking=no -r fedora@${INSTANCE_IP}:src/log/ log-aws-kkm
