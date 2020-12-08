@@ -765,6 +765,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          } else {
             km_deliver_signal(vcpu, &info);
          }
+         km_rt_sigsuspend_revert(vcpu);
       }
    }
 }

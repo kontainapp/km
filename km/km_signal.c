@@ -557,9 +557,6 @@ static inline void do_guest_handler(km_vcpu_t* vcpu, siginfo_t* info, km_sigacti
  */
 void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
 {
-   // Revert the signal mask in case the signal handler longjmp()'s somewhere
-   // and the signal handler never returns.
-   km_rt_sigsuspend_revert(vcpu);
    km_sigaction_t* act = &machine.sigactions[km_sigindex(info->si_signo)];
    if (act->handler == (km_gva_t)SIG_IGN) {
       return;
