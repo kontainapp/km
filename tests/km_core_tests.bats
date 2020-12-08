@@ -968,24 +968,8 @@ fi
    FLAGFILE=/tmp/sigsuspend_test.$$
    KMTRACE=/tmp/sigsuspend_kmtrace.$$
    WAIT=5
-   LINUXOUT=/tmp/sigsuspend_linuxout.$$
    KMOUT=/tmp/sigsuspend_kmout.$$
 
-   rm -f $FLAGFILE $KMTRACE
-   ./sigsuspend_test.fedora $FLAGFILE >$LINUXOUT &
-   local pid=$!
-   start=`date +%s`
-   while [ ! -e $FLAGFILE ]
-   do
-      sleep .1
-      now=`date +%s`
-      test `expr $now - $start` -lt $WAIT
-      assert_success
-   done
-   kill -SIGUSR1 $pid
-   kill -SIGUSR1 $pid
-   kill -SIGUSR2 $pid
-   wait $pid
    rm -f $FLAGFILE $KMTRACE
    $KM_BIN -V sigsuspend_test$ext $FLAGFILE >$KMOUT 2>$KMTRACE &
    pid=$!
@@ -1007,16 +991,13 @@ fi
    wait $pid
    rm -f $FLAGFILE
 
-   # Debug.
-   diff $LINUXOUT $KMOUT
-   if [ $? -ne 0 ]; then
-      # Put the 2 output files into the TAP stream to help debug this.
-      file_contents_to_bats_log $LINUXOUT
-      file_contents_to_bats_log $KMOUT
-      fail "output differs between sigsuspend_test.fedora and sigsuspend_test$ext"
-   fi
+   # Be sure the signal handlers were entered
+   grep -q "SIGUSR1 signal handler entered" $KMOUT
+   grep -q "SIGUSR2 signal handler entered" $KMOUT
+   # SIGUSR2 sig handler must be entered before sigsuspend returns
+   grep -v SIGUSR1 $KMOUT | tail -1 | grep -q "sigsuspend returned"
 
-   rm -f $KMTRACE $LINUXOUT $KMOUT
+   rm -f $KMTRACE $KMOUT
 }
 
 @test "itimer($test_type): test setitimer() getitimer() hypercalls (itimer_test$ext)" {

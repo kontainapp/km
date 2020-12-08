@@ -43,7 +43,6 @@
  * Threads that wait for a signal's arrive are enqueued on the km_signal_wait_queue until the signal
  * arrives.  Each vcpu has its own condition variable that it waits on.
  */
-pthread_mutex_t km_signal_wait_mutex = PTHREAD_MUTEX_INITIALIZER;
 TAILQ_HEAD(km_signal_wait_queue, km_vcpu);
 struct km_signal_wait_queue km_signal_wait_queue;
 
@@ -189,18 +188,22 @@ void km_signal_fini(void)
 {
 }
 
-static inline void enqueue_signal(km_signal_list_t* slist, siginfo_t* info)
+static inline void enqueue_signal_nolock(km_signal_list_t* slist, siginfo_t* info)
 {
    km_signal_t* sig;
 
-   km_signal_lock();
    if ((sig = TAILQ_FIRST(&machine.sigfree.head)) == NULL) {
-      km_signal_unlock();
       km_err(1, "No free signal entries");
    }
    TAILQ_REMOVE(&machine.sigfree.head, sig, link);
    sig->info = *info;
    TAILQ_INSERT_TAIL(&slist->head, sig, link);
+}
+
+static inline void enqueue_signal(km_signal_list_t* slist, siginfo_t* info)
+{
+   km_signal_lock();
+   enqueue_signal_nolock(slist, info);
    km_signal_unlock();
 }
 
@@ -290,19 +293,15 @@ int km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info)
 /*
  * Return the number of the next unblocked signal for the passed vcpu.
  * If there are no pending signals, return 0.
- *
- * This only used for gdb stub to report thread status. Logic here is the same as km_dequeue_signal()
- * above, except here it doesn't dequeue, and it doesn't search for higher priority signal.
+ * The caller must have acquired the signal lock.
  */
-int km_signal_ready(km_vcpu_t* vcpu)
+static int km_signal_ready_nolock(km_vcpu_t* vcpu)
 {
    km_signal_t* sig;
    km_signal_t* next_sig;
 
-   km_signal_lock();
    TAILQ_FOREACH (sig, &vcpu->sigpending.head, link) {
       if (is_blocked(&vcpu->sigmask, &sig->info) == 0) {
-         km_signal_unlock();
          km_infox(KM_TRACE_VCPU, "vcpu %d signal %d ready", vcpu->vcpu_id, sig->info.si_signo);
          return sig->info.si_signo;
       }
@@ -312,13 +311,26 @@ int km_signal_ready(km_vcpu_t* vcpu)
          // A process-wide signal can only be claimed by one thread.
          TAILQ_REMOVE(&machine.sigpending.head, sig, link);
          TAILQ_INSERT_TAIL(&vcpu->sigpending.head, sig, link);
-         km_signal_unlock();
          km_infox(KM_TRACE_VCPU, "VM signal %d ready", sig->info.si_signo);
          return sig->info.si_signo;
       }
    }
-   km_signal_unlock();
    return 0;
+}
+
+/*
+ * Return the number of the next unblocked signal for the passed vcpu.
+ * If there are no pending signals, return 0.
+ *
+ * This only used for gdb stub to report thread status. Logic here is the same as km_dequeue_signal()
+ * above, except here it doesn't dequeue, and it doesn't search for higher priority signal.
+ */
+int km_signal_ready(km_vcpu_t* vcpu)
+{
+   km_signal_lock();
+   int signo = km_signal_ready_nolock(vcpu);
+   km_signal_unlock();
+   return signo;
 }
 
 /*
@@ -348,50 +360,33 @@ static inline int signal_pending(km_vcpu_t* vcpu, siginfo_t* info)
 }
 
 /*
- * Enqueue the passed vcpu on the "wait for signal arrival" queue and
- * then sleep until an ublocked signal arrives.
- */
-static void km_suspend_for_payload_signal(km_vcpu_t* vcpu)
-{
-   km_mutex_lock(&km_signal_wait_mutex);
-   TAILQ_INSERT_TAIL(&km_signal_wait_queue, vcpu, signal_link);
-   km_cond_wait(&vcpu->signal_wait_cv, &km_signal_wait_mutex);
-   km_infox(KM_TRACE_VCPU, "done waiting for signal arrival");
-   // The waker has removed us from the queue.
-   km_mutex_unlock(&km_signal_wait_mutex);
-}
-
-/*
- * Look for vcpu's blocked in sigsuspend() that are waiting for the passed signal. Enqueue the
- * signal on the first found thread's pending queue and wake all vcpu's waiting for the signal.
- * Returns the number of woken vcpu's. Do we wake a single thread or all suspended threads?
+ * Look for a vcpu blocked in sigsuspend() that is waiting for the passed signal. Enqueue the
+ * signal on the first found thread's pending queue and wake that thread.
+ * Returns:
+ *   0 - no thread was woken
+ *   1 - we found a thread to take the signal and woke the thread
  */
 int km_wakeup_suspended_thread(siginfo_t* info)
 {
    km_vcpu_t* vcpu;
-   km_vcpu_t* prev;
    int wake_count = 0;
-   int signal_delivered = 0;
 
-   km_mutex_lock(&km_signal_wait_mutex);
-   TAILQ_FOREACH_SAFE (vcpu, &km_signal_wait_queue, signal_link, prev) {
+   km_signal_lock();
+   TAILQ_FOREACH (vcpu, &km_signal_wait_queue, signal_link) {
       if (km_sigismember(&vcpu->sigmask, info->si_signo) ==
           0) {   // this signal is not blocked on this vcpu
-         assert(vcpu->in_sigsuspend != 0);
          km_infox(KM_TRACE_VCPU,
                   "Waking sigsuspend()'ed vcpu %d with signal %d",
                   vcpu->vcpu_id,
                   info->si_signo);
          TAILQ_REMOVE(&km_signal_wait_queue, vcpu, signal_link);
-         if (signal_delivered == 0) {
-            enqueue_signal(&vcpu->sigpending, info);
-            signal_delivered = 1;
-         }
+         enqueue_signal_nolock(&vcpu->sigpending, info);
          km_cond_signal(&vcpu->signal_wait_cv);
          wake_count++;
+         break;
       }
    }
-   km_mutex_unlock(&km_signal_wait_mutex);
+   km_signal_unlock();
 
    return wake_count;
 }
@@ -770,8 +765,10 @@ uint64_t km_rt_sigpending(km_vcpu_t* vcpu, km_sigset_t* set, size_t sigsetsize)
    return 0;
 }
 
+
 uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize)
 {
+   int signo;
    if (masksize != sizeof(km_sigset_t)) {
       return -EINVAL;
    }
@@ -779,10 +776,22 @@ uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize)
             "start waiting for signal, new mask 0x%lx, prev mask 0x%lx",
             mask[0],
             vcpu->sigmask);
+
+   km_signal_lock();
+
    vcpu->in_sigsuspend = 1;
    vcpu->saved_sigmask = vcpu->sigmask;
    vcpu->sigmask = *mask;
-   km_suspend_for_payload_signal(vcpu);
+   TAILQ_INSERT_TAIL(&km_signal_wait_queue, vcpu, signal_link);
+   while ((signo = km_signal_ready_nolock(vcpu)) == 0) {
+      km_cond_wait(&vcpu->signal_wait_cv, &machine.signal_mutex);
+      km_infox(KM_TRACE_VCPU, "waking up in sigsuspend");
+   }
+   // We restore sigmask after setting up the signal handler call in vcpu_run
+   km_signal_unlock();
+
+   km_infox(KM_TRACE_VCPU, "signal %d arrival unsuspends thread", signo);
+
    return -EINTR;
 }
 
