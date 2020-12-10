@@ -378,7 +378,8 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
        (pl_name = km_traverse_payload_symlinks((const char*)argv[0])) != NULL) {
       pl_index = 0;
    } else {   // regular KM invocation - parse KM args
-      while ((opt = getopt_long(argc, argv, "+g::e:AEV::P:vC:Sk:", long_options, &longopt_index)) != -1) {
+      while ((opt = getopt_long(argc, argv, "+g::e:AEV::P:vC:Sk:", long_options, &longopt_index)) !=
+             -1) {
          switch (opt) {
             case 0:
                // If this option set a flag, do nothing else now.
@@ -660,7 +661,7 @@ int main(int argc, char* argv[])
    if (km_gdb_is_enabled() == 1) {
       if (gdbstub.wait_for_attach != GDB_DONT_WAIT_FOR_ATTACH) {
          warnx("Waiting for a debugger. Connect to it like this:\n"
-               "\tgdb --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n",
+               "\tgdb -q --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n",
                km_gdb_port_get(),
                km_guest.km_filename);
       }
