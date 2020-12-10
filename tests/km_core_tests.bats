@@ -41,7 +41,7 @@ not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv'
 # gdb_nextstep - uses clone_test, same as raw_clone
 # raw_clone - glibc clone() wrapper needs pthread structure
 
-todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test '
+todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test  threads_basic_tsd threads_exit_grp'
 
 not_needed_alpine_dynamic=$not_needed_alpine_static
 todo_alpine_dynamic=$todo_alpine_static
@@ -623,7 +623,11 @@ fi
 }
 
 @test "threads_basic_tsd($test_type): threads with TSD, create, exit and join (hello_2_loops_test$ext)" {
-   run km_with_timeout hello_2_loops_test$ext
+   for i in $(seq 1 3); do # only fail if all 3 tries failed
+      echo pass $i
+      run km_with_timeout hello_2_loops_test$ext
+      if [ $status == 0 ] ; then break; fi
+   done
    assert_success
 }
 
@@ -829,7 +833,11 @@ fi
 }
 
 @test "pthread_cancel($test_type): (pthread_cancel_test$ext)" {
-   run km_with_timeout pthread_cancel_test$ext -v
+   for i in $(seq 1 3); do # only fail if all 3 tries failed
+      echo pass $i
+      run km_with_timeout pthread_cancel_test$ext -v
+      if [ $status == 0 ] ; then break; fi
+   done
    assert_success
    assert_line --partial "thread_func(): end of DISABLE_CANCEL_TEST"
    refute_line --partial "PTHREAD_CANCEL_ASYNCHRONOUS"
