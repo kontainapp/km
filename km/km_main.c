@@ -660,8 +660,14 @@ int main(int argc, char* argv[])
 
    if (km_gdb_is_enabled() == 1) {
       if (gdbstub.wait_for_attach != GDB_DONT_WAIT_FOR_ATTACH) {
+         char name[HOST_NAME_MAX + 1];
+         if (gethostname(name, HOST_NAME_MAX) != 0) {
+            km_trace("Failed to get hostname, ignoring. errno=%d (%s)", errno, strerror(errno));
+            *name = 0;
+         };
          warnx("Waiting for a debugger. Connect to it like this:\n"
-               "\tgdb -q --ex=\"target remote localhost:%d\" %s\nGdbServerStubStarted\n",
+               "\tgdb -q --ex=\"target remote %s:%d\" %s\nGdbServerStubStarted\n",
+               name,
                km_gdb_port_get(),
                km_guest.km_filename);
       }
