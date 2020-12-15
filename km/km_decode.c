@@ -426,7 +426,6 @@ unsigned char x86_3byte_66_3a_w[] = {0x01,   // vpermpd
 
 static void decode_3byte_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins, unsigned char prevop)
 {
-   km_warnx("cannot decode 3 byte instruction 0x0f 0x%x 0x%x", prevop, ins->curbyte);
    unsigned char opcode = ins->curbyte;
    decode_consume_byte(vcpu, ins);
 
