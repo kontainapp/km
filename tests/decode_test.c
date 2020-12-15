@@ -222,6 +222,20 @@ TEST mem_RSI_RDIaddress_test()
    PASS();
 }
 
+TEST test_2byte()
+{
+   ASSERT_EQ(0, setup());
+   asm volatile("mov %0, %%rdi\n\t"
+                "movdqu %%xmm0, (%%rdi)"
+                : /* No output */
+                : "r"(datapage_page)
+                : "%rdi");
+   ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
+   ASSERT_EQ(datapage_page, failing_page());
+   ASSERT_EQ(0, teardown());
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char* argv[])
@@ -238,6 +252,7 @@ int main(int argc, char* argv[])
    RUN_TEST(mem_RSIaddress_test);
    RUN_TEST(mem_RDIaddress_test);
    RUN_TEST(mem_RSI_RDIaddress_test);
+   RUN_TEST(test_2byte);
 
    GREATEST_PRINT_REPORT();
    return greatest_info.failed;
