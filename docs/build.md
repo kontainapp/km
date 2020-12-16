@@ -311,10 +311,11 @@ For non-interactive login to work, you need to create and store personal credent
 Code to convert `az ad sp create-for-rbac` results to env variables needed by Makefiles:
 
 ```sh
-file=~/.ssh/az_$(whoami)_noninteractive
-az ad sp create-for-rbac -n "https://az_$(whoami)_noninteractive" --role contributor --years 3 | tee $file
+t_name=az_$(whoami)_noninteractive
+file=~/.ssh/$t_name
+az ad sp create-for-rbac -n "https://$t_name" --role contributor --years 3 | tee $file
 chmod 400 $file
-echo -e "\n# Azure secret for non-interactive login. Created $(date)" >> ~/.bash_profile
+echo -e "\n# Azure secret for non-interactive login $t_name. Created $(date)" >> ~/.bash_profile
 cat $file  | jq -r  '"export SP_APPID=\(.appId)",
                      "export SP_DISPLAYNAME=\(.displayName)",
                      "export SP_NAME=\(.name)",
