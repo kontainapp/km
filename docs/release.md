@@ -8,41 +8,46 @@ We create releases in public kontainapp/km-release repo so KM sources are not re
 
 A release may include multiple .tar.gz file, but there is at least one - `kontain.tar.gz` with the KM binaries, libs and tools, which is created, and is expected to be installed before other tars. All files related to release are expected to be on gihub, with the exception of Docker images which can be on dockerhub.
 
-## How to create a release
-
 Release content is described in `docs/planning/*.md`.
 
-We maintain releases on [github km-releases](https://github.com/kontainapp/km-releases/releases/) . We also maintain install script and basic install documentation there. This repo is a submodule to KM and is sitting in ./km-releases (after 'git submodule sync --init)
+* We maintain releases on [github km-releases](https://github.com/kontainapp/km-releases/releases/) .
+* We also maintain install script and basic install documentation there.
+* This repo is a submodule to KM and is sitting in ./km-releases (after 'git submodule sync --init).
+* Everything else (including release documentation) is kept in [github km](https://github.com/kontainapp/km).
+* Note: `km-release` is public repo, so no authentication is needed for read access.
 
-Everything else (including release documentation) is kept in [github km](https://github.com/kontainapp/km)
+If a payload need to put extra files im a release, it needs to implement `release:` make target to and package extra files.  The format, location and process is up to a payload but install process needs to be documented in km-releases/README.md.
 
-Note that km-release is public repo, so no authentication is needed for read access.
+## Naming convention for the releases
 
-Each payload may decide to implement `release` make target which needs to package files. The format, location and process is up to a payload but install process needs to be documented in km-releases/README.md.
+* `v0.1-test` For now we hard-code default release tag for testing phase as `v0.1-test` . When a release with this tag is created, it automatically overrides the prior one with the same tag.
+  * For any other tag, if a release with this tag already exists on km-releases repo, publishing of a release will fail.
+* `any other tag starting with v` pushed to KM repo will trigger release pipeline. See commmands below
+* Default release picked by installation script will be kept in `km-releases/default-release` file
 
-To build a release, use `make release` from the appropriate dir (e.g. top-level `make release` will scan all dirs and try to build `release` target here).
-For payloads (or tests, or any other dir scanned from top) we assume that KM (and related libraries) are already installed and /opt/kontain exists.
+We recommend using unique tags, e.g.  `v0.1-beta-demo-nokia` for manual uploads of anything we demo or give to people to try.
+## How to create a release
 
-### Steps
+You can create release by manually running `make release` or triggering CI release pipeline. Details below
 
-For now we hard-code default release tag as `v0.1-test` for automation dev and testing phase. When a release with this tag is created, it automatically overrides the prior one with the same tag.
+### Manual steps to create a release
 
-If any other tag is used and a release with this tag already exists on km-releases repor, publishing of a release will fail.
-
-We recommend using unique tags, e.g.  `v0.10-beta-demo-nokia` for manual uploads of anything we demo or give to people to try.
+Assuming the product  build has succeeded, here are the steps to build a release
 
 1. `make release runenv-image` to build release tarball(s) and payload run environment images
-1. Publish the release on github using `RELEASE_TAG=v0.1-test make -C km publish-release`. (note: manual run requires GITHUB_RELEASE_TOKEN env var with github personal access token).
+1. Publish the release on github using `RELEASE_TAG=\<your_tag> make -C km publish-release`. Default tag is `v0.1-test`
+**Note**: manual run requires GITHUB_RELEASE_TOKEN env var with github personal access token).
 1. Publish runenv images to dockerhub with `make publish-runenv-image`
 1. Validate the release by following install instruction on https://github.com/kontainapp/km-releases. Note: on CI the release is auto-validated.
 
-### CI automation
+### CI automation to create a release
 
 We use existing Azure pipeline mechanism to generate releases. A trigger
-for the release is creating `v*` version tag in KM. For example:
+for the release is creating `v*` version tag in KM or pushing to a branch named `releases/*/*` (e.g. /releases/msterin/v1.0-try`).
+For example:
 
 ```bash
-git tag v0.1-test-manual; git push origin v0.1-test-manual
+tag=v0.1-test-manual; git tag $tag; git push origin $tag
 ```
 
 We also auto-trigger the same release pipeline for any bracnh named 'releases/*/*, e.g. `releases/beta/snapshot-api`
