@@ -270,15 +270,13 @@ In Python we follow [Pep 8](https://www.python.org/dev/peps/pep-0008/)
 We use git submodules, so do not forget to init/update them. Assuming your credentials are in order, here is how to bring the stuff in:
 
 ```sh
+# Force submodule traversal for all git repos
+git config --global submodule.recurse true
+# Clone KM
 git clone git@github.com:kontainapp/km.git
 cd km
+# In order for traverse to work, init has to happen one time
 git submodule update --init
-```
-
-Going forward, do not forget to add --recurse-submodules to `git pull` and `git fetch`, or simply configure it to happen automatically:
-
-```sh
-git config --global fetch.recurseSubmodules true
 ```
 
 ### Build system
