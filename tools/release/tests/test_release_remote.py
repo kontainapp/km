@@ -20,7 +20,7 @@ import logging
 import argparse
 import time
 
-RESOURCE_GROUP = "kontain-release-testing"
+RESOURCE_GROUP = f"kontain-release-testing-{time.monotonic_ns()}"
 RESOURCE_GROUP_LOCATION = "westus"
 TESTING_VM_NAME = "kontain-release-testing-vm"
 #TESTING_VM_IMAGE = "Canonical:UbuntuServer:18.04-LTS:latest"
@@ -51,7 +51,7 @@ def validate_version(version):
         clean_version = version[len("refs/tags/"):]
     elif version.startswith("refs/heads/"):
         logger.warning(
-            "Version is triggered through testing branch. Using default version %s", TESTING_DEFAULT_VERSION)
+            "Release is triggered via branch %s. Using default version %s", version, TESTING_DEFAULT_VERSION)
         clean_version = TESTING_DEFAULT_VERSION
     else:
         clean_version = version
@@ -104,14 +104,14 @@ def clean_up():
 
     subprocess.run([
         "az", "group", "delete",
-        "-y",
+        "-y", "--no-wait", "--debug",
         "--name", RESOURCE_GROUP,
     ], check=False)
 
     logger.info("Clean up successful")
 
 
-def ssh_execute(remote_ip, cmd):
+def ssh_execute(remote_ip, cmd, logger):
     """ ssh_execute execute the cmd through ssh """
 
     ssh_execute_cmd = [
@@ -121,6 +121,7 @@ def ssh_execute(remote_ip, cmd):
         f"{TESTING_VM_ADMIN}@{remote_ip}",
         cmd,
     ]
+    logger.info("ssh execute: %s", ssh_execute_cmd)
 
     subprocess.run(ssh_execute_cmd, check=True)
 
@@ -140,7 +141,7 @@ def test(remote_ip, version):
     run = 0
     while run < max_retry:
         try:
-            ssh_execute(remote_ip, "python3 --version")
+            ssh_execute(remote_ip, "python3 --version", logger)
         except subprocess.CalledProcessError:
             if run + 1 == max_retry:
                 raise
@@ -163,11 +164,11 @@ def test(remote_ip, version):
         f"{TESTING_VM_ADMIN}@{remote_ip}:~/"
     ], check=True)
     ssh_execute(
-        remote_ip, "sudo mkdir -p /opt/kontain ; sudo chown kontain /opt/kontain")
-    ssh_execute(remote_ip, "sudo apt-get update")
-    ssh_execute(remote_ip, "sudo apt-get install -y gcc docker.io libyajl2 libseccomp2 libcap2")
-    ssh_execute(remote_ip, "sudo chmod 666 /dev/kvm")
-    ssh_execute(remote_ip, f"sudo usermod -G docker {TESTING_VM_ADMIN}")
+        remote_ip, "sudo mkdir -p /opt/kontain ; sudo chown kontain /opt/kontain", logger)
+    ssh_execute(remote_ip, "sudo apt-get update", logger)
+    ssh_execute(remote_ip, "sudo apt-get install -y gcc docker.io libyajl2 libseccomp2 libcap2", logger)
+    ssh_execute(remote_ip, "sudo chmod 666 /dev/kvm", logger)
+    ssh_execute(remote_ip, f"sudo usermod -G docker {TESTING_VM_ADMIN}", logger)
 
     if version is None or version == "":
         version_flag = ""
@@ -175,7 +176,7 @@ def test(remote_ip, version):
         version_flag = f"--version {version}"
 
     ssh_execute(
-        remote_ip, f"cd test_release_local; python3 test_release_local.py {version_flag}")
+        remote_ip, f"cd test_release_local; python3 test_release_local.py {version_flag}", logger)
     logger.info("successfully tested")
 
 
@@ -193,6 +194,5 @@ def main():
         test(remote_ip, version)
     finally:
         clean_up()
-
 
 main()

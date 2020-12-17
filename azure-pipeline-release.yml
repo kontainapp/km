@@ -51,14 +51,12 @@ jobs:
       - bash: make withdocker TARGET=release
         displayName: build release tarball
 
-      - bash: |
-          make -C km publish-release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN) RELEASE_TAG=$(Build.SourceBranch)
+      - bash: make -C km publish-release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN) RELEASE_TAG=$(Build.SourceBranch)
         displayName: push release
 
       - bash: cd tools/release/tests; ./test_release_remote.py --version $(Build.SourceBranch)
         displayName: release remote test
 
-      - bash: |
-          az logout
+      - bash: az logout
         condition: always()
         displayName: logout
