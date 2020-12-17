@@ -10,29 +10,33 @@ A release may include multiple .tar.gz file, but there is at least one - `kontai
 
 Release content is described in `docs/planning/*.md`.
 
-* We maintain releases on [github km-releases](https://github.com/kontainapp/km-releases/releases/) .
+* We maintain releases on [github km-releases](https://github.com/kontainapp/km-releases/releases/).
 * We also maintain install script and basic install documentation there.
 * This repo is a submodule to KM and is sitting in ./km-releases (after 'git submodule sync --init).
 * Everything else (including release documentation) is kept in [github km](https://github.com/kontainapp/km).
 * Note: `km-release` is public repo, so no authentication is needed for read access.
 
-If a payload need to put extra files im a release, it needs to implement `release:` make target to and package extra files.  The format, location and process is up to a payload but install process needs to be documented in km-releases/README.md.
+If a payload need to put extra files im a release, it needs to implement `release:` make target to and package extra files. The format, location and process is up to a payload but install process needs to be documented in km-releases/README.md.
 
 ## Naming convention for the releases
 
-* `v0.1-test` For now we hard-code default release tag for testing phase as `v0.1-test` . When a release with this tag is created, it automatically overrides the prior one with the same tag.
+* `v0.1-test` For now we hard-code default release tag for testing phase as `v0.1-test`. When a release with this tag is created, it automatically overrides the prior one with the same tag.
   * For any other tag, if a release with this tag already exists on km-releases repo, publishing of a release will fail.
 * `any other tag starting with v` pushed to KM repo will trigger release pipeline. See commmands below
 * Default release picked by installation script will be kept in `km-releases/default-release` file
 
-We recommend using unique tags, e.g.  `v0.1-beta-demo-nokia` for manual uploads of anything we demo or give to people to try.
+We recommend using unique tags, e.g. `v0.1-beta-demo-nokia` for manual uploads of anything we demo or give to people to try.
+
+## How km-releases installation script picks up the release to install
+
+km-releases installation script installs a release passed a the first argument. If the arg is empty , it extracts the release tag from `default-release` file expected to be present in the root dir for km-releases repo master brach. See `km-releases` repo for more info
 ## How to create a release
 
 You can create release by manually running `make release` or triggering CI release pipeline. Details below
 
 ### Manual steps to create a release
 
-Assuming the product  build has succeeded, here are the steps to build a release
+Assuming the product build has succeeded, here are the steps to build a release
 
 1. `make release runenv-image` to build release tarball(s) and payload run environment images
 1. Publish the release on github using `RELEASE_TAG=\<your_tag> make -C km publish-release`. Default tag is `v0.1-test`
@@ -50,12 +54,12 @@ For example:
 tag=v0.1-test-manual; git tag $tag; git push origin $tag
 ```
 
-We also auto-trigger the same release pipeline for any bracnh named 'releases/*/*, e.g. `releases/beta/snapshot-api`
+We also auto-trigger the same release pipeline for any branch named 'releases/*/*, e.g. `releases/beta/snapshot-api`
 The release pipeline builds, publishes and validates the release. See steps in `azure-pipeline-release.yml`
 
 Here is the use case:
 
-* We decide a specific commit in master or release branch is good enough for release.  The commit should be tested by existing pipelines already
+* We decide a specific commit in master or release branch is good enough for release. The commit should be tested by existing pipelines already
 * We decide to name this release, say `v0.9-beta`
 * We create a tag `v0.9-beta` on the commit and push the tag
   * when/if we need a branch to work on patches, we will create `releases/v0.9-beta` and will be tagging it separately for sub-releases, e.g. `v0.9.1-beta`
