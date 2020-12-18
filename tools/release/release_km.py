@@ -27,8 +27,10 @@ except:
 
 RELEASE_REPO_OWNER = "kontainapp"
 RELEASE_REPO_FULLNAME = "kontainapp/km-releases"
+# Use this is the version name is not compliant with expectations
 RELEASE_DEFAULT_VERSION = "v0.1-test"
-
+# Delete these if they already exist
+OVERRIDABLE_RELEASES = [ RELEASE_DEFAULT_VERSION, "v0.1-beta" ]
 
 def main():
     """ main """
@@ -79,10 +81,10 @@ def main():
         # 404 indicating no release with this version name has been created. This is expected.
         pass
     else:
-        if version != RELEASE_DEFAULT_VERSION:
+        if version not in OVERRIDABLE_RELEASES:
             raise ValueError(f"Release {version} already exist...")
 
-        logger.info(f"Override existing default release {RELEASE_DEFAULT_VERSION}")
+        logger.info(f"Override release {version}")
         release.delete_release()
     try:
         ref = release_repo.get_git_ref(f"tags/{version}")
@@ -90,7 +92,7 @@ def main():
         # 404 indicating no reference with this version name has been created. This is expected.
         pass
     else:
-        if version != RELEASE_DEFAULT_VERSION:
+        if version not in OVERRIDABLE_RELEASES:
             raise ValueError(f"Reference {version} already exist...")
 
         logger.info("Override existing default testing references")
