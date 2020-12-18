@@ -96,14 +96,16 @@ CI_IMAGE_REPOS_TO_PURGE := \
 	test-node-fedora \
 	test-python-fedora \
 	test-jdk-11.0.8-fedora \
+	test-dweb-fedora \
 	demo-runenv-dweb \
 	demo-runenv-python \
 	demo-runenv-node \
 	demo-runenv-jdk-11.0.8 \
 	runenv-kontain-installer
 CI_IMAGE_DRY_RUN ?= --dry-run
+# "image purge" command to execute on each registry. We *ONLY* clean up images tagged as ci-*
 CI_IMAGE_PURGE_CMD="mcr.microsoft.com/acr/acr-cli:0.1 purge --registry {{.Run.Registry}} \
-	--filter '${repo}:.*' --untagged ${CI_IMAGE_DRY_RUN} --ago ${CI_IMAGE_PURGE_AGE}"
+	--filter '${repo}:ci-.*' --untagged ${CI_IMAGE_DRY_RUN} --ago ${CI_IMAGE_PURGE_AGE}"
 
 CI_BUILDENV_IMAGE_VERSION ?= latest
 ci-image-purge: ## purge CI test images older that CI_IMAGE_PURGE_AGE
@@ -111,7 +113,7 @@ ifneq ($(CI_IMAGE_DRY_RUN),)
 	@echo -e "${GREEN}Doing dry run. To do actual purge, run with CI_IMAGE_DRY_RUN=\"\" ${NOCOLOR}"
 endif
 	@echo "Purging images for $(CI_IMAGE_REPOS_TO_PURGE) older than $(CI_IMAGE_PURGE_AGE)"
-	$(foreach repo,${CI_IMAGE_REPOS_TO_PURGE}, az acr run --cmd '${CI_IMAGE_PURGE_CMD}' --registry ${REGISTRY_NAME} /dev/null; )
+	@set -x; $(foreach repo,${CI_IMAGE_REPOS_TO_PURGE}, az acr run --cmd '${CI_IMAGE_PURGE_CMD}' --registry ${REGISTRY_NAME} /dev/null; )
 
 # Helpers to avoid cut-n-paste in pipeline definition.
 ci-prepare-testenv:
