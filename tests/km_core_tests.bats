@@ -10,7 +10,7 @@
 #
 
 # km normally tries to avoid sending its message to stderr when stderr is a pipe.
-# The bats tests need this behavour so, tell it to keep logging to stderr.
+# The bats tests need this behavior so, tell it to keep logging to stderr.
 KM_ARGS="--km-log-to=stderr"
 
 load test_helper
@@ -76,7 +76,7 @@ fi
 # Note about port usage:
 # In order to run tests in parallel, each test which needs a port is configured to use a UNIQUE port.
 # $port_range_start indicates the beginning of the range.
-# Due to bats implementation peculiarities, it's hard to automate port number assignement so each test
+# Due to bats implementation peculiarities, it's hard to automate port number assignment so each test
 # manually defines a unique (for this .bats file) port id (offset within the range),
 # and uses port=$(( $port_range_start + $port_id))
 
@@ -297,7 +297,7 @@ fi
    run ./mmap_test.fedora -v -t mmap_file_test_ex
    assert_line --partial 'fail: 0'
 
-   # make sure there is a filename somwewhere in the maps
+   # make sure there is a filename somewhere in the maps
    run gdb_with_timeout -ex="set radix 0xa" -ex="set pagination off" -ex="handle SIG63 nostop" \
       -ex="source gdb_simple_test.py" -ex="run-test" \
       -ex="q" --args ${KM_BIN} mmap_test$ext -v -t mmap_file_test_ex # KM test
@@ -376,7 +376,7 @@ fi
    local port_id=5
    local km_gdb_port=$(( $port_range_start + $port_id))
    km_trace_file=/tmp/gdb_server_race_test_static_$$.out
-   # Test with breakpoints triggering and SIGILL being happending continuously
+   # Test with breakpoints triggering and SIGILL happening continuously
    # Save output to a log file for our own check using grep below.
    echo trace in $km_trace_file
    km_with_timeout -V -g$km_gdb_port gdb_server_entry_race_test$ext >$km_trace_file 2>&1 &
