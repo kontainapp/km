@@ -66,6 +66,7 @@
          "pidof",
          "ptcb",
          "runc",
+         "runenv",
          "shdr",
          "sregs",
          "symlink",
