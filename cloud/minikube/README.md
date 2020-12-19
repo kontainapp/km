@@ -65,6 +65,7 @@ root@minikube:/#
 
 ```
 
+Note: it is important that the image name includes the label. For example `minikube cache add hello-world` will silently fail.
 The container can now be used inside the minikube cluster. If the container is updated on your local system, then `minikube cache reload` must be called. For example:
 
 ```sh
