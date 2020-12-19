@@ -16,8 +16,8 @@ rm -fr $TARBALL $TARBALL.gz $OPT_KONTAIN_TMP
 cp -rf --preserve=links /opt/kontain $OPT_KONTAIN_TMP
 
 # package by doing `tar -C locations[i] files[i]`
-declare -a locations; locations=($OPT_KONTAIN_TMP ../..        ../..              ../../tools ../../tools/faktory )
-declare -a files ;        files=(.           docs/release tests/hello_test.km   bin           bin )
+declare -a locations; locations=($OPT_KONTAIN_TMP     ../..              ../../tools ../../tools/faktory )
+declare -a files ;        files=(.                  tests/hello_test.km   bin           bin )
 
 for i in $(seq 0 $(("${#locations[@]}" - 1)) ) ; do
    source="${locations[$i]}/${files[$i]}"
