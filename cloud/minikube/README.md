@@ -52,7 +52,7 @@ k8s.gcr.io/pause                          3.2                 80d28bedfe5d      
 
 ```
 
-Minikube includes a number of ways to make Docker images created outside the minikube environment available inside minikube. The full set of options can be found at <https://minikube.sigs.k8s.io/docs/handbook/pushing/>. The most strightforward is the `minikube cache` command.
+Minikube includes a number of ways to make Docker images created outside the minikube environment available inside minikube. The full set of options can be found at <https://minikube.sigs.k8s.io/docs/handbook/pushing/>. The most straightforward is the `minikube cache` command.
 
 ```sh
 $ minikube cache add hello-world:latest
