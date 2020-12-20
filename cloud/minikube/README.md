@@ -1,8 +1,8 @@
 # Minikube
 
-Minikube runs a single node Kubernetes cluster inside a single docker container running on your local linux system. Once minikube is running al of the standard Kubernetes tools to administer the cluster are available from your local system.
+Minikube runs a single node Kubernetes cluster inside a single docker container running on your local linux system. Once minikube is running all of the standard Kubernetes tools to administer the cluster are available from your local system.
 
-Minikube also supports Mac and Windows by running Linux inside a virtual machine. This means even out CEO can run a Kubernetes cluster on hist laptop.
+Minikube also supports Mac and Windows by running Linux inside a virtual machine. The minikube container runs inside the virtual machine. This means even our CEO could run a Kubernetes cluster on his laptop.
 
 See <https://minikube.sigs.k8s.io/docs/start/> for installation instructions. (On Fedora, use the RPM variation).
 
@@ -69,7 +69,7 @@ Note: it is important that the image name includes the label. For example `minik
 The container can now be used inside the minikube cluster. If the container is updated on your local system, then `minikube cache reload` must be called. For example:
 
 ```sh
-$ minikube cache reload hello-world
+$ minikube cache reload hello-world:latest
 $
 ```
 
