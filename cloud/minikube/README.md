@@ -52,26 +52,9 @@ k8s.gcr.io/pause                          3.2                 80d28bedfe5d      
 
 ```
 
-Minikube includes a number of ways to make Docker images created outside the minikube environment available inside minikube. The full set of options can be found at <https://minikube.sigs.k8s.io/docs/handbook/pushing/>. The most straightforward is the `minikube cache` command.
+Minikube includes a number of ways to make Docker images created outside the minikube environment available inside minikube. The full set of options can be found at <https://minikube.sigs.k8s.io/docs/handbook/pushing/>. The most straightforward is the `eval $(minikube docker-env)` which sets the environment variables to force docker commands to be directed at the docker daemon inside minikube.
 
-```sh
-$ minikube cache add hello-world:latest
-$ docker exec -it minikube /bin/bash
-root@minikube:/# docker images
-REPOSITORY                                TAG                 IMAGE ID            CREATED             SIZE
-...
-hello-world                               latest              bf756fb1ae65        11 months ago       13.3kB
-root@minikube:/# 
-
-```
-
-Note: it is important that the image name includes the label. For example `minikube cache add hello-world` will silently fail.
-The container can now be used inside the minikube cluster. If the container is updated on your local system, then `minikube cache reload` must be called. For example:
-
-```sh
-$ minikube cache reload hello-world:latest
-$
-```
+For example, running `eval $(minikube docker-env); docker build -t <name> ...` populates minikube's Docker image store, not the local node's image store.
 
 ## Prerequisities
 
