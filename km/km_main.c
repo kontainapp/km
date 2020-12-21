@@ -103,7 +103,8 @@ static inline void usage()
 
 // Version info. SCM_* is supposed to be set by the build
 static const int ver_major = 0;
-static const int ver_minor = 3;
+static const int ver_minor = 1;
+static char* ver_type = "-beta";
 
 // these 2 macros allow to -Dsome_var=str_value without double quotes around str_value
 #define __STR(_x) #_x
@@ -122,9 +123,10 @@ static const int ver_minor = 3;
 static inline void show_version(void)
 {
    km_errx(0,
-           "Kontain Monitor version %d.%d\nBranch: %s sha: %s build_time: %s",
+           "Kontain Monitor version %d.%d%s\nBranch: %s sha: %s build_time: %s",
            ver_major,
            ver_minor,
+           ver_type,
            _STR_VALUE(SRC_BRANCH),
            _STR_VALUE(SRC_VERSION),
            _STR_VALUE(BUILD_TIME));
