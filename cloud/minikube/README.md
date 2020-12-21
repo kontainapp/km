@@ -15,7 +15,9 @@ CONTAINER ID        IMAGE                               ... NAMES
 
 ```
 
-A nested version of Docker runs inside the minikube docker container, and that docker serves as the image store for the cluster.
+Like any kubernetes cluster, use the `kubectl` command to administer the cluster. To switch between the kubernetes targeted by `kubectl`, use `kubectl config use-context` and `kubectl config list-contexts`.
+
+When run in the default options, nested version of Docker runs inside the minikube docker container, and that docker serves as the image store for the cluster. This is good enough for our purposes.
 
 Since minikube is just a docker container, you can log into it and look at it's nested docker.
 
