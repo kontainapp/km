@@ -16,17 +16,17 @@ Each of these are encapsulated in separate containers and are started in a singl
 
 ## Building the Core
 
-- `make -C kubeless function-controller` builds the function controller binary (`kubeless/bundles/kubeless_linux-amd64/kubeless-function-controller`).
-- `make -C kubeless function-image-builder` builds docker image `kubeless-function-controller:latest` with the controller binary.
+- `make -C kubeless function-controller` builds the function controller docker image (`kubeless-function-controller`).
+- `make -C kubeless function-image-builder` builds the docker image `kubeless-function-controller:latest` used to build function images.
 
 ## Building HTTP Trigger
 
 - `make http-controller-build` builds the HTTP trigger binary (`bundles/kubeless_linux-abd64/http-controller`).
-- `make http-controller-image` builds docker image `kubeless-controller-manager:latest` with the HTTP trigger binary.
+- `make http-controller-image` builds the docker image `http-trigger-controller:latest`.
 
 ## Building Cronjob Trigger
 
-**TBD**: Add this.
+**TBD**: Add this. (I'm not sure we'll need to do this).
 
 ## Building Runtimes
 
@@ -40,10 +40,12 @@ Kubeless uses a YAML file (`kubeless/kubless.yaml`) to deploy into a Kubernetes 
 
 *Note*: The makefile uses a tool called `kubecfg` (which in turn uses a no longer being ddeveloped tool called `ksonnet-lib` (<https://github.com/ksonnet/ksonnet-lib>)) to convert `jsonnet` (<https://jsonnet.org/> template files into YAML files that can be used by `kubectl create -f`. This video gives an overview of `kubecfg` and `jsonnet`: <https://www.youtube.com/watch?v=zpgp3yCmXok>. That said, I haven't been able to figure out how to really use it.
 
-Here is what I do instead.
+For testing you typically need to configure kubeless to use your container(s) in the kubeless control pod instead of the released one in Github. The easiest way to do this is make a copy of `kubeless.yaml` and replace the appropriate `image:` entries.
 
-- Build whatever images I want to test and make sure they are in minikube's container repository.
-- `cp kubeless/kubeless.yaml my_kubeless.yaml`
-- Edit `my_kubeless.yaml` to use the test images.
+Here is what I do instead using `minikube docker-env`.
+
+- `minikube delete ; minikube start` # start from scratch
+- `minikube addons enable ingress` # needed for kubeless HTTP trigger
 - `kubectl create ns kubeless`
-- `kubectl create -f my_kubeless.yaml`
+- Rebuild containers I'm testing.
+- `kubectl create -f <my yaml file>`
