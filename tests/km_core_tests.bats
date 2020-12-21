@@ -836,12 +836,17 @@ fi
    for i in $(seq 1 3); do # only fail if all 3 tries failed
       echo pass $i
       run km_with_timeout pthread_cancel_test$ext -v
-      if [ $status == 0 ] ; then break; fi
+      if [[ $status == 0 && \
+         ! "$output" =~ "PTHREAD_CANCEL_ASYNCHRONOUS" && \
+         "$output" =~ "PTHREAD_CANCEL_DEFERRED" &&
+         "$output" =~ "thread_func(): end of DISABLE_CANCEL_TEST" ]]
+      then break; else status=1; fi
    done
    assert_success
-   assert_line --partial "thread_func(): end of DISABLE_CANCEL_TEST"
-   refute_line --partial "PTHREAD_CANCEL_ASYNCHRONOUS"
-   assert_line --partial "PTHREAD_CANCEL_DEFERRED"
+   # This is what we really need to check once, once pthread_cancel stops being noisy
+   # assert_line --partial "thread_func(): end of DISABLE_CANCEL_TEST"
+   # refute_line --partial "PTHREAD_CANCEL_ASYNCHRONOUS"
+   # assert_line --partial "PTHREAD_CANCEL_DEFERRED"
 }
 
 # C++ tests
