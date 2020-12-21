@@ -111,7 +111,7 @@ MODULES = ${CUSTOM_MODULES}
 all: .check_custom_config pull-modules
 .PHONY: .check_custom_config
 .check_custom_config:
-	@if [ ! -f ${CUSTOM_CONFIG} ] ; then echo "***WARNING @{CUSTOM_CONFIG} is not found"; fi # make sure we fail if custom config is not there
+	@if [ ! -f ${CUSTOM_CONFIG} ] ; then echo "***WARNING ${CUSTOM_CONFIG} is not found"; fi # make sure we fail if custom config is not there
 endif
 
 # rebuild builtin extensions
