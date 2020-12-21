@@ -44,8 +44,16 @@ For testing you typically need to configure kubeless to use your container(s) in
 
 Here is what I do instead using `minikube docker-env`.
 
+Initial setup:
+
 - `minikube delete ; minikube start` # start from scratch
 - `minikube addons enable ingress` # needed for kubeless HTTP trigger
 - `kubectl create ns kubeless`
-- Rebuild containers I'm testing.
+
+Development loop
+- Rebuild container(s) I'm testing.
 - `kubectl create -f <my yaml file>`
+- Do work
+- Remove any kubeless items create (`kubectl delete` hangs if functions, triggers, etc. exist) 
+- `kubectl create -f <my yaml file>`
+- Go to 'Rebuild containter(s)
