@@ -25,6 +25,7 @@
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -118,18 +119,17 @@ TEST test_stat()
    PASS();
 }
 
-
 TEST test_getdents()
 {
    // from 'man 2 getdents
    static const int bufsize = 24 * 4;
    struct linux_dirent {
-      unsigned long  d_ino;     /* Inode number */
-      unsigned long  d_off;     /* Offset to next linux_dirent */
-      unsigned short d_reclen;  /* Length of this linux_dirent */
-      char           d_name[];  /* Filename (null-terminated) */
-                                /* length is actually (d_reclen - 2 -
-                                   offsetof(struct linux_dirent, d_name)) */
+      unsigned long d_ino;     /* Inode number */
+      unsigned long d_off;     /* Offset to next linux_dirent */
+      unsigned short d_reclen; /* Length of this linux_dirent */
+      char d_name[];           /* Filename (null-terminated) */
+                               /* length is actually (d_reclen - 2 -
+                                  offsetof(struct linux_dirent, d_name)) */
       /*
       char           pad;       // Zero padding byte
       char           d_type;    // File type (only since Linux
@@ -686,6 +686,32 @@ TEST test_statfs()
    PASS();
 }
 
+// pselect is a libc front end to pselect6.
+TEST test_pselect6()
+{
+   fd_set rfds;
+   fd_set wfds;
+   fd_set efds;
+
+   FD_ZERO(&rfds);
+   FD_ZERO(&wfds);
+   FD_ZERO(&efds);
+
+   FD_SET(0, &rfds);
+   FD_SET(0, &wfds);
+   FD_SET(0, &efds);
+
+   struct timespec ts = {};
+
+   ASSERT_EQ(-1, syscall(SYS_pselect6, 1, &rfds, &wfds, &efds, &ts, (void*)1));
+   ASSERT_EQ(errno, EFAULT);
+
+   uint64_t sigs[] = {1, 1};
+   ASSERT_EQ(-1, syscall(SYS_pselect6, 1, &rfds, &wfds, &efds, &ts, sigs));
+   ASSERT_EQ(errno, EFAULT);
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -715,6 +741,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_proc_sched);
    RUN_TEST(test_proc_cmdline);
    RUN_TEST(test_close_stdio);
+   RUN_TEST(test_pselect6);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
