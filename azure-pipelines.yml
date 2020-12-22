@@ -10,7 +10,7 @@ trigger:
       - ci/* # prefix ci/ to force CI on every push. e.g. ci/msterin/test-azure-devops
   paths:
     exclude:
-      - **/README.md
+      - README.md
       - compile_commands.json
       - .vscode/*
       - docs/*
@@ -23,7 +23,7 @@ pr:
       - master
   paths:
     exclude:
-      - **/README.md
+      - README.md
       - compile_commands.json
       - .vscode/*
       - docs/*
