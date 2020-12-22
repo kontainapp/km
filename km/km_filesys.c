@@ -1385,12 +1385,12 @@ uint64_t km_fs_pselect6(km_vcpu_t* vcpu,
    }
    return ret;
 }
-uint64_t km_fs_pselect(km_vcpu_t* vcpu,
-                       int nfds,
-                       fd_set* readfds,
-                       fd_set* writefds,
-                       fd_set* exceptfds,
-                       struct timeval* timeout)
+uint64_t km_fs_select(km_vcpu_t* vcpu,
+                      int nfds,
+                      fd_set* readfds,
+                      fd_set* writefds,
+                      fd_set* exceptfds,
+                      struct timeval* timeout)
 {
    return select(nfds, readfds, writefds, exceptfds, timeout);
 }
