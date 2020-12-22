@@ -7,7 +7,7 @@ trigger:
       - kkm/ci/* # Force CI run. For example, kkm/ci/some-changes
   paths:
     exclude:
-      - **/README.md
+      - README.md
       - compile_commands.json
       - .vscode/*
       - docs/*
@@ -21,7 +21,7 @@ pr:
       - master
   paths:
     exclude:
-      - **/README.md
+      - README.md
       - compile_commands.json
       - .vscode/*
       - docs/*
