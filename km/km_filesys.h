@@ -239,8 +239,15 @@ uint64_t km_fs_pselect6(km_vcpu_t* vcpu,
                         fd_set* readfds,
                         fd_set* writefds,
                         fd_set* exceptfds,
-                        struct timeval* timeout,
+                        struct timespec* timeout,
                         km_pselect6_sigmask_t* sigp);
+
+uint64_t km_fs_select(km_vcpu_t* vcpu,
+                      int nfds,
+                      fd_set* readfds,
+                      fd_set* writefds,
+                      fd_set* exceptfds,
+                      struct timeval* timeout);
 // int poll(struct pollfd *fds, nfds_t nfds, int timeout);
 uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeout);
 // int epoll_create1(int flags);

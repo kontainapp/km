@@ -1362,117 +1362,48 @@ uint64_t km_fs_pselect6(km_vcpu_t* vcpu,
                         fd_set* readfds,
                         fd_set* writefds,
                         fd_set* exceptfds,
-                        struct timeval* timeout,
+                        struct timespec* timeout,
                         km_pselect6_sigmask_t* sigp)
 {
-   fd_set* host_readfds = NULL;
-   fd_set* host_writefds = NULL;
-   fd_set* host_exceptfds = NULL;
-   fd_set host_readfds_;
-   fd_set host_writefds_;
-   fd_set host_exceptfds_;
-   int host_nfds = -1;
-
-   if (readfds != NULL) {
-      FD_ZERO(&host_readfds_);
-      host_readfds = &host_readfds_;
-   }
-   if (writefds != NULL) {
-      FD_ZERO(&host_writefds_);
-      host_writefds = &host_writefds_;
-   }
-   if (exceptfds != NULL) {
-      FD_ZERO(&host_exceptfds_);
-      host_exceptfds = &host_exceptfds_;
-   }
-
-   for (int i = 0; i < nfds; i++) {
-      int host_fd = km_fs_g2h_fd(i, NULL);
-      if (host_fd < 0) {
-         continue;
-      }
-      if (readfds != NULL && FD_ISSET(i, readfds)) {
-         FD_SET(host_fd, host_readfds);
-         host_nfds = MAX(host_nfds, host_fd);
-      }
-      if (writefds != NULL && FD_ISSET(i, writefds)) {
-         FD_SET(host_fd, host_writefds);
-         host_nfds = MAX(host_nfds, host_fd);
-      }
-      if (exceptfds != NULL && FD_ISSET(i, exceptfds)) {
-         FD_SET(host_fd, host_exceptfds);
-         host_nfds = MAX(host_nfds, host_fd);
-      }
-   }
-   host_nfds++;   // per select(2) nfds is highest-numbered file descriptor in any of the three sets, plus 1
-
-   // if there is a sigmask for the syscall, Account for it in vcpu.
+   // Account for sigmask changes in vcpu
    km_sigset_t oldset;
    km_sigemptyset(&oldset);
    if (sigp != NULL) {
       oldset = vcpu->sigmask;
       vcpu->sigmask = *(km_sigset_t*)sigp->ss;
    }
-   int ret = __syscall_6(SYS_select,
-                         host_nfds,
-                         (uintptr_t)host_readfds,
-                         (uintptr_t)host_writefds,
-                         (uintptr_t)host_exceptfds,
+   int ret = __syscall_6(SYS_pselect6,
+                         nfds,
+                         (uintptr_t)readfds,
+                         (uintptr_t)writefds,
+                         (uintptr_t)exceptfds,
                          (uintptr_t)timeout,
                          (uintptr_t)sigp);
-
    // if there is a sigmask for the syscall, restore previous value.
    if (sigp != NULL) {
       vcpu->sigmask = oldset;
    }
-   if (ret > 0) {
-      if (readfds != NULL) {
-         FD_ZERO(readfds);
-      }
-      if (writefds != NULL) {
-         FD_ZERO(writefds);
-      }
-      if (exceptfds != NULL) {
-         FD_ZERO(exceptfds);
-      }
-      for (int i = 0; i < host_nfds; i++) {
-         int guest_fd = km_fs_h2g_fd(i);
-         if (guest_fd < 0) {
-            continue;
-         }
-         if (readfds != NULL && FD_ISSET(i, host_readfds)) {
-            FD_SET(guest_fd, readfds);
-         }
-         if (writefds != NULL && FD_ISSET(i, host_writefds)) {
-            FD_SET(guest_fd, writefds);
-         }
-         if (exceptfds != NULL && FD_ISSET(i, host_exceptfds)) {
-            FD_SET(guest_fd, exceptfds);
-         }
-      }
-   }
    return ret;
+}
+uint64_t km_fs_pselect(km_vcpu_t* vcpu,
+                       int nfds,
+                       fd_set* readfds,
+                       fd_set* writefds,
+                       fd_set* exceptfds,
+                       struct timeval* timeout)
+{
+   return select(nfds, readfds, writefds, exceptfds, timeout);
 }
 
 // int poll(struct pollfd *fds, nfds_t nfds, int timeout);
 uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeout)
 {
-   struct pollfd host_fds[nfds];
-
-   // fds checked before this is called.
    for (int i = 0; i < nfds; i++) {
-      if ((host_fds[i].fd = km_fs_g2h_fd(fds[i].fd, NULL)) < 0) {
+      if (km_fs_g2h_fd(fds[i].fd, NULL) < 0) {
          return -EBADF;
       }
-      host_fds[i].events = fds[i].events;
-      host_fds[i].revents = 0;
    }
-   int ret = __syscall_3(SYS_poll, (uintptr_t)host_fds, nfds, timeout);
-   if (ret > 0) {
-      for (int i = 0; i < nfds; i++) {
-         fds[i].revents = host_fds[i].revents;
-      }
-   }
+   int ret = __syscall_3(SYS_poll, (uintptr_t)fds, nfds, timeout);
    return ret;
 }
 
