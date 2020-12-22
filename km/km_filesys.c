@@ -43,6 +43,7 @@
 #include "km_exec.h"
 #include "km_filesys.h"
 #include "km_mem.h"
+#include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
 
@@ -1404,6 +1405,14 @@ uint64_t km_fs_pselect6(km_vcpu_t* vcpu,
       }
    }
    host_nfds++;   // per select(2) nfds is highest-numbered file descriptor in any of the three sets, plus 1
+
+   // if there is a sigmask for the syscall, Account for it in vcpu.
+   km_sigset_t oldset;
+   km_sigemptyset(&oldset);
+   if (sigp != NULL) {
+      oldset = vcpu->sigmask;
+      vcpu->sigmask = *(km_sigset_t*)sigp->ss;
+   }
    int ret = __syscall_6(SYS_select,
                          host_nfds,
                          (uintptr_t)host_readfds,
@@ -1412,6 +1421,10 @@ uint64_t km_fs_pselect6(km_vcpu_t* vcpu,
                          (uintptr_t)timeout,
                          (uintptr_t)sigp);
 
+   // if there is a sigmask for the syscall, restore previous value.
+   if (sigp != NULL) {
+      vcpu->sigmask = oldset;
+   }
    if (ret > 0) {
       if (readfds != NULL) {
          FD_ZERO(readfds);
