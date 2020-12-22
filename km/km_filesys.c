@@ -1356,13 +1356,13 @@ uint64_t km_fs_recvfrom(
    return ret;
 }
 
-//  int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
-uint64_t km_fs_select(km_vcpu_t* vcpu,
-                      int nfds,
-                      fd_set* readfds,
-                      fd_set* writefds,
-                      fd_set* exceptfds,
-                      struct timeval* timeout)
+uint64_t km_fs_pselect6(km_vcpu_t* vcpu,
+                        int nfds,
+                        fd_set* readfds,
+                        fd_set* writefds,
+                        fd_set* exceptfds,
+                        struct timeval* timeout,
+                        km_pselect6_sigmask_t* sigp)
 {
    fd_set* host_readfds = NULL;
    fd_set* host_writefds = NULL;
@@ -1404,12 +1404,13 @@ uint64_t km_fs_select(km_vcpu_t* vcpu,
       }
    }
    host_nfds++;   // per select(2) nfds is highest-numbered file descriptor in any of the three sets, plus 1
-   int ret = __syscall_5(SYS_select,
+   int ret = __syscall_6(SYS_select,
                          host_nfds,
                          (uintptr_t)host_readfds,
                          (uintptr_t)host_writefds,
                          (uintptr_t)host_exceptfds,
-                         (uintptr_t)timeout);
+                         (uintptr_t)timeout,
+                         (uintptr_t)sigp);
 
    if (ret > 0) {
       if (readfds != NULL) {

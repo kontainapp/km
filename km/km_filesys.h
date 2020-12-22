@@ -228,13 +228,19 @@ uint64_t km_fs_recvfrom(km_vcpu_t* vcpu,
                         int flags,
                         struct sockaddr* addr,
                         socklen_t* addrlen);
-//  int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
-uint64_t km_fs_select(km_vcpu_t* vcpu,
-                      int nfds,
-                      fd_set* readfds,
-                      fd_set* writefds,
-                      fd_set* exceptfds,
-                      struct timeval* timeout);
+//  int pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval,
+//  *timeout, void* sigp);
+typedef struct km_pselect6_sigmask {
+   sigset_t* ss;
+   size_t ss_len;
+} km_pselect6_sigmask_t;
+uint64_t km_fs_pselect6(km_vcpu_t* vcpu,
+                        int nfds,
+                        fd_set* readfds,
+                        fd_set* writefds,
+                        fd_set* exceptfds,
+                        struct timeval* timeout,
+                        km_pselect6_sigmask_t* sigp);
 // int poll(struct pollfd *fds, nfds_t nfds, int timeout);
 uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeout);
 // int epoll_create1(int flags);
