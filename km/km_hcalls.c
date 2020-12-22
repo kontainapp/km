@@ -762,9 +762,10 @@ static km_hc_ret_t rmdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t pselect6_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   //  int select(int nfds, fd_set *readfds, fd_set *writefds,
-   //             fd_set *exceptfds, struct timeval *timeout);
+   //  int pselect6(int nfds, fd_set *readfds, fd_set *writefds,
+   //             fd_set *exceptfds, struct timeval *timeout, void* ptr);
    // NULL is a legal value for readfds, writefds, exceptfds, and timeout
+   // See 'man pselect' man page for ptr format
    void* readfds = km_gva_to_kma(arg->arg2);
    void* writefds = km_gva_to_kma(arg->arg3);
    void* exceptfds = km_gva_to_kma(arg->arg4);
@@ -809,8 +810,6 @@ static km_hc_ret_t pselect6_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t select_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->arg6 = 0;
-   return pselect6_hcall(vcpu, hc, arg);
    //  int select(int nfds, fd_set *readfds, fd_set *writefds,
    //             fd_set *exceptfds, struct timeval *timeout);
    // NULL is a legal value for readfds, writefds, exceptfds, and timeout
