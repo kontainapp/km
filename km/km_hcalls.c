@@ -760,8 +760,57 @@ static km_hc_ret_t rmdir_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t pselect6_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   //  int select(int nfds, fd_set *readfds, fd_set *writefds,
+   //             fd_set *exceptfds, struct timeval *timeout);
+   // NULL is a legal value for readfds, writefds, exceptfds, and timeout
+   void* readfds = km_gva_to_kma(arg->arg2);
+   void* writefds = km_gva_to_kma(arg->arg3);
+   void* exceptfds = km_gva_to_kma(arg->arg4);
+   void* timeout = km_gva_to_kma(arg->arg5);
+   km_pselect6_sigmask_t* sigp = km_gva_to_kma(arg->arg6);
+   if (readfds == NULL && arg->arg2 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (writefds == NULL && arg->arg3 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (exceptfds == NULL && arg->arg4 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (timeout == NULL && arg->arg5 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (sigp == NULL && arg->arg6 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   void* sav_ss = 0;
+   if (sigp != NULL) {
+      void* tmp = km_gva_to_kma((uintptr_t)sigp->ss);
+      if (tmp == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+      sav_ss = sigp->ss;
+      sigp->ss = tmp;
+   }
+   arg->hc_ret = km_fs_pselect6(vcpu, arg->arg1, readfds, writefds, exceptfds, timeout, sigp);
+   if (sigp != NULL) {
+      sigp->ss = sav_ss;
+   }
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t select_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   arg->arg6 = 0;
+   return pselect6_hcall(vcpu, hc, arg);
    //  int select(int nfds, fd_set *readfds, fd_set *writefds,
    //             fd_set *exceptfds, struct timeval *timeout);
    // NULL is a legal value for readfds, writefds, exceptfds, and timeout
@@ -1830,6 +1879,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_fsync] = fsync_hcall;
    km_hcalls_table[SYS_fdatasync] = fdatasync_hcall;
    km_hcalls_table[SYS_select] = select_hcall;
+   km_hcalls_table[SYS_pselect6] = pselect6_hcall;
    km_hcalls_table[SYS_pause] = pause_hcall;
    km_hcalls_table[SYS_sendto] = sendto_hcall;
    km_hcalls_table[SYS_nanosleep] = nanosleep_hcall;
