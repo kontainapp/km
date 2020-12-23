@@ -55,6 +55,7 @@
          "hcalls",
          "hwcap",
          "infox",
+         "kontaind",
          "kubernetes",
          "memsz",
          "mmaps",
