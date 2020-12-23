@@ -480,7 +480,7 @@ fi
 #   qXfer:libraries-svr4:read
 #   vFile:{open,pread,close,fstat,setfs}  readlink is supported but not yet tested.
 # Also test the new -G flag to build/km/km.  This allows us to attach gdb to km before
-# the dynamic linker starts. -g attachs at the _start entry point.
+# the dynamic linker starts. -g attaches at the _start entry point.
 # We test qXfer:exec-file:read by not supplying the name of the executable on the
 # gdb command line.  This forces the client to query for the executable file name.
 # The executable we run for this test is not very important.
@@ -554,7 +554,7 @@ fi
    [[ $test_type =~ (alpine|glibc)* ]] || assert_line --partial "in do_nothing_thread (instance"
    assert_line --partial "Inferior 1 (Remote target) detached"
 
-   # 2nd try to test asynch gdb client attach to the target
+   # 2nd try to test async gdb client attach to the target
    run gdb_with_timeout -q -nx \
       --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_attach_test.gdb" --ex=q
@@ -1272,7 +1272,7 @@ fi
    assert_success
 }
 
-@test km_logging_test($test_type): test the --km-log-to flag (hello_test$ext)" {
+@test "km_logging_test($test_type): test the --km-log-to flag (hello_test$ext)" {
    LOGFILE="km_$$.log"
    # We need KM_ARGS but we need to control the logging settings for this test
    KM_ARGS_PRIVATE=`echo $KM_ARGS | sed -e "s/--km-log-to=stderr//"`

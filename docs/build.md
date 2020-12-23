@@ -13,7 +13,7 @@ We assume the user has administrator privileges, i.e. is a member of group wheel
 ### sudo
 
 Some scripts need to be run as root.
-To make things easier it is best to enable passwordless sudo.
+To make things easier it is best to enable password-less `sudo`.
 Edit file `/etc/sudoers` using `sudo visudo`,
 comment out the line `%wheel        ALL=(ALL)       ALL` and uncomment out the line
 `%wheel  ALL=(ALL)       NOPASSWD: ALL`.
@@ -163,14 +163,14 @@ It helps to configure local git settings and aliases in `~/.gitconfig`:
 ```txt
 # This is Git's per-user configuration file.
 [user]
-	name = You Name
-	email = you_name@kontain.app
+   name = You Name
+   email = you_name@kontain.app
 
 [alias]
         ls = log --graph --pretty=format:'%C(yellow)%h%Creset%C(cyan)%C(bold)%d%Creset %s (%C(cyan)%cr%Creset %C(green)%ce%Creset)'
 
 [help]
-	autocorrect = 1
+   autocorrect = 1
 ```
 
 Clone the source repo, make sure to update submodules:
@@ -231,6 +231,7 @@ enabled=1
 gpgcheck=1
 gpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
 ```
+
 ```bash
 sudo dnf install -y code
 ```
@@ -245,6 +246,7 @@ enabled=1
 gpgcheck=1
 gpgkey=https://dl.google.com/linux/linux_signing_key.pub" > /etc/yum.repos.d/google-chrome.repo'
 ```
+
 ```bash
 dnf install -y google-chrome-stable
 ```
@@ -255,7 +257,7 @@ We use the Visual Studio Code (VS Code) IDE. Our workspace (`km_repo_root/.vscod
 
 **If you are not using VS Code, it is your responsibility to run clang-format with `.clang-format` (from the repo) before any PR**
 
-Some of the style points we maintainin C which are not enforced by clang:
+Some of the style points we maintaining C which are not enforced by clang:
 
 * never use single line `if () statement;` - always use `{}`,i.e. `if() {statement;}`
 * single line comments are usually `//`, multiple lines `/* ... */`
@@ -339,7 +341,6 @@ make -C tests pull-buildenv-image
 
 And for specific payload (e.g. python):
 
-
 ```sh
 make -C python pull-buildenv-image
 ```
@@ -348,8 +349,7 @@ make -C python pull-buildenv-image
 make pull-buildenv-image
 ```
 
-from the top will getch all of the build environments.
-
+from the top will get all of the build environments.
 
 #### build the 'buildenv' image locally using Docker
 
@@ -387,7 +387,7 @@ make buildenv-local-fedora  # currently supported on fedora only !
 
 To build with docker, make sure `docker` and  `make` are installed, and buildenv image is available (see section about this above) and run the commands below.
 
-*Building with docker* will use a docker container with all necessary pre-requisites installed; will use local source tree exposed to Docker via a docker volume, and will place the results in the local *build* directory - so the end result is exactly the same as regular 'make', but it does not require pre-reqs installed on the local machine. One the the key use cases for build with docker is cloud-based CI/CD pipeline.
+*Building with docker* will use a docker container with all necessary pre-requisites installed; will use local source tree exposed to Docker via a docker volume, and will place the results in the local *build* directory - so the end result is exactly the same as regular 'make', but it does not require pre-requisites installed on the local machine. One the the key use cases for build with docker is cloud-based CI/CD pipeline.
 
 ```sh
  make -C tests .buildenv-local-lib # one time to prep host machine (see tests/readme.md)
@@ -416,7 +416,7 @@ make test
 
 At any dir, use `make help` to get help on targets. Or, if you use bash, type `make<tab>` to see the target list.
 
-Build system uses tried-and-true `make` and related tricks. Generally, each dir with sources (or with subdirs) needs to have a Makefile. Included makfiles are in `make/*mk`.
+Build system uses tried-and-true `make` and related tricks. Generally, each dir with sources (or with subdirs) needs to have a Makefile. Included makefiles are in `make/*mk`.
 
 This Makefile need to have the following:
 
@@ -481,8 +481,8 @@ onto each node. We combined these functionalities into `kontaind`. `kontaind` us
 github.com/kubevirt/kubernetes-device-plugins/pkg/kvm to expose /dev/kvm to
 the pods, and a installer of our own implementation.
 
-* deploy `kontaind`
 ```sh
+# deploy `kontaind`
 make -C cloud/k8s/kontaind runenv-image
 make -C cloud/k8s/kontaind push-runenv-image
 make -C cloud/k8s/kontaind install
@@ -512,19 +512,23 @@ including FAQ (e.g how to run CI containers manually)
 
 To maintain the quality of code, we implemented code coverage for `km`.
 First, we need to build a version of km with extra flag `--coverage`.
-```
+
+```sh
 make -C km coverage
 ```
-The newly built km coverage binary will be locationed at
+
+The newly built km coverage binary will be located at
 `$TOP/build/km/coverage/km` along with the object files and `.gcno` filed
 used for testing coverage. With the compile flags, `km` now outputs extra
 files to track the coverage. We run the same tests using this binary to
 obtain the test coverage. For extra details, see `gcov(1)` and `gcc(1)`.
 
 To run tests for coverage analysis:
-```
+
+```sh
 make -C tests coverage
 ```
+
 Note: the `--coverage` flag will cause km to output `.gcda` files that's used
 in the coverage analysis. The path which the files is outputted to is
 configured at compile time through flags and by default configured to the
@@ -535,21 +539,27 @@ is no easy way to change this path at runtime.
 
 We also have the option to run coverage tests inside the container. First, we
 need to build the km binary inside the container.
-```
+
+```sh
 make -C km withdocker TARGET=coverage
 ```
+
 The we can run the tests:
-```
+
+```sh
 make -C tests coverage-withdocker
 ```
+
 Or we can run both steps together with:
-```
+
+```sh
 make withdocker TARGET=coverage
 ```
+
 Note, because output of coverage files like `.gcda` files are configured at
 compile time, and because the filesystem structure inside the buildenv and on
 the host are different, users need to do both compile + run coverage either
-on the host, or withdocker. Doing one on the host and another withdocker will
+on the host, or `withdocker`. Doing one on the host and another `withdocker` will
 fail, and there is no easy way to support the workflow, because the absolute
 path is hardcoded at compile time.
 
@@ -561,7 +571,8 @@ located under `/opt/kontain/bin/coverage/km`. Testenv doesn't include any
 source files, by design, so the analysis of coverage using `gcov` needs to
 take place on the host, where it can have access to source code. Therefore,
 scripts will copy the `.gcda` files onto the host. To run:
-```
+
+```sh
 make -C tests coverage-withk8s
 ```
 
@@ -579,6 +590,7 @@ following url: https://kontainapp.github.io/km-coverage-report. To access
 older reports, checkout the repo and search using the tags.
 
 To see coverage for your tag, run the following:
+
 ```bash
 cd ~/workspace
 git clone -b **your_tag** git@github.com:kontainapp/km-coverage-report.git

@@ -62,5 +62,11 @@
    "python.linting.pylintEnabled": true,
    "python.pythonPath": "/usr/bin/python3",
    "editor.wordWrapColumn": 100,
-   "files.autoSave": "onFocusChange"
+   "files.autoSave": "onFocusChange",
+   "cSpell.enableFiletypes": [
+      "azure-pipelines",
+      "bats",
+      "markdown",
+      "scminput"
+   ]
 }
