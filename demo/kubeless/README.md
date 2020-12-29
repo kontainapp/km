@@ -16,6 +16,8 @@ Each of these are encapsulated in separate containers and are started in a singl
 
 ## Building the Core
 
+We've created a fork of the kubeless core in github. See <https://github.com/kontainapp/kubeless>.
+
 - `make -C kubeless function-controller` builds the function controller docker image (`kubeless-function-controller`).
 - `make -C kubeless function-image-builder` builds the docker image `kubeless-function-controller:latest` used to build function images.
 
@@ -30,7 +32,13 @@ Each of these are encapsulated in separate containers and are started in a singl
 
 ## Building Runtimes
 
-**TBD**: Add this.
+Kubeless uses a separate git repo for runtime. We've created a fork of the kubeless runtimes repo (<https://github.com/kontainapp/runtimes>). The developer guide in the repo gives a good overview of the process to develop a runtime.
+
+Kubeless assumes a container registry
+
+<https://github.com/kubeless/kubeless/blob/master/docs/building-functions.md>
+
+Individual functions are wrapped in their own dedicated container. These containers are tagged with the SHA of the function and it's dependencies (if any). This allows kubeless to recognize when a function already exists in the container registry it is using.
 
 ## Deploying into Kuberntes
 
@@ -51,9 +59,21 @@ Initial setup:
 - `kubectl create ns kubeless`
 
 Development loop
+
 - Rebuild container(s) I'm testing.
 - `kubectl create -f <my yaml file>`
 - Do work
-- Remove any kubeless items create (`kubectl delete` hangs if functions, triggers, etc. exist) 
+- Remove any kubeless items create (`kubectl delete` hangs if functions, triggers, etc. exist)
 - `kubectl create -f <my yaml file>`
 - Go to 'Rebuild containter(s)
+
+## Design Notes
+
+Kubeless uses two mechanisms to persist data:
+
+- Kubernetes cluster configuration database (`etcd`).
+- Container repository (configurable, defaults to Docker Hub). Container types
+  - kubeless-function-controller - main controller for kubeless. Listens for changes to functions.
+  - Trigger controllers http-trigger-controller, cronjob-trigger-controller, etc. - trigger controllers. Listens for changes to triggers. Will delete trigger if function is deleted.
+  - function-image-builder -  Builds function containers.
+  - function containers - Runs a single function.
