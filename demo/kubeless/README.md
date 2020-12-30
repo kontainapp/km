@@ -67,6 +67,12 @@ Development loop
 - `kubectl create -f <my yaml file>`
 - Go to 'Rebuild containter(s)
 
+## Playing with runtimes
+
+```
+KUBECFG_JPATH=$(pwd)/ksonnet-lib:$(pwd)/../runtimes kubecfg show  -o yaml km_kubeless.jsonnet > km_kubeless.yaml
+```
+
 ## Design Notes
 
 Kubeless uses two mechanisms to persist data:
