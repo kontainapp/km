@@ -59,12 +59,13 @@ RUN dnf install -y \
    gcc gcc-c++ make gdb git-core gcovr \
    time patch file findutils diffutils which procps-ng python2 \
    glibc-devel glibc-static libstdc++-static \
-   elfutils-libelf-devel elfutils-libelf-devel-static bzip2-devel \
+   elfutils-libelf-devel bzip2-devel \
    zlib-static bzip2-static xz-static \
    openssl-devel openssl-static jq googler \
    python3-markupsafe parallel \
    automake autoconf libcap-devel yajl-devel libseccomp-devel \
    python3-libmount libtool \
+   flex bison zstd gettext-devel bsdtar xz-devel \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 
 COPY --from=alpine-lib-image $PREFIX $PREFIX/

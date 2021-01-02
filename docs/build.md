@@ -80,6 +80,8 @@ sudo usermod -aG docker root
 sudo usermod -aG docker $(id -un)
 ```
 
+In order for these changes to take effect you need to exit and login again.
+
 Enable docker start on system boot, and start it:
 
 ```bash
@@ -146,6 +148,9 @@ repo_gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg" > /etc/yum.repos.d/kubernetes.repo'
 sudo dnf install -y git python3-cffi make azure-cli kubectl
 ```
+
+Don't forget to exit and login again so that group membership takes effect.
+Or simply reboot the system and login.
 
 ### Source tree and build environment
 

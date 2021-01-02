@@ -15,7 +15,7 @@
 #  - testenv-image (all artifacts for running build suites, including KM and payloads)
 #  - runenv-image (minimal image for running KM+payload)
 #
-# The first 2 are explained in docs/build.md and docs/images-targets.md
+# The first 2 are explained in docs/build.md and docs/image-targets.md
 #
 # The runenv-image is a bare bones image for specific payload.
 # 		Can be built with 'make runenv-image'. The following info needs to be defined in Makefile for it to work

@@ -116,7 +116,7 @@ Each payload also supports the same targets supported for KM, but uses payload-s
 ### Running a CI with custom buildenv images
 
 If a PRs needs changes to buildenv images, it needs to have these new buildenv images built, pushed to Azure
-and then used during CI run for this PR, all without as little impact to other runs as possible.
+and then used during CI run for this PR, all with as little impact to other runs as possible.
 
 Also, the PR may need to change ALL buildenv images if they are impacted by the base one.
 
@@ -130,7 +130,7 @@ If new buildenv image is NOT backward compatible and will break prior builds. Do
 
 1. Make sure the image works by using PR with the custom image and BUILDENV_IMAGE_VERSION set (below)
 2. Merge it as is. This way anyone who rebases will still have working build
-3. Ask everyone to pause (ot submitting and not looking at PRs) .
+3. Ask everyone to pause (not submitting and not looking at PRs) .
 4. Make a small PR which rollbacks custom imagename. Push new image as :latest, merge the PR
 5. Let everyone know to rebase and resume
 .

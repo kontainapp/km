@@ -21,7 +21,7 @@ INCLUDES := ${TOP}/include
 LLIBS := elf z
 COVERAGE := yes
 LOCAL_COPTS := -Werror -D_GNU_SOURCE
-LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd
+LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -L ${TOP}/libelf/elfutils/libelf
 
 include ${TOP}/make/actions.mk
 

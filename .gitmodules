@@ -22,3 +22,6 @@
 [submodule "container-runtime/crun"]
 	path = container-runtime/crun
 	url = https://github.com/kontainapp/crun
+[submodule "libelf/elfutils"]
+	path = libelf/elfutils
+	url = git://sourceware.org/git/elfutils.git

@@ -162,8 +162,14 @@ It is recommended to install fewer packages to save disk space.
 Once the installation is complete reboot the machine and follow configuration steps.
 Create a user named `fedora`.
 When this is complete login on the console
-and follow steps in `build.md` document to prepare new Fedora machine.
-Once you enable and start `sshd` you can connect from regular terminal window.
+and create `.ssh` directory and ssh key using `ssh-keygen`.
+Enable and start `sshd` so you can connect from regular terminal window:
+```bash
+ssh-keygen
+sudo systemctl enable sshd
+sudo systemctl start sshd
+```
+Then follow the steps in `build.md` document to prepare new Fedora machine.
 
 When the system is done to your liking run `sudo fstrim /` and shut down the system.
 The disk file `$VM_DISK` will be your base image.
