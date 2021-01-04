@@ -36,6 +36,17 @@ void cpuid(uint32_t op, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* e
 #endif
 }
 
+/*
+ * have a local macro to support subop
+ * cpuid.h implementation of __get_cpuid does not support subops
+ */
+void cpuid_with_subop(uint32_t op, uint32_t subop, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* edx)
+{
+   __asm__ __volatile__ ("cpuid\n\t"
+      : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
+      : "0" (op), "2" (subop));
+}
+
 typedef union EBChar4 {
    uint32_t u32;
    char c[4];
@@ -150,7 +161,7 @@ int main(void)
       print_feature(ecx & (1 << 30), "RDRAND        (Random Number Generator)");
    }
    if (ids >= 7) {
-      cpuid(7, &eax, &ebx, &ecx, &edx);
+      cpuid_with_subop(7, 0, &eax, &ebx, &ecx, &edx);
       print_feature(ebx & (1 << 5), "AVX2          (Advanced Vector Extensions 2)");
       print_feature(ebx & (1 << 3), "BMI1          (Bit Manipulations Instruction Set 1)");
       print_feature(ebx & (1 << 8), "BMI2          (Bit Manipulations Instruction Set 2)");
