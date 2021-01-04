@@ -49,12 +49,10 @@ todo_alpine_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
 not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 readlink_argv km_identity '
-todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
+todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps '
 
 todo_so=''
-not_needed_so='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load cli mem_* file* gdb_* mmap_1 hc_check \
-    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore files_on_exec readlink_argv km_identity '
-
+not_needed_so='*'
 
 # make sure it does not leak in from the outer shell, it can mess out the output
 unset KM_VERBOSE

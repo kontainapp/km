@@ -108,7 +108,7 @@ if [ ! -f $gcc_path_file ] ; then
    echo "Error: $gcc_path_file is not found - check installation."
    exit 1
 fi
-LGCC=${PREFIX}/$(cat $gcc_path_file)
+LGCC=${PREFIX}/alpine-lib$(cat $gcc_path_file)
 
 # For both static and dynamic buids, locations to scout for libs, and common flags
 ALPINE_PATH="-B${LL} -B${LC} -B${LGCC}"
@@ -121,7 +121,7 @@ ALPINE_RPATH="-Wl,-rpath=${LC} -Wl,-rpath=${LGCC}"
 # Flags for building kontain (hypercall-based) unikernels
 HCALL_STATIC="-static   ${HCALL_PATH}                -no-pie -Wl,-Ttext-segment=0x200000 -Wl,--gc-sections"
 HCALL_DYNAMIC="-dynamic ${HCALL_PATH} ${HCALL_RPATH} -no-pie -Wl,-Ttext-segment=0x200000 -Wl,--dynamic-linker=${RT}/libc.so"
-HCALL_SHARED="-shared   ${HCALL_PATH} ${HCALL_RPATH} -pie "
+HCALL_SHARED="-shared   ${HCALL_PATH} ${HCALL_RPATH}"
 
 # Flags for alpine native and kontain (hcall) builds
 # Note: Alpine native dynamic work under KM only if built with explicit --pie or --Ttext-segment

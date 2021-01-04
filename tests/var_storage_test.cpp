@@ -19,11 +19,28 @@
 #include <string>
 #include <thread>
 
+#include <iostream>
+#include <mutex>
+#include <sstream>
+#include <thread>
 using namespace std;
 
 #include <stdio.h>
 #include <string.h>
+std::once_flag flag;
 
+void may_throw_function(bool do_throw)
+{
+   std::stringstream msg;
+
+   // if (do_throw) {
+   //    msg << std::this_thread::get_id() << " may_throw_function: throw - expect run_once to
+   //    restart\n"; std::cout << msg.str(); throw std::exception();
+   // }
+   msg << std::this_thread::get_id()
+       << "ONCE ONCE ONCE may_throw_function: Didn't throw, call_once will not attempt again\n";   // guaranteed once
+   std::cout << msg.str();
+}
 class StorageType
 {
    pthread_t me;
@@ -44,6 +61,8 @@ class StorageType
    {
       me = pthread_self();
       name = _n;
+      cout << "calling once\n";
+      std::call_once(flag, may_throw_function, false);
       pname("Constructor");
    }
 
@@ -95,8 +114,8 @@ double toDouble(const char* buffer, size_t length)
 
 int main()
 {
-   StorageType t_main("Local main");
    static StorageType t_LocalStatic("local Static");
+   StorageType t_main("Local main");
 
    cout << "======> " << toDouble("1", 1) << endl;
 

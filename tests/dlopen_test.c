@@ -34,8 +34,13 @@ TEST dlopen_test()
    ASSERT_NOT_EQ(NULL, fn2);
    ASSERT_EQ(1, fn());
    ASSERT_EQ(2, fn2());
+
+   void* dl3 = dlopen("./var_storage_test.km.so", RTLD_NOW);
+   ASSERT_DL(dl3, "./var_storage_test.km.so");
+
    dlclose(dl);
    dlclose(dl2);
+   dlclose(dl3);
    PASS();
 }
 
