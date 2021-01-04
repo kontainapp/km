@@ -2,7 +2,7 @@
 
 [Kubeless](https://github.com/kubeless/kubeless) is a *"is a Kubernetes-native serverless framework that lets you deploy small bits of code without having to worry about the underlying infrastructure plumbing."*.
 
-See https://github.com/kubeless/kubeless/blob/master/docs/dev-guide.md for information on building Kubeless.
+See <https://github.com/kubeless/kubeless/blob/master/docs/dev-guide.md> for information on building Kubeless.
 
 ## Sub-projects
 
@@ -20,7 +20,7 @@ Each of these are encapsulated in separate containers and are started in a singl
 
 ## Building the Core
 
-We've created a fork of the kubeless core in github. See https://github.com/kontainapp/kubeless.
+We've created a fork of the kubeless core in github. See <https://github.com/kontainapp/kubeless>.
 
 - `make -C kubeless function-controller` builds the function controller docker image (`kubeless-function-controller`).
 - `make -C kubeless function-image-builder` builds the docker image `kubeless-function-controller:latest` used to build function images.
@@ -49,7 +49,7 @@ Individual functions are wrapped in their own dedicated container. These contain
 Kubeless uses a YAML file (`kubeless/kubeless.yaml`) to deploy into a Kubernetes cluster with `kubectl create -f <yaml file>`. `make -C kubeless all-yaml` will generate the default deployment files.
 
 *Note*: The makefile uses a tool called `kubecfg` (which in turn uses a no longer being developed tool called [ksonnet-lib](https://github.com/ksonnet/ksonnet-lib)_ to convert [jsonnet](https://jsonnet.org/) template files into YAML files that can be used by `kubectl create -f`.
-This video gives an overview of `kubecfg` and `jsonnet`: https://www.youtube.com/watch?v=zpgp3yCmXok. That said, I haven't been able to figure out how to really use it.
+This video gives an overview of `kubecfg` and `jsonnet`: <https://www.youtube.com/watch?v=zpgp3yCmXok>. That said, I haven't been able to figure out how to really use it.
 
 For testing you typically need to configure kubeless to use your container(s) in the kubeless control pod instead of the released one in Github. The easiest way to do this is make a copy of `kubeless.yaml` and replace the appropriate `image:` entries.
 
