@@ -15,7 +15,7 @@
 #  - testenv-image (all artifacts for running build suites, including KM and payloads)
 #  - runenv-image (minimal image for running KM+payload)
 #
-# The first 2 are explained in docs/build.md and docs/images-targets.md
+# The first 2 are explained in docs/build.md and docs/image-targets.md
 #
 # The runenv-image is a bare bones image for specific payload.
 # 		Can be built with 'make runenv-image'. The following info needs to be defined in Makefile for it to work
@@ -275,6 +275,7 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 .buildenv-local-lib: .buildenv-local-check-image | ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN}
 	docker create --name tmp_env ${BUILDENV_IMG_TAGGED}
 	sudo docker cp tmp_env:/opt/kontain /opt
+	sudo docker cp tmp_env:/usr/local /usr
 	docker rm tmp_env
 
 .buildenv-local-check-image:
