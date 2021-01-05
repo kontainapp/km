@@ -379,6 +379,22 @@ void km_write_sregisters(km_vcpu_t* vcpu)
    }
 }
 
+void km_write_xcrs(km_vcpu_t* vcpu)
+{
+   kvm_xcrs_t xcrs;
+
+   // XCR0 never changes. No need to save anywhere.
+   xcrs.nr_xcrs = 1;
+   xcrs.flags = 0;
+   xcrs.xcrs[0].xcr = 0;
+   xcrs.xcrs[0].reserved = 0;
+   xcrs.xcrs[0].value = X86_XCR0_X87 | X86_XCR0_SSE | X86_XCR0_AVX;
+   if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_XCRS, &xcrs) < 0) {
+      km_warn("KVM_SET_XCRS failed");
+      return;
+   }
+}
+
 /*
  * return non-zero and set status if guest halted
  */
@@ -757,10 +773,11 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
          if (km_gdb_client_is_attached() != 0) {
             km_gdb_notify(vcpu, info.si_signo);
             /*
-             * The gdb client should send the signal back and gdb stub will call km_deliver_signal().
-             * But, will the gdb client send the same signal back?  Or will the client eat the signal?
-             * If we got here from sigsuspend() and the gdb client ate the signal or sent a different
-             * signal back, we should really go back to wait for an unblocked signal in sigsuspend().
+             * The gdb client should send the signal back and gdb stub will call
+             * km_deliver_signal(). But, will the gdb client send the same signal back?  Or will the
+             * client eat the signal? If we got here from sigsuspend() and the gdb client ate the
+             * signal or sent a different signal back, we should really go back to wait for an
+             * unblocked signal in sigsuspend().
              */
          } else {
             km_deliver_signal(vcpu, &info);

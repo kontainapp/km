@@ -196,7 +196,8 @@ void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
    vcpu->sregs = (kvm_sregs_t){
        .cr0 = X86_CR0_PE | X86_CR0_PG | X86_CR0_WP | X86_CR0_NE,
        .cr3 = RSV_MEM_START,
-       .cr4 = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE | X86_CR4_OSFXSR | X86_CR4_OSXMMEXCPT,
+       .cr4 = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE | X86_CR4_OSFXSR | X86_CR4_OSXMMEXCPT |
+              X86_CR4_OSXSAVE,
        .efer = X86_EFER_LME | X86_EFER_LMA | X86_EFER_SCE,
 
        .cs = {.limit = 0xffffffff,
@@ -474,6 +475,7 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg)
 
    km_write_registers(vcpu);
    km_write_sregisters(vcpu);
+   km_write_xcrs(vcpu);
 
    if (km_gdb_client_is_attached() != 0) {
       km_gdb_update_vcpu_debug(vcpu, NULL);
@@ -500,6 +502,7 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 
    km_write_registers(new_vcpu);
    km_write_sregisters(new_vcpu);
+   km_write_xcrs(vcpu);
 
    if (km_gdb_client_is_attached() != 0) {
       km_gdb_update_vcpu_debug(new_vcpu, NULL);

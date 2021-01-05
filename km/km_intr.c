@@ -173,6 +173,7 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
    vcpu->sregs.ss.base = iframe->ss;
    km_write_registers(vcpu);
    km_write_sregisters(vcpu);
+   km_write_xcrs(vcpu);
 
    /*
     * map processor exceptions to signals in accordance with Table 3.1 from AMD64 ABI
