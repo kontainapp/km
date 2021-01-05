@@ -229,6 +229,16 @@ typedef struct x86_pte_4k {
 #define X86_RFLAGS_VIP (1ul << 20)    // Virtual Interrupt Pending
 #define X86_RFLAGS_ID (1ul << 21)     // CPUID detection
 
+#define X86_XCR0_X87 (1ul << 0)         // x87 FPU/MMU state
+#define X86_XCR0_SSE (1ul << 1)         // SSE state
+#define X86_XCR0_AVX (1ul << 2)         // AVX state
+#define X86_XCR0_BNDREGS (1ul << 3)     // BNDREG state
+#define X86_XCR0_BNDCSR (1ul << 4)      // BMDCSR state
+#define X86_XCR0_OPMASK (1ul << 5)      // OPMASK state
+#define X86_XCR0_ZMM_HI256 (1ul << 6)   // ZMM HI256 FPU/MMU
+#define X86_XCR0_HI16_ZMM (1ul << 7)    // HI16 ZMM state
+#define X86_XCR0_PKRU (1ul << 9)        // PKRU state
+
 /*
  * Intel CPU features in EFER
  */

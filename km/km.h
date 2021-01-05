@@ -44,6 +44,7 @@ typedef struct kvm_cpuid2 kvm_cpuid2_t;
 typedef struct kvm_segment kvm_seg_t;
 typedef struct kvm_sregs kvm_sregs_t;
 typedef struct kvm_regs kvm_regs_t;
+typedef struct kvm_xcrs kvm_xcrs_t;
 typedef struct kvm_vcpu_events kvm_vcpu_events_t;
 
 typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload space)
@@ -219,6 +220,8 @@ void km_read_registers(km_vcpu_t* vcpu);
 void km_write_registers(km_vcpu_t* vcpu);
 void km_read_sregisters(km_vcpu_t* vcpu);
 void km_write_sregisters(km_vcpu_t* vcpu);
+void km_read_xcrs(km_vcpu_t* vcpu);
+void km_write_xcrs(km_vcpu_t* vcpu);
 
 void km_hcalls_init(void);
 void km_hcalls_fini(void);

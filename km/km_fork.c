@@ -124,6 +124,7 @@ static void km_fork_setup_child_vmstate(void)
    km_vmdriver_restore_fork_info(vcpu, km_fork_state.ksi_valid, &km_fork_state.ksi);
    km_write_registers(vcpu);
    km_write_sregisters(vcpu);
+   km_write_xcrs(vcpu);
 }
 
 /*

@@ -250,6 +250,12 @@ TEST test_3byte()
    PASS();
 }
 
+TEST test_avx()
+{
+   asm volatile("vpxor %%xmm0, %%xmm0, %%xmm0" : : : "%xmm0");
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char* argv[])
@@ -268,6 +274,7 @@ int main(int argc, char* argv[])
    RUN_TEST(mem_RSI_RDIaddress_test);
    RUN_TEST(test_2byte);
    RUN_TEST(test_3byte);
+   RUN_TEST(test_avx);
 
    GREATEST_PRINT_REPORT();
    return greatest_info.failed;
