@@ -93,6 +93,7 @@ static km_hc_ret_t arch_prctl_hcall(void* v, int hc, km_hc_args_t* arg)
             km_read_sregisters(vcpu);
             vcpu->sregs.fs.base = vcpu->guest_thr;
             km_write_sregisters(vcpu);
+            km_write_xcrs(vcpu);
             arg->hc_ret = 0;
          }
          break;
