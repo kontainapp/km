@@ -249,6 +249,7 @@ static int km_ss_recover_prstatus(char* ptr, size_t length)
    km_write_registers(vcpu);
    vcpu->sregs_valid = 1;
    km_write_sregisters(vcpu);
+   km_write_xcrs(vcpu);
    return 0;
 }
 
