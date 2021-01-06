@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -39,6 +39,7 @@
 #include "km_snapshot.h"
 
 km_info_trace_t km_info_trace;
+char* km_payload_name;
 
 extern int vcpu_dump;
 
@@ -606,9 +607,11 @@ int main(int argc, char* argv[])
       usage();
    }
 
+   km_payload_name = strdup(payload_name);
+
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
-   km_exec_fini();
+   km_exec_fini();   // calls to km_called_via_exec() not valid beyond this point!
 
    km_mgt_init(mgtpipe);
    if (resume_snapshot != 0) {   // snapshot restore
@@ -648,7 +651,18 @@ int main(int argc, char* argv[])
 
    if (km_gdb_is_enabled() != 0) {
       if (km_gdb_setup_listen() == 0) {         // Try to become the gdb server
-         km_vcpu_pause_all(vcpu, GUEST_ONLY);   // this just sets machine.pause_requested
+         km_infox(KM_TRACE_EXEC,
+            "km_called_via_exec %d, send_exec_event %d, wait_for_attach %d, km_gdb_client_is_attached %d",
+            km_called_via_exec(),
+            gdbstub.send_exec_event,
+            gdbstub.wait_for_attach,
+            km_gdb_client_is_attached());
+         int need_pause_all = 
+                          ((km_called_via_exec() == 0 && gdbstub.wait_for_attach != GDB_DONT_WAIT_FOR_ATTACH) ||
+                           (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
+         if (need_pause_all != 0) {
+            km_vcpu_pause_all(vcpu, GUEST_ONLY);   // this just sets machine.pause_requested
+         }
       } else {
          km_warnx("Failed to setup gdb listening port %d, disabling gdb support", gdbstub.port);
          km_gdb_enable(0);   // disable gdb
@@ -661,18 +675,17 @@ int main(int argc, char* argv[])
    km_start_vcpus();
 
    if (km_gdb_is_enabled() == 1) {
-      if (gdbstub.wait_for_attach != GDB_DONT_WAIT_FOR_ATTACH) {
-         char name[HOST_NAME_MAX + 1];
-         if (gethostname(name, HOST_NAME_MAX) != 0) {
-            km_trace("Failed to get hostname, ignoring. errno=%d (%s)", errno, strerror(errno));
-            *name = 0;
-         };
-         warnx("Waiting for a debugger. Connect to it like this:\n"
-               "\tgdb -q --ex=\"target remote %s:%d\" %s\nGdbServerStubStarted\n",
-               name,
-               km_gdb_port_get(),
-               km_guest.km_filename);
-      }
+      char name[HOST_NAME_MAX + 1];
+      if (gethostname(name, HOST_NAME_MAX) != 0) {
+         km_trace("Failed to get hostname, ignoring. errno=%d (%s)", errno, strerror(errno));
+         *name = 0;
+      };
+      warnx("Waiting for a debugger. Connect to it like this:\n"
+            "\tgdb -q --ex=\"target remote %s:%d\" %s\n"
+            "GdbServerStubStarted\n",
+            name,
+            km_gdb_port_get(),
+            km_guest.km_filename);
 
       km_close_stdio(log_to_fd);
       km_gdb_main_loop(vcpu);

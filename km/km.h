@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -212,6 +212,7 @@ void km_signal_machine_fini(void);
 void km_vcpu_fini(km_vcpu_t* vcpu);
 void km_machine_fini(void);
 void kvm_vcpu_init_sregs(km_vcpu_t* vcpu);
+void km_start_all_vcpus(void);
 void km_start_vcpus();
 void* km_vcpu_run(km_vcpu_t* vcpu);
 int km_run_vcpu_thread(km_vcpu_t* vcpu);
@@ -462,6 +463,8 @@ typedef struct km_info_trace {
 } km_info_trace_t;
 extern km_info_trace_t km_info_trace;
 
+extern char* km_payload_name;
+
 extern int km_collect_hc_stats;
 
 #define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)      // 1 for yes, 0 for no
@@ -485,7 +488,7 @@ extern int km_collect_hc_stats;
          __km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                \
    } while (0)
 
-// trave no matter what the tag is, but inly if -V is enabled
+// trace no matter what the tag is, but only if -V is enabled
 #define km_trace(fmt, ...)                                                                         \
    do {                                                                                            \
       if (km_trace_enabled() != 0)                                                                 \

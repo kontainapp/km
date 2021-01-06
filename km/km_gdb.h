@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -219,6 +219,7 @@ typedef enum {
 #define GDB_KMSIGNAL_KVMEXIT (GDB_KMSIGNAL_BASE + 20)
 #define GDB_KMSIGNAL_THREADEXIT (GDB_KMSIGNAL_BASE + 21)
 #define GDB_KMSIGNAL_DOFORK (GDB_KMSIGNAL_BASE + 22)
+#define GDB_KMSIGNAL_EXEC2PROG (GDB_KMSIGNAL_BASE + 23)
 
 #define KM_TRACE_GDB "gdb"
 
@@ -227,8 +228,8 @@ extern int km_gdb_write_registers(km_vcpu_t* vcpu, uint8_t* reg, size_t len);
 extern int km_gdb_enable_ss(void);
 extern int km_gdb_disable_ss(void);
 extern int km_gdb_add_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
-extern int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
-extern int km_gdb_remove_all_breakpoints(void);
+extern int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len, int skip_hw_update);
+extern int km_gdb_remove_all_breakpoints(int skip_hw_update);
 extern int
 km_gdb_find_breakpoint(km_gva_t trigger_addr, gdb_breakpoint_type_t* type, km_gva_t* addr, size_t* len);
 extern void km_gdb_vcpu_state_init(km_vcpu_t*);
@@ -294,6 +295,7 @@ typedef struct gdbstub_info {
    gdb_event_queue_t event_queue;      // queue of pending gdb events
    int exit_reason;                    // last KVM exit reason
    int send_threadevents;              // if non-zero send thread create and terminate events
+   uint8_t send_exec_event;            // set by the exec target program to have exec event sent
    uint8_t clientsup_multiprocess;     // gdb client can support multiprocess
    uint8_t clientsup_xmlregisters;     // gdb client can support xmlregisters
    uint8_t clientsup_qRelocInsn;       // gdb client can support qRelocInsn
@@ -309,6 +311,7 @@ typedef struct gdbstub_info {
 } gdbstub_info_t;
 
 extern gdbstub_info_t gdbstub;
+extern const_string_t KM_GDB_CHILD_FORK_WAIT;
 
 static inline int km_gdb_port_get(void)
 {
@@ -367,5 +370,6 @@ extern void km_gdb_destroy_listen(void);
 extern void km_gdb_accept_stop(void);
 extern void km_gdb_fork_reset(void);
 extern void km_vcpu_resume_all(void);
+extern int km_gdb_need_to_wait_for_client_connect(const char* envvarname);
 
 #endif /* __KM_GDB_H__ */

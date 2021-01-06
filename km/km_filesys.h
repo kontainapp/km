@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -277,6 +277,7 @@ size_t km_fs_core_notes_length();
 size_t km_fs_core_notes_write(char* cur, size_t remain);
 
 void km_redirect_msgs(const char* name);
+void km_redirect_msgs_after_exec(void);
 void km_close_stdio(int log_to_fd);
 
 int km_internal_open(const char* name, int flag);
