@@ -54,7 +54,7 @@ TEST region(void)
    }
    if (SYS_break(top) != top) {
       fprintf(stderr, "break "); 
-      perror(km_data_path);
+      perror(kmtest_data_path);
    }
    ptr = top - MiB - 8000;   // one full page and one partial page below the region boundary
    memcpy(ptr, data, BUFSIZE);
