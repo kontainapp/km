@@ -44,11 +44,18 @@ TEST region(void)
    int fd;
    void* ptr;
 
-   if ((fd = open("/tmp/kmtest_data", O_CREAT | O_TRUNC | O_RDWR, 0666)) < 0) {
-      perror("open file");
+   int pid = getpid();
+   char kmtest_data_path[23];
+   char err[33];
+   sprintf(kmtest_data_path, "/tmp/kmtest_data%d", pid);
+
+   if ((fd = open(kmtest_data_path, O_CREAT | O_TRUNC | O_RDWR, 0666)) < 0) {
+      sprintf(err, "open file %s", kmtest_data_path);
+      perror(err);
    }
    if (SYS_break(top) != top) {
-      perror("break");
+      sprintf(err, "break %s", kmtest_data_path);
+      perror(err);
    }
    ptr = top - MiB - 8000;   // one full page and one partial page below the region boundary
    memcpy(ptr, data, BUFSIZE);
@@ -56,7 +63,7 @@ TEST region(void)
    lseek(fd, SEEK_SET, 0);
    IGUR(read(fd, data_in, BUFSIZE));
    close(fd);
-   // unlink("/tmp/kmtest_data");
+   unlink(kmtest_data_path);
    ASSERT_EQ(memcmp(data, data_in, BUFSIZE), 0);
    PASS();
 }
