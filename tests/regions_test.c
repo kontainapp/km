@@ -18,6 +18,7 @@
 #include <sys/types.h>
 #include "greatest/greatest.h"
 #include "syscall.h"
+#include <limits.h>
 
 /*
  * First memort regions are: 2mb - 4mb, 4mb - 8mb, 8mb - 16mb ...
@@ -45,17 +46,14 @@ TEST region(void)
    void* ptr;
 
    int pid = getpid();
-   char kmtest_data_path[23];
-   char err[33];
-   sprintf(kmtest_data_path, "/tmp/kmtest_data%d", pid);
+   char kmtest_data_path[PATH_MAX + 1];
+   snprintf(kmtest_data_path, PATH_MAX + 1, "/tmp/kmtest_data%d", pid);
 
    if ((fd = open(kmtest_data_path, O_CREAT | O_TRUNC | O_RDWR, 0666)) < 0) {
-      sprintf(err, "open file %s", kmtest_data_path);
-      perror(err);
+      perror(kmtest_data_path);
    }
    if (SYS_break(top) != top) {
-      sprintf(err, "break %s", kmtest_data_path);
-      perror(err);
+      perror(kmtest_data_path);
    }
    ptr = top - MiB - 8000;   // one full page and one partial page below the region boundary
    memcpy(ptr, data, BUFSIZE);
