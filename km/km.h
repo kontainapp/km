@@ -462,7 +462,6 @@ typedef struct km_info_trace {
    } level;   // trace level. using only KM_TRACE_NONE for now
 } km_info_trace_t;
 extern km_info_trace_t km_info_trace;
-
 extern char* km_payload_name;
 
 extern int km_collect_hc_stats;
