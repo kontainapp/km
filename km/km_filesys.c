@@ -2390,11 +2390,11 @@ void km_redirect_msgs_after_exec(void)
 {
    struct stat statb;
 
-   if (fstat(KM_LOGGING, &statb) < 0 ||
-       (km_log_file = fdopen(KM_LOGGING, "w")) == NULL) {
-      km_err(1, "Failed to redirect km log");
-   } else {
-     setlinebuf(km_log_file);
+   if (fstat(KM_LOGGING, &statb) == 0) {
+      if ((km_log_file = fdopen(KM_LOGGING, "w")) == NULL) {
+         km_err(1, "Failed to redirect km log");
+      }
+      setlinebuf(km_log_file);
    }
 }
 
