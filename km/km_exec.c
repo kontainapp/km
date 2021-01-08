@@ -1,5 +1,5 @@
 /*
- * Copyright © 2020 Kontain Inc. All rights reserved.
+ * Copyright © 2020-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -25,6 +25,7 @@
 #include "km_exec.h"
 #include "km_filesys.h"
 #include "km_mem.h"
+#include "km_gdb.h"
 
 /*
  * The execve hypercall builds the following environment variables which are appended to
@@ -36,14 +37,16 @@
  * KM_EXEC_EVENTFDS=intrfd,shutdownfd
  * KM_EXEC_GUESTFDS=gfd:hfd,gfd:hfd,.....
  * KM_EXEC_PIDINFO=tracepid,parentpid,mypid,nextpid
+ * KM_EXEC_GDBINFO=gdbenabled,waitatstarup
  */
-#define KM_EXEC_VARS 5
-static const int KM_EXEC_VERNUM = 1;
+#define KM_EXEC_VARS 6
+static const int KM_EXEC_VERNUM = 2;
 static char KM_EXEC_VERS[] = "KM_EXEC_VERS";
 static char KM_EXEC_VMFDS[] = "KM_EXEC_VMFDS";
 static char KM_EXEC_EVENTFDS[] = "KM_EXEC_EVENTFDS";
 static char KM_EXEC_GUESTFDS[] = "KM_EXEC_GUESTFDS";
 static char KM_EXEC_PIDINFO[] = "KM_EXEC_PIDINFO";
+static char KM_EXEC_GDBINFO[] = "KM_EXEC_GDBINFO";
 
 /*
  * An instance of this holds all of the exec state that the execing program puts
@@ -71,6 +74,8 @@ typedef struct km_exec_state {
    fdmap_t guestfd_hostfd[0];
 } km_exec_state_t;
 
+int km_exec_started_this_payload = 0;
+
 static km_exec_state_t* execstatep;
 
 // The args from main so that exec can rebuild the km command line
@@ -94,10 +99,7 @@ pid_t km_exec_next_pid(void)
 
 int km_called_via_exec(void)
 {
-   if (execstatep != NULL && execstatep->version != 0) {
-      return 1;
-   }
-   return 0;
+   return km_exec_started_this_payload;
 }
 
 /*
@@ -246,20 +248,82 @@ static char* km_exec_pidinfo_var(void)
 }
 
 /*
+ * Build "KM_EXEC_GDBINFO=...." environment variable for gdb related values that are passed to the new instance of km.
+ */
+static char* km_exec_gdbinfo_var(void)
+{
+   int bufl = sizeof(KM_EXEC_GDBINFO) + 1 + (17 * strlen("xxxx,")) + strlen("fs=xxxx,") + (MAX_GDB_VFILE_OPEN_FD * strlen("xxxx,"));
+   char* bufp = malloc(bufl);
+   if (bufp == NULL) {
+      return NULL;
+   }
+   int bytes_needed = snprintf(bufp,
+                               bufl,
+                               "%s=%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,fs=%d,",
+                               KM_EXEC_GDBINFO,
+                               gdbstub.port,
+                               gdbstub.listen_socket_fd,
+                               gdbstub.sock_fd,
+                               gdbstub.enabled,
+                               gdbstub.wait_for_attach,
+                               gdbstub.gdb_client_attached,
+                               gdbstub.send_threadevents,
+                               gdbstub.clientsup_multiprocess,
+                               gdbstub.clientsup_xmlregisters,
+                               gdbstub.clientsup_qRelocInsn,
+                               gdbstub.clientsup_swbreak,
+                               gdbstub.clientsup_hwbreak,
+                               gdbstub.clientsup_forkevents,
+                               gdbstub.clientsup_vforkevents,
+                               gdbstub.clientsup_execevents,
+                               gdbstub.clientsup_vcontsupported,
+                               gdbstub.clientsup_qthreadevents,
+                               gdbstub.vfile_state.current_fs);
+   if (bytes_needed + 1 > bufl) {
+      free(bufp);
+      return NULL;
+   }
+   // Add open gdb file handles to the environment variable
+   for (int i = 0; i < MAX_GDB_VFILE_OPEN_FD; i++) {
+      int ba = bufl - strlen(bufp);
+      int bn = snprintf(bufp + strlen(bufp), ba, "%d,", gdbstub.vfile_state.fd[i]);
+      if (bn + 1 > ba) {
+         km_infox(KM_TRACE_EXEC, "Out of string space on fd index %d, allocated %d bytes", i, bufl);
+         free(bufp);
+         return NULL;
+      }
+   }
+   return bufp;
+}
+
+/*
  * Called before exec.
  * Append km exec related state to the passed environment and return
  * a pointer to the combined environment.
+ * And, append gdb related km variables to the environment.
  */
 char** km_exec_build_env(char** envp)
 {
+   int gdb_vars = 0;
    // Count the passed env
    int envc;
    for (envc = 0; envp[envc] != NULL; envc++) {
    }
    envc++;   // include the null stop pointer
 
+   // The debug related environment variables
+   char* fork_wait = getenv(KM_GDB_CHILD_FORK_WAIT);
+   char* km_verbose = getenv("KM_VERBOSE");
+   if (fork_wait != NULL) {
+      gdb_vars++;
+   }
+   if (km_verbose != NULL) {
+      gdb_vars++;
+   }
+   km_infox(KM_TRACE_EXEC, "fork_wait %s, km verbose %s", fork_wait, km_verbose);
+
    // Allocate a new env array with space for the exec related vars.
-   char** newenvp = malloc((envc + KM_EXEC_VARS) * sizeof(char*));
+   char** newenvp = malloc((envc + gdb_vars + KM_EXEC_VARS) * sizeof(char*));
    if (newenvp == NULL) {
       return NULL;
    }
@@ -279,7 +343,8 @@ char** km_exec_build_env(char** envp)
                                                 km_exec_g2h_var,
                                                 km_exec_vmfd_var,
                                                 km_exec_eventfd_var,
-                                                km_exec_pidinfo_var};
+                                                km_exec_pidinfo_var,
+                                                km_exec_gdbinfo_var};
 
    // Add exec vars to the new env
    int j;
@@ -291,8 +356,19 @@ char** km_exec_build_env(char** envp)
       }
       newenvp[i + j] = envvarp;
    }
+   char envstring[256];
+   if (fork_wait != NULL) {
+      snprintf(envstring, sizeof(envstring), "%s=%s", KM_GDB_CHILD_FORK_WAIT, fork_wait);
+      newenvp[i + j] = strdup(envstring);
+      j++;
+   }
+   if (km_verbose != NULL) {
+      snprintf(envstring, sizeof(envstring), "%s=%s", "KM_VERBOSE", km_verbose);
+      newenvp[i + j] = strdup(envstring);
+      j++;
+   }
    newenvp[i + j] = NULL;
-   assert(i + j == envc - 1 + KM_EXEC_VARS);
+   assert(i + j == envc - 1 + KM_EXEC_VARS + gdb_vars);
 
    // Return pointer to the new env.
    return newenvp;
@@ -642,6 +718,7 @@ int km_exec_recover_kmstate(void)
    char* eventfds = getenv(KM_EXEC_EVENTFDS);
    char* guestfds = getenv(KM_EXEC_GUESTFDS);
    char* pidinfo = getenv(KM_EXEC_PIDINFO);
+   char* gdbinfo = getenv(KM_EXEC_GDBINFO);
    int version;
    int nfdmap;
    int n;
@@ -654,6 +731,12 @@ int km_exec_recover_kmstate(void)
       assert(vernum == NULL && vmfds == NULL && eventfds == NULL && guestfds == NULL && pidinfo == NULL);
       return 0;
    }
+
+   // We are sure km was entered via execve(), setup km_log_file like km_redirect_msgs() would.
+   km_redirect_msgs_after_exec();
+   km_infox(KM_TRACE_EXEC, "pidinfo %s", pidinfo);
+
+   km_exec_started_this_payload = 1;
    if ((n = sscanf(vernum, "%d,%d", &version, &nfdmap)) != 2) {
       km_infox(KM_TRACE_EXEC, "couldn't process vernum %s, n %d", vernum, n);
       return -1;
@@ -680,6 +763,7 @@ int km_exec_recover_kmstate(void)
    km_trace_include_pid(execstatep->tracepid);
    execstatep->version = version;
    execstatep->nfdmap = nfdmap;
+   machine.pid = execstatep->pid;
 
    if (km_exec_get_vmfds(vmfds) != 0) {
       return -1;
@@ -695,7 +779,50 @@ int km_exec_recover_kmstate(void)
       km_infox(KM_TRACE_EXEC, "couldn't parse guestfds %s", guestfds);
       return -1;
    }
+
+   // Get the gdb state back.  Not sure if gdb expects us to remember open gdb fd's.
+   int wait_for_attach;
+   n = sscanf(gdbinfo, "%d,%d,%d,%hhd,%d,%hhd,%d,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,fs=%d,",
+              &gdbstub.port,
+              &gdbstub.listen_socket_fd,
+              &gdbstub.sock_fd,
+              &gdbstub.enabled,
+              &wait_for_attach,
+              &gdbstub.gdb_client_attached,
+              &gdbstub.send_threadevents,
+              &gdbstub.clientsup_multiprocess,
+              &gdbstub.clientsup_xmlregisters,
+              &gdbstub.clientsup_qRelocInsn,
+              &gdbstub.clientsup_swbreak,
+              &gdbstub.clientsup_hwbreak,
+              &gdbstub.clientsup_forkevents,
+              &gdbstub.clientsup_vforkevents,
+              &gdbstub.clientsup_execevents,
+              &gdbstub.clientsup_vcontsupported,
+              &gdbstub.clientsup_qthreadevents,
+              &gdbstub.vfile_state.current_fs);
+   if (n != 18) {
+      km_infox(KM_TRACE_EXEC, "couldn't get gdb info, n %d, gdbinfo %s", n, gdbinfo);
+      return -1;
+   }
+
+   // Get the open gdb file descriptors
+   char* s = strstr(gdbinfo, "fs=");
+   s = strstr(s, ",");
+   s++;
+   for (int i = 0; i < MAX_GDB_VFILE_OPEN_FD; i++) {
+      gdbstub.vfile_state.fd[i] = atoi(s);
+      s = strstr(s, ",");
+      s++;
+   }
+
+   gdbstub.wait_for_attach = wait_for_attach;
+   if (gdbstub.enabled != 0 && gdbstub.gdb_client_attached != 0) {
+      // tell the gdb client we are not debugging the same executable
+      gdbstub.send_exec_event = 1;
+   }
    km_exec_vmclean();
+
    km_infox(KM_TRACE_EXEC, "km exec state recovered successfully");
    return 1;
 }

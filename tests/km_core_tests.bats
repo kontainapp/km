@@ -1,4 +1,4 @@
-# Copyright © 2019-2020 Kontain Inc. All rights reserved.
+# Copyright © 2019-2021 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -30,7 +30,7 @@ todo_static=''
 # skip slow ones
 not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv'
 # review - some fail. Some slow
-todo_alpine_static='dl_iterate_phdr'
+todo_alpine_static='dl_iterate_phdr gdb_forkexec'
 
 # glibc native
 not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv'
@@ -40,18 +40,19 @@ not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv'
 # filesys - dup3 flags check inconsistency between musl and glibc
 # gdb_nextstep - uses clone_test, same as raw_clone
 # raw_clone - glibc clone() wrapper needs pthread structure
+# gdb_forkexec - gdb stack trace needs symbols when in a hypercall
 
-todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test  threads_basic_tsd threads_exit_grp'
+todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test  threads_basic_tsd threads_exit_grp gdb_forkexec'
 
 not_needed_alpine_dynamic=$not_needed_alpine_static
 todo_alpine_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_many readlink_argv'
+not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 readlink_argv'
 todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
 
 todo_so=''
-not_needed_so='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load cli mem_* file* gdb_* mmap_1 km_many hc_check \
+not_needed_so='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load cli mem_* file* gdb_* mmap_1 hc_check \
     exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore files_on_exec readlink_argv'
 
 # make sure it does not leak in from the outer shell, it can mess out the output
@@ -316,22 +317,6 @@ fi
    assert_success
 }
 
-# Block gdb port by running a python http server on it,
-# then check that KM simply proceeds without gdb support
-@test "km_many($test_type): running multiple KMs (hello_test$ext)" {
-   (# force new shell to prevent $! races
-   local port_id=1
-   local km_gdb_port=$(( $port_range_start + $port_id))
-   python3 -c "from http.server import * ; HTTPServer( ('', ${km_gdb_port}), BaseHTTPRequestHandler).serve_forever()" & \
-         curl --silent --retry 5 --retry-connrefused 127.0.0.1:${km_gdb_port}
-   local pid=$!
-   run km_with_timeout -g${km_gdb_port} --gdb-listen hello_test$ext
-   kill $pid
-   assert_success
-   assert_line --partial "disabling gdb support"
-   )
-}
-
 @test "gdb_basic($test_type): gdb support (gdb_test$ext)" {
    local port_id=2
    local km_gdb_port=$(( $port_range_start + $port_id))
@@ -407,7 +392,7 @@ fi
    assert_success
 
    # Verify that km gdb server is responding to a qSupported packet
-   assert_line --partial "Packet received: PacketSize=00003FFF;qXfer:threads:read+;swbreak+;hwbreak+;vContSupported+"
+   assert_line --partial "Packet received: PacketSize=00003FFF;qXfer:threads:read+;swbreak+;hwbreak+;exec-events+;vContSupported+"
    # Verify that km gdb server is responding to a vCont? packet
    assert_line --partial "Packet received: vCont;c;s;C;S"
    # Verify that km gdb server is responding to a qXfer:threads:read" packet
@@ -1272,7 +1257,7 @@ fi
    assert_success
 }
 
-@test "km_logging_test($test_type): test the --km-log-to flag (hello_test$ext)" {
+@test "km_logging($test_type): test the --km-log-to flag (hello_test$ext)" {
    LOGFILE="km_$$.log"
    # We need KM_ARGS but we need to control the logging settings for this test
    KM_ARGS_PRIVATE=`echo $KM_ARGS | sed -e "s/--km-log-to=stderr//"`
@@ -1317,4 +1302,37 @@ fi
    run grep -q "calling hc = 231 (exit_group)" $LOGFILE
    assert_failure
    rm -f $LOGFILE
+}
+
+# Verify that gdb can follow an execve() system call to the new executable.
+# Verify that km can cause the payload to pause in the child after a fork to allow gdb client to attach
+# to the child
+@test "gdb_forkexec($test_type): test post fork gdb attach and gdb follow exec (gdb_forker_test$ext)" {
+   # get the gdb ports km will use.  This test currently uses 4 ports since it forks 3 copies of itself.
+   # We don't connect to the 2 youngest child processes and those children are not important for the test.
+   # So, the next free port would be 19
+   local port_id=15
+   local km_gdb_port=$(( $port_range_start + $port_id))
+
+   # start the test program up under gdb control. KM_GDB_CHILD_FORK_WAIT must be in km's env, not the payload's
+   KM_GDB_CHILD_FORK_WAIT=".*gdb_forker_test.*" km_with_timeout -g$km_gdb_port gdb_forker_test$ext &
+   local pid=$!
+
+   # attach gdb client to the test's parent process
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex=c --ex=q &
+
+   # attach a second gdb client to the test child process.  This verifies that we attach after the
+   # fork in the child and we follow the exec to the next program.
+   local km_gdb_port2=$(( $km_gdb_port + 1))
+   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port2" --ex="source cmd_for_forkexec_test.gdb" --ex=c --ex=q
+   assert_success
+
+   wait_and_check $pid 0
+
+   assert_line --regexp "post fork prog: .*gdb_forker_test.*"
+   # verify that gdb was notified of the exec to a new program
+   assert_line --regexp "Remote target is executing new program:.*hello_test.*"
+   assert_line --regexp "Catchpoint 1 .*hello_test.*_start.*"
+   # verify that the  post exec prog name is as expected
+   assert_line --regexp "post exec prog: .*hello_test.*"
 }
