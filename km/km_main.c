@@ -587,6 +587,50 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    return pl_name;
 }
 
+/*
+ * Decide if gdbstub should start up with all vcpu's paused or running.
+ * Returns:
+ *   1 - vcpu's are paused
+ *   0 - vcpu's are running.
+ *
+ * Truth table used to decide if km should pause vcpus' to wait for gdb client connect on payload startup;
+ *
+ * km started as result of manually running payload
+ * gdb             gdb client      wait to         vcpu's
+ * enabled         connected       connect         paused
+ * 0               0               0               0
+ * 0               0               1               x - can't happen gdb disabled
+ * 0               1               0               x - gdb client can't be connected
+ * 0               1               1               x - gdb client can't be connected
+ * 1               0               0               0 - listen in the background for client connection
+ * 1               0               1               1 - wait for gdb client connect
+ * 1               1               0               x - gdb client can't be connected
+ * 1               1               1               x - gdb client can't be connected
+ * 
+ * km started as a result of another km execing to payload
+ * gdb             gdb client      wait to         vcpu's
+ * enabled         connected       connect         paused
+ * 0               0               0               0
+ * 0               0               1               x - can't happen gdb disabled
+ * 0               1               0               x - can't happen gdb disabled
+ * 0               1               1               x - can't happen gdb disabled
+ * 1               0               0               0 - gdb stub waits in the background for connections
+ * 1               0               1               0 - gdb stub waits for connection in background
+ * 1               1               0               1 - need to send exec event to gdb client
+ * 1               1               1               1 - need to send exec event to gdb client
+ */
+static inline int km_need_pause_all(void)
+{
+   km_infox(KM_TRACE_EXEC,
+      "km_called_via_exec %d, send_exec_event %d, wait_for_attach %d, km_gdb_client_is_attached %d",
+      km_called_via_exec(),
+      gdbstub.send_exec_event,
+      gdbstub.wait_for_attach,
+      km_gdb_client_is_attached());
+   return ((km_called_via_exec() == 0 && gdbstub.wait_for_attach != GDB_DONT_WAIT_FOR_ATTACH) ||
+           (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
+}
+
 int main(int argc, char* argv[])
 {
    km_vcpu_t* vcpu = NULL;
@@ -651,16 +695,7 @@ int main(int argc, char* argv[])
 
    if (km_gdb_is_enabled() != 0) {
       if (km_gdb_setup_listen() == 0) {         // Try to become the gdb server
-         km_infox(KM_TRACE_EXEC,
-            "km_called_via_exec %d, send_exec_event %d, wait_for_attach %d, km_gdb_client_is_attached %d",
-            km_called_via_exec(),
-            gdbstub.send_exec_event,
-            gdbstub.wait_for_attach,
-            km_gdb_client_is_attached());
-         int need_pause_all = 
-                          ((km_called_via_exec() == 0 && gdbstub.wait_for_attach != GDB_DONT_WAIT_FOR_ATTACH) ||
-                           (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
-         if (need_pause_all != 0) {
+         if (km_need_pause_all() != 0) {
             km_vcpu_pause_all(vcpu, GUEST_ONLY);   // this just sets machine.pause_requested
          }
       } else {
