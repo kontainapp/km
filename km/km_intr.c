@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -142,7 +142,8 @@ void km_handle_interrupt(km_vcpu_t* vcpu)
 
    uint64_t enumber = vcpu->regs.rbx;
    if (enumber >= sizeof(error_included)) {
-      km_errx(1, "Interrupt out of range - %ld", enumber);
+      km_warn("Interrupt out of range - %ld", enumber);
+      abort();
    }
    if (error_included[enumber] == -1) {
       km_errx(1, "Unexpected Interrupt - %ld", enumber);

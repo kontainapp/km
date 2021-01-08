@@ -66,6 +66,31 @@ You can invoke individual tests or groups of tests via the helper script, e.g.:
 
 To debug payload, run `km -g<port> payload.km` - this will start km listening on port for gdb client. KM will also print out a gdb command to run, which connects to km to debug.
 
+```txt
+tests/hello_test.km: Waiting for a debugger. Connect to it like this:
+	gdb -q --ex="target remote work:2159" /home/paulp/ws/ws2/km/tests/hello_test.km
+GdbServerStubStarted
+```
+
+Use the km command's --gdb-listen flag to have km listen for gdb client connections while the payload runs.
+
+When a payload forks, the gdb "follow-fork-mode" can't be used to have gdb switch to debugging the child payload.
+Instead the variable KM_GDB_CHILD_FORK_WAIT can be placed in the parent km's environment.
+The value of this variable is a regular expression.  If the child's payload name matches the regular expression, the child's gdbstub will be
+listening for connections on the port mentioned in a log message like this one:
+
+```txt
+17:58:50.400726 km_gdb_fork_reset    310  1001.km      Pid 766965 is listening for debugger attach on port 14016
+```
+
+Use the port number from the preceeding message in the following command:
+
+```bash
+gdb -q --ex="target remote work:14016"
+```
+
+gdb's "catch exec" command will work and will allow the gdb client to follow the exec target program after the exec completes.
+
 In Visual Studio Code, we provide `launch.json` with different debugging options. Choose from Debug drop down in Debug mode.
 
 ## Appendix A - why did we choose bats for testing

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2020 Kontain Inc. All rights reserved.
+ * Copyright © 2020-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -191,7 +191,8 @@ static void km_fork_child_vm_init(void)
    // Create a new vm and a single vcpu for the payload thread that survives the fork.
    km_fork_setup_child_vmstate();
 
-   km_start_vcpus();   // get the payload going
+   // Get a thread and vcpu for the initial payload thread.
+   km_start_all_vcpus();
 }
 
 /*
@@ -287,6 +288,7 @@ static void km_fork_wait_for_gdb_attach(void)
 int km_dofork(int* in_child)
 {
    pid_t linux_child_pid;
+   int need_to_wait = 0;
 
    if (in_child != NULL) {
       *in_child = 0;
@@ -326,7 +328,7 @@ int km_dofork(int* in_child)
       linux_child_pid = fork();
    }
    if (linux_child_pid == 0) {         // this is the child process
-      km_fork_wait_for_gdb_attach();   // if they have asked, let them attach the debugger to the child
+      km_fork_wait_for_gdb_attach();   // if they have asked, let them attach the debugger to the child km (not child payload)
 
       // Set the child's km pid immediately so km_info() reports correct process id.
       machine.pid = km_fork_state.km_child_pid;
@@ -344,6 +346,8 @@ int km_dofork(int* in_child)
       if (in_child != NULL) {
          *in_child = 1;
       }
+      // Don't allow vcpu's to run if we need to wait for gdb client to connect.
+      need_to_wait = km_gdb_need_to_wait_for_client_connect(KM_GDB_CHILD_FORK_WAIT);
    } else {   // We are the parent process here.
       km_infox(KM_TRACE_FORK,
                "parent: after fork/clone linux_child_pid %d, errno %d",
@@ -364,7 +368,9 @@ int km_dofork(int* in_child)
    rc = sigprocmask(SIG_SETMASK, &formermask, NULL);
    assert(rc == 0);
 
-   km_vcpu_resume_all();   // let the vcpu's get back to work
+   if (need_to_wait == 0) {
+      km_vcpu_resume_all();   // let the vcpu's get back to work
+   }
    return 1;
 }
 

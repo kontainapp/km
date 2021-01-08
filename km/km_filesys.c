@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -2381,6 +2381,21 @@ void km_redirect_msgs(const char* name)
       km_err(1, "Failed to redirect km log");
    }
    setlinebuf(km_log_file);
+}
+
+/*
+ * Ensure km logging continues after an execve() call from the payload.
+ */
+void km_redirect_msgs_after_exec(void)
+{
+   struct stat statb;
+
+   if (fstat(KM_LOGGING, &statb) == 0) {
+      if ((km_log_file = fdopen(KM_LOGGING, "w")) == NULL) {
+         km_err(1, "Failed to redirect km log");
+      }
+      setlinebuf(km_log_file);
+   }
 }
 
 /*
