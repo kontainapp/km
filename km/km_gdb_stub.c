@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -70,6 +70,30 @@
  * I have found that if you want the vCont:c option to be supported you must also support
  * vCont:CXX (which allows continuing with a signal).
  * To support xml thread lists, the gdb server will reply to qSupported with qXfer:threads:read+
+ *
+ * A note about debugging payloads that fork and exec.
+ * km can pause in the child process after a fork to give the user a chance to attach the gdb
+ * client to the child's gdbstub.  To enable pausing after fork you need to put the environment
+ * variable KM_GDB_CHILD_FORK_WAIT into km's environment.  The value of the variable is a regular
+ * expression. In the child after the fork, km will check to see if the name of the payload matches
+ * the regular expression.  If there is a match, gdbstub will pause to wait for the gdb client to
+ * attach to the gdbstub. The payload will not run until gdb connects and starts the payload running.
+ * If the payload name does not match the regular expression it will continue running.
+ *
+ * gdbstub will use the gdb exec stop reply to let the gdb client know that an execve() system call
+ * has completed. If you want gdb to pause execution after the exec hypercall, you will need to enter
+ * the command "catch exec" at the gdb prompt before the execve() system call is performed.
+ * The payload will be at the _start entry point after the execve() system call completes.
+ *
+ * When a payload forks, the child inherits the parent's command line debug related settings.
+ * A km child process will be listening for a connection from a gdb client on a different network
+ * port from the port the parent is using.  gdbstub keeps incrementing the current network port
+ * number until it finds one that is not in use and will listen on that port.  km will issue a
+ * message with the port that gdbstub is listening on.  You can also look at the lsof command
+ * output for the process.  fd 727 (currently) is the one used for the gdb listening socket.
+ * lsof output will contain the port number.
+ * When a payload execs, the new program inherits the debug settings from the program that
+ * called exec.
  */
 
 gdbstub_info_t gdbstub = {
@@ -81,6 +105,8 @@ gdbstub_info_t gdbstub = {
 #define BUFMAX (16 * 1024)       // buffer for gdb protocol
 static char in_buffer[BUFMAX];   // TODO: malloc/free these two
 static unsigned char registers[BUFMAX];
+
+const_string_t KM_GDB_CHILD_FORK_WAIT = "KM_GDB_CHILD_FORK_WAIT";
 
 #define GDB_ERROR_MSG "E01"   // The actual error code is ignored by GDB, so any number will do
 static const_string_t hexchars = "0123456789abcdef";
@@ -136,9 +162,10 @@ unsigned char* hex2mem(const char* buf, unsigned char* mem, size_t count)
 }
 
 /*
- * Listens on (global) port and  when connection accepted/established, sets
- * global gdbstub.listen_socket_fd and returns 0.
+ * Find a port to listen on, then starts listening.
+ * Sets gdbstub.gdb_port to the bound port and sets gdbstub.listen_socket_fd on success.
  * Returns -1 in case of failures.
+ *    0 - success
  */
 int km_gdb_setup_listen(void)
 {
@@ -147,7 +174,10 @@ int km_gdb_setup_listen(void)
    int opt = 1;
 
    assert(gdbstub.port != 0);
-   assert(gdbstub.listen_socket_fd == -1);
+   if (gdbstub.listen_socket_fd != -1) {
+      // When a payload is started as a result of execve() from another payload, listening is already setup.
+      return 0;
+   }
    listen_socket_fd = km_gdb_listen(AF_INET, SOCK_STREAM, 0);
    if (listen_socket_fd == -1) {
       km_warn("Could not create socket");
@@ -156,15 +186,25 @@ int km_gdb_setup_listen(void)
    if (setsockopt(listen_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
       km_warn("setsockopt(SO_REUSEADDR) failed");
    }
-   server_addr.sin_family = AF_INET;
-   server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-   server_addr.sin_port = htons(km_gdb_port_get());
+   int rc = -1;
+   uint16_t current_port = km_gdb_port_get();
+   do {
+      server_addr.sin_family = AF_INET;
+      server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+      server_addr.sin_port = htons(current_port);
 
-   if (bind(listen_socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
-      km_warn("bind failed");
+      if ((rc = bind(listen_socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr))) == 0) {
+         break;
+      }
+      current_port++;
+   } while (current_port != km_gdb_port_get());
+   if (rc < 0) {
+      km_warn("couldn't find a port to bind to");
       close(listen_socket_fd);
       return -1;
    }
+   km_gdb_port_set(current_port);
+
    if (listen(listen_socket_fd, 1) == -1) {
       km_warn("listen failed");
       close(listen_socket_fd);
@@ -190,11 +230,18 @@ static int km_gdb_accept_connection(void)
    socklen_t len;
    int opt = 1;
 
-   len = sizeof(client_addr);
-   gdbstub.sock_fd = km_gdb_accept(gdbstub.listen_socket_fd, (struct sockaddr*)&client_addr, &len);
-   if (gdbstub.sock_fd == -1) {
+   for (;;) {
+      len = sizeof(client_addr);
+      gdbstub.sock_fd = km_gdb_accept(gdbstub.listen_socket_fd, (struct sockaddr*)&client_addr, &len);
+      if (gdbstub.sock_fd >= 0) {
+         break;
+      }
       if (errno == EINVAL) {   // process exit caused a shutdown( listen_socket_fd, SHUT_RD )
          return EINVAL;
+      }
+      if (errno == EINTR) {
+         km_warn("Interrupted accept call, retrying");
+         continue;
       }
       km_warn("accept failed");
       return -1;
@@ -262,6 +309,7 @@ static void gdb_fd_garbage_collect(void);
  * Reset gdb state in the child process that results from a payload
  * fork() system call.  The parent is connected to the gdb client.
  * The child is not connected to the gdb client.
+ * If the parent has gdb access enabled then the child will too.
  */
 void km_gdb_fork_reset(void)
 {
@@ -273,13 +321,49 @@ void km_gdb_fork_reset(void)
       close(gdbstub.listen_socket_fd);
       gdbstub.listen_socket_fd = -1;
    }
-   gdbstub.enabled = 0;
    gdbstub.gdb_client_attached = 0;
-   gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_UNSPECIFIED;
    gdbstub.session_requested = 0;
    TAILQ_INIT(&gdbstub.event_queue);
+   km_gdb_remove_all_breakpoints(1);   // remove the breakpoints but don't update the debug registers
    gdb_fd_garbage_collect();
-   // start listening on a different port again????
+
+   // start listening on a different port again
+   if (km_gdb_is_enabled() != 0) {
+      if (km_gdb_setup_listen() == 0) {
+         // Let them know in the log what port the child's gdbstub is listening on.
+         km_warnx("Pid %d is listening for debugger attach on port %d\n", getpid(), km_gdb_port_get());
+      } else {
+         // Couldn't setup for listen.
+         km_warn("Failed to setup a gdb listening port for pid %d\n", getpid());
+      }
+   }
+}
+
+/*
+ * We decide here if km should wait for gdb client connect before resuming the payload.
+ */
+int km_gdb_need_to_wait_for_client_connect(const char* envvarname)
+{
+   int need_to_wait = 0;
+   char* wait = getenv(envvarname);
+   if (gdbstub.enabled != 0) {
+      if (wait != NULL) {
+         regex_t regex;
+         int regerr;
+         if ((regerr = regcomp(&regex, wait, REG_EXTENDED | REG_NOSUB)) == 0) {
+            if (regexec(&regex, km_payload_name, 0, NULL, REG_NOTBOL|REG_NOTEOL) == 0) {
+               need_to_wait = 1;
+            }
+            regfree(&regex);
+         } else {
+            char regerrbuf[256];
+            regerror(regerr, &regex, regerrbuf, sizeof(regerrbuf));
+            km_warnx("Error %s compiling %s regular expression %s", regerrbuf, envvarname, wait);
+         }
+      }
+   }
+   km_infox(KM_TRACE_GDB, "%s = %s, payload %s, need_to_wait %d, gdb enabled %d", envvarname, wait, km_payload_name, need_to_wait, gdbstub.enabled);
+   return need_to_wait;
 }
 
 /*
@@ -287,7 +371,7 @@ void km_gdb_fork_reset(void)
  */
 static void km_gdb_detach(void)
 {
-   km_gdb_remove_all_breakpoints();
+   km_gdb_remove_all_breakpoints(0);
 
    gdb_fd_garbage_collect();
 
@@ -631,6 +715,12 @@ static void send_response(char code, gdb_event_t* gep, bool wait_for_ack)
          case GDB_KMSIGNAL_THREADEXIT:
             snprintf(obuf, sizeof(obuf), "N");
             break;
+         case GDB_KMSIGNAL_EXEC2PROG:
+            snprintf(obuf, sizeof(obuf), "T05exec:");
+            char* e = mem2hex((unsigned char *)km_payload_name, obuf + strlen(obuf), strlen(km_payload_name));
+            *e++ = ';';
+            *e = 0;
+            break;
          case SIGTRAP:
             snprintf(obuf, sizeof(obuf), "T%02Xswbreak:0;thread:%08X;", gep->signo, gep->sigthreadid);
             break;
@@ -905,6 +995,7 @@ static void handle_qsupported(char* packet, char* obuf)
            "qXfer:threads:read+;"
            "swbreak+;"
            "hwbreak+;"
+           "exec-events+;"
            "vContSupported+;"
            "qXfer:auxv:read+;"
            "qXfer:exec-file:read+;"
@@ -1886,7 +1977,7 @@ static void gdb_fd_garbage_collect(void)
 
    for (i = 0; i < MAX_GDB_VFILE_OPEN_FD; i++) {
       if (gdbstub.vfile_state.fd[i] != GDB_VFILE_FD_FREE_SLOT) {
-         km_info(KM_TRACE_GDB, "Closing gdb vFile fd %d, linux fd %d", i, gdbstub.vfile_state.fd[i]);
+         km_infox(KM_TRACE_GDB, "Closing gdb vFile fd %d, linux fd %d", i, gdbstub.vfile_state.fd[i]);
          close(gdbstub.vfile_state.fd[i]);
          gdbstub.vfile_state.fd[i] = GDB_VFILE_FD_FREE_SLOT;
       }
@@ -2385,8 +2476,22 @@ static gdb_event_t* gdb_select_event(void)
          return foundgep;
       }
       if (foundgep->signo == GDB_KMSIGNAL_THREADEXIT) {
+         /*
+          * I don't remember why this gdb event does not need to be delinked and marked inactive.
+          * For our simple tests with the last thread exiting it is ok since the vcpu (which contains the gdb event)
+          * will never be reused.  For more complicated situations where all other threads are
+          * paused by gdb and the lone running thread exits, the other threads could be unpaused,
+          * create new threads which would want to use the vcpu that was freed by thread exit.
+          */
          send_response('S', foundgep, true);
          break;
+      }
+      if (foundgep->signo == GDB_KMSIGNAL_EXEC2PROG) {
+         TAILQ_REMOVE(&gdbstub.event_queue, foundgep, link);
+         foundgep->entry_is_active = false;
+         km_mutex_unlock(&gdbstub.notify_mutex);
+         send_response('S', foundgep, true);
+         return foundgep;
       }
       km_vcpu_t* vcpu = km_vcpu_fetch_by_tid(foundgep->sigthreadid);
       if (vcpu->gdb_vcpu_state.gdb_run_state != THREADSTATE_PAUSED) {
@@ -2485,6 +2590,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
                send_error_msg();
                break;
             }
+            km_infox(KM_TRACE_GDB, "setting thread to %d", thread_id);
             km_gdb_vcpu_set(vcpu);   // memorize it for future sessions ??
             send_okay_msg();
             break;
@@ -2670,7 +2776,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
             if (command == 'Z') {
                ret = km_gdb_add_breakpoint(type, addr, len);
             } else {
-               ret = km_gdb_remove_breakpoint(type, addr, len);
+               ret = km_gdb_remove_breakpoint(type, addr, len, 0);
             }
             if (ret == -1) {
                send_error_msg();
@@ -2814,7 +2920,7 @@ static void km_gdb_wait_for_dynlink_to_finish(void)
    km_wait_on_eventfd(machine.intr_fd);   // wait for the breakpoint we planted to be hit
    gdbstub.gdb_client_attached = 0;
    km_infox(KM_TRACE_GDB, "dynamic linker is done");
-   if (km_gdb_remove_breakpoint(GDB_BREAKPOINT_HW, payload_entry, 1) != 0) {
+   if (km_gdb_remove_breakpoint(GDB_BREAKPOINT_HW, payload_entry, 1, 0) != 0) {
       km_errx(4, "Failed to remove breakpoint on payload entry point 0x%lx", payload_entry);
    }
    pthread_mutex_lock(&gdbstub.notify_mutex);
@@ -2840,6 +2946,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
        {.fd = machine.intr_fd, .events = POLLIN | POLLERR},
    };
    int ret;
+   gdb_event_t* foundgep;
 
    km_wait_on_eventfd(machine.intr_fd);   // Wait for km_start_vcpus to be called
 
@@ -2848,27 +2955,63 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
       km_gdb_wait_for_dynlink_to_finish();
    }
 
-   if (gdbstub.wait_for_attach == GDB_DONT_WAIT_FOR_ATTACH) {
-      km_vcpu_resume_all();
+   // If we enter after an execve() syscall the gdb client may already be attached.
+   if (gdbstub.gdb_client_attached == 0) {
+      if (gdbstub.wait_for_attach == GDB_DONT_WAIT_FOR_ATTACH) {
+         km_vcpu_resume_all();
+      }
    }
 
 accept_connection:;
-   ret = km_gdb_accept_connection();
-   if (ret == EINVAL) {   // all target threads have exited while we waited in accept()
-      km_infox(KM_TRACE_GDB, "gdb listening socket is shutdown");
-      return;
+   while (gdbstub.gdb_client_attached == 0) {
+      // Wait for a fork() or a gdb client connection
+      fds[0].fd = gdbstub.listen_socket_fd;
+      while ((ret = poll(fds, 2, -1) == -1) && (errno == EAGAIN || errno == EINTR)) {
+         ;   // ignore signals which may interrupt the poll
+      }
+      if (ret < 0) {
+         km_err(1, "poll failed ret=%d.", ret);
+      }
+      km_infox(KM_TRACE_GDB, "fds[].revents: listen 0x%x, intr 0x%x", fds[0].revents, fds[1].revents);
+      if (fds[1].revents != 0) {
+         int in_child;
+         // We think this can only be a fork signal since the gdb client is not attached
+         km_empty_out_eventfd(machine.intr_fd);
+         foundgep = gdb_select_event();
+         assert(foundgep != NULL && foundgep->signo == GDB_KMSIGNAL_DOFORK);
+         km_dofork(&in_child);
+         if (in_child != 0) {
+            fds[1].fd = machine.intr_fd;
+         }
+         continue;
+      }
+      if (fds[0].revents != 0) {
+         ret = km_gdb_accept_connection();
+         if (ret == EINVAL) {   // all target threads have exited while we waited in accept()
+            km_infox(KM_TRACE_GDB, "gdb listening socket is shutdown");
+            return;
+         }
+         assert(ret == 0);   // not sure what to do with errors here yet.
+         gdbstub.gdb_client_attached = 1;
+         fds[0].fd = gdbstub.sock_fd;
+      }
    }
-   assert(ret == 0);   // not sure what to do with errors here yet.
-   gdbstub.gdb_client_attached = 1;
-   fds[0].fd = gdbstub.sock_fd;
    km_vcpu_pause_all(NULL, GUEST_ONLY);
 
-   km_gdb_vcpu_set(main_vcpu);   // gdb default thread
+   km_gdb_vcpu_set(km_vcpu_fetch_by_tid(1));   // gdb default thread
 
    gdb_event_t ge = (gdb_event_t){
        .signo = 0,
        .sigthreadid = km_vcpu_get_tid(main_vcpu),
    };
+   if (gdbstub.send_exec_event != 0) {
+      // Send an "exec event" stop reply to the gdb client.
+      ge.signo = GDB_KMSIGNAL_EXEC2PROG;
+      gdbstub.send_exec_event = 0;
+      send_response('S', &ge, true);
+   } else {
+      ge.signo = 0;
+   }
    gdb_handle_remote_commands(&ge);   // Talk to GDB first time, before any vCPU run
 
    gdbstub.session_requested = 0;
@@ -2925,8 +3068,10 @@ accept_connection:;
          if (foundgep->signo == GDB_KMSIGNAL_DOFORK) {
             int in_child;
             km_dofork(&in_child);
-            if (in_child != 0) {   // We are the child, just return to the main thread
-               return;
+            if (in_child != 0) {   // We are the child, go wait for a new connection
+               fds[1].fd = machine.intr_fd;
+               main_vcpu = km_vcpu_fetch_by_tid(1);
+               goto accept_connection;
             } else {   // We are the parent process, just pretend nothing happened
                continue;
             }
@@ -3111,7 +3256,10 @@ void km_gdb_notify(km_vcpu_t* vcpu, int signo)
             TAILQ_EMPTY(&gdbstub.event_queue));
 
    // Enqueue this thread's gdb event on the tail of gdb event queue.
-   assert(vcpu->gdb_vcpu_state.event.entry_is_active == false);
+   if (vcpu->gdb_vcpu_state.event.entry_is_active != false) {
+      km_infox(KM_TRACE_GDB, "trying to enqueue vcpu %d to gdb when it is already queued", vcpu->vcpu_id);
+      abort();
+   }
    vcpu->gdb_vcpu_state.event = (gdb_event_t){
        .entry_is_active = true,
        .signo = gdb_signo(signo),

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -688,8 +688,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                case HC_DOFORK:
                   // Give control to the km main thread which might be waiting for process
                   // exit or could be sleeping in gdbstub.  The fork() or clone() is done in km main.
-                  km_infox(KM_TRACE_FORK, "xfer control to km main thread");
-                  if (km_gdb_client_is_attached() != 0) {
+                  km_infox(KM_TRACE_FORK, "xfer control to km main thread, gdb enabled %d", gdbstub.enabled);
+                  if (km_gdb_is_enabled() != 0) {
                      km_gdb_notify(vcpu, GDB_KMSIGNAL_DOFORK);
                   } else {
                      km_vcpu_pause_all(vcpu, GUEST_ONLY);
@@ -723,6 +723,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                 * signal GDB_KMSIGNAL_KVMEXIT to cause the gdb payload handler to look into the
                 * vcpu's kvm_run structure to figure out what has happened so that it can generate
                 * the correct gdb stop reply.
+                * If the signal deliver code below finds a signal to deliver it will try to
+                * use this vcpu's gdb event which we have just taken here by calling km_gdb_notify().
                 */
                km_gdb_notify(vcpu, GDB_KMSIGNAL_KVMEXIT);
             } else {
@@ -837,6 +839,13 @@ static int km_start_single_vcpu(km_vcpu_t* vcpu, void* unused)
    return km_run_vcpu_thread(vcpu);
 }
 
+void km_start_all_vcpus(void)
+{
+   if (km_vcpu_apply_all(km_start_single_vcpu, NULL) != 0) {
+      km_err(2, "Failed to start guest");
+   }
+}
+
 void km_start_vcpus()
 {
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
@@ -857,8 +866,5 @@ void km_start_vcpus()
       ;   // ignore signals during the write
    }
 
-   // Start the VCPU's
-   if (km_vcpu_apply_all(km_start_single_vcpu, NULL) != 0) {
-      km_err(2, "Failed to start guest");
-   }
+   km_start_all_vcpus();
 }

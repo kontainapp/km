@@ -105,6 +105,10 @@ See `docs/testing.md` for details. A few hints
 * `make test MATCH=regexp` will build and only run tests matching regexp
 * tests/*.bats files is were the test control is
 
+## Debugging payloads
+
+See the Debugging section of `docs/testing.md` for an introduction to debugging km payloads.
+
 ## CI/CD
 
 We use Azure DevOps pipelines. See [docs/azure_pipeline.md](docs/azure_pipeline.md)

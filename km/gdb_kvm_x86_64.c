@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -637,7 +637,7 @@ int km_gdb_add_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
  * Remove a breakpoint of type software or hardware, at address addr.
  * Returns 0 if success, -1 otherwise.
  */
-int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
+int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len, int skip_hw_update)
 {
    struct breakpoint_t* bp;
 
@@ -650,14 +650,19 @@ int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t l
    if (bp_list_remove(type, addr, len) == -1) {
       return -1;
    }
+   if (skip_hw_update != 0) {
+     return 0;
+   }
    return km_gdb_update_guest_debug();
 }
 
 /*
  * Remove all active breakpoints, both hw and sw.
+ * After a fork() we need to remove all breakpoints in the child process but we don't
+ * have the vm setup yet, so we will call with skip_hw_update set to non-zero.
  * Return 0 for success, -1 if some breakpoints weren't removed.
  */
-int km_gdb_remove_all_breakpoints(void)
+int km_gdb_remove_all_breakpoints(int skip_hw_update)
 {
    int rc;
    int finalrc = 0;
@@ -665,22 +670,24 @@ int km_gdb_remove_all_breakpoints(void)
    breakpoint_t* tempbp;
 
    SLIST_FOREACH_SAFE (bp, &sw_breakpoints, entries, tempbp) {
-      rc = km_gdb_remove_breakpoint(bp->type, bp->addr, bp->len);
+      rc = km_gdb_remove_breakpoint(bp->type, bp->addr, bp->len, skip_hw_update);
       if (rc != 0) {
          km_infox(KM_TRACE_GDB,
-                  "Failed to remove sw breakpoint at gva 0x%lx, length %lu",
+                  "Failed to remove sw breakpoint at gva 0x%lx, length %lu, skip_hw_update %d",
                   bp->addr,
-                  bp->len);
+                  bp->len,
+                  skip_hw_update);
          finalrc = rc;
       }
    }
    SLIST_FOREACH_SAFE (bp, &hw_breakpoints, entries, tempbp) {
-      rc = km_gdb_remove_breakpoint(bp->type, bp->addr, bp->len);
+      rc = km_gdb_remove_breakpoint(bp->type, bp->addr, bp->len, skip_hw_update);
       if (rc != 0) {
          km_infox(KM_TRACE_GDB,
-                  "Failed to remove hw breakpoint at gva 0x%lx, length %lu",
+                  "Failed to remove hw breakpoint at gva 0x%lx, length %lu, skip_hw_update %d",
                   bp->addr,
-                  bp->len);
+                  bp->len,
+                  skip_hw_update);
          finalrc = rc;
       }
    }
