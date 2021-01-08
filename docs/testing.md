@@ -72,8 +72,7 @@ tests/hello_test.km: Waiting for a debugger. Connect to it like this:
 GdbServerStubStarted
 ```
 
-km's gdb server can also operate in the "background" where it will listen for connection from the gdb client while the payload is running.
-Use the --gdb-listen flag to have gdbstub listen for client connections in the background.
+Use the km command's --gdb-listen flag to have km listen for gdb client connections while the payload runs.
 
 When a payload forks, the gdb "follow-fork-mode" can't be used to have gdb switch to debugging the child payload.
 Instead the variable KM_GDB_CHILD_FORK_WAIT can be placed in the parent km's environment.
