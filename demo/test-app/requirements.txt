@@ -1,0 +1,8 @@
+h5py~=2.10.0
+six~=1.15.0
+keras
+# tensorflow
+flask
+gevent
+pillow
+requests
