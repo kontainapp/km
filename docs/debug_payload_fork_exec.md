@@ -1,7 +1,10 @@
-To use gdb in conjunction with km payloads and their child processes you need to be aware of these rules:  
- - a child payload inherits km command line debug settings from the parent km, so if gdbstub is running in the parent km, it will be running in the child km,  
- - to stop a child payload after a fork() call returns, set the parent km's environment variable KM_GDB_CHILD_FORK_WAIT to the name of km payload that called fork() (or clone()), the value is a regular expression,  
- - to gain control in the child payload after an execve() completes use the gdb "catch exec" command brefore the execve() call is made by the child payload  
+# Debugging fork-ed and exec-ed processes
+
+To use gdb in conjunction with km payloads and their child processes you need to be aware of these rules:
+
+- A child payload inherits km command line debug settings from the parent km, so if gdbstub is running in the parent km, it will be running in the child km,
+- To stop a child payload after a fork() call returns, set the parent km's environment variable KM_GDB_CHILD_FORK_WAIT to the name of km payload that called fork() (or clone()), the value is a regular expression,
+- To gain control in the child payload after an execve() completes use the gdb "catch exec" command before the execve() call is made by the child payload
 
 The following is an example of debugging a simple program that forks and execs to another simple program.
 The goal of the example is to set a breakpoint in the child payload and do some debugging.
@@ -43,7 +46,6 @@ int main(int argc, char* argv[])
 }
 ```
 
-
 Child program hello_test.c:
 
 ```c
@@ -61,10 +63,9 @@ int main(int argc, char** argv)
 }
 ```
 
-
 Start the parent program, attach gdb and let the payload continue:
 
-```
+```sh
 [paulp@work tests]$ export KM_GDB_CHILD_FORK_WAIT=".*gdb_forker.*"
 [paulp@work tests]$ env | grep KM
 [paulp@work tests]$ ../build/km/km -g  gdb_forker_test.km
@@ -73,10 +74,9 @@ Start the parent program, attach gdb and let the payload continue:
 GdbServerStubStarted
 ```
 
-
 Start an instance of gdb that attaches to gdb_forker_test.km
 
-```
+```sh
 [paulp@work km]$ gdb -q --ex="target remote work:2159"
 Remote debugging using work:2159
 Reading /home/paulp/ws/ws2/km/tests/gdb_forker_test.km from remote target...
@@ -88,11 +88,9 @@ Reading symbols from target:/home/paulp/ws/ws2/km/tests/gdb_forker_test.km...
 Continuing.
 ```
 
-
-
 The parent program gdb_forker_test resumes, forks a child, and the child km wants another instance of gdb to attach to the child payload:
 
-```
+```sh
 19:06:39.884242 km_gdb_accept_connec 255  km      Connection from debugger at 10.1.10.47
 19:07:08.481122 km_gdb_attach_messag 319  1001.km      Waiting for a debugger. Connect to it like this:
 	gdb -q --ex="target remote work:2160" /home/paulp/ws/ws2/km/tests/gdb_forker_test.km
@@ -101,12 +99,10 @@ GdbServerStubStarted
 Waiting for child pid 1001 to terminate
 ```
 
-
-
 Now the child instance of gdb_forker_test is waiting for another instance of gdb to attach to it before proceeding.
 So we attach and find gdb is waiting after the fork() call in the child returns:
 
-```
+```sh
 [paulp@work km]$ gdb -q --ex="target remote work:2160"
 Remote debugging using work:2160
 Reading /home/paulp/ws/ws2/km/tests/gdb_forker_test.km from remote target...
@@ -119,7 +115,7 @@ __syscall0 (n=57) at ./syscall_arch.h:21
 #0  __syscall0 (n=57) at ./syscall_arch.h:21
 #1  fork () at musl/src/process/fork.c:21
 #2  0x0000000000201262 in main (argc=1, argv=0x7fffffdfc838) at gdb_forker_test.c:38
-(gdb) 
+(gdb)
 ```
 
 
@@ -180,7 +176,7 @@ Hello, argv[0] = '/home/paulp/ws/ws2/km/tests/hello_test.km'
 19:28:02.483754 km_gdb_detach        402  1001.km      gdb client disconnected
 Child pid 1001 terminated with status 0 (0x0)
 19:28:02.487561 km_gdb_detach        402     1.km      gdb client disconnected
-[paulp@work tests]$ 
+[paulp@work tests]$
 ```
 
 
