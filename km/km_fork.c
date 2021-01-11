@@ -268,7 +268,7 @@ static void km_fork_wait_for_gdb_attach(void)
    volatile int keep_waiting = 1;
 
    if (envp != NULL) {
-      fprintf(stderr, "Waiting for gdb attach, pid %d, \"set var keep_waiting=0\"\n", getpid());
+      km_warnx("*** Waiting for gdb attach, \"gdb %s -p %d\", then \"set var keep_waiting=0\"\n", km_get_self_name(), getpid());
       while (keep_waiting != 0) {
          sleep(1);
       }

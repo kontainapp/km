@@ -368,6 +368,7 @@ extern void km_empty_out_eventfd(int fd);
 extern int km_gdb_setup_listen(void);
 extern void km_gdb_destroy_listen(void);
 extern void km_gdb_accept_stop(void);
+extern void km_gdb_attach_message(void);
 extern void km_gdb_fork_reset(void);
 extern void km_vcpu_resume_all(void);
 extern int km_gdb_need_to_wait_for_client_connect(const char* envvarname);

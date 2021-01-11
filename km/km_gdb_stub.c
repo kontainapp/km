@@ -37,6 +37,7 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -306,6 +307,24 @@ void km_gdb_vcpu_state_init(km_vcpu_t* vcpu)
 static void gdb_fd_garbage_collect(void);
 
 /*
+ * Issue a message to the user telling them what port gdb stub is listening on.
+ */
+void km_gdb_attach_message(void)
+{
+   char name[HOST_NAME_MAX + 1];
+   if (gethostname(name, HOST_NAME_MAX) != 0) {
+      km_trace("Failed to get hostname, ignoring. errno=%d (%s)", errno, strerror(errno));
+      *name = 0;
+   };
+   km_warnx("Waiting for a debugger. Connect to it like this:\n"
+            "\tgdb -q --ex=\"target remote %s:%d\" %s\n"
+            "GdbServerStubStarted\n",
+            name,
+            km_gdb_port_get(),
+            km_guest.km_filename);
+}
+
+/*
  * Reset gdb state in the child process that results from a payload
  * fork() system call.  The parent is connected to the gdb client.
  * The child is not connected to the gdb client.
@@ -331,7 +350,7 @@ void km_gdb_fork_reset(void)
    if (km_gdb_is_enabled() != 0) {
       if (km_gdb_setup_listen() == 0) {
          // Let them know in the log what port the child's gdbstub is listening on.
-         km_warnx("Pid %d is listening for debugger attach on port %d\n", getpid(), km_gdb_port_get());
+         km_gdb_attach_message();
       } else {
          // Couldn't setup for listen.
          km_warn("Failed to setup a gdb listening port for pid %d\n", getpid());
