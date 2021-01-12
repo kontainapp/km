@@ -710,17 +710,7 @@ int main(int argc, char* argv[])
    km_start_vcpus();
 
    if (km_gdb_is_enabled() == 1) {
-      char name[HOST_NAME_MAX + 1];
-      if (gethostname(name, HOST_NAME_MAX) != 0) {
-         km_trace("Failed to get hostname, ignoring. errno=%d (%s)", errno, strerror(errno));
-         *name = 0;
-      };
-      warnx("Waiting for a debugger. Connect to it like this:\n"
-            "\tgdb -q --ex=\"target remote %s:%d\" %s\n"
-            "GdbServerStubStarted\n",
-            name,
-            km_gdb_port_get(),
-            km_guest.km_filename);
+      km_gdb_attach_message();
 
       km_close_stdio(log_to_fd);
       km_gdb_main_loop(vcpu);
