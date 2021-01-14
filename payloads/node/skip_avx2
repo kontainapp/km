@@ -1,0 +1,10 @@
+parallel/test-crypto-binary-default.js
+parallel/test-crypto-domains.js
+parallel/test-crypto-pbkdf2.js
+parallel/test-crypto-scrypt.js
+parallel/test-crypto-keygen.js
+parallel/test-domain-crypto.js
+parallel/test-worker-message-port-wasm-module.js
+parallel/test-worker-stdio.js
+async-hooks/test-crypto-pbkdf2.js
+sequential/test-async-wrap-getasyncid.js
