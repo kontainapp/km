@@ -524,6 +524,9 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             km_errx(1, "cannot set payload arguments when resuming a snapshot");
          }
       }
+   }
+   if (km_called_via_exec() == 0) {
+      // km_exec_recover_kmstate() has already setup km_log_file in the case of entry by execve().
       km_redirect_msgs(km_log_to);
    }
 
