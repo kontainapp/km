@@ -15,7 +15,7 @@ steps:
     displayName: Python.km tests - run on Kubernetes
     timeoutInMinutes: 15
 
-  - bash: make -C payloads/node test-all-withk8s
+  - bash: make -C payloads/node test-withk8s # See Issue 1027. TODO: use 'test-all-withk8s' target
     displayName: Node.km tests - run on Kubernetes
     timeoutInMinutes: 30
 
