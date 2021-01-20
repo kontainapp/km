@@ -117,6 +117,8 @@ uint64_t km_fs_chmod(km_vcpu_t* vcpu, char* pathname, mode_t mode);
 uint64_t km_fs_fchmod(km_vcpu_t* vcpu, int fd, mode_t mode);
 // int unlink(const char *path);
 uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname);
+// int unlinkat(int dirfd, const char *pathname, int flags);
+uint64_t km_fs_unlinkat(km_vcpu_t* vcpu, int openfd, const char* pathname, int flags);
 // int getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count);
 uint64_t km_fs_getdents(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count);
 // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);
