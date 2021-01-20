@@ -217,11 +217,6 @@ char* __stpcpy_chk(char* dest, const char* src, size_t dest_len)
    return (char*)memcpy(dest, src, len + 1) + len;
 }
 
-pid_t gettid(void)
-{
-   return __syscall(SYS_gettid);
-}
-
 /* Note: Python on Ubuntu also wants  __wcscat_chk */
 
 char* __realpath_chk(const char* buf, char* resolved, size_t resolvedlen)
