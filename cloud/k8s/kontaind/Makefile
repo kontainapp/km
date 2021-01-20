@@ -1,4 +1,4 @@
-#  Copyright © 2018-2020 Kontain Inc. All rights reserved.
+#  Copyright © 2018-2021 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
 #
@@ -23,6 +23,8 @@ export define runenv_prep
 	mkdir -p ${RUNENV_PATH}/kontain/runtime && cp ${KM_LDSO} $$_
 	cp installer.sh ${RUNENV_PATH}/installer.sh
 endef
+
+.DEFAULT_GOAL := runenv-image
 
 
 # TODO: set the right image and version once we have over own device plugin
