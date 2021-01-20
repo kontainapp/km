@@ -787,6 +787,35 @@ uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname)
    return ret;
 }
 
+// int unlinkat(int dirfd, const char *pathname, int flags);
+uint64_t km_fs_unlinkat(km_vcpu_t* vcpu, int dirfd, const char* pathname, int flags)
+{
+   int host_dirfd = dirfd;
+   km_file_ops_t* ops;
+
+   if (dirfd != AT_FDCWD && pathname[0] != '/') {
+      if ((host_dirfd = km_fs_g2h_fd(dirfd, &ops)) < 0) {
+         return -EBADF;
+      }
+      if (ops != NULL && ops->getdents_g2h != NULL) {
+         km_warnx("bad dirfd in unlinkat");
+         return -EINVAL;   // no unlinkat with base in /proc and such
+      }
+   }
+   char buf[PATH_MAX];
+
+   int ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
+   if (ret < 0) {
+      return ret;
+   }
+   if (ret > 0) {
+      pathname = buf;
+   }
+   ret = __syscall_3(SYS_unlinkat, host_dirfd, (uintptr_t)pathname, flags);
+   km_infox(KM_TRACE_FILESYS, "unlinkat(%d, %s, 0x%x) returns %d", dirfd, pathname, flags, ret);
+   return ret;
+}
+
 // int mknod(const char *pathname, mode_t mode, dev_t dev);
 uint64_t km_fs_mknod(km_vcpu_t* vcpu, char* pathname, mode_t mode, dev_t dev)
 {
