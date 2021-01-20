@@ -3,7 +3,7 @@
 # km's gdb stub pause after fork in the child.
 # Print the program path so we can verify it is what we expect.
 backtrace
-frame 2
+frame 3
 printf "post fork prog: %s\n", argv[0]
 catch exec
 cont

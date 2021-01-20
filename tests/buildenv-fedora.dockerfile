@@ -1,4 +1,4 @@
-# Copyright © 2019-2020 Kontain Inc. All rights reserved.
+# Copyright © 2019-2021 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
 #
@@ -8,7 +8,7 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 #
-# Dockerfile for buildenv image - these are thr base images for KM, tests and payload builds.
+# Dockerfile for buildenv image - these are the base images for KM, tests and payload builds.
 #
 # There are three stages:
 #
@@ -19,10 +19,10 @@
 
 # Form alpine-based container to extract alpine-libs from
 # This is a temp stage, so we don't care about layers count.
-FROM alpine:3.11.5 as alpine-lib-image
+FROM alpine:3.13.0 as alpine-lib-image
 ENV PREFIX=/opt/kontain
 
-RUN apk add bash make git g++ gcc musl-dev libffi-dev
+RUN apk add bash make git g++ gcc musl-dev libffi-dev sqlite-static
 
 # Prepare $PREFIX/alpine-lib while trying to filter out irrelevant stuff
 RUN mkdir -p $PREFIX/alpine-lib
@@ -31,6 +31,8 @@ RUN tar cf - -C / lib usr/lib \
    --exclude plugin --exclude pkgconfig --exclude apk \
    --exclude firmware --exclude mdev --exclude bash \
    --exclude engines-\* | tar xf - -C $PREFIX/alpine-lib
+# Alpine 3.12+ bumped libffi version, Fedora 33 hasn't yet. Hack to support that
+RUN ln -sf /opt/kontain/alpine-lib/usr/lib/libffi.so.7 /opt/kontain/alpine-lib/usr/lib/libffi.so.6
 
 # Save the path to gcc versioned libs for the future
 RUN dirname $(gcc --print-file-name libgcc.a) > $PREFIX/alpine-lib/gcc-libs-path.txt
