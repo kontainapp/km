@@ -1,4 +1,4 @@
-#  Copyright © 2018-2019 Kontain Inc. All rights reserved.
+#  Copyright © 2018-2021 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
 #
@@ -12,13 +12,15 @@ TOP := $(shell git rev-parse --show-toplevel)
 
 LIB := runtime
 
+MALLOC_DIR = mallocng
+
 # following it to compute SOURCES, picking up all .c files from relevant dirs
 # (i.e. skipping SKIP_SRC_DIR). Then drop the base implementations for the sake of
 # arch specific ones based on ARCH.
 SRCDIR := musl
 ARCH := x86_64
 SKIP_SRC_DIR := $(addprefix $(SRCDIR)/src/, ipc mq)
-SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR)/,src/*/ crt/ ldso/)))
+SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR)/,src/*/ crt/ ldso/ src/malloc/$(MALLOC_DIR)/)))
 
 # these musl files will be dropped from all libs (static and dynamic)
 KM_REPLACED_SRCS := __set_thread_area.s __unmapself.s syscall.s syscall_cp.s getenv.c preadv.c pwritev.c \
