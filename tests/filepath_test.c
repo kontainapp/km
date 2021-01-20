@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -300,6 +300,108 @@ TEST test_concurrent_open()
    PASS();
 }
 
+TEST test_unlinkat(void)
+{
+   char path[PATH_MAX];
+   long unique;
+   struct timespec ts;
+   int rc;
+   char* pathoftmp = dirpath;
+   int tmpfd;
+   int fd;
+
+   // Since getpid() just returns 1 mostly, make a number that is probably unique enough for this test
+   clock_gettime(CLOCK_MONOTONIC, &ts);
+   unique = (ts.tv_sec << 32) | ts.tv_nsec;
+
+   // Cleanup files that would interfere with the test, we expect these to fail
+   snprintf(path, sizeof(path), "%s/file_%ld", pathoftmp, unique);
+   unlink(path);
+   snprintf(path, sizeof(path), "%s/dir_%ld", pathoftmp, unique);
+   rmdir(path);
+   snprintf(path, sizeof(path), "file_%ld", unique);
+   unlink(path);
+   snprintf(path, sizeof(path), "dir_%ld", unique);
+   rmdir(path);
+
+
+   // Create and unlink a file by absolute path.
+   snprintf(path, sizeof(path), "%s/file_%ld", pathoftmp, unique);
+   fd = open(path, O_CREAT, 0644);
+   ASSERT_NOT_EQ(-1, fd);
+   close(fd);
+   rc = unlinkat(0, path, 0);          // dirfd should be ignored when path is absolute
+   ASSERT_EQ(0, rc);
+   fd = open(path, O_CREAT, 0x644);
+   ASSERT_NOT_EQ(-1, fd);
+   close(fd);
+   rc = unlinkat(AT_FDCWD, path, 0);   // AT_FDCWD should ignored when path is absolute
+   ASSERT_EQ(0, rc);
+
+   // Create and unlink a directory by absolute path..
+   snprintf(path, sizeof(path), "%s/dir_%ld", pathoftmp, unique);
+   rc = mkdir(path, 0x644);
+   ASSERT_EQ(0, rc);
+   rc = unlinkat(0, path, 0);         // ignore dirfd, can't unlink dir without AT_REMOVEDIR
+   ASSERT_EQ(-1, rc);
+   rc = unlinkat(0, path, AT_REMOVEDIR);  // dirfd should be ignored and unlinking the dir should work
+   ASSERT_EQ(0, rc);
+
+   rc = mkdir(path, 0x644);
+   ASSERT_EQ(0, rc);
+   rc = unlinkat(AT_FDCWD, path, 0);  // can't unlink dir without AT_REMOVEDIR
+   ASSERT_EQ(-1, rc);
+   rc = unlinkat(AT_FDCWD, path, AT_REMOVEDIR); // should be able to unlink dir with AT_REMOVEDIR
+   ASSERT_EQ(0, rc);
+
+
+   // Now do stuff relative to a directory fd.
+   tmpfd = open(pathoftmp, O_DIRECTORY);
+   ASSERT_NOT_EQ(-1, tmpfd);
+
+   // Create and unlink a file relative to an fd open on a directory
+   snprintf(path, sizeof(path), "file_%ld", unique);
+   fd = openat(tmpfd, path, O_CREAT, 0644);
+   ASSERT_NOT_EQ(-1, fd);
+   close(fd);
+   rc = unlinkat(tmpfd, path, AT_REMOVEDIR);  // should fail since this is a file
+   ASSERT_EQ(-1, rc);
+   rc = unlinkat(tmpfd, path, 0);
+   ASSERT_EQ(0, rc);
+
+   // Create and unlink a directory relative to an fd
+   snprintf(path, sizeof(path), "%s/dir_%ld", pathoftmp, unique);
+   rc = mkdir(path, 0755);
+   ASSERT_EQ(0, rc);
+   snprintf(path, sizeof(path), "dir_%ld", unique);
+   rc = unlinkat(tmpfd, path, 0);    // should fail without AT_REMOVEDIR
+   ASSERT_EQ(-1, rc);
+   rc = unlinkat(tmpfd, path, AT_REMOVEDIR);
+   ASSERT_EQ(0, rc);
+
+   close(tmpfd);
+
+   // Now do stuff in the current directory
+   snprintf(path, sizeof(path), "file_%ld", unique);
+   fd = openat(AT_FDCWD, path, O_CREAT, 0644);
+   ASSERT_NOT_EQ(-1, fd);
+   close(fd);
+   rc = unlinkat(AT_FDCWD, path, AT_REMOVEDIR);   // not a directory, should fail
+   ASSERT_EQ(-1, rc);
+   rc = unlinkat(AT_FDCWD, path, 0);
+   ASSERT_EQ(0, rc);
+
+   snprintf(path, sizeof(path), "dir_%ld", unique);
+   rc = mkdir(path, 0755);
+   ASSERT_EQ(0, rc);
+   rc = unlinkat(AT_FDCWD, path, 0);       // should fail because this is a directory
+   ASSERT_EQ(-1, rc);
+   rc = unlinkat(AT_FDCWD, path, AT_REMOVEDIR);
+   ASSERT_EQ(0, rc);
+
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 char* cmdname = "?";
@@ -349,6 +451,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_symlink);
    RUN_TEST(test_chdir);
    RUN_TEST(test_concurrent_open);
+   RUN_TEST(test_unlinkat);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
