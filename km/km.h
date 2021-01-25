@@ -274,6 +274,9 @@ typedef enum vm_type {
    VM_TYPE_KKM        // Kontain Kernel Module
 } vm_type_t;
 
+static const_string_t DEVICE_KVM = "/dev/kvm";
+static const_string_t DEVICE_KKM = "/dev/kkm";
+
 /*
  * kernel include/linux/kvm_host.h
  */
@@ -466,7 +469,7 @@ extern char* km_payload_name;
 
 extern int km_collect_hc_stats;
 
-#define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)      // 1 for yes, 0 for no
+#define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)   // 1 for yes, 0 for no
 #define km_trace_enabled_tag() (km_info_trace.level == KM_TRACE_TAG)   // 1 for yes, 0 for no
 
 #define km_trace_tag_enabled(tag)                                                                  \

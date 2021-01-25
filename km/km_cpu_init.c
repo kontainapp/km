@@ -545,6 +545,7 @@ void km_check_kernel(void)
 void km_machine_setup(km_machine_init_params_t* params)
 {
    int rc;
+   char device_used[PATH_MAX];
 
    if ((machine.intr_fd = km_internal_eventfd(0, 0)) < 0) {
       km_err(1, "KM: Failed to create machine intr_fd");
@@ -552,33 +553,53 @@ void km_machine_setup(km_machine_init_params_t* params)
    if ((machine.shutdown_fd = km_internal_eventfd(0, 0)) < 0) {
       km_err(1, "KM: Failed to create machine shutdown_fd");
    }
+   memset(device_used, 0, sizeof(device_used));
+   strncpy(device_used, DEVICE_KVM, PATH_MAX);
    switch (params->use_virt) {
       case KM_FLAG_FORCE_KVM:
-         if ((machine.kvm_fd = km_internal_open("/dev/kvm", O_RDWR)) < 0) {
-            km_err(1, "KVM: Can't open /dev/kvm");
+         if ((machine.kvm_fd = km_internal_open(DEVICE_KVM, O_RDWR)) < 0) {
+            km_err(1, "KVM: Can't open %s", DEVICE_KVM);
          }
-         km_infox(KM_TRACE_KVM, "KVM: Using /dev/kvm");
          break;
       case KM_FLAG_FORCE_KKM:
-         if ((machine.kvm_fd = km_internal_open("/dev/kkm", O_RDWR)) < 0) {
-            km_err(1, "KVM: Can't open /dev/kkm");
+         if ((machine.kvm_fd = km_internal_open(DEVICE_KKM, O_RDWR)) < 0) {
+            km_err(1, "KVM: Can't open %s", DEVICE_KKM);
          }
-         machine.vm_type = VM_TYPE_KKM;
-         km_infox(KM_TRACE_KVM, "KVM: Using /dev/kkm");
+         strncpy(device_used, DEVICE_KKM, PATH_MAX);
          break;
       default:
-         if ((machine.kvm_fd = km_internal_open("/dev/kvm", O_RDWR)) < 0) {
+         if ((machine.kvm_fd = km_internal_open(DEVICE_KVM, O_RDWR)) < 0) {
             // /dev/kvm is not available try /dev/kkm
-            if ((machine.kvm_fd = km_internal_open("/dev/kkm", O_RDWR)) < 0) {
-               km_err(1, "KVM: Can't open /dev/kvm and /dev/kkm");
+            if ((machine.kvm_fd = km_internal_open(DEVICE_KKM, O_RDWR)) < 0) {
+               km_err(1, "KVM: Can't open %s and %s", DEVICE_KVM, DEVICE_KKM);
             }
-            km_infox(KM_TRACE_KVM, "KVM: Using /dev/kkm");
-            machine.vm_type = VM_TYPE_KKM;
-         } else {
-            km_infox(KM_TRACE_KVM, "KVM: Using /dev/kvm");
+            strncpy(device_used, DEVICE_KKM, PATH_MAX);
          }
          break;
    }
+   km_infox(KM_TRACE_KVM, "KVM: Using %s", device_used);
+
+   /*
+    * Infrastructure will create a sym-link from /dev/kvm to /dev/kkm in aws.
+    * This way kubernetes dev plugin and docker runtime will not need any changes.
+    */
+   char* real_path = realpath(device_used, NULL);
+   if (real_path == NULL) {
+      km_err(1, "KVM: could not resolve real path for %s exiting", device_used);
+   }
+   if (strcmp(real_path, DEVICE_KVM) == 0) {
+      machine.vm_type = VM_TYPE_KVM;
+   } else if (strcmp(real_path, DEVICE_KKM) == 0) {
+      machine.vm_type = VM_TYPE_KKM;
+   } else {
+      km_err(1, "KVM: unknown device name(%s) exiting", real_path);
+   }
+   km_infox(KM_TRACE_KVM,
+            "KVM: path(%s) real path(%s) vm type(%s)",
+            device_used,
+            real_path,
+            (machine.vm_type == VM_TYPE_KVM) ? "VM_TYPE_KVM" : "VM_TYPE_KKM");
+   free(real_path);
 
    km_check_kernel();   // exit there if too old
    if ((rc = ioctl(machine.kvm_fd, KVM_GET_API_VERSION, 0)) < 0) {
