@@ -23,8 +23,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"syscall"
-	"time"
 	"unsafe"
 )
 
@@ -35,6 +35,7 @@ type contextKey struct {
 type Flags struct {
 	verbose bool
 	port    string
+	fileNO  int64
 }
 
 var ConnContextKey = &contextKey{"http-conn"}
@@ -64,7 +65,6 @@ func errorPrintAndExit(e error, msg string) {
 func writeToFile(testFilename string, n int) {
 	testFile, err := os.OpenFile(testFilename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	errorPrintAndExit(err, "OpenFile failed:")
-	defer testFile.Close()
 	wordsAddr := make([]int32, n)
 	wordSize := unsafe.Sizeof(wordsAddr[0])
 	for i := 0; i < n; i++ {
@@ -76,11 +76,12 @@ func writeToFile(testFilename string, n int) {
 		_, err = testFile.Write(buf.Bytes()[i : i+int(wordSize)])
 		errorPrintAndExit(err, "TestFile.Write failed:")
 	}
+	testFile.Close()
 }
 
 // reading testFile, validating each word is 4*i(bytes) offset from the start from the file
 func readAndValidate(testFilename string) {
-	testFileRead, err := os.Open(testFilename)
+	testFileRead, err := os.OpenFile(testFilename, os.O_RDONLY, 0444)
 	errorPrintAndExit(err, "TestFile open failed:")
 	fd := int(testFileRead.Fd())
 	stat, err := testFileRead.Stat()
@@ -120,8 +121,7 @@ func (fg *Flags) simpleIO(w http.ResponseWriter, req *http.Request) {
 			log.Println("Url Param 'wordCount' is missing\nEx: http:127.0.0.1:8090/simpleIO?wordCount=10")
 			return
 		}
-		fileNumber := strconv.FormatInt(time.Now().UnixNano(), 10)
-		testFilename := "/tmp/longhaul_test_" + fileNumber
+		testFilename := "/tmp/longhaul_test_" + strconv.FormatInt(atomic.AddInt64(&fg.fileNO, 1), 10)
 		n, err := strconv.Atoi(keys[0])
 		errorPrintAndExit(err, "Invalid argument for wordCount")
 		writeToFile(testFilename, n)
