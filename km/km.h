@@ -274,6 +274,7 @@ typedef enum vm_type {
    VM_TYPE_KKM        // Kontain Kernel Module
 } vm_type_t;
 
+static const_string_t DEVICE_KONTAIN = "/dev/kontain";
 static const_string_t DEVICE_KVM = "/dev/kvm";
 static const_string_t DEVICE_KKM = "/dev/kkm";
 
@@ -699,6 +700,7 @@ void* km_find_faulting_address(km_vcpu_t* vcpu);
 void km_x86decode(km_vcpu_t* vcpu);
 
 // km_vmdriver.c
+int km_vmdriver_get_identity(void);
 void km_vmdriver_machine_init(void);
 void km_vmdriver_vcpu_init(km_vcpu_t* vcpu);
 int km_vmdriver_lowest_kernel();
