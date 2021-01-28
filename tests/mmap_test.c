@@ -367,6 +367,61 @@ TEST mmap_file_test_ex(void* arg0)
    PASS();
 }
 
+const char* fname = "/opt/kontain/runtime/libruntime.a";
+
+TEST mmap_file2_test(void)
+{
+   int initial_busy_count;
+
+   ASSERT_MMAPS_INIT(initial_busy_count);
+
+   int fd = open(fname, O_RDONLY);
+
+   void* base = mmap(0, 0x10000, PROT_READ, MAP_PRIVATE, fd, 0);
+   ASSERT_NOT_EQ(MAP_FAILED, base);
+
+   off_t off = 0x1000;
+   void* addr = mmap(base + off, 0x1000, PROT_READ | PROT_EXEC, MAP_FIXED | MAP_PRIVATE, fd, off);
+   ASSERT_EQ(base + off, addr);
+
+   off = 0x3000;
+   addr = mmap(base + off, 0x1000, PROT_READ, MAP_FIXED | MAP_PRIVATE, fd, off);
+   ASSERT_EQ(base + off, addr);
+
+   off = 0x5000;
+   addr = mmap(base + off, 0x1000, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_PRIVATE, fd, off);
+   ASSERT_EQ(base + off, addr);
+
+   off = 0x7000;
+   addr = mmap(base + off,
+               0x1000,
+               PROT_READ | PROT_WRITE,
+               MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS | MAP_ANONYMOUS,
+               -1,
+               off);
+   ASSERT_EQ(base + off, addr);
+
+   ASSERT_MMAPS_CHANGE(7, initial_busy_count);
+
+   close(fd);
+
+   ASSERT_NOT_EQ(-1, munmap(base, 0x10000));
+
+   ASSERT_MMAPS_CHANGE(0, initial_busy_count);
+
+   // Now mmap again, this time anonymous, and check for zeroes
+   // Ideally it'd be good to check that base we get now is the same as the first time. In KM it
+   // would be the case, but in regular runs it won't be.
+   base = mmap(0, 0x10000, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+   ASSERT_NOT_EQ(MAP_FAILED, base);
+   for (uint64_t* vp = (uint64_t*)base; vp < (uint64_t*)(base + 0x10000); vp++) {
+      ASSERT_EQ_FMT(0l, *vp, "0x%lx");
+   }
+   ASSERT_NOT_EQ(-1, munmap(base, 0x10000));
+
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 int main(int argc, char** argv)
 {
@@ -379,6 +434,7 @@ int main(int argc, char** argv)
    RUN_TEST(mremap_test);
    RUN_TEST(mmap_file_test);
    RUN_TEST1(mmap_file_test_ex, argv[0]);
+   RUN_TEST(mmap_file2_test);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
