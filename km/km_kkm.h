@@ -43,6 +43,9 @@ static_assert(sizeof(struct kkm_xstate) == 4096, "kkm_xstate need to be in sync 
 #define KKM_KONTEXT_GET_XSTATE _IOR(KVMIO, 0xf8, struct kkm_xstate)
 #define KKM_KONTEXT_SET_XSTATE _IOW(KVMIO, 0xf9, struct kkm_xstate)
 
+#define KKM_GET_IDENTITY _IO(KVMIO, 0xff)
+#define KKM_DEVICE_IDENTITY (0x6B6B6D)
+
 int km_kkm_vcpu_init(km_vcpu_t* vcpu);
 int km_kkm_set_save_info(km_vcpu_t* vcpu, uint8_t ksi_valid, kkm_save_info_t* ksi);
 int km_kkm_get_save_info(km_vcpu_t* vcpu, kkm_save_info_t* ksi);
