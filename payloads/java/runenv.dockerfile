@@ -12,7 +12,7 @@
 
 # Use alpine for now. It only adds 6MB to Java's 170MB, and allows us to use 'ln -s' below
 # TODO: switch to 'from scratch'. See https://github.com/kontainapp/km/issues/496
-FROM alpine:3.11.5
+FROM alpine
 
 ARG FROM=jdk-11.0.8+10/build/linux-x86_64-normal-server-release/images/jdk
 ARG JAVA_DIR=/opt/kontain/java

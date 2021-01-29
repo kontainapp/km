@@ -1,4 +1,6 @@
-FROM alpine:3.8
+# This file is only used to create an image for manual build and experiments
+
+FROM alpine
 
 RUN apk add --no-cache --virtual .build-deps \
 	coreutils \
