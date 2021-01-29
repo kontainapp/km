@@ -367,7 +367,7 @@ TEST mmap_file_test_ex(void* arg0)
    PASS();
 }
 
-const char* fname = "/opt/kontain/runtime/libruntime.a";
+const char* fname = "./mmap_test.km";
 
 TEST mmap_file2_test(void)
 {
