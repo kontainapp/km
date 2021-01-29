@@ -181,7 +181,7 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
 
 static void km_reg_make_clean(km_mmap_reg_t* reg)
 {
-   if (reg->protection != PROT_NONE && reg->km_flags.km_mmap_clean == 0) {
+   if (reg->protection != PROT_NONE && reg->km_flags.km_mmap_clean == 0 && reg->filename == NULL) {
       madvise(km_gva_to_kma_nocheck(reg->start), reg->size, MADV_DONTNEED);
       reg->km_flags.km_mmap_clean = 1;
       km_infox(KM_TRACE_MMAP, "zero km 0x%lx sz 0x%lx", reg->start, reg->size);
@@ -291,14 +291,17 @@ static inline void km_mmap_remove_free(km_mmap_reg_t* reg)
 static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
 {
    km_mmap_remove_busy(reg);
-   if ((reg->flags & MAP_SHARED) != 0) {
+   if ((reg->flags & MAP_SHARED) != 0 || reg->filename != NULL) {
       km_kma_t start_kma = km_gva_to_kma(reg->start);
       int new_flags = (reg->flags & ~MAP_SHARED) | MAP_PRIVATE | MAP_ANONYMOUS;
       void* tmp = mmap(start_kma, reg->size, reg->protection, new_flags | MAP_FIXED, -1, 0);
       if (tmp != start_kma) {
-         km_warn("Couldn't turn off MAP_SHARED at kma %p", start_kma);
+         km_warn("Couldn't convert existing mapping at kma %p (%s) to ANONYMOUS\n",
+                 start_kma,
+                 reg->filename != NULL ? reg->filename : "MAP_SHARED");
       } else {
          reg->flags = new_flags;
+         reg->filename = NULL;
       }
    }
    km_mmap_insert_free(reg);
