@@ -272,6 +272,8 @@ Currently KM supports two virtualization providers, KVM and KKM. KVM is not avai
 
 Virtualization selection can be overriden by providing additional options --use-kvm(KVM) or --use-kkm(KKM) to KM.
 
+Default virtualization device can be overridden using --use-virt-device <device-file-name> option. Specifying this option will override all other options for virtual device selection. No failback device will be tried if this options is specified.
+
 ## Appendix A - why did we choose bats for testing
 
 A quick summary of testing framework requirements, choices and info on how we were choosing one

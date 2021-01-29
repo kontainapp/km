@@ -554,31 +554,39 @@ void km_machine_setup(km_machine_init_params_t* params)
       km_err(1, "KM: Failed to create machine shutdown_fd");
    }
    memset(device_used, 0, sizeof(device_used));
-   strncpy(device_used, DEVICE_KVM, PATH_MAX);
-   switch (params->use_virt) {
-      case KM_FLAG_FORCE_KVM:
-         if ((machine.kvm_fd = km_internal_open(DEVICE_KVM, O_RDWR)) < 0) {
-            km_err(1, "KVM: Can't open %s", DEVICE_KVM);
-         }
-         break;
-      case KM_FLAG_FORCE_KKM:
-         if ((machine.kvm_fd = km_internal_open(DEVICE_KKM, O_RDWR)) < 0) {
-            km_err(1, "KVM: Can't open %s", DEVICE_KKM);
-         }
-         strncpy(device_used, DEVICE_KKM, PATH_MAX);
-         break;
-      default:
-         if ((machine.kvm_fd = km_internal_open(DEVICE_KONTAIN, O_RDWR)) >= 0) {
-            strncpy(device_used, DEVICE_KONTAIN, PATH_MAX);
-         } else if ((machine.kvm_fd = km_internal_open(DEVICE_KVM, O_RDWR)) >= 0) {
-            strncpy(device_used, DEVICE_KVM, PATH_MAX);
-         } else if ((machine.kvm_fd = km_internal_open(DEVICE_KKM, O_RDWR)) >= 0) {
-            strncpy(device_used, DEVICE_KKM, PATH_MAX);
-         } else {
-            km_err(1, "KVM: Can't open %s, %s and %s", DEVICE_KONTAIN, DEVICE_KVM, DEVICE_KKM);
-         }
-         break;
+   strncpy(device_used, DEVICE_KVM, sizeof(device_used));
+   if (km_machine_init_params.override_vdev == KM_FLAG_FORCE_DEVICE_OVERRIDE) {
+      if ((machine.kvm_fd = km_internal_open(km_machine_init_params.override_vdev_name, O_RDWR)) < 0) {
+         km_err(1, "KVM: Can't open %s", km_machine_init_params.override_vdev_name);
+      }
+      strncpy(device_used, km_machine_init_params.override_vdev_name, sizeof(device_used));
+   } else {
+      switch (params->use_virt) {
+         case KM_FLAG_FORCE_KVM:
+            if ((machine.kvm_fd = km_internal_open(DEVICE_KVM, O_RDWR)) < 0) {
+               km_err(1, "KVM: Can't open %s", DEVICE_KVM);
+            }
+            break;
+         case KM_FLAG_FORCE_KKM:
+            if ((machine.kvm_fd = km_internal_open(DEVICE_KKM, O_RDWR)) < 0) {
+               km_err(1, "KVM: Can't open %s", DEVICE_KKM);
+            }
+            strncpy(device_used, DEVICE_KKM, sizeof(device_used));
+            break;
+         default:
+            if ((machine.kvm_fd = km_internal_open(DEVICE_KONTAIN, O_RDWR)) >= 0) {
+               strncpy(device_used, DEVICE_KONTAIN, sizeof(device_used));
+            } else if ((machine.kvm_fd = km_internal_open(DEVICE_KVM, O_RDWR)) >= 0) {
+               strncpy(device_used, DEVICE_KVM, sizeof(device_used));
+            } else if ((machine.kvm_fd = km_internal_open(DEVICE_KKM, O_RDWR)) >= 0) {
+               strncpy(device_used, DEVICE_KKM, sizeof(device_used));
+            } else {
+               km_err(1, "KVM: Can't open %s, %s and %s", DEVICE_KONTAIN, DEVICE_KVM, DEVICE_KKM);
+            }
+            break;
+      }
    }
+   device_used[sizeof(device_used) - 1] = '\0';
    km_infox(KM_TRACE_KVM, "KVM: Using %s", device_used);
 
    if (km_vmdriver_get_identity() != KKM_DEVICE_IDENTITY) {
