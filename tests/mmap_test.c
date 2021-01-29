@@ -367,6 +367,10 @@ TEST mmap_file_test_ex(void* arg0)
    PASS();
 }
 
+/*
+ * Tests maps consistency and correct relation to Linux maps after multiple areas of a file mapping
+ * are mapped or unmapped. Use our own executable file simply as a data file.
+ */
 const char* fname = "./mmap_test.km";
 
 TEST mmap_file2_test(void)

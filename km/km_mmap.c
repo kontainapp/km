@@ -296,11 +296,9 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
       int new_flags = (reg->flags & ~MAP_SHARED) | MAP_PRIVATE | MAP_ANONYMOUS;
       void* tmp = mmap(start_kma, reg->size, reg->protection, new_flags | MAP_FIXED, -1, 0);
       if (tmp != start_kma) {
-         if (reg->filename != NULL) {
-            km_warn("Couldn't unmap file %s at kma %p", reg->filename, start_kma);
-         } else {
-            km_warn("Couldn't turn off MAP_SHARED oat kma %p", start_kma);
-         }
+         km_warn("Couldn't convert existing mapping at kma %p (%s) to ANONYMOUS\n",
+                 start_kma,
+                 reg->filename != NULL ? reg->filename : "MAP_SHARED");
       } else {
          reg->flags = new_flags;
          reg->filename = NULL;
