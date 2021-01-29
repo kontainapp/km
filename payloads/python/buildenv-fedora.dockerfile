@@ -20,21 +20,6 @@ ARG TAG
 ARG VERS
 ARG BUILDENV_IMAGE_VERSION=latest
 
-# Form alpine-based container to extract alpine-libs from
-# This is a temp stage, so we don't care about layers count.
-FROM alpine:3.11.5 as alpine-lib-image
-ENV PREFIX=/opt/kontain
-
-RUN apk add sqlite-static
-
-# Prepare $PREFIX/alpine-lib while trying to filter out irrelevant stuff
-RUN mkdir -p $PREFIX/alpine-lib
-RUN tar cf - -C / lib usr/lib \
-   --exclude include\* --exclude finclude --exclude install\* \
-   --exclude plugin --exclude pkgconfig --exclude apk \
-   --exclude firmware --exclude mdev --exclude bash \
-   --exclude engines-\* | tar xf - -C $PREFIX/alpine-lib
-
 FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} AS buildenv-cpython
 ARG TAG
 # ARG VERS
@@ -69,8 +54,6 @@ ENV PYTHONTOP=/home/$USER/cpython
 # Python VERS and ABI flags **MUST** be passed from upstairs
 ARG VERS
 ARG ABI
-
-COPY --from=alpine-lib-image $PREFIX $PREFIX/
 
 RUN BUILD_LOC="/home/$USER/cpython/build/lib.linux-x86_64-${VERS}/ /home/$USER/cpython/build/temp.linux-x86_64-${VERS}"; \
    mkdir -p ${BUILD_LOC} && chown $USER ${BUILD_LOC}
