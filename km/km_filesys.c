@@ -102,9 +102,9 @@ typedef struct km_file {
    TAILQ_HEAD(, km_fs_event) events;   // for epoll_create fd's
 } km_file_t;
 
-#define KM_FILE_HOW_OPEN 0    /* Regular open */
-#define KM_FILE_HOW_PIPE_0 1  /* read half of pipe */
-#define KM_FILE_HOW_PIPE_1 2  /* write half of pipe */
+#define KM_FILE_HOW_OPEN 0 /* Regular open */
+#define KM_FILE_HOW_PIPE_0 1 /* read half of pipe */
+#define KM_FILE_HOW_PIPE_1 2 /* write half of pipe */
 #define KM_FILE_HOW_EVENTFD 3 /* epoll_create */
 #define KM_FILE_HOW_SOCKET 4
 #define KM_FILE_HOW_ACCEPT 5
@@ -612,17 +612,29 @@ static int proc_self_exe_name(const char* pathname, char* buf, size_t bufsz)
 uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz)
 {
    int ret;
-   if ((ret = km_fs_g2h_readlink(pathname, buf, bufsz)) == 0) {
-      char tmp[PATH_MAX + 1];
-      if (realpath(pathname, tmp) != NULL && strcmp(tmp, km_my_exec) == 0) {
-         strncpy(buf, km_guest.km_filename, bufsz);
-         if ((ret = strlen(km_guest.km_filename)) > bufsz) {
-            ret = bufsz;
-         }
-      } else {
-         ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
+
+   // Check if we can handle it from internal tables
+   if ((ret = km_fs_g2h_readlink(pathname, buf, bufsz)) != 0) {
+      goto log_and_return;
+   }
+
+   if ((ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz)) <= 0) {
+      goto log_and_return;
+   }
+
+   // If we are at a leaf and it's a KM executable, return payload's argv[0]
+   char tmp[PATH_MAX + 1];   // reusable buffer for readlink and realpath
+   buf[ret] = 0;             // make null terminated string
+   int next_ret = __syscall_3(SYS_readlink, (uintptr_t)buf, (uintptr_t)tmp, PATH_MAX);
+
+   if (next_ret == -EINVAL && realpath(buf, tmp) != NULL && strncmp(km_my_exec, tmp, PATH_MAX) == 0) {
+      strncpy(buf, km_guest.km_filename, bufsz);
+      if ((ret = strlen(km_guest.km_filename)) > bufsz) {
+         ret = bufsz;
       }
    }
+
+log_and_return:
    if (ret < 0) {
       km_infox(KM_TRACE_FILESYS, "%s : %s", pathname, strerror(-ret));
    } else {
@@ -1881,8 +1893,9 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
             nt_file->data);
 
    /*
-    * If the std fds names are [std{in,out,err}] (as set in km_fs_init()) we inherit the fds from km,
-    * otherwise process them in a regular way. Note the dup2 in below will close the km inherited fd.
+    * If the std fds names are [std{in,out,err}] (as set in km_fs_init()) we inherit the fds from
+    * km, otherwise process them in a regular way. Note the dup2 in below will close the km
+    * inherited fd.
     */
    if ((nt_file->fd == 0 && strcmp(name, stdin_name) == 0) ||
        (nt_file->fd == 1 && strcmp(name, stdout_name) == 0) ||
@@ -2035,11 +2048,11 @@ static int proc_self_getdents(int fd, /* struct linux_dirent64* */ void* buf, si
 
 /*
  * Table of pathnames to watch for and process specially. The patterns are processed by
- * km_fs_filename_init(), first by applying PID for /proc/%u pattern, then compile the pattern into
- * regex, to match pathname on filepaths ops like open, stat, readlink...
- * Regular files won't match, all of the file system ops are regular. If the name matches, some of
- * the ops might need to be done specially, eg /proc/self/sched content needs to be modified for
- * read, or /proc/self/fd getdents. ops is vector of these ops as well as name matching for open and
+ * km_fs_filename_init(), first by applying PID for /proc/%u pattern, then compile the pattern
+ * into regex, to match pathname on filepaths ops like open, stat, readlink... Regular files
+ * won't match, all of the file system ops are regular. If the name matches, some of the ops
+ * might need to be done specially, eg /proc/self/sched content needs to be modified for read, or
+ * /proc/self/fd getdents. ops is vector of these ops as well as name matching for open and
  * readlink. If name matches on open the returned ops is stored in fd translation structure
  * (km_file_t). When guest to host fd ctranslation is done the ops is also returned, and function
  * pointers used to alter the functionality of file system ops.
@@ -2364,8 +2377,8 @@ void km_redirect_msgs(const char* name)
          // If they ask, let them log to stderr no matter what.  Mostly useful for the bats tests.
          fd = dup2(2, KM_LOGGING);
       } else if (strcmp(name, "none") == 0) {
-         // We need to be able to test having no logging at all.  km could run in a container with
-         // read only filesystems and we may not be able to use stderr either.
+         // We need to be able to test having no logging at all.  km could run in a container
+         // with read only filesystems and we may not be able to use stderr either.
          snprintf(km_nologging_reason, sizeof(km_nologging_reason), "logging turned off by request");
          km_tracex("change km logging to none by request");
          return;
@@ -2428,8 +2441,8 @@ void km_redirect_msgs_after_exec(void)
 }
 
 /*
- * Close stdin, stdout, and stderr FILE* but keep the file descriptors open for guest use. Guest has
- * its own stdio FILE* inside.
+ * Close stdin, stdout, and stderr FILE* but keep the file descriptors open for guest use. Guest
+ * has its own stdio FILE* inside.
  */
 void km_close_stdio(int log_to_fd)
 {
