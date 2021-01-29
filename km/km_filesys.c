@@ -613,28 +613,23 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
 {
    int ret;
 
-   // Check if we can handle it from internal tables
-   if ((ret = km_fs_g2h_readlink(pathname, buf, bufsz)) != 0) {
-      goto log_and_return;
-   }
+   /*
+    * If we can't we handle request from internal tables and the actual readlink is ok,
+    * handle special case - for link pointing to KM executable return payload's argv[0]
+    */
+   if ((ret = km_fs_g2h_readlink(pathname, buf, bufsz)) == 0 &&
+       (ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz)) > 0) {
+      char tmp[PATH_MAX + 1];   // reusable buffer for readlink and realpath
+      buf[ret] = 0;             // make null terminated string
+      int next_ret = __syscall_3(SYS_readlink, (uintptr_t)buf, (uintptr_t)tmp, PATH_MAX);
 
-   if ((ret = __syscall_3(SYS_readlink, (uintptr_t)pathname, (uintptr_t)buf, bufsz)) <= 0) {
-      goto log_and_return;
-   }
-
-   // If we are at a leaf and it's a KM executable, return payload's argv[0]
-   char tmp[PATH_MAX + 1];   // reusable buffer for readlink and realpath
-   buf[ret] = 0;             // make null terminated string
-   int next_ret = __syscall_3(SYS_readlink, (uintptr_t)buf, (uintptr_t)tmp, PATH_MAX);
-
-   if (next_ret == -EINVAL && realpath(buf, tmp) != NULL && strncmp(km_my_exec, tmp, PATH_MAX) == 0) {
-      strncpy(buf, km_guest.km_filename, bufsz);
-      if ((ret = strlen(km_guest.km_filename)) > bufsz) {
-         ret = bufsz;
+      if (next_ret == -EINVAL && realpath(buf, tmp) != NULL && strncmp(km_my_exec, tmp, PATH_MAX) == 0) {
+         strncpy(buf, km_guest.km_filename, bufsz);
+         if ((ret = strlen(km_guest.km_filename)) > bufsz) {
+            ret = bufsz;
+         }
       }
    }
-
-log_and_return:
    if (ret < 0) {
       km_infox(KM_TRACE_FILESYS, "%s : %s", pathname, strerror(-ret));
    } else {
