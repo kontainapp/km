@@ -193,6 +193,8 @@ typedef enum {
    KM_FLAG_FORCE_DEFAULT = 0,
    KM_FLAG_FORCE_KVM = 1,
    KM_FLAG_FORCE_KKM = 2,
+   KM_FLAG_FORCE_NO_DEVICE_OVERRIDE = 0,
+   KM_FLAG_FORCE_DEVICE_OVERRIDE = 1,
 } km_flag_force_t;
 
 // struct for passing command line / config information into different inits.
@@ -203,6 +205,8 @@ typedef struct km_machine_init_params {
                                         // Note: if too much of it is accessed, we expect Linux
                                         // OOM killer to kick in
    km_flag_force_t use_virt;            // force using kvm or kkm
+   km_flag_force_t override_vdev;       // use file name provided with no failback
+   char override_vdev_name[PATH_MAX];   // override device name
 } km_machine_init_params_t;
 extern km_machine_init_params_t km_machine_init_params;
 
@@ -274,6 +278,7 @@ typedef enum vm_type {
    VM_TYPE_KKM        // Kontain Kernel Module
 } vm_type_t;
 
+static const_string_t DEVICE_KONTAIN = "/dev/kontain";
 static const_string_t DEVICE_KVM = "/dev/kvm";
 static const_string_t DEVICE_KKM = "/dev/kkm";
 
@@ -699,6 +704,7 @@ void* km_find_faulting_address(km_vcpu_t* vcpu);
 void km_x86decode(km_vcpu_t* vcpu);
 
 // km_vmdriver.c
+int km_vmdriver_get_identity(void);
 void km_vmdriver_machine_init(void);
 void km_vmdriver_vcpu_init(km_vcpu_t* vcpu);
 int km_vmdriver_lowest_kernel();

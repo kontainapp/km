@@ -28,12 +28,12 @@ not_needed_static='gdb_sharedlib'
 todo_static=''
 
 # skip slow ones
-not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv'
+not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv km_identity '
 # review - some fail. Some slow
 todo_alpine_static='dl_iterate_phdr gdb_forkexec'
 
 # glibc native
-not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv'
+not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv km_identity '
 
 # exception - extra segment in kmcore
 # dl_iterate_phdr - load starts at 4MB instead of 2MB
@@ -48,12 +48,13 @@ not_needed_alpine_dynamic=$not_needed_alpine_static
 todo_alpine_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 readlink_argv'
+not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 readlink_argv km_identity '
 todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
 
 todo_so=''
 not_needed_so='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load cli mem_* file* gdb_* mmap_1 hc_check \
-    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore files_on_exec readlink_argv'
+    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore files_on_exec readlink_argv km_identity '
+
 
 # make sure it does not leak in from the outer shell, it can mess out the output
 unset KM_VERBOSE
@@ -1335,4 +1336,19 @@ fi
    assert_line --regexp "Catchpoint 1 .*hello_test.*_start.*"
    # verify that the  post exec prog name is as expected
    assert_line --regexp "post exec prog: .*hello_test.*"
+}
+
+# This test can fail when multiple instances of make tests in running simultaneously
+# deletion and creation of /dev/kontain has race condition running in parallel
+# run only one version.
+@test "km_identity($test_type): kontain device node test (hello_test$ext)" {
+   KM_VDEV_NAME="/tmp/kontain"
+   rm -f ${KM_VDEV_NAME}
+   ln -s /dev/${USE_VIRT} ${KM_VDEV_NAME}
+   run ${KM_BIN} --km-log-to=stderr -V --use-virt-device=${KM_VDEV_NAME} hello_test$ext
+   if [ "${USE_VIRT}" = 'kvm' ]; then
+      assert_output --partial "KVM: path(${KM_VDEV_NAME}) vm type(VM_TYPE_KVM)"
+   else
+      assert_output --partial "KVM: path(${KM_VDEV_NAME}) vm type(VM_TYPE_KKM)"
+   fi
 }

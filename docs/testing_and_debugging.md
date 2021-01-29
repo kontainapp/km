@@ -266,6 +266,14 @@ And, for completeness, the gdb_forker_test debug session finishes up:
 (gdb)
 ```
 
+## Virtualization type selection
+
+Currently KM supports two virtualization providers, KVM and KKM. KVM is not available on aws. KKM is usable on all platforms. By default KM selects virutalization provider in the following order /dev/kontain, /dev/kvm and /dev/kkm. /dev/kvm and /dev/kkm devices are provided by respective linux drivers. Infrastructure create's symbolic link /dev/kontain to point to /dev/kvm or /dev/kkm to make rest of the code work uniformly.
+
+Virtualization selection can be overriden by providing additional options --use-kvm(KVM) or --use-kkm(KKM) to KM.
+
+Default virtualization device can be overridden using --use-virt-device <device-file-name> option. Specifying this option will override all other options for virtual device selection. No failback device will be tried if this options is specified.
+
 ## Appendix A - why did we choose bats for testing
 
 A quick summary of testing framework requirements, choices and info on how we were choosing one

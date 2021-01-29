@@ -17,6 +17,11 @@
 #include "km_coredump.h"
 #include "km_kkm.h"
 
+int km_vmdriver_get_identity(void)
+{
+   return ioctl(machine.kvm_fd, KKM_GET_IDENTITY, NULL);
+}
+
 void km_vmdriver_machine_init(void)
 {
    switch (machine.vm_type) {
