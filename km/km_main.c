@@ -98,6 +98,7 @@ static inline void usage()
 "\t--disable-1g-pages                  - Force disable 1G pages support\n"
 "\t--use-kvm                           - Use kvm driver\n"
 "\t--use-kkm                           - Use kkm driver\n"
+"\t--use-virt-device=<file-name>        - Use provided file-name for virtualization device\n"
 "\t--mgtpipe <path>                    - Name for management pipe.\n");
    // clang-format on
 }
@@ -141,6 +142,7 @@ km_machine_init_params_t km_machine_init_params = {
     .force_pdpe1g = KM_FLAG_FORCE_ENABLE,
     .overcommit_memory = KM_FLAG_FORCE_DISABLE,
     .use_virt = KM_FLAG_FORCE_DEFAULT,
+    .override_vdev = KM_FLAG_FORCE_NO_DEVICE_OVERRIDE,
 };
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
@@ -170,6 +172,7 @@ static struct option long_options[] = {
     {"hcall-stats", no_argument, 0, 'S'},
     {"use-kvm", no_argument, &(km_machine_init_params.use_virt), KM_FLAG_FORCE_KVM},
     {"use-kkm", no_argument, &(km_machine_init_params.use_virt), KM_FLAG_FORCE_KKM},
+    {"use-virt-device", required_argument, 0, 'F'},
     {"snapshot", required_argument, 0, 's'},
     {"resume", no_argument, &resume_snapshot, 1},
     {"mgtpipe", required_argument, 0, 'm'},
@@ -454,6 +457,12 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             case 'C':
                km_set_coredump_path(optarg);
                break;
+            case 'F':
+               km_machine_init_params.override_vdev = KM_FLAG_FORCE_DEVICE_OVERRIDE;
+               strncpy(km_machine_init_params.override_vdev_name,
+                       optarg,
+                       sizeof(km_machine_init_params.override_vdev_name) - 1);
+               break;
             case 's':
                km_set_snapshot_path(optarg);
                break;
@@ -590,6 +599,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    return pl_name;
 }
 
+// clang-format off
 /*
  * Decide if gdbstub should start up with all vcpu's paused or running.
  * Returns:
@@ -622,14 +632,16 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
  * 1               1               0               1 - need to send exec event to gdb client
  * 1               1               1               1 - need to send exec event to gdb client
  */
+// clang-format on
 static inline int km_need_pause_all(void)
 {
    km_infox(KM_TRACE_EXEC,
-      "km_called_via_exec %d, send_exec_event %d, wait_for_attach %d, km_gdb_client_is_attached %d",
-      km_called_via_exec(),
-      gdbstub.send_exec_event,
-      gdbstub.wait_for_attach,
-      km_gdb_client_is_attached());
+            "km_called_via_exec %d, send_exec_event %d, wait_for_attach %d, "
+            "km_gdb_client_is_attached %d",
+            km_called_via_exec(),
+            gdbstub.send_exec_event,
+            gdbstub.wait_for_attach,
+            km_gdb_client_is_attached());
    return ((km_called_via_exec() == 0 && gdbstub.wait_for_attach != GDB_DONT_WAIT_FOR_ATTACH) ||
            (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
 }
@@ -697,7 +709,7 @@ int main(int argc, char* argv[])
    }
 
    if (km_gdb_is_enabled() != 0) {
-      if (km_gdb_setup_listen() == 0) {         // Try to become the gdb server
+      if (km_gdb_setup_listen() == 0) {   // Try to become the gdb server
          if (km_need_pause_all() != 0) {
             km_vcpu_pause_all(vcpu, GUEST_ONLY);   // this just sets machine.pause_requested
          }
