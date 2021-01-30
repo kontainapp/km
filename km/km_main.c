@@ -96,9 +96,7 @@ static inline void usage()
 "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. 32 means 4GiB, 33 8GiB, 34 16GiB, etc.\n"
 "\t--enable-1g-pages                   - Force enable 1G pages support (default). Assumes hardware support\n"
 "\t--disable-1g-pages                  - Force disable 1G pages support\n"
-"\t--use-kvm                           - Use kvm driver\n"
-"\t--use-kkm                           - Use kkm driver\n"
-"\t--use-virt-device=<file-name>        - Use provided file-name for virtualization device\n"
+"\t--virt-device=<file-name>  (-Ffile) - Use provided file-name for virtualization device\n"
 "\t--mgtpipe <path>                    - Name for management pipe.\n");
    // clang-format on
 }
@@ -141,8 +139,7 @@ static inline void show_version(void)
 km_machine_init_params_t km_machine_init_params = {
     .force_pdpe1g = KM_FLAG_FORCE_ENABLE,
     .overcommit_memory = KM_FLAG_FORCE_DISABLE,
-    .use_virt = KM_FLAG_FORCE_DEFAULT,
-    .override_vdev = KM_FLAG_FORCE_NO_DEVICE_OVERRIDE,
+    .override_vdev_name[0] = 0,   // redundant, but let's be paranoid
 };
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
@@ -170,9 +167,7 @@ static struct option long_options[] = {
     {"version", no_argument, 0, 'v'},
     {"dynlinker", required_argument, 0, 'L'},
     {"hcall-stats", no_argument, 0, 'S'},
-    {"use-kvm", no_argument, &(km_machine_init_params.use_virt), KM_FLAG_FORCE_KVM},
-    {"use-kkm", no_argument, &(km_machine_init_params.use_virt), KM_FLAG_FORCE_KKM},
-    {"use-virt-device", required_argument, 0, 'F'},
+    {"virt-device", required_argument, 0, 'F'},
     {"snapshot", required_argument, 0, 's'},
     {"resume", no_argument, &resume_snapshot, 1},
     {"mgtpipe", required_argument, 0, 'm'},
@@ -384,7 +379,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
        (pl_name = km_traverse_payload_symlinks((const char*)argv[0])) != NULL) {
       pl_index = 0;
    } else {   // regular KM invocation - parse KM args
-      while ((opt = getopt_long(argc, argv, "+g::e:AEV::P:vC:Sk:", long_options, &longopt_index)) !=
+      while ((opt = getopt_long(argc, argv, "+g::e:AEV::F:P:vC:Sk:", long_options, &longopt_index)) !=
              -1) {
          switch (opt) {
             case 0:
@@ -458,7 +453,6 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                km_set_coredump_path(optarg);
                break;
             case 'F':
-               km_machine_init_params.override_vdev = KM_FLAG_FORCE_DEVICE_OVERRIDE;
                strncpy(km_machine_init_params.override_vdev_name,
                        optarg,
                        sizeof(km_machine_init_params.override_vdev_name) - 1);
@@ -619,7 +613,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
  * 1               0               1               1 - wait for gdb client connect
  * 1               1               0               x - gdb client can't be connected
  * 1               1               1               x - gdb client can't be connected
- * 
+ *
  * km started as a result of another km execing to payload
  * gdb             gdb client      wait to         vcpu's
  * enabled         connected       connect         paused

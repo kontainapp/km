@@ -533,7 +533,7 @@ void km_check_kernel(void)
 }
 
 /*
- * initial steps setting our VM
+ * Initial steps setting our VM.
  *
  * talk to KVM
  * create VM
@@ -544,50 +544,31 @@ void km_check_kernel(void)
  */
 void km_machine_setup(km_machine_init_params_t* params)
 {
-   int rc;
-   char device_used[PATH_MAX];
-
    if ((machine.intr_fd = km_internal_eventfd(0, 0)) < 0) {
       km_err(1, "KM: Failed to create machine intr_fd");
    }
    if ((machine.shutdown_fd = km_internal_eventfd(0, 0)) < 0) {
       km_err(1, "KM: Failed to create machine shutdown_fd");
    }
-   memset(device_used, 0, sizeof(device_used));
-   strncpy(device_used, DEVICE_KVM, sizeof(device_used));
-   if (km_machine_init_params.override_vdev == KM_FLAG_FORCE_DEVICE_OVERRIDE) {
+   if (*km_machine_init_params.override_vdev_name != 0) {   // we were asked for a specific dev name
       if ((machine.kvm_fd = km_internal_open(km_machine_init_params.override_vdev_name, O_RDWR)) < 0) {
-         km_err(1, "KVM: Can't open %s", km_machine_init_params.override_vdev_name);
+         km_err(1, "KVM: Can't open device file %s", km_machine_init_params.override_vdev_name);
       }
-      strncpy(device_used, km_machine_init_params.override_vdev_name, sizeof(device_used));
    } else {
-      switch (params->use_virt) {
-         case KM_FLAG_FORCE_KVM:
-            if ((machine.kvm_fd = km_internal_open(DEVICE_KVM, O_RDWR)) < 0) {
-               km_err(1, "KVM: Can't open %s", DEVICE_KVM);
-            }
+      // default devices, in the order we try to open them
+      const char* dev_files[] = {DEVICE_KONTAIN, DEVICE_KVM, DEVICE_KKM, NULL};
+      for (const char** d = dev_files; *d != NULL; d++) {
+         km_infox(KM_TRACE_KVM, "Trying to open device file %s", *d);
+         if ((machine.kvm_fd = km_internal_open(*d, O_RDWR)) >= 0) {
+            strcpy(km_machine_init_params.override_vdev_name, *d);
             break;
-         case KM_FLAG_FORCE_KKM:
-            if ((machine.kvm_fd = km_internal_open(DEVICE_KKM, O_RDWR)) < 0) {
-               km_err(1, "KVM: Can't open %s", DEVICE_KKM);
-            }
-            strncpy(device_used, DEVICE_KKM, sizeof(device_used));
-            break;
-         default:
-            if ((machine.kvm_fd = km_internal_open(DEVICE_KONTAIN, O_RDWR)) >= 0) {
-               strncpy(device_used, DEVICE_KONTAIN, sizeof(device_used));
-            } else if ((machine.kvm_fd = km_internal_open(DEVICE_KVM, O_RDWR)) >= 0) {
-               strncpy(device_used, DEVICE_KVM, sizeof(device_used));
-            } else if ((machine.kvm_fd = km_internal_open(DEVICE_KKM, O_RDWR)) >= 0) {
-               strncpy(device_used, DEVICE_KKM, sizeof(device_used));
-            } else {
-               km_err(1, "KVM: Can't open %s, %s and %s", DEVICE_KONTAIN, DEVICE_KVM, DEVICE_KKM);
-            }
-            break;
+         }
+      }
+      if (machine.kvm_fd <= 0) {
+         km_err(1, "Can't open default device file.");
       }
    }
-   device_used[sizeof(device_used) - 1] = '\0';
-   km_infox(KM_TRACE_KVM, "KVM: Using %s", device_used);
+   km_infox(KM_TRACE_KVM, "Using device file %s", km_machine_init_params.override_vdev_name);
 
    if (km_vmdriver_get_identity() != KKM_DEVICE_IDENTITY) {
       machine.vm_type = VM_TYPE_KVM;
@@ -595,11 +576,12 @@ void km_machine_setup(km_machine_init_params_t* params)
       machine.vm_type = VM_TYPE_KKM;
    }
    km_infox(KM_TRACE_KVM,
-            "KVM: path(%s) vm type(%s)",
-            device_used,
+            "Setting vm type to %s",
             (machine.vm_type == VM_TYPE_KVM) ? "VM_TYPE_KVM" : "VM_TYPE_KKM");
 
    km_check_kernel();   // exit there if too old
+
+   int rc;
    if ((rc = ioctl(machine.kvm_fd, KVM_GET_API_VERSION, 0)) < 0) {
       km_err(1, "KVM: get API version failed");
    }
