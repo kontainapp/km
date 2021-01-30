@@ -39,7 +39,7 @@ PAYLOAD_FILES := ${PAYLOAD_KM} \
 	dweb/basic.htm
 
 .PHONY: all build clean
-all build clean:
+all build:
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
 		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
@@ -50,6 +50,7 @@ all build clean:
 
 all: ## builds Linux and KM for payload in this folder
 clean: ## Clean up the build
+		make -C dweb $@
 
 PORT = 8080
 PORT1 = 8081
