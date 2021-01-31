@@ -60,6 +60,7 @@ int syscall_test(int optind, int argc, char* argv[]);
 int trunc_mmap_test(int optind, int argc, char* argv[]);
 int hc_overhead_test(int optind, int argc, char* argv[]);
 int redir_std_test(int optind, int argc, char* argv[]);
+int halt_test(int optind, int argc, char* argv[]);
 
 struct stray_op {
    char* op;                                          // Operation name on command line
@@ -92,6 +93,7 @@ struct stray_op {
     {.op = "trunc_mmap", .func = trunc_mmap_test, .description = "Truncate an mmaped file and crash"},
     {.op = "hc_overhead", .func = hc_overhead_test, .description = "Test overhead of Syscalls"},
     {.op = "redir_std", .func = redir_std_test, .description = "Test redisrect std err"},
+    {.op = "halt", .func = halt_test, .description = "Execute HLT instruction"},
     {.op = NULL, .func = NULL, .description = NULL},
 };
 
@@ -369,6 +371,12 @@ int redir_std_test(int optind, int argc, char* argv[])
       return 1;
    }
    fprintf(stdout, "After restore\n");
+   return 0;
+}
+
+int halt_test(int optind, int argc, char* argv[])
+{
+   asm("hlt");
    return 0;
 }
 

@@ -688,7 +688,9 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                case HC_DOFORK:
                   // Give control to the km main thread which might be waiting for process
                   // exit or could be sleeping in gdbstub.  The fork() or clone() is done in km main.
-                  km_infox(KM_TRACE_FORK, "xfer control to km main thread, gdb enabled %d", gdbstub.enabled);
+                  km_infox(KM_TRACE_FORK,
+                           "xfer control to km main thread, gdb enabled %d",
+                           gdbstub.enabled);
                   if (km_gdb_is_enabled() != 0) {
                      km_gdb_notify(vcpu, GDB_KMSIGNAL_DOFORK);
                   } else {
@@ -743,9 +745,23 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             }
             break;
 
-         case KVM_EXIT_UNKNOWN:
-            run_errx(1, "KVM: unknown err 0x%llx", vcpu->cpu_run->hw.hardware_exit_reason);
+         case KVM_EXIT_UNKNOWN: {
+            km_read_registers(vcpu);
+            unsigned char* ins = km_gva_to_kma(vcpu->regs.rip);
+            /*
+             * 0xf4 == HLT. Treat halt as SIGSEGV. For KKM.
+             */
+            if (ins != NULL && *ins == 0xf4) {
+               siginfo_t info = {.si_signo = SIGSEGV,
+                                 .si_code = SI_KERNEL,
+                                 .si_addr = (void*)vcpu->regs.rip};
+               km_post_signal(vcpu, &info);
+
+            } else {
+               run_errx(1, "KVM: unknown err 0x%llx", vcpu->cpu_run->hw.hardware_exit_reason);
+            }
             break;
+         }
 
          case KVM_EXIT_FAIL_ENTRY:
             run_warn("KVM_EXIT_FAIL_ENTRY");
@@ -764,6 +780,18 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             }
             abort();
             break;
+
+         case KVM_EXIT_HLT: {
+            /*
+             * Guest executed a HLT instruction
+             */
+            km_read_registers(vcpu);
+            siginfo_t info = {.si_signo = SIGSEGV,
+                              .si_code = SI_KERNEL,
+                              .si_addr = (void*)vcpu->regs.rip};
+            km_post_signal(vcpu, &info);
+            break;
+         }
 
          case KVM_EXIT_EXCEPTION:
          default:
