@@ -181,18 +181,22 @@ class CRUNRemoteTest(RemoteTestAzure):
     """ CRUNRemoteTest """
 
     def test(self, remote_ip):
-        self.ssh_execute(
-            remote_ip,
-            "sudo apt-get update"
-        )
-        self.ssh_execute(
-            remote_ip,
-            "sudo apt-get install -y make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake"
-        )
+        count=3 # apt-get is flaky lately , let's retry it a few times
+        # Going forward we should put together an AMI with all that and skip this step
+        tools_to_install = "make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake"
+        while count >= 0:
+          try:
+            self.ssh_execute(remote_ip, "sudo apt-get update")
+            self.ssh_execute(remote_ip, f"sudo apt-get install -y {tools_to_install}")
+            break
+          except:
+            print("apt-get failed , let's see if retry helps")
+            count -= 1
+            if count == 0:
+               raise
 
         self.scp_to_remote(remote_ip, "crun", "~/")
-        self.scp_to_remote(remote_ip, "/opt/kontain/bin/km",
-                           "~/km")
+        self.scp_to_remote(remote_ip, "/opt/kontain/bin/km", "~/km")
         self.ssh_execute(
             remote_ip, "sudo mkdir -p /opt/kontain/bin; sudo mv ~/km /opt/kontain/bin/km")
         self.scp_to_remote(remote_ip, "/opt/kontain/runtime/libc.so",
