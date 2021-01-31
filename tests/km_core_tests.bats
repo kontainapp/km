@@ -810,6 +810,12 @@ fi
    run km_with_timeout --coredump=${CORE} stray_test$ext close 5
    assert_failure 9  # EBADF
    assert [ ! -f ${CORE} ]
+
+   # Execute a HLT instructuction
+   run km_with_timeout --coredump=${CORE} stray_test$ext halt
+   assert_failure 11  # SIGSEGV
+   assert [ -f ${CORE} ]
+   rm -f ${CORE}
 }
 
 @test "signals($test_type): signals in the guest (signals)" {
