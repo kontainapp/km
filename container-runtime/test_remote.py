@@ -181,7 +181,7 @@ class CRUNRemoteTest(RemoteTestAzure):
     """ CRUNRemoteTest """
 
     def test(self, remote_ip):
-        count=3 # apt-get is flaky lately , let's retry it a few times
+        count=3 # apt-get is flaky lately, let's retry it a few times
         # Going forward we should put together an AMI with all that and skip this step
         tools_to_install = "make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake"
         while count >= 0:
@@ -190,7 +190,7 @@ class CRUNRemoteTest(RemoteTestAzure):
             self.ssh_execute(remote_ip, f"sudo apt-get install -y {tools_to_install}")
             break
           except:
-            print("apt-get failed , let's see if retry helps")
+            print("apt-get failed, let's see if retry helps")
             count -= 1
             if count == 0:
                raise

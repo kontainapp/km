@@ -139,7 +139,7 @@ static inline void show_version(void)
 km_machine_init_params_t km_machine_init_params = {
     .force_pdpe1g = KM_FLAG_FORCE_ENABLE,
     .overcommit_memory = KM_FLAG_FORCE_DISABLE,
-    .override_vdev_name[0] = 0,   // redundant, but let's be paranoid
+    .vdev_name = NULL,   // redundant, but let's be paranoid
 };
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
@@ -453,9 +453,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                km_set_coredump_path(optarg);
                break;
             case 'F':
-               strncpy(km_machine_init_params.override_vdev_name,
-                       optarg,
-                       sizeof(km_machine_init_params.override_vdev_name) - 1);
+               km_machine_init_params.vdev_name = strdup(optarg);
                break;
             case 's':
                km_set_snapshot_path(optarg);

@@ -199,7 +199,7 @@ typedef struct km_machine_init_params {
    km_flag_force_t overcommit_memory;   // memory overcommit (i.e. MAP_NORESERVE in mmap)
                                         // Note: if too much of it is accessed, we expect Linux
                                         // OOM killer to kick in
-   char override_vdev_name[PATH_MAX];   // Use this device name, ignore defaults
+   char* vdev_name;   // Device name. Virtualization type is defined by ioctl after this file is open
 } km_machine_init_params_t;
 extern km_machine_init_params_t km_machine_init_params;
 

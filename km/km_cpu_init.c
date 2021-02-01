@@ -550,25 +550,25 @@ void km_machine_setup(km_machine_init_params_t* params)
    if ((machine.shutdown_fd = km_internal_eventfd(0, 0)) < 0) {
       km_err(1, "KM: Failed to create machine shutdown_fd");
    }
-   if (*km_machine_init_params.override_vdev_name != 0) {   // we were asked for a specific dev name
-      if ((machine.kvm_fd = km_internal_open(km_machine_init_params.override_vdev_name, O_RDWR)) < 0) {
-         km_err(1, "KVM: Can't open device file %s", km_machine_init_params.override_vdev_name);
+   if (km_machine_init_params.vdev_name != NULL) {   // we were asked for a specific dev name
+      if ((machine.kvm_fd = km_internal_open(km_machine_init_params.vdev_name, O_RDWR)) < 0) {
+         km_err(1, "KVM: Can't open device file %s", km_machine_init_params.vdev_name);
       }
    } else {
       // default devices, in the order we try to open them
-      const char* dev_files[] = {DEVICE_KONTAIN, DEVICE_KVM, DEVICE_KKM, NULL};
-      for (const char** d = dev_files; *d != NULL; d++) {
+      const_string_t dev_files[] = {DEVICE_KONTAIN, DEVICE_KVM, DEVICE_KKM, NULL};
+      for (const_string_t* d = dev_files; *d != NULL; d++) {
          km_infox(KM_TRACE_KVM, "Trying to open device file %s", *d);
          if ((machine.kvm_fd = km_internal_open(*d, O_RDWR)) >= 0) {
-            strcpy(km_machine_init_params.override_vdev_name, *d);
+            km_machine_init_params.vdev_name = strdup(*d);
             break;
          }
       }
-      if (machine.kvm_fd <= 0) {
+      if (machine.kvm_fd < 0) {
          km_err(1, "Can't open default device file.");
       }
    }
-   km_infox(KM_TRACE_KVM, "Using device file %s", km_machine_init_params.override_vdev_name);
+   km_infox(KM_TRACE_KVM, "Using device file %s", km_machine_init_params.vdev_name);
 
    if (km_vmdriver_get_identity() != KKM_DEVICE_IDENTITY) {
       machine.vm_type = VM_TYPE_KVM;
