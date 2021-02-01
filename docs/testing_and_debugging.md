@@ -285,10 +285,10 @@ Kontain selects a device file by opening files in the following order:
 1. /dev/kvm
 1. /dev/kkm
 
-File selection can be forced by providing additional option `--virt-device <device-file-name>`.
-In this case, KM will force the required device file opening and will if the file fails to open.
+File selection can be changed with `--virt-device <device-file-name>` option.
+In this case, KM will ignore defaults, try to open the requisted device, and will exit if the open fails.
 
-The type of virtualization (KKM or KVM) is determined after the device file is opened by sending an ioctl to the driver.
+**The type of virtualization (KKM or KVM) is determined after the device file is opened by sending an ioctl to the driver.**
 ## Appendix A - why did we choose bats for testing
 
 A quick summary of testing framework requirements, choices and info on how we were choosing one
