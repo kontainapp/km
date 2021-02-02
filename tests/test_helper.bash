@@ -33,7 +33,7 @@ fi
 
 # virtualization type
 if [ -z "$USE_VIRT" ] ; then
-   echo "Please make sure USE_VIRT env is defined." >&3
+   echo "Please make sure USE_VIRT env is defined as 'kvm' or 'kkm'." >&3
    exit 10
 fi
 
@@ -103,15 +103,17 @@ case $test_type in
 esac
 
 # USE_VIRT is exported by run_bats_tests.sh
-if [ "${USE_VIRT}" = 'kvm' ] ; then
-   KM_ARGS="--use-kvm $KM_ARGS"
-elif [ "${USE_VIRT}" = 'kkm' ] ; then
-   KM_ARGS="--use-kkm $KM_ARGS"
-   port_range_start=$(( $port_range_start + 500 ))
-else
+if [[ "${USE_VIRT}" != kvm && "${USE_VIRT}" != kkm ]] ; then
    echo "Unknown virtualization type : ${USE_VIRT}"
    exit 10
 fi
+
+KM_ARGS="--virt-device=/dev/${USE_VIRT} $KM_ARGS"
+if [[ "${USE_VIRT}" == kkm ]] ; then
+   # make sure kvm and kkm use different port ranges for tests
+   port_range_start=$(( $port_range_start + 500 ))
+fi
+
 # We will kill any individual test if takes longer than that
 timeout=250s
 
@@ -212,7 +214,7 @@ bus_width() {
 }
 
 check_optional_mem_size_failure() {
-   if [ "${USE_VIRT}" = 'kvm' ]; then
+   if [[ "${USE_VIRT}" == kvm ]]; then
       assert_success
    else
       assert_failure
