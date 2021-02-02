@@ -268,12 +268,27 @@ And, for completeness, the gdb_forker_test debug session finishes up:
 
 ## Virtualization type selection
 
-Currently KM supports two virtualization providers, KVM and KKM. KVM is not available on aws. KKM is usable on all platforms. By default KM selects virutalization provider in the following order /dev/kontain, /dev/kvm and /dev/kkm. /dev/kvm and /dev/kkm devices are provided by respective linux drivers. Infrastructure create's symbolic link /dev/kontain to point to /dev/kvm or /dev/kkm to make rest of the code work uniformly.
+Currently KM supports two virtualization providers, KVM (standard Linux Kernel-based Virtual Machine) and KKM (Kontain Kernel Module virtualization).
 
-Virtualization selection can be overriden by providing additional options --use-kvm(KVM) or --use-kkm(KKM) to KM.
+* KVM is not available on some cloud providers, e.g. AWS and low-end Azure an GCP instances.
+* KVM may also be not available on non-Linux hosts.
+* KKM is usable on all platforms.
 
-Default virtualization device can be overridden using --use-virt-device <device-file-name> option. Specifying this option will override all other options for virtual device selection. No failback device will be tried if this options is specified.
+Virtualization control is available by accessing a device file.
+Device files /dev/kvm and /dev/kkm devices are provided by respective Linux drivers.
 
+A symbolic link /dev/kontain may be created to point to /dev/kvm or /dev/kkm to make the rest of the code work uniformly.
+
+Kontain selects a device file by opening files in the following order:
+
+1. /dev/kontain
+1. /dev/kvm
+1. /dev/kkm
+
+File selection can be changed with `--virt-device <device-file-name>` option.
+In this case, KM will ignore defaults, try to open the requisted device, and will exit if the open fails.
+
+**The type of virtualization (KKM or KVM) is determined after the device file is opened by sending an ioctl to the driver.**
 ## Appendix A - why did we choose bats for testing
 
 A quick summary of testing framework requirements, choices and info on how we were choosing one

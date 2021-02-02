@@ -1348,13 +1348,16 @@ fi
 # deletion and creation of /dev/kontain has race condition running in parallel
 # run only one version.
 @test "km_identity($test_type): kontain device node test (hello_test$ext)" {
-   KM_VDEV_NAME="/tmp/kontain"
+   local KM_VDEV_NAME="/tmp/kontain$$"
    rm -f ${KM_VDEV_NAME}
    ln -s /dev/${USE_VIRT} ${KM_VDEV_NAME}
-   run ${KM_BIN} --km-log-to=stderr -V --use-virt-device=${KM_VDEV_NAME} hello_test$ext
-   if [ "${USE_VIRT}" = 'kvm' ]; then
-      assert_output --partial "KVM: path(${KM_VDEV_NAME}) vm type(VM_TYPE_KVM)"
+   run ${KM_BIN} --km-log-to=stderr -Vkvm --virt-device=${KM_VDEV_NAME} hello_test$ext
+   assert_success
+   assert_output --partial "Using device file ${KM_VDEV_NAME}"
+   if [[ "${USE_VIRT}" == kvm ]]; then
+      assert_output --partial "Setting vm type to VM_TYPE_KVM"
    else
-      assert_output --partial "KVM: path(${KM_VDEV_NAME}) vm type(VM_TYPE_KKM)"
+      assert_output --partial "Setting vm type to VM_TYPE_KKM"
    fi
+   rm -f ${KM_VDEV_NAME}
 }
