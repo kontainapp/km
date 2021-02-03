@@ -296,7 +296,7 @@ static int km_gdb_vcpu_disengage(km_vcpu_t* vcpu, void* unused)
 /*
  * Initialize gdb's per vcpu state.
  * Called when a vcpu (a thread) comes to life.
- * You do want to called this when a parked vcpu is reused.
+ * You do want to call this when a parked vcpu is reused.
  */
 void km_gdb_vcpu_state_init(km_vcpu_t* vcpu)
 {
@@ -1817,7 +1817,7 @@ static void km_gdb_handle_vcontpacket(char* packet, char* obuf, int* resume)
                                        tid);
                               info.si_signo = linuxsigno;
                               info.si_code = SI_USER;
-                              km_deliver_signal(vcpu, &info);
+                              km_deliver_signal_from_gdb(vcpu, &info);
                            }
                         }
                      } else {
@@ -2639,7 +2639,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
 
                info.si_signo = linux_signo(signo);
                info.si_code = SI_USER;
-               km_deliver_signal(vcpu, &info);
+               km_deliver_signal_from_gdb(vcpu, &info);
             } else {
                // The signal number is bad or missing
                send_error_msg();
@@ -2687,7 +2687,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
 
                info.si_signo = linux_signo(signo);
                info.si_code = SI_USER;
-               km_deliver_signal(vcpu, &info);
+               km_deliver_signal_from_gdb(vcpu, &info);
             } else {
                // The signal number is bad or missing
                send_error_msg();

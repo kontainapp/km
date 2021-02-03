@@ -1161,6 +1161,22 @@ static km_hc_ret_t rt_sigsuspend_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t rt_sigtimedwait(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int rt_sigtimedwait(const sigset_t *set, const siginfo_t *info, const struct timespec *timeout, size_t setlen);
+   km_sigset_t* set = km_gva_to_kma(arg->arg1);
+   siginfo_t* info = NULL;
+   struct timespec* timeout = NULL;
+
+   if ((arg->arg2 != 0 && (info = km_gva_to_kma(arg->arg2)) == NULL) ||
+       (arg->arg3 != 0 && (timeout = km_gva_to_kma(arg->arg3)) == NULL)) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_rt_sigtimedwait(vcpu, set, info, timeout, arg->arg4);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t epoll1_create_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int epoll_create(int size);
@@ -1922,6 +1938,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_rt_sigaction] = rt_sigaction_hcall;
    km_hcalls_table[SYS_rt_sigreturn] = rt_sigreturn_hcall;
    km_hcalls_table[SYS_rt_sigpending] = rt_sigpending_hcall;
+   km_hcalls_table[SYS_rt_sigtimedwait] = rt_sigtimedwait;
    km_hcalls_table[SYS_rt_sigsuspend] = rt_sigsuspend_hcall;
    km_hcalls_table[SYS_sigaltstack] = sigaltstack_hcall;
    km_hcalls_table[SYS_kill] = kill_hcall;

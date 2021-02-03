@@ -798,21 +798,32 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             run_errx(1, "KVM: exit. reason=%d (%s)", reason, kvm_reason_name(reason));
             break;
       }   // switch(reason)
-      siginfo_t info;
-      if (km_dequeue_signal(vcpu, &info) != 0) {
+      if (vcpu->hypercall_returns_signal != 0) {
+         // rt_sigtimedwait() returns signals directly.  Let's not pile another signal on this thread this time thru.
          if (km_gdb_client_is_attached() != 0) {
-            km_gdb_notify(vcpu, info.si_signo);
-            /*
-             * The gdb client should send the signal back and gdb stub will call
-             * km_deliver_signal(). But, will the gdb client send the same signal back?  Or will the
-             * client eat the signal? If we got here from sigsuspend() and the gdb client ate the
-             * signal or sent a different signal back, we should really go back to wait for an
-             * unblocked signal in sigsuspend().
-             */
+            km_gdb_notify(vcpu, vcpu->hypercall_returns_signal);
+            // When gdbstub delivers the signal from gdb client, it will need the hypercall_returns_signal flag so we don't clear it here.
          } else {
-            km_deliver_signal(vcpu, &info);
+            // gdb is not interfering with signal delivery
+            vcpu->hypercall_returns_signal = 0;
          }
-         km_rt_sigsuspend_revert(vcpu);
+      } else {
+         siginfo_t info;
+         if (km_dequeue_signal(vcpu, &info) != 0) {
+            if (km_gdb_client_is_attached() != 0) {
+               km_gdb_notify(vcpu, info.si_signo);
+               /*
+                * The gdb client should send the signal back and gdb stub will call
+                * km_deliver_signal(). But, will the gdb client send the same signal back?  Or will the
+                * client eat the signal? If we got here from sigsuspend() and the gdb client ate the
+                * signal or sent a different signal back, we should really go back to wait for an
+                * unblocked signal in sigsuspend().
+                */
+            } else {
+               km_deliver_signal(vcpu, &info);
+            }
+            km_rt_sigsuspend_revert(vcpu);
+         }
       }
    }
 }
