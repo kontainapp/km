@@ -22,6 +22,9 @@ SUBDIRS := km km_cli runtime tests payloads container-runtime tools/faktory
 # build VMM and runtime library before trying to build tests
 tests: km runtime container-runtime
 
+kkm-pkg:
+	makeself -q kkm ${BLDTOP}/kkm.run "beta-release" ./installer/build-script.sh
+
 TOP := $(shell git rev-parse --show-toplevel)
 
 # On mac $(MAKE) evaluates to '/Applications/Xcode.app/Contents/Developer/usr/bin/make'
