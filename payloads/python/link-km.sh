@@ -31,8 +31,13 @@ KM_OPT_BIN=/opt/kontain/bin
 cd $OUT
 kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
    @linkline_km.txt ${EXTRA_FILES} \
-   ${BUILD}/libpython3*.a -lz -lssl -lcrypto $LDLIBS \
+   ${BUILD}/libpython3*.a -lz -lssl -lcrypto -lsqlite3 $LDLIBS \
    -o ${NAME} && chmod a-x ${NAME} && echo Linked: ${OUT}/${NAME}
+
+kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
+    -Xlinker --undefined=strtoull_l \
+   ${BUILD}/libpython3*.a -lcrypto -lsqlite3 $LDLIBS \
+   -o ${NAME}d
 
 # Add python->km symlink and make python to looking for libs in correct place
 # We want it to work in containers and dev boxes, so locking to /opt/kontain and
