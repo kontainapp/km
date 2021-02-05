@@ -1,6 +1,6 @@
 [submodule "runtime/musl"]
 	path = runtime/musl
-	url = git://git.musl-libc.org/musl
+	url = ../musl.git
 [submodule "tests/bats"]
 	path = tests/bats
 	url = https://github.com/kontainapp/bats
