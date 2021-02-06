@@ -1380,3 +1380,8 @@ fi
    fi
    rm -f ${KM_VDEV_NAME}
 }
+
+@test "km_sid_pgid($test_type): test out session id and process ground id hypercalls (sid_pgid_test$ext)" {
+   run km_with_timeout sid_pgid_test$ext
+   assert_success
+}
