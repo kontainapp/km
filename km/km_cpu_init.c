@@ -251,7 +251,13 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
    vcpu->sigpending = (km_signal_list_t){.head = TAILQ_HEAD_INITIALIZER(vcpu->sigpending.head)};
    vcpu->thr_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    vcpu->thr_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
-   vcpu->signal_wait_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
+
+   // Since we may do timed wait on signal_wait_cv, we must specify which clock to use.
+   pthread_condattr_t condattr;
+   pthread_condattr_init(&condattr);
+   pthread_condattr_setclock(&condattr, CLOCK_MONOTONIC);
+   pthread_cond_init(&vcpu->signal_wait_cv, &condattr);
+   pthread_condattr_destroy(&condattr);
    return 0;
 }
 

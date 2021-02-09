@@ -822,6 +822,9 @@ fi
    run km_with_timeout -Vhyper signal_test$ext -v
    assert_success
    assert_line --partial "Ignoring tgid 100"
+
+   # Try out the sigtimedwait() hypercall
+   run km_with_timeout sigtimedwait_test$ext
 }
 
 @test "pthread_cancel($test_type): (pthread_cancel_test$ext)" {
