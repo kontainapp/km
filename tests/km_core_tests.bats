@@ -24,16 +24,16 @@ not_needed_generic=''
 # Disable them for now to improve signal/noise ratio
 todo_generic='gdb_delete_breakpoint gdb_server_race clock_gettime'
 
-not_needed_static='gdb_sharedlib'
+not_needed_static='gdb_sharedlib dlopen'
 todo_static=''
 
 # skip slow ones
-not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv km_identity '
+not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv km_identity dlopen '
 # review - some fail. Some slow
 todo_alpine_static='dl_iterate_phdr gdb_forkexec'
 
 # glibc native
-not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv km_identity '
+not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv km_identity dlopen '
 
 # exception - extra segment in kmcore
 # dl_iterate_phdr - load starts at 4MB instead of 2MB
@@ -49,12 +49,12 @@ todo_alpine_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
 not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 readlink_argv km_identity '
-todo_dynamic='mem_mmap exception cpp_ctors dl_iterate_phdr monitor_maps '
+todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps '
 
+# running .so as executables was useful at some point, but it isn't needed anymore.
+# Simply disable the tests for now. Ultimately we will drop build and test support for them.
 todo_so=''
-not_needed_so='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load cli mem_* file* gdb_* mmap_1 hc_check \
-    exception cpp_ctors dl_iterate_phdr monitor_maps pthread_cancel mutex vdso threads_mutex sigsuspend semaphore files_on_exec readlink_argv km_identity '
-
+not_needed_so='*'
 
 # make sure it does not leak in from the outer shell, it can mess out the output
 unset KM_VERBOSE
@@ -845,13 +845,29 @@ fi
 @test "cpp_ctors($test_type): constructors and statics (var_storage_test$ext)" {
    run km_with_timeout var_storage_test$ext
    assert_success
+   assert_line --partial "ONCE ONCE may_throw_function"
 
    ctors=`echo -e "$output" | grep -F Constructor | wc -l`
    dtors=`echo -e "$output" | grep -F Destructor | wc -l`
+   onces=`echo -e "$output" | grep -F "ONCE ONCE may_throw_function" | wc -l`
    assert [ "$ctors" -gt 0 ]
    assert [ "$ctors" -eq "$dtors" ]
+   assert [ "$onces" -eq 1 ]
 }
 
+# C++ shared library open from C with dlopen - only makes sense for kmd tests
+@test "dlopen($test_type): dlopen_test.kmd will open var_storage.km.so" {
+   run km_with_timeout var_storage_test$ext
+   assert_success
+   assert_line --partial "ONCE ONCE may_throw_function"
+
+   ctors=`echo -e "$output" | grep -F Constructor | wc -l`
+   dtors=`echo -e "$output" | grep -F Destructor | wc -l`
+   onces=`echo -e "$output" | grep -F "ONCE ONCE may_throw_function" | wc -l`
+   assert [ "$ctors" -gt 0 ]
+   assert [ "$ctors" -eq "$dtors" ]
+   assert [ "$onces" -eq 1 ]
+}
 
 @test "cpp_throw($test_type): basic throw and unwind (throw_basic_test$ext)" {
    run ./throw_basic_test.fedora

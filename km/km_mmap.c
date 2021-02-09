@@ -670,7 +670,7 @@ static km_gva_t km_guest_mmap_impl(km_gva_t gva,
    mmaps_lock();
    ret = km_guest_mmap_nolock(gva, size, prot, flags, fd, offset, allocation_type);
    mmaps_unlock();
-   km_infox(KM_TRACE_MMAP, "== mmap guest ret=0x%lx", ret);
+   km_infox(KM_TRACE_MMAP, "== mmap guest ret=0x%lx 0x%lx 0x%lx", ret, ret + size, size);
    return ret;
 }
 

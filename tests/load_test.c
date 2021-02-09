@@ -30,8 +30,8 @@ static const unsigned long size[] = {0x0000000000606528,   // ?
                                      0x0000000000606770,   // ?
                                      0x0000000000607448,   // fedora 31, gcc 9
                                      0x0000000000607428,   // fedora 32, gcc 10
-                                     0x0000000000607410,   // musl v1.2.2
-                                     0x0000000000607420,   // musl v1.2.2, gcc 9 (fedora 31)
+                                     0x0000000000608410,   // musl v1.2.2
+                                     0x0000000000608420,   // musl v1.2.2, gcc 9 (fedora 31)
                                      0};
 static const unsigned long shared_size[] = {0x292410, 0};
 

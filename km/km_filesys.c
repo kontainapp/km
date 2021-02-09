@@ -1980,6 +1980,13 @@ static int proc_sched_read(int fd, char* buf, size_t buf_sz)
    return ret;
 }
 
+// called on the read of /proc/self/sched - need to replace the first line
+static int proc_auxv_read(int fd, char* buf, size_t buf_sz)
+{
+   memcpy(buf, machine.auxv, buf_sz);
+   return MIN(buf_sz, machine.auxv_size);
+}
+
 // called on the open of /proc/pid/cmdline
 static int proc_cmdline_open(const char* name, char* buf, size_t bufsz)
 {
@@ -2070,6 +2077,10 @@ static km_filename_table_t km_filename_table[] = {
         .ops = {.read_g2h = proc_sched_read},
     },
     {
+        .pattern = "^/proc/self/auxv$",
+        .ops = {.read_g2h = proc_auxv_read},
+    },
+    {
         .pattern = "^/proc/%u/fd/[[:digit:]]+$",
         .ops = {.open_g2h = proc_self_fd_name, .readlink_g2h = proc_self_fd_name},
     },
@@ -2084,6 +2095,10 @@ static km_filename_table_t km_filename_table[] = {
     {
         .pattern = "^/proc/%u/sched$",
         .ops = {.open_g2h = proc_sched_open, .read_g2h = proc_sched_read},
+    },
+    {
+        .pattern = "^/proc/%u/sched$",
+        .ops = {.read_g2h = proc_sched_read},
     },
     {
         .pattern = "^/proc/%u/cmdline$",
