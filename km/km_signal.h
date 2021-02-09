@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -24,6 +24,7 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info);
 void km_deliver_next_signal(km_vcpu_t* vcpu);
 int km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info);
 int km_signal_ready(km_vcpu_t*);
+void km_deliver_signal_from_gdb(km_vcpu_t* vcpu, siginfo_t* info);
 
 uint64_t
 km_rt_sigprocmask(km_vcpu_t* vcpu, int how, km_sigset_t* set, km_sigset_t* oldset, size_t sigsetsize);
@@ -39,6 +40,7 @@ void km_wait_for_signal(int sig);
 typedef void (*sa_action_t)(int, siginfo_t*, void*);
 void km_install_sighandler(int signum, sa_action_t hander_func);
 uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize);
+uint64_t km_rt_sigtimedwait(km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, struct timespec* timeout, size_t setlen);
 
 static inline int km_sigindex(int signo)
 {
@@ -48,6 +50,11 @@ static inline int km_sigindex(int signo)
 static inline void km_sigemptyset(km_sigset_t* set)
 {
    *set = 0L;
+}
+
+static inline void km_sigfillset(km_sigset_t *set)
+{
+   *set = ~0L;
 }
 
 static inline void km_sigaddset(km_sigset_t* set, int signo)

@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
@@ -141,6 +142,8 @@ typedef struct km_vcpu {
    uint8_t regs_valid;        // Are registers valid?
    uint8_t sregs_valid;       // Are segment registers valid?
    uint8_t in_sigsuspend;     // if true thread is running in the sigsuspend() hypercall
+   uint8_t hypercall_returns_signal;  // if true a hypercall is returning a signal directly to the caller
+                                      // so there is no need to setup the signal handler
    //
    // When vcpu is used (i.e. not PARKED_IDLE) the field is used for stack_top.
    // PARKED_IDLE vcpus are queued in SLIST using next_idle as stack_top isn't needed
@@ -562,6 +565,17 @@ extern int km_collect_hc_stats;
          km_err(ret, "pthread_cond_wait(" #cond ", " #mutex ") Failed");                           \
       }                                                                                            \
    } while (0)
+
+static inline int km_cond_timedwait(pthread_cond_t* cond, pthread_mutex_t* mutex, struct timespec* abstime)
+{
+   int ret;
+   if ((ret = pthread_cond_timedwait(cond, mutex, abstime)) != 0) {
+      if (ret != ETIMEDOUT) {
+         km_err(ret, "pthread_cond_timedwait(cond %p) failed, %s", cond, strerror(ret));
+      }
+   }
+   return ret;
+}
 
 #define km_getname_np(target_thread, threadname, buflen)                                             \
    do {                                                                                              \
