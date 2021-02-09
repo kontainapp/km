@@ -27,6 +27,10 @@ After it is done, you can pass `cpython/python.km` to KM as a payload, e.g. `../
 
 ## Debugging km related python test failures
 
+* The python unittest uses the unit test framework documented here:
+
+https://docs.python.org/3/library/unittest.html
+
 * To have the current test logged add the -v flag to the command line, like this:
 
 ```bash
