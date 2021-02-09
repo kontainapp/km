@@ -33,7 +33,7 @@ KM_STATIC_ONLY_SRCS = dlstatic_km.c
 
 PTHREAD_SRCS := pthread_cond_broadcast.c pthread_cond_destroy.c pthread_cond_signal.c pthread_cond_wait.c \
 					 pthread_create.c pthread_detach.c pthread_getspecific.c pthread_join.c pthread_key_create.c \
-					 pthread_key_delete.c pthread_mutex_lock.c pthread_mutex_unlock.c pthread_once.c \
+					 pthread_key_delete.c pthread_mutex_lock.c pthread_mutex_unlock.c pthread_once.c pthread_yield_km.c \
 					 pthread_rwlock_rdlock.c pthread_rwlock_unlock.c pthread_rwlock_wrlock.c pthread_setspecific.c
 
 # TODO: we need 3 group of sources: GENERIC STATIC_ONLY DYNAMIC_ONLY
@@ -65,7 +65,7 @@ CWARNS := -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-va
 # -ffunction-sections -fdata-sections work together with linker script, see km.ld
 # Other -f... options are to reduce generated code size
 COPTS := -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc \
-	-fomit-frame-pointer -fno-unwind-tables -fno-asynchronous-unwind-tables \
+	-fomit-frame-pointer \
 	-ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math \
 	-fno-tree-loop-distribute-patterns -fno-stack-protector \
 	${CWERRS} ${CWARNS} -ffile-prefix-map=${CURDIR}/=
@@ -117,8 +117,9 @@ $(addprefix ${BLDDIR}/, libpthread.a): ${PTHREAD_OBJS}
 	@echo "Making " $@; rm -f $@; ld -r ${PTHREAD_OBJS} -o $*.o; ${AR} crs $@ -o $*.o
 
 # Empty pthread sharedlib just to make 'gcc -shared -pthread' happy
+# Note: options here derived from libc.so build
 $(addprefix ${BLDDIR}/, libpthread.so): km_pthread_dummy.c
-	$(CC) -fPIC -shared -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,--gc-sections -Wl,--exclude-libs=ALL -o $@ $^
 
 # Libc.so target. Depends on libgcc.a, which should be of the correct (for other libs) version.
 # LIBGCC is something like "/opt/kontain/alpine-lib/usr/lib/gcc/x86_64-alpine-linux-musl/8.3.0/libgcc.a"

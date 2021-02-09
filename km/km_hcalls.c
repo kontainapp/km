@@ -1798,6 +1798,12 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_ALLSTOP;
 }
 
+static km_hc_ret_t sched_yield_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = sched_yield();
+   return HC_CONTINUE;
+}
+
 km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 km_hc_stats_t* km_hcalls_stats;
 
@@ -1937,7 +1943,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getuid] = dummy_hcall;
    km_hcalls_table[SYS_getegid] = dummy_hcall;
    km_hcalls_table[SYS_getgid] = dummy_hcall;
-   km_hcalls_table[SYS_sched_yield] = dummy_hcall;
+   km_hcalls_table[SYS_sched_yield] = sched_yield_hcall;
    km_hcalls_table[SYS_setpriority] = dummy_hcall;
    km_hcalls_table[SYS_sched_getaffinity] = sched_getaffinity_hcall;
    km_hcalls_table[SYS_sched_setaffinity] = sched_setaffinity_hcall;

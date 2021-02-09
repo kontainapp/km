@@ -53,7 +53,10 @@ __stub__(shmdt);
 __stub__(shmctl);
 
 __stub__(backtrace);
+__stub__(backtrace_symbols_fd);
 __stub__(mallopt);
+__stub__(mallinfo);
+__stub__(pthread_getname_np);
 
 void* dlvsym(void* handle, char* symbol, char* version)
 {
