@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -274,20 +274,25 @@ static inline void get_pending_signals(km_vcpu_t* vcpu, km_sigset_t* set)
  * client to examine and allow to pass. If the gdb client decides to allow the signal it will
  * instruct the gdb server to deliver the signal.
  * Return 1 and initialize info if there is a signals to deliver, 0 otherwise.
+ * The caller must hold km_signal_lock()
  */
-int km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info)
+static int km_dequeue_signal_nolock(km_vcpu_t* vcpu, siginfo_t* info)
 {
-   km_signal_lock();
    if (dequeue_signal(&vcpu->sigpending, &vcpu->sigmask, info) != 0) {
-      km_signal_unlock();
       return 1;
    }
    if (dequeue_signal(&machine.sigpending, &vcpu->sigmask, info) != 0) {
-      km_signal_unlock();
       return 1;
    }
-   km_signal_unlock();
    return 0;
+}
+
+int km_dequeue_signal(km_vcpu_t* vcpu, siginfo_t* info)
+{
+   km_signal_lock();
+   int rv = km_dequeue_signal_nolock(vcpu, info);
+   km_signal_unlock();
+   return rv;
 }
 
 /*
@@ -588,6 +593,29 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
    do_guest_handler(vcpu, info, act);
 }
 
+/*
+ * Special signal delivery function for gdb to use.  Most signals are delivered by setting
+ * up the signal handler call in the target vcpu.  Some system calls arrange for the signal
+ * to be returned by the system call and there is no call to the signal handler.  In the
+ * former case, we still need to be sure the signal number from gdb is returned to the caller
+ * of the syscall.
+ */
+void km_deliver_signal_from_gdb(km_vcpu_t* vcpu, siginfo_t* info)
+{
+   if (vcpu->hypercall_returns_signal != 0) {
+      // For now this case handles rt_sigtimedwait() hypercalls.
+      // install signal number into the hypercall's return value
+      // If it is important we should consider returning a copy of siginfo_t in what arg2 points to
+      km_gva_t ga = (km_gva_t)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)];
+      km_hc_args_t* ga_kma = km_gva_to_kma(ga);
+      ga_kma->hc_ret = info->si_signo;
+      vcpu->hypercall_returns_signal = 0;
+   } else {
+      // deliver the signal so that the signal handler is invoked
+      km_deliver_signal(vcpu, info);
+   }
+}
+
 void km_rt_sigreturn(km_vcpu_t* vcpu)
 {
    km_read_registers(vcpu);
@@ -793,6 +821,110 @@ uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize)
    km_infox(KM_TRACE_VCPU, "signal %d arrival unsuspends thread", signo);
 
    return -EINTR;
+}
+
+// There is no symbol for nanoseconds / second?
+#define NSEC_PER_SECOND (1000000000)
+
+// Helper function to convert delta time relative to now to an absolute time.
+static inline void deltatime_to_abstime(struct timespec* deltat, struct timespec* abstime)
+{
+   clock_gettime(CLOCK_MONOTONIC, abstime);
+   abstime->tv_nsec += deltat->tv_nsec;
+   if (abstime->tv_nsec >= NSEC_PER_SECOND) {
+      abstime->tv_sec++;
+      abstime->tv_nsec -= NSEC_PER_SECOND;
+   }
+   abstime->tv_sec += deltat->tv_sec;
+}
+
+/*
+ * Perform a timed wait for a set of signals.
+ * Parameters:
+ *  vcpu - the vcpu for the payload thread that is waiting for signals
+ *  set - the signals whose arrival we are to wait for.
+ *  info - returns information about the signal that is being returned, can be NULL
+ *  setlen - the length of the signal vector set points to.
+ * Returns:
+ *  -errno - on failure
+ *  > 0 - the number of the signal that fired
+ */
+uint64_t km_rt_sigtimedwait(km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, struct timespec* timeout, size_t setlen)
+{
+   int rv = 0;
+
+   if ((timeout != NULL && (timeout->tv_sec < 0 || timeout->tv_nsec >= NSEC_PER_SECOND)) ||
+       (setlen != sizeof(km_sigset_t))) {
+      return -EINVAL;
+   }
+
+   // Use a siginfo placeholder if the caller didn't supply one.
+   siginfo_t info_local;
+   if (info == NULL) {
+      info = &info_local;
+   }
+
+   if (timeout == NULL) {
+      km_infox(KM_TRACE_VCPU, "waiting for signals 0x%lx, no timeout", *set);
+   } else {
+      km_infox(KM_TRACE_VCPU, "waiting for signals 0x%lx, timeout %ld.%09ld seconds", *set, timeout->tv_sec, timeout->tv_nsec);
+   }
+
+   // Convert from mask of signals we want to mask of signals to block.
+   km_sigset_t blockthese = ~*set;
+   km_sigaddset(&blockthese, SIGKILL);
+   km_sigaddset(&blockthese, SIGSTOP);
+
+   km_signal_lock();
+   km_sigset_t origmask = vcpu->sigmask;
+   // vcpu->sigmask are the signals that are blocked
+   vcpu->sigmask = blockthese;
+   if (km_dequeue_signal_nolock(vcpu, info) == 0) {
+      // no pending signal, maybe wait for one.
+      if (timeout != NULL) {
+         if (timeout->tv_sec != 0 || timeout->tv_nsec != 0) {
+            // Willing to wait for some amount of time, convert deltat to absolute time.
+            struct timespec abstime;
+            deltatime_to_abstime(timeout, &abstime);
+            // Timed wait for signal arrival.
+            km_infox(KM_TRACE_VCPU, "Timed wait %ld.%09ld seconds, blocked signals 0x%lx", timeout->tv_sec, timeout->tv_nsec, blockthese);
+            TAILQ_INSERT_TAIL(&km_signal_wait_queue, vcpu, signal_link);
+            if (km_cond_timedwait(&vcpu->signal_wait_cv, &machine.signal_mutex, &abstime) == ETIMEDOUT) {
+               TAILQ_REMOVE(&km_signal_wait_queue, vcpu, signal_link);
+               rv = -EAGAIN;
+            } else {
+               km_dequeue_signal_nolock(vcpu, info);
+               rv = info->si_signo;
+            }
+         } else {
+            // not willing to wait for signal arrival, pretend we timed out
+            rv = -EAGAIN;
+         }
+      } else {
+         // no timeout specified, wait forever
+         TAILQ_INSERT_TAIL(&km_signal_wait_queue, vcpu, signal_link);
+         km_cond_wait(&vcpu->signal_wait_cv, &machine.signal_mutex);
+         km_dequeue_signal_nolock(vcpu, info);
+         rv = info->si_signo;
+      }
+   } else {
+      // a signal was waiting, we got it
+      rv = info->si_signo;;
+   }
+   vcpu->sigmask = origmask;
+   km_signal_unlock();
+
+   /*
+    * Since we are delivering the signal to the caller outside of the normal signal handler delivery
+    * path, we must prevent km_vcpu_run() from trying to check for a signal to deliver.
+    * In addition km_vcpu_run() will also need to know it should wake up gdbstub if it is active.
+    * We use the hypercall_returns_signal flag for letting km_vcpu_run() know this is happening.
+    */
+   if (rv > 0) {
+      vcpu->hypercall_returns_signal = rv;
+   }
+   km_infox(KM_TRACE_VCPU, "returning %d", rv);
+   return rv;
 }
 
 /*
