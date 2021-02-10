@@ -1,0 +1,71 @@
+{
+   "variables": {
+      "ami_label": "Ubuntu 20.04 LTS with Kontain and KKM",
+      "aws_region": "us-west-1",
+      "ssh_user": "ubuntu",
+      "kkm_installer": "should-be-passed-from-caller",
+      "kkm_installer_local": "/tmp/kkm.run",
+      "summary_manifest": "packer-manifest.json"
+   },
+   "builders": [
+      {
+         "type": "amazon-ebs",
+         "region": "{{user `aws_region`}}",
+         "source_ami_filter": {
+            "filters": {
+               "virtualization-type": "hvm",
+               "name": "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20210129",
+               "root-device-type": "ebs"
+            },
+            "owners": [
+               "099720109477"
+            ],
+            "most_recent": true
+         },
+         "instance_type": "t2.micro",
+         "ssh_username": "{{user `ssh_user`}}",
+         "ssh_pty": true,
+         "force_deregister": "true",
+         "ami_name": "Kontain_ubuntu_20.04",
+         "ami_description": "{{user `ami_label`}}",
+         "ami_groups": "all",
+         "associate_public_ip_address": "true",
+         "tags": {
+            "Name": "{{user `ami_label`}}",
+            "OS_Version": "Ubuntu",
+            "Release": "20.04",
+            "Base_AMI_Name": "{{ .SourceAMIName }}",
+            "Timestamp": "{{timestamp}}"
+         }
+      }
+   ],
+   "provisioners": [
+      {
+         "type": "file",
+         "source": "{{user `kkm_installer`}}",
+         "destination": "{{user `kkm_installer_local`}}"
+      },
+      {
+         "type": "shell",
+         "inline": [
+            "echo ===== Installing Kontain Kernel Monitor module...",
+            "{{user `kkm_installer_local`}}"
+         ],
+         "execute_command": "/usr/bin/cloud-init status --wait && chmod +x {{.Path}}; {{.Path}}"
+      },
+      {
+         "type": "shell",
+         "inline": [
+            "echo ===== Installing and verifying Kontain... ",
+            "sudo mkdir -p /opt/kontain ; sudo chown -R $(whoami) /opt/kontain",
+            "wget https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh -O - -q | bash"
+         ]
+      }
+   ],
+   "post-processors": [
+      {
+         "type": "manifest",
+         "output": "{{user `summary_manifest`}}"
+      }
+   ]
+}

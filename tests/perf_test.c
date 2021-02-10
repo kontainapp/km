@@ -35,7 +35,7 @@
 #define NSEC_PER_SEC (1000 * 1000 * 1000ULL)
 #define NSEC_PER_MILLI_SEC (1000 * 1000ULL)
 
-typedef struct {
+    typedef struct {
    struct timespec start;
    struct timespec end;
    u_int64_t nsec_consumed;

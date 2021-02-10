@@ -16,21 +16,24 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 
+TOP := $(shell git rev-parse --show-toplevel)
+
 # scan all these and 'make' stuff there
 SUBDIRS := km km_cli runtime tests payloads container-runtime tools/faktory
 
 # build VMM and runtime library before trying to build tests
 tests: km runtime container-runtime
 
-kkm-pkg:
-	makeself -q kkm ${BLDTOP}/kkm.run "beta-release" ./installer/build-script.sh
-
-TOP := $(shell git rev-parse --show-toplevel)
-
 # On mac $(MAKE) evaluates to '/Applications/Xcode.app/Contents/Developer/usr/bin/make'
 ifeq ($(shell uname), Darwin)
 MAKE := make
 endif
+
+kkm-pkg: ## Build KKM module self-extracting package.
+	@if ! type makeself >& /dev/null ; then echo Please install \"makeself\" first; false; fi
+	@# We only needs source code, so running 'clean' first
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/kkm/kkm clean
+	makeself -q kkm ${BLDTOP}/kkm.run "beta-release" ./installer/build-script.sh
 
 # Install git hooks, if needed
 GITHOOK_DIR ?= .githooks
@@ -43,5 +46,9 @@ compile-commands: ## rebuild compile_commands.json. Assumes 'bear' is installed
 	make clean
 	bear make -j
 	sed -i 's-${CURDIR}-$${workspaceFolder}-' compile_commands.json
+
+# clean in subdirs will be done automatically. This is clean for stuff created from this makefile
+clean:
+	rm -f ${BLDTOP}/kkm.run
 
 include ${TOP}/make/actions.mk
