@@ -19,6 +19,19 @@
 
 /*
  * Rudimentary support for session id and process group id hypercalls.
+ *
+ * km currently does nothing with session id's and process group id's.
+ * It propagates arguments to the session id and process group id hypercalls
+ * to the kernel system calls and returns the values returned by the kernel.
+ * session id's and process group id's are derived directly from process id's.
+ * Since km currently maintains its own simple pid namespace that the
+ * linux kernel knows nothing about, km translates km pids into linux pid's
+ * before passing them on to the kernel as arguments to the sid and pgid
+ * hypercalls.  These kernel system calls may return linux session id's and
+ * process group id's which are essentially pid's that have been made into these id's.
+ * Since pids, sid's, and pgid's are related, km translates returned linux sid's and pgid's
+ * into km sid's and pgid's using the pid xlate tables it keeps and returns
+ * the xlated values from the hypercalls to the payload so it is none the wiser.
  */
 
 uint64_t km_setsid(km_vcpu_t* vcpu)
