@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -39,6 +39,7 @@
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
+#include "km_sid_pgid.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -1651,7 +1652,7 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       assert("no process group support yet" == NULL);
    }
    if (arg->arg1 == -1) {
-      linux_pid = 0;
+      linux_pid = -1;
    } else {
       linux_pid = km_pid_xlate_kpid(arg->arg1);
    }
@@ -1721,6 +1722,42 @@ static km_hc_ret_t waitid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       km_infox(KM_TRACE_HC, "returns si_pid %d", sip->si_pid);
       arg->hc_ret = 0;
    }
+   return HC_CONTINUE;
+}
+
+/*
+ * pid_t getsid(pid_t pid);
+ */
+static km_hc_ret_t getsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_getsid(vcpu, arg->arg1);
+   return HC_CONTINUE;
+}
+
+/*
+ * pid_t setsid(void);
+ */
+static km_hc_ret_t setsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_setsid(vcpu);
+   return HC_CONTINUE;
+}
+
+/*
+ * pid_t getpgid(pid_t pid);
+ */
+static km_hc_ret_t getpgid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_getpgid(vcpu, arg->arg1);
+   return HC_CONTINUE;
+}
+
+/*
+ * int setpgid(pid_t pid, pid_t pgid);
+ */
+static km_hc_ret_t setpgid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_setpgid(vcpu, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 }
 
@@ -1960,6 +1997,12 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_getuid] = dummy_hcall;
    km_hcalls_table[SYS_getegid] = dummy_hcall;
    km_hcalls_table[SYS_getgid] = dummy_hcall;
+
+   km_hcalls_table[SYS_setsid] = setsid_hcall;
+   km_hcalls_table[SYS_getsid] = getsid_hcall;
+   km_hcalls_table[SYS_setpgid] = setpgid_hcall;
+   km_hcalls_table[SYS_getpgid] = getpgid_hcall;
+
    km_hcalls_table[SYS_sched_yield] = sched_yield_hcall;
    km_hcalls_table[SYS_setpriority] = dummy_hcall;
    km_hcalls_table[SYS_sched_getaffinity] = sched_getaffinity_hcall;

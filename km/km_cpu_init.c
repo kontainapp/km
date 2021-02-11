@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2018-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -31,6 +31,7 @@
 #include "km_guest.h"
 #include "km_kkm.h"
 #include "km_mem.h"
+#include "km_fork.h"
 #include "x86_cpu.h"
 
 // Set CPUID VendorId to this. 12 chars max (sans \0) to fit in 3 register: ebx,ecx,edx
@@ -709,6 +710,7 @@ void km_machine_init(km_machine_init_params_t* params)
       machine.pid = km_exec_pid();
       machine.next_pid = km_exec_next_pid();
    }
+   km_pid_insert(machine.pid, getpid());
    if (km_fs_init() < 0) {
       km_err(1, "KM: km_fs_init() failed");
    }

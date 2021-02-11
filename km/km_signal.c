@@ -750,18 +750,16 @@ uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo)
       return -EINVAL;
    }
    pid_t linux_pid = km_pid_xlate_kpid(pid);
-   if (linux_pid != pid) {   // signal to another instance of km
+   if (pid == 0 || pid == machine.pid) {
+      // Process-wide signal.
+      siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
+      km_post_signal(NULL, &info);
+   } else if (linux_pid != pid) {   // signal to another instance of km
       if (kill(linux_pid, signo) < 0) {
          return -errno;
       }
    } else {
-      if (pid != 0 && pid != machine.pid) {
-         return -ESRCH;
-      }
-
-      // Process-wide signal.
-      siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
-      km_post_signal(NULL, &info);
+      return -ESRCH;
    }
    return 0;
 }
