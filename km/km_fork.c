@@ -334,6 +334,7 @@ int km_dofork(int* in_child)
       machine.pid = km_fork_state.km_child_pid;
       km_infox(KM_TRACE_FORK, "child: after fork/clone");
       machine.ppid = km_fork_state.km_parent_pid;
+      km_pid_insert(machine.pid, getpid());     // map the child's linux pid to its kontain pid
       km_fork_state.fork_in_progress = 0;
       km_fork_state.mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
       km_fork_state.cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
