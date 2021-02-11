@@ -26,6 +26,6 @@ In absense of necessary features KKM driver will register in a limited function 
 
 ## How to check if kkm supports CPU
 
-KKM driver at the time of init checks for necessary features.  When the necessary featuers are not available KKM driver logs a message. When CPU is not supported only KKM_CPU_SUPPORTED ioctl works. KKM_CPU_SUPPORTED ioctl will return enum kkm_cpu_supported.
+KKM driver at the time of init checks for necessary features.  When the necessary features are not available KKM driver logs a message. When CPU is not supported only KKM_CPU_SUPPORTED ioctl works. KKM_CPU_SUPPORTED ioctl will return enum kkm_cpu_supported.
 
 This is a proprietary internal document. Not for consumption outside Kontain.
