@@ -265,14 +265,12 @@ fi
    local address="http://127.0.0.1:$port"
 
    (./hello_html_test.fedora $port &)
-   sleep 0.5s
-   run curl -s $address
+   run curl -s $address --retry-connrefused  --retry 3 --retry-delay 1
    assert_success
    linux_out="${output}"
 
    (km_with_timeout hello_html_test$ext $port &)
-   sleep 0.5s
-	run curl -s $address
+   run curl -s $address --retry-connrefused  --retry 3 --retry-delay 1
    assert_success
    diff <(echo -e "$linux_out") <(echo -e "$output")
 }
