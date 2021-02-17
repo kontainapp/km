@@ -91,6 +91,7 @@ RUNENV_VALIDATE_CMD := scripts/hello.js
 # define this function
 export define runenv_prep
 	cp ${PAYLOAD_KM} ${RUNENV_PATH}
+	cd ${RUNENV_PATH} ; ln -sf /opt/kontain/bin/km node
 endef
 
 RELEASE_TAG := node node-12
