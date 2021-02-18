@@ -627,7 +627,7 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
    }
    // not shebang, got to be symlink
    if ((pl_name = km_traverse_payload_symlinks(filename)) == NULL) {
-      km_infox(KM_TRACE_EXEC, "km_traverse_payload_symlinks returned NULL");
+      km_infox(KM_TRACE_EXEC, "km_traverse_payload_symlinks(%s) returned NULL", filename);
       freevector(argv, shell);
       return NULL;
    }
