@@ -16,6 +16,7 @@ trigger:
       - docs/*
       - demo/customer1/*
       - km-releases
+      - payloads/longhaul-test/*
 
 pr:
   branches:
@@ -29,6 +30,7 @@ pr:
       - docs/*
       - demo/customer1/*
       - km-releases
+      - payloads/longhaul-test/*
 
 jobs:
   - job: normal_ci

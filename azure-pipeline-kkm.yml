@@ -13,6 +13,7 @@ trigger:
       - docs/*
       - demo/customer1/*
       - km-releases
+      - payloads/longhaul-test/*
 
 
 pr:
@@ -27,6 +28,7 @@ pr:
       - docs/*
       - demo/customer1/*
       - km-releases
+      - payloads/longhaul-test/*
 
 
 jobs:
