@@ -18,9 +18,11 @@ make -j
 make -C payloads/java
 make -C payloads/java runenv-image
 make -C demo/spring-boot
+make -C km_cli install
 ```
 
-This will create docker image called `kontainapp/spring-boot-demo`.
+This will create docker image called `kontainapp/spring-boot-demo` and make sure km_cli (needed for initiating a snapshot)
+is available in /opt/kontain/bin.
 
 ### Step 2 - Start a Shell Inside Docker Container
 
@@ -35,9 +37,14 @@ docker run --name=KM_SpringBoot_Demo --privileged --rm -it --device=/dev/kvm \
 
 ### Step 3 Measure Base Startup Time
 
-Outside of the container run the program `demo/spring-boot/test/test.sh`.
+Outside of the container run
+
+```sh
+demo/spring-boot/test/test.sh
+```
+
 This program will get the time when the server first responds.
-Then it will get the server start time from the container and print the difference.
+Then it will get the server start time from the container (started in the next step) and print the difference.
 
 Inside the container run
 
@@ -53,6 +60,10 @@ The difference between the two values is the time it took for the server to resp
 ```bash
 docker exec KM_SpringBoot_Demo /opt/kontain/bin/km_cli -s /tmp/km.sock
 ```
+
+This will generate a `kmsnap` file with re-usable snapshot.
+Note that KM will report it as saving a coredump, since coredumps and snapshots have the same format
+and are generated using the same mechanism.
 
 ### Step 5 - Measure Snapshot Startup Time
 
