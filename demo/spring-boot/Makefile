@@ -10,7 +10,8 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-include ${TOP}/make/locations.mk
+COMPONENT := spring-boot-demo
+include ${TOP}/make/images.mk
 
 CURRENT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 SRC_REPO_DIR := ${CURRENT_DIR}/rest-service-11
@@ -76,3 +77,9 @@ test: clean/test
 .PHONY: clean/test
 clean/test:
 	$(call clean_container,${DEMO_CONTAINER})
+
+DEMO_IMAGE_REG := $(subst kontain/,$(REGISTRY)/,$(DEMO_IMAGE))
+# note: to login, `make -C cloud/docker login' - see docs/how-twos/login-dockerhub.md
+publish-demo: ## publish to docker.io (requred login)
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
+		FROM=$(DEMO_IMAGE) TO=$(DEMO_IMAGE_REG)
