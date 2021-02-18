@@ -32,7 +32,7 @@ typedef struct km_payload {
    Elf64_Phdr* km_phdr;           // elf program headers
    Elf64_Addr km_dlopen;          // dlopen() address to find link_map chain
    Elf64_Addr km_load_adjust;     // elf->guest vaddr adjustment
-   char* km_filename;             // elf file name
+   const char* km_filename;       // elf file name
    Elf64_Addr km_interp_vaddr;    // interpreter name vaddr (if exist)
    Elf64_Off km_interp_len;       // interpreter name length (if exist)
    Elf64_Addr km_dynamic_vaddr;   // dynamic section
@@ -42,7 +42,15 @@ typedef struct km_payload {
 
 extern km_payload_t km_guest;
 extern km_payload_t km_dynlinker;
-extern char* km_dynlinker_file;
+extern const char* km_dynlinker_file;
+
+// Open elf file descriptor
+typedef struct km_elf {
+   Elf* elf;
+   int fd;
+   GElf_Ehdr ehdr;
+   const char* filename;
+} km_elf_t;
 
 /*
  * Translate ELF region protection mmap to mmap protection flag
@@ -62,7 +70,8 @@ static inline int prot_elf_to_mmap(Elf64_Word p_flags)
    return flags;
 }
 
-uint64_t km_load_elf(char* file);
-Elf* km_open_elf_file(char* filename, km_payload_t* payload, int* fd);
+uint64_t km_load_elf(km_elf_t* e);
+km_elf_t* km_open_elf_file(const char* filename);
+void km_close_elf_file(km_elf_t* e);
 
 #endif /* #ifndef __KM_H__ */

@@ -79,8 +79,7 @@ static inline void usage()
 "\t--version (-v)                      - Print version info and exit\n"
 "\t--log-to=file_name (-l file_name)   - Stream guest stdout and stderr to file_name\n"
 "\t--km-log-to=file_name (-k file_name)- Stream km log to file_name\n"
-"\t--copyenv                           - Copy all KM env. variables into payload (default)\n"
-"\t--putenv key=value                  - Add environment 'key' to payload (cancels --copyenv)\n"
+"\t--putenv key=value                  - Add environment 'key' to payload (cancels host env)\n"
 "\t--wait-for-signal                   - Wait for SIGUSR1 before running payload\n"
 "\t--dump-shutdown                     - Produce register dump on VCPU error\n"
 "\t--core-on-err                       - generate KM core dump when exiting on err, including guest core dump\n"
@@ -90,7 +89,6 @@ static inline void usage()
 "\t--hcall-stats (-S)                  - Collect and print hypercall stats\n"
 "\t--coredump=file_name                - File name for coredump\n"
 "\t--snapshot=file_name                - File name for snapshot\n"
-"\t--resume                            - Resume from a snapshot\n"
 "\n"
 "\tOverride auto detection:\n"
 "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. 32 means 4GiB, 33 8GiB, 34 16GiB, etc.\n"
@@ -143,7 +141,6 @@ km_machine_init_params_t km_machine_init_params = {
 };
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
-static int resume_snapshot = 0;
 static char* mgtpipe = NULL;
 static int log_to_fd = -1;
 
@@ -158,7 +155,6 @@ static struct option long_options[] = {
     {"log-to", required_argument, 0, 'l'},
     {"km-log-to", required_argument, 0, 'k'},
     {"putenv", required_argument, 0, 'e'},
-    {"copyenv", no_argument, 0, 'E'},
     {"gdb-server-port", optional_argument, 0, 'g'},
     {GDB_LISTEN, no_argument, NULL, 0},
     {GDB_DYNLINK, no_argument, NULL, 0},
@@ -169,7 +165,6 @@ static struct option long_options[] = {
     {"hcall-stats", no_argument, 0, 'S'},
     {"virt-device", required_argument, 0, 'F'},
     {"snapshot", required_argument, 0, 's'},
-    {"resume", no_argument, &resume_snapshot, 1},
     {"mgtpipe", required_argument, 0, 'm'},
 
     {0, 0, 0, 0},
@@ -352,7 +347,6 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    int gpbits = 0;         // Width of guest physical memory bus.
    int copyenv_used = 1;   // By default copy environment from host
    int putenv_used = 0;
-   int dynlinker_used = 0;
    char* ep = NULL;
    static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int longopt_index;    // flag index in longopt array
@@ -441,14 +435,6 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                }
                envp[envc - 1] = NULL;
                break;
-            case 'E':   // --copyenv
-               if (putenv_used != 0) {
-                  km_warnx("Wrong options: '--copyenv' cannot be used with together with "
-                           "'--putenv'");
-                  usage();
-               }
-               copyenv_used++;
-               break;
             case 'C':
                km_set_coredump_path(optarg);
                break;
@@ -497,7 +483,6 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                break;
             case 'L':
                km_dynlinker_file = optarg;
-               dynlinker_used++;
                break;
             case 'S':
                km_collect_hc_stats = 1;
@@ -513,38 +498,16 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
          }
       }
       pl_index = optind;
-
-      if (resume_snapshot != 0) {
-         if (copyenv_used == 1) {
-            copyenv_used = 0;   // when resuming snapshot, default behavior is NOT to copy env
-         }
-         if (putenv_used != 0 || dynlinker_used != 0) {
-            km_errx(1, "cannot set new environment or dynlinker when resuming a snapshot");
-         }
-         if (pl_index < argc - 1) {
-            km_errx(1, "cannot set payload arguments when resuming a snapshot");
-         }
-      }
    }
    if (km_called_via_exec() == 0) {
       // km_exec_recover_kmstate() has already setup km_log_file in the case of entry by execve().
       km_redirect_msgs(km_log_to);
    }
 
-   km_trace_set_noninteractive();
-
-   if (copyenv_used != 0) {       // copy env from host
-      assert(putenv_used == 0);   // TODO - we can merge existing and --putenv here
-      for (envc = 0; __environ[envc] != NULL; envc++) {
-         ;   // count env vars
-      }
-      envc++;             // account for terminating NULL
-      envp = __environ;   // pointers and strings will be copied to guest stack later
-   }
-
    // Configure payload's env and args
    *envp_p = envp;
    *envc_p = envc;
+   // TODO: fix for snapshot restore
    km_mimic_payload_argv(argc, argv, pl_index);
    *argc_p = argc - pl_index;
    *argv_p = argv;
@@ -560,7 +523,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
          usage();
       }
       char* extra_arg = NULL;   // shebang arg (if any) will be placed here, strdup-ed
-      if (resume_snapshot == 0 && (pl_name = km_parse_shebang(argv[0], &extra_arg)) != NULL) {
+      if ((pl_name = km_parse_shebang(argv[0], &extra_arg)) != NULL) {
          int idx = 0;
          (*argc_p)++;   // room for shebang file name
          if (extra_arg != NULL) {
@@ -665,13 +628,32 @@ int main(int argc, char* argv[])
    km_exec_fini();   // calls to km_called_via_exec() not valid beyond this point!
 
    km_mgt_init(mgtpipe);
-   if (resume_snapshot != 0) {   // snapshot restore
-      if (km_snapshot_restore(payload_name) < 0) {
+
+   km_elf_t* elf = km_open_elf_file(payload_name);
+
+   // snapshot file is type ET_CORE. We check for additional notes in restore
+   if (elf->ehdr.e_type == ET_CORE) {
+      // check for incompatible options
+      if (envp != NULL || km_dynlinker_file != NULL) {
+         km_errx(1, "cannot set new environment or dynlinker when resuming a snapshot");
+      }
+      if (argc_p > 1) {
+         km_errx(1, "cannot set payload arguments when resuming a snapshot");
+      }
+      if (km_snapshot_restore(elf) < 0) {
          km_err(1, "failed to restore from snapshot %s", payload_name);
       }
       vcpu = machine.vm_vcpus[0];
    } else {
-      km_gva_t adjust = km_load_elf(payload_name);
+      // if environment wasn't set up copy it from host
+      if (envp == NULL) {
+         for (envc = 0; __environ[envc] != NULL; envc++) {
+            ;   // count env vars
+         }
+         envc++;             // account for terminating NULL
+         envp = __environ;   // pointers and strings will be copied to guest stack later
+      }
+      km_gva_t adjust = km_load_elf(elf);
       if ((vcpu = km_vcpu_get()) == NULL) {
          km_err(1, "Failed to get main vcpu");
       }
@@ -694,6 +676,7 @@ int main(int argc, char* argv[])
          free(envp);
       }
    }
+   km_trace_set_noninteractive();
 
    if (wait_for_signal == 1) {
       km_warnx("Waiting for kill -SIGUSR1 %d", getpid());

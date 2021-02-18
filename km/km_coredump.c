@@ -337,7 +337,7 @@ static inline char* km_core_dump_elf_mappings(km_vcpu_t* vcpu, km_payload_t* pay
    return cur;
 }
 
-static inline char* km_core_dump_mapping_name(km_vcpu_t* vcpu, char* name, char* cur)
+static inline char* km_core_dump_mapping_name(km_vcpu_t* vcpu, const char* name, char* cur)
 {
    size_t len = strlen(name) + 1;
    strcpy(cur, name);
