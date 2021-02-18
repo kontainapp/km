@@ -416,6 +416,7 @@ static char* km_resolve_cmdname(const char* cmdname, const char* path, char* tem
             return temp;
          }
       }
+      km_infox(KM_TRACE_EXEC, "couldn't find cmd %s in PATH %s", cmdname, path);
    }
    return NULL;
 }
@@ -549,6 +550,14 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
    char buf[PATH_MAX];
    int shell;
 
+   km_infox(KM_TRACE_EXEC,
+            "filename %s, argv[0] %s, argv[1] %s, argv[2] %s, argv[3] %s",
+            filename,
+            (char*)km_gva_to_kma((km_gva_t)argv[0]),
+            (char*)km_gva_to_kma((km_gva_t)argv[1]),
+            (char*)km_gva_to_kma((km_gva_t)argv[2]),
+            (char*)km_gva_to_kma((km_gva_t)argv[3]));
+
    /*
     * If this is popen build new argv and argc from cmd line.
     * Otherwise compute argc and copy argv from guest address space
@@ -575,6 +584,7 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
       for (argc = 0; argv[argc] != NULL; argc++) {
       }
       if ((nargv = calloc(argc, sizeof(char*))) == NULL) {
+         km_infox(KM_TRACE_EXEC, "Couldn't allocate %ld bytes", argc * sizeof(char*));
          return NULL;
       }
       for (int idx = 0; argv[idx] != NULL; idx++) {
@@ -594,6 +604,7 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
       if (extra_arg != NULL) {
          // km exec, shebang arg, shebang, cnt, and NULL
          if ((nargv = calloc(1 + 2 + argc + 1, sizeof(char*))) == NULL) {
+            km_infox(KM_TRACE_EXEC, "Couldn't allocate %ld bytes", (1 + 2 + argc + 1) * sizeof(char*));
             freevector(argv, shell);
             return NULL;
          }
@@ -602,6 +613,7 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
       } else {
          // km exec, payload, shebang, cnt, and NULL
          if ((nargv = calloc(1 + 1 + argc + 1, sizeof(char*))) == NULL) {
+            km_infox(KM_TRACE_EXEC, "Couldn't allocate %ld bytes", (1 + 1 + argc + 1) * sizeof(char*));
             freevector(argv, shell);
             return NULL;
          }
@@ -615,11 +627,13 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
    }
    // not shebang, got to be symlink
    if ((pl_name = km_traverse_payload_symlinks(filename)) == NULL) {
+      km_infox(KM_TRACE_EXEC, "km_traverse_payload_symlinks returned NULL");
       freevector(argv, shell);
       return NULL;
    }
 
    if ((nargv = calloc(1 + argc + 1, sizeof(char*))) == NULL) {   // km exec, cnt, and NULL
+      km_infox(KM_TRACE_EXEC, "Couldn't allocate %ld bytes", (1 + argc + 1) * sizeof(char*));
       freevector(argv, shell);
       return NULL;
    }
