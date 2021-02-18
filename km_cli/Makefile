@@ -19,3 +19,6 @@ LOCAL_COPTS := -Werror
 LOCAL_LDOPTS := -Wl,--script=${TOP}/km/km_guest_ldcmd
 
 include ${TOP}/make/actions.mk
+
+install: ${BLDEXEC} ## Install into /opt/kontain
+	sudo cp ${BLDEXEC} ${KM_OPT_BIN}/${EXEC}
