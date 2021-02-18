@@ -25,17 +25,30 @@ import (
 	"strconv"
 	"sync/atomic"
 	"syscall"
+	"time"
 	"unsafe"
 )
+
+type fn func(interface{})
+
+func selectedFunction(f fn, val interface{}) {
+	f(val)
+}
+
+var functionsAsArguments = map[string]fn{
+	"mmap": readAndValidateMmap,
+	"read": readAndValidateRead,
+}
 
 type contextKey struct {
 	key string
 }
 
 type Flags struct {
-	verbose bool
-	port    string
-	fileNO  int64
+	verbose  bool
+	port     string
+	fileNO   int64
+	function string
 }
 
 var ConnContextKey = &contextKey{"http-conn"}
@@ -66,21 +79,26 @@ func writeToFile(testFilename string, n int) {
 	testFile, err := os.OpenFile(testFilename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	errorPrintAndExit(err, "OpenFile failed:")
 	wordsAddr := make([]int32, n)
-	wordSize := unsafe.Sizeof(wordsAddr[0])
+	wordSize := unsafe.Sizeof(wordsAddr[0]) // 4
 	for i := 0; i < n; i++ {
 		wordsAddr[i] = int32(i) * int32(wordSize)
 	}
 	buf := new(bytes.Buffer)
 	errorPrintAndExit(binary.Write(buf, binary.BigEndian, wordsAddr), "Binary.Write failed:")
 	for i := 0; i < buf.Len(); i += int(wordSize) {
-		_, err = testFile.Write(buf.Bytes()[i : i+int(wordSize)])
+		wordSizeWritten, err := testFile.Write(buf.Bytes()[i : i+int(wordSize)])
+		// checks if 4 bytes were written to a file
+		if wordSizeWritten != 4 {
+			log.Fatal("Word write failed to write 4 bytes, wrote ", wordSizeWritten, " instead\nFilename: ", testFilename)
+		}
 		errorPrintAndExit(err, "TestFile.Write failed:")
 	}
 	testFile.Close()
 }
 
 // reading testFile, validating each word is 4*i(bytes) offset from the start from the file
-func readAndValidate(testFilename string) {
+func readAndValidateMmap(testFilenameArg interface{}) {
+	testFilename := fmt.Sprintf("%v", testFilenameArg)
 	testFileRead, err := os.OpenFile(testFilename, os.O_RDONLY, 0444)
 	errorPrintAndExit(err, "TestFile open failed:")
 	fd := int(testFileRead.Fd())
@@ -97,6 +115,30 @@ func readAndValidate(testFilename string) {
 		}
 	}
 	errorPrintAndExit(syscall.Munmap(b), "Unmapping the file")
+	testFileRead.Close()
+	errorPrintAndExit(os.Remove(testFilename), "Removing file")
+}
+
+// reading testFile, validating each word is 4*i(bytes) offset from the start from the file
+func readAndValidateRead(testFilenameArg interface{}) {
+	testFilename := fmt.Sprintf("%v", testFilenameArg)
+	testFileRead, err := os.OpenFile(testFilename, os.O_RDONLY, 0444)
+	errorPrintAndExit(err, "TestFile open failed:")
+	stat, err := testFileRead.Stat()
+	errorPrintAndExit(err, "Retrieving file stat failed:")
+	size := int(stat.Size())
+	for i := 0; i < size; i += 4 {
+		offset := make([]byte, 4)
+		n, err := testFileRead.ReadAt(offset, int64(i))
+		if n != 4 {
+			log.Fatal("ReadAt failed:\n", err, "\nFilename: ", testFileRead.Name(), "\nExpected ", 4, ", read ", n, "\n")
+		}
+		offsetInt := binary.BigEndian.Uint32(offset)
+		if int(offsetInt) != i {
+			log.Fatal("Filename: ", testFileRead.Name(),
+				"\nOffset mismatch: expected ", i, ", got ", offsetInt, "\n")
+		}
+	}
 	testFileRead.Close()
 	errorPrintAndExit(os.Remove(testFilename), "Removing file")
 }
@@ -121,11 +163,11 @@ func (fg *Flags) simpleIO(w http.ResponseWriter, req *http.Request) {
 			log.Println("Url Param 'wordCount' is missing\nEx: http:127.0.0.1:8090/simpleIO?wordCount=10")
 			return
 		}
-		testFilename := "/tmp/longhaul_test_" + strconv.FormatInt(atomic.AddInt64(&fg.fileNO, 1), 10)
+		testFilename := "/tmp/longhaul_test_" + strconv.Itoa(os.Getpid()) + "_" + strconv.FormatInt(atomic.AddInt64(&fg.fileNO, 1), 10)
 		n, err := strconv.Atoi(keys[0])
 		errorPrintAndExit(err, "Invalid argument for wordCount")
 		writeToFile(testFilename, n)
-		readAndValidate(testFilename)
+		selectedFunction(functionsAsArguments[fg.function], testFilename)
 	}
 }
 
@@ -133,13 +175,16 @@ func main() {
 	var flags Flags
 	flag.StringVar(&flags.port, "port", "15213", "specify port number")
 	flag.BoolVar(&flags.verbose, "v", false, "verbose output")
+	flag.StringVar(&flags.function, "f", "mmap", "select function (mmap,read)")
 	flag.Parse()
 	flags.port = ":" + flags.port
 	http.HandleFunc("/simpleIO", flags.simpleIO)
 	http.HandleFunc("/stop", stopServer)
 	server := http.Server{
-		Addr:        flags.port,
-		ConnContext: SaveConnInContext,
+		Addr:         flags.port,
+		ConnContext:  SaveConnInContext,
+		ReadTimeout:  20 * time.Second,
+		WriteTimeout: 20 * time.Second,
 	}
-	server.ListenAndServe()
+	log.Fatal(server.ListenAndServe())
 }

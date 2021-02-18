@@ -13,6 +13,7 @@ trigger:
       - docs/*
       - demo/nokia/*
       - km-releases
+      - payloads/longhaul-test/*
 
 
 pr:
@@ -27,6 +28,7 @@ pr:
       - docs/*
       - demo/nokia/*
       - km-releases
+      - payloads/longhaul-test/*
 
 
 jobs:
