@@ -1,0 +1,11 @@
+{
+    "default-runtime": "runc",
+    "runtimes": {
+      "krun": {
+        "path": "/opt/kontain/bin/krun"
+      },
+      "crun": {
+        "path": "/opt/kontain/bin/crun"
+      }
+    }
+} 
