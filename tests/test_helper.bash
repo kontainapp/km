@@ -130,21 +130,11 @@ function km_with_timeout () {
    # The intention is that this loop only process km args.  Payload name and args should not
    # be examined.  For some ambiguous cases, the call to km_with_timeout() will need to have
    # the '--' flag to prevent this loop from straying into payload args.
-   resume=0
    while [ $# -gt 0 ]; do
       case "$1" in
          --)
-            if [ $resume -eq 0 ]; then
-               __args="$__args ${KM_LDSO_ARGS}"
-            fi
             shift
             break
-            ;;
-         --resume)
-            # snapshot resume does not need the ldso related km arguments, setup to avoid adding them
-            resume=1
-            __args="$__args $1"
-            shift
             ;;
          --timeout)
             shift
@@ -157,9 +147,7 @@ function km_with_timeout () {
             __args="$__args $1"
             ;;
          *$ext)
-            if [ $resume -eq 0 ]; then
-               __args="$__args ${KM_LDSO_ARGS}"
-            fi
+            __args="$__args ${KM_LDSO_ARGS}"
             break
             ;;
          *)

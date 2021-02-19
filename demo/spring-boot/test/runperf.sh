@@ -26,7 +26,7 @@ docker run -it --name TESTDEMO -d --device=/dev/kvm \
   -v ${WORKSPACE}/km/payloads/java/scripts:/scripts:z \
   -p8080:8080 ${CONTAINER}
 #/opt/kontain/bin/km /opt/kontain/java/bin/java.kmd -jar /app.jar &
-#/opt/kontain/bin/km --resume kmsnap &
+#/opt/kontain/bin/km kmsnap &
 
 DFINISH=$(date +%s%N)
 
