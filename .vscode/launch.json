@@ -4,6 +4,7 @@
    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
    "version": "0.2.0",
    "configurations": [
+
       {
          "name": "KM with a test payload",
          "type": "cppdbg",
@@ -170,7 +171,7 @@
          "debugServerArgs": "-g ${workspaceFolder}/tests/${input:test_payload}.km",
          "serverLaunchTimeout": 5000,
          "filterStderr": true,
-         "filterStdout": false,
+         "filterStdout": true,
          "serverStarted": "GdbServerStubStarted",
          "logging": {
             "moduleLoad": false,
