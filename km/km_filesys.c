@@ -2410,7 +2410,7 @@ void km_redirect_msgs(const char* name)
              */
             char filename[32];
             snprintf(filename, sizeof(filename), "/tmp/km_%d.log", getpid());
-            km_warnx("Switch km logging to %s on first attempt to log", filename);
+            km_tracex("Switch km logging to %s on first attempt to log", filename);
             km_trace_set_log_file_name(filename);
             return;
          } else {
