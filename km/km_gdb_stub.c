@@ -316,12 +316,33 @@ void km_gdb_attach_message(void)
       km_trace("Failed to get hostname, ignoring. errno=%d (%s)", errno, strerror(errno));
       *name = 0;
    };
-   km_warnx("Waiting for a debugger. Connect to it like this:\n"
-            "\tgdb -q --ex=\"target remote %s:%d\" %s\n"
-            "GdbServerStubStarted\n",
-            name,
-            km_gdb_port_get(),
-            km_guest.km_filename);
+   if (stdout != NULL) {
+      printf("Waiting for a debugger. Connect to it like this:\n"
+             "\tgdb -q --ex=\"target remote %s:%d\" %s\n"
+             "GdbServerStubStarted\n",
+             name,
+             km_gdb_port_get(),
+             km_guest.km_filename);
+   }
+   if (km_log_file != NULL && stderr != NULL && km_log_file != stderr) {
+      // following madness is to check if km_log_file and stderr are the same, to avoid double message
+      char n1[PATH_MAX], n2[PATH_MAX], pn[PATH_MAX];
+      sprintf(pn, "/proc/self/fd/%d", stderr->_fileno);
+      int c = readlink(pn, n1, sizeof(n1));
+      n1[c] = '\0';
+      sprintf(pn, "/proc/self/fd/%d", km_log_file->_fileno);
+      c = readlink(pn, n2, sizeof(n2));
+      n2[c] = '\0';
+      if (strcmp(n1, n2) != 0) {
+         fprintf(km_log_file,
+                 "Waiting for a debugger. Connect to it like this:\n"
+                 "\tgdb -q --ex=\"target remote %s:%d\" %s\n"
+                 "GdbServerStubStarted\n",
+                 name,
+                 km_gdb_port_get(),
+                 km_guest.km_filename);
+      }
+   }
 }
 
 /*
@@ -370,7 +391,7 @@ int km_gdb_need_to_wait_for_client_connect(const char* envvarname)
          regex_t regex;
          int regerr;
          if ((regerr = regcomp(&regex, wait, REG_EXTENDED | REG_NOSUB)) == 0) {
-            if (regexec(&regex, km_payload_name, 0, NULL, REG_NOTBOL|REG_NOTEOL) == 0) {
+            if (regexec(&regex, km_payload_name, 0, NULL, REG_NOTBOL | REG_NOTEOL) == 0) {
                need_to_wait = 1;
             }
             regfree(&regex);
@@ -381,7 +402,13 @@ int km_gdb_need_to_wait_for_client_connect(const char* envvarname)
          }
       }
    }
-   km_infox(KM_TRACE_GDB, "%s = %s, payload %s, need_to_wait %d, gdb enabled %d", envvarname, wait, km_payload_name, need_to_wait, gdbstub.enabled);
+   km_infox(KM_TRACE_GDB,
+            "%s = %s, payload %s, need_to_wait %d, gdb enabled %d",
+            envvarname,
+            wait,
+            km_payload_name,
+            need_to_wait,
+            gdbstub.enabled);
    return need_to_wait;
 }
 
@@ -422,8 +449,8 @@ static char recv_char(void)
       return -1;
    }
    /*
-    * Paranoia check: at this poing we should get either printable '$...' command, or ^C, since we
-    * do not support nor expect 'X' (binary data) packets.
+    * Paranoia check: at this poing we should get either printable '$...' command, or ^C, since
+    * we do not support nor expect 'X' (binary data) packets.
     */
    assert(isprint(ch) || ch == GDB_INTERRUPT_PKT);
    return (char)ch;
