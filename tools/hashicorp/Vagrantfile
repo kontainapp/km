@@ -8,15 +8,21 @@ Vagrant.configure(2) do |config|
 
   config.vm.box = "bento/ubuntu-20.10"
 
-  config.vm.provision "file", source: "../build/kkm.run", destination: "~/kontain/"
-  config.vm.provision "file", source: "./daemon.json", destination: "~/kontain/"
+  config.vm.provision "file", source: "../../build/kkm.run", destination: "/tmp/kontain/"
+  config.vm.provision "file", source: "./daemon.json", destination: "/tmp/kontain/"
   config.vm.network "forwarded_port", guest: 8080, host: 8080
+
+  # find out Kontain version (it can be defined in env)
+  kontain_release=ENV['KM_VAGRANT_KM_RELEASE']
+  if kontain_release == nil then
+    kontain_release="v0.1-beta2"
+  end
 
   config.vm.provision "shell", inline: <<-SHELL
 
    # Install KKM... it will also validate hardware.
    sudo  apt-get install linux-headers-$(uname -r) -y 2>&1
-   ./kontain/kkm.run 2>&1
+   /tmp/kontain/kkm.run 2>&1
 
    # Install Docker
    sudo apt-get install -q -y \
@@ -30,15 +36,22 @@ Vagrant.configure(2) do |config|
    sudo apt-get update -y -q
    sudo apt-get install -y -q docker-ce docker-ce-cli containerd.io
 
-   # Install Kontain. Version is passed to kontain-install.sh
+   # Install Kontain.
    sudo mkdir -p /opt/kontain ; sudo chown -R $(whoami) /opt/kontain
    wget https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh -q
-   chmod a+x ./kontain-install.sh; ./kontain-install.sh v0.1-beta2
+   chmod a+x ./kontain-install.sh; ./kontain-install.sh #{kontain_release} && rm kontain-install.sh
+   echo "PATH=\$PATH:/opt/kontain/bin" >> ~vagrant/.bashrc
+
+   # Add gdb , we usually need it
+   sudo apt-get install gdb -y -q
 
    # Configure Docker and restart
    sudo  usermod -aG docker vagrant
-   sudo cp ./kontain/daemon.json /etc/docker/daemon.json
+   sudo cp /tmp/kontain/daemon.json /etc/docker/daemon.json
    sudo systemctl reload-or-restart docker.service
+
+   # clean up, out of paranoya
+   rm -rf /tmp/kontain
 
   SHELL
 
