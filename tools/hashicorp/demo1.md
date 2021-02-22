@@ -1,21 +1,22 @@
-# demo script for dev experience and InstaStart with vagrant
+# Demo script for dev experience and InstaStart with vagrant
 
-this is a quick helper for a demo arount Vagrant boxes/ dev experience
+This is a quick helper for a demo of developer's experience and Spring Boot start time on Mac, using Vagrant by HashiCorp.
 
 ## Dev experience: Provision
 
-* **We can** Provision Ubuntu vm based on ubuntu box with pre-installed KM and KKM on Mac
+* **One time prep** Provision Ubuntu vm based on ubuntu box with pre-installed KM and KKM on Mac
   * See tools/hashicorp/readme.md for instructions
-  * ~5 min. We will use pre-created box instead
+  * ~5 min run time.
+  * End result is Vagrant "Box" `kontain/km-ubuntu-2.21.2021` on demo machine
 
-* **We will** use a pre-created box name (kontain/km-ubuntu-2.21.2021 for now)
- * to start pre-created VM box `mkdir; cd ; vagrant init boxname; vagrant up; ssh`
- * to create a box: 'package' on a stopped VM, then add a box with the package name . See Vagrant docs
+* **each demo run** Demo using a pre-created box name (kontain/km-ubuntu-2.21.2021 for now)
+  * to start pre-created VM box `mkdir; cd ; vagrant init boxname; vagrant up; ssh`
+  * to create a box: 'package' on a stopped VM, then add a box with the package name. See Vagrant docs
 
 ## Instastart for Spring Boot
 
-* ssh and conduct the spring boot demo  - see demo/spring-boot/readme.md
-  * run Kontainer with Spring Boot , wait until it's up and do curl
+* ssh and conduct the spring boot demo - see demo/spring-boot/readme.md
+  * run Kontainer with Spring Boot, wait until it's up and do curl
   * take a snapshot
   * Run Kontain with a snapshot, wait until it's up and do curl
 
@@ -24,14 +25,14 @@ this is a quick helper for a demo arount Vagrant boxes/ dev experience
 * Connect VS from Mac to the vagrant VM
 * If Needed (note for now: it is in the `kontain/km-ubuntu-2.21.2021` box)
   * install gdb
-  * install VSC C++/C++ support
-  * add a launch.json   - see below (TODO: add it to km-releases)
+  * install VSC C/C++ support
+  * add a launch.json - see below (TODO: add it to km-releases)
  * create test.c file (source from km-releases)
    * /opt/kontain/bin/kontain-gcc -g -o test.km test.c
    * run debug in VC
 * create hello_2_loop.c (if we want fancier example)
   * do not forget greatest/greatest.h
-* compile and do the same
+* compile (with -pthread flag) and do the same.
 
 ### launch.json example
 
