@@ -183,3 +183,14 @@ ENV REDIS_URL=redis://localhost:6379
 TODO
 : Docker Compose (?)
 ~
+
+
+## Vagrant notes
+
+This demo can be fully run on Mac or any other platform using HashiCorp Vagrant.
+Vagrant support is in TOP/tools/hashicorp/, and the readme.md file there has details on Vagrant usage for KM.
+
+High level
+
+* provision a vm with KM/KKM installed from ubuntu box, using `vagrant up --provision`, OR just grab pre-created box and bring up a VM using `vagrant init ; vagrant up`
+* ssh to the vm (`vagrant ssh`) and follow the guidance above.
