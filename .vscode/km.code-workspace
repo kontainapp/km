@@ -92,5 +92,6 @@
       "cSpell.enableFiletypes": [
          "scminput"
       ],
+      "spring-boot.ls.checkJVM": false,
    }
 }
