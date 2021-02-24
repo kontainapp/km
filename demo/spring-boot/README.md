@@ -28,19 +28,25 @@ is available in /opt/kontain/bin.
 
 ```bash
 docker run --name=KM_SpringBoot_Demo --privileged --rm -it --device=/dev/kvm \
- -v /opt/kontain/bin/km:/opt/kontain/bin/km:z \
- -v /opt/kontain/runtime/libc.so:/opt/kontain/runtime/libc.so:z \
- -v /opt/kontain/bin/km_cli:/opt/kontain/bin/km_cli:z \
+ -v /opt/kontain/bin:/opt/kontain/bin:z \
+ -v /opt/kontain/runtime:/opt/kontain/runtime:z \
  -v ${WORKSPACE}/km/payloads/java/scripts:/scripts:z \
  --entrypoint /bin/sh -p8080:8080 kontainapp/spring-boot-demo
 ```
 
 ### Step 3 Measure Base Startup Time
 
-Outside of the container run
+Outside of the container run `test.sh`. If in the source tree, it is available here:
 
 ```sh
 demo/spring-boot/test/test.sh
+```
+
+Or, you can extract it from a running container: and then run :
+
+```sh
+docker cp KM_SpringBoot_Demo:/test.sh /tmp/test.sh
+/tmp/test.sh
 ```
 
 This program will get the time when the server first responds.
@@ -177,3 +183,14 @@ ENV REDIS_URL=redis://localhost:6379
 TODO
 : Docker Compose (?)
 ~
+
+
+## Vagrant notes
+
+This demo can be fully run on Mac or any other platform using HashiCorp Vagrant.
+Vagrant support is in TOP/tools/hashicorp/, and the readme.md file there has details on Vagrant usage for KM.
+
+High level
+
+* provision a vm with KM/KKM installed from ubuntu box, using `vagrant up --provision`, OR just grab pre-created box and bring up a VM using `vagrant init ; vagrant up`
+* ssh to the vm (`vagrant ssh`) and follow the guidance above.

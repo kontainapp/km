@@ -678,7 +678,7 @@ int main(int argc, char* argv[])
    }
    km_trace_set_noninteractive();
 
-   if (wait_for_signal == 1) {
+   if (wait_for_signal != 0) {
       km_warnx("Waiting for kill -SIGUSR1 %d", getpid());
       km_wait_for_signal(SIGUSR1);
    }
@@ -688,21 +688,17 @@ int main(int argc, char* argv[])
          if (km_need_pause_all() != 0) {
             km_vcpu_pause_all(vcpu, GUEST_ONLY);   // this just sets machine.pause_requested
          }
+         km_gdb_attach_message();
       } else {
          km_warnx("Failed to setup gdb listening port %d, disabling gdb support", gdbstub.port);
          km_gdb_enable(0);   // disable gdb
-         km_close_stdio(log_to_fd);
       }
-   } else {
-      km_close_stdio(log_to_fd);
    }
+   km_close_stdio(log_to_fd);
 
    km_start_vcpus();
 
-   if (km_gdb_is_enabled() == 1) {
-      km_gdb_attach_message();
-
-      km_close_stdio(log_to_fd);
+   if (km_gdb_is_enabled() != 0) {
       km_gdb_main_loop(vcpu);
       km_gdb_destroy_listen();
    }

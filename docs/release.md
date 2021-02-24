@@ -63,12 +63,14 @@ Steps
 We use existing Azure pipeline mechanism to generate releases.
 
 A release CI pipeline is triggered by creating (and pushing) `v*` tag in KM, or pushing to a branch named `releases/*/*` (e.g. /releases/msterin/v1.0-try`).
-The latter will create a release named `v0.1-test`.
+
+When using a branch to trigger a release, we will create a release name after the branch rather than the tag (e.g. `v0.1-test`).
 
 For example, this will trigger the CI release pipeline and create a unique (and not overridable) `v0.1-test-manual` release:
 
 ```bash
-tag=v0.1-test-manual; git tag $tag; git push origin $tag
+tag=v0.1-test-manual; git tag -a $tag --message "release note here"; git push --follow-tags
+
 ```
 
 We also auto-trigger the same release pipeline for any branch named 'releases/*/*, e.g. `releases/beta/snapshot-api`
@@ -107,8 +109,12 @@ If for some reason you need to remove a release, here are the steps (using `v0.1
 
 * Delete release using github UI: https://github.com/kontainapp/km-releases/releases/tag/v0.1-myrelease "delete" button
 * Delete local and github tags on KM and km-release repo (`cd` to km on km-releases in your workspace first):
-  * git tag -d v0.1-myrelease
-  * git push --delete origin v0.1-myrelease
+
+```sh
+tag=v0.1-test-manual; git tag -d $tag; git push --delete origin $tag
+
+```
+
 ## Install a release
 
 Install instructions are in km-release/README.md

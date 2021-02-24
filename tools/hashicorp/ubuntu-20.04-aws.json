@@ -58,7 +58,8 @@
          "inline": [
             "echo ===== Installing and verifying Kontain... ",
             "sudo mkdir -p /opt/kontain ; sudo chown -R $(whoami) /opt/kontain",
-            "wget https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh -O - -q | bash"
+            "wget https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh -q",
+            "chmod a+x ./kontain-install.sh; ./kontain-install.sh v0.1-beta1"
          ]
       }
    ],
