@@ -100,7 +100,7 @@ void km_machine_fini(void)
    assert(km_vcpu_run_cnt() == 0);
    free(machine.auxv);
    if (km_guest.km_filename != NULL) {
-      free(km_guest.km_filename);
+      free((void*)km_guest.km_filename);
    }
    if (km_guest.km_phdr != NULL) {
       free(km_guest.km_phdr);

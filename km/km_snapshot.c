@@ -402,38 +402,38 @@ static inline int km_ss_recover_km_monitor(char* notebuf, size_t notesize)
    return 0;
 }
 
-int km_snapshot_restore(const char* file)
+int km_snapshot_restore(km_elf_t* e)
 {
-   int fd;
-   Elf* e;
    km_payload_t tmp_payload = {};
-   char* filename;
 
-   if (elf_version(EV_CURRENT) == EV_NONE) {
-      km_errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
+   tmp_payload.km_ehdr = e->ehdr;
+
+   // Read ELF PHDR into tmp_payload.
+   if ((tmp_payload.km_phdr = alloca(sizeof(Elf64_Phdr) * e->ehdr.e_phnum)) == NULL) {
+      km_err(2, "no memory for elf program headers");
    }
-   if ((filename = realpath(file, NULL)) == NULL) {
-      km_err(2, "realpath failed: %s", file);
+   for (int i = 0; i < tmp_payload.km_ehdr.e_phnum; i++) {
+      GElf_Phdr* phdr = &tmp_payload.km_phdr[i];
+
+      if (gelf_getphdr(e->elf, i, phdr) == NULL) {
+         km_errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
+      }
    }
 
-   // Read ELF EHDR and PHDR into tmp_payload.
-   if ((e = km_open_elf_file(filename, &tmp_payload, &fd)) == NULL) {
-      km_errx(2, "km_open_elf failed: %s", filename);
-   }
-
-   // disable mmap consolodation during recovery
+   // disable mmap consolidation during recovery
    km_mmap_set_recovery_mode(1);
 
    // Memory is fully described by PT_LOAD sections
-   km_ss_recover_memory(fd, &tmp_payload);
+   km_ss_recover_memory(e->fd, &tmp_payload);
 
    // VCPU's are described in the PT_NOTES section
    size_t notesize = 0;
-   char* notebuf = km_snapshot_read_notes(fd, &notesize, &tmp_payload);
+   char* notebuf = km_snapshot_read_notes(e->fd, &notesize, &tmp_payload);
    if (notebuf == NULL) {
       km_errx(2, "PT_NOTES not found");
    }
-   (void)close(fd);   // close now to avoid collision with fd's that need restoring
+   km_close_elf_file(e);   // close now to avoid collision with fd's that need restoring
+
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_MONITOR, km_ss_recover_km_monitor) < 0) {
       km_errx(2, "recover file maps failed");
    }
@@ -477,10 +477,6 @@ int km_snapshot_restore(const char* file)
    // reenable mmap consolidation
    km_mmap_set_recovery_mode(0);
    free(notebuf);
-   (void)elf_end(e);
-   free(tmp_payload.km_phdr);
-   free(tmp_payload.km_filename);
-
    return 0;
 }
 

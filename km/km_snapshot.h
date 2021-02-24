@@ -21,7 +21,7 @@
 void km_set_snapshot_path(char* path);
 char* km_get_snapshot_path();
 int km_snapshot_create(km_vcpu_t* vcpu, char *label, char *path, int live);
-int km_snapshot_restore(const char* file);
+int km_snapshot_restore(km_elf_t* elf);
 int km_snapshot_notes_apply(char* notebuf, size_t notesize, int type, int (*func)(char*, size_t));
 
 #define KM_TRACE_SNAPSHOT "snapshot"

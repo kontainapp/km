@@ -30,7 +30,7 @@ load "${TESTS_BASE}/bats-assert/load.bash"  # see manual in bats-assert/README.m
   assert_output --partial 'Kontain API'
   assert [ -f ${SNAP_FILE} ]
 
-  run ${KM_BIN} --resume ${SNAP_FILE}
+  run ${KM_BIN} ${SNAP_FILE}
   assert_success
   assert_output --partial 'past snapshot'
 
