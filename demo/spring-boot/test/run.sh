@@ -18,7 +18,7 @@ max_attempts=250
 START=$(date +%s%N)
 
 /opt/kontain/bin/km /opt/kontain/java/bin/java.kmd -jar /app.jar &
-#/opt/kontain/bin/km --resume kmsnap &
+#/opt/kontain/bin/km kmsnap &
 PID=$!
 
 DFINISH=$(date +%s%N)

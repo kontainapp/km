@@ -27,7 +27,8 @@
 
 km_payload_t km_guest;
 km_payload_t km_dynlinker;
-char* km_dynlinker_file = "/opt/kontain/lib64/libc.so";
+static const const_string_t km_dynlinker_default = "/opt/kontain/lib64/libc.so";
+const char* km_dynlinker_file;   // could be set on command line, .interp ELF section, or default above
 
 static void my_mmap(int fd, void* buf, size_t count, off_t offset)
 {
@@ -82,7 +83,7 @@ static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
    }
 }
 
-static void km_find_hook_symbols(Elf* e, km_gva_t adjust)
+static void km_find_dlopen(Elf* e, km_gva_t adjust)
 {
    for (Elf_Scn* scn = NULL; (scn = elf_nextscn(e, scn)) != NULL;) {
       GElf_Shdr shdr;
@@ -98,8 +99,6 @@ static void km_find_hook_symbols(Elf* e, km_gva_t adjust)
             if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
                 strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_DLOPEN_SYM_NAME) == 0) {
                km_guest.km_dlopen = sym.st_value + adjust;
-            }
-            if (km_guest.km_dlopen != 0) {
                break;
             }
          }
@@ -109,52 +108,42 @@ static void km_find_hook_symbols(Elf* e, km_gva_t adjust)
    return;
 }
 
-Elf* km_open_elf_file(char* filename, km_payload_t* payload, int* fd)
+/*
+ * Returns open elf file descriptor, exits in case of errors
+ */
+km_elf_t* km_open_elf_file(const char* filename)
 {
-   Elf* e;
-   if ((*fd = open(filename, O_RDONLY)) < 0) {
-      km_warn("open %s failed", filename);
-      return NULL;
+   km_elf_t* e;
+
+   if (elf_version(EV_CURRENT) == EV_NONE) {
+      km_errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
    }
-   payload->km_filename = filename;
-   if ((e = elf_begin(*fd, ELF_C_READ, NULL)) == NULL) {
-      km_warnx("elf_begin() failed: %s", elf_errmsg(-1));
-      return NULL;
+   if ((e = malloc(sizeof(km_elf_t))) == NULL) {
+      km_err(2, "no memory for km_elf_t");
    }
-   if (elf_kind(e) != ELF_K_ELF) {
-      km_warnx("%s is not an ELF object", payload->km_filename);
-      return NULL;
+   if ((e->fd = open(filename, O_RDONLY)) < 0) {
+      km_err(2, "open %s failed", filename);
    }
-   GElf_Ehdr* ehdr = &payload->km_ehdr;
-   if (gelf_getehdr(e, ehdr) == NULL) {
+   if ((e->elf = elf_begin(e->fd, ELF_C_READ, NULL)) == NULL) {
+      km_errx(2, "elf_begin() failed: %s", elf_errmsg(-1));
+   }
+   if (elf_kind(e->elf) != ELF_K_ELF) {
+      km_errx(2, "%s is not an ELF object", filename);
+   }
+   if (gelf_getehdr(e->elf, &e->ehdr) == NULL) {
       km_errx(2, "gelf_getehdr %s", elf_errmsg(-1));
    }
-   if ((payload->km_phdr = malloc(sizeof(Elf64_Phdr) * ehdr->e_phnum)) == NULL) {
-      km_err(2, "no memory for elf program headers");
-   }
-
-   payload->km_min_vaddr = -1U;
-   for (int i = 0; i < ehdr->e_phnum; i++) {
-      GElf_Phdr* phdr = &payload->km_phdr[i];
-
-      if (gelf_getphdr(e, i, phdr) == NULL) {
-         km_errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
-      }
-      // TODO: This doesn't apply to snapshots. SHould move to load_elf().
-      if (phdr->p_type == PT_LOAD && phdr->p_vaddr < payload->km_min_vaddr) {
-         payload->km_min_vaddr = phdr->p_vaddr;
-      }
-      if (phdr->p_type == PT_INTERP) {
-         payload->km_interp_vaddr = phdr->p_vaddr;
-         payload->km_interp_len = phdr->p_filesz;
-      }
-      if (phdr->p_type == PT_DYNAMIC) {
-         payload->km_dynamic_vaddr = phdr->p_vaddr;
-         payload->km_dynamic_len = phdr->p_filesz;
-      }
-   }
+   e->filename = filename;
    return e;
 }
+
+void km_close_elf_file(km_elf_t* e)
+{
+   (void)elf_end(e->elf);
+   (void)close(e->fd);
+   free(e);
+}
+
 /*
  * load the dynamic linker. Currently only support MUSL dynlink built with KM hypercalls.
  */
@@ -162,7 +151,6 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
 {
    // Make sure interpreter string contains KM dynlink marker.
    char* interp_kma = km_gva_to_kma(interp_vaddr + interp_adjust);
-   char* filename = NULL;
    if (interp_kma == NULL || km_gva_to_kma(interp_vaddr + interp_adjust + interp_len - 1) == NULL) {
       km_errx(2,
               "PT_INTERP vaddr map error: vaddr=0x%lx len=0x%lx adjust=0x%lx",
@@ -172,59 +160,77 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    }
    if (strncmp(interp_kma, KM_DYNLINKER_STR, interp_len) != 0) {
       // Use the dynamic linker in the .interp section
-      filename = interp_kma;
-   } else {
-      // Use the dynamic linker mentioned on  the command line
-      filename = km_dynlinker_file;
+      km_dynlinker_file = interp_kma;
+   } else if (km_dynlinker_file == NULL) {
+      // Use the dynamic linker mentioned on the command line
+      km_dynlinker_file = km_dynlinker_default;
    }
+   km_dynlinker.km_filename = km_dynlinker_file;
 
-   struct stat st;
-   if (stat(filename, &st) != 0) {
-      km_err(2, "KM dynamic linker %s", filename);
-   }
-
-   Elf* e;
-   int fd;
-   if ((e = km_open_elf_file(filename, &km_dynlinker, &fd)) == NULL) {
-      km_errx(2, "km_open_elf failed: %s", filename);
-   }
-
+   km_elf_t* e = km_open_elf_file(km_dynlinker.km_filename);
    km_gva_t base = km_mem_brk(0);
    if (base != roundup(base, KM_PAGE_SIZE)) {
       // What about wasted bytes between base and roundup(base)?
       base = km_mem_brk(roundup(base, KM_PAGE_SIZE));
    }
-   km_gva_t adjust = km_dynlinker.km_load_adjust = base - km_dynlinker.km_min_vaddr;
+   km_dynlinker.km_ehdr = e->ehdr;
+   if ((km_dynlinker.km_phdr = malloc(sizeof(Elf64_Phdr) * km_dynlinker.km_ehdr.e_phnum)) == NULL) {
+      km_err(2, "no memory for elf program headers");
+   }
 
-   km_find_hook_symbols(e, adjust);
-
-   GElf_Ehdr* ehdr = &km_dynlinker.km_ehdr;
-   for (int i = 0; i < ehdr->e_phnum; i++) {
+   km_dynlinker.km_min_vaddr = -1U;
+   for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
       GElf_Phdr* phdr = &km_dynlinker.km_phdr[i];
+
+      if (gelf_getphdr(e->elf, i, phdr) == NULL) {
+         km_errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
+      }
       if (phdr->p_type == PT_LOAD) {
-         load_extent(fd, phdr, base);
+         load_extent(e->fd, phdr, base);
+         if (phdr->p_vaddr < km_dynlinker.km_min_vaddr) {
+            km_dynlinker.km_min_vaddr = phdr->p_vaddr;
+         }
       }
    }
 
-   (void)elf_end(e);
-   (void)close(fd);
+   km_dynlinker.km_load_adjust = base - km_dynlinker.km_min_vaddr;
+   km_find_dlopen(e->elf, km_dynlinker.km_load_adjust);
+   km_close_elf_file(e);
 }
 
 /*
  * Read elf executable file and initialize mem with the content of the program segments. Set entry
  * point. All errors are fatal.
  */
-uint64_t km_load_elf(char* file)
+uint64_t km_load_elf(km_elf_t* e)
 {
-   int fd;
-   Elf* e;
-   GElf_Ehdr* ehdr = &km_guest.km_ehdr;
-
-   if (elf_version(EV_CURRENT) == EV_NONE) {
-      km_errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
+   km_guest.km_ehdr = e->ehdr;
+   if ((km_guest.km_phdr = malloc(sizeof(Elf64_Phdr) * km_guest.km_ehdr.e_phnum)) == NULL) {
+      km_err(2, "no memory for elf program headers");
    }
-   if ((e = km_open_elf_file(file, &km_guest, &fd)) == NULL) {
-      km_errx(2, "km_open_elf failed: %s", file);
+   km_guest.km_filename = e->filename;
+
+   /*
+    * Read program headers, store them in km_guest for future use
+    */
+   km_guest.km_min_vaddr = -1U;
+   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
+      GElf_Phdr* phdr = &km_guest.km_phdr[i];
+
+      if (gelf_getphdr(e->elf, i, phdr) == NULL) {
+         km_errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
+      }
+      if (phdr->p_type == PT_LOAD && phdr->p_vaddr < km_guest.km_min_vaddr) {
+         km_guest.km_min_vaddr = phdr->p_vaddr;
+      }
+      if (phdr->p_type == PT_INTERP) {
+         km_guest.km_interp_vaddr = phdr->p_vaddr;
+         km_guest.km_interp_len = phdr->p_filesz;
+      }
+      if (phdr->p_type == PT_DYNAMIC) {
+         km_guest.km_dynamic_vaddr = phdr->p_vaddr;
+         km_guest.km_dynamic_len = phdr->p_filesz;
+      }
    }
 
    km_gva_t adjust = 0;
@@ -246,27 +252,19 @@ uint64_t km_load_elf(char* file)
       adjust = GUEST_MEM_START_VA - km_guest.km_min_vaddr;
    }
    /*
-    * Read symbol table and look for symbols of interest to KM
+    * process PT_LOAD program headers
     */
-   km_find_hook_symbols(e, adjust);
-
-   /*
-    * Read program headers, store them in km_guest for future use, and process PT_LOAD ones
-    */
-   for (int i = 0; i < ehdr->e_phnum; i++) {
+   for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
       GElf_Phdr* phdr = &km_guest.km_phdr[i];
       if (phdr->p_type == PT_LOAD) {
-         load_extent(fd, phdr, adjust);
+         load_extent(e->fd, phdr, adjust);
       }
    }
-   (void)elf_end(e);
-   (void)close(fd);
+   km_close_elf_file(e);
+
    if (km_guest.km_interp_vaddr != 0) {
       load_dynlink(km_guest.km_interp_vaddr, km_guest.km_interp_len, adjust);
    }
    km_guest.km_load_adjust = adjust;
-
-   // TODO: need to verify the payload is a km executable, issue #512.
-
    return adjust;
 }
