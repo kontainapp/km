@@ -203,31 +203,16 @@ fi
 @test "km_main_env($test_type): passing environment to payloads (env_test$ext)" {
    val=`pwd`/$$
 
-   # --putenv defines an env var and cancels 'default' --copyenv
+   # --putenv defines an env var and cancels host env
    run km_with_timeout --putenv PATH=$val env_test$ext
    assert_success
    assert_output --partial "PATH=$val"
    refute_output --partial "getenv: PATH=$PATH"
 
-   # by default, --copyenv is enabled
+   # by default, host env is used
    run km_with_timeout  env_test$ext
    assert_success
    assert_line "getenv: PATH=$PATH"
-
-   # Putting --copyenv on command line is harmless
-   run km_with_timeout --copyenv --copyenv env_test$ext
-   assert_success
-   assert_line "getenv: PATH=$PATH"
-
-   # both --copyenv and --putenv on command line is not supported
-   run km_with_timeout --copyenv --putenv MORE=less env_test$ext
-   assert_failure
-   run km_with_timeout --putenv PATH=testingpath --copyenv env_test$ext
-   assert_failure
-
-   run km_with_timeout --putenv PATH=$val env_test$ext
-   assert_success
-   assert_output --partial "PATH=$val"
 }
 
 @test "mem_slots($test_type): KVM memslot / phys mem sizes (memslot_test$ext)" {
@@ -1027,8 +1012,6 @@ fi
    assert_success
 }
 
-# In this series of test the "--" argument between --resume and ${SNAP} is important.
-# It helps km_with_timeout() recognize that ${SNAP} is the payload name.
 @test "basic_snapshot($test_type): snapshot and resume(snapshot_test$ext)" {
    SNAP=/tmp/snap.$$
    CORE=/tmp/core.$$
@@ -1041,7 +1024,7 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --km-log-to=${KMLOG} --resume -- ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} ${SNAP}
       assert_success
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
@@ -1056,7 +1039,7 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --km-log-to=${KMLOG} --resume -- ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} ${SNAP}
       assert_success
       # TODO: remove the check with glibc_static when musl and glibc behave the same way
       [[ $test_type =~ glibc* ]] && refute_line --partial "Hello from thread"
@@ -1072,7 +1055,7 @@ fi
       assert_success
       assert [ -f ${SNAP} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --coredump=${CORE} --km-log-to=${KMLOG} --resume -- ${SNAP}
+      run km_with_timeout --coredump=${CORE} --km-log-to=${KMLOG} ${SNAP}
       assert_failure 6  # SIGABRT
       assert [ -f ${CORE} ]
       assert_output --partial "Hello from thread"
@@ -1090,7 +1073,7 @@ fi
       assert [ -f ${SNAP} ]
       check_kmcore ${SNAP}
       assert_output --partial "Hello from thread"
-      run km_with_timeout --km-log-to=${KMLOG} --resume -- ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} ${SNAP}
       assert_success
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
@@ -1106,9 +1089,9 @@ fi
    assert [ -f ${SNAP} ]
    assert [ ! -f ${CORE} ]
    check_kmcore ${SNAP}
-   run km_with_timeout --km-log-to=${KMLOG} --resume -- ${SNAP} --some args
+   run km_with_timeout ${SNAP} --some args
    assert_failure
-   assert_output "cannot set payload arguments when resuming a snapshot"
+   assert_output --partial "cannot set payload arguments when resuming a snapshot"
    assert [ ! -f ${CORE} ]
    rm -f ${SNAP} ${KMLOG}
 }
@@ -1123,7 +1106,7 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --resume -- ${SNAP}
+      run km_with_timeout ${SNAP}
       assert_success
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
@@ -1160,7 +1143,7 @@ fi
 
 @test "exec($test_type): test execve and execveat hypercalls (exec_test$ext)" {
    # Test execve()
-   run km_with_timeout --copyenv exec_test$ext
+   run km_with_timeout exec_test$ext
    assert_success
    assert_line --regexp "argv.0. = .*print_argenv_test"
    assert_line --partial "argv[4] = 'd4'"
@@ -1168,7 +1151,7 @@ fi
    assert_line --partial "env[3] = 'FOUR=four'"
 
    # test execveat() which is fexecve()
-   run km_with_timeout --copyenv exec_test$ext -f
+   run km_with_timeout exec_test$ext -f
    assert_success
    assert_line --regexp "argv.0. = .*print_argenv_test"
    assert_line --partial "argv[4] = 'd4'"
@@ -1180,7 +1163,7 @@ fi
    assert_line --regexp 'argv\[0\] = .*tests/hello_test.km'
    assert_line --partial "argv[1] = 'arguments to test, should be one'"
    assert_line --partial "argv[6] = 'd4'"
-   KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout --copyenv exec_test$ext -f
+   KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout exec_test$ext -f
    assert_line --partial "argv[1] = 'arguments to test, should be one'"
    assert_line --partial "argv[6] = 'd4'"
    KM_EXEC_TEST_EXE=shebang_test_link.sh run km_with_timeout exec_test$ext
