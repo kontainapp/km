@@ -1016,6 +1016,10 @@ fi
    SNAP=/tmp/snap.$$
    CORE=/tmp/core.$$
    KMLOG=/tmp/kmlog.$$
+   SNAP_INPUT=/tmp/snap_input.$$
+   SNAP_OUTPUT=/tmp/snap_output.$$
+
+   echo "This is test data" > ${SNAP_INPUT}
 
    for i in $(seq 100) ; do
       # snapshot resume that successfully exits
@@ -1024,14 +1028,17 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --km-log-to=${KMLOG} ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} --input-data=${SNAP_INPUT} --output-data=${SNAP_OUTPUT} ${SNAP}
       assert_success
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
       assert grep 'label: snaptest_label' ${KMLOG}
       assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
-      rm -f ${SNAP} ${KMLOG}
+      assert [ -f ${SNAP_OUTPUT} ]
+      run diff ${SNAP_INPUT} ${SNAP_OUTPUT}
+      assert_success
+      rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
 
       # snapshot with closed stdio
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -c
@@ -1048,7 +1055,7 @@ fi
       assert grep 'label: snaptest_label' ${KMLOG}
       assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
-      rm -f ${SNAP} ${KMLOG}
+      rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
 
       # snapshot resume that core dumps
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -a
@@ -1065,7 +1072,7 @@ fi
       if [ "$test_type" = ".km.so" ]; then
          gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
       fi
-      rm -f ${SNAP} ${CORE} ${KMLOG}
+      rm -f ${SNAP} ${CORE} ${KMLOG} ${SNAP_OUTPUT}
 
       # 'live' snapshot
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -l
@@ -1080,7 +1087,7 @@ fi
       assert grep 'label: snaptest_label' ${KMLOG}
       assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
-      rm -f ${SNAP} ${KMLOG}
+      rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
    done
 
    # make sure resume with payloads args fails
@@ -1093,7 +1100,7 @@ fi
    assert_failure
    assert_output --partial "cannot set payload arguments when resuming a snapshot"
    assert [ ! -f ${CORE} ]
-   rm -f ${SNAP} ${KMLOG}
+   rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT} ${SNAP_OUTPUT}
 }
 
 @test "futex_snapshot($test_type): futex_snapshot and resume (futex_test$ext)" {

@@ -36,6 +36,9 @@
 // TODO: Need to figure out where the snapshot default should go.
 static char* snapshot_path = "./kmsnap";
 
+static char* snapshot_input_path = NULL;
+static char* snapshot_output_path = NULL;
+
 void km_set_snapshot_path(char* path)
 {
    km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot path to %s", path);
@@ -47,6 +50,72 @@ void km_set_snapshot_path(char* path)
 char* km_get_snapshot_path()
 {
    return snapshot_path;
+}
+
+void km_set_snapshot_input_path(char* path)
+{
+   km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot input to %s", path);
+   if ((snapshot_input_path = strdup(path)) == NULL) {
+      km_err(1, "Failed to alloc memory for snapshot input");
+   }
+}
+
+char* km_get_snapshot_input_path()
+{
+   return snapshot_input_path;
+}
+
+void km_set_snapshot_output_path(char* path)
+{
+   km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot output to %s", path);
+   if ((snapshot_output_path = strdup(path)) == NULL) {
+      km_err(1, "Failed to alloc memory for snapshot output");
+   }
+}
+
+char* km_get_snapshot_output_path()
+{
+   return snapshot_output_path;
+}
+
+int km_snapshot_getdata(km_vcpu_t* vcpu, char* buf, int buflen)
+{
+   if (buf == NULL) {
+      return -EFAULT;
+   }
+   if (snapshot_input_path == NULL) {
+      return 0;
+   }
+   int fd = open(snapshot_input_path, O_RDONLY);
+   if (fd < 0) {
+      return -errno;
+   }
+   int rc = read(fd, buf, buflen);
+   if (rc < 0) {
+      return -errno;
+   }
+   close(fd);
+   return rc;
+}
+
+int km_snapshot_putdata(km_vcpu_t* vcpu, char* buf, int buflen)
+{
+   if (buf == NULL) {
+      return -EFAULT;
+   }
+   if (snapshot_output_path == NULL) {
+      return 0;
+   }
+   int fd = open(snapshot_output_path, O_RDWR | O_CREAT, 0666);
+   if (fd < 0) {
+      return -errno;
+   }
+   int rc = write(fd, buf, buflen);
+   if (rc < 0) {
+      return -errno;
+   }
+   close(fd);
+   return rc;
 }
 
 /*
