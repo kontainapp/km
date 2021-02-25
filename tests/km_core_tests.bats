@@ -1100,7 +1100,7 @@ fi
    assert_failure
    assert_output --partial "cannot set payload arguments when resuming a snapshot"
    assert [ ! -f ${CORE} ]
-   rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT} ${SNAP_OUTPUT}
+   rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT} ${SNAP_INPUT}
 }
 
 @test "futex_snapshot($test_type): futex_snapshot and resume (futex_test$ext)" {
