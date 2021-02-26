@@ -36,9 +36,7 @@ static inline void km_hcall(int n, km_hc_args_t* arg)
    __asm__ __volatile__("mov %0,%%gs:0;"
                         "outl %1, %2"
                         :
-                        : "r"(arg),
-                          "a"(0),
-                          "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
+                        : "r"(arg), "a"(0), "d"((uint16_t)(KM_HCALL_PORT_BASE + n))
                         : "memory");
 }
 
@@ -78,7 +76,9 @@ enum km_internal_hypercalls {
    HC_reserved4 = KM_MAX_HCALL - 4,
    HC_unmapself = KM_MAX_HCALL - 6,
    HC_snapshot = KM_MAX_HCALL - 7,
-   HC_start = KM_MAX_HCALL - 8,   // must be last in list
+   HC_snapshot_getdata = KM_MAX_HCALL - 8,
+   HC_snapshot_putdata = KM_MAX_HCALL - 9,
+   HC_start = KM_MAX_HCALL - 10,   // must be last in list
 };
 
 extern const char* const km_hc_name_get(int hc);
