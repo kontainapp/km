@@ -95,6 +95,8 @@ static inline void usage()
 "\t--enable-1g-pages                   - Force enable 1G pages support (default). Assumes hardware support\n"
 "\t--disable-1g-pages                  - Force disable 1G pages support\n"
 "\t--virt-device=<file-name>  (-Ffile) - Use provided file-name for virtualization device\n"
+"\t--input-data=<file-name>            - File with data for HC_snapshot_getdata\n"
+"\t--output-data=<file-name>             File with data from HC_snapshot_putdata\n"
 "\t--mgtpipe <path>                    - Name for management pipe.\n");
    // clang-format on
 }
@@ -165,6 +167,8 @@ static struct option long_options[] = {
     {"hcall-stats", no_argument, 0, 'S'},
     {"virt-device", required_argument, 0, 'F'},
     {"snapshot", required_argument, 0, 's'},
+    {"input-data", required_argument, 0, 'I'},
+    {"output-data", required_argument, 0, 'O'},
     {"mgtpipe", required_argument, 0, 'm'},
 
     {0, 0, 0, 0},
@@ -486,6 +490,12 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                break;
             case 'S':
                km_collect_hc_stats = 1;
+               break;
+            case 'I':
+               km_set_snapshot_input_path(optarg);
+               break;
+            case 'O':
+               km_set_snapshot_output_path(optarg);
                break;
             case 'm':
                mgtpipe = strdup(optarg);
