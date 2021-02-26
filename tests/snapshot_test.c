@@ -322,6 +322,14 @@ int main(int argc, char* argv[])
    /*
     * Everything after here is unquestionably in the snapshot resume.
     */
+   char buf[1024];
+   km_hc_args_t getdata_args = {.arg1 = (uintptr_t)buf, .arg2 = sizeof(buf)};
+   km_hcall(HC_snapshot_getdata, &getdata_args);
+   fprintf(stderr, "getdata rc=%ld\n", getdata_args.hc_ret);
+
+   km_hc_args_t putdata_args = {.arg1 = (uintptr_t)buf, .arg2 = getdata_args.hc_ret};
+   km_hcall(HC_snapshot_putdata, &putdata_args);
+   fprintf(stderr, "putdata rc=%ld\n", putdata_args.hc_ret);
 
    void* rval;
    if ((c = pthread_join(thr, &rval)) != 0) {

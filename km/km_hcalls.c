@@ -36,10 +36,10 @@
 #include "km_guest.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
+#include "km_sid_pgid.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
-#include "km_sid_pgid.h"
 
 /*
  * User space (km) implementation of hypercalls.
@@ -1164,7 +1164,8 @@ static km_hc_ret_t rt_sigsuspend_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t rt_sigtimedwait(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   // int rt_sigtimedwait(const sigset_t *set, const siginfo_t *info, const struct timespec *timeout, size_t setlen);
+   // int rt_sigtimedwait(const sigset_t *set, const siginfo_t *info, const struct timespec
+   // *timeout, size_t setlen);
    km_sigset_t* set = km_gva_to_kma(arg->arg1);
    siginfo_t* info = NULL;
    struct timespec* timeout = NULL;
@@ -1851,6 +1852,18 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_ALLSTOP;
 }
 
+static km_hc_ret_t snapshot_getdata_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_snapshot_getdata(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t snapshot_putdata_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_snapshot_putdata(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t sched_yield_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    arg->hc_ret = sched_yield();
@@ -2036,6 +2049,8 @@ void km_hcalls_init(void)
    km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
    km_hcalls_table[HC_unmapself] = unmapself_hcall;
    km_hcalls_table[HC_snapshot] = snapshot_hcall;
+   km_hcalls_table[HC_snapshot_getdata] = snapshot_getdata_hcall;
+   km_hcalls_table[HC_snapshot_putdata] = snapshot_putdata_hcall;
 
    if (km_collect_hc_stats == 1) {
       if ((km_hcalls_stats = calloc(KM_MAX_HCALL, sizeof(km_hc_stats_t))) == NULL) {
