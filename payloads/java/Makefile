@@ -97,7 +97,7 @@ JAVA_DIR := ${JDK_BUILD_DIR}/images/jdk
 #  ${BLDDIR}/mods  - Directory: KM API Java Pieces
 #  ${BLDDIR}/lib   - Directory: KM API native library(ies)
 #  ${BLDDIR}/html  - Directory: KM API documentation (javadoc)
-#  ${BLDDIR}/app.kontain.jmod - JPMS JMod file. Useful for customers to build 
+#  ${BLDDIR}/app.kontain.jmod - JPMS JMod file. Useful for customers to build
 #                               custom runtimes with JLINK
 
 api: ${BLDDIR}/app.kontain.jmod ${BLDDIR}/html/index.html
@@ -180,5 +180,6 @@ clean:
 	find . -name "*.class" -type f -delete
 	rm -rf ${BLDDIR}/*
 
-RELEASE_TAG := java-11
+# This defines aliases to be used when publishing to github
+RELEASE_TAG := java-11 jdk-11 ${COMPONENT}
 
