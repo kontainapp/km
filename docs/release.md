@@ -58,6 +58,7 @@ Steps
 1. Publish runenv images to dockerhub with `make publish-runenv-image`
 1. Validate the release by following install instruction on https://github.com/kontainapp/km-releases. Note: on CI the release is auto-validated.
 
+Release ID and message can be overridden with RELEASE_TAG and RELEASE_MESSAGE passed to make.
 ### CI automation to create a release
 
 We use existing Azure pipeline mechanism to generate releases.
