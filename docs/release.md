@@ -54,7 +54,7 @@ Prerequisites
 Steps
 
 1. `make release runenv-image` to build release tarball(s) and payload run environment images
-1. Publish the release on github using `RELEASE_TAG=<your_tag> make -C km publish-release`. Default tag is `v0.1-test`
+1. Publish the release (metadata + tarball) on github using `RELEASE_TAG=<your_tag> make -C km publish-release`. Default tag is `v0.1-test`
 1. Publish runenv images to dockerhub with `make publish-runenv-image`
 1. Validate the release by following install instruction on https://github.com/kontainapp/km-releases. Note: on CI the release is auto-validated.
 
@@ -122,9 +122,9 @@ Install instructions are in km-release/README.md
 ## Payload release
 
 Payloads are released to dockerhub as `runenv` images under `docker.io/kontainapp`. Each payload already creates
-`runenv` image. Publishing a release will push the `runenv` image to dockerhub. (not done yet, need to manually `make )
+`runenv` image. Publishing a release will push the `runenv` image to dockerhub. (not CI automation here, need to manually `make` it )
 
-The versioning works differently compare to `km` release versioning. We will have
+The versioning works differently compare to `km` release versioning. We have
 `runenv-<payload>:latest` and `runenv-<payload>:<SHA>`. Some payloads may have alias to be tagged as well.
 
 For example, python will have the following tag:

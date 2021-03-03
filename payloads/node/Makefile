@@ -94,6 +94,6 @@ export define runenv_prep
 	cd ${RUNENV_PATH} ; ln -sf /opt/kontain/bin/km node
 endef
 
-RELEASE_TAG := node node-12
+RELEASE_TAG := node node-12 node-${VERS}
 
 include ${TOP}/make/images.mk
