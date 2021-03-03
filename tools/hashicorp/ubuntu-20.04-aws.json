@@ -5,7 +5,8 @@
       "ssh_user": "ubuntu",
       "kkm_installer": "should-be-passed-from-caller",
       "kkm_installer_local": "/tmp/kkm.run",
-      "summary_manifest": "packer-manifest.json"
+      "summary_manifest": "packer-manifest.json",
+      "km_release_version": "v0.1-beta"
    },
    "builders": [
       {
@@ -59,7 +60,7 @@
             "echo ===== Installing and verifying Kontain... ",
             "sudo mkdir -p /opt/kontain ; sudo chown -R $(whoami) /opt/kontain",
             "wget https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh -q",
-            "chmod a+x ./kontain-install.sh; ./kontain-install.sh v0.1-beta1"
+            "chmod a+x ./kontain-install.sh; ./kontain-install.sh {{user `km_release_version`}}"
          ]
       }
    ],
