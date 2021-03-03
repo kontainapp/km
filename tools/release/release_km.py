@@ -94,8 +94,7 @@ def main():
     else:
         if version not in OVERRIDABLE_RELEASES:
             raise ValueError(f"Reference {version} already exist...")
-
-        logger.info("Override existing default testing references")
+        logger.info(f"Override existing tag {version}")
         ref.delete()
 
     # Create a reference and a release based on the reference. Also upload any
