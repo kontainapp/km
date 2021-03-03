@@ -20,10 +20,14 @@ include ${TOP}/make/actions.mk
 
 all: packer
 
-packer:   ## Create AWS AMI with Ubuntu 20 + KOntain using Packer
+# AMI name to create. Existing AMI with name will be deleted
+AMI_NAME ?= Kontain_ubuntu_20.04
+
+packer: ${BLDDIR} ## Create AWS AMI with Ubuntu 20 + KOntain using Packer
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP} kkm-pkg
 	packer build \
 		-var 'kkm_installer=${BLDTOP}/kkm.run' \
+		-var 'target_ami_name=${AMI_NAME}' \
 		-var 'summary_manifest=${BLDDIR}/packer-manifest.json' \
 		ubuntu-20.04-aws.json
 
