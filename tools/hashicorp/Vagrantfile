@@ -10,12 +10,12 @@ Vagrant.configure(2) do |config|
 
   config.vm.provision "file", source: "../../build/kkm.run", destination: "/tmp/kontain/"
   config.vm.provision "file", source: "./daemon.json", destination: "/tmp/kontain/"
-  config.vm.network "forwarded_port", guest: 8080, host: 8080
+  #   config.vm.network "forwarded_port", guest: 8080, host: 8080
 
   # find out Kontain version (it can be defined in env)
   kontain_release=ENV['KM_VAGRANT_KM_RELEASE']
   if kontain_release == nil then
-    kontain_release="v0.1-beta2"
+    kontain_release="" # use default as provided by km-releases/default-release file in master branch
   end
 
   config.vm.provision "shell", inline: <<-SHELL
