@@ -37,7 +37,8 @@ ssh km-b2-demo # same as `cd tools/hashicorp; vagrant ssh`
 
 When a user creates a VM with `vagrant init kontain-box-name; vagrant up`, the kontain box will be dowloaded from vagrantcloud.
 
-To place our box there,we create a VM image ("box" in vagrantspeak): `vagrant up; vagrant halt; vagrant --vagrantfile ./Vagrantfile --output /tmp/beta2-kkm.box`, and then login to vagrantcloud and upload the box.
+To place our box there,we create a VM image ("box" in vagrantspeak):
+`vagrant up; vagrant halt; vagrant package --output /tmp/beta2-kkm.box`, and then login to vagrantcloud and upload the box.
 
 vagrantcloud account: for now we have an account `kontain` with the same password as our wireless password. ("SecureFxx...")
 The box name is kontain/beta2-kkm (it is mentioned in km-releases doc so change it there is needed).
@@ -50,5 +51,7 @@ To update:
 * add a provider (virtualbox) with the proper checksum type/value (md5/result of md5sum above)
 * upload the .box file
 * Click "release" for the new version
+
+When all is uploaded, you can remove the local .box file, or you can register it with vagrant with "vagrant box add" command (see manual).
 
 Note: the above is a basic guide. I am sure we'll have more boxes if needed, so just capturing basic steps. These steps will be automated if we will get into the business of providing vagrant boxes.
