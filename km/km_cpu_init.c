@@ -27,11 +27,11 @@
 #include "km.h"
 #include "km_exec.h"
 #include "km_filesys.h"
+#include "km_fork.h"
 #include "km_gdb.h"
 #include "km_guest.h"
 #include "km_kkm.h"
 #include "km_mem.h"
-#include "km_fork.h"
 #include "x86_cpu.h"
 
 // Set CPUID VendorId to this. 12 chars max (sans \0) to fit in 3 register: ebx,ecx,edx
@@ -558,7 +558,7 @@ void km_machine_setup(km_machine_init_params_t* params)
       km_err(1, "KM: Failed to create machine shutdown_fd");
    }
    if (km_machine_init_params.vdev_name != NULL) {   // we were asked for a specific dev name
-      if ((machine.kvm_fd = km_internal_open(km_machine_init_params.vdev_name, O_RDWR)) < 0) {
+      if ((machine.kvm_fd = km_internal_open(km_machine_init_params.vdev_name, O_RDWR, 0)) < 0) {
          km_err(1, "KVM: Can't open device file %s", km_machine_init_params.vdev_name);
       }
    } else {
@@ -566,7 +566,7 @@ void km_machine_setup(km_machine_init_params_t* params)
       const_string_t dev_files[] = {DEVICE_KONTAIN, DEVICE_KVM, DEVICE_KKM, NULL};
       for (const_string_t* d = dev_files; *d != NULL; d++) {
          km_infox(KM_TRACE_KVM, "Trying to open device file %s", *d);
-         if ((machine.kvm_fd = km_internal_open(*d, O_RDWR)) >= 0) {
+         if ((machine.kvm_fd = km_internal_open(*d, O_RDWR, 0)) >= 0) {
             km_machine_init_params.vdev_name = strdup(*d);
             break;
          }

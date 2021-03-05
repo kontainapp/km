@@ -86,7 +86,7 @@ int km_snapshot_getdata(km_vcpu_t* vcpu, char* buf, int buflen)
    if (snapshot_input_path == NULL) {
       return 0;
    }
-   int fd = open(snapshot_input_path, O_RDONLY);
+   int fd = km_internal_open(snapshot_input_path, O_RDONLY, 0);
    if (fd < 0) {
       return -errno;
    }
@@ -106,7 +106,7 @@ int km_snapshot_putdata(km_vcpu_t* vcpu, char* buf, int buflen)
    if (snapshot_output_path == NULL) {
       return 0;
    }
-   int fd = open(snapshot_output_path, O_RDWR | O_CREAT, 0666);
+   int fd = km_internal_open(snapshot_output_path, O_RDWR | O_CREAT, 0666);
    if (fd < 0) {
       return -errno;
    }

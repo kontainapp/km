@@ -102,9 +102,9 @@ typedef struct km_file {
    TAILQ_HEAD(, km_fs_event) events;   // for epoll_create fd's
 } km_file_t;
 
-#define KM_FILE_HOW_OPEN 0 /* Regular open */
-#define KM_FILE_HOW_PIPE_0 1 /* read half of pipe */
-#define KM_FILE_HOW_PIPE_1 2 /* write half of pipe */
+#define KM_FILE_HOW_OPEN 0    /* Regular open */
+#define KM_FILE_HOW_PIPE_0 1  /* read half of pipe */
+#define KM_FILE_HOW_PIPE_1 2  /* write half of pipe */
 #define KM_FILE_HOW_EVENTFD 3 /* epoll_create */
 #define KM_FILE_HOW_SOCKET 4
 #define KM_FILE_HOW_ACCEPT 5
@@ -2314,9 +2314,9 @@ static int km_internal_fd(int fd, int km_fd)
    return newfd;
 }
 
-int km_internal_open(const char* name, int flag)
+int km_internal_open(const char* name, int flag, int mode)
 {
-   int fd = open(name, flag);
+   int fd = open(name, flag, mode);
    return km_internal_fd(fd, -1);
 }
 
