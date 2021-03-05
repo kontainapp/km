@@ -92,7 +92,7 @@ int km_snapshot_getdata(km_vcpu_t* vcpu, char* buf, int buflen)
    }
    int rc = read(fd, buf, buflen);
    if (rc < 0) {
-      return -errno;
+      rc = -errno;
    }
    close(fd);
    return rc;
@@ -112,7 +112,7 @@ int km_snapshot_putdata(km_vcpu_t* vcpu, char* buf, int buflen)
    }
    int rc = write(fd, buf, buflen);
    if (rc < 0) {
-      return -errno;
+      rc = -errno;
    }
    close(fd);
    return rc;
