@@ -282,7 +282,7 @@ void km_redirect_msgs(const char* name);
 void km_redirect_msgs_after_exec(void);
 void km_close_stdio(int log_to_fd);
 
-int km_internal_open(const char* name, int flag);
+int km_internal_open(const char* name, int flag, int mode);
 int km_internal_eventfd(unsigned int initval, int flags);
 int km_internal_fd_ioctl(int fd, unsigned long reques, ...);
 int km_gdb_listen(int domain, int type, int protocol);
