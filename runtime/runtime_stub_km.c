@@ -17,22 +17,30 @@
 #include <sys/socket.h>
 #include "km_hcalls.h"
 
+// stub that return an error to the payload
 int __dummy_stub(void)
 {
    errno = ENOSYS;
    return -1;
 }
+#define __stub__(_func_) int _func_() __attribute__((alias("__dummy_stub")))
 
+// stub that blindly mimics success but does nothing
+int __dummy_ok_stub(void)
+{
+   return 0;
+}
+#define __ok_stub__(_func_) int _func_() __attribute__((alias("__dummy_ok_stub")))
+
+// stub that stops payload
 static void dump_core_stub(const char* syscall_name)
 {
    fprintf(stderr, "runtime_km: call to unsupported `%s', generating core dump\n", syscall_name);
    syscall(SYS_exit, -1);
 }
-
 #define __stub_core__(_func_)                                                                      \
    hidden void __dump_core_stub_##_func_(void) { dump_core_stub(#_func_); }                        \
    void _func_() __attribute__((alias("__dump_core_stub_" #_func_)))
-#define __stub__(_func_) int _func_() __attribute__((alias("__dummy_stub")))
 
 #pragma GCC diagnostic ignored "-Wbuiltin-declaration-mismatch"
 
@@ -46,7 +54,7 @@ __stub__(makecontext);
 __stub__(swapcontext);
 __stub_core__(__sched_cpualloc);
 __stub_core__(__sched_cpufree);
-__stub_core__(__register_atfork);   // TODO: may need to implement when doing fork() and dlopen
+__ok_stub__(__register_atfork);   // TODO: may need to implement when doing fork() and dlopen
 __stub__(shmget);
 __stub__(shmat);
 __stub__(shmdt);
@@ -57,6 +65,13 @@ __stub__(backtrace_symbols_fd);
 __stub__(mallopt);
 __stub__(mallinfo);
 __stub__(pthread_getname_np);
+
+// TODO: Implement these
+__stub_core__(jnl);
+__stub_core__(ynl);
+__stub__(register_printf_specifier);
+__stub__(register_printf_modifier);
+__stub__(register_printf_type);
 
 void* dlvsym(void* handle, char* symbol, char* version)
 {

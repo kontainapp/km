@@ -436,8 +436,14 @@ static km_hc_ret_t getcwd_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t close_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   // arg->hc_ret = __syscall_1(hc, arg->arg1);
    arg->hc_ret = km_fs_close(vcpu, arg->arg1);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t flock_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int flock(int fd, int operation);
+   arg->hc_ret = km_fs_flock(vcpu, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 }
 
@@ -2038,6 +2044,9 @@ void km_hcalls_init(void)
 
    km_hcalls_table[SYS_set_robust_list] = dummy_hcall;
    km_hcalls_table[SYS_get_robust_list] = dummy_hcall;
+
+   km_hcalls_table[SYS_mbind] = dummy_hcall;
+   km_hcalls_table[SYS_flock] = flock_hcall;
 
    km_hcalls_table[SYS_uname] = uname_hcall;
 
