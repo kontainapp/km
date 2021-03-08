@@ -363,6 +363,20 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    return ret;
 }
 
+// int flock(int fd, int operation);
+uint64_t km_fs_flock(km_vcpu_t* vcpu, int fd, int op)
+{
+   km_infox(KM_TRACE_FILESYS, "flock(%d, %d)", fd, op);
+   if (km_fs_g2h_fd(fd, NULL) < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_2(SYS_flock, fd, op);
+   if (ret != 0) {
+      km_warn(" error return from flock of guest fd %d", fd);
+   }
+   return ret;
+}
+
 // int shutdown(int sockfd, int how);
 int km_fs_shutdown(km_vcpu_t* vcpu, int sockfd, int how)
 {

@@ -9,3 +9,13 @@ unsigned long long strtoull_l(const char* nptr, char** endptr, size_t base, void
 {
    return strtoull(nptr, endptr, base);
 }
+
+double __strtof_internal(const char* nptr, char** endptr, int group, void* unused)
+{
+   return strtof(nptr, endptr);
+}
+
+double __strtod_internal(const char* nptr, char** endptr, int group, void* unused)
+{
+   return strtod(nptr, endptr);
+}
