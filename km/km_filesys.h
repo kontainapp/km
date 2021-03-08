@@ -84,6 +84,8 @@ uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode);
 uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mode_t mode);
 // int close(fd)
 uint64_t km_fs_close(km_vcpu_t* vcpu, int fd);
+// int flock(int fd, int operation);
+uint64_t km_fs_flock(km_vcpu_t* vcpu, int fd, int op);
 // int shutdown(int sockfd, int how);
 int km_fs_shutdown(km_vcpu_t* vcpu, int sockfd, int how);
 // ssize_t read(int fd, void *buf, size_t count);
