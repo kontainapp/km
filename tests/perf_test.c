@@ -1,5 +1,5 @@
 /*
- * Copyright © 2020-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2020-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -28,14 +28,14 @@
  * getuid boils down to a dummy call currently
  * use it to measure rtt
  */
-#define TEST_MAX_TIME_DUMMY_HYPERCALL (1)
-#define TEST_MAX_TIME_PAGE_FAULT (1)
+#define TEST_MAX_TIME_DUMMY_HYPERCALL (1)	// in seconds
+#define TEST_MAX_TIME_PAGE_FAULT (1)		// in seconds
 #define LOOP_COUNT (1 * 1024)
 #define TEST_PAGE_SIZE (4096ULL)
 #define NSEC_PER_SEC (1000 * 1000 * 1000ULL)
 #define NSEC_PER_MILLI_SEC (1000 * 1000ULL)
 
-    typedef struct {
+typedef struct {
    struct timespec start;
    struct timespec end;
    u_int64_t nsec_consumed;
@@ -54,17 +54,17 @@ void show_time(char* name, sample_t* s)
 
    snprintf(s->buffer,
             sizeof(s->buffer),
-            "\n\t%s sec:mil-sec\n"
-            "\t\tbegin time %ld:%03lld\n"
-            "\t\tend time   %ld:%03lld\n"
-            "\t\t\ttime %lld:%03lld\n",
+            "\n\t%s test\n"
+            "\t\tbegin time %ld.%09ld seconds\n"
+            "\t\tend time   %ld.%09ld seconds\n"
+            "\t\tdelta time %lld.%09lld seconds\n",
             name,
             sample.start.tv_sec,
-            sample.start.tv_nsec / NSEC_PER_MILLI_SEC,
+            sample.start.tv_nsec,
             sample.end.tv_sec,
-            sample.end.tv_nsec / NSEC_PER_MILLI_SEC,
+            sample.end.tv_nsec,
             s->nsec_consumed / NSEC_PER_SEC,
-            (s->nsec_consumed % NSEC_PER_SEC) / NSEC_PER_MILLI_SEC);
+            (s->nsec_consumed % NSEC_PER_SEC));
 }
 
 TEST hypercall_time(sample_t* s)
@@ -84,9 +84,11 @@ TEST hypercall_time(sample_t* s)
    ASSERT_NOT_EQm("clock_gettime failed\n", ret_val, -1);
 
    show_time("hcall", &sample);
+   fprintf(stderr, "%s", s->buffer);
+
    ASSERTm("test took too long\n", (s->nsec_consumed / NSEC_PER_SEC) < TEST_MAX_TIME_DUMMY_HYPERCALL);
 
-   PASSm(s->buffer);
+   PASS();
 }
 
 TEST mmap_time(sample_t* s, bool write)
@@ -117,9 +119,11 @@ TEST mmap_time(sample_t* s, bool write)
    ASSERT_NOT_EQm("clock_gettime failed %s\n", ret_val, -1);
 
    show_time((write == false) ? "mmap read" : "mmap write", &sample);
+   fprintf(stderr, "%s", s->buffer);
+
    ASSERTm("test took too long\n", (s->nsec_consumed / NSEC_PER_SEC) < TEST_MAX_TIME_PAGE_FAULT);
 
-   PASSm(s->buffer);
+   PASS();
 }
 
 GREATEST_MAIN_DEFS();
