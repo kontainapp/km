@@ -80,7 +80,7 @@ ifneq (${EXEC},)
 all: ${BLDEXEC}
 ${BLDEXEC}: $(OBJS) | ${KM_OPT_BIN_PATH}
 	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(LOCAL_LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
-	@-cp $@ ${KM_OPT_BIN_PATH}
+	-cp $@ ${KM_OPT_BIN_PATH}
 
 # if VERSION_SRC is defined, force-rebuild these sources on 'git info' changes
 ifneq (${VERSION_SRC},)
