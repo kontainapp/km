@@ -23,6 +23,7 @@
  * A simple program to test execve() and execveat() (fexecve()) by exec to "print_argenv_test"
  *
  * Use the -f flag to test fexecve().
+ * Use the -e flag to test ENOENT errno
  * Set KM_EXEC_TEST_EXE environment to override what it being exec-ed into
  *
  * TODO: execveat() is only tested for fexecve() subset, need to add test
@@ -31,6 +32,7 @@
 
 #define EXEC_TEST_EXE_ENV "KM_EXEC_TEST_EXE"
 #define EXEC_TEST_EXE_DEFAULT "print_argenv_test"
+#define EXEC_TEST_EXE_ENOENT "this_file_should_not_exist.ever"
 
 int main(int argc, char** argv)
 {
@@ -46,15 +48,20 @@ int main(int argc, char** argv)
    if (argc == 2 && strcmp(argv[1], "-f") == 0) {
       int exefd = open(exec_test, O_RDONLY);
       if (exefd < 0) {
-         printf("open() of %s failed, %s\n", exec_test, strerror(errno));
+         fprintf(stderr, "open() of %s failed, %s\n", exec_test, strerror(errno));
       } else {
+         fprintf(stderr, "Checking fexecve...\n");
          rc = fexecve(exefd, testargv, testenvp);
-         printf("fexecve() failed, errno %d, %s\n", errno, strerror(errno));
+         fprintf(stderr, "fexecve() failed, errno %d, %s\n", errno, strerror(errno));
          close(exefd);
       }
+   } else if (argc == 2 && strcmp(argv[1], "-e") == 0) {
+      rc = execve(EXEC_TEST_EXE_ENOENT, testargv, testenvp);
+      fprintf(stderr, "execve() rc %d, errno %d, %s: %s\n", rc, errno, strerror(errno), EXEC_TEST_EXE_ENOENT);
+      return rc;
    } else {
       rc = execve(exec_test, testargv, testenvp);
-      printf("execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
+      fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
    }
 
    return 99;
