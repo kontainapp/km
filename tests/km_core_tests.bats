@@ -1160,10 +1160,16 @@ fi
    # test execveat() which is fexecve()
    run km_with_timeout exec_test$ext -f
    assert_success
+   assert_output --partial "Checking fexecve"
    assert_line --regexp "argv.0. = .*print_argenv_test"
    assert_line --partial "argv[4] = 'd4'"
    assert_line --partial "env[0] = 'ONE=one'"
    assert_line --partial "env[3] = 'FOUR=four'"
+
+   # test correct stderr for non-existing files
+   run km_with_timeout exec_test$ext -e
+   assert_failure
+   assert_output --partial "errno 2,"
 
    # test exec into shebang
    KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout exec_test$ext
@@ -1181,6 +1187,11 @@ fi
 
 @test "clock_gettime($test_type): VDSO clock_gettime, dependency on TSC (clock_gettime$ext)" {
    run km_with_timeout clock_gettime_test$ext -v
+   assert_success
+}
+
+@test "utimensat_test($test_type): set mtime and atime with ns precision (utimensat_test$ext)" {
+   run km_with_timeout utimensat_test$ext
    assert_success
 }
 

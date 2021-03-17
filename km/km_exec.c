@@ -24,8 +24,8 @@
 #include "km.h"
 #include "km_exec.h"
 #include "km_filesys.h"
-#include "km_mem.h"
 #include "km_gdb.h"
+#include "km_mem.h"
 
 /*
  * The execve hypercall builds the following environment variables which are appended to
@@ -117,6 +117,7 @@ static char* km_exec_vers_var(void)
          bufp = NULL;
       }
    }
+   km_infox(KM_TRACE_EXEC, "version var: %s", bufp);
    return bufp;
 }
 
@@ -248,11 +249,13 @@ static char* km_exec_pidinfo_var(void)
 }
 
 /*
- * Build "KM_EXEC_GDBINFO=...." environment variable for gdb related values that are passed to the new instance of km.
+ * Build "KM_EXEC_GDBINFO=...." environment variable for gdb related values that are passed to the
+ * new instance of km.
  */
 static char* km_exec_gdbinfo_var(void)
 {
-   int bufl = sizeof(KM_EXEC_GDBINFO) + 1 + (17 * strlen("xxxx,")) + strlen("fs=xxxx,") + (MAX_GDB_VFILE_OPEN_FD * strlen("xxxx,"));
+   int bufl = sizeof(KM_EXEC_GDBINFO) + 1 + (17 * strlen("xxxx,")) + strlen("fs=xxxx,") +
+              (MAX_GDB_VFILE_OPEN_FD * strlen("xxxx,"));
    char* bufp = malloc(bufl);
    if (bufp == NULL) {
       return NULL;
@@ -320,7 +323,7 @@ char** km_exec_build_env(char** envp)
    if (km_verbose != NULL) {
       gdb_vars++;
    }
-   km_infox(KM_TRACE_EXEC, "fork_wait %s, km verbose %s", fork_wait, km_verbose);
+   km_infox(KM_TRACE_EXEC, "ENV: fork_wait %s, km verbose %s", fork_wait, km_verbose);
 
    // Allocate a new env array with space for the exec related vars.
    char** newenvp = malloc((envc + gdb_vars + KM_EXEC_VARS) * sizeof(char*));
@@ -796,7 +799,8 @@ int km_exec_recover_kmstate(void)
 
    // Get the gdb state back.  Not sure if gdb expects us to remember open gdb fd's.
    int wait_for_attach;
-   n = sscanf(gdbinfo, "%d,%d,%d,%hhd,%d,%hhd,%d,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,fs=%d,",
+   n = sscanf(gdbinfo,
+              "%d,%d,%d,%hhd,%d,%hhd,%d,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,fs=%d,",
               &gdbstub.port,
               &gdbstub.listen_socket_fd,
               &gdbstub.sock_fd,

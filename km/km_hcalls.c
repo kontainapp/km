@@ -1294,11 +1294,33 @@ static km_hc_ret_t unlink_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
-/*
- * int unlinkat(int dirfd, const char *pathname, int flags);
- */
+static km_hc_ret_t utimensat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   //  int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags);
+   int dirfd = AT_FDCWD;
+   char* pathname = NULL;
+   struct timespec* ts = km_gva_to_kma(arg->arg3);
+   int flags = arg->arg4;
+
+   // Validate that we can convert args to guest fd/address. The rest is checked by `utimensat()`
+   km_file_ops_t* ops;
+   if (arg->arg1 != AT_FDCWD && ((dirfd = km_fs_g2h_fd(arg->arg1, &ops)) < 0 || ops != NULL)) {
+      arg->hc_ret = -EBADF;
+      return HC_CONTINUE;
+   }
+   if (arg->arg2 != 0 && (pathname = km_gva_to_kma(arg->arg2)) == NULL) {
+      arg->hc_ret = -EINVAL;
+      return HC_CONTINUE;
+   }
+   if ((arg->hc_ret = utimensat(dirfd, pathname, ts, flags)) != 0) {
+      arg->hc_ret = -errno;
+   }
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t unlinkat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   // int unlinkat(int dirfd, const char *pathname, int flags);
    void* pathname = km_gva_to_kma(arg->arg2);
    if (pathname == NULL) {
       arg->hc_ret = -EFAULT;
@@ -1521,11 +1543,18 @@ static int do_exec(char* filename, char** argv, char** envp)
 {
    char** newenv;
    char** newargv;
+   struct stat statbuf;
+   int ret;
+
+   if ((ret = stat(filename, &statbuf)) != 0) {
+      return -errno;
+   }
 
    // Add some km state to the environment.
    if ((newenv = km_exec_build_env(envp)) == NULL) {
       return -ENOMEM;
    }
+
    // Build argv line with km program and args before the payload's args.
    if ((newargv = km_exec_build_argv(filename, argv, envp)) == NULL) {
       free(newenv);
@@ -1554,7 +1583,6 @@ static km_hc_ret_t execve_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-
    arg->hc_ret = do_exec(filename, argv, envp);
    return HC_CONTINUE;
 }
@@ -1926,6 +1954,7 @@ void km_hcalls_init(void)
    km_hcalls_table[SYS_lstat] = lstat_hcall;
    km_hcalls_table[SYS_statx] = statx_hcall;
    km_hcalls_table[SYS_fstat] = fstat_hcall;
+   km_hcalls_table[SYS_utimensat] = utimensat_hcall;
    km_hcalls_table[SYS_getdents] = getdents_hcall;
    km_hcalls_table[SYS_getdents64] = getdirents_hcall;
    km_hcalls_table[SYS_getcwd] = getcwd_hcall;
