@@ -879,9 +879,8 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    // No free space to grow, alloc new
    km_gva_t ret;
    if (may_move == 0 ||
-       (ret = km_syscall_ok(
-            km_guest_mmap_nolock(0, size, ptr->protection, ptr->flags, -1, 0, MMAP_ALLOC_GUEST))) ==
-           -1) {
+       km_syscall_ok(
+           ret = km_guest_mmap_nolock(0, size, ptr->protection, ptr->flags, -1, 0, MMAP_ALLOC_GUEST)) < 0) {
       km_info(KM_TRACE_MMAP, "Failed to get mmap for growth (may_move = %d)", may_move);
       return -ENOMEM;
    }
@@ -889,7 +888,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    void* from = km_gva_to_kma(old_addr);
    assert(from != NULL);         // should have been checked before, in hcalls
    memcpy(to, from, old_size);   // WARNING: this may be slow, see issue #198
-   if (km_syscall_ok(km_guest_munmap_nolock(old_addr, old_size)) == -1) {
+   if (km_syscall_ok(km_guest_munmap_nolock(old_addr, old_size)) < 0) {
       km_err(1, "Failed to unmap after remapping");
    }
    return ret;
@@ -900,7 +899,7 @@ static km_gva_t km_mremap_shrink(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t o
 {
    assert(old_addr >= ptr->start && old_addr < ptr->start + ptr->size &&
           old_addr + old_size <= ptr->start + ptr->size);
-   if (km_syscall_ok(km_guest_munmap_nolock(old_addr + size, old_size - size)) == -1) {
+   if (km_syscall_ok(km_guest_munmap_nolock(old_addr + size, old_size - size)) < 0) {
       return -EFAULT;
    }
    return old_addr;
