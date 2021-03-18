@@ -48,9 +48,10 @@ typedef struct kvm_regs kvm_regs_t;
 typedef struct kvm_xcrs kvm_xcrs_t;
 typedef struct kvm_vcpu_events kvm_vcpu_events_t;
 
-typedef uint64_t km_gva_t;   // guest virtual address (i.e. address in payload space)
-typedef uint64_t km_gpa_t;   // guest physical address (i.e. address in payload space)
-typedef void* km_kma_t;      // kontain monitor address (i.e. address in km process space)
+static const uint64_t FAILED_GA = -1ul;   // indicate bad guest address
+typedef uint64_t km_gva_t;                // guest virtual address (i.e. address in payload space)
+typedef uint64_t km_gpa_t;                // guest physical address (i.e. address in payload space)
+typedef void* km_kma_t;   // kontain monitor address (i.e. address in km process space)
 
 typedef uint64_t km_sigset_t;
 
@@ -130,20 +131,20 @@ typedef enum {
 } __attribute__((__packed__)) km_vcpu_state_t;
 
 typedef struct km_vcpu {
-   int vcpu_id;               // uniq ID
-   int kvm_vcpu_fd;           // this VCPU file descriptor
-   kvm_run_t* cpu_run;        // run control region
-   pthread_t vcpu_thread;     // km pthread
-   pthread_mutex_t thr_mtx;   // protects the three fields below
-   pthread_cond_t thr_cv;     // used by vcpu_pthread to block while vcpu isn't in use
-   uint16_t hypercall;        // hypercall #
-   uint8_t restart;           // hypercall needs restarting
-   km_vcpu_state_t state;     // state
-   uint8_t regs_valid;        // Are registers valid?
-   uint8_t sregs_valid;       // Are segment registers valid?
-   uint8_t in_sigsuspend;     // if true thread is running in the sigsuspend() hypercall
-   uint8_t hypercall_returns_signal;  // if true a hypercall is returning a signal directly to the caller
-                                      // so there is no need to setup the signal handler
+   int vcpu_id;                        // uniq ID
+   int kvm_vcpu_fd;                    // this VCPU file descriptor
+   kvm_run_t* cpu_run;                 // run control region
+   pthread_t vcpu_thread;              // km pthread
+   pthread_mutex_t thr_mtx;            // protects the three fields below
+   pthread_cond_t thr_cv;              // used by vcpu_pthread to block while vcpu isn't in use
+   uint16_t hypercall;                 // hypercall #
+   uint8_t restart;                    // hypercall needs restarting
+   km_vcpu_state_t state;              // state
+   uint8_t regs_valid;                 // Are registers valid?
+   uint8_t sregs_valid;                // Are segment registers valid?
+   uint8_t in_sigsuspend;              // if true thread is running in the sigsuspend() hypercall
+   uint8_t hypercall_returns_signal;   // if true a hypercall is returning a signal directly to the
+                                       // caller so there is no need to setup the signal handler
    //
    // When vcpu is used (i.e. not PARKED_IDLE) the field is used for stack_top.
    // PARKED_IDLE vcpus are queued in SLIST using next_idle as stack_top isn't needed
@@ -470,7 +471,7 @@ extern char* km_payload_name;
 
 extern int km_collect_hc_stats;
 
-#define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)   // 1 for yes, 0 for no
+#define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)      // 1 for yes, 0 for no
 #define km_trace_enabled_tag() (km_info_trace.level == KM_TRACE_TAG)   // 1 for yes, 0 for no
 
 #define km_trace_tag_enabled(tag)                                                                  \
@@ -566,7 +567,8 @@ extern int km_collect_hc_stats;
       }                                                                                            \
    } while (0)
 
-static inline int km_cond_timedwait(pthread_cond_t* cond, pthread_mutex_t* mutex, struct timespec* abstime)
+static inline int
+km_cond_timedwait(pthread_cond_t* cond, pthread_mutex_t* mutex, struct timespec* abstime)
 {
    int ret;
    if ((ret = pthread_cond_timedwait(cond, mutex, abstime)) != 0) {

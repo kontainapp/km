@@ -72,7 +72,7 @@ void km_init_guest_idt(void)
    /*
     * Create a GDT. Allocate a page. We only need entry 1 for the IDT.
     */
-   if ((gdt_base = km_guest_mmap_simple_monitor(KM_PAGE_SIZE)) < 0) {
+   if ((gdt_base = km_guest_mmap_simple_monitor(KM_PAGE_SIZE)) == FAILED_GA) {
       km_err(1, "Failed to allocate guest IDT memory");
    }
    gdt = (x86_seg_d_t*)km_gva_to_kma_nocheck(gdt_base);
@@ -89,7 +89,7 @@ void km_init_guest_idt(void)
    /*
     * Create the IDT.
     */
-   if ((idt_base = km_guest_mmap_simple_monitor(X86_IDT_SIZE)) < 0) {
+   if ((idt_base = km_guest_mmap_simple_monitor(X86_IDT_SIZE)) == FAILED_GA) {
       km_err(1, "Failed to allocate guest IDT memory");
    }
    idte = (x86_idt_entry_t*)km_gva_to_kma_nocheck(idt_base);
