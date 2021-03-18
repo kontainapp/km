@@ -1,0 +1,68 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+#
+# Vagrant-managed VM with Kontain KM / KKM preinstalled.
+#
+
+Vagrant.configure("2") do |config|
+
+   config.vm.box = "generic/fedora32"
+   config.ssh.insert_key = false
+
+  config.vm.provision "file", source: "../../../build/kkm.run", destination: "/tmp/kontain/"
+  config.vm.provision "file", source: "../daemon.json", destination: "/tmp/kontain/"
+  config.vm.provision "file", source: "../../../build/kontain.tar.gz", destination: "/tmp/kontain/"
+  #   config.vm.network "forwarded_port", guest: 8080, host: 8080
+
+  # find out Kontain version (it can be defined in env)
+  kontain_release=ENV['KM_VAGRANT_KM_RELEASE']
+  if kontain_release == nil then
+    kontain_release="" # use default as provided by km-releases/default-release file in master branch
+  end
+
+  config.vm.provision "shell", inline: <<-SHELL
+   # Install KKM... it will also validate hardware.
+   dnf install kernel-headers-$(uname -r) -y 2>&1
+   /tmp/kontain/kkm.run 2>&1
+
+   # Install Docker
+   dnf install -y moby-engine
+
+   # Add Kontain to PATH
+   mkdir -p /opt/kontain && tar -C /opt/kontain -xzf /tmp/kontain/kontain.tar.gz
+   echo "PATH=\$PATH:/opt/kontain/bin" >> ~vagrant/.bashrc
+
+   # Add gdb, we usually need it
+   dnf install -y gdb
+
+   # Configure Docker and restart
+   usermod -aG docker vagrant
+   mkdir /etc/docker && cp /tmp/kontain/daemon.json /etc/docker/daemon.json
+   systemctl reload-or-restart docker.service
+
+   # clean up, out of paranoya
+   rm -rf /tmp/kontain
+
+  SHELL
+
+   l=ENV['KM_VAGRANT_PRELOAD_IMAGES']
+   if l != nil then
+      l.split.each do |image|
+         config.vm.provision "shell", inline: "docker pull #{image}"
+      end
+   end
+
+   config.vm.provider "virtualbox" do |v|
+      v.memory = 8182
+      v.cpus = 4
+   end
+
+   config.vm.provider "libvirt" do |v|
+      v.memory = 8182
+      v.cpus = 4
+      v.random_hostname = true
+      #v.random_hostname = dobox
+   end
+
+   config.vm.post_up_message = "Welcome to Fedora with Kontain / KKM preinstalled."
+end
