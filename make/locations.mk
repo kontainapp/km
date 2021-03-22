@@ -42,6 +42,7 @@ KM_BLDDIR := $(abspath ${BLDTOP}/km/${BLDTYPE})
 KM_BIN := ${KM_BLDDIR}/km
 KM_OPT := /opt/kontain
 KM_OPT_BIN := ${KM_OPT}/bin
+KM_OPT_INCLUDE := ${KM_OPT}/include
 KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
 KM_OPT_LDSO := ${KM_OPT_RT}/libc.so
