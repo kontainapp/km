@@ -6,7 +6,7 @@
 # See 'make -C tests buildenv-fedora-local' for installing dependencies
 #
 # ====
-#  Copyright © 2018-2019 Kontain Inc. All rights reserved.
+#  Copyright © 2018-2021 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
 #

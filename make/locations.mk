@@ -1,4 +1,4 @@
-# Copyright © 2019 Kontain Inc. All rights reserved.
+# Copyright © 2019-2021 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
