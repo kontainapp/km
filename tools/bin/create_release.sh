@@ -17,6 +17,9 @@ rm -fr $TARBALL $TARBALL.gz $OPT_KONTAIN_TMP
 # we may need to modify all obj file so make sure we work on a copy
 cp -rf --preserve=links /opt/kontain $OPT_KONTAIN_TMP
 
+[ -d  ${OPT_KONTAIN_TMP}/include ] || mkdir ${OPT_KONTAIN_TMP}/include
+cp ${TOP}/include/km_hcalls.h ${OPT_KONTAIN_TMP}/include/km_hcalls.h
+
 # package by doing `tar -C locations[i] files[i]`
 declare -a locations
 declare -a files
