@@ -458,7 +458,8 @@ static char* get_quoted_string(char** spp)
          }
       } else if (*e != quote) {
          e++;
-      } else {   // terminating quote
+      } else {     // terminating quote
+         *e = 0;   // drop terminating quote from the results
          char* a = malloc(e - s);
          if (a == NULL) {   // no memory
             return NULL;
@@ -506,7 +507,9 @@ static char** km_parse_shell_cmd_line(char* s, int* cnt)
       char* a;
       if (*s == '"' || *s == '\'') {   // Handle quoted string
          a = get_quoted_string(&s);
-      } else {   // whitespace delimited string
+      } else if (*s == ';') {
+         continue;   // drop it. TODO: fail if it's not the last arg
+      } else {       // whitespace delimited string
          int l;
          char* e = strpbrk(s, " \t");
          if (e == NULL) {
@@ -628,13 +631,18 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
       nargv[0] = km_get_self_name();                               // km exec
       return nargv;
    }
-   // not shebang, got to be symlink
-   if ((pl_name = km_traverse_payload_symlinks(filename)) == NULL) {
-      km_infox(KM_TRACE_EXEC, "km_traverse_payload_symlinks(%s) returned NULL", filename);
-      freevector(argv, shell);
-      return NULL;
+   // not shebang, got to be either a symlink or somefile.km
+   char* suffix = rindex(filename, '.');
+   if (suffix != NULL && strcmp(suffix, PAYLOAD_SUFFIX) == 0) {
+      km_infox(KM_TRACE_EXEC, "Setting payload name to %s ", filename);
+      pl_name = strdup(filename);
+   } else {
+      if ((pl_name = km_traverse_payload_symlinks(filename)) == NULL) {
+         km_infox(KM_TRACE_EXEC, "km_traverse_payload_symlinks(%s) returned NULL", filename);
+         freevector(argv, shell);
+         return NULL;
+      }
    }
-
    if ((nargv = calloc(1 + argc + 1, sizeof(char*))) == NULL) {   // km exec, cnt, and NULL
       km_infox(KM_TRACE_EXEC, "Couldn't allocate %ld bytes", (1 + argc + 1) * sizeof(char*));
       freevector(argv, shell);

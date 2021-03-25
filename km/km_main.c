@@ -178,8 +178,6 @@ static const_string_t SHEBANG = "#!";
 static const size_t SHEBANG_LEN = 2;              // strlen(SHEBANG)
 static const size_t SHEBANG_MAX_LINE_LEN = 512;   // note: grabbed on stack
 
-static const_string_t PAYLOAD_SUFFIX = ".km";
-
 char* km_get_self_name()
 {
    // full path to KM (pointed to by /proc/self/exe).

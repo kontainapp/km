@@ -15,6 +15,7 @@
 
 static const_string_t KMPATH = "KMPATH";
 static const_string_t SHELL_PATH = "/bin/sh";
+static const_string_t PAYLOAD_SUFFIX = ".km";
 
 char** km_exec_build_env(char** envp);
 char** km_exec_build_argv(char* filename, char** argv, char** envp);
