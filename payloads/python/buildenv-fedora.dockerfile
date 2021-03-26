@@ -30,8 +30,9 @@ USER $USER
 
 RUN git clone https://github.com/python/cpython.git -b $TAG
 COPY km_api.c cpython/Modules/km_api.c
+COPY 00102-lib64.patch /tmp/
 RUN echo "kontain km_api.c" >> cpython/Modules/Setup.local
-RUN cd cpython && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
+RUN cd cpython && patch -p1 < /tmp/00102-lib64.patch && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
 COPY platform_uname.patch platform_uname.patch
 # Note: this patch also needs to be applied in 'make fromsrc'- see ./Makefile
 RUN patch -p0 < platform_uname.patch

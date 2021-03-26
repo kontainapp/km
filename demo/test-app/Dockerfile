@@ -9,24 +9,23 @@
 #   Kontain Inc.
 #
 # Dockerfile for tensor flow inferencing test app
-#
-# TODO: At this point this is WIP as tensor flow doesn't quite work in km.
-# This build a container with all the necessary components, and it works with native python,
-# but not with km python. To work with custom built tensor flow wheel incomment lines marked
-# with # XXX and comment out the following lines.
 
 FROM kontain/test-python-fedora
 USER root
 RUN dnf install -y python3.8
 
 WORKDIR /app
-# XXX COPY app.py switch.sh requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl /app/
-COPY app.py switch.sh requirements.txt /app/
+RUN echo -e '#!/bin/bash\ndate +%s%N >& /tmp/start_time; /usr/bin/python3.8.orig /app/app.py' > /app/run.sh && \
+    echo -e '#!/bin/bash\ndate +%s%N >& /tmp/start_time; /opt/kontain/bin/km --mgtpipe /tmp/km.sock /usr/bin/python3.8.km /app/app.py' > /app/run_km.sh && \
+    echo -e '#!/bin/bash\ndate +%s%N >& /tmp/start_time; /opt/kontain/bin/km kmsnap' > /app/run_snap.sh && \
+    chmod +x /app/run*.sh
+COPY app.py switch.sh requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl /app/
+
 RUN pip install -t /usr/lib/python3.8/site-packages pip && \
 	python3.8 -m pip install setuptools && \
 	python3.8 -m pip install -r requirements.txt
-# XXX RUN python3.8 -m pip install tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl
-RUN python3.8 -m pip install tensorflow
+RUN python3.8 -m pip install tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl
+RUN cp /usr/lib64/libcrypto.so.1.1.1[a-z] /opt/kontain/alpine-lib/lib/libcrypto.so.1.1
 
 # switch to 3.8
 RUN ln -sf /usr/bin/python3.8 /usr/bin/python3

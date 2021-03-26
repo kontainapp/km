@@ -1,0 +1,45 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+#
+# VM with Kontain KM / KKM / tensorflow inference app
+#
+
+Vagrant.configure("2") do |config|
+
+   config.vm.box = "kontain/fedora-kkm"
+
+   config.vm.provision "file", source: ".", destination: "/home/vagrant/"
+   config.vm.provision "file", source: "../../tools/hashicorp/build_tf/tensorflow-2.4.0-cp38-cp38-linux_x86_64.whl", destination: "/home/vagrant/"
+   config.vm.provision "file", source: "../../payloads/python/cpython/python.kmd", destination: "/home/vagrant/"
+   #   config.vm.network "forwarded_port", guest: 8080, host: 8080
+
+   config.vm.provision "shell", inline: <<-SHELL
+
+   echo -e '#!/bin/bash\ndate +%s%N >& /tmp/start_time; /usr/bin/python3.8.orig app.py' > run.sh
+   echo -e '#!/bin/bash\ndate +%s%N >& /tmp/start_time; /opt/kontain/bin/km --mgtpipe /tmp/km.sock /usr/bin/python3.8.km app.py' > run_km.sh
+   echo -e '#!/bin/bash\ndate +%s%N >& /tmp/start_time; /opt/kontain/bin/km kmsnap' > run_snap.sh
+   chmod +x run*.sh
+   pip install setuptools
+	pip install -r requirements.txt
+   pip install tensorflow-*-linux_x86_64.whl
+   cp /usr/lib64/libcrypto.so.1.1.1[a-z] /opt/kontain/alpine-lib/lib/libcrypto.so.1.1
+   ln -sf /opt/kontain/runtime/libc.so /opt/kontain/alpine-lib/lib/ld-linux-x86-64.so.2
+   mv python.kmd /usr/bin/python3.8.km
+   mv /usr/bin/python3.8 /usr/bin/python3.8.orig
+
+   ln -sf /opt/kontain/bin/km /usr/bin/python3.8
+
+   SHELL
+
+   config.vm.provider "virtualbox" do |v|
+      v.memory = 8182
+      v.cpus = 4
+   end
+
+   config.vm.provider "libvirt" do |v|
+      v.memory = 8182
+      v.cpus = 4
+   end
+
+   config.vm.post_up_message = "Welcome to Kontain tensorflow app"
+end

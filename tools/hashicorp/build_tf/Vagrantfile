@@ -1,0 +1,36 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile to build our custon tensorflow. All we need from this is the wheel.
+# After vagrant up --provision the resulting wheel is in /tmp/tensorflow-<version>-<tags>.whl
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/ubuntu2004"
+
+  config.vm.provider "libvirt" do |lv|
+    lv.memory = "31744"
+    lv.cpus = "16"
+  end
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "31744"
+    vb.cpus = "16"
+  end
+
+  config.vm.provision "shell", inline: <<-SHELL
+    # this seems to be needed on 'generic/ubuntu' box only
+    ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+
+    apt-get update
+    apt-get install -y python3-dev python3-pip python
+    pip3 install -U pip numpy~=1.19.2 wheel
+    pip3 install -U keras_preprocessing --no-deps
+    wget -q https://github.com/bazelbuild/bazelisk/releases/download/v1.7.5/bazelisk-linux-amd64
+    mv bazelisk-linux-amd64 /usr/local/bin/bazel && chmod a+x /usr/local/bin/bazel
+    git clone https://github.com/tensorflow/tensorflow.git -b v2.4.1
+    cd tensorflow
+    ./configure < /dev/null
+    bazel build --jobs=16 --copt=-D_GTHREAD_USE_RECURSIVE_MUTEX_INIT_FUNC=1 //tensorflow/tools/pip_package:build_pip_package
+    ./bazel-bin/tensorflow/tools/pip_package/build_pip_package ..
+  SHELL
+end
