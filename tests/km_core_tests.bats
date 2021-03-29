@@ -1186,16 +1186,22 @@ fi
 }
 
 @test "exec_sh($test_type): test execve to /bin/sh and .km (exec_test$ext)" {
-   # test execveat() which is fexecve()
+   # test exec in .km file
    run km_with_timeout exec_test$ext -k
    assert_success
    assert_line --partial "Hello, argv[1] = 'TESTING exec to .km'"
 
-   # test correct stderr for non-existing files
+   # test exec into /bin/sh
    run km_with_timeout exec_test$ext -s
    assert_success
    assert_line --partial "Hello, argv[0] = './hello_test.km'"
    assert_line --partial "Hello, argv[3] = 'more quotes'"
+
+   # test exec into realpath(/proc/self/exe)
+   run km_with_timeout exec_test$ext -X
+   assert_success
+   assert_line --regexp "^/proc/self/exe resolved to .*/exec_test.km"
+   assert_line --partial "noop: -0 requested"
 }
 
 @test "clock_gettime($test_type): VDSO clock_gettime, dependency on TSC (clock_gettime$ext)" {
