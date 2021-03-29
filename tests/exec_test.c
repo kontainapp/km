@@ -19,12 +19,18 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "mmap_test.h"   // for KM_PAYLOAD definition
+
 /*
  * A simple program to test execve() and execveat() (fexecve()) by exec to "print_argenv_test"
  *
- * Use the -f flag to test fexecve().
- * Use the -e flag to test ENOENT errno
- * Set KM_EXEC_TEST_EXE environment to override what it being exec-ed into
+ * Flags:
+ * -f to test fexecve().
+ * -e to test ENOENT errno
+ * -k flags to test exec into '.km' file
+ * -s to tests /bin/sh parse
+ *
+ * Set KM_EXEC_TEST_EXE environment to override what it being exec-ed into by default
  *
  * TODO: execveat() is only tested for fexecve() subset, need to add test
  *
@@ -32,6 +38,8 @@
 
 #define EXEC_TEST_EXE_ENV "KM_EXEC_TEST_EXE"
 #define EXEC_TEST_EXE_DEFAULT "print_argenv_test"
+#define EXEC_TEST_EXE_KM "hello_test.km"
+
 #define EXEC_TEST_EXE_ENOENT "this_file_should_not_exist.ever"
 
 int main(int argc, char** argv)
@@ -57,8 +65,33 @@ int main(int argc, char** argv)
       }
    } else if (argc == 2 && strcmp(argv[1], "-e") == 0) {
       rc = execve(EXEC_TEST_EXE_ENOENT, testargv, testenvp);
-      fprintf(stderr, "execve() rc %d, errno %d, %s: %s\n", rc, errno, strerror(errno), EXEC_TEST_EXE_ENOENT);
+      fprintf(stderr,
+              "Expected failure: execve() rc %d, errno %d, %s: %s\n",
+              rc,
+              errno,
+              strerror(errno),
+              EXEC_TEST_EXE_ENOENT);
       return rc;
+   } else if (argc == 2 && strcmp(argv[1], "-k") == 0) {   // exec into '.km' file
+      if (KM_PAYLOAD() == 0) {
+         fprintf(stderr, "not in payload - nothing to do here\n");
+         return 0;
+      }
+      char* testargv[] = {EXEC_TEST_EXE_KM, "TESTING exec to .km", "passing newline\n!", NULL};
+      rc = execve(EXEC_TEST_EXE_KM, testargv, testenvp);
+      fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
+   } else if (argc == 2 && strcmp(argv[1], "-s") == 0) {   // exec into /bin/sh
+      if (KM_PAYLOAD() == 0) {
+         fprintf(stderr, "not in payload - nothing to do here\n");
+         return 0;
+      }
+      // sanity check for /bin/sh parse. Note that it works ONLY for .km pass
+      char* testargv[] = {"/bin/sh",
+                          "-c",
+                          "./hello_test.km --parse \"string with quotes\" 'more\\ quotes' ! ;",
+                          NULL};
+      rc = execve("/bin/sh", testargv, testenvp);
+      fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
    } else {
       rc = execve(exec_test, testargv, testenvp);
       fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));

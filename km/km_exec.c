@@ -453,20 +453,20 @@ static char* get_quoted_string(char** spp)
       if (*e == '\\') {
          if (*(e + 1) != 0) {
             e += 2;
-         } else {   // backslash followed by string terminator?
+         } else {
+            km_infox(KM_TRACE_EXEC, "backslash followed by string terminator in %s", *spp);
             return NULL;
          }
       } else if (*e != quote) {
          e++;
-      } else {     // terminating quote
-         *e = 0;   // drop terminating quote from the results
+      } else {   // terminating quote
          char* a = malloc(e - s);
          if (a == NULL) {   // no memory
             return NULL;
          }
          char* d = a;
          char* t = s + 1;
-         while (*t != 0) {
+         while (*t != 0 && t < e) {
             if (*t == '\\') {   // skip escaped char marker
                t++;
                assert(*t != 0);
@@ -478,7 +478,7 @@ static char* get_quoted_string(char** spp)
          return a;
       }
    }
-   // No terminating quote?
+   km_infox(KM_TRACE_EXEC, "No terminating quote in %s", *spp);
    return NULL;
 }
 
@@ -507,9 +507,7 @@ static char** km_parse_shell_cmd_line(char* s, int* cnt)
       char* a;
       if (*s == '"' || *s == '\'') {   // Handle quoted string
          a = get_quoted_string(&s);
-      } else if (*s == ';') {
-         continue;   // drop it. TODO: fail if it's not the last arg
-      } else {       // whitespace delimited string
+      } else {   // whitespace delimited string
          int l;
          char* e = strpbrk(s, " \t");
          if (e == NULL) {
