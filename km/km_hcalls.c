@@ -1675,6 +1675,7 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    pid_t linux_pid;
    pid_t wait4_rv;
+   pid_t input_pid = arg->arg1;            // force arg1 to a signed 32 bit int
 
    km_infox(KM_TRACE_VCPU,
             "pid %ld, wstatus 0x%lx, options 0x%lx, rusage 0x%lx",
@@ -1683,13 +1684,29 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
             arg->arg3,
             arg->arg4);
 
-   if ((int64_t)arg->arg1 < -1 || arg->arg1 == 0) {
-      assert("no process group support yet" == NULL);
-   }
-   if (arg->arg1 == -1) {
+   /*
+    * pid < -1 = -pid is a process group id
+    * pid == -1 =  wait for any child process
+    * pid == 0 = wait for a child of the current process's pgid
+    * pid > 0 = wait for this process id
+    */
+   if (input_pid < -1) {
+      if ((linux_pid = km_pid_xlate_kpid(-input_pid)) == -1) {
+         arg->hc_ret = -ESRCH;
+         return HC_CONTINUE;
+      }
+      linux_pid = -linux_pid;
+   } else
+   if (input_pid == -1) {
       linux_pid = -1;
+   } else
+   if (input_pid == 0) {
+      linux_pid = 0;
    } else {
-      linux_pid = km_pid_xlate_kpid(arg->arg1);
+      if ((linux_pid = km_pid_xlate_kpid(input_pid)) == -1) {
+         arg->hc_ret = -ESRCH;
+         return HC_CONTINUE;
+      }
    }
 
    km_infox(KM_TRACE_HC, "waiting for km pid %ld, linux pid %d", arg->arg1, linux_pid);
@@ -1727,13 +1744,21 @@ static km_hc_ret_t waitid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
    switch ((idtype_t)arg->arg1) {
       case P_PID:
-         linux_pid = km_pid_xlate_kpid(arg->arg2);
+         if ((linux_pid = km_pid_xlate_kpid(arg->arg2)) == -1) {
+            arg->hc_ret = -ESRCH;
+            return HC_CONTINUE;
+         }
          break;
       case P_ALL:
          linux_pid = 0;
          break;
       case P_PGID:
-         km_errx(2, "Can't wait for process group id yet");
+         if (arg->arg2 != 0) {
+            if ((linux_pid = km_pid_xlate_kpid(arg->arg2)) == -1) {
+               arg->hc_ret = -ESRCH;
+               return HC_CONTINUE;
+            }
+         }
          break;
       default:
          km_errx(2, "Unknown idtype %lu", arg->arg1);
