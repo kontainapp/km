@@ -20,6 +20,22 @@ Run `vagrant up` to build and start the VM with the app.
 Currently the km code doesn't support AVX/AVX2 instructions, but the TF code requires that and we don't know how to disable that.
 As a result the code only works in kkm.
 To make sure kvm is not interfering `sudo rmmod kvm_intel` or `sudo rmmod kvm_amd`.
+Or just `sudo ln -s /dev/kkm /dev/kontain` and make sure kkm is present.
+To check, run:
+
+```bash
+/opt/kontain/bin/km -Vkvm /opt/kontain/tests/hello_test.km
+```
+
+and observe:
+
+```txt
+      ...
+16:10:06.078412 km_machine_setup     568  km      Trying to open device file /dev/kontain
+16:10:06.078786 km_machine_setup     578  km      Using device file /dev/kontain
+16:10:06.078927 km_machine_setup     585  km      Setting vm type to VM_TYPE_KKM
+      ...
+```
 
 ## Docker
 

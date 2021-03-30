@@ -8,18 +8,16 @@
 #   information is strictly prohibited without the express written permission of
 #   Kontain Inc.
 #
-# Dockerfile for tensor flow inferencing test app
+# Dockerfile for tensor flow inferencing test app.
+# We have to use our own tensorflow build t avoud usage of non-POSIX APIs.
+# Copy the .whl file from ../../tools/hashicorp/build_tf for Docker to pick it up.
 
 FROM kontain/test-python-fedora
 USER root
 RUN dnf install -y python3.8
 
 WORKDIR /app
-RUN echo -e '#!/bin/bash\ndate +%s%N >& /tmp/start_time; /usr/bin/python3.8.orig /app/app.py' > /app/run.sh && \
-    echo -e '#!/bin/bash\ndate +%s%N >& /tmp/start_time; /opt/kontain/bin/km --mgtpipe /tmp/km.sock /usr/bin/python3.8.km /app/app.py' > /app/run_km.sh && \
-    echo -e '#!/bin/bash\ndate +%s%N >& /tmp/start_time; /opt/kontain/bin/km kmsnap' > /app/run_snap.sh && \
-    chmod +x /app/run*.sh
-COPY app.py switch.sh requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl /app/
+COPY run.sh run_km.sh run_snap.sh app.py switch.sh requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl /app/
 
 RUN pip install -t /usr/lib/python3.8/site-packages pip && \
 	python3.8 -m pip install setuptools && \

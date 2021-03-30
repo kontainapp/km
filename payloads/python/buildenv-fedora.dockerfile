@@ -32,6 +32,7 @@ RUN git clone https://github.com/python/cpython.git -b $TAG
 COPY km_api.c cpython/Modules/km_api.c
 COPY 00102-lib64.patch /tmp/
 RUN echo "kontain km_api.c" >> cpython/Modules/Setup.local
+# RedHat patch to adapt python to RedHat layout, mostly lib -> lib64
 RUN cd cpython && patch -p1 < /tmp/00102-lib64.patch && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
 COPY platform_uname.patch platform_uname.patch
 # Note: this patch also needs to be applied in 'make fromsrc'- see ./Makefile
