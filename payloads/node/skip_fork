@@ -53,6 +53,7 @@ parallel/test-async-wrap-pop-id-during-load.js
 parallel/test-bash-completion.js
 parallel/test-buffer-constructor-node-modules-paths.js
 parallel/test-child-process-bad-stdio.js
+parallel/test-child-process-can-write-to-stdout.js
 parallel/test-child-process-constructor.js
 parallel/test-child-process-cwd.js
 parallel/test-child-process-default-options.js
