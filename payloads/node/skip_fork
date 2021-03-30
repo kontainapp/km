@@ -152,6 +152,7 @@ parallel/test-fs-read-stream.js
 parallel/test-fs-readfile-pipe.js
 parallel/test-fs-readfile-pipe-large.js
 parallel/test-fs-readfilesync-pipe-large.js
+parallel/test-fs-realpath-pipe.js
 parallel/test-fs-write-sigxfsz.js
 parallel/test-handle-wrap-isrefed.js
 parallel/test-http-debug.js
@@ -160,6 +161,7 @@ parallel/test-http-max-header-size.js
 parallel/test-http-parser-lazy-loaded.js
 parallel/test-http-pipeline-flood.js
 parallel/test-http-timeout-flag.js
+parallel/test-http2-debug.js
 parallel/test-http2-respond-file-error-pipe-offset.js
 parallel/test-http2-tls-disconnect.js
 parallel/test-https-client-renegotiation-limit.js
@@ -188,6 +190,7 @@ parallel/test-openssl-ca-options.js
 parallel/test-pending-deprecation.js
 parallel/test-pipe-head.js
 parallel/test-policy-integrity.js
+parallel/test-policy-parse-integrity.js
 parallel/test-preload.js
 parallel/test-preload-print-process-argv.js
 parallel/test-process-argv-0.js

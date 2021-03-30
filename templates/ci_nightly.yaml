@@ -17,7 +17,7 @@ steps:
 
   - bash: make -C payloads/node test-all-withk8s
     displayName: Node.km tests - run on Kubernetes
-    timeoutInMinutes: 30
+    timeoutInMinutes: 40  # Node full test suite could be  REALLY slow
 
   - bash: make -C payloads validate-runenv-withk8s
     displayName: payloads runenv validation - run on Kubernetes
