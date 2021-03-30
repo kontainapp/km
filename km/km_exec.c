@@ -453,7 +453,8 @@ static char* get_quoted_string(char** spp)
       if (*e == '\\') {
          if (*(e + 1) != 0) {
             e += 2;
-         } else {   // backslash followed by string terminator?
+         } else {
+            km_infox(KM_TRACE_EXEC, "backslash followed by string terminator in %s", *spp);
             return NULL;
          }
       } else if (*e != quote) {
@@ -465,7 +466,7 @@ static char* get_quoted_string(char** spp)
          }
          char* d = a;
          char* t = s + 1;
-         while (*t != 0) {
+         while (*t != 0 && t < e) {
             if (*t == '\\') {   // skip escaped char marker
                t++;
                assert(*t != 0);
@@ -477,7 +478,7 @@ static char* get_quoted_string(char** spp)
          return a;
       }
    }
-   // No terminating quote?
+   km_infox(KM_TRACE_EXEC, "No terminating quote in %s", *spp);
    return NULL;
 }
 
@@ -628,13 +629,18 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
       nargv[0] = km_get_self_name();                               // km exec
       return nargv;
    }
-   // not shebang, got to be symlink
-   if ((pl_name = km_traverse_payload_symlinks(filename)) == NULL) {
-      km_infox(KM_TRACE_EXEC, "km_traverse_payload_symlinks(%s) returned NULL", filename);
-      freevector(argv, shell);
-      return NULL;
+   // not shebang, got to be either a symlink or somefile.km
+   char* suffix = rindex(filename, '.');
+   if (suffix != NULL && strcmp(suffix, PAYLOAD_SUFFIX) == 0) {
+      km_infox(KM_TRACE_EXEC, "Setting payload name to %s ", filename);
+      pl_name = strdup(filename);
+   } else {
+      if ((pl_name = km_traverse_payload_symlinks(filename)) == NULL) {
+         km_infox(KM_TRACE_EXEC, "km_traverse_payload_symlinks(%s) returned NULL", filename);
+         freevector(argv, shell);
+         return NULL;
+      }
    }
-
    if ((nargv = calloc(1 + argc + 1, sizeof(char*))) == NULL) {   // km exec, cnt, and NULL
       km_infox(KM_TRACE_EXEC, "Couldn't allocate %ld bytes", (1 + argc + 1) * sizeof(char*));
       freevector(argv, shell);

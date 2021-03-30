@@ -28,12 +28,12 @@ not_needed_static='gdb_sharedlib dlopen'
 todo_static=''
 
 # skip slow ones
-not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv km_identity dlopen '
+not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv km_identity dlopen exec_sh'
 # review - some fail. Some slow
 todo_alpine_static='dl_iterate_phdr gdb_forkexec'
 
 # glibc native
-not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv km_identity dlopen '
+not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv km_identity dlopen exec_sh'
 
 # exception - extra segment in kmcore
 # dl_iterate_phdr - load starts at 4MB instead of 2MB
@@ -48,7 +48,7 @@ not_needed_alpine_dynamic=$not_needed_alpine_static
 todo_alpine_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 readlink_argv km_identity '
+not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 readlink_argv km_identity exec_sh'
 todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps '
 
 # running .so as executables was useful at some point, but it isn't needed anymore.
@@ -1183,6 +1183,25 @@ fi
    assert_line --regexp 'argv\[0\] = .*tests/hello_test.km'
    assert_line --partial "argv[1] = 'arguments to test, should be one'"
    assert_line --partial "argv[6] = 'd4'"
+}
+
+@test "exec_sh($test_type): test execve to /bin/sh and .km (exec_test$ext)" {
+   # test exec in .km file
+   run km_with_timeout exec_test$ext -k
+   assert_success
+   assert_line --partial "Hello, argv[1] = 'TESTING exec to .km'"
+
+   # test exec into /bin/sh
+   run km_with_timeout exec_test$ext -s
+   assert_success
+   assert_line --partial "Hello, argv[0] = './hello_test.km'"
+   assert_line --partial "Hello, argv[3] = 'more quotes'"
+
+   # test exec into realpath(/proc/self/exe)
+   run km_with_timeout exec_test$ext -X
+   assert_success
+   assert_line --regexp "^/proc/self/exe resolved to .*/exec_test.km"
+   assert_line --partial "noop: -0 requested"
 }
 
 @test "clock_gettime($test_type): VDSO clock_gettime, dependency on TSC (clock_gettime$ext)" {
