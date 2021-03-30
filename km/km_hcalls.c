@@ -1675,7 +1675,7 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    pid_t linux_pid;
    pid_t wait4_rv;
-   pid_t input_pid = arg->arg1;            // force arg1 to a signed 32 bit int
+   pid_t input_pid = (pid_t)arg->arg1;        // force arg1 to a signed 32 bit int
 
    km_infox(KM_TRACE_VCPU,
             "pid %ld, wstatus 0x%lx, options 0x%lx, rusage 0x%lx",
@@ -1696,11 +1696,9 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
          return HC_CONTINUE;
       }
       linux_pid = -linux_pid;
-   } else
-   if (input_pid == -1) {
+   } else if (input_pid == -1) {
       linux_pid = -1;
-   } else
-   if (input_pid == 0) {
+   } else if (input_pid == 0) {
       linux_pid = 0;
    } else {
       if ((linux_pid = km_pid_xlate_kpid(input_pid)) == -1) {

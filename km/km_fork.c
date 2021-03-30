@@ -455,12 +455,6 @@ km_linux_kontain_pidmap_t* km_pid_find_lpid(pid_t linux_pid)
    return NULL;
 }
 
-void km_pid_slot_free(km_linux_kontain_pidmap_t* pme)
-{
-   pme->kontain_pid = KM_INVALID_PID;
-   pme->linux_pid = KM_INVALID_PID;
-}
-
 void km_pid_free(pid_t kontain_pid)
 {
    for (int i = 0; i < KM_MAX_PID_SLOTS; i++) {
