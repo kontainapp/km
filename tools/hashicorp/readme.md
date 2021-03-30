@@ -33,15 +33,32 @@ vagrant ssh-config --host km-b2-demo >> ~/.ssh/config
 ssh km-b2-demo # same as `cd tools/hashicorp; vagrant ssh`
 ```
 
+
 ## Upload Vagrant box to vagrantcloud
 
-When a user creates a VM with `vagrant init kontain-box-name; vagrant up`, the kontain box will be dowloaded from vagrantcloud.
+There are two boxes defined here, Ubuntu based and Fedora based, in `ubuntu` and `fedora` directories correspondingly.
 
-To place our box there,we create a VM image ("box" in vagrantspeak):
-`vagrant up; vagrant halt; vagrant package --output /tmp/beta2-kkm.box`, and then login to vagrantcloud and upload the box.
+When a user creates a VM with `vagrant init kontain-box-name; vagrant up`, the kontain box will be downloaded from vagrantcloud.
+
+To place our box there, first we create a VM image ("box" in vagrantspeak):
+
+```bash
+cd ubuntu | fedora; vagrant up [ --provider virtualbox ]; vagrant halt; vagrant package --output /tmp/beta2-kkm.box`
+```
+
+### Adding the new box locally
+
+To avoid roundtrip to and from vagrantcloud you can add the box locally
+
+```bash
+vagrant box add --name kontain-box-name /tmp/beta2-kkm.box
+```
+
+To upload the box to vagrantcloud login to vagrantcloud and upload the box.
+Note that the box name should be `kontain/beta2-kkm` (it is mentioned in km-releases doc so change it there if needed),
+and provider should be virtualbox.
 
 vagrantcloud account: for now we have an account `kontain` with the same password as our wireless password. ("SecureFxx...")
-The box name is kontain/beta2-kkm (it is mentioned in km-releases doc so change it there is needed).
 
 To update:
 

@@ -31,7 +31,6 @@ packer: ${BLDDIR} ## Create AWS AMI with Ubuntu 20 + KOntain using Packer
 		-var 'summary_manifest=${BLDDIR}/packer-manifest.json' \
 		ubuntu-20.04-aws.json
 
-
 # Helpers to run , find and terminate test instances, for manual work
 
 INSTANCE_TYPE ?= t2.micro
