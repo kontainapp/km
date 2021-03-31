@@ -87,7 +87,8 @@ fromsrc: ## Clean build cpython from source. Use 'make clobber' to prepare for t
 	git clone https://github.com/python/cpython.git -b ${TAG}
 	cp km_api.c cpython/Modules/km_api.c
 	echo "kontain km_api.c" >> cpython/Modules/Setup.local
-	cd cpython && ./configure && make -j`expr 2 \* $$(nproc)` | tee bear.out
+	# RedHat patch to adapt python to RedHat layout, mostly lib -> lib64
+	cd cpython && patch -p1 < ../00102-lib64.patch && ./configure && make -j`expr 2 \* $$(nproc)` | tee bear.out
 	@# Note: this patch also needs to be applied in Docker build - see ./buildenv-fedora.dockerfile
 	patch -p0 < platform_uname.patch
 	eval $(prepare_builtins)
