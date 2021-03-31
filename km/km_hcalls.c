@@ -1669,6 +1669,22 @@ static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 }
 
 /*
+ * The wait4() system call pid argument has values that mean special things.
+ * The wait4() man page then refers you to the waitpid() man page where
+ * the definition is.
+ * Apparently there are no header files that define these values.
+ *
+ * pid < -1 = -pid is a process group id
+ * pid == -1 =  wait for any child process
+ * pid == 0 = wait for a child of the current process's pgid
+ * pid > 0 = wait for this process id
+ */
+enum wait4_special_pid_values {
+   WAIT_FOR_ANY = -1,
+   WAIT_FOR_CURRENT = 0
+};
+
+/*
  * pid_t wait4(pid_t pid, int *wstatus, int options, struct rusage *rusage);
  */
 static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
@@ -1684,21 +1700,15 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
             arg->arg3,
             arg->arg4);
 
-   /*
-    * pid < -1 = -pid is a process group id
-    * pid == -1 =  wait for any child process
-    * pid == 0 = wait for a child of the current process's pgid
-    * pid > 0 = wait for this process id
-    */
-   if (input_pid < -1) {
+   if (input_pid < WAIT_FOR_ANY) {
       if ((linux_pid = km_pid_xlate_kpid(-input_pid)) == -1) {
          arg->hc_ret = -ESRCH;
          return HC_CONTINUE;
       }
       linux_pid = -linux_pid;
-   } else if (input_pid == -1) {
+   } else if (input_pid == WAIT_FOR_ANY) {
       linux_pid = -1;
-   } else if (input_pid == 0) {
+   } else if (input_pid == WAIT_FOR_CURRENT) {
       linux_pid = 0;
    } else {
       if ((linux_pid = km_pid_xlate_kpid(input_pid)) == -1) {
