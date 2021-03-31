@@ -68,5 +68,6 @@
       "bats",
       "markdown",
       "scminput"
-   ]
+   ],
+   "editor.detectIndentation": false
 }
