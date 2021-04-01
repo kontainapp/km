@@ -308,7 +308,7 @@ int km_dofork(int* in_child)
    sigset_t formermask;
    sigemptyset(&blockthese);
    sigaddset(&blockthese, SIGUSR1);
-   sigaddset(&blockthese, SIGCHLD);
+   sigaddset(&blockthese, SIGCHLD);                 // block SIGCHLD until the child's pid is entered into the pid map
    int rc = sigprocmask(SIG_BLOCK, &blockthese, &formermask);
    assert(rc == 0);
 
