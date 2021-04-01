@@ -1473,6 +1473,9 @@ static int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
 
 /*
  * The current list of libraries.
+ * Note that gdb_libsvr4_listl is the length of the memory region pointed to by
+ * gdb_libsvr4_listp, not the size of the useful data in the memory region.
+ * The library list is a nul terminated string.
  */
 static char* gdb_libsvr4_listp;
 static size_t gdb_libsvr4_listl;
@@ -1518,11 +1521,12 @@ static void handle_qxfer_librariessvr4_read(const char* packet, char* obuf)
    }
 
    // Send a chunk of the library list.
-   if (offset >= gdb_libsvr4_listl) {   // asking for beyond the end of the list
+   uint32_t liblistlen = strlen(gdb_libsvr4_listp);
+   if (offset >= liblistlen) {   // asking for beyond the end of the list
       obuf[0] = 'l';
       obuf[1] = 0;
    } else {
-      bytes_to_deliver = gdb_libsvr4_listl - offset;
+      bytes_to_deliver = liblistlen - offset;
       if (bytes_to_deliver > length) {
          bytes_to_deliver = length;
          obuf[0] = 'm';
