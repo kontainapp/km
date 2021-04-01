@@ -88,6 +88,10 @@ function wait_for_state {
    fi
 }
 
+# install sshpass
+
+sudo apt install sshpass
+
 # make new instance from AMI
 
 INSTANCE_ID=`aws ec2 run-instances --image-id $TEST_AMI --count 1 --instance-type $TEST_VM_TYPE  --key-name km --security-group-ids $TEST_SG --query "Instances[].InstanceId"`
