@@ -710,7 +710,7 @@ void km_machine_init(km_machine_init_params_t* params)
       machine.pid = km_exec_pid();
       machine.next_pid = km_exec_next_pid();
    }
-   km_pid_insert(machine.pid, getpid());
+   km_pidmap_init(machine.pid);
    if (km_fs_init() < 0) {
       km_err(1, "KM: km_fs_init() failed");
    }

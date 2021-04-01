@@ -754,12 +754,12 @@ uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo)
       // Process-wide signal.
       siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
       km_post_signal(NULL, &info);
-   } else if (linux_pid != pid) {   // signal to another instance of km
+   } else if (linux_pid == -1) {
+      return -ESRCH;
+   } else {
       if (kill(linux_pid, signo) < 0) {
          return -errno;
       }
-   } else {
-      return -ESRCH;
    }
    return 0;
 }
