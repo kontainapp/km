@@ -30,23 +30,36 @@
 TEST sid_test(void)
 {
    pid_t initial_sid;
+   pid_t initial_pgid;
    pid_t sid;
+
+   // getpgid() for this process
+   initial_pgid = getpgid(0);
+   ASSERT_NOT_EQ(-1, initial_pgid);
+   fprintf(stdout, "pid %d's initial pgid %d\n", getpid(), initial_pgid);
 
    // getsid() for this process
    initial_sid = getsid(0);
    ASSERT_NOT_EQ(-1, initial_sid);
-   fprintf(stdout, "my sid is %d\n", initial_sid);
+   fprintf(stdout, "pid %d's initial sid is %d\n", getpid(), initial_sid);
 
    // getsid() on pid returned by getpid()
    sid = getsid(getpid());
    ASSERT_NOT_EQ(-1, sid);
    fprintf(stdout, "getpid's sid is %d\n", sid);
 
-   // getsid() for invalid km pid
+   /*
+    * getsid() for invalid km pid
+    * Since km payload pids (and hence sids) always start with 1, 9999 is only
+    * going to be valid if there is a lot of km payload forking and this test forks once.
+    */
    sid = getsid(9999);
    fprintf(stdout, "getsid(9999) returns %d, errno %d\n", sid, errno);
    ASSERT_EQ(-1, sid);
    ASSERT_EQ(ESRCH, errno);
+
+   // Push any buffered output so the child doesn't flush any of the parents buffered output.
+   fflush(stdout);
 
    // To test setsid() success we need to fork() to ensure setsid() will succeed.
    pid_t child = fork();
@@ -58,7 +71,7 @@ TEST sid_test(void)
    } else {
       int wstatus;
       pid_t finished = wait(&wstatus);
-      fprintf(stdout, "wait() returned, finished %d, child %d, wstatus 0x%x\n", finished, child, wstatus);
+      fprintf(stdout, "wait() returned, finished %d, errno %d, child %d, wstatus 0x%x\n", finished, errno, child, wstatus);
       ASSERT_NOT_EQ(-1, finished);
       ASSERT_EQ(child, finished);
       ASSERT_EQ(0, WEXITSTATUS(wstatus));
@@ -74,7 +87,7 @@ TEST pgid_test(void)
    // Get this process' pgid
    pgid = getpgid(0);
    ASSERT_NOT_EQ(-1, pgid);
-   fprintf(stdout, "my pgid is %d\n", pgid);
+   fprintf(stdout, "current process pgid is %d\n", pgid);
 
    // Get the pgid of the process id returned by getpid()
    pgid = getpgid(getpid());

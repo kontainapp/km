@@ -1,5 +1,5 @@
 /*
- * Copyright © 2020 Kontain Inc. All rights reserved.
+ * Copyright © 2020-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -18,6 +18,7 @@ extern int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone);
 extern int km_dofork(int* in_child);
 
 // pidmap
+extern void km_pidmap_init(pid_t my_kontain_pid);
 extern void km_pid_insert(pid_t kontain_pid, pid_t linux_pid);
 extern void km_pid_free(pid_t kontain_pid);
 extern pid_t km_pid_xlate_kpid(pid_t kontain_pid);
