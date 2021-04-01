@@ -308,6 +308,7 @@ int km_dofork(int* in_child)
    sigset_t formermask;
    sigemptyset(&blockthese);
    sigaddset(&blockthese, SIGUSR1);
+   sigaddset(&blockthese, SIGCHLD);                 // block SIGCHLD until the child's pid is entered into the pid map
    int rc = sigprocmask(SIG_BLOCK, &blockthese, &formermask);
    assert(rc == 0);
 
@@ -350,16 +351,16 @@ int km_dofork(int* in_child)
       // Don't allow vcpu's to run if we need to wait for gdb client to connect.
       need_to_wait = km_gdb_need_to_wait_for_client_connect(KM_GDB_CHILD_FORK_WAIT);
    } else {   // We are the parent process here.
-      km_infox(KM_TRACE_FORK,
-               "parent: after fork/clone linux_child_pid %d, errno %d",
-               linux_child_pid,
-               errno);
       if (linux_child_pid >= 0) {
          km_pid_insert(km_fork_state.km_child_pid, linux_child_pid);
          km_fork_state.arg->hc_ret = km_fork_state.km_child_pid;
       } else {   // fork failed
          km_fork_state.arg->hc_ret = -errno;
       }
+      km_infox(KM_TRACE_FORK,
+               "parent: after fork/clone linux_child_pid %d, errno %d",
+               linux_child_pid,
+               errno);
       km_fork_state.fork_in_progress = 0;
       km_cond_signal(&km_fork_state.cond);
       km_mutex_unlock(&km_fork_state.mutex);
@@ -382,8 +383,14 @@ int km_dofork(int* in_child)
 void km_forward_sigchild(int signo, siginfo_t* sinfo, void* ucontext_unused)
 {
    siginfo_t info = *sinfo;
+   pid_t kontain_pid;
 
-   info.si_pid = km_pid_xlate_lpid(sinfo->si_pid);
+   kontain_pid = km_pid_xlate_lpid(sinfo->si_pid);
+   if (kontain_pid == -1) {
+      // The signal came to this process, seems like we should be able to xlate the linux pid to a kontain pid?
+      km_errx(2, "Couldn't map pid %d", sinfo->si_pid);
+   }
+   info.si_pid = kontain_pid;
    km_post_signal(NULL, &info);
 }
 
@@ -394,8 +401,17 @@ void km_forward_sigchild(int signo, siginfo_t* sinfo, void* ucontext_unused)
  * that the various wait() hypercalls can map a km pid into a linux pid where needed before calling
  * the kernel's wait() system call. We also convert linux pids returned by wait back into km pid's.
  * And this is because the linux kernel has no knowledge of the km pids.
+ * Since adding rudimentary support for sid's and pgid's and these types are essentially pid's we
+ * include mappings for sid's and pgid's in the pid map too.
+ *
+ * We need to handle either order of SIGCHLD delivery and wait() for process termination success so, pidmap
+ * entries can't be freed when wait for a terminated process succeeds.  To handle SIGCHLD delivery after
+ * wait() success we mark pidmap entries as reaped but leave the pids in the entries.  The reaped entries
+ * can be used in pidmap entry allocation if there are no free entries.
  */
 typedef struct km_linux_kontain_pidmap {
+   uint8_t reaped;                     // if non-zero the process in this slot has terminated and been reaped
+                                       // and can be used if there are no free slots
    pid_t kontain_pid;
    pid_t linux_pid;
 } km_linux_kontain_pidmap_t;
@@ -405,8 +421,12 @@ km_linux_kontain_pidmap_t km_lk_pidmap[KM_MAX_PID_SLOTS];
 
 void km_pid_insert(pid_t kontain_pid, pid_t linux_pid)
 {
+   int first_reaped = -1;
    // Find an empty slot
    for (int i = 0; i < KM_MAX_PID_SLOTS; i++) {
+      if (first_reaped == -1 && km_lk_pidmap[i].reaped != 0) {
+         first_reaped = i;
+      }
       if (km_lk_pidmap[i].kontain_pid == KM_INVALID_PID) {
          km_lk_pidmap[i].kontain_pid = kontain_pid;
          km_lk_pidmap[i].linux_pid = linux_pid;
@@ -414,6 +434,14 @@ void km_pid_insert(pid_t kontain_pid, pid_t linux_pid)
       }
       // TODO check for duplicate entries
    }
+   // No free slots, use one that is for a reaped process
+   if (first_reaped >= 0) {
+      km_lk_pidmap[first_reaped].kontain_pid = kontain_pid;
+      km_lk_pidmap[first_reaped].linux_pid = linux_pid;
+      km_lk_pidmap[first_reaped].reaped = 0;
+      return;
+   }
+      
    km_errx(2, "Too many kontain to linux pid map entries");
 }
 
@@ -427,17 +455,11 @@ km_linux_kontain_pidmap_t* km_pid_find_lpid(pid_t linux_pid)
    return NULL;
 }
 
-void km_pid_slot_free(km_linux_kontain_pidmap_t* pme)
-{
-   pme->kontain_pid = KM_INVALID_PID;
-   pme->linux_pid = KM_INVALID_PID;
-}
-
 void km_pid_free(pid_t kontain_pid)
 {
    for (int i = 0; i < KM_MAX_PID_SLOTS; i++) {
       if (km_lk_pidmap[i].kontain_pid == kontain_pid) {
-         km_pid_slot_free(&km_lk_pidmap[i]);
+         km_lk_pidmap[i].reaped = 1;
          return;
       }
    }
@@ -451,9 +473,9 @@ pid_t km_pid_xlate_kpid(pid_t kontain_pid)
          return km_lk_pidmap[i].linux_pid;
       }
    }
-   // Didn't find that linux pid
+   // Didn't find that kontain pid
    km_infox(KM_TRACE_HC, "Couldn't map kontain pid %d to a linux pid", kontain_pid);
-   return kontain_pid;
+   return -1;
 }
 
 pid_t km_pid_xlate_lpid(pid_t linux_pid)
@@ -465,11 +487,39 @@ pid_t km_pid_xlate_lpid(pid_t linux_pid)
    }
    // Didn't find that linux pid
    km_infox(KM_TRACE_HC, "Couldn't map linux pid %d to a kontain pid", linux_pid);
-   return linux_pid;
+   return -1;
 }
 
 // Placeholder for the pid allocator function
 pid_t km_newpid(void)
 {
    return ++machine.next_pid;
+}
+
+void km_pidmap_init(pid_t my_kontain_pid)
+{
+   pid_t my_linux_pid = getpid();
+   pid_t my_linux_sid = getsid(0);
+   pid_t my_linux_pgid = getpgid(0);
+
+   /*
+    * Note that we do not want to initialize km_lk_pidmap[] because it contains mappings
+    * that the parent process had set before forking us.
+    */
+
+   // Add a map entry for our pid
+   km_pid_insert(my_kontain_pid, my_linux_pid);
+
+   /*
+    * This process is part of some other session and process group already.
+    * To allow getsid() and the getpgid() variants to avoid running into
+    * errors mapping these sid's and pgid's to km's pid namespace, we add map
+    * entries to map these "foreign" sid and pgid to themselves.
+    */
+   if (km_pid_find_lpid(my_linux_sid) == NULL) {
+      km_pid_insert(my_linux_sid, my_linux_sid);
+   }
+   if (km_pid_find_lpid(my_linux_pgid) == NULL) {
+      km_pid_insert(my_linux_pgid, my_linux_pgid);
+   }
 }
