@@ -2407,7 +2407,7 @@ void km_redirect_msgs(const char* name)
          km_tracex("change km logging to none by request");
          return;
       } else {
-         fd1 = open(name, O_WRONLY | O_CREAT, 0644);
+         fd1 = open(name, O_WRONLY | O_CREAT | O_TRUNC, 0644);
          fd = dup2(fd1, KM_LOGGING);
          close(fd1);
       }
