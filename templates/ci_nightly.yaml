@@ -22,3 +22,7 @@ steps:
   - bash: make -C payloads validate-runenv-withk8s
     displayName: payloads runenv validation - run on Kubernetes
     timeoutInMinutes: 5
+
+  - bash: make edge-release
+    displayName: Refresh release v0.1-edge
+    timeoutInMinutes: 5

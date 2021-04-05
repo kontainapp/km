@@ -35,6 +35,14 @@ kkm-pkg: ## Build KKM module self-extracting package.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/kkm/kkm clean
 	makeself -q kkm ${BLDTOP}/kkm.run "beta-release" ./installer/build-script.sh
 
+# Token created by muth 4/4/2020
+edge-release:
+	GITHUB_RELEASE_TOKEN=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 \
+	RELEASE_TAG=v0.1-edge \
+	RELEASE_MESSAGE="Kontain KM Edge - `date`" \
+	make -C km publish-release
+
+
 # Install git hooks, if needed
 GITHOOK_DIR ?= .githooks
 git-hooks-init: ## make git use GITHOOK_DIR (default .githooks) for pre-commit and other hooks

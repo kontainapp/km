@@ -20,17 +20,18 @@ import os
 import sys
 import logging
 try:
-   import github
+    import github
 except:
-   print("Error: Missing PyGitHub module")
-   sys.exit(2)
+    print("Error: Missing PyGitHub module")
+    sys.exit(2)
 
 RELEASE_REPO_OWNER = "kontainapp"
 RELEASE_REPO_FULLNAME = "kontainapp/km-releases"
 # Use this is the version name is not compliant with expectations
 RELEASE_DEFAULT_VERSION = "v0.1-test"
 # Delete these if they already exist
-OVERRIDABLE_RELEASES = [ RELEASE_DEFAULT_VERSION, "v0.1-beta" ]
+OVERRIDABLE_RELEASES = [RELEASE_DEFAULT_VERSION, "v0.1-beta", "v0.1-edge"]
+
 
 def main():
     """ main """
