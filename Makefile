@@ -37,9 +37,8 @@ kkm-pkg: ## Build KKM module self-extracting package.
 
 # Token created by muth 4/4/2020
 edge-release:
-	GITHUB_RELEASE_TOKEN=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 \
 	RELEASE_TAG=v0.1-edge \
-	RELEASE_MESSAGE="Kontain KM Edge - `date`" \
+	RELEASE_MESSAGE="Kontain KM Edge - $(shell date) $(shell git rev-parse HEAD)" \
 	make -C km publish-release
 
 
