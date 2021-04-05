@@ -3,6 +3,10 @@
 # 2. All the validation the requires a refresh k8s cluster.
 
 steps:
+  - bash: cd tools/release; pip install -r requirements.txt
+    displayName: Install edge-release dependencies
+    timeoutInMinutes: 5
+
   - bash: make -C tests test-all-withk8s
     displayName: KM tests - run on Kubernetes
     timeoutInMinutes: 15
@@ -23,10 +27,6 @@ steps:
     displayName: payloads runenv validation - run on Kubernetes
     timeoutInMinutes: 5
 
-  - bash: cd tools/release; pip install -r requirements.txt
-    displayName: Install edge-release dependencies
-    timeoutInMinutes: 5
-    
   - bash: make edge-release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN)
     displayName: Refresh release v0.1-edge
     timeoutInMinutes: 5
