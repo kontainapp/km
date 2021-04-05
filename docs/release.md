@@ -1,4 +1,4 @@
-# KM releases:
+# KM releases
 
 ## What's a release
 
@@ -103,7 +103,7 @@ The release pipeline builds, publishes and validates the release. See steps in `
 
 For dev/test, we will use `0.1-test`. When automation is ready, we will keep `0.n-beta` (e.g. `0.11-beta`) as a release created by the process above and triggered with a new tag creation or manually, and `0.n-daily` (e.g. `0.1-daily`) to be replaced on every master update
 
-The name `1.0-edge` is the last good build of KM. This is useful for other Kontain projects that depend on KM.
+The name `1.0-edge` is the last good build of KM. This is useful for other Kontain projects that depend on KM. `make edge-release` updates 1.0-edge in github.
 
 We will also use other suffixes (e.g. `0.10-demo`) as needed
 
