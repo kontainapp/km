@@ -396,6 +396,26 @@ int km_wakeup_suspended_thread(siginfo_t* info)
    return wake_count;
 }
 
+static int km_can_interrupt(km_vcpu_t* vcpu, void* data)
+{
+   int signo = *(int*)data;
+   if (signo >= 0 && km_sigismember(&vcpu->sigmask, signo) == 0 && vcpu->state == HYPERCALL && vcpu->hypercall == SYS_epoll_pwait) {
+      km_pkill(vcpu, KM_SIGVCPUSTOP);
+      km_infox(KM_TRACE_SIGNALS, "interrupting vcpu %d to deliver signal %d", vcpu->vcpu_id, signo);
+      *(int*)data = -1;             // we only want to interrupt one payload thread
+   }
+   return 0;
+}
+
+/*
+ * Find a thread that is not blocking signo and is in a hypercall that can be interrupted.
+ * If we find a candidate, then interrupt the system call.
+ */
+static void km_interrupt_thread(int signo)
+{
+   km_vcpu_apply_all(km_can_interrupt, (void*)&signo);
+}
+
 void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
 {
    /*
@@ -411,6 +431,7 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
    if (vcpu == 0) {
       km_infox(KM_TRACE_VCPU, "enqueuing signal %d to VM", info->si_signo);
       enqueue_signal(&machine.sigpending, info);
+      km_interrupt_thread(info->si_signo);
       return;
    }
    km_infox(KM_TRACE_VCPU, "enqueuing signal %d to vcpu %d", info->si_signo, vcpu->vcpu_id);
