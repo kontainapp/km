@@ -401,7 +401,7 @@ static int km_can_interrupt(km_vcpu_t* vcpu, void* data)
    int signo = *(int*)data;
    if (signo >= 0 && km_sigismember(&vcpu->sigmask, signo) == 0 && vcpu->state == HYPERCALL && vcpu->hypercall == SYS_epoll_pwait) {
       km_pkill(vcpu, KM_SIGVCPUSTOP);
-      km_infox(KM_TRACE_VCPU, "interrupting vcpu %d to deliver signal %d", vcpu->vcpu_id, signo);
+      km_infox(KM_TRACE_SIGNALS, "interrupting vcpu %d to deliver signal %d", vcpu->vcpu_id, signo);
       *(int*)data = -1;             // we only want to interrupt one payload thread
    }
    return 0;
