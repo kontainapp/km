@@ -27,6 +27,10 @@ steps:
     displayName: payloads runenv validation - run on Kubernetes
     timeoutInMinutes: 5
 
+  - bash: make release
+    displayName: Build release bits
+    timeoutInMinutes: 5
+
   - bash: make edge-release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN)
-    displayName: Refresh release v0.1-edge
+    displayName: Upload release v0.1-edge
     timeoutInMinutes: 5

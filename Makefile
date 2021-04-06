@@ -36,7 +36,7 @@ kkm-pkg: ## Build KKM module self-extracting package.
 	makeself -q kkm ${BLDTOP}/kkm.run "beta-release" ./installer/build-script.sh
 
 # Token created by muth 4/4/2020
-edge-release: release
+edge-release:
 	RELEASE_TAG=v0.1-edge \
 	RELEASE_MESSAGE="Kontain KM Edge - $(shell date) $(shell git rev-parse HEAD)" \
 	make -C km publish-release
