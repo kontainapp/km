@@ -26,6 +26,7 @@ If a payload need to put extra files im a release, it needs to implement `releas
 * `v0.1-beta` for this release name, we also automatically override the existing release
   * This allows us to manually replace beta release as we update the code base.
   * at some point we will start using unique names (e.g. `0.1-beta-rc1`) but for now I do not want to pollute the list of releases on github
+* `v0.1-edge` is created by the nightly run. This is used by other projects (like `kontain-faas`) that want current KM release bits as part of their build. **automatically overrides the prior one with the same tag.**
 * `For any other tag`, if a release with this tag already exists on km-releases repo, publishing of a release will fail.
 
 Also:
@@ -48,8 +49,8 @@ Assuming the product build has succeeded, here are the steps to build a release
 
 Prerequisites
 
-1. Create a github personal token and place it's value in GITHUB_RELEASE_TOKEN env var. (https://github.com/settings/tokens)
-1. Make sure PyGitHub python module is installed `pip3 install --user PyGitGHub`
+1. Create a github personal token and place it's value in GITHUB_RELEASE_TOKEN env var. (https://github.com/settings/tokens). Ensure that the token scopes `write:packages` and `delete:packages` are enabled.
+2. Make sure PyGitHub python module is installed `pip3 install --user PyGitGHub`
 
 Steps
 
@@ -70,8 +71,7 @@ When using a branch to trigger a release, we will create a release name after th
 For example, this will trigger the CI release pipeline and create a unique (and not overridable) `v0.1-test-manual` release:
 
 ```bash
-tag=v0.1-test-manual; git tag -a $tag --message "release note here"; git push --follow-tags
-
+tag=v0.1-test-manual; git tag -a $tag --message "release note here"; git push origin $tag
 ```
 
 We also auto-trigger the same release pipeline for any branch named 'releases/*/*, e.g. `releases/beta/snapshot-api`
@@ -101,6 +101,8 @@ The release pipeline builds, publishes and validates the release. See steps in `
 ### Release names agreement
 
 For dev/test, we will use `0.1-test`. When automation is ready, we will keep `0.n-beta` (e.g. `0.11-beta`) as a release created by the process above and triggered with a new tag creation or manually, and `0.n-daily` (e.g. `0.1-daily`) to be replaced on every master update
+
+The name `1.0-edge` is the last good build of KM. This is useful for other Kontain projects that depend on KM. `make edge-release` updates 1.0-edge in github.
 
 We will also use other suffixes (e.g. `0.10-demo`) as needed
 

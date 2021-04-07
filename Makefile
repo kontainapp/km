@@ -35,6 +35,19 @@ kkm-pkg: ## Build KKM module self-extracting package.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/kkm/kkm clean
 	makeself -q kkm ${BLDTOP}/kkm.run "beta-release" ./installer/build-script.sh
 
+RELEASE_TAG ?= v0.1-edge
+RELEASE_MESSAGE ?= Kontain KM Edge - date: $(shell date) sha: $(shell git rev-parse HEAD)
+REPO_URL := https://${GITHUB_TOKEN}@github.com/kontainapp/km.git
+edge-release: ## Trigger edge-release building pipeline
+	git config user.email "release@kontain.app"
+	git config user.name "Kontain Release Pipeline Bot"
+	@echo Delete the ${RELEASE_TAG} tag. Can fail if there is no such tag yet
+	-git tag -d ${RELEASE_TAG} && git push --delete ${REPO_URL} ${RELEASE_TAG}
+	@echo Now tag the source and push the tag to trigger the pipeline
+	git tag -a ${RELEASE_TAG} --message "${RELEASE_MESSAGE}"
+	git push ${REPO_URL} ${RELEASE_TAG}
+
+
 # Install git hooks, if needed
 GITHOOK_DIR ?= .githooks
 git-hooks-init: ## make git use GITHOOK_DIR (default .githooks) for pre-commit and other hooks

@@ -22,3 +22,7 @@ steps:
   - bash: make -C payloads validate-runenv-withk8s
     displayName: payloads runenv validation - run on Kubernetes
     timeoutInMinutes: 5
+
+  - bash: make edge-release GITHUB_TOKEN=$(GITHUB_TOKEN)
+    displayName: Kick off release pipeline to build and upload release v0.1-edge
+    timeoutInMinutes: 5
