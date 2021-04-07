@@ -692,6 +692,16 @@ void km_machine_setup(km_machine_init_params_t* params)
 }
 
 /*
+ * Called from exec recover to setup the pids.
+ */
+void km_machine_init_pidinfo(pid_t ppid, pid_t pid, pid_t next_pid)
+{
+   machine.ppid = ppid;
+   machine.pid = pid;
+   machine.next_pid = next_pid;
+}
+
+/*
  * initial steps setting our VM
  *
  * talk to KVM
@@ -705,11 +715,6 @@ void km_machine_setup(km_machine_init_params_t* params)
  */
 void km_machine_init(km_machine_init_params_t* params)
 {
-   if (km_called_via_exec() == 1) {
-      machine.ppid = km_exec_ppid();
-      machine.pid = km_exec_pid();
-      machine.next_pid = km_exec_next_pid();
-   }
    km_pidmap_init(machine.pid);
    if (km_fs_init() < 0) {
       km_err(1, "KM: km_fs_init() failed");

@@ -339,6 +339,7 @@ char** km_exec_build_env(char** envp)
          free(newenvp);
          return NULL;
       }
+      km_infox(KM_TRACE_EXEC, "exec input env[%d] = %s", i, newenvp[i]);
    }
 
    // env var builder function addresses
@@ -358,6 +359,7 @@ char** km_exec_build_env(char** envp)
          return NULL;
       }
       newenvp[i + j] = envvarp;
+      km_infox(KM_TRACE_EXEC, "adding env[%d] %s", i + j, envvarp);
    }
    char envstring[256];
    if (fork_wait != NULL) {
@@ -755,9 +757,12 @@ int km_exec_recover_kmstate(void)
       return 0;
    }
 
-   // We are sure km was entered via execve(), setup km_log_file like km_redirect_msgs() would.
+   /*
+    * We are sure km was entered via execve(), setup km_log_file like km_redirect_msgs() would.
+    * Tracing is still in flux until we set the "include pid" flag and this process' pid below.
+    */
    km_redirect_msgs_after_exec();
-   km_infox(KM_TRACE_EXEC, "pidinfo %s", pidinfo);
+   km_infox(KM_TRACE_EXEC, "pidinfo %s, current linux pid %d", pidinfo, getpid());
 
    km_exec_started_this_payload = 1;
    if ((n = sscanf(vernum, "%d,%d", &version, &nfdmap)) != 2) {
@@ -783,10 +788,11 @@ int km_exec_recover_kmstate(void)
       km_infox(KM_TRACE_EXEC, "couldn't scan pidinfo %s, n %d", pidinfo, n);
       return -1;
    }
-   km_trace_include_pid(execstatep->tracepid);
    execstatep->version = version;
    execstatep->nfdmap = nfdmap;
-   machine.pid = execstatep->pid;
+   km_trace_include_pid(execstatep->tracepid);
+   km_machine_init_pidinfo(execstatep->ppid, execstatep->pid, execstatep->next_pid);
+   // Tracing should be ok from this point on.
 
    if (km_exec_get_vmfds(vmfds) != 0) {
       return -1;
@@ -839,6 +845,18 @@ int km_exec_recover_kmstate(void)
       s = strstr(s, ",");
       s++;
    }
+
+   /*
+    * Remove our km state recovery variables from the environment.
+    * If we don't they appear in the environment if this process
+    * performs an exec().
+    */
+   unsetenv(KM_EXEC_VERS);
+   unsetenv(KM_EXEC_VMFDS);
+   unsetenv(KM_EXEC_EVENTFDS);
+   unsetenv(KM_EXEC_GUESTFDS);
+   unsetenv(KM_EXEC_PIDINFO);
+   unsetenv(KM_EXEC_GDBINFO);
 
    gdbstub.wait_for_attach = wait_for_attach;
    if (gdbstub.enabled != 0 && gdbstub.gdb_client_attached != 0) {
