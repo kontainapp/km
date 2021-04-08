@@ -1183,6 +1183,10 @@ fi
    assert_line --regexp 'argv\[0\] = .*tests/hello_test.km'
    assert_line --partial "argv[1] = 'arguments to test, should be one'"
    assert_line --partial "argv[6] = 'd4'"
+
+   # test that fork does not block SIGCHLD signal
+   run km_with_timeout exec_target_test$ext parent_of_waitforchild
+   assert_success
 }
 
 @test "exec_sh($test_type): test execve to /bin/sh and .km (exec_test$ext)" {
