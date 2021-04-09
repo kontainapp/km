@@ -344,6 +344,10 @@ int km_dofork(int* in_child)
          km_fork_state.regs.rax = km_fork_state.arg->hc_ret;
       }
 
+      // Restore the blocked signals mask for the new vcpu thread to inherit.
+      rc = sigprocmask(SIG_SETMASK, &formermask, NULL);
+      assert(rc == 0);
+
       km_fork_child_vm_init();   // create the vm and a single vcpu for the child payload thread
       if (in_child != NULL) {
          *in_child = 1;
@@ -364,11 +368,11 @@ int km_dofork(int* in_child)
       km_fork_state.fork_in_progress = 0;
       km_cond_signal(&km_fork_state.cond);
       km_mutex_unlock(&km_fork_state.mutex);
-   }
 
-   // fork/clone is done, unblock signals.
-   rc = sigprocmask(SIG_SETMASK, &formermask, NULL);
-   assert(rc == 0);
+      // unblock the signals we blocked earlier
+      rc = sigprocmask(SIG_SETMASK, &formermask, NULL);
+      assert(rc == 0);
+   }
 
    if (need_to_wait == 0) {
       km_vcpu_resume_all();   // let the vcpu's get back to work
@@ -493,7 +497,7 @@ pid_t km_pid_xlate_lpid(pid_t linux_pid)
 // Placeholder for the pid allocator function
 pid_t km_newpid(void)
 {
-   return ++machine.next_pid;
+   return machine.next_pid++;
 }
 
 void km_pidmap_init(pid_t my_kontain_pid)

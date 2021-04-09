@@ -357,17 +357,6 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    int envc = 1;   // count of elements in envp (including NULL), see realloc below in case 'e'
    char* km_log_to = NULL;
 
-   // Special check for tracing
-   // TODO: handle generic KM_CLI_FLAGS here, and reuse code below
-   char* trace_regex = getenv("KM_VERBOSE");
-   if (trace_regex != NULL) {
-      if (*trace_regex == 0) {
-         km_info_trace.level = KM_TRACE_INFO;
-      } else {
-         km_info_trace.level = KM_TRACE_TAG;
-         regcomp(&km_info_trace.tags, trace_regex, regex_flags);
-      }
-   }
    char* pl_name;
    // first one works for symlinks, including found in PATH.
    // But for shebang the first is shebang file itself, hence the second one
@@ -609,6 +598,27 @@ static inline int km_need_pause_all(void)
            (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
 }
 
+/*
+ * Get KM_VERBOSE from the environment and setup km tracing from its contents.
+ * Values supplied on the km command line with the -V flag are processed later
+ * so they will override what we set from KM_VERBOSE.
+ */
+static inline void km_setup_tracing(void)
+{
+   static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
+
+   // TODO: handle generic KM_CLI_FLAGS here, and reuse code below
+   char* trace_regex = getenv("KM_VERBOSE");
+   if (trace_regex != NULL) {
+      if (*trace_regex == 0) {
+         km_info_trace.level = KM_TRACE_INFO;
+      } else {
+         km_info_trace.level = KM_TRACE_TAG;
+         regcomp(&km_info_trace.tags, trace_regex, regex_flags);
+      }
+   }
+}
+
 int main(int argc, char* argv[])
 {
    km_vcpu_t* vcpu = NULL;
@@ -618,6 +628,7 @@ int main(int argc, char* argv[])
    char** argv_p;   // payload's argc (*not* in ABI format)
    char* payload_name;
 
+   km_setup_tracing();       // setup trace settings as early as possible
    km_gdbstub_init();
 
    if (km_exec_recover_kmstate() < 0) {   // exec state is messed up
