@@ -208,6 +208,7 @@ typedef struct km_machine_init_params {
 extern km_machine_init_params_t km_machine_init_params;
 
 void km_machine_setup(km_machine_init_params_t* params);
+void km_machine_init_pidinfo(pid_t ppid, pid_t pid, pid_t next_pid);
 void km_machine_init(km_machine_init_params_t* params);
 void km_signal_machine_fini(void);
 void km_vcpu_fini(km_vcpu_t* vcpu);
