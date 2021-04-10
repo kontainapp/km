@@ -9,8 +9,8 @@
  * proprietary information is strictly prohibited without the express written
  * permission of Kontain Inc.
  *
- * measure time for dummy hypercall
- * measure time for pagefault
+ * Measure time for dummy hypercall
+ * Measure time for pagefault
  */
 
 #include <errno.h>
@@ -21,6 +21,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/times.h>
 #include <sys/types.h>
 #include "greatest/greatest.h"
 
@@ -28,66 +29,153 @@
  * getuid boils down to a dummy call currently
  * use it to measure rtt
  */
-#define TEST_MAX_TIME_DUMMY_HYPERCALL (1)	// in seconds
-#define TEST_MAX_TIME_PAGE_FAULT (1)		// in seconds
-#define LOOP_COUNT (1 * 1024)
+#define LOOP_COUNT (10 * 1024)   // loops for mmap tests
 #define TEST_PAGE_SIZE (4096ULL)
 #define NSEC_PER_SEC (1000 * 1000 * 1000ULL)
 #define NSEC_PER_MILLI_SEC (1000 * 1000ULL)
 
 typedef struct {
-   struct timespec start;
-   struct timespec end;
-   u_int64_t nsec_consumed;
-   char buffer[1024];
+   struct {   // data collected with times()
+      struct tms start;
+      struct tms end;
+      long ticks_per_sec;
+      float calibrate;   // total for calibration  run
+   } times;
+
+   struct {   // data collected with clock_gettime(CLOCK_PROCESS_CPUTIME_ID)
+      struct timespec start;
+      struct timespec end;
+      u_int64_t nsec_consumed;
+      float calibrate;   // total for calibration  run
+   } clock_process;
+   struct {   // data collected with clock_gettime(CLOCK_THREAD_CPUTIME_ID)
+      struct timespec start;
+      struct timespec end;
+      u_int64_t nsec_consumed;
+      float calibrate;   // total for calibration  run
+   } clock_thread;
 } sample_t;
 
-sample_t sample;
+static sample_t g_sample;
 
-void show_time(char* name, sample_t* s)
+static const long calibrate_loops = (long)1e7;
+static const long hypercall_loops = (long)1e4;
+static const long mmap_loops = (long)1e4;   // CAUTION: 1e4 is max, otherwise we are OOM
+
+/*
+ *  allow tests to run calibrate-ratio x calibration
+ * It heavily depends on the virtualization nesting and kkm/kvm
+ * on L0, it is expected to be ~6
+ * on L1 KKM , ~30-40
+ * with KVM load, it seems to go way up. So this test may fail intermittently
+ * with high KVM load (multiple VMs come in go fast)
+ */
+static const int hcall_calibrate_ratio = 500;
+static const int mmap_calibrate_ratio = 10;
+
+static long busy_loop(long i)
 {
+   volatile long x;
+   for (; i > 0; i--) {
+      x += i * i;
+   }
+   return x;
+}
+
+// validate and prints time spent between end and start
+/// 'ratio' is tricky:
+// if ratio == -1 , it prints and  calibrates
+// if ratio == 0, it only prints
+// if ration > 0 m it prints and asserts the values are under ratio*calibration
+TEST validate_time(char* name, sample_t* s, int ratio)
+{
+   float user_sec, system_sec;
+   float total_t, total_clock_p, total_clock_t;
    u_int64_t start_nsec, end_nsec;
 
-   start_nsec = sample.start.tv_sec * NSEC_PER_SEC + sample.start.tv_nsec;
-   end_nsec = sample.end.tv_sec * NSEC_PER_SEC + sample.end.tv_nsec;
-   s->nsec_consumed = end_nsec - start_nsec;
+   // times() accounting
+   user_sec = ((float)s->times.end.tms_utime - s->times.start.tms_utime) / s->times.ticks_per_sec;
+   system_sec = ((float)s->times.end.tms_stime - s->times.start.tms_stime) / s->times.ticks_per_sec;
+   total_t = user_sec + system_sec;
+   printf("%s times: delta time: %.6f (user: %.6f, system: %.6f)\n", name, total_t, user_sec, system_sec);
 
-   snprintf(s->buffer,
-            sizeof(s->buffer),
-            "\n\t%s test\n"
-            "\t\tbegin time %ld.%09ld seconds\n"
-            "\t\tend time   %ld.%09ld seconds\n"
-            "\t\tdelta time %lld.%09lld seconds\n",
-            name,
-            sample.start.tv_sec,
-            sample.start.tv_nsec,
-            sample.end.tv_sec,
-            sample.end.tv_nsec,
-            s->nsec_consumed / NSEC_PER_SEC,
-            (s->nsec_consumed % NSEC_PER_SEC));
+   // process
+   start_nsec = s->clock_process.start.tv_sec * NSEC_PER_SEC + s->clock_process.start.tv_nsec;
+   end_nsec = s->clock_process.end.tv_sec * NSEC_PER_SEC + s->clock_process.end.tv_nsec;
+   s->clock_process.nsec_consumed = end_nsec - start_nsec;
+   total_clock_p = (float)s->clock_process.nsec_consumed / NSEC_PER_SEC;
+   printf("%s clock_process: delta time: %.6f\n", name, total_clock_p);
+
+   // thread
+   start_nsec = s->clock_thread.start.tv_sec * NSEC_PER_SEC + s->clock_thread.start.tv_nsec;
+   end_nsec = s->clock_thread.end.tv_sec * NSEC_PER_SEC + s->clock_thread.end.tv_nsec;
+   s->clock_thread.nsec_consumed = end_nsec - start_nsec;
+   total_clock_t = (float)s->clock_thread.nsec_consumed / NSEC_PER_SEC;
+   printf("%s clock_thead: delta time: %.6f\n", name, total_clock_t);
+
+   if (ratio == -1) {
+      s->times.calibrate = total_t;
+      s->clock_process.calibrate = total_clock_p;
+      s->clock_thread.calibrate = total_clock_t;
+   }
+
+   if (ratio > 0) {
+      printf("Validating %s\n", name);
+      ASSERTm("Times", total_t < s->times.calibrate * ratio);
+      ASSERTm("clock_process", total_clock_p < s->clock_process.calibrate * ratio);
+      ASSERTm("clock_thread", total_clock_t < s->clock_thread.calibrate * ratio);
+   }
+
+   PASS();
+}
+
+// records times
+// start == 1 captures start time, start == 0 captures end times
+TEST capture_time(sample_t* s, int start)
+{
+   struct timespec* time_process;
+   struct timespec* time_thread;
+   struct tms* time_times;
+
+   if (start == 1) {
+      time_process = &s->clock_process.start;
+      time_thread = &s->clock_thread.start;
+      time_times = &s->times.start;
+   } else {
+      time_process = &s->clock_process.end;
+      time_thread = &s->clock_thread.end;
+      time_times = &s->times.end;
+   }
+   if (times(time_times) == -1 || clock_gettime(CLOCK_PROCESS_CPUTIME_ID, time_process) == -1 ||
+       clock_gettime(CLOCK_THREAD_CPUTIME_ID, time_thread) == -1) {
+      perror("capture_time");
+      FAIL();
+   }
+   PASS();
+}
+
+TEST calibrate_relative_speed(sample_t* s)
+{
+   CHECK_CALL(capture_time(s, 1));
+   busy_loop(calibrate_loops);
+   CHECK_CALL(capture_time(s, 0));
+
+   CHECK_CALL(validate_time("calibrate", s, -1));
+   PASS();
 }
 
 TEST hypercall_time(sample_t* s)
 {
-   int ret_val = 0;
    volatile uid_t uid = 0;
 
-   ret_val = clock_gettime(CLOCK_MONOTONIC_RAW, &s->start);
-   ASSERT_NOT_EQm("clock_gettime failed\n", ret_val, -1);
-
-   for (int i = 0; i < LOOP_COUNT; i++) {
+   CHECK_CALL(capture_time(s, 1));
+   for (int i = 0; i < hypercall_loops; i++) {
       uid = getuid();
       (void)uid;
    }
-
-   ret_val = clock_gettime(CLOCK_MONOTONIC_RAW, &s->end);
-   ASSERT_NOT_EQm("clock_gettime failed\n", ret_val, -1);
-
-   show_time("hcall", &sample);
-   fprintf(stderr, "%s", s->buffer);
-
-   ASSERTm("test took too long\n", (s->nsec_consumed / NSEC_PER_SEC) < TEST_MAX_TIME_DUMMY_HYPERCALL);
-
+   sleep(1);   // let's add one sec to make sure we are not measuring wall clock time
+   CHECK_CALL(capture_time(s, 0));
+   CHECK_CALL(validate_time("hcall (times)", s, hcall_calibrate_ratio));
    PASS();
 }
 
@@ -99,45 +187,36 @@ TEST mmap_time(sample_t* s, bool write)
    size_t map_size = TEST_PAGE_SIZE * LOOP_COUNT;
 
    addr = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-   ASSERTm("mmap failed\n", addr != MAP_FAILED);
+   ASSERT_NOT_EQm("mmap failed", addr, MAP_FAILED);
 
-   ret_val = clock_gettime(CLOCK_MONOTONIC_RAW, &s->start);
-   ASSERT_NOT_EQm("clock_gettime failed\n", ret_val, -1);
-
-   for (int i = 0; i < LOOP_COUNT; i++) {
+   CHECK_CALL(capture_time(s, 1));
+   for (int i = 0; i < mmap_loops; i++) {
       if (write == true) {
          *(addr + TEST_PAGE_SIZE * i) = value;
       } else {
          value = *(addr + TEST_PAGE_SIZE * i);
       }
    }
-
    ret_val = munmap((void*)addr, map_size);
-   ASSERTm("munmap failed", ret_val == 0);
+   ASSERT_EQm("munmap failed", ret_val, 0);
+   CHECK_CALL(capture_time(s, 0));
 
-   ret_val = clock_gettime(CLOCK_MONOTONIC_RAW, &s->end);
-   ASSERT_NOT_EQm("clock_gettime failed %s\n", ret_val, -1);
-
-   show_time((write == false) ? "mmap read" : "mmap write", &sample);
-   fprintf(stderr, "%s", s->buffer);
-
-   ASSERTm("test took too long\n", (s->nsec_consumed / NSEC_PER_SEC) < TEST_MAX_TIME_PAGE_FAULT);
+   char* name = (write == false) ? "mmap read" : "mmap write";
+   CHECK_CALL(validate_time(name, s, mmap_calibrate_ratio));
 
    PASS();
 }
 
 GREATEST_MAIN_DEFS();
-
 int main(int argc, char** argv)
 {
    GREATEST_MAIN_BEGIN();
-   greatest_set_verbosity(1);
 
-   RUN_TESTp(hypercall_time, &sample);
-
-   RUN_TESTp(mmap_time, &sample, false);
-
-   RUN_TESTp(mmap_time, &sample, true);
+   g_sample.times.ticks_per_sec = sysconf(_SC_CLK_TCK);
+   RUN_TESTp(calibrate_relative_speed, &g_sample);
+   RUN_TESTp(hypercall_time, &g_sample);
+   RUN_TESTp(mmap_time, &g_sample, false);
+   RUN_TESTp(mmap_time, &g_sample, true);
 
    GREATEST_MAIN_END();
 }

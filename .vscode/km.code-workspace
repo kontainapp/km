@@ -18,7 +18,18 @@
          "cerrno": "c",
          "cctype": "c",
          "chrono": "c",
-         "algorithm": "c"
+         "algorithm": "c",
+         "array": "c",
+         "deque": "c",
+         "list": "c",
+         "string": "c",
+         "unordered_map": "c",
+         "unordered_set": "c",
+         "vector": "c",
+         "string_view": "c",
+         "initializer_list": "c",
+         "ranges": "c",
+         "functional": "c"
       },
       "files.exclude": {
          "{GPATH,GRTAGS,GTAGS}": true,
