@@ -1,0 +1,45 @@
+skip_xxx files in this dir are controlling what `make test-all` skips.
+
+Some of the reasons for skipping:
+----------------------------------
+- missing syscalls, e.g. test-report-uv-handles.js needs inotify_init1()
+- very slow, e.g. es-module/*js - they pass, but slow so disabling for now
+- did not investigate: *msj
+- use multiple command lines in exec(), e.g. parallel/test-child-process* use pwd, echo, grep, ls, etc.
+- skip_dl: we use statically linked for test, this one needs full dynamic link (we support it but don't use here)
+
+Worth looking into or discussing:
+-------------------------------
+   *** parallel/test-child-process-can-write-to-stdout.js:
+      Tests that a spawned child process can write to stdout without throwing - hangs
+
+   *** parallel/test-child-process-default-options.js (and many others)
+       Use /usr/bin/env instead of sh directly
+
+   *** parallel/test-child-process-detached.js fails on kill() with ESRCH.
+       I suspect pid mapping not working in kill()
+
+
+*** parallel/test-child-process-exec-kill-throws.js HANGS after xit_group() - see below.
+
+23:55:49.073853 km_vcpu_exit_all     484  1001.vcpu-0  Forcing exit_group() without cleanup
+23:55:49.075178 km_post_signal       412     1.node    enqueuing signal 17 to VM
+
+*** parallel/test-child-process-execfilesync-maxBuffer.js suspicious hang, with heavy signal loops (signo=15).
+   Same for parallel/test-child-process-fork-detached.js
+
+*** parallel/test-child-process-fork-exec-argv.js - feels like a mess up in stderr (or just a coincidence in failure after `00:06:34.493803 km_fs_readlink       650     1.vcpu-0  /proc/self/fd/2 -> [stderr]`
+
+*** parallel/*net* - seem to do heavy work with sockets/fds and some crash. Purely guts feeling, but seems like a good test for km_filesys and we have bugs there
+
+*** parallel/test-child-process-http-socket-leak.js - pipe FD mix up:
+   same for parallel/test-cluster-dgram-bind-fd.js and many more
+  p.open(fd);
+    ^
+Error: EBADF: bad file descriptor, uv_pipe_open
+
+*** parallel/test-child-process-spawnsync-shell.js multiple failures, after skimming it feels
+    like we do not handle all execve() errors accurately (they run /bin/sh does-not-exist and check for errors
+
+Multiple inspector (debugger) tests need /dev/kkm but work fine with it, albeit with some glitches.
+Need to DOCUMENT.
