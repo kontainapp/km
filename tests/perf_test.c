@@ -84,46 +84,46 @@ static long busy_loop(long i)
 
 // validate and prints time spent between end and start
 /// 'ratio' is tricky:
-// if ratio == -1 , it prints and  calibrates
+// if ratio == -1, it prints and  calibrates
 // if ratio == 0, it only prints
-// if ration > 0 m it prints and asserts the values are under ratio*calibration
+// if ratio > 0, it prints and asserts the values are under ratio*calibration
 TEST validate_time(char* name, sample_t* s, int ratio)
 {
    float user_sec, system_sec;
-   float total_t, total_clock_p, total_clock_t;
+   float total_times, total_clock_process, total_clock_thread;
    u_int64_t start_nsec, end_nsec;
 
    // times() accounting
    user_sec = ((float)s->times.end.tms_utime - s->times.start.tms_utime) / s->times.ticks_per_sec;
    system_sec = ((float)s->times.end.tms_stime - s->times.start.tms_stime) / s->times.ticks_per_sec;
-   total_t = user_sec + system_sec;
-   printf("%s times: delta time: %.6f (user: %.6f, system: %.6f)\n", name, total_t, user_sec, system_sec);
+   total_times = user_sec + system_sec;
+   printf("%s times: delta time: %.6f (user: %.6f, system: %.6f)\n", name, total_times, user_sec, system_sec);
 
    // process
    start_nsec = s->clock_process.start.tv_sec * NSEC_PER_SEC + s->clock_process.start.tv_nsec;
    end_nsec = s->clock_process.end.tv_sec * NSEC_PER_SEC + s->clock_process.end.tv_nsec;
    s->clock_process.nsec_consumed = end_nsec - start_nsec;
-   total_clock_p = (float)s->clock_process.nsec_consumed / NSEC_PER_SEC;
-   printf("%s clock_process: delta time: %.6f\n", name, total_clock_p);
+   total_clock_process = (float)s->clock_process.nsec_consumed / NSEC_PER_SEC;
+   printf("%s clock_process: delta time: %.6f\n", name, total_clock_process);
 
    // thread
    start_nsec = s->clock_thread.start.tv_sec * NSEC_PER_SEC + s->clock_thread.start.tv_nsec;
    end_nsec = s->clock_thread.end.tv_sec * NSEC_PER_SEC + s->clock_thread.end.tv_nsec;
    s->clock_thread.nsec_consumed = end_nsec - start_nsec;
-   total_clock_t = (float)s->clock_thread.nsec_consumed / NSEC_PER_SEC;
-   printf("%s clock_thead: delta time: %.6f\n", name, total_clock_t);
+   total_clock_thread = (float)s->clock_thread.nsec_consumed / NSEC_PER_SEC;
+   printf("%s clock_thead: delta time: %.6f\n", name, total_clock_thread);
 
    if (ratio == -1) {
-      s->times.calibrate = total_t;
-      s->clock_process.calibrate = total_clock_p;
-      s->clock_thread.calibrate = total_clock_t;
+      s->times.calibrate = total_times;
+      s->clock_process.calibrate = total_clock_process;
+      s->clock_thread.calibrate = total_clock_thread;
    }
 
    if (ratio > 0) {
       printf("Validating %s\n", name);
-      ASSERTm("Times", total_t < s->times.calibrate * ratio);
-      ASSERTm("clock_process", total_clock_p < s->clock_process.calibrate * ratio);
-      ASSERTm("clock_thread", total_clock_t < s->clock_thread.calibrate * ratio);
+      ASSERTm("Times", total_times < s->times.calibrate * ratio);
+      ASSERTm("clock_process", total_clock_process < s->clock_process.calibrate * ratio);
+      ASSERTm("clock_thread", total_clock_thread < s->clock_thread.calibrate * ratio);
    }
 
    PASS();
