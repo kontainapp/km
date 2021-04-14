@@ -1166,10 +1166,13 @@ fi
    assert_line --partial "env[0] = 'ONE=one'"
    assert_line --partial "env[3] = 'FOUR=four'"
 
-   # test correct stderr for non-existing files
+   # test correct stderr for ENOENT and ENOEXEC
    run km_with_timeout exec_test$ext -e
    assert_failure
    assert_output --partial "errno 2,"
+   run km_with_timeout exec_test$ext -E
+   assert_failure
+   assert_output --partial "errno 8,"
 
    # test exec into shebang
    KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout exec_test$ext
