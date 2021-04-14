@@ -75,7 +75,6 @@ parallel/test-child-process-fork-detached.js
 parallel/test-child-process-fork-exec-argv.js
 parallel/test-child-process-fork-net.js
 parallel/test-child-process-fork-net-server.js
-parallel/test-child-process-http-socket-leak.js
 parallel/test-child-process-kill.js
 parallel/test-child-process-pipe-dataflow.js
 parallel/test-child-process-promisified.js
