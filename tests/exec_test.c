@@ -28,6 +28,7 @@
  * Flags:
  * -f to test fexecve().
  * -e to test ENOENT errno
+ * -E flag to test ENOEXEC errno
  * -k flags to test exec into '.km' file
  * -s to tests /bin/sh parse
  * -X to test exec into realpath of /proc/self/exe
@@ -43,6 +44,7 @@
 #define EXEC_TEST_EXE_KM "hello_test.km"
 
 #define EXEC_TEST_EXE_ENOENT "this_file_should_not_exist.ever"
+#define EXEC_TEST_EXE_ENOEXEC "test_helper.bash"   // existing file but not an ELF
 
 int main(int argc, char** argv)
 {
@@ -79,6 +81,15 @@ int main(int argc, char** argv)
               errno,
               strerror(errno),
               EXEC_TEST_EXE_ENOENT);
+      return rc;
+   } else if (strcmp(argv[1], "-E") == 0) {
+      rc = execve(EXEC_TEST_EXE_ENOEXEC, testargv, testenvp);
+      fprintf(stderr,
+              "Expected failure: execve()  rc %d, errno %d, %s: %s\n",
+              rc,
+              errno,
+              strerror(errno),
+              EXEC_TEST_EXE_ENOEXEC);
       return rc;
    } else if (strcmp(argv[1], "-k") == 0) {   // exec into '.km' file
       if (KM_PAYLOAD() == 0) {
