@@ -13,6 +13,7 @@
 #define _GNU_SOURCE
 #include <sys/types.h>
 #include "km_hcalls.h"
+#include "libkontain.h"
 
 int snapshot(char* label, char* application_name, int snapshot_live)
 {

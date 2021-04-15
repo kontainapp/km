@@ -10,11 +10,11 @@
  * permission of Kontain Inc.
  */
 
-#ifndef __KM_SNAPSHOT_H__
-#define __KM_SNAPSHOT_H__
+#ifndef __LIBKONTAIN_H__
+#define __LIBKONTAIN_H__
 
 int snapshot(char* label, char* application_name, int snapshot_live);
 size_t snapshot_getdata(void* buffer, size_t count);
 size_t snapshot_putdata(void* buffer, size_t count);
 
-#endif /* #ifndef __KM_SNAPSHOT_H__ */
+#endif /* #ifndef __LIBKONTAIN_H__ */

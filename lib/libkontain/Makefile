@@ -14,12 +14,12 @@ LIB := kontain
 
 SOLIB := kontain
 
-SOURCES := km_snapshot.c
+SOURCES := libkontain.c
 
 INCLUDES := ${TOP}/include
 
-all: km_snapshot.h
-	cp km_snapshot.h ${KM_OPT_INC}
+all: libkontain.h
+	cp libkontain.h ${KM_OPT_INC}
 	cp ${BLDTOP}/lib/libkontain/libkontain.a ${KM_OPT_LIB}
 	cp ${BLDTOP}/lib/libkontain/libkontain.so ${KM_OPT_LIB}
 
