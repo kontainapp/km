@@ -14,6 +14,6 @@ TOP := $(shell git rev-parse --show-toplevel)
 include ${TOP}/make/actions.mk
 
 all: km_hcalls.h
-	@mkdir -m 0777 -p ${KM_OPT_INC}
+	@sudo mkdir -m 0777 -p ${KM_OPT_INC}
 	cp km_hcalls.h ${KM_OPT_INC}
 

@@ -19,9 +19,9 @@ SOURCES := km_snapshot.c
 INCLUDES := ${TOP}/include
 
 all: km_snapshot.h
-	@mkdir -m 0777 -p ${KM_OPT_INC}
+	@sudo mkdir -m 0777 -p ${KM_OPT_INC}
 	cp km_snapshot.h ${KM_OPT_INC}
-	@mkdir -m 0777 -p ${KM_OPT_LIB}
+	@sudo mkdir -m 0777 -p ${KM_OPT_LIB}
 	cp ${BLDTOP}/lib/libkontain/libkontain.a ${KM_OPT_LIB}
 	cp ${BLDTOP}/lib/libkontain/libkontain.so ${KM_OPT_LIB}
 
