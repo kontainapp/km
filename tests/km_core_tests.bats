@@ -42,14 +42,14 @@ not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv km_id
 # raw_clone - glibc clone() wrapper needs pthread structure
 # gdb_forkexec - gdb stack trace needs symbols when in a hypercall
 
-todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test  threads_basic_tsd threads_exit_grp gdb_forkexec'
+todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test  threads_basic_tsd threads_exit_grp gdb_forkexec km_exec_guest_files'
 
 not_needed_alpine_dynamic=$not_needed_alpine_static
 todo_alpine_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
 not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 readlink_argv km_identity exec_sh'
-todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps '
+todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps km_exec_guest_files'
 
 # running .so as executables was useful at some point, but it isn't needed anymore.
 # Simply disable the tests for now. Ultimately we will drop build and test support for them.
@@ -1409,4 +1409,18 @@ fi
 @test "km_sid_pgid($test_type): test session id and process group id hypercalls (sid_pgid_test$ext)" {
    run km_with_timeout sid_pgid_test$ext
    assert_success
+}
+
+@test "km_exec_guest_files($test_type): verify that open files are recovered across execve() (exec_guest_files_test$ext)" {
+   # This test used 2 network ports.  The next free port would be 21.
+   local port_id=19
+   local socket_port=$(($port_range_start + $port_id))
+   KMTRACE=/tmp/exec_guest_files_kmtrace.$$
+
+   rm -f $KMTRACE
+   SOCKET_PORT=$socket_port KM_VERBOSE="" run km_with_timeout --km-log-to=$KMTRACE exec_guest_files_test$ext exec_to_target
+   assert_success
+   diff <(grep "before exec" $KMTRACE | cut -b 57-)  <(grep "after exec" $KMTRACE | cut -b 56-)
+   assert_success
+   rm -f $KMTRACE
 }

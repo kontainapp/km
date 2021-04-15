@@ -42,6 +42,7 @@
 #include "km_coredump.h"
 #include "km_exec.h"
 #include "km_filesys.h"
+#include "km_filesys_private.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
@@ -57,10 +58,6 @@ static const int KM_MGM_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 3;
 const int KM_LOGGING = MAX_OPEN_FILES - MAX_KM_FILES + 4;
 static const int KM_START_FDS = MAX_OPEN_FILES - MAX_KM_FILES + 5;
 
-static const_string_t stdin_name = "[stdin]";
-static const_string_t stdout_name = "[stdout]";
-static const_string_t stderr_name = "[stderr]";
-
 static char proc_pid_fd[128];
 static char proc_pid_exe[128];
 static char proc_pid[128];
@@ -68,68 +65,14 @@ static int proc_pid_length;
 
 static char* km_my_exec;   // my executable per /proc/self/exe to check with in readlink
 
-typedef struct km_fd_socket {
-   int state;
-   int backlog;
-   int domain;
-   int type;
-   int protocol;
-   // currently all linux sockaddr variations fit in 128 bytes
-   int addrlen;
-   char addr[128];
-} km_fd_socket_t;
-
-#define KM_SOCK_STATE_OPEN 0
-#define KM_SOCK_STATE_BIND 1
-#define KM_SOCK_STATE_LISTEN 2
-#define KM_SOCK_STATE_ACCEPT 3
-#define KM_SOCK_STATE_CONNECT 4
-
-typedef struct km_fs_event {
-   TAILQ_ENTRY(km_fs_event) link;
-   int fd;
-   struct epoll_event event;
-} km_fs_event_t;
-
-typedef struct km_file {
-   int inuse;
-   int how;              // How was this file created
-   int flags;            // Open flags
-   km_file_ops_t* ops;   // Overwritten file ops for file matched at open
-   int ofd;              // 'other' fd (pipe and socketpair)
-   char* name;
-   km_fd_socket_t* sockinfo;           // For sockets
-   TAILQ_HEAD(, km_fs_event) events;   // for epoll_create fd's
-} km_file_t;
-
-#define KM_FILE_HOW_OPEN 0    /* Regular open */
-#define KM_FILE_HOW_PIPE_0 1  /* read half of pipe */
-#define KM_FILE_HOW_PIPE_1 2  /* write half of pipe */
-#define KM_FILE_HOW_EVENTFD 3 /* epoll_create */
-#define KM_FILE_HOW_SOCKET 4
-#define KM_FILE_HOW_ACCEPT 5
-#define KM_FILE_HOW_SOCKETPAIR0 6
-#define KM_FILE_HOW_SOCKETPAIR1 7
-#define KM_FILE_HOW_RECVMSG 8
-
-typedef struct km_filesys {
-   int nfdmap;               // size of file descriptor maps
-   km_file_t* guest_files;   // Indexed by guestfd
-} km_filesys_t;
-
 // file name conversion functions forward declarations
 static int km_fs_g2h_filename(const char* name, char* buf, size_t bufsz, km_file_ops_t** ops);
 static int km_fs_g2h_readlink(const char* name, char* buf, size_t bufsz);
 
-static inline km_filesys_t* km_fs()
-{
-   return machine.filesys;
-}
-
 /*
  * Get file name for file descriptors that are not files - socket, pipe, and such
  */
-static char* km_get_nonfile_name(int hostfd)
+char* km_get_nonfile_name(int hostfd)
 {
    char buf[PATH_MAX + 1];
    char fn[128];
@@ -200,7 +143,7 @@ static inline int km_add_socket_fd(
 }
 
 /*
- * deletes an exist guestfd to hostfd mapping (used by km_fs_close())
+ * deletes an existing guestfd to hostfd mapping (used by km_fs_close())
  *
  * Note: The caller must assure that the fd doesn't get re-used by another
  *       thread before this function complete. In km_close() this is handled
@@ -221,6 +164,11 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
    if (file->sockinfo != NULL) {
       free(file->sockinfo);
       file->sockinfo = NULL;
+   }
+   km_fs_event_t* eventp;
+   while ((eventp = TAILQ_FIRST(&file->events)) != NULL) {
+      TAILQ_REMOVE(&file->events, eventp, link);
+      free(eventp);
    }
    if (file->ofd != -1) {
       km_file_t* other = &km_fs()->guest_files[file->ofd];
@@ -1114,6 +1062,7 @@ uint64_t km_fs_pipe(km_vcpu_t* vcpu, int pipefd[2])
       pipefd[1] =
           km_add_guest_fd_internal(vcpu, host_pipefd[1], NULL, O_WRONLY, KM_FILE_HOW_PIPE_1, NULL);
       km_connect_files(vcpu, pipefd);
+      km_infox(KM_TRACE_FILESYS, "pipefd's %d %d", pipefd[0], pipefd[1]);
    }
    return ret;
 }
@@ -1129,6 +1078,7 @@ uint64_t km_fs_pipe2(km_vcpu_t* vcpu, int pipefd[2], int flags)
       pipefd[1] =
           km_add_guest_fd_internal(vcpu, host_pipefd[1], NULL, flags | O_WRONLY, KM_FILE_HOW_PIPE_1, NULL);
       km_connect_files(vcpu, pipefd);
+      km_infox(KM_TRACE_FILESYS, "pipefd's %d %d", pipefd[0], pipefd[1]);
    }
    return ret;
 }
@@ -2261,17 +2211,28 @@ int km_fs_init(void)
          assert(file->inuse != 1);
          file->inuse = 1;
          file->ofd = -1;
+         file->name = km_get_nonfile_name(i);
+         int ispts = (strncmp(file->name, "/dev/pts/", 9) == 0);
          switch (i) {
             case 0:
-               file->name = strdup("[stdin]");
+               if (ispts != 0) {
+                  free(file->name);
+                  file->name = strdup(stdin_name);
+               }
                file->flags = O_RDONLY;
                break;
             case 1:
-               file->name = strdup("[stdout]");
+               if (ispts != 0) {
+                  free(file->name);
+                  file->name = strdup(stdout_name);
+               }
                file->flags = O_WRONLY;
                break;
             case 2:
-               file->name = strdup("[stderr]");
+               if (ispts != 0) {
+                  free(file->name);
+                  file->name = strdup(stderr_name);
+               }
                file->flags = O_WRONLY;
                break;
          }
