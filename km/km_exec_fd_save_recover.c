@@ -477,6 +477,7 @@ int km_exec_restore_fd(char* env_value)
    int ofd;
    int backlog;
    int state;
+   
 
    while (*p != 0) {
       int tag;
@@ -517,6 +518,7 @@ int km_exec_restore_fd(char* env_value)
          break;
 
       case KM_FDTYPE_SOCKET:
+         // {3,5,4,2,5,-1,020056cf000000000000000000000000},
          if (sscanf(q, "%d,%d,%d,%d,%d,", &fd, &how, &state, &backlog, &ofd) != 5) {
             return -1;
          }
@@ -524,15 +526,23 @@ int km_exec_restore_fd(char* env_value)
          if (sockinfo == NULL) {
             return -1;
          }
+         char* saveq = q;
          q = strchr(q, '}');
          if (q == NULL) {
             free(sockinfo);
             return -1;
          }
-         while (*(q-1) != ',') q--;
-km_infox(KM_TRACE_EXEC, "sockaddr %s", q);
+         while (*(q-1) != ',') {
+            q--;
+            if (q == saveq) {
+               // We should have found a ',' by now.  We got this far because sscanf() above found one.
+               km_infox(KM_TRACE_EXEC, "Didn't find a comma in %s?", saveq);
+               break;
+            }
+         }
          km_hex2bin(q, (unsigned char*)sockinfo->addr, &sockinfo->addrlen);
          if (km_exec_restore_socket(fd, how, state, backlog, ofd, sockinfo) < 0) {
+            // km_exec_restore_socket() will free sockinfo when it fails.
             km_infox(KM_TRACE_EXEC, "Unable to restore socket fd %d", fd);
             return -1;
          }
