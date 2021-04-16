@@ -33,6 +33,7 @@ DEPS = $(addprefix ${BLDDIR}/, $(addsuffix .d, $(basename ${SOURCES})))
 OBJS = $(sort $(addprefix ${BLDDIR}/, $(addsuffix .o, $(basename ${SOURCES}))))
 BLDEXEC = $(addprefix ${BLDDIR}/,${EXEC})
 BLDLIB = $(addprefix ${BLDDIR}/lib,$(addsuffix .a,${LIB}))
+BLDSOLIB = $(addprefix ${BLDDIR}/lib,$(addsuffix .so,${SOLIB}))
 
 ifneq (${SUBDIRS},)
 
@@ -94,9 +95,12 @@ endif # ifneq (${EXEC},)
 
 ifneq (${LIB},)
 
-all: ${BLDLIB}
+all: ${BLDLIB} ${BLDSOLIB}
 ${BLDLIB}: $(OBJS)
 	@echo "Making " $@; rm -f $@; ${AR} crs $@ $(OBJS)
+
+${BLDSOLIB}: $(OBJS)
+	@echo "Making " $@; rm -f $@; ${CC} -shared -o $@ $(OBJS)
 
 endif # ifneq (${LIB},)
 
