@@ -24,8 +24,10 @@
 #include "km.h"
 #include "km_exec.h"
 #include "km_filesys.h"
+#include "km_filesys_private.h"
 #include "km_gdb.h"
 #include "km_mem.h"
+#include "km_exec_fd_save_recover.h"
 
 /*
  * The execve hypercall builds the following environment variables which are appended to
@@ -48,17 +50,6 @@ static char KM_EXEC_GUESTFDS[] = "KM_EXEC_GUESTFDS";
 static char KM_EXEC_PIDINFO[] = "KM_EXEC_PIDINFO";
 static char KM_EXEC_GDBINFO[] = "KM_EXEC_GDBINFO";
 
-/*
- * An instance of this holds all of the exec state that the execing program puts
- * into the above environment variables.  The exec'ed instance of km retrieves the
- * environment variables and builds an instance of this structure which is then
- * used to restore needed km state for the new payload to continue.
- */
-typedef struct fdmap {
-   int fd;
-   int idx;   // index in km_filename_table or -1
-} fdmap_t;
-
 typedef struct km_exec_state {
    int version;
    int tracepid;
@@ -71,12 +62,23 @@ typedef struct km_exec_state {
    int mach_fd;
    int kvm_vcpu_fd[KVM_MAX_VCPUS];
    int nfdmap;
-   fdmap_t guestfd_hostfd[0];
+   km_file_t guestfds[0];
 } km_exec_state_t;
 
 int km_exec_started_this_payload = 0;
 
 static km_exec_state_t* execstatep;
+
+void km_exec_get_file_pointer(int fd, km_file_t** filep, int* nfds)
+{
+   if (fd >= execstatep->nfdmap) {
+      km_errx(1, "requested fd %d to large, nfdmap %d", fd, execstatep->nfdmap);
+   }
+   *filep = &execstatep->guestfds[fd];
+   if (nfds != NULL) {
+      *nfds = execstatep->nfdmap;
+   }
+}
 
 // The args from main so that exec can rebuild the km command line
 static int km_exec_argc;
@@ -126,48 +128,7 @@ static char* km_exec_vers_var(void)
  */
 static char* km_exec_g2h_var(void)
 {
-   int bufl = sizeof(KM_EXEC_GUESTFDS) + 1 + km_fs_max_guestfd() * sizeof("gggg:hhhh,");
-   char* bufp = malloc(bufl);
-   int bytes_avail = bufl;
-   char* p = bufp;
-   int bytes_needed;
-   int fdcount = 0;
-
-   if (bufp == NULL) {
-      return NULL;
-   }
-   bytes_needed = snprintf(p, bytes_avail, "%s=", KM_EXEC_GUESTFDS);
-   if (bytes_needed + 1 > bufl) {
-      free(bufp);
-      return NULL;
-   }
-   bytes_avail -= bytes_needed;
-   p += bytes_needed;
-
-   for (int i = 0; i < km_fs_max_guestfd(); i++) {
-      km_file_ops_t* ops;
-      int hostfd = km_fs_g2h_fd(i, &ops);
-      if (hostfd >= 0) {
-         int fdflags = fcntl(hostfd, F_GETFD);
-         if (fdflags < 0) {
-            km_info(KM_TRACE_EXEC, "fcntl() on guestfd %d failed, ignoring it, ", i);
-            continue;
-         }
-         if ((fdflags & FD_CLOEXEC) != 0) {
-            continue;
-         }
-         bytes_needed =
-             snprintf(p, bytes_avail, fdcount == 0 ? "%d:%d" : ",%d:%d", i, km_filename_table_line(ops));
-         if (bytes_needed + 1 > bytes_avail) {
-            free(bufp);
-            return NULL;
-         }
-         fdcount++;
-         bytes_avail -= bytes_needed;
-         p += bytes_needed;
-      }
-   }
-   return bufp;
+   return km_exec_save_fd(KM_EXEC_GUESTFDS);
 }
 
 /*
@@ -687,36 +648,21 @@ static int km_exec_get_vmfds(char* vmfds)
    return 0;
 }
 
+/*
+ * Parse the contents of the guestfds environment variable into the execstate memory where
+ * it can be used to restore the guestfd state in km_filesys.
+ * We want to weed out parse errors here before we get into km initialization.
+ */
 static int km_exec_get_guestfds(char* guestfds)
 {
-   int n;
-   char* pi;
-   char* p;
-   char* saveptr;
-
    // Get the guest to host fd map, note: strtok clobbers the input string
    char* guestfds_copy = strdup(guestfds);
    if (guestfds_copy == NULL) {
       return -1;
    }
-   pi = guestfds_copy;
-   int i = 0;
-   while ((p = strtok_r(pi, ",", &saveptr)) != NULL) {
-      pi = NULL;
-      if (i >= execstatep->nfdmap) {   // too many fd's?
-         return -1;
-      }
-      n = sscanf(p, "%d:%d", &execstatep->guestfd_hostfd[i].fd, &execstatep->guestfd_hostfd[i].idx);
-      if (n != 2) {
-         return -1;
-      }
-      i++;
-   }
+   int rc = km_exec_restore_fd(guestfds_copy);
    free(guestfds_copy);
-   if (i < execstatep->nfdmap) {   // if there is room, add a terminator
-      execstatep->guestfd_hostfd[i].fd = -1;
-   }
-   return 0;
+   return rc;
 }
 
 /*
@@ -774,7 +720,7 @@ int km_exec_recover_kmstate(void)
       km_infox(KM_TRACE_EXEC, "exec state verion mismatch, got %d, expect %d", version, KM_EXEC_VERNUM);
       return -1;
    }
-   if ((execstatep = calloc(1, sizeof(*execstatep) + (sizeof(fdmap_t) * nfdmap))) == NULL) {
+   if ((execstatep = calloc(1, sizeof(*execstatep) + (sizeof(km_file_t) * nfdmap))) == NULL) {
       km_infox(KM_TRACE_EXEC, "couldn't allocate fd map, nfdmap %d", nfdmap);
       return -1;
    }
@@ -878,30 +824,27 @@ int km_exec_recover_kmstate(void)
  */
 int km_exec_recover_guestfd(void)
 {
-   char linkname[32];
-   char linkbuf[MAXPATHLEN];
 
    if (execstatep == NULL) {
       return 1;
    }
-   for (int i = 0; i < execstatep->nfdmap && execstatep->guestfd_hostfd[i].fd >= 0; i++) {
-      ssize_t bytes;
-      snprintf(linkname, sizeof(linkname), PROC_SELF_FD, execstatep->guestfd_hostfd[i].fd);
-      if ((bytes = readlink(linkname, linkbuf, sizeof(linkbuf) - 1)) < 0) {
-         km_err(2, "Can't get filename for hostfd %d, link %s", execstatep->guestfd_hostfd[i].fd, linkname);
+   for (int i = 0; i < execstatep->nfdmap ; i++) {
+      if (execstatep->guestfds[i].inuse == 0) {
+         continue;
       }
-      linkbuf[bytes] = 0;
-      km_infox(KM_TRACE_EXEC,
-               "fd %d, idx %d, name %s",
-               execstatep->guestfd_hostfd[i].fd,
-               execstatep->guestfd_hostfd[i].idx,
-               linkbuf);
-      int chosen_guestfd = km_add_guest_fd(NULL,
-                                           execstatep->guestfd_hostfd[i].fd,
-                                           linkbuf,
-                                           0,
-                                           km_file_ops(execstatep->guestfd_hostfd[i].idx));
-      assert(chosen_guestfd == execstatep->guestfd_hostfd[i].fd);
+
+      km_file_t* file = &km_fs()->guest_files[i];
+      *file = execstatep->guestfds[i];
+      // Fixup a few things
+      TAILQ_INIT(&file->events);
+      TAILQ_CONCAT(&file->events, &execstatep->guestfds[i].events, link);
+
+      km_exec_fdtrace("after exec", i);
+
+      // Remove pointers from the source km_file_t
+      execstatep->guestfds[i].name = NULL;
+      execstatep->guestfds[i].sockinfo = NULL;
+      TAILQ_INIT(&execstatep->guestfds[i].events);
    }
    return 0;
 }
