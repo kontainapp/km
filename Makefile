@@ -6,7 +6,7 @@
 # See 'make -C tests buildenv-fedora-local' for installing dependencies
 #
 # ====
-#  Copyright © 2018-2019 Kontain Inc. All rights reserved.
+#  Copyright © 2018-2021 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
 #
@@ -19,10 +19,10 @@
 TOP := $(shell git rev-parse --show-toplevel)
 
 # scan all these and 'make' stuff there
-SUBDIRS := km km_cli runtime tests payloads container-runtime tools/faktory
+SUBDIRS := lib km km_cli runtime tests payloads container-runtime tools/faktory tools/bin include
 
 # build VMM and runtime library before trying to build tests
-tests: km runtime container-runtime
+tests: km runtime container-runtime lib
 
 # On mac $(MAKE) evaluates to '/Applications/Xcode.app/Contents/Developer/usr/bin/make'
 ifeq ($(shell uname), Darwin)
