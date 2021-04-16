@@ -272,7 +272,7 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 # It'd a prerequisite for all further builds and needs to be called right after building
 # or pull the buildenv-image. Call it via 'make buildenv-local-fedora' or 'make .buildenv-local-lib'
 # so that libs are on the host and can be copied to runenv-image and testenv-image
-.buildenv-local-lib: .buildenv-local-check-image | ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN}
+.buildenv-local-lib: .buildenv-local-check-image | ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}
 	docker create --name tmp_env ${BUILDENV_IMG_TAGGED}
 	sudo docker cp tmp_env:/opt/kontain /opt
 	sudo docker cp tmp_env:/usr/local /usr
@@ -282,7 +282,7 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 	@if ! docker image inspect ${BUILDENV_IMG_TAGGED} > /dev/null ; then \
 		echo -e "$(RED)${BUILDENV_IMG_TAGGED} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
 
-${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN}:
+${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
 	sudo sh -c "mkdir -p $@ && chgrp users $@ && chmod 777 $@"
 
 RELEASE_REG := docker.io/kontainapp
