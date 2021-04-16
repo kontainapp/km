@@ -1,5 +1,5 @@
 /*
- * Copyright © 2020 Kontain Inc. All rights reserved.
+ * Copyright © 2020-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -13,10 +13,16 @@
 #ifndef __KM_EXEC_H__
 #define __KM_EXEC_H__
 
+#include <sys/socket.h>
+#include <sys/epoll.h>
+#include "km_filesys.h"
+#include "km_filesys_private.h"
+
 static const_string_t KMPATH = "KMPATH";
 static const_string_t SHELL_PATH = "/bin/sh";
 static const_string_t PAYLOAD_SUFFIX = ".km";
 
+void km_exec_get_file_pointer(int fd, km_file_t** filep, int* nfds);
 char** km_exec_build_env(char** envp);
 char** km_exec_build_argv(char* filename, char** argv, char** envp);
 int km_exec_recover_kmstate(void);

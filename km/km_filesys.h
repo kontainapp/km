@@ -64,6 +64,7 @@ typedef struct {
 
 int km_filename_table_line(km_file_ops_t* o);
 km_file_ops_t* km_file_ops(int i);
+char* km_get_nonfile_name(int hostfd);
 
 /*
  * maps a host fd to a guest fd. Returns a negative error number if mapping does
@@ -294,4 +295,5 @@ int km_mgt_accept(int fd, struct sockaddr* addr, socklen_t* addrlen);
 
 int km_fs_recover(char* ptr, size_t length);
 #define KM_TRACE_FILESYS "filesys"
+
 #endif
