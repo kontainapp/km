@@ -14,8 +14,10 @@
 TOP := $(shell git rev-parse --show-toplevel)
 include ${TOP}/make/locations.mk
 
-build: ## builds go executable
-	CGO_ENABLED=0 go build goweb/server.go 
+all build: server   
+
+server: goweb/server.go ## builds go executable
+	CGO_ENABLED=0 go build goweb/server.go
 
 PORT ?= 15213
 ENDPOINT ?= localhost:${PORT}
@@ -48,3 +50,5 @@ force-stop: server ## stops the server
 
 clean: ## removes executible
 	rm server
+
+.PHONY: all build clean test test-start-v test-start test-long force-stop 
