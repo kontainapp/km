@@ -22,7 +22,7 @@
 FROM alpine:3.13.0 as alpine-lib-image
 ENV PREFIX=/opt/kontain
 
-RUN apk add bash make git g++ gcc musl-dev libffi-dev sqlite-static
+RUN apk add bash make git g++ gcc musl-dev libffi-dev sqlite-static util-linux-dev
 
 # Prepare $PREFIX/alpine-lib while trying to filter out irrelevant stuff
 RUN mkdir -p $PREFIX/alpine-lib
@@ -41,8 +41,8 @@ FROM fedora:31 AS buildenv-early
 # Some of the packages needed only for payloads and /or faktory, but we land them here for convenience.
 #
 # Also, this list is used on generating local build environment, so we explicitly add
-# some packages which are always present on Fedora32 but may be missing on Fedora31 (e.g. python3-markupsafe).
-# We have also added packages needed by python.km extensions json generation (jq, googler) and crun's build:
+# some packages which are always present on Fedora32 but may be missing on Fedora31 (e.g. python3-markupsafe)
+# We have also added packages needed by python.km extensions json generation (jq, googler), by python configuration (libffi-devel)  and crun's build:
 #   automake autoconf libcap-devel yajl-devel libseccomp-devel
 #   python3-libmount libtool
 RUN dnf install -y \
@@ -52,7 +52,7 @@ RUN dnf install -y \
    elfutils-libelf-devel bzip2-devel \
    zlib-static bzip2-static xz-static \
    openssl-devel openssl-static jq googler \
-   python3-markupsafe parallel \
+   python3-markupsafe libffi-devel parallel \
    automake autoconf libcap-devel yajl-devel libseccomp-devel \
    python3-libmount libtool \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
