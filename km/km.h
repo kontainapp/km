@@ -351,6 +351,8 @@ typedef struct km_machine {
       // TBD Add KKM specific data (if any).
       int dummy;
    } vmtype_u;
+
+   u_int64_t xcr0;
 } km_machine_t;
 
 extern km_machine_t machine;

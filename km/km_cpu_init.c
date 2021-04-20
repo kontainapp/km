@@ -509,7 +509,7 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 
    km_write_registers(new_vcpu);
    km_write_sregisters(new_vcpu);
-   km_write_xcrs(vcpu);
+   km_write_xcrs(new_vcpu);
 
    if (km_gdb_client_is_attached() != 0) {
       km_gdb_update_vcpu_debug(new_vcpu, NULL);
@@ -623,6 +623,11 @@ void km_machine_setup(km_machine_init_params_t* params)
    for (int i = 0; i < machine.cpuid->nent; i++) {
       struct kvm_cpuid_entry2* entry = &machine.cpuid->entries[i];
       switch (entry->function) {
+         case 0xD:
+            if (entry->index == 0) {
+               machine.xcr0 = entry->eax & X86_XCR0_MASK;
+            }
+            break;
          case 0x80000008:
             km_infox(KM_TRACE_KVM, "KVM: physical memory width %d", entry->eax & 0xff);
             machine.guest_max_physmem = 1ul << (entry->eax & 0xff);
