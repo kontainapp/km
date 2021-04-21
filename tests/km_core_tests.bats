@@ -65,7 +65,7 @@ if [ "${USE_VIRT}" = 'kkm' ]; then
 fi
 
 if [ "${USE_VIRT}" = 'kvm' ]; then
-   todo_generic+=' xstate_test'
+   todo_generic+=' '
 fi
 
 # Now the actual tests.
