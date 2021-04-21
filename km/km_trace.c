@@ -22,7 +22,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <getopt.h>
 
 #include "km.h"
 #include "km_exec.h"
@@ -174,8 +173,6 @@ void km_trace_set_log_file_name(char* kmlog_file_name)
  * When invoked from a km payload we ignore km command line trace settings and use the
  * inherited trace fd and use trace categoeries from the KM_VERBOSE envrionment variable.
  */
-extern struct option km_cmd_long_options[];
-extern const_string_t km_cmd_short_options;
 void km_trace_setup(int argc, char* argv[])
 {
    char* trace_regex = NULL;
