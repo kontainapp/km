@@ -470,6 +470,8 @@ typedef struct km_info_trace {
 extern km_info_trace_t km_info_trace;
 extern char* km_payload_name;
 
+void km_trace_setup(int argc, char* argv[]);
+
 extern int km_collect_hc_stats;
 
 #define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)      // 1 for yes, 0 for no

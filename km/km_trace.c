@@ -160,3 +160,103 @@ void km_trace_set_log_file_name(char* kmlog_file_name)
       km_warnx("Truncating log file name %s to %s", kmlog_file_name, km_log_file_name);
    }
 }
+
+/*
+ * This function sets up km tracing and is intended to be called very early in km
+ * startup.  The goal is to have functional tracing when km is entered via an execve()
+ * call from a km payload but we also handle trace setup when km is invoked from a shell
+ * command line.
+ * When invoked from the shell we locate the tracing related arguments in argv[] and
+ * set things up as desired by the invoker.
+ * The command line args take precedence over the KM_VERBOSE variable's value if both
+ * are present when invoked from the shell.
+ * When invoked from a km payload we ignore km command line trace settings and use the
+ * inherited trace fd and use trace categoeries from the KM_VERBOSE envrionment variable.
+ */
+#define PAYLOAD_SEP "--"               // to be safe, we can put this between km args and payload name
+void km_trace_setup(int argc, char* argv[])
+{
+volatile   char* trace_regex = NULL;
+volatile   char* kmlogto = NULL;
+   static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
+   int invoked_by_exec = (getenv("KM_EXEC_VERS") != NULL);
+
+   if (invoked_by_exec == 0) {
+      /*
+       * We were invoked from a a shell command line.
+       * Find the trace related flags from the command line and setup to operate that way.
+       */
+      int i;
+      for (i = 1; i < argc; i++) {
+         if (strcmp(argv[i], PAYLOAD_SEP) == 0) {
+            // The end of km's args.
+            break;
+         }
+         // All of this argument handling should work the way getopt_long() does.
+         if (strncmp(argv[i], "-V", 2) == 0) {
+            trace_regex = &argv[i][2];
+         } else if (strncmp(argv[i], "--verbose", 9) == 0) {
+            if (argv[i][9] == 0) {
+               trace_regex = "";
+            } else if (argv[i][9] == '=') {
+               trace_regex = &argv[i][10];
+            } else {
+               // syntax error.  Let getopt_long() discover this.
+               return;
+            }
+         } else if (strncmp(argv[i], "-k", 2) == 0) {
+            if (argv[i][2] != 0) {
+               kmlogto = &argv[i][2];
+            //} else if (i + 1 < argc && strcmp(argv[i + 1], PAYLOAD_SEP) != 0) {
+            } else if (i + 1 < argc) {
+               /*
+                * -k is dangerous when it precedes the payload name because it will use the payload name
+                * as the log file name and overwrite it.
+                */
+               kmlogto = argv[i + 1];
+               i++;
+            } else {
+               // syntax error
+               return;
+            }
+         } else if (strncmp(argv[i], "--km-log-to", 11) == 0) {
+            if (argv[i][11] == '=') {
+               kmlogto = &argv[i][12];
+            } else if (argv[i][11] == 0 && i + 1 < argc) {
+               kmlogto = argv[i + 1];
+               i++;
+            } else {
+               // syntax error
+               return;
+            }
+         }
+      }
+   }
+
+   if (trace_regex == NULL) {
+      // No trace settings from the command line or command line is ignored, see if the environment has anything to say.
+      trace_regex = getenv("KM_VERBOSE");
+   }
+   if (trace_regex != NULL) {
+      if (*trace_regex == 0) {
+         km_info_trace.level = KM_TRACE_INFO;
+      } else {
+         km_info_trace.level = KM_TRACE_TAG;
+         if (regcomp(&km_info_trace.tags, (char*)trace_regex, regex_flags) != 0) {
+            km_warnx("Failed to compile trace regular expression '%s'", trace_regex);
+         }
+      }
+   }
+
+   // We know to trace, setup where the traces go.
+   if (invoked_by_exec == 0) {
+      km_redirect_msgs((char*)kmlogto);
+   } else {
+      /*
+       * km was started by execve() from a km payload.  So, the logging destination fd is inherited
+       * from the exec'ing km.  What is logged is controled only by the setting of the KM_VERBOSE
+       * environment variable.
+       */
+      km_redirect_msgs_after_exec();
+   }
+}
