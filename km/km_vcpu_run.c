@@ -388,7 +388,7 @@ void km_write_xcrs(km_vcpu_t* vcpu)
    xcrs.flags = 0;
    xcrs.xcrs[0].xcr = 0;
    xcrs.xcrs[0].reserved = 0;
-   xcrs.xcrs[0].value = X86_XCR0_X87 | X86_XCR0_SSE | X86_XCR0_AVX;
+   xcrs.xcrs[0].value = machine.xcr0;
    if (ioctl(vcpu->kvm_vcpu_fd, KVM_SET_XCRS, &xcrs) < 0) {
       km_warn("KVM_SET_XCRS failed");
       return;
