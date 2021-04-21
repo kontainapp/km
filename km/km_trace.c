@@ -215,7 +215,9 @@ void km_trace_setup(int argc, char* argv[])
       // No trace settings from the command line or command line is ignored, see if the environment has anything to say.
       trace_regex = getenv("KM_VERBOSE");
    } else {
-      trace_regex = "";
+      if (trace_regex == NULL) {
+         trace_regex = "";
+      }
    }
    if (trace_regex != NULL) {
       if (*trace_regex == 0) {
