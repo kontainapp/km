@@ -146,7 +146,7 @@ int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
 static char* mgtpipe = NULL;
 static int log_to_fd = -1;
 
-static struct option long_options[] = {
+struct option km_cmd_long_options[] = {
     {"wait-for-signal", no_argument, &wait_for_signal, 1},
     {"dump-shutdown", no_argument, 0, 'D'},
     {"enable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_ENABLE},
@@ -173,6 +173,8 @@ static struct option long_options[] = {
 
     {0, 0, 0, 0},
 };
+
+const_string_t km_cmd_short_options = "+g::e:AV::F:P:vC:Sk:";
 
 static const_string_t SHEBANG = "#!";
 static const size_t SHEBANG_LEN = 2;              // strlen(SHEBANG)
@@ -362,19 +364,20 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
        (pl_name = km_traverse_payload_symlinks((const char*)argv[0])) != NULL) {
       pl_index = 0;
    } else {   // regular KM invocation - parse KM args
-      while ((opt = getopt_long(argc, argv, "+g::e:AV::F:P:vC:Sk:", long_options, &longopt_index)) !=
+      optind = 0;        // reinit getopt
+      while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) !=
              -1) {
          switch (opt) {
             case 0:
                // If this option set a flag, do nothing else now.
-               if (long_options[longopt_index].flag != 0) {
+               if (km_cmd_long_options[longopt_index].flag != 0) {
                   break;
                }
                // Put here handling of longopts which do not have related short opt
-               if (strcmp(long_options[longopt_index].name, GDB_LISTEN) == 0) {
+               if (strcmp(km_cmd_long_options[longopt_index].name, GDB_LISTEN) == 0) {
                   gdbstub.wait_for_attach = GDB_DONT_WAIT_FOR_ATTACH;
                   km_gdb_enable(1);
-               } else if (strcmp(long_options[longopt_index].name, GDB_DYNLINK) == 0) {
+               } else if (strcmp(km_cmd_long_options[longopt_index].name, GDB_DYNLINK) == 0) {
                   gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_DYNLINK;
                   km_gdb_enable(1);
                }

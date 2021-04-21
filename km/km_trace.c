@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 #include "km.h"
 #include "km_exec.h"
@@ -173,84 +174,63 @@ void km_trace_set_log_file_name(char* kmlog_file_name)
  * When invoked from a km payload we ignore km command line trace settings and use the
  * inherited trace fd and use trace categoeries from the KM_VERBOSE envrionment variable.
  */
-#define PAYLOAD_SEP "--"               // to be safe, we can put this between km args and payload name
+extern struct option km_cmd_long_options[];
+extern const_string_t km_cmd_short_options;
 void km_trace_setup(int argc, char* argv[])
 {
    char* trace_regex = NULL;
    char* kmlogto = NULL;
    static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int invoked_by_exec = (getenv("KM_EXEC_VERS") != NULL);
+   int vseen = 0;
 
    if (invoked_by_exec == 0) {
       /*
        * We were invoked from a a shell command line.
        * Find the trace related flags from the command line and setup to operate that way.
        */
-      int i;
-      for (i = 1; i < argc; i++) {
-         if (strcmp(argv[i], PAYLOAD_SEP) == 0) {
-            // The end of km's args.
-            break;
-         }
-         // All of this argument handling should work the way getopt_long() does.
-         if (strncmp(argv[i], "-V", 2) == 0) {
-            trace_regex = &argv[i][2];
-         } else if (strncmp(argv[i], "--verbose", 9) == 0) {
-            if (argv[i][9] == 0) {
-               trace_regex = "";
-            } else if (argv[i][9] == '=') {
-               trace_regex = &argv[i][10];
-            } else {
-               // syntax error.  Let getopt_long() discover this.
+      int opt;
+      int longopt_index;
+      optind = 0;
+      while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) != -1) {
+         switch (opt) {
+            case 'V':
+               trace_regex = optarg;
+               vseen = 1;
+               break;
+            case 'k':
+               kmlogto = optarg;
+               break;
+            case '?':
+               // Invalid option, do nothing, let km_parse_args() find the problem and report.
                return;
-            }
-         } else if (strncmp(argv[i], "-k", 2) == 0) {
-            if (argv[i][2] != 0) {
-               kmlogto = &argv[i][2];
-            //} else if (i + 1 < argc && strcmp(argv[i + 1], PAYLOAD_SEP) != 0) {
-            } else if (i + 1 < argc) {
-               /*
-                * -k is dangerous when it precedes the payload name because it will use the payload name
-                * as the log file name and overwrite it.
-                */
-               kmlogto = argv[i + 1];
-               i++;
-            } else {
-               // syntax error
-               return;
-            }
-         } else if (strncmp(argv[i], "--km-log-to", 11) == 0) {
-            if (argv[i][11] == '=') {
-               kmlogto = &argv[i][12];
-            } else if (argv[i][11] == 0 && i + 1 < argc) {
-               kmlogto = argv[i + 1];
-               i++;
-            } else {
-               // syntax error
-               return;
-            }
+            default:
+               // Ignore the valid options, they are handled in km_parse_args();
+               break;
          }
       }
    }
 
-   if (trace_regex == NULL) {
+   if (vseen == 0) {
       // No trace settings from the command line or command line is ignored, see if the environment has anything to say.
       trace_regex = getenv("KM_VERBOSE");
+   } else {
+      trace_regex = "";
    }
    if (trace_regex != NULL) {
       if (*trace_regex == 0) {
          km_info_trace.level = KM_TRACE_INFO;
       } else {
          km_info_trace.level = KM_TRACE_TAG;
-         if (regcomp(&km_info_trace.tags, (char*)trace_regex, regex_flags) != 0) {
+         if (regcomp(&km_info_trace.tags, trace_regex, regex_flags) != 0) {
             km_warnx("Failed to compile trace regular expression '%s'", trace_regex);
          }
       }
    }
 
-   // We know to trace, setup where the traces go.
+   // We know what to trace, setup where the traces go.
    if (invoked_by_exec == 0) {
-      km_redirect_msgs((char*)kmlogto);
+      km_redirect_msgs(kmlogto);
    } else {
       /*
        * km was started by execve() from a km payload.  So, the logging destination fd is inherited
