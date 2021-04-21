@@ -176,8 +176,8 @@ void km_trace_set_log_file_name(char* kmlog_file_name)
 #define PAYLOAD_SEP "--"               // to be safe, we can put this between km args and payload name
 void km_trace_setup(int argc, char* argv[])
 {
-volatile   char* trace_regex = NULL;
-volatile   char* kmlogto = NULL;
+   char* trace_regex = NULL;
+   char* kmlogto = NULL;
    static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int invoked_by_exec = (getenv("KM_EXEC_VERS") != NULL);
 
