@@ -17,26 +17,6 @@ then the resulting tensorflow<something>.whl file will be copied into that direc
 Run `vagrant up` to build and start the VM with the app.
 `vagrant ssh` (or configure ssh by using output of `vagrant ssh-config`) into the VM.
 
-Currently the km code doesn't support AVX/AVX2 instructions, but the TF code requires that and we don't know how to disable that.
-As a result the code only works in kkm.
-To make sure kvm is not interfering `sudo rmmod kvm_intel` or `sudo rmmod kvm_amd`.
-Or just `sudo ln -s /dev/kkm /dev/kontain` and make sure kkm is present.
-To check, run:
-
-```bash
-/opt/kontain/bin/km -Vkvm /opt/kontain/tests/hello_test.km
-```
-
-and observe:
-
-```txt
-      ...
-16:10:06.078412 km_machine_setup     568  km      Trying to open device file /dev/kontain
-16:10:06.078786 km_machine_setup     578  km      Using device file /dev/kontain
-16:10:06.078927 km_machine_setup     585  km      Setting vm type to VM_TYPE_KKM
-      ...
-```
-
 ## Docker
 
 ```bash
@@ -44,12 +24,8 @@ docker build -t test-app .
 ```
 
 ```bash
-docker run --device /dev/kkm --name test-app --rm -it -p 5000:5000 test-app bash
+docker run --device /dev/kvm --name test-app --rm -it -p 5000:5000 test-app bash
 ```
-
-Currently the km code doesn't support AVX/AVX2 instructions, but the TF code requires that and we don't know how to disable that.
-As a result the code only works in kkm.
-In the future, when km with kvm is fixed, use `--device /dev/kvm` if necessary to run kvm.
 
 To put the km related artifact in the container, run `./p.sh test-app`.
 This copies km and necessary friends into the container, and switches python to unikernel version.
@@ -73,12 +49,6 @@ And to test, run:
 
 ```bash
 curl -s -X POST -F image=@dog2.jpg 'http://localhost:5000/predict' | jq .
-```
-
-or
-
-```bash
-curl -s -X POST -F image=@dog2.jpg 'http://<VM_IP_number>:5000/predict' | jq .
 ```
 
 
