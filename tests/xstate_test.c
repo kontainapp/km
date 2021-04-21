@@ -64,10 +64,23 @@ test_t test;
 
 #define MMX_REG_COUNT (8)
 #define XMM_REG_COUNT (16)
+
+#define SSE_TEST_REG_START (0)
+#define SSE_TEST_REG_COUNT (4)
+#define AVX_TEST_REG_START (4)
+#define AVX_TEST_REG_COUNT (2)
+
 typedef struct {
-   u_int64_t lo;
-   u_int64_t hi;
+   u_int64_t d0;
+   u_int64_t d1;
 } xmm_t;
+
+typedef struct {
+   u_int64_t d0;
+   u_int64_t d1;
+   u_int64_t d2;
+   u_int64_t d3;
+} ymm_t;
 
 /*
  * intel SDM volume 3A section 2.6 XCR0 bit definition
@@ -122,30 +135,43 @@ void set_xtended_registers(child_t* cptr)
 
    if (test.features & SSE) {
       /* SSE (XMM registers) */
-      xmm_t xmm_values[XMM_REG_COUNT] __attribute__((aligned(16)));
-      for (int index = 0; index < XMM_REG_COUNT; index++) {
-         xmm_values[index].hi = xmm_values[index].lo = get_value(cptr->index, index);
+      xmm_t xmm_values[SSE_TEST_REG_COUNT] __attribute__((aligned(16)));
+      for (int index = 0; index < SSE_TEST_REG_COUNT; index++) {
+         xmm_values[index].d1 = xmm_values[index].d0 = get_value(cptr->index, index);
       }
       __asm__ volatile("movdqa (%0), %%xmm0\n"
                        "movdqa 0x10(%0), %%xmm1\n"
                        "movdqa 0x20(%0), %%xmm2\n"
                        "movdqa 0x30(%0), %%xmm3\n"
-                       "movdqa 0x40(%0), %%xmm4\n"
-                       "movdqa 0x50(%0), %%xmm5\n"
-                       "movdqa 0x60(%0), %%xmm6\n"
-                       "movdqa 0x70(%0), %%xmm7\n"
-                       "movdqa 0x80(%0), %%xmm8\n"
-                       "movdqa 0x90(%0), %%xmm9\n"
-                       "movdqa 0xa0(%0), %%xmm10\n"
-                       "movdqa 0xb0(%0), %%xmm11\n"
-                       "movdqa 0xc0(%0), %%xmm12\n"
-                       "movdqa 0xd0(%0), %%xmm13\n"
-                       "movdqa 0xe0(%0), %%xmm14\n"
-                       "movdqa 0xf0(%0), %%xmm15\n"
                        :
                        : "r"(xmm_values));
    } else {
       printf("info: SSE save/restore is not supported, no need to test\n");
+   }
+
+   if (test.features & AVX) {
+      /* AVX (XMM registers) */
+      xmm_t xmm_values[AVX_TEST_REG_COUNT] __attribute__((aligned(16)));
+      for (int index = 0; index < AVX_TEST_REG_COUNT; index++) {
+         xmm_values[index].d1 = xmm_values[index].d0 = get_value(cptr->index, index);
+      }
+      __asm__ volatile("vmovdqa (%0), %%xmm4\n"
+                       "vmovdqa 0x10(%0), %%xmm5\n"
+                       :
+                       : "r"(xmm_values));
+
+      /* AVX (YMM registers) */
+      ymm_t ymm_values[AVX_TEST_REG_COUNT] __attribute__((aligned(32)));
+      for (int index = 0; index < AVX_TEST_REG_COUNT; index++) {
+         ymm_values[index].d3 = ymm_values[index].d2 =
+         ymm_values[index].d1 = ymm_values[index].d0 = get_value(cptr->index, index);
+      }
+      __asm__ volatile("vmovdqa (%0), %%ymm6\n"
+                       "vmovdqa 0x20(%0), %%ymm7\n"
+                       :
+                       : "r"(ymm_values));
+   } else {
+      printf("info: AVX save/restore is not supported, no need to test\n");
    }
    /* TODO add rest of the features when time permits */
 }
@@ -175,28 +201,45 @@ void verify_xtended_registers(child_t* cptr)
 
    if (test.features & SSE) {
       /* SSE (XMM registers) */
-      xmm_t xmm_values[XMM_REG_COUNT] __attribute__((aligned(16)));
+      xmm_t xmm_values[SSE_TEST_REG_COUNT] __attribute__((aligned(16)));
       __asm__ volatile("movdqa %%xmm0, (%0)\n"
                        "movdqa %%xmm1, 0x10(%0)\n"
                        "movdqa %%xmm2, 0x20(%0)\n"
                        "movdqa %%xmm3, 0x30(%0)\n"
-                       "movdqa %%xmm4, 0x40(%0)\n"
-                       "movdqa %%xmm5, 0x50(%0)\n"
-                       "movdqa %%xmm6, 0x60(%0)\n"
-                       "movdqa %%xmm7, 0x70(%0)\n"
-                       "movdqa %%xmm8, 0x80(%0)\n"
-                       "movdqa %%xmm9, 0x90(%0)\n"
-                       "movdqa %%xmm10, 0xa0(%0)\n"
-                       "movdqa %%xmm11, 0xb0(%0)\n"
-                       "movdqa %%xmm12, 0xc0(%0)\n"
-                       "movdqa %%xmm13, 0xd0(%0)\n"
-                       "movdqa %%xmm14, 0xe0(%0)\n"
-                       "movdqa %%xmm15, 0xf0(%0)\n"
                        :
                        : "r"(xmm_values));
-      for (int index = 0; index < XMM_REG_COUNT; index++) {
+      for (int index = 0; index < SSE_TEST_REG_COUNT; index++) {
          u_int64_t expected = get_value(cptr->index, index);
-         if ((xmm_values[index].hi != expected) || (xmm_values[index].lo != expected)) {
+         if ((xmm_values[index].d1 != expected) || (xmm_values[index].d0 != expected)) {
+            cptr->failed_count++;
+         }
+      }
+   }
+
+   if (test.features & AVX) {
+      /* AVX (XMM registers) */
+      xmm_t xmm_values[AVX_TEST_REG_COUNT] __attribute__((aligned(16)));
+      __asm__ volatile("vmovdqa %%xmm4, (%0)\n"
+                       "vmovdqa %%xmm5, 0x10(%0)\n"
+                       :
+                       : "r"(xmm_values));
+      for (int index = 0; index < AVX_TEST_REG_COUNT; index++) {
+         u_int64_t expected = get_value(cptr->index, index);
+         if ((xmm_values[index].d1 != expected) || (xmm_values[index].d0 != expected)) {
+            cptr->failed_count++;
+         }
+      }
+
+      /* AVX (YMM registers) */
+      ymm_t ymm_values[AVX_TEST_REG_COUNT] __attribute__((aligned(32)));
+      __asm__ volatile("vmovdqa %%ymm6, (%0)\n"
+                       "vmovdqa %%ymm7, 0x20(%0)\n"
+                       :
+                       : "r"(ymm_values));
+      for (int index = 0; index < AVX_TEST_REG_COUNT; index++) {
+         u_int64_t expected = get_value(cptr->index, index);
+         if ((ymm_values[index].d3 != expected) || (ymm_values[index].d2 != expected) ||
+            (ymm_values[index].d1 != expected) || (ymm_values[index].d0 != expected)) {
             cptr->failed_count++;
          }
       }
