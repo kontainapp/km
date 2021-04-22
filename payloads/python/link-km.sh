@@ -36,7 +36,7 @@ kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
 
 kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
     -Xlinker --undefined=strtoull_l \
-   ${BUILD}/libpython3*.a -lcrypto -lsqlite3 $LDLIBS \
+   ${BUILD}/libpython3*.a -lsqlite3 $LDLIBS \
    -o ${NAME}d
 
 # Add python->km symlink and make python to looking for libs in correct place

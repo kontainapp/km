@@ -7,6 +7,7 @@
 Vagrant.configure("2") do |config|
 
    config.vm.box = "kontain/fedora-kkm"
+   config.vm.network "forwarded_port", guest: 5000, host: 5000
 
    config.vm.provision "file", source: ".", destination: "/home/vagrant/"
    config.vm.provision "file", source: "../../tools/hashicorp/build_tf/tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl", destination: "/home/vagrant/"
@@ -14,6 +15,8 @@ Vagrant.configure("2") do |config|
    #   config.vm.network "forwarded_port", guest: 8080, host: 8080
 
    config.vm.provision "shell", inline: <<-SHELL
+
+   firewall-cmd --add-port=5000/tcp
 
    pip install setuptools
    pip install -r requirements.txt
