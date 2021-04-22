@@ -96,7 +96,7 @@ static inline void usage()
 "\t--disable-1g-pages                  - Force disable 1G pages support\n"
 "\t--virt-device=<file-name>  (-Ffile) - Use provided file-name for virtualization device\n"
 "\t--input-data=<file-name>            - File with data for HC_snapshot_getdata\n"
-"\t--output-data=<file-name>             File with data from HC_snapshot_putdata\n"
+"\t--output-data=<file-name>           - File with data from HC_snapshot_putdata\n"
 "\t--mgtpipe <path>                    - Name for management pipe.\n");
    // clang-format on
 }
@@ -146,7 +146,7 @@ int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
 static char* mgtpipe = NULL;
 static int log_to_fd = -1;
 
-static struct option long_options[] = {
+struct option km_cmd_long_options[] = {
     {"wait-for-signal", no_argument, &wait_for_signal, 1},
     {"dump-shutdown", no_argument, 0, 'D'},
     {"enable-1g-pages", no_argument, &(km_machine_init_params.force_pdpe1g), KM_FLAG_FORCE_ENABLE},
@@ -173,6 +173,8 @@ static struct option long_options[] = {
 
     {0, 0, 0, 0},
 };
+
+const_string_t km_cmd_short_options = "+g::e:AV::F:P:vC:Sk:";
 
 static const_string_t SHEBANG = "#!";
 static const size_t SHEBANG_LEN = 2;              // strlen(SHEBANG)
@@ -350,12 +352,10 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    int copyenv_used = 1;   // By default copy environment from host
    int putenv_used = 0;
    char* ep = NULL;
-   static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int longopt_index;    // flag index in longopt array
    int pl_index;         // payload_name index in argv array
    char** envp = NULL;   // NULL terminated array of env pointers
    int envc = 1;   // count of elements in envp (including NULL), see realloc below in case 'e'
-   char* km_log_to = NULL;
 
    char* pl_name;
    // first one works for symlinks, including found in PATH.
@@ -364,19 +364,20 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
        (pl_name = km_traverse_payload_symlinks((const char*)argv[0])) != NULL) {
       pl_index = 0;
    } else {   // regular KM invocation - parse KM args
-      while ((opt = getopt_long(argc, argv, "+g::e:AV::F:P:vC:Sk:", long_options, &longopt_index)) !=
+      optind = 0;        // reinit getopt
+      while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) !=
              -1) {
          switch (opt) {
             case 0:
                // If this option set a flag, do nothing else now.
-               if (long_options[longopt_index].flag != 0) {
+               if (km_cmd_long_options[longopt_index].flag != 0) {
                   break;
                }
                // Put here handling of longopts which do not have related short opt
-               if (strcmp(long_options[longopt_index].name, GDB_LISTEN) == 0) {
+               if (strcmp(km_cmd_long_options[longopt_index].name, GDB_LISTEN) == 0) {
                   gdbstub.wait_for_attach = GDB_DONT_WAIT_FOR_ATTACH;
                   km_gdb_enable(1);
-               } else if (strcmp(long_options[longopt_index].name, GDB_DYNLINK) == 0) {
+               } else if (strcmp(km_cmd_long_options[longopt_index].name, GDB_DYNLINK) == 0) {
                   gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_DYNLINK;
                   km_gdb_enable(1);
                }
@@ -407,7 +408,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
 
                break;
             case 'k':
-               km_log_to = optarg;
+               // km logging destination is setup in km_trace_setup() called earlier.  We ignore this here.
                break;
             case 'e':                    // --putenv
                if (copyenv_used > 1) {   // if --copyenv was on the command line, something is wrong
@@ -459,15 +460,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                }
                break;
             case 'V':
-               if (optarg != NULL) {
-                  km_info_trace.level = KM_TRACE_TAG;
-                  if (regcomp(&km_info_trace.tags, optarg, regex_flags) != 0) {
-                     km_warnx("Failed to compile -V regexp '%s'", optarg);
-                     usage();
-                  }
-               } else {
-                  km_info_trace.level = KM_TRACE_INFO;
-               }
+               // trace categories are setup earlier in km_trace_setup().  We do nothing here.
                break;
             case 'v':
                show_version();
@@ -495,10 +488,6 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
          }
       }
       pl_index = optind;
-   }
-   if (km_called_via_exec() == 0) {
-      // km_exec_recover_kmstate() has already setup km_log_file in the case of entry by execve().
-      km_redirect_msgs(km_log_to);
    }
 
    // Configure payload's env and args
@@ -598,27 +587,6 @@ static inline int km_need_pause_all(void)
            (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
 }
 
-/*
- * Get KM_VERBOSE from the environment and setup km tracing from its contents.
- * Values supplied on the km command line with the -V flag are processed later
- * so they will override what we set from KM_VERBOSE.
- */
-static inline void km_setup_tracing(void)
-{
-   static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
-
-   // TODO: handle generic KM_CLI_FLAGS here, and reuse code below
-   char* trace_regex = getenv("KM_VERBOSE");
-   if (trace_regex != NULL) {
-      if (*trace_regex == 0) {
-         km_info_trace.level = KM_TRACE_INFO;
-      } else {
-         km_info_trace.level = KM_TRACE_TAG;
-         regcomp(&km_info_trace.tags, trace_regex, regex_flags);
-      }
-   }
-}
-
 int main(int argc, char* argv[])
 {
    km_vcpu_t* vcpu = NULL;
@@ -628,7 +596,7 @@ int main(int argc, char* argv[])
    char** argv_p;   // payload's argc (*not* in ABI format)
    char* payload_name;
 
-   km_setup_tracing();       // setup trace settings as early as possible
+   km_trace_setup(argc, argv);       // setup trace settings as early as possible
    km_gdbstub_init();
 
    if (km_exec_recover_kmstate() < 0) {   // exec state is messed up
