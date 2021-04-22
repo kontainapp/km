@@ -11,21 +11,26 @@
 # Makefile for building and packing Nginx payload runtime for KM
 
 TOP := $(shell git rev-parse --show-toplevel)
-CURRENT := ${TOP}/payloads/nginx
-COMPONENT := nginx
-NGINX_TOP := ${CURRENT}/nginx
-NGINX_EXECUTABLE := ${NGINX_TOP}/objs/nginx
-NGINX_KM := ${CURRENT}/nginx.km
 
+COMPONENT := nginx
 NGINX_REPO := git@github.com:nginx/nginx.git
-NGINX_BRANCH := branches/stable-1.16
+NGINX_BRANCH :=  release-1.20.0
+
+# building it in alpine container
+DTYPE := alpine
+
+CURRENT := ${TOP}/payloads/nginx
+NGINX_TOP = ${CURRENT}/nginx
+NGINX_OBJ_LOC = ${NGINX_TOP}/objs
+NGINX_EXECUTABLE = ${NGINX_OBJ_LOC}/nginx
+NGINX_KM = ${BLDDIR}/nginx.km
 
 all: ${NGINX_KM}
 
 fromsrc: ${NGINX_KM}  ## Clone the repo if needed, and build nginx (default)
 
-${NGINX_KM}: .check ${NGINX_EXECUTABLE}
-	./link-km.sh
+${NGINX_KM}: ${NGINX_EXECUTABLE} .check link-km.sh
+	./link-km.sh ${NGINX_OBJ_LOC} ${TOP}/tools/bin ${BLDDIR}
 
 ${NGINX_EXECUTABLE}: ${NGINX_TOP}
 	./build.sh
@@ -55,5 +60,6 @@ DEP_PACKAGES := pcre-static
 		fi ; \
 		if [ -n "$$failed" ] ; then false ; fi \
 	done
+
 
 include ${TOP}/make/images.mk
