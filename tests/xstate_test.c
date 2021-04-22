@@ -69,6 +69,8 @@ test_t test;
 #define SSE_TEST_REG_COUNT (4)
 #define AVX_TEST_REG_START (4)
 #define AVX_TEST_REG_COUNT (2)
+#define ZMM_HI256_TEST_REG_COUNT (4)
+#define HI16_ZMM_TEST_REG_COUNT (16)
 
 typedef struct {
    u_int64_t d0;
@@ -81,6 +83,17 @@ typedef struct {
    u_int64_t d2;
    u_int64_t d3;
 } ymm_t;
+
+typedef struct {
+   u_int64_t d0;
+   u_int64_t d1;
+   u_int64_t d2;
+   u_int64_t d3;
+   u_int64_t d4;
+   u_int64_t d5;
+   u_int64_t d6;
+   u_int64_t d7;
+} zmm_t;
 
 /*
  * intel SDM volume 3A section 2.6 XCR0 bit definition
@@ -173,6 +186,53 @@ void set_xtended_registers(child_t* cptr)
    } else {
       printf("info: AVX save/restore is not supported, no need to test\n");
    }
+
+   if (test.features & ZMM_HI256) {
+      /* AVX (ZMM0-ZMM15 registers) */
+      zmm_t zmm_values[ZMM_HI256_TEST_REG_COUNT] __attribute__((aligned(64)));
+      for (int index = 0; index < ZMM_HI256_TEST_REG_COUNT; index++) {
+         zmm_values[index].d7 = zmm_values[index].d6 =
+         zmm_values[index].d5 = zmm_values[index].d4 =
+         zmm_values[index].d3 = zmm_values[index].d2 =
+         zmm_values[index].d1 = zmm_values[index].d0 = get_value(cptr->index, index);
+      }
+      __asm__ volatile("vmovdqa32 (%0), %%zmm8\n"
+                       "vmovdqa32 0x40(%0), %%zmm9\n"
+                       "vmovdqa64 0x80(%0), %%zmm10\n"
+                       "vmovdqa64 0xC0(%0), %%zmm11\n"
+                       :
+                       : "r"(zmm_values));
+   }
+
+   if (test.features & HI16_ZMM) {
+      /* AVX512 (ZMM16-ZMM31 registers) */
+      zmm_t zmm_values[HI16_ZMM_TEST_REG_COUNT] __attribute__((aligned(64)));
+      for (int index = 0; index < HI16_ZMM_TEST_REG_COUNT; index++) {
+         zmm_values[index].d7 = zmm_values[index].d6 =
+         zmm_values[index].d5 = zmm_values[index].d4 =
+         zmm_values[index].d3 = zmm_values[index].d2 =
+         zmm_values[index].d1 = zmm_values[index].d0 = get_value(cptr->index, index);
+      }
+      __asm__ volatile("vmovdqa32 (%0), %%zmm16\n"
+                       "vmovdqa32 0x40(%0), %%zmm17\n"
+                       "vmovdqa32 0x80(%0), %%zmm18\n"
+                       "vmovdqa32 0xC0(%0), %%zmm19\n"
+                       "vmovdqa32 0x100(%0), %%zmm20\n"
+                       "vmovdqa32 0x140(%0), %%zmm21\n"
+                       "vmovdqa32 0x180(%0), %%zmm22\n"
+                       "vmovdqa32 0x1C0(%0), %%zmm23\n"
+                       "vmovdqa64 0x200(%0), %%zmm24\n"
+                       "vmovdqa64 0x240(%0), %%zmm25\n"
+                       "vmovdqa64 0x280(%0), %%zmm26\n"
+                       "vmovdqa64 0x2C0(%0), %%zmm27\n"
+                       "vmovdqa64 0x300(%0), %%zmm28\n"
+                       "vmovdqa64 0x340(%0), %%zmm29\n"
+                       "vmovdqa64 0x380(%0), %%zmm30\n"
+                       "vmovdqa64 0x3C0(%0), %%zmm31\n"
+                       :
+                       : "r"(zmm_values));
+   }
+
    /* TODO add rest of the features when time permits */
 }
 
@@ -240,6 +300,58 @@ void verify_xtended_registers(child_t* cptr)
          u_int64_t expected = get_value(cptr->index, index);
          if ((ymm_values[index].d3 != expected) || (ymm_values[index].d2 != expected) ||
             (ymm_values[index].d1 != expected) || (ymm_values[index].d0 != expected)) {
+            cptr->failed_count++;
+         }
+      }
+   }
+
+   if (test.features & ZMM_HI256) {
+      /* AVX (ZMM0-ZMM15 registers) */
+      zmm_t zmm_values[ZMM_HI256_TEST_REG_COUNT] __attribute__((aligned(64)));
+      __asm__ volatile("vmovdqa32 %%zmm8, (%0)\n"
+                       "vmovdqa32 %%zmm9, 0x40(%0)\n"
+                       "vmovdqa64 %%zmm10, 0x80(%0)\n"
+                       "vmovdqa64 %%zmm11, 0xC0(%0)\n"
+                       :
+                       : "r"(zmm_values));
+      for (int index = 0; index < ZMM_HI256_TEST_REG_COUNT; index++) {
+         u_int64_t expected = get_value(cptr->index, index);
+         if ((zmm_values[index].d7 != expected) || (zmm_values[index].d6 != expected) ||
+            (zmm_values[index].d5 != expected) || (zmm_values[index].d4 != expected) ||
+            (zmm_values[index].d3 != expected) || (zmm_values[index].d2 != expected) ||
+            (zmm_values[index].d1 != expected) || (zmm_values[index].d0 != expected)) {
+            cptr->failed_count++;
+         }
+      }
+   }
+
+   if (test.features & HI16_ZMM) {
+      /* AVX512 (ZMM16-ZMM31 registers) */
+      zmm_t zmm_values[HI16_ZMM_TEST_REG_COUNT] __attribute__((aligned(64)));
+      __asm__ volatile("vmovdqa32 %%zmm16, (%0)\n"
+                       "vmovdqa32 %%zmm17, 0x40(%0)\n"
+                       "vmovdqa32 %%zmm18, 0x80(%0)\n"
+                       "vmovdqa32 %%zmm19, 0xC0(%0)\n"
+                       "vmovdqa32 %%zmm20, 0x100(%0)\n"
+                       "vmovdqa32 %%zmm21, 0x140(%0)\n"
+                       "vmovdqa32 %%zmm22, 0x180(%0)\n"
+                       "vmovdqa32 %%zmm23, 0x1C0(%0)\n"
+                       "vmovdqa64 %%zmm24, 0x200(%0)\n"
+                       "vmovdqa64 %%zmm25, 0x240(%0)\n"
+                       "vmovdqa64 %%zmm26, 0x280(%0)\n"
+                       "vmovdqa64 %%zmm27, 0x2C0(%0)\n"
+                       "vmovdqa64 %%zmm28, 0x300(%0)\n"
+                       "vmovdqa64 %%zmm29, 0x340(%0)\n"
+                       "vmovdqa64 %%zmm30, 0x380(%0)\n"
+                       "vmovdqa64 %%zmm31, 0x3C0(%0)\n"
+                       :
+                       : "r"(zmm_values));
+      for (int index = 0; index < HI16_ZMM_TEST_REG_COUNT; index++) {
+         u_int64_t expected = get_value(cptr->index, index);
+         if ((zmm_values[index].d7 != expected) || (zmm_values[index].d6 != expected) ||
+            (zmm_values[index].d5 != expected) || (zmm_values[index].d4 != expected) ||
+            (zmm_values[index].d3 != expected) || (zmm_values[index].d2 != expected) ||
+            (zmm_values[index].d1 != expected) || (zmm_values[index].d0 != expected)) {
             cptr->failed_count++;
          }
       }
