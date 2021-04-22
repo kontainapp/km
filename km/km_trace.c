@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -158,5 +158,84 @@ void km_trace_set_log_file_name(char* kmlog_file_name)
    snprintf(km_log_file_name, sizeof(km_log_file_name), "%s", kmlog_file_name);
    if (strlen(kmlog_file_name) >= sizeof(km_log_file_name)) {
       km_warnx("Truncating log file name %s to %s", kmlog_file_name, km_log_file_name);
+   }
+}
+
+/*
+ * This function sets up km tracing and is intended to be called very early in km
+ * startup.  The goal is to have functional tracing when km is entered via an execve()
+ * call from a km payload but we also handle trace setup when km is invoked from a shell
+ * command line.
+ * When invoked from the shell we locate the tracing related arguments in argv[] and
+ * set things up as desired by the invoker.
+ * The command line args take precedence over the KM_VERBOSE variable's value if both
+ * are present when invoked from the shell.
+ * When invoked from a km payload we ignore km command line trace settings and use the
+ * inherited trace fd and use trace categoeries from the KM_VERBOSE envrionment variable.
+ */
+void km_trace_setup(int argc, char* argv[])
+{
+   char* trace_regex = NULL;
+   char* kmlogto = NULL;
+   static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
+   int invoked_by_exec = (getenv("KM_EXEC_VERS") != NULL);
+   int vseen = 0;
+
+   if (invoked_by_exec == 0) {
+      /*
+       * We were invoked from a a shell command line.
+       * Find the trace related flags from the command line and setup to operate that way.
+       */
+      int opt;
+      int longopt_index;
+      optind = 0;
+      while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) != -1) {
+         switch (opt) {
+            case 'V':
+               trace_regex = optarg;
+               vseen = 1;
+               break;
+            case 'k':
+               kmlogto = optarg;
+               break;
+            case '?':
+               // Invalid option, do nothing, let km_parse_args() find the problem and report.
+               return;
+            default:
+               // Ignore the valid options, they are handled in km_parse_args();
+               break;
+         }
+      }
+   }
+
+   if (vseen == 0) {
+      // No trace settings from the command line or command line is ignored, see if the environment has anything to say.
+      trace_regex = getenv("KM_VERBOSE");
+   } else {
+      if (trace_regex == NULL) {
+         trace_regex = "";
+      }
+   }
+   if (trace_regex != NULL) {
+      if (*trace_regex == 0) {
+         km_info_trace.level = KM_TRACE_INFO;
+      } else {
+         km_info_trace.level = KM_TRACE_TAG;
+         if (regcomp(&km_info_trace.tags, trace_regex, regex_flags) != 0) {
+            km_warnx("Failed to compile trace regular expression '%s'", trace_regex);
+         }
+      }
+   }
+
+   // We know what to trace, setup where the traces go.
+   if (invoked_by_exec == 0) {
+      km_redirect_msgs(kmlogto);
+   } else {
+      /*
+       * km was started by execve() from a km payload.  So, the logging destination fd is inherited
+       * from the exec'ing km.  What is logged is controled only by the setting of the KM_VERBOSE
+       * environment variable.
+       */
+      km_redirect_msgs_after_exec();
    }
 }
