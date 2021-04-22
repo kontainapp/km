@@ -704,10 +704,9 @@ int km_exec_recover_kmstate(void)
    }
 
    /*
-    * We are sure km was entered via execve(), setup km_log_file like km_redirect_msgs() would.
+    * Tracing should be setup early in main() by calling km_trace_setup()
     * Tracing is still in flux until we set the "include pid" flag and this process' pid below.
     */
-   km_redirect_msgs_after_exec();
    km_infox(KM_TRACE_EXEC, "pidinfo %s, current linux pid %d", pidinfo, getpid());
 
    km_exec_started_this_payload = 1;

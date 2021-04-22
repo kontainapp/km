@@ -26,6 +26,7 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <linux/kvm.h>
+#include <getopt.h>
 
 #include "bsd_queue.h"
 #include "km_elf.h"
@@ -471,6 +472,10 @@ typedef struct km_info_trace {
 } km_info_trace_t;
 extern km_info_trace_t km_info_trace;
 extern char* km_payload_name;
+extern struct option km_cmd_long_options[];
+extern const_string_t km_cmd_short_options;
+
+void km_trace_setup(int argc, char* argv[]);
 
 extern int km_collect_hc_stats;
 
