@@ -528,6 +528,18 @@ extern int km_collect_hc_stats;
       __km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                               \
    } while (0)
 
+#define km_abortx(fmt, ...)                                                                        \
+   do {                                                                                            \
+      __km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                   \
+      abort();                                                                                     \
+   } while (0)
+
+#define km_abort(fmt, ...)                                                                         \
+   do {                                                                                            \
+      __km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                               \
+      abort();                                                                                     \
+   } while (0)
+
 #define km_mutex_lock(mutex)                                                                       \
    do {                                                                                            \
       int ret;                                                                                     \
