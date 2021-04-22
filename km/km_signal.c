@@ -193,7 +193,7 @@ static inline void enqueue_signal_nolock(km_signal_list_t* slist, siginfo_t* inf
    km_signal_t* sig;
 
    if ((sig = TAILQ_FIRST(&machine.sigfree.head)) == NULL) {
-      km_err(1, "No free signal entries");
+      km_abortx("No free signal entries");
    }
    TAILQ_REMOVE(&machine.sigfree.head, sig, link);
    sig->info = *info;
