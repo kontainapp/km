@@ -252,12 +252,13 @@ def nm_get_symbols(location, so_file_name, extra_flags=["--dynamic"]):
     """
     logging.info(f"nm {so_file_name}")
     so_full_path_name = os.path.join(location, so_file_name)
+    logging.info("Running " + str(["nm", "--extern-only", "--defined-only"] + extra_flags + [so_full_path_name]))
     nm = subprocess.run(["nm", "--extern-only", "--defined-only"] + extra_flags + [so_full_path_name],
                         capture_output=True, encoding="utf-8")
     if nm.returncode != 0:
         logging.warning(f"Failed to get names for {so_full_path_name}")
         return None
-    symbols = [i.split()[2] for i in nm.stdout.splitlines()]
+    symbols = [i.split()[2] for i in nm.stdout.splitlines() if i.split()[1] == 'T' and not i.split()[2].startswith("__libc")]
     return symbols
 
 SYSTEM_LIB_PATHS=["/usr/lib", "/usr/local/lib", "/usr/lib64", "/lib", "/lib64"]
@@ -374,7 +375,7 @@ if __name__ == "__main__":
     parser.add_argument('--skip', type=argparse.FileType('r'), action='store',
                         help='A file with new line separated names of modules to skip in the package being analyzed')
     parser.add_argument('--self', action="store_true",
-                        help='[WIP] Generate tables for dlopen(NULL). build_out_file is .km file, e.g. python.km')
+                        help='Generate tables for dlopen(NULL). build_out_file is .orig file, e.g. python.orig')
     parser.add_argument('--no_mung', action="store_true",
                         help='Skip symnames munging and use symbols as is ')
     parser.add_argument('--log', action="store", choices=['verbose', 'quiet'],
@@ -400,6 +401,6 @@ if __name__ == "__main__":
         symbols = [{"name": n, "name_munged": n}
                    for n in nm_get_symbols(os.path.curdir, file_name, extra_flags=[])]
         logging.info(f"symlen {len(symbols)}")
-        save_c_tables(os.path.realpath(file_name), os.path.basename(file_name), symbols, suffix=".km")
+        save_c_tables(os.path.realpath(file_name), os.path.basename(file_name), symbols, suffix=".orig") # suffix HAS to be .orig
     else:
         process_file(file_name, skip_list)

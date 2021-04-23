@@ -92,6 +92,7 @@ all: ${BLDDIR}/.finalize
 # symlnks:
 # libc.a -> libruntime.a           # needed for '-lc'; we may want to rename going forward
 # libc.musl-x86_64.so.1 -> libc.so # needed for libstdc++
+.PHONY: ${BLDDIR}/.finalize
 ${BLDDIR}/.finalize: $(addprefix ${BLDDIR}/,libm.a libpthread.a libpthread.so libc.so) ${CRT_OBJS} ${KM_OPT_RT}
 	@#
 	@# set symlinks in ../build
