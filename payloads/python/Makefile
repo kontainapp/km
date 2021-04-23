@@ -43,7 +43,7 @@ PAYLOAD_KM := cpython/python.km
 PAYLOAD_NAME := ${COMPONENT}
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
-PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk)
+PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk python.km.symbols.c)
 
 # 'yes' if cpython was build from src (based on existable of .git repo)
 FROMSRC=$(shell test -d $(PYTHONTOP)/.git && echo yes)
@@ -62,6 +62,7 @@ FROMSRC=$(shell test -d $(PYTHONTOP)/.git && echo yes)
 # Compile built-in extensions (if needed) and link python.km
 export define link_cpython_km
 	${MAKE} -C cpython -f dlstatic_km.mk   # compile built-in modules
+	${CC} -I${TOP}/runtime -c -o cpython/python.km.symbols.o cpython/python.km.symbols.c
 	./link-km.sh ${PYTHONTOP} cpython "${EXTRA_LINKFILES}" "${CUSTOM_KM}"
 endef
 
@@ -117,7 +118,10 @@ endif
 
 # rebuild builtin extensions
 define prepare_builtins
-	cd cpython && ../extensions/prepare_extension.py bear.out --skip ../extensions/skip_builtins.txt
+	cd cpython \
+		&& mv python python.orig \
+		&& ../extensions/prepare_extension.py python.orig  --log=quiet --self \
+		&& ../extensions/prepare_extension.py bear.out --skip ../extensions/skip_builtins.txt
 endef
 builtins: ## helper target to rebuilt builtin extension in clone cpython dir. Only works in fromsrc mode
 	eval $(prepare_builtins)

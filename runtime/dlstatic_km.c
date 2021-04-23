@@ -112,13 +112,11 @@ void* dlopen(const char* file, int mode)
       goto err;
    }
    if (file == NULL) {
-      lib = LIST_FIRST(&registered);
-      warnx("dlopen(NULL): HACK: first avail (%s) h =%p- TODO entries for exe\n", lib->name, lib);
-      return lib;
+      file = "python.orig";   // per agreement in python.km build - see buildenv, Makefile and link code
    }
-   // check if we can get away with using the .so name as is
+
    if ((name = rindex(file, '/')) != NULL) {
-      name++;
+      name++;   // check if we know about .so with no path
    } else {
       name = file;
    }

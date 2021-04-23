@@ -41,7 +41,9 @@ RUN patch -p0 < platform_uname.patch
 WORKDIR /home/$USER/cpython
 COPY extensions/ ../extensions/
 # prepare "default" .so extensions to be statically linked in, and save neccessary files
-RUN ../extensions/prepare_extension.py bear.out --no_mung --log=quiet --skip ../extensions/skip_builtins.txt \
+# .orig MUST be the suffix of original python we are extracting symbols from
+RUN mv python python.orig && ../extensions/prepare_extension.py python.orig  --log=quiet --self \
+   && ../extensions/prepare_extension.py bear.out --no_mung --log=quiet --skip ../extensions/skip_builtins.txt \
    && files="dlstatic_km.mk build/temp.* `find build -name '*.km.*'` `find build -name '*\.so'`" ; \
    tar cf - $files | (mkdir builtins; tar -C builtins -xf -)
 
@@ -60,6 +62,7 @@ ARG ABI
 RUN BUILD_LOC="/home/$USER/cpython/build/lib.linux-x86_64-${VERS}/ /home/$USER/cpython/build/temp.linux-x86_64-${VERS}"; \
    mkdir -p ${BUILD_LOC} && chown $USER ${BUILD_LOC}
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/builtins cpython/
+COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/python*sym*.c cpython/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Lib/ cpython/Lib/
 COPY --from=buildenv-cpython --chown=appuser:appuser /home/$USER/cpython/Modules/ cpython/Modules/
 COPY --from=buildenv-cpython --chown=appuser:appuser \

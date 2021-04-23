@@ -4,7 +4,6 @@
    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
    "version": "0.2.0",
    "configurations": [
-
       {
          "name": "KM with a test payload",
          "type": "cppdbg",
@@ -357,18 +356,13 @@
          ]
       },
       {
-         "name": "Python: prepare_extension.py",
+         "name": "Python.km: Debugging Current Py File under KM",
          "type": "python",
          "request": "launch",
-         "program": "${workspaceFolder}/payloads/python/extensions/prepare_extension.py",
+         "program": "${file}",
          "console": "integratedTerminal",
-         "stopOnEntry": true,
-         "cwd": "${workspaceFolder}/payloads/python",
-         "args": [
-            "cpython/${input:python_module}bear.out",
-            "--skip",
-            "${workspaceFolder}/payloads/python/extensions/skip_builtins.txt"
-         ]
+         "python": "${workspaceFolder}/payloads/python/cpython/python",
+         "stopOnEntry": true
       }
    ],
    "inputs": [
