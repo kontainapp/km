@@ -194,10 +194,12 @@ fi
 @test "km_main_argv0($test_type): redirecting argv0 to argv0.km payload messages (hello_test$ext)" {
    # test that KM redirects to proper payload.km when invoked as `./payload`
    local payload=hello_test
-   KM_VERBOSE=generic run ./$payload --km-log-to=stderr SomeArg
+   KM_VERBOSE=generic run ./$payload SomeArg
    assert_success
-   assert_line --partial "Setting payload name to ./$payload.km"
-   assert_line --partial "argv[2] = 'SomeArg'"
+   assert_line --partial "argv[1] = 'SomeArg'"
+   KMLOGFILE=`echo -e ${output} | grep "Switch km logging to" | sed -e "s/.*Switch km logging to //" | sed -e "s/ on first attempt to log.*//"`
+   grep -q "Setting payload name to .*/$payload.km" $KMLOGFILE
+   assert_success
 }
 
 @test "km_main_env($test_type): passing environment to payloads (env_test$ext)" {
