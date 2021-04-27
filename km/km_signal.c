@@ -623,6 +623,11 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
       if (sigaction(info->si_signo, &action, NULL) != 0) {
          km_warn("failed to set default signal handling for signo %d", info->si_signo);
       }
+      // Suppress the km coredump.
+      struct rlimit corelimit = { 0, 0 };
+      if (prlimit(0, RLIMIT_CORE, &corelimit, NULL) != 0) {
+         km_warn("Unable to suppress km core dump");
+      }
       if (kill(getpid(), info->si_signo) != 0) {
          km_warn("send signo %d to myself failed", info->si_signo);
       }
