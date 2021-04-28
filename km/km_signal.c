@@ -21,6 +21,8 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <linux/kvm.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "bsd_queue.h"
 #include "km.h"
@@ -422,6 +424,7 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
     * non-RT signals are consolidated in while pending.
     */
    if (info->si_signo < SIGRTMIN && signal_pending(vcpu, info)) {
+      km_infox(KM_TRACE_VCPU, "discarding already pending signal %d", info->si_signo);
       return;
    }
    // See if this signal can wake a thread in sigsuspend().
@@ -434,7 +437,7 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
       km_interrupt_thread(info->si_signo);
       return;
    }
-   km_infox(KM_TRACE_VCPU, "enqueuing signal %d to vcpu %d", info->si_signo, vcpu->vcpu_id);
+   km_infox(KM_TRACE_VCPU, "enqueuing signal %d to vcpu %d, sigmask 0x%lx", info->si_signo, vcpu->vcpu_id, vcpu->sigmask);
    enqueue_signal(&vcpu->sigpending, info);
    if (km_sigismember(&vcpu->sigmask, info->si_signo) == 0) {
       km_pkill(vcpu, KM_SIGVCPUSTOP);
@@ -604,14 +607,43 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
          }
          core_dumped = 1;
       }
-      km_errx(info->si_signo,
-              "guest: Terminated by signal: %s %s",
-              strsignal(info->si_signo),
-              (core_dumped) ? "(core dumped)" : "");
+      km_warnx("guest: Terminated by signal: %s %s",
+               strsignal(info->si_signo),
+               (core_dumped) ? "(core dumped)" : "");
+
+      /*
+       * To get the proper exit status of the payload propagated out to the waiting process,
+       * we set km's signal handler to the default action and then send the same signal to
+       * ourselves.
+       */
+      struct sigaction action;
+      action.sa_sigaction = (void (*)(int,  siginfo_t *, void *))SIG_DFL;
+      sigemptyset(&action.sa_mask);
+      action.sa_flags = 0;
+      if (sigaction(info->si_signo, &action, NULL) != 0) {
+         km_warn("failed to set default signal handling for signo %d", info->si_signo);
+      }
+      // Suppress the km coredump.
+      struct rlimit corelimit = { 0, 0 };
+      if (prlimit(0, RLIMIT_CORE, &corelimit, NULL) != 0) {
+         km_warn("Unable to suppress km core dump");
+      }
+      if (kill(getpid(), info->si_signo) != 0) {
+         km_warn("send signo %d to myself failed", info->si_signo);
+      }
+      // We want to die in our sleep.
+      sleep(2);
+      km_abortx("signal %d didn't terminate this instance of km?", info->si_signo);
    }
 
    assert(act->handler != (km_gva_t)SIG_IGN);
    do_guest_handler(vcpu, info, act);
+
+   // Reset the signal action to default if requested.
+   if ((act->sa_flags & SA_RESETHAND) != 0) {
+      act->handler = (km_gva_t)SIG_DFL;
+      act->sa_flags &= ~SA_RESETHAND;
+   }
 }
 
 /*
@@ -674,6 +706,7 @@ km_rt_sigprocmask(km_vcpu_t* vcpu, int how, km_sigset_t* set, km_sigset_t* oldse
       *oldset = vcpu->sigmask;
    }
    if (set != NULL) {
+      km_infox(KM_TRACE_SIGNALS, "setting new mask 0x%lx, how %d, existing mask 0x%lx", *set, how, vcpu->sigmask);
       switch (how) {
          case SIG_BLOCK:
             for (int signo = 1; signo < _NSIG; signo++) {
@@ -722,6 +755,12 @@ km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t*
       *oldact = machine.sigactions[km_sigindex(signo)];
    }
    if (act != NULL) {
+      km_infox(KM_TRACE_SIGNALS,
+               "setting signal handler, signo %d, handler 0x%lx, sa_flags 0x%x, sa_mask 0x%lx",
+               signo,
+               act->handler,
+               act->sa_flags,
+               act->sa_mask);
       machine.sigactions[km_sigindex(signo)] = *act;
       if (act->handler == (km_gva_t)SIG_IGN) {
          // TODO: Purge pending signals on ignore.
@@ -771,6 +810,7 @@ uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo)
       return -EINVAL;
    }
    pid_t linux_pid = km_pid_xlate_kpid(pid);
+   km_infox(KM_TRACE_SIGNALS, "signal %d to kpid %d -> lpid %d", signo, pid, linux_pid);
    if (pid == 0 || pid == machine.pid) {
       // Process-wide signal.
       siginfo_t info = {.si_signo = signo, .si_code = SI_USER};

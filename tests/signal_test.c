@@ -408,6 +408,26 @@ TEST test_no_restorer()
    PASS();
 }
 
+int test_sa_resethand_sigaction_called = 0;
+void test_sa_resethandestorer_sigaction(int signo, siginfo_t* info, void* uc)
+{
+   test_sa_resethand_sigaction_called = 1;
+}
+
+TEST test_sa_resethand()
+{
+   struct sigaction sa = {.sa_sigaction = test_sa_resethandestorer_sigaction, .sa_flags = SA_SIGINFO | SA_RESETHAND};
+   struct sigaction old_sa = {};
+   
+   ASSERT_EQ(0, sigaction(SIGUSR1, &sa, &old_sa));
+   ASSERT_EQ(0, kill(getpid(), SIGUSR1));
+   ASSERT_EQ(1, test_sa_resethand_sigaction_called);
+   ASSERT_EQ(0, sigaction(SIGUSR1, NULL, &old_sa));
+   ASSERT_EQ((void (*)(int, siginfo_t *, void *))SIG_DFL, old_sa.sa_sigaction);
+   ASSERT_EQ(0, old_sa.sa_flags & SA_RESETHAND);
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -431,6 +451,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_thread_stack_alignment);
    RUN_TEST(test_floating_point_restore);
    RUN_TEST(test_no_restorer);
+   RUN_TEST(test_sa_resethand);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)

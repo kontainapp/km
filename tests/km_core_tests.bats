@@ -13,6 +13,8 @@
 # The bats tests need this behavior so, tell it to keep logging to stderr.
 KM_ARGS="--km-log-to=stderr"
 
+signal_flag=128
+
 load test_helper
 
 # Lists of tests to skip (space separated). Wildcards (glob) can be used, but please use '' for the whole list
@@ -121,19 +123,19 @@ fi
 
 @test "hc_check($test_type): invoke wrong hypercall (hc_test$ext)" {
    run km_with_timeout stray_test$ext hc 400
-   assert_failure 31  #SIGSYS
+   assert_failure $(( $signal_flag + 31))   #SIGSYS
    assert_output --partial "Bad system call"
 
    run km_with_timeout stray_test$ext -- hc -10
-   assert_failure 7   #SIGBUS
+   assert_failure $(( $signal_flag + 7))   #SIGBUS
    assert_output --partial "Bus error"
 
    run km_with_timeout stray_test$ext hc 1000
-   assert_failure 7   #SIGBUS
+   assert_failure $(( $signal_flag + 7))   #SIGBUS
    assert_output --partial "Bus error"
 
    run km_with_timeout stray_test$ext hc-badarg 3
-   assert_failure 11  #SIGSEGV
+   assert_failure $(( $signal_flag + 11))  #SIGSEGV
    assert_output --partial "Segmentation fault"
 
    run km_with_timeout stray_test$ext syscall
@@ -330,7 +332,7 @@ fi
    assert_success
    assert_line --partial 'received signal SIGUSR1'
    assert_line --partial 'received signal SIGABRT'
-   wait_and_check $pid 6 # expect KM to errx(6,...)
+   wait_and_check $pid $(( $signal_flag + 6)) # expect payload to get SIGABRT
 }
 
 @test "gdb_exception($test_type): gdb exception support (stray_test$ext)" {
@@ -343,7 +345,7 @@ fi
          --ex=c --ex=q stray_test$ext
    assert_success
    assert_line --partial  'received signal SIGSEGV'
-   wait_and_check $pid 11 # expect KM to exit with SIGSEGV
+   wait_and_check $pid $(( $signal_flag + 11)) # expect KM to exit with SIGSEGV
 }
 
 @test "gdb_server_race($test_type): gdb server concurrent wakeup test" {
@@ -470,7 +472,7 @@ fi
       --ex="source cmd_for_sharedlib_test.gdb" --ex=q
    assert_success
    refute_line --regexp "0x[0-9a-f]* in _start ()"
-   wait_and_check $pid 11 # expect KM to exit with SIGSEGV
+   wait_and_check $pid $(( $signal_flag + 11)) # expect KM to abort with SIGSEGV
 
    # test with attach at _start entry point
    km_with_timeout -g$km_gdb_port stray_test$ext stray &
@@ -483,7 +485,7 @@ fi
    assert_line --regexp "31   AT_EXECFN            File name of executable *0x[0-9a-f]*.*stray_test.kmd"
    # Check for some output from "info sharedlibrary"
    assert_line --regexp "0x[0-9a-f]*  0x[0-9a-f]*  Yes         target:.*libc.so"
-   wait_and_check $pid 11 # expect KM to exit with SIGSEGV
+   wait_and_check $pid $(( $signal_flag + 11)) # expect KM to exit with SIGSEGV
 
    # There is no explicit test for vFile remote commands.  gdb uses vFile as part of
    # processing the "info sharedlibrary" command.  But we do need to use the gdb "info proc"
@@ -493,7 +495,7 @@ fi
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" --ex="info proc $pid" -ex=cont -ex=q
    assert_success
    assert_line --partial "exe = '"
-   wait_and_check $pid 11 # expect KM to exit with SIGSEGV
+   wait_and_check $pid $(( $signal_flag + 11)) # expect KM to exit with SIGSEGV
 
    # test for symbols from a shared library brought in by dlopen()
    km_with_timeout -g$km_gdb_port --putenv="LD_LIBRARY_PATH=`pwd`" gdb_sharedlib2_test$ext &
@@ -688,7 +690,7 @@ fi
    # divide by zero
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext div0
-   assert_failure 8 # SIGFPE
+   assert_failure $(( $signal_flag + 8)) # SIGFPE
    echo $output | grep -F 'Floating point exception (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
@@ -701,7 +703,7 @@ fi
    # invalid opcode
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext ud
-   assert_failure 4 # SIGILL
+   assert_failure $(( $signal_flag + 4)) # SIGILL
    echo $output | grep -F 'Illegal instruction (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
@@ -711,7 +713,7 @@ fi
    # page fault
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext stray
-   assert_failure 11 # SIGSEGV
+   assert_failure $(( $signal_flag + 11)) # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
@@ -721,7 +723,7 @@ fi
    # bad hcall
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext hc 400
-   assert_failure 31 # SIGSYS
+   assert_failure $(( $signal_flag + 31)) # SIGSYS
    echo $output | grep -F 'Bad system call (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
@@ -731,7 +733,7 @@ fi
    # write to text (protected memory)
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext prot
-   assert_failure 11  # SIGSEGV
+   assert_failure $(( $signal_flag + 11))  # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    [ -f ${CORE} ]
    check_kmcore ${CORE}
@@ -741,7 +743,7 @@ fi
    # abort
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext abort
-   assert_failure 6  # SIGABRT
+   assert_failure $(( $signal_flag + 6))  # SIGABRT
    echo $output | grep -F 'Aborted (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
@@ -751,7 +753,7 @@ fi
    # quit
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext quit
-   assert_failure 3  # SIGQUIT
+   assert_failure $(( $signal_flag + 3))  # SIGQUIT
    echo $output | grep -F 'Quit (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
@@ -761,14 +763,14 @@ fi
    # term
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext term
-   assert_failure 15  # SIGTERM
+   assert_failure $(( $signal_flag + 15))  # SIGTERM
    echo $output | grep -F 'Terminated'
    assert [ ! -f ${CORE} ]
 
    # signal
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext signal
-   assert_failure 6  # SIGABRT
+   assert_failure $(( $signal_flag + 6))  # SIGABRT
    echo $output | grep -F 'Aborted'
    assert [  -f ${CORE} ]
    [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'abort ('
@@ -782,7 +784,7 @@ fi
    # sigsegv blocked
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext block-segv
-   assert_failure 11  # SIGSEGV
+   assert_failure $(( $signal_flag + 11))  # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    assert [  -f ${CORE} ]
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'stray_reference ('
@@ -801,7 +803,7 @@ fi
 
    # Execute a HLT instructuction
    run km_with_timeout --coredump=${CORE} stray_test$ext halt
-   assert_failure 11  # SIGSEGV
+   assert_failure $(( $signal_flag + 11))  # SIGSEGV
    assert [ -f ${CORE} ]
    rm -f ${CORE}
 }
@@ -956,7 +958,7 @@ fi
    CORE=/tmp/kmcore.$$
    FILE=/tmp/trunc_mmap.$$
    run km_with_timeout --coredump=${CORE} stray_test$ext trunc_mmap ${FILE}
-   assert_failure 6  # SIGABRT
+   assert_failure $(( $signal_flag + 6))  # SIGABRT
    assert_output --partial "Aborted (core dumped)"
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
@@ -1068,7 +1070,7 @@ fi
       assert [ -f ${SNAP} ]
       check_kmcore ${SNAP}
       run km_with_timeout --coredump=${CORE} --km-log-to=${KMLOG} ${SNAP}
-      assert_failure 6  # SIGABRT
+      assert_failure $(( $signal_flag + 6))  # SIGABRT
       assert [ -f ${CORE} ]
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
