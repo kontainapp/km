@@ -300,6 +300,73 @@ static void km_add_vvar_vdso_to_guest_address_space(void)
 }
 
 /*
+ * Remember these for debugging.  Since vsyscall is at a fixed address, we don't need access
+ * to this for building auxv.
+ */
+#define vsyscall_regions_count 1
+km_gva_t km_vsyscall_base;
+uint32_t km_vsyscall_size;
+
+static void km_add_vsyscall_to_guest_address_space(void)
+{
+   maps_region_t vsyscall_regions[vsyscall_regions_count] =
+        {{.name_substring = "[vsyscall]"}};
+   kvm_mem_reg_t* reg;
+   int rc;
+
+   // Get the km addresses of vvar and vdso pages
+   rc = km_find_maps_regions(vsyscall_regions, vsyscall_regions_count);
+   if (rc != 0) {
+      km_infox(KM_TRACE_MEM, "Couldn't find vsyscall memory segments, not using vsyscall");
+      return;
+   }
+
+   km_vsyscall_size = (vsyscall_regions[0].end_addr - vsyscall_regions[0].begin_addr);
+
+   // Map vsyscall at the same guest virtual address as in the km address space.
+   km_vsyscall_base = vsyscall_regions[0].begin_addr;
+
+   // Put the vdso and vvar pages into the payload's physical address space.
+   reg = &machine.vm_mem_regs[KM_RSRV_VSYSCALL_SLOT];
+   reg->slot = KM_RSRV_VSYSCALL_SLOT;
+   reg->userspace_addr = (typeof(reg->userspace_addr))(vsyscall_regions[0].begin_addr & 0x7fffffffffff);
+   reg->guest_phys_addr = GUEST_VSYSCALL_BASE_GPA;
+   reg->memory_size = km_vsyscall_size;
+   reg->flags = 0;
+   if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+      km_err(1, "KVM: set vvar/vdso region failed");
+   }
+
+   // Now add vsyscall to the payload's virtual address space
+   int idx;
+   uint64_t virtaddr = km_vsyscall_base;
+   uint64_t physaddr = GUEST_VSYSCALL_BASE_GPA;
+   x86_pte_4k_t* pte = km_page_table()->pt1;
+
+   for (int i = 0; i < vsyscall_regions_count; i++) {
+      km_infox(KM_TRACE_MEM,
+               "%s: km vaddr 0x%lx, payload paddr 0x%lx, payload vaddr 0x%lx",
+               vsyscall_regions[i].name_substring,
+               vsyscall_regions[i].begin_addr,
+               physaddr,
+               virtaddr);
+      for (uint64_t b = vsyscall_regions[i].begin_addr; b < vsyscall_regions[i].end_addr;
+           b += KM_PAGE_SIZE) {
+         idx = PTE_SLOT(virtaddr);
+         pte_set(pte + idx, physaddr);
+         virtaddr += KM_PAGE_SIZE;
+         physaddr += KM_PAGE_SIZE;
+      }
+   }
+
+   rc = km_monitor_pages_in_guest(km_vsyscall_base,
+                                  vsyscall_regions[0].end_addr - vsyscall_regions[0].begin_addr,
+                                  PROT_READ,
+                                  vsyscall_regions[0].name_substring);
+   assert(rc == 0);
+}
+
+/*
  * Insert the km_guest code that resides in the km address space into the
  * guest's physical and virtual address spaces.
  */
@@ -459,6 +526,9 @@ void km_mem_init(km_machine_init_params_t* params)
 
    // Map guest code resident in km into the guest's address space
    km_add_code_to_guest_address_space();
+
+   // Add the [vsyscall] page(s) from km into the physical and virtual address space for the payload
+   km_add_vsyscall_to_guest_address_space();
 }
 
 void km_mem_fini(void)

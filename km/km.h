@@ -289,11 +289,12 @@ static const int CPUID_ENTRIES = 100;   // A little padding, kernel says 80
 
 /*
  * We use 36 on 512GB machine, 42 on 4TB, out of 509 KVM_USER_MEM_SLOTS slot 0 is used for pages
- * tables and some other things slot 41 is used to map the vdso and vvar pages into the payload
- * address space
+ * tables and some other things.
+ * Slot 41 is used to map the vdso and vvar pages into the payload address space
  * Slot 42 is used to map code that is part of km into the guest address space.
+ * Slot 43 is used to map the vsyscall page(s) into the payload.
  */
-#define KM_MEM_SLOTS 43
+#define KM_MEM_SLOTS 44
 
 typedef struct km_machine {
    int kvm_fd;                                // /dev/kvm file descriptor
