@@ -173,15 +173,14 @@ void km_trace_set_log_file_name(char* kmlog_file_name)
  * When invoked from a km payload we ignore km command line trace settings and use the
  * inherited trace fd and use trace categoeries from the KM_VERBOSE envrionment variable.
  */
-void km_trace_setup(int argc, char* argv[])
+void km_trace_setup(int argc, char* argv[], char* payload_name)
 {
    char* trace_regex = NULL;
    char* kmlogto = NULL;
    static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int invoked_by_exec = (getenv("KM_EXEC_VERS") != NULL);
-   int vseen = 0;
 
-   if (invoked_by_exec == 0) {
+   if (invoked_by_exec == 0 && payload_name == NULL) {
       /*
        * We were invoked from a a shell command line.
        * Find the trace related flags from the command line and setup to operate that way.
@@ -192,8 +191,7 @@ void km_trace_setup(int argc, char* argv[])
       while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) != -1) {
          switch (opt) {
             case 'V':
-               trace_regex = optarg;
-               vseen = 1;
+               trace_regex = (optarg != NULL) ? optarg : "";
                break;
             case 'k':
                kmlogto = optarg;
@@ -208,13 +206,9 @@ void km_trace_setup(int argc, char* argv[])
       }
    }
 
-   if (vseen == 0) {
+   if (trace_regex == NULL) {
       // No trace settings from the command line or command line is ignored, see if the environment has anything to say.
       trace_regex = getenv("KM_VERBOSE");
-   } else {
-      if (trace_regex == NULL) {
-         trace_regex = "";
-      }
    }
    if (trace_regex != NULL) {
       if (*trace_regex == 0) {
