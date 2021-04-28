@@ -236,7 +236,6 @@ char* km_traverse_payload_symlinks(const char* arg)
    // we need to keep prior symlink name so the upstairs can locate the payload
    char* last_symlink = NULL;
    char* name = strdup(arg);
-   km_infox(KM_TRACE_EXEC, "input %s", arg);
 
    while ((bytes = one_readlink(name, buf, PATH_MAX)) != -1) {
       buf[bytes] = '\0';
@@ -250,9 +249,8 @@ char* km_traverse_payload_symlinks(const char* arg)
    if (last_symlink != NULL) {
       snprintf(buf, PATH_MAX, "%s%s", last_symlink, PAYLOAD_SUFFIX);
       free(last_symlink);
-      km_tracex("Setting payload name to %s", buf);
       if ((last_symlink = realpath(buf, NULL)) == NULL) {
-         km_trace("realpath(%s) failed", buf);
+         km_err(1, "realpath(%s) failed", buf);
       }
    }
    return last_symlink;
@@ -344,7 +342,7 @@ static void km_mimic_payload_argv(int argc, char** argv, int pl_index)
 // parses args, returns payload_name based on argv[], symlink, or shebang.
 // also fills *argc_p, *argv_p, *envc_p and *envp_p with args/env info for payload
 static char*
-km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p, char** envp_p[])
+km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p, char** envp_p[], char* pl_name)
 {
    int opt;
    uint64_t port;
@@ -352,18 +350,12 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    int copyenv_used = 1;   // By default copy environment from host
    int putenv_used = 0;
    char* ep = NULL;
-   int longopt_index;    // flag index in longopt array
-   int pl_index;         // payload_name index in argv array
-   char** envp = NULL;   // NULL terminated array of env pointers
-   int envc = 1;   // count of elements in envp (including NULL), see realloc below in case 'e'
+   int longopt_index;      // flag index in longopt array
+   int pl_index = 0;       // payload_name index in argv array
+   char** envp = NULL;     // NULL terminated array of env pointers
+   int envc = 1;           // count of elements in envp (including NULL), see realloc below in case 'e'
 
-   char* pl_name;
-   // first one works for symlinks, including found in PATH.
-   // But for shebang the first is shebang file itself, hence the second one
-   if ((pl_name = km_traverse_payload_symlinks((const char*)getauxval(AT_EXECFN))) != NULL ||
-       (pl_name = km_traverse_payload_symlinks((const char*)argv[0])) != NULL) {
-      pl_index = 0;
-   } else {   // regular KM invocation - parse KM args
+   if (pl_name == NULL) {   // regular KM invocation - parse KM args
       optind = 0;        // reinit getopt
       while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) !=
              -1) {
@@ -595,15 +587,33 @@ int main(int argc, char* argv[])
    int argc_p;      // payload's argc
    char** argv_p;   // payload's argc (*not* in ABI format)
    char* payload_name;
+   char* pl_name;
 
-   km_trace_setup(argc, argv);       // setup trace settings as early as possible
+   /*
+    * Sometimes km is invoked as a payload name that is a symlink to km.
+    * In that case, no km related arguments will be found on the command line.
+    * Detect those cases here and help km_trace_setup() avoid treating payload
+    * arguments as km arguments.
+    * First call works for symlinks, including found in PATH.
+    * But for shebang the first is shebang file itself, hence the second call.
+    */
+   if ((pl_name = km_traverse_payload_symlinks((const char*)getauxval(AT_EXECFN))) == NULL) {
+      pl_name = km_traverse_payload_symlinks((const char*)argv[0]);
+   }
+
+   km_trace_setup(argc, argv, pl_name);       // setup trace settings as early as possible
+   // Tracing is now enabled.  Log what we decided to run.
+   if (pl_name != NULL) {
+      km_tracex("Setting payload name to %s", pl_name);
+   }
+
    km_gdbstub_init();
 
    if (km_exec_recover_kmstate() < 0) {   // exec state is messed up
       km_errx(2, "Problems in performing post exec processing");
    }
 
-   if ((payload_name = km_parse_args(argc, argv, &argc_p, &argv_p, &envc, &envp)) == NULL) {
+   if ((payload_name = km_parse_args(argc, argv, &argc_p, &argv_p, &envc, &envp, pl_name)) == NULL) {
       km_warnx("Failed to determine payload name or find .km file for %s", argv[0]);
       usage();
    }
