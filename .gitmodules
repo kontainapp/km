@@ -1,12 +1,12 @@
 [submodule "runtime/musl"]
 	path = runtime/musl
-	url = ../musl.git
+	url = https://github.com/kontainapp/musl.git
 [submodule "tests/bats"]
 	path = tests/bats
 	url = https://github.com/kontainapp/bats-core
 [submodule "tests/greatest"]
 	path = tests/greatest
-	url = ../greatest
+	url = https://github.com/kontainapp/greatest
 [submodule "tests/bats-support"]
 	path = tests/bats-support
 	url = https://github.com/ztombol/bats-support
@@ -16,9 +16,6 @@
 [submodule "kkm"]
 	path = kkm
 	url = ../kkm.git
-[submodule "km-releases"]
-	path = km-releases
-	url = ../km-releases
 [submodule "container-runtime/crun"]
 	path = container-runtime/crun
 	url = https://github.com/kontainapp/crun

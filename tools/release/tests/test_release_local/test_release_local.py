@@ -27,7 +27,10 @@ OPT_KONTAIN = "/opt/kontain"
 OPT_KONTAIN_BIN = f"{OPT_KONTAIN}/bin"
 KONTAIN_GCC = f"{OPT_KONTAIN_BIN}/kontain-gcc"
 KM = f"{OPT_KONTAIN_BIN}/km"
-INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh"
+
+# TODO: revert to master when merged
+#INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km/master/km-releases/kontain-install.sh"
+INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km/msterin/merge-repos/km-releases/kontain-install.sh"
 
 DOCKER_CONFIG_DIR = "/etc/docker"
 DOCKER_CONFIG_FILE = f"{DOCKER_CONFIG_DIR}/daemon.json"
@@ -60,15 +63,21 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", help="version of km to be tested")
+    parser.add_argument("--token", help="access token to KM repo", required=True)
     args = parser.parse_args()
 
     # Clean up the /opt/kontain so we have a clean test run
     subprocess.run(["rm", "-rf", f"{OPT_KONTAIN}/*"], check=False)
 
     # Download and install
-    install_cmd = f"wget {INSTALL_URL} -O - -q | bash"
+    # GITHUB_RELEASE_TOKEN is required to get access to private repos. The
+    # token is the Github Personal Access Token (PAT)
+   #  token = os.environ.get("GITHUB_RELEASE_TOKEN")
+    if {args.token} is None:
+        raise ValueError("--token is not set, cannot access private KM repo")
+    install_cmd = f"wget --header \"Authorization: token {args.token}\" {INSTALL_URL} -O - -q | bash"
     if args.version is not None and args.version != "":
-        install_cmd = f"wget {INSTALL_URL} -O - -q | bash -s {args.version}"
+        install_cmd += f" -s {args.version}"
 
     os.system(install_cmd)
 
