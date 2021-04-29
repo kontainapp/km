@@ -30,8 +30,8 @@
  * -e to test ENOENT errno
  * -E flag to test ENOEXEC errno
  * -k flags to test exec into '.km' file
- * -s to tests /bin/sh parse
- * -S to tests /bin/env (and others) parse via shebang exec
+ * -s to test /bin/sh parse
+ * -S to test /bin/env (and others) parse via shebang exec
  * -X to test exec into realpath of /proc/self/exe
  *
  * Set KM_EXEC_TEST_EXE environment to override what it being exec-ed into by default

@@ -1132,14 +1132,14 @@ fi
    KM_VERBOSE=generic run $KM_BIN ${KM_ARGS} shebang_test.sh AndEvenMore
    assert_success
    assert_line --partial "Extracting payload name from shebang file 'shebang_test.sh'"
-   assert_line --partial "Adding extra arg 'arguments to test, should be one'"
+   assert_line --partial "Found arg: 'arguments to test, should be one'"
    assert_line --partial "argv[3] = 'AndEvenMore'"
 
    # shebang to nested symlink
    KM_VERBOSE=generic run $KM_BIN ${KM_ARGS} shebang_test_link.sh AndEvenMore
    assert_success
    assert_line --partial "Extracting payload name from shebang file 'shebang_test_link.sh'"
-   assert_line --partial "Adding extra arg 'arguments to test, should be one'"
+   assert_line --partial "Found arg: 'arguments to test, should be one'"
    assert_line --partial "argv[3] = 'AndEvenMore'"
 }
 
@@ -1195,7 +1195,9 @@ fi
    assert_line --partial "argv[6] = 'd4'"
 
    # test /bin/env in execve()
-   run km_with_timeout exec_test$ext -S testingEnv
+   run km_with_timeout exec_test$ext -S
+   assert_success
+   assert_line --regexp ".*Hello, argv\[0\] = .*hello_test.*"
 
    # test handling of env and sh paths in shabangs passed to km
    run km_with_timeout shebang_sh_test.sh
@@ -1204,7 +1206,7 @@ fi
 
    run km_with_timeout shebang_env_test.sh
    assert_success
-   assert_line --regexp "^Hello, argv\[0\] = '.*hello_test.km'"
+   assert_line --regexp ".*Hello, argv\[0\] = .*hello_test.*"
 
 
    # test that fork does not block SIGCHLD signal
