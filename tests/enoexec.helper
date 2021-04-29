@@ -1,0 +1,2 @@
+# used in ENOEXEC test for execve. Needs to be executable,
+# Not not shabang and not an ELF

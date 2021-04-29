@@ -45,7 +45,7 @@
 #define EXEC_TEST_EXE_KM "hello_test.km"
 
 #define EXEC_TEST_EXE_ENOENT "this_file_should_not_exist.ever"
-#define EXEC_TEST_EXE_ENOEXEC "test_helper.bash"   // existing file but not an ELF
+#define EXEC_TEST_EXE_ENOEXEC "enoexec.helper"   // existing file but not an ELF
 
 int main(int argc, char** argv)
 {

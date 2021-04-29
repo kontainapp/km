@@ -288,28 +288,38 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
    }
    km_tracex("Extracting payload name from shebang file '%s'", payload_file);
    char* c;
-   for (c = line_buf + SHEBANG_LEN; isspace(*c) == 0 && *c != '\0'; c++) {   // find args, if any
+   for (c = line_buf + SHEBANG_LEN; isblank(*c) == 0 && *c != '\0'; c++) {   // find args, if any
    }
    if (*c == '\0') {
-      km_tracex("Warning: shebang line too long, truncating to %ld", SHEBANG_MAX_LINE_LEN);
+      km_warnx("Warning: failed to find file name to execute (line too long?): %s", payload_file);
+   } else {
+      *c++ = '\0';   // null terminate the payload name
+      for (; isblank(*c) == 1; c++) {
+      }   // skip blanks
    }
-
    if (*c != '\n' && *c != '\0') {
-      char* arg_end = strpbrk(line_buf + SHEBANG_LEN, "\r\n");
-      if (arg_end != NULL) {   // arg found
+      char* arg_end;
+      for (arg_end = c; *arg_end != '\0' && *arg_end != '\n'; arg_end++) {
+      }
+      if (arg_end != c) {   // arg found
          *arg_end = '\0';
-         *extra_arg = strdup(c + 1);
-         km_tracex("Adding extra arg '%s'", *extra_arg);
+         *extra_arg = strdup(c);
+         km_tracex("Found arg: '%s'", *extra_arg);
       }
    }
    payload_file = line_buf + SHEBANG_LEN;
-   *c = 0;   // null terminate the payload file name
    if (km_is_env_path(payload_file) == 1) {
       payload_file = *extra_arg;
       *extra_arg = NULL;
    }
-   km_tracex("Payload file from shebang: %s", payload_file);
-   return km_traverse_payload_symlinks(payload_file);
+   km_tracex("Payload file from shebang: '%s'", payload_file);
+   char* final_symlink;
+   if ((final_symlink = km_traverse_payload_symlinks(payload_file)) == NULL) {
+      // a likely access issue, let's return the name as is for future diagnosics
+      km_tracex("Failed to resolve symlinks, returning the name as is");
+      return (strdup(payload_file));
+   }
+   return final_symlink;
 }
 
 /*
