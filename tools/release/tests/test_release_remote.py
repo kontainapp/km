@@ -19,6 +19,7 @@ import json
 import logging
 import argparse
 import time
+import os
 
 RESOURCE_GROUP = f"kontain-release-testing-{time.monotonic_ns()}"
 RESOURCE_GROUP_LOCATION = "westus"
@@ -126,7 +127,7 @@ def ssh_execute(remote_ip, cmd, logger):
     subprocess.run(ssh_execute_cmd, check=True)
 
 
-def test(remote_ip, version):
+def test(remote_ip, version, token):
     """ test
 
         Copy the local tests to the remote VM and execute.
@@ -165,6 +166,7 @@ def test(remote_ip, version):
     ], check=True)
     ssh_execute(
         remote_ip, "sudo mkdir -p /opt/kontain ; sudo chown kontain /opt/kontain", logger)
+    ssh_execute(remote_ip, "/usr/bin/cloud-init status --wait", logger)
     ssh_execute(remote_ip, "sudo apt-get update", logger)
     ssh_execute(remote_ip, "sudo apt-get install -y gcc docker.io libyajl2 libseccomp2 libcap2", logger)
     ssh_execute(remote_ip, "sudo chmod 666 /dev/kvm", logger)
@@ -176,7 +178,7 @@ def test(remote_ip, version):
         version_flag = f"--version {version}"
 
     ssh_execute(
-        remote_ip, f"cd test_release_local; python3 test_release_local.py {version_flag}", logger)
+        remote_ip, f"cd test_release_local; python3 test_release_local.py {version_flag} --token=${token}", logger)
     logger.info("successfully tested")
 
 
@@ -188,10 +190,15 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
+    # GITHUB_RELEASE_TOKEN is required to get access to private repos. The
+    # token is the Github Personal Access Token (PAT)
+    token = os.environ.get("GITHUB_RELEASE_TOKEN")
+    if token is None:
+        raise ValueError("GITHUB_RELEASE_TOKEN is not set, cannot access private KM repo")
     try:
         version = validate_version(args.version)
         remote_ip = setup()
-        test(remote_ip, version)
+        test(remote_ip, version, token)
     finally:
         clean_up()
 
