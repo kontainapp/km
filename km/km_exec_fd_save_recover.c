@@ -85,7 +85,7 @@ static void km_hex2bin(char* hex, unsigned char* bin, int* binlen)
    int i;
    char nh, nl;
    *binlen = 0;
-   for (i = 0; ; i += 2) {
+   for (i = 0;; i += 2) {
       nh = xdigit2bin(hex[i]);
       nl = xdigit2bin(hex[i + 1]);
       if (nh < 0 || nl < 0) {
@@ -105,7 +105,7 @@ void km_exec_fdtrace(char* tag, int fd)
 {
    km_file_t* file;
    km_fs_event_t* eventp;
-   char buffer[512];        // should be big enough unless there are a zillion events on an epoll fd
+   char buffer[512];   // should be big enough unless there are a zillion events on an epoll fd
    size_t l;
 
    if (km_trace_tag_enabled(KM_TRACE_EXEC) == 0) {
@@ -124,29 +124,45 @@ void km_exec_fdtrace(char* tag, int fd)
 
    if (file->how == KM_FILE_HOW_EVENTFD) {   // epoll fd
       snprintf(&buffer[l], sizeof(buffer) - l, "epoll flags 0x%x, ", file->flags);
-      TAILQ_FOREACH(eventp, &file->events, link) {
+      TAILQ_FOREACH (eventp, &file->events, link) {
          l = strlen(buffer);
-         snprintf(&buffer[l], sizeof(buffer) - l, "event %d,0x%x,0x%lx, ", eventp->fd, eventp->event.events, eventp->event.data.u64);
+         snprintf(&buffer[l],
+                  sizeof(buffer) - l,
+                  "event %d,0x%x,0x%lx, ",
+                  eventp->fd,
+                  eventp->event.events,
+                  eventp->event.data.u64);
       }
-   } else if (file->sockinfo == NULL) {      // non-socket fd
+   } else if (file->sockinfo == NULL) {   // non-socket fd
       struct stat statb;
       if (fstat(fd, &statb) < 0) {
          km_info(KM_TRACE_EXEC, "No trace for fd %d, fstat failed", fd);
          return;
       }
-      if (S_ISFIFO(statb.st_mode)) {         // pipe
-         snprintf(&buffer[l], sizeof(buffer) - l, "pipe how %d, flags 0x%x, ofd %d", file->how, file->flags, file->ofd);
-      } else {                               // plain file
+      if (S_ISFIFO(statb.st_mode)) {   // pipe
+         snprintf(&buffer[l],
+                  sizeof(buffer) - l,
+                  "pipe how %d, flags 0x%x, ofd %d",
+                  file->how,
+                  file->flags,
+                  file->ofd);
+      } else {   // plain file
          km_file_ops_t* ops;
          km_fs_g2h_fd(fd, &ops);
-         snprintf(&buffer[l], sizeof(buffer) - l, "file how %d, flags 0x%x, index %d", file->how, file->flags, km_filename_table_line(ops));
+         snprintf(&buffer[l],
+                  sizeof(buffer) - l,
+                  "file how %d, flags 0x%x, index %d",
+                  file->how,
+                  file->flags,
+                  km_filename_table_line(ops));
       }
-   } else if (file->how == KM_FILE_HOW_SOCKETPAIR0 || file->how == KM_FILE_HOW_SOCKETPAIR1) {  // socketpair
-      snprintf(&buffer[l], sizeof(buffer) - l, "socketpair how %d, ofd %d",
-               file->how,
-               file->ofd);
-   } else {                                  // socket fd
-      snprintf(&buffer[l], sizeof(buffer) - l, "socket how %d, state %d, backlog %d, ofd %d, domain %d, type %d, protocol %d, addrlen %d, sockaddr ",
+   } else if (file->how == KM_FILE_HOW_SOCKETPAIR0 || file->how == KM_FILE_HOW_SOCKETPAIR1) {   // socketpair
+      snprintf(&buffer[l], sizeof(buffer) - l, "socketpair how %d, ofd %d", file->how, file->ofd);
+   } else {   // socket fd
+      snprintf(&buffer[l],
+               sizeof(buffer) - l,
+               "socket how %d, state %d, backlog %d, ofd %d, domain %d, type %d, protocol %d, "
+               "addrlen %d, sockaddr ",
                file->how,
                file->sockinfo->state,
                file->sockinfo->backlog,
@@ -201,11 +217,17 @@ char* km_exec_save_fd(char* varname)
          km_fs_event_t* event;
          TAILQ_FOREACH (event, &file->events, link) {
             char* tmp;
-            asprintf(&tmp, "%s,{%d,%x,%lx}%s", more_env_value, event->fd, event->event.events, event->event.data.u64, event == TAILQ_LAST(&file->events, km_fs_event_head) ? "}" : "");
+            asprintf(&tmp,
+                     "%s,{%d,%x,%lx}%s",
+                     more_env_value,
+                     event->fd,
+                     event->event.events,
+                     event->event.data.u64,
+                     event == TAILQ_LAST(&file->events, km_fs_event_head) ? "}" : "");
             free(more_env_value);
             more_env_value = tmp;
          }
-      } else if (file->sockinfo == NULL) {      // non-socket fd
+      } else if (file->sockinfo == NULL) {   // non-socket fd
          struct stat st;
          if (fstat(i, &st) < 0) {
             free(env_value);
@@ -216,26 +238,29 @@ char* km_exec_save_fd(char* varname)
          } else {
             km_file_ops_t* ops;
             km_fs_g2h_fd(i, &ops);
-            asprintf(&more_env_value, "{%x,%d,%d,%x,%d}", KM_FDTYPE_FILE, i, file->how, file->flags, km_filename_table_line(ops));
+            asprintf(&more_env_value,
+                     "{%x,%d,%d,%x,%d}",
+                     KM_FDTYPE_FILE,
+                     i,
+                     file->how,
+                     file->flags,
+                     km_filename_table_line(ops));
          }
-      } else if (file->how == KM_FILE_HOW_SOCKETPAIR0 || file->how == KM_FILE_HOW_SOCKETPAIR1) {  // socketpair
-         asprintf(&more_env_value, "{%d,%d,%d,%d}",
-                  KM_FDTYPE_SOCKETPAIR,
-                  i,
-                  file->how,
-                  file->ofd);
-      } else {                                  // socket fd
+      } else if (file->how == KM_FILE_HOW_SOCKETPAIR0 ||
+                 file->how == KM_FILE_HOW_SOCKETPAIR1) {   // socketpair
+         asprintf(&more_env_value, "{%d,%d,%d,%d}", KM_FDTYPE_SOCKETPAIR, i, file->how, file->ofd);
+      } else {   // socket fd
          char asciihex[257];
          km_bin2hex((unsigned char*)file->sockinfo->addr, file->sockinfo->addrlen, asciihex);
-         asprintf(&more_env_value, "{%x,%d,%d,%d,%d,%d,%s}",
-                 KM_FDTYPE_SOCKET,
-                 i,
-                 file->how,
-                 file->sockinfo->state,
-                 file->sockinfo->backlog,
-                 file->ofd,
-                 asciihex);
-                 
+         asprintf(&more_env_value,
+                  "{%x,%d,%d,%d,%d,%d,%s}",
+                  KM_FDTYPE_SOCKET,
+                  i,
+                  file->how,
+                  file->sockinfo->state,
+                  file->sockinfo->backlog,
+                  file->ofd,
+                  asciihex);
       }
 
       // Paste info for this fd onto the end of what we have already accumulated.
@@ -277,7 +302,7 @@ static void km_fs_destroy_fd(int fd)
    file->inuse = 0;
 }
 
-static int km_exec_restore_file(int fd, int how, int flags, int mode, int index)
+static int km_exec_restore_file(int fd, int how, int flags, int index)
 {
    km_file_t* file;
 
@@ -288,7 +313,7 @@ static int km_exec_restore_file(int fd, int how, int flags, int mode, int index)
    file->inuse = 1;
    file->how = how;
    file->flags = flags;
-   file->ofd =  -1;
+   file->ofd = -1;
    file->ops = NULL;
    if (index >= 0) {
       file->ops = km_file_ops(index);
@@ -328,7 +353,7 @@ static int km_exec_restore_eventfd(int fd, int flags)
    file->inuse = 1;
    file->how = KM_FILE_HOW_EVENTFD;
    file->flags = flags;
-   file->ofd =  -1;
+   file->ofd = -1;
    file->ops = NULL;
    file->sockinfo = NULL;
 
@@ -433,7 +458,8 @@ static int km_exec_restore_socketpair(int fd, int how, int ofd)
    return 0;
 }
 
-static int km_exec_restore_socket(int fd, int how, int state, int backlog, int ofd, km_fd_socket_t* sockinfo)
+static int
+km_exec_restore_socket(int fd, int how, int state, int backlog, int ofd, km_fd_socket_t* sockinfo)
 {
    km_file_t* file;
    km_exec_get_file_pointer(fd, &file, NULL);
@@ -472,12 +498,10 @@ int km_exec_restore_fd(char* env_value)
    int fd = 0;
    int how;
    int flags;
-   int mode;
    int index;
    int ofd;
    int backlog;
    int state;
-   
 
    while (*p != 0) {
       int tag;
@@ -493,116 +517,116 @@ int km_exec_restore_fd(char* env_value)
       }
       q++;
       switch (tag) {
-      case KM_FDTYPE_FILE:
-         // {0,0,0,0,-1}
-         if (sscanf(q, "%d,%d,%x,%d}", &fd, &how, &flags, &index) != 4) {
-            return -1;
-         }
-         km_exec_restore_file(fd, how, flags, mode, index);
-         break;
-
-      case KM_FDTYPE_PIPE:
-         // {1,9,2,10600,8}
-         if (sscanf(q, "%d,%d,%x,%d}", &fd, &how, &flags, &ofd) != 4) {
-            return -1;
-         }
-         km_exec_restore_pipe(fd, how, flags, ofd);
-         break;
-
-      case KM_FDTYPE_SOCKETPAIR:
-         // {2,6,6,7}
-         if (sscanf(q, "%d,%d,%d}", &fd, &how, &ofd) != 3) {
-            return -1;
-         }
-         km_exec_restore_socketpair(fd, how, ofd);
-         break;
-
-      case KM_FDTYPE_SOCKET:
-         // {3,5,4,2,5,-1,020056cf000000000000000000000000},
-         if (sscanf(q, "%d,%d,%d,%d,%d,", &fd, &how, &state, &backlog, &ofd) != 5) {
-            return -1;
-         }
-         km_fd_socket_t* sockinfo = calloc(1, sizeof(km_fd_socket_t));
-         if (sockinfo == NULL) {
-            return -1;
-         }
-         char* saveq = q;
-         q = strchr(q, '}');
-         if (q == NULL) {
-            free(sockinfo);
-            return -1;
-         }
-         while (*(q-1) != ',') {
-            q--;
-            if (q == saveq) {
-               // We should have found a ',' by now.  We got this far because sscanf() above found one.
-               km_infox(KM_TRACE_EXEC, "Didn't find a comma in %s?", saveq);
-               break;
-            }
-         }
-         km_hex2bin(q, (unsigned char*)sockinfo->addr, &sockinfo->addrlen);
-         if (km_exec_restore_socket(fd, how, state, backlog, ofd, sockinfo) < 0) {
-            // km_exec_restore_socket() will free sockinfo when it fails.
-            km_infox(KM_TRACE_EXEC, "Unable to restore socket fd %d", fd);
-            return -1;
-         }
-         break;
-
-      case KM_FDTYPE_EVENTFD:
-         // The description of an epollfd looks like this, there can be 0 or more events.
-         // {4,10,0,{4,1,7fff00000004},{6,4,7fff00000006}}
-         if (sscanf(q, "%d,%x", &fd, &flags) != 2) {
-            km_infox(KM_TRACE_EXEC, "Didn't find expected delimiter");
-            return -1;
-         }
-         q = strpbrk(q, "{}");
-         if (q == NULL) {
-            km_infox(KM_TRACE_EXEC, "Didn't find expected delimiter");
-            return -1;
-         }
-         km_exec_restore_eventfd(fd, flags);
-         km_file_t* file;
-         km_exec_get_file_pointer(fd, &file, NULL);
-         if (*q == '{') {
-            q--;
-         }
-         while (*q == ',') {
-            uint32_t events;
-            uint64_t data;
-            q++;
-            km_infox(KM_TRACE_EXEC, "Processing event: %s", q);
-            if (sscanf(q, "{%d,%x,%lx}", &fd, &events, &data) != 3) {
-               km_fs_destroy_fd(fd);
+         case KM_FDTYPE_FILE:
+            // {0,0,0,0,-1}
+            if (sscanf(q, "%d,%d,%x,%d}", &fd, &how, &flags, &index) != 4) {
                return -1;
             }
+            km_exec_restore_file(fd, how, flags, index);
+            break;
+
+         case KM_FDTYPE_PIPE:
+            // {1,9,2,10600,8}
+            if (sscanf(q, "%d,%d,%x,%d}", &fd, &how, &flags, &ofd) != 4) {
+               return -1;
+            }
+            km_exec_restore_pipe(fd, how, flags, ofd);
+            break;
+
+         case KM_FDTYPE_SOCKETPAIR:
+            // {2,6,6,7}
+            if (sscanf(q, "%d,%d,%d}", &fd, &how, &ofd) != 3) {
+               return -1;
+            }
+            km_exec_restore_socketpair(fd, how, ofd);
+            break;
+
+         case KM_FDTYPE_SOCKET:
+            // {3,5,4,2,5,-1,020056cf000000000000000000000000},
+            if (sscanf(q, "%d,%d,%d,%d,%d,", &fd, &how, &state, &backlog, &ofd) != 5) {
+               return -1;
+            }
+            km_fd_socket_t* sockinfo = calloc(1, sizeof(km_fd_socket_t));
+            if (sockinfo == NULL) {
+               return -1;
+            }
+            char* saveq = q;
             q = strchr(q, '}');
             if (q == NULL) {
-               km_fs_destroy_fd(fd);
+               free(sockinfo);
                return -1;
             }
-            q++;
-            km_fs_event_t* eventp;
-            eventp = malloc(sizeof(km_fs_event_t));
-            if (eventp == NULL) {
-               km_fs_destroy_fd(fd);
+            while (*(q - 1) != ',') {
+               q--;
+               if (q == saveq) {
+                  // We should have found a ',' by now.  We got this far because sscanf() above found one.
+                  km_infox(KM_TRACE_EXEC, "Didn't find a comma in %s?", saveq);
+                  break;
+               }
+            }
+            km_hex2bin(q, (unsigned char*)sockinfo->addr, &sockinfo->addrlen);
+            if (km_exec_restore_socket(fd, how, state, backlog, ofd, sockinfo) < 0) {
+               // km_exec_restore_socket() will free sockinfo when it fails.
+               km_infox(KM_TRACE_EXEC, "Unable to restore socket fd %d", fd);
                return -1;
             }
-            eventp->fd = fd;
-            eventp->event.events = events;
-            eventp->event.data.u64 = data;
-            TAILQ_INSERT_TAIL(&file->events, eventp, link);
-         }
-         if (*q != '}') {
-            return -1;
-         }
-         // events are complicated enough that we must advance p beyond this entry
-         p = q;
-         break;
+            break;
 
-      default:
-         km_infox(KM_TRACE_EXEC, "Unknown fd tag 0x%x", tag);
-         return -1;
-         break;
+         case KM_FDTYPE_EVENTFD:
+            // The description of an epollfd looks like this, there can be 0 or more events.
+            // {4,10,0,{4,1,7fff00000004},{6,4,7fff00000006}}
+            if (sscanf(q, "%d,%x", &fd, &flags) != 2) {
+               km_infox(KM_TRACE_EXEC, "Didn't find expected delimiter");
+               return -1;
+            }
+            q = strpbrk(q, "{}");
+            if (q == NULL) {
+               km_infox(KM_TRACE_EXEC, "Didn't find expected delimiter");
+               return -1;
+            }
+            km_exec_restore_eventfd(fd, flags);
+            km_file_t* file;
+            km_exec_get_file_pointer(fd, &file, NULL);
+            if (*q == '{') {
+               q--;
+            }
+            while (*q == ',') {
+               uint32_t events;
+               uint64_t data;
+               q++;
+               km_infox(KM_TRACE_EXEC, "Processing event: %s", q);
+               if (sscanf(q, "{%d,%x,%lx}", &fd, &events, &data) != 3) {
+                  km_fs_destroy_fd(fd);
+                  return -1;
+               }
+               q = strchr(q, '}');
+               if (q == NULL) {
+                  km_fs_destroy_fd(fd);
+                  return -1;
+               }
+               q++;
+               km_fs_event_t* eventp;
+               eventp = malloc(sizeof(km_fs_event_t));
+               if (eventp == NULL) {
+                  km_fs_destroy_fd(fd);
+                  return -1;
+               }
+               eventp->fd = fd;
+               eventp->event.events = events;
+               eventp->event.data.u64 = data;
+               TAILQ_INSERT_TAIL(&file->events, eventp, link);
+            }
+            if (*q != '}') {
+               return -1;
+            }
+            // events are complicated enough that we must advance p beyond this entry
+            p = q;
+            break;
+
+         default:
+            km_infox(KM_TRACE_EXEC, "Unknown fd tag 0x%x", tag);
+            return -1;
+            break;
       }
       q = strchr(p, '}');
       if (q == NULL) {
