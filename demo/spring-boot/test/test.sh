@@ -25,5 +25,5 @@ end=$(date +%s%N)
 docker cp $CONTAINER:/tmp/start_time /tmp/start_time
 dur=$(expr $end - $(cat /tmp/start_time))
 echo "Response time $(expr $dur / 1000000000).$(printf "%.03d" $(expr $dur % 1000000000 / 1000000)) secs"
-curl http://localhost:8080/greeting
+curl http://localhost:8080/greeting | jq .
 echo ""
