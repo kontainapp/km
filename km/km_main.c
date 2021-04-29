@@ -288,7 +288,7 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
    }
    km_tracex("Extracting payload name from shebang file '%s'", payload_file);
    char* c;
-   for (c = line_buf + SHEBANG_LEN; isblank(*c) == 0 && *c != '\0'; c++) {   // find args, if any
+   for (c = line_buf + SHEBANG_LEN; isspace(*c) == 0 && *c != '\0'; c++) {   // find args, if any
    }
    if (*c == '\0') {
       km_tracex("Warning: shebang line too long, truncating to %ld", SHEBANG_MAX_LINE_LEN);
@@ -304,6 +304,10 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
    }
    payload_file = line_buf + SHEBANG_LEN;
    *c = 0;   // null terminate the payload file name
+   if (km_is_env_path(payload_file) == 1) {
+      payload_file = *extra_arg;
+      *extra_arg = NULL;
+   }
    km_tracex("Payload file from shebang: %s", payload_file);
    return km_traverse_payload_symlinks(payload_file);
 }
@@ -341,8 +345,8 @@ static void km_mimic_payload_argv(int argc, char** argv, int pl_index)
 
 // parses args, returns payload_name based on argv[], symlink, or shebang.
 // also fills *argc_p, *argv_p, *envc_p and *envp_p with args/env info for payload
-static char*
-km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p, char** envp_p[], char* pl_name)
+static char* km_parse_args(
+    int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p, char** envp_p[], char* pl_name)
 {
    int opt;
    uint64_t port;
@@ -350,13 +354,13 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    int copyenv_used = 1;   // By default copy environment from host
    int putenv_used = 0;
    char* ep = NULL;
-   int longopt_index;      // flag index in longopt array
-   int pl_index = 0;       // payload_name index in argv array
-   char** envp = NULL;     // NULL terminated array of env pointers
-   int envc = 1;           // count of elements in envp (including NULL), see realloc below in case 'e'
+   int longopt_index;    // flag index in longopt array
+   int pl_index = 0;     // payload_name index in argv array
+   char** envp = NULL;   // NULL terminated array of env pointers
+   int envc = 1;   // count of elements in envp (including NULL), see realloc below in case 'e'
 
    if (pl_name == NULL) {   // regular KM invocation - parse KM args
-      optind = 0;        // reinit getopt
+      optind = 0;           // reinit getopt
       while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) !=
              -1) {
          switch (opt) {
@@ -601,7 +605,7 @@ int main(int argc, char* argv[])
       pl_name = km_traverse_payload_symlinks((const char*)argv[0]);
    }
 
-   km_trace_setup(argc, argv, pl_name);       // setup trace settings as early as possible
+   km_trace_setup(argc, argv, pl_name);   // setup trace settings as early as possible
    // Tracing is now enabled.  Log what we decided to run.
    if (pl_name != NULL) {
       km_tracex("Setting payload name to %s", pl_name);

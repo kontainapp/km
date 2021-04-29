@@ -31,6 +31,7 @@
  * -E flag to test ENOEXEC errno
  * -k flags to test exec into '.km' file
  * -s to tests /bin/sh parse
+ * -S to tests /bin/env (and others) parse via shebang exec
  * -X to test exec into realpath of /proc/self/exe
  *
  * Set KM_EXEC_TEST_EXE environment to override what it being exec-ed into by default
@@ -119,6 +120,13 @@ int main(int argc, char** argv)
                           "./hello_test.km --parse \"string with quotes\" 'more\\ quotes' ! ;",
                           NULL};
       rc = execve("/bin/sh", testargv, testenvp);
+      fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
+   } else if (strcmp(argv[1], "-S") == 0) {   // exec into shebang /bin/env
+      char* testargv[] = {"/bin/env", "./hello_test.km", NULL};
+      if (KM_PAYLOAD() == 0) {
+         testargv[1] = "./hello_test.fedora";
+      }
+      rc = execve("/bin/env", testargv, testenvp);
       fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
    } else if (strcmp(argv[1], "-0") == 0) {   // noop, usually from exec-d program
       fprintf(stderr, "noop: -0 requested\n");

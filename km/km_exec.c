@@ -23,11 +23,18 @@
 
 #include "km.h"
 #include "km_exec.h"
+#include "km_exec_fd_save_recover.h"
 #include "km_filesys.h"
 #include "km_filesys_private.h"
 #include "km_gdb.h"
 #include "km_mem.h"
-#include "km_exec_fd_save_recover.h"
+
+/*
+ * These paths in shebang lead to express-parse - see below
+ */
+static const_string_t SHELL_PATHS[] =
+    {"/bin/sh", "/usr/bin/sh", "/bin/ash", "/usr/bin/ash", "/bin/bash", "/usr/bin/bash", NULL};
+static const_string_t ENV_PATHS[] = {"/bin/env", "/usr/bin/env", NULL};
 
 /*
  * The execve hypercall builds the following environment variables which are appended to
@@ -502,39 +509,77 @@ static char** km_parse_shell_cmd_line(char* s, int* cnt)
    return sv;
 }
 
+// returns 1 if <name> is in null-terminated <list>
+static int km_one_of(const char* name, const_string_t list[])
+{
+   for (const_string_t* s = list; *s != NULL; s++) {
+      if (strncmp(name, *s, PATH_MAX) == 0) {
+         km_infox(KM_TRACE_EXEC, "matched: %s", name);
+         return 1;
+      }
+   }
+   return 0;
+}
+
+int km_is_shell_path(const char* name)
+{
+   return km_one_of(name, SHELL_PATHS);
+}
+
+int km_is_env_path(const char* name)
+{
+   return km_one_of(name, ENV_PATHS);
+}
 /*
  * Build an argv[] by taking the current km's args other than the payload args and appending the
  * argv passed to execve().
  *
- * If they are trying to run the shell, we don't want to do that for security reasons. Instead we
- * parse the command line that would be passed to the shell and form a new argv[] which will be
- * appended to the km command line as would be done if a km payload was being exec'ed.
+ * If they are trying to run the shell, we don't want to do that for security reasons. Instead
+ * we parse the command line that would be passed to the shell and form a new argv[] which will
+ * be appended to the km command line as would be done if a km payload was being exec'ed.
  */
 char** km_exec_build_argv(char* filename, char** argv, char** envp)
 {
    char** nargv;
    int argc;
    char buf[PATH_MAX];
-   int shell;
+   int shell;   // indicates special handling for shells and env
+   // host addresses, just to make less gva_to_kma below
+   char* argv0 = (char*)km_gva_to_kma((km_gva_t)argv[0]);
+   char* argv1 = (char*)km_gva_to_kma((km_gva_t)argv[1]);
+   char* argv2 = (char*)km_gva_to_kma((km_gva_t)argv[2]);
+   char* argv3 = (char*)km_gva_to_kma((km_gva_t)argv[3]);
 
    km_infox(KM_TRACE_EXEC,
             "filename %s, argv[0] %s, argv[1] %s, argv[2] %s, argv[3] %s",
             filename,
-            (char*)km_gva_to_kma((km_gva_t)argv[0]),
-            (char*)km_gva_to_kma((km_gva_t)argv[1]),
-            (char*)km_gva_to_kma((km_gva_t)argv[2]),
-            (char*)km_gva_to_kma((km_gva_t)argv[3]));
+            argv0,
+            argv1,
+            argv2,
+            argv3);
 
    /*
     * If this is popen build new argv and argc from cmd line.
     * Otherwise compute argc and copy argv from guest address space
     */
-   if (strcmp(filename, SHELL_PATH) == 0) {   // so that popen() calls from the payload can work
-      if (argv[0] == NULL || argv[1] == NULL || argv[2] == NULL || argv[3] != NULL ||
-          strcmp(km_gva_to_kma((km_gva_t)argv[1]), "-c") != 0) {
+   int is_shell = km_is_shell_path(filename);
+   int is_env = km_is_env_path(filename);
+   if (is_shell == 1 || is_env == 1) {
+      if (argv0 == NULL || argv1 == NULL) {
+         km_infox(KM_TRACE_EXEC, "NULL in argv0 (%p) or argv1(%p)", argv0, argv1);
+         return NULL;   //
+      }
+
+      char* cmdline;
+      if (is_shell == 1 && (argv2 == NULL || argv3 != NULL || strcmp(argv1, "-c") != 0)) {
+         km_infox(KM_TRACE_EXEC, "-c required but not found in execve for /bin/sh");
          return NULL;
       }
-      char* cmdline = km_gva_to_kma((km_gva_t)argv[2]);
+      if (is_shell == 1) {
+         cmdline = argv2;   // skip -c for shell
+      } else {
+         cmdline = argv1;   // no flags parsing for env, for now
+      }
 
       shell = 1;
       km_infox(KM_TRACE_EXEC, "Parsing shell command: %s", cmdline);
@@ -757,7 +802,8 @@ int km_exec_recover_kmstate(void)
    // Get the gdb state back.  Not sure if gdb expects us to remember open gdb fd's.
    int wait_for_attach;
    n = sscanf(gdbinfo,
-              "%d,%d,%d,%hhd,%d,%hhd,%d,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,fs=%d,",
+              "%d,%d,%d,%hhd,%d,%hhd,%d,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,fs=%"
+              "d,",
               &gdbstub.port,
               &gdbstub.listen_socket_fd,
               &gdbstub.sock_fd,
@@ -823,11 +869,10 @@ int km_exec_recover_kmstate(void)
  */
 int km_exec_recover_guestfd(void)
 {
-
    if (execstatep == NULL) {
       return 1;
    }
-   for (int i = 0; i < execstatep->nfdmap ; i++) {
+   for (int i = 0; i < execstatep->nfdmap; i++) {
       if (execstatep->guestfds[i].inuse == 0) {
          continue;
       }

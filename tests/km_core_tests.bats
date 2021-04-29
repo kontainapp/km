@@ -1194,6 +1194,19 @@ fi
    assert_line --partial "argv[1] = 'arguments to test, should be one'"
    assert_line --partial "argv[6] = 'd4'"
 
+   # test /bin/env in execve()
+   run km_with_timeout exec_test$ext -S testingEnv
+
+   # test handling of env and sh paths in shabangs passed to km
+   run km_with_timeout shebang_sh_test.sh
+   assert_failure
+   assert_line --partial "realpath(/bin/sh.km) failed: No such file or directory"
+
+   run km_with_timeout shebang_env_test.sh
+   assert_success
+   assert_line --regexp "^Hello, argv\[0\] = '.*hello_test.km'"
+
+
    # test that fork does not block SIGCHLD signal
    run km_with_timeout exec_target_test$ext parent_of_waitforchild
    assert_success
