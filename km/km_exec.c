@@ -567,7 +567,7 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
    if (is_shell == 1 || is_env == 1) {
       if (argv0 == NULL || argv1 == NULL) {
          km_infox(KM_TRACE_EXEC, "NULL in argv0 (%p) or argv1(%p)", argv0, argv1);
-         return NULL;   //
+         return NULL;
       }
 
       char* cmdline;
@@ -802,8 +802,7 @@ int km_exec_recover_kmstate(void)
    // Get the gdb state back.  Not sure if gdb expects us to remember open gdb fd's.
    int wait_for_attach;
    n = sscanf(gdbinfo,
-              "%d,%d,%d,%hhd,%d,%hhd,%d,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,fs=%"
-              "d,",
+              "%d,%d,%d,%hhd,%d,%hhd,%d,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,%hhd,fs=%d,",
               &gdbstub.port,
               &gdbstub.listen_socket_fd,
               &gdbstub.sock_fd,
