@@ -3,4 +3,3 @@ FROM alpine
 # It helps with troubleshooting and using shell in further dockerfiles
 
 COPY . /usr/local/bin/
-ENTRYPOINT [ "/usr/local/bin/node" ]
