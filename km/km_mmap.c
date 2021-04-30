@@ -301,7 +301,6 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
                  reg->filename != NULL ? reg->filename : "MAP_SHARED");
       } else {
          reg->flags = new_flags;
-         reg->filename = NULL;
       }
    }
    km_mmap_insert_free(reg);
