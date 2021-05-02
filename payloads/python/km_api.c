@@ -15,7 +15,6 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #define __GNU_SOURCE
-#include <errno.h>
 #include <unistd.h>
 #include <sys/syscall.h>
 
@@ -57,16 +56,12 @@ static PyObject* kontain_snapshot_putdata(PyObject* self, PyObject* args, PyObje
 {
    char* buf = NULL;
    if (!PyArg_ParseTuple(args, "s", &buf)) {
-      printf("fail1\n");
       return NULL;
    }
    int bufsz = strlen(buf);
-   printf("buf=%p bufsz=%d %s\n", buf, bufsz, buf);
-
    // 503 = km_snapshot_putdata
    int ret;
    if ((ret = syscall(503, buf, bufsz)) < 0) {
-      printf("fail2 - ret=%d errno=%d\n", ret, errno);
       return NULL;
    }
 
