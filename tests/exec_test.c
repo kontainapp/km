@@ -30,7 +30,8 @@
  * -e to test ENOENT errno
  * -E flag to test ENOEXEC errno
  * -k flags to test exec into '.km' file
- * -s to tests /bin/sh parse
+ * -s to test /bin/sh parse
+ * -S to test /bin/env (and others) parse via shebang exec
  * -X to test exec into realpath of /proc/self/exe
  *
  * Set KM_EXEC_TEST_EXE environment to override what it being exec-ed into by default
@@ -44,7 +45,7 @@
 #define EXEC_TEST_EXE_KM "hello_test.km"
 
 #define EXEC_TEST_EXE_ENOENT "this_file_should_not_exist.ever"
-#define EXEC_TEST_EXE_ENOEXEC "test_helper.bash"   // existing file but not an ELF
+#define EXEC_TEST_EXE_ENOEXEC "enoexec.helper"   // existing file but not an ELF
 
 int main(int argc, char** argv)
 {
@@ -119,6 +120,13 @@ int main(int argc, char** argv)
                           "./hello_test.km --parse \"string with quotes\" 'more\\ quotes' ! ;",
                           NULL};
       rc = execve("/bin/sh", testargv, testenvp);
+      fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
+   } else if (strcmp(argv[1], "-S") == 0) {   // exec into shebang /bin/env
+      char* testargv[] = {"/bin/env", "./hello_test.km", NULL};
+      if (KM_PAYLOAD() == 0) {
+         testargv[1] = "./hello_test.fedora";
+      }
+      rc = execve("/bin/env", testargv, testenvp);
       fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
    } else if (strcmp(argv[1], "-0") == 0) {   // noop, usually from exec-d program
       fprintf(stderr, "noop: -0 requested\n");

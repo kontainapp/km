@@ -13,13 +13,11 @@
 #ifndef __KM_EXEC_H__
 #define __KM_EXEC_H__
 
-#include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 #include "km_filesys.h"
 #include "km_filesys_private.h"
 
-static const_string_t KMPATH = "KMPATH";
-static const_string_t SHELL_PATH = "/bin/sh";
 static const_string_t PAYLOAD_SUFFIX = ".km";
 
 void km_exec_get_file_pointer(int fd, km_file_t** filep, int* nfds);
@@ -33,5 +31,9 @@ int km_called_via_exec(void);
 pid_t km_exec_pid(void);
 pid_t km_exec_ppid(void);
 pid_t km_exec_next_pid(void);
+
+// Helpers. Here because we do not have km_helpers.h
+int km_is_shell_path(const char*);
+int km_is_env_path(const char*);
 
 #endif   // !defined(__KM_EXEC_H__)

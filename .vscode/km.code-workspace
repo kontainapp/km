@@ -84,6 +84,7 @@
          "shdr",
          "sregs",
          "symlink",
+         "tracex",
          "unikernel",
          "vcpu",
          "vmexit",
