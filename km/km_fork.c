@@ -44,6 +44,7 @@ typedef struct km_fork_state {
    km_gva_t stack_top;
    km_gva_t guest_thr;
    km_stack_t sigaltstack;
+   km_sigset_t sigmask;   // cloning/forking thread's signal mask
    uint8_t ksi_valid;
    kkm_save_info_t ksi;
 } km_fork_state_t;
@@ -65,7 +66,7 @@ static km_fork_state_t km_fork_state = {
  * If you add code to this function consider whether similar code needs to be added to
  * km_machine_init().
  */
-static void km_fork_setup_child_vmstate(void)
+static void km_fork_setup_child_vmstate(sigset_t* formermask)
 {
    km_infox(KM_TRACE_FORK, "begin");
 
@@ -100,6 +101,12 @@ static void km_fork_setup_child_vmstate(void)
 
    km_signal_init();   // initialize signal wait queue and the signal entry free list
 
+   // km signal system is ready to handle signals
+   int rc = sigprocmask(SIG_SETMASK, formermask, NULL);
+   if (rc != 0) {
+      km_abort("Couldn't restore child's signal mask");
+   }
+
    // No need to call km_init_guest_idt(). Use what was inherited from the parent process.
 
    km_vcpu_t* vcpu = km_vcpu_get();   // Get a new vcpu for the child's only thread.
@@ -108,7 +115,9 @@ static void km_fork_setup_child_vmstate(void)
    }
    vcpu->stack_top = km_fork_state.stack_top;
    vcpu->guest_thr = km_fork_state.guest_thr;
+   // Inherit the forking thread's signal state
    vcpu->sigaltstack = km_fork_state.sigaltstack;
+   vcpu->sigmask = km_fork_state.sigmask;
 
    /*
     * The following is similar to km_vcpu_set_to_run() but we want to use the stack and registers
@@ -178,7 +187,7 @@ static void km_fork_remove_parent_vmstate(void)
  * setup and the lone payload thread in the child created.
  * The caller must start the vcpu running.
  */
-static void km_fork_child_vm_init(void)
+static void km_fork_child_vm_init(sigset_t *formermask)
 {
    // Disconnect gdb client
    km_gdb_fork_reset();
@@ -189,7 +198,7 @@ static void km_fork_child_vm_init(void)
    km_fork_remove_parent_vmstate();
 
    // Create a new vm and a single vcpu for the payload thread that survives the fork.
-   km_fork_setup_child_vmstate();
+   km_fork_setup_child_vmstate(formermask);
 
    // Get a thread and vcpu for the initial payload thread.
    km_start_all_vcpus();
@@ -257,6 +266,7 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
    }
    km_fork_state.guest_thr = vcpu->guest_thr;
    km_fork_state.sigaltstack = vcpu->sigaltstack;
+   km_fork_state.sigmask = vcpu->sigmask;
 
    km_mutex_unlock(&km_fork_state.mutex);
    return 0;
@@ -310,7 +320,9 @@ int km_dofork(int* in_child)
    sigaddset(&blockthese, SIGUSR1);
    sigaddset(&blockthese, SIGCHLD);                 // block SIGCHLD until the child's pid is entered into the pid map
    int rc = sigprocmask(SIG_BLOCK, &blockthese, &formermask);
-   assert(rc == 0);
+   if (rc != 0) {
+      km_abort("Couldn't block signals before fork/clone");
+   }
 
    km_trace_include_pid(1);   // include the pid in trace output
    if (km_fork_state.is_clone != 0) {
@@ -344,11 +356,8 @@ int km_dofork(int* in_child)
          km_fork_state.regs.rax = km_fork_state.arg->hc_ret;
       }
 
-      // Restore the blocked signals mask for the new vcpu thread to inherit.
-      rc = sigprocmask(SIG_SETMASK, &formermask, NULL);
-      assert(rc == 0);
+      km_fork_child_vm_init(&formermask);   // create the vm and a single vcpu for the child payload thread
 
-      km_fork_child_vm_init();   // create the vm and a single vcpu for the child payload thread
       if (in_child != NULL) {
          *in_child = 1;
       }
