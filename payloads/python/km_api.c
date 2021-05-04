@@ -44,7 +44,7 @@ static PyObject* kontain_snapshot_getdata(PyObject* self, PyObject* args, PyObje
 
    // 504 = km_snapshot_getdata
    if ((ret = syscall(504, buf, bufsz)) < 0) {
-      return NULL;
+      return PyErr_SetFromErrno(PyExc_RuntimeError);
    }
 
    PyObject* obj = Py_BuildValue("s#", buf, ret);
@@ -56,13 +56,14 @@ static PyObject* kontain_snapshot_putdata(PyObject* self, PyObject* args, PyObje
 {
    char* buf = NULL;
    if (!PyArg_ParseTuple(args, "s", &buf)) {
+      // PyArg_ParseTuple set the exception
       return NULL;
    }
    int bufsz = strlen(buf);
    // 503 = km_snapshot_putdata
    int ret;
    if ((ret = syscall(503, buf, bufsz)) < 0) {
-      return NULL;
+      return PyErr_SetFromErrno(PyExc_RuntimeError);
    }
 
    return Py_None;
