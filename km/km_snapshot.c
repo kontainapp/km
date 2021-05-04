@@ -80,9 +80,8 @@ char* km_get_snapshot_output_path()
 
 int km_snapshot_getdata(km_vcpu_t* vcpu, char* buf, int buflen)
 {
-   km_warnx("%s %s", __FUNCTION__, snapshot_input_path);
    if (buf == NULL) {
-      km_warnx("bad buffer");
+      km_infox(KM_TRACE_SNAPSHOT, "bad buffer");
       return -EFAULT;
    }
    if (snapshot_input_path == NULL) {
@@ -90,12 +89,12 @@ int km_snapshot_getdata(km_vcpu_t* vcpu, char* buf, int buflen)
    }
    int fd = km_internal_open(snapshot_input_path, O_RDONLY, 0);
    if (fd < 0) {
-      km_warn("open failure");
+      km_info(KM_TRACE_SNAPSHOT, "open failure");
       return -errno;
    }
    int rc = read(fd, buf, buflen);
    if (rc < 0) {
-      km_warn("read failure");
+      km_info(KM_TRACE_SNAPSHOT, "read failure");
       rc = -errno;
    }
    close(fd);
@@ -105,7 +104,7 @@ int km_snapshot_getdata(km_vcpu_t* vcpu, char* buf, int buflen)
 int km_snapshot_putdata(km_vcpu_t* vcpu, char* buf, int buflen)
 {
    if (buf == NULL) {
-      km_warnx("bad buffer");
+      km_infox(KM_TRACE_SNAPSHOT, "bad buffer");
       return -EFAULT;
    }
    if (snapshot_output_path == NULL) {
@@ -113,12 +112,12 @@ int km_snapshot_putdata(km_vcpu_t* vcpu, char* buf, int buflen)
    }
    int fd = km_internal_open(snapshot_output_path, O_RDWR | O_CREAT | O_TRUNC, 0666);
    if (fd < 0) {
-      km_warn("open failure");
+      km_info(KM_TRACE_SNAPSHOT, "open failure");
       return -errno;
    }
    int rc = write(fd, buf, buflen);
    if (rc < 0) {
-      km_warn("write failure");
+      km_info(KM_TRACE_SNAPSHOT, "write failure");
       rc = -errno;
    }
    close(fd);
