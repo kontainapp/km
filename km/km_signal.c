@@ -23,6 +23,7 @@
 #include <linux/kvm.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/prctl.h>
 
 #include "bsd_queue.h"
 #include "km.h"
@@ -623,10 +624,9 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
       if (sigaction(info->si_signo, &action, NULL) != 0) {
          km_warn("failed to set default signal handling for signo %d", info->si_signo);
       }
-      // Suppress the km coredump.
-      struct rlimit corelimit = { 0, 0 };
-      if (prlimit(0, RLIMIT_CORE, &corelimit, NULL) != 0) {
-         km_warn("Unable to suppress km core dump");
+      // Suppress the km coredump but still return the proper exit status.
+      if (prctl(PR_SET_DUMPABLE, 0) != 0) {
+         km_warn("prctl(PR_SET_DUMPABLE, SUID_DUMP_DISABLE) failed");
       }
       if (kill(getpid(), info->si_signo) != 0) {
          km_warn("send signo %d to myself failed", info->si_signo);
