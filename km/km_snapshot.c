@@ -474,6 +474,17 @@ static inline int km_ss_recover_km_monitor(char* notebuf, size_t notesize)
    if (mon->description_length > 0) {
       km_warnx("description: %s", base + mon->label_length);
    }
+   // Verify that the virtualization driver used when the snapshot was taken is the same
+   // as the one km was told to use with the -F (or --virt-device) command flag.
+   if (!(mon->monitor_type == KM_NT_MONITOR_TYPE_KVM && machine.vm_type == VM_TYPE_KVM) &&
+       !(mon->monitor_type == KM_NT_MONITOR_TYPE_KKM && machine.vm_type == VM_TYPE_KKM)) {
+      char* snapshot_vmtype[] = {"kvm", "kkm"};	        // indexed by monitor_type
+      char* current_vmtype[] = {"kvm", "kkm"};          // indexed by vm_type_t
+      km_warnx("snapshot virtualization (%s) and current virtualization (%s) do not agree",
+               snapshot_vmtype[mon->monitor_type],
+               current_vmtype[machine.vm_type]);
+      return -1;
+   }
    return 0;
 }
 
@@ -510,7 +521,7 @@ int km_snapshot_restore(km_elf_t* e)
    km_close_elf_file(e);   // close now to avoid collision with fd's that need restoring
 
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_MONITOR, km_ss_recover_km_monitor) < 0) {
-      km_errx(2, "recover file maps failed");
+      km_errx(2, "recover monitor failed");
    }
    if (km_ss_recover_vcpus(notebuf, notesize) < 0) {
       km_errx(2, "VCPU restore failed");
