@@ -34,11 +34,54 @@ static PyObject* kontain_snapshot_take(PyObject* self, PyObject* args, PyObject*
    return Py_None;
 }
 
+static PyObject* kontain_snapshot_getdata(PyObject* self, PyObject* args, PyObject* keywds)
+{
+   int bufsz = 4096;
+   PyGILState_STATE state = PyGILState_Ensure();
+   void* buf = PyObject_Malloc(bufsz);
+   PyGILState_Release(state);
+   int ret;
+
+   // 504 = km_snapshot_getdata
+   if ((ret = syscall(504, buf, bufsz)) < 0) {
+      return PyErr_SetFromErrno(PyExc_RuntimeError);
+   }
+
+   PyObject* obj = Py_BuildValue("s#", buf, ret);
+
+   return obj;
+}
+
+static PyObject* kontain_snapshot_putdata(PyObject* self, PyObject* args, PyObject* keywds)
+{
+   char* buf = NULL;
+   if (!PyArg_ParseTuple(args, "s", &buf)) {
+      // PyArg_ParseTuple set the exception
+      return NULL;
+   }
+   int bufsz = strlen(buf);
+   // 503 = km_snapshot_putdata
+   int ret;
+   if ((ret = syscall(503, buf, bufsz)) < 0) {
+      return PyErr_SetFromErrno(PyExc_RuntimeError);
+   }
+
+   return Py_None;
+}
+
 static PyMethodDef KontainMethods[] = {
     {.ml_name = "take",
      .ml_meth = kontain_snapshot_take,
      .ml_flags = METH_VARARGS | METH_KEYWORDS,
      .ml_doc = "Take process snapshot"},
+    {.ml_name = "getdata",
+     .ml_meth = kontain_snapshot_getdata,
+     .ml_flags = METH_VARARGS | METH_KEYWORDS,
+     .ml_doc = "Read snapshot start data from KM"},
+    {.ml_name = "putdata",
+     .ml_meth = kontain_snapshot_putdata,
+     .ml_flags = METH_VARARGS | METH_KEYWORDS,
+     .ml_doc = "Write snapshot completion data"},
     {} /* Sentinel */
 };
 
