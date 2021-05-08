@@ -19,8 +19,6 @@ ARG JAVA_DIR=/opt/kontain/java
 ENV LD_LIBRARY_PATH ${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime:/lib64
 
 COPY ${FROM}/ ${JAVA_DIR}/
-# Java is looking for /lib64/ld-linux-x86-64.so.2 so below is the hack to shortcut investigation
-RUN mkdir /lib64; ln -s /opt/kontain/runtime/libc.so /lib64/ld-linux-x86-64.so.2
 RUN ln -s /opt/kontain/bin/km  ${JAVA_DIR}/bin/java; \
    cd ${JAVA_DIR}/bin/; ln -s  java.kmd java.km
 RUN ln -s ${JAVA_DIR}/bin/java /usr/bin/java

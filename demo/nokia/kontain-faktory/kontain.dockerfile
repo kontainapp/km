@@ -30,10 +30,9 @@ ADD $JDK_VERSION $ORIG_JDK_DIR
 ADD alpine-lib ${KONTAIN_DIR}/alpine-lib
 ADD runtime ${KONTAIN_DIR}/runtime
 
-# Make sure libjvm.so finds the NEEDED ld-linux; and that km is in the right place
-# TODO: remove the need for ld-linux, plus place km & libc.so in the right place - see copy_needed_files.sh
-RUN ln -d /opt/kontain/runtime/libc.so /opt/kontain/runtime/ld-linux-x86-64.so.2 ; \
-   mkdir $KONTAIN_DIR/bin; mv $ORIG_JDK_DIR/bin/km $KONTAIN_DIR/bin/km
+# Make sure that km is in the right place
+# TODO: place km & libc.so in the right place - see copy_needed_files.sh
+RUN mkdir $KONTAIN_DIR/bin; mv $ORIG_JDK_DIR/bin/km $KONTAIN_DIR/bin/km
 
 # Make sure 'shebang' can find /usr/bin/java.km if needed
 RUN ln -s $ORIG_JDK_DIR/bin/java.km /usr/bin/java.km;

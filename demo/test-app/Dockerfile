@@ -28,6 +28,8 @@ RUN cp /usr/lib64/libcrypto.so.1.1.1[a-z] /opt/kontain/alpine-lib/lib/libcrypto.
 # switch to 3.8
 RUN ln -sf /usr/bin/python3.8 /usr/bin/python3
 
+# TODO: libc.so and ld-linux-x86-64.so.2 are here only because kontain/test-python-fedora doesn't have
+# /opt/kontain/runtime but dynamic python needs it
 RUN cp ${PHOME}/python.kmd /usr/bin/python3.8.km && \
    mkdir ${PREFIX}/bin && cp ${PHOME}/km ${PREFIX}/bin/ && \
    mkdir ${PREFIX}/runtime/ && cp ${PHOME}/libc.so ${PREFIX}/runtime/ && \
