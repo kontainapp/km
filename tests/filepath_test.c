@@ -150,7 +150,8 @@ TEST test_symlink()
    rc = readlink((char*)-1, linkval, PATH_MAX);
    ASSERT_EQ(-1, rc);
    ASSERT_EQ(EFAULT, errno);
-   rc = readlink(linkpath, (char*)-1, PATH_MAX);
+   char* fake_buf = (char*)-1;   // avoid gcc-11 overflow check via a temp var
+   rc = readlink(linkpath, fake_buf, PATH_MAX);
    ASSERT_EQ(-1, rc);
    ASSERT_EQ(EFAULT, errno);
 
@@ -202,7 +203,8 @@ TEST test_chdir()
    rc = strcmp(curpath, oldpath);
    ASSERT_EQ(0, rc);
 
-   ptr = getcwd((char*)-1, PATH_MAX);
+   char* fake_buf = (char*)-1;   // avoid gcc-11 overflow check via a temp var
+   ptr = getcwd(fake_buf, PATH_MAX);
    ASSERT_EQ(NULL, ptr);
    rc = chdir((char*)-1);
    ASSERT_EQ(-1, rc);
@@ -324,13 +326,12 @@ TEST test_unlinkat(void)
    snprintf(path, sizeof(path), "dir_%ld", unique);
    rmdir(path);
 
-
    // Create and unlink a file by absolute path.
    snprintf(path, sizeof(path), "%s/file_%ld", pathoftmp, unique);
    fd = open(path, O_CREAT, 0644);
    ASSERT_NOT_EQ(-1, fd);
    close(fd);
-   rc = unlinkat(0, path, 0);          // dirfd should be ignored when path is absolute
+   rc = unlinkat(0, path, 0);   // dirfd should be ignored when path is absolute
    ASSERT_EQ(0, rc);
    fd = open(path, O_CREAT, 0x644);
    ASSERT_NOT_EQ(-1, fd);
@@ -342,18 +343,17 @@ TEST test_unlinkat(void)
    snprintf(path, sizeof(path), "%s/dir_%ld", pathoftmp, unique);
    rc = mkdir(path, 0x644);
    ASSERT_EQ(0, rc);
-   rc = unlinkat(0, path, 0);         // ignore dirfd, can't unlink dir without AT_REMOVEDIR
+   rc = unlinkat(0, path, 0);   // ignore dirfd, can't unlink dir without AT_REMOVEDIR
    ASSERT_EQ(-1, rc);
-   rc = unlinkat(0, path, AT_REMOVEDIR);  // dirfd should be ignored and unlinking the dir should work
+   rc = unlinkat(0, path, AT_REMOVEDIR);   // dirfd should be ignored and unlinking the dir should work
    ASSERT_EQ(0, rc);
 
    rc = mkdir(path, 0x644);
    ASSERT_EQ(0, rc);
-   rc = unlinkat(AT_FDCWD, path, 0);  // can't unlink dir without AT_REMOVEDIR
+   rc = unlinkat(AT_FDCWD, path, 0);   // can't unlink dir without AT_REMOVEDIR
    ASSERT_EQ(-1, rc);
-   rc = unlinkat(AT_FDCWD, path, AT_REMOVEDIR); // should be able to unlink dir with AT_REMOVEDIR
+   rc = unlinkat(AT_FDCWD, path, AT_REMOVEDIR);   // should be able to unlink dir with AT_REMOVEDIR
    ASSERT_EQ(0, rc);
-
 
    // Now do stuff relative to a directory fd.
    tmpfd = open(pathoftmp, O_DIRECTORY);
@@ -364,7 +364,7 @@ TEST test_unlinkat(void)
    fd = openat(tmpfd, path, O_CREAT, 0644);
    ASSERT_NOT_EQ(-1, fd);
    close(fd);
-   rc = unlinkat(tmpfd, path, AT_REMOVEDIR);  // should fail since this is a file
+   rc = unlinkat(tmpfd, path, AT_REMOVEDIR);   // should fail since this is a file
    ASSERT_EQ(-1, rc);
    rc = unlinkat(tmpfd, path, 0);
    ASSERT_EQ(0, rc);
@@ -374,7 +374,7 @@ TEST test_unlinkat(void)
    rc = mkdir(path, 0755);
    ASSERT_EQ(0, rc);
    snprintf(path, sizeof(path), "dir_%ld", unique);
-   rc = unlinkat(tmpfd, path, 0);    // should fail without AT_REMOVEDIR
+   rc = unlinkat(tmpfd, path, 0);   // should fail without AT_REMOVEDIR
    ASSERT_EQ(-1, rc);
    rc = unlinkat(tmpfd, path, AT_REMOVEDIR);
    ASSERT_EQ(0, rc);
@@ -394,7 +394,7 @@ TEST test_unlinkat(void)
    snprintf(path, sizeof(path), "dir_%ld", unique);
    rc = mkdir(path, 0755);
    ASSERT_EQ(0, rc);
-   rc = unlinkat(AT_FDCWD, path, 0);       // should fail because this is a directory
+   rc = unlinkat(AT_FDCWD, path, 0);   // should fail because this is a directory
    ASSERT_EQ(-1, rc);
    rc = unlinkat(AT_FDCWD, path, AT_REMOVEDIR);
    ASSERT_EQ(0, rc);

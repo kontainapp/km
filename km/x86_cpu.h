@@ -60,7 +60,7 @@ typedef struct x86_pml4e {
  */
 typedef struct x86_pdpte_1g {
    uint64_t p : 1;             // present
-   uint64_t r_w : 1;           // readd/write
+   uint64_t r_w : 1;           // read/write
    uint64_t u_s : 1;           // user/supervisor
    uint64_t pwt : 1;           // page write through
    uint64_t pcd : 1;           // page cache disable
@@ -239,10 +239,9 @@ typedef struct x86_pte_4k {
 #define X86_XCR0_HI16_ZMM (1ul << 7)    // HI16 ZMM state
 #define X86_XCR0_PKRU (1ul << 9)        // PKRU state
 
-#define X86_XCR0_MASK \
-   (X86_XCR0_PKRU | X86_XCR0_HI16_ZMM | X86_XCR0_ZMM_HI256 | \
-    X86_XCR0_OPMASK | X86_XCR0_BNDCSR | X86_XCR0_BNDREGS | \
-    X86_XCR0_AVX | X86_XCR0_SSE | X86_XCR0_X87)
+#define X86_XCR0_MASK                                                                              \
+   (X86_XCR0_PKRU | X86_XCR0_HI16_ZMM | X86_XCR0_ZMM_HI256 | X86_XCR0_OPMASK | X86_XCR0_BNDCSR |   \
+    X86_XCR0_BNDREGS | X86_XCR0_AVX | X86_XCR0_SSE | X86_XCR0_X87)
 
 /*
  * Intel CPU features in EFER
