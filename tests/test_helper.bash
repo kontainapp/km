@@ -225,7 +225,7 @@ teardown() {
   end: $(date --rfc-3339=ns) $BATS_TEST_DESCRIPTION
 
 --- Command line:
-${command}
+${command[*]}
 --- Command output:
 ${output}
 ---
