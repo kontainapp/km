@@ -620,14 +620,14 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
       for (uint64_t addr = base; addr < base + size; addr += PDE_REGION) {
          // virtual and physical mem aligned the same on PDE_REGION, so we can use phys. address in
          // PDE_SLOT()
-         memset(pde + PDE_SLOT(addr), 0, sizeof(*pde));
+         pde[PDE_SLOT(addr)] = (x86_pde_2m_t){0};
       }
    } else {
       assert(machine.pdpe1g != 0);   // no 1GB pages support
       x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)(upper_va ? pt->pdpt2 : pt->pdpt0);
       uint64_t gva = upper_va ? gpa_to_upper_gva(base) : base;
       for (uint64_t addr = gva; addr < gva + size; addr += PDPTE_REGION, base += PDPTE_REGION) {
-         memset(pdpe + PDPTE_SLOT(addr), 0, sizeof(*pdpe));
+         pdpe[PDPTE_SLOT(addr)] = (x86_pdpte_1g_t){0};
       }
    }
 }

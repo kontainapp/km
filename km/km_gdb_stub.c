@@ -763,7 +763,8 @@ static void send_response(char code, gdb_event_t* gep, bool wait_for_ack)
             break;
          case GDB_KMSIGNAL_EXEC2PROG:
             snprintf(obuf, sizeof(obuf), "T05exec:");
-            char* e = mem2hex((unsigned char *)km_payload_name, obuf + strlen(obuf), strlen(km_payload_name));
+            char* e =
+                mem2hex((unsigned char*)km_payload_name, obuf + strlen(obuf), strlen(km_payload_name));
             *e++ = ';';
             *e = 0;
             break;
@@ -831,7 +832,7 @@ static int km_gdb_get_hwbreak_info(km_vcpu_t* vcpu, void** addr, uint32_t* type)
 static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
 {
    struct kvm_debug_exit_arch* archp = &vcpu->cpu_run->debug.arch;
-   void* addr;
+   void* addr = NULL;
    uint32_t type;
    int ret;
 
@@ -2528,10 +2529,11 @@ static gdb_event_t* gdb_select_event(void)
       if (foundgep->signo == GDB_KMSIGNAL_THREADEXIT) {
          /*
           * I don't remember why this gdb event does not need to be delinked and marked inactive.
-          * For our simple tests with the last thread exiting it is ok since the vcpu (which contains the gdb event)
-          * will never be reused.  For more complicated situations where all other threads are
-          * paused by gdb and the lone running thread exits, the other threads could be unpaused,
-          * create new threads which would want to use the vcpu that was freed by thread exit.
+          * For our simple tests with the last thread exiting it is ok since the vcpu (which
+          * contains the gdb event) will never be reused.  For more complicated situations where all
+          * other threads are paused by gdb and the lone running thread exits, the other threads
+          * could be unpaused, create new threads which would want to use the vcpu that was freed by
+          * thread exit.
           */
          send_response('S', foundgep, true);
          break;
@@ -2901,7 +2903,7 @@ static void gdb_delete_stale_events(void)
       }
       if (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_RUNNING &&
           gep->signo == GDB_KMSIGNAL_KVMEXIT) {
-         km_gva_t trigger_addr;
+         km_gva_t trigger_addr = 0;
          uint32_t type;
          int ret;
          struct kvm_debug_exit_arch* archp = &vcpu->cpu_run->debug.arch;
