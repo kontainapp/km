@@ -22,7 +22,6 @@ Vagrant.configure("2") do |config|
    pip install -r requirements.txt
    pip install tensorflow-*-linux_x86_64.whl
    cp /usr/lib64/libcrypto.so.1.1.1[a-z] /opt/kontain/alpine-lib/lib/libcrypto.so.1.1
-   ln -sf /opt/kontain/runtime/libc.so /opt/kontain/alpine-lib/lib/ld-linux-x86-64.so.2
    mv python.kmd /usr/bin/python3.8.km
    mv /usr/bin/python3.8 /usr/bin/python3.8.orig
 

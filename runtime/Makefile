@@ -91,7 +91,8 @@ all: ${BLDDIR}/.finalize
 # After the build, set neccessary symlinks and install to KM_OPT_RT
 # symlnks:
 # libc.a -> libruntime.a           # needed for '-lc'; we may want to rename going forward
-# libc.musl-x86_64.so.1 -> libc.so # needed for libstdc++
+# libc.musl-x86_64.so.1 -> libc.so # needed for Alpine libstdc++
+# ld-linux-x86-64.so.2 -> libc.so  # needed for all non-Alpine (eg Fedora) .so
 .PHONY: ${BLDDIR}/.finalize
 ${BLDDIR}/.finalize: $(addprefix ${BLDDIR}/,libm.a libpthread.a libpthread.so libc.so) ${CRT_OBJS} ${KM_OPT_RT}
 	@#
@@ -101,6 +102,8 @@ ${BLDDIR}/.finalize: $(addprefix ${BLDDIR}/,libm.a libpthread.a libpthread.so li
 		echo symlink libc.a ; ln -s ./libruntime.a libc.a ; fi
 	@cd ${BLDDIR} ; if [ ! -L libc.musl-x86_64.so.1 ] ; then \
 		echo symlink lib.musl.so; ln -s ./libc.so libc.musl-x86_64.so.1 ; fi
+	@cd ${BLDDIR} ; if [ ! -L ld-linux-x86-64.so.2 ] ; then \
+		echo symlink lib.musl.so; ln -s ./libc.so ld-linux-x86-64.so.2 ; fi
 	@#
 	@# mkdir and fill /opt/kontain/runtime
 	@#
@@ -108,7 +111,7 @@ ${BLDDIR}/.finalize: $(addprefix ${BLDDIR}/,libm.a libpthread.a libpthread.so li
 		echo -e "${RED}${KM_OPT_RT} is not writeable - run 'make -C tests buildenv-local-fedora'$(NOCOLOR)" ; \
 		false; \
 	fi
-	@echo Copy libs to ${KM_OPT_RT}...; cp --no-dereference --preserve=all --update ${BLDDIR}/lib{*.a,*.so*} ${KM_OPT_RT}
+	@echo Copy libs to ${KM_OPT_RT}...; cp --no-dereference --preserve=all --update ${BLDDIR}/lib{*.a,*.so*} ${BLDDIR}/ld-linux* ${KM_OPT_RT}
 	@touch $@
 
 $(addprefix ${BLDDIR}/, libm.a):
