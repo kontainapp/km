@@ -14,15 +14,15 @@
  * Simple session id and process group id hypercall tests.
  */
 
+#include <errno.h>
+#include <error.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <error.h>
-#include <errno.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 #include "greatest/greatest.h"
@@ -35,17 +35,17 @@ TEST sid_test(void)
 
    // getpgid() for this process
    initial_pgid = getpgid(0);
-   ASSERT_NOT_EQ(-1, initial_pgid);
+   ASSERT_NEQ(-1, initial_pgid);
    fprintf(stdout, "pid %d's initial pgid %d\n", getpid(), initial_pgid);
 
    // getsid() for this process
    initial_sid = getsid(0);
-   ASSERT_NOT_EQ(-1, initial_sid);
+   ASSERT_NEQ(-1, initial_sid);
    fprintf(stdout, "pid %d's initial sid is %d\n", getpid(), initial_sid);
 
    // getsid() on pid returned by getpid()
    sid = getsid(getpid());
-   ASSERT_NOT_EQ(-1, sid);
+   ASSERT_NEQ(-1, sid);
    fprintf(stdout, "getpid's sid is %d\n", sid);
 
    /*
@@ -71,8 +71,13 @@ TEST sid_test(void)
    } else {
       int wstatus;
       pid_t finished = wait(&wstatus);
-      fprintf(stdout, "wait() returned, finished %d, errno %d, child %d, wstatus 0x%x\n", finished, errno, child, wstatus);
-      ASSERT_NOT_EQ(-1, finished);
+      fprintf(stdout,
+              "wait() returned, finished %d, errno %d, child %d, wstatus 0x%x\n",
+              finished,
+              errno,
+              child,
+              wstatus);
+      ASSERT_NEQ(-1, finished);
       ASSERT_EQ(child, finished);
       ASSERT_EQ(0, WEXITSTATUS(wstatus));
    }
@@ -86,12 +91,12 @@ TEST pgid_test(void)
 
    // Get this process' pgid
    pgid = getpgid(0);
-   ASSERT_NOT_EQ(-1, pgid);
+   ASSERT_NEQ(-1, pgid);
    fprintf(stdout, "current process pgid is %d\n", pgid);
 
    // Get the pgid of the process id returned by getpid()
    pgid = getpgid(getpid());
-   ASSERT_NOT_EQ(-1, pgid);
+   ASSERT_NEQ(-1, pgid);
    fprintf(stdout, "getpid()'s pgid is %d\n", pgid);
 
    // get pgid using an invalid process id

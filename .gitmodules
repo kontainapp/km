@@ -22,3 +22,5 @@
 [submodule "container-runtime/crun"]
 	path = container-runtime/crun
 	url = https://github.com/kontainapp/crun
+[submodule "greatest"]
+	url = git@github.com:kontainapp/greatest.git

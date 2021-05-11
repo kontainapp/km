@@ -29,7 +29,7 @@ TEST mmap_file_test(void)
    int fd = open(fname, O_RDONLY);
 
    void* base = mmap(0, 0x10000, PROT_READ, MAP_PRIVATE, fd, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, base);
+   ASSERT_NEQ(MAP_FAILED, base);
 
    off_t off = 0x1000;
    void* addr = mmap(base + off, 0x1000, PROT_READ | PROT_EXEC, MAP_FIXED | MAP_PRIVATE, fd, off);
@@ -54,14 +54,13 @@ TEST mmap_file_test(void)
 
    close(fd);
 
-
    close(fd);
    printf("before unmap> ");
    fflush(stdout);
    getchar();
 
-   ASSERT_NOT_EQ(-1, munmap(base, 0x10000));
-   
+   ASSERT_NEQ(-1, munmap(base, 0x10000));
+
    printf("after unmap> ");
    fflush(stdout);
    getchar();

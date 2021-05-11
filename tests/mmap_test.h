@@ -13,6 +13,7 @@
  */
 #define _GNU_SOURCE /* See feature_test_macros(7) */
 #include <cpuid.h>
+#include <setjmp.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -34,7 +35,7 @@ static inline int KM_PAYLOAD(void)
 #define ASSERT_MMAPS_COUNT(_expected_count, _query)                                                \
    {                                                                                               \
       int ret = maps_count(_expected_count, _query);                                               \
-      ASSERT_NOT_EQm("Expected mmaps counts does not match", -1, ret);                             \
+      ASSERT_NEQm("Expected mmaps counts does not match", -1, ret);                             \
    }
 
 /*
@@ -49,7 +50,7 @@ static inline int KM_PAYLOAD(void)
    {                                                                                               \
       initial_busy = INITIAL_BUSY_MEMORY_REGIONS;                                                  \
       int ret = maps_count(initial_busy, BUSY_MMAPS);                                              \
-      ASSERT_NOT_EQm("Expected mmaps init does not match", -1, ret);                               \
+      ASSERT_NEQm("Expected mmaps init does not match", -1, ret);                               \
    }
 
 // Check to see if busy memory region count is as expected.
@@ -57,7 +58,7 @@ static inline int KM_PAYLOAD(void)
    {                                                                                               \
       int expected_count = expected_change + initial_busy;                                         \
       int ret = maps_count(expected_count, TOTAL_MMAPS);                                           \
-      ASSERT_NOT_EQm("Expected mmaps change does not match", -1, ret);                             \
+      ASSERT_NEQm("Expected mmaps change does not match", -1, ret);                             \
    }
 
 // Type of operation invoked by a single line in test tables

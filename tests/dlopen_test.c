@@ -19,7 +19,7 @@
 #define ASSERT_DL(_dl, _lib)                                                                       \
    if (_dl == NULL) {                                                                              \
       printf("%s. File=%s (%s:%d) \n", dlerror(), _lib, __FUNCTION__, __LINE__);                   \
-      ASSERT_NOT_EQ(NULL, _dl);                                                                    \
+      ASSERT_NEQ(NULL, _dl);                                                                       \
    }
 
 TEST dlopen_test()
@@ -29,9 +29,9 @@ TEST dlopen_test()
    void* dl2 = dlopen("./dlopen_test_lib2.so", RTLD_NOW);
    ASSERT_DL(dl2, "./dlopen_test_lib2.so");
    int (*fn)() = dlsym(dl, "do_function");
-   ASSERT_NOT_EQ(NULL, fn);
+   ASSERT_NEQ(NULL, fn);
    int (*fn2)() = dlsym(dl2, "do_function");
-   ASSERT_NOT_EQ(NULL, fn2);
+   ASSERT_NEQ(NULL, fn2);
    ASSERT_EQ(1, fn());
    ASSERT_EQ(2, fn2());
 
@@ -47,8 +47,8 @@ TEST dlopen_test()
 TEST dlopen_self_test()
 {
    void* dl = dlopen(NULL, RTLD_NOW);
-   ASSERT_NOT_EQ(NULL, dl);
-   ASSERT_NOT_EQ(NULL, "main");
+   ASSERT_NEQ(NULL, dl);
+   ASSERT_NEQ(NULL, "main");
    dlclose(dl);
    PASS();
 }
