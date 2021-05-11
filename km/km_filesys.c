@@ -357,6 +357,7 @@ uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, void* buf, size_t count, 
    } else {
       ret = __syscall_4(scall, host_fd, (uintptr_t)buf, count, offset);
    }
+   km_infox(KM_TRACE_FILESYS, "%s( %d, %ld) - %d", km_hc_name_get(scall), fd, count, ret);
    return ret;
 }
 
