@@ -6,7 +6,7 @@
 	url = https://github.com/kontainapp/bats-core
 [submodule "tests/greatest"]
 	path = tests/greatest
-	url = https://github.com/kontainapp/ctest_greatest
+	url = ../greatest
 [submodule "tests/bats-support"]
 	path = tests/bats-support
 	url = https://github.com/ztombol/bats-support

@@ -36,16 +36,16 @@ TEST test_socket_create()
    int fd;
    int rc;
    fd = socket(AF_UNIX, SOCK_STREAM, 0);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    rc = close(fd);
    ASSERT_EQ(0, rc);
 
    fd = socket(AF_INET, SOCK_STREAM, 0);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    ASSERT_EQ(0, close(fd));
 
    fd = socket(AF_INET, SOCK_DGRAM, 0);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    rc = close(fd);
    ASSERT_EQ(0, rc);
    PASS();
@@ -56,7 +56,7 @@ TEST test_sockopt()
    int fd;
    int rc;
    fd = socket(AF_UNIX, SOCK_STREAM, 0);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    int opt;
    socklen_t optlen = sizeof(opt);
    rc = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &opt, &optlen);
@@ -111,7 +111,7 @@ TEST test_tcp()
    int sfd;
    int rc;
    sfd = socket(AF_INET, SOCK_STREAM, 0);
-   ASSERT_NOT_EQ(-1, sfd);
+   ASSERT_NEQ(-1, sfd);
    struct sockaddr_in saddr;
    saddr.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &saddr.sin_addr);
@@ -126,7 +126,7 @@ TEST test_tcp()
    // Client Socket. Connect then close.
    int cfd;
    cfd = socket(AF_INET, SOCK_STREAM, 0);
-   ASSERT_NOT_EQ(-1, cfd);
+   ASSERT_NEQ(-1, cfd);
 
    struct sockaddr_in caddr = {};
    caddr.sin_family = AF_INET;
@@ -149,7 +149,7 @@ TEST test_tcp()
    void* rvalp = NULL;
    rc = pthread_join(thr, &rvalp);
    ASSERT_EQ(0, rc);
-   ASSERT_NOT_EQ(NULL, rvalp);
+   ASSERT_NEQ(NULL, rvalp);
    ASSERT_EQ(0, *(int*)rvalp);
 
    rc = close(sfd);
@@ -165,11 +165,11 @@ TEST test_udp()
 {
    int rc;
    int epfd = epoll_create(0);
-   ASSERT_NOT_EQ(-1, epfd);
+   ASSERT_NEQ(-1, epfd);
 
    int fd1;
    fd1 = socket(AF_INET, SOCK_DGRAM, 0);
-   ASSERT_NOT_EQ(-1, fd1);
+   ASSERT_NEQ(-1, fd1);
    struct sockaddr_in addr1;
    addr1.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &addr1.sin_addr);
@@ -179,7 +179,7 @@ TEST test_udp()
 
    int fd2;
    fd2 = socket(AF_INET, SOCK_DGRAM, 0);
-   ASSERT_NOT_EQ(-1, fd2);
+   ASSERT_NEQ(-1, fd2);
    struct sockaddr_in addr2;
    addr2.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &addr2.sin_addr);

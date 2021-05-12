@@ -120,7 +120,7 @@ TEST test_symlink()
    char linkval[PATH_MAX];
    memset(linkval, 0, PATH_MAX);
    rc = readlink(linkpath, linkval, PATH_MAX);
-   ASSERT_NOT_EQ(-1, rc);
+   ASSERT_NEQ(-1, rc);
    rc = strcmp(linkval, oldpath);
    ASSERT_EQ(0, rc);
    rc = stat(linkpath, &st);
@@ -129,7 +129,7 @@ TEST test_symlink()
 
    memset(linkval, 0, PATH_MAX);
    rc = readlinkat(AT_FDCWD, linkpath, linkval, PATH_MAX);
-   ASSERT_NOT_EQ(-1, rc);
+   ASSERT_NEQ(-1, rc);
    rc = strcmp(linkval, oldpath);
    ASSERT_EQ(0, rc);
    rc = stat(linkpath, &st);
@@ -139,7 +139,7 @@ TEST test_symlink()
    memset(linkval, 0, PATH_MAX);
    int fd = open(".", O_RDONLY);
    rc = readlinkat(fd, linkpath, linkval, PATH_MAX);
-   ASSERT_NOT_EQ(-1, rc);
+   ASSERT_NEQ(-1, rc);
    rc = strcmp(linkval, oldpath);
    ASSERT_EQ(0, rc);
    rc = stat(linkpath, &st);
@@ -173,33 +173,33 @@ TEST test_chdir()
    int rc;
    char oldpath[PATH_MAX];
    ptr = getcwd(oldpath, PATH_MAX);
-   ASSERT_NOT_EQ(NULL, ptr);
+   ASSERT_NEQ(NULL, ptr);
    rc = chdir(dirpath);
    ASSERT_EQ(0, rc);
    char curpath[PATH_MAX];
    ptr = getcwd(curpath, PATH_MAX);
-   ASSERT_NOT_EQ(NULL, ptr);
+   ASSERT_NEQ(NULL, ptr);
    rc = strcmp(curpath, dirpath);
    ASSERT_EQ(0, rc);
    rc = chdir(oldpath);
    ASSERT_EQ(0, rc);
    ptr = getcwd(curpath, PATH_MAX);
-   ASSERT_NOT_EQ(NULL, ptr);
+   ASSERT_NEQ(NULL, ptr);
    rc = strcmp(curpath, oldpath);
    ASSERT_EQ(0, rc);
 
    int fd = open(dirpath, O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    rc = fchdir(fd);
    ASSERT_EQ(0, rc);
    ptr = getcwd(curpath, PATH_MAX);
-   ASSERT_NOT_EQ(NULL, ptr);
+   ASSERT_NEQ(NULL, ptr);
    rc = strcmp(curpath, dirpath);
    ASSERT_EQ(0, rc);
    rc = chdir(oldpath);
    ASSERT_EQ(0, rc);
    ptr = getcwd(curpath, PATH_MAX);
-   ASSERT_NOT_EQ(NULL, ptr);
+   ASSERT_NEQ(NULL, ptr);
    rc = strcmp(curpath, oldpath);
    ASSERT_EQ(0, rc);
 
@@ -329,12 +329,12 @@ TEST test_unlinkat(void)
    // Create and unlink a file by absolute path.
    snprintf(path, sizeof(path), "%s/file_%ld", pathoftmp, unique);
    fd = open(path, O_CREAT, 0644);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    close(fd);
    rc = unlinkat(0, path, 0);   // dirfd should be ignored when path is absolute
    ASSERT_EQ(0, rc);
    fd = open(path, O_CREAT, 0x644);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    close(fd);
    rc = unlinkat(AT_FDCWD, path, 0);   // AT_FDCWD should ignored when path is absolute
    ASSERT_EQ(0, rc);
@@ -357,12 +357,12 @@ TEST test_unlinkat(void)
 
    // Now do stuff relative to a directory fd.
    tmpfd = open(pathoftmp, O_DIRECTORY);
-   ASSERT_NOT_EQ(-1, tmpfd);
+   ASSERT_NEQ(-1, tmpfd);
 
    // Create and unlink a file relative to an fd open on a directory
    snprintf(path, sizeof(path), "file_%ld", unique);
    fd = openat(tmpfd, path, O_CREAT, 0644);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    close(fd);
    rc = unlinkat(tmpfd, path, AT_REMOVEDIR);   // should fail since this is a file
    ASSERT_EQ(-1, rc);
@@ -384,7 +384,7 @@ TEST test_unlinkat(void)
    // Now do stuff in the current directory
    snprintf(path, sizeof(path), "file_%ld", unique);
    fd = openat(AT_FDCWD, path, O_CREAT, 0644);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    close(fd);
    rc = unlinkat(AT_FDCWD, path, AT_REMOVEDIR);   // not a directory, should fail
    ASSERT_EQ(-1, rc);

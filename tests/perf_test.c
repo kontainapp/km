@@ -187,7 +187,7 @@ TEST mmap_time(sample_t* s, bool write)
    size_t map_size = TEST_PAGE_SIZE * LOOP_COUNT;
 
    addr = mmap(0, map_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-   ASSERT_NOT_EQm("mmap failed", addr, MAP_FAILED);
+   ASSERT_NEQm("mmap failed", addr, MAP_FAILED);
 
    CHECK_CALL(capture_time(s, 1));
    for (int i = 0; i < mmap_loops; i++) {
