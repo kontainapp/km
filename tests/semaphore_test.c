@@ -93,7 +93,7 @@ TEST work_func(sm_t* smp, char* tag)
    }
    for (int j = 0; j < 5; j++) {
       rv = sem_wait(&smp->semaphore);
-      ASSERT_NOT_EQm("sem_wait() failed", -1, rv);
+      ASSERT_NEQm("sem_wait() failed", -1, rv);
 
       if (GREATEST_IS_VERBOSE()) {
          fprintf(stdout, "%s: holding semaphore\n", tag);
@@ -110,14 +110,15 @@ TEST work_func(sm_t* smp, char* tag)
          ASSERT_STR_EQm("test string miscompare", string, smp->string);
       }
       rv = sem_post(&smp->semaphore);
-      ASSERT_NOT_EQm("sem_post() failed", -1, rv);
+      ASSERT_NEQm("sem_post() failed", -1, rv);
 
       if (GREATEST_IS_VERBOSE()) {
          fprintf(stdout, "%s: released semaphore\n", tag);
       }
 
       struct timespec delay = {0, 2000000};
-      clock_nanosleep(CLOCK_REALTIME, 0, &delay, NULL);   // give the other side a chance to get the semaphore
+      clock_nanosleep(CLOCK_REALTIME, 0, &delay, NULL);   // give the other side a chance to get the
+                                                          // semaphore
    }
    if (GREATEST_IS_VERBOSE()) {
       fprintf(stdout, "end: %s\n", tag);
@@ -154,14 +155,14 @@ TEST child_side(sm_t* smp)
    // Make the middle 4k of the shared memory private.  This should add 2 busy map entries.
    tmp =
        mmap((void*)smp + 4096, 4096, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANON | MAP_PRIVATE, -1, 0);
-   ASSERT_NOT_EQm("couldn't unshare middle of memory region", MAP_FAILED, tmp);
+   ASSERT_NEQm("couldn't unshare middle of memory region", MAP_FAILED, tmp);
    catprocpidmaps(CHILD_SIDE " after marking middle of mem private");
 
    ASSERT_MMAPS_CHANGE(3, initial_busy_count);   // shared, private, shared
 
    // Change the child's copy of shared memory to private. This should collapse 3 busy entries to one.
    tmp = mmap(smp, shared_mem_size, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANON | MAP_PRIVATE, -1, 0);
-   ASSERT_NOT_EQm("couldn't unshare memory region", MAP_FAILED, tmp);
+   ASSERT_NEQm("couldn't unshare memory region", MAP_FAILED, tmp);
 
    catprocpidmaps(CHILD_SIDE " after marking mem private");
 
@@ -201,15 +202,15 @@ TEST shared_semaphore(void)
    // create shared memory segment
    int flags = MAP_SHARED | (fd == -1 ? MAP_ANON : 0);
    smp = mmap(NULL, shared_mem_size, PROT_READ | PROT_WRITE, flags, fd, 0);
-   ASSERT_NOT_EQm("couldn't create shared mem segment", MAP_FAILED, smp);
+   ASSERT_NEQm("couldn't create shared mem segment", MAP_FAILED, smp);
 
    // init semaphore in the shared memory
    rv = sem_init(&smp->semaphore, 1, 1);
-   ASSERT_NOT_EQm("couldn't init semaphore", -1, rv);
+   ASSERT_NEQm("couldn't init semaphore", -1, rv);
 
    // fork a child process
    pid_t pid = fork();
-   ASSERT_NOT_EQm("couldn't fork", -1, pid);
+   ASSERT_NEQm("couldn't fork", -1, pid);
    if (GREATEST_IS_VERBOSE()) {
       fprintf(stdout, "fork() returns %d, getpid() = %d\n", pid, getpid());
    }
@@ -224,7 +225,7 @@ TEST shared_semaphore(void)
       pid_t reaped_pid;
       reaped_pid = waitpid(pid, &wstatus, 0);
       ASSERT_EQm("waitpid didn't return expected pid", pid, reaped_pid);
-      ASSERT_NOT_EQm("child did not exit normally", 0, WIFEXITED(wstatus));
+      ASSERT_NEQm("child did not exit normally", 0, WIFEXITED(wstatus));
       ASSERT_EQm("child returned non-zero exit status", 0, WEXITSTATUS(wstatus));
 
       if (GREATEST_IS_VERBOSE()) {
@@ -232,10 +233,10 @@ TEST shared_semaphore(void)
       }
    }
    rv = sem_destroy(&smp->semaphore);
-   ASSERT_NOT_EQm("sem_destroy() failed", -1, rv);
+   ASSERT_NEQm("sem_destroy() failed", -1, rv);
 
    rv = munmap(smp, shared_mem_size);
-   ASSERT_NOT_EQm("munmap() failed", -1, rv);
+   ASSERT_NEQm("munmap() failed", -1, rv);
 
    catprocpidmaps(PARENT_SIDE " after unmapping shared mem");
 
@@ -257,7 +258,7 @@ int main(int argc, char* argv[])
    // if requested create and open file to back up memory
    if (argc > 1 && strcmp(argv[1], "file") == 0) {
       fd = mkstemp(fname);
-      ASSERT_NOT_EQm("mkstemp", -1, fd);
+      ASSERT_NEQm("mkstemp", -1, fd);
       int rc = ftruncate(fd, shared_mem_size);
       ASSERT_EQm("ftruncate(shared_mem_size)", 0, rc);
       atexit(cleanup);

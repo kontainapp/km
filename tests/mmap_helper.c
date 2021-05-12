@@ -66,7 +66,7 @@ enum greatest_test_res mmap_test(mmap_test_t* tests)
             }
             if (t->expected == OK) {
                ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);   // print errno out if test fails
-               ASSERT_NOT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
+               ASSERT_NEQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
                if ((t->prot & PROT_READ) != 0) {
                   ASSERT_EQm(_ERR_FLAG "Mmaped memory should be zeroed", 0, *(int*)new_addr);
                }
@@ -95,7 +95,7 @@ enum greatest_test_res mmap_test(mmap_test_t* tests)
                ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);
                ASSERT_EQ_FMTm(t->info, 0, ret, ret_fmt);
             } else {
-               ASSERT_NOT_EQ_FMTm(t->info, 0, ret, ret_fmt);
+               ASSERT_NEQ_FMTm(t->info, 0, ret, ret_fmt);
                ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
             }
             break;
@@ -107,7 +107,7 @@ enum greatest_test_res mmap_test(mmap_test_t* tests)
             new_addr = mremap(remapped_addr, old_size, new_size, t->flags);
             if (t->expected == OK) {
                ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);   // print errno out if test fails
-               ASSERT_NOT_EQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
+               ASSERT_NEQ_FMTm(t->info, MAP_FAILED, new_addr, ret_fmt);
                if (greatest_get_verbosity() == 1) {
                   printf("mremap OK %p -> %p, will memset '2' size old 0x%lx (%s) new 0x%lx (%s)\n",
                          last_addr,
@@ -161,7 +161,7 @@ enum greatest_test_res mmap_test(mmap_test_t* tests)
                ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);
                ASSERT_EQ_FMTm(t->info, 0, ret, ret_fmt);
             } else {
-               ASSERT_NOT_EQ_FMTm(t->info, 0, ret, ret_fmt);
+               ASSERT_NEQ_FMTm(t->info, 0, ret, ret_fmt);
                ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
             }
             break;
@@ -223,7 +223,7 @@ enum greatest_test_res mmap_test(mmap_test_t* tests)
                ASSERT_EQ_FMTm(t->info, 0, errno, errno_fmt);
                ASSERT_EQ_FMTm(t->info, 0, ret, ret_fmt);
             } else {
-               ASSERT_NOT_EQ_FMTm(t->info, 0, ret, ret_fmt);
+               ASSERT_NEQ_FMTm(t->info, 0, ret, ret_fmt);
                ASSERT_EQ_FMTm(t->info, t->expected, errno, errno_fmt);
             }
             break;

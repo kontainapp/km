@@ -12,9 +12,9 @@
  * Simple test for SIGPIPE and EPIPE
  */
 
+#include <errno.h>
 #include <signal.h>
 #include <unistd.h>
-#include <errno.h>
 
 #include "greatest/greatest.h"
 
@@ -31,12 +31,12 @@ TEST test_sigpipe()
 {
    int fd[2];
 
-   ASSERT_NOT_EQ(SIG_ERR, signal(SIGPIPE, sigpipe_handler));
+   ASSERT_NEQ(SIG_ERR, signal(SIGPIPE, sigpipe_handler));
    ASSERT_EQ_FMT(0, pipe(fd), "%d");
-   close(fd[0]); // close the read end
+   close(fd[0]);   // close the read end
    ASSERT_EQ_FMT(-1l, write(fd[1], "some message", strlen("some_message")), "%ld");
    ASSERT_EQ_FMT(EPIPE, errno, "%d");
-   ASSERT_NOT_EQ_FMT(0, sigpipe_received, "%d");
+   ASSERT_NEQ_FMT(0, sigpipe_received, "%d");
    PASS();
 }
 
