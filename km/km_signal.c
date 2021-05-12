@@ -454,6 +454,7 @@ typedef struct km_signal_frame {
    ucontext_t ucontext;    // Passed to guest signal handler
    siginfo_t info;         // Passed to guest signal handler
    uint64_t rflags;        // saved rflags
+   struct km_hc_args* hc_argsp; // gva of the args to the hypercall that may be in progress
    /*
     * Followed by monitor dependent state.
     * For KVM this depends on the value of KVM_CAP_XSAVE.
@@ -488,6 +489,7 @@ static inline void save_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* frame
 
    frame->rflags = vcpu->regs.rflags;
    memcpy(&frame->ucontext.uc_sigmask, &vcpu->sigmask, sizeof(vcpu->sigmask));
+   frame->hc_argsp = km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)];
 
    void* fp_frame = (frame + 1);
    if (km_vmdriver_save_fpstate(vcpu, fp_frame, km_vmdriver_fp_format(vcpu), 0) < 0) {
@@ -519,6 +521,7 @@ static inline void restore_signal_context(km_vcpu_t* vcpu, km_signal_frame_t* fr
 
    vcpu->regs.rflags = frame->rflags;
    memcpy(&vcpu->sigmask, &frame->ucontext.uc_sigmask, sizeof(vcpu->sigmask));
+   km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)] = frame->hc_argsp;
 
    void* fp_frame = (frame + 1);
    if (km_vmdriver_restore_fpstate(vcpu, fp_frame, km_vmdriver_fp_format(vcpu)) < 0) {
@@ -973,7 +976,7 @@ uint64_t km_rt_sigtimedwait(km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, 
       }
    } else {
       // a signal was waiting, we got it
-      rv = info->si_signo;;
+      rv = info->si_signo;
    }
    vcpu->sigmask = origmask;
    km_signal_unlock();
