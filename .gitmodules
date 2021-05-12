@@ -3,7 +3,7 @@
 	url = ../musl.git
 [submodule "tests/bats"]
 	path = tests/bats
-	url = https://github.com/kontainapp/bats
+	url = https://github.com/kontainapp/bats-core
 [submodule "tests/greatest"]
 	path = tests/greatest
 	url = https://github.com/kontainapp/ctest_greatest
