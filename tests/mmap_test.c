@@ -111,15 +111,15 @@ TEST mmap_from_free()
 
    // 1.
    addr = mmap(0, 200 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
-   ASSERT_NOT_EQ_FMT(MAP_FAILED, addr, "%p");
+   ASSERT_NEQ_FMT(MAP_FAILED, addr, "%p");
    addr2 = mmap(0, 10 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
-   ASSERT_NOT_EQ_FMT(MAP_FAILED, addr2, "%p");
+   ASSERT_NEQ_FMT(MAP_FAILED, addr2, "%p");
    ret = munmap(addr + 50 * MIB, 100 * MIB);
    ASSERT_EQ_FMT(0, ret, "%d");
 
    // 2.
    addr1 = mmap(0, 100 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
-   ASSERT_NOT_EQ_FMT(MAP_FAILED, addr1, "%p");
+   ASSERT_NEQ_FMT(MAP_FAILED, addr1, "%p");
 
    ASSERT_EQ_FMTm("mmap to the free carved", addr + 50 * MIB, addr1, "%p");
    ret = munmap(addr1, 100 * MIB);
@@ -127,13 +127,13 @@ TEST mmap_from_free()
 
    // 3.
    addr1 = mmap(0, 50 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, addr1);
+   ASSERT_NEQ(MAP_FAILED, addr1);
    ASSERT_EQ(addr + 50 * MIB, addr1);
    ret = munmap(addr1, 50 * MIB);
    ASSERT_EQ(0, ret);
 
    addr1 = mmap(0, 100 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, addr1);
+   ASSERT_NEQ(MAP_FAILED, addr1);
    ASSERT_EQ(0, munmap(addr1, 100 * MIB));
 
    // 4.
@@ -161,7 +161,7 @@ TEST mmap_protect()
    signal(SIGSEGV, sig_handler);
    // get mmap, carve 1MIB munmapped section and try to access it. Should call the handler
    addr = mmap(0, 200 * MIB, PROT_READ | PROT_WRITE, flags, -1, 0);
-   ASSERT_NOT_EQ_FMT(MAP_FAILED, addr, "%p");
+   ASSERT_NEQ_FMT(MAP_FAILED, addr, "%p");
    addr1 = addr + 10 * MIB;
    ASSERT_EQ_FMTm("Unmap from the middle", 0, munmap(addr1, 1 * MIB), "%d");
    if ((ret = sigsetjmp(jbuf, 1)) == 0) {
@@ -266,7 +266,7 @@ TEST mmap_file_test()
       printf("===== %s file template %s\n", __FUNCTION__, fname);
    }
    int fd = mkstemp(fname);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
 
    int nbufs = 10;
    char buffer[4096];
@@ -277,7 +277,7 @@ TEST mmap_file_test()
 
    // mmap whole file.
    void* m = mmap(NULL, nbufs * sizeof(buffer), PROT_READ | PROT_EXEC, MAP_PRIVATE, fd, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, m);
+   ASSERT_NEQ(MAP_FAILED, m);
 
    // Check contents
    char* s = m;
@@ -288,7 +288,7 @@ TEST mmap_file_test()
    // Map contents of page[2] on page[1].
    void* t =
        mmap(s + sizeof(buffer), sizeof(buffer), PROT_READ, MAP_PRIVATE | MAP_FIXED, fd, sizeof(buffer) * 2);
-   ASSERT_NOT_EQ(MAP_FAILED, t);
+   ASSERT_NEQ(MAP_FAILED, t);
    close(fd);
    ASSERT_EQ(s + sizeof(buffer), t);
    ASSERT_EQ('a' + 2, s[sizeof(buffer)]);
@@ -331,7 +331,7 @@ TEST mmap_file_test_ex(void* arg0)
 
    // success test  - check we open argv0 and it's really ELF
    t = mmap(0, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, t);
+   ASSERT_NEQ(MAP_FAILED, t);
    ASSERT_MMAPS_CHANGE(1, initial_busy_count);
    close(fd);
 
@@ -348,11 +348,11 @@ TEST mmap_file_test_ex(void* arg0)
 
    ASSERT_MMAPS_CHANGE(0, initial_busy_count);
    t = mmap(0, statbuf.st_size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, t);
+   ASSERT_NEQ(MAP_FAILED, t);
 
    // quick check that without MAP_FIXED the hint is ignored, so this should get a new map
    void* fmap = mmap(t, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-   ASSERT_NOT_EQ_FMT(t, fmap, "%p");
+   ASSERT_NEQ_FMT(t, fmap, "%p");
    ASSERT_MMAPS_CHANGE(2, initial_busy_count);
    ret = munmap(fmap, statbuf.st_size);
 
@@ -382,7 +382,7 @@ TEST mmap_file2_test(void)
    int fd = open(fname, O_RDONLY);
 
    void* base = mmap(0, 0x10000, PROT_READ, MAP_PRIVATE, fd, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, base);
+   ASSERT_NEQ(MAP_FAILED, base);
 
    off_t off = 0x1000;
    void* addr = mmap(base + off, 0x1000, PROT_READ | PROT_EXEC, MAP_FIXED | MAP_PRIVATE, fd, off);
@@ -409,7 +409,7 @@ TEST mmap_file2_test(void)
 
    close(fd);
 
-   ASSERT_NOT_EQ(-1, munmap(base, 0x10000));
+   ASSERT_NEQ(-1, munmap(base, 0x10000));
 
    ASSERT_MMAPS_CHANGE(0, initial_busy_count);
 
@@ -417,11 +417,11 @@ TEST mmap_file2_test(void)
    // Ideally it'd be good to check that base we get now is the same as the first time. In KM it
    // would be the case, but in regular runs it won't be.
    base = mmap(0, 0x10000, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, base);
+   ASSERT_NEQ(MAP_FAILED, base);
    for (uint64_t* vp = (uint64_t*)base; vp < (uint64_t*)(base + 0x10000); vp++) {
       ASSERT_EQ_FMT(0l, *vp, "0x%lx");
    }
-   ASSERT_NOT_EQ(-1, munmap(base, 0x10000));
+   ASSERT_NEQ(-1, munmap(base, 0x10000));
 
    PASS();
 }

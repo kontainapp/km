@@ -48,7 +48,7 @@ TEST test_simple_signal()
    kill(0, SIGTERM);
    ASSERT_EQ(1, signal_seen);
    // check stack alignment.
-   ASSERT_NOT_EQ(0, (uintptr_t)stack_addr);
+   ASSERT_NEQ(0, (uintptr_t)stack_addr);
    ASSERT_EQ(0, ((uintptr_t)stack_addr) % 16);
    signal(SIGTERM, SIG_DFL);
    PASS();
@@ -72,8 +72,8 @@ TEST test_sigpending()
    kill(0, SIGUSR1);
    kill(0, SIGUSR2);
    ASSERT_EQ(0, sigpending(&pending));
-   ASSERT_NOT_EQ(0, sigismember(&pending, SIGUSR1));
-   ASSERT_NOT_EQ(0, sigismember(&pending, SIGUSR2));
+   ASSERT_NEQ(0, sigismember(&pending, SIGUSR1));
+   ASSERT_NEQ(0, sigismember(&pending, SIGUSR2));
    ASSERT_EQ(0, signal_seen);
    ASSERT_EQ(0, sigprocmask(SIG_UNBLOCK, &ss, NULL));
    ASSERT_EQ(2, signal_seen);
@@ -105,7 +105,7 @@ TEST test_sigqueued()
    kill(0, SIGRTMIN);
    kill(0, SIGRTMIN);
    ASSERT_EQ(0, sigpending(&pending));
-   ASSERT_NOT_EQ(0, sigismember(&pending, SIGRTMIN));
+   ASSERT_NEQ(0, sigismember(&pending, SIGRTMIN));
    ASSERT_EQ(0, signal_seen);
    ASSERT_EQ(0, sigprocmask(SIG_UNBLOCK, &ss, NULL));
    ASSERT_EQ(2, signal_seen);
@@ -129,7 +129,7 @@ TEST test_sigconsolodated()
    kill(0, SIGUSR1);
    kill(0, SIGUSR1);
    ASSERT_EQ(0, sigpending(&pending));
-   ASSERT_NOT_EQ(0, sigismember(&pending, SIGUSR1));
+   ASSERT_NEQ(0, sigismember(&pending, SIGUSR1));
    ASSERT_EQ(0, signal_seen);
    ASSERT_EQ(0, sigprocmask(SIG_UNBLOCK, &ss, NULL));
    ASSERT_EQ(1, signal_seen);
@@ -316,7 +316,7 @@ TEST test_safepoint()
 
    ASSERT_EQ(0, sigaction(SIGSEGV, &sa, &old_sa));
    safepoint_page = mmap(0, safepoint_size, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, safepoint_page);
+   ASSERT_NEQ(MAP_FAILED, safepoint_page);
 
    asm volatile("mov %0, %%r10\n\t"
                 "test %%rax, (%%r10)"
@@ -416,14 +416,15 @@ void test_sa_resethandestorer_sigaction(int signo, siginfo_t* info, void* uc)
 
 TEST test_sa_resethand()
 {
-   struct sigaction sa = {.sa_sigaction = test_sa_resethandestorer_sigaction, .sa_flags = SA_SIGINFO | SA_RESETHAND};
+   struct sigaction sa = {.sa_sigaction = test_sa_resethandestorer_sigaction,
+                          .sa_flags = SA_SIGINFO | SA_RESETHAND};
    struct sigaction old_sa = {};
-   
+
    ASSERT_EQ(0, sigaction(SIGUSR1, &sa, &old_sa));
    ASSERT_EQ(0, kill(getpid(), SIGUSR1));
    ASSERT_EQ(1, test_sa_resethand_sigaction_called);
    ASSERT_EQ(0, sigaction(SIGUSR1, NULL, &old_sa));
-   ASSERT_EQ((void (*)(int, siginfo_t *, void *))SIG_DFL, old_sa.sa_sigaction);
+   ASSERT_EQ((void (*)(int, siginfo_t*, void*))SIG_DFL, old_sa.sa_sigaction);
    ASSERT_EQ(0, old_sa.sa_flags & SA_RESETHAND);
    PASS();
 }

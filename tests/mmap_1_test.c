@@ -47,7 +47,7 @@ TEST mmap_overlap()
    ASSERT_EQ_FMT(EBADF, errno, "%d");
 
    s1 = mmap(0, map_size + 2 * guard_size, PROT_NONE, flags, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, s1);
+   ASSERT_NEQ(MAP_FAILED, s1);
    ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    mprotect(s1 + guard_size, map_size, PROT_READ | PROT_WRITE);
@@ -65,7 +65,7 @@ TEST mmap_mprotect_overlap()
    }
    ASSERT_MMAPS_INIT(initial_busy_count);
    void* s1 = mmap(0, 1 * GIB, PROT_NONE, flags, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, s1);
+   ASSERT_NEQ(MAP_FAILED, s1);
    ASSERT_MMAPS_CHANGE(1, initial_busy_count);
    mprotect(s1 + 1 * MIB, 1 * MIB, PROT_READ | PROT_WRITE);
    mprotect(s1 + 3 * MIB, 1 * MIB, PROT_READ | PROT_WRITE);   // gap 1MB
@@ -108,7 +108,7 @@ TEST mmap_fixed_basic()
 
    // fd=1 should be ignored with log message. The rest should work
    area = mmap(0, area_sz, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, area);
+   ASSERT_NEQ(MAP_FAILED, area);
    ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    errno = 0;
@@ -149,7 +149,7 @@ TEST mmap_fixed_concat_both_sides()
    }
    ASSERT_MMAPS_INIT(initial_busy_count);
    area = mmap(0, area_sz, PROT_NONE, flags, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, area);
+   ASSERT_NEQ(MAP_FAILED, area);
    ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    inside = area + offset1;
@@ -168,13 +168,13 @@ TEST mmap_fixed_concat_both_sides()
 
    // fill the left gap
    fixed = mmap(area, 1 * MIB, rw, MAP_FIXED | flags, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, fixed);
+   ASSERT_NEQ(MAP_FAILED, fixed);
    ASSERT_MMAPS_CHANGE(2, initial_busy_count);
 
    // fill the right gap - it should merge all with prior map
    fixed =
        mmap(area + offset1 + insert1_sz, area_sz - offset1 - insert1_sz, rw, MAP_FIXED | flags, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, fixed);
+   ASSERT_NEQ(MAP_FAILED, fixed);
    ASSERT_MMAPS_CHANGE(0, initial_busy_count);
 
    munmap(area, area_sz);
@@ -194,7 +194,7 @@ TEST mmap_fixed_over_multiple_regions()
    }
    ASSERT_MMAPS_INIT(initial_busy_count);
    area = mmap(0, area_sz, PROT_NONE, flags, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, area);
+   ASSERT_NEQ(MAP_FAILED, area);
    ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    size_t offset2 = offset1 + insert1_sz + 10 * MIB;
@@ -230,7 +230,7 @@ TEST mmap_fixed_incompat()
    }
    ASSERT_MMAPS_INIT(initial_busy_count);
    area = mmap(0, area_sz, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-   ASSERT_NOT_EQ(MAP_FAILED, area);
+   ASSERT_NEQ(MAP_FAILED, area);
    ASSERT_MMAPS_CHANGE(1, initial_busy_count);
 
    // grabbing something before tbrk
@@ -240,7 +240,7 @@ TEST mmap_fixed_incompat()
       ASSERT_EQ_FMT(MAP_FAILED, insert, "%p");
       ASSERT_EQ_FMT(EINVAL, errno, "%d");
    } else {
-      ASSERT_NOT_EQ(MAP_FAILED, insert);
+      ASSERT_NEQ(MAP_FAILED, insert);
    }
 
    // grabbing something too high, so it steps on Monitor reserved - KM only test
@@ -261,7 +261,7 @@ TEST mmap_fixed_incompat()
       ASSERT_EQ_FMT(MAP_FAILED, insert, "%p");
       ASSERT_EQ_FMT(EINVAL, errno, "%d");
    } else {
-      ASSERT_NOT_EQ(MAP_FAILED, insert);
+      ASSERT_NEQ(MAP_FAILED, insert);
    }
 
    munmap(area, area_sz);

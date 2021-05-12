@@ -50,9 +50,10 @@ char buf[TEST_BUFFER_SZ];
  *
  * Returns 1 (True) when successful, 0 (False) otherwise.
  */
-int test_memory(void *ptr) {
+int test_memory(void* ptr)
+{
    for (int i = 0; i < TEST_BUFFER_SZ; i++) {
-      buf[i] = (char) (rand() % 256);
+      buf[i] = (char)(rand() % 256);
    }
    memcpy(ptr, buf, TEST_BUFFER_SZ);
    return (memcmp(ptr, buf, TEST_BUFFER_SZ) == 0);
@@ -66,20 +67,20 @@ TEST brk_almost_all(void)
 {
    // break to 2GIB less than phys memory.
    void* prev = SYS_break(NULL);
-   void* almost_all = (void*)(max_pmem - 2*GIB);
-   void *result;
-   result = SYS_break((void *)(max_pmem - 2 * GIB));
+   void* almost_all = (void*)(max_pmem - 2 * GIB);
+   void* result;
+   result = SYS_break((void*)(max_pmem - 2 * GIB));
    ASSERT_EQ_FMT(almost_all, result, "%p");
    ASSERT_EQ_FMT(almost_all, SYS_break(NULL), "%p");
 
    // Mess with .
-   char *p = (char *) prev;
+   char* p = (char*)prev;
    int rc = test_memory(p);
-   ASSERT_NOT_EQ_FMT(0, rc, "%d");
+   ASSERT_NEQ_FMT(0, rc, "%d");
 
-   p = ((char *) result) - TEST_BUFFER_SZ;
+   p = ((char*)result) - TEST_BUFFER_SZ;
    rc = test_memory(p);
-   ASSERT_NOT_EQ_FMT(0, rc, "%d");
+   ASSERT_NEQ_FMT(0, rc, "%d");
 
    // restore previous state.
    result = SYS_break(prev);
@@ -95,7 +96,7 @@ TEST brk_too_much(void)
    void* almost_all = (void*)(max_pmem - GIB);
    void* result;
    result = SYS_break(almost_all);
-   ASSERT_EQ_FMT((void *) -1, result, "%p");
+   ASSERT_EQ_FMT((void*)-1, result, "%p");
    ASSERT_EQ_FMT(prev, SYS_break(NULL), "%p");
    PASS();
 }
@@ -104,17 +105,17 @@ TEST brk_too_much(void)
 TEST map_almost_all(void)
 {
    // mmap to 2GIB less than phys memory.
-   size_t mapsz = max_pmem - 2*GIB;
-   void *ptr = simple_mmap(mapsz);
-   ASSERT_NOT_EQ_FMT(MAP_FAILED, ptr, "%p");
+   size_t mapsz = max_pmem - 2 * GIB;
+   void* ptr = simple_mmap(mapsz);
+   ASSERT_NEQ_FMT(MAP_FAILED, ptr, "%p");
    // See if we can modify
-   char *p = (char *) ptr;
+   char* p = (char*)ptr;
    int rc = test_memory(p);
-   ASSERT_NOT_EQ_FMT(0, rc, "%d");
+   ASSERT_NEQ_FMT(0, rc, "%d");
 
-   p = ((char *) ptr) + 2 * GIB - TEST_BUFFER_SZ;
+   p = ((char*)ptr) + 2 * GIB - TEST_BUFFER_SZ;
    rc = test_memory(p);
-   ASSERT_NOT_EQ_FMT(0, rc, "%d");
+   ASSERT_NEQ_FMT(0, rc, "%d");
 
    munmap(ptr, mapsz);
    PASS();
@@ -124,7 +125,7 @@ TEST map_almost_all(void)
 TEST map_too_much(void)
 {
    // mmap to 1 GIB less than phys memory. Should fail.
-   void *ptr = simple_mmap(max_pmem - GIB);
+   void* ptr = simple_mmap(max_pmem - GIB);
    ASSERT_EQ_FMT(MAP_FAILED, ptr, "%p");
    PASS();
 }
@@ -136,25 +137,25 @@ TEST map_brk_to_limit(void)
 {
    size_t mapsz = max_pmem / 2;
    void* ptr = simple_mmap(mapsz);
-   ASSERT_NOT_EQ_FMT(MAP_FAILED, ptr, "%p");
+   ASSERT_NEQ_FMT(MAP_FAILED, ptr, "%p");
 
    void* prev = SYS_break(NULL);
    // Note: assming va == pa in 'brk' region.
-   size_t brklim = ((size_t) ptr) & (max_pmem - 1);
-   void *result = SYS_break((void*) (brklim - GIB));
-   ASSERT_NOT_EQ_FMT((void *) -1, result, "%p");
+   size_t brklim = ((size_t)ptr) & (max_pmem - 1);
+   void* result = SYS_break((void*)(brklim - GIB));
+   ASSERT_NEQ_FMT((void*)-1, result, "%p");
 
    int rc;
    // Test memory in map
    rc = test_memory(ptr);
-   ASSERT_NOT_EQ_FMT(0, rc, "%d");
+   ASSERT_NEQ_FMT(0, rc, "%d");
 
    // Test memory in brk area (1st and last buffer)
    void* curbrk = SYS_break(NULL);
    rc = test_memory(prev);
-   ASSERT_NOT_EQ_FMT(0, rc, "%d");
-   rc = test_memory((char *) curbrk - TEST_BUFFER_SZ);
-   ASSERT_NOT_EQ_FMT(0, rc, "%d");
+   ASSERT_NEQ_FMT(0, rc, "%d");
+   rc = test_memory((char*)curbrk - TEST_BUFFER_SZ);
+   ASSERT_NEQ_FMT(0, rc, "%d");
 
    // put everything back the way it was.
    SYS_break(prev);
@@ -175,25 +176,25 @@ TEST brk_map_to_limit(void)
 
    void* prev = SYS_break(NULL);
    // Note: assming va == pa in 'brk' region.
-   size_t brklim = ((size_t) ptr) & (max_pmem - 1);
-   void *result = SYS_break((void*) (brklim - GIB));
-   ASSERT_NOT_EQ_FMT((void *) -1, result, "%p");
+   size_t brklim = ((size_t)ptr) & (max_pmem - 1);
+   void* result = SYS_break((void*)(brklim - GIB));
+   ASSERT_NEQ_FMT((void*)-1, result, "%p");
 
    // really mmap now.
    ptr = simple_mmap(mapsz);
-   ASSERT_NOT_EQ_FMT(MAP_FAILED, ptr, "%p");
+   ASSERT_NEQ_FMT(MAP_FAILED, ptr, "%p");
 
    int rc;
    // Test memory in map
    rc = test_memory(ptr);
-   ASSERT_NOT_EQ_FMT(0, rc, "%d");
+   ASSERT_NEQ_FMT(0, rc, "%d");
 
    // Test memory in brk area (1st and last buffer)
    void* curbrk = SYS_break(NULL);
    rc = test_memory(prev);
-   ASSERT_NOT_EQ_FMT(0, rc, "%d");
-   rc = test_memory((char *) curbrk - TEST_BUFFER_SZ);
-   ASSERT_NOT_EQ_FMT(0, rc, "%d");
+   ASSERT_NEQ_FMT(0, rc, "%d");
+   rc = test_memory((char*)curbrk - TEST_BUFFER_SZ);
+   ASSERT_NEQ_FMT(0, rc, "%d");
 
    // put everything back the way it was.
    SYS_break(prev);
@@ -213,7 +214,7 @@ int main(int argc, char** argv)
       fprintf(stderr, "usage: %s [GREATEST options] -- <bus size (bits)>\n", argv[0]);
       exit(1);
    }
-   char *ep = NULL;
+   char* ep = NULL;
    int pbus_size = strtol(argv[optind + 1], &ep, 0);
    if (ep == NULL || *ep != '\0') {
       fprintf(stderr, "'%s' is not a number\n", argv[optind + 1]);

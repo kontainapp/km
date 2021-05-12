@@ -65,7 +65,7 @@ TEST test_stat()
    ASSERT_EQ(S_IFDIR, st.st_mode & S_IFMT);
 
    int fd = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    rc = fstat(fd, &st);
    ASSERT_EQ(0, rc);
    ASSERT_EQ(S_IFDIR, st.st_mode & S_IFMT);
@@ -139,9 +139,9 @@ TEST test_getdents()
    char dbuf[bufsize];
 
    int fd = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    int rc = syscall(SYS_getdents, fd, dbuf, bufsize);
-   ASSERT_NOT_EQ(-1, rc);
+   ASSERT_NEQ(-1, rc);
    rc = close(fd);
    ASSERT_EQ(0, rc);
 
@@ -150,7 +150,7 @@ TEST test_getdents()
    ASSERT_EQ(EBADF, errno);
 
    fd = open("/proc/self/fd", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    while ((rc = syscall(SYS_getdents, fd, dbuf, bufsize)) > 0) {
       if (greatest_get_verbosity() > 0) {
          printf("----- getdents %d\n", rc);
@@ -173,7 +173,7 @@ TEST test_getdents()
          ASSERT(0 <= ino && ino <= 6);
       }
    }
-   ASSERT_NOT_EQ(-1, rc);
+   ASSERT_NEQ(-1, rc);
    rc = close(fd);
    ASSERT_EQ(0, rc);
 
@@ -194,9 +194,9 @@ TEST test_getdents64()
    char dbuf[bufsize];
 
    int fd = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    int rc = syscall(SYS_getdents64, fd, dbuf, bufsize);
-   ASSERT_NOT_EQ(-1, rc);
+   ASSERT_NEQ(-1, rc);
    rc = close(fd);
    ASSERT_EQ(0, rc);
 
@@ -205,7 +205,7 @@ TEST test_getdents64()
    ASSERT_EQ(EBADF, errno);
 
    fd = open("/proc/self/fd", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    while ((rc = syscall(SYS_getdents64, fd, dbuf, bufsize)) > 0) {
       if (greatest_get_verbosity() > 0) {
          printf("----- getdents64 %d\n", rc);
@@ -228,7 +228,7 @@ TEST test_getdents64()
          ASSERT(0 <= ino && ino <= 6);
       }
    }
-   ASSERT_NOT_EQ(-1, rc);
+   ASSERT_NEQ(-1, rc);
    rc = close(fd);
    ASSERT_EQ(0, rc);
 
@@ -272,16 +272,16 @@ TEST test_open_fd_fill()
    int rc;
    // open two file descriptors
    int fd1 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd1);
+   ASSERT_NEQ(-1, fd1);
    int fd2 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd2);
+   ASSERT_NEQ(-1, fd2);
    // Ensure 1st one has lower fd value than second
    ASSERT(fd1 < fd2);
    // Close the first one and open a new one
    rc = close(fd1);
    ASSERT_EQ(0, rc);
    int fd3 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd3);
+   ASSERT_NEQ(-1, fd3);
    // Ensure fd1 value was re-used.
    ASSERT_EQ(fd1, fd3);
    // clean it up.
@@ -299,14 +299,14 @@ TEST test_openat()
    struct stat st1, st2;
 
    fd = openat(-1, "/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    fstat(fd, &st1);
    stat("/", &st2);
    ASSERT_EQ(st1.st_ino, st2.st_ino);
    close(fd);
 
    fd = openat(AT_FDCWD, "Makefile", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    fstat(fd, &st1);
    stat("Makefile", &st2);
    ASSERT_EQ(st1.st_ino, st2.st_ino);
@@ -314,7 +314,7 @@ TEST test_openat()
 
    int fd1 = open("..", O_RDONLY);
    fd = openat(fd1, "tests", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    fstat(fd, &st1);
    stat("../tests", &st2);
    ASSERT_EQ(st1.st_ino, st2.st_ino);
@@ -331,16 +331,16 @@ TEST test_dup_fd_fill()
    int rc;
    // open two file descriptors
    int fd1 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd1);
+   ASSERT_NEQ(-1, fd1);
    int fd2 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd2);
+   ASSERT_NEQ(-1, fd2);
    // Ensure 1st one has lower fd value than second
    ASSERT(fd1 < fd2);
    // Close the first one and dup
    rc = close(fd1);
    ASSERT_EQ(0, rc);
    int fd3 = dup(fd2);
-   ASSERT_NOT_EQ(-1, fd1);
+   ASSERT_NEQ(-1, fd1);
    // Ensure fd1 value was re-used.
    ASSERT_EQ(fd1, fd3);
    // clean it up.
@@ -357,15 +357,15 @@ TEST test_dup()
    int rc;
    // Setup: 2 gaps
    int fd1 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd1);
+   ASSERT_NEQ(-1, fd1);
    int fd2 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd2);
+   ASSERT_NEQ(-1, fd2);
    int fd3 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd3);
+   ASSERT_NEQ(-1, fd3);
    int fd4 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd4);
+   ASSERT_NEQ(-1, fd4);
    int fd5 = open("/", O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd5);
+   ASSERT_NEQ(-1, fd5);
    rc = close(fd2);
    ASSERT_EQ(0, rc);
    rc = close(fd4);
@@ -410,7 +410,7 @@ TEST test_dup()
     */
 
    rc = dup3(fd5, fd2, 0xffff);
-   ASSERT_NOT_EQ(-1, rc);
+   ASSERT_NEQ(-1, rc);
    close(rc);
 
    rc = dup3(fd5, fd2, 0xffff | O_CLOEXEC);
@@ -458,7 +458,7 @@ TEST test_eventfd()
 {
    int rc;
    int fd = eventfd(0, 0);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    rc = close(fd);
    ASSERT_EQ(0, rc);
    PASS();
@@ -569,36 +569,36 @@ TEST test_proc_fd()
 {
    char* fname = ".";
    int fd = open(fname, O_RDONLY);
-   ASSERT_NOT_EQ(-1, fd);
+   ASSERT_NEQ(-1, fd);
    char procname[128];
    snprintf(procname, sizeof(procname), "/proc/self/fd/%d", fd);
    char* realname = realpath(fname, NULL);
 
    char slink[128];
 
-   ASSERT_NOT_EQ(-1, readlink(procname, slink, sizeof(slink)));
+   ASSERT_NEQ(-1, readlink(procname, slink, sizeof(slink)));
    fprintf(stderr, "slink=%s\n", slink);
    ASSERT_EQ(0, strcmp(slink, realname));
 
-   ASSERT_NOT_EQ(-1, readlinkat(fd, procname, slink, sizeof(slink)));
+   ASSERT_NEQ(-1, readlinkat(fd, procname, slink, sizeof(slink)));
    fprintf(stderr, "slink=%s\n", slink);
    ASSERT_EQ(0, strcmp(slink, realname));
 
-   ASSERT_NOT_EQ(-1, readlinkat(AT_FDCWD, procname, slink, sizeof(slink)));
+   ASSERT_NEQ(-1, readlinkat(AT_FDCWD, procname, slink, sizeof(slink)));
    fprintf(stderr, "slink=%s\n", slink);
    ASSERT_EQ(0, strcmp(slink, realname));
 
    snprintf(procname, sizeof(procname), "/proc/%d/fd/%d", getpid(), fd);
 
-   ASSERT_NOT_EQ(-1, readlink(procname, slink, sizeof(slink)));
+   ASSERT_NEQ(-1, readlink(procname, slink, sizeof(slink)));
    fprintf(stderr, "slink=%s\n", slink);
    ASSERT_EQ(0, strcmp(slink, realname));
 
-   ASSERT_NOT_EQ(-1, readlinkat(fd, procname, slink, sizeof(slink)));
+   ASSERT_NEQ(-1, readlinkat(fd, procname, slink, sizeof(slink)));
    fprintf(stderr, "slink=%s\n", slink);
    ASSERT_EQ(0, strcmp(slink, realname));
 
-   ASSERT_NOT_EQ(-1, readlinkat(AT_FDCWD, procname, slink, sizeof(slink)));
+   ASSERT_NEQ(-1, readlinkat(AT_FDCWD, procname, slink, sizeof(slink)));
    fprintf(stderr, "slink=%s\n", slink);
    ASSERT_EQ(0, strcmp(slink, realname));
 
@@ -612,15 +612,15 @@ TEST test_proc_sched()
    snprintf(procname, sizeof(procname), "/proc/%d/sched", getpid());
 
    int self_fd = open("/proc/self/sched", O_RDONLY);
-   ASSERT_NOT_EQ(-1, self_fd);
+   ASSERT_NEQ(-1, self_fd);
 
    int pid_fd = open(procname, O_RDONLY);
-   ASSERT_NOT_EQ(-1, pid_fd);
+   ASSERT_NEQ(-1, pid_fd);
 
    int self_rc = read(self_fd, buf_self, sizeof(buf_self));
-   ASSERT_NOT_EQ(-1, self_rc);
+   ASSERT_NEQ(-1, self_rc);
    int pid_rc = read(pid_fd, buf_pid, sizeof(buf_pid));
-   ASSERT_NOT_EQ(-1, pid_rc);
+   ASSERT_NEQ(-1, pid_rc);
 
    ASSERT_EQ(self_rc, pid_rc);
    strtok(buf_pid, "\n");
@@ -647,15 +647,15 @@ TEST test_proc_cmdline()
    }
 
    int self_fd = open("/proc/self/cmdline", O_RDONLY);
-   ASSERT_NOT_EQ(-1, self_fd);
+   ASSERT_NEQ(-1, self_fd);
 
    int pid_fd = open(procname, O_RDONLY);
-   ASSERT_NOT_EQ(-1, pid_fd);
+   ASSERT_NEQ(-1, pid_fd);
 
    int self_rc = read(self_fd, buf_self, sizeof(buf_self));
-   ASSERT_NOT_EQ(-1, self_rc);
+   ASSERT_NEQ(-1, self_rc);
    int pid_rc = read(pid_fd, buf_pid, sizeof(buf_pid));
-   ASSERT_NOT_EQ(-1, pid_rc);
+   ASSERT_NEQ(-1, pid_rc);
    ASSERT_EQ(self_rc, pid_rc);
    ASSERT_EQ(0, memcmp(buf_pid, buf_self, self_rc));
    ASSERT_EQ(0, memcmp(buf, buf_self, self_rc));
