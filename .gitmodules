@@ -6,7 +6,7 @@
 	url = https://github.com/kontainapp/bats
 [submodule "tests/greatest"]
 	path = tests/greatest
-	url = https://github.com/kontainapp/ctest_greatest
+	url = ../greatest
 [submodule "tests/bats-support"]
 	path = tests/bats-support
 	url = https://github.com/ztombol/bats-support
@@ -22,5 +22,3 @@
 [submodule "container-runtime/crun"]
 	path = container-runtime/crun
 	url = https://github.com/kontainapp/crun
-[submodule "greatest"]
-	url = git@github.com:kontainapp/greatest.git
