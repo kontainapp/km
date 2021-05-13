@@ -46,7 +46,6 @@ KM_OPT_INC := ${KM_OPT}/include
 KM_OPT_LIB := ${KM_OPT}/lib
 KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
-KM_OPT_LDSO := ${KM_OPT_RT}/libc.so
 KM_LDSO := ${BLDTOP}/runtime/libc.so
 KM_LDSO_PATH := ${KM_OPT_RT}:${KM_OPT_ALPINELIB}/usr/lib
 
@@ -113,7 +112,7 @@ else
 endif
 
 KM_OPT_KM := ${KM_OPT_BIN_PATH}/km
-KM_DOCKER_VOLUME := -v ${KM_OPT_KM}:${KM_OPT_KM}:z -v ${KM_OPT_LDSO}:${KM_OPT_LDSO}:z
+KM_DOCKER_VOLUME := -v ${KM_OPT_KM}:${KM_OPT_KM}:z -v ${KM_OPT_RT}:${KM_OPT_RT}:z
 
 # Utility functions for common docker operations.
 clean_container = @-docker rm --force ${1} 2>/dev/null
