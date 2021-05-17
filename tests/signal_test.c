@@ -232,7 +232,7 @@ TEST test_kill()
 {
    // Get an invalid pid.
    pid_t pid_max = get_pid_max();
-   ASSERT_NOT_EQ(-1, pid_max);
+   ASSERT_NEQ(-1, pid_max);
 
    // Use an invalid pid to provoke ESRCH error.
    ASSERT_EQ(-1, kill(pid_max, SIGUSR1));
