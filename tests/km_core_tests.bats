@@ -876,7 +876,6 @@ fi
 @test "filesys($test_type): guest file system operations (filesys_test$ext)" {
    run km_with_timeout filesys_test$ext -v
    assert_success
-   assert_line --regexp 'filesys_test.* \(1, #threads: 1\)'
 
    # stdout redirect test is part of stray_test
    run km_with_timeout stray_test$ext redir_std

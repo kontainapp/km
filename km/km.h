@@ -14,6 +14,7 @@
 #define __KM_H__
 
 #include <errno.h>
+#include <getopt.h>
 #include <pthread.h>
 #include <regex.h>
 #include <signal.h>
@@ -26,7 +27,6 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <linux/kvm.h>
-#include <getopt.h>
 
 #include "bsd_queue.h"
 #include "km_elf.h"
@@ -209,7 +209,6 @@ typedef struct km_machine_init_params {
 extern km_machine_init_params_t km_machine_init_params;
 
 void km_machine_setup(km_machine_init_params_t* params);
-void km_machine_init_pidinfo(pid_t ppid, pid_t pid, pid_t next_pid);
 void km_machine_init(km_machine_init_params_t* params);
 void km_signal_machine_fini(void);
 void km_vcpu_fini(km_vcpu_t* vcpu);
@@ -342,7 +341,6 @@ typedef struct km_machine {
    size_t auxv_size;     // size of process AUXV (used if core is dumped)
    pid_t ppid;           // parent pid, 1 for the leader
    pid_t pid;            // the payload's km pid
-   pid_t next_pid;       // the pid for a forked payload process
 
    // VM Driver Specific Information
    union {

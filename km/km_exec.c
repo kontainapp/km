@@ -45,7 +45,7 @@ static const_string_t ENV_PATHS[] = {"/bin/env", "/usr/bin/env", NULL};
  * KM_EXEC_VMFDS=kvmfd,machfd,vcpufd,vcpufd,vcpufd,vcpufd,......
  * KM_EXEC_EVENTFDS=intrfd,shutdownfd
  * KM_EXEC_GUESTFDS=gfd:hfd,gfd:hfd,.....
- * KM_EXEC_PIDINFO=tracepid,parentpid,mypid,nextpid
+ * KM_EXEC_PIDINFO=tracepid
  * KM_EXEC_GDBINFO=gdbenabled,waitatstarup
  */
 #define KM_EXEC_VARS 6
@@ -60,9 +60,6 @@ static char KM_EXEC_GDBINFO[] = "KM_EXEC_GDBINFO";
 typedef struct km_exec_state {
    int version;
    int tracepid;
-   pid_t ppid;
-   pid_t pid;
-   pid_t next_pid;
    int shutdown_fd;
    int intr_fd;
    int kvm_fd;
@@ -90,21 +87,6 @@ void km_exec_get_file_pointer(int fd, km_file_t** filep, int* nfds)
 // The args from main so that exec can rebuild the km command line
 static int km_exec_argc;
 static char** km_exec_argv;
-
-pid_t km_exec_pid(void)
-{
-   return execstatep->pid;
-}
-
-pid_t km_exec_ppid(void)
-{
-   return execstatep->ppid;
-}
-
-pid_t km_exec_next_pid(void)
-{
-   return execstatep->next_pid;
-}
 
 int km_called_via_exec(void)
 {
@@ -196,19 +178,12 @@ static char* km_exec_eventfd_var(void)
  */
 static char* km_exec_pidinfo_var(void)
 {
-   int bufl = sizeof(KM_EXEC_PIDINFO) + 1 + sizeof("ttttttt,pppppppp,mmmmmmmm,nnnnnnnn");
+   int bufl = sizeof(KM_EXEC_PIDINFO) + 1 + sizeof("ttttttt");
    char* bufp = malloc(bufl);
    if (bufp == NULL) {
       return NULL;
    }
-   int bytes_needed = snprintf(bufp,
-                               bufl,
-                               "%s=%d,%d,%d,%d",
-                               KM_EXEC_PIDINFO,
-                               km_trace_include_pid_value(),
-                               machine.ppid,
-                               machine.pid,
-                               machine.next_pid);
+   int bytes_needed = snprintf(bufp, bufl, "%s=%d", KM_EXEC_PIDINFO, km_trace_include_pid_value());
    if (bytes_needed + 1 > bufl) {
       free(bufp);
       return NULL;
@@ -748,12 +723,6 @@ int km_exec_recover_kmstate(void)
       return 0;
    }
 
-   /*
-    * Tracing should be setup early in main() by calling km_trace_setup()
-    * Tracing is still in flux until we set the "include pid" flag and this process' pid below.
-    */
-   km_infox(KM_TRACE_EXEC, "pidinfo %s, current linux pid %d", pidinfo, getpid());
-
    km_exec_started_this_payload = 1;
    if ((n = sscanf(vernum, "%d,%d", &version, &nfdmap)) != 2) {
       km_infox(KM_TRACE_EXEC, "couldn't process vernum %s, n %d", vernum, n);
@@ -769,19 +738,13 @@ int km_exec_recover_kmstate(void)
       return -1;
    }
    // Get the pid information
-   if ((n = sscanf(pidinfo,
-                   "%d,%d,%d,%d",
-                   &execstatep->tracepid,
-                   &execstatep->ppid,
-                   &execstatep->pid,
-                   &execstatep->next_pid)) != 4) {
+   if ((n = sscanf(pidinfo, "%d", &execstatep->tracepid)) != 1) {
       km_infox(KM_TRACE_EXEC, "couldn't scan pidinfo %s, n %d", pidinfo, n);
       return -1;
    }
    execstatep->version = version;
    execstatep->nfdmap = nfdmap;
    km_trace_include_pid(execstatep->tracepid);
-   km_machine_init_pidinfo(execstatep->ppid, execstatep->pid, execstatep->next_pid);
    // Tracing should be ok from this point on.
 
    if (km_exec_get_vmfds(vmfds) != 0) {

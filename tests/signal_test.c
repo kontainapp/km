@@ -31,6 +31,25 @@
 int signal_seen = 0;
 void* stack_addr = NULL;
 
+/*
+ * Return the limit on the size of the process id.
+ * We should never see a pid with the returned value or larger.
+ * If there is a failure -1 is returned.
+ */
+pid_t get_pid_max(void)
+{
+   FILE* pidmaxfile = fopen("/proc/sys/kernel/pid_max", "r");
+   if (pidmaxfile != NULL) {
+      pid_t pidmax;
+      if (fscanf(pidmaxfile, "%d", &pidmax) != 1) {
+         pidmax = -1;
+      }
+      fclose(pidmaxfile);
+      return pidmax;
+   }
+   return -1;
+}
+
 void signal_handler(int signal)
 {
    char buf[128];
@@ -211,8 +230,12 @@ TEST test_sigaction()
 
 TEST test_kill()
 {
-   // Another process - we are 1, hence we use 2
-   ASSERT_EQ(-1, kill(2, SIGUSR1));
+   // Get an invalid pid.
+   pid_t pid_max = get_pid_max();
+   ASSERT_NOT_EQ(-1, pid_max);
+
+   // Use an invalid pid to provoke ESRCH error.
+   ASSERT_EQ(-1, kill(pid_max, SIGUSR1));
    ASSERT_EQ(ESRCH, errno);
 
    // test bad signal numbers

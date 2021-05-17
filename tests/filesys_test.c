@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -606,33 +606,6 @@ TEST test_proc_fd()
    PASS();
 }
 
-TEST test_proc_sched()
-{
-   char procname[128], buf_self[4096], buf_pid[4096];
-   snprintf(procname, sizeof(procname), "/proc/%d/sched", getpid());
-
-   int self_fd = open("/proc/self/sched", O_RDONLY);
-   ASSERT_NEQ(-1, self_fd);
-
-   int pid_fd = open(procname, O_RDONLY);
-   ASSERT_NEQ(-1, pid_fd);
-
-   int self_rc = read(self_fd, buf_self, sizeof(buf_self));
-   ASSERT_NEQ(-1, self_rc);
-   int pid_rc = read(pid_fd, buf_pid, sizeof(buf_pid));
-   ASSERT_NEQ(-1, pid_rc);
-
-   ASSERT_EQ(self_rc, pid_rc);
-   strtok(buf_pid, "\n");
-   strtok(buf_self, "\n");
-   ASSERT_EQ(0, strcmp(buf_pid, buf_self));
-   printf("%s\n", buf_self);
-
-   close(self_fd);
-   close(pid_fd);
-   PASS();
-}
-
 TEST test_proc_cmdline()
 {
    char procname[128], buf_self[4096], buf_pid[4096], buf[4096];
@@ -738,7 +711,6 @@ int main(int argc, char** argv)
    RUN_TEST(test_getrlimit_nofiles);
    RUN_TEST(test_bad_fd);
    RUN_TEST(test_proc_fd);
-   RUN_TEST(test_proc_sched);
    RUN_TEST(test_proc_cmdline);
    RUN_TEST(test_close_stdio);
    RUN_TEST(test_pselect6);
