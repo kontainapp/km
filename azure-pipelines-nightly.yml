@@ -17,10 +17,10 @@ jobs:
       VM_IMAGE: "ubuntu-18.04"
       CLUSTER_NAME: "aks-kontain-ci-nightly-$(Build.BuildId)"
       VM_SIZE: "Standard_D4_v3" # choose a vm size to avoid the vcpu quota on azure
-      buildenv_image_version: latest # use this for all buildenv containers
-      # BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers. TODO - rollback to latest when we all rebase
+      BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
       IMAGE_VERSION: ci-nightly-$(Build.BuildId) # use this for all other containers
-      K8S_TEST_ERR_NO_CLEANUP: true # OK to not clean up after error for nightly
+      K8S_TEST_ERR_NO_CLEANUP: true # true means "on error, keep pods around". (assumes K8S_CLUSTER_NO_CLEANUP: true)
+      K8S_CLUSTER_ERR_NO_CLEANUP: false # true means "on error, keep cluster around"
       # trace: true # uncomment to enable '-x' in all bash scripts
 
     # Default job has a 60 minutes timeout. Sets this to 0 to use the max
@@ -43,6 +43,7 @@ jobs:
 
       - bash: cloud/azure/aks_ci_destroy.sh $(CLUSTER_NAME)
         displayName: Tear down k8s Cluster
+        condition: or(succeeded(), eq(variables.K8S_CLUSTER_ERR_NO_CLEANUP, false))
 
       - bash: make -C tests upload-coverage GITHUB_TOKEN=$(github_pat)
         displayName: upload coverage
