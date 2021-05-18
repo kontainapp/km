@@ -20,7 +20,7 @@ RUNENV_PATH = ${BLDDIR}
 # runenv-image configs
 export define runenv_prep
 	mkdir -p ${RUNENV_PATH}/kontain/bin && cp ${KM_BIN} $$_
-	mkdir -p ${RUNENV_PATH}/kontain/runtime && cp ${KM_LDSO} $$_
+	mkdir -p ${RUNENV_PATH}/kontain/runtime && cp --recursive --preserve=all ${KM_OPT_RT} $$_
 	cp installer.sh ${RUNENV_PATH}/installer.sh
 endef
 
