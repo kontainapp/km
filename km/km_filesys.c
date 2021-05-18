@@ -1911,6 +1911,40 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
    return 0;
 }
 
+// return filename to open for the request for /proc/`getpid()`/sched
+static int proc_sched_open(const char* guest_fn, char* host_fn, size_t host_fn_sz)
+{
+   return snprintf(host_fn, host_fn_sz, "%s%s", PROC_SELF, guest_fn + proc_pid_length);
+}
+
+// called on the read of /proc/self/sched - need to replace the first line
+static int proc_sched_read(int fd, char* buf, size_t buf_sz)
+{
+   fd = dup(fd);
+   FILE* fp = fdopen(fd, "r");
+   if (fp == NULL) {
+      if (fd >= 0) {
+         close(fd);
+      }
+      return -errno;
+   }
+   char tmp[128];
+   fgets(tmp, sizeof(tmp), fp);   // skip the first line
+   if (feof(fp)) {                // second read, to make sure we are at end of file
+      fclose(fp);
+      return 0;
+   }
+   int ret = snprintf(buf,
+                      buf_sz,
+                      "%s (%u, #threads: %u)\n",
+                      km_guest.km_filename,
+                      machine.pid,
+                      km_vcpu_run_cnt());
+   ret += fread(buf + ret, 1, buf_sz - ret, fp);
+   fclose(fp);
+   return ret;
+}
+
 // called on the read of /proc/self/auxv - need to return the payload's auxv
 static int proc_auxv_read(int fd, char* buf, size_t buf_sz)
 {
@@ -2004,6 +2038,10 @@ static km_filename_table_t km_filename_table[] = {
         .ops = {.getdents_g2h = proc_self_getdents, .getdents32_g2h = proc_self_getdents32},
     },
     {
+        .pattern = "^/proc/self/sched$",
+        .ops = {.read_g2h = proc_sched_read},
+    },
+    {
         .pattern = "^/proc/self/auxv$",
         .ops = {.read_g2h = proc_auxv_read},
     },
@@ -2018,6 +2056,10 @@ static km_filename_table_t km_filename_table[] = {
     {
         .pattern = "^/proc/%u/fd$",
         .ops = {.getdents_g2h = proc_self_getdents, .getdents32_g2h = proc_self_getdents32},
+    },
+    {
+        .pattern = "^/proc/%u/sched$",
+        .ops = {.open_g2h = proc_sched_open, .read_g2h = proc_sched_read},
     },
     {
         .pattern = "^/proc/%u/cmdline$",
