@@ -10,7 +10,7 @@
 #
 # Build tensorflow inference app in vagrant VM or container
 
-BUILD := ../../tools/hashicorp/build_tf
+BUILD := ../../tools/hashicorp/build_tensorflow
 TF := tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl
 
 vm: ${BUILD}/${TF}
