@@ -36,7 +36,6 @@
 #include "km_guest.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
-#include "km_sid_pgid.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
@@ -1669,19 +1668,6 @@ static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 }
 
 /*
- * The wait4() system call pid argument has values that mean special things.
- * The wait4() man page then refers you to the waitpid() man page where
- * the definition is.
- * Apparently there are no header files that define these values.
- *
- * pid < -1 = -pid is a process group id
- * pid == -1 =  wait for any child process
- * pid == 0 = wait for a child of the current process's pgid
- * pid > 0 = wait for this process id
- */
-enum wait4_special_pid_values { WAIT_FOR_ANY = -1, WAIT_FOR_CURRENT = 0 };
-
-/*
  * pid_t wait4(pid_t pid, int *wstatus, int options, struct rusage *rusage);
  */
 static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
@@ -1738,7 +1724,7 @@ static km_hc_ret_t waitid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t getsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_getsid(vcpu, arg->arg1);
+   arg->hc_ret = __syscall_1(hc, arg->arg1);
    return HC_CONTINUE;
 }
 
@@ -1747,7 +1733,7 @@ static km_hc_ret_t getsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t setsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_setsid(vcpu);
+   arg->hc_ret = __syscall_0(hc);
    return HC_CONTINUE;
 }
 
@@ -1756,7 +1742,7 @@ static km_hc_ret_t setsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t getpgid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_getpgid(vcpu, arg->arg1);
+   arg->hc_ret = __syscall_1(hc, arg->arg1);
    return HC_CONTINUE;
 }
 
@@ -1765,7 +1751,7 @@ static km_hc_ret_t getpgid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t setpgid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_setpgid(vcpu, arg->arg1, arg->arg2);
+   arg->hc_ret = __syscall_2(hc, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 }
 
