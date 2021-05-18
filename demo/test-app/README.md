@@ -7,7 +7,7 @@ Note that we require our own custom built version of tensorflow.
 The code isn't changed, we just compile it with `-D_GTHREAD_USE_RECURSIVE_MUTEX_INIT_FUNC=1`
 to disable use of non-POSIX primitives that are not supported on musl.
 
-To build this version, in `km/tools/hashicorp/build_tf` run `vagrant up`
+To build this version, in `km/tools/hashicorp/build_tensorflow` run `vagrant up`
 (or to make sure it is rebuilt `vagrant up --provision`, although it takes 2 - 3 hours).
 Tensorflow will be built in the virtual machine,
 then the resulting tensorflow<something>.whl file will be copied into that directory.

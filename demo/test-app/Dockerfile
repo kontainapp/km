@@ -10,7 +10,7 @@
 #
 # Dockerfile for tensor flow inferencing test app.
 # We have to use our own tensorflow build t avoud usage of non-POSIX APIs.
-# Copy the .whl file from ../../tools/hashicorp/build_tf for Docker to pick it up.
+# Copy the .whl file from ../../tools/hashicorp/build_tensorflow for Docker to pick it up.
 
 FROM kontain/test-python-fedora
 USER root
