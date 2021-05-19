@@ -36,7 +36,6 @@
 #include "km_guest.h"
 #include "km_hcalls.h"
 #include "km_mem.h"
-#include "km_sid_pgid.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
@@ -1669,29 +1668,12 @@ static km_hc_ret_t fork_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 }
 
 /*
- * The wait4() system call pid argument has values that mean special things.
- * The wait4() man page then refers you to the waitpid() man page where
- * the definition is.
- * Apparently there are no header files that define these values.
- *
- * pid < -1 = -pid is a process group id
- * pid == -1 =  wait for any child process
- * pid == 0 = wait for a child of the current process's pgid
- * pid > 0 = wait for this process id
- */
-enum wait4_special_pid_values {
-   WAIT_FOR_ANY = -1,
-   WAIT_FOR_CURRENT = 0
-};
-
-/*
  * pid_t wait4(pid_t pid, int *wstatus, int options, struct rusage *rusage);
  */
 static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   pid_t linux_pid;
-   pid_t wait4_rv;
-   pid_t input_pid = (pid_t)arg->arg1;        // force arg1 to a signed 32 bit int
+   pid_t input_pid = (pid_t)arg->arg1;   // force arg1 to a signed 32 bit int
+   int rv;
 
    km_infox(KM_TRACE_VCPU,
             "pid %ld, wstatus 0x%lx, options 0x%lx, rusage 0x%lx",
@@ -1700,96 +1682,40 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
             arg->arg3,
             arg->arg4);
 
-   if (input_pid < WAIT_FOR_ANY) {
-      if ((linux_pid = km_pid_xlate_kpid(-input_pid)) == -1) {
-         arg->hc_ret = -ESRCH;
-         return HC_CONTINUE;
-      }
-      linux_pid = -linux_pid;
-   } else if (input_pid == WAIT_FOR_ANY) {
-      linux_pid = -1;
-   } else if (input_pid == WAIT_FOR_CURRENT) {
-      linux_pid = 0;
-   } else {
-      if ((linux_pid = km_pid_xlate_kpid(input_pid)) == -1) {
-         arg->hc_ret = -ESRCH;
-         return HC_CONTINUE;
-      }
-   }
-
-   km_infox(KM_TRACE_HC, "waiting for km pid %ld, linux pid %d", arg->arg1, linux_pid);
-   wait4_rv = wait4(linux_pid,
-                    (int*)km_gva_to_kma(arg->arg2),
-                    (int)arg->arg3,
-                    (struct rusage*)km_gva_to_kma(arg->arg4));
-   km_infox(KM_TRACE_HC, "wait4 returns %d, errno %d", wait4_rv, errno);
-   if (wait4_rv < 0) {
+   rv = wait4(input_pid,
+              (int*)km_gva_to_kma(arg->arg2),
+              (int)arg->arg3,
+              (struct rusage*)km_gva_to_kma(arg->arg4));
+   if (rv < 0) {
       arg->hc_ret = -errno;
    } else {
-      if (wait4_rv != 0) {
-         arg->hc_ret = km_pid_xlate_lpid(wait4_rv);
-         km_pid_free(arg->hc_ret);
-      } else {
-         arg->hc_ret = 0;
-      }
+      arg->hc_ret = rv;
    }
-   km_infox(KM_TRACE_HC, "hc_ret %ld", arg->hc_ret);
+   km_infox(KM_TRACE_HC, "wait4 returns %lu", arg->hc_ret);
    return HC_CONTINUE;
 }
 
 /*
- * int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
+ * int waitid(idtype_t idtype, pid_t id, siginfo_t *infop, int options);
  */
 static km_hc_ret_t waitid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    siginfo_t* sip = km_gva_to_kma(arg->arg3);
-   pid_t linux_pid = 0;
+   pid_t pid = arg->arg2;
 
    if (sip == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
 
-   switch ((idtype_t)arg->arg1) {
-      case P_PID:
-         if ((linux_pid = km_pid_xlate_kpid(arg->arg2)) == -1) {
-            arg->hc_ret = -ESRCH;
-            return HC_CONTINUE;
-         }
-         break;
-      case P_ALL:
-         linux_pid = 0;
-         break;
-      case P_PGID:
-         if (arg->arg2 != 0) {
-            if ((linux_pid = km_pid_xlate_kpid(arg->arg2)) == -1) {
-               arg->hc_ret = -ESRCH;
-               return HC_CONTINUE;
-            }
-         }
-         break;
-      default:
-         km_errx(2, "Unknown idtype %lu", arg->arg1);
-         break;
-   }
-
-   km_infox(KM_TRACE_HC,
-            "waiting for km pid %lu, linux pid %d, options 0x%lx",
-            arg->arg2,
-            linux_pid,
-            arg->arg4);
+   km_infox(KM_TRACE_HC, "waiting for pid %d, options 0x%lx", pid, arg->arg4);
    sip->si_pid = 0;
-   if (waitid((idtype_t)arg->arg1, linux_pid, sip, (int)arg->arg4) < 0) {
+   if (waitid((idtype_t)arg->arg1, pid, sip, (int)arg->arg4) < 0) {
       arg->hc_ret = -errno;
    } else {
-      // Return the km pid converted from the linux pid.
-      if (sip->si_pid != 0) {
-         sip->si_pid = km_pid_xlate_lpid(sip->si_pid);
-         km_pid_free(sip->si_pid);
-      }
-      km_infox(KM_TRACE_HC, "returns si_pid %d", sip->si_pid);
       arg->hc_ret = 0;
    }
+   km_infox(KM_TRACE_HC, "returns hc_ret %lu, si_pid %d", arg->hc_ret, sip->si_pid);
    return HC_CONTINUE;
 }
 
@@ -1798,7 +1724,7 @@ static km_hc_ret_t waitid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t getsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_getsid(vcpu, arg->arg1);
+   arg->hc_ret = __syscall_1(hc, arg->arg1);
    return HC_CONTINUE;
 }
 
@@ -1807,7 +1733,7 @@ static km_hc_ret_t getsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t setsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_setsid(vcpu);
+   arg->hc_ret = __syscall_0(hc);
    return HC_CONTINUE;
 }
 
@@ -1816,7 +1742,7 @@ static km_hc_ret_t setsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t getpgid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_getpgid(vcpu, arg->arg1);
+   arg->hc_ret = __syscall_1(hc, arg->arg1);
    return HC_CONTINUE;
 }
 
@@ -1825,7 +1751,7 @@ static km_hc_ret_t getpgid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t setpgid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   arg->hc_ret = km_setpgid(vcpu, arg->arg1, arg->arg2);
+   arg->hc_ret = __syscall_2(hc, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 }
 

@@ -19,11 +19,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <linux/kvm.h>
-#include <sys/types.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 #include <sys/prctl.h>
+#include <sys/types.h>
+#include <linux/kvm.h>
 
 #include "bsd_queue.h"
 #include "km.h"
@@ -402,10 +402,11 @@ int km_wakeup_suspended_thread(siginfo_t* info)
 static int km_can_interrupt(km_vcpu_t* vcpu, void* data)
 {
    int signo = *(int*)data;
-   if (signo >= 0 && km_sigismember(&vcpu->sigmask, signo) == 0 && vcpu->state == HYPERCALL && vcpu->hypercall == SYS_epoll_pwait) {
+   if (signo >= 0 && km_sigismember(&vcpu->sigmask, signo) == 0 && vcpu->state == HYPERCALL &&
+       vcpu->hypercall == SYS_epoll_pwait) {
       km_pkill(vcpu, KM_SIGVCPUSTOP);
       km_infox(KM_TRACE_SIGNALS, "interrupting vcpu %d to deliver signal %d", vcpu->vcpu_id, signo);
-      *(int*)data = -1;             // we only want to interrupt one payload thread
+      *(int*)data = -1;   // we only want to interrupt one payload thread
    }
    return 0;
 }
@@ -438,7 +439,11 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
       km_interrupt_thread(info->si_signo);
       return;
    }
-   km_infox(KM_TRACE_VCPU, "enqueuing signal %d to vcpu %d, sigmask 0x%lx", info->si_signo, vcpu->vcpu_id, vcpu->sigmask);
+   km_infox(KM_TRACE_VCPU,
+            "enqueuing signal %d to vcpu %d, sigmask 0x%lx",
+            info->si_signo,
+            vcpu->vcpu_id,
+            vcpu->sigmask);
    enqueue_signal(&vcpu->sigpending, info);
    if (km_sigismember(&vcpu->sigmask, info->si_signo) == 0) {
       km_pkill(vcpu, KM_SIGVCPUSTOP);
@@ -626,7 +631,7 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
        * ourselves.
        */
       struct sigaction action;
-      action.sa_sigaction = (void (*)(int,  siginfo_t *, void *))SIG_DFL;
+      action.sa_sigaction = (void (*)(int, siginfo_t*, void*))SIG_DFL;
       sigemptyset(&action.sa_mask);
       action.sa_flags = 0;
       if (sigaction(info->si_signo, &action, NULL) != 0) {
@@ -714,7 +719,11 @@ km_rt_sigprocmask(km_vcpu_t* vcpu, int how, km_sigset_t* set, km_sigset_t* oldse
       *oldset = vcpu->sigmask;
    }
    if (set != NULL) {
-      km_infox(KM_TRACE_SIGNALS, "setting new mask 0x%lx, how %d, existing mask 0x%lx", *set, how, vcpu->sigmask);
+      km_infox(KM_TRACE_SIGNALS,
+               "setting new mask 0x%lx, how %d, existing mask 0x%lx",
+               *set,
+               how,
+               vcpu->sigmask);
       switch (how) {
          case SIG_BLOCK:
             for (int signo = 1; signo < _NSIG; signo++) {
@@ -817,16 +826,13 @@ uint64_t km_kill(km_vcpu_t* vcpu, pid_t pid, int signo)
    if (signo < 1 || signo >= NSIG) {
       return -EINVAL;
    }
-   pid_t linux_pid = km_pid_xlate_kpid(pid);
-   km_infox(KM_TRACE_SIGNALS, "signal %d to kpid %d -> lpid %d", signo, pid, linux_pid);
+   km_infox(KM_TRACE_SIGNALS, "signal %d to pid %d", signo, pid);
    if (pid == 0 || pid == machine.pid) {
       // Process-wide signal.
       siginfo_t info = {.si_signo = signo, .si_code = SI_USER};
       km_post_signal(NULL, &info);
-   } else if (linux_pid == -1) {
-      return -ESRCH;
    } else {
-      if (kill(linux_pid, signo) < 0) {
+      if (kill(pid, signo) < 0) {
          return -errno;
       }
    }
@@ -859,7 +865,6 @@ uint64_t km_rt_sigpending(km_vcpu_t* vcpu, km_sigset_t* set, size_t sigsetsize)
    get_pending_signals(vcpu, set);
    return 0;
 }
-
 
 uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize)
 {
@@ -916,7 +921,8 @@ static inline void deltatime_to_abstime(struct timespec* deltat, struct timespec
  *  -errno - on failure
  *  > 0 - the number of the signal that fired
  */
-uint64_t km_rt_sigtimedwait(km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, struct timespec* timeout, size_t setlen)
+uint64_t
+km_rt_sigtimedwait(km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, struct timespec* timeout, size_t setlen)
 {
    int rv = 0;
 
@@ -934,7 +940,11 @@ uint64_t km_rt_sigtimedwait(km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, 
    if (timeout == NULL) {
       km_infox(KM_TRACE_VCPU, "waiting for signals 0x%lx, no timeout", *set);
    } else {
-      km_infox(KM_TRACE_VCPU, "waiting for signals 0x%lx, timeout %ld.%09ld seconds", *set, timeout->tv_sec, timeout->tv_nsec);
+      km_infox(KM_TRACE_VCPU,
+               "waiting for signals 0x%lx, timeout %ld.%09ld seconds",
+               *set,
+               timeout->tv_sec,
+               timeout->tv_nsec);
    }
 
    // Convert from mask of signals we want to mask of signals to block.
@@ -954,7 +964,11 @@ uint64_t km_rt_sigtimedwait(km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, 
             struct timespec abstime;
             deltatime_to_abstime(timeout, &abstime);
             // Timed wait for signal arrival.
-            km_infox(KM_TRACE_VCPU, "Timed wait %ld.%09ld seconds, blocked signals 0x%lx", timeout->tv_sec, timeout->tv_nsec, blockthese);
+            km_infox(KM_TRACE_VCPU,
+                     "Timed wait %ld.%09ld seconds, blocked signals 0x%lx",
+                     timeout->tv_sec,
+                     timeout->tv_nsec,
+                     blockthese);
             TAILQ_INSERT_TAIL(&km_signal_wait_queue, vcpu, signal_link);
             if (km_cond_timedwait(&vcpu->signal_wait_cv, &machine.signal_mutex, &abstime) == ETIMEDOUT) {
                TAILQ_REMOVE(&km_signal_wait_queue, vcpu, signal_link);

@@ -52,9 +52,6 @@ km_machine_t machine = {
     .mmaps.mutex = PTHREAD_MUTEX_INITIALIZER,
     .pause_mtx = PTHREAD_MUTEX_INITIALIZER,
     .pause_cv = PTHREAD_COND_INITIALIZER,
-    .ppid = 1,
-    .pid = 1,
-    .next_pid = 1000,
 };
 
 /*
@@ -697,16 +694,6 @@ void km_machine_setup(km_machine_init_params_t* params)
 }
 
 /*
- * Called from exec recover to setup the pids.
- */
-void km_machine_init_pidinfo(pid_t ppid, pid_t pid, pid_t next_pid)
-{
-   machine.ppid = ppid;
-   machine.pid = pid;
-   machine.next_pid = next_pid;
-}
-
-/*
  * initial steps setting our VM
  *
  * talk to KVM
@@ -720,7 +707,8 @@ void km_machine_init_pidinfo(pid_t ppid, pid_t pid, pid_t next_pid)
  */
 void km_machine_init(km_machine_init_params_t* params)
 {
-   km_pidmap_init(machine.pid);
+   machine.pid = getpid();
+   machine.ppid = getppid();
    if (km_fs_init() < 0) {
       km_err(1, "KM: km_fs_init() failed");
    }
