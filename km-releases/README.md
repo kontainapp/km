@@ -1,5 +1,8 @@
 # Kontain Monitor, Kontain VM and unikernels
 
+
+**NOTE** **THIS FILE IS BEING DEPRECATED AND IS KEPT AROUND AS A BRIDGE AND INFO SOURCE WHILE WE ARE WORKINH ON USER GUIDE AND BETTER README**
+
 Public repository with Kontain binary releases. Kontain code is not open source currently and is maintained in a private repository.
 
 Kontain is the way to run container workloads "Secure, Fast and Small - choose three". Kontain runs workloads in a dedicated VM, as a unikernel - within Kontain VM. A workload can be a regular Linux executable, or a Kontain "unikernel" - your code relinked with Kontain libraries to run directly on virtual hardware, without OS layer in the VM. Running in a Kontain Virtual Machine provides VM level isolation/security, but without any of VM overhead - in fact, Kontain workloads startup time is closer to that of Linux process and is faster than Docker containers.
