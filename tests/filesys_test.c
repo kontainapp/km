@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
@@ -712,6 +713,65 @@ TEST test_pselect6()
    PASS();
 }
 
+int got_sigio = 0;
+void handle_sigio(int signo, siginfo_t *info, void *stuff)
+{
+   got_sigio = 1;
+}
+
+TEST test_fcntl_fsetown()
+{
+   got_sigio = 0;
+
+   // open test file
+   int pipefd[2];    // pipefd[0] is the read end
+   ASSERT_NEQ(-1, pipe(pipefd));
+
+   // set O_ASYNC on the read end of the pipe
+   ASSERT_NEQ(-1, fcntl(pipefd[0], F_SETFL, O_ASYNC));
+
+   // add signal handler for SIGIO
+   struct sigaction act;
+   act.sa_sigaction = handle_sigio;
+   act.sa_flags = SA_SIGINFO;
+   sigfillset(&act.sa_mask);
+   ASSERT_EQ(0, sigaction(SIGIO, &act, NULL));
+
+   // use fcntl(F_SETOWN, ) to cause SIGIO when we write on the test file
+   ASSERT_NEQ(-1, fcntl(pipefd[0], F_SETOWN, getpid()));
+
+   // write into write end of the pipe
+   int bc = write(pipefd[1], "noise", strlen("noise"));
+   ASSERT_EQ(bc, strlen("noise"));
+
+   // pause to allow time for signal handler to run?
+   int i;
+   for (i = 0; i < 10; i++) {
+      if (got_sigio != 0) {
+         break;
+      }
+      struct timespec snooze = {0, 50000000};  // 50ms
+      if (nanosleep(&snooze, NULL) < 0) {
+         ASSERT_EQ(EINTR, errno);
+      }
+   }
+   fprintf(stdout, "%d spins waiting for SIGIO\n", i);
+
+   // verify that signal handler was entered
+   ASSERT_NEQ(0, got_sigio);
+
+   // close test file
+   ASSERT_EQ(0, close(pipefd[0]));
+   ASSERT_EQ(0, close(pipefd[1]));
+
+   // remove our signal handler
+   act.sa_handler = SIG_IGN;
+   act.sa_flags = 0;
+   ASSERT_EQ(0, sigaction(SIGIO, &act, NULL));
+
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -742,6 +802,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_proc_cmdline);
    RUN_TEST(test_close_stdio);
    RUN_TEST(test_pselect6);
+   RUN_TEST(test_fcntl_fsetown);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
