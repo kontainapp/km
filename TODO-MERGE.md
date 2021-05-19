@@ -4,10 +4,10 @@
 - check km-release pipeline and fix it to work directly on the repo.
   - [done] fix install script to install from KM repo, and grep+update all for km-releases reference
   - [done] Generate releases in KM
-  - test release from KM
+  - [done] test release from KM - local build and box package
   - validate nightly CI
-- update Vagrant boxes and AMI to use new location
-- add a line to km-releases readme that it's frozen while we are working on restructuring repo
+- [done] update Vagrant boxes and AMI to use new location
+- [done] add a line to km-releases readme that it's frozen while we are working on restructuring repo
 - move  CodeOfCOnduct upstairs, remove LICENCE, check CONTRIBUTPRS file(s)
 - modify km-releases/readme (add link to top-level readme and check for correct URLs)
 - grep/check docs referring to km-releases
