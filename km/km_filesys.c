@@ -1945,7 +1945,7 @@ static int proc_sched_read(int fd, char* buf, size_t buf_sz)
    return ret;
 }
 
-// called on the read of /proc/self/sched - need to replace the first line
+// called on the read of /proc/self/auxv - need to return the payload's auxv
 static int proc_auxv_read(int fd, char* buf, size_t buf_sz)
 {
    memcpy(buf, machine.auxv, buf_sz);
@@ -2060,10 +2060,6 @@ static km_filename_table_t km_filename_table[] = {
     {
         .pattern = "^/proc/%u/sched$",
         .ops = {.open_g2h = proc_sched_open, .read_g2h = proc_sched_read},
-    },
-    {
-        .pattern = "^/proc/%u/sched$",
-        .ops = {.read_g2h = proc_sched_read},
     },
     {
         .pattern = "^/proc/%u/cmdline$",
