@@ -183,7 +183,7 @@ class CRUNRemoteTest(RemoteTestAzure):
     def test(self, remote_ip):
         count=3 # apt-get is flaky lately, let's retry it a few times
         # Going forward we should put together an AMI with all that and skip this step
-        tools_to_install = "make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake"
+        tools_to_install = "make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake libssl-dev"
         while count >= 0:
           try:
             self.ssh_execute(remote_ip, "sudo apt-get update")
