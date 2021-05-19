@@ -18,7 +18,7 @@ are done:
 
 - automatically bind mounts km and libc.so into the container
 - automatically add the /dev/kvm and /dev/kkm devices to the container if they are present outside the container
-- the container entry point is run with km 
+- the container entry point is run with km
 - certain approved container entry points can be run without km to perform operations for diagnosing problems
 
 Kontain specific behaviour in crun is provided when crun is started with the program name krun.
@@ -161,4 +161,4 @@ docker run --runtime=krun kontain_imagename
 
 pdoman run --runtime=krun kontain_imagename
 
-Instructions for building a kontain image can be found in the file km-releases/GettingStarted.md in the "Validate" section of the document.
+Instructions for building a kontain image can be found in Kontain User Guide (see Readme.md in the top of KM repo)

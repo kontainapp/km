@@ -1,2 +1,6 @@
 .vagrant
 package.box
+packer_cache
+output*
+box/*
+

@@ -1,5 +1,9 @@
 # KM releases
 
+NOTE: this document describes the status before putting KM in open source,
+and will be updated once the open sourcing is completed. Conceptually it is still valid, but we are in the process
+of rolling km-releases repo functionality into km repo and dropping un-needed complexity.
+
 ## What's a release
 
 A release is Github collection of sources (auto-packaged by github) and extra files (manually or script-added to the "release files) hosted on github.

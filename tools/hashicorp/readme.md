@@ -10,6 +10,15 @@ Assumes:
 
 **Warning** when a vagrant/virtualbox VM is running on a host (i.e. after `vagrant up`), KM (or QEMU) on the same host will fail with 'EBUSY', This is because VirtualBox uses it's own kernel module which takes exclusive ownership of CPU virtualization facility in Linux kernel, and thus /dev/kvm is not available for monitors other than VirtualBox itself.
 
+## NEW Process
+
+1. [optional] Create a box with pre-installed Kontain (`make vm-image` for create)
+2. `vagrant init kontain/kkm-beta-OS`
+2. vagrant up
+
+---- **FURTHER TEXT NEED CLEANUP**
+## OLD Process
+
 * To build **vagrant VM with KKM and KM installed**: `vagrant up`
   * Env. var `KM_VAGRANT_PRELOAD_IMAGES` can be used to force pre-pulling docker images
   * Env var `KM_VAGRANT_KM_RELEASE` can be used to force a specific KM release (instead of default) to be pre-installed
@@ -32,7 +41,6 @@ vagrant ssh-config --host km-b2-demo >> ~/.ssh/config
 
 ssh km-b2-demo # same as `cd tools/hashicorp; vagrant ssh`
 ```
-
 
 ## Upload Vagrant box to vagrantcloud
 
