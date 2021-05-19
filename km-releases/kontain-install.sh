@@ -5,7 +5,11 @@
 # Install Kontain release on a Linux box. Assumes root.
 #
 # Usage: ./kontain-install.sh [TAG]
-
+#
+# ==== WARNING: THIS FILE IS BEING DEPRECATED===============
+#  We BUILD AMI and VAGRANT BOX instead, and will add
+# dedicated installation when KM is open-sourced
+#
 set -e
 [ "$TRACE" ] && set -x
 
