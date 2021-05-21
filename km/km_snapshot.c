@@ -590,7 +590,7 @@ int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, int live
    /*
     * TODO: Work label and description into this.
     */
-   km_dump_core(km_get_snapshot_path(), vcpu, NULL, label, description);
+   km_dump_core(km_get_snapshot_path(), vcpu, NULL, label, description, 1);
 
    if (live == 0) {
       machine.exit_group = 1;

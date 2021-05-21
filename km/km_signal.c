@@ -615,7 +615,7 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
       km_vcpu_pause_all(vcpu, GUEST_ONLY);
       if ((km_sigismember(&perror_signals, info->si_signo) != 0) || (info->si_signo == SIGQUIT)) {
          extern int debug_dump_on_err;
-         km_dump_core(km_get_coredump_path(), vcpu, NULL, NULL, "Signal Delivery");
+         km_dump_core(km_get_coredump_path(), vcpu, NULL, NULL, "Signal Delivery", 0);
          if (debug_dump_on_err) {
             abort();
          }
