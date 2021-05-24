@@ -437,8 +437,14 @@ static inline int km_core_dump_payload_note(km_payload_t* payload, int tag, char
    return roundup(cur - buf, 4);
 }
 
-static inline int km_core_write_notes(
-    km_vcpu_t* vcpu, int fd, char* label, char* description, off_t offset, char* buf, size_t size, int issnapshot)
+static inline int km_core_write_notes(km_vcpu_t* vcpu,
+                                      int fd,
+                                      char* label,
+                                      char* description,
+                                      off_t offset,
+                                      char* buf,
+                                      size_t size,
+                                      km_coredump_type_t dumptype)
 {
    Elf64_Phdr phdr = {};
 
@@ -495,7 +501,7 @@ static inline int km_core_write_notes(
     * we avoid writing open file state for coredumps where it seems likely we would
     * see things that are not snapshotable (like established network connections).
     */
-   if (issnapshot != 0) {
+   if (dumptype == KM_DO_SNAP) {
       ret = km_fs_core_notes_write(cur, remain);
       cur += ret;
       remain -= ret;
@@ -717,14 +723,15 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
                                        char* label,
                                        char* description,
                                        size_t* offsetp,
-                                       int issnapshot)
+                                       km_coredump_type_t dumptype)
 {
    km_mmap_reg_t* ptr;
 
    // write elf header
    km_core_write_elf_header(fd, phnum);
    // Create PT_NOTE in memory and write the header
-   *offsetp += km_core_write_notes(vcpu, fd, label, description, *offsetp, notes_buffer, notes_length, issnapshot);
+   *offsetp +=
+       km_core_write_notes(vcpu, fd, label, description, *offsetp, notes_buffer, notes_length, dumptype);
    // Write headers for segments from ELF
    *offsetp = km_core_write_payload_phdr(&km_guest, end_load, fd, *offsetp);
    if (km_dynlinker.km_filename != NULL) {
@@ -751,7 +758,7 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
 
 /*
  * Verify that a snapshot is possible.  We only check for active interval timers
- * at this time.  We don't snapshot interval timers yet, so if there are active timers 
+ * at this time.  We don't snapshot interval timers yet, so if there are active timers
  * snapshot is not possible.
  * Returns:
  *  0 - snapshot can proceed
@@ -759,7 +766,7 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
  */
 static int km_snapshot_ok(void)
 {
-   int itimer_types[] = { ITIMER_REAL, ITIMER_VIRTUAL, ITIMER_PROF };
+   int itimer_types[] = {ITIMER_REAL, ITIMER_VIRTUAL, ITIMER_PROF};
    int i;
 
    for (i = 0; i < sizeof(itimer_types) / sizeof(int); i++) {
@@ -768,9 +775,10 @@ static int km_snapshot_ok(void)
          km_warn("getitimer type %d failed\n", itimer_types[i]);
          return 1;
       }
-      if (val.it_interval.tv_sec != 0 || val.it_interval.tv_usec != 0 ||
-          val.it_value.tv_sec != 0 || val.it_value.tv_usec != 0) {
-         km_infox(KM_TRACE_COREDUMP, "can't snapshort: timer %d, it_interval %ld.%06lu, it_value %lu.%06lu",
+      if (val.it_interval.tv_sec != 0 || val.it_interval.tv_usec != 0 || val.it_value.tv_sec != 0 ||
+          val.it_value.tv_usec != 0) {
+         km_infox(KM_TRACE_COREDUMP,
+                  "can't snapshort: timer %d, it_interval %ld.%06lu, it_value %lu.%06lu",
                   itimer_types[i],
                   val.it_interval.tv_sec,
                   val.it_interval.tv_usec,
@@ -785,7 +793,12 @@ static int km_snapshot_ok(void)
 /*
  * Drop a core file containing the guest image.
  */
-void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe, char* label, char* description, int issnapshot)
+void km_dump_core(char* core_path,
+                  km_vcpu_t* vcpu,
+                  x86_interrupt_frame_t* iframe,
+                  char* label,
+                  char* description,
+                  km_coredump_type_t dumptype)
 {
    // char* core_path = km_get_coredump_path();
    int fd;
@@ -799,9 +812,9 @@ void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* ifram
    if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0666)) < 0) {
       km_err(2, "Cannot open corefile '%s', exiting", core_path);
    }
-   km_warnx("Write %s to '%s'", issnapshot != 0 ? "snapshot" : "coredump", core_path);
+   km_warnx("Write %s to '%s'", dumptype == KM_DO_SNAP ? "snapshot" : "coredump", core_path);
 
-   if (issnapshot != 0 && km_snapshot_ok() != 0) {
+   if (dumptype == KM_DO_SNAP && km_snapshot_ok() != 0) {
       km_errx(1, "Can't take a snapshot, active interval timer(s)");
    }
 
@@ -810,7 +823,7 @@ void km_dump_core(char* core_path, km_vcpu_t* vcpu, x86_interrupt_frame_t* ifram
    }
    offset = sizeof(Elf64_Ehdr) + phnum * sizeof(Elf64_Phdr);
 
-   km_core_write_phdrs(vcpu, fd, phnum, end_load, notes_buffer, notes_length, label, description, &offset, issnapshot);
+   km_core_write_phdrs(vcpu, fd, phnum, end_load, notes_buffer, notes_length, label, description, &offset, dumptype);
 
    // Write the actual data.
    km_core_write(fd, notes_buffer, notes_length);

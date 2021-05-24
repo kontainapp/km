@@ -455,11 +455,11 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
  * handler is started.
  */
 typedef struct km_signal_frame {
-   uint64_t return_addr;   // return address for guest handler. See runtime/x86_sigaction.s
-   ucontext_t ucontext;    // Passed to guest signal handler
-   siginfo_t info;         // Passed to guest signal handler
-   uint64_t rflags;        // saved rflags
-   struct km_hc_args* hc_argsp; // gva of the args to the hypercall that may be in progress
+   uint64_t return_addr;          // return address for guest handler. See runtime/x86_sigaction.s
+   ucontext_t ucontext;           // Passed to guest signal handler
+   siginfo_t info;                // Passed to guest signal handler
+   uint64_t rflags;               // saved rflags
+   struct km_hc_args* hc_argsp;   // gva of the args to the hypercall that may be in progress
    /*
     * Followed by monitor dependent state.
     * For KVM this depends on the value of KVM_CAP_XSAVE.
@@ -615,7 +615,7 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
       km_vcpu_pause_all(vcpu, GUEST_ONLY);
       if ((km_sigismember(&perror_signals, info->si_signo) != 0) || (info->si_signo == SIGQUIT)) {
          extern int debug_dump_on_err;
-         km_dump_core(km_get_coredump_path(), vcpu, NULL, NULL, "Signal Delivery", 0);
+         km_dump_core(km_get_coredump_path(), vcpu, NULL, NULL, "Signal Delivery", KM_DO_CORE);
          if (debug_dump_on_err) {
             abort();
          }

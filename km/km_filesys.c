@@ -1665,7 +1665,10 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
    } else if (file->sockinfo->state == KM_SOCK_STATE_LISTEN) {
       fnote->state = KM_NT_SKSTATE_LISTEN;
    } else if (file->sockinfo->state != KM_SOCK_STATE_OPEN) {
-      km_errx(1, "Couldn't perform snapshot, socket state (%d) is not OPEN fd=%d", file->sockinfo->state, fd);
+      km_errx(1,
+              "Couldn't perform snapshot, socket state (%d) is not OPEN fd=%d",
+              file->sockinfo->state,
+              fd);
    }
    fnote->backlog = file->sockinfo->backlog;
    cur += roundup(file->sockinfo->addrlen, 4);
@@ -1697,7 +1700,15 @@ static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* 
 
    km_infox(KM_TRACE_SNAPSHOT, "fd=%d %s nevent=%d", fd, file->name, nevent);
 
-   // Verify that there are no pending epoll events.
+   /*
+    * Verify that there are no pending epoll events.
+    * Note that this call to epoll_wait() may be triggered by an edge but since we don't
+    * actually do anything base on this, the edge that triggered this is now gone and the
+    * payload missed the edge.  And to add to this, we have failed the snapshot and the
+    * payload must continue and it didn't get its event.
+    * As far as I can tell there is no non-destructive way to find out if there are pending
+    * epoll events.
+    */
    struct epoll_event epollevent;
    int fdcount = epoll_wait(fd, &epollevent, 1, 0);
    if (fdcount < 0) {
