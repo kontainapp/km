@@ -1558,6 +1558,16 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
    return ret;
 }
 
+// Helper function to return the number of bytes in a pipe or connection
+static int ioctlfionread(int fd)
+{
+   int bytesavailable;
+   if (ioctl(fd, FIONREAD, &bytesavailable) < 0) {
+      km_err(1, "ioctl FIONREAD on fd %d failed", fd);
+   }
+   return bytesavailable;
+}
+
 size_t km_fs_core_notes_length()
 {
    size_t ret = 0;
@@ -1605,6 +1615,10 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
    fnote->mode = st.st_mode;
    if (fnote->mode & S_IFIFO) {
       fnote->data = file->ofd;   // default to ofd. override based on file type
+      // If a non-std{in,out,err} pipe contains data we don't snapshot
+      if (fd > 2 && ioctlfionread(fd) > 0) {
+         km_errx(1, "Can't take a snapshot, fifo fd %d has buffered data", fd);
+      }
    } else {
       fnote->data = lseek(fd, 0, SEEK_CUR);
    }
@@ -1639,13 +1653,22 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
    if (file->sockinfo->addrlen > 0) {
       memcpy(cur, file->sockinfo->addr, file->sockinfo->addrlen);
    }
+   // Don't snapshot a socketpair with in flight data.
+   if (file->how == KM_FILE_HOW_SOCKETPAIR0 || file->how == KM_FILE_HOW_SOCKETPAIR1) {
+      if (ioctlfionread(fd) > 0) {
+         km_errx(1, "Couldn't perform snapshot, socketpair fd %d has queued data", fd);
+      }
+   }
    fnote->state = KM_NT_SKSTATE_OPEN;
    if (file->sockinfo->state == KM_SOCK_STATE_BIND) {
       fnote->state = KM_NT_SKSTATE_BIND;
    } else if (file->sockinfo->state == KM_SOCK_STATE_LISTEN) {
       fnote->state = KM_NT_SKSTATE_LISTEN;
    } else if (file->sockinfo->state != KM_SOCK_STATE_OPEN) {
-      km_warnx("Socket state not OPEN fd=%d state=%d", fd, file->sockinfo->state);
+      km_errx(1,
+              "Couldn't perform snapshot, socket state (%d) is not OPEN fd=%d",
+              file->sockinfo->state,
+              fd);
    }
    fnote->backlog = file->sockinfo->backlog;
    cur += roundup(file->sockinfo->addrlen, 4);
@@ -1659,6 +1682,11 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
    return cur - buf;
 }
 
+/*
+ * Snapshot seems to be treating event fd's and epoll fd's at the same thing.
+ * When a snapshot is recovered, km only creates epoll fd's.
+ * For now this function is handling epoll fd's contrary to what its name says.
+ */
 static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* file, int fd)
 {
    char* cur = buf;
@@ -1671,6 +1699,24 @@ static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* 
    }
 
    km_infox(KM_TRACE_SNAPSHOT, "fd=%d %s nevent=%d", fd, file->name, nevent);
+
+   /*
+    * Verify that there are no pending epoll events.
+    * Note that this call to epoll_wait() may be triggered by an edge but since we don't
+    * actually do anything base on this, the edge that triggered this is now gone and the
+    * payload missed the edge.  And to add to this, we have failed the snapshot and the
+    * payload must continue and it didn't get its event.
+    * As far as I can tell there is no non-destructive way to find out if there are pending
+    * epoll events.
+    */
+   struct epoll_event epollevent;
+   int fdcount = epoll_wait(fd, &epollevent, 1, 0);
+   if (fdcount < 0) {
+      km_err(1, "epoll_wait( %d ) failed", fd);
+   }
+   if (fdcount > 0) {
+      km_errx(1, "Can't perform snapshot, epoll fd %d has pending events %d", fd, fdcount);
+   }
 
    cur += km_add_note_header(cur,
                              remain,
@@ -1713,6 +1759,7 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
          } else if (file->sockinfo == NULL) {
             sz = fs_core_write_nonsocket(cur, remain, file, i);
          } else {
+            // This includes normal connections and socketpair connections
             sz = fs_core_write_socket(cur, remain, file, i);
          }
          cur += sz;
