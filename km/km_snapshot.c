@@ -478,8 +478,8 @@ static inline int km_ss_recover_km_monitor(char* notebuf, size_t notesize)
    // as the one km was told to use with the -F (or --virt-device) command flag.
    if (!(mon->monitor_type == KM_NT_MONITOR_TYPE_KVM && machine.vm_type == VM_TYPE_KVM) &&
        !(mon->monitor_type == KM_NT_MONITOR_TYPE_KKM && machine.vm_type == VM_TYPE_KKM)) {
-      char* snapshot_vmtype[] = {"kvm", "kkm"};	        // indexed by monitor_type
-      char* current_vmtype[] = {"kvm", "kkm"};          // indexed by vm_type_t
+      char* snapshot_vmtype[] = {"kvm", "kkm"};   // indexed by monitor_type
+      char* current_vmtype[] = {"kvm", "kkm"};    // indexed by vm_type_t
       km_warnx("snapshot virtualization (%s) and current virtualization (%s) do not agree",
                snapshot_vmtype[mon->monitor_type],
                current_vmtype[machine.vm_type]);
@@ -590,7 +590,7 @@ int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, int live
    /*
     * TODO: Work label and description into this.
     */
-   km_dump_core(km_get_snapshot_path(), vcpu, NULL, label, description);
+   km_dump_core(km_get_snapshot_path(), vcpu, NULL, label, description, KM_DO_SNAP);
 
    if (live == 0) {
       machine.exit_group = 1;
