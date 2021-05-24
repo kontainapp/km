@@ -77,7 +77,7 @@ fi
 #
 # Test string should be "name_with_no_spaces($test_type) description (file_name$ext)"
 
-# Note about port usage:
+# Note about network port usage:
 # In order to run tests in parallel, each test which needs a port is configured to use a UNIQUE port.
 # $port_range_start indicates the beginning of the range.
 # Due to bats implementation peculiarities, it's hard to automate port number assignment so each test
@@ -1020,6 +1020,10 @@ fi
 }
 
 @test "basic_snapshot($test_type): snapshot and resume(snapshot_test$ext)" {
+   # this test uses a single port, so the next free port will be 22
+   local port_id=21
+   local snapshot_test_port=$(( $port_range_start + $port_id))
+
    SNAP=/tmp/snap.$$
    CORE=/tmp/core.$$
    KMLOG=/tmp/kmlog.$$
@@ -1095,6 +1099,23 @@ fi
       assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
       rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
+
+      # Verify that certain conditions cause the snapshot operation to fail
+      run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -e
+      assert_failure
+      assert_output --partial "Can't perform snapshot, epoll fd "
+      run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -p
+      assert_failure
+      assert_output --partial "Can't take a snapshot, fifo fd "
+      SOCKET_PORT=$snapshot_test_port run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -c
+      assert_failure
+      assert_output --partial "Couldn't perform snapshot, socket state (3) is not OPEN fd="
+      run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -s
+      assert_failure
+      assert_output --partial "Couldn't perform snapshot, socketpair fd "
+      run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -t
+      assert_failure
+      assert_output --partial "Can't take a snapshot, active interval timer(s)"
    done
 
    # make sure resume with payloads args fails

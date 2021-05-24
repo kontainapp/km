@@ -59,12 +59,13 @@ typedef struct km_file {
 #define KM_FILE_HOW_OPEN 0    /* Regular open */
 #define KM_FILE_HOW_PIPE_0 1  /* read half of pipe */
 #define KM_FILE_HOW_PIPE_1 2  /* write half of pipe */
-#define KM_FILE_HOW_EVENTFD 3 /* epoll_create */
+#define KM_FILE_HOW_EPOLLFD 3 /* epoll_create() */
 #define KM_FILE_HOW_SOCKET 4
 #define KM_FILE_HOW_ACCEPT 5
 #define KM_FILE_HOW_SOCKETPAIR0 6
 #define KM_FILE_HOW_SOCKETPAIR1 7
 #define KM_FILE_HOW_RECVMSG 8
+#define KM_FILE_HOW_EVENTFD 9 /* eventfd() */
 
 // machine.filesys points to a km_filesys_t structure.
 typedef struct km_filesys {

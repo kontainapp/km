@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019-2020 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -184,8 +184,13 @@ typedef struct km_nt_sighand {
 #define NT_KM_SIGHAND 0x4b4d5348   // "KMSH" no null term
 
 // Core dump guest.
-void km_dump_core(
-    char* filename, km_vcpu_t* vcpu, x86_interrupt_frame_t* iframe, char* label, char* description);
+typedef enum { KM_DO_CORE, KM_DO_SNAP } km_coredump_type_t;
+void km_dump_core(char* filename,
+                  km_vcpu_t* vcpu,
+                  x86_interrupt_frame_t* iframe,
+                  char* label,
+                  char* description,
+                  km_coredump_type_t dumptype);
 void km_set_coredump_path(char* path);
 char* km_get_coredump_path();
 size_t km_note_header_size(char* owner);
