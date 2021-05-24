@@ -22,6 +22,8 @@ PAYLOAD_KM := busybox/busybox.km
 PAYLOAD_IMAGE_SHORT_NAME := busybox-km
 # name to be added to label(s)
 PAYLOAD_NAME := Busybox
+# component id for docker images
+COMPONENT := busybox
 
 # a list to be passed to tar to be packed into container image
 PAYLOAD_FILES := busybox/*.km
@@ -35,4 +37,4 @@ test-all:
 	@${KM_BIN} ${PAYLOAD_KM} echo Basic Test passed
 	@echo More TBD
 
-include ${TOP}/make/image.mk
+include ${TOP}/make/images.mk
