@@ -73,7 +73,7 @@ register-box: vagrant ## upload new version to vagrantclount
 # AMI name to create. Existing AMI with name will be deleted
 AMI_NAME ?= Kontain_ubuntu_20.04
 
-__packer: ${BLDDIR} ## Create AWS AMI with Ubuntu 20 + KOntain using Packer
+.packer: ${BLDDIR} ## Create AWS AMI with Ubuntu 20 + KOntain using Packer
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP} kkm-pkg
 	packer build \
 		-var 'kkm_installer=${BLDTOP}/kkm.run' \
@@ -85,11 +85,11 @@ __packer: ${BLDDIR} ## Create AWS AMI with Ubuntu 20 + KOntain using Packer
 
 INSTANCE_TYPE ?= t2.micro
 KEY_PAIR ?= aws-kkm
-__run-instance: ## helper to run an instance and print out ssh string when ready. Use KEY_PAIR and INSTANCE_TYPE to change default
+.run-instance: ## helper to run an instance and print out ssh string when ready. Use KEY_PAIR and INSTANCE_TYPE to change default
 	./scripts/run-instance.sh $(INSTANCE_TYPE) $(KEY_PAIR)
 
 # Note: name is set in run-instance-sh
-__describe-instances: ## helper to kill all instances with a given mame
+.describe-instances: ## helper to kill all instances with a given mame
 	@aws ec2 describe-instances \
 		--filters \
 				'Name=tag:Name,Values=test-Kontain_ubuntu_20.04' \

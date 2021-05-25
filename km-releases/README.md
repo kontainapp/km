@@ -38,20 +38,20 @@ Kontain release includes Kontain Monitor, runtime libraries, tools and pre-build
 ## Install: use a pre-configured VM with all components pre-installed
 
 The easiest way to get started with Kontain is to use a pre-configured VM with all components (including Kontain Kernel Module) installed.
-Kontain provides a Vagrant Box with Ubuntu 20.10 and Kontain pre-installed.
+Kontain provides a Vagrant Box with Kontain pre-installed on Ubuntu 20.10 (`kontain/ubuntu-kkm-beta3`) and on Fedora 32 (`kontain/fedora-kkm-beta3`)
 
 Assuming you have [vagrant](https://www.vagrantup.com/) and [virtualbox](https://www.virtualbox.org/) installed (e.g. on Mac, `brew install vagrant virtualbox`), you can simply run `kontain/beta2-kkm` box from *vagrantcloud*:
 
 ```sh
 mkdir try-kontain; cd try-kontain
-vagrant init kontain/beta2-kkm
+vagrant init kontain/ubuntu-kkm-beta3
 vagrant up --provider=virtualbox
 vagrant ssh
 ```
 
-Currently *kontain/beta2-kkm* box is provided for *virtualbox* provider only. Please submit an issue if you'd like to have a different provider.
+Currently *kontain beta3* boxes are provided for *virtualbox* provider only. Please submit an issue if you'd like to have a different provider.
 
-Kontain also provide AWS AMI with Kontain pre-installed; it is documented further in this box
+Kontain also provide AWS AMI with Kontain pre-installed; it is documented further in this document.
 
 ## Install: install pre-requisites and components manually
 
