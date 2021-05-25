@@ -15,12 +15,11 @@ CURRENT_DIR := ${TOP}/cloud/k8s/kontaind
 
 COMPONENT = kontain-installer
 RELEASE_TAG := ${COMPONENT}
-RUNENV_PATH = ${BLDDIR}
 
 # runenv-image configs
 export define runenv_prep
-	mkdir -p ${RUNENV_PATH}/kontain/bin && cp ${KM_BIN} $$_
-	mkdir -p ${RUNENV_PATH}/kontain/runtime && cp --recursive --preserve=all ${KM_OPT_RT} $$_
+	mkdir -p ${BLDDIR}/bin && cp ${KM_BIN} $$_
+	mkdir -p ${BLDDIR}/runtime && cp --preserve=all ${KM_RT}/*.so* $$_
 	cp installer.sh ${RUNENV_PATH}/installer.sh
 endef
 
@@ -40,7 +39,7 @@ delete: ## Delete Kontaind from cluster
 	${DEPLOY_SCRIPT} delete
 
 clean: ## Clean up local build dir
-	rm -rf ${RUNENV_PATH}
+	rm -rf ${BLDDIR}
 
 TEST_SPEC ?= ${CURRENT_DIR}/tests/dweb-service.yaml
 TEST_POD ?= dweb

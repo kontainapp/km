@@ -40,6 +40,7 @@ BLDDIR := $(abspath ${BLDTOP}/${FROMTOP}/${BLDTYPE})
 # so we can use KM from different places
 KM_BLDDIR := $(abspath ${BLDTOP}/km/${BLDTYPE})
 KM_BIN := ${KM_BLDDIR}/km
+KM_RT := ${BLDTOP}/runtime
 KM_OPT := /opt/kontain
 KM_OPT_BIN := ${KM_OPT}/bin
 KM_OPT_INC := ${KM_OPT}/include

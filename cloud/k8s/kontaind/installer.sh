@@ -12,11 +12,16 @@
 # Install kontain related artifacts and do verification.
 #
 # Runs in cluster and expects /opt to be mounted and /dev/kvm available
+#
+# to sanity check offline:
+# docker run --device /dev/kvm -v /tmp/x:/opt:z --rm -it  kontain/runenv-kontain-installer
 
 set -ex
 
-[ -d /opt ]
-[ -e /dev/kvm ]
+device=/dev/kvm
+
+[ -d /opt ] || (echo Missing /opt dir ; false)
+[ -e $device ] || (echo Missing access to $device  ; false)
 
 mkdir -p /opt/kontain
 rm -rf /opt/kontain/*
@@ -24,9 +29,9 @@ cp -r /kontain/* /opt/kontain/
 # non-privileged containers using kvm device plugin needs access
 chmod 666 /dev/kvm
 
-[ -d /opt/kontain ]
-[ -x /opt/kontain/bin/km ]
-[ -f /opt/kontain/runtime/libc.so ]
+echo Validating files presense...
+[ -x /opt/kontain/bin/km ] || (echo Missing KM ; false)
+[ -f /opt/kontain/runtime/libc.so ] || (echo Missing libc.so ; false)
 
-# log the version information for debugging purpose
-/opt/kontain/bin/km -v
+echo Installed KM version:
+/opt/kontain/bin/km -v 2>& 1
