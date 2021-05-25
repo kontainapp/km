@@ -14,13 +14,16 @@
 # TODO: switch to 'from scratch'. See https://github.com/kontainapp/km/issues/496
 FROM alpine
 
-ARG FROM=jdk-11.0.8+10/build/linux-x86_64-normal-server-release/images/jdk
 ARG JAVA_DIR=/opt/kontain/java
 ENV LD_LIBRARY_PATH ${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime:/lib64
 
-COPY ${FROM}/ ${JAVA_DIR}/
-RUN ln -s /opt/kontain/bin/km  ${JAVA_DIR}/bin/java; \
-   cd ${JAVA_DIR}/bin/; ln -s  java.kmd java.km
-RUN ln -s ${JAVA_DIR}/bin/java /usr/bin/java
+COPY java ${JAVA_DIR}/
+COPY runtime /opt/kontain/runtime/
+
+RUN \
+   ln -s /opt/kontain/runtime/libc.so /opt/kontain/runtime/ld-linux-x86-64.so.2 && \
+   ln -s /opt/kontain/bin/km  ${JAVA_DIR}/bin/java && \
+   cd ${JAVA_DIR}/bin/; ln -s  java.kmd java.km && \
+   ln -s ${JAVA_DIR}/bin/java /bin/java
 
 ENTRYPOINT [ "java" ]
