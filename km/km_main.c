@@ -593,6 +593,8 @@ static inline int km_need_pause_all(void)
            (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
 }
 
+int km_do_shell;
+
 int main(int argc, char* argv[])
 {
    km_vcpu_t* vcpu = NULL;
@@ -603,18 +605,23 @@ int main(int argc, char* argv[])
    char* payload_name;
    char* pl_name;
 
-   /*
-    * Sometimes km is invoked as a payload name that is a symlink to km.
-    * In that case, no km related arguments will be found on the command line.
-    * Detect those cases here and help km_trace_setup() avoid treating payload
-    * arguments as km arguments.
-    * First call works for symlinks, including found in PATH.
-    * But for shebang the first is shebang file itself, hence the second call.
-    */
-   if ((pl_name = km_traverse_payload_symlinks((const char*)getauxval(AT_EXECFN))) == NULL) {
-      pl_name = km_traverse_payload_symlinks((const char*)argv[0]);
+   if (getenv(KM_DO_SHELL) != NULL) {
+      km_do_shell = true;
    }
 
+   if (km_do_shell != 0) {
+      /*
+       * Sometimes km is invoked as a payload name that is a symlink to km.
+       * In that case, no km related arguments will be found on the command line.
+       * Detect those cases here and help km_trace_setup() avoid treating payload
+       * arguments as km arguments.
+       * First call works for symlinks, including found in PATH.
+       * But for shebang the first is shebang file itself, hence the second call.
+       */
+      if ((pl_name = km_traverse_payload_symlinks((const char*)getauxval(AT_EXECFN))) == NULL) {
+         pl_name = km_traverse_payload_symlinks((const char*)argv[0]);
+      }
+   }
    km_trace_setup(argc, argv, pl_name);   // setup trace settings as early as possible
    // Tracing is now enabled.  Log what we decided to run.
    if (pl_name != NULL) {

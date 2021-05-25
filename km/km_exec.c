@@ -259,7 +259,7 @@ char** km_exec_build_env(char** envp)
 
    // The debug related environment variables
    char* fork_wait = getenv(KM_GDB_CHILD_FORK_WAIT);
-   char* km_verbose = getenv("KM_VERBOSE");
+   char* km_verbose = getenv(KM_VERBOSE);
    if (fork_wait != NULL) {
       gdb_vars++;
    }
@@ -311,7 +311,7 @@ char** km_exec_build_env(char** envp)
       j++;
    }
    if (km_verbose != NULL) {
-      snprintf(envstring, sizeof(envstring), "%s=%s", "KM_VERBOSE", km_verbose);
+      snprintf(envstring, sizeof(envstring), "%s=%s", KM_VERBOSE, km_verbose);
       newenvp[i + j] = strdup(envstring);
       j++;
    }
@@ -539,7 +539,7 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
     */
    int is_shell = km_is_shell_path(filename);
    int is_env = km_is_env_path(filename);
-   if (is_shell == 1 || is_env == 1) {
+   if (km_do_shell != 0 && (is_shell == 1 || is_env == 1)) {
       if (argv0 == NULL || argv1 == NULL) {
          km_infox(KM_TRACE_EXEC, "NULL in argv0 (%p) or argv1(%p)", argv0, argv1);
          return NULL;
@@ -612,17 +612,21 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
       nargv[0] = km_get_self_name();                               // km exec
       return nargv;
    }
-   // not shebang, got to be either a symlink or somefile.km
-   char* suffix = rindex(filename, '.');
-   if (suffix != NULL && strcmp(suffix, PAYLOAD_SUFFIX) == 0) {
-      km_infox(KM_TRACE_EXEC, "Setting payload name to %s ", filename);
-      pl_name = strdup(filename);
-   } else {
-      if ((pl_name = km_traverse_payload_symlinks(filename)) == NULL) {
-         km_infox(KM_TRACE_EXEC, "km_traverse_payload_symlinks(%s) returned NULL", filename);
-         freevector(argv, shell);
-         return NULL;
+   if (km_do_shell != 0) {
+      // not shebang, got to be either a symlink or somefile.km
+      char* suffix = rindex(filename, '.');
+      if (suffix != NULL && strcmp(suffix, PAYLOAD_SUFFIX) == 0) {
+         km_infox(KM_TRACE_EXEC, "Setting payload name to %s ", filename);
+         pl_name = strdup(filename);
+      } else {
+         if ((pl_name = km_traverse_payload_symlinks(filename)) == NULL) {
+            km_infox(KM_TRACE_EXEC, "km_traverse_payload_symlinks(%s) returned NULL", filename);
+            freevector(argv, shell);
+            return NULL;
+         }
       }
+   } else {
+      pl_name = strdup(filename);   // not shebang
    }
    if ((nargv = calloc(1 + argc + 1, sizeof(char*))) == NULL) {   // km exec, cnt, and NULL
       km_infox(KM_TRACE_EXEC, "Couldn't allocate %ld bytes", (1 + argc + 1) * sizeof(char*));
@@ -632,6 +636,11 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
    nargv[0] = km_get_self_name();   // km exec
    nargv[1] = pl_name;
    memcpy(nargv + 2, argv + 1, sizeof(char*) * (argc - 1));
+
+   for (int i = 0; i < argc + 1; i++) {
+      km_infox(KM_TRACE_EXEC, "arg[%d] = %s", i, nargv[i]);
+   }
+
    return nargv;
 }
 

@@ -16,17 +16,14 @@ PATH := $(realpath ${TOP}/tools):${PATH}
 
 # KM monitor path
 KM_BIN=${TOP}/build/km/km
-# KM file name, relative to currentdir. Note that the same will be absolute in the container
-PAYLOAD_KM := busybox/busybox.km
 # image name, without repo and version tag
 PAYLOAD_IMAGE_SHORT_NAME := busybox-km
 # name to be added to label(s)
 PAYLOAD_NAME := Busybox
+# a list to be passed to tar to be packed into container image
+PAYLOAD_FILES := busybox/_install
 # component id for docker images
 COMPONENT := busybox
-
-# a list to be passed to tar to be packed into container image
-PAYLOAD_FILES := busybox/*.km
 
 all: $(PAYLOAD_KM)
 
@@ -37,4 +34,10 @@ test-all:
 	@${KM_BIN} ${PAYLOAD_KM} echo Basic Test passed
 	@echo More TBD
 
+clean:
+	rm -rf busybox
+
+export define runenv_prep
+	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
+endef
 include ${TOP}/make/images.mk
