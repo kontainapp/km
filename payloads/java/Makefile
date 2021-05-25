@@ -40,8 +40,6 @@ DEP_PACKAGES := java-11-openjdk \
 # 'yes' if java was build from src (based on existable of .git repo)
 FROMSRC=$(shell test -d $(JDK_VERSION)/.git && echo yes)
 
-# docker build dir for runenv-image
-RUNENV_PATH := .
 # config for image validation
 RUNENV_VALIDATE_DIR := scripts
 RUNENV_VALIDATE_CMD := -cp /scripts Hello
@@ -50,6 +48,13 @@ RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 	app/kontain/snapshots/Snapshot.class \
 	app/kontain/snapshots/libkm_java_native.so
 RUNENV_DEMO_DEPENDENCIES := scripts/SimpleHttpServer.class
+
+# runenv-image configs
+export define runenv_prep
+	mkdir -p ${BLDDIR}/java && cp --recursive --preserve=all ${JDK_BUILD_DIR}/images/jdk/* ${BLDDIR}/java
+	mkdir -p ${BLDDIR}/runtime && cp --preserve=all ${KM_RT}/*.so $$_
+endef
+
 
 include ${TOP}/make/images.mk
 
