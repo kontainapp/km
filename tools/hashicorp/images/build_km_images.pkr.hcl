@@ -6,22 +6,22 @@
 // generic vars
 
 variable "home" {
-   type    = string
+   type        = string
    description = "User HOME. Need to locate vagrant box storage"
-   default = "${env("HOME")}"
+   default     = "${env("HOME")}"
 }
 
 variable "km_build" {
-   type    = string
+   type        = string
    description = "Location of KM build"
-   default = "../../build"
+   default     = "../../build"
 }
 
 variable "target_tmp" {
-   type    = string
+   type        = string
    description = "Location for transferred files on target VM"
    // This dir has to exist, and trailing '/' is important
-   default = "/tmp/"
+   default     = "/tmp/"
 }
 
 
