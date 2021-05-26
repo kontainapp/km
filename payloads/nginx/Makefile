@@ -14,7 +14,7 @@ TOP := $(shell git rev-parse --show-toplevel)
 
 COMPONENT := nginx
 NGINX_REPO := git@github.com:nginx/nginx.git
-NGINX_BRANCH :=  release-1.20.0
+NGINX_BRANCH ?= release-1.20.0
 
 # building it in alpine container
 DTYPE := alpine

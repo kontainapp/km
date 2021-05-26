@@ -16,7 +16,7 @@ PATH := $(realpath ${TOP}/tools):${PATH}
 
 COMPONENT := busybox
 BUSYBOX_REPO := https://github.com/mirror/busybox.git
-BUSYBOX_BRANCH := 1_33_1
+BUSYBOX_BRANCH ?= 1_33_1
 
 BUSYBOX_TOP :=  ${TOP}/payloads/busybox/busybox
 
@@ -36,7 +36,7 @@ CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD} && /bin/sh -c "ls -l"
 all: ${PAYLOAD_KM}
 
 $(PAYLOAD_KM) build link: ${BUSYBOX_TOP}/.config
-	make -C ${BUSYBOX_TOP} -j16
+	make -C ${BUSYBOX_TOP} -j`expr 2 \* $$(nproc)`
 	make -C ${BUSYBOX_TOP} install
 
 ${BUSYBOX_TOP}/.config: |
