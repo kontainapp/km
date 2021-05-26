@@ -24,7 +24,6 @@ variable "target_tmp" {
    default     = "/tmp/"
 }
 
-
 // os-specific vars. Values need to be provided to packer via -var-file=images/<file>.pkrvars.hcl
 
 variable "os" {
@@ -76,11 +75,12 @@ locals {
    source_path = "${var.home}/.vagrant.d/boxes/${local.box_mangled_name}/${var.box_version}/virtualbox/box.ovf"
 }
 
-/// fake builder, used for post-processorts debugging only
-// OVA file needs to be created on prior runs on the builder
-source "file" "debug-pp" {
-   source = "output_ova/${local.output_base}.ova"
-   target = "output_ova/tmp-${local.output_base}.ova"
+/// fake builder, used for selecting post-processors
+source "null" "upload" { // used to select uploading post-processors
+   communicator = "none"
+}
+source "null" "register" { // used to select box registration
+   communicator = "none"
 }
 
 source "virtualbox-ovf" "build-ova" {
@@ -107,14 +107,16 @@ source "virtualbox-ovf" "build-ova" {
 }
 
 build {
-   sources = ["source.file.debug-pp", "source.virtualbox-ovf.build-ova"]
+   sources = ["virtualbox-ovf.build-ova", "null.upload", "null.register"]
 
    provisioner "file" {
+      except = ["null.upload", "null.register"]
       sources     = ["${var.km_build}/kontain.tar.gz", "${var.km_build}/kkm.run", "daemon.json"]
       destination = var.target_tmp
    }
 
    provisioner "shell" {
+      except = ["null.upload", "null.register"]
       inline = [
          "echo ===== Waiting for cloud-init to complete...",
          "if [ -x /usr/bin/cloud-init ] ; then eval 'echo vagrant | sudo /usr/bin/cloud-init status --wait'; fi"
@@ -122,23 +124,41 @@ build {
    }
 
    provisioner "shell" {
+      except          = ["null.upload", "null.register"]
       execute_command = "echo 'vagrant' | {{ .Vars }} sudo -S -E sh -eux '{{ .Path }}'"
       script          = "scripts/${var.os}.install_km.sh"
    }
 
+   post-processor "vagrant" {
+      except              = ["null.upload", "null.register"]
+      output              = local.output_box
+      keep_input_artifact = true
+   }
+
    post-processors {
-      post-processor "vagrant" {
-         output              = local.output_box
-         keep_input_artifact = true
+      post-processor "shell-local" {
+         only                = ["null.register"]
+         inline              = ["vagrant box add --force ${local.box_tag} ${local.output_box}"]
+         keep_input_artifact =  true
+      }
+   }
+
+   // Upload a box precreated by 'packer build -except null.upload'
+   // to run this upload: 'packer build -only null.upload'
+   post-processors {
+      post-processor  "artifice" {
+         only  = ["null.upload"]
+         files = [local.output_box]
       }
 
-      // TODO - not sure what to do here.
+      // delete the target box version (there is no overwrite, we need to delete). No Parallel Runs here !
       post-processor "shell-local" {
-         // delete the target box, no questions asked. No Parallel Runs here !
+         only   = ["null.upload"]
          inline = ["curl --silent --show-error --header 'Authorization: Bearer ${var.cloud_token}' --request DELETE  https://app.vagrantup.com/api/v1/box/${local.box_tag}/version/${var.cloud_box_version}"]
       }
 
       post-processor "vagrant-cloud" {
+         only         = ["null.upload"]
          box_tag      = local.box_tag  // this box must already exist
          version      = var.cloud_box_version
          access_token = var.cloud_token
@@ -146,9 +166,5 @@ build {
       }
    }
 
-   post-processor "shell-local" {
-      inline              = ["echo TODO: Register box with local Vagrant if needed "]
-      keep_input_artifact =  true
-   }
 
 }

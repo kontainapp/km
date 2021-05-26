@@ -9,7 +9,7 @@ variable "os" {
 
 variable "aws_region" {
   type    = string
-  default = "us-east-2"
+  default = "us-west-1"
 }
 
 
@@ -44,7 +44,7 @@ variable "summary_manifest" {
 
 variable "target_ami_label" {
   type    = string
-  default = "Ubuntu 20.04 LTS with Kontain beta2/kkm"
+  default = "Ubuntu 20.04 LTS with Kontain beta3/kkm"
 }
 
 variable "target_ami_name" {

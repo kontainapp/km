@@ -1,6 +1,6 @@
 # M1 planning
 
-This directory contains dev planning docs (architecture, design) for M1 planning. Work items and open issues are tracked in this file (README.md)
+This directory contains dev planning docs (architecture, design) for M1 planning. Work items and open issues are tracked in this file (README.md). It is kept here for historical purposes only
 
 M1 is the release we want to put together by Oct'20.
 

@@ -13,6 +13,8 @@ set -e ; [ "$TRACE" ] && set -x
 instance_type=$1
 key_pair=$2
 
+# AMI name to create. Existing AMI with name will be deleted
+# need to be synced with the one in ubuntu*aws*hcl file
 AMI_name=Kontain_ubuntu_20.04
 VM_name=test-$AMI_name
 
