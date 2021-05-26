@@ -23,11 +23,11 @@ This is a quick helper for a demo of developer's experience and Spring Boot star
 ## Dev experience: IDE, Debugging
 
 * Connect VS from Mac to the vagrant VM
-* If Needed (note for now: it is in the `kontain/km-ubuntu-2.21.2021` box)
+* If Needed (note for now: it is in the `kontain/ubuntu-kkm-beta3` box)
   * install gdb
   * install VSC C/C++ support
-  * add a launch.json - see below (TODO: add it to km-releases)
- * create test.c file (source from km-releases)
+  * add a launch.json - see below
+ * create test.c file (source from User Guide)
    * /opt/kontain/bin/kontain-gcc -g -o test.km test.c
    * run debug in VC
 * create hello_2_loop.c (if we want fancier example)
