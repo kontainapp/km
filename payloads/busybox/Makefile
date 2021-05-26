@@ -43,9 +43,11 @@ ${BUSYBOX_TOP}/.config: |
 	git clone ${BUSYBOX_REPO} -b ${BUSYBOX_BRANCH}
 	cp config.txt ${BUSYBOX_TOP}/.config
 
-test-all:
+test:
 	@${KM_BIN} ${PAYLOAD_KM} echo Basic Test passed
-	@echo More TBD
+
+test-all: test
+	@${KM_BIN} ${PAYLOAD_KM} ls -l
 
 clean clobber:
 	rm -rf busybox
