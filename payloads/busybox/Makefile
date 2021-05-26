@@ -24,6 +24,9 @@ PAYLOAD_NAME := Busybox
 PAYLOAD_FILES := busybox/_install
 # component id for docker images
 COMPONENT := busybox
+# Command to run tests in testenv-image container:
+CONTAINER_TEST_CMD := /km /bin/sh -c "echo Hello, World!"
+CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD} && /bin/sh -c "ls -l"
 
 all: $(PAYLOAD_KM)
 

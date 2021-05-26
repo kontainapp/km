@@ -593,7 +593,15 @@ static inline int km_need_pause_all(void)
            (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
 }
 
-int km_do_shell;
+int km_do_shell = 1;
+
+static void km_check_do_shell(void)
+{
+   char* cp = getenv(KM_DO_SHELL);
+   if (cp != NULL && strcasecmp(cp, "no") == 0) {
+      km_do_shell = false;
+   }
+}
 
 int main(int argc, char* argv[])
 {
@@ -605,9 +613,7 @@ int main(int argc, char* argv[])
    char* payload_name;
    char* pl_name;
 
-   if (getenv(KM_DO_SHELL) != NULL) {
-      km_do_shell = true;
-   }
+   km_check_do_shell();
 
    if (km_do_shell != 0) {
       /*
@@ -621,6 +627,8 @@ int main(int argc, char* argv[])
       if ((pl_name = km_traverse_payload_symlinks((const char*)getauxval(AT_EXECFN))) == NULL) {
          pl_name = km_traverse_payload_symlinks((const char*)argv[0]);
       }
+   } else {
+      pl_name = NULL;
    }
    km_trace_setup(argc, argv, pl_name);   // setup trace settings as early as possible
    // Tracing is now enabled.  Log what we decided to run.
