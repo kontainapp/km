@@ -208,7 +208,7 @@ void km_trace_setup(int argc, char* argv[], char* payload_name)
 
    if (trace_regex == NULL) {
       // No trace settings from the command line or command line is ignored, see if the environment has anything to say.
-      trace_regex = getenv("KM_VERBOSE");
+      trace_regex = getenv(KM_VERBOSE);
    }
    if (trace_regex != NULL) {
       if (*trace_regex == 0) {

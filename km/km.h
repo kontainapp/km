@@ -453,6 +453,11 @@ static const struct timespec _1ms = {
     .tv_sec = 0, .tv_nsec = 1000000, /* 1 millisec */
 };
 
+static const_string_t KM_VERBOSE = "KM_VERBOSE";
+static const_string_t KM_DO_SHELL = "KM_DO_SHELL";
+
+extern int km_do_shell;   // enable symlink trick and minimal shell parsing in KM itself
+
 /*
  * Trivial trace control - with switch to turn on/off and on and a tag to match.
  * E.g. "-Vgdb" will only match GDB related messages, and '-V(gdb|kvm)' will match both gdb and
