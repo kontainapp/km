@@ -637,10 +637,11 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
    nargv[1] = pl_name;
    memcpy(nargv + 2, argv + 1, sizeof(char*) * (argc - 1));
 
-   for (int i = 0; i < argc + 1; i++) {
-      km_infox(KM_TRACE_EXEC, "arg[%d] = %s", i, nargv[i]);
+   if (km_trace_tag_enabled(KM_TRACE_EXEC) != 0) {
+      for (int i = 0; i < argc + 1; i++) {
+         km_infox(KM_TRACE_EXEC, "arg[%d] = %s", i, nargv[i]);
+      }
    }
-
    return nargv;
 }
 
