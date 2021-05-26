@@ -9,4 +9,4 @@ fi
 
 cp config.txt $src/.config
 make -C $src -j16
-cp $src/busybox $src/busybox.km
+make -C $src install
