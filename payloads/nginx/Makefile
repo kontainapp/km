@@ -30,6 +30,7 @@ all: ${NGINX_KM}
 fromsrc: ${NGINX_KM}  ## Clone the repo if needed, and build nginx (default)
 
 ${NGINX_KM}: ${NGINX_EXECUTABLE} .check link-km.sh
+	@mkdir -p ${BLDDIR}
 	./link-km.sh ${NGINX_OBJ_LOC} ${TOP}/tools/bin ${BLDDIR}
 
 ${NGINX_EXECUTABLE}: ${NGINX_TOP}
@@ -42,7 +43,7 @@ clobber: ## remove all sources and build artifacs
 	rm -rf ${NGINX_TOP} ${NGINX_KM}
 
 clean: ## keep sources but clean up build artifacts
-	rm -rf ${NGINX_KM}
+	rm -rf ${NGINX_KM} ${BLDDIR}
 	-cd ${NGINX_TOP} && make clean
 
 install: ${NGINX_KM} ## install to /opt/kontain/nginx (as root)
