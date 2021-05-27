@@ -12,8 +12,6 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-PATH := $(realpath ${TOP}/tools):${PATH}
-
 COMPONENT := busybox
 BUSYBOX_REPO := https://github.com/mirror/busybox.git
 BUSYBOX_BRANCH ?= 1_33_1
@@ -33,11 +31,17 @@ PAYLOAD_FILES := busybox/_install
 CONTAINER_TEST_CMD := /km /bin/sh -c "echo Hello, World!"
 CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD} && /bin/sh -c "ls -l"
 
-all: ${PAYLOAD_KM}
+all build link: ${PAYLOAD_KM}
 
-$(PAYLOAD_KM) build link: ${BUSYBOX_TOP}/.config
-	make -C ${BUSYBOX_TOP} -j`expr 2 \* $$(nproc)`
-	make -C ${BUSYBOX_TOP} install
+$(PAYLOAD_KM): ${BUSYBOX_TOP}/.config
+	${DOCKER_RUN_BUILD} --env=PATH=${PATH} \
+		-v ${TOP}:${TOP}:z \
+		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
+		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:Z \
+		-w ${TOP}/payloads/busybox \
+		${BUILDENV_IMG_TAGGED} \
+		make -C ${BUSYBOX_TOP} silentoldconfig && \
+		make -C ${BUSYBOX_TOP} -j`expr 2 \* $$(nproc)` all install
 
 ${BUSYBOX_TOP}/.config: |
 	git clone ${BUSYBOX_REPO} -b ${BUSYBOX_BRANCH}
