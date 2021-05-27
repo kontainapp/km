@@ -28,8 +28,8 @@ PAYLOAD_NAME := Busybox
 # a list to be passed to tar to be packed into container image
 PAYLOAD_FILES := busybox/_install
 # Command to run tests in testenv-image container:
-CONTAINER_TEST_CMD := /km /bin/sh -c "echo Hello, World!"
-CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD} && /bin/sh -c "ls -l"
+CONTAINER_TEST_CMD := bash -c "./km ./bin/sh -c 'echo Hello, World!'"
+CONTAINER_TEST_ALL_CMD := bash -c "./km ./bin/sh -c \"echo 'Hello, World!' && ./bin/sh -c 'ls'\""
 
 all build link: ${PAYLOAD_KM}
 
