@@ -1,5 +1,5 @@
 //  build AMI with KM/KKM
-// the right way would be to get Amazon Import post-processor in the buld_km_images;
+// the right way would be to get Amazon Import post-processor in the build_km_images;
 // but amazon is  sensitive to specific kernel version so for now we will use this one as a workaround
 
 variable "os" {
@@ -37,6 +37,11 @@ variable "ssh_user" {
   default = "ubuntu"
 }
 
+variable "ssh_password" {
+   // this is well know password for Vagrant boxes
+   type    = string
+   default = "vagrant"
+}
 variable "summary_manifest" {
   type    = string
   default = "packer-manifest.json"
@@ -60,7 +65,7 @@ data "amazon-ami" "build" {
   }
   most_recent = true
   owners      = ["099720109477"]
-  region      = "${var.aws_region}"
+  region      = var.aws_region
 }
 
 locals { timestamp = regex_replace(timestamp(), "[- TZ:]", "") }
@@ -96,12 +101,12 @@ build {
   provisioner "shell" {
     inline = [
          "echo ===== Waiting for cloud-init to complete...",
-         "if [ -x /usr/bin/cloud-init ] ; then eval 'echo vagrant | sudo /usr/bin/cloud-init status --wait'; fi"
+         "if [ -x /usr/bin/cloud-init ] ; then eval 'echo ${var.ssh_password} | sudo /usr/bin/cloud-init status --wait'; fi"
       ]
   }
 
   provisioner "shell" {
-    execute_command = "echo 'vagrant' | {{ .Vars }} sudo -S -E sh -eux '{{ .Path }}'"
+    execute_command = "echo '${var.ssh_password}' | {{ .Vars }} sudo -S -E sh -eux '{{ .Path }}'"
     script          = "scripts/${var.os}.install_km.sh"
   }
 
