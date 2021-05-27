@@ -22,6 +22,10 @@ steps:
     displayName: demo-dweb.km tests - run on Kubernetes
     timeoutInMinutes: 5
 
+  - bash: make -C payloads/busybox test-withk8s
+    displayName: busybox tests - run on Kubernetes
+    timeoutInMinutes: 5
+
   - bash: make -C container-runtime test-remote TEST_REMOTE_TEST_ID=ci-$(Build.BuildId)
     displayName: crun tests - run on the vm
     timeoutInMinutes: 20
