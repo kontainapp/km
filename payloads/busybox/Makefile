@@ -39,9 +39,9 @@ $(PAYLOAD_KM): ${BUSYBOX_TOP}/.config
 		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
 		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:Z \
 		-w ${TOP}/payloads/busybox \
-		${BUILDENV_IMG_TAGGED} \
-		make -C ${BUSYBOX_TOP} silentoldconfig && \
-		make -C ${BUSYBOX_TOP} -j`expr 2 \* $$(nproc)` all install
+		${BUILDENV_IMG_TAGGED} bash -c \
+		"make -C ${BUSYBOX_TOP} silentoldconfig && \
+		make -C ${BUSYBOX_TOP} -j`expr 2 \* $$(nproc)` all install"
 
 ${BUSYBOX_TOP}/.config: |
 	git clone ${BUSYBOX_REPO} -b ${BUSYBOX_BRANCH}
