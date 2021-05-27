@@ -7,7 +7,7 @@ steps:
     timeoutInMinutes: 15
 
   - bash: make -C payloads test-withk8s
-    displayName: Python.km tests - run on Kubernetes
+    displayName: Payloads tests - run on Kubernetes
     timeoutInMinutes: 20
 
   - bash: make -C container-runtime test-remote TEST_REMOTE_TEST_ID=ci-$(Build.BuildId)
