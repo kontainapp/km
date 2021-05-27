@@ -6,21 +6,9 @@ steps:
     displayName: KM tests - run on Kubernetes
     timeoutInMinutes: 15
 
-  - bash: make -C payloads/python test-withk8s
-    displayName: Python.km tests - run on Kubernetes
-    timeoutInMinutes: 5
-
-  - bash: make -C payloads/node test-withk8s
-    displayName: Node.km tests - run on Kubernetes
-    timeoutInMinutes: 5
-
-  - bash: make -C payloads/java test-withk8s
-    displayName: java tests - run on Kubernetes
-    timeoutInMinutes: 5
-
-  - bash: make -C payloads/demo-dweb test-withk8s
-    displayName: demo-dweb.km tests - run on Kubernetes
-    timeoutInMinutes: 5
+  - bash: make -C payloads test-withk8s
+    displayName: Payloads tests - run on Kubernetes
+    timeoutInMinutes: 20
 
   - bash: make -C container-runtime test-remote TEST_REMOTE_TEST_ID=ci-$(Build.BuildId)
     displayName: crun tests - run on the vm
