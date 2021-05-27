@@ -535,26 +535,10 @@ static int proc_self_fd_name(const char* pathname, char* buf, size_t bufsz)
    if (sscanf(pathname, PROC_SELF_FD, &fd) != 1 && sscanf(pathname, proc_pid_fd, &fd) != 1) {
       return -ENOENT;
    }
-   char* mpath;
-   if ((mpath = km_guestfd_name(NULL, fd)) == NULL) {
+   if (fd >= km_fs()->nfdmap) {
       return -ENOENT;
    }
-   /*
-    * /proc/self/fd symlinks contain full path name of file, so try to get that.
-    */
-   char* rpath = realpath(mpath, NULL);
-   if (rpath != NULL) {
-      mpath = rpath;
-   }
-   strncpy(buf, mpath, bufsz);
-   int ret = strlen(mpath);
-   if (ret > bufsz) {
-      ret = bufsz;
-   }
-   if (rpath != NULL) {
-      free(rpath);
-   }
-   return ret;
+   return 0;
 }
 
 /*
