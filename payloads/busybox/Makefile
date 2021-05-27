@@ -12,33 +12,52 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-PATH := $(realpath ${TOP}/tools):${PATH}
+COMPONENT := busybox
+BUSYBOX_REPO := https://github.com/mirror/busybox.git
+BUSYBOX_BRANCH ?= 1_33_1
+
+BUSYBOX_TOP :=  ${TOP}/payloads/busybox/busybox
 
 # KM monitor path
 KM_BIN=${TOP}/build/km/km
+PAYLOAD_KM := ${BUSYBOX_TOP}/_install/bin/busybox
 # image name, without repo and version tag
 PAYLOAD_IMAGE_SHORT_NAME := busybox-km
 # name to be added to label(s)
 PAYLOAD_NAME := Busybox
 # a list to be passed to tar to be packed into container image
-PAYLOAD_FILES := busybox/_install
-# component id for docker images
-COMPONENT := busybox
+PAYLOAD_FILES := busybox/_install run-test.sh run-all-tests.sh
 # Command to run tests in testenv-image container:
-CONTAINER_TEST_CMD := /km /bin/sh -c "echo Hello, World!"
-CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD} && /bin/sh -c "ls -l"
+CONTAINER_TEST_CMD := ./run-test.sh
+CONTAINER_TEST_ALL_CMD := ./run-all-tests.sh
 
-all: $(PAYLOAD_KM)
+all build link: ${PAYLOAD_KM}
 
-$(PAYLOAD_KM) build link: *sh .config
-	./build.sh
+$(PAYLOAD_KM): ${BUSYBOX_TOP}/.config
+	${DOCKER_RUN_BUILD} --env=PATH=${PATH} \
+		-v ${TOP}:${TOP}:z \
+		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
+		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:Z \
+		-w ${TOP}/payloads/busybox \
+		${BUILDENV_IMG_TAGGED} bash -c \
+		"make -C ${BUSYBOX_TOP} silentoldconfig && \
+		make -C ${BUSYBOX_TOP} -j`expr 2 \* $$(nproc)` all install"
 
-test-all:
+${BUSYBOX_TOP}/.config: |
+	git clone ${BUSYBOX_REPO} -b ${BUSYBOX_BRANCH}
+	cp config.txt ${BUSYBOX_TOP}/.config
+
+test:
 	@${KM_BIN} ${PAYLOAD_KM} echo Basic Test passed
-	@echo More TBD
 
-clean:
+test-all: test
+	@${KM_BIN} ${PAYLOAD_KM} ls -l
+
+clean clobber:
 	rm -rf busybox
+
+RUNENV_VALIDATE_CMD := /bin/sh -c "echo Hello, World!"
+RUNENV_VALIDATE_EXPECTED := Hello
 
 export define runenv_prep
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
