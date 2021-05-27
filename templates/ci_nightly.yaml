@@ -11,13 +11,9 @@ steps:
     displayName: KM tests with coverage - run on Kubernetes
     timeoutInMinutes: 15
 
-  - bash: make -C payloads/python test-all-withk8s
-    displayName: Python.km tests - run on Kubernetes
-    timeoutInMinutes: 15
-
-  - bash: make -C payloads/node test-all-withk8s
-    displayName: Node.km tests - run on Kubernetes
-    timeoutInMinutes: 30
+  - bash: make -C payloads test-all-withk8s
+    displayName: Payloads tests - run on Kubernetes
+    timeoutInMinutes: 60
 
   - bash: make -C payloads validate-runenv-withk8s
     displayName: payloads runenv validation - run on Kubernetes
