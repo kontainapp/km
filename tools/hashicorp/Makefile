@@ -68,7 +68,7 @@ register-boxes: ## register pre-created boxes in local vagrant cash
 # bandaid we build it from existing AMI. Ideally, we just want to import a box as an AMI - see test_ami_upload.pkr.hcl
 # for an examle how to do it
 ami:  ## Builds AMI with KKM in the AWS
-	${PACKER_BUILD} ubuntu-20.04-aws.pkr.hcl
+	${PACKER_BUILD} ubuntu-aws.pkr.hcl
 
 test-box-upload: ## Helper to test Vagrant Box upload from existing BOX file
 	${PACKER_BUILD} test_box_upload.pkr.hcl
