@@ -7,29 +7,26 @@ variable "os" {
   default = "ubuntu"
 }
 
+variable "os_version" {
+  type    = string
+  default = "20.04"
+}
+
 variable "aws_region" {
   type    = string
   default = "us-west-1"
 }
 
-
-variable "km_release_version" {
-  type    = string
-  default = "v0.1-beta"
-}
-
 variable "km_build" {
   type    = string
-  description = "Location of KM build"
+  description = "Location of KM build on build box"
   default = "../../build"
 }
 
-variable "target_tmp" {
+variable "km_release" {
   type    = string
-  description = "Location for transferred files on target VM"
-  // trailing / is important. Also, if the dir does not exist,
-  // add shell provisioner with mkdir (non-root)
-  default = "/tmp/"
+  description = "Just a label for release"
+  default = "beta3-kkm"
 }
 
 variable "ssh_user" {
@@ -42,24 +39,19 @@ variable "ssh_password" {
    type    = string
    default = "vagrant"
 }
-variable "summary_manifest" {
-  type    = string
-  default = "packer-manifest.json"
-}
 
-variable "target_ami_label" {
-  type    = string
-  default = "Ubuntu 20.04 LTS with Kontain beta3/kkm"
-}
-
-variable "target_ami_name" {
-  type    = string
-  default = "Kontain_ubuntu_20.04"
+locals {
+   // Location for transferred files on target VM
+   // trailing / is important. Also, if the dir does not exist,
+   // add shell provisioner with mkdir (non-root)
+   target_tmp = "/tmp/"
+   target_ami_label = "${var.os} ${var.os_version} with Kontain ${var.km_release}"
+   target_ami_name  = "Kontain_${var.os}_${var.os_version}"
 }
 
 data "amazon-ami" "build" {
   filters = {
-    name                = "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20210129"
+    name                = "ubuntu/images/hvm-ssd/ubuntu-*-${var.os_version}-amd64-server-*"
     root-device-type    = "ebs"
     virtualization-type = "hvm"
   }
@@ -71,9 +63,9 @@ data "amazon-ami" "build" {
 locals { timestamp = regex_replace(timestamp(), "[- TZ:]", "") }
 
 source "amazon-ebs" "build" {
-  ami_description             = var.target_ami_label
+  ami_description             = local.target_ami_label
   ami_groups                  = ["all"]
-  ami_name                    = var.target_ami_name
+  ami_name                    = local.target_ami_name
   associate_public_ip_address = true
   force_deregister            = true
   instance_type               = "t2.micro"
@@ -83,9 +75,9 @@ source "amazon-ebs" "build" {
   ssh_username                = var.ssh_user
   tags = {
     Base_AMI_Name = "{{ .SourceAMIName }}"
-    Name          = var.target_ami_label
-    OS_Version    = "Ubuntu"
-    Release       = "20.04"
+    Name          = local.target_ami_label
+    OS_Version    = var.os
+    Release       = var.os_version
     Timestamp     = local.timestamp
   }
 }
@@ -95,7 +87,7 @@ build {
 
   provisioner "file" {
     sources     = ["${var.km_build}/kontain.tar.gz", "${var.km_build}/kkm.run", "daemon.json"]
-    destination = var.target_tmp
+    destination = local.target_tmp
   }
 
   provisioner "shell" {
