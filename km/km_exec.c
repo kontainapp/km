@@ -266,6 +266,9 @@ char** km_exec_build_env(char** envp)
    if (km_verbose != NULL) {
       gdb_vars++;
    }
+   if (km_do_shell == 0) {
+      gdb_vars++;
+   }
    km_infox(KM_TRACE_EXEC, "ENV: fork_wait %s, km verbose %s", fork_wait, km_verbose);
 
    // Allocate a new env array with space for the exec related vars.
@@ -312,6 +315,11 @@ char** km_exec_build_env(char** envp)
    }
    if (km_verbose != NULL) {
       snprintf(envstring, sizeof(envstring), "%s=%s", KM_VERBOSE, km_verbose);
+      newenvp[i + j] = strdup(envstring);
+      j++;
+   }
+   if (km_do_shell == 0) {
+      snprintf(envstring, sizeof(envstring), "%s=%s", KM_DO_SHELL, "NO");
       newenvp[i + j] = strdup(envstring);
       j++;
    }
