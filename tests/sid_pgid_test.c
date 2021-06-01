@@ -26,6 +26,7 @@
 #include <sys/wait.h>
 
 #include "greatest/greatest.h"
+#include "test_common_functions.h"
 
 TEST sid_test(void)
 {
@@ -48,13 +49,13 @@ TEST sid_test(void)
    ASSERT_NEQ(-1, sid);
    fprintf(stdout, "getpid's sid is %d\n", sid);
 
-   /*
-    * getsid() for invalid km pid
-    * Since km payload pids (and hence sids) always start with 1, 9999 is only
-    * going to be valid if there is a lot of km payload forking and this test forks once.
-    */
-   sid = getsid(9999);
-   fprintf(stdout, "getsid(9999) returns %d, errno %d\n", sid, errno);
+   // Get an invalid pid.
+   pid_t invalid_pid = get_pid_max();
+   ASSERT_NEQ(-1, invalid_pid);
+
+   // getsid() for invalid pid
+   sid = getsid(invalid_pid);
+   fprintf(stdout, "getsid(%d) returns %d, errno %d\n", invalid_pid, sid, errno);
    ASSERT_EQ(-1, sid);
    ASSERT_EQ(ESRCH, errno);
 
