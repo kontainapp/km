@@ -297,7 +297,7 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
    }
    if (*c == '\0') {
       km_warnx("Warning: failed to find file name to execute (line too long?): %s", payload_file);
-   } else {
+   } else if (is_eol(c) == 0) {
       *c++ = '\0';   // null terminate the payload name
       for (; isblank(*c) == 1; c++) {
       }   // skip blanks
@@ -311,6 +311,8 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
          *extra_arg = strdup(c);
          km_tracex("Found arg: '%s'", *extra_arg);
       }
+   } else {
+      *c++ = '\0';   // null terminate the payload name
    }
    payload_file = line_buf + SHEBANG_LEN;
    if (km_is_env_path(payload_file) == 1) {

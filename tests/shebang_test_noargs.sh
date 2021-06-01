@@ -1,5 +1,5 @@
 #!hello_test
-#
+set -x
 # Only the first line is looked at when passed to KM as a payload file
 # The rest are ignored for now, but in the future we may add here config info
 # or some build-in fun,  e.g.

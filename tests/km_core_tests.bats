@@ -1158,9 +1158,9 @@ fi
 
    KM_VERBOSE=generic run $KM_BIN ${KM_ARGS} shebang_test_noargs.sh AndEvenMore
    assert_success
-   assert_line --partial "Extracting payload name from shebang file 'shebang_test.sh'"
-   refute_line --partial "Found arg: 'arguments to test, should be one'"
-   assert_line --partial "argv[3] = 'AndEvenMore'"
+   assert_line --partial "Extracting payload name from shebang file 'shebang_test_noargs.sh'"
+   refute_line --partial "set"
+   assert_line --partial "argv[2] = 'AndEvenMore'"
 
    # shebang to nested symlink
    KM_VERBOSE=generic run $KM_BIN ${KM_ARGS} shebang_test_link.sh AndEvenMore
