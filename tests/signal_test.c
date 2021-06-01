@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright © 2019-2021 Kontain Inc. All rights reserved.
  *
  * Kontain Inc CONFIDENTIAL
  *
@@ -27,28 +27,10 @@
 
 #include "greatest/greatest.h"
 #include "syscall.h"
+#include "test_common_functions.h"
 
 int signal_seen = 0;
 void* stack_addr = NULL;
-
-/*
- * Return the limit on the size of the process id.
- * We should never see a pid with the returned value or larger.
- * If there is a failure -1 is returned.
- */
-pid_t get_pid_max(void)
-{
-   FILE* pidmaxfile = fopen("/proc/sys/kernel/pid_max", "r");
-   if (pidmaxfile != NULL) {
-      pid_t pidmax;
-      if (fscanf(pidmaxfile, "%d", &pidmax) != 1) {
-         pidmax = -1;
-      }
-      fclose(pidmaxfile);
-      return pidmax;
-   }
-   return -1;
-}
 
 void signal_handler(int signal)
 {
