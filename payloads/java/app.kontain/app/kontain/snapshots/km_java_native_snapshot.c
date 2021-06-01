@@ -27,10 +27,10 @@ JNIEXPORT jint JNICALL Java_app_kontain_snapshots_Snapshot_take_1native
       return -1;
    }
    /*
-    * 'kontain-runtime' is set in km/km_hcalls.c. If the value there changes,
+    * 'kontain' is set in km/km_hcalls.c. If the value there changes,
     * the value here needs to change with it.
     */
-   if (strcmp(ut.sysname, "kontain-runtime") != 0) {
+   if (strstr(ut.release, "kontain") == NULL) {
       return -1;
    }
    // 505 - KM Hypercall
