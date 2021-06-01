@@ -447,7 +447,7 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 
 static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
 {
-   assert(advise == MADV_DONTNEED);
+   assert(advise == MADV_DONTNEED || advise == MADV_HUGEPAGE);
    if (km_mmap_busy_check_contiguous(addr, size) != 0) {
       km_infox(KM_TRACE_MMAP, "madvise area not fully mapped");
       return -ENOMEM;
@@ -812,7 +812,7 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
 int km_guest_madvise(km_gva_t addr, size_t size, int advise)
 {
    km_infox(KM_TRACE_MMAP, "madvise guest(0x%lx 0x%lx advise %x)", addr, size, advise);
-   if (advise != MADV_DONTNEED) {
+   if (advise != MADV_DONTNEED && advise != MADV_HUGEPAGE) {
       return -EINVAL;
    }
    if (addr != rounddown(addr, KM_PAGE_SIZE) || (size = roundup(size, KM_PAGE_SIZE)) == 0) {
@@ -879,7 +879,8 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    km_gva_t ret;
    if (may_move == 0 ||
        km_syscall_ok(
-           ret = km_guest_mmap_nolock(0, size, ptr->protection, ptr->flags, -1, 0, MMAP_ALLOC_GUEST)) < 0) {
+           ret = km_guest_mmap_nolock(0, size, ptr->protection, ptr->flags, -1, 0, MMAP_ALLOC_GUEST)) <
+           0) {
       km_info(KM_TRACE_MMAP, "Failed to get mmap for growth (may_move = %d)", may_move);
       return -ENOMEM;
    }

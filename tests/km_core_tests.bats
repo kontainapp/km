@@ -272,8 +272,13 @@ fi
    run km_with_timeout misc_test$ext
    assert_success
    assert_line "nodename=$(uname -n)"
-   assert_line sysname=kontain-runtime
-   assert_line machine=kontain_${USE_VIRT^^}
+   assert_line "sysname=$(uname -s)"
+   assert_line "machine=$(uname -m)"
+   if [[ "${USE_VIRT}" == kvm ]]; then
+      assert_output --partial ".kontain.KVM"
+   else
+      assert_output --partial ".kontain.KKM"
+   fi
 }
 
 @test "mem_mmap($test_type): mmap and munmap with addr=0 (mmap_test$ext)" {

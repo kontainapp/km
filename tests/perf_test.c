@@ -71,7 +71,7 @@ static const long mmap_loops = (long)1e4;   // CAUTION: 1e4 is max, otherwise we
  * with high KVM load (multiple VMs come in go fast)
  */
 static const int hcall_calibrate_ratio = 500;
-static const int mmap_calibrate_ratio = 10;
+static const int mmap_calibrate_ratio = 15;
 
 static long busy_loop(long i)
 {

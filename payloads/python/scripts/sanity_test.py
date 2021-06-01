@@ -3,7 +3,7 @@ import os
 import _ctypes
 
 # If we are here, we run ok-ish
-if os.uname().sysname != "kontain-runtime":
+if os.uname().release.find("kontain") == -1:
    raise BaseException(f"We don't seem to be running under Kontain Monitor.\n{os.uname()}")
 
 # make sure embedded modules (at least _ctypes)

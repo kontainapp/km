@@ -29,7 +29,7 @@ static inline int KM_PAYLOAD(void)
 {
    struct utsname buf;
    uname(&buf);
-   return strncmp(buf.machine, "kontain", strlen("kontain")) == 0 ? 1 : 0;
+   return strstr(buf.release, "kontain") == NULL ? 0 : 1;
 }
 
 #define ASSERT_MMAPS_COUNT(_expected_count, _query)                                                \
