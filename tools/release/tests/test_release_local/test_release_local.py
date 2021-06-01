@@ -51,11 +51,11 @@ def run_kontainer():
 
     # This runs python in the kontainer with the simple program following "-c"
     # It should return something like this in stdout:
-    # "posix.uname_result(sysname='kontain-runtime', nodename='420613c03875', release='4.1', version='preview', machine='kontain_KVM')"
+    # "posix.uname_result(sysname='Linux', nodename='420613c03875', release='5.12.6-300.fc34.x86_64.kontain.KVM', version='#1 SMP Sat May 22 20:42:55 UTC 2021', machine='x86_64')"
     result = subprocess.run([ "docker", "run", "--runtime", "krun", "kontainapp/runenv-python", "-c", "import os; print(os.uname())" ],
         capture_output=True, text=True, check=True)
     print(result.stdout);
-    if "posix.uname_result(sysname='kontain-runtime'," not in result.stdout:
+    if "kontain'," not in result.stdout:
         raise ValueError("Kontainer returned unexpected output")
 
 def main():

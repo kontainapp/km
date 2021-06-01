@@ -491,6 +491,15 @@ static km_hc_ret_t futex_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t mmap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+   km_infox(KM_TRACE_HC,
+            "hc = %d (mmap), 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx",
+            hc,
+            arg->arg1,
+            arg->arg2,
+            arg->arg3,
+            arg->arg4,
+            arg->arg5,
+            arg->arg6);
    arg->hc_ret = km_guest_mmap(arg->arg1, arg->arg2, arg->arg3, arg->arg4, arg->arg5, arg->arg6);
    return HC_CONTINUE;
 };
@@ -498,6 +507,7 @@ static km_hc_ret_t mmap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t munmap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int munmap(void *addr, size_t length);
+   km_infox(KM_TRACE_HC, "hc = %d (munmap), 0x%lx 0x%lx", hc, arg->arg1, arg->arg2);
    arg->hc_ret = km_guest_munmap(vcpu, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 };
@@ -506,6 +516,14 @@ static km_hc_ret_t mremap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ... /* void
    // *new_address */);
+   km_infox(KM_TRACE_HC,
+            "hc = %d (mremap), 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx",
+            hc,
+            arg->arg1,
+            arg->arg2,
+            arg->arg3,
+            arg->arg4,
+            arg->arg5);
    if (km_gva_to_kma(arg->arg1) == NULL) {
       arg->hc_ret = -EINVAL;
    } else {
@@ -517,6 +535,7 @@ static km_hc_ret_t mremap_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t mprotect_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    //  int mprotect(void *addr, size_t len, int prot);
+   km_infox(KM_TRACE_HC, "hc = %d (mprotect), 0x%lx 0x%lx 0x%lx", hc, arg->arg1, arg->arg2, arg->arg3);
    arg->hc_ret = km_guest_mprotect(arg->arg1, arg->arg2, arg->arg3);
    return HC_CONTINUE;
 };
@@ -573,7 +592,7 @@ static km_hc_ret_t clock_time_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t madvise_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int madvise(void* addr, size_t length, int advice);
-   km_infox(KM_TRACE_HC, "hc = %d (madvise), %ld %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3);
+   km_infox(KM_TRACE_HC, "hc = %d (madvise), 0x%lx 0x%lx 0x%lx", hc, arg->arg1, arg->arg2, arg->arg3);
    arg->hc_ret = km_guest_madvise(arg->arg1, arg->arg2, arg->arg3);
    return HC_CONTINUE;
 }
@@ -581,7 +600,7 @@ static km_hc_ret_t madvise_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t msync_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int msync(void *addr, size_t length, int flags);
-   km_infox(KM_TRACE_HC, "hc = %d (msync), %ld %lx %lx", hc, arg->arg1, arg->arg2, arg->arg3);
+   km_infox(KM_TRACE_HC, "hc = %d (msync), 0x%lx 0x%lx 0x%lx", hc, arg->arg1, arg->arg2, arg->arg3);
    arg->hc_ret = km_guest_msync(arg->arg1, arg->arg2, arg->arg3);
    return HC_CONTINUE;
 }
@@ -1009,8 +1028,7 @@ static km_hc_ret_t getrusage_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    if (buf == NULL) {
       arg->hc_ret = -EFAULT;
    } else {
-      arg->hc_ret = 0;
-      memset(buf, 0, sizeof(struct rusage));
+      arg->hc_ret = __syscall_2(hc, arg->arg1, (uint64_t)buf);
    }
    return HC_CONTINUE;
 }
@@ -1019,7 +1037,7 @@ static km_hc_ret_t dummy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    arg->hc_ret = 0;
    km_infox(KM_TRACE_HC,
-            "hc = %d (dummy for %s), %ld %lx %lx %lx %lx",
+            "hc = %d (dummy for %s), 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx",
             hc,
             km_hc_name_get(hc),
             arg->arg1,
@@ -1519,22 +1537,18 @@ static km_hc_ret_t uname_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
 
-   arg->hc_ret = uname(name);
-   // Overwrite Kontain specific info. Buffers 65 bytes each, hardcoded in musl, so we are good
-   /*
-    * Note: 'kontain-runtime' is checked in language API bindings. If this changes the bindings need
-    * to change too.
-    */
-   strcpy(name->sysname, "kontain-runtime");
-   // used by some libs (eg. libc) as kernel version check, numbers too low (e.g. 0.8)
-   // may cause "kernel too old" failures.
-   strcpy(name->release, "4.1");
-   strcpy(name->version, "preview");
-   if (machine.vm_type == VM_TYPE_KKM) {
-      strcpy(name->machine, "kontain_KKM");
-   } else {
-      strcpy(name->machine, "kontain_KVM");
+   arg->hc_ret = __syscall_1(hc, km_gva_to_kml(arg->arg1));
+   if (arg->hc_ret == 0) {
+      // Overwrite Kontain specific info. Buffers 65 bytes each, hardcoded in musl, so we are good
+      /*
+       * Note: 'kontain-release' is checked in language API bindings.
+       * When this changes the bindings need to change too.
+       */
+      size_t buf_remaining = sizeof(name->release) - strlen(name->release) - 1;
+      const char* rel_name = (machine.vm_type == VM_TYPE_KVM) ? ".kontain.KVM" : ".kontain.KKM";
+      strncat(name->release, rel_name, buf_remaining);
    }
+
    return HC_CONTINUE;
 }
 
@@ -1814,6 +1828,45 @@ static km_hc_ret_t fstatfs_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t mknodat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int mknodat(int dirfd, const char *pathname, mode_t mode, dev_t dev);
+   km_infox(KM_TRACE_HC,
+            "hc = %d (mknodat), %ld 0x%lx 0x%lx 0x%lx",
+            hc,
+            arg->arg1,
+            arg->arg2,
+            arg->arg3,
+            arg->arg4);
+   char* pathname = km_gva_to_kma(arg->arg2);
+   if (pathname == NULL) {
+      arg->hc_ret = -EFAULT;
+   } else {
+      arg->hc_ret = __syscall_4(hc, arg->arg1, (uint64_t)pathname, arg->arg3, arg->arg4);
+   }
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t newfstatat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int newfstatat(int dirfd, const char *pathname, struct stat *statbuf, int flags);
+   km_infox(KM_TRACE_HC,
+            "hc = %d (newfstatat), %ld 0x%lx 0x%lx 0x%lx",
+            hc,
+            arg->arg1,
+            arg->arg2,
+            arg->arg3,
+            arg->arg4);
+   char* pathname = km_gva_to_kma(arg->arg2);
+   struct stat* statbuf = km_gva_to_kma(arg->arg3);
+   if (pathname == NULL || statbuf == NULL) {
+      arg->hc_ret = -EFAULT;
+   } else {
+      arg->hc_ret = __syscall_4(hc, arg->arg1, (uint64_t)pathname, (uint64_t)statbuf, arg->arg4);
+   }
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    km_warnx("SNAPSHOT");
@@ -2024,6 +2077,9 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_getitimer] = getitimer_hcall,
     [SYS_statfs] = statfs_hcall,
     [SYS_fstatfs] = fstatfs_hcall,
+
+    [SYS_mknodat] = mknodat_hcall,
+    [SYS_newfstatat] = newfstatat_hcall,
 
     [HC_guest_interrupt] = guest_interrupt_hcall,
     [HC_unmapself] = unmapself_hcall,

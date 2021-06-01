@@ -126,7 +126,7 @@ ${BLDDIR}/mods/app.kontain: app.kontain/module-info.java
 
 ${BLDDIR}/lib/libkm_java_native.so: app.kontain/app/kontain/snapshots/km_java_native_snapshot.c
 	[ -d ${BLDDIR}/lib ] || mkdir -p ${BLDDIR}/lib
-	gcc -shared -O3 -I/usr/include -I${JAVA_DIR}/include -I${JAVA_DIR}/include/linux \
+	gcc -fPIC -shared -O3 -I/usr/include -I${JAVA_DIR}/include -I${JAVA_DIR}/include/linux \
 		$? -o $@
 
 ${BLDDIR}/html/index.html: app.kontain/app/kontain/snapshots/Snapshot.java
