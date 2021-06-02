@@ -256,6 +256,11 @@ char* km_traverse_payload_symlinks(const char* arg)
    return last_symlink;
 }
 
+static int is_eol(const char* ch)
+{
+   return (*ch == '\n' || *ch == '\r') ? 1 : 0;
+}
+
 /*
  * Check if the passed file is a shebang, and if it is get payload file name from there. Returns
  * strdup-ed payload name on success, NULL if no shebang is present
@@ -288,38 +293,43 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
    }
    km_tracex("Extracting payload name from shebang file '%s'", payload_file);
    char* c;
-   for (c = line_buf + SHEBANG_LEN; isblank(*c) == 0 && *c != '\0'; c++) {   // find args, if any
-   }
+   for (c = line_buf + SHEBANG_LEN; isblank(*c) == 0 && is_eol(c) == 0 && *c != '\0'; c++) {
+   }   // find args, if any
    if (*c == '\0') {
       km_warnx("Warning: failed to find file name to execute (line too long?): %s", payload_file);
-   } else {
+   } else if (is_eol(c) == 0) {
       *c++ = '\0';   // null terminate the payload name
       for (; isblank(*c) == 1; c++) {
       }   // skip blanks
    }
-   if (*c != '\n' && *c != '\0') {
+   if (is_eol(c) == 0 && *c != '\0') {
       char* arg_end;
-      for (arg_end = c; *arg_end != '\0' && *arg_end != '\n'; arg_end++) {
+      for (arg_end = c; *arg_end != '\0' && is_eol(arg_end) == 0; arg_end++) {
       }
       if (arg_end != c) {   // arg found
          *arg_end = '\0';
          *extra_arg = strdup(c);
          km_tracex("Found arg: '%s'", *extra_arg);
       }
+   } else {
+      *c++ = '\0';   // null terminate the payload name
    }
    payload_file = line_buf + SHEBANG_LEN;
-   if (km_is_env_path(payload_file) == 1) {
-      payload_file = *extra_arg;
-      *extra_arg = NULL;
-   }
    km_tracex("Payload file from shebang: '%s'", payload_file);
-   char* final_symlink;
-   if ((final_symlink = km_traverse_payload_symlinks(payload_file)) == NULL) {
-      // a likely access issue, let's return the name as is for future diagnosics
-      km_tracex("Failed to resolve symlinks, returning the name as is");
-      return (strdup(payload_file));
+   if (km_do_shell != 0) {
+      if (km_is_env_path(payload_file) == 1) {
+         payload_file = *extra_arg;
+         *extra_arg = NULL;
+      }
+      char* final_symlink;
+      if ((final_symlink = km_traverse_payload_symlinks(payload_file)) == NULL) {
+         // a likely access issue, let's return the name as is for future diagnosics
+         km_tracex("Failed to resolve symlinks, returning the name as is");
+         return (strdup(payload_file));
+      }
+      return final_symlink;
    }
-   return final_symlink;
+   return strdup(payload_file);
 }
 
 /*
