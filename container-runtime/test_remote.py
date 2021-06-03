@@ -24,16 +24,11 @@ import uuid
 
 RESOURCE_GROUP = "kontain-crun-testing"
 RESOURCE_GROUP_LOCATION = "westus"
-TESTING_VM_NAME = "kontain-crun-testing-vm"
+TESTING_VM_NAME = f"kontain-crun-testing-vm"
 # from: `az vm image list --all --offer fedora`
 TESTING_VM_IMAGE = "Canonical:UbuntuServer:18.04-LTS:latest"
 TESTING_VM_SIZE = "Standard_D2s_v3"
 TESTING_VM_ADMIN = "kontain"
-
-
-def get_random_id():
-    return str(uuid.uuid4())[:8]
-
 
 class RemoteTestAzure(metaclass=abc.ABCMeta):
     """ RemoteTestAzure """
@@ -53,6 +48,7 @@ class RemoteTestAzure(metaclass=abc.ABCMeta):
         self.vm_admin = vm_admin
 
         self.logger = logging.getLogger("RemoteTestAzure")
+        self.logger.info(f"Init tests. RG {resource_group} at {resource_group_location}, vm {vm_name}")
 
     def setup(self):
         """ setup
@@ -110,14 +106,17 @@ class RemoteTestAzure(metaclass=abc.ABCMeta):
             f"{self.vm_admin}@{remote_ip}",
             cmd,
         ]
-        subprocess.run(ssh_execute_cmd, check=True)
+        result = subprocess.run(ssh_execute_cmd, check=True)
+        if result.returncode != 0:
+            raise Exception(f"ssh execute failed. stderr: {result.stderr}")
 
         self.logger.info("Command successful: %s", cmd)
 
     def scp_to_remote(self, remote_ip, local, remote):
         """ scp_to_remote """
+        self.logger.info(f"Copy -r {local} to {remote_ip}://{remote}")
 
-        subprocess.run([
+        result = subprocess.run([
             "scp",
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
@@ -125,6 +124,8 @@ class RemoteTestAzure(metaclass=abc.ABCMeta):
             local,
             f"{self.vm_admin}@{remote_ip}:{remote}"
         ], check=True)
+        if result.returncode != 0:
+           raise Exception(f"Copy failed. stderr: {result.stderr}")
 
     @abc.abstractmethod
     def test(self, remote_ip):
@@ -151,7 +152,7 @@ class RemoteTestAzure(metaclass=abc.ABCMeta):
                     raise
 
                 self.logger.warning(
-                    "Failed ssh execute... Retry %d out of %d", run + 1, max_retry)
+                    "Failed ssh execute of /bin/true... Retry %d out of %d", run + 1, max_retry)
                 time.sleep(30)
                 continue
             else:
@@ -181,19 +182,19 @@ class CRUNRemoteTest(RemoteTestAzure):
     """ CRUNRemoteTest """
 
     def test(self, remote_ip):
-        count=3 # apt-get is flaky lately, let's retry it a few times
-        # Going forward we should put together an AMI with all that and skip this step
+        self.ssh_execute(remote_ip, "/usr/bin/cloud-init status --wait")
+
+        # Install stuff. Going forward we should put together an AMI with all that and skip this step
         tools_to_install = "make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev libtool autoconf python3 automake libssl-dev"
-        while count >= 0:
-          try:
-            self.ssh_execute(remote_ip, "sudo apt-get update")
-            self.ssh_execute(remote_ip, f"sudo apt-get install -y {tools_to_install}")
-            break
-          except:
-            print("apt-get failed, let's see if retry helps")
-            count -= 1
-            if count == 0:
-               raise
+        self.ssh_execute(remote_ip, "sudo apt-get update -q")
+        self.ssh_execute(remote_ip, f"sudo apt-get install -q -y {tools_to_install}")
+
+        # crun build needs to update it's own submodules, but the target machine
+        # won't have git repo (which is in ../../km/.git/modules), so let's make sure the modules are
+        # updated before copy. Also, crun build will say "fatal: not a git repository" which could be ignored
+        result = subprocess.run("cd crun && git submodule update --init --recursive", shell=True, capture_output=True)
+        if result.returncode != 0:
+            raise Exception(f"Failed to update crun submodules. out: '{result.stdout}'' err: '{result.stderr}'")
 
         self.scp_to_remote(remote_ip, "crun", "~/")
         self.scp_to_remote(remote_ip, "/opt/kontain/bin/km", "~/km")
@@ -205,15 +206,15 @@ class CRUNRemoteTest(RemoteTestAzure):
             remote_ip, "sudo mkdir -p /opt/kontain/runtime; sudo mv ~/libc.so /opt/kontain/runtime/libc.so")
 
         self.ssh_execute(
-            remote_ip, "cd crun; ./autogen.sh && ./configure --disable-systemd && make all")
+            remote_ip, f"cd crun; ./autogen.sh && ./configure --disable-systemd && make all")
         self.ssh_execute(
-            remote_ip, "cd crun; ln -s crun krun")
+            remote_ip, f"cd crun; ln -s crun krun")
         self.ssh_execute(
             remote_ip, "sudo chmod 666 /dev/kvm")
         self.ssh_execute(
-            remote_ip, "cd crun; OCI_RUNTIME=~/crun/crun make check-TESTS")
+            remote_ip, f"cd crun; OCI_RUNTIME=~/crun/crun make check-TESTS")
         self.ssh_execute(
-            remote_ip, "cd crun; OCI_RUNTIME=~/crun/krun make check-TESTS")
+            remote_ip, f"cd crun; OCI_RUNTIME=~/crun/krun make check-TESTS")
 
 
 def main():
@@ -232,7 +233,7 @@ def main():
 
     test_id = args.test_id
     if test_id is None:
-        test_id = get_random_id()
+        test_id = str(uuid.uuid4())[:8] # get random id if not passed
     resource_group = f"{RESOURCE_GROUP}-{test_id}"
 
     remote_test = CRUNRemoteTest(
