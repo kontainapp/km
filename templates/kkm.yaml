@@ -28,10 +28,11 @@ steps:
     displayName: Test with kkm on aws
     timeoutInMinutes: 30
     env:
-      KONTAIN_AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      KONTAIN_AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-      KONTAIN_AWS_FEDORA_PASSWD: $(AWS_FEDORA_PASSWD)
-      KONTAIN_AWS_AZ_SP_APPID: $(SP_appid)
-      KONTAIN_AWS_AZ_SP_DISPLAYNAME: $(SP_displayname)
-      KONTAIN_AWS_AZ_SP_PASSWORD: $(SP_password)
-      KONTAIN_AWS_AZ_SP_TENANT: $(SP_tenant)
+      # AWS secrets
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+      AWS_FEDORA_PASSWD: $(AWS_FEDORA_PASSWD)
+      # Azure secrets
+      SP_APPID: $(SP_appid)
+      SP_PASSWORD: $(SP_password)
+      SP_TENANT: $(SP_tenant)

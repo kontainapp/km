@@ -6,8 +6,8 @@ name: ci-$(BuildID) $(Date:yyyyMMdd)$(Rev:.r)
 trigger:
   branches:
     include:
-      - master
-      - ci/* # prefix ci/ to force CI on every push. e.g. ci/msterin/test-azure-devops
+      - old/master  # using old/ here turns this pipeline off without touching github or AZ
+      - ci/*        # prefix ci/ to force CI on every push. e.g. ci/msterin/test-azure-devops
   paths:
     exclude:
       - README.md

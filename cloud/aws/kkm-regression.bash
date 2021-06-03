@@ -14,44 +14,37 @@
 
 [ "$TRACE" ] && set -x
 
-# The following variables are stored in azure pipeline
-# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_FEDORA_PASSWD
-#
-# paramters are TEST_BRANCH
-#
-
-export AWS_ACCESS_KEY_ID=$KONTAIN_AWS_ACCESS_KEY_ID
-export AWS_SECRET_ACCESS_KEY=$KONTAIN_AWS_SECRET_ACCESS_KEY
-readonly AWS_FEDORA_PASSWD=$KONTAIN_AWS_FEDORA_PASSWD
+# Secrets for connecting to Azure (SP_*) and to AWS (AWS_*) are expected in  env vars.
+if [ -z "$SP_APPID" -o -z "$SP_TENANT" -o -z "$SP_PASSWORD" ] ; then
+   echo ERROR: One of Azure Secrets is not defined
+   exit 2
+fi
+if [ -z "$AWS_ACCESS_KEY_ID" -o -z "$AWS_FEDORA_PASSWD" -o -z "$SP_PASSWORD" ] ; then
+   echo ERROR: One of AWS Secrets is not defined
+   exit 2
+fi
 export readonly SSHPASS=$AWS_FEDORA_PASSWD
 readonly TEST_BRANCH=${1:-master}
+
 # aws instance is still booting up. Wait time for it to respond to ssh requests.
 readonly WAIT_TIME_TO_READY=60
-
-# azure credentials
-export readonly SP_APPID="$KONTAIN_AWS_AZ_SP_APPID"
-export readonly SP_DISPLAYNAME="$KONTAIN_AWS_AZ_SP_DISPLAYNAME"
-export readonly SP_NAME="https://${KONTAIN_AWS_AZ_SP_DISPLAYNAME}"
-export readonly SP_PASSWORD="$KONTAIN_AWS_AZ_SP_PASSWORD"
-export readonly SP_TENANT="$KONTAIN_AWS_AZ_SP_TENANT"
 
 #send variables using ssh config
 SSH_CONFIG_FILE=ssh_config
 rm -f $SSH_CONFIG_FILE
+# Azure credentials (SP_*) are expected to be present in environment
 echo "SendEnv SP_APPID" >> $SSH_CONFIG_FILE
-echo "SendEnv SP_DISPLAYNAME" >> $SSH_CONFIG_FILE
-echo "SendEnv SP_NAME" >> $SSH_CONFIG_FILE
 echo "SendEnv SP_PASSWORD" >> $SSH_CONFIG_FILE
 echo "SendEnv SP_TENANT" >> $SSH_CONFIG_FILE
 chmod 0400 $SSH_CONFIG_FILE
 
-echo "Running regressions on $TEST_BRANCH"
+echo "Running KKM regression on $TEST_BRANCH"
 
 export AWS_DEFAULT_OUTPUT='text'
 export AWS_DEFAULT_REGION='us-east-2'
 
 readonly TEST_AMI='ami-00de22cbb5911d5c4'
-readonly TEST_VM_TYPE='m5.large'
+readonly TEST_VM_TYPE='m5.xlarge'
 readonly TEST_SG='sg-0a319ac77d674c77f'
 readonly SSH_OPTIONS='-o StrictHostKeyChecking=no -o ConnectionAttempts=10 -o ConnectTimeout=10'
 
