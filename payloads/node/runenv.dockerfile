@@ -1,5 +1,4 @@
-FROM alpine
-# note: 'alpine' (instead of 'scratch') adds 6MB to Node's 43MB.
-# It helps with troubleshooting and using shell in further dockerfiles
+ARG runenv_image_version=latest
 
-COPY . /usr/local/bin/
+FROM kontain/runenv-busybox:${runenv_image_version}
+COPY node /usr/local/bin/
