@@ -141,6 +141,7 @@ ifdef runenv_prep
 endif
 	${DOCKER_BUILD} \
 		${RUNENV_IMAGE_EXTRA_ARGS} \
+		--build-arg runenv_image_version=${IMAGE_VERSION} \
 		-t ${RUNENV_IMG_TAGGED} \
 		-f ${RUNENV_DOCKERFILE} \
 		${RUNENV_PATH}

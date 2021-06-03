@@ -85,13 +85,13 @@ BUILDENV_PATH  := ./scripts
 
 # Param for 'make validate-runenv-image'. Used to do a quick validation of runtime environment.
 RUNENV_VALIDATE_DIR := scripts
-RUNENV_VALIDATE_CMD := node scripts/hello.js
+RUNENV_VALIDATE_CMD := /scripts/hello.js
+RUNENV_VALIDATE_EXTRA_FLAGS = --entrypoint=${KM_BIN}
 
 # if something needs to be copied/modified before building runenv image in Docker,
 # define this function
 export define runenv_prep
-	cp ${PAYLOAD_KM} ${RUNENV_PATH}
-	cd ${RUNENV_PATH} ; ln -sf /opt/kontain/bin/km node
+	cp ${PAYLOAD_KM} ${RUNENV_PATH}/$(basename $(notdir ${PAYLOAD_KM}))
 endef
 
 RELEASE_TAG := node node-12 node-${VERS}
