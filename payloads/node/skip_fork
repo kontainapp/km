@@ -123,6 +123,8 @@ parallel/test-cluster-setup-master.js
 parallel/test-cluster-shared-leak.js
 parallel/test-cluster-worker-isdead.js
 parallel/test-cluster-worker-wait-server-close.js
+parallel/test-cluster-master-error.js
+parallel/test-cluster-master-kill.js
 parallel/test-crypto-fips.js
 parallel/test-crypto-sign-verify.js
 parallel/test-cwd-enoent-preload.js
