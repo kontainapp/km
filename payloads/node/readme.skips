@@ -10,9 +10,6 @@ Some of the reasons for skipping:
 
 Worth looking into or discussing:
 -------------------------------
-   *** parallel/test-child-process-can-write-to-stdout.js:
-      Tests that a spawned child process can write to stdout without throwing - hangs
-
    *** parallel/test-child-process-default-options.js (and many others)
        Use /usr/bin/env instead of sh directly
 
@@ -32,14 +29,19 @@ Worth looking into or discussing:
 
 *** parallel/*net* - seem to do heavy work with sockets/fds and some crash. Purely guts feeling, but seems like a good test for km_filesys and we have bugs there
 
-*** parallel/test-child-process-http-socket-leak.js - pipe FD mix up:
-   same for parallel/test-cluster-dgram-bind-fd.js and many more
-  p.open(fd);
-    ^
-Error: EBADF: bad file descriptor, uv_pipe_open
-
 *** parallel/test-child-process-spawnsync-shell.js multiple failures, after skimming it feels
     like we do not handle all execve() errors accurately (they run /bin/sh does-not-exist and check for errors
 
 Multiple inspector (debugger) tests need /dev/kkm but work fine with it, albeit with some glitches.
 Need to DOCUMENT.
+
+
+*** parallel/test-cluster-master-kill.js
+*** parallel/test-cluster-master-error.js
+    Both tests hang when process 1 in a container does not reap terminated child processes.
+    The tests wait for some child processes and for other processes use kill() to check to see
+    if the pid exists.  A zombie process's pid continues to exist after the process dies and
+    you can send signals to the pid.  So, the test keeps waiting for the zombie pid's to go
+    away and they never do since the processes are not reaped.
+    We sometimes use the tail command as process 1 in containers and these are the ones that
+    will run into this problem.
