@@ -118,7 +118,7 @@ endif
 	@set -x; $(foreach repo,${CI_IMAGE_REPOS_TO_PURGE}, az acr run --cmd '${CI_IMAGE_PURGE_CMD}' --registry ${REGISTRY_NAME} /dev/null; )
 
 # Helpers to avoid cut-n-paste in pipeline definition.
-ci-prepare-testenv:
+ci-prepare-testenv: ## helper for Azure CI. Obsolete for GitHub workflows
 	make -C $(TOP)/$(LOCATION) pull-buildenv-image clean all testenv-image push-testenv-image
 
 dashboard: login # Interactive login, and then forward port/open Kubernetes Dashboard

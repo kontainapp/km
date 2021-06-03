@@ -40,11 +40,14 @@ $(CRUNDIR)/Makefile:
 
 # Run crun's tests
 test:	all
+	@if [ ! -x ${KM_OPT_KM} ] ; then \
+		echo -e "${RED}Error: ${KM_OPT_KM} is not there or is not executable${NOCOLOR}"; false; \
+	fi
 	OCI_RUNTIME=${KM_OPT_BIN_PATH}/krun make -C $(CRUNDIR) check-TESTS
 	OCI_RUNTIME=${KM_OPT_BIN_PATH}/crun make -C $(CRUNDIR) check-TESTS
 
 TEST_REMOTE_SCRIPT := $(CURDIR)/test_remote.py
-test-remote:	
+test-remote:
 ifeq (${TEST_REMOTE_TEST_ID},)
 	${TEST_REMOTE_SCRIPT}
 else

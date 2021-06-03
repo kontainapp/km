@@ -1,0 +1,293 @@
+name: KM CI Pipeline
+on:
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - README.md
+      - compile_commands.json
+      - .vscode/*
+      - docs/*
+      - km-releases
+      - payloads/longhaul-test/*
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - README.md
+      - compile_commands.json
+      - .vscode/*
+      - docs/*
+      - km-releases
+      - payloads/longhaul-test/*
+  schedule:
+    # Posix cron format:
+    # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
+    # Minute Hour DayOfMonth MonthOfYear DayOfWeek
+    - cron: '0 7 * * *' # Daily build midnight pacific time (UTC + 7)
+    # Gitgub doc says:
+    #    Scheduled workflows run on the latest commit on the default or base branch.
+    #    The shortest interval you can run scheduled workflows is once every 5 minutes.
+
+  # Manual trigger.
+  # See https://github.blog/changelog/2020-07-06-github-actions-manual-triggers-with-workflow_dispatch/
+  workflow_dispatch:
+    inputs:
+      logLevel: # just an example fo how we can tune the manual run with more logging
+        description: 'Log level'
+        required: true
+        default: 'warning'
+
+env:
+  BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
+  IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
+  NIGHTLY_CLUSTER_NAME: "aks-kontain-nightly-ci-${{ github.run_number }}"
+  SP_APPID: ${{ secrets.SP_APPID }}
+  SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
+  SP_TENANT: ${{ secrets.SP_TENANT }}
+  # TRACE: true # uncomment to enable '-x' in all bash scripts
+
+jobs:
+  km-build:
+    name: Build KM, push test image
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Print build environment info
+        run: |
+          echo ====Environment info===
+          echo "SHA: $(git rev-parse HEAD)"
+          echo "=== Last 10 commits:"
+          git log -n 10 --graph --pretty=format:'%h% %d %s %cr %ce'
+          echo "=== VM/OS:"
+          cat /proc/version
+          cat /etc/os-release
+          echo "=== Docker version:"
+          docker version
+          echo ==== Environment Variables
+          env
+          echo ==== CPU Info
+          lscpu
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Prepare KM build env
+        run: make -C tests pull-buildenv-image .buildenv-local-lib
+
+      - name: Build KM and tests using buildenv image
+        run: make -j withdocker
+
+      - name: Build KM for coverage
+        run: make -C km -j withdocker TARGET=coverage
+
+      - name: Build and push KM testenv image
+        run: make -C tests testenv-image push-testenv-image
+
+        # Note: we need to have km built before kontaind.
+      - name: Build and push kontaind image
+        run: make -C cloud/k8s/kontaind push-runenv-image
+
+      - name: Build payloads and create test images
+        run: make -C payloads pull-buildenv-image clean all testenv-image
+
+      - run: make -C payloads push-testenv-image
+
+      - name: Create payloads runenv and demo-runenv images
+        run: make -C payloads runenv-image demo-runenv-image
+
+      - run: make -C payloads push-demo-runenv-image
+
+      # Note: custom Python build needs to happen after python payload build
+      - name: Python.km custom build
+        run: |
+          make -C payloads/python build-modules pack-modules MODULES="markupsafe wrapt"
+          make -C payloads/python custom CUSTOM_MODULES="markupsafe wrapt"
+
+      - name: Build faktory
+        run: make -C tools/faktory all
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km
+          path: |
+            /opt/kontain/bin/km
+            /opt/kontain/runtime/libc.so
+          retention-days: 7
+
+  km-test:
+    name: Test KM/KVM on K8S and Azure VM
+    runs-on: ubuntu-20.04
+    needs: km-build
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - run: make -C cloud/azure login-cli
+
+    - name: KM Tests on K8S with KVM
+      run: make -C tests test-withk8s TEST_JOBS=4
+      timeout-minutes: 15
+
+    - name: Test payloads on K8S with KVM
+      run: make -C payloads test-withk8s
+      timeout-minutes: 10
+
+    - name: Krun test preparation - create ssh key pairs
+      run: ssh-keygen -b 2048 -t rsa -q -N "" -f ~/.ssh/id_rsa
+
+    - name: Krun test prepartion - download km artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: km
+        path: /opt/kontain
+    - run: chmod a+x /opt/kontain/bin/km # download-artifact@v2 does not retain file mode
+
+    - name: Krun test - runs on Azure vm
+      run: make -C container-runtime test-remote TEST_REMOTE_TEST_ID=ci-${{ github.run_number }}
+      timeout-minutes: 10
+
+  kkm-build:
+    name: Build KKM, save test artifacts
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Build KKM and KKM tests
+        run: make -C kkm/kkm && make -C kkm/test_kkm
+
+      - name: Install KKM
+        run: sudo insmod kkm/kkm/kkm.ko
+
+      - name: Sanity check - unit test
+        run: ./kkm/test_kkm/test_kkm
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: kkm
+          path: |
+            kkm/kkm/kkm.ko
+            kkm/test_kkm/test_kkm
+          retention-days: 7
+
+  kkm-test:
+    name: Test KM/KKM on CI VM
+    runs-on: ubuntu-20.04
+    needs: [km-build, kkm-build]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - run: make -C cloud/azure login-cli
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: kkm
+          path: kkm
+      - run: chmod a+x kkm/test_kkm/test_kkm
+
+      - name: Install KKM
+        run: sudo insmod kkm/kkm/kkm.ko
+
+      - name: Pull testenv image
+        run: make -C tests pull-testenv-image
+
+      - name: KM Tests - locally with KKM
+        run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+        timeout-minutes: 15
+
+  kkm-test-aws:
+    name: Test KM/KKM on AWS VM
+    runs-on: ubuntu-20.04
+    needs: [km-build, kkm-build]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: KM Test - on AWS with KKM
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_FEDORA_PASSWD: ${{ secrets.AWS_FEDORA_PASSWD }}
+          TRACE: true
+        # TODO: check if GITHUB_HEAD_REF covers tag tags
+        run: cloud/aws/kkm-regression.bash $GITHUB_HEAD_REF
+        timeout-minutes: 30
+
+  km-k8s-cluster:
+    name: Create a new K8S cluster on Azure
+    runs-on: ubuntu-20.04
+    # The extra tests run if the workflow is triggered on schedule or manually.
+    # comment out (in your branch) if you want to force it on your run
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - run: make -C cloud/azure login-cli
+
+      - name: Create k8s Cluster
+        run: cloud/azure/aks_ci_create.sh ${{ env.NIGHTLY_CLUSTER_NAME }} ${{ secrets.SP_APPID }} ${{ secrets.SP_PASSWORD }}
+
+  km-test-all:
+    name: Run all tests on a new K8s cluster
+    runs-on: ubuntu-20.04
+    needs: [km-build, km-k8s-cluster]
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    env:
+      K8S_TEST_ERR_NO_CLEANUP: true # true means "on error, keep pods around". (assumes cluster is not cleaned up)
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - run: make -C cloud/azure login-cli
+      - run: |
+          source cloud/azure/cloud_config.mk
+          az aks get-credentials --resource-group "${CLOUD_RESOURCE_GROUP}" --name "${{ env.NIGHTLY_CLUSTER_NAME }}" --overwrite-existing
+
+      - name: Deploy and verify kontaind
+        run: make -C cloud/k8s/kontaind deploy
+
+      - name: KM test all, K8s with KVM
+        run: make -C tests test-all-withk8s
+        timeout-minutes: 15
+
+      - name: Payloads tests, on K8s
+        run: make -C payloads test-all-withk8s
+        timeout-minutes: 60
+
+      - name: Payloads runenv validation, on K8s
+        run: make -C payloads validate-runenv-withk8s
+        timeout-minutes: 5
+
+      - name: KM tests with coverage, on K8s
+        # pull buildenv before testing, coverage analysis will need it
+        run : make -C tests pull-buildenv-image coverage-withk8s
+        timeout-minutes: 15
+        # if: always()
+        if: env.TEST_COVERAGE == 'true'
+
+      - name: Upload coverage
+        run: make -C tests upload-coverage GITHUB_TOKEN=${{ github.token }} # TODO - is it a correct token ?
+        if: env.TEST_COVERAGE == 'true'
+
+      - name: Tear down k8s Cluster
+        if: always() # replace always() with success() if you want to keep cluster on failure
+        run: cloud/azure/aks_ci_destroy.sh ${{ env.NIGHTLY_CLUSTER_NAME }}
+
+      - name: Cleanup and logout
+        if: always()
+        run: |
+          [ "$TRACE" ] && set -x
+          make -C cloud/azure ci-image-purge CI_IMAGE_DRY_RUN=""
+          rm -f ~/.kube/config
+          az logout
+
+#  Keep this here as an EXPLICIT reminder to get releases back in the build
+#   - name: Kick off release pipeline to build and upload release v0.1-edge
+#     run: make edge-release GITHUB_TOKEN=$(GITHUB_TOKEN)
+#     timeout-minutes: 5
