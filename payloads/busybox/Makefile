@@ -45,8 +45,10 @@ $(PAYLOAD_KM): ${BUSYBOX_TOP}/.config
 		"make -C ${BUSYBOX_TOP} silentoldconfig && \
 		make -C ${BUSYBOX_TOP} -j`expr 2 \* $$(nproc)` all install"
 
-${BUSYBOX_TOP}/.config: |
+${BUSYBOX_TOP}: |
 	git clone ${BUSYBOX_REPO} -b ${BUSYBOX_BRANCH}
+
+${BUSYBOX_TOP}/.config: config.txt ${BUSYBOX_TOP}
 	cp config.txt ${BUSYBOX_TOP}/.config
 
 test:
