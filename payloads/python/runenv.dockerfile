@@ -1,13 +1,5 @@
-FROM alpine
+ARG runenv_image_version=latest
 
-# Python version must be passed on build
-ARG VERS
-
+FROM kontain/runenv-busybox:${runenv_image_version}
 COPY . /
-
-#
-# In python.km, we look for lib64 (to comply with Fedora layout), so we need to
-# make sure the python files which we MAY get from other containers, are found
-RUN ln -s /usr/local/lib /usr/local/lib64
-
-ENTRYPOINT [ "/usr/local/bin/python3" ]
+ENTRYPOINT [ "/opt/kontain/bin/km", "/usr/local/bin/python3" ]
