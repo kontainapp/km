@@ -132,7 +132,9 @@ pull-buildenv-image: ## Pulls the buildenv image.
 NO_RUNENV ?= false
 ifeq (${NO_RUNENV}, false)
 
-runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
+demo-runenv-image: ${RUNENV_DEMO_DEPENDENCIES}
+
+runenv-image demo-runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
 	@$(TOP)/make/check-docker.sh
 	$(call clean_container_image,${RUNENV_IMG_TAGGED})
 ifdef runenv_prep
@@ -146,6 +148,17 @@ endif
 		-f ${RUNENV_DOCKERFILE} \
 		${RUNENV_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
+ifeq ($(shell test -e ${DEMO_RUNENV_DOCKERFILE} && echo -n yes),yes)
+	$(call clean_container_image,${RUNENV_DEMO_IMG}:${IMAGE_VERSION})
+	${DOCKER_BUILD} \
+		-t ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
+		--build-arg runenv_image_version=${IMAGE_VERSION} \
+		-f ${DEMO_RUNENV_DOCKERFILE} \
+		${RUNENV_DEMO_PATH}
+	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_DEMO_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
+else
+	@echo -e "No demo dockerfile ${DEMO_RUNENV_DOCKERFILE} define. Skipping..."
+endif
 
 ifneq (${RUNENV_VALIDATE_DIR},)
 SCRIPT_MOUNT := -v $(realpath ${RUNENV_VALIDATE_DIR}):/$(notdir ${RUNENV_VALIDATE_DIR}):z
@@ -158,8 +171,7 @@ validate-runenv-image: $(RUNENV_VALIDATE_DEPENDENCIES) ## Validate runtime image
 	${DOCKER_RUN_TEST} \
 		${KM_DOCKER_VOLUME} \
 		${SCRIPT_MOUNT} \
-		${RUNENV_VALIDATE_EXTRA_FLAGS} \
-		${RUNENV_IMG_TAGGED} \
+		${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
 		${RUNENV_VALIDATE_CMD} | grep "${RUNENV_VALIDATE_EXPECTED}"
 
 push-runenv-image:  runenv-image ## pushes image.
@@ -174,19 +186,6 @@ pull-runenv-image: ## pulls test image.
 
 distro: runenv-image ## an alias for runenv-image
 publish: push-runenv-image ## an alias for push-runenv-image
-
-demo-runenv-image: ${RUNENV_DEMO_DEPENDENCIES}
-ifeq ($(shell test -e ${DEMO_RUNENV_DOCKERFILE} && echo -n yes),yes)
-	$(call clean_container_image,${RUNENV_DEMO_IMG}:${IMAGE_VERSION})
-	${DOCKER_BUILD} \
-		-t ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
-		--build-arg runenv_image_version=${IMAGE_VERSION} \
-		-f ${DEMO_RUNENV_DOCKERFILE} \
-		${RUNENV_DEMO_PATH}
-	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_DEMO_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
-else
-	@echo -e "No demo dockerfile ${DEMO_RUNENV_DOCKERFILE} define. Skipping..."
-endif
 
 push-demo-runenv-image: demo-runenv-image
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \

@@ -31,8 +31,6 @@ PAYLOAD_FILES := busybox/_install run-test.sh run-all-tests.sh
 CONTAINER_TEST_CMD := ./run-test.sh
 CONTAINER_TEST_ALL_CMD := ./run-all-tests.sh
 
-RUNENV_VALIDATE_EXTRA_FLAGS = --entrypoint=${KM_OPT_KM}
-
 all build link: ${PAYLOAD_KM}
 
 $(PAYLOAD_KM): ${BUSYBOX_TOP}/.config
