@@ -14,8 +14,8 @@
 # PYTHONPATH. The layout would be the follow. Using python:3.X-alpine as
 # reference.
 # /opt/kontain/bin/km (mapped into container through volume)
-# /usr/local/bin/python3 -> /opt/kontain/bin/km
-# /usr/local/bin/python3.km
+# /usr/local/bin/python, python{X}, python{X.Y}
+# /usr/local/lib64 -> /usr/local/lib - to comply with Fedora layout
 # /usr/local/lib/python{X,Y} (cpython/Lib)
 # /usr/local/lib/python{X,Y}/lib-dynload (cpython/build/lib.linux-x86_64-${X,Y})
 
@@ -41,6 +41,7 @@ fi
 readonly PYTHON_SRC=$(readlink -m $1)
 readonly RUNENV_PATH=$(readlink -m $2)
 readonly PYTHON_VERSION=$3
+readonly PYTHON_VERSION_MAJ=${3%%.*}
 
 readonly RUNENV_PYTHON_BIN=/usr/local/bin
 readonly RUNENV_PYTHON_LIB=/usr/local/lib/python${PYTHON_VERSION}
@@ -64,14 +65,15 @@ function main() {
 
     echo "Installing km and symlinks to ${RUNENV_PATH} ..."
     # Install python.km into /usr/local/bin
-    install -s ${PYTHON_KM} $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python3.km)
-    # Create the symlink to be used with km shebang
-    ln -s /opt/kontain/bin/km $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python3)
-    ln -s python3 $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python)
+    install -s ${PYTHON_KM} $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python${PYTHON_VERSION})
+    # Create the symlinks
+    ln -s python${PYTHON_VERSION} $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python${PYTHON_VERSION_MAJ})
+    ln -s python${PYTHON_VERSION_MAJ} $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_BIN}/python)
 
     echo "Installing module libs..."
     # Install module libs to /usr/local/lib/python{X,Y}
     tar -cf - ${RUNENV_EXCLUDE} -C ${PYTHON_SRC}/Lib . | tar -C $(realpath -m ${RUNENV_PATH}/${RUNENV_PYTHON_LIB}) -xf -
+    ln -s lib $(realpath -m ${RUNENV_PATH}/usr/local/lib64)
 
     echo "Installing platform libs as thumbstones..."
     # Install platform specific libs to /usr/lib/python{X,Y}/lib-dynload. The files are thumbstones.
