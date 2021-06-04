@@ -82,8 +82,9 @@ test-all: all ## Builds dweb all and runs simple test
 # runenv-image
 export define runenv_prep
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
+	mv $(RUNENV_PATH)/$(PAYLOAD_KM) $(basename $(RUNENV_PATH)/$(PAYLOAD_KM))
 endef
-RUNENV_VALIDATE_CMD := "-x"
+RUNENV_VALIDATE_CMD := dweb -x
 RUNENV_VALIDATE_EXPECTED := I am DWEB
 
 include ${TOP}/make/images.mk
