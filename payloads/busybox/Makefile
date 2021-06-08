@@ -62,8 +62,8 @@ test-all: test
 clean clobber:
 	rm -rf busybox
 
-RUNENV_VALIDATE_CMD := /bin/sh -c "echo Hello, World!"
-RUNENV_VALIDATE_EXPECTED := Hello
+RUNENV_VALIDATE_CMD := ("/bin/sh" "-c" "echo Hello world!")
+RUNENV_VALIDATE_EXPECTED := Hello world
 
 export define runenv_prep
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -

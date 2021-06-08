@@ -24,14 +24,14 @@ JDK_BUILD_DIR = ${JDK_VERSION}/build/linux-x86_64-normal-server-release
 
 # Needed to build Java from source - the same list as in buildenv-fedora.dockerfile
 DEP_PACKAGES := java-11-openjdk \
-	java-11-openjdk-devel  \
+	java-11-openjdk-devel \
 	autoconf \
 	zip \
 	unzip \
 	fontconfig-devel \
 	cups-devel  \
 	alsa-lib-devel \
-   	libXtst-devel \
+   libXtst-devel \
 	libXt-devel \
 	libXrender-devel \
 	libXrandr-devel \
@@ -42,12 +42,12 @@ FROMSRC=$(shell test -d $(JDK_VERSION)/.git && echo yes)
 
 # config for image validation
 RUNENV_VALIDATE_DIR := scripts
-RUNENV_VALIDATE_CMD := -cp /scripts Hello
+RUNENV_VALIDATE_CMD := ("-cp" "/scripts" "Hello")
 RUNENV_VALIDATE_EXPECTED := Hello, World!
 RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
-	app/kontain/snapshots/Snapshot.class \
-	app/kontain/snapshots/libkm_java_native.so
-RUNENV_DEMO_DEPENDENCIES := scripts/SimpleHttpServer.class
+	scripts/SimpleHttpServer.class \
+	app.kontain/app/kontain/snapshots/Snapshot.class \
+	app.kontain/app/kontain/snapshots/libkm_java_native.so
 
 # runenv-image configs
 export define runenv_prep
