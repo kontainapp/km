@@ -893,7 +893,7 @@ fi
    #       open/close cycle is ~40ms vs 1ms on a local workstation.
    run km_with_timeout filepath_test$ext ${DIRNAME} 500
    assert_success
-   rm -rf /tmp/${DIRNAME}
+   rm -rf ${DIRNAME}
 }
 
 @test "sigpipe($test_type): sigpipe delivery (sigpipe_test$ext)" {
@@ -1107,9 +1107,6 @@ fi
       run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -p
       assert_failure
       assert_output --partial "Can't take a snapshot, fifo fd "
-      SOCKET_PORT=$snapshot_test_port run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -c
-      assert_failure
-      assert_output --partial "Couldn't perform snapshot, socket state (3) is not OPEN fd="
       run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -s
       assert_failure
       assert_output --partial "Couldn't perform snapshot, socketpair fd "
