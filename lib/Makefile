@@ -11,7 +11,7 @@
 #
 
 # scan all these and  'make' stuff there
-SUBDIRS := libkontain
+SUBDIRS := libkontain mimalloc
 
 TOP := $(shell git rev-parse --show-toplevel)
 include ${TOP}/make/actions.mk
