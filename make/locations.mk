@@ -185,4 +185,4 @@ debugvars: ## prints interesting vars and their values
 	@echo $(foreach v, ${VARS_TO_PRINT}, $(info $(v) = $($(v))))
 
 # allows to do 'make print-varname'
-print-% : ; @echo $*=\"$($*)\"
+print-% : ; @echo $*='$($*)'
