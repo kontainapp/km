@@ -85,7 +85,7 @@ BUILDENV_PATH  := ./scripts
 
 # Param for 'make validate-runenv-image'. Used to do a quick validation of runtime environment.
 RUNENV_VALIDATE_DIR := scripts
-RUNENV_VALIDATE_CMD := /scripts/hello.js
+RUNENV_VALIDATE_CMD := ("/scripts/hello.js")
 
 # if something needs to be copied/modified before building runenv image in Docker,
 # define this function

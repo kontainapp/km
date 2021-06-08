@@ -14,6 +14,7 @@
 #  - buildenv-image (environment for build)
 #  - testenv-image (all artifacts for running build suites, including KM and payloads)
 #  - runenv-image (minimal image for running KM+payload)
+#  - demo-runenv-image (image to test the runenv-image. Contains test scrpis, might contain an app, hence the `demo-`
 #
 # The first 2 are explained in docs/build.md and docs/image-targets.md
 #
@@ -24,6 +25,7 @@
 #				before running Docker. E.g. if BUILDENV_PATH=. , the runenv_prpe is likely not needed
 #		- COMPONENT, PAYLOAD_NAME and PAYLOAD_KM also need to be defined. See payloads/node
 #		for examples
+#     Same target builds demo-runenv image to validate
 #
 
 ifeq ($(COMPONENT),)
@@ -132,9 +134,7 @@ pull-buildenv-image: ## Pulls the buildenv image.
 NO_RUNENV ?= false
 ifeq (${NO_RUNENV}, false)
 
-demo-runenv-image: ${RUNENV_DEMO_DEPENDENCIES}
-
-runenv-image demo-runenv-image: ${RUNENV_PATH} ${KM_BIN} ## Build minimal runtime image
+runenv-image demo-runenv-image: ${RUNENV_PATH} ${KM_BIN} ${RUNENV_VALIDATE_DEPENDENCIES} ## Build minimal runtime image
 	@$(TOP)/make/check-docker.sh
 	$(call clean_container_image,${RUNENV_IMG_TAGGED})
 ifdef runenv_prep
@@ -160,19 +160,17 @@ else
 	@echo -e "No demo dockerfile ${DEMO_RUNENV_DOCKERFILE} define. Skipping..."
 endif
 
-ifneq (${RUNENV_VALIDATE_DIR},)
-SCRIPT_MOUNT := -v $(realpath ${RUNENV_VALIDATE_DIR}):/$(notdir ${RUNENV_VALIDATE_DIR}):z
-endif
-RUNENV_VALIDATE_CMD ?= PlaceValidateCommandHere
+# array syntax to preserve space in the args`
+RUNENV_VALIDATE_CMD ?= ("Place" "ValidateCommandBashArray" "Here")
 RUNENV_VALIDATE_EXPECTED ?= Hello
 
 # We use km from ${KM_BIN} here from the build tree instead of what's on the host under ${KM_OPT_BIN}.
-validate-runenv-image: $(RUNENV_VALIDATE_DEPENDENCIES) ## Validate runtime image
+validate-runenv-image: ## Validate runtime image
+	tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
 	${DOCKER_RUN_TEST} \
-		${KM_DOCKER_VOLUME} \
-		${SCRIPT_MOUNT} \
-		${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
-		${RUNENV_VALIDATE_CMD} | grep "${RUNENV_VALIDATE_EXPECTED}"
+	${KM_DOCKER_VOLUME} \
+	${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
+	"$${tmp_bash_array[@]}" | grep "${RUNENV_VALIDATE_EXPECTED}"
 
 push-runenv-image:  runenv-image ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
@@ -254,7 +252,9 @@ VALIDATION_K8S_NAME := validation-${PROCESSED_COMPONENT_NAME}-${PROCESSED_IMAGE_
 # minimum and no other application, so we use the demo-runenv image which
 # contains all the applications.
 validate-runenv-withk8s: .check_vars
-	${K8S_RUN_VALIDATION} "${VALIDATION_K8S_IMAGE}" "${VALIDATION_K8S_NAME}"
+	@tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
+	json_array=$$(echo "[$${tmp_bash_array[@]@Q}]" | sed "s/' /', /g") && \
+	${K8S_RUN_VALIDATION} "${VALIDATION_K8S_IMAGE}" "${VALIDATION_K8S_NAME}" "$$json_array" "${RUNENV_VALIDATE_EXPECTED}"
 
 endif # ifeq (${NO_RUNENV}, false)
 
