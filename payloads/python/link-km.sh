@@ -40,6 +40,12 @@ kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/p
    ${BUILD}/libpython3*.a -lsqlite3 $LDLIBS \
    -o ${NAME}d
 
+kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
+   -Xlinker --undefined=strtoull_l \
+   ${BUILD}/libpython3*.a -lsqlite3 $LDLIBS \
+   -L/opt/kontain/lib -lmimalloc -Wl,-rpath=/opt/kontain/lib \
+   -o ${NAME}d.mimalloc
+
 # Add python->km symlink and make python to looking for libs in correct place
 # We want it to work in containers and dev boxes, so locking to /opt/kontain and
 # making KM_BLDDIR placement optional
