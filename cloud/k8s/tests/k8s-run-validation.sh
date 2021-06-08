@@ -44,17 +44,35 @@ function prepare_template {
         ${CURRENT}/${TEST_POD_TEMPLATE_NAME} > ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME}
 }
 
+function poll_pod {
+   while true; do
+      reason=$(kubectl get -o jsonpath='{.status.containerStatuses[].state.terminated.reason}' pod/${POD_NAME})
+      case ${reason} in
+         Error)
+            return 2
+            ;;
+         Completed)
+            return 0
+            ;;
+         *)
+            sleep 3
+            ;;
+      esac
+   done
+}
+export -f poll_pod
+
 function main {
     check_bin kubectl m4
     prepare_template
 
     local pod_name=$(kubectl create -f ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME} -o jsonpath='{.metadata.name}')
 
-    kubectl wait pod/${pod_name} --for=condition=Ready --timeout=${POD_WAIT_TIMEOUT}
+    POD_NAME=${pod_name} timeout ${POD_WAIT_TIMEOUT} sh -c poll_pod
     local exit_code=$?
     if [[ $exit_code != 0 ]]; then
-        kubectl describe pod ${pod_name}
-        kubectl get pod/${pod_name} -o json
+       kubectl describe pod ${pod_name}
+       kubectl get pod/${pod_name} -o json
     fi
 
     kubectl logs ${pod_name}
