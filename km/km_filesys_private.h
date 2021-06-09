@@ -48,6 +48,7 @@ typedef struct km_file {
    int inuse;            // if true, this entry is inuse.
    int how;              // How was this file created
    int flags;            // Open flags
+   int error;            // If non-zero, error code to return for all syscalls. Snapshot recovery.
    km_file_ops_t* ops;   // Overwritten file ops for file matched at open
    int ofd;              // 'other' fd (pipe and socketpair)
    char* name;           // the name opened to yield the guest fd
