@@ -144,7 +144,7 @@ fi
 }
 
 @test "km_main_signal($test_type): wait on signal (hello_test$ext)" {
-   run timeout -s SIGUSR1 1s ${KM_BIN} --km-log-to=stderr --dynlinker=${KM_LDSO} --wait-for-signal hello_test$ext
+   run timeout -s SIGUSR1 1s ${KM_BIN} --km-log-to=stderr --wait-for-signal hello_test$ext
    assert_failure 124
 }
 
