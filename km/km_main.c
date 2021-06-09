@@ -85,7 +85,6 @@ static inline void usage()
 "\t--core-on-err                       - generate KM core dump when exiting on err, including guest core dump\n"
 "\t--overcommit-memory                 - Allow huge address allocations for payloads.\n"
 "\t                                      See 'sysctl vm.overcommit_memory'\n"
-"\t--dynlinker=file_name               - Set dynamic linker file (default: /opt/kontain/lib64/libc.so)\n"
 "\t--hcall-stats (-S)                  - Collect and print hypercall stats\n"
 "\t--coredump=file_name                - File name for coredump\n"
 "\t--snapshot=file_name                - File name for snapshot\n"
@@ -163,7 +162,6 @@ struct option km_cmd_long_options[] = {
     {"verbose", optional_argument, 0, 'V'},
     {"core-on-err", no_argument, &debug_dump_on_err, 1},
     {"version", no_argument, 0, 'v'},
-    {"dynlinker", required_argument, 0, 'L'},
     {"hcall-stats", no_argument, 0, 'S'},
     {"virt-device", required_argument, 0, 'F'},
     {"snapshot", required_argument, 0, 's'},
@@ -480,9 +478,6 @@ static char* km_parse_args(
                break;
             case 'v':
                show_version();
-               break;
-            case 'L':
-               km_dynlinker_file = optarg;
                break;
             case 'S':
                km_collect_hc_stats = 1;
