@@ -148,6 +148,7 @@ typedef struct km_nt_socket {
 #define KM_NT_SKSTATE_LISTEN 2
 #define KM_NT_SKSTATE_ACCEPT 3
 #define KM_NT_SKSTATE_CONNECT 4
+#define KM_NT_SKSTATE_ERROR 5
 
 static inline size_t km_nt_file_padded_size(const char* str)
 {

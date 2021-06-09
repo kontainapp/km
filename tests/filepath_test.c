@@ -131,6 +131,7 @@ TEST test_symlink()
    rc = readlinkat(AT_FDCWD, linkpath, linkval, PATH_MAX);
    ASSERT_NEQ(-1, rc);
    rc = strcmp(linkval, oldpath);
+   printf("rc=%d\n", rc);
    ASSERT_EQ(0, rc);
    rc = stat(linkpath, &st);
    ASSERT_EQ(0, rc);
