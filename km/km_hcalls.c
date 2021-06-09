@@ -1863,8 +1863,174 @@ static km_hc_ret_t sched_yield_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
-km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL];
 km_hc_stats_t* km_hcalls_stats;
+const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
+    [SYS_arch_prctl] = arch_prctl_hcall,
+
+    [SYS_exit] = exit_hcall,
+    [SYS_exit_group] = exit_grp_hcall,
+    [SYS_read] = prw_hcall,
+    [SYS_write] = prw_hcall,
+    [SYS_readv] = prwv_hcall,
+    [SYS_writev] = prwv_hcall,
+    [SYS_pread64] = prw_hcall,
+    [SYS_pwrite64] = prw_hcall,
+    [SYS_preadv] = prwv_hcall,
+    [SYS_pwritev] = prwv_hcall,
+    [SYS_accept] = accept_hcall,
+    [SYS_connect] = connect_hcall,
+    [SYS_socketpair] = socketpair_hcall,
+    [SYS_bind] = bind_hcall,
+    [SYS_listen] = listen_hcall,
+    [SYS_socket] = socket_hcall,
+    [SYS_getsockopt] = getsockopt_hcall,
+    [SYS_setsockopt] = setsockopt_hcall,
+    [SYS_sendmsg] = sendrecvmsg_hcall,
+    [SYS_recvmsg] = sendrecvmsg_hcall,
+    [SYS_sendfile] = sendfile_hcall,
+    [SYS_copy_file_range] = copy_file_range_hcall,
+    [SYS_ioctl] = ioctl_hcall,
+    [SYS_fcntl] = fcntl_hcall,
+    [SYS_stat] = stat_hcall,
+    [SYS_lstat] = lstat_hcall,
+    [SYS_statx] = statx_hcall,
+    [SYS_fstat] = fstat_hcall,
+    [SYS_utimensat] = utimensat_hcall,
+    [SYS_getdents] = getdents_hcall,
+    [SYS_getdents64] = getdirents_hcall,
+    [SYS_getcwd] = getcwd_hcall,
+    [SYS_close] = close_hcall,
+    [SYS_shutdown] = shutdown_hcall,
+    [SYS_brk] = brk_hcall,
+    [SYS_futex] = futex_hcall,
+    [SYS_mmap] = mmap_hcall,
+    [SYS_munmap] = munmap_hcall,
+    [SYS_mremap] = mremap_hcall,
+    [SYS_mprotect] = mprotect_hcall,
+    [SYS_time] = time_hcall,
+    [SYS_gettimeofday] = gettimeofday_hcall,
+    [SYS_clock_gettime] = clock_time_hcall,
+    [SYS_clock_getres] = clock_time_hcall,
+    [SYS_clock_settime] = clock_time_hcall,
+    [SYS_madvise] = madvise_hcall,
+    [SYS_msync] = msync_hcall,
+
+    [SYS_umask] = umask_hcall,
+    [SYS_readlink] = readlink_hcall,
+    [SYS_readlinkat] = readlinkat_hcall,
+    [SYS_getrandom] = getrandom_hcall,
+    [SYS_open] = open_hcall,
+    [SYS_openat] = openat_hcall,
+    [SYS_lseek] = lseek_hcall,
+    [SYS_rename] = rename_hcall,
+    [SYS_link] = symlink_hcall,
+    [SYS_symlink] = symlink_hcall,
+    [SYS_mkdir] = mkdir_hcall,
+    [SYS_rmdir] = rmdir_hcall,
+    [SYS_unlink] = unlink_hcall,
+    [SYS_unlinkat] = unlinkat_hcall,
+    [SYS_mknod] = mknod_hcall,
+    [SYS_chown] = chown_hcall,
+    [SYS_lchown] = chown_hcall,
+    [SYS_fchown] = fchown_hcall,
+    [SYS_chmod] = chmod_hcall,
+    [SYS_fchmod] = fchmod_hcall,
+    [SYS_chdir] = chdir_hcall,
+    [SYS_fchdir] = fchdir_hcall,
+    [SYS_truncate] = truncate_hcall,
+    [SYS_ftruncate] = ftruncate_hcall,
+    [SYS_fsync] = fsync_hcall,
+    [SYS_fdatasync] = fdatasync_hcall,
+    [SYS_select] = select_hcall,
+    [SYS_pselect6] = pselect6_hcall,
+    [SYS_pause] = pause_hcall,
+    [SYS_sendto] = sendto_hcall,
+    [SYS_nanosleep] = nanosleep_hcall,
+    [SYS_clock_nanosleep] = clock_nanosleep_hcall,
+    [SYS_getsockname] = get_sock_peer_name_hcall,
+    [SYS_getpeername] = get_sock_peer_name_hcall,
+    [SYS_poll] = poll_hcall,
+    [SYS_accept4] = accept4_hcall,
+    [SYS_recvfrom] = recvfrom_hcall,
+    [SYS_epoll_create1] = epoll1_create_hcall,
+    [SYS_epoll_create] = epoll1_create_hcall,
+    [SYS_epoll_ctl] = epoll_ctl_hcall,
+    [SYS_epoll_wait] = epoll_wait_hcall,
+    [SYS_epoll_pwait] = epoll_pwait_hcall,
+    [SYS_access] = access_hcall,
+    [SYS_dup] = dup_hcall,
+    [SYS_dup2] = dup2_hcall,
+    [SYS_dup3] = dup3_hcall,
+    [SYS_pipe] = pipe_hcall,
+    [SYS_pipe2] = pipe2_hcall,
+    [SYS_eventfd2] = eventfd2_hcall,
+    [SYS_prlimit64] = prlimit64_hcall,
+
+    [SYS_rt_sigprocmask] = rt_sigprocmask_hcall,
+    [SYS_rt_sigaction] = rt_sigaction_hcall,
+    [SYS_rt_sigreturn] = rt_sigreturn_hcall,
+    [SYS_rt_sigpending] = rt_sigpending_hcall,
+    [SYS_rt_sigtimedwait] = rt_sigtimedwait,
+    [SYS_rt_sigsuspend] = rt_sigsuspend_hcall,
+    [SYS_sigaltstack] = sigaltstack_hcall,
+    [SYS_kill] = kill_hcall,
+    [SYS_tkill] = tkill_hcall,
+    [SYS_tgkill] = tgkill_hcall,
+
+    [SYS_getpid] = getpid_hcall,
+    [SYS_getppid] = getppid_hcall,
+    [SYS_gettid] = gettid_hcall,
+
+    [SYS_getrusage] = getrusage_hcall,
+    [SYS_geteuid] = dummy_hcall,
+    [SYS_getuid] = dummy_hcall,
+    [SYS_getegid] = dummy_hcall,
+    [SYS_getgid] = dummy_hcall,
+
+    [SYS_setsid] = setsid_hcall,
+    [SYS_getsid] = getsid_hcall,
+    [SYS_setpgid] = setpgid_hcall,
+    [SYS_getpgid] = getpgid_hcall,
+
+    [SYS_sched_yield] = sched_yield_hcall,
+    [SYS_setpriority] = dummy_hcall,
+    [SYS_sched_getaffinity] = sched_getaffinity_hcall,
+    [SYS_sched_setaffinity] = sched_setaffinity_hcall,
+    [SYS_prctl] = dummy_hcall,
+
+    [SYS_clone] = clone_hcall,
+    [SYS_set_tid_address] = set_tid_address_hcall,
+    [SYS_membarrier] = dummy_hcall,
+    [SYS_getcpu] = getcpu_hcall,
+    [SYS_sysinfo] = sysinfo_hcall,
+
+    [SYS_execve] = execve_hcall,
+    [SYS_execveat] = execveat_hcall,
+    [SYS_fork] = fork_hcall,
+    [SYS_wait4] = wait4_hcall,
+    [SYS_waitid] = waitid_hcall,
+    [SYS_times] = times_hcall,
+    [SYS_getpgrp] = getpgrp_hcall,
+
+    [SYS_set_robust_list] = dummy_hcall,
+    [SYS_get_robust_list] = dummy_hcall,
+
+    [SYS_mbind] = dummy_hcall,
+    [SYS_flock] = flock_hcall,
+
+    [SYS_uname] = uname_hcall,
+
+    [SYS_setitimer] = setitimer_hcall,
+    [SYS_getitimer] = getitimer_hcall,
+    [SYS_statfs] = statfs_hcall,
+    [SYS_fstatfs] = fstatfs_hcall,
+
+    [HC_guest_interrupt] = guest_interrupt_hcall,
+    [HC_unmapself] = unmapself_hcall,
+    [HC_snapshot] = snapshot_hcall,
+    [HC_snapshot_getdata] = snapshot_getdata_hcall,
+    [HC_snapshot_putdata] = snapshot_putdata_hcall,
+};
 
 static void km_print_hcall_stats(void)
 {
@@ -1883,172 +2049,6 @@ static void km_print_hcall_stats(void)
 
 void km_hcalls_init(void)
 {
-   km_hcalls_table[SYS_arch_prctl] = arch_prctl_hcall;
-
-   km_hcalls_table[SYS_exit] = exit_hcall;
-   km_hcalls_table[SYS_exit_group] = exit_grp_hcall;
-   km_hcalls_table[SYS_read] = prw_hcall;
-   km_hcalls_table[SYS_write] = prw_hcall;
-   km_hcalls_table[SYS_readv] = prwv_hcall;
-   km_hcalls_table[SYS_writev] = prwv_hcall;
-   km_hcalls_table[SYS_pread64] = prw_hcall;
-   km_hcalls_table[SYS_pwrite64] = prw_hcall;
-   km_hcalls_table[SYS_preadv] = prwv_hcall;
-   km_hcalls_table[SYS_pwritev] = prwv_hcall;
-   km_hcalls_table[SYS_accept] = accept_hcall;
-   km_hcalls_table[SYS_connect] = connect_hcall;
-   km_hcalls_table[SYS_socketpair] = socketpair_hcall;
-   km_hcalls_table[SYS_bind] = bind_hcall;
-   km_hcalls_table[SYS_listen] = listen_hcall;
-   km_hcalls_table[SYS_socket] = socket_hcall;
-   km_hcalls_table[SYS_getsockopt] = getsockopt_hcall;
-   km_hcalls_table[SYS_setsockopt] = setsockopt_hcall;
-   km_hcalls_table[SYS_sendmsg] = sendrecvmsg_hcall;
-   km_hcalls_table[SYS_recvmsg] = sendrecvmsg_hcall;
-   km_hcalls_table[SYS_sendfile] = sendfile_hcall;
-   km_hcalls_table[SYS_copy_file_range] = copy_file_range_hcall;
-   km_hcalls_table[SYS_ioctl] = ioctl_hcall;
-   km_hcalls_table[SYS_fcntl] = fcntl_hcall;
-   km_hcalls_table[SYS_stat] = stat_hcall;
-   km_hcalls_table[SYS_lstat] = lstat_hcall;
-   km_hcalls_table[SYS_statx] = statx_hcall;
-   km_hcalls_table[SYS_fstat] = fstat_hcall;
-   km_hcalls_table[SYS_utimensat] = utimensat_hcall;
-   km_hcalls_table[SYS_getdents] = getdents_hcall;
-   km_hcalls_table[SYS_getdents64] = getdirents_hcall;
-   km_hcalls_table[SYS_getcwd] = getcwd_hcall;
-   km_hcalls_table[SYS_close] = close_hcall;
-   km_hcalls_table[SYS_shutdown] = shutdown_hcall;
-   km_hcalls_table[SYS_brk] = brk_hcall;
-   km_hcalls_table[SYS_futex] = futex_hcall;
-   km_hcalls_table[SYS_mmap] = mmap_hcall;
-   km_hcalls_table[SYS_munmap] = munmap_hcall;
-   km_hcalls_table[SYS_mremap] = mremap_hcall;
-   km_hcalls_table[SYS_mprotect] = mprotect_hcall;
-   km_hcalls_table[SYS_time] = time_hcall;
-   km_hcalls_table[SYS_gettimeofday] = gettimeofday_hcall;
-   km_hcalls_table[SYS_clock_gettime] = clock_time_hcall;
-   km_hcalls_table[SYS_clock_getres] = clock_time_hcall;
-   km_hcalls_table[SYS_clock_settime] = clock_time_hcall;
-   km_hcalls_table[SYS_madvise] = madvise_hcall;
-   km_hcalls_table[SYS_msync] = msync_hcall;
-
-   km_hcalls_table[SYS_umask] = umask_hcall;
-   km_hcalls_table[SYS_readlink] = readlink_hcall;
-   km_hcalls_table[SYS_readlinkat] = readlinkat_hcall;
-   km_hcalls_table[SYS_getrandom] = getrandom_hcall;
-   km_hcalls_table[SYS_open] = open_hcall;
-   km_hcalls_table[SYS_openat] = openat_hcall;
-   km_hcalls_table[SYS_lseek] = lseek_hcall;
-   km_hcalls_table[SYS_rename] = rename_hcall;
-   km_hcalls_table[SYS_link] = symlink_hcall;
-   km_hcalls_table[SYS_symlink] = symlink_hcall;
-   km_hcalls_table[SYS_mkdir] = mkdir_hcall;
-   km_hcalls_table[SYS_rmdir] = rmdir_hcall;
-   km_hcalls_table[SYS_unlink] = unlink_hcall;
-   km_hcalls_table[SYS_unlinkat] = unlinkat_hcall;
-   km_hcalls_table[SYS_mknod] = mknod_hcall;
-   km_hcalls_table[SYS_chown] = chown_hcall;
-   km_hcalls_table[SYS_lchown] = chown_hcall;
-   km_hcalls_table[SYS_fchown] = fchown_hcall;
-   km_hcalls_table[SYS_chmod] = chmod_hcall;
-   km_hcalls_table[SYS_fchmod] = fchmod_hcall;
-   km_hcalls_table[SYS_chdir] = chdir_hcall;
-   km_hcalls_table[SYS_fchdir] = fchdir_hcall;
-   km_hcalls_table[SYS_truncate] = truncate_hcall;
-   km_hcalls_table[SYS_ftruncate] = ftruncate_hcall;
-   km_hcalls_table[SYS_fsync] = fsync_hcall;
-   km_hcalls_table[SYS_fdatasync] = fdatasync_hcall;
-   km_hcalls_table[SYS_select] = select_hcall;
-   km_hcalls_table[SYS_pselect6] = pselect6_hcall;
-   km_hcalls_table[SYS_pause] = pause_hcall;
-   km_hcalls_table[SYS_sendto] = sendto_hcall;
-   km_hcalls_table[SYS_nanosleep] = nanosleep_hcall;
-   km_hcalls_table[SYS_clock_nanosleep] = clock_nanosleep_hcall;
-   km_hcalls_table[SYS_getsockname] = get_sock_peer_name_hcall;
-   km_hcalls_table[SYS_getpeername] = get_sock_peer_name_hcall;
-   km_hcalls_table[SYS_poll] = poll_hcall;
-   km_hcalls_table[SYS_accept4] = accept4_hcall;
-   km_hcalls_table[SYS_recvfrom] = recvfrom_hcall;
-   km_hcalls_table[SYS_epoll_create1] = epoll1_create_hcall;
-   km_hcalls_table[SYS_epoll_create] = epoll1_create_hcall;
-   km_hcalls_table[SYS_epoll_ctl] = epoll_ctl_hcall;
-   km_hcalls_table[SYS_epoll_wait] = epoll_wait_hcall;
-   km_hcalls_table[SYS_epoll_pwait] = epoll_pwait_hcall;
-   km_hcalls_table[SYS_access] = access_hcall;
-   km_hcalls_table[SYS_dup] = dup_hcall;
-   km_hcalls_table[SYS_dup2] = dup2_hcall;
-   km_hcalls_table[SYS_dup3] = dup3_hcall;
-   km_hcalls_table[SYS_pipe] = pipe_hcall;
-   km_hcalls_table[SYS_pipe2] = pipe2_hcall;
-   km_hcalls_table[SYS_eventfd2] = eventfd2_hcall;
-   km_hcalls_table[SYS_prlimit64] = prlimit64_hcall;
-
-   km_hcalls_table[SYS_rt_sigprocmask] = rt_sigprocmask_hcall;
-   km_hcalls_table[SYS_rt_sigaction] = rt_sigaction_hcall;
-   km_hcalls_table[SYS_rt_sigreturn] = rt_sigreturn_hcall;
-   km_hcalls_table[SYS_rt_sigpending] = rt_sigpending_hcall;
-   km_hcalls_table[SYS_rt_sigtimedwait] = rt_sigtimedwait;
-   km_hcalls_table[SYS_rt_sigsuspend] = rt_sigsuspend_hcall;
-   km_hcalls_table[SYS_sigaltstack] = sigaltstack_hcall;
-   km_hcalls_table[SYS_kill] = kill_hcall;
-   km_hcalls_table[SYS_tkill] = tkill_hcall;
-   km_hcalls_table[SYS_tgkill] = tgkill_hcall;
-
-   km_hcalls_table[SYS_getpid] = getpid_hcall;
-   km_hcalls_table[SYS_getppid] = getppid_hcall;
-   km_hcalls_table[SYS_gettid] = gettid_hcall;
-
-   km_hcalls_table[SYS_getrusage] = getrusage_hcall;
-   km_hcalls_table[SYS_geteuid] = dummy_hcall;
-   km_hcalls_table[SYS_getuid] = dummy_hcall;
-   km_hcalls_table[SYS_getegid] = dummy_hcall;
-   km_hcalls_table[SYS_getgid] = dummy_hcall;
-
-   km_hcalls_table[SYS_setsid] = setsid_hcall;
-   km_hcalls_table[SYS_getsid] = getsid_hcall;
-   km_hcalls_table[SYS_setpgid] = setpgid_hcall;
-   km_hcalls_table[SYS_getpgid] = getpgid_hcall;
-
-   km_hcalls_table[SYS_sched_yield] = sched_yield_hcall;
-   km_hcalls_table[SYS_setpriority] = dummy_hcall;
-   km_hcalls_table[SYS_sched_getaffinity] = sched_getaffinity_hcall;
-   km_hcalls_table[SYS_sched_setaffinity] = sched_setaffinity_hcall;
-   km_hcalls_table[SYS_prctl] = dummy_hcall;
-
-   km_hcalls_table[SYS_clone] = clone_hcall;
-   km_hcalls_table[SYS_set_tid_address] = set_tid_address_hcall;
-   km_hcalls_table[SYS_membarrier] = dummy_hcall;
-   km_hcalls_table[SYS_getcpu] = getcpu_hcall;
-   km_hcalls_table[SYS_sysinfo] = sysinfo_hcall;
-
-   km_hcalls_table[SYS_execve] = execve_hcall;
-   km_hcalls_table[SYS_execveat] = execveat_hcall;
-   km_hcalls_table[SYS_fork] = fork_hcall;
-   km_hcalls_table[SYS_wait4] = wait4_hcall;
-   km_hcalls_table[SYS_waitid] = waitid_hcall;
-   km_hcalls_table[SYS_times] = times_hcall;
-   km_hcalls_table[SYS_getpgrp] = getpgrp_hcall;
-
-   km_hcalls_table[SYS_set_robust_list] = dummy_hcall;
-   km_hcalls_table[SYS_get_robust_list] = dummy_hcall;
-
-   km_hcalls_table[SYS_mbind] = dummy_hcall;
-   km_hcalls_table[SYS_flock] = flock_hcall;
-
-   km_hcalls_table[SYS_uname] = uname_hcall;
-
-   km_hcalls_table[SYS_setitimer] = setitimer_hcall;
-   km_hcalls_table[SYS_getitimer] = getitimer_hcall;
-   km_hcalls_table[SYS_statfs] = statfs_hcall;
-   km_hcalls_table[SYS_fstatfs] = fstatfs_hcall;
-
-   km_hcalls_table[HC_guest_interrupt] = guest_interrupt_hcall;
-   km_hcalls_table[HC_unmapself] = unmapself_hcall;
-   km_hcalls_table[HC_snapshot] = snapshot_hcall;
-   km_hcalls_table[HC_snapshot_getdata] = snapshot_getdata_hcall;
-   km_hcalls_table[HC_snapshot_putdata] = snapshot_putdata_hcall;
-
    if (km_collect_hc_stats == 1) {
       if ((km_hcalls_stats = calloc(KM_MAX_HCALL, sizeof(km_hc_stats_t))) == NULL) {
          km_err(1, "KVM: no memory for hcall stats");

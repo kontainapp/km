@@ -57,7 +57,7 @@ typedef struct {
    uint64_t max;     // max usecs
 } km_hc_stats_t;
 
-extern km_hcall_fn_t km_hcalls_table[];
+extern const km_hcall_fn_t km_hcalls_table[];
 extern km_hc_stats_t* km_hcalls_stats;
 
 /*
