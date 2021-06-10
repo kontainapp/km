@@ -21,7 +21,7 @@ trigger:
 pr:
   branches:
     include:
-      - master
+      - old/master
   paths:
     exclude:
       - README.md
