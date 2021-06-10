@@ -547,7 +547,6 @@ uint64_t km_fs_symlink(km_vcpu_t* vcpu, char* target, char* linkpath)
       return -EINVAL;
    }
    ret = __syscall_2(SYS_symlink, (uintptr_t)target, (uintptr_t)linkpath);
-   km_warnx("synlink(%s, %s) = %d", target, linkpath, ret);
 
    return ret;
 }
@@ -1492,7 +1491,7 @@ static int km_fs_select_error(km_vcpu_t* vcpu, int nfds, fd_set* fds)
          if (file->inuse != 0 && file->error != 0) {
             FD_ZERO(fds);
             FD_SET(i, fds);
-            return 0;
+            return 1;
          }
       }
    }
@@ -1993,7 +1992,7 @@ static inline void km_fs_recover_fd(int guestfd, int hostfd, int flags, char* na
             how);
 }
 
-static inline void km_fs_recover_fdpair(int guestfd[2], int hostfd[2], int how[2], int flags[2])
+static inline int km_fs_recover_fdpair(int guestfd[2], int hostfd[2], int how[2], int flags[2])
 {
    km_infox(KM_TRACE_SNAPSHOT,
             "recover_fdpair: guest:%d,%d host:%d,%d how:%d,%d flags:%d,%d",
@@ -2006,6 +2005,14 @@ static inline void km_fs_recover_fdpair(int guestfd[2], int hostfd[2], int how[2
             flags[0],
             flags[1]);
    // Ensure we don't overwrite hostfd[1] in error.
+   if (guestfd[0] < 0 || guestfd[0] >= machine.filesys->nfdmap) {
+      km_warn("recover fd %d is invalid", guestfd[0]);
+      return -1;
+   }
+   if (guestfd[1] < 0 || guestfd[1] >= machine.filesys->nfdmap) {
+      km_warn("recover fd %d is invalid", guestfd[1]);
+      return -1;
+   }
    if (guestfd[0] == hostfd[1]) {
       km_fs_recover_fd(guestfd[1], hostfd[1], flags[1], km_get_nonfile_name(hostfd[1]), guestfd[0], how[1]);
       km_fs_recover_fd(guestfd[0], hostfd[0], flags[0], km_get_nonfile_name(hostfd[0]), guestfd[1], how[0]);
@@ -2013,6 +2020,7 @@ static inline void km_fs_recover_fdpair(int guestfd[2], int hostfd[2], int how[2
       km_fs_recover_fd(guestfd[0], hostfd[0], flags[0], km_get_nonfile_name(hostfd[0]), guestfd[1], how[0]);
       km_fs_recover_fd(guestfd[1], hostfd[1], flags[1], km_get_nonfile_name(hostfd[1]), guestfd[0], how[1]);
    }
+   return 0;
 }
 
 static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name)
@@ -2042,7 +2050,9 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name)
    int how[2] = {KM_FILE_HOW_PIPE_0, KM_FILE_HOW_PIPE_1};
    int flags[2] = {syscall_flags, syscall_flags};
 
-   km_fs_recover_fdpair(guestfd, hostfd, how, flags);
+   if (km_fs_recover_fdpair(guestfd, hostfd, how, flags) < 0) {
+      return -1;
+   }
 
    km_infox(KM_TRACE_SNAPSHOT, "recovered pipe: rfd=%d wfd=%d flags=0x%x", rfd, wfd, syscall_flags);
    return 0;
@@ -2050,6 +2060,11 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name)
 
 static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr* addr, int addrlen)
 {
+   if (nt_sock->fd < 0 || nt_sock->fd >= machine.filesys->nfdmap) {
+      km_warn("socket fd %d invalid", nt_sock->fd);
+      return -1;
+   }
+
    km_file_t* file = &km_fs()->guest_files[nt_sock->fd];
    assert(file->inuse == 0);
 
@@ -2078,12 +2093,16 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
 
 static inline int km_fs_recover_socket_error(km_nt_socket_t* nt_sock)
 {
+   if (nt_sock->fd < 0 || nt_sock->fd >= machine.filesys->nfdmap) {
+      km_warn("socket fd %d invalid", nt_sock->fd);
+      return -1;
+   }
    km_file_t* file = &km_fs()->guest_files[nt_sock->fd];
    *file = (km_file_t){.inuse = 1,
                        .how = nt_sock->how,
                        .name = strdup("socket error"),
                        .ofd = nt_sock->other,
-                       .error = ECONNRESET};
+                       .error = -ECONNRESET};
    TAILQ_INIT(&file->events);
    return 0;
 }
@@ -2104,6 +2123,10 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
             nt_file->mode,
             nt_file->data);
 
+   if (nt_file->fd < 0 || nt_file->fd >= machine.filesys->nfdmap) {
+      km_warn("cannot recover invalid fd %d", nt_file->fd);
+      return -1;
+   }
    /*
     * If the std fds names are [std{in,out,err}] (as set in km_fs_init()) we inherit the fds from
     * km, otherwise process them in a regular way. Note the dup2 in below will close the km
@@ -2744,13 +2767,17 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
       int guestfd[2] = {nt_sock->fd, otherfd};
       int how[2] = {KM_FILE_HOW_SOCKETPAIR0, KM_FILE_HOW_SOCKETPAIR1};
       int flags[2] = {0, 0};
-      km_fs_recover_fdpair(guestfd, host_sv, how, flags);
+      if (km_fs_recover_fdpair(guestfd, host_sv, how, flags) < 0) {
+         return -1;
+      }
 
    } else {
       int guestfd[2] = {otherfd, nt_sock->fd};
       int how[2] = {KM_FILE_HOW_SOCKETPAIR1, KM_FILE_HOW_SOCKETPAIR0};
       int flags[2] = {0, 0};
-      km_fs_recover_fdpair(guestfd, host_sv, how, flags);
+      if (km_fs_recover_fdpair(guestfd, host_sv, how, flags) < 0) {
+         return -1;
+      }
    }
    return 0;
 }
@@ -2816,6 +2843,10 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
    km_infox(KM_TRACE_SNAPSHOT, "EVENTFD fd=%d", nt_eventfd->fd);
    if (nt_eventfd->size != sizeof(km_nt_eventfd_t)) {
       km_warnx("nt_km_eventfd_t size mismatch - old snapshot?");
+      return -1;
+   }
+   if (nt_eventfd->fd < 0 || nt_eventfd->fd >= machine.filesys->nfdmap) {
+      km_warnx("cannot recover invalid event fd %d", nt_eventfd->fd);
       return -1;
    }
 
