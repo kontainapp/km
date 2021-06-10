@@ -21,7 +21,7 @@ $(BIN): $(OBJS)
 $(BIN_KM): $(OBJS)
 	${TOP}/tools/bin/kontain-gcc $(CFLAGS) -o $@ $^
 
-PAUSE_CONTAINER = kontain/pause-km
+PAUSE_CONTAINER = kontainapp/pause-km
 
 distro: $(BIN_KM)
 	docker build -t $(PAUSE_CONTAINER) .

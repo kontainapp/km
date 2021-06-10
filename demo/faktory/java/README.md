@@ -39,7 +39,7 @@ curl  "http://127.0.0.1:8080/greeting"
 sudo tools/faktory/bin/faktory convert --type java \
     kontainapp/faktory-java-demo-original:latest \
     kontainapp/faktory-java-demo-kontain:latest \
-    kontain/runenv-jdk-11.0.8:latest
+    kontainapp/runenv-jdk-11.0.8:latest
 
 # To run the kontainer. --init makes ^C/^Z killing handled by runtime
 docker run -it --init --rm -p 8081:8080 \

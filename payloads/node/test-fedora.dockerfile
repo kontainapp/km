@@ -12,7 +12,7 @@
 
 ARG DTYPE=fedora
 ARG BUILDENV_IMAGE_VERSION=latest
-FROM kontain/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
+FROM kontainapp/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
 
 
 ARG MODE=Release

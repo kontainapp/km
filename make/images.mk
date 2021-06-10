@@ -35,25 +35,25 @@ endif
 include ${TOP}/make/locations.mk
 
 # Image names and location for image builds
-TEST_IMG := kontain/test-${COMPONENT}-${DTYPE}
+TEST_IMG := kontainapp/test-${COMPONENT}-${DTYPE}
 TEST_IMG_TAGGED := ${TEST_IMG}:${IMAGE_VERSION}
 
-BUILDENV_IMG := kontain/buildenv-${COMPONENT}-${DTYPE}
+BUILDENV_IMG := kontainapp/buildenv-${COMPONENT}-${DTYPE}
 BUILDENV_IMG_TAGGED := ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION}
 
 # runenv does not include anything linix distro specific, so it does not have 'DTYPE'
-RUNENV_IMG := kontain/runenv-${COMPONENT}
+RUNENV_IMG := kontainapp/runenv-${COMPONENT}
 RUNENV_IMG_TAGGED := ${RUNENV_IMG}:${IMAGE_VERSION}
 
 # runenv demo image produce a demo based on the runenv image
-RUNENV_DEMO_IMG := kontain/demo-runenv-${COMPONENT}
+RUNENV_DEMO_IMG := kontainapp/demo-runenv-${COMPONENT}
 
 # image names with proper registry
-TEST_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(TEST_IMG))
-BUILDENV_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(BUILDENV_IMG))
+TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(TEST_IMG))
+BUILDENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(BUILDENV_IMG))
 
-RUNENV_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(RUNENV_IMG))
-RUNENV_DEMO_IMG_REG := $(subst kontain/,$(REGISTRY)/,$(RUNENV_DEMO_IMG))
+RUNENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_IMG))
+RUNENV_DEMO_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_DEMO_IMG))
 
 TEST_DOCKERFILE ?= test-${DTYPE}.dockerfile
 BUILDENV_DOCKERFILE ?= buildenv-${DTYPE}.dockerfile

@@ -68,7 +68,7 @@ DTYPE ?= fedora
 USER  ?= appuser
 
 # needed in 'make withdocker' so duplicating it here, for now
-BUILDENV_IMG  ?= kontain/buildenv-${COMPONENT}-${DTYPE}
+BUILDENV_IMG  ?= kontainapp/buildenv-${COMPONENT}-${DTYPE}
 
 DOCKER_BUILD_LABEL := \
 	--label "Vendor=Kontain.app" \
