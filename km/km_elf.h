@@ -22,7 +22,6 @@
 
 #define KM_DLOPEN_SYM_NAME "dlopen"
 
-#define KM_DYNLINKER_STR "__km_dynlink__"
 /*
  * Description of the guest payload. Note these structures come from guest ELF and represent values
  * in guest address space. We'll need to convert them to monitor (KM) addresses to acces.
@@ -42,7 +41,6 @@ typedef struct km_payload {
 
 extern km_payload_t km_guest;
 extern km_payload_t km_dynlinker;
-extern const char* km_dynlinker_file;
 
 // Open elf file descriptor
 typedef struct km_elf {
