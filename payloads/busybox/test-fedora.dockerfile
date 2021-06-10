@@ -1,7 +1,7 @@
 ARG DTYPE=fedora
 ARG BUILDENV_IMAGE_VERSION=latest
 
-FROM kontain/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
+FROM kontainapp/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
 
 # turn off km symlink trick and minimal shell interpretation
 ENV KM_DO_SHELL NO

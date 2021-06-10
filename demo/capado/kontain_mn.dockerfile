@@ -1,5 +1,5 @@
-FROM kontain/runenv-jdk-11.0.8:latest
-COPY micronaut-poc-0.1-all.jar micronaut-poc-0.1-all.jar 
+FROM kontainapp/runenv-jdk-11.0.8:latest
+COPY micronaut-poc-0.1-all.jar micronaut-poc-0.1-all.jar
 EXPOSE 9091/tcp
 
 ARG POSTGRES_IP=172.17.0.2

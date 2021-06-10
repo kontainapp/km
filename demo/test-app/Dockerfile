@@ -12,7 +12,7 @@
 # We have to use our own tensorflow build t avoud usage of non-POSIX APIs.
 # Copy the .whl file from ../../tools/hashicorp/build_tensorflow for Docker to pick it up.
 
-FROM kontain/test-python-fedora
+FROM kontainapp/test-python-fedora
 USER root
 RUN dnf install -y python3.8
 
@@ -28,7 +28,7 @@ RUN cp /usr/lib64/libcrypto.so.1.1.1[a-z] /opt/kontain/alpine-lib/lib/libcrypto.
 # switch to 3.8
 RUN ln -sf /usr/bin/python3.8 /usr/bin/python3
 
-# TODO: libc.so and ld-linux-x86-64.so.2 are here only because kontain/test-python-fedora doesn't have
+# TODO: libc.so and ld-linux-x86-64.so.2 are here only because kontainapp/test-python-fedora doesn't have
 # /opt/kontain/runtime but dynamic python needs it
 RUN cp ${PHOME}/python.kmd /usr/bin/python3.8.km && \
    mkdir ${PREFIX}/bin && cp ${PHOME}/km ${PREFIX}/bin/ && \

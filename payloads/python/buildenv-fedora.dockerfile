@@ -10,7 +10,7 @@
 #
 # Dockerfile for build python image. There are two stages:
 #
-# buildenv-cpython - based on kontain/buildenv-km-fedora, git clone, compile and test node
+# buildenv-cpython - based on kontainapp/buildenv-km-fedora, git clone, compile and test node
 # linkenv - based on km-build-env and just copy the objects and test files
 
 ARG MODE=Release
@@ -20,7 +20,7 @@ ARG TAG
 ARG VERS
 ARG BUILDENV_IMAGE_VERSION=latest
 
-FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} AS buildenv-cpython
+FROM kontainapp/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} AS buildenv-cpython
 ARG TAG
 # ARG VERS
 
@@ -49,7 +49,7 @@ RUN mv python python.orig \
    | (mkdir builtins; tar -C builtins -xf -)
 
 # Build the target image
-FROM kontain/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION}
+FROM kontainapp/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION}
 ENV PYTHONTOP=/home/$USER/cpython
 #
 # The following copies two sets of artifacts - objects needed to build (link) python.km,
