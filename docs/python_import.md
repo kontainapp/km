@@ -29,8 +29,6 @@ Our approach is to create application specific `cpython` builds that use the `Se
 
 **(Semi) automated way to add Modules** is documented in `payloads/python/extensions/README.md`
 
-## Customer1 Wish List
-
 ## flask https://github.com/pallets/flask
 
 Light-weight HTTP services (compared to Django)

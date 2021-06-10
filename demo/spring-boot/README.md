@@ -92,22 +92,7 @@ Same as before, the time difference between the first response and the server st
 `https://spring.io/guides/topicals/spring-boot-docker/`
 `https://medium.com/@sandhya.sandy/spring-boot-microservices-building-a-microservices-application-using-spring-boot-d9cbb96b9ed4`
 
-## Customer2 Notes
-
-Customer2 provided us with a simple Java application the requires a `postgres` database and a `redis`
-service. They provided two variations of the application, the first built with Spring Boot and the
-second built with Micronaut.
-
-Spring Boot: `https://github.com/CopadoSolutions/springboot-poc`
-
-`./gradlew bootRun` to test locally.
-
-`./gradlew bootJar` to build a self-contained jar file.
-Launch jar file with `java -jar build/libs/springboot-poc-0.0.1-SNAPSHOT.jar`.
-
-Micronaut: `https://github.com/CopadoSolutions/micronaut-poc`
-
-## For Both
+## Generic steps
 
 1. Pull `postgres` and `redis` from Docker Hub.
 2. Start `postgres`. `docker run --name my-postgres -e POSTGRES_PASSWORD=nopass -p 5432:5432 -d postgres`.

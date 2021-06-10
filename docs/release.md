@@ -40,7 +40,7 @@ Also:
 * `any tag starting with v` pushed to KM repo will trigger release pipeline.
 * km-releases installation script looks into `km-releases/default-release` to pick up release name to be installed by default.
 
-We recommend using unique tags, e.g. `v0.1-beta-demo-customer1` for manual uploads of anything we demo or give to people to try.
+We recommend using unique tags, e.g. `v0.1-beta-demo-customer` for manual uploads of anything we demo or give to people to try.
 
 ## How km-releases installation script picks up the release to install
 
