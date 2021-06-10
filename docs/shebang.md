@@ -169,7 +169,7 @@ _Note that Linux supports nested shebangs. At this point we don't support that, 
 
 With this approach so Km will not do no manipulation with passed payload name, other than the argv[0]-based approach described above.
 
-Note that this will require changing Nokia faktory and other places which current generate shebang files and are dependent on this
+Note that this will require changing code which currently generates shebang files and are dependent on this
 
 ## Snapshots
 

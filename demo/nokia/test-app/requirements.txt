@@ -1,6 +1,0 @@
-keras
-tensorflow
-flask
-gevent
-pillow
-requests
