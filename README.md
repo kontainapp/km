@@ -1,7 +1,7 @@
-KM master [![Github Actions Pipeline](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg)](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml)
+KM  [![Github Actions Pipeline](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg)](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml)
 [![Build Status for Normal CI](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=4&branchName=master)
-Nightly Build [![Build Status for Nightly CI](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km-nightly?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=5&branchName=master)
-KKM Master [![Build Status for KKM CI](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km-kkm?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=7&branchName=master)
+Nightly [![Build Status for Nightly CI](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km-nightly?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=5&branchName=master)
+KKM [![Build Status for KKM CI](https://dev.azure.com/kontainapp/KontainMonitor/_apis/build/status/kontainapp.km-kkm?branchName=master)](https://dev.azure.com/kontainapp/KontainMonitor/_build/latest?definitionId=7&branchName=master)
 
 # KM (Kontain Monitor) and related payloads for Kontain.app VMs
 
@@ -112,4 +112,4 @@ See the Debugging section of `docs/testing.md` for an introduction to debugging 
 
 ## CI/CD
 
-We use Azure DevOps pipelines. See [docs/azure_pipeline.md](docs/azure_pipeline.md)
+We use Azure DevOps pipelines (see [docs/azure_pipeline.md](docs/azure_pipeline.md)) but currently switching to GitHub Actions.
