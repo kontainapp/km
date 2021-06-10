@@ -1429,25 +1429,6 @@ static int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
    int worked;
    char temp[GDB_LIBRARY_DESC_LEN + PATH_MAX];
    char* libname = (char*)km_gva_to_kma((km_gva_t)kmap->l_name);
-   char dynlinker_absolute[PATH_MAX];
-   uint8_t is_dynlinker;
-
-   is_dynlinker = (strcmp(libname, KM_DYNLINKER_STR) == 0);
-   if (is_dynlinker != 0) {
-      if (km_dynlinker_file[0] != '/') {
-         if (getcwd(dynlinker_absolute, sizeof(dynlinker_absolute)) == NULL) {
-            km_info(KM_TRACE_GDB, "getcwd() failied");
-            return 1;
-         }
-         snprintf(&dynlinker_absolute[strlen(dynlinker_absolute)],
-                  sizeof(dynlinker_absolute) - strlen(dynlinker_absolute),
-                  "/%s",
-                  km_dynlinker_file);
-      } else {
-         snprintf(dynlinker_absolute, sizeof(dynlinker_absolute), "%s", km_dynlinker_file);
-      }
-   }
-
    if (lmargp->count == 0) {
       snprintf(temp,
                sizeof(temp),
@@ -1457,7 +1438,7 @@ static int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
       snprintf(temp,
                sizeof(temp),
                "  <library name=\"%s\" lm=\"%p\" l_addr=\"0x%lx\" l_ld=\"0x%lx\"/>\n",
-               is_dynlinker != 0 ? dynlinker_absolute : libname,
+               libname,
                gvap,
                kmap->l_addr,
                kmap->l_ld);
