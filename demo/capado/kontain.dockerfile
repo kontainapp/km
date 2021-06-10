@@ -1,4 +1,4 @@
-FROM kontain/runenv-jdk-11.0.8:latest
+FROM kontainapp/runenv-jdk-11.0.8:latest
 COPY springboot-poc-0.0.1-SNAPSHOT.jar springboot-poc-0.0.1-SNAPSHOT.jar
 COPY cmd.sh cmd.sh
 EXPOSE 9090/tcp

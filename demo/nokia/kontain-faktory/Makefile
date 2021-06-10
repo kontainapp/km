@@ -37,7 +37,7 @@ DOCKER_DIR := .dockerdir
 REPO := kontainstage.azurecr.io/nokia/ckaf
 CLIENT_REPO := kontainstage.azurecr.io/nokia/atg
 # prefix for target containers
-KONTAIN_REPO ?= kontain/nokia
+KONTAIN_REPO ?= kontainapp/nokia
 # source containers names in repo. Hardcoded per component, to simplify the Makefile
 Z_VERSION := zookeeper:2.0.0-3.4.14-2696
 K_VERSION := kafka:2.0.0-5.3.1-2696

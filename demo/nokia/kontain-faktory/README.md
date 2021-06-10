@@ -8,7 +8,7 @@ Typical sequence of commands:
 ```bash
 make login # login to Azure and Azure private registry
 make pull # One time, for pulling and tagging original images. Assumes login.
-make all  # same as 'make' - builds kontain/nokia-* images from the base ones
+make all  # same as 'make' - builds kontainapp/nokia-* images from the base ones
 make test # validate Kontainer with zookeeper .... just make sure it starts to listen
 ```
 

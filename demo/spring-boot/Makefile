@@ -78,7 +78,7 @@ test: clean/test
 clean/test:
 	$(call clean_container,${DEMO_CONTAINER})
 
-DEMO_IMAGE_REG := $(subst kontain/,$(REGISTRY)/,$(DEMO_IMAGE))
+DEMO_IMAGE_REG := $(subst kontainapp/,$(REGISTRY)/,$(DEMO_IMAGE))
 # note: to login, `make -C cloud/docker login' - see docs/how-twos/login-dockerhub.md
 publish-demo: ## publish to docker.io (requred login)
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \

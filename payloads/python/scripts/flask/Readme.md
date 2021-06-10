@@ -44,7 +44,7 @@ See `make help` for more info
 * In a container made 'FROM' the the source analyze content of the source image: python path, content of the folders, analyze imports
    * export needed files, generate shebang files, config for proper python.km build (version shared libs, etc..), cmd/env/entrypoint for target kontainer
 * build proper .km files (if needed)
-* FROM kontain/km (for docker) or scratch (for runk) create kontainer image, using exported files data created above
+* FROM kontainapp/km (for docker) or scratch (for runk) create kontainer image, using exported files data created above
 
 pieces:
 
