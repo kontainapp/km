@@ -27,8 +27,6 @@
 
 km_payload_t km_guest;
 km_payload_t km_dynlinker;
-static const const_string_t km_dynlinker_default = "/opt/kontain/lib64/libc.so";
-const char* km_dynlinker_file;   // could be set on command line, .interp ELF section, or default above
 
 static void my_mmap(int fd, void* buf, size_t count, off_t offset)
 {
@@ -158,14 +156,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
               interp_len,
               interp_adjust);
    }
-   if (strncmp(interp_kma, KM_DYNLINKER_STR, interp_len) != 0) {
-      // Use the dynamic linker in the .interp section
-      km_dynlinker_file = interp_kma;
-   } else if (km_dynlinker_file == NULL) {
-      // Use the dynamic linker mentioned on the command line
-      km_dynlinker_file = km_dynlinker_default;
-   }
-   km_dynlinker.km_filename = km_dynlinker_file;
+   km_dynlinker.km_filename = interp_kma;
 
    km_elf_t* e = km_open_elf_file(km_dynlinker.km_filename);
    km_gva_t base = km_mem_brk(0);
