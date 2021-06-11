@@ -467,7 +467,7 @@ make -C payloads runenv-image
 make -C payloads validate-runenv-image
 ```
 
-This builds `kontain/runenv-<payloads>` and run a test.
+This builds `kontainapp/runenv-<payloads>` and run a test.
 
 ### Run under Kubernetes
 
@@ -509,8 +509,8 @@ make push-demo-runenv-image
 
 ### CI/CD
 
-We use Azure Pipelines hooked into github for CI/CD. See
-`azure-pipelines.yml` for configuration and `azure-pipeline.md` doc for info,
+We use Gitgub Action for for CI/CD. See
+`.github/workflows/km-ci-workflow.yaml` for configuration and `ci_pipeline.md` doc for info,
 including FAQ (e.g how to run CI containers manually)
 
 ### Coverage
