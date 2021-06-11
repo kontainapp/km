@@ -14,7 +14,7 @@
 # Runs in cluster and expects /opt to be mounted and /dev/kvm available
 #
 # to sanity check offline:
-# docker run --device /dev/kvm -v /tmp/x:/opt:z --rm -it  kontain/runenv-kontain-installer
+# docker run --device /dev/kvm -v /tmp/x:/opt:z --rm -it  kontainapp/runenv-kontain-installer
 
 set -ex
 

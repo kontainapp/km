@@ -1,5 +1,5 @@
-Regular ![regular](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg?branch=master&event=push) 
-Nightly ![nighty](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg?branch=master&event=schedule) 
+Regular ![regular](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg?branch=master&event=push)
+Nightly ![nighty](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg?branch=master&event=schedule)
 
 # KM (Kontain Monitor) and related payloads for Kontain.app VMs
 
@@ -41,7 +41,7 @@ We use Visual Studio Code as recommended IDE; install it and use `code km_repo_r
 
 * Create a PR with `your-name/branch-name` branch. Try to give meaningful names, rather that "issueNN"
 * Make sure the code style is compliant with the rest (see next section)
-* Make sure you run `make test` before submitting. (this step will be optional once we add CI/CD)
+* Make sure you run `make test` before submitting.
   * optional - try `make withdocker DTYPE=ubuntu TARGET=test` to validate it is still good on Ubuntu
   * it is also a good idea to run `make coverage` to check if your new code is covered by tests
 * In the PR:
@@ -110,4 +110,7 @@ See the Debugging section of `docs/testing.md` for an introduction to debugging 
 
 ## CI/CD
 
-We use Azure DevOps pipelines (see [docs/azure_pipeline.md](docs/azure_pipeline.md)) but currently switching to GitHub Actions.
+We use GitHub Actions to control CI workflow, see .github/workflows for configuration.
+
+- The actual steps are all implemented in Make system in the repo, and can be used in any CI or manually - which is a recommended way to use them to troubleshoot CI steps.
+- The build is happending on CI machines. Test steps use resources from AWS, Azure and Azure Kubernetes Service to validate builds.

@@ -9,62 +9,33 @@ The purpose is to address two common use cases in development cycle:
 2. A developer creates a pull request in order to merge changes to master and this operation triggers the CI for all changes. The Azure CD pipeline is directly triggered from Github.
 
 
-## Azure Pipeline
+## GitHub Workflows
 
-The CI pipeline clones a km repo and runs a containerized build.
-It packages build results and tests artifacts into a docker image which is deployed
-on Kubernetes.
+The GitHub Workflows CI is fully configured by files in .github/workflows. See Github docs for more information.
+
+Build results are packaged into a docker image which is deployed
+to Kubernetes running on Azure.
 
 Tests are deployed as Kubernetes Pods. Pretty much all the work (build / test) is controlled via Makefiles, and the Pipeline just ties them together, and calls `kubectl` where needed to wait, clean up or print the results
 
 **IMPORTANT** We assume kubevirt KVM device plugin is running on Kubernetes (so /dev/kvm is available to containers) and that /dev/kvm has rw access for 'others'.
 
-One can navigate easily between tasks using Previous / Next task blue arrows on upper right corner.
-It is also possible to download the CI logs as text files.
-
 ### Outcome
 
 A test job run will have ONE of the following outcomes, either runs to completion if all tests passed OR times out.
 
-### Build triggers
-
-The CI/CD build pipeline has two types of triggers:
-
-```yaml
-trigger:        <<<<<<<<<<< CI triggers are defined here.
-- jme/tests
-pr:             <<<<<<<<<<< PR triggers are defined here.
-- master
-```
-
-In the above yaml
-
-A PR will trigger a build for pull requests targeting 'master' branch and subsequent updates to the PR.
-
-There is no need to specify source branches: The PR trigger specifies the target branch 'master'.
-
-Commits pushed to branch jme/tests will trigger the CI pipeline.
-
 ## Login
+
+There is no need for additional login to run or see and analyze  CI results. However for accessing backend Azure cluster, e.g. for specific pods troubleshooting, one needs to login to Azure.
 
 There are 2 way to login - interactive (`make -C cloud/azure login` and non-interactive (`make -C cloud/azure login-cli`).
 Please see `docs/build.md` **Login to Azure** section for more details
 
 ## FAQ
 
-### Test failures - where to find the details
+### How to run my own workflows
 
-If one or more tests fail the **run tests** task will error, and the log there will tell you what is the issue
-
-From github:
-
-* click on **Show all checks** then **Details**
-* then click on 'Errors' to get to the azure devOps build detailed logs
-
-### How to skip CI for individual commits
-
-Include [skip ci] in the commit message or description of the HEAD commit and Azure Pipelines will skip running CI.
-
+It's often useful to have your own workflows for debugging specific issues. You can create a new file in .github/workflows which only have CI steps you care about, and is triggered on push to your branch. Github will create a new pipeline and run it on each push to your branch.
 ### How to change CI script
 
 If you want changes to CI, you can edit script in your private branch and go through standard PR process
@@ -149,22 +120,18 @@ kubectl cp <pod_name>:/core/<specific_file_name> <local_core_name>
 
 ### Secrets and Pipeline variables
 
-We use service principal extensively in the azure pipeline. To pass the
-crendentials of existing service principals, we use the variables in azure
-pipeline. For example, you will see variables such as `SP_appId`,
-`SP_password`, `SP_tenant`, `SP_displayName`. These are set in the pipeline
-UI by design. For reference, follow this:
-https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables
-
+We use service principal extensively to access azure resources. We also use AWS and Github tokens.
+They are all configured in github Kontainapp Organzation Secrets and accessed as `${{ secret.xxx }}` in CI configuration.
 ## Nightly CI pipeline
 
 In addition to all the unit test we run in the normal CI pipeline, there are
-often tests that takes longer to run. We deploy these tests into a seperate
-nightly pipeline that is triggered at the midnight pacific time every night.
-Also the nightly pipeline will run on a fresh k8s cluster from Azure AKS. For
-details, take a look at `azure-pipelines-nightly.yml`
+additional tests that takes longer to run, e.g. full Node test suite.
+ They are configured in the same workflow, but only enabled if the workflow is started on schedule or manually (not on pull request).
+Full pass with long test is scheduled to run at the midnight pacific time every night.
 
-The nightly pipeline uses the `test-all-withk8s` targets. In the case when
+Also the nightly pipeline will run on a fresh k8s cluster from Azure AKS wich allows to test freshly built KM installation o n Kubernetes and using runenv on Kubernetes.
+
+The nightly pipeline uses the `test-all-withk8s` Make targets. In the case when
 there is no long running test, `test-all-withk8s` will defaults to the same
 test as `test-withk8s`. The script that drives these tests are under
 `cloud/azure/tests`. It also has a similar `test-all-withk8s-manual` target.
@@ -172,13 +139,7 @@ test as `test-withk8s`. The script that drives these tests are under
 As part of the nightly pipeline, there is a validation target
 `validate-runenv-withk8s`. This target uses the `demo-runenv-image`, which
 contains a sample application, to validate the runenv image. Since
-`runenv-image` contains absolutly the bare minimum, the image is not likely
-deployed to the k8s direcly in production. For some payloads such as Nginx or
+`runenv-image` contains absolutely the bare minimum, the image is not likely
+deployed to the k8s directly in production. For some payloads such as Nginx or
 the Demo Dweb application, the `runenv-image` and the `demo-runenv-image`
 will be the same, since the payload is the application itself.
-
-### Pull Request to change the nightly pipeline.
-
-Due to the time needed to run the nightly pipeline, it is not triggered
-automatically when PR or commits take place. After opening a PR, we should
-manually run the nightly pipeline to make sure everything looks OK.

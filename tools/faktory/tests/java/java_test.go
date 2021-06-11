@@ -134,7 +134,7 @@ func TestDocker(t *testing.T) {
 }
 
 func testKontain() error {
-	const BASE string = "kontain/runenv-jdk-11.0.8:latest"
+	const BASE string = "kontainapp/runenv-jdk-11.0.8:latest"
 	const TO string = "kontainapp/java-kontain-test/to:latest"
 	const TESTCONTAINER string = "faktory_test_docker"
 

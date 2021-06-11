@@ -47,7 +47,7 @@ We recommend using unique tags, e.g. `v0.1-beta-demo-customer` for manual upload
 km-releases installation script installs a release passed a the first argument. If the arg is empty, it extracts the release tag from `default-release` file expected to be present in the root dir for km-releases repo master brach. See `km-releases` repo for more info
 ## How to create a release
 
-You can create release by manually running `make release` or triggering CI release pipeline. Details below
+You can create release by manually running `make release` or (TBD) triggering CI release pipeline. Details below
 
 ### Manual steps to create a release
 
@@ -67,6 +67,8 @@ Steps
 
 Release ID and message can be overridden with RELEASE_TAG and RELEASE_MESSAGE passed to make.
 ### CI automation to create a release
+
+THIS SECTION IS OBSOLETE. See https://github.com/kontainapp/km/issues/1196
 
 We use existing Azure pipeline mechanism to generate releases.
 

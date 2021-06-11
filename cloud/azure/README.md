@@ -66,7 +66,7 @@ All targets assume `make login` succeded.
 
 ## Debugging CI
 
-To debug an issue that only happens on CI, we use launch a VM with the same kernel.
+To debug an issue that only happens on CI, we can launch a VM with the same kernel.
 
 ```bash
 # To create the VM. IP address will be printed.
