@@ -47,6 +47,7 @@ RUNENV_IMG_TAGGED := ${RUNENV_IMG}:${IMAGE_VERSION}
 
 # runenv demo image produce a demo based on the runenv image
 RUNENV_DEMO_IMG := kontainapp/demo-runenv-${COMPONENT}
+RUNENV_DEMO_IMG_TAGGED := ${RUNENV_DEMO_IMG}:${IMAGE_VERSION}
 
 # image names with proper registry
 TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(TEST_IMG))
@@ -66,7 +67,7 @@ TESTENV_PATH ?= .
 RUNENV_PATH ?= ${BLDDIR}
 RUNENV_DEMO_PATH ?= .
 
-TESTENV_EXTRA_FILES ?= ${KM_BIN} ${KM_LDSO}
+TESTENV_EXTRA_FILES += ${KM_BIN} ${KM_LDSO}
 testenv_prep = cp ${TESTENV_EXTRA_FILES} ${TESTENV_PATH}
 testenv_cleanup = rm $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}})
 
@@ -149,9 +150,9 @@ endif
 		${RUNENV_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"
 ifeq ($(shell test -e ${DEMO_RUNENV_DOCKERFILE} && echo -n yes),yes)
-	$(call clean_container_image,${RUNENV_DEMO_IMG}:${IMAGE_VERSION})
+	$(call clean_container_image,${RUNENV_DEMO_IMG_TAGGED})
 	${DOCKER_BUILD} \
-		-t ${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
+		-t ${RUNENV_DEMO_IMG_TAGGED} \
 		--build-arg runenv_image_version=${IMAGE_VERSION} \
 		-f ${DEMO_RUNENV_DOCKERFILE} \
 		${RUNENV_DEMO_PATH}
@@ -169,17 +170,17 @@ validate-runenv-image: ## Validate runtime image
 	tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
 	${DOCKER_RUN_TEST} \
 	${KM_DOCKER_VOLUME} \
-	${RUNENV_DEMO_IMG}:${IMAGE_VERSION} \
+	${RUNENV_DEMO_IMG_TAGGED} \
 	"$${tmp_bash_array[@]}" | grep "${RUNENV_VALIDATE_EXPECTED}"
 
 push-runenv-image:  runenv-image ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
-		IMAGE_VERSION="$(IMAGE_VERSION)"\
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(RUNENV_IMG):$(IMAGE_VERSION) TO=$(RUNENV_IMG_REG):$(IMAGE_VERSION)
 
 pull-runenv-image: ## pulls test image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
-		IMAGE_VERSION="$(IMAGE_VERSION)"\
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(RUNENV_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_IMG):$(IMAGE_VERSION)
 
 distro: runenv-image ## an alias for runenv-image
@@ -187,8 +188,8 @@ publish: push-runenv-image ## an alias for push-runenv-image
 
 push-demo-runenv-image: demo-runenv-image
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
-		IMAGE_VERSION="$(IMAGE_VERSION)"\
-		FROM=$(RUNENV_DEMO_IMG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
+		FROM=${RUNENV_DEMO_IMG_TAGGED} TO=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
 
 endif # ifeq (${NO_RUNENV},)
 

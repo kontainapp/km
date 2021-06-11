@@ -18,8 +18,6 @@ BUSYBOX_BRANCH ?= 1_33_1
 
 BUSYBOX_TOP :=  ${TOP}/payloads/busybox/busybox
 
-# KM monitor path
-KM_BIN=${TOP}/build/km/km
 PAYLOAD_KM := ${BUSYBOX_TOP}/_install/bin/busybox
 # image name, without repo and version tag
 PAYLOAD_IMAGE_SHORT_NAME := busybox-km
