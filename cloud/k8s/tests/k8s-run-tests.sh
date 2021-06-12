@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 #  Copyright © 2018-2020 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
@@ -13,10 +13,10 @@
 
 readonly PROGNAME=$(basename $0)
 readonly CURRENT=$(readlink -m $(dirname $0))
-readonly OP=$1
-readonly TEST_IMAGE=$2
-readonly TEST_NAME=$3
-readonly TEST_COMMAND=$4
+readonly OP="$1"
+readonly TEST_IMAGE="$2"
+readonly TEST_NAME="$3"
+readonly TEST_COMMAND="$4"
 
 # We the RUNTIME_DIR to store the final result from processing the template.
 # Using a /tmp directory so we can have a fresh record for every run.
@@ -90,7 +90,7 @@ function check_bin {
 }
 
 function prepare_template {
-    echo "Using runtime dir ${RUNTIME_DIR}"
+    echo Using runtime dir ${RUNTIME_DIR} TEST_NAME=${TEST_NAME} TEST_IMAGE=${TEST_IMAGE}, TEST_COMMAND="${TEST_COMMAND}"
     m4 \
         -D NAME="${TEST_NAME}" \
         -D IMAGE="${TEST_IMAGE}" \
