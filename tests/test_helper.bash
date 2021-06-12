@@ -72,28 +72,28 @@ test_type=${KM_TEST_TYPE:-static}
 case $test_type in
    static)
       ext=.km
-      port_range_start=14000
+      port_range_start=50000
       ;;
    dynamic)
       ext=.kmd
-      port_range_start=15000
+      port_range_start=51000
       ;;
    alpine_static)
       ext=.alpine.km
-      port_range_start=16000
+      port_range_start=52000
       ;;
    alpine_dynamic)
       ext=.alpine.kmd
-      port_range_start=17000
+      port_range_start=53000
       ;;
    so)
       ext=.km.so
-      port_range_start=18000
+      port_range_start=54000
       KM_LDSO_ARGS="${KM_LDSO} --library-path=${KM_LDSO_PATH}"
       ;;
    glibc_static)
       ext=.fedora
-      port_range_start=7000
+      port_range_start=55000
       ;;
    *)
       echo "Unknown test type: $test_type, should be 'static', 'dynamic', 'alpine_static', 'glibc_static', 'alpine_dynamic' or 'so'."
