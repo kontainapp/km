@@ -6,7 +6,6 @@ spec:
   containers:
     - name: NAME()
       image: IMAGE()
-      args: ARGS()
       imagePullPolicy: Always
       securityContext:
         privileged: false

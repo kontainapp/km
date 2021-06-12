@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -e
 #  Copyright © 2018-2020 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
@@ -16,7 +16,7 @@
 # to sanity check offline:
 # docker run --device /dev/kvm -v /tmp/x:/opt:z --rm -it  kontainapp/runenv-kontain-installer
 
-set -ex
+set -x
 
 device=/dev/kvm
 
