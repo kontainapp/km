@@ -11,17 +11,20 @@
 
 [ "$TRACE" ] && set -x
 
-readonly PROGNAME=$(basename $0)
-readonly CURRENT=$(readlink -m $(dirname $0))
+readonly PROGNAME=$(basename "$0")
+readonly CURRENT=$(readlink -m $(dirname "$0"))
 readonly OP="$1"
 readonly TEST_IMAGE="$2"
 readonly TEST_NAME="$3"
 readonly TEST_COMMAND="$4"
 
-# We the RUNTIME_DIR to store the final result from processing the template.
-# Using a /tmp directory so we can have a fresh record for every run.
+# script name for messages
+readonly self="$(basename ${BASH_SOURCE[0]})"
+
+# We generate spec from template and save it in a dedicated (to this test run) RUNTIME_DIR
 readonly RUNTIME_DIR=$(mktemp -d)
-readonly TEST_POD_TEMPLATE_NAME="test-pod-template.yaml"
+readonly POD_SPEC_TEMPLATE="test-pod-template.yaml"
+readonly POD_SPEC="${RUNTIME_DIR}/${POD_SPEC_TEMPLATE}"
 readonly POD_WAIT_TIMEOUT=${K8S_POD_WAIT_TIMEOUT:-5m}
 
 if [[ -z ${PIPELINE_WORKSPACE} ]]; then
@@ -33,13 +36,13 @@ function usage() {
     cat <<- EOF
 usage: $PROGNAME <OP> <TEST_IMAGE> <TEST_NAME> <TEST_COMMAND>
 
-Program is a helper to launch new tests on k8s cluster. Assume kubectl is
-already configured.
+A helper to launch tests on k8s cluster. Assumes kubectl is
+already configured to authenticate to the correct cluster.
 
 OP:
-    default                 Designed to run normal CI workflow.
-    manual                  Designed to run the test, but not clean up the testenv container.
-    err_no_cleanup          Designed to not clean up if there is error.
+    default                 Normal CI workflow - prepare pod, run tests, clean up pod
+    err_no_cleanup          Normal CI workflow, but do not clean up on error so it can be investigated
+    manual                  Prepare pod and tell use how to run the test
 
 Example:
 
@@ -57,11 +60,11 @@ function manual_usage {
     echo -e "Run bash in your pod '$pod_name' using '${GREEN}kubectl exec $pod_name -it -- bash${NOCOLOR}'"
     echo -e "Run tests inside your pod using '${GREEN}${TEST_COMMAND}${NOCOLOR}'"
     echo -e "When you are done, do not forget to '${GREEN}kubectl delete pod $pod_name${NOCOLOR}'"
-    echo -e "Note: Deployment spec is written to '${GREEN}${RUNTIME_DIR}${NOCOLOR}'"
+    echo -e "Note: Deployment spec is written to '${GREEN}${POD_SPEC}${NOCOLOR}'"
 }
 
 function process_op {
-    case $OP in
+    case "$OP" in
     "manual")
         readonly MANUAL=1
         ;;
@@ -78,42 +81,49 @@ function process_op {
 }
 
 function check_bin {
-    local bin_names=$@
-
-    for bin_name in $bin_names
-    do
-        if [[ ! -x $(command -v ${bin_name}) ]]; then
-            echo "Error: ${bin_name} is not installed"
-            exit 1
-        fi
-    done
+   for name in "$@"
+   do
+     if [[ ! -x $(command -v "${name}") ]]; then
+         echo "$self: Error: ${name} is not installed";
+         return 1
+    fi
+   done
 }
 
+
 function prepare_template {
-    echo Using runtime dir ${RUNTIME_DIR} TEST_NAME=${TEST_NAME} TEST_IMAGE=${TEST_IMAGE}, TEST_COMMAND="${TEST_COMMAND}"
+    echo $self: Generating ${POD_SPEC} with \
+         "TEST_NAME='${TEST_NAME}' TEST_IMAGE='${TEST_IMAGE}', TEST_COMMAND='${TEST_COMMAND}'"
     m4 \
         -D NAME="${TEST_NAME}" \
         -D IMAGE="${TEST_IMAGE}" \
-        ${CURRENT}/${TEST_POD_TEMPLATE_NAME} > ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME}
+        ${CURRENT}/${POD_SPEC_TEMPLATE} > ${POD_SPEC}
 }
 
 function cleanup_and_exit {
     local pod_name=$1
     local error=$2
 
+    echo "=== Run logs from pod/${pod_name}: error=$error"
     kubectl logs pod/${pod_name}
+    echo "==="
+
     if [[ $error != 0 ]]; then
-        kubectl describe pod ${pod_name}
-        kubectl get pod/${pod_name} -o json
+      echo "=== Failed run. Pod information:"
+      echo "=== describe pod:"
+      kubectl describe pod ${pod_name}
+      echo "=== get pod:"
+      kubectl get pod/${pod_name} -o json
+      echo "==="
+
     fi
 
-    if [[ $error != 0 ]] && [[ -n $ERR_NO_CLEANUP ]]; then
-        echo "Won't clean up on error"
-        exit $error
+    if [[ "$error" == 0  ||  "$ERR_NO_CLEANUP" != 1  ]] ; then
+      echo "$self: Cleaning up. Error=$error. ERR_NO_CLEANUP='$ERR_NO_CLEANUP'"
+      kubectl delete --wait=false -f ${POD_SPEC}
+      rm -rf ${RUNTIME_DIR}
     fi
 
-    kubectl delete -f ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME}
-    rm -rf ${RUNTIME_DIR}
     exit $error
 }
 
@@ -122,26 +132,30 @@ function main {
     check_bin kubectl m4
     prepare_template
 
-    local pod_name=$(kubectl create -f ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME} -o jsonpath='{.metadata.name}')
+    local pod_name # separate declaration to avoid masking failures
+    pod_name=$(kubectl create -f ${POD_SPEC} -o jsonpath='{.metadata.name}')
+    trap "cleanup_and_exit ${pod_name} 0" SIGINT
 
-    # For manual, we don't run the test automatically. Users can examine the
-    # testenv container manually.
-    if [[ -n $MANUAL ]]; then
+    # For manual mode, just tell user how
+    # to run the test and how to clean up the results.
+    if [[ "$MANUAL" == 1 ]]; then
         manual_usage $pod_name
         exit 0
     fi
 
+    # We assume pod takes non-zero time to run and will not complete before we enter this wait.
     kubectl wait pod/${pod_name} --for=condition=Ready --timeout=${POD_WAIT_TIMEOUT}
     local exit_code=$?
     if [[ $exit_code != 0 ]]; then
-        echo "Failed to launch test pod: ${RUNTIME_DIR}/${TEST_POD_TEMPLATE_NAME}"
+        echo "$self: Failed to launch pod. Timeout=${POD_WAIT_TIMEOUT}"
         cleanup_and_exit $pod_name $exit_code
     fi
 
+    echo "$self: Executing bash -c '${TEST_COMMAND}' in ${pod_name}..."
     kubectl exec ${pod_name} -- bash -c "${TEST_COMMAND}"
     local exit_code=$?
     if [[ $exit_code != 0 ]]; then
-        echo "Failed to run command: ${TEST_COMMAND}"
+        echo "$self: Failed to run command '${TEST_COMMAND}'"
     fi
     cleanup_and_exit $pod_name $exit_code
 }
