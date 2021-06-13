@@ -206,15 +206,11 @@ jobs:
     needs: [km-build, kkm-build]
     steps:
       - uses: actions/checkout@v2
-        with:
-          submodules: true
 
       - name: KM Test - on AWS with KKM
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_FEDORA_PASSWD: ${{ secrets.AWS_FEDORA_PASSWD }}
-          TRACE: true
         run:  make -C cloud/aws test
         timeout-minutes: 30
 
