@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 #
 # Copyright © 2019 Kontain Inc. All rights reserved.
 #
@@ -18,7 +18,7 @@ readonly CLUSTER_NAME=$1
 
 function usage() {
     cat <<- EOF
-usage: $PROGNAME <CLUSTER_NAME> 
+usage: $PROGNAME <CLUSTER_NAME>
 
 Program is a helper to launch new k8s cluster on aks.
 
@@ -30,7 +30,7 @@ function load_default_configs() {
 }
 
 function destroy() {
-    az aks delete -y --resource-group "${CLOUD_RESOURCE_GROUP}"  --name "${CLUSTER_NAME}" --output ${OUT_TYPE}
+    az aks delete --no-wait --yes --resource-group "${CLOUD_RESOURCE_GROUP}"  --name "${CLUSTER_NAME}" --output ${OUT_TYPE}
 }
 
 function main() {
