@@ -215,8 +215,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_FEDORA_PASSWD: ${{ secrets.AWS_FEDORA_PASSWD }}
           TRACE: true
-        # TODO: check if GITHUB_HEAD_REF covers tag tags
-        run: cloud/aws/kkm-regression.bash $GITHUB_HEAD_REF
+        run:  make -C cloud/aws test
         timeout-minutes: 30
 
   km-k8s-cluster:
