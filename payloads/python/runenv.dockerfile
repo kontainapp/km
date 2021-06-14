@@ -1,4 +1,4 @@
-ARG runenv_image_version=latest
+ARG RUNENV_IMAGE_VERSION=latest
 
-FROM kontainapp/runenv-busybox:${runenv_image_version}
+FROM kontainapp/runenv-busybox:${RUNENV_IMAGE_VERSION}
 COPY . /

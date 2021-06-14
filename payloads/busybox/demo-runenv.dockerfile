@@ -1,3 +1,3 @@
-ARG runenv_image_version=latest
-FROM kontainapp/runenv-busybox:${runenv_image_version}
+ARG RUNENV_IMAGE_VERSION=latest
+FROM kontainapp/runenv-busybox:${RUNENV_IMAGE_VERSION}
 CMD ["/bin/sh", "-c", "ls -l && echo Hello"]

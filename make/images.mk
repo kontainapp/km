@@ -144,7 +144,7 @@ ifdef runenv_prep
 endif
 	${DOCKER_BUILD} \
 		${RUNENV_IMAGE_EXTRA_ARGS} \
-		--build-arg runenv_image_version=${IMAGE_VERSION} \
+		--build-arg RUNENV_IMAGE_VERSION=${IMAGE_VERSION} \
 		-t ${RUNENV_IMG_TAGGED} \
 		-f ${RUNENV_DOCKERFILE} \
 		${RUNENV_PATH}
@@ -153,7 +153,7 @@ ifeq ($(shell test -e ${DEMO_RUNENV_DOCKERFILE} && echo -n yes),yes)
 	$(call clean_container_image,${RUNENV_DEMO_IMG_TAGGED})
 	${DOCKER_BUILD} \
 		-t ${RUNENV_DEMO_IMG_TAGGED} \
-		--build-arg runenv_image_version=${IMAGE_VERSION} \
+		--build-arg RUNENV_IMAGE_VERSION=${IMAGE_VERSION} \
 		-f ${DEMO_RUNENV_DOCKERFILE} \
 		${RUNENV_DEMO_PATH}
 	@echo -e "Docker image(s) created: \n$(GREEN)`docker image ls ${RUNENV_DEMO_IMG} --format '{{.Repository}}:{{.Tag}} Size: {{.Size}} sha: {{.ID}}'`$(NOCOLOR)"

@@ -1,6 +1,6 @@
-ARG runenv_image_version=latest
+ARG RUNENV_IMAGE_VERSION=latest
 
-FROM kontainapp/runenv-python:${runenv_image_version}
+FROM kontainapp/runenv-python:${RUNENV_IMAGE_VERSION}
 
 COPY scripts /scripts
 EXPOSE 8080
