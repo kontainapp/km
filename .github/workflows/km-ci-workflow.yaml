@@ -211,7 +211,13 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run:  make -C cloud/aws test
+        # Calculate correct branch name so we can pass it to AWS test, and call the test.
+        # For pull_request GITHUB_HEAD_REF has the branch name.
+        # For push and for schedule GITHUB_HEAD_REF is empty, but GITHUB_REF keeps refs/heads/<branch>
+        run:  |
+          set -x
+          branch="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          make -C cloud/aws test SOURCE_BRANCH="${branch?failed to find out branch name}"
         timeout-minutes: 30
 
   km-k8s-cluster:
