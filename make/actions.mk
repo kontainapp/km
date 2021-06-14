@@ -51,6 +51,7 @@ buildenv-image: subdirs ## builds and packages all build environment image
 buildenv-local-fedora: subdirs ## make local build environment for KM
 push-buildenv-image: subdirs ## Push buildenv images to a cloud registry. PROTECTED OPERATION.
 pull-buildenv-image: subdirs ## Pulls buildenv images from a cloud registry
+publish-buildenv-image: subdirs ## Publishes build environment images to dockerhub. Dockerhub login is assumed
 testenv-image: subdirs ## builds and packages testable image
 push-testenv-image: subdirs ## Push test images to a cloud registry. IMAGE_VERSION should provide image tag name
 pull-testenv-image: subdirs ## Pulls test images from a cloud registry. IMAGE_VERSION is mandatory. Used mainly in CI
@@ -60,7 +61,7 @@ pull-runenv-image: subdirs ## Pulls runtime images from a cloud registry. IMAGE_
 publish-runenv-image: subdirs ## Publishes runtime images to dockerhub. Dockerhub login is assumed
 validate-runenv-image: subdirs ## Runs basic validation command for runtime image
 demo-runenv-image: subdirs ## builds a demo image based off runenv-image
-push-demo-runenv-image: subdirs ## push runtime demo images to cloud registry. IMAGE_VERSION can be used used to modify tag name
+push-demo-runenv-image: subdirs ## push runtime demo images to cloud registry with multiple release tags. IMAGE_VERSION can be used used to modify tag name
 validate-runenv-withk8s: subdirs ##
 test-withdocker: subdirs ##
 test-all-withdocker: subdirs ## build all and run KM and payload tests
