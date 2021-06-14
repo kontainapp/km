@@ -295,3 +295,23 @@ jobs:
 #   - name: Kick off release pipeline to build and upload release v0.1-edge
 #     run: make edge-release GITHUB_TOKEN=$(GITHUB_TOKEN)
 #     timeout-minutes: 5
+
+  slack-workflow-status:
+    name: Notify slack, if needed
+    runs-on: ubuntu-latest
+    # 'contains' shows how to add conditions, e.g. on workflow 'name:', or many other contexts.
+    # see https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
+    if: (failure() && github.ref == 'refs/heads/master') ||
+      contains(github.workflow, 'noisy')
+    # Dependencies. (A skipped dependency is considered satisfied)
+    needs: [km-test, kkm-test, kkm-test-aws, km-test-all]
+    steps:
+      - name: Send notification to slack
+        uses: Gamesight/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          include_jobs: true
+          channel: '#build_and_test'
+          name: 'CI workflow status'
+          icon_emoji: ':poop:'
