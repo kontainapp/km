@@ -109,14 +109,12 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 	@if [ -z "$(FROM)" -o -z "$(TO)" ] ; then echo Missing params FROM or TO, exiting; false; fi
 	docker tag $(FROM) $(TO)
 	docker push $(TO)
-	docker rmi $(TO)
 
 .pull-image:
 	@echo -e "$(CYAN)Do not forget to login to azure using 'make -C GIT_TOP/cloud/azure login'$(NOCOLOR)"
 	@if [ -z "$(FROM)" -o -z "$(TO)" ] ; then echo Missing params FROM or TO, exiting; false; fi
 	docker pull $(FROM)
 	docker tag $(FROM) $(TO)
-	docker rmi $(FROM)
 	@echo -e "Pulled image ${GREEN}${TO}${NOCOLOR}"
 
 # Build env image push. For this target to work, set FORCE_BUILDENV_PUSH to 'force'. Also set IMAGE_VERSION
@@ -287,7 +285,8 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
 	sudo sh -c "mkdir -p $@ && chgrp users $@ && chmod 777 $@"
 
-RELEASE_REG := docker.io/kontainapp
+DOCKER_REG ?= docker.io
+RELEASE_REG = ${DOCKER_REG}/kontainapp
 publish-runenv-image:
 	for tag in ${RELEASE_TAG} ; do \
 		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
@@ -297,6 +296,14 @@ publish-runenv-image:
 			IMAGE_VERSION="$(IMAGE_VERSION)"\
 			FROM=$(RUNENV_IMG_TAGGED) TO=$(RELEASE_REG)/runenv-$$tag:${SRC_SHA}; \
 	done
+
+publish-buildenv-image:
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)"\
+		FROM=$(BUILDENV_IMG_TAGGED) TO=$(DOCKER_REG)/$(BUILDENV_IMG_TAGGED); \
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)"\
+		FROM=$(BUILDENV_IMG_TAGGED) TO=$(DOCKER_REG)/$(BUILDENV_IMG):${SRC_SHA}; \
 
 .DEFAULT:
 	@echo $(notdir $(CURDIR)): ignoring target '$@'
