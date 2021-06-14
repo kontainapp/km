@@ -65,35 +65,35 @@ fi
 #
 # We also use this to set port range for different test types to allow for parallel testing.
 # E.g. gdb or http tests require a port, and it need to be unique so parallel tests
-# do not step on each other. We set a range of 1000 ports per test type (500 for KVM and 500 for KKM),
-# give range start here, per test type, adjust for virt if needed and then within km_core_tests.bats will assign offset per test which needs a port
+# do not step on each other. We start from some arbirarty port and set a range of 1000 ports per test type
+# (500 for KVM and 500 for KKM), and then within km_core_tests.bats will assign offset in tests which need a port
 test_type=${KM_TEST_TYPE:-static}
 
 case $test_type in
    static)
       ext=.km
-      port_range_start=50000
+      port_range_start=14777
       ;;
    dynamic)
       ext=.kmd
-      port_range_start=51000
+      port_range_start=15777
       ;;
    alpine_static)
       ext=.alpine.km
-      port_range_start=52000
+      port_range_start=16777
       ;;
    alpine_dynamic)
       ext=.alpine.kmd
-      port_range_start=53000
+      port_range_start=17777
       ;;
    so)
       ext=.km.so
-      port_range_start=54000
+      port_range_start=18777
       KM_LDSO_ARGS="${KM_LDSO} --library-path=${KM_LDSO_PATH}"
       ;;
    glibc_static)
       ext=.fedora
-      port_range_start=55000
+      port_range_start=19777
       ;;
    *)
       echo "Unknown test type: $test_type, should be 'static', 'dynamic', 'alpine_static', 'glibc_static', 'alpine_dynamic' or 'so'."
