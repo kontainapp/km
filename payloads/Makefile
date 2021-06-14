@@ -12,7 +12,11 @@
 # Basic build for kontain payloads
 
 # scan all these and  'make' stuff there
-SUBDIRS := busybox demo-dweb python node java
+SUBDIRS := busybox dynamic-base demo-dweb python node java
+
+demo-dweb python node dynamic-base: busybox
+
+java: dynamic-base
 
 # Filter out 'make test' requests' to assure that 'make test' only builds/tests KM.
 # If payload needs to be tested, use 'make test-all'

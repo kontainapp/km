@@ -1,6 +1,6 @@
-ARG runenv_image_version=latest
+ARG RUNENV_IMAGE_VERSION=latest
 
-FROM kontainapp/runenv-node:${runenv_image_version}
+FROM kontainapp/runenv-node:${RUNENV_IMAGE_VERSION}
 
 COPY scripts /scripts/
 COPY docker-entrypoint.sh .

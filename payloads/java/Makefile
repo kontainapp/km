@@ -42,7 +42,7 @@ FROMSRC=$(shell test -d $(JDK_VERSION)/.git && echo yes)
 
 # config for image validation
 RUNENV_VALIDATE_DIR := scripts
-RUNENV_VALIDATE_CMD := ("-cp" "/scripts" "Hello")
+RUNENV_VALIDATE_CMD := ("/opt/kontain/java/bin/java" "-cp" "/scripts" Hello)
 RUNENV_VALIDATE_EXPECTED := Hello, World!
 RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 	scripts/SimpleHttpServer.class \
@@ -51,10 +51,9 @@ RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 
 # runenv-image configs
 export define runenv_prep
-	mkdir -p ${BLDDIR}/java && cp --recursive --preserve=all ${JDK_BUILD_DIR}/images/jdk/* ${BLDDIR}/java
-	mkdir -p ${BLDDIR}/runtime && cp --preserve=all ${KM_RT}/*.so $$_
+	mkdir -p ${RUNENV_PATH} && cp --recursive --preserve=all ${JDK_BUILD_DIR}/images/jdk/* ${RUNENV_PATH}
+	mv ${RUNENV_PATH}/bin/java.kmd ${RUNENV_PATH}/bin/java
 endef
-
 
 include ${TOP}/make/images.mk
 
