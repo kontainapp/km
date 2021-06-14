@@ -206,17 +206,18 @@ jobs:
     needs: [km-build, kkm-build]
     steps:
       - uses: actions/checkout@v2
-        with:
-          submodules: true
 
       - name: KM Test - on AWS with KKM
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_FEDORA_PASSWD: ${{ secrets.AWS_FEDORA_PASSWD }}
-          TRACE: true
-        # TODO: check if GITHUB_HEAD_REF covers tag tags
-        run: cloud/aws/kkm-regression.bash $GITHUB_HEAD_REF
+        # Calculate correct branch name so we can pass it to AWS test, and call the test.
+        # For pull_request GITHUB_HEAD_REF has the branch name.
+        # For push and for schedule GITHUB_HEAD_REF is empty, but GITHUB_REF keeps refs/heads/<branch>
+        run:  |
+          set -x
+          branch="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          make -C cloud/aws test SOURCE_BRANCH="${branch?failed to find out branch name}"
         timeout-minutes: 30
 
   km-k8s-cluster:
