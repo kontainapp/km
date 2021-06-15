@@ -24,6 +24,11 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
 
 #include "greatest/greatest.h"
 #include "syscall.h"
@@ -434,6 +439,55 @@ TEST test_sa_resethand()
    PASS();
 }
 
+TEST test_sigttou()
+{
+   int tty = tty = open("/dev/tty", O_RDWR | O_CLOEXEC, 0);
+   ASSERT_NEQ(tty, -1);
+   pid_t child = fork();
+   if (child != 0) {
+      // we are the parent
+      ASSERT_NEQ(child, -1);
+
+      // wait for the child to exit.
+      int wstatus;
+      pid_t reaped_pid = wait4(child, &wstatus, 0, NULL);
+      fprintf(stderr, "parent: reaped_pid %d, errno %d, expected pid %d, wstatus 0x%x\n", reaped_pid, errno, child, wstatus);
+      ASSERT_EQ(reaped_pid, child);
+      ASSERT_NEQ(WIFEXITED(wstatus), 0);
+      ASSERT_EQ(WEXITSTATUS(wstatus), 0);
+      PASS();
+   } else {
+      /*
+       * we are the child.  We can't use the "greatest" primitives in the child.
+       * We just abort() on error and the parent sees the child died and that will
+       * fail the test.
+       * The child process must block the SIGTTOU signal before calling tcsetpgrp()
+       * (and km must tell the kernel this signal is blocked) to prevent the child
+       * process from being stopped as a result of making the tcsetpgrp() call.
+       * This is a basic smoke test for problems we were seeing when starting a shell
+       * in a container.  Any command run from the shell would be put into background.
+       */
+
+      // Child is in its own process group.
+      int rc = setpgid(0, 0);
+      fprintf(stderr, "child: setpgid returned rc %d, errno %d\n", rc, errno);
+      assert(rc == 0);
+
+      // Block SIGTTOU
+      void* rcp = signal(SIGTTOU, SIG_IGN);
+      fprintf(stderr, "child: signal returned rcp %p, errno %d\n", rcp, errno);
+      assert(rcp != SIG_ERR);
+
+      // Assign the tty to our process group
+      rc = tcsetpgrp(tty, getpid());
+      fprintf(stderr, "child: tcsetpgrp rc %d, errno %d\n", rc, errno);
+      assert(rc == 0);
+
+      // success
+      exit(0);
+   }
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
@@ -458,6 +512,7 @@ int main(int argc, char** argv)
    RUN_TEST(test_floating_point_restore);
    RUN_TEST(test_no_restorer);
    RUN_TEST(test_sa_resethand);
+   RUN_TEST(test_sigttou);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)

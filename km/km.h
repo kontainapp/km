@@ -226,6 +226,8 @@ void km_write_sregisters(km_vcpu_t* vcpu);
 void km_read_xcrs(km_vcpu_t* vcpu);
 void km_write_xcrs(km_vcpu_t* vcpu);
 
+void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext);
+
 void km_hcalls_init(void);
 void km_hcalls_fini(void);
 
