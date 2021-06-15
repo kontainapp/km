@@ -50,6 +50,26 @@ that reason, the rest of this document will talk about OpenCL.
 
 ## OpenCL
 
+OpenCL is a "open" standard for accessing the capabilities of off-board computing devices like GPUs. OpenCL consists
+of a host API for controlling these devices, and one or more programming languages for writing device kernel functions.
+A architectural desciption of OpenCL can be found here:
+https://www.khronos.org/registry/OpenCL/specs/3.0-unified/html/OpenCL_API.html#_the_opencl_architecture
+
+OpenCL was originally created by Apple, but was spun off to a non-profit called Khronos group. OpenCL 1.x
+offred the host API's and a single kernel programming langauge based on C. OpenCL 1.x was picked up widely and
+today OpenCL 1.2 is supported by most commercial GPU vendors including NVIDIA, AMD, and Intel.
+
+OpenCL 2.x added features and support for a C++ based langauge for kernels. Adoption of OpenCL 2.x was spotty and
+led to a lot of "OpenCL is dead" talk.
+
+Recently OpenCL 3.0 was released. In OpenCL 3.0, everything in OpenCL 1.2 is mandatory but things from OpenCL 2.x
+and any new OpenCL 3.x features are optional. Significantly, the OpenCL 2.x C++ kernel langauge is depricated and
+a new C++ kernel language introduced.
+
+Ironically, in the meantime Apple dropped support for OpenCL.
+
+None of this means that OpenCL is dead. OpenCL 1.2 and the C based kernel langauge appears to be very much alive.
+
 <Pretty rough from here out>
 
 OpenCL supports multiple GPU devices including 
