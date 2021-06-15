@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [ master ]
     paths-ignore:
-      - README.md
+      - ./*.md
       - compile_commands.json
       - .vscode/*
       - docs/*
@@ -12,7 +12,7 @@ on:
   push:
     branches: [ master ]
     paths-ignore:
-      - README.md
+      - ./*.md
       - compile_commands.json
       - .vscode/*
       - docs/*
