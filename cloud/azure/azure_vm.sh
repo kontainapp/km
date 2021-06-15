@@ -9,7 +9,8 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
-# Wrapper script to launch VM for debugging purposes.
+# A helper script to launch VM for debugging purposes.
+#
 set -e ; [ "$TRACE" ] && set -x
 
 readonly PROGNAME=$(basename $0)
@@ -23,7 +24,7 @@ readonly ADMIN=${ADMIN:-"kontain"}
 readonly VM_SIZE=${VMSIZE:-${K8S_NODE_INSTANCE_SIZE}}
 # See list: az vm image list --output table
 readonly DEFAULT_VM="Canonical:UbuntuServer:18.04-LTS:latest"
-readonly VM_IMAGE=${VM_IMAGE:-${DEFAULT_VM}}
+readonly VM_IMAGE=${3:-${VM_IMAGE:-${DEFAULT_VM}}}
 readonly QUERY='{ IP:publicIps, FQDN:fqdns, Type:hardwareProfile.vmSize , Power:powerState }'
 
 function usage() {
@@ -32,15 +33,21 @@ usage: $PROGNAME <OP> <VM_NAME>
 
 Program is a helper to launch new azure vm.
 
-Options:
-    RESOURCE_GROUP          default: ${USER}-rg
-    ADMIN                   default: kontain
-    VM_SIZE                 default: ${K8S_NODE_INSTANCE_SIZE}
-    VM_IMAGE                default: ${DEFAULT_VM}
+OPS:
+  start|stop|deallocate|ip|create vm-name [image] - operation on a vm
+  ls - list all vms in the account (sans Kubernetes node pool)
+
+
+Options (pass as env. vars):
+    RESOURCE_GROUP         Resource group. default: ${USER}-RESOURCE_GROUP
+    ADMIN      Admin user. default: kontain
+    VM_SIZE    Vm size (type). default: ${K8S_NODE_INSTANCE_SIZE}
+    VM_IMAGE   Base image to use. Same as passing extra aRESOURCE_GROUP. default: ${DEFAULT_VM}
 EOF
     exit 1
 }
 
+set -x
 case $OP in
     create)
         az vm create \
@@ -53,7 +60,7 @@ case $OP in
             --query "${QUERY}" \
             --output tsv
         ;;
-    ls)
+    ip)
         az vm show \
             --show-details \
             --resource-group ${RESOURCE_GROUP} \
@@ -61,6 +68,9 @@ case $OP in
             --query "${QUERY}" \
             -o tsv
         ;;
+    ls)
+      az vm list -o table -d
+      ;;
     start|stop|deallocate)
         az vm $OP \
             --no-wait \

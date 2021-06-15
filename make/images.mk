@@ -179,7 +179,7 @@ push-runenv-image:  runenv-image ## pushes image.
 pull-runenv-image: ## pulls test image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
-		FROM=$(RUNENV_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_IMG):$(IMAGE_VERSION)
+		FROM=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_TAGGED)
 
 distro: runenv-image ## an alias for runenv-image
 publish: push-runenv-image ## an alias for push-runenv-image
@@ -256,6 +256,44 @@ validate-runenv-withk8s: .check_vars
 	${K8S_RUN_VALIDATION} "${VALIDATION_K8S_IMAGE}" "${VALIDATION_K8S_NAME}" "$$json_array" "${RUNENV_VALIDATE_EXPECTED}"
 
 endif # ifeq (${NO_RUNENV}, false)
+
+# Tests with PACKER
+# Tests with packer. For now force then to run with KKM
+#
+# We can add /dev/kvm on azure only (pass `-only azure-arm.km-test'` and /dev/kvm for hypervisor)
+#
+# Pass DIR env to change where the tests are running
+
+# Example:
+# make -C tests/ validate-runenv-image-withpacker IMAGE_VERSION=ci-208 HYPERVISOR_DEVICE=/dev/kkm DIR=payloads
+
+PACKER_BUILD = time packer build \
+	-var src_branch=${SRC_BRANCH} -var image_version=${IMAGE_VERSION}
+
+DIR ?= tests
+
+ifeq (${HYPERVISOR_DEVICE},/dev/kvm)
+PACKER_ONLY ?= -only azure-arm.km-test
+endif
+
+test-withpacker test-all-withpacker validate-runenv-image-withpacker: .packer_dep ## Test with packer
+	cd ${TOP}/tests ; ${PACKER_BUILD} -var target=$(subst -withpacker,,$@) \
+		-var dir=${FROMTOP} -var hv_device=${HYPERVISOR_DEVICE} $(PACKER_ONLY) packer/km-test.pkr.hcl
+
+# Note: Currently we pull testenv or runenv images for testing in a remote VM
+#  so we need to know IMAGE_VERSION for a pull
+.packer_dep: .check_tools .check_test_image_version
+.check_tools: # check if packer is installed and is the correct one
+	@if ! command -v packer; then \
+		echo -e "${RED}Packer (https://www.packer.io/) is not found. Please install it first${NOCOLOR}" ; \
+		false; \
+	fi
+	@if [ "$$(basename $$(realpath $$(which packer)))" != "packer" ] ; then \
+		echo -e "${RED}Packer is found as '$$(which packer)', but seems to be fake. Please check https://www.packer.io/ is installed and is in the PATH${NOCOLOR}" ; echo \
+		false; \
+	fi
+
+# === BUILDENV LOCAL
 
 ${BLDDIR}:
 	mkdir -p ${BLDDIR}

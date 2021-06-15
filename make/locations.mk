@@ -19,8 +19,17 @@ endif
 
 # this is the path from the TOP to current dir. Note this has a trailing /
 FROMTOP := $(shell git rev-parse --show-prefix)
-# Current branch and SHA(for making different names unique per branch, e.g. Docker tags)
+
+# Current branch. Note that on Github merges the branch name is in
+# GITHUB_HEAD_REF, and current branch is refs/merge/pr-id.
+# IN all other cases we extract branch namee from git rev-parse
+# on GTHUB PullRequests (and push )
+ifneq (${GITHUB_HEAD_REF},)
+SRC_BRANCH ?= ${GITHUB_HEAD_REF}
+else
 SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
+endif
+# current SHA, to be saved for 'km -v' uniquiness
 SRC_SHA ?= $(shell git rev-parse HEAD)
 
 PATH := $(abspath ${TOP}/tools/bin):${PATH}
@@ -136,7 +145,7 @@ BUILDENV_IMAGE_VERSION ?= latest
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
 # regexp for targets which should not try to build dependencies (.d)
-NO_DEPS_TARGETS := (clean|clobber|.*-image|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|coverage-withk8s|upload-coverage)
+NO_DEPS_TARGETS := (clean|clobber|.*-image|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|coverage-withk8s|upload-coverage|vm-images|.*-withpacker)
 NO_DEPS_TARGETS := ${NO_DEPS_TARGETS}( ${NO_DEPS_TARGETS})*
 # colors for pretty output. Unless we are in Azure pipelines
 ifeq (${PIPELINE_WORKSPACE},)

@@ -9,7 +9,6 @@
 #   Kontain Inc.
 
 TOP := $(shell git rev-parse --show-toplevel)
-CURRENT_DIR := ${TOP}/tests
 COMPONENT := km
 
 NO_RUNENV = true
@@ -166,7 +165,7 @@ ifneq ($(no_deps),match)
 -include ${DEPS}
 endif
 
-COVERAGE_SCRIPT := ${CURRENT_DIR}/scripts/coverage.sh
+COVERAGE_SCRIPT := ${CURDIR}/scripts/coverage.sh
 COVERAGE_REPORT_TITLE := ${IMAGE_VERSION}
 test-coverage:
 	${COVERAGE_TEST_CMD}

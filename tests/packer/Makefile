@@ -6,17 +6,14 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-SOURCE_BRANCH ?= $(SRC_BRANCH)
-IMAGE_VERSION ?= latest
-
 LOG ?= 0
 PACKER_BUILD = PACKER_LOG=${LOG} time packer build
 
 test: .check_tools .check_test_image_version ## Test KKM build on AWS using Hashicorp Packer
 	${PACKER_BUILD} \
-		--var source_branch=${SOURCE_BRANCH} \
+		--var src_branch=${SRC_BRANCH} \
 		--var image_version=${IMAGE_VERSION} \
-		kkm-test.pkr.hcl
+		km-test.pkr.hcl
 
 .check_tools:
 	@if ! command -v packer; then \
