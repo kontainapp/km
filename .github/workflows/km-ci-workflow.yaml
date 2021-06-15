@@ -3,19 +3,20 @@ on:
   pull_request:
     branches: [ master ]
     paths-ignore:
-      - ./*.md
+      # See https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
+      - '**.md'       # all .md files in repo
+      - '**/docs/**'  # all content of all docs/ dirs in repo
       - compile_commands.json
-      - .vscode/*
-      - docs/*
+      - .vscode/**
       - km-releases
       - payloads/longhaul-test/*
   push:
     branches: [ master ]
     paths-ignore:
-      - ./*.md
+      - '**.md'       # all .md files in repo
+      - '**/docs/**'  # all content of all docs/ dirs in repo
       - compile_commands.json
-      - .vscode/*
-      - docs/*
+      - .vscode/**
       - km-releases
       - payloads/longhaul-test/*
   schedule:
