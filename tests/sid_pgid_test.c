@@ -100,8 +100,12 @@ TEST pgid_test(void)
    ASSERT_NEQ(-1, pgid);
    fprintf(stdout, "getpid()'s pgid is %d\n", pgid);
 
+   // Get an invalid pid.
+   pid_t invalid_pid = get_pid_max();
+   ASSERT_NEQ(-1, invalid_pid);
+
    // get pgid using an invalid process id
-   pgid = getpgid(7777);
+   pgid = getpgid(invalid_pid);
    ASSERT_EQ(-1, pgid);
    ASSERT_EQ(ESRCH, errno);
 
