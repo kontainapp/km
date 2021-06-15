@@ -18,7 +18,7 @@ PAYLOAD_IMAGE_SHORT_NAME := dynamic-base
 PAYLOAD_NAME := Dynamic-base
 PAYLOAD_FILES := -C /opt/kontain/ --exclude '*.a' runtime
 # Command to run tests in testenv-image container:
-CONTAINER_TEST_CMD := ./km hello_test.kmd Hello "The One"
+CONTAINER_TEST_CMD := ./km hello_test.kmd Hello 'The One'
 CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD}
 TESTENV_EXTRA_FILES := ${TOP}/tests/hello_test.kmd
 

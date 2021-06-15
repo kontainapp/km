@@ -151,7 +151,7 @@ function main {
         cleanup_and_exit $pod_name $exit_code
     fi
 
-    echo "$self: Executing bash -c '${TEST_COMMAND}' in ${pod_name}..."
+    echo "$self: kubectl exec  ${pod_name} -- bash -c \"${TEST_COMMAND}\""
     kubectl exec ${pod_name} -- bash -c "${TEST_COMMAND}"
     local exit_code=$?
     if [[ $exit_code != 0 ]]; then
