@@ -441,12 +441,18 @@ TEST test_sa_resethand()
 
 TEST test_sigttou()
 {
-   int tty = tty = open("/dev/tty", O_RDWR | O_CLOEXEC, 0);
-   ASSERT_NEQ(tty, -1);
+   int tty = open("/dev/tty", O_RDWR | O_CLOEXEC, 0);
+   if (tty < 0) {
+      // No tty's so we can't test this.
+      fprintf(stderr, "Can't open /dev/tty, %s, skipping this test\n", strerror(errno));
+      SKIP();
+   }
    pid_t child = fork();
    if (child != 0) {
       // we are the parent
       ASSERT_NEQ(child, -1);
+
+      close(tty);
 
       // wait for the child to exit.
       int wstatus;
@@ -482,6 +488,8 @@ TEST test_sigttou()
       rc = tcsetpgrp(tty, getpid());
       fprintf(stderr, "child: tcsetpgrp rc %d, errno %d\n", rc, errno);
       assert(rc == 0);
+
+      close(tty);
 
       // success
       exit(0);
