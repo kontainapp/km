@@ -24,14 +24,13 @@ device=/dev/kvm
 [ -e $device ] || (echo Missing access to $device  ; false)
 
 mkdir -p /opt/kontain
-rm -rf /opt/kontain/*
-cp -r /kontain/* /opt/kontain/
+rm -rf /opt/kontain/bin
+cp -r /kontain/bin /opt/kontain/bin/
 # non-privileged containers using kvm device plugin needs access
 chmod 666 /dev/kvm
 
 echo Validating files presense...
 [ -x /opt/kontain/bin/km ] || (echo Missing KM ; false)
-[ -f /opt/kontain/runtime/libc.so ] || (echo Missing libc.so ; false)
 
 echo Installed KM version:
 /opt/kontain/bin/km -v 2>& 1

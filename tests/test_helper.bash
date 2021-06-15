@@ -41,16 +41,6 @@ PREFIX=/opt/kontain
 RT=${PREFIX}/runtime
 LC=${PREFIX}/alpine-lib/usr/lib
 
-# Note: the /opt/kontain/runtime/libc.so is hardcoded in GDB support, so when using
-# from other locations some shared lib GDB files location may break
-if [ -z "$KM_LDSO" ] ; then
-   KM_LDSO=${RT}/libc.so
-fi
-
-if [ -z "$KM_LDSO_PATH" ] ; then
-   KM_LDSO_PATH=${RT}:${LC}
-fi
-
 if [ -z "$TIME_INFO" ] ; then
    echo "Please make sure TIME_INFO env is defined and points to a file. We will put detailed timing info there">&3
    exit 10
@@ -89,7 +79,6 @@ case $test_type in
    so)
       ext=.km.so
       port_range_start=18777
-      KM_LDSO_ARGS="${KM_LDSO} --library-path=${KM_LDSO_PATH}"
       ;;
    glibc_static)
       ext=.fedora
@@ -147,7 +136,6 @@ function km_with_timeout () {
             __args="$__args $1"
             ;;
          *$ext)
-            __args="$__args ${KM_LDSO_ARGS}"
             break
             ;;
          *)

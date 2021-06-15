@@ -148,7 +148,7 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 	./link-km.sh ${JDK_BUILD_DIR}
 
 
-JAVA_LD_PATH := ${CURDIR}/${JAVA_DIR}/lib/server:${CURDIR}/${JAVA_DIR}/lib/jli:${CURDIR}/${JAVA_DIR}/lib:/opt/kontain/runtime:/lib64
+JAVA_LD_PATH := ${CURDIR}/${JAVA_DIR}/lib/server:${CURDIR}/${JAVA_DIR}/lib/jli:${CURDIR}/${JAVA_DIR}/lib:/opt/kontain/runtime
 test: ${RUNENV_VALIDATE_DEPENDENCIES} api test_java.bats ## Basic test run
 	JAVA_DIR=${CURDIR}/${JAVA_DIR} JAVA_LD_PATH=${JAVA_LD_PATH} BLDDIR=${BLDDIR} \
 		${TOP}/tests/run_bats_tests.sh --km=${KM_BIN} \

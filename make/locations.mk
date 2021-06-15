@@ -48,8 +48,6 @@ KM_OPT_LIB := ${KM_OPT}/lib
 KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
 KM_LDSO := ${BLDTOP}/runtime/libc.so
-KM_LDSO_PATH := ${KM_OPT_RT}:${KM_OPT_ALPINELIB}/usr/lib
-
 
 # Build with code coverage if BLDTYPE set to this.
 COV_BLDTYPE := coverage

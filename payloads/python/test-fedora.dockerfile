@@ -27,7 +27,7 @@ WORKDIR ${PHOME}
 COPY --chown=appuser:appuser scripts scripts/
 COPY --chown=appuser:appuser test_snapshot.py test_snapshot.py
 COPY --chown=appuser:appuser cpython/pybuilddir.txt cpython/
-COPY --chown=appuser:appuser km libc.so cpython/python.km cpython/python.kmd test_unittest.py ./
+COPY --chown=appuser:appuser km cpython/python.km cpython/python.kmd test_unittest.py ./
 COPY --chown=appuser:appuser cpython/Modules cpython/Modules/
 COPY --chown=appuser:appuser cpython/Lib cpython/Lib/
 # TODO: construct path names once, instread of hardcoding them here

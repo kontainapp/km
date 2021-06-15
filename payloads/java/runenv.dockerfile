@@ -15,5 +15,5 @@ ARG RUNENV_IMAGE_VERSION=latest
 FROM kontainapp/demo-runenv-dynamic-base:${RUNENV_IMAGE_VERSION}
 
 ARG JAVA_DIR=/opt/kontain/java
-ENV LD_LIBRARY_PATH ${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime:/lib64
+ENV LD_LIBRARY_PATH ${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime
 COPY . ${JAVA_DIR}/
