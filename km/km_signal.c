@@ -764,10 +764,28 @@ km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t*
    if (km_sigismember(&no_catch_signals, signo) != 0) {
       return -EINVAL;
    }
+   km_signal_lock();
+   if (act != NULL && signo == SIGTTOU) {
+      /*
+       * For tcsetpgrp() to work properly the kernel needs to know if the payload
+       * is ignoring this signal. So always keep the kernel in the loop on this signal.
+       */
+      struct sigaction sigact;
+      sigemptyset(&sigact.sa_mask);
+      sigact.sa_sigaction = (void (*)(int,  siginfo_t *, void *))act->handler;
+      sigact.sa_flags = 0;
+      if ((void (*)(int))(act->handler) != SIG_IGN && (void (*)(int))(act->handler) != SIG_DFL) {
+         sigact.sa_sigaction = km_signal_passthru;
+         sigact.sa_flags = SA_SIGINFO;
+      }
+      if (sigaction(signo, &sigact, NULL) < 0) {
+         km_signal_unlock();
+         return -errno;
+      }
+   }
    /*
     * sigactions are process-wide, so need the lock.
     */
-   km_signal_lock();
    if (oldact != NULL) {
       *oldact = machine.sigactions[km_sigindex(signo)];
    }

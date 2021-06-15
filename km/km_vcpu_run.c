@@ -867,7 +867,7 @@ static void km_forward_sigio(int signo, siginfo_t* sinfo, void* ucontext_unused)
  * that signal handler only runs on km's main thread which should only be running gdbstub. So, we
  * only take mutexes that the km main thread will not be holding.
  */
-static void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext)
+void km_signal_passthru(int signo, siginfo_t* sinfo, void* ucontext)
 {
    siginfo_t info = *sinfo;
    km_post_signal(NULL, &info);
