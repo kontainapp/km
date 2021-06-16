@@ -200,10 +200,6 @@ class CRUNRemoteTest(RemoteTestAzure):
         self.scp_to_remote(remote_ip, "/opt/kontain/bin/km", "~/km")
         self.ssh_execute(
             remote_ip, "sudo mkdir -p /opt/kontain/bin; sudo mv ~/km /opt/kontain/bin/km")
-        self.scp_to_remote(remote_ip, "/opt/kontain/runtime/libc.so",
-                           "~/libc.so")
-        self.ssh_execute(
-            remote_ip, "sudo mkdir -p /opt/kontain/runtime; sudo mv ~/libc.so /opt/kontain/runtime/libc.so")
 
         self.ssh_execute(
             remote_ip, f"cd crun; ./autogen.sh && ./configure --disable-systemd && make all")

@@ -139,7 +139,7 @@ if [[ $target != alpine && $target != kontain ]] ; then
       echo "Error: Unknown target: $target (only alpine and kontain are supported)"
       exit 1
 fi
-for lib in ${RT}/libruntime.a ${RT}/libc.a  ${RT}/libc.so ${LC}/libc.a ${LC}/libc.so; do
+for lib in ${RT}/libruntime.a ${RT}/libc.a ${RT}/libc.so ${LC}/libc.a ${LC}/libc.so; do
    if [ ! -r $lib ] ; then
       echo "Error: can't find $lib - check installation"
       exit 1

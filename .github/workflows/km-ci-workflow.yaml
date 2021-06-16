@@ -114,7 +114,6 @@ jobs:
           name: km
           path: |
             /opt/kontain/bin/km
-            /opt/kontain/runtime/libc.so
           retention-days: 7
 
   km-test:
@@ -143,7 +142,7 @@ jobs:
       uses: actions/download-artifact@v2
       with:
         name: km
-        path: /opt/kontain
+        path: /opt/kontain/bin/
     - run: chmod a+x /opt/kontain/bin/km # download-artifact@v2 does not retain file mode
 
     - name: Krun test - runs on Azure vm

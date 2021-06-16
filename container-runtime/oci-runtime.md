@@ -16,7 +16,7 @@ krun ensures that the kontainer entry point is run within km.  The required km, 
 automatically added to the kontainer without additional krun command line arguments.  Currently the following things
 are done:
 
-- automatically bind mounts km and libc.so into the container
+- automatically bind mounts km into the container
 - automatically add the /dev/kvm and /dev/kkm devices to the container if they are present outside the container
 - the container entry point is run with km
 - certain approved container entry points can be run without km to perform operations for diagnosing problems

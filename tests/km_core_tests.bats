@@ -123,7 +123,7 @@ fi
 
 @test "hc_check($test_type): invoke wrong hypercall (hc_test$ext)" {
    run km_with_timeout stray_test$ext hc 400
-   assert_failure $(( $signal_flag + 31))   #SIGSYS
+   assert_failure $(( $signal_flag + 31))  #SIGSYS
    assert_output --partial "Bad system call"
 
    run km_with_timeout stray_test$ext -- hc -10
@@ -1366,13 +1366,13 @@ fi
 
    # Verify logging goes to stderr
    rm -f $LOGFILE
-   assert ${KM_BIN} -V ${KM_ARGS_PRIVATE} ${KM_LDSO_ARGS} hello_test$ext 2>$LOGFILE
+   assert ${KM_BIN} -V ${KM_ARGS_PRIVATE} hello_test$ext 2>$LOGFILE
    assert test -e $LOGFILE
    assert grep -q "calling hc = 231 (exit_group)" $LOGFILE
    rm -f LOGFILE
 
    # Verify that logging when stderr is a pipe will switch logging to /tmp/km_XXXXX.log
-   ${KM_BIN} -V ${KM_ARGS_PRIVATE} ${KM_LDSO_ARGS} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
+   ${KM_BIN} -V ${KM_ARGS_PRIVATE} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
    assert_success
    run grep -q "calling hc = 231 (exit_group)" $LOGFILE
    assert_failure
@@ -1385,7 +1385,7 @@ fi
    rm -f LOGFILE
 
    # Verify that we can force logging to stderr even if it is a pipe
-   ${KM_BIN} -V --km-log-to=stderr ${KM_ARGS_PRIVATE} ${KM_LDSO_ARGS} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
+   ${KM_BIN} -V --km-log-to=stderr ${KM_ARGS_PRIVATE} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
    assert_success
    test -e $LOGFILE
    assert_success
@@ -1397,7 +1397,7 @@ fi
 
    # Verify that we can force logging to be disabled
    # Note that some logging does happen before it can be disabled
-   ${KM_BIN} -V --km-log-to=none ${KM_ARGS_PRIVATE} ${KM_LDSO_ARGS} hello_test$ext &>$LOGFILE
+   ${KM_BIN} -V --km-log-to=none ${KM_ARGS_PRIVATE} hello_test$ext &>$LOGFILE
    assert_success
    test -e $LOGFILE
    assert_success

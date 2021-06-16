@@ -19,12 +19,10 @@ RELEASE_TAG := ${COMPONENT}
 # runenv-image configs
 export define runenv_prep
 	mkdir -p ${BLDDIR}/bin && cp ${KM_BIN} $$_
-	mkdir -p ${BLDDIR}/runtime && cp --preserve=all ${KM_RT}/*.so* $$_
 	cp installer.sh ${RUNENV_PATH}/installer.sh
 endef
 
 .DEFAULT_GOAL := runenv-image
-
 
 # TODO: set the right image and version once we have over own device plugin
 DEVICE_PLUGIN_KVM_IMG ?= quay.io/kubevirt/device-plugin-kvm:latest

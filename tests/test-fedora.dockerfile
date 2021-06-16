@@ -23,7 +23,6 @@ COPY km.coverage /opt/kontain/coverage/bin/km
 
 ENV KM_TOP=/home/appuser/km
 ENV KM_TEST_TOP=${KM_TOP}/tests
-ENV KM_LDSO_PATH /opt/kontain/runtime:/opt/kontain/alpine-lib/usr/lib
 RUN mkdir -p ${KM_TOP}
 RUN chown appuser ${KM_TOP}
 COPY --chown=appuser:appuser . ${KM_TEST_TOP}
