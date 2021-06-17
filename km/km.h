@@ -457,6 +457,7 @@ static const struct timespec _1ms = {
 
 static const_string_t KM_VERBOSE = "KM_VERBOSE";
 static const_string_t KM_DO_SHELL = "KM_DO_SHELL";
+static const_string_t KM_MGTPIPE = "KM_MGTPIPE";
 
 extern int km_do_shell;   // enable symlink trick and minimal shell parsing in KM itself
 
