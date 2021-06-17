@@ -1,5 +1,5 @@
 #!/bin/sh
 
-rm -rf /tmp/km.sock
-date +%s%N >& /tmp/start_time
-/opt/kontain/bin/km --mgtpipe /tmp/km.sock /opt/kontain/java/bin/java.kmd -XX:-UseCompressedOops -jar /app.jar
+rm -f /tmp/km.sock
+echo > /mnt/start_time
+KM_MGTPIPE=/tmp/km.sock /opt/kontain/java/bin/java -XX:-UseCompressedOops -jar /app.jar
