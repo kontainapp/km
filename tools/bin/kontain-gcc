@@ -100,6 +100,7 @@ if [ ! -d $PREFIX ] ; then
 fi
 
 RT=${PREFIX}/runtime
+KL=${PREFIX}/lib
 LC=${PREFIX}/alpine-lib/usr/lib
 LL=${PREFIX}/alpine-lib/lib
 
@@ -118,7 +119,7 @@ ALPINE_PATH="-B${LL} -B${LC} -B${LGCC}"
 HCALL_PATH="-B${RT} ${ALPINE_PATH} -zseparate-code -zmax-page-size=0x1000"
 
 # rpath for dynamic builds
-HCALL_RPATH="-Wl,-rpath=${RT} -Wl,-rpath=${LL} -Wl,-rpath=${LC} -Wl,-rpath=${LGCC}"
+HCALL_RPATH="-Wl,-rpath=${KL} -Wl,-rpath=${RT} -Wl,-rpath=${LL} -Wl,-rpath=${LC} -Wl,-rpath=${LGCC}"
 ALPINE_RPATH="-Wl,-rpath=${LL} -Wl,-rpath=${LC} -Wl,-rpath=${LGCC}"
 
 # Flags for building kontain (hypercall-based) unikernels

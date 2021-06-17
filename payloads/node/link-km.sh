@@ -34,6 +34,7 @@ link_node() {
       $NODE/obj.target/tools/icu/libicustubdata.a \
       $NODE/obj.target/tools/v8_gypfiles/libv8_snapshot.a \
       $NODE/obj.target/tools/v8_gypfiles/libgenerate_snapshot.a \
+      -L /opt/kontain/lib -lmimalloc \
    -Wl,--end-group -pthread
 }
 
