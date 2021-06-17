@@ -29,7 +29,7 @@ DEP_PACKAGES := java-11-openjdk \
 	zip \
 	unzip \
 	fontconfig-devel \
-	cups-devel  \
+	cups-devel \
 	alsa-lib-devel \
    libXtst-devel \
 	libXt-devel \
@@ -62,6 +62,7 @@ ifneq ($(FROMSRC),yes)
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
 		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
+		-v ${KM_OPT_LIB}:${KM_OPT_LIB}:Z \
 		-w ${TOP} \
 		${BUILDENV_IMG_TAGGED} \
 		make -C payloads/java in-blank-container

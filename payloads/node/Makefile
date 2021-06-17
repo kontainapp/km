@@ -24,6 +24,7 @@ NODEOUT = node/out/$(BUILD)
 
 # component id for docker images
 COMPONENT := node
+NODE_REPO := https://github.com/nodejs/node.git
 
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := ${NODEOUT}/node.km
@@ -44,6 +45,7 @@ ifneq ($(shell test -d node/.git && echo OK),OK)
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:/src:Z \
 		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z  \
+		-v ${KM_OPT_LIB}:${KM_OPT_LIB}:Z \
 		-w /src \
 		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
 		/bin/bash -x -c "make -C payloads/node in-blank-container"
@@ -57,11 +59,17 @@ in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke 
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 	tar -C ${NODETOP}/.. --exclude='.tmp*' -cf - ${NODE_DISTRO_FILES} | tar -xf -
 
+${NODE_TOP}: |
+	git clone ${NODE_REPO} -b ${VERS}
+
+${NODE_TOP}/config.mk: ${NODE_TOP}
+	cd ${NODETOP} && ./configure --gdb `[[ ${BUILD} == Debug ]] && echo -n --debug`
+
 fromsrc:
-	git clone https://github.com/nodejs/node.git -b ${VERS}
-	cd ${NODETOP} && ./configure --gdb `[[ ${BUILD} == Debug ]] && echo -n --debug` && make -j`expr 2 \* $$(nproc)` && make jstest
+	cd ${NODETOP} && make -j`expr 2 \* $$(nproc)` && make jstest
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
+	ln -sf `realpath ${KM_BIN}` ${NODEOUT}/node
 
 clobber:
 	rm -rf node

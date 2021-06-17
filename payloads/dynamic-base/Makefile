@@ -34,7 +34,7 @@ RUNENV_VALIDATE_CMD := ("hello_test" "Hello, World!")
 RUNENV_VALIDATE_EXPECTED := Hello, World
 
 export define runenv_prep
-	tar -C /opt/kontain/ --exclude '*.a' -cf - runtime | tar -C ${RUNENV_PATH} -xf -
+	tar -C /opt/kontain/ --exclude '*.a' -cf - runtime lib | tar -C ${RUNENV_PATH} -xf -
 	cp ${TOP}/tests/hello_test.kmd ${RUNENV_DEMO_PATH}
 endef
 include ${TOP}/make/images.mk
