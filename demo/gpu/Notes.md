@@ -68,7 +68,12 @@ a new C++ kernel language introduced.
 
 Ironically, in the meantime Apple dropped support for OpenCL.
 
-None of this means that OpenCL is dead. OpenCL 1.2 and the C based kernel langauge appears to be very much alive.
+None of this means that OpenCL is dead. OpenCL 1.2 and the C based kernel langauge appears to be very much alive
+as a cross-vendor interface for applications.
+
+TODO:
+* OpenCL Platform architecture where vendors can plug in their own (typically binary) implementation(s).
+* Re-enforce need to support arbitrary binaries.
 
 <Pretty rough from here out>
 
