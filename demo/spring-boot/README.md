@@ -29,9 +29,9 @@ is available in /opt/kontain/bin.
 ```bash
 docker run --name=KM_SpringBoot_Demo --privileged --rm -it --device=/dev/kvm \
  -v /opt/kontain/bin:/opt/kontain/bin:z \
- -v /opt/kontain/runtime:/opt/kontain/runtime:z \
+ -v $(pwd):/mnt:z \
  -v ${WORKSPACE}/km/payloads/java/scripts:/scripts:z \
- --entrypoint /bin/sh -p8080:8080 kontainapp/spring-boot-demo
+ -p8080:8080 kontainapp/spring-boot-demo /bin/sh
 ```
 
 ### Step 3 Measure Base Startup Time
@@ -39,14 +39,7 @@ docker run --name=KM_SpringBoot_Demo --privileged --rm -it --device=/dev/kvm \
 Outside of the container run `test.sh`. If in the source tree, it is available here:
 
 ```sh
-demo/spring-boot/test/test.sh
-```
-
-Or, you can extract it from a running container: and then run :
-
-```sh
-docker cp KM_SpringBoot_Demo:/test.sh /tmp/test.sh
-/tmp/test.sh
+cd demo/spring-boot; ./test/test.sh
 ```
 
 This program will get the time when the server first responds.
@@ -55,7 +48,7 @@ Then it will get the server start time from the container (started in the next s
 Inside the container run
 
 ```sh
-sh /run.sh
+/run.sh
 ```
 
 This prints the time in nanoseconds when we start the server in `/tmp/start_time` file in the container.
@@ -80,7 +73,7 @@ Then it will get the server start time from the container and print the differen
 Inside the container run
 
 ```sh
-sh /run_snap.sh
+/run_snap.sh
 ```
 
 Same as before, the time difference between the first response and the server start will be printed as `Response time 1.432 secs`
