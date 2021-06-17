@@ -2005,11 +2005,11 @@ static inline int km_fs_recover_fdpair(int guestfd[2], int hostfd[2], int how[2]
             flags[0],
             flags[1]);
    // Ensure we don't overwrite hostfd[1] in error.
-   if (guestfd[0] < 0 || guestfd[0] >= machine.filesys->nfdmap) {
+   if (guestfd[0] >= machine.filesys->nfdmap) {
       km_warn("recover fd %d is invalid", guestfd[0]);
       return -1;
    }
-   if (guestfd[1] < 0 || guestfd[1] >= machine.filesys->nfdmap) {
+   if (guestfd[1] >= machine.filesys->nfdmap) {
       km_warn("recover fd %d is invalid", guestfd[1]);
       return -1;
    }

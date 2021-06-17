@@ -501,6 +501,13 @@ static char* km_parse_args(
       pl_index = optind;
    }
 
+   if (mgtpipe == NULL) {
+      char* mgt_e = getenv(KM_MGTPIPE);
+      if (mgt_e != NULL) {
+         mgtpipe = strdup(mgt_e);
+      }
+   }
+   
    // Configure payload's env and args
    *envp_p = envp;
    *envc_p = envc;
