@@ -372,7 +372,7 @@ int km_dofork(int* in_child)
       km_infox(KM_TRACE_FORK,
                "parent: after fork/clone linux_child_pid %d, errno %d",
                linux_child_pid,
-               errno);
+               linux_child_pid < 0 ? errno: 0);
       km_fork_state.fork_in_progress = 0;
       km_cond_signal(&km_fork_state.cond);
       km_mutex_unlock(&km_fork_state.mutex);

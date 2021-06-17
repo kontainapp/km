@@ -328,10 +328,14 @@ static km_hc_ret_t ioctl_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int ioctl(int fd, unsigned long request, void *arg);
    // arg->hc_ret = __syscall_3(hc, arg->arg1, arg->arg2, km_gva_to_kml(arg->arg3));
+   km_infox(KM_TRACE_HC, "ioctl arg1 0x%lx, arg2 0x%lx, arg3 0x%lx", arg->arg1, arg->arg2, arg->arg3);
    void* argp = km_gva_to_kma(arg->arg3);
    if (argp == NULL && arg->arg3 != 0) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
+   }
+   if (arg->arg2 == TIOCSPGRP) {
+      km_infox(KM_TRACE_HC, "TIOCSPGRP pgid %d", argp != NULL ? *(pid_t*)argp: -1);
    }
    arg->hc_ret = km_fs_ioctl(vcpu, arg->arg1, arg->arg2, argp);
    return HC_CONTINUE;
@@ -1523,7 +1527,7 @@ static km_hc_ret_t times_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t getpgrp_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // pid_t getpgrp(void);
-   arg->hc_ret = 1;
+   arg->hc_ret = __syscall_0(hc);
    return HC_CONTINUE;
 }
 
@@ -1688,6 +1692,7 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    pid_t input_pid = (pid_t)arg->arg1;   // force arg1 to a signed 32 bit int
    int rv;
+   int* wstatusp = km_gva_to_kma(arg->arg2);
 
    km_infox(KM_TRACE_VCPU,
             "pid %ld, wstatus 0x%lx, options 0x%lx, rusage 0x%lx",
@@ -1697,7 +1702,7 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
             arg->arg4);
 
    rv = wait4(input_pid,
-              (int*)km_gva_to_kma(arg->arg2),
+              wstatusp,
               (int)arg->arg3,
               (struct rusage*)km_gva_to_kma(arg->arg4));
    if (rv < 0) {
@@ -1705,7 +1710,7 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    } else {
       arg->hc_ret = rv;
    }
-   km_infox(KM_TRACE_HC, "wait4 returns %lu", arg->hc_ret);
+   km_infox(KM_TRACE_HC, "wait4 returns %ld, wstatus 0x%x", arg->hc_ret, wstatusp != NULL ? *wstatusp : -1);
    return HC_CONTINUE;
 }
 
@@ -1765,6 +1770,7 @@ static km_hc_ret_t getpgid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t setpgid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   km_infox(KM_TRACE_HC, "pid %lu, pgid %lu", arg->arg1, arg->arg2);
    arg->hc_ret = __syscall_2(hc, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 }

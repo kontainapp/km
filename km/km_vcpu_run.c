@@ -636,9 +636,10 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             switch (hypercall(vcpu, &hc_ret)) {
                case HC_CONTINUE:
                   km_infox(KM_TRACE_VCPU,
-                           "return from hc = %d (%s), gdb_run_state %d, pause_requested %d",
+                           "return from hc = %d (%s), hc_ret 0x%x, gdb_run_state %d, pause_requested %d",
                            vcpu->hypercall,
                            km_hc_name_get(vcpu->hypercall),
+                           hc_ret,
                            vcpu->gdb_vcpu_state.gdb_run_state,
                            machine.pause_requested);
                   break;
