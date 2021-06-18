@@ -46,29 +46,40 @@ product: ## Prepares KM packaging artifacts (e.g. km tarball and kkm run bundle)
 	$(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} kkm-pkg
 	$(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} release
 
-vm-images: product source-boxes ## loads source boxes and creates boxes with KM installed
+vm-images: .check_tools product source-boxes ## loads source boxes and creates boxes with KM installed
 	@set -x ; for os in ${SRC_OS} ; \
 	do \
-		${PACKER_BUILD} -only virtualbox-ovf.build-ova -var-file templates/$$os.pkrvars.hcl templates ; \
+		${PACKER_BUILD} -only virtualbox-ovf.build-ova -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
 	done
+
+.check_tools:
+	@if ! command -v packer; then \
+		echo -e "${RED}Packer (https://www.packer.io/) is not found. Please install it first${NOCOLOR}" ; \
+		false; \
+	fi
+	@if [ "$$(basename $$(realpath $$(which packer)))" != "packer" ] ; then \
+		echo -e "${RED}Packer is found as '$$(which packer)', but seems to be fake. Please check https://www.packer.io/ is installed and is in the PATH${NOCOLOR}" ; echo \
+		false; \
+	fi
 
 upload-boxes:  ## uploads pre-created boxes to vagrant cloud
 	@set -x ; for os in ${SRC_OS} ; \
 	do \
-		${PACKER_BUILD} -only null.upload -var-file templates/$$os.pkrvars.hcl templates ; \
+		${PACKER_BUILD} -only null.upload -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
 	done
 
 register-boxes: ## register pre-created boxes in local vagrant cash
 	@for os in ${SRC_OS} ; \
 	do echo Registering $$os... ; \
-		${PACKER_BUILD} -only null.register -var-file templates/$$os.pkrvars.hcl templates ; \
+		${PACKER_BUILD} -only null.register -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
 	done
 
 # Note: Amazon import-image refuses to accept/import some kernel versions, so as a temporary
 # bandaid we build it from existing AMI. Ideally, we just want to import a box as an AMI - see test_ami_upload.pkr.hcl
 # for an examle how to do it
 ami:  ## Builds AMI with KKM in the AWS
-	${PACKER_BUILD} ubuntu-aws.pkr.hcl
+	packer init aws_ami_templates
+	${PACKER_BUILD} aws_ami_templates
 
 test-box-upload: ## Helper to test Vagrant Box upload from existing BOX file
 	${PACKER_BUILD} test_box_upload.pkr.hcl
