@@ -527,6 +527,23 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
    int argc;
    char buf[PATH_MAX];
    int shell;   // indicates special handling for shells and env
+
+   /*
+    * Sometimes the callers of exec() supply km itself as the "payload" name.
+    * We try to detect this and prevent it from causing an error.
+    * Here we toss the first argument, the program to run and use the new
+    * first argument as the filename.  We don't yet lookup the new argv[0]
+    * if it is a name only (the full path to the program is not supplied).
+    * This is a stopgap measure to compensate for dockerfile entrypoints
+    * being set to /opt/kontain/bin/km
+    */
+   char* kmpath = km_get_self_name();
+   if (strcmp(filename, kmpath) == 0) {
+      km_infox(KM_TRACE_EXEC, "payload name (%s) is km, using %s instead", filename, (char*)km_gva_to_kma((km_gva_t)argv[1]));
+      argv++;
+      filename = (char*)km_gva_to_kma((km_gva_t)argv[0]);
+   }
+
    // host addresses, just to make less gva_to_kma below
    char* argv0 = (char*)km_gva_to_kma((km_gva_t)argv[0]);
    char* argv1 = (char*)km_gva_to_kma((km_gva_t)argv[1]);
@@ -542,7 +559,7 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
             argv3);
 
    /*
-    * If this is popen build new argv and argc from cmd line.
+    * If this is popen, build new argv and argc from cmd line.
     * Otherwise compute argc and copy argv from guest address space
     */
    int is_shell = km_is_shell_path(filename);
@@ -578,7 +595,7 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
       shell = 0;
       for (argc = 0; argv[argc] != NULL; argc++) {
       }
-      if ((nargv = calloc(argc, sizeof(char*))) == NULL) {
+      if ((nargv = calloc(argc + 1, sizeof(char*))) == NULL) {
          km_infox(KM_TRACE_EXEC, "Couldn't allocate %ld bytes", argc * sizeof(char*));
          return NULL;
       }
