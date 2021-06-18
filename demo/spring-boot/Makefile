@@ -45,6 +45,7 @@ DEMO_CONTAINER ?= kontainapp_sprint_boot_demo
 # Docker requires relative path to the building context
 build/demo: TARGET_JAR_PATH := $(shell realpath --canonicalize-missing --relative-to="${CURRENT_DIR}" "${APP_JAR}")
 build/demo: clean/image
+	mkdir -p empty_tmp
 	${DOCKER_BUILD} -t ${DEMO_IMAGE} --build-arg TARGET_JAR_PATH=${TARGET_JAR_PATH} -f kontain.dockerfile ${CURRENT_DIR}
 
 run_demo = ${DOCKER_RUN} -d --device=${HYPERVISOR_DEVICE} ${KM_DOCKER_VOLUME} -p ${DEFAULT_DEMO_PORT}:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE}
