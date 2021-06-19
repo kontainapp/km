@@ -2204,7 +2204,8 @@ static int proc_sched_read(int fd, char* buf, size_t buf_sz)
       return -errno;
    }
    char tmp[128];
-   fgets(tmp, sizeof(tmp), fp);   // skip the first line
+   char* x = fgets(tmp, sizeof(tmp), fp);   // skip the first line
+   (void)x; // avoid gcc warn
    if (feof(fp)) {                // second read, to make sure we are at end of file
       fclose(fp);
       return 0;
