@@ -173,7 +173,7 @@ void km_exec_fdtrace(char* tag, int fd)
                file->sockinfo->addrlen);
       km_bin2hex((unsigned char*)file->sockinfo->addr, file->sockinfo->addrlen, &buffer[strlen(buffer)]);
    }
-   km_infox(KM_TRACE_EXEC, buffer);
+   km_infox(KM_TRACE_EXEC, "%s", buffer);
 }
 
 /*
@@ -212,18 +212,22 @@ char* km_exec_save_fd(char* varname)
       // Build an entry for this open fd
       more_env_value = NULL;
       if (file->how == KM_FILE_HOW_EVENTFD) {   // event fd
-         asprintf(&more_env_value, "{%x,%d,%x", KM_FDTYPE_EVENTFD, i, file->flags);
+         if (asprintf(&more_env_value, "{%x,%d,%x", KM_FDTYPE_EVENTFD, i, file->flags) == -1) {
+            km_warn("failed save info for %s", file->name);
+         }
          // append each event
          km_fs_event_t* event;
          TAILQ_FOREACH (event, &file->events, link) {
             char* tmp;
-            asprintf(&tmp,
+            if (asprintf(&tmp,
                      "%s,{%d,%x,%lx}%s",
                      more_env_value,
                      event->fd,
                      event->event.events,
                      event->event.data.u64,
-                     event == TAILQ_LAST(&file->events, km_fs_event_head) ? "}" : "");
+                     event == TAILQ_LAST(&file->events, km_fs_event_head) ? "}" : "") == -1 ) {
+                        km_warn("failed save info for %s eventfd %d", file->name, event->fd);
+                     }
             free(more_env_value);
             more_env_value = tmp;
          }
@@ -234,25 +238,31 @@ char* km_exec_save_fd(char* varname)
             return NULL;
          }
          if (S_ISFIFO(st.st_mode)) {
-            asprintf(&more_env_value, "{%x,%d,%d,%x,%d}", KM_FDTYPE_PIPE, i, file->how, file->flags, file->ofd);
+            if (asprintf(&more_env_value, "{%x,%d,%d,%x,%d}", KM_FDTYPE_PIPE, i, file->how, file->flags, file->ofd) == -1) {
+               km_warn("failed save info for %s FIFO", file->name);
+            }
          } else {
             km_file_ops_t* ops;
             km_fs_g2h_fd(i, &ops);
-            asprintf(&more_env_value,
+            if (asprintf(&more_env_value,
                      "{%x,%d,%d,%x,%d}",
                      KM_FDTYPE_FILE,
                      i,
                      file->how,
                      file->flags,
-                     km_filename_table_line(ops));
+                     km_filename_table_line(ops))) {
+                        km_warn("failed save info for non-socket %s", file->name);
+                     }
          }
       } else if (file->how == KM_FILE_HOW_SOCKETPAIR0 ||
                  file->how == KM_FILE_HOW_SOCKETPAIR1) {   // socketpair
-         asprintf(&more_env_value, "{%d,%d,%d,%d}", KM_FDTYPE_SOCKETPAIR, i, file->how, file->ofd);
+         if(asprintf(&more_env_value, "{%d,%d,%d,%d}", KM_FDTYPE_SOCKETPAIR, i, file->how, file->ofd) == -1) {
+            km_warn("failed save info for socket pair %d %d", file->how, file->ofd);
+         }
       } else {   // socket fd
          char asciihex[257];
          km_bin2hex((unsigned char*)file->sockinfo->addr, file->sockinfo->addrlen, asciihex);
-         asprintf(&more_env_value,
+         if (asprintf(&more_env_value,
                   "{%x,%d,%d,%d,%d,%d,%s}",
                   KM_FDTYPE_SOCKET,
                   i,
@@ -260,20 +270,26 @@ char* km_exec_save_fd(char* varname)
                   file->sockinfo->state,
                   file->sockinfo->backlog,
                   file->ofd,
-                  asciihex);
+                  asciihex) == -1) {
+                     km_warn("failed save info for socket %s", file->name);
+                  }
       }
 
       // Paste info for this fd onto the end of what we have already accumulated.
       if (env_value == NULL) {
          env_value = more_env_value;
       } else {
-         asprintf(&new_env_value, "%s,%s", env_value, more_env_value);
+         if (asprintf(&new_env_value, "%s,%s", env_value, more_env_value) == -1) {
+            km_warn("failed save env info %s", more_env_value);
+         }
          free(env_value);
          free(more_env_value);
          env_value = new_env_value;
       }
    }
-   asprintf(&new_env_value, "%s=%s", varname, env_value != NULL ? env_value : "");
+   if (asprintf(&new_env_value, "%s=%s", varname, env_value != NULL ? env_value : "") == -1) {
+      km_warn("failed save env var for %s", varname);
+   }
    free(env_value);
    // The caller must free the returned pointer.
    return new_env_value;

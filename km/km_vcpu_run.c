@@ -324,7 +324,7 @@ void km_dump_vcpu(km_vcpu_t* vcpu)
       return;
    }
 
-   km_warnx(buf);
+   km_warnx("%s", buf);
 }
 
 /*
