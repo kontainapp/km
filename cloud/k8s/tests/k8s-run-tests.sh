@@ -98,6 +98,9 @@ function prepare_template {
         -D NAME="${TEST_NAME}" \
         -D IMAGE="${TEST_IMAGE}" \
         ${CURRENT}/${POD_SPEC_TEMPLATE} > ${POD_SPEC}
+    echo ========== Pod Spec ${POD_SPEC}:
+    cat ${POD_SPEC}
+    echo ==========
 }
 
 function cleanup_and_exit {
@@ -144,20 +147,17 @@ function main {
     fi
 
     # We assume pod takes non-zero time to run and will not complete before we enter this wait.
-    kubectl wait pod/${pod_name} --for=condition=Ready --timeout=${POD_WAIT_TIMEOUT}
-    local exit_code=$?
-    if [[ $exit_code != 0 ]]; then
+    if ! kubectl wait pod/${pod_name} --for=condition=Ready --timeout=${POD_WAIT_TIMEOUT} ; then
         echo "$self: Failed to launch pod. Timeout=${POD_WAIT_TIMEOUT}"
-        cleanup_and_exit $pod_name $exit_code
+        cleanup_and_exit $pod_name 1
     fi
 
     echo "$self: kubectl exec  ${pod_name} -- bash -c \"${TEST_COMMAND}\""
-    kubectl exec ${pod_name} -- bash -c "${TEST_COMMAND}"
-    local exit_code=$?
-    if [[ $exit_code != 0 ]]; then
+    if ! kubectl exec ${pod_name} -- bash -c "${TEST_COMMAND}" ; then
         echo "$self: Failed to run command '${TEST_COMMAND}'"
+        cleanup_and_exit $pod_name 2
     fi
-    cleanup_and_exit $pod_name $exit_code
+    cleanup_and_exit $pod_name 0
 }
 
 main
