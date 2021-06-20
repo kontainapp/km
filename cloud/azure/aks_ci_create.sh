@@ -15,15 +15,19 @@
 readonly PROGNAME=$(basename $0)
 readonly CUR_DIR=$(readlink -m $(dirname $0))
 readonly CLUSTER_NAME=$1
-readonly SP_APPID=$2
-readonly SP_PASSWORD=$3
+
+if [ -z "$SP_APPID" -o -z "$SP_PASSWORD"]; then
+   echo Please set SP_APPID and SP_PASSWORD env. vars to access Azure
+   false
+fi
 
 function usage() {
     cat <<- EOF
-usage: $PROGNAME <CLUSTER_NAME> <SP_APPID> <SP_PASSWORD>
+A helper to launch new k8s cluster on aks.
 
-Program is a helper to launch new k8s cluster on aks.
+usage: $PROGNAME <CLUSTER_NAME>
 
+env vars SP_APPID and SP_PASSWORD are expected for authentication with Azure.
 EOF
 }
 

@@ -233,8 +233,11 @@ jobs:
           submodules: true
       - run: make -C cloud/azure login-cli
 
+      # We need to create cluster and deploy kontaind to it. However
+      # kontaind requires KM build, so we will do the deploy later, before tests.
+      # This allows early cluster creation - before a build is completed
       - name: Create k8s Cluster
-        run: cloud/azure/aks_ci_create.sh ${{ env.NIGHTLY_CLUSTER_NAME }} ${{ secrets.SP_APPID }} ${{ secrets.SP_PASSWORD }}
+        run: cloud/azure/aks_ci_create.sh ${{ env.NIGHTLY_CLUSTER_NAME }}
 
   km-test-all:
     name: Run all tests on a new K8s cluster

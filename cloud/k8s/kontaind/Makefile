@@ -24,17 +24,17 @@ endef
 
 .DEFAULT_GOAL := runenv-image
 
+.PHONY: deploy delete test clean
+
 # TODO: set the right image and version once we have over own device plugin
 DEVICE_PLUGIN_KVM_IMG ?= quay.io/kubevirt/device-plugin-kvm:latest
 
-.PHONY: deploy delete test clean
-
-DEPLOY_SCRIPT := ${CURRENT_DIR}/deploy.sh
-deploy: ## Deploy Kontaind to target Kubernetes cluster
-	${DEPLOY_SCRIPT} deploy ${RUNENV_IMG_REG}:${IMAGE_VERSION} ${DEVICE_PLUGIN_KVM_IMG}
+deploy: ## Deploy Kontaind and cored to target Kubernetes cluster
+	./deploy.sh deploy ${RUNENV_IMG_REG}:${IMAGE_VERSION} ${DEVICE_PLUGIN_KVM_IMG}
+	kubectl apply -f cored.yaml
 
 delete: ## Delete Kontaind from cluster
-	${DEPLOY_SCRIPT} delete
+	./deploy.sh  delete
 
 clean: ## Clean up local build dir
 	rm -rf ${BLDDIR}

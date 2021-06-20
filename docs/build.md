@@ -318,7 +318,7 @@ Code to convert `az ad sp create-for-rbac` results to env variables needed by Ma
 ```sh
 t_name=az_$(whoami)_noninteractive
 file=~/.ssh/$t_name
-az ad sp create-for-rbac -n "https://$t_name" --role contributor --years 3 | tee $file
+az ad sp create-for-rbac -n "$t_name" --role contributor --years 3 | tee $file
 chmod 400 $file
 echo -e "\n# Azure secret for non-interactive login $t_name. Created $(date)" >> ~/.bash_profile
 cat $file  | jq -r  '"export SP_APPID=\(.appId)",
