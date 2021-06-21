@@ -12,6 +12,9 @@
 # config file. Used  from both makefiles and bash scripts, so no spaces before/after '='
 #
 
+# Tenant ID for kontain.app directory. 
+AZ_TENANT_ID=bb863950-cdcd-467a-8d4c-97f338d8e279
+
 # Azure groups all resources under this name
 CLOUD_RESOURCE_GROUP=kontainKubeRG
 

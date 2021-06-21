@@ -68,7 +68,11 @@ EOF
 endef
 
 login:  .check_tools ## Interactive login to Azure, Azure Container Registry and Kubernetes cluster on Azure
-	az login -o table
+	az login -t "$(AZ_TENANT_ID)" -o table
+	@#one time config, but it's cheap so let's do it every time
+	az account set -s ${CLOUD_SUBSCRIPTION}
+	az configure --defaults location=${CLOUD_LOCATION}
+	@# container registry and kubernetes service logins. note: AKS login is long-lived
 	az acr login -n "$(REGISTRY_NAME)"
 	az aks get-credentials --resource-group "$(CLOUD_RESOURCE_GROUP)" --name "$(K8S_CLUSTER)" --overwrite-existing
 
