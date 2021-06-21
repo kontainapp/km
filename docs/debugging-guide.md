@@ -350,9 +350,9 @@ In this example debugging session, we’ll use Visual Studio Code to edit and de
 
 **Prerequisites:**
 
-1. Kontain installed using the provisioned Vagrant box (Ubuntu VM). Installation instructions are provided here: [kontainapp/km](kontainapp/km)
+1. Kontain installed using the provisioned Vagrant box (Ubuntu VM). Installation instructions are provided here: [kontainapp/km/docs](kontainapp/km/docs)
 
-    NOTE: Kontain’s Vagrant box is provided for virtualbox only. If you want to use Hyper-V, please open an issue on [https://github.com/kontainapp/km](kontainapp/km) 
+    NOTE: Kontain’s Vagrant box is provided for virtualbox only. If you want to use Hyper-V, please open an issue on [https://github.com/kontainapp/km/km](kontainapp/km/km) 
 
 2. Visual Studio Code installed _with the [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack)_.
 3. Ensure that GCC is installed on the VM where Kontain is installed. Run `sudo apt-get install g++` on the VM (in the VS Code terminal). NOTE: This is part of VS Code setup; for more information, see “[C++ programming with Visual Studio Code](https://code.visualstudio.com/docs/languages/cpp#_tutorials).”
