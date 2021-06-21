@@ -200,6 +200,9 @@ jobs:
         run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
         timeout-minutes: 15
 
+      - name: Get kernel logs
+        run: dmesg
+
   kkm-test-aws:
     name: Test KM/KKM on AWS VM
     runs-on: ubuntu-20.04
