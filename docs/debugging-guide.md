@@ -239,13 +239,13 @@ Reading symbols from target:/home/someone/ws/ws2/km/tests/hello_test.km...
 ```
 ### **Restarting a Unikernel Debuggee**
 
-Developers often need to restart a debugee program from the beginning while preserving the breakpoints, variables, and other status in the client. In GDB, this is done using the ‘`run`’ command. To achieve the same results when debugging with Kontain GDB, follow the procedure below. 
+Developers often need to restart a debuggee program from the beginning while preserving the breakpoints, variables, and other status in the client. In GDB, this is done using the ‘`run`’ command. To achieve the same results when debugging with Kontain GDB, follow the procedure below. 
 
 **Procedure:**
 
 1. In the GDB client, use the `detach `command to disconnect the debuggee and keep the client GDB alive.
 2. In another shell, start the debuggee with KM debugging enabled, using the` -g` option as described in Step 1 of the example, above.  
-3. Returning to the GDB client, use the `target remote localhost:2159 `command to attach to the freshly started debugee. All of the breakpoints and other GDB client status should be present. 
+3. Returning to the GDB client, use the `target remote localhost:2159 `command to attach to the freshly started debuggee. All of the breakpoints and other GDB client status should be present. 
 4. Run the debuggee using the `continue `command. 
 
 ### Debugging Child Processes and `exec` Workloads
@@ -646,12 +646,9 @@ int main()
 
   return 0;
 }
+
 ```
-
-
-
 ### Node.js Example Code
-
 ```js
 var port = 8080;
 var http = require('http');
