@@ -21,8 +21,6 @@ This represents a select set of current known issues. For a complete list, refer
 *   GDB follow-fork mode cannot be used to follow the child process after a fork. To enable debugging of a child process, you can add a variable to the parent KM environment. For more information, see the “[Debugging Child Processes and exec Workloads](debugging-guide.md#debugging-child-processes-and-exec-workloads)" section in [*Debugging Kontain Unikernels*](debugging-guide.md). 
 *   KM GDB server testing has been done using a GDB client with version GNU gdb (GDB) Fedora 9.1-5.fc32.
 NOTE: For a detailed guide to Kontain debugging, refer to this document: [*Debugging Kontain Unikernels*](debugging-guide.md).
-## Kontain Vagrant Box 
-*   At installation, KKM, the kernel virtualization module, is tightly coupled with the host kernel version. If the host kernel is upgraded, the new kernel will not have KKM, and Kontain will not work. For now, we recommend against upgrading the kernel.
 ## Docker and Kubernetes
 *   When Docker is installed on Ubuntu using `snap`, the location of the config file and the name of the service are different. You can consult Snap and Docker documentation for correct location and names, or you can remove the Snap version and re-install Docker using `apt-get`.
 *   When running on Kubernetes, Kontain uses a [third-party KVM device plug-in](https://github.com/kubevirt/kubernetes-device-plugins/blob/master/docs/README.kvm.md) to provide unprivileged pods access to `/dev/kvm`. On rare occasions, this plug-in refuses access to `/dev/kvm`. Workaround: Re-deploy _kontaind_.   
