@@ -2,237 +2,116 @@
 # Kontain User Guide
 
 ## About This Document
-
 This document provides information for developers to install Kontain and use it to run workloads—either using the sample code provided in the Kontain release repository or using their own applications. 
-
 Reference [Kontain beta release](/km)
 
-
 ## Introduction to Kontain
-
 Containerization tools and processes provide the foundation for deploying today’s cloud-native software applications, but containers are still far from perfect for many modern workloads. 
-
 For example, workloads that require very strong security isolation take on additional risk if they are run as containers on shared OS kernels.  Some workloads need to scale up—then scale down to zero—much quicker, more easily, and more cost-effectively than is possible using standard containers.  
-
 Kontain leverages existing container workflows, development tools, and processes, but builds containers with special characteristics: 
-
-
-
 *   Each process in each container runs in its own private virtual machine (VM), providing isolation and security 
 *   Each instance of each container starts fast—orders of magnitude faster than a regular VM, and close to the start time of a Linux process
 *   A smaller container image—sometimes _much smaller_—than a standard container
-
 Kontain is a way to run container workloads "secure, fast, and small — choose three."
-
-
 ### How Kontain Works
-
 The Kontain solution is actually an integration of two technologies: containers and unikernels.
-
 A _unikernel_ is a single-address-space machine image that contains an application workload—the program you want to run in a container—combined with a minimal set of library functions which provide the OS services required to run the workload. 
-
 Kontain provides a method for creating and running unikernels that are optimized for container use cases. Packaging this workload-optimized unikernel as an OCI-compliant container image yields what we call a _kontainer_.  
-
 A Kontain workload can be an unmodified Linux executable running as a unikernel or a unikernel created from source code relinked with Kontain libraries. _No source code modification is needed to create a kontainer._  
-
 For compiled languages (e.g. Go, C), a unikernel kontainer is created by linking application object code with Kontain libraries.  For interpreted and bytecode-interpreted languages (e.g. Java, Python), a unikernel language runtime is created, then the interpreted/bytecode language is run inside the unikernel.
-
 The Kontain solution includes an OCI-compatible runtime that, upon command, instantiates a virtual machine (VM) for the requested kontainer instance, loads the unikernel into the VM, then passes control to the unikernel.
-
 Running a workload as a unikernel in a Kontain virtual machine provides VM-level isolation and security, _with none of the overhead of a traditional VM_. 
-
 A Kontain VM is optimized to provide the workload with just the virtual hardware it needs (CPU and memory) to execute. The VM interacts with the outside world via a limited set of hypercalls to the Kontain Monitor (KM). 
-
 By virtue of its small size and targeted functionality, a Kontain VM provides a secure environment for the application running inside. As an example, workloads running in a Kontain VM would have been immune to the Meltdown security flaw, even on unpatched kernels and CPUs.
-
-
 ### Compatible with Existing Container Workflows
-
 Kontain seamlessly plugs into Docker and Kubernetes runtime environments.
-
 Kontain’s OCI-compliant image spec and runtime code ensure command-line and API compatibility with existing tools in your container workflow.
-
 Kontain requires little or no change to existing CI/CD systems, orchestration configurations, and monitoring systems. 
-
-
 ### Linux Platform Portability
-
 Kontain runs on Linux hosts that meet these minimum requirements: 
-
-
-
 *   CPU: Intel or AMD
-*   Linux kernel: Version 4.15 or higher
+*   Linux kernel: Version 4.15 or higher (version 5.0 or higher if using KKM)
 *   Distribution: Ubuntu 20 and Fedora 32 (or newer) are recommended
 *   Hardware virtualization enabled, using either: 
     *   KVM installed and enabled (requires stock kernel module on Linux kernel 4.15 or higher), or
     *   Kontain Kernel Module (KKM) (included in the Kontain release) 
-
-
 ### Kontain in the Cloud
-
 Kontain runs on Azure, Google Cloud, and AWS instances supporting “nested virtualization”, i.e. with KVM enabled. Check with your cloud provider regarding nested virtualization support and configuration requirements. 
-
 On AWS, only “metal” instances (e.g. i3.metal) can support nested virtualization. For user convenience, Kontain provides an AWS Ubuntu-based AMI pre-configured with Kontain, Docker, and KKM. See “[Using a Kontain AMI on AWS](#using-a-kontain-ami-on-aws).” 
-
-
 ### Do I Need KVM or KKM?
-
 On Linux development machines, Kontain can run on the machine directly, with either KVM (native Linux virtualization) or KKM (Kontain kernel module) installed.
-
 On OSX and Windows development machines, Kontain can be run in a Linux VM with either KVM module (nested virtualization) enabled or the KKM module installed. Support for nested virtualization depends on the hypervisor. KKM can be installed in the Linux VM if the hypervisor does not support nested virtualization.
-
 Certain hypervisors and cloud providers do not support nested virtualization on a VM, or support it only on VMs that fall within a specific size or price range. Where KVM virtualization is unavailable, a VM with the Kontain kernel module (KKM) installed is needed to run Kontain. 
-
 In short, KKM enables nested virtualization wherever you can install a kernel module. And KKM can co-exist with KVM if both are installed on the same box. 
-
-
 ## Kontain System Overview
-
 In this section, we’ll take a closer look at the Kontain system components and how they work together to run workloads. 
-
 ![System Diagram](images/kontain-system-diagram.jpg)
-
 Figure 1. Kontain System Diagram
-
 Kontain’s implementation of a OCI Runtime compliant container interface is *`krun`* (based on RedHat `crun`), which is used to build and run an application as a Kontain unikernel in a nested VM. 
-
-
-
 *   `krun `can be invoked from Docker, Podman, and other container management tools. 
 *   `krun `can also be used to run kontainers directly.
-
 A _Kontain unikernel_ is the application code packaged with the Kontain runtime library. At runtime, this small, executable artifact runs in a Kontain VM. 
-
 Kontain provides tools to build unikernels that are optimized for container use cases. Packaging this workload-optimized unikernel as an OCI-compliant container image yields what we call a _kontainer_. For more information about kontainers, see “[How Kontain Works with Docker](#how-kontain-works-with-docker),” below.
-
 A Kontain unikernel can be created from any application, containerized or not:
-
-
-
 *   In many cases, Kontain can run unmodified Linux binaries as a unikernel (e.g., statically linked Go programs and applications linked for Alpine Linux). 
 *   Some application code may need to be re-linked with a Kontain runtime library so it can be run as a unikernel. 
-
 The _Kontain virtual machine Monitor_ (KM) is a user-space application that interfaces with the hardware via system calls. KM initializes Kontain VM facilities, loads the _unikernel image_ into VM memory, and runs the workload inside the VM. This dedicated VM is ephemeral, existing only to support one instance of a _kontainer_.
-
 The _Kontain VM_ provides hardware resources (CPU, memory) to the application. Kontain VMs interact with the outside world via a limited set of hypercalls to the Kontain Monitor, which manages requests from the application as it runs.
-
 A Kontain VM is optimized to provide the workload with just the features it needs to execute—mainly CPU and memory.  The Kontain VM model dynamically adjusts to application requirements, for example, growing and shrinking memory to meet the application’s demands and adding and removing virtual CPUs as the application manipulates thread pools. The Kontain Monitor spawns additional KM processes as needed to manage dedicated VMs.
-
-
 ### How Kontain Handles Syscalls
-
 System calls are handled differently depending on how the Kontain unikernel is built. When running an unmodified Linux executable as a unikernel, Kontain will automatically use support that has been preloaded into the Kontain VM. This code performs a translation step, converting _syscalls_ from the app to _hypercalls_ that the Kontain VM can handle.
-
 The _Kontain runtime library_ does not use syscalls to request services as regular libraries—including _musl_ and _glibc_—do. Instead, it uses ‘out’ command-based _hypercalls_. An application that has been linked with the provided Kontain runtime libraries will issue a _hypercall_ directly to Kontain Monitor. 
-
-
 ### How Kontain Works with Docker
-
 NOTE: Although this section refers to using Kontain with Docker, Kontain works equally well with other container management tools, e.g. RedHat Podman. 
-
 You can use Docker to build and run a Kontain workload, as a unikernel, in a ‘kontainer.’ 
-
 A ‘kontainer’ is a Docker (OCI) container with a Kontain unikernel in the container image, and Kontain runtime (`krun`) available at runtime. As in a regular Docker workflow, a kontainer image is created using the `docker build` command. The standard executable in the container image is replaced with a Kontain unikernel. 
-
 A kontainer is run by passing Kontain runtime (`krun`) to `docker run.` 
-
 To run a kontainer, Docker must be configured to use `krun`. See [Runtime Config for Docker](#runtime-config-for-docker) for instructions.
-
 You can also run a Kontain workload as a Docker container with default Docker runtime. This use model still provides the benefits of running a workload as a unikernel in a VM, but Docker overhead is still present. More importantly, `docker exec` and any subprocesses present will evade wrapping in a VM; instead, these will be executed outside of Kontain. Therefore, while this method can be useful for testing, it should not be used in production. 
-
 For more information, see [Using Docker Runtime](#using-the-docker-runtime).
-
-
 ### Additional Documentation and Support
-
-
-
 *   Command line help: `/opt/kontain/bin/km --help`
 *   [*Debugging Kontain Unikernels*](debugging-guide.md)
-
-
 ## Quick Start
-
 What’s in this section: 
-
-
-
 *   Getting Started: Install a preconfigured Kontain box on your laptop or desktop. 
 *   Tutorial #1: Try Kontain using a ‘Hello World’ example C program.
     *   Part A: Create a unikernel from a simple C program and run it in a Kontain VM.
     *   Part B: Package a unikernel as a kontainer, pass to Docker, and run with Kontain runtime (`krun`).
 *   Tutorial #2: Package Kontain Java with a sample Java application into a kontainer and run as a Docker container. 
-
-
 ### Getting Started: Using Kontain’s Pre-Configured Linux VM
-
 For a quick and easy way to start exploring Kontain, we recommend that you run the prepared Ubuntu VM available from Vagrant Cloud. The Vagrant VM brings fully functional Kontain onto your desktop or laptop and provides a stable platform for exploration and validation: 
-
-
-
 *   Ubuntu 20.10 
 *   Kontain pre-installed 
 *   KKM (Kontain kernel module) to support nested virtualization
 *   Docker pre-installed and configured for use with Kontain
 *   Compatible with Windows, Linux, and Mac OS
-
 Prerequisite: Both [Vagrant](https://www.vagrantup.com/) and [VirtualBox](https://www.VirtualBox.org/) must be installed on your host machine. 
-
-
-
 1. Create a local directory and navigate to it: 
-
     ```
     mkdir try-kontain
     cd try-kontain
     ```
-
-
 2. Run `kontain/ubuntu-kkm-beta3` from Vagrant Cloud:
-
     ```
     vagrant init kontain/ubuntu-kkm-beta3
     vagrant up --provider=virtualbox
     vagrant ssh
     ```
-
-
 3. Reference: [https://app.vagrantup.com/kontain](https://app.vagrantup.com/kontain)
-
-*Known Limitation:* At installation, kernel module KKM is tightly coupled with the host kernel version. If the host kernel is upgraded, the new kernel will not have KKM, and Kontain will not work. For now, we recommend against upgrading the kernel.
-
 **What’s Next?**
-
 To try Kontain with a simple compiled code example, go to [Tutorial #1, Part A: Create and Run a Unikernel](#tutorial-1-part-a-create-and-run-a-unikernel)
-
 To try Kontain with a simple interpreted language example, go to [Tutorial #2: Build and Run a Java Kontainer](#tutorial-2-build-and-run-a-java-kontainer)
-
 To try Kontain with your own application code, go to [Using Kontain with Your Compiled Language Application](#using-kontain-with-your-compiled-language-application) or [Using Kontain with Your Interpreted Language Application](#using-kontain-with-your-interpreted-language-application)
-
-
 ### Tutorial #1, Part A: Create and Run a Unikernel
-
 In this first tutorial, you’ll create a Kontain unikernel from a simple program written in C, then validate the result by running the unikernel in Kontain Monitor (KM). 
-
 You will be running Kontain Monitor from the command line. For KM command line help, go to:  `/opt/kontain/bin/km --help`
-
 **Setup**
-
-
-
 *   Assumes pre-configured Kontain Vagrant box (or Kontain installed with access to `/dev/kvm` or `/dev/kkm)` See [”Getting Started: Using Kontain’s Pre-Configured Linux VM”](#Getting-Started-Using-Kontains-Pre-Configured-Linux-VM)
 *   Requires GCC and `kontain-gcc` to be installed. 
-
 NOTE: The C program used here is provided in the `km-releases/examples` directory.
-
 **Procedure**
-
-
-
 1. Create a new directory and write a simple “Hello World” program:
-
-
 ```c
 dir=$(mktemp -d)
 file=kontain-example
@@ -256,38 +135,18 @@ int main(int argc, char* argv[])
 EOF
 
 ```
-
-
-
 2. Compile the code to produce object files: 
-
  `gcc -c -o $dir/$file.o $dir/$file.c`
-
-
-
 3. Link the object files with the Kontain runtime library to create a Kontain unikernel. Use `kontain-gcc` for the linking operation:
-
-
 ```
 /opt/kontain/bin/kontain-gcc -o $dir/$file.km $dir/$file.o
 ```
-
-
 Note that `.km` is the ELF file with the Kontain unikernel. 
-
-
-
 4. Run the application as a unikernel in a Kontain VM:
-
-
 ```
 /opt/kontain/bin/km $dir/$file.km
 ```
-
-
 NOTE: Kontain provides `kontain-gcc` and `kontain-g++` as drop-in replacements to help simplify the build by handling link phase flags. The commands produce a statically linked unikernel that contains all of the code needed for the workload to run. You can run `kontain-gcc` as the final linking step in the build process, as shown above, or replace the regular link command in your makefile with `kontain-gcc`.
-
-
 ### Tutorial #1, Part B: Build and Run a Kontainer with Docker
 
 In this example, you’ll build a Docker container with a Kontain unikernel (kontainer), then run the workload with Kontain Monitor (KM). 
@@ -1013,13 +872,13 @@ Reading symbols from target:/home/paulp/ws/ws2/km/tests/hello_test.km...
 
 ### Restarting a Unikernel Debuggee
 
-Developers often need to restart a debugee program from the beginning while preserving the breakpoints, variables, and other status in the client. In GDB, this is done using the `run` command. When debugging with Kontain GDB, use the following procedure to achieve the same results:
+Developers often need to restart a debuggee program from the beginning while preserving the breakpoints, variables, and other status in the client. In GDB, this is done using the `run` command. When debugging with Kontain GDB, use the following procedure to achieve the same results:
 
 
 
 1. In the GDB client, use the `detach `command to disconnect the debuggee and keep the client GDB alive.
 2. In another shell, start the debuggee with KM debugging enabled, using the` -g` option as described in Step 1 of the example, above.  
-3. Returning to the GDB client, use the `target remote localhost:2159` command to attach to the freshly started debugee. All of the breakpoints and other GDB client status should be present. 
+3. Returning to the GDB client, use the `target remote localhost:2159` command to attach to the freshly started debuggee. All of the breakpoints and other GDB client status should be present. 
 4. Run the debuggee using the `continue `command. 
 
 
@@ -1078,99 +937,49 @@ NOTE: This installation procedure assumes root access on the host machine.
 
 #### Prerequisites
 
-
-
 1. A Linux VM that meets Kontain requirements: 
-*   Linux kernel version 4.15 (for KKM) or 5.0 (for KVM) or higher \
+*   Linux kernel version 4.15 or higher (5.0 or higher if using KKM) \
 To check your kernel version, use: `uname -a` 
 *   Ubuntu 20 or Fedora 32 (recommended)
 2. Virtualization must be enabled on the installation kernel: 
-
     KVM installed and read/writable, or Kontain Kernel Module (KKM) installed. (See ["Do I need KVM or KKM?"](#do-i-need-kvm-or-kkm).) 
-
-
     To check for the presence of KVM: 
-
-
         `lsmod | grep kvm` 
-
-
     To verify that `/dev/kvm` exists and has read/write permissions
-
-
         `ls -l /dev/kvm`.
-
 3. `wget`: On most Linux distributions, <code>wget</code> is installed by default. 
-
     To verify installation, type <code>wget</code>. 
-
-
     To download `wget`:
-
-
         Fedora: `sudo dnf install wget` 
-
-
         Ubuntu: `sudo apt-get install wget`
-
-
-
 #### Running the Kontain Install Script
-
-
-
 1. Create an `opt/kontain` directory for the installation:
-
-
 ```
 sudo mkdir -p /opt/kontain ; sudo chown -R $(whoami) /opt/kontain
-
 ```
-
-
-
 2. Use `wget` to download and run the installation script: 
-
-
 ```
 wget 
 https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh -O - -q | bash
 ```
-
-
 Alternatively, you can clone the Kontain git repository and run the installation script directly. Note that `wget `is still being used to pull the bundle:
-
-
 ```
 git clone https://github.com/kontainapp/km-releases
 ./km-releases/kontain-install.sh
 ```
-
-
-
 #### Installing a Non-default Version of Kontain
-
 The Kontain installation script will download and install the release version referenced in the `[default-release](/km)` file in the Kontain repo. If you prefer to install a different release, you can pass the release name to the install script as the first argument. 
-
 **EXAMPLE: Installing `v0.1-beta2-demo`**
-
-
 ```
 wget https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh -q
 chmod a+x ./kontain-install.sh; ./kontain-install.sh v0.1-beta2-demo
 ```
-
-
-
 #### Validating the Installation
 
 The installation script automatically executes a simple unikernel in a Kontain VM and prints "Hello world".
 
 **Next Steps:**
-
 Be sure you have Docker installed and [configured to run with Kontain](#runtime-config-for-docker). 
-
-
 ### Runtime Config for Docker
 
 To use Kontain with Docker, you will need to have Docker installed and configured. 
