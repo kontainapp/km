@@ -201,6 +201,7 @@ jobs:
         timeout-minutes: 15
 
       - name: Get kernel logs
+        if: always()
         run: dmesg
 
   kkm-test-aws:
