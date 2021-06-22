@@ -991,20 +991,26 @@ NOTE: This installation procedure assumes root access on the host machine.
 #### Prerequisites
 
 1. A Linux VM that meets Kontain requirements: 
-*   Linux kernel version 4.15 or higher (5.0 or higher if using KKM) \
+*   Linux kernel version 4.15 or higher (5.0 or higher if using KKM) 
 To check your kernel version, use: `uname -a` 
 *   Ubuntu 20 or Fedora 32 (recommended)
 2. Virtualization must be enabled on the installation kernel: 
     KVM installed and read/writable, or Kontain Kernel Module (KKM) installed. (See ["Do I need KVM or KKM?"](#do-i-need-kvm-or-kkm).) 
+
     To check for the presence of KVM: 
         `lsmod | grep kvm` 
+
     To verify that `/dev/kvm` exists and has read/write permissions
         `ls -l /dev/kvm`.
+
 3. `wget`: On most Linux distributions, <code>wget</code> is installed by default. 
+
     To verify installation, type <code>wget</code>. 
+
     To download `wget`:
         Fedora: `sudo dnf install wget` 
         Ubuntu: `sudo apt-get install wget`
+
 #### Running the Kontain Install Script
 1. Create an `opt/kontain` directory for the installation:
 ```
@@ -1022,6 +1028,7 @@ git clone https://github.com/kontainapp/km-releases
 ```
 #### Installing a Non-default Version of Kontain
 The Kontain installation script will download and install the release version referenced in the `[default-release](/km)` file in the Kontain repo. If you prefer to install a different release, you can pass the release name to the install script as the first argument. 
+
 **EXAMPLE: Installing `v0.1-beta2-demo`**
 ```
 wget https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh -q
