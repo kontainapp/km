@@ -434,7 +434,11 @@ void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
       return;
    }
    if (vcpu == 0) {
-      km_infox(KM_TRACE_VCPU, "enqueuing signal %d to VM", info->si_signo);
+      km_infox(KM_TRACE_VCPU,
+               "enqueuing signal %d, si_code 0x%x, si_status 0x%x to VM",
+               info->si_signo,
+               info->si_code,
+               info->si_status);
       enqueue_signal(&machine.sigpending, info);
       km_interrupt_thread(info->si_signo);
       return;

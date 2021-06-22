@@ -527,6 +527,7 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
    int argc;
    char buf[PATH_MAX];
    int shell;   // indicates special handling for shells and env
+
    // host addresses, just to make less gva_to_kma below
    char* argv0 = (char*)km_gva_to_kma((km_gva_t)argv[0]);
    char* argv1 = (char*)km_gva_to_kma((km_gva_t)argv[1]);

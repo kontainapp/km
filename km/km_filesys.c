@@ -361,6 +361,7 @@ uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, void* buf, size_t count, 
 {
    int host_fd;
    km_file_ops_t* ops;
+   km_infox(KM_TRACE_FILESYS, "%s(fd %d, count %ld, offset %ld)", km_hc_name_get(scall), fd, count, offset);
    if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
       return -EBADF;
    }
@@ -377,7 +378,6 @@ uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, void* buf, size_t count, 
    } else {
       ret = __syscall_4(scall, host_fd, (uintptr_t)buf, count, offset);
    }
-   km_infox(KM_TRACE_FILESYS, "%s( %d, %ld) - %d", km_hc_name_get(scall), fd, count, ret);
    return ret;
 }
 
@@ -437,6 +437,8 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
 {
    int host_fd;
    km_file_ops_t* ops;
+
+   km_infox(KM_TRACE_FILESYS, "fd %d, cmd 0x%x, arg 0x%lx", fd, cmd, arg);
    if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
       return -EBADF;
    }
