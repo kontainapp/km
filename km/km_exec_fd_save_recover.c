@@ -250,7 +250,7 @@ char* km_exec_save_fd(char* varname)
                      i,
                      file->how,
                      file->flags,
-                     km_filename_table_line(ops))) {
+                     km_filename_table_line(ops)) == -1) {
                         km_warn("failed save info for non-socket %s", file->name);
                      }
          }
