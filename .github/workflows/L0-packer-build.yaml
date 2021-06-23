@@ -1,35 +1,30 @@
 name: Build L0 Base Image on Azure
-# Warning: Azure currently does not allow to rename images, AND existing image is deleted before the
-# packer can start creation of a new one.
-# So be VERY careful with automated image creation. Only kick it off on merges to master, and NOT
-# on a pull requests.
-# For pull requests, manual test (make -C cloud/azure L0-image L0_VMIMAGE_NAME="some_tmp_name") is expected
+
+# FOR ACTUAL L0 IMAGE TO BE REPLACED, EITHER CHANGE L0_IMAGE_NAME BELOW OR
+# OR RUN THE MAKE MANUALLY
+# Manual run: make -C cloud/azure L0-image L0_VMIMAGE_NAME=L0BaseImage
+# manual runs expect 'make -C cloud-azure login-cli' to be successful
+
+# Reason: Azure currently does not allow to rename images, AND existing image is deleted before the
+# packer can start creation of a new one. So if this build fails, ALL operations which need the L0 base
+# image will fail. More that that, CI can race so the other ops would fail while this one is being
+# successfully run
 
 env:
   IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
   SP_APPID: ${{ secrets.SP_APPID }}
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
   SP_TENANT: ${{ secrets.SP_TENANT }}
-  L0_IMAGE_NAME: L0BaseImage-backup
+  L0_IMAGE_NAME: L0BaseImage-validation
   # TRACE: true # uncomment to enable '-x' in all bash scripts
 
 on:
   push:
-    branches: [ msterin/packer-release ]  # TODO !!!! roll back to master
+    branches: [ master ]
     paths:
       - '**/L0-image.pkr.hcl'
       - '**/L0-image-provision.sh'
       - .github/workflows/L0-packer-build.yaml
-
-  # Manual trigger.
-  # See https://github.blog/changelog/2020-07-06-github-actions-manual-triggers-with-workflow_dispatch/
-  workflow_dispatch:
-    inputs:
-      run_type:
-        description: Image To build (TBD)
-        default: L0BaseImage
-        required: true
-
 
 jobs:
   build-base-image:

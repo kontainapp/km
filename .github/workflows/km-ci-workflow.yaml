@@ -1,7 +1,7 @@
 name: KM CI Pipeline
 on:
   pull_request:
-    branches: [ notmaster ]
+    branches: [ master ]
     paths-ignore:
       # See https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '**.md'       # all .md files in repo
@@ -9,7 +9,8 @@ on:
       - compile_commands.json
       - .vscode/**
       - km-releases
-      - payloads/longhaul-test/*
+      - payloads/longhaul-test/**
+      - '**/L0-image**'
   push:
     branches: [ master ]
     paths-ignore:
@@ -18,7 +19,9 @@ on:
       - compile_commands.json
       - .vscode/**
       - km-releases
-      - payloads/longhaul-test/*
+      - payloads/longhaul-test/**
+      - '**/L0-image**'
+
   schedule:
     # Posix cron format:
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
@@ -161,7 +164,7 @@ jobs:
     - run: make -C cloud/azure login-cli
 
     - name: Payload tests with packer
-      run: GITHUB_TOKEN=${{ github.token }} make -C payloads test-withpacker
+      run: GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} make -C payloads test-withpacker
       timeout-minutes: 10
 
   kkm-build:

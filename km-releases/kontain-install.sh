@@ -16,8 +16,7 @@ set -e
 # release name has to be passed via 1st arg, otherwise it's fetched from a file in the repo
 
 # TODO - roll back after merge to master
-# export DEFAULT_TAG=$(curl -s https://raw.githubusercontent.com/kontainapp/km-releases/master/default-release)
-export DEFAULT_TAG=$(curl -s https://raw.githubusercontent.com/kontainapp/km/msterin/merge-repos/km-releases/default-release)
+export DEFAULT_TAG=$(curl -s https://raw.githubusercontent.com/kontainapp/km-releases/master/default-release)
 
 readonly TAG=${1:-$DEFAULT_TAG}
 readonly PREFIX="/opt/kontain"

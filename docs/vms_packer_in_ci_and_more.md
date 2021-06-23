@@ -3,16 +3,22 @@
 ## Background
 
 Kontain process and CI is build around docker images (buildenv/testenv/runenv) and generally running tests on Kubernetes.
-Threre were multiple reasons for that, mainly the original focus on kubernetes and desire to have it integrated from get go.
+There were multiple reasons for that, mainly the original focus on Kubernetes and desire to have it integrated from get go.
 
 With time, we had to add multiple VM-based test - e.g. KRUN and AWS/KKM. We also started to package release as VM (AMI and Vagrant Box).
 It created complicated and fragile `az` and `aws` CLI based scripts, which organically started to move to using Hashicorp Vagrant and Package tools to manage all VM-related operations.
 
-The process of converting all VM-related ops to packer/vagrant is multistaged. This document summarises a few discussions and a status of related code...c The discussions are as follows:
+The process of converting all VM-related ops to packer/vagrant is multi-staged. This document covers a few discussions and a status of related code...c The discussions are as follows:
 
 * CI - coverage, packer usage
 * milestones for KM/KKM conversion
 * Base VM images, file location
+
+## A note about Quotas on Azure
+
+Before going further, it is important to understand that every test run uses VMs from Azure and AWS. We usually use VMs with 4vCPU (defined in packer config files). That means that parallel run of multiple PRs can exceed Kontain account quota (currently increased to 48 vCPU at a time - we can set it higher) and the CI will fail with "Deployment failure" message from Azure.
+
+This is not specific for this PR, I simply stepped into this while doing accidental series of pushes and triggering a dozen or so CIs in flight
 
 ## Make and CI for testing - support for packer
 
@@ -44,20 +50,20 @@ See the script and packer config for more details
 
 ### Base image for tests
 
-Currently pre-created AMI and Azure base image are used. Base Azure image is created in cloud/azure (see below). AMI is crested by a script writen @sv631.... there is an AMI creation packer process, it is not used here yet.
+Currently pre-created AMI and Azure base image are used. Base Azure image is created in cloud/azure (see below). AMI is crested by a script written @sv631.... there is an AMI creation packer process, it is not used here yet.
 
 ### How to debug it
 
 The easiest way to debug is to create a VM on Azure or AWS using the same image, ssh there, set the GITHUB_TOKEN and then replay km-tests.sh
 
-To create, list and manage VMs using base images, there are helper scripts and targets - see  `cloud/azure/azure_vm.sh` for Azure  and `tools/hashicorp/.run-instance`, `describe-instances` and `terminate-instances` for AWS.
+To create, list and manage VMs using base images, there are helper scripts and targets - see `cloud/azure/azure_vm.sh` for Azure and `tools/hashicorp/.run-instance`, `describe-instances` and `terminate-instances` for AWS.
 These were written as convenience wrappers to avoid az/aws; a few more details are below.
 
 #### Azure
 
 cloud/azure/azure_vm.sh is a helper script. Usage examples
 
-```
+```bash
 ./cloud/azure/azure_vm.sh ls # list all VMs
 VM_IMAGE=L0-base RESOURCE_GROUP=PackerBuildRG ./cloud/azure/azure_vm.sh create myVm # you can ssh with user Kontain
 RESOURCE_GROUP=PackerBuildRG ./cloud/azure/azure_vm.sh delete myVm
@@ -69,20 +75,38 @@ This was a helper for old AMI "release" creation. It assumes AMI_name=Kontain_ub
 It is invoked by `make -C tools/hashicorp .run_instance` , `.terminate-instances` and `.describe-instances`
 
 It actually needs to be moved to cloud/aws/aws_vm.sh (or simple vm_manage.sh) and make consistent with azure
-As of now, it can be used by makng AMI_Name configurable, and/or using as a set of examples
+As of now, it can be used by making AMI_Name configurable, and/or using as a set of examples.
 
 ## VM images - base image, release/Vagrant box build
 
 ### BaseImages
 
+Commands:
+
+* ` make -C cloud/azure L0-image L0_VMIMAGE_NAME=L0BaseImage`
+* TBD: `make -C cloud/aws/ L0-image`
+
+The base image is built using the following config  files
+
 * cloud/azure/L0-image.pkr.hcl - build BaseImage on Azure. Includes packer, vagrant, virtualbox, multiple tools and a couple of pre-loaded Vagrant Boxes.
   * TBD: add dev tools, remove pre-loaded Vagrant boxes. Dev tools will allow to use this image in more use cases. Vagrant boxes need to be place in a next level (L1) base image, to be used to produce Vagrant boxes with pre-installed Kontain release
 * TBD: cloud/aws/L0-image.pkr.hcl - build BaseImage AMI on AWS . This should replace the home grown script for base AMI creation.
 
-Commands:
+There is also a pipeline that automatically validates the build, and generates L0BaseImage-validation image.
+Verbatim from comments in `.github/workflows/L0-packer-build.yaml`:
 
-* `make -n -C cloud/azure/ L0-image`
-* TBD: `make -n -C cloud/aaws/ L0-image`
+```txt
+
+# FOR ACTUAL L0 IMAGE TO BE REPLACED, EITHER CHANGE L0_IMAGE_NAME BELOW OR
+# OR RUN THE MAKE MANUALLY
+# Manual run: make -C cloud/azure L0-image L0_VMIMAGE_NAME=L0BaseImage
+# manual runs expect 'make -C cloud-azure login-cli' to be successful
+
+# Reason: Azure currently does not allow to rename images, AND existing image is deleted before the
+# packer can start creation of a new one. So if this build fails, ALL operations which need the L0 base
+# image will fail. More that that, CI can race so the other ops would fail while this one is being
+# successfully run
+```
 
 ### Vagrant boxes for release
 
@@ -97,6 +121,18 @@ All files are in tools/hashicorp. Make targets:
 
 also `test-box-upload` and `product` are useful goals there - take a look
 
+#### CI for vagrant boxes and AMI creation
+
+No CI support for this yet. There are issues https://github.com/kontainapp/km/issues/1276 and https://github.com/kontainapp/km/issues/1196 for resurrecting `make release`, hooking it to nightly build, and adding box/ami creation there.
+
+#### Credentials
+
+This process needs SP_* environment vars are set to authenticate to Azure (see build.md doc, 'login-cli' chapter).
+It also needs environment vars (or secrets, if running in CI)
+
+* GITHUB_TOKEN - personal token authoring clone/checkout from github
+* VAGRANT_CLOUD_TOKEN - personal token authorizing delete/create boxes on vagrantcloud for username `kontain` , password is Kontain WiFi password `SecureF...`. In CI, it the token is already in the secrets for github.com/kontainapp.
+
 ## Phases on moving to easier VM management and KM testing
 
 0. PR https://github.com/kontainapp/km/pull/1275 with packer files for test, building base images, and this document
@@ -110,9 +146,9 @@ also `test-box-upload` and `product` are useful goals there - take a look
 * document how to run/stop/etc and ssh to the VMs
 
 2a. - Move krun unit test to packer ****
-    - clean up runenv to support krun (crun may require flags, and without flags should fail gravcefully/ clear err msg)
+    - clean up runenv to support krun (crun may require flags, and without flags should fail gracefully/ clear err msg)
     - validate-runenv for payloads RUNTIME=/opt/kontain/bin/krun
-    - potentialy: more tests for runenv (taken from payload test suites and added on top of runenv)
+    - potentially: more tests for runenv (taken from payload test suites and added on top of runenv)
 
 === KRUN on Kubernetes: assumes integration done
 
@@ -174,14 +210,7 @@ Packer config for build L0 image for azure, and running large Azure box with nes
 ./cloud/azure/vagrant-box.pkr.hcl - Run a big VM based on L0image, and inside of it run vagrant box creation
 ```
 
-## TBD before PR merge
-
-- missing token in CI for make-withpacker
-- remove ref to msterin/packer-release in L0 drop.yaml and revert base CI
-- review TBD/TODO
-* drop release,yaml and branch name in other yaml
-
-## TOD: Missing components
+## TODO: Missing components
 
 Even though blocks are done, some of the final polish is missing:
 

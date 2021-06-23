@@ -25,10 +25,9 @@ variables {
    sp_appid = env("SP_APPID")
    sp_password = env("SP_PASSWORD")
 
-   // TODO - document and pass to CI correctly
    // For runs from desktop, these should be personal tokens
    // For CI, there should be secrets
-   github_token = env("GITHUB_RELEASE_TOKEN")
+   github_token = env("GITHUB_TOKEN")
    vagrant_cloud_token = env("VAGRANT_CLOUD_TOKEN")
 
    image_name = "VagrantRun"
