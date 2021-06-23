@@ -271,6 +271,7 @@ PACKER_BUILD = time packer build \
 	-var src_branch=${SRC_BRANCH} -var image_version=${IMAGE_VERSION}
 
 DIR ?= tests
+TIMEOUT ?= 10m
 
 ifeq (${HYPERVISOR_DEVICE},/dev/kvm)
 PACKER_ONLY ?= -only azure-arm.km-test
@@ -278,7 +279,8 @@ endif
 
 test-withpacker test-all-withpacker validate-runenv-image-withpacker: .packer_dep ## Test with packer
 	cd ${TOP}/tests ; ${PACKER_BUILD} -var target=$(subst -withpacker,,$@) \
-		-var dir=${FROMTOP} -var hv_device=${HYPERVISOR_DEVICE} $(PACKER_ONLY) packer/km-test.pkr.hcl
+		-var dir=${FROMTOP} -var hv_device=${HYPERVISOR_DEVICE} -var timeout=${TIMEOUT} $(PACKER_ONLY) \
+		packer/km-test.pkr.hcl
 
 # Note: Currently we pull testenv or runenv images for testing in a remote VM
 #  so we need to know IMAGE_VERSION for a pull

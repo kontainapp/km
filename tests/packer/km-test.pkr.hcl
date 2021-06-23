@@ -25,6 +25,10 @@ variable "hv_device"  {
    type = string
    description = "/dev/kvm or /dev/kkm"
 }
+variable "timeout" {
+   type = string
+   description = "Timeout for tests. Should be less that outer timeout, so packer cleans up resources"
+}
 
 // TODO - pass AMI id from outside
 variable "aws_ami_id" {
@@ -41,13 +45,18 @@ variables {
    sp_tenant = env("SP_TENANT")
    sp_appid = env("SP_APPID")
    sp_password = env("SP_PASSWORD")
-   github_token = env("GITHUB_TOKEN") // TODO - set by CI or needs to be pass a GITHUB_TOKEN=${{ github.token }}
+   github_token = env("GITHUB_TOKEN")
    // azure images
    src_image_name = "L0BaseImage" // would be good to pass from upstairs so others can use it
    // can conflict with other runs. TODO - make unique
    // see https://www.packer.io/docs/templates/hcl_templates/functions
    image_name = "KKMTestTmpImage"
    image_rg = "PackerBuildRG"
+}
+
+locals {
+   # easily identify packer resource groups in Azure. E.g. "pkr-km-test-ci-251-payloads-busybox"
+   az_tmp_resource_group = "pkr-km-test-${replace(trim(var.dir, "/"), "/", "-")}-${var.image_version}"
 }
 
 source "amazon-ebs" "km-test" {
@@ -68,6 +77,7 @@ source "azure-arm" "km-test" {
    client_secret = var.sp_password
 
    location = "West US"
+   temp_resource_group_name = local.az_tmp_resource_group
    # this one allow KVM and KKM. For KKM only, a smaller size would be cheaper
    vm_size = "Standard_D4s_v3"
 
@@ -114,7 +124,7 @@ build {
       "SP_PASSWORD=${var.sp_password}",
       "SP_TENANT=${var.sp_tenant}"
     ]
-
+    timeout = var.timeout
   }
 
 

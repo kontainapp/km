@@ -210,9 +210,16 @@ Packer config for build L0 image for azure, and running large Azure box with nes
 ./cloud/azure/vagrant-box.pkr.hcl - Run a big VM based on L0image, and inside of it run vagrant box creation
 ```
 
-## TODO: Missing components
+## know bugs
 
-Even though blocks are done, some of the final polish is missing:
+* payloads test-withpacker fails on Azure/KVM because for some reason the VM has issues finding /dev/kvm even though it uses the correct VM SKU.
+  * Kernel module is there: https://github.com/kontainapp/km/runs/2900707458?check_suite_focus=true#step:4:106
+  * but KM fails: https://github.com/kontainapp/km/runs/2900707458?check_suite_focus=true#step:4:152
+  I did not investigate further
+
+## TODO: Missing components / going forward
+
+**Going forward** - some of the final polish is missing:
 
 * AWS: need to replace manual base AMI creation (for KM/KKm test) with Packer config
 * AWS: drop specific AMI id and use AMI "data" to fetch the id.

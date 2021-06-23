@@ -47,6 +47,7 @@ env:
   SP_APPID: ${{ secrets.SP_APPID }}
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
   SP_TENANT: ${{ secrets.SP_TENANT }}
+  GITHUB_TOKEN: ${{ secrets.FULL_GITHUB_ACCESS_TOKEN }} # the one in secrets covers more than github.token
   # TRACE: true # uncomment to enable '-x' in all bash scripts
 
 jobs:
@@ -57,6 +58,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: true
+
 
       - name: Print build environment info
         run: |
@@ -153,7 +155,7 @@ jobs:
       timeout-minutes: 10
 
   km-test-withpacker:
-    name: Basic tests with Packer
+    name: Basic payload tests with Packer
     runs-on: ubuntu-latest
     needs: km-build
     steps:
@@ -164,8 +166,9 @@ jobs:
     - run: make -C cloud/azure login-cli
 
     - name: Payload tests with packer
-      run: GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} make -C payloads test-withpacker
-      timeout-minutes: 10
+      run: make -C payloads test-withpacker TIMEOUT=15m
+      # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
+
 
   kkm-build:
     name: Build KKM, save test artifacts
@@ -229,13 +232,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: KM Test - on AWS with KKM
+      - name: KM with KKM Test - AWS and Azure with packer
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C tests test-withpacker HYPERVISOR_DEVICE=/dev/kkm
-        timeout-minutes: 30
-      # todo: add a step with if: timeout() to clean up if a step killed by timeout
+        run: make -C tests test-withpacker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m
+        # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
+
 
   km-k8s-cluster:
     name: Create a new K8S cluster on Azure
@@ -296,7 +299,7 @@ jobs:
         if: env.TEST_COVERAGE == 'true'
 
       - name: Upload coverage
-        run: make -C tests upload-coverage GITHUB_TOKEN=${{ github.token }} # TODO - is it a correct token ?
+        run: make -C tests upload-coverage
         if: env.TEST_COVERAGE == 'true'
 
       - name: Tear down k8s Cluster
@@ -329,7 +332,7 @@ jobs:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          repo_token: ${{ env.GITHUB_TOKEN }}
           slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           include_jobs: true
           channel: '#build_and_test'

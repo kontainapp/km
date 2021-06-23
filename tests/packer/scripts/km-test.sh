@@ -43,6 +43,10 @@ if [ "${HYPERVISOR_DEVICE}" == "/dev/kkm" ] ; then
    ./kkm/test_kkm/test_kkm
 fi
 
+echo Checking for kkm or kvm modules
+lsmod  | grep -i k.m
+ls -l /dev/k*
+
 # 2. Get pre-requisite images and run tests
 #==========================================
 
