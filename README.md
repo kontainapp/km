@@ -1,5 +1,5 @@
 Regular ![regular](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg?branch=master&event=push)
-Nightly ![nighty](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg?branch=master&event=schedule)
+Nightly ![nightly](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg?branch=master&event=schedule)
 
 # KM (Kontain Monitor) and related payloads for Kontain.app VMs
 
@@ -37,26 +37,26 @@ We use Visual Studio Code as the recommended IDE; install it and use `code km_re
 
 * Be sure you have 'az' CLI installed
 
-## Product Documentation
+## User Documentation
 
-Command-line help: `/opt/kontain/bin/km --help`
-
-[Kontain User Guide](docs/user-guide.md) Provides information for developers to install Kontain and use it to run workloads. 
+[Kontain User Guide](docs/user-guide.md) - Provides information for developers to install Kontain and use it to run workloads. 
  
-[Debugging Kontain Unikernels](docs/debugging-guide.md) Provides information for developers about how to debug a Kontain workload (unikernel) using standard debugging tools and practices.  
+[Debugging Kontain Unikernels](docs/debugging-guide.md) - Provides information for developers about how to debug a Kontain workload (unikernel) using standard debugging tools and practices.  
 
-[Known Issues](docs/known-issues.md) 
+For command-line help: `/opt/kontain/bin/km --help`
 
-[FAQs](docs/FAQ.md) 
+[Known Issues](https://github.com/kontainapp/km/blob/master/docs/known-isssues.md) 
+
+[Kontain FAQs](docs/FAQ.md) 
 
 ## How to Find Support or File an Issue
 
 Contact <community@kontain.app> 
 
 ## Contributing
-See [CONTRIBUTING.md](contribuing.md)
+See [CONTRIBUTING.md](https://github.com/kontainapp/km/blob/master/CONTRIBUTING.md)
 
 ## Licensing
 Copyright © 2021 Kontain Inc. All rights reserved.
 
-By downloading or otherwise accessing the Kontain Beta Materials, you hereby agree to all of the terms and conditions of [Kontain’s Beta License] (https://raw.githubusercontent.com/kontainapp/km/blob/master/LICENSE).
+By downloading or otherwise accessing Kontain's Beta materials, you hereby agree to all of the terms and conditions of [Kontain's Beta License](https://github.com/kontainapp/km/blob/master/LICENSE).
