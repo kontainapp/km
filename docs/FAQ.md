@@ -20,5 +20,5 @@
 
 *   Can I view Kontain’s interaction with KVM?
 
-    You can use `trace-cmd record` and `trace-cmd report` to observe kvm activity. [For more details on trace-cmd see](https://www.linux-kvm.org/page/Tracing).[https://www.linux-kvm.org/page/Tracing](https://www.linux-kvm.org/page/Tracing)
+    You can use `trace-cmd record` and `trace-cmd report` to observe kvm activity. For more details on trace-cmd, see [https://www.linux-kvm.org/page/Tracing](https://www.linux-kvm.org/page/Tracing).
 
