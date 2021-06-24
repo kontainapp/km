@@ -1,4 +1,4 @@
-# Copyright © 2018-2019 Kontain Inc. All rights reserved.
+# Copyright © 2018-2021 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -68,7 +68,7 @@ RUNENV_PATH ?= ${BLDDIR}
 RUNENV_DEMO_PATH ?= .
 
 TESTENV_EXTRA_FILES += ${KM_BIN} ${KM_LDSO}
-testenv_prep = cp ${TESTENV_EXTRA_FILES} ${TESTENV_PATH}
+testenv_prep = cp --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH}
 testenv_cleanup = rm $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}})
 
 testenv-image: ## build test image with test tools and code
@@ -77,6 +77,7 @@ testenv-image: ## build test image with test tools and code
 	${DOCKER_BUILD} --no-cache \
 			--build-arg=branch=${SRC_SHA} \
 			--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
+			--build-arg=IMAGE_VERSION=${IMAGE_VERSION} \
 			--build-arg=MODE=${BUILD} \
 			${TESTENV_IMAGE_EXTRA_ARGS} \
 			-t ${TEST_IMG_TAGGED} \

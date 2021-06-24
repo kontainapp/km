@@ -43,7 +43,7 @@ kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/p
 kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
    -Xlinker --undefined=strtoull_l \
    ${BUILD}/libpython3*.a -lsqlite3 $LDLIBS \
-   -L/opt/kontain/lib -lmimalloc -Wl,-rpath=/opt/kontain/lib \
+   -L/opt/kontain/lib -lmimalloc \
    -o ${NAME}d.mimalloc
 
 # Add python->km symlink and make python to looking for libs in correct place

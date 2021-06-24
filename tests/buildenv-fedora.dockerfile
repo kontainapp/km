@@ -32,7 +32,7 @@ RUN tar cf - -C / lib usr/lib \
    --exclude firmware --exclude mdev --exclude bash \
    --exclude engines-\* | tar xf - -C $PREFIX/alpine-lib
 # Alpine 3.12+ bumped libffi version, Fedora 33 hasn't yet. Hack to support that
-RUN ln -sf /opt/kontain/alpine-lib/usr/lib/libffi.so.7 /opt/kontain/alpine-lib/usr/lib/libffi.so.6
+RUN ln -sf ${PREFIX}/alpine-lib/usr/lib/libffi.so.7 ${PREFIX}/alpine-lib/usr/lib/libffi.so.6
 
 # Save the path to gcc versioned libs for the future
 RUN dirname $(gcc --print-file-name libgcc.a) > $PREFIX/alpine-lib/gcc-libs-path.txt
@@ -79,5 +79,7 @@ WORKDIR /home/$USER
 
 COPY --from=buildlibelf /usr/local /usr/local/
 COPY --from=alpine-lib-image $PREFIX $PREFIX/
+# take libcrypto from Fedora - python ssl doesn't like alpine one
+RUN cp /usr/lib64/libcrypto.so.1.1.1[a-z] ${PREFIX}/alpine-lib/lib/libcrypto.so.1.1
 
 USER $USER

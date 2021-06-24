@@ -1,4 +1,4 @@
-# Copyright © 2019 Kontain Inc. All rights reserved.
+# Copyright © 2019-2021 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
 #
@@ -13,7 +13,6 @@
 ARG DTYPE=fedora
 ARG BUILDENV_IMAGE_VERSION=latest
 
-
 FROM kontainapp/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
 
 #  Python version and ABI flag **MUST** be passed on build
@@ -27,7 +26,7 @@ WORKDIR ${PHOME}
 COPY --chown=appuser:appuser scripts scripts/
 COPY --chown=appuser:appuser test_snapshot.py test_snapshot.py
 COPY --chown=appuser:appuser cpython/pybuilddir.txt cpython/
-COPY --chown=appuser:appuser km cpython/python.km cpython/python.kmd test_unittest.py ./
+COPY --chown=appuser:appuser km cpython/python.km cpython/python.kmd.mimalloc test_unittest.py ./
 COPY --chown=appuser:appuser cpython/Modules cpython/Modules/
 COPY --chown=appuser:appuser cpython/Lib cpython/Lib/
 # TODO: construct path names once, instread of hardcoding them here

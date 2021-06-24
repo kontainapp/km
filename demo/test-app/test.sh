@@ -22,7 +22,8 @@ until $(curl --output /tmp/out.json --silent --fail -X POST -F image=@dog2.jpg '
 done
 
 end=$(date +%s%N)
-docker cp $CONTAINER:/tmp/start_time /tmp/start_time
-dur=$(expr $end - $(cat /tmp/start_time))
-jq . /tmp/out.json
+start=$(date +%s%N -d $(ls --full-time tmp/start_time | awk -e '{print $7}'))
+dur=$(expr $end - $start)
 echo "Response time $(expr $dur / 1000000000).$(printf "%.03d" $(expr $dur % 1000000000 / 1000000)) secs"
+jq . /tmp/out.json
+echo ""
