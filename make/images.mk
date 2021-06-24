@@ -278,7 +278,7 @@ PACKER_ONLY ?= -only azure-arm.km-test
 endif
 
 test-withpacker test-all-withpacker validate-runenv-image-withpacker: .packer_dep ## Test with packer
-	cd ${TOP}/tests ; ${PACKER_BUILD} -var target=$(subst -withpacker,,$@) \
+	cd ${TOP}/tests ; ${PACKER_BUILD} -force -var target=$(subst -withpacker,,$@) \
 		-var dir=${FROMTOP} -var hv_device=${HYPERVISOR_DEVICE} -var timeout=${TIMEOUT} $(PACKER_ONLY) \
 		packer/km-test.pkr.hcl
 
