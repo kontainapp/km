@@ -8,6 +8,6 @@ nameSuffix: -minikube-demo
 # see https://kubectl.docs.kubernetes.io/pages/app_management/container_images.html
 images:
   - name: "python-km"
-    newName: msterinkontain/python-km
-    newTag: msterin-kube
+    newName: kontainapp/python-km
+    newTag: kontain-kube
 

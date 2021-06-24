@@ -1,0 +1,57 @@
+name: Build L0 Base Image on Azure
+
+# FOR ACTUAL L0 IMAGE TO BE REPLACED, EITHER CHANGE L0_IMAGE_NAME BELOW OR
+# OR RUN THE MAKE MANUALLY
+# Manual run: make -C cloud/azure L0-image L0_VMIMAGE_NAME=L0BaseImage
+# manual runs expect 'make -C cloud-azure login-cli' to be successful
+
+# Reason: Azure currently does not allow to rename images, AND existing image is deleted before the
+# packer can start creation of a new one. So if this build fails, ALL operations which need the L0 base
+# image will fail. More that that, CI can race so the other ops would fail while this one is being
+# successfully run
+
+env:
+  IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
+  SP_APPID: ${{ secrets.SP_APPID }}
+  SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
+  SP_TENANT: ${{ secrets.SP_TENANT }}
+  L0_IMAGE_NAME: L0BaseImage-validation
+  # TRACE: true # uncomment to enable '-x' in all bash scripts
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '**/L0-image.pkr.hcl'
+      - '**/L0-image-provision.sh'
+      - .github/workflows/L0-packer-build.yaml
+
+jobs:
+  build-base-image:
+    name: Build Azure Base Image
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Print build environment info
+        run: |
+          echo "Event: ${{ github.event_name }} inputs.run_type: ${{ github.event.inputs.run_type }}"
+          echo ====Environment info===
+          echo "SHA: $(git rev-parse HEAD)"
+          echo "=== Last 10 commits:"
+          git log -n 10 --graph --pretty=format:'%h% %d %s %cr %ce'
+          echo "=== VM/OS:"
+          cat /proc/version
+          cat /etc/os-release
+          echo "=== Docker version:"
+          docker version
+          echo ==== Environment Variables
+          env
+          echo ==== CPU Info
+          lscpu
+
+      - name: login to Azure
+        run: make -C cloud/azure login-cli
+
+      - name: Build L0 Base image
+        run: make -C cloud/azure L0-image L0_VMIMAGE_NAME="${{ env.L0_IMAGE_NAME }}"

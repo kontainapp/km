@@ -25,7 +25,7 @@ SRC_OS := ubuntu2010 fedora32
 # Souce box version  to pre-fetch
 # Caveat: we assume both fedora and ubuntu have the same box version
 # for virtualbox (it is likely since it's from the same builder)
-BOX_VERSION ?= 3.2.20
+BOX_VERSION ?= 3.2.24
 # Note: version needs to be synced with the one in *pkrvars.hcl files
 
 source-boxes: ## add boxes for ${SRC_OS} to vagrant local cache
@@ -37,22 +37,24 @@ source-boxes: ## add boxes for ${SRC_OS} to vagrant local cache
 		fi \
 	done
 
-LOG ?= 0
-PACKER_BUILD = PACKER_LOG=${LOG} time packer build -force
+# pass PACKER_LOG=1 for debug info
+PACKER_BUILD = ${PACKER_LOG} time packer build -force
 
 product: ## Prepares KM packaging artifacts (e.g. km tarball and kkm run bundle)
 	@if ! type virtualbox >& /dev/null ; then echo -e "${RED}'virtualbox' is missing - please install it first ${NOCOLOR}"; false; fi
 	@if ! type vagrant >& /dev/null ; then echo -e "${RED}'vagrant' is missing - please install it first ${NOCOLOR}"; false; fi
-	$(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} kkm-pkg
-	$(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} release
+	@ echo - check the files. do not build them !
+	echo $(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} kkm-pkg
+	echo $(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} release
 
-vm-images: .check_tools product source-boxes ## loads source boxes and creates boxes with KM installed
+
+vm-images: .check_packer product source-boxes ## loads source boxes and creates boxes with KM installed
 	@set -x ; for os in ${SRC_OS} ; \
 	do \
 		${PACKER_BUILD} -only virtualbox-ovf.build-ova -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
 	done
 
-.check_tools:
+.check_packer:
 	@if ! command -v packer; then \
 		echo -e "${RED}Packer (https://www.packer.io/) is not found. Please install it first${NOCOLOR}" ; \
 		false; \

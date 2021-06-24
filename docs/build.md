@@ -316,7 +316,7 @@ For non-interactive login to work, you need to create and store personal credent
 Code to convert `az ad sp create-for-rbac` results to env variables needed by Makefiles:
 
 ```sh
-t_name=az_$(whoami)_noninteractive
+t_name="http://az_$(whoami)_noninteractive"
 file=~/.ssh/$t_name
 az ad sp create-for-rbac -n "$t_name" --role contributor --years 3 | tee $file
 chmod 400 $file

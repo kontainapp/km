@@ -1,29 +1,32 @@
 name: KM CI Pipeline
 on:
   pull_request:
-    branches: [ master ]
+    branches: [master]
     paths-ignore:
       # See https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
-      - '**.md'       # all .md files in repo
-      - '**/docs/**'  # all content of all docs/ dirs in repo
+      - "**.md" # all .md files in repo
+      - "**/docs/**" # all content of all docs/ dirs in repo
       - compile_commands.json
       - .vscode/**
       - km-releases
-      - payloads/longhaul-test/*
+      - payloads/longhaul-test/**
+      - "**/L0-image**"
   push:
-    branches: [ master ]
+    branches: [master]
     paths-ignore:
-      - '**.md'       # all .md files in repo
-      - '**/docs/**'  # all content of all docs/ dirs in repo
+      - "**.md" # all .md files in repo
+      - "**/docs/**" # all content of all docs/ dirs in repo
       - compile_commands.json
       - .vscode/**
       - km-releases
-      - payloads/longhaul-test/*
+      - payloads/longhaul-test/**
+      - "**/L0-image**"
+
   schedule:
     # Posix cron format:
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
     # Minute Hour DayOfMonth MonthOfYear DayOfWeek
-    - cron: '0 7 * * *' # Daily build midnight pacific time (UTC + 7)
+    - cron: "0 7 * * *" # Daily build midnight pacific time (UTC + 7)
     # Gitgub doc says:
     #    Scheduled workflows run on the latest commit on the default or base branch.
     #    The shortest interval you can run scheduled workflows is once every 5 minutes.
@@ -33,8 +36,8 @@ on:
   workflow_dispatch:
     inputs:
       run_type:
-        description: 'Run type: regular or nightly'
-        default: 'regular'
+        description: "Run type: regular or nightly"
+        default: "regular"
         required: true
 
 env:
@@ -44,6 +47,7 @@ env:
   SP_APPID: ${{ secrets.SP_APPID }}
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
   SP_TENANT: ${{ secrets.SP_TENANT }}
+  GITHUB_TOKEN: ${{ secrets.FULL_GITHUB_ACCESS_TOKEN }} # the one in secrets covers more than github.token
   # TRACE: true # uncomment to enable '-x' in all bash scripts
 
 jobs:
@@ -121,33 +125,50 @@ jobs:
     runs-on: ubuntu-20.04
     needs: km-build
     steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: true
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
 
-    - run: make -C cloud/azure login-cli
+      - run: make -C cloud/azure login-cli
 
-    - name: KM Tests on K8S with KVM
-      run: make -C tests test-withk8s TEST_JOBS=4
-      timeout-minutes: 15
+      - name: KM Tests on K8S with KVM
+        run: make -C tests test-withk8s TEST_JOBS=4
+        timeout-minutes: 15
 
-    - name: Test payloads on K8S with KVM
-      run: make -C payloads test-withk8s
-      timeout-minutes: 10
+      - name: Test payloads on K8S with KVM
+        run: make -C payloads test-withk8s
+        timeout-minutes: 10
 
-    - name: Krun test preparation - create ssh key pairs
-      run: ssh-keygen -b 2048 -t rsa -q -N "" -f ~/.ssh/id_rsa
+      - name: Krun test preparation - create ssh key pairs
+        run: ssh-keygen -b 2048 -t rsa -q -N "" -f ~/.ssh/id_rsa
 
-    - name: Krun test prepartion - download km artifact
-      uses: actions/download-artifact@v2
-      with:
-        name: km
-        path: /opt/kontain/bin/
-    - run: chmod a+x /opt/kontain/bin/km # download-artifact@v2 does not retain file mode
+      - name: Krun test prepartion - download km artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: km
+          path: /opt/kontain/bin/
+      - run: chmod a+x /opt/kontain/bin/km # download-artifact@v2 does not retain file mode
 
-    - name: Krun test - runs on Azure vm
-      run: make -C container-runtime test-remote TEST_REMOTE_TEST_ID=ci-${{ github.run_number }}
-      timeout-minutes: 10
+      - name: Krun test - runs on Azure vm
+        run: make -C container-runtime test-remote TEST_REMOTE_TEST_ID=ci-${{ github.run_number }}
+        timeout-minutes: 10
+
+  km-test-withpacker:
+    name: Basic payload tests with Packer
+    runs-on: ubuntu-latest
+    needs: km-build
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Payload tests with packer
+        # to avoid calling packer in a loop, we call it on one dir (does not matter which one)
+        # and pass the parent to it, so that the scan of payloads will happen inside a single docker
+        run: make -C payloads/busybox test-withpacker PACKER_DIR=payloads TIMEOUT=15m
+        # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
   kkm-build:
     name: Build KKM, save test artifacts
@@ -211,18 +232,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: KM Test - on AWS with KKM
+      - name: KM with KKM Test - AWS and Azure with packer
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        # Calculate correct branch name so we can pass it to AWS test, and call the test.
-        # For pull_request GITHUB_HEAD_REF has the branch name.
-        # For push and for schedule GITHUB_HEAD_REF is empty, but GITHUB_REF keeps refs/heads/<branch>
-        run:  |
-          set -x
-          branch="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
-          make -C cloud/aws test SOURCE_BRANCH="${branch?failed to find out branch name}"
-        timeout-minutes: 30
+        run: make -C tests test-withpacker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m
+        # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
   km-k8s-cluster:
     name: Create a new K8S cluster on Azure
@@ -277,13 +292,13 @@ jobs:
 
       - name: KM tests with coverage, on K8s
         # pull buildenv before testing, coverage analysis will need it
-        run : make -C tests pull-buildenv-image coverage-withk8s
+        run: make -C tests pull-buildenv-image coverage-withk8s
         timeout-minutes: 15
         # if: always()
         if: env.TEST_COVERAGE == 'true'
 
       - name: Upload coverage
-        run: make -C tests upload-coverage GITHUB_TOKEN=${{ github.token }} # TODO - is it a correct token ?
+        run: make -C tests upload-coverage
         if: env.TEST_COVERAGE == 'true'
 
       - name: Tear down k8s Cluster
@@ -298,10 +313,10 @@ jobs:
           rm -f ~/.kube/config
           az logout
 
-#  Keep this here as an EXPLICIT reminder to get releases back in the build
-#   - name: Kick off release pipeline to build and upload release v0.1-edge
-#     run: make edge-release GITHUB_TOKEN=$(GITHUB_TOKEN)
-#     timeout-minutes: 5
+  #  Keep this here as an EXPLICIT reminder to get releases back in the build
+  #   - name: Kick off release pipeline to build and upload release v0.1-edge
+  #     run: make edge-release GITHUB_TOKEN=$(GITHUB_TOKEN)
+  #     timeout-minutes: 5
 
   slack-workflow-status:
     name: Notify slack, if needed
@@ -316,9 +331,9 @@ jobs:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          repo_token: ${{ env.GITHUB_TOKEN }}
           slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           include_jobs: true
-          channel: '#build_and_test'
-          name: 'CI workflow status'
-          icon_emoji: ':poop:'
+          channel: "#build_and_test"
+          name: "CI workflow status"
+          icon_emoji: ":poop:"

@@ -28,9 +28,7 @@ OPT_KONTAIN_BIN = f"{OPT_KONTAIN}/bin"
 KONTAIN_GCC = f"{OPT_KONTAIN_BIN}/kontain-gcc"
 KM = f"{OPT_KONTAIN_BIN}/km"
 
-# TODO: revert to master when merged
-#INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km/master/km-releases/kontain-install.sh"
-INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km/msterin/merge-repos/km-releases/kontain-install.sh"
+INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km/master/km-releases/kontain-install.sh"
 
 DOCKER_CONFIG_DIR = "/etc/docker"
 DOCKER_CONFIG_FILE = f"{DOCKER_CONFIG_DIR}/daemon.json"

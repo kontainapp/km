@@ -141,5 +141,24 @@ clearow: ## clear openwhisk machines. You can just run 'apply_openwhisk_vms.sh d
 listow: ## list openwhisk machines. You can just run 'apply_openwhisk_vms.sh ls' instead
 	@./apply_openwhisk_vms.sh ls
 
+# Create base image for Vagrant operation, and Vagrant boxes creation using Azure
+# Note: to re-create the base image, pass PACKER_FLAGS='-force'
+PACKER_FLAGS ?= -force
+
+
+# TODO - reconcile cut-n-paste for aws and azure Makefiles. Maybe move to actions.mk ?
+LOG ?= 0
+PACKER_BUILD = PACKER_LOG=${LOG} time packer build
+
+L0_VMIMAGE_NAME ?= L0BaseImage
+L0-image: ## build the very base image
+	${PACKER_BUILD} -force -var image_name=${L0_VMIMAGE_NAME} L0-image.pkr.hcl
+
+vagrant-box:
+	${PACKER_BUILD}  -force \
+		--var src_branch=${SRC_BRANCH} \
+		--var image_version=${IMAGE_VERSION} \
+		vagrant-box.pkr.hcl
+
 include $(TOP)/make/locations.mk
 

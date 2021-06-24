@@ -17,7 +17,7 @@
 #   builds .a for each .so
 #   links the result by passing .o files explicitly and .a files as -l
 
-KM_RUNTIME_INCLUDES := /home/msterin/workspace/km/runtime
+KM_RUNTIME_INCLUDES := /home/$(USER)/workspace/km/runtime
 CFLAGS := -g -I$(KM_RUNTIME_INCLUDES)
 LINK_LINE_FILE := linkline_km.txt
 KM_LIB_EXT := .km.lib.a
@@ -41,7 +41,7 @@ LIBS := \
 	build/lib.linux-x86_64-3.7/numpy/random/bit_generator.cpython-37m-x86_64-linux-gnu${KM_LIB_EXT} \
 	build/lib.linux-x86_64-3.7/numpy/random/generator.cpython-37m-x86_64-linux-gnu${KM_LIB_EXT} \
 	build/lib.linux-x86_64-3.7/numpy/random/bounded_integers.cpython-37m-x86_64-linux-gnu${KM_LIB_EXT} \
-	build/lib.linux-x86_64-3.7/numpy/random/mtrand.cpython-37m-x86_64-linux-gnu${KM_LIB_EXT} 
+	build/lib.linux-x86_64-3.7/numpy/random/mtrand.cpython-37m-x86_64-linux-gnu${KM_LIB_EXT}
 
 SYMOBJ := $(subst ${KM_LIB_EXT},.km.symbols.o,$(LIBS))
 

@@ -12,7 +12,6 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-CURRENT_DIR := ${TOP}/payloads/java
 JDK_VERSION := jdk-11.0.8+10
 # COMPONENT is used in docker image names so no '+' allowed, and we don't care about minor opt
 COMPONENT := jdk-11.0.8
@@ -110,7 +109,7 @@ api: ${BLDDIR}/app.kontain.jmod ${BLDDIR}/html/index.html
 ${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_native.so
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
-		-w ${CURRENT_DIR} \
+		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/jmod create \
 		--class-path ${BLDDIR}/mods/app.kontain/ \
@@ -120,7 +119,7 @@ ${BLDDIR}/mods/app.kontain: app.kontain/module-info.java
 	[ -d ${BLDDIR}/mods ] || mkdir -p ${BLDDIR}/mods
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
-		-w ${CURRENT_DIR} \
+		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/javac -d ${BLDDIR}/mods --module-source-path . --module app.kontain $?
 
@@ -132,14 +131,14 @@ ${BLDDIR}/lib/libkm_java_native.so: app.kontain/app/kontain/snapshots/km_java_na
 ${BLDDIR}/html/index.html: app.kontain/app/kontain/snapshots/Snapshot.java
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
-		-w ${CURRENT_DIR} \
+		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/javadoc -d ${BLDDIR}/html $?
 
 scripts/%.class: scripts/%.java
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
-		-w ${CURRENT_DIR} \
+		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JAVA_DIR}/bin/javac $?
 

@@ -9,7 +9,6 @@
 #   Kontain Inc.
 
 TOP := $(shell git rev-parse --show-toplevel)
-CURRENT_DIR := ${TOP}/tests
 COMPONENT := km
 
 NO_RUNENV = true
@@ -166,7 +165,7 @@ ifneq ($(no_deps),match)
 -include ${DEPS}
 endif
 
-COVERAGE_SCRIPT := ${CURRENT_DIR}/scripts/coverage.sh
+COVERAGE_SCRIPT := ${CURDIR}/scripts/coverage.sh
 COVERAGE_REPORT_TITLE := ${IMAGE_VERSION}
 test-coverage:
 	${COVERAGE_TEST_CMD}
@@ -200,11 +199,11 @@ coverage-withk8s:
 	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD}
 
 UPLOAD_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/upload-coverage.sh
-upload-coverage: .check_vars
+upload-coverage: .check_image_version
 	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${PROCESSED_IMAGE_VERION} ${GITHUB_TOKEN}
 
 MANUAL_UPLOAD_REPORT_NAME := manual-${USER}-${PROCESSED_IMAGE_VERION}
-upload-coverage-manual: .check_vars
+upload-coverage-manual: .check_image_version
 	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME} ${GITHUB_TOKEN}
 
 .PHONY: all clean test help gdb test-coverage

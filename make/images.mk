@@ -91,20 +91,16 @@ buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
 		${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 
 push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
-	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_test_image_version .push-image \
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG):$(IMAGE_VERSION) TO=$(TEST_IMG_REG):$(IMAGE_VERSION)
 
 pull-testenv-image: ## pulls test image. Mainly need for CI
-	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_test_image_version .pull-image \
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG_REG):$(IMAGE_VERSION) TO=$(TEST_IMG):$(IMAGE_VERSION)
 
 # a few of Helpers for push/pull image and re-tag
-.check_test_image_version:
-	@if [[ "$(IMAGE_VERSION)" == "latest" ]] ; then \
-		echo -e "$(RED)PLEASE SET IMAGE_VERSION, 'latest' is not supported for test images$(NOCOLOR)" ; false; fi
-
 .push-image:
 	@if [ -z "$(FROM)" -o -z "$(TO)" ] ; then echo Missing params FROM or TO, exiting; false; fi
 	docker tag $(FROM) $(TO)
@@ -179,7 +175,7 @@ push-runenv-image:  runenv-image ## pushes image.
 pull-runenv-image: ## pulls test image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
-		FROM=$(RUNENV_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_IMG):$(IMAGE_VERSION)
+		FROM=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_TAGGED)
 
 distro: runenv-image ## an alias for runenv-image
 publish: push-runenv-image ## an alias for push-runenv-image
@@ -204,12 +200,6 @@ test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to
 test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
 
-# Helper when we need to make sure IMAGE_VERSION is defined and not 'latest', and command is defined
-.check_vars:
-	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == "latest" ]] ; then \
-		echo -e "${RED}IMAGE_VERSION should be set to an unique value. i.e. ci-695 for Azure CI images. Current value='${IMAGE_VERSION}'${NOCOLOR}" ; \
-		false; \
-	fi
 
 # Run test in Kubernetes. Image is formed as current-testenv-image:$IMAGE_VERSION
 # IMAGE_VERSION needs to be defined outside, and correspond to existing (in REGISTRY) image
@@ -224,18 +214,18 @@ ifneq (${K8S_TEST_ERR_NO_CLEANUP},)
 else
 	TEST_K8S_OPT := "default"
 endif
-test-withk8s: .check_vars ## run tests on a k8s cluster
+test-withk8s: .check_image_version ## run tests on a k8s cluster
 	${K8S_RUNTEST} ${TEST_K8S_OPT} "${TEST_K8S_IMAGE}" "${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
 
-test-all-withk8s: .check_vars
+test-all-withk8s: .check_image_version
 	${K8S_RUNTEST} ${TEST_K8S_OPT} "${TEST_K8S_IMAGE}" "${TEST_K8S_NAME}" "${CONTAINER_TEST_ALL_CMD}"
 
 # Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image
 # Adds 'user-' prefix to names and puts container to sleep so we can exec into it
-test-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
+test-withk8s-manual: .check_image_version ## same as test-withk8s, but allow for manual inspection afterwards
 	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER}-${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
 
-test-all-withk8s-manual: .check_vars ## same as test-withk8s, but allow for manual inspection afterwards
+test-all-withk8s-manual: .check_image_version ## same as test-withk8s, but allow for manual inspection afterwards
 	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER}-${TEST_K8S_NAME}" "${CONTAINER_TEST_ALL_CMD}"
 
 CLEAN_STALE_TEST_SCRIPTS := ${TOP}/cloud/k8s/tests/cleanup.py
@@ -250,12 +240,37 @@ VALIDATION_K8S_NAME := validation-${PROCESSED_COMPONENT_NAME}-${PROCESSED_IMAGE_
 # We use the demo-runenv image for validation. Runenv only contain the bare
 # minimum and no other application, so we use the demo-runenv image which
 # contains all the applications.
-validate-runenv-withk8s: .check_vars
+validate-runenv-withk8s: .check_image_version
 	@tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
 	json_array=$$(echo "[$${tmp_bash_array[@]@Q}]" | sed "s/' /', /g") && \
 	${K8S_RUN_VALIDATION} "${VALIDATION_K8S_IMAGE}" "${VALIDATION_K8S_NAME}" "$$json_array" "${RUNENV_VALIDATE_EXPECTED}"
 
 endif # ifeq (${NO_RUNENV}, false)
+
+# Tests with PACKER
+# Tests with packer. For now force then to run with KKM
+#
+# We can add /dev/kvm on azure only (pass `-only azure-arm.km-test'` and /dev/kvm for hypervisor)
+#
+# Pass DIR env to change where the tests are running
+# Example:
+# make -C tests/ validate-runenv-image-withpacker IMAGE_VERSION=ci-208 HYPERVISOR_DEVICE=/dev/kkm DIR=payloads
+
+TIMEOUT ?= 10m
+PACKER_DIR ?= ${FROMTOP}
+ifeq (${HYPERVISOR_DEVICE},/dev/kvm)
+ONLY_BUILDERS ?= -only azure-arm.km-test
+endif
+
+test-withpacker test-all-withpacker validate-runenv-image-withpacker: .check_packer .check_image_version ## Test with packer
+	cd ${TOP}/tests ; \
+	time packer build -force  \
+		-var src_branch=${SRC_BRANCH} -var image_version=${IMAGE_VERSION} -var target=$(subst -withpacker,,$@) \
+		-var dir=${PACKER_DIR} -var hv_device=${HYPERVISOR_DEVICE} \
+		-var timeout=${TIMEOUT} $(ONLY_BUILDERS) \
+	packer/km-test.pkr.hcl
+
+# === BUILDENV LOCAL
 
 ${BLDDIR}:
 	mkdir -p ${BLDDIR}

@@ -11,7 +11,6 @@
 # The image will be used to install kontain artifacts on each node.
 
 TOP := $(shell git rev-parse --show-toplevel)
-CURRENT_DIR := ${TOP}/cloud/k8s/kontaind
 
 COMPONENT = kontain-installer
 RELEASE_TAG := ${COMPONENT}
@@ -39,7 +38,7 @@ delete: ## Delete Kontaind from cluster
 clean: ## Clean up local build dir
 	rm -rf ${BLDDIR}
 
-TEST_SPEC ?= ${CURRENT_DIR}/tests/dweb-service.yaml
+TEST_SPEC ?= ${CURDIR}/tests/dweb-service.yaml
 TEST_POD ?= dweb
 
 test: ## Basic test - run 'km dweb' and make sure it comes up as a pod

@@ -15,7 +15,7 @@
 CLOUD_LOCATION=localhost
 
 # Container registry name, usually passed to misc. commands
-REGISTRY_NAME=msterinkontain
+REGISTRY_NAME=kontainapp
 
 # Server name for the registry, usualy a part of container tag needed for the push.
 # Can be received with
