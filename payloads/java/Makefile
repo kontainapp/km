@@ -1,4 +1,4 @@
-# Copyright © 2020 Kontain Inc. All rights reserved.
+# Copyright © 2020-2021 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -40,7 +40,6 @@ DEP_PACKAGES := java-11-openjdk \
 FROMSRC=$(shell test -d $(JDK_VERSION)/.git && echo yes)
 
 # config for image validation
-RUNENV_VALIDATE_DIR := scripts
 RUNENV_VALIDATE_CMD := ("/opt/kontain/java/bin/java" "-cp" "/scripts" Hello)
 RUNENV_VALIDATE_EXPECTED := Hello, World!
 RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \

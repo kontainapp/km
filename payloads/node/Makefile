@@ -1,4 +1,4 @@
-# Copyright © 2019 Kontain Inc. All rights reserved.
+# Copyright © 2019-2021 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -92,7 +92,6 @@ CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD} && scripts/test-run.sh test-all 
 BUILDENV_PATH  := ./scripts
 
 # Param for 'make validate-runenv-image'. Used to do a quick validation of runtime environment.
-RUNENV_VALIDATE_DIR := scripts
 RUNENV_VALIDATE_CMD := ("/scripts/hello.js")
 
 # if something needs to be copied/modified before building runenv image in Docker,

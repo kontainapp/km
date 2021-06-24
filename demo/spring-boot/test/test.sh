@@ -17,7 +17,7 @@ set -e
 
 CONTAINER=KM_SpringBoot_Demo
 
-until $(curl --output /dev/null --silent --fail http://localhost:8080/greeting); do
+until $(curl --output /tmp/out.json --silent --fail http://localhost:8080/greeting); do
    sleep 0.001
 done
 
@@ -25,5 +25,5 @@ end=$(date +%s%N)
 start=$(date +%s%N -d $(ls --full-time start_time | awk -e '{print $7}'))
 dur=$(expr $end - $start)
 echo "Response time $(expr $dur / 1000000000).$(printf "%.03d" $(expr $dur % 1000000000 / 1000000)) secs"
-curl http://localhost:8080/greeting | jq .
+jq . /tmp/out.json 
 echo ""

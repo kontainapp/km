@@ -1,4 +1,4 @@
-# Copyright © 2019 Kontain Inc. All rights reserved.
+# Copyright © 2019-2021 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -154,11 +154,10 @@ clobber-modules:
 # Set info for runenv-image build
 
 RUNENV_ROOTFS_SCRIPT := runenv/rootfs.sh
-RUNENV_VALIDATE_DIR := scripts
 RUNENV_VALIDATE_CMD := ("/usr/local/bin/python3" "scripts/sanity_test.py")
 
 export define runenv_prep
-	${RUNENV_ROOTFS_SCRIPT} ${PYTHONTOP} ${RUNENV_PATH} ${VERS}
+	${RUNENV_ROOTFS_SCRIPT} ${PYTHONTOP} ${RUNENV_PATH} ${VERS} $(notdir ${PAYLOAD_KM})
 endef
 
 RELEASE_TAG := python python-${VERS}

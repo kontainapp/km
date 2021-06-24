@@ -18,7 +18,8 @@ vm: ${BUILD}/${TF}
 	@echo "Run 'vagrant ssh' to login into the VM"
 
 container: ${BUILD}/${TF}
+	@-docker rmi -f test-app
 	cp ${BUILD}/${TF} .
 	docker build -t test-app .
 	@rm ${TF}
-	@echo "Run 'docker run --device /dev/kkm --name test-app --rm -it -p 5000:5000 test-app bash' to login into container"
+	@echo "Run 'docker run --device=/dev/kvm -v /opt/kontain/bin/km:/opt/kontain/bin/km --name test-app --rm -it -p 5000:5000 test-app /bin/sh' to login into container"

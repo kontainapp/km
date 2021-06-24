@@ -9,33 +9,32 @@
 #   Kontain Inc.
 #
 # Dockerfile for tensor flow inferencing test app.
-# We have to use our own tensorflow build t avoud usage of non-POSIX APIs.
+# We have to use our own tensorflow build to avoud usage of non-POSIX APIs.
 # Copy the .whl file from ../../tools/hashicorp/build_tensorflow for Docker to pick it up.
 
-FROM kontainapp/test-python-fedora
-USER root
-RUN dnf install -y python3.8
+FROM fedora:32 as app
+ARG UID=1001
+ARG GID=117
+ARG USERNAME=appuser
+RUN groupadd -f -g $GID $USERNAME && useradd -u $UID -g $GID -d /home/$USERNAME $USERNAME
+RUN dnf install -y pip
+USER $USERNAME
+WORKDIR /home/$USERNAME
+COPY app.py requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl /home/$USERNAME/
+RUN pip install --user -r requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl
+RUN rm requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl
 
-WORKDIR /app
-COPY run.sh run_km.sh run_snap.sh app.py switch.sh requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl /app/
-
-RUN pip install -t /usr/lib/python3.8/site-packages pip && \
-	python3.8 -m pip install setuptools && \
-	python3.8 -m pip install -r requirements.txt
-RUN python3.8 -m pip install tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl
-RUN cp /usr/lib64/libcrypto.so.1.1.1[a-z] /opt/kontain/alpine-lib/lib/libcrypto.so.1.1
-
-# switch to 3.8
-RUN ln -sf /usr/bin/python3.8 /usr/bin/python3
-
-# TODO: libc.so and ld-linux-x86-64.so.2 are here only because kontainapp/test-python-fedora doesn't have
-# /opt/kontain/runtime but dynamic python needs it
-RUN cp ${PHOME}/python.kmd /usr/bin/python3.8.km && \
-   mkdir ${PREFIX}/bin && cp ${PHOME}/km ${PREFIX}/bin/ && \
-   mkdir ${PREFIX}/runtime/ && cp ${PHOME}/libc.so ${PREFIX}/runtime/ && \
-   ln -sf ${PREFIX}/runtime/libc.so ${PREFIX}/alpine-lib/lib/ld-linux-x86-64.so.2
-RUN mv /usr/bin/python3.8 /usr/bin/python3.8.orig
-RUN ln -sf ${PREFIX}/bin/km /usr/bin/python3.8
-
-CMD ["python", "app.py"]
-# USER appuser
+FROM kontainapp/runenv-dynamic-python
+ARG UID=1001
+ARG GID=117
+ARG USERNAME=appuser
+COPY --from=app /etc/passwd /etc/
+COPY --from=app /etc/pki /etc/pki/
+COPY --from=app /etc/ssl /etc/ssl/
+COPY --from=app --chown=$UID:$GID /tmp /tmp/
+USER appuser
+ENV HOME /home/$USERNAME
+WORKDIR $HOME
+COPY --chown=$UID:$GID run.sh run_snap.sh /
+COPY --from=app --chown=$UID:$GID $HOME $HOME/
+CMD [ "/usr/local/bin/python", "app.py" ]

@@ -10,11 +10,11 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-COMPONENT := dynamic-base
+COMPONENT := dynamic-base-large
 
 # name to be added to label(s)
-PAYLOAD_NAME := Dynamic-base
-PAYLOAD_FILES := -C /opt/kontain/ --exclude '*.a' runtime lib
+PAYLOAD_NAME := Dynamic-base-large
+PAYLOAD_FILES := -C /opt/kontain/ --exclude '*.a' runtime lib alpine-lib
 # Command to run tests in testenv-image container:
 CONTAINER_TEST_CMD := ./km hello_test.kmd Hello 'The One'
 CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD}
