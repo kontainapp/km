@@ -1739,6 +1739,32 @@ static km_hc_ret_t waitid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 }
 
 /*
+ * uid_t geteuid(void);
+ * uid_t getuid(void);
+ * gid_t getgid(void);
+ * gid_t getegid(void);
+ */
+static km_hc_ret_t getXXid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = __syscall_0(hc);
+   return HC_CONTINUE;
+}
+
+/*
+ * int getgroups(int size, gid_t list[]);
+ */
+static km_hc_ret_t getgroups_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   gid_t* list = km_gva_to_kma(arg->arg2);
+   if (list == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = __syscall_2(hc, arg->arg1, (uint64_t)list);
+   return HC_CONTINUE;
+}
+
+/*
  * pid_t getsid(pid_t pid);
  */
 static km_hc_ret_t getsid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
@@ -2041,10 +2067,12 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_gettid] = gettid_hcall,
 
     [SYS_getrusage] = getrusage_hcall,
-    [SYS_geteuid] = dummy_hcall,
-    [SYS_getuid] = dummy_hcall,
-    [SYS_getegid] = dummy_hcall,
-    [SYS_getgid] = dummy_hcall,
+    [SYS_geteuid] = getXXid_hcall,
+    [SYS_getuid] = getXXid_hcall,
+    [SYS_getegid] = getXXid_hcall,
+    [SYS_getgid] = getXXid_hcall,
+
+    [SYS_getgroups] = getgroups_hcall,
 
     [SYS_setsid] = setsid_hcall,
     [SYS_getsid] = getsid_hcall,
