@@ -48,13 +48,13 @@ product: ## Prepares KM packaging artifacts (e.g. km tarball and kkm run bundle)
 	echo $(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} release
 
 
-vm-images: .check_tools product source-boxes ## loads source boxes and creates boxes with KM installed
+vm-images: .check_packer product source-boxes ## loads source boxes and creates boxes with KM installed
 	@set -x ; for os in ${SRC_OS} ; \
 	do \
 		${PACKER_BUILD} -only virtualbox-ovf.build-ova -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
 	done
 
-.check_tools:
+.check_packer:
 	@if ! command -v packer; then \
 		echo -e "${RED}Packer (https://www.packer.io/) is not found. Please install it first${NOCOLOR}" ; \
 		false; \

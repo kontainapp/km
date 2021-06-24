@@ -159,5 +159,6 @@ vagrant-box:
 		--var src_branch=${SRC_BRANCH} \
 		--var image_version=${IMAGE_VERSION} \
 		vagrant-box.pkr.hcl
+
 include $(TOP)/make/locations.mk
 

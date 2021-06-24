@@ -160,6 +160,23 @@ endif
 # needs to explicitly points to bash.
 SHELL=/bin/bash
 
+# Helper when we need to make sure IMAGE_VERSION is defined and not 'latest'
+.check_image_version:
+	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == "latest" ]] ; then \
+		echo -e "${RED}IMAGE_VERSION should be set to a unique value. e.g. ci-695.${NOCOLOR}" ; \
+		false; \
+	fi
+
+.check_packer: # check if packer is installed and is the correct one
+	@if ! command -v packer; then \
+		echo -e "${RED}Packer (https://www.packer.io/) is not found. Please install it first${NOCOLOR}" ; \
+		false; \
+	fi
+	@if [ "$$(basename $$(realpath $$(which packer)))" != "packer" ] ; then \
+		echo -e "${RED}Packer is found as '$$(which packer)', but seems to be fake. Please check https://www.packer.io/ is installed and is in the PATH${NOCOLOR}" ; echo \
+		false; \
+	fi
+
 # common targets. They won't interfere with default targets due to 'default:all' at the top
 
 # 'Help' target - based on '##' comments in targets
