@@ -41,6 +41,8 @@ if [ "${HYPERVISOR_DEVICE}" == "/dev/kkm" ] ; then
    make -C kkm/test_kkm
    sudo insmod kkm/kkm/kkm.ko
    ./kkm/test_kkm/test_kkm
+else
+   sudo chmod a+rw /dev/kvm
 fi
 
 echo Checking for kkm or kvm modules
@@ -74,4 +76,4 @@ case "${TARGET}" in
       ;;
 esac
 
-echo === Test completed.
+echo '=== Test completed.'

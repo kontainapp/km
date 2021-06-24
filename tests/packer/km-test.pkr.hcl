@@ -131,8 +131,10 @@ build {
   post-processor "shell-local" {
     // assumes 'az login' on the box running packer
     only = ["azure-arm.km-test"]
+
     inline = [
        "echo Deleting image ${var.image_name} in ${var.image_rg}",
+       "az login --service-principal -u ${var.sp_appid} -p ${var.sp_password} --tenant ${var.sp_tenant} -o table",
        "az image delete -n ${var.image_name} -g ${var.image_rg}"
       ]
   }
