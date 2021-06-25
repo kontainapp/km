@@ -46,6 +46,8 @@ The script/targets are controlled by env vars which are passed by the packer to 
 * GITHUB_TOKEN - token to check out KM repo - during CI, received from github. When running manually, set it to a personal github token (see Account->Setting->DevOptions->PersonalTokens in Github UI)
 * SRC_BRANCH - current branch, used for KM checkout in the Packer VM. Default is the current branch
 
+* PACKER_DIR - if this is passed, the make *inside* the packer-managed VM will happen there. It is done to allow "scanning" of dirs inside, not outside of packer. E.g. `make -C payloads/busybox test-withpacker PACKER_DIR=payloads ...` with run ONE packer VM and run make there in payloads dir, which will do the scanning of subdirs.  It's a hack to avoid the cost of running multiple packer-managed VMs for the same - i.e. `make -C payloads test-withpacker ...` with run packer for EACH subdir. 
+
 See the script and packer config for more details
 
 ### Base image for tests
@@ -209,13 +211,6 @@ Packer config for build L0 image for azure, and running large Azure box with nes
 ./cloud/azure/L0-image.pkr.hcl - Generate L0 (very botttom) BaseImage on Azure.
 ./cloud/azure/vagrant-box.pkr.hcl - Run a big VM based on L0image, and inside of it run vagrant box creation
 ```
-
-## know bugs
-
-* payloads test-withpacker fails on Azure/KVM because for some reason the VM has issues finding /dev/kvm even though it uses the correct VM SKU.
-  * Kernel module is there: https://github.com/kontainapp/km/runs/2900707458?check_suite_focus=true#step:4:106
-  * but KM fails: https://github.com/kontainapp/km/runs/2900707458?check_suite_focus=true#step:4:152
-  I did not investigate further
 
 ## TODO: Missing components / going forward
 
