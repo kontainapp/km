@@ -99,7 +99,8 @@ source "azure-arm" "km-test" {
 }
 
 build {
-  sources = ["amazon-ebs.km-test", "azure-arm.km-test"]
+//   sources = ["amazon-ebs.km-test", "azure-arm.km-test"]
+  sources = ["amazon-ebs.km-test"]
 
   provisioner "shell" {
     # packer provisioners run as tmp 'packer' user.
