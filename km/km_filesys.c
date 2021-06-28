@@ -2207,8 +2207,8 @@ static int proc_sched_read(int fd, char* buf, size_t buf_sz)
    }
    char tmp[128];
    char* x = fgets(tmp, sizeof(tmp), fp);   // skip the first line
-   (void)x; // avoid gcc warn
-   if (feof(fp)) {                // second read, to make sure we are at end of file
+   (void)x;                                 // avoid gcc warn
+   if (feof(fp)) {                          // second read, to make sure we are at end of file
       fclose(fp);
       return 0;
    }
@@ -2822,6 +2822,14 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
 
    if (nt_sock->state == KM_SOCK_STATE_BIND || nt_sock->state == KM_SOCK_STATE_LISTEN) {
       int hostfd = km_fs_g2h_fd(nt_sock->fd, NULL);
+      // If snapshot is being recovered right after it was taken there is a chance there are sockets
+      // in TIME_WAIT state from the remaining from the initial run, so the following bind() will
+      // fail. This avoid the falure.
+      int flag = 1;
+      if (setsockopt(hostfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0) {
+         km_warn("recover setsockopt(SO_REUSEADDR) failed");
+         return -1;
+      }
       if (bind(hostfd, sa, nt_sock->addrlen) < 0) {
          km_warn("recover bind failed");
          return -1;
