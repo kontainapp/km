@@ -1475,3 +1475,14 @@ fi
    assert_success
    rm -f $KMTRACE
 }
+
+@test "uidgid($test_type): smoke test for uid/gid related hypercalls (uidgid_test$ext)" {
+   UIDGIDOUT=/tmp/uidgid$$.out
+   km_with_timeout uidgid_test$ext | sort -n >$UIDGIDOUT
+   assert_success
+   id -G | tr " " "\n" | sort -n >$UIDGIDOUT.expected
+   assert_success
+   diff -q $UIDGIDOUT.expected $UIDGIDOUT
+   assert_success
+   rm -f $UIDGIDOUT.expected $UIDGIDOUT
+}
