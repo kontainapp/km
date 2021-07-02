@@ -31,7 +31,8 @@ for i in $(seq 0 $(("${#locations[@]}" - 1))); do
    source="${locations[$i]}/${files[$i]}"
    # newer gcc produces compressed '.debug_info'. Older linkers cannot use it. To make sure
    # we can use our (apine) libs with slightly older linkers, let's decompress .debug_info
-   decompress_list=$(find $source -type f -exec file '{}' ';' | awk -F: '/(shared|archive|relocatable)/ {print $1}')
+   decompress_list=$(find $source -type f -exec file '{}' ';' | grep -v 'archive data' | 
+                     awk -F: '/(shared|archive|relocatable)/ {print $1}')
    if [ -n "$decompress_list" ]; then
       echo Decompressing .debug_info for $(echo $decompress_list | wc -w) files in $source
       if [ ! -w $source ]; then
