@@ -255,30 +255,40 @@ uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
    return guestfd;
 }
 
-uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mode_t mode)
+// sanity check - dirfd, if needed, within guest range, and getdents_g2h not set on it
+int km_fs_at(int dirfd, const char* const pathname)
 {
-   int host_dirfd = dirfd;
    km_file_ops_t* ops;
 
    if (dirfd != AT_FDCWD && pathname[0] != '/') {
-      if ((host_dirfd = km_fs_g2h_fd(dirfd, &ops)) < 0) {
+      if (km_fs_g2h_fd(dirfd, &ops) < 0) {
          return -EBADF;
       }
       if (ops != NULL && ops->getdents_g2h != NULL) {
-         km_warnx("bad dirfd in openat");
-         return -EINVAL;   // no openat with base in /proc and such
+         km_warnx("bad dirfd in fs_at");
+         return -EINVAL;   // no fs_at with base in /proc and such
       }
    }
-   char buf[PATH_MAX];
+   return 0;
+}
 
-   int ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
+uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mode_t mode)
+{
+   int ret = km_fs_at(dirfd, pathname);
+   if (ret < 0) {
+      return ret;
+   }
+
+   char buf[PATH_MAX];
+   km_file_ops_t* ops;
+   ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
    if (ret < 0) {
       return ret;
    }
    if (ret > 0) {
       pathname = buf;
    }
-   int hostfd = __syscall_4(SYS_openat, host_dirfd, (uintptr_t)pathname, flags, mode);
+   int hostfd = __syscall_4(SYS_openat, dirfd, (uintptr_t)pathname, flags, mode);
    int guestfd;
    if (hostfd >= 0) {
       guestfd = km_add_guest_fd_internal(vcpu, hostfd, pathname, flags, KM_FILE_HOW_OPEN, ops);
@@ -634,21 +644,12 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
 uint64_t km_fs_readlinkat(km_vcpu_t* vcpu, int dirfd, char* pathname, char* buf, size_t bufsz)
 {
    int ret;
-   km_file_ops_t* ops;
 
    if ((ret = km_fs_g2h_readlink(pathname, buf, bufsz)) == 0) {
-      int host_dirfd = dirfd;
-
-      if (dirfd != AT_FDCWD && pathname[0] != '/') {
-         if ((host_dirfd = km_fs_g2h_fd(dirfd, &ops)) < 0) {
-            return -EBADF;
-         }
-         if (ops != NULL) {
-            km_warnx("bad dirfd in readlinkat");
-            return -EINVAL;   // no redlinkat with base in /proc and such
-         }
+      if ((ret = km_fs_at(dirfd, pathname)) < 0) {
+         return ret;
       }
-      ret = __syscall_4(SYS_readlinkat, host_dirfd, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
+      ret = __syscall_4(SYS_readlinkat, dirfd, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
    }
    if (ret < 0) {
       km_infox(KM_TRACE_FILESYS, "%s : %s", pathname, strerror(-ret));
@@ -806,29 +807,47 @@ uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname)
 // int unlinkat(int dirfd, const char *pathname, int flags);
 uint64_t km_fs_unlinkat(km_vcpu_t* vcpu, int dirfd, const char* pathname, int flags)
 {
-   int host_dirfd = dirfd;
-   km_file_ops_t* ops;
-
-   if (dirfd != AT_FDCWD && pathname[0] != '/') {
-      if ((host_dirfd = km_fs_g2h_fd(dirfd, &ops)) < 0) {
-         return -EBADF;
-      }
-      if (ops != NULL && ops->getdents_g2h != NULL) {
-         km_warnx("bad dirfd in unlinkat");
-         return -EINVAL;   // no unlinkat with base in /proc and such
-      }
+   int ret = km_fs_at(dirfd, pathname);
+   if (ret < 0) {
+      return ret;
    }
+
+   km_file_ops_t* ops;
    char buf[PATH_MAX];
 
-   int ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
+   ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
    if (ret < 0) {
       return ret;
    }
    if (ret > 0) {
       pathname = buf;
    }
-   ret = __syscall_3(SYS_unlinkat, host_dirfd, (uintptr_t)pathname, flags);
+   ret = __syscall_3(SYS_unlinkat, dirfd, (uintptr_t)pathname, flags);
    km_infox(KM_TRACE_FILESYS, "unlinkat(%d, %s, 0x%x) returns %d", dirfd, pathname, flags, ret);
+   return ret;
+}
+
+//  int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags);
+uint64_t
+km_fs_utimensat(km_vcpu_t* vcpu, int dirfd, const char* pathname, struct timespec* ts, int flags)
+{
+   int ret = km_fs_at(dirfd, pathname);
+   if (ret < 0) {
+      return ret;
+   }
+
+   km_file_ops_t* ops;
+   char buf[PATH_MAX];
+
+   ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
+   if (ret < 0) {
+      return ret;
+   }
+   if (ret > 0) {
+      pathname = buf;
+   }
+   ret = __syscall_4(SYS_utimensat, dirfd, (uint64_t)pathname, (uint64_t)ts, flags);
+   km_infox(KM_TRACE_FILESYS, "utimensat(%d, %s, 0x%x) returns %d", dirfd, pathname, flags, ret);
    return ret;
 }
 
@@ -967,27 +986,21 @@ uint64_t km_fs_lstat(km_vcpu_t* vcpu, char* pathname, struct stat* statbuf)
 uint64_t
 km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int mask, void* statxbuf)
 {
-   int host_fd = dirfd;
-   km_file_ops_t* ops;
-
-   if (dirfd != AT_FDCWD && pathname[0] != '/') {
-      if ((host_fd = km_fs_g2h_fd(dirfd, &ops)) < 0) {
-         return -EBADF;
-      }
-      if (ops != NULL && ops->readlink_g2h != NULL) {
-         km_warnx("bad dirfd in statx");
-         return -EINVAL;   // no statx with base in /proc and such
-      }
+   int ret = km_fs_at(dirfd, pathname);
+   if (ret < 0) {
+      return ret;
    }
+
    char buf[PATH_MAX];
-   int ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), NULL);
+
+   ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), NULL);
    if (ret < 0) {
       return ret;
    }
    if (ret > 0) {
       pathname = buf;
    }
-   ret = __syscall_5(SYS_statx, host_fd, (uintptr_t)pathname, flags, mask, (uintptr_t)statxbuf);
+   ret = __syscall_5(SYS_statx, dirfd, (uintptr_t)pathname, flags, mask, (uintptr_t)statxbuf);
    return ret;
 }
 

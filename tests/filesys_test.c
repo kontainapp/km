@@ -99,7 +99,7 @@ TEST test_stat()
    fd = open("/proc/self/exe", O_RDONLY);
    rc = syscall(SYS_statx, fd, "..", 0, STATX_ALL, &stx);
    ASSERT_EQ(-1, rc);
-   ASSERT_EQ(EINVAL, errno);
+   ASSERT_EQ_FMT(ENOTDIR, errno, "%d");
    rc = syscall(SYS_fchown, fd, 777, 777);
    ASSERT_EQ(-1, rc);
    ASSERT_EQ_FMT(EPERM, errno, "%d");
