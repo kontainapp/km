@@ -57,7 +57,10 @@ TEST getgroups_smoke(void)
    gid_t grouplist[NGROUPS_MAX];
 
    // If there are no groups the passed address is never used.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnonnull"
    ngroups = getgroups(NGROUPS_MAX, NULL);
+#pragma GCC diagnostic pop
    ASSERT(ngroups == -1 || ngroups == 0);
    if (ngroups < 0) {
       ASSERT_EQ(errno, EFAULT);
