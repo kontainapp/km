@@ -4,7 +4,8 @@
 ## About This Document
 This document provides information for developers to install Kontain and use it to run workloads—either using the sample code provided in the Kontain release repository or using their own applications.
 
-Reference [Kontain beta release](/km)
+Reference [Kontain beta release](/)
+[SP] this reference goes to subdirectory, which isn't too helpful. Where should it point to - back to the top?
 
 ## Introduction to Kontain
 Containerization tools and processes provide the foundation for deploying today’s cloud-native software applications, but containers are still far from perfect for many modern workloads. For example, workloads that require very strong security isolation take on additional risk if they are run as containers on shared OS kernels.  Some workloads need to scale up—then scale down to zero—much quicker, more easily, and more cost-effectively than is possible using standard containers.
@@ -18,7 +19,7 @@ Kontain is a way to run container workloads "secure, fast, and small — choose 
 
 ### How Kontain Works
 
-The Kontain solution is actually an integration of two technologies: containers and unikernels.
+The Kontain solution is an integration of two technologies: containers and unikernels.
 
 A _unikernel_ is a single-address-space machine image that contains an application workload—the program you want to run in a container—combined with a minimal set of library functions which provide the OS services required to run the workload.
 
@@ -26,7 +27,7 @@ Kontain provides a method for creating and running unikernels that are optimized
 
 A Kontain workload can be an unmodified Linux executable running as a unikernel or a unikernel created from source code relinked with Kontain libraries. _No source code modification is needed to create a kontainer._
 
-For compiled languages (e.g. Go, C), a unikernel kontainer is created by linking application object code with Kontain libraries.  For interpreted and bytecode-interpreted languages (e.g. Java, Python), a unikernel language runtime is created, then the interpreted/bytecode language is run inside the unikernel.
+For compiled languages (e.g. C/C++, Go), a unikernel kontainer is created by linking application object code with Kontain libraries.  For interpreted and bytecode-interpreted languages (e.g. Java, Python), a unikernel language runtime is created, then the interpreted/bytecode language is run inside the unikernel.
 
 The Kontain solution includes an OCI-compatible runtime that, upon command, instantiates a virtual machine (VM) for the requested kontainer instance, loads the unikernel into the VM, then passes control to the unikernel.
 
@@ -45,9 +46,10 @@ Kontain runs on Linux hosts that meet these minimum requirements:
 *   CPU: Intel or AMD
 *   Linux kernel: Version 4.15 or higher (version 5.0 or higher if using KKM)
 *   Distribution: Ubuntu 20 and Fedora 32 (or newer) are recommended
-*   Hardware virtualization enabled, using either:
-    *   KVM installed and enabled (requires stock kernel module on Linux kernel 4.15 or higher), or
+*   Virtualization enabled, using either:
+    *   Hardware virtualization with KVM installed and enabled (requires stock kernel module on Linux kernel 4.15 or higher), or
     *   Kontain Kernel Module (KKM) (included in the Kontain release)
+    [SP] KKM doesn't require hardware virtualization. So it is either hardware virtualization and KVM, or KKM
 
 ### Kontain in the Cloud
 Kontain runs on Azure, Google Cloud, and AWS instances supporting “nested virtualization”, i.e. with KVM enabled.
