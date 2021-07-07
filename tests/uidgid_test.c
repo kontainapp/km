@@ -56,9 +56,10 @@ TEST getgroups_smoke(void)
    int ngroups;
    gid_t grouplist[NGROUPS_MAX];
 
-   // If there are no groups the passed address is never used.
+   // we want the compiler to let us pass an invalid address to force an EFAULT
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnonnull"
+   // If there are no groups the passed address is never used.
    ngroups = getgroups(NGROUPS_MAX, NULL);
 #pragma GCC diagnostic pop
    ASSERT(ngroups == -1 || ngroups == 0);
