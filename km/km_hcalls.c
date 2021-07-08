@@ -1330,8 +1330,8 @@ static km_hc_ret_t unlinkat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t utimensat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    //  int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags);
-   void* pathname = km_gva_to_kma(arg->arg2);
-   if (pathname == NULL) {
+   void* pathname = NULL;
+   if (arg->arg2 != 0 && (pathname = km_gva_to_kma(arg->arg2)) == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }

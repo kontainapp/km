@@ -830,16 +830,17 @@ uint64_t km_fs_unlinkat(km_vcpu_t* vcpu, int dirfd, const char* pathname, int fl
 uint64_t
 km_fs_utimensat(km_vcpu_t* vcpu, int dirfd, const char* pathname, struct timespec* ts, int flags)
 {
-   int ret = km_fs_at(dirfd, pathname);
-   if (ret < 0) {
-      return ret;
+   int ret;
+   if (pathname != NULL) {
+      ret = km_fs_at(dirfd, pathname);
+      if (ret < 0) {
+         return ret;
+      }
    }
-
    km_file_ops_t* ops;
    char buf[PATH_MAX];
 
-   ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
-   if (ret < 0) {
+   if ((ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops)) < 0) {
       return ret;
    }
    if (ret > 0) {
