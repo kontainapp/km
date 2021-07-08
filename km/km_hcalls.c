@@ -1331,11 +1331,16 @@ static km_hc_ret_t utimensat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    //  int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags);
    void* pathname = km_gva_to_kma(arg->arg2);
-   struct timespec* ts = km_gva_to_kma(arg->arg3);
-   if (pathname == NULL && ts == NULL) {
+   if (pathname == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
+   struct timespec* ts = NULL;
+   if (arg->arg3 != NULL && (ts = km_gva_to_kma(arg->arg3)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
    arg->hc_ret = km_fs_utimensat(vcpu, arg->arg1, pathname, ts, arg->arg4);
    return HC_CONTINUE;
 }

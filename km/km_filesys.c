@@ -265,7 +265,6 @@ int km_fs_at(int dirfd, const char* const pathname)
          return -EBADF;
       }
       if (ops != NULL && ops->getdents_g2h != NULL) {
-         km_warnx("bad dirfd in fs_at");
          return -EINVAL;   // no fs_at with base in /proc and such
       }
    }
