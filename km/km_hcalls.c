@@ -335,7 +335,7 @@ static km_hc_ret_t ioctl_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
    if (arg->arg2 == TIOCSPGRP) {
-      km_infox(KM_TRACE_HC, "TIOCSPGRP pgid %d", argp != NULL ? *(pid_t*)argp: -1);
+      km_infox(KM_TRACE_HC, "TIOCSPGRP pgid %d", argp != NULL ? *(pid_t*)argp : -1);
    }
    arg->hc_ret = km_fs_ioctl(vcpu, arg->arg1, arg->arg2, argp);
    return HC_CONTINUE;
@@ -1315,30 +1315,6 @@ static km_hc_ret_t unlink_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
-static km_hc_ret_t utimensat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-   //  int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags);
-   int dirfd = AT_FDCWD;
-   char* pathname = NULL;
-   struct timespec* ts = km_gva_to_kma(arg->arg3);
-   int flags = arg->arg4;
-
-   // Validate that we can convert args to guest fd/address. The rest is checked by `utimensat()`
-   km_file_ops_t* ops;
-   if (arg->arg1 != AT_FDCWD && ((dirfd = km_fs_g2h_fd(arg->arg1, &ops)) < 0 || ops != NULL)) {
-      arg->hc_ret = -EBADF;
-      return HC_CONTINUE;
-   }
-   if (arg->arg2 != 0 && (pathname = km_gva_to_kma(arg->arg2)) == NULL) {
-      arg->hc_ret = -EINVAL;
-      return HC_CONTINUE;
-   }
-   if ((arg->hc_ret = utimensat(dirfd, pathname, ts, flags)) != 0) {
-      arg->hc_ret = -errno;
-   }
-   return HC_CONTINUE;
-}
-
 static km_hc_ret_t unlinkat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int unlinkat(int dirfd, const char *pathname, int flags);
@@ -1348,6 +1324,24 @@ static km_hc_ret_t unlinkat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
    arg->hc_ret = km_fs_unlinkat(vcpu, arg->arg1, pathname, arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t utimensat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   //  int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags);
+   void* pathname = NULL;
+   if (arg->arg2 != 0 && (pathname = km_gva_to_kma(arg->arg2)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   struct timespec* ts = NULL;
+   if (arg->arg3 != 0 && (ts = km_gva_to_kma(arg->arg3)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
+   arg->hc_ret = km_fs_utimensat(vcpu, arg->arg1, pathname, ts, arg->arg4);
    return HC_CONTINUE;
 }
 
@@ -1604,22 +1598,6 @@ static km_hc_ret_t execve_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
-static int execveat_openexe(int dirfd, char* pathname, int flag, int open_flag)
-{
-   int exefd;
-   if ((flag & AT_EMPTY_PATH) != 0) {
-      exefd = dirfd;
-   } else if (dirfd == AT_FDCWD || *pathname == '/') {
-      exefd = open(pathname, open_flag);
-   } else {
-      exefd = openat(dirfd, pathname, open_flag);
-   }
-   if (exefd < 0) {
-      exefd = -errno;
-   }
-   return exefd;
-}
-
 /*
  * int execveat(int dirfd, const char *pathname,
  *              char *const argv[], char *const envp[],
@@ -1631,38 +1609,43 @@ static int execveat_openexe(int dirfd, char* pathname, int flag, int open_flag)
  */
 static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   int dirfd = AT_FDCWD;
-   char* pathname = NULL;
-   char** argv = km_gva_to_kma(arg->arg3);
-   char** envp = km_gva_to_kma(arg->arg4);
-   int open_flag = O_RDONLY | ((arg->arg5 & AT_SYMLINK_NOFOLLOW) != 0 ? O_NOFOLLOW : 0);
+   int dirfd = arg->arg1;
+   int flags = arg->arg5;
+   int open_flag = O_RDONLY | ((flags & AT_SYMLINK_NOFOLLOW) != 0 ? O_NOFOLLOW : 0);
 
    // Validate the arguments.
-   km_file_ops_t* ops;
-   if (arg->arg1 != AT_FDCWD && ((dirfd = km_fs_g2h_fd(arg->arg1, &ops)) < 0 || ops != NULL)) {
-      arg->hc_ret = -EBADF;
-      return HC_CONTINUE;
-   }
+   char* pathname = NULL;
    if (arg->arg2 != 0 && (pathname = km_gva_to_kma(arg->arg2)) == NULL) {
       arg->hc_ret = -EINVAL;
       return HC_CONTINUE;
    }
+   if ((pathname == NULL || pathname[0] == '\0') && (flags & AT_EMPTY_PATH) == 0) {
+      arg->hc_ret = -EINVAL;
+      return HC_CONTINUE;
+   }
+   if (pathname != NULL) {
+      int ret = km_fs_at(dirfd, pathname);
+      if (ret < 0) {
+         arg->hc_ret = ret;
+         return HC_CONTINUE;
+      }
+   }
+   char** argv = km_gva_to_kma(arg->arg3);
+   char** envp = km_gva_to_kma(arg->arg4);
    if (argv == NULL || envp == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   if (dirfd == AT_FDCWD && ((arg->arg5 & AT_EMPTY_PATH) != 0 || pathname == NULL)) {
-      arg->hc_ret = -EINVAL;
-      return HC_CONTINUE;
-   }
-
    // Resolve dirfd and pathname to a host fd open
-   int exefd = execveat_openexe(dirfd, pathname, arg->arg5, open_flag);
-   if (exefd < 0) {
-      arg->hc_ret = exefd;
-      return HC_CONTINUE;
+   int exefd;
+   if ((flags & AT_EMPTY_PATH) != 0) {
+      exefd = dirfd;
+   } else {
+      if ((exefd = openat(dirfd, pathname, open_flag)) < 0) {
+         arg->hc_ret = -errno;
+         return HC_CONTINUE;
+      }
    }
-
    // Get the filename for the open km payload executable.
    char* exe_path = km_guestfd_name(vcpu, km_fs_h2g_fd(exefd));
    assert(exe_path != NULL);
@@ -1701,16 +1684,16 @@ static km_hc_ret_t wait4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
             arg->arg3,
             arg->arg4);
 
-   rv = wait4(input_pid,
-              wstatusp,
-              (int)arg->arg3,
-              (struct rusage*)km_gva_to_kma(arg->arg4));
+   rv = wait4(input_pid, wstatusp, (int)arg->arg3, (struct rusage*)km_gva_to_kma(arg->arg4));
    if (rv < 0) {
       arg->hc_ret = -errno;
    } else {
       arg->hc_ret = rv;
    }
-   km_infox(KM_TRACE_HC, "wait4 returns %ld, wstatus 0x%x", arg->hc_ret, wstatusp != NULL ? *wstatusp : -1);
+   km_infox(KM_TRACE_HC,
+            "wait4 returns %ld, wstatus 0x%x",
+            arg->hc_ret,
+            wstatusp != NULL ? *wstatusp : -1);
    return HC_CONTINUE;
 }
 

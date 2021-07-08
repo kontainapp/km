@@ -78,6 +78,7 @@ int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, char* name, int flags, km_file
 char* km_guestfd_name(km_vcpu_t* vcpu, int fd);
 int km_fs_init(void);
 void km_fs_fini(void);
+int km_fs_at(int dirfd, const char* const pathname);
 // int open(char *pathname, int flags, mode_t mode)
 uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode);
 // int openat(int dirfd, const char *pathname, int flags);
@@ -122,6 +123,9 @@ uint64_t km_fs_fchmod(km_vcpu_t* vcpu, int fd, mode_t mode);
 uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname);
 // int unlinkat(int dirfd, const char *pathname, int flags);
 uint64_t km_fs_unlinkat(km_vcpu_t* vcpu, int openfd, const char* pathname, int flags);
+// int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags);
+uint64_t
+km_fs_utimensat(km_vcpu_t* vcpu, int dirfd, const char* pathname, struct timespec* ts, int flags);
 // int getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count);
 uint64_t km_fs_getdents(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count);
 // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);
