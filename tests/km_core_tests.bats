@@ -450,7 +450,7 @@ fi
    assert_success
 
    # Verify we "next"ed thru clone()
-   assert_line --regexp "^#0  main.* at clone_test.c:38$"
+   assert_line --regexp "^#0  main.* at clone_test.c:54$"
    wait_and_check $pid 0 # expect KM to exit normally
 }
 
