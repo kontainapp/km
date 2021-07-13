@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-
 # We'll use this just to show size/start time for dweb in a docker container
 FROM ubuntu
 

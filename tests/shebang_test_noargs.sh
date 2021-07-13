@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 #
-
 set -x
 # Only the first line is looked at when passed to KM as a payload file
 # The rest are ignored for now, but in the future we may add here config info

@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-
 FROM fedora:31
 
 # Contains the scripts needs to run tests.

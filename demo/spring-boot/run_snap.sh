@@ -15,6 +15,5 @@
 # limitations under the License.
 #
 #
-
 echo > /mnt/start_time
 ./kmsnap

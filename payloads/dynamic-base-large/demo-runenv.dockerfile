@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-
 ARG RUNENV_IMAGE_VERSION=latest
 FROM kontainapp/runenv-dynamic-base-large:${RUNENV_IMAGE_VERSION}
 COPY hello_test.kmd hello_test

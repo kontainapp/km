@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 #
-
 """ Clean up stale pods in the testing cluster.
 
     When pushing a new commit before the current CI finishes, CI is

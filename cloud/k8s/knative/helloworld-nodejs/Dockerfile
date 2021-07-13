@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-
 FROM kontainapp/runenv-node
 EXPOSE 8080
 COPY km /opt/kontain/bin/km

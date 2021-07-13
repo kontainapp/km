@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 #
-
 pod_name=load-test-zero
 mako_namespace=default
 output_file=.results/out.csv

@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 #
-
 """
 
 Trivial HTTP server in python3.

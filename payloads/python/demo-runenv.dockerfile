@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-
 ARG RUNENV_IMAGE_VERSION=latest
 
 FROM kontainapp/runenv-python:${RUNENV_IMAGE_VERSION}

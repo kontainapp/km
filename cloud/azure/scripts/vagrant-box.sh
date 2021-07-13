@@ -26,7 +26,6 @@
 # clone
 # preload proper boxes in base image
 #
-
 git clone https://$GITHUB_TOKEN@github.com:/kontainapp/km -b ${SRC_BRANCH}
 cd km
 git submodule update --init kkm

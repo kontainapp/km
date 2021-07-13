@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-
 # This file is only used to create an image for manual build and experiments
-
 FROM alpine
 
 RUN apk add --no-cache --virtual .build-deps \

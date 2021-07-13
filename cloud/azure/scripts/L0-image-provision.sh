@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 #
-#
 # Install stuff on "all you can eat" base image (cloud Ubuntu VM) to run vagrant/packer/virtualbox and build/test KM .
 # Note that KM is not build here and instead recieved via testenv or release bundle, but KKM needs to build with correct header.
 #
