@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/*
+ * Based on musl src/time/clock_gettime.c
+ */
+
 #include <time.h>
 #include <errno.h>
 #include <stdint.h>

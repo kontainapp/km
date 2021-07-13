@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/*
+ * Based on musl src/ldso/dl_iterate_phdr.c
+ */
+
 #define _GNU_SOURCE
 #include <link.h>
 #include <stdio.h>

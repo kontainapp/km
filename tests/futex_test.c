@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/*
+ * Based on futex man page
+ */
+
 /* futex_demo.c
 
    Usage: futex_demo [nloops]
