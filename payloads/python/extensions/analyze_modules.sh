@@ -1,4 +1,5 @@
 #!/bin/bash
+#
 # Copyright © 2020 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL

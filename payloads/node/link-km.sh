@@ -1,5 +1,16 @@
 #!/bin/bash
 #
+#  Copyright © 2021 Kontain Inc. All rights reserved.
+#
+#  Kontain Inc CONFIDENTIAL
+#
+#   This file includes unpublished proprietary source code of Kontain Inc. The
+#   copyright notice above does not evidence any actual or intended publication of
+#   such source code. Disclosure of this source code or any related proprietary
+#   information is strictly prohibited without the express written permission of
+#   Kontain Inc.
+#
+#
 # Create node.km by linking the objects files from build artifacts located at $1 (like /home/appuser/node in a "blank")
 # and put the result into location at $2
 set -e ; [ "$TRACE" ] && set -x

@@ -1,4 +1,5 @@
 #!/bin/sh -e
+#
 #  Copyright © 2018-2020 Kontain Inc. All rights reserved.
 #
 #  Kontain Inc CONFIDENTIAL
