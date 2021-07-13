@@ -1,4 +1,5 @@
-# Copyright © 2019 Kontain Inc. All rights reserved.
+#
+# Copyright © 2019-2020 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -7,6 +8,8 @@
 #  such source code. Disclosure of this source code or any related proprietary
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
+# Copyright © 2019 Kontain Inc. All rights reserved.
+#
 #
 """
 payloads/python/test_unittest.py

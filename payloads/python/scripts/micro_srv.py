@@ -1,4 +1,5 @@
-# Copyright © 2019 Kontain Inc. All rights reserved.
+#
+# Copyright © 2019-2020 Kontain Inc. All rights reserved.
 #
 # Kontain Inc CONFIDENTIAL
 #
@@ -8,6 +9,7 @@
 #  information is strictly prohibited without the express written permission of
 #  Kontain Inc.
 #
+
 """
 
 Trivial HTTP server in python3.
