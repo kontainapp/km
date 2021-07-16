@@ -162,3 +162,111 @@ docker run --runtime=krun kontain_imagename
 pdoman run --runtime=krun kontain_imagename
 
 Instructions for building a kontain image can be found in Kontain User Guide (see Readme.md in the top of KM repo)
+
+# Working with th crun source
+
+We place our changes to crun in the kontainapp/crun repository in a branch named krun.  We keep our work in a branch to make
+syncing our copy of the crun repository from upstream easier.
+When making changes to krun, do the following:
+
+```
+cd container-runtime/crun
+git checkout krun
+git checkout -b krun/yourname/what-you-are-fixing
+```
+
+Make your changes to the source code and then test them.  Once you are satisfied with the changes push them to our github repository for review before merging.
+
+```
+git push origin krun/yourname/what-you-are-fixing
+```
+
+When you push your krun changes to the kontainapp/crun repository, the crun github workflows will run.  You need to check that the "Test" workflow succeeds.
+If it fails, you need to find and fix the problem.  It should be noted that this workflow does check coding style.  We need to follow the containers/crun
+coding style.
+There is also an "Artifact" workflow which fails in the kontainapp/crun repository.  This needs to be fixed.
+
+Once the crun Test workflow is successful the changes need to be reviewed and approved using github.
+Complete the code review on github and get approval to merge the changes.  Once approved, merge the changes on github.
+
+Once your changes are in the kontain crun repository, km needs be updated so those changes are being used in what is built in the kontainapp/km
+source.
+
+```
+cd container-runtime/crun
+git fetch remote
+git checkout krun
+cd ../..
+git checkout -b yourname/use-the-latest-krun
+git add container-runtime/crun
+git commit
+git push origin yourname/use-the-latest-krun
+```
+
+Once your changes have been reviewed and approved, use github to merge these.
+
+# Refreshing our forked copy of crun from the upstream crun repository
+
+Ocassionally we need to pull the latest version of crun from the upstream repository into our repository and then rebase our
+current work onto the top of the latest crun source.
+Following are the steps I use:
+
+```
+cd container-runtime/crun
+git remote add upstream https://github.com/containers/crun.git
+git remote -v
+git fetch upstream
+git checkout main
+git rebase upstream/main
+```
+There should be no rebase conflicts for the main crun branch since we don't do development work there.
+
+Next rebase our krun branch on top of the main crun branch.  If necessary fix the rebase conflicts.
+
+```
+git checkout krun
+git rebase main krun
+git rebase --continue
+```
+
+Verify that the simple crun tests work.
+
+```
+cd ../..
+make -C container-runtime clobber
+make -C container-runtime
+make -C km
+make -C container-runtime test
+```
+
+Then push our rebased krun changes back to our crun repository
+
+```
+cd container-runtime/crun
+git push origin krun
+```
+
+The above "git push" will start the crun github workflows which build and test the changes.
+
+I'm not sure if we want to review the "rebase changes".
+
+As a result of the rebase, there may be changes to the crun github workflows which we inherit and they may fail.
+If they do fail, we need to fix the problems.
+
+# The crun github workflows
+
+In the directory container-runtime/crun/.github/workflows there are 2 workflow definitions:
+
+```
+[paulp@work km]$ cd container-runtime/crun/.github/workflows/
+[paulp@work workflows]$ ls -l
+total 12
+-rw-rw-r--. 1 paulp paulp 2479 Jul 14 16:41 release.yaml
+-rw-rw-r--. 1 paulp paulp 5774 Jul 14 16:41 test.yaml
+[paulp@work workflows]$
+```
+
+These workflows are executed by github every time a kontainapp/crun change is pushed to our github repository.
+
+The test.yaml workflow should succeed.  If it doesn't it needs to be fixed.
+The release.yaml workflow is broken (as of July 16, 2021) and we need to fix it eventually.
