@@ -195,6 +195,7 @@ EOF
 /opt/kontain/bin/kontain-gcc -o $dir/$file.km $dir/$file.o
 ```
 Note that `.km` is the ELF file with the Kontain unikernel. 
+
 4. Run the application as a unikernel in a Kontain VM:
 ```
 /opt/kontain/bin/km $dir/$file.km
