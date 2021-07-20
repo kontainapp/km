@@ -109,6 +109,12 @@ Inside the kontainer, run:
 
 The app will start, and eventually respond to the request.
 
+To take the snapshot:
+
+```
+docker exec -it test-app /opt/kontain/bin/km_cli -s /tmp/km.sock
+```
+
 To show snapshot, run the
 
 ```

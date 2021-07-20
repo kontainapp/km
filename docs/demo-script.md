@@ -77,7 +77,7 @@ file dweb dweb.km
 # Build Docker container with dweb
 (cd ..; docker build -t dweb . -f dweb-demo.dockerfile)
 
-# Show start time ('-x' to exit from server right awayzoom)
+# Show start time ('-x' to exit from server right away)
 time docker run --rm  dweb  /dweb/dweb -x
 time ~/workspace/km/build/km/km dweb.km -x
 

@@ -46,6 +46,10 @@ PATH=$(realpath ${KM_TOP}/tools/bin):$PATH
 KM_OPT_BIN=/opt/kontain/bin
 
 cd $OUT
+echo kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
+   @linkline_km.txt ${EXTRA_FILES} ${OUT}/python.km.symbols.o \
+   ${BUILD}/libpython3*.a -lz -lssl -lcrypto -lsqlite3 $LDLIBS \
+   -o ${NAME}
 kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
    @linkline_km.txt ${EXTRA_FILES} ${OUT}/python.km.symbols.o \
    ${BUILD}/libpython3*.a -lz -lssl -lcrypto -lsqlite3 $LDLIBS \
