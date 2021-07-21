@@ -25,13 +25,13 @@
  */
 .include "km_guest.asmh"
 
-    .section .km_guest_text, "ax", @progbits	
-    .align 16	
-__km_sigreturn:	
-    .type __km_sigreturn, @function	
+    .section .km_guest_text, "ax", @progbits
+    .align 16
+__km_sigreturn:
+    .type __km_sigreturn, @function
     .global __km_sigreturn
     mov $15, %rax
-	syscall
+    syscall
 /*
  * Trampoline for x86 exception and interrupt handling. IDT entries point here.
  */
@@ -45,8 +45,8 @@ __km_handle_interrupt:
     push %rax
     mov $0xdeadbeef, %rbx
     mov %rsp, %gs:0         # KM Setup km_hc_args_t on stack for us to use
-    mov $0xffff81fd, %edx   # HC_guest_interrupt
-    out %eax, %dx           # Enter KM
+    mov $0x81fd, %dx        # HC_guest_interrupt
+    out %eax, (%dx)         # Enter KM
     hlt                     # Should never hit here.
 
 /*
@@ -61,7 +61,7 @@ handler\name :
     mov $\num, %rbx
     mov %rsp, %gs:0         # KM Setup km_hc_args_t on stack for us to use
     mov $0x81fd, %dx        # HC_guest_interrupt
-    outl %eax, (%dx)        # Enter KM
+    out %eax, (%dx)         # Enter KM
     hlt                     # Should never hit here.
 
 .endm
@@ -162,7 +162,7 @@ __km_syscall_handler:
 
     mov %ax, %dx     # Do the KM HCall
     or $KM_HCALL_PORT_BASE, %dx
-    outl %eax, (%dx)
+    out %eax, (%dx)
 
     mov hc_arg3(%rsp), %rdx  # restore rdx
     mov hc_ret(%rsp), %rax   # Get return code into RAX
