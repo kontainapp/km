@@ -28,20 +28,7 @@ all: vm-images
 
 # Use these boxes as sources for our boxes builds. (`generic/$os' is the box)
 SRC_OS := ubuntu2010 fedora32
-# Souce box version  to pre-fetch
-# Caveat: we assume both fedora and ubuntu have the same box version
-# for virtualbox (it is likely since it's from the same builder)
-BOX_VERSION ?= 3.2.24
-# Note: version needs to be synced with the one in *pkrvars.hcl files
-
-source-boxes: ## add boxes for ${SRC_OS} to vagrant local cache
-	@set -x ; for os in ${SRC_OS} ; \
-	do \
-		src_box="generic/$$os" ; \
-		if ! vagrant box list  | grep -q "$$src_box.*virtualbox.*${BOX_VERSION}" ;  then \
-			vagrant box add $$src_box --provider=virtualbox --box-version=${BOX_VERSION} ; \
-		fi \
-	done
+# Note: SRC_OS needs to be synced with os_name in *pkrvars.hcl files
 
 # pass PACKER_LOG=1 for debug info
 PACKER_BUILD = ${PACKER_LOG} time packer build -force
@@ -49,37 +36,26 @@ PACKER_BUILD = ${PACKER_LOG} time packer build -force
 product: ## Prepares KM packaging artifacts (e.g. km tarball and kkm run bundle)
 	@if ! type virtualbox >& /dev/null ; then echo -e "${RED}'virtualbox' is missing - please install it first ${NOCOLOR}"; false; fi
 	@if ! type vagrant >& /dev/null ; then echo -e "${RED}'vagrant' is missing - please install it first ${NOCOLOR}"; false; fi
-	@ echo - check the files. do not build them !
 	echo $(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} kkm-pkg
 	echo $(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} release
 
-
-vm-images: .check_packer product source-boxes ## loads source boxes and creates boxes with KM installed
+vm-images: .check_packer product ## loads source boxes and creates boxes with KM installed
 	@set -x ; for os in ${SRC_OS} ; \
 	do \
-		${PACKER_BUILD} -only virtualbox-ovf.build-ova -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
+		${PACKER_BUILD} -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
 	done
 
-.check_packer:
-	@if ! command -v packer; then \
-		echo -e "${RED}Packer (https://www.packer.io/) is not found. Please install it first${NOCOLOR}" ; \
-		false; \
-	fi
-	@if [ "$$(basename $$(realpath $$(which packer)))" != "packer" ] ; then \
-		echo -e "${RED}Packer is found as '$$(which packer)', but seems to be fake. Please check https://www.packer.io/ is installed and is in the PATH${NOCOLOR}" ; echo \
-		false; \
-	fi
-
 upload-boxes:  ## uploads pre-created boxes to vagrant cloud
-	@set -x ; for os in ${SRC_OS} ; \
+	@for os in ${SRC_OS} ; \
 	do \
-		${PACKER_BUILD} -only null.upload -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
+		vagrant cloud publish --force --no-private --release --description "$$os with Kontain installed" --short-description "$$os with KKM" \
+			kontain/$${os}-kkm-beta3 0.9.0 virtualbox output_box_$${os}/package.box ; \
 	done
 
 register-boxes: ## register pre-created boxes in local vagrant cash
 	@for os in ${SRC_OS} ; \
 	do echo Registering $$os... ; \
-		${PACKER_BUILD} -only null.register -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
+		vagrant box add -f --name kontain/$${os}-kkm-beta3 output_box_$${os}/package.box ; \
 	done
 
 # Note: Amazon import-image refuses to accept/import some kernel versions, so as a temporary
@@ -93,7 +69,7 @@ test-box-upload: ## Helper to test Vagrant Box upload from existing BOX file
 	${PACKER_BUILD} test_box_upload.pkr.hcl
 
 clean::
-	rm -rf output_ova* box packer_cache
+	rm -rf output_box_* box packer_cache
 
 # Helpers to run , find and terminate test AWS instances, for manual work
 
