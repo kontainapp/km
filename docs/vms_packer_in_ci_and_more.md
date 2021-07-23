@@ -46,7 +46,7 @@ The script/targets are controlled by env vars which are passed by the packer to 
 * GITHUB_TOKEN - token to check out KM repo - during CI, received from github. When running manually, set it to a personal github token (see Account->Setting->DevOptions->PersonalTokens in Github UI)
 * SRC_BRANCH - current branch, used for KM checkout in the Packer VM. Default is the current branch
 
-* PACKER_DIR - if this is passed, the make *inside* the packer-managed VM will happen there. It is done to allow "scanning" of dirs inside, not outside of packer. E.g. `make -C payloads/busybox test-withpacker PACKER_DIR=payloads ...` with run ONE packer VM and run make there in payloads dir, which will do the scanning of subdirs.  It's a hack to avoid the cost of running multiple packer-managed VMs for the same - i.e. `make -C payloads test-withpacker ...` with run packer for EACH subdir. 
+* PACKER_DIR - if this is passed, the make *inside* the packer-managed VM will happen there. It is done to allow "scanning" of dirs inside, not outside of packer. E.g. `make -C payloads/busybox test-withpacker PACKER_DIR=payloads ...` with run ONE packer VM and run make there in payloads dir, which will do the scanning of subdirs.  It's a hack to avoid the cost of running multiple packer-managed VMs for the same - i.e. `make -C payloads test-withpacker ...` with run packer for EACH subdir.
 
 See the script and packer config for more details
 
@@ -116,7 +116,6 @@ Vagrant boxes and AMI for release are also created and uploaded to vagrantcloud 
 All files are in tools/hashicorp. Make targets:
 
 * `make -C tools/hashicorp ami` - build AMI with Ubuntu and preinstalled KM (based on results of 'make release' and 'make kkm-pkg')
-* `make -C tools/hashicorp vm-images` - build 2 boxes (fedora based and ubuntu based) with presinstalled KM
 * `make -C tools/hashicorp vm-images` - build 2 boxes (fedora based and ubuntu based) with presinstalled KM
 * `make -C tools/hashicorp register-boxes` - register freshly build boxes with local `vagrant box` command
 * `make -C tools/hashicorp upload-boxes` - upload freshly build boxes to vagrant cloud. Expects VAGRANT_CLOUD_TOKEN env to be set
