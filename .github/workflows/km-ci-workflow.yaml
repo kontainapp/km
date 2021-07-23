@@ -351,4 +351,4 @@ jobs:
           include_jobs: true
           channel: "#build_and_test"
           name: "CI workflow status"
-          icon_emoji: ":poop:"
+          icon_emoji: ":thumbsdown:"
