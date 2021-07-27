@@ -24,12 +24,12 @@
 TOP := $(shell git rev-parse --show-toplevel)
 
 LOG ?= 0
-PACKER_BUILD = PACKER_LOG=${LOG} time packer build
+PACKER_BUILD = PACKER_LOG=${LOG} packer build
 
 test: .check_packer .check_image_version ## Test KKM build on AWS using Hashicorp Packer
 	${PACKER_BUILD} \
 		--var src_branch=${SRC_BRANCH} \
 		--var image_version=${IMAGE_VERSION} \
-		km-test.pkr.hcl
+		km-aws-test.pkr.hcl
 
 include ${TOP}/make/locations.mk

@@ -255,7 +255,7 @@ validate-runenv-withk8s: .check_image_version
 endif # ifeq (${NO_RUNENV}, false)
 
 # Tests with PACKER
-# Tests with packer. For now force then to run with KKM
+# For now force then to run with KKM
 #
 # We can add /dev/kvm on azure only (pass `-only azure-arm.km-test'` and /dev/kvm for hypervisor)
 #
@@ -265,17 +265,20 @@ endif # ifeq (${NO_RUNENV}, false)
 
 TIMEOUT ?= 10m
 PACKER_DIR ?= ${FROMTOP}
-ifeq (${HYPERVISOR_DEVICE},/dev/kvm)
-ONLY_BUILDERS ?= -only azure-arm.km-test
-endif
 
 test-withpacker test-all-withpacker validate-runenv-image-withpacker: .check_packer .check_image_version ## Test with packer
+ifeq (${HYPERVISOR_DEVICE},/dev/kkm)
 	cd ${TOP}/tests ; \
-	time packer build -force  \
+	packer build -force \
 		-var src_branch=${SRC_BRANCH} -var image_version=${IMAGE_VERSION} -var target=$(subst -withpacker,,$@) \
-		-var dir=${PACKER_DIR} -var hv_device=${HYPERVISOR_DEVICE} \
-		-var timeout=${TIMEOUT} $(ONLY_BUILDERS) \
-	packer/km-test.pkr.hcl
+		-var dir=${PACKER_DIR} -var hv_device=${HYPERVISOR_DEVICE} -var timeout=${TIMEOUT} \
+	packer/km-aws-test.pkr.hcl
+endif
+	cd ${TOP}/tests ; \
+	packer build -force \
+		-var src_branch=${SRC_BRANCH} -var image_version=${IMAGE_VERSION} -var target=$(subst -withpacker,,$@) \
+		-var dir=${PACKER_DIR} -var hv_device=${HYPERVISOR_DEVICE} -var timeout=${TIMEOUT} \
+	packer/km-az-test.pkr.hcl
 
 # === BUILDENV LOCAL
 

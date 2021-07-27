@@ -32,6 +32,7 @@ echo LOCATION=${LOCATION?Please set LOCATION env var to KM source dir where the 
 # Useful debug info (sans secrets)
 env # | grep -v SP_ | grep -v GITHUB_TOKEN
 
+rm -rf km
 # we only need KKM repo and Make system so not pulling in all submodules
 echo Cloning KM repo. branch: ${SRC_BRANCH}
 git clone https://$GITHUB_TOKEN@github.com:/kontainapp/km -b ${SRC_BRANCH}
@@ -44,6 +45,7 @@ if [ "${HYPERVISOR_DEVICE}" == "/dev/kkm" ] ; then
    # Build has to happen here since it's kernel specific
    make -C kkm/kkm
    make -C kkm/test_kkm
+   modinfo kkm >& /dev/null && sudo rmmod kkm
    sudo insmod kkm/kkm/kkm.ko
    ./kkm/test_kkm/test_kkm
 else

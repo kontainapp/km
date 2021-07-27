@@ -62,7 +62,6 @@ env:
   SP_APPID: ${{ secrets.SP_APPID }}
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
   SP_TENANT: ${{ secrets.SP_TENANT }}
-  GITHUB_TOKEN: ${{ secrets.FULL_GITHUB_ACCESS_TOKEN }} # the one in secrets covers more than github.token
   # TRACE: true # uncomment to enable '-x' in all bash scripts
 
 jobs:

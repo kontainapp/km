@@ -58,6 +58,7 @@ build {
   sources = ["sources.azure-arm.baseImage-for-CI"]
 
    provisioner "shell" {
+      execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sudo -E sh '{{ .Path }}'"
       script = "scripts/L0-image-provision.sh"
    }
 
