@@ -167,11 +167,18 @@ RUNENV_VALIDATE_CMD ?= ("Place" "ValidateCommandBashArray" "Here")
 RUNENV_VALIDATE_EXPECTED ?= Hello
 
 # We use km from ${KM_BIN} here from the build tree instead of what's on the host under ${KM_OPT_BIN}.
+# We remove the container image from the podman local repository to force podman to get it from the
+# docker local repository since that is where the payload images are stored when built.
+# There does not appear to a way to stop podman from complaining if the image being deleted does not exist.
 validate-runenv-image: ## Validate runtime image
 	tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
-	${DOCKER_RUN_TEST} \
-	${KM_KM_VOLUME} \
+	${DOCKER_RUN} ${DOCKER_INTERACTIVE} --init ${DOCKER_KRUN_RUNTIME} \
 	${RUNENV_DEMO_IMG_TAGGED} \
+	"$${tmp_bash_array[@]}" | grep "${RUNENV_VALIDATE_EXPECTED}"
+	-podman image rm ${RUNENV_DEMO_IMG_TAGGED}
+	tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
+	${PODMAN_RUN_TEST} ${PODMAN_KRUN_RUNTIME} \
+	docker-daemon:${RUNENV_DEMO_IMG_TAGGED} \
 	"$${tmp_bash_array[@]}" | grep "${RUNENV_VALIDATE_EXPECTED}"
 
 push-runenv-image:  runenv-image ## pushes image.
