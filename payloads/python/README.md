@@ -2,9 +2,9 @@
 
 In this directory we build cpython (Python interpreter written in C, the default one) as a KM payload.
 
-The process includes cloning python git repo, patching python config, and building python.km, using MUSL-based runtime.
+The process includes cloning python git repo and building python.km, using MUSL-based runtime.
 
-We also support building a Docker container with pythin.km and pushing it to Azure Container Registry.
+We also support building a Docker container with python.km and pushing it to Azure Container Registry.
 
 ## Building python as a KM payload
 
@@ -18,7 +18,7 @@ After it is done, you can pass `cpython/python.km` to KM as a payload, e.g. `../
 
 ## Building distro package and publishing it
 
-`make runenv-image` and `make push-runenv-image` will build Docker image and publish it to Azure ACR. 
+`make runenv-image` and `make push-runenv-image` will build Docker image and publish it to Azure ACR.
 
 ## Known issues
 

@@ -7,7 +7,7 @@ Assumes:
 1. Packer & Vagrant are installed (see https://learn.hashicorp.com/tutorials)
 2. For AMI creation: **AWS access is configured in ~/.aws credentials file (https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)** and
 
-**Warning** when a vagrant/virtualbox VM is running on a host (i.e. after `vagrant up`), KM (or QEMU) on the same host will fail with 'EBUSY', This is because VirtualBox uses it's own kernel module which takes exclusive ownership of CPU virtualization facility in Linux kernel, and thus /dev/kvm is not available for monitors other than VirtualBox itself.
+**Warning** when a vagrant/virtualbox VM is running on a host (i.e. after `vagrant up`), KM (or QEMU) on the same host will fail with 'EBUSY'. This is because VirtualBox uses it's own kernel module which takes exclusive ownership of CPU virtualization facility, which disables KVM.
 
 ## Operations
 
