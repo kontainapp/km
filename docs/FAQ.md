@@ -6,7 +6,7 @@
 
     Kontain code is open source under Apache 2.0 license.
 
-    We also maintain binary releases in the form of vagrant boxes (Fedora 32 and Ubuntu 2010) and an AWI AMI.
+    We also maintain binary releases in the form of vagrant boxes (Fedora 32 and Ubuntu 2010) and an EC2 AMI.
 
     We are more than happy to collaborate with people who would like to hack on the code with us! Get in touch by opening an issue or emailing us: community@kontain.app
 
@@ -16,7 +16,8 @@
 
 *   Is the Kontain Vagrant box only available through VirtualBox?
 
-    Currently, VirtualBox is the only provider for the `kontain/ubuntu-kkm-beta3` box. If you'd like to suggest a different provider, please submit an issue.
+    Currently, VirtualBox is the only provider for the `kontain/ubuntu2010-kkm-beta3` and `kontain/fedora32-kkm-beta3` boxes.
+    If you'd like to suggest a different provider, please submit an issue.
 
 *   What can I use for virtualization if I don’t have access to KVM?
 
