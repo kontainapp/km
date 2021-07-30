@@ -1,5 +1,20 @@
 #!/bin/bash
-#  Copyright © 2018-2020 Kontain Inc. All rights reserved.
+#
+# Copyright 2021 Kontain Inc
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
 #
 # Creates a release kontain.tar.gz for uploading to github. To unpackage, 'tar -C /opt/kontain -xvf kontain.tar.gz'
 #
@@ -31,7 +46,8 @@ for i in $(seq 0 $(("${#locations[@]}" - 1))); do
    source="${locations[$i]}/${files[$i]}"
    # newer gcc produces compressed '.debug_info'. Older linkers cannot use it. To make sure
    # we can use our (apine) libs with slightly older linkers, let's decompress .debug_info
-   decompress_list=$(find $source -type f -exec file '{}' ';' | awk -F: '/(shared|archive|relocatable)/ {print $1}')
+   decompress_list=$(find $source -type f -exec file '{}' ';' | grep -v 'archive data' | 
+                     awk -F: '/(shared|archive|relocatable)/ {print $1}')
    if [ -n "$decompress_list" ]; then
       echo Decompressing .debug_info for $(echo $decompress_list | wc -w) files in $source
       if [ ! -w $source ]; then

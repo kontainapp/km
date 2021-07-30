@@ -20,37 +20,35 @@ Run `vagrant up` to build and start the VM with the app.
 ## Docker
 
 ```bash
-docker build -t test-app .
+make container
 ```
 
 ```bash
-docker run --device /dev/kvm --name test-app --rm -it -p 5000:5000 test-app bash
+docker run --device=/dev/kvm -v /opt/kontain/bin:/opt/kontain/bin:z -v $(pwd)/tmp:/mnt:Z \
+           --name test-app --rm -it -p 5000:5000 test-app /bin/sh
 ```
-
-To put the km related artifact in the container, run `./p.sh test-app`.
-This copies km and necessary friends into the container, and switches python to unikernel version.
 
 ## To test:
 
-Once inside a VM (or container) with the app,
-to switch python between native and KM based on use `./switch.sh` for native and `./switch.sh km` for km.
-
-Too run the app:
+Once inside a VM (or container) with the app, to run the app:
 
 ```bash
 python app.py
 ```
 
+In VM you can switch between native and kontain python.
+To switch python between native and KM based python use `./switch.sh` for native and `./switch.sh km` for km
+(note in container there is only KM python).
+
 It takes several seconds for the application to initialize.
 Message `WARNING: This is a development server. Do not use it in a production deployment.` is normal and expected,
 it it simply because the app.py uses simple developer's flask configuration.
 
-And to test, run:
+And to test, from the host, run:
 
 ```bash
 curl -s -X POST -F image=@dog2.jpg 'http://localhost:5000/predict' | jq .
 ```
-
 
 If everything is OK, it prints something like:
 
@@ -83,3 +81,42 @@ If everything is OK, it prints something like:
 ```
 
 reporting probabilities that the presented image (`dog2.jpg`) is image of the particular dog breed.
+
+## snapshot
+
+Make sure km_cli is compiled and in /opt/kontain/bin.
+
+Run kontainer the same way as above:
+
+```bash
+docker run --device=/dev/kvm -v /opt/kontain/bin:/opt/kontain/bin:z -v $(pwd)/tmp:/mnt:Z \
+           --name test-app --rm -it -p 5000:5000 test-app /bin/sh
+```
+
+On the host, run
+
+```
+./test.sh
+```
+
+The script will take care of carefully measuring start time and response time, and display the difference.
+
+Inside the kontainer, run:
+
+```
+/run.sh
+```
+
+The app will start, and eventually respond to the request.
+
+To show snapshot, run the
+
+```
+./test.sh
+```
+
+again, and then run:
+
+```
+/run_snap.sh
+```

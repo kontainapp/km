@@ -1,14 +1,20 @@
 /*
- * Copyright © 2019-2021 Kontain Inc. All rights reserved.
+ * Copyright 2021 Kontain Inc
  *
- * Kontain Inc CONFIDENTIAL
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This file includes unpublished proprietary source code of Kontain Inc. The
- * copyright notice above does not evidence any actual or intended publication
- * of such source code. Disclosure of this source code or any related
- * proprietary information is strictly prohibited without the express written
- * permission of Kontain Inc.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
  * Notes on File Descriptors
  * -------------------------
  * Every file descriptor opened by a guest payload has a coresponding open file
@@ -78,6 +84,7 @@ int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, char* name, int flags, km_file
 char* km_guestfd_name(km_vcpu_t* vcpu, int fd);
 int km_fs_init(void);
 void km_fs_fini(void);
+int km_fs_at(int dirfd, const char* const pathname);
 // int open(char *pathname, int flags, mode_t mode)
 uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode);
 // int openat(int dirfd, const char *pathname, int flags);
@@ -122,6 +129,9 @@ uint64_t km_fs_fchmod(km_vcpu_t* vcpu, int fd, mode_t mode);
 uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname);
 // int unlinkat(int dirfd, const char *pathname, int flags);
 uint64_t km_fs_unlinkat(km_vcpu_t* vcpu, int openfd, const char* pathname, int flags);
+// int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags);
+uint64_t
+km_fs_utimensat(km_vcpu_t* vcpu, int dirfd, const char* pathname, struct timespec* ts, int flags);
 // int getdents(unsigned int fd, struct linux_dirent *dirp, unsigned int count);
 uint64_t km_fs_getdents(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count);
 // int getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count);

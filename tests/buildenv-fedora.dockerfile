@@ -1,12 +1,18 @@
-# Copyright © 2019-2021 Kontain Inc. All rights reserved.
 #
-#  Kontain Inc CONFIDENTIAL
+# Copyright 2021 Kontain Inc
 #
-#   This file includes unpublished proprietary source code of Kontain Inc. The
-#   copyright notice above does not evidence any actual or intended publication of
-#   such source code. Disclosure of this source code or any related proprietary
-#   information is strictly prohibited without the express written permission of
-#   Kontain Inc.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 #
 # Dockerfile for buildenv image - these are the base images for KM, tests and payload builds.
 #
@@ -32,7 +38,7 @@ RUN tar cf - -C / lib usr/lib \
    --exclude firmware --exclude mdev --exclude bash \
    --exclude engines-\* | tar xf - -C $PREFIX/alpine-lib
 # Alpine 3.12+ bumped libffi version, Fedora 33 hasn't yet. Hack to support that
-RUN ln -sf /opt/kontain/alpine-lib/usr/lib/libffi.so.7 /opt/kontain/alpine-lib/usr/lib/libffi.so.6
+RUN ln -sf ${PREFIX}/alpine-lib/usr/lib/libffi.so.7 ${PREFIX}/alpine-lib/usr/lib/libffi.so.6
 
 # Save the path to gcc versioned libs for the future
 RUN dirname $(gcc --print-file-name libgcc.a) > $PREFIX/alpine-lib/gcc-libs-path.txt
@@ -79,5 +85,7 @@ WORKDIR /home/$USER
 
 COPY --from=buildlibelf /usr/local /usr/local/
 COPY --from=alpine-lib-image $PREFIX $PREFIX/
+# take libcrypto from Fedora - python ssl doesn't like alpine one
+RUN cp /usr/lib64/libcrypto.so.1.1.1[a-z] ${PREFIX}/alpine-lib/lib/libcrypto.so.1.1
 
 USER $USER

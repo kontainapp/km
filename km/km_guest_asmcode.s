@@ -1,14 +1,20 @@
 /*
- * Copyright © 2020 Kontain Inc. All rights reserved.
+ * Copyright 2021 Kontain Inc
  *
- * Kontain Inc CONFIDENTIAL
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This file includes unpublished proprietary source code of Kontain Inc. The
- * copyright notice above does not evidence any actual or intended publication
- * of such source code. Disclosure of this source code or any related
- * proprietary information is strictly prohibited without the express written
- * permission of Kontain Inc.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
  * Signal trampoline for KM guests. KM starts signal handling at the guest signal
  * guest signal handler itself with the stack setup for return to __km_sigreturn.
  * Most of this file is about describing the stack so it can be correctly unwound.
@@ -19,13 +25,13 @@
  */
 .include "km_guest.asmh"
 
-    .section .km_guest_text, "ax", @progbits	
-    .align 16	
-__km_sigreturn:	
-    .type __km_sigreturn, @function	
+    .section .km_guest_text, "ax", @progbits
+    .align 16
+__km_sigreturn:
+    .type __km_sigreturn, @function
     .global __km_sigreturn
     mov $15, %rax
-	syscall
+    syscall
 /*
  * Trampoline for x86 exception and interrupt handling. IDT entries point here.
  */
@@ -39,8 +45,8 @@ __km_handle_interrupt:
     push %rax
     mov $0xdeadbeef, %rbx
     mov %rsp, %gs:0         # KM Setup km_hc_args_t on stack for us to use
-    mov $0xffff81fd, %edx   # HC_guest_interrupt
-    out %eax, %dx           # Enter KM
+    mov $0x81fd, %dx        # HC_guest_interrupt
+    out %eax, (%dx)         # Enter KM
     hlt                     # Should never hit here.
 
 /*
@@ -55,7 +61,7 @@ handler\name :
     mov $\num, %rbx
     mov %rsp, %gs:0         # KM Setup km_hc_args_t on stack for us to use
     mov $0x81fd, %dx        # HC_guest_interrupt
-    outl %eax, (%dx)        # Enter KM
+    out %eax, (%dx)         # Enter KM
     hlt                     # Should never hit here.
 
 .endm
@@ -156,7 +162,7 @@ __km_syscall_handler:
 
     mov %ax, %dx     # Do the KM HCall
     or $KM_HCALL_PORT_BASE, %dx
-    outl %eax, (%dx)
+    out %eax, (%dx)
 
     mov hc_arg3(%rsp), %rdx  # restore rdx
     mov hc_ret(%rsp), %rax   # Get return code into RAX

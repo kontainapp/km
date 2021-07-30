@@ -1,14 +1,20 @@
 /*
- * Copyright © 2019-2021 Kontain Inc. All rights reserved.
+ * Copyright 2021 Kontain Inc
  *
- * Kontain Inc CONFIDENTIAL
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This file includes unpublished proprietary source code of Kontain Inc. The
- * copyright notice above does not evidence any actual or intended publication
- * of such source code. Disclosure of this source code or any related
- * proprietary information is strictly prohibited without the express written
- * permission of Kontain Inc.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
  * Notes on File Descriptors
  * -------------------------
  *
@@ -255,30 +261,39 @@ uint64_t km_fs_open(km_vcpu_t* vcpu, char* pathname, int flags, mode_t mode)
    return guestfd;
 }
 
-uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mode_t mode)
+// sanity check - dirfd, if needed, within guest range, and getdents_g2h not set on it
+int km_fs_at(int dirfd, const char* const pathname)
 {
-   int host_dirfd = dirfd;
    km_file_ops_t* ops;
 
    if (dirfd != AT_FDCWD && pathname[0] != '/') {
-      if ((host_dirfd = km_fs_g2h_fd(dirfd, &ops)) < 0) {
+      if (km_fs_g2h_fd(dirfd, &ops) < 0) {
          return -EBADF;
       }
       if (ops != NULL && ops->getdents_g2h != NULL) {
-         km_warnx("bad dirfd in openat");
-         return -EINVAL;   // no openat with base in /proc and such
+         return -EINVAL;   // no fs_at with base in /proc and such
       }
    }
-   char buf[PATH_MAX];
+   return 0;
+}
 
-   int ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
+uint64_t km_fs_openat(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, mode_t mode)
+{
+   int ret = km_fs_at(dirfd, pathname);
+   if (ret < 0) {
+      return ret;
+   }
+
+   char buf[PATH_MAX];
+   km_file_ops_t* ops;
+   ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
    if (ret < 0) {
       return ret;
    }
    if (ret > 0) {
       pathname = buf;
    }
-   int hostfd = __syscall_4(SYS_openat, host_dirfd, (uintptr_t)pathname, flags, mode);
+   int hostfd = __syscall_4(SYS_openat, dirfd, (uintptr_t)pathname, flags, mode);
    int guestfd;
    if (hostfd >= 0) {
       guestfd = km_add_guest_fd_internal(vcpu, hostfd, pathname, flags, KM_FILE_HOW_OPEN, ops);
@@ -634,21 +649,12 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
 uint64_t km_fs_readlinkat(km_vcpu_t* vcpu, int dirfd, char* pathname, char* buf, size_t bufsz)
 {
    int ret;
-   km_file_ops_t* ops;
 
    if ((ret = km_fs_g2h_readlink(pathname, buf, bufsz)) == 0) {
-      int host_dirfd = dirfd;
-
-      if (dirfd != AT_FDCWD && pathname[0] != '/') {
-         if ((host_dirfd = km_fs_g2h_fd(dirfd, &ops)) < 0) {
-            return -EBADF;
-         }
-         if (ops != NULL) {
-            km_warnx("bad dirfd in readlinkat");
-            return -EINVAL;   // no redlinkat with base in /proc and such
-         }
+      if ((ret = km_fs_at(dirfd, pathname)) < 0) {
+         return ret;
       }
-      ret = __syscall_4(SYS_readlinkat, host_dirfd, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
+      ret = __syscall_4(SYS_readlinkat, dirfd, (uintptr_t)pathname, (uintptr_t)buf, bufsz);
    }
    if (ret < 0) {
       km_infox(KM_TRACE_FILESYS, "%s : %s", pathname, strerror(-ret));
@@ -806,29 +812,48 @@ uint64_t km_fs_unlink(km_vcpu_t* vcpu, char* pathname)
 // int unlinkat(int dirfd, const char *pathname, int flags);
 uint64_t km_fs_unlinkat(km_vcpu_t* vcpu, int dirfd, const char* pathname, int flags)
 {
-   int host_dirfd = dirfd;
-   km_file_ops_t* ops;
-
-   if (dirfd != AT_FDCWD && pathname[0] != '/') {
-      if ((host_dirfd = km_fs_g2h_fd(dirfd, &ops)) < 0) {
-         return -EBADF;
-      }
-      if (ops != NULL && ops->getdents_g2h != NULL) {
-         km_warnx("bad dirfd in unlinkat");
-         return -EINVAL;   // no unlinkat with base in /proc and such
-      }
+   int ret = km_fs_at(dirfd, pathname);
+   if (ret < 0) {
+      return ret;
    }
+
+   km_file_ops_t* ops;
    char buf[PATH_MAX];
 
-   int ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
+   ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops);
    if (ret < 0) {
       return ret;
    }
    if (ret > 0) {
       pathname = buf;
    }
-   ret = __syscall_3(SYS_unlinkat, host_dirfd, (uintptr_t)pathname, flags);
+   ret = __syscall_3(SYS_unlinkat, dirfd, (uintptr_t)pathname, flags);
    km_infox(KM_TRACE_FILESYS, "unlinkat(%d, %s, 0x%x) returns %d", dirfd, pathname, flags, ret);
+   return ret;
+}
+
+//  int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags);
+uint64_t
+km_fs_utimensat(km_vcpu_t* vcpu, int dirfd, const char* pathname, struct timespec* ts, int flags)
+{
+   int ret;
+   if (pathname != NULL) {
+      ret = km_fs_at(dirfd, pathname);
+      if (ret < 0) {
+         return ret;
+      }
+   }
+   km_file_ops_t* ops;
+   char buf[PATH_MAX];
+
+   if ((ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops)) < 0) {
+      return ret;
+   }
+   if (ret > 0) {
+      pathname = buf;
+   }
+   ret = __syscall_4(SYS_utimensat, dirfd, (uint64_t)pathname, (uint64_t)ts, flags);
+   km_infox(KM_TRACE_FILESYS, "utimensat(%d, %s, 0x%x) returns %d", dirfd, pathname, flags, ret);
    return ret;
 }
 
@@ -967,27 +992,21 @@ uint64_t km_fs_lstat(km_vcpu_t* vcpu, char* pathname, struct stat* statbuf)
 uint64_t
 km_fs_statx(km_vcpu_t* vcpu, int dirfd, char* pathname, int flags, unsigned int mask, void* statxbuf)
 {
-   int host_fd = dirfd;
-   km_file_ops_t* ops;
-
-   if (dirfd != AT_FDCWD && pathname[0] != '/') {
-      if ((host_fd = km_fs_g2h_fd(dirfd, &ops)) < 0) {
-         return -EBADF;
-      }
-      if (ops != NULL && ops->readlink_g2h != NULL) {
-         km_warnx("bad dirfd in statx");
-         return -EINVAL;   // no statx with base in /proc and such
-      }
+   int ret = km_fs_at(dirfd, pathname);
+   if (ret < 0) {
+      return ret;
    }
+
    char buf[PATH_MAX];
-   int ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), NULL);
+
+   ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), NULL);
    if (ret < 0) {
       return ret;
    }
    if (ret > 0) {
       pathname = buf;
    }
-   ret = __syscall_5(SYS_statx, host_fd, (uintptr_t)pathname, flags, mask, (uintptr_t)statxbuf);
+   ret = __syscall_5(SYS_statx, dirfd, (uintptr_t)pathname, flags, mask, (uintptr_t)statxbuf);
    return ret;
 }
 
@@ -2207,8 +2226,8 @@ static int proc_sched_read(int fd, char* buf, size_t buf_sz)
    }
    char tmp[128];
    char* x = fgets(tmp, sizeof(tmp), fp);   // skip the first line
-   (void)x; // avoid gcc warn
-   if (feof(fp)) {                // second read, to make sure we are at end of file
+   (void)x;                                 // avoid gcc warn
+   if (feof(fp)) {                          // second read, to make sure we are at end of file
       fclose(fp);
       return 0;
    }
@@ -2822,6 +2841,14 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
 
    if (nt_sock->state == KM_SOCK_STATE_BIND || nt_sock->state == KM_SOCK_STATE_LISTEN) {
       int hostfd = km_fs_g2h_fd(nt_sock->fd, NULL);
+      // If snapshot is being recovered right after it was taken there is a chance there are sockets
+      // in TIME_WAIT state from the remaining from the initial run, so the following bind() will
+      // fail. This avoid the falure.
+      int flag = 1;
+      if (setsockopt(hostfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0) {
+         km_warn("recover setsockopt(SO_REUSEADDR) failed");
+         return -1;
+      }
       if (bind(hostfd, sa, nt_sock->addrlen) < 0) {
          km_warn("recover bind failed");
          return -1;

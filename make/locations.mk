@@ -1,12 +1,18 @@
-# Copyright © 2019 Kontain Inc. All rights reserved.
 #
-# Kontain Inc CONFIDENTIAL
+# Copyright 2021 Kontain Inc
 #
-#  This file includes unpublished proprietary source code of Kontain Inc. The
-#  copyright notice above does not evidence any actual or intended publication of
-#  such source code. Disclosure of this source code or any related proprietary
-#  information is strictly prohibited without the express written permission of
-#  Kontain Inc.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 #
 # A helper include. ALlowes to include some vars in dirs which cannot include
 # actions.mk (e.g. tests which need their own compike /link flags)
@@ -19,8 +25,17 @@ endif
 
 # this is the path from the TOP to current dir. Note this has a trailing /
 FROMTOP := $(shell git rev-parse --show-prefix)
-# Current branch and SHA(for making different names unique per branch, e.g. Docker tags)
+
+# Current branch. Note that on Github merges the branch name is in
+# GITHUB_HEAD_REF, and current branch is refs/merge/pr-id.
+# IN all other cases we extract branch namee from git rev-parse
+# on GTHUB PullRequests (and push )
+ifneq (${GITHUB_HEAD_REF},)
+SRC_BRANCH ?= ${GITHUB_HEAD_REF}
+else
 SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
+endif
+# current SHA, to be saved for 'km -v' uniquiness
 SRC_SHA ?= $(shell git rev-parse HEAD)
 
 PATH := $(abspath ${TOP}/tools/bin):${PATH}
@@ -136,7 +151,7 @@ BUILDENV_IMAGE_VERSION ?= latest
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
 # regexp for targets which should not try to build dependencies (.d)
-NO_DEPS_TARGETS := (clean|clobber|.*-image|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|coverage-withk8s|upload-coverage)
+NO_DEPS_TARGETS := (clean|clobber|.*-image|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|coverage-withk8s|upload-coverage|vm-images|.*-withpacker)
 NO_DEPS_TARGETS := ${NO_DEPS_TARGETS}( ${NO_DEPS_TARGETS})*
 # colors for pretty output. Unless we are in Azure pipelines
 ifeq (${PIPELINE_WORKSPACE},)
@@ -150,6 +165,23 @@ endif
 # All of our .sh script assumes bash. On system such as Ubuntu, the makefile
 # needs to explicitly points to bash.
 SHELL=/bin/bash
+
+# Helper when we need to make sure IMAGE_VERSION is defined and not 'latest'
+.check_image_version:
+	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == "latest" ]] ; then \
+		echo -e "${RED}IMAGE_VERSION should be set to a unique value. e.g. ci-695.${NOCOLOR}" ; \
+		false; \
+	fi
+
+.check_packer: # check if packer is installed and is the correct one
+	@if ! command -v packer; then \
+		echo -e "${RED}Packer (https://www.packer.io/) is not found. Please install it first${NOCOLOR}" ; \
+		false; \
+	fi
+	@if [ "$$(basename $$(realpath $$(which packer)))" != "packer" ] ; then \
+		echo -e "${RED}Packer is found as '$$(which packer)', but seems to be fake. Please check https://www.packer.io/ is installed and is in the PATH${NOCOLOR}" ; echo \
+		false; \
+	fi
 
 # common targets. They won't interfere with default targets due to 'default:all' at the top
 

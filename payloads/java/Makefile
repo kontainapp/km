@@ -1,18 +1,23 @@
-# Copyright © 2020 Kontain Inc. All rights reserved.
 #
-# Kontain Inc CONFIDENTIAL
+# Copyright 2021 Kontain Inc
 #
-#  This file includes unpublished proprietary source code of Kontain Inc. The
-#  copyright notice above does not evidence any actual or intended publication of
-#  such source code. Disclosure of this source code or any related proprietary
-#  information is strictly prohibited without the express written permission of
-#  Kontain Inc.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 #
 # Makefile for building and packing Java payload runtime for KM
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-CURRENT_DIR := ${TOP}/payloads/java
 JDK_VERSION := jdk-11.0.8+10
 # COMPONENT is used in docker image names so no '+' allowed, and we don't care about minor opt
 COMPONENT := jdk-11.0.8
@@ -41,7 +46,6 @@ DEP_PACKAGES := java-11-openjdk \
 FROMSRC=$(shell test -d $(JDK_VERSION)/.git && echo yes)
 
 # config for image validation
-RUNENV_VALIDATE_DIR := scripts
 RUNENV_VALIDATE_CMD := ("/opt/kontain/java/bin/java" "-cp" "/scripts" Hello)
 RUNENV_VALIDATE_EXPECTED := Hello, World!
 RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
@@ -110,7 +114,7 @@ api: ${BLDDIR}/app.kontain.jmod ${BLDDIR}/html/index.html
 ${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_native.so
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
-		-w ${CURRENT_DIR} \
+		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/jmod create \
 		--class-path ${BLDDIR}/mods/app.kontain/ \
@@ -120,7 +124,7 @@ ${BLDDIR}/mods/app.kontain: app.kontain/module-info.java
 	[ -d ${BLDDIR}/mods ] || mkdir -p ${BLDDIR}/mods
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
-		-w ${CURRENT_DIR} \
+		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/javac -d ${BLDDIR}/mods --module-source-path . --module app.kontain $?
 
@@ -132,14 +136,14 @@ ${BLDDIR}/lib/libkm_java_native.so: app.kontain/app/kontain/snapshots/km_java_na
 ${BLDDIR}/html/index.html: app.kontain/app/kontain/snapshots/Snapshot.java
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
-		-w ${CURRENT_DIR} \
+		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/javadoc -d ${BLDDIR}/html $?
 
 scripts/%.class: scripts/%.java
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:Z \
-		-w ${CURRENT_DIR} \
+		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JAVA_DIR}/bin/javac $?
 

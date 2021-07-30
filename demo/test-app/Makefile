@@ -1,12 +1,18 @@
-# Copyright © 2021 Kontain Inc. All rights reserved.
 #
-# Kontain Inc CONFIDENTIAL
+# Copyright 2021 Kontain Inc
 #
-#  This file includes unpublished proprietary source code of Kontain Inc. The
-#  copyright notice above does not evidence any actual or intended publication of
-#  such source code. Disclosure of this source code or any related proprietary
-#  information is strictly prohibited without the express written permission of
-#  Kontain Inc.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 #
 # Build tensorflow inference app in vagrant VM or container
 
@@ -18,7 +24,8 @@ vm: ${BUILD}/${TF}
 	@echo "Run 'vagrant ssh' to login into the VM"
 
 container: ${BUILD}/${TF}
+	@-docker rmi -f test-app
 	cp ${BUILD}/${TF} .
 	docker build -t test-app .
 	@rm ${TF}
-	@echo "Run 'docker run --device /dev/kkm --name test-app --rm -it -p 5000:5000 test-app bash' to login into container"
+	@echo "Run 'docker run --device=/dev/kvm -v /opt/kontain/bin/km:/opt/kontain/bin/km --name test-app --rm -it -p 5000:5000 test-app /bin/sh' to login into container"

@@ -73,7 +73,7 @@ To debug an issue that only happens on CI, we can launch a VM with the same kern
 VM_IMAGE="Canonical:UbuntuServer:16.04-LTS:latest" $TOP/cloud/azure/azure_vm.sh create <name>
 
 # To look up the IP address
-$TOP/cloud/azure/azure_vm.sh ls <name>
+$TOP/cloud/azure/azure_vm.sh ip <name>
 
 # ssh into the machine and clone the km repo and sync the submodule.
 ssh kontain@<ip>

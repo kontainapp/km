@@ -1,12 +1,18 @@
-# Copyright © 2019-2021 Kontain Inc. All rights reserved.
 #
-# Kontain Inc CONFIDENTIAL
+# Copyright 2021 Kontain Inc
 #
-# This file includes unpublished proprietary source code of Kontain Inc. The
-# copyright notice above does not evidence any actual or intended publication
-# of such source code. Disclosure of this source code or any related
-# proprietary information is strictly prohibited without the express written
-# permission of Kontain Inc.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 #
 
 # km normally tries to avoid sending its message to stderr when stderr is a pipe.
@@ -450,7 +456,7 @@ fi
    assert_success
 
    # Verify we "next"ed thru clone()
-   assert_line --regexp "^#0  main.* at clone_test.c:38$"
+   assert_line --regexp "^#0  main.* at clone_test.c:54$"
    wait_and_check $pid 0 # expect KM to exit normally
 }
 
@@ -1474,4 +1480,15 @@ fi
    diff <(grep "before exec" $KMTRACE | cut -b 57-)  <(grep "after exec" $KMTRACE | cut -b 56-)
    assert_success
    rm -f $KMTRACE
+}
+
+@test "uidgid($test_type): smoke test for uid/gid related hypercalls (uidgid_test$ext)" {
+   UIDGIDOUT=/tmp/uidgid$$.out
+   km_with_timeout uidgid_test$ext | sort -n >$UIDGIDOUT
+   assert_success
+   id -G | tr " " "\n" | sort -n >$UIDGIDOUT.expected
+   assert_success
+   diff -q $UIDGIDOUT.expected $UIDGIDOUT
+   assert_success
+   rm -f $UIDGIDOUT.expected $UIDGIDOUT
 }

@@ -18,7 +18,7 @@
 	url = ../kkm.git
 [submodule "container-runtime/crun"]
 	path = container-runtime/crun
-	url = https://github.com/kontainapp/crun
+	url = ../crun.git
 [submodule "lib/mimalloc/mimalloc"]
 	path = lib/mimalloc/mimalloc
 	url = ../mimalloc.git

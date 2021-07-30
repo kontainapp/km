@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-# Copyright © 2020 Kontain Inc. All rights reserved.
 #
-# Kontain Inc CONFIDENTIAL
+# Copyright 2021 Kontain Inc
 #
-# This file includes unpublished proprietary source code of Kontain Inc. The
-# copyright notice above does not evidence any actual or intended publication
-# of such source code. Disclosure of this source code or any related
-# proprietary information is strictly prohibited without the express written
-# permission of Kontain Inc.
-
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
 
 """ test_release_local
 
@@ -28,9 +34,7 @@ OPT_KONTAIN_BIN = f"{OPT_KONTAIN}/bin"
 KONTAIN_GCC = f"{OPT_KONTAIN_BIN}/kontain-gcc"
 KM = f"{OPT_KONTAIN_BIN}/km"
 
-# TODO: revert to master when merged
-#INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km/master/km-releases/kontain-install.sh"
-INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km/msterin/merge-repos/km-releases/kontain-install.sh"
+INSTALL_URL = "https://raw.githubusercontent.com/kontainapp/km/master/km-releases/kontain-install.sh"
 
 DOCKER_CONFIG_DIR = "/etc/docker"
 DOCKER_CONFIG_FILE = f"{DOCKER_CONFIG_DIR}/daemon.json"

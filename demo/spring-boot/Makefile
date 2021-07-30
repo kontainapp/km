@@ -1,12 +1,18 @@
-# Copyright © 2018-2020 Kontain Inc. All rights reserved.
 #
-# Kontain Inc CONFIDENTIAL
+# Copyright 2021 Kontain Inc
 #
-#  This file includes unpublished proprietary source code of Kontain Inc. The
-#  copyright notice above does not evidence any actual or intended publication of
-#  such source code. Disclosure of this source code or any related proprietary
-#  information is strictly prohibited without the express written permission of
-#  Kontain Inc.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 TOP := $(shell git rev-parse --show-toplevel)
 
@@ -48,7 +54,7 @@ build/demo: clean/image
 	mkdir -p empty_tmp
 	${DOCKER_BUILD} -t ${DEMO_IMAGE} --build-arg TARGET_JAR_PATH=${TARGET_JAR_PATH} -f kontain.dockerfile ${CURRENT_DIR}
 
-run_demo = ${DOCKER_RUN} -d --device=${HYPERVISOR_DEVICE} ${KM_DOCKER_VOLUME} -p ${DEFAULT_DEMO_PORT}:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE}
+run_demo = ${DOCKER_RUN} -d --device=${HYPERVISOR_DEVICE} ${KM_DOCKER_VOLUME} -v $$(pwd):/mnt:z -p ${DEFAULT_DEMO_PORT}:8080 --name ${DEMO_CONTAINER} ${DEMO_IMAGE} /run.sh
 .PHONY: run/demo
 run/demo:
 	$(call run_demo)

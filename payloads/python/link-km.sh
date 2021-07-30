@@ -1,5 +1,21 @@
 #!/bin/bash
 #
+# Copyright 2021 Kontain Inc
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+#
 # Links Python.km from python libs and km 'dlstatic' builditns mentioned in $target/linkline_km.txt
 #
 set -e
@@ -43,7 +59,7 @@ kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/p
 kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
    -Xlinker --undefined=strtoull_l \
    ${BUILD}/libpython3*.a -lsqlite3 $LDLIBS \
-   -L/opt/kontain/lib -lmimalloc -Wl,-rpath=/opt/kontain/lib \
+   -L/opt/kontain/lib -lmimalloc \
    -o ${NAME}d.mimalloc
 
 # Add python->km symlink and make python to looking for libs in correct place

@@ -1,12 +1,18 @@
-# Copyright © 2020 Kontain Inc. All rights reserved.
 #
-# Kontain Inc CONFIDENTIAL
+# Copyright 2021 Kontain Inc
 #
-#  This file includes unpublished proprietary source code of Kontain Inc. The
-#  copyright notice above does not evidence any actual or intended publication of
-#  such source code. Disclosure of this source code or any related proprietary
-#  information is strictly prohibited without the express written permission of
-#  Kontain Inc.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 #
 
 TOP := $(shell git rev-parse --show-toplevel)
@@ -22,7 +28,8 @@ TOP := $(shell git rev-parse --show-toplevel)
 # To check, use the .check_packages target from dep_check.mk
 DEP_PACKAGES := python git gcc automake autoconf libcap-devel \
 		yajl-devel libseccomp-devel \
-		glibc-static python3-libmount libtool
+		glibc-static python3-libmount libtool \
+		openssl-lib openssl-devel
 # The crun workspace is in the crun directory
 CRUNDIR := crun
 
