@@ -28,8 +28,8 @@ Kontain can be installed directly on the host or in a VM.
 
 For a quick and easy way to start exploring Kontain, we recommend using one of the pre-configured Kontain VMs available from Vagrant Cloud:
 
-[Ubuntu 20.10](https://app.vagrantup.com/kontain/boxes/ubuntu2010-kkm-beta3)
-[Fedora 32](https://app.vagrantup.com/kontain/boxes/fedora32-kkm-beta3)
+*   [Ubuntu 20.10](https://app.vagrantup.com/kontain/boxes/ubuntu2010-kkm-beta3)
+*   [Fedora 32](https://app.vagrantup.com/kontain/boxes/fedora32-kkm-beta3)
 
 The Vagrant VM brings fully functional Kontain to your desktop or laptop and provides a stable platform for exploration and validation:
 
@@ -44,7 +44,7 @@ Instructions: [https://app.vagrantup.com/kontain](https://app.vagrantup.com/kont
 
 ## Kontain System Overview
 
-![System Diagram](images/kontain-system-diagram.jpg)
+![System Diagram](docs/images/kontain-system-diagram.jpg)
 
 Figure 1. Kontain System Diagram
 
@@ -70,7 +70,7 @@ In general, a Linux executable built using musl libc runtime (e.g. for Alpine Li
 
 Kontain supports running an unmodified Go program as a unikernel, provided the executable does not use glibc. 
 
-C and C++ programs can be converted to a unikernel by relinking your code or object files with the Kontain runtime library. Kontain provides convenience wrappers kontain-gcc (kontain-g++) to produce a statically linked unikernel that contains all of the code needed for the workload to run.
+C and C++ programs can be converted to a unikernel by relinking your code or object files with the Kontain runtime library. Kontain provides convenience wrappers `kontain-gcc` (`kontain-g++`) to produce a statically linked unikernel that contains all of the code needed for the workload to run.
 
 An _interpreted language program_ can be run as a Kontain unikernel using pre-built Java, Python, and Node.js executables (kontainers). These [pre-built Kontain images are available on Docker Hub](https://hub.docker.com/u/kontainapp), listed as `kontainapp/runenv-<language>:`
 
@@ -84,32 +84,33 @@ You can use Docker to build and package your interpreted language application fi
 
 Alternatively, you can pass your application files to a kontainer created from a Kontain pre-built unikernel, which allows you to bypass the step of creating a new kontainer with your code. You run your application using `docker run` or extract the files from the container and run locally, without Docker. 
 
-Further details and examples are provided in the [Kontain User Guide](docs/user-guide.md).
+Further details and examples are provided in the [*Kontain User Guide*](https://github.com/kontainapp/km/blob/master/docs/user-guide.md).
 
 ## User Documentation
 
 Command-line help: `/opt/kontain/bin/km --help`
 
-[Kontain User Guide](docs/user-guide.md) Provides information for installing Kontain and using it to run workloads. 
+[*Kontain User Guide*](https://github.com/kontainapp/km/blob/master/docs/user-guide.md) Provides information for installing Kontain and using it to run workloads. 
  
-[Debugging Kontain Unikernels](docs/debugging-guide.md) Provides information about how to debug a Kontain workload (unikernel) using standard debugging tools and practices.  
+[*Debugging Kontain Unikernels*](https://github.com/kontainapp/km/blob/master/docs/debugging-guide.md) Provides information about how to debug a Kontain workload (unikernel) using standard debugging tools and practices.  
 
-[Known Issues](docs/known-issues.md) 
+[*Known Issues*](https://github.com/kontainapp/km/blob/master/docs/known-issues.md) 
 
-[FAQs](docs/FAQ.md)
+[*FAQs*](https://github.com/kontainapp/km/blob/master/docs/FAQ.md)
 
 ## Contributing
 Kontain is open source: We encourage you to work with the source code and provide feedback!
 
 Have a general comment or question about KM? Want to contribute a use case? Email us: <community@kontain.app>
 
-We accept PRs [here](https://github.com/kontainapp/km/pulls) and issues [here](https://github.com/kontainapp/km/issues).  
+We accept PRs [here](https://github.com/kontainapp/km/pulls). To view/report issues, go [here](https://github.com/kontainapp/km/issues).
 
-To learn about our development process, including how to set up the build environment, then build and test KM, see BUILD.md. 
-Please refer to CONTRIBUTING.md for general guidelines and conventions. 
+To learn about our development process, including how to set up the build environment, then build and test KM, see [BUILD.md](https://github.com/kontainapp/km/blob/master/docs/build.md). 
+
+Please refer to [CONTRIBUTING.md](https://github.com/kontainapp/km/blob/master/CONTRIBUTING.md) for general guidelines and conventions. 
  
-IMPORTANT: All contributions are bound by the terms of the kontainapp/km licensing agreement (see link below). 
+IMPORTANT: All contributions are subject to the terms of the kontainapp/km licensing agreement (see link below). 
 ## Licensing
 Copyright © 2021 Kontain Inc. All rights reserved.
 
-kontainapp/km is licensed under the [Apache 2.0 license] (https://github.com/kontainapp/km/blob/master/LICENSE). 
+kontainapp/km is licensed under the [Apache 2.0 license](https://github.com/kontainapp/km/blob/master/LICENSE). 
