@@ -120,7 +120,7 @@ What’s in this section:
 ### Getting Started: Using Kontain’s Pre-Configured Linux VM
 For a quick and easy way to start exploring Kontain, we prepared Ubuntu and Fedora VMs in Vagrant Cloud: [https://app.vagrantup.com/kontain](https://app.vagrantup.com/kontain)
 We recommend that you run one of the prepared VMs.
-The Vagrant VM brings fully functional Kontain onto your desktop or laptop and provides a stable platform for exploration and validation:
+The Vagrant VM brings a fully functional Kontain environment onto your desktop or laptop and provides a stable platform for exploration and validation:
 *   Ubuntu 20.10 (or Fedora32)
 *   Kontain pre-installed
 *   KKM (Kontain kernel module) to support nested virtualization
