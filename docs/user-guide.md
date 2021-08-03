@@ -118,8 +118,10 @@ What’s in this section:
     *   Part B: Package a unikernel as a kontainer, pass to Docker, and run with Kontain runtime (`krun`).
 *   Tutorial #2: Package Kontain Java with a sample Java application into a kontainer and run as a Docker container.
 ### Getting Started: Using Kontain’s Pre-Configured Linux VM
-For a quick and easy way to start exploring Kontain, we recommend that you run the prepared Ubuntu VM available from Vagrant Cloud. The Vagrant VM brings fully functional Kontain onto your desktop or laptop and provides a stable platform for exploration and validation:
-*   Ubuntu 20.10
+For a quick and easy way to start exploring Kontain, we prepared Ubuntu and Fedora VMs in Vagrant Cloud: [https://app.vagrantup.com/kontain](https://app.vagrantup.com/kontain)
+We recommend that you run one of the prepared VMs.
+The Vagrant VM brings a fully functional Kontain environment onto your desktop or laptop and provides a stable platform for exploration and validation:
+*   Ubuntu 20.10 (or Fedora32)
 *   Kontain pre-installed
 *   KKM (Kontain kernel module) to support nested virtualization
 *   Docker pre-installed and configured for use with Kontain
@@ -133,7 +135,7 @@ Prerequisite: Both [Vagrant](https://www.vagrantup.com/) and [VirtualBox](https:
     ```
 2. Run `kontain/ubuntu2010-kkm-beta3` (there is also `kontain/fedora32-kkm-beta3 if preferred`) from Vagrant Cloud:
     ```
-    vagrant init kontain/ubuntu-kkm-beta3
+    vagrant init kontain/ubuntu2010-kkm-beta3 (or kontain/fedora32-kkm-beta3)
     vagrant up --provider=virtualbox
     vagrant ssh
     ```
