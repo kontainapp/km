@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-//  Test KM using packer build process
+#  Test KM using packer build process on Azure
 
 variable "src_branch" {
    type = string
@@ -45,17 +45,8 @@ variable "timeout" {
    description = "Timeout for tests. Should be less that outer timeout, so packer cleans up resources"
 }
 
-// TODO - pass AMI id from outside
-variable "aws_ami_id" {
-   type = string
-   description="Pre-built AMI with all needes stuff installed"
-   default = "ami-00de22cbb5911d5c4" // TODO - use AMI data and find AMI by name
-}
-
 variables {
-   aws_instance_type = "m5.xlarge"  // 4 CPU 16GB
-   aws_region = "us-east-2"
-   ssh_user = "fedora"
+   ssh_user = "ubuntu"
    // Azure access (for docker images)
    sp_tenant = env("SP_TENANT")
    sp_appid = env("SP_APPID")
@@ -74,17 +65,6 @@ locals {
    az_tmp_resource_group = "pkr-km-test-${replace(trim(var.dir, "/"), "/", "-")}-${var.image_version}"
 }
 
-source "amazon-ebs" "km-test" {
-  skip_create_ami = true
-  ami_name        = "does not matter"
-  source_ami      = var.aws_ami_id
-  instance_type   = var.aws_instance_type
-  region          = var.aws_region
-  ssh_username    = var.ssh_user
-  # this allows to handle tty output in tests
-  ssh_pty         = true
-}
-
 source "azure-arm" "km-test" {
    subscription_id="bd3e8581-9352-4514-8e09-cf9b771b2155"
    tenant_id = var.sp_tenant
@@ -95,6 +75,7 @@ source "azure-arm" "km-test" {
    temp_resource_group_name = local.az_tmp_resource_group
    # this one allow KVM and KKM. For KKM only, a smaller size would be cheaper
    vm_size = "Standard_D4s_v3"
+   ssh_username = var.ssh_user
 
    // Base image info
    os_type = "Linux"
@@ -114,8 +95,7 @@ source "azure-arm" "km-test" {
 }
 
 build {
-//   sources = ["amazon-ebs.km-test", "azure-arm.km-test"]
-  sources = ["amazon-ebs.km-test"]
+  sources = ["azure-arm.km-test"]
 
   provisioner "shell" {
     # packer provisioners run as tmp 'packer' user.
@@ -143,11 +123,8 @@ build {
     timeout = var.timeout
   }
 
-
   post-processor "shell-local" {
     // assumes 'az login' on the box running packer
-    only = ["azure-arm.km-test"]
-
     inline = [
        "echo Deleting image ${var.image_name} in ${var.image_rg}",
        "az login --service-principal -u ${var.sp_appid} -p ${var.sp_password} --tenant ${var.sp_tenant} -o table",
