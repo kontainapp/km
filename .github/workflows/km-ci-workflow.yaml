@@ -340,7 +340,7 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-test, kkm-test, kkm-test-aws, km-test-all]
+    needs: [km-test, km-test-withpacker, kkm-test, kkm-test-aws, km-test-all]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
