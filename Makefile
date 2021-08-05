@@ -25,7 +25,7 @@
 TOP := $(shell git rev-parse --show-toplevel)
 
 # scan all these and 'make' stuff there
-SUBDIRS := lib km km_cli runtime tests container-runtime tools/faktory tools/bin include
+SUBDIRS := lib km km_cli runtime tests container-runtime tools/bin include
 
 include ${TOP}/make/actions.mk
 
