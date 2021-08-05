@@ -17,15 +17,17 @@
 #
 # Basic build for kontain machine (km) and related tests/examples.
 #
-# See README.md for details. run 'make help' for help.
-# Dependencies are enumerated in  tests/buildenv-fedora.dockerfile.
+# Run 'make help' for help.
+# Dependencies are enumerated in tests/buildenv-fedora.dockerfile.
 # See 'make -C tests buildenv-fedora-local' for installing dependencies
 #
 
 TOP := $(shell git rev-parse --show-toplevel)
 
 # scan all these and 'make' stuff there
-SUBDIRS := lib km km_cli runtime tests payloads container-runtime tools/faktory tools/bin include
+SUBDIRS := lib km km_cli runtime tests container-runtime tools/faktory tools/bin include
+
+include ${TOP}/make/actions.mk
 
 # build VMM and runtime library before trying to build tests
 tests: km runtime container-runtime lib
@@ -69,5 +71,3 @@ compile-commands: ## rebuild compile_commands.json. Assumes 'bear' is installed
 # clean in subdirs will be done automatically. This is clean for stuff created from this makefile
 clean:
 	rm -f ${BLDTOP}/kkm.run
-
-include ${TOP}/make/actions.mk

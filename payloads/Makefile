@@ -22,11 +22,14 @@
 # scan all these and 'make' stuff there
 SUBDIRS := busybox dynamic-base dynamic-base-large demo-dweb python node java dynamic-python
 
+TOP := $(shell git rev-parse --show-toplevel)
+include ${TOP}/make/actions.mk
+
 demo-dweb python node dynamic-base dynamic-base-large: busybox
 
 java: dynamic-base
 
-dynamic-python: dynamic-base-large
+dynamic-python: dynamic-base-large python
 
 # Filter out 'make test' requests' to assure that 'make test' only builds/tests KM.
 # If payload needs to be tested, use 'make test-all'
@@ -38,6 +41,3 @@ default test coverage:
 
 # use this target to force payloads build
 link build: $(SUBDIRS)
-
-TOP := $(shell git rev-parse --show-toplevel)
-include ${TOP}/make/actions.mk

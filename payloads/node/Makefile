@@ -49,9 +49,8 @@ NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
 all:
 ifneq ($(shell test -d node/.git && echo OK),OK)
 	${DOCKER_RUN_BUILD} \
-		-v ${TOP}:/src:Z \
-		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z  \
-		-v ${KM_OPT_LIB}:${KM_OPT_LIB}:Z \
+		-v ${TOP}:/src:z \
+		${KM_OPT_VOLUME} \
 		-w /src \
 		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
 		/bin/bash -x -c "make -C payloads/node in-blank-container"

@@ -1,11 +1,5 @@
 # KM releases
 
-NOTE: this document describes the status before putting KM in open source,
-and will be updated once the open sourcing is completed. Conceptually it is still valid, but we are in the process
-of rolling km-releases repo functionality into km repo and dropping un-needed complexity.
-
-Tracked in https://github.com/kontainapp/km/issues/1196
-
 ## What's a release
 
 A release is Github collection of sources (auto-packaged by github) and extra files (manually or script-added to the "release files) hosted on github.
@@ -14,13 +8,8 @@ We create releases in public kontainapp/km-release repo so KM sources are not re
 
 A release may include multiple `.tar.gz` file, but there is at least one - `kontain.tar.gz` with the KM binaries, libs and tools, which is created, and is expected to be installed before other tars. All files related to release are expected to be on github, with the exception of Docker images which can be on dockerhub.
 
-Release content is described in `docs/planning/*.md`.
-
 * We maintain releases on [github km-releases](https://github.com/kontainapp/km-releases/releases/).
 * We also maintain install script and basic install documentation there.
-* This repo is a submodule to KM and is sitting in `./km-releases` (after 'git submodule sync --init).
-* Everything else (including release documentation) is kept in [github km](https://github.com/kontainapp/km).
-* Note: `km-release` is public repo, so no authentication is needed for read access.
 
 If a payload need to put extra files im a release, it needs to implement `release:` make target to and package extra files. The format, location and process is up to a payload but install process needs to be documented in km-releases/README.md.
 
