@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-#
 # To be included throughout the KONTAIN project
 # TOP has to be defined before inclusion, usually as
 #  		TOP := $(shell git rev-parse --show-toplevel)
@@ -28,6 +27,8 @@
 # - INCLUDES: directories to search for include files
 # - LLIBS: to link with -l ${LLIBS}
 #
+# Note: No make target should be mentioned before include actions.mk in a Makefile,
+# as it would overwrite the default targets set here
 
 # all locations/file names
 include ${TOP}/make/locations.mk
