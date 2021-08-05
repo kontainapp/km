@@ -77,7 +77,6 @@ ifneq ($(FROMSRC),yes)
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
 		${KM_OPT_VOLUME} \
-		-v ${KM_OPT_LIB}:${KM_OPT_LIB}:z \
 		-w ${TOP}/payloads/python \
 		${BUILDENV_IMG_TAGGED} \
 		make in-blank-container EXTRA_LINKFILES="${EXTRA_LINKFILES}" CUSTOM_KM="${CUSTOM_KM}"
