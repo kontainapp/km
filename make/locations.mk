@@ -126,7 +126,8 @@ else
 endif
 
 KM_OPT_KM := ${KM_OPT_BIN_PATH}/km
-KM_DOCKER_VOLUME := -v ${KM_OPT_KM}:${KM_OPT_KM}:z
+KM_KM_VOLUME := -v ${KM_OPT_KM}:${KM_OPT_KM}:z
+KM_OPT_VOLUME := -v ${KM_OPT_BIN}:${KM_OPT_BIN}:z -v ${KM_OPT_RT}:${KM_OPT_RT}:z -v ${KM_OPT_LIB}:${KM_OPT_LIB}:z
 
 # Utility functions for common docker operations.
 clean_container = @-docker rm --force ${1} 2>/dev/null

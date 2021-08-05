@@ -170,7 +170,7 @@ RUNENV_VALIDATE_EXPECTED ?= Hello
 validate-runenv-image: ## Validate runtime image
 	tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
 	${DOCKER_RUN_TEST} \
-	${KM_DOCKER_VOLUME} \
+	${KM_KM_VOLUME} \
 	${RUNENV_DEMO_IMG_TAGGED} \
 	"$${tmp_bash_array[@]}" | grep "${RUNENV_VALIDATE_EXPECTED}"
 

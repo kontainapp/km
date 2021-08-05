@@ -75,10 +75,8 @@ endef
 all:
 ifneq ($(FROMSRC),yes)
 	${DOCKER_RUN_BUILD} \
-		-v ${TOP}:${TOP}:Z \
-		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
-		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:Z \
-		-v ${KM_OPT_LIB}:${KM_OPT_LIB}:Z \
+		-v ${TOP}:${TOP}:z \
+		${KM_OPT_VOLUME} \
 		-w ${TOP}/payloads/python \
 		${BUILDENV_IMG_TAGGED} \
 		make in-blank-container EXTRA_LINKFILES="${EXTRA_LINKFILES}" CUSTOM_KM="${CUSTOM_KM}"

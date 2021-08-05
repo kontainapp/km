@@ -64,9 +64,8 @@ include ${TOP}/make/images.mk
 all: ## Link java.kmd based on either full build or build artifats in docker image
 ifneq ($(FROMSRC),yes)
 	${DOCKER_RUN_BUILD} \
-		-v ${TOP}:${TOP}:Z \
-		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
-		-v ${KM_OPT_LIB}:${KM_OPT_LIB}:Z \
+		-v ${TOP}:${TOP}:z \
+		${KM_OPT_VOLUME} \
 		-w ${TOP} \
 		${BUILDENV_IMG_TAGGED} \
 		make -C payloads/java in-blank-container
@@ -113,7 +112,7 @@ api: ${BLDDIR}/app.kontain.jmod ${BLDDIR}/html/index.html
 
 ${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_native.so
 	${DOCKER_RUN_BUILD} \
-		-v ${TOP}:${TOP}:Z \
+		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/jmod create \
@@ -123,7 +122,7 @@ ${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_
 ${BLDDIR}/mods/app.kontain: app.kontain/module-info.java
 	[ -d ${BLDDIR}/mods ] || mkdir -p ${BLDDIR}/mods
 	${DOCKER_RUN_BUILD} \
-		-v ${TOP}:${TOP}:Z \
+		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/javac -d ${BLDDIR}/mods --module-source-path . --module app.kontain $?
@@ -135,14 +134,14 @@ ${BLDDIR}/lib/libkm_java_native.so: app.kontain/app/kontain/snapshots/km_java_na
 
 ${BLDDIR}/html/index.html: app.kontain/app/kontain/snapshots/Snapshot.java
 	${DOCKER_RUN_BUILD} \
-		-v ${TOP}:${TOP}:Z \
+		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JDK_BUILD_DIR}/images/jdk/bin/javadoc -d ${BLDDIR}/html $?
 
 scripts/%.class: scripts/%.java
 	${DOCKER_RUN_BUILD} \
-		-v ${TOP}:${TOP}:Z \
+		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
 		${JAVA_DIR}/bin/javac $?
@@ -158,11 +157,6 @@ test: ${RUNENV_VALIDATE_DEPENDENCIES} api test_java.bats ## Basic test run
 	JAVA_DIR=${CURDIR}/${JAVA_DIR} JAVA_LD_PATH=${JAVA_LD_PATH} BLDDIR=${BLDDIR} \
 		${TOP}/tests/run_bats_tests.sh --km=${KM_BIN} \
 		--tests=${TOP}/payloads/java/test_java.bats --test-type=dynamic
-
-# TODO - we may simply document (in km-release) installing from docker image and do the push here
-# or we can create tar.gz to install on the host from
-release: ## placeholder for packaging a release
-	@echo -e "${GREEN}Placeholder for ${COMPONENT} release packaging${NOCOLOR}"
 
 test-all:test
 

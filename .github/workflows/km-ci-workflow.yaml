@@ -345,7 +345,7 @@ jobs:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
         with:
-          repo_token: ${{ env.GITHUB_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           include_jobs: true
           channel: "#build_and_test"

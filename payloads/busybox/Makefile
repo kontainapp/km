@@ -38,8 +38,7 @@ all build link: ${PAYLOAD_KM}
 $(PAYLOAD_KM): ${BUSYBOX_TOP}/.config
 	${DOCKER_RUN_BUILD} --env=PATH=${PATH} \
 		-v ${TOP}:${TOP}:z \
-		-v ${KM_OPT_RT}:${KM_OPT_RT}:Z \
-		-v ${KM_OPT_BIN}:${KM_OPT_BIN}:Z \
+		${KM_OPT_VOLUME} \
 		-w ${TOP}/payloads/busybox \
 		${BUILDENV_IMG_TAGGED} bash -c \
 		"make -C ${BUSYBOX_TOP} silentoldconfig && \

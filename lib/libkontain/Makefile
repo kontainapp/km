@@ -25,11 +25,11 @@ SOURCES := libkontain.c
 
 INCLUDES := ${TOP}/include
 
+include ${TOP}/make/actions.mk
+
 all: libkontain.h
 	[ -d ${KM_OPT_INC} ] || mkdir ${KM_OPT_INC}
 	cp libkontain.h ${KM_OPT_INC}
 	[ -d ${KM_OPT_LIB} ] || mkdir ${KM_OPT_INC}
 	cp ${BLDTOP}/lib/libkontain/libkontain.a ${KM_OPT_LIB}
 	cp ${BLDTOP}/lib/libkontain/libkontain.so ${KM_OPT_LIB}
-
-include ${TOP}/make/actions.mk
