@@ -76,8 +76,11 @@ jobs:
       - name: Create kontain bundle
         run: make withdocker TARGET=release
 
-      - name: Create kkm bundle
-        run: make kkm-pkg
+      - name: Create kkm release artifact
+        run: |
+          sudo apt-get update -y -q
+          sudo apt-get -y -q install makeself
+          make withdocker TARGET=.kkm-pkg
 
         # Note: we need to have km built before kontaind.
       - name: Build and push kontaind image
@@ -88,12 +91,6 @@ jobs:
 
       - name: Push payloads runenv and demo-runenv images
         run: make -C payloads push-runenv-image push-demo-runenv-image
-
-      - name: Create kkm release artifact
-        run: |
-          sudo apt-get update -y -q
-          sudo apt-get -y -q install makeself
-          make withdocker TARGET=.kkm-pkg
 
       - uses: actions/upload-artifact@v2
         with:
