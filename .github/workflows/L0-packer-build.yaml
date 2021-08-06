@@ -27,6 +27,7 @@ name: Build L0 Base Image on Azure
 
 env:
   IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
+  SP_SUBSCRIPTION_ID: ${{ secrets.SP_SUBSCRIPTION_ID }}
   SP_APPID: ${{ secrets.SP_APPID }}
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
   SP_TENANT: ${{ secrets.SP_TENANT }}

@@ -182,7 +182,7 @@ push-runenv-image:  runenv-image ## pushes image.
 pull-runenv-image: ## pulls test image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
-		FROM=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_TAGGED)
+		FROM=$(RUNENV_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_IMG_TAGGED)
 
 distro: runenv-image ## an alias for runenv-image
 publish: push-runenv-image ## an alias for push-runenv-image
@@ -191,6 +191,11 @@ push-demo-runenv-image: demo-runenv-image
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=${RUNENV_DEMO_IMG_TAGGED} TO=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
+
+pull-demo-runenv-image: ## pulls test image.
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
+		FROM=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_TAGGED)
 
 endif # ifeq (${NO_RUNENV},)
 
@@ -313,14 +318,23 @@ ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
 DOCKER_REG ?= docker.io
 RELEASE_REG = ${DOCKER_REG}/kontainapp
 publish-runenv-image:
-	for tag in ${RELEASE_TAG} ; do \
-		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
-			IMAGE_VERSION="$(IMAGE_VERSION)"\
-			FROM=$(RUNENV_IMG_TAGGED) TO=$(RELEASE_REG)/runenv-$$tag:latest; \
+	for tag in ${RUNENV_TAG} ; do \
 		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 			IMAGE_VERSION="$(IMAGE_VERSION)"\
 			FROM=$(RUNENV_IMG_TAGGED) TO=$(RELEASE_REG)/runenv-$$tag:${SRC_SHA}; \
 	done
+	for tag in ${RUNENV_TAG} ; do \
+		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
+			IMAGE_VERSION="$(IMAGE_VERSION)"\
+			FROM=$(RUNENV_IMG_TAGGED) TO=$(RELEASE_REG)/runenv-$$tag:latest; \
+	done
+ifdef RELEASE_TAG
+	for tag in ${RUNENV_TAG} ; do \
+		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
+			IMAGE_VERSION="$(IMAGE_VERSION)"\
+			FROM=$(RUNENV_IMG_TAGGED) TO=$(RELEASE_REG)/runenv-$$tag:${RELEASE_TAG}; \
+	done
+endif
 
 publish-buildenv-image:
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \

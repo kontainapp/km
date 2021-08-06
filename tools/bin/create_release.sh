@@ -38,15 +38,16 @@ cp ${TOP}/include/km_hcalls.h ${OPT_KONTAIN_TMP}/include/km_hcalls.h
 # package by doing `tar -C locations[i] files[i]`
 declare -a locations
 declare -a files
+declare -a exclude
 # For each location copy related files to the destination (/opt/kontain).
-locations=($OPT_KONTAIN_TMP $TOP $TOP/tools $TOP/tools/faktory $TOP/km-releases)
-files=(. tests/hello_test.km bin bin examples)
+locations=($OPT_KONTAIN_TMP $TOP $TOP/tools $TOP/km-releases)
+files=(. tests/hello_test.km bin examples)
 
 for i in $(seq 0 $(("${#locations[@]}" - 1))); do
    source="${locations[$i]}/${files[$i]}"
    # newer gcc produces compressed '.debug_info'. Older linkers cannot use it. To make sure
    # we can use our (apine) libs with slightly older linkers, let's decompress .debug_info
-   decompress_list=$(find $source -type f -exec file '{}' ';' | grep -v 'archive data' | 
+   decompress_list=$(find $source -type f -exec file '{}' ';' | grep -v 'archive data' |
                      awk -F: '/(shared|archive|relocatable)/ {print $1}')
    if [ -n "$decompress_list" ]; then
       echo Decompressing .debug_info for $(echo $decompress_list | wc -w) files in $source

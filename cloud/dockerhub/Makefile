@@ -16,4 +16,4 @@
 #
 
 login: ## helper for token-based login.
-	cat  ~/.docker/token  | docker login -u $(shell cat ~/.docker/username) --password-stdin
+	cat  ~/.docker/token | docker login -u $(shell cat ~/.docker/username) --password-stdin

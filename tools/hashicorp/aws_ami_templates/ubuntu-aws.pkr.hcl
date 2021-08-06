@@ -33,15 +33,20 @@ variable "aws_region" {
 }
 
 variable "km_build" {
-  type    = string
+  type        = string
   description = "Location of KM build on build box"
-  default = "../../build"
+  default     = "../../build"
 }
 
-variable "km_release" {
-  type    = string
+variable "km_label" {
+  type        = string
   description = "Just a label for release"
-  default = "beta3-kkm"
+  default     = "beta3-kkm"
+}
+
+variable "release_tag" {
+  type        = string
+  description = "Kontain release version"
 }
 
 variable "ssh_user" {
@@ -50,18 +55,18 @@ variable "ssh_user" {
 }
 
 variable "ssh_password" {
-   // this is well know password for Vagrant boxes
-   type    = string
-   default = "vagrant"
+  // this is well know password for Vagrant boxes
+  type    = string
+  default = "vagrant"
 }
 
 locals {
-   // Location for transferred files on target VM
-   // trailing / is important. Also, if the dir does not exist,
-   // add shell provisioner with mkdir (non-root)
-   target_tmp = "/tmp/"
-   target_ami_label = "${var.os} ${var.os_version} with Kontain ${var.km_release}"
-   target_ami_name  = "Kontain_${var.os}_${var.os_version}"
+  // Location for transferred files on target VM
+  // trailing / is important. Also, if the dir does not exist,
+  // add shell provisioner with mkdir (non-root)
+  target_tmp       = "/tmp/"
+  target_ami_label = "${var.os} ${var.os_version} with Kontain ${var.km_label}"
+  target_ami_name  = "Kontain_${var.os}_${var.os_version}"
 }
 
 data "amazon-ami" "build" {
@@ -91,8 +96,7 @@ source "amazon-ebs" "build" {
   tags = {
     Base_AMI_Name = "{{ .SourceAMIName }}"
     Name          = local.target_ami_label
-    OS_Version    = var.os
-    Release       = var.os_version
+    Release       = var.release_tag
     Timestamp     = local.timestamp
   }
 }
@@ -107,14 +111,13 @@ build {
 
   provisioner "shell" {
     inline = [
-         "echo ===== Waiting for cloud-init to complete...",
-         "if [ -x /usr/bin/cloud-init ] ; then eval 'echo ${var.ssh_password} | sudo /usr/bin/cloud-init status --wait'; fi"
-      ]
+      "echo ===== Waiting for cloud-init to complete...",
+      "if [ -x /usr/bin/cloud-init ] ; then eval 'echo ${var.ssh_password} | sudo /usr/bin/cloud-init status --wait'; fi"
+    ]
   }
 
   provisioner "shell" {
     execute_command = "echo '${var.ssh_password}' | {{ .Vars }} sudo -S -E sh -eux '{{ .Path }}'"
     script          = "scripts/${var.os}.install_km.sh"
   }
-
 }

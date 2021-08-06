@@ -28,7 +28,7 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 COMPONENT := dweb
-RELEASE_TAG := dweb
+RUNENV_TAG := dweb
 
 # this is how we run dweb.km tests in container
 CONTAINER_TEST_CMD := ./dweb -x

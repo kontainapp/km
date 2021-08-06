@@ -164,6 +164,6 @@ export define runenv_prep
 	${RUNENV_ROOTFS_SCRIPT} ${PYTHONTOP} ${RUNENV_PATH} ${VERS} $(notdir ${PAYLOAD_KM})
 endef
 
-RELEASE_TAG := python python-${VERS}
+RUNENV_TAG := python python-${VERS}
 
 include ${TOP}/make/images.mk

@@ -16,8 +16,8 @@
 #
 #
 
-# assumes $storage with kkm,run and kontain.tar.gz
-# installs kontain , kkm, docker
+# assumes $storage with kkm.run and kontain.tar.gz
+# installs kontain, kkm, docker
 
 readonly storage="/tmp"
 
@@ -37,7 +37,7 @@ apt-get update -y -q
 apt-get -y -q install linux-headers-$(uname -r) docker-ce docker-ce-cli containerd.io gdb
 
 # Install KKM... it will also validate hardware.
-$storage/kkm.run --noprogress 2>&1
+bash $storage/kkm.run --noprogress -- --force-install 2>&1
 
 # Install Kontain.
 mkdir -p /opt/kontain && tar -C /opt/kontain -xzf $storage/kontain.tar.gz

@@ -184,5 +184,5 @@ clean:
 	rm -rf ${BLDDIR}/*
 
 # This defines aliases to be used when publishing to github
-RELEASE_TAG := java-11 jdk-11 ${COMPONENT}
+RUNENV_TAG := java-11 jdk-11 ${COMPONENT}
 

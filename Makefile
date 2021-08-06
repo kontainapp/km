@@ -37,13 +37,14 @@ ifeq ($(shell uname), Darwin)
 MAKE := make
 endif
 
-kkm-pkg: ## Build KKM module self-extracting package.
+.kkm-pkg:
+	makeself -q kkm ${BLDTOP}/kkm.run "beta-release" ./installer/build-script.sh
+
+kkm-pkg: .kkm-pkg ## Build KKM module self-extracting package.
 	@if ! type makeself >& /dev/null ; then echo Please install \"makeself\" first; false; fi
 	@# We only needs source code, so running 'clean' first
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/kkm/kkm clean
-	makeself -q kkm ${BLDTOP}/kkm.run "beta-release" ./installer/build-script.sh
 
-RELEASE_TAG ?= v0.1-edge
 RELEASE_MESSAGE ?= Kontain KM Edge - date: $(shell date) sha: $(shell git rev-parse HEAD)
 REPO_URL := https://${GITHUB_TOKEN}@github.com/kontainapp/km.git
 edge-release: ## Trigger edge-release building pipeline

@@ -19,7 +19,7 @@
 TOP := $(shell git rev-parse --show-toplevel)
 
 COMPONENT = kontain-installer
-RELEASE_TAG := ${COMPONENT}
+RUNENV_TAG := ${COMPONENT}
 
 # runenv-image configs
 export define runenv_prep

@@ -74,7 +74,7 @@ case "${TARGET}" in
       #       Specifically: download artifact action, then "file" provisioner to send it to the VM
       sudo mkdir -p /opt/kontain/bin ; sudo chmod 777 /opt/kontain/bin
       make -C km -j $(nproc)
-      make -C $LOCATION pull-runenv-image
+      make -C $LOCATION pull-demo-runenv-image
       make -C $LOCATION ${TARGET}
       ;;
    *)

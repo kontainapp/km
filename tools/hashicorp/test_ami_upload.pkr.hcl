@@ -32,19 +32,19 @@ packer {
   required_plugins {
     amazon = {
       version = ">= 0.0.1"
-      source = "github.com/hashicorp/amazon"
+      source  = "github.com/hashicorp/amazon"
     }
   }
 }
 
 variable "ova_name" {
-   type = string
-   description = "name of OVA file to upload as AMI"
-   default = "output_ova_ubuntu2010-kkm/ubuntu2010-kkm.ova"
+  type        = string
+  description = "name of OVA file to upload as AMI"
+  default     = "output_ova_ubuntu2010-kkm/ubuntu2010-kkm.ova"
 }
 
 locals {
-   timestamp = regex_replace(timestamp(), "[- TZ:]", "")
+  timestamp = regex_replace(timestamp(), "[- TZ:]", "")
 }
 
 source "null" "test-ami" {
@@ -55,19 +55,19 @@ build {
   sources = ["sources.null.test-ami"]
 
   post-processors {
-      post-processor  "artifice" {
-         files = [var.ova_name]
-      }
+    post-processor "artifice" {
+      files = [var.ova_name]
+    }
 
-      post-processor "amazon-import" {
-         keep_input_artifact = true
-         license_type   = "BYOL"
-         region         = "us-east-2"
-         s3_bucket_name = "kontain-packer-ami-staging" // should exist in the above region
-         ami_groups = ["all"]
-         tags = {
-            Description = "packer amazon-import ${local.timestamp}"
-         }
+    post-processor "amazon-import" {
+      keep_input_artifact = true
+      license_type        = "BYOL"
+      region              = "us-east-2"
+      s3_bucket_name      = "kontain-packer-ami-staging" // should exist in the above region
+      ami_groups          = ["all"]
+      tags = {
+        Description = "packer amazon-import ${local.timestamp}"
       }
-   }
+    }
+  }
 }
