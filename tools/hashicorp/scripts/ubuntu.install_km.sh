@@ -16,8 +16,8 @@
 #
 #
 
-# assumes $storage with kkm,run and kontain.tar.gz
-# installs kontain , kkm, docker
+# assumes $storage with kkm.run and kontain.tar.gz
+# installs kontain, kkm, docker
 
 readonly storage="/tmp"
 

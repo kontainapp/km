@@ -182,7 +182,7 @@ push-runenv-image:  runenv-image ## pushes image.
 pull-runenv-image: ## pulls test image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
-		FROM=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_TAGGED)
+		FROM=$(RUNENV_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_IMG_TAGGED)
 
 distro: runenv-image ## an alias for runenv-image
 publish: push-runenv-image ## an alias for push-runenv-image
@@ -191,6 +191,11 @@ push-demo-runenv-image: demo-runenv-image
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=${RUNENV_DEMO_IMG_TAGGED} TO=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
+
+pull-demo-runenv-image: ## pulls test image.
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .pull-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
+		FROM=$(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION) TO=$(RUNENV_DEMO_IMG_TAGGED)
 
 endif # ifeq (${NO_RUNENV},)
 
