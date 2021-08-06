@@ -131,8 +131,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: km
-          path: |
-            /opt/kontain/bin/km
+          path: /opt/kontain/bin/km
           retention-days: 7
 
   km-test:

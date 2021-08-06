@@ -29,23 +29,22 @@ all: vm-images
 # Use these boxes as sources for our boxes builds. (`generic/$os' is the box)
 SRC_OS := ubuntu2010 fedora32
 # Note: SRC_OS needs to be synced with os_name in *pkrvars.hcl files
+ARTIFACTS := ${TOP}/build/kkm.run ${TOP}/build/kontain.tar.gz
 
 # pass PACKER_LOG=1 for debug info
 PACKER_BUILD = ${PACKER_LOG} time packer build -force
 
-product: ## Prepares KM packaging artifacts (e.g. km tarball and kkm run bundle)
-	@if ! type virtualbox >& /dev/null ; then echo -e "${RED}'virtualbox' is missing - please install it first ${NOCOLOR}"; false; fi
-	@if ! type vagrant >& /dev/null ; then echo -e "${RED}'vagrant' is missing - please install it first ${NOCOLOR}"; false; fi
+product: ${ARTIFACTS} ## Prepares KM packaging artifacts (e.g. km tarball and kkm run bundle)
 	echo $(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} kkm-pkg
 	echo $(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} release
 
-vm-images: .check_packer product ## loads source boxes and creates boxes with KM installed
+vm-images: .check_packer .check_tools product ## loads source boxes and creates boxes with KM installed
 	@set -x ; for os in ${SRC_OS} ; \
 	do \
 		${PACKER_BUILD} -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
 	done
 
-upload-boxes:  ## uploads pre-created boxes to vagrant cloud
+upload-boxes: .check_tools ## uploads pre-created boxes to vagrant cloud
 	@for os in ${SRC_OS} ; \
 	do \
 		vagrant cloud publish --force --no-private --release --description "$$os with Kontain installed" --short-description "$$os with KKM" \
@@ -61,7 +60,7 @@ register-boxes: ## register pre-created boxes in local vagrant cash
 # Note: Amazon import-image refuses to accept/import some kernel versions, so as a temporary
 # bandaid we build it from existing AMI. Ideally, we just want to import a box as an AMI - see test_ami_upload.pkr.hcl
 # for an examle how to do it
-ami:  ## Builds AMI with KKM in the AWS
+ami: .check_packer ## Builds AMI with KKM in the AWS
 	packer init aws_ami_templates
 	${PACKER_BUILD} aws_ami_templates
 
@@ -89,4 +88,6 @@ KEY_PAIR ?= aws-kkm
 .terminate-instances: .describe-instances
 	@echo Manually run: 'aws ec2 terminate-instances --instance-ids <ids>'
 
-
+.check_tools:
+	@if ! type virtualbox >& /dev/null ; then echo -e "${RED}'virtualbox' is missing - please install it first ${NOCOLOR}"; false; fi
+	@if ! type vagrant >& /dev/null ; then echo -e "${RED}'vagrant' is missing - please install it first ${NOCOLOR}"; false; fi

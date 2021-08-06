@@ -40,7 +40,7 @@ env:
   # TRACE: true # uncomment to enable '-x' in all bash scripts
 
 jobs:
-  km-build:
+  km-kkm-build:
     name: Build KM, save kontain and kkm release artifacts
     runs-on: ubuntu-20.04
     steps:
@@ -100,10 +100,10 @@ jobs:
             ./build/kkm.run
           retention-days: 7
 
-  kkm-test:
-    name: Test KM/KKM on CI VM
+  km-kkm-smoke-test:
+    name: Smoke test KM/KKM on CI VM
     runs-on: ubuntu-20.04
-    needs: [ km-build ]
+    needs: [ km-kkm-build ]
     steps:
       - uses: actions/checkout@v2
 
@@ -127,74 +127,46 @@ jobs:
         run: make -C payloads validate-runenv-image HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
         timeout-minutes: 15
 
-  kkm-test-aws:
+  km-boxes:
     name: Test KM/KKM on AWS VM
     runs-on: ubuntu-20.04
-    needs: [km-build, kkm-build]
+    needs: [ km-kkm-smoke-test ]
     steps:
       - uses: actions/checkout@v2
 
-      - name: KM with KKM Test - AWS and Azure with packer
+      - run: make -C cloud/azure login-cli
+
+      - name: Create vagrant boxes
+        run: make -C tools/hashicorp vm-images upload-boxes
+
+  km-ami:
+    name: Test KM/KKM on AWS VM
+    runs-on: ubuntu-20.04
+    needs: [ km-kkm-smoke-test ]
+    steps:
+      - uses: actions/checkout@v2
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Create vagrant boxes
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C tests test-withpacker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m
-        # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
+        run: make -C tools/hashicorp ami
 
-  km-test-all:
+  km-runenv:
     name: Run all tests on a new K8s cluster
     runs-on: ubuntu-20.04
-    needs: [km-build, km-k8s-cluster]
-    if: ${{ github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
-    env:
-      K8S_TEST_ERR_NO_CLEANUP: true # true means "on error, keep pods around". (assumes cluster is not cleaned up)
+    needs: [ km-kkm-smoke-test ]
     steps:
       - uses: actions/checkout@v2
-        with:
-          submodules: true
+
       - run: make -C cloud/azure login-cli
-      - run: |
-          source cloud/azure/cloud_config.mk
-          az aks get-credentials --resource-group "${CLOUD_RESOURCE_GROUP}" --name "${{ env.NIGHTLY_CLUSTER_NAME }}" --overwrite-existing
 
-      - name: Deploy and verify kontaind
-        run: make -C cloud/k8s/kontaind deploy
+      - run: make -C payloads pull-runenv-image
 
-      - name: KM test all, K8s with KVM
-        run: make -C tests test-all-withk8s
-        timeout-minutes: 15
-
-      - name: Payloads tests, on K8s
-        run: make -C payloads test-all-withk8s
-        timeout-minutes: 60
-
-      - name: Payloads runenv validation, on K8s
-        run: make -C payloads validate-runenv-withk8s
-        timeout-minutes: 5
-
-      - name: KM tests with coverage, on K8s
-        # pull buildenv before testing, coverage analysis will need it
-        run: make -C tests pull-buildenv-image coverage-withk8s
-        timeout-minutes: 15
-        # if: always()
-        if: env.TEST_COVERAGE == 'true'
-
-      - name: Upload coverage
-        run: make -C tests upload-coverage
-        if: env.TEST_COVERAGE == 'true'
-
-      - name: Tear down k8s Cluster
-        if: always() # replace always() with success() if you want to keep cluster on failure
-        run: cloud/azure/aks_ci_destroy.sh ${{ env.NIGHTLY_CLUSTER_NAME }}
-
-      - name: Cleanup and logout
-        if: always()
-        run: |
-          [ "$TRACE" ] && set -x
-          make -C cloud/azure ci-image-purge CI_IMAGE_DRY_RUN=""
-          rm -f ~/.kube/config
-          az logout
+      - name: Publish runenv images
+        run: make -C payloads publish-runenv-image
 
   #  Keep this here as an EXPLICIT reminder to get releases back in the build
   #   - name: Kick off release pipeline to build and upload release v0.1-edge
@@ -204,12 +176,8 @@ jobs:
   slack-workflow-status:
     name: Notify slack, if needed
     runs-on: ubuntu-latest
-    # 'contains' shows how to add conditions, e.g. on workflow 'name:', or many other contexts.
-    # see https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
-    if: (failure() && github.ref == 'refs/heads/master') ||
-      contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-test, kkm-test, kkm-test-aws, km-test-all]
+    needs: [ km-kkm-build, km-kkm-smoke-test, km-boxes, km-ami, km-runenv ]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master

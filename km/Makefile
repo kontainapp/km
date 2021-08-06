@@ -44,8 +44,6 @@ release: ${KM_RELEASE} ## Package kontain.tar.gz file for release
 	ls -lh ${KM_RELEASE} ${KM_BIN}
 
 ${KM_RELEASE}: ${KM_BIN} ${TOP}/tools/bin/create_release.sh ## Build a release tar.gz file for KM (called from release: target)
-	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/tools/faktory
-	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/km_cli install
 	${TOP}/tools/bin/create_release.sh
 
 clean-release: ## Clean the release tar files
