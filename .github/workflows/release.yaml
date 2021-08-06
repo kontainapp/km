@@ -77,7 +77,7 @@ jobs:
         run: make withdocker TARGET=release
 
       - name: Create kkm bundle
-        run: make kkm_pkg
+        run: make kkm-pkg
 
         # Note: we need to have km built before kontaind.
       - name: Build and push kontaind image
@@ -128,7 +128,7 @@ jobs:
         timeout-minutes: 15
 
   km-boxes:
-    name: Test KM/KKM on AWS VM
+    name: Create vagrant boxes
     runs-on: ubuntu-20.04
     needs: [ km-kkm-smoke-test ]
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_type != 'dry' }}
@@ -141,7 +141,7 @@ jobs:
         run: make -C tools/hashicorp vm-images upload-boxes
 
   km-ami:
-    name: Test KM/KKM on AWS VM
+    name: Create AMI
     runs-on: ubuntu-20.04
     needs: [ km-kkm-smoke-test ]
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_type != 'dry' }}
@@ -150,14 +150,14 @@ jobs:
 
       - run: make -C cloud/azure login-cli
 
-      - name: Create vagrant boxes
+      - name: Create AMI
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: make -C tools/hashicorp ami
 
   km-runenv:
-    name: Run all tests on a new K8s cluster
+    name: Publish runenv images
     runs-on: ubuntu-20.04
     needs: [ km-kkm-smoke-test ]
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_type != 'dry' }}
