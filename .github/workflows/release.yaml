@@ -15,8 +15,9 @@
 #
 name: Build and publish release artifacts
 on:
+branches: [ serge/release ]
   push:
-    tags: [ v1.* ]
+    tags: [ v*.* ]
     # Testing branch for release pipeline (e.g. releases/myAlias/mytestbranch).
     # No final release artifacts will be created
     branches: [ releases/*/* ]
@@ -131,6 +132,7 @@ jobs:
     name: Test KM/KKM on AWS VM
     runs-on: ubuntu-20.04
     needs: [ km-kkm-smoke-test ]
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_type != 'dry' }}
     steps:
       - uses: actions/checkout@v2
 
@@ -143,6 +145,7 @@ jobs:
     name: Test KM/KKM on AWS VM
     runs-on: ubuntu-20.04
     needs: [ km-kkm-smoke-test ]
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_type != 'dry' }}
     steps:
       - uses: actions/checkout@v2
 
@@ -158,6 +161,7 @@ jobs:
     name: Run all tests on a new K8s cluster
     runs-on: ubuntu-20.04
     needs: [ km-kkm-smoke-test ]
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_type != 'dry' }}
     steps:
       - uses: actions/checkout@v2
 
