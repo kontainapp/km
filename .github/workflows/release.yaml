@@ -90,7 +90,10 @@ jobs:
         run: make -C payloads push-runenv-image push-demo-runenv-image
 
       - name: Create kkm release artifact
-        run: make withdocker TARGET=.kkm-pkg
+        run: |
+          sudo apt-get update -y -q
+          sudo apt-get -y -q install makeself
+          make withdocker TARGET=.kkm-pkg
 
       - uses: actions/upload-artifact@v2
         with:
