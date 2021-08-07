@@ -176,7 +176,8 @@ jobs:
   slack-workflow-status:
     name: Notify slack, if needed
     runs-on: ubuntu-latest
-    if: failure()
+    if: (failure() && github.ref == 'refs/heads/master') ||
+      contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
     needs: [ km-kkm-build, km-kkm-smoke-test, km-boxes, km-ami, km-runenv ]
     steps:
