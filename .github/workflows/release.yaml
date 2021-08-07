@@ -77,10 +77,7 @@ jobs:
         run: make withdocker TARGET=release
 
       - name: Create kkm release artifact
-        run: |
-          sudo apt-get update -y -q
-          sudo apt-get -y -q install makeself
-          make withdocker TARGET=.kkm-pkg
+        run: make withdocker TARGET=.kkm-pkg
 
         # Note: we need to have km built before kontaind.
       - name: Build and push kontaind image
@@ -179,6 +176,7 @@ jobs:
   slack-workflow-status:
     name: Notify slack, if needed
     runs-on: ubuntu-latest
+    if: failure()
     # Dependencies. (A skipped dependency is considered satisfied)
     needs: [ km-kkm-build, km-kkm-smoke-test, km-boxes, km-ami, km-runenv ]
     steps:
