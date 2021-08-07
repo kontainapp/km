@@ -114,7 +114,7 @@ jobs:
         run: |
           sudo apt-get update -y -q
           sudo apt-get -y -q install linux-headers-$(uname -r)
-          sudo ./kkm.run --noprogress 2>&1
+          sudo bash kkm.run --noprogress 2>&1
           sudo mkdir -p /opt/kontain && tar -C /opt/kontain -xzf $storage/kontain.tar.gz
 
       - name: Pull testenv image
