@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -81,6 +82,17 @@ process_state_t postsnap;
       }                                                                                            \
    }
 
+pthread_mutex_t signal_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t signal_cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
+int signal_seen = 0;
+void test_sigaction(int signo, siginfo_t* info, void* ctx)
+{
+   pthread_mutex_lock(&signal_lock);
+   signal_seen++;
+   pthread_cond_broadcast(&signal_cond);
+   pthread_mutex_unlock(&signal_lock);
+}
+
 void setup_process_state()
 {
    int tmpfd;
@@ -95,6 +107,12 @@ void setup_process_state()
    CHECK_SYSCALL(epollfd = epoll_create(1));
    // leave a gap in FS space for recovery
    CHECK_SYSCALL(close(tmpfd));
+
+   struct sigaction act = {
+       .sa_sigaction = test_sigaction,
+       .sa_flags = SA_SIGINFO,
+   };
+   CHECK_SYSCALL(sigaction(SIGUSR1, &act, NULL));
    return;
 }
 
@@ -328,6 +346,14 @@ int main(int argc, char* argv[])
    /*
     * Everything after here is unquestionably in the snapshot resume.
     */
+
+   kill(0, SIGUSR1);
+   pthread_mutex_lock(&signal_lock);
+   while (signal_seen != 1) {
+      pthread_cond_wait(&signal_cond, &signal_lock);
+   }
+   pthread_mutex_unlock(&signal_lock);
+
    char buf[1024];
    km_hc_args_t getdata_args = {.arg1 = (uintptr_t)buf, .arg2 = sizeof(buf)};
    km_hcall(HC_snapshot_getdata, &getdata_args);

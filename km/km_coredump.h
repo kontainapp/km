@@ -185,6 +185,7 @@ typedef struct km_nt_sighand {
    Elf64_Addr handler;
    Elf64_Word flags;   // sigaction flags
    Elf64_Word mask;    // sigmask
+   Elf64_Addr restorer;
 } km_nt_sighand_t;
 #define NT_KM_SIGHAND 0x4b4d5348   // "KMSH" no null term
 
