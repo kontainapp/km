@@ -37,6 +37,10 @@
 
 #include "km_hcalls.h"
 
+#ifndef SA_RESTORER
+#define SA_RESTORER   0x04000000
+#endif
+
 char* cmdname = "???";
 int do_abort = 0;
 int do_stdclose = 0;
@@ -317,6 +321,14 @@ int main(int argc, char* argv[])
    }
 
    setup_process_state();
+
+   // make sure signal handler uses a restorer (MUSL)
+   struct sigaction oldact = {};
+   CHECK_SYSCALL(sigaction(SIGUSR1, NULL, &oldact));
+   if ((oldact.sa_flags & SA_RESTORER) == 0) {
+      fprintf(stderr, "No signal restorer\n");
+      return 1;
+   }
 
    if (do_stdclose != 0) {
       fclose(stdin);
