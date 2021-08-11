@@ -782,7 +782,7 @@ km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t*
        */
       struct sigaction sigact;
       sigemptyset(&sigact.sa_mask);
-      sigact.sa_sigaction = (void (*)(int,  siginfo_t *, void *))act->handler;
+      sigact.sa_sigaction = (void (*)(int, siginfo_t*, void*))act->handler;
       sigact.sa_flags = 0;
       if ((void (*)(int))(act->handler) != SIG_IGN && (void (*)(int))(act->handler) != SIG_DFL) {
          sigact.sa_sigaction = km_signal_passthru;
@@ -823,7 +823,7 @@ uint64_t km_sigaltstack(km_vcpu_t* vcpu, km_stack_t* new, km_stack_t* old)
       old->ss_flags = old->ss_size == 0 ? SS_DISABLE : vcpu->sigaltstack.ss_flags;
    }
    if (new != NULL) {
-      if (new->ss_flags != SS_DISABLE && new->ss_flags != SS_ONSTACK && new->ss_flags != 0) {
+      if (new->ss_flags != SS_DISABLE&& new->ss_flags != SS_ONSTACK&& new->ss_flags != 0) {
          return -EINVAL;
       }
       km_read_registers(vcpu);
@@ -1065,6 +1065,7 @@ size_t km_sig_core_notes_write(char* buf, size_t length)
          nt_sa->handler = sa->handler;
          nt_sa->mask = sa->sa_mask;
          nt_sa->flags = sa->sa_flags;
+         nt_sa->restorer = sa->restorer;
 
          cur += sizeof(km_nt_sighand_t);
       }
@@ -1084,6 +1085,7 @@ int km_sig_snapshot_recover(char* buf, size_t length)
        .handler = nt_sa->handler,
        .sa_flags = nt_sa->flags,
        .sa_mask = nt_sa->mask,
+       .restorer = nt_sa->restorer,
    };
    machine.sigactions[km_sigindex(nt_sa->signo)] = sa;
    return 0;
