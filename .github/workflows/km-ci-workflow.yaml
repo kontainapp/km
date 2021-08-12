@@ -59,6 +59,7 @@ env:
   BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
   IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
   NIGHTLY_CLUSTER_NAME: "aks-kontain-nightly-ci-${{ github.run_number }}"
+  SP_SUBSCRIPTION_ID: ${{ secrets.SP_SUBSCRIPTION_ID }}
   SP_APPID: ${{ secrets.SP_APPID }}
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
   SP_TENANT: ${{ secrets.SP_TENANT }}
