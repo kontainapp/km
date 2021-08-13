@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 #
-# A helper include. Allowes to include some vars in dirs which cannot include
+# A helper include. Used to include some vars in dirs which cannot include
 # actions.mk (e.g. tests which need their own compile / link flags)
 
 default: all

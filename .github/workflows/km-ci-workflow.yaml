@@ -116,6 +116,7 @@ jobs:
       - run: make -C payloads push-testenv-image
 
       - name: Create payloads runenv and demo-runenv images
+        # Note: this builds both runenv and demo-runenv images
         run: make -C payloads runenv-image
 
       - run: make -C payloads push-demo-runenv-image

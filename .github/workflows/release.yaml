@@ -73,7 +73,7 @@ jobs:
         run: make withdocker TARGET=release
 
       - name: Create kkm release artifact
-        run: make withdocker TARGET=.kkm-pkg
+        run: make withdocker TARGET=kkm-pkg
 
         # Note: we need to have km built before kontaind.
       - name: Build and push kontaind image
