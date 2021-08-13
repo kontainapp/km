@@ -135,19 +135,10 @@ systemctl reload-or-restrt docker.service
 
 # Configure podman to use krun as a runtime
 
-Edit the file /usr/share/containers/containers.conf using sudo.
+The script podman_config.sh in this directory is provided to configure podman and your system to run kontain containers using podman and krun.
+The script currently changes ~/.config/containers/containers.conf, and adds some minor selinux policy changes to allow krun and km to work.
+You can also place the podman configuration changes in /usr/share/containers/containers.conf, or /etc/containers/containers.conf
 
-Add the following (with the appropriate path to krun) under the section [engine.runtimes]:
-
-```txt
-krun = [
-   "/opt/kontain/bin/krun",
-]
-```
-
-The default runtime can be specified with the following directive:
-
-runtime = "krun"
 
 # Running a kontainer using the krun runtime
 
@@ -181,12 +172,15 @@ Make your changes to the source code and then test them.  Once you are satisfied
 git push origin krun/yourname/what-you-are-fixing
 ```
 
-When you push your krun changes to the kontainapp/crun repository, the crun github workflows will run.  You need to check that the "Test" workflow succeeds.
+After you push your krun changes to the kontainapp/crun repository, you will need to go to github and chose a target branch for the PR.
+Be sure you select our repository (not the containers/crun repository) for the merge target.  And, ensure that the changes go into the krun branch, not main or master.
+
+Once the PR is created the crun github workflows will run.  You need to check that the "Test" workflow succeeds.
 If it fails, you need to find and fix the problem.  It should be noted that this workflow does check coding style.  We need to follow the containers/crun
 coding style.
 There is also an "Artifact" workflow which fails in the kontainapp/crun repository.  This needs to be fixed.
 
-Once the crun Test workflow is successful the changes need to be reviewed and approved using github.
+Once the crun Test workflow is successful the changes need to be approved using github.
 Complete the code review on github and get approval to merge the changes.  Once approved, merge the changes on github.
 
 Once your changes are in the kontain crun repository, km needs be updated so those changes are being used in what is built in the kontainapp/km

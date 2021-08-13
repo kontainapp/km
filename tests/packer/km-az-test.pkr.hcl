@@ -98,16 +98,30 @@ source "azure-arm" "km-test" {
 build {
   sources = ["azure-arm.km-test"]
 
+  provisioner "file" {
+    sources     = ["/tmp/km", "/tmp/krun"]
+    destination = "/tmp/"
+  }
+
   provisioner "shell" {
     # packer provisioners run as tmp 'packer' user.
     # For docker to run with no sudo, let's add it to 'docker' group and
     # later use 'sg' to run all as this group without re-login
-    inline = ["sudo usermod -aG docker $USER"]
+    inline = [
+      "sudo usermod -aG docker $USER"
+    ]
+  }
+
+  provisioner "shell" {
+    inline = [
+      "[ -x /usr/bin/cloud-init ] && sudo /usr/bin/cloud-init status --wait"
+    ]
   }
 
   provisioner "shell" {
     script          = "packer/scripts/km-test.sh"
-    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c '{{ .Path }}'"
+    // double sg invocation to get docker into the process's grouplist but not the primary group.
+    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c 'sg ubuntu {{ .Path }}'"
     // vars to pass to the remote script
     environment_vars = [
       "TRACE=1",
