@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 #
-# A helper include. ALlowes to include some vars in dirs which cannot include
-# actions.mk (e.g. tests which need their own compike /link flags)
+# A helper include. Used to include some vars in dirs which cannot include
+# actions.mk (e.g. tests which need their own compile / link flags)
 
 default: all
 
@@ -148,6 +148,9 @@ endif
 # Use current branch as image version (tag) for docker images.
 IMAGE_VERSION ?= latest
 BUILDENV_IMAGE_VERSION ?= latest
+
+# Release tag for artifacts default. Real value should be set in release.yaml workflow, or at the very least in environment
+RELEASE_TAG ?= v0.1-test
 
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 

@@ -59,6 +59,7 @@ env:
   BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
   IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
   NIGHTLY_CLUSTER_NAME: "aks-kontain-nightly-ci-${{ github.run_number }}"
+  SP_SUBSCRIPTION_ID: ${{ secrets.SP_SUBSCRIPTION_ID }}
   SP_APPID: ${{ secrets.SP_APPID }}
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
   SP_TENANT: ${{ secrets.SP_TENANT }}
@@ -100,6 +101,7 @@ jobs:
 
       - name: Build KM for coverage
         run: make -C km -j withdocker TARGET=coverage
+        if: env.TEST_COVERAGE == 'true'
 
       - name: Build and push KM testenv image
         run: make -C tests testenv-image push-testenv-image
@@ -114,7 +116,8 @@ jobs:
       - run: make -C payloads push-testenv-image
 
       - name: Create payloads runenv and demo-runenv images
-        run: make -C payloads runenv-image demo-runenv-image
+        # Note: this builds both runenv and demo-runenv images
+        run: make -C payloads runenv-image
 
       - run: make -C payloads push-demo-runenv-image
 
@@ -130,8 +133,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: km
-          path: |
-            /opt/kontain/bin/km
+          path: /opt/kontain/bin/km
           retention-days: 7
 
   km-test:
@@ -340,7 +342,7 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-test, kkm-test, kkm-test-aws, km-test-all]
+    needs: [km-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-aws, km-test-all]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master

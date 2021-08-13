@@ -15,63 +15,63 @@
 #
 
 variable "km_build" {
-   type        = string
-   description = "Location of KM build"
-   default     = "../../build"
+  type        = string
+  description = "Location of KM build"
+  default     = "../../build"
 }
 
 variable "target_tmp" {
-   type        = string
-   description = "Location for transferred files on target VM"
-   // This dir has to exist, and trailing '/' is important
-   default     = "/tmp/"
+  type        = string
+  description = "Location for transferred files on target VM"
+  // This dir has to exist, and trailing '/' is important
+  default = "/tmp/"
 }
 
 // OS specific vars. Values need to be provided to packer via -var-file=images/<file>.pkrvars.hcl
 variable "os" {
-   type        = string
-   description = "Base OS type for images. Used to locate correct install script"
+  type        = string
+  description = "Base OS type for images. Used to locate correct install script"
 }
 
 variable "os_name" {
-   type        = string
-   description = "Image OS name. Defines directory name and name in the cloud"
+  type        = string
+  description = "Image OS name. Defines directory name and name in the cloud"
 }
 
 variable "box_name" {
-   type        = string
-   description = "Base OS Vagrant box name"
+  type        = string
+  description = "Base OS Vagrant box name"
 }
 
 variable "box_version" {
-   type        = string
-   description = "Vagrant source box version, for virtualbox provider"
+  type        = string
+  description = "Vagrant source box version, for virtualbox provider"
 }
 
 locals {
-   output_dir = "output_box_${var.os_name}"
+  output_dir = "output_box_${var.os_name}"
 }
 
 source "vagrant" "kkm-box" {
-   source_path = var.box_name
-   box_version = var.box_version
-   output_dir  = local.output_dir
-   provider    = "virtualbox"
-   teardown_method = "destroy"
-   communicator    = "ssh"
-   ssh_pty         = true
+  source_path     = var.box_name
+  box_version     = var.box_version
+  output_dir      = local.output_dir
+  provider        = "virtualbox"
+  teardown_method = "destroy"
+  communicator    = "ssh"
+  ssh_pty         = true
 }
 
 build {
-   sources = ["vagrant.kkm-box"]
+  sources = ["vagrant.kkm-box"]
 
-   provisioner "file" {
-      sources     = ["${var.km_build}/kontain.tar.gz", "${var.km_build}/kkm.run", "daemon.json"]
-      destination = var.target_tmp
-   }
+  provisioner "file" {
+    sources     = ["${var.km_build}/kontain.tar.gz", "${var.km_build}/kkm.run", "daemon.json"]
+    destination = var.target_tmp
+  }
 
-   provisioner "shell" {
-      execute_command = "echo 'vagrant' | {{ .Vars }} sudo -S -E sh -eux '{{ .Path }}'"
-      script          = "scripts/${var.os}.install_km.sh"
-   }
+  provisioner "shell" {
+    execute_command = "echo 'vagrant' | {{ .Vars }} sudo -S -E sh -eux '{{ .Path }}'"
+    script          = "scripts/${var.os}.install_km.sh"
+  }
 }

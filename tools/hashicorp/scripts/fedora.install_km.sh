@@ -25,7 +25,7 @@ readonly storage="/tmp"
 dnf install -q -y kernel-headers gdb moby-engine
 
 # Install KKM... it will also validate hardware.
-$storage/kkm.run --noprogress 2>&1
+bash $storage/kkm.run --noprogress -- --force-install 2>&1
 
 # Add Kontain to PATH
 mkdir -p /opt/kontain && tar -C /opt/kontain -xzf $storage/kontain.tar.gz

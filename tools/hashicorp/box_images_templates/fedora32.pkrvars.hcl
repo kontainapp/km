@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-os = "fedora"
-os_name = "fedora32"
-box_name = "generic/fedora32"
+os          = "fedora"
+os_name     = "fedora32"
+box_name    = "generic/fedora32"
 box_version = "3.2.24"

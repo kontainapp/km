@@ -31,9 +31,10 @@ cd km
 git submodule update --init kkm
 mkdir build
 cp /tmp/kkm.run /tmp/kontain.tar.gz build
-# note: daemon.json is an repo so no need to copy it
+# note: daemon.json is in the repo so no need to copy it
 make -C tools/hashicorp vm-images
+
 ## TBD: do a sanity test
 # mkdir test ; cd test; vagrant init BOX_NAME; vagrant up ; vagrant ssh uick-test; vagrant halt; cd -
 
-make -n -C tools/hashicorp upload-boxes
+make -C tools/hashicorp RELEASE_TAG=${RELEASE_TAG} upload-boxes

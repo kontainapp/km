@@ -105,6 +105,6 @@ export define runenv_prep
 	cp ${PAYLOAD_KM} ${RUNENV_PATH}/$(basename $(notdir ${PAYLOAD_KM}))
 endef
 
-RELEASE_TAG := node node-12 node-${VERS}
+RUNENV_TAG := node node-12 node-${VERS}
 
 include ${TOP}/make/images.mk

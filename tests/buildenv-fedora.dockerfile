@@ -60,7 +60,7 @@ RUN dnf install -y \
    openssl-devel openssl-static jq googler \
    python3-markupsafe libffi-devel parallel \
    automake autoconf libcap-devel yajl-devel libseccomp-devel \
-   python3-libmount libtool cmake \
+   python3-libmount libtool cmake makeself \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 
 FROM buildenv-early AS buildlibelf

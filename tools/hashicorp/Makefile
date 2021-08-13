@@ -16,11 +16,6 @@
 #
 # Build a kkm-based VM images using packer
 
-# TODO
-# --------
-# setenv or pass credentials as argument for AWS work, currently ~/.aws is assumed
-# add to nightly CI as a final step.
-
 TOP := $(shell git rev-parse --show-toplevel)
 include ${TOP}/make/actions.mk
 
@@ -29,27 +24,26 @@ all: vm-images
 # Use these boxes as sources for our boxes builds. (`generic/$os' is the box)
 SRC_OS := ubuntu2010 fedora32
 # Note: SRC_OS needs to be synced with os_name in *pkrvars.hcl files
+ARTIFACTS := ${TOP}/build/kkm.run ${TOP}/build/kontain.tar.gz
 
 # pass PACKER_LOG=1 for debug info
 PACKER_BUILD = ${PACKER_LOG} time packer build -force
 
-product: ## Prepares KM packaging artifacts (e.g. km tarball and kkm run bundle)
-	@if ! type virtualbox >& /dev/null ; then echo -e "${RED}'virtualbox' is missing - please install it first ${NOCOLOR}"; false; fi
-	@if ! type vagrant >& /dev/null ; then echo -e "${RED}'vagrant' is missing - please install it first ${NOCOLOR}"; false; fi
+product: ${ARTIFACTS} ## Prepares KM packaging artifacts (e.g. km tarball and kkm run bundle)
 	echo $(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} kkm-pkg
 	echo $(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} release
 
-vm-images: .check_packer product ## loads source boxes and creates boxes with KM installed
+vm-images: .check_packer .check_tools product ## loads source boxes and creates boxes with KM installed
 	@set -x ; for os in ${SRC_OS} ; \
 	do \
 		${PACKER_BUILD} -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
 	done
 
-upload-boxes:  ## uploads pre-created boxes to vagrant cloud
-	@for os in ${SRC_OS} ; \
+upload-boxes: .check_tools ## uploads pre-created boxes to vagrant cloud
+	for os in ${SRC_OS} ; \
 	do \
 		vagrant cloud publish --force --no-private --release --description "$$os with Kontain installed" --short-description "$$os with KKM" \
-			kontain/$${os}-kkm-beta3 0.9.0 virtualbox output_box_$${os}/package.box ; \
+			kontain/$${os}-kkm-beta3 $${RELEASE_TAG#v} virtualbox output_box_$${os}/package.box ; \
 	done
 
 register-boxes: ## register pre-created boxes in local vagrant cash
@@ -61,9 +55,9 @@ register-boxes: ## register pre-created boxes in local vagrant cash
 # Note: Amazon import-image refuses to accept/import some kernel versions, so as a temporary
 # bandaid we build it from existing AMI. Ideally, we just want to import a box as an AMI - see test_ami_upload.pkr.hcl
 # for an examle how to do it
-ami:  ## Builds AMI with KKM in the AWS
+ami: .check_packer ## Builds AMI with KKM in the AWS
 	packer init aws_ami_templates
-	${PACKER_BUILD} aws_ami_templates
+	${PACKER_BUILD} --var release_tag=${RELEASE_TAG} aws_ami_templates
 
 test-box-upload: ## Helper to test Vagrant Box upload from existing BOX file
 	${PACKER_BUILD} test_box_upload.pkr.hcl
@@ -89,4 +83,6 @@ KEY_PAIR ?= aws-kkm
 .terminate-instances: .describe-instances
 	@echo Manually run: 'aws ec2 terminate-instances --instance-ids <ids>'
 
-
+.check_tools:
+	@if ! type virtualbox >& /dev/null ; then echo -e "${RED}'virtualbox' is missing - please install it first ${NOCOLOR}"; false; fi
+	@if ! type vagrant >& /dev/null ; then echo -e "${RED}'vagrant' is missing - please install it first ${NOCOLOR}"; false; fi

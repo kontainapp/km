@@ -35,8 +35,6 @@ ${BLDDIR}/km_guest_asmcode.o: CFLAGS += -fPIC
 
 # Package KM and libs+tools+docs for release
 KM_RELEASE := ${BLDTOP}/kontain.tar.gz
-# default tag
-RELEASE_TAG ?= v0.1-test
 # Show this on the release page
 RELEASE_MESSAGE ?= Kontain KM Beta Release. branch: ${SRC_BRANCH} sha: ${SRC_SHA}
 
@@ -44,12 +42,10 @@ release: ${KM_RELEASE} ## Package kontain.tar.gz file for release
 	ls -lh ${KM_RELEASE} ${KM_BIN}
 
 ${KM_RELEASE}: ${KM_BIN} ${TOP}/tools/bin/create_release.sh ## Build a release tar.gz file for KM (called from release: target)
-	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/tools/faktory
-	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/km_cli install
 	${TOP}/tools/bin/create_release.sh
 
 clean-release: ## Clean the release tar files
 	rm -f ${KM_RELEASE}
 
-publish-release: ## Publish release with RELEASE_TAG (default: v0.1-test) to github
+publish-release: ## Publish release with RELEASE_TAG to github
 	cd ${TOP}/tools/release; ./release_km.py ${KM_RELEASE} --version ${RELEASE_TAG} --message "${RELEASE_MESSAGE}"

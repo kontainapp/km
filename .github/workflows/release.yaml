@@ -1,0 +1,212 @@
+#
+# Copyright 2021 Kontain Inc
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+name: Build and publish release artifacts
+on:
+  push:
+    tags: [ v*.* ]
+    # Testing branch for release pipeline (e.g. releases/myAlias/mytestbranch).
+    # No final release artifacts will be created
+    branches: [ releases/*/* ]
+
+  # Manual trigger.
+  # See https://github.blog/changelog/2020-07-06-github-actions-manual-triggers-with-workflow_dispatch/
+  workflow_dispatch:
+
+env:
+  BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
+  IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
+  SP_SUBSCRIPTION_ID: ${{ secrets.SP_SUBSCRIPTION_ID }}
+  SP_APPID: ${{ secrets.SP_APPID }}
+  SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
+  SP_TENANT: ${{ secrets.SP_TENANT }}
+  VAGRANT_CLOUD_TOKEN: ${{ secrets.VAGRANT_CLOUD_TOKEN }}
+  # TRACE: true # uncomment to enable '-x' in all bash scripts
+
+jobs:
+  km-kkm-build:
+    name: Build KM, save kontain and kkm release artifacts
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Print build environment info
+        run: |
+          echo "Event: ${{ github.event_name }} inputs.run_type: ${{ github.event.inputs.run_type }}"
+          echo ====Environment info===
+          echo "SHA: $(git rev-parse HEAD)"
+          echo "=== Last 10 commits:"
+          git log -n 10 --graph --pretty=format:'%h% %d %s %cr %ce'
+          echo "=== VM/OS:"
+          cat /proc/version
+          cat /etc/os-release
+          echo "=== Docker version:"
+          docker version
+          echo ==== Environment Variables
+          env
+          echo ==== CPU Info
+          lscpu
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Prepare KM build env
+        run: make -C tests pull-buildenv-image .buildenv-local-lib
+
+      - name: Build KM and tests using buildenv image
+        run: make -j withdocker
+
+      - name: Create kontain bundle
+        run: make withdocker TARGET=release
+
+      - name: Create kkm release artifact
+        run: make withdocker TARGET=kkm-pkg
+
+        # Note: we need to have km built before kontaind.
+      - name: Build and push kontaind image
+        run: make -C cloud/k8s/kontaind push-runenv-image
+
+      - name: Build payloads and create runenv images
+        run: make -C payloads pull-buildenv-image clean all runenv-image
+
+      - name: Push payloads runenv and demo-runenv images
+        run: make -C payloads push-runenv-image push-demo-runenv-image
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: kontain
+          path: |
+            ./build/kontain.tar.gz
+            ./build/kkm.run
+          retention-days: 7
+
+  km-kkm-smoke-test:
+    name: Smoke test KM/KKM on CI VM
+    runs-on: ubuntu-20.04
+    needs: [ km-kkm-build ]
+    steps:
+      - uses: actions/checkout@v2
+
+      - run: make -C cloud/azure login-cli
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: kontain
+
+      - name: Install Kontain and KKM
+        run: |
+          sudo apt-get update -y -q
+          sudo apt-get -y -q install linux-headers-$(uname -r)
+          sudo bash kkm.run --noprogress
+          sudo mkdir -p /opt/kontain && sudo tar -C /opt/kontain -xzf kontain.tar.gz
+
+      - name: Pull demo-runenv image
+        run: make -C payloads pull-demo-runenv-image
+
+      - name: Validate runenv images locally with KKM
+        run: make -C payloads validate-runenv-image HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+        timeout-minutes: 15
+
+  km-boxes:
+    name: Create vagrant boxes
+    runs-on: ubuntu-20.04
+    needs: [ km-kkm-smoke-test ]
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - name: Get RELEASE_TAG
+        if: startsWith(github.ref, 'refs/tags/')
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v2
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: kontain
+          path: build
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Create vagrant boxes
+        run: echo ${RELEASE_TAG} ; make -C cloud/azure vagrant-box
+
+  km-ami:
+    name: Create AMI
+    runs-on: ubuntu-20.04
+    needs: [ km-kkm-smoke-test ]
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - name: Get RELEASE_TAG
+        if: startsWith(github.ref, 'refs/tags/')
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v2
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: kontain
+          path: build
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Create AMI
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: make -C tools/hashicorp ami
+
+  km-runenv:
+    name: Publish runenv images
+    runs-on: ubuntu-20.04
+    needs: [ km-kkm-smoke-test ]
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - name: Get RELEASE_TAG
+        if: startsWith(github.ref, 'refs/tags/')
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v2
+
+      - run: |
+          make -C cloud/azure login-cli
+          echo ${{ secrets.DOCKER_HUB_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_LOGIN }} --password-stdin
+
+      - run: make -C payloads pull-runenv-image
+
+      - name: Publish runenv images
+        run: make -C payloads publish-runenv-image
+
+  #  Keep this here as an EXPLICIT reminder to get releases back in the build
+  #   - name: Kick off release pipeline to build and upload release v0.1-edge
+  #     run: make edge-release GITHUB_TOKEN=$(GITHUB_TOKEN)
+  #     timeout-minutes: 5
+
+  slack-workflow-status:
+    name: Notify slack, if needed
+    runs-on: ubuntu-latest
+    if: (failure() && github.ref == 'refs/heads/master') ||
+      contains(github.workflow, 'noisy')
+    # Dependencies. (A skipped dependency is considered satisfied)
+    needs: [ km-kkm-build, km-kkm-smoke-test, km-boxes, km-ami, km-runenv ]
+    steps:
+      - name: Send notification to slack
+        uses: Gamesight/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          include_jobs: true
+          channel: "#build_and_test"
+          name: "CI workflow status"
+          icon_emoji: ":thumbsdown:"

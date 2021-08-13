@@ -149,9 +149,10 @@ L0-image: ## build the very base image
 	${PACKER_BUILD} -force -var image_name=${L0_VMIMAGE_NAME} L0-image.pkr.hcl
 
 vagrant-box:
-	${PACKER_BUILD}  -force \
+	${PACKER_BUILD} -force \
 		--var src_branch=${SRC_BRANCH} \
 		--var image_version=${IMAGE_VERSION} \
+		--var release_tag=${RELEASE_TAG} \
 		vagrant-box.pkr.hcl
 
 include $(TOP)/make/locations.mk

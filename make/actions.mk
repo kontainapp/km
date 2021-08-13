@@ -63,12 +63,13 @@ testenv-image: subdirs ## builds and packages testable image
 push-testenv-image: subdirs ## Push test images to a cloud registry. IMAGE_VERSION should provide image tag name
 pull-testenv-image: subdirs ## Pulls test images from a cloud registry. IMAGE_VERSION is mandatory. Used mainly in CI
 runenv-image: subdirs ## builds and packages image with runtime environment for each payload
-push-runenv-image: subdirs ## Push runtime images to a cloud registry. IMAGE_VERSION can be used used to modify tag name
-pull-runenv-image: subdirs ## Pulls runtime images from a cloud registry. IMAGE_VERSION an be used used to modify tag name
+push-runenv-image: subdirs ## Push runtime images to a cloud registry. IMAGE_VERSION can be used to modify tag name
+push-demo-runenv-image: subdirs ## push runtime demo images to cloud registry with multiple release tags. IMAGE_VERSION can be used to modify tag name
+pull-runenv-image: subdirs ## Pulls runtime images from a cloud registry. IMAGE_VERSION can be used to modify tag name
+pull-demo-runenv-image: subdirs ## Pulls runtime test images from a cloud registry. IMAGE_VERSION can be used to modify tag name
 publish-runenv-image: subdirs ## Publishes runtime images to dockerhub. Dockerhub login is assumed
 validate-runenv-image: subdirs ## Runs basic validation command for runtime image
 demo-runenv-image: subdirs ## builds a demo image based off runenv-image
-push-demo-runenv-image: subdirs ## push runtime demo images to cloud registry with multiple release tags. IMAGE_VERSION can be used used to modify tag name
 validate-runenv-withk8s: subdirs ##
 test-withdocker: subdirs ##
 test-all-withdocker: subdirs ## build all and run KM and payload tests
