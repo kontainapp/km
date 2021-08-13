@@ -18,8 +18,6 @@
 # A little script to get needed linux packages, change podman config files, and add a small
 # kontain selinux policy to allow podman to run containers using krun and km.
 
-TRACE=x
-
 # exit if any command fails, don't execute commands if TRACE has a value.
 set -e ; [ "$TRACE" ] && set -x
 
