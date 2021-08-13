@@ -15,24 +15,27 @@
 # limitations under the License.
 #
 
-
-#
 # A little script to get needed linux packages, change podman config files, and add a small
 # kontain selinux policy to allow podman to run containers using krun and km.
-#
+
+TRACE=x
+
+# exit if any command fails, don't execute commands if TRACE has a value.
+set -e ; [ "$TRACE" ] && set -x
+
+# Should be run as root.
+[ `id -u` != "0" ] && echo "Must run as root" && exit 1
 
 # podman config file locations
-CONTAINERS_CONF=/usr/share/containers/containers.conf
-HOME_CONTAINERS_CONF=~/.config/containers/containers.conf
-ETC_CONTAINERS_CONF=/etc/containers/containers.conf
 DOCKER_INIT=/usr/libexec/docker/docker-init
 KRUN_PATH=/opt/kontain/bin/krun
 KM_PATH=/opt/kontain/bin/km
 KM_SELINUX_CONTEXT="system_u:object_r:bin_t:s0"
-
-# Either do it or just print the commands we think should be run.
-#DEBUG=echo
-DEBUG=""
+CONTAINERS_CONF=/usr/share/containers/containers.conf
+ETC_CONTAINERS_CONF=/etc/containers/containers.conf
+# if running under sudo, update the invokers containers.conf, not root's
+# Note that the shell nazi's think eval to expand ~ is evil but I can't find a better way
+HOME_CONTAINERS_CONF=`eval echo ~${SUDO_USER}/.config/containers/containers.conf`
 
 linuxdist=`grep "^ID=" /etc/os-release`
 
@@ -40,25 +43,48 @@ linuxdist=`grep "^ID=" /etc/os-release`
 echo "Installing podman and selinux packages"
 if test "$linuxdist" =  "ID=fedora"
 then
-   $DEBUG sudo dnf install -y -q --refresh podman selinux-policy-devel
+   dnf install -y -q --refresh podman selinux-policy-devel
 elif test "$linuxdist" = "ID=ubuntu"
 then
-   $DEBUG sudo apt-get update
-   $DEBUG sudo apt-get install -y -q podman selinux-policy-dev
+   apt-get update
+   apt-get install -y -q podman selinux-policy-dev
 else
    echo "Unsupported linux distributionn $linuxdist"
    exit 1
 fi
 
 
+# If the user's containers.conf is missing give them a bare bones version
+echo
+if [ ! -e $HOME_CONTAINERS_CONF ]
+then
+   cat <<EOF >$HOME_CONTAINERS_CONF
+[containers]
+init_path = "/usr/libexec/docker/docker-init"
+
+[network]
+
+[engine]
+
+[engine.runtimes]
+krun = [
+        "/opt/kontain/bin/krun"
+]
+EOF
+   if test "$SUDO_USER" != ""
+   then
+      chown $SUDO_USER $HOME_CONTAINERS_CONF
+      chgrp `id -g $SUDO_USER` $HOME_CONTAINERS_CONF
+   fi
+fi
+
 # set init_path in the [containers] section of ~/.config/containers/containers.conf
 # We don't ensure we add this in the [containers] section.
 # We hope the init_path command line comment exists and is in the proper section.
-echo
 if ! grep -q "^ *init_path" $HOME_CONTAINERS_CONF
 then
    # no init_path, use the docker init
-   $DEBUG sed --in-place -e "/^# *init_path/ainit_path = \"$DOCKER_INIT\"" $HOME_CONTAINERS_CONF
+   sed --in-place -e "/^# *init_path/ainit_path = \"$DOCKER_INIT\"" $HOME_CONTAINERS_CONF
 else
    if ! grep -q "^ *init_path *= *\"$DOCKER_INIT\"" $HOME_CONTAINERS_CONF
    then
@@ -75,7 +101,7 @@ fi
 echo
 if ! grep -q "^ *krun =" $HOME_CONTAINERS_CONF
 then
-   $DEBUG sed --in-place -e "/^\[engine.runtimes\]/akrun = [\n   \"$KRUN_PATH\",\n]\n" $HOME_CONTAINERS_CONF
+   sed --in-place -e "/^\[engine.runtimes\]/akrun = [\n   \"$KRUN_PATH\",\n]\n" $HOME_CONTAINERS_CONF
 else
    echo "runtime krun already configured in $HOME_CONTAINERS_CONF"
    grep -A 3 "^ *krun =" $HOME_CONTAINERS_CONF
@@ -84,7 +110,7 @@ fi
 
 # set selinux context on /opt/kontain/bin/km
 echo
-$DEBUG chcon $KM_SELINUX_CONTEXT $KM_PATH
+chcon $KM_SELINUX_CONTEXT $KM_PATH
 
 
 # Add kontain selinux policy adjustments
@@ -107,8 +133,8 @@ allow container_t kvm_device_t:chr_file { append getattr ioctl lock open read wr
 # https://bugzilla.redhat.com/show_bug.cgi?id=1861968
 EOF
 
-$DEBUG ln -sf /usr/share/selinux/devel/Makefile
-$DEBUG make
-$DEBUG sudo make reload
+ln -sf /usr/share/selinux/devel/Makefile
+make
+make reload
 popd || exit
 

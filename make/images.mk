@@ -175,7 +175,7 @@ validate-runenv-image: ## Validate runtime image
 	${DOCKER_RUN} ${DOCKER_INTERACTIVE} --init ${DOCKER_KRUN_RUNTIME} \
 	${RUNENV_DEMO_IMG_TAGGED} \
 	"$${tmp_bash_array[@]}" | grep "${RUNENV_VALIDATE_EXPECTED}"
-	-podman image rm ${RUNENV_DEMO_IMG_TAGGED}
+	@-podman image rm ${RUNENV_DEMO_IMG_TAGGED} >/dev/null 2>&1
 	tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
 	${PODMAN_RUN_TEST} ${PODMAN_KRUN_RUNTIME} \
 	docker-daemon:${RUNENV_DEMO_IMG_TAGGED} \

@@ -1563,7 +1563,9 @@ static int do_exec(char* filename, char** argv, char** envp)
 
    if ((ret = stat(filename, &statbuf)) != 0) {
       char cwd[PATH_MAX];
-      getcwd(cwd, sizeof(cwd));
+      if (getcwd(cwd, sizeof(cwd)) == NULL) {
+         snprintf(cwd, sizeof(cwd), "<Couldn't get cwd, error %d>", errno);
+      }
       km_info(KM_TRACE_HC, "can't stat %s, cwd %s", filename, cwd);
       return -errno;
    }

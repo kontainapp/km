@@ -15,8 +15,13 @@
 # limitations under the License.
 #
 
-DEBUG=echo
-#DEBUG=
+# Install docker configuration to allow krun to be used as a runtime.
+
+# exit if any command fails, don't execute commands if TRACE has a value.
+set -e ; [ "$TRACE" ] && set -x
+
+# This script must be run as root.
+[ `id -u` != "0" ] && echo "Must run as root" && exit 1
 
 # docker config file locations
 ETC_DAEMON_JSON=/etc/docker/daemon.json
@@ -28,10 +33,10 @@ function restart_docker()
    echo "Restarting docker"
    if test $id = "ID=fedora"
    then
-      $DEBUG sudo systemctl restart docker.service   # fedora
+      systemctl restart docker.service   # fedora
    elif test $id = "ID=ubuntu"
    then
-      $DEBUG sudo service docker restart   # ubuntu
+      service docker restart   # ubuntu
    else
       echo "unknown linux distribution $id"
       false
@@ -39,10 +44,10 @@ function restart_docker()
 }
 
 # Can we assume docker is installed?
-#sudo apt-get install -y -q docker.io
-#sudo dnf install -y -q moby-engine
+#apt-get install -y -q docker.io
+#dnf install -y -q moby-engine
 
-if ! sudo test -e $ETC_DAEMON_JSON
+if ! test -e $ETC_DAEMON_JSON
 then
    # doesn't exist, create what we need
    cat <<EOF >/tmp/daemon.json$$
@@ -55,17 +60,17 @@ then
 }
 EOF
    # get docker to ingest the new daemon.json file
-   sudo cp /tmp/daemon.json$$ $ETC_DAEMON_JSON
+   cp /tmp/daemon.json$$ $ETC_DAEMON_JSON
    rm -fr /tmp/daemon.json$$
    restart_docker
 else
    # update existing file.  I've found if the file is not really json (it is an empty file),
    # jq fails without returning an error.
-   krun=`sudo jq '.runtimes["krun"]' $ETC_DAEMON_JSON`
+   krun=`jq '.runtimes["krun"]' $ETC_DAEMON_JSON`
    if test "$krun" = "null"
    then
-      sudo jq '.runtimes["krun"].path = "/opt/kontain/bin/krun"' $ETC_DAEMON_JSON >/tmp/daemon.json$$
-      sudo cp /tmp/daemon.json$$ $ETC_DAEMON_JSON
+      jq '.runtimes["krun"].path = "/opt/kontain/bin/krun"' $ETC_DAEMON_JSON >/tmp/daemon.json$$
+      cp /tmp/daemon.json$$ $ETC_DAEMON_JSON
       # get docker to ingest the new daemon.json file
       if test $? -eq 0
       then
