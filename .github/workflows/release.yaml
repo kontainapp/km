@@ -28,6 +28,7 @@ on:
 env:
   BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
   IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
+  SRC_BRANCH: ${{ github.event.head }}
   SP_SUBSCRIPTION_ID: ${{ secrets.SP_SUBSCRIPTION_ID }}
   SP_APPID: ${{ secrets.SP_APPID }}
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
