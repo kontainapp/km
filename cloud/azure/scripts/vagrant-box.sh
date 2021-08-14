@@ -26,8 +26,9 @@
 # clone
 # preload proper boxes in base image
 #
-git clone https://$GITHUB_TOKEN@github.com:/kontainapp/km -b ${SRC_BRANCH}
+git clone https://$GITHUB_TOKEN@github.com:/kontainapp/km
 cd km
+git checkout -b ${SRC_BRANCH}
 git submodule update --init kkm
 mkdir build
 cp /tmp/kkm.run /tmp/kontain.tar.gz build
