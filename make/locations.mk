@@ -28,12 +28,15 @@ FROMTOP := $(shell git rev-parse --show-prefix)
 
 # Current branch. Note that on Github merges the branch name is in
 # GITHUB_HEAD_REF, and current branch is refs/merge/pr-id.
-# IN all other cases we extract branch namee from git rev-parse
-# on GTHUB PullRequests (and push )
+# In all other cases we extract branch name from git rev-parse
+# on GITHUB PullRequests (and push)
 ifneq (${GITHUB_HEAD_REF},)
 SRC_BRANCH ?= ${GITHUB_HEAD_REF}
 else
-SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref  HEAD)
+SRC_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+ifeq (${SRC_BRANCH},HEAD)
+SRC_BRANCH = ${GITHUB_SHA}
+endif
 endif
 # current SHA, to be saved for 'km -v' uniquiness
 SRC_SHA ?= $(shell git rev-parse HEAD)
