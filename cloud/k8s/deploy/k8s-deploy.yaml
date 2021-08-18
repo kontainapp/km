@@ -1,0 +1,74 @@
+---
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: kontain
+handler: krun
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kontain-deploy
+  namespace: kube-system
+spec:
+  selector:
+      matchLabels:
+        name: kontain-deploy
+  template:
+    metadata:
+        labels:
+          name: kontain-deploy
+    spec:
+      containers:
+      - name: kube-kontain
+        image: docker.io/kontainapp/k8s-deploy:latest
+        imagePullPolicy: Always
+        lifecycle:
+          preStop:
+            exec:
+              command: ["sh", "/opt/kontain-artifacts/scripts/k8s-deploy.sh", "cleanup"]
+        command: [ "sh", "/opt/kontain-artifacts/scripts/k8s-deploy.sh", "install" ]
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        securityContext:
+          privileged: false
+        volumeMounts:
+        - name: crio-conf
+          mountPath: /etc/crio/
+        - name: containerd-conf
+          mountPath: /etc/containerd/
+        - name: kontain-artifacts
+          mountPath: /opt/kontain/
+        - name: dbus
+          mountPath: /var/run/dbus
+        - name: systemd
+          mountPath: /run/systemd
+        - name: local-bin
+          mountPath: /usr/local/bin/
+      volumes:
+        - name: crio-conf
+          hostPath:
+            path: /etc/crio/
+        - name: containerd-conf
+          hostPath:
+            path: /etc/containerd/
+        - name: kontain-artifacts
+          hostPath:
+            path: /opt/kontain/
+            type: DirectoryOrCreate
+        - name: dbus
+          hostPath:
+            path: /var/run/dbus
+        - name: systemd
+          hostPath:
+            path: /run/systemd
+        - name: local-bin
+          hostPath:
+            path: /usr/local/bin/
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
