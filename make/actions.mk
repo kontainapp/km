@@ -175,7 +175,6 @@ endif
 
 endif # (${SUBDIRS},)
 
-
 ${BLDDIR}:
 	mkdir -p $@
 
