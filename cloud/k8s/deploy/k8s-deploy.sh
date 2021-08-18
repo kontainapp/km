@@ -42,6 +42,10 @@ runtime_path = "/opt/kontain/bin/krun"
 runtime_type = "oci"
 runtime_root = "/run/krun"
 EOT
+
+  # Restart daemon
+  systemctl daemon-reload
+  systemctl restart crio
 }
 
 function uninstall() {
@@ -50,6 +54,10 @@ function uninstall() {
 
   echo "Remove kontain artifacts"
   rm -rf /opt/kontain/bin
+
+  # Restart daemon
+  systemctl daemon-reload
+  systemctl restart crio
 }
 
 function main() {

@@ -14,5 +14,6 @@ spec:
       runtimeClassName: kontain
       containers:
       - name: kontain-test-app
-        image: localhost/krun-test:latest
+        image: alpine:latest
+        command: [ "sleep", "infinity" ]
         imagePullPolicy: IfNotPresent
