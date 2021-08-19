@@ -14,15 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-#
-#
 # Install Kontain release on a Linux box. Assumes root.
 #
 # Usage: ./kontain-install.sh [TAG]
-#
-# ==== WARNING: THIS FILE IS BEING DEPRECATED===============
-#  We BUILD AMI and VAGRANT BOX instead, and will add
-# dedicated installation when KM is open-sourced
 #
 set -e
 [ "$TRACE" ] && set -x
@@ -30,7 +24,7 @@ set -e
 # release name has to be passed via 1st arg, otherwise it's fetched from a file in the repo
 
 # TODO - roll back after merge to master
-export DEFAULT_TAG=$(curl -s https://raw.githubusercontent.com/kontainapp/km-releases/master/default-release)
+export DEFAULT_TAG=latest
 
 readonly TAG=${1:-$DEFAULT_TAG}
 readonly PREFIX="/opt/kontain"

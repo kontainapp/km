@@ -868,7 +868,7 @@ sudo mkdir -p /opt/kontain ; sudo chown -R $(whoami) /opt/kontain
 2. Use `wget` to download and run the installation script:
 ```
 wget
-https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh -O - -q | bash
+https://raw.githubusercontent.com/kontainapp/km/latest/km-releases/kontain-install.sh -O - -q | bash
 ```
 Alternatively, you can clone the Kontain git repository and run the installation script directly. Note that `wget `is still being used to pull the bundle:
 ```
@@ -880,7 +880,7 @@ The Kontain installation script will download and install the release version re
 
 **EXAMPLE: Installing `v0.1-beta2-demo`**
 ```
-wget https://raw.githubusercontent.com/kontainapp/km-releases/master/kontain-install.sh -q
+wget https://raw.githubusercontent.com/kontainapp/km/v0.1-beta2-demo/km-releases/kontain-install.sh -q
 chmod a+x ./kontain-install.sh; ./kontain-install.sh v0.1-beta2-demo
 ```
 #### Validating the Installation
