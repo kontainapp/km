@@ -18,12 +18,22 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-include ${TOP}/make/locations.mk
+# Undefine CLOUD for make/locactions.mk (included my make/images.mk)
+#  doesn't try to pick up Azure defs.
+CLOUD :=
 
-all: 
-	[ -d ${KM_OPT}/scripts ] || mkdir ${KM_OPT}/scripts
-	cp k8s-deploy.sh ${KM_OPT}/scripts/k8s-deploy.sh
-	docker build -t kontainapp/k8s-deploy:latest -f k8s-deploy.dockerfile ${KM_OPT}
-	docker tag kontainapp/k8s-deploy:latest docker.io/kontainapp/k8s-deploy:latest
-	docker push docker.io/kontainapp/k8s-deploy:latest
+# Definitions used within make/images.mk for runenv
+COMPONENT := k8s-deploy
+RUNENV_TAG := ${COMPONENT}
+REGISTRY := docker.io/kontainapp
 
+# runenv-image configs
+export define runenv_prep
+        mkdir -p ${BLDDIR}/bin && cp ${KM_BIN} $$_
+	cp ${BLDTOP}/container-runtime/krun ${BLDDIR}/bin
+        mkdir -p ${BLDDIR}/scripts && cp k8s-deploy.sh $$_
+endef
+
+.DEFAULT_GOAL := runenv-image
+
+include ${TOP}/make/images.mk

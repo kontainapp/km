@@ -32,6 +32,9 @@ function install() {
   [ -d /opt/kontain/bin ] || mkdir /opt/kontain/bin
   cp -a /opt/kontain-artifacts/bin/km /opt/kontain/bin/km
   cp -a /opt/kontain-artifacts/bin/krun /opt/kontain/bin/krun
+  chmod +x /opt/kontain/bin/*
+
+  # TODO: SELINUX contexts for KM and KRUN?
 
   # Add crio configuration
   echo "configure crio to support kontain runtime"

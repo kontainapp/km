@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
       - name: kube-kontain
-        image: docker.io/kontainapp/k8s-deploy:latest
+        image: docker.io/kontainapp/runenv-k8s-deploy:latest
         imagePullPolicy: Always
         lifecycle:
           preStop:

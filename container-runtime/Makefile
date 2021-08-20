@@ -41,6 +41,9 @@ all:	$(CRUNDIR)/Makefile .makefile_check
 	make -j1 -C $(CRUNDIR) all
 	cp $(CRUNDIR)/crun ${KM_OPT_BIN_PATH}
 	ln -f ${KM_OPT_BIN_PATH}/crun ${KM_OPT_BIN_PATH}/krun
+	[ -d ${BLDDIR} ] || mkdir -p ${BLDDIR}
+	cp $(CRUNDIR)/crun ${BLDDIR}/crun
+	ln -f ${BLDDIR}/crun ${BLDDIR}/krun
 
 $(CRUNDIR)/Makefile:
 	cd $(CRUNDIR); ./autogen.sh; ./configure --disable-systemd
