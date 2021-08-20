@@ -14,6 +14,6 @@ spec:
       runtimeClassName: kontain
       containers:
       - name: kontain-test-app
-        image: alpine:latest
+        image: busybox:latest
         command: [ "sleep", "infinity" ]
         imagePullPolicy: IfNotPresent
