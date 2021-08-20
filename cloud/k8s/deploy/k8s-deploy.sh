@@ -17,13 +17,13 @@
 # main program for kontain-deploy DeamonSet
 
 die() {
-        msg="$*"
-        echo "ERROR: $msg" >&2
-        exit 1
+  msg="$*"
+  echo "ERROR: $msg" >&2
+  exit 1
 }
 
 function print_usage() {
-	echo "Usage: $0 [install/cleanup/reset]"
+  echo "Usage: $0 [install/cleanup/reset]"
 }
 
 function install() {
