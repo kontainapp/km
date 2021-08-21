@@ -3,7 +3,7 @@
 Deployment for Kontain Runtime for Kubrenetes. This was modelled on kata deployment, but it is greatly simplified.
 Currently, only CRI-O container runtime is supported.
 
-`Makefile` builds the container `kontainapp/k8s-deploy:latest` and pushes it to DockerHub. Relevent targets:
+`Makefile` builds the container `kontainapp/runenv-k8s-deploy:latest` and pushes it to DockerHub. Relevent targets:
 * `make runenv-image` builds the delpoyment container.
 * `make push-runenv-image` pushes the deployment image to the DockerHub registry.
 
