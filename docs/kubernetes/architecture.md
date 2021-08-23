@@ -1,10 +1,14 @@
 # Kontain/Kubernetes Integration - Architecture
 
+## User View
+
 Kontain uses the Kubernetes Container Runtime Class feature
 (https://kubernetes.io/docs/concepts/containers/runtime-class/)
 to allow the user to select running a container under the control of
 the Kontain Virtual Machine Monitor (KM) by using 'runtimeClassName: kontain'
-in a containter specification. For example:
+in a containter specification. For example, the following YAML creates a 
+pod that runs under the control of the Kontain Runtime. This particular
+pod does nothing.:
 
 ```
 apiVersion: apps/v1
@@ -28,14 +32,26 @@ spec:
         imagePullPolicy: IfNotPresent
 ```
 
-Kontain installs two binaries on every Kubernetes host.
+## Internals
+
+Kontain installs two binaries on every Kubernetes host node.
 
 * KRUN - An OCI compliant runtime that manages containers of Runtime Class 'kontain'.
 * KM - The Kontain Virtual Machine monitor that provides the execution environment for processes
 running in these containers.
 
-TODO:
+Kontain binaries are installed in the directory `/opt/kointain/bin`.
 
-Describe KRUN and KM.
-Describe how KRUN is integrated with various contain runtime options (CRI-O, etc?).
-Describe how Kubernetes 'kontain' Runtime Class.
+Kontain integrates with the CRI-O and `containerd` runtime daemons by adding configuration files
+that let the daemon know about KRUN. All containers run under the control of the 'kontain' Runtime Class
+are started with KRUN.
+
+## KRUN
+
+KRUN is an OCI runtime derived from `crun` that knows about the Kontain Monitor (KM) and Kontain
+Virtual Machines.
+
+## KM
+
+KM is the Kontain Virtual Machine Monitor. KM provides the execution exvironment for all processes
+run inside a container controllered by the 'kontain' Runtime Class.
