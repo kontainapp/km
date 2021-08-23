@@ -39,6 +39,11 @@ typedef struct kkm_xstate {
 static_assert(sizeof(struct kkm_xstate) == 4096, "kkm_xstate need to be in sync with kkm module");
 
 /*
+ * KKM_CPU_SUPPORTED
+ */
+enum kkm_cpu_supported { CPU_SUPPORTED = 0, CPU_NOT_SUPPORTED };
+
+/*
  * additional ioctls supported by KKM
  */
 #define KKM_KONTEXT_REUSE _IO(KVMIO, 0xf5)
@@ -47,6 +52,7 @@ static_assert(sizeof(struct kkm_xstate) == 4096, "kkm_xstate need to be in sync 
 #define KKM_KONTEXT_GET_XSTATE _IOR(KVMIO, 0xf8, struct kkm_xstate)
 #define KKM_KONTEXT_SET_XSTATE _IOW(KVMIO, 0xf9, struct kkm_xstate)
 
+#define KKM_CPU_SUPPORTED _IO(KVMIO, 0xfe)
 #define KKM_GET_IDENTITY _IO(KVMIO, 0xff)
 #define KKM_DEVICE_IDENTITY (0x6B6B6D)
 

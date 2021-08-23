@@ -744,6 +744,7 @@ void km_x86decode(km_vcpu_t* vcpu);
 
 // km_vmdriver.c
 int km_vmdriver_get_identity(void);
+int km_vmdriver_cpu_supported(void);
 void km_vmdriver_machine_init(void);
 void km_vmdriver_vcpu_init(km_vcpu_t* vcpu);
 int km_vmdriver_lowest_kernel();

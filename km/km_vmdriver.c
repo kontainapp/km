@@ -28,6 +28,11 @@ int km_vmdriver_get_identity(void)
    return ioctl(machine.kvm_fd, KKM_GET_IDENTITY, NULL);
 }
 
+int km_vmdriver_cpu_supported(void)
+{
+   return ioctl(machine.kvm_fd, KKM_CPU_SUPPORTED, NULL);
+}
+
 void km_vmdriver_machine_init(void)
 {
    switch (machine.vm_type) {

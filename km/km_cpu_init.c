@@ -587,6 +587,12 @@ void km_machine_setup(km_machine_init_params_t* params)
             "Setting vm type to %s",
             (machine.vm_type == VM_TYPE_KVM) ? "VM_TYPE_KVM" : "VM_TYPE_KKM");
 
+   if (machine.vm_type == VM_TYPE_KKM) {
+      if (km_vmdriver_cpu_supported() == CPU_NOT_SUPPORTED) {
+         km_errx(1, "KKM: Unsupported processor. Check kernel logs for more information.");
+      }
+   }
+
    km_check_kernel();   // exit there if too old
 
    int rc;
