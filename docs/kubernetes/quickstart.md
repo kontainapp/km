@@ -32,6 +32,16 @@ kube-system   storage-provisioner                1/1     Running   0          67
 kubectl apply -f curl https://raw.githubusercontent.com/kontainapp/km/latest/cloud/k8s/deploy/k8s-deploy.yaml
 ```
 
+To verify the installation, type:
+
+```
+$ kubectl get daemonsets.apps -A 
+NAMESPACE     NAME             DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR            AGE
+kube-system   kindnet          1         1         1       1            1           <none>                   168m
+kube-system   kontain-deploy   1         1         1       1            1           <none>                   163m
+kube-system   kube-proxy       1         1         1       1            1           kubernetes.io/os=linux   168m
+```
+
 A new pod, `kontain-deploy` should appear.
 
 ```
