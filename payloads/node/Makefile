@@ -64,13 +64,13 @@ in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke 
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 	tar -C ${NODETOP}/.. --exclude='.tmp*' -cf - ${NODE_DISTRO_FILES} | tar -xf -
 
-${NODE_TOP}: |
+${NODETOP}: |
 	git clone ${NODE_REPO} -b ${VERS}
 
-${NODE_TOP}/config.mk: ${NODE_TOP}
+${NODETOP}/config.mk: ${NODETOP}
 	cd ${NODETOP} && ./configure --gdb `[[ ${BUILD} == Debug ]] && echo -n --debug`
 
-fromsrc:
+fromsrc: ${NODETOP}/config.mk
 	cd ${NODETOP} && make -j`expr 2 \* $$(nproc)` && make jstest
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
