@@ -27,8 +27,12 @@ set -e
 export DEFAULT_TAG=latest
 
 readonly TAG=${1:-$DEFAULT_TAG}
+if [[ $TAG = latest ]] ; then
+   readonly URL="https://github.com/kontainapp/km/releases/${TAG}/download/kontain.tar.gz"
+else
+   readonly URL="https://github.com/kontainapp/km/releases/download/${TAG}/kontain.tar.gz"
+fi
 readonly PREFIX="/opt/kontain"
-readonly URL="https://github.com/kontainapp/km/releases/download/${TAG}/kontain.tar.gz"
 
 function check_args {
    # "check-arg: Noop for now"
