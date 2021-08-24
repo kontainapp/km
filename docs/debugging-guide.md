@@ -24,6 +24,25 @@ For more information about the GDB commands referenced in this document, see: [D
 For information about using Visual Studio Code using C++, see: [Get Started with C++ on Linux](https://code.visualstudio.com/docs/cpp/config-linux).
 
 For information about the Kontain commands referenced in this document, type: “`/opt/kontain/bin/km --help`”.
+
+## Analyzing KM Core Dumps
+A workload running as a unikernel in Kontain VM will generate a core dump in the same cases it would when running on Linux.
+
+You can use Visual Studio Code to analyze a Kontain core dump just as you would analyze a Linux core dump.
+
+You can also use standard system GDB to analyze a KM core dump.
+
+EXAMPLE:
+
+```
+gdb program.km kmcore
+```
+
+Where `kmcore` is the file name in Kontain.
+
+NOTE: By default, KM will save a core dump to `kmcore` in the current directory. You can designate a different file name using the `km` command with the `--coredump=file` flag, where `file` is the desired file name. When multiple KMs are running, having different file names can help you determine which KM has coredumped. 
+
+
 ## Debugging C/C++ using VS Code
 
 This is a step-by-step demonstration of how to build, run, and debug C or C++ code as a unikernel running in a Kontain VM using Visual Studio Code.
