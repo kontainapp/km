@@ -323,6 +323,7 @@ jobs:
 
       - name: Cleanup and logout
         if: always()
+        timeout-minutes: 20
         run: |
           [ "$TRACE" ] && set -x
           make -C cloud/azure ci-image-purge CI_IMAGE_DRY_RUN=""
