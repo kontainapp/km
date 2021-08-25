@@ -1,4 +1,4 @@
-# Demo for Kontain Kuberbetes Install
+# Demo for Kontain Kubernetes Install
 
 ## Prerequisites
 
@@ -15,8 +15,8 @@ $ kubectl exec -it kontain-test-app-5c77dcf745-h7lbn -- uname -r
 
 ## Minikube Notes
 
-To create a minikube cluster that used the CRI-O container runtime use:
-`minikube start --container-runtime=cri-o`.
+The command to create a minikube cluster that uses the CRI-O container runtime is:
+- `minikube start --container-runtime=cri-o`
 
 I needed to build the v1.22.0 version of minikube to get working `cri-o` runtime.
-That verion of minikube source requires golan 1.16 or greater.
+That version of minikube source requires golang 1.16 or greater to build.
