@@ -25,6 +25,8 @@ set -e ; [ "$TRACE" ] && set -x
 
 # docker config file locations
 ETC_DAEMON_JSON=/etc/docker/daemon.json
+DOCKERPATH=`which docker`
+KRUN_PATH=/opt/kontain/bin/krun
 
 . /etc/os-release
 
@@ -43,14 +45,29 @@ function restart_docker()
    fi
 }
 
+# UNINSTALL
+if [ $# -eq 1 -a "$1" = "-u" ]; then
+   echo "Removing kontain docker config changes"
+   if [ "$DOCKERPATH" != "" ]; then
+      if [ -e $ETC_DAEMON_JSON.kontainsave ]; then
+         cp $ETC_DAEMON_JSON.kontainsave $ETC_DAEMON_JSON
+         rm -f $ETC_DAEMON_JSON.kontainsave
+      else
+         # No .kontainsave file, they didn't have a daemon.json file
+         rm -f $ETC_DAEMON_JSON
+      fi
+      restart_docker
+   fi
+   exit 0
+fi
+
 # Can we assume docker is installed?
 #apt-get update
 #apt-get install -y -q docker.io
 #dnf install -y -q moby-engine
 
 # If docker is not here, don't do anything.
-dockerpath=`which docker`
-if test "$dockerpath" = ""
+if test "$DOCKERPATH" = ""
 then
    echo "Docker is not present on this system"
    exit 0
@@ -64,7 +81,7 @@ then
 {
   "runtimes": {
     "krun": {
-      "path": "/opt/kontain/bin/krun"
+      "path": "$KRUN_PATH"
     }
   }
 }
@@ -77,6 +94,7 @@ EOF
 else
    # update existing file.  I've found if the file is not really json (it is an empty file),
    # jq fails without returning an error.
+   cp $ETC_DAEMON_JSON $ETC_DAEMON_JSON.kontainsave
    krun=`jq '.runtimes["krun"]' $ETC_DAEMON_JSON`
    if test "$krun" = "null"
    then

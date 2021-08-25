@@ -17,6 +17,7 @@
 
 # A little script to get needed linux packages, change podman config files, and add a small
 # kontain selinux policy to allow podman to run containers using krun and km.
+# Can also be invoke with -u flag to uninstall our changes
 
 # exit if any command fails, display the commands if TRACE has a value.
 set -e ; [ "$TRACE" ] && set -x
@@ -24,19 +25,65 @@ set -e ; [ "$TRACE" ] && set -x
 # Should be run as root.
 [ `id -u` != "0" ] && echo "Must run as root" && exit 1
 
-# file locations
-GETENFORCEPATH=/usr/sbin/getenforce
-DOCKER_INIT_FEDORA=/usr/libexec/docker/docker-init
-DOCKER_INIT_UBUNTU=/usr/bin/docker-init
+# Set variables to know what kind of system this is.
+. /etc/os-release
+
+# Some programs we care about
 KRUN_PATH=/opt/kontain/bin/krun
 KM_PATH=/opt/kontain/bin/km
+
+# selinux policy related
+GETENFORCEPATH=/usr/sbin/getenforce
 KM_SELINUX_CONTEXT="system_u:object_r:bin_t:s0"
+KONTAIN_SELINUX_POLICY=kontain_selinux_policy
+POLDIR=/tmp/kontain_selinux_policy
+
+# Podman configuration related
+DOCKER_INIT_FEDORA=/usr/libexec/docker/docker-init
+DOCKER_INIT_UBUNTU=/usr/bin/docker-init
 CONTAINERS_CONF=/usr/share/containers/containers.conf
 ETC_CONTAINERS_CONF=/etc/containers/containers.conf
 # if running under sudo, update the invokers containers.conf, not root's
 # Note that the shell nazi's think eval to expand ~ is evil but I can't find a better way
 HOME_CONTAINERS_CONF=`eval echo ~${SUDO_USER}/.config/containers/containers.conf`
 mkdir -p `dirname $HOME_CONTAINERS_CONF`
+
+# packages
+FEDORA_PACKAGES="podman selinux-policy-devel"
+UBUNTU_PACKAGES="podman"
+
+
+# UNINSTALL
+if [ $# -eq 1 -a "$1" = "-u" ]; then
+   echo "Removing kontain related podman config changes"
+   # put back their containers.conf file
+   if [ -e $HOME_CONTAINERS_CONF.kontainsave ]; then
+      cp $HOME_CONTAINERS_CONF.kontainsave $HOME_CONTAINERS_CONF
+      rm -f $HOME_CONTAINERS_CONF.kontainsave
+   else
+      # No .kontainsave file, so they didn't have one before we got here
+      rm -f $HOME_CONTAINERS_CONF
+   fi
+
+   # remove our selinux policy
+   if [ "$ID" = "fedora" ]; then
+      semodule --remove=$KONTAIN_SELINUX_POLICY
+      # Remove the POLDIR?
+      #rm -fr $POLDIR
+      # We don't restore the context of km.
+   fi
+
+   # remove podman and selinux-policy-devel packages
+   if [ "$ID" = "fedora" ]; then
+      dnf remove -q -y $FEDORA_PACKAGES
+   elif [ "$ID" = "ubuntu" ]; then
+      apt-get remove -y $UBUNTU_PACKAGES
+   else
+      echo "Unknown linux distribution: $ID"
+   fi
+   exit 0
+fi
+   
 
 # return success if selinux is present and enabled, otherwise return fail
 function selinux_is_enabled()
@@ -50,9 +97,6 @@ function selinux_is_enabled()
    fi
    return 1
 }
-
-# Set variables to know what kind of system this is.
-. /etc/os-release
 
 # docker-init is in different directories for different distributions
 if [ "$ID" = "fedora" ]; then
@@ -84,6 +128,10 @@ else
    exit 1
 fi
 
+# Copy whatever they have even if we don't alter it.
+if [ -e $HOME_CONTAINERS_CONF ]; then
+   cp $HOME_CONTAINERS_CONF $HOME_CONTAINERS_CONF.kontainsave
+fi
 
 # If the user's containers.conf is missing give them a bare bones version
 echo
@@ -99,7 +147,7 @@ init_path = "$DOCKER_INIT"
 
 [engine.runtimes]
 krun = [
-        "/opt/kontain/bin/krun"
+        "$KRUN_PATH"
 ]
 EOF
    if test "$SUDO_USER" != ""
@@ -145,7 +193,6 @@ then
    chcon $KM_SELINUX_CONTEXT $KM_PATH
 
    # Add kontain selinux policy adjustments
-   POLDIR=/tmp/kontain_selinux_policy
    mkdir -p $POLDIR
    pushd $POLDIR || exit
    cat <<EOF >kontain_selinux_policy.te
