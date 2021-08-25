@@ -105,7 +105,7 @@ build {
   sources = ["source.amazon-ebs.build"]
 
   provisioner "file" {
-    sources     = ["${var.km_build}/kontain.tar.gz", "${var.km_build}/kkm.run", "daemon.json"]
+    sources     = ["${var.km_build}/kontain.tar.gz", "${var.km_build}/kkm.run"]
     destination = local.target_tmp
   }
 

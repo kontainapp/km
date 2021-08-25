@@ -29,7 +29,7 @@ TOP := $(shell git rev-parse --show-toplevel)
 DEP_PACKAGES := python git gcc automake autoconf libcap-devel \
 		yajl-devel libseccomp-devel \
 		glibc-static python3-libmount libtool \
-		openssl-lib openssl-devel
+		openssl-libs openssl-devel
 # The crun workspace is in the crun directory
 CRUNDIR := crun
 

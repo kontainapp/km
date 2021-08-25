@@ -35,6 +35,10 @@ cp -rf --preserve=links /opt/kontain $OPT_KONTAIN_TMP
 [ -d  ${OPT_KONTAIN_TMP}/include ] || mkdir ${OPT_KONTAIN_TMP}/include
 cp ${TOP}/include/km_hcalls.h ${OPT_KONTAIN_TMP}/include/km_hcalls.h
 
+# include docker and podman config scripts in the tarball
+mkdir -p ${OPT_KONTAIN_TMP}/bin
+cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN_TMP}/bin
+
 # package by doing `tar -C locations[i] files[i]`
 declare -a locations
 declare -a files

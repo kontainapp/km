@@ -48,6 +48,17 @@ function error {
    exit 1
 }
 
+source /etc/os-release
+NEEDED_UBUNTU_PACKAGES="libyajl2 libseccomp2 libcap2 openssl-libs"
+NEEDED_FEDORA_PACKAGES="yajl-devel.x86_64 libseccomp.x86_64 libcap.x86_64 openssl-libs.x86_64"
+if [ "$ID" = "fedora" ]; then
+   NEEDED_PACKAGES=$NEEDED_FEDORA_PACKAGES
+elif [ "$ID" = "ubuntu" ]; then
+   NEEDED_PACKAGES=$NEEDED_UBUNTU_PACKAGES
+else
+   error "Unsupported linux distribution $ID"
+fi
+
 pkgs_missing=0
 function check_packages {
    echo "Checking that packages $NEEDED_PACKAGES are present"
@@ -60,15 +71,14 @@ function check_packages {
 }
 
 function install_packages {
-   source /etc/os-release
    echo "Installing needed packages for $NAME"
    if [ "$NAME" == "Ubuntu" ]; then
       sudo apt-get update
-      sudo apt-get install -y libyajl2 libseccomp2 libcap2
+      sudo apt-get install -y $NEEDED_PACKAGES
    elif [ "$NAME" == "Fedora" ]; then
-      sudo dnf install -y yajl-devel.x86_64 libseccomp.x86_64 libcap.x86_64
+      sudo dnf install -y $NEEDED_PACKAGES
    else
-      echo "Unsupported linux: $NAME, packages libyajl, libseccomp, libcap may need to be installed for krun to work"
+      warning "Unsupported linux: $NAME, packages $NEEDED_UBUNTU_PACKAGES may need to be installed for krun to work"
    fi
 }
 
@@ -121,8 +131,14 @@ function get_bundle {
    fi
 }
 
+function config_container_runner {
+   /opt/kontain/bin/podman_config.sh
+   /opt/kontain/bin/docker_config.sh
+}
+
 # main
 check_args
 check_prereqs
 install_packages
 get_bundle
+config_container_runner

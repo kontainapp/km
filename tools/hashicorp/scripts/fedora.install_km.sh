@@ -17,7 +17,8 @@
 #
 
 # assumes $storage with kkm,run and kontain.tar.gz
-# installs kontain , kkm, docker
+# installs kontain, kkm, docker, podman
+# We assume this script runs as superuser.
 
 readonly storage="/tmp"
 
@@ -33,6 +34,8 @@ echo "PATH=\$PATH:/opt/kontain/bin" >> ~vagrant/.bashrc
 
 # Configure Docker and restart
 usermod -aG docker vagrant
-mkdir /etc/docker && cp $storage/daemon.json /etc/docker/daemon.json
-systemctl reload-or-restart docker.service
+/opt/kontain/bin/docker_config.sh
+
+# Config changes for podman
+/opt/kontain/bin/podman_config.sh
 

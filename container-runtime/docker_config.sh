@@ -70,6 +70,7 @@ then
 }
 EOF
    # get docker to ingest the new daemon.json file
+   mkdir -p `dirname $ETC_DAEMON_JSON`
    cp /tmp/daemon.json$$ $ETC_DAEMON_JSON
    rm -fr /tmp/daemon.json$$
    restart_docker
