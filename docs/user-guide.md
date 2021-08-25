@@ -108,8 +108,9 @@ You can also run a Kontain workload as a Docker container with the default Docke
 For more information, see [Using Docker Runtime](#using-the-docker-runtime).
 
 ### Additional Documentation and Support
-*   Command line help: `/opt/kontain/bin/km --help`
+*   KM command line help: `/opt/kontain/bin/km --help`
 *   [*Debugging Kontain Unikernels*](debugging-guide.md)
+*   [*Kontain FAQ*}(FAQ.md)
 ## Quick Start
 What’s in this section:
 *   Getting Started: Install a preconfigured Kontain box on your laptop or desktop.
@@ -696,103 +697,14 @@ From `kontain import snapshots`:
 
 See [examples/python/README.md](km/examples/python/README.md) for details on using the API in Python.
 
+
 ## Debugging Kontain Workloads
 
 Kontain supports workload (unikernel) debugging via core dumps and GDB, as well as live debugging in GDB.
 
 GDB-based GUI tools, including Visual Studio Code’s built-in debugger, are also supported.
 
-For more information about debugging, see this guide: [*Debugging Kontain Unikernels*](debugging-guide.md).
-
-For more information about the GDB commands referenced in this section, see: [https://sourceware.org/gdb/current/onlinedocs/gdb/](https://sourceware.org/gdb/current/onlinedocs/gdb/)
-
-For information about the Kontain commands referenced in this section, go to: `/opt/kontain/bin/km --help`.
-
-### Analyzing Core Dumps
-
-A workload running as a unikernel in Kontain VM will generate a core dump in the same cases it would while running on Linux.
-
-You can analyze a Kontain core dump the same as you would a regular Linux core dump.
-
-EXAMPLE:
-
-```
-gdb program.km kmcore
-```
-
-Where `kmcore` is the default file name in Kontain.
-
-To use a different file name, use this flag:
-
-`--coredump=file`
-
-### Live Debugging from the Command Line
-
-To attach a standard GDB client to a Kontain workload, you need to instruct the Kontain Monitor GDB server to listen for a client connection.
-
-The following flags control Kontain Monitor activation of the internal GDB server:
-
-`-g[port]` - Starts the GDB server, but instructs it to stop before the workload entry point and wait for the GDB client to connect. The default port is 2159.
-
-`--gdb_listen` - The workload is allowed to run right away, but the KM GDB server will wait in the background for a GDB client connection.
-
-You can connect to the GDB server, disconnect, and reconnect as often as you wish until the workload completes. When you connect to the KM GDB server, all workload threads will be paused until the GDB client starts them using the `cont`, `step`, or `next` command.
-
-NOTE: KM uses a dedicated signal (currently #63) to coordinate and pause workload threads. To avoid GDB program stops on this internal signal, use GDB `handle nostop`.
-
-EXAMPLE:
-
-```
-handle SIG63 nostop
-```
-
-This instruction can be used at each debugging session, or you can add it to the `~/.gdbinit` file.
-
-*Known Limitation:* GDB follow-fork-mode cannot be used to follow the child process after a fork. To enable debugging of a child process, you can add a variable to the parent KM environment. For more information, see [Debugging Child Processes and exec Workloads](#debugging-child-processes-and-exec-workloads).
-
-### Example: Debugging a Workload with KM GDB
-
-1. Start a workload from KM with GDB debugging enabled.
-
-EXAMPLE:
-
-```
-[someone@work ~]$ /opt/kontain/bin/km -g ./tests/hello_test.km
-```
-
-KM will respond, e.g,
-
-```
-./tests/hello_test.km: Waiting for a debugger. Connect to it like this:
-        gdb -q --ex="target remote localhost:2159" ./tests/hello_test.km
-GdbServerStubStarted
-
-```
-
-2. Use the provided information to attach the GDB client to the workload debugger.
-
-EXAMPLE:
-
-```
-[someone@work ~]$ gdb -q --ex="target remote localhost:2159" ./tests/hello_test.km
-
-Remote debugging using localhost:2159
-Reading /home/paulp/ws/ws2/km/tests/hello_test.km from remote target...
-warning: File transfers from remote targets can be slow. Use "set sysroot" to access files locally instead.
-Reading /home/paulp/ws/ws2/km/tests/hello_test.km from remote target...
-Reading symbols from target:/home/paulp/ws/ws2/km/tests/hello_test.km...
-0x0000000000201032 in _start ()
-(gdb)
-```
-
-### Restarting a Unikernel Debuggee
-
-Developers often need to restart a debuggee program from the beginning while preserving the breakpoints, variables, and other status in the client. In GDB, this is done using the `run` command. When debugging with Kontain GDB, use the following procedure to achieve the same results:
-
-1. In the GDB client, use the `detach` command to disconnect the debuggee and keep the client GDB alive.
-2. In another shell, start the debuggee with KM debugging enabled, using the `-g` option as described in Step 1 of the example, above.
-3. Returning to the GDB client, use the `target remote localhost:2159` command to attach to the freshly started debuggee. All of the breakpoints and other GDB client status should be present.
-4. Run the debuggee using the `continue` command.
+For more information about Kontain debugging, see this guide: [*Debugging Kontain Unikernels*](debugging-guide.md).
 
 ## Appendix
 
@@ -1055,38 +967,3 @@ spec:
 kubectl apply -f file.yaml
 ```
 
-### Debugging Child Processes and `exec` Workloads
-
-GDB follow-fork-mode cannot be used to follow the child process after a fork. This is because, when a Kontain workload forks, it inherits debug settings from the forking process. For example,
-
-*   If the parent waits for GDB `attach` before starting up, so will the child.
-*   If the parent listens for a GDB client `attach` in the background, the child will do the same.
-*   Each forked workload will be listening on a new network port.
-    *   The new network port is the next free port that is higher than the parent's GDBnetwork port.
-    *   If most ports are in use, the port number will wrap at 64*1024.
-
-To enable debugging of a child process, add the following variable to the parent KM environment:
-
-```
-KM_GDB_CHILD_FORK_WAIT
-```
-
-The value of this variable is a regular expression that is compared to the name of the workload. If there is a match, the child process will pause and wait for the GDB client to connect to the KM GDB server.
-
-First, look up which port to connect. This information is in a message from the child process KM and will look something like:
-
-```
-19:07:08.481122 km_gdb_attach_messag 319  1001.km      Waiting for a debugger. Connect to it like this:
-        gdb -q --ex="target remote work:2160" /home/paulp/ws/ws2/km/tests/gdb_forker_test.km
-GdbServerStubStarted
-```
-
-To attach, use:
-
-```
-gdb -q --ex="target remote localhost:2160"
-```
-
-When a workload process exec()'s, the GDB `catch exec` command will allow the GDB client to gain control after the `exec` call successfully completes.
-
-For a detailed guide to Kontain debugging, see: [*Debugging Kontain Unikernels*](debugging-guide.md).
