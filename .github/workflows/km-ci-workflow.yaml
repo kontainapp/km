@@ -174,7 +174,9 @@ jobs:
   km-test-withpacker:
     name: Basic payload tests with Packer
     runs-on: ubuntu-latest
-    needs: km-build
+    needs: [km-build, km-test]
+    # km-test and km-test-withpacker use the same resource group which causes the km-ci-workflow to fail.
+    # So, we serialize them even thought there is no real dependency.
     steps:
       - uses: actions/checkout@v2
         with:
