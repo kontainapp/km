@@ -16,10 +16,40 @@
 #
 # Install Kontain release on a Linux box. Assumes root.
 #
-# Usage: ./kontain-install.sh [TAG]
+# Usage: ./kontain-install.sh [TAG | -u]
+# -u = uninstall changes made by install
+#
+# Invokers of this script must be able to use sudo.
 #
 set -e
 [ "$TRACE" ] && set -x
+
+source /etc/os-release
+
+NEEDED_UBUNTU_PACKAGES="libyajl2 libseccomp2 libcap2 openssl-libs"
+NEEDED_FEDORA_PACKAGES="yajl-devel.x86_64 libseccomp.x86_64 libcap.x86_64 openssl-libs.x86_64"
+
+# UNINSTALL
+if [ $# -eq 1 -a "$1" = "-u" ]; then
+   echo "Removing kontain"
+
+   # Remove kontain config changes for docker and podman
+   sudo bash -c /opt/kontain/bin/podman_config.sh -u
+   sudo bash -c /opt/kontain/bin/docker_config.sh -u
+
+   # Unload kernel modules?
+
+   # uninstall packages
+   if [ "$NAME" == "Ubuntu" ]; then
+      sudo apt-get remove -y $NEEDED_UBUNTU_PACKAGES
+   elif [ "$NAME" == "Fedora" ]; then
+      sudo dnf remove -y $NEEDED_FEDORA_PACKAGES
+   else
+      warning "Unsupported linux: $NAME, packages $NEEDED_UBUNTU_PACKAGES may need to be installed for krun to work"
+   fi
+   
+   exit 0
+fi
 
 # release name has to be passed via 1st arg, otherwise it's fetched from a file in the repo
 
@@ -48,17 +78,6 @@ function error {
    exit 1
 }
 
-source /etc/os-release
-NEEDED_UBUNTU_PACKAGES="libyajl2 libseccomp2 libcap2 openssl-libs"
-NEEDED_FEDORA_PACKAGES="yajl-devel.x86_64 libseccomp.x86_64 libcap.x86_64 openssl-libs.x86_64"
-if [ "$ID" = "fedora" ]; then
-   NEEDED_PACKAGES=$NEEDED_FEDORA_PACKAGES
-elif [ "$ID" = "ubuntu" ]; then
-   NEEDED_PACKAGES=$NEEDED_UBUNTU_PACKAGES
-else
-   error "Unsupported linux distribution $ID"
-fi
-
 pkgs_missing=0
 function check_packages {
    echo "Checking that packages $NEEDED_PACKAGES are present"
@@ -74,9 +93,9 @@ function install_packages {
    echo "Installing needed packages for $NAME"
    if [ "$NAME" == "Ubuntu" ]; then
       sudo apt-get update
-      sudo apt-get install -y $NEEDED_PACKAGES
+      sudo apt-get install -y $NEEDED_UBUNTU_PACKAGES
    elif [ "$NAME" == "Fedora" ]; then
-      sudo dnf install -y $NEEDED_PACKAGES
+      sudo dnf install -y $NEEDED_FEDORA_PACKAGES
    else
       warning "Unsupported linux: $NAME, packages $NEEDED_UBUNTU_PACKAGES may need to be installed for krun to work"
    fi
@@ -118,7 +137,7 @@ function check_prereqs {
 function get_bundle {
    mkdir -p $PREFIX
    echo "Pulling $URL..."
-   wget $URL --output-document - -q | tar -C ${PREFIX} -xzf -
+   wget $URL --output-document - -q | tar -C ${PREFIX} -xzf - --selinux
    echo Done.
    if [ $validate == 1 ]; then
       $PREFIX/bin/km $PREFIX/tests/hello_test.km Hello World
@@ -132,8 +151,8 @@ function get_bundle {
 }
 
 function config_container_runner {
-   /opt/kontain/bin/podman_config.sh
-   /opt/kontain/bin/docker_config.sh
+   sudo bash -c /opt/kontain/bin/podman_config.sh
+   sudo bash -c /opt/kontain/bin/docker_config.sh
 }
 
 # main

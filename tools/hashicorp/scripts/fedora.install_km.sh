@@ -25,6 +25,8 @@ readonly storage="/tmp"
 # dnf install kernel-headers-$(uname -r) -y 2>&1
 dnf install -q -y kernel-headers gdb moby-engine
 
+grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
+
 # Install KKM... it will also validate hardware.
 bash $storage/kkm.run --noprogress -- --force-install 2>&1
 

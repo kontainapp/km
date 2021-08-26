@@ -73,6 +73,9 @@ then
    exit 0
 fi
 
+# We configure docker to use krun here.  krun may need some packages that
+# are not installed by default.  We don't install them here but instead depend
+# on podman_config.sh to install them for us.
 if ! test -e $ETC_DAEMON_JSON
 then
    # doesn't exist, create what we need

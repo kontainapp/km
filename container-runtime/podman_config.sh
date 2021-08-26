@@ -36,7 +36,7 @@ KM_PATH=/opt/kontain/bin/km
 GETENFORCEPATH=/usr/sbin/getenforce
 KM_SELINUX_CONTEXT="system_u:object_r:bin_t:s0"
 KONTAIN_SELINUX_POLICY=kontain_selinux_policy
-POLDIR=/tmp/kontain_selinux_policy
+POLDIR=/tmp/$KONTAIN_SELINUX_POLICY
 
 # Podman configuration related
 DOCKER_INIT_FEDORA=/usr/libexec/docker/docker-init
@@ -48,8 +48,11 @@ ETC_CONTAINERS_CONF=/etc/containers/containers.conf
 HOME_CONTAINERS_CONF=`eval echo ~${SUDO_USER}/.config/containers/containers.conf`
 mkdir -p `dirname $HOME_CONTAINERS_CONF`
 
-# packages
+# Needed packages
+# Note that docker_config.sh does not install the packages needed by krun. It depends on podman_config.sh doing it.
+FEDORA_KRUN_PACKAGES="libcap yajl libseccomp openssl-libs"
 FEDORA_PACKAGES="podman selinux-policy-devel"
+UBUNTU_KRUN_PACKAGES="libcap2 libyajl2 libseccomp2 openssl"
 UBUNTU_PACKAGES="podman"
 
 
@@ -74,6 +77,7 @@ if [ $# -eq 1 -a "$1" = "-u" ]; then
    fi
 
    # remove podman and selinux-policy-devel packages
+   # We don't remove the packages needed by krun since many of them are usually present by default.
    if [ "$ID" = "fedora" ]; then
       dnf remove -q -y $FEDORA_PACKAGES
    elif [ "$ID" = "ubuntu" ]; then
@@ -112,7 +116,7 @@ fi
 echo "Installing podman and selinux packages"
 if test "$ID" =  "fedora"
 then
-   dnf install -y -q --refresh podman selinux-policy-devel
+   dnf install -y -q --refresh $FEDORA_PACKAGES $FEDORA_iKRUN_PACKAGES
 elif test "$ID" = "ubuntu"
 then
    apt-get update 
@@ -120,7 +124,7 @@ then
    echo "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
    wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_${VERSION_ID}/Release.key -O- | apt-key add -
    apt-get update
-   apt-get install -y  podman
+   apt-get install -y  $UBUNTU_PACKAGES $UBUNTU_KRUN_PACKAGES
    # ubuntu doesn't use selinux by default.
    #apt-get install -y -q selinux-policy-dev
 else
@@ -190,13 +194,18 @@ then
    echo "selinux is present on this system"
 
    # set selinux context on /opt/kontain/bin/km
-   chcon $KM_SELINUX_CONTEXT $KM_PATH
+   if [ -e "$KM_PATH" ]; then
+      chcon $KM_SELINUX_CONTEXT $KM_PATH
+   else
+      echo "$KM_PATH does not exist, when it does exist run the following:"
+      echo "chcon $KM_SELINUX_CONTEXT $KM_PATH"
+   fi
 
    # Add kontain selinux policy adjustments
    mkdir -p $POLDIR
    pushd $POLDIR || exit
-   cat <<EOF >kontain_selinux_policy.te
-module kontain_selinux_policy 1.0.0;
+   cat <<EOF >$KONTAIN_SELINUX_POLICY.te
+module $KONTAIN_SELINUX_POLICY 1.0.0;
 
 require {
   type container_t;
