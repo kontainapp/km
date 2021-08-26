@@ -25,9 +25,14 @@ set -e
 [ "$TRACE" ] && set -x
 
 source /etc/os-release
+[ "$ID" != "fedora" -a "$ID" != "ubuntu" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
-NEEDED_UBUNTU_PACKAGES="libyajl2 libseccomp2 libcap2 openssl-libs"
-NEEDED_FEDORA_PACKAGES="yajl-devel.x86_64 libseccomp.x86_64 libcap.x86_64 openssl-libs.x86_64"
+readonly NEEDED_UBUNTU_PACKAGES="libyajl2 libseccomp2 libcap2 openssl-libs"
+readonly NEEDED_FEDORA_PACKAGES="yajl-devel.x86_64 libseccomp.x86_64 libcap.x86_64 openssl-libs.x86_64"
+readonly INSTALL_UBUNTU_PACKAGES="sudo apt-get update; sudo apt-get install -y "
+readonly INSTALL_FEDORA_PACKAGES="sudo dnf install -y "
+readonly UNINSTALL_UBUNTU_PACKAGES="sudo apt-get remove -y "
+readonly UNINSTALL_FEDORA_PACKAGES="sudo dnf remove -y  "
 
 # UNINSTALL
 if [ $# -eq 1 -a "$1" = "-u" ]; then
@@ -40,13 +45,9 @@ if [ $# -eq 1 -a "$1" = "-u" ]; then
    # Unload kernel modules?
 
    # uninstall packages
-   if [ "$NAME" == "Ubuntu" ]; then
-      sudo apt-get remove -y $NEEDED_UBUNTU_PACKAGES
-   elif [ "$NAME" == "Fedora" ]; then
-      sudo dnf remove -y $NEEDED_FEDORA_PACKAGES
-   else
-      warning "Unsupported linux: $NAME, packages $NEEDED_UBUNTU_PACKAGES may need to be installed for krun to work"
-   fi
+   local UNINSTALL=UNINSTALL_${ID^^}_PACKAGES
+   local PACKAGES=NEEDED_${ID^^}_PACKAGES
+   ${!UNINSTALL} ${!PACKAGES}
    
    exit 0
 fi
@@ -90,15 +91,10 @@ function check_packages {
 }
 
 function install_packages {
-   echo "Installing needed packages for $NAME"
-   if [ "$NAME" == "Ubuntu" ]; then
-      sudo apt-get update
-      sudo apt-get install -y $NEEDED_UBUNTU_PACKAGES
-   elif [ "$NAME" == "Fedora" ]; then
-      sudo dnf install -y $NEEDED_FEDORA_PACKAGES
-   else
-      warning "Unsupported linux: $NAME, packages $NEEDED_UBUNTU_PACKAGES may need to be installed for krun to work"
-   fi
+   echo "Installing needed packages for $ID"
+   local INSTALL=INSTALL_${ID^^}_PACKAGES
+   local PACKAGES=NEEDED_${ID^^}_PACKAGES
+   ${!INSTALL} ${!PACKAGES}
 }
 
 validate=0

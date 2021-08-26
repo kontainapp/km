@@ -28,21 +28,17 @@ ETC_DAEMON_JSON=/etc/docker/daemon.json
 DOCKERPATH=`which docker`
 KRUN_PATH=/opt/kontain/bin/krun
 
+RESTART_DOCKER_FEDORA="systemctl restart docker.service "
+RESTART_DOCKER_UBUNTU="service docker restart"
+
 . /etc/os-release
+[ "$ID" != "fedora" -a "$ID" != "ubuntu" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
 function restart_docker()
 {
-   echo "Restarting docker"
-   if test "$ID" = "fedora"
-   then
-      systemctl restart docker.service   # fedora
-   elif test "$ID" = "ubuntu"
-   then
-      service docker restart   # ubuntu
-   else
-      echo "unknown linux distribution $ID"
-      false
-   fi
+   local RESTART_DOCKER=RESTART_DOCKER_${ID^^}
+   echo "Restarting docker with: ${!RESTART_DOCKER}"
+   ${!RESTART_DOCKER}
 }
 
 # UNINSTALL
@@ -67,8 +63,7 @@ fi
 #dnf install -y -q moby-engine
 
 # If docker is not here, don't do anything.
-if test "$DOCKERPATH" = ""
-then
+if [ "$DOCKERPATH" = "" ]; then
    echo "Docker is not present on this system"
    exit 0
 fi
@@ -76,10 +71,9 @@ fi
 # We configure docker to use krun here.  krun may need some packages that
 # are not installed by default.  We don't install them here but instead depend
 # on podman_config.sh to install them for us.
-if ! test -e $ETC_DAEMON_JSON
-then
+if [ ! -e $ETC_DAEMON_JSON ]; then
    # doesn't exist, create what we need
-   echo $ETC_DAEMON_JSON does not exist, creating
+   echo "$ETC_DAEMON_JSON does not exist, creating"
    cat <<EOF >/tmp/daemon.json$$
 {
   "runtimes": {

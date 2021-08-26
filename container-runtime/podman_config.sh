@@ -27,6 +27,7 @@ set -e ; [ "$TRACE" ] && set -x
 
 # Set variables to know what kind of system this is.
 . /etc/os-release
+[ "$ID" != "fedora" -a "$ID" != "ubuntu" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
 # Some programs we care about
 KRUN_PATH=/opt/kontain/bin/krun
@@ -50,10 +51,15 @@ mkdir -p `dirname $HOME_CONTAINERS_CONF`
 
 # Needed packages
 # Note that docker_config.sh does not install the packages needed by krun. It depends on podman_config.sh doing it.
-FEDORA_KRUN_PACKAGES="libcap yajl libseccomp openssl-libs"
-FEDORA_PACKAGES="podman selinux-policy-devel"
-UBUNTU_KRUN_PACKAGES="libcap2 libyajl2 libseccomp2 openssl"
-UBUNTU_PACKAGES="podman"
+readonly FEDORA_KRUN_PACKAGES="libcap yajl libseccomp openssl-libs"
+readonly FEDORA_PACKAGES="podman selinux-policy-devel"
+readonly UBUNTU_KRUN_PACKAGES="libcap2 libyajl2 libseccomp2 openssl"
+readonly UBUNTU_PACKAGES="podman"
+readonly INSTALL_UBUNTU_PACKAGES="sudo apt-get update; sudo apt-get install -y "
+readonly INSTALL_FEDORA_PACKAGES="sudo dnf install -y "
+readonly UNINSTALL_UBUNTU_PACKAGES="sudo apt-get remove -y "
+readonly UNINSTALL_FEDORA_PACKAGES="sudo dnf remove -y  "
+
 
 
 # UNINSTALL
@@ -73,18 +79,15 @@ if [ $# -eq 1 -a "$1" = "-u" ]; then
       semodule --remove=$KONTAIN_SELINUX_POLICY
       # Remove the POLDIR?
       #rm -fr $POLDIR
-      # We don't restore the context of km.
+      # We don't restore km's selinux context.
    fi
 
    # remove podman and selinux-policy-devel packages
    # We don't remove the packages needed by krun since many of them are usually present by default.
-   if [ "$ID" = "fedora" ]; then
-      dnf remove -q -y $FEDORA_PACKAGES
-   elif [ "$ID" = "ubuntu" ]; then
-      apt-get remove -y $UBUNTU_PACKAGES
-   else
-      echo "Unknown linux distribution: $ID"
-   fi
+   UNINSTALL=UNINSTALL_${ID^^}_PACKAGES
+   PACKAGES=${ID^^}_PACKAGES
+   ${!UNINSTALL} ${!PACKAGES}
+
    exit 0
 fi
    
@@ -92,45 +95,29 @@ fi
 # return success if selinux is present and enabled, otherwise return fail
 function selinux_is_enabled()
 {
-   if [ -e "${GETENFORCEPATH}" ]
-   then
-      if [ "`${GETENFORCEPATH}`" != "Disabled" ]
-      then
-         return 0
-      fi
-   fi
-   return 1
+   [ -e "${GETENFORCEPATH}" -a "`${GETENFORCEPATH}`" != "Disabled" ]
 }
 
 # docker-init is in different directories for different distributions
-if [ "$ID" = "fedora" ]; then
-   DOCKER_INIT=$DOCKER_INIT_FEDORA
-elif [ "$ID" = "ubuntu" ]; then
-   DOCKER_INIT=$DOCKER_INIT_UBUNTU
-else
-   echo "Unsupported linux distributionn $ID"
-   exit 1
-fi
+DI=DOCKER_INIT_${ID^^}
+DOCKER_INIT=${!DI}
 
 # Install podman and policy build tools
 echo "Installing podman and selinux packages"
-if test "$ID" =  "fedora"
-then
-   dnf install -y -q --refresh $FEDORA_PACKAGES $FEDORA_iKRUN_PACKAGES
-elif test "$ID" = "ubuntu"
+PACKAGES=${ID^^}_PACKAGES
+KRUN_PACKAGES=${ID^^}_KRUN_PACKAGES
+INSTALL=INSTALL_${ID^^}_PACKAGES
+
+# Tell ubuntu about the ppackage repo containing podman
+if test "$ID" = "ubuntu"
 then
    apt-get update 
    apt-get install -y wget gnupg2
    echo "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
    wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_${VERSION_ID}/Release.key -O- | apt-key add -
-   apt-get update
-   apt-get install -y  $UBUNTU_PACKAGES $UBUNTU_KRUN_PACKAGES
-   # ubuntu doesn't use selinux by default.
-   #apt-get install -y -q selinux-policy-dev
-else
-   echo "Unsupported linux distributionn $ID"
-   exit 1
 fi
+# install podman, selinux utils, krun dependencies
+${!INSTALL} ${!PACKAGES} ${!KRUN_PACKAGES}
 
 # Copy whatever they have even if we don't alter it.
 if [ -e $HOME_CONTAINERS_CONF ]; then
