@@ -67,6 +67,8 @@ KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
 KM_LDSO := ${BLDTOP}/runtime/libc.so
 
+GETENFORCE := /usr/sbin/getenforce
+
 # Build with code coverage if BLDTYPE set to this.
 COV_BLDTYPE := coverage
 COVERAGE_KM_BLDDIR := ${BLDTOP}/km/${COV_BLDTYPE}
