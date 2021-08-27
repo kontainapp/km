@@ -92,7 +92,17 @@ fi
 # return success if selinux is present and enabled, otherwise return fail
 function selinux_is_enabled()
 {
-   [ -e "${GETENFORCEPATH}" -a "`${GETENFORCEPATH}`" != "Disabled" ]
+   # If the "if" statement below is coded this way:
+   # [ -e "${GETENFORCEPATH}" ] && [ "`${GETENFORCEPATH}`" != "Disabled" ]
+   # the shell will complete the command line (including the `progname` stuff before the
+   # test ("[") operands are evaluated.  If the getenforce program is missing then the
+   # function fails because of that.
+   if [ -e "${GETENFORCEPATH}" ]; then
+      if [ "`${GETENFORCEPATH}`" != "Disabled" ]; then
+         return 0
+      fi
+   fi
+   return 1
 }
 
 # docker-init is in different directories for different distributions
