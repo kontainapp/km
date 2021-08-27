@@ -29,13 +29,15 @@ EOF
    exit 1
 }
 
+echo "Checking for /dev/k.m"
+ls -l /dev/k.m
 case "$1" in
   test)
    KM_BIN=$2
    PAYLOAD_KM=$3
    TEST_KM=$4
 
-	${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
+	${KM_BIN} -V ${PAYLOAD_KM} ./scripts/hello.js
 	echo noop.js - expecting exit with code 22:
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js || [ $? -eq 22 ]
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/micro-srv.js & sleep 1 ; curl localhost:8080
