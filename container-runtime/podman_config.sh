@@ -55,10 +55,12 @@ readonly FEDORA_KRUN_PACKAGES="libcap yajl libseccomp openssl-libs"
 readonly FEDORA_PACKAGES="podman selinux-policy-devel"
 readonly UBUNTU_KRUN_PACKAGES="libcap2 libyajl2 libseccomp2 openssl"
 readonly UBUNTU_PACKAGES="podman"
-readonly INSTALL_UBUNTU_PACKAGES="sudo apt-get update; sudo apt-get install -y "
+readonly REFRESH_UBUNTU_PACKAGES="sudo apt-get update"
+readonly REFRESH_FEDORA_PACKAGES=true
+readonly INSTALL_UBUNTU_PACKAGES="sudo apt-get install -y "
 readonly INSTALL_FEDORA_PACKAGES="sudo dnf install -y "
 readonly UNINSTALL_UBUNTU_PACKAGES="sudo apt-get remove -y "
-readonly UNINSTALL_FEDORA_PACKAGES="sudo dnf remove -y  "
+readonly UNINSTALL_FEDORA_PACKAGES="sudo dnf remove -y "
 
 # UNINSTALL
 if [ $# -eq 1 -a "$1" = "-u" ]; then
@@ -114,6 +116,7 @@ echo "Installing podman and selinux packages"
 PACKAGES=${ID^^}_PACKAGES
 KRUN_PACKAGES=${ID^^}_KRUN_PACKAGES
 INSTALL=INSTALL_${ID^^}_PACKAGES
+REFRESH=REFRESH_${ID^^}_PACKAGES
 
 # Tell ubuntu about the ppackage repo containing podman
 if test "$ID" = "ubuntu"
@@ -124,6 +127,7 @@ then
    wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_${VERSION_ID}/Release.key -O- | apt-key add -
 fi
 # install podman, selinux utils, krun dependencies
+${!REFRESH}
 ${!INSTALL} ${!PACKAGES} ${!KRUN_PACKAGES}
 
 # Copy whatever they have even if we don't alter it.
