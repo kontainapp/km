@@ -60,8 +60,6 @@ readonly INSTALL_FEDORA_PACKAGES="sudo dnf install -y "
 readonly UNINSTALL_UBUNTU_PACKAGES="sudo apt-get remove -y "
 readonly UNINSTALL_FEDORA_PACKAGES="sudo dnf remove -y  "
 
-
-
 # UNINSTALL
 if [ $# -eq 1 -a "$1" = "-u" ]; then
    echo "Removing kontain related podman config changes"
@@ -90,7 +88,6 @@ if [ $# -eq 1 -a "$1" = "-u" ]; then
 
    exit 0
 fi
-   
 
 # return success if selinux is present and enabled, otherwise return fail
 function selinux_is_enabled()
@@ -163,7 +160,6 @@ else
       echo "init_path = \"$DOCKER_INIT\"" is already in $HOME_CONTAINERS_CONF
    fi
 fi
-
 
 # add krun to ~/.config/containers/containers.conf at the beginning of the [engine.runtimes] section
 echo

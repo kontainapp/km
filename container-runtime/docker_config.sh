@@ -63,10 +63,7 @@ fi
 #dnf install -y -q moby-engine
 
 # If docker is not here, don't do anything.
-if [ "$DOCKERPATH" = "" ]; then
-   echo "Docker is not present on this system"
-   exit 0
-fi
+[ "$DOCKERPATH" = "" ] && echo "Docker is not present on this system" && exit 0
 
 # We configure docker to use krun here.  krun may need some packages that
 # are not installed by default.  We don't install them here but instead depend
