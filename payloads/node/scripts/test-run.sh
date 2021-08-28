@@ -30,7 +30,7 @@ EOF
 }
 
 echo "Checking for /dev/k.m"
-ls -l /dev/k.m
+ls -l /dev/k*m
 case "$1" in
   test)
    KM_BIN=$2
