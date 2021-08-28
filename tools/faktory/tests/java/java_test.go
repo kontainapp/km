@@ -151,9 +151,7 @@ func testKontain() error {
 		"run",
 		"-d",
 		"--rm",
-		"--device=/dev/kvm",
-		"-v", "/opt/kontain/bin/km:/opt/kontain/bin/km:z",
-		"-v", "/opt/kontain/runtime/libc.so:/opt/kontain/runtime/libc.so:z",
+		"--runtime=krun",
 		"-p", "8080:8080",
 		"--name", TESTCONTAINER,
 		TO); err != nil {

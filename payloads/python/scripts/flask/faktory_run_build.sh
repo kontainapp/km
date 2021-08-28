@@ -36,7 +36,6 @@ KM_BIN="$4"
 
 if [ -z "${IMAGE}" -o -z "${KM_IMAGE}" -o -z "${DTYPE}" ] ; then echo Wrong usage, missing param; exit 1; fi
 
-
 RED="\033[31m"
 NOCOLOR="\033[0m"
 
@@ -47,14 +46,10 @@ entrypoint=$(docker image inspect $IMAGE -f '{{json .Config.Entrypoint }}')
 # TODO - here is a good place to check language-specific quirks with entrypoint and cmd and env, i.e usage of scripts?
 # or (better) pass this info down as build_param so in-container faktory_prepare can analyze..
 if [[ $entrypoint == *python*-*E* ]] ; then
-   echo -e "${RED}*** WARNING: -E flag in python - PYTHONHOME wont work${NOCOLOR}"  >&2
+   echo -e "${RED}*** WARNING: -E flag in python - PYTHONHOME wont work${NOCOLOR}" >&2
 fi
 
-cp ${KM_BIN} .
-cp ../../cpython/python.km python3.km # TODO - build python.km if needed; also use python versioning scheme
-
-cat faktory_stem.dockerfile  - <<EOF  | $docker_build --build-arg distro="$DTYPE"  -t $KM_IMAGE -f - .
-
+cat faktory_stem.dockerfile - <<EOF  | $docker_build --build-arg distro="$DTYPE" -t $KM_IMAGE -f - .
 #-- auto-lifted from $IMAGE. Do not edit directly:--
 
 WORKDIR    $(docker image inspect $IMAGE -f '{{json .Config.WorkingDir }}')
@@ -62,7 +57,3 @@ ENTRYPOINT $entrypoint
 CMD        $(docker image inspect $IMAGE -f '{{json .Config.Cmd }}')
 
 EOF
-
-res=$?
-rm -f python3.km $(basename ${KM_BIN})
-exit $res

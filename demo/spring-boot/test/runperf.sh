@@ -24,12 +24,7 @@ max_attempts=250
 
 START=$(date +%s%N)
 
-docker run -it --name TESTDEMO -d --device=/dev/kvm \
-  -v /opt/kontain/bin/km:/opt/kontain/bin/km:z \
-  -v /opt/kontain/runtime/libc.so:/opt/kontain/runtime/libc.so:z \
-  -v /opt/kontain/bin/km_cli:/opt/kontain/bin/km_cli:z \
-  -v ${WORKSPACE}/km/payloads/java/scripts:/scripts:z \
-  -p8080:8080 ${CONTAINER}
+docker run --runtime=krun -it --name TESTDEMO -d -p8080:8080 ${CONTAINER}
 #/opt/kontain/bin/km /opt/kontain/java/bin/java.kmd -jar /app.jar &
 #/opt/kontain/bin/km kmsnap &
 
@@ -51,4 +46,3 @@ echo $((${DFINISH} - ${START})), $((${FINISH} - ${DFINISH})), $((${FINISH} - ${S
 
 docker stop TESTDEMO
 docker rm TESTDEMO
-kill %1

@@ -158,7 +158,7 @@ clobber-modules:
 # Set info for runenv-image build
 
 RUNENV_ROOTFS_SCRIPT := runenv/rootfs.sh
-RUNENV_VALIDATE_CMD := ("/usr/local/bin/python3" "scripts/sanity_test.py")
+RUNENV_VALIDATE_CMD := ("python3" "scripts/sanity_test.py")
 
 export define runenv_prep
 	${RUNENV_ROOTFS_SCRIPT} ${PYTHONTOP} ${RUNENV_PATH} ${VERS} $(notdir ${PAYLOAD_KM})

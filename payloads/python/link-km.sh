@@ -53,7 +53,7 @@ echo kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
 kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
    @linkline_km.txt ${EXTRA_FILES} ${OUT}/python.km.symbols.o \
    ${BUILD}/libpython3*.a -lz -lssl -lcrypto -lsqlite3 $LDLIBS \
-   -o ${NAME} && chmod a-x ${NAME} && echo Linked: ${OUT}/${NAME}
+   -o ${NAME} && echo Linked: ${OUT}/${NAME}
 
 kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
    -Xlinker --undefined=strtoull_l \

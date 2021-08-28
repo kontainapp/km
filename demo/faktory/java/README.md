@@ -44,9 +44,7 @@ sudo tools/faktory/bin/faktory convert --type java \
 # To run the kontainer. --init makes ^C/^Z killing handled by runtime
 docker run -it --init --rm -p 8081:8080 \
     --name demo-kontain \
-    --device /dev/kvm \
-    -v /opt/kontain/bin/km:/opt/kontain/bin/km:z \
-    -v /opt/kontain/runtime/libc.so:/opt/kontain/runtime/libc.so:z \
+    --runtime=krun \
     kontainapp/faktory-java-demo-kontain:latest
 
 # In another window

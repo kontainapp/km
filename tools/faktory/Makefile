@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-
 .PHONY: all
 all: bin/faktory
 
@@ -31,7 +30,7 @@ clean:
 .PHONY: test
 test: bin/faktory
 	@# sudo is required to run tests
-	sudo -E env "GOPATH=${GOPATH}" env "GOBIN=${GOBIN}" /usr/local/go/bin/go test -p 1 -count=1 ./tests/...
+	sudo -E env "GOPATH=${GOPATH}" env "GOBIN=${GOBIN}" go test -p 1 -count=1 ./tests/...
 
 .DEFAULT:
 	@echo $(notdir $(CURDIR)): ignoring target '$@'

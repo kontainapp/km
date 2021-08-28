@@ -30,7 +30,6 @@ if [ -z "$DIR" ] ; then DIR=/tmp/faktory; fi
 APPDIR=$2 # where is the app
 if [ -z "$APPDIR" ] ; then APPDIR=`pwd`; fi
 
-
 msg() { echo "$@" >&2; }
 
 msg We are in $APPDIR

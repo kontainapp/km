@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 FROM scratch
+ENV HOME /root
 # turn off km symlink trick and minimal shell interpretation
 ENV KM_DO_SHELL NO
 ADD --chown=0:0 busybox/_install /

@@ -29,8 +29,8 @@ To work around the issue, we `docker save` the image, restore the metadata
 from the source container, compute the hash and make the right edits, and
 last `docker load` the resulting image back as the final `kontainer`. The
 image exported through `docker save` is self contained, so we have a chance
-to edit the metadata without failing all the docker hash checkings. It's
-important to note that this is reverse enginered process, and are not
+to edit the metadata without failing all the docker hash checks. It's
+important to note that this is reverse engineered process, and are not
 officially supported APIs.
 
 ### Assumptions
@@ -42,9 +42,9 @@ how the input container is constructed. Therefore, we assume the input
 container is build with the following layers.
 
 * Base OS layers: this layer contains the base operating system such as ubuntu
-and alpine. We will throw this layout.
+or alpine. We will throw this layout.
 
-* Launguage runtime layers: this will contain the python installation. We can
+* Language runtime layers: this will contain the python installation. We can
 identify this layer by searching for python installations in the known path.
 We will ignore custom installation location for now. We will try to replace
 this layer with kontain python runenv images.
@@ -74,11 +74,3 @@ The test requires:
 - km be compiled and installed onto `/opt/kontain/bin/km` on the host.
 - `kontainapp/runenv-python` is built. `make -C TOP/payloads/python
 runenv-image`.
-
-When in question, consult the km and payload/python for more info.
-
-Note: Ideally, we want to pull the official `runenv-python` image, but
-currently that's not implemented yet. This repo should be able to stand on
-it's own and have as little dependencies as possible to the km and payload
-code. Whenever possible, faktory should only consume released version of km
-and payloads.
