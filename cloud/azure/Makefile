@@ -101,6 +101,7 @@ login-cli: .check_tools  ## Non-interactive login to Azure, Azure Container Regi
 # Support for manually purging old test and demo-runenv images
 # max age for purge, in 'duration string' format https://golang.org/pkg/time/
 CI_IMAGE_PURGE_AGE ?= 3d
+CI_IMAGE_PURGE_TIMEOUT ?= 1800
 CI_IMAGE_NAMES := busybox dweb dynamic-base dynamic-base-large dynamic-python jdk-11.0.8 node python
 CI_IMAGE_REPOS_TO_PURGE := test-km-fedora $(patsubst %,test-%-fedora,$(CI_IMAGE_NAMES)) $(patsubst %,demo-runenv-%,$(CI_IMAGE_NAMES)) runenv-kontain-installer
 CI_IMAGE_DRY_RUN ?= --dry-run
@@ -114,7 +115,7 @@ ifneq ($(CI_IMAGE_DRY_RUN),)
 	@echo -e "${GREEN}Doing dry run. To do actual purge, run with CI_IMAGE_DRY_RUN=\"\" ${NOCOLOR}"
 endif
 	@echo "Purging images for $(CI_IMAGE_REPOS_TO_PURGE) older than $(CI_IMAGE_PURGE_AGE)"
-	az acr run --cmd '"${CI_IMAGE_PURGE_CMD} $(patsubst %,--filter %:ci-.*,${CI_IMAGE_REPOS_TO_PURGE})"' --registry ${REGISTRY_NAME} /dev/null;
+	az acr run --cmd '"${CI_IMAGE_PURGE_CMD} $(patsubst %,--filter %:ci-.*,${CI_IMAGE_REPOS_TO_PURGE})"' --registry ${REGISTRY_NAME} --timeout ${CI_IMAGE_PURGE_TIMEOUT} /dev/null;
 
 # Helpers to avoid cut-n-paste in pipeline definition.
 ci-prepare-testenv: ## helper for Azure CI. Obsolete for GitHub workflows
