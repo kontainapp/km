@@ -88,6 +88,11 @@ source "amazon-ebs" "km-test" {
 build {
   sources = ["amazon-ebs.km-test"]
 
+  provisioner "file" {
+    sources     = ["/tmp/km", "/tmp/krun"]
+    destination = "/tmp/"
+  }
+
   provisioner "shell" {
     # packer provisioners run as tmp 'packer' user.
     # For docker to run with no sudo, let's add it to 'docker' group and

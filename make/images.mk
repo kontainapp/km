@@ -116,7 +116,7 @@ pull-testenv-image: ## pulls test image. Mainly need for CI
 .pull-image:
 	@echo -e "$(CYAN)Do not forget to login to azure using 'make -C GIT_TOP/cloud/azure login'$(NOCOLOR)"
 	@if [ -z "$(FROM)" -o -z "$(TO)" ] ; then echo Missing params FROM or TO, exiting; false; fi
-	docker pull $(FROM)
+	docker pull --quiet $(FROM)
 	docker tag $(FROM) $(TO)
 	@echo -e "Pulled image ${GREEN}${TO}${NOCOLOR}"
 
@@ -167,11 +167,18 @@ RUNENV_VALIDATE_CMD ?= ("Place" "ValidateCommandBashArray" "Here")
 RUNENV_VALIDATE_EXPECTED ?= Hello
 
 # We use km from ${KM_BIN} here from the build tree instead of what's on the host under ${KM_OPT_BIN}.
+# We remove the container image from the podman local repository to force podman to get it from the
+# docker local repository since that is where the payload images are stored when built.
+# There does not appear to a way to stop podman from complaining if the image being deleted does not exist.
 validate-runenv-image: ## Validate runtime image
 	tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
-	${DOCKER_RUN_TEST} \
-	${KM_KM_VOLUME} \
+	${DOCKER_RUN} ${DOCKER_INTERACTIVE} --init ${DOCKER_KRUN_RUNTIME} \
 	${RUNENV_DEMO_IMG_TAGGED} \
+	"$${tmp_bash_array[@]}" | grep "${RUNENV_VALIDATE_EXPECTED}"
+	@-podman image rm ${RUNENV_DEMO_IMG_TAGGED} >/dev/null 2>&1
+	tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
+	${PODMAN_RUN_TEST} ${PODMAN_KRUN_RUNTIME} \
+	docker-daemon:${RUNENV_DEMO_IMG_TAGGED} \
 	"$${tmp_bash_array[@]}" | grep "${RUNENV_VALIDATE_EXPECTED}"
 
 push-runenv-image:  runenv-image ## pushes image.
@@ -266,7 +273,7 @@ endif # ifeq (${NO_RUNENV}, false)
 #
 # Pass DIR env to change where the tests are running
 # Example:
-# make -C tests/ validate-runenv-image-withpacker IMAGE_VERSION=ci-208 HYPERVISOR_DEVICE=/dev/kkm DIR=payloads
+# make -C tests/ validate-runenv-image-withpacker IMAGE_VERSION=ci-208 HYPERVISOR_DEVICE=/dev/kkm PACKER_DIR=payloads
 
 TIMEOUT ?= 10m
 PACKER_DIR ?= ${FROMTOP}

@@ -133,7 +133,9 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: km
-          path: /opt/kontain/bin/km
+          path: |
+            /opt/kontain/bin/km
+            /opt/kontain/bin/krun
           retention-days: 7
 
   km-test:
@@ -172,13 +174,20 @@ jobs:
   km-test-withpacker:
     name: Basic payload tests with Packer
     runs-on: ubuntu-latest
-    needs: km-build
+    needs: [km-build, km-test]
+    # km-test and km-test-withpacker use the same resource group which causes the km-ci-workflow to fail.
+    # So, we serialize them even thought there is no real dependency.
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
 
       - run: make -C cloud/azure login-cli
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: km
+          path: /tmp/
 
       - name: Payload tests with packer
         # to avoid calling packer in a loop, we call it on one dir (does not matter which one)
@@ -241,18 +250,42 @@ jobs:
         if: always()
         run: dmesg
 
-  kkm-test-aws:
-    name: Test KM/KKM on AWS VM
+  kkm-test-vms:
+    name: Test KM/KKM on AWS and Azure VMs
     runs-on: ubuntu-20.04
     needs: [km-build, kkm-build]
     steps:
       - uses: actions/checkout@v2
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: km
+          path: /tmp/
 
       - name: KM with KKM Test - AWS and Azure with packer
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: make -C tests test-withpacker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m
+        # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
+
+  km-krun-validate-runenv:
+    name: Validate runenv on AWS and Azure VMs
+    runs-on: ubuntu-20.04
+    needs: [km-build]
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: km
+          path: /tmp/
+
+      - name: KM with KKM Test - AWS and Azure with packer
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: make -C tests validate-runenv-image-withpacker HYPERVISOR_DEVICE=/dev/kvm TIMEOUT=20m PACKER_DIR=payloads
         # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
   km-k8s-cluster:
@@ -342,7 +375,7 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-aws, km-test-all]
+    needs: [km-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-test-all]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master

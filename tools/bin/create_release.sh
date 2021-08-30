@@ -30,10 +30,14 @@ readonly OPT_KONTAIN_TMP=${BLDTOP}/opt_kontain
 
 rm -fr $TARBALL $TARBALL.gz $OPT_KONTAIN_TMP
 # we may need to modify all obj file so make sure we work on a copy
-cp -rf --preserve=links /opt/kontain $OPT_KONTAIN_TMP
+cp -rf --preserve=links,context /opt/kontain $OPT_KONTAIN_TMP
 
 [ -d  ${OPT_KONTAIN_TMP}/include ] || mkdir ${OPT_KONTAIN_TMP}/include
 cp ${TOP}/include/km_hcalls.h ${OPT_KONTAIN_TMP}/include/km_hcalls.h
+
+# include docker and podman config scripts in the tarball
+mkdir -p ${OPT_KONTAIN_TMP}/bin
+cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN_TMP}/bin
 
 # package by doing `tar -C locations[i] files[i]`
 declare -a locations
@@ -61,7 +65,7 @@ for i in $(seq 0 $(("${#locations[@]}" - 1))); do
    done
 
    echo "Packaging ${source}"
-   tar -C ${locations[$i]} -rf $TARBALL ${files[$i]}
+   tar -C ${locations[$i]} -rf $TARBALL --selinux ${files[$i]}
 done
 
 echo "Zipping $TARBALL.gz ..."

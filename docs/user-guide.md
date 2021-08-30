@@ -889,7 +889,11 @@ The installation script automatically executes a simple unikernel in a Kontain V
 
 **Next Steps:**
 Be sure you have Docker installed and [configured to run with Kontain](#runtime-config-for-docker).
+
 ### Runtime Config for Docker
+
+After running the kontain-install.sh script, Docker should be configured to use Kontain.
+If necessary the following steps can be performed manually to configure Docker to use the Kontain runtime.
 
 To use Kontain with Docker, you will need to have Docker installed and configured.
 
@@ -961,6 +965,27 @@ docker run -it --rm \
 ```
 
 NOTE: On platforms with KKM installed, use `--device /dev/kkm`
+
+### Using Kontain runtime with Podman
+
+After running the kontain-install.sh script, podman should be configured to use the Kontain runtime (krun).
+
+Use the following to run workloads using podman:
+
+```
+docker run -it --rm --runtime krun docker-daemon:example/kontain-java
+```
+
+The above takes the container from the docker daemon's container cache before running the container.
+Once the container image has been fetched from docker's image cache it will be stored in podman's image cache also.
+So there is no need to supply "docker-daemon:" again.  If you build a new image, podman will not know about it and will containue to use its cached copy.
+Run:
+
+```
+podman image rm example/kontain-java
+```
+to remove kontain-java from podman's container image cache.
+The next "podman run" invocation will fetch a new copy from the docker daemon if you use the "docker-daemon:" prefix to the container name.
 
 ### Using Kontain with Azure
 

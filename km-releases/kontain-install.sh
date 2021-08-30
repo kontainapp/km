@@ -16,10 +16,41 @@
 #
 # Install Kontain release on a Linux box. Assumes root.
 #
-# Usage: ./kontain-install.sh [TAG]
+# Usage: ./kontain-install.sh [TAG | -u]
+# -u = uninstall changes made by install
+#
+# Invokers of this script must be able to use sudo.
 #
 set -e
 [ "$TRACE" ] && set -x
+
+source /etc/os-release
+[ "$ID" != "fedora" -a "$ID" != "ubuntu" ] && echo "Unsupported linux distribution: $ID" && exit 1
+
+readonly NEEDED_UBUNTU_PACKAGES="libyajl2 libseccomp2 libcap2 openssl-libs"
+readonly NEEDED_FEDORA_PACKAGES="yajl-devel.x86_64 libseccomp.x86_64 libcap.x86_64 openssl-libs.x86_64"
+readonly INSTALL_UBUNTU_PACKAGES="sudo apt-get update; sudo apt-get install -y "
+readonly INSTALL_FEDORA_PACKAGES="sudo dnf install -y "
+readonly UNINSTALL_UBUNTU_PACKAGES="sudo apt-get remove -y "
+readonly UNINSTALL_FEDORA_PACKAGES="sudo dnf remove -y  "
+
+# UNINSTALL
+if [ $# -eq 1 -a "$1" = "-u" ]; then
+   echo "Removing kontain"
+
+   # Remove kontain config changes for docker and podman
+   sudo bash -c /opt/kontain/bin/podman_config.sh -u
+   sudo bash -c /opt/kontain/bin/docker_config.sh -u
+
+   # Unload kernel modules?
+
+   # uninstall packages
+   local UNINSTALL=UNINSTALL_${ID^^}_PACKAGES
+   local PACKAGES=NEEDED_${ID^^}_PACKAGES
+   ${!UNINSTALL} ${!PACKAGES}
+   
+   exit 0
+fi
 
 # release name has to be passed via 1st arg, otherwise it's fetched from a file in the repo
 
@@ -60,16 +91,10 @@ function check_packages {
 }
 
 function install_packages {
-   source /etc/os-release
-   echo "Installing needed packages for $NAME"
-   if [ "$NAME" == "Ubuntu" ]; then
-      sudo apt-get update
-      sudo apt-get install -y libyajl2 libseccomp2 libcap2
-   elif [ "$NAME" == "Fedora" ]; then
-      sudo dnf install -y yajl-devel.x86_64 libseccomp.x86_64 libcap.x86_64
-   else
-      echo "Unsupported linux: $NAME, packages libyajl, libseccomp, libcap may need to be installed for krun to work"
-   fi
+   echo "Installing needed packages for $ID"
+   local INSTALL=INSTALL_${ID^^}_PACKAGES
+   local PACKAGES=NEEDED_${ID^^}_PACKAGES
+   ${!INSTALL} ${!PACKAGES}
 }
 
 validate=0
@@ -108,7 +133,7 @@ function check_prereqs {
 function get_bundle {
    mkdir -p $PREFIX
    echo "Pulling $URL..."
-   wget $URL --output-document - -q | tar -C ${PREFIX} -xzf -
+   wget $URL --output-document - -q | tar -C ${PREFIX} -xzf - --selinux
    echo Done.
    if [ $validate == 1 ]; then
       $PREFIX/bin/km $PREFIX/tests/hello_test.km Hello World
@@ -121,8 +146,14 @@ function get_bundle {
    fi
 }
 
+function config_container_runner {
+   sudo bash -c /opt/kontain/bin/podman_config.sh
+   sudo bash -c /opt/kontain/bin/docker_config.sh
+}
+
 # main
 check_args
 check_prereqs
 install_packages
 get_bundle
+config_container_runner

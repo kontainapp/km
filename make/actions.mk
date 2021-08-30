@@ -93,7 +93,8 @@ ifneq (${EXEC},)
 all: ${BLDEXEC}
 ${BLDEXEC}: $(OBJS) | ${KM_OPT_BIN_PATH}
 	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(LOCAL_LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
-	-cp $@ ${KM_OPT_BIN_PATH}
+	if [ "${EXEC_SELINUX_CONTEXT}" != "" -a -e ${GETENFORCE} ]; then if [ `${GETENFORCE}` != "Disabled" ]; then chcon ${EXEC_SELINUX_CONTEXT} $@; fi; fi
+	-cp -Z $@ ${KM_OPT_BIN_PATH}
 
 # if VERSION_SRC is defined, force-rebuild these sources on 'git info' changes
 ifneq (${VERSION_SRC},)

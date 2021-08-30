@@ -67,6 +67,8 @@ KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
 KM_LDSO := ${BLDTOP}/runtime/libc.so
 
+GETENFORCE := /usr/sbin/getenforce
+
 # Build with code coverage if BLDTYPE set to this.
 COV_BLDTYPE := coverage
 COVERAGE_KM_BLDDIR := ${BLDTOP}/km/${COV_BLDTYPE}
@@ -105,6 +107,7 @@ DOCKER_RUN_CLEANUP ?= --rm
 # When running tests in containers on CI, we can't use tty and interactive
 DOCKER_INTERACTIVE ?= -it
 
+DOCKER_KRUN_RUNTIME ?= --runtime krun
 DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP}
 # DOCKER_RUN_BUILD are used for building and other operations that requires
 # output of files to volumes. When we need to write files to the volumes mapped
@@ -112,6 +115,12 @@ DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP}
 # using `appuser`, which is different from user on the host.
 DOCKER_RUN_BUILD := ${DOCKER_RUN} -u ${CURRENT_UID}:${CURRENT_GID}
 DOCKER_RUN_TEST := ${DOCKER_RUN} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE} --init
+
+# These PODMAN_* variables mirror the docker related ones.
+# Initially we use these to verify that runenv-images work with podman
+PODMAN_KRUN_RUNTIME ?= --runtime krun
+PODMAN_RUN := podman run ${DOCKER_RUN_CLEANUP}
+PODMAN_RUN_TEST := ${PODMAN_RUN} ${DOCKER_INTERACTIVE} --init
 
 # Inside docker image (buildenv + testenv), appuser will be the user created
 # inside the container.

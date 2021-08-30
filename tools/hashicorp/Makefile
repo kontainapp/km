@@ -46,7 +46,7 @@ upload-boxes: .check_tools ## uploads pre-created boxes to vagrant cloud
 			kontain/$${os}-kkm-beta3 $${RELEASE_TAG#v} virtualbox output_box_$${os}/package.box ; \
 	done
 
-register-boxes: ## register pre-created boxes in local vagrant cash
+register-boxes: ## register pre-created boxes in local vagrant cache
 	@for os in ${SRC_OS} ; \
 	do echo Registering $$os... ; \
 		vagrant box add -f --name kontain/$${os}-kkm-beta3 output_box_$${os}/package.box ; \

@@ -17,7 +17,8 @@
 #
 
 # assumes $storage with kkm.run and kontain.tar.gz
-# installs kontain, kkm, docker
+# installs kontain, kkm, docker, podman
+# We assume this script runs as superuser.
 
 readonly storage="/tmp"
 
@@ -49,6 +50,7 @@ for u in vagrant ubuntu ; do
       usermod -aG docker $u
    fi
 done
+/opt/kontain/bin/docker_config.sh
 
-cp $storage/daemon.json /etc/docker/daemon.json
-systemctl reload-or-restart docker.service
+# Install podman and make config changes
+/opt/kontain/bin/podman_config.sh

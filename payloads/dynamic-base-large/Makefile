@@ -32,7 +32,7 @@ test test-krun test-all:
 clean clobber:
 	@true
 
-RUNENV_VALIDATE_CMD := ("hello_test" "Hello, World!")
+RUNENV_VALIDATE_CMD := ("./hello_test" "Hello, World!")
 RUNENV_VALIDATE_EXPECTED := Hello, World
 
 export define runenv_prep

@@ -17,6 +17,7 @@
 TOP := $(shell git rev-parse --show-toplevel)
 
 EXEC := km
+EXEC_SELINUX_CONTEXT := "system_u:object_r:bin_t:s0"
 SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c km_mem.c km_mmap.c \
 		km_gdb_stub.c gdb_kvm_x86_64.c km_signal.c km_init_guest.c km_intr.c km_coredump.c \
 		km_filesys.c km_hc_name.c km_trace.c km_musl_related.c km_decode.c km_proc.c \

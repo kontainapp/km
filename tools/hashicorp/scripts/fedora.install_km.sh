@@ -17,12 +17,15 @@
 #
 
 # assumes $storage with kkm,run and kontain.tar.gz
-# installs kontain , kkm, docker
+# installs kontain, kkm, docker, podman
+# We assume this script runs as superuser.
 
 readonly storage="/tmp"
 
 # dnf install kernel-headers-$(uname -r) -y 2>&1
 dnf install -q -y kernel-headers gdb moby-engine
+
+grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
 
 # Install KKM... it will also validate hardware.
 bash $storage/kkm.run --noprogress -- --force-install 2>&1
@@ -33,6 +36,8 @@ echo "PATH=\$PATH:/opt/kontain/bin" >> ~vagrant/.bashrc
 
 # Configure Docker and restart
 usermod -aG docker vagrant
-mkdir /etc/docker && cp $storage/daemon.json /etc/docker/daemon.json
-systemctl reload-or-restart docker.service
+/opt/kontain/bin/docker_config.sh
+
+# Config changes for podman
+/opt/kontain/bin/podman_config.sh
 
