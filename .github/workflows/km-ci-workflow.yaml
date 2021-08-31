@@ -354,18 +354,12 @@ jobs:
         if: always() # replace always() with success() if you want to keep cluster on failure
         run: cloud/azure/aks_ci_destroy.sh ${{ env.NIGHTLY_CLUSTER_NAME }}
 
-      - name: Cleanup and logout
+      - name: Logout
         if: always()
         run: |
           [ "$TRACE" ] && set -x
-          make -C cloud/azure ci-image-purge CI_IMAGE_DRY_RUN="" CI_IMAGE_PURGE_TIMEOUT=1800
           rm -f ~/.kube/config
           az logout
-
-  #  Keep this here as an EXPLICIT reminder to get releases back in the build
-  #   - name: Kick off release pipeline to build and upload release v0.1-edge
-  #     run: make edge-release GITHUB_TOKEN=$(GITHUB_TOKEN)
-  #     timeout-minutes: 5
 
   slack-workflow-status:
     name: Notify slack, if needed
