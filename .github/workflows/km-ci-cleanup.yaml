@@ -15,17 +15,6 @@
 #
 name: KM CI Pipeline
 on:
-  push:
-    branches: [serge/cleanup]
-    paths-ignore:
-      - "**.md" # all .md files in repo
-      - "**/docs/**" # all content of all docs/ dirs in repo
-      - compile_commands.json
-      - .vscode/**
-      - km-releases
-      - payloads/longhaul-test/**
-      - "**/L0-image**"
-
   schedule:
     # Posix cron format:
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
@@ -45,9 +34,6 @@ on:
         required: true
 
 env:
-  BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
-  IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
-  NIGHTLY_CLUSTER_NAME: "aks-kontain-nightly-ci-${{ github.run_number }}"
   SP_SUBSCRIPTION_ID: ${{ secrets.SP_SUBSCRIPTION_ID }}
   SP_APPID: ${{ secrets.SP_APPID }}
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
