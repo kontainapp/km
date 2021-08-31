@@ -24,8 +24,7 @@ make container
 ```
 
 ```bash
-docker run --device=/dev/kvm -v /opt/kontain/bin:/opt/kontain/bin:z -v $(pwd)/tmp:/mnt:Z \
-           --name test-app --rm -it -p 5000:5000 test-app /bin/sh
+docker run --runtime=krun -v $(pwd)/tmp:/mnt:Z --name test-app --rm -it -p 5000:5000 test-app /bin/sh
 ```
 
 ## To test:
@@ -89,8 +88,7 @@ Make sure km_cli is compiled and in /opt/kontain/bin.
 Run kontainer the same way as above:
 
 ```bash
-docker run --device=/dev/kvm -v /opt/kontain/bin:/opt/kontain/bin:z -v $(pwd)/tmp:/mnt:Z \
-           --name test-app --rm -it -p 5000:5000 test-app /bin/sh
+docker run --runtime=krun -v $(pwd)/tmp:/mnt:Z --name test-app --rm -it -p 5000:5000 test-app /bin/sh
 ```
 
 On the host, run

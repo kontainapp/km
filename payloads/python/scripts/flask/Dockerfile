@@ -26,10 +26,9 @@
 #  alpine
 #
 ARG distro
-ARG tag=latest
+ARG tag=3.13
 
 FROM $distro:$tag
-
 
 # ideally we should set add_pip3 and update_index here depending on $distro, but Dockerfile has no if/then/ese so relying on the caller
 ARG add_pip3

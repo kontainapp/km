@@ -62,7 +62,7 @@ func runTest() error {
 // original base as the conversion base. This will make the rootfs of the
 // converted image the same as the original.
 func testDocker(t *testing.T) error {
-	const BASE string = "python:3.7-alpine"
+	const BASE string = "python:3.8-alpine"
 	const TESTCONTAINER string = "faktory_test_docker"
 
 	// Build the from image
@@ -115,8 +115,7 @@ func testKontain(t *testing.T) error {
 		"run",
 		"-d",
 		"--rm",
-		"--device=/dev/kvm",
-		"-v", "/opt/kontain/bin/km:/opt/kontain/bin/km:z",
+		"--runtime=krun",
 		"-p", "8080:8080",
 		"--name", TESTCONTAINER,
 		TO); err != nil {

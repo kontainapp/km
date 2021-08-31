@@ -46,7 +46,7 @@ DEP_PACKAGES := java-11-openjdk \
 FROMSRC=$(shell test -d $(JDK_VERSION)/.git && echo yes)
 
 # config for image validation
-RUNENV_VALIDATE_CMD := ("/opt/kontain/java/bin/java" "-cp" "/scripts" Hello)
+RUNENV_VALIDATE_CMD := ("java" "-cp" "/scripts" Hello)
 RUNENV_VALIDATE_EXPECTED := Hello, World!
 RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 	scripts/SimpleHttpServer.class \

@@ -159,11 +159,9 @@ kubectl delete -k ~/workspace/km/payloads/k8s/azure/python
 ## (optional) Local docker with our payloads
 
 ```bash
-docker run -p 8080:8080 -t --rm --device /dev/kvm \
-  -v ~/workspace/km/build/km/km:/opt/kontain/bin/km:z  \
-  -v ~/workspace/km/payloads/python/scripts/micro_srv.py:/scripts/micro_srv.py \
-  kontainapp/runenv-python -S "/scripts/micro_srv.py" "8080"
-docker run -p 8080:8080 -t --rm --device /dev/kvm -v ~/workspace/km/build/km/km:/opt/kontain/bin/km:z kontainapp/runenv-dweb 8080
+docker run -p 8080:8080 -t --rm --runtime=krun -v ~/workspace/km/payloads/python/scripts/micro_srv.py:/scripts/micro_srv.py \
+  kontainapp/runenv-python "/scripts/micro_srv.py" "8080"
+docker run -p 8080:8080 -t --rm --runtime=krun kontainapp/runenv-dweb 8080
 ```
 
 ## Meltdown

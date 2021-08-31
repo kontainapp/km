@@ -64,26 +64,22 @@ COPY gs-rest-service/complete /app
 WORKDIR /app
 RUN ./mvnw install
 
-FROM kontainapp/runenv-jdk-11
+FROM adoptopenjdk/openjdk11:alpine-jre
 WORKDIR /app
 ARG APPJAR=/app/target/*.jar
+# TODO: next two line are introduce a foreknowledge of kontain java. Need to do that in the converter
+ENV PATH ${PATH}:/opt/kontain/java/bin
+COPY --from=builder /tmp /tmp
+
 COPY --from=builder ${APPJAR} app.jar
-ENTRYPOINT ["java","-jar", "app.jar"]
-``` 
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
 Note: only the `FROM` from the final docker image is changed. Here we kept
 using a normal jdk docker image as the `builder` because the build
 environment is not affected by kontain.
 
 ## Run
 
-To run a kontain based container image, the container will need access to
-`/dev/kvm` and kontain monitor `km`. For Java we also requires kontain's
-version of `lic.so`.
-
 ```bash
-docker run -it --rm \
-    --device /dev/kvm \
-    -v /opt/kontain/bin/km:/opt/kontain/bin/km:z \
-    -v /opt/kontain/runtime/libc.so:/opt/kontain/runtime/libc.so:z \
-    example/kontain-java
+docker run -it --rm --runtime=krun example/kontain-java
 ```

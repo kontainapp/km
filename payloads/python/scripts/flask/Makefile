@@ -63,20 +63,20 @@ build: ## build python flask example, based on alpine. alpine can we swapped for
 		--build-arg distro="$(DTYPE)" --build-arg add_pip3="$(ADD_PIP3)" --build-arg update_index="$(UPDATE_INDEX)" \
 		-t $(IMAGE) .
 
-run: ## run python flask example,based on alpine. Same DTYPE as supported as in'build'. Assumes "build" was successful.
+run: ## run python flask example based on alpine. Same DTYPE as supported as in'build'. Assumes "build" was successful.
 	$(DOCKER_RUN) $(IMAGE)
 
-faktory: ${KM_BIN} ## Convert flask example to Kontainer. Same DTYPE as supported as in'build'. Assumes "build" was successful.
+faktory: ## Convert flask example to Kontainer. Same DTYPE as supported as in'build'. Assumes "build" was successful.
 	./faktory_run_build.sh "$(IMAGE)" "$(KM_IMAGE)" "$(DTYPE)" "${KM_BIN}"
 
 test:   ## run Kontain with flask example,based. Same DTYPE as supported as in'build'. Assumes "faktory" was successful.
-	$(DOCKER_RUN) --device=/dev/kvm $(KM_IMAGE)
+	$(DOCKER_RUN) $(DOCKER_KRUN_RUNTIME) $(KM_IMAGE)
 
 clean: ## Kill test containers (if any) and remove all images build for flask-km (python flask is untouched)
 	@echo Cleaning. Ignore messages about failures and ignoring failures.
 	-docker rm -f `docker ps -aq --filter label=$(TEST_LABEL)` 2> /dev/null
 	-docker rmi $(KM_IMAGE)
-	-docker image prune  -f
+	-docker image prune -f
 
 TARGET?= build
 all-dtypes: # make TARGET for each DTYPE. E.g. `make all-dtypes TARGET=clean". Default is 'build'

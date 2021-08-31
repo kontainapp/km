@@ -27,7 +27,7 @@ dweb: $(OBJS)
 	$(CC) -static $(CLFAGS) -pthread  -o $@ $^
 
 dweb.km: $(OBJS)
-	${TOP}/tools/bin/kontain-gcc -static -no-pie $(CLFAGS) -pthread  -o $@ $^ && chmod a-x $@
+	${TOP}/tools/bin/kontain-gcc -static -no-pie $(CLFAGS) -pthread  -o $@ $^
 
 .PHONY: clean
 clean:

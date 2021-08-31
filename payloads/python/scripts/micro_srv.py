@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # Copyright 2021 Kontain Inc
 #
@@ -19,7 +20,7 @@
 Trivial HTTP server in python3.
 
 Usage::
-    km ./python.km  ../scripts/micro_srv [<port>]
+    python ../scripts/micro_srv [<port>]
 
 Send a GET request::
     curl -s http://localhost[:port]

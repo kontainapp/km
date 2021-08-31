@@ -27,11 +27,8 @@ is available in /opt/kontain/bin.
 ### Step 2 - Start a Shell Inside Docker Container
 
 ```bash
-docker run --name=KM_SpringBoot_Demo --privileged --rm -it --device=/dev/kvm \
- -v /opt/kontain/bin:/opt/kontain/bin:z \
- -v $(pwd):/mnt:z \
- -v ${WORKSPACE}/km/payloads/java/scripts:/scripts:z \
- -p8080:8080 kontainapp/spring-boot-demo /bin/sh
+docker run --runtime=krun --name=KM_SpringBoot_Demo --rm -it \
+  -v $(pwd):/mnt:z -p8080:8080 kontainapp/spring-boot-demo /bin/sh
 ```
 
 ### Step 3 Measure Base Startup Time

@@ -28,4 +28,4 @@ container: ${BUILD}/${TF}
 	cp ${BUILD}/${TF} .
 	docker build -t test-app .
 	@rm ${TF}
-	@echo "Run 'docker run --device=/dev/kvm -v /opt/kontain/bin/km:/opt/kontain/bin/km --name test-app --rm -it -p 5000:5000 test-app /bin/sh' to login into container"
+	@echo "Run 'docker run --runtime=krun --name test-app --rm -it -p 5000:5000 test-app /bin/sh' to login into container"

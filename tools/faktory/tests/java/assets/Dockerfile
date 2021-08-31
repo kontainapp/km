@@ -21,5 +21,9 @@ RUN ./mvnw install
 FROM adoptopenjdk/openjdk11:alpine-jre
 WORKDIR /app
 ARG APPJAR=/app/target/*.jar
+# TODO: next two line are introduce a foreknowledge of kontain java. Need to do that in the converter
+ENV PATH ${PATH}:/opt/kontain/java/bin
+COPY --from=builder /tmp /tmp
+
 COPY --from=builder ${APPJAR} app.jar
-ENTRYPOINT ["java","-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]

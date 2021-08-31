@@ -27,16 +27,13 @@ ARG distro=alpine
 # This stage will find and extract all py-related files from original container into $TMP folder
 FROM $image:$distro as original
 
-# Prep all the files needed in Kontainer , in $TMP dir
+# Prep all the files needed in Kontainer, in $TMP dir
 COPY faktory_prepare.sh /tmp
-RUN /tmp/faktory_prepare.sh /tmp/faktory
+RUN /tmp/faktory_prepare.sh /tmp/faktory 
 
 # This stage will unpack all py files from prior stage and add KM/python.km needed stuff
-FROM scratch
+FROM kontainapp/runenv-python
 
 COPY --from=original /tmp/faktory/pydirs/ /
-COPY --from=original /tmp/faktory/python3 /usr/local/bin/
-# TODO: build correct python3.km depending on payload;  package in tar as /usr/local/bin/python and use 'ADD'
-COPY python3.km km /usr/local/bin/
 
 # ENTRYPOINT and CMD will be added to to the end of this file by caller from upstairs
