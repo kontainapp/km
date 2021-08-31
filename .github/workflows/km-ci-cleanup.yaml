@@ -1,0 +1,92 @@
+#
+# Copyright 2021 Kontain Inc
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+name: KM CI Pipeline
+on:
+  push:
+    branches: [serge/cleanup]
+    paths-ignore:
+      - "**.md" # all .md files in repo
+      - "**/docs/**" # all content of all docs/ dirs in repo
+      - compile_commands.json
+      - .vscode/**
+      - km-releases
+      - payloads/longhaul-test/**
+      - "**/L0-image**"
+
+  schedule:
+    # Posix cron format:
+    # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
+    # Minute Hour DayOfMonth MonthOfYear DayOfWeek
+    - cron: "0 9 * * *" # Daily build 2 am pacific time (UTC + 7)
+    # Gitgub doc says:
+    #    Scheduled workflows run on the latest commit on the default or base branch.
+    #    The shortest interval you can run scheduled workflows is once every 5 minutes.
+
+  # Manual trigger.
+  # See https://github.blog/changelog/2020-07-06-github-actions-manual-triggers-with-workflow_dispatch/
+  workflow_dispatch:
+    inputs:
+      run_type:
+        description: "Run type: regular or nightly"
+        default: "regular"
+        required: true
+
+env:
+  BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
+  IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
+  NIGHTLY_CLUSTER_NAME: "aks-kontain-nightly-ci-${{ github.run_number }}"
+  SP_SUBSCRIPTION_ID: ${{ secrets.SP_SUBSCRIPTION_ID }}
+  SP_APPID: ${{ secrets.SP_APPID }}
+  SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
+  SP_TENANT: ${{ secrets.SP_TENANT }}
+  # TRACE: true # uncomment to enable '-x' in all bash scripts
+
+jobs:
+  km-ci-images-cleanup:
+    name: Cleanup old images
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Cleanup and logout
+        if: always()
+        run: |
+          [ "$TRACE" ] && set -x
+          make -C cloud/azure ci-image-purge CI_IMAGE_DRY_RUN="" CI_IMAGE_PURGE_TIMEOUT=1800
+          rm -f ~/.kube/config
+          az logout
+
+  slack-workflow-status:
+    name: Notify slack, if needed
+    runs-on: ubuntu-latest
+    # 'contains' shows how to add conditions, e.g. on workflow 'name:', or many other contexts.
+    # see https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
+    if: (failure() && github.ref == 'refs/heads/master') ||
+      contains(github.workflow, 'noisy')
+    # Dependencies. (A skipped dependency is considered satisfied)
+    needs: [km-ci-images-cleanup]
+    steps:
+      - name: Send notification to slack
+        uses: Gamesight/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          include_jobs: true
+          channel: "#build_and_test"
+          name: "Cleanup workflow status"
+          icon_emoji: ":thumbsdown:"
