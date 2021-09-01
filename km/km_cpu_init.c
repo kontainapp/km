@@ -603,6 +603,9 @@ void km_machine_setup(km_machine_init_params_t* params)
       km_errx(1, "KVM: API version mismatch");
    }
    if ((machine.mach_fd = km_internal_fd_ioctl(machine.kvm_fd, KVM_CREATE_VM, NULL)) < 0) {
+      if (errno == EBUSY) {
+         km_warnx("Is another virtual machine manager currently in use?");
+      }
       km_err(1, "KVM: create VM failed");
    }
    if ((machine.vm_run_size = ioctl(machine.kvm_fd, KVM_GET_VCPU_MMAP_SIZE, 0)) < 0) {
