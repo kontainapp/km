@@ -989,38 +989,63 @@ fi
 
 # Test the sigsuspend() system call
 # And verify that signals sent to km are forwarded to the payload
+# This test can fail because of scheduling delays imposed by the operating system.
+# We compensate for this by retrying the test at most 10 times and declare
+# success with the first passing run.
 @test "sigsuspend($test_type): sigsuspend() and signal forwarding (sigsuspend_test$ext)" {
    FLAGFILE=/tmp/sigsuspend_test.$$
    KMTRACE=/tmp/sigsuspend_kmtrace.$$
    WAIT=5
    KMOUT=/tmp/sigsuspend_kmout.$$
 
-   rm -f $FLAGFILE $KMTRACE
-   $KM_BIN -V sigsuspend_test$ext $FLAGFILE >$KMOUT 2>$KMTRACE &
-   pid=$!
-   start=`date +%s`
-   while [ ! -e $FLAGFILE ]
-   do
-      sleep .1
-      now=`date +%s`
-      if test `expr $now - $start` -ge $WAIT
-      then
-         # Put the km trace in the TAP stream
-         file_contents_to_bats_log $KMTRACE
-         fail "$FLAGFILE does not exist after $WAIT seconds!"
-      fi
-   done
-   kill -SIGUSR1 $pid
-   kill -SIGUSR1 $pid
-   kill -SIGUSR2 $pid
-   wait $pid
-   rm -f $FLAGFILE
+   tries=0
+   while [ $tries -lt 10 ]; do
+      echo "Running iteration $tries"
+      tries=`expr $tries + 1`
+      failed=0
+      rm -f $FLAGFILE $KMTRACE $KMOUT
+      $KM_BIN -V sigsuspend_test$ext $FLAGFILE >$KMOUT 2>$KMTRACE &
+      pid=$!
+      start=`date +%s`
+      while [ ! -e $FLAGFILE ]
+      do
+         sleep .1
+         now=`date +%s`
+         if test `expr $now - $start` -ge $WAIT
+         then
+            # Put the km trace in the TAP stream
+            file_contents_to_bats_log $KMTRACE
+            echo "$FLAGFILE does not exist after $WAIT seconds! retrying test"
+            kill -SIGKILL $pid
+            failed=1
+            continue 2
+         fi
+      done
+      kill -SIGUSR1 $pid
+      kill -SIGUSR1 $pid
+      kill -SIGUSR2 $pid
+      wait $pid
+      rm -f $FLAGFILE
 
-   # Be sure the signal handlers were entered
-   grep -q "SIGUSR1 signal handler entered" $KMOUT
-   grep -q "SIGUSR2 signal handler entered" $KMOUT
-   # SIGUSR2 sig handler must be entered before sigsuspend returns
-   grep -v SIGUSR1 $KMOUT | tail -1 | grep -q "sigsuspend returned"
+      # Be sure the signal handlers were entered
+      if ! grep -q "SIGUSR1 signal handler entered" $KMOUT; then
+         echo "SIGUSR1 not seen in $KMOUT, retrying, interation $tries"
+         failed=1
+         continue
+      fi
+      if ! grep -q "SIGUSR2 signal handler entered" $KMOUT; then
+         echo "SIGUSR2 not seen in $KMOUT, retrying, iteration $tries"
+         failed=1
+         continue
+      fi
+      # SIGUSR2 sig handler must be entered before sigsuspend returns
+      grep -v SIGUSR1 $KMOUT | tail -1 | grep -q "sigsuspend returned"
+
+      if [ $failed -eq 0 ]; then break; fi
+   done
+   if [ $tries -ge 10 ]; then
+      fail "sigsuspend test did not pass with 10 attempts"
+   fi
 
    rm -f $KMTRACE $KMOUT
 }
