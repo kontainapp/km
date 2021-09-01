@@ -38,4 +38,4 @@ default coverage:
 	@echo "Info: ignoring target '$@' in payloads"
 
 # use this target to force payloads build
-link build: $(SUBDIRS)
+link build clobber: $(SUBDIRS)

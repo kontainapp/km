@@ -335,9 +335,12 @@ jobs:
         run: make -C payloads test-all-withk8s
         timeout-minutes: 60
 
-      - name: Payloads runenv validation, on K8s
-        run: make -C payloads validate-runenv-withk8s
-        timeout-minutes: 5
+      # TODO: https://github.com/kontainapp/km/issues/1326
+      # The runenv images assume runtime=krun now.
+      # Disable until we figure out how to enable that on AKS.
+      # - name: Payloads runenv validation, on K8s
+      #   run: make -C payloads validate-runenv-withk8s
+      #   timeout-minutes: 5
 
       - name: KM tests with coverage, on K8s
         # pull buildenv before testing, coverage analysis will need it
