@@ -1001,6 +1001,7 @@ fi
    tries=0
    while [ $tries -lt 10 ]; do
       echo "Running iteration $tries"
+      tries=`expr $tries + 1`
       failed=0
       rm -f $FLAGFILE $KMTRACE $KMOUT
       $KM_BIN -V sigsuspend_test$ext $FLAGFILE >$KMOUT 2>$KMTRACE &
@@ -1016,7 +1017,7 @@ fi
             file_contents_to_bats_log $KMTRACE
             echo "$FLAGFILE does not exist after $WAIT seconds! retrying test"
             kill -SIGKILL $pid
-            failed=`eval $failed + 1`
+            failed=1
             continue 2
          fi
       done
@@ -1029,21 +1030,20 @@ fi
       # Be sure the signal handlers were entered
       if ! grep -q "SIGUSR1 signal handler entered" $KMOUT; then
          echo "SIGUSR1 not seen in $KMOUT, retrying, interation $tries"
-         failed=`eval $failed + 1`
+         failed=1
          continue
       fi
       if ! grep -q "SIGUSR2 signal handler entered" $KMOUT; then
          echo "SIGUSR2 not seen in $KMOUT, retrying, iteration $tries"
-         failed=`eval $failed + 1`
+         failed=1
          continue
       fi
       # SIGUSR2 sig handler must be entered before sigsuspend returns
       grep -v SIGUSR1 $KMOUT | tail -1 | grep -q "sigsuspend returned"
 
       if [ $failed -eq 0 ]; then break; fi
-      tries=`eval $tries + 1`
    done
-   if [ $tries -gt 10 ]; then
+   if [ $tries -ge 10 ]; then
       fail "sigsuspend test did not pass with 10 attempts"
    fi
 
