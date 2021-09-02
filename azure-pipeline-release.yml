@@ -1,0 +1,62 @@
+#
+# Kontain Monitor Azure Pipeline definition
+#
+# A pipeline to automate the release process outlined under `./doc/release.md`.
+name: release-$(BuildID) $(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+      # Testing branch for release pipeline (e.g. releases/myAlias/mytestbranch).
+      # No final release artifacts will be created
+      - releases/*/*
+  tags:
+    include:
+      # preferred way of cutting releases by putting a tag, e.g. v0.10-beta
+      - v*
+
+pr: none
+
+jobs:
+  - job: release_automation
+    variables:
+      vmImage: "ubuntu-20.04"
+      buildenv_image_version: latest # use this for all buildenv containers
+      image_version: ci-$(Build.BuildId) # use this for all other containers
+      # trace: true # uncomment to enable '-x' in all bash scripts
+
+    # Default job has a 60 minutes timeout. Sets this to 0 to use the max
+    # 360 minutes timeout.
+    timeoutInMinutes: "0"
+
+    pool:
+      vmImage: $(vmImage)
+
+    steps:
+      - template: templates/setup.yaml
+
+      - bash: |
+          set -e ; [ "$TRACE" ] && set -x
+          # Pull buildenv image from the cloud and install libs needed for build in containers
+          make -C tests pull-buildenv-image .buildenv-local-lib
+          make -j withdocker
+        displayName: KM build
+
+      - bash: make -C tools/faktory all
+        displayName: build faktory
+
+      - bash: cd tools/release; pip install -r requirements.txt
+        displayName: install dependencies
+
+      - bash: make withdocker TARGET=release
+        displayName: build release tarball
+
+      - bash: make -C km publish-release GITHUB_RELEASE_TOKEN=$(GITHUB_RELEASE_TOKEN) RELEASE_TAG=$(Build.SourceBranch)
+        displayName: push release
+
+      - bash: cd tools/release/tests; ./test_release_remote.py --version $(Build.SourceBranch)
+        displayName: release remote test
+
+      - bash: az logout
+        condition: always()
+        displayName: logout

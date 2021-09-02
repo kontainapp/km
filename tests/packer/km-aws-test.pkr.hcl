@@ -16,47 +16,41 @@
 #  Test KM using packer build process on AWS
 
 variable "src_branch" {
-   type = string
-   description="Branch being tested"
+  type        = string
+  description = "Branch being tested"
 }
 
 variable "image_version" {
-   type = string
-   description="Branch-specific tag (aka IMAGE_VERSION) for docker images"
+  type        = string
+  description = "Branch-specific tag (aka IMAGE_VERSION) for docker images"
 }
 
 variable "target" {
-   type = string
-   description="which target to run See km-test.sh for details"
-   default="test"
+  type        = string
+  description = "which target to run See km-test.sh for details"
+  default     = "test"
 }
 
 variable "dir" {
-   type = string
-   description="where to do 'make $target', e.g. tests or payloads"
+  type        = string
+  description = "where to do 'make $target', e.g. tests or payloads"
 }
 
 variable "timeout" {
-   type = string
-   description = "Timeout for tests. Should be less that outer timeout, so packer cleans up resources"
+  type        = string
+  description = "Timeout for tests. Should be less that outer timeout, so packer cleans up resources"
 }
 
 variables {
-   aws_instance_type = "m5.xlarge"  // 4 CPU 16GB
-   aws_region = "us-east-2"
-   hv_device = "/dev/kkm"
-   ssh_user = "fedora"
-   // Azure access (for docker images)
-   sp_tenant = env("SP_TENANT")
-   sp_appid = env("SP_APPID")
-   sp_password = env("SP_PASSWORD")
-   github_token = env("GITHUB_TOKEN")
-   // azure images
-   src_image_name = "L0BaseImage" // would be good to pass from upstairs so others can use it
-   // can conflict with other runs. TODO - make unique
-   // see https://www.packer.io/docs/templates/hcl_templates/functions
-   image_name = "KKMTestTmpImage"
-   image_rg = "PackerBuildRG"
+  aws_instance_type = "m5.xlarge" // 4 CPU 16GB
+  aws_region        = "us-east-2"
+  hv_device         = "/dev/kkm"
+  ssh_user          = "fedora"
+  // Azure access (for docker images)
+  sp_tenant    = env("SP_TENANT")
+  sp_appid     = env("SP_APPID")
+  sp_password  = env("SP_PASSWORD")
+  github_token = env("GITHUB_TOKEN")
 }
 
 data "amazon-ami" "build" {
@@ -71,7 +65,7 @@ data "amazon-ami" "build" {
 }
 
 locals {
-   source_ami      = data.amazon-ami.build.id
+  source_ami = data.amazon-ami.build.id
 }
 
 source "amazon-ebs" "km-test" {
@@ -82,7 +76,7 @@ source "amazon-ebs" "km-test" {
   region          = var.aws_region
   ssh_username    = var.ssh_user
   # this allows to handle tty output in tests
-  ssh_pty         = true
+  ssh_pty = true
 }
 
 build {
@@ -97,12 +91,14 @@ build {
     # packer provisioners run as tmp 'packer' user.
     # For docker to run with no sudo, let's add it to 'docker' group and
     # later use 'sg' to run all as this group without re-login
-    inline = ["sudo usermod -aG docker $USER" ]
+    inline = ["sudo usermod -aG docker ${var.ssh_user}"]
   }
 
   provisioner "shell" {
     script = "packer/scripts/km-test.sh"
-    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c '{{ .Path }}'"
+    // double sg invocation to get docker into the process's grouplist but not the primary group.
+    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c 'sg ${var.ssh_user} {{ .Path }}'"
+
     // vars to pass to the remote script
     environment_vars = [
       "TRACE=1",

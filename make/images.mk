@@ -289,7 +289,7 @@ endif
 	cd ${TOP}/tests ; \
 	packer build -force \
 		-var src_branch=${SRC_BRANCH} -var image_version=${IMAGE_VERSION} -var target=$(subst -withpacker,,$@) \
-		-var dir=${PACKER_DIR} -var hv_device=${HYPERVISOR_DEVICE} -var timeout=${TIMEOUT} \
+		-var dir=${PACKER_DIR} -var hv_device=${HYPERVISOR_DEVICE} -var timeout=${TIMEOUT} -var step=${STEP} \
 	packer/km-az-test.pkr.hcl
 
 # === BUILDENV LOCAL
