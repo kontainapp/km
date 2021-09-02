@@ -102,7 +102,7 @@ build {
 
   provisioner "shell" {
     script = "packer/scripts/km-test.sh"
-    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c '{{ .Path }}'"
+    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c 'sg fedora {{ .Path }}'"
     // vars to pass to the remote script
     environment_vars = [
       "TRACE=1",

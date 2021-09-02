@@ -285,7 +285,10 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        # The below tests with azure
         run: make -C tests validate-runenv-image-withpacker HYPERVISOR_DEVICE=/dev/kvm TIMEOUT=20m PACKER_DIR=payloads
+        # The below tests with aws
+        run: make -C tests validate-runenv-image-withpacker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m PACKER_DIR=payloads
         # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
   km-k8s-cluster:
