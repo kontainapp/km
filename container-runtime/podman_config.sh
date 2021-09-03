@@ -38,6 +38,7 @@ GETENFORCEPATH=/usr/sbin/getenforce
 KM_SELINUX_CONTEXT="system_u:object_r:bin_t:s0"
 KONTAIN_SELINUX_POLICY=kontain_selinux_policy
 POLDIR=/tmp/$KONTAIN_SELINUX_POLICY
+KKM_DEVICE=/dev/kkm
 
 # Podman configuration related
 DOCKER_INIT_FEDORA=/usr/libexec/docker/docker-init
@@ -154,8 +155,16 @@ krun = [
 EOF
    if test "$SUDO_USER" != ""
    then
-      chown $SUDO_USER $HOME_CONTAINERS_CONF
-      chgrp `id -g $SUDO_USER` $HOME_CONTAINERS_CONF
+      # kludge! fixup owner and group of each component of .config/containers/containers.conf
+      # Yes, "chown -R u:g ~/.config" would do it but there can be lots of stuff in ~/.config
+      # and I don't want to hit all of those directories and their contents.
+      t=$HOME_CONTAINERS_CONF
+      ug=`id -u $SUDO_USER`:`id -g $SUDO_USER`
+      chown $ug $t
+      t=`dirname $t`
+      chown $ug $t
+      t=`dirname $t`
+      chown $ug $t
    fi
 fi
 
@@ -217,9 +226,14 @@ allow container_t kvm_device_t:chr_file { append getattr ioctl lock open read wr
 # https://bugzilla.redhat.com/show_bug.cgi?id=1861968
 EOF
 
+   cat <<EOF >$KONTAIN_SELINUX_POLICY.fc
+$KKM_DEVICE		-c	gen_context(system_u:object_r:kvm_device_t,s0)
+EOF
+
    ln -sf /usr/share/selinux/devel/Makefile
    make
    make reload
+   restorecon -i -F $KKM_DEVICE
    popd || exit
 else
    echo "selinux not enabled on this system"
