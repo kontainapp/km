@@ -143,6 +143,10 @@ build {
     timeout = var.timeout
   }
 
+  error-cleanup-provisioner "shell" {
+    script = "packer/scripts/gather-logs.sh"
+  }
+
   post-processor "shell-local" {
     // assumes 'az login' on the box running packer
     inline = [

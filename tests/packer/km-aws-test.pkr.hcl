@@ -114,4 +114,8 @@ build {
     ]
     timeout = var.timeout
   }
+  
+  error-cleanup-provisioner "shell" {
+    script = "packer/scripts/gather-logs.sh"
+  }
 }
