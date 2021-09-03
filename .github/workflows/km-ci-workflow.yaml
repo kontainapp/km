@@ -285,8 +285,6 @@ jobs:
 
   km-krun-kkm-validate-runenv:
     name: Validate runenv on AWS and Azure VMs
-    # TODO: Enable when KKM on fedora with selinux is complete
-    if: ${{ false }}
     runs-on: ubuntu-20.04
     needs: km-build
     steps:
