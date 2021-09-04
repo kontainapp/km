@@ -55,7 +55,7 @@ On AWS, only “metal” instances (e.g. i3.metal) enable nested virtualization.
 
 ### Do I Need KVM or KKM?
 
-On Linux development machines, Kontain can run on the machine directly, with either KVM (native Linux virtualization) or KKM (Kontain kernel module) installed.
+On Linux development machines, Kontain can run on the machine directly, with KVM.
 
 On OSX and Windows development machines, Kontain can be run in a Linux VM with either KVM module (nested virtualization) enabled or the KKM module installed. Support for nested virtualization depends on the hypervisor. KKM can be installed in the Linux VM if the hypervisor does not support nested virtualization.
 
@@ -937,34 +937,6 @@ Your output should look like this:
 ```
 posix.uname_result(sysname='kontain-runtime', nodename='ddef05d46147', release='4.1', version='preview', machine='kontain_KVM')
 ```
-
-### Using the Docker Runtime
-
-Running a workload in Docker using Kontain runtime (`krun`) requires Docker configuration. (See ["Runtime Config for Docker"](#runtime-config-for-docker).)
-
-When you use Kontain runtime, `docker exec` and all subprocesses are automatically wrapped in dedicated Kontain VMs (one VM per process).
-
-You can also run a Kontain workload using the Docker default runtime, but `docker exec` and any subprocesses will circumvent Kontain VM encapsulation.
-
-```
-docker run --rm -v /opt/kontain/bin/km:/opt/kontain/bin/km:z --device /dev/kvm kontain-hello
-```
-
-NOTE: Use `--device /dev/kkm` on platforms with Kontain KKM module (e.g. AWS)
-
-You will need to pass the necessary information to Docker.
-
-EXAMPLE:
-
-```
-docker run -it --rm \
-    --device /dev/kvm \
-    -v /opt/kontain/bin/km:/opt/kontain/bin/km:z \
-    -v /opt/kontain/runtime/libc.so:/opt/kontain/runtime/libc.so:z \
-    example/kontain-java
-```
-
-NOTE: On platforms with KKM installed, use `--device /dev/kkm`
 
 ### Using Kontain runtime with Podman
 

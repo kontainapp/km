@@ -44,6 +44,11 @@ variable "timeout" {
   type        = string
   description = "Timeout for tests. Should be less that outer timeout, so packer cleans up resources"
 }
+variable "step" {
+  type        = string
+  description = "Step ID in action workflow, used to make name unique"
+  default     = ""
+}
 
 variables {
   ssh_user = "ubuntu"
@@ -63,7 +68,7 @@ variables {
 
 locals {
   # easily identify packer resource groups in Azure. E.g. "pkr-km-test-ci-251-payloads-busybox"
-  az_tmp_resource_group = "pkr-km-test-${replace(trim(var.dir, "/"), "/", "-")}-${var.image_version}"
+  az_tmp_resource_group = "pkr-km-test-${replace(trim(var.dir, "/"), "/", "-")}-${var.step}-${var.image_version}"
 }
 
 source "azure-arm" "km-test" {
@@ -85,7 +90,7 @@ source "azure-arm" "km-test" {
 
   // target image
   // TODO - add job_id to box so there are no conflict for multiple CIs
-  managed_image_name                = var.image_name
+  managed_image_name                = join("-", [var.image_name, var.step])
   managed_image_resource_group_name = var.image_rg
 
   azure_tags = {
@@ -108,7 +113,7 @@ build {
     # For docker to run with no sudo, let's add it to 'docker' group and
     # later use 'sg' to run all as this group without re-login
     inline = [
-      "sudo usermod -aG docker $USER"
+      "sudo usermod -aG docker ${var.ssh_user}"
     ]
   }
 
@@ -119,9 +124,9 @@ build {
   }
 
   provisioner "shell" {
-    script          = "packer/scripts/km-test.sh"
+    script = "packer/scripts/km-test.sh"
     // double sg invocation to get docker into the process's grouplist but not the primary group.
-    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c 'sg ubuntu {{ .Path }}'"
+    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c 'sg ${var.ssh_user} {{ .Path }}'"
     // vars to pass to the remote script
     environment_vars = [
       "TRACE=1",
@@ -136,6 +141,10 @@ build {
       "SP_TENANT=${var.sp_tenant}"
     ]
     timeout = var.timeout
+  }
+
+  error-cleanup-provisioner "shell" {
+    script = "packer/scripts/gather-logs.sh"
   }
 
   post-processor "shell-local" {

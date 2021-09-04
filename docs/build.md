@@ -341,11 +341,11 @@ file=~/.ssh/$t_name
 az ad sp create-for-rbac -n "$t_name" --role contributor --years 3 | tee $file
 chmod 400 $file
 echo -e "\n# Azure secret for non-interactive login $t_name. Created $(date)" >> ~/.bash_profile
-cat $file  | jq -r  '"export SP_APPID=\(.appId)",
-                     "export SP_DISPLAYNAME=\(.displayName)",
-                     "export SP_NAME=\(.name)",
-                     "export SP_PASSWORD=\(.password)",
-                     "export SP_TENANT=\(.tenant)"' \
+cat $file  | jq -r '"export SP_APPID=\(.appId)",
+                    "export SP_DISPLAYNAME=\(.displayName)",
+                    "export SP_NAME=\(.name)",
+                    "export SP_PASSWORD=\(.password)",
+                    "export SP_TENANT=\(.tenant)"' \
                >> ~/.bash_profile
 ```
 
