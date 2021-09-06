@@ -25,6 +25,7 @@ env
 echo Checking for kkm or kvm modules
 lsmod | grep -i k.m
 ls -lZ /dev/k*
+id
 echo '============ Kernel messages'
 sudo dmesg
 echo '============ Journal'
