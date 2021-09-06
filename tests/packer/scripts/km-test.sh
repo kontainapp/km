@@ -31,6 +31,12 @@ echo LOCATION=${LOCATION?Please set LOCATION env var to KM source dir where the 
 # Log environment
 env
 
+# On ubuntu wait for unattended upgrade to finish and release the lock.
+# Never happens on Fedora as the files dont match
+while sudo fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock{,-frontend} >/dev/null 2>&1; do
+   sleep 1
+done
+
 rm -rf km
 # we only need KKM repo and Make system so not pulling in all submodules
 echo Cloning KM repo. branch: ${SRC_BRANCH}
