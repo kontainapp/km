@@ -91,13 +91,13 @@ build {
     # packer provisioners run as tmp 'packer' user.
     # For docker to run with no sudo, let's add it to 'docker' group and
     # later use 'sg' to run all as this group without re-login
-    inline = ["sudo usermod -aG docker ${var.ssh_user}"]
+    inline = ["sudo usermod -aG docker,kvm ${var.ssh_user}"]
   }
 
   provisioner "shell" {
     script = "packer/scripts/km-test.sh"
-    // double sg invocation to get docker into the process's grouplist but not the primary group.
-    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c 'sg ${var.ssh_user} {{ .Path }}'"
+    // su into ourselves to pick up new groups
+    execute_command = "chmod +x {{ .Path }}; sudo {{ .Vars }} su ${var.ssh_user} -c {{ .Path }}"
 
     // vars to pass to the remote script
     environment_vars = [
@@ -114,7 +114,7 @@ build {
     ]
     timeout = var.timeout
   }
-  
+
   error-cleanup-provisioner "shell" {
     script = "packer/scripts/gather-logs.sh"
   }

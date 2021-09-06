@@ -49,7 +49,7 @@ apt-get install --yes -q git make makeself gcc linux-headers-$(uname -r) libelf-
 systemctl enable docker.service
 
 if ! grep -q docker /etc/group ; then groupadd docker ; fi
-usermod -aG docker $USER
+usermod -aG docker,kvm $USER
 
 # TODO - this needs to be in another base image (VagrantPreloadedBaseImage)
 #  in the vast majority of cases these extra few GiB for boxes are not needed

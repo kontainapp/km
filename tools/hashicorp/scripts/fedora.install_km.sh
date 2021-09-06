@@ -35,7 +35,7 @@ mkdir -p /opt/kontain && tar -C /opt/kontain -xzf $storage/kontain.tar.gz
 echo "PATH=\$PATH:/opt/kontain/bin" >> ~vagrant/.bashrc
 
 # Configure Docker and restart
-usermod -aG docker vagrant
+usermod -aG docker,kvm vagrant
 /opt/kontain/bin/docker_config.sh
 
 # Config changes for podman

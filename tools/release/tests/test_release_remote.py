@@ -177,7 +177,7 @@ def test(remote_ip, version, token):
     ssh_execute(remote_ip, "sudo apt-get update", logger)
     ssh_execute(remote_ip, "sudo apt-get install -y gcc docker.io libyajl2 libseccomp2 libcap2", logger)
     ssh_execute(remote_ip, "sudo chmod 666 /dev/kvm", logger)
-    ssh_execute(remote_ip, f"sudo usermod -G docker {TESTING_VM_ADMIN}", logger)
+    ssh_execute(remote_ip, f"sudo usermod,kvm -G docker,kvm {TESTING_VM_ADMIN}", logger)
 
     if version is None or version == "":
         version_flag = ""
