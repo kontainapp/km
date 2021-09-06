@@ -46,6 +46,7 @@ variables {
   aws_region        = "us-east-2"
   hv_device         = "/dev/kkm"
   ssh_user          = "fedora"
+  ssh_group         = "fedora"
   // Azure access (for docker images)
   sp_tenant    = env("SP_TENANT")
   sp_appid     = env("SP_APPID")
@@ -97,7 +98,7 @@ build {
   provisioner "shell" {
     script = "packer/scripts/km-test.sh"
     // double sg invocation to get docker into the process's grouplist but not the primary group.
-    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c 'sg ${var.ssh_user} {{ .Path }}'"
+    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c 'sg ${var.ssh_group} {{ .Path }}'"
 
     // vars to pass to the remote script
     environment_vars = [
@@ -114,7 +115,7 @@ build {
     ]
     timeout = var.timeout
   }
-  
+
   error-cleanup-provisioner "shell" {
     script = "packer/scripts/gather-logs.sh"
   }

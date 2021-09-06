@@ -28,5 +28,5 @@ ls -lZ /dev/k*
 echo '============ Kernel messages'
 sudo dmesg
 echo '============ Journal'
-sudo journalctl -b
+sudo journalctl -b --no-pager
 echo '============ End of logs'
