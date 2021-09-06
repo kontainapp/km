@@ -92,7 +92,7 @@ build {
     # packer provisioners run as tmp 'packer' user.
     # For docker to run with no sudo, let's add it to 'docker' group and
     # later use 'sg' to run all as this group without re-login
-    inline = ["sudo usermod -aG docker ${var.ssh_user}"]
+    inline = ["sudo usermod -aG docker,kvm ${var.ssh_user}"]
   }
 
   provisioner "shell" {

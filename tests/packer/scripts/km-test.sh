@@ -52,8 +52,6 @@ if [ "${HYPERVISOR_DEVICE}" == "/dev/kkm" ] ; then
    modinfo kkm >& /dev/null && sudo rmmod kkm
    sudo insmod kkm/kkm/kkm.ko
    ./kkm/test_kkm/test_kkm
-else
-   sudo chmod a+rw /dev/kvm
 fi
 
 echo Checking for kkm or kvm modules

@@ -114,7 +114,7 @@ build {
     # For docker to run with no sudo, let's add it to 'docker' group and
     # later use 'sg' to run all as this group without re-login
     inline = [
-      "sudo usermod -aG docker ${var.ssh_user}"
+      "sudo usermod -aG docker,kvm ${var.ssh_user}"
     ]
   }
 

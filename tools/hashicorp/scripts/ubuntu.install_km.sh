@@ -47,7 +47,7 @@ mkdir -p /opt/kontain && tar -C /opt/kontain -xzf $storage/kontain.tar.gz
 for u in vagrant ubuntu ; do
    if getent passwd $u > /dev/null 2>&1; then
       echo "PATH=\$PATH:/opt/kontain/bin" >> $(eval echo ~$u/.bashrc)
-      usermod -aG docker $u
+      usermod -aG docker,kvm $u
    fi
 done
 /opt/kontain/bin/docker_config.sh
