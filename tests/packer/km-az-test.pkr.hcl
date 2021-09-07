@@ -52,7 +52,6 @@ variable "step" {
 
 variables {
   ssh_user  = "ubuntu"
-  ssh_group = "ubuntu"
   // Azure access (for docker images)
   sp_subscription_id = env("SP_SUBSCRIPTION_ID")
   sp_tenant          = env("SP_TENANT")
@@ -126,8 +125,8 @@ build {
 
   provisioner "shell" {
     script = "packer/scripts/km-test.sh"
-    // double sg invocation to get docker into the process's grouplist but not the primary group.
-    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c 'sg ${var.ssh_group} {{ .Path }}'"
+    // su into ourselves to pick up new groups
+    execute_command = "set -x; uname -a; chmod +x {{ .Path }}; sudo {{ .Vars }} su ${var.ssh_user} -c {{ .Path }}"
     // vars to pass to the remote script
     environment_vars = [
       "TRACE=1",
