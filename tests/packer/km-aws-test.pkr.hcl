@@ -97,7 +97,7 @@ build {
   provisioner "shell" {
     script = "packer/scripts/km-test.sh"
     // su into ourselves to pick up new groups
-    execute_command = "chmod +x {{ .Path }}; sudo {{ .Vars }} su -p ${var.ssh_user} -c {{ .Path }}"
+    execute_command = "chmod +x {{ .Path }}; sudo {{ .Vars }} su ${var.ssh_user} -c {{ .Path }}"
 
     // vars to pass to the remote script
     environment_vars = [
