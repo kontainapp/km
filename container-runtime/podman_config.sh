@@ -108,22 +108,20 @@ function selinux_is_enabled()
    return 1
 }
 
-# A small function to keep trying apt-get until othe apt-get'ers finish.
+# A small function to keep trying apt-get until other apt-get'ers finish.
 function persistent-apt-get
 {
-   MESSAGE="E: Could not get lock /var/lib/dpkg/lock-frontend."
    eflag=0
    if echo $- | grep -q "e"; then eflag=1; fi
-   echo eflag $eflag
 
-   rv=0
+   MESSAGE="E: Could not get lock /var/lib/dpkg/lock-frontend."
    APT_GET_OUTPUT=/tmp/apt-get-out-$$
    while true; do
       cp /dev/null $APT_GET_OUTPUT
-      if [ $eflag -ne 0 ]; then set +e; fi
+      [ $eflag -ne 0 ] && set +e
       apt-get $* >$APT_GET_OUTPUT 2>&1
       rv=$?
-      if [ $eflag -ne 0 ]; then set -e; fi
+      [ $eflag -ne 0 ] && set -e
       if test $rv -ne 0; then
          if grep -q "$MESSAGE" $APT_GET_OUTPUT; then
             # Another apt-get is running, try again.
