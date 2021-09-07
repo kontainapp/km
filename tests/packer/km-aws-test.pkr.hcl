@@ -96,8 +96,8 @@ build {
 
   provisioner "shell" {
     script = "packer/scripts/km-test.sh"
-    // double sg invocation to get docker into the process's grouplist but not the primary group.
-    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sg docker -c 'sg ${var.ssh_user} {{ .Path }}'"
+    // su into ourselves to pick up new groups
+    execute_command = "chmod +x {{ .Path }}; sudo {{ .Vars }} su -p ${var.ssh_user} -c {{ .Path }}"
 
     // vars to pass to the remote script
     environment_vars = [
@@ -114,7 +114,7 @@ build {
     ]
     timeout = var.timeout
   }
-  
+
   error-cleanup-provisioner "shell" {
     script = "packer/scripts/gather-logs.sh"
   }

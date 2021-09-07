@@ -525,7 +525,7 @@ void km_check_kernel(void)
 
    /* Try the uname system call.  */
    if (uname(&uts) != 0) {
-      km_err(3, "Cannot determine kernel version.");
+      km_err(3, "Cannot determine kernel version");
    }
    if (sscanf(uts.release, "%d.%d", &mj, &mn) != 2) {
       km_errx(3, "Unexpected kernel version format %s", uts.release);
@@ -565,15 +565,22 @@ void km_machine_setup(km_machine_init_params_t* params)
    } else {
       // default devices, in the order we try to open them
       const_string_t dev_files[] = {DEVICE_KONTAIN, DEVICE_KVM, DEVICE_KKM, NULL};
+      int saved_errno = 0;
       for (const_string_t* d = dev_files; *d != NULL; d++) {
          km_infox(KM_TRACE_KVM, "Trying to open device file %s", *d);
          if ((machine.kvm_fd = km_internal_open(*d, O_RDWR, 0)) >= 0) {
             km_machine_init_params.vdev_name = strdup(*d);
             break;
          }
+         if (errno != ENOENT) {
+            saved_errno = errno;
+         }
       }
       if (machine.kvm_fd < 0) {
-         km_err(1, "Can't open default device file.");
+         if (saved_errno > 0) {
+            errno = saved_errno;
+         }
+         km_err(1, "Can't open default device file");
       }
    }
    km_infox(KM_TRACE_KVM, "Using device file %s", km_machine_init_params.vdev_name);
@@ -589,7 +596,7 @@ void km_machine_setup(km_machine_init_params_t* params)
 
    if (machine.vm_type == VM_TYPE_KKM) {
       if (km_vmdriver_cpu_supported() == CPU_NOT_SUPPORTED) {
-         km_errx(1, "KKM: Unsupported processor. Check kernel logs for more information.");
+         km_errx(1, "KKM: Unsupported processor. Check kernel logs for more information");
       }
    }
 
@@ -603,7 +610,9 @@ void km_machine_setup(km_machine_init_params_t* params)
       km_errx(1, "KVM: API version mismatch");
    }
    if ((machine.mach_fd = km_internal_fd_ioctl(machine.kvm_fd, KVM_CREATE_VM, NULL)) < 0) {
-      km_err(1, "KVM: create VM failed.%s", errno == EBUSY ? " Another virualization solution (maybe vbox) is active" : "");
+      km_err(1,
+             "KVM: create VM failed.%s",
+             errno == EBUSY ? " Another virualization solution (maybe vbox) is active" : "");
    }
    if ((machine.vm_run_size = ioctl(machine.kvm_fd, KVM_GET_VCPU_MMAP_SIZE, 0)) < 0) {
       km_err(1, "KVM: get VM memory region size failed");
