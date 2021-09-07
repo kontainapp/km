@@ -108,6 +108,36 @@ function selinux_is_enabled()
    return 1
 }
 
+# A small function to keep trying apt-get until othe apt-get'ers finish.
+function persistent-apt-get
+{
+   MESSAGE="E: Could not get lock /var/lib/dpkg/lock-frontend."
+   eflag=0
+   if echo $- | grep -q "e"; then eflag=1; fi
+   echo eflag $eflag
+
+   rv=0
+   APT_GET_OUTPUT=/tmp/apt-get-out-$$
+   while true; do
+      cp /dev/null $APT_GET_OUTPUT
+      if [ $eflag -ne 0 ]; then set +e; fi
+      apt-get $* >$APT_GET_OUTPUT 2>&1
+      rv=$?
+      if [ $eflag -ne 0 ]; then set -e; fi
+      if test $rv -ne 0; then
+         if grep -q "$MESSAGE" $APT_GET_OUTPUT; then
+            # Another apt-get is running, try again.
+            sleep 1
+            continue
+         fi
+      fi
+      break
+   done
+   cat $APT_GET_OUTPUT
+   rm -f $APT_GET_OUTPUT
+   return $rv
+}
+
 # docker-init is in different directories for different distributions
 DI=DOCKER_INIT_${ID^^}
 DOCKER_INIT=${!DI}
@@ -122,8 +152,8 @@ REFRESH=REFRESH_${ID^^}_PACKAGES
 # Tell ubuntu about the ppackage repo containing podman
 if test "$ID" = "ubuntu"
 then
-   apt-get update
-   apt-get install -y wget gnupg2
+   persistent-apt-get update
+   persistent-apt-get install -y wget gnupg2
    echo "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
    wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_${VERSION_ID}/Release.key -O- | apt-key add -
 fi
