@@ -47,7 +47,7 @@ if [ "${HYPERVISOR_DEVICE}" == "/dev/kkm" ] ; then
    sudo insmod kkm/kkm/kkm.ko
    ./kkm/test_kkm/test_kkm
 else
-   echo "KERNEL=="kvm", GROUP="kvm", MODE="0666"" > /tmp/rules
+   echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
    sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
    sudo udevadm control --reload-rules && sudo udevadm trigger
 fi
