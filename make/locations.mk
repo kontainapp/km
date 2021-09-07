@@ -114,7 +114,7 @@ DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP}
 # in, we need to map the current used into the container, since containers are
 # using `appuser`, which is different from user on the host.
 DOCKER_RUN_BUILD := ${DOCKER_RUN} -u ${CURRENT_UID}:${CURRENT_GID}
-DOCKER_RUN_TEST := ${DOCKER_RUN} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE} --init --group-add kvm
+DOCKER_RUN_TEST := ${DOCKER_RUN} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE} --init
 
 # These PODMAN_* variables mirror the docker related ones.
 # Initially we use these to verify that runenv-images work with podman
