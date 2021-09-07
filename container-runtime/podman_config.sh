@@ -56,12 +56,12 @@ readonly FEDORA_KRUN_PACKAGES="libcap yajl libseccomp openssl-libs"
 readonly FEDORA_PACKAGES="podman selinux-policy-devel"
 readonly UBUNTU_KRUN_PACKAGES="libcap2 libyajl2 libseccomp2 openssl"
 readonly UBUNTU_PACKAGES="podman"
-readonly REFRESH_UBUNTU_PACKAGES="sudo apt-get update"
+readonly REFRESH_UBUNTU_PACKAGES="persistent-apt-get update"
 readonly REFRESH_FEDORA_PACKAGES=true
-readonly INSTALL_UBUNTU_PACKAGES="sudo apt-get install -y "
-readonly INSTALL_FEDORA_PACKAGES="sudo dnf install -y "
-readonly UNINSTALL_UBUNTU_PACKAGES="sudo apt-get remove -y "
-readonly UNINSTALL_FEDORA_PACKAGES="sudo dnf remove -y "
+readonly INSTALL_UBUNTU_PACKAGES="persistent-apt-get install -y "
+readonly INSTALL_FEDORA_PACKAGES="dnf install -y "
+readonly UNINSTALL_UBUNTU_PACKAGES="persistent-apt-get remove -y "
+readonly UNINSTALL_FEDORA_PACKAGES="dnf remove -y "
 
 # UNINSTALL
 if [ $# -eq 1 -a "$1" = "-u" ]; then
