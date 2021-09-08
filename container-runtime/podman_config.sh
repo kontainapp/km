@@ -56,12 +56,12 @@ readonly FEDORA_KRUN_PACKAGES="libcap yajl libseccomp openssl-libs"
 readonly FEDORA_PACKAGES="podman selinux-policy-devel"
 readonly UBUNTU_KRUN_PACKAGES="libcap2 libyajl2 libseccomp2 openssl"
 readonly UBUNTU_PACKAGES="podman"
-readonly REFRESH_UBUNTU_PACKAGES="sudo apt-get update"
+readonly REFRESH_UBUNTU_PACKAGES="persistent-apt-get update"
 readonly REFRESH_FEDORA_PACKAGES=true
-readonly INSTALL_UBUNTU_PACKAGES="sudo apt-get install -y "
-readonly INSTALL_FEDORA_PACKAGES="sudo dnf install -y "
-readonly UNINSTALL_UBUNTU_PACKAGES="sudo apt-get remove -y "
-readonly UNINSTALL_FEDORA_PACKAGES="sudo dnf remove -y "
+readonly INSTALL_UBUNTU_PACKAGES="persistent-apt-get install -y "
+readonly INSTALL_FEDORA_PACKAGES="dnf install -y "
+readonly UNINSTALL_UBUNTU_PACKAGES="persistent-apt-get remove -y "
+readonly UNINSTALL_FEDORA_PACKAGES="dnf remove -y "
 
 # UNINSTALL
 if [ $# -eq 1 -a "$1" = "-u" ]; then
@@ -108,6 +108,34 @@ function selinux_is_enabled()
    return 1
 }
 
+# A small function to keep trying apt-get until other apt-get'ers finish.
+function persistent-apt-get
+{
+   eflag=0
+   if echo $- | grep -q "e"; then eflag=1; fi
+
+   MESSAGE="E: Could not get lock /var/lib/dpkg/lock-frontend."
+   APT_GET_OUTPUT=/tmp/apt-get-out-$$
+   while true; do
+      cp /dev/null $APT_GET_OUTPUT
+      [ $eflag -ne 0 ] && set +e
+      apt-get $* >$APT_GET_OUTPUT 2>&1
+      rv=$?
+      [ $eflag -ne 0 ] && set -e
+      if test $rv -ne 0; then
+         if grep -q "$MESSAGE" $APT_GET_OUTPUT; then
+            # Another apt-get is running, try again.
+            sleep 1
+            continue
+         fi
+      fi
+      break
+   done
+   cat $APT_GET_OUTPUT
+   rm -f $APT_GET_OUTPUT
+   return $rv
+}
+
 # docker-init is in different directories for different distributions
 DI=DOCKER_INIT_${ID^^}
 DOCKER_INIT=${!DI}
@@ -122,8 +150,8 @@ REFRESH=REFRESH_${ID^^}_PACKAGES
 # Tell ubuntu about the ppackage repo containing podman
 if test "$ID" = "ubuntu"
 then
-   apt-get update
-   apt-get install -y wget gnupg2
+   persistent-apt-get update
+   persistent-apt-get install -y wget gnupg2
    echo "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
    wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_${VERSION_ID}/Release.key -O- | apt-key add -
 fi
