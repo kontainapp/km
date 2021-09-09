@@ -168,6 +168,7 @@ fi
 echo
 if [ ! -e $HOME_CONTAINERS_CONF ]
 then
+   echo "$HOME_CONTAINERS_CONF does not exist, creating it"
    cat <<EOF >$HOME_CONTAINERS_CONF
 [containers]
 init_path = "$DOCKER_INIT"
@@ -194,32 +195,34 @@ EOF
       t=`dirname $t`
       chown $ug $t
    fi
-fi
-
-# set init_path in the [containers] section of ~/.config/containers/containers.conf
-if ! grep -q "^ *init_path" $HOME_CONTAINERS_CONF
-then
-   # no init_path, use the docker init
-   sed --in-place -e "/^\[containers\]/ainit_path = \"$DOCKER_INIT\"" $HOME_CONTAINERS_CONF
 else
-   if ! grep -q "^ *init_path *= *\"$DOCKER_INIT\"" $HOME_CONTAINERS_CONF
+   # containers.conf does exist, fix its contents if needed.
+   # set init_path in the [containers] section of ~/.config/containers/containers.conf
+   echo "$HOME_CONTAINERS_CONF does exist, checking its contents"
+   if ! grep -q "^ *init_path" $HOME_CONTAINERS_CONF
    then
-      echo "Leaving init_path statement in $HOME_CONTAINERS_CONF unchanged, you may need to change it to $DOCKER_INIT"
-      echo "Existing init_path:"
-      grep "^ *init_path" $HOME_CONTAINERS_CONF
+      # no init_path, use the docker init
+      sed --in-place -e "/^\[containers\]/ainit_path = \"$DOCKER_INIT\"" $HOME_CONTAINERS_CONF
    else
-      echo "init_path = \"$DOCKER_INIT\"" is already in $HOME_CONTAINERS_CONF
+      if ! grep -q "^ *init_path *= *\"$DOCKER_INIT\"" $HOME_CONTAINERS_CONF
+      then
+         echo "Leaving init_path statement in $HOME_CONTAINERS_CONF unchanged, you may need to change it to $DOCKER_INIT"
+         echo "Existing init_path:"
+         grep "^ *init_path" $HOME_CONTAINERS_CONF
+      else
+         echo "init_path = \"$DOCKER_INIT\"" is already in $HOME_CONTAINERS_CONF
+      fi
    fi
-fi
 
-# add krun to ~/.config/containers/containers.conf at the beginning of the [engine.runtimes] section
-echo
-if ! grep -q "^ *krun =" $HOME_CONTAINERS_CONF
-then
-   sed --in-place -e "/^\[engine.runtimes\]/akrun = [\n   \"$KRUN_PATH\",\n]\n" $HOME_CONTAINERS_CONF
-else
-   echo "runtime krun already configured in $HOME_CONTAINERS_CONF"
-   grep -A 3 "^ *krun =" $HOME_CONTAINERS_CONF
+   # add krun to ~/.config/containers/containers.conf at the beginning of the [engine.runtimes] section
+   echo
+   if ! grep -q "^ *krun =" $HOME_CONTAINERS_CONF
+   then
+      sed --in-place -e "/^\[engine.runtimes\]/akrun = [\n   \"$KRUN_PATH\",\n]\n" $HOME_CONTAINERS_CONF
+   else
+      echo "runtime krun already configured in $HOME_CONTAINERS_CONF"
+      grep -A 3 "^ *krun =" $HOME_CONTAINERS_CONF
+   fi
 fi
 
 # If the system has selinux enabled setup our policy
