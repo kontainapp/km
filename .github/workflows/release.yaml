@@ -112,6 +112,8 @@ jobs:
           sudo apt-get -y -q install linux-headers-$(uname -r)
           sudo bash kkm.run --noprogress
           sudo mkdir -p /opt/kontain && sudo tar -C /opt/kontain -xzf kontain.tar.gz
+          sudo bash /opt/kontain/bin/podman_config.sh
+          sudo bash /opt/kontain/bin/docker_config.sh
 
       - name: Pull demo-runenv image
         run: make -C payloads pull-demo-runenv-image
