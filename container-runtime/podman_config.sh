@@ -259,12 +259,13 @@ EOF
 
    cat <<EOF >$KONTAIN_SELINUX_POLICY.fc
 $KKM_DEVICE		-c	gen_context(system_u:object_r:kvm_device_t,s0)
+$KM_PATH		--	gen_context(system_u:object_r:bin_t,s0)
 EOF
 
    ln -sf /usr/share/selinux/devel/Makefile
    make
    make reload
-   restorecon -i -F $KKM_DEVICE
+   restorecon -i -F $KKM_DEVICE $KM_PATH
    popd || exit
 else
    echo "selinux not enabled on this system"
