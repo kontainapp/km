@@ -133,7 +133,7 @@ function check_prereqs {
 function get_bundle {
    mkdir -p $PREFIX
    echo "Pulling $URL..."
-   wget $URL --output-document - -q | tar -C ${PREFIX} -xzf - --selinux
+   wget $URL --output-document - -q | tar -C ${PREFIX} -xzf -
    echo Done.
    if [ $validate == 1 ]; then
       $PREFIX/bin/km $PREFIX/tests/hello_test.km Hello World
