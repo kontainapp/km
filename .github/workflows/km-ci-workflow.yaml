@@ -139,7 +139,7 @@ jobs:
           retention-days: 7
 
   km-test:
-    name: Test KM/KVM on K8S and KKM on Azure VM
+    name: KM, payloads, krun tests, KVM on K8S
     runs-on: ubuntu-20.04
     needs: km-build
     steps:
@@ -172,7 +172,7 @@ jobs:
         timeout-minutes: 10
 
   km-test-withpacker:
-    name: Basic payload tests on Azure VM
+    name: Basic payload tests, KVM Azure VM
     runs-on: ubuntu-latest
     needs: km-build
     steps:
@@ -219,7 +219,7 @@ jobs:
           retention-days: 7
 
   kkm-test:
-    name: Test KM/KKM on CI VM
+    name: KM tests, KKM on CI VM
     runs-on: ubuntu-20.04
     needs: [km-build, kkm-build]
     steps:
@@ -249,7 +249,7 @@ jobs:
         run: dmesg
 
   kkm-test-vms:
-    name: Test KM/KKM on AWS and Azure VMs
+    name: KM tests, KKM AWS and Azure VMs
     runs-on: ubuntu-20.04
     needs: [km-build, kkm-build]
     steps:
@@ -268,7 +268,7 @@ jobs:
         # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
   km-krun-validate-runenv:
-    name: Validate runenv on AWS and Azure VMs
+    name: Validate runenv, KVM Azure VM
     runs-on: ubuntu-20.04
     needs: km-build
     steps:
@@ -284,9 +284,9 @@ jobs:
         # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
   km-krun-kkm-validate-runenv:
-    name: Validate runenv on AWS and Azure VMs
+    name: Validate runenv, KKM AWS and Azure VMs
     runs-on: ubuntu-20.04
-    needs: km-build
+    needs: [km-build, kkm-build]
     steps:
       - uses: actions/checkout@v2
 
