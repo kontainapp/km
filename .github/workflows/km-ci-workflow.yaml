@@ -316,7 +316,7 @@ jobs:
         # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
   km-test-vagrant-boxes:
-    name: Create vagrant boxes
+    name: Build and test vagrant boxes
     runs-on: ubuntu-20.04
     needs: [ km-build ]
     if: ${{ github.event_name == 'push' }}
@@ -333,8 +333,8 @@ jobs:
           make -C tools/hashicorp vm-images
           make -C tools/hashicorp register-boxes
 
-       - name: Test vagrant boxes
-         run: make -C tools/hashicorp test-boxes
+      - name: Test vagrant boxes
+        run: make -C tools/hashicorp test-boxes
 
   km-k8s-cluster:
     name: Create a new K8S cluster on Azure
