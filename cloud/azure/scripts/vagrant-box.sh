@@ -26,6 +26,8 @@
 # clone
 # preload proper boxes in base image
 #
+
+# Peparation so that we can do "make -C tools/hashicorp XXXX" below
 git clone https://$GITHUB_TOKEN@github.com:/kontainapp/km
 cd km
 git checkout ${SRC_BRANCH}
@@ -33,9 +35,10 @@ git submodule update --init kkm
 mkdir build
 cp /tmp/kkm.run /tmp/kontain.tar.gz build
 # note: daemon.json is in the repo so no need to copy it
+
 make -C tools/hashicorp vm-images
 
-## TBD: do a sanity test
-# mkdir test ; cd test; vagrant init BOX_NAME; vagrant up ; vagrant ssh uick-test; vagrant halt; cd -
+# Sanity test each of the images produced by the vm-images make target
+make -C tools/hashicorp test-boxes
 
 make -C tools/hashicorp RELEASE_TAG=${RELEASE_TAG} upload-boxes
