@@ -41,4 +41,7 @@ make -C tools/hashicorp vm-images
 # Sanity test each of the images produced by the vm-images make target
 make -C tools/hashicorp test-boxes
 
-make -C tools/hashicorp RELEASE_TAG=${RELEASE_TAG} upload-boxes
+# Only save the boxes in the cloud for a release
+if [ "${RELEASE_TAG}" != "" ]; then
+   make -C tools/hashicorp RELEASE_TAG=${RELEASE_TAG} upload-boxes
+fi
