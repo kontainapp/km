@@ -130,12 +130,25 @@ jobs:
       - name: Build faktory
         run: make -C tools/faktory all
 
+      - name: Create artifacts for machine image smoke tests
+        run: |
+          make withdocker TARGET=release
+          make withdocker TARGET=kkm-pkg
+
       - uses: actions/upload-artifact@v2
         with:
           name: km
           path: |
             /opt/kontain/bin/km
             /opt/kontain/bin/krun
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: kontain-smoke
+          path: |
+            ./build/kontain.tar.gz
+            ./build/kkm.run
           retention-days: 7
 
   km-test:
@@ -302,6 +315,27 @@ jobs:
         run: make -C tests validate-runenv-image-withpacker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m PACKER_DIR=payloads STEP=kkm-validate-runenv
         # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
+  km-test-vagrant-boxes:
+    name: Create vagrant boxes
+    runs-on: ubuntu-20.04
+    needs: [ km-build ]
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: kontain-smoke
+          path: build
+
+      - name: Make and register vagrant boxes
+        run: |
+          make -C tools/hashicorp vm-images
+          make -C tools/hashicorp register-boxes
+
+       - name: Test vagrant boxes
+         run: make -C tools/hashicorp test-boxes
+
   km-k8s-cluster:
     name: Create a new K8S cluster on Azure
     runs-on: ubuntu-20.04
@@ -386,7 +420,7 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all]
+    needs: [km-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-vagrant-boxes, km-test-all]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master

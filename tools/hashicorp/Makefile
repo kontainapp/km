@@ -52,6 +52,20 @@ register-boxes: ## register pre-created boxes in local vagrant cache
 		vagrant box add -f --name kontain/$${os}-kkm-beta3 output_box_$${os}/package.box ; \
 	done
 
+test-boxes:  ## Test the registered boxes
+	@for os in ${SRC_OS} ; do \
+		echo "Testing vagrant box kontain/$${os}-kkm-beta3"; \
+                mkdir $${os}; \
+		cd $${os}; \
+		vagrant init kontain/$${os}-kkm-beta3; \
+		vagrant up; \
+		TRACE=1 vagrant ssh <../scripts/box-smoke-test.sh; \
+		vagrant destroy -f; \
+		cd ..; \
+		rm -fr $${os}; \
+	done
+
+
 # Note: Amazon import-image refuses to accept/import some kernel versions, so as a temporary
 # bandaid we build it from existing AMI. Ideally, we just want to import a box as an AMI - see test_ami_upload.pkr.hcl
 # for an examle how to do it
