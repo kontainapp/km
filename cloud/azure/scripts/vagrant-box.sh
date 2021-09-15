@@ -36,12 +36,15 @@ mkdir build
 cp /tmp/kkm.run /tmp/kontain.tar.gz build
 # note: daemon.json is in the repo so no need to copy it
 
+echo "================= building vagrant boxes ===================="
 make -C tools/hashicorp vm-images
 
 # Sanity test each of the images produced by the vm-images make target
-make -C tools/hashicorp test-boxes
+echo "================= testing vagrant boxes ===================="
+make -C tools/hashicorp testZZZZboxes
 
 # Only save the boxes in the cloud for a release
 if [ "${RELEASE_TAG}" != "" ]; then
+   echo "================= publishing vagrant boxes ===================="
    make -C tools/hashicorp RELEASE_TAG=${RELEASE_TAG} upload-boxes
 fi
