@@ -126,7 +126,7 @@ jobs:
     name: Create vagrant boxes
     runs-on: ubuntu-20.04
     needs: [ km-kkm-smoke-test ]
-    if: ${{ github.event_name == 'push' || gethub.event_name == 'workflow_dispatch'}}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch'}}
     steps:
       - name: Get RELEASE_TAG
         if: startsWith(github.ref, 'refs/tags/v')
