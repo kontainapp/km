@@ -41,7 +41,7 @@ make -C tools/hashicorp vm-images
 
 # Sanity test each of the images produced by the vm-images make target
 echo "================= testing vagrant boxes ===================="
-make -C tools/hashicorp testZZZZboxes
+make -C tools/hashicorp test-boxes
 
 # Only save the boxes in the cloud for a release
 if [ "${RELEASE_TAG}" != "" ]; then
