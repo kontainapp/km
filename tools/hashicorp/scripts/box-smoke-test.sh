@@ -4,7 +4,10 @@
 # Are km, krun, docker, and podman present.
 # Are podman and docker configurations setup properly to use krun and km.
 #
-[ "$TRACE" ] && set -x
+# Supposedly vagrant will pass environment variables through ssh if they are
+# listed in the Vagrant file with 'config.ssh.forward_env = [ "TRACE" ]'
+# It didn't work for me.
+set -x
 set -e
 /opt/kontain/bin/km /opt/kontain/tests/hello_test.km 1 2 3 4 5 6
 RESULT="abc 123 xyz 789"
