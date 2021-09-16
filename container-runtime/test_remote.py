@@ -149,7 +149,7 @@ class RemoteTestAzure(metaclass=abc.ABCMeta):
             sure ssh is ready by calling a simple `/bin/true` command. If ssh fails,
             it will retry.
         """
-        max_retry = 3
+        max_retry = 10
         run = 0
         while run < max_retry:
             try:
