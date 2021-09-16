@@ -28,7 +28,7 @@
 #
 git clone https://$GITHUB_TOKEN@github.com:/kontainapp/km
 cd km
-git checkout -b ${SRC_BRANCH}
+git checkout ${SRC_BRANCH}
 git submodule update --init kkm
 mkdir build
 cp /tmp/kkm.run /tmp/kontain.tar.gz build
