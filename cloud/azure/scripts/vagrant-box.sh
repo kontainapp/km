@@ -51,6 +51,7 @@ make -C tools/hashicorp RELEASE_TAG=${RELEASE_TAG} upload-boxes
 
 # Test vagrant boxes retrieved from the cloud
 echo "================= testing vagrant boxes pull from the cloud  ===================="
-vagrant box remove kontain/fedora32-kkm-beta3 kontain/ubuntu2010-kkm-beta3
+vagrant box remove kontain/fedora32-kkm-beta3
+vagrant box remove kontain/ubuntu2010-kkm-beta3
 vagrant box list
 make -C tools/hashicorp test-boxes
