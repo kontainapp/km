@@ -40,6 +40,8 @@ echo "================= building vagrant boxes ===================="
 vagrant box list
 make -C tools/hashicorp vm-images
 vagrant box list
+make -C tools/hashicorp register-boxes
+vagrant box list
 
 # Sanity test each of the images produced by the vm-images make target
 echo "================= testing vagrant boxes ===================="
