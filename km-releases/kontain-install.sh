@@ -19,44 +19,15 @@
 # Usage: ./kontain-install.sh [TAG | -u]
 # -u = uninstall changes made by install
 #
-# Invokers of this script must be able to use sudo.
-#
-set -e
-[ "$TRACE" ] && set -x
+set -e; [ "$TRACE" ] && set -x
+
+# This script must be run as root.
+[ `id -u` != "0" ] && echo "Must run as root" && exit 1
 
 source /etc/os-release
 [ "$ID" != "fedora" -a "$ID" != "ubuntu" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
-readonly NEEDED_UBUNTU_PACKAGES="libyajl2 libseccomp2 libcap2 openssl-libs"
-readonly NEEDED_FEDORA_PACKAGES="yajl-devel.x86_64 libseccomp.x86_64 libcap.x86_64 openssl-libs.x86_64"
-readonly INSTALL_UBUNTU_PACKAGES="sudo apt-get update; sudo apt-get install -y "
-readonly INSTALL_FEDORA_PACKAGES="sudo dnf install -y "
-readonly UNINSTALL_UBUNTU_PACKAGES="sudo apt-get remove -y "
-readonly UNINSTALL_FEDORA_PACKAGES="sudo dnf remove -y  "
-
-# UNINSTALL
-if [ $# -eq 1 -a "$1" = "-u" ]; then
-   echo "Removing kontain"
-
-   # Remove kontain config changes for docker and podman
-   sudo bash -c /opt/kontain/bin/podman_config.sh -u
-   sudo bash -c /opt/kontain/bin/docker_config.sh -u
-
-   # Unload kernel modules?
-
-   # uninstall packages
-   local UNINSTALL=UNINSTALL_${ID^^}_PACKAGES
-   local PACKAGES=NEEDED_${ID^^}_PACKAGES
-   ${!UNINSTALL} ${!PACKAGES}
-   
-   exit 0
-fi
-
-# release name has to be passed via 1st arg, otherwise it's fetched from a file in the repo
-
-# TODO - roll back after merge to master
 export DEFAULT_TAG=latest
-
 readonly TAG=${1:-$DEFAULT_TAG}
 if [[ $TAG = latest ]] ; then
    readonly URL="https://github.com/kontainapp/km/releases/${TAG}/download/kontain.tar.gz"
@@ -64,6 +35,20 @@ else
    readonly URL="https://github.com/kontainapp/km/releases/download/${TAG}/kontain.tar.gz"
 fi
 readonly PREFIX="/opt/kontain"
+
+# UNINSTALL
+if [ $# -eq 1 -a "$1" = "-u" ]; then
+   echo "Removing kontain"
+
+   # Remove kontain config changes for docker and podman
+   bash /opt/kontain/bin/podman_config.sh -u
+   bash /opt/kontain/bin/docker_config.sh -u
+
+   # Unload kernel modules?
+
+   rm -rf ${PREFIX}
+   exit 0
+fi
 
 function check_args {
    # "check-arg: Noop for now"
@@ -88,13 +73,6 @@ function check_packages {
          warning "Package $i is required and is not installed."
       fi
    done
-}
-
-function install_packages {
-   echo "Installing needed packages for $ID"
-   local INSTALL=INSTALL_${ID^^}_PACKAGES
-   local PACKAGES=NEEDED_${ID^^}_PACKAGES
-   ${!INSTALL} ${!PACKAGES}
 }
 
 validate=0
@@ -147,13 +125,12 @@ function get_bundle {
 }
 
 function config_container_runner {
-   sudo bash -c /opt/kontain/bin/podman_config.sh
-   sudo bash -c /opt/kontain/bin/docker_config.sh
+   bash /opt/kontain/bin/podman_config.sh
+   bash /opt/kontain/bin/docker_config.sh
 }
 
 # main
 check_args
 check_prereqs
-install_packages
 get_bundle
 config_container_runner

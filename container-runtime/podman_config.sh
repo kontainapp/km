@@ -52,61 +52,17 @@ mkdir -p `dirname $HOME_CONTAINERS_CONF`
 
 # Needed packages
 # Note that docker_config.sh does not install the packages needed by krun. It depends on podman_config.sh doing it.
-readonly FEDORA_KRUN_PACKAGES="libcap yajl libseccomp openssl-libs"
-readonly FEDORA_PACKAGES="podman selinux-policy-devel"
-readonly UBUNTU_KRUN_PACKAGES="libcap2 libyajl2 libseccomp2 openssl"
-readonly UBUNTU_PACKAGES="podman"
+readonly FEDORA_PACKAGES="podman selinux-policy-devel yajl libcap libseccomp openssl-libs"
+# libseccomp libcap openssl-libs are protected, at least on Fedora
+readonly CLEAN_FEDORA_PACKAGES="podman selinux-policy-devel yajl-devel"
+readonly UBUNTU_PACKAGES="podman libyajl2 libcap2 libseccomp2 openssl"
+readonly CLEAN_UBUNTU_PACKAGES="podman libyajl2"
 readonly REFRESH_UBUNTU_PACKAGES="persistent-apt-get update"
 readonly REFRESH_FEDORA_PACKAGES=true
 readonly INSTALL_UBUNTU_PACKAGES="persistent-apt-get install -y "
 readonly INSTALL_FEDORA_PACKAGES="dnf install -y "
-readonly UNINSTALL_UBUNTU_PACKAGES="persistent-apt-get remove -y "
+readonly UNINSTALL_UBUNTU_PACKAGES="persistent-apt-get autoremove -y "
 readonly UNINSTALL_FEDORA_PACKAGES="dnf remove -y "
-
-# UNINSTALL
-if [ $# -eq 1 -a "$1" = "-u" ]; then
-   echo "Removing kontain related podman config changes"
-   # put back their containers.conf file
-   if [ -e $HOME_CONTAINERS_CONF.kontainsave ]; then
-      cp $HOME_CONTAINERS_CONF.kontainsave $HOME_CONTAINERS_CONF
-      rm -f $HOME_CONTAINERS_CONF.kontainsave
-   else
-      # No .kontainsave file, so they didn't have one before we got here
-      rm -f $HOME_CONTAINERS_CONF
-   fi
-
-   # remove our selinux policy
-   if [ "$ID" = "fedora" ]; then
-      semodule --remove=$KONTAIN_SELINUX_POLICY
-      # Remove the POLDIR?
-      #rm -fr $POLDIR
-      # We don't restore km's selinux context.
-   fi
-
-   # remove podman and selinux-policy-devel packages
-   # We don't remove the packages needed by krun since many of them are usually present by default.
-   UNINSTALL=UNINSTALL_${ID^^}_PACKAGES
-   PACKAGES=${ID^^}_PACKAGES
-   ${!UNINSTALL} ${!PACKAGES}
-
-   exit 0
-fi
-
-# return success if selinux is present and enabled, otherwise return fail
-function selinux_is_enabled()
-{
-   # If the "if" statement below is coded this way:
-   # [ -e "${GETENFORCEPATH}" ] && [ "`${GETENFORCEPATH}`" != "Disabled" ]
-   # the shell will complete the command line (including the `progname` stuff before the
-   # test ("[") operands are evaluated.  If the getenforce program is missing then the
-   # function fails because of that.
-   if [ -e "${GETENFORCEPATH}" ]; then
-      if [ "`${GETENFORCEPATH}`" != "Disabled" ]; then
-         return 0
-      fi
-   fi
-   return 1
-}
 
 # A small function to keep trying apt-get until other apt-get'ers finish.
 function persistent-apt-get
@@ -136,6 +92,51 @@ function persistent-apt-get
    return $rv
 }
 
+# UNINSTALL
+if [ $# -eq 1 -a "$1" = "-u" ]; then
+   echo "Removing kontain related podman config changes"
+   # put back their containers.conf file
+   if [ -e $HOME_CONTAINERS_CONF.kontainsave ]; then
+      cp $HOME_CONTAINERS_CONF.kontainsave $HOME_CONTAINERS_CONF
+      rm -f $HOME_CONTAINERS_CONF.kontainsave
+   else
+      # No .kontainsave file, so they didn't have one before we got here
+      rm -f $HOME_CONTAINERS_CONF
+   fi
+
+   # remove our selinux policy
+   if [ "$ID" = "fedora" ]; then
+      semodule --remove=$KONTAIN_SELINUX_POLICY
+      # Remove the POLDIR?
+      #rm -fr $POLDIR
+      # We don't restore km's selinux context.
+   fi
+
+   # remove podman and selinux-policy-devel packages
+   # We don't remove the packages needed by krun since many of them are usually present by default.
+   UNINSTALL=UNINSTALL_${ID^^}_PACKAGES
+   PACKAGES=CLEAN_${ID^^}_PACKAGES
+   ${!UNINSTALL} ${!PACKAGES}
+
+   exit 0
+fi
+
+# return success if selinux is present and enabled, otherwise return fail
+function selinux_is_enabled()
+{
+   # If the "if" statement below is coded this way:
+   # [ -e "${GETENFORCEPATH}" ] && [ "`${GETENFORCEPATH}`" != "Disabled" ]
+   # the shell will complete the command line (including the `progname` stuff before the
+   # test ("[") operands are evaluated.  If the getenforce program is missing then the
+   # function fails because of that.
+   if [ -e "${GETENFORCEPATH}" ]; then
+      if [ "`${GETENFORCEPATH}`" != "Disabled" ]; then
+         return 0
+      fi
+   fi
+   return 1
+}
+
 # docker-init is in different directories for different distributions
 DI=DOCKER_INIT_${ID^^}
 DOCKER_INIT=${!DI}
@@ -143,7 +144,6 @@ DOCKER_INIT=${!DI}
 # Install podman and policy build tools
 echo "Installing podman and selinux packages"
 PACKAGES=${ID^^}_PACKAGES
-KRUN_PACKAGES=${ID^^}_KRUN_PACKAGES
 INSTALL=INSTALL_${ID^^}_PACKAGES
 REFRESH=REFRESH_${ID^^}_PACKAGES
 
@@ -157,7 +157,7 @@ then
 fi
 # install podman, selinux utils, krun dependencies
 ${!REFRESH}
-${!INSTALL} ${!PACKAGES} ${!KRUN_PACKAGES}
+${!INSTALL} ${!PACKAGES}
 
 # Copy whatever they have even if we don't alter it.
 if [ -e $HOME_CONTAINERS_CONF ]; then

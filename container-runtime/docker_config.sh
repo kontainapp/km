@@ -23,9 +23,17 @@ set -e ; [ "$TRACE" ] && set -x
 # This script must be run as root.
 [ `id -u` != "0" ] && echo "Must run as root" && exit 1
 
+# Can we assume docker is installed?
+#apt-get update
+#apt-get install -y -q docker.io
+#dnf install -y -q moby-engine
+
+# If docker is not here, don't do anything.
+DOCKERPATH=$(which docker) || echo "Docker is not present on this system"
+[ $DOCKERPATH = "" ] && exit 0
+
 # docker config file locations
 ETC_DAEMON_JSON=/etc/docker/daemon.json
-DOCKERPATH=`which docker`
 KRUN_PATH=/opt/kontain/bin/krun
 
 RESTART_DOCKER_FEDORA="systemctl restart docker.service "
@@ -56,14 +64,6 @@ if [ $# -eq 1 -a "$1" = "-u" ]; then
    fi
    exit 0
 fi
-
-# Can we assume docker is installed?
-#apt-get update
-#apt-get install -y -q docker.io
-#dnf install -y -q moby-engine
-
-# If docker is not here, don't do anything.
-[ "$DOCKERPATH" = "" ] && echo "Docker is not present on this system" && exit 0
 
 # We configure docker to use krun here.  krun may need some packages that
 # are not installed by default.  We don't install them here but instead depend
