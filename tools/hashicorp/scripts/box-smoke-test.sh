@@ -8,7 +8,8 @@
 # listed in the Vagrant file with 'config.ssh.forward_env = [ "TRACE" ]'
 # It didn't work for me.
 set -x
-set -e
+#set -e
+ls -laR /opt/kontain
 /opt/kontain/bin/km /opt/kontain/tests/hello_test.km 1 2 3 4 5 6
 RESULT="abc 123 xyz 789"
 CONTAINER=kontainapp/runenv-dweb
