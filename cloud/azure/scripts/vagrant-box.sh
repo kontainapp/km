@@ -37,14 +37,20 @@ cp /tmp/kkm.run /tmp/kontain.tar.gz build
 # note: daemon.json is in the repo so no need to copy it
 
 echo "================= building vagrant boxes ===================="
+vagrant box list
 make -C tools/hashicorp vm-images
+vagrant box list
 
 # Sanity test each of the images produced by the vm-images make target
 echo "================= testing vagrant boxes ===================="
 make -C tools/hashicorp test-boxes
 
 # Only save the boxes in the cloud for a release
-if [ "${RELEASE_TAG}" != "" ]; then
-   echo "================= publishing vagrant boxes ===================="
-   make -C tools/hashicorp RELEASE_TAG=${RELEASE_TAG} upload-boxes
-fi
+echo "================= publishing vagrant boxes ===================="
+make -C tools/hashicorp RELEASE_TAG=${RELEASE_TAG} upload-boxes
+
+# Test vagrant boxes retrieved from the cloud
+echo "================= testing vagrant boxes pull from the cloud  ===================="
+vagrant box remove kontain/fedora32-kkm-beta3 kontain/ubuntu2010-kkm-beta3
+vagrant box list
+make -C tools/hashicorp test-boxes
