@@ -29,7 +29,8 @@ set -e ; [ "$TRACE" ] && set -x
 #dnf install -y -q moby-engine
 
 # If docker is not here, don't do anything.
-DOCKERPATH=$(which docker) || echo "Docker is not present on this system" && exit 0
+DOCKERPATH=$(which docker) || echo "Docker is not present on this system"
+[ $DOCKERPATH = "" ] && exit 0
 
 # docker config file locations
 ETC_DAEMON_JSON=/etc/docker/daemon.json

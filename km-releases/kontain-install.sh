@@ -21,6 +21,9 @@
 #
 set -e; [ "$TRACE" ] && set -x
 
+# This script must be run as root.
+[ `id -u` != "0" ] && echo "Must run as root" && exit 1
+
 source /etc/os-release
 [ "$ID" != "fedora" -a "$ID" != "ubuntu" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
