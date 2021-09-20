@@ -70,4 +70,4 @@ jobs:
         run: make -C cloud/azure login-cli
 
       - name: Build L0 Base image
-        run: make -C cloud/azure L0-k8-image L0_VMIMAGE_NAME="${{ env.L0_IMAGE_NAME }}"
+        run: make -C cloud/azure L0-k8s-image L0_VMIMAGE_NAME="${{ env.L0_IMAGE_NAME }}"
