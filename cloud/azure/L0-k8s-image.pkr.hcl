@@ -22,7 +22,7 @@ variables {
   sp_password        = env("SP_PASSWORD")
   sp_subscription_id = env("SP_SUBSCRIPTION_ID")
 
-  image_name = "L0K8SBaseImage"
+  image_name = "L0k8sBaseImage"
   // RG should be created ahead of time
   image_rg = "PackerBuildRG"
 }
