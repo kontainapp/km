@@ -53,6 +53,7 @@ register-boxes: ## register pre-created boxes in local vagrant cache
 	done
 
 test-boxes:  ## Test the registered boxes
+	lscpu
 	@set -x; for os in ${SRC_OS} ; do \
 		echo "Testing vagrant box kontain/$${os}-kkm-beta3"; \
                 mkdir $${os}; \
