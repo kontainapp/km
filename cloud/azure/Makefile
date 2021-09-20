@@ -149,6 +149,10 @@ L0_VMIMAGE_NAME ?= L0BaseImage
 L0-image: ## build the very base image
 	${PACKER_BUILD} -force -var image_name=${L0_VMIMAGE_NAME} L0-image.pkr.hcl
 
+L0_k8S_VMIMAGE_NAME ?= L0BaseImage
+L0-k8s-image: ## build the very base image
+	${PACKER_BUILD} -force -var image_name=${L0_k8S_VMIMAGE_NAME} L0-k8s-image.pkr.hcl
+
 vagrant-box:
 	${PACKER_BUILD} -force \
 		--var src_branch=${SRC_BRANCH} \
