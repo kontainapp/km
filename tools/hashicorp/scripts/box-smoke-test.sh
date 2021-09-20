@@ -10,12 +10,12 @@
 set -x
 #set -e
 lscpu
-cpuinfo
-journalctl -k
-ls -laR /opt/kontain
+ls -laRZ /opt/kontain
+ls -lZ /dev/k*m
 /opt/kontain/bin/km /opt/kontain/tests/hello_test.km 1 2 3 4 5 6
 RESULT="abc 123 xyz 789"
 CONTAINER=kontainapp/runenv-dweb
 docker run --rm --init --runtime krun $CONTAINER /bin/sh -c "echo $RESULT" | grep "$RESULT"
+sudo journalctl -k
 podman run --rm --init --runtime krun docker.io/$CONTAINER /bin/sh -c "echo $RESULT" | grep "$RESULT"
-
+sudo journalctl -k
