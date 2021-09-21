@@ -44,7 +44,7 @@ on:
 
 jobs:
   build-base-image:
-    name: Build Azure Base Image
+    name: Build Azure k8s Base Image
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -69,5 +69,5 @@ jobs:
       - name: login to Azure
         run: make -C cloud/azure login-cli
 
-      - name: Build L0 Base image
+      - name: Build L0 k8s Base image
         run: make -C cloud/azure L0-k8s-image L0_VMIMAGE_NAME="${{ env.L0_IMAGE_NAME }}"
