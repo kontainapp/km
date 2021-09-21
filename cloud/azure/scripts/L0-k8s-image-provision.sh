@@ -24,41 +24,54 @@ cat /etc/os-release
 # export DEBIAN_FRONTEND=noninteractive
 echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 
-# kubectl
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-kubectl version --client
+# install prerequisites
+apt-get update
+apt-get install -y --no-install-recommends \
+    lz4 \
+    gnupg \
+    sudo \
+    openssh-server \
+    dnsutils \
+    # libglib2.0-0 is required for conmon, which is required for podman
+    libglib2.0-0 \
+    # fuse3 is required for fuse-overlayfs
+    fuse3
 
-# Docker repo
-# apt-get install apt-transport-https
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo \
-  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# hashicorp repo
-curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add -
-apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-
-# Install stuff
-apt-get update --yes -q
-apt-get install --yes -q git make makeself gcc linux-headers-$(uname -r) libelf-dev \
-                         docker-ce docker-ce-cli containerd.io azure-cli \
-                         vagrant packer virtualbox
-
-systemctl enable docker.service
-
-if ! grep -q docker /etc/group ; then groupadd docker ; fi
-usermod -aG docker $USER
-
-# TODO - this needs to be in another base image (VagrantPreloadedBaseImage)
-#  in the vast majority of cases these extra few GiB for boxes are not needed
-# TODO box version and OS List is currently defined in multiple places
-#  need to defined in makefile and pass around as env
-
-# uncomment this to preinstall vagrant boxes
-# preinstall_boxes="generic/ubuntu2010 generic/fedora32"
-#for box in $preinstall_boxes
-#do
-#   vagrant box add  $box --provider=virtualbox --box-version 3.2.24
-#done
+## kubectl
+#curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+#install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+#kubectl version --client
+#
+## Docker repo
+## apt-get install apt-transport-https
+#curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+#echo \
+#  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+#  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+#
+## hashicorp repo
+#curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add -
+#apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+#
+## Install stuff
+#apt-get update --yes -q
+#apt-get install --yes -q git make makeself gcc linux-headers-$(uname -r) libelf-dev \
+#                         docker-ce docker-ce-cli containerd.io azure-cli \
+#                         vagrant packer virtualbox
+#
+#systemctl enable docker.service
+#
+#if ! grep -q docker /etc/group ; then groupadd docker ; fi
+#usermod -aG docker $USER
+#
+## TODO - this needs to be in another base image (VagrantPreloadedBaseImage)
+##  in the vast majority of cases these extra few GiB for boxes are not needed
+## TODO box version and OS List is currently defined in multiple places
+##  need to defined in makefile and pass around as env
+#
+## uncomment this to preinstall vagrant boxes
+## preinstall_boxes="generic/ubuntu2010 generic/fedora32"
+##for box in $preinstall_boxes
+##do
+##   vagrant box add  $box --provider=virtualbox --box-version 3.2.24
+##done
