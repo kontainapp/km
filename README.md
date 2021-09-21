@@ -166,13 +166,13 @@ You can interact with the web server via `curl http://localhot:8080` or pointing
 
 Command-line help: `/opt/kontain/bin/km --help`
 
-[*Kontain User Guide*](https://github.com/kontainapp/km/blob/master/docs/user-guide.md) Provides information for installing Kontain and using it to run workloads.
+[*Kontain User Guide*](docs/user-guide.md) Provides information for installing Kontain and using it to run workloads.
 
-[*Debugging Kontain Unikernels*](https://github.com/kontainapp/km/blob/master/docs/debugging-guide.md) Provides information about how to debug a Kontain workload (unikernel) using standard debugging tools and practices.
+[*Debugging Kontain Unikernels*](docs/debugging-guide.md) Provides information about how to debug a Kontain workload (unikernel) using standard debugging tools and practices.
 
-<!-- [*Known Issues*](https://github.com/kontainapp/km/blob/master/docs/known-issues.md) -->
+[*Known Issues*](docs/known-issues.md)
 
-[*FAQs*](https://github.com/kontainapp/km/blob/master/docs/FAQ.md)
+[*FAQs*](docs/FAQ.md)
 
 ## Contributing
 Kontain is open source: We encourage you to work with the source code and provide feedback!
@@ -184,9 +184,9 @@ Email us: <community@kontain.app>
 We accept PRs [here](https://github.com/kontainapp/km/pulls).
 To view/report issues, go [here](https://github.com/kontainapp/km/issues).
 
-To learn about our development process, including how to set up the build environment, then build and test KM, see [BUILD.md](https://github.com/kontainapp/km/blob/master/docs/build.md).
+To learn about our development process, including how to set up the build environment, then build and test KM, see [BUILD.md](docs/build.md).
 
-Please refer to [CONTRIBUTING.md](https://github.com/kontainapp/km/blob/master/CONTRIBUTING.md) for general guidelines and conventions.
+Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) for general guidelines and conventions.
 
 IMPORTANT: All contributions are subject to the terms of the kontainapp/km licensing agreement[<sup>🔗</sup>](#1).
 
@@ -203,5 +203,5 @@ We are working on a more seamless way to run Kontain on MacOS and Windows.
 Copyright © 2021 Kontain Inc. All rights reserved.
 
 <a class="anchor" id="1">🔗</a>
-kontainapp/km is licensed under the [Apache 2.0 license](https://github.com/kontainapp/km/blob/master/LICENSE).
+kontainapp/km is licensed under the [Apache 2.0 license](LICENSE).
 Stay tuned.
