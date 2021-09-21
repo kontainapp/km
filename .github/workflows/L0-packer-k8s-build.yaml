@@ -38,8 +38,8 @@ on:
   push:
     branches: [ master , muth/k8s-ci ]
     paths:
-      - '**/L0-image.pkr.hcl'
-      - '**/L0-image-provision.sh'
+      - '**/L0-k8s-image.pkr.hcl'
+      - '**/L0-k8s-image-provision.sh'
       - .github/workflows/L0-packer-k8s-build.yaml
 
 jobs:
