@@ -59,7 +59,7 @@ test-boxes:  ## Test the registered boxes
                 mkdir $${os}; \
 		cd $${os}; \
 		vagrant init kontain/$${os}-kkm-beta3; \
-		sed --in-place -e "/^end/i\  config.vm.provider "virtualbox" do |vb|\n    vb.customize [ 'modifyvm', :id, '--cpu-profile', 'host' ]\n  end" Vagrantfile; \
+		sed --in-place -e "/^end/i\  config.vm.provider "virtualbox" do |vb|\n    vb.customize [ 'modifyvm', :id, '--cpu-profile', 'host' ]\n    vb.customize [ 'modifyvm', :id, '--nested-hw-virt', 'on' ]\n  end" Vagrantfile; \
 		vagrant up; \
 		TRACE=1 vagrant ssh <../scripts/box-smoke-test.sh; \
 		vagrant destroy -f; \
