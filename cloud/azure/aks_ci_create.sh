@@ -21,7 +21,7 @@ readonly PROGNAME=$(basename $0)
 readonly CUR_DIR=$(readlink -m $(dirname $0))
 readonly CLUSTER_NAME=$1
 
-if [ -z "$SP_APPID" -o -z "$SP_PASSWORD"]; then
+if [ -z "$SP_APPID" -o -z "$SP_PASSWORD" ]; then
    echo Please set SP_APPID and SP_PASSWORD env. vars to access Azure
    false
 fi
