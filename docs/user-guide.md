@@ -422,9 +422,11 @@ libc.so => /opt/kontain/runtime/libc.so (0x00007eff48da7000)
 
 Running a dynamically linked unikernel under Docker requires packaging the necessary set of libraries with the unikernel. You can modify the Dockerfile to use Kontain-provided base images for this purpose, or you can create your own container image with the exact set of libraries required.
 
-To use the Kontain base image that contains a minimal set of libraries, use  `FROM kontain/runenv-dynamic-tiny`  in the Dockerfile instead of `FROM scratch`.
+To use the Kontain base image that contains a minimal set of libraries,
+use `FROM kontain/runenv-dynamic-base`  in the Dockerfile instead of `FROM scratch`.
 
-When there are more complex dependencies in the code, Kontain provides a more populated collection of libraries. Use `FROM kontain/runenv-dynamic` for those cases.
+When there are more complex dependencies in the code, Kontain provides a more populated collection of libraries.
+Use `FROM kontain/runenv-dynamic-base-large` for those cases.
 
 ### Running a Go Program as a Kontain Unikernel
 
