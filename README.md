@@ -160,7 +160,7 @@ $ docker build -t kontain-dweb .
 $ docker run -p 8080:8080 --runtime=krun --rm -i xxx
 ```
 
-You can interact with the web server via `curl http://localhot:8080` or pointing a web browser to the same address.
+You can interact with the web server via `curl http://localhost:8080` or pointing a web browser to the same address.
 
 ## Documentation
 
@@ -179,7 +179,7 @@ Kontain is open source: We encourage you to work with the source code and provid
 
 Have a general comment or question about Kontain?
 Want to contribute a use case?
-Email us: <community@kontain.app>
+Email us: <community@kontain.app>.
 
 We accept PRs [here](https://github.com/kontainapp/km/pulls).
 To view/report issues, go [here](https://github.com/kontainapp/km/issues).
@@ -197,11 +197,13 @@ To uninstall Kontain simply run:
 ```
     sudo bash /opt/kontain/bin/kontain-install.sh -u
 ```
+
 <a class="anchor" id="2">2.</a>
 We are working on a more seamless way to run Kontain on MacOS and Windows.
+Stay tuned.
+
 ## Licensing
 Copyright © 2021 Kontain Inc. All rights reserved.
 
 <a class="anchor" id="1">🔗</a>
 kontainapp/km is licensed under the [Apache 2.0 license](LICENSE).
-Stay tuned.
