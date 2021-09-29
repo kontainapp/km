@@ -130,10 +130,10 @@ If new buildenv image is NOT backward compatible and will break prior builds. Do
 
 1. Make sure the image works by using PR with the custom image and BUILDENV_IMAGE_VERSION set (below)
 2. Merge it as is. This way anyone who rebases will still have working build
-3. Ask everyone to pause (not submitting and not looking at PRs) .
+3. Ask everyone to pause (not submitting and not looking at PRs)
 4. Make a small PR which rollbacks custom imagename. Push new image as :latest, merge the PR
 5. Let everyone know to rebase and resume
-.
+
 
 #### Testing custom image using BUILDENV_IMAGE_VERSION variable
 
@@ -144,13 +144,13 @@ Also the pipeline (`azure-pipeline.yml`) defines this one as `buildenv_image_ver
 
 So if generic changes to *all* buildenv images is needed, the env variable can be set in the shell for the duration of work, and the CI yml file in a PR can be changed to point to the new value. The **new value** is anything unique, usually the name of the branch without special characters
 
-If the change is needed for specific buildenv images only, then the variable needs to be passed indivdually to the needed Makefiles. E.g. if the buildenv image for Java has changed , these are the steps to build and push:
+If the change is needed for specific buildenv images only, then the variable needs to be passed individually to the needed Makefiles. E.g. if the buildenv image for Java has changed, these are the steps to build and push:
 
 ```sh
 tag=myTag  # something unique e.g. branch name with no special char`
 cd payloads/java
 make buildenv-image
-eval $(make  print-BUILDENV_IMG)  # this will place the image name (sans tag) into $BUILDENV_IMG
+eval $(make print-BUILDENV_IMG)  # this will place the image name (sans tag) into $BUILDENV_IMG
 docker tag $BUILDENV_IMG:latest $BUILDENV_IMG:$tag
 make push-buildenv-image BUILDENV_IMAGE_VERSION=$tag
 ```

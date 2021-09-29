@@ -139,7 +139,7 @@
          "name": "greenlet",
          "installDir": ".",
          "versions": [
-            "0.4.15"
+            "1.1.2"
          ],
          "git": "https://github.com/python-greenlet/greenlet",
          "hasSo": "true",
@@ -320,7 +320,7 @@
       {
          "name": "gevent",
          "versions": [
-            "1.4.0"
+            "1.5.0"
          ],
          "git": "https://github.com/gevent/gevent",
          "hasSo": "true",
@@ -408,8 +408,8 @@
             "modules": "six"
          },
          "setupLocation": "lib/py/",
-         "status": "built",
-         "comment": "TODO: setup.py in setupLocation, 'make custom' needs to handle this"
+         "status": "fail",
+         "comment": "^^^^TODO: setup.py in setupLocation, 'make custom' needs to handle this"
       }
    ],
    "dependencies": [

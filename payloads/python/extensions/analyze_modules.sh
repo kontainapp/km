@@ -65,7 +65,8 @@ analyze()  {
    export PYTHONPATH=$python_libs$(python3 -c 'import sys; print(":".join(sys.path))')
    if pip3 show -f $module 2>/dev/null | grep -q '\.so$'  ; then
       hasSo=true;
-      repo=",\n   \"dockerRepo\": \"$kontain_repo\""
+      repo=",
+   \"dockerRepo\": \"$kontain_repo\""
    else
       hasSo=false;
    fi
@@ -73,7 +74,8 @@ analyze()  {
    # prepare dependencies string
    deps=$(pip3 show -v $module | sed -n -e 's/,/ /g' -e 's/Requires: \(.*\)/\1/p')
    if [[ -n "$deps" ]] ; then
-      deps=",\n   \"dependsOn\" : { \"modules\": \"$deps\" }"
+      deps=",
+   \"dependsOn\" : { \"modules\": \"$deps\" }"
    fi
 
    # Now form the final json blob
@@ -84,7 +86,7 @@ analyze()  {
    "abstract" : "$(echo $module_info | jq -r .[].abstract | sed 's/"/\\"/g')",
    "versions": ["$latest_tag"],
    "hasSo": "$hasSo",
-   "status": "unknown" $repo $deps
+   "status": "unknown"${repo}${deps}
 }
 EOF
    )
@@ -92,10 +94,10 @@ EOF
    # either insert into config file, or simply print out
    if [ -n "$config_file" ] ; then
       tmpfile=/tmp/$(basename $config_file)_$$
-      jq -r ".modules[.modules | length]  += $result " $config_file  > $tmpfile
+      jq --indent 3 -r ".modules[.modules | length] += $result " $config_file > $tmpfile || exit 1
       mv $tmpfile $config_file
    else
-      echo -e "$result"
+      echo "$result"
    fi
 }
 

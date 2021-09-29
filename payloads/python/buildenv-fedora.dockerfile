@@ -36,20 +36,15 @@ USER $USER
 
 RUN git clone https://github.com/python/cpython.git -b $TAG
 COPY km_api.c cpython/Modules/km_api.c
-COPY 00102-lib64.patch /tmp/
 RUN echo "kontain km_api.c" >> cpython/Modules/Setup.local
-# RedHat patch to adapt python to RedHat layout, mostly lib -> lib64
-RUN cd cpython && patch -p1 < /tmp/00102-lib64.patch && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
-COPY platform_uname.patch platform_uname.patch
-# Note: this patch also needs to be applied in 'make fromsrc'- see ./Makefile
-RUN patch -p0 < platform_uname.patch
+RUN cd cpython && ./configure && make -j`expr 2 \* $(nproc)` | tee bear.out
 
 WORKDIR /home/$USER/cpython
 COPY extensions/ ../extensions/
 # prepare "default" .so extensions to be statically linked in, and save neccessary files
 # .orig MUST be the suffix of original python we are extracting symbols from
 RUN mv python python.orig \
-   && ../extensions/prepare_extension.py python.orig  --log=quiet --self \
+   && ../extensions/prepare_extension.py python.orig --log=quiet --self \
    && ../extensions/prepare_extension.py bear.out --no_mung --log=quiet --skip ../extensions/skip_builtins.txt \
    && files="dlstatic_km.mk build/temp.* `find build -name '*.km.*'` `find build -name '*\.so'`" ; tar cf - $files \
    | (mkdir builtins; tar -C builtins -xf -)
