@@ -54,12 +54,12 @@ ext_file=$(realpath extensions/modules.json)
 generate_files=$(realpath extensions/prepare_extension.py)
 
 get_validated_module_names() {
-   cat $ext_file | jq -r  ".modules[] | select (.hasSo==\"true\") | select(.status | IN(\"validated\", \"built\")) | .name"
+   cat $ext_file | jq -r ".modules[] | select (.hasSo==\"true\") | select(.status | IN(\"validated\", \"built\")) | .name"
 }
 
 # first arg is module name , second the field to fetch
 get_module_data() { #
-   value=$(cat $ext_file | jq -r  ".modules[] | select (.name==\"$1\") | .$2")
+   value=$(cat $ext_file | jq -r ".modules[] | select (.name==\"$1\") | .$2")
    if [ "$value" == "null" ] ; then value=""; fi
    echo "$value"
 }
@@ -86,10 +86,10 @@ build_one_module() {
    fi
    if [[ $mode != build && $mode != generate ]] ; then echo ERROR: wrong mode; exit 1; fi
    src=Modules/$name
-   if [[ $mode != generate  ]] ; then # clone and build module
+   if [[ $mode != generate ]] ; then # clone and build module
       if [[ -z "$url" ]] ; then echo "*** ERROR - no URL found. Please add git remote URL for $name" ; return; fi
       if [[ -n "$deps" && "$deps" != null ]] ; then echo "*** WARNING - $m needs '$deps', please make sure it is installed"; fi
-      rm -rf  $src
+      rm -rf $src
       # clone build the module with keeping trace and compile info for further processing
       # note: *do not* use '-j' (parallel jobs) flag in setup.py. It breaks some module builds. e.g. numpy
       echo === git clone $url -b $version $src
@@ -107,7 +107,7 @@ build_one_module() {
 build() {
    cd cpython
    for m in $modules ; do
-      build_one_module  $m
+      build_one_module $m
    done
    cd ..; pack # if all built fine, re-pack them
 }
@@ -139,7 +139,7 @@ pull() {
          continue
 		fi
 		echo Unpacking $name
-      docker export $container  | tar -C cpython/Modules -xf - $name
+      docker export $container | tar -C cpython/Modules -xf - $name
 		silent_remove=$(docker rm $container)
 	done
 }

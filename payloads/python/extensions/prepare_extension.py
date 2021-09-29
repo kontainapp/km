@@ -17,7 +17,7 @@
 #
 # prepare extantion (.so) for linking in and using with "static" dlopen/dlsym:
 #
-# - Analyze build log and generate neccessary files (.c, .id, etc)
+# - Analyze build log and generate necessary files (.c, .id, etc)
 # - Generate makefile to build the actual artifacts
 #
 
@@ -81,7 +81,7 @@ static km_dl_lib_reg_t _km_dl_lib = {
    .name = "{{ so }}", .id = "{{ so_id }}", .symtable = _km_symbols
 };
 
-__attribute__((constructor))  static void _km_dlinit(void) {
+__attribute__((constructor)) static void _km_dlinit(void) {
    km_dl_register(&_km_dl_lib);
 }
 """
@@ -108,7 +108,7 @@ makefile_template = """#
 SHELL=/bin/bash
 
 # TODO: the line below relies on specific locations in the source tree, need to use (and populate) /opt/kontain/include
-KM_RUNTIME_INCLUDES ?=  $(shell echo ${CURDIR} | sed 's-payloads/python/.*-runtime-')
+KM_RUNTIME_INCLUDES ?= $(shell echo ${CURDIR} | sed 's-payloads/python/.*-runtime-')
 CFLAGS = -g -I$(KM_RUNTIME_INCLUDES) -I$(shell echo ${CURDIR})
 LINK_LINE_FILE := linkline_km.txt
 KM_LIB_EXT := .km.lib.a
@@ -123,9 +123,9 @@ all: $(SYMOBJ) $(LIBS)
 \t@rm -f ${LINK_LINE_FILE}
 \t@for i in ${SYMOBJ} ${LIBS} ; \\
    do \\
-     realpath $$i | sed 's-.*/cpython-.-' >> ${LINK_LINE_FILE} ; \\
+      realpath $$i | sed 's-.*/cpython-.-' >> ${LINK_LINE_FILE} ; \\
    done && echo -e "Libs built successfully. Pass ${GREEN}@${CURDIR}/${LINK_LINE_FILE}${NOCOLOR} to ld for linking in"
-\t@if [[ ! -z "{{ ldflags }}" ]] ; then  echo {{ ldpaths }} {{ ldflags }} >>  ${CURDIR}/${LINK_LINE_FILE} ; fi
+\t@if [[ ! -z "{{ ldflags }}" ]] ; then echo {{ ldpaths }} {{ ldflags }} >> ${CURDIR}/${LINK_LINE_FILE} ; fi
 
 clean:
 \t@items=$$(find . -name '*km.*[oa]') ; if [[ ! -z $$items ]] ; then rm -v $$items ; fi
@@ -144,7 +144,7 @@ clobber:
 {% endfor %}
 
 # allows to do 'make print-varname'
-print-%  : ; @echo $* = $($*)
+print-% : ; @echo $* = $($*)
 
 # fancy prints
 ifeq (${PIPELINE_WORKSPACE},)
@@ -299,7 +299,7 @@ def process_line(line, location, skip_list):
     try:
         so_file_name = [i for i in items if i.endswith(so_suffix) and not i.startswith('-')][0]
     except:
-        logging.warning(f"No.so files in line: '{items}'")
+        logging.warning(f"No .so files in line: '{items}'")
         return None
     # check if the module we are looking at is on skip list
     basename = os.path.basename(so_file_name)
@@ -338,9 +338,13 @@ def process_file(file_name, skip_list):
     mk_info = [process_line(line, location, skip_list) for line in lines_with_so]
     # clear None's
     mk_info = [x for x in mk_info if x]
-    # get ldflags from mkinfo as list of lists, and glue them together in one
-    all_l_flags = reduce(lambda x, y: x + y, [i["ldflags"] for i in mk_info])
-    all_l_pathes = reduce(lambda x, y: x + y, [i["ldpaths"] for i in mk_info])
+    if len(mk_info) != 0:
+        # get ldflags from mkinfo as list of lists, and glue them together in one
+        all_l_flags = reduce(lambda x, y: x + y, [i["ldflags"] for i in mk_info])
+        all_l_pathes = reduce(lambda x, y: x + y, [i["ldpaths"] for i in mk_info])
+    else:
+        all_l_flags = ""
+        all_l_pathes = ""
 
     # remove duplicates and also remove cross-references to libs in the same package
     # Get the list of libs in this package by converting /path/libNAME.so to NAME

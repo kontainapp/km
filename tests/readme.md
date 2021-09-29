@@ -111,18 +111,4 @@ You can also run `make -C tests .buildenv-local-lib` if all DNF packages on your
 * On production Kubernetes, kontaind installation process lands bin/km on the box so runenv-image can run by having bin/km volume-mounted.
 * Dynamic executables in their ELF info have hardcoded interpreter and RPATH pointing to /opt/kontain.
 
-### TODO
-
-NOW
-
-* fix and enable demo-dweb - Maybe just revert to Aline:3.10 or Alpine:3.8 ? Fails with a mix between ubuntu gcc /ninutils/elfutils and latest alpine stuff
-
-LATER
-
-* Place runtime and alpine-libs in ALL test and run environment
-  * try to put only NEEDED libraries
-  * remove -v from testenv and runenv usage - and only mount BIN for testenv
-* review install of the above on kontaind/kuberneres as optimization (see kontaind/installer)
-* reconcile docker run option for test/run/build env - we seem to be repeating them multiple times
-
 *** END OF DOCUMENT ***

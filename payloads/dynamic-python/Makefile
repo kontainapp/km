@@ -19,8 +19,7 @@
 TOP := $(shell git rev-parse --show-toplevel)
 
 # Git tag to fetch.
-# TAG ?= v3.7.4
-TAG ?= v3.8.6
+TAG ?= v3.9.7
 
 # Version (used in python paths) and ABI flags (used in *some* paths)
 VERS = $(shell echo ${TAG} | sed -e 's/^v//' -e 's/.[0-9]*$$//')

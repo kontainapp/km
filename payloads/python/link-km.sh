@@ -15,8 +15,7 @@
 # limitations under the License.
 #
 #
-#
-# Links Python.km from python libs and km 'dlstatic' builditns mentioned in $target/linkline_km.txt
+# Links Python.km from python libs and km 'dlstatic' builtins mentioned in $target/linkline_km.txt
 #
 set -e
 [ "$TRACE" ] && set -x

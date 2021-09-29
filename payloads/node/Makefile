@@ -67,7 +67,7 @@ in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke 
 ${NODETOP}: |
 	git clone ${NODE_REPO} -b ${VERS}
 
-${NODETOP}/config.mk: ${NODETOP}
+${NODETOP}/config.mk: | ${NODETOP}
 	cd ${NODETOP} && ./configure --gdb `[[ ${BUILD} == Debug ]] && echo -n --debug`
 
 fromsrc: ${NODETOP}/config.mk

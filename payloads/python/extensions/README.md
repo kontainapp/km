@@ -13,10 +13,10 @@ Other than that, read this doc and then the code
 
 If you want to check out a custom build with pre-defined modules, you can do the following:
 
-1. Use `extension/analyze_modules.sh "module_names"` to get info from Google and github about modules.
+1. Use `extensions/analyze_modules.sh "module_names"` to get info from Google and github about modules.
 1. Check the version is populated there, and manually add the modules to extensions/modules.json (or pass extensions/modules.json to the script above as 2nd arg)
 1. Run `make build-modules MODULES="module_names"`
-1. Run `make custom  CUSTOM_MODULES="module_name" CUSTOM_NAME=tryout`
+1. Run `make custom CUSTOM_MODULES="module_name" CUSTOM_NAME=tryout`
 
 A few details:
 
