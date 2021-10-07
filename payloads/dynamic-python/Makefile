@@ -49,7 +49,7 @@ PAYLOAD_KM := cpython/python.kmd.mimalloc
 PAYLOAD_NAME := ${COMPONENT}
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
-PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk python.km.symbols.c)
+PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk dlstatic_km.mk.json python.km.symbols.c)
 
 # Set info for runenv-image build
 

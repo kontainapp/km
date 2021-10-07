@@ -46,7 +46,7 @@ COPY extensions/ ../extensions/
 RUN mv python python.orig \
    && ../extensions/prepare_extension.py python.orig --log=quiet --self \
    && ../extensions/prepare_extension.py bear.out --no_mung --log=quiet --skip ../extensions/skip_builtins.txt \
-   && files="dlstatic_km.mk build/temp.* `find build -name '*.km.*'` `find build -name '*\.so'`" ; tar cf - $files \
+   && files="dlstatic_km.mk dlstatic_km.mk.json build/temp.* `find build -name '*.km.*'` `find build -name '*\.so'`" ; tar cf - $files \
    | (mkdir builtins; tar -C builtins -xf -)
 
 # Build the target image
