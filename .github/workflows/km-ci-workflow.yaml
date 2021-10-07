@@ -124,7 +124,7 @@ jobs:
       # Note: custom Python build needs to happen after python payload build
       - name: Python.km custom build
         run: |
-          make -C payloads/python build-modules pack-modules MODULES="markupsafe wrapt"
+          make -C payloads/python build-modules pack-modules CUSTOM_MODULES="markupsafe wrapt"
           make -C payloads/python custom CUSTOM_MODULES="markupsafe wrapt"
 
       - name: Build faktory

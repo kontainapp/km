@@ -44,7 +44,7 @@ Usage:  ${BASH_SOURCE[0]} [options] [module_list]
                                     'generate' creates Kontain specific files
                                     Pack packages in (pushable) local docker image
     module_list   Build named modules (space separated list), no matter if validated or not.
-                  By default, we use validated modules from modules.json. I
+                  By default, we use validated modules from modules.json.
 EOF
    exit 1
 }
@@ -121,7 +121,7 @@ pack() {
 		cd $loc/cpython/Modules/$name
       echo === pack: $name $(pwd)
       # We need bash to explode the regexp and vars here in the loop. so need literals
-      tar -cf $name.tar $(echo "dlstatic_km.mk.json linkline_km.txt `find build -regextype egrep -regex '.*(\.km.*[aod]|.*\.a)'` ")
+      tar -cf $name.tar $(echo "dlstatic_km.mk.json `find build -regextype egrep -regex '.*(\.km.*[aod]|.*\.a)'` ")
       cat <<EOF | docker build -q -f - . -t $(get_module_repo $name)
 FROM scratch
 LABEL Description="$name python module binaries for customer python.km" Vendor="Kontain" Version="0.1"

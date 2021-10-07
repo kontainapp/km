@@ -1,0 +1,9 @@
+{
+   "header": [
+      "# Configuration for building python-micro_srv.km",
+      "# Defines extra packages to link in"
+   ],
+   "modules": [
+      {}
+   ]
+}

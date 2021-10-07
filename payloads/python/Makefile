@@ -48,7 +48,7 @@ PAYLOAD_KM := cpython/python.km
 PAYLOAD_NAME := ${COMPONENT}
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
-PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk python.km.symbols.c)
+PYTHON_DISTRO_FILES := $(addprefix cpython/, Lib Modules build pybuilddir.txt dlstatic_km.mk dlstatic_km.mk.json python.km.symbols.c)
 
 # 'yes' if cpython was build from src (based on existable of .git repo)
 FROMSRC=$(shell test -d $(PYTHONTOP)/.git && echo yes)
@@ -68,7 +68,11 @@ FROMSRC=$(shell test -d $(PYTHONTOP)/.git && echo yes)
 export define link_cpython_km
 	${MAKE} -C cpython -f dlstatic_km.mk   # compile built-in modules
 	${CC} -I${TOP}/runtime -c -o cpython/python.km.symbols.o cpython/python.km.symbols.c
-	./link-km.sh ${PYTHONTOP} cpython "${EXTRA_LINKFILES}" "${CUSTOM_KM}"
+	./extensions/linkline.py cpython/dlstatic_km.mk.json $$(test -f ./${CUSTOM_TAKE} && echo -n --take ${CUSTOM_TAKE})
+	for mod in $(foreach m,${CUSTOM_MODULES},cpython/Modules/$m/dlstatic_km.mk.json) ; do \
+		./extensions/linkline.py $${mod} $$(test -f ./${CUSTOM_TAKE} && echo -n --take ${CUSTOM_TAKE}) ; \
+	done
+	./link-km.sh ${PYTHONTOP} cpython "$(foreach m,${CUSTOM_MODULES},@Modules/$m/linkline_km.txt)" "${CUSTOM_KM}"
 endef
 
 all:
@@ -78,9 +82,9 @@ ifneq ($(FROMSRC),yes)
 		${KM_OPT_VOLUME} \
 		-w ${TOP}/payloads/python \
 		${BUILDENV_IMG_TAGGED} \
-		make in-blank-container EXTRA_LINKFILES="${EXTRA_LINKFILES}" CUSTOM_KM="${CUSTOM_KM}"
+		make in-blank-container CUSTOM_MODULES="${CUSTOM_MODULES}" CUSTOM_KM="${CUSTOM_KM}"
 else
-	 eval $(link_cpython_km)
+	eval $(link_cpython_km)
 endif
 
 # Copy python artifacts to the outside, and link there with in-source-tree runtime
@@ -104,17 +108,14 @@ fromsrc: ${PYTHONTOP}/config.status ## Clean build cpython from source. Use 'mak
 # Build custom python km
 custom: all ## build python-custom.km. Optionally accepts CUSTOM_NAME=config_name (default 'custom', using extensions/python-custom.json)
 
+ifeq (${MAKECMDGOALS},custom)
+# these vars need to be defined only for target 'custom' as they impact what is being linked
 # CUSTOM_NAME=xxx (default 'custom') user-settable name of custom configuration
 CUSTOM_NAME ?= custom
-# stuff deducted from CUSTOM_NAME:
 CUSTOM_CONFIG ?= ./extensions/python-$(CUSTOM_NAME).json
-CUSTOM_MODULES ?= $(shell jq -r .modules[].name ${CUSTOM_CONFIG})
-
-ifeq (${MAKECMDGOALS},custom)
-# these 2 vars need to be defined only for target 'custom' as they impact what is being linked
-EXTRA_LINKFILES = $(foreach m,${CUSTOM_MODULES},@Modules/$m/linkline_km.txt)
+CUSTOM_MODULES ?= $(shell jq -r .modules[].name ${CUSTOM_CONFIG} | sed -e 's-^null$$--')
+CUSTOM_TAKE ?= ./extensions/take_modules-$(CUSTOM_NAME).txt
 CUSTOM_KM = python-${CUSTOM_NAME}.km
-MODULES = ${CUSTOM_MODULES}
 
 all: .check_custom_config pull-modules
 .PHONY: .check_custom_config
@@ -134,7 +135,7 @@ builtins: ## helper target to rebuilt builtin extension in clone cpython dir. On
 
 # MODULES can be used for a list of modules. Default is all validated ones from modules.json
 build-modules push-modules pull-modules pack-modules: ## Operations on Kontain artifacts for dynamically linked modules
-	./extensions/build_modules.sh --$(subst -modules,,$@) "${MODULES}"
+	./extensions/build_modules.sh --$(subst -modules,,$@) "${CUSTOM_MODULES}"
 
 test-modules: ## Basic test pass - rebuilds python, rebuilds and pushes all modules, and does custom link
 	./extensions/test.sh

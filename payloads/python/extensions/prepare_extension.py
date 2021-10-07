@@ -14,24 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-#
 # prepare extantion (.so) for linking in and using with "static" dlopen/dlsym:
 #
 # - Analyze build log and generate necessary files (.c, .id, etc)
 # - Generate makefile to build the actual artifacts
 #
 
-"See ../README.md for information"
-
 import os
 import subprocess
-import sys
-import sysconfig
 import hashlib
 import json
 import jinja2
 import re
-import fnmatch
 import logging
 from functools import reduce
 
@@ -51,15 +45,19 @@ need_to_mung = True  # by default we munge the symnames
 symfile_template = """/*
  * GENERATED FILE. DO NOT EDIT.
  *
- * Copyright © 2019 Kontain Inc. All rights reserved.
+ * Copyright 2021 Kontain Inc
  *
- * Kontain Inc CONFIDENTIAL
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This file includes unpublished proprietary source code of Kontain Inc. The
- * copyright notice above does not evidence any actual or intended publication
- * of such source code. Disclosure of this source code or any related
- * proprietary information is strictly prohibited without the express written
- * permission of Kontain Inc.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * Registration and dynsym tables for {{ so }}
  */
@@ -90,15 +88,19 @@ __attribute__((constructor)) static void _km_dlinit(void) {
 makefile_template = """#
 # GENERATED FILE. DO NOT EDIT.
 #
-# Copyright © 2019 Kontain Inc. All rights reserved.
+# Copyright 2021 Kontain Inc
 #
-# Kontain Inc CONFIDENTIAL
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-#  This file includes unpublished proprietary source code of Kontain Inc. The
-#  copyright notice above does not evidence any actual or intended publication of
-#  such source code. Disclosure of this source code or any related proprietary
-#  information is strictly prohibited without the express written permission of
-#  Kontain Inc.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # The makefile does the following:
 #   uses objcopy to preprocess .o files (replace symbols) based on base.km.symmap
@@ -114,18 +116,13 @@ LINK_LINE_FILE := linkline_km.txt
 KM_LIB_EXT := .km.lib.a
 KM_SYM_EXT := .km.symbols.o
 
-LIBS := {% for lib in libs %}\\\n\t{{ lib | replace(".so", "${KM_LIB_EXT}") }} {% endfor %}
+LIBS := {% for line in info %}\\\n\t{{ line["so"] | replace(".so", "${KM_LIB_EXT}") }} {% endfor %}
 
 SYMOBJ := $(subst ${KM_LIB_EXT},.km.symbols.o,$(LIBS))
 
 # Build libraries and create text file with .o and .a for linker
 all: $(SYMOBJ) $(LIBS)
-\t@rm -f ${LINK_LINE_FILE}
-\t@for i in ${SYMOBJ} ${LIBS} ; \\
-   do \\
-      realpath $$i | sed 's-.*/cpython-.-' >> ${LINK_LINE_FILE} ; \\
-   done && echo -e "Libs built successfully. Pass ${GREEN}@${CURDIR}/${LINK_LINE_FILE}${NOCOLOR} to ld for linking in"
-\t@if [[ ! -z "{{ ldflags }}" ]] ; then echo {{ ldpaths }} {{ ldflags }} >> ${CURDIR}/${LINK_LINE_FILE} ; fi
+\t@echo -e "Libs built successfully"
 
 clean:
 \t@items=$$(find . -name '*km.*[oa]') ; if [[ ! -z $$items ]] ; then rm -v $$items ; fi
@@ -205,6 +202,7 @@ def sym_blacklist(location):
         BLACKLIST = []
     return BLACKLIST
 
+
 def save_c_tables(so_full_path, so_id, symbols, suffix=so_suffix):
     """
     Write C file with init symtables
@@ -266,7 +264,8 @@ def nm_get_symbols(location, so_file_name, extra_flags=["--dynamic"]):
     symbols = [i.split()[2] for i in nm.stdout.splitlines() if i.split()[1] == 'T' and not i.split()[2].startswith("__libc")]
     return symbols
 
-SYSTEM_LIB_PATHS=["/usr/lib", "/usr/local/lib", "/usr/lib64", "/lib", "/lib64"]
+
+SYSTEM_LIB_PATHS = ["/usr/lib", "/usr/local/lib", "/usr/lib64", "/lib", "/lib64"]
 def strip_system_lib_paths(paths):
    """
    Removes system libraries paths from passed paths array.
@@ -275,6 +274,7 @@ def strip_system_lib_paths(paths):
    if paths == None:
       return None
    return [p for p in paths if p not in SYSTEM_LIB_PATHS ]
+
 
 def process_line(line, location, skip_list):
     """
@@ -338,40 +338,15 @@ def process_file(file_name, skip_list):
     mk_info = [process_line(line, location, skip_list) for line in lines_with_so]
     # clear None's
     mk_info = [x for x in mk_info if x]
-    if len(mk_info) != 0:
-        # get ldflags from mkinfo as list of lists, and glue them together in one
-        all_l_flags = reduce(lambda x, y: x + y, [i["ldflags"] for i in mk_info])
-        all_l_pathes = reduce(lambda x, y: x + y, [i["ldpaths"] for i in mk_info])
-    else:
-        all_l_flags = ""
-        all_l_pathes = ""
 
-    # remove duplicates and also remove cross-references to libs in the same package
-    # Get the list of libs in this package by converting /path/libNAME.so to NAME
-    already_in = ["-l" + os.path.splitext(os.path.basename(f["so"]))[0][3:] for f in mk_info]
-    final = []
-    for i in all_l_flags:
-        if i not in final and i not in already_in:
-            final.insert(0, i)
-    finaL = []
-    for i in all_l_pathes:
-        if i not in finaL:
-            finaL.insert(0, i)
-    ldpaths = " ".join([f"-L{os.path.join(location, i)}" for i in finaL])
-    logging.info(f"Final -llist: {final}")
     mk_name = os.path.join(location, "dlstatic_km.mk")
     with open(mk_name, 'w') as f:
         template = jinja2.Template(makefile_template)
-        f.write(template.render(libs=[i["so"] for i in mk_info],
-                                info=mk_info,
-                                symmap_suffix=symmap_suffix,
-                                ldflags=" ".join(final),
-                                ldpaths=ldpaths,
-                                echo_if_no_mung="" if need_to_mung else "true"))
-    # Write all meta data used for makefile creation - for debug and log purposes
+        f.write(template.render(info=mk_info, echo_if_no_mung="" if need_to_mung else "true"))
+    # Write all meta data used for makefile and linkline creation
     mk_json_name = os.path.join(location, "dlstatic_km.mk.json")
     with open(mk_json_name, 'w') as f:
-        f.write(json.dumps(mk_info, indent=3))
+        json.dump(mk_info, f, indent=3)
     print(f"Log analysis completed. To build, use this command:\nmake -C {location} -f {os.path.basename(mk_name)}")
 
 

@@ -1,0 +1,20 @@
+# Taken from docker-slim output running micro_srv.py
+#
+usr/local/lib/python3.9/lib-dynload/_bisect.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/_bz2.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/_datetime.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/_heapq.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/_json.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/_lzma.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/_random.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/_sha512.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/_socket.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/_ssl.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/_struct.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/array.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/binascii.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/grp.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/math.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/select.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/unicodedata.cpython-39-x86_64-linux-gnu.so
+usr/local/lib/python3.9/lib-dynload/zlib.cpython-39-x86_64-linux-gnu.so
