@@ -33,7 +33,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/containerd/containerd/log"
 	"github.com/containerd/typeurl"
 	"github.com/containerd/containerd/runtime/v2/shim"
 	taskAPI "github.com/containerd/containerd/runtime/v2/task"
