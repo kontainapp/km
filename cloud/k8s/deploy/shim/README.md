@@ -5,7 +5,7 @@ This directory provides a shim to integrate KRUN with containerd.
 This shim is derived from the standard RUNC shim that is part of containerd. Since
 GO doesn't have inheritance, our SHIM implements the a composintion on top on the containerd
 runc shim. Thw only difference is we inject a configuration option at task create time to 
-force KRIN to be used as the runtime instead of RUNC.
+force KRUN to be used as the runtime instead of RUNC.
 
 
 Some helpful links:
