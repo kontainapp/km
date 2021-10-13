@@ -18,6 +18,8 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
+SUBDIRS := shim
+
 # Undefine CLOUD for make/locactions.mk (included my make/images.mk)
 #  doesn't try to pick up Azure defs.
 CLOUD :=
@@ -34,6 +36,11 @@ export define runenv_prep
         mkdir -p ${BLDDIR}/scripts && cp k8s-deploy.sh $$_
 endef
 
-.DEFAULT_GOAL := runenv-image
+.DEFAULT_GOAL := all
+
+all: shim-make runenv-image
+
+shim-make:
+	make -C shim
 
 include ${TOP}/make/images.mk
