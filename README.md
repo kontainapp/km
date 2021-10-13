@@ -22,7 +22,7 @@ Kontain runs on Linux kernel version 4.15 or newer,
 running on Intel VT (vmx) or AMD (svm) with virtualization enabled.
 Recommended distros are Ubuntu 20.04 and Fedora 32, or newer.
 
-Note: Please ensure that you have KVM ($ ls -l /dev/kvm) enabled and Docker installed.
+Note: If you need to build Kontain images with Dockerfile, please ensure that you have Docker installed as well.
 
 To install [<sup>1</sup>](#1) the latest Kontain release in a Linux system, run:
 ```bash
