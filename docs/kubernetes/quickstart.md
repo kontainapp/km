@@ -29,7 +29,7 @@ kube-system   storage-provisioner                1/1     Running   0          67
 ## Step 2 - Deploy Kontain Runtime
 
 ```
-kubectl apply -f curl https://raw.githubusercontent.com/kontainapp/km/latest/cloud/k8s/deploy/k8s-deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/kontainapp/km/latest/cloud/k8s/deploy/k8s-deploy.yaml
 ```
 
 To verify the installation, type:
