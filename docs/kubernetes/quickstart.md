@@ -64,7 +64,7 @@ kube-system   storage-provisioner                1/1     Running   0          2m
 kubectl apply -f https://raw.githubusercontent.com/kontainapp/km/latest/demo/k8s/test.yaml
 ```
 
-A new pod, `kontain-test-app` should appear.
+A new pod, `kontain-test-app-xxxxx` should appear.
 
 ```
 $ kubectl get pods -A
@@ -81,7 +81,7 @@ kube-system   kube-scheduler-minikube             1/1     Running   0          3
 kube-system   storage-provisioner                 1/1     Running   0          36m
 ```
 
-Check that `kontain-test-app` pod runs with Kontain runtime.
+Check that `kontain-test-app` pod runs with Kontain runtime (note to please replace the kontain-test-app-xxxxx with the appropriate pod id).
 
 ```
 $ kubectl exec -it kontain-test-app-647874765d-7ftrp  -- uname -r
