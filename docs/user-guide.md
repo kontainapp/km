@@ -576,14 +576,14 @@ These examples demonstrate how to run a simple Python application using a pre-bu
 Check what `os.uname()` reports:
 
 ```
-docker run --runtime krun -it --rm kontainapp/runenv-python -c "import os; print(os.uname())"
+docker run --runtime krun -it --rm kontainapp/runenv-python python -c "import os; print(os.uname())"
 ```
 
 **EXAMPLE: Using Docker to run a small service listening to http**
 
 ```
 docker run --runtime krun --rm -p 8080:8080 -v /opt/kontain/examples/python/:/scripts \
-   kontainapp/runenv-python  /scripts/micro_srv.py
+   kontainapp/runenv-python python /scripts/micro_srv.py
 ```
 
 To access it, use:
@@ -617,7 +617,7 @@ Note that `./usr/local/bin/python` is a symlink to `/opt/kontain/bin/km`. KM (Ko
 
 ```
 docker run --runtime krun -it --rm -p 8080:8080 -v /opt/kontain/examples/:/scripts \
-   kontainapp/runenv-node  /scripts/micro_srv.js
+   kontainapp/runenv-node node /scripts/micro_srv.js
 ```
 
 To access it, use:
@@ -646,7 +646,7 @@ cd ..
 ```
 docker run --rm --runtime krun \
    -v /opt/kontain/examples/:/scripts --env CLASSPATH=/scripts/java \
-   kontainapp/runenv-java-11 Hello
+   kontainapp/runenv-java-11 java Hello
 ```
 
 **EXAMPLE: Running a Java program locally, without Docker**
@@ -843,7 +843,7 @@ sudo systemctl reload-or-restart docker.service
 
 ```
 docker pull kontainapp/runenv-python
-docker run -it --runtime krun kontainapp/runenv-python -c "import os; print(os.uname())"
+docker run -it --runtime krun kontainapp/runenv-python python -c "import os; print(os.uname())"
 ```
 
 Your output should look like this:
