@@ -186,26 +186,6 @@ cd km
 git submodule update --init
 ```
 
-Once you have kontain source code in your working directory you need to install podman and then configure podman and docker to
-use krun and km to run payloads.
-
-```
-sudo container-runtime/podman_config.sh
-sudo container-runtime/docker_config.sh
-```
-
-Now docker and podman will try to use krun and km when the "--runtime krun" argument is supplied with "docker run" or "podman run".
-Without --runtime, runc will be the default container runtime.
-We need to build km and krun and install them in /opt/kontain/bin as follows:
-
-```
-make -C km
-make -C container-runtime
-```
-
-The kontain makefile clean target cleans out /opt/kontain/bin so you will find that docker or podman run fail because
-these two programs are missing.  Just rebuild them.
-
 To configure local build environment and docker build environment we need to fetch a build environment image:
 
 ```bash
@@ -242,6 +222,21 @@ make -C payloads/java
 make -C payloads/java testenv-image
 make test-withdocker
 ```
+
+Once you have kontain source code in your working directory you need to install podman and then configure podman and docker to
+use krun and km to run payloads.
+
+```
+sudo container-runtime/podman_config.sh
+sudo container-runtime/docker_config.sh
+```
+
+Now docker and podman will try to use krun and km when the "--runtime krun" argument is supplied with "docker run" or "podman run".
+Without --runtime, runc will be the default container runtime.
+
+The kontain makefile clean target cleans out /opt/kontain/bin so you will find that docker or podman run fail because
+these two programs are missing.
+Just rebuild them.
 
 ## Following are various tools
 
