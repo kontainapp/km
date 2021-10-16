@@ -16,3 +16,11 @@
 FROM centos:7
 
 COPY . /opt/kontain-artifacts
+
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256" && \
+    (echo "$(<kubectl.sha256) kubectl" | sha256sum --check) && \
+    mkdir -p /opt/kontain-artifacts/tools/ && \
+    install -o root -g root -m 0755 kubectl /opt/kontain-artifacts/tools/kubectl && \
+    rm -f kubectl kubectl.sha256
+

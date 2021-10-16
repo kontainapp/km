@@ -4,6 +4,9 @@ kind: RuntimeClass
 metadata:
   name: kontain
 handler: krun
+scheduling:
+  nodeSelector:
+    kontain.app/kontain-runtime: "true"
 ---
 apiVersion: apps/v1
 kind: DaemonSet

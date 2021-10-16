@@ -75,7 +75,7 @@ func (s *service) Cleanup(ctx context.Context) (*taskAPI.DeleteResponse, error) 
 func (s *service) Create(ctx context.Context, r *taskAPI.CreateTaskRequest) (_ *taskAPI.CreateTaskResponse, err error) {
 
 	r.Options, err = typeurl.MarshalAny(&runc_opts.Options{
-		BinaryName: "/opt/bin/krun",
+		BinaryName: "/opt/kontain/bin/krun",
 	})
 	return s.parent.Create(ctx, r)
 }
