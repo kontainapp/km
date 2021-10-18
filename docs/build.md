@@ -55,17 +55,18 @@ Install
 sudo dnf install -y moby-engine
 ```
 
-There are a bunch of glitched between latest docker and latest fedora 32 config.
+*** Additional configuration if you are using fedora31 or fedora32 or fedora33 (moby-engine on fedora34 uses cgroups v2) ***
+There are a bunch of glitches between latest docker's moby-engine and fedora 31/32/33 configurations.
 Here is a good summary / instruction for fixes: https://fedoramagazine.org/docker-and-fedora-32/.
 
-In short, you may run into cgroups v1 vs v2 issue.
-To enable v1 on fedora32:
+In short, you may run into cgroups v1 vs v2 issue on fedora31 or fedora32 or fedora33.
+To enable cgroups v1 on fedora31 or fedora32 or fedora33 (but ignore if using fedora34):
 
 ```bash
 sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
 ```
 
-Also firewall rules blocking docker0. To fix:
+Also there are firewall rules blocking docker0. To fix:
 
 ```bash
 sudo firewall-cmd --permanent --zone=trusted --add-interface=docker0
