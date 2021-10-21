@@ -12,15 +12,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 
-FROM centos:7
+TOP := $(shell git rev-parse --show-toplevel)
 
-COPY . /opt/kontain-artifacts
+include ${TOP}/make/locations.mk
 
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
-    curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256" && \
-    (echo "$(<kubectl.sha256) kubectl" | sha256sum --check) && \
-    mkdir -p /opt/kontain-artifacts/tools/ && \
-    install -o root -g root -m 0755 kubectl /opt/kontain-artifacts/tools/kubectl && \
-    rm -f kubectl kubectl.sha256
+.PHONY: all
+all:
+	[ -d ${BLDDIR} ] || mkdir -p ${BLDDIR}
+	CGO_ENABLED=0 go build -o ${BLDDIR}/containerd-shim-krun-v2 cmd/main.go 
 
+.PHONY: clean
+clean:
+	rm -rf ${BLDDIR}
