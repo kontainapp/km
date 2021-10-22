@@ -129,6 +129,12 @@ jobs:
 
       - name: Build faktory
         run: make -C tools/faktory all
+      
+      - name: Build shim
+        run: |
+          make -C cloud/k8s/deploy/shim
+          mkdir /opt/kontain/bin/shim
+          cp -r build/cloud/k8s/deploy/shim/* /opt/kontain/bin/shim
 
       - uses: actions/upload-artifact@v2
         with:
@@ -136,6 +142,7 @@ jobs:
           path: |
             /opt/kontain/bin/km
             /opt/kontain/bin/krun
+            /opt/kontain/bin/shim
           retention-days: 7
 
   km-test:
