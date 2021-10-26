@@ -86,4 +86,7 @@ Check that `kontain-test-app` pod runs with Kontain runtime (note to please repl
 ```
 $ kubectl exec -it kontain-test-app-647874765d-7ftrp  -- uname -r
 5.13.7-100.fc33.x86_64.kontain.KVM
+
+TIP: to load images built in the local docker registry to minikube, you can use:
+$ docker save <image-name> | pv | (eval $(minikube podman-env) && podman load)
 ```
