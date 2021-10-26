@@ -37,7 +37,7 @@ spec:
             fieldRef:
               fieldPath: spec.nodeName
         securityContext:
-          privileged: false
+          privileged: true
         volumeMounts:
         - name: crio-conf
           mountPath: /etc/crio/
@@ -51,6 +51,8 @@ spec:
           mountPath: /run/systemd
         - name: local-bin
           mountPath: /usr/local/bin/
+        - name: host-devices
+          mountPath: /host-devices/
       volumes:
         - name: crio-conf
           hostPath:
@@ -71,6 +73,9 @@ spec:
         - name: local-bin
           hostPath:
             path: /usr/local/bin/
+        - name: host-devices
+          hostPath:
+            path: /dev/
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 1

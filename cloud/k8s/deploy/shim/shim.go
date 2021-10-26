@@ -76,6 +76,7 @@ func (s *service) Create(ctx context.Context, r *taskAPI.CreateTaskRequest) (_ *
 
 	r.Options, err = typeurl.MarshalAny(&runc_opts.Options{
 		BinaryName: "/opt/kontain/bin/krun",
+		SystemdCgroup: false,
 	})
 	return s.parent.Create(ctx, r)
 }
