@@ -6,7 +6,7 @@ how to run containers under the Kontain runtime class.
 ## Step 1 - Start Minikube
 
 ```
-$ minikube start --container-runtime=cri-o
+$ minikube start --container-runtime=cri-o --driver=podman
 ```
 
 Note: You'll need minikube version v1.22.0 (https://github.com/kubernetes/minikube/releases/tag/v1.22.0) or better.
