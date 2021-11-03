@@ -129,7 +129,7 @@ jobs:
 
       - name: Build faktory
         run: make -C tools/faktory all
-      
+
       - name: Build shim
         run: |
           make -C cloud/k8s/deploy/shim
@@ -253,7 +253,7 @@ jobs:
 
       - name: Get kernel logs
         if: always()
-        run: dmesg
+        run: sudo dmesg
 
   kkm-test-vms:
     name: KM tests, KKM AWS and Azure VMs
