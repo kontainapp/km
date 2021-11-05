@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
+# Copyright 2021 Kontain
+#
+# Derived from kata-container install.sh:
 # Copyright (c) 2019 Intel Corporation
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 
+set -x
 set -o errexit
 set -o pipefail
 set -o nounset
@@ -63,6 +67,8 @@ function configure_cri_runtime() {
 		configure_containerd
 		;;
 	esac
+	[ -c /host-devices/kvm ] && chmod 666 /host-devices/kvm
+	[ -c /host-devices/kkm ] && chmod 666 /host-devices/kkm
 	systemctl daemon-reload
 	systemctl restart "$1"
 }
@@ -97,7 +103,6 @@ function configure_containerd_runtime() {
 	if grep -q "version = 2\>" $containerd_conf_file; then
 		pluginid=\"io.containerd.grpc.v1.cri\"
 	fi
-	pluginid=\"io.containerd.grpc.v1.cri\"
 
 	local runtime_table="plugins.${pluginid}.containerd.runtimes.$runtime"
 	local runtime_type="io.containerd.$runtime.v2"
@@ -110,17 +115,8 @@ function configure_containerd_runtime() {
 		cat <<EOT | tee -a "$containerd_conf_file"
 [$runtime_table]
   runtime_type = "${runtime_type}"
+  privileged_without_host_devices = true
   pod_annotations = ["app.kontain.*"]
-EOT
-	fi
-
-	if grep -q "\[$options_table\]" $containerd_conf_file; then
-		echo "Configuration exists for $options_table, overwriting"
-		sed -i "/\[$options_table\]/,+1s#ConfigPath.*#ConfigPath = \"${config_path}\"#" $containerd_conf_file
-	else
-		cat <<EOT | tee -a "$containerd_conf_file"
-  [$options_table]
-    ConfigPath = "${config_path}"
 EOT
 	fi
 }
