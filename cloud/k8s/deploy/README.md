@@ -1,4 +1,12 @@
-# Kontain Deployment for Kubernetes
+# Kontain Runtime for Kubernetes
+
+This directory tools to install the Kontain runtime on Kubernets clusters. The of installation are
+per-node DeamonSet objects. There are two DaemonSets defined here:
+
+- `k8s-deploy.yaml` - Install the Kontain runtime
+- `kkm-install.yaml` - Install the KKM driver
+
+* THIS IS A WORK IN PROGRESS *
 
 Deployment for Kontain Runtime for Kubernetes. This is modeled on the kata containers deployment, but it is simplified.
 Both containerd and CRIO are supported by this script.
