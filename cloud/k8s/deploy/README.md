@@ -3,8 +3,23 @@
 This directory tools to install the Kontain runtime on Kubernets clusters. The of installation are
 per-node DeamonSet objects. There are two DaemonSets defined here:
 
-- `k8s-deploy.yaml` - Install the Kontain runtime
 - `kkm-install.yaml` - Install the KKM driver
+- `k8s-deploy.yaml` - Install the Kontain runtime
+
+## Installing KKM
+
+KKM is a software-only virutalization driver that the Kontain runtime can use when hardware virtualization (KVM)
+is not availale or is undesirable. KKM is not a full, general purpose virtualization driver. KKM only supports
+the facilities needed by the Kontain runtime. 
+
+To install KKM on all nodes in kubernetes cluster, run:
+
+```
+$ kubectl apply -f cm-kkm-install.yaml
+$ kubektl apply -f km-install.yaml
+```
+
+## Installing Kontain Runtime
 
 * THIS IS A WORK IN PROGRESS *
 
@@ -37,3 +52,18 @@ The Runtime Class spacification uses a `scheuduling: nodeSelector` label to spei
 the kontain runtime installed.
 
 Currently the DeamonSet tries to install on all Nodes in a cluster.
+
+TODO:
+
+The current runtime installation script requires privileges to query the k8s cluster configuration to decide whether to
+add itself to the `containerd` or `crio` configuration. This is actually counter to what GKE seems to encourge, pods
+having little or no premission to use k8s control plane services. Ideally, it appears that a model where these decisions
+are made outside the cluster, say in a script that can run kubectl, fits better.
+
+The KKM installation procedure was inspired by a Google Cloud 'solutions' example of using a DaemonSet. The interesting
+ideas introducted here are two:
+
+-  Do the work in an 'init' container that goes away when the work is complete. The long term DaemonSet pod is a simple
+`pause` conatainer with no real worker. Seems pretty good from a security POV.
+
+- Use a standard container and do the customization (entrypoint script) as a `config` record.
