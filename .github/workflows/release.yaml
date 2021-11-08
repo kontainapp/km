@@ -66,14 +66,18 @@ jobs:
       - name: Prepare KM build env
         run: make -C tests pull-buildenv-image .buildenv-local-lib
 
-      - name: Build KM and tests using buildenv image
-        run: make -j withdocker
-
-      - name: Create kontain bundle
-        run: make withdocker TARGET=release
+      # Note the second make in this step is *not* run in our buildenv as there is no golang there
+      - name: Build KM and tests
+        run: |
+          make -j withdocker
+          make -C cloud/k8s/deploy/shim
 
       - name: Create kkm release artifact
         run: make withdocker TARGET=kkm-pkg
+
+      # Note: need to have kkm.run ready for this step
+      - name: Create kontain bundles
+        run: make withdocker TARGET=release
 
         # Note: we need to have km built before kontaind.
       - name: Build and push kontaind image
@@ -90,6 +94,7 @@ jobs:
           name: kontain
           path: |
             ./build/kontain.tar.gz
+            ./build/kontain_bin.tar.gz
             ./build/kkm.run
           retention-days: 7
 
