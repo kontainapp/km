@@ -51,8 +51,8 @@ spec:
           mountPath: /run/systemd
         - name: local-bin
           mountPath: /usr/local/bin/
-        - name: host-devices
-          mountPath: /host-devices/
+        - name: host-dev
+          mountPath: /host-dev/
       volumes:
         - name: crio-conf
           hostPath:
@@ -73,7 +73,7 @@ spec:
         - name: local-bin
           hostPath:
             path: /usr/local/bin/
-        - name: host-devices
+        - name: host-dev
           hostPath:
             path: /dev/
   updateStrategy:

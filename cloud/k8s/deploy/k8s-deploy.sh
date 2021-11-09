@@ -67,8 +67,12 @@ function configure_cri_runtime() {
 		configure_containerd
 		;;
 	esac
-	[ -c /host-devices/kvm ] && chmod 666 /host-devices/kvm
-	[ -c /host-devices/kkm ] && chmod 666 /host-devices/kkm
+
+        [ -c /host-dev/kvm ] && chmod 666 /host-dev/kvm
+        mkdir -p /etc/udev/rules.d
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' | tee /etc/udev/rules.d/99-perm.rules
+        udevadm control --reload-rules && udevadm trigger
+
 	systemctl daemon-reload
 	systemctl restart "$1"
 }
