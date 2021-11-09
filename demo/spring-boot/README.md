@@ -18,7 +18,6 @@ make -j
 make -C payloads/java
 make -C payloads/java runenv-image
 make -C demo/spring-boot
-make -C km_cli install
 ```
 
 This will create docker image called `kontainapp/spring-boot-demo` and make sure km_cli (needed for initiating a snapshot)
@@ -28,7 +27,8 @@ is available in /opt/kontain/bin.
 
 ```bash
 docker run --runtime=krun --name=KM_SpringBoot_Demo --rm -it \
-  -v $(pwd):/mnt:z -p8080:8080 kontainapp/spring-boot-demo /bin/sh
+  -v /opt/kontain/bin/km_cli:/opt/kontain/bin/km_cli \
+  -v $(pwd):/mnt:rw -p8080:8080 kontainapp/spring-boot-demo /bin/sh
 ```
 
 ### Step 3 Measure Base Startup Time

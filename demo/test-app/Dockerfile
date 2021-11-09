@@ -19,6 +19,7 @@
 # Copy the .whl file from ../../tools/hashicorp/build_tensorflow for Docker to pick it up.
 
 FROM fedora:32 as app
+ARG TF=tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl
 ARG UID=1001
 ARG GID=117
 ARG USERNAME=appuser
@@ -26,9 +27,9 @@ RUN groupadd -f -g $GID $USERNAME && useradd -u $UID -g $GID -d /home/$USERNAME 
 RUN dnf install -y pip
 USER $USERNAME
 WORKDIR /home/$USERNAME
-COPY app.py requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl /home/$USERNAME/
-RUN pip install --user -r requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl
-RUN rm requirements.txt tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl
+COPY app.py requirements.txt ${TF} /home/$USERNAME/
+RUN pip install --user -r requirements.txt ${TF}
+RUN rm requirements.txt ${TF}
 
 FROM kontainapp/runenv-dynamic-python
 ARG UID=1001
