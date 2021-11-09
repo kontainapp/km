@@ -18,12 +18,13 @@ namespace). The `kontain-deploy` DaemonSet  performs the following tasks:
 
 - `/opt/kontain/bin/krun` OCI compliant container runtime that knows about the Kontain VM Monitor
 - `/opt/kontain/bin/km` Kontain VM Monitor. Provides execution environment for processes in the container.
+- `/opt/kontain/sshim/containerd-shim-krun-v2` - CRI Runtime Shim for `containerd`.
 
 2. Configure Container Manager
 
 Container manager specific.
 
 - CRI-O complete. 
-- Containerd planned
+- Containerd complete.
 
 
