@@ -66,6 +66,8 @@ clean clobber:
 RUNENV_VALIDATE_CMD := ("/bin/sh" "-c" "echo Hello world!")
 RUNENV_VALIDATE_EXPECTED := Hello world
 
+RUNENV_TAG := ${COMPONENT}
+
 export define runenv_prep
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
 endef
