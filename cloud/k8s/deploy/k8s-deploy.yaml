@@ -55,6 +55,8 @@ spec:
           mountPath: /host-dev/
         - name: udev-conf
           mountPath: /etc/udev/
+        - name: udev
+          mountPath: /run/udev/
       volumes:
         - name: crio-conf
           hostPath:
@@ -81,6 +83,9 @@ spec:
         - name: udev-conf
           hostPath:
             path: /etc/udev/
+        - name: udev
+          hostPath:
+            path: /run/udev/
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 1
