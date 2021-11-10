@@ -36,17 +36,22 @@ ${BLDDIR}/km_guest_asmcode.o: CFLAGS += -fPIC
 
 # Package KM and libs+tools+docs for release
 KM_RELEASE := ${BLDTOP}/kontain.tar.gz
+KM_BIN_RELEASE := ${BLDTOP}/kontain_bin.tar.gz
+KM_BINARIES := km/km container-runtime/krun cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run
 # Show this on the release page
 RELEASE_MESSAGE ?= Kontain KM Beta Release. branch: ${SRC_BRANCH} sha: ${SRC_SHA}
 
-release: ${KM_RELEASE} ## Package kontain.tar.gz file for release
+release: ${KM_RELEASE} ${KM_BIN_RELEASE} ## Package kontain.tar.gz file for release
 	ls -lh ${KM_RELEASE} ${KM_BIN}
 
 ${KM_RELEASE}: ${KM_BIN} ${TOP}/tools/bin/create_release.sh ## Build a release tar.gz file for KM (called from release: target)
 	${TOP}/tools/bin/create_release.sh
 
+${KM_BIN_RELEASE}: ${KM_BIN} ## Build a release tar.gz file for KM runtime binaries
+	tar -C ${BLDTOP} -czvf $@ ${KM_BINARIES}
+
 clean-release: ## Clean the release tar files
-	rm -f ${KM_RELEASE}
+	rm -f ${KM_RELEASE} ${KM_BIN_RELEASE}
 
 publish-release: ## Publish release with RELEASE_TAG to github
-	cd ${TOP}/tools/release; ./release_km.py ${KM_RELEASE} --version ${RELEASE_TAG} --message "${RELEASE_MESSAGE}"
+	cd ${TOP}/tools/release; ./release_km.py ${KM_RELEASE} ${KM_BIN_RELEASE} --version ${RELEASE_TAG} --message "${RELEASE_MESSAGE}"
