@@ -48,7 +48,7 @@ ${KM_RELEASE}: ${KM_BIN} ${TOP}/tools/bin/create_release.sh ## Build a release t
 	${TOP}/tools/bin/create_release.sh
 
 ${KM_BIN_RELEASE}: ${KM_BIN} ## Build a release tar.gz file for KM runtime binaries
-	tar -C ${BLDTOP} -czvf $@ $(addprefix ${BLDTOP}/,${KM_BINARIES})
+	tar -C ${BLDTOP} -czvf $@ ${KM_BINARIES}
 
 clean-release: ## Clean the release tar files
 	rm -f ${KM_RELEASE} ${KM_BIN_RELEASE}
