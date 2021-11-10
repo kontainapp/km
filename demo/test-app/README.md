@@ -88,12 +88,13 @@ Make sure km_cli is compiled and in /opt/kontain/bin.
 Run kontainer the same way as above:
 
 ```bash
-docker run --runtime=krun -v $(pwd)/tmp:/mnt:Z --name test-app --rm -it -p 5000:5000 test-app /bin/sh
+docker run --runtime=krun -v /opt/kontain/bin/km_cli:/opt/kontain/bin/km_cli \
+  -v $(pwd)/tmp:/mnt:rw --name test-app --rm -it -p 5000:5000 test-app /bin/sh
 ```
 
 On the host, run
 
-```
+```bash
 ./test.sh
 ```
 
@@ -101,7 +102,7 @@ The script will take care of carefully measuring start time and response time, a
 
 Inside the kontainer, run:
 
-```
+```bash
 /run.sh
 ```
 
@@ -109,18 +110,18 @@ The app will start, and eventually respond to the request.
 
 To take the snapshot:
 
-```
+```bash
 docker exec -it test-app /opt/kontain/bin/km_cli -s /tmp/km.sock
 ```
 
 To show snapshot, run the
 
-```
+```bash
 ./test.sh
 ```
 
 again, and then run:
 
-```
+```bash
 /run_snap.sh
 ```

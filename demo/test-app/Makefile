@@ -26,6 +26,6 @@ vm: ${BUILD}/${TF}
 container: ${BUILD}/${TF}
 	@-docker rmi -f test-app
 	cp ${BUILD}/${TF} .
-	docker build -t test-app .
+	docker build -t test-app --build-arg TF=${TF} .
 	@rm ${TF}
 	@echo "Run 'docker run --runtime=krun --name test-app --rm -it -p 5000:5000 test-app /bin/sh' to login into container"

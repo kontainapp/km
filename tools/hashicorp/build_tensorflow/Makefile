@@ -25,7 +25,7 @@
 TF := tensorflow-2.4.1-cp38-cp38-linux_x86_64.whl
 
 all:
-	vagrant up
+	MEM=$(shell awk -e '/MemTotal:/{printf("%d\n", $$2/1024)}' /proc/meminfo) CPU=$(shell nproc) vagrant up
 	@vagrant ssh-config > ssh-config
 	scp -F ssh-config default:${TF} .
 	@vagrant halt
