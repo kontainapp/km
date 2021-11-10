@@ -89,4 +89,4 @@ $ kubectl exec -it kontain-test-app-647874765d-7ftrp  -- uname -r
 ```
 
 TIP: to load images built in the local docker registry to minikube, you can use:
-$ docker save <image-name> | (eval $(minikube podman-env) && podman load)
+$ docker save <image_name:tag> | (eval $(minikube podman-env) && podman-remote load)
