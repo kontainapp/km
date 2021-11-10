@@ -1,10 +1,18 @@
 # Quickstart Guide for Kubernetes Runtime
 
 This guide shows how to install the Kontain Runtime Class on an Kubernetes cluster and
-how to run containers under the Kontain runtime class.
+how to verify that the Kontain runtime class is operational.
 
 ## Step 1 - Start Minikube
 
+The Kontain Runtime supports both the `containerd` and the `cri-o` container runtime managers.
+
+To start minikibe with the `containerd` runtime manager, do:
+```
+$ minikube start --container-runtime=containerd --driver=podman
+```
+
+To start minikibe with the `cri-o` runtime manager, do:
 ```
 $ minikube start --container-runtime=cri-o --driver=podman
 ```
@@ -60,11 +68,13 @@ kube-system   storage-provisioner                1/1     Running   0          2m
 
 ## Step 3 - Start Test Kontain Container
 
+Start a test deployment. This container does an inifinite sleep. The purpose of this step is to
+ensure that the Kontain Runtime is working well enough to allow a pod to start.
 ```
 kubectl apply -f https://raw.githubusercontent.com/kontainapp/km/latest/demo/k8s/test.yaml
 ```
 
-A new pod, `kontain-test-app-xxxxx` should appear.
+A new pod, `kontain-test-app-xxxxx` should appear as 'RUNNING'.
 
 ```
 $ kubectl get pods -A
@@ -81,7 +91,9 @@ kube-system   kube-scheduler-minikube             1/1     Running   0          3
 kube-system   storage-provisioner                 1/1     Running   0          36m
 ```
 
-Check that `kontain-test-app` pod runs with Kontain runtime (note to please replace the kontain-test-app-xxxxx with the appropriate pod id).
+Use `kubectl exec` to run `uname -r` on the test pod. When running under the Kontain Runtime, the `uname(2)` system
+call appends the string "kontain.<virtualization driver>" to the release name. 
+(note to please replace the kontain-test-app-xxxxx with the appropriate pod id).
 
 ```
 $ kubectl exec -it kontain-test-app-647874765d-7ftrp  -- uname -r
