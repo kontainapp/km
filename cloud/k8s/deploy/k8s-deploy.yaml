@@ -51,8 +51,12 @@ spec:
           mountPath: /run/systemd
         - name: local-bin
           mountPath: /usr/local/bin/
-        - name: host-devices
-          mountPath: /host-devices/
+        - name: host-dev
+          mountPath: /host-dev/
+        - name: udev-conf
+          mountPath: /etc/udev/
+        - name: udev
+          mountPath: /run/udev/
       volumes:
         - name: crio-conf
           hostPath:
@@ -73,9 +77,15 @@ spec:
         - name: local-bin
           hostPath:
             path: /usr/local/bin/
-        - name: host-devices
+        - name: host-dev
           hostPath:
             path: /dev/
+        - name: udev-conf
+          hostPath:
+            path: /etc/udev/
+        - name: udev
+          hostPath:
+            path: /run/udev/
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 1
