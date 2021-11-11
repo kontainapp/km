@@ -29,8 +29,6 @@ data:
 
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
-    ls -l /scripts/* /scripts-lib/*
-
     source /scripts-lib/kontain_install_lib.sh
 
     echo "Install Kontain Runtime Artifacts (KM & KRUN)"
