@@ -22,16 +22,34 @@ function get_container_runtime() {
         if echo "$runtime" | grep -qE 'containerd.*-k3s'; then
                 if systemctl is-active --quiet k3s-agent; then
                         echo "k3s-agent"
+			return 0
                 else
                         echo "k3s"
+			return 0
                 fi
         fi
-	echo "$runtime" | awk -F '[:]' '{print $1}'
+	runtime=$(echo "$runtime" | awk -F '[:]' '{print $1}')
+	if [ "${runtime}" == "cri-o" ]; then
+		runtime="crio"
+	fi
+	echo "${runtime}"
+	return 0
 }
 
 function main() {
 	local runtime=$(get_container_runtime)
-	echo "runtime manage=${runtime}"
+	case "${runtime}" in
+	containerd)
+		echo "containerd"
+		;;
+	crio)
+		echo "crio"
+		;;
+	*) 
+		echo "Unsupported container runtime manager ${runtime}"
+		return 1
+		;;
+	esac
 }
 
 main "$@"
