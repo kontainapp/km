@@ -29,7 +29,10 @@ data:
 
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
-    echo "TODO: Install Kontain Runtime Artifacts (KM & KRUN)"
+    source /scripts-lib/kontain_install_lib.sh
+    install_kontain_artifacts
+
+    echo "Install Kontain Runtime Artifacts (KM & KRUN)"
 
     echo "Add Kontain Runtime to CRIO configuration"
     cat <<-EOT | tee -a /etc/crio/crio.conf.d/99-kontain-deploy
@@ -39,4 +42,10 @@ data:
     	runtime_root = "/run/krun"
     EOT
 
-    echo "TODO: restart crio"
+    chmod 666 /root/dev/kvm
+
+    echo "restart crio"
+    systemctl daemon-reload
+    systemctl restart crio
+
+    sleep infinity

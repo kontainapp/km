@@ -48,6 +48,8 @@ spec:
         volumeMounts:
         - name: root-mount
           mountPath: /root
+        - name: lib-entrypoint
+          mountPath: /scripts-lib
         - name: entrypoint
           mountPath: /scripts
         - name: crio-conf
@@ -65,6 +67,10 @@ spec:
       - name: entrypoint
         configMap:
           name: install-entrypoint
+          defaultMode: 0744
+      - name: lib-entrypoint
+        configMap:
+          name: kontain-install-lib
           defaultMode: 0744
       - name: crio-conf
         hostPath:

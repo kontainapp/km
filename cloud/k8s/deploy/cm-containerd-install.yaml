@@ -29,22 +29,12 @@ data:
 
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
-    #apt-get update -y
-    #apt-get install -y curl dbus systemd
+    ls -l /scripts/* /scripts-lib/*
+
+    source /scripts-lib/kontain_install_lib.sh
 
     echo "Install Kontain Runtime Artifacts (KM & KRUN)"
-    mkdir /kontain-artifacts
-    curl -L https://github.com/kontainapp/km/releases/download/v0.1-edge/kontain_bin.tar.gz | tar -xzf - -C /kontain-artifacts
-    mkdir -p /root/opt/kontain/bin
-    cp /kontain-artifacts/km/km /root/opt/kontain/bin/km
-    chmod +x /root/opt/kontain/bin/km
-    cp /kontain-artifacts/container-runtime/krun /root/opt/kontain/bin/krun
-    chmod +x /root/opt/kontain/bin/krun
-    mkdir -p /root/opt/kontain/shim
-    cp /kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /root/opt/kontain/shim/containerd-shim-krun-v2
-    chmod +x /root/opt/kontain/shim/containerd-shim-krun-v2
-    cp /kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /root/usr/local/bin/containerd-shim-krun-v2
-    chmod +x /root/usr/local/bin/containerd-shim-krun-v2
+    install_kontain_artifacts
 
     echo "Add Kontain Runtime to containerd configuration"
     containerd_conf_file="/etc/containerd/config.toml"

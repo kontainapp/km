@@ -25,6 +25,7 @@ involves:
 ## Manual Installation Procedure
 
 - `kubectl apply -f runtime-class.yaml`
+- `kubectl apply -f cm-install-lib-class.yaml`
 - `kubectl apply -f cm-containerd-install.yaml` or `kubectl apply -f cm-crio-install.yaml`
 - `kubectl apply -f kontain-deploy.yaml`
 
