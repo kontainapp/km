@@ -59,7 +59,7 @@ data:
     EOT
     fi
 
-    chmod 666 /root/dev/kvm
+    [ -c /root/dev/kvm] && chmod 666 /root/dev/kvm
 
     echo "restart containerd"
     systemctl daemon-reload
