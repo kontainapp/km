@@ -385,6 +385,54 @@ jobs:
           rm -f ~/.kube/config
           az logout
 
+  minikube-testing:
+    name: kubernetes tests aginst minikube
+    runs-on: ubuntu-20.04
+    needs: [kkm-build]
+    strategy:
+      matrix:
+        # We want to test against containerd and crio. crio support is a bit brittle in
+        # minikube. In our experience (late 2021) it works better with the podman minikube
+        # driver than the docker minikube driver.
+        runtime: ["containerd"] # "cri-o" later
+        driver: ["docker", "podman"]
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - uses: actions/download-artifact@v2
+      with:
+        name: kkm
+        path: kkm
+    - run: chmod a+x kkm/test_kkm/test_kkm
+
+    - name: Install KKM
+      run: sudo insmod kkm/kkm/kkm.ko
+
+    - name: Start minikube 
+      run: |
+        minikube version
+        minikube start --container-runtime=${{ matrix.runtime }} --driver=${{ matrix.driver }} --wait=all || minikube logs
+    - name: Install Kontain on minikube k8s
+      run: |
+        kubectl apply -f cloud/k8s/deploy/runtime-class.yaml
+        kubectl apply -f cloud/k8s/deploy/cm-install-lib.yaml
+        kubectl apply -f cloud/k8s/deploy/cm-containerd-install.yaml
+        kubectl apply -f cloud/k8s/deploy/kontain-deploy.yaml
+        sleep 20
+    - name: Run user test
+      run: |
+        # start the test pod, which will just sleep
+        kubectl apply -f demo/k8s/test.yaml
+        sleep 10
+        # exec `uname -r` on the test pod. Should get back '.kontain.KKM' appended to the linux release name
+        pname=$(kubectl get pod -l kontain=test-app -o jsonpath="{.items[0].metadata.name}")
+        rname=$(kubectl exec "${pname}" -- uname -r)
+        echo "uname -r returned ${rname}"
+        echo "${rname}" | grep -q -e '.*\.kontain\.KKM$' || exit 1
+        echo "Kontain Runtime OK".
+
   slack-workflow-status:
     name: Notify slack, if needed
     runs-on: ubuntu-latest

@@ -1,17 +1,7 @@
-# Kontain Deployment for Kubernetes
+# Kontain Integration into Kubernetes
 
-Deployment for Kontain Runtime for Kubernetes. This is modeled on the kata containers deployment, but it is simplified.
-Both containerd and CRIO are supported by this script.
-
-`Makefile` builds the container `kontainapp/runenv-k8s-deploy:latest` and pushes it to DockerHub. Relevant targets:
-* `make runenv-image` builds the delpoyment container.
-* `make push-runenv-image` pushes the deployment image to the DockerHub registry.
-
-The deployment container includes  KM build artifacts `/opt/kontain` as well as the script `k82-deploy.sh`. The DaemonSet 
-is deployed into a kubernetes cluster with the command `kubectl apply -f k8s-deploy.yaml`.
-
-Kontain is exposed as a Runtime Class named 'kontain'. Users specify the kontain runtime with `runtimeClassName: kontain`
-in a container 'spec'.  For example:
+The Kontain Runtime is installed into Kubernetes by introducing a new `RuntimeClass` object called `kontain`.
+This new `RuntimeClass` is used in Pod specifications as follows:
 
 ```
 ...
@@ -25,7 +15,19 @@ in a container 'spec'.  For example:
 ...
 ```
 
-The Runtime Class spacification uses a `scheuduling: nodeSelector` label to speicify which nodes in a cluster have
-the kontain runtime installed.
+In order to implement this, Kontain needs to be installed on the Kubernetes worker nodes. The installation
+involves:
 
-Currently the DeamonSet tries to install on all Nodes in a cluster.
+- Add Kontain binaries to worker node.
+- Modify worker node container runtime manager (containerd or cri-o) to recognize new `RuntimeClass`.
+- (optional) Install KKM virtualization driver.
+
+## Manual Installation Procedure
+
+- `kubectl apply -f runtime-class.yaml`
+- `kubectl apply -f cm-install-lib-class.yaml`
+- `kubectl apply -f cm-containerd-install.yaml` or `kubectl apply -f cm-crio-install.yaml`
+- `kubectl apply -f kontain-deploy.yaml`
+
+The plan is to wrap this up inside a single `kontain-install.sh` that is run from the outside (where
+security scope is hopefully not a problem).
