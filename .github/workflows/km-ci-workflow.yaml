@@ -390,12 +390,12 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [kkm-build]
     strategy:
-    matrix:
-      # We want to test against containerd and crio. crio support is a bit brittle in
-      # minikube. In our experience (last 2021) it works better with the podman minikube
-      # driver than the docker minikube driver.
-      runtime: ["containerd"] # "cri-o" later
-      driver: ["docker"]  # "podman" later
+      matrix:
+        # We want to test against containerd and crio. crio support is a bit brittle in
+        # minikube. In our experience (last 2021) it works better with the podman minikube
+        # driver than the docker minikube driver.
+        runtime: ["containerd"] # "cri-o" later
+        driver: ["docker"]  # "podman" later
     steps:
     - uses: actions/checkout@v2
       with:
