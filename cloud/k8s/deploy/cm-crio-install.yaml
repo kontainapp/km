@@ -42,7 +42,7 @@ data:
     	runtime_root = "/run/krun"
     EOT
 
-    chmod 666 /root/dev/kvm
+    [ -c /root/dev/kvm ] && chmod 666 /root/dev/kvm
 
     echo "restart crio"
     systemctl daemon-reload
