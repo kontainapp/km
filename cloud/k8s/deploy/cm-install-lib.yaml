@@ -18,6 +18,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kontain-install-lib
+  namespace: kube-system
   labels:
     app: kontain-init
 data:
