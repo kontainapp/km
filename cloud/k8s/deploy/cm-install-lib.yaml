@@ -25,10 +25,12 @@ data:
   kontain_install_lib.sh: |
     #!/usr/bin/env bash
 
+    KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://github.com/kontainapp/km/releases/download/v0.1-edge/kontain_bin.tar.gz}"
+
     function install_kontain_artifacts() {
       echo "Install Kontain Runtime Artifacts (KM & KRUN)"
       mkdir /kontain-artifacts
-      curl -L https://github.com/kontainapp/km/releases/download/v0.1-edge/kontain_bin.tar.gz | tar -xzf - -C /kontain-artifacts
+      curl -L "${KONTAIN_RELEASE_URL}" | tar -xzf - -C /kontain-artifacts
       mkdir -p /root/opt/kontain/bin
       cp /kontain-artifacts/km/km /root/opt/kontain/bin/km
       chmod +x /root/opt/kontain/bin/km
