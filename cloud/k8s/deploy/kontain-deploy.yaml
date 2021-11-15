@@ -18,6 +18,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kontain-node-initializer
+  namespace: kube-system
   labels:
     app: kontain-init
 spec:
@@ -66,7 +67,7 @@ spec:
           path: /
       - name: entrypoint
         configMap:
-          name: install-entrypoint
+          name: kontain-install-entrypoint
           defaultMode: 0744
       - name: lib-entrypoint
         configMap:

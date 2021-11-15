@@ -17,7 +17,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: install-entrypoint
+  name: kontain-install-entrypoint
+  namespace: kube-system
   labels:
     app: kontain-init
 data:
