@@ -27,7 +27,7 @@ involves:
 - `kubectl apply -f runtime-class.yaml`
 - `kubectl apply -f cm-install-lib-class.yaml`
 - `kubectl apply -f cm-containerd-install.yaml` or `kubectl apply -f cm-crio-install.yaml`
-- `kubectl apply -f kontain-deploy.yaml`
+- `kubectl apply -k kontain-deploy/base`
 
 The plan is to wrap this up inside a single `kontain-install.sh` that is run from the outside (where
 security scope is hopefully not a problem).
