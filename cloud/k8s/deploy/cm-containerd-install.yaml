@@ -20,7 +20,7 @@ metadata:
   name: kontain-install-entrypoint
   namespace: kube-system
   labels:
-    app: kontain-init
+    kontain: runtime-install
 data:
   entrypoint.sh: |
     #!/usr/bin/env bash

@@ -446,6 +446,16 @@ jobs:
         kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
         sleep 20
 
+    # Uncomment this out for daemonset logs.
+    - name: Print DaemonSet logs
+      run: |
+        echo "KKM Install Log"
+        pname=$(kubectl get pod -n kube-system -l kontain=kkm-install -o jsonpath="{.items[0].metadata.name}")
+        kubectl logs -n kube-system "${pname}"
+        echo "Kontain Deploy Log"
+        pname=$(kubectl get pod -n kube-system -l kontain=runtime-install -o jsonpath="{.items[0].metadata.name}")
+        kubectl logs -n kube-system "${pname}"
+
     - name: Run user test
       run: |
         # start the test pod, which will just sleep

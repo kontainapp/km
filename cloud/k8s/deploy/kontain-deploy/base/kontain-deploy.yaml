@@ -20,18 +20,18 @@ metadata:
   name: kontain-node-initializer
   namespace: kube-system
   labels:
-    app: kontain-init
+    kontain: runtime-install
 spec:
   selector:
     matchLabels:
-      app: kontain-init
+      kontain: runtime-install
   updateStrategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
         name: kontain-node-initializer
-        app: kontain-init
+        kontain: runtime-install
     spec:
       containers:
       - image: centos:7    # ubuntu:18.04
