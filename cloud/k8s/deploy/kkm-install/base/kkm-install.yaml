@@ -17,29 +17,29 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: kontain-node-initializer
+  name: kontain-kkm-installer
   namespace: kube-system
   labels:
-    app: kontain-init
+    app: kkm-installer
 spec:
   selector:
     matchLabels:
-      app: kontain-init
+      app: kkm-installer
   updateStrategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        name: kontain-node-initializer
-        app: kontain-init
+        name: kontain-kkm-installer
+        app: kkm-installer
     spec:
       containers:
       - image: centos:7    # ubuntu:18.04
-        name: node-initializer
+        name: kkm-installer
         command: ["/scripts/entrypoint.sh"]
         env:
-        - name: ROOT_MOUNT_DIR
-          value: /root
+        - name: KONTAIN_RELEASE_URL
+          value: https://github.com/kontainapp/km/releases/download/v0.1-edge/kontain_bin.tar.gz
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -47,41 +47,16 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
-        - name: root-mount
-          mountPath: /root
         - name: lib-entrypoint
           mountPath: /scripts-lib
         - name: entrypoint
           mountPath: /scripts
-        - name: crio-conf
-          mountPath: /etc/crio/
-        - name: containerd-conf
-          mountPath: /etc/containerd/
-        - name: dbus
-          mountPath: /var/run/dbus
-        - name: systemd
-          mountPath: /run/systemd
       volumes:
-      - name: root-mount
-        hostPath:
-          path: /
       - name: entrypoint
         configMap:
-          name: kontain-install-entrypoint
+          name: kkm-install-entrypoint
           defaultMode: 0744
       - name: lib-entrypoint
         configMap:
           name: kontain-install-lib
           defaultMode: 0744
-      - name: crio-conf
-        hostPath:
-          path: /etc/crio/
-      - name: containerd-conf
-        hostPath:
-          path: /etc/containerd/
-      - name: dbus
-        hostPath:
-          path: /var/run/dbus
-      - name: systemd
-        hostPath:
-          path: /run/systemd

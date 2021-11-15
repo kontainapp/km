@@ -136,6 +136,17 @@ jobs:
           mkdir /opt/kontain/bin/shim
           cp -r build/cloud/k8s/deploy/shim/* /opt/kontain/bin/shim
 
+      - name: internal release package
+        run: |
+          sudo apt-get update
+          sudo apt-get install makeself
+          make kkm-pkg
+          make release
+          mkdir /tmp/release
+          cp -r build/kontain.tar.gz /tmp/release
+          mkdir /tmp/bin_release
+          cp -r build/kontain_bin.tar.gz /tmp/bin_release
+
       - uses: actions/upload-artifact@v2
         with:
           name: km
@@ -144,6 +155,16 @@ jobs:
             /opt/kontain/bin/krun
             /opt/kontain/bin/shim
           retention-days: 7
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km_release
+          path: /tmp/release
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km_bin_release
+          path: /tmp/bin_release
 
   km-test:
     name: KM, payloads, krun tests, KVM on K8S
@@ -388,7 +409,7 @@ jobs:
   minikube-testing:
     name: kubernetes tests aginst minikube
     runs-on: ubuntu-20.04
-    needs: [kkm-build]
+    needs: [km-build, kkm-build]
     strategy:
       matrix:
         # We want to test against containerd and crio. crio support is a bit brittle in
@@ -403,24 +424,30 @@ jobs:
 
     - uses: actions/download-artifact@v2
       with:
-        name: kkm
-        path: kkm
-    - run: chmod a+x kkm/test_kkm/test_kkm
+        name: km_bin_release
+        path: /tmp/bin_release
 
-    - name: Install KKM
-      run: sudo insmod kkm/kkm/kkm.ko
+    - name: print downloaded artifact
+      run: find /tmp/bin_release
+
+    - name: start local file server
+      run: |
+        (cd /tmp/bin_release; python3 -m http.server 8000) &
 
     - name: Start minikube 
       run: |
         minikube version
         minikube start --container-runtime=${{ matrix.runtime }} --driver=${{ matrix.driver }} --wait=all || minikube logs
+
     - name: Install Kontain on minikube k8s
       run: |
         kubectl apply -f cloud/k8s/deploy/runtime-class.yaml
         kubectl apply -f cloud/k8s/deploy/cm-install-lib.yaml
         kubectl apply -f cloud/k8s/deploy/cm-containerd-install.yaml
-        kubectl apply -f cloud/k8s/deploy/kontain-deploy.yaml
+        kubectl apply -k cloud/k8s/deploy/kkm-install/ci
+        kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
         sleep 20
+
     - name: Run user test
       run: |
         # start the test pod, which will just sleep
