@@ -1,0 +1,42 @@
+# Copyright 2021 Kontain
+# Derived from:
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kkm-install-entrypoint
+  labels:
+    app: kkm-install
+data:
+  entrypoint.sh: |
+    #!/usr/bin/env bash
+    set -x
+    set -euo pipefail
+    ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
+    source /scripts-lib/kontain_install_lib.sh
+    echo "Install Kontain Runtime Artifacts (KM & KRUN)"
+    load_kontain_artifacts
+    echo "Installing build tools dependencies"
+    apt-get update
+    apt-get install -y make gcc
+    
+    if [ ! -f "${KONTAIN_ARTIFACTS_DIR}"/kkm.run]
+    then
+      echo "Cannot find ${KONTAIN_ARTIFACTS_DIR}/kkm.run"
+      exit 1
+    fi
+    echo "Build and install KKM"
+    sudo bash ${KONTAIN_ARTIFACTS_DIR}/kkm.run

@@ -424,24 +424,12 @@ jobs:
 
     - uses: actions/download-artifact@v2
       with:
-        name: kkm
-        path: kkm
-    - run: chmod a+x kkm/test_kkm/test_kkm
-
-    - uses: actions/download-artifact@v2
-      with:
         name: km_bin_release
         path: /tmp/bin_release
-
-    - name: print downloaded artifact
-      run: find /tmp/bin_release
 
     - name: start local file server
       run: |
         (cd /tmp/bin_release; python3 -m http.server 8000) &
-
-    - name: Install KKM
-      run: sudo insmod kkm/kkm/kkm.ko
 
     - name: Start minikube 
       run: |
@@ -452,6 +440,8 @@ jobs:
       run: |
         kubectl apply -f cloud/k8s/deploy/runtime-class.yaml
         kubectl apply -f cloud/k8s/deploy/cm-install-lib.yaml
+        kubectl apply -f cloud/k8s/deploy/cm-kkm-install.yaml
+        kubectl apply -k cloud/k8s/deploy/kkm-install/ci
         kubectl apply -f cloud/k8s/deploy/cm-containerd-install.yaml
         kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
         sleep 20
