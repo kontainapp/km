@@ -116,9 +116,10 @@ TEST nested_threads(void)
    pthread_t pt1, pt2;
    int ret;
    void* status;
+   void* ptr = (void*)0x17;
 
    pthread_key_create(&mystr_key_2, free_key);
-   pthread_setspecific(mystr_key_2, (void*)0x17);
+   pthread_setspecific(mystr_key_2, ptr);
 
    ret = pthread_create(&pt1, NULL, run, NULL);
    // assert macro can use params more than once, so using separate <ret>
