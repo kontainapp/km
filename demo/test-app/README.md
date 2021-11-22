@@ -1,8 +1,5 @@
 # Simple inferring app using tensorflow
 
-There are two ways to build and run this app - in a docker container or in vagrant VM.
-The application code is the same, it's just the packaging is different.
-
 Note that we require our own custom built version of tensorflow.
 The code isn't changed, we just compile it with `-D_GTHREAD_USE_RECURSIVE_MUTEX_INIT_FUNC=1`
 to disable use of non-POSIX primitives that are not supported on musl.
@@ -12,10 +9,21 @@ To build this version, in `km/tools/hashicorp/build_tensorflow` run `vagrant up`
 Tensorflow will be built in the virtual machine,
 then the resulting tensorflow<something>.whl file will be copied into that directory.
 
-## vagrant
+Note also that the tensorflow code requires python 3.8.
+Since our current python runenv is 3.9 there is a mismatch.
+In order to make the demo we can compile and use python 3.8 runenv, specifically for this demo.
+We don't publish the 3.8 runenv at the moment.
 
-Run `vagrant up` to build and start the VM with the app.
-`vagrant ssh` (or configure ssh by using output of `vagrant ssh-config`) into the VM.
+## Python 3.8 runenv
+
+```bash
+make -C payloads/python clobber
+make -C payloads/python -j fromsrc TAG=v3.8.6
+make -C payloads/dynamic-python runenv-image TAG=v3.8.6
+```
+
+These steps overwrite the `kontainapp/runenv-dynamic-python` with the 3.8 version.
+To go back to regular python repeat the steps without `TAG=xxx`.
 
 ## Docker
 
@@ -29,15 +37,11 @@ docker run --runtime=krun -v $(pwd)/tmp:/mnt:Z --name test-app --rm -it -p 5000:
 
 ## To test:
 
-Once inside a VM (or container) with the app, to run the app:
+Once inside the container with the app, to run the app:
 
 ```bash
 python app.py
 ```
-
-In VM you can switch between native and kontain python.
-To switch python between native and KM based python use `./switch.sh` for native and `./switch.sh km` for km
-(note in container there is only KM python).
 
 It takes several seconds for the application to initialize.
 Message `WARNING: This is a development server. Do not use it in a production deployment.` is normal and expected,
@@ -82,8 +86,6 @@ If everything is OK, it prints something like:
 reporting probabilities that the presented image (`dog2.jpg`) is image of the particular dog breed.
 
 ## snapshot
-
-Make sure km_cli is compiled and in /opt/kontain/bin.
 
 Run kontainer the same way as above:
 
