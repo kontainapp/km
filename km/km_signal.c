@@ -834,9 +834,6 @@ uint64_t km_sigaltstack(km_vcpu_t* vcpu, km_stack_t* new, km_stack_t* old)
          vcpu->sigaltstack.ss_size = 0;
          vcpu->sigaltstack.ss_sp = NULL;
       } else {
-         if (new->ss_size < MINSIGSTKSZ) {
-            return -ENOMEM;
-         }
          if (km_gva_to_kma((km_gva_t) new->ss_sp) == NULL) {
             return -EFAULT;
          }
