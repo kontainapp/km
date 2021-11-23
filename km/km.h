@@ -31,6 +31,7 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <linux/kvm.h>
+#include <linux/sched.h>
 
 #include "bsd_queue.h"
 #include "km_elf.h"
@@ -385,6 +386,7 @@ int km_clone(km_vcpu_t* vcpu,
              km_gva_t ptid,
              km_gva_t ctid,
              unsigned long newtls);
+long km_clone3(km_vcpu_t* vcpu, struct clone_args* cl_args);
 uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr);
 void km_exit(km_vcpu_t* vcpu);
 

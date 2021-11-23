@@ -505,6 +505,9 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    new_vcpu->regs = vcpu->regs;
    new_vcpu->regs.rsp = sp;
    *((uint64_t*)km_gva_to_kma_nocheck(sp)) = 0;   // hc return value
+   // syscall trap uses this to restore RDX 
+   *((uint64_t*)km_gva_to_kma_nocheck(sp + 0x18)) =
+       *((uint64_t*)km_gva_to_kma_nocheck(vcpu->regs.rsp + 0x18));
    km_vmdriver_clone(vcpu, new_vcpu);
    new_vcpu->regs_valid = 1;
 
