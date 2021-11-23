@@ -1432,6 +1432,23 @@ static km_hc_ret_t clone_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t clone3_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // long syscall(SYS_clone3, struct clone_args *cl_args, size_t size);
+   struct clone_args* cl_args = km_gva_to_kma(arg->arg1);
+
+   if (cl_args == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if ((cl_args->flags & CLONE_THREAD) == 0) {
+      arg->hc_ret = -ENOSYS;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_clone3(vcpu, cl_args);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t set_tid_address_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    arg->hc_ret = km_set_tid_address(vcpu, arg->arg1);
@@ -2078,6 +2095,7 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_prctl] = dummy_hcall,
 
     [SYS_clone] = clone_hcall,
+    [__NR_clone3] = clone3_hcall,   // Fedora 31 (glibc-2.30) has no SYS_clone3 defined
     [SYS_set_tid_address] = set_tid_address_hcall,
     [SYS_membarrier] = dummy_hcall,
     [SYS_getcpu] = getcpu_hcall,
