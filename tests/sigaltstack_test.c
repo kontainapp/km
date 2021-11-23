@@ -84,7 +84,7 @@ TEST sas_lj()
       perror("sigaction");
       exit(EXIT_FAILURE);
    }
-   sigsetjmp(jbuf, 0);
+   sigsetjmp(jbuf, 1);
    if (greatest_get_verbosity() == 1) {
       printf("about to assign to %p\n", bad);
    }
@@ -167,6 +167,9 @@ TEST sas()
    if (greatest_get_verbosity() == 1) {
       printf("ss_flags = 0x%x\n", lss.ss_flags);
    }
+   free(ss.ss_sp);
+   free(ptr);
+   bad = 0;
    PASS();
 }
 
@@ -175,6 +178,8 @@ GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
 {
+   printf("=== %d %d\n", SIGSTKSZ, MINSIGSTKSZ);
+
    GREATEST_MAIN_BEGIN();   // init & parse command-line args
    // greatest_set_verbosity(1);
 
