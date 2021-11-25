@@ -106,3 +106,5 @@ RUN sudo cp /root/.bashrc ~/.bashrc && sudo chown $USER .bashrc
 
 # Turn off passwd-less sudo.
 RUN sudo rm /etc/sudoers.d/XX-for-nix-install
+
+ENV PATH=/nix/var/nix/profiles/default/bin:${PATH}
