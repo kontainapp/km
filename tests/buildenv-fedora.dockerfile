@@ -56,7 +56,7 @@ RUN dnf install -y \
    time patch file findutils diffutils which procps-ng python2 \
    glibc-devel glibc-static libstdc++-static \
    elfutils-libelf-devel bzip2-devel \
-   zlib-static bzip2-static xz-static \
+   zlib-static bzip2-static xz-static xz \
    openssl-devel openssl-static jq googler \
    python3-markupsafe libffi-devel parallel \
    automake autoconf libcap-devel yajl-devel libseccomp-devel \
@@ -88,4 +88,23 @@ COPY --from=alpine-lib-image $PREFIX $PREFIX/
 # take libcrypto from Fedora - python ssl doesn't like alpine one
 RUN cp /usr/lib64/libcrypto.so.1.1.1[a-z] ${PREFIX}/alpine-lib/lib/libcrypto.so.1.1
 
+# nix install will use sudo. Allow it do happen with no passwd. we'll turn this off
+# after nix is installed.
+RUN echo "%appuser ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/XX-for-nix-install
+
 USER $USER
+
+# Install nix package management in the final container.
+RUN curl -L -o install_nix.sh https://nixos.org/nix/install && \
+    chmod +x install_nix.sh && \
+    ./install_nix.sh --daemon && \
+    rm install_nix.sh
+
+# nix hacks shell rc files in /etc to much paths. Docker doesn't create a bashrc, so
+# copy one from the root user.
+RUN sudo cp /root/.bashrc ~/.bashrc && sudo chown $USER .bashrc
+
+# Turn off passwd-less sudo.
+RUN sudo rm /etc/sudoers.d/XX-for-nix-install
+
+ENV PATH=/nix/var/nix/profiles/default/bin:${PATH}
