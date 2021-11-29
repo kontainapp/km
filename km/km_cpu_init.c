@@ -40,6 +40,7 @@
 
 // Set CPUID VendorId to this. 12 chars max (sans \0) to fit in 3 register: ebx,ecx,edx
 static const char cpu_vendor_id[3 * sizeof(u_int32_t) + 1] = "Kontain";
+int set_cpu_vendor_id;
 
 km_machine_t machine = {
     .kvm_fd = -1,
@@ -505,7 +506,7 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    new_vcpu->regs = vcpu->regs;
    new_vcpu->regs.rsp = sp;
    *((uint64_t*)km_gva_to_kma_nocheck(sp)) = 0;   // hc return value
-   // syscall trap uses this to restore RDX 
+   // syscall trap uses this to restore RDX
    *((uint64_t*)km_gva_to_kma_nocheck(sp + 0x18)) =
        *((uint64_t*)km_gva_to_kma_nocheck(vcpu->regs.rsp + 0x18));
    km_vmdriver_clone(vcpu, new_vcpu);
@@ -670,10 +671,12 @@ void km_machine_setup(km_machine_init_params_t* params)
             __get_cpuid(entry->function, &entry->eax, &entry->ebx, &entry->ecx, &entry->edx);
             break;
          case 0x0:
-            km_infox(KM_TRACE_KVM, "Setting VendorId to '%s'", cpu_vendor_id);
-            memcpy(&entry->ebx, cpu_vendor_id, sizeof(u_int32_t));
-            memcpy(&entry->edx, cpu_vendor_id + sizeof(u_int32_t), sizeof(u_int32_t));
-            memcpy(&entry->ecx, cpu_vendor_id + 2 * sizeof(u_int32_t), sizeof(u_int32_t));
+            if (set_cpu_vendor_id != 0) {
+               km_infox(KM_TRACE_KVM, "Setting VendorId to '%s'", cpu_vendor_id);
+               memcpy(&entry->ebx, cpu_vendor_id, sizeof(u_int32_t));
+               memcpy(&entry->edx, cpu_vendor_id + sizeof(u_int32_t), sizeof(u_int32_t));
+               memcpy(&entry->ecx, cpu_vendor_id + 2 * sizeof(u_int32_t), sizeof(u_int32_t));
+            }
             break;
       }
    }
