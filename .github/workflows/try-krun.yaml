@@ -102,6 +102,10 @@ jobs:
 
       - run: |
           set -ex
+          cd container-runtime/crun
           sudo mkdir -p .cache
           sudo mv .cache /nix
-          cd container-runtime/crun; nix build nix nix build -f nix --extra-experimental-features nix-command
+          if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix cp -rfT /nix /mnt/nix; fi
+          sudo RUNTIME=docker SKIP_CHECKS=1 SKIP_GPG=1 build-aux/release.sh
+          sudo mv /nix .cache
+          sudo chown -Rf $(whoami) .cache
