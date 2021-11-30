@@ -25,7 +25,7 @@ ENV BRANCH=${branch}
 
 COPY libc.so /opt/kontain/runtime/libc.so
 COPY km /opt/kontain/bin/km
-COPY km.coverage /opt/kontain/coverage/bin/km
+RUN test -f km.coverage && cp km.coverage /opt/kontain/coverage/bin/km || true
 
 ENV KM_TOP=/home/appuser/km
 ENV KM_TEST_TOP=${KM_TOP}/tests
