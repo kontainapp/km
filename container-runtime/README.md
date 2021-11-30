@@ -24,3 +24,5 @@ Which would mean this KRUN is based on CRUN 1.3 plus version 3 of the Kontain ch
 This implies a more comples set of git operations to synchromize the KRUN repo than we do today, but the payoff is
 better control of what we actually ship to customers.
 
+So assuming the SHA top of release 1.x in CRUN was 123456, then 123456 would be the last CRUN commit before the
+kontain commits int KRUN release 1.x-kontain.y.
