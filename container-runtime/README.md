@@ -26,3 +26,15 @@ better control of what we actually ship to customers.
 
 So assuming the SHA top of release 1.x in CRUN was 123456, then 123456 would be the last CRUN commit before the
 kontain commits int KRUN release 1.x-kontain.y.
+
+# Mechanics
+
+Github has a single button on the GUI to get new commits from an upstream repo to a fork. 
+To get new tags:
+```
+git checkout main
+git remote add upstream git@github.com:containers/crun.git
+git fetch upstream --tags
+git push origin --tags
+git remote rm upstream
+```
