@@ -148,7 +148,6 @@ static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
 static char* mgtpipe = NULL;
 static int log_to_fd = -1;
-extern int set_cpu_vendor_id;
 
 struct option km_cmd_long_options[] = {
     {"wait-for-signal", no_argument, &wait_for_signal, 1},
@@ -158,7 +157,6 @@ struct option km_cmd_long_options[] = {
     {"overcommit-memory", no_argument, &(km_machine_init_params.overcommit_memory), KM_FLAG_FORCE_ENABLE},
     {"coredump", required_argument, 0, 'C'},
     {"membus-width", required_argument, 0, 'P'},
-    {"vendorid", no_argument, &set_cpu_vendor_id, KM_FLAG_FORCE_ENABLE},
     {"log-to", required_argument, 0, 'l'},
     {"km-log-to", required_argument, 0, 'k'},
     {"putenv", required_argument, 0, 'e'},
@@ -513,7 +511,7 @@ static char* km_parse_args(
          mgtpipe = strdup(mgt_e);
       }
    }
-
+   
    // Configure payload's env and args
    *envp_p = envp;
    *envc_p = envc;

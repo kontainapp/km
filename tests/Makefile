@@ -28,8 +28,8 @@ BUILDENV_PATH = ${BLDDIR}
 include ${TOP}/make/images.mk
 
 # We use coverage version of km to test.
-ifdef TEST_COVERAGE
 TESTENV_EXTRA_FILES := ${COVERAGE_KM_BIN} ${KM_LDSO}
+
 # We need to put both KM_BIN and COVERAGE_KM_BIN into the testenv. Since km
 # binaries have the same name, special care is required. As part of the copy,
 # we rename the coverage km into km.coverage, so we won't have issue with
@@ -43,9 +43,10 @@ override define testenv_prep =
 endef
 
 override define testenv_cleanup =
-	rm -f ./km ./libc.so km.coverage
+	rm ./km
+	rm ./libc.so
+	rm km.coverage
 endef
-endif
 
 # To serialiaze, pass TEST_JOBS=1
 ifneq ($(TEST_JOBS),.)
