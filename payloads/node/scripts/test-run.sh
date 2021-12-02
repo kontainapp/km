@@ -29,6 +29,14 @@ EOF
    exit 1
 }
 
+check_crypto() {
+   msg="Unsupported crypto setting for this version of node. Use 'sudo update-crypto-policies --set LEGACY'"
+   source /etc/os-release
+   [[ $PLATFORM_ID == platform:f35 ]] && [[ $(update-crypto-policies --show) == DEFAULT ]] && echo $msg && exit 1
+   return 0
+}
+check_crypto
+
 case "$1" in
   test)
    KM_BIN=$2
@@ -47,7 +55,8 @@ case "$1" in
    NODETOP=$2
    BUILD=$3
 	cd ${NODETOP}
-   /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* | tr '\n' ','` default addons js-native-api node-api
+   echo /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr '\n' ','` default addons js-native-api node-api
+   /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr '\n' ','` default addons js-native-api node-api
    echo "Tests are Successful"
   ;;
 
