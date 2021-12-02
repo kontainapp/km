@@ -72,13 +72,13 @@ make
 file dweb dweb.km
 
 # Run dweb.km as Kontain VM payload, and demo it (test->CPUID)
-~/workspace/km/build/km/km --vendorid ./dweb.km 8080
+~/workspace/km/build/km/km ./dweb.km 8080
 
 # Build Docker container with dweb
 (cd ..; docker build -t dweb . -f dweb-demo.dockerfile)
 
 # Show start time ('-x' to exit from server right away)
-time docker run --rm dweb /dweb/dweb -x
+time docker run --rm  dweb  /dweb/dweb -x
 time ~/workspace/km/build/km/km dweb.km -x
 
 ```

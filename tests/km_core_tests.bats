@@ -41,7 +41,7 @@ not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_ex
 todo_alpine_static='dl_iterate_phdr gdb_forkexec'
 
 # glibc native
-not_needed_glibc_static='cpuid setup_link setup_load gdb_sharedlib readlink_argv km_identity dlopen exec_sh'
+not_needed_glibc_static='setup_link setup_load gdb_sharedlib readlink_argv km_identity dlopen exec_sh'
 
 # exception - extra segment in kmcore
 # dl_iterate_phdr - load starts at 4MB instead of 2MB
@@ -50,7 +50,7 @@ not_needed_glibc_static='cpuid setup_link setup_load gdb_sharedlib readlink_argv
 # raw_clone - glibc clone() wrapper needs pthread structure
 # gdb_forkexec - gdb stack trace needs symbols when in a hypercall
 
-todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test threads_basic_tsd threads_exit_grp gdb_forkexec km_exec_guest_files'
+todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test  threads_basic_tsd threads_exit_grp gdb_forkexec km_exec_guest_files'
 
 not_needed_alpine_dynamic=$not_needed_alpine_static
 todo_alpine_dynamic=$todo_alpine_static
@@ -193,6 +193,7 @@ fi
    assert_success
    assert [ -e $log ]
    assert grep -q 'Hello, world' $log       # guest stdout redirected by --log-to
+   assert_output --partial 'Setting VendorId ' $log  # km stderr
    rm $log
    run km_with_timeout -V --log-to=/very/bad/place -- hello_test$ext
    assert_failure
@@ -538,7 +539,7 @@ fi
    assert_line --partial "Thread 6 \"vcpu-5\""
    # TODO: remove the check with glibc_static when stack trace is implemented
    [[ $test_type =~ (alpine|glibc)* ]] || assert_line --partial "in do_nothing_thread (instance"
-   assert_output --partial "Inferior 1 (Remote target) detached"
+   assert_line --partial "Inferior 1 (Remote target) detached"
 
    # 2nd try to test async gdb client attach to the target
    run gdb_with_timeout -q -nx \
@@ -548,7 +549,7 @@ fi
    assert_line --partial "Thread 8 \"vcpu-7\""
    # TODO: remove the check with glibc_static when stack trace is implemented
    [[ $test_type =~ (alpine|glibc)* ]] || assert_line --partial "in do_nothing_thread (instance"
-   assert_output --partial "Inferior 1 (Remote target) detached"
+   assert_line --partial "Inferior 1 (Remote target) detached"
 
    # ok, gdb client attach seems to be working, shut the test program down.
    run gdb_with_timeout -q -nx \
@@ -556,7 +557,7 @@ fi
       --ex="set stop_running=1" \
       --ex="source cmd_for_attach_test.gdb" --ex=q
    assert_success
-   assert_output --partial "Inferior 1 (Remote target) detached"
+   assert_line --partial "Inferior 1 (Remote target) detached"
 
    wait_and_check $pid 0
 
@@ -678,7 +679,7 @@ fi
    if [ "${USE_VIRT}" = 'kkm' ]; then
       cpuidexpected='GenuineIntel'
    fi
-   run km_with_timeout --vendorid cpuid_test$ext
+   run km_with_timeout cpuid_test$ext
    assert_success
    assert_line --partial $cpuidexpected
 }

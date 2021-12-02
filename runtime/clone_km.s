@@ -35,7 +35,6 @@ __clone:
    mov %rsp, %gs:0
    outl %eax, (%dx)
    mov 0(%rsp), %eax # Get return code into %rax
-   # mov 8(%rsp), %rdx # Restore RDX, although nobody seems to care
    add $56, %rsp
    test %eax,%eax
    jnz 1f         # parent jumps

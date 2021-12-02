@@ -116,7 +116,7 @@ TEST nested_threads(void)
    pthread_t pt1, pt2;
    int ret;
    void* status;
-   static const void* const ptr = (void*)0x17;
+   void* ptr = (void*)0x17;
 
    pthread_key_create(&mystr_key_2, free_key);
    pthread_setspecific(mystr_key_2, ptr);
