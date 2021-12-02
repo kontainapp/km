@@ -34,6 +34,9 @@ using namespace std;
 #include <string.h>
 std::once_flag flag;
 
+// std::thread::join() has pthread_join as weak. Force the linking
+const void* _ = (void*)pthread_join;
+
 void may_throw_function(bool do_throw)
 {
    std::stringstream msg;

@@ -329,6 +329,22 @@ int km_clone(km_vcpu_t* vcpu,
    return km_vcpu_get_tid(new_vcpu);
 }
 
+long km_clone3(km_vcpu_t* vcpu, struct clone_args* cl_args)
+{
+   if (cl_args->set_tid_size != 0 || cl_args->cgroup != 0) {
+      km_warnx("Not supported clone3 args: tid_size, cgroup %llu, %llu",
+               cl_args->set_tid_size,
+               cl_args->cgroup);
+      return -ENOSYS;
+   }
+   return km_clone(vcpu,
+                   cl_args->flags | cl_args->exit_signal,
+                   cl_args->stack + cl_args->stack_size,
+                   cl_args->parent_tid,
+                   cl_args->child_tid,
+                   cl_args->tls);
+}
+
 uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr)
 {
    vcpu->clear_child_tid = tidptr;
