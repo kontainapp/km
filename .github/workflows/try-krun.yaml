@@ -107,6 +107,6 @@ jobs:
           sudo mv .cache /nix
           if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix cp -rfT /nix /mnt/nix; fi
           # sudo RUNTIME=docker SKIP_CHECKS=1 SKIP_GPG=1 build-aux/release.sh
-          sudo  docker run -it --rm --privileged -v $(pwd):$(pwd) -w $(pwd) nixos/nix nix build --print-build-logs --file nix
+          sudo  docker run --rm --privileged -v $(pwd):$(pwd) -w $(pwd) nixos/nix nix build --print-build-logs --file nix
           sudo mv /nix .cache
           sudo chown -Rf $(whoami) .cache
