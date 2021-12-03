@@ -181,7 +181,6 @@ jobs:
           key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
 
       - run: |
-          make -C container-runtime/crun distclean
           CRUN_DIR=$(pwd)/container-runtime/crun
           sudo  docker run --rm --privileged -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix nix build --print-build-logs --file nix
           mkdir -p /tmp/krun-static
