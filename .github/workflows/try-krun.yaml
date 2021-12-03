@@ -96,17 +96,21 @@ jobs:
           path: .cache
           key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
 
-      - run: sudo apt-get update
-
-      - run: sudo apt-get install -y make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev go-md2man libtool autoconf python3 automake libprotobuf-c-dev
-
       - run: |
-          set -ex
-          cd container-runtime/crun
-          sudo mkdir -p .cache
-          sudo mv .cache /nix
-          if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix cp -rfT /nix /mnt/nix; fi
-          # sudo RUNTIME=docker SKIP_CHECKS=1 SKIP_GPG=1 build-aux/release.sh
-          sudo  docker run --rm --privileged -v $(pwd):$(pwd) -w $(pwd) nixos/nix nix build --print-build-logs --file nix
-          sudo mv /nix .cache
-          sudo chown -Rf $(whoami) .cache
+          CRUN_DIR=$(pwd)/container-runtime/crun
+          sudo  docker run --rm --privileged -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix nix build --print-build-logs --file nix
+
+#      - run: sudo apt-get update
+#
+#      - run: sudo apt-get install -y make git gcc build-essential pkgconf libtool libsystemd-dev libcap-dev libseccomp-dev libyajl-dev go-md2man libtool autoconf python3 automake libprotobuf-c-dev
+#
+#      - run: |
+#          set -ex
+#          cd container-runtime/crun
+#          sudo mkdir -p .cache
+#          sudo mv .cache /nix
+#          if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix cp -rfT /nix /mnt/nix; fi
+#          # sudo RUNTIME=docker SKIP_CHECKS=1 SKIP_GPG=1 build-aux/release.sh
+#          sudo  docker run --rm --privileged -v $(pwd):$(pwd) -w $(pwd) nixos/nix nix build --print-build-logs --file nix
+#          sudo mv /nix .cache
+#          sudo chown -Rf $(whoami) .cache
