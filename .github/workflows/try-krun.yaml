@@ -72,7 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          submodules: true
+          submodules: recursive
 
       - name: Print build environment info
         run: |
