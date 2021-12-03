@@ -166,6 +166,23 @@ jobs:
           name: km_bin_release
           path: /tmp/bin_release
 
+  krun-static-build:
+    name: Build static KRUN binary
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - uses: actions/cache@v2
+        with:
+          path: .cache
+          key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
+
+      - run: |
+          CRUN_DIR=$(pwd)/container-runtime/crun
+          sudo  docker run --rm --privileged -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix nix build --print-build-logs --file nix
+
   km-test:
     name: KM, payloads, krun tests, KVM on K8S
     runs-on: ubuntu-20.04
@@ -476,7 +493,7 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all]
+    needs: [km-build, krun-static-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
