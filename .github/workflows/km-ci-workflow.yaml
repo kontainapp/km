@@ -181,12 +181,12 @@ jobs:
           key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
 
       - run: |
+          set -x
+          sudo find / -name crun -type f
           CRUN_DIR=$(pwd)/container-runtime/crun
           sudo  docker run --rm --privileged -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix nix build --print-build-logs --file nix
-          set -x
           find . -name result
           find $(find . -name result)
-          sudo find / -name crun -type f
           mkdir -p /tmp/krun-static
           cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
 
