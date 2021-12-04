@@ -186,6 +186,7 @@ jobs:
           set -x
           find . -name result
           find $(find . -name result)
+          find . -name crun -type f
           mkdir -p /tmp/krun-static
           cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
 
