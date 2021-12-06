@@ -215,19 +215,19 @@ jobs:
         run: make -C payloads test-withk8s
         timeout-minutes: 10
 
-      - name: Krun test preparation - create ssh key pairs
-        run: ssh-keygen -b 2048 -t rsa -q -N "" -f ~/.ssh/id_rsa
-
-      - name: Krun test prepartion - download km artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /opt/kontain/bin/
-      - run: chmod a+x /opt/kontain/bin/km # download-artifact@v2 does not retain file mode
-
-      - name: Krun test - runs on Azure vm
-        run: make -C container-runtime test-remote TEST_REMOTE_TEST_ID=ci-${{ github.run_number }}
-        timeout-minutes: 10
+#      - name: Krun test preparation - create ssh key pairs
+#        run: ssh-keygen -b 2048 -t rsa -q -N "" -f ~/.ssh/id_rsa
+#
+#      - name: Krun test prepartion - download km artifact
+#        uses: actions/download-artifact@v2
+#        with:
+#          name: km
+#          path: /opt/kontain/bin/
+#      - run: chmod a+x /opt/kontain/bin/km # download-artifact@v2 does not retain file mode
+#
+#      - name: Krun test - runs on Azure vm
+#        run: make -C container-runtime test-remote TEST_REMOTE_TEST_ID=ci-${{ github.run_number }}
+#        timeout-minutes: 10
 
   km-test-withpacker:
     name: Basic payload tests, KVM Azure VM
