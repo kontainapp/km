@@ -167,7 +167,7 @@ jobs:
           path: /tmp/bin_release
 
       - name: capture submodules
-        run: git submodule status > /tmp/submodule_status
+        run: git submodule status > /tmp/km_submodule_status
 
       - uses: actions/upload-artifact@v2
         with:
