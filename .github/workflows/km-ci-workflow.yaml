@@ -185,7 +185,7 @@ jobs:
           sudo find / -name crun -type f
           CRUN_DIR=$(pwd)/container-runtime/crun
           if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix cp -rfT /nix /mnt/nix; fi
-          sudo docker run --rm --privileged -v /nix:/nix -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix nix build --print-build-logs --file nix/
+          sudo docker run --rm --privileged -v /nix:/nix -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix nix build --print-build-logs --file nix/ --arg enableSystemd false
           find . -name result
           find $(find . -name result)
           mkdir -p /tmp/krun-static
