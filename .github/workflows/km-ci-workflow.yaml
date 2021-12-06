@@ -206,7 +206,7 @@ jobs:
   k8s-release-bin:
     name: make k8s release bundle
     runs-on: ubuntu-20.04
-    needs: [km-build, krun, static-build]
+    needs: [km-build, krun-static-build]
     steps:
       - uses: actions/download-artifact@v2
         with:
