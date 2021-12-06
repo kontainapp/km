@@ -166,6 +166,13 @@ jobs:
           name: km_bin_release
           path: /tmp/bin_release
 
+      - name: capture submodules
+        run: git submodule status > /tmp/submodule_status
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km_submodule_status
+          path: /tmp/km_submodule_status
 
   krun-static-build:
     name: Build static KRUN binary
@@ -195,6 +202,36 @@ jobs:
         with:
           name: krun-static
           path: /tmp/krun-static
+
+  k8s-release-bin:
+    name: make k8s release bundle
+    runs-on: ubuntu-20.04
+    needs: [km-build, krun, static-build]
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: km
+          path: /tmp/km
+      - uses: actions/download-artifact@v2
+        with:
+          name: km_submodule_status
+          path: /tmp/km_submodule_status
+      - uses: actions/download-artifact@v2
+        with:
+          name: krun-static
+          path: /tmp/krun-static
+      - run: |
+          set -x
+          mkdir /tmp/k8s-release-bin
+          cp /tmp/km/opt/kontain/bin/km /tmp/k8s-release-bin/km
+          cp /tmp/km/opt/kontain/bin/containerd-shim-krun-v2 /tmp/k8s-release-bin/containerd-shim-krun-v2
+          cp /tmp/km_submodule_status /tmp/k8s-release-bin/km_submodule_status
+          cp /tmp/krun-static/krun.static /tmp/k8s-release-bin/krun
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km-k8s-rel-artifact
+          path: /tmp/krun-static
+
 
   km-test:
     name: KM, payloads, krun tests, KVM on K8S
@@ -439,7 +476,7 @@ jobs:
   minikube-testing:
     name: kubernetes tests aginst minikube
     runs-on: ubuntu-20.04
-    needs: [km-build, kkm-build]
+    needs: [k8s-release-bin-build, kkm-build]
     strategy:
       matrix:
         # We want to test against containerd and crio. crio support is a bit brittle in
