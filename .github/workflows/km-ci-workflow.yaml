@@ -476,7 +476,7 @@ jobs:
   minikube-testing:
     name: kubernetes tests aginst minikube
     runs-on: ubuntu-20.04
-    needs: [k8s-release-bin-build, kkm-build]
+    needs: [k8s-release-bin, kkm-build]
     strategy:
       matrix:
         # We want to test against containerd and crio. crio support is a bit brittle in
