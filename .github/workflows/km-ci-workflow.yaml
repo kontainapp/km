@@ -136,17 +136,6 @@ jobs:
           mkdir /opt/kontain/bin/shim
           cp -r build/cloud/k8s/deploy/shim/* /opt/kontain/bin/shim
 
-      - name: internal release package
-        run: |
-          sudo apt-get update
-          sudo apt-get install makeself
-          make kkm-pkg
-          make release
-          mkdir /tmp/release
-          cp -r build/kontain.tar.gz /tmp/release
-          mkdir /tmp/bin_release
-          cp -r build/kontain_bin.tar.gz /tmp/bin_release
-
       - uses: actions/upload-artifact@v2
         with:
           name: km
@@ -161,11 +150,6 @@ jobs:
           name: km_release
           path: /tmp/release
 
-      - uses: actions/upload-artifact@v2
-        with:
-          name: km_bin_release
-          path: /tmp/bin_release
-
       - name: capture submodules
         run: git submodule status > /tmp/km_submodule_status
 
@@ -173,6 +157,7 @@ jobs:
         with:
           name: km_submodule_status
           path: /tmp/km_submodule_status
+
 
   # Builds a static linked, stripped binary for krun/crun
   # This uses the NIX virtual machine, just like the crun CI.
@@ -206,6 +191,7 @@ jobs:
         with:
           name: krun-static
           path: /tmp/krun-static
+
 
   # Build the k8s release artifact. Static KRUN is built separately and 
   # in parallel from the rest of KM. The k8s artifact contains:
