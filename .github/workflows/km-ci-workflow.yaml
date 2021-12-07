@@ -247,11 +247,11 @@ jobs:
           chmod 755 /tmp/k8s-release-bin/shim/containerd-shim-krun-v2
           cp /tmp/km_submodule_status/km_submodule_status /tmp/k8s-release-bin/km_submodule_status
           chmod 444 /tmp/k8s-release-bin/km_submodule_status
-          tar -C /tmp/k8s-release-bin -czf km-k8s-release-artifact.tar.gz
+          tar -C /tmp/k8s-release-bin -czf $(pwd)/km-k8s-release-artifact.tar.gz .
       - uses: actions/upload-artifact@v2
         with:
           name: km-k8s-rel-artifact
-          path: km-k8s-release-artifact.tar.gz
+          path: $(pwd)/km-k8s-release-artifact.tar.gz
 
 
   km-test:
