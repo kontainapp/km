@@ -24,5 +24,5 @@ spec:
       - name: node-initializer
         env:
         - name: KONTAIN_RELEASE_URL
-          value: http://host.minikube.internal:8000/kontain_bin.tar.gz
+          value: http://host.minikube.internal:8000/km-k8s-release-artifact.tar.gz
 

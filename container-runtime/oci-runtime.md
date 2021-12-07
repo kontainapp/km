@@ -66,7 +66,7 @@ build of crun's needed submodules resulting in header files generated in a submo
 crun is dependent on some other packages to build.  It is probably best to look in the crun directory at the file README.md.
 The dependencies for various systems are listed.
 The required packages are expected to be in the kontain buildenv.  As more dependencies appear they will need to be added to
-tests/buildenv-fedora.dockerfile and container-runtime/test_remote.py.
+tests/buildenv-fedora.dockerfile.
 
 # Testing
 

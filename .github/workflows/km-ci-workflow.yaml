@@ -136,17 +136,6 @@ jobs:
           mkdir /opt/kontain/bin/shim
           cp -r build/cloud/k8s/deploy/shim/* /opt/kontain/bin/shim
 
-      - name: internal release package
-        run: |
-          sudo apt-get update
-          sudo apt-get install makeself
-          make kkm-pkg
-          make release
-          mkdir /tmp/release
-          cp -r build/kontain.tar.gz /tmp/release
-          mkdir /tmp/bin_release
-          cp -r build/kontain_bin.tar.gz /tmp/bin_release
-
       - uses: actions/upload-artifact@v2
         with:
           name: km
@@ -161,10 +150,94 @@ jobs:
           name: km_release
           path: /tmp/release
 
+      - name: capture submodules
+        run: git submodule status > /tmp/km_submodule_status
+
       - uses: actions/upload-artifact@v2
         with:
-          name: km_bin_release
-          path: /tmp/bin_release
+          name: km_submodule_status
+          path: /tmp/km_submodule_status
+
+
+  # Builds a static linked, stripped binary for krun/crun
+  # This uses the NIX virtual machine, just like the crun CI.
+  # NIX takes a long time, so we build the static krun binary in
+  # parallel with the rest of KM build and test. We just the 
+  krun-static-build:
+    name: Build static KRUN binary
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - uses: actions/cache@v2
+        with:
+          path: .cache
+          key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
+
+      - run: |
+          set -x
+          CRUN_DIR=$(pwd)/container-runtime/crun
+          # These next two lines were taken from the crun release.yaml and build-aux/release.sh
+          # to setup and execute a nix based build of stripped static
+          if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix cp -rfT /nix /mnt/nix; fi
+          sudo docker run --rm --privileged -v /nix:/nix -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix nix build --print-build-logs --file nix/ --arg enableSystemd false
+          mkdir -p /tmp/krun-static
+          cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: krun-static
+          path: /tmp/krun-static
+
+
+  # Build the k8s release artifact. Static KRUN is built separately and 
+  # in parallel from the rest of KM. The k8s artifact contains:
+  #  km - km execuatble
+  #  containerd-shim-krun-v2 - cintainerd shim for krun
+  #  krun - krun executable
+  #  km_submodule_status - git submodule status for KM. Contains required KKM SHA.
+  k8s-release-bin:
+    name: make k8s release bundle
+    runs-on: ubuntu-20.04
+    needs: [km-build, krun-static-build]
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: km
+          path: /tmp/km
+      - uses: actions/download-artifact@v2
+        with:
+          name: km_submodule_status
+          path: /tmp/km_submodule_status
+      - uses: actions/download-artifact@v2
+        with:
+          name: krun-static
+          path: /tmp/krun-static
+      - run: |
+          set -x
+          mkdir /tmp/k8s-release-bin
+          find /tmp/km
+          find /tmp/km_submodule_status
+          find /tmp/krun-static
+          mkdir -p /tmp/k8s-release-bin/km
+          cp /tmp/km/km /tmp/k8s-release-bin/km/km
+          chmod 755 /tmp/k8s-release-bin/km/km
+          mkdir -p /tmp/k8s-release-bin/container-runtime
+          cp /tmp/krun-static/krun.static /tmp/k8s-release-bin/container-runtime/krun
+          chmod 755 /tmp/k8s-release-bin/container-runtime/krun
+          mkdir -p /tmp/k8s-release-bin/cloud/k8s/deploy/shim
+          cp /tmp/km/shim/containerd-shim-krun-v2 /tmp/k8s-release-bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2
+          chmod 755 /tmp/k8s-release-bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2
+          cp /tmp/km_submodule_status/km_submodule_status /tmp/k8s-release-bin/km_submodule_status
+          chmod 444 /tmp/k8s-release-bin/km_submodule_status
+          tar -C /tmp/k8s-release-bin -czf /tmp/km-k8s-release-artifact.tar.gz .
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km-k8s-rel-artifact
+          path: /tmp/km-k8s-release-artifact.tar.gz
+
 
   km-test:
     name: KM, payloads, krun tests, KVM on K8S
@@ -185,19 +258,6 @@ jobs:
         run: make -C payloads test-withk8s
         timeout-minutes: 10
 
-      - name: Krun test preparation - create ssh key pairs
-        run: ssh-keygen -b 2048 -t rsa -q -N "" -f ~/.ssh/id_rsa
-
-      - name: Krun test prepartion - download km artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /opt/kontain/bin/
-      - run: chmod a+x /opt/kontain/bin/km # download-artifact@v2 does not retain file mode
-
-      - name: Krun test - runs on Azure vm
-        run: make -C container-runtime test-remote TEST_REMOTE_TEST_ID=ci-${{ github.run_number }}
-        timeout-minutes: 10
 
   km-test-withpacker:
     name: Basic payload tests, KVM Azure VM
@@ -409,7 +469,7 @@ jobs:
   minikube-testing:
     name: kubernetes tests aginst minikube
     runs-on: ubuntu-20.04
-    needs: [km-build, kkm-build]
+    needs: [k8s-release-bin, kkm-build]
     strategy:
       matrix:
         # We want to test against containerd and crio. crio support is a bit brittle in
@@ -430,7 +490,7 @@ jobs:
 
     - uses: actions/download-artifact@v2
       with:
-        name: km_bin_release
+        name: km-k8s-rel-artifact
         path: /tmp/bin_release
 
     - name: print downloaded artifact
@@ -456,6 +516,13 @@ jobs:
         kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
         sleep 20
 
+    # uncomment to get logs from damonset.
+    #- name: Check k8s install
+    #  run: |
+    #    set -x
+    #    kubectl get pod -A
+    #    kubectl logs -n kube-system -l app=kontain-init 
+
     - name: Run user test
       run: |
         # start the test pod, which will just sleep
@@ -476,7 +543,7 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all]
+    needs: [km-build, krun-static-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
