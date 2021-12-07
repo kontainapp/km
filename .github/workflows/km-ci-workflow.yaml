@@ -531,6 +531,13 @@ jobs:
         kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
         sleep 20
 
+    - name: Check k8s install
+      run: |
+        set -x
+        kubectl get pod -A
+        pname=$(kubectl get pod -l app=kontain-init-o jsonpath="{.items[0].metadata.name}")
+        kubectl logs ${pname}
+
     - name: Run user test
       run: |
         # start the test pod, which will just sleep
