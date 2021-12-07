@@ -505,7 +505,7 @@ jobs:
 
     - uses: actions/download-artifact@v2
       with:
-        name: km_bin_release
+        name: km-k8s-rel-artifact
         path: /tmp/bin_release
 
     - name: print downloaded artifact
