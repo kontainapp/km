@@ -531,12 +531,12 @@ jobs:
         kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
         sleep 20
 
-    - name: Check k8s install
-      run: |
-        set -x
-        kubectl get pod -A
-        kubectl logs -n kube-system -l app=kontain-init 
-        kubectl logs -n kube-system -l app=kontain-init -p
+    # uncomment to get logs from damonset.
+    #- name: Check k8s install
+    #  run: |
+    #    set -x
+    #    kubectl get pod -A
+    #    kubectl logs -n kube-system -l app=kontain-init 
 
     - name: Run user test
       run: |
