@@ -56,14 +56,6 @@ test:	all
 	OCI_RUNTIME=${KM_OPT_BIN_PATH}/krun make -C $(CRUNDIR) check-TESTS
 	OCI_RUNTIME=${KM_OPT_BIN_PATH}/crun make -C $(CRUNDIR) check-TESTS
 
-TEST_REMOTE_SCRIPT := $(CURDIR)/test_remote.py
-test-remote:
-ifeq (${TEST_REMOTE_TEST_ID},)
-	${TEST_REMOTE_SCRIPT}
-else
-	${TEST_REMOTE_SCRIPT} --test_id ${TEST_REMOTE_TEST_ID}
-endif
-
 clean::
 	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) clean
 	@# crun's clean removes this file, so git sees it as a change. Restore back to clean
