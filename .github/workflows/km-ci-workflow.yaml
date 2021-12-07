@@ -236,14 +236,22 @@ jobs:
           find /tmp/km
           find /tmp/km_submodule_status
           find /tmp/krun-static
-          cp /tmp/km/km /tmp/k8s-release-bin/km
-          cp /tmp/km/shim/containerd-shim-krun-v2 /tmp/k8s-release-bin/containerd-shim-krun-v2
-          cp /tmp/km_submodule_status /tmp/k8s-release-bin/km_submodule_status
-          cp /tmp/krun-static/krun.static /tmp/k8s-release-bin/krun
+          mkdir -p /tmp/k8s-release-bin/km
+          cp /tmp/km/km /tmp/k8s-release-bin/km/km
+          chmod 755 /tmp/k8s-release-bin/km/km
+          mkdir -p /tmp/k8s-release-bin/container-runtime
+          cp /tmp/krun-static/krun.static /tmp/k8s-release-bin/container-runtime/krun
+          chmod 755 /tmp/k8s-release-bin/container-runtime/krun
+          mkdir -p /tmp/k8s-release-bin/shim
+          cp /tmp/km/shim/containerd-shim-krun-v2 /tmp/k8s-release-bin/shim/containerd-shim-krun-v2
+          chmod 755 /tmp/k8s-release-bin/shim/containerd-shim-krun-v2
+          cp /tmp/km_submodule_status/km_submodule_status /tmp/k8s-release-bin/km_submodule_status
+          chmod 444 /tmp/k8s-release-bin/km_submodule_status
+          tar -C /tmp/k8s-release-bin -czf km-k8s-release-artifact.tar.gz
       - uses: actions/upload-artifact@v2
         with:
           name: km-k8s-rel-artifact
-          path: /tmp/k8s-release-bin
+          path: km-k8s-release-artifact.tar.gz
 
 
   km-test:
