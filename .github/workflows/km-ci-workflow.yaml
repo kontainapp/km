@@ -535,8 +535,8 @@ jobs:
       run: |
         set -x
         kubectl get pod -A
-        pname=$(kubectl get pod -l app=kontain-init-o jsonpath="{.items[0].metadata.name}")
-        kubectl logs ${pname}
+        kubectl logs -n kube-system -l app=kontain-init 
+        kubectl logs -n kube-system -l app=kontain-init -p
 
     - name: Run user test
       run: |
