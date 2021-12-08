@@ -145,11 +145,6 @@ jobs:
             /opt/kontain/bin/shim
           retention-days: 7
 
-      - uses: actions/upload-artifact@v2
-        with:
-          name: km_release
-          path: /tmp/release
-
       - name: capture submodules
         run: git submodule status > /tmp/km_submodule_status
 
