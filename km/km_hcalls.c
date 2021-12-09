@@ -147,7 +147,7 @@ static km_hc_ret_t prw_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    // ssize_t pwrite(int fd, const void* buf, size_t count, off_t offset);
    // arg->hc_ret = __syscall_4(hc, arg->arg1, km_gva_to_kml(arg->arg2), arg->arg3, arg->arg4);
    void* buf = km_gva_to_kma(arg->arg2);
-   if (buf == NULL) {
+   if (buf == NULL && arg->arg3 != 0) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
