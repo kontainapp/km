@@ -162,27 +162,24 @@ jobs:
           set -x
           find /tmp/kontain
           mkdir -p /tmp/new-km-release-bin
-          tar -C /tmp/new-km-release-bin -xzvf /tmp/kontain/kontain_bin.tar.gz
-#          mkdir /tmp/k8s-release-bin
-#          find /tmp/km
-#          find /tmp/km_submodule_status
-#          find /tmp/krun-static
-#          mkdir -p /tmp/k8s-release-bin/km
-#          cp /tmp/km/km /tmp/k8s-release-bin/km/km
-#          chmod 755 /tmp/k8s-release-bin/km/km
-#          mkdir -p /tmp/k8s-release-bin/container-runtime
-#          cp /tmp/krun-static/krun.static /tmp/k8s-release-bin/container-runtime/krun
-#          chmod 755 /tmp/k8s-release-bin/container-runtime/krun
-#          mkdir -p /tmp/k8s-release-bin/cloud/k8s/deploy/shim
-#          cp /tmp/km/shim/containerd-shim-krun-v2 /tmp/k8s-release-bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2
-#          chmod 755 /tmp/k8s-release-bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2
-#          cp /tmp/km_submodule_status/km_submodule_status /tmp/k8s-release-bin/km_submodule_status
-#          chmod 444 /tmp/k8s-release-bin/km_submodule_status
-#          tar -C /tmp/k8s-release-bin -czf /tmp/km-k8s-release-artifact.tar.gz .
-#      - uses: actions/upload-artifact@v2
-#        with:
-#          name: km-k8s-rel-artifact
-#          path: /tmp/km-k8s-release-artifact.tar.gz
+          tar -C /tmp/new-km-release-bin -xzf /tmp/kontain/kontain_bin.tar.gz
+          mkdir /tmp/k8s-release-bin
+          mkdir -p /tmp/k8s-release-bin/km
+          cp /tmp/kontain/km /tmp/k8s-release-bin/km/km
+          chmod 755 /tmp/k8s-release-bin/km/km
+          mkdir -p /tmp/k8s-release-bin/container-runtime
+          cp /tmp/krun-static/krun.static /tmp/k8s-release-bin/container-runtime/krun
+          chmod 755 /tmp/k8s-release-bin/container-runtime/krun
+          mkdir -p /tmp/k8s-release-bin/cloud/k8s/deploy/shim
+          cp /tmp/kontain/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /tmp/k8s-release-bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2
+          chmod 755 /tmp/k8s-release-bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2
+          cp /tmp/km_submodule_status/km_submodule_status /tmp/k8s-release-bin/km_submodule_status
+          chmod 444 /tmp/k8s-release-bin/km_submodule_status
+          tar -C /tmp/k8s-release-bin -czf /tmp/km-k8s-release-artifact.tar.gz .
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km-k8s-rel-artifact
+          path: /tmp/km-k8s-release-artifact.tar.gz
 
   km-kkm-smoke-test:
     name: Smoke test KM/KKM on CI VM
