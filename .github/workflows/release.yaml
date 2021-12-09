@@ -188,7 +188,7 @@ jobs:
   km-kkm-smoke-test:
     name: Smoke test KM/KKM on CI VM
     runs-on: ubuntu-20.04
-    needs: [ km-kkm-build ]
+    needs: [ km-kkm-build, k8s-release-bin ]
     steps:
       - uses: actions/checkout@v2
 
