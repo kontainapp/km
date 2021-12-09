@@ -180,9 +180,9 @@ jobs:
         with:
           name: kontain
           path: |
-            ./build/kontain.tar.gz
-            ./build/kontain_bin.tar.gz
-            ./build/kkm.run
+            ./kontain/kontain.tar.gz
+            ./kontain/kontain_bin.tar.gz
+            ./kontain/kkm.run
           retention-days: 7
 
   km-kkm-smoke-test:
