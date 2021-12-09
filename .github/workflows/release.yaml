@@ -91,7 +91,7 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          name: kontain
+          name: kontain_dynamic_krun
           path: |
             ./build/kontain.tar.gz
             ./build/kontain_bin.tar.gz
@@ -148,8 +148,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v2
         with:
-          name: kontain
-          path: /tmp/kontain
+          name: kontain_dynamic_krun
+          path: /tmp/kontain_dynamic_krun
       - uses: actions/download-artifact@v2
         with:
           name: km_submodule_status
@@ -160,19 +160,30 @@ jobs:
           path: /tmp/krun-static
       - run: |
           set -x
-          find /tmp/kontain
-          mkdir -p /tmp/new-km-release-bin
-          tar -C /tmp/new-km-release-bin -xzf /tmp/kontain/kontain_bin.tar.gz
-          cp /tmp/krun-static/krun.static /tmp/new-km-release-bin/container-runtime/krun
-          chmod 755 /tmp/new-km-release-bin/container-runtime/krun
-          cp /tmp/km_submodule_status/km_submodule_status /tmp/new-km-release-bin/km_submodule_status
-          chmod 444 /tmp/new-km-release-bin/km_submodule_status
-          rm -f /tmp/new-km-release-bin/kkm.run
-          tar -C /tmp/new-km-release-bin -czvf /tmp/km-k8s-release-artifact.tar.gz .
+          #
+          # create kontain_bin with static krun by patching up old format
+          mkdir -p /tmp/kontain_bin
+          tar -C /tmp/kontain_bin -xzf /tmp/kontain_dynamic_krun/kontain_bin.tar.gz
+          cp /tmp/krun-static/krun.static /tmp/kontain_bin/container-runtime/krun
+          chmod 755 /tmp/kontain_bin/container-runtime/krun
+          cp /tmp/km_submodule_status/km_submodule_status /tmp/kontain_bin/km_submodule_status
+          chmod 444 /tmp/kontain_bin/km_submodule_status
+          rm -f /tmp/kontain_bin/kkm.run
+          tar -C /tmp/kontain_bin -czvf /tmp/kontain_bin.tar.gz .
+          #
+          # Create uploadable artifact 'kontain' with 
+          mkdir -p /tmp/kontain
+          cp /tmp/kontain_dynamic_krun/kontain.tar.gz /tmp/kontain/
+          cp /tmp/kontain_bin/kontain_bin.tar.gz /tmp/kontain/
+          cp /tmp/kontain_dynamic_krun/kkm.run /tmp/kontain/
       - uses: actions/upload-artifact@v2
         with:
-          name: km-k8s-rel-artifact
-          path: /tmp/km-k8s-release-artifact.tar.gz
+          name: kontain
+          path: |
+            ./build/kontain.tar.gz
+            ./build/kontain_bin.tar.gz
+            ./build/kkm.run
+          retention-days: 7
 
   km-kkm-smoke-test:
     name: Smoke test KM/KKM on CI VM
