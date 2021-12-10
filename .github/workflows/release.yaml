@@ -91,17 +91,104 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          name: kontain
+          name: kontain_dynamic_krun
           path: |
             ./build/kontain.tar.gz
             ./build/kontain_bin.tar.gz
             ./build/kkm.run
           retention-days: 7
 
+      - name: capture submodules
+        run: git submodule status > /tmp/km_submodule_status
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km_submodule_status
+          path: /tmp/km_submodule_status
+          retention-days: 7
+
+
+  # Builds a static linked, stripped binary for krun/crun
+  # This uses the NIX virtual machine, just like the crun CI.
+  # NIX takes a long time, so we build the static krun binary in
+  # parallel with the rest of KM build and test. We just the
+  krun-static-build:
+    name: Build static KRUN binary
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - uses: actions/cache@v2
+        with:
+          path: .cache
+          key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
+
+      - run: |
+          set -x
+          CRUN_DIR=$(pwd)/container-runtime/crun
+          # These next two lines were taken from the crun release.yaml and build-aux/release.sh
+          # to setup and execute a nix based build of stripped static
+          if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix cp -rfT /nix /mnt/nix; fi
+          sudo docker run --rm --privileged -v /nix:/nix -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix nix build --print-build-logs --file nix/ --arg enableSystemd false
+          mkdir -p /tmp/krun-static
+          cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: krun-static
+          path: /tmp/krun-static
+          retention-days: 7
+
+  k8s-release-bin:
+    name: make k8s release bundle
+    runs-on: ubuntu-20.04
+    needs: [km-kkm-build, krun-static-build]
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: kontain_dynamic_krun
+          path: /tmp/kontain_dynamic_krun
+      - uses: actions/download-artifact@v2
+        with:
+          name: km_submodule_status
+          path: /tmp/km_submodule_status
+      - uses: actions/download-artifact@v2
+        with:
+          name: krun-static
+          path: /tmp/krun-static
+      - run: |
+          set -x
+          #
+          # create kontain_bin with static krun by patching up old format
+          mkdir -p /tmp/kontain_bin
+          tar -C /tmp/kontain_bin -xzf /tmp/kontain_dynamic_krun/kontain_bin.tar.gz
+          cp /tmp/krun-static/krun.static /tmp/kontain_bin/container-runtime/krun
+          chmod 755 /tmp/kontain_bin/container-runtime/krun
+          cp /tmp/km_submodule_status/km_submodule_status /tmp/kontain_bin/km_submodule_status
+          chmod 444 /tmp/kontain_bin/km_submodule_status
+          rm -f /tmp/kontain_bin/kkm.run
+          tar -C /tmp/kontain_bin -czvf /tmp/kontain_bin.tar.gz .
+          #
+          # Create uploadable artifact 'kontain' with 
+          mkdir -p /tmp/kontain
+          cp /tmp/kontain_dynamic_krun/kontain.tar.gz /tmp/kontain/
+          cp /tmp/kontain_bin.tar.gz /tmp/kontain/
+          cp /tmp/kontain_dynamic_krun/kkm.run /tmp/kontain/
+      - uses: actions/upload-artifact@v2
+        with:
+          name: kontain
+          path: |
+            /tmp/kontain/kontain.tar.gz
+            /tmp/kontain/kontain_bin.tar.gz
+            /tmp/kontain/kkm.run
+          retention-days: 7
+
   km-kkm-smoke-test:
     name: Smoke test KM/KKM on CI VM
     runs-on: ubuntu-20.04
-    needs: [ km-kkm-build ]
+    needs: [ km-kkm-build, k8s-release-bin ]
     steps:
       - uses: actions/checkout@v2
 
@@ -225,7 +312,7 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [ km-kkm-build, km-kkm-smoke-test, km-boxes, km-ami, km-runenv, km-release ]
+    needs: [ km-kkm-build, krun-static-build, km-kkm-smoke-test, km-boxes, km-ami, km-runenv, km-release ]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
