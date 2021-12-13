@@ -20,7 +20,7 @@
 # linkenv - based on km-build-env and just copy the objetcs and test files
 
 ARG MODE=Release
-ARG VERS=v12.4.0
+ARG VERS=v16.13.1
 ARG BUILDENV_IMAGE_VERSION=latest
 
 FROM kontainapp/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} AS buildenv-node
@@ -28,7 +28,9 @@ ARG MODE
 ARG VERS
 
 RUN git clone https://github.com/nodejs/node.git -b $VERS
-RUN cd node && ./configure --gdb `[[ $MODE == Debug ]] && echo -n --debug` && make -j`expr 2 \* $(nproc)` && make jstest
+RUN cd node && ./configure --gdb `[[ $MODE == Debug ]] && echo -n --debug`
+RUN cd node && make -j`expr 2 \* $(nproc)`
+RUN cd node && make jstest CI_SKIP_TESTS="parallel/test-cluster-bind-privileged-port.js,parallel/test-cluster-shared-handle-bind-privileged-port.js"
 
 FROM kontainapp/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION}
 ARG MODE
@@ -42,5 +44,8 @@ ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/out/ node/out
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/test/ node/test
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/tools/ node/tools
+COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/benchmark/ node/benchmark
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/doc/ node/doc
 COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/deps/npm/ node/deps/npm
+COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/deps/corepack/ node/deps/corepack
+COPY --from=buildenv-node --chown=appuser:appuser /home/$USER/node/deps/v8/src/objects/ node/deps/v8/src/objects/

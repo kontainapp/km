@@ -19,7 +19,7 @@
 TOP := $(shell git rev-parse --show-toplevel)
 
 BUILD ?= Release
-VERS ?= v12.4.0
+VERS ?= v16.13.1
 
 # Location of Node sources. When building in container, it is set in buildenv dockerfile.
 NODETOP ?= node
@@ -37,10 +37,10 @@ PAYLOAD_KM := ${NODEOUT}/node.km
 TEST_KM := ${NODEOUT}/cctest.km
 
 # name to be added to runtime image label(s)
-PAYLOAD_NAME := NodeJs12.4
+PAYLOAD_NAME := NodeJs16.13
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
-NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools)
+NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools benchmark)
 
 # Either run all in 'blank' container, or local.
 # in blank: link + tar + create shebang
@@ -86,7 +86,7 @@ clean:
 test: ${PAYLOAD_KM} ${TEST_KM}
 	scripts/test-run.sh test ${KM_BIN} ${PAYLOAD_KM} ${TEST_KM}
 
-test-all: test
+test-all:
 	scripts/test-run.sh test-all ${NODETOP} ${BUILD}
 
 # Command to run tests in testenv-image container:
