@@ -293,3 +293,12 @@ parallel/test-stdin-from-file
 parallel/test-stdout-to-file.js
 known_issues/test-dgram-bind-shared-ports-after-port-0.js
 known_issues/test-cwd-enoent-file.js
+
+parallel/test-child-process-exec-abortcontroller-promisified.js
+parallel/test-child-process-exec-abortcontroller-promisified.js
+parallel/test-child-process-stdio-overlapped.js
+parallel/test-stream-pipeline-process.js
+parallel/test-child-process-spawn-event.js
+pseudo-tty/test-trace-sigint.js
+pseudo-tty/test-trace-sigint-on-idle.js
+sequential/test-cluster-net-listen-ipv6only-none.js

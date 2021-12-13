@@ -55,8 +55,7 @@ case "$1" in
    NODETOP=$2
    BUILD=$3
 	cd ${NODETOP}
-   echo /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr '\n' ','` default addons js-native-api node-api
-   /bin/python2.7 tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr '\n' ','` default addons js-native-api node-api
+   python tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr -s '\n ' ','` default addons js-native-api node-api
    echo "Tests are Successful"
   ;;
 

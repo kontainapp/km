@@ -1,0 +1,7 @@
+test/wasi/test-wasi.js
+
+parallel/test-stream-pipeline-process.js
+parallel/test-worker-init-failure.js
+abort/test-abort-fatal-error.js
+
+parallel/test-worker-memory.js

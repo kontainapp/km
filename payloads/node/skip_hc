@@ -23,3 +23,11 @@ parallel/test-process-uid-gid.js
 parallel/test-require-symlink.js
 parallel/test-setproctitle.js
 sequential/test-fs-watch.js
+
+node-api/test_fatal/test_threads_report.js
+async-hooks/test-udpsendwrap.js
+parallel/test-crypto-secure-heap.js
+parallel/test-fs-promises-watch.js
+parallel/test-fs-watch-abort-signal.js
+parallel/test-fs-watch-ref-unref.js
+sequential/test-async-wrap-getasyncid.js

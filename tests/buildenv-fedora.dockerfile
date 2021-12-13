@@ -27,11 +27,28 @@
 # This is a temp stage, so we don't care about layers count.
 FROM alpine:3.13.0 as alpine-lib-image
 ENV PREFIX=/opt/kontain
+ARG LIBSTDCPPVER=releases/gcc-11.2.0
 
-RUN apk add bash make git g++ gcc musl-dev libffi-dev sqlite-static util-linux-dev
+RUN apk add bash file make git g++ gcc flex bison musl-dev libffi-dev sqlite-static util-linux-dev gmp-dev mpfr-dev mpc1-dev isl-dev zlib-dev
 
-# Prepare $PREFIX/alpine-lib while trying to filter out irrelevant stuff
-RUN mkdir -p $PREFIX/alpine-lib
+USER $USER
+
+RUN git clone git://gcc.gnu.org/git/gcc.git -b $LIBSTDCPPVER
+RUN mkdir -p build_gcc && cd build_gcc \
+   && ../gcc/configure --prefix=/usr/local --enable-clocale=generic --disable-bootstrap --enable-languages=c,c++ \
+   --enable-threads=posix --enable-checking=release --disable-multilib --with-system-zlib --enable-__cxa_atexit \
+   --disable-libunwind-exceptions --enable-gnu-unique-object --enable-linker-build-id --with-gcc-major-version-only \
+   --with-linker-hash-style=gnu --enable-plugin --enable-initfini-array --with-isl --without-cuda-driver \
+   --enable-gnu-indirect-function --enable-cet --with-tune=generic --disable-libsanitizer \
+   && make -j`expr 2 \* $(nproc)` && cd x86_64-pc-linux-musl/libstdc++-v3 && make clean \
+   && sed -i -e 's/^#define *HAVE___CXA_THREAD_ATEXIT_IMPL.*$/\/* & *\//' config.h \
+   && make -j`expr 2 \* $(nproc)`
+
+USER root
+RUN make -C build_gcc/x86_64-pc-linux-musl/libstdc++-v3 install
+
+# Prepare $PREFIX/{runtime,alpine-lib} while trying to filter out irrelevant stuff
+RUN mkdir -p $PREFIX/alpine-lib && mkdir -p $PREFIX/runtime
 RUN tar cf - -C / lib usr/lib \
    --exclude include\* --exclude finclude --exclude install\* \
    --exclude plugin --exclude pkgconfig --exclude apk \
@@ -39,6 +56,7 @@ RUN tar cf - -C / lib usr/lib \
    --exclude engines-\* | tar xf - -C $PREFIX/alpine-lib
 # Alpine 3.12+ bumped libffi version, Fedora 33 hasn't yet. Hack to support that
 RUN ln -sf ${PREFIX}/alpine-lib/usr/lib/libffi.so.7 ${PREFIX}/alpine-lib/usr/lib/libffi.so.6
+RUN tar -cf - -C /usr/local/lib64 . | tar xf - -C $PREFIX/runtime
 
 # Save the path to gcc versioned libs for the future
 RUN dirname $(gcc --print-file-name libgcc.a) > $PREFIX/alpine-lib/gcc-libs-path.txt
@@ -63,28 +81,6 @@ RUN dnf install -y \
    python3-libmount libtool cmake makeself \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 
-FROM buildenv-early AS build-libstdcpp
-# no need to clean up after dnf as it is a temp image anyways
-RUN dnf install -y gmp-devel mpfr-devel libmpc-devel isl-devel flex m4 \
-                   autoconf automake libtool texinfo
-ENV PREFIX=/opt/kontain
-ARG LIBSTDCPPVER=releases/gcc-11.2.0
-USER $USER
-
-RUN git clone git://gcc.gnu.org/git/gcc.git -b $LIBSTDCPPVER
-RUN mkdir -p build_gcc && cd build_gcc \
-   && ../gcc/configure --prefix=$PREFIX --enable-clocale=generic --disable-bootstrap --enable-languages=c,c++ \
-   --enable-threads=posix --enable-checking=release --disable-multilib --with-system-zlib --enable-__cxa_atexit \
-   --disable-libunwind-exceptions --enable-gnu-unique-object --enable-linker-build-id --with-gcc-major-version-only \
-   --with-linker-hash-style=gnu --enable-plugin --enable-initfini-array --with-isl --without-cuda-driver \
-   --enable-gnu-indirect-function --enable-cet --with-tune=generic \
-   && make -j`expr 2 \* $$(nproc)` && cd x86_64-pc-linux-gnu/libstdc++-v3 && make clean \
-   && sed -i -e 's/^#define *HAVE___CXA_THREAD_ATEXIT_IMPL.*$/\/* & *\//' config.h \
-   && make -j`expr 2 \* $$(nproc)`
-
-USER root
-RUN mkdir -p $PREFIX && make -C build_gcc/x86_64-pc-linux-gnu/libstdc++-v3 install
-
 FROM buildenv-early AS buildlibelf
 
 RUN dnf install -y flex bison zstd gettext-devel bsdtar xz-devel
@@ -105,7 +101,6 @@ ENV USER=$USER
 ENV PREFIX=/opt/kontain
 WORKDIR /home/$USER
 
-COPY --from=build-libstdcpp $PREFIX/lib64 $PREFIX/runtime
 COPY --from=buildlibelf /usr/local /usr/local/
 COPY --from=alpine-lib-image $PREFIX $PREFIX/
 RUN for i in runtime alpine-lib ; do \
