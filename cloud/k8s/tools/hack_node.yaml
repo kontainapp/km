@@ -41,7 +41,7 @@ spec:
           privileged: true
         volumeMounts:
         - name: root-mount
-          mountPath: /root
+          mountPath: /host-root
       volumes:
       - name: root-mount
         hostPath:
