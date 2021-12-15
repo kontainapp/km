@@ -63,6 +63,28 @@ RUN dnf install -y \
    python3-libmount libtool cmake makeself \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 
+FROM buildenv-early AS build-libstdcpp
+# no need to clean up after dnf as it is a temp image anyways
+RUN dnf install -y gmp-devel mpfr-devel libmpc-devel isl-devel flex m4 \
+                   autoconf automake libtool texinfo
+ENV PREFIX=/opt/kontain
+ARG LIBSTDCPPVER=releases/gcc-11.2.0
+USER $USER
+
+RUN git clone git://gcc.gnu.org/git/gcc.git -b $LIBSTDCPPVER
+RUN mkdir -p build_gcc && cd build_gcc \
+   && ../gcc/configure --prefix=$PREFIX --enable-clocale=generic --disable-bootstrap --enable-languages=c,c++ \
+   --enable-threads=posix --enable-checking=release --disable-multilib --with-system-zlib --enable-__cxa_atexit \
+   --disable-libunwind-exceptions --enable-gnu-unique-object --enable-linker-build-id --with-gcc-major-version-only \
+   --with-linker-hash-style=gnu --enable-plugin --enable-initfini-array --with-isl --without-cuda-driver \
+   --enable-gnu-indirect-function --enable-cet --with-tune=generic \
+   && make -j`expr 2 \* $$(nproc)` && cd x86_64-pc-linux-gnu/libstdc++-v3 && make clean \
+   && sed -i -e 's/^#define *HAVE___CXA_THREAD_ATEXIT_IMPL.*$/\/* & *\//' config.h \
+   && make -j`expr 2 \* $$(nproc)`
+
+USER root
+RUN mkdir -p $PREFIX && make -C build_gcc/x86_64-pc-linux-gnu/libstdc++-v3 install
+
 FROM buildenv-early AS buildlibelf
 
 RUN dnf install -y flex bison zstd gettext-devel bsdtar xz-devel
@@ -83,8 +105,12 @@ ENV USER=$USER
 ENV PREFIX=/opt/kontain
 WORKDIR /home/$USER
 
+COPY --from=build-libstdcpp $PREFIX/lib64 $PREFIX/runtime
 COPY --from=buildlibelf /usr/local /usr/local/
 COPY --from=alpine-lib-image $PREFIX $PREFIX/
+RUN for i in runtime alpine-lib ; do \
+       mkdir -p $PREFIX/$i && chgrp users $PREFIX/$i && chmod 777 $PREFIX/$i ; \
+    done
 # take libcrypto from Fedora - python ssl doesn't like alpine one
 RUN cp /usr/lib64/libcrypto.so.1.1.1[a-z] ${PREFIX}/alpine-lib/lib/libcrypto.so.1.1
 
