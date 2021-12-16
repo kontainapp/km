@@ -131,7 +131,7 @@ jobs:
           # These next two lines were taken from the crun release.yaml and build-aux/release.sh
           # to setup and execute a nix based build of stripped static
           if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix cp -rfT /nix /mnt/nix; fi
-          sudo docker run --rm --privileged -v /nix:/nix -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix nix build --print-build-logs --file nix/ --arg enableSystemd false
+          sudo docker run --rm --privileged -v /nix:/nix -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix nix build --print-build-logs --file nix/ --arg enableSystemd false --extra-experimental-features nix-command
           mkdir -p /tmp/krun-static
           cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
 
