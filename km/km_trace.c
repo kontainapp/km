@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 #include "km.h"
 #include "km_exec.h"
@@ -192,7 +191,8 @@ void km_trace_setup(int argc, char* argv[], char* payload_name)
       int opt;
       int longopt_index;
       optind = 0;
-      while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) != -1) {
+      while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) !=
+             -1) {
          switch (opt) {
             case 'V':
                trace_regex = (optarg != NULL) ? optarg : "";
@@ -211,7 +211,8 @@ void km_trace_setup(int argc, char* argv[], char* payload_name)
    }
 
    if (trace_regex == NULL) {
-      // No trace settings from the command line or command line is ignored, see if the environment has anything to say.
+      // No trace settings from the command line or command line is ignored, see if the environment
+      // has anything to say.
       trace_regex = getenv(KM_VERBOSE);
    }
    if (trace_regex != NULL) {

@@ -44,7 +44,8 @@ void km_wait_for_signal(int sig);
 typedef void (*sa_action_t)(int, siginfo_t*, void*);
 void km_install_sighandler(int signum, sa_action_t hander_func);
 uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize);
-uint64_t km_rt_sigtimedwait(km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, struct timespec* timeout, size_t setlen);
+uint64_t km_rt_sigtimedwait(
+    km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, struct timespec* timeout, size_t setlen);
 
 static inline int km_sigindex(int signo)
 {
@@ -56,7 +57,7 @@ static inline void km_sigemptyset(km_sigset_t* set)
    *set = 0L;
 }
 
-static inline void km_sigfillset(km_sigset_t *set)
+static inline void km_sigfillset(km_sigset_t* set)
 {
    *set = ~0L;
 }

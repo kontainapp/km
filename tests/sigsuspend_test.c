@@ -21,16 +21,16 @@
  * Test by sending SIGUSR1 and then SIGUSR2.
  * You should see the SIGUSR2 message on stdout first and then the SIGUSR1 message.
  */
-#include <stdio.h>
-#include <signal.h>
 #include <assert.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/param.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 void sighandler_usr1(int signo)
 {

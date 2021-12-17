@@ -19,17 +19,17 @@
  * deny all access to those pages.
  * All we do is allocated a piece of memory with no permitted access.
  */
-#include <stdio.h>
-#include <sys/mman.h>
-#include <errno.h>
-#include <string.h>
 #include <assert.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/mman.h>
 
 int main(int argc, char* argv[])
 {
    void* memchunk;
-   const int chunksize = 2*4096;
-   unsigned char* imemchunk __attribute__ ((unused));
+   const int chunksize = 2 * 4096;
+   unsigned char* imemchunk __attribute__((unused));
 
    memchunk = mmap(NULL, chunksize, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
    if (memchunk == MAP_FAILED) {

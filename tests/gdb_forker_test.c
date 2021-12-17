@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
 #include <assert.h>
 #include <errno.h>
-#include <string.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 /*
  * A test program that forks and then th child execs to a different program.
@@ -35,7 +35,7 @@
 
 int main(int argc, char* argv[])
 {
-//   char payload[] = "tests/hello_test";
+   //   char payload[] = "tests/hello_test";
    char payload[] = "hello_test";
    pid_t pid;
 
@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
       execve(payload, new_argv, new_envp);
       fprintf(stderr, "execve() to %s, pid %d, failed %s\n", payload, getpid(), strerror(errno));
       return 1;
-   } else { // parent
+   } else {   // parent
       fprintf(stderr, "Waiting for child pid %d to terminate\n", pid);
       pid_t waited_pid;
       int status;

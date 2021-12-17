@@ -38,7 +38,7 @@
 #include "km_hcalls.h"
 
 #ifndef SA_RESTORER
-#define SA_RESTORER   0x04000000
+#define SA_RESTORER 0x04000000
 #endif
 
 char* cmdname = "???";

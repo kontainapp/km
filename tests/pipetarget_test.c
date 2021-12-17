@@ -23,8 +23,8 @@
  *  pipetarget_test writetopipe sourcefile
  */
 
-#include <stdio.h>
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 
 static char* PIPEWRITE = "writetoparent";
@@ -32,8 +32,7 @@ static char* PIPEREAD = "readfromparent";
 
 void usage(void)
 {
-   fprintf(stderr, "pipetarget_test {%s|%s} filename\n",
-           PIPEWRITE, PIPEREAD);
+   fprintf(stderr, "pipetarget_test {%s|%s} filename\n", PIPEWRITE, PIPEREAD);
 }
 
 int main(int argc, char* argv[])
@@ -43,7 +42,7 @@ int main(int argc, char* argv[])
       usage();
       return 1;
    }
-   if (strcmp(argv[1], PIPEREAD) == 0) {  // read from pipe, write into file
+   if (strcmp(argv[1], PIPEREAD) == 0) {   // read from pipe, write into file
       FILE* o = fopen(argv[2], "w");
       if (o != NULL) {
          while (fgets(linebuf, sizeof(linebuf), stdin) != NULL) {
@@ -54,7 +53,7 @@ int main(int argc, char* argv[])
          fprintf(stderr, "couldn't open %s for write, %s\n", argv[2], strerror(errno));
          return 1;
       }
-   } else if (strcmp(argv[1], PIPEWRITE) == 0) {  // open file for read, write into pipe
+   } else if (strcmp(argv[1], PIPEWRITE) == 0) {   // open file for read, write into pipe
       FILE* i = fopen(argv[2], "r");
       if (i != NULL) {
          while (fgets(linebuf, sizeof(linebuf), i) != NULL) {
@@ -66,10 +65,7 @@ int main(int argc, char* argv[])
          return 1;
       }
    } else {
-      fprintf(stderr, "Unknown operation %s, must be either %s or %s\n",
-              argv[1],
-              PIPEWRITE,
-              PIPEREAD);
+      fprintf(stderr, "Unknown operation %s, must be either %s or %s\n", argv[1], PIPEWRITE, PIPEREAD);
       return 1;
    }
    return 0;

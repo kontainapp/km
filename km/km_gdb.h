@@ -54,40 +54,40 @@ typedef enum {
  * You know what happens when gdb changes these values!
  */
 typedef enum {
-   GDB_SIGNAL_HUP = 1,       // SIGHUP
-   GDB_SIGNAL_INT = 2,       // SIGINT
-   GDB_SIGNAL_QUIT = 3,      // SIGQUIT
-   GDB_SIGNAL_ILL = 4,       // SIGILL
-   GDB_SIGNAL_TRAP = 5,      // SIGTRAP
-   GDB_SIGNAL_ABRT = 6,      // SIGABRT
-   GDB_SIGNAL_EMT = 7,       // SIGEMT
-   GDB_SIGNAL_FPE = 8,       // SIGFPE
-   GDB_SIGNAL_KILL = 9,      // SIGKILL
-   GDB_SIGNAL_BUS = 10,      // SIGBUS
-   GDB_SIGNAL_SEGV = 11,     // SIGSEGV
-   GDB_SIGNAL_SYS = 12,      // SIGSYS
-   GDB_SIGNAL_PIPE = 13,     // SIGPIPE
-   GDB_SIGNAL_ALRM = 14,     // SIGALRM
-   GDB_SIGNAL_TERM = 15,     // SIGTERM
-   GDB_SIGNAL_URG = 16,      // SIGURG
-   GDB_SIGNAL_STOP = 17,     // SIGSTOP
-   GDB_SIGNAL_TSTP = 18,     // SIGTSTP
-   GDB_SIGNAL_CONT = 19,     // SIGCONT
-   GDB_SIGNAL_CHLD = 20,     // SIGCHLD
-   GDB_SIGNAL_TTIN = 21,     // SIGTTIN
-   GDB_SIGNAL_TTOU = 22,     // SIGTTOU
-   GDB_SIGNAL_IO = 23,       // SIGIO
-   GDB_SIGNAL_XCPU = 24,     // SIGXCPU
-   GDB_SIGNAL_XFSZ = 25,     // SIGXFSZ
-   GDB_SIGNAL_VTALRM = 26,   // SIGVTALRM
-   GDB_SIGNAL_PROF = 27,     // SIGPROF
-   GDB_SIGNAL_WINCH = 28,    // SIGWINCH
-   GDB_SIGNAL_LOST = 29,     // SIGLOST
-   GDB_SIGNAL_USR1 = 30,     // SIGUSR1
-   GDB_SIGNAL_USR2 = 31,     // SIGUSR2
-   GDB_SIGNAL_PWR = 32,      // SIGPWR
-   GDB_SIGNAL_POLL = 33,     // SIGPOLL
-   GDB_SIGNAL_WIND = 34,         // SIGWIND not available on linux
+   GDB_SIGNAL_HUP = 1,            // SIGHUP
+   GDB_SIGNAL_INT = 2,            // SIGINT
+   GDB_SIGNAL_QUIT = 3,           // SIGQUIT
+   GDB_SIGNAL_ILL = 4,            // SIGILL
+   GDB_SIGNAL_TRAP = 5,           // SIGTRAP
+   GDB_SIGNAL_ABRT = 6,           // SIGABRT
+   GDB_SIGNAL_EMT = 7,            // SIGEMT
+   GDB_SIGNAL_FPE = 8,            // SIGFPE
+   GDB_SIGNAL_KILL = 9,           // SIGKILL
+   GDB_SIGNAL_BUS = 10,           // SIGBUS
+   GDB_SIGNAL_SEGV = 11,          // SIGSEGV
+   GDB_SIGNAL_SYS = 12,           // SIGSYS
+   GDB_SIGNAL_PIPE = 13,          // SIGPIPE
+   GDB_SIGNAL_ALRM = 14,          // SIGALRM
+   GDB_SIGNAL_TERM = 15,          // SIGTERM
+   GDB_SIGNAL_URG = 16,           // SIGURG
+   GDB_SIGNAL_STOP = 17,          // SIGSTOP
+   GDB_SIGNAL_TSTP = 18,          // SIGTSTP
+   GDB_SIGNAL_CONT = 19,          // SIGCONT
+   GDB_SIGNAL_CHLD = 20,          // SIGCHLD
+   GDB_SIGNAL_TTIN = 21,          // SIGTTIN
+   GDB_SIGNAL_TTOU = 22,          // SIGTTOU
+   GDB_SIGNAL_IO = 23,            // SIGIO
+   GDB_SIGNAL_XCPU = 24,          // SIGXCPU
+   GDB_SIGNAL_XFSZ = 25,          // SIGXFSZ
+   GDB_SIGNAL_VTALRM = 26,        // SIGVTALRM
+   GDB_SIGNAL_PROF = 27,          // SIGPROF
+   GDB_SIGNAL_WINCH = 28,         // SIGWINCH
+   GDB_SIGNAL_LOST = 29,          // SIGLOST
+   GDB_SIGNAL_USR1 = 30,          // SIGUSR1
+   GDB_SIGNAL_USR2 = 31,          // SIGUSR2
+   GDB_SIGNAL_PWR = 32,           // SIGPWR
+   GDB_SIGNAL_POLL = 33,          // SIGPOLL
+   GDB_SIGNAL_WIND = 34,          // SIGWIND not available on linux
    GDB_SIGNAL_PHONE = 35,         // SIGPHONE not available on linux
    GDB_SIGNAL_WAITING = 36,       // SIGWAITING not available on linux
    GDB_SIGNAL_LWP = 37,           // SIGLWP not available on linux
@@ -130,90 +130,90 @@ typedef enum {
    GDB_SIGNAL_REALTIME_62 = 74,   // "SIG62", "Real-time event 62"
    GDB_SIGNAL_REALTIME_63 = 75,   // "SIG63", "Real-time event 63"
 
-   GDB_SIGNAL_CANCEL = 76,        // SIGCANCEL musl signal
+   GDB_SIGNAL_CANCEL = 76,   // SIGCANCEL musl signal
 
-   GDB_SIGNAL_REALTIME_32 = 77,   // SIG32, "Real-time event 32"
-   GDB_SIGNAL_REALTIME_64 = 78,   // "SIG64", "Real-time event 64"
-   GDB_SIGNAL_REALTIME_65 = 79,   // "SIG65", "Real-time event 65"
-   GDB_SIGNAL_REALTIME_66 = 80,   // "SIG66", "Real-time event 66"
-   GDB_SIGNAL_REALTIME_67 = 81,   // "SIG67", "Real-time event 67"
-   GDB_SIGNAL_REALTIME_68 = 82,   // "SIG68", "Real-time event 68"
-   GDB_SIGNAL_REALTIME_69 = 83,   // "SIG69", "Real-time event 69"
-   GDB_SIGNAL_REALTIME_70 = 84,   // "SIG70", "Real-time event 70"
-   GDB_SIGNAL_REALTIME_71 = 85,   // "SIG71", "Real-time event 71"
-   GDB_SIGNAL_REALTIME_72 = 86,   // "SIG72", "Real-time event 72"
-   GDB_SIGNAL_REALTIME_73 = 87,   // "SIG73", "Real-time event 73"
-   GDB_SIGNAL_REALTIME_74 = 88,   // "SIG74", "Real-time event 74"
-   GDB_SIGNAL_REALTIME_75 = 89,   // "SIG75", "Real-time event 75"
-   GDB_SIGNAL_REALTIME_76 = 90,   // "SIG76", "Real-time event 76"
-   GDB_SIGNAL_REALTIME_77 = 91,   // "SIG77", "Real-time event 77"
-   GDB_SIGNAL_REALTIME_78 = 92,   // "SIG78", "Real-time event 78"
-   GDB_SIGNAL_REALTIME_79 = 93,   // "SIG79", "Real-time event 79"
-   GDB_SIGNAL_REALTIME_80 = 94,   // "SIG80", "Real-time event 80"
-   GDB_SIGNAL_REALTIME_81 = 95,   // "SIG81", "Real-time event 81"
-   GDB_SIGNAL_REALTIME_82 = 96,   // "SIG82", "Real-time event 82"
-   GDB_SIGNAL_REALTIME_83 = 97,   // "SIG83", "Real-time event 83"
-   GDB_SIGNAL_REALTIME_84 = 98,   // "SIG84", "Real-time event 84"
-   GDB_SIGNAL_REALTIME_85 = 99,   // "SIG85", "Real-time event 85"
-   GDB_SIGNAL_REALTIME_86 = 100,  // "SIG86", "Real-time event 86"
-   GDB_SIGNAL_REALTIME_87 = 101,  // "SIG87", "Real-time event 87"
-   GDB_SIGNAL_REALTIME_88 = 102,  // "SIG88", "Real-time event 88"
-   GDB_SIGNAL_REALTIME_89 = 103,  // "SIG89", "Real-time event 89"
-   GDB_SIGNAL_REALTIME_90 = 104,  // "SIG90", "Real-time event 90"
-   GDB_SIGNAL_REALTIME_91 = 105,  // "SIG91", "Real-time event 91"
-   GDB_SIGNAL_REALTIME_92 = 106,  // "SIG92", "Real-time event 92"
-   GDB_SIGNAL_REALTIME_93 = 107,  // "SIG93", "Real-time event 93"
-   GDB_SIGNAL_REALTIME_94 = 108,  // "SIG94", "Real-time event 94"
-   GDB_SIGNAL_REALTIME_95 = 109,  // "SIG95", "Real-time event 95"
-   GDB_SIGNAL_REALTIME_96 = 110,  // "SIG96", "Real-time event 96"
-   GDB_SIGNAL_REALTIME_97 = 111,  // "SIG97", "Real-time event 97"
-   GDB_SIGNAL_REALTIME_98 = 112,  // "SIG98", "Real-time event 98"
-   GDB_SIGNAL_REALTIME_99 = 113,  // "SIG99", "Real-time event 99"
-   GDB_SIGNAL_REALTIME_100 = 114, // "SIG100", "Real-time event 100"
-   GDB_SIGNAL_REALTIME_101 = 115, // "SIG101", "Real-time event 101"
-   GDB_SIGNAL_REALTIME_102 = 116, // "SIG102", "Real-time event 102"
-   GDB_SIGNAL_REALTIME_103 = 117, // "SIG103", "Real-time event 103"
-   GDB_SIGNAL_REALTIME_104 = 118, // "SIG104", "Real-time event 104"
-   GDB_SIGNAL_REALTIME_105 = 119, // "SIG105", "Real-time event 105"
-   GDB_SIGNAL_REALTIME_106 = 120, // "SIG106", "Real-time event 106"
-   GDB_SIGNAL_REALTIME_107 = 121, // "SIG107", "Real-time event 107"
-   GDB_SIGNAL_REALTIME_108 = 122, // "SIG108", "Real-time event 108"
-   GDB_SIGNAL_REALTIME_109 = 123, // "SIG109", "Real-time event 109"
-   GDB_SIGNAL_REALTIME_110 = 124, // "SIG110", "Real-time event 110"
-   GDB_SIGNAL_REALTIME_111 = 125, // "SIG111", "Real-time event 111"
-   GDB_SIGNAL_REALTIME_112 = 126, // "SIG112", "Real-time event 112"
-   GDB_SIGNAL_REALTIME_113 = 127, // "SIG113", "Real-time event 113"
-   GDB_SIGNAL_REALTIME_114 = 128, // "SIG114", "Real-time event 114"
-   GDB_SIGNAL_REALTIME_115 = 129, // "SIG115", "Real-time event 115"
-   GDB_SIGNAL_REALTIME_116 = 130, // "SIG116", "Real-time event 116"
-   GDB_SIGNAL_REALTIME_117 = 131, // "SIG117", "Real-time event 117"
-   GDB_SIGNAL_REALTIME_118 = 132, // "SIG118", "Real-time event 118"
-   GDB_SIGNAL_REALTIME_119 = 133, // "SIG119", "Real-time event 119"
-   GDB_SIGNAL_REALTIME_120 = 134, // "SIG120", "Real-time event 120"
-   GDB_SIGNAL_REALTIME_121 = 135, // "SIG121", "Real-time event 121"
-   GDB_SIGNAL_REALTIME_122 = 136, // "SIG122", "Real-time event 122"
-   GDB_SIGNAL_REALTIME_123 = 137, // "SIG123", "Real-time event 123"
-   GDB_SIGNAL_REALTIME_124 = 138, // "SIG124", "Real-time event 124"
-   GDB_SIGNAL_REALTIME_125 = 139, // "SIG125", "Real-time event 125"
-   GDB_SIGNAL_REALTIME_126 = 140, // "SIG126", "Real-time event 126"
-   GDB_SIGNAL_REALTIME_127 = 141, // "SIG127", "Real-time event 127"
+   GDB_SIGNAL_REALTIME_32 = 77,     // SIG32, "Real-time event 32"
+   GDB_SIGNAL_REALTIME_64 = 78,     // "SIG64", "Real-time event 64"
+   GDB_SIGNAL_REALTIME_65 = 79,     // "SIG65", "Real-time event 65"
+   GDB_SIGNAL_REALTIME_66 = 80,     // "SIG66", "Real-time event 66"
+   GDB_SIGNAL_REALTIME_67 = 81,     // "SIG67", "Real-time event 67"
+   GDB_SIGNAL_REALTIME_68 = 82,     // "SIG68", "Real-time event 68"
+   GDB_SIGNAL_REALTIME_69 = 83,     // "SIG69", "Real-time event 69"
+   GDB_SIGNAL_REALTIME_70 = 84,     // "SIG70", "Real-time event 70"
+   GDB_SIGNAL_REALTIME_71 = 85,     // "SIG71", "Real-time event 71"
+   GDB_SIGNAL_REALTIME_72 = 86,     // "SIG72", "Real-time event 72"
+   GDB_SIGNAL_REALTIME_73 = 87,     // "SIG73", "Real-time event 73"
+   GDB_SIGNAL_REALTIME_74 = 88,     // "SIG74", "Real-time event 74"
+   GDB_SIGNAL_REALTIME_75 = 89,     // "SIG75", "Real-time event 75"
+   GDB_SIGNAL_REALTIME_76 = 90,     // "SIG76", "Real-time event 76"
+   GDB_SIGNAL_REALTIME_77 = 91,     // "SIG77", "Real-time event 77"
+   GDB_SIGNAL_REALTIME_78 = 92,     // "SIG78", "Real-time event 78"
+   GDB_SIGNAL_REALTIME_79 = 93,     // "SIG79", "Real-time event 79"
+   GDB_SIGNAL_REALTIME_80 = 94,     // "SIG80", "Real-time event 80"
+   GDB_SIGNAL_REALTIME_81 = 95,     // "SIG81", "Real-time event 81"
+   GDB_SIGNAL_REALTIME_82 = 96,     // "SIG82", "Real-time event 82"
+   GDB_SIGNAL_REALTIME_83 = 97,     // "SIG83", "Real-time event 83"
+   GDB_SIGNAL_REALTIME_84 = 98,     // "SIG84", "Real-time event 84"
+   GDB_SIGNAL_REALTIME_85 = 99,     // "SIG85", "Real-time event 85"
+   GDB_SIGNAL_REALTIME_86 = 100,    // "SIG86", "Real-time event 86"
+   GDB_SIGNAL_REALTIME_87 = 101,    // "SIG87", "Real-time event 87"
+   GDB_SIGNAL_REALTIME_88 = 102,    // "SIG88", "Real-time event 88"
+   GDB_SIGNAL_REALTIME_89 = 103,    // "SIG89", "Real-time event 89"
+   GDB_SIGNAL_REALTIME_90 = 104,    // "SIG90", "Real-time event 90"
+   GDB_SIGNAL_REALTIME_91 = 105,    // "SIG91", "Real-time event 91"
+   GDB_SIGNAL_REALTIME_92 = 106,    // "SIG92", "Real-time event 92"
+   GDB_SIGNAL_REALTIME_93 = 107,    // "SIG93", "Real-time event 93"
+   GDB_SIGNAL_REALTIME_94 = 108,    // "SIG94", "Real-time event 94"
+   GDB_SIGNAL_REALTIME_95 = 109,    // "SIG95", "Real-time event 95"
+   GDB_SIGNAL_REALTIME_96 = 110,    // "SIG96", "Real-time event 96"
+   GDB_SIGNAL_REALTIME_97 = 111,    // "SIG97", "Real-time event 97"
+   GDB_SIGNAL_REALTIME_98 = 112,    // "SIG98", "Real-time event 98"
+   GDB_SIGNAL_REALTIME_99 = 113,    // "SIG99", "Real-time event 99"
+   GDB_SIGNAL_REALTIME_100 = 114,   // "SIG100", "Real-time event 100"
+   GDB_SIGNAL_REALTIME_101 = 115,   // "SIG101", "Real-time event 101"
+   GDB_SIGNAL_REALTIME_102 = 116,   // "SIG102", "Real-time event 102"
+   GDB_SIGNAL_REALTIME_103 = 117,   // "SIG103", "Real-time event 103"
+   GDB_SIGNAL_REALTIME_104 = 118,   // "SIG104", "Real-time event 104"
+   GDB_SIGNAL_REALTIME_105 = 119,   // "SIG105", "Real-time event 105"
+   GDB_SIGNAL_REALTIME_106 = 120,   // "SIG106", "Real-time event 106"
+   GDB_SIGNAL_REALTIME_107 = 121,   // "SIG107", "Real-time event 107"
+   GDB_SIGNAL_REALTIME_108 = 122,   // "SIG108", "Real-time event 108"
+   GDB_SIGNAL_REALTIME_109 = 123,   // "SIG109", "Real-time event 109"
+   GDB_SIGNAL_REALTIME_110 = 124,   // "SIG110", "Real-time event 110"
+   GDB_SIGNAL_REALTIME_111 = 125,   // "SIG111", "Real-time event 111"
+   GDB_SIGNAL_REALTIME_112 = 126,   // "SIG112", "Real-time event 112"
+   GDB_SIGNAL_REALTIME_113 = 127,   // "SIG113", "Real-time event 113"
+   GDB_SIGNAL_REALTIME_114 = 128,   // "SIG114", "Real-time event 114"
+   GDB_SIGNAL_REALTIME_115 = 129,   // "SIG115", "Real-time event 115"
+   GDB_SIGNAL_REALTIME_116 = 130,   // "SIG116", "Real-time event 116"
+   GDB_SIGNAL_REALTIME_117 = 131,   // "SIG117", "Real-time event 117"
+   GDB_SIGNAL_REALTIME_118 = 132,   // "SIG118", "Real-time event 118"
+   GDB_SIGNAL_REALTIME_119 = 133,   // "SIG119", "Real-time event 119"
+   GDB_SIGNAL_REALTIME_120 = 134,   // "SIG120", "Real-time event 120"
+   GDB_SIGNAL_REALTIME_121 = 135,   // "SIG121", "Real-time event 121"
+   GDB_SIGNAL_REALTIME_122 = 136,   // "SIG122", "Real-time event 122"
+   GDB_SIGNAL_REALTIME_123 = 137,   // "SIG123", "Real-time event 123"
+   GDB_SIGNAL_REALTIME_124 = 138,   // "SIG124", "Real-time event 124"
+   GDB_SIGNAL_REALTIME_125 = 139,   // "SIG125", "Real-time event 125"
+   GDB_SIGNAL_REALTIME_126 = 140,   // "SIG126", "Real-time event 126"
+   GDB_SIGNAL_REALTIME_127 = 141,   // "SIG127", "Real-time event 127"
 
-   GDB_SIGNAL_INFO = 142,         // SIGINFO, "Information request"
+   GDB_SIGNAL_INFO = 142,   // SIGINFO, "Information request"
 
-   GDB_SIGNAL_UNKNOWN = 143,      // NULL, "Unknown signal"
+   GDB_SIGNAL_UNKNOWN = 143,   // NULL, "Unknown signal"
 
-   GDB_SIGNAL_DEFAULT = 144,      // NULL, "Internal error: printing GDB_SIGNAL_DEFAULT"
+   GDB_SIGNAL_DEFAULT = 144,   // NULL, "Internal error: printing GDB_SIGNAL_DEFAULT"
 
-   GDB_EXC_BAD_ACCESS = 145,      // "EXC_BAD_ACCESS", "Could not access memory"
-   GDB_EXC_BAD_INSTRUCTION = 146, // "EXC_BAD_INSTRUCTION", "Illegal instruction/operand"
-   GDB_EXC_ARITHMETIC = 147,      // "EXC_ARITHMETIC", "Arithmetic exception"
-   GDB_EXC_EMULATION = 148,       // "EXC_EMULATION", "Emulation instruction"
-   GDB_EXC_SOFTWARE = 149,        // "EXC_SOFTWARE", "Software generated exception"
-   GDB_EXC_BREAKPOINT = 150,      // "EXC_BREAKPOINT", "Breakpoint"
+   GDB_EXC_BAD_ACCESS = 145,        // "EXC_BAD_ACCESS", "Could not access memory"
+   GDB_EXC_BAD_INSTRUCTION = 146,   // "EXC_BAD_INSTRUCTION", "Illegal instruction/operand"
+   GDB_EXC_ARITHMETIC = 147,        // "EXC_ARITHMETIC", "Arithmetic exception"
+   GDB_EXC_EMULATION = 148,         // "EXC_EMULATION", "Emulation instruction"
+   GDB_EXC_SOFTWARE = 149,          // "EXC_SOFTWARE", "Software generated exception"
+   GDB_EXC_BREAKPOINT = 150,        // "EXC_BREAKPOINT", "Breakpoint"
 
-   GDB_SIGNAL_LIBRT = 151,        // "SIGLIBRT", "librt internal signal"
+   GDB_SIGNAL_LIBRT = 151,   // "SIGLIBRT", "librt internal signal"
 
-   GDB_SIGNAL_LAST = 152,         // none
+   GDB_SIGNAL_LAST = 152,   // none
 
 } gdb_signal_number_t;
 
@@ -234,7 +234,8 @@ extern int km_gdb_write_registers(km_vcpu_t* vcpu, uint8_t* reg, size_t len);
 extern int km_gdb_enable_ss(void);
 extern int km_gdb_disable_ss(void);
 extern int km_gdb_add_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len);
-extern int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len, int skip_hw_update);
+extern int
+km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t len, int skip_hw_update);
 extern int km_gdb_remove_all_breakpoints(int skip_hw_update);
 extern int
 km_gdb_find_breakpoint(km_gva_t trigger_addr, gdb_breakpoint_type_t* type, km_gva_t* addr, size_t* len);

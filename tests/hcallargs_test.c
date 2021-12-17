@@ -29,10 +29,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include "greatest/greatest.h"
-#include <sys/mman.h>
 #include <syscall.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include "greatest/greatest.h"
 
 #define GIB (1024 * 1024 * 1024ul)
 

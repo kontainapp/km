@@ -22,7 +22,7 @@
 
 int main()
 {
-    char *bad_p = (char *) -16LL;
+   char* bad_p = (char*)-16LL;
 
-    *bad_p = 'a';
+   *bad_p = 'a';
 }

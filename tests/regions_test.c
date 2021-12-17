@@ -18,13 +18,13 @@
  * Test IO crossing boundary between memory regions
  */
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "greatest/greatest.h"
 #include "syscall.h"
-#include <limits.h>
 
 /*
  * First memort regions are: 2mb - 4mb, 4mb - 8mb, 8mb - 16mb ...
@@ -59,7 +59,7 @@ TEST region(void)
       perror(kmtest_data_path);
    }
    if (SYS_break(top) != top) {
-      fprintf(stderr, "break "); 
+      fprintf(stderr, "break ");
       perror(kmtest_data_path);
    }
    ptr = top - MiB - 8000;   // one full page and one partial page below the region boundary

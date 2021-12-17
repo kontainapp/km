@@ -491,7 +491,7 @@ void km_trace_setup(int argc, char* argv[], char* payload_name);
 
 extern int km_collect_hc_stats;
 
-#define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)      // 1 for yes, 0 for no
+#define km_trace_enabled() (km_info_trace.level != KM_TRACE_NONE)   // 1 for yes, 0 for no
 #define km_trace_enabled_tag() (km_info_trace.level == KM_TRACE_TAG)   // 1 for yes, 0 for no
 
 #define km_trace_tag_enabled(tag)                                                                  \

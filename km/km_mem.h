@@ -241,8 +241,7 @@ static inline km_kma_t km_gva_to_kma_nocheck(km_gva_t gva)
  */
 static inline km_kma_t km_gva_to_kma(km_gva_t gva)
 {
-   if (gva < GUEST_MEM_START_VA ||
-       gva >= GUEST_MEM_TOP_VA ||
+   if (gva < GUEST_MEM_START_VA || gva >= GUEST_MEM_TOP_VA ||
        (roundup(machine.brk, KM_PAGE_SIZE) <= gva && gva < rounddown(machine.tbrk, KM_PAGE_SIZE) &&
         !(gva >= GUEST_VVAR_VDSO_BASE_VA && gva < GUEST_VVAR_VDSO_BASE_VA + km_vvar_vdso_size) &&
         !(gva >= GUEST_KMGUESTMEM_BASE_VA &&
