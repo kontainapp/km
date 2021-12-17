@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <stdio.h>
-#include <error.h>
 #include <errno.h>
-#include <string.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
+#include <error.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/epoll.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 /*
  * This program tests that SIGCHLD is not accidently blocked in the child process
@@ -42,7 +42,7 @@
  */
 
 int handle_sigchld_entered = 0;
-void handle_sigchld(int sig, siginfo_t *info, void *ucontext)
+void handle_sigchld(int sig, siginfo_t* info, void* ucontext)
 {
    char message[] = "handle_sigchld entered\n";
    // Just use write, fprintf() uses a mutex.
@@ -95,22 +95,28 @@ int main(int argc, char* argv[])
             return 0;
          }
          // waitpid failed
-         fprintf(stderr, "%s:%d: %s: waitpid unexpected return value, rv %d, errno %d, status 0x%x\n", __FUNCTION__, __LINE__, argv[1], rv, errno, status);
+         fprintf(stderr,
+                 "%s:%d: %s: waitpid unexpected return value, rv %d, errno %d, status 0x%x\n",
+                 __FUNCTION__,
+                 __LINE__,
+                 argv[1],
+                 rv,
+                 errno,
+                 status);
          return 1;
       }
       // We are the child
-      char* argv[] = { "exec_target", "waitforchild", NULL };
-      char* envv[] = { NULL };
+      char* argv[] = {"exec_target", "waitforchild", NULL};
+      char* envv[] = {NULL};
       rc = execve(thisprogram, argv, envv);
       fprintf(stderr, "execve() to %s failed, %s\n", thisprogram, strerror(errno));
       return 1;
    }
 
-
    if (strcmp(argv[1], "waitforchild") == 0) {
       // fork()
-      // parent: setup SIGCHLD signal handler, block in epoll_pwait(), SIGCHLD interrupts epoll_pwait(), exit
-      // child: fork() then exec("exec_target", "child")
+      // parent: setup SIGCHLD signal handler, block in epoll_pwait(), SIGCHLD interrupts
+      // epoll_pwait(), exit child: fork() then exec("exec_target", "child")
       pid = fork();
       if (pid < 0) {
          fprintf(stderr, "%s:%d: %s: fork failed, %s\n", __FUNCTION__, __LINE__, argv[1], strerror(errno));
@@ -118,7 +124,7 @@ int main(int argc, char* argv[])
       }
       if (pid != 0) {
          // we are the parent
-         struct sigaction act = { .sa_sigaction = handle_sigchld, .sa_flags = SA_SIGINFO };
+         struct sigaction act = {.sa_sigaction = handle_sigchld, .sa_flags = SA_SIGINFO};
          rc = sigaction(SIGCHLD, &act, NULL);
          if (rc < 0) {
             fprintf(stderr, "sigaction failed, %s\n", strerror(errno));
@@ -132,7 +138,7 @@ int main(int argc, char* argv[])
          }
          int epoll_target_fd[2];
          rc = pipe(epoll_target_fd);
-         struct epoll_event epoll_event = { EPOLLIN };
+         struct epoll_event epoll_event = {EPOLLIN};
          epoll_event.data.fd = epoll_target_fd[0];
          rc = epoll_ctl(epoll_thing, EPOLL_CTL_ADD, epoll_target_fd[0], &epoll_event);
          if (rc < 0) {
@@ -154,13 +160,12 @@ int main(int argc, char* argv[])
          return 1;
       }
       // We are the child
-      char* argv[] = { "exec_target", "child", NULL };
-      char* envv[] = { NULL };
+      char* argv[] = {"exec_target", "child", NULL};
+      char* envv[] = {NULL};
       rc = execve(thisprogram, argv, envv);
       fprintf(stderr, "execve() to %s failed, %s\n", thisprogram, strerror(errno));
       return 1;
    }
-
 
    if (strcmp(argv[1], "child") == 0) {
       // do nothing for a little while

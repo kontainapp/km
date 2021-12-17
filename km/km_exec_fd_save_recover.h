@@ -21,4 +21,4 @@ char* km_exec_save_fd(char* varname);
 int km_exec_restore_fd(char* env_value);
 void km_exec_fdtrace(char* tag, int fd);
 
-#endif // !defined(__KM_EXEC_FD_SAVE_RECOVER_H__)
+#endif   // !defined(__KM_EXEC_FD_SAVE_RECOVER_H__)

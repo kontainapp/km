@@ -120,11 +120,13 @@ static long thread_func(void* arg)
                                                          : PTHREAD_CANCEL_ASYNCHRONOUS,
                              NULL);
    ASSERT_EQ(0, s);
-   // if all works async test will get cancelled in the middle, longer wait to make sure cancel comes at the right time
-   // deferred will wait all the way - to make the test duration reasonble the wait is shorter
+   // if all works async test will get cancelled in the middle, longer wait to make sure cancel
+   // comes at the right time deferred will wait all the way - to make the test duration reasonble
+   // the wait is shorter
    my_busysleep(arg == DEFERRED_CANCEL_TEST ? 5 : 60);
    /* Should get canceled while we sleep if ASYNC_CANCEL_TEST */
-   print_msg(arg == DEFERRED_CANCEL_TEST ? "PTHREAD_CANCEL_DEFERRED\n" : "PTHREAD_CANCEL_ASYNCHRONOUS\n");
+   print_msg(arg == DEFERRED_CANCEL_TEST ? "PTHREAD_CANCEL_DEFERRED\n"
+                                         : "PTHREAD_CANCEL_ASYNCHRONOUS\n");
    while (1) {
       usleep(1000);
    }

@@ -224,14 +224,14 @@ char* km_exec_save_fd(char* varname)
          TAILQ_FOREACH (event, &file->events, link) {
             char* tmp;
             if (asprintf(&tmp,
-                     "%s,{%d,%x,%lx}%s",
-                     more_env_value,
-                     event->fd,
-                     event->event.events,
-                     event->event.data.u64,
-                     event == TAILQ_LAST(&file->events, km_fs_event_head) ? "}" : "") == -1 ) {
-                        km_warn("failed save info for %s eventfd %d", file->name, event->fd);
-                     }
+                         "%s,{%d,%x,%lx}%s",
+                         more_env_value,
+                         event->fd,
+                         event->event.events,
+                         event->event.data.u64,
+                         event == TAILQ_LAST(&file->events, km_fs_event_head) ? "}" : "") == -1) {
+               km_warn("failed save info for %s eventfd %d", file->name, event->fd);
+            }
             free(more_env_value);
             more_env_value = tmp;
          }
@@ -242,41 +242,48 @@ char* km_exec_save_fd(char* varname)
             return NULL;
          }
          if (S_ISFIFO(st.st_mode)) {
-            if (asprintf(&more_env_value, "{%x,%d,%d,%x,%d}", KM_FDTYPE_PIPE, i, file->how, file->flags, file->ofd) == -1) {
+            if (asprintf(&more_env_value,
+                         "{%x,%d,%d,%x,%d}",
+                         KM_FDTYPE_PIPE,
+                         i,
+                         file->how,
+                         file->flags,
+                         file->ofd) == -1) {
                km_warn("failed save info for %s FIFO", file->name);
             }
          } else {
             km_file_ops_t* ops;
             km_fs_g2h_fd(i, &ops);
             if (asprintf(&more_env_value,
-                     "{%x,%d,%d,%x,%d}",
-                     KM_FDTYPE_FILE,
-                     i,
-                     file->how,
-                     file->flags,
-                     km_filename_table_line(ops)) == -1) {
-                        km_warn("failed save info for non-socket %s", file->name);
-                     }
+                         "{%x,%d,%d,%x,%d}",
+                         KM_FDTYPE_FILE,
+                         i,
+                         file->how,
+                         file->flags,
+                         km_filename_table_line(ops)) == -1) {
+               km_warn("failed save info for non-socket %s", file->name);
+            }
          }
       } else if (file->how == KM_FILE_HOW_SOCKETPAIR0 ||
                  file->how == KM_FILE_HOW_SOCKETPAIR1) {   // socketpair
-         if(asprintf(&more_env_value, "{%d,%d,%d,%d}", KM_FDTYPE_SOCKETPAIR, i, file->how, file->ofd) == -1) {
+         if (asprintf(&more_env_value, "{%d,%d,%d,%d}", KM_FDTYPE_SOCKETPAIR, i, file->how, file->ofd) ==
+             -1) {
             km_warn("failed save info for socket pair %d %d", file->how, file->ofd);
          }
       } else {   // socket fd
          char asciihex[257];
          km_bin2hex((unsigned char*)file->sockinfo->addr, file->sockinfo->addrlen, asciihex);
          if (asprintf(&more_env_value,
-                  "{%x,%d,%d,%d,%d,%d,%s}",
-                  KM_FDTYPE_SOCKET,
-                  i,
-                  file->how,
-                  file->sockinfo->state,
-                  file->sockinfo->backlog,
-                  file->ofd,
-                  asciihex) == -1) {
-                     km_warn("failed save info for socket %s", file->name);
-                  }
+                      "{%x,%d,%d,%d,%d,%d,%s}",
+                      KM_FDTYPE_SOCKET,
+                      i,
+                      file->how,
+                      file->sockinfo->state,
+                      file->sockinfo->backlog,
+                      file->ofd,
+                      asciihex) == -1) {
+            km_warn("failed save info for socket %s", file->name);
+         }
       }
 
       // Paste info for this fd onto the end of what we have already accumulated.

@@ -14,21 +14,20 @@
  * limitations under the License.
  */
 #define _GNU_SOURCE
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h>
-#include <time.h>
-#include <sys/socket.h>
+#include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <sys/epoll.h>
-#include <unistd.h>
-#include <limits.h>
-#include <errno.h>
-
 
 /*
  * This test opens all of the types of files that km snapshot does special things with
@@ -50,8 +49,8 @@ int main(int argc, char* argv[])
    int plainfilefd;
    int sockfd;
    int sockfd2;
-   int socketpairfd[2] = { 123, 456 };
-   int pipefd[2] = { 789, 012 };
+   int socketpairfd[2] = {123, 456};
+   int pipefd[2] = {789, 012};
    int epollfd;
    int rc;
 
@@ -67,7 +66,11 @@ int main(int argc, char* argv[])
       struct timespec ts;
       char plainfilename[128];
       clock_gettime(CLOCK_MONOTONIC, &ts);
-      snprintf(plainfilename, sizeof(plainfilename), "/tmp/exec_guest_files_test_%ld.%ld", ts.tv_sec, ts.tv_nsec);
+      snprintf(plainfilename,
+               sizeof(plainfilename),
+               "/tmp/exec_guest_files_test_%ld.%ld",
+               ts.tv_sec,
+               ts.tv_nsec);
       plainfilefd = open(plainfilename, O_CREAT | O_EXCL, 0666);
       if (plainfilefd < 0) {
          fprintf(stderr, "open %s failed, %s\n", plainfilename, strerror(errno));
@@ -146,14 +149,22 @@ int main(int argc, char* argv[])
       event.data.fd = socketpairfd[0];
       rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, socketpairfd[0], &event);
 
-      fprintf(stderr, "plainfilefd %d, sockfd %d, sockfd2 %d, socketpairfd[0] %d, socketpairfd[1] %d, pipefd[0] %d, pipefd[1] %d, epollfd %d\n",
-              plainfilefd, sockfd, sockfd2, socketpairfd[0], socketpairfd[1], pipefd[0], pipefd[1], epollfd);
-      
+      fprintf(stderr,
+              "plainfilefd %d, sockfd %d, sockfd2 %d, socketpairfd[0] %d, socketpairfd[1] %d, "
+              "pipefd[0] %d, pipefd[1] %d, epollfd %d\n",
+              plainfilefd,
+              sockfd,
+              sockfd2,
+              socketpairfd[0],
+              socketpairfd[1],
+              pipefd[0],
+              pipefd[1],
+              epollfd);
 
       // exec to this program again with the fd's we opened as arguments
       char me[PATH_MAX];
-      char *argv[20];
-      char *env[1] = { NULL };
+      char* argv[20];
+      char* env[1] = {NULL};
       rc = readlink("/proc/self/exe", me, sizeof(me));
       if (rc < 0) {
          fprintf(stderr, "Can't readlink /proc/self/me?, %s\n", strerror(errno));
@@ -187,8 +198,17 @@ int main(int argc, char* argv[])
       pipefd[1] = atoi(argv[9]);
       epollfd = atoi(argv[10]);
 
-      fprintf(stderr, "plainfilefd %d, sockfd %d, sockfd2 %d, socketpairfd[0] %d, socketpairfd[1] %d, pipefd[0] %d, pipefd[1] %d, epollfd %d\n",
-              plainfilefd, sockfd, sockfd2, socketpairfd[0], socketpairfd[1], pipefd[0], pipefd[1], epollfd);
+      fprintf(stderr,
+              "plainfilefd %d, sockfd %d, sockfd2 %d, socketpairfd[0] %d, socketpairfd[1] %d, "
+              "pipefd[0] %d, pipefd[1] %d, epollfd %d\n",
+              plainfilefd,
+              sockfd,
+              sockfd2,
+              socketpairfd[0],
+              socketpairfd[1],
+              pipefd[0],
+              pipefd[1],
+              epollfd);
 
       rc = close(plainfilefd);
       if (rc < 0) {

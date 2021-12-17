@@ -23,12 +23,12 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <signal.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
@@ -720,7 +720,7 @@ TEST test_pselect6()
 }
 
 int got_sigio = 0;
-void handle_sigio(int signo, siginfo_t *info, void *stuff)
+void handle_sigio(int signo, siginfo_t* info, void* stuff)
 {
    got_sigio = 1;
 }
@@ -730,7 +730,7 @@ TEST test_fcntl_fsetown()
    got_sigio = 0;
 
    // open test file
-   int pipefd[2];    // pipefd[0] is the read end
+   int pipefd[2];   // pipefd[0] is the read end
    ASSERT_NEQ(-1, pipe(pipefd));
 
    // set O_ASYNC on the read end of the pipe
@@ -756,7 +756,7 @@ TEST test_fcntl_fsetown()
       if (got_sigio != 0) {
          break;
       }
-      struct timespec snooze = {0, 50000000};  // 50ms
+      struct timespec snooze = {0, 50000000};   // 50ms
       if (nanosleep(&snooze, NULL) < 0) {
          ASSERT_EQ(EINTR, errno);
       }

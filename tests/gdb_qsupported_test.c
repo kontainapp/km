@@ -23,22 +23,21 @@
  * and should be reported back to the gdb client.
  */
 #include <assert.h>
+#include <pthread.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <signal.h>
-#include <pthread.h>
-#include <setjmp.h>
-#include <stdbool.h>
-
 
 /*
  * Signal handler for SIGILL
  */
 void handle_sigill(int signo)
 {
-   struct timespec delay = { 0, 50000 };  // 50 usec
+   struct timespec delay = {0, 50000};   // 50 usec
    nanosleep(&delay, NULL);
 }
 
@@ -65,7 +64,6 @@ void* breakpoint_thread(void* arg)
    return NULL;
 }
 
-
 int main()
 {
    int rc;
@@ -78,7 +76,8 @@ int main()
    rc = pthread_join(sfthread, NULL);
    assert(rc == 0);
 
-   // All done.  The test driver can look at the gdb output to see if the gdb Switching task message appeared.
+   // All done.  The test driver can look at the gdb output to see if the gdb Switching task message
+   // appeared.
 
    return 0;
 }

@@ -16,15 +16,15 @@
 
 #define _GNU_SOURCE
 #include <err.h>
+#include <errno.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <stdint.h>
-#include <signal.h>
-#include <pthread.h>
-#include <errno.h>
-#include <string.h>
 #include <sys/syscall.h>
 #include "greatest/greatest.h"
 #include "syscall.h"
@@ -40,7 +40,7 @@ static inline uint64_t ts2ns(struct timespec* ts)
 }
 
 // Return the difference between 2 timespecs in nanoseconds
-uint64_t timespec_delta(struct timespec *this, struct timespec* minusthis)
+uint64_t timespec_delta(struct timespec* this, struct timespec* minusthis)
 {
    return ts2ns(this) - ts2ns(minusthis);
 }
@@ -54,7 +54,7 @@ void* signal_sender(void* arg)
    int rc;
 
    // pause
-   struct timespec sleeptime = { 1, 0 };
+   struct timespec sleeptime = {1, 0};
    rc = nanosleep(&sleeptime, NULL);
    if (rc != 0) {
       fprintf(stderr, "%s: nanosleep failed, %s\n", __FUNCTION__, strerror(errno));
@@ -70,7 +70,6 @@ void* signal_sender(void* arg)
 
    return NULL;
 }
-
 
 TEST sigtimedwait_test(void)
 {
@@ -120,11 +119,13 @@ TEST sigtimedwait_test(void)
    ASSERT_EQ(EAGAIN, errno);
    clock_gettime(CLOCK_MONOTONIC, &end);
    uint64_t deltat = timespec_delta(&end, &start);
-   fprintf(stderr, "Should wait for %ld nanoseconds, actually waited %ld nanoseconds\n", thislong.tv_nsec, deltat);
+   fprintf(stderr,
+           "Should wait for %ld nanoseconds, actually waited %ld nanoseconds\n",
+           thislong.tv_nsec,
+           deltat);
 #define TIME_ERROR_MARGIN 50000000ul
    ASSERTm("sigtimedwait() didn't wait long enough", deltat > thislong.tv_nsec - TIME_ERROR_MARGIN);
    ASSERTm("sigtimedwait() waited too long", deltat < thislong.tv_nsec + TIME_ERROR_MARGIN);
-
 
    // Post a blocked signal and then wait for it
    fprintf(stdout, "Testing sigtimedwait() waiting for a blocked signal\n");
@@ -143,7 +144,6 @@ TEST sigtimedwait_test(void)
    ASSERT_EQ(SIGUSR1, info.si_signo);
    rc = sigprocmask(SIG_SETMASK, &oldset, NULL);
    ASSERT_EQ(0, rc);
-
 
    /*
     * Have this thread block indefinitely waiting for SIGUSR1 and spawn a thread that will

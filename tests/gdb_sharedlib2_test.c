@@ -44,7 +44,7 @@ static void __attribute__((noinline)) hit_breakpoint(void* symvalue)
    printf("time returns %ld, symvalue %p\n", time(NULL), symvalue);
 }
 
-static void __attribute__((noinline))got_symbol_breakpoint(void)
+static void __attribute__((noinline)) got_symbol_breakpoint(void)
 {
    printf("do something to trick the compiler\n");
 }
@@ -60,7 +60,9 @@ int main(int argc, char* argv[])
    // Dynamically load our test shared library
    void* c = dlopen(SHARED_LIB, RTLD_LAZY);
    if (c == NULL) {
-      printf("Couldn't dlopen() %s, does your LD_LIBRARY_PATH env var contain the tests directory\n", SHARED_LIB);
+      printf("Couldn't dlopen() %s, does your LD_LIBRARY_PATH env var contain the tests "
+             "directory\n",
+             SHARED_LIB);
    } else {
       dlerror();
       symvalue = dlsym(c, SHARED_LIB_SYMBOL);

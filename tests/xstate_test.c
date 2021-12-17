@@ -180,8 +180,8 @@ void set_xtended_registers(child_t* cptr)
       /* AVX (YMM registers) */
       ymm_t ymm_values[AVX_TEST_REG_COUNT] __attribute__((aligned(32)));
       for (int index = 0; index < AVX_TEST_REG_COUNT; index++) {
-         ymm_values[index].d3 = ymm_values[index].d2 =
-         ymm_values[index].d1 = ymm_values[index].d0 = get_value(cptr->index, index);
+         ymm_values[index].d3 = ymm_values[index].d2 = ymm_values[index].d1 = ymm_values[index].d0 =
+             get_value(cptr->index, index);
       }
       __asm__ volatile("vmovdqa (%0), %%ymm6\n"
                        "vmovdqa 0x20(%0), %%ymm7\n"
@@ -195,10 +195,9 @@ void set_xtended_registers(child_t* cptr)
       /* AVX (ZMM0-ZMM15 registers) */
       zmm_t zmm_values[ZMM_HI256_TEST_REG_COUNT] __attribute__((aligned(64)));
       for (int index = 0; index < ZMM_HI256_TEST_REG_COUNT; index++) {
-         zmm_values[index].d7 = zmm_values[index].d6 =
-         zmm_values[index].d5 = zmm_values[index].d4 =
-         zmm_values[index].d3 = zmm_values[index].d2 =
-         zmm_values[index].d1 = zmm_values[index].d0 = get_value(cptr->index, index);
+         zmm_values[index].d7 = zmm_values[index].d6 = zmm_values[index].d5 = zmm_values[index].d4 =
+             zmm_values[index].d3 = zmm_values[index].d2 = zmm_values[index].d1 =
+                 zmm_values[index].d0 = get_value(cptr->index, index);
       }
       __asm__ volatile("vmovdqa32 (%0), %%zmm8\n"
                        "vmovdqa32 0x40(%0), %%zmm9\n"
@@ -212,10 +211,9 @@ void set_xtended_registers(child_t* cptr)
       /* AVX512 (ZMM16-ZMM31 registers) */
       zmm_t zmm_values[HI16_ZMM_TEST_REG_COUNT] __attribute__((aligned(64)));
       for (int index = 0; index < HI16_ZMM_TEST_REG_COUNT; index++) {
-         zmm_values[index].d7 = zmm_values[index].d6 =
-         zmm_values[index].d5 = zmm_values[index].d4 =
-         zmm_values[index].d3 = zmm_values[index].d2 =
-         zmm_values[index].d1 = zmm_values[index].d0 = get_value(cptr->index, index);
+         zmm_values[index].d7 = zmm_values[index].d6 = zmm_values[index].d5 = zmm_values[index].d4 =
+             zmm_values[index].d3 = zmm_values[index].d2 = zmm_values[index].d1 =
+                 zmm_values[index].d0 = get_value(cptr->index, index);
       }
       __asm__ volatile("vmovdqa32 (%0), %%zmm16\n"
                        "vmovdqa32 0x40(%0), %%zmm17\n"
@@ -303,7 +301,7 @@ void verify_xtended_registers(child_t* cptr)
       for (int index = 0; index < AVX_TEST_REG_COUNT; index++) {
          u_int64_t expected = get_value(cptr->index, index);
          if ((ymm_values[index].d3 != expected) || (ymm_values[index].d2 != expected) ||
-            (ymm_values[index].d1 != expected) || (ymm_values[index].d0 != expected)) {
+             (ymm_values[index].d1 != expected) || (ymm_values[index].d0 != expected)) {
             cptr->failed_count++;
          }
       }
@@ -321,9 +319,9 @@ void verify_xtended_registers(child_t* cptr)
       for (int index = 0; index < ZMM_HI256_TEST_REG_COUNT; index++) {
          u_int64_t expected = get_value(cptr->index, index);
          if ((zmm_values[index].d7 != expected) || (zmm_values[index].d6 != expected) ||
-            (zmm_values[index].d5 != expected) || (zmm_values[index].d4 != expected) ||
-            (zmm_values[index].d3 != expected) || (zmm_values[index].d2 != expected) ||
-            (zmm_values[index].d1 != expected) || (zmm_values[index].d0 != expected)) {
+             (zmm_values[index].d5 != expected) || (zmm_values[index].d4 != expected) ||
+             (zmm_values[index].d3 != expected) || (zmm_values[index].d2 != expected) ||
+             (zmm_values[index].d1 != expected) || (zmm_values[index].d0 != expected)) {
             cptr->failed_count++;
          }
       }
@@ -353,9 +351,9 @@ void verify_xtended_registers(child_t* cptr)
       for (int index = 0; index < HI16_ZMM_TEST_REG_COUNT; index++) {
          u_int64_t expected = get_value(cptr->index, index);
          if ((zmm_values[index].d7 != expected) || (zmm_values[index].d6 != expected) ||
-            (zmm_values[index].d5 != expected) || (zmm_values[index].d4 != expected) ||
-            (zmm_values[index].d3 != expected) || (zmm_values[index].d2 != expected) ||
-            (zmm_values[index].d1 != expected) || (zmm_values[index].d0 != expected)) {
+             (zmm_values[index].d5 != expected) || (zmm_values[index].d4 != expected) ||
+             (zmm_values[index].d3 != expected) || (zmm_values[index].d2 != expected) ||
+             (zmm_values[index].d1 != expected) || (zmm_values[index].d0 != expected)) {
             cptr->failed_count++;
          }
       }

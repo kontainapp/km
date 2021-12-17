@@ -640,7 +640,8 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             switch (hypercall(vcpu, &hc_ret)) {
                case HC_CONTINUE:
                   km_infox(KM_TRACE_VCPU,
-                           "return from hc = %d (%s), hc_ret 0x%x, gdb_run_state %d, pause_requested %d",
+                           "return from hc = %d (%s), hc_ret 0x%x, gdb_run_state %d, "
+                           "pause_requested %d",
                            vcpu->hypercall,
                            km_hc_name_get(vcpu->hypercall),
                            hc_ret,
@@ -804,10 +805,12 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
             break;
       }   // switch(reason)
       if (vcpu->hypercall_returns_signal != 0) {
-         // rt_sigtimedwait() returns signals directly.  Let's not pile another signal on this thread this time thru.
+         // rt_sigtimedwait() returns signals directly.  Let's not pile another signal on this
+         // thread this time thru.
          if (km_gdb_client_is_attached() != 0) {
             km_gdb_notify(vcpu, vcpu->hypercall_returns_signal);
-            // When gdbstub delivers the signal from gdb client, it will need the hypercall_returns_signal flag so we don't clear it here.
+            // When gdbstub delivers the signal from gdb client, it will need the
+            // hypercall_returns_signal flag so we don't clear it here.
          } else {
             // gdb is not interfering with signal delivery
             vcpu->hypercall_returns_signal = 0;
@@ -819,10 +822,10 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
                km_gdb_notify(vcpu, info.si_signo);
                /*
                 * The gdb client should send the signal back and gdb stub will call
-                * km_deliver_signal(). But, will the gdb client send the same signal back?  Or will the
-                * client eat the signal? If we got here from sigsuspend() and the gdb client ate the
-                * signal or sent a different signal back, we should really go back to wait for an
-                * unblocked signal in sigsuspend().
+                * km_deliver_signal(). But, will the gdb client send the same signal back?  Or will
+                * the client eat the signal? If we got here from sigsuspend() and the gdb client ate
+                * the signal or sent a different signal back, we should really go back to wait for
+                * an unblocked signal in sigsuspend().
                 */
             } else {
                km_deliver_signal(vcpu, &info);

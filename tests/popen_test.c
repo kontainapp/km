@@ -17,14 +17,14 @@
 /*
  * A small program to test popen() in 2 ways:
  * - write the contents of a file to pipetarget_test via a pipe amd cat writes the data to a file
- * - pipetarget_test reads a file and writes to stdout which is a pipe and this program reads the data and
- *   writes to a file.
+ * - pipetarget_test reads a file and writes to stdout which is a pipe and this program reads the
+ * data and writes to a file.
  */
 
-#include <stdio.h>
-#include <string.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 char* progname;

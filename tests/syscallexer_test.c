@@ -37,18 +37,17 @@
  */
 
 #define _GNU_SOURCE
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <linux/futex.h>
-#include <time.h>
-#include <pthread.h>
 #include <errno.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/types.h>
+#include <linux/futex.h>
 
 #define ITERATIONS (5 * 1000 * 1000)
 
@@ -105,7 +104,7 @@ void* dosyscalls(void* arg)
    clock_gettime(CLOCK_MONOTONIC, &start);
    for (i = 0; i < ITERATIONS; i++) {
       errno = 0;
-      int rc = syscall(SYS_futex, &fut, FUTEX_WAIT, fut-1, NULL, NULL, 43);
+      int rc = syscall(SYS_futex, &fut, FUTEX_WAIT, fut - 1, NULL, NULL, 43);
       if (rc != -1 || errno != EAGAIN) {
          fprintf(stderr, "SYS_futex didn't fail as expected\n");
          __builtin_trap();
@@ -133,7 +132,9 @@ int main(int argc, char* argv[])
       nthreads = NTHREADS;
    }
    if (nthreads > NTHREADS) {
-      fprintf(stderr, "Maximum number of threads is %d, if you need more change this programs\n", NTHREADS);
+      fprintf(stderr,
+              "Maximum number of threads is %d, if you need more change this programs\n",
+              NTHREADS);
       return 1;
    }
    printf("Running tests with %d threads, %d iterations\n", nthreads, ITERATIONS);

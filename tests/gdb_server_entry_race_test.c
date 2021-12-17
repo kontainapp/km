@@ -23,22 +23,21 @@
  * and should be reported back to the gdb client.
  */
 #include <assert.h>
+#include <pthread.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <signal.h>
-#include <pthread.h>
-#include <setjmp.h>
-#include <stdbool.h>
-
 
 /*
  * Signal handler for SIGILL
  */
 void handle_sigill(int signo)
 {
-   struct timespec delay = { 0, 50000 };  // 50 usec
+   struct timespec delay = {0, 50000};   // 50 usec
    nanosleep(&delay, NULL);
 }
 
@@ -60,12 +59,12 @@ static time_t __attribute__((noinline)) hit_breakpoint(void)
  * the test ends.
  */
 
-#define RUNTIME	1   // seconds
+#define RUNTIME 1   // seconds
 
 void* sigill_thread(void* arg)
 {
    int rc;
-   struct sigaction newsa = { .sa_handler = handle_sigill, .sa_flags = 0 }; 
+   struct sigaction newsa = {.sa_handler = handle_sigill, .sa_flags = 0};
 
    // Setup signal handler for illegal instructions
    sigemptyset(&newsa.sa_mask);
@@ -79,7 +78,6 @@ void* sigill_thread(void* arg)
    // Terminate
    return NULL;
 }
-
 
 int main()
 {

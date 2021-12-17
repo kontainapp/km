@@ -42,9 +42,9 @@ void cpuid(uint32_t op, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* e
  */
 void cpuid_with_subop(uint32_t op, uint32_t subop, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* edx)
 {
-   __asm__ __volatile__ ("cpuid\n\t"
-      : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
-      : "a" (op), "c" (subop));
+   __asm__ __volatile__("cpuid\n\t"
+                        : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx)
+                        : "a"(op), "c"(subop));
 }
 
 typedef union EBChar4 {
