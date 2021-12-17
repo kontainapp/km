@@ -41,7 +41,7 @@ spec:
         - name: ROOT_MOUNT_DIR
           value: /root
         - name: KONTAIN_RELEASE_URL
-          value: https://github.com/kontainapp/km/releases/download/v0.9.2/kontain_bin.tar.gz
+          value: https://github.com/kontainapp/km/releases/download/v0.9.3/kontain_bin.tar.gz
         - name: NODE_NAME
           valueFrom:
             fieldRef:

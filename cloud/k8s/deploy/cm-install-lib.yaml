@@ -25,7 +25,8 @@ data:
   kontain_install_lib.sh: |
     #!/usr/bin/env bash
 
-    KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://github.com/kontainapp/km/releases/download/v0.1-edge/kontain_bin.tar.gz}"
+    # This will get overridden be ENV definition in kontain-deploy.yaml
+    KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://github.com/kontainapp/km/releases/download/latest/kontain_bin.tar.gz}"
 
     function install_kontain_artifacts() {
       echo "Install Kontain Runtime Artifacts (KM & KRUN)"
