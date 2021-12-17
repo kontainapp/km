@@ -274,9 +274,10 @@ dnf install -y google-chrome-stable
 
 ## Coding Style
 
-We use the Visual Studio Code (VS Code) IDE. Our workspace (`km_repo_root/.vscode/km.code-workspace`) is configured to automatically run clang-format on file save.
+We encourage the use of Visual Studio Code (VS Code) IDE. Our VS Code workspace (`km_repo_root/.vscode/km.code-workspace`) is configured to automatically
+run clang-format on file save.
 
-**If you are not using VS Code, it is your responsibility to run clang-format with `.clang-format` (from the repo) before any PR**
+In addition, our CI runs clang-format on the `km` and `tests` directory for every PR, merge with master, and nightly build.q
 
 Some of the style points we maintaining C which are not enforced by clang:
 
