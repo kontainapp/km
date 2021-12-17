@@ -27,8 +27,7 @@ set -e; [ "$TRACE" ] && set -x
 source /etc/os-release
 [ "$ID" != "fedora" -a "$ID" != "ubuntu" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
-export DEFAULT_TAG=latest
-readonly TAG=${1:-$DEFAULT_TAG}
+readonly TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/current_release.txt)}
 if [[ $TAG = latest ]] ; then
    readonly URL="https://github.com/kontainapp/km/releases/${TAG}/download/kontain.tar.gz"
 else
@@ -111,7 +110,7 @@ function check_prereqs {
 function get_bundle {
    mkdir -p $PREFIX
    echo "Pulling $URL..."
-   wget $URL --output-document - -q | tar -C ${PREFIX} -xzf -
+   curl -L -s $URL | tar -C ${PREFIX} -xzf -
    echo Done.
    if [ $validate == 1 ]; then
       $PREFIX/bin/km $PREFIX/tests/hello_test.km Hello World
