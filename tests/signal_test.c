@@ -20,6 +20,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
@@ -28,12 +29,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 #include "greatest/greatest.h"
@@ -463,7 +463,12 @@ TEST test_sigttou()
       // wait for the child to exit.
       int wstatus;
       pid_t reaped_pid = wait4(child, &wstatus, 0, NULL);
-      fprintf(stderr, "parent: reaped_pid %d, errno %d, expected pid %d, wstatus 0x%x\n", reaped_pid, errno, child, wstatus);
+      fprintf(stderr,
+              "parent: reaped_pid %d, errno %d, expected pid %d, wstatus 0x%x\n",
+              reaped_pid,
+              errno,
+              child,
+              wstatus);
       ASSERT_EQ(reaped_pid, child);
       ASSERT_NEQ(WIFEXITED(wstatus), 0);
       ASSERT_EQ(WEXITSTATUS(wstatus), 0);

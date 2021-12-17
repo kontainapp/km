@@ -88,8 +88,8 @@ typedef struct km_nt_vcpu {
 /*
  * fp_format values for km_nt_vcpu
  */
-#define NT_KM_VCPU_FPDATA_NONE 0      /* No fp data follows */
-#define NT_KM_VCPU_FPDATA_KVM_FPU 1   /* KVM_GET_FPU follows*/
+#define NT_KM_VCPU_FPDATA_NONE 0 /* No fp data follows */
+#define NT_KM_VCPU_FPDATA_KVM_FPU 1 /* KVM_GET_FPU follows*/
 #define NT_KM_VCPU_FPDATA_KVM_XSAVE 2 /* KVM_GET_XSAVE follows*/
 #define NT_KM_VCPU_FPDATA_KKM_XSAVE 3 /* KKM_GET_XSAVE follows*/
 
@@ -103,7 +103,7 @@ typedef struct km_nt_guest {
    Elf64_Ehdr ehdr;
    // Followed by PHDR list and filename
 } km_nt_guest_t;
-#define NT_KM_GUEST 0x4b4d4754       // "KMGT" no null term
+#define NT_KM_GUEST 0x4b4d4754   // "KMGT" no null term
 #define NT_KM_DYNLINKER 0x4b4d444c   // "KMDL" no null term
 
 /*

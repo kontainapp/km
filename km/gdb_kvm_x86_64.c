@@ -77,7 +77,7 @@ static struct breakpoints_head hw_breakpoints;
  */
 #define MAX_HW_BREAKPOINTS 4   // DR7 has space for 4 breakpoints
 #define DR dbg.arch.debugreg   // generic debug register
-#define DR7 DR[7]              // debug control register
+#define DR7 DR[7]   // debug control register
 
 static uint32_t nr_hw_breakpoints = 0;
 
@@ -657,7 +657,7 @@ int km_gdb_remove_breakpoint(gdb_breakpoint_type_t type, km_gva_t addr, size_t l
       return -1;
    }
    if (skip_hw_update != 0) {
-     return 0;
+      return 0;
    }
    return km_gdb_update_guest_debug();
 }

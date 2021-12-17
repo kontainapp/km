@@ -17,8 +17,8 @@
 #define __KM_FILESYS_PRIVATE_H__
 
 /*
- * Definitions of km_filesys.c private structures that have been exposed because km_filesys.c is getting
- * big and we need to split out functionality to another file.
+ * Definitions of km_filesys.c private structures that have been exposed because km_filesys.c is
+ * getting big and we need to split out functionality to another file.
  */
 
 // Each km_file_t has an optional point to socket state described by this structure.
@@ -30,7 +30,7 @@ typedef struct km_fd_socket {
    int protocol;
    // currently all linux sockaddr variations fit in 128 bytes
    int addrlen;
-   char addr[128];          // the local address passed to bind()
+   char addr[128];   // the local address passed to bind()
 } km_fd_socket_t;
 
 // Valid values for the state field in km_fd_socket_t
@@ -56,14 +56,14 @@ typedef struct km_file {
    km_file_ops_t* ops;   // Overwritten file ops for file matched at open
    int ofd;              // 'other' fd (pipe and socketpair)
    char* name;           // the name opened to yield the guest fd
-   km_fd_socket_t* sockinfo;           // For sockets
+   km_fd_socket_t* sockinfo;                           // For sockets
    TAILQ_HEAD(km_fs_event_head, km_fs_event) events;   // for epoll_create fd's
 } km_file_t;
 
 // Valid values for the how field in km_file_t
-#define KM_FILE_HOW_OPEN 0    /* Regular open */
-#define KM_FILE_HOW_PIPE_0 1  /* read half of pipe */
-#define KM_FILE_HOW_PIPE_1 2  /* write half of pipe */
+#define KM_FILE_HOW_OPEN 0 /* Regular open */
+#define KM_FILE_HOW_PIPE_0 1 /* read half of pipe */
+#define KM_FILE_HOW_PIPE_1 2 /* write half of pipe */
 #define KM_FILE_HOW_EPOLLFD 3 /* epoll_create() */
 #define KM_FILE_HOW_SOCKET 4
 #define KM_FILE_HOW_ACCEPT 5
@@ -87,4 +87,4 @@ static inline km_filesys_t* km_fs()
    return machine.filesys;
 }
 
-#endif    // !defined(__KM_FILESYS_PRIVATE_H__)
+#endif   // !defined(__KM_FILESYS_PRIVATE_H__)

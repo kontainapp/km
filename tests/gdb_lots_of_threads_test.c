@@ -27,17 +27,17 @@
  * command shows us something less mundane.
  */
 
-#include <stdio.h>
-#include <pthread.h>
-#include <time.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <assert.h>
+#include <pthread.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
-#define MAX_THREADS	287	// KVM_MAX_VCPUS - 1 (main() is a thread too)
-#define DEFAULT_THREADS	10
-#define MAX_DEPTH	10
+#define MAX_THREADS 287   // KVM_MAX_VCPUS - 1 (main() is a thread too)
+#define DEFAULT_THREADS 10
+#define MAX_DEPTH 10
 
 int stop_running;
 time_t starttime;
@@ -45,7 +45,7 @@ int stop_after_seconds;
 
 pthread_mutex_t rand_serialize = PTHREAD_MUTEX_INITIALIZER;
 
-void do_random_sleep(uint64_t instance_number, int *depth)
+void do_random_sleep(uint64_t instance_number, int* depth)
 {
    struct timespec sleep_time;
    int rc;
@@ -59,7 +59,7 @@ void do_random_sleep(uint64_t instance_number, int *depth)
 
    (*depth)++;
    sleep_time.tv_sec = 0;
-   sleep_time.tv_nsec = rn % 10000000;  // no more than 10ms
+   sleep_time.tv_nsec = rn % 10000000;   // no more than 10ms
    rc = nanosleep(&sleep_time, NULL);
    if (rc != 0) {
       printf("thread instance %ld, nanosleep error %d\n", instance_number, rc);
@@ -99,7 +99,7 @@ void usage(void)
           DEFAULT_THREADS);
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
    long i;
    pthread_t threadid[MAX_THREADS];
@@ -112,24 +112,24 @@ int main(int argc, char *argv[])
    rc = clock_gettime(CLOCK_REALTIME, &rs);
    assert(rc == 0);
    srandom(rs.tv_nsec);
-   
+
    starttime = time(NULL);
 
    for (int j = 1; j < argc; j++) {
       if (strcmp(argv[j], "-a") == 0) {
-         if (j+1 >= argc) {
+         if (j + 1 >= argc) {
             usage();
             exit(1);
          }
-         stop_after_seconds = atoi(argv[j+1]);
+         stop_after_seconds = atoi(argv[j + 1]);
          printf("Stop running after %d seconds\n", stop_after_seconds);
          j++;
       } else if (strcmp(argv[j], "-t") == 0) {
-         if (j+1 >= argc) {
+         if (j + 1 >= argc) {
             usage();
             exit(1);
          }
-         max_threads = atoi(argv[j+1]);
+         max_threads = atoi(argv[j + 1]);
          if (max_threads > MAX_THREADS) {
             printf("Number of threads can not exceed %d\n", MAX_THREADS);
             exit(1);
@@ -154,7 +154,8 @@ int main(int argc, char *argv[])
          break;
       }
       if (stop_after_seconds != 0 && (time(NULL) - starttime) > stop_after_seconds) {
-         printf("Couldn't start requested number of threads in the time alotted, %d seconds\n", stop_after_seconds);
+         printf("Couldn't start requested number of threads in the time alotted, %d seconds\n",
+                stop_after_seconds);
          break;
       }
    }

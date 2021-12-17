@@ -24,7 +24,7 @@
 
 #include "km_mem.h"
 
-#define CACHE_LINE_LENGTH 64 // bytes
+#define CACHE_LINE_LENGTH 64   // bytes
 #define BYTES_PER_POINTER 8
 
 // Changes in this macro should be reflected in the declaration of km_hcargs in km_guest_asmcode.s

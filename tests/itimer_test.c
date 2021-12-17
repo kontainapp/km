@@ -18,9 +18,9 @@
  * Simple test to exercise setitimer() and getitimer().
  */
 
-#include <stdio.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -48,8 +48,8 @@ int main(int argc, char* argv[])
 
    // Setup an ITIMER_REAL interval timer
    struct itimerval new = {
-       { 0, 50000 },		// interval (50ms)
-       { 0, 20000 }             // time to next expiration
+       {0, 50000},   // interval (50ms)
+       {0, 20000}    // time to next expiration
    };
    if (setitimer(ITIMER_REAL, &new, NULL) < 0) {
       fprintf(stderr, "setitimer( ITIMER_REAL ) failed, %s\n", strerror(errno));
@@ -62,9 +62,12 @@ int main(int argc, char* argv[])
       fprintf(stderr, "getitimer( ITIMER_REAL ) failed, %s\n", strerror(errno));
       return 1;
    }
-   fprintf(stdout, "it_interval = { %ld.%06ld sec }, it_value = { %ld.%06ld sec }\n",
-           current.it_interval.tv_sec, current.it_interval.tv_usec,
-           current.it_value.tv_sec, current.it_value.tv_usec);
+   fprintf(stdout,
+           "it_interval = { %ld.%06ld sec }, it_value = { %ld.%06ld sec }\n",
+           current.it_interval.tv_sec,
+           current.it_interval.tv_usec,
+           current.it_value.tv_sec,
+           current.it_value.tv_usec);
 
    /*
     * wait for the timer to fire.  Note that azure can block this process/thread for
