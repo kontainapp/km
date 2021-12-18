@@ -91,6 +91,10 @@ jobs:
           echo ==== CPU Info
           lscpu
 
+      - name: verify clang-format compliance
+        run: |
+          clang-format --style=file -n -Werror km/*.h km/*.c tests/*.h tests/*.c tests/*.cpp
+
       - run: make -C cloud/azure login-cli
 
       - name: Prepare KM build env
