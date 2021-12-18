@@ -165,83 +165,144 @@ typedef struct x86_pte_4k {
 /*
  * CR0
  */
-#define X86_CR0_PE (1ul << 0)   // Protection Enable
-#define X86_CR0_MP (1ul << 1)   // Monitor Coprocessor
-#define X86_CR0_EM (1ul << 2)   // Emulation
-#define X86_CR0_TS (1ul << 3)   // Task Switched
-#define X86_CR0_ET (1ul << 4)   // Extension Type
-#define X86_CR0_NE (1ul << 5)   // Numeric Error
-#define X86_CR0_WP (1ul << 16)   // Write Protect
-#define X86_CR0_AM (1ul << 18)   // Alignment Mask
-#define X86_CR0_NW (1ul << 29)   // Not Write-through
-#define X86_CR0_CD (1ul << 30)   // Cache Disable
-#define X86_CR0_PG (1ul << 31)   // Paging
+// Protection Enable
+#define X86_CR0_PE (1ul << 0)
+// Monitor Coprocessor
+#define X86_CR0_MP (1ul << 1)
+// Emulation
+#define X86_CR0_EM (1ul << 2)
+// Task Switched
+#define X86_CR0_TS (1ul << 3)
+// Extension Type
+#define X86_CR0_ET (1ul << 4)
+// Numeric Error
+#define X86_CR0_NE (1ul << 5)
+// Write Protect
+#define X86_CR0_WP (1ul << 16)
+// Alignment Mask
+#define X86_CR0_AM (1ul << 18)
+// Not Write-through
+#define X86_CR0_NW (1ul << 29)
+// Cache Disable
+#define X86_CR0_CD (1ul << 30)
+// Paging
+#define X86_CR0_PG (1ul << 31)
 
 /*
  * CR3
  */
-#define X86_CR3_PWT (1ul << 3)   // Page Write Through
-#define X86_CR3_PCD (1ul << 4)   // Page Cache Disable
+// Page Write Through
+#define X86_CR3_PWT (1ul << 3)
+// Page Cache Disable
+#define X86_CR3_PCD (1ul << 4)
 
 #define X86_CR3_PCID_MASK 0xfff
 
-#define X86_CR3_PCID_NOFLUSH (1ull << 63)   // Preserve old PCID
+// Preserve old PCID
+#define X86_CR3_PCID_NOFLUSH (1ull << 63)
 
 /*
  * CR4
  */
-#define X86_CR4_VME (1ul << 0)   // enable vm86 extensions
-#define X86_CR4_PVI (1ul << 1)   // virtual interrupts flag enable
-#define X86_CR4_TSD (1ul << 2)   // disable time stamp at ipl 3
-#define X86_CR4_DE (1ul << 3)   // enable debugging extensions
-#define X86_CR4_PSE (1ul << 4)   // enable page size extensions
-#define X86_CR4_PAE (1ul << 5)   // enable physical address extensions
-#define X86_CR4_MCE (1ul << 6)   // Machine check enable
-#define X86_CR4_PGE (1ul << 7)   // enable global pages
-#define X86_CR4_PCE (1ul << 8)   // enable performance counters at ipl 3
-#define X86_CR4_OSFXSR (1ul << 9)   // enable fast FPU save and restore
-#define X86_CR4_OSXMMEXCPT (1ul << 10)   // enable unmasked SSE exceptions
-#define X86_CR4_UMIP (1ul << 11)   // enable UMIP support
-#define X86_CR4_VMXE (1ul << 13)   // enable VMX virtualization
-#define X86_CR4_SMXE (1ul << 14)   // enable safer mode (TXT)
-#define X86_CR4_FSGSBASE (1ul << 16)   // enable RDWRFSGS support
-#define X86_CR4_PCIDE (1ul << 17)   // enable PCID support
-#define X86_CR4_OSXSAVE (1ul << 18)   // enable xsave and xrestore
-#define X86_CR4_SMEP (1ul << 20)   // enable SMEP support
-#define X86_CR4_SMAP (1ul << 21)   // enable SMAP support
-#define X86_CR4_PKE (1ul << 22)   // enable Protection Keys support
+// enable vm86 extensions
+#define X86_CR4_VME (1ul << 0)
+// virtual interrupts flag enable
+#define X86_CR4_PVI (1ul << 1)
+// disable time stamp at ipl 3
+#define X86_CR4_TSD (1ul << 2)
+// enable debugging extensions
+#define X86_CR4_DE (1ul << 3)
+// enable page size extensions
+#define X86_CR4_PSE (1ul << 4)
+// enable physical address extensions
+#define X86_CR4_PAE (1ul << 5)
+// Machine check enable
+#define X86_CR4_MCE (1ul << 6)
+// enable global pages
+#define X86_CR4_PGE (1ul << 7)
+// enable performance counters at ipl 3
+#define X86_CR4_PCE (1ul << 8)
+// enable fast FPU save and restore
+#define X86_CR4_OSFXSR (1ul << 9)
+// enable unmasked SSE exceptions
+#define X86_CR4_OSXMMEXCPT (1ul << 10)
+// enable UMIP support
+#define X86_CR4_UMIP (1ul << 11)
+// enable VMX virtualization
+#define X86_CR4_VMXE (1ul << 13)
+// enable safer mode (TXT)
+#define X86_CR4_SMXE (1ul << 14)
+// enable RDWRFSGS support
+#define X86_CR4_FSGSBASE (1ul << 16)
+// enable PCID support
+#define X86_CR4_PCIDE (1ul << 17)
+// enable xsave and xrestore
+#define X86_CR4_OSXSAVE (1ul << 18)
+// enable SMEP support
+#define X86_CR4_SMEP (1ul << 20)
+// enable SMAP support
+#define X86_CR4_SMAP (1ul << 21)
+// enable Protection Keys support
+#define X86_CR4_PKE (1ul << 22)
 
 /*
  * Intel SDM, Vol3. Figure 2-5. EFLAGS bits, same RFLAGS per 2.3.1
  */
-#define X86_RFLAGS_CF (1ul << 0)   // Carry Flag
-#define X86_RFLAGS_FIXED (1ul << 1)   // Bit 1 - always on
-#define X86_RFLAGS_PF (1ul << 2)   // Parity Flag
-#define X86_RFLAGS_AF (1ul << 4)   // Auxiliary carry Flag
-#define X86_RFLAGS_ZF (1ul << 6)   // Zero Flag
-#define X86_RFLAGS_SF (1ul << 7)   // Sign Flag
-#define X86_RFLAGS_TF (1ul << 8)   // Trap Flag
-#define X86_RFLAGS_IF (1ul << 9)   // Interrupt Flag
-#define X86_RFLAGS_DF (1ul << 10)   // Direction Flag
-#define X86_RFLAGS_OF (1ul << 11)   // Overflow Flag
-#define X86_RFLAGS_IOPL (3ul << 3)   // I/O Privilege Level (2 bits)
-#define X86_RFLAGS_NT (1ul << 14)   // Nested Task
-#define X86_RFLAGS_RF (1ul << 16)   // Resume Flag
-#define X86_RFLAGS_VM (1ul << 17)   // Virtual Mode
-#define X86_RFLAGS_AC (1ul << 18)   // Alignment Check/Access Control
-#define X86_RFLAGS_VIF (1ul << 19)   // Virtual Interrupt Flag
-#define X86_RFLAGS_VIP (1ul << 20)   // Virtual Interrupt Pending
-#define X86_RFLAGS_ID (1ul << 21)   // CPUID detection
+// Carry Flag
+#define X86_RFLAGS_CF (1ul << 0)
+// Bit 1 - always on
+#define X86_RFLAGS_FIXED (1ul << 1)
+// Parity Flag
+#define X86_RFLAGS_PF (1ul << 2)
+// Auxiliary carry Flag
+#define X86_RFLAGS_AF (1ul << 4)
+// Zero Flag
+#define X86_RFLAGS_ZF (1ul << 6)
+// Sign Flag
+#define X86_RFLAGS_SF (1ul << 7)
+// Trap Flag
+#define X86_RFLAGS_TF (1ul << 8)
+// Interrupt Flag
+#define X86_RFLAGS_IF (1ul << 9)
+// Direction Flag
+#define X86_RFLAGS_DF (1ul << 10)
+// Overflow Flag
+#define X86_RFLAGS_OF (1ul << 11)
+// I/O Privilege Level (2 bits)
+#define X86_RFLAGS_IOPL (3ul << 3)
+// Nested Task
+#define X86_RFLAGS_NT (1ul << 14)
+// Resume Flag
+#define X86_RFLAGS_RF (1ul << 16)
+// Virtual Mode
+#define X86_RFLAGS_VM (1ul << 17)
+// Alignment Check/Access Control
+#define X86_RFLAGS_AC (1ul << 18)
+// Virtual Interrupt Flag
+#define X86_RFLAGS_VIF (1ul << 19)
+// Virtual Interrupt Pending
+#define X86_RFLAGS_VIP (1ul << 20)
+// CPUID detection
+#define X86_RFLAGS_ID (1ul << 21)
 
-#define X86_XCR0_X87 (1ul << 0)   // x87 FPU/MMU state
-#define X86_XCR0_SSE (1ul << 1)   // SSE state
-#define X86_XCR0_AVX (1ul << 2)   // AVX state
-#define X86_XCR0_BNDREGS (1ul << 3)   // BNDREG state
-#define X86_XCR0_BNDCSR (1ul << 4)   // BMDCSR state
-#define X86_XCR0_OPMASK (1ul << 5)   // OPMASK state
-#define X86_XCR0_ZMM_HI256 (1ul << 6)   // ZMM HI256 FPU/MMU
-#define X86_XCR0_HI16_ZMM (1ul << 7)   // HI16 ZMM state
-#define X86_XCR0_PKRU (1ul << 9)   // PKRU state
+// x87 FPU/MMU state
+#define X86_XCR0_X87 (1ul << 0)
+// SSE state
+#define X86_XCR0_SSE (1ul << 1)
+// AVX state
+#define X86_XCR0_AVX (1ul << 2)
+// BNDREG state
+#define X86_XCR0_BNDREGS (1ul << 3)
+// BMDCSR state
+#define X86_XCR0_BNDCSR (1ul << 4)
+// OPMASK state
+#define X86_XCR0_OPMASK (1ul << 5)
+// ZMM HI256 FPU/MMU
+#define X86_XCR0_ZMM_HI256 (1ul << 6)
+// HI16 ZMM state
+#define X86_XCR0_HI16_ZMM (1ul << 7)
+// PKRU state
+#define X86_XCR0_PKRU (1ul << 9)
 
 #define X86_XCR0_MASK                                                                              \
    (X86_XCR0_PKRU | X86_XCR0_HI16_ZMM | X86_XCR0_ZMM_HI256 | X86_XCR0_OPMASK | X86_XCR0_BNDCSR |   \
@@ -250,36 +311,59 @@ typedef struct x86_pte_4k {
 /*
  * Intel CPU features in EFER
  */
-#define X86_EFER_SCE (1ul << 0)   // SYSCALL/SYSRET
-#define X86_EFER_LME (1ul << 8)   // Long mode enable (R/W)
-#define X86_EFER_LMA (1ul << 10)   // Long mode active (R/O)
-#define X86_EFER_NX (1ul << 11)   // No execute enable
+// SYSCALL/SYSRET
+#define X86_EFER_SCE (1ul << 0)
+// Long mode enable (R/W)
+#define X86_EFER_LME (1ul << 8)
+// Long mode active (R/O)
+#define X86_EFER_LMA (1ul << 10)
+// No execute enable
+#define X86_EFER_NX (1ul << 11)
 
 /*
  * Protected-Mode Exceptions and Interrupts
  * Intel SDM Table 6-1
  */
-#define X86_INTR_DE (0)   // Divide Error
-#define X86_INTR_DB (1)   // Debug Exception
-#define X86_INTR_NMI (2)   // NMI
-#define X86_INTR_BP (3)   // Breakpoint
-#define X86_INTR_OF (4)   // Overflow
-#define X86_INTR_BR (5)   // BOUND Range Exceeded
-#define X86_INTR_UD (6)   // Invalid Opcode (Undefined Opcode)
-#define X86_INTR_NM (7)   // Device Not Available (No Math Coprocessor)
-#define X86_INTR_DF (8)   // Double Fault (includes error, always 0)
+// Divide Error
+#define X86_INTR_DE (0)
+// Debug Exception
+#define X86_INTR_DB (1)
+// NMI
+#define X86_INTR_NMI (2)
+// Breakpoint
+#define X86_INTR_BP (3)
+// Overflow
+#define X86_INTR_OF (4)
+// BOUND Range Exceeded
+#define X86_INTR_BR (5)
+// Invalid Opcode (Undefined Opcode)
+#define X86_INTR_UD (6)
+// Device Not Available (No Math Coprocessor)
+#define X86_INTR_NM (7)
+// Double Fault (includes error, always 0)
+#define X86_INTR_DF (8)
 // 9 Intel Reserved. Post 386 processors do not generate.
-#define X86_INTR_TS (10)   // Invalid TSS (includes error)
-#define X86_INTR_NP (11)   // Segment Not Present (includes error)
-#define X86_INTR_SS (12)   // Stack-Segment Fault (includes error)
-#define X86_INTR_GP (13)   // General Protection (includes error)
-#define X86_INTR_PF (14)   // Page Fault (includes error)
+// Invalid TSS (includes error)
+#define X86_INTR_TS (10)
+// Segment Not Present (includes error)
+#define X86_INTR_NP (11)
+// Stack-Segment Fault (includes error)
+#define X86_INTR_SS (12)
+// General Protection (includes error)
+#define X86_INTR_GP (13)
+// Page Fault (includes error)
+#define X86_INTR_PF (14)
 // 15 - Intel Reserved
-#define X86_INTR_MF (16)   // x87 FPU Floating Point Error (Math Fault)
-#define X86_INTR_AC (17)   // Alignment Check (includes error, always 0)
-#define X86_INTR_MC (18)   // Machine Check (model dependent)
-#define X86_INTR_XM (19)   // SMID Floating Point Exception
-#define X86_INTR_VE (20)   // Virtualization Exception
+// x87 FPU Floating Point Error (Math Fault)
+#define X86_INTR_MF (16)
+// Alignment Check (includes error, always 0)
+#define X86_INTR_AC (17)
+// Machine Check (model dependent)
+#define X86_INTR_MC (18)
+// SMID Floating Point Exception
+#define X86_INTR_XM (19)
+// Virtualization Exception
+#define X86_INTR_VE (20)
 // 21-31 Intel Reserved
 // 32-255 User Defined.
 

@@ -109,7 +109,8 @@ gdbstub_info_t gdbstub = {
     .notify_mutex = PTHREAD_MUTEX_INITIALIZER,
     .event_queue = TAILQ_HEAD_INITIALIZER(gdbstub.event_queue),
 };
-#define BUFMAX (16 * 1024)   // buffer for gdb protocol
+// buffer for gdb protocol
+#define BUFMAX (16 * 1024)
 static char in_buffer[BUFMAX];   // TODO: malloc/free these two
 static unsigned char registers[BUFMAX];
 

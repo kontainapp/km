@@ -61,10 +61,14 @@ typedef struct km_file {
 } km_file_t;
 
 // Valid values for the how field in km_file_t
-#define KM_FILE_HOW_OPEN 0 /* Regular open */
-#define KM_FILE_HOW_PIPE_0 1 /* read half of pipe */
-#define KM_FILE_HOW_PIPE_1 2 /* write half of pipe */
-#define KM_FILE_HOW_EPOLLFD 3 /* epoll_create() */
+/* Regular open */
+#define KM_FILE_HOW_OPEN 0
+/* read half of pipe */
+#define KM_FILE_HOW_PIPE_0 1
+/* write half of pipe */
+#define KM_FILE_HOW_PIPE_1 2
+/* epoll_create() */
+#define KM_FILE_HOW_EPOLLFD 3
 #define KM_FILE_HOW_SOCKET 4
 #define KM_FILE_HOW_ACCEPT 5
 #define KM_FILE_HOW_SOCKETPAIR0 6

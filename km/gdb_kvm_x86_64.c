@@ -77,7 +77,8 @@ static struct breakpoints_head hw_breakpoints;
  */
 #define MAX_HW_BREAKPOINTS 4   // DR7 has space for 4 breakpoints
 #define DR dbg.arch.debugreg   // generic debug register
-#define DR7 DR[7]   // debug control register
+// debug control register
+#define DR7 DR[7]
 
 static uint32_t nr_hw_breakpoints = 0;
 
