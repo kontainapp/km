@@ -90,8 +90,6 @@ ForEachMacros:
   - TAILQ_FOREACH_REVERSE_SAFE
   - STAILQ_FOREACH
   - STAILQ_FOREACH_SAFE
-StatementAttributeLikeMacros:
-  - Q_EMIT
 IncludeBlocks:   Preserve
 IncludeCategories:
   - Regex:           '^<[^/]+>'
