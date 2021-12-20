@@ -82,8 +82,9 @@ int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
        *((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR + 1) == 0x8b) {
       // Fetch offset relative to the rip.
       rip_offset_of_head = *(uint32_t*)((char*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR + 3);
-      adderss_of_linkmaphead_kma = (km_kma_t)(
-          (uint64_t)dlopen_kma + KM_DLOPEN_OFFSET_TO_POST_LOAD_HEAD_INSTR + rip_offset_of_head);
+      adderss_of_linkmaphead_kma =
+          (km_kma_t)((uint64_t)dlopen_kma + KM_DLOPEN_OFFSET_TO_POST_LOAD_HEAD_INSTR +
+                     rip_offset_of_head);
       km_infox(KM_TRACE_KVM,
                "addr of link map head: gva 0x%lx, kma %p",
                km_guest.km_dlopen + KM_DLOPEN_OFFSET_TO_POST_LOAD_HEAD_INSTR + rip_offset_of_head,
