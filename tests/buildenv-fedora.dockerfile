@@ -43,7 +43,7 @@ RUN ln -sf ${PREFIX}/alpine-lib/usr/lib/libffi.so.7 ${PREFIX}/alpine-lib/usr/lib
 # Save the path to gcc versioned libs for the future
 RUN dirname $(gcc --print-file-name libgcc.a) > $PREFIX/alpine-lib/gcc-libs-path.txt
 
-FROM fedora:31 AS buildenv-early
+FROM fedora:34 AS buildenv-early
 # Some of the packages needed only for payloads and /or faktory, but we land them here for convenience.
 #
 # Also, this list is used on generating local build environment, so we explicitly add
