@@ -2104,6 +2104,7 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_execve] = execve_hcall,
     [SYS_execveat] = execveat_hcall,
     [SYS_fork] = fork_hcall,
+    [SYS_vfork] = fork_hcall,
     [SYS_wait4] = wait4_hcall,
     [SYS_waitid] = waitid_hcall,
     [SYS_times] = times_hcall,
