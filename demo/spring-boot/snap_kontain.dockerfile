@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM scratch
-ENV HOME /root
-# turn off km symlink trick and minimal shell interpretation
-ENV KM_DO_SHELL NO
-ADD --chown=0:0 busybox/_install /
-ADD empty_tmp /tmp/
+FROM kontainapp/spring-boot-demo
+ARG TARGET_SNAP=kmsnap
+COPY ${TARGET_SNAP} /kmsnap
+EXPOSE 8080/tcp
+ENV KM_MGTPIPE=/tmp/km.snap_sock
+CMD ["/kmsnap"]

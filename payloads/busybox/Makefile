@@ -70,5 +70,6 @@ RUNENV_TAG := ${COMPONENT}
 
 export define runenv_prep
 	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
+	mkdir -p $(RUNENV_PATH)/empty_tmp && rm -rf $(RUNENV_PATH)/empty_tmp/* && chmod a+rwx $(RUNENV_PATH)/empty_tmp
 endef
 include ${TOP}/make/images.mk

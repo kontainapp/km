@@ -75,6 +75,49 @@ Inside the container run
 
 Same as before, the time difference between the first response and the server start will be printed as `Response time 1.432 secs`
 
+## How to package snapshot as a kontainer
+
+### Step 1 - Build Everything
+
+Same as in the demo
+
+### Step 2 - Start the kontainer
+
+```bash
+docker run --runtime=krun --name=KM_SpringBoot_Demo \
+  -v /opt/kontain/bin/km_cli:/opt/kontain/bin/km_cli \
+  -v $(pwd):/mnt:rw -p8080:8080 kontainapp/spring-boot-demo
+```
+
+### Step 3 - Serve a request, take a snapshot, and make snap kontainer
+
+Send a request using curl, one or a few times:
+
+```bash
+curl http://localhost:8080/greeting | jq .
+```
+
+Make a snapshot and copy it from the container:
+
+```bash
+docker exec KM_SpringBoot_Demo /opt/kontain/bin/km_cli -s /tmp/km.sock
+docker cp KM_SpringBoot_Demo:kmsnap .
+chmod +x kmsnap
+docker build -t kontainapp/snap_spring-boot-demo -f snap_kontain.dockerfile .
+```
+
+### Step4 - Run the new kontainer
+
+```bash
+docker run --runtime=krun --rm -it --name=KM_Snap_SpringBoot_Demo -p8080:8080 kontainapp/snap_spring-boot-demo
+```
+
+Verify the response, confirm the id number continues from the initial run
+
+```bash
+curl http://localhost:8080/greeting | jq .
+```
+
 ## References:
 
 `https://spring.io/quickstart`
