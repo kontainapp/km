@@ -6,6 +6,7 @@
 !km
 !node/out/Release/*.km
 !node/out/Debug/*.km
+!node/benchmark
 !node/deps
 !node/tools
 !node/test
