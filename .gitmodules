@@ -28,9 +28,3 @@
 [submodule "demo/log4j/JNDI-Exploit-Kit"]
 	path = demo/log4j/JNDI-Exploit-Kit
 	url = git@github.com:kontainapp/JNDI-Exploit-Kit.git
-[submodule "demo/log4j/demo/log4j/JNDI-Exploit-Kit"]
-	path = demo/log4j/demo/log4j/JNDI-Exploit-Kit
-	url = git@github.com:pimps/JNDI-Exploit-Kit.git
-[submodule "demo/log4j/demo/log4j/log4shell-vulnerable-app"]
-	path = demo/log4j/demo/log4j/log4shell-vulnerable-app
-	url = git@github.com:kontainapp/log4shell-vulnerable-app.git
