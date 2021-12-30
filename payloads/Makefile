@@ -20,14 +20,16 @@
 #
 
 # scan all these and 'make' stuff there
-SUBDIRS := busybox dynamic-base dynamic-base-large demo-dweb python node java dynamic-python
+SUBDIRS := busybox dynamic-base dynamic-base-scratch dynamic-base-large demo-dweb python node java java-shell dynamic-python
 
 TOP := $(shell git rev-parse --show-toplevel)
 include ${TOP}/make/actions.mk
 
 demo-dweb python node dynamic-base dynamic-base-large: busybox
 
-java: dynamic-base
+java-shell: dynamic-base
+
+java: dynamic-base-scratch
 
 dynamic-python: dynamic-base-large python
 
