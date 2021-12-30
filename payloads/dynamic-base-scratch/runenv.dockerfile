@@ -13,9 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-ARG RUNENV_IMAGE_VERSION=latest
 
-FROM kontainapp/runenv-jdk-11.0.8:${RUNENV_IMAGE_VERSION}
-COPY scripts /scripts
-EXPOSE 8080
-CMD ["java", "-cp", "/scripts", "SimpleHttpServer"]
+FROM scratch
+ENV KM_DO_SHELL NO
+ADD --chown=0:0 libs.tar /opt/kontain/
+ADD empty_tmp /tmp/

@@ -16,15 +16,11 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-COMPONENT := dynamic-base
+COMPONENT := jdk-shell-11.0.8
 
 # name to be added to label(s)
-PAYLOAD_NAME := Dynamic-base
-PAYLOAD_FILES := -C /opt/kontain/ --exclude '*.a' --exclude '*c++*' runtime lib
-# Command to run tests in testenv-image container:
-CONTAINER_TEST_CMD := ./km hello_test.kmd Hello 'The One'
-CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD}
-TESTENV_EXTRA_FILES := ${TOP}/tests/hello_test.kmd
+PAYLOAD_NAME := ${COMPONENT}
+PAYLOAD_FILES :=
 
 test test-krun test-all:
 	@echo Skipping $@
@@ -32,13 +28,9 @@ test test-krun test-all:
 clean clobber:
 	@true
 
-RUNENV_VALIDATE_CMD := ("./hello_test" "Hello, World!")
-RUNENV_VALIDATE_EXPECTED := Hello, World
+RUNENV_VALIDATE_CMD := ("sh" "-c" "java -version")
+RUNENV_VALIDATE_EXPECTED := openjdk version
 
-RUNENV_TAG := ${COMPONENT}
-
-export define runenv_prep
-	tar ${PAYLOAD_FILES} -czf ${RUNENV_PATH}/libs.tar
-	cp ${TOP}/tests/hello_test.kmd ${RUNENV_DEMO_PATH}
-endef
 include ${TOP}/make/images.mk
+
+RUNENV_TAG := java-shell-11 jdk-shell-11 ${COMPONENT}

@@ -15,7 +15,10 @@
 #
 ARG RUNENV_IMAGE_VERSION=latest
 
-FROM kontainapp/runenv-jdk-11.0.8:${RUNENV_IMAGE_VERSION}
-COPY scripts /scripts
-EXPOSE 8080
-CMD ["java", "-cp", "/scripts", "SimpleHttpServer"]
+FROM kontainapp/runenv-jdk-11:${RUNENV_IMAGE_VERSION} as java
+
+FROM kontainapp/runenv-dynamic-base:${RUNENV_IMAGE_VERSION}
+ARG JAVA_DIR=/opt/kontain/java
+ENV PATH ${JAVA_DIR}/bin:${PATH}
+ENV LD_LIBRARY_PATH ${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime
+COPY --from=java ${JAVA_DIR} ${JAVA_DIR}/

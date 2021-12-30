@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 ARG RUNENV_IMAGE_VERSION=latest
-
-FROM kontainapp/runenv-jdk-11.0.8:${RUNENV_IMAGE_VERSION}
-COPY scripts /scripts
-EXPOSE 8080
+FROM kontainapp/runenv-jdk-shell-11.0.8:${RUNENV_IMAGE_VERSION}
 CMD ["java", "-cp", "/scripts", "SimpleHttpServer"]
+

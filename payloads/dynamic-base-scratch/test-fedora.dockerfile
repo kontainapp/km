@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-ARG RUNENV_IMAGE_VERSION=latest
+ARG DTYPE=fedora
+ARG BUILDENV_IMAGE_VERSION=latest
 
-FROM kontainapp/runenv-jdk-11.0.8:${RUNENV_IMAGE_VERSION}
-COPY scripts /scripts
-EXPOSE 8080
-CMD ["java", "-cp", "/scripts", "SimpleHttpServer"]
+FROM kontainapp/buildenv-dynamic-base-${DTYPE}:${BUILDENV_IMAGE_VERSION}
+ADD libc.so /opt/kontain/runtime/
+ADD km hello_test.kmd ./

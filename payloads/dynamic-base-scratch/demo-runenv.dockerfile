@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 ARG RUNENV_IMAGE_VERSION=latest
-
-FROM kontainapp/runenv-jdk-11.0.8:${RUNENV_IMAGE_VERSION}
-COPY scripts /scripts
-EXPOSE 8080
-CMD ["java", "-cp", "/scripts", "SimpleHttpServer"]
+FROM kontainapp/runenv-dynamic-base:${RUNENV_IMAGE_VERSION}
+COPY hello_test.kmd hello_test
+CMD ["hello_test", "Hello, World!", "I'm dynamic"]
