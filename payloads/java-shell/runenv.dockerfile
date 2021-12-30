@@ -15,7 +15,7 @@
 #
 ARG RUNENV_IMAGE_VERSION=latest
 
-FROM kontainapp/runenv-jdk-11:${RUNENV_IMAGE_VERSION} as java
+FROM kontainapp/runenv-jdk-11.0.8:${RUNENV_IMAGE_VERSION} as java
 
 FROM kontainapp/runenv-dynamic-base:${RUNENV_IMAGE_VERSION}
 ARG JAVA_DIR=/opt/kontain/java

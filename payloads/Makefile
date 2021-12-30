@@ -27,7 +27,7 @@ include ${TOP}/make/actions.mk
 
 demo-dweb python node dynamic-base dynamic-base-large: busybox
 
-java-shell: dynamic-base
+java-shell: dynamic-base java
 
 java: dynamic-base-scratch
 
