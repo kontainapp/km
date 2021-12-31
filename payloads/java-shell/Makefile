@@ -22,6 +22,8 @@ COMPONENT := jdk-shell-11.0.8
 PAYLOAD_NAME := ${COMPONENT}
 PAYLOAD_FILES :=
 
+CONTAINER_TEST_CMD := true
+
 test test-krun test-all:
 	@echo Skipping $@
 
