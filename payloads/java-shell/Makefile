@@ -13,10 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM kontainapp/runenv-jdk-shell-11.0.8:latest
-ARG TARGET_JAR_PATH
-COPY ${TARGET_JAR_PATH} /app.jar
-COPY run.sh run_snap.sh /
-EXPOSE 8080/tcp
-ENV KM_MGTPIPE=/tmp/km.sock
-CMD ["java", "-XX:-UseCompressedOops", "-jar", "/app.jar"]
+
+TOP := $(shell git rev-parse --show-toplevel)
+
+COMPONENT := jdk-shell-11.0.8
+
+# name to be added to label(s)
+PAYLOAD_NAME := ${COMPONENT}
+PAYLOAD_FILES :=
+
+CONTAINER_TEST_CMD := true
+
+test test-krun test-all:
+	@echo Skipping $@
+
+clean clobber:
+	@true
+
+RUNENV_VALIDATE_CMD := ("sh" "-c" "java -version")
+RUNENV_VALIDATE_EXPECTED := openjdk version
+
+include ${TOP}/make/images.mk
+
+RUNENV_TAG := java-shell-11 jdk-shell-11 ${COMPONENT}

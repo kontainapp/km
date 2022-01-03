@@ -27,7 +27,7 @@ CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD}
 TESTENV_EXTRA_FILES := ${TOP}/tests/hello_test.kmd
 
 test test-krun test-all:
-	@echo Skipping tests
+	@echo Skipping $@
 
 clean clobber:
 	@true

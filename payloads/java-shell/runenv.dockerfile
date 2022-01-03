@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM kontainapp/runenv-jdk-shell-11.0.8:latest
-ARG TARGET_JAR_PATH
-COPY ${TARGET_JAR_PATH} /app.jar
-COPY run.sh run_snap.sh /
-EXPOSE 8080/tcp
-ENV KM_MGTPIPE=/tmp/km.sock
-CMD ["java", "-XX:-UseCompressedOops", "-jar", "/app.jar"]
+ARG RUNENV_IMAGE_VERSION=latest
+
+FROM kontainapp/runenv-jdk-11.0.8:${RUNENV_IMAGE_VERSION} as java
+
+FROM kontainapp/runenv-dynamic-base:${RUNENV_IMAGE_VERSION}
+ARG JAVA_DIR=/opt/kontain/java
+ENV PATH ${JAVA_DIR}/bin:${PATH}
+ENV LD_LIBRARY_PATH ${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime
+COPY --from=java ${JAVA_DIR} ${JAVA_DIR}/

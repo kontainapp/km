@@ -13,10 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM kontainapp/runenv-jdk-shell-11.0.8:latest
-ARG TARGET_JAR_PATH
-COPY ${TARGET_JAR_PATH} /app.jar
-COPY run.sh run_snap.sh /
-EXPOSE 8080/tcp
-ENV KM_MGTPIPE=/tmp/km.sock
-CMD ["java", "-XX:-UseCompressedOops", "-jar", "/app.jar"]
+ARG DTYPE=fedora
+ARG BUILDENV_IMAGE_VERSION=latest
+
+FROM kontainapp/buildenv-dynamic-base-${DTYPE}:${BUILDENV_IMAGE_VERSION}
+ADD libc.so /opt/kontain/runtime/
+ADD km hello_test.kmd ./

@@ -18,7 +18,7 @@
 
 ARG RUNENV_IMAGE_VERSION=latest
 
-FROM kontainapp/runenv-dynamic-base:${RUNENV_IMAGE_VERSION}
+FROM kontainapp/runenv-dynamic-base-scratch:${RUNENV_IMAGE_VERSION}
 
 ARG JAVA_DIR=/opt/kontain/java
 ENV PATH ${JAVA_DIR}/bin:${PATH}
