@@ -28,7 +28,7 @@ PAYLOAD_KM := ${BUSYBOX_TOP}/_install/bin/busybox
 # name to be added to label(s)
 PAYLOAD_NAME := Busybox
 # a list to be passed to tar to be packed into container image
-PAYLOAD_FILES := busybox/_install run-test.sh run-all-tests.sh
+PAYLOAD_FILES := tmp -C busybox/_install .
 # Command to run tests in testenv-image container:
 CONTAINER_TEST_CMD := ./run-test.sh
 CONTAINER_TEST_ALL_CMD := ./run-all-tests.sh
@@ -69,7 +69,8 @@ RUNENV_VALIDATE_EXPECTED := Hello world
 RUNENV_TAG := ${COMPONENT}
 
 export define runenv_prep
-	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
-	mkdir -p $(RUNENV_PATH)/empty_tmp && rm -rf $(RUNENV_PATH)/empty_tmp/* && chmod a+rwx $(RUNENV_PATH)/empty_tmp
+	mkdir -p tmp && rm -rf tmp/* && chmod a+rwx tmp
+	tar -cf $(RUNENV_PATH)/bin.tar ${PAYLOAD_FILES}
+	cp ${CONTAINER_TEST_CMD} ${CONTAINER_TEST_ALL_CMD} ${RUNENV_PATH}
 endef
 include ${TOP}/make/images.mk
