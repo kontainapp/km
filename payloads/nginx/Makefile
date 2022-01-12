@@ -31,6 +31,8 @@ NGINX_OBJ_LOC = ${NGINX_TOP}/objs
 NGINX_EXECUTABLE = ${NGINX_OBJ_LOC}/nginx
 NGINX_KM = ${BLDDIR}/nginx.km
 
+include ${TOP}/make/images.mk
+
 all: ${NGINX_KM}
 
 fromsrc: ${NGINX_KM}  ## Clone the repo if needed, and build nginx (default)
@@ -67,6 +69,3 @@ DEP_PACKAGES := pcre-static
 		fi ; \
 		if [ -n "$$failed" ] ; then false ; fi \
 	done
-
-
-include ${TOP}/make/images.mk

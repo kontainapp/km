@@ -174,12 +174,12 @@ validate-runenv-image: ## Validate runtime image
 	tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
 	${DOCKER_RUN} ${DOCKER_INTERACTIVE} --init ${DOCKER_KRUN_RUNTIME} \
 	${RUNENV_DEMO_IMG_TAGGED} \
-	"$${tmp_bash_array[@]}" | grep "${RUNENV_VALIDATE_EXPECTED}"
+	"$${tmp_bash_array[@]}" 2>&1 | grep "${RUNENV_VALIDATE_EXPECTED}"
 	@-podman image rm ${RUNENV_DEMO_IMG_TAGGED} >/dev/null 2>&1
 	tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
 	${PODMAN_RUN_TEST} ${PODMAN_KRUN_RUNTIME} \
 	docker-daemon:${RUNENV_DEMO_IMG_TAGGED} \
-	"$${tmp_bash_array[@]}" | grep "${RUNENV_VALIDATE_EXPECTED}"
+	"$${tmp_bash_array[@]}" 2>&1 | grep "${RUNENV_VALIDATE_EXPECTED}"
 
 push-runenv-image:  runenv-image ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \

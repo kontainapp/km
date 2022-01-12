@@ -45,6 +45,16 @@ PAYLOAD_FILES := ${PAYLOAD_KM} \
 	dweb/text.txt\
 	dweb/basic.htm
 
+# runenv-image
+export define runenv_prep
+	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
+	mv $(RUNENV_PATH)/$(PAYLOAD_KM) $(basename $(RUNENV_PATH)/$(PAYLOAD_KM))
+endef
+RUNENV_VALIDATE_CMD := ("./dweb" "-x")
+RUNENV_VALIDATE_EXPECTED := I am DWEB
+
+include ${TOP}/make/images.mk
+
 .PHONY: all build clean
 all build:
 	${DOCKER_RUN_BUILD} \
@@ -83,15 +93,5 @@ dockerclean: ## Clean up results of 'make dockerdemo' if it was killed with ^C
 test-all: all ## Builds dweb all and runs simple test
 	@echo -en "Testing dweb.km start/stop"
 	@${KM_BIN} ${PAYLOAD_KM} -x | grep -q 'Exiting as requested' && echo ...passed
-
-# runenv-image
-export define runenv_prep
-	tar -cf - ${PAYLOAD_FILES} | tar -C $(RUNENV_PATH) -xf -
-	mv $(RUNENV_PATH)/$(PAYLOAD_KM) $(basename $(RUNENV_PATH)/$(PAYLOAD_KM))
-endef
-RUNENV_VALIDATE_CMD := ("./dweb" "-x")
-RUNENV_VALIDATE_EXPECTED := I am DWEB
-
-include ${TOP}/make/images.mk
 
 # endif

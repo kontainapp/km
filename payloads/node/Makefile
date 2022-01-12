@@ -42,6 +42,14 @@ PAYLOAD_NAME := NodeJs16.13
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools benchmark)
 
+# if something needs to be copied/modified before building runenv image in Docker,
+# define this function
+export define runenv_prep
+	cp ${PAYLOAD_KM} ${RUNENV_PATH}/$(basename $(notdir ${PAYLOAD_KM}))
+endef
+
+include ${TOP}/make/images.mk
+
 # Either run all in 'blank' container, or local.
 # in blank: link + tar + create shebang
 # fromsrc local: link + create shebang
@@ -99,12 +107,4 @@ BUILDENV_PATH  := ./scripts
 # Param for 'make validate-runenv-image'. Used to do a quick validation of runtime environment.
 RUNENV_VALIDATE_CMD := ("/scripts/hello.js")
 
-# if something needs to be copied/modified before building runenv image in Docker,
-# define this function
-export define runenv_prep
-	cp ${PAYLOAD_KM} ${RUNENV_PATH}/$(basename $(notdir ${PAYLOAD_KM}))
-endef
-
 RUNENV_TAG := node node-12 node-${VERS}
-
-include ${TOP}/make/images.mk

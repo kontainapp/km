@@ -33,6 +33,14 @@ PAYLOAD_FILES := tmp -C busybox/_install .
 CONTAINER_TEST_CMD := ./run-test.sh
 CONTAINER_TEST_ALL_CMD := ./run-all-tests.sh
 
+export define runenv_prep
+	mkdir -p tmp && rm -rf tmp/* && chmod a+rwx tmp
+	tar -cf $(RUNENV_PATH)/bin.tar ${PAYLOAD_FILES}
+	cp ${CONTAINER_TEST_CMD} ${CONTAINER_TEST_ALL_CMD} ${RUNENV_PATH}
+endef
+
+include ${TOP}/make/images.mk
+
 all build link: ${PAYLOAD_KM}
 
 $(PAYLOAD_KM): ${BUSYBOX_TOP}/.config
@@ -67,10 +75,3 @@ RUNENV_VALIDATE_CMD := ("/bin/sh" "-c" "echo Hello world!")
 RUNENV_VALIDATE_EXPECTED := Hello world
 
 RUNENV_TAG := ${COMPONENT}
-
-export define runenv_prep
-	mkdir -p tmp && rm -rf tmp/* && chmod a+rwx tmp
-	tar -cf $(RUNENV_PATH)/bin.tar ${PAYLOAD_FILES}
-	cp ${CONTAINER_TEST_CMD} ${CONTAINER_TEST_ALL_CMD} ${RUNENV_PATH}
-endef
-include ${TOP}/make/images.mk

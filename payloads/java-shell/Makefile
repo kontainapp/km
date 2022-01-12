@@ -24,6 +24,8 @@ PAYLOAD_FILES :=
 
 CONTAINER_TEST_CMD := true
 
+include ${TOP}/make/images.mk
+
 test test-krun test-all:
 	@echo Skipping $@
 
@@ -32,7 +34,5 @@ clean clobber:
 
 RUNENV_VALIDATE_CMD := ("sh" "-c" "java -version")
 RUNENV_VALIDATE_EXPECTED := openjdk version
-
-include ${TOP}/make/images.mk
 
 RUNENV_TAG := java-shell-11 jdk-shell-11 ${COMPONENT}
