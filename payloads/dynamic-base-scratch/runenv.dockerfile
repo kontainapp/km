@@ -17,4 +17,3 @@
 FROM scratch
 ENV KM_DO_SHELL NO
 ADD --chown=0:0 libs.tar /opt/kontain/
-ADD empty_tmp /tmp/

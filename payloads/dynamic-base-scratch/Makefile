@@ -20,13 +20,13 @@ COMPONENT := dynamic-base-scratch
 
 # name to be added to label(s)
 PAYLOAD_NAME := Dynamic-base-scratch
-PAYLOAD_FILES := -C /opt/kontain/ --exclude '*.a' --exclude '*c++*' runtime lib
+PAYLOAD_FILES := tmp -C /opt/kontain/ --exclude '*.a' --exclude '*c++*' runtime lib
 # Command to run tests in testenv-image container:
 CONTAINER_TEST_CMD := ./km hello_test.kmd Hello 'The One'
 CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD}
 TESTENV_EXTRA_FILES := ${TOP}/tests/hello_test.kmd
 
-test test-krun test-all:
+all test test-krun test-all:
 	@echo Skipping $@
 
 clean clobber:
@@ -38,8 +38,8 @@ RUNENV_VALIDATE_EXPECTED := Hello, World
 RUNENV_TAG := ${COMPONENT}
 
 export define runenv_prep
-	tar ${PAYLOAD_FILES} -czf ${RUNENV_PATH}/libs.tar
-	cp ${TOP}/tests/hello_test.kmd ${RUNENV_DEMO_PATH}
-	mkdir -p $(RUNENV_PATH)/empty_tmp && rm -rf $(RUNENV_PATH)/empty_tmp/* && chmod a+rwx $(RUNENV_PATH)/empty_tmp
+	mkdir -p tmp && rm -rf tmp/* && chmod a+rwx tmp
+	tar -czf ${RUNENV_PATH}/libs.tar ${PAYLOAD_FILES}
+	cp ${TESTENV_EXTRA_FILES} ${RUNENV_DEMO_PATH}
 endef
 include ${TOP}/make/images.mk
