@@ -168,7 +168,7 @@ jobs:
           chmod 755 /tmp/kontain_bin/container-runtime/krun
           cp /tmp/km_submodule_status/km_submodule_status /tmp/kontain_bin/km_submodule_status
           chmod 444 /tmp/kontain_bin/km_submodule_status
-          rm -f /tmp/kontain_bin/kkm.run
+          cp /tmp/kontain_dynamic_krun/kkm.run /tmp/kontain_bin/
           tar -C /tmp/kontain_bin -czvf /tmp/kontain_bin.tar.gz .
           #
           # Create uploadable artifact 'kontain' with 
