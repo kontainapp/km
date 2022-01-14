@@ -1308,7 +1308,11 @@ fi
 }
 
 @test "perf($test_type): measure time taken for dummy hypercall and page fault (perf_test$ext)" {
-   run km_with_timeout perf_test$ext
+   for i in $(seq 1 3); do # only fail if all 3 tries failed
+      echo pass $i
+      run km_with_timeout perf_test$ext
+      if [ $status == 0 ] ; then break; fi
+   done
    assert_success
 }
 
