@@ -22,12 +22,6 @@
 [submodule "lib/mimalloc/mimalloc"]
 	path = lib/mimalloc/mimalloc
 	url = ../mimalloc.git
-[submodule "demo/log4j/log4shell-vulnerable-app"]
-	path = demo/log4j/log4shell-vulnerable-app
-	url = git@github.com:kontainapp/log4shell-vulnerable-app.git
-[submodule "demo/log4j/JNDI-Exploit-Kit"]
-	path = demo/log4j/JNDI-Exploit-Kit
-	url = git@github.com:kontainapp/JNDI-Exploit-Kit.git
 [submodule "cloud/aws/amazon-eks-ami"]
 	path = cloud/aws/amazon-eks-ami
 	url = git@github.com:kontainapp/amazon-eks-ami.git
