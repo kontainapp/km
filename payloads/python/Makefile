@@ -75,6 +75,17 @@ export define link_cpython_km
 	./link-km.sh ${PYTHONTOP} cpython "$(foreach m,${CUSTOM_MODULES},@Modules/$m/linkline_km.txt)" "${CUSTOM_KM}"
 endef
 
+# Set info for runenv-image build
+
+RUNENV_ROOTFS_SCRIPT := runenv/rootfs.sh
+RUNENV_VALIDATE_CMD := ("python3" "scripts/sanity_test.py")
+
+export define runenv_prep
+	${RUNENV_ROOTFS_SCRIPT} ${PYTHONTOP} ${RUNENV_PATH} ${VERS} $(notdir ${PAYLOAD_KM})
+endef
+
+include ${TOP}/make/images.mk
+
 all:
 ifneq ($(FROMSRC),yes)
 	${DOCKER_RUN_BUILD} \
@@ -160,15 +171,4 @@ clobber: ## Clobber cpython build by removing cpython dir
 clobber-modules:
 	cd cpython; git clean -xdff Lib Modules
 
-# Set info for runenv-image build
-
-RUNENV_ROOTFS_SCRIPT := runenv/rootfs.sh
-RUNENV_VALIDATE_CMD := ("python3" "scripts/sanity_test.py")
-
-export define runenv_prep
-	${RUNENV_ROOTFS_SCRIPT} ${PYTHONTOP} ${RUNENV_PATH} ${VERS} $(notdir ${PAYLOAD_KM})
-endef
-
 RUNENV_TAG := python python-${VERS}
-
-include ${TOP}/make/images.mk

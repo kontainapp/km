@@ -26,19 +26,20 @@ CONTAINER_TEST_CMD := ./km hello_test.kmd Hello 'The One'
 CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD}
 TESTENV_EXTRA_FILES := ${TOP}/tests/hello_test.kmd
 
-test test-krun test-all:
-	@echo Skipping $@
+export define runenv_prep
+	tar ${PAYLOAD_FILES} -czf ${RUNENV_PATH}/libs.tar
+	cp ${TOP}/tests/hello_test.kmd ${RUNENV_DEMO_PATH}
+endef
 
-clean clobber:
-	@true
+include ${TOP}/make/images.mk
 
 RUNENV_VALIDATE_CMD := ("./hello_test" "Hello, World!")
 RUNENV_VALIDATE_EXPECTED := Hello, World
 
 RUNENV_TAG := ${COMPONENT}
 
-export define runenv_prep
-	tar ${PAYLOAD_FILES} -czf ${RUNENV_PATH}/libs.tar
-	cp ${TOP}/tests/hello_test.kmd ${RUNENV_DEMO_PATH}
-endef
-include ${TOP}/make/images.mk
+test test-krun test-all:
+	@echo Skipping $@
+
+clean clobber:
+	@true
