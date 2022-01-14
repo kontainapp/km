@@ -898,6 +898,7 @@ void km_start_vcpus()
    km_install_sighandler(KM_SIGVCPUSTOP, km_vcpu_pause_sighandler);
    km_install_sighandler(SIGPIPE, km_signal_passthru);
    km_install_sighandler(SIGIO, km_forward_sigio);
+   km_install_sighandler(SIGINT, km_signal_passthru);
    km_install_sighandler(SIGTERM, km_signal_passthru);
    km_install_sighandler(SIGHUP, km_signal_passthru);
    km_install_sighandler(SIGQUIT, km_signal_passthru);
