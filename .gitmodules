@@ -28,3 +28,9 @@
 [submodule "demo/log4j/JNDI-Exploit-Kit"]
 	path = demo/log4j/JNDI-Exploit-Kit
 	url = git@github.com:kontainapp/JNDI-Exploit-Kit.git
+[submodule "cloud/aws/amazon-eks-ami"]
+	path = cloud/aws/amazon-eks-ami
+	url = git@github.com:kontainapp/amazon-eks-ami.git
+[submodule "cloud/aws/amazon-ecs-ami"]
+	path = cloud/aws/amazon-ecs-ami
+	url = git@github.com:kontainapp/amazon-ecs-ami.git
