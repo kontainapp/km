@@ -2572,7 +2572,7 @@ static int km_internal_fd(int fd, int km_fd)
    }
    int newfd;
    if (km_fd == -1) {
-      newfd = dup2(fd, internal_fd++);
+      newfd = dup2(fd, __atomic_fetch_add(&internal_fd, 1, __ATOMIC_SEQ_CST));
       assert(newfd >= 0 && newfd < MAX_OPEN_FILES);
    } else {
       newfd = dup2(fd, km_fd);
