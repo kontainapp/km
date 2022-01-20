@@ -87,4 +87,7 @@ static inline km_filesys_t* km_fs()
    return machine.filesys;
 }
 
+int km_is_file_used(km_file_t *file);
+void km_set_file_used(km_file_t *file, int val);
+
 #endif   // !defined(__KM_FILESYS_PRIVATE_H__)

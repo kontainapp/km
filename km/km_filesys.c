@@ -76,6 +76,19 @@ static int km_fs_g2h_filename(const char* name, char* buf, size_t bufsz, km_file
 static int km_fs_g2h_readlink(const char* name, char* buf, size_t bufsz);
 
 /*
+ * Tells whether a file is inuse or not.
+ */
+int km_is_file_used(km_file_t *file)
+{
+   return (__atomic_load_n(&file->inuse, __ATOMIC_SEQ_CST) != 0);
+}
+
+void km_set_file_used(km_file_t *file, int val)
+{
+   __atomic_store_n(&file->inuse, val, __ATOMIC_SEQ_CST);
+}
+
+/*
  * Get file name for file descriptors that are not files - socket, pipe, and such
  */
 char* km_get_nonfile_name(int hostfd)

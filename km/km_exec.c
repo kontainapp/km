@@ -858,7 +858,7 @@ int km_exec_recover_guestfd(void)
       return 1;
    }
    for (int i = 0; i < execstatep->nfdmap; i++) {
-      if (execstatep->guestfds[i].inuse == 0) {
+      if (km_is_file_used(&execstatep->guestfds[i]) == 0) {
          continue;
       }
 
