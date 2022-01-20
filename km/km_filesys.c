@@ -172,7 +172,7 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
 {
    assert(fd >= 0 && fd < km_fs()->nfdmap);
    km_file_t* file = &km_fs()->guest_files[fd];
-   assert(file->inuse != 0);
+   assert(km_is_file_used(file) != 0);
    if (__atomic_exchange_n(&file->inuse, 0, __ATOMIC_SEQ_CST) != 0) {
       file->ops = NULL;
       if (file->name != NULL) {
@@ -1131,7 +1131,7 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    assert(name != NULL);
    ret = __syscall_3(SYS_dup3, host_fd, newfd, flags);
    if (ret >= 0) {
-      if (km_fs()->guest_files[ret].inuse != 0) {
+      if (km_is_file_used(&km_fs()->guest_files[ret]) != 0) {
          del_guest_fd(vcpu, ret);
       }
       ret = km_add_guest_fd(vcpu, ret, name, flags, ops);
@@ -1522,7 +1522,7 @@ static int km_fs_select_error(km_vcpu_t* vcpu, int nfds, fd_set* fds)
    for (int i = 0; i < nfds; i++) {
       if (FD_ISSET(i, fds)) {
          km_file_t* file = &km_fs()->guest_files[i];
-         if (file->inuse != 0 && file->error != 0) {
+         if (km_is_file_used(file) != 0 && file->error != 0) {
             FD_ZERO(fds);
             FD_SET(i, fds);
             return 1;
@@ -1705,7 +1705,7 @@ km_fs_event_check_errors(km_vcpu_t* vcpu, km_file_t* file, struct epoll_event* e
    int errors = 0;
    TAILQ_FOREACH (event, &file->events, link) {
       km_file_t* efile = &km_fs()->guest_files[event->fd];
-      if (efile->inuse != 0 && efile->error != 0) {
+      if (km_is_file_used(efile) != 0 && efile->error != 0) {
          events[errors].events = EPOLLERR | EPOLLHUP;
          events[errors].data = event->event.data;
          if (++errors >= maxevents) {
@@ -1802,7 +1802,7 @@ size_t km_fs_core_notes_length()
    size_t ret = 0;
    for (int i = 0; i < km_fs()->nfdmap; i++) {
       km_file_t* file = &km_fs()->guest_files[i];
-      if (file->inuse != 0) {
+      if (km_is_file_used(file) != 0) {
          if (file->how == KM_FILE_HOW_EVENTFD) {
             ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_eventfd_t);
             km_fs_event_t* ptr;
@@ -1978,7 +1978,7 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
 
    for (int i = 0; i < km_fs()->nfdmap; i++) {
       km_file_t* file = &km_fs()->guest_files[i];
-      if (file->inuse != 0) {
+      if (km_is_file_used(file) != 0) {
          size_t sz = 0;
          if (file->how == KM_FILE_HOW_EVENTFD) {
             sz = fs_core_write_eventfd(cur, remain, file, i);
@@ -2010,7 +2010,7 @@ static inline void km_fs_recover_fd(int guestfd, int hostfd, int flags, char* na
       close(hostfd);
    }
 
-   file->inuse = 1;
+   km_set_file_used(file, 1);
    file->how = how;
    file->flags = flags;
    file->name = strdup(name);
@@ -2060,7 +2060,7 @@ static inline int km_fs_recover_fdpair(int guestfd[2], int hostfd[2], int how[2]
 static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name)
 {
    km_file_t* file = &km_fs()->guest_files[nt_file->fd];
-   if (file->inuse != 0) {
+   if (km_is_file_used(file) != 0) {
       // Filled in by other side
       assert(file->ofd == nt_file->data);
       return 0;
@@ -2100,7 +2100,7 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
    }
 
    km_file_t* file = &km_fs()->guest_files[nt_sock->fd];
-   assert(file->inuse == 0);
+   assert(km_is_file_used(file) == 0);
 
    int host_fd = socket(nt_sock->domain, nt_sock->type, nt_sock->protocol);
    if (host_fd < 0) {
@@ -2206,7 +2206,7 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
    }
 
    km_file_t* file = &km_fs()->guest_files[nt_file->fd];
-   file->inuse = 1;
+   km_set_file_used(file, 1);
    file->flags = nt_file->flags;
    file->name = strdup(name);
 
@@ -2515,8 +2515,8 @@ int km_fs_init(void)
       // parent invocation - setup guest std file streams.
       for (int i = 0; i < 3; i++) {
          km_file_t* file = &km_fs()->guest_files[i];
-         assert(file->inuse != 1);
-         file->inuse = 1;
+         assert(km_is_file_used(file) == 0);
+         km_set_file_used(file, 1);
          file->ofd = -1;
          file->name = km_get_nonfile_name(i);
          int ispts = (strncmp(file->name, "/dev/pts/", 9) == 0);
@@ -2781,7 +2781,7 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
             nt_sock->type,
             nt_sock->protocol);
 
-   if (km_fs()->guest_files[nt_sock->fd].inuse != 0) {
+   if (km_is_file_used(&km_fs()->guest_files[nt_sock->fd]) != 0) {
       return 0;
    }
 
@@ -2894,7 +2894,7 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
    }
 
    km_file_t* file = &km_fs()->guest_files[nt_eventfd->fd];
-   if (file->inuse) {
+   if (km_is_file_used(file) != 0) {
       km_errx(2, "file %d in use. %s", nt_eventfd->fd, file->name);
    }
 
