@@ -68,7 +68,7 @@ jobs:
 
     - name: Build KM
       run: |
-        make -j
+        make -C km
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
