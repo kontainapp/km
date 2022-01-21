@@ -53,9 +53,10 @@ jobs:
     - name: Build KM
       run: |
         set -x
+        echo "---- Install libelf-dev----"
         sudo apt-get install libelf-dev -y
-        echo "---- Find clone_args ----"
-        find /usr/include -type f | xargs grep clone_args
+        echo "---- sched.h----"
+        cat /usr/include/linux/sched.h 
         echo "---- Start make ----"
         make -C km
 
