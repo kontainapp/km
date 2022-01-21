@@ -31,10 +31,24 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <linux/kvm.h>
-#ifdef __ASSEMBLY__
-#undef __ASSEMBLY__
-#endif
-#include <linux/sched.h>
+//#ifdef __ASSEMBLY__
+//#undef __ASSEMBLY__
+//#endif
+//#include <linux/sched.h>
+struct clone_args {
+        __aligned_u64 flags;
+        __aligned_u64 pidfd;
+        __aligned_u64 child_tid;
+        __aligned_u64 parent_tid;
+        __aligned_u64 exit_signal;
+        __aligned_u64 stack;
+        __aligned_u64 stack_size;
+        __aligned_u64 tls;
+        __aligned_u64 set_tid;
+        __aligned_u64 set_tid_size;
+        __aligned_u64 cgroup;
+};
+
 
 #include "bsd_queue.h"
 #include "km_elf.h"
