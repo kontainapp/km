@@ -52,9 +52,11 @@ jobs:
 
     - name: Build KM
       run: |
+        set -x
         sudo apt-get install libelf-dev -y
         echo "---- Find clone_args ----"
         find /usr/include -type f | xargs grep clone_args
+        echo "---- Start make ----"
         make -C km
 
     - name: Perform CodeQL Analysis
