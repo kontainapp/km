@@ -31,6 +31,9 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <linux/kvm.h>
+#ifdef __ASSEMBLY__
+#undef __ASSEMBLY__
+#endif
 #include <linux/sched.h>
 
 #include "bsd_queue.h"
