@@ -68,6 +68,7 @@ jobs:
 
     - name: Build KM
       run: |
+        sudo apt-get install libelf-dev -y
         make -C km
 
     - name: Perform CodeQL Analysis
