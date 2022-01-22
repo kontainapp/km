@@ -58,6 +58,9 @@ jobs:
         echo "---- sched.h----"
         cat /usr/include/linux/sched.h
         echo "---- Start make ----"
+        sudo mkdir -p /opt/kontain
+        sudo chmod 777 /opt/kontain
+        echo "---- Start make ----"
         make 
 
     - name: Perform CodeQL Analysis
