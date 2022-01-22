@@ -63,7 +63,7 @@ jobs:
         sudo mkdir -p /opt/kontain
         sudo chmod 777 /opt/kontain
         echo "---- Start make ----"
-        make 
+        make -C km
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
