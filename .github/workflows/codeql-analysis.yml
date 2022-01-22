@@ -58,7 +58,7 @@ jobs:
         echo "---- sched.h----"
         cat /usr/include/linux/sched.h
         echo "---- Start make ----"
-        make -C km
+        make 
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
