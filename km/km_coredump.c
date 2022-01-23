@@ -833,6 +833,7 @@ void km_dump_core(char* core_path,
 
    // Write the actual data.
    km_core_write(fd, notes_buffer, notes_length);
+   free(notes_buffer);
    km_infox(KM_TRACE_COREDUMP, "Dump executable");
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
       Elf64_Phdr* phdr = &km_guest.km_phdr[i];
