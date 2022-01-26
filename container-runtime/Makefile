@@ -46,7 +46,8 @@ all:	$(CRUNDIR)/Makefile .makefile_check
 	ln -f ${BLDDIR}/crun ${BLDDIR}/krun
 
 $(CRUNDIR)/Makefile:
-	cd $(CRUNDIR); ./autogen.sh; ./configure --disable-systemd
+	cd $(CRUNDIR); ./autogen.sh; ./configure
+#	cd $(CRUNDIR); ./autogen.sh; ./configure --disable-systemd
 
 # Run crun's tests
 test:	all
