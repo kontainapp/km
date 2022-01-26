@@ -118,7 +118,7 @@ void km_exec_fdtrace(char* tag, int fd)
    }
 
    file = &km_fs()->guest_files[fd];
-   if (file->inuse == 0) {
+   if (km_is_file_used(file) == 0) {
       return;
    }
 
@@ -197,7 +197,7 @@ char* km_exec_save_fd(char* varname)
 
    for (i = 0; i < machine.filesys->nfdmap; i++) {
       km_file_t* file = &km_fs()->guest_files[i];
-      if (file->inuse == 0) {
+      if (km_is_file_used(file) == 0) {
          continue;
       }
 
@@ -326,7 +326,7 @@ static void km_fs_destroy_fd(int fd)
    free(file->name);
    file->name = NULL;
 
-   file->inuse = 0;
+   km_set_file_used(file, 0);
 }
 
 static int km_exec_restore_file(int fd, int how, int flags, int index)
@@ -336,8 +336,8 @@ static int km_exec_restore_file(int fd, int how, int flags, int index)
    km_exec_get_file_pointer(fd, &file, NULL);
    TAILQ_INIT(&file->events);
 
-   assert(file->inuse == 0);
-   file->inuse = 1;
+   assert(km_is_file_used(file) == 0);
+   km_set_file_used(file, 1);
    file->how = how;
    file->flags = flags;
    file->ofd = -1;
@@ -376,8 +376,8 @@ static int km_exec_restore_eventfd(int fd, int flags)
    km_exec_get_file_pointer(fd, &file, NULL);
    TAILQ_INIT(&file->events);
 
-   assert(file->inuse == 0);
-   file->inuse = 1;
+   assert(km_is_file_used(file) == 0);
+   km_set_file_used(file, 1);
    file->how = KM_FILE_HOW_EVENTFD;
    file->flags = flags;
    file->ofd = -1;
@@ -398,7 +398,7 @@ static int km_exec_restore_pipe(int fd, int how, int flags, unsigned long ofd)
    km_exec_get_file_pointer(fd, &file, NULL);
    TAILQ_INIT(&file->events);
 
-   file->inuse = 1;
+   km_set_file_used(file, 1);
    file->how = how;
    file->flags = flags;
    file->ofd = ofd;
@@ -457,7 +457,7 @@ static int km_exec_restore_socketpair(int fd, int how, int ofd)
    km_exec_get_file_pointer(fd, &file, NULL);
    TAILQ_INIT(&file->events);
 
-   file->inuse = 1;
+   km_set_file_used(file, 1);
    file->how = how;
    file->flags = 0;
    file->ofd = ofd;
@@ -492,7 +492,7 @@ km_exec_restore_socket(int fd, int how, int state, int backlog, int ofd, km_fd_s
    km_exec_get_file_pointer(fd, &file, NULL);
    TAILQ_INIT(&file->events);
 
-   file->inuse = 1;
+   km_set_file_used(file, 1);
    file->how = how;
    file->flags = 0;
    file->ofd = ofd;
