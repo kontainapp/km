@@ -57,7 +57,7 @@ usermod -aG docker $USER
 #  need to defined in makefile and pass around as env
 
 # uncomment this to preinstall vagrant boxes
-# preinstall_boxes="generic/ubuntu2010 generic/fedora32"
+# preinstall_boxes="generic/ubuntu2004 generic/fedora32"
 for box in $preinstall_boxes
 do
    vagrant box add  $box --provider=virtualbox --box-version 3.2.24

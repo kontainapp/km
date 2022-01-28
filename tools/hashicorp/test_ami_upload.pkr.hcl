@@ -40,7 +40,7 @@ packer {
 variable "ova_name" {
   type        = string
   description = "name of OVA file to upload as AMI"
-  default     = "output_ova_ubuntu2010-kkm/ubuntu2010-kkm.ova"
+  default     = "output_ova_ubuntu2004-kkm/ubuntu2004-kkm.ova"
 }
 
 locals {

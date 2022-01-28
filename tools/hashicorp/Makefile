@@ -22,7 +22,7 @@ include ${TOP}/make/actions.mk
 all: vm-images
 
 # Use these boxes as sources for our boxes builds. (`generic/$os' is the box)
-SRC_OS := ubuntu2010 fedora32
+SRC_OS := ubuntu2004 fedora32
 # Note: SRC_OS needs to be synced with os_name in *pkrvars.hcl files
 ARTIFACTS := ${TOP}/build/kkm.run ${TOP}/build/kontain.tar.gz
 
@@ -34,13 +34,13 @@ product: ${ARTIFACTS} ## Prepares KM packaging artifacts (e.g. km tarball and kk
 	echo $(MAKE) MAKEFLAGS=$(MAKEFLAGS) -C ${TOP} release
 
 vm-images: .check_packer .check_tools product ## loads source boxes and creates boxes with KM installed
-	@set -x ; for os in ${SRC_OS} ; \
+	@set -ex ; for os in ${SRC_OS} ; \
 	do \
 		${PACKER_BUILD} -var-file box_images_templates/$$os.pkrvars.hcl box_images_templates ; \
 	done
 
 upload-boxes: .check_tools ## uploads pre-created boxes to vagrant cloud
-	for os in ${SRC_OS} ; \
+	@set -ex ; for os in ${SRC_OS} ; \
 	do \
 		vagrant cloud publish --force --no-private --release --description "$$os with Kontain installed" --short-description "$$os with KKM" \
 			kontain/$${os}-kkm-beta3 $${RELEASE_TAG#v} virtualbox output_box_$${os}/package.box ; \

@@ -198,7 +198,7 @@ Packer configs for creating vagrant box and AMI with KM preinstalled, and upload
 ./tools/hashicorp/aws_ami_templates/ubuntu-aws.pkr.hcl
 ./tools/hashicorp/aws_ami_templates/config.pkr.hcl
 ./tools/hashicorp/test_box_upload.pkr.hcl
-./tools/hashicorp/box_images_templates/ubuntu2010.pkrvars.hcl
+./tools/hashicorp/box_images_templates/ubuntu2004.pkrvars.hcl
 ./tools/hashicorp/box_images_templates/build_km_images.pkr.hcl
 ./tools/hashicorp/box_images_templates/fedora32.pkrvars.hcl
 ./tools/hashicorp/test_ami_upload.pkr.hcl
