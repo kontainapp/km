@@ -16,7 +16,7 @@ If you use containers for your application,
 but are sensitive to security, performance, scalability, and the cost of running your application in production,
 Kontain may be for you.
 
-For Developers wanting to use Kontain to package and run their applications, the user guide is located at:
+For Developers wanting to use Kontain to package and run their applications in Docker and Kubernetes, the user guide is located at:
 https://kontainapp.github.io/guide/
 
 
