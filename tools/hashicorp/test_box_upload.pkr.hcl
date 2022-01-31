@@ -17,7 +17,7 @@
 // to run: packer build <this_file_name>
 
 locals {
-  box       = "box/ubuntu2010-kkm.box" // Local box file name to upload to cloud
+  box       = "box/ubuntu2004-kkm.box" // Local box file name to upload to cloud
   box_tag   = "kontain/upload-test"    // Box to upload to - must already exist
   timestamp = regex_replace(timestamp(), "[- TZ:]", "")
 }

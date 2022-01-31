@@ -14,6 +14,6 @@
 # limitations under the License.
 #
 os = "ubuntu"
-os_name = "ubuntu2010"
-box_name = "generic/ubuntu2010"
+os_name = "ubuntu2004"
+box_name = "generic/ubuntu2004"
 box_version = "3.2.24"

@@ -21,7 +21,7 @@
 # cp files from /tmp
 # make sure Makefile does not try to build
 # move boxes pre-load to local shell provisioner from Makefile
-#      if (missing) vagrant box add generic/ubuntu2010 --provider=virtualbox
+#      if (missing) vagrant box add generic/ubuntu2004 --provider=virtualbox
 # pass GITHUB_TOKEN and VAGRANT_CLOUD_TOKEN
 # clone
 # preload proper boxes in base image

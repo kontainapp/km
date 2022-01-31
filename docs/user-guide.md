@@ -122,7 +122,7 @@ What’s in this section:
 For a quick and easy way to start exploring Kontain, we prepared Ubuntu and Fedora VMs in Vagrant Cloud: [https://app.vagrantup.com/kontain](https://app.vagrantup.com/kontain)
 We recommend that you run one of the prepared VMs.
 The Vagrant VM brings a fully functional Kontain environment onto your desktop or laptop and provides a stable platform for exploration and validation:
-*   Ubuntu 20.10 (or Fedora32)
+*   Ubuntu 20.04 (or Fedora32)
 *   Kontain pre-installed
 *   KKM (Kontain kernel module) to support nested virtualization
 *   Docker pre-installed and configured for use with Kontain
@@ -134,9 +134,9 @@ Prerequisite: Both [Vagrant](https://www.vagrantup.com/) and [VirtualBox](https:
     mkdir try-kontain
     cd try-kontain
     ```
-2. Run `kontain/ubuntu2010-kkm-beta3` (there is also `kontain/fedora32-kkm-beta3 if preferred`) from Vagrant Cloud:
+2. Run `kontain/ubuntu2004-kkm-beta3` (there is also `kontain/fedora32-kkm-beta3 if preferred`) from Vagrant Cloud:
     ```
-    vagrant init kontain/ubuntu2010-kkm-beta3 (or kontain/fedora32-kkm-beta3)
+    vagrant init kontain/ubuntu2004-kkm-beta3 (or kontain/fedora32-kkm-beta3)
     vagrant up --provider=virtualbox
     vagrant ssh
     ```
@@ -712,7 +712,7 @@ For more information about Kontain debugging, see this guide: [*Debugging Kontai
 
 ### Using a Kontain AMI on AWS
 
-For AWS non-metal installations, Kontain provides an AWS AMI with Ubuntu 20.10, Kontain, and Docker pre-installed. A KKM module (included) enables virtualization.
+For AWS non-metal installations, Kontain provides an AWS AMI with Ubuntu 20.04, Kontain, and Docker pre-installed. A KKM module (included) enables virtualization.
 
 This is a public AMI with the following attributes:
 

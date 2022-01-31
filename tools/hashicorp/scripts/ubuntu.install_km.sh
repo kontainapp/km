@@ -27,6 +27,7 @@ ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
 
 # Install Docker
 # docker repo
+apt-get update -y -q
 apt-get install -y -q apt-transport-https ca-certificates \
       curl gnupg-agent software-properties-common
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - 2>&1

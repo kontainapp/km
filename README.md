@@ -42,13 +42,13 @@ It also executes a smoke test of the unikernel virtual machine.
 Currently, the only way run Kontain on MacOS or Windows is to run it in a Linux VM[<sup>2</sup>](#2).
 To simplify running Kontain we provide pre-configured VMs available from Vagrant Cloud:
 
-* Ubuntu 20.10 – https://app.vagrantup.com/kontain/boxes/ubuntu2010-kkm-beta3
+* Ubuntu 20.04 – https://app.vagrantup.com/kontain/boxes/ubuntu2004-kkm-beta3
 * Fedora 32 – https://app.vagrantup.com/kontain/boxes/fedora32-kkm-beta3
 
 You’ll need Vagrant ([https://www.vagrantup.com](https://www.vagrantup.com))
 and VirtualBox ([https://www.VirtualBox.org](https://www.VirtualBox.org)) installed on your machine.
 
-Once the VM is up (`vagrant init kontain/ubuntu2010-kkm-beta3; vagrant up`) and logged in (`vagrant ssh`),
+Once the VM is up (`vagrant init kontain/ubuntu2004-kkm-beta3; vagrant up`) and logged in (`vagrant ssh`),
 you have Kontain installed and configured.
 
 ## Starting with Kontain
