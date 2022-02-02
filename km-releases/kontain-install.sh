@@ -27,7 +27,7 @@ set -e; [ "$TRACE" ] && set -x
 source /etc/os-release
 [ "$ID" != "fedora" -a "$ID" != "ubuntu" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
-readonly TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/current_release.txt)}
+readonly TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
 if [[ $TAG = latest ]] ; then
    readonly URL="https://github.com/kontainapp/km/releases/${TAG}/download/kontain.tar.gz"
 else
