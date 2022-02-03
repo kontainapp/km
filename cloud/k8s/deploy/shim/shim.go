@@ -31,7 +31,6 @@ package shim
 
 import (
 	"context"
-	"os"
 
 	"github.com/containerd/typeurl"
 	"github.com/containerd/containerd/runtime/v2/shim"
@@ -143,8 +142,7 @@ func (s *service) Connect(ctx context.Context, r *taskAPI.ConnectRequest) (*task
 
 // Shutdown is called after the underlying resources of the shim are cleaned up and the service can be stopped
 func (s *service) Shutdown(ctx context.Context, r *taskAPI.ShutdownRequest) (*ptypes.Empty, error) {
-	os.Exit(0)
-	return &ptypes.Empty{}, nil
+	return s.parent.Shutdown(ctx, r)
 }
 
 // Stats returns container level system stats for a container and its processes
