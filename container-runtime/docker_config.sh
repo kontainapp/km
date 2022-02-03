@@ -40,37 +40,37 @@ RESTART_DOCKER_FEDORA="systemctl restart docker.service "
 RESTART_DOCKER_UBUNTU="service docker restart"
 
 . /etc/os-release
-[ "$ID" != "fedora" -a "$ID" != "ubuntu" ] && echo "Unsupported linux distribution: $ID" && exit 1
+[ "$ID" != "fedora" -a "$ID" != "ubuntu" -a "$ID" != "amzn" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
 function restart_docker()
 {
-   local RESTART_DOCKER=RESTART_DOCKER_${ID^^}
-   echo "Restarting docker with: ${!RESTART_DOCKER}"
-   ${!RESTART_DOCKER}
+    local RESTART_DOCKER=RESTART_DOCKER_${ID^^}
+    echo "Restarting docker with: ${!RESTART_DOCKER}"
+    ${!RESTART_DOCKER}
 }
 
 # UNINSTALL
 if [ $# -eq 1 -a "$1" = "-u" ]; then
-   echo "Removing kontain docker config changes"
-   if [ "$DOCKERPATH" != "" ]; then
-      if [ -e $ETC_DAEMON_JSON.kontainsave ]; then
-         cp $ETC_DAEMON_JSON.kontainsave $ETC_DAEMON_JSON
-         rm -f $ETC_DAEMON_JSON.kontainsave
-      else
-         # No .kontainsave file, they didn't have a daemon.json file
-         rm -f $ETC_DAEMON_JSON
-      fi
-      restart_docker
-   fi
-   exit 0
+    echo "Removing kontain docker config changes"
+    if [ "$DOCKERPATH" != "" ]; then
+        if [ -e $ETC_DAEMON_JSON.kontainsave ]; then
+            cp $ETC_DAEMON_JSON.kontainsave $ETC_DAEMON_JSON
+            rm -f $ETC_DAEMON_JSON.kontainsave
+        else
+            # No .kontainsave file, they didn't have a daemon.json file
+            rm -f $ETC_DAEMON_JSON
+        fi
+        restart_docker
+    fi
+    exit 0
 fi
 
 # We configure docker to use krun here.  krun may need some packages that
 # are not installed by default.  We don't install them here but instead depend
 # on podman_config.sh to install them for us.
 if [ ! -e $ETC_DAEMON_JSON ]; then
-   # doesn't exist, create what we need
-   echo "$ETC_DAEMON_JSON does not exist, creating"
+    # doesn't exist, create what we need
+    echo "$ETC_DAEMON_JSON does not exist, creating"
    cat <<EOF >/tmp/daemon.json$$
 {
   "runtimes": {
@@ -80,28 +80,28 @@ if [ ! -e $ETC_DAEMON_JSON ]; then
   }
 }
 EOF
-   # get docker to ingest the new daemon.json file
-   mkdir -p `dirname $ETC_DAEMON_JSON`
-   cp /tmp/daemon.json$$ $ETC_DAEMON_JSON
-   rm -fr /tmp/daemon.json$$
-   restart_docker
+    # get docker to ingest the new daemon.json file
+    mkdir -p `dirname $ETC_DAEMON_JSON`
+    cp /tmp/daemon.json$$ $ETC_DAEMON_JSON
+    rm -fr /tmp/daemon.json$$
+    restart_docker
 else
-   # update existing file.  I've found if the file is not really json (it is an empty file),
-   # jq fails without returning an error.
-   cp $ETC_DAEMON_JSON $ETC_DAEMON_JSON.kontainsave
-   krun=`jq '.runtimes["krun"]' $ETC_DAEMON_JSON`
-   if test "$krun" = "null"
-   then
-      jq '.runtimes["krun"].path = "/opt/kontain/bin/krun"' $ETC_DAEMON_JSON >/tmp/daemon.json$$
-      cp /tmp/daemon.json$$ $ETC_DAEMON_JSON
-      # get docker to ingest the new daemon.json file
-      if test $? -eq 0
-      then
-         restart_docker
-      fi
-      rm -f /tmp/daemon.json$$
-   else
-      echo "krun already configured in $ETC_DAEMON_JSON"
-      echo "\"krun\": $krun"
-   fi
+    # update existing file.  I've found if the file is not really json (it is an empty file),
+    # jq fails without returning an error.
+    cp $ETC_DAEMON_JSON $ETC_DAEMON_JSON.kontainsave
+    krun=`jq '.runtimes["krun"]' $ETC_DAEMON_JSON`
+    if test "$krun" = "null"
+    then
+        jq '.runtimes["krun"].path = "/opt/kontain/bin/krun"' $ETC_DAEMON_JSON >/tmp/daemon.json$$
+        cp /tmp/daemon.json$$ $ETC_DAEMON_JSON
+        # get docker to ingest the new daemon.json file
+        if test $? -eq 0
+        then
+            restart_docker
+        fi
+        rm -f /tmp/daemon.json$$
+    else
+        echo "krun already configured in $ETC_DAEMON_JSON"
+        echo "\"krun\": $krun"
+    fi
 fi
