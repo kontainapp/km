@@ -25,7 +25,7 @@ set -e; [ "$TRACE" ] && set -x
 [ `id -u` != "0" ] && echo "Must run as root" && exit 1
 
 source /etc/os-release
-[ "$ID" != "fedora" -a "$ID" != "ubuntu" ] && echo "Unsupported linux distribution: $ID" && exit 1
+[ "$ID" != "fedora" -a "$ID" != "ubuntu" -a "$ID" != "amzn" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
 readonly TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
 if [[ $TAG = latest ]] ; then
