@@ -30,7 +30,7 @@ Note: If you need to build Kontain images with Dockerfile, please ensure that yo
 
 To install [<sup>1</sup>](#1) the latest Kontain release in a Linux system, run:
 ```bash
-curl -s https://raw.githubusercontent.com/kontainapp/km/latest/km-releases/kontain-install.sh | sudo bash
+curl -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/kontain-install.sh | sudo bash
 ```
 
 To install a release other than _latest_, for example _v0.9.0_, the URL is:
