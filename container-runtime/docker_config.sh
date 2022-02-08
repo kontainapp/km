@@ -38,6 +38,7 @@ KRUN_PATH=/opt/kontain/bin/krun
 
 RESTART_DOCKER_FEDORA="systemctl restart docker.service "
 RESTART_DOCKER_UBUNTU="service docker restart"
+RESTART_DOCKER_AMZN="systemctl restart docker.service "
 
 . /etc/os-release
 [ "$ID" != "fedora" -a "$ID" != "ubuntu" -a "$ID" != "amzn" ] && echo "Unsupported linux distribution: $ID" && exit 1
