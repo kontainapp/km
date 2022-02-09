@@ -145,19 +145,11 @@ jobs:
             /opt/kontain/bin/shim
           retention-days: 7
 
-      - name: capture submodules
-        run: git submodule status > /tmp/km_submodule_status
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: km_submodule_status
-          path: /tmp/km_submodule_status
-
 
   # Builds a static linked, stripped binary for krun/crun
   # This uses the NIX virtual machine, just like the crun CI.
   # NIX takes a long time, so we build the static krun binary in
-  # parallel with the rest of KM build and test. We just the 
+  # parallel with the rest of KM build and test.
   krun-static-build:
     name: Build static KRUN binary
     runs-on: ubuntu-20.04
@@ -187,12 +179,11 @@ jobs:
           path: /tmp/krun-static
 
 
-  # Build the k8s release artifact. Static KRUN is built separately and 
+  # Build the k8s release artifact. Static KRUN is built separately and
   # in parallel from the rest of KM. The k8s artifact contains:
-  #  km - km execuatble
-  #  containerd-shim-krun-v2 - cintainerd shim for krun
+  #  km - km executable
+  #  containerd-shim-krun-v2 - containerd shim for krun
   #  krun - krun executable
-  #  km_submodule_status - git submodule status for KM. Contains required KKM SHA.
   k8s-release-bin:
     name: make k8s release bundle
     runs-on: ubuntu-20.04
@@ -204,17 +195,12 @@ jobs:
           path: /tmp/km
       - uses: actions/download-artifact@v2
         with:
-          name: km_submodule_status
-          path: /tmp/km_submodule_status
-      - uses: actions/download-artifact@v2
-        with:
           name: krun-static
           path: /tmp/krun-static
       - run: |
           set -x
           mkdir /tmp/k8s-release-bin
           find /tmp/km
-          find /tmp/km_submodule_status
           find /tmp/krun-static
           mkdir -p /tmp/k8s-release-bin/km
           cp /tmp/km/km /tmp/k8s-release-bin/km/km
@@ -225,8 +211,6 @@ jobs:
           mkdir -p /tmp/k8s-release-bin/cloud/k8s/deploy/shim
           cp /tmp/km/shim/containerd-shim-krun-v2 /tmp/k8s-release-bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2
           chmod 755 /tmp/k8s-release-bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2
-          cp /tmp/km_submodule_status/km_submodule_status /tmp/k8s-release-bin/km_submodule_status
-          chmod 444 /tmp/k8s-release-bin/km_submodule_status
           tar -C /tmp/k8s-release-bin -czf /tmp/km-k8s-release-artifact.tar.gz .
       - uses: actions/upload-artifact@v2
         with:
@@ -498,7 +482,7 @@ jobs:
     - name: Install KKM
       run: sudo insmod kkm/kkm/kkm.ko
 
-    - name: Start minikube 
+    - name: Start minikube
       run: |
         minikube version
         minikube start --container-runtime=${{ matrix.runtime }} --driver=${{ matrix.driver }} --wait=all || minikube logs
@@ -516,7 +500,7 @@ jobs:
     #  run: |
     #    set -x
     #    kubectl get pod -A
-    #    kubectl logs -n kube-system -l app=kontain-init 
+    #    kubectl logs -n kube-system -l app=kontain-init
 
     - name: Run user test
       run: |

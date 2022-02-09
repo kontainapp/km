@@ -98,15 +98,6 @@ jobs:
             ./build/kkm.run
           retention-days: 7
 
-      - name: capture submodules
-        run: git submodule status > /tmp/km_submodule_status
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: km_submodule_status
-          path: /tmp/km_submodule_status
-          retention-days: 7
-
 
   # Builds a static linked, stripped binary for krun/crun
   # This uses the NIX virtual machine, just like the crun CI.
@@ -152,10 +143,6 @@ jobs:
           path: /tmp/kontain_dynamic_krun
       - uses: actions/download-artifact@v2
         with:
-          name: km_submodule_status
-          path: /tmp/km_submodule_status
-      - uses: actions/download-artifact@v2
-        with:
           name: krun-static
           path: /tmp/krun-static
       - run: |
@@ -166,10 +153,16 @@ jobs:
           tar -C /tmp/kontain_bin -xzf /tmp/kontain_dynamic_krun/kontain_bin.tar.gz
           cp /tmp/krun-static/krun.static /tmp/kontain_bin/container-runtime/krun
           chmod 755 /tmp/kontain_bin/container-runtime/krun
-          cp /tmp/km_submodule_status/km_submodule_status /tmp/kontain_bin/km_submodule_status
-          chmod 444 /tmp/kontain_bin/km_submodule_status
           cp /tmp/kontain_dynamic_krun/kkm.run /tmp/kontain_bin/
           tar -C /tmp/kontain_bin -czvf /tmp/kontain_bin.tar.gz .
+          #
+          # patch kontain.tar with static krun
+          mkdir -p /tmp/kontain
+          tar -C /tmp/kontain -xzf /tmp/kontain_dynamic_krun/kontain.tar.gz
+          cp /tmp/krun-static/krun.static /tmp/kontain/bin/crun
+          chmod 755 /tmp/kontain/bin/crun
+          # Note: skipping kkm.run
+          tar -C /tmp/kontain -czvf /tmp/kontain.tar.gz .
           #
           # Create uploadable artifact 'kontain' with
           mkdir -p /tmp/kontain
