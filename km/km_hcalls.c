@@ -107,7 +107,7 @@ static km_hc_ret_t arch_prctl_hcall(void* v, int hc, km_hc_args_t* arg)
          if (addr == NULL) {
             arg->hc_ret = -EFAULT;
          } else {
-            *(u_int64_t*)addr = vcpu->guest_thr;
+            *(uint64_t*)addr = vcpu->guest_thr;
             arg->hc_ret = 0;
          }
          break;

@@ -32,6 +32,7 @@
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -60,7 +61,7 @@ typedef struct {
    atomic_uint thread_started_count;
    atomic_uint thread_set_count;
    atomic_uint thread_verify_count;
-   u_int64_t features;
+   uint64_t features;
    child_t child[MAX_THREADS];
 } test_t;
 
@@ -77,26 +78,26 @@ test_t test;
 #define HI16_ZMM_TEST_REG_COUNT (16)
 
 typedef struct {
-   u_int64_t d0;
-   u_int64_t d1;
+   uint64_t d0;
+   uint64_t d1;
 } xmm_t;
 
 typedef struct {
-   u_int64_t d0;
-   u_int64_t d1;
-   u_int64_t d2;
-   u_int64_t d3;
+   uint64_t d0;
+   uint64_t d1;
+   uint64_t d2;
+   uint64_t d3;
 } ymm_t;
 
 typedef struct {
-   u_int64_t d0;
-   u_int64_t d1;
-   u_int64_t d2;
-   u_int64_t d3;
-   u_int64_t d4;
-   u_int64_t d5;
-   u_int64_t d6;
-   u_int64_t d7;
+   uint64_t d0;
+   uint64_t d1;
+   uint64_t d2;
+   uint64_t d3;
+   uint64_t d4;
+   uint64_t d5;
+   uint64_t d6;
+   uint64_t d7;
 } zmm_t;
 
 /*
@@ -115,23 +116,23 @@ typedef struct {
 
 void get_xtended_features()
 {
-   u_int32_t eax, edx;
-   u_int32_t ecx = 0;
+   uint32_t eax, edx;
+   uint32_t ecx = 0;
 
    asm volatile("xgetbv" : "=a"(eax), "=d"(edx) : "c"(ecx));
-   test.features = ((u_int64_t)edx << 32) | eax;
+   test.features = ((uint64_t)edx << 32) | eax;
 }
 
-u_int64_t get_value(u_int32_t index, u_int32_t value)
+uint64_t get_value(uint32_t index, uint32_t value)
 {
-   return ((u_int64_t)index << 32) | value;
+   return ((uint64_t)index << 32) | value;
 }
 
 void set_xtended_registers(child_t* cptr)
 {
    if (test.features & X87) {
       /* Floating point and MMX */
-      u_int64_t mmx_values[MMX_REG_COUNT];
+      uint64_t mmx_values[MMX_REG_COUNT];
 
       for (int index = 0; index < MMX_REG_COUNT; index++) {
          mmx_values[index] = get_value(cptr->index, index);
@@ -241,7 +242,7 @@ void set_xtended_registers(child_t* cptr)
 void verify_xtended_registers(child_t* cptr)
 {
    if (test.features & X87) {
-      u_int64_t mmx_values[MMX_REG_COUNT];
+      uint64_t mmx_values[MMX_REG_COUNT];
 
       __asm__ volatile("movq %%mm0, (%0)\n"
                        "movq %%mm1, 0x8(%0)\n"
@@ -254,7 +255,7 @@ void verify_xtended_registers(child_t* cptr)
                        :
                        : "r"(mmx_values));
       for (int index = 0; index < MMX_REG_COUNT; index++) {
-         u_int64_t expected = get_value(cptr->index, index);
+         uint64_t expected = get_value(cptr->index, index);
          if (mmx_values[index] != expected) {
             cptr->failed_count++;
          }
@@ -271,7 +272,7 @@ void verify_xtended_registers(child_t* cptr)
                        :
                        : "r"(xmm_values));
       for (int index = 0; index < SSE_TEST_REG_COUNT; index++) {
-         u_int64_t expected = get_value(cptr->index, index);
+         uint64_t expected = get_value(cptr->index, index);
          if ((xmm_values[index].d1 != expected) || (xmm_values[index].d0 != expected)) {
             cptr->failed_count++;
          }
@@ -286,7 +287,7 @@ void verify_xtended_registers(child_t* cptr)
                        :
                        : "r"(xmm_values));
       for (int index = 0; index < AVX_TEST_REG_COUNT; index++) {
-         u_int64_t expected = get_value(cptr->index, index);
+         uint64_t expected = get_value(cptr->index, index);
          if ((xmm_values[index].d1 != expected) || (xmm_values[index].d0 != expected)) {
             cptr->failed_count++;
          }
@@ -299,7 +300,7 @@ void verify_xtended_registers(child_t* cptr)
                        :
                        : "r"(ymm_values));
       for (int index = 0; index < AVX_TEST_REG_COUNT; index++) {
-         u_int64_t expected = get_value(cptr->index, index);
+         uint64_t expected = get_value(cptr->index, index);
          if ((ymm_values[index].d3 != expected) || (ymm_values[index].d2 != expected) ||
              (ymm_values[index].d1 != expected) || (ymm_values[index].d0 != expected)) {
             cptr->failed_count++;
@@ -317,7 +318,7 @@ void verify_xtended_registers(child_t* cptr)
                        :
                        : "r"(zmm_values));
       for (int index = 0; index < ZMM_HI256_TEST_REG_COUNT; index++) {
-         u_int64_t expected = get_value(cptr->index, index);
+         uint64_t expected = get_value(cptr->index, index);
          if ((zmm_values[index].d7 != expected) || (zmm_values[index].d6 != expected) ||
              (zmm_values[index].d5 != expected) || (zmm_values[index].d4 != expected) ||
              (zmm_values[index].d3 != expected) || (zmm_values[index].d2 != expected) ||
@@ -349,7 +350,7 @@ void verify_xtended_registers(child_t* cptr)
                        :
                        : "r"(zmm_values));
       for (int index = 0; index < HI16_ZMM_TEST_REG_COUNT; index++) {
-         u_int64_t expected = get_value(cptr->index, index);
+         uint64_t expected = get_value(cptr->index, index);
          if ((zmm_values[index].d7 != expected) || (zmm_values[index].d6 != expected) ||
              (zmm_values[index].d5 != expected) || (zmm_values[index].d4 != expected) ||
              (zmm_values[index].d3 != expected) || (zmm_values[index].d2 != expected) ||
@@ -391,7 +392,7 @@ void* child_thread(void* arg)
    /* wait for all threads to complete verifcation */
    synchronize_threads(cptr, &test.thread_verify_count);
 
-   return (void*)(u_int64_t)cptr->index;
+   return (void*)(uint64_t)cptr->index;
 }
 
 TEST test_context_switch(void)

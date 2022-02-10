@@ -39,7 +39,7 @@
 #include "x86_cpu.h"
 
 // Set CPUID VendorId to this. 12 chars max (sans \0) to fit in 3 register: ebx,ecx,edx
-static const char cpu_vendor_id[3 * sizeof(u_int32_t) + 1] = "Kontain";
+static const char cpu_vendor_id[3 * sizeof(uint32_t) + 1] = "Kontain";
 int set_cpu_vendor_id;
 
 km_machine_t machine = {
@@ -673,9 +673,9 @@ void km_machine_setup(km_machine_init_params_t* params)
          case 0x0:
             if (set_cpu_vendor_id != 0) {
                km_infox(KM_TRACE_KVM, "Setting VendorId to '%s'", cpu_vendor_id);
-               memcpy(&entry->ebx, cpu_vendor_id, sizeof(u_int32_t));
-               memcpy(&entry->edx, cpu_vendor_id + sizeof(u_int32_t), sizeof(u_int32_t));
-               memcpy(&entry->ecx, cpu_vendor_id + 2 * sizeof(u_int32_t), sizeof(u_int32_t));
+               memcpy(&entry->ebx, cpu_vendor_id, sizeof(uint32_t));
+               memcpy(&entry->edx, cpu_vendor_id + sizeof(uint32_t), sizeof(uint32_t));
+               memcpy(&entry->ecx, cpu_vendor_id + 2 * sizeof(uint32_t), sizeof(uint32_t));
             }
             break;
       }

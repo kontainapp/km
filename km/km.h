@@ -359,7 +359,8 @@ typedef struct km_machine {
       int dummy;
    } vmtype_u;
 
-   u_int64_t xcr0;
+   uint64_t xcr0;
+   int overcommit_memory; // controls how we request memory for payload from Linux
 } km_machine_t;
 
 extern km_machine_t machine;

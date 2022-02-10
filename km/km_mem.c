@@ -101,7 +101,7 @@ static void pdpte_1g_set(x86_pdpte_1g_t* pdpe, uint64_t addr)
    pdpe->page = addr >> 30;
 }
 
-static void pde_2mb_set(x86_pde_2m_t* pde, u_int64_t addr)
+static void pde_2mb_set(x86_pde_2m_t* pde, uint64_t addr)
 {
    pde->r_w = 1;
    pde->u_s = 1;
@@ -396,12 +396,10 @@ static void init_pml4(km_kma_t mem)
    pdpte_set(&pt->pdpt2[idx], (uint64_t)pt_phys->pd2);
 }
 
-static int overcommit_memory;   // controls how we request memory for payload from Linux
-
 static void* km_guest_page_malloc(km_gva_t gpa_hint, size_t size, int prot)
 {
    km_kma_t addr;
-   int flags = MAP_PRIVATE | MAP_ANONYMOUS | (overcommit_memory == 1 ? MAP_NORESERVE : 0);
+   int flags = MAP_PRIVATE | MAP_ANONYMOUS | (machine.overcommit_memory == 1 ? MAP_NORESERVE : 0);
 
    if ((size & (KM_PAGE_SIZE - 1)) != 0 || (gpa_hint & (KM_PAGE_SIZE - 1)) != 0) {
       errno = EINVAL;
@@ -429,7 +427,7 @@ void km_mem_init(km_machine_init_params_t* params)
    kvm_mem_reg_t* reg;
    void* ptr;
 
-   overcommit_memory = (params->overcommit_memory == KM_FLAG_FORCE_ENABLE);
+   machine.overcommit_memory = (params->overcommit_memory == KM_FLAG_FORCE_ENABLE);
    reg = &machine.vm_mem_regs[KM_RSRV_MEMSLOT];
    if ((ptr = km_guest_page_malloc(RSV_MEM_START, RSV_MEM_SIZE, PROT_READ | PROT_WRITE)) == NULL) {
       km_err(1, "KVM: no memory for reserved pages");
