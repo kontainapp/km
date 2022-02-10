@@ -16,6 +16,7 @@
 
 #define _GNU_SOURCE
 #include <err.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -28,7 +29,7 @@
 
 static const int count = 100;
 
-static inline u_int64_t nsecs(struct timespec ts)
+static inline uint64_t nsecs(struct timespec ts)
 {
    return ts.tv_sec * 1000000000l + ts.tv_nsec;
 }

@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,13 +52,13 @@ typedef struct {
    struct {   // data collected with clock_gettime(CLOCK_PROCESS_CPUTIME_ID)
       struct timespec start;
       struct timespec end;
-      u_int64_t nsec_consumed;
+      uint64_t nsec_consumed;
       float calibrate;   // total for calibration  run
    } clock_process;
    struct {   // data collected with clock_gettime(CLOCK_THREAD_CPUTIME_ID)
       struct timespec start;
       struct timespec end;
-      u_int64_t nsec_consumed;
+      uint64_t nsec_consumed;
       float calibrate;   // total for calibration  run
    } clock_thread;
 } sample_t;
@@ -97,7 +98,7 @@ TEST validate_time(char* name, sample_t* s, int ratio)
 {
    float user_sec, system_sec;
    float total_times, total_clock_process, total_clock_thread;
-   u_int64_t start_nsec, end_nsec;
+   uint64_t start_nsec, end_nsec;
 
    // times() accounting
    user_sec = ((float)s->times.end.tms_utime - s->times.start.tms_utime) / s->times.ticks_per_sec;
