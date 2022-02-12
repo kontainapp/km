@@ -46,6 +46,7 @@ jobs:
       uses: github/codeql-action/init@v1
       with:
         languages: ${{ matrix.language }}
+        queries: security-and-quality
 
     - run: |
        make -C km all
