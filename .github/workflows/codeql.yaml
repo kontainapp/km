@@ -9,7 +9,7 @@
 # the `language` matrix defined below to confirm you have the correct set of
 # supported CodeQL languages.
 #
-name: "CodeQL-KM"
+name: "CodeQL_KM"
 
 on:
   push:
@@ -29,8 +29,8 @@ jobs:
       contents: read
       security-events: write
 
-   container:
-     image: kontainapp/buildenv-km-fedora:latest
+    container:
+      image: kontainapp/buildenv-km-fedora:latest
 
     strategy:
       fail-fast: false
