@@ -48,7 +48,6 @@ jobs:
         languages: ${{ matrix.language }}
 
     - run: |
-       mkdir -p /opt/kontain/bin
        make -C km all
 
     - name: Perform CodeQL Analysis
