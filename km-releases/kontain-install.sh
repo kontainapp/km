@@ -102,9 +102,12 @@ function check_prereqs {
    elif [ ! -w /dev/kvm ]; then
       warning "KVM module is present but /dev/kvm is missing or not writeable"
    else
-      validate=1
+     # set 0666 permissions on /dev/kvm
+     echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
+     mv /tmp/rules /etc/udev/rules.d/99-perm.rules
+     udevadm control --reload-rules && sudo udevadm trigger
+     validate=1
    fi
-
 }
 
 function get_bundle {
