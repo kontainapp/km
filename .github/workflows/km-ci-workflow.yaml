@@ -514,6 +514,41 @@ jobs:
         echo "${rname}" | grep -q -e '.*\.kontain\.KKM$' || exit 1
         echo "Kontain Runtime OK".
 
+  codeql-scan:
+    # CodeQL Code Scanning/Static Analysis
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    container:
+      image: kontainapp/buildenv-km-fedora:latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'cpp' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+        languages: ${{ matrix.language }}
+        # TODO: Enable enhanced security checks.
+        # queries: security-extended
+
+    - run: |
+       make -C km all
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v1
+
   slack-workflow-status:
     name: Notify slack, if needed
     runs-on: ubuntu-latest
@@ -522,7 +557,7 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-build, krun-static-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all, minikube-testing]
+    needs: [km-build, krun-static-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all, minikube-testing, codeql-scan]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
