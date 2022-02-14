@@ -603,8 +603,8 @@ jobs:
       uses: github/codeql-action/init@v1
       with:
         languages: ${{ matrix.language }}
-        # TODO: Enable enhanced security checks.
-        # queries: security-extended
+        # enhanced security checks.
+        queries: security-extended
 
     - run: |
        make -C km all
