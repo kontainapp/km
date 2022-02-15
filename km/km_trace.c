@@ -64,7 +64,7 @@ static inline void km_trace_open_log_on_demand(void)
  * which we feed to fputs() in the hope that trace lines are not broken when multiple threads are
  * tracing concurrently.
  */
-void __km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
+void __km_trace(int errnum, const char* function, int linenumber, const char* fmt, va_list ap)
 {
    char traceline[512];
    char threadname[16];
@@ -72,11 +72,8 @@ void __km_trace(int errnum, const char* function, int linenumber, const char* fm
    struct timespec ts;
    struct tm tm;
    char* p;
-   va_list ap;
 
    km_trace_open_log_on_demand();
-
-   va_start(ap, fmt);
 
    km_getname_np(pthread_self(), threadname, sizeof(threadname));
    clock_gettime(CLOCK_REALTIME, &ts);
