@@ -70,7 +70,6 @@ static const_string_t fx = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
       km_warnx(fmt, ##__VA_ARGS__, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2); \
    } while (0)
 
-#define run_warn(__f, ...) __run_warn(vcpu, __f, ##__VA_ARGS__)
 
 // only show this for verbose ('-V') runs
 #define run_info(__f, ...)                                                                         \
@@ -85,6 +84,13 @@ static const_string_t fx = "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx ";
                                  regexec(&km_info_trace.tags, KM_TRACE_KVM, 0, NULL, 0) == 0))     \
          __run_warn(vcpu, __f, ##__VA_ARGS__);                                                     \
    } while (0)
+
+static inline void run_warn(const char *fmt, ...)
+{
+  va_list args;
+  va_start(args, fmt);
+  km_warnx_va(fmt, args);
+}
 
 static const char* kvm_reason_name(int reason)
 {

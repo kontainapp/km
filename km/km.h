@@ -577,6 +577,11 @@ static inline void km_warnx(const char *fmt, ...)
   __km_trace(0, __FUNCTION__, __LINE__, fmt, ap);
 }
 
+static inline void km_warnx_va(const char *fmt, va_list ap)
+{
+  __km_trace(0, __FUNCTION__, __LINE__, fmt, ap);
+}
+
 __attribute__((__format__(__printf__, 1, 2)))
 static inline void km_warn(const char *fmt, ...)
 {
