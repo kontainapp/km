@@ -63,7 +63,7 @@ typedef struct {
 } km_file_ops_t;
 
 typedef struct {
-   char* const pattern;
+   const char* const pattern;
    km_file_ops_t ops;
    regex_t regex;
 } km_filename_table_t;
