@@ -815,7 +815,7 @@ void km_dump_core(char* core_path,
    km_gva_t end_load = 0;
    int phnum = km_core_count_phdrs(vcpu, &end_load);
 
-   if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0666)) < 0) {
+   if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0600)) < 0) {
       km_err(2, "Cannot open corefile '%s', exiting", core_path);
    }
    km_warnx("Write %s to '%s'", dumptype == KM_DO_SNAP ? "snapshot" : "coredump", core_path);
