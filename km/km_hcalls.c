@@ -932,6 +932,19 @@ static km_hc_ret_t access_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t faccessat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int faccessat(int dirfd, const char *pathname, int mode, int flags);
+   void* pathname = km_gva_to_kma(arg->arg2);
+   if (pathname == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
+   arg->hc_ret = km_fs_faccessat(vcpu, arg->arg1, pathname, arg->arg3, arg->arg4);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t dup_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int dup(int oldfd);
@@ -1957,6 +1970,30 @@ static km_hc_ret_t sched_yield_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t inotify_init_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int inotify_init(void);
+   km_warnx("Unsupported call inotify_init");
+   arg->hc_ret = -ENOTSUP;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t inotify_init1_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int inotify_init1(int flags);
+   km_warnx("Unsupported call inotify_init1");
+   arg->hc_ret = -ENOTSUP;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t mlock_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int mlock(const void *addr, size_t len);
+   km_warnx("Unsupported call mlock");
+   arg->hc_ret = -ENOTSUP;
+   return HC_CONTINUE;
+}
+
 km_hc_stats_t* km_hcalls_stats;
 const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_arch_prctl] = arch_prctl_hcall,
@@ -2052,6 +2089,7 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_epoll_wait] = epoll_wait_hcall,
     [SYS_epoll_pwait] = epoll_pwait_hcall,
     [SYS_access] = access_hcall,
+    [SYS_faccessat] = faccessat_hcall,
     [SYS_dup] = dup_hcall,
     [SYS_dup2] = dup2_hcall,
     [SYS_dup3] = dup3_hcall,
@@ -2125,6 +2163,10 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
 
     [SYS_mknodat] = mknodat_hcall,
     [SYS_newfstatat] = newfstatat_hcall,
+
+    [SYS_inotify_init] = inotify_init_hcall,
+    [SYS_inotify_init1] = inotify_init1_hcall,
+    [SYS_mlock] = mlock_hcall,
 
     [HC_guest_interrupt] = guest_interrupt_hcall,
     [HC_unmapself] = unmapself_hcall,

@@ -179,6 +179,8 @@ uint64_t km_fs_statfs(km_vcpu_t* vcpu, char* pathname, struct statfs* statbuf);
 uint64_t km_fs_fstatfs(km_vcpu_t* vcpu, int fd, struct statfs* statbuf);
 // int access(const char *pathname, int mode);
 uint64_t km_fs_access(km_vcpu_t* vcpu, const char* pathname, int mode);
+// int faccessat(int dirfd, const char *pathname, int mode, int flags);
+uint64_t km_fs_faccessat(km_vcpu_t* vcpu, int dirfd, const char* pathname, int mode, int flags);
 // int dup(int oldfd);
 uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd);
 // int dup2(int oldfd, int newfd);
