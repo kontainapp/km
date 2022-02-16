@@ -156,7 +156,11 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    if (at_random != 0) {
       NEW_AUXV_ENT(AT_RANDOM, at_random);
    }
-   NEW_AUXV_ENT(AT_SECURE, 0);
+   /*
+    * AT_SECURE=1 disables LD_PRELOAD, which is a huge security hole. The Linux
+    * kernel sets this for SUID programs. We set it for everyone.
+    */
+   NEW_AUXV_ENT(AT_SECURE, 1);
    NEW_AUXV_ENT(AT_EGID, 0);
    NEW_AUXV_ENT(AT_GID, 0);
    NEW_AUXV_ENT(AT_EUID, 0);

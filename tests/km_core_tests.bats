@@ -506,17 +506,6 @@ fi
    assert_success
    assert_line --partial "exe = '"
    wait_and_check $pid $(( $signal_flag + 11)) # expect KM to exit with SIGSEGV
-
-   # test for symbols from a shared library brought in by dlopen()
-   km_with_timeout -g$km_gdb_port --putenv="LD_LIBRARY_PATH=`pwd`" gdb_sharedlib2_test$ext &
-   pid=$!
-   run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
-      --ex="source cmd_for_sharedlib2_test.gdb" --ex=q
-   assert_success
-   assert_line --regexp "Yes         target:.*/dlopen_test_lib.so"
-   assert_line --partial "Dump of assembler code for function do_function"
-   assert_line --partial "Hit the breakpoint at do_function"
-   wait_and_check $pid 0
 }
 
 #
