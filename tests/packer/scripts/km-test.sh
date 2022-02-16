@@ -18,7 +18,7 @@
 # Script to run km tests or validate-runenv-images, depending on ${TARGET}.
 # Intented to run on a remote VM and is controlled by the env vars below
 
-[ "$TRACE" ] && set -x
+set -x
 
 # 1. Check parameters and prep environment
 
