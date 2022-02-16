@@ -78,12 +78,12 @@ static int km_fs_g2h_readlink(const char* name, char* buf, size_t bufsz);
 /*
  * Tells whether a file is inuse or not.
  */
-int km_is_file_used(km_file_t *file)
+int km_is_file_used(km_file_t* file)
 {
    return (__atomic_load_n(&file->inuse, __ATOMIC_SEQ_CST) != 0);
 }
 
-void km_set_file_used(km_file_t *file, int val)
+void km_set_file_used(km_file_t* file, int val)
 {
    __atomic_store_n(&file->inuse, val, __ATOMIC_SEQ_CST);
 }
@@ -1077,6 +1077,25 @@ uint64_t km_fs_access(km_vcpu_t* vcpu, const char* pathname, int mode)
       pathname = buf;
    }
    ret = __syscall_2(SYS_access, (uintptr_t)pathname, mode);
+   return ret;
+}
+
+// int faccessat(int dirfd, const char *pathname, int mode, int flags);
+uint64_t km_fs_faccessat(km_vcpu_t* vcpu, int dirfd, const char* pathname, int mode, int flags)
+{
+   int ret = km_fs_at(dirfd, pathname);
+   if (ret < 0) {
+      return ret;
+   }
+   char buf[PATH_MAX];
+   ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), NULL);
+   if (ret < 0) {
+      return ret;
+   }
+   if (ret > 0) {
+      pathname = buf;
+   }
+   ret = __syscall_4(SYS_faccessat, dirfd, (uintptr_t)pathname, mode, flags);
    return ret;
 }
 
