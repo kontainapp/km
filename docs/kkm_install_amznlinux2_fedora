@@ -1,0 +1,31 @@
+# Installing KKM using kkm.run consistently on Amazon Linux 2 and Fedora
+Fedora and Amazon Linux 2 download updates for a more recent kernel rather than current default kernel.  
+
+When running an install for KKM using kkm.run that builds using current kernel headers, this consistently leads to errors because updates downloaded are for a different kernel, version rather than the one currently installed.
+
+Running yum update without updating the kernel level and also downloading the kernel headers for currently installed kernel rather than a recent kernel.
+This prevents errors that pop up during the build with header locations when building KKM on target system.
+
+For Amazon Linux 2:
+```shell
+yum install -y "kernel-devel-uname-r == $(uname -r)" yum-utils
+# update without updating kernel (IMPORTANT FOR KKM)
+yum -y --exclude=kernel* update
+
+# check if it needs rebooting while yum not running
+(test ! -f /var/run/yum.pid && needs-restarting -r) || (reboot)
+```
+
+For Fedora:
+```shell
+# install kernel-devel for current package
+sudo dnf install -y "kernel-devel-uname-r == $(uname -r)" dnf-utils
+# update without updating kernel (IMPORTANT FOR KKM)
+sudo dnf -y --exclude=kernel* update
+
+# check if it needs rebooting while yum not running
+# ensure that cloud-init runs again after reboot by removing the instance record created
+(test ! -f /var/cache/dnf/*pid && needs-restarting -r) || (reboot)
+```
+
+If you now run kkm.run, it will build and install KKM.
