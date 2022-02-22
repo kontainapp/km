@@ -63,10 +63,9 @@ data:
     EOT
     fi
 
-    # [ -c /root/dev/kkm ] && chmod 666 /root/dev/kkm
+    [ -c /root/dev/kkm ] && chmod 666 /root/dev/kkm
 
-    # echo "restart containerd"
-    # chroot /root systemctl --no-block daemon-reload
+    echo "restart containerd"
     systemctl restart containerd
 
     sleep infinity

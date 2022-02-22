@@ -26,8 +26,7 @@ data:
     #!/usr/bin/env bash
 
     # This will get overridden be ENV definition in kontain-deploy.yaml
-    # KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://github.com/kontainapp/km/releases/download/v0.1-test/kontain_bin.tar.gz}"
-    KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://guide-assets.s3.us-west-2.amazonaws.com/downloads/kontain_bin.tar.gz}"
+    KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://github.com/kontainapp/km/releases/download/v0.9.5/kontain_bin.tar.gz}"
     
     function install_kontain_artifacts() {
       ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
@@ -45,6 +44,8 @@ data:
       cp /root/kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /root/usr/local/bin/containerd-shim-krun-v2
       chmod +x /root/usr/local/bin/containerd-shim-krun-v2
 
-      # chmod +x /root/kontain-artifacts/kkm.run
-      # chroot /root /kontain-artifacts/kkm.run -- --force-install
+      chmod +x /root/kontain-artifacts/kkm.run
+      # we use chroot here because the host is rooted at /root 
+      # and kkm install looks for sudo and dkms in locations on the host
+      chroot /root   /kontain-artifacts/kkm.run -- --force-install
     }
