@@ -45,6 +45,6 @@ data:
       cp /root/kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /root/usr/local/bin/containerd-shim-krun-v2
       chmod +x /root/usr/local/bin/containerd-shim-krun-v2
 
-      chmod +x /root/kontain-artifacts/kkm.run
-      chroot /root /kontain-artifacts/kkm.run -- --force-install
+      # chmod +x /root/kontain-artifacts/kkm.run
+      # chroot /root /kontain-artifacts/kkm.run -- --force-install
     }

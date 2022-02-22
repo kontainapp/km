@@ -28,8 +28,8 @@ data:
     set -x
     set -euo pipefail
 
-    apt update -y
-    apt install -y curl
+    # apt update -y
+    # apt install -y curl python
 
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
@@ -63,7 +63,7 @@ data:
     EOT
     fi
 
-    [ -c /root/dev/kkm ] && chmod 666 /root/dev/kkm
+    # [ -c /root/dev/kkm ] && chmod 666 /root/dev/kkm
 
     # echo "restart containerd"
     # chroot /root systemctl --no-block daemon-reload

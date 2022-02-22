@@ -36,7 +36,7 @@ spec:
         app: kontain-init
     spec:
       containers:
-      - image: ubuntu # maci0/systemd # ubuntu    # ubuntu:18.04
+      - image: katadocker/kata-deploy
         name: node-initializer
         command: ["/scripts/entrypoint.sh"]
         env:
@@ -59,30 +59,28 @@ spec:
           mountPath: /scripts-lib
         - name: entrypoint
           mountPath: /scripts
-        - name: crio-conf
-          mountPath: /etc/crio/
+        # - name: crio-conf
+        #   mountPath: /etc/crio/
         - name: containerd-conf
           mountPath: /etc/containerd/
-        - name: etc-hosts
-          mountPath: /etc/hosts
         - name: dbus
           mountPath: /var/run/dbus
         - name: systemd
           mountPath: /run/systemd
-        - name: run
-          mountPath: /run
-        - name: usr-lib-systemd
-          mountPath: /usr/lib/systemd
-        - name: var-run
-          mountPath: /var/run
-        - name: var-log
-          mountPath: /var/log
-        - name: bin-systemctl
-          mountPath: /usr/bin/systemctl
-          readOnly: true
-        - name: etc-systemd
-          mountPath: /etc/systemd/system
-          readOnly: true
+        # - name: run
+        #   mountPath: /run
+        # - name: usr-lib-systemd
+        #   mountPath: /usr/lib/systemd
+        # - name: var-run
+        #   mountPath: /var/run
+        # - name: var-log
+        #   mountPath: /var/log
+        # - name: bin-systemctl
+        #   mountPath: /usr/bin/systemctl
+        #   readOnly: true
+        # - name: etc-systemd
+        #   mountPath: /etc/systemd/system
+        #   readOnly: true
         - name: sys-cgroup
           mountPath: /sys/fs/cgroup
           readOnly: true
@@ -98,17 +96,14 @@ spec:
         configMap:
           name: kontain-install-lib
           defaultMode: 0744
-      - name: crio-conf
-        hostPath:
-          path: /etc/crio/
-          type: Directory
+      # - name: crio-conf
+      #   hostPath:
+      #     path: /etc/crio/
+      #     type: Directory
       - name: containerd-conf
         hostPath:
           path: /etc/containerd/
           type: Directory
-      - name: etc-hosts
-        hostPath:
-          path: /etc/hosts
       - name: dbus
         hostPath:
           path: /var/run/dbus
@@ -116,28 +111,28 @@ spec:
       - name: systemd
         hostPath:
           path: /run/systemd
-      - name: run
-        hostPath:
-          path: /run
-          type: Directory
-      - name: usr-lib-systemd
-        hostPath:
-          path: /usr/lib/systemd
-          type: Directory
-      - name: var-run
-        hostPath:
-          path: /var/run
-          type: Directory
-      - name: var-log
-        hostPath:
-          path: /var/log
-          type: Directory
-      - name: etc-systemd
-        hostPath:
-          path: /etc/systemd/system
-      - name: bin-systemctl
-        hostPath:
-          path: /usr/bin/systemctl
+      # - name: run
+      #   hostPath:
+      #     path: /run
+      #     type: Directory
+      # - name: usr-lib-systemd
+      #   hostPath:
+      #     path: /usr/lib/systemd
+      #     type: Directory
+      # - name: var-run
+      #   hostPath:
+      #     path: /var/run
+      #     type: Directory
+      # - name: var-log
+      #   hostPath:
+      #     path: /var/log
+      #     type: Directory
+      # - name: etc-systemd
+      #   hostPath:
+      #     path: /etc/systemd/system
+      # - name: bin-systemctl
+      #   hostPath:
+      #     path: /usr/bin/systemctl
       - name: sys-cgroup
         hostPath:
           path: /sys/fs/cgroup
