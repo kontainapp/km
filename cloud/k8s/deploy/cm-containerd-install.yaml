@@ -28,6 +28,9 @@ data:
     set -x
     set -euo pipefail
 
+    apt update -y
+    apt install -y curl
+
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
     source /scripts-lib/kontain_install_lib.sh
@@ -41,7 +44,7 @@ data:
     configuration="configuration"
     pluginid=cri
     if grep -q "version = 2\>" $containerd_conf_file; then
-       pluginid=\"io.containerd.grpc.v1.cri\"
+      pluginid=\"io.containerd.grpc.v1.cri\"
     fi
 
     runtime_table="plugins.${pluginid}.containerd.runtimes.$runtime"
@@ -53,17 +56,17 @@ data:
         sed -i "/\[$runtime_table\]/,+1s#runtime_type.*#runtime_type = \"${runtime_type}\"#" $containerd_conf_file
     else
         cat <<-EOT | tee -a /etc/containerd/config.toml
-        	[$runtime_table]
-        	runtime_type = "${runtime_type}"
-        	privileged_without_host_devices = true
-        	pod_annotations = ["app.kontain.*"]
+          [$runtime_table]
+          runtime_type = "${runtime_type}"
+          privileged_without_host_devices = true
+          pod_annotations = ["app.kontain.*"]
     EOT
     fi
 
-    [ -c /root/dev/kvm ] && chmod 666 /root/dev/kvm
+    [ -c /root/dev/kkm ] && chmod 666 /root/dev/kkm
 
-    echo "restart containerd"
-    systemctl daemon-reload
+    # echo "restart containerd"
+    # chroot /root systemctl --no-block daemon-reload
     systemctl restart containerd
 
     sleep infinity
