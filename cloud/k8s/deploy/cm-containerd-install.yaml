@@ -28,9 +28,6 @@ data:
     set -x
     set -euo pipefail
 
-    # apt update -y
-    # apt install -y curl python
-
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
     source /scripts-lib/kontain_install_lib.sh
