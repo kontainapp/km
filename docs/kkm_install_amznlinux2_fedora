@@ -19,7 +19,7 @@ yum -y --exclude=kernel* update
 For Fedora:
 ```shell
 # install kernel-devel for current package
-sudo dnf install -y "kernel-devel-uname-r == $(uname -r)" dnf-utils
+sudo dnf install -y "kernel-devel-$(uname -r)" dnf-utils
 # update without updating kernel (IMPORTANT FOR KKM)
 sudo dnf -y --exclude=kernel* update
 
