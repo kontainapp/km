@@ -42,14 +42,16 @@ apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_re
 
 # Install stuff
 apt-get update --yes -q
-apt-get install --yes -q git make makeself gcc linux-headers-$(uname -r) libelf-dev \
+apt-get install --yes -q git make makeself gcc linux-headers-$(uname -r) \
                          docker-ce docker-ce-cli containerd.io azure-cli \
                          vagrant packer virtualbox
 
 systemctl enable docker.service
 
-if ! grep -q docker /etc/group ; then groupadd docker ; fi
-usermod -aG docker $USER
+groupadd -f docker
+useradd -m -s /bin/bash -G docker $1
+echo "kontain ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/kontain && chmod 440 /etc/sudoers.d/kontain
+echo | su $1 -c 'ssh-keygen -N "" -q'
 
 # TODO - this needs to be in another base image (VagrantPreloadedBaseImage)
 #  in the vast majority of cases these extra few GiB for boxes are not needed

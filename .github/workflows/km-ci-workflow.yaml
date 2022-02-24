@@ -66,6 +66,39 @@ env:
   # TRACE: true # uncomment to enable '-x' in all bash scripts
 
 jobs:
+  # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner
+  start-runners:
+    name: Start cloud runners
+    runs-on: ubuntu-latest
+    outputs:
+      run-ons: ${{ steps.start-cloud-runner.outputs.run-ons }}
+    steps:
+      - name: Get public Keys
+        uses: actions/checkout@v2
+
+      - name: Start Cloud runners
+        id: start-cloud-runner
+        uses: kontainapp/cloud-github-runner@v3.1
+        with:
+          mode: start
+          github-token: ${{ secrets.GH_TOKEN }}
+          runner-user: kontain
+          subnet: "10.0.0.0"
+          public-keys-dir: ${{ github.workspace }}/cloud/ssh
+          ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ec2-region: "us-east-2"
+          ec2-image: "L0BaseAWSImage"
+          ec2-instance-type: "m5.xlarge"
+          ec2-vpc-name: "github-runner"
+          az-subscription-id: ${{ secrets.SP_SUBSCRIPTION_ID }}
+          az-client-id: ${{ secrets.SP_APPID }}
+          az-secret: ${{ secrets.SP_PASSWORD }}
+          az-tenant-id: ${{ secrets.SP_TENANT }}
+          az-image: "auto-github-runner:L0BaseImage"
+          az-location: "westus"
+          az-vm-size: "Standard_D4s_v3"
+
   km-build:
     name: Build KM, push test image
     runs-on: ubuntu-20.04
@@ -106,10 +139,6 @@ jobs:
       - name: Build and push KM testenv image
         run: make -C tests testenv-image push-testenv-image
 
-        # Note: we need to have km built before kontaind.
-      - name: Build and push kontaind image
-        run: make -C cloud/k8s/kontaind push-runenv-image
-
       - name: Build payloads and create test images
         run: make -C payloads pull-buildenv-image clean all testenv-image
 
@@ -145,14 +174,14 @@ jobs:
             /opt/kontain/bin/shim
           retention-days: 7
 
-
   # Builds a static linked, stripped binary for krun/crun
   # This uses the NIX virtual machine, just like the crun CI.
   # NIX takes a long time, so we build the static krun binary in
   # parallel with the rest of KM build and test.
   krun-static-build:
     name: Build static KRUN binary
-    runs-on: ubuntu-20.04
+    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
+    needs: start-runners
     steps:
       - uses: actions/checkout@v2
         with:
@@ -178,6 +207,9 @@ jobs:
           name: krun-static
           path: /tmp/krun-static
 
+      - name: cleanup
+        if: always()
+        run: rm -rf km
 
   # Build the k8s release artifact. Static KRUN is built separately and
   # in parallel from the rest of KM. The k8s artifact contains:
@@ -217,31 +249,10 @@ jobs:
           name: km-k8s-rel-artifact
           path: /tmp/km-k8s-release-artifact.tar.gz
 
-
   km-test:
-    name: KM, payloads, krun tests, KVM on K8S
-    runs-on: ubuntu-20.04
-    needs: km-build
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - run: make -C cloud/azure login-cli
-
-      - name: KM Tests on K8S with KVM
-        run: make -C tests test-withk8s TEST_JOBS=4
-        timeout-minutes: 15
-
-      - name: Test payloads on K8S with KVM
-        run: make -C payloads test-withk8s
-        timeout-minutes: 10
-
-
-  km-test-withpacker:
-    name: Basic payload tests, KVM Azure VM
-    runs-on: ubuntu-latest
-    needs: km-build
+    name: KM, payloads, krun tests, KVM on Azure
+    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
+    needs: [start-runners, km-build]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -254,11 +265,43 @@ jobs:
           name: km
           path: /tmp/
 
-      - name: Payload tests with packer
-        # to avoid calling packer in a loop, we call it on one dir (does not matter which one)
-        # and pass the parent to it, so that the scan of payloads will happen inside a single docker
-        run: make -C payloads/busybox test-withpacker PACKER_DIR=payloads TIMEOUT=15m STEP=test
-        # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
+      - name: Configure KRUN
+        run: |
+          sudo mkdir -p /opt/kontain/bin
+          sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
+          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
+          sudo bash ./container-runtime/podman_config.sh
+          sudo bash ./container-runtime/docker_config.sh
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
+          sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger
+
+      - name: Pull testenv images
+        run: |
+          make -C tests pull-testenv-image
+          make -C payloads -j pull-testenv-image
+
+      - name: KM with KVM Test - Azure
+        run: make -C tests test-withdocker DOCKER_INTERACTIVE=
+        timeout-minutes: 20
+
+      - name: KM with KVM Payloads Test - Azure
+        if: ${{ ! (github.event_name == 'schedule' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly')) }}
+        run: make -C payloads test-withdocker DOCKER_INTERACTIVE=
+        timeout-minutes: 20
+
+      - name: KM with KVM Payloads Test - Azure
+        if: ${{ github.event_name == 'schedule' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
+        run: make -C payloads test-all-withdocker DOCKER_INTERACTIVE=
+        timeout-minutes: 20
+
+      - name: KM with KVM Validate runenv images - Azure
+        run: |
+          make -C payloads/ -j pull-demo-runenv-image
+          make -C payloads validate-runenv-image DOCKER_INTERACTIVE=
+        timeout-minutes: 20
 
   kkm-build:
     name: Build KKM, save test artifacts
@@ -285,6 +328,7 @@ jobs:
             kkm/test_kkm/test_kkm
           retention-days: 7
 
+  # TODO: Maybe not needed - review
   kkm-test:
     name: KM tests, KKM on CI VM
     runs-on: ubuntu-20.04
@@ -316,134 +360,58 @@ jobs:
         run: sudo dmesg
 
   kkm-test-vms:
-    name: KM tests, KKM AWS and Azure VMs
-    runs-on: ubuntu-20.04
-    needs: [km-build, kkm-build]
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /tmp/
-
-      - name: KM with KKM Test - AWS and Azure with packer
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C tests test-withpacker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m STEP=test-vms
-        # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
-
-  km-krun-validate-runenv:
-    name: Validate runenv, KVM Azure VM
-    runs-on: ubuntu-20.04
-    needs: km-build
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /tmp/
-
-      - name: Validate runenv images on Azure
-        run: make -C tests validate-runenv-image-withpacker TIMEOUT=20m PACKER_DIR=payloads STEP=validate-runenv
-        # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
-
-  km-krun-kkm-validate-runenv:
-    name: Validate runenv, KKM AWS and Azure VMs
-    runs-on: ubuntu-20.04
-    needs: [km-build, kkm-build]
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /tmp/
-
-      - name: Validate runenv images with kkm on AWS and Azure
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C tests validate-runenv-image-withpacker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m PACKER_DIR=payloads STEP=kkm-validate-runenv
-        # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
-
-  km-k8s-cluster:
-    name: Create a new K8S cluster on Azure
-    runs-on: ubuntu-20.04
-    # The extra tests run if the workflow is triggered on schedule or manually.
-    # comment out (in your branch) if you want to force it on your run
-    if: ${{ github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
+    name: KM tests, KKM AWS
+    needs: [start-runners, km-build, kkm-build]
+    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
+
       - run: make -C cloud/azure login-cli
 
-      # We need to create cluster and deploy kontaind to it. However
-      # kontaind requires KM build, so we will do the deploy later, before tests.
-      # This allows early cluster creation - before a build is completed
-      - name: Create k8s Cluster
-        run: cloud/azure/aks_ci_create.sh ${{ env.NIGHTLY_CLUSTER_NAME }}
-
-  km-test-all:
-    name: Run all tests on a new K8s cluster
-    runs-on: ubuntu-20.04
-    needs: [km-build, km-k8s-cluster]
-    if: ${{ github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
-    env:
-      K8S_TEST_ERR_NO_CLEANUP: true # true means "on error, keep pods around". (assumes cluster is not cleaned up)
-    steps:
-      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
         with:
-          submodules: true
-      - run: make -C cloud/azure login-cli
-      - run: |
-          source cloud/azure/cloud_config.mk
-          az aks get-credentials --resource-group "${CLOUD_RESOURCE_GROUP}" --name "${{ env.NIGHTLY_CLUSTER_NAME }}" --overwrite-existing
+          name: km
+          path: /tmp/
 
-      - name: Deploy and verify kontaind
-        run: make -C cloud/k8s/kontaind deploy
-
-      - name: KM test all, K8s with KVM
-        run: make -C tests test-all-withk8s
-        timeout-minutes: 15
-
-      - name: Payloads tests, on K8s
-        run: make -C payloads test-all-withk8s
-        timeout-minutes: 60
-
-      # TODO: https://github.com/kontainapp/km/issues/1326
-      # The runenv images assume runtime=krun now.
-      # Disable until we figure out how to enable that on AKS.
-      # - name: Payloads runenv validation, on K8s
-      #   run: make -C payloads validate-runenv-withk8s
-      #   timeout-minutes: 5
-
-      - name: KM tests with coverage, on K8s
-        # pull buildenv before testing, coverage analysis will need it
-        run: make -C tests pull-buildenv-image coverage-withk8s
-        timeout-minutes: 15
-        # if: always()
-        if: env.TEST_COVERAGE == 'true'
-
-      - name: Upload coverage
-        run: make -C tests upload-coverage
-        if: env.TEST_COVERAGE == 'true'
-
-      - name: Tear down k8s Cluster
-        if: always() # replace always() with success() if you want to keep cluster on failure
-        run: cloud/azure/aks_ci_destroy.sh ${{ env.NIGHTLY_CLUSTER_NAME }}
-
-      - name: Logout
-        if: always()
+      - name: KKM and KKM tests
         run: |
-          [ "$TRACE" ] && set -x
-          rm -f ~/.kube/config
-          az logout
+          make -C kkm/kkm && make -C kkm/test_kkm
+          sudo insmod kkm/kkm/kkm.ko
+          ./kkm/test_kkm/test_kkm
+          sudo mkdir -p /opt/kontain/bin
+          sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
+          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
+          sudo bash ./container-runtime/podman_config.sh
+          sudo bash ./container-runtime/docker_config.sh
+
+      - name: Pull testenv images
+        run: |
+          make -C tests pull-testenv-image
+          make -C payloads -j pull-testenv-image
+
+      - name: KM with KKM Test - AWS
+        run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+        timeout-minutes: 20
+
+      - name: KM with KKM Payloads Test - AWS
+        if: ${{ ! (github.event_name == 'schedule' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly')) }}
+        run: make -C payloads test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+        timeout-minutes: 20
+
+      - name: KM with KKM Payloads Test - AWS (nightly)
+        if: ${{ github.event_name == 'schedule' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
+        run: make -C payloads test-all-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+        timeout-minutes: 20
+
+      - name: KM with KKM Validate runenv images - AWS
+        run: |
+          make -C payloads/ -j pull-demo-runenv-image
+          make -C payloads validate-runenv-image HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+        timeout-minutes: 20
 
   minikube-testing:
     name: kubernetes tests aginst minikube
@@ -457,125 +425,125 @@ jobs:
         runtime: ["containerd"] # "cri-o" later
         driver: ["docker", "podman"]
     steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: true
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
 
-    - uses: actions/download-artifact@v2
-      with:
-        name: kkm
-        path: kkm
-    - run: chmod a+x kkm/test_kkm/test_kkm
+      - uses: actions/download-artifact@v2
+        with:
+          name: kkm
+          path: kkm
+      - run: chmod a+x kkm/test_kkm/test_kkm
 
-    - uses: actions/download-artifact@v2
-      with:
-        name: km-k8s-rel-artifact
-        path: /tmp/bin_release
+      - uses: actions/download-artifact@v2
+        with:
+          name: km-k8s-rel-artifact
+          path: /tmp/bin_release
 
-    - name: print downloaded artifact
-      run: find /tmp/bin_release
+      - name: print downloaded artifact
+        run: find /tmp/bin_release
 
-    - name: start local file server
-      run: |
-        (cd /tmp/bin_release; python3 -m http.server 8000) &
+      - name: start local file server
+        run: |
+          (cd /tmp/bin_release; python3 -m http.server 8000) &
 
-    - name: Install KKM
-      run: sudo insmod kkm/kkm/kkm.ko
+      - name: Install KKM
+        run: sudo insmod kkm/kkm/kkm.ko
 
-    - name: Start minikube
-      run: |
-        minikube version
-        minikube start --container-runtime=${{ matrix.runtime }} --driver=${{ matrix.driver }} --wait=all || minikube logs
+      - name: Start minikube
+        run: |
+          minikube version
+          minikube start --container-runtime=${{ matrix.runtime }} --driver=${{ matrix.driver }} --wait=all || minikube logs
 
-    - name: Install Kontain on minikube k8s
-      run: |
-        # merges and applies all the files for CI overlay
-        kubectl apply -k cloud/k8s/deploy/kontain-deploy/overlays/ci
-        # kubectl apply -f cloud/k8s/deploy/runtime-class.yaml
-        # kubectl apply -f cloud/k8s/deploy/cm-install-lib.yaml
-        # kubectl apply -f cloud/k8s/deploy/cm-containerd-install.yaml
-        # kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
-        sleep 20
+      - name: Install Kontain on minikube k8s
+        run: |
+          # merges and applies all the files for CI overlay
+          kubectl apply -k cloud/k8s/deploy/kontain-deploy/overlays/ci
+          # kubectl apply -f cloud/k8s/deploy/runtime-class.yaml
+          # kubectl apply -f cloud/k8s/deploy/cm-install-lib.yaml
+          # kubectl apply -f cloud/k8s/deploy/cm-containerd-install.yaml
+          # kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
+          sleep 20
 
-    # uncomment to get logs from damonset.
-    #- name: Check k8s install
-    #  run: |
-    #    set -x
-    #    kubectl get pod -A
-    #    kubectl logs -n kube-system -l app=kontain-init
+      # uncomment to get logs from damonset.
+      #- name: Check k8s install
+      #  run: |
+      #    set -x
+      #    kubectl get pod -A
+      #    kubectl logs -n kube-system -l app=kontain-init
 
-    - name: Run user test
-      run: |
-        # start the test pod, which will just sleep
-        kubectl apply -f demo/k8s/test.yaml
-        sleep 10
-        # exec `uname -r` on the test pod. Should get back '.kontain.KKM' appended to the linux release name
-        pname=$(kubectl get pod -l kontain=test-app -o jsonpath="{.items[0].metadata.name}")
-        rname=$(kubectl exec "${pname}" -- uname -r)
-        echo "uname -r returned ${rname}"
-        echo "${rname}" | grep -q -e '.*\.kontain\.KKM$' || exit 1
-        echo "Kontain Runtime OK".
+      - name: Run user test
+        run: |
+          # start the test pod, which will just sleep
+          kubectl apply -f demo/k8s/test.yaml
+          sleep 10
+          # exec `uname -r` on the test pod. Should get back '.kontain.KKM' appended to the linux release name
+          pname=$(kubectl get pod -l kontain=test-app -o jsonpath="{.items[0].metadata.name}")
+          rname=$(kubectl exec "${pname}" -- uname -r)
+          echo "uname -r returned ${rname}"
+          echo "${rname}" | grep -q -e '.*\.kontain\.KKM$' || exit 1
+          echo "Kontain Runtime OK".
 
   ecs-hack-test:
     name: test alternate KM triggers
     runs-on: ubuntu-20.04
     needs: [k8s-release-bin, kkm-build]
     steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: true
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
 
-    - uses: actions/download-artifact@v2
-      with:
-        name: kkm
-        path: kkm
-    - run: chmod a+x kkm/test_kkm/test_kkm
+      - uses: actions/download-artifact@v2
+        with:
+          name: kkm
+          path: kkm
+      - run: chmod a+x kkm/test_kkm/test_kkm
 
-    - uses: actions/download-artifact@v2
-      with:
-        name: km-k8s-rel-artifact
-        path: /tmp/bin_release
+      - uses: actions/download-artifact@v2
+        with:
+          name: km-k8s-rel-artifact
+          path: /tmp/bin_release
 
-    - name: Install KKM
-      run: sudo insmod kkm/kkm/kkm.ko
+      - name: Install KKM
+        run: sudo insmod kkm/kkm/kkm.ko
 
-    - name: Untar release
-      run:  tar -C /tmp/bin_release -xf /tmp/bin_release/km-k8s-release-artifact.tar.gz
+      - name: Untar release
+        run: tar -C /tmp/bin_release -xf /tmp/bin_release/km-k8s-release-artifact.tar.gz
 
-    - name: Stop Docker
-      run: sudo systemctl stop docker
+      - name: Stop Docker
+        run: sudo systemctl stop docker
 
-    - name:  Install KM and Reconfigure Docker
-      run: |
-        sudo mkdir -p /opt/kontain/bin
-        sudo cp /tmp/bin_release/km/km /opt/kontain/bin/km
-        sudo cp /tmp/bin_release/container-runtime/krun /opt/kontain/bin/krun-label-trigger
-        sudo cp /tmp/bin_release/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
-        cat << EOF | sudo tee /etc/docker/daemon.json
-           {
-               "default-runtime": "krun",
-               "runtimes": {
-                   "krun": {
-                       "path": "/opt/kontain/bin/krun-label-trigger"
-                   }
-               }
-           }
-        EOF
+      - name: Install KM and Reconfigure Docker
+        run: |
+          sudo mkdir -p /opt/kontain/bin
+          sudo cp /tmp/bin_release/km/km /opt/kontain/bin/km
+          sudo cp /tmp/bin_release/container-runtime/krun /opt/kontain/bin/krun-label-trigger
+          sudo cp /tmp/bin_release/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
+          cat << EOF | sudo tee /etc/docker/daemon.json
+             {
+                 "default-runtime": "krun",
+                 "runtimes": {
+                     "krun": {
+                         "path": "/opt/kontain/bin/krun-label-trigger"
+                     }
+                 }
+             }
+          EOF
 
-    - name: restart Docker
-      run: |
-        sudo systemctl daemon-reload
-        sudo systemctl restart docker
+      - name: restart Docker
+        run: |
+          sudo systemctl daemon-reload
+          sudo systemctl restart docker
 
-    - name: Check krun personality
-      run: |
-        OUT=$(docker run --rm -v /.kontain busybox uname -r)
-        echo ${OUT} | grep -q '.*\.kontain.KKM$'
+      - name: Check krun personality
+        run: |
+          OUT=$(docker run --rm -v /.kontain busybox uname -r)
+          echo ${OUT} | grep -q '.*\.kontain.KKM$'
 
-    - name: Check crun personality
-      run: |
-        OUT=$(docker run --rm busybox uname -r)
-        echo ${OUT} |  grep -v -q '.*\.kontain.KKM$'
+      - name: Check crun personality
+        run: |
+          OUT=$(docker run --rm busybox uname -r)
+          echo ${OUT} | grep -v -q '.*\.kontain.KKM$'
 
   codeql-scan:
     # CodeQL Code Scanning/Static Analysis
@@ -592,25 +560,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'cpp' ]
+        language: ["cpp"]
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    # Initializes the CodeQL tools for scanning.
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
-      with:
-        languages: ${{ matrix.language }}
-        # enhanced security checks.
-        queries: security-extended
+      # Initializes the CodeQL tools for scanning.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v1
+        with:
+          languages: ${{ matrix.language }}
+          # enhanced security checks.
+          queries: security-extended
 
-    - run: |
-       make -C km all
+      - run: |
+          make -C km all
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v1
 
   slack-workflow-status:
     name: Notify slack, if needed
@@ -620,7 +588,18 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-build, krun-static-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all, minikube-testing, codeql-scan, ecs-hack-test]
+    needs:
+      [
+        km-build,
+        krun-static-build,
+        kkm-build,
+        km-test,
+        kkm-test,
+        kkm-test-vms,
+        minikube-testing,
+        codeql-scan,
+        ecs-hack-test,
+      ]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
@@ -631,3 +610,25 @@ jobs:
           channel: "#build_and_test"
           name: "CI workflow status"
           icon_emoji: ":thumbsdown:"
+
+  # This step is to clean up on-demand runner. They work in conjunction with start-runner.
+  # Make sure to add dependencies in both "needs" clauses
+  stop-runner:
+    if: always()
+    name: Terminate self-hosted cloud runners
+    needs: [start-runners, krun-static-build, km-test, kkm-test-vms]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop runners
+        uses: kontainapp/cloud-github-runner@v3.1
+        with:
+          mode: stop
+          status: ${{ toJSON(needs) }}
+          github-token: ${{ secrets.GH_TOKEN }}
+          ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ec2-region: "us-east-2"
+          az-subscription-id: ${{ secrets.SP_SUBSCRIPTION_ID }}
+          az-client-id: ${{ secrets.SP_APPID }}
+          az-secret: ${{ secrets.SP_PASSWORD }}
+          az-tenant-id: ${{ secrets.SP_TENANT }}

@@ -99,7 +99,7 @@ test-all:
 
 # Command to run tests in testenv-image container:
 CONTAINER_TEST_CMD := scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
-CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD} && scripts/test-run.sh test-all ${NODETOP} ${BUILD}
+CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test-all ./km ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./scripts

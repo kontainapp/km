@@ -108,7 +108,7 @@ DOCKER_RUN_CLEANUP ?= --rm
 DOCKER_INTERACTIVE ?= -it
 
 DOCKER_KRUN_RUNTIME ?= --runtime krun
-DOCKER_RUN := docker run ${DOCKER_RUN_CLEANUP}
+DOCKER_RUN := docker run --sysctl net.ipv4.ip_unprivileged_port_start=1024 ${DOCKER_RUN_CLEANUP}
 # DOCKER_RUN_BUILD are used for building and other operations that requires
 # output of files to volumes. When we need to write files to the volumes mapped
 # in, we need to map the current used into the container, since containers are
