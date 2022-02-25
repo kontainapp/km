@@ -21,8 +21,10 @@ metadata:
   namespace: kube-system
   labels:
     app: kontain-init
+# data-from-file:
+#   entrypoint.sh: ./entrypoint.sh
 data:
-  entrypoint.sh: |
+  entrypoint.sh: |-
     #!/usr/bin/env bash
 
     set -x
@@ -60,9 +62,10 @@ data:
     EOT
     fi
 
-    [ -c /root/dev/kkm ] && chmod 666 /root/dev/kkm
+    [ -c /root/dev/kvm ] && chmod 666 /root/dev/kvm
 
     echo "restart containerd"
+    systemctl daemon-reload
     systemctl restart containerd
 
     sleep infinity

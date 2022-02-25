@@ -22,30 +22,35 @@ metadata:
   labels:
     app: kontain-init
 data:
-  kontain_install_lib.sh: |
+  kontain_install_lib.sh: |-
     #!/usr/bin/env bash
 
     # This will get overridden be ENV definition in kontain-deploy.yaml
     KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://github.com/kontainapp/km/releases/download/v0.9.5/kontain_bin.tar.gz}"
-    
-    function install_kontain_artifacts() {
-      ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
-      echo "Install Kontain Runtime Artifacts (KM & KRUN)"
-      mkdir -p /root/kontain-artifacts
-      curl -L "${KONTAIN_RELEASE_URL}" | tar -xzf - -C /root/kontain-artifacts
-      mkdir -p /root/opt/kontain/bin
-      cp /root/kontain-artifacts/km/km /root/opt/kontain/bin/km
-      chmod +x /root/opt/kontain/bin/km
-      cp /root/kontain-artifacts/container-runtime/krun /root/opt/kontain/bin/krun
-      chmod +x /root/opt/kontain/bin/krun
-      mkdir -p /root/opt/kontain/shim
-      cp /root/kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /root/opt/kontain/shim/containerd-shim-krun-v2
-      chmod +x /root/opt/kontain/shim/containerd-shim-krun-v2
-      cp /root/kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /root/usr/local/bin/containerd-shim-krun-v2
-      chmod +x /root/usr/local/bin/containerd-shim-krun-v2
 
-      chmod +x /root/kontain-artifacts/kkm.run
-      # we use chroot here because the host is rooted at /root 
-      # and kkm install looks for sudo and dkms in locations on the host
-      chroot /root   /kontain-artifacts/kkm.run -- --force-install
+    # we use chroot here because the host is rooted at /root
+    # and kkm install looks for sudo and dkms in locations on the host
+    function install_kontain_artifacts() {
+
+      ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
+
+      echo "Install Kontain Runtime Artifacts (KM & KRUN)"
+
+      mkdir -p ${ROOT_MOUNT_DIR}/kontain-artifacts
+      curl -L "${KONTAIN_RELEASE_URL}" | tar -xzf - -C ${ROOT_MOUNT_DIR}/kontain-artifacts
+
+      mkdir -p ${ROOT_MOUNT_DIR}/opt/kontain/bin
+
+      cp ${ROOT_MOUNT_DIR}/kontain-artifacts/km/km ${ROOT_MOUNT_DIR}/opt/kontain/bin/km
+      chmod +x ${ROOT_MOUNT_DIR}/opt/kontain/bin/km
+
+      cp ${ROOT_MOUNT_DIR}/kontain-artifacts/container-runtime/krun ${ROOT_MOUNT_DIR}/opt/kontain/bin/krun
+      chmod +x ${ROOT_MOUNT_DIR}/opt/kontain/bin/krun
+
+      mkdir -p ${ROOT_MOUNT_DIR}/opt/kontain/shim
+      cp ${ROOT_MOUNT_DIR}/kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2
+      chmod +x ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2
+
+      chmod +x ${ROOT_MOUNT_DIR}/kontain-artifacts/kkm.run
+      chroot ${ROOT_MOUNT_DIR}   /kontain-artifacts/kkm.run -- --force-install
     }

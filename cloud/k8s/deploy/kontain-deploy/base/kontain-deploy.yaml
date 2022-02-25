@@ -27,8 +27,6 @@ spec:
       app: kontain-init
   updateStrategy:
     type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 1
   template:
     metadata:
       labels:
@@ -36,14 +34,14 @@ spec:
         app: kontain-init
     spec:
       containers:
-      - image: centos/systemd
+      - image: centos:7    # ubuntu:18.04
         name: node-initializer
         command: ["/scripts/entrypoint.sh"]
         env:
         - name: ROOT_MOUNT_DIR
           value: /root
         - name: KONTAIN_RELEASE_URL
-          value: https://github.com/kontainapp/km/releases/download/v0.9.5/kontain_bin.tar.gz
+          value: https://github.com/kontainapp/km/releases/download/v0.9.3/kontain_bin.tar.gz
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -80,15 +78,12 @@ spec:
       - name: crio-conf
         hostPath:
           path: /etc/crio/
-          type:
       - name: containerd-conf
         hostPath:
           path: /etc/containerd/
-          type:
       - name: dbus
         hostPath:
           path: /var/run/dbus
-          type: Directory
       - name: systemd
         hostPath:
           path: /run/systemd
