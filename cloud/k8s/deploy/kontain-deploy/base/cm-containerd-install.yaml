@@ -31,6 +31,7 @@ data:
     set -euo pipefail
 
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
+    CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:/etc/containerd}"
 
     source /scripts-lib/kontain_install_lib.sh
 
@@ -38,7 +39,19 @@ data:
     install_kontain_artifacts
 
     echo "Add Kontain Runtime to containerd configuration"
-    containerd_conf_file="/etc/containerd/config.toml"
+    # check to see if its a normal k8s distribution or k3s
+    if [ ! -f /root/var/lib/rancher/k3s/agent ]; then
+      echo " its a regular k8s install"
+      CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
+      containerd_conf_file="/etc/containerd/config.toml"
+    else
+      echo " its a k3s install"
+      # else its a k3s containerd install
+      CONTAINERD_CFG_DIR="${K3S_CONTAINERD_DIR:/root/var/lib/rancher/k3s/agent/etc/containerd}"
+      cp "$CONTAINERD_CFG_DIR/config.toml" "$CONTAINERD_CFG_DIR/config.toml.tmpl"
+      containerd_conf_file="$CONTAINERD_CFG_DIR/config.toml.tmpl"
+    fi
+
     runtime="krun"
     configuration="configuration"
     pluginid=cri
@@ -54,7 +67,7 @@ data:
         echo "Configuration exists for $runtime_table, overwriting"
         sed -i "/\[$runtime_table\]/,+1s#runtime_type.*#runtime_type = \"${runtime_type}\"#" $containerd_conf_file
     else
-        cat <<-EOT | tee -a /etc/containerd/config.toml
+        cat <<-EOT | tee -a $containerd_conf_file
           [$runtime_table]
           runtime_type = "${runtime_type}"
           privileged_without_host_devices = true
