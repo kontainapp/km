@@ -549,7 +549,9 @@ jobs:
         sudo cp /tmp/bin_release/km/km /opt/kontain/bin/km
         sudo cp /tmp/bin_release/container-runtime/krun /opt/kontain/bin/krun-label-trigger
         sudo cp /tmp/bin_release/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
-        # TODO: create daemon.json, restart dockerd
+
+     - name: Reconfigure Docker
+       run: |
         cat << EOF | sudo tee /etc/docker/daemon.json
            {
                "default-runtime": "krun",
@@ -568,9 +570,10 @@ jobs:
 
     - name: Run user test
       run: |
-        docker run --rm busybox uname -r
-        OUT=$(docker run --rm -v /.kontain busybox uname -r)
-        echo TODO !!! OUT=${OUT}
+        # when /.kontain exists krun personality 
+        docker run --rm -v /.kontain busybox uname -r | grep -q '.*\.kontain.KKM$'
+        # when /.kontain does not exist, crun personality
+        docker run --rm busybox uname -r grep -v -q '.*\.kontain.KKM$'
 
   codeql-scan:
     # CodeQL Code Scanning/Static Analysis
