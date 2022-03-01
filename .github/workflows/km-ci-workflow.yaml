@@ -514,6 +514,48 @@ jobs:
         echo "${rname}" | grep -q -e '.*\.kontain\.KKM$' || exit 1
         echo "Kontain Runtime OK".
 
+  ecs-hack-test:
+    name: kubernetes tests aginst minikube
+    runs-on: ubuntu-20.04
+    needs: [k8s-release-bin, kkm-build]
+    strategy:
+      matrix:
+        # We want to test against containerd and crio. crio support is a bit brittle in
+        # minikube. In our experience (late 2021) it works better with the podman minikube
+        # driver than the docker minikube driver.
+        runtime: ["containerd"] # "cri-o" later
+        driver: ["docker", "podman"]
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - uses: actions/download-artifact@v2
+      with:
+        name: kkm
+        path: kkm
+    - run: chmod a+x kkm/test_kkm/test_kkm
+
+    - uses: actions/download-artifact@v2
+      with:
+        name: km-k8s-rel-artifact
+        path: /tmp/bin_release
+
+    - name: Install KKM
+      run: sudo insmod kkm/kkm/kkm.ko
+
+    - name:  Install KM
+      run: |
+        sudo mkdir -p /opt/kontain/bin
+        sudo cp /kontain_bin/km/km /opt/kontain/bin/km
+        sudo cp /kontain_bin/container-runtime/krun-label-trigger /opt/kontain/bin/krun-label-trigger
+        sudo cp /kontain_bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
+        # TODO: create daemon.json, restart dockerd
+
+    - name: Run user test
+      run: |
+        echo TODO !!! && exit 1
+
   codeql-scan:
     # CodeQL Code Scanning/Static Analysis
     name: Analyze
@@ -557,7 +599,7 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-build, krun-static-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all, minikube-testing, codeql-scan]
+    needs: [km-build, krun-static-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all, minikube-testing, codeql-scan, ecs-hack-test]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
