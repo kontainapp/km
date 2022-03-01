@@ -569,8 +569,8 @@ jobs:
     - name: Run user test
       run: |
         docker run --rm busybox uname -r
-        docker run --rm -v /.kontain busybox uname -r
-        echo TODO !!!
+        OUT=$(docker run --rm -v /.kontain busybox uname -r)
+        echo TODO !!! OUT=${OUT}
 
   codeql-scan:
     # CodeQL Code Scanning/Static Analysis
