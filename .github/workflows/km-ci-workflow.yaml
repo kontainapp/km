@@ -564,10 +564,12 @@ jobs:
     - name: restart Docker
       run: |
         sudo systemctl daemon-reload
-        sudo restart docker
+        sudo start docker
 
     - name: Run user test
       run: |
+        docker run --rm busybox uname -r
+        docker run --rm -v /.kontain busybox uname -r
         echo TODO !!!
 
   codeql-scan:
