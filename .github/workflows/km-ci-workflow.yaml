@@ -540,6 +540,9 @@ jobs:
     - name: Untar release
       run:  tar -C /tmp/bin_release -xf /tmp/bin_release/km-k8s-release-artifact.tar.gz
 
+    - name: Stop Docker
+      run: sudo systemctl stop docker
+
     - name:  Install KM
       run: |
         sudo mkdir -p /opt/kontain/bin
@@ -547,6 +550,21 @@ jobs:
         sudo cp /tmp/bin_release/container-runtime/krun /opt/kontain/bin/krun-label-trigger
         sudo cp /tmp/bin_release/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
         # TODO: create daemon.json, restart dockerd
+        cat << EOF | sudo tee /etc/docker/daemon.json
+           {
+               "default-runtime": "krun",
+               "runtimes": {
+                   "krun": {
+                       "path": "/opt/kontain/bin/krun-label-trigger"
+                   }
+               }
+           }
+        EOF
+
+    - name: restart Docker
+      run: |
+        sudo systemctl daemon-reload
+        sudo restart docker
 
     - name: Run user test
       run: |
