@@ -515,16 +515,9 @@ jobs:
         echo "Kontain Runtime OK".
 
   ecs-hack-test:
-    name: kubernetes tests aginst minikube
+    name: test alternate KM triggers
     runs-on: ubuntu-20.04
     needs: [k8s-release-bin, kkm-build]
-    strategy:
-      matrix:
-        # We want to test against containerd and crio. crio support is a bit brittle in
-        # minikube. In our experience (late 2021) it works better with the podman minikube
-        # driver than the docker minikube driver.
-        runtime: ["containerd"] # "cri-o" later
-        driver: ["docker", "podman"]
     steps:
     - uses: actions/checkout@v2
       with:
