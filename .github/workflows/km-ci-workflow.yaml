@@ -564,7 +564,7 @@ jobs:
     - name: restart Docker
       run: |
         sudo systemctl daemon-reload
-        sudo start docker
+        sudo systemctl restart docker
 
     - name: Run user test
       run: |
