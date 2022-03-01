@@ -537,6 +537,9 @@ jobs:
     - name: Install KKM
       run: sudo insmod kkm/kkm/kkm.ko
 
+    - name: Untar release
+      run:  tar -C /tmp/bin_release -xf /tmp/bin_release/km-k8s-release-artifact.tar.gz
+
     - name:  Install KM
       run: |
         sudo mkdir -p /opt/kontain/bin
