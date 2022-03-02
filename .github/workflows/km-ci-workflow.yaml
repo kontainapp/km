@@ -66,6 +66,33 @@ env:
   # TRACE: true # uncomment to enable '-x' in all bash scripts
 
 jobs:
+  # starts ephemeral self-hosted runner in AWS. Cleanup in the stop-runner.
+  start-runner:
+    name: Start self-hosted EC2 runner
+    runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.start-ec2-runner.outputs.label }}
+      ec2-instance-id: ${{ steps.start-ec2-runner.outputs.ec2-instance-id }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: "us-east-2" # ${{ secrets.AWS_REGION }}
+
+      - name: Start EC2 runner
+        id: start-ec2-runner
+        uses: kontainapp/ec2-github-runner@v3
+        with:
+          mode: start
+          github-token: ${{ secrets.GH_TOKEN }}
+          ec2-image-id: ami-00d8d2e0549213b4b
+          ec2-instance-type: "m5.xlarge"
+          subnet-id: subnet-989dc3e2
+          security-group-id: sg-3b245d5e
+
+
   km-build:
     name: Build KM, push test image
     runs-on: ubuntu-20.04
@@ -260,6 +287,7 @@ jobs:
         run: make -C payloads/busybox test-withpacker PACKER_DIR=payloads TIMEOUT=15m STEP=test
         # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
+
   kkm-build:
     name: Build KKM, save test artifacts
     runs-on: ubuntu-20.04
@@ -284,6 +312,7 @@ jobs:
             kkm/kkm/kkm.ko
             kkm/test_kkm/test_kkm
           retention-days: 7
+
 
   kkm-test:
     name: KM tests, KKM on CI VM
@@ -315,23 +344,38 @@ jobs:
         if: always()
         run: sudo dmesg
 
+
   kkm-test-vms:
-    name: KM tests, KKM AWS and Azure VMs
-    runs-on: ubuntu-20.04
-    needs: [km-build, kkm-build]
+    name: KM tests, KKM AWS
+    needs: [start-runner, km-build, kkm-build]
+    runs-on: ${{ needs.start-runner.outputs.label }}
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: true
 
       - uses: actions/download-artifact@v2
         with:
           name: km
           path: /tmp/
 
-      - name: KM with KKM Test - AWS and Azure with packer
+      - name: KKM and KKM tests
+        run: |
+          make -C kkm/kkm && make -C kkm/test_kkm
+          sudo setenforce 0
+          sudo insmod kkm/kkm/kkm.ko
+          ./kkm/test_kkm/test_kkm
+
+      - name: KM with KKM Test - AWS
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C tests test-withpacker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m STEP=test-vms
+        run: |
+          make -C cloud/azure login-cli
+          make -C tests pull-testenv-image
+          make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= TIMEOUT=20m
+          make -C payloads pull-testenv-image
+          make -C payloads test-all-withdocker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m
         # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
   km-krun-validate-runenv:
@@ -348,25 +392,6 @@ jobs:
 
       - name: Validate runenv images on Azure
         run: make -C tests validate-runenv-image-withpacker TIMEOUT=20m PACKER_DIR=payloads STEP=validate-runenv
-        # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
-
-  km-krun-kkm-validate-runenv:
-    name: Validate runenv, KKM AWS and Azure VMs
-    runs-on: ubuntu-20.04
-    needs: [km-build, kkm-build]
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /tmp/
-
-      - name: Validate runenv images with kkm on AWS and Azure
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C tests validate-runenv-image-withpacker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m PACKER_DIR=payloads STEP=kkm-validate-runenv
         # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
   km-k8s-cluster:
@@ -575,7 +600,7 @@ jobs:
     - name: Check crun personality
       run: |
         OUT=$(docker run --rm busybox uname -r)
-        echo ${OUT} |  grep -v -q '.*\.kontain.KKM$'
+        echo ${OUT} | grep -v -q '.*\.kontain.KKM$'
 
   codeql-scan:
     # CodeQL Code Scanning/Static Analysis
@@ -620,7 +645,7 @@ jobs:
     if: (failure() && github.ref == 'refs/heads/master') ||
       contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
-    needs: [km-build, krun-static-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-krun-kkm-validate-runenv, km-test-all, minikube-testing, codeql-scan, ecs-hack-test]
+    needs: [km-build, krun-static-build, kkm-build, km-test, km-test-withpacker, kkm-test, kkm-test-vms, km-krun-validate-runenv, km-test-all, minikube-testing, codeql-scan, ecs-hack-test]
     steps:
       - name: Send notification to slack
         uses: Gamesight/slack-workflow-status@master
@@ -631,3 +656,46 @@ jobs:
           channel: "#build_and_test"
           name: "CI workflow status"
           icon_emoji: ":thumbsdown:"
+
+
+  # These two steps are to clean up on-demand runner. They work in conjunction with start-runner.
+  # Make sure to add dependencies in both "needs" clauses
+  stop-runner:
+    name: Terminate self-hosted EC2 runner
+    needs: [start-runner, km-build, kkm-test-vms]
+    runs-on: ubuntu-latest
+    if: ${{ ! failure() }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: "us-east-2"
+      - name: Stop EC2 runner
+        uses: kontainapp/ec2-github-runner@v3
+        with:
+          mode: stop
+          github-token: ${{ secrets.GH_TOKEN }}
+          label: ${{ needs.start-runner.outputs.label }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
+
+  stop-and-keep-runner:
+    name: Stop self-hosted EC2 runner
+    needs: [start-runner, km-build, kkm-test-vms]
+    runs-on: ubuntu-latest
+    if: ${{ failure() }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: "us-east-2"
+      - name: Suspend EC2 runner
+        uses: kontainapp/ec2-github-runner@v3
+        with:
+          mode: suspend
+          github-token: ${{ secrets.GH_TOKEN }}
+          label: ${{ needs.start-runner.outputs.label }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
