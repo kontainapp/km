@@ -543,15 +543,12 @@ jobs:
     - name: Stop Docker
       run: sudo systemctl stop docker
 
-    - name:  Install KM
+    - name:  Install KM and Reconfigure Docker
       run: |
         sudo mkdir -p /opt/kontain/bin
         sudo cp /tmp/bin_release/km/km /opt/kontain/bin/km
         sudo cp /tmp/bin_release/container-runtime/krun /opt/kontain/bin/krun-label-trigger
         sudo cp /tmp/bin_release/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
-
-     - name: Reconfigure Docker
-       run: |
         cat << EOF | sudo tee /etc/docker/daemon.json
            {
                "default-runtime": "krun",
