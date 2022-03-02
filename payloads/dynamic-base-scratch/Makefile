@@ -41,5 +41,6 @@ export define runenv_prep
 	mkdir -p tmp && rm -rf tmp/* && chmod a+rwx tmp
 	tar -czf ${RUNENV_PATH}/libs.tar ${PAYLOAD_FILES}
 	cp ${TESTENV_EXTRA_FILES} ${RUNENV_DEMO_PATH}
+	mkdir .kontain
 endef
 include ${TOP}/make/images.mk
