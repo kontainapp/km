@@ -568,12 +568,15 @@ jobs:
         sudo systemctl daemon-reload
         sudo systemctl restart docker
 
-    - name: Run user test
+    - name: Check krun personality
       run: |
-        # when /.kontain exists krun personality 
-        docker run --rm -v /.kontain busybox uname -r | grep -q '.*\.kontain.KKM$'
-        # when /.kontain does not exist, crun personality
-        docker run --rm busybox uname -r grep -v -q '.*\.kontain.KKM$'
+        OUT=$(docker run --rm -v /.kontain busybox uname -r)
+        echo ${OUT} | grep -q '.*\.kontain.KKM$'
+
+    - name: Check crun personality
+      run: |
+        OUT=$(docker run --rm busybox uname -r)
+        echo ${OUT} |  grep -v -q '.*\.kontain.KKM$'
 
   codeql-scan:
     # CodeQL Code Scanning/Static Analysis
