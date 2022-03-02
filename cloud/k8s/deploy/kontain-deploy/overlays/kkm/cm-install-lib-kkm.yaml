@@ -34,6 +34,9 @@ data:
 
       ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
+      # check to see if deltarpm is installed and if not install it (for Amzn Linux 2)
+      yum -q list installed deltarpm &>/dev/null && echo "deltarpm already installed" || (echo "Not installed"; yum install -y deltarpm)
+
       echo "Install Kontain Runtime Artifacts (KM & KRUN)"
 
       mkdir -p ${ROOT_MOUNT_DIR}/kontain-artifacts

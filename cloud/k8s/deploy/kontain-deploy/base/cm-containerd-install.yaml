@@ -31,7 +31,7 @@ data:
     set -euo pipefail
 
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
-    CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:/etc/containerd}"
+    CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
 
     source /scripts-lib/kontain_install_lib.sh
 
