@@ -16,7 +16,14 @@ ECS deals in docker images. Docker images can contain labels of the form `<key>=
 
 ## Proposal
 
-Kontain payload images are identified with the label `app.kontain.version=1`. The label is introduced in `payloads/busybox/runenv.dockerfile` and `payloads/dynamic-base-scratch/runenv.dockerfile` so is therefore inherited by the rest of the of the kontain payload containers.
+Kontain payload images are identified in one of two ways:
+
+* Any type of file system object named `/.kontain` exists in the container. 
+* The OCI container annotation `app.kontain.version=1` exists.
+
+When the `/.kontain` file system object is used, all that matters is the `stat(2)` system call succeeds.
+
+The OCI annotation is not to be confused with the Docker label.
 
 A new name of `krun`, `krun-label-trigger` will be recognized. When started as `krun-label-trigger` the decision to use KM or
 not is based of the presense of the `app.kontain.version=1` label. If present, then the KM path is taken.
@@ -34,3 +41,17 @@ The `/etc/docker/daemon.json` file for ECS nodes is:
 }
 ```
 (Note: the name of the runtime is irrelevent. What's important is the name of the executable file.)
+
+## Example
+
+To see if everthing is configured, run:
+
+```
+docker run --rm -v /.kontain busybox uname -r`
+```
+
+It should print something like this:
+```
+5.10.96-90.460.amzn2.x86_64.kontain.KKM
+```
+
