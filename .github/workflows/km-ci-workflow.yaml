@@ -489,10 +489,12 @@ jobs:
 
     - name: Install Kontain on minikube k8s
       run: |
-        kubectl apply -f cloud/k8s/deploy/runtime-class.yaml
-        kubectl apply -f cloud/k8s/deploy/cm-install-lib.yaml
-        kubectl apply -f cloud/k8s/deploy/cm-containerd-install.yaml
-        kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
+        # merges and applies all the files for CI overlay
+        kubectl apply -k cloud/k8s/deploy/kontain-deploy/overlays/ci
+        # kubectl apply -f cloud/k8s/deploy/runtime-class.yaml
+        # kubectl apply -f cloud/k8s/deploy/cm-install-lib.yaml
+        # kubectl apply -f cloud/k8s/deploy/cm-containerd-install.yaml
+        # kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
         sleep 20
 
     # uncomment to get logs from damonset.
