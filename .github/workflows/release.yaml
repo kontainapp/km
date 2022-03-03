@@ -117,7 +117,6 @@ jobs:
           key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
 
       - run: |
-          set -x
           CRUN_DIR=$(pwd)/container-runtime/crun
           # These next two lines were taken from the crun release.yaml and build-aux/release.sh
           # to setup and execute a nix based build of stripped static
@@ -146,7 +145,6 @@ jobs:
           name: krun-static
           path: /tmp/krun-static
       - run: |
-          set -x
           #
           # create kontain_bin with static krun by patching up old format
           mkdir -p /tmp/kontain_bin
