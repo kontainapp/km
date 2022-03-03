@@ -545,6 +545,7 @@ jobs:
 
     - name:  Install KM and Reconfigure Docker
       run: |
+        sudo rm -rf /opt/kontain/bin
         sudo mkdir -p /opt/kontain/bin
         sudo cp /tmp/bin_release/km/km /opt/kontain/bin/km
         sudo cp /tmp/bin_release/container-runtime/krun /opt/kontain/bin/krun-label-trigger
