@@ -27,7 +27,7 @@ on:
       - payloads/longhaul-test/**
       - "**/L0-image**"
   push:
-    branches: [master]
+    branches: [master, muth/check-ci]
     paths-ignore:
       - "**.md" # all .md files in repo
       - "**/docs/**" # all content of all docs/ dirs in repo
