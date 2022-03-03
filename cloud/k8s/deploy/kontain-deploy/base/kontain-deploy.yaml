@@ -40,8 +40,10 @@ spec:
         env:
         - name: ROOT_MOUNT_DIR
           value: /root
+        - name: CONTAINERD_CFG_DIR
+          value: /etc/containerd
         - name: KONTAIN_RELEASE_URL
-          value: https://github.com/kontainapp/km/releases/download/v0.9.3/kontain_bin.tar.gz
+          value: https://github.com/kontainapp/km/releases/download/v0.9.5/kontain_bin.tar.gz
         - name: NODE_NAME
           valueFrom:
             fieldRef:

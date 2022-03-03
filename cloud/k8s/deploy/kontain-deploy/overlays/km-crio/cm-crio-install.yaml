@@ -21,8 +21,10 @@ metadata:
   namespace: kube-system
   labels:
     app: kontain-init
+# data-from-file:
+#   entrypoint.sh: ./entrypoint.sh
 data:
-  entrypoint.sh: |
+  entrypoint.sh: |-
     #!/usr/bin/env bash
 
     set -x
@@ -37,10 +39,10 @@ data:
 
     echo "Add Kontain Runtime to CRIO configuration"
     cat <<-EOT | tee -a /etc/crio/crio.conf.d/99-kontain-deploy
-    	[crio.runtime.runtimes.krun]
-    	runtime_path = "/opt/kontain/bin/krun"
-    	runtime_type = "oci"
-    	runtime_root = "/run/krun"
+      [crio.runtime.runtimes.krun]
+      runtime_path = "/opt/kontain/bin/krun"
+      runtime_type = "oci"
+      runtime_root = "/run/krun"
     EOT
 
     [ -c /root/dev/kvm ] && chmod 666 /root/dev/kvm

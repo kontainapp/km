@@ -22,7 +22,7 @@ metadata:
   labels:
     app: kontain-init
 data:
-  kontain_install_lib.sh: |
+  kontain_install_lib.sh: |-
     #!/usr/bin/env bash
 
     # This will get overridden be ENV definition in kontain-deploy.yaml
