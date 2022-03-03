@@ -375,7 +375,7 @@ jobs:
           make -C tests pull-testenv-image
           make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= TIMEOUT=20m
           make -C payloads pull-testenv-image
-          make -C payloads test-all-withdocker HYPERVISOR_DEVICE=/dev/kkm TIMEOUT=20m
+          make -C payloads test-all-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= TIMEOUT=20m
         # note: not using CI's 'timeout-minutes' to avoid a kill without cleaning resources
 
   km-krun-validate-runenv:
