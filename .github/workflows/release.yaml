@@ -193,6 +193,7 @@ jobs:
 
       - name: Install Kontain and KKM
         run: |
+          set -x
           sudo apt-get update -y -q
           sudo apt-get -y -q install linux-headers-$(uname -r)
           sudo bash kkm.run --noprogress
