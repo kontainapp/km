@@ -37,8 +37,7 @@ check_crypto() {
 }
 check_crypto
 
-case "$1" in
-  test)
+if [[ "$1" == "test" || "$1" == "test-all" ]]; then
    KM_BIN=$2
    PAYLOAD_KM=$3
    TEST_KM=$4
@@ -49,18 +48,17 @@ case "$1" in
 	${KM_BIN} ${PAYLOAD_KM} ./scripts/micro-srv.js & sleep 1 ; curl localhost:8080
 	curl -X POST localhost:8080 || echo Forcing srv to exit and ignoring curl 'empty reply'
 	${KM_BIN} ${TEST_KM} --gtest_filter="*"
-  ;;
+fi
 
-  test-all)
-   NODETOP=$2
-   BUILD=$3
+if [[ "$1" == "test-all" ]]; then
+   NODETOP=$5
+   BUILD=$6
 	cd ${NODETOP}
    python tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr -s '\n ' ','` default addons js-native-api node-api
    echo "Tests are Successful"
-  ;;
+fi
 
-  *)
+if [[ "$1" != "test" && "$1" != "test-all" ]]; then
   usage
-  ;;
-esac
+fi
 
