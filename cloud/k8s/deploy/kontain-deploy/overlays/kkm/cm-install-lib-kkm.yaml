@@ -52,9 +52,8 @@ data:
 
       mkdir -p ${ROOT_MOUNT_DIR}/opt/kontain/shim
       cp ${ROOT_MOUNT_DIR}/kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2
-      cp ${ROOT_MOUNT_DIR}/kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${ROOT_MOUNT_DIR}/bin/containerd-shim-krun-v2
       chmod +x ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2
-      chmod +x ${ROOT_MOUNT_DIR}/bin/containerd-shim-krun-v2
+      chroot ${ROOT_MOUNT_DIR} ln -sf /opt/kontain/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
 
       chmod +x ${ROOT_MOUNT_DIR}/kontain-artifacts/kkm.run
       chroot ${ROOT_MOUNT_DIR}   /kontain-artifacts/kkm.run -- --force-install
