@@ -24,6 +24,32 @@
  */
 SECTIONS
 {
+   . = 0x8000000000;
+   .init : { *(.init) }
+   .plt : { *(.plt) }
+   .fini : { *(.fini) }
+   .text : { *(.text*) }
+   .__libc_freeres_fn : { *(.__libc_freeres_fn) }
+   .fini : { *(.fini) }
+   .rodata : { *(.rodata) }
+   .stapsdt.base : { *(.stapsdt.base) }
+   .eh_frame : { *(.eh_frame) }
+   .gcc_except_table : { *(.gcc_except_table) }
+   .tdata : { *(.tdata) }
+   .tbss : { *(.tbss) }
+   .init_array : { *(.init_array) }
+   .fini_array : { *(.fini_array) }
+   .data.rel.ro : { *(.data.rel.ro) }
+   .got : { *(.got) }
+   .got.plt : { *(.got.plt) }
+   .data : { *(.data*) }
+   .__libc_subfreeres : { *(.__libc_subfreeres) }
+   .__libc_IO_vtables : { *(.__libc_IO_vtables) }
+   .__libc_atexit : { *(.__libc_atexit) }
+   .bss : { *(.bss*) }
+   .__libc_freeres_fn_section : { *(.__libc_freeres_fn_section) }
+   .__libc_freeres_fn_section : { *(.__libc_freeres_fn_section) }
+
    .km_guest_text ALIGN(CONSTANT (COMMONPAGESIZE)) :
    {
       km_guest_start = .;
