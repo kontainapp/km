@@ -26,13 +26,13 @@
 #include "km_proc.h"
 
 #define KM_PAGE_SIZE 0x1000ul   // standard 4k page
-#define KM_PAGE_MASK (~(KM_PAGE_SIZE - 1))
-#define KIB 0x400ul        // KByte
-#define MIB 0x100000ul     // MByte
-#define GIB 0x40000000ul   // GByte
+static const uint64_t KM_PAGE_MASK = (~(KM_PAGE_SIZE - 1));
+static const uint64_t KIB = 0x400ul;        // KByte
+static const uint64_t MIB = 0x100000ul;     // MByte
+static const uint64_t GIB = 0x40000000ul;   // GByte
 
-static const int RSV_MEM_START = KM_PAGE_SIZE;
-static const int RSV_MEM_SIZE = KM_PAGE_SIZE * 63;
+static const int RSV_MEM_START = KM_PAGE_SIZE * 32;
+static const int RSV_MEM_SIZE = KM_PAGE_SIZE * 32;
 /*
  * Mandatory data structures in reserved area to enable 64 bit CPU.
  * These numbers are offsets from the start of reserved area
@@ -42,7 +42,10 @@ static const int RSV_IDMAP_OFFSET = RSV_MEM_SIZE;   // next page after reserved 
 /*
  * convert the above to guest physical offsets
  */
-#define RSV_GUEST_PA(x) ((x) + RSV_MEM_START)
+static inline uint64_t RSV_GUEST_PA(uint64_t x)
+{
+   return x + RSV_MEM_START;
+}
 
 // Special slots in machine.vm_mem_regs[]
 static const int KM_RSRV_MEMSLOT = 0;
@@ -52,7 +55,11 @@ static const int KM_RSRV_KMGUESTMEM_SLOT = 42;
 static const km_gva_t GUEST_MEM_START_VA = 2 * MIB;
 static const km_gva_t GUEST_PRIVATE_MEM_START_VA = 512 * GIB;
 // ceiling for guest virt. address. 2MB shift down to make it aligned on GB with physical address
-static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
+#ifdef KM_HIGH_GVA
+static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - GUEST_MEM_START_VA;
+#else
+static const km_gva_t GUEST_MEM_TOP_VA = (512 * GIB - GUEST_MEM_START_VA);
+#endif
 
 static const km_gva_t GUEST_VVAR_VDSO_BASE_VA = GUEST_PRIVATE_MEM_START_VA;
 static const km_gpa_t GUEST_VVAR_VDSO_BASE_GPA = 0x7ffff00000;
@@ -60,23 +67,16 @@ static const km_gpa_t GUEST_VVAR_VDSO_BASE_GPA = 0x7ffff00000;
 static const km_gva_t GUEST_KMGUESTMEM_BASE_VA = GUEST_PRIVATE_MEM_START_VA + (32 * KIB);
 static const km_gpa_t GUEST_KMGUESTMEM_BASE_GPA = 0x7ffff08000;
 
-// VA offset from PA for addresses over machine.tbrk. Last 2MB of VA stay unused for symmetry.
-#define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA - (machine.guest_max_physmem - 2 * MIB))
-
 /*
- * We support 2 "zones" of VAs, one on the bottom and one on the top, each no larger than this.
- * We do not support 2MB pages in the first and last GB of VA (just so we do not have to manage PDE
- * tables), So the actual zone size is 'max_physmem - GB', or just 1GB on HW with no 1g pages - all
- * VA there is provided by 2 PDP tables - see km_mem.c
+ * There are 2 "zones" of VAs, one on the bottom and one on the top. The bottom has pva == gva, the
+ * top one is shifted by this offset, i.e gva = pva + GUEST_VA_OFFSET
  */
-#define GUEST_MEM_ZONE_SIZE_VA                                                                     \
-   ((machine.pdpe1g ? (machine.guest_max_physmem - GIB) : GIB) - 2 * MIB)
+#define GUEST_MEM_ZONE_SIZE_VA (machine.guest_max_physmem)
+
+#define GUEST_VA_OFFSET (GUEST_MEM_TOP_VA + GUEST_MEM_START_VA - GUEST_MEM_ZONE_SIZE_VA)
 
 // We currently only have code with 1 PML4 entry per "zone", so we can't support more than that
-#define GUEST_MAX_PHYSMEM_SUPPORTED 512 * GIB
-
-// Don't support guests with less than 4GB physical
-#define GUEST_MIN_PHYSMEM_SUPPORTED 4 * GIB
+static const uint64_t GUEST_MAX_PHYSMEM_SUPPORTED = 512 * GIB;
 
 /*
  * See "Virtual memory layout:" in km_cpu_init.c for details.
@@ -94,6 +94,12 @@ static const uint64_t GUEST_STACK_SIZE = 2 * MIB;   // Single thread stack size
 static const uint64_t GUEST_ARG_MAX = 32 * KM_PAGE_SIZE;
 
 /*
+ * The following exponential memory region sizes are to work around KVM limitations. Turns out large
+ * memory regions take a long time to insert into the VM so starting with large memory makes inital
+ * start slow. So we start with only 2MB at the bottom and 2MB at the top. On the other hand the
+ * number of available physical memory slots is not that large, so we cannot linearly add memory.
+ * Hence the exponential approach.
+ *
  * Physical address space is made of regions with size exponentially increasing from 2MB until they
  * cross the middle of the space, and then region sizes are exponentially decreasing until they
  * drop to 2MB (last region size). E.g.:
@@ -116,11 +122,27 @@ static const uint64_t GUEST_ARG_MAX = 32 * KM_PAGE_SIZE;
  * address of the first byte in it. Note size equals base in the first half of the space
  *
  * Memory regions that become guest physical memory are allocated using mmap() with specified
- * address, so that contiguous guest physical memory becomes contiguous in KM space as well. We
- * randomly choose to start guest memory allocation from 0x100000000000, which happens to be 16TB.
- * It has an advantage of being numerically the guest physical addresses with bit 0x100000000000 set.
+ * address, so that contiguous guest physical memory becomes contiguous in KM space as well.
+ *
+ * We could randomly choose to start guest memory allocation from something like 0x100000000000,
+ * which happens to be 16TB. It has an advantage of being numerically the guest physical addresses
+ * with bit 0x100000000000 set, so it is easy to visually convert gva and gpa. km could be regular
+ * static, dynamic, or PIE executable. Use -DKM_GPA_AT_16T=1
+ *
+ * On the other hand we could choose this to be 0x0, in which case gpa actually equals to kma. To
+ * avoid collision KM needs to be moved out of the way, of course, which we achieve by making KM a
+ * PIE, static or dynamic.
+ *
+ * Per https://stackoverflow.com/questions/61561331/why-does-linux-favor-0x7f-mappings,
+ * Minimum address for ET_DYN, if we take a look at ELF_ET_DYN_BASE, we see that it is architecture
+ * dependent and on x86-64 it evaluates to:
+ * ((1ULL << 47) - (1 << 12)) / 3 * 2 == 0x555555554aaa
  */
-static const km_kma_t KM_USER_MEM_BASE = (void*)0x100000000000ul;   // 16TiB
+#ifndef KM_GPA_AT_16T
+static const km_kma_t KM_USER_MEM_BASE = (void*)0x0;
+#else
+static const km_kma_t KM_USER_MEM_BASE = (void*)0x100000000000ul;
+#endif
 
 /*
  * Knowing memory layout and how pml4 is set, convert between guest virtual address and km address.
@@ -145,7 +167,7 @@ static inline km_gva_t gva_to_gpa_nocheck(km_gva_t gva)
 static inline km_gva_t gva_to_gpa(km_gva_t gva)
 {
    // gva must be in the bottom or top "max_physmem", but not in between
-   assert((GUEST_MEM_START_VA - 1 <= gva && gva < machine.guest_max_physmem) ||
+   assert((GUEST_MEM_START_VA - 1 <= gva && gva < GUEST_MEM_ZONE_SIZE_VA) ||
           (GUEST_VA_OFFSET <= gva && gva <= GUEST_MEM_TOP_VA));
    return gva_to_gpa_nocheck(gva);
 }
@@ -160,10 +182,10 @@ static inline km_gva_t gpa_to_upper_gva(uint64_t gpa)
 static inline int gva_to_memreg_idx(km_gva_t addr)
 {
    addr = gva_to_gpa(addr);   // adjust for gva in the top part of VA space
-   if (addr <= machine.guest_mid_physmem) {
-      return MEM_IDX(addr);
+   if (addr > machine.guest_mid_physmem) {
+      return machine.last_mem_idx - MEM_IDX(machine.guest_max_physmem - addr - 1);
    }
-   return machine.last_mem_idx - MEM_IDX(machine.guest_max_physmem - addr - 1);
+   return MEM_IDX(addr);
 }
 
 static inline km_gva_t memreg_top(int idx);   // forward declaration

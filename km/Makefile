@@ -27,11 +27,12 @@ VERSION_SRC := km_main.c # it has branch/version info, so rebuild it if git info
 INCLUDES := ${TOP}/include
 COVERAGE := yes
 LOCAL_COPTS := -Werror -D_GNU_SOURCE
-LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd
+LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -static-pie
 
 include ${TOP}/make/actions.mk
 
-${BLDDIR}/km_guest_asmcode.o: CFLAGS += -fPIC
+${BLDDIR}/km_guest_asmcode.o: CFLAGS += -fpic
+CFLAGS += -fpic
 
 # Package KM and libs+tools+docs for release
 KM_RELEASE := ${BLDTOP}/kontain.tar.gz

@@ -89,7 +89,7 @@ intr_hand CP, 21
 /*
  * Table used by KM to build IDT entries.
  */
-    .section .km_guest_data, "da", @progbits
+    .section .km_guest_data, "dwa", @progbits
     .align 16
     .type __km_interrupt_table, @object
     .global __km_interrupt_table
