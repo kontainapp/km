@@ -140,7 +140,7 @@ static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t*
          if (km_vdso_gva(phdr->p_vaddr) != 0 || km_guestmem_gva(phdr->p_vaddr) != 0) {
             continue;
          }
-         if (phdr->p_vaddr >= gpa_to_upper_gva(GUEST_MEM_START_VA)) {
+         if (phdr->p_vaddr >= 256 * GIB) {   // TODO: HACK to tell upper VA from lower
             // upper: Skip addresses loaded by machine initialization.
             if (phdr->p_vaddr + phdr->p_filesz <= tbrk_gva) {
                int prot = prot_elf_to_mmap(phdr->p_flags);
@@ -321,7 +321,7 @@ static int km_ss_recover_file_maps(char* ptr, size_t length)
    for (uint64_t i = 0; i < nfile; i++) {
       km_gva_t base = current[0];
       km_gva_t limit = current[1];
-      if (limit >= gpa_to_upper_gva(GUEST_MEM_START_VA)) {
+      if (limit >= 256 * GIB) {   // TODO: HACK to tell upper VA from lower
          /*
           * There are NT_FILE records for all mappings, including the one
           * in low virtual memory create by load_elf. We want to skip those

@@ -49,8 +49,9 @@
  *   that GB
  *
  * When using kvm driver
- * - We are forced to stay within width of the CPU physical memory bus. We
- *   determine that the by analyzing CPUID and store in machine.guest_max_physmem
+ * - We are forced to stay within width of the CPU physical memory bus. We determine that by analyzing
+ * CPUID and store in machine.guest_max_physmem. Currently the code only supports up to 512GB.
+ *
  * When using kkm driver
  * - fixed 512GB of memory is supported.
  */
@@ -146,17 +147,26 @@ static void pte_set(x86_pte_4k_t* pte, uint64_t addr)
  * address) of this region is machine.tbrk.
  *
  * Total amount of guest virtual memory (bottom region + top region) is currently limited to
- * 'guest_max_physical_mem-4MB' (i.e. 512GB-4MB). Virtual to physical is essentially 1:1
- * mapping, but the top region virtual addresses are equal to physical_addresses + GUEST_VA_OFFSET.
+ * 'guest_max_physical_mem-4MB' (i.e. 512GB-4MB).
  *
- * We use 2MB pages for the first and last GB of virtual space, and 1GB pages for the rest. With the
- * guest_max_physmem == 512GB we need two pml4 entries, #0 and #255. #0 covers the text and data (up
- * to machine.brk), the #255 mmap and stack area (from machine.tbrk up). There are correspondingly two
- * pdpt pages. Since we allow 2MB pages only for the first and last GB, we use only 2 pdp tables. The
- * rest of VA is covered by 1GB-wide slots in relevant PDPT. The first entry in the
- * first PDP table, representing first 2MB of address space, it always empty. Same for the last
- * entry in the second PDP table - it is always empty. Usable virtual memory starts from 2MB and
- * ends at GUEST_MEM_TOP_VA-2MB. Usable physical memory starts at 2MB and ends at 512GB-2MB.
+ * Virtual to physical is essentially 1:1
+ *
+ * There are two possible layouts. If KM_HIGH_GVA is defined, the top region virtual addresses are
+ * equal to physical_addresses + GUEST_VA_OFFSET. The low is one to one GVA == PVA.
+ *
+ * If KM_HIGH_GVA is *not* defined, both regions have GVA == PVA.
+ *
+ * We use 2MB pages for the first and last GB of virtual space, and 1GB pages for the rest.
+ *
+ * #ifdef KM_HIGH_GVA
+ *
+ * With the guest_max_physmem == 512GB we need two pml4 entries, #0 and #255. #0 covers the text and
+ * data (up to machine.brk), the #255 mmap and stack area (from machine.tbrk up). There are
+ * correspondingly two pdpt pages. Since we allow 2MB pages only for the first and last GB, we use
+ * only 2 pdp tables. The rest of VA is covered by 1GB-wide slots in relevant PDPT. The first entry
+ * in the first PDP table, representing first 2MB of address space, it always empty. Same for the
+ * last entry in the second PDP table - it is always empty. Usable virtual memory starts from 2MB
+ * and ends at GUEST_MEM_TOP_VA-2MB. Usable physical memory starts at 2MB and ends at 512GB-2MB.
  * Initially there is no memory allocated, then it expands with brk (left to right in the picture
  * below) or with mmap (right to left).
  *
@@ -182,6 +192,44 @@ static void pte_set(x86_pte_4k_t* pte, uint64_t addr)
  *      [----------------] [----------------] pd pages
  *        |                                |
  *      2 - 4 MB                 512GB-2MB - 512GB    <==== physical addresses
+ *
+ *
+ * #else KM_HIGH_GVA
+ *
+ * // clang-format on
+ *
+ * With the guest_max_physmem == 512GB we need one pml4 entry, #0, and a single pdpt page. Since we
+ * allow 2MB pages only for the first and last GB, we use only 2 pdp tables. The rest of VA is
+ * covered by 1GB-wide slots in PDPT. The first entry in the first PDP table, representing first 2MB
+ * of address space, it always empty. Same for the last entry in the second PDP table - it is always
+ * empty. Usable virtual memory starts from 2MB and ends at GUEST_MEM_TOP_VA-2MB. Usable physical
+ * memory starts at 2MB and ends at 512GB-2MB. Initially there is no memory allocated, then it
+ * expands with brk (left to right in the picture below) or with mmap (right to left).
+ *
+ * If we ever go over the 512GB limit there will be a need for more pdpt pages. The first entry
+ * points to the pd page that covers the first GB.
+ *
+ * The picture illustrates layout with the constants values as set.
+ * The code below is a little more flexible, allowing one or two pdpt pages and
+ * pml4 entries, as well as variable locations in pdpt table
+ *
+ * // clang-format off
+ *
+ *           0|
+ *           [----------------] pml4 page
+ *            |
+ *         __/
+ *        /
+ *       |
+ *      [----------------]
+ *       |              \__________________
+ *       |\________                       |\
+ *       |         \                      ||
+ *      [----------------] [----------------] pd pages
+ *        |                                |
+ *      2 - 4 MB                 512GB-2MB - 512GB    <==== physical addresses
+ *
+ * #endif KM_HIGH_GVA
  *
  * // clang-format on
  */
@@ -387,13 +435,17 @@ static void init_pml4(km_kma_t mem)
    pdpte_set(&pt->pdpt1[0], (uint64_t)pt_phys->pd1);
    idx = PDE_SLOT(GUEST_VVAR_VDSO_BASE_VA);
    pde_4k_set(&pt->pd1[idx], (uint64_t)pt_phys->pt1);
-
+#ifdef KM_HIGH_GVA
    // 128TB - 512GB to 128TB
    idx = (GUEST_MEM_TOP_VA - 1) / PML4E_REGION;
    pml4e_set(&pt->pml4[idx], (uint64_t)pt_phys->pdpt2);
-
+#endif
    idx = PDE_SLOT(GUEST_MEM_TOP_VA);
+#ifdef KM_HIGH_GVA
    pdpte_set(&pt->pdpt2[idx], (uint64_t)pt_phys->pd2);
+#else
+   pdpte_set(&pt->pdpt0[idx], (uint64_t)pt_phys->pd2);
+#endif
 }
 
 static void* km_guest_page_malloc(km_gva_t gpa_hint, size_t size, int prot)
@@ -537,7 +589,11 @@ static inline void fixup_top_page_tables(km_gva_t old_brk, km_gva_t new_brk)
 {
    page_tables_t* pt = km_page_table();
    x86_pde_2m_t* pde = (x86_pde_2m_t*)pt->pd2;
+#ifdef KM_HIGH_GVA
    x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt2;
+#else
+   x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt0;
+#endif
    int old_2m_slot = PDE_SLOT(old_brk);
    int new_2m_slot = PDE_SLOT(new_brk);
    int old_1g_slot = PDPTE_SLOT(old_brk);
@@ -605,7 +661,11 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
       }
    } else {
       assert(machine.pdpe1g != 0);
+#ifdef KM_HIGH_GVA
       x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)(upper_va ? pt->pdpt2 : pt->pdpt0);
+#else
+      x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt0;
+#endif
       uint64_t gva = upper_va ? gpa_to_upper_gva(base) : base;
       for (uint64_t addr = gva; addr < gva + size; addr += PDPTE_REGION, base += PDPTE_REGION) {
          pdpte_1g_set(pdpe + PDPTE_SLOT(addr), base);
@@ -628,7 +688,11 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
       }
    } else {
       assert(machine.pdpe1g != 0);   // no 1GB pages support
+#ifdef KM_HIGH_GVA
       x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)(upper_va ? pt->pdpt2 : pt->pdpt0);
+#else
+      x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt0;
+#endif
       uint64_t gva = upper_va ? gpa_to_upper_gva(base) : base;
       for (uint64_t addr = gva; addr < gva + size; addr += PDPTE_REGION, base += PDPTE_REGION) {
          pdpe[PDPTE_SLOT(addr)] = (x86_pdpte_1g_t){0};
@@ -703,11 +767,10 @@ km_gva_t km_mem_brk(km_gva_t brk)
    if (brk == 0) {
       return machine.brk;
    }
-   if (brk > GUEST_MEM_START_VA + GUEST_MEM_ZONE_SIZE_VA) {
+   if (brk >= GUEST_MEM_ZONE_SIZE_VA) {
       return -ENOMEM;
    }
    km_mem_lock();
-
    // Keep brk and tbrk out of the same 1 GIB region.
    if (rounddown(gva_to_gpa(brk), PDPTE_REGION) >= rounddown(gva_to_gpa(machine.tbrk), PDPTE_REGION)) {
       km_mem_unlock();
@@ -763,7 +826,7 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
    if (tbrk == 0) {
       return machine.tbrk;
    }
-   if (GUEST_MEM_TOP_VA < tbrk || tbrk < GUEST_MEM_TOP_VA - GUEST_MEM_ZONE_SIZE_VA) {
+   if (GUEST_MEM_TOP_VA < tbrk || tbrk < GUEST_VA_OFFSET) {
       return -ENOMEM;
    }
    km_mem_lock();

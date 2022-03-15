@@ -27,7 +27,7 @@ load test_helper
 
 # not_needed_{generic,static,dynamic,shared} - skip since it's not needed
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
-not_needed_generic=''
+not_needed_generic=
 # TODO: gdb_delete_breakpoint and gdb_server_race are caused by race described in https://github.com/kontainapp/km/issues/821.
 # Disable them for now to improve signal/noise ratio
 todo_generic='gdb_delete_breakpoint gdb_server_race clock_gettime'
@@ -584,9 +584,11 @@ fi
       --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_protected_mem_test.gdb" --ex=q
    assert_success
-   assert_line --partial "first word  0x7fffffbfc000:	0x1111111111111111"
-   assert_line --partial "spanning pages  0x7fffffbfcffc:	0xff0000ffff0000ff"
-   assert_line --partial "last word  0x7fffffbfdff8:	0xeeeeeeeeeeeeeeee"
+   # Depending on the guest virtual memory layout the addresses could be either like
+   # 0x7fffffbfc000 (KM_HIGH_GVA) or 0x7fffbfc000
+   assert_line --regexp "first word  0x7ffff?f?bfc000:	0x1111111111111111"
+   assert_line --regexp "spanning pages  0x7ffff?f?bfcffc:	0xff0000ffff0000ff"
+   assert_line --regexp "last word  0x7ffff?f?bfdff8:	0xeeeeeeeeeeeeeeee"
    wait_and_check $pid 0
 }
 
@@ -928,7 +930,9 @@ fi
    run gdb_with_timeout -ex="set pagination off" -ex="handle SIG63 nostop"\
       -ex="source gdb_simple_test.py" -ex="run-test" -ex="q" --args ${KM_BIN} ${KM_ARGS} munmap_monitor_maps_test$ext
    assert_success
-   assert_line --partial "conflicts with monitor region 0x7fffffdfe000 size 0x2000"
+   # Depending on the guest virtual memory layout the addresses could be either like
+   # 0x7fffffbfc000 (KM_HIGH_GVA) or 0x7fffbfc000
+   assert_line --regexp "conflicts with monitor region 0x7ffff?f?dfe000 size 0x2000"
    assert_line --partial 'fail: 0'
 }
 

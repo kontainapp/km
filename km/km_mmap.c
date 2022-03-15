@@ -79,10 +79,6 @@ void km_guest_mmap_fini(void)
 static inline int
 mmap_check_params(km_gva_t addr, size_t size, int prot, int flags, int fd, off_t offset)
 {
-   if (size >= GUEST_MEM_ZONE_SIZE_VA) {
-      km_infox(KM_TRACE_MMAP, "*** size is too large");
-      return -ENOMEM;
-   }
    if ((flags & MAP_FIXED_NOREPLACE) != 0) {
       km_infox(KM_TRACE_MMAP, "*** MAP_FIXED_NOREPLACE is not supported");
       return -EINVAL;
