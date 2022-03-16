@@ -25,9 +25,9 @@ SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c km_mem.c
 		km_kkm.c km_vmdriver.c km_exec_fd_save_recover.c
 VERSION_SRC := km_main.c # it has branch/version info, so rebuild it if git info changes
 INCLUDES := ${TOP}/include
-LLIBS := elf z
+LLIBS := z
 COVERAGE := yes
-LOCAL_COPTS := -Werror -D_GNU_SOURCE
+LOCAL_COPTS := -Werror -D_GNU_SOURCE 
 LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd
 
 include ${TOP}/make/actions.mk

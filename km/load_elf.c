@@ -85,66 +85,47 @@ static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
    }
 }
 
-static void km_find_dlopen(Elf* e, km_gva_t adjust)
+static void km_find_dlopen(km_elf_t* e, km_gva_t adjust)
 {
-   for (Elf_Scn* scn = NULL; (scn = elf_nextscn(e, scn)) != NULL;) {
-      GElf_Shdr shdr;
+   if (e->symidx == -1 || e->stridx == -1) {
+      return;
+   }
 
-      gelf_getshdr(scn, &shdr);
-      if (shdr.sh_type == SHT_SYMTAB) {   // assume there is only one symtab, break after processing
-         Elf_Data* data = elf_getdata(scn, NULL);
+   int nsym = e->shdr[e->symidx].sh_size / e->shdr[e->symidx].sh_entsize;
+   Elf64_Sym* symtab = (Elf64_Sym*) malloc(e->shdr[e->symidx].sh_size);
+   if (fseek(e->file, e->shdr[e->symidx].sh_offset, SEEK_SET) != 0) {
+      km_err(2, "fseek failure");
+   }
+   int nread = fread(symtab, 1, e->shdr[e->symidx].sh_size, e->file);
+   if (nread != e->shdr[e->symidx].sh_size) {
+      km_err(2, "symbol table read failure");
+   } 
 
-         for (int i = 0; i < shdr.sh_size / shdr.sh_entsize; i++) {
-            GElf_Sym sym;
+   char *strings = malloc(e->shdr[e->stridx].sh_size);
+   if (fseek(e->file, e->shdr[e->stridx].sh_offset, SEEK_SET) != 0) {
+      km_err(2, "fseek failure");
+   }
+   nread = fread(strings, 1, e->shdr[e->stridx].sh_size, e->file);
+   if (nread != e->shdr[e->stridx].sh_size) {
+      km_err(2, "strings table read failure");
+   } 
 
-            gelf_getsym(data, i, &sym);
-            if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-                strcmp(elf_strptr(e, shdr.sh_link, sym.st_name), KM_DLOPEN_SYM_NAME) == 0) {
-               km_guest.km_dlopen = sym.st_value + adjust;
-               break;
-            }
-         }
-         break;
+   for (int i = 0; i < nsym; i++) {
+      Elf64_Sym sym = symtab[i];
+
+      if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
+          strcmp(&strings[sym.st_name], KM_DLOPEN_SYM_NAME) == 0) {
+         km_guest.km_dlopen = sym.st_value + adjust;
+         free(strings);
+         free(symtab);
+         return;
       }
    }
+   free(strings);
+   free(symtab);
    return;
 }
 
-/*
- * Returns open elf file descriptor, exits in case of errors
- */
-km_elf_t* km_open_elf_file(const char* filename)
-{
-   km_elf_t* e;
-
-   if (elf_version(EV_CURRENT) == EV_NONE) {
-      km_errx(2, "ELF library initialization failed: %s", elf_errmsg(-1));
-   }
-   if ((e = malloc(sizeof(km_elf_t))) == NULL) {
-      km_err(2, "no memory for km_elf_t");
-   }
-   if ((e->fd = open(filename, O_RDONLY)) < 0) {
-      km_err(2, "open %s failed", filename);
-   }
-   if ((e->elf = elf_begin(e->fd, ELF_C_READ, NULL)) == NULL) {
-      km_errx(2, "elf_begin() failed: %s", elf_errmsg(-1));
-   }
-   if (elf_kind(e->elf) != ELF_K_ELF) {
-      km_errx(2, "%s is not an ELF object", filename);
-   }
-   if (gelf_getehdr(e->elf, &e->ehdr) == NULL) {
-      km_errx(2, "gelf_getehdr %s", elf_errmsg(-1));
-   }
-   e->filename = filename;
-   return e;
-}
-
-void km_close_elf_file(km_elf_t* e)
-{
-   (void)elf_end(e->elf);
-   (void)close(e->fd);
-   free(e);
-}
 
 /*
  * load the dynamic linker. Currently only support MUSL dynlink built with KM hypercalls.
@@ -168,20 +149,18 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
       // What about wasted bytes between base and roundup(base)?
       base = km_mem_brk(roundup(base, KM_PAGE_SIZE));
    }
-   km_dynlinker.km_ehdr = e->ehdr;
+   km_dynlinker.km_ehdr = *e->ehdr;
    if ((km_dynlinker.km_phdr = malloc(sizeof(Elf64_Phdr) * km_dynlinker.km_ehdr.e_phnum)) == NULL) {
       km_err(2, "no memory for elf program headers");
    }
 
    km_dynlinker.km_min_vaddr = -1U;
    for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
-      GElf_Phdr* phdr = &km_dynlinker.km_phdr[i];
+      Elf64_Phdr* phdr = &km_dynlinker.km_phdr[i];
 
-      if (gelf_getphdr(e->elf, i, phdr) == NULL) {
-         km_errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
-      }
+      *phdr = e->phdr[i];
       if (phdr->p_type == PT_LOAD) {
-         load_extent(e->fd, phdr, base);
+         load_extent(fileno(e->file), phdr, base);
          if (phdr->p_vaddr < km_dynlinker.km_min_vaddr) {
             km_dynlinker.km_min_vaddr = phdr->p_vaddr;
          }
@@ -189,7 +168,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    }
 
    km_dynlinker.km_load_adjust = base - km_dynlinker.km_min_vaddr;
-   km_find_dlopen(e->elf, km_dynlinker.km_load_adjust);
+   km_find_dlopen(e, km_dynlinker.km_load_adjust);
    km_close_elf_file(e);
 }
 
@@ -199,11 +178,11 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
  */
 uint64_t km_load_elf(km_elf_t* e)
 {
-   km_guest.km_ehdr = e->ehdr;
+   km_guest.km_ehdr = *e->ehdr;
    if ((km_guest.km_phdr = malloc(sizeof(Elf64_Phdr) * km_guest.km_ehdr.e_phnum)) == NULL) {
       km_err(2, "no memory for elf program headers");
    }
-   km_guest.km_filename = e->filename;
+   km_guest.km_filename = e->path;
 
    /*
     * Read program headers, store them in km_guest for future use
@@ -211,10 +190,8 @@ uint64_t km_load_elf(km_elf_t* e)
    km_guest.km_min_vaddr = -1U;
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
       GElf_Phdr* phdr = &km_guest.km_phdr[i];
+      *phdr = e->phdr[i];
 
-      if (gelf_getphdr(e->elf, i, phdr) == NULL) {
-         km_errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
-      }
       if (phdr->p_type == PT_LOAD && phdr->p_vaddr < km_guest.km_min_vaddr) {
          km_guest.km_min_vaddr = phdr->p_vaddr;
       }
@@ -252,7 +229,7 @@ uint64_t km_load_elf(km_elf_t* e)
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
       GElf_Phdr* phdr = &km_guest.km_phdr[i];
       if (phdr->p_type == PT_LOAD) {
-         load_extent(e->fd, phdr, adjust);
+         load_extent(fileno(e->file), phdr, adjust);
       }
    }
    km_close_elf_file(e);
@@ -262,4 +239,98 @@ uint64_t km_load_elf(km_elf_t* e)
    }
    km_guest.km_load_adjust = adjust;
    return adjust;
+}
+
+/*
+ * Open ELF file for KM.
+ * Note: This is a place where we need to really validate what we are looking
+ * at since. Potentially a bad actor could give us a bad elf file for the guest
+ * in an attempt to corrupt KM. We need to prevent that.
+ * For now there are bsic tests. 
+ */
+km_elf_t*
+km_open_elf_file(const char *path)
+{
+   // Open ELF file
+   km_elf_t *elf = (km_elf_t *) malloc(sizeof(km_elf_t));
+   memset(elf, 0, sizeof(km_elf_t));
+   elf->path = path;
+   if ((elf->file = fopen(elf->path, "r")) == NULL) {
+      km_err(2, "Cannot open %s", path);
+   }
+
+   // Read ELF header
+   elf->ehdr = (Elf64_Ehdr *) malloc(sizeof(Elf64_Ehdr));
+   int nread = fread(elf->ehdr, 1, sizeof(Elf64_Ehdr), elf->file);
+   if (nread < sizeof(Elf64_Ehdr)) {
+      km_err(2, "Cannot read EHDR %s", path);
+   }
+
+   // Validate Elf Header
+   unsigned char* wp = &elf->ehdr->e_ident[0];
+   if (memcmp(wp, ELFMAG, SELFMAG) != 0) {
+      km_errx(2, "EHDR magic number mismatch %s", path);
+   }
+   if (elf->ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
+      km_errx(2, "Not a 64 bit ELF %s", path);
+   }
+   if (elf->ehdr->e_version != EV_CURRENT) {
+      km_errx(2, "Not current ELF version %s", path);
+   }
+
+   elf->phdr = malloc(elf->ehdr->e_phentsize * elf->ehdr->e_phnum);
+   if (fseek(elf->file, elf->ehdr->e_phoff, SEEK_SET) != 0) {
+      km_err(2, "Cannot seek to PHDR %s", path);
+   }
+   nread = fread(elf->phdr, 1, elf->ehdr->e_phentsize * elf->ehdr->e_phnum, elf->file);
+   if (nread < elf->ehdr->e_phentsize * elf->ehdr->e_phnum) {
+      km_err(2, "Cannot read PHDR %s", path);
+   }
+
+   // Read Section Headers
+   elf->shdr = malloc(elf->ehdr->e_shentsize * elf->ehdr->e_shnum);
+   if (fseek(elf->file, elf->ehdr->e_shoff, SEEK_SET) != 0) {
+      km_err(2, "Cannot seek to SHDR %s", path);
+   }
+   nread = fread(elf->shdr, 1, elf->ehdr->e_shentsize * elf->ehdr->e_shnum, elf->file);
+   if (nread < elf->ehdr->e_shentsize * elf->ehdr->e_shnum) {
+      km_err(2, "Cannot read SHDR %s", path);
+   }
+
+   // Find Symbol table and String Table Indexes
+   elf->symidx = elf->stridx = -1;
+   for (int i = 0; i < elf->ehdr->e_shnum; i++) {
+      if (elf->shdr[i].sh_type == SHT_SYMTAB) {
+         elf->symidx = i;
+      }
+      if (elf->shdr[i].sh_type == SHT_STRTAB && i != elf->ehdr->e_shstrndx) {
+         elf->stridx = i;
+      }
+   }
+
+   return elf;
+}
+
+void
+km_close_elf_file(km_elf_t* elf)
+{
+   if (elf != NULL) {
+      if (elf->file != NULL) {
+         fclose(elf->file);
+         elf->file = NULL;
+      }
+      if (elf->ehdr != NULL) {
+         free(elf->ehdr);
+         elf->ehdr = NULL;
+      }
+      if (elf->phdr != NULL) {
+         free(elf->phdr);
+         elf->phdr = NULL;
+      }
+      if (elf->shdr != NULL) {
+         free(elf->shdr);
+         elf->shdr = NULL;
+      }
+      free(elf);
+   }
 }

@@ -498,29 +498,25 @@ int km_snapshot_restore(km_elf_t* e)
 {
    km_payload_t tmp_payload = {};
 
-   tmp_payload.km_ehdr = e->ehdr;
+   tmp_payload.km_ehdr = *e->ehdr;
 
    // Read ELF PHDR into tmp_payload.
-   if ((tmp_payload.km_phdr = alloca(sizeof(Elf64_Phdr) * e->ehdr.e_phnum)) == NULL) {
+   if ((tmp_payload.km_phdr = alloca(sizeof(Elf64_Phdr) * e->ehdr->e_phnum)) == NULL) {
       km_err(2, "no memory for elf program headers");
    }
    for (int i = 0; i < tmp_payload.km_ehdr.e_phnum; i++) {
-      GElf_Phdr* phdr = &tmp_payload.km_phdr[i];
-
-      if (gelf_getphdr(e->elf, i, phdr) == NULL) {
-         km_errx(2, "gelf_getphrd %i, %s", i, elf_errmsg(-1));
-      }
+      tmp_payload.km_phdr[i] = e->phdr[i];
    }
 
    // disable mmap consolidation during recovery
    km_mmap_set_recovery_mode(1);
 
    // Memory is fully described by PT_LOAD sections
-   km_ss_recover_memory(e->fd, &tmp_payload);
+   km_ss_recover_memory(fileno(e->file), &tmp_payload);
 
    // VCPU's are described in the PT_NOTES section
    size_t notesize = 0;
-   char* notebuf = km_snapshot_read_notes(e->fd, &notesize, &tmp_payload);
+   char* notebuf = km_snapshot_read_notes(fileno(e->file), &notesize, &tmp_payload);
    if (notebuf == NULL) {
       km_errx(2, "PT_NOTES not found");
    }

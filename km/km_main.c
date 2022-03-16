@@ -676,7 +676,7 @@ int main(int argc, char* argv[])
    km_elf_t* elf = km_open_elf_file(payload_name);
 
    // snapshot file is type ET_CORE. We check for additional notes in restore
-   if (elf->ehdr.e_type == ET_CORE) {
+   if (elf->ehdr->e_type == ET_CORE) {
       // check for incompatible options
       if (envp != NULL) {
          km_errx(1, "cannot set new environment when resuming a snapshot");

@@ -27,7 +27,7 @@ ARG UID=1001
 ARG GID=117
 
 RUN apt-get update; apt-get upgrade -y; \
-   apt-get install -y make git gdb libelf-dev gcc-8 g++-8 libc-dev curl vim time python; \
+   apt-get install -y make git gdb gcc-8 g++-8 libc-dev curl vim time python; \
    apt-get clean; \
    ln -s `which gcc-8` /bin/cc; \
    ln -s `which gcc-8` /bin/gcc; \

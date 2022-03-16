@@ -48,13 +48,16 @@ typedef struct km_payload {
 extern km_payload_t km_guest;
 extern km_payload_t km_dynlinker;
 
-// Open elf file descriptor
-typedef struct km_elf {
-   Elf* elf;
-   int fd;
-   GElf_Ehdr ehdr;
-   const char* filename;
+typedef struct km_elf_s {
+   const char *path;
+   FILE *file;
+   Elf64_Ehdr *ehdr;
+   Elf64_Phdr *phdr;
+   Elf64_Shdr *shdr;
+   int symidx;
+   int stridx;
 } km_elf_t;
+
 
 /*
  * Translate ELF region protection mmap to mmap protection flag

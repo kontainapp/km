@@ -73,7 +73,7 @@ RUN dnf install -y \
    gcc gcc-c++ make gdb git-core gcovr \
    time patch file findutils diffutils which procps-ng python2 \
    glibc-devel glibc-static libstdc++-static \
-   elfutils-libelf-devel bzip2-devel \
+   bzip2-devel \
    zlib-static bzip2-static xz-static xz \
    openssl-devel openssl-static jq googler \
    python3-markupsafe libffi-devel parallel \
@@ -81,13 +81,6 @@ RUN dnf install -y \
    python3-libmount libtool cmake makeself \
    systemd-devel \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
-
-FROM buildenv-early AS buildlibelf
-
-RUN dnf install -y flex bison zstd gettext-devel bsdtar xz-devel
-RUN git clone git://sourceware.org/git/elfutils.git -b elfutils-0.182 && cd elfutils && \
-   autoreconf -i -f && \
-   ./configure --enable-maintainer-mode --disable-libdebuginfod --disable-debuginfod && make -j && make install
 
 FROM buildenv-early AS buildenv
 ARG USER=appuser
@@ -102,7 +95,6 @@ ENV USER=$USER
 ENV PREFIX=/opt/kontain
 WORKDIR /home/$USER
 
-COPY --from=buildlibelf /usr/local /usr/local/
 COPY --from=alpine-lib-image $PREFIX $PREFIX/
 RUN for i in runtime alpine-lib ; do \
        mkdir -p $PREFIX/$i && chgrp users $PREFIX/$i && chmod 777 $PREFIX/$i ; \
