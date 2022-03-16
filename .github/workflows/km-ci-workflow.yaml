@@ -136,6 +136,10 @@ jobs:
           mkdir /opt/kontain/bin/shim
           cp -r build/cloud/k8s/deploy/shim/* /opt/kontain/bin/shim
 
+      - name: check km executable type
+        run: |
+          file build/km/km
+
       - uses: actions/upload-artifact@v2
         with:
           name: km
