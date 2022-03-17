@@ -244,12 +244,12 @@ uint64_t km_load_elf(km_elf_t* e)
 /*
  * Open ELF file for KM.
  * Note: This is a place where we need to really validate what we are looking
- * at since. Potentially a bad actor could give us a bad elf file for the guest
+ * at since potentially a bad actor could give us a bad elf file for the guest
  * in an attempt to corrupt KM. We need to prevent that.
- * For now there are bsic tests. 
+ * For now there are basic tests. 
  *
  * TODO: This algorithm is memory inefficient. Don't need to hold everthing in
- *       core. Could use stdio buffering to get one at  time efficiently since 
+ *       core. Could use stdio buffering to get one at a time efficiently since 
  *       we mainly sequentially scan.
  */
 km_elf_t*
