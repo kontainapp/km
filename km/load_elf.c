@@ -282,21 +282,21 @@ km_open_elf_file(const char *path)
       km_errx(2, "Not current ELF version %s", path);
    }
 
-   elf->phdr = malloc(elf->ehdr->e_phentsize * elf->ehdr->e_phnum);
+   elf->phdr = malloc((size_t) elf->ehdr->e_phentsize * (size_t) elf->ehdr->e_phnum);
    if (fseek(elf->file, elf->ehdr->e_phoff, SEEK_SET) != 0) {
       km_err(2, "Cannot seek to PHDR %s", path);
    }
-   nread = fread(elf->phdr, 1, elf->ehdr->e_phentsize * elf->ehdr->e_phnum, elf->file);
+   nread = fread(elf->phdr, 1, (size_t) elf->ehdr->e_phentsize * (size_t) elf->ehdr->e_phnum, elf->file);
    if (nread < elf->ehdr->e_phentsize * elf->ehdr->e_phnum) {
       km_err(2, "Cannot read PHDR %s", path);
    }
 
    // Read Section Headers
-   elf->shdr = malloc(elf->ehdr->e_shentsize * elf->ehdr->e_shnum);
+   elf->shdr = malloc((size_t) elf->ehdr->e_shentsize * (size_t) elf->ehdr->e_shnum);
    if (fseek(elf->file, elf->ehdr->e_shoff, SEEK_SET) != 0) {
       km_err(2, "Cannot seek to SHDR %s", path);
    }
-   nread = fread(elf->shdr, 1, elf->ehdr->e_shentsize * elf->ehdr->e_shnum, elf->file);
+   nread = fread(elf->shdr, 1, (size_t) elf->ehdr->e_shentsize * (size_t) elf->ehdr->e_shnum, elf->file);
    if (nread < elf->ehdr->e_shentsize * elf->ehdr->e_shnum) {
       km_err(2, "Cannot read SHDR %s", path);
    }
