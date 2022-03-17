@@ -247,6 +247,10 @@ uint64_t km_load_elf(km_elf_t* e)
  * at since. Potentially a bad actor could give us a bad elf file for the guest
  * in an attempt to corrupt KM. We need to prevent that.
  * For now there are bsic tests. 
+ *
+ * TODO: This algorithm is memory inefficient. Don't need to hold everthing in
+ *       core. Could use stdio buffering to get one at  time efficiently since 
+ *       we mainly sequentially scan.
  */
 km_elf_t*
 km_open_elf_file(const char *path)
@@ -302,9 +306,7 @@ km_open_elf_file(const char *path)
    for (int i = 0; i < elf->ehdr->e_shnum; i++) {
       if (elf->shdr[i].sh_type == SHT_SYMTAB) {
          elf->symidx = i;
-      }
-      if (elf->shdr[i].sh_type == SHT_STRTAB && i != elf->ehdr->e_shstrndx) {
-         elf->stridx = i;
+         elf->stridx = elf->shdr[i].sh_link;
       }
    }
 
