@@ -31,8 +31,8 @@
 #define MIB 0x100000ul     // MByte
 #define GIB 0x40000000ul   // GByte
 
-static const int RSV_MEM_START = KM_PAGE_SIZE;
-static const int RSV_MEM_SIZE = KM_PAGE_SIZE * 63;
+static const int RSV_MEM_START = KM_PAGE_SIZE * 32;
+static const int RSV_MEM_SIZE = KM_PAGE_SIZE * 32;
 /*
  * Mandatory data structures in reserved area to enable 64 bit CPU.
  * These numbers are offsets from the start of reserved area
@@ -120,7 +120,7 @@ static const uint64_t GUEST_ARG_MAX = 32 * KM_PAGE_SIZE;
  * randomly choose to start guest memory allocation from 0x100000000000, which happens to be 16TB.
  * It has an advantage of being numerically the guest physical addresses with bit 0x100000000000 set.
  */
-static const km_kma_t KM_USER_MEM_BASE = (void*)0x100000000000ul;   // 16TiB
+static const km_kma_t KM_USER_MEM_BASE = (void*)0x0;
 
 /*
  * Knowing memory layout and how pml4 is set, convert between guest virtual address and km address.
