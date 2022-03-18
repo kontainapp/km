@@ -2751,7 +2751,9 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
          }
          case 'M': {   // Write memory content
             assert(strlen(packet) <= sizeof(obuf));
-            if (sscanf(packet, "M%" PRIx64 ",%zx:%s", &addr, &len, obuf) != 3) {
+            char format[32];
+            snprintf(format, sizeof(format), "M%%" PRIx64 ",%%zx:%%%lds", sizeof(obuf) - 1);
+            if (sscanf(packet, format, &addr, &len, obuf) != 3) {
                send_error_msg();
                break;
             }
