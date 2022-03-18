@@ -756,6 +756,10 @@ int km_exec_recover_kmstate(void)
       km_infox(KM_TRACE_EXEC, "exec state verion mismatch, got %d, expect %d", version, KM_EXEC_VERNUM);
       return -1;
    }
+   if (nfdmap > MAX_OPEN_FILES - MAX_KM_FILES) {
+      km_infox(KM_TRACE_EXEC, "exec stat too many open files %d", nfdmap);
+      return -1;
+   }
    if ((execstatep = calloc(1, sizeof(*execstatep) + (sizeof(km_file_t) * nfdmap))) == NULL) {
       km_infox(KM_TRACE_EXEC, "couldn't allocate fd map, nfdmap %d", nfdmap);
       return -1;

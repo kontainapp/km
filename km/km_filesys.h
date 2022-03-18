@@ -46,6 +46,9 @@
 #include "km_mem.h"
 #include "km_syscall.h"
 
+static const int MAX_OPEN_FILES = 1024;
+static const int MAX_KM_FILES = KVM_MAX_VCPUS + 2 + 2 + 2 + 2 + 1;   // eventfds, kvm, gdb, snap, log
+
 // types for file names conversion
 typedef int (*km_file_open_t)(const char* guest_fn, char* host_fn, size_t host_fn_sz);
 typedef int (*km_file_readlink_t)(const char* guest_fn, char* buf, size_t buf_sz);

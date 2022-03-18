@@ -54,9 +54,6 @@
 #include "km_snapshot.h"
 #include "km_syscall.h"
 
-static const int MAX_OPEN_FILES = 1024;
-static const int MAX_KM_FILES = KVM_MAX_VCPUS + 2 + 2 + 2 + 2 + 1;   // eventfds, kvm, gdb, snap, log
-
 static const int KM_GDB_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES;
 static const int KM_GDB_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 1;
 static const int KM_MGM_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES + 2;

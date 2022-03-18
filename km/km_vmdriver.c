@@ -169,8 +169,7 @@ void km_vmdriver_clone(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 
    if (machine.vm_type == VM_TYPE_KKM) {
       // copy KKM blob from parent to child currently 8 bytes
-      *(uint64_t*)((km_kma_t)new_vcpu->cpu_run + offset) =
-          *(uint64_t*)((km_kma_t)vcpu->cpu_run + offset);
+      memcpy((char*)new_vcpu->cpu_run + offset, (char*)vcpu->cpu_run + offset, 8);
       new_vcpu->regs.rax = 0;
    }
 }

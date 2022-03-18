@@ -138,7 +138,7 @@ typedef enum {
 } __attribute__((__packed__)) km_vcpu_state_t;
 
 typedef struct km_vcpu {
-   int vcpu_id;                        // uniq ID
+   short vcpu_id;                        // uniq ID
    int kvm_vcpu_fd;                    // this VCPU file descriptor
    kvm_run_t* cpu_run;                 // run control region
    pthread_t vcpu_thread;              // km pthread
