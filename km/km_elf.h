@@ -22,7 +22,7 @@
 
 #include "km.h"
 
-#include <gelf.h>
+#include <elf.h>
 #include <stdint.h>
 #include <sys/mman.h>
 
