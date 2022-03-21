@@ -32,7 +32,10 @@
 km_payload_t km_guest;
 km_payload_t km_dynlinker;
 
-static void my_mmap(int fd, void* buf, size_t count, off_t offset)
+/*
+ * Setup mmap for described by ELF file Phdr.
+ */
+static void map_program_section(int fd, void* buf, size_t count, off_t offset)
 {
    if (count > 0) {
       if (mmap(buf, roundup(count, KM_PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
@@ -62,7 +65,7 @@ static void load_extent(int fd, const Elf64_Phdr* phdr, km_gva_t base)
     * removes the latter, so the page simply stay empty, and first loadable segment starts at 2MB as
     * we want.
     *
-    * We also have a test in the test suit to check for 2MB start.
+    * We also have a test in the test suite to check for 2MB start.
     */
    assert(top >= GUEST_MEM_START_VA);
 
@@ -73,11 +76,14 @@ static void load_extent(int fd, const Elf64_Phdr* phdr, km_gva_t base)
       }
    }
 
+   /*
+    * Setup mmap for Phdr arear, adjusting to page boundry.
+    */
    Elf64_Xword p_memsz = phdr->p_memsz;
    Elf64_Xword p_filesz = phdr->p_filesz;
    km_kma_t addr = km_gva_to_kma_nocheck(phdr->p_paddr) + base;
    uint64_t extra = addr - (km_kma_t)rounddown((uint64_t)addr, KM_PAGE_SIZE);
-   my_mmap(fd, addr - extra, p_filesz + extra, phdr->p_offset - extra);
+   map_program_section(fd, addr - extra, p_filesz + extra, phdr->p_offset - extra);
    memset(addr + p_filesz, 0, p_memsz - p_filesz);
    int pr = prot_elf_to_mmap(phdr->p_flags);
    if (mprotect(addr - extra, p_memsz + extra, protection_adjust(pr)) < 0) {
