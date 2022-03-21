@@ -47,7 +47,7 @@ static void my_mmap(int fd, void* buf, size_t count, off_t offset)
  * - adjust break so there is enough memory
  * - loop over memory regions this extent covering, read/memset the content and set mprotect.
  */
-static void load_extent(int fd, const GElf_Phdr* phdr, km_gva_t base)
+static void load_extent(int fd, const Elf64_Phdr* phdr, km_gva_t base)
 {
    km_gva_t top = phdr->p_paddr + phdr->p_memsz + base;
    /*
@@ -189,7 +189,7 @@ uint64_t km_load_elf(km_elf_t* e)
     */
    km_guest.km_min_vaddr = -1U;
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
-      GElf_Phdr* phdr = &km_guest.km_phdr[i];
+      Elf64_Phdr* phdr = &km_guest.km_phdr[i];
       *phdr = e->phdr[i];
 
       if (phdr->p_type == PT_LOAD && phdr->p_vaddr < km_guest.km_min_vaddr) {
@@ -227,7 +227,7 @@ uint64_t km_load_elf(km_elf_t* e)
     * process PT_LOAD program headers
     */
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
-      GElf_Phdr* phdr = &km_guest.km_phdr[i];
+      Elf64_Phdr* phdr = &km_guest.km_phdr[i];
       if (phdr->p_type == PT_LOAD) {
          load_extent(fileno(e->file), phdr, adjust);
       }

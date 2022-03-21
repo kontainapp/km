@@ -142,9 +142,9 @@ km_ss_recover_memory_limits(km_payload_t* payload, km_gva_t* mingvap, km_gva_t* 
    km_gva_t mingva = -1;
    km_gva_t rbrk = 0;
    km_gva_t rtbrk = -1;
-   GElf_Ehdr* ehdr = &payload->km_ehdr;
+   Elf64_Ehdr* ehdr = &payload->km_ehdr;
    for (int i = 0; i < ehdr->e_phnum; i++) {
-      GElf_Phdr* phdr = &payload->km_phdr[i];
+      Elf64_Phdr* phdr = &payload->km_phdr[i];
       if (phdr->p_type == PT_LOAD) {
          km_infox(KM_TRACE_SNAPSHOT,
                   "%d PT_LOAD offset=0x%lx vaddr=0x%lx msize=0x%lx fsize=0x%lx flags=0x%x",
@@ -179,7 +179,7 @@ km_ss_recover_memory_limits(km_payload_t* payload, km_gva_t* mingvap, km_gva_t* 
 
 static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
 {
-   GElf_Ehdr* ehdr = &payload->km_ehdr;
+   Elf64_Ehdr* ehdr = &payload->km_ehdr;
 
    /*
     * recover brk and tbrk
@@ -207,7 +207,7 @@ static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
       km_errx(2, "tbrk recover failure: expect=0x%lx got=0x%lx", rtbrk, ptr);
    }
    for (int i = 0; i < ehdr->e_phnum; i++) {
-      GElf_Phdr* phdr = &payload->km_phdr[i];
+      Elf64_Phdr* phdr = &payload->km_phdr[i];
       if (phdr->p_type == PT_LOAD) {
          // Skip guest VDSO and KM unikernel
          if (km_vdso_gva(phdr->p_vaddr) != 0 || km_guestmem_gva(phdr->p_vaddr) != 0) {
@@ -265,9 +265,9 @@ static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
  */
 static inline char* km_snapshot_read_notes(int fd, size_t* notesize, km_payload_t* payload)
 {
-   GElf_Ehdr* ehdr = &payload->km_ehdr;
+   Elf64_Ehdr* ehdr = &payload->km_ehdr;
    for (int i = 0; i < ehdr->e_phnum; i++) {
-      GElf_Phdr* phdr = &payload->km_phdr[i];
+      Elf64_Phdr* phdr = &payload->km_phdr[i];
       if (phdr->p_type == PT_NOTE) {
          char* notebuf = malloc(phdr->p_filesz);
          assert(notebuf != NULL);
