@@ -388,12 +388,8 @@ static void init_pml4(km_kma_t mem)
    idx = PDE_SLOT(GUEST_VVAR_VDSO_BASE_VA);
    pde_4k_set(&pt->pd1[idx], (uint64_t)pt_phys->pt1);
 
-   // 128TB - 512GB to 128TB
-   idx = (GUEST_MEM_TOP_VA - 1) / PML4E_REGION;
-   pml4e_set(&pt->pml4[idx], (uint64_t)pt_phys->pdpt2);
-
    idx = PDE_SLOT(GUEST_MEM_TOP_VA);
-   pdpte_set(&pt->pdpt2[idx], (uint64_t)pt_phys->pd2);
+   pdpte_set(&pt->pdpt0[idx], (uint64_t)pt_phys->pd2);
 }
 
 static void* km_guest_page_malloc(km_gva_t gpa_hint, size_t size, int prot)
@@ -537,7 +533,7 @@ static inline void fixup_top_page_tables(km_gva_t old_brk, km_gva_t new_brk)
 {
    page_tables_t* pt = km_page_table();
    x86_pde_2m_t* pde = (x86_pde_2m_t*)pt->pd2;
-   x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt2;
+   x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt0;
    int old_2m_slot = PDE_SLOT(old_brk);
    int new_2m_slot = PDE_SLOT(new_brk);
    int old_1g_slot = PDPTE_SLOT(old_brk);
@@ -605,7 +601,7 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
       }
    } else {
       assert(machine.pdpe1g != 0);
-      x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)(upper_va ? pt->pdpt2 : pt->pdpt0);
+      x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt0;
       uint64_t gva = upper_va ? gpa_to_upper_gva(base) : base;
       for (uint64_t addr = gva; addr < gva + size; addr += PDPTE_REGION, base += PDPTE_REGION) {
          pdpte_1g_set(pdpe + PDPTE_SLOT(addr), base);
@@ -628,7 +624,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
       }
    } else {
       assert(machine.pdpe1g != 0);   // no 1GB pages support
-      x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)(upper_va ? pt->pdpt2 : pt->pdpt0);
+      x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt0;
       uint64_t gva = upper_va ? gpa_to_upper_gva(base) : base;
       for (uint64_t addr = gva; addr < gva + size; addr += PDPTE_REGION, base += PDPTE_REGION) {
          pdpe[PDPTE_SLOT(addr)] = (x86_pdpte_1g_t){0};

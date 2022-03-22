@@ -52,7 +52,7 @@ static const int KM_RSRV_KMGUESTMEM_SLOT = 42;
 static const km_gva_t GUEST_MEM_START_VA = 2 * MIB;
 static const km_gva_t GUEST_PRIVATE_MEM_START_VA = 512 * GIB;
 // ceiling for guest virt. address. 2MB shift down to make it aligned on GB with physical address
-static const km_gva_t GUEST_MEM_TOP_VA = 128 * 1024 * GIB - 2 * MIB;
+static const km_gva_t GUEST_MEM_TOP_VA = 512 * GIB - 2 * MIB;
 
 static const km_gva_t GUEST_VVAR_VDSO_BASE_VA = GUEST_PRIVATE_MEM_START_VA;
 static const km_gpa_t GUEST_VVAR_VDSO_BASE_GPA = 0x7ffff00000;
