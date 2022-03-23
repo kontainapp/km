@@ -5,3 +5,5 @@ parallel/test-worker-init-failure.js
 abort/test-abort-fatal-error.js
 
 parallel/test-worker-memory.js
+
+parallel/test-https-selfsigned-no-keycertsign-no-crash.js
