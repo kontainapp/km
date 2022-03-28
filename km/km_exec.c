@@ -717,11 +717,11 @@ static void km_exec_vmclean(void)
    assert(execstatep != NULL);
    close(execstatep->intr_fd);
    close(execstatep->shutdown_fd);
-   close(execstatep->kvm_fd);
-   close(execstatep->mach_fd);
    for (int i = 0; i < KVM_MAX_VCPUS && execstatep->kvm_vcpu_fd[i] >= 0; i++) {
       close(execstatep->kvm_vcpu_fd[i]);
    }
+   close(execstatep->mach_fd);
+   close(execstatep->kvm_fd);
 }
 
 // Called before running the execed program.  Picks up what was saved by km_exec_save_kmstate()

@@ -165,6 +165,10 @@ static void km_fork_remove_parent_vmstate(void)
    // Leave the busy and free memory maps since the child process will be running on the same memory.
 
    // Close these fd's since they belong to the parent.
+   if (machine.mach_fd >= 0) {
+      close(machine.mach_fd);
+      machine.mach_fd = -1;
+   }
    if (machine.kvm_fd >= 0) {
       close(machine.kvm_fd);
       machine.kvm_fd = -1;
@@ -172,10 +176,6 @@ static void km_fork_remove_parent_vmstate(void)
    if (machine.cpuid != NULL) {
       free(machine.cpuid);
       machine.cpuid = NULL;
-   }
-   if (machine.mach_fd >= 0) {
-      close(machine.mach_fd);
-      machine.mach_fd = -1;
    }
    if (machine.intr_fd >= 0) {
       close(machine.intr_fd);
