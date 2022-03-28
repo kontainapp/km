@@ -50,6 +50,8 @@ typedef struct km_fork_state {
    km_sigset_t sigmask;   // cloning/forking thread's signal mask
    uint8_t ksi_valid;
    kkm_save_info_t ksi;
+   uint8_t kx_valid;
+   kkm_xstate_t kx;
 } km_fork_state_t;
 
 static km_fork_state_t km_fork_state = {
@@ -133,7 +135,11 @@ static void km_fork_setup_child_vmstate(sigset_t* formermask)
    kvm_vcpu_init_sregs(vcpu);
    vcpu->regs = km_fork_state.regs;
    vcpu->regs_valid = 1;
-   km_vmdriver_restore_fork_info(vcpu, km_fork_state.ksi_valid, &km_fork_state.ksi);
+   km_vmdriver_restore_fork_info(vcpu,
+                                 km_fork_state.ksi_valid,
+                                 &km_fork_state.ksi,
+                                 km_fork_state.kx_valid,
+                                 &km_fork_state.kx);
    km_write_registers(vcpu);
    km_write_sregisters(vcpu);
    km_write_xcrs(vcpu);
@@ -228,7 +234,11 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
       km_mutex_unlock(&km_fork_state.mutex);
       return -errno;
    }
-   km_vmdriver_save_fork_info(vcpu, &km_fork_state.ksi_valid, &km_fork_state.ksi);
+   km_vmdriver_save_fork_info(vcpu,
+                              &km_fork_state.ksi_valid,
+                              &km_fork_state.ksi,
+                              &km_fork_state.kx_valid,
+                              &km_fork_state.kx);
    if (is_clone != 0) {
       km_infox(KM_TRACE_FORK,
                "clone args: flags 0x%lx, child_stack 0x%lx, ptid 0x%lx, ctid 0x%lx, newtls 0x%lx",
