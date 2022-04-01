@@ -88,10 +88,23 @@ void* tcp_server_main(void* arg)
    int fd = *(int*)arg;
 
    if (dup_fd != 0) {
-      fd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
+      int tmpfd = fcntl(fd, F_DUPFD_CLOEXEC, fd + 1);
+      if (tmpfd < 0) {
+         perror("F_DUPFD_CLOEXEC");
+         rc = errno;
+         return &rc;
+      }
+      if (tmpfd == fd) {
+         fprintf(stderr, "F_DUP_CLOEXEC did not work\n");
+         rc = 2;
+         return &rc;
+      }
+      close(fd);
+      fd = tmpfd;
    }
 
    if (listen(fd, 10) < 0) {
+      perror("listen");
       rc = errno;
       return &rc;
    }
@@ -100,20 +113,26 @@ void* tcp_server_main(void* arg)
    socklen_t caddr_len;
    int newfd = accept4(fd, &caddr, &caddr_len, SOCK_CLOEXEC);
    if (newfd < 0) {
+      perror("accept4");
       rc = errno;
       return &rc;
    }
 
    struct pollfd pfd = {.fd = newfd, .events = POLLIN | POLLERR};
    if (poll(&pfd, 1, -1) < 1) {
+      perror("poll");
       rc = errno;
       return &rc;
    }
    if ((pfd.events & POLLERR) == 0) {
+      perror("POLLERR");
       rc = errno;
       return &rc;
    }
+
    close(newfd);
+   close(fd);
+   rc = 0;
    return &rc;
 }
 
@@ -163,9 +182,6 @@ TEST test_tcp()
    ASSERT_EQ(0, rc);
    ASSERT_NEQ(NULL, rvalp);
    ASSERT_EQ(0, *(int*)rvalp);
-
-   rc = close(sfd);
-   ASSERT_EQ(0, rc);
 
    PASS();
 }
