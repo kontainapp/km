@@ -79,11 +79,17 @@ TEST test_sockopt()
    PASS();
 }
 
+int dup_fd = 0;
+
 int TEST_PORT;
 void* tcp_server_main(void* arg)
 {
    static int rc = 0;
    int fd = *(int*)arg;
+
+   if (dup_fd != 0) {
+      fd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
+   }
 
    if (listen(fd, 10) < 0) {
       rc = errno;
@@ -366,6 +372,9 @@ int main(int argc, char** argv)
    RUN_TEST(test_udp);
    RUN_TEST(test_tcp);
    RUN_TEST(test_bad_fd);
+
+   dup_fd = 1;
+   RUN_TEST(test_tcp);
 
    GREATEST_PRINT_REPORT();
    exit(greatest_info.failed);   // return count of errors (or 0 if all is good)
