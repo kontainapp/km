@@ -71,7 +71,7 @@ static inline void run_warn(const char *fmt, ...)
 {
   va_list args;
   va_start(args, fmt);
-  km_warnx_va(fmt, args);
+  km_warnx(fmt, args);
 }
 
 static const char* kvm_reason_name(int reason)
