@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Kontain Inc
+ * Copyright 2022 Kontain Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -154,6 +154,20 @@ static inline int km_add_socket_fd(
       km_fd_socket_t* sockinfo = calloc(1, sizeof(km_fd_socket_t));
       *sockinfo = sockval;
       km_fs()->guest_files[ret].sockinfo = sockinfo;
+   }
+   return ret;
+}
+
+static inline int km_dup_socket_fd(
+    km_vcpu_t* vcpu, int hostfd, char *name, int flags, km_fd_socket_t *sockinfo, int how)
+{
+   int ret = km_add_guest_fd_internal(vcpu, hostfd, name, flags, how, NULL);
+   if (ret >= 0) {
+      km_file_t *file = &km_fs()->guest_files[ret];
+      assert(file->sockinfo == NULL);
+      file->sockinfo = malloc(sizeof(km_fd_socket_t));
+      assert(file->sockinfo != NULL);
+      *file->sockinfo = *sockinfo;
    }
    return ret;
 }
@@ -482,12 +496,21 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
    if (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) {
       if (ret >= 0) {
          km_file_t* file = &km_fs()->guest_files[fd];
-         ret = km_add_guest_fd_internal(vcpu,
-                                        ret,
-                                        km_guestfd_name(vcpu, fd),
-                                        (cmd == F_DUPFD) ? 0 : O_CLOEXEC,
-                                        file->how,
-                                        ops);
+         if (file->sockinfo != NULL) {
+           ret = km_dup_socket_fd(vcpu,
+                                  ret,
+                                  km_guestfd_name(vcpu, fd),
+                                  (cmd == F_DUPFD) ? 0 : O_CLOEXEC,
+                                  file->sockinfo,
+                                  file->how);
+         } else {
+            ret = km_add_guest_fd_internal(vcpu,
+                                           ret,
+                                           km_guestfd_name(vcpu, fd),
+                                           (cmd == F_DUPFD) ? 0 : O_CLOEXEC,
+                                           file->how,
+                                           ops);
+         }
       }
    }
    return ret;
@@ -1112,8 +1135,17 @@ uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
    assert(name != NULL);
    ret = __syscall_1(SYS_dup, host_fd);
    if (ret >= 0) {
-      km_file_t* file = &km_fs()->guest_files[fd];
-      ret = km_add_guest_fd_internal(vcpu, ret, name, 0, file->how, ops);
+      km_file_t* file = &km_fs()->guest_files[host_fd];
+      if (file->sockinfo != NULL) {
+           ret = km_dup_socket_fd(vcpu,
+                                  ret,
+                                  name,
+                                  0,
+                                  file->sockinfo,
+                                  file->how);
+      } else {
+         ret = km_add_guest_fd_internal(vcpu, ret, name, 0, file->how, ops);
+      }
    }
    km_infox(KM_TRACE_FILESYS, "dup(%d) - %d", fd, ret);
    return ret;
@@ -1150,7 +1182,18 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
       if (km_is_file_used(&km_fs()->guest_files[ret]) != 0) {
          del_guest_fd(vcpu, ret);
       }
-      ret = km_add_guest_fd(vcpu, ret, name, flags, ops);
+
+      km_file_t* file = &km_fs()->guest_files[host_fd];
+      if (file->sockinfo != NULL) {
+           ret = km_dup_socket_fd(vcpu,
+                                  ret,
+                                  name,
+                                  flags,
+                                  file->sockinfo,
+                                  file->how);
+      } else {
+         ret = km_add_guest_fd(vcpu, ret, name, flags, ops);
+      }
    }
    km_infox(KM_TRACE_FILESYS, "dup3(%d, %d, 0x%x) - %d", fd, newfd, flags, ret);
    return ret;
