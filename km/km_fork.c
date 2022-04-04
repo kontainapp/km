@@ -30,6 +30,7 @@
 #include "km_gdb.h"
 #include "km_kkm.h"
 #include "km_mem.h"
+#include "km_filesys.h"
 
 /*
  * fork() or clone() state from the parent process thread that needs to be present in the thread in
@@ -75,8 +76,10 @@ static void km_fork_setup_child_vmstate(sigset_t* formermask)
 {
    km_infox(KM_TRACE_FORK, "begin");
 
+   km_filesys_internal_fd_reset();
    // Reinit some fields in machine.  We do not want a structure assignment here.
    machine.vm_vcpu_cnt = 0;
+   machine.vm_vcpu_run_cnt = 0;
    SLIST_INIT(&machine.vm_idle_vcpus.head);
    machine.vm_vcpu_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    machine.brk_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
