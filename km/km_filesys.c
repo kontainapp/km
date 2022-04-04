@@ -2636,6 +2636,11 @@ void km_fs_fini(void)
 
 static int internal_fd = KM_START_FDS;
 
+void km_filesys_internal_fd_reset()
+{
+   internal_fd = KM_START_FDS;
+}
+
 // dup internal fd to km private area
 static int km_internal_fd(int fd, int km_fd)
 {
