@@ -38,9 +38,14 @@ km_payload_t km_dynlinker;
 static void map_program_section(int fd, void* buf, size_t count, off_t offset)
 {
    if (count > 0) {
-      if (mmap(buf, roundup(count, KM_PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
-          MAP_FAILED) {
+      if (mmap(buf, count, PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) == MAP_FAILED) {
          km_err(2, "error mmap elf");
+      }
+      /*
+       * If only mmaped partial last page, explicitly zero out the rest.
+       */
+      if (count != roundup(count, KM_PAGE_SIZE)) {
+         memset(buf + count, 0, roundup(count, KM_PAGE_SIZE) - count);
       }
    }
 }
