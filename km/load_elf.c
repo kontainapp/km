@@ -37,10 +37,14 @@ km_payload_t km_dynlinker;
  */
 static void map_program_section(int fd, void* buf, size_t count, off_t offset)
 {
+   km_infox(KM_TRACE_LOAD, "map_program_section(%d, %p, 0x%lx, 0x%lx)", fd, buf, count, offset);
    if (count > 0) {
-      if (mmap(buf, roundup(count, KM_PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
+      if (mmap(buf, count, PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
           MAP_FAILED) {
          km_err(2, "error mmap elf");
+      }
+      if (count != roundup(count, KM_PAGE_SIZE)) {
+         memset(buf + count, 0, roundup(count, KM_PAGE_SIZE) - count);
       }
    }
 }
@@ -138,7 +142,7 @@ static void km_find_dlopen(km_elf_t* e, km_gva_t adjust)
  */
 static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t interp_adjust)
 {
-   // Make sure interpreter string contains KM dynlink marker.
+   // Get interpreter string.
    char* interp_kma = km_gva_to_kma(interp_vaddr + interp_adjust);
    if (interp_kma == NULL || km_gva_to_kma(interp_vaddr + interp_adjust + interp_len - 1) == NULL) {
       km_errx(2,
@@ -149,6 +153,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    }
    km_dynlinker.km_filename = interp_kma;
 
+km_warnx("load_dynlink: km_filename=%s", km_dynlinker.km_filename);
    km_elf_t* e = km_open_elf_file(km_dynlinker.km_filename);
    km_gva_t base = km_mem_brk(0);
    if (base != roundup(base, KM_PAGE_SIZE)) {
@@ -173,6 +178,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
       }
    }
 
+km_warnx("setting km_dynlinker load_adjust: base=0x%lx km_dynlinker.km_min_vaddr=0x%lx", base, km_dynlinker.km_min_vaddr);
    km_dynlinker.km_load_adjust = base - km_dynlinker.km_min_vaddr;
    km_find_dlopen(e, km_dynlinker.km_load_adjust);
    km_close_elf_file(e);
@@ -229,6 +235,7 @@ uint64_t km_load_elf(km_elf_t* e)
    if (km_guest.km_dynamic_vaddr != 0 && km_guest.km_dynamic_len != 0) {
       adjust = GUEST_MEM_START_VA - km_guest.km_min_vaddr;
    }
+adjust = 0;
    /*
     * process PT_LOAD program headers
     */

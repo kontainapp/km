@@ -148,6 +148,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
       uint64_t* ptr = stack_top_kma;                                                               \
       ptr[0] = (type);                                                                             \
       ptr[1] = (uint64_t)(val);                                                                    \
+km_warnx("AUXV[0x%x]=0x%lx", (type), (uint64_t)(val)); \
    }
 
    NEW_AUXV_ENT(0, 0);

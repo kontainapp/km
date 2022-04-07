@@ -575,6 +575,28 @@ km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, int hostfd, m
    return ret;
 }
 
+/*
+ * TODO: This is only temporary.
+ */
+static km_gva_t km_mmap_do_fixed_mapping(
+    km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, mmap_allocation_type_e type)
+{
+   if (gva_to_gpa(gva) < machine.guest_mid_physmem) {
+     // TODO: Hack city. Just move brk.
+     if (machine.brk >= gva + size) {
+        return gva;
+     }
+     km_mem_brk(gva + size);
+     if (fd != -1) {
+        if (mmap(km_gva_to_kma(gva), size, prot, flags, fd, offset) == MAP_FAILED) {
+           return -errno;
+        }
+     }
+     return 0;
+   }
+   return -EINVAL;
+}
+
 // Guest mmap implementation. Returns gva or -errno. Params should be already checked and locks taken...
 static km_gva_t km_guest_mmap_nolock(
     km_gva_t gva, size_t size, int prot, int flags, int fd, off_t offset, mmap_allocation_type_e type)
@@ -594,8 +616,12 @@ static km_gva_t km_guest_mmap_nolock(
    }
    if ((flags & MAP_FIXED) == MAP_FIXED) {
       if (km_mmap_busy_check_contiguous(gva, size) != 0) {
-         km_infox(KM_TRACE_MMAP, "Found not maped addresses in MAP_FIXED-requested range");
-         return -EINVAL;
+         // This bit of hack treats mmap to lower memory as a push to mem_brk by a dynmaic loader.
+         if ((ret = km_mmap_do_fixed_mapping(gva, size, prot, flags, hostfd, offset, type)) != 0) {
+            km_infox(KM_TRACE_MMAP, "Cannot do fixed mapping %d", ret);
+            return ret;
+         }
+         return gva;
       }
    } else {   // ignore the hint and grab an address range
       gva = km_mmap_add_region(0, size, prot, flags, hostfd, type);
@@ -611,8 +637,9 @@ static km_gva_t km_guest_mmap_nolock(
 
    // By now, a contigious region(s) should already exist, so let's ask system to mmap there
    km_kma_t kma = km_gva_to_kma(gva);
+   size_t mmap_size = size;
    assert(kma != NULL);
-   if (mmap(kma, size, prot, flags | MAP_FIXED, hostfd, offset) != kma) {
+   if (mmap(kma, mmap_size, prot, flags | MAP_FIXED, hostfd, offset) != kma) {
       km_warn("System mmap failed. gva 0x%lx kma %p host fd %d off 0x%lx", gva, kma, hostfd, offset);
       return -errno;
    }
