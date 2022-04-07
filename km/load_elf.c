@@ -231,9 +231,14 @@ uint64_t km_load_elf(km_elf_t* e)
     * loading PIE that doesn't matter, but we need to keep it for coredump and such. For dynamic
     * linking adjust is passed to the dynamic linker so it know how to do relocations.
     */
+#if 0
+   /*
+    * TODO: For this prototype adjust is disabled. Just trust the elf.
+    */
    if (km_guest.km_dynamic_vaddr != 0 && km_guest.km_dynamic_len != 0) {
       adjust = GUEST_MEM_START_VA - km_guest.km_min_vaddr;
    }
+#endif
    /*
     * process PT_LOAD program headers
     */
