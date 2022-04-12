@@ -1497,7 +1497,6 @@ static km_hc_ret_t sched_get_priority_max_hcall(void* vcpu, int hc, km_hc_args_t
 {
    // int sched_get_priotrity_max(int policy);
    km_infox(KM_TRACE_SCHED, "(0x%lx, 0x%lx, 0x%lx)", arg->arg1, arg->arg2, arg->arg3);
-   km_warnx("Unsupported");
    arg->hc_ret = -ENOTSUP;
    return HC_CONTINUE;
 }
@@ -1506,7 +1505,6 @@ static km_hc_ret_t sched_get_priority_min_hcall(void* vcpu, int hc, km_hc_args_t
 {
    // int sched_get_priotrity_min(int policy);
    km_infox(KM_TRACE_SCHED, "(0x%lx, 0x%lx, 0x%lx)", arg->arg1, arg->arg2, arg->arg3);
-   km_warnx("Unsupported");
    arg->hc_ret = -ENOTSUP;
    return HC_CONTINUE;
 }
@@ -1515,7 +1513,6 @@ static km_hc_ret_t set_mempolicy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int set_mempolicy(int mode, const unsigned long *nodemask, unsigned long maxnode)
    km_infox(KM_TRACE_SCHED, "(0x%lx, 0x%lx, 0x%lx)", arg->arg1, arg->arg2, arg->arg3);
-   km_warnx("Unsupported");
    arg->hc_ret = -ENOTSUP;
    return HC_CONTINUE;
 }
@@ -1524,7 +1521,6 @@ static km_hc_ret_t get_mempolicy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int get_mempolicy(int *mode, unsigned long *nodemask, unsigned long maxnode, void *addr, unsigned long flags));
    km_infox(KM_TRACE_SCHED, "(0x%lx, 0x%lx, 0x%lx)", arg->arg1, arg->arg2, arg->arg3);
-   km_warnx("Unsupported");
    arg->hc_ret = -ENOTSUP;
    return HC_CONTINUE;
 }
