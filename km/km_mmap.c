@@ -317,7 +317,7 @@ static void km_mmap_region_clean_concat(km_mmap_reg_t* reg)
 {
    reg->flags = -1;   // fake flag to guarantee reg will not concat with left and right neighbors
 /*
- * TODO: This is the bit that needs to be commented out to get CUDA to work. It definitely does
+ * TODO: This is the bit that needs to be commented out to get ioctl device to work. It definitely does
  * not like madvise(MADV_DONTNEED). Need a better way to identify buffers that can tolerate things
  * like MADV_DONTNEED. Perhaps something like fd is a char device or something.
  */
