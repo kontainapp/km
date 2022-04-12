@@ -103,9 +103,3 @@ RUN for i in runtime alpine-lib ; do \
 RUN cp /usr/lib64/libcrypto.so.1.1.1[a-z] ${PREFIX}/alpine-lib/lib/libcrypto.so.1.1
 
 USER $USER
-
-# Install nix package management in the final container.
-RUN curl -L -o install_nix.sh https://nixos.org/nix/install && \
-    chmod +x install_nix.sh && \
-    ./install_nix.sh --daemon && \
-    rm install_nix.sh
