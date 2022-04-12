@@ -703,7 +703,6 @@ int main(int argc, char* argv[])
       }
       km_gva_t guest_args = km_init_main(vcpu, argc_p, argv_p, envc, envp);
       if (km_dynlinker.km_filename != NULL) {
-km_warnx("set dynlink to run: 0x%0lx", km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust);
          if (km_vcpu_set_to_run(vcpu,
                                 km_dynlinker.km_ehdr.e_entry + km_dynlinker.km_load_adjust,
                                 guest_args) != 0) {

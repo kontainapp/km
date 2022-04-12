@@ -153,7 +153,6 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    }
    km_dynlinker.km_filename = interp_kma;
 
-km_warnx("load_dynlink: km_filename=%s", km_dynlinker.km_filename);
    km_elf_t* e = km_open_elf_file(km_dynlinker.km_filename);
    km_gva_t base = km_mem_brk(0);
    if (base != roundup(base, KM_PAGE_SIZE)) {
@@ -178,7 +177,6 @@ km_warnx("load_dynlink: km_filename=%s", km_dynlinker.km_filename);
       }
    }
 
-km_warnx("setting km_dynlinker load_adjust: base=0x%lx km_dynlinker.km_min_vaddr=0x%lx", base, km_dynlinker.km_min_vaddr);
    km_dynlinker.km_load_adjust = base - km_dynlinker.km_min_vaddr;
    km_find_dlopen(e, km_dynlinker.km_load_adjust);
    km_close_elf_file(e);
