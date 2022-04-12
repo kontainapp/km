@@ -1493,6 +1493,42 @@ static km_hc_ret_t sched_setaffinity_hcall(void* vcpu, int hc, km_hc_args_t* arg
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t sched_get_priority_max_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int sched_get_priotrity_max(int policy);
+   km_infox(KM_TRACE_SCHED, "(0x%lx, 0x%lx, 0x%lx)", arg->arg1, arg->arg2, arg->arg3);
+   km_warnx("Unsupported");
+   arg->hc_ret = -ENOTSUP;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t sched_get_priority_min_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int sched_get_priotrity_min(int policy);
+   km_infox(KM_TRACE_SCHED, "(0x%lx, 0x%lx, 0x%lx)", arg->arg1, arg->arg2, arg->arg3);
+   km_warnx("Unsupported");
+   arg->hc_ret = -ENOTSUP;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t set_mempolicy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int set_mempolicy(int mode, const unsigned long *nodemask, unsigned long maxnode)
+   km_infox(KM_TRACE_SCHED, "(0x%lx, 0x%lx, 0x%lx)", arg->arg1, arg->arg2, arg->arg3);
+   km_warnx("Unsupported");
+   arg->hc_ret = -ENOTSUP;
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t get_mempolicy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int get_mempolicy(int *mode, unsigned long *nodemask, unsigned long maxnode, void *addr, unsigned long flags));
+   km_infox(KM_TRACE_SCHED, "(0x%lx, 0x%lx, 0x%lx)", arg->arg1, arg->arg2, arg->arg3);
+   km_warnx("Unsupported");
+   arg->hc_ret = -ENOTSUP;
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t getcpu_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int getcpu(unsigned *cpu, unsigned *node, struct getcpu_cache *tcache)
@@ -2130,6 +2166,10 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_setpriority] = dummy_hcall,
     [SYS_sched_getaffinity] = sched_getaffinity_hcall,
     [SYS_sched_setaffinity] = sched_setaffinity_hcall,
+    [SYS_sched_get_priority_max] = sched_get_priority_max_hcall,
+    [SYS_sched_get_priority_min] = sched_get_priority_min_hcall,
+    [SYS_set_mempolicy] = set_mempolicy_hcall,
+    [SYS_get_mempolicy] = get_mempolicy_hcall,
     [SYS_prctl] = dummy_hcall,
 
     [SYS_clone] = clone_hcall,
