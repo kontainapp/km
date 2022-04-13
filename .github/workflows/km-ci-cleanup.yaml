@@ -39,17 +39,29 @@ env:
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
   SP_TENANT: ${{ secrets.SP_TENANT }}
   # TRACE: true # uncomment to enable '-x' in all bash scripts
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_REGION: "us-east-2" # ${{ secrets.AWS_REGION }}
 
 jobs:
   km-ci-images-cleanup:
-    name: Cleanup old images
+    name: Cleanup old images and EC2 runners
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
 
       - run: make -C cloud/azure login-cli
 
-      - name: Cleanup and logout
+      - name: Cleanup cloud runner instances
+        run: |
+          [ "$TRACE" ] && set -x
+          d=$(date -I --date "7 day ago")
+          ids=$(aws ec2 --region ${AWS_REGION} describe-instances --filter Name=vpc-id,Values=vpc-0c7bcbda791ec50b9 --query "Reservations[*].Instances[?LaunchTime < '$d' && State.Name=='stopped'].InstanceId" --output text)
+          [ -z "$ids" ] || aws ec2 --region ${AWS_REGION} terminate-instances --instance-ids ${ids}
+          rgroups=$(az vm list --show-details --output tsv --query "[?starts_with(name,'runner-') && ends_with(name,'-vm') && timeCreated < '$d' && powerState=='VM deallocated'].resourceGroup")
+          [ -z "$rgroups"] || for i in $rgroups; do az group delete --yes --name $i; done
+
+      - name: Cleanup registry and logout
         if: always()
         run: |
           [ "$TRACE" ] && set -x

@@ -24,7 +24,9 @@ variables {
 
   image_name = "L0BaseImage"
   // RG should be created ahead of time
-  image_rg = "PackerBuildRG"
+  image_rg        = "auto-github-runner"
+  username        = "kontain"
+  os_disk_size_gb = 32
 }
 
 source "azure-arm" "baseImage-for-CI" {
@@ -32,11 +34,8 @@ source "azure-arm" "baseImage-for-CI" {
   tenant_id       = var.sp_tenant
   client_id       = var.sp_appid
   client_secret   = var.sp_password
-
-  ssh_username = "kontain"
-
-  location = "West US"
-  vm_size  = "Standard_D4s_v3"
+  ssh_username    = "ubuntu"
+  vm_size         = "Standard_D4s_v3"
 
   // Base image info
   os_type         = "Linux"
@@ -48,6 +47,8 @@ source "azure-arm" "baseImage-for-CI" {
   // Other base images grow from it, if needed
   managed_image_name                = var.image_name
   managed_image_resource_group_name = var.image_rg
+  os_disk_size_gb                   = var.os_disk_size_gb
+  location                          = "West US"
 
   azure_tags = {
     reason = "Base Image for KM CI, with Packer and gcc and goodies"
@@ -59,8 +60,8 @@ build {
   sources = ["sources.azure-arm.baseImage-for-CI"]
 
   provisioner "shell" {
-    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sudo -E sh '{{ .Path }}'"
-    script          = "scripts/L0-image-provision.sh"
+    execute_command = "{{ .Vars }} sudo -E sh '{{ .Path }}' ${var.username}"
+    script          = "../scripts/L0-image-provision.sh"
   }
 
   // TBD azure Image should be "deprovisioned", see https://www.packer.io/docs/builders/azure/arm
