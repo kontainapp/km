@@ -219,53 +219,6 @@ test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to
 test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
 
-
-# Run test in Kubernetes. Image is formed as current-testenv-image:$IMAGE_VERSION
-# IMAGE_VERSION needs to be defined outside, and correspond to existing (in REGISTRY) image
-# For example, to run image generated on ci-695, use 'make test-withk8s IMAGE_VERSION=ci-695
-K8S_RUNTEST := $(TOP)/cloud/k8s/tests/k8s-run-tests.sh
-PROCESSED_COMPONENT_NAME := $(shell echo ${COMPONENT} | tr . -)
-PROCESSED_IMAGE_VERION := $(shell echo $(IMAGE_VERSION) | tr '[A-Z]' '[a-z]')
-TEST_K8S_IMAGE := $(REGISTRY)/test-$(COMPONENT)-$(DTYPE):$(IMAGE_VERSION)
-TEST_K8S_NAME := test-${PROCESSED_COMPONENT_NAME}-$(DTYPE)-${PROCESSED_IMAGE_VERION}
-ifneq (${K8S_TEST_ERR_NO_CLEANUP},)
-	TEST_K8S_OPT := "err_no_cleanup"
-else
-	TEST_K8S_OPT := "default"
-endif
-test-withk8s: .check_image_version ## run tests on a k8s cluster
-	${K8S_RUNTEST} ${TEST_K8S_OPT} "${TEST_K8S_IMAGE}" "${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
-
-test-all-withk8s: .check_image_version
-	${K8S_RUNTEST} ${TEST_K8S_OPT} "${TEST_K8S_IMAGE}" "${TEST_K8S_NAME}" "${CONTAINER_TEST_ALL_CMD}"
-
-# Manual version... helpful when debugging failed CI runs by starting new pod from CI testenv-image
-# Adds 'user-' prefix to names and puts container to sleep so we can exec into it
-test-withk8s-manual: .check_image_version ## same as test-withk8s, but allow for manual inspection afterwards
-	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER}-${TEST_K8S_NAME}" "${CONTAINER_TEST_CMD}"
-
-test-all-withk8s-manual: .check_image_version ## same as test-withk8s, but allow for manual inspection afterwards
-	${K8S_RUNTEST} "manual" "${TEST_K8S_IMAGE}" "${USER}-${TEST_K8S_NAME}" "${CONTAINER_TEST_ALL_CMD}"
-
-CLEAN_STALE_TEST_SCRIPTS := ${TOP}/cloud/k8s/tests/cleanup.py
-clean-stale-test-k8s:
-	${CLEAN_STALE_TEST_SCRIPTS}
-
-ifeq (${NO_RUNENV}, false)
-K8S_RUN_VALIDATION := $(TOP)/cloud/k8s/tests/k8s-run-validation.sh
-VALIDATION_K8S_IMAGE := $(RUNENV_DEMO_IMG_REG):$(IMAGE_VERSION)
-VALIDATION_K8S_NAME := validation-${PROCESSED_COMPONENT_NAME}-${PROCESSED_IMAGE_VERION}
-
-# We use the demo-runenv image for validation. Runenv only contain the bare
-# minimum and no other application, so we use the demo-runenv image which
-# contains all the applications.
-validate-runenv-withk8s: .check_image_version
-	@tmp_bash_array=${RUNENV_VALIDATE_CMD} && \
-	json_array=$$(echo "[$${tmp_bash_array[@]@Q}]" | sed "s/' /', /g") && \
-	${K8S_RUN_VALIDATION} "${VALIDATION_K8S_IMAGE}" "${VALIDATION_K8S_NAME}" "$$json_array" "${RUNENV_VALIDATE_EXPECTED}"
-
-endif # ifeq (${NO_RUNENV}, false)
-
 # === BUILDENV LOCAL
 
 ${BLDDIR}:

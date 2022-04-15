@@ -8,7 +8,6 @@ The purpose is to address two common use cases in development cycle:
 
 2. A developer creates a pull request in order to merge changes to master and this operation triggers the CI for all changes. The Azure CD pipeline is directly triggered from Github.
 
-
 ## GitHub Workflows
 
 The GitHub Workflows CI is fully configured by files in .github/workflows. See Github docs for more information.
@@ -18,6 +17,31 @@ Tests are deployed on VMs in on-demand self-hosted github runners.
 Pretty much all the work (build / test) is controlled via Makefiles, and the action workflow just ties them together.
 Tests are run by `make test-withdocker`, `make test-all-withdocker`, and `make validate-runenv-images`.
 
+## How test are run om VMs
+
+Some jobs are ran on github hosted runners, such as `ubuntu-latest`.
+However these runners are weak and don't support KVM,
+so some steps are ran on on-demand runners on AWS and Azure.
+
+There are two jobs in the `km-ci-workflow.yaml` file, `start-runners` and `stop-runner`.
+They are like a pair of parenthesis.
+
+`start-runners` launches two VMs, one on EC2 and one on Azure.
+There are a lot of parameters there.
+They specify how to deal with our accounts on the clouds, which image to use,
+and also how to connect to our github repo.
+These are likely going to stay unchanged.
+
+Once the VMs start they execute a script that registers them with gihub as runners.
+The names (labels) of the runners are output parameters of the step encoded as run-ons associative array by cloud.
+
+`stop-runner` analyses the status of the workflow - success, failure, cancelled, skipped.
+For failure it stops the VMs and keeps them around for further human analysis, otherwise VMs are destroyed.
+
+The actual test jobs, `km-test`, `kkm-test-vms` and potentially new ones use `runs-on:` parameter to specify the runner to use.
+The rest of the test jobs follow the usual action syntax.
+The test steps are executed on the appropriate runner.
+
 ### Outcome
 
 A test job run will have ONE of the following outcomes,
@@ -25,18 +49,41 @@ success, failure, or cancelled.
 In case of failure the VMs that ran the action runners are stopped but kept so the failure could be analyzed.
 They are cleaned up after 7 days.
 
-## Login
+## Login and How to debug
 
 There is no need for additional login to run or see and analyze CI logs.
 
+Failed tests leave VMs around, available to start and ssh in to.
+They are accessible on EC2 instances or Azure VMs pages.
 To analyze failed tests it is necessary to locate the action runner VMs.
 The VMs are label as `{ec2,azure}-runner-`*Pipeline_Name*`-`*run_number*, eg `ec2-runner-KM-CI-Pipeline-1284`.
-Start the VM, then ssh into it using public IP number, username `kontain`,
-and one of the ssh public keys placed in `cloud/ssh` directory.
+Start the VM, then ssh into it using public IP number.
+The user name is kontain, the public ssh keys are taken from cloud/azure/ssh directory - please put yours there.
+The VMs are kept there for a week, after that they are erased.
 
-The tests are run in `/action_runner/_work` directory.
+The CI jobs are run in `/action_runner/_work` directory.
 
 Please stop the VM when you done.
+
+It is also possible to create an entirely new VM using the base image,
+and run all the steps manually.
+
+Not that ssh keys are put in the CI VMs when they start, not when image is created.
+To ssh in this new VM use the cloud provided ssh key mechanisms.
+
+## A note about Quotas on Azure
+
+Before going further, it is important to understand that every test run uses VMs from Azure and AWS. We usually use VMs with 4vCPU. That means that parallel run of multiple PRs can exceed Kontain account quota (currently increased to 48 vCPU at a time - we can set it higher) and the CI will fail with "Deployment failure" message from Azure.
+
+### Base image for tests
+
+Pre-created AMI and Azure base image named L0BaseImage are used.
+On Azure that image is in `auto-github-runner` resource group.
+Base images are created in `cloud/azure` and `cloud/aws` using packer under the hood:
+```
+make -C cloud/azure L0BaseImage
+make -C cloud/aws L0BaseImage
+```
 
 ## FAQ
 
@@ -82,7 +129,13 @@ Please stop the VM when you done.
 
 We use service principal extensively to access azure resources.
 We also use AWS and Github tokens.
-They are all configured in github Kontainapp Organzation Secrets and accessed as `${{ secret.xxx }}` in CI configuration.
+They are all configured in github Kontainapp Organization Secrets and accessed as `${{ secret.xxx }}` in CI configuration.
+
+This process needs SP_* environment vars are set to authenticate to Azure (see build.md doc, 'login-cli' chapter).
+It also needs environment vars (or secrets, if running in CI).
+
+* GITHUB_TOKEN - personal token authoring clone/checkout from github
+* VAGRANT_CLOUD_TOKEN - personal token authorizing delete/create boxes on vagrantcloud for username `kontain`, password is Kontain WiFi password `SecureF...`. In CI, it the token is already in the secrets for github.com/kontainapp.
 
 ## Nightly CI pipeline
 
@@ -91,7 +144,6 @@ additional tests that takes longer to run, e.g. full Node test suite.
  They are configured in the same workflow, but only enabled if the workflow is started on schedule or manually (not on pull request).
 Full pass with long test is scheduled to run at the midnight pacific time every night.
 
-The nightly pipeline uses the `test-all-withk8s` Make targets. In the case when
-there is no long running test, `test-all-withk8s` will defaults to the same
-test as `test-withk8s`. The script that drives these tests are under
-`cloud/azure/tests`. It also has a similar `test-all-withk8s-manual` target.
+The nightly pipeline uses the `test-all-withdocker` make targets.
+In case when there is no long running test,
+`test-all-withdocker` will defaults to the same test as `test-withdocker`.
