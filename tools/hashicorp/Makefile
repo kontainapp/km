@@ -64,25 +64,3 @@ test-box-upload: ## Helper to test Vagrant Box upload from existing BOX file
 
 clean::
 	rm -rf output_box_* box packer_cache
-
-# Helpers to run , find and terminate test AWS instances, for manual work
-
-INSTANCE_TYPE ?= t2.micro
-KEY_PAIR ?= aws-kkm
-.run-instance: ## helper to run an instance and print out ssh string when ready. Use KEY_PAIR and INSTANCE_TYPE to change default
-	./scripts/run-instance.sh $(INSTANCE_TYPE) $(KEY_PAIR)
-
-# Note: name is set in run-instance-sh
-.describe-instances: ## helper to kill all instances with a given mame
-	@aws ec2 describe-instances \
-		--filters \
-				'Name=tag:Name,Values=test-Kontain_ubuntu_20.04' \
-				'Name=instance-state-name,Values=running' \
-		--query 'Reservations[].Instances[].InstanceId' --output text
-
-.terminate-instances: .describe-instances
-	@echo Manually run: 'aws ec2 terminate-instances --instance-ids <ids>'
-
-.check_tools:
-	@if ! type virtualbox >& /dev/null ; then echo -e "${RED}'virtualbox' is missing - please install it first ${NOCOLOR}"; false; fi
-	@if ! type vagrant >& /dev/null ; then echo -e "${RED}'vagrant' is missing - please install it first ${NOCOLOR}"; false; fi
