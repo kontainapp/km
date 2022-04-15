@@ -183,8 +183,7 @@ jobs:
   # parallel with the rest of KM build and test.
   krun-static-build:
     name: Build static KRUN binary
-    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
-    needs: start-runners
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
@@ -228,10 +227,6 @@ jobs:
         with:
           name: krun-static
           path: /tmp/krun-static
-
-      - name: cleanup
-        if: always()
-        run: rm -rf km
 
   # Build the k8s release artifact. Static KRUN is built separately and
   # in parallel from the rest of KM. The k8s artifact contains:
@@ -638,7 +633,7 @@ jobs:
   stop-runner:
     if: always()
     name: Terminate self-hosted cloud runners
-    needs: [start-runners, krun-static-build, km-test, kkm-test-vms]
+    needs: [start-runners, km-test, kkm-test-vms]
     runs-on: ubuntu-latest
     steps:
       - name: Stop runners
