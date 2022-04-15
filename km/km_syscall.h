@@ -35,7 +35,7 @@ static inline uint64_t __syscall_0(uint64_t num)
 {
    uint64_t res;
 
-   __asm__ __volatile__("syscall" : "=a"(res) : "a"(num) : "rcx", "r11");
+   __asm__ __volatile__("syscall" : "=a"(res) : "a"(num) : "rcx", "r11", "memory");
 
    return res;
 }
