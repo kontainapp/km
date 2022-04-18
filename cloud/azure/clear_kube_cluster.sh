@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 #
-# Deletes the Kubernetes cluster and the Service Principal it used to use
+# OBSOLETE: Deletes the Kubernetes cluster and the Service Principal it used to use
 
 # make sure we are running where we are started from (so the rest of the scripr can be run interactively)
 cd `dirname $0`

@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 #
-# Deploys a kubernetes cluster instance to Azure.
+# OBSOLETE: Deploys a kubernetes cluster instance to Azure.
 # Also preps service instance for the cluster and configures it to access
 # kontain private ContainerRegistry
 
