@@ -51,7 +51,7 @@ extern km_payload_t km_dynlinker;
 typedef struct km_elf_s {
    const char *path;
    FILE *file;
-   Elf64_Ehdr *ehdr;
+   Elf64_Ehdr ehdr;
    Elf64_Phdr *phdr;
    Elf64_Shdr *shdr;
    int symidx;

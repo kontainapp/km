@@ -155,7 +155,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
       // What about wasted bytes between base and roundup(base)?
       base = km_mem_brk(roundup(base, KM_PAGE_SIZE));
    }
-   km_dynlinker.km_ehdr = *e->ehdr;
+   km_dynlinker.km_ehdr = e->ehdr;
    if ((km_dynlinker.km_phdr = malloc(sizeof(Elf64_Phdr) * km_dynlinker.km_ehdr.e_phnum)) == NULL) {
       km_err(2, "no memory for elf program headers");
    }
@@ -184,7 +184,7 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
  */
 uint64_t km_load_elf(km_elf_t* e)
 {
-   km_guest.km_ehdr = *e->ehdr;
+   km_guest.km_ehdr = e->ehdr;
    if ((km_guest.km_phdr = malloc(sizeof(Elf64_Phdr) * km_guest.km_ehdr.e_phnum)) == NULL) {
       km_err(2, "no memory for elf program headers");
    }
@@ -270,46 +270,45 @@ km_open_elf_file(const char *path)
    }
 
    // Read ELF header
-   elf->ehdr = (Elf64_Ehdr *) malloc(sizeof(Elf64_Ehdr));
-   int nread = fread(elf->ehdr, 1, sizeof(Elf64_Ehdr), elf->file);
+   int nread = fread(&elf->ehdr, 1, sizeof(Elf64_Ehdr), elf->file);
    if (nread < sizeof(Elf64_Ehdr)) {
       km_err(2, "Cannot read EHDR %s", path);
    }
 
    // Validate Elf Header
-   unsigned char* wp = &elf->ehdr->e_ident[0];
+   unsigned char* wp = &elf->ehdr.e_ident[0];
    if (memcmp(wp, ELFMAG, SELFMAG) != 0) {
       km_errx(2, "EHDR magic number mismatch %s", path);
    }
-   if (elf->ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
+   if (elf->ehdr.e_ident[EI_CLASS] != ELFCLASS64) {
       km_errx(2, "Not a 64 bit ELF %s", path);
    }
-   if (elf->ehdr->e_version != EV_CURRENT) {
+   if (elf->ehdr.e_version != EV_CURRENT) {
       km_errx(2, "Not current ELF version %s", path);
    }
 
-   elf->phdr = malloc((size_t) elf->ehdr->e_phentsize * (size_t) elf->ehdr->e_phnum);
-   if (fseek(elf->file, elf->ehdr->e_phoff, SEEK_SET) != 0) {
+   elf->phdr = malloc((size_t) elf->ehdr.e_phentsize * (size_t) elf->ehdr.e_phnum);
+   if (fseek(elf->file, elf->ehdr.e_phoff, SEEK_SET) != 0) {
       km_err(2, "Cannot seek to PHDR %s", path);
    }
-   nread = fread(elf->phdr, 1, (size_t) elf->ehdr->e_phentsize * (size_t) elf->ehdr->e_phnum, elf->file);
-   if (nread < elf->ehdr->e_phentsize * elf->ehdr->e_phnum) {
+   nread = fread(elf->phdr, 1, (size_t) elf->ehdr.e_phentsize * (size_t) elf->ehdr.e_phnum, elf->file);
+   if (nread < elf->ehdr.e_phentsize * elf->ehdr.e_phnum) {
       km_err(2, "Cannot read PHDR %s", path);
    }
 
    // Read Section Headers
-   elf->shdr = malloc((size_t) elf->ehdr->e_shentsize * (size_t) elf->ehdr->e_shnum);
-   if (fseek(elf->file, elf->ehdr->e_shoff, SEEK_SET) != 0) {
+   elf->shdr = malloc((size_t) elf->ehdr.e_shentsize * (size_t) elf->ehdr.e_shnum);
+   if (fseek(elf->file, elf->ehdr.e_shoff, SEEK_SET) != 0) {
       km_err(2, "Cannot seek to SHDR %s", path);
    }
-   nread = fread(elf->shdr, 1, (size_t) elf->ehdr->e_shentsize * (size_t) elf->ehdr->e_shnum, elf->file);
-   if (nread < elf->ehdr->e_shentsize * elf->ehdr->e_shnum) {
+   nread = fread(elf->shdr, 1, (size_t) elf->ehdr.e_shentsize * (size_t) elf->ehdr.e_shnum, elf->file);
+   if (nread < elf->ehdr.e_shentsize * elf->ehdr.e_shnum) {
       km_err(2, "Cannot read SHDR %s", path);
    }
 
    // Find Symbol table and String Table Indexes
    elf->symidx = elf->stridx = -1;
-   for (int i = 0; i < elf->ehdr->e_shnum; i++) {
+   for (int i = 0; i < elf->ehdr.e_shnum; i++) {
       if (elf->shdr[i].sh_type == SHT_SYMTAB) {
          elf->symidx = i;
          elf->stridx = elf->shdr[i].sh_link;
@@ -326,10 +325,6 @@ km_close_elf_file(km_elf_t* elf)
       if (elf->file != NULL) {
          fclose(elf->file);
          elf->file = NULL;
-      }
-      if (elf->ehdr != NULL) {
-         free(elf->ehdr);
-         elf->ehdr = NULL;
       }
       if (elf->phdr != NULL) {
          free(elf->phdr);
