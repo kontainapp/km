@@ -93,26 +93,42 @@ static void load_extent(int fd, const Elf64_Phdr* phdr, km_gva_t base)
 
 static void km_find_dlopen(km_elf_t* e, km_gva_t adjust)
 {
-   if (e->symidx == -1 || e->stridx == -1) {
-      return;
+   int found = 0;
+   Elf64_Shdr sym_shdr;
+   Elf64_Shdr str_shdr;
+   for (int i = 0; i < e->ehdr.e_shnum; i++) {
+      if (km_elf_get_shdr(e, i, &sym_shdr) != 0) {
+         km_err(2, "Cannot get section header %d", i);
+      }
+
+      if (sym_shdr.sh_type == SHT_SYMTAB) {
+         if (km_elf_get_shdr(e, sym_shdr.sh_link, &str_shdr) != 0) {
+            km_err(2, "Cannot get section header %d", sym_shdr.sh_link);
+         }
+         found = 1;
+         break;
+      }
+   }
+   if (found == 0) {
+      km_err(2, "Cannot find symbol table for DLOPEN");
    }
 
-   int nsym = e->shdr[e->symidx].sh_size / e->shdr[e->symidx].sh_entsize;
-   Elf64_Sym* symtab = (Elf64_Sym*) malloc(e->shdr[e->symidx].sh_size);
-   if (fseek(e->file, e->shdr[e->symidx].sh_offset, SEEK_SET) != 0) {
+   int nsym = sym_shdr.sh_size / sym_shdr.sh_entsize;
+   Elf64_Sym* symtab = (Elf64_Sym*) malloc(sym_shdr.sh_size);
+   if (fseek(e->file, sym_shdr.sh_offset, SEEK_SET) != 0) {
       km_err(2, "fseek failure");
    }
-   int nread = fread(symtab, 1, e->shdr[e->symidx].sh_size, e->file);
-   if (nread != e->shdr[e->symidx].sh_size) {
+   int nread = fread(symtab, 1, sym_shdr.sh_size, e->file);
+   if (nread != sym_shdr.sh_size) {
       km_err(2, "symbol table read failure");
    } 
 
-   char *strings = malloc(e->shdr[e->stridx].sh_size);
-   if (fseek(e->file, e->shdr[e->stridx].sh_offset, SEEK_SET) != 0) {
+   char *strings = malloc(str_shdr.sh_size);
+   if (fseek(e->file, str_shdr.sh_offset, SEEK_SET) != 0) {
       km_err(2, "fseek failure");
    }
-   nread = fread(strings, 1, e->shdr[e->stridx].sh_size, e->file);
-   if (nread != e->shdr[e->stridx].sh_size) {
+   nread = fread(strings, 1, str_shdr.sh_size, e->file);
+   if (nread != str_shdr.sh_size) {
       km_err(2, "strings table read failure");
    } 
 
@@ -252,15 +268,7 @@ uint64_t km_load_elf(km_elf_t* e)
 }
 
 /*
- * Open ELF file for KM.
- * Note: This is a place where we need to really validate what we are looking
- * at since potentially a bad actor could give us a bad elf file for the guest
- * in an attempt to corrupt KM. We need to prevent that.
- * For now there are basic tests. 
- *
- * TODO: This algorithm is memory inefficient. Don't need to hold everthing in
- *       core. Could use stdio buffering to get one at a time efficiently since 
- *       we mainly sequentially scan.
+ * Open ELF file for KM. We only support ELF64, LSB, X86_86. Validate this before proceeding.
  */
 km_elf_t*
 km_open_elf_file(const char *path)
@@ -287,27 +295,14 @@ km_open_elf_file(const char *path)
    if (elf->ehdr.e_ident[EI_CLASS] != ELFCLASS64) {
       km_errx(2, "Not a 64 bit ELF %s", path);
    }
+   if (elf->ehdr.e_ident[EI_DATA] != ELFDATA2LSB) {
+      km_errx(2, "Not LSB ELF %s", path);
+   }
+   if (elf->ehdr.e_machine != EM_X86_64) {
+      km_errx(2, "Machine is not X86_64");
+   }
    if (elf->ehdr.e_version != EV_CURRENT) {
       km_errx(2, "Not current ELF version %s", path);
-   }
-
-   // Read Section Headers
-   elf->shdr = malloc((size_t) elf->ehdr.e_shentsize * (size_t) elf->ehdr.e_shnum);
-   if (fseek(elf->file, elf->ehdr.e_shoff, SEEK_SET) != 0) {
-      km_err(2, "Cannot seek to SHDR %s", path);
-   }
-   nread = fread(elf->shdr, 1, (size_t) elf->ehdr.e_shentsize * (size_t) elf->ehdr.e_shnum, elf->file);
-   if (nread < elf->ehdr.e_shentsize * elf->ehdr.e_shnum) {
-      km_err(2, "Cannot read SHDR %s", path);
-   }
-
-   // Find Symbol table and String Table Indexes
-   elf->symidx = elf->stridx = -1;
-   for (int i = 0; i < elf->ehdr.e_shnum; i++) {
-      if (elf->shdr[i].sh_type == SHT_SYMTAB) {
-         elf->symidx = i;
-         elf->stridx = elf->shdr[i].sh_link;
-      }
    }
 
    return elf;
@@ -321,21 +316,34 @@ km_close_elf_file(km_elf_t* elf)
          fclose(elf->file);
          elf->file = NULL;
       }
-      if (elf->shdr != NULL) {
-         free(elf->shdr);
-         elf->shdr = NULL;
-      }
-      free(elf);
    }
 }
 
 int km_elf_get_phdr(km_elf_t *elf, int idx, Elf64_Phdr *phdr)
 {
+   if (idx < 0 || idx >= elf->ehdr.e_phnum) {
+      return -1;
+   }
    if (fseek(elf->file, elf->ehdr.e_phoff + idx * elf->ehdr.e_phentsize, SEEK_SET) != 0) {
       return -1;
    }
    int nread = fread(phdr, 1, (size_t) elf->ehdr.e_phentsize, elf->file);
    if (nread < elf->ehdr.e_phentsize) {
+      return -1;
+   }
+   return 0;
+}
+
+int km_elf_get_shdr(km_elf_t *elf, int idx, Elf64_Shdr *shdr)
+{
+   if (idx < 0 || idx >= elf->ehdr.e_shnum) {
+      return -1;
+   }
+   if (fseek(elf->file, elf->ehdr.e_shoff + idx * elf->ehdr.e_shentsize, SEEK_SET) != 0) {
+      return -1;
+   }
+   int nread = fread(shdr, 1, (size_t) elf->ehdr.e_shentsize, elf->file);
+   if (nread < elf->ehdr.e_shentsize) {
       return -1;
    }
    return 0;
