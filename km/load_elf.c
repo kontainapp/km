@@ -164,7 +164,9 @@ static void load_dynlink(km_gva_t interp_vaddr, uint64_t interp_len, km_gva_t in
    for (int i = 0; i < km_dynlinker.km_ehdr.e_phnum; i++) {
       Elf64_Phdr* phdr = &km_dynlinker.km_phdr[i];
 
-      *phdr = e->phdr[i];
+      if (km_elf_get_phdr(e, i, phdr) != 0) {
+         km_err(2, "cannot get phdr %d", i);
+      }
       if (phdr->p_type == PT_LOAD) {
          load_extent(fileno(e->file), phdr, base);
          if (phdr->p_vaddr < km_dynlinker.km_min_vaddr) {
@@ -196,7 +198,9 @@ uint64_t km_load_elf(km_elf_t* e)
    km_guest.km_min_vaddr = -1U;
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
       Elf64_Phdr* phdr = &km_guest.km_phdr[i];
-      *phdr = e->phdr[i];
+      if (km_elf_get_phdr(e, i, phdr) != 0) {
+         km_err(2, "Cannot get [hdr %d", i);
+      }
 
       if (phdr->p_type == PT_LOAD && phdr->p_vaddr < km_guest.km_min_vaddr) {
          km_guest.km_min_vaddr = phdr->p_vaddr;
@@ -287,15 +291,6 @@ km_open_elf_file(const char *path)
       km_errx(2, "Not current ELF version %s", path);
    }
 
-   elf->phdr = malloc((size_t) elf->ehdr.e_phentsize * (size_t) elf->ehdr.e_phnum);
-   if (fseek(elf->file, elf->ehdr.e_phoff, SEEK_SET) != 0) {
-      km_err(2, "Cannot seek to PHDR %s", path);
-   }
-   nread = fread(elf->phdr, 1, (size_t) elf->ehdr.e_phentsize * (size_t) elf->ehdr.e_phnum, elf->file);
-   if (nread < elf->ehdr.e_phentsize * elf->ehdr.e_phnum) {
-      km_err(2, "Cannot read PHDR %s", path);
-   }
-
    // Read Section Headers
    elf->shdr = malloc((size_t) elf->ehdr.e_shentsize * (size_t) elf->ehdr.e_shnum);
    if (fseek(elf->file, elf->ehdr.e_shoff, SEEK_SET) != 0) {
@@ -326,14 +321,22 @@ km_close_elf_file(km_elf_t* elf)
          fclose(elf->file);
          elf->file = NULL;
       }
-      if (elf->phdr != NULL) {
-         free(elf->phdr);
-         elf->phdr = NULL;
-      }
       if (elf->shdr != NULL) {
          free(elf->shdr);
          elf->shdr = NULL;
       }
       free(elf);
    }
+}
+
+int km_elf_get_phdr(km_elf_t *elf, int idx, Elf64_Phdr *phdr)
+{
+   if (fseek(elf->file, elf->ehdr.e_phoff + idx * elf->ehdr.e_phentsize, SEEK_SET) != 0) {
+      return -1;
+   }
+   int nread = fread(phdr, 1, (size_t) elf->ehdr.e_phentsize, elf->file);
+   if (nread < elf->ehdr.e_phentsize) {
+      return -1;
+   }
+   return 0;
 }
