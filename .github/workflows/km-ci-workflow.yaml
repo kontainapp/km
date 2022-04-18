@@ -140,15 +140,18 @@ jobs:
         run: make -C tests testenv-image push-testenv-image
 
       - name: Build payloads and create test images
-        run: make -C payloads pull-buildenv-image clean all testenv-image
-
-      - run: make -C payloads push-testenv-image
+        run: |
+          make -C payloads -j pull-buildenv-image
+          make -C payloads -j clean
+          make -C payloads -j all
+          make -C payloads -j testenv-image
+          make -C payloads -j push-testenv-image
 
       - name: Create payloads runenv and demo-runenv images
         # Note: this builds both runenv and demo-runenv images
-        run: make -C payloads runenv-image
-
-      - run: make -C payloads push-demo-runenv-image
+        run: |
+          make -C payloads -j runenv-image
+          make -C payloads -j push-demo-runenv-image
 
       # Note: custom Python build needs to happen after python payload build
       - name: Python.km custom build
