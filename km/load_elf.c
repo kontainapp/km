@@ -110,7 +110,7 @@ static void km_find_dlopen(km_elf_t* e, km_gva_t adjust)
       }
    }
    if (found == 0) {
-      km_err(2, "Cannot find symbol table for DLOPEN");
+      km_err(2, "Cannot find symbol table");
    }
 
    int nsym = sym_shdr.sh_size / sym_shdr.sh_entsize;
@@ -316,6 +316,7 @@ km_close_elf_file(km_elf_t* elf)
          fclose(elf->file);
          elf->file = NULL;
       }
+      free(elf);
    }
 }
 
@@ -324,7 +325,7 @@ int km_elf_get_phdr(km_elf_t *elf, int idx, Elf64_Phdr *phdr)
    if (idx < 0 || idx >= elf->ehdr.e_phnum) {
       return -1;
    }
-   if (fseek(elf->file, elf->ehdr.e_phoff + idx * elf->ehdr.e_phentsize, SEEK_SET) != 0) {
+   if (fseek(elf->file, elf->ehdr.e_phoff + (off_t)idx * (off_t)elf->ehdr.e_phentsize, SEEK_SET) != 0) {
       return -1;
    }
    int nread = fread(phdr, 1, (size_t) elf->ehdr.e_phentsize, elf->file);
@@ -339,7 +340,7 @@ int km_elf_get_shdr(km_elf_t *elf, int idx, Elf64_Shdr *shdr)
    if (idx < 0 || idx >= elf->ehdr.e_shnum) {
       return -1;
    }
-   if (fseek(elf->file, elf->ehdr.e_shoff + idx * elf->ehdr.e_shentsize, SEEK_SET) != 0) {
+   if (fseek(elf->file, elf->ehdr.e_shoff + (off_t)idx * (off_t)elf->ehdr.e_shentsize, SEEK_SET) != 0) {
       return -1;
    }
    int nread = fread(shdr, 1, (size_t) elf->ehdr.e_shentsize, elf->file);
