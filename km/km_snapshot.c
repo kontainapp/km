@@ -498,14 +498,16 @@ int km_snapshot_restore(km_elf_t* e)
 {
    km_payload_t tmp_payload = {};
 
-   tmp_payload.km_ehdr = *e->ehdr;
+   tmp_payload.km_ehdr = e->ehdr;
 
    // Read ELF PHDR into tmp_payload.
-   if ((tmp_payload.km_phdr = alloca(sizeof(Elf64_Phdr) * e->ehdr->e_phnum)) == NULL) {
+   if ((tmp_payload.km_phdr = alloca(sizeof(Elf64_Phdr) * e->ehdr.e_phnum)) == NULL) {
       km_err(2, "no memory for elf program headers");
    }
    for (int i = 0; i < tmp_payload.km_ehdr.e_phnum; i++) {
-      tmp_payload.km_phdr[i] = e->phdr[i];
+      if (km_elf_get_phdr(e, i, &tmp_payload.km_phdr[i]) != 0) {
+         km_err(2, "cannot get phdr %d", i);
+      }
    }
 
    // disable mmap consolidation during recovery
