@@ -198,6 +198,7 @@ jobs:
           github-token: ${{ secrets.GH_TOKEN }}
           artifact-name: ${{ env.CRUN_SHA}}
           path: /tmp/krun-static
+          debug: true
 
       - uses: actions/cache@v2
         if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
