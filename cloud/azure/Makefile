@@ -73,20 +73,18 @@ sudo dnf install kubernetes-client
 EOF
 endef
 
-login:  .check_tools ## Interactive login to Azure, Azure Container Registry and Kubernetes cluster on Azure
+login:  .check_tools ## Interactive login to Azure, Azure Container Registry
 	az login -t "$(AZ_TENANT_ID)" -o table
 	@#one time config, but it's cheap so let's do it every time
 	az account set -s ${CLOUD_SUBSCRIPTION}
 	az configure --defaults location=${CLOUD_LOCATION}
-	@# container registry and kubernetes service logins. note: AKS login is long-lived
+	@# container registry
 	az acr login -n "$(REGISTRY_NAME)"
-	az aks get-credentials --resource-group "$(CLOUD_RESOURCE_GROUP)" --name "$(K8S_CLUSTER)" --overwrite-existing
 
-login-cli: .check_tools  ## Non-interactive login to Azure, Azure Container Registry and Kubernetes cluster on Azure
+login-cli: .check_tools  ## Non-interactive login to Azure, Azure Container Registry
 	@echo az login "${SP_DISPLAYNAME}"
 	@az login --service-principal -u "${SP_APPID}" -p "${SP_PASSWORD}" --tenant "${SP_TENANT}" -o table
 	az acr login -n "$(REGISTRY_NAME)"
-	az aks get-credentials --resource-group "$(CLOUD_RESOURCE_GROUP)" --name "$(K8S_CLUSTER)" --overwrite-existing
 
 .check_tools:
 	@if ! which az > /dev/null ; then \
@@ -120,9 +118,6 @@ endif
 # Helpers to avoid cut-n-paste in pipeline definition.
 ci-prepare-testenv: ## helper for Azure CI. Obsolete for GitHub workflows
 	make -C $(TOP)/$(LOCATION) pull-buildenv-image clean all testenv-image push-testenv-image
-
-dashboard: login # Interactive login, and then forward port/open Kubernetes Dashboard
-	az aks browse --resource-group $(CLOUD_RESOURCE_GROUP) --name $(K8S_CLUSTER)
 
 DTYPE ?= fedora
 buildenv:  ## Build km-buildenv image for Azure

@@ -97,7 +97,7 @@ jobs:
           az-tenant-id: ${{ secrets.SP_TENANT }}
           az-image: "auto-github-runner:L0BaseImage"
           az-location: "westus"
-          az-vm-size: "Standard_D4s_v3"
+          az-vm-size: "Standard_D4s_v4"
 
   km-build:
     name: Build KM, push test image
@@ -140,15 +140,18 @@ jobs:
         run: make -C tests testenv-image push-testenv-image
 
       - name: Build payloads and create test images
-        run: make -C payloads pull-buildenv-image clean all testenv-image
-
-      - run: make -C payloads push-testenv-image
+        run: |
+          make -C payloads -j pull-buildenv-image
+          make -C payloads -j clean
+          make -C payloads -j all
+          make -C payloads -j testenv-image
+          make -C payloads -j push-testenv-image
 
       - name: Create payloads runenv and demo-runenv images
         # Note: this builds both runenv and demo-runenv images
-        run: make -C payloads runenv-image
-
-      - run: make -C payloads push-demo-runenv-image
+        run: |
+          make -C payloads -j runenv-image
+          make -C payloads -j push-demo-runenv-image
 
       # Note: custom Python build needs to happen after python payload build
       - name: Python.km custom build
@@ -414,7 +417,7 @@ jobs:
         timeout-minutes: 20
 
   minikube-testing:
-    name: kubernetes tests aginst minikube
+    name: kubernetes tests against minikube
     runs-on: ubuntu-20.04
     needs: [k8s-release-bin, kkm-build]
     strategy:

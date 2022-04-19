@@ -18,7 +18,7 @@
 # config file. Used  from both makefiles and bash scripts, so no spaces before/after '='
 #
 
-# Tenant ID for kontain.app directory. 
+# Tenant ID for kontain.app directory.
 AZ_TENANT_ID=bb863950-cdcd-467a-8d4c-97f338d8e279
 
 # Azure groups all resources under this name
@@ -48,12 +48,6 @@ REGISTRY_AUTH_EXAMPLE="az acr login  -n ${REGISTRY_NAME}"
 
 # how fancy we want the machine registry is running on
 REGISTRY_SKU=Basic
-
-# base cluster name. May be mangled by adding branch name etc... in different provision use cases
-K8S_CLUSTER=kontainKubeCluster
-
-# Used for each K8S node. Needs to support nested virtualization
-K8S_NODE_INSTANCE_SIZE=Standard_D4s_v3
 
 # default format for az command reporting info to tty
 OUT_TYPE=table

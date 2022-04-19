@@ -167,7 +167,7 @@ RELEASE_TAG ?= v0.1-test
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
 # regexp for targets which should not try to build dependencies (.d)
-NO_DEPS_TARGETS := (clean|clobber|.*-image|.*-release|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|coverage-withk8s|upload-coverage|vm-images|.*-withpacker)
+NO_DEPS_TARGETS := (clean|clobber|.*-image|.*-release|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|upload-coverage|vm-images)
 NO_DEPS_TARGETS := ${NO_DEPS_TARGETS}( ${NO_DEPS_TARGETS})*
 # colors for pretty output. Unless we are in Azure pipelines
 ifeq (${PIPELINE_WORKSPACE},)
@@ -221,8 +221,7 @@ VARS_TO_PRINT ?= \
 	CFLAGS BLDEXEC BLDLIB COPTS USER \
 	COVERAGE COVERAGE_REPORT SRC_BRANCH IMAGE_VERSION \
 	CLOUD_RESOURCE_GROUP CLOUD_SUBSCRIPTION CLOUD_LOCATION \
-	K8_SERVICE_PRINCIPAL K8S_CLUSTER K8S_NODE_INSTANCE_SIZE \
-	REGISTRY_NAME  REGISTRY REGISTRY_AUTH_EXAMPLE REGISTRY_SKU
+	K8_SERVICE_PRINCIPAL REGISTRY_NAME REGISTRY REGISTRY_AUTH_EXAMPLE REGISTRY_SKU
 
 
 .PHONY: debugvars
