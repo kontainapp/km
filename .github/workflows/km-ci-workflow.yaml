@@ -193,7 +193,7 @@ jobs:
 
       - name: check artifact
         id: check-artifact
-        uses: ez-leka/persistent-artifact@v1
+        uses: kontainapp/persistent-artifact@v1
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           artifact-name: ${{ env.CRUN_SHA}}
