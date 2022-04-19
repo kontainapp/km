@@ -183,19 +183,32 @@ jobs:
   # parallel with the rest of KM build and test.
   krun-static-build:
     name: Build static KRUN binary
-    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
-    needs: start-runners
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
+      - name: Set env
+        run: echo "CRUN_SHA=$(cd container-runtime/crun/ && git rev-parse --short=12 HEAD)" >> $GITHUB_ENV
+
+      - name: check artifact
+        id: check-artifact
+        uses: kontainapp/persistent-artifact@v1
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          artifact-name: ${{ env.CRUN_SHA}}
+          path: /tmp/krun-static
+          debug: true
 
       - uses: actions/cache@v2
+        if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
         with:
           path: .cache
           key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
 
-      - run: |
+      - name: Build krun
+        if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
+        run: |
           set -x
           CRUN_DIR=$(pwd)/container-runtime/crun
           # These next two lines were taken from the crun release.yaml and build-aux/release.sh
@@ -206,13 +219,15 @@ jobs:
           cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
 
       - uses: actions/upload-artifact@v2
+        if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
+        with:
+          name: ${{ env.CRUN_SHA}}
+          path: /tmp/krun-static
+
+      - uses: actions/upload-artifact@v2
         with:
           name: krun-static
           path: /tmp/krun-static
-
-      - name: cleanup
-        if: always()
-        run: rm -rf km
 
   # Build the k8s release artifact. Static KRUN is built separately and
   # in parallel from the rest of KM. The k8s artifact contains:
@@ -619,7 +634,7 @@ jobs:
   stop-runner:
     if: always()
     name: Terminate self-hosted cloud runners
-    needs: [start-runners, krun-static-build, km-test, kkm-test-vms]
+    needs: [start-runners, km-test, kkm-test-vms]
     runs-on: ubuntu-latest
     steps:
       - name: Stop runners
