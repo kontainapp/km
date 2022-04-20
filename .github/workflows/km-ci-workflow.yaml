@@ -627,43 +627,47 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v1
 
-  slack-workflow-status:
-    name: Notify slack, if needed
-    runs-on: ubuntu-latest
-    # 'contains' shows how to add conditions, e.g. on workflow 'name:', or many other contexts.
-    # see https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
-    if: (failure() && github.ref == 'refs/heads/master') ||
-      contains(github.workflow, 'noisy')
-    # Dependencies. (A skipped dependency is considered satisfied)
-    needs:
-      [
-        km-build,
-        krun-static-build,
-        kkm-build,
-        km-test,
-        kkm-test,
-        kkm-test-vms,
-        minikube-testing,
-        codeql-scan,
-        ecs-hack-test,
-      ]
-    steps:
-      - name: Send notification to slack
-        uses: Gamesight/slack-workflow-status@master
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          include_jobs: true
-          channel: "#build_and_test"
-          name: "CI workflow status"
-          icon_emoji: ":thumbsdown:"
+  # slack-workflow-status:
+  #   name: Notify slack, if needed
+  #   runs-on: ubuntu-latest
+  #   # 'contains' shows how to add conditions, e.g. on workflow 'name:', or many other contexts.
+  #   # see https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
+  #   if: (failure() && github.ref == 'refs/heads/master') ||
+  #     contains(github.workflow, 'noisy')
+  #   # Dependencies. (A skipped dependency is considered satisfied)
+  #   needs:
+  #     [
+  #       km-build,
+  #       krun-static-build,
+  #       kkm-build,
+  #       km-test,
+  #       kkm-test,
+  #       kkm-test-vms,
+  #       minikube-testing,
+  #       codeql-scan,
+  #       ecs-hack-test,
+  #     ]
+  #   steps:
+  #     - name: Send notification to slack
+  #       uses: Gamesight/slack-workflow-status@master
+  #       with:
+  #         repo_token: ${{ secrets.GITHUB_TOKEN }}
+  #         slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+  #         include_jobs: true
+  #         channel: "#build_and_test"
+  #         name: "CI workflow status"
+  #         icon_emoji: ":thumbsdown:"
 
   # This step is to clean up on-demand runner. They work in conjunction with start-runner.
   # Make sure to add dependencies in both "needs" clauses
   stop-runner:
     if: always()
     name: Terminate self-hosted cloud runners
-    needs: [start-runners, km-test, kkm-test-vms]
+    needs: [
+        start-runners,
+        # km-test,
+        kkm-test-vms,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Stop runners
