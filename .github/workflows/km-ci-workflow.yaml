@@ -139,19 +139,20 @@ jobs:
       - name: Build and push KM testenv image
         run: make -C tests testenv-image push-testenv-image
 
-      - name: Build payloads and create test images
-        run: |
-          make -C payloads -j pull-buildenv-image
-          make -C payloads -j clean
-          make -C payloads -j all
-          make -C payloads -j testenv-image
-          make -C payloads -j push-testenv-image
+      # EZ - commented poout for speed testing
+      # - name: Build payloads and create test images
+      #   run: |
+      #     make -C payloads -j pull-buildenv-image
+      #     make -C payloads -j clean
+      #     make -C payloads -j all
+      #     make -C payloads -j testenv-image
+      #     make -C payloads -j push-testenv-image
 
-      - name: Create payloads runenv and demo-runenv images
-        # Note: this builds both runenv and demo-runenv images
-        run: |
-          make -C payloads -j runenv-image
-          make -C payloads -j push-demo-runenv-image
+      # - name: Create payloads runenv and demo-runenv images
+      #   # Note: this builds both runenv and demo-runenv images
+      #   run: |
+      #     make -C payloads -j runenv-image
+      #     make -C payloads -j push-demo-runenv-image
 
       # Note: custom Python build needs to happen after python payload build
       - name: Python.km custom build
@@ -181,7 +182,8 @@ jobs:
         with:
           name: km-build
           path: |
-            build
+            build/cloud/k8s/deploy/shim
+            build/km/km
           retention-days: 7
 
   # Builds a static linked, stripped binary for krun/crun
@@ -245,7 +247,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: krun-static
-          path: /tmp/krun-static/krun.staic
+          path: /tmp/krun-static/krun.static
 
   # Build the k8s release artifact. Static KRUN is built separately and
   # in parallel from the rest of KM. The k8s artifact contains:
@@ -261,7 +263,12 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: km-build
-          path: build
+          path: .
+
+      - name: Checking build directory
+        run: |
+          ls -la .
+
       #get static krun created by krun-static-build job
       - uses: actions/download-artifact@v2
         with:
@@ -286,59 +293,59 @@ jobs:
           name: km-k8s-rel-artifact
           path: ./build/kontain_bin.tar.gz
 
-  km-test:
-    name: KM, payloads, krun tests, KVM on Azure
-    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
-    needs: [start-runners, km-build]
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
+  # km-test:
+  #   name: KM, payloads, krun tests, KVM on Azure
+  #   runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
+  #   needs: [start-runners, km-build]
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         submodules: true
 
-      - run: make -C cloud/azure login-cli
+  #     - run: make -C cloud/azure login-cli
 
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /tmp/
+  #     - uses: actions/download-artifact@v2
+  #       with:
+  #         name: km
+  #         path: /tmp/
 
-      - name: Configure KRUN
-        run: |
-          sudo mkdir -p /opt/kontain/bin
-          sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
-          sudo bash ./container-runtime/podman_config.sh
-          sudo bash ./container-runtime/docker_config.sh
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
-          sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
-          sudo udevadm control --reload-rules && sudo udevadm trigger
+  #     - name: Configure KRUN
+  #       run: |
+  #         sudo mkdir -p /opt/kontain/bin
+  #         sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
+  #         sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
+  #         sudo bash ./container-runtime/podman_config.sh
+  #         sudo bash ./container-runtime/docker_config.sh
+  #         echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
+  #         sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
+  #         sudo udevadm control --reload-rules && sudo udevadm trigger
 
-      - name: Pull testenv images
-        run: |
-          make -C tests pull-testenv-image
-          make -C payloads -j pull-testenv-image
+  #     - name: Pull testenv images
+  #       run: |
+  #         make -C tests pull-testenv-image
+  #         make -C payloads -j pull-testenv-image
 
-      - name: KM with KVM Test - Azure
-        run: make -C tests test-withdocker DOCKER_INTERACTIVE=
-        timeout-minutes: 20
+  #     - name: KM with KVM Test - Azure
+  #       run: make -C tests test-withdocker DOCKER_INTERACTIVE=
+  #       timeout-minutes: 20
 
-      - name: KM with KVM Payloads Test - Azure
-        if: ${{ ! (github.event_name == 'schedule' ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly')) }}
-        run: make -C payloads test-withdocker DOCKER_INTERACTIVE=
-        timeout-minutes: 20
+  #     - name: KM with KVM Payloads Test - Azure
+  #       if: ${{ ! (github.event_name == 'schedule' ||
+  #         (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly')) }}
+  #       run: make -C payloads test-withdocker DOCKER_INTERACTIVE=
+  #       timeout-minutes: 20
 
-      - name: KM with KVM Payloads Test - Azure
-        if: ${{ github.event_name == 'schedule' ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
-        run: make -C payloads test-all-withdocker DOCKER_INTERACTIVE=
-        timeout-minutes: 20
+  #     - name: KM with KVM Payloads Test - Azure
+  #       if: ${{ github.event_name == 'schedule' ||
+  #         (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
+  #       run: make -C payloads test-all-withdocker DOCKER_INTERACTIVE=
+  #       timeout-minutes: 20
 
-      - name: KM with KVM Validate runenv images - Azure
-        run: |
-          make -C payloads/ -j pull-demo-runenv-image
-          make -C payloads validate-runenv-image DOCKER_INTERACTIVE=
-        timeout-minutes: 20
+  #     - name: KM with KVM Validate runenv images - Azure
+  #       run: |
+  #         make -C payloads/ -j pull-demo-runenv-image
+  #         make -C payloads validate-runenv-image DOCKER_INTERACTIVE=
+  #       timeout-minutes: 20
 
   kkm-build:
     name: Build KKM, save test artifacts
@@ -396,59 +403,59 @@ jobs:
         if: always()
         run: sudo dmesg
 
-  kkm-test-vms:
-    name: KM tests, KKM AWS
-    needs: [start-runners, km-build, kkm-build]
-    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
+  # kkm-test-vms:
+  #   name: KM tests, KKM AWS
+  #   needs: [start-runners, km-build, kkm-build]
+  #   runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         submodules: true
 
-      - run: make -C cloud/azure login-cli
+  #     - run: make -C cloud/azure login-cli
 
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /tmp/
+  #     - uses: actions/download-artifact@v2
+  #       with:
+  #         name: km
+  #         path: /tmp/
 
-      - name: KKM and KKM tests
-        run: |
-          make -C kkm/kkm && make -C kkm/test_kkm
-          sudo insmod kkm/kkm/kkm.ko
-          ./kkm/test_kkm/test_kkm
-          sudo mkdir -p /opt/kontain/bin
-          sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
-          sudo bash ./container-runtime/podman_config.sh
-          sudo bash ./container-runtime/docker_config.sh
+  #     - name: KKM and KKM tests
+  #       run: |
+  #         make -C kkm/kkm && make -C kkm/test_kkm
+  #         sudo insmod kkm/kkm/kkm.ko
+  #         ./kkm/test_kkm/test_kkm
+  #         sudo mkdir -p /opt/kontain/bin
+  #         sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
+  #         sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
+  #         sudo bash ./container-runtime/podman_config.sh
+  #         sudo bash ./container-runtime/docker_config.sh
 
-      - name: Pull testenv images
-        run: |
-          make -C tests pull-testenv-image
-          make -C payloads -j pull-testenv-image
+  #     - name: Pull testenv images
+  #       run: |
+  #         make -C tests pull-testenv-image
+  #         make -C payloads -j pull-testenv-image
 
-      - name: KM with KKM Test - AWS
-        run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
-        timeout-minutes: 20
+  #     - name: KM with KKM Test - AWS
+  #       run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+  #       timeout-minutes: 20
 
-      - name: KM with KKM Payloads Test - AWS
-        if: ${{ ! (github.event_name == 'schedule' ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly')) }}
-        run: make -C payloads test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
-        timeout-minutes: 20
+  #     - name: KM with KKM Payloads Test - AWS
+  #       if: ${{ ! (github.event_name == 'schedule' ||
+  #         (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly')) }}
+  #       run: make -C payloads test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+  #       timeout-minutes: 20
 
-      - name: KM with KKM Payloads Test - AWS (nightly)
-        if: ${{ github.event_name == 'schedule' ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
-        run: make -C payloads test-all-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
-        timeout-minutes: 20
+  #     - name: KM with KKM Payloads Test - AWS (nightly)
+  #       if: ${{ github.event_name == 'schedule' ||
+  #         (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
+  #       run: make -C payloads test-all-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+  #       timeout-minutes: 20
 
-      - name: KM with KKM Validate runenv images - AWS
-        run: |
-          make -C payloads/ -j pull-demo-runenv-image
-          make -C payloads validate-runenv-image HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
-        timeout-minutes: 20
+  #     - name: KM with KKM Validate runenv images - AWS
+  #       run: |
+  #         make -C payloads/ -j pull-demo-runenv-image
+  #         make -C payloads validate-runenv-image HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+  #       timeout-minutes: 20
 
   minikube-testing:
     name: kubernetes tests against minikube
