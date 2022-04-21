@@ -281,6 +281,7 @@ jobs:
         run: |
           set -x
           # rename rkun.static to krun
+          cp build/container-runtime/krun-label-trigger container-runtime/krun-label-trigger 
           cp container-runtime/krun.static container-runtime/krun
 
       - name: Checking download and creating build directory
