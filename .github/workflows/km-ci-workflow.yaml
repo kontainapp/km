@@ -268,11 +268,11 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: km-build
-          path: ./build
+          path: .
 
       - name: Checking download and creating build directory
         run: |
-          ls -R build
+          ls -R .
 
       #get static krun created by krun-static-build job
       - uses: actions/download-artifact@v2
