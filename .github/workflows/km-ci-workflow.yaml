@@ -183,6 +183,8 @@ jobs:
           path: |
             build/cloud/k8s/deploy/shim
             build/km/km
+            tests/hello_test.km
+
           retention-days: 7
 
   # Builds a static linked, stripped binary for krun/crun
