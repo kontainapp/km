@@ -274,13 +274,13 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: krun-static
-          path: build/container-runtime
+          path: container-runtime
 
       - name: rename rkun.static to krun
         run: |
           set -x
           # rename rkun.static to krun
-          mv build/container-runtime/krun.static build/container-runtime/krun
+          mv container-runtime/krun.static container-runtime/krun
 
       - name: Checking download and creating build directory
         run: |
