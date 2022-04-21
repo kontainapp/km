@@ -181,7 +181,6 @@ jobs:
         with:
           name: km-build
           path: |
-            cloud/azure
             build/cloud/k8s/deploy/shim
             build/km/km
             tests/hello_test.km
@@ -261,6 +260,10 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [km-build, krun-static-build]
     steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
       # get build directory created by km-build job
       - uses: actions/download-artifact@v2
         with:
@@ -281,7 +284,8 @@ jobs:
 
       - name: Checking download and creating build directory
         run: |
-          ls -R .
+          ls -R build
+          ls -R tests
 
       - run: make -C cloud/azure login-cli
 
