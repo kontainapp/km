@@ -301,9 +301,11 @@ jobs:
       # Note: need to have kkm.run ready for this step
       - name: Create kontain bundles
         run: |
-          tar -czvf build/kontain_bin.tar.gz -C build km/km container-runtime/krun container-runtime/krun-label-trigger \
-               cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
-               -C build/opt_kontain bin/docker_config.sh
+          BLDTOP=$(realpath build)
+          tar -czvf ${BLDTOP}/kontain_bin.tar.gz \
+              -C ${BLDTOP} km/km container-runtime/krun container-runtime/krun-label-trigger \
+              cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
+              -C ${BLDTOP}/opt_kontain bin/docker_config.sh
 
       - uses: actions/upload-artifact@v2
         with:
