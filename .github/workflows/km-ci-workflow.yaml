@@ -124,8 +124,7 @@ jobs:
           echo ==== CPU Info
           lscpu
 
-      # EZ Doe snot sem to be needed id secret AZURE_CREDENTIALS is set
-      # - run: make -C cloud/azure login-cli
+      - run: make -C cloud/azure login-cli
 
       - name: Prepare KM build env
         run: make -C tests pull-buildenv-image .buildenv-local-lib
