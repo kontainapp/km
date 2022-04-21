@@ -185,6 +185,7 @@ jobs:
             build/km/km
             tests/hello_test.km
             build/container-runtime/krun-label-trigger
+            container-runtime/docker_config.sh
 
           retention-days: 7
 
@@ -282,6 +283,8 @@ jobs:
           set -x
           # rename rkun.static to krun
           mv build/container-runtime/krun.static build/container-runtime/krun
+          mkdir -p build/opt_kontain/bin
+          mv container-runtime/docker_config.sh build/opt_kontain/bin/docker_config.sh
 
       - run: make -C cloud/azure login-cli
 
