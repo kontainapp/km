@@ -282,7 +282,7 @@ jobs:
         run: |
           set -x
           # rename rkun.static to krun
-          cp build/container-runtime/krun.static build/container-runtime/krun
+          mv build/container-runtime/krun.static build/container-runtime/krun
 
       - name: Create kkm release artifact
         run: make withdocker TARGET=kkm-pkg
