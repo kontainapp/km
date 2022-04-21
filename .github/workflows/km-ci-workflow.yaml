@@ -258,15 +258,19 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [km-build, krun-static-build]
     steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
       # get build directory created by km-build job
       - uses: actions/download-artifact@v2
         with:
           name: km-build
-          path: .
+          path: ./build
 
-      - name: Checking build directory
+      - name: Checking download and creating build directory
         run: |
-          ls -la .
+          ls -R build
 
       #get static krun created by krun-static-build job
       - uses: actions/download-artifact@v2
