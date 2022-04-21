@@ -284,6 +284,8 @@ jobs:
           # rename rkun.static to krun
           mv build/container-runtime/krun.static build/container-runtime/krun
 
+      - run: make -C cloud/azure login-cli
+
       - name: Prepare KM build env
         run: make -C tests pull-buildenv-image .buildenv-local-lib
 
