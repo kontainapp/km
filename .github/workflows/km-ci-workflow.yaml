@@ -185,6 +185,7 @@ jobs:
             build/km/km
             tests/hello_test.km
             build/container-runtime/krun-label-trigger
+            build/opt_kontain/bin/docker_config.sh
 
           retention-days: 7
 
@@ -275,20 +276,17 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: krun-static
-          path: container-runtime
+          path: build/container-runtime
 
       - name: rename rkun.static to krun
         run: |
           set -x
           # rename rkun.static to krun
-          cp build/container-runtime/krun-label-trigger container-runtime/krun-label-trigger 
-          cp container-runtime/krun.static container-runtime/krun
+          mv build/container-runtime/krun.static build/container-runtime/krun
 
       - name: Checking download and creating build directory
         run: |
           ls -R build
-          ls -R container-runtime/krun
-          ls -R container-runtime/krun-label-trigger
 
       - run: make -C cloud/azure login-cli
 
@@ -300,12 +298,15 @@ jobs:
 
       # Note: need to have kkm.run ready for this step
       - name: Create kontain bundles
-        run: make withdocker TARGET=release
+        run: |
+          tar -czvf build/kontain_bin.tar.gz -C build km/km container-runtime/krun container-runtime/krun-label-trigger \
+               cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
+               -C build/opt_kontain bin/docker_config.sh
 
       - uses: actions/upload-artifact@v2
         with:
           name: km-k8s-rel-artifact
-          path: ./build/kontain_bin.tar.gz
+          path: build/kontain_bin.tar.gz
 
   # km-test:
   #   name: KM, payloads, krun tests, KVM on Azure
@@ -498,9 +499,6 @@ jobs:
           name: km-k8s-rel-artifact
           path: /tmp/bin_release
 
-      - name: Check that krun is in fact static (EZ - for verification only)
-        run: ldd /tmp/bin_release/container-runtime/krun
-
       - name: print downloaded artifact
         run: find /tmp/bin_release
 
@@ -569,7 +567,7 @@ jobs:
         run: sudo insmod kkm/kkm/kkm.ko
 
       - name: Untar release
-        run: tar -C /tmp/bin_release -xf /tmp/bin_release/km-k8s-release-artifact.tar.gz
+        run: tar -C /tmp/bin_release -xf /tmp/bin_release/kontain_bin.tar.gz
 
       - name: Stop Docker
         run: sudo systemctl stop docker
