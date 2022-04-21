@@ -302,6 +302,11 @@ jobs:
       - name: Create kontain bundles
         run: |
           BLDTOP=$(realpath build)
+
+          chmod 755 ${BLDTOP}/km/km
+          chmod 755 ${BLDTOP}/container-runtime/krun
+          chmod 755 ${BLDTOP}/cloud/k8s/deploy/shim/containerd-shim-krun-v2
+
           tar -czvf ${BLDTOP}/kontain_bin.tar.gz \
               -C ${BLDTOP} km/km container-runtime/krun container-runtime/krun-label-trigger \
               cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
