@@ -185,7 +185,6 @@ jobs:
             build/km/km
             tests/hello_test.km
             build/container-runtime/krun-label-trigger
-            build/opt_kontain/bin/docker_config.sh
 
           retention-days: 7
 
@@ -284,10 +283,6 @@ jobs:
           # rename rkun.static to krun
           mv build/container-runtime/krun.static build/container-runtime/krun
 
-      - name: Checking download and creating build directory
-        run: |
-          ls -R build
-
       - run: make -C cloud/azure login-cli
 
       - name: Prepare KM build env
@@ -295,6 +290,10 @@ jobs:
 
       - name: Create kkm release artifact
         run: make withdocker TARGET=kkm-pkg
+
+      - name: Checking download and creating build directory
+        run: |
+          ls -R build
 
       # Note: need to have kkm.run ready for this step
       - name: Create kontain bundles
