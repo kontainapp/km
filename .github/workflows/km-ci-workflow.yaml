@@ -124,7 +124,8 @@ jobs:
           echo ==== CPU Info
           lscpu
 
-      - run: make -C cloud/azure login-cli
+      # EZ Doe snot sem to be needed id secret AZURE_CREDENTIALS is set
+      # - run: make -C cloud/azure login-cli
 
       - name: Prepare KM build env
         run: make -C tests pull-buildenv-image .buildenv-local-lib
@@ -283,6 +284,9 @@ jobs:
           set -x
           # rename rkun.static to krun
           mv build/container-runtime/krun.static build/container-runtime/krun
+
+      - name: Prepare KM build env
+        run: make -C tests pull-buildenv-image .buildenv-local-lib
 
       - name: Create kkm release artifact
         run: make withdocker TARGET=kkm-pkg
