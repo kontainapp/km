@@ -286,6 +286,7 @@ jobs:
         run: |
           ls -R build
           ls -R tests
+          ls -R container-runtime
 
       - run: make -C cloud/azure login-cli
 
