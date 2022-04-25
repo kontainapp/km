@@ -362,9 +362,6 @@ typedef struct km_machine {
 
    uint64_t xcr0;
    int overcommit_memory;   // controls how we request memory for payload from Linux
-
-   km_gva_t snap_rcvr_brk;
-   km_gva_t snap_rcvr_tbrk;
 } km_machine_t;
 
 extern km_machine_t machine;

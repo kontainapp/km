@@ -130,31 +130,9 @@ int km_snapshot_putdata(km_vcpu_t* vcpu, char* buf, int buflen)
    return rc;
 }
 
-static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
+static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t* payload)
 {
    Elf64_Ehdr* ehdr = &payload->km_ehdr;
-
-   km_gva_t rbrk = machine.snap_rcvr_brk;
-   km_gva_t rtbrk = machine.snap_rcvr_tbrk;
-
-   /*
-    * Allocate all of lower memory in one go.
-    */
-   km_infox(KM_TRACE_SNAPSHOT, "Recover brk");
-   if (km_mem_brk(rbrk) != rbrk) {
-      km_err(2, "brk recover failure");
-   }
-
-   /*
-    * machine_init maps VDSO and Guest runtime code into memory.
-    * tbrk records how much mem this took. size high mmap
-    * from tbrk.
-    */
-   km_gva_t tbrk_gva = km_mem_tbrk(0);
-   km_gva_t ptr = km_guest_mmap(0, tbrk_gva - rtbrk, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-   if (ptr != rtbrk) {
-      km_errx(2, "tbrk recover failure: expect=0x%lx got=0x%lx", rtbrk, ptr);
-   }
    for (int i = 0; i < ehdr->e_phnum; i++) {
       Elf64_Phdr* phdr = &payload->km_phdr[i];
       if (phdr->p_type == PT_LOAD) {
@@ -440,13 +418,29 @@ static inline int km_ss_recover_km_monitor(char* notebuf, size_t notesize)
                current_vmtype[machine.vm_type]);
       return -1;
    }
-   machine.snap_rcvr_brk = mon->brk;
-   machine.snap_rcvr_tbrk = mon->tbrk;
+   km_infox(KM_TRACE_SNAPSHOT, "Recover brk");
+   if (km_mem_brk(mon->brk) != mon->brk) {
+      km_err(2, "brk recover failure");
+   }
+
+   /*
+    * machine_init maps VDSO and Guest runtime code into memory.
+    * tbrk records how much mem this took. size high mmap
+    * from tbrk.
+    */
+   km_gva_t tbrk_gva = km_mem_tbrk(0);
+   km_gva_t ptr = km_guest_mmap(0, tbrk_gva - mon->tbrk, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+   if (ptr != mon->tbrk) {
+      km_errx(2, "tbrk recover failure: expect=0x%lx got=0x%lx", mon->tbrk, ptr);
+   }
    return 0;
 }
 
 int km_snapshot_restore(km_elf_t* e)
 {
+   // Record top of memory
+   km_gva_t tbrk_gva = km_mem_tbrk(0);
+
    km_payload_t tmp_payload = {};
 
    tmp_payload.km_ehdr = e->ehdr;
@@ -475,7 +469,7 @@ int km_snapshot_restore(km_elf_t* e)
    }
 
    // Memory is fully described by PT_LOAD sections
-   km_ss_recover_memory(fileno(e->file), &tmp_payload);
+   km_ss_recover_memory(fileno(e->file), tbrk_gva, &tmp_payload);
 
    km_close_elf_file(e);   // close now to avoid collision with fd's that need restoring
    if (km_ss_recover_vcpus(notebuf, notesize) < 0) {
