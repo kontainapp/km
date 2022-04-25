@@ -531,7 +531,9 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu,
    km_nt_monitor_t* monitor = (km_nt_monitor_t*)cur;
    *monitor = (km_nt_monitor_t){.monitor_type = KM_NT_MONITOR_TYPE_KVM,
                                 .label_length = label_sz,
-                                .description_length = description_sz};
+                                .description_length = description_sz,
+                                .brk = machine.brk,
+                                .tbrk = machine.tbrk};
    if (machine.vm_type == VM_TYPE_KKM) {
       monitor->monitor_type = KM_NT_MONITOR_TYPE_KKM;
    }

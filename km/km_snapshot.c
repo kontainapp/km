@@ -130,82 +130,9 @@ int km_snapshot_putdata(km_vcpu_t* vcpu, char* buf, int buflen)
    return rc;
 }
 
-/*
- * Recovers brk, tbrk and mingva from snapshot file.
- */
-static inline void
-km_ss_recover_memory_limits(km_payload_t* payload, km_gva_t* mingvap, km_gva_t* brkp, km_gva_t* tbrkp)
-{
-   /*
-    * recover brk and tbrk
-    */
-   km_gva_t mingva = -1;
-   km_gva_t rbrk = 0;
-   km_gva_t rtbrk = -1;
-   Elf64_Ehdr* ehdr = &payload->km_ehdr;
-   for (int i = 0; i < ehdr->e_phnum; i++) {
-      Elf64_Phdr* phdr = &payload->km_phdr[i];
-      if (phdr->p_type == PT_LOAD) {
-         km_infox(KM_TRACE_SNAPSHOT,
-                  "%d PT_LOAD offset=0x%lx vaddr=0x%lx msize=0x%lx fsize=0x%lx flags=0x%x",
-                  i,
-                  phdr->p_offset,
-                  phdr->p_vaddr,
-                  phdr->p_memsz,
-                  phdr->p_filesz,
-                  phdr->p_flags);
-         // Skip guest VDSO and KM unikernel
-         if (km_vdso_gva(phdr->p_vaddr) != 0 || km_guestmem_gva(phdr->p_vaddr) != 0) {
-            continue;
-         }
-         if (phdr->p_vaddr >= gpa_to_upper_gva(GUEST_MEM_START_VA)) {
-            if (phdr->p_vaddr < rtbrk) {
-               rtbrk = phdr->p_vaddr;
-            }
-         } else {
-            if (phdr->p_vaddr < mingva) {
-               mingva = phdr->p_vaddr;
-            }
-            if (phdr->p_vaddr + phdr->p_filesz > rbrk) {
-               rbrk = phdr->p_vaddr + phdr->p_filesz;
-            }
-         }
-      }
-   }
-   *mingvap = mingva;
-   *brkp = rbrk;
-   *tbrkp = rtbrk;
-}
-
-static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
+static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t* payload)
 {
    Elf64_Ehdr* ehdr = &payload->km_ehdr;
-
-   /*
-    * recover brk and tbrk
-    */
-   km_gva_t mingva = -1;
-   km_gva_t rbrk = 0;
-   km_gva_t rtbrk = -1;
-   km_ss_recover_memory_limits(payload, &mingva, &rbrk, &rtbrk);
-
-   /*
-    * Allocate all of lower memory in one go.
-    */
-   if (km_mem_brk(rbrk) != rbrk) {
-      km_err(2, "brk recover failure");
-   }
-
-   /*
-    * machine_init maps VDSO and Guest runtime code into memory.
-    * tbrk records how much mem this took. size high mmap
-    * from tbrk.
-    */
-   km_gva_t tbrk_gva = km_mem_tbrk(0);
-   km_gva_t ptr = km_guest_mmap(0, tbrk_gva - rtbrk, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-   if (ptr != rtbrk) {
-      km_errx(2, "tbrk recover failure: expect=0x%lx got=0x%lx", rtbrk, ptr);
-   }
    for (int i = 0; i < ehdr->e_phnum; i++) {
       Elf64_Phdr* phdr = &payload->km_phdr[i];
       if (phdr->p_type == PT_LOAD) {
@@ -231,7 +158,7 @@ static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
                               phdr->p_offset);
                if (m == MAP_FAILED) {
                   km_err(errno,
-                         "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx \nexiting",
+                         "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx",
                          i,
                          phdr->p_vaddr,
                          phdr->p_offset);
@@ -249,7 +176,7 @@ static inline void km_ss_recover_memory(int fd, km_payload_t* payload)
                            phdr->p_offset - extra);
             if (m == MAP_FAILED) {
                km_err(errno,
-                      "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx \nexiting",
+                      "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx",
                       i,
                       phdr->p_vaddr,
                       phdr->p_offset);
@@ -491,11 +418,29 @@ static inline int km_ss_recover_km_monitor(char* notebuf, size_t notesize)
                current_vmtype[machine.vm_type]);
       return -1;
    }
+   km_infox(KM_TRACE_SNAPSHOT, "Recover brk");
+   if (km_mem_brk(mon->brk) != mon->brk) {
+      km_err(2, "brk recover failure");
+   }
+
+   /*
+    * machine_init maps VDSO and Guest runtime code into memory.
+    * tbrk records how much mem this took. size high mmap
+    * from tbrk.
+    */
+   km_gva_t tbrk_gva = km_mem_tbrk(0);
+   km_gva_t ptr = km_guest_mmap(0, tbrk_gva - mon->tbrk, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+   if (ptr != mon->tbrk) {
+      km_errx(2, "tbrk recover failure: expect=0x%lx got=0x%lx", mon->tbrk, ptr);
+   }
    return 0;
 }
 
 int km_snapshot_restore(km_elf_t* e)
 {
+   // Record top of memory
+   km_gva_t tbrk_gva = km_mem_tbrk(0);
+
    km_payload_t tmp_payload = {};
 
    tmp_payload.km_ehdr = e->ehdr;
@@ -513,20 +458,20 @@ int km_snapshot_restore(km_elf_t* e)
    // disable mmap consolidation during recovery
    km_mmap_set_recovery_mode(1);
 
-   // Memory is fully described by PT_LOAD sections
-   km_ss_recover_memory(fileno(e->file), &tmp_payload);
-
    // VCPU's are described in the PT_NOTES section
    size_t notesize = 0;
    char* notebuf = km_snapshot_read_notes(fileno(e->file), &notesize, &tmp_payload);
    if (notebuf == NULL) {
       km_errx(2, "PT_NOTES not found");
    }
-   km_close_elf_file(e);   // close now to avoid collision with fd's that need restoring
-
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_MONITOR, km_ss_recover_km_monitor) < 0) {
       km_errx(2, "recover monitor failed");
    }
+
+   // Memory is fully described by PT_LOAD sections
+   km_ss_recover_memory(fileno(e->file), tbrk_gva, &tmp_payload);
+
+   km_close_elf_file(e);   // close now to avoid collision with fd's that need restoring
    if (km_ss_recover_vcpus(notebuf, notesize) < 0) {
       km_errx(2, "VCPU restore failed");
    }
