@@ -45,6 +45,11 @@ typedef struct km_nt_monitor {
    Elf64_Word label_length;
    Elf64_Word description_length;
    /*
+    * Machine state
+    */
+   Elf64_Addr brk;
+   Elf64_Addr tbrk;
+   /*
     * NULL terminated strings label and descrption follow
     */
 } km_nt_monitor_t;
