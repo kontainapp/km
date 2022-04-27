@@ -130,7 +130,7 @@ jobs:
         run: make -C tests pull-buildenv-image .buildenv-local-lib
 
       - name: Build KM and tests using buildenv image
-        run: make -j withdocker
+        run: make -j withdocker RUN_IN_CI=1
 
       - name: Build KM for coverage
         run: make -C km -j withdocker TARGET=coverage
@@ -177,6 +177,18 @@ jobs:
             /opt/kontain/bin/shim
           retention-days: 7
 
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km-build
+          path: |
+            build/cloud/k8s/deploy/shim
+            build/km/km
+            tests/hello_test.km
+            build/container-runtime/krun-label-trigger
+            container-runtime/docker_config.sh
+
+          retention-days: 7
+
   # Builds a static linked, stripped binary for krun/crun
   # This uses the NIX virtual machine, just like the crun CI.
   # NIX takes a long time, so we build the static krun binary in
@@ -191,6 +203,11 @@ jobs:
       - name: Set env
         run: echo "CRUN_SHA=$(cd container-runtime/crun/ && git rev-parse --short=12 HEAD)" >> $GITHUB_ENV
 
+      # get persistent artifact that contains static krun
+      # it will set step's output variable artifact-status to either 'available' or 'not-found'
+      # Note: to figure out where krun needs to be rebuild ot not we use SHA of the container-runtime/crun/ directory
+      # in teh step above. That SHA becomes artifact name. If there were changes to krun, SHA will change
+      # forcing the re-build
       - name: check artifact
         id: check-artifact
         uses: kontainapp/persistent-artifact@v1
@@ -200,6 +217,8 @@ jobs:
           path: /tmp/krun-static
           debug: true
 
+      # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
+      # build krun
       - uses: actions/cache@v2
         if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
         with:
@@ -218,16 +237,20 @@ jobs:
           mkdir -p /tmp/krun-static
           cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
 
+      # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
+      # and was built in the previous step, upload it with SHA as artifact name
       - uses: actions/upload-artifact@v2
         if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
         with:
           name: ${{ env.CRUN_SHA}}
           path: /tmp/krun-static
 
+      # regardles how we got krun-static (by retrieving persistent artifact or bulding)
+      # upload it as krun-static artifact
       - uses: actions/upload-artifact@v2
         with:
           name: krun-static
-          path: /tmp/krun-static
+          path: /tmp/krun-static/krun.static
 
   # Build the k8s release artifact. Static KRUN is built separately and
   # in parallel from the rest of KM. The k8s artifact contains:
@@ -239,33 +262,60 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [km-build, krun-static-build]
     steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      # get build directory created by km-build job
       - uses: actions/download-artifact@v2
         with:
-          name: km
-          path: /tmp/km
+          name: km-build
+          path: .
+
+      #get static krun created by krun-static-build job
       - uses: actions/download-artifact@v2
         with:
           name: krun-static
-          path: /tmp/krun-static
-      - run: |
+          path: build/container-runtime
+
+      - name: rename rkun.static to krun
+        run: |
           set -x
-          mkdir /tmp/k8s-release-bin
-          find /tmp/km
-          find /tmp/krun-static
-          mkdir -p /tmp/k8s-release-bin/km
-          cp /tmp/km/km /tmp/k8s-release-bin/km/km
-          chmod 755 /tmp/k8s-release-bin/km/km
-          mkdir -p /tmp/k8s-release-bin/container-runtime
-          cp /tmp/krun-static/krun.static /tmp/k8s-release-bin/container-runtime/krun
-          chmod 755 /tmp/k8s-release-bin/container-runtime/krun
-          mkdir -p /tmp/k8s-release-bin/cloud/k8s/deploy/shim
-          cp /tmp/km/shim/containerd-shim-krun-v2 /tmp/k8s-release-bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2
-          chmod 755 /tmp/k8s-release-bin/cloud/k8s/deploy/shim/containerd-shim-krun-v2
-          tar -C /tmp/k8s-release-bin -czf /tmp/km-k8s-release-artifact.tar.gz .
+          # rename rkun.static to krun
+          mv build/container-runtime/krun.static build/container-runtime/krun
+          mkdir -p build/opt_kontain/bin
+          mv container-runtime/docker_config.sh build/opt_kontain/bin/docker_config.sh
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Prepare KM build env
+        run: make -C tests pull-buildenv-image .buildenv-local-lib
+
+      - name: Create kkm release artifact
+        run: make withdocker TARGET=kkm-pkg
+
+      - name: Checking download and creating build directory
+        run: |
+          ls -R build
+
+      # Note: need to have kkm.run ready for this step
+      - name: Create kontain bundles
+        run: |
+          BLDTOP=$(realpath build)
+
+          chmod 755 ${BLDTOP}/km/km
+          chmod 755 ${BLDTOP}/container-runtime/krun
+          chmod 755 ${BLDTOP}/cloud/k8s/deploy/shim/containerd-shim-krun-v2
+
+          tar -czvf ${BLDTOP}/kontain_bin.tar.gz \
+              -C ${BLDTOP} km/km container-runtime/krun container-runtime/krun-label-trigger \
+              cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
+              -C ${BLDTOP}/opt_kontain bin/docker_config.sh
+
       - uses: actions/upload-artifact@v2
         with:
           name: km-k8s-rel-artifact
-          path: /tmp/km-k8s-release-artifact.tar.gz
+          path: build/kontain_bin.tar.gz
 
   km-test:
     name: KM, payloads, krun tests, KVM on Azure
@@ -526,7 +576,7 @@ jobs:
         run: sudo insmod kkm/kkm/kkm.ko
 
       - name: Untar release
-        run: tar -C /tmp/bin_release -xf /tmp/bin_release/km-k8s-release-artifact.tar.gz
+        run: tar -C /tmp/bin_release -xf /tmp/bin_release/kontain_bin.tar.gz
 
       - name: Stop Docker
         run: sudo systemctl stop docker
