@@ -92,8 +92,12 @@ case $test_type in
       ext=.fedora
       port_range_start=19777
       ;;
+   glibc_dynamic)
+      ext=.fedora.glibc
+      port_range_start=20777
+      ;;
    *)
-      echo "Unknown test type: $test_type, should be 'static', 'dynamic', 'alpine_static', 'glibc_static', 'alpine_dynamic' or 'so'."
+      echo "Unknown test type: $test_type, should be 'static', 'dynamic', 'alpine_static', 'glibc_static', 'glibc_dynamic', 'alpine_dynamic' or 'so'."
       export KM_BIN=fail
       return 1
       ;;

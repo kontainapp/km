@@ -38,9 +38,12 @@ km_payload_t km_dynlinker;
 static void map_program_section(int fd, void* buf, size_t count, off_t offset)
 {
    if (count > 0) {
-      if (mmap(buf, roundup(count, KM_PAGE_SIZE), PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
+      if (mmap(buf, count, PROT_WRITE, MAP_PRIVATE | MAP_FIXED, fd, offset) ==
           MAP_FAILED) {
          km_err(2, "error mmap elf");
+      }
+      if (count != roundup(count, KM_PAGE_SIZE)) {
+         memset(buf + count, 0, roundup(count, KM_PAGE_SIZE) - count);
       }
    }
 }
@@ -53,6 +56,7 @@ static void map_program_section(int fd, void* buf, size_t count, off_t offset)
 static void load_extent(int fd, const Elf64_Phdr* phdr, km_gva_t base)
 {
    km_gva_t top = phdr->p_paddr + phdr->p_memsz + base;
+   km_infox(KM_TRACE_LOAD, "top=0x%lx base=0x%lx", top, base);
    /*
     * There is no memory in the first 2MB of virtual address space. We use flags in kontain-gcc
     * script to drive memory allocation during linking. The relevant line is:
@@ -132,17 +136,21 @@ static void km_find_dlopen(km_elf_t* e, km_gva_t adjust)
       km_err(2, "strings table read failure");
    } 
 
+   km_infox(KM_TRACE_LOAD, "looking for %s", KM_DLOPEN_SYM_NAME);
    for (int i = 0; i < nsym; i++) {
       Elf64_Sym sym = symtab[i];
 
+      km_infox(KM_TRACE_LOAD, "st_info=0x%x symbol=%s", sym.st_info, &strings[sym.st_name]);
       if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
           strcmp(&strings[sym.st_name], KM_DLOPEN_SYM_NAME) == 0) {
          km_guest.km_dlopen = sym.st_value + adjust;
+         km_infox(KM_TRACE_LOAD, "found! value=0x%lx", km_guest.km_dlopen);
          free(strings);
          free(symtab);
          return;
       }
    }
+   km_infox(KM_TRACE_LOAD, "not found!");
    free(strings);
    free(symtab);
    return;
@@ -209,7 +217,8 @@ uint64_t km_load_elf(km_elf_t* e)
    km_guest.km_filename = e->path;
 
    /*
-    * Read program headers, store them in km_guest for future use
+    * Read program headers, store them in km_guest for future use.
+    * Store some other interesting values if we encouter them.
     */
    km_guest.km_min_vaddr = -1U;
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
@@ -230,25 +239,40 @@ uint64_t km_load_elf(km_elf_t* e)
          km_guest.km_dynamic_len = phdr->p_filesz;
       }
    }
+   km_infox(KM_TRACE_LOAD, "file=%s min_vaddr=0x%lx ", km_guest.km_filename,
+            km_guest.km_min_vaddr);
 
    km_gva_t adjust = 0;
    /*
-    * Tell static vs dynamic executable.
+    * If the type of the execuatble is ET_EXEC, then the virtual addresses in the ELF must
+    * be honored when loaded because there are literal non-relocatable addresses embedded
+    * in the file.
     *
-    * DYNAMIC section indicates dynamically linked executable or static PIE. The later also has
-    * PT_INTERPRETER.
+    * If the type is ET_DYN, then the file is fully relocatable and we are free to place it
+    * anywhere we want. The further distinction with ET_DYN is whether or not it contains a
+    * PT_INTERP PHDR. If it does then it is an execuatable that uses a dynamic linker and we
+    * load both the program and the dynamic linker specified in the PR_INTERP section.
+    * If there is no PT_INTERP section, we consider this program a dynamic linker itself and
+    * only load it. (Note: a static-PIE looks exactly like a dynamic linker to the ELF loader) 
     *
-    * We load pure static (no DYNAMIC) at the addresses in ELF file, i.e. adjust == 0. For our own
-    * .km files they will load starting at GUEST_MEM_START_VA because its the way we build them.
-    * Others will go where they request, typical Linux exec would start at 4MB.
+    * Default Linux ET_EXEC files start at virtual address 4MB by convention.
+    * We load pure static (no DYNAMIC) at the addresses in ELF file, i.e. adjust == 0. 
+    * For our own .km files they will load starting at GUEST_MEM_START_VA because of
+    * the way we build them.
     *
     * We load DYNAMIC starting at GUEST_MEM_START_VA, adjust will tell how much shift there was. For
     * loading PIE that doesn't matter, but we need to keep it for coredump and such. For dynamic
     * linking adjust is passed to the dynamic linker so it know how to do relocations.
     */
-   if (km_guest.km_dynamic_vaddr != 0 && km_guest.km_dynamic_len != 0) {
+   if (e->ehdr.e_type == ET_EXEC) {
+      km_infox(KM_TRACE_LOAD, "type is ET_EXEC");
+   } else if (e->ehdr.e_type == ET_DYN) {
+      km_infox(KM_TRACE_LOAD, "type is ET_DYN");
       adjust = GUEST_MEM_START_VA - km_guest.km_min_vaddr;
+   } else {
+      km_errx(2, "ELF type must be ET_EXEC or ET_DYN");
    }
+
    /*
     * process PT_LOAD program headers
     */
@@ -264,6 +288,7 @@ uint64_t km_load_elf(km_elf_t* e)
       load_dynlink(km_guest.km_interp_vaddr, km_guest.km_interp_len, adjust);
    }
    km_guest.km_load_adjust = adjust;
+   km_infox(KM_TRACE_LOAD, "return adjust=0x%lx", adjust);
    return adjust;
 }
 

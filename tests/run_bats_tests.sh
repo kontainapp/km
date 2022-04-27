@@ -25,7 +25,7 @@ set -e
 [ "$TRACE" ] && set -x
 
 DEFAULT_TESTS="km_core_tests.bats"
-DEFAULT_TEST_TYPE="static dynamic so alpine_static glibc_static"
+DEFAULT_TEST_TYPE="static dynamic so alpine_static glibc_static glibc_dynamic"
 
 usage() {
 cat <<EOF
