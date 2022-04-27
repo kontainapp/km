@@ -39,7 +39,7 @@ jobs:
   # Builds a static linked, stripped binary for krun/crun
   # This uses the NIX virtual machine, just like the crun CI.
   # NIX takes a long time, so we build the static krun binary in
-  # parallel with the rest of KM build and test. We just the
+  # parallel with the rest of KM build and test.
   krun-static-build:
     name: Build static KRUN binary
     runs-on: ubuntu-20.04
@@ -113,7 +113,7 @@ jobs:
 
       - run: |
           set -x
-          # rename rkun.static to krun
+          # rename krun.static to krun
           mv build/container-runtime/krun.static build/container-runtime/krun
           chmod 755 build/container-runtime/krun
 
@@ -142,51 +142,6 @@ jobs:
             ./build/kontain_bin.tar.gz
             ./build/kkm.run
           retention-days: 7
-
-  # k8s-release-bin:
-  #   name: make k8s release bundle
-  #   runs-on: ubuntu-20.04
-  #   needs: [km-kkm-build, krun-static-build]
-  #   steps:
-  #     - uses: actions/download-artifact@v2
-  #       with:
-  #         name: kontain_dynamic_krun
-  #         path: /tmp/kontain_dynamic_krun
-  #     - uses: actions/download-artifact@v2
-  #       with:
-  #         name: krun-static
-  #         path: /tmp/krun-static
-  #     - run: |
-  #         #
-  #         # create kontain_bin with static krun by patching up old format
-  #         mkdir -p /tmp/kontain_bin
-  #         tar -C /tmp/kontain_bin -xzf /tmp/kontain_dynamic_krun/kontain_bin.tar.gz
-  #         cp /tmp/krun-static/krun.static /tmp/kontain_bin/container-runtime/krun
-  #         chmod 755 /tmp/kontain_bin/container-runtime/krun
-  #         cp /tmp/kontain_dynamic_krun/kkm.run /tmp/kontain_bin/
-  #         tar -C /tmp/kontain_bin -czvf /tmp/kontain_bin.tar.gz .
-  #         #
-  #         # patch kontain.tar with static krun
-  #         mkdir -p /tmp/kontain
-  #         tar -C /tmp/kontain -xzf /tmp/kontain_dynamic_krun/kontain.tar.gz
-  #         cp /tmp/krun-static/krun.static /tmp/kontain/bin/crun
-  #         chmod 755 /tmp/kontain/bin/crun
-  #         # Note: skipping kkm.run
-  #         tar -C /tmp/kontain -czvf /tmp/kontain.tar.gz .
-  #         #
-  #         # Create uploadable artifact 'kontain' with
-  #         mkdir -p /tmp/kontain
-  #         cp /tmp/kontain_dynamic_krun/kontain.tar.gz /tmp/kontain/
-  #         cp /tmp/kontain_bin.tar.gz /tmp/kontain/
-  #         cp /tmp/kontain_dynamic_krun/kkm.run /tmp/kontain/
-  #     - uses: actions/upload-artifact@v2
-  #       with:
-  #         name: kontain
-  #         path: |
-  #           /tmp/kontain/kontain.tar.gz
-  #           /tmp/kontain/kontain_bin.tar.gz
-  #           /tmp/kontain/kkm.run
-  #         retention-days: 7
 
   km-kkm-smoke-test:
     name: Smoke test KM/KKM on CI VM
