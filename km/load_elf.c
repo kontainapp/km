@@ -114,7 +114,8 @@ static void km_find_dlopen(km_elf_t* e, km_gva_t adjust)
       }
    }
    if (found == 0) {
-      km_err(2, "Cannot find symbol table");
+      km_infox(KM_TRACE_LOAD, "Cannot find symbol table in file=%s", e->path);
+      return;
    }
 
    int nsym = sym_shdr.sh_size / sym_shdr.sh_entsize;
