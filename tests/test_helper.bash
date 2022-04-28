@@ -93,7 +93,7 @@ case $test_type in
       port_range_start=19777
       ;;
    glibc_dynamic)
-      ext=.fedora.glibc
+      ext=.fedora.dyn
       port_range_start=20777
       ;;
    *)

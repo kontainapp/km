@@ -42,7 +42,7 @@ todo_alpine_static='dl_iterate_phdr gdb_forkexec'
 
 # glibc native
 not_needed_glibc_static='cpuid setup_link setup_load gdb_sharedlib readlink_argv km_identity dlopen exec_sh'
-not_needed_glibc_dynamic='cpuid setup_link setup_load gdb_sharedlib readlink_argv km_identity dlopen exec_sh mem_brk'
+not_needed_glibc_dynamic='cpuid setup_link setup_load gdb_sharedlib readlink_argv km_identity dlopen exec_sh'
 
 # exception - extra segment in kmcore
 # dl_iterate_phdr - load starts at 4MB instead of 2MB
@@ -54,6 +54,8 @@ not_needed_glibc_dynamic='cpuid setup_link setup_load gdb_sharedlib readlink_arg
 todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test threads_basic_tsd threads_exit_grp gdb_forkexec km_exec_guest_files'
 todo_glibc_dynamic='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test threads_basic_tsd threads_exit_grp gdb_forkexec km_exec_guest_files'
 
+# TODO: figure out why mem_brk doesn't work
+todo_glibc_dynamic="${todo_glibc_dynamic} mem_brk"
 # note: this bunch are all gdb related. The issue here is the tricks we use to
 # get around in a live musl dynamic linker don't work with the glibc dynamic linker
 # because it isn't bundled with LIBC like it is with MUSL.
