@@ -222,7 +222,9 @@ int hc_test(int optind, int optarg, char* argv[])
       usage();
       return 100;
    }
-   syscall(callid, 0);
+   if (syscall(callid, 0) < 0) {
+      return errno;
+   }
    return 0;
 }
 

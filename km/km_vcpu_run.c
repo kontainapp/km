@@ -37,6 +37,7 @@
 
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;
+int kill_unimpl_hcall = 0;
 
 #define fx "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx "
 
@@ -412,14 +413,14 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
          km_post_signal(vcpu, &info);
          return -1;
       }
-      if (km_hcalls_table[hc] == NULL) {
+      if (kill_unimpl_hcall != 0 && km_hcalls_table[hc] == NULL) {
          km_warnx("Unimplemented hypercall %d (%s)", hc, km_hc_name_get(hc));
          siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
          km_post_signal(vcpu, &info);
          return -1;
       }
-      vcpu->hypercall = hc;
    }
+   vcpu->hypercall = hc;
    // We assume hypercall args are built are on stack in the guest, but nothing in km depends on this.
    ga = (km_gva_t)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)];
    km_hc_args_t* ga_kma = km_gva_to_kma(ga);
@@ -434,8 +435,15 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
    if (km_collect_hc_stats != 0) {
       clock_gettime(CLOCK_MONOTONIC, &start);
    }
-   km_hc_ret_t ret = km_hcalls_table[hc](vcpu, hc, ga_kma);
-   *hc_ret = ga_kma->hc_ret;
+   km_hc_ret_t ret = HC_CONTINUE;
+   if (km_hcalls_table[hc] != NULL) {
+      ret = km_hcalls_table[hc](vcpu, hc, ga_kma);
+      *hc_ret = ga_kma->hc_ret;
+   } else {
+      km_infox(KM_TRACE_HC, "Unimplemented hypercall %d (%s)", hc, km_hc_name_get(hc));
+      ga_kma->hc_ret = (uint64_t) -ENOTSUP;
+      *hc_ret = -ENOTSUP;
+   }
    if (km_collect_hc_stats != 0) {
       clock_gettime(CLOCK_MONOTONIC, &stop);
       uint64_t msecs = (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec;

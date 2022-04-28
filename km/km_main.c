@@ -92,6 +92,7 @@ static inline void usage()
 "\t--hcall-stats (-S)                  - Collect and print hypercall stats\n"
 "\t--coredump=file_name                - File name for coredump\n"
 "\t--snapshot=file_name                - File name for snapshot\n"
+"\t--kill-unimpl-hcall                 - Kill guest in unimplemented hypercall.\n"
 "\n"
 "\tOverride auto detection:\n"
 "\t--membus-width=size (-Psize)        - Set guest physical memory bus size in bits, i.e. 32 means 4GiB, 33 8GiB, 34 16GiB, etc.\n"
@@ -149,6 +150,7 @@ int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
 static char* mgtpipe = NULL;
 static int log_to_fd = -1;
 extern int set_cpu_vendor_id;
+extern int kill_unimpl_hcall;
 
 struct option km_cmd_long_options[] = {
     {"wait-for-signal", no_argument, &wait_for_signal, 1},
@@ -174,6 +176,7 @@ struct option km_cmd_long_options[] = {
     {"input-data", required_argument, 0, 'I'},
     {"output-data", required_argument, 0, 'O'},
     {"mgtpipe", required_argument, 0, 'm'},
+    {"kill-unimpl-scall", no_argument, &(kill_unimpl_hcall), KM_FLAG_FORCE_ENABLE},
 
     {0, 0, 0, 0},
 };
