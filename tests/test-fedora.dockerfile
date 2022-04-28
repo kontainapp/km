@@ -23,8 +23,8 @@ FROM kontainapp/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
 ARG branch
 ENV BRANCH=${branch}
 
-COPY libc.so /opt/kontain/runtime/libc.so
-COPY km /opt/kontain/bin/km
+USER root
+
 RUN test -f km.coverage && cp km.coverage /opt/kontain/coverage/bin/km || true
 
 ENV KM_TOP=/home/appuser/km
@@ -32,9 +32,15 @@ ENV KM_TEST_TOP=${KM_TOP}/tests
 RUN mkdir -p ${KM_TOP}
 RUN chown appuser ${KM_TOP}
 COPY --chown=appuser:appuser . ${KM_TEST_TOP}
+ADD --chown=appuser:appuser ./bldenv.tgz ${KM_TOP}
+# Due to Docker issue https://github.com/docker/for-linux/issues/360
+RUN chown -R appuser:appuser ${KM_TOP}/build
+
 WORKDIR /home/appuser/km/tests
 # this is needed for symlinks to work
-RUN mkdir -p ../build/km ; cp km ../build/km
+# RUN mkdir -p ../build/km ; cp ${KM_TOP}/build/opt_kontain/bin/km ../build/km
 
 ENV PATH=${KM_TEST_TOP}/bats/bin:.:$PATH
 ENV TIME_INFO ${KM_TEST_TOP}/time_info.txt
+
+USER appuser

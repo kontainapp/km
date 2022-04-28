@@ -85,6 +85,9 @@ else # not SUBDIRS, i.e. EXEC or LIB
 ifneq (${EXEC},)
 
 all: ${BLDEXEC}
+${KM_OPT_BIN_PATH}:
+	mkdir -p $@
+
 ${BLDEXEC}: $(OBJS) | ${KM_OPT_BIN_PATH}
 	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(LOCAL_LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
 	if [ "${EXEC_SELINUX_CONTEXT}" != "" -a -e ${GETENFORCE} ]; then if [ `${GETENFORCE}` != "Disabled" ]; then chcon ${EXEC_SELINUX_CONTEXT} $@; fi; fi
@@ -202,7 +205,6 @@ withdocker: ## Build using Docker container for build environment. 'make withdoc
 		Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
 	${_CMD} \
 		-v ${TOP}:${DOCKER_KM_TOP}:z \
-		-v ${KM_OPT}:${KM_OPT}:z \
 		-w ${DOCKER_KM_TOP}/${FROMTOP} \
 		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
 		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)

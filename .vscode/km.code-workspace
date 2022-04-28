@@ -38,7 +38,7 @@
          "**/.factorypath": true,
          "**/.project": true,
          "**/.settings": true,
-         "**/{*.o,*.d,*.so,*.km,*.class,*.gz,lib*,a}": true,
+         "**/{*.o,*.d,*.so,*.km,*.class,*.gz,a}": true,
          "build": true,
          "cpython/*": true,
          "payloads/java/{java,jtreg,jdk-11*}": true,

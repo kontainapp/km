@@ -170,6 +170,12 @@ for t in $test_type ; do
    test_list="$test_list $tmp_file"
 done
 
+# If running on development machine, i.e  /opt/kontain is not used
+# set up LD_LIBRARY_PATH so dynamically linked libraries can be picked up from build/opt_kontain
+
+OPT_KONTAIN=${TESTS_BASE}/../build/opt_kontain
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${OPT_KONTAIN}/alpine-lib:${OPT_KONTAIN}/lib:${OPT_KONTAIN}/runtime
+
 $DEBUG ${TESTS_BASE}/bats/bin/bats $jobs $pretty -f "$match" $test_list
 exit_code=$?
 if [ $exit_code == 0 ] ; then

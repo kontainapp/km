@@ -58,7 +58,7 @@ BATS_CMD := run_bats_tests.sh --match="${MATCH}" --usevirt="${USEVIRT}" ${IGNORE
 TEST_CMD := time ./${BATS_CMD} --km=${KM_BIN} --pretty
 COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${COVERAGE_KM_BIN} --pretty
 # this is how we run tests in containers:
-CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_BIN}/km
+CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_OPT_KONTAIN}/bin/km
 CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_COVERAGE_BIN}/km
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files

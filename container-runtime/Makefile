@@ -37,7 +37,7 @@ include ${TOP}/make/actions.mk
 
 # Building crun shows errors indicating generated header files are not built yet,
 # so force single threading the make.
-all:	$(CRUNDIR)/Makefile .makefile_check
+all:	$(CRUNDIR)/Makefile .makefile_check | ${KM_OPT_BIN_PATH}
 	make -j1 -C $(CRUNDIR) all
 	cp $(CRUNDIR)/crun ${KM_OPT_BIN_PATH}
 	ln -f ${KM_OPT_BIN_PATH}/crun ${KM_OPT_BIN_PATH}/krun

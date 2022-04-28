@@ -17,7 +17,7 @@
 #
 # Links Python.km from python libs and km 'dlstatic' builtins mentioned in $target/linkline_km.txt
 #
-set -e
+set -ex
 [ "$TRACE" ] && set -x
 
 if [ "$1" == "--help" ]; then
@@ -42,7 +42,7 @@ NAME=${4:-python.km}
 KM_TOP=$(git rev-parse --show-toplevel)
 PATH=$(realpath ${KM_TOP}/tools/bin):$PATH
 
-KM_OPT_BIN=/opt/kontain/bin
+KM_OPT_BIN=${KM_TOP}/build/opt_kontain/bin
 
 cd $OUT
 echo kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
@@ -62,7 +62,7 @@ kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/p
 kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
    -Xlinker --undefined=strtoull_l \
    ${BUILD}/libpython3*.a -lsqlite3 $LDLIBS \
-   -L/opt/kontain/lib -lmimalloc \
+   -L ${KM_TOP}/build/opt_kontain/lib -lmimalloc \
    -o ${NAME}d.mimalloc
 
 # Add python->km symlink and make python to looking for libs in correct place

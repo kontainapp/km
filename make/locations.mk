@@ -59,7 +59,7 @@ BLDDIR := $(abspath ${BLDTOP}/${FROMTOP}/${BLDTYPE})
 KM_BLDDIR := $(abspath ${BLDTOP}/km/${BLDTYPE})
 KM_BIN := ${KM_BLDDIR}/km
 KM_RT := ${BLDTOP}/runtime
-KM_OPT := /opt/kontain
+KM_OPT := ${BLDTOP}/opt_kontain
 KM_OPT_BIN := ${KM_OPT}/bin
 KM_OPT_INC := ${KM_OPT}/include
 KM_OPT_LIB := ${KM_OPT}/lib
@@ -127,6 +127,7 @@ PODMAN_RUN_TEST := ${PODMAN_RUN} ${DOCKER_INTERACTIVE} --init
 DOCKER_HOME_PATH := /home/appuser
 DOCKER_KM_TOP := ${DOCKER_HOME_PATH}/km
 DOCKER_BLDTOP := ${DOCKER_KM_TOP}/build
+DOCKER_OPT_KONTAIN := ${DOCKER_BLDTOP}/opt_kontain
 DOCKER_COVERAGE_KM_BLDDIR := ${DOCKER_BLDTOP}/km/coverage
 
 # These volumes needs to be mapped into runenv images. At the moment, they

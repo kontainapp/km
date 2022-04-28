@@ -73,9 +73,11 @@ TESTENV_PATH ?= .
 RUNENV_PATH ?= ${BLDDIR}
 RUNENV_DEMO_PATH ?= .
 
-TESTENV_EXTRA_FILES += ${KM_BIN} ${KM_LDSO}
-testenv_prep = cp --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH}
-testenv_cleanup = rm $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}})
+
+# TESTENV_EXTRA_FILES
+TEST_BUILD_ENV = -C ${TOP} build/opt_kontain
+testenv_prep = tar -czf ${TESTENV_PATH}/bldenv.tgz ${TEST_BUILD_ENV}
+testenv_cleanup = rm -f $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}}) ${TESTENV_PATH}/bldenv.tgz
 
 testenv-image: ## build test image with test tools and code
 	$(call clean_container_image,${TEST_IMG_TAGGED})
@@ -238,8 +240,8 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 # so that libs are on the host and can be copied to runenv-image and testenv-image
 .buildenv-local-lib: .buildenv-local-check-image | ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}
 	docker create --name tmp_env ${BUILDENV_IMG_TAGGED}
-	sudo docker cp tmp_env:/opt/kontain /opt
-	sudo docker cp tmp_env:/usr/local /usr
+	sudo docker cp tmp_env:/opt/kontain/. ${KM_OPT}
+	sudo chown --recursive ${CURRENT_UID}:${CURRENT_GID} ${BLDTOP}
 	docker rm tmp_env
 
 .buildenv-local-check-image:
@@ -247,7 +249,7 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 		echo -e "$(RED)${BUILDENV_IMG_TAGGED} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
 
 ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
-	sudo sh -c "mkdir -p $@ && chgrp users $@ && chmod 777 $@"
+	sudo sh -c "mkdir -p $@ && chown ${CURRENT_UID}:${CURRENT_GID} $@ && chmod 777 $@"
 
 DOCKER_REG ?= docker.io
 RELEASE_REG = ${DOCKER_REG}/kontainapp

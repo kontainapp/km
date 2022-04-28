@@ -53,9 +53,8 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-cmd=$(basename ${BASH_SOURCE[0]})
 dir=$(dirname ${BASH_SOURCE[0]})
-TOP=$(realpath $dir/..)
+
 PREFIX=/opt/kontain
 
 # defaults

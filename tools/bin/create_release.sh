@@ -26,19 +26,24 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 TOP="$(realpath ../..)"
 BLDTOP=$TOP/build
 readonly TARBALL=${BLDTOP}/kontain.tar
-readonly OPT_KONTAIN_TMP=${BLDTOP}/opt_kontain
+readonly OPT_KONTAIN=${BLDTOP}/opt_kontain
+readonly OPT_KONTAIN_TMP=${BLDTOP}/opt_kontain_tmp
 
-rm -fr $TARBALL $TARBALL.gz $OPT_KONTAIN_TMP
+echo "Creating temporary directory"
+mkdir -p ${OPT_KONTAIN_TMP}
+
 # we may need to modify all obj file so make sure we work on a copy
-cp -rf --preserve=links /opt/kontain $OPT_KONTAIN_TMP
+cp -rf --preserve=links ${OPT_KONTAIN}/* ${OPT_KONTAIN_TMP}
 
 mkdir -p ${OPT_KONTAIN_TMP}/include
 cp ${TOP}/include/km_hcalls.h ${OPT_KONTAIN_TMP}/include/km_hcalls.h
 
 # include docker and podman config scripts in the tarball
-mkdir -p ${OPT_KONTAIN_TMP}/bin
 cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN_TMP}/bin
+cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN}/bin # for kontain_bin.tar ( since _TMP wil be deleted)
 cp ${TOP}/km-releases/kontain-install.sh ${OPT_KONTAIN_TMP}/bin
+cp ${BLDTOP}/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${OPT_KONTAIN_TMP}/bin
+
 
 # package by doing `tar -C locations[i] files[i]`
 declare -a locations
@@ -46,7 +51,7 @@ declare -a files
 declare -a exclude
 # For each location copy related files to the destination (/opt/kontain).
 locations=($OPT_KONTAIN_TMP $TOP $TOP/tools $TOP/km-releases)
-files=(. tests/hello_test.km bin examples)
+files=(. ./tests/hello_test.km bin examples)
 
 for i in $(seq 0 $(("${#locations[@]}" - 1))); do
    source="${locations[$i]}/${files[$i]}"
@@ -70,4 +75,7 @@ for i in $(seq 0 $(("${#locations[@]}" - 1))); do
 done
 
 echo "Zipping $TARBALL.gz ..."
-gzip $TARBALL
+gzip ${TARBALL}
+
+echo "Cleaning up"
+# rm -rf ${OPT_KONTAIN_TMP}

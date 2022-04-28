@@ -20,6 +20,8 @@
 # and put the result into location at $2
 set -e ; [ "$TRACE" ] && set -x
 
+KM_TOP=$(git rev-parse --show-toplevel)
+
 if [[ $# -ne 0 ]] ; then NODE=$1 ; else exit 1 ; fi
 OUT=${2:-$NODE}
 PATH=../../tools:$PATH
@@ -60,7 +62,7 @@ link_node() {
       $NODE/obj.target/tools/v8_gypfiles/libv8_zlib.a \
       $NODE/obj.target/tools/v8_gypfiles/libv8_compiler.a \
       $NODE/obj.target/tools/v8_gypfiles/libv8_initializers.a \
-      -L /opt/kontain/lib -lmimalloc \
+      -L ${KM_TOP}/build/opt_kontain/lib -lmimalloc \
    -Wl,--end-group -pthread
 }
 
