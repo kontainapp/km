@@ -56,10 +56,10 @@ jobs:
         run: |
           [ "$TRACE" ] && set -x
           d=$(date -I --date "7 day ago")
-          ids=$(aws ec2 --region ${AWS_REGION} describe-instances --filter Name=vpc-id,Values=vpc-0c7bcbda791ec50b9 --query "Reservations[*].Instances[?LaunchTime < '$d' && State.Name=='stopped'].InstanceId" --output text)
+          ids=$(aws ec2 --region ${AWS_REGION} describe-instances --filter Name=vpc-id,Values=vpc-0495113cced0769fd --query "Reservations[*].Instances[?LaunchTime < '$d' && State.Name=='stopped'].InstanceId" --output text)
           [ -z "$ids" ] || aws ec2 --region ${AWS_REGION} terminate-instances --instance-ids ${ids}
           rgroups=$(az vm list --show-details --output tsv --query "[?starts_with(name,'runner-') && ends_with(name,'-vm') && timeCreated < '$d' && powerState=='VM deallocated'].resourceGroup")
-          [ -z "$rgroups"] || for i in $rgroups; do az group delete --yes --name $i; done
+          [ -z "$rgroups" ] || for i in $rgroups; do az group delete --yes --name $i; done
 
       - name: Cleanup registry and logout
         if: always()
