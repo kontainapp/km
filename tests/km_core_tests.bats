@@ -139,7 +139,7 @@ fi
 @test "hc_check($test_type): invoke wrong hypercall (hc_test$ext)" {
    # Default is ENOTSUP
    run km_with_timeout stray_test$ext hc 400
-   assert_failure 95
+   assert_failure 38
 
    # Debug option kills with SIGSYS
    run km_with_timeout --kill-unimpl-scall stray_test$ext hc 400

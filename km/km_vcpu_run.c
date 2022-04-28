@@ -438,12 +438,11 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
    km_hc_ret_t ret = HC_CONTINUE;
    if (km_hcalls_table[hc] != NULL) {
       ret = km_hcalls_table[hc](vcpu, hc, ga_kma);
-      *hc_ret = ga_kma->hc_ret;
    } else {
       km_infox(KM_TRACE_HC, "Unimplemented hypercall %d (%s)", hc, km_hc_name_get(hc));
-      ga_kma->hc_ret = (uint64_t) -ENOTSUP;
-      *hc_ret = -ENOTSUP;
+      ga_kma->hc_ret = (uint64_t) -ENOSYS;
    }
+   *hc_ret = ga_kma->hc_ret;
    if (km_collect_hc_stats != 0) {
       clock_gettime(CLOCK_MONOTONIC, &stop);
       uint64_t msecs = (stop.tv_sec - start.tv_sec) * 1000000000 + stop.tv_nsec - start.tv_nsec;
