@@ -419,8 +419,8 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
          km_post_signal(vcpu, &info);
          return -1;
       }
+      vcpu->hypercall = hc;
    }
-   vcpu->hypercall = hc;
    // We assume hypercall args are built are on stack in the guest, but nothing in km depends on this.
    ga = (km_gva_t)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)];
    km_hc_args_t* ga_kma = km_gva_to_kma(ga);
