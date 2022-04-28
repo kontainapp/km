@@ -481,6 +481,11 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
    // TODO - consider an unforced solution
    if (km_vcpu_run_cnt() > 1) {
       km_infox(KM_TRACE_VCPU, "Forcing exit_group() without cleanup");
+      /*
+       * Even though we are forcing exit, do a hcalls fini since that will report
+       * statistics is requested.
+       */
+      km_hcalls_fini();
       exit(machine.exit_status);
    }
    km_vcpu_stopped(vcpu);
