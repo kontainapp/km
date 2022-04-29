@@ -120,7 +120,7 @@ ${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_
 		--libs ${BLDDIR}/lib $@
 
 ${BLDDIR}/mods/app.kontain: app.kontain/module-info.java
-	[ -d ${BLDDIR}/mods ] || mkdir -p ${BLDDIR}/mods
+	mkdir -p ${BLDDIR}/mods
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
@@ -128,7 +128,7 @@ ${BLDDIR}/mods/app.kontain: app.kontain/module-info.java
 		${JDK_BUILD_DIR}/images/jdk/bin/javac -d ${BLDDIR}/mods --module-source-path . --module app.kontain $?
 
 ${BLDDIR}/lib/libkm_java_native.so: app.kontain/app/kontain/snapshots/km_java_native_snapshot.c
-	[ -d ${BLDDIR}/lib ] || mkdir -p ${BLDDIR}/lib
+	mkdir -p ${BLDDIR}/lib
 	gcc -fPIC -shared -O3 -I/usr/include -I${JAVA_DIR}/include -I${JAVA_DIR}/include/linux \
 		$? -o $@
 

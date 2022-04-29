@@ -175,11 +175,7 @@ static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t*
                            fd,
                            phdr->p_offset - extra);
             if (m == MAP_FAILED) {
-               km_err(errno,
-                      "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx",
-                      i,
-                      phdr->p_vaddr,
-                      phdr->p_offset);
+               km_err(errno, "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx", i, phdr->p_vaddr, phdr->p_offset);
             }
          }
       }
@@ -429,7 +425,8 @@ static inline int km_ss_recover_km_monitor(char* notebuf, size_t notesize)
     * from tbrk.
     */
    km_gva_t tbrk_gva = km_mem_tbrk(0);
-   km_gva_t ptr = km_guest_mmap(0, tbrk_gva - mon->tbrk, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+   km_gva_t ptr =
+       km_guest_mmap(0, tbrk_gva - mon->tbrk, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
    if (ptr != mon->tbrk) {
       km_errx(2, "tbrk recover failure: expect=0x%lx got=0x%lx", mon->tbrk, ptr);
    }

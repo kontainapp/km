@@ -52,7 +52,6 @@ int km_collect_hc_stats = 0;
 #define __run_warn(vcpu, __f, ...)                                                                 \
    km_warnx(__f fx, ##__VA_ARGS__, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2);
 
-
 // only show this for verbose ('-V') runs
 #define run_info(__f, ...)                                                                         \
    do {                                                                                            \
@@ -67,11 +66,11 @@ int km_collect_hc_stats = 0;
          __run_warn(vcpu, __f, ##__VA_ARGS__);                                                     \
    } while (0)
 
-static inline void run_warn(const char *fmt, ...)
+static inline void run_warn(const char* fmt, ...)
 {
-  va_list args;
-  va_start(args, fmt);
-  km_warnx(fmt, args);
+   va_list args;
+   va_start(args, fmt);
+   km_warnx(fmt, args);
 }
 
 static const char* kvm_reason_name(int reason)

@@ -49,13 +49,12 @@ extern km_payload_t km_guest;
 extern km_payload_t km_dynlinker;
 
 typedef struct km_elf_s {
-   const char *path;
-   FILE *file;
+   const char* path;
+   FILE* file;
    Elf64_Ehdr ehdr;
 } km_elf_t;
-int km_elf_get_phdr(km_elf_t *elf, int idx, Elf64_Phdr *phdr);
-int km_elf_get_shdr(km_elf_t *elf, int idx, Elf64_Shdr *shdr);
-
+int km_elf_get_phdr(km_elf_t* elf, int idx, Elf64_Phdr* phdr);
+int km_elf_get_shdr(km_elf_t* elf, int idx, Elf64_Shdr* shdr);
 
 /*
  * Translate ELF region protection mmap to mmap protection flag

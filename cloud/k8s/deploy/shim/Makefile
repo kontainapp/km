@@ -20,8 +20,8 @@ include ${TOP}/make/locations.mk
 
 .PHONY: all
 all:
-	[ -d ${BLDDIR} ] || mkdir -p ${BLDDIR}
-	CGO_ENABLED=0 go build -o ${BLDDIR}/containerd-shim-krun-v2 cmd/main.go 
+	mkdir -p ${BLDDIR}
+	CGO_ENABLED=0 go build -o ${BLDDIR}/containerd-shim-krun-v2 cmd/main.go
 
 .PHONY: clean
 clean:

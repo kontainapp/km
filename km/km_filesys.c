@@ -158,12 +158,12 @@ static inline int km_add_socket_fd(
    return ret;
 }
 
-static inline int km_dup_socket_fd(
-    km_vcpu_t* vcpu, int hostfd, char *name, int flags, km_fd_socket_t *sockinfo, int how)
+static inline int
+km_dup_socket_fd(km_vcpu_t* vcpu, int hostfd, char* name, int flags, km_fd_socket_t* sockinfo, int how)
 {
    int ret = km_add_guest_fd_internal(vcpu, hostfd, name, flags, how, NULL);
    if (ret >= 0) {
-      km_file_t *file = &km_fs()->guest_files[ret];
+      km_file_t* file = &km_fs()->guest_files[ret];
       assert(file->sockinfo == NULL);
       file->sockinfo = malloc(sizeof(km_fd_socket_t));
       assert(file->sockinfo != NULL);
@@ -497,12 +497,12 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
       if (ret >= 0) {
          km_file_t* file = &km_fs()->guest_files[fd];
          if (file->sockinfo != NULL) {
-           ret = km_dup_socket_fd(vcpu,
-                                  ret,
-                                  km_guestfd_name(vcpu, fd),
-                                  (cmd == F_DUPFD) ? 0 : O_CLOEXEC,
-                                  file->sockinfo,
-                                  file->how);
+            ret = km_dup_socket_fd(vcpu,
+                                   ret,
+                                   km_guestfd_name(vcpu, fd),
+                                   (cmd == F_DUPFD) ? 0 : O_CLOEXEC,
+                                   file->sockinfo,
+                                   file->how);
          } else {
             ret = km_add_guest_fd_internal(vcpu,
                                            ret,
@@ -1137,12 +1137,7 @@ uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
    if (ret >= 0) {
       km_file_t* file = &km_fs()->guest_files[host_fd];
       if (file->sockinfo != NULL) {
-           ret = km_dup_socket_fd(vcpu,
-                                  ret,
-                                  name,
-                                  0,
-                                  file->sockinfo,
-                                  file->how);
+         ret = km_dup_socket_fd(vcpu, ret, name, 0, file->sockinfo, file->how);
       } else {
          ret = km_add_guest_fd_internal(vcpu, ret, name, 0, file->how, ops);
       }
@@ -1185,12 +1180,7 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
 
       km_file_t* file = &km_fs()->guest_files[host_fd];
       if (file->sockinfo != NULL) {
-           ret = km_dup_socket_fd(vcpu,
-                                  ret,
-                                  name,
-                                  flags,
-                                  file->sockinfo,
-                                  file->how);
+         ret = km_dup_socket_fd(vcpu, ret, name, flags, file->sockinfo, file->how);
       } else {
          ret = km_add_guest_fd(vcpu, ret, name, flags, ops);
       }
