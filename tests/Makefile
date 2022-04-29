@@ -81,7 +81,7 @@ LDFLAGS := ${DEBUG}
 
 DEPS = ${SRC_C:%.c=%.d} ${SRC_SHR:%.c=%.d} ${SRC_CPP:%.cpp=%.d} ${HELPER_SRC:%.c=%.d}
 
-SUFFIXES := .km .kmd .km.so .alpine.km .alpine.kmd .${DTYPE}
+SUFFIXES := .km .kmd .km.so .alpine.km .alpine.kmd .${DTYPE} .${DTYPE}.dyn
 TESTS := ${SRC_C:%.c=%} ${SRC_CPP:%.cpp=%}
 EXECS := ${TESTS} $(abspath hello_test_link) \
 	$(foreach s,${SUFFIXES},$(addsuffix ${s},${TESTS}))
@@ -114,6 +114,7 @@ KCXX := kontain-g++
 
 # use g++ link libs when sources were C++
 # ${SRC_CPP:%.cpp=%}: CC=${CXX}
+${SRC_CPP:%.cpp=%.fedora.dyn}: CC=${CXX}
 ${SRC_CPP:%.cpp=%.fedora}: CC=${CXX} -static
 ${SRC_C:%.c=%.fedora}: LDLIBS += -static
 ${SRC_CPP:%.cpp=%.km}: KCC=${KCXX}
@@ -123,6 +124,9 @@ ${SRC_CPP:%.cpp=%.alpine.kmd}: KCC=${KCXX}
 ${SRC_CPP:%.cpp=%.km.so}: KCC=${KCXX}
 
 %.${DTYPE}: %.o
+	${CC} ${LDFLAGS} $< ${LDLIBS} -o $@
+
+%.${DTYPE}.dyn: %.o
 	${CC} ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %_test: ${KM_BIN}

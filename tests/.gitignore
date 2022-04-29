@@ -2,6 +2,7 @@ km-bats-*.*
 gdb.txt
 .native*
 *.fedora
+*.fedora.dyn
 *.ubuntu
 *.alpine
 km_*.log
