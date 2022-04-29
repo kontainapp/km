@@ -52,7 +52,7 @@ not_needed_glibc_dynamic='cpuid setup_link setup_load gdb_sharedlib readlink_arg
 # gdb_forkexec - gdb stack trace needs symbols when in a hypercall
 
 todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test threads_basic_tsd threads_exit_grp gdb_forkexec km_exec_guest_files'
-todo_glibc_dynamic='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test threads_basic_tsd threads_exit_grp gdb_forkexec km_exec_guest_files'
+todo_glibc_dynamic='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test threads_basic_tsd threads_exit_grp gdb_forkexec km_exec_guest_files sigaltstack'
 
 # TODO: figure out why mem_brk doesn't work
 todo_glibc_dynamic="${todo_glibc_dynamic} mem_brk"
