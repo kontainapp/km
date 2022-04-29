@@ -181,7 +181,7 @@ int main(int argc, char** argv)
    printf("=== %d %d\n", SIGSTKSZ, MINSIGSTKSZ);
 
    GREATEST_MAIN_BEGIN();   // init & parse command-line args
-   // greatest_set_verbosity(1);
+   greatest_set_verbosity(1);
 
    /* Tests can be run as suites, or directly. Lets run directly. */
    RUN_TEST(sas_lj);
