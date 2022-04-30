@@ -58,7 +58,6 @@ on:
 env:
   BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
   IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
-  NIGHTLY_CLUSTER_NAME: "aks-kontain-nightly-ci-${{ github.run_number }}"
   SP_SUBSCRIPTION_ID: ${{ secrets.SP_SUBSCRIPTION_ID }}
   SP_APPID: ${{ secrets.SP_APPID }}
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
@@ -128,6 +127,9 @@ jobs:
 
       - name: Prepare KM build env
         run: make -C tests pull-buildenv-image .buildenv-local-lib
+
+      - name: Check clang-format on source code
+        run: make withdocker TARGET=clang-format-check
 
       - name: Build KM and tests using buildenv image
         run: make -j withdocker RUN_IN_CI=1

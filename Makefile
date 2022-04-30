@@ -37,6 +37,13 @@ include ${TOP}/make/actions.mk
 # build VMM and runtime library before trying to build tests
 tests: km runtime container-runtime lib
 
+.PHONY: clang-format clang-format-check
+clang-format-check:
+	clang-format --dry-run -Werror km/*.h km/*.c tests/*.h tests/*.c tests/*.cpp
+
+clang-format:
+	clang-format -i km/*.h km/*.c tests/*.h tests/*.c tests/*.cpp
+
 # On mac $(MAKE) evaluates to '/Applications/Xcode.app/Contents/Developer/usr/bin/make'
 ifeq ($(shell uname), Darwin)
 MAKE := make

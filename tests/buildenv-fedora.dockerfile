@@ -66,7 +66,7 @@ FROM fedora:31 AS buildenv-early
 #
 # Also, this list is used on generating local build environment, so we explicitly add
 # some packages which are always present on Fedora32 but may be missing on Fedora31 (e.g. python3-markupsafe)
-# We have also added packages needed by python.km extensions json generation (jq, googler), by python configuration (libffi-devel)  and crun's build:
+# We have also added packages needed by python.km extensions json generation (jq, googler), by python configuration (libffi-devel) and crun's build:
 #   automake autoconf libcap-devel yajl-devel libseccomp-devel
 #   python3-libmount libtool
 RUN dnf install -y \
@@ -82,6 +82,13 @@ RUN dnf install -y \
    systemd-devel \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 
+FROM buildenv-early AS buildclangformat
+
+RUN git clone https://github.com/llvm/llvm-project.git -b llvmorg-13.0.0 && cd llvm-project && \
+   cmake -S llvm -B build -G "Unix Makefiles" -DLLVM_ENABLE_PROJECTS="clang" -DCMAKE_BUILD_TYPE=Release && \
+   make -C build/tools/clang/tools/clang-format -j`expr 2 \* $(nproc)` && \
+   make -C build/tools/clang/tools/clang-format install
+
 FROM buildenv-early AS buildenv
 ARG USER=appuser
 # Dedicated arbitrary in-image uid/gid, mainly for file access
@@ -95,6 +102,7 @@ ENV USER=$USER
 ENV PREFIX=/opt/kontain
 WORKDIR /home/$USER
 
+COPY --from=buildclangformat /usr/local/bin /usr/local/bin/
 COPY --from=alpine-lib-image $PREFIX $PREFIX/
 RUN for i in runtime alpine-lib ; do \
        mkdir -p $PREFIX/$i && chgrp users $PREFIX/$i && chmod 777 $PREFIX/$i ; \
