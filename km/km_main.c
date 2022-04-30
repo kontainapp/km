@@ -386,6 +386,10 @@ static char* km_parse_args(
    char** envp = NULL;   // NULL terminated array of env pointers
    int envc = 1;   // count of elements in envp (including NULL), see realloc below in case 'e'
 
+   // pick up env variable. explicit option can override.
+   if (getenv(KM_KILL_UNIMPL_SCALL) != NULL) {
+      kill_unimpl_hcall = 1;
+   }
    if (pl_name == NULL) {   // regular KM invocation - parse KM args
       optind = 0;           // reinit getopt
       while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) !=

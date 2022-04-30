@@ -146,6 +146,11 @@ fi
    assert_failure $(( $signal_flag + 31))  #SIGSYS
    assert_output --partial "Bad system call"
 
+   # Debug option kills with SIGSYS
+   KM_KILL_UNIMPL_SCALL=1 run km_with_timeout stray_test$ext hc 400
+   assert_failure $(( $signal_flag + 31))  #SIGSYS
+   assert_output --partial "Bad system call"
+
    run km_with_timeout stray_test$ext -- hc -10
    assert_failure $(( $signal_flag + 7))   #SIGBUS
    assert_output --partial "Bus error"
