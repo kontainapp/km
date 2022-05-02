@@ -87,7 +87,7 @@ jobs:
           ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ec2-region: "us-east-2"
-          ec2-image: "L0BaseAWSImage"
+          ec2-image: "L0BaseImage"
           ec2-instance-type: "m5.xlarge"
           ec2-vpc-name: "github-runner"
           az-subscription-id: ${{ secrets.SP_SUBSCRIPTION_ID }}
