@@ -139,7 +139,17 @@ fi
 }
 
 @test "hc_check($test_type): invoke wrong hypercall (hc_test$ext)" {
+   # Default is ENOTSUP
    run km_with_timeout stray_test$ext hc 400
+   assert_failure 95
+
+   # Debug option kills with SIGSYS
+   run km_with_timeout --kill-unimpl-scall stray_test$ext hc 400
+   assert_failure $(( $signal_flag + 31))  #SIGSYS
+   assert_output --partial "Bad system call"
+
+   # Debug option kills with SIGSYS
+   KM_KILL_UNIMPL_SCALL=1 run km_with_timeout stray_test$ext hc 400
    assert_failure $(( $signal_flag + 31))  #SIGSYS
    assert_output --partial "Bad system call"
 
@@ -745,7 +755,7 @@ fi
 
    # bad hcall
    assert [ ! -f ${CORE} ]
-   run km_with_timeout --coredump=${CORE} stray_test$ext hc 400
+   run km_with_timeout --kill-unimpl-scall --coredump=${CORE} stray_test$ext hc 400
    assert_failure $(( $signal_flag + 31)) # SIGSYS
    echo $output | grep -F 'Bad system call (core dumped)'
    assert [ -f ${CORE} ]

@@ -37,6 +37,7 @@
 
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;
+int kill_unimpl_hcall = 0;
 
 #define fx "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx "
 
@@ -412,7 +413,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
          km_post_signal(vcpu, &info);
          return -1;
       }
-      if (km_hcalls_table[hc] == NULL) {
+      if (kill_unimpl_hcall != 0 && km_hcalls_table[hc] == NULL) {
          km_warnx("Unimplemented hypercall %d (%s)", hc, km_hc_name_get(hc));
          siginfo_t info = {.si_signo = SIGSYS, .si_code = SI_KERNEL};
          km_post_signal(vcpu, &info);
@@ -434,7 +435,13 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
    if (km_collect_hc_stats != 0) {
       clock_gettime(CLOCK_MONOTONIC, &start);
    }
-   km_hc_ret_t ret = km_hcalls_table[hc](vcpu, hc, ga_kma);
+   km_hc_ret_t ret = HC_CONTINUE;
+   if (km_hcalls_table[hc] != NULL) {
+      ret = km_hcalls_table[hc](vcpu, hc, ga_kma);
+   } else {
+      km_infox(KM_TRACE_HC, "Unimplemented hypercall %d (%s)", hc, km_hc_name_get(hc));
+      ga_kma->hc_ret = (uint64_t) -ENOTSUP;
+   }
    *hc_ret = ga_kma->hc_ret;
    if (km_collect_hc_stats != 0) {
       clock_gettime(CLOCK_MONOTONIC, &stop);
@@ -473,6 +480,11 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
    // TODO - consider an unforced solution
    if (km_vcpu_run_cnt() > 1) {
       km_infox(KM_TRACE_VCPU, "Forcing exit_group() without cleanup");
+      /*
+       * Even though we are forcing exit, do a hcalls fini since that will report
+       * statistics is requested.
+       */
+      km_hcalls_fini();
       exit(machine.exit_status);
    }
    km_vcpu_stopped(vcpu);

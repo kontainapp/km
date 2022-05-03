@@ -201,7 +201,7 @@ static void km_mmap_mprotect_region(km_mmap_reg_t* reg)
 }
 
 // mprotects 'reg' and concats with adjustment neighbors
-static inline void km_mmap_mprotect(km_mmap_reg_t* reg)
+static inline void km_mmap_mprotect(km_mmap_reg_t* reg, km_mmap_reg_t *mreg)
 {
    km_mmap_mprotect_region(reg);
    km_mmap_concat(reg, &machine.mmaps.busy);
@@ -290,7 +290,7 @@ static inline void km_mmap_remove_free(km_mmap_reg_t* reg)
 }
 
 // moves existing mmap region from busy to free
-static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
+static inline void km_mmap_move_to_free(km_mmap_reg_t* reg, km_mmap_reg_t *mreg)
 {
    km_mmap_remove_busy(reg);
    if ((reg->flags & MAP_SHARED) != 0 || reg->filename != NULL) {
@@ -309,10 +309,12 @@ static inline void km_mmap_move_to_free(km_mmap_reg_t* reg)
 }
 
 // Callback for when busy_range_apply needs to prepare one big empty region covering the range
-static void km_mmap_region_clean_concat(km_mmap_reg_t* reg)
+static void km_mmap_region_clean_concat(km_mmap_reg_t* reg, km_mmap_reg_t *mreg)
 {
    reg->flags = -1;   // fake flag to guarantee reg will not concat with left and right neighbors
-   km_reg_make_clean(reg);
+   if (mreg->km_flags.km_mmap_clean != 0) {
+      km_reg_make_clean(reg);
+   }
    reg->offset = 0;
    if (reg->filename != NULL) {
       free(reg->filename);
@@ -321,7 +323,7 @@ static void km_mmap_region_clean_concat(km_mmap_reg_t* reg)
    km_mmap_concat(reg, &machine.mmaps.busy);
 }
 
-typedef void (*km_mmap_action)(km_mmap_reg_t*);
+typedef void (*km_mmap_action)(km_mmap_reg_t*, km_mmap_reg_t*);
 /*
  * Apply 'action(reg)' to all mmap regions completely within the (addr, addr+size-1) range in
  * 'busy' machine.mmaps. If needed splits the mmaps at the ends - new maps are also updated to
@@ -332,8 +334,12 @@ typedef void (*km_mmap_action)(km_mmap_reg_t*);
  *
  * Returns 0 on success or -errno
  */
-static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int prot)
+//static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action action, int prot, void *arg)
+static int km_mmap_busy_range_apply(km_mmap_reg_t *mreg, km_mmap_action action)
 {
+   km_gva_t addr = mreg->start;
+   size_t size = mreg->size;
+   int prot = mreg->protection;
    km_mmap_reg_t *reg, *next;
 
    assert(action == km_mmap_mprotect || action == km_mmap_move_to_free ||
@@ -389,7 +395,7 @@ static int km_mmap_busy_range_apply(km_gva_t addr, size_t size, km_mmap_action a
       }
       assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range
       reg->protection = prot;
-      action(reg);
+      action(reg, mreg);
       // action() may concat maps and thus 'next' may need adjustment
       if (action != km_mmap_move_to_free && next != TAILQ_END(&machine.mmaps.busy)) {
          next = TAILQ_NEXT(reg, link);
@@ -441,7 +447,8 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
       km_infox(KM_TRACE_MMAP, "mprotect area not fully mapped");
       return -ENOMEM;
    }
-   if (km_mmap_busy_range_apply(addr, size, km_mmap_mprotect, prot) != 0) {
+   km_mmap_reg_t mreg = {.start = addr, .size = size, .protection = prot};
+   if (km_mmap_busy_range_apply(&mreg, km_mmap_mprotect) != 0) {
       return -ENOMEM;
    }
    return 0;
@@ -488,7 +495,8 @@ static km_mmap_reg_t* km_find_reg_nolock(km_gva_t gva)
 // Guest munmap implementation. Params should be already checked and locks taken. Returns 0 or -errno
 static int km_guest_munmap_nolock(km_gva_t addr, size_t size)
 {
-   return km_mmap_busy_range_apply(addr, size, km_mmap_move_to_free, PROT_NONE);
+   km_mmap_reg_t mreg = {.start = addr, .size = size, .protection = PROT_NONE};
+   return km_mmap_busy_range_apply(&mreg, km_mmap_move_to_free);
 }
 
 static int
@@ -613,7 +621,8 @@ static km_gva_t km_guest_mmap_nolock(
       return -errno;
    }
    // Now glue the underlying regions together
-   if ((ret = km_mmap_busy_range_apply(gva, size, km_mmap_region_clean_concat, prot)) != 0) {
+   km_mmap_reg_t mreg = {.start = gva, .size = size, .protection = prot, .km_flags.km_mmap_clean = (hostfd < 0) ? 1 : 0};
+   if ((ret = km_mmap_busy_range_apply(&mreg, km_mmap_region_clean_concat)) != 0) {
       errno = -ret;
       km_info(KM_TRACE_MMAP, "Failed to apply km_mmap_region_clean_concat");
       return ret;

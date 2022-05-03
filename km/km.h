@@ -462,9 +462,13 @@ static const struct timespec _1ms = {
     .tv_sec = 0, .tv_nsec = 1000000, /* 1 millisec */
 };
 
+/*
+ * Environment Variables
+ */
 static const_string_t KM_VERBOSE = "KM_VERBOSE";
 static const_string_t KM_DO_SHELL = "KM_DO_SHELL";
 static const_string_t KM_MGTPIPE = "KM_MGTPIPE";
+static const_string_t KM_KILL_UNIMPL_SCALL = "KM_KILL_UNIMPL_SCALL";
 
 extern int km_do_shell;   // enable symlink trick and minimal shell parsing in KM itself
 
