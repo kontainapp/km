@@ -79,8 +79,8 @@ unset KM_VERBOSE
 # exclude more tests for Kontain Kernel Module (leading space *is* needed)
 if [ "${USE_VIRT}" = 'kkm' ]; then
    not_needed_alpine_dynamic=$not_needed_alpine_static
-   todo_glibc_static=${todo_glibc_static} 'threads_exit_grp'
-   todo_glibc_dynamic=${todo_glibc_dynamic} 'threads_exit_grp'
+   todo_glibc_static="${todo_glibc_static} threads_exit_grp"
+   todo_glibc_dynamic="${todo_glibc_dynamic} threads_exit_grp"
 fi
 
 if [ "${USE_VIRT}" = 'kvm' ]; then
