@@ -440,7 +440,7 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
       ret = km_hcalls_table[hc](vcpu, hc, ga_kma);
    } else {
       km_infox(KM_TRACE_HC, "Unimplemented hypercall %d (%s)", hc, km_hc_name_get(hc));
-      ga_kma->hc_ret = (uint64_t) -ENOTSUP;
+      ga_kma->hc_ret = (uint64_t)-ENOTSUP;
    }
    *hc_ret = ga_kma->hc_ret;
    if (km_collect_hc_stats != 0) {
