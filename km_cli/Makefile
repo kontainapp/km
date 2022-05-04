@@ -20,5 +20,6 @@ TOP := $(shell git rev-parse --show-toplevel)
 EXEC := km_cli
 SOURCES := km_client.c
 VERSION_SRC := km_client.c # it has branch/version info, so rebuild it if git info changes
+LOCAL_LDOPTS := -static
 
 include ${TOP}/make/actions.mk
