@@ -466,11 +466,8 @@ static const struct timespec _1ms = {
  * Environment Variables
  */
 static const_string_t KM_VERBOSE = "KM_VERBOSE";
-static const_string_t KM_DO_SHELL = "KM_DO_SHELL";
 static const_string_t KM_MGTPIPE = "KM_MGTPIPE";
 static const_string_t KM_KILL_UNIMPL_SCALL = "KM_KILL_UNIMPL_SCALL";
-
-extern int km_do_shell;   // enable symlink trick and minimal shell parsing in KM itself
 
 /*
  * Trivial trace control - with switch to turn on/off and on and a tag to match.
@@ -492,7 +489,7 @@ extern char* km_payload_name;
 extern struct option km_cmd_long_options[];
 extern const_string_t km_cmd_short_options;
 
-void km_trace_setup(int argc, char* argv[], char* payload_name);
+void km_trace_setup(int argc, char* argv[]);
 
 extern int km_collect_hc_stats;
 

@@ -206,63 +206,6 @@ char* km_get_self_name()
    return km_bin_name;
 }
 
-static int one_readlink(const char* name, char* buf, size_t buf_size)
-{
-   int rc;
-   if ((rc = readlink(name, buf, buf_size)) < 0) {
-      return -1;
-   }
-   if (*buf == '/') {
-      return rc;
-   }
-
-   // link is relative - construct full path name
-   buf[rc] = 0;
-   char* name_l = strdupa(name);
-   char* link = strdupa(buf);
-   snprintf(buf, buf_size - 1, "%s/%s", dirname(name_l), link);
-   return strlen(buf);
-}
-
-// check if name point to km ourselves. Return -1 for errors, 1 if we are km, 0 if not
-static int km_check_for_km(const char* name)
-{
-   struct stat stb, stb_self;
-
-   if (stat(PROC_SELF_EXE, &stb_self) != 0 || stat(name, &stb) != 0) {
-      return -1;
-   }
-   return (stb_self.st_dev == stb.st_dev && stb_self.st_ino == stb.st_ino) ? 1 : 0;
-}
-
-// returns strdup-ed name of the final symlink (NOT the final file), NULL if there was none
-char* km_traverse_payload_symlinks(const char* arg)
-{
-   char buf[PATH_MAX + 1];
-   int bytes;
-   // we need to keep prior symlink name so the upstairs can locate the payload
-   char* last_symlink = NULL;
-   char* name = strdup(arg);
-
-   while ((bytes = one_readlink(name, buf, PATH_MAX)) != -1) {
-      buf[bytes] = '\0';
-      if (last_symlink != NULL) {
-         free(last_symlink);
-      }
-      last_symlink = name;
-      name = strdup(buf);
-   }
-   free(name);
-   if (last_symlink != NULL) {
-      snprintf(buf, PATH_MAX, "%s%s", last_symlink, PAYLOAD_SUFFIX);
-      free(last_symlink);
-      if ((last_symlink = realpath(buf, NULL)) == NULL) {
-         km_err(1, "realpath(%s) failed", buf);
-      }
-   }
-   return last_symlink;
-}
-
 static int is_eol(const char* ch)
 {
    return (*ch == '\n' || *ch == '\r') ? 1 : 0;
@@ -323,19 +266,6 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
    }
    payload_file = line_buf + SHEBANG_LEN;
    km_tracex("Payload file from shebang: '%s'", payload_file);
-   if (km_do_shell != 0) {
-      if (km_is_env_path(payload_file) == 1) {
-         payload_file = *extra_arg;
-         *extra_arg = NULL;
-      }
-      char* final_symlink;
-      if ((final_symlink = km_traverse_payload_symlinks(payload_file)) == NULL) {
-         // a likely access issue, let's return the name as is for future diagnosics
-         km_tracex("Failed to resolve symlinks, returning the name as is");
-         return (strdup(payload_file));
-      }
-      return final_symlink;
-   }
    return strdup(payload_file);
 }
 
@@ -345,7 +275,7 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
  *
  * argv array points to optarg strings. Optarg strings are stored as back to back null terminated
  * strings. /proc/self/cmdline shows the content of that area, tools like ps do the same, likely
- * just reading /prco/pid/cmdline.
+ * just reading /proc/pid/cmdline.
  * km args are organized so that km specific args go first, followed by guest args. This function
  * will shift (memmove) guest optargs to the beginning of the optargs area, memzero the tail, and
  * readjust argv pointers accordingly.
@@ -372,8 +302,8 @@ static void km_mimic_payload_argv(int argc, char** argv, int pl_index)
 
 // parses args, returns payload_name based on argv[], symlink, or shebang.
 // also fills *argc_p, *argv_p, *envc_p and *envp_p with args/env info for payload
-static char* km_parse_args(
-    int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p, char** envp_p[], char* pl_name)
+static char*
+km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p, char** envp_p[])
 {
    int opt;
    uint64_t port;
@@ -390,129 +320,127 @@ static char* km_parse_args(
    if (getenv(KM_KILL_UNIMPL_SCALL) != NULL) {
       kill_unimpl_hcall = 1;
    }
-   if (pl_name == NULL) {   // regular KM invocation - parse KM args
-      optind = 0;           // reinit getopt
-      while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) !=
-             -1) {
-         switch (opt) {
-            case 0:
-               // If this option set a flag, do nothing else now.
-               if (km_cmd_long_options[longopt_index].flag != 0) {
-                  break;
-               }
-               // Put here handling of longopts which do not have related short opt
-               if (strcmp(km_cmd_long_options[longopt_index].name, GDB_LISTEN) == 0) {
-                  gdbstub.wait_for_attach = GDB_DONT_WAIT_FOR_ATTACH;
-                  km_gdb_enable(1);
-               } else if (strcmp(km_cmd_long_options[longopt_index].name, GDB_DYNLINK) == 0) {
-                  gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_DYNLINK;
-                  km_gdb_enable(1);
-               }
+   optind = 0;   // reinit getopt
+   while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) !=
+          -1) {
+      switch (opt) {
+         case 0:
+            // If this option set a flag, do nothing else now.
+            if (km_cmd_long_options[longopt_index].flag != 0) {
                break;
-            case 'g':   // enable the gdb server and specify a port to listen on
-               if (optarg != NULL) {
-                  char* endp = NULL;
-                  errno = 0;
-                  port = strtoul(optarg, &endp, 0);
-                  if (errno != 0 || (endp != NULL && *endp != 0)) {
-                     km_warnx("Invalid gdb port number '%s'", optarg);
-                     usage();
-                  }
-               } else {
-                  port = GDB_DEFAULT_PORT;
-               }
-               km_gdb_port_set(port);
+            }
+            // Put here handling of longopts which do not have related short opt
+            if (strcmp(km_cmd_long_options[longopt_index].name, GDB_LISTEN) == 0) {
+               gdbstub.wait_for_attach = GDB_DONT_WAIT_FOR_ATTACH;
                km_gdb_enable(1);
-               if (gdbstub.wait_for_attach == GDB_WAIT_FOR_ATTACH_UNSPECIFIED) {   // wait at _start
-                                                                                   // by default
-                  gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
+            } else if (strcmp(km_cmd_long_options[longopt_index].name, GDB_DYNLINK) == 0) {
+               gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_DYNLINK;
+               km_gdb_enable(1);
+            }
+            break;
+         case 'g':   // enable the gdb server and specify a port to listen on
+            if (optarg != NULL) {
+               char* endp = NULL;
+               errno = 0;
+               port = strtoul(optarg, &endp, 0);
+               if (errno != 0 || (endp != NULL && *endp != 0)) {
+                  km_warnx("Invalid gdb port number '%s'", optarg);
+                  usage();
                }
-               break;
-            case 'l':
-               if ((log_to_fd = open(optarg, O_WRONLY | O_CREAT, 0644)) < 0) {
-                  km_err(1, "--log-to %s", optarg);
-               }
+            } else {
+               port = GDB_DEFAULT_PORT;
+            }
+            km_gdb_port_set(port);
+            km_gdb_enable(1);
+            if (gdbstub.wait_for_attach == GDB_WAIT_FOR_ATTACH_UNSPECIFIED) {   // wait at _start
+                                                                                // by default
+               gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
+            }
+            break;
+         case 'l':
+            if ((log_to_fd = open(optarg, O_WRONLY | O_CREAT, 0644)) < 0) {
+               km_err(1, "--log-to %s", optarg);
+            }
 
-               break;
-            case 'k':
-               // km logging destination is setup in km_trace_setup() called earlier.  We ignore this here.
-               break;
-            case 'e':                    // --putenv
-               if (copyenv_used > 1) {   // if --copyenv was on the command line, something is wrong
-                  km_warnx("Wrong options: '--putenv' cannot be used with together with "
-                           "'--copyenv'");
-                  usage();
-               }
-               copyenv_used = 0;   // --putenv cancels 'default' --copyenv
-               putenv_used++;
-               envc++;
-               if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
-                  km_err(1, "Failed to alloc memory for putenv %s", optarg);
-               }
-               if ((envp[envc - 2] = strdup(optarg)) == NULL) {
-                  km_err(1, "Failed to alloc memory for putenv %s value", optarg);
-               }
-               envp[envc - 1] = NULL;
-               break;
-            case 'C':
-               km_set_coredump_path(optarg);
-               break;
-            case 'F':
-               km_machine_init_params.vdev_name = strdup(optarg);
-               break;
-            case 's':
-               km_set_snapshot_path(optarg);
-               break;
-            case 'D':
-               vcpu_dump = 1;
-               break;
-            case 'P':
-               ep = NULL;
-               gpbits = strtol(optarg, &ep, 0);
-               if (ep == NULL || *ep != '\0') {
-                  km_warnx("Wrong memory bus size '%s'", optarg);
-                  usage();
-               }
-               if (gpbits < 32 || gpbits >= 63) {
-                  km_warnx("Guest memory bus width must be between 32 and 63 - got '%d'", gpbits);
-                  usage();
-               }
-               km_machine_init_params.guest_physmem = 1UL << gpbits;
-               if (km_machine_init_params.guest_physmem > GUEST_MAX_PHYSMEM_SUPPORTED) {
-                  km_warnx("Guest physical memory must be < 0x%lx - got 0x%lx (bus width %d)",
-                           GUEST_MAX_PHYSMEM_SUPPORTED,
-                           km_machine_init_params.guest_physmem,
-                           gpbits);
-                  usage();
-               }
-               break;
-            case 'V':
-               // trace categories are setup earlier in km_trace_setup().  We do nothing here.
-               break;
-            case 'v':
-               show_version();
-               break;
-            case 'S':
-               km_collect_hc_stats = 1;
-               break;
-            case 'I':
-               km_set_snapshot_input_path(optarg);
-               break;
-            case 'O':
-               km_set_snapshot_output_path(optarg);
-               break;
-            case 'm':
-               mgtpipe = strdup(optarg);
-               break;
-            case ':':
-               km_warnx("Missing arg for %c", optopt);
+            break;
+         case 'k':
+            // km logging destination is setup in km_trace_setup() called earlier.  We ignore this here.
+            break;
+         case 'e':                    // --putenv
+            if (copyenv_used > 1) {   // if --copyenv was on the command line, something is wrong
+               km_warnx("Wrong options: '--putenv' cannot be used with together with "
+                        "'--copyenv'");
                usage();
-            default:
+            }
+            copyenv_used = 0;   // --putenv cancels 'default' --copyenv
+            putenv_used++;
+            envc++;
+            if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
+               km_err(1, "Failed to alloc memory for putenv %s", optarg);
+            }
+            if ((envp[envc - 2] = strdup(optarg)) == NULL) {
+               km_err(1, "Failed to alloc memory for putenv %s value", optarg);
+            }
+            envp[envc - 1] = NULL;
+            break;
+         case 'C':
+            km_set_coredump_path(optarg);
+            break;
+         case 'F':
+            km_machine_init_params.vdev_name = strdup(optarg);
+            break;
+         case 's':
+            km_set_snapshot_path(optarg);
+            break;
+         case 'D':
+            vcpu_dump = 1;
+            break;
+         case 'P':
+            ep = NULL;
+            gpbits = strtol(optarg, &ep, 0);
+            if (ep == NULL || *ep != '\0') {
+               km_warnx("Wrong memory bus size '%s'", optarg);
                usage();
-         }
+            }
+            if (gpbits < 32 || gpbits >= 63) {
+               km_warnx("Guest memory bus width must be between 32 and 63 - got '%d'", gpbits);
+               usage();
+            }
+            km_machine_init_params.guest_physmem = 1UL << gpbits;
+            if (km_machine_init_params.guest_physmem > GUEST_MAX_PHYSMEM_SUPPORTED) {
+               km_warnx("Guest physical memory must be < 0x%lx - got 0x%lx (bus width %d)",
+                        GUEST_MAX_PHYSMEM_SUPPORTED,
+                        km_machine_init_params.guest_physmem,
+                        gpbits);
+               usage();
+            }
+            break;
+         case 'V':
+            // trace categories are setup earlier in km_trace_setup(). We do nothing here.
+            break;
+         case 'v':
+            show_version();
+            break;
+         case 'S':
+            km_collect_hc_stats = 1;
+            break;
+         case 'I':
+            km_set_snapshot_input_path(optarg);
+            break;
+         case 'O':
+            km_set_snapshot_output_path(optarg);
+            break;
+         case 'm':
+            mgtpipe = strdup(optarg);
+            break;
+         case ':':
+            km_warnx("Missing arg for %c", optopt);
+            usage();
+         default:
+            usage();
       }
-      pl_index = optind;
    }
+   pl_index = optind;
 
    if (mgtpipe == NULL) {
       char* mgt_e = getenv(KM_MGTPIPE);
@@ -530,42 +458,31 @@ static char* km_parse_args(
    *argv_p = argv;
 
    /*
-    * If we were called by shebang/symlink, shebang was processed by the system and symlink at the
-    * top of this function. However there is a case when we explicitly call km with shebang
-    * argument. Note that km_parse_shebang() follows symlinks via open() so symlinks to shebang also
-    * works.
+    * This is the case when we explicitly call km with shebang argument. Note that
+    * km_parse_shebang() follows symlinks via open() so symlinks to shebang also works.
     */
-   if (pl_name == NULL) {
-      if (pl_index == argc) {
-         usage();
-      }
-      char* extra_arg = NULL;   // shebang arg (if any) will be placed here, strdup-ed
-      if ((pl_name = km_parse_shebang(argv[0], &extra_arg)) != NULL) {
-         int idx = 0;
-         (*argc_p)++;   // room for shebang file name
-         if (extra_arg != NULL) {
-            (*argc_p)++;   // room for shebang arg
-            *argv_p = calloc(*argc_p, sizeof(char*));
-            (*argv_p)[idx++] = pl_name;
-            (*argv_p)[idx++] = extra_arg;   // shebang has only one arg
-         } else {
-            *argv_p = calloc(*argc_p, sizeof(char*));
-            (*argv_p)[idx++] = pl_name;
-         }
-         (*argv_p)[idx++] = argv[0];   // shebang file
-
-         memcpy(*argv_p + idx, argv + 1, sizeof(char*) * (*argc_p - idx));   // payload args
+   if (pl_index == argc) {
+      usage();
+   }
+   char* pl_name;
+   char* extra_arg = NULL;   // shebang arg (if any) will be placed here, strdup-ed
+   if ((pl_name = km_parse_shebang(argv[0], &extra_arg)) != NULL) {
+      int idx = 0;
+      (*argc_p)++;   // room for shebang file name
+      if (extra_arg != NULL) {
+         (*argc_p)++;   // room for shebang arg
+         *argv_p = calloc(*argc_p, sizeof(char*));
+         (*argv_p)[idx++] = pl_name;
+         (*argv_p)[idx++] = extra_arg;   // shebang has only one arg
       } else {
-         /*
-          * We didn't find .km file either through symlink or shebang. This could be legitimate .km
-          * file or some garbage, and we'll know for sure when we try to load it as ELF. However,
-          * since we now have symlinks to km executable lying around check we are not trying to load
-          * ourselves as payload.
-          */
-         if (km_check_for_km(argv[0]) == 0) {
-            pl_name = realpath(argv[0], NULL);
-         }
+         *argv_p = calloc(*argc_p, sizeof(char*));
+         (*argv_p)[idx++] = pl_name;
       }
+      (*argv_p)[idx++] = argv[0];   // shebang file
+
+      memcpy(*argv_p + idx, argv + 1, sizeof(char*) * (*argc_p - idx));   // payload args
+   } else {
+      pl_name = realpath(argv[0], NULL);
    }
    km_exec_init_args(*argc_p, *argv_p);
    return pl_name;
@@ -618,16 +535,6 @@ static inline int km_need_pause_all(void)
            (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
 }
 
-int km_do_shell = 0;
-
-static void km_check_do_shell(void)
-{
-   char* cp = getenv(KM_DO_SHELL);
-   if (cp != NULL && strcasecmp(cp, "no") == 0) {
-      km_do_shell = false;
-   }
-}
-
 int main(int argc, char* argv[])
 {
    km_vcpu_t* vcpu = NULL;
@@ -635,31 +542,8 @@ int main(int argc, char* argv[])
    char** envp;
    int argc_p;      // payload's argc
    char** argv_p;   // payload's argc (*not* in ABI format)
-   char* payload_name;
-   char* pl_name;
 
-   km_check_do_shell();
-
-   if (km_do_shell != 0) {
-      /*
-       * Sometimes km is invoked as a payload name that is a symlink to km.
-       * In that case, no km related arguments will be found on the command line.
-       * Detect those cases here and help km_trace_setup() avoid treating payload
-       * arguments as km arguments.
-       * First call works for symlinks, including found in PATH.
-       * But for shebang the first is shebang file itself, hence the second call.
-       */
-      if ((pl_name = km_traverse_payload_symlinks((const char*)getauxval(AT_EXECFN))) == NULL) {
-         pl_name = km_traverse_payload_symlinks((const char*)argv[0]);
-      }
-   } else {
-      pl_name = NULL;
-   }
-   km_trace_setup(argc, argv, pl_name);   // setup trace settings as early as possible
-   // Tracing is now enabled.  Log what we decided to run.
-   if (pl_name != NULL) {
-      km_tracex("Setting payload name to %s", pl_name);
-   }
+   km_trace_setup(argc, argv);   // setup trace settings as early as possible
 
    km_gdbstub_init();
 
@@ -667,12 +551,10 @@ int main(int argc, char* argv[])
       km_errx(2, "Problems in performing post exec processing");
    }
 
-   if ((payload_name = km_parse_args(argc, argv, &argc_p, &argv_p, &envc, &envp, pl_name)) == NULL) {
+   if ((km_payload_name = km_parse_args(argc, argv, &argc_p, &argv_p, &envc, &envp)) == NULL) {
       km_warnx("Failed to determine payload name or find .km file for %s", argv[0]);
       usage();
    }
-
-   km_payload_name = strdup(payload_name);
 
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
@@ -680,7 +562,7 @@ int main(int argc, char* argv[])
 
    km_mgt_init(mgtpipe);
 
-   km_elf_t* elf = km_open_elf_file(payload_name);
+   km_elf_t* elf = km_open_elf_file(km_payload_name);
 
    // snapshot file is type ET_CORE. We check for additional notes in restore
    if (elf->ehdr.e_type == ET_CORE) {
@@ -692,7 +574,7 @@ int main(int argc, char* argv[])
          km_errx(1, "cannot set payload arguments when resuming a snapshot");
       }
       if (km_snapshot_restore(elf) < 0) {
-         km_err(1, "failed to restore from snapshot %s", payload_name);
+         km_err(1, "failed to restore from snapshot %s", km_payload_name);
       }
       vcpu = machine.vm_vcpus[0];
    } else {

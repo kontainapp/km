@@ -176,14 +176,14 @@ void km_trace_set_log_file_name(char* kmlog_file_name)
  * When invoked from a km payload we ignore km command line trace settings and use the
  * inherited trace fd and use trace categoeries from the KM_VERBOSE envrionment variable.
  */
-void km_trace_setup(int argc, char* argv[], char* payload_name)
+void km_trace_setup(int argc, char* argv[])
 {
    char* trace_regex = NULL;
    char* kmlogto = NULL;
    static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int invoked_by_exec = (getenv("KM_EXEC_VERS") != NULL);
 
-   if (invoked_by_exec == 0 && payload_name == NULL) {
+   if (invoked_by_exec == 0) {
       /*
        * We were invoked from a a shell command line.
        * Find the trace related flags from the command line and setup to operate that way.
