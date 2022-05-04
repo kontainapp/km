@@ -39,7 +39,7 @@ PYTHONTOP ?= cpython
 COMPONENT := python
 
 # this is how we run python.km tests in container
-CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
+CONTAINER_TEST_CMD := ./scripts/test-run.sh ./km ./python.km
 
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := cpython/python.km
@@ -162,8 +162,8 @@ cleansrc: clean
 
 # test locally same way as in container
 test test-all: ${PAYLOAD_KM} ${TEST_KM}
-	ln -sf cpython/python .
-	${CONTAINER_TEST_CMD}
+	ln -sf cpython/python.km .
+	./scripts/test-run.sh ${KM_BIN} ./python.km
 
 clobber: ## Clobber cpython build by removing cpython dir
 	rm -rf cpython

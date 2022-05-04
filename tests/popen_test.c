@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
    char linebuf[1024];
    char cmdbuf[512];
    int exit_status;
-   char* testprog = "./pipetarget_test";
+   char* testprog = "set TESTPROG to run";
 
    progname = argv[0];
 

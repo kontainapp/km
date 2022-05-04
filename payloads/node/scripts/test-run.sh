@@ -29,6 +29,10 @@ EOF
    exit 1
 }
 
+function cleanup() {
+   rm -f ${TMP_FILE}
+}
+
 check_crypto() {
    msg="Unsupported crypto setting for this version of node. Use 'sudo update-crypto-policies --set LEGACY'"
    source /etc/os-release
@@ -50,13 +54,16 @@ if [[ "$1" == "test" || "$1" == "test-all" ]]; then
 	${KM_BIN} ${TEST_KM} --gtest_filter="*"
 fi
 
-# if [[ "$1" == "test-all" ]]; then
-#    NODETOP=$5
-#    BUILD=$6
-# 	cd ${NODETOP}
-#    python tools/test.py -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr -s '\n ' ','` default addons js-native-api node-api
-#    echo "Tests are Successful"
-# fi
+if [[ "$1" == "test-all" ]]; then
+   NODETOP=$5
+   BUILD=$6
+   trap cleanup EXIT
+   TMP_FILE=$(mktemp /tmp/node.XXXXXXXXXX)
+   echo -e "#!/bin/bash\n$(realpath ${KM_BIN}) $(realpath ${NODETOP}/out/${BUILD}/node.km) \$*\n" > ${TMP_FILE} && chmod +x ${TMP_FILE}
+	cd ${NODETOP}
+   python tools/test.py --shell=${TMP_FILE} -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr -s '\n ' ','` default addons js-native-api node-api
+   echo "Tests are Successful"
+fi
 
 if [[ "$1" != "test" && "$1" != "test-all" ]]; then
   usage

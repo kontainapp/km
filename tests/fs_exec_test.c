@@ -36,8 +36,8 @@ int main(int argc, char** argv)
          printf("parent exe: %.*s %s\n", parent_rc, parent_buf, argv[1]);
          fflush(stdout);
       }
-      char* testargv[] = {"fs_exec_test", "child", NULL};
-      int rc = execve("fs_exec_test", testargv, environ);
+      char* testargv[] = {parent_buf, "child", NULL};
+      int rc = execve(parent_buf, testargv, environ);
       printf("exec %d %s\n", rc, strerror(errno));
    } else {
       char buf[256];

@@ -65,7 +65,6 @@ ifneq ($(shell test -d node/.git && echo OK),OK)
 else
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 endif
-	ln -sf `realpath ${KM_BIN}` ${NODEOUT}/node
 
 in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
 	mkdir -p ${NODEOUT}
@@ -82,7 +81,6 @@ fromsrc: ${NODETOP}/config.mk
 	cd ${NODETOP} && make -j`expr 2 \* $$(nproc)` && make jstest
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
-	ln -sf `realpath ${KM_BIN}` ${NODEOUT}/node
 
 clobber:
 	rm -rf node
@@ -91,15 +89,18 @@ clean:
 	rm -rf $(RUNENV_PATH)
 	@echo "Note - 'clean' doesn't remove ./node artifacts. use 'clobber' to force remove build artifacts"
 
-test: ${PAYLOAD_KM} ${TEST_KM}
-	scripts/test-run.sh test ${KM_BIN} ${PAYLOAD_KM} ${TEST_KM}
-
-test-all:
-	scripts/test-run.sh test-all ${NODETOP} ${BUILD}
+test test-all: ${PAYLOAD_KM} ${TEST_KM}
+	scripts/test-run.sh $@ ${KM_BIN} ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
 
 # Command to run tests in testenv-image container:
 CONTAINER_TEST_CMD := scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM}
+
+# TODO: revert when kkm is fixed
+ifeq (${HYPERVISOR_DEVICE},/dev/kkm)
+CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test ./km ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+else
 CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test-all ./km ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+endif
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
 BUILDENV_PATH  := ./scripts
@@ -107,4 +108,4 @@ BUILDENV_PATH  := ./scripts
 # Param for 'make validate-runenv-image'. Used to do a quick validation of runtime environment.
 RUNENV_VALIDATE_CMD := ("/scripts/hello.js")
 
-RUNENV_TAG := node node-12 node-${VERS}
+RUNENV_TAG := node node-${VERS}

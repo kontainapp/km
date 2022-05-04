@@ -618,7 +618,7 @@ static inline int km_need_pause_all(void)
            (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
 }
 
-int km_do_shell = 1;
+int km_do_shell = 0;
 
 static void km_check_do_shell(void)
 {

@@ -1,4 +1,4 @@
-#!hello_test
+#!hello_test.km
 #
 # Copyright 2021 Kontain Inc
 #
@@ -24,4 +24,3 @@ snapshot_dir /mySnapshots
 support_shell false
 verbose (mmap|mem)
 gdb_listen true
-

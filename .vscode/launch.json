@@ -73,11 +73,11 @@
          "request": "launch",
          "program": "${workspaceFolder}/build/km/km",
          "args": [
-            "${input:test_payload}.${input:payload_type}",
+            "tests/${input:test_payload}.${input:payload_type}",
             "${input:payload_args}"
          ],
          "stopAtEntry": true,
-         "cwd": "${workspaceFolder}/tests",
+         "cwd": "${workspaceFolder}",
          "environment": [],
          "externalConsole": false,
          "MIMode": "gdb",
@@ -413,7 +413,8 @@
             "kmd",
             "so",
             "alpine.km",
-            "fedora"
+            "fedora",
+            "fedora.dyn",
          ]
       },
       {

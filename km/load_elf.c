@@ -298,6 +298,12 @@ uint64_t km_load_elf(km_elf_t* e)
  */
 km_elf_t* km_open_elf_file(const char* path)
 {
+   /*
+    * We come here at the start of km, which could be the first km or it could be after exec.
+    * In case of errors here regular execve syscall would return ENOEXEC. We cannot do that as
+    * parent km first exec into km and then open elf, so by the time we see this it is too late, so
+    * we just exit with error.
+    */
    // Open ELF file
    km_elf_t* elf = (km_elf_t*)malloc(sizeof(km_elf_t));
    memset(elf, 0, sizeof(km_elf_t));

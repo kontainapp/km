@@ -83,8 +83,7 @@ DEPS = ${SRC_C:%.c=%.d} ${SRC_SHR:%.c=%.d} ${SRC_CPP:%.cpp=%.d} ${HELPER_SRC:%.c
 
 SUFFIXES := .km .kmd .km.so .alpine.km .alpine.kmd .${DTYPE} .${DTYPE}.dyn
 TESTS := ${SRC_C:%.c=%} ${SRC_CPP:%.cpp=%}
-EXECS := ${TESTS} $(abspath hello_test_link) \
-	$(foreach s,${SUFFIXES},$(addsuffix ${s},${TESTS}))
+EXECS := $(foreach s,${SUFFIXES},$(addsuffix ${s},${TESTS}))
 
 # misc. other .so files
 SEXECS := ${SRC_SHR:%.c=%.so}
@@ -128,12 +127,6 @@ ${SRC_CPP:%.cpp=%.km.so}: KCC=${KCXX}
 
 %.${DTYPE}.dyn: %.o
 	${CC} ${LDFLAGS} $< ${LDLIBS} -o $@
-
-%_test: ${KM_BIN}
-	ln -sf $$(realpath --relative-to=${CURDIR} $<) $@ ; touch $@
-
-%_test_link: %_test
-	ln -sf $$(realpath --no-symlinks --relative-to=${CURDIR} $<) $@
 
 %.so: %.o
 	${CC} -shared ${LDFLAGS} $< ${LDLIBS} -o $@
