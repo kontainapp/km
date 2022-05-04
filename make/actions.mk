@@ -35,7 +35,7 @@ include ${TOP}/make/locations.mk
 # customization of build should be in custom.mk
 include ${TOP}/make/custom.mk
 
-CFLAGS = ${COPTS} ${LOCAL_COPTS} -Wall -ggdb3 -pthread $(addprefix -I , ${INCLUDES}) -ffile-prefix-map=${CURDIR}/=
+CFLAGS = ${COPTS} ${LOCAL_COPTS} -Wall -ggdb3 -pthread $(addprefix -I , ${INCLUDES}) -ffile-prefix-map=${TOP}/=
 DEPS = $(addprefix ${BLDDIR}/, $(addsuffix .d, $(basename ${SOURCES})))
 OBJS = $(sort $(addprefix ${BLDDIR}/, $(addsuffix .o, $(basename ${SOURCES}))))
 BLDEXEC = $(addprefix ${BLDDIR}/,${EXEC})
@@ -76,7 +76,7 @@ release: subdirs ## Package .tar.gz files for external release to build dir
 publish-release: subdirs ## Publish release tarballs to githib km-releases repo
 
 $(SUBDIRS):
-	$(MAKE) -C $@  MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=
+	$(MAKE) -C $@ MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=
 
 .PHONY: subdirs $(SUBDIRS)
 

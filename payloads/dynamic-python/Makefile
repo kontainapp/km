@@ -35,7 +35,7 @@ TESTENV_EXTRA_FILES := $(wildcard /opt/kontain/lib/libmimalloc.so*)
 PYTHONTOP ?= ${TOP}/payloads/python/cpython
 
 # this is how we run python.km tests in container
-CONTAINER_TEST_CMD := ./scripts/test-run.sh ./python
+CONTAINER_TEST_CMD := ./scripts/test-run.sh ./km ./python.km
 
 # Component id for docker images.
 # Note that for now it is version-independent (i.e. not python${VERS})

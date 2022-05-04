@@ -36,13 +36,13 @@ not_needed_static='gdb_sharedlib dlopen'
 todo_static=''
 
 # skip slow ones
-not_needed_alpine_static='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test readlink_argv km_identity dlopen exec_sh'
+not_needed_alpine_static='linux_exec setup_link setup_load gdb_sharedlib mem_regions threads_mutex sigaltstack mem_test km_identity dlopen exec_sh'
 # review - some fail. Some slow
 todo_alpine_static='dl_iterate_phdr gdb_forkexec'
 
 # glibc native
-not_needed_glibc_static='cpuid setup_link setup_load gdb_sharedlib readlink_argv km_identity dlopen exec_sh'
-not_needed_glibc_dynamic='cpuid setup_link setup_load gdb_sharedlib readlink_argv km_identity dlopen exec_sh'
+not_needed_glibc_static='cpuid setup_link setup_load gdb_sharedlib km_identity dlopen exec_sh'
+not_needed_glibc_dynamic='cpuid setup_link setup_load gdb_sharedlib km_identity dlopen exec_sh'
 
 # exception - extra segment in kmcore
 # dl_iterate_phdr - load starts at 4MB instead of 2MB
@@ -65,7 +65,7 @@ not_needed_alpine_dynamic=$not_needed_alpine_static
 todo_alpine_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic='km_main_argv0 km_main_shebang km_main_symlink linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 readlink_argv km_identity exec_sh'
+not_needed_dynamic='linux_exec setup_load mem_slots cli km_main_env mem_brk mmap_1 km_identity exec_sh'
 todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps km_exec_guest_files'
 
 # running .so as executables was useful at some point, but it isn't needed anymore.
@@ -219,20 +219,6 @@ fi
    assert_failure
 }
 
-@test "km_main_argv0($test_type): redirecting argv0 to argv0.km payload messages (hello_test$ext)" {
-   # test that KM redirects to proper payload.km when invoked as `./payload`
-   local payload=hello_test
-   KM_VERBOSE=generic run ./$payload SomeArg --LooksLikeAFlag
-   assert_success
-   assert_line --partial "argv[1] = 'SomeArg'"
-   refute_line "invalid option"
-   KMLOGFILE=`echo -e ${output} | grep "Switch km logging to" | sed -e "s/.*Switch km logging to //" | sed -e "s/ on first attempt to log.*//"`
-   grep -q "Setting payload name to .*/$payload.km" $KMLOGFILE
-   assert_success
-   run grep -q "invalid option" $KMLOGFILE
-   assert_failure
-}
-
 @test "km_main_env($test_type): passing environment to payloads (env_test$ext)" {
    val=`pwd`/$$
 
@@ -249,7 +235,7 @@ fi
 }
 
 @test "mem_slots($test_type): KVM memslot / phys mem sizes (memslot_test$ext)" {
-   run ./memslot_test
+   run km_with_timeout ./memslot_test$ext
    assert_success
 }
 
@@ -1218,25 +1204,6 @@ fi
    assert_line --partial "Extracting payload name from shebang file 'shebang_test_noargs.sh'"
    refute_line --partial "set"
    assert_line --partial "argv[2] = 'AndEvenMore'"
-
-   # shebang to nested symlink
-   KM_VERBOSE=generic run $KM_BIN ${KM_ARGS} shebang_test_link.sh AndEvenMore
-   assert_success
-   assert_line --partial "Extracting payload name from shebang file 'shebang_test_link.sh'"
-   assert_line --partial "Found arg: 'arguments to test, should be one'"
-   assert_line --partial "argv[3] = 'AndEvenMore'"
-}
-
-@test "km_main_symlink($test_type): symlink handling" {
-   # single symlink
-   run ./hello_test AndEvenMore
-   assert_success
-   assert_line --partial "argv[1] = 'AndEvenMore'"
-
-   # double symlink
-   run ./hello_test_link AndEvenMore
-   assert_success
-   assert_line --partial "argv[1] = 'AndEvenMore'"
 }
 
 @test "exec($test_type): test execve and execveat hypercalls (exec_test$ext)" {
@@ -1263,57 +1230,24 @@ fi
    assert_output --partial "errno 2,"
    run km_with_timeout exec_test$ext -E
    assert_failure
-   assert_output --partial "errno 8,"
-
-   # test exec into shebang
-   KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout exec_test$ext
-   assert_line --regexp 'argv\[0\] = .*tests/hello_test.km'
-   assert_line --partial "argv[1] = 'arguments to test, should be one'"
-   assert_line --partial "argv[6] = 'd4'"
-   KM_EXEC_TEST_EXE=shebang_test.sh run km_with_timeout exec_test$ext -f
-   assert_line --partial "argv[1] = 'arguments to test, should be one'"
-   assert_line --partial "argv[6] = 'd4'"
-   KM_EXEC_TEST_EXE=shebang_test_link.sh run km_with_timeout exec_test$ext
-   assert_line --regexp 'argv\[0\] = .*tests/hello_test.km'
-   assert_line --partial "argv[1] = 'arguments to test, should be one'"
-   assert_line --partial "argv[6] = 'd4'"
-
-   # test /bin/env in execve()
-   run km_with_timeout exec_test$ext -S
-   assert_success
-   assert_line --regexp ".*Hello, argv\[0\] = .*hello_test.*"
-
-   # test handling of env and sh paths in shabangs passed to km
-   run km_with_timeout shebang_sh_test.sh
-   assert_failure
-   assert_line --partial "realpath(/bin/sh.km) failed: No such file or directory"
-
-   run km_with_timeout shebang_env_test.sh
-   assert_success
-   assert_line --regexp ".*Hello, argv\[0\] = .*hello_test.*"
-
+   # we cannot do correct ENOEXEC as target ELF parsing happens in the other KM after exec
+   assert_output --partial "EHDR magic number mismatch"
 
    # test that fork does not block SIGCHLD signal
    run km_with_timeout exec_target_test$ext parent_of_waitforchild
    assert_success
-}
 
-@test "exec_sh($test_type): test execve to /bin/sh and .km (exec_test$ext)" {
    # test exec in .km file
    run km_with_timeout exec_test$ext -k
    assert_success
    assert_line --partial "Hello, argv[1] = 'TESTING exec to .km'"
+}
 
-   # test exec into /bin/sh
-   run km_with_timeout exec_test$ext -s
-   assert_success
-   assert_line --partial "Hello, argv[0] = './hello_test.km'"
-   assert_line --partial "Hello, argv[3] = 'more quotes'"
-
+@test "exec_sh($test_type): test execve to /bin/sh and .km (exec_test$ext)" {
    # test exec into realpath(/proc/self/exe)
    run km_with_timeout exec_test$ext -X
    assert_success
-   assert_line --regexp "^/proc/self/exe resolved to .*/exec_test.km"
+   assert_line --regexp "^/proc/self/exe resolved to .*/exec_test$ext"
    assert_line --partial "noop: -0 requested"
 }
 
@@ -1347,7 +1281,7 @@ fi
    f2=/tmp/f2$$
    flog=/tmp/xx$$
 
-   run km_with_timeout popen_test$ext /etc/group $f1 $f2
+   run km_with_timeout --putenv TESTPROG=./pipetarget_test$ext popen_test$ext /etc/group $f1 $f2
    assert_success
    diff /etc/group $f1
    assert_success
@@ -1355,16 +1289,16 @@ fi
    assert_success
 
    # now test with a relative path to pipetarget_test but no place to find it, should fail
-   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test popen_test$ext /etc/group $f1 $f2
+   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test$ext popen_test$ext /etc/group $f1 $f2
    assert_failure 1
 
    # now test with a relative path to pipetarget_test but with a PATH var
-   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test --putenv PATH="/usr/bin:." popen_test$ext /etc/group $f1 $f2
+   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test$ext --putenv PATH="/usr/bin:." popen_test$ext /etc/group $f1 $f2
    assert_success
 
    # now test with full path to pipetarget_test and no PATH var.
    echo Error log is in $flog
-   run km_with_timeout --timeout 5s -V --putenv TESTPROG=`pwd`/pipetarget_test -V popen_test$ext /etc/group $f1 $f2 2>$flog
+   run km_with_timeout --timeout 5s -V --putenv TESTPROG=`pwd`/pipetarget_test$ext -V popen_test$ext /etc/group $f1 $f2 2>$flog
    assert_success
 
    rm $f1 $f2
@@ -1392,13 +1326,7 @@ fi
    run km_with_timeout --timeout 5s fs_exec_test$ext parent
    assert_success
    assert_line --regexp "parent exe: /[^[:space:]]*/tests/fs_exec_test$ext parent"
-   assert_line --regexp "child  exe: /[^[:space:]]*/tests/fs_exec_test.km child"
-}
-
-@test "readlink_argv($test_type): readlink(argv[0]) should return .km file (readlink_argv0_test$ext)" {
-   run ./readlink_argv0_test
-   assert_success
-   assert_line --regexp "slink=/[^[:space:]]*/tests/readlink_argv0_test$ext"
+   assert_line --regexp "child  exe: /[^[:space:]]*/tests/fs_exec_test$ext child"
 }
 
 #

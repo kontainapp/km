@@ -34,8 +34,6 @@
  * -e to test ENOENT errno
  * -E flag to test ENOEXEC errno
  * -k flags to test exec into '.km' file
- * -s to test /bin/sh parse
- * -S to test /bin/env (and others) parse via shebang exec
  * -X to test exec into realpath of /proc/self/exe
  *
  * Set KM_EXEC_TEST_EXE environment to override what it being exec-ed into by default
@@ -45,7 +43,7 @@
  */
 
 #define EXEC_TEST_EXE_ENV "KM_EXEC_TEST_EXE"
-#define EXEC_TEST_EXE_DEFAULT "print_argenv_test"
+#define EXEC_TEST_EXE_DEFAULT "print_argenv_test.km"
 #define EXEC_TEST_EXE_KM "hello_test.km"
 
 #define EXEC_TEST_EXE_ENOENT "this_file_should_not_exist.ever"
@@ -90,7 +88,7 @@ int main(int argc, char** argv)
    } else if (strcmp(argv[1], "-E") == 0) {
       rc = execve(EXEC_TEST_EXE_ENOEXEC, testargv, testenvp);
       fprintf(stderr,
-              "Expected failure: execve()  rc %d, errno %d, %s: %s\n",
+              "Expected failure: execve() rc %d, errno %d, %s: %s\n",
               rc,
               errno,
               strerror(errno),
@@ -112,25 +110,6 @@ int main(int argc, char** argv)
       fprintf(stderr, "%s resolved to %s\n", testargv[0], path);
 
       rc = execve(path, testargv, testenvp);
-      fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
-   } else if (strcmp(argv[1], "-s") == 0) {   // exec into /bin/sh
-      if (KM_PAYLOAD() == 0) {
-         fprintf(stderr, "not in payload - nothing to do here\n");
-         return 0;
-      }
-      // sanity check for /bin/sh parse. Note that it works ONLY for .km pass
-      char* testargv[] = {"/bin/sh",
-                          "-c",
-                          "./hello_test.km --parse \"string with quotes\" 'more\\ quotes' ! ;",
-                          NULL};
-      rc = execve("/bin/sh", testargv, testenvp);
-      fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
-   } else if (strcmp(argv[1], "-S") == 0) {   // exec into shebang /bin/env
-      char* testargv[] = {"/bin/env", "./hello_test.km", NULL};
-      if (KM_PAYLOAD() == 0) {
-         testargv[1] = "./hello_test.fedora";
-      }
-      rc = execve("/bin/env", testargv, testenvp);
       fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
    } else if (strcmp(argv[1], "-0") == 0) {   // noop, usually from exec-d program
       fprintf(stderr, "noop: -0 requested\n");

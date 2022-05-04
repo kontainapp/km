@@ -36,7 +36,7 @@
 int main(int argc, char* argv[])
 {
    //   char payload[] = "tests/hello_test";
-   char payload[] = "hello_test";
+   char payload[] = "hello_test.km";
    pid_t pid;
 
    pid = fork();
