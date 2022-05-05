@@ -497,9 +497,10 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    kvm_vcpu_init_sregs(new_vcpu);
 
    /*
-    * pretend we have hc_args on the stack so clone wrapper behaves the same wy for child and parent
+    * pretend we have hc_args on the stack so clone wrapper
+    * behaves the same way for child and parent
     */
-   km_gva_t sp = new_vcpu->stack_top - sizeof(km_hc_args_t);
+   km_gva_t sp = new_vcpu->stack_top - km_vmdriver_stack_adjustment(vcpu);
    km_vcpu_sync_rip(vcpu);
    vcpu->regs_valid = 0;
    km_read_registers(vcpu);

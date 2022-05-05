@@ -658,7 +658,7 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
     * Note: this needs to be kept in sync with __km_syscall_handler.
     */
    km_signal_frame_t* frame =
-       km_gva_to_kma_nocheck(vcpu->regs.rsp + sizeof(km_hc_args_t) - sizeof(km_gva_t));
+       km_gva_to_kma_nocheck(vcpu->regs.rsp + km_vmdriver_stack_adjustment(vcpu) - sizeof(km_gva_t));
    // check if we use sigaltstack is used, and we are leaving it now
    if (km_on_altstack(vcpu, vcpu->regs.rsp) == 1 &&
        km_on_altstack(vcpu, frame->ucontext.uc_mcontext.gregs[REG_RSP]) == 0) {

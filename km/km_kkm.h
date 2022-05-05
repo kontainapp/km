@@ -19,6 +19,7 @@
 
 #include "km_mem.h"
 
+#define KKM_ABI_REDZONE (128)
 #define KKM_SAVE_INFO_SZ (64)
 /*
  * KKM_KONTEXT_GET_SAVE_INFO and KKM_KONTEXT_SET_SAVE_INFO
@@ -37,6 +38,19 @@ typedef struct kkm_xstate {
    uint8_t data[KM_PAGE_SIZE];
 } kkm_xstate_t;
 static_assert(sizeof(struct kkm_xstate) == 4096, "kkm_xstate need to be in sync with kkm module");
+
+enum fault_reason {
+   FAULT_UNKNOWN = 0,
+   FAULT_HYPER_CALL = 1,
+   FAULT_SYSCALL = 2,
+};
+
+typedef struct kkm_private_area {
+   uint32_t data;
+   enum fault_reason reason;
+} kkm_private_area_t;
+static_assert(sizeof(struct kkm_private_area) == 8,
+              "kkm_private_area is known to kkm, size is fixed at 8 bytes");
 
 /*
  * KKM_CPU_SUPPORTED
@@ -61,5 +75,6 @@ int km_kkm_set_save_info(km_vcpu_t* vcpu, uint8_t ksi_valid, kkm_save_info_t* ks
 int km_kkm_get_save_info(km_vcpu_t* vcpu, kkm_save_info_t* ksi);
 int km_kkm_set_xstate(km_vcpu_t* vcpu, uint8_t kx_valid, kkm_xstate_t* kx);
 int km_kkm_get_xstate(km_vcpu_t* vcpu, kkm_xstate_t* kx);
+int km_kkm_get_stack_adjustment(km_vcpu_t* vcpu);
 
 #endif /* #ifndef __KM_KKM_H__ */
