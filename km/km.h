@@ -766,6 +766,7 @@ size_t km_vmdriver_fpstate_size();
 int km_vmdriver_save_fpstate(km_vcpu_t* vcpu, void* addr, int fptype, int preserve_state);
 int km_vmdriver_restore_fpstate(km_vcpu_t* vcpu, void* addr, int fptype);
 void km_vmdriver_clone(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);
+int km_vmdriver_stack_adjustment(km_vcpu_t* vcpu);
 void km_vmdriver_save_fork_info(km_vcpu_t* vcpu, uint8_t* ksi_valid, void* ksi, uint8_t* kx_valid, void* kx);
 void km_vmdriver_restore_fork_info(
     km_vcpu_t* vcpu, uint8_t ksi_valid, void* ksi, uint8_t kx_valid, void* kx);

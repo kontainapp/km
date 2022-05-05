@@ -275,7 +275,7 @@ int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone)
       *childarg = *km_fork_state.arg;
       childarg->hc_ret = 0;
 
-      km_fork_state.regs.rsp = km_fork_state.arg->arg2 - sizeof(km_hc_args_t);
+      km_fork_state.regs.rsp = km_fork_state.arg->arg2 - km_vmdriver_stack_adjustment(vcpu);
    } else {
       km_fork_state.stack_top = vcpu->stack_top;
    }

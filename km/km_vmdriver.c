@@ -174,6 +174,20 @@ void km_vmdriver_clone(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    }
 }
 
+int km_vmdriver_stack_adjustment(km_vcpu_t* vcpu)
+{
+   int adjust = -1;
+   switch (machine.vm_type) {
+      case VM_TYPE_KVM:
+         adjust = sizeof(km_hc_args_t);
+         break;
+      case VM_TYPE_KKM:
+         adjust = sizeof(km_hc_args_t) + km_kkm_get_stack_adjustment(vcpu);
+         break;
+   }
+   return adjust;
+}
+
 /*
  * KKM internal state saved and restored between old and new vcpus
  * currently used in fork

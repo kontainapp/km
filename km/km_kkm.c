@@ -81,3 +81,19 @@ int km_kkm_get_xstate(km_vcpu_t* vcpu, kkm_xstate_t* kx)
    }
    return retval;
 }
+
+/*
+ * Adjust stack depending on syscall or out instruction.
+ * When a syscall instruction is executed KKM copies hc_args to payload stack.
+ * During a hypercall(out) compiler places hc_args. So there is no need for REDZONE.
+ */
+int km_kkm_get_stack_adjustment(km_vcpu_t* vcpu)
+{
+   int adjust = 0;
+   kvm_run_t* parent_r = vcpu->cpu_run;
+   kkm_private_area_t* kpa = (kkm_private_area_t*)((char*)vcpu->cpu_run + parent_r->io.data_offset);
+   if (kpa->reason == FAULT_SYSCALL) {
+      adjust = KKM_ABI_REDZONE;
+   }
+   return adjust;
+}
