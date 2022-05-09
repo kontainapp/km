@@ -325,7 +325,7 @@ fork_again:;
               errno,
               siginfo.si_pid,
               siginfo.si_status,
-	      siginfo.si_code);
+              siginfo.si_code);
       if (rc < 0) {
          fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, fpid, strerror(errno));
          if (getpid() == oldest_parent) {
