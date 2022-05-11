@@ -33,6 +33,8 @@
 #include "km_gdb.h"
 #include "km_mem.h"
 
+#define KM_VIRT_DEVICE "--virt-device="   // convenience macro
+
 /*
  * The execve hypercall builds the following environment variables which are appended to
  * the exec'ed program's environment.  The exec'ed km picks these up and and sets things
@@ -368,15 +370,32 @@ char** km_exec_build_argv(char* filename, char** argv, char** envp)
       nargv[0] = km_get_self_name();                               // km exec
       return nargv;
    }
-   pl_name = strdup(filename);                                    // not shebang
-   if ((nargv = calloc(1 + argc + 1, sizeof(char*))) == NULL) {   // km exec, cnt, and NULL
+   pl_name = strdup(filename);    // not shebang
+   int new_argc = 1 + argc + 1;   // km exec, cnt, and NULL
+   if (km_machine_init_params.vdev_name != NULL) {
+      new_argc++;
+   }
+   if ((nargv = calloc(new_argc, sizeof(char*))) == NULL) {   // km exec, cnt, and NULL
       km_infox(KM_TRACE_EXEC, "Couldn't allocate %ld bytes", (1 + argc + 1) * sizeof(char*));
       free(argv);
       return NULL;
    }
-   nargv[0] = km_get_self_name();   // km exec
-   nargv[1] = pl_name;
-   memcpy(nargv + 2, argv + 1, sizeof(char*) * (argc - 1));
+   int new_argc_index = 0;
+   nargv[new_argc_index++] = km_get_self_name();   // km exec
+   if (km_machine_init_params.vdev_name != NULL) {
+      int string_len = strlen(KM_VIRT_DEVICE) + strlen(km_machine_init_params.vdev_name) + 1;
+      char* string_ptr = malloc(string_len * sizeof(char));
+      if (string_ptr == NULL) {
+         km_infox(KM_TRACE_EXEC, "Couldn't allocate %ld bytes", string_len);
+         free(argv);
+         return NULL;
+      }
+      snprintf(string_ptr, string_len, "%s%s", KM_VIRT_DEVICE, km_machine_init_params.vdev_name);
+      nargv[new_argc_index++] = string_ptr;
+   }
+   nargv[new_argc_index++] = pl_name;
+
+   memcpy(nargv + new_argc_index, argv + 1, sizeof(char*) * (argc - 1));
 
    if (km_trace_tag_enabled(KM_TRACE_EXEC) != 0) {
       for (int i = 0; i < argc + 1; i++) {

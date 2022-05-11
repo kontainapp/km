@@ -45,6 +45,7 @@
 #define EXEC_TEST_EXE_ENV "KM_EXEC_TEST_EXE"
 #define EXEC_TEST_EXE_DEFAULT "print_argenv_test.km"
 #define EXEC_TEST_EXE_KM "hello_test.km"
+#define EXEC_MISC_TEST_EXE_KM "misc_test.km"
 
 #define EXEC_TEST_EXE_ENOENT "this_file_should_not_exist.ever"
 #define EXEC_TEST_EXE_ENOEXEC "enoexec.helper"   // existing file but not an ELF
@@ -110,6 +111,11 @@ int main(int argc, char** argv)
       fprintf(stderr, "%s resolved to %s\n", testargv[0], path);
 
       rc = execve(path, testargv, testenvp);
+      fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
+   } else if (strcmp(argv[1], "-m") == 0) {   // exec misc test
+      char* misc_test_argv[] = {EXEC_MISC_TEST_EXE_KM, NULL};
+      char* misc_test_envp[] = {NULL};
+      rc = execve(EXEC_MISC_TEST_EXE_KM, misc_test_argv, misc_test_envp);
       fprintf(stderr, "execve() failed, rc %d, errno %d, %s\n", rc, errno, strerror(errno));
    } else if (strcmp(argv[1], "-0") == 0) {   // noop, usually from exec-d program
       fprintf(stderr, "noop: -0 requested\n");
