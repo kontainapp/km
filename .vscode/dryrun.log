@@ -1,0 +1,1305 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/home/azure-user/km'
+ 
+make -C lib MAKEFLAGS="Bknw"  MAKEOVERRIDES=
+ 
+make[1]: Entering directory '/home/azure-user/km/lib'
+ 
+make -C libkontain MAKEFLAGS="Bknw"  MAKEOVERRIDES=
+ 
+make[2]: Entering directory '/home/azure-user/km/lib/libkontain'
+ 
+libkontain: ignoring target /home/azure-user/km/make/custom.mk
+ 
+libkontain: ignoring target /home/azure-user/km/cloud/azure/cloud_config.mk
+ 
+libkontain: ignoring target /home/azure-user/km/make/locations.mk
+ 
+libkontain: ignoring target /home/azure-user/km/make/actions.mk
+ 
+libkontain: ignoring target Makefile
+ 
+echo libkontain: ignoring target 'libkontain.h'
+ 
+echo libkontain: ignoring target 'libkontain.c'
+mkdir -p /home/azure-user/km/build/lib/libkontain/
+cc -c -O2   -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/lib/libkontain/libkontain.c -o /home/azure-user/km/build/lib/libkontain/libkontain.o
+echo "Making " /home/azure-user/km/build/lib/libkontain/libkontain.a; rm -f /home/azure-user/km/build/lib/libkontain/libkontain.a; ar crs /home/azure-user/km/build/lib/libkontain/libkontain.a /home/azure-user/km/build/lib/libkontain/libkontain.o
+ 
+echo "Making " /home/azure-user/km/build/lib/libkontain/libkontain.so; rm -f /home/azure-user/km/build/lib/libkontain/libkontain.so; cc -shared -o /home/azure-user/km/build/lib/libkontain/libkontain.so /home/azure-user/km/build/lib/libkontain/libkontain.o
+mkdir -p /opt/kontain/include
+cp libkontain.h /opt/kontain/include
+mkdir -p /opt/kontain/lib
+cp /home/azure-user/km/build/lib/libkontain/libkontain.a /opt/kontain/lib
+cp /home/azure-user/km/build/lib/libkontain/libkontain.so /opt/kontain/lib
+make[2]: Leaving directory '/home/azure-user/km/lib/libkontain'
+ 
+make -C mimalloc MAKEFLAGS="Bknw"  MAKEOVERRIDES=
+ 
+make[2]: Entering directory '/home/azure-user/km/lib/mimalloc'
+ 
+mimalloc: ignoring target /home/azure-user/km/make/custom.mk
+ 
+mimalloc: ignoring target /home/azure-user/km/cloud/azure/cloud_config.mk
+ 
+mimalloc: ignoring target /home/azure-user/km/make/locations.mk
+ 
+mimalloc: ignoring target /home/azure-user/km/make/actions.mk
+ 
+mimalloc: ignoring target Makefile
+ 
+cmake -S /home/azure-user/km/lib/mimalloc/mimalloc -B /home/azure-user/km/build/lib/mimalloc/mimalloc -D MI_BUILD_TESTS:BOOL=OFF -D CMAKE_BUILD_TYPE=Release -D CMAKE_SHARED_LINKER_FLAGS="-L/opt/kontain/alpine-lib/usr/lib -L/opt/kontain/alpine-lib/lib -Wl,-rpath,/opt/kontain/alpine-lib/usr/lib:/opt/kontain/alpine-lib/lib:"
+make -C /home/azure-user/km/build/lib/mimalloc/mimalloc
+mkdir -p /opt/kontain/lib
+cp /home/azure-user/km/build/lib/mimalloc/mimalloc/libmimalloc.a /opt/kontain/lib/libmimalloc.a
+chmod 0644 /opt/kontain/lib/libmimalloc.a
+cp /home/azure-user/km/build/lib/mimalloc/mimalloc/libmimalloc.so.1.7 /opt/kontain/lib/libmimalloc.so.1.7
+ 
+chmod 0755 /opt/kontain/lib/libmimalloc.so.1.7
+ln -f -s /opt/kontain/lib/libmimalloc.so.1.7  /opt/kontain/lib/libmimalloc.so
+ldd /home/azure-user/km/build/lib/mimalloc/mimalloc/libmimalloc.so.1.7
+make[2]: Leaving directory '/home/azure-user/km/lib/mimalloc'
+ 
+make[1]: Leaving directory '/home/azure-user/km/lib'
+make -C km MAKEFLAGS="Bknw"  MAKEOVERRIDES=
+ 
+make[1]: Entering directory '/home/azure-user/km/km'
+ 
+km: ignoring target /home/azure-user/km/make/custom.mk
+ 
+km: ignoring target /home/azure-user/km/cloud/azure/cloud_config.mk
+ 
+km: ignoring target /home/azure-user/km/make/locations.mk
+ 
+km: ignoring target /home/azure-user/km/make/actions.mk
+ 
+km: ignoring target Makefile
+echo km: ignoring target 'gdb_kvm_x86_64.c'
+mkdir -p /home/azure-user/km/build/km/
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/gdb_kvm_x86_64.c -o /home/azure-user/km/build/km/gdb_kvm_x86_64.o
+echo km: ignoring target 'km_coredump.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_coredump.c -o /home/azure-user/km/build/km/km_coredump.o
+echo km: ignoring target 'km_cpu_init.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_cpu_init.c -o /home/azure-user/km/build/km/km_cpu_init.o
+echo km: ignoring target 'km_decode.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_decode.c -o /home/azure-user/km/build/km/km_decode.o
+echo km: ignoring target 'km_exec.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_exec.c -o /home/azure-user/km/build/km/km_exec.o
+echo km: ignoring target 'km_exec_fd_save_recover.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_exec_fd_save_recover.c -o /home/azure-user/km/build/km/km_exec_fd_save_recover.o
+echo km: ignoring target 'km_filesys.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_filesys.c -o /home/azure-user/km/build/km/km_filesys.o
+echo km: ignoring target 'km_fork.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_fork.c -o /home/azure-user/km/build/km/km_fork.o
+echo km: ignoring target 'km_gdb_stub.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_gdb_stub.c -o /home/azure-user/km/build/km/km_gdb_stub.o
+echo km: ignoring target 'km_guest_asmcode.s'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic -fpic /home/azure-user/km/km/km_guest_asmcode.s -o /home/azure-user/km/build/km/km_guest_asmcode.o
+echo km: ignoring target 'km_hc_name.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_hc_name.c -o /home/azure-user/km/build/km/km_hc_name.o
+echo km: ignoring target 'km_hcalls.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_hcalls.c -o /home/azure-user/km/build/km/km_hcalls.o
+echo km: ignoring target 'km_init_guest.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_init_guest.c -o /home/azure-user/km/build/km/km_init_guest.o
+echo km: ignoring target 'km_intr.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_intr.c -o /home/azure-user/km/build/km/km_intr.o
+echo km: ignoring target 'km_kkm.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_kkm.c -o /home/azure-user/km/build/km/km_kkm.o
+ 
+echo km: ignoring target '/home/azure-user/km/.git/HEAD'
+echo km: ignoring target '/home/azure-user/km/.git/index'
+touch km_main.c
+ 
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic -DSRC_BRANCH=sm/vk8sartifactupdate -DSRC_VERSION=078962128973812cfaae61c08441a21ecac40167 -DBUILD_TIME=2022-05-11T23:21+00:00 /home/azure-user/km/km/km_main.c -o /home/azure-user/km/build/km/km_main.o
+ 
+echo km: ignoring target 'km_management.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_management.c -o /home/azure-user/km/build/km/km_management.o
+echo km: ignoring target 'km_mem.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_mem.c -o /home/azure-user/km/build/km/km_mem.o
+ 
+echo km: ignoring target 'km_mmap.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_mmap.c -o /home/azure-user/km/build/km/km_mmap.o
+echo km: ignoring target 'km_musl_related.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_musl_related.c -o /home/azure-user/km/build/km/km_musl_related.o
+ 
+echo km: ignoring target 'km_proc.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_proc.c -o /home/azure-user/km/build/km/km_proc.o
+echo km: ignoring target 'km_signal.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_signal.c -o /home/azure-user/km/build/km/km_signal.o
+ 
+echo km: ignoring target 'km_snapshot.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_snapshot.c -o /home/azure-user/km/build/km/km_snapshot.o
+echo km: ignoring target 'km_trace.c'
+ 
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_trace.c -o /home/azure-user/km/build/km/km_trace.o
+echo km: ignoring target 'km_vcpu_run.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_vcpu_run.c -o /home/azure-user/km/build/km/km_vcpu_run.o
+ 
+echo km: ignoring target 'km_vmdriver.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/km_vmdriver.c -o /home/azure-user/km/build/km/km_vmdriver.o
+echo km: ignoring target 'load_elf.c'
+cc -c -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/km/load_elf.c -o /home/azure-user/km/build/km/load_elf.o
+ 
+echo km: ignoring target '/opt/kontain/bin'
+ 
+cc -O2  -Werror -D_GNU_SOURCE -Wall -ggdb3 -pthread -I /home/azure-user/km/include -ffile-prefix-map=/home/azure-user/km/= -fpic /home/azure-user/km/build/km/gdb_kvm_x86_64.o /home/azure-user/km/build/km/km_coredump.o /home/azure-user/km/build/km/km_cpu_init.o /home/azure-user/km/build/km/km_decode.o /home/azure-user/km/build/km/km_exec.o /home/azure-user/km/build/km/km_exec_fd_save_recover.o /home/azure-user/km/build/km/km_filesys.o /home/azure-user/km/build/km/km_fork.o /home/azure-user/km/build/km/km_gdb_stub.o /home/azure-user/km/build/km/km_guest_asmcode.o /home/azure-user/km/build/km/km_hc_name.o /home/azure-user/km/build/km/km_hcalls.o /home/azure-user/km/build/km/km_init_guest.o /home/azure-user/km/build/km/km_intr.o /home/azure-user/km/build/km/km_kkm.o /home/azure-user/km/build/km/km_main.o /home/azure-user/km/build/km/km_management.o /home/azure-user/km/build/km/km_mem.o /home/azure-user/km/build/km/km_mmap.o /home/azure-user/km/build/km/km_musl_related.o /home/azure-user/km/build/km/km_proc.o /home/azure-user/km/build/km/km_signal.o /home/azure-user/km/build/km/km_snapshot.o /home/azure-user/km/build/km/km_trace.o /home/azure-user/km/build/km/km_vcpu_run.o /home/azure-user/km/build/km/km_vmdriver.o /home/azure-user/km/build/km/load_elf.o  -Wl,--script=km_guest_ldcmd -static-pie  -o /home/azure-user/km/build/km/km
+if [ ""system_u:object_r:bin_t:s0"" != "" -a -e /usr/sbin/getenforce ]; then if [ `/usr/sbin/getenforce` != "Disabled" ]; then chcon "system_u:object_r:bin_t:s0" /home/azure-user/km/build/km/km; fi; fi
+cp -Z /home/azure-user/km/build/km/km /opt/kontain/bin
+make[1]: Leaving directory '/home/azure-user/km/km'
+ 
+make -C km_cli MAKEFLAGS="Bknw"  MAKEOVERRIDES=
+ 
+make[1]: Entering directory '/home/azure-user/km/km_cli'
+ 
+km_cli: ignoring target /home/azure-user/km/make/custom.mk
+ 
+km_cli: ignoring target /home/azure-user/km/cloud/azure/cloud_config.mk
+ 
+km_cli: ignoring target /home/azure-user/km/make/locations.mk
+ 
+km_cli: ignoring target /home/azure-user/km/make/actions.mk
+ 
+km_cli: ignoring target Makefile
+ 
+echo km_cli: ignoring target '/home/azure-user/km/.git/HEAD'
+ 
+echo km_cli: ignoring target '/home/azure-user/km/.git/index'
+ 
+touch km_client.c
+mkdir -p /home/azure-user/km/build/km_cli/
+ 
+cc -c -O2   -Wall -ggdb3 -pthread  -ffile-prefix-map=/home/azure-user/km/= -DSRC_BRANCH=sm/vk8sartifactupdate -DSRC_VERSION=078962128973812cfaae61c08441a21ecac40167 -DBUILD_TIME=2022-05-11T23:21+00:00 /home/azure-user/km/km_cli/km_client.c -o /home/azure-user/km/build/km_cli/km_client.o
+echo km_cli: ignoring target '/opt/kontain/bin'
+ 
+cc -O2   -Wall -ggdb3 -pthread  -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/build/km_cli/km_client.o  -static  -o /home/azure-user/km/build/km_cli/km_cli
+if [ "" != "" -a -e /usr/sbin/getenforce ]; then if [ `/usr/sbin/getenforce` != "Disabled" ]; then chcon  /home/azure-user/km/build/km_cli/km_cli; fi; fi
+cp -Z /home/azure-user/km/build/km_cli/km_cli /opt/kontain/bin
+make[1]: Leaving directory '/home/azure-user/km/km_cli'
+ 
+make -C runtime MAKEFLAGS="Bknw"  MAKEOVERRIDES=
+ 
+make[1]: Entering directory '/home/azure-user/km/runtime'
+ 
+runtime: ignoring target /home/azure-user/km/make/custom.mk
+ 
+runtime: ignoring target /home/azure-user/km/cloud/azure/cloud_config.mk
+ 
+runtime: ignoring target /home/azure-user/km/make/locations.mk
+ 
+runtime: ignoring target /home/azure-user/km/make/actions.mk
+ 
+runtime: ignoring target Makefile
+ 
+echo runtime: ignoring target 'chk_stub_km.c'
+mkdir -p /home/azure-user/km/build/runtime/
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/chk_stub_km.c -o /home/azure-user/km/build/runtime/chk_stub_km.o
+echo runtime: ignoring target 'clock_gettime_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/clock_gettime_km.c -o /home/azure-user/km/build/runtime/clock_gettime_km.o
+echo runtime: ignoring target 'clone_km.s'
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/clone_km.s -o /home/azure-user/km/build/runtime/clone_km.o
+echo runtime: ignoring target 'dlstatic_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/dlstatic_km.c -o /home/azure-user/km/build/runtime/dlstatic_km.o
+ 
+echo runtime: ignoring target 'fcntl_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/fcntl_km.c -o /home/azure-user/km/build/runtime/fcntl_km.o
+echo runtime: ignoring target 'getenv_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/getenv_km.c -o /home/azure-user/km/build/runtime/getenv_km.o
+ 
+echo runtime: ignoring target 'getpagesize_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/getpagesize_km.c -o /home/azure-user/km/build/runtime/getpagesize_km.o
+echo runtime: ignoring target 'open_km.c'
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/open_km.c -o /home/azure-user/km/build/runtime/open_km.o
+echo runtime: ignoring target 'poll_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/poll_km.c -o /home/azure-user/km/build/runtime/poll_km.o
+ 
+echo runtime: ignoring target 'preadv_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/preadv_km.c -o /home/azure-user/km/build/runtime/preadv_km.o
+echo runtime: ignoring target 'pthread_yield_km.c'
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/pthread_yield_km.c -o /home/azure-user/km/build/runtime/pthread_yield_km.o
+echo runtime: ignoring target 'pwritev_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/pwritev_km.c -o /home/azure-user/km/build/runtime/pwritev_km.o
+ 
+echo runtime: ignoring target 'rawmemchar_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/rawmemchar_km.c -o /home/azure-user/km/build/runtime/rawmemchar_km.o
+echo runtime: ignoring target 'runtime_stub_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/runtime_stub_km.c -o /home/azure-user/km/build/runtime/runtime_stub_km.o
+ 
+echo runtime: ignoring target 'set_thread_area_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/set_thread_area_km.c -o /home/azure-user/km/build/runtime/set_thread_area_km.o
+echo runtime: ignoring target 'strdup_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/strdup_km.c -o /home/azure-user/km/build/runtime/strdup_km.o
+ 
+echo runtime: ignoring target 'strndup_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/strndup_km.c -o /home/azure-user/km/build/runtime/strndup_km.o
+echo runtime: ignoring target 'strtok_r_km.c'
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/strtok_r_km.c -o /home/azure-user/km/build/runtime/strtok_r_km.o
+echo runtime: ignoring target 'strtoll_l_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/strtoll_l_km.c -o /home/azure-user/km/build/runtime/strtoll_l_km.o
+ 
+echo runtime: ignoring target 'syscall_cp_km.c'
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/syscall_cp_km.c -o /home/azure-user/km/build/runtime/syscall_cp_km.o
+echo runtime: ignoring target 'unmapself_km.c'
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= /home/azure-user/km/runtime/unmapself_km.c -o /home/azure-user/km/build/runtime/unmapself_km.o
+echo "Making " /home/azure-user/km/build/runtime/libruntime.a; rm -f /home/azure-user/km/build/runtime/libruntime.a; ar crs /home/azure-user/km/build/runtime/libruntime.a /home/azure-user/km/build/runtime/chk_stub_km.o /home/azure-user/km/build/runtime/clock_gettime_km.o /home/azure-user/km/build/runtime/clone_km.o /home/azure-user/km/build/runtime/dlstatic_km.o /home/azure-user/km/build/runtime/fcntl_km.o /home/azure-user/km/build/runtime/getenv_km.o /home/azure-user/km/build/runtime/getpagesize_km.o /home/azure-user/km/build/runtime/open_km.o /home/azure-user/km/build/runtime/poll_km.o /home/azure-user/km/build/runtime/preadv_km.o /home/azure-user/km/build/runtime/pthread_yield_km.o /home/azure-user/km/build/runtime/pwritev_km.o /home/azure-user/km/build/runtime/rawmemchar_km.o /home/azure-user/km/build/runtime/runtime_stub_km.o /home/azure-user/km/build/runtime/set_thread_area_km.o /home/azure-user/km/build/runtime/strdup_km.o /home/azure-user/km/build/runtime/strndup_km.o /home/azure-user/km/build/runtime/strtok_r_km.o /home/azure-user/km/build/runtime/strtoll_l_km.o /home/azure-user/km/build/runtime/syscall_cp_km.o /home/azure-user/km/build/runtime/unmapself_km.o
+echo "Making " /home/azure-user/km/build/runtime/libm.a; rm -f /home/azure-user/km/build/runtime/libm.a; ar crs /home/azure-user/km/build/runtime/libm.a
+echo "Making " /home/azure-user/km/build/runtime/libpthread.a; rm -f /home/azure-user/km/build/runtime/libpthread.a; ld -r  -o /home/azure-user/km/build/runtime/libpthread.o; ar crs /home/azure-user/km/build/runtime/libpthread.a -o /home/azure-user/km/build/runtime/libpthread.o
+ 
+echo runtime: ignoring target 'km_pthread_dummy.c'
+cc -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/=  -nostdlib -shared -Wl,--gc-sections -Wl,--exclude-libs=ALL -o /home/azure-user/km/build/runtime/libpthread.so km_pthread_dummy.c
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/pwritev_km.c -o /home/azure-user/km/build/runtime/pwritev_km.lo
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/set_thread_area_km.c -o /home/azure-user/km/build/runtime/set_thread_area_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/strtoll_l_km.c -o /home/azure-user/km/build/runtime/strtoll_l_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/strtok_r_km.c -o /home/azure-user/km/build/runtime/strtok_r_km.lo
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/unmapself_km.c -o /home/azure-user/km/build/runtime/unmapself_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/pthread_yield_km.c -o /home/azure-user/km/build/runtime/pthread_yield_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/strdup_km.c -o /home/azure-user/km/build/runtime/strdup_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/fcntl_km.c -o /home/azure-user/km/build/runtime/fcntl_km.lo
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/clock_gettime_km.c -o /home/azure-user/km/build/runtime/clock_gettime_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/syscall_cp_km.c -o /home/azure-user/km/build/runtime/syscall_cp_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/poll_km.c -o /home/azure-user/km/build/runtime/poll_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/chk_stub_km.c -o /home/azure-user/km/build/runtime/chk_stub_km.lo
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/open_km.c -o /home/azure-user/km/build/runtime/open_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/preadv_km.c -o /home/azure-user/km/build/runtime/preadv_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/strndup_km.c -o /home/azure-user/km/build/runtime/strndup_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/getpagesize_km.c -o /home/azure-user/km/build/runtime/getpagesize_km.lo
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/rawmemchar_km.c -o /home/azure-user/km/build/runtime/rawmemchar_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/runtime_stub_km.c -o /home/azure-user/km/build/runtime/runtime_stub_km.lo
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/getenv_km.c -o /home/azure-user/km/build/runtime/getenv_km.lo
+ 
+cc -c -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/= -fPIC /home/azure-user/km/runtime/clone_km.s -o /home/azure-user/km/build/runtime/clone_km.lo
+ 
+if [ ! -f /opt/kontain/alpine-lib/usr/lib/gcc/x86_64-alpine-linux-musl/10.2.1/libgcc.a ] ; then echo -e  "\033[31m/opt/kontain/alpine-lib/usr/lib/gcc/x86_64-alpine-linux-musl/10.2.1/libgcc.a is not found. Check installation\033[0m"; false; fi
+cc -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc -fomit-frame-pointer -ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math -fno-tree-loop-distribute-patterns -fno-stack-protector -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-value -Wno-unused-but-set-variable -Wno-unknown-pragmas -Wno-pointer-to-int-cast -ffile-prefix-map=/home/azure-user/km/=  -Wall -ggdb3 -pthread -I . -I /home/azure-user/km/include -I musl/arch/x86_64 -I musl/arch/generic -I musl/src/include -I musl/src/internal -I musl/src/errno -I musl/include -I /home/azure-user/km/build/runtime/musl/include -ffile-prefix-map=/home/azure-user/km/=  -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o /home/azure-user/km/build/runtime/libc.so /home/azure-user/km/build/runtime/pwritev_km.lo /home/azure-user/km/build/runtime/set_thread_area_km.lo /home/azure-user/km/build/runtime/strtoll_l_km.lo /home/azure-user/km/build/runtime/strtok_r_km.lo /home/azure-user/km/build/runtime/unmapself_km.lo /home/azure-user/km/build/runtime/pthread_yield_km.lo /home/azure-user/km/build/runtime/strdup_km.lo /home/azure-user/km/build/runtime/fcntl_km.lo /home/azure-user/km/build/runtime/clock_gettime_km.lo /home/azure-user/km/build/runtime/syscall_cp_km.lo /home/azure-user/km/build/runtime/poll_km.lo /home/azure-user/km/build/runtime/chk_stub_km.lo /home/azure-user/km/build/runtime/open_km.lo /home/azure-user/km/build/runtime/preadv_km.lo /home/azure-user/km/build/runtime/strndup_km.lo /home/azure-user/km/build/runtime/getpagesize_km.lo /home/azure-user/km/build/runtime/rawmemchar_km.lo /home/azure-user/km/build/runtime/runtime_stub_km.lo /home/azure-user/km/build/runtime/getenv_km.lo /home/azure-user/km/build/runtime/clone_km.lo  /opt/kontain/alpine-lib/usr/lib/gcc/x86_64-alpine-linux-musl/10.2.1/libgcc.a
+ 
+echo runtime: ignoring target '/opt/kontain/runtime'
+ 
+#
+# set symlinks in ../build
+#
+cd /home/azure-user/km/build/runtime ; if [ ! -L libc.a ] ; then \
+	echo symlink libc.a ; ln -s ./libruntime.a libc.a ; fi
+cd /home/azure-user/km/build/runtime ; if [ ! -L libc.musl-x86_64.so.1 ] ; then \
+	echo symlink lib.musl.so; ln -s ./libc.so libc.musl-x86_64.so.1 ; fi
+cd /home/azure-user/km/build/runtime ; if [ ! -L ld-linux-x86-64.so.2 ] ; then \
+	echo symlink lib.musl.so; ln -s ./libc.so ld-linux-x86-64.so.2 ; fi
+#
+# mkdir and fill /opt/kontain/runtime
+#
+rt=/opt/kontain/runtime; if [ ! -w $rt ] ; then \
+	echo -e "\033[31m/opt/kontain/runtime is not writeable - run 'make -C tests buildenv-local-fedora'\033[0m" ; \
+	false; \
+fi
+echo Copy libs to /opt/kontain/runtime...; cp --no-dereference --preserve=all --update /home/azure-user/km/build/runtime/lib{*.a,*.so*} /home/azure-user/km/build/runtime/ld-linux* /opt/kontain/runtime
+touch /home/azure-user/km/build/runtime/.finalize
+make[1]: Leaving directory '/home/azure-user/km/runtime'
+ 
+make -C container-runtime MAKEFLAGS="Bknw"  MAKEOVERRIDES=
+ 
+make[1]: Entering directory '/home/azure-user/km/container-runtime'
+ 
+container-runtime: ignoring target /home/azure-user/km/make/dep_check.mk
+ 
+container-runtime: ignoring target /home/azure-user/km/make/custom.mk
+ 
+container-runtime: ignoring target /home/azure-user/km/cloud/azure/cloud_config.mk
+ 
+container-runtime: ignoring target /home/azure-user/km/make/locations.mk
+ 
+container-runtime: ignoring target /home/azure-user/km/make/actions.mk
+ 
+container-runtime: ignoring target Makefile
+ 
+cd crun; ./autogen.sh; ./configure
+ 
+if ! grep -q "abs_builddir = /home/azure-user/km/container-runtime" crun/Makefile ; then \
+	echo -e "\033[31mThe generated crun/Makefile uses dir different from the current one (/home/azure-user/km/container-runtime)\033[0m"; \
+	echo -e "\033[31mRun 'make clobber' and then re-make\033[0m"; \
+	false; \
+fi
+make -j1 -C crun all
+cp crun/crun /opt/kontain/bin
+ln -f /opt/kontain/bin/crun /opt/kontain/bin/krun
+ln -f /opt/kontain/bin/crun /opt/kontain/bin/krun-label-trigger
+mkdir -p /home/azure-user/km/build/container-runtime
+cp crun/crun /home/azure-user/km/build/container-runtime/crun
+ln -f /home/azure-user/km/build/container-runtime/crun /home/azure-user/km/build/container-runtime/krun
+ln -f /home/azure-user/km/build/container-runtime/crun /home/azure-user/km/build/container-runtime/krun-label-trigger
+make[1]: Leaving directory '/home/azure-user/km/container-runtime'
+ 
+make -C tests MAKEFLAGS="Bknw"  MAKEOVERRIDES=
+ 
+make[1]: Entering directory '/home/azure-user/km/tests'
+ 
+tests: ignoring target /home/azure-user/km/cloud/azure/cloud_config.mk
+ 
+tests: ignoring target /home/azure-user/km/make/locations.mk
+ 
+tests: ignoring target /home/azure-user/km/make/images.mk
+ 
+tests: ignoring target Makefile
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/snapshot_fail_test.c'
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/mmap_helper.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/mmap_helper.o /home/azure-user/km/tests/mmap_helper.c
+rm -f libhelper.a; ar rv libhelper.a /home/azure-user/km/tests/mmap_helper.o
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/snapshot_fail_test.o /home/azure-user/km/tests/snapshot_fail_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/snapshot_fail_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/snapshot_fail_test.km
+echo tests: ignoring target '/home/azure-user/km/tests/fs_exec_test.c'
+ 
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/fs_exec_test.o /home/azure-user/km/tests/fs_exec_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/fs_exec_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/fs_exec_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/gdb_qsupported_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/gdb_qsupported_test.o /home/azure-user/km/tests/gdb_qsupported_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/gdb_qsupported_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_qsupported_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/gdb_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/gdb_test.o /home/azure-user/km/tests/gdb_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/gdb_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/regions_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/regions_test.o /home/azure-user/km/tests/regions_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/regions_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/regions_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/madvise_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/madvise_test.o /home/azure-user/km/tests/madvise_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/madvise_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/madvise_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/socket_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/socket_test.o /home/azure-user/km/tests/socket_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/socket_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/socket_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/futex_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/futex_test.o /home/azure-user/km/tests/futex_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/futex_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/futex_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/uidgid_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/uidgid_test.o /home/azure-user/km/tests/uidgid_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/uidgid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/uidgid_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/exit_grp_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/exit_grp_test.o /home/azure-user/km/tests/exit_grp_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/exit_grp_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exit_grp_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/gdb_lots_of_threads_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/gdb_lots_of_threads_test.o /home/azure-user/km/tests/gdb_lots_of_threads_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/gdb_lots_of_threads_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_lots_of_threads_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/gdb_delete_breakpoint_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/gdb_delete_breakpoint_test.o /home/azure-user/km/tests/gdb_delete_breakpoint_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/gdb_delete_breakpoint_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_delete_breakpoint_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/gdb_server_entry_race_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/gdb_server_entry_race_test.o /home/azure-user/km/tests/gdb_server_entry_race_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/gdb_server_entry_race_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_server_entry_race_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/filepath_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/filepath_test.o /home/azure-user/km/tests/filepath_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/filepath_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/filepath_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/perf_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/perf_test.o /home/azure-user/km/tests/perf_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/perf_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/perf_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/sigsuspend_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/sigsuspend_test.o /home/azure-user/km/tests/sigsuspend_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/sigsuspend_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigsuspend_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/gdb_forker_test.c'
+ 
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/gdb_forker_test.o /home/azure-user/km/tests/gdb_forker_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/gdb_forker_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_forker_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/clock_gettime_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/clock_gettime_test.o /home/azure-user/km/tests/clock_gettime_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/clock_gettime_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/clock_gettime_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/hello_test.c'
+ 
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/hello_test.o /home/azure-user/km/tests/hello_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/hello_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/cpuid_print_details_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/cpuid_print_details_test.o /home/azure-user/km/tests/cpuid_print_details_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/cpuid_print_details_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/cpuid_print_details_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/mmap_1_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/mmap_1_test.o /home/azure-user/km/tests/mmap_1_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/mmap_1_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_1_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/memslot_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/memslot_test.o /home/azure-user/km/tests/memslot_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/memslot_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/memslot_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/mprotect_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/mprotect_test.o /home/azure-user/km/tests/mprotect_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/mprotect_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mprotect_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/cpuid_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/cpuid_test.o /home/azure-user/km/tests/cpuid_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/cpuid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/cpuid_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/getline_test.c'
+ 
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/getline_test.o /home/azure-user/km/tests/getline_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/getline_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/getline_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/load_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/load_test.o /home/azure-user/km/tests/load_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/load_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/load_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/exec_guest_files_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/exec_guest_files_test.o /home/azure-user/km/tests/exec_guest_files_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/exec_guest_files_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_guest_files_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/stray_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/stray_test.o /home/azure-user/km/tests/stray_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/stray_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/stray_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/munmap_monitor_maps_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/munmap_monitor_maps_test.o /home/azure-user/km/tests/munmap_monitor_maps_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/munmap_monitor_maps_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/munmap_monitor_maps_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/mutex_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/mutex_test.o /home/azure-user/km/tests/mutex_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/mutex_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mutex_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/misc_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/misc_test.o /home/azure-user/km/tests/misc_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/misc_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/misc_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/exec_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/exec_test.o /home/azure-user/km/tests/exec_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/exec_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_test.km
+echo tests: ignoring target '/home/azure-user/km/tests/sigaltstack_test.c'
+ 
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/sigaltstack_test.o /home/azure-user/km/tests/sigaltstack_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/sigaltstack_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigaltstack_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/decode_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/decode_test.o /home/azure-user/km/tests/decode_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/decode_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/decode_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/itimer_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/itimer_test.o /home/azure-user/km/tests/itimer_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/itimer_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/itimer_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/brk_map_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/brk_map_test.o /home/azure-user/km/tests/brk_map_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/brk_map_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/brk_map_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/clone_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/clone_test.o /home/azure-user/km/tests/clone_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/clone_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/clone_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/locale_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/locale_test.o /home/azure-user/km/tests/locale_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/locale_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/locale_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/fork_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/fork_test.o /home/azure-user/km/tests/fork_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/fork_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/fork_test.km
+echo tests: ignoring target '/home/azure-user/km/tests/hello_2_loops_tls_test.c'
+ 
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/hello_2_loops_tls_test.o /home/azure-user/km/tests/hello_2_loops_tls_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/hello_2_loops_tls_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_2_loops_tls_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/hcperf_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/hcperf_test.o /home/azure-user/km/tests/hcperf_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/hcperf_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hcperf_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/vdso_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/vdso_test.o /home/azure-user/km/tests/vdso_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/vdso_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/vdso_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/exec_target_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/exec_target_test.o /home/azure-user/km/tests/exec_target_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/exec_target_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_target_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/intr_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/intr_test.o /home/azure-user/km/tests/intr_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/intr_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/intr_test.km
+echo tests: ignoring target '/home/azure-user/km/tests/snapshot_test.c'
+ 
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/snapshot_test.o /home/azure-user/km/tests/snapshot_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/snapshot_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/snapshot_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/gdb_nextstep_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/gdb_nextstep_test.o /home/azure-user/km/tests/gdb_nextstep_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/gdb_nextstep_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_nextstep_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/mem_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/mem_test.o /home/azure-user/km/tests/mem_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/mem_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mem_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/hcallargs_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/hcallargs_test.o /home/azure-user/km/tests/hcallargs_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/hcallargs_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hcallargs_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/semaphore_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/semaphore_test.o /home/azure-user/km/tests/semaphore_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/semaphore_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/semaphore_test.km
+echo tests: ignoring target '/home/azure-user/km/tests/hello_html_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/hello_html_test.o /home/azure-user/km/tests/hello_html_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/hello_html_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_html_test.km
+echo tests: ignoring target '/home/azure-user/km/tests/brk_test.c'
+ 
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/brk_test.o /home/azure-user/km/tests/brk_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/brk_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/brk_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/dl_iterate_phdr_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/dl_iterate_phdr_test.o /home/azure-user/km/tests/dl_iterate_phdr_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/dl_iterate_phdr_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dl_iterate_phdr_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/dlopen_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/dlopen_test.o /home/azure-user/km/tests/dlopen_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/dlopen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dlopen_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/env_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/env_test.o /home/azure-user/km/tests/env_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/env_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/env_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/sid_pgid_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/sid_pgid_test.o /home/azure-user/km/tests/sid_pgid_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/sid_pgid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sid_pgid_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/mmap_file_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/mmap_file_test.o /home/azure-user/km/tests/mmap_file_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/mmap_file_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_file_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/hello_loop_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/hello_loop_test.o /home/azure-user/km/tests/hello_loop_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/hello_loop_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_loop_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/crash_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/crash_test.o /home/azure-user/km/tests/crash_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/crash_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/crash_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/filesys_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/filesys_test.o /home/azure-user/km/tests/filesys_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/filesys_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/filesys_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/popen_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/popen_test.o /home/azure-user/km/tests/popen_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/popen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/popen_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/longjmp_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/longjmp_test.o /home/azure-user/km/tests/longjmp_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/longjmp_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/longjmp_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/hello_2_loops_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/hello_2_loops_test.o /home/azure-user/km/tests/hello_2_loops_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/hello_2_loops_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_2_loops_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/xstate_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/xstate_test.o /home/azure-user/km/tests/xstate_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/xstate_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/xstate_test.km
+echo tests: ignoring target '/home/azure-user/km/tests/gdb_sharedlib2_test.c'
+ 
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/gdb_sharedlib2_test.o /home/azure-user/km/tests/gdb_sharedlib2_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/gdb_sharedlib2_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_sharedlib2_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/signal_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/signal_test.o /home/azure-user/km/tests/signal_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/signal_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/signal_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/sigtimedwait_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/sigtimedwait_test.o /home/azure-user/km/tests/sigtimedwait_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/sigtimedwait_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigtimedwait_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/exit_value_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/exit_value_test.o /home/azure-user/km/tests/exit_value_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/exit_value_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exit_value_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/gdb_protected_mem_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/gdb_protected_mem_test.o /home/azure-user/km/tests/gdb_protected_mem_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/gdb_protected_mem_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_protected_mem_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/utimensat_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/utimensat_test.o /home/azure-user/km/tests/utimensat_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/utimensat_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/utimensat_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/pipetarget_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/pipetarget_test.o /home/azure-user/km/tests/pipetarget_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/pipetarget_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/pipetarget_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/auxv_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/auxv_test.o /home/azure-user/km/tests/auxv_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/auxv_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/auxv_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/sigpipe_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/sigpipe_test.o /home/azure-user/km/tests/sigpipe_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/sigpipe_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigpipe_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/pthread_cancel_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/pthread_cancel_test.o /home/azure-user/km/tests/pthread_cancel_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/pthread_cancel_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/pthread_cancel_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/print_argenv_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/print_argenv_test.o /home/azure-user/km/tests/print_argenv_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/print_argenv_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/print_argenv_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/mmap_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/mmap_test.o /home/azure-user/km/tests/mmap_test.c
+ 
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/mmap_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_test.km
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/syscallexer_test.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/syscallexer_test.o /home/azure-user/km/tests/syscallexer_test.c
+kontain-gcc -static -ggdb3 /home/azure-user/km/tests/syscallexer_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/syscallexer_test.km
+echo tests: ignoring target '/home/azure-user/km/tests/var_storage_test.cpp'
+g++ -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/var_storage_test.o /home/azure-user/km/tests/var_storage_test.cpp
+ 
+kontain-g++ -static -ggdb3 /home/azure-user/km/tests/var_storage_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/var_storage_test.km
+echo tests: ignoring target '/home/azure-user/km/tests/throw_basic_test.cpp'
+g++ -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/throw_basic_test.o /home/azure-user/km/tests/throw_basic_test.cpp
+kontain-g++ -static -ggdb3 /home/azure-user/km/tests/throw_basic_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/throw_basic_test.km
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/snapshot_fail_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/snapshot_fail_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/fs_exec_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/fs_exec_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/gdb_qsupported_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_qsupported_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/gdb_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/regions_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/regions_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/madvise_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/madvise_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/socket_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/socket_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/futex_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/futex_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/uidgid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/uidgid_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/exit_grp_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exit_grp_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/gdb_lots_of_threads_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_lots_of_threads_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/gdb_delete_breakpoint_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_delete_breakpoint_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/gdb_server_entry_race_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_server_entry_race_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/filepath_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/filepath_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/perf_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/perf_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/sigsuspend_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigsuspend_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/gdb_forker_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_forker_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/clock_gettime_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/clock_gettime_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/hello_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/cpuid_print_details_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/cpuid_print_details_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/mmap_1_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_1_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/memslot_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/memslot_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/mprotect_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mprotect_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/cpuid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/cpuid_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/getline_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/getline_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/load_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/load_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/exec_guest_files_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_guest_files_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/stray_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/stray_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/munmap_monitor_maps_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/munmap_monitor_maps_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/mutex_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mutex_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/misc_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/misc_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/exec_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/sigaltstack_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigaltstack_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/decode_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/decode_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/itimer_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/itimer_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/brk_map_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/brk_map_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/clone_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/clone_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/locale_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/locale_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/fork_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/fork_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/hello_2_loops_tls_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_2_loops_tls_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/hcperf_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hcperf_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/vdso_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/vdso_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/exec_target_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_target_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/intr_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/intr_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/snapshot_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/snapshot_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/gdb_nextstep_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_nextstep_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/mem_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mem_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/hcallargs_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hcallargs_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/semaphore_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/semaphore_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/hello_html_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_html_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/brk_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/brk_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/dl_iterate_phdr_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dl_iterate_phdr_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/dlopen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dlopen_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/env_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/env_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/sid_pgid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sid_pgid_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/mmap_file_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_file_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/hello_loop_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_loop_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/crash_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/crash_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/filesys_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/filesys_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/popen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/popen_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/longjmp_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/longjmp_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/hello_2_loops_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_2_loops_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/xstate_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/xstate_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/gdb_sharedlib2_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_sharedlib2_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/signal_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/signal_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/sigtimedwait_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigtimedwait_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/exit_value_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exit_value_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/gdb_protected_mem_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_protected_mem_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/utimensat_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/utimensat_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/pipetarget_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/pipetarget_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/auxv_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/auxv_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/sigpipe_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigpipe_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/pthread_cancel_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/pthread_cancel_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/print_argenv_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/print_argenv_test.kmd
+ 
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/mmap_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_test.kmd
+kontain-gcc -dynamic -ggdb3 /home/azure-user/km/tests/syscallexer_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/syscallexer_test.kmd
+kontain-g++ -dynamic -ggdb3 /home/azure-user/km/tests/var_storage_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/var_storage_test.kmd
+kontain-g++ -dynamic -ggdb3 /home/azure-user/km/tests/throw_basic_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/throw_basic_test.kmd
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/snapshot_fail_test.o -o /home/azure-user/km/tests/snapshot_fail_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/fs_exec_test.o -o /home/azure-user/km/tests/fs_exec_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/gdb_qsupported_test.o -o /home/azure-user/km/tests/gdb_qsupported_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/gdb_test.o -o /home/azure-user/km/tests/gdb_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/regions_test.o -o /home/azure-user/km/tests/regions_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/madvise_test.o -o /home/azure-user/km/tests/madvise_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/socket_test.o -o /home/azure-user/km/tests/socket_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/futex_test.o -o /home/azure-user/km/tests/futex_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/uidgid_test.o -o /home/azure-user/km/tests/uidgid_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/exit_grp_test.o -o /home/azure-user/km/tests/exit_grp_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/gdb_lots_of_threads_test.o -o /home/azure-user/km/tests/gdb_lots_of_threads_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/gdb_delete_breakpoint_test.o -o /home/azure-user/km/tests/gdb_delete_breakpoint_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/gdb_server_entry_race_test.o -o /home/azure-user/km/tests/gdb_server_entry_race_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/filepath_test.o -o /home/azure-user/km/tests/filepath_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/perf_test.o -o /home/azure-user/km/tests/perf_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/sigsuspend_test.o -o /home/azure-user/km/tests/sigsuspend_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/gdb_forker_test.o -o /home/azure-user/km/tests/gdb_forker_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/clock_gettime_test.o -o /home/azure-user/km/tests/clock_gettime_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/hello_test.o -o /home/azure-user/km/tests/hello_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/cpuid_print_details_test.o -o /home/azure-user/km/tests/cpuid_print_details_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/mmap_1_test.o -o /home/azure-user/km/tests/mmap_1_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/memslot_test.o -o /home/azure-user/km/tests/memslot_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/mprotect_test.o -o /home/azure-user/km/tests/mprotect_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/cpuid_test.o -o /home/azure-user/km/tests/cpuid_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/getline_test.o -o /home/azure-user/km/tests/getline_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/load_test.o -o /home/azure-user/km/tests/load_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/exec_guest_files_test.o -o /home/azure-user/km/tests/exec_guest_files_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/stray_test.o -o /home/azure-user/km/tests/stray_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/munmap_monitor_maps_test.o -o /home/azure-user/km/tests/munmap_monitor_maps_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/mutex_test.o -o /home/azure-user/km/tests/mutex_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/misc_test.o -o /home/azure-user/km/tests/misc_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/exec_test.o -o /home/azure-user/km/tests/exec_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/sigaltstack_test.o -o /home/azure-user/km/tests/sigaltstack_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/decode_test.o -o /home/azure-user/km/tests/decode_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/itimer_test.o -o /home/azure-user/km/tests/itimer_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/brk_map_test.o -o /home/azure-user/km/tests/brk_map_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/clone_test.o -o /home/azure-user/km/tests/clone_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/locale_test.o -o /home/azure-user/km/tests/locale_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/fork_test.o -o /home/azure-user/km/tests/fork_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/hello_2_loops_tls_test.o -o /home/azure-user/km/tests/hello_2_loops_tls_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/hcperf_test.o -o /home/azure-user/km/tests/hcperf_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/vdso_test.o -o /home/azure-user/km/tests/vdso_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/exec_target_test.o -o /home/azure-user/km/tests/exec_target_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/intr_test.o -o /home/azure-user/km/tests/intr_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/snapshot_test.o -o /home/azure-user/km/tests/snapshot_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/gdb_nextstep_test.o -o /home/azure-user/km/tests/gdb_nextstep_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/mem_test.o -o /home/azure-user/km/tests/mem_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/hcallargs_test.o -o /home/azure-user/km/tests/hcallargs_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/semaphore_test.o -o /home/azure-user/km/tests/semaphore_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/hello_html_test.o -o /home/azure-user/km/tests/hello_html_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/brk_test.o -o /home/azure-user/km/tests/brk_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/dl_iterate_phdr_test.o -o /home/azure-user/km/tests/dl_iterate_phdr_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/dlopen_test.o -o /home/azure-user/km/tests/dlopen_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/env_test.o -o /home/azure-user/km/tests/env_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/sid_pgid_test.o -o /home/azure-user/km/tests/sid_pgid_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/mmap_file_test.o -o /home/azure-user/km/tests/mmap_file_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/hello_loop_test.o -o /home/azure-user/km/tests/hello_loop_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/crash_test.o -o /home/azure-user/km/tests/crash_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/filesys_test.o -o /home/azure-user/km/tests/filesys_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/popen_test.o -o /home/azure-user/km/tests/popen_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/longjmp_test.o -o /home/azure-user/km/tests/longjmp_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/hello_2_loops_test.o -o /home/azure-user/km/tests/hello_2_loops_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/xstate_test.o -o /home/azure-user/km/tests/xstate_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/gdb_sharedlib2_test.o -o /home/azure-user/km/tests/gdb_sharedlib2_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/signal_test.o -o /home/azure-user/km/tests/signal_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/sigtimedwait_test.o -o /home/azure-user/km/tests/sigtimedwait_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/exit_value_test.o -o /home/azure-user/km/tests/exit_value_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/gdb_protected_mem_test.o -o /home/azure-user/km/tests/gdb_protected_mem_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/utimensat_test.o -o /home/azure-user/km/tests/utimensat_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/pipetarget_test.o -o /home/azure-user/km/tests/pipetarget_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/auxv_test.o -o /home/azure-user/km/tests/auxv_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/sigpipe_test.o -o /home/azure-user/km/tests/sigpipe_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/pthread_cancel_test.o -o /home/azure-user/km/tests/pthread_cancel_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/print_argenv_test.o -o /home/azure-user/km/tests/print_argenv_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/mmap_test.o -o /home/azure-user/km/tests/mmap_test.km.so -pthread -ldl -L. -lhelper
+kontain-gcc -shared -ggdb3 /home/azure-user/km/tests/syscallexer_test.o -o /home/azure-user/km/tests/syscallexer_test.km.so -pthread -ldl -L. -lhelper
+kontain-g++ -shared -ggdb3 /home/azure-user/km/tests/var_storage_test.o -o /home/azure-user/km/tests/var_storage_test.km.so -pthread -ldl -L. -lhelper
+kontain-g++ -shared -ggdb3 /home/azure-user/km/tests/throw_basic_test.o -o /home/azure-user/km/tests/throw_basic_test.km.so -pthread -ldl -L. -lhelper
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/snapshot_fail_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/snapshot_fail_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/fs_exec_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/fs_exec_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/gdb_qsupported_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_qsupported_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/gdb_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/regions_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/regions_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/madvise_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/madvise_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/socket_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/socket_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/futex_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/futex_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/uidgid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/uidgid_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/exit_grp_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exit_grp_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/gdb_lots_of_threads_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_lots_of_threads_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/gdb_delete_breakpoint_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_delete_breakpoint_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/gdb_server_entry_race_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_server_entry_race_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/filepath_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/filepath_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/perf_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/perf_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/sigsuspend_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigsuspend_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/gdb_forker_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_forker_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/clock_gettime_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/clock_gettime_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/hello_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/cpuid_print_details_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/cpuid_print_details_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/mmap_1_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_1_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/memslot_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/memslot_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/mprotect_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mprotect_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/cpuid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/cpuid_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/getline_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/getline_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/load_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/load_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/exec_guest_files_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_guest_files_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/stray_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/stray_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/munmap_monitor_maps_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/munmap_monitor_maps_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/mutex_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mutex_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/misc_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/misc_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/exec_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/sigaltstack_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigaltstack_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/decode_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/decode_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/itimer_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/itimer_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/brk_map_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/brk_map_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/clone_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/clone_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/locale_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/locale_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/fork_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/fork_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/hello_2_loops_tls_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_2_loops_tls_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/hcperf_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hcperf_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/vdso_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/vdso_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/exec_target_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_target_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/intr_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/intr_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/snapshot_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/snapshot_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/gdb_nextstep_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_nextstep_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/mem_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mem_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/hcallargs_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hcallargs_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/semaphore_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/semaphore_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/hello_html_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_html_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/brk_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/brk_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/dl_iterate_phdr_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dl_iterate_phdr_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/dlopen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dlopen_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/env_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/env_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/sid_pgid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sid_pgid_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/mmap_file_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_file_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/hello_loop_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_loop_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/crash_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/crash_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/filesys_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/filesys_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/popen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/popen_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/longjmp_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/longjmp_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/hello_2_loops_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_2_loops_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/xstate_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/xstate_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/gdb_sharedlib2_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_sharedlib2_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/signal_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/signal_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/sigtimedwait_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigtimedwait_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/exit_value_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exit_value_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/gdb_protected_mem_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_protected_mem_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/utimensat_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/utimensat_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/pipetarget_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/pipetarget_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/auxv_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/auxv_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/sigpipe_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigpipe_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/pthread_cancel_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/pthread_cancel_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/print_argenv_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/print_argenv_test.alpine.km
+ 
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/mmap_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_test.alpine.km
+kontain-gcc -static -alpine -ggdb3 /home/azure-user/km/tests/syscallexer_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/syscallexer_test.alpine.km
+kontain-g++ -static -alpine -ggdb3 /home/azure-user/km/tests/var_storage_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/var_storage_test.alpine.km
+kontain-g++ -static -alpine -ggdb3 /home/azure-user/km/tests/throw_basic_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/throw_basic_test.alpine.km
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/snapshot_fail_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/snapshot_fail_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/fs_exec_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/fs_exec_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/gdb_qsupported_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_qsupported_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/gdb_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/regions_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/regions_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/madvise_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/madvise_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/socket_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/socket_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/futex_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/futex_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/uidgid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/uidgid_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/exit_grp_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exit_grp_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/gdb_lots_of_threads_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_lots_of_threads_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/gdb_delete_breakpoint_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_delete_breakpoint_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/gdb_server_entry_race_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_server_entry_race_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/filepath_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/filepath_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/perf_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/perf_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/sigsuspend_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigsuspend_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/gdb_forker_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_forker_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/clock_gettime_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/clock_gettime_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/hello_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/cpuid_print_details_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/cpuid_print_details_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/mmap_1_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_1_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/memslot_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/memslot_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/mprotect_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mprotect_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/cpuid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/cpuid_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/getline_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/getline_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/load_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/load_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/exec_guest_files_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_guest_files_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/stray_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/stray_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/munmap_monitor_maps_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/munmap_monitor_maps_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/mutex_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mutex_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/misc_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/misc_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/exec_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/sigaltstack_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigaltstack_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/decode_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/decode_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/itimer_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/itimer_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/brk_map_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/brk_map_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/clone_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/clone_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/locale_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/locale_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/fork_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/fork_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/hello_2_loops_tls_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_2_loops_tls_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/hcperf_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hcperf_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/vdso_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/vdso_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/exec_target_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_target_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/intr_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/intr_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/snapshot_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/snapshot_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/gdb_nextstep_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_nextstep_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/mem_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mem_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/hcallargs_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hcallargs_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/semaphore_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/semaphore_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/hello_html_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_html_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/brk_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/brk_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/dl_iterate_phdr_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dl_iterate_phdr_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/dlopen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dlopen_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/env_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/env_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/sid_pgid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sid_pgid_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/mmap_file_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_file_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/hello_loop_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_loop_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/crash_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/crash_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/filesys_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/filesys_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/popen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/popen_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/longjmp_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/longjmp_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/hello_2_loops_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_2_loops_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/xstate_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/xstate_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/gdb_sharedlib2_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_sharedlib2_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/signal_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/signal_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/sigtimedwait_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigtimedwait_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/exit_value_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exit_value_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/gdb_protected_mem_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_protected_mem_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/utimensat_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/utimensat_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/pipetarget_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/pipetarget_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/auxv_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/auxv_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/sigpipe_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigpipe_test.alpine.kmd
+ 
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/pthread_cancel_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/pthread_cancel_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/print_argenv_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/print_argenv_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/mmap_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_test.alpine.kmd
+kontain-gcc -dynamic -alpine -ggdb3 /home/azure-user/km/tests/syscallexer_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/syscallexer_test.alpine.kmd
+ 
+kontain-g++ -dynamic -alpine -ggdb3 /home/azure-user/km/tests/var_storage_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/var_storage_test.alpine.kmd
+kontain-g++ -dynamic -alpine -ggdb3 /home/azure-user/km/tests/throw_basic_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/throw_basic_test.alpine.kmd
+cc -ggdb3 /home/azure-user/km/tests/snapshot_fail_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/snapshot_fail_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/fs_exec_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/fs_exec_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/gdb_qsupported_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/gdb_qsupported_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/gdb_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/gdb_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/regions_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/regions_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/madvise_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/madvise_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/socket_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/socket_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/futex_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/futex_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/uidgid_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/uidgid_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/exit_grp_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/exit_grp_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/gdb_lots_of_threads_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/gdb_lots_of_threads_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/gdb_delete_breakpoint_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/gdb_delete_breakpoint_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/gdb_server_entry_race_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/gdb_server_entry_race_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/filepath_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/filepath_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/perf_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/perf_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/sigsuspend_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/sigsuspend_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/gdb_forker_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/gdb_forker_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/clock_gettime_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/clock_gettime_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/hello_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/hello_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/cpuid_print_details_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/cpuid_print_details_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/mmap_1_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/mmap_1_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/memslot_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/memslot_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/mprotect_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/mprotect_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/cpuid_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/cpuid_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/getline_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/getline_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/load_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/load_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/exec_guest_files_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/exec_guest_files_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/stray_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/stray_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/munmap_monitor_maps_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/munmap_monitor_maps_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/mutex_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/mutex_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/misc_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/misc_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/exec_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/exec_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/sigaltstack_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/sigaltstack_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/decode_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/decode_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/itimer_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/itimer_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/brk_map_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/brk_map_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/clone_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/clone_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/locale_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/locale_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/fork_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/fork_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/hello_2_loops_tls_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/hello_2_loops_tls_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/hcperf_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/hcperf_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/vdso_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/vdso_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/exec_target_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/exec_target_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/intr_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/intr_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/snapshot_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/snapshot_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/gdb_nextstep_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/gdb_nextstep_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/mem_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/mem_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/hcallargs_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/hcallargs_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/semaphore_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/semaphore_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/hello_html_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/hello_html_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/brk_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/brk_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/dl_iterate_phdr_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/dl_iterate_phdr_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/dlopen_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/dlopen_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/env_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/env_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/sid_pgid_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/sid_pgid_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/mmap_file_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/mmap_file_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/hello_loop_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/hello_loop_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/crash_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/crash_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/filesys_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/filesys_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/popen_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/popen_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/longjmp_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/longjmp_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/hello_2_loops_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/hello_2_loops_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/xstate_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/xstate_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/gdb_sharedlib2_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/gdb_sharedlib2_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/signal_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/signal_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/sigtimedwait_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/sigtimedwait_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/exit_value_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/exit_value_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/gdb_protected_mem_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/gdb_protected_mem_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/utimensat_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/utimensat_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/pipetarget_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/pipetarget_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/auxv_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/auxv_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/sigpipe_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/sigpipe_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/pthread_cancel_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/pthread_cancel_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/print_argenv_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/print_argenv_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/mmap_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/mmap_test.fedora
+cc -ggdb3 /home/azure-user/km/tests/syscallexer_test.o -pthread -ldl -L. -lhelper -static -o /home/azure-user/km/tests/syscallexer_test.fedora
+g++ -static -ggdb3 /home/azure-user/km/tests/var_storage_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/var_storage_test.fedora
+g++ -static -ggdb3 /home/azure-user/km/tests/throw_basic_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/throw_basic_test.fedora
+ 
+cc -ggdb3 /home/azure-user/km/tests/snapshot_fail_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/snapshot_fail_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/fs_exec_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/fs_exec_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/gdb_qsupported_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_qsupported_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/gdb_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/regions_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/regions_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/madvise_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/madvise_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/socket_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/socket_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/futex_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/futex_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/uidgid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/uidgid_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/exit_grp_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exit_grp_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/gdb_lots_of_threads_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_lots_of_threads_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/gdb_delete_breakpoint_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_delete_breakpoint_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/gdb_server_entry_race_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_server_entry_race_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/filepath_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/filepath_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/perf_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/perf_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/sigsuspend_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigsuspend_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/gdb_forker_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_forker_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/clock_gettime_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/clock_gettime_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/hello_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/cpuid_print_details_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/cpuid_print_details_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/mmap_1_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_1_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/memslot_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/memslot_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/mprotect_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mprotect_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/cpuid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/cpuid_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/getline_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/getline_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/load_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/load_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/exec_guest_files_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_guest_files_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/stray_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/stray_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/munmap_monitor_maps_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/munmap_monitor_maps_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/mutex_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mutex_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/misc_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/misc_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/exec_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/sigaltstack_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigaltstack_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/decode_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/decode_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/itimer_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/itimer_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/brk_map_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/brk_map_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/clone_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/clone_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/locale_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/locale_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/fork_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/fork_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/hello_2_loops_tls_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_2_loops_tls_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/hcperf_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hcperf_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/vdso_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/vdso_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/exec_target_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exec_target_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/intr_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/intr_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/snapshot_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/snapshot_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/gdb_nextstep_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_nextstep_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/mem_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mem_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/hcallargs_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hcallargs_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/semaphore_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/semaphore_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/hello_html_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_html_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/brk_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/brk_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/dl_iterate_phdr_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dl_iterate_phdr_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/dlopen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dlopen_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/env_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/env_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/sid_pgid_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sid_pgid_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/mmap_file_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_file_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/hello_loop_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_loop_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/crash_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/crash_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/filesys_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/filesys_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/popen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/popen_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/longjmp_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/longjmp_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/hello_2_loops_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/hello_2_loops_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/xstate_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/xstate_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/gdb_sharedlib2_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_sharedlib2_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/signal_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/signal_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/sigtimedwait_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigtimedwait_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/exit_value_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/exit_value_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/gdb_protected_mem_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/gdb_protected_mem_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/utimensat_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/utimensat_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/pipetarget_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/pipetarget_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/auxv_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/auxv_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/sigpipe_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/sigpipe_test.fedora.dyn
+ 
+cc -ggdb3 /home/azure-user/km/tests/pthread_cancel_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/pthread_cancel_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/print_argenv_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/print_argenv_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/mmap_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/mmap_test.fedora.dyn
+cc -ggdb3 /home/azure-user/km/tests/syscallexer_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/syscallexer_test.fedora.dyn
+ 
+g++ -ggdb3 /home/azure-user/km/tests/var_storage_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/var_storage_test.fedora.dyn
+g++ -ggdb3 /home/azure-user/km/tests/throw_basic_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/throw_basic_test.fedora.dyn
+cc -shared -ggdb3 /home/azure-user/km/tests/dlopen_test.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dlopen_test.so
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/dlopen_test_lib.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/dlopen_test_lib.o /home/azure-user/km/tests/dlopen_test_lib.c
+cc -shared -ggdb3 /home/azure-user/km/tests/dlopen_test_lib.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dlopen_test_lib.so
+ 
+echo tests: ignoring target '/home/azure-user/km/tests/dlopen_test_lib2.c'
+cc -Wall -Werror  -ggdb3 -DGREATEST_STDOUT=stderr -fPIC -fno-stack-protector -pthread -I/home/azure-user/km/include -I/home/azure-user/km/km -ffile-prefix-map=/home/azure-user/km/tests/=   -c -o /home/azure-user/km/tests/dlopen_test_lib2.o /home/azure-user/km/tests/dlopen_test_lib2.c
+ 
+cc -shared -ggdb3 /home/azure-user/km/tests/dlopen_test_lib2.o -pthread -ldl -L. -lhelper -o /home/azure-user/km/tests/dlopen_test_lib2.so
+rm /home/azure-user/km/tests/mmap_file_test.o /home/azure-user/km/tests/gdb_forker_test.o /home/azure-user/km/tests/memslot_test.o /home/azure-user/km/tests/gdb_delete_breakpoint_test.o /home/azure-user/km/tests/env_test.o /home/azure-user/km/tests/pipetarget_test.o /home/azure-user/km/tests/hello_2_loops_test.o /home/azure-user/km/tests/perf_test.o /home/azure-user/km/tests/snapshot_test.o /home/azure-user/km/tests/socket_test.o /home/azure-user/km/tests/gdb_protected_mem_test.o /home/azure-user/km/tests/locale_test.o /home/azure-user/km/tests/filepath_test.o /home/azure-user/km/tests/clone_test.o /home/azure-user/km/tests/gdb_qsupported_test.o /home/azure-user/km/tests/gdb_nextstep_test.o /home/azure-user/km/tests/cpuid_print_details_test.o /home/azure-user/km/tests/hello_html_test.o /home/azure-user/km/tests/signal_test.o /home/azure-user/km/tests/misc_test.o /home/azure-user/km/tests/crash_test.o /home/azure-user/km/tests/uidgid_test.o /home/azure-user/km/tests/exec_test.o /home/azure-user/km/tests/sigtimedwait_test.o /home/azure-user/km/tests/popen_test.o /home/azure-user/km/tests/brk_test.o /home/azure-user/km/tests/hello_test.o /home/azure-user/km/tests/madvise_test.o /home/azure-user/km/tests/dlopen_test.o /home/azure-user/km/tests/semaphore_test.o /home/azure-user/km/tests/cpuid_test.o /home/azure-user/km/tests/gdb_lots_of_threads_test.o /home/azure-user/km/tests/mem_test.o /home/azure-user/km/tests/utimensat_test.o /home/azure-user/km/tests/pthread_cancel_test.o /home/azure-user/km/tests/mmap_test.o /home/azure-user/km/tests/throw_basic_test.o /home/azure-user/km/tests/exec_target_test.o /home/azure-user/km/tests/sigpipe_test.o /home/azure-user/km/tests/dl_iterate_phdr_test.o /home/azure-user/km/tests/sigaltstack_test.o /home/azure-user/km/tests/var_storage_test.o /home/azure-user/km/tests/fs_exec_test.o /home/azure-user/km/tests/clock_gettime_test.o /home/azure-user/km/tests/load_test.o /home/azure-user/km/tests/filesys_test.o /home/azure-user/km/tests/vdso_test.o /home/azure-user/km/tests/stray_test.o /home/azure-user/km/tests/mutex_test.o /home/azure-user/km/tests/getline_test.o /home/azure-user/km/tests/hello_loop_test.o /home/azure-user/km/tests/fork_test.o /home/azure-user/km/tests/hcperf_test.o /home/azure-user/km/tests/gdb_server_entry_race_test.o /home/azure-user/km/tests/dlopen_test_lib2.o /home/azure-user/km/tests/xstate_test.o /home/azure-user/km/tests/snapshot_fail_test.o /home/azure-user/km/tests/syscallexer_test.o /home/azure-user/km/tests/hello_2_loops_tls_test.o /home/azure-user/km/tests/intr_test.o /home/azure-user/km/tests/exec_guest_files_test.o /home/azure-user/km/tests/regions_test.o /home/azure-user/km/tests/sigsuspend_test.o /home/azure-user/km/tests/exit_grp_test.o /home/azure-user/km/tests/dlopen_test_lib.o /home/azure-user/km/tests/exit_value_test.o /home/azure-user/km/tests/gdb_sharedlib2_test.o /home/azure-user/km/tests/auxv_test.o /home/azure-user/km/tests/hcallargs_test.o /home/azure-user/km/tests/futex_test.o /home/azure-user/km/tests/munmap_monitor_maps_test.o /home/azure-user/km/tests/longjmp_test.o 
+ /home/azure-user/km/tests/gdb_test.o /home/azure-user/km/tests/print_argenv_test.o /home/azure-user/km/tests/brk_map_test.o /home/azure-user/km/tests/mmap_1_test.o /home/azure-user/km/tests/sid_pgid_test.o /home/azure-user/km/tests/itimer_test.o /home/azure-user/km/tests/decode_test.o /home/azure-user/km/tests/mprotect_test.o
+make[1]: Leaving directory '/home/azure-user/km/tests'
+ 
+make -C tools/bin MAKEFLAGS="Bknw"  MAKEOVERRIDES=
+ 
+make[1]: Entering directory '/home/azure-user/km/tools/bin'
+ 
+bin: ignoring target /home/azure-user/km/make/custom.mk
+ 
+bin: ignoring target /home/azure-user/km/cloud/azure/cloud_config.mk
+ 
+bin: ignoring target /home/azure-user/km/make/locations.mk
+ 
+bin: ignoring target /home/azure-user/km/make/actions.mk
+ 
+bin: ignoring target Makefile
+ 
+echo bin: ignoring target 'kontain-gcc'
+cp kontain-gcc /opt/kontain/bin
+ln -f -s /opt/kontain/bin/kontain-gcc /opt/kontain/bin/kontain-g++
+ 
+make[1]: Leaving directory '/home/azure-user/km/tools/bin'
+ 
+make -C include MAKEFLAGS="Bknw"  MAKEOVERRIDES=
+ 
+make[1]: Entering directory '/home/azure-user/km/include'
+ 
+include: ignoring target /home/azure-user/km/make/custom.mk
+ 
+include: ignoring target /home/azure-user/km/cloud/azure/cloud_config.mk
+ 
+include: ignoring target /home/azure-user/km/make/locations.mk
+ 
+include: ignoring target /home/azure-user/km/make/actions.mk
+ 
+include: ignoring target Makefile
+ 
+echo include: ignoring target 'km_hcalls.h'
+mkdir -p /opt/kontain/include
+cp km_hcalls.h /opt/kontain/include
+make[1]: Leaving directory '/home/azure-user/km/include'
+ 
+make: Leaving directory '/home/azure-user/km'
+ 
