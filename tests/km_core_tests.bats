@@ -1241,6 +1241,14 @@ fi
    run km_with_timeout exec_test$ext -k
    assert_success
    assert_line --partial "Hello, argv[1] = 'TESTING exec to .km'"
+
+   run km_with_timeout --virt-device=/dev/${USE_VIRT} exec_test$ext -m
+   assert_success
+   if [[ "${USE_VIRT}" == kvm ]]; then
+      assert_output --partial ".kontain.KVM"
+   else
+      assert_output --partial ".kontain.KKM"
+   fi
 }
 
 @test "exec_sh($test_type): test execve to /bin/sh and .km (exec_test$ext)" {
