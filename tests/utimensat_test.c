@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syscall.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -32,6 +33,15 @@ int main()
    struct stat stbuf;
    char fname[256] = "/tmp/utimens_test_XXXXXX";
    struct timespec time_to_set[2] = {{1000000000, 111}, {1000000000, 222}};
+
+   if ((ret = syscall(__NR_utimensat, 0, NULL, NULL, 0)) == -1) {
+      fprintf(stderr,
+              "utimensat failed with NULL filename and NULL timespec %d %d %s\n",
+              ret,
+              errno,
+              strerror(errno));
+      return -1;
+   }
 
    if ((fd = mkstemp(fname)) == -1) {
       fprintf(stderr, "mktemp fd %d %d %s\n", fd, errno, strerror(errno));
@@ -61,7 +71,7 @@ int main()
            stbuf.st_atim.tv_nsec,
            stbuf.st_mtim.tv_nsec);
 
-   // return 1 if all is good
+   // return 0 if all is good
    return (stbuf.st_atim.tv_nsec == time_to_set[0].tv_nsec &&
            stbuf.st_mtim.tv_nsec == time_to_set[1].tv_nsec)
               ? 0

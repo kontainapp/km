@@ -875,15 +875,16 @@ km_fs_utimensat(km_vcpu_t* vcpu, int dirfd, const char* pathname, struct timespe
       if (ret < 0) {
          return ret;
       }
-   }
-   km_file_ops_t* ops;
-   char buf[PATH_MAX];
 
-   if ((ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops)) < 0) {
-      return ret;
-   }
-   if (ret > 0) {
-      pathname = buf;
+      km_file_ops_t* ops;
+      char buf[PATH_MAX];
+
+      if ((ret = km_fs_g2h_filename(pathname, buf, sizeof(buf), &ops)) < 0) {
+         return ret;
+      }
+      if (ret > 0) {
+         pathname = buf;
+      }
    }
    ret = __syscall_4(SYS_utimensat, dirfd, (uint64_t)pathname, (uint64_t)ts, flags);
    km_infox(KM_TRACE_FILESYS, "utimensat(%d, %s, 0x%x) returns %d", dirfd, pathname, flags, ret);
