@@ -232,20 +232,20 @@ void* thread_main(void* arg)
    double a1 = 99.99;
    register double a2 asm("xmm7") = 101.202;
 
-   // Dirty XMM0
-   uint64_t one = 1;
+   uint64_t seventeen = 17;
+   km_hc_args_t snapshotargs = {.arg1 = (uint64_t) "snaptest_label",
+                                .arg2 = (uint64_t) "Snapshot test application",
+                                .arg3 = (snap_flag == SNAP_LIVE) ? 1 : 0};
+   // Dirty XMM0.
+   // This needs to be right before km_hcall() to make sure xmm0 is intact at the moment of snapshot
    asm volatile("movq %0, %%xmm0"
                 : /* No output */
-                : "r"(one)
+                : "r"(seventeen)
                 : "%xmm0");
-
    /*
     * Take the snapshot.
     */
    if (snap_flag == SNAP_NORMAL || snap_flag == SNAP_LIVE) {
-      km_hc_args_t snapshotargs = {.arg1 = (uint64_t) "snaptest_label",
-                                   .arg2 = (uint64_t) "Snapshot test application",
-                                   .arg3 = (snap_flag == SNAP_LIVE) ? 1 : 0};
       km_hcall(HC_snapshot, &snapshotargs);
    } else if (snap_flag == SNAP_PAUSE) {
       pause();
@@ -269,8 +269,8 @@ void* thread_main(void* arg)
                 : /* No input */
                 :);
 
-   if (val != one || a1 != 99.99 || a2 != 101.202) {
-      fprintf(stderr, "ERROR: FP not restored\n");
+   if (val != seventeen || a1 != 99.99 || a2 != 101.202) {
+      fprintf(stderr, "ERROR: FP not restored: %ld, %g %g\n", val, a1, a2);
       exit(1);
    }
    wakeup();
