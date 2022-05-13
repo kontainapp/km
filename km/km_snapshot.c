@@ -193,7 +193,7 @@ static inline char* km_snapshot_read_notes(int fd, size_t* notesize, km_payload_
       Elf64_Phdr* phdr = &payload->km_phdr[i];
       if (phdr->p_type == PT_NOTE) {
          char* notebuf = malloc(phdr->p_filesz);
-         assert(notebuf != NULL);
+         km_assert(notebuf != NULL);
          int rc;
          if ((rc = pread(fd, notebuf, phdr->p_filesz, phdr->p_offset)) != phdr->p_filesz) {
             if (rc < 0) {

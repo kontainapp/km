@@ -158,7 +158,7 @@ unsigned char* hex2mem(const char* buf, unsigned char* mem, size_t count)
    size_t i;
    unsigned char ch;
 
-   assert(strlen(buf) >= (2 * count));
+   km_assert(strlen(buf) >= (2 * count));
 
    for (i = 0; i < count; i++) {
       ch = hex(*buf++) << 4;
@@ -180,7 +180,7 @@ int km_gdb_setup_listen(void)
    struct sockaddr_in server_addr;
    int opt = 1;
 
-   assert(gdbstub.port != 0);
+   km_assert(gdbstub.port != 0);
    if (gdbstub.listen_socket_fd != -1) {
       // When a payload is started as a result of execve() from another payload, listening is already setup.
       return 0;
@@ -458,7 +458,7 @@ static char recv_char(void)
     * Paranoia check: at this poing we should get either printable '$...' command, or ^C, since
     * we do not support nor expect 'X' (binary data) packets.
     */
-   assert(isprint(ch) || ch == GDB_INTERRUPT_PKT);
+   km_assert(isprint(ch) || ch == GDB_INTERRUPT_PKT);
    return (char)ch;
 }
 
@@ -503,7 +503,7 @@ static char* recv_packet(void)
       buffer[count] = '\0';   // Make this a C string.
 
       /* recv checksum from the packet  and compare with calculated one */
-      assert(ch == '#');
+      km_assert(ch == '#');
       if ((ch = recv_char()) == -1) {
          return NULL;
       }
@@ -876,7 +876,7 @@ static void km_gdb_exit_debug_stopreply(km_vcpu_t* vcpu, char* stopreply)
     * This is probably happening because a hardware single step was performed.
     */
    if (archp->exception == DB_VECTOR && gdbstub.clientsup_hwbreak == 0) {
-      assert((archp->dr6 & 0x4000) != 0);   // verify that this is a hw single step
+      km_assert((archp->dr6 & 0x4000) != 0);   // verify that this is a hw single step
       sprintf(stopreply, "T05thread:%08x;", km_vcpu_get_tid(vcpu));
       return;
    }
@@ -1632,7 +1632,7 @@ static int km_gdb_set_thread_vcont_actions(km_vcpu_t* vcpu, void* ta)
    int i = vcpu->vcpu_id;
    threadaction_blob_t* threadactionblob = ta;
 
-   assert(vcpu->state != IN_GUEST);
+   km_assert(vcpu->state != IN_GUEST);
    switch (threadactionblob->threadaction[i].ta_newrunstate) {
       case THREADSTATE_NONE:
          km_infox(KM_TRACE_GDB, "vcpu %d no runstate set?", i);
@@ -1998,8 +1998,8 @@ static int gdb_fd_find(int gdb_fd)
 
 static void gdb_fd_set(int gdb_fd, int linux_fd)
 {
-   assert(gdb_fd >= 0 && gdb_fd < MAX_GDB_VFILE_OPEN_FD);
-   assert(linux_fd >= 0);
+   km_assert(gdb_fd >= 0 && gdb_fd < MAX_GDB_VFILE_OPEN_FD);
+   km_assert(linux_fd >= 0);
 
    gdbstub.vfile_state.fd[gdb_fd] = linux_fd;
 }
@@ -2353,7 +2353,7 @@ static void handle_vfile_fstat(char* packet, char* output, int outputl)
                                        &bytes_copied,
                                        &output[prefix_len],
                                        outputl - prefix_len);
-      assert(bytes_copied == sizeof(gdb_stat));
+      km_assert(bytes_copied == sizeof(gdb_stat));
       send_binary_packet(output, prefix_len + body_len);
       return;
    } else {
@@ -2572,7 +2572,7 @@ static km_vcpu_t* gdb_find_notpaused_vcpu(void)
    km_vcpu_t* vcpu = NULL;
 
    km_vcpu_apply_all(km_gdb_find_notpaused, &vcpu);
-   assert(vcpu != NULL);
+   km_assert(vcpu != NULL);
    return vcpu;
 }
 
@@ -2750,7 +2750,7 @@ static void gdb_handle_remote_commands(gdb_event_t* gep)
             break;
          }
          case 'M': {   // Write memory content
-            assert(strlen(packet) <= sizeof(obuf));
+            km_assert(strlen(packet) <= sizeof(obuf));
             char format[32];
             snprintf(format, sizeof(format), "M%%" PRIx64 ",%%zx:%%%lds", sizeof(obuf) - 1);
             if (sscanf(packet, format, &addr, &len, obuf) != 3) {
@@ -2966,7 +2966,7 @@ static void km_gdb_wait_for_dynlink_to_finish(void)
    }
    pthread_mutex_lock(&gdbstub.notify_mutex);
    gdb_event_t* gep = TAILQ_FIRST(&gdbstub.event_queue);
-   assert(gep != NULL);
+   km_assert(gep != NULL);
    if (gep->signo == GDB_KMSIGNAL_KVMEXIT) {
       // remove the breakpoint event.
       TAILQ_REMOVE(&gdbstub.event_queue, gep, link);
@@ -2991,7 +2991,7 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
 
    km_wait_on_eventfd(machine.intr_fd);   // Wait for km_start_vcpus to be called
 
-   assert(gdbstub.wait_for_attach != GDB_WAIT_FOR_ATTACH_UNSPECIFIED);
+   km_assert(gdbstub.wait_for_attach != GDB_WAIT_FOR_ATTACH_UNSPECIFIED);
    if (km_dynlinker.km_filename != NULL && gdbstub.wait_for_attach == GDB_WAIT_FOR_ATTACH_AT_START) {
       km_gdb_wait_for_dynlink_to_finish();
    }
@@ -3019,7 +3019,7 @@ accept_connection:;
          // We think this can only be a fork signal since the gdb client is not attached
          km_empty_out_eventfd(machine.intr_fd);
          foundgep = gdb_select_event();
-         assert(foundgep != NULL && foundgep->signo == GDB_KMSIGNAL_DOFORK);
+         km_assert(foundgep != NULL && foundgep->signo == GDB_KMSIGNAL_DOFORK);
          km_dofork(&in_child);
          if (in_child != 0) {
             fds[1].fd = machine.intr_fd;
@@ -3032,7 +3032,7 @@ accept_connection:;
             km_infox(KM_TRACE_GDB, "gdb listening socket is shutdown");
             return;
          }
-         assert(ret == 0);   // not sure what to do with errors here yet.
+         km_assert(ret == 0);   // not sure what to do with errors here yet.
          gdbstub.gdb_client_attached = 1;
          fds[0].fd = gdbstub.sock_fd;
       }
@@ -3081,7 +3081,7 @@ accept_connection:;
          if (ch == -1) {   // channel error or EOF (ch == -1)
             break;
          }
-         assert(ch == GDB_INTERRUPT_PKT);   // At this point it's only legal to see ^C from GDB
+         km_assert(ch == GDB_INTERRUPT_PKT);   // At this point it's only legal to see ^C from GDB
          km_mutex_lock(&gdbstub.notify_mutex);
          /*
           * If a payload thread has already stopped it will have caused session_requested

@@ -315,7 +315,7 @@ char** km_exec_build_env(char** envp)
       j++;
    }
    newenvp[i + j] = NULL;
-   assert(i + j == envc - 1 + KM_EXEC_VARS + gdb_vars);
+   km_assert(i + j == envc - 1 + KM_EXEC_VARS + gdb_vars);
 
    // Return pointer to the new env.
    return newenvp;
@@ -422,14 +422,14 @@ static int km_exec_get_vmfds(char* vmfds)
    char* saveptr;
    char* p;
    p = strtok_r(pi, ",", &saveptr);
-   assert(p != NULL);
+   km_assert(p != NULL);
    pi = NULL;
    p = strtok_r(pi, ",", &saveptr);
-   assert(p != NULL);
+   km_assert(p != NULL);
    int vcpu_num = 0;
    while ((p = strtok_r(pi, ",", &saveptr)) != NULL) {
       execstatep->kvm_vcpu_fd[vcpu_num] = atoi(p);
-      assert(execstatep->kvm_vcpu_fd[vcpu_num] >= 0);
+      km_assert(execstatep->kvm_vcpu_fd[vcpu_num] >= 0);
       vcpu_num++;
    }
    execstatep->kvm_vcpu_fd[vcpu_num] = -1;
@@ -461,7 +461,7 @@ static int km_exec_get_guestfds(char* guestfds)
  */
 static void km_exec_vmclean(void)
 {
-   assert(execstatep != NULL);
+   km_assert(execstatep != NULL);
    close(execstatep->intr_fd);
    close(execstatep->shutdown_fd);
    for (int i = 0; i < KVM_MAX_VCPUS && execstatep->kvm_vcpu_fd[i] >= 0; i++) {
@@ -489,7 +489,8 @@ int km_exec_recover_kmstate(void)
    if (vernum == NULL || vmfds == NULL || eventfds == NULL || guestfds == NULL || pidinfo == NULL) {
       // If we don't have them all, then this isn't an exec().
       // And, if one is missing they all need to be missing.
-      assert(vernum == NULL && vmfds == NULL && eventfds == NULL && guestfds == NULL && pidinfo == NULL);
+      km_assert(vernum == NULL && vmfds == NULL && eventfds == NULL && guestfds == NULL &&
+                pidinfo == NULL);
       return 0;
    }
 

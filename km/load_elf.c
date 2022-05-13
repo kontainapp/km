@@ -70,7 +70,7 @@ static void load_extent(int fd, const Elf64_Phdr* phdr, km_gva_t base)
     *
     * We also have a test in the test suite to check for 2MB start.
     */
-   assert(top >= GUEST_MEM_START_VA);
+   km_assert(top >= GUEST_MEM_START_VA);
 
    /* Extent memory if necessary */
    if (top >= km_mem_brk(0)) {

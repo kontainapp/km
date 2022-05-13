@@ -56,8 +56,8 @@ extern uint8_t km_guest_end;
 static inline km_gva_t km_guest_kma_to_gva(km_kma_t km_guest_addr)
 {
    km_gva_t gva;
-   assert((uint64_t)km_guest_addr >= (uint64_t)&km_guest_start &&
-          (uint64_t)km_guest_addr < (uint64_t)&km_guest_end);
+   km_assert((uint64_t)km_guest_addr >= (uint64_t)&km_guest_start &&
+             (uint64_t)km_guest_addr < (uint64_t)&km_guest_end);
    gva = GUEST_KMGUESTMEM_BASE_VA + ((uint64_t)km_guest_addr - (uint64_t)&km_guest_start);
    return gva;
 }

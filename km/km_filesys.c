@@ -108,7 +108,7 @@ char* km_get_nonfile_name(int hostfd)
  */
 int km_add_guest_fd_internal(km_vcpu_t* vcpu, int host_fd, char* name, int flags, int how, km_file_ops_t* ops)
 {
-   assert(host_fd >= 0 && host_fd < km_fs()->nfdmap);
+   km_assert(host_fd >= 0 && host_fd < km_fs()->nfdmap);
    int available = 0;
    int taken = 1;
    if (__atomic_compare_exchange_n(&km_fs()->guest_files[host_fd].inuse,
@@ -164,9 +164,9 @@ km_dup_socket_fd(km_vcpu_t* vcpu, int hostfd, char* name, int flags, km_fd_socke
    int ret = km_add_guest_fd_internal(vcpu, hostfd, name, flags, how, NULL);
    if (ret >= 0) {
       km_file_t* file = &km_fs()->guest_files[ret];
-      assert(file->sockinfo == NULL);
+      km_assert(file->sockinfo == NULL);
       file->sockinfo = malloc(sizeof(km_fd_socket_t));
-      assert(file->sockinfo != NULL);
+      km_assert(file->sockinfo != NULL);
       *file->sockinfo = *sockinfo;
    }
    return ret;
@@ -181,9 +181,9 @@ km_dup_socket_fd(km_vcpu_t* vcpu, int hostfd, char* name, int flags, km_fd_socke
  */
 static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
 {
-   assert(fd >= 0 && fd < km_fs()->nfdmap);
+   km_assert(fd >= 0 && fd < km_fs()->nfdmap);
    km_file_t* file = &km_fs()->guest_files[fd];
-   assert(km_is_file_used(file) != 0);
+   km_assert(km_is_file_used(file) != 0);
    if (__atomic_exchange_n(&file->inuse, 0, __ATOMIC_SEQ_CST) != 0) {
       file->ops = NULL;
       if (file->name != NULL) {
@@ -1133,7 +1133,7 @@ uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
       return ret;
    }
    char* name = km_guestfd_name(vcpu, fd);
-   assert(name != NULL);
+   km_assert(name != NULL);
    ret = __syscall_1(SYS_dup, host_fd);
    if (ret >= 0) {
       km_file_t* file = &km_fs()->guest_files[host_fd];
@@ -1172,7 +1172,7 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
    }
 
    char* name = km_guestfd_name(vcpu, fd);
-   assert(name != NULL);
+   km_assert(name != NULL);
    ret = __syscall_3(SYS_dup3, host_fd, newfd, flags);
    if (ret >= 0) {
       if (km_is_file_used(&km_fs()->guest_files[ret]) != 0) {
@@ -1686,7 +1686,7 @@ static inline km_fs_event_t* km_fs_event_find(km_vcpu_t* vcpu, km_file_t* file, 
 static inline void
 km_fs_event_add(km_vcpu_t* vcpu, km_file_t* file, int guestfd, struct epoll_event* event)
 {
-   assert(km_fs_event_find(vcpu, file, guestfd) == NULL);
+   km_assert(km_fs_event_find(vcpu, file, guestfd) == NULL);
    km_fs_event_t eval = {.fd = guestfd, .event = *event};
    km_fs_event_t* fevent = (km_fs_event_t*)calloc(1, sizeof(km_fs_event_t));
    *fevent = eval;
@@ -1697,7 +1697,7 @@ static inline void
 km_fs_event_mod(km_vcpu_t* vcpu, km_file_t* file, int guestfd, struct epoll_event* event)
 {
    km_fs_event_t* fevent = km_fs_event_find(vcpu, file, guestfd);
-   assert(fevent != NULL);
+   km_assert(fevent != NULL);
    fevent->event = *event;
 }
 
@@ -1705,7 +1705,7 @@ static inline void
 km_fs_event_del(km_vcpu_t* vcpu, km_file_t* file, int guestfd, struct epoll_event* event)
 {
    km_fs_event_t* fevent = km_fs_event_find(vcpu, file, guestfd);
-   assert(fevent != NULL);
+   km_assert(fevent != NULL);
    TAILQ_REMOVE(&file->events, fevent, link);
    free(fevent);
 }
@@ -1912,7 +1912,7 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
 {
    char* cur = buf;
    size_t remain = length;
-   assert(file->sockinfo != NULL);
+   km_assert(file->sockinfo != NULL);
    km_infox(KM_TRACE_SNAPSHOT, "fd=%d %s", fd, file->name);
    cur += km_add_note_header(cur,
                              remain,
@@ -2112,7 +2112,7 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name)
    km_file_t* file = &km_fs()->guest_files[nt_file->fd];
    if (km_is_file_used(file) != 0) {
       // Filled in by other side
-      assert(file->ofd == nt_file->data);
+      km_assert(file->ofd == nt_file->data);
       return 0;
    }
    int hostfd[2];
@@ -2150,7 +2150,7 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
    }
 
    km_file_t* file = &km_fs()->guest_files[nt_sock->fd];
-   assert(km_is_file_used(file) == 0);
+   km_assert(km_is_file_used(file) == 0);
 
    int host_fd = socket(nt_sock->domain, nt_sock->type, nt_sock->protocol);
    if (host_fd < 0) {
@@ -2559,13 +2559,13 @@ int km_fs_init(void)
    km_infox(KM_TRACE_FILESYS, "lim.rlim_cur=%ld", lim.rlim_cur);
    km_fs()->nfdmap = lim.rlim_cur;
    km_fs()->guest_files = calloc(lim.rlim_cur, sizeof(km_file_t));
-   assert(km_fs()->guest_files != NULL);
+   km_assert(km_fs()->guest_files != NULL);
 
    if (km_exec_recover_guestfd() != 0) {
       // parent invocation - setup guest std file streams.
       for (int i = 0; i < 3; i++) {
          km_file_t* file = &km_fs()->guest_files[i];
-         assert(km_is_file_used(file) == 0);
+         km_assert(km_is_file_used(file) == 0);
          km_set_file_used(file, 1);
          file->ofd = -1;
          file->name = km_get_nonfile_name(i);
@@ -2641,7 +2641,7 @@ static int km_internal_fd(int fd, int km_fd)
    int newfd;
    if (km_fd == -1) {
       newfd = dup2(fd, __atomic_fetch_add(&internal_fd, 1, __ATOMIC_SEQ_CST));
-      assert(newfd >= 0 && newfd < MAX_OPEN_FILES);
+      km_assert(newfd >= 0 && newfd < MAX_OPEN_FILES);
    } else {
       newfd = dup2(fd, km_fd);
    }
@@ -2764,7 +2764,7 @@ void km_redirect_msgs(const char* name)
          return;
       }
    }
-   assert(fd == KM_LOGGING);
+   km_assert(fd == KM_LOGGING);
 
    if ((km_log_file = fdopen(fd, "w")) == NULL) {
       km_err(1, "Failed to redirect km log");

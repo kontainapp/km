@@ -99,7 +99,7 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
 void km_machine_fini(void)
 {
    close(machine.shutdown_fd);
-   assert(km_vcpu_run_cnt() == 0);
+   km_assert(km_vcpu_run_cnt() == 0);
    free(machine.auxv);
    if (km_guest.km_filename != NULL) {
       free((void*)km_guest.km_filename);
@@ -195,7 +195,7 @@ static void km_init_tsc(km_vcpu_t* vcpu)
 
 void kvm_vcpu_init_sregs(km_vcpu_t* vcpu)
 {
-   assert(machine.idt != 0);
+   km_assert(machine.idt != 0);
    vcpu->sregs = (kvm_sregs_t){
        .cr0 = X86_CR0_PE | X86_CR0_PG | X86_CR0_WP | X86_CR0_NE,
        .cr3 = RSV_MEM_START,
@@ -291,7 +291,7 @@ km_vcpu_t* km_vcpu_get(void)
 
    km_mutex_lock(&machine.vm_vcpu_mtx);
    if ((vcpu = SLIST_FIRST(&machine.vm_idle_vcpus.head)) != 0) {
-      assert(vcpu->state == PARKED_IDLE);
+      km_assert(vcpu->state == PARKED_IDLE);
       SLIST_REMOVE_HEAD(&machine.vm_idle_vcpus.head, next_idle);
       machine.vm_vcpu_run_cnt++;
       vcpu->state = STARTING;
@@ -435,7 +435,7 @@ void km_vcpu_pause_all(km_vcpu_t* vcpu, km_pause_t type)
             nanosleep(&_1ms, NULL);
             km_infox(KM_TRACE_VCPU, "waiting for KVM_RUN to exit - %d", i);
          }
-         assert(count == 0);
+         km_assert(count == 0);
          return;
       case ALL:
          while (km_vcpu_apply_all(km_vcpu_not_paused, vcpu) != 0) {
@@ -471,7 +471,7 @@ void km_vcpu_put(km_vcpu_t* vcpu)
 int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg)
 {
    km_gva_t sp = vcpu->stack_top;   // where we put argv
-   assert((sp & 0x7) == 0);
+   km_assert((sp & 0x7) == 0);
 
    kvm_vcpu_init_sregs(vcpu);
    vcpu->regs = (kvm_regs_t){
@@ -691,7 +691,7 @@ void km_machine_setup(km_machine_init_params_t* params)
    if (machine.pdpe1g == 0) {
       /*
        * In the absence of 1gb pages we can only support 2GB, first for text+data, and the second
-       * for the stack. See assert() in set_pml4_hierarchy()
+       * for the stack. See km_assert() in set_pml4_hierarchy()
        */
       km_infox(KM_TRACE_MEM,
                "KVM: 1gb pages are not supported (pdpe1g=0), setting VM max mem to 2 GiB");

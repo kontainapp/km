@@ -174,7 +174,7 @@ void km_trace_set_log_file_name(char* kmlog_file_name)
  * The command line args take precedence over the KM_VERBOSE variable's value if both
  * are present when invoked from the shell.
  * When invoked from a km payload we ignore km command line trace settings and use the
- * inherited trace fd and use trace categoeries from the KM_VERBOSE envrionment variable.
+ * inherited trace fd and use trace categories from the KM_VERBOSE envrionment variable.
  */
 void km_trace_setup(int argc, char* argv[])
 {

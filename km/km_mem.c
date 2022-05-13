@@ -295,8 +295,8 @@ static void km_add_vvar_vdso_to_guest_address_space(void)
    }
 
    // This code assumes [vvar] and [vdso] are adjacent.
-   assert(vvar_vdso_regions[vvar_region_index].end_addr ==
-          vvar_vdso_regions[vdso_region_index].begin_addr);
+   km_assert(vvar_vdso_regions[vvar_region_index].end_addr ==
+             vvar_vdso_regions[vdso_region_index].begin_addr);
 
    km_vvar_vdso_size = (vvar_vdso_regions[vvar_region_index].end_addr -
                         vvar_vdso_regions[vvar_region_index].begin_addr) +
@@ -345,12 +345,12 @@ static void km_add_vvar_vdso_to_guest_address_space(void)
                                   vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr,
                                   PROT_READ,
                                   "[vvar]");
-   assert(rc == 0);
+   km_assert(rc == 0);
    rc = km_monitor_pages_in_guest(km_vvar_vdso_base[1],
                                   vvar_vdso_regions[1].end_addr - vvar_vdso_regions[1].begin_addr,
                                   PROT_EXEC,
                                   "[vdso]");
-   assert(rc == 0);
+   km_assert(rc == 0);
 }
 
 /*
@@ -363,8 +363,8 @@ static void km_add_code_to_guest_address_space(void)
    int idx;
 
    // km_guest pages must start on a page boundary and must be a multiple of the page size in length.
-   assert(((uint64_t)&km_guest_start & (KM_PAGE_SIZE - 1)) == 0);
-   assert((((uint64_t)&km_guest_end - (uint64_t)&km_guest_end) & (KM_PAGE_SIZE - 1)) == 0);
+   km_assert(((uint64_t)&km_guest_start & (KM_PAGE_SIZE - 1)) == 0);
+   km_assert((((uint64_t)&km_guest_end - (uint64_t)&km_guest_end) & (KM_PAGE_SIZE - 1)) == 0);
 
    // Map the km_guest pages into the guest physical address space
    km_gva_t virtaddr = GUEST_KMGUESTMEM_BASE_VA;
@@ -403,12 +403,12 @@ static void km_add_code_to_guest_address_space(void)
                                   &km_guest_data_start - &km_guest_start,
                                   PROT_EXEC,
                                   "[km_guest_text]");
-   assert(rc == 0);
+   km_assert(rc == 0);
    rc = km_monitor_pages_in_guest(GUEST_KMGUESTMEM_BASE_VA + (&km_guest_data_start - &km_guest_start),
                                   &km_guest_end - &km_guest_data_start,
                                   PROT_READ,
                                   "[km_guest_data]");
-   assert(rc == 0);
+   km_assert(rc == 0);
 }
 
 static void init_pml4(km_kma_t mem)
@@ -418,9 +418,9 @@ static void init_pml4(km_kma_t mem)
    page_tables_t* pt_phys = (page_tables_t*)(uint64_t)RSV_MEM_START;
 
    // The code assumes that a single PML4 slot can cover all available physical memory.
-   assert(machine.guest_max_physmem <= PML4E_REGION);
+   km_assert(machine.guest_max_physmem <= PML4E_REGION);
    // The code assumes that PA and VA are aligned within PDE table (which covers PDPTE_REGION)
-   assert(GUEST_VA_OFFSET % PDPTE_REGION == 0);
+   km_assert(GUEST_VA_OFFSET % PDPTE_REGION == 0);
 
    // initialize all page table entries
    memset(pt, 0, sizeof(page_tables_t));
@@ -660,7 +660,7 @@ static void set_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
          pde_2mb_set(pde + PDE_SLOT(addr), addr);
       }
    } else {
-      assert(machine.pdpe1g != 0);
+      km_assert(machine.pdpe1g != 0);
 #ifdef KM_HIGH_GVA
       x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)(upper_va ? pt->pdpt2 : pt->pdpt0);
 #else
@@ -687,7 +687,7 @@ static void clear_pml4_hierarchy(kvm_mem_reg_t* reg, int upper_va)
          pde[PDE_SLOT(addr)] = (x86_pde_2m_t){0};
       }
    } else {
-      assert(machine.pdpe1g != 0);   // no 1GB pages support
+      km_assert(machine.pdpe1g != 0);   // no 1GB pages support
 #ifdef KM_HIGH_GVA
       x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)(upper_va ? pt->pdpt2 : pt->pdpt0);
 #else
@@ -712,8 +712,8 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
    kvm_mem_reg_t* reg = &machine.vm_mem_regs[idx];
    km_gva_t base = memreg_base(idx);
 
-   assert(reg->memory_size == 0 && reg->userspace_addr == 0);
-   assert(machine.pdpe1g || (base < GIB || base >= machine.guest_max_physmem - GIB));
+   km_assert(reg->memory_size == 0 && reg->userspace_addr == 0);
+   km_assert(machine.pdpe1g || (base < GIB || base >= machine.guest_max_physmem - GIB));
    if ((ptr = km_guest_page_malloc(base, size, PROT_NONE)) == NULL) {
       return -ENOMEM;
    }
@@ -737,7 +737,7 @@ static void km_free_region(int idx, int upper_va)
    kvm_mem_reg_t* reg = &machine.vm_mem_regs[idx];
    uint64_t size = reg->memory_size;
 
-   assert(size != 0);
+   km_assert(size != 0);
    clear_pml4_hierarchy(reg, upper_va);
    reg->memory_size = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {

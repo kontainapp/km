@@ -17,6 +17,7 @@
 #ifndef __KM_H__
 #define __KM_H__
 
+#include <assert.h>
 #include <errno.h>
 #include <getopt.h>
 #include <pthread.h>
@@ -569,6 +570,18 @@ static inline int km_trace_tag_enabled(const char* tag)
       __km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                               \
       abort();                                                                                     \
    } while (0)
+
+#define km_assert_msgx(expr, fmt, ...)                                                               \
+   do {                                                                                              \
+      (expr) ? (void)(0) : (__km_trace(errno, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__), abort()); \
+   } while (0)
+
+#define km_assert_msg(expr, fmt, ...)                                                              \
+   do {                                                                                            \
+      (expr) ? (void)(0) : (__km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__), abort());   \
+   } while (0)
+
+#define km_assert(expr) km_assert_msgx(expr, "Assertion `%s' failed", #expr)
 
 #define km_mutex_lock(mutex)                                                                       \
    do {                                                                                            \

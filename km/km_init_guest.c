@@ -191,7 +191,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
          }
       }
    }
-   assert(phdr_found != 0);
+   km_assert(phdr_found != 0);
    NEW_AUXV_ENT(AT_CLKTCK, sysconf(_SC_CLK_TCK));
    NEW_AUXV_ENT(AT_PAGESZ, KM_PAGE_SIZE);
    // TODO: AT_HWCAP
@@ -203,7 +203,7 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    // A safe copy of auxv for coredump (if needed)
    machine.auxv_size = auxv_end - stack_top_kma;
    machine.auxv = malloc(machine.auxv_size);
-   assert(machine.auxv);
+   km_assert(machine.auxv);
    memcpy(machine.auxv, stack_top_kma, machine.auxv_size);
 
    // place envp array
@@ -277,7 +277,7 @@ int km_clone(km_vcpu_t* vcpu,
              km_gva_t ctid,
              unsigned long newtls)
 {
-   assert((flags & CLONE_THREAD) != 0);   // we only have thread clone here.
+   km_assert((flags & CLONE_THREAD) != 0);   // we only have thread clone here.
 
    child_stack &= ~0x7;
    if (km_gva_to_kma(child_stack - 8) == NULL) {   // check if the stack points to legitimate memory

@@ -150,7 +150,7 @@ static const km_kma_t KM_USER_MEM_BASE = (void*)0x100000000000ul;
 // memreg index for an addr in the bottom half of the PA (after that the geometry changes)
 static inline int MEM_IDX(km_gva_t addr)
 {
-   assert(addr > 0);   // clzl fails when there are no 1's
+   km_assert(addr > 0);   // clzl fails when there are no 1's
    // 43 is "64 - __builtin_clzl(2*MIB)"
    return (43 - __builtin_clzl(addr));
 }
@@ -167,15 +167,15 @@ static inline km_gva_t gva_to_gpa_nocheck(km_gva_t gva)
 static inline km_gva_t gva_to_gpa(km_gva_t gva)
 {
    // gva must be in the bottom or top "max_physmem", but not in between
-   assert((GUEST_MEM_START_VA - 1 <= gva && gva < GUEST_MEM_ZONE_SIZE_VA) ||
-          (GUEST_VA_OFFSET <= gva && gva <= GUEST_MEM_TOP_VA));
+   km_assert((GUEST_MEM_START_VA - 1 <= gva && gva < GUEST_MEM_ZONE_SIZE_VA) ||
+             (GUEST_VA_OFFSET <= gva && gva <= GUEST_MEM_TOP_VA));
    return gva_to_gpa_nocheck(gva);
 }
 
 // helper to convert physical to virtual in the top of VA
 static inline km_gva_t gpa_to_upper_gva(uint64_t gpa)
 {
-   assert(GUEST_MEM_START_VA <= gpa && gpa < machine.guest_max_physmem);
+   km_assert(GUEST_MEM_START_VA <= gpa && gpa < machine.guest_max_physmem);
    return gpa + GUEST_VA_OFFSET;
 }
 

@@ -161,7 +161,7 @@ static inline void km_mmap_concat(km_mmap_reg_t* reg, km_mmap_list_t* list)
    km_mmap_reg_t* left = TAILQ_PREV(reg, km_mmap_list, link);
    km_mmap_reg_t* right = TAILQ_NEXT(reg, link);
 
-   assert(reg != NULL && reg != left && reg != right);   // out of paranoia, check for cycles
+   km_assert(reg != NULL && reg != left && reg != right);   // out of paranoia, check for cycles
    if (left != NULL && ok_to_concat(left, reg) == 1) {
       reg->start = left->start;
       reg->size += left->size;
@@ -219,11 +219,11 @@ static inline void km_mmap_insert(km_mmap_reg_t* reg, km_mmap_list_t* list)
    } else {
       TAILQ_FOREACH (ptr, list, link) {   // find the map to the right of the 'reg'
          if (ptr->start > reg->start) {
-            assert(ptr->start >= reg->start + reg->size);
+            km_assert(ptr->start >= reg->start + reg->size);
             break;
          }
          // double check that there are no overlaps (we don't support overlapping mmaps)
-         assert(ptr->start < reg->start && (ptr->start + ptr->size <= reg->start));
+         km_assert(ptr->start < reg->start && (ptr->start + ptr->size <= reg->start));
       }
 
       if (ptr == TAILQ_END(list)) {
@@ -343,8 +343,8 @@ static int km_mmap_busy_range_apply(km_mmap_reg_t* mreg, km_mmap_action action)
    int prot = mreg->protection;
    km_mmap_reg_t *reg, *next;
 
-   assert(action == km_mmap_mprotect || action == km_mmap_move_to_free ||
-          action == km_mmap_region_clean_concat);
+   km_assert(action == km_mmap_mprotect || action == km_mmap_move_to_free ||
+             action == km_mmap_region_clean_concat);
    TAILQ_FOREACH_SAFE (reg, &machine.mmaps.busy, link, next) {
       km_mmap_reg_t* extra;
 
@@ -394,7 +394,7 @@ static int km_mmap_busy_range_apply(km_mmap_reg_t* mreg, km_mmap_action action)
          km_mmap_insert_busy_after(reg, extra);   // fall through to process 'reg'
          next = TAILQ_END(&machine.mmaps.busy);   // no need to go further, end of addr + size
       }
-      assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range
+      km_assert(reg->start >= addr && reg->start + reg->size <= addr + size);   // fully within the range
       reg->protection = prot;
       action(reg, mreg);
       // action() may concat maps and thus 'next' may need adjustment
@@ -457,7 +457,7 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 
 static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
 {
-   assert(advise == MADV_DONTNEED || advise == MADV_HUGEPAGE);
+   km_assert(advise == MADV_DONTNEED || advise == MADV_HUGEPAGE);
    if (km_mmap_busy_check_contiguous(addr, size) != 0) {
       km_infox(KM_TRACE_MMAP, "madvise area not fully mapped");
       return -ENOMEM;
@@ -533,7 +533,7 @@ km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, int hostfd, m
    int existing_flags;
 
    if ((reg = km_mmap_find_free(size)) != NULL) {   // found a 'free' mmap to accommodate the request
-      assert(size <= reg->size);
+      km_assert(size <= reg->size);
       existing_flags = reg->flags;
       if (reg->size > size) {   // free mmap has extra room to be kept in 'free'
          km_mmap_reg_t* busy;
@@ -546,7 +546,7 @@ km_mmap_add_region(km_gva_t gva, size_t size, int prot, int flags, int hostfd, m
          busy->size = size;
          reg = busy;   // it will be inserted into 'busy' list
       } else {         // the 'free' mmap has exactly the requested size
-         assert(reg->size == size);
+         km_assert(reg->size == size);
          km_mmap_remove_free(reg);
       }
    } else {   // nothing useful in the free list, get fresh memory by moving tbrk down
@@ -612,11 +612,11 @@ static km_gva_t km_guest_mmap_nolock(
    if ((flags & MAP_FIXED) != MAP_FIXED && fd < 0) {   // no fd and no fixed - we are done
       return gva;
    }
-   assert(type == MMAP_ALLOC_GUEST);   // further code is expected to apply to guest requests only
+   km_assert(type == MMAP_ALLOC_GUEST);   // further code is expected to apply to guest requests only
 
    // By now, a contigious region(s) should already exist, so let's ask system to mmap there
    km_kma_t kma = km_gva_to_kma(gva);
-   assert(kma != NULL);
+   km_assert(kma != NULL);
    if (mmap(kma, size, prot, flags | MAP_FIXED, hostfd, offset) != kma) {
       km_warn("System mmap failed. gva 0x%lx kma %p host fd %d off 0x%lx", gva, kma, hostfd, offset);
       return -errno;
@@ -635,8 +635,8 @@ static km_gva_t km_guest_mmap_nolock(
    // Update the formed busy map to correct info
    // TODO: change range_apply to return km_mmap_reg_t*, and drop the extra search here
    km_mmap_reg_t* reg = km_find_reg_nolock(gva);
-   assert(reg != NULL);   // we just created it above
-   assert(reg->start == gva && reg->size == size);
+   km_assert(reg != NULL);   // we just created it above
+   km_assert(reg->start == gva && reg->size == size);
    reg->flags = flags & ~MAP_FIXED;   // we don't care it was FIXED once
    reg->protection = prot;
    if (reg->filename != NULL) {   // clean up old name, if there is one
@@ -779,7 +779,7 @@ int km_guest_munmap(km_vcpu_t* vcpu, km_gva_t addr, size_t size)
     * We check if we are indeed trying to unmap our own stack, and delay the unmap till the exit().
     */
    if (addr <= vcpu->stack_top && vcpu->stack_top < addr + size) {
-      assert(vcpu->mapself_base == 0 && vcpu->mapself_size == 0);
+      km_assert(vcpu->mapself_base == 0 && vcpu->mapself_size == 0);
       vcpu->mapself_base = addr;
       vcpu->mapself_size = size;
       km_infox(KM_TRACE_MMAP, "== delaying munmap, ret=%d", ret);
@@ -797,7 +797,7 @@ void km_delayed_munmap(km_vcpu_t* vcpu)
    if (vcpu->mapself_size > 0) {
       mmaps_lock();
       int rc = km_guest_munmap_nolock(vcpu->mapself_base, vcpu->mapself_size);
-      assert(rc == 0);
+      km_assert(rc == 0);
       mmaps_unlock();
       vcpu->mapself_base = 0;
       vcpu->mapself_size = 0;
@@ -858,9 +858,9 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    km_mmap_reg_t* next;
    size_t needed = size - old_size;
 
-   assert(ptr->km_flags.km_mmap_monitor == 0 && ptr->km_flags.km_mmap_part_of_monitor == 0);
-   assert(old_addr >= ptr->start && old_addr < ptr->start + ptr->size &&
-          old_addr + old_size <= ptr->start + ptr->size && size > old_size);
+   km_assert(ptr->km_flags.km_mmap_monitor == 0 && ptr->km_flags.km_mmap_part_of_monitor == 0);
+   km_assert(old_addr >= ptr->start && old_addr < ptr->start + ptr->size &&
+             old_addr + old_size <= ptr->start + ptr->size && size > old_size);
 
    // If there is a large enough free slot after this, use it.
    if ((ptr->start + ptr->size == old_addr + old_size) && (next = TAILQ_NEXT(ptr, link)) != NULL &&
@@ -868,7 +868,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
       // Adjust free list and protections - cannot use km_guest_mmap here as it can grab a wrong area
       km_infox(KM_TRACE_MMAP, "mremap: reusing adjusted free map");
       km_mmap_reg_t* donor = km_mmap_find_address(&machine.mmaps.free, ptr->start + ptr->size);
-      assert(donor != NULL && donor->size >= needed);   // MUST have free slot due to gap in busy
+      km_assert(donor != NULL && donor->size >= needed);   // MUST have free slot due to gap in busy
       ptr->size += needed;
 
       if (ptr->km_flags.km_mmap_clean == 1) {   // no km_init_init will be called on the whole ptr region
@@ -901,7 +901,7 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
    }
    void* to = km_gva_to_kma(ret);
    void* from = km_gva_to_kma(old_addr);
-   assert(from != NULL);         // should have been checked before, in hcalls
+   km_assert(from != NULL);      // should have been checked before, in hcalls
    memcpy(to, from, old_size);   // WARNING: this may be slow, see issue #198
    if (km_syscall_ok(km_guest_munmap_nolock(old_addr, old_size)) < 0) {
       km_err(1, "Failed to unmap after remapping");
@@ -912,8 +912,8 @@ km_mremap_grow(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t si
 // Shrinks a mmap to size. old_addr is expected to be within ptr map. Returns new address or -errno
 static km_gva_t km_mremap_shrink(km_mmap_reg_t* ptr, km_gva_t old_addr, size_t old_size, size_t size)
 {
-   assert(old_addr >= ptr->start && old_addr < ptr->start + ptr->size &&
-          old_addr + old_size <= ptr->start + ptr->size);
+   km_assert(old_addr >= ptr->start && old_addr < ptr->start + ptr->size &&
+             old_addr + old_size <= ptr->start + ptr->size);
    if (km_syscall_ok(km_guest_munmap_nolock(old_addr + size, old_size - size)) < 0) {
       return -EFAULT;
    }
