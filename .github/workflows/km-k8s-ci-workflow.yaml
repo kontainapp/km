@@ -1,9 +1,9 @@
 name: Generate Daemonset Artifact
 on: # push
-  # workflow_dispatch: {}
-  push:
-      branches:
-        - 'sm/vk8sartifactupdate/**'
+  workflow_dispatch: {}
+  # push:
+  #     branches:
+  #       - 'sm/vk8sartifactupdate/**'
 
 jobs:
   build:
