@@ -25,13 +25,13 @@ jobs:
 
           echo "getting the current release tag"
           TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
-          
+
           echo "the tag is: ${TAG}"
 
           # run kustomize on the overlays
           echo "running kustomize"
           export TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)} && envsubst '$TAG' < cloud/k8s/deploy/kontain-deploy/base/kontain-deploy.yaml > cloud/k8s/deploy/kontain-deploy/base/kontain-deploy.yaml
-          
+
           /usr/local/bin/kustomize build cloud/k8s/deploy/kontain-deploy/base/ > cloud/k8s/deploy/kontain-deploy/kustomize_outputs/km.yaml
           /usr/local/bin/kustomize build cloud/k8s/deploy/kontain-deploy/overlays/km-crio/ > cloud/k8s/deploy/kontain-deploy/kustomize_outputs/km-crio.yaml
           /usr/local/bin/kustomize build cloud/k8s/deploy/kontain-deploy/overlays/kkm/ > cloud/k8s/deploy/kontain-deploy/kustomize_outputs/kkm.yaml
