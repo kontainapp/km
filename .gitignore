@@ -1,4 +1,5 @@
 build/**
+.vscode/**
 *.o
 *.a
 *.d
@@ -31,3 +32,4 @@ cscope.out
 perf*.data
 perf*.data.old
 *.svg
+.vscode/*
