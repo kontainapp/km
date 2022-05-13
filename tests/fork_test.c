@@ -284,6 +284,7 @@ int clone_exec_0(void)
  */
 int getppid_fork_test_0(void)
 {
+   pid_t oldest_parent = getpid();
    pid_t expected_ppid;
    int current_fork_depth = 0;
    int max_fork_depth = 5;   // arbitrarily chosen
@@ -319,14 +320,15 @@ fork_again:;
       memset(&siginfo, 0, sizeof(siginfo));
       int rc = waitid(P_PID, fpid, &siginfo, WEXITED);
       fprintf(stderr,
-              "waitid() returned %d, errno %d, siginfo.si_pid %d, si_status 0x%x\n",
+              "waitid() returned %d, errno %d, siginfo.si_pid %d, si_status 0x%x, si_code 0x%x\n",
               rc,
               errno,
               siginfo.si_pid,
-              siginfo.si_status);
+              siginfo.si_status,
+              siginfo.si_code);
       if (rc < 0) {
          fprintf(stderr, "%s: waitpid() for pid %d failed, %s\n", __FUNCTION__, fpid, strerror(errno));
-         if (getpid() == 1) {
+         if (getpid() == oldest_parent) {
             return 1;
          }
          exit(1);
@@ -337,7 +339,7 @@ fork_again:;
                  __FUNCTION__,
                  fpid,
                  siginfo.si_pid);
-         if (getpid() == 1) {
+         if (getpid() == oldest_parent) {
             return 1;
          }
          exit(1);
@@ -351,7 +353,7 @@ fork_again:;
                  siginfo.si_status,
                  getpid());
       }
-      if (getpid() == 1) {
+      if (getpid() == oldest_parent) {
          return rv;
       } else {
          exit(rv);
@@ -525,6 +527,10 @@ int main(int argc, char* argv[])
    if (rv == 0) {
       rv = rvtmp;
    }
+
+   // Yes, this is important.  getppid_fork_test_0() can mistakenly exit from the oldest parent
+   // so we will never get here.  Not a big deal but also not right.
+   fprintf(stderr, "%s: made it to the end of the test, rv %d!\n", __FUNCTION__, rv);
 
    close(parent_write_end[0]);
    close(parent_write_end[1]);
