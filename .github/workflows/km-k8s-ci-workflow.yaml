@@ -1,0 +1,47 @@
+name: Generate Daemonset Artifact
+on: # push
+  # workflow_dispatch: {}
+  push:
+      branches:
+        - 'sm/vk8sartifactupdate/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: Install tools
+        run: |
+          set -xe
+
+          # install kustomize
+          echo "installing kustomize"
+          sudo curl -Lo /usr/local/bin/kustomize https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v3.2.3/kustomize_kustomize.v3.2.3_linux_amd64
+          sudo chmod +x /usr/local/bin/kustomize
+
+          sleep 10
+
+
+          echo "getting the current release tag"
+          TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
+          
+          echo "the tag is: ${TAG}"
+
+          # run kustomize on the overlays
+          echo "running kustomize"
+          export TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)} && envsubst '$TAG' < cloud/k8s/deploy/kontain-deploy/base/kontain-deploy.yaml > cloud/k8s/deploy/kontain-deploy/base/kontain-deploy.yaml
+          
+          /usr/local/bin/kustomize build cloud/k8s/deploy/kontain-deploy/base/ > cloud/k8s/deploy/kontain-deploy/kustomize_outputs/km.yaml
+          /usr/local/bin/kustomize build cloud/k8s/deploy/kontain-deploy/overlays/km-crio/ > cloud/k8s/deploy/kontain-deploy/kustomize_outputs/km-crio.yaml
+          /usr/local/bin/kustomize build cloud/k8s/deploy/kontain-deploy/overlays/kkm/ > cloud/k8s/deploy/kontain-deploy/kustomize_outputs/kkm.yaml
+          /usr/local/bin/kustomize build cloud/k8s/deploy/kontain-deploy/overlays/k3s/ > cloud/k8s/deploy/kontain-deploy/kustomize_outputs/k3s.yaml
+
+          echo -----------
+          cat cloud/k8s/deploy/kontain-deploy/kustomize_outputs/km.yaml
+          echo -----------
+          cat cloud/k8s/deploy/kontain-deploy/kustomize_outputs/km-crio.yaml
+          echo -----------
+          cat cloud/k8s/deploy/kontain-deploy/kustomize_outputs/kkm.yaml
+          echo -----------
+          cat cloud/k8s/deploy/kontain-deploy/kustomize_outputs/k3s.yaml
