@@ -1,5 +1,5 @@
 # Copyright 2021 Kontain
-# Derived from: 
+# Derived from:
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,7 +43,7 @@ spec:
         - name: CONTAINERD_CFG_DIR
           value: /etc/containerd
         - name: KONTAIN_RELEASE_URL
-          value: https://github.com/kontainapp/km/releases/download/v0.9.5/kontain_bin.tar.gz
+          value: https://github.com/kontainapp/km/releases/download/current/kontain_bin.tar.gz
         - name: NODE_NAME
           valueFrom:
             fieldRef:
