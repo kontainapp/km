@@ -52,6 +52,9 @@
  * We extract the offset from that instruction and then compute the address of the
  * head of the list.  With that pointer we can walk the list of link_map's.
  *
+ * With gcc-12 the assembly is a bit different but the instruction is question is the same, so we
+ * check for the pattern in two locations.
+ *
  * Assumptions:
  * - dlopen() is part of musl libc which also contains the dynamic linker.
  * - km_dynlinker.km_dlopen will contain the gva of dlopen().
@@ -68,8 +71,11 @@ int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
    km_gva_t linkmapheadp_gva;
    int rc = 0;
 
-#define KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR 0x11
-#define KM_DLOPEN_OFFSET_TO_POST_LOAD_HEAD_INSTR 0x18
+   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR = 0x11;
+   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12 = 0x14;
+   static const uint64_t KM_DLOPEN_LOAD_HEAD_INSTR_LEN = 0x7;
+
+   uint64_t offset_to_load_head_instr;
 
    // Find address of head of the link_map list.
    dlopen_kma = km_gva_to_kma(km_guest.km_dlopen);
@@ -80,31 +86,37 @@ int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
    }
    if (*((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR) == 0x48 &&
        *((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR + 1) == 0x8b) {
-      // Fetch offset relative to the rip.
-      rip_offset_of_head = *(uint32_t*)((char*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR + 3);
-      adderss_of_linkmaphead_kma =
-          (km_kma_t)((uint64_t)dlopen_kma + KM_DLOPEN_OFFSET_TO_POST_LOAD_HEAD_INSTR +
-                     rip_offset_of_head);
-      km_infox(KM_TRACE_KVM,
-               "addr of link map head: gva 0x%lx, kma %p",
-               km_guest.km_dlopen + KM_DLOPEN_OFFSET_TO_POST_LOAD_HEAD_INSTR + rip_offset_of_head,
-               adderss_of_linkmaphead_kma);
-      linkmapheadp_gva = *(uint64_t*)adderss_of_linkmaphead_kma;
-      km_infox(KM_TRACE_KVM, "link map head gva 0x%lx", linkmapheadp_gva);
-
-      // Visit the entries in the link_map list
-      lmp_gva = (link_map_t*)linkmapheadp_gva;
-      while (lmp_gva != NULL) {
-         km_infox(KM_TRACE_KVM, "Examining link map entry at %p", lmp_gva);
-         lmp_kma = (link_map_t*)km_gva_to_kma((km_gva_t)lmp_gva);
-         rc = (*callme)(lmp_kma, lmp_gva, visitargp);
-         if (rc != 0) {
-            break;
-         }
-         lmp_gva = lmp_kma->l_next;
-      }
+      offset_to_load_head_instr = KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR;
+   } else if (*((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12) == 0x48 &&
+              *((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12 + 1) == 0x8b) {
+      offset_to_load_head_instr = KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12;
    } else {
       km_infox(KM_TRACE_KVM, "Unexpected instruction in dlopen, has musl dlopen() changed?");
+      return rc;
+   }
+
+   // Fetch offset relative to the rip.
+   rip_offset_of_head = *(uint32_t*)((char*)dlopen_kma + offset_to_load_head_instr + 3);
+   adderss_of_linkmaphead_kma = (km_kma_t)((uint64_t)dlopen_kma + offset_to_load_head_instr +
+                                           KM_DLOPEN_LOAD_HEAD_INSTR_LEN + rip_offset_of_head);
+   km_infox(KM_TRACE_KVM,
+            "addr of link map head: gva 0x%lx, kma %p",
+            km_guest.km_dlopen + offset_to_load_head_instr + KM_DLOPEN_LOAD_HEAD_INSTR_LEN +
+                rip_offset_of_head,
+            adderss_of_linkmaphead_kma);
+   linkmapheadp_gva = *(uint64_t*)adderss_of_linkmaphead_kma;
+   km_infox(KM_TRACE_KVM, "link map head gva 0x%lx", linkmapheadp_gva);
+
+   // Visit the entries in the link_map list
+   lmp_gva = (link_map_t*)linkmapheadp_gva;
+   while (lmp_gva != NULL) {
+      km_infox(KM_TRACE_KVM, "Examining link map entry at %p", lmp_gva);
+      lmp_kma = (link_map_t*)km_gva_to_kma((km_gva_t)lmp_gva);
+      rc = (*callme)(lmp_kma, lmp_gva, visitargp);
+      if (rc != 0) {
+         break;
+      }
+      lmp_gva = lmp_kma->l_next;
    }
    return rc;
 }
