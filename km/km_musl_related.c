@@ -71,8 +71,10 @@ int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
    km_gva_t linkmapheadp_gva;
    int rc = 0;
 
-   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR = 0x11;
-   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12 = 0x14;
+   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR = 17;
+   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12 = 20;
+   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0 = 45;
+
    static const uint64_t KM_DLOPEN_LOAD_HEAD_INSTR_LEN = 0x7;
 
    uint64_t offset_to_load_head_instr;
@@ -90,6 +92,9 @@ int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
    } else if (*((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12) == 0x48 &&
               *((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12 + 1) == 0x8b) {
       offset_to_load_head_instr = KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12;
+   } else if (*((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0) == 0x48 &&
+              *((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0 + 1) == 0x8b) {
+      offset_to_load_head_instr = KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0;
    } else {
       km_infox(KM_TRACE_KVM, "Unexpected instruction in dlopen, has musl dlopen() changed?");
       return rc;
