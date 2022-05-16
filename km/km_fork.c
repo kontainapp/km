@@ -111,9 +111,7 @@ static void km_fork_setup_child_vmstate(sigset_t* formermask)
 
    // km signal system is ready to handle signals
    int rc = sigprocmask(SIG_SETMASK, formermask, NULL);
-   if (rc != 0) {
-      km_abort("Couldn't restore child's signal mask");
-   }
+   km_assert_msgx(rc == 0, "Couldn't restore child's signal mask");
 
    // No need to call km_init_guest_idt(). Use what was inherited from the parent process.
 
@@ -337,9 +335,7 @@ int km_dofork(int* in_child)
    sigaddset(&blockthese, SIGUSR1);
    sigaddset(&blockthese, SIGCHLD);   // block SIGCHLD until the child's pid is entered into the pid map
    int rc = sigprocmask(SIG_BLOCK, &blockthese, &formermask);
-   if (rc != 0) {
-      km_abort("Couldn't block signals before fork/clone");
-   }
+   km_assert_msgx(rc == 0, "Couldn't block signals before fork/clone");
 
    km_trace_include_pid(1);   // include the pid in trace output
    if (km_fork_state.is_clone != 0) {
@@ -396,7 +392,7 @@ int km_dofork(int* in_child)
 
       // unblock the signals we blocked earlier
       rc = sigprocmask(SIG_SETMASK, &formermask, NULL);
-      assert(rc == 0);
+      km_assert(rc == 0);
    }
 
    if (need_to_wait == 0) {

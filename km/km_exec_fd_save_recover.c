@@ -336,7 +336,7 @@ static int km_exec_restore_file(int fd, int how, int flags, int index)
    km_exec_get_file_pointer(fd, &file, NULL);
    TAILQ_INIT(&file->events);
 
-   assert(km_is_file_used(file) == 0);
+   km_assert(km_is_file_used(file) == 0);
    km_set_file_used(file, 1);
    file->how = how;
    file->flags = flags;
@@ -376,7 +376,7 @@ static int km_exec_restore_eventfd(int fd, int flags)
    km_exec_get_file_pointer(fd, &file, NULL);
    TAILQ_INIT(&file->events);
 
-   assert(km_is_file_used(file) == 0);
+   km_assert(km_is_file_used(file) == 0);
    km_set_file_used(file, 1);
    file->how = KM_FILE_HOW_EVENTFD;
    file->flags = flags;

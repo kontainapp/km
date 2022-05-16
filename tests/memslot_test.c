@@ -26,6 +26,10 @@
 
 km_machine_t machine;
 
+void __km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...)
+{
+}
+
 static char* out_sz(uint64_t val)
 {
    char* buf = malloc(64);   // yeah. leak it

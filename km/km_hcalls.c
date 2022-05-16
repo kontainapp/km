@@ -1687,7 +1687,7 @@ static km_hc_ret_t execveat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    }
    // Get the filename for the open km payload executable.
    char* exe_path = km_guestfd_name(vcpu, km_fs_h2g_fd(exefd));
-   assert(exe_path != NULL);
+   km_assert(exe_path != NULL);
    if (exefd != dirfd) {
       close(exefd);
    }

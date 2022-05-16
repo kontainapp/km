@@ -221,7 +221,7 @@ char* km_parse_shebang(const char* payload_file, char** extra_arg)
    int fd;
    int count;
 
-   assert(payload_file != NULL);
+   km_assert(payload_file != NULL);
    km_infox(KM_TRACE_EXEC, "input payload_file %s", payload_file);
    *extra_arg = NULL;
 
@@ -289,7 +289,7 @@ static void km_mimic_payload_argv(int argc, char** argv, int pl_index)
       char* end = argv[argc - 1] + strlen(argv[argc - 1]) + 1;
       int size = end - argv[pl_index];
       int shift = argv[pl_index] - argv[0];
-      assert(shift + size == end - argv[0]);
+      km_assert(shift + size == end - argv[0]);
 
       memmove(argv[0], argv[pl_index], size);
       memset(argv[0] + size, 0, shift);

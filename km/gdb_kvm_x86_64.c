@@ -185,7 +185,7 @@ static int kvm_arch_remove_sw_breakpoint(struct breakpoint_t* bp)
       }
    }
 
-   assert(*insn == int3);
+   km_assert(*insn == int3);
    *insn = bp->saved_insn;
 
    if ((prot & PROT_WRITE) == 0) {
@@ -288,7 +288,7 @@ static struct breakpoint_t* bp_list_find(gdb_breakpoint_type_t type, km_gva_t ad
          break;
 
       default:
-         assert(0);
+         km_assert(0);
    }
 
    return NULL;
@@ -362,7 +362,7 @@ static struct breakpoint_t* bp_list_insert(gdb_breakpoint_type_t type, km_gva_t 
          break;
 
       default:
-         assert("Unknown breakpoint type in insert" == NULL);
+         km_abortx("Unknown breakpoint type in insert");
    }
 
    return bp;
@@ -397,7 +397,7 @@ static int bp_list_remove(gdb_breakpoint_type_t type, km_gva_t addr, size_t len)
          break;
 
       default:
-         assert("Unknown breakpoint type in remove" == NULL);
+         km_abortx("Unknown breakpoint type in remove");
    }
    free(bp);
    return 0;
@@ -609,9 +609,9 @@ int km_gdb_write_registers(km_vcpu_t* vcpu, uint8_t* registers, size_t len)
     * notion of x86_64 but our CPU model sets the segments once and they never
     * change after that.
     */
-   assert(vcpu->sregs.cs.selector == gregs->cs && vcpu->sregs.ss.selector == gregs->ss &&
-          vcpu->sregs.ds.selector == gregs->ds && vcpu->sregs.es.selector == gregs->es &&
-          vcpu->sregs.fs.selector == gregs->fs && vcpu->sregs.gs.selector == gregs->gs);
+   km_assert(vcpu->sregs.cs.selector == gregs->cs && vcpu->sregs.ss.selector == gregs->ss &&
+             vcpu->sregs.ds.selector == gregs->ds && vcpu->sregs.es.selector == gregs->es &&
+             vcpu->sregs.fs.selector == gregs->fs && vcpu->sregs.gs.selector == gregs->gs);
 
    km_write_registers(vcpu);
    return 0;

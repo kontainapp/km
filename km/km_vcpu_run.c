@@ -562,7 +562,7 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
 {
    if (machine.exit_group != 0) {   // exit_group() - we are done.
       km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
-      assert("Reached the unreachable" == NULL);
+      km_abortx("Reached the unreachable");
    }
    if (machine.pause_requested == 0 && km_gdb_client_is_attached() == 0) {
       return;
@@ -602,7 +602,7 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
    // if exit_group() or equivalent happened while we were sleeping, like destructive snapshot, handle it
    if (machine.exit_group != 0) {   // exit_group() - we are done.
       km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
-      assert("Reached the unreachable" == NULL);
+      km_abortx("Reached the unreachable");
    }
 }
 

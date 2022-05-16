@@ -445,8 +445,8 @@ static inline int km_core_dump_payload_note(km_payload_t* payload, int tag, char
 
 static inline int km_core_write_notes(km_vcpu_t* vcpu,
                                       int fd,
-                                      char* label,
-                                      char* description,
+                                      const char* label,
+                                      const char* description,
                                       off_t offset,
                                       char* buf,
                                       size_t size,
@@ -550,7 +550,7 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu,
       remain -= strlen(description) + 1;
    }
 
-   assert(cur <= buf + size);
+   km_assert(cur <= buf + size);
    // TODO: Other notes sections in real core files.
    //  NT_PRPSINFO (prpsinfo structure)
    //  NT_SIGINFO (siginfo_t data)
@@ -603,7 +603,7 @@ static inline void km_guestmem_write(int fd, km_gva_t base, size_t length)
  * Returns buffer allocation size for core PT_NOTES section based on the
  * number of active vcpu's (threads).
  */
-static inline size_t km_core_notes_length(km_vcpu_t* vcpu, char* label, char* description)
+static inline size_t km_core_notes_length(km_vcpu_t* vcpu, const char* label, const char* description)
 {
    int nvcpu = km_vcpu_run_cnt();
    int nvcpu_inc = (vcpu == NULL) ? 0 : 1;
@@ -728,8 +728,8 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
                                        km_gva_t end_load,
                                        char* notes_buffer,
                                        size_t notes_length,
-                                       char* label,
-                                       char* description,
+                                       const char* label,
+                                       const char* description,
                                        size_t* offsetp,
                                        km_coredump_type_t dumptype)
 {
@@ -804,8 +804,8 @@ static int km_snapshot_ok(void)
 void km_dump_core(char* core_path,
                   km_vcpu_t* vcpu,
                   x86_interrupt_frame_t* iframe,
-                  char* label,
-                  char* description,
+                  const char* label,
+                  const char* description,
                   km_coredump_type_t dumptype)
 {
    // char* core_path = km_get_coredump_path();
