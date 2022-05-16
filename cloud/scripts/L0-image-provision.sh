@@ -53,6 +53,8 @@ useradd -m -s /bin/bash -G docker $1
 echo "kontain ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/kontain && chmod 440 /etc/sudoers.d/kontain
 echo | su $1 -c 'ssh-keygen -N "" -q'
 
+sysctl -w kernel.core_pattern=core_%P
+
 # TODO - this needs to be in another base image (VagrantPreloadedBaseImage)
 #  in the vast majority of cases these extra few GiB for boxes are not needed
 # TODO box version and OS List is currently defined in multiple places

@@ -352,7 +352,7 @@ jobs:
           make -C payloads -j pull-testenv-image
 
       - name: KM with KVM Test - Azure
-        run: make -C tests test-withdocker DOCKER_INTERACTIVE=
+        run: make -C tests test-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
         timeout-minutes: 20
 
       - name: KM with KVM Payloads Test - Azure
@@ -462,7 +462,7 @@ jobs:
           make -C payloads -j pull-testenv-image
 
       - name: KM with KKM Test - AWS
-        run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+        run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
         timeout-minutes: 20
 
       - name: KM with KKM Payloads Test - AWS
