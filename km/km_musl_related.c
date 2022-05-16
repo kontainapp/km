@@ -53,7 +53,8 @@
  * head of the list.  With that pointer we can walk the list of link_map's.
  *
  * With gcc-12 the assembly is a bit different but the instruction is question is the same, so we
- * check for the pattern in two locations.
+ * check for the pattern in two locations. In addition, if it is compiled with no optimization (-O0)
+ * flag, the assembly is different again, which brings the third possible location.
  *
  * Assumptions:
  * - dlopen() is part of musl libc which also contains the dynamic linker.
@@ -71,9 +72,13 @@ int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
    km_gva_t linkmapheadp_gva;
    int rc = 0;
 
-   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR = 17;
-   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12 = 20;
-   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0 = 45;
+   /*
+    * As mentioned in the comment above, there are three possible location of the instruction
+    * loading address of the head of the list.
+    */
+   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR = 17;          // gcc <= 11 -O2
+   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12 = 20;   // gcc 12 -O2
+   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0 = 45;       // -O0 both versions
 
    static const uint64_t KM_DLOPEN_LOAD_HEAD_INSTR_LEN = 0x7;
 
