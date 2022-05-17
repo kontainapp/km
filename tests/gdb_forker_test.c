@@ -35,6 +35,7 @@
 
 int main(int argc, char* argv[])
 {
+   extern char** environ;
    //   char payload[] = "tests/hello_test";
    char payload[] = "hello_test.km";
    pid_t pid;
@@ -47,10 +48,10 @@ int main(int argc, char* argv[])
       char* new_argv[2];
       new_argv[0] = payload;
       new_argv[1] = NULL;
-      char* new_envp[1];
-      new_envp[0] = NULL;
+      // char* new_envp[1];
+      // new_envp[0] = NULL;
       fprintf(stderr, "Child pid %d exec()'ing to %s\n", getpid(), payload);
-      execve(payload, new_argv, new_envp);
+      execve(payload, new_argv, environ);
       fprintf(stderr, "execve() to %s, pid %d, failed %s\n", payload, getpid(), strerror(errno));
       return 1;
    } else {   // parent

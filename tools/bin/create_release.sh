@@ -26,8 +26,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 TOP="$(realpath ../..)"
 BLDTOP=$TOP/build
 readonly TARBALL=${BLDTOP}/kontain.tar
-readonly OPT_KONTAIN=${BLDTOP}/opt_kontain
-readonly OPT_KONTAIN_TMP=${BLDTOP}/opt_kontain_tmp
+readonly OPT_KONTAIN=${BLDTOP}/opt/kontain
+readonly OPT_KONTAIN_TMP=${BLDTOP}/opt/kontain_tmp
 
 echo "Creating temporary directory"
 mkdir -p ${OPT_KONTAIN_TMP}

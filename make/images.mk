@@ -75,9 +75,9 @@ RUNENV_DEMO_PATH ?= .
 
 
 # TESTENV_EXTRA_FILES
-TEST_BUILD_ENV = -C ${TOP} build/opt_kontain
-testenv_prep = tar -czf ${TESTENV_PATH}/bldenv.tgz ${TEST_BUILD_ENV}
-testenv_cleanup = rm -f $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}}) ${TESTENV_PATH}/bldenv.tgz
+TESTENV_EXTRA_FILES += ${KM_BIN} ${KM_LDSO}
+testenv_prep = cp --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH}
+testenv_cleanup = rm $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}})
 
 testenv-image: ## build test image with test tools and code
 	$(call clean_container_image,${TEST_IMG_TAGGED})

@@ -42,6 +42,7 @@ Usage:  ${BASH_SOURCE[0]} [options]
   --dry-run               print commands instead of executing them
   --usevirt=virtmanager   optional argument to override virtualization platform kvm or kkm
   --jobs=count            optional argument to override parallel runs. Default is the result of nproc command (`nproc`)
+  --rt_ld_path=path       optional argument to specify runtime libraries to use intead of /opt/kontain/*** in standard LD_LIBRARY_PATH format
 EOF
 }
 
@@ -169,12 +170,6 @@ for t in $test_type ; do
    sed 2d $tests >> $tmp_file
    test_list="$test_list $tmp_file"
 done
-
-# If running on development machine, i.e  /opt/kontain is not used
-# set up LD_LIBRARY_PATH so dynamically linked libraries can be picked up from build/opt_kontain
-
-OPT_KONTAIN=${TESTS_BASE}/../build/opt_kontain
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${OPT_KONTAIN}/alpine-lib:${OPT_KONTAIN}/lib:${OPT_KONTAIN}/runtime
 
 $DEBUG ${TESTS_BASE}/bats/bin/bats $jobs $pretty -f "$match" $test_list
 exit_code=$?

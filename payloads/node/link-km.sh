@@ -62,7 +62,7 @@ link_node() {
       $NODE/obj.target/tools/v8_gypfiles/libv8_zlib.a \
       $NODE/obj.target/tools/v8_gypfiles/libv8_compiler.a \
       $NODE/obj.target/tools/v8_gypfiles/libv8_initializers.a \
-      -L ${KM_TOP}/build/opt_kontain/lib -lmimalloc \
+      -L ${KM_TOP}/build/opt/kontain/lib -lmimalloc \
    -Wl,--end-group -pthread
 }
 

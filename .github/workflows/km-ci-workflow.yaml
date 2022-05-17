@@ -167,16 +167,16 @@ jobs:
       - name: Build shim
         run: |
           make -C cloud/k8s/deploy/shim
-          mkdir build/opt_kontain/bin/shim
-          cp -r build/cloud/k8s/deploy/shim/* build/opt_kontain/bin/shim
+          mkdir build/opt/kontain/bin/shim
+          cp -r build/cloud/k8s/deploy/shim/* build/opt/kontain/bin/shim
 
       - uses: actions/upload-artifact@v2
         with:
           name: km
           path: |
-            build/opt_kontain/bin/km
-            build/opt_kontain/bin/krun
-            build/opt_kontain/bin/shim
+            build/opt/kontain/bin/km
+            build/opt/kontain/bin/krun
+            build/opt/kontain/bin/shim
           retention-days: 7
 
       - uses: actions/upload-artifact@v2
@@ -184,12 +184,12 @@ jobs:
           name: km-build
           path: |
             build/cloud/k8s/deploy/shim
-            build/opt_kontain/bin
-            build/opt_kontain/lib
-            build/opt_kontain/include
+            build/opt/kontain/bin
+            build/opt/kontain/lib
+            build/opt/kontain/include
             tests/hello_test.km
             container-runtime/docker_config.sh
-            build/opt_kontain/runtime
+            build/opt/kontain/runtime
           retention-days: 7
 
   km-build-payloads:
@@ -328,8 +328,8 @@ jobs:
         run: |
           set -x
           # rename rkun.static to krun
-          mv build/container-runtime/krun.static build/opt_kontain/bin/krun
-          mv container-runtime/docker_config.sh build/opt_kontain/bin/docker_config.sh
+          mv build/container-runtime/krun.static build/opt/kontain/bin/krun
+          mv container-runtime/docker_config.sh build/opt/kontain/bin/docker_config.sh
 
       - run: make -C cloud/azure login-cli
 
@@ -348,14 +348,14 @@ jobs:
         run: |
           BLDTOP=$(realpath build)
 
-          chmod 755 ${BLDTOP}/opt_kontain/bin/km
-          chmod 755 ${BLDTOP}/opt_kontain/bin/krun
+          chmod 755 ${BLDTOP}/opt/kontain/bin/km
+          chmod 755 ${BLDTOP}/opt/kontain/bin/krun
           chmod 755 ${BLDTOP}/cloud/k8s/deploy/shim/containerd-shim-krun-v2
 
           tar -czvf ${BLDTOP}/kontain_bin.tar.gz \
               -C ${BLDTOP} km/km container-runtime/krun container-runtime/krun-label-trigger \
               cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
-              -C ${BLDTOP}/opt_kontain bin/docker_config.sh
+              -C ${BLDTOP}/opt/kontain bin/docker_config.sh
 
       - uses: actions/upload-artifact@v2
         with:

@@ -501,7 +501,7 @@ fi
    # Check for some output from "info auxv"
    assert_line --regexp "31   AT_EXECFN            File name of executable *0x[0-9a-f]*.*stray_test.kmd"
    # Check for some output from "info sharedlibrary"
-   assert_line --regexp "0x[0-9a-f]*  0x[0-9a-f]*  Yes         target:.*libc.so"
+   assert_line --regexp "0x[0-9a-f]*  0x[0-9a-f]*  Yes         .*/libc.so"
    wait_and_check $pid $(( $signal_flag + 11)) # expect KM to exit with SIGSEGV
 
    # There is no explicit test for vFile remote commands.  gdb uses vFile as part of
@@ -520,7 +520,7 @@ fi
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_sharedlib2_test.gdb" --ex=q
    assert_success
-   assert_line --regexp "Yes         target:.*/dlopen_test_lib.so"
+   assert_line --regexp "Yes         .*/dlopen_test_lib.so"
    assert_line --partial "Dump of assembler code for function do_function"
    assert_line --partial "Hit the breakpoint at do_function"
    wait_and_check $pid 0

@@ -35,7 +35,7 @@ endif
 include ${TOP}/make/actions.mk
 
 # build VMM and runtime library before trying to build tests
-tests: km runtime lib
+tests: km runtime lib tools/bin
 
 .PHONY: clang-format clang-format-check
 clang-format-check:
@@ -55,7 +55,7 @@ KM_KKM_RELEASE := ${BLDTOP}/kkm.run
 KM_BIN_RELEASE := ${BLDTOP}/kontain_bin.tar.gz
 KM_BINARIES := -C ${BLDTOP} km/km container-runtime/krun container-runtime/krun-label-trigger \
                cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
-               -C ${BLDTOP}/opt_kontain bin/docker_config.sh
+               -C ${BLDTOP}/opt/kontain bin/docker_config.sh
 # Show this on the release page
 RELEASE_MESSAGE ?= Kontain KM Beta Release. branch: ${SRC_BRANCH} sha: ${SRC_SHA}
 
