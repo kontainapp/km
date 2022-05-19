@@ -66,6 +66,31 @@ edge-release: ## Trigger edge-release building pipeline
 	git tag -a ${RELEASE_TAG} --message "${RELEASE_MESSAGE}"
 	git push ${REPO_URL} ${RELEASE_TAG}
 
+## Prepares release by
+##  -- updating km-releases/current_release.txt  with passed in version number
+##  --
+##  Requires RELEASE_TAG to be passed in
+release-prep: deploy-config
+	@echo ${RELEASE_TAG}
+	@echo -n "Confirm the tag for release!!! [y/N] " && read ans && [ $${ans:-N} = y ]
+	@echo ${RELEASE_TAG} > km-releases/current_release.txt
+	@echo Tagging Release
+	git tag -f ${RELEASE_TAG}
+ifneq ("${RELEASE_TAG}", "v0.1-test")
+	@echo setting current
+	git tag -f current ${RELEASE_TAG}
+endif
+	git push -f --tags
+
+deploy-config:
+	@echo "building overlays for km, kkm, km-crio, k3s"
+	@mkdir -p cloud/k8s/deploy/kontain-deploy/daemonset
+	envsubst < cloud/k8s/deploy/kontain-deploy/base/set_env.templ > cloud/k8s/deploy/kontain-deploy/base/set_env.yaml
+	kustomize build "cloud/k8s/deploy/kontain-deploy/base" > cloud/k8s/deploy/kontain-deploy/daemonset/km.yaml
+	kustomize build "cloud/k8s/deploy/kontain-deploy/overlays/km-crio" > cloud/k8s/deploy/kontain-deploy/daemonset/km-crio.yaml
+	kustomize build "cloud/k8s/deploy/kontain-deploy/overlays/kkm" > cloud/k8s/deploy/kontain-deploy/daemonset/kkm.yaml
+	kustomize build "cloud/k8s/deploy/kontain-deploy/overlays/k3s" > cloud/k8s/deploy/kontain-deploy/daemonset/k3s.yaml
+	rm cloud/k8s/deploy/kontain-deploy/base/set_env.yaml
 
 # Install git hooks, if needed
 GITHOOK_DIR ?= .githooks

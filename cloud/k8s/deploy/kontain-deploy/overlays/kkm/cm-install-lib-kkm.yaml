@@ -26,7 +26,7 @@ data:
     #!/usr/bin/env bash
 
     # This will get overridden be ENV definition in kontain-deploy.yaml
-    KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://github.com/kontainapp/km/releases/download/v0.9.5/kontain_bin.tar.gz}"
+    KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://github.com/kontainapp/km/releases/download/current/kontain_bin.tar.gz}"
 
     # we use chroot here because the host is rooted at /root
     # and kkm install looks for sudo and dkms in locations on the host

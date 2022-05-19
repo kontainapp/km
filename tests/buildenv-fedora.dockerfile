@@ -74,6 +74,7 @@ RUN dnf install -y \
    time patch file findutils diffutils which procps-ng python2 \
    glibc-devel glibc-static libstdc++-static \
    bzip2-devel \
+   golang-sigs-k8s-kustomize \
    zlib-static bzip2-static xz-static xz \
    openssl-devel openssl-static jq googler \
    python3-markupsafe libffi-devel parallel \
