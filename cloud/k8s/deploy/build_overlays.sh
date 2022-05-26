@@ -1,5 +1,7 @@
 #!/bin/bash
 set -x
+
+# this file is only used for localized testing of kustomize outputs during edits to daemonset install
 mkdir -p ./kontain-deploy/outputs/
 kustomize build kontain-deploy/base > ./kontain-deploy/outputs/km.yaml
 kustomize build kontain-deploy/overlays/kkm  > ./kontain-deploy/outputs/kkm.yaml
