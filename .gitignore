@@ -24,8 +24,6 @@ payloads/java/jdk*
 payloads/java/jtreg
 payloads/redis/redis
 payloads/nginx/nginx
-cscope.out
-**/cscope.out
 .vscode/tags
 .vscode/*.log
 .*.swp
