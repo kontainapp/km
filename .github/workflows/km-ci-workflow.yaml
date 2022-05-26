@@ -212,7 +212,7 @@ jobs:
       # forcing the re-build
       - name: check artifact
         id: check-artifact
-        uses: kontainapp/persistent-artifact@v1
+        uses: kontainapp/persistent-artifact@ez1
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           artifact-name: ${{ env.CRUN_SHA}}
