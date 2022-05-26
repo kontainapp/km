@@ -1,5 +1,5 @@
 # Copyright 2021 Kontain
-# Derived from: 
+# Derived from:
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,58 +34,56 @@ spec:
         app: kontain-init
     spec:
       containers:
-      - image: centos:7    # ubuntu:18.04
-        name: node-initializer
-        command: ["/scripts/entrypoint.sh"]
-        env:
-        - name: ROOT_MOUNT_DIR
-          value: /root
-        - name: CONTAINERD_CFG_DIR
-          value: /etc/containerd
-        - name: KONTAIN_RELEASE_URL
-          value: https://github.com/kontainapp/km/releases/download/v0.9.5/kontain_bin.tar.gz
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - name: root-mount
-          mountPath: /root
-        - name: lib-entrypoint
-          mountPath: /scripts-lib
-        - name: entrypoint
-          mountPath: /scripts
-        - name: crio-conf
-          mountPath: /etc/crio/
-        - name: containerd-conf
-          mountPath: /etc/containerd/
-        - name: dbus
-          mountPath: /var/run/dbus
-        - name: systemd
-          mountPath: /run/systemd
+        - image: centos:7 # ubuntu:18.04
+          name: node-initializer
+          command: ["/scripts/entrypoint.sh"]
+          env:
+            - name: ROOT_MOUNT_DIR
+              value: /root
+            - name: CONTAINERD_CFG_DIR
+              value: /etc/containerd
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: root-mount
+              mountPath: /root
+            - name: lib-entrypoint
+              mountPath: /scripts-lib
+            - name: entrypoint
+              mountPath: /scripts
+            - name: crio-conf
+              mountPath: /etc/crio/
+            - name: containerd-conf
+              mountPath: /etc/containerd/
+            - name: dbus
+              mountPath: /var/run/dbus
+            - name: systemd
+              mountPath: /run/systemd
       volumes:
-      - name: root-mount
-        hostPath:
-          path: /
-      - name: entrypoint
-        configMap:
-          name: kontain-install-entrypoint
-          defaultMode: 0744
-      - name: lib-entrypoint
-        configMap:
-          name: kontain-install-lib
-          defaultMode: 0744
-      - name: crio-conf
-        hostPath:
-          path: /etc/crio/
-      - name: containerd-conf
-        hostPath:
-          path: /etc/containerd/
-      - name: dbus
-        hostPath:
-          path: /var/run/dbus
-      - name: systemd
-        hostPath:
-          path: /run/systemd
+        - name: root-mount
+          hostPath:
+            path: /
+        - name: entrypoint
+          configMap:
+            name: kontain-install-entrypoint
+            defaultMode: 0744
+        - name: lib-entrypoint
+          configMap:
+            name: kontain-install-lib
+            defaultMode: 0744
+        - name: crio-conf
+          hostPath:
+            path: /etc/crio/
+        - name: containerd-conf
+          hostPath:
+            path: /etc/containerd/
+        - name: dbus
+          hostPath:
+            path: /var/run/dbus
+        - name: systemd
+          hostPath:
+            path: /run/systemd
