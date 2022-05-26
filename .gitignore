@@ -24,11 +24,11 @@ payloads/java/jdk*
 payloads/java/jtreg
 payloads/redis/redis
 payloads/nginx/nginx
-cscope.out
-**/cscope.out
 .vscode/tags
+.vscode/*.log
 .*.swp
 perf*.data
 perf*.data.old
 *.svg
 cloud/k8s/deploy/kontain-deploy/base/set_env.yaml
+outputs/
