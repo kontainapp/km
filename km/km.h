@@ -490,6 +490,7 @@ extern char* km_payload_name;
 extern struct option km_cmd_long_options[];
 extern const_string_t km_cmd_short_options;
 
+void km_trace_fini(void);
 void km_trace_setup(int argc, char* argv[]);
 
 extern int km_collect_hc_stats;

@@ -16,7 +16,6 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
-EXEC := km
 EXEC_SELINUX_CONTEXT := "system_u:object_r:bin_t:s0"
 SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c km_mem.c km_mmap.c \
 		km_gdb_stub.c gdb_kvm_x86_64.c km_signal.c km_init_guest.c km_intr.c km_coredump.c \
@@ -27,7 +26,13 @@ VERSION_SRC := km_main.c # it has branch/version info, so rebuild it if git info
 INCLUDES := ${TOP}/include
 COVERAGE := yes
 LOCAL_COPTS := -Werror -D_GNU_SOURCE
+ifneq (${VALGRIND},)
+EXEC := km.dyn
+LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -pie
+else
+EXEC := km
 LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -static-pie
+endif
 
 include ${TOP}/make/actions.mk
 
