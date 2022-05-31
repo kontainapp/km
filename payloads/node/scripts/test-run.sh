@@ -46,12 +46,12 @@ if [[ "$1" == "test" || "$1" == "test-all" ]]; then
    PAYLOAD_KM=$3
    TEST_KM=$4
 
-	${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
-	echo noop.js - expecting exit with code 22:
-	${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js || [ $? -eq 22 ]
-	${KM_BIN} ${PAYLOAD_KM} ./scripts/micro-srv.js & sleep 1 ; curl localhost:8080
-	curl -X POST localhost:8080 || echo Forcing srv to exit and ignoring curl 'empty reply'
-	${KM_BIN} ${TEST_KM} --gtest_filter="*"
+   ${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
+   echo noop.js - expecting exit with code 22:
+   ${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js || [ $? -eq 22 ]
+   ${KM_BIN} ${PAYLOAD_KM} ./scripts/micro-srv.js & sleep 1 ; curl localhost:8080
+   curl -X POST localhost:8080 || echo Forcing srv to exit and ignoring curl 'empty reply'
+   ${KM_BIN} ${TEST_KM} --gtest_filter="*"
 fi
 
 if [[ "$1" == "test-all" ]]; then
@@ -60,7 +60,7 @@ if [[ "$1" == "test-all" ]]; then
    trap cleanup EXIT
    TMP_FILE=$(mktemp /tmp/node.XXXXXXXXXX)
    echo -e "#!/bin/bash\n$(realpath ${KM_BIN}) $(realpath ${NODETOP}/out/${BUILD}/node.km) \$*\n" > ${TMP_FILE} && chmod +x ${TMP_FILE}
-	cd ${NODETOP}
+   cd ${NODETOP}
    python tools/test.py --shell=${TMP_FILE} -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr -s '\n ' ','` default addons js-native-api node-api
    echo "Tests are Successful"
 fi
