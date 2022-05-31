@@ -78,7 +78,7 @@ ${NODETOP}/config.mk: | ${NODETOP}
 	cd ${NODETOP} && ./configure --gdb `[[ ${BUILD} == Debug ]] && echo -n --debug`
 
 fromsrc: ${NODETOP}/config.mk
-	cd ${NODETOP} && make -j`expr 2 \* $$(nproc)` && make jstest
+	cd ${NODETOP} && make -j`expr 2 \* $$(nproc)` && make jstest CI_SKIP_TESTS="parallel/test-https-selfsigned-no-keycertsign-no-crash.js"
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 
