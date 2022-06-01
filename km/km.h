@@ -218,7 +218,7 @@ extern km_machine_init_params_t km_machine_init_params;
 void km_machine_setup(km_machine_init_params_t* params);
 void km_machine_init(km_machine_init_params_t* params);
 void km_signal_machine_fini(void);
-void km_vcpu_fini(km_vcpu_t* vcpu);
+void km_vcpu_fini(km_vcpu_t* vcpu, int join_thr);
 void km_machine_fini(void);
 void kvm_vcpu_init_sregs(km_vcpu_t* vcpu);
 void km_start_all_vcpus(void);

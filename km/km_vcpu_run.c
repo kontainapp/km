@@ -456,37 +456,14 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
    return ret;
 }
 
-static int km_vcpu_print(km_vcpu_t* vcpu, void* skip_me)
-{
-   if (vcpu != skip_me) {
-      km_infox(KM_TRACE_VCPU, "VCPU %d still running: thread %#lx", vcpu->vcpu_id, vcpu->vcpu_thread);
-   }
-   return 0;
-}
-
 static void km_vcpu_exit_all(km_vcpu_t* vcpu)
 {
    machine.exit_group = 1;   // make sure we exit and not waiting for gdb
-   km_vcpu_pause_all(vcpu, GUEST_ONLY);
-   /*
-    * At this point there are no threads in the guest (assert at the end of km_vcpu_pause_all).
-    * However there are possibly threads in uninterruptible system calls on behalf of the guest,
-    * like futex wait. There isn't much we can do about them, so just force the exit.
-    */
-   for (int count = 0; count < 10 && km_vcpu_run_cnt() > 1; count++) {
-      km_vcpu_apply_all(km_vcpu_print, vcpu);
-      nanosleep(&_1ms, NULL);
+   km_vcpu_pause_all(vcpu, ALL);
+   if (km_gdb_client_is_attached() != 0) {
+      km_gdb_notify(vcpu, GDB_KMSIGNAL_THREADEXIT);
    }
-   // TODO - consider an unforced solution
-   if (km_vcpu_run_cnt() > 1) {
-      km_infox(KM_TRACE_VCPU, "Forcing exit_group() without cleanup");
-      /*
-       * Even though we are forcing exit, do a hcalls fini since that will report
-       * statistics is requested.
-       */
-      km_hcalls_fini();
-      exit(machine.exit_status);
-   }
+   km_signal_machine_fini();
    km_vcpu_stopped(vcpu);
 }
 
@@ -500,7 +477,7 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
    int rc;
 
    vcpu->state = IN_GUEST;
-   vcpu->cpu_run->exit_reason = KVM_EXIT_UNKNOWN;   // Clear exit_reason from the preceeding ioctl
+   vcpu->cpu_run->exit_reason = KVM_EXIT_UNKNOWN;   // Clear exit_reason from the preceding ioctl
    vcpu->regs_valid = 0;                            // Invalidate cached registers
    vcpu->sregs_valid = 0;
    km_infox(KM_TRACE_VCPU, "about to ioctl( KVM_RUN )");
@@ -580,8 +557,9 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
     * safe to check them here, even though gdb stub doesn't keep the pause_mtx lock when changing them.
     */
    km_mutex_lock(&machine.pause_mtx);
-   while (machine.pause_requested != 0 || (km_gdb_client_is_attached() != 0 &&
-                                           vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) {
+   while ((machine.pause_requested != 0 || (km_gdb_client_is_attached() != 0 &&
+                                            vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) &&
+          machine.exit_group == 0) {
       km_infox(KM_TRACE_VCPU,
                "pause_requested %d, gvs_gdb_run_state %d, vcpu state %d",
                machine.pause_requested,
@@ -610,6 +588,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int hc_ret = 0;
 
+   pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
    char thread_name[16];   // see 'man pthread_getname_np'
    sprintf(thread_name, "vcpu-%d", vcpu->vcpu_id);
    km_setname_np(vcpu->vcpu_thread, thread_name);
@@ -839,7 +818,7 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
  * Signal handler. Used when we want VCPU to stop. For vcpu->state == IN_GUEST the signal causes
  * KVM_RUN exit with -EINTR. It also interrupts some system calls, which we mark with HCALL_INT.
  *
- * Calling km_info() and km_infox() from this function seems to occassionally cause a mutex
+ * Calling km_info() and km_infox() from this function seems to occasionally cause a mutex
  * deadlock in the regular expression code called from km_info*().
  */
 static void km_vcpu_pause_sighandler(int signum, siginfo_t* info, void* ucontext_unused)

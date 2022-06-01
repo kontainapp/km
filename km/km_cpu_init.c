@@ -61,7 +61,7 @@ km_machine_t machine = {
 
 /*
  * km_machine_fini() will wait for read from machine.shutdown_fd to start tearing
- * everything down. We write to shutdown_fd when vpcu count drops to zero in km_vcpu_fini().
+ * everything down. We write to shutdown_fd when vpcu count drops to zero in km_vcpu_put().
  */
 void km_signal_machine_fini(void)
 {
@@ -77,7 +77,7 @@ void km_signal_machine_fini(void)
  * Release resources allocated in km_vcpu_init(). Used in km_machine_fini() for final cleanup.
  * For normal thread completion use km_vcpu_put()
  */
-void km_vcpu_fini(km_vcpu_t* vcpu)
+void km_vcpu_fini(km_vcpu_t* vcpu, int join_thr)
 {
    if (vcpu->cpu_run != NULL) {
       if (munmap(vcpu->cpu_run, machine.vm_run_size) != 0) {
@@ -89,6 +89,11 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
          km_err(3, "closing vcpu fd");
       }
    }
+   if (join_thr) {
+      pthread_cancel(vcpu->vcpu_thread);
+      // km_pkill(vcpu, KM_SIGVCPUSTOP);
+      pthread_join(vcpu->vcpu_thread, NULL);
+   }
    machine.vm_vcpus[vcpu->vcpu_id] = NULL;
    free(vcpu);
 }
@@ -98,8 +103,6 @@ void km_vcpu_fini(km_vcpu_t* vcpu)
  */
 void km_machine_fini(void)
 {
-   close(machine.shutdown_fd);
-   km_assert(km_vcpu_run_cnt() == 0);
    free(machine.auxv);
    if (km_guest.km_filename != NULL) {
       free((void*)km_guest.km_filename);
@@ -119,9 +122,10 @@ void km_machine_fini(void)
       km_vcpu_t* vcpu;
 
       if ((vcpu = machine.vm_vcpus[i]) != NULL) {
-         km_vcpu_fini(vcpu);
+         km_vcpu_fini(vcpu, 1);
       }
    }
+   close(machine.shutdown_fd);
    /* check if there are any memory regions */
    for (int i = KM_MEM_SLOTS - 1; i >= 0; i--) {
       kvm_mem_reg_t* mr = &machine.vm_mem_regs[i];
@@ -314,7 +318,7 @@ km_vcpu_t* km_vcpu_get(void)
    if (km_vcpu_init(vcpu) != 0) {
       km_mutex_unlock(&machine.vm_vcpu_mtx);
       km_warnx("VCPU init failed");
-      km_vcpu_fini(vcpu);
+      km_vcpu_fini(vcpu, 0);
       return NULL;
    }
    machine.vm_vcpu_cnt++;
@@ -348,7 +352,7 @@ km_vcpu_t* km_vcpu_restore(int tid)
    vcpu->vcpu_id = slot;
    if (km_vcpu_init(vcpu) < 0) {
       km_warnx("km_vcpu_init failed - cannot restore snapshot");
-      km_vcpu_fini(vcpu);
+      km_vcpu_fini(vcpu, 0);
       return NULL;
    }
    km_gdb_vcpu_state_init(vcpu);
