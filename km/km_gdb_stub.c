@@ -827,7 +827,7 @@ static int km_gdb_get_hwbreak_info(km_vcpu_t* vcpu, void** addr, uint32_t* type)
 }
 
 /*
- * Disect the "exception state" for a kvm debug exit to figure out what kind of stop packet
+ * Dissect the "exception state" for a kvm debug exit to figure out what kind of stop packet
  * we should send back to the gdb client and then build that into stopreply.
  * This is where we come when hardware breakpoints and watchpoints fire.
  * I can't find any symbols for all of these hard coded numbers used below.
@@ -2572,7 +2572,6 @@ static km_vcpu_t* gdb_find_notpaused_vcpu(void)
    km_vcpu_t* vcpu = NULL;
 
    km_vcpu_apply_all(km_gdb_find_notpaused, &vcpu);
-   km_assert(vcpu != NULL);
    return vcpu;
 }
 
@@ -3065,13 +3064,6 @@ accept_connection:;
       if (ret < 0) {
          km_err(1, "poll failed ret=%d.", ret);
       }
-      if (km_vcpu_run_cnt() == 0) {
-         ge.signo = ret;
-         send_response('W', &ge, true);   // inferior normal exit
-         km_gdb_detach();
-         km_gdb_destroy_connection();
-         return;
-      }
       km_infox(KM_TRACE_GDB, "Signalling vCPUs to pause");
       km_vcpu_pause_all(NULL, GUEST_ONLY);
       km_infox(KM_TRACE_GDB, "vCPUs paused. run_cnt %d", km_vcpu_run_cnt());
@@ -3081,19 +3073,19 @@ accept_connection:;
          if (ch == -1) {   // channel error or EOF (ch == -1)
             break;
          }
-         km_assert(ch == GDB_INTERRUPT_PKT);   // At this point it's only legal to see ^C from GDB
          km_mutex_lock(&gdbstub.notify_mutex);
          /*
           * If a payload thread has already stopped it will have caused session_requested
           * to be set non-zero.  In this case we prefer to use the stopped thread as
           * opposed to the user ^C as the reason for breaking to gdb command level.
           */
-         if (gdbstub.session_requested == 0) {
+         km_vcpu_t* vcpu;
+         if (gdbstub.session_requested == 0 && (vcpu = gdb_find_notpaused_vcpu()) != NULL) {
             gdbstub.session_requested = 1;
             ge = (gdb_event_t){
                 .entry_is_active = true,
                 .signo = GDB_SIGNAL_INT,
-                .sigthreadid = km_vcpu_get_tid(gdb_find_notpaused_vcpu()),
+                .sigthreadid = km_vcpu_get_tid(vcpu),
             };
             TAILQ_INSERT_HEAD(&gdbstub.event_queue, &ge, link);
          }
@@ -3103,6 +3095,13 @@ accept_connection:;
          km_infox(KM_TRACE_GDB, "a vcpu signalled about a kvm exit");
       }
       km_empty_out_eventfd(machine.intr_fd);   // discard extra 'intr' events if vcpus sent them
+      if (km_vcpu_run_cnt() == 0) {
+         ge.signo = ret;
+         send_response('W', &ge, true);   // inferior normal exit
+         km_gdb_detach();
+         km_gdb_destroy_connection();
+         return;
+      }
 
       gdb_event_t* foundgep;
       while ((foundgep = gdb_select_event()) != NULL) {
