@@ -85,12 +85,10 @@ endif
 deploy-config:
 	@echo "building overlays for km, kkm, km-crio, k3s"
 	@mkdir -p cloud/k8s/deploy/kontain-deploy/daemonset
-	envsubst < cloud/k8s/deploy/kontain-deploy/base/set_env.templ > cloud/k8s/deploy/kontain-deploy/base/set_env.yaml
 	kustomize build "cloud/k8s/deploy/kontain-deploy/base" > cloud/k8s/deploy/kontain-deploy/daemonset/km.yaml
 	kustomize build "cloud/k8s/deploy/kontain-deploy/overlays/km-crio" > cloud/k8s/deploy/kontain-deploy/daemonset/km-crio.yaml
 	kustomize build "cloud/k8s/deploy/kontain-deploy/overlays/kkm" > cloud/k8s/deploy/kontain-deploy/daemonset/kkm.yaml
 	kustomize build "cloud/k8s/deploy/kontain-deploy/overlays/k3s" > cloud/k8s/deploy/kontain-deploy/daemonset/k3s.yaml
-	rm cloud/k8s/deploy/kontain-deploy/base/set_env.yaml
 
 # Install git hooks, if needed
 GITHOOK_DIR ?= .githooks

@@ -6,6 +6,3 @@ resources:
   - kontain-deploy.yaml
   - cm-install-lib.yaml
   - cm-containerd-install.yaml
-
-patchesStrategicMerge:
-- set_env.yaml

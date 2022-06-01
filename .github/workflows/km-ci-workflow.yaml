@@ -528,7 +528,6 @@ jobs:
       - name: Install Kontain on minikube k8s
         run: |
           # merges and applies all the files for CI overlay
-          export RELEASE_TAG=current && envsubst < cloud/k8s/deploy/kontain-deploy/base/set_env.templ > cloud/k8s/deploy/kontain-deploy/base/set_env.yaml
           kubectl apply -k cloud/k8s/deploy/kontain-deploy/overlays/ci
           # kubectl apply -f cloud/k8s/deploy/runtime-class.yaml
           # kubectl apply -f cloud/k8s/deploy/cm-install-lib.yaml
