@@ -31,22 +31,29 @@ data:
     set -euo pipefail
 
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
+
+    echo logging the instance this is running on for debugging purposes
+    chroot ${ROOT_MOUNT_DIR} echo running on $(hostname)
+
     CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
 
     source /scripts-lib/kontain_install_lib.sh
 
-    echo "Install Kontain Runtime Artifacts (KM & KRUN)"
+    echo "Installing Kontain Runtime Artifacts (KM & KRUN)"
     install_kontain_artifacts
 
     echo "Add Kontain Runtime to containerd configuration"
     # check to see if its a normal k8s distribution or k3s
-    if [ ! -f /root/var/lib/rancher/k3s/agent ]; then
-      echo " its a regular k8s install"
+    if [ -f /etc/containerd/config.toml ]; then
+      echo "its a regular k8s install"
       CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
       containerd_conf_file="/etc/containerd/config.toml"
-    else
-      echo " its a k3s install"
-      # else its a k3s containerd install
+    elif [ -f /etc/containerd/config-kops.toml ]; then
+      echo "its a kops cluster install"
+      CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
+      containerd_conf_file="${CONTAINERD_CFG_DIR}/config-kops.toml"
+    elif [ -d /root/var/lib/rancher/k3s/agent ]; then
+      echo "its a k3s install"
       CONTAINERD_CFG_DIR="${K3S_CONTAINERD_DIR:/root/var/lib/rancher/k3s/agent/etc/containerd}"
       cp "$CONTAINERD_CFG_DIR/config.toml" "$CONTAINERD_CFG_DIR/config.toml.tmpl"
       containerd_conf_file="$CONTAINERD_CFG_DIR/config.toml.tmpl"
