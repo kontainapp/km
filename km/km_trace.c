@@ -164,6 +164,14 @@ void km_trace_set_log_file_name(char* kmlog_file_name)
    }
 }
 
+void km_trace_fini(void)
+{
+   if (km_log_file != NULL) {
+      fclose(km_log_file);
+   }
+   regfree(&km_info_trace.tags);
+}
+
 /*
  * This function sets up km tracing and is intended to be called very early in km
  * startup.  The goal is to have functional tracing when km is entered via an execve()

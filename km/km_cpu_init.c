@@ -110,6 +110,9 @@ void km_machine_fini(void)
    if (km_dynlinker.km_phdr != NULL) {
       free(km_dynlinker.km_phdr);
    }
+   if (km_machine_init_params.vdev_name != NULL) {
+      free(km_machine_init_params.vdev_name);
+   }
    km_mem_fini();
    km_signal_fini();
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {

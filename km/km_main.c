@@ -642,6 +642,6 @@ int main(int argc, char* argv[])
 
    km_machine_fini();
    km_mgt_fini();
-   regfree(&km_info_trace.tags);
+   km_trace_fini();
    exit(machine.exit_status);
 }
