@@ -23,6 +23,11 @@
 SUBDIRS := busybox dynamic-base dynamic-base-scratch dynamic-base-large demo-dweb python node java java-shell dynamic-python
 
 TOP := $(shell git rev-parse --show-toplevel)
+
+BLDTOP := ${TOP}/build
+KM_OPT := ${BLDTOP}/opt/kontain
+KM_OPT_BIN := ${KM_OPT}/bin
+
 include ${TOP}/make/actions.mk
 
 demo-dweb python node dynamic-base dynamic-base-large: busybox

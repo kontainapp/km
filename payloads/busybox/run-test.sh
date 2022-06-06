@@ -16,4 +16,4 @@
 #
 #
 
-./km ./bin/sh -c 'echo Hello, World!'
+km ./bin/sh -c 'echo Hello, World!'

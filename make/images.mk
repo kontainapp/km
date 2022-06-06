@@ -74,12 +74,35 @@ RUNENV_PATH ?= ${BLDDIR}
 RUNENV_DEMO_PATH ?= .
 
 
-# TESTENV_EXTRA_FILES
-TESTENV_EXTRA_FILES += ${KM_BIN} ${KM_LDSO}
-testenv_prep = cp --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH}
-testenv_cleanup = rm $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}})
+define testenv_prep =
+	$(call testenv_preprocess)
+	tar -czvf ${TESTENV_PATH}/extras.tar.gz \
+		-C ${BLDTOP} \
+						opt/kontain/runtime/libc.so \
+						opt/kontain/runtime/ld-linux-x86-64.so.2 \
+						opt/kontain/runtime/libstdc++.so \
+						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
+						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
+						opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
+						opt/kontain/bin/km \
+						opt/kontain/lib/libmimalloc.so \
+						opt/kontain/lib/libmimalloc.so.1.7 \
+						opt/kontain/alpine-lib/usr/lib/libffi.so \
+						opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
+						opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
+						opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
+						opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
+						opt/kontain/runtime/libpthread.so
+	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
+endef
 
-testenv-image: ## build test image with test tools and code
+
+testenv_cleanup = rm ${TESTENV_PATH}/extras.tar.gz
+testenv_cleanup_extras=$(if ${TESTENV_EXTRA_FILES},rm  ${TESTENV_PATH}/${TESTENV_EXTRA_FILES} )
+
+## build test image with test tools and code
+## requires building
+testenv-image:
 	$(call clean_container_image,${TEST_IMG_TAGGED})
 	$(call testenv_prep)
 	${DOCKER_BUILD} --no-cache \

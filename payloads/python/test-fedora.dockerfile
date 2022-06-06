@@ -32,12 +32,13 @@ WORKDIR ${PHOME}
 COPY --chown=appuser:appuser scripts scripts/
 COPY --chown=appuser:appuser test_snapshot.py test_snapshot.py
 COPY --chown=appuser:appuser cpython/pybuilddir.txt cpython/
-COPY --chown=appuser:appuser km cpython/python.km cpython/python.kmd.mimalloc test_unittest.py ./
+COPY --chown=appuser:appuser cpython/python.km test_unittest.py ./
+ADD --chown=appuser:appuser extras.tar.gz /home/appuser/km/build/
 COPY --chown=appuser:appuser cpython/Modules cpython/Modules/
 COPY --chown=appuser:appuser cpython/Lib cpython/Lib/
 # TODO: construct path names once, instread of hardcoding them here
 COPY --chown=appuser:appuser cpython/build/lib.linux-x86_64-${VERS} cpython/build/lib.linux-x86_64-${VERS}
 COPY --chown=appuser:appuser cpython/build/lib.linux-x86_64-${VERS}/_sysconfigdata_${ABI}_linux_x86_64-linux-gnu.py cpython/Lib/
-RUN ln -s km python && echo -e "home = ${PHOME}/cpython\ninclude-system-site-packages = false\nruntime = kontain" > pyvenv.cfg
+RUN echo -e "home = ${PHOME}/cpython\ninclude-system-site-packages = false\nruntime = kontain" > pyvenv.cfg
 ENV KM_VERBOSE="GENERIC"
-
+ENV PATH "$PATH:/home/appuser/km/build/opt/kontain/bin"

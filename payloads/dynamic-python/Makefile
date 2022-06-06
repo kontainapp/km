@@ -29,13 +29,13 @@ ABI = $(shell if [ $$(echo ${VERS} | sed 's/^[0-9]*.//') -le 7 ] ; then echo m; 
 BUILDENV_IMAGE_EXTRA_ARGS = --label "VERS=${VERS}" --build-arg=VERS=${VERS} --build-arg=ABI=${ABI} --build-arg=TAG=${TAG}
 TESTENV_IMAGE_EXTRA_ARGS  = --label "VERS=${VERS}" --build-arg=VERS=${VERS} --build-arg=ABI=${ABI}
 RUNENV_IMAGE_EXTRA_ARGS   = --label "VERS=${VERS}" --build-arg=VERS=${VERS}
-TESTENV_EXTRA_FILES := $(wildcard /opt/kontain/lib/libmimalloc.so*)
+TESTENV_EXTRA_FILES := $(wildcard ${TOP}/build/opt/kontain/lib/libmimalloc.so*)
 
 # Location of cpython sources. When building in container, it is set in buildenv dockerfile.
 PYTHONTOP ?= ${TOP}/payloads/python/cpython
 
 # this is how we run python.km tests in container
-CONTAINER_TEST_CMD := ./scripts/test-run.sh ./km ./python.km
+CONTAINER_TEST_CMD := ./scripts/test-run.sh km ./python.km
 
 # Component id for docker images.
 # Note that for now it is version-independent (i.e. not python${VERS})
@@ -58,9 +58,15 @@ RUNENV_DEMO_PATH := ${TOP}/payloads/python
 RUNENV_VALIDATE_CMD := ("/usr/local/bin/python3" "scripts/sanity_test.py")
 
 export define runenv_prep
+	make -C ../python RPATH=/opt/kontain
 	${RUNENV_ROOTFS_SCRIPT} ${PYTHONTOP} ${RUNENV_PATH} ${VERS} $(notdir ${PAYLOAD_KM}) dynamic
 endef
 
 RUNENV_TAG := dynamic-python dynamic-python-${VERS}
+
+TESTENV_EXTRA_FILES=../python/cpython/python.kmd.mimalloc
+define testenv_preprocess
+	make -C ../python RPATH=/home/appuser/km/build/opt/kontain
+endef
 
 include ${TOP}/make/images.mk

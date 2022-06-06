@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 name: KM CI Pipeline
 on:
   pull_request:
@@ -187,9 +188,14 @@ jobs:
             build/opt/kontain/bin
             build/opt/kontain/lib
             build/opt/kontain/include
-            tests/hello_test.km
+            tests/hello_test.kmd
+            tests/hello_test
+            tests/hello_test.c
+            tests/hello_test.o
+            tests/libhelper.a
             container-runtime/docker_config.sh
             build/opt/kontain/runtime
+            build/cloud/k8s/deploy/shim/containerd-shim-krun-v2
           retention-days: 7
 
   km-build-payloads:
@@ -206,9 +212,10 @@ jobs:
           name: km-build
           path: .
 
-      - name: Checking download and creating build directory
+      - name: Changing permissions for build/opt/bintain/bin/* files
         run: |
           ls -R build
+          chmod +x build/opt/kontain/bin/*
 
       - run: make -C cloud/azure login-cli
 
@@ -234,6 +241,7 @@ jobs:
         run: |
           make -C payloads/python build-modules pack-modules CUSTOM_MODULES="markupsafe wrapt"
           make -C payloads/python custom CUSTOM_MODULES="markupsafe wrapt"
+
 
   # Builds a static linked, stripped binary for krun/crun
   # This uses the NIX virtual machine, just like the crun CI.
@@ -350,12 +358,16 @@ jobs:
 
           chmod 755 ${BLDTOP}/opt/kontain/bin/km
           chmod 755 ${BLDTOP}/opt/kontain/bin/krun
+          chmod 755 ${BLDTOP}/opt/kontain/bin/krun-label-trigger
           chmod 755 ${BLDTOP}/cloud/k8s/deploy/shim/containerd-shim-krun-v2
 
           tar -czvf ${BLDTOP}/kontain_bin.tar.gz \
-              -C ${BLDTOP} km/km container-runtime/krun container-runtime/krun-label-trigger \
-              cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
-              -C ${BLDTOP}/opt/kontain bin/docker_config.sh
+              -C ${BLDTOP} opt/kontain/bin/km \
+                opt/kontain/bin/krun \
+                opt/kontain/bin/krun-label-trigger \
+                opt/kontain/bin/docker_config.sh \
+                cloud/k8s/deploy/shim/containerd-shim-krun-v2 \
+                kkm.run
 
       - uses: actions/upload-artifact@v2
         with:
@@ -404,7 +416,7 @@ jobs:
         run: make -C payloads test-withdocker DOCKER_INTERACTIVE=
         timeout-minutes: 20
 
-      - name: KM with KVM Payloads Test - Azure
+      - name: KM with KVM Payloads Test All (on schedule) - Azure
         if: ${{ github.event_name == 'schedule' ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
         run: make -C payloads test-all-withdocker DOCKER_INTERACTIVE=
@@ -445,7 +457,7 @@ jobs:
   kkm-test:
     name: KM tests, KKM on CI VM
     runs-on: ubuntu-20.04
-    needs: [km-build, kkm-build]
+    needs: [km-build, kkm-build, km-build-payloads]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -621,18 +633,18 @@ jobs:
       - name: Install KKM
         run: sudo insmod kkm/kkm/kkm.ko
 
-      - name: Untar release
-        run: tar -C /tmp/bin_release -xf /tmp/bin_release/kontain_bin.tar.gz
-
       - name: Stop Docker
         run: sudo systemctl stop docker
 
+      - name: Untar release
+        run: |
+          sudo tar -C / -xf /tmp/bin_release/kontain_bin.tar.gz
+          sudo ls -R /opt/kontain
+          sudo ls -R /cloud
+
       - name: Install KM and Reconfigure Docker
         run: |
-          sudo mkdir -p /opt/kontain/bin
-          sudo cp /tmp/bin_release/km/km /opt/kontain/bin/km
-          sudo cp /tmp/bin_release/container-runtime/krun /opt/kontain/bin/krun-label-trigger
-          sudo cp /tmp/bin_release/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
+          sudo mv /cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
           cat << EOF | sudo tee /etc/docker/daemon.json
              {
                  "default-runtime": "krun",
@@ -705,7 +717,6 @@ jobs:
     needs:
       [
         km-build,
-        km-build-payloads,
         krun-static-build,
         kkm-build,
         km-test,

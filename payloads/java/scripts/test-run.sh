@@ -1,4 +1,4 @@
-#!/usr/bin/bash -ex
+#!/bin/bash
 #
 # Copyright 2021 Kontain Inc
 #
@@ -18,5 +18,7 @@
 #
 # wrapper/entrypoint for running tests
 
-echo "TODO: Tests will be implemented"
-true
+#echo "Test will go here"
+
+km --putenv=LD_LIBRARY_PATH=${JAVA_LD_PATH} \
+		${JAVA_DIR}/bin/java.kmd -version

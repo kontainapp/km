@@ -29,6 +29,7 @@
 
 set -e ; [ "$TRACE" ] && set -x
 
+set -x
 readonly PROGNAME=$(basename $0)
 readonly CURRENT=$(readlink -m $(dirname $0))
 
@@ -88,7 +89,7 @@ function main() {
       # Install platform specific libs to /usr/lib/python{X,Y}/lib-dynload
       cp ${PYTHON_SRC_LIB_STUBS} ${RUNENV_PATH}/${RUNENV_PYTHON_LIB_DYNLOAD}
       mkdir -p ${RUNENV_PATH}/opt/kontain
-      tar -C /opt/kontain --exclude '*.a' --exclude '*.o' -cf - alpine-lib | tar -C ${RUNENV_PATH}/opt/kontain -xf -
+      tar -C ${RUNENV_PATH}/../../opt/kontain --exclude '*.a' --exclude '*.o' -cf - alpine-lib | tar -C ${RUNENV_PATH}/opt/kontain -xf -
     else
       echo "Installing platform libs as thumbstones..."
       # Install platform specific libs to /usr/lib/python{X,Y}/lib-dynload. The files are thumbstones.

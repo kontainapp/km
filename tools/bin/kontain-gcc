@@ -24,7 +24,7 @@
 # ------------------------------------
 # -kontain|-alpine Which binaries to build. Default 'kontain'
 # -kv              Print a few kontain-specific options and the final gcc command
-# --prefix=dir     Where to look for libs. Default /opt/kontain.This is internal debug option
+# --prefix=dir     Where resulting executable will look for dymanic libraries (rpath)
 #
 # Changes to behavior:
 #--------------------------------------
@@ -53,8 +53,6 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-dir=$(dirname ${BASH_SOURCE[0]})
-
 #defaults
 INSTALL_LOCATION=/opt/kontain
 target=kontain
@@ -82,7 +80,7 @@ do
          target_set=$target
          ;;
       --prefix=*)
-         BUILD_LOCATION="${1#*=}"
+         RPATH_LOCATION="${1#*=}"
          ;;
       -kv)
          verbose=1
@@ -107,37 +105,22 @@ do
     shift
 done
 
- #if no build location specified by the caller
-if [[ -z ${BUILD_LOCATION} ]]; then
-   # build location is parent directory of the script directory
-   # /opt/kontain/bin/kontain-gcc --> /opt/kontain/bin --> /opt/kontain   for production
-   # or
-   # /home/user/../km/build/opt/kontain/bin/kontain-gcc --> /home/user/../km/build/opt/kontain/bin --> /home/user/../km/build/opt/kontain/  for development build
-   # /usr/var/kontain/bin/kontain-gcc --> /usr/var/kontain/bin --> /usr/lib/kontain for non-standard installation
-   BUILD_LOCATION=$(dirname ${dir})
-fi
+# build location is parent directory of the script directory
+# /opt/kontain/bin/kontain-gcc --> /opt/kontain/bin --> /opt/kontain   for production
+# or
+# /home/user/..../km/build/opt/kontain/bin/kontain-gcc --> /home/user/..../km/build/opt/kontain/bin --> /home/user/..../km/build/opt/kontain/  for development build
+# /usr/var/kontain/bin/kontain-gcc --> /usr/var/kontain/bin --> /usr/var/kontain for non-standard installation
+BUILD_LOCATION=$(dirname $(dirname ${BASH_SOURCE[0]}))
 
 #build location must exists
 if [ ! -d $BUILD_LOCATION ] ; then
-   echo "Error: $PREFIX directory not found"
+   echo "Error: $BUILD_LOCATION directory not found"
    exit 1
 fi
 
-# now we figure out where to point RPATH and DYNAMIC LINKER
-if [[ ${BUILD_LOCATION} == ${INSTALL_LOCATION} ]] ; then
-   #if we calling from build location - rpath and dynlinker should be pointin gto the installation
-   RPATH_LOCATION={BUILD_LOCATION}
-else
-   # we building in location other then installation
-   if [  -f /.dockerenv ]; then
-      # building in teh container - rpath and dybliner should point to installation location
-      # as they are present in docker container
-      RPATH_LOCATION=/opt/kontain
-   else
-      RPATH_LOCATION=${BUILD_LOCATION}
-   fi
+if [ -z $RPATH_LOCATION ]; then
+   RPATH_LOCATION=${BUILD_LOCATION}
 fi
-
 
 RPATH_RT=${RPATH_LOCATION}/runtime
 RPATH_KL=${RPATH_LOCATION}/lib

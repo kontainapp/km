@@ -23,18 +23,23 @@ FROM kontainapp/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
 ARG branch
 ENV BRANCH=${branch}
 
+ENV KM_TOP=/home/appuser/km
+ENV KM_TEST_TOP=${KM_TOP}/tests
+
 USER root
 
-COPY libc.so /opt/kontain/runtime/libc.so
-COPY km /opt/kontain/bin/km
+# COPY libc.so /opt/kontain/runtime/libc.so
+# COPY km /opt/kontain/bin/km
 
 RUN test -f km.coverage && cp km.coverage /opt/kontain/coverage/bin/km || true
 
-ENV KM_TOP=/home/appuser/km
-ENV KM_TEST_TOP=${KM_TOP}/tests
 RUN mkdir -p ${KM_TOP}
-RUN chown appuser ${KM_TOP}
+RUN mkdir ${KM_TOP}/build
+RUN chown -R appuser:appuser ${KM_TOP}
+
+
 COPY --chown=appuser:appuser . ${KM_TEST_TOP}
+ADD --chown=appuser:appuser extras.tar.gz ${KM_TOP}/build/
 
 WORKDIR /home/appuser/km/tests
 

@@ -85,8 +85,6 @@ else # not SUBDIRS, i.e. EXEC or LIB
 ifneq (${EXEC},)
 
 all: ${BLDEXEC}
-${KM_OPT_BIN_PATH}:
-	mkdir -p $@
 
 ${BLDEXEC}: $(OBJS) | ${KM_OPT_BIN_PATH}
 	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(LOCAL_LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
@@ -133,6 +131,9 @@ OBJDIRS = $(sort $(dir ${OBJS}))
 ${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exists
 
 ${OBJDIRS}:
+	mkdir -p $@
+
+${KM_OPT_BIN_PATH}:
 	mkdir -p $@
 
 # The sed regexp below is the same as in Visual Studion Code problemWatcher in tasks.json.

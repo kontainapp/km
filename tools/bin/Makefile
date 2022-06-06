@@ -21,5 +21,7 @@ include ${TOP}/make/actions.mk
 
 all: kontain-gcc | ${KM_OPT_BIN_PATH}
 	cp kontain-gcc ${KM_OPT_BIN_PATH}
-	ln -f -s ${KM_OPT_BIN_PATH}/kontain-gcc ${KM_OPT_BIN_PATH}/kontain-g++
+	cp kontain-ar ${KM_OPT_BIN_PATH}
+	cp kontain-strip ${KM_OPT_BIN_PATH}
+	ln -sf kontain-gcc ${KM_OPT_BIN_PATH}/kontain-g++
 

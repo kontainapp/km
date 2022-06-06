@@ -20,6 +20,6 @@ ARG DTYPE=fedora
 ARG IMAGE_VERSION=latest
 
 FROM kontainapp/test-python-${DTYPE}:${IMAGE_VERSION}
-RUN mv python.kmd.mimalloc python.km
-ADD libc.so /opt/kontain/runtime/
-ADD libmimalloc.so* /opt/kontain/lib/
+COPY --chown=appuser:appuser python.kmd.mimalloc python.km
+ADD --chown=appuser:appuser extras.tar.gz /home/appuser/km/build/
+ENV PATH "$PATH:/home/appuser/km/build/opt/kontain/bin"

@@ -55,7 +55,7 @@ RUN tar cf - -C / lib usr/lib \
    --exclude firmware --exclude mdev --exclude bash \
    --exclude engines-\* | tar xf - -C $PREFIX/alpine-lib
 # Alpine 3.12+ bumped libffi version, Fedora 33 hasn't yet. Hack to support that
-RUN ln -sf ${PREFIX}/alpine-lib/usr/lib/libffi.so.7 ${PREFIX}/alpine-lib/usr/lib/libffi.so.6
+RUN ln -sf libffi.so.7 ${PREFIX}/alpine-lib/usr/lib/libffi.so.6
 RUN tar -cf - -C /usr/local/lib64 . | tar xf - -C $PREFIX/runtime
 
 # Save the path to gcc versioned libs for the future

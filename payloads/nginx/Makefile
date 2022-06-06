@@ -39,7 +39,7 @@ fromsrc: ${NGINX_KM}  ## Clone the repo if needed, and build nginx (default)
 
 ${NGINX_KM}: ${NGINX_EXECUTABLE} .check link-km.sh
 	@mkdir -p ${BLDDIR}
-	./link-km.sh ${NGINX_OBJ_LOC} ${TOP}/tools/bin ${BLDDIR}
+	./link-km.sh ${NGINX_OBJ_LOC} ${KM_OPT_BIN} ${BLDDIR}
 
 ${NGINX_EXECUTABLE}: ${NGINX_TOP}
 	./build.sh

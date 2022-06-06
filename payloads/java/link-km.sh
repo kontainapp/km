@@ -17,19 +17,28 @@
 #
 # Link java.kmd
 #
-set -e ; [ "$TRACE" ] && set -x
+set -ex ; [ "$TRACE" ] && set -x
 
 KM_TOP=$(git rev-parse --show-toplevel)
+
 if [[ -z "$1" ]] ; then
    echo Usage: link-km.sh jdk_dir
    exit 1
 fi
 
 JDK_DIR=$1
+
+PREFIX=${2:-}
+
+if [[ ! -z ${PREFIX} ]]; then
+   PREFIX="--prefix=${PREFIX}"
+fi
+
+
 OUT_DIR=${JDK_DIR}/images/jdk/bin
 
 mkdir -p ${OUT_DIR}
-${KM_TOP}/tools/bin/kontain-gcc -dynamic -rdynamic \
+${KM_TOP}/build/opt/kontain/bin/kontain-gcc ${PREFIX} -dynamic -rdynamic \
     -Wl,--hash-style=both -Wl,-z,defs -Wl,-z,noexecstack \
     -Wl,-O1 -m64 -Wl,--allow-shlib-undefined -Wl,--exclude-libs,ALL \
     ${JDK_DIR}/support/native/java.base/java/main.o \

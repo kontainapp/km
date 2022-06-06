@@ -24,7 +24,12 @@ KM_TOP=$(git rev-parse --show-toplevel)
 
 if [[ $# -ne 0 ]] ; then NODE=$1 ; else exit 1 ; fi
 OUT=${2:-$NODE}
-PATH=../../tools:$PATH
+
+PATH=$PATH
+echo PWD: `pwd`
+echo "PATH : ${PATH}"
+echo "ls /src/build/opt/kontain/bin : " `ls -l /src/build/opt/kontain/bin`
+echo `which kontain-g++`
 
 link_node() {
    kontain-g++ -ggdb -o $OUT/node.km \

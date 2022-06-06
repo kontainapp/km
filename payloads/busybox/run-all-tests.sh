@@ -16,4 +16,4 @@
 #
 #
 
-./km ./bin/sh -c 'echo "Hello, World!" && ./bin/ls -l'
+km ./bin/sh -c 'echo "Hello, World!" && ./bin/ls -l'

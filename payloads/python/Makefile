@@ -39,7 +39,7 @@ PYTHONTOP ?= cpython
 COMPONENT := python
 
 # this is how we run python.km tests in container
-CONTAINER_TEST_CMD := ./scripts/test-run.sh ./km ./python.km
+CONTAINER_TEST_CMD := ./scripts/test-run.sh km ./python.km
 
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
 PAYLOAD_KM := cpython/python.km
@@ -72,7 +72,7 @@ export define link_cpython_km
 	for mod in $(foreach m,${CUSTOM_MODULES},cpython/Modules/$m/dlstatic_km.mk.json) ; do \
 		./extensions/linkline.py $${mod} $$(test -f ./${CUSTOM_TAKE} && echo -n --take ${CUSTOM_TAKE}) ; \
 	done
-	./link-km.sh ${PYTHONTOP} cpython "$(foreach m,${CUSTOM_MODULES},@Modules/$m/linkline_km.txt)" "${CUSTOM_KM}"
+	./link-km.sh ${PYTHONTOP} cpython "$(foreach m,${CUSTOM_MODULES},@Modules/$m/linkline_km.txt)" "${CUSTOM_KM}" "${RPATH}"
 endef
 
 # Set info for runenv-image build
@@ -91,9 +91,9 @@ ifneq ($(FROMSRC),yes)
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
 		${KM_OPT_VOLUME} \
-		-w ${TOP}/payloads/python \
+		-w ${TOP}/${FROMTOP} \
 		${BUILDENV_IMG_TAGGED} \
-		make in-blank-container CUSTOM_MODULES="${CUSTOM_MODULES}" CUSTOM_KM="${CUSTOM_KM}"
+		make in-blank-container CUSTOM_MODULES="${CUSTOM_MODULES}" CUSTOM_KM="${CUSTOM_KM}" RPATH="${RPATH}"
 else
 	eval $(link_cpython_km)
 endif

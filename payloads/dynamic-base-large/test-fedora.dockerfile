@@ -17,5 +17,6 @@ ARG DTYPE=fedora
 ARG BUILDENV_IMAGE_VERSION=latest
 
 FROM kontainapp/buildenv-dynamic-base-${DTYPE}:${BUILDENV_IMAGE_VERSION}
-ADD libc.so /opt/kontain/runtime/
-ADD km hello_test.kmd ./
+ADD --chown=appuser:appuser extras.tar.gz /home/appuser/km/build
+ADD hello_test.kmd ./
+ENV PATH "$PATH:/home/appuser/km/build/opt/kontain/bin"

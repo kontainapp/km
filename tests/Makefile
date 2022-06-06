@@ -58,7 +58,7 @@ BATS_CMD := run_bats_tests.sh --match="${MATCH}" --usevirt="${USEVIRT}" ${IGNORE
 TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
 COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${COVERAGE_KM_BIN} --pretty
 # this is how we run tests in containers:
-CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_INSTALL_BIN}/km
+CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_KM_TOP}/build/opt/kontain/bin/km
 CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_INSTALL_COVERAGE_BIN}/km
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
@@ -91,9 +91,7 @@ SEXECS := ${SRC_SHR:%.c=%.so}
 # Only tests matching this regexp will be run
 MATCH ?= .*
 
-all: check-indocker ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
-
-check-indocker:
+all: ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
 
 ${EXECS} ${SEXECS}: libhelper.a
 
@@ -112,6 +110,10 @@ test-all: test ## alias for test
 
 KCC := kontain-gcc
 KCXX := kontain-g++
+
+ifneq (${RPATH}, )
+   KCC_PREFIX="--prefix=${RPATH}"
+endif
 
 # use g++ link libs when sources were C++
 # ${SRC_CPP:%.cpp=%}: CC=${CXX}
@@ -137,16 +139,16 @@ ${SRC_CPP:%.cpp=%.km.so}: KCC=${KCXX}
 	${KCC} -static ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.kmd: %.o
-	${KCC} -dynamic ${LDFLAGS} $< ${LDLIBS} -o $@
+	${KCC} ${KCC_PREFIX} -dynamic ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.alpine.km: %.o
 	${KCC} -static -alpine ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.alpine.kmd: %.o
-	${KCC} -dynamic -alpine ${LDFLAGS} $< ${LDLIBS} -o $@
+	${KCC} ${KCC_PREFIX} -dynamic -alpine ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.km.so: %.o
-	${KCC} -shared ${LDFLAGS} $< -o $@ ${LDLIBS}
+	${KCC} ${KCC_PREFIX} -shared ${LDFLAGS} $< -o $@ ${LDLIBS}
 
 .PHONY: load_expected_size
 load_expected_size: load_test.km # load_test.so

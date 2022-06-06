@@ -23,9 +23,15 @@ JDK_VERSION := jdk-11.0.8+10
 COMPONENT := jdk-11.0.8
 PAYLOAD_NAME := ${COMPONENT}
 
-CONTAINER_TEST_CMD := ./scripts/test-run.sh
-
 JDK_BUILD_DIR = ${JDK_VERSION}/build/linux-x86_64-normal-server-release
+
+define testenv_preprocess
+	./link-km.sh ${JDK_BUILD_DIR} /home/appuser/km/build/opt/kontain
+endef
+
+TESTENV_EXTRA_FILES := ${JDK_BUILD_DIR}/images/jdk/* ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd
+# this is how we are running tests in the container
+CONTAINER_TEST_CMD := ./scripts/test-run.sh
 
 # Needed to build Java from source - the same list as in buildenv-fedora.dockerfile
 DEP_PACKAGES := java-11-openjdk \
@@ -55,6 +61,7 @@ RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 
 # runenv-image configs
 export define runenv_prep
+	./link-km.sh ${JDK_BUILD_DIR} /opt/kontain
 	mkdir -p ${RUNENV_PATH} && cp --recursive --preserve=all ${JDK_BUILD_DIR}/images/jdk/* ${RUNENV_PATH}
 	mv ${RUNENV_PATH}/bin/java.kmd ${RUNENV_PATH}/bin/java
 endef
@@ -151,8 +158,7 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 	tar -C /home/appuser/java -cf - . | tar -C ${JDK_BUILD_DIR} -xf -
 	./link-km.sh ${JDK_BUILD_DIR}
 
-
-JAVA_LD_PATH := ${CURDIR}/${JAVA_DIR}/lib/server:${CURDIR}/${JAVA_DIR}/lib/jli:${CURDIR}/${JAVA_DIR}/lib:/opt/kontain/runtime
+JAVA_LD_PATH := ${CURDIR}/${JAVA_DIR}/lib/server:${CURDIR}/${JAVA_DIR}/lib/jli:${CURDIR}/${JAVA_DIR}/lib
 test: ${RUNENV_VALIDATE_DEPENDENCIES} api test_java.bats ## Basic test run
 	JAVA_DIR=${CURDIR}/${JAVA_DIR} JAVA_LD_PATH=${JAVA_LD_PATH} BLDDIR=${BLDDIR} \
 		${TOP}/tests/run_bats_tests.sh --km=${KM_BIN} \

@@ -60,7 +60,6 @@ KM_INSTALL_COVERAGE := ${KM_INSTALL}/${COV_BLDTYPE}
 KM_INSTALL_COVERAGE_BIN := ${KM_INSTALL_COVERAGE}/bin
 
 KM_BLDDIR := $(abspath ${BLDTOP}/km/${BLDTYPE})
-KM_BIN := ${KM_BLDDIR}/km
 KM_RT := ${BLDTOP}/runtime
 KM_OPT := ${BLDTOP}/opt/kontain
 KM_OPT_BIN := ${KM_OPT}/bin
@@ -69,6 +68,8 @@ KM_OPT_LIB := ${KM_OPT}/lib
 KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
 KM_LDSO := ${KM_OPT_RT}/libc.so
+KM_BIN := ${KM_OPT_BIN}/km
+
 
 PATH := $(abspath ${KM_OPT_BIN}):${PATH}
 
