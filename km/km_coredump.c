@@ -228,20 +228,22 @@ static int km_core_dump_threads(km_vcpu_t* vcpu, void* arg)
 // Dump KM specific data
 static inline int km_core_dump_vcpu(km_vcpu_t* vcpu, void* arg)
 {
-   struct km_nt_vcpu vnote = {.vcpu_id = vcpu->vcpu_id,
-                              .stack_top = vcpu->stack_top,
-                              .guest_thr = vcpu->guest_thr,
-                              .set_child_tid = vcpu->set_child_tid,
-                              .clear_child_tid = vcpu->clear_child_tid,
-                              .sigaltstack_sp = (Elf64_Addr)vcpu->sigaltstack.ss_sp,
-                              .sigaltstack_flags = vcpu->sigaltstack.ss_flags,
-                              .sigaltstack_size = vcpu->sigaltstack.ss_size,
-                              .mapself_base = vcpu->mapself_base,
-                              .mapself_size = vcpu->mapself_size,
-                              .hcarg = (Elf64_Addr)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)],
-                              .hypercall = vcpu->hypercall,
-                              .restart = vcpu->restart,
-                              .fp_format = km_vmdriver_fp_format(vcpu)};
+   struct km_nt_vcpu vnote = {0};
+
+   vnote = (struct km_nt_vcpu){.vcpu_id = vcpu->vcpu_id,
+                               .stack_top = vcpu->stack_top,
+                               .guest_thr = vcpu->guest_thr,
+                               .set_child_tid = vcpu->set_child_tid,
+                               .clear_child_tid = vcpu->clear_child_tid,
+                               .sigaltstack_sp = (Elf64_Addr)vcpu->sigaltstack.ss_sp,
+                               .sigaltstack_flags = vcpu->sigaltstack.ss_flags,
+                               .sigaltstack_size = vcpu->sigaltstack.ss_size,
+                               .mapself_base = vcpu->mapself_base,
+                               .mapself_size = vcpu->mapself_size,
+                               .hcarg = (Elf64_Addr)km_hcargs[HC_ARGS_INDEX(vcpu->vcpu_id)],
+                               .hypercall = vcpu->hypercall,
+                               .restart = vcpu->restart,
+                               .fp_format = km_vmdriver_fp_format(vcpu)};
 
    km_core_list_context_t* ctx = arg;
    char* cur = ctx->pr_cur;
