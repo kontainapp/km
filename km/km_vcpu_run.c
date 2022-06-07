@@ -535,6 +535,11 @@ static int km_vcpu_is_running(km_vcpu_t* vcpu, void* skip_me)
    return (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) ? 0 : 1;
 }
 
+static void pause_cleanup(void* unused)
+{
+   km_mutex_unlock(&machine.pause_mtx);
+}
+
 static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
 {
    if (machine.exit_group != 0) {   // exit_group() - we are done.
@@ -556,6 +561,7 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
     * or step). gdb stub changes these fields *only* when .pause_requested is set to 1, hence it is
     * safe to check them here, even though gdb stub doesn't keep the pause_mtx lock when changing them.
     */
+   pthread_cleanup_push(pause_cleanup, NULL);
    km_mutex_lock(&machine.pause_mtx);
    while ((machine.pause_requested != 0 || (km_gdb_client_is_attached() != 0 &&
                                             vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) &&
@@ -576,7 +582,7 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
       km_cond_wait(&machine.pause_cv, &machine.pause_mtx);
       vcpu->state = HYPERCALL;
    }
-   km_mutex_unlock(&machine.pause_mtx);
+   pthread_cleanup_pop(1);   // km_mutex_unlock(&machine.pause_mtx);
    // if exit_group() or equivalent happened while we were sleeping, like destructive snapshot, handle it
    if (machine.exit_group != 0) {   // exit_group() - we are done.
       km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
