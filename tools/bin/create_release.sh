@@ -35,9 +35,6 @@ mkdir -p ${OPT_KONTAIN_TMP}
 # we may need to modify all obj file so make sure we work on a copy
 cp -rf --preserve=links ${OPT_KONTAIN}/* ${OPT_KONTAIN_TMP}
 
-mkdir -p ${OPT_KONTAIN_TMP}/include
-cp ${TOP}/include/km_hcalls.h ${OPT_KONTAIN_TMP}/include/km_hcalls.h
-
 # include docker and podman config scripts in the tarball
 cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN_TMP}/bin
 cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN}/bin # for kontain_bin.tar ( since _TMP wil be deleted)
@@ -78,4 +75,4 @@ echo "Zipping $TARBALL.gz ..."
 gzip ${TARBALL}
 
 echo "Cleaning up"
-# rm -rf ${OPT_KONTAIN_TMP}
+rm -rf ${OPT_KONTAIN_TMP}
