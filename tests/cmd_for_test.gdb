@@ -19,7 +19,7 @@
 #  shell_1> ../build/km/km -g 2159 ./gdb_test.km
 #  shell_2> gdb -q -nx --ex="target remote :2159"  --ex="source cmd_for_test.gdb"  --ex c --ex q gdb_test.km
 #
-# to validate the same with gdb server, use the same commmand for gdb,
+# to validate the same with gdb server, use the same command for gdb,
 # but replace 'gdb_test.km' with 'gdb_test', and use gdbserver"
 #  shell_2> gdbserver :2159 gdb_test
 

@@ -586,7 +586,7 @@ static void send_packet(const char* buffer)
  * The destination can be null initially signifying the destination is empty.
  * The src string is assumed to be null terminated.
  * Returns:
- *  true - src was successfully appened to *dest.
+ *  true - src was successfully appended to *dest.
  *  false - src was not appended because the string could not be grown to hold src
  */
 static bool string_append(char** dest, size_t* destmaxlen, char* src)
@@ -595,7 +595,7 @@ static bool string_append(char** dest, size_t* destmaxlen, char* src)
    size_t cursrclen = strlen(src);
 
    if (*dest == NULL || (*destmaxlen - curdestlen) < (cursrclen + 1)) {   // not big enough, grow
-                                                                          // the destionation string
+                                                                          // the destination string
       size_t bigger_size;
       char* bigger_dest;
 
@@ -1340,6 +1340,11 @@ static void handle_qxfer_auxv_read(char* packet, char* obuf)
          }
          memcpy(&obuf[1], &gdb_auxv_copy[offset], bytes_to_deliver);
       }
+      if (obuf[0] == 'l') {
+         free(gdb_auxv_copy);
+         gdb_auxv_copy = NULL;
+         gdb_auxv_len = 0;
+      }
    } else {
       // not enough args, protocol violation
       send_error_msg();
@@ -1408,6 +1413,10 @@ static void handle_qxfer_execfile_read(const char* packet, char* obuf)
       obuf[1 + bytes_to_deliver] = 0;
    }
    send_packet(obuf);
+   if (obuf[0] == 'l') {
+      free(gdb_execfile_name);
+      gdb_execfile_name = NULL;
+   }
 }
 
 /*
@@ -1525,6 +1534,11 @@ static void handle_qxfer_librariessvr4_read(const char* packet, char* obuf)
       obuf[bytes_to_deliver + 1] = 0;
    }
    send_packet(obuf);
+   if (obuf[0] == 'l') {
+      free(gdb_libsvr4_listp);
+      gdb_libsvr4_listp = NULL;
+      gdb_libsvr4_listl = 0;
+   }
 }
 
 // The guest tid we send back in the thread extra info is expected to be smaller than 64.
