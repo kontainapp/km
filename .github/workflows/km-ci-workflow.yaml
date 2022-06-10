@@ -43,7 +43,7 @@ on:
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
     # Minute Hour DayOfMonth MonthOfYear DayOfWeek
     - cron: "0 7 * * *" # Daily build midnight pacific time (UTC + 7)
-    # Gitgub doc says:
+    # Github doc says:
     #    Scheduled workflows run on the latest commit on the default or base branch.
     #    The shortest interval you can run scheduled workflows is once every 5 minutes.
 
@@ -97,7 +97,7 @@ jobs:
           az-tenant-id: ${{ secrets.SP_TENANT }}
           az-image: "auto-github-runner:L0BaseImage"
           az-location: "westus"
-          az-vm-size: "Standard_D4s_v3"
+          az-vm-size: "Standard_D4s_v5"
 
   km-build:
     name: Build KM

@@ -6,4 +6,5 @@ gdb.txt
 *.ubuntu
 *.alpine
 km_*.log
+vgcore.*
 !shebang*

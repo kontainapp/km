@@ -1,0 +1,209 @@
+#
+# Copyright 2021 Kontain Inc
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+name: KM valgrind Pipeline
+on:
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      # See https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
+      - "**.md" # all .md files in repo
+      - "**/docs/**" # all content of all docs/ dirs in repo
+      - compile_commands.json
+      - .vscode/**
+      - km-releases
+      - payloads/longhaul-test/**
+      - "**/L0-image**"
+  push:
+    branches: [master, serge/valgrind_ci_run]
+    paths-ignore:
+      - "**.md" # all .md files in repo
+      - "**/docs/**" # all content of all docs/ dirs in repo
+      - compile_commands.json
+      - .vscode/**
+      - km-releases
+      - payloads/longhaul-test/**
+      - "**/L0-image**"
+
+  schedule:
+    # Posix cron format:
+    # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
+    # Minute Hour DayOfMonth MonthOfYear DayOfWeek
+    - cron: "0 7 * * *" # Daily build midnight pacific time (UTC + 7)
+    # Github doc says:
+    #    Scheduled workflows run on the latest commit on the default or base branch.
+    #    The shortest interval you can run scheduled workflows is once every 5 minutes.
+
+  # Manual trigger.
+  # See https://github.blog/changelog/2020-07-06-github-actions-manual-triggers-with-workflow_dispatch/
+  workflow_dispatch:
+
+env:
+  BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
+  IMAGE_VERSION: ci-${{ github.run_number }} # use this for all other containers
+  SP_SUBSCRIPTION_ID: ${{ secrets.SP_SUBSCRIPTION_ID }}
+  SP_APPID: ${{ secrets.SP_APPID }}
+  SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
+  SP_TENANT: ${{ secrets.SP_TENANT }}
+  # TRACE: true # uncomment to enable '-x' in all bash scripts
+
+jobs:
+  # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner
+  start-runners:
+    name: Start cloud runners
+    runs-on: ubuntu-latest
+    outputs:
+      run-ons: ${{ steps.start-cloud-runner.outputs.run-ons }}
+    steps:
+      - name: Get public Keys
+        uses: actions/checkout@v2
+
+      - name: Start Cloud runners
+        id: start-cloud-runner
+        uses: kontainapp/cloud-github-runner@v3.1
+        with:
+          mode: start
+          github-token: ${{ secrets.GH_TOKEN }}
+          runner-user: kontain
+          subnet: "10.0.0.0"
+          public-keys-dir: ${{ github.workspace }}/cloud/ssh
+          ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ec2-region: "us-east-2"
+          ec2-image: "L0BaseImage"
+          ec2-instance-type: "m5.xlarge"
+          ec2-vpc-name: "github-runner"
+          az-subscription-id: ${{ secrets.SP_SUBSCRIPTION_ID }}
+          az-client-id: ${{ secrets.SP_APPID }}
+          az-secret: ${{ secrets.SP_PASSWORD }}
+          az-tenant-id: ${{ secrets.SP_TENANT }}
+          az-image: "auto-github-runner:L0BaseImage"
+          az-location: "westus"
+          az-vm-size: "Standard_D4s_v5"
+
+  km-build:
+    name: Build KM, push test image
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Prepare KM build env
+        run: make -C tests pull-buildenv-image .buildenv-local-lib
+
+      - name: Build KM and tests using buildenv image
+        run: make -j withdocker RUN_IN_CI=1 VALGRIND=1
+
+      - name: Build and push KM testenv image
+        run: make -C tests testenv-image push-testenv-image
+
+  km-test:
+    name: KM, KVM on Azure
+    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
+    needs: [start-runners, km-build]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - run: make -C cloud/azure login-cli
+
+      - run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
+          sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger
+
+      - name: Pull testenv images
+        run: |
+          make -C tests pull-testenv-image
+
+      - name: KM with KVM Test - Azure
+        run: make -C tests test-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= VALGRIND=1
+        timeout-minutes: 20
+
+  kkm-test-vms:
+    name: KM tests, KKM AWS
+    needs: [start-runners, km-build]
+    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - run: make -C cloud/azure login-cli
+
+      - name: KKM and KKM tests
+        run: |
+          make -C kkm/kkm -DVALGRIND=1 && make -C kkm/test_kkm
+          sudo insmod kkm/kkm/kkm.ko
+          ./kkm/test_kkm/test_kkm
+
+      - name: Pull testenv images
+        run: |
+          make -C tests pull-testenv-image
+
+      - name: KM with KKM Test - AWS
+        run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= VALGRIND=1
+        timeout-minutes: 20
+
+  slack-workflow-status:
+    name: Notify slack, if needed
+    runs-on: ubuntu-latest
+    # 'contains' shows how to add conditions, e.g. on workflow 'name:', or many other contexts.
+    # see https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
+    if: (failure() && github.ref == 'refs/heads/master') ||
+      contains(github.workflow, 'noisy')
+    # Dependencies. (A skipped dependency is considered satisfied)
+    needs:
+      [
+        km-build,
+        km-test,
+        kkm-test-vms,
+      ]
+    steps:
+      - name: Send notification to slack
+        uses: Gamesight/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          include_jobs: true
+          channel: "#build_and_test"
+          name: "CI workflow status"
+          icon_emoji: ":thumbsdown:"
+
+  # This step is to clean up on-demand runner. They work in conjunction with start-runner.
+  # Make sure to add dependencies in both "needs" clauses
+  stop-runner:
+    if: always()
+    name: Terminate self-hosted cloud runners
+    needs: [start-runners, km-test, kkm-test-vms]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop runners
+        uses: kontainapp/cloud-github-runner@v3.1
+        with:
+          mode: stop
+          status: ${{ toJSON(needs) }}
+          github-token: ${{ secrets.GH_TOKEN }}
+          ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ec2-region: "us-east-2"
+          az-subscription-id: ${{ secrets.SP_SUBSCRIPTION_ID }}
+          az-client-id: ${{ secrets.SP_APPID }}
+          az-secret: ${{ secrets.SP_PASSWORD }}
+          az-tenant-id: ${{ secrets.SP_TENANT }}

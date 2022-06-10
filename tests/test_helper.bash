@@ -112,7 +112,11 @@ if [[ "${USE_VIRT}" == kkm ]] ; then
 fi
 
 # We will kill any individual test if takes longer than that
+if [ -z "${VALGRIND}" ]; then
 timeout=250s
+else
+timeout=750s
+fi
 
 #
 # this is how we invoke KM - with a timeout and reporting run time
@@ -160,7 +164,7 @@ function km_with_timeout () {
 
    /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
       timeout --signal=SIGABRT --foreground $t \
-         ${CMD} "$@"
+         ${VALGRIND} ${CMD} "$@"
    # Per timeout(1) it returns 124 on timeout, and 128+signal when killed by signal
    s=$?; if [[ $s == 124  ]] ; then
       echo -e "\nTime out in $t : ${CMD} $@"
