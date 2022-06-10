@@ -44,6 +44,11 @@ clang-format-check:
 clang-format:
 	clang-format -i km/*.h km/*.c tests/*.h tests/*.c tests/*.cpp
 
+withdocker runtime: | ${KM_OPT}/alpine-lib/gcc-libs-path.txt
+
+${KM_OPT}/alpine-lib/gcc-libs-path.txt:
+	make -C tests .buildenv-local-lib
+
 # On mac $(MAKE) evaluates to '/Applications/Xcode.app/Contents/Developer/usr/bin/make'
 ifeq ($(shell uname), Darwin)
 MAKE := make
