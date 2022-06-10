@@ -43,7 +43,7 @@ on:
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
     # Minute Hour DayOfMonth MonthOfYear DayOfWeek
     - cron: "0 7 * * *" # Daily build midnight pacific time (UTC + 7)
-    # Gitgub doc says:
+    # Github doc says:
     #    Scheduled workflows run on the latest commit on the default or base branch.
     #    The shortest interval you can run scheduled workflows is once every 5 minutes.
 

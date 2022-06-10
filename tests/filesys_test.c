@@ -177,7 +177,7 @@ TEST test_getdents()
             printf("name <%s> is <%s>\n", tmp, buf);
          }
          ino64_t ino = atol(entry->d_name);
-         ASSERT(0 <= ino && ino <= 6);
+         ASSERT(0 <= ino && ino <= 16);
       }
    }
    ASSERT_NEQ(-1, rc);
@@ -232,7 +232,7 @@ TEST test_getdents64()
             printf("name <%s> is <%s>\n", tmp, buf);
          }
          ino64_t ino = atol(entry->d_name);
-         ASSERT(0 <= ino && ino <= 6);
+         ASSERT(0 <= ino && ino <= 16);
       }
    }
    ASSERT_NEQ(-1, rc);
@@ -331,7 +331,7 @@ TEST test_openat()
 }
 
 /*
- * Tests that lowest availble file descriptor is used for dup
+ * Tests that lowest available file descriptor is used for dup
  */
 TEST test_dup_fd_fill()
 {

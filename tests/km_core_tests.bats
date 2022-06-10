@@ -27,7 +27,11 @@ load test_helper
 
 # not_needed_{generic,static,dynamic,shared} - skip since it's not needed
 # todo_{generic,static,dynamic,shared} - skip since it's a TODO
+if [ -z "${VALGRIND}" ]; then
 not_needed_generic=
+else
+not_needed_generic='mem_brk mem_test vdso'
+fi
 # TODO: gdb_delete_breakpoint and gdb_server_race are caused by race described in https://github.com/kontainapp/km/issues/821.
 # Disable them for now to improve signal/noise ratio
 todo_generic='gdb_delete_breakpoint gdb_server_race clock_gettime'
@@ -125,7 +129,12 @@ fi
 }
 
 @test "setup_basic($test_type): basic vm setup, workload invocation and exit value check (exit_value_test$ext)" {
-   for i in $(seq 1 200) ; do # a loop to catch race with return value, if any
+   if [ -z "${VALGRIND}" ]; then
+      cnt=100
+   else
+      cnt=7
+   fi
+   for i in $(seq 1 $cnt) ; do # a loop to catch race with return value, if any
       run km_with_timeout exit_value_test$ext
       assert_failure 17
    done
@@ -592,10 +601,10 @@ fi
       --ex="source cmd_for_protected_mem_test.gdb" --ex=q
    assert_success
    # Depending on the guest virtual memory layout the addresses could be either like
-   # 0x7fffffbfc000 (KM_HIGH_GVA) or 0x7fffbfc000
-   assert_line --regexp "first word  0x7ffff?f?bfc000:	0x1111111111111111"
-   assert_line --regexp "spanning pages  0x7ffff?f?bfcffc:	0xff0000ffff0000ff"
-   assert_line --regexp "last word  0x7ffff?f?bfdff8:	0xeeeeeeeeeeeeeeee"
+   # 0x7fffffbfc000 (KM_HIGH_GVA) or 0x7fffbfc000. Also shifts with valgrind
+   assert_line --regexp "first word  0x7ffff?f?(bfc|be0)000:	0x1111111111111111"
+   assert_line --regexp "spanning pages  0x7ffff?f?(bfc|be0)ffc:	0xff0000ffff0000ff"
+   assert_line --regexp "last word  0x7ffff?f?(bfd|be1)ff8:	0xeeeeeeeeeeeeeeee"
    wait_and_check $pid 0
 }
 
@@ -716,7 +725,11 @@ fi
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'div0 ('
    # Check number of segments. Shoudl be 8
    nload=`readelf -l ${CORE} | grep LOAD | wc -l`
-   assert [ "${nload}" == "12" ]
+   if [ -z "${VALGRIND}" ]; then
+      assert [ "${nload}" == "12" ]
+   else
+      assert [ "${nload}" == "10" ]
+   fi
    rm -f ${CORE}
 
    # invalid opcode
@@ -893,7 +906,11 @@ fi
 }
 
 @test "filesys($test_type): guest file system operations (filesys_test$ext)" {
-   run km_with_timeout filesys_test$ext -v
+   if [ -z "${VALGRIND}" ]; then
+      run km_with_timeout filesys_test$ext -v
+   else
+      run km_with_timeout filesys_test$ext -v -x test_proc_cmdline
+   fi
    assert_success
    assert_line --regexp 'filesys_test.* \([0-9]+, #threads: 1\)'
 
@@ -1078,7 +1095,12 @@ fi
 
    echo "This is test data" > ${SNAP_INPUT}
 
-   for i in $(seq 100) ; do
+   if [ -z "${VALGRIND}" ]; then
+      cnt=100
+   else
+      cnt=1
+   fi
+   for i in $(seq $cnt) ; do
       # snapshot resume that successfully exits
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext
       assert_success
@@ -1178,7 +1200,12 @@ fi
    SNAP=/tmp/snap.$$
    CORE=/tmp/core.$$
 
-   for i in $(seq 100) ; do
+   if [ -z "${VALGRIND}" ]; then
+      cnt=100
+   else
+      cnt=1
+   fi
+   for i in $(seq $cnt) ; do
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} futex_test$ext -s -l 100
       assert_success
       assert [ -f ${SNAP} ]
