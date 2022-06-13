@@ -168,6 +168,7 @@ jobs:
             build/opt/kontain/bin
             build/opt/kontain/lib
             build/opt/kontain/include
+            tests/hello_test.kmd
             tests/hello_test.c
             tests/libhelper.a
             container-runtime/docker_config.sh
