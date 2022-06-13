@@ -142,26 +142,6 @@ jobs:
       - name: Build and push KM testenv image
         run: make -C tests testenv-image push-testenv-image
 
-      # - name: Build payloads and create test images
-      #   run: |
-      #     make -C payloads -j pull-buildenv-image
-      #     make -C payloads -j clean
-      #     make -C payloads -j all
-      #     make -C payloads -j testenv-image
-      #     make -C payloads -j push-testenv-image
-
-      # - name: Create payloads runenv and demo-runenv images
-      #   # Note: this builds both runenv and demo-runenv images
-      #   run: |
-      #     make -C payloads -j runenv-image
-      #     make -C payloads -j push-demo-runenv-image
-
-      # # Note: custom Python build needs to happen after python payload build
-      # - name: Python.km custom build
-      #   run: |
-      #     make -C payloads/python build-modules pack-modules CUSTOM_MODULES="markupsafe wrapt"
-      #     make -C payloads/python custom CUSTOM_MODULES="markupsafe wrapt"
-
       - name: Build faktory
         run: make -C tools/faktory all
 
@@ -189,10 +169,9 @@ jobs:
             build/opt/kontain/lib
             build/opt/kontain/include
             tests/hello_test.kmd
-            tests/hello_test
-            tests/hello_test.c
-            tests/hello_test.o
-            tests/libhelper.a
+            # tests/hello_test.c
+            # tests/hello_test.o
+            # tests/libhelper.a
             container-runtime/docker_config.sh
             build/opt/kontain/runtime
             build/cloud/k8s/deploy/shim/containerd-shim-krun-v2
