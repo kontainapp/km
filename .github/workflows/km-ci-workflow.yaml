@@ -168,10 +168,8 @@ jobs:
             build/opt/kontain/bin
             build/opt/kontain/lib
             build/opt/kontain/include
-            tests/hello_test.kmd
-            # tests/hello_test.c
-            # tests/hello_test.o
-            # tests/libhelper.a
+            tests/hello_test.c
+            tests/libhelper.a
             container-runtime/docker_config.sh
             build/opt/kontain/runtime
             build/cloud/k8s/deploy/shim/containerd-shim-krun-v2
