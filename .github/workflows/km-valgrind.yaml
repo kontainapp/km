@@ -101,23 +101,6 @@ jobs:
         with:
           submodules: true
 
-      - name: Print build environment info
-        run: |
-          echo "Event: ${{ github.event_name }} inputs.run_type: ${{ github.event.inputs.run_type }}"
-          echo ====Environment info===
-          echo "SHA: $(git rev-parse HEAD)"
-          echo "=== Last 10 commits:"
-          git log -n 10 --graph --pretty=format:'%h% %d %s %cr %ce'
-          echo "=== VM/OS:"
-          cat /proc/version
-          cat /etc/os-release
-          echo "=== Docker version:"
-          docker version
-          echo ==== Environment Variables
-          env
-          echo ==== CPU Info
-          lscpu
-
       - run: make -C cloud/azure login-cli
 
       - name: Prepare KM build env
@@ -140,6 +123,11 @@ jobs:
 
       - run: make -C cloud/azure login-cli
 
+      -  run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
+          sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger
+
       - name: Pull testenv images
         run: |
           make -C tests pull-testenv-image
@@ -159,14 +147,9 @@ jobs:
 
       - run: make -C cloud/azure login-cli
 
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /tmp/
-
       - name: KKM and KKM tests
         run: |
-          make -C kkm/kkm && make -C kkm/test_kkm
+          make -C kkm/kkm -DVALGRIND=1 && make -C kkm/test_kkm
           sudo insmod kkm/kkm/kkm.ko
           ./kkm/test_kkm/test_kkm
 
