@@ -160,8 +160,9 @@ jobs:
             build/opt/kontain/bin/shim
           retention-days: 7
 
+      # passign hello_test.kmd that is required by testenv of payloads - it already has correct RPATH.
       # passing hello_test.c and libhelper.a
-      # because we will need to rebuid hello_test.kmd with correct RPATH for test and runtime environments
+      # because we will need to rebuid hello_test.kmd with correct RPATH for runtime environments
       - uses: actions/upload-artifact@v2
         with:
           name: km-build
@@ -170,6 +171,7 @@ jobs:
             build/opt/kontain/bin
             build/opt/kontain/lib
             build/opt/kontain/include
+            tests/hello_test.kmd
             tests/hello_test.c
             tests/libhelper.a
             container-runtime/docker_config.sh
