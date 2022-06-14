@@ -211,7 +211,7 @@ jobs:
       - name: Create payloads runenv and demo-runenv images
         # Note: this builds both runenv and demo-runenv images
         run: |
-          make -C payloads runenv-image
+          make -C payloads -j runenv-image
           make -C payloads -j push-demo-runenv-image
 
       # Note: custom Python build needs to happen after python payload build

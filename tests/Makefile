@@ -80,6 +80,7 @@ LDLIBS  :=  -pthread -ldl -L. -lhelper
 LDFLAGS := ${DEBUG}
 
 DEPS = ${SRC_C:%.c=%.d} ${SRC_SHR:%.c=%.d} ${SRC_CPP:%.cpp=%.d} ${HELPER_SRC:%.c=%.d}
+.PRECIOUS: %.o
 
 SUFFIXES := .km .kmd .km.so .alpine.km .alpine.kmd .${DTYPE} .${DTYPE}.dyn
 TESTS := ${SRC_C:%.c=%} ${SRC_CPP:%.cpp=%}
