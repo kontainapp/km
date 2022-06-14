@@ -58,6 +58,16 @@ char* km_get_snapshot_path()
    return snapshot_path;
 }
 
+void km_snapshot_io_path_fini()
+{
+   if (snapshot_input_path != NULL) {
+      free(snapshot_input_path);
+   }
+   if (snapshot_output_path != NULL) {
+      free(snapshot_output_path);
+   }
+}
+
 void km_set_snapshot_input_path(char* path)
 {
    km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot input to %s", path);
@@ -66,22 +76,12 @@ void km_set_snapshot_input_path(char* path)
    }
 }
 
-char* km_get_snapshot_input_path()
-{
-   return snapshot_input_path;
-}
-
 void km_set_snapshot_output_path(char* path)
 {
    km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot output to %s", path);
    if ((snapshot_output_path = strdup(path)) == NULL) {
       km_err(1, "Failed to alloc memory for snapshot output");
    }
-}
-
-char* km_get_snapshot_output_path()
-{
-   return snapshot_output_path;
 }
 
 int km_snapshot_getdata(km_vcpu_t* vcpu, char* buf, int buflen)
@@ -468,6 +468,7 @@ int km_snapshot_restore(km_elf_t* e)
    // Memory is fully described by PT_LOAD sections
    km_ss_recover_memory(fileno(e->file), tbrk_gva, &tmp_payload);
 
+   free((void*)e->path);
    km_close_elf_file(e);   // close now to avoid collision with fd's that need restoring
    if (km_ss_recover_vcpus(notebuf, notesize) < 0) {
       km_errx(2, "VCPU restore failed");

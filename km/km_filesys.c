@@ -2063,7 +2063,7 @@ static inline void km_fs_recover_fd(int guestfd, int hostfd, int flags, char* na
    km_set_file_used(file, 1);
    file->how = how;
    file->flags = flags;
-   file->name = strdup(name);
+   file->name = name;
    file->ofd = ofd;
    TAILQ_INIT(&file->events);
    km_infox(KM_TRACE_SNAPSHOT,
@@ -2255,12 +2255,7 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
       return -1;
    }
 
-   km_file_t* file = &km_fs()->guest_files[nt_file->fd];
-   km_set_file_used(file, 1);
-   file->flags = nt_file->flags;
-   file->name = strdup(name);
-
-   km_fs_recover_fd(nt_file->fd, fd, nt_file->flags, name, nt_file->data, nt_file->how);
+   km_fs_recover_fd(nt_file->fd, fd, nt_file->flags, strdup(name), nt_file->data, nt_file->how);
    if ((nt_file->mode & __S_IFMT) == __S_IFREG && nt_file->data != 0) {
       if (lseek(nt_file->fd, nt_file->data, SEEK_SET) != nt_file->data) {
          km_warn("lseek failed");
@@ -2614,6 +2609,9 @@ void km_fs_fini(void)
          km_file_t* file = &km_fs()->guest_files[i];
          if (file->name != NULL) {
             free(file->name);
+         }
+         if (file->sockinfo != NULL) {
+            free(file->sockinfo);
          }
       }
       free(km_fs()->guest_files);
