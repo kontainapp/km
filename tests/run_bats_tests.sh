@@ -96,6 +96,7 @@ while [ $# -gt 0 ]; do
       ;;
     --valgrind)
       export VALGRIND='valgrind -q --error-exitcode=177 --sim-hints=lax-ioctls --trace-children=yes'
+      # export VALGRIND='valgrind --track-origins=yes --show-leak-kinds=all --leak-check=full -q --error-exitcode=177 --sim-hints=lax-ioctls --trace-children=yes'
       ;;
     *)
       usage

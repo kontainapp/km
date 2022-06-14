@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-name: KM CI Pipeline
+name: KM valgrind Pipeline
 on:
   pull_request:
     branches: [master]
@@ -150,7 +150,7 @@ jobs:
 
   kkm-test-vms:
     name: KM tests, KKM AWS
-    needs: [start-runners, km-build, kkm-build]
+    needs: [start-runners, km-build]
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
     steps:
       - uses: actions/checkout@v2

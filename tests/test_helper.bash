@@ -112,7 +112,11 @@ if [[ "${USE_VIRT}" == kkm ]] ; then
 fi
 
 # We will kill any individual test if takes longer than that
+if [ -z "${VALGRIND}" ]; then
 timeout=250s
+else
+timeout=750s
+fi
 
 #
 # this is how we invoke KM - with a timeout and reporting run time
