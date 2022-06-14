@@ -160,13 +160,15 @@ load_expected_size: load_test.km # load_test.so
 %.d: %.cpp
 	$(CXX) -MT $*.o -MT $@ -MM ${CXXFLAGS} ${CPPFLAGS} $< -o $@
 
+.PRECIOUS: %.o
+
 clean:
 	rm -f *.o *.d ${EXECS} ${SEXECS} kmcore km km.coverage *.a *.so *.km *.kmd *_test *.${DTYPE}
 
 #
 # do not generate .d file for some targets
 #
-no_deps := $(shell [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${MAKEFLAGS}" =~ "n" ]] && echo -n match)
+no_deps := $(shell tmp=(${MAKEFLAGS}) && [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${tmp[0]}" =~ "n" ]] && echo -n match)
 ifneq ($(no_deps),match)
 -include ${DEPS}
 endif
