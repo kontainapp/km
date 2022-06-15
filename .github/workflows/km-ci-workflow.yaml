@@ -372,6 +372,11 @@ jobs:
           name: km
           path: /tmp/
 
+      - uses: actions/download-artifact@v2
+        with:
+          name: km-build
+          path: .
+
       - name: Configure KRUN
         run: |
           sudo mkdir -p /opt/kontain/bin
@@ -490,6 +495,11 @@ jobs:
         with:
           name: km
           path: /tmp/
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: km-build
+          path: .
 
       - name: KKM and KKM tests
         run: |

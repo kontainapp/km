@@ -41,9 +41,9 @@ java: dynamic-base-scratch
 dynamic-python: dynamic-base-large python
 
 test-rebuild:
-ifeq ($(findstring runenv,$(MAKECMDGOALS)),runenv)
+ifneq (, $(or $(filter runenv-image,$(MAKECMDGOALS)), $(filter demo-runenv-image,$(MAKECMDGOALS))))
 	rm -f $(TOP)/tests/hello_test.kmd
-	make -C $(TOP)/tests RPATH=/opt/kontain hello_test.kmd
+	PATH=${KM_OPT_BIN}:${PATH} make -C $(TOP)/tests RPATH=/opt/kontain hello_test.kmd
 endif
 
 # Also, just 'make' will not cause building payloads , so it is reserved for building KM only.
