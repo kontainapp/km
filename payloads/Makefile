@@ -30,6 +30,8 @@ KM_OPT_BIN := ${KM_OPT}/bin
 
 include ${TOP}/make/actions.mk
 
+dynamic-base dynamic-base-large dynamic-base-scratch: test-rebuild
+
 demo-dweb python node dynamic-base dynamic-base-large: busybox
 
 java-shell: dynamic-base java
@@ -37,6 +39,16 @@ java-shell: dynamic-base java
 java: dynamic-base-scratch
 
 dynamic-python: dynamic-base-large python
+
+test-rebuild:
+ifeq ($(findstring runenv,$(MAKECMDGOALS)),runenv)
+	rm -f $(TOP)/tests/hello_test.kmd
+	make -C $(TOP)/tests hello_test.kmd RPATH=/opt/kontain
+endif
+ifeq ($(findstring testenv,$(MAKECMDGOALS)),testenv)
+	rm -f $(TOP)/tests/hello_test.kmd
+	make -C $(TOP)/tests hello_test.kmd RPATH=/home/appuser/km/build/opt/kontain
+endif
 
 # Also, just 'make' will not cause building payloads , so it is reserved for building KM only.
 # Use 'make all' or 'make build' to request payloads build

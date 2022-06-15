@@ -39,8 +39,7 @@ RUNENV_TAG := ${COMPONENT}
 
 export define runenv_prep
 	mkdir -p tmp && rm -rf tmp/* && chmod a+rwx tmp
-	rm -f ${TOP}/tests/hello_test
-	make -C ${TOP}/tests RPATH=/opt/kontain hello_test
+	[ ! -f ${TOP}/tests/hello_test.kmd ] || ! (readelf -l ${TOP}/tests/hello_test.kmd | grep -q ": /opt/kontain/") && (rm -f ${TOP}/tests/hello_test.kmd && make -C ${TOP}/tests RPATH=/opt/kontain hello_test.kmd) || echo -n ""
 	tar -czf ${RUNENV_PATH}/libs.tar ${PAYLOAD_FILES}
 	cp ${TESTENV_EXTRA_FILES} ${RUNENV_DEMO_PATH}
 	mkdir -p ${RUNENV_PATH}/.kontain

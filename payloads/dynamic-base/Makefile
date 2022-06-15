@@ -27,9 +27,8 @@ CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD}
 TESTENV_EXTRA_FILES := ${TOP}/tests/hello_test.kmd
 
 export define runenv_prep
-	rm -f ${TOP}/tests/hello_test.kmd
-	make -C ${TOP}/tests RPATH=/opt/kontain hello_test.kmd
-	tar ${PAYLOAD_FILES} -czf ${RUNENV_PATH}/libs.tar
+	[ ! -f ${TOP}/tests/hello_test.kmd ] || ! (readelf -l ${TOP}/tests/hello_test.kmd | grep -q ": /opt/kontain/") && (rm -f ${TOP}/tests/hello_test.kmd && make -C ${TOP}/tests RPATH=/opt/kontain hello_test.kmd) || echo -n ""
+ 	tar ${PAYLOAD_FILES} -czf ${RUNENV_PATH}/libs.tar
 	cp ${TOP}/tests/hello_test.kmd ${RUNENV_DEMO_PATH}
 endef
 
