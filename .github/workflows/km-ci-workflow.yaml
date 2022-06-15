@@ -401,22 +401,6 @@ jobs:
 
       - run: make -C cloud/azure login-cli
 
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /tmp/
-
-      - name: Configure KRUN
-        run: |
-          sudo mkdir -p /opt/kontain/bin
-          sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
-          sudo bash ./container-runtime/podman_config.sh
-          sudo bash ./container-runtime/docker_config.sh
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
-          sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
-          sudo udevadm control --reload-rules && sudo udevadm trigger
-
       - name: Pull testenv images
         run: |
           make -C payloads -j pull-testenv-image
@@ -540,22 +524,6 @@ jobs:
           submodules: true
 
       - run: make -C cloud/azure login-cli
-
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: /tmp/
-
-      - name: KKM and KKM tests
-        run: |
-          make -C kkm/kkm && make -C kkm/test_kkm
-          sudo insmod kkm/kkm/kkm.ko
-          ./kkm/test_kkm/test_kkm
-          sudo mkdir -p /opt/kontain/bin
-          sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
-          sudo bash ./container-runtime/podman_config.sh
-          sudo bash ./container-runtime/docker_config.sh
 
       - name: Pull testenv image
         run: |
