@@ -641,6 +641,7 @@ int main(int argc, char* argv[])
    } while (km_dofork(NULL) != 0);
 
    km_machine_fini();
+   km_snapshot_io_path_fini();
    km_mgt_fini();
    km_trace_fini();
    exit(machine.exit_status);
