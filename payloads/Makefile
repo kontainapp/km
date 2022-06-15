@@ -43,11 +43,7 @@ dynamic-python: dynamic-base-large python
 test-rebuild:
 ifeq ($(findstring runenv,$(MAKECMDGOALS)),runenv)
 	rm -f $(TOP)/tests/hello_test.kmd
-	make -C $(TOP)/tests hello_test.kmd RPATH=/opt/kontain
-endif
-ifeq ($(findstring testenv,$(MAKECMDGOALS)),testenv)
-	rm -f $(TOP)/tests/hello_test.kmd
-	make -C $(TOP)/tests hello_test.kmd RPATH=/home/appuser/km/build/opt/kontain
+	make -C $(TOP)/tests RPATH=/opt/kontain hello_test.kmd
 endif
 
 # Also, just 'make' will not cause building payloads , so it is reserved for building KM only.

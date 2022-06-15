@@ -156,6 +156,7 @@ jobs:
           name: km
           path: |
             build/opt/kontain/bin/km
+            build/opt/kontain/bin/kontain-gcc
             build/opt/kontain/bin/krun
             build/opt/kontain/bin/shim
           retention-days: 7
@@ -395,12 +396,7 @@ jobs:
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
     needs: [start-runners, km-build, km-build-payloads]
     steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - run: make -C cloud/azure login-cli
-
+      # no need to checkout - just continue where tests left
       - name: Pull testenv images
         run: |
           make -C payloads -j pull-testenv-image
@@ -519,12 +515,7 @@ jobs:
     needs: [start-runners, km-build, kkm-build, km-build-payloads]
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
     steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - run: make -C cloud/azure login-cli
-
+      # no need to checkout - just continue where stopped after tests
       - name: Pull testenv image
         run: |
           make -C payloads -j pull-testenv-image
