@@ -126,6 +126,14 @@ fi
 function km_with_timeout () {
    local t=$timeout
 
+   # running under valgrind we need to remove LD_PRELOAD, it interferes with dynamic loader
+   # we don't need to do that if --putenv is used or for non-dynamic tests
+   if [[ ${test_type} == "dynamic" || ${test_type} == "alpine_dynamic" || ${test_type} == "glibc_dynamic" ]]; then
+      local c_env=${VALGRIND:+--copyenv=LD_PRELOAD}
+   else
+      local c_env=
+   fi
+   
    # Treat all before '--' as KM arguments, and all after '--' as payload arguments
    # With no '--', finding $ext (.km, .kmd. .so) has the same effect.
    # Note that we whitespace split KM args always, so no spaces inside of KM args are allowed
@@ -143,6 +151,7 @@ function km_with_timeout () {
             t=$1
             ;;
          --putenv)
+            c_env=
             # The putenv arg may contain $ext, so grab the arg here to avoid *$ext below
             __args="$__args $1"
             shift
@@ -164,7 +173,7 @@ function km_with_timeout () {
 
    /usr/bin/time -f '"elapsed %E user %U system %S mem %M KiB (km $*) "' -a -o $TIME_INFO \
       timeout --signal=SIGABRT --foreground $t \
-         ${VALGRIND} ${CMD} "$@"
+         ${VALGRIND} ${CMD} ${c_env} "$@"
    # Per timeout(1) it returns 124 on timeout, and 128+signal when killed by signal
    s=$?; if [[ $s == 124  ]] ; then
       echo -e "\nTime out in $t : ${CMD} $@"

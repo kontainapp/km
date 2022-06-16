@@ -165,6 +165,7 @@ struct option km_cmd_long_options[] = {
     {"log-to", required_argument, 0, 'l'},
     {"km-log-to", required_argument, 0, 'k'},
     {"putenv", required_argument, 0, 'e'},
+    {"copyenv", required_argument, 0, 'E'},
     {"gdb-server-port", optional_argument, 0, 'g'},
     {GDB_LISTEN, no_argument, NULL, 0},
     {GDB_DYNLINK, no_argument, NULL, 0},
@@ -308,8 +309,8 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
 {
    int opt;
    uint64_t port;
-   int gpbits = 0;         // Width of guest physical memory bus.
-   int copyenv_used = 1;   // By default copy environment from host
+   int gpbits = 0;   // Width of guest physical memory bus.
+   int copyenv_used = 0;
    int putenv_used = 0;
    char* ep = NULL;
    int longopt_index;    // flag index in longopt array
@@ -363,18 +364,15 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             if ((log_to_fd = open(optarg, O_WRONLY | O_CREAT, 0644)) < 0) {
                km_err(1, "--log-to %s", optarg);
             }
-
             break;
          case 'k':
             // km logging destination is setup in km_trace_setup() called earlier.  We ignore this here.
             break;
-         case 'e':                    // --putenv
-            if (copyenv_used > 1) {   // if --copyenv was on the command line, something is wrong
-               km_warnx("Wrong options: '--putenv' cannot be used with together with "
-                        "'--copyenv'");
+         case 'e':                     // --putenv
+            if (copyenv_used != 0) {   // if --copyenv was on the command line, something is wrong
+               km_warnx("'--putenv' cannot be used with together with '--copyenv'");
                usage();
             }
-            copyenv_used = 0;   // --putenv cancels 'default' --copyenv
             putenv_used++;
             envc++;
             if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
@@ -384,6 +382,43 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                km_err(1, "Failed to alloc memory for putenv %s value", optarg);
             }
             envp[envc - 1] = NULL;
+            break;
+         case 'E':                    // --copyenv
+            if (putenv_used != 0) {   // if --putenv was on the command line, something is wrong
+               km_warnx("'--copyenv' cannot be used with together with '--putenv'");
+               usage();
+            }
+            copyenv_used++;
+            int no_envc;
+            char** no_envp;
+            for (no_envc = 1,
+                no_envp = malloc((no_envc + 1) * sizeof(char*)),
+                no_envp[0] = strtok(optarg, "=");
+                 (no_envp[no_envc] = strtok(NULL, "=")) != NULL;
+                 no_envc++, no_envp = realloc(no_envp, (no_envc + 1) * sizeof(char*))) {
+               ;
+            }
+            envp = malloc(sizeof(char*));
+            envp[0] = NULL;
+            for (int ec = 0; __environ[ec] != NULL; ec++) {
+               int i;
+               for (i = 0; i < no_envc; i++) {
+                  if (strncmp(no_envp[i], __environ[ec], strlen(no_envp[i])) == 0) {
+                     break;
+                  }
+               }
+               if (i == no_envc) {
+                  envc++;
+                  if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
+                     km_err(1, "Failed to alloc memory for putenv %s", optarg);
+                  }
+                  if ((envp[envc - 2] = strdup(__environ[ec])) == NULL) {
+                     km_err(1, "Failed to alloc memory for putenv %s value", optarg);
+                  }
+                  envp[envc - 1] = NULL;
+               }
+            }
+            free(no_envp);
             break;
          case 'C':
             km_set_coredump_path(optarg);

@@ -27,7 +27,7 @@ on:
       - payloads/longhaul-test/**
       - "**/L0-image**"
   push:
-    branches: [master, serge/valgrind_ci_run]
+    branches: [master]
     paths-ignore:
       - "**.md" # all .md files in repo
       - "**/docs/**" # all content of all docs/ dirs in repo
@@ -149,7 +149,7 @@ jobs:
 
       - name: KKM and KKM tests
         run: |
-          make -C kkm/kkm -DVALGRIND=1 && make -C kkm/test_kkm
+          make -C kkm/kkm VALGRIND=1 && make -C kkm/test_kkm
           sudo insmod kkm/kkm/kkm.ko
           ./kkm/test_kkm/test_kkm
 
