@@ -29,7 +29,6 @@
 
 set -e ; [ "$TRACE" ] && set -x
 
-set -x
 readonly PROGNAME=$(basename $0)
 readonly CURRENT=$(readlink -m $(dirname $0))
 

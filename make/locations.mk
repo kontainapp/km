@@ -70,7 +70,6 @@ KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
 KM_LDSO := ${KM_OPT_RT}/libc.so
 KM_BIN := ${KM_OPT_BIN}/km
 
-
 PATH := $(abspath ${KM_OPT_BIN}):${PATH}
 
 GETENFORCE := /usr/sbin/getenforce

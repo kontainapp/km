@@ -96,12 +96,10 @@ define testenv_prep =
 	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
 endef
 
-
 testenv_cleanup = rm ${TESTENV_PATH}/extras.tar.gz
 testenv_cleanup_extras=$(if ${TESTENV_EXTRA_FILES},rm  ${TESTENV_PATH}/${TESTENV_EXTRA_FILES} )
 
 ## build test image with test tools and code
-## requires building
 testenv-image:
 	$(call clean_container_image,${TEST_IMG_TAGGED})
 	$(call testenv_prep)

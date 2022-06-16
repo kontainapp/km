@@ -330,7 +330,6 @@ jobs:
         run: make withdocker TARGET=kkm-pkg
 
       # Note: need to have kkm.run ready for this step
-      # Note: we do no use
       #     make withdocker TARGET=kkm-pkg
       # because dependencies force it to re-build everything. We want to use pre-built km, krun (static) , kkm and so un
       #

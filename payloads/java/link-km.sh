@@ -34,7 +34,6 @@ if [[ ! -z ${PREFIX} ]]; then
    PREFIX="--prefix=${PREFIX}"
 fi
 
-
 OUT_DIR=${JDK_DIR}/images/jdk/bin
 
 mkdir -p ${OUT_DIR}

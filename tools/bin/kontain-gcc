@@ -53,7 +53,7 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-#defaults
+# defaults
 INSTALL_LOCATION=/opt/kontain
 target=kontain
 type=static
@@ -134,7 +134,6 @@ BUILD_LL=${BUILD_LOCATION}/alpine-lib/lib
 
 HCALL_DYNAMIC_LINKER=${RPATH_RT}/libc.so
 ALPINE_DYNAMIC_LINKER=${RPATH_LL}/ld-musl-x86_64.so.1
-
 
 # NOTE: libgcc location depends on gcc version in alpine container
 # We save it during docker build (see tests/buildenv-fedora.dockerfile)
