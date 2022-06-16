@@ -281,7 +281,7 @@ jobs:
           name: ${{ env.CRUN_SHA}}
           path: /tmp/krun-static
 
-      # regardles how we got krun-static (by retrieving persistent artifact or bulding)
+      # regardless how we got krun-static (by retrieving persistent artifact or building)
       # upload it as krun-static artifact
       - uses: actions/upload-artifact@v2
         with:
@@ -308,7 +308,7 @@ jobs:
           name: km-build
           path: .
 
-      #get static krun created by krun-static-build job
+      # get static krun created by krun-static-build job
       - uses: actions/download-artifact@v2
         with:
           name: krun-static
@@ -331,7 +331,7 @@ jobs:
 
       # Note: need to have kkm.run ready for this step
       #     make withdocker TARGET=kkm-pkg
-      # because dependencies force it to re-build everything. We want to use pre-built km, krun (static) , kkm and so un
+      # because dependencies force it to re-build everything. We want to use pre-built km, krun (static), kkm and so on
       #
       - name: Create kontain bundles
         run: |
@@ -600,7 +600,7 @@ jobs:
           # kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
           sleep 20
 
-      # uncomment to get logs from damonset.
+      # uncomment to get logs from daemonset.
       #- name: Check k8s install
       #  run: |
       #    set -x

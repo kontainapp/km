@@ -115,7 +115,7 @@ fi
 if [ -z "${VALGRIND}" ]; then
 timeout=250s
 else
-timeout=750s
+timeout=1000s
 fi
 
 #
@@ -125,6 +125,14 @@ fi
 #
 function km_with_timeout () {
    local t=$timeout
+
+   # running under valgrind we need to remove LD_PRELOAD, it interferes with dynamic loader
+   # we don't need to do that if --putenv is used or for non-dynamic tests
+   if [[ ${test_type} == "dynamic" || ${test_type} == "alpine_dynamic" || ${test_type} == "glibc_dynamic" ]]; then
+      local c_env=${VALGRIND:+--copyenv=LD_PRELOAD}
+   else
+      local c_env=
+   fi
 
    # Treat all before '--' as KM arguments, and all after '--' as payload arguments
    # With no '--', finding $ext (.km, .kmd. .so) has the same effect.
@@ -143,6 +151,7 @@ function km_with_timeout () {
             t=$1
             ;;
          --putenv)
+            c_env=
             # The putenv arg may contain $ext, so grab the arg here to avoid *$ext below
             __args="$__args $1"
             shift
@@ -158,7 +167,7 @@ function km_with_timeout () {
       shift
    done
 
-   KM_ARGS="$KM_ARGS $__args"
+   KM_ARGS="$KM_ARGS ${c_env} $__args"
 
    CMD="${KM_BIN} ${KM_ARGS}"
 

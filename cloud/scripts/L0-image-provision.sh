@@ -53,7 +53,8 @@ useradd -m -s /bin/bash -G docker $1
 echo "kontain ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/kontain && chmod 440 /etc/sudoers.d/kontain
 echo | su $1 -c 'ssh-keygen -N "" -q'
 
-sysctl -w kernel.core_pattern=core_%P
+echo 'enabled=0' > /etc/default/apport
+echo 'kernel.core_pattern=core_%P' > /etc/sysctl.d/99-core_pattern.conf
 
 # TODO - this needs to be in another base image (VagrantPreloadedBaseImage)
 #  in the vast majority of cases these extra few GiB for boxes are not needed
