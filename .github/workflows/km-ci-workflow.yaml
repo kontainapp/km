@@ -357,7 +357,7 @@ jobs:
           path: build/kontain_bin.tar.gz
 
   km-test-azure:
-    name: KM, tests, krun tests, KVM on Azure
+    name: KM tests, KVM on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
     needs: [start-runners, km-build]
     steps:
@@ -397,9 +397,9 @@ jobs:
         timeout-minutes: 20
 
   km-payloads-azure:
-    name: KM, payloads, krun tests, KVM on Azure
+    name: Payloads on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
-    needs: [start-runners, km-build, km-build-payloads]
+    needs: [start-runners, km-build, km-build-payloads, km-test-azure]
     steps:
       # no need to checkout - just continue where tests left
       - name: Pull testenv images
@@ -481,7 +481,7 @@ jobs:
         run: sudo dmesg
 
   kkm-test-aws:
-    name: KM tests, KKM AWS
+    name: KM tests, KKM on AWS
     needs: [start-runners, km-build, kkm-build]
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
     steps:
@@ -521,8 +521,8 @@ jobs:
         timeout-minutes: 20
 
   kkm-payloads-aws:
-    name: KM payloads test AWS
-    needs: [start-runners, km-build, kkm-build, km-build-payloads]
+    name: Payloads on AWS
+    needs: [start-runners, km-build, kkm-build, km-build-payloads, kkm-test-aws]
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
     steps:
       # no need to checkout - just continue where stopped after tests
