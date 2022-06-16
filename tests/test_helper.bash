@@ -115,7 +115,7 @@ fi
 if [ -z "${VALGRIND}" ]; then
 timeout=250s
 else
-timeout=750s
+timeout=1000s
 fi
 
 #
@@ -133,7 +133,7 @@ function km_with_timeout () {
    else
       local c_env=
    fi
-   
+
    # Treat all before '--' as KM arguments, and all after '--' as payload arguments
    # With no '--', finding $ext (.km, .kmd. .so) has the same effect.
    # Note that we whitespace split KM args always, so no spaces inside of KM args are allowed
@@ -167,13 +167,13 @@ function km_with_timeout () {
       shift
    done
 
-   KM_ARGS="$KM_ARGS $__args"
+   KM_ARGS="$KM_ARGS ${c_env} $__args"
 
    CMD="${KM_BIN} ${KM_ARGS}"
 
    /usr/bin/time -f '"elapsed %E user %U system %S mem %M KiB (km $*) "' -a -o $TIME_INFO \
       timeout --signal=SIGABRT --foreground $t \
-         ${VALGRIND} ${CMD} ${c_env} "$@"
+         ${VALGRIND} ${CMD} "$@"
    # Per timeout(1) it returns 124 on timeout, and 128+signal when killed by signal
    s=$?; if [[ $s == 124  ]] ; then
       echo -e "\nTime out in $t : ${CMD} $@"

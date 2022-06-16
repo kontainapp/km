@@ -74,6 +74,7 @@ todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps km_exec_guest_file
 if [ ! -z "${VALGRIND}" ]; then
 todo_dynamic+=' gdb_sharedlib cpp_throw basic_snapshot futex_snapshot popen files_on_exec '
 todo_alpine_dynamic+=' gdb_sharedlib cpp_throw basic_snapshot futex_snapshot popen files_on_exec'
+todo_glibc_dynamic+=' basic_snapshot futex_snapshot'
 fi
 # running .so as executables was useful at some point, but it isn't needed anymore.
 # Simply disable the tests for now. Ultimately we will drop build and test support for them.
@@ -1318,6 +1319,11 @@ fi
    f1=/tmp/f1$$
    f2=/tmp/f2$$
    flog=/tmp/xx$$
+   if [ -z ${VALGRIND} ]; then
+      to=5s
+   else
+      to=25s
+   fi
 
    run km_with_timeout --putenv TESTPROG=./pipetarget_test$ext popen_test$ext /etc/group $f1 $f2
    assert_success
@@ -1327,16 +1333,16 @@ fi
    assert_success
 
    # now test with a relative path to pipetarget_test but no place to find it, should fail
-   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test$ext popen_test$ext /etc/group $f1 $f2
+   run km_with_timeout --timeout ${to} --putenv TESTPROG=pipetarget_test$ext popen_test$ext /etc/group $f1 $f2
    assert_failure 1
 
    # now test with a relative path to pipetarget_test but with a PATH var
-   run km_with_timeout --timeout 5s --putenv TESTPROG=pipetarget_test$ext --putenv PATH="/usr/bin:." popen_test$ext /etc/group $f1 $f2
+   run km_with_timeout --timeout ${to} --putenv TESTPROG=pipetarget_test$ext --putenv PATH="/usr/bin:." popen_test$ext /etc/group $f1 $f2
    assert_success
 
    # now test with full path to pipetarget_test and no PATH var.
    echo Error log is in $flog
-   run km_with_timeout --timeout 5s -V --putenv TESTPROG=`pwd`/pipetarget_test$ext -V popen_test$ext /etc/group $f1 $f2 2>$flog
+   run km_with_timeout --timeout ${to} -V --putenv TESTPROG=`pwd`/pipetarget_test$ext -V popen_test$ext /etc/group $f1 $f2 2>$flog
    assert_success
 
    rm $f1 $f2

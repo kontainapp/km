@@ -383,7 +383,10 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             }
             envp[envc - 1] = NULL;
             break;
-         case 'E':                    // --copyenv
+         case 'E':   // --copyenv
+            // Take host environment, expect for the variables specified by --copyenv, separated by =
+            // copyenv LD_PRELOAD=LOGNAME=EDITOR removes the three variables, takes the rest
+            // We use this for valgrind to remove LD_PRELOAD
             if (putenv_used != 0) {   // if --putenv was on the command line, something is wrong
                km_warnx("'--copyenv' cannot be used with together with '--putenv'");
                usage();
