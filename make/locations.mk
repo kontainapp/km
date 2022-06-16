@@ -41,8 +41,6 @@ endif
 # current SHA, to be saved for 'km -v' uniquiness
 SRC_SHA ?= $(shell git rev-parse HEAD)
 
-PATH := $(abspath ${TOP}/tools/bin):${PATH}
-
 # sha and build time for further reporting
 SRC_VERSION := $(shell git rev-parse HEAD)
 BUILD_TIME := $(shell date -Iminutes)
@@ -56,16 +54,23 @@ BLDDIR := $(abspath ${BLDTOP}/${FROMTOP}/${BLDTYPE})
 
 # km location needs to be fixed no matter what is the FROMTOP,
 # so we can use KM from different places
+KM_INSTALL := /opt/kontain
+KM_INSTALL_BIN := ${KM_INSTALL}/bin
+KM_INSTALL_COVERAGE := ${KM_INSTALL}/${COV_BLDTYPE}
+KM_INSTALL_COVERAGE_BIN := ${KM_INSTALL_COVERAGE}/bin
+
 KM_BLDDIR := $(abspath ${BLDTOP}/km/${BLDTYPE})
-KM_BIN := ${KM_BLDDIR}/km
 KM_RT := ${BLDTOP}/runtime
-KM_OPT := /opt/kontain
+KM_OPT := ${BLDTOP}/opt/kontain
 KM_OPT_BIN := ${KM_OPT}/bin
 KM_OPT_INC := ${KM_OPT}/include
 KM_OPT_LIB := ${KM_OPT}/lib
 KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
-KM_LDSO := ${BLDTOP}/runtime/libc.so
+KM_LDSO := ${KM_OPT_RT}/libc.so
+KM_BIN := ${KM_OPT_BIN}/km
+
+PATH := $(abspath ${KM_OPT_BIN}):${PATH}
 
 GETENFORCE := /usr/sbin/getenforce
 

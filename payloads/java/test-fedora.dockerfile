@@ -16,6 +16,15 @@
 FROM fedora:31
 
 # Contains the scripts needs to run tests.
-COPY scripts ./scripts
-COPY km /opt/kontain/bin/km
-COPY libc.so /opt/kontain/runtime/
+ADD extras.tar.gz /home/appuser/km/build/
+ARG JAVA_DIR=/home/appuser/km/build/opt/kontain
+ENV PATH=${JAVA_DIR}/bin:${PATH}
+COPY . ${JAVA_DIR}
+RUN mkdir -p /home/appuser/km/payloads/java
+COPY ./scripts/* /home/appuser/km/payloads/java/scripts/
+
+ENV JAVA_DIR=${JAVA_DIR}
+ENV JAVA_LD_PATH=${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime
+ENV PATH=${JAVA_DIR}/bin:${PATH}
+
+WORKDIR /home/appuser/km/payloads/java

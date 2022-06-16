@@ -151,6 +151,7 @@ static char* mgtpipe = NULL;
 static int log_to_fd = -1;
 extern int set_cpu_vendor_id;
 extern int kill_unimpl_hcall;
+extern char* km_interp;
 
 struct option km_cmd_long_options[] = {
     {"wait-for-signal", no_argument, &wait_for_signal, 1},
@@ -320,6 +321,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    if (getenv(KM_KILL_UNIMPL_SCALL) != NULL) {
       kill_unimpl_hcall = 1;
    }
+
    optind = 0;   // reinit getopt
    while ((opt = getopt_long(argc, argv, km_cmd_short_options, km_cmd_long_options, &longopt_index)) !=
           -1) {

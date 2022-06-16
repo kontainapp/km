@@ -85,6 +85,7 @@ else # not SUBDIRS, i.e. EXEC or LIB
 ifneq (${EXEC},)
 
 all: ${BLDEXEC}
+
 ${BLDEXEC}: $(OBJS) | ${KM_OPT_BIN_PATH}
 	$(CC) $(CFLAGS) $(OBJS) $(LDOPTS) $(LOCAL_LDOPTS) $(addprefix -l ,${LLIBS}) -o $@
 	if [ "${EXEC_SELINUX_CONTEXT}" != "" -a -e ${GETENFORCE} ]; then if [ `${GETENFORCE}` != "Disabled" ]; then chcon ${EXEC_SELINUX_CONTEXT} $@; fi; fi
@@ -132,6 +133,9 @@ ${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exis
 ${OBJDIRS}:
 	mkdir -p $@
 
+${KM_OPT_BIN_PATH}:
+	mkdir -p $@
+
 # The sed regexp below is the same as in Visual Studion Code problemWatcher in tasks.json.
 # \\1 - filename :\\2:\\3: - position (note \\3: is optional) \\4 - severity \\5 - message
 # The sed transformation adds ${FROMTOP} prefix to file names to facilitate looking for files
@@ -160,7 +164,7 @@ clean::
 #
 # do not generate .d file for some targets
 #
-no_deps := $(shell [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${MAKEFLAGS}" =~ "n" ]] && echo -n match)
+no_deps := $(shell tmp=(${MAKEFLAGS}) && [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${tmp[0]}" =~ "n" ]] && echo -n match)
 ifneq ($(no_deps),match)
 -include ${DEPS}
 endif
@@ -202,7 +206,6 @@ withdocker: ## Build using Docker container for build environment. 'make withdoc
 		Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
 	${_CMD} \
 		-v ${TOP}:${DOCKER_KM_TOP}:z \
-		-v ${KM_OPT}:${KM_OPT}:z \
 		-w ${DOCKER_KM_TOP}/${FROMTOP} \
 		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
 		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)

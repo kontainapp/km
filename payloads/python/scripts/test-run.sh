@@ -1,4 +1,4 @@
-#!/usr/bin/bash -ex
+#!/usr/bin/bash -e
 #
 # Copyright 2021 Kontain Inc
 #

@@ -26,16 +26,16 @@ TOP := $(shell git rev-parse --show-toplevel)
 
 # scan all these and 'make' stuff there
 # do not build dynamic krun for ci
-ifneq ($RUN_IN_CI, )
-	SUBDIRS := lib km km_cli runtime tests container-runtime tools/bin include
-else
+ifneq (${RUN_IN_CI}, )
 	SUBDIRS := lib km km_cli runtime tests tools/bin include
+else
+	SUBDIRS := lib km km_cli runtime tests container-runtime tools/bin include
 endif
 
 include ${TOP}/make/actions.mk
 
 # build VMM and runtime library before trying to build tests
-tests: km runtime container-runtime lib
+tests: km runtime lib tools/bin
 
 .PHONY: clang-format clang-format-check
 clang-format-check:
@@ -44,10 +44,25 @@ clang-format-check:
 clang-format:
 	clang-format -i km/*.h km/*.c tests/*.h tests/*.c tests/*.cpp
 
+withdocker runtime: | ${KM_OPT}/alpine-lib/gcc-libs-path.txt
+
+${KM_OPT}/alpine-lib/gcc-libs-path.txt:
+	make -C tests .buildenv-local-lib
+
 # On mac $(MAKE) evaluates to '/Applications/Xcode.app/Contents/Developer/usr/bin/make'
 ifeq ($(shell uname), Darwin)
 MAKE := make
 endif
+
+# Package KM and libs+tools+docs for release
+KM_RELEASE := ${BLDTOP}/kontain.tar.gz
+KM_KKM_RELEASE := ${BLDTOP}/kkm.run
+KM_BIN_RELEASE := ${BLDTOP}/kontain_bin.tar.gz
+KM_BINARIES := -C ${BLDTOP} km/km container-runtime/krun container-runtime/krun-label-trigger \
+               cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
+               -C ${BLDTOP}/opt/kontain bin/docker_config.sh
+# Show this on the release page
+RELEASE_MESSAGE ?= Kontain KM Beta Release. branch: ${SRC_BRANCH} sha: ${SRC_SHA}
 
 kkm-pkg: ## Build KKM module self-extracting package.
 	@if ! type makeself >& /dev/null ; then echo Please install \"makeself\" first; false; fi
@@ -55,7 +70,22 @@ kkm-pkg: ## Build KKM module self-extracting package.
 	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/kkm/kkm clean >& /dev/null
 	makeself -q kkm ${BLDTOP}/kkm.run "beta-release" ./installer/build-script.sh
 
-RELEASE_MESSAGE ?= Kontain KM Edge - date: $(shell date) sha: $(shell git rev-parse HEAD)
+release: ${KM_RELEASE} ${KM_BIN_RELEASE} ## Package kontain.tar.gz file for release
+	ls -lh ${KM_RELEASE} ${KM_BIN}
+
+${KM_RELEASE}: ${TOP}/tools/bin/create_release.sh ## Build a release tar.gz file for KM (called from release: target)
+	${TOP}/tools/bin/create_release.sh
+
+${KM_BIN_RELEASE}: ${KM_RELEASE} ## Build a release tar.gz file for KM runtime binaries
+	tar -czvf $@ ${KM_BINARIES}
+
+clean-release: ## Clean the release tar files
+	rm -f ${KM_RELEASE} ${KM_BIN_RELEASE}
+
+publish-release: ## Publish release with RELEASE_TAG to github
+	cd ${TOP}/tools/release; ./release_km.py ${KM_RELEASE} ${KM_BIN_RELEASE} ${KM_KKM_RELEASE} --version ${RELEASE_TAG} --message "${RELEASE_MESSAGE}"
+
+EDGE_RELEASE_MESSAGE ?= Kontain KM Edge - date: $(shell date) sha: $(shell git rev-parse HEAD)
 REPO_URL := https://${GITHUB_TOKEN}@github.com/kontainapp/km.git
 edge-release: ## Trigger edge-release building pipeline
 	git config user.email "release@kontain.app"
@@ -63,7 +93,7 @@ edge-release: ## Trigger edge-release building pipeline
 	@echo Delete the ${RELEASE_TAG} tag. Can fail if there is no such tag yet
 	-git tag -d ${RELEASE_TAG} && git push --delete ${REPO_URL} ${RELEASE_TAG}
 	@echo Now tag the source and push the tag to trigger the pipeline
-	git tag -a ${RELEASE_TAG} --message "${RELEASE_MESSAGE}"
+	git tag -a ${RELEASE_TAG} --message "${EDGE_RELEASE_MESSAGE}"
 	git push ${REPO_URL} ${RELEASE_TAG}
 
 ## Prepares release by
@@ -103,7 +133,3 @@ compile-commands: ## rebuild compile_commands.json. Assumes 'bear' is installed
 	make clean
 	bear make -j
 	sed -i 's-${CURDIR}-$${workspaceFolder}-' compile_commands.json
-
-# clean in subdirs will be done automatically. This is clean for stuff created from this makefile
-clean:
-	rm -f ${BLDTOP}/kkm.run

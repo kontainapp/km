@@ -17,8 +17,7 @@
 #
 # Links Python.km from python libs and km 'dlstatic' builtins mentioned in $target/linkline_km.txt
 #
-set -e
-[ "$TRACE" ] && set -x
+set -e && [ "$TRACE" ] && set -x
 
 if [ "$1" == "--help" ]; then
    cat <<EOF
@@ -30,6 +29,8 @@ location - where cpython artifacts are. Default: $(dirname ${BASH_SOURCE[0]})/cp
 target   - where to put the results.    Default: $(dirname ${BASH_SOURCE[0]})/cpython
 extra    - optional list of files to add (e.g. @f1 @f2...). Default: none
 name     - optional km name. Defaul: python.km
+prefix   - optional RPATH prefix for kontain-gcc
+
 EOF
    exit 0
 fi
@@ -38,11 +39,17 @@ BUILD=$(realpath ${1:-cpython})
 OUT=$(realpath ${2:-cpython})
 EXTRA_FILES="$3"
 NAME=${4:-python.km}
+PREFIX=${5:-}
+
+if [[ ! -z ${PREFIX} ]]; then
+   PREFIX="--prefix=${PREFIX}"
+fi
 
 KM_TOP=$(git rev-parse --show-toplevel)
-PATH=$(realpath ${KM_TOP}/tools/bin):$PATH
+KM_OPT_BIN=${KM_TOP}/build/opt/kontain/bin
 
-KM_OPT_BIN=/opt/kontain/bin
+
+PATH=$(realpath ${KM_OPT_BIN}):$PATH
 
 cd $OUT
 echo kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
@@ -54,15 +61,15 @@ kontain-gcc -pthread -ggdb ${BUILD}/Programs/python.o \
    ${BUILD}/libpython3*.a -lz -lssl -lcrypto -lsqlite3 $LDLIBS \
    -o ${NAME} && echo Linked: ${OUT}/${NAME}
 
-kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
+kontain-gcc ${PREFIX} -dynamic  -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
    -Xlinker --undefined=strtoull_l \
    ${BUILD}/libpython3*.a -lsqlite3 $LDLIBS \
    -o ${NAME}d
 
-kontain-gcc -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
+kontain-gcc ${PREFIX} -dynamic -Xlinker -export-dynamic -pthread -ggdb ${BUILD}/Programs/python.o \
    -Xlinker --undefined=strtoull_l \
    ${BUILD}/libpython3*.a -lsqlite3 $LDLIBS \
-   -L/opt/kontain/lib -lmimalloc \
+   -L ${KM_TOP}/build/opt/kontain/lib -lmimalloc \
    -o ${NAME}d.mimalloc
 
 # Add python->km symlink and make python to looking for libs in correct place

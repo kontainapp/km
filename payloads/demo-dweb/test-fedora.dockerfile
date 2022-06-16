@@ -26,8 +26,9 @@ ENV DHOME /home/$USER/demo-dweb/dweb
 RUN mkdir -p ${DHOME}
 WORKDIR ${DHOME}
 
-COPY --chown=appuser:appuser km dweb/dweb dweb/js/  dweb/css/ dweb/fonts/ dweb/*.htm* dweb/*.png dweb/*.ico ${DHOME}/
+COPY --chown=appuser:appuser dweb/dweb dweb/js/  dweb/css/ dweb/fonts/ dweb/*.htm* dweb/*.png dweb/*.ico ${DHOME}/
 RUN ln -s km demo-dweb && ln -s dweb demo-dweb.km
+ADD --chown=appuser:appuser extras.tar.gz ${KM_TOP}/build/
 
 EXPOSE 8080/tcp
 ENV KM_VERBOSE="GENERIC"

@@ -20,7 +20,7 @@
 set -e ; [ "$TRACE" ] && set -x
 
 TOP=$(git rev-parse --show-toplevel)
-KONTAIN_GCC=${TOP}/tools/bin/kontain-gcc
+KONTAIN_GCC=${KM_OPT_BIN}/kontain-gcc
 CURRENT=${TOP}/payloads/redis
 REDIS_TOP=${CURRENT}/redis
 REDIS_SRC=${REDIS_TOP}/src

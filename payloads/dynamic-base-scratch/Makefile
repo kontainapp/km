@@ -20,9 +20,9 @@ COMPONENT := dynamic-base-scratch
 
 # name to be added to label(s)
 PAYLOAD_NAME := Dynamic-base-scratch
-PAYLOAD_FILES := tmp -C /opt/kontain/ --exclude '*.a' --exclude '*c++*' runtime lib
+PAYLOAD_FILES := tmp -C ${TOP}/build/opt/kontain/ --exclude '*.a' --exclude '*c++*' runtime lib
 # Command to run tests in testenv-image container:
-CONTAINER_TEST_CMD := ./km hello_test.kmd Hello 'The One'
+CONTAINER_TEST_CMD := km hello_test.kmd Hello 'The One'
 CONTAINER_TEST_ALL_CMD := ${CONTAINER_TEST_CMD}
 TESTENV_EXTRA_FILES := ${TOP}/tests/hello_test.kmd
 
@@ -39,6 +39,11 @@ RUNENV_TAG := ${COMPONENT}
 
 export define runenv_prep
 	mkdir -p tmp && rm -rf tmp/* && chmod a+rwx tmp
+# hello_test.kmd rpath for runenv-image and demo-runenv-image must point to /opt/kontain.
+# This file is used by multiple payloads so we check wheteher it already has correct rpath and if not, we re-build it
+# Note: it will be already correct when runenv/demo-runenv done from payloads level because we pre-buid it there to avoid
+# race condition when using -j
+	[ ! -f ${TOP}/tests/hello_test.kmd ] || ! (readelf -l ${TOP}/tests/hello_test.kmd | grep -q ": /opt/kontain/") && (rm -f ${TOP}/tests/hello_test.kmd && make -C ${TOP}/tests RPATH=/opt/kontain hello_test.kmd) || echo -n ""
 	tar -czf ${RUNENV_PATH}/libs.tar ${PAYLOAD_FILES}
 	cp ${TESTENV_EXTRA_FILES} ${RUNENV_DEMO_PATH}
 	mkdir -p ${RUNENV_PATH}/.kontain

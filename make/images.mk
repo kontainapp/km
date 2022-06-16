@@ -73,11 +73,34 @@ TESTENV_PATH ?= .
 RUNENV_PATH ?= ${BLDDIR}
 RUNENV_DEMO_PATH ?= .
 
-TESTENV_EXTRA_FILES += ${KM_BIN} ${KM_LDSO}
-testenv_prep = cp --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH}
-testenv_cleanup = rm $(addprefix ${TESTENV_PATH}/,${notdir ${TESTENV_EXTRA_FILES}})
 
-testenv-image: ## build test image with test tools and code
+define testenv_prep =
+	$(call testenv_preprocess)
+	tar -czvf ${TESTENV_PATH}/extras.tar.gz \
+		-C ${BLDTOP} \
+						opt/kontain/runtime/libc.so \
+						opt/kontain/runtime/ld-linux-x86-64.so.2 \
+						opt/kontain/runtime/libstdc++.so \
+						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
+						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
+						opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
+						opt/kontain/bin/km \
+						opt/kontain/lib/libmimalloc.so \
+						opt/kontain/lib/libmimalloc.so.1.7 \
+						opt/kontain/alpine-lib/usr/lib/libffi.so \
+						opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
+						opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
+						opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
+						opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
+						opt/kontain/runtime/libpthread.so
+	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
+endef
+
+testenv_cleanup = rm ${TESTENV_PATH}/extras.tar.gz
+testenv_cleanup_extras=$(if ${TESTENV_EXTRA_FILES},rm  ${TESTENV_PATH}/${TESTENV_EXTRA_FILES} )
+
+## build test image with test tools and code
+testenv-image:
 	$(call clean_container_image,${TEST_IMG_TAGGED})
 	$(call testenv_prep)
 	${DOCKER_BUILD} --no-cache \
@@ -238,8 +261,8 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 # so that libs are on the host and can be copied to runenv-image and testenv-image
 .buildenv-local-lib: .buildenv-local-check-image | ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}
 	docker create --name tmp_env ${BUILDENV_IMG_TAGGED}
-	sudo docker cp tmp_env:/opt/kontain /opt
-	sudo docker cp tmp_env:/usr/local /usr
+	sudo docker cp tmp_env:/opt/kontain/. ${KM_OPT}
+	sudo chown --recursive ${CURRENT_UID}:${CURRENT_GID} ${BLDTOP}
 	docker rm tmp_env
 
 .buildenv-local-check-image:
@@ -247,7 +270,7 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 		echo -e "$(RED)${BUILDENV_IMG_TAGGED} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
 
 ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
-	sudo sh -c "mkdir -p $@ && chgrp users $@ && chmod 777 $@"
+	sudo sh -c "mkdir -p $@ && chown ${CURRENT_UID}:${CURRENT_GID} $@ && chmod 777 $@"
 
 DOCKER_REG ?= docker.io
 RELEASE_REG = ${DOCKER_REG}/kontainapp

@@ -45,10 +45,6 @@ if [ -z "$USE_VIRT" ] ; then
    exit 10
 fi
 
-PREFIX=/opt/kontain
-RT=${PREFIX}/runtime
-LC=${PREFIX}/alpine-lib/usr/lib
-
 if [ -z "$TIME_INFO" ] ; then
    echo "Please make sure TIME_INFO env is defined and points to a file. We will put detailed timing info there">&3
    exit 10
@@ -125,6 +121,7 @@ timeout=250s
 #
 function km_with_timeout () {
    local t=$timeout
+
    # Treat all before '--' as KM arguments, and all after '--' as payload arguments
    # With no '--', finding $ext (.km, .kmd. .so) has the same effect.
    # Note that we whitespace split KM args always, so no spaces inside of KM args are allowed
@@ -156,16 +153,19 @@ function km_with_timeout () {
       esac
       shift
    done
+
    KM_ARGS="$KM_ARGS $__args"
 
-   /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
+   CMD="${KM_BIN} ${KM_ARGS}"
+
+   /usr/bin/time -f '"elapsed %E user %U system %S mem %M KiB (km $*) "' -a -o $TIME_INFO \
       timeout --signal=SIGABRT --foreground $t \
-         ${KM_BIN} ${KM_ARGS} "$@"
+         ${CMD} "$@"
    # Per timeout(1) it returns 124 on timeout, and 128+signal when killed by signal
    s=$?; if [[ $s == 124  ]] ; then
-      echo -e "\nTime out in $t : ${KM_BIN} ${KM_ARGS} $@"
+      echo -e "\nTime out in $t : ${CMD} $@"
    elif [[ $s > 128 ]] ; then
-      echo -e "\nKilled by signal. Timeout returns $s: ${KM_BIN} ${KM_ARGS} $@"
+      echo -e "\nKilled by signal. Timeout returns $s: ${CMD} $@"
    fi
    return $s
 }

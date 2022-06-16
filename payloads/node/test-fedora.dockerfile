@@ -25,7 +25,9 @@ ARG MODE=Release
 ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node
 
 COPY --chown=appuser:appuser node /home/$USER/node
-COPY --chown=appuser:appuser skip_* km /home/$USER/
+ADD --chown=appuser:appuser ./extras.tar.gz /home/$USER/km/build
 COPY --chown=appuser:appuser scripts /home/$USER/scripts
-RUN ln -s /home/$USER/km /home/$USER/node/out/${MODE}/node
+
+ENV PATH "$PATH:/home/appuser/km/build/opt/kontain/bin"
+
 WORKDIR /home/$USER/

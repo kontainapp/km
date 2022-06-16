@@ -16,8 +16,10 @@
 #
 # Install Kontain release on a Linux box. Assumes root.
 #
-# Usage: ./kontain-install.sh [TAG | -u]
+# Usage: ./kontain-install.sh [TAG | -u | file_path]
 # -u = uninstall changes made by install
+# file_path= path to local kontain.tar.gz in the format file:///full_path/to_file.tar.gz
+#
 #
 set -e; [ "$TRACE" ] && set -x
 
@@ -28,11 +30,14 @@ source /etc/os-release
 [ "$ID" != "fedora" -a "$ID" != "ubuntu" -a "$ID" != "amzn" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
 readonly TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
-if [[ $TAG = latest ]] ; then
+if [[ $TAG == latest ]] ; then
    readonly URL="https://github.com/kontainapp/km/releases/${TAG}/download/kontain.tar.gz"
+elif [[ $TAG =~ ^file:* ]]; then
+   readonly URL=$TAG
 else
    readonly URL="https://github.com/kontainapp/km/releases/download/${TAG}/kontain.tar.gz"
 fi
+
 readonly PREFIX="/opt/kontain"
 
 # UNINSTALL
@@ -40,8 +45,8 @@ if [ $# -eq 1 -a "$1" = "-u" ]; then
    echo "Removing kontain"
 
    # Remove kontain config changes for docker and podman
-   bash /opt/kontain/bin/podman_config.sh -u
-   bash /opt/kontain/bin/docker_config.sh -u
+   bash $PREFIX/bin/podman_config.sh -u
+   bash $PREFIX/bin/docker_config.sh -u
 
    # Unload kernel modules?
 
@@ -78,11 +83,6 @@ validate=0
 function check_prereqs {
    if [ $(uname) != Linux ]; then
       error "Kontain requires a Linux distribution, e.g. Ubuntu 20 or Fedora 32. Current plaform: $(uname)"
-   fi
-
-   # check for PREFIX
-   if [[ ! -d $PREFIX || ! -w $PREFIX ]]; then
-      error "$PREFIX does not exist or not writeable. Use 'sudo mkdir -p $PREFIX ; sudo chown $(whoami) $PREFIX'"
    fi
 
    if ! command -v gcc; then
@@ -127,8 +127,8 @@ function get_bundle {
 }
 
 function config_container_runner {
-   bash /opt/kontain/bin/podman_config.sh
-   bash /opt/kontain/bin/docker_config.sh
+   bash $PREFIX/bin/podman_config.sh
+   bash $PREFIX/bin/docker_config.sh
 }
 
 # main

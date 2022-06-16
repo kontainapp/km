@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 name: KM CI Pipeline
 on:
   pull_request:
@@ -99,7 +100,7 @@ jobs:
           az-vm-size: "Standard_D4s_v3"
 
   km-build:
-    name: Build KM, push test image
+    name: Build KM
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -141,6 +142,68 @@ jobs:
       - name: Build and push KM testenv image
         run: make -C tests testenv-image push-testenv-image
 
+      - name: Build faktory
+        run: make -C tools/faktory all
+
+      - name: Build shim
+        run: |
+          make -C cloud/k8s/deploy/shim
+          mkdir build/opt/kontain/bin/shim
+          cp -r build/cloud/k8s/deploy/shim/* build/opt/kontain/bin/shim
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km
+          path: |
+            build/opt/kontain/bin/km
+            build/opt/kontain/bin/kontain-gcc
+            build/opt/kontain/bin/krun
+            build/opt/kontain/bin/shim
+          retention-days: 7
+
+      # passign hello_test.kmd that is required by testenv of payloads - it already has correct RPATH.
+      # passing hello_test.c and libhelper.a
+      # because we will need to rebuid hello_test.kmd with correct RPATH for runtime environments
+      - uses: actions/upload-artifact@v2
+        with:
+          name: km-build
+          path: |
+            build/cloud/k8s/deploy/shim
+            build/opt/kontain/bin
+            build/opt/kontain/lib
+            build/opt/kontain/include
+            tests/hello_test.kmd
+            tests/hello_test.c
+            tests/libhelper.a
+            container-runtime/docker_config.sh
+            build/opt/kontain/runtime
+            build/cloud/k8s/deploy/shim/containerd-shim-krun-v2
+          retention-days: 7
+
+  km-build-payloads:
+    name: Build payloads and create test images
+    runs-on: ubuntu-20.04
+    needs: km-build
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: km-build
+          path: .
+
+      - name: Changing permissions for build/opt/bintain/bin/* files
+        run: |
+          ls -R build
+          chmod +x build/opt/kontain/bin/*
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Prepare KM build env
+        run: make -C tests pull-buildenv-image .buildenv-local-lib
+
       - name: Build payloads and create test images
         run: |
           make -C payloads -j pull-buildenv-image
@@ -161,35 +224,6 @@ jobs:
           make -C payloads/python build-modules pack-modules CUSTOM_MODULES="markupsafe wrapt"
           make -C payloads/python custom CUSTOM_MODULES="markupsafe wrapt"
 
-      - name: Build faktory
-        run: make -C tools/faktory all
-
-      - name: Build shim
-        run: |
-          make -C cloud/k8s/deploy/shim
-          mkdir /opt/kontain/bin/shim
-          cp -r build/cloud/k8s/deploy/shim/* /opt/kontain/bin/shim
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: km
-          path: |
-            /opt/kontain/bin/km
-            /opt/kontain/bin/krun
-            /opt/kontain/bin/shim
-          retention-days: 7
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: km-build
-          path: |
-            build/cloud/k8s/deploy/shim
-            build/km/km
-            tests/hello_test.km
-            build/container-runtime/krun-label-trigger
-            container-runtime/docker_config.sh
-
-          retention-days: 7
 
   # Builds a static linked, stripped binary for krun/crun
   # This uses the NIX virtual machine, just like the crun CI.
@@ -284,9 +318,8 @@ jobs:
         run: |
           set -x
           # rename rkun.static to krun
-          mv build/container-runtime/krun.static build/container-runtime/krun
-          mkdir -p build/opt_kontain/bin
-          mv container-runtime/docker_config.sh build/opt_kontain/bin/docker_config.sh
+          mv build/container-runtime/krun.static build/opt/kontain/bin/krun
+          mv container-runtime/docker_config.sh build/opt/kontain/bin/docker_config.sh
 
       - run: make -C cloud/azure login-cli
 
@@ -296,31 +329,34 @@ jobs:
       - name: Create kkm release artifact
         run: make withdocker TARGET=kkm-pkg
 
-      - name: Checking download and creating build directory
-        run: |
-          ls -R build
-
       # Note: need to have kkm.run ready for this step
+      #     make withdocker TARGET=kkm-pkg
+      # because dependencies force it to re-build everything. We want to use pre-built km, krun (static) , kkm and so un
+      #
       - name: Create kontain bundles
         run: |
           BLDTOP=$(realpath build)
 
-          chmod 755 ${BLDTOP}/km/km
-          chmod 755 ${BLDTOP}/container-runtime/krun
+          chmod 755 ${BLDTOP}/opt/kontain/bin/km
+          chmod 755 ${BLDTOP}/opt/kontain/bin/krun
+          chmod 755 ${BLDTOP}/opt/kontain/bin/krun-label-trigger
           chmod 755 ${BLDTOP}/cloud/k8s/deploy/shim/containerd-shim-krun-v2
 
           tar -czvf ${BLDTOP}/kontain_bin.tar.gz \
-              -C ${BLDTOP} km/km container-runtime/krun container-runtime/krun-label-trigger \
-              cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
-              -C ${BLDTOP}/opt_kontain bin/docker_config.sh
+              -C ${BLDTOP} opt/kontain/bin/km \
+                opt/kontain/bin/krun \
+                opt/kontain/bin/krun-label-trigger \
+                opt/kontain/bin/docker_config.sh \
+                cloud/k8s/deploy/shim/containerd-shim-krun-v2 \
+                kkm.run
 
       - uses: actions/upload-artifact@v2
         with:
           name: km-k8s-rel-artifact
           path: build/kontain_bin.tar.gz
 
-  km-test:
-    name: KM, payloads, krun tests, KVM on Azure
+  km-test-azure:
+    name: KM tests, KVM on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
     needs: [start-runners, km-build]
     steps:
@@ -334,6 +370,11 @@ jobs:
         with:
           name: km
           path: /tmp/
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: km-build
+          path: .
 
       - name: Configure KRUN
         run: |
@@ -349,11 +390,20 @@ jobs:
       - name: Pull testenv images
         run: |
           make -C tests pull-testenv-image
-          make -C payloads -j pull-testenv-image
 
       - name: KM with KVM Test - Azure
         run: make -C tests test-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
         timeout-minutes: 20
+
+  km-payloads-azure:
+    name: Payloads on Azure
+    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
+    needs: [start-runners, km-build-payloads, km-test-azure]
+    steps:
+      # no need to checkout - just continue where tests left
+      - name: Pull testenv images
+        run: |
+          make -C payloads -j pull-testenv-image
 
       - name: KM with KVM Payloads Test - Azure
         if: ${{ ! (github.event_name == 'schedule' ||
@@ -361,7 +411,7 @@ jobs:
         run: make -C payloads test-withdocker DOCKER_INTERACTIVE=
         timeout-minutes: 20
 
-      - name: KM with KVM Payloads Test - Azure
+      - name: KM with KVM Payloads Test All (on schedule) - Azure
         if: ${{ github.event_name == 'schedule' ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.run_type == 'nightly') }}
         run: make -C payloads test-all-withdocker DOCKER_INTERACTIVE=
@@ -399,7 +449,7 @@ jobs:
           retention-days: 7
 
   # TODO: Maybe not needed - review
-  kkm-test:
+  kkm-test-ubuntu:
     name: KM tests, KKM on CI VM
     runs-on: ubuntu-20.04
     needs: [km-build, kkm-build]
@@ -429,8 +479,8 @@ jobs:
         if: always()
         run: sudo dmesg
 
-  kkm-test-vms:
-    name: KM tests, KKM AWS
+  kkm-test-aws:
+    name: KM tests, KKM on AWS
     needs: [start-runners, km-build, kkm-build]
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
     steps:
@@ -445,6 +495,11 @@ jobs:
           name: km
           path: /tmp/
 
+      - uses: actions/download-artifact@v2
+        with:
+          name: km-build
+          path: .
+
       - name: KKM and KKM tests
         run: |
           make -C kkm/kkm && make -C kkm/test_kkm
@@ -456,14 +511,23 @@ jobs:
           sudo bash ./container-runtime/podman_config.sh
           sudo bash ./container-runtime/docker_config.sh
 
-      - name: Pull testenv images
+      - name: Pull testenv image
         run: |
           make -C tests pull-testenv-image
-          make -C payloads -j pull-testenv-image
 
       - name: KM with KKM Test - AWS
         run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
         timeout-minutes: 20
+
+  kkm-payloads-aws:
+    name: Payloads on AWS
+    needs: [start-runners, km-build-payloads, kkm-test-aws]
+    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
+    steps:
+      # no need to checkout - just continue where stopped after tests
+      - name: Pull testenv image
+        run: |
+          make -C payloads -j pull-testenv-image
 
       - name: KM with KKM Payloads Test - AWS
         if: ${{ ! (github.event_name == 'schedule' ||
@@ -578,18 +642,18 @@ jobs:
       - name: Install KKM
         run: sudo insmod kkm/kkm/kkm.ko
 
-      - name: Untar release
-        run: tar -C /tmp/bin_release -xf /tmp/bin_release/kontain_bin.tar.gz
-
       - name: Stop Docker
         run: sudo systemctl stop docker
 
+      - name: Untar release
+        run: |
+          sudo tar -C / -xf /tmp/bin_release/kontain_bin.tar.gz
+          sudo ls -R /opt/kontain
+          sudo ls -R /cloud
+
       - name: Install KM and Reconfigure Docker
         run: |
-          sudo mkdir -p /opt/kontain/bin
-          sudo cp /tmp/bin_release/km/km /opt/kontain/bin/km
-          sudo cp /tmp/bin_release/container-runtime/krun /opt/kontain/bin/krun-label-trigger
-          sudo cp /tmp/bin_release/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
+          sudo mv /cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
           cat << EOF | sudo tee /etc/docker/daemon.json
              {
                  "default-runtime": "krun",
@@ -664,9 +728,11 @@ jobs:
         km-build,
         krun-static-build,
         kkm-build,
-        km-test,
-        kkm-test,
-        kkm-test-vms,
+        km-test-azure,
+        km-payloads-azure,
+        kkm-test-ubuntu,
+        kkm-test-aws,
+        kkm-payloads-aws,
         minikube-testing,
         codeql-scan,
         ecs-hack-test,
@@ -687,7 +753,7 @@ jobs:
   stop-runner:
     if: always()
     name: Terminate self-hosted cloud runners
-    needs: [start-runners, km-test, kkm-test-vms]
+    needs: [start-runners, km-payloads-azure, kkm-payloads-aws]
     runs-on: ubuntu-latest
     steps:
       - name: Stop runners

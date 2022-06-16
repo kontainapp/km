@@ -24,7 +24,7 @@
 # ------------------------------------
 # -kontain|-alpine Which binaries to build. Default 'kontain'
 # -kv              Print a few kontain-specific options and the final gcc command
-# --prefix=dir     Where to look for libs. Default /opt/kontain.This is internal debug option
+# --prefix=dir     Where resulting executable will look for dymanic libraries (rpath)
 #
 # Changes to behavior:
 #--------------------------------------
@@ -53,12 +53,8 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-cmd=$(basename ${BASH_SOURCE[0]})
-dir=$(dirname ${BASH_SOURCE[0]})
-TOP=$(realpath $dir/..)
-PREFIX=/opt/kontain
-
 # defaults
+INSTALL_LOCATION=/opt/kontain
 target=kontain
 type=static
 
@@ -84,7 +80,7 @@ do
          target_set=$target
          ;;
       --prefix=*)
-         PREFIX="${1#*=}"
+         RPATH_LOCATION="${1#*=}"
          ;;
       -kv)
          verbose=1
@@ -109,44 +105,65 @@ do
     shift
 done
 
-if [ ! -d $PREFIX ] ; then
-   echo "Error: $PREFIX directory not found"
+# build location is parent directory of the script directory
+# /opt/kontain/bin/kontain-gcc --> /opt/kontain/bin --> /opt/kontain   for production
+# or
+# /home/user/..../km/build/opt/kontain/bin/kontain-gcc --> /home/user/..../km/build/opt/kontain/bin --> /home/user/..../km/build/opt/kontain/  for development build
+# /usr/var/kontain/bin/kontain-gcc --> /usr/var/kontain/bin --> /usr/var/kontain for non-standard installation
+BUILD_LOCATION=$(dirname $(dirname ${BASH_SOURCE[0]}))
+
+#build location must exists
+if [ ! -d $BUILD_LOCATION ] ; then
+   echo "Error: $BUILD_LOCATION directory not found"
    exit 1
 fi
 
-RT=${PREFIX}/runtime
-KL=${PREFIX}/lib
-LC=${PREFIX}/alpine-lib/usr/lib
-LL=${PREFIX}/alpine-lib/lib
+if [ -z $RPATH_LOCATION ]; then
+   RPATH_LOCATION=${BUILD_LOCATION}
+fi
+
+RPATH_RT=${RPATH_LOCATION}/runtime
+RPATH_KL=${RPATH_LOCATION}/lib
+RPATH_LC=${RPATH_LOCATION}/alpine-lib/usr/lib
+RPATH_LL=${RPATH_LOCATION}/alpine-lib/lib
+
+BUILD_RT=${BUILD_LOCATION}/runtime
+BUILD_KL=${BUILD_LOCATION}/lib
+BUILD_LC=${BUILD_LOCATION}/alpine-lib/usr/lib
+BUILD_LL=${BUILD_LOCATION}/alpine-lib/lib
+
+HCALL_DYNAMIC_LINKER=${RPATH_RT}/libc.so
+ALPINE_DYNAMIC_LINKER=${RPATH_LL}/ld-musl-x86_64.so.1
 
 # NOTE: libgcc location depends on gcc version in alpine container
 # We save it during docker build (see tests/buildenv-fedora.dockerfile)
 # and we use it during 'make .buildenv-local-lib'
-gcc_path_file=$PREFIX/alpine-lib/gcc-libs-path.txt
+gcc_path_file=${BUILD_LOCATION}/alpine-lib/gcc-libs-path.txt
 if [ ! -f $gcc_path_file ] ; then
    echo "Error: $gcc_path_file is not found - check installation."
    exit 1
 fi
-LGCC=${PREFIX}/alpine-lib$(cat $gcc_path_file)
+RPATH_LGCC=${BUILD_LOCATION}/alpine-lib$(cat $gcc_path_file)
+BUILD_LGCC=${BUILD_LOCATION}/alpine-lib$(cat $gcc_path_file)
 
 # For both static and dynamic buids, locations to scout for libs, and common flags
-ALPINE_PATH="-B${LL} -B${LC} -B${LGCC}"
-HCALL_PATH="-B${RT} ${ALPINE_PATH} -zseparate-code -zmax-page-size=0x1000"
+ALPINE_PATH="-B${BUILD_LL} -B${BUILD_LC} -B${BUILD_LGCC}"
+HCALL_PATH="-B${BUILD_RT} ${ALPINE_PATH} -zseparate-code -zmax-page-size=0x1000"
 
 # rpath for dynamic builds
-HCALL_RPATH="-Wl,-rpath=${KL} -Wl,-rpath=${RT} -Wl,-rpath=${LL} -Wl,-rpath=${LC} -Wl,-rpath=${LGCC}"
-ALPINE_RPATH="-Wl,-rpath=${LL} -Wl,-rpath=${LC} -Wl,-rpath=${LGCC}"
+HCALL_RPATH="-Wl,-rpath=${RPATH_KL} -Wl,-rpath=${RPATH_RT} -Wl,-rpath=${RPATH_LL} -Wl,-rpath=${RPATH_LC} -Wl,-rpath=${RPATH_LGCC}"
+ALPINE_RPATH="-Wl,-rpath=${RPATH_LL} -Wl,-rpath=${RPATH_LC} -Wl,-rpath=${RPATH_LGCC}"
 
 # Flags for building kontain (hypercall-based) unikernels
 HCALL_STATIC="-static   ${HCALL_PATH}                -no-pie -Wl,-Ttext-segment=0x200000"
 HCALL_STATIC+=${gc:+" -Wl,--gc-sections"}
-HCALL_DYNAMIC="-dynamic ${HCALL_PATH} ${HCALL_RPATH} -no-pie -Wl,-Ttext-segment=0x200000 -Wl,--dynamic-linker=${RT}/libc.so"
+HCALL_DYNAMIC="-dynamic ${HCALL_PATH} ${HCALL_RPATH} -no-pie -Wl,-Ttext-segment=0x200000 -Wl,--dynamic-linker=${HCALL_DYNAMIC_LINKER}"
 HCALL_SHARED="-shared   ${HCALL_PATH} ${HCALL_RPATH}"
 
 # Flags for alpine native and kontain (hcall) builds
 # Note: Alpine native dynamic work under KM only if built with explicit --pie or --Ttext-segment
 ALPINE_STATIC="-static ${ALPINE_PATH}"
-ALPINE_DYNAMIC="-dynamic ${ALPINE_PATH} ${ALPINE_RPATH} -pie -Wl,--dynamic-linker=${LL}/ld-musl-x86_64.so.1"
+ALPINE_DYNAMIC="-dynamic ${ALPINE_PATH} ${ALPINE_RPATH} -pie -Wl,--dynamic-linker=${ALPINE_DYNAMIC_LINKER}"
 # not tested:
 APLINE_SHARED="-shared ${ALPINE_PATH} ${ALPINE_RPATH}"
 
@@ -155,7 +172,7 @@ if [[ $target != alpine && $target != kontain ]] ; then
       echo "Error: Unknown target: $target (only alpine and kontain are supported)"
       exit 1
 fi
-for lib in ${RT}/libruntime.a ${RT}/libc.a ${RT}/libc.so ${LC}/libc.a ${LC}/libc.so; do
+for lib in ${BUILD_RT}/libruntime.a ${BUILD_RT}/libc.a ${BUILD_RT}/libc.so ${BUILD_LC}/libc.a ${BUILD_LC}/libc.so; do
    if [ ! -r $lib ] ; then
       echo "Error: can't find $lib - check installation"
       exit 1
@@ -194,9 +211,9 @@ fi
 
 if [ -n "$verbose" ] ; then
    cat <<EOF
-$(basename $0): Compiler='${REALGCC}', -type='$type', -target='$target', --prefix='$PREFIX'
+RPATH_$(basename $0): Compiler='${REALGCC}', -type='$type', -target='$target', --prefix='$PREFIX'
 $(basename $0): pie_requested='$pie_requested' nopie_requested='$no_pie_requested' kverbose='$verbose'"
-$(basename $0): Command: ${REALGCC} ${cargs[@]}
+RPATH_$(basename $0): Command: ${REALGCC} ${cargs[@]}
 
 EOF
 fi

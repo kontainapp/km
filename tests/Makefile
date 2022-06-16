@@ -55,11 +55,11 @@ endif
 # Base command to run BATS, and derivatives - how to run outside of container, in container, etc..
 BATS_CMD := run_bats_tests.sh --match="${MATCH}" --usevirt="${USEVIRT}" ${IGNORE_FAILURE} ${__BATS_JOBS}
 # this is how we run in outside of container
-TEST_CMD := time ./${BATS_CMD} --km=${KM_BIN} --pretty
+TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
 COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${COVERAGE_KM_BIN} --pretty
 # this is how we run tests in containers:
-CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_BIN}/km
-CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_OPT_COVERAGE_BIN}/km
+CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_KM_TOP}/build/opt/kontain/bin/km
+CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_INSTALL_COVERAGE_BIN}/km
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
 SRC_C := $(abspath $(wildcard *_test.c))
@@ -111,6 +111,10 @@ test-all: test ## alias for test
 KCC := kontain-gcc
 KCXX := kontain-g++
 
+ifneq (${RPATH}, )
+   KCC_PREFIX="--prefix=${RPATH}"
+endif
+
 # use g++ link libs when sources were C++
 # ${SRC_CPP:%.cpp=%}: CC=${CXX}
 ${SRC_CPP:%.cpp=%.fedora.dyn}: CC=${CXX}
@@ -135,16 +139,16 @@ ${SRC_CPP:%.cpp=%.km.so}: KCC=${KCXX}
 	${KCC} -static ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.kmd: %.o
-	${KCC} -dynamic ${LDFLAGS} $< ${LDLIBS} -o $@
+	${KCC} ${KCC_PREFIX} -dynamic ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.alpine.km: %.o
 	${KCC} -static -alpine ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.alpine.kmd: %.o
-	${KCC} -dynamic -alpine ${LDFLAGS} $< ${LDLIBS} -o $@
+	${KCC} ${KCC_PREFIX} -dynamic -alpine ${LDFLAGS} $< ${LDLIBS} -o $@
 
 %.km.so: %.o
-	${KCC} -shared ${LDFLAGS} $< -o $@ ${LDLIBS}
+	${KCC} ${KCC_PREFIX} -shared ${LDFLAGS} $< -o $@ ${LDLIBS}
 
 .PHONY: load_expected_size
 load_expected_size: load_test.km # load_test.so
@@ -156,13 +160,15 @@ load_expected_size: load_test.km # load_test.so
 %.d: %.cpp
 	$(CXX) -MT $*.o -MT $@ -MM ${CXXFLAGS} ${CPPFLAGS} $< -o $@
 
+.PRECIOUS: %.o
+
 clean:
 	rm -f *.o *.d ${EXECS} ${SEXECS} kmcore km km.coverage *.a *.so *.km *.kmd *_test *.${DTYPE}
 
 #
 # do not generate .d file for some targets
 #
-no_deps := $(shell [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${MAKEFLAGS}" =~ "n" ]] && echo -n match)
+no_deps := $(shell tmp=(${MAKEFLAGS}) && [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${tmp[0]}" =~ "n" ]] && echo -n match)
 ifneq ($(no_deps),match)
 -include ${DEPS}
 endif
