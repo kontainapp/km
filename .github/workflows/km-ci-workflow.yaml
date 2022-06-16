@@ -708,7 +708,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           # enhanced security checks.
-          queries: security-and-quality
+          queries: security-extended
 
       - run: |
           make -C km all
