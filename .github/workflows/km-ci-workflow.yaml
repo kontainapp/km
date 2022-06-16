@@ -161,9 +161,9 @@ jobs:
             build/opt/kontain/bin/shim
           retention-days: 7
 
-      # passign hello_test.kmd that is required by testenv of payloads - it already has correct RPATH.
+      # passing hello_test.kmd that is required by testenv of payloads - it already has correct RPATH.
       # passing hello_test.c and libhelper.a
-      # because we will need to rebuid hello_test.kmd with correct RPATH for runtime environments
+      # because we will need to rebuild hello_test.kmd with correct RPATH for runtime environments
       - uses: actions/upload-artifact@v2
         with:
           name: km-build
@@ -685,12 +685,13 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     permissions:
-      actions: read
-      contents: read
       security-events: write
 
     container:
-      image: kontainapp/buildenv-km-fedora:latest
+      image: kontainkubecr.azurecr.io/buildenv-km-fedora:latest
+      credentials:
+        username: ${{ secrets.SP_APPID }}
+        password: ${{ secrets.SP_PASSWORD }}
 
     strategy:
       fail-fast: false
