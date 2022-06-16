@@ -702,8 +702,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - run: make -C cloud/azure login-cli
-
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
