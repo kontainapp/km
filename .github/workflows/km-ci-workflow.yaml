@@ -399,7 +399,7 @@ jobs:
   km-payloads-azure:
     name: Payloads on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
-    needs: [start-runners, km-build, km-build-payloads, km-test-azure]
+    needs: [km-build-payloads, km-test-azure]
     steps:
       # no need to checkout - just continue where tests left
       - name: Pull testenv images
@@ -522,7 +522,7 @@ jobs:
 
   kkm-payloads-aws:
     name: Payloads on AWS
-    needs: [start-runners, km-build, kkm-build, km-build-payloads, kkm-test-aws]
+    needs: [km-build-payloads, kkm-test-aws]
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
     steps:
       # no need to checkout - just continue where stopped after tests
