@@ -690,7 +690,7 @@ jobs:
     container:
       image: kontainkubecr.azurecr.io/buildenv-km-fedora:latest
       credentials:
-        username: ${{ secrets.secrets.SP_APPID }}
+        username: ${{ secrets.SP_APPID }}
         password: ${{ secrets.SP_PASSWORD }}
 
     strategy:
