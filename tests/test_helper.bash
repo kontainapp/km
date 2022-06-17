@@ -158,7 +158,7 @@ function km_with_timeout () {
 
    CMD="${KM_BIN} ${KM_ARGS}"
 
-   /usr/bin/time -f '"elapsed %E user %U system %S mem %M KiB (km $*) "' -a -o $TIME_INFO \
+   /usr/bin/time -f "elapsed %E user %U system %S mem %M KiB (km $*) " -a -o $TIME_INFO \
       timeout --signal=SIGABRT --foreground $t \
          ${CMD} "$@"
    # Per timeout(1) it returns 124 on timeout, and 128+signal when killed by signal

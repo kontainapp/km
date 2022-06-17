@@ -417,12 +417,12 @@ static int km_vcpu_in_guest(km_vcpu_t* vcpu, void* skip_me)
 // Returns 1 if the vcpu is not PAUSED and sends KM_SIGVCPUSTOP to it
 static int km_vcpu_not_paused(km_vcpu_t* vcpu, void* skip_me)
 {
-   if (vcpu->state != PAUSED && vcpu != skip_me) {
-      km_pkill(vcpu, KM_SIGVCPUSTOP);
-      km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
-      return 1;
+   if (vcpu->state == PAUSED || vcpu->state == HCALL_INT || vcpu == skip_me) {
+      return 0;
    }
-   return 0;
+   km_pkill(vcpu, KM_SIGVCPUSTOP);
+   km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
+   return 1;
 }
 
 /*
