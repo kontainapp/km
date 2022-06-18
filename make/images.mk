@@ -97,7 +97,7 @@ define testenv_prep =
 endef
 
 testenv_cleanup = rm ${TESTENV_PATH}/extras.tar.gz
-testenv_cleanup_extras=$(if ${TESTENV_EXTRA_FILES},rm  ${TESTENV_PATH}/${TESTENV_EXTRA_FILES} )
+testenv_cleanup_extras=$(if ${TESTENV_EXTRA_FILES},for f in ${TESTENV_EXTRA_FILES}; do f=$$(basename $${f}); echo "rm -rf ${TESTENV_PATH}/$${f}"; rm -rf ${TESTENV_PATH}/$${f}; done )
 
 ## build test image with test tools and code
 testenv-image:
@@ -113,6 +113,7 @@ testenv-image:
 			-f ${TEST_DOCKERFILE} \
 			${TESTENV_PATH}
 	$(call testenv_cleanup)
+	$(call testenv_cleanup_extras)
 
 buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
 	${DOCKER_BUILD} -t ${BUILDENV_IMG_TAGGED} \
