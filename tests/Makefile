@@ -91,7 +91,9 @@ SEXECS := ${SRC_SHR:%.c=%.so}
 # Only tests matching this regexp will be run
 MATCH ?= .*
 
-all: ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
+all coverage: ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
+
+
 
 ${EXECS} ${SEXECS}: libhelper.a
 

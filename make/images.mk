@@ -270,8 +270,6 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 	@if ! docker image inspect ${BUILDENV_IMG_TAGGED} > /dev/null ; then \
 		echo -e "$(RED)${BUILDENV_IMG_TAGGED} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
 
-${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
-	sudo sh -c "mkdir -p $@ && chown ${CURRENT_UID}:${CURRENT_GID} $@ && chmod 777 $@"
 
 DOCKER_REG ?= docker.io
 RELEASE_REG = ${DOCKER_REG}/kontainapp
