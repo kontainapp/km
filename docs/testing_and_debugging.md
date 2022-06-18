@@ -24,7 +24,7 @@ We also use bats-assert helpers, see https://github.com/ztombol/bats-assert or t
 We use gcov/gcovr for C test coverage. While `gcov` (the program generating readable coverage info from coverage binary files) is a part of gcc package, `gcovr` (the program doing nice html rendering with source code) needs to be installed, i.e. `sudo dnf install gcovr`. See [gcovr site](https://www.gcovr.com) for details
 
 * To build coverage report, run `make coverage`. It will re-compile `km` with coverage (respecting settings in custom.mk) run the test suite and generate test coverage HTML reports. It will also print out the location of the reports.
-* To clean up coverage artifacts, run `make covclean`.
+* To clean up coverage artifacts, run `make coverage-clean`.
 
 ## Test code layout and usage
 

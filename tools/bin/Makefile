@@ -19,9 +19,8 @@ TOP := $(shell git rev-parse --show-toplevel)
 
 include ${TOP}/make/actions.mk
 
-all: kontain-gcc | ${KM_OPT_BIN_PATH}
-	cp kontain-gcc ${KM_OPT_BIN_PATH}
-	cp kontain-ar ${KM_OPT_BIN_PATH}
-	cp kontain-strip ${KM_OPT_BIN_PATH}
-	ln -sf kontain-gcc ${KM_OPT_BIN_PATH}/kontain-g++
-
+all coverage: kontain-gcc | ${KM_OPT_BIN}
+	cp kontain-gcc ${KM_OPT_BIN}
+	cp kontain-ar ${KM_OPT_BIN}
+	cp kontain-strip ${KM_OPT_BIN}
+	ln -sf kontain-gcc ${KM_OPT_BIN}/kontain-g++

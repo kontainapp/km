@@ -50,13 +50,13 @@ BLDTOP := ${TOP}/build
 
 # Build results go here.
 # For different build types (e.g. coverage), pass BLDTYPE=<type>, e.g BLDTYPE=coverage
-BLDDIR := $(abspath ${BLDTOP}/${FROMTOP}/${BLDTYPE})
+BLDDIR ?= $(abspath ${BLDTOP}/${FROMTOP}/${BLDTYPE})
 
 # km location needs to be fixed no matter what is the FROMTOP,
 # so we can use KM from different places
 KM_INSTALL := /opt/kontain
 KM_INSTALL_BIN := ${KM_INSTALL}/bin
-KM_INSTALL_COVERAGE := ${KM_INSTALL}/${COV_BLDTYPE}
+KM_INSTALL_COVERAGE := ${KM_INSTALL}/coverage
 KM_INSTALL_COVERAGE_BIN := ${KM_INSTALL_COVERAGE}/bin
 
 KM_BLDDIR := $(abspath ${BLDTOP}/km/${BLDTYPE})
@@ -74,11 +74,10 @@ PATH := $(abspath ${KM_OPT_BIN}):${PATH}
 
 GETENFORCE := /usr/sbin/getenforce
 
-# Build with code coverage if BLDTYPE set to this.
-COV_BLDTYPE := coverage
-COVERAGE_KM_BLDDIR := ${BLDTOP}/km/${COV_BLDTYPE}
+# For build with code coverage .
+COVERAGE_KM_BLDDIR := ${BLDTOP}/km/coverage
 COVERAGE_KM_BIN := ${COVERAGE_KM_BLDDIR}/km
-KM_OPT_COVERAGE := ${KM_OPT}/${COV_BLDTYPE}
+KM_OPT_COVERAGE := ${KM_OPT}/coverage
 KM_OPT_COVERAGE_BIN := ${KM_OPT_COVERAGE}/bin
 KM_OPT_COVERAGE_BIN_KM := ${KM_OPT_COVERAGE_BIN}/km
 
@@ -139,14 +138,14 @@ DOCKER_KM_TOP := ${DOCKER_HOME_PATH}/km
 DOCKER_BLDTOP := ${DOCKER_KM_TOP}/build
 DOCKER_COVERAGE_KM_BLDDIR := ${DOCKER_BLDTOP}/km/coverage
 
-# These volumes needs to be mapped into runenv images. At the moment, they
-# contain km and km linkers.
-ifeq (${BLDTYPE}, ${COV_BLDTYPE})
+ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
 	KM_OPT_BIN_PATH := ${KM_OPT_COVERAGE_BIN}
 else
 	KM_OPT_BIN_PATH := ${KM_OPT_BIN}
 endif
 
+# These volumes needs to be mapped into runenv images. At the moment, they
+# contain km and km linkers.
 KM_OPT_KM := ${KM_OPT_BIN_PATH}/km
 KM_KM_VOLUME := -v ${KM_OPT_KM}:${KM_OPT_KM}:z
 KM_OPT_VOLUME := -v ${KM_OPT_BIN}:${KM_OPT_BIN}:z -v ${KM_OPT_RT}:${KM_OPT_RT}:z -v ${KM_OPT_LIB}:${KM_OPT_LIB}:z
@@ -177,7 +176,7 @@ RELEASE_TAG ?= v0.1-test
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
 # regexp for targets which should not try to build dependencies (.d)
-NO_DEPS_TARGETS := (clean|clobber|.*-image|.*-release|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|upload-coverage|vm-images)
+NO_DEPS_TARGETS := (clean|clobber|coverage-clean|.*-image|.*-release|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|upload-coverage|vm-images)
 NO_DEPS_TARGETS := ${NO_DEPS_TARGETS}( ${NO_DEPS_TARGETS})*
 # colors for pretty output. Unless we are in Azure pipelines
 ifeq (${PIPELINE_WORKSPACE},)
@@ -192,6 +191,9 @@ endif
 # needs to explicitly points to bash.
 SHELL=/bin/bash
 
+${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
+	sudo sh -c "mkdir -p $@ && chown ${CURRENT_UID}:${CURRENT_GID} $@ && chmod 777 $@"
+	
 # Helper when we need to make sure IMAGE_VERSION is defined and not 'latest'
 .check_image_version:
 	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == "latest" ]] ; then \
@@ -225,11 +227,11 @@ help:  ## Prints help on 'make' targets
 
 # Support for simple debug print (make debugvars)
 VARS_TO_PRINT ?= \
-	DIMG TEST_IMG BUILDENV_PATH TESTENV_PATH BUILDENV_IMG BUILDENV_DOCKERFILE KM_BIN \
+	DIMG TEST_IMG BUILDENV_PATH TESTENV_PATH BUILDENV_IMG BUILDENV_DOCKERFILE \
 	DTYPE TEST_IMG_REG BUILDENV_IMG_REG SRC_BRANCH SRC_SHA \
 	TOP FROMTOP BLDTOP BLDDIR SUBDIRS KM_BLDDIR KM_BIN \
 	CFLAGS BLDEXEC BLDLIB COPTS USER \
-	COVERAGE COVERAGE_REPORT SRC_BRANCH IMAGE_VERSION \
+	COVERAGE_REPORT SRC_BRANCH IMAGE_VERSION \
 	CLOUD_RESOURCE_GROUP CLOUD_SUBSCRIPTION CLOUD_LOCATION \
 	K8_SERVICE_PRINCIPAL REGISTRY_NAME REGISTRY REGISTRY_AUTH_EXAMPLE REGISTRY_SKU
 

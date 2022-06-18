@@ -15,6 +15,7 @@
 #
 
 TOP := $(shell git rev-parse --show-toplevel)
+FROMTOP := $(shell git rev-parse --show-prefix)
 
 EXEC_SELINUX_CONTEXT := "system_u:object_r:bin_t:s0"
 SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c km_mem.c km_mmap.c \
@@ -24,8 +25,8 @@ SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c km_mem.c
 		km_kkm.c km_vmdriver.c km_exec_fd_save_recover.c
 VERSION_SRC := km_main.c # it has branch/version info, so rebuild it if git info changes
 INCLUDES := ${TOP}/include
-COVERAGE := yes
 EXEC := km
+LOCAL_COPTS := -Werror -D_GNU_SOURCE
 ifneq (${VALGRIND},)
 LOCAL_COPTS := -Werror -D_GNU_SOURCE -DKM_GPA_AT_16T=1
 LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -pie
@@ -34,8 +35,20 @@ LOCAL_COPTS := -Werror -D_GNU_SOURCE
 LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -static-pie
 endif
 
+ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
+	BLDDIR := $(abspath ${TOP}/build/${FROMTOP}/coverage)
+endif
+
+
 include ${TOP}/make/actions.mk
+
+coverage: CFLAGS += --coverage -std=gnu11
+coverage: all
 
 ${BLDDIR}/km_guest_asmcode.o: CFLAGS += -fpic
 CFLAGS += -fpic
+
+coverage-clean::
+#	rm -rf ${COVERAGE_KM_BLDDIR}
+#	rm -rf ${KM_OPT_COVERAGE}
 
