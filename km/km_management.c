@@ -70,7 +70,7 @@ void km_mgt_init(char* path)
    if (strlen(path) + 1 > sizeof(addr.sun_path)) {
       km_errx(2, "mgmt path too long");
    }
-   strncpy(addr.sun_path, path, sizeof(addr.sun_path));
+   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
    if ((sock = km_mgt_listen(AF_UNIX, SOCK_STREAM, 0)) < 0) {
       km_err(2, "mgt socket(2)");
