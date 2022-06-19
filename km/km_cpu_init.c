@@ -103,6 +103,13 @@ void km_vcpu_fini(km_vcpu_t* vcpu, int join_thr)
  */
 void km_machine_fini(void)
 {
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      km_vcpu_t* vcpu;
+
+      if ((vcpu = machine.vm_vcpus[i]) != NULL) {
+         km_vcpu_fini(vcpu, 1);
+      }
+   }
    free(machine.auxv);
    if (km_guest.km_filename != NULL) {
       free((void*)km_guest.km_filename);
@@ -118,13 +125,6 @@ void km_machine_fini(void)
    }
    km_mem_fini();
    km_signal_fini();
-   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
-      km_vcpu_t* vcpu;
-
-      if ((vcpu = machine.vm_vcpus[i]) != NULL) {
-         km_vcpu_fini(vcpu, 1);
-      }
-   }
    close(machine.shutdown_fd);
    /* check if there are any memory regions */
    for (int i = KM_MEM_SLOTS - 1; i >= 0; i--) {
