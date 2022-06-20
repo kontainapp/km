@@ -87,3 +87,58 @@ define print_mmaps
       print_tailq &machine.mmaps.busy "Busy list"
    end
 end
+
+define show_vcpus
+   set $cpu = 0
+   printf "VCPU   FD STATE             RIP              RSP\n"
+   while $cpu < 288
+      if machine.vm_vcpus[$cpu] == 0
+         loop_break
+      end
+      printf "%4x %4x %4x %16llx %16llx\n", \
+         machine.vm_vcpus[$cpu].vcpu_id, \
+         machine.vm_vcpus[$cpu].kvm_vcpu_fd, \
+         machine.vm_vcpus[$cpu].state, \
+         machine.vm_vcpus[$cpu].regs.rip, \
+         machine.vm_vcpus[$cpu].regs.rsp
+      set $cpu = $cpu + 1
+   end
+end
+
+document show_vcpus
+   Prints VCPU rip and rsp
+   Syntax:
+      show_vcpus
+   Examples:
+     show_vcpus
+end
+
+define show_guest_args
+   set $cpu = 0
+   printf "VCPU        ARGSP           HC_RET             ARG1             ARG2\n"
+   printf "                    ARG3             ARG4             ARG5             ARG6\n"
+   while $cpu < 288
+      if machine.vm_vcpus[$cpu] == 0
+         loop_break
+      end
+      set $p = (uint64_t *)km_hcargs
+      set $i = $cpu * 8
+      set $km_hc_args = (struct km_hc_args *)$p[$i]
+
+      printf "%4x %p %16llx %16llx %16llx\n", \
+         $cpu, $p[$i], $km_hc_args->hc_ret, \
+         $km_hc_args->arg1, $km_hc_args->arg2
+      printf "        %16llx %16llx %16llx %16llx\n", \
+         $km_hc_args->arg3, $km_hc_args->arg4, \
+         $km_hc_args->arg5, $km_hc_args->arg6
+      set $cpu = $cpu + 1
+   end
+end
+
+document show_guest_args
+   Prints guest per vcpu hcall arguments
+   Syntax:
+      show_guest_args
+   Examples:
+     show_guest_args
+end
