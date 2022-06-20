@@ -135,17 +135,17 @@ jobs:
 
       - name: Store coverage files in artifact
         uses: actions/upload-artifact@v2
-          with:
-            name: azure-report
-            path: build/km/coverage/report.json
-            retention-days: 7
+        with:
+          name: azure-report
+          path: build/km/coverage/report.json
+          retention-days: 7
 
   generate-report:
     name: Generate Coverage Report
     runs-on: ubuntu-20.04
     steps:
       - name: Get azure report
-        used: actions/download-artifact@v2
+        uses: actions/download-artifact@v2
         with:
           name: azure-report
           path: ./report-azure.json
