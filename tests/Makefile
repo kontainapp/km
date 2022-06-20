@@ -35,11 +35,9 @@ endif
 # Base command to run BATS, and derivatives - how to run outside of container, in container, etc..
 BATS_CMD := run_bats_tests.sh --match="${MATCH}" --usevirt="${USEVIRT}" ${IGNORE_FAILURE} ${__BATS_JOBS}
 # this is how we run in outside of container
-TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
-COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${COVERAGE_KM_BIN} --pretty
+TEST_CMD := time ./${BATS_CMD} --km=km --pretty
 # this is how we run tests in containers:
-CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_KM_TOP}/build/opt/kontain/bin/km
-CONTAINER_COVERAGE_TEST_CMD := ${CONTAINER_TEST_CMD}
+CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=km
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
 SRC_C := $(abspath $(wildcard *_test.c))
@@ -159,8 +157,8 @@ COVERAGE_SCRIPT := ${CURDIR}/scripts/coverage.sh
 COVERAGE_REPORT_TITLE := ${IMAGE_VERSION}
 
 test-coverage:
-	${COVERAGE_TEST_CMD}
-	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${COVERAGE_REPORT_VERSION}
+	${TEST_CMD}
+	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${COVERAGE_REPORT_VERSION} FINAL
 
 # Since coverage is only relevent to km, put it here instead of image.mk
 DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage.sh

@@ -76,10 +76,8 @@ GETENFORCE := /usr/sbin/getenforce
 
 # For build with code coverage .
 COVERAGE_KM_BLDDIR := ${BLDTOP}/km/coverage
-COVERAGE_KM_BIN := ${COVERAGE_KM_BLDDIR}/km
 KM_OPT_COVERAGE := ${KM_OPT}/coverage
-KM_OPT_COVERAGE_BIN := ${KM_OPT_COVERAGE}/bin
-KM_OPT_COVERAGE_BIN_KM := ${KM_OPT_COVERAGE_BIN}/km
+KM_OPT_COVERAGE_BIN := ${KM_OPT}/coverage/bin
 
 # dockerized build
 # TODO: Some of these values should be moved to images.mk , but we have multiple
@@ -133,6 +131,8 @@ DOCKER_KM_TOP := ${DOCKER_HOME_PATH}/km
 DOCKER_BLDTOP := ${DOCKER_KM_TOP}/build
 DOCKER_OPT_KONTAIN := ${DOCKER_BLDTOP}/opt/kontain
 DOCKER_COVERAGE_KM := ${DOCKER_OPT_KONTAIN}/coverage/km
+DOCKER_OPT_COVERAGE := ${DOCKER_OPT_KONTAIN}/coverage
+DOCKER_OPT_COVERAGE_BIN := ${DOCKER_OPT_KONTAIN}/coverage/bin
 
 ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
 	KM_OPT_BIN_PATH := ${KM_OPT_COVERAGE_BIN}
