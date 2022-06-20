@@ -62,6 +62,8 @@ RUNENV_DEMO_IMG_TAGGED := ${RUNENV_DEMO_IMG}:${IMAGE_VERSION}
 TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(TEST_IMG))
 BUILDENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(BUILDENV_IMG))
 
+COVERAGE_TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(TEST_IMG))
+
 RUNENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_IMG))
 RUNENV_DEMO_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_DEMO_IMG))
 
@@ -172,17 +174,17 @@ push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont wa
 push-coverage-testenv-image: coverage-testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
-		FROM=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION) TO=$(TEST_IMG_REG):$(IMAGE_VERSION)
-
-pull-coverage-testenv-image: ## pulls test image. Mainly need for CI
-	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
-		IMAGE_VERSION="$(IMAGE_VERSION)" \
-		FROM=$(TEST_IMG_REG):$(IMAGE_VERSION) TO=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION)
+		FROM=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION) TO=$(COVERAGE_TEST_IMG_REG):$(IMAGE_VERSION)
 
 pull-testenv-image: ## pulls test image. Mainly need for CI
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG_REG):$(IMAGE_VERSION) TO=$(TEST_IMG):$(IMAGE_VERSION)
+
+pull-coverage-testenv-image: ## pulls test image. Mainly need for CI
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
+		FROM=$(COVERAGE_TEST_IMG_REG):$(IMAGE_VERSION) TO=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION)
 
 # a few of Helpers for push/pull image and re-tag
 .push-image:
