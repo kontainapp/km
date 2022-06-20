@@ -28,11 +28,6 @@ ENV KM_TEST_TOP=${KM_TOP}/tests
 
 USER root
 
-# COPY libc.so /opt/kontain/runtime/libc.so
-# COPY km /opt/kontain/bin/km
-
-RUN test -f km.coverage && cp km.coverage /opt/kontain/coverage/bin/km || true
-
 RUN mkdir -p ${KM_TOP}
 RUN mkdir ${KM_TOP}/build
 RUN chown -R appuser:appuser ${KM_TOP}
