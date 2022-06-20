@@ -63,7 +63,7 @@ function main() {
         exit 1
     fi
 
-   if [ ${REPORT_TYPE} == 'FINAL']; then
+   if [[ ${REPORT_TYPE} == 'FINAL' ]]; then
       ${COVERAGE_CMD_NAME} \
          --html-title "${REPORT_TITLE}" \
          --html \
