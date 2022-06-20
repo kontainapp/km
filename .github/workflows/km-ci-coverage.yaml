@@ -107,9 +107,6 @@ jobs:
 
       - run: make -C cloud/azure login-cli
 
-      - name: Prepare KM build env
-        run: make -C tests pull-buildenv-image .buildenv-local-lib
-
       - name: Build KM and tests using buildenv image
         run: make withdocker TARGET=coverage RUN_IN_CI=1
 
@@ -119,13 +116,13 @@ jobs:
   coverage-azure:
     name: Check code coverage on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
-    needs: [start-runners, km-build]
+    needs: [km-build, start-runners]
     steps:
       - uses: actions/checkout@v2
 
       - run: make -C cloud/azure login-cli
 
-      -name: Set up KVM
+      - name:
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
           sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
