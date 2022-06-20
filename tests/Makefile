@@ -33,7 +33,7 @@ ifneq ($(TEST_JOBS),.)
 endif
 
 # Base command to run BATS, and derivatives - how to run outside of container, in container, etc..
-BATS_CMD := run_bats_tests.sh --match=\"${MATCH}\" --usevirt=\"${USEVIRT}\" ${IGNORE_FAILURE} ${__BATS_JOBS}
+BATS_CMD := run_bats_tests.sh --match="${MATCH}" --usevirt="${USEVIRT}" ${IGNORE_FAILURE} ${__BATS_JOBS}
 # this is how we run in outside of container
 TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
 # this is how we run tests in containers:
