@@ -106,9 +106,10 @@ void km_machine_fini(void)
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       km_vcpu_t* vcpu;
 
-      if ((vcpu = machine.vm_vcpus[i]) != NULL) {
-         km_vcpu_fini(vcpu, 1);
+      if ((vcpu = machine.vm_vcpus[i]) == NULL) {
+         break;
       }
+      km_vcpu_fini(vcpu, 1);
    }
    free(machine.auxv);
    if (km_guest.km_filename != NULL) {

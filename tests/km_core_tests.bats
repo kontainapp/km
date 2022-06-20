@@ -1346,9 +1346,9 @@ fi
 #
 @test "threads_create($test_type): create a large number of threads that run briefly (gdb_lots_of_threads$ext)" {
    if [ -z ${VALGRIND} ]; then
-   run km_with_timeout --timeout 5s gdb_lots_of_threads_test$ext -a 2 -t 287
+      run km_with_timeout --timeout 5s gdb_lots_of_threads_test$ext -a 2 -t 287 -w
    else
-   run km_with_timeout --timeout 25s gdb_lots_of_threads_test$ext -a 10 -t 287 -w
+      run km_with_timeout --timeout 25s gdb_lots_of_threads_test$ext -a 10 -t 287 -w
    fi
    assert_success
 }
