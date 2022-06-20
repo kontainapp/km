@@ -78,7 +78,7 @@ jobs:
         run: make -C tests pull-buildenv-image .buildenv-local-lib
 
       - name: Build for coverage
-        run: make withdocker TARGET=coverage
+        run: make -j withdocker TARGET=coverage
 
       - name: Create test image for coverage
         run: make -C tests coverage-testenv-image
