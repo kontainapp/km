@@ -38,7 +38,7 @@ ADD --chown=appuser:appuser extras.tar.gz ${KM_TOP}/build/
 
 WORKDIR /home/appuser/km/tests
 
-ENV PATH=${KM_TEST_TOP}/bats/bin:.:$PATH
+ENV PATH=${KM_TOP}/build/opt/kontain/bin:${KM_TEST_TOP}/bats/bin:.:$PATH
 ENV TIME_INFO ${KM_TEST_TOP}/time_info.txt
 
 USER appuser

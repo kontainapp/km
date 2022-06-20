@@ -169,6 +169,16 @@ push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont wa
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG):$(IMAGE_VERSION) TO=$(TEST_IMG_REG):$(IMAGE_VERSION)
 
+push-coverage-testenv-image: coverage-testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .push-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
+		FROM=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION) TO=$(TEST_IMG_REG):$(IMAGE_VERSION)
+
+pull-coverage-testenv-image: ## pulls test image. Mainly need for CI
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
+		FROM=$(TEST_IMG_REG):$(IMAGE_VERSION) TO=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION)
+
 pull-testenv-image: ## pulls test image. Mainly need for CI
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
