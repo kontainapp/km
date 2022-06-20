@@ -119,7 +119,7 @@ jobs:
   coverage-azure:
     name: Check code coverage on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
-    needs: [km-build, start-runners]
+    needs: [start-runners, km-build]
     steps:
       - uses: actions/checkout@v2
 
