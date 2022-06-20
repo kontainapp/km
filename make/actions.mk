@@ -151,7 +151,9 @@ clean::
 	rm -rf ${KM_OPT_BIN_PATH}
 	rm -rf ${KM_OPT_BIN}
 
-coverage-clean:: clean
+coverage-clean::
+	rm -rf ${COVERAGE_KM_BLDDIR}
+	rm -rf ${KM_OPT_COVERAGE}
 
 #
 # do not generate .d file for some targets

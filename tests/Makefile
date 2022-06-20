@@ -27,26 +27,6 @@ BUILDENV_PATH = ${BLDDIR}
 # So this include is stuck here in the middle of the file by design.
 include ${TOP}/make/images.mk
 
-# We use coverage version of km to test.
-ifdef TEST_COVERAGE
-TESTENV_EXTRA_FILES := ${COVERAGE_KM_BIN} ${KM_LDSO}
-# We need to put both KM_BIN and COVERAGE_KM_BIN into the testenv. Since km
-# binaries have the same name, special care is required. As part of the copy,
-# we rename the coverage km into km.coverage, so we won't have issue with
-# copying both of them into the TESTENV_PATH. testenv.dockerfile will take care
-# of copying the km into the right place.
-override define testenv_prep =
-	${MAKE} -j -C ${TOP}/km coverage
-	cp ${KM_BIN} ${TESTENV_PATH}
-	cp ${KM_LDSO} ${TESTENV_PATH}
-	cp ${COVERAGE_KM_BIN} ${TESTENV_PATH}/km.coverage
-endef
-
-override define testenv_cleanup =
-	rm -f ./km ./libc.so km.coverage
-endef
-endif
-
 # To serialiaze, pass TEST_JOBS=1
 ifneq ($(TEST_JOBS),.)
   __BATS_JOBS := --jobs=${TEST_JOBS}
@@ -59,7 +39,7 @@ TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
 COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${COVERAGE_KM_BIN} --pretty
 # this is how we run tests in containers:
 CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_KM_TOP}/build/opt/kontain/bin/km
-CONTAINER_COVERAGE_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${KM_INSTALL_COVERAGE_BIN}/km
+CONTAINER_COVERAGE_TEST_CMD := ${CONTAINER_TEST_CMD}
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
 SRC_C := $(abspath $(wildcard *_test.c))
@@ -177,6 +157,7 @@ endif
 
 COVERAGE_SCRIPT := ${CURDIR}/scripts/coverage.sh
 COVERAGE_REPORT_TITLE := ${IMAGE_VERSION}
+
 test-coverage:
 	${COVERAGE_TEST_CMD}
 	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${COVERAGE_REPORT_VERSION}
@@ -185,21 +166,6 @@ test-coverage:
 DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage.sh
 DOCKER_COVERAGE_CMD := ${DOCKER_COVERAGE_SCRIPT} ${DOCKER_KM_TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR}
 DOCKER_COVERAGE_NAME := kontain-coverage-test
-# Because coverage runs the test inside and generates .gcda files which needs
-# to be placed on the host to run analysis, we have to keep the container
-# running after the test is done. We can't map the volume into the test
-# container because the tests are run with the `appuser` user and the volume
-# will be owned by the host user. We can't map the current user into container,
-# because all the testfiles are owned by appuser. So the only solution is to let
-# the files be generated inside the container, and docker cp out onto the host.
-coverage-withdocker:
-	-docker rm --force ${DOCKER_COVERAGE_NAME}
-	docker create --device=${HYPERVISOR_DEVICE} --name ${DOCKER_COVERAGE_NAME} ${TEST_IMG_TAGGED} tail -f /dev/null
-	docker start ${DOCKER_COVERAGE_NAME}
-	docker exec ${DOCKER_COVERAGE_NAME} ${CONTAINER_COVERAGE_TEST_CMD}
-	docker cp ${DOCKER_COVERAGE_NAME}:${DOCKER_KM_TOP}/build/km/coverage/. ${TOP}/build/km/coverage/.
-	docker rm --force ${DOCKER_COVERAGE_NAME}
-	${DOCKER_RUN_BUILD} -v ${TOP}:${DOCKER_KM_TOP}:Z -w ${DOCKER_KM_TOP} $(BUILDENV_IMG) ${DOCKER_COVERAGE_CMD}
 
 UPLOAD_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/upload-coverage.sh
 upload-coverage: .check_image_version

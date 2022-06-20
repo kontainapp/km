@@ -535,7 +535,11 @@ To maintain the quality of code, we implemented code coverage for `km`.
 First, we need to build a version of km with extra flag `--coverage`.
 
 ```sh
-make -C km coverage
+make  coverage-clean 
+```
+
+```sh
+make  coverage
 ```
 
 The newly built km coverage binary will be located at
@@ -565,16 +569,16 @@ need to build the km binary inside the container.
 make -C km withdocker TARGET=coverage
 ```
 
+build test image
+
+```sh
+make -C tests coverage-testenv-image
+```
+
 The we can run the tests:
 
 ```sh
-make -C tests coverage-withdocker
-```
-
-Or we can run both steps together with:
-
-```sh
-make withdocker TARGET=coverage
+make -C tests test-coverage-withdocker
 ```
 
 Note, because output of coverage files like `.gcda` files are configured at

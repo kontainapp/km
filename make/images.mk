@@ -44,6 +44,9 @@ include ${TOP}/make/locations.mk
 TEST_IMG := kontainapp/test-${COMPONENT}-${DTYPE}
 TEST_IMG_TAGGED := ${TEST_IMG}:${IMAGE_VERSION}
 
+COVERAGE_TEST_IMG := kontainapp/coverage-test-${COMPONENT}-${DTYPE}
+COVERAGE_TEST_IMG_TAGGED := ${COVERAGE_TEST_IMG}:${IMAGE_VERSION}
+
 BUILDENV_IMG := kontainapp/buildenv-${COMPONENT}-${DTYPE}
 BUILDENV_IMG_TAGGED := ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION}
 
@@ -76,7 +79,7 @@ RUNENV_DEMO_PATH ?= .
 
 define testenv_prep =
 	$(call testenv_preprocess)
-	tar -czvf ${TESTENV_PATH}/extras.tar.gz \
+	tar -czf ${TESTENV_PATH}/extras.tar.gz \
 		-C ${BLDTOP} \
 						opt/kontain/runtime/libc.so \
 						opt/kontain/runtime/ld-linux-x86-64.so.2 \
@@ -84,7 +87,6 @@ define testenv_prep =
 						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
 						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
 						opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
-						opt/kontain/bin/km \
 						opt/kontain/lib/libmimalloc.so \
 						opt/kontain/lib/libmimalloc.so.1.7 \
 						opt/kontain/alpine-lib/usr/lib/libffi.so \
@@ -92,7 +94,32 @@ define testenv_prep =
 						opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
 						opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
 						opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
-						opt/kontain/runtime/libpthread.so
+						opt/kontain/runtime/libpthread.so \
+						opt/kontain/bin/km
+
+	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
+endef
+
+define coverage_testenv_prep =
+	$(call testenv_preprocess)
+	tar -czf ${TESTENV_PATH}/extras.tar.gz \
+		--transform='s/coverage\///g' \
+		-C ${BLDTOP} \
+						opt/kontain/runtime/libc.so \
+						opt/kontain/runtime/ld-linux-x86-64.so.2 \
+						opt/kontain/runtime/libstdc++.so \
+						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
+						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
+						opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
+						opt/kontain/lib/libmimalloc.so \
+						opt/kontain/lib/libmimalloc.so.1.7 \
+						opt/kontain/alpine-lib/usr/lib/libffi.so \
+						opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
+						opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
+						opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
+						opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
+						opt/kontain/runtime/libpthread.so \
+						opt/kontain/coverage/bin/km
 	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
 endef
 
@@ -114,6 +141,22 @@ testenv-image:
 			${TESTENV_PATH}
 	$(call testenv_cleanup)
 	$(call testenv_cleanup_extras)
+
+coverage-testenv-image:
+	$(call clean_container_image,${COVERAGE_TEST_IMG_TAGGED})
+	$(call coverage_testenv_prep)
+	${DOCKER_BUILD} --no-cache \
+			--build-arg=branch=${SRC_SHA} \
+			--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
+			--build-arg=IMAGE_VERSION=${IMAGE_VERSION} \
+			--build-arg=MODE=${BUILD} \
+			${TESTENV_IMAGE_EXTRA_ARGS} \
+			-t ${COVERAGE_TEST_IMG_TAGGED} \
+			-f ${TEST_DOCKERFILE} \
+			${TESTENV_PATH}
+	$(call testenv_cleanup)
+	$(call testenv_cleanup_extras)
+
 
 buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
 	${DOCKER_BUILD} -t ${BUILDENV_IMG_TAGGED} \
@@ -242,6 +285,9 @@ test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to
 
 test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
+
+test-coverage-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
+	${DOCKER_RUN_TEST} ${COVERAGE_TEST_IMG_TAGGED} sh -c "${CONTAINER_TEST_CMD} && ${DOCKER_COVERAGE_CMD}"
 
 # === BUILDENV LOCAL
 

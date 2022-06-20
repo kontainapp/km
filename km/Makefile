@@ -37,6 +37,8 @@ endif
 
 ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
 	BLDDIR := $(abspath ${TOP}/build/${FROMTOP}/coverage)
+	LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -pie -lgcov
+	CFLAGS += --coverage -std=gnu11
 endif
 
 
