@@ -24,6 +24,14 @@
 set pagination off
 print stop_running
 
+if wait_for_gdb != 0
+   print "set BP"
+   br usleep if wait_for_gdb != 0
+   print "continue from BP"
+   continue
+   set var wait_for_gdb = 0
+end
+
 # just do something to prove we are attached to the target
 info threads
 thread 4

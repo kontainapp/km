@@ -1345,7 +1345,11 @@ fi
 # In addition this may expose other problems such as misdeclared km arrays like km_hcargs[].
 #
 @test "threads_create($test_type): create a large number of threads that run briefly (gdb_lots_of_threads$ext)" {
-   run km_with_timeout --timeout 5s gdb_lots_of_threads_test$ext -a 2 -t 287
+   if [ -z ${VALGRIND} ]; then
+      run km_with_timeout --timeout 5s gdb_lots_of_threads_test$ext -a 2 -t 287 -w
+   else
+      run km_with_timeout --timeout 25s gdb_lots_of_threads_test$ext -a 10 -t 287 -w
+   fi
    assert_success
 }
 

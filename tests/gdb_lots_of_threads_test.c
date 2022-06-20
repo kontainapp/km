@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #define MAX_THREADS 287   // KVM_MAX_VCPUS - 1 (main() is a thread too)
 #define DEFAULT_THREADS 10
@@ -42,6 +43,7 @@
 int stop_running;
 time_t starttime;
 int stop_after_seconds;
+int wait_for_gdb = 1;
 
 pthread_mutex_t rand_serialize = PTHREAD_MUTEX_INITIALIZER;
 
@@ -93,9 +95,10 @@ void* do_nothing_thread(void* instance)
 
 void usage(void)
 {
-   printf("Usage: gdb_lots_of_threads [-a seconds] [-t thread_count]\n"
+   printf("Usage: gdb_lots_of_threads [-a seconds] [-t thread_count] [-w]\n"
           "   -a = stop test after specified seconds, run forever if not specified\n"
-          "   -t = create more threads than the default %d\n",
+          "   -t = create more threads than the default %d\n"
+          "   -w = don't wait for gdb\n",
           DEFAULT_THREADS);
 }
 
@@ -135,6 +138,9 @@ int main(int argc, char* argv[])
             exit(1);
          }
          j++;
+      } else if (strcmp(argv[j], "-w") == 0) {
+         wait_for_gdb = 0;
+         j++;
       } else {
          printf("Unknown argument %s\n", argv[j]);
          usage();
@@ -158,6 +164,10 @@ int main(int argc, char* argv[])
                 stop_after_seconds);
          break;
       }
+   }
+
+   while (wait_for_gdb != 0) {
+      usleep(100);
    }
 
    // Wait for threads to terminate
