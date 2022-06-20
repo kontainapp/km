@@ -105,7 +105,11 @@ jobs:
         with:
           submodules: true
 
-      - run: make -C cloud/azure login-cli
+      - name: Login to Azure Repository
+        run: make -C cloud/azure login-cli
+
+      - name: Prepare KM build env
+        run: make -C tests pull-buildenv-image .buildenv-local-lib
 
       - name: Build KM and tests using buildenv image
         run: make withdocker TARGET=coverage RUN_IN_CI=1
@@ -120,7 +124,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - run: make -C cloud/azure login-cli
+      - name: Login to Azure Repository
+        run: make -C cloud/azure login-cli
 
       - name:
         run: |
