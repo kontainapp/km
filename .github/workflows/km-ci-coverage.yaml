@@ -116,6 +116,7 @@ jobs:
   coverage-azure:
     name: Check code coverage on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
+    needs: [km-build, start-runners]
     steps:
       - uses: actions/checkout@v2
 
@@ -143,6 +144,7 @@ jobs:
   generate-report:
     name: Generate Coverage Report
     runs-on: ubuntu-20.04
+    needs: [coverage-azure]
     steps:
       - name: Get azure report
         uses: actions/download-artifact@v2
@@ -161,7 +163,7 @@ jobs:
   stop-runner:
     if: always()
     name: Terminate self-hosted cloud runners
-    needs: [start-runners, km-test, kkm-test-vms]
+    needs: [start-runners, coverage-azure]
     runs-on: ubuntu-latest
     steps:
       - name: Stop runners
