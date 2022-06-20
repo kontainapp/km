@@ -112,10 +112,7 @@ ${BLDSOLIB}: $(OBJS)
 
 endif # ifneq (${LIB},)
 
-coverage:
-#	@echo $(MAKECMDGOALS)
-#	@echo ${KM_OPT_BIN_PATH}
-#	@echo $(filter coverage,$(MAKECMDGOALS))
+coverage: all
 
 OBJDIRS = $(sort $(dir ${OBJS}))
 ${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exists
