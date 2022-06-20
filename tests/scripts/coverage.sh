@@ -83,7 +83,7 @@ function main() {
    else
       # assume intermediate report in JSON format
       ${COVERAGE_CMD_NAME} \
-         --json
+         --json \
          ${COVERAGE_THRESHOLDS} \
          --root ${INPUT_SRC_DIR} \
          --output ${COVERAGE_REPORT} \
