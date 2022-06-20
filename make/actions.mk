@@ -112,10 +112,7 @@ ${BLDSOLIB}: $(OBJS)
 
 endif # ifneq (${LIB},)
 
-coverage:
-#	@echo $(MAKECMDGOALS)
-#	@echo ${KM_OPT_BIN_PATH}
-#	@echo $(filter coverage,$(MAKECMDGOALS))
+coverage: all
 
 OBJDIRS = $(sort $(dir ${OBJS}))
 ${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exists
@@ -151,7 +148,9 @@ clean::
 	rm -rf ${KM_OPT_BIN_PATH}
 	rm -rf ${KM_OPT_BIN}
 
-coverage-clean:: clean
+coverage-clean::
+	rm -rf ${COVERAGE_KM_BLDDIR}
+	rm -rf ${KM_OPT_COVERAGE}
 
 #
 # do not generate .d file for some targets

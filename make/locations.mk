@@ -59,7 +59,7 @@ KM_INSTALL_BIN := ${KM_INSTALL}/bin
 KM_INSTALL_COVERAGE := ${KM_INSTALL}/coverage
 KM_INSTALL_COVERAGE_BIN := ${KM_INSTALL_COVERAGE}/bin
 
-KM_BLDDIR := $(abspath ${BLDTOP}/km/${BLDTYPE})
+KM_BLDDIR := $(abspath ${BLDTOP}/km)
 KM_RT := ${BLDTOP}/runtime
 KM_OPT := ${BLDTOP}/opt/kontain
 KM_OPT_BIN := ${KM_OPT}/bin
@@ -76,10 +76,8 @@ GETENFORCE := /usr/sbin/getenforce
 
 # For build with code coverage .
 COVERAGE_KM_BLDDIR := ${BLDTOP}/km/coverage
-COVERAGE_KM_BIN := ${COVERAGE_KM_BLDDIR}/km
 KM_OPT_COVERAGE := ${KM_OPT}/coverage
-KM_OPT_COVERAGE_BIN := ${KM_OPT_COVERAGE}/bin
-KM_OPT_COVERAGE_BIN_KM := ${KM_OPT_COVERAGE_BIN}/km
+KM_OPT_COVERAGE_BIN := ${KM_OPT}/coverage/bin
 
 # dockerized build
 # TODO: Some of these values should be moved to images.mk , but we have multiple
@@ -136,6 +134,11 @@ PODMAN_RUN_TEST := ${PODMAN_RUN} ${DOCKER_INTERACTIVE} --init
 DOCKER_HOME_PATH := /home/appuser
 DOCKER_KM_TOP := ${DOCKER_HOME_PATH}/km
 DOCKER_BLDTOP := ${DOCKER_KM_TOP}/build
+DOCKER_OPT_KONTAIN := ${DOCKER_BLDTOP}/opt/kontain
+DOCKER_OPT_KONTAIN_BIN := ${DOCKER_OPT_KONTAIN}/bin
+DOCKER_COVERAGE_KM := ${DOCKER_OPT_KONTAIN}/coverage/km
+DOCKER_OPT_COVERAGE := ${DOCKER_OPT_KONTAIN}/coverage
+DOCKER_OPT_COVERAGE_BIN := ${DOCKER_OPT_KONTAIN}/coverage/bin
 DOCKER_COVERAGE_KM_BLDDIR := ${DOCKER_BLDTOP}/km/coverage
 
 ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
@@ -176,7 +179,7 @@ RELEASE_TAG ?= v0.1-test
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
 # regexp for targets which should not try to build dependencies (.d)
-NO_DEPS_TARGETS := (clean|clobber|coverage-clean|.*-image|.*-release|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|upload-coverage|vm-images)
+NO_DEPS_TARGETS := (clean|clobber|coverage-clean|test-coverage|.*-image|.*-release|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|upload-coverage|vm-images)
 NO_DEPS_TARGETS := ${NO_DEPS_TARGETS}( ${NO_DEPS_TARGETS})*
 # colors for pretty output. Unless we are in Azure pipelines
 ifeq (${PIPELINE_WORKSPACE},)
@@ -192,8 +195,8 @@ endif
 SHELL=/bin/bash
 
 ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
-	sudo sh -c "mkdir -p $@ && chown ${CURRENT_UID}:${CURRENT_GID} $@ && chmod 777 $@"
-	
+	mkdir -p $@ && chmod 777 $@
+
 # Helper when we need to make sure IMAGE_VERSION is defined and not 'latest'
 .check_image_version:
 	@if [[ -z "${IMAGE_VERSION}" || "${IMAGE_VERSION}" == "latest" ]] ; then \

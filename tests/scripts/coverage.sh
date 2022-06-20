@@ -24,6 +24,8 @@ readonly INPUT_SRC_DIR=$1
 readonly INPUT_COVERAGE_SEARCH_DIR=$2
 readonly OUTPUT_DIR=$3
 readonly REPORT_VERSION=$4
+readonly REPORT_TYPE=$5
+
 if [[ -z ${REPORT_VERSION} ]]; then
     readonly REPORT_TITLE="Kontain Monitor Code Coverage Report"
 else
@@ -31,7 +33,7 @@ else
 fi
 
 readonly COVERAGE_CMD_NAME=gcovr
-readonly COVERAGE_REPORT=${OUTPUT_DIR}/report.html
+readonly COVERAGE_REPORT=${OUTPUT_DIR}/report.json
 readonly PARALLEL=$(nproc --all)
 if [[ -z ${MATCH} || ${MATCH} == '.*' ]]; then
     readonly COVERAGE_THRESHOLDS="--fail-under-branch 40  --fail-under-line 55"
@@ -61,22 +63,36 @@ function main() {
         exit 1
     fi
 
-    ${COVERAGE_CMD_NAME} \
-        --html-title "${REPORT_TITLE}" \
-        --html \
-        --html-details \
-        ${COVERAGE_THRESHOLDS} \
-        --root ${INPUT_SRC_DIR} \
-        --output ${COVERAGE_REPORT} \
-        ${INPUT_COVERAGE_SEARCH_DIR} \
-        --print-summary \
-        -j ${PARALLEL} \
-        --exclude-unreachable-branches \
-        --delete
+   if [[ ${REPORT_TYPE} == 'FINAL' ]]; then
+      ${COVERAGE_CMD_NAME} \
+         --html-title "${REPORT_TITLE}" \
+         --html \
+         --html-details \
+         ${COVERAGE_THRESHOLDS} \
+         --root ${INPUT_SRC_DIR} \
+         --output ${COVERAGE_REPORT} \
+         ${INPUT_COVERAGE_SEARCH_DIR} \
+         --print-summary \
+         -j ${PARALLEL} \
+         --exclude-unreachable-branches \
+         --delete
 
-    if [[ -f ${COVERAGE_REPORT} ]]; then
-        echo "Report is located at ${COVERAGE_REPORT}"
-    fi
+      if [[ -f ${COVERAGE_REPORT} ]]; then
+         echo "Report is located at ${COVERAGE_REPORT}"
+      fi
+   else
+      # assume intermediate report in JSON format
+      ${COVERAGE_CMD_NAME} \
+         --json \
+         ${COVERAGE_THRESHOLDS} \
+         --root ${INPUT_SRC_DIR} \
+         --output ${COVERAGE_REPORT} \
+         ${INPUT_COVERAGE_SEARCH_DIR} \
+         --print-summary \
+         -j ${PARALLEL} \
+         --exclude-unreachable-branches \
+         --delete
+   fi
 }
 
 main

@@ -28,22 +28,17 @@ ENV KM_TEST_TOP=${KM_TOP}/tests
 
 USER root
 
-# COPY libc.so /opt/kontain/runtime/libc.so
-# COPY km /opt/kontain/bin/km
-
-RUN test -f km.coverage && cp km.coverage /opt/kontain/coverage/bin/km || true
-
 RUN mkdir -p ${KM_TOP}
 RUN mkdir ${KM_TOP}/build
-RUN chown -R appuser:appuser ${KM_TOP}
-
 
 COPY --chown=appuser:appuser . ${KM_TEST_TOP}
-ADD --chown=appuser:appuser extras.tar.gz ${KM_TOP}/build/
+ADD extras.tar.gz ${KM_TOP}/build/
+
+RUN chown -R appuser:appuser ${KM_TOP}/build
 
 WORKDIR /home/appuser/km/tests
 
-ENV PATH=${KM_TEST_TOP}/bats/bin:.:$PATH
+ENV PATH=${KM_TOP}/build/opt/kontain/bin:${KM_TEST_TOP}/bats/bin:.:$PATH
 ENV TIME_INFO ${KM_TEST_TOP}/time_info.txt
 
 USER appuser
