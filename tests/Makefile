@@ -39,9 +39,9 @@ endif
 # Base command to run BATS, and derivatives - how to run outside of container, in container, etc..
 BATS_CMD := run_bats_tests.sh --match="${MATCH}" --usevirt="${USEVIRT}" ${IGNORE_FAILURE} ${__BATS_JOBS} ${__VALGRIND}
 # this is how we run in outside of container
-TEST_CMD := time ./${BATS_CMD} --km=km --pretty
+TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
 # this is how we run tests in containers:
-CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=km
+CONTAINER_TEST_CMD          := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_OPT_KONTAIN_BIN}/km
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
 SRC_C := $(abspath $(wildcard *_test.c))
