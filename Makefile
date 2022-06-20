@@ -46,7 +46,12 @@ clang-format:
 
 withdocker runtime: | ${KM_OPT}/alpine-lib/gcc-libs-path.txt
 
+# for local build
 ${KM_OPT}/alpine-lib/gcc-libs-path.txt:
+	make -C tests .buildenv-local-lib
+
+#for withdocker
+${DOCKER_OPT_KONTAIN}/alpine-lib/gcc-libs-path.txt:
 	make -C tests .buildenv-local-lib
 
 # On mac $(MAKE) evaluates to '/Applications/Xcode.app/Contents/Developer/usr/bin/make'
