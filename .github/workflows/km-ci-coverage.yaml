@@ -194,15 +194,14 @@ jobs:
 
       - uses: actions/checkout@v2
 
-      - name: Get azure report
+      - name: Get Azure report
         uses: actions/download-artifact@v2
         with:
           name: azure-coverage
           path: .
 
       - name: Generate Azure report
-        run: |
-          	make -C tests generate-coverage-report REPORT_NAME=azure_report
+        run: make -C tests generate-coverage-report REPORT_NAME=azure_report
 
       - name: Get AWS report
         uses: actions/download-artifact@v2
@@ -211,8 +210,7 @@ jobs:
           path: .
 
       - name: Generate Azure report
-        run: |
-          	make -C tests generate-coverage-report REPORT_NAME=aws_report
+        run: make -C tests generate-coverage-report REPORT_NAME=aws_report
 
       - name: generate HTML report and upload to git
         run: make -C tests upload-coverage-withdocker GITHUB_TOKEN=${{ secrets.GH_TOKEN }}
