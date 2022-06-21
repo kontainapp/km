@@ -158,10 +158,10 @@ jobs:
           path: ./report-azure.json
 
       - name: generate report
-        run: gcovr --add-tracefile "report-*.json" --html --html-details report.html
+        run: make -C
 
       - name: upload coverage results
-        run: make -C tests upload-coverage
+        run: make -C tests upload-coverage GITHUB_TOKEN=${{ secrets.GH_TOKEN }}
 
   # This step is to clean up on-demand runner. They work in conjunction with start-runner.
   # Make sure to add dependencies in both "needs" clauses
