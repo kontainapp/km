@@ -30,11 +30,11 @@ USER root
 
 RUN mkdir -p ${KM_TOP}
 RUN mkdir ${KM_TOP}/build
-RUN chown -R appuser:appuser ${KM_TOP}
-
 
 COPY --chown=appuser:appuser . ${KM_TEST_TOP}
-ADD --chown=appuser:appuser extras.tar.gz ${KM_TOP}/build/
+ADD extras.tar.gz ${KM_TOP}/build/
+
+RUN chown -R appuser:appuser ${KM_TOP}/build
 
 WORKDIR /home/appuser/km/tests
 
