@@ -158,9 +158,9 @@ ifneq ($(no_deps),match)
 -include ${DEPS}
 endif
 
-COVERAGE_SCRIPT := ${TOP}/tools/coverage/coverage.sh
-COVERAGE_REPORT_SCRIPT := ${TOP}/tools/coverage/coverage-report.sh
-UPLOAD_COVERAGE_SCRIPT := ${TOP}/tools/coverage/upload-coverage.sh
+COVERAGE_SCRIPT := ${TOP}/tests/scripts/coverage/coverage.sh
+COVERAGE_REPORT_SCRIPT := ${TOP}/tests/scripts/coverage/coverage-report.sh
+UPLOAD_COVERAGE_SCRIPT := ${TOP}/tests/scripts/coverage/upload-coverage.sh
 
 test-coverage:
 	${COVERAGE_TEST_CMD}
@@ -168,7 +168,7 @@ test-coverage:
 	${COVERAGE_REPORT_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
 
 # Since coverage is only relevent to km, put it here instead of image.mk
-DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tools/coverage/coverage.sh
+DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage/coverage.sh
 DOCKER_COVERAGE_CMD := ${DOCKER_COVERAGE_SCRIPT} ${DOCKER_KM_TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR}
 DOCKER_COVERAGE_NAME := kontain-coverage-test
 
