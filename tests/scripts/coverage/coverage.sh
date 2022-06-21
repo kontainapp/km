@@ -23,6 +23,7 @@ readonly PROGNAME=$(basename $0)
 readonly INPUT_SRC_DIR=$1
 readonly INPUT_COVERAGE_SEARCH_DIR=$2
 readonly OUTPUT_DIR=$3
+readonly REPORT_NAME=${4:-report}
 
 if [[ -z ${REPORT_VERSION} ]]; then
     readonly REPORT_TITLE="Kontain Monitor Code Coverage Report"
@@ -31,7 +32,7 @@ else
 fi
 
 readonly COVERAGE_CMD_NAME=gcovr
-readonly COVERAGE_REPORT=${OUTPUT_DIR}/report.json
+readonly COVERAGE_REPORT=${OUTPUT_DIR}/${REPORT_NAME}.json
 readonly PARALLEL=$(nproc --all)
 if [[ -z ${MATCH} || ${MATCH} == '.*' ]]; then
     readonly COVERAGE_THRESHOLDS="--fail-under-branch 40  --fail-under-line 55"
@@ -39,9 +40,9 @@ fi
 
 function usage() {
     cat <<- EOF
-usage: $PROGNAME <INPUT_SRC_DIR> <INPUT_COVERAGE_SEARCH_DIR> <OUTPUT_DIR> <Optional REPORT_VERSION>
+usage: $PROGNAME <INPUT_SRC_DIR> <INPUT_COVERAGE_SEARCH_DIR> <OUTPUT_DIR> <Optional REPORT_NAME>
 
-Run test coverage analysis. Will geberate .json file. Use coverage-report.sh to generate HTML reports. 
+Run test coverage analysis. Will geberate .json file. Use coverage-report.sh to generate HTML reports.
 
 EOF
     exit 1

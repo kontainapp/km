@@ -164,7 +164,7 @@ UPLOAD_COVERAGE_SCRIPT := ${TOP}/tests/scripts/coverage/upload-coverage.sh
 
 test-coverage:
 	${COVERAGE_TEST_CMD}
-	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR}
+	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} report
 	${COVERAGE_REPORT_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
 
 # Since coverage is only relevent to km, put it here instead of image.mk
@@ -176,7 +176,7 @@ upload-coverage: .check_image_version
 	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
 
 generate-coverage-report:
-	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR}
+	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${REPORT_NAME}
 
 upload-coverage-ci: .check_image_version
 	${COVERAGE_REPORT_SCRIPT} ${TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
