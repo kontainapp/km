@@ -300,7 +300,7 @@ test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
 
 test-coverage-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
-	${DOCKER_RUN_TEST} ${COVERAGE_TEST_IMG_TAGGED} sh -c "${CONTAINER_TEST_CMD} && ${DOCKER_COVERAGE_CMD}"
+	${DOCKER_RUN_TEST} ${COVERAGE_TEST_IMG_TAGGED} ${CONTAINER_TEST_CMD}
 
 # === BUILDENV LOCAL
 
