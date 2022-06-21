@@ -616,7 +616,7 @@ jobs:
           pname=$(kubectl get pod -l kontain=test-app -o jsonpath="{.items[0].metadata.name}")
           rname=$(kubectl exec "${pname}" -- uname -r)
           echo "uname -r returned ${rname}"
-          echo "${rname}" | grep -q -e '.*\.kontain\.KKM$' || exit 1
+          echo "${rname}" | egrep -q -e '.*\.kontain\.(KKM|KVM)$' || exit 1
           echo "Kontain Runtime OK".
 
   ecs-hack-test:
