@@ -62,7 +62,7 @@ RUNENV_DEMO_IMG_TAGGED := ${RUNENV_DEMO_IMG}:${IMAGE_VERSION}
 TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(TEST_IMG))
 BUILDENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(BUILDENV_IMG))
 
-COVERAGE_TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(TEST_IMG))
+COVERAGE_TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(COVERAGE_TEST_IMG))
 
 RUNENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_IMG))
 RUNENV_DEMO_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_DEMO_IMG))
