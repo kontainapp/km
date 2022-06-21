@@ -36,6 +36,7 @@ endif
 BATS_CMD := run_bats_tests.sh --match="${MATCH}" --usevirt="${USEVIRT}" ${IGNORE_FAILURE} ${__BATS_JOBS}
 # this is how we run in outside of container
 TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
+COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_COVERAGE_BIN}/km
 # this is how we run tests in containers:
 CONTAINER_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_OPT_KONTAIN_BIN}/km
 
@@ -154,11 +155,13 @@ ifneq ($(no_deps),match)
 endif
 
 COVERAGE_SCRIPT := ${CURDIR}/scripts/coverage.sh
-COVERAGE_REPORT_TITLE := ${IMAGE_VERSION}
+COVERAGE_REPORT_SCRIPT := ${CURDIR}/scripts/coverage-report.sh
+UPLOAD_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/upload-coverage.sh
 
 test-coverage:
-	${TEST_CMD}
-	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${COVERAGE_REPORT_VERSION} FINAL
+	${COVERAGE_TEST_CMD}
+	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR}
+	${COVERAGE_REPORT_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
 
 # Since coverage is only relevent to km, put it here instead of image.mk
 DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage.sh
@@ -167,10 +170,14 @@ DOCKER_COVERAGE_NAME := kontain-coverage-test
 
 UPLOAD_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/upload-coverage.sh
 upload-coverage: .check_image_version
-	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${PROCESSED_IMAGE_VERION} ${GITHUB_TOKEN}
+	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
+
+upload-coverage-withdocker: .check_image_version
+	${COVERAGE_REPORT_SCRIPT} ${TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
+	${UPLOAD_COVERAGE_SCRIPT} ${DOCKER_COVERAGE_KM_BLDDIR} ${IMAGE_VERSION} ${GITHUB_TOKEN}
 
 MANUAL_UPLOAD_REPORT_NAME := manual-${USER}-${PROCESSED_IMAGE_VERION}
 upload-coverage-manual: .check_image_version
-	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME} ${GITHUB_TOKEN}
+	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME}
 
 .PHONY: all clean test help gdb test-coverage

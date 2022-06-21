@@ -15,14 +15,34 @@
 # limitations under the License.
 #
 #
-# Script to run test coverage analysis
+# Script to consolidate coverage reports from multiple runs and convert to HTML
 
 set -e ; [ "$TRACE" ] && set -x
 
+# usage coverage-report <json report(s) location> <src root path> <output-directory> <report-version>
+
 readonly PROGNAME=$(basename $0)
 readonly INPUT_SRC_DIR=$1
-readonly INPUT_COVERAGE_SEARCH_DIR=$2
+readonly REPORTS_DIR=$2
 readonly OUTPUT_DIR=$3
+readonly REPORT_VERSION=$4
+
+readonly COVERAGE_CMD_NAME=gcovr
+readonly COVERAGE_REPORT=${OUTPUT_DIR}/report.html
+readonly COVERAGE_TRACEFILES=${OUTPUT_DIR}/*.json
+
+function usage() {
+    cat <<- EOF
+usage: $PROGNAME <INPUT_SRC_DIR> <REPORTS_DIR> <OUTPUT_DIR> <Optional REPORT_VERSION>
+
+Generate HTML coverage report.
+
+All report .json files must be located in <REPORTS_DIR>
+<INPUT_SRC_DIR> - Directory containing sourse files for the report
+
+EOF
+    exit 1
+}
 
 if [[ -z ${REPORT_VERSION} ]]; then
     readonly REPORT_TITLE="Kontain Monitor Code Coverage Report"
@@ -30,49 +50,32 @@ else
     readonly REPORT_TITLE="Kontain Monitor Code Coverage Report - ${REPORT_VERSION}"
 fi
 
-readonly COVERAGE_CMD_NAME=gcovr
-readonly COVERAGE_REPORT=${OUTPUT_DIR}/report.json
-readonly PARALLEL=$(nproc --all)
-if [[ -z ${MATCH} || ${MATCH} == '.*' ]]; then
-    readonly COVERAGE_THRESHOLDS="--fail-under-branch 40  --fail-under-line 55"
-fi
-
-function usage() {
-    cat <<- EOF
-usage: $PROGNAME <INPUT_SRC_DIR> <INPUT_COVERAGE_SEARCH_DIR> <OUTPUT_DIR> <Optional REPORT_VERSION>
-
-Run test coverage analysis. Will geberate .json file. Use coverage-report.sh to generate HTML reports. 
-
-EOF
-    exit 1
-}
-
 function check_params() {
+    if [[ -z ${REPORTS_DIR} ]]; then usage; fi
     if [[ -z ${INPUT_SRC_DIR} ]]; then usage; fi
-    if [[ -z ${INPUT_COVERAGE_SEARCH_DIR} ]]; then usage; fi
     if [[ -z ${OUTPUT_DIR} ]]; then usage; fi
 
     if [[ ! -x $(command -v ${COVERAGE_CMD_NAME}) ]]; then
         echo "Error: ${COVERAGE_CMD_NAME} is not installed"
         exit 1
     fi
-
 }
 
 function main() {
     check_params
 
-
    ${COVERAGE_CMD_NAME} \
-      --json \
-      ${COVERAGE_THRESHOLDS} \
+      --html-title "${REPORT_TITLE}" \
+      --html \
+      --html-details \
+      --add-tracefile ${COVERAGE_TRACEFILES} \
       --root ${INPUT_SRC_DIR} \
       --output ${COVERAGE_REPORT} \
-      ${INPUT_COVERAGE_SEARCH_DIR} \
-      --print-summary \
-      -j ${PARALLEL} \
-      --exclude-unreachable-branches \
-      --delete
+      --print-summary
+
+   if [[ -f ${COVERAGE_REPORT} ]]; then
+      echo "Report is located at ${COVERAGE_REPORT}"
+   fi
 }
 
 main
