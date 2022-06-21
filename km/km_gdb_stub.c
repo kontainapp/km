@@ -1416,6 +1416,7 @@ static void handle_qxfer_execfile_read(const char* packet, char* obuf)
    if (obuf[0] == 'l') {
       free(gdb_execfile_name);
       gdb_execfile_name = NULL;
+      gdb_execfile_len = 0;
    }
 }
 
