@@ -158,9 +158,9 @@ ifneq ($(no_deps),match)
 -include ${DEPS}
 endif
 
-COVERAGE_SCRIPT := ${CURDIR}/scripts/coverage.sh
-COVERAGE_REPORT_SCRIPT := ${CURDIR}/scripts/coverage-report.sh
-UPLOAD_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/upload-coverage.sh
+COVERAGE_SCRIPT := ${TOP}/tools/coverage/coverage.sh
+COVERAGE_REPORT_SCRIPT := ${TOP}/tools/coverage/coverage-report.sh
+UPLOAD_COVERAGE_SCRIPT := ${TOP}/tools/coverage/upload-coverage.sh
 
 test-coverage:
 	${COVERAGE_TEST_CMD}
@@ -168,20 +168,15 @@ test-coverage:
 	${COVERAGE_REPORT_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
 
 # Since coverage is only relevent to km, put it here instead of image.mk
-DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage.sh
+DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tools/coverage/coverage.sh
 DOCKER_COVERAGE_CMD := ${DOCKER_COVERAGE_SCRIPT} ${DOCKER_KM_TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR}
 DOCKER_COVERAGE_NAME := kontain-coverage-test
 
-UPLOAD_COVERAGE_SCRIPT := ${TOP}/cloud/k8s/tests/upload-coverage.sh
 upload-coverage: .check_image_version
 	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
 
-upload-coverage-withdocker: .check_image_version
+upload-coverage-ci: .check_image_version
 	${COVERAGE_REPORT_SCRIPT} ${TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
 	${UPLOAD_COVERAGE_SCRIPT} ${DOCKER_COVERAGE_KM_BLDDIR} ${IMAGE_VERSION} ${GITHUB_TOKEN}
-
-MANUAL_UPLOAD_REPORT_NAME := manual-${USER}-${PROCESSED_IMAGE_VERION}
-upload-coverage-manual: .check_image_version
-	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${MANUAL_UPLOAD_REPORT_NAME}
 
 .PHONY: all clean test help gdb test-coverage
