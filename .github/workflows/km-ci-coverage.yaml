@@ -140,7 +140,6 @@ jobs:
       - name: Run coverage
         run: |
           make -C tests test-coverage-withdocker
-          mv build/km/coverage/report.json build/km/coverage/azure_report.json
 
       - name: Store coverage files in artifact
         uses: actions/upload-artifact@v2
@@ -150,10 +149,47 @@ jobs:
             build/km/coverage
           retention-days: 7
 
+  coverage-ec2:
+    name: Check code coverage on Azure
+    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
+    needs: [km-build, start-runners]
+    steps:
+
+      - uses: actions/checkout@v2
+
+      - name: Login to Azure Repository
+        run: make -C cloud/azure login-cli
+
+      - name: KKM and KKM tests
+        run: |
+          make -C kkm/kkm && make -C kkm/test_kkm
+          sudo insmod kkm/kkm/kkm.ko
+          ./kkm/test_kkm/test_kkm
+          sudo mkdir -p /opt/kontain/bin
+          sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
+          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
+          sudo bash ./container-runtime/podman_config.sh
+          sudo bash ./container-runtime/docker_config.sh
+
+      - name: Pull coverage testenv images
+        run: make -C tests pull-coverage-testenv-image
+
+      - name: Run coverage
+        run: |
+          make -C tests test-coverage-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
+
+      - name: Store coverage files in artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ec2-coverage
+          path: |
+            build/km/coverage
+          retention-days: 7
+
   generate-report:
     name: Generate Coverage Report
     runs-on: ubuntu-20.04
-    needs: [coverage-azure]
+    needs: [coverage-azure, coverage-ec2]
     steps:
 
       - uses: actions/checkout@v2
@@ -161,12 +197,22 @@ jobs:
       - name: Get azure report
         uses: actions/download-artifact@v2
         with:
-          name: azure-report
+          name: azure-coverage
           path: .
 
       - name: Generate Azure report
         run: |
-          	make -C tests generate-coverage-report
+          	make -C tests generate-coverage-report REPORT_NAME=azure_report
+
+      - name: Get AWS report
+        uses: actions/download-artifact@v2
+        with:
+          name: ec2-coverage
+          path: .
+
+      - name: Generate Azure report
+        run: |
+          	make -C tests generate-coverage-report REPORT_NAME=aws_report
 
       - name: generate HTML report and upload to git
         run: make -C tests upload-coverage-withdocker GITHUB_TOKEN=${{ secrets.GH_TOKEN }}
