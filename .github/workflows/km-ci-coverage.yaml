@@ -117,6 +117,31 @@ jobs:
       - name: Build and push KM  image
         run: make -C tests coverage-testenv-image push-coverage-testenv-image
 
+  kkm-build:
+    name: Build KKM, save test artifacts
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Build KKM and KKM tests
+        run: make -C kkm/kkm && make -C kkm/test_kkm
+
+      - name: Install KKM
+        run: sudo insmod kkm/kkm/kkm.ko
+
+      - name: Sanity check - unit test
+        run: ./kkm/test_kkm/test_kkm
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: kkm
+          path: |
+            kkm/kkm/kkm.ko
+            kkm/test_kkm/test_kkm
+          retention-days: 7
+
   coverage-azure:
     name: Check code coverage on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
@@ -139,7 +164,7 @@ jobs:
 
       - name: Run coverage
         run: |
-          make -C tests test-coverage-withdocker
+          make -C tests test-coverage-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
 
       - name: Store coverage files in artifact
         uses: actions/upload-artifact@v2
@@ -150,12 +175,14 @@ jobs:
           retention-days: 7
 
   coverage-ec2:
-    name: Check code coverage on Azure
+    name: Check code coverage on AWS
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
     needs: [km-build, start-runners]
     steps:
 
       - uses: actions/checkout@v2
+        with:
+          submodules: true
 
       - name: Login to Azure Repository
         run: make -C cloud/azure login-cli
@@ -165,11 +192,6 @@ jobs:
           make -C kkm/kkm && make -C kkm/test_kkm
           sudo insmod kkm/kkm/kkm.ko
           ./kkm/test_kkm/test_kkm
-          sudo mkdir -p /opt/kontain/bin
-          sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
-          sudo bash ./container-runtime/podman_config.sh
-          sudo bash ./container-runtime/docker_config.sh
 
       - name: Pull coverage testenv images
         run: make -C tests pull-coverage-testenv-image
