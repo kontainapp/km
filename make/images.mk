@@ -105,7 +105,7 @@ endef
 define coverage_testenv_prep =
 	$(call testenv_preprocess)
 	tar -czf ${TESTENV_PATH}/extras.tar.gz \
-		--transform='s/coverage\///g' \
+		--transform='s/coverage\/bin/bin/g' \
 		-C ${BLDTOP} \
 						opt/kontain/runtime/libc.so \
 						opt/kontain/runtime/ld-linux-x86-64.so.2 \
@@ -121,7 +121,8 @@ define coverage_testenv_prep =
 						opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
 						opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
 						opt/kontain/runtime/libpthread.so \
-						opt/kontain/coverage/bin/km
+						opt/kontain/coverage/bin/km \
+						km/coverage
 	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
 endef
 
