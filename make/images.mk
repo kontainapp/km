@@ -62,7 +62,7 @@ RUNENV_DEMO_IMG_TAGGED := ${RUNENV_DEMO_IMG}:${IMAGE_VERSION}
 TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(TEST_IMG))
 BUILDENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(BUILDENV_IMG))
 
-COVERAGE_TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(TEST_IMG))
+COVERAGE_TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(COVERAGE_TEST_IMG))
 
 RUNENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_IMG))
 RUNENV_DEMO_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_DEMO_IMG))
@@ -300,7 +300,9 @@ test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
 
 test-coverage-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
-	${DOCKER_RUN_TEST} ${COVERAGE_TEST_IMG_TAGGED} sh -c "${CONTAINER_TEST_CMD} && ${DOCKER_COVERAGE_CMD}"
+	${DOCKER_RUN_TEST} --name covcontainer_${IMAGE_VERSION} ${COVERAGE_TEST_IMG_TAGGED} -v ${TOP}/km:${DOCKER_KM_TOP}:rw \
+		sh -c "${CONTAINER_TEST_CMD} && ${DOCKER_COVERAGE_CMD}"
+	docker cp `docker ps -aq -f name=covcontainer_${IMAGE_VERSION}`:${DOCKER_COVERAGE_KM_BLDDIR}/report.json ${COVERAGE_KM_BLDDIR}/
 
 # === BUILDENV LOCAL
 
