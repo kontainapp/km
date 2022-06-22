@@ -51,7 +51,6 @@ function check_params() {
    if [[ -z ${OUTPUT_DIR} ]]; then usage; fi
 
    if ! command -v ${COVERAGE_CMD_NAME} &> /dev/null ; then
-   #  if [[ ! -x $(command -v ${COVERAGE_CMD_NAME}) ]]; then
       echo "Error: ${COVERAGE_CMD_NAME} is not installed"
       exit 1
    fi
