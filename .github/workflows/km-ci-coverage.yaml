@@ -189,9 +189,13 @@ jobs:
 
   generate-report:
     name: Generate and Upload Coverage Report
-    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
-    needs: [start-runners, coverage-azure, coverage-ec2]
+    runs-on: ubuntu-latest
+    needs: [coverage-azure, coverage-ec2]
     steps:
+
+      - run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gcovr
 
       - uses: actions/checkout@v2
 
@@ -221,7 +225,7 @@ jobs:
   stop-runner:
     if: always()
     name: Terminate self-hosted cloud runners
-    needs: [start-runners, coverage-azure, coverage-ec2, generate-report]
+    needs: [start-runners, coverage-azure, coverage-ec2]
     runs-on: ubuntu-latest
     steps:
       - name: Stop runners
