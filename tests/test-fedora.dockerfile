@@ -29,10 +29,9 @@ ENV KM_TEST_TOP=${KM_TOP}/tests
 USER root
 
 RUN mkdir -p ${KM_TOP}
-RUN mkdir ${KM_TOP}/build
 
 COPY --chown=appuser:appuser . ${KM_TEST_TOP}
-ADD extras.tar.gz ${KM_TOP}/build/
+ADD extras.tar.gz ${KM_TOP}
 
 RUN chown -R appuser:appuser ${KM_TOP}/build
 
