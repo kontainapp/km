@@ -304,7 +304,8 @@ test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to
 test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
 
-test-coverage-withdocker: | ${COVERAGE_KM_BLDDIR} ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
+test-coverage-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
+	mkdir -p ${COVERAGE_KM_BLDDIR}
 	echo "report FRON: ${DOCKER_COVERAGE_KM_BLDDIR}/report.json"
 	echo "report TO: ${COVERAGE_KM_BLDDIR}"
 	${DOCKER_RUN_TEST} --name covcontainer_${IMAGE_VERSION} ${COVERAGE_TEST_IMG_TAGGED} \

@@ -69,6 +69,8 @@ function main() {
       --exclude-unreachable-branches \
       --delete \
       ${INPUT_COVERAGE_SEARCH_DIR}
+
+   echo "Report file generated: ${COVERAGE_REPORT}"
 }
 
 main
