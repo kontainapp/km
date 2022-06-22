@@ -188,8 +188,8 @@ jobs:
           retention-days: 7
 
   generate-report:
-    name: Generate Coverage Report
-    runs-on: ubuntu-20.04
+    name: Generate and Upload Coverage Report
+    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
     needs: [coverage-azure, coverage-ec2]
     steps:
 
@@ -221,7 +221,7 @@ jobs:
   stop-runner:
     if: always()
     name: Terminate self-hosted cloud runners
-    needs: [start-runners, coverage-azure, coverage-ec2]
+    needs: [start-runners, coverage-azure, coverage-ec2, generate-report]
     runs-on: ubuntu-latest
     steps:
       - name: Stop runners
