@@ -199,8 +199,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: azure-coverage
-          path: .
-      - run: mv report.json build/km/coverage/azure.json
+          path: build/km/coverage
 
       # - name: Generate Azure report
       #   run: make -C tests generate-coverage-report REPORT_NAME=azure_report
@@ -209,8 +208,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: ec2-coverage
-          path: .
-      - run: mv report.json build/km/coverage/aws.json
+          path: build/km/coverage
 
       # - name: Generate Azure report
       #   run: make -C tests generate-coverage-report REPORT_NAME=aws_report
