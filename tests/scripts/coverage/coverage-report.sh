@@ -68,7 +68,7 @@ function main() {
       --html-title "${REPORT_TITLE}" \
       --html \
       --html-details \
-      --add-tracefile ${COVERAGE_TRACEFILES} \
+      --add-tracefile "${COVERAGE_TRACEFILES}" \
       --root ${INPUT_SRC_DIR} \
       --output ${COVERAGE_REPORT}
 

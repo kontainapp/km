@@ -23,7 +23,6 @@ readonly PROGNAME=$(basename $0)
 readonly INPUT_SRC_DIR=$1
 readonly INPUT_COVERAGE_SEARCH_DIR=$2
 readonly OUTPUT_DIR=$3
-readonly REPORT_NAME=${4:-report}
 
 if [[ -z ${REPORT_VERSION} ]]; then
     readonly REPORT_TITLE="Kontain Monitor Code Coverage Report"
@@ -32,7 +31,7 @@ else
 fi
 
 readonly COVERAGE_CMD_NAME=gcovr
-readonly COVERAGE_REPORT=${OUTPUT_DIR}/${REPORT_NAME}.json
+readonly COVERAGE_REPORT=${OUTPUT_DIR}/report.html
 readonly PARALLEL=$(nproc --all)
 
 function usage() {
@@ -60,13 +59,15 @@ function check_params() {
 function main() {
     check_params
 
+   #generate json report to be combined
    ${COVERAGE_CMD_NAME} \
-      --json \
+      --html \
+      --html-details \
       --root ${INPUT_SRC_DIR} \
       --output ${COVERAGE_REPORT} \
       -j ${PARALLEL} \
       --exclude-unreachable-branches \
-      --delete \
+      --print-summary \
       ${INPUT_COVERAGE_SEARCH_DIR}
 
    echo "Report file generated: ${COVERAGE_REPORT}"

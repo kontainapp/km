@@ -298,6 +298,9 @@ CONTAINER_TEST_CMD ?= \
 
 CONTAINER_TEST_ALL_CMD ?= ${CONTAINER_TEST_CMD}
 
+DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage/coverage.sh
+DOCKER_UPLOAD_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage/upload-coverage.sh
+
 test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_CMD}
 
@@ -306,11 +309,21 @@ test-all-withdocker: ## a special helper to run more node.km tests.
 
 test-coverage-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
 	mkdir -p ${COVERAGE_KM_BLDDIR}
-	echo "report FRON: ${DOCKER_COVERAGE_KM_BLDDIR}/${REPORT_NAME}.json"
-	echo "report TO: ${COVERAGE_KM_BLDDIR}"
-	${DOCKER_RUN_TEST} --name covcontainer_${IMAGE_VERSION} ${COVERAGE_TEST_IMG_TAGGED} \
-		sh -c "${CONTAINER_TEST_CMD} && ${DOCKER_COVERAGE_CMD} ${REPORT_NAME}"
-	docker cp `docker ps -aq -f name=covcontainer_${IMAGE_VERSION}`:${DOCKER_COVERAGE_KM_BLDDIR}/${REPORT_NAME}.json ${COVERAGE_KM_BLDDIR}
+	chmod o+w ${COVERAGE_KM_BLDDIR}
+	${DOCKER_RUN_TEST} --name covcontainer_${IMAGE_VERSION} -v ${COVERAGE_KM_BLDDIR}:/tmp ${COVERAGE_TEST_IMG_TAGGED} \
+		/bin/bash -c "if [ -f /tmp/km_main.gcda ];then cp /tmp/*.gcda  ${DOCKER_COVERAGE_KM_BLDDIR}; fi\
+			 	&& ${CONTAINER_TEST_CMD} \
+				&& cp ${DOCKER_COVERAGE_KM_BLDDIR}/*.gcda /tmp"
+	chmod o-w ${COVERAGE_KM_BLDDIR}
+
+upload-coverage-withdocker: .check_image_version
+	mkdir -p ${COVERAGE_KM_BLDDIR}
+	${DOCKER_RUN} --name covcontainer_${IMAGE_VERSION} -v ${COVERAGE_KM_BLDDIR}:/tmp ${COVERAGE_TEST_IMG_TAGGED} \
+		/bin/bash -c "if [ -f /tmp/km_main.gcda ];then cp /tmp/*.gcda  ${DOCKER_COVERAGE_KM_BLDDIR}; fi\
+			&& ls -l ${DOCKER_COVERAGE_KM_BLDDIR} \
+			&& ${DOCKER_COVERAGE_SCRIPT} ${DOCKER_KM_TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR} \
+			&&${DOCKER_UPLOAD_COVERAGE_SCRIPT} ${DOCKER_COVERAGE_KM_BLDDIR} ${IMAGE_VERSION} ${GITHUB_TOKEN}"
+
 
 # === BUILDENV LOCAL
 

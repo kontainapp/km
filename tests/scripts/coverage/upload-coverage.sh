@@ -64,9 +64,15 @@ function main {
       REPORT_REPO_URL=https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
    fi
 
+
    # clone report repository
    git clone ${REPORT_REPO_URL} ${REPORT_REPO_WORKDIR}
    cd ${REPORT_REPO_WORKDIR}
+   # configure identity
+   if [[ ! -z ${GITHUB_TOKEN} ]]; then
+      git config user.email "coverage-pipeline@kontain.app"
+      git config user.name "Coverage Pipeline"
+   fi
 
    # Git will not automatically fetch all the tags, so we force it here.
    git fetch --tags --force
@@ -76,14 +82,14 @@ function main {
    rm -f report/*.html
    #copy new report files here
    cp ${REPORT_PATH}/*.html report/
-   cp ${REPORT_PATH}/*.css report/
    # stage all changes, including new files
    git add --all
    # commit changes
    git commit -m "KM Coverage Report: ${TIME} ${IMAGE_VERSION}"
-   # # add tag
+   # add tag
    git tag ${IMAGE_VERSION}
-   git push && git push --tags
+   git push https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
+   git push --tags https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
 
    # # delete reports directory
    rm -rf ${REPORT_REPO_WORKDIR}
