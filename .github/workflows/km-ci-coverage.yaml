@@ -139,7 +139,7 @@ jobs:
 
       - name: Run coverage
         run: |
-          make -C tests test-coverage-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
+          make -C tests test-coverage-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= MATCH="hello"
 
       - run: ls build/km/coverage
 
@@ -175,7 +175,7 @@ jobs:
 
       - name: Run coverage
         run: |
-          make -C tests test-coverage-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
+          make -C tests test-coverage-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= MATCH="hello"
 
       - run: ls build/km/coverage
 
@@ -223,7 +223,7 @@ jobs:
   stop-runner:
     if: always()
     name: Terminate self-hosted cloud runners
-    needs: [start-runners, coverage-azure]
+    needs: [start-runners, coverage-azure, coverage-ec2]
     runs-on: ubuntu-latest
     steps:
       - name: Stop runners
