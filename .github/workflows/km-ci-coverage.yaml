@@ -139,7 +139,7 @@ jobs:
 
       - name: Run coverage
         run: |
-          make -C tests test-coverage-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= MATCH="hello"
+          make -C tests test-coverage-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= MATCH="hello" REPORT_NAME=azure_report
 
       - run: ls build/km/coverage
 
@@ -148,7 +148,7 @@ jobs:
         with:
           name: azure-coverage
           path: |
-            build/km/coverage/report.json
+            build/km/coverage/azure_report.json
           retention-days: 7
 
   coverage-ec2:
@@ -175,7 +175,7 @@ jobs:
 
       - name: Run coverage
         run: |
-          make -C tests test-coverage-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= MATCH="hello"
+          make -C tests test-coverage-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= MATCH="hello" REPORT_NAME='aws_report'
 
       - run: ls build/km/coverage
 
@@ -184,7 +184,7 @@ jobs:
         with:
           name: ec2-coverage
           path: |
-            build/km/coverage/report.json
+            build/km/coverage/aws_report.json
           retention-days: 7
 
   generate-report:
