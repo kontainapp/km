@@ -70,8 +70,7 @@ function main() {
       --html-details \
       --add-tracefile ${COVERAGE_TRACEFILES} \
       --root ${INPUT_SRC_DIR} \
-      --output ${COVERAGE_REPORT} \
-      --print-summary
+      --output ${COVERAGE_REPORT}
 
    if [[ -f ${COVERAGE_REPORT} ]]; then
       echo "Report is located at ${COVERAGE_REPORT}"
