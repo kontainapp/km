@@ -64,6 +64,9 @@ function main {
       REPORT_REPO_URL=https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
    fi
 
+   git config user.email "coverage-pipeline@kontain.app"
+   git config user.name "Coverage Pipeline"
+
    # clone report repository
    git clone ${REPORT_REPO_URL} ${REPORT_REPO_WORKDIR}
    cd ${REPORT_REPO_WORKDIR}
@@ -80,9 +83,10 @@ function main {
    git add --all
    # commit changes
    git commit -m "KM Coverage Report: ${TIME} ${IMAGE_VERSION}"
-   # # add tag
+   # add tag
    git tag ${IMAGE_VERSION}
-   git push && git push --tags
+   git push https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
+   git push --tags https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
 
    # # delete reports directory
    rm -rf ${REPORT_REPO_WORKDIR}
