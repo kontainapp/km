@@ -139,7 +139,7 @@ jobs:
 
       - name: Run coverage
         run: |
-          make -C tests test-coverage-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= MATCH="hello" REPORT_NAME=azure_report
+          make -C tests test-coverage-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=  REPORT_NAME=azure_report
 
       - run: ls build/km/coverage
 
@@ -175,7 +175,7 @@ jobs:
 
       - name: Run coverage
         run: |
-          make -C tests test-coverage-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= MATCH="hello" REPORT_NAME='aws_report'
+          make -C tests test-coverage-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=  REPORT_NAME='aws_report'
 
       - run: ls build/km/coverage
 
