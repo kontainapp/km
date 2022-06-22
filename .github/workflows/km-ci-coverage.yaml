@@ -190,7 +190,7 @@ jobs:
   generate-report:
     name: Generate and Upload Coverage Report
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
-    needs: [coverage-azure, coverage-ec2]
+    needs: [start-runners, coverage-azure, coverage-ec2]
     steps:
 
       - uses: actions/checkout@v2
