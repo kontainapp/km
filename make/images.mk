@@ -82,22 +82,24 @@ RUNENV_DEMO_PATH ?= .
 define testenv_prep =
 	$(call testenv_preprocess)
 	tar -czf ${TESTENV_PATH}/extras.tar.gz \
-		-C ${BLDTOP} \
-						opt/kontain/runtime/libc.so \
-						opt/kontain/runtime/ld-linux-x86-64.so.2 \
-						opt/kontain/runtime/libstdc++.so \
-						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
-						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
-						opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
-						opt/kontain/lib/libmimalloc.so \
-						opt/kontain/lib/libmimalloc.so.1.7 \
-						opt/kontain/alpine-lib/usr/lib/libffi.so \
-						opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
-						opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
-						opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
-						opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
-						opt/kontain/runtime/libpthread.so \
-						opt/kontain/bin/km
+		-C ${TOP} \
+			build/opt/kontain/runtime/libc.so \
+			build/opt/kontain/runtime/ld-linux-x86-64.so.2 \
+			build/opt/kontain/runtime/libstdc++.so \
+			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
+			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
+			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
+			build/opt/kontain/lib/libmimalloc.so \
+			build/opt/kontain/lib/libmimalloc.so.1.7 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
+			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
+			build/opt/kontain/runtime/libpthread.so \
+			build/opt/kontain/bin/km \
+			km \
+			include \
 
 	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
 endef
@@ -106,23 +108,26 @@ define coverage_testenv_prep =
 	$(call testenv_preprocess)
 	tar -czf ${TESTENV_PATH}/extras.tar.gz \
 		--transform='s/coverage\/bin/bin/g' \
-		-C ${BLDTOP} \
-						opt/kontain/runtime/libc.so \
-						opt/kontain/runtime/ld-linux-x86-64.so.2 \
-						opt/kontain/runtime/libstdc++.so \
-						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
-						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
-						opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
-						opt/kontain/lib/libmimalloc.so \
-						opt/kontain/lib/libmimalloc.so.1.7 \
-						opt/kontain/alpine-lib/usr/lib/libffi.so \
-						opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
-						opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
-						opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
-						opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
-						opt/kontain/runtime/libpthread.so \
-						opt/kontain/coverage/bin/km \
-						km/coverage
+		-C ${TOP} \
+			build/opt/kontain/runtime/libc.so \
+			build/opt/kontain/runtime/ld-linux-x86-64.so.2 \
+			build/opt/kontain/runtime/libstdc++.so \
+			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
+			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
+			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
+			build/opt/kontain/lib/libmimalloc.so \
+			build/opt/kontain/lib/libmimalloc.so.1.7 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
+			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
+			build/opt/kontain/runtime/libpthread.so \
+			build/opt/kontain/coverage/bin/km \
+			build/km/coverage \
+			km \
+			include \
+
 	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
 endef
 
@@ -300,7 +305,7 @@ test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
 
 test-coverage-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
-	${DOCKER_RUN_TEST} --name covcontainer_${IMAGE_VERSION} ${COVERAGE_TEST_IMG_TAGGED} -v ${TOP}/km:${DOCKER_KM_TOP}:rw \
+	${DOCKER_RUN_TEST} --name covcontainer_${IMAGE_VERSION} ${COVERAGE_TEST_IMG_TAGGED} \
 		sh -c "${CONTAINER_TEST_CMD} && ${DOCKER_COVERAGE_CMD}"
 	docker cp `docker ps -aq -f name=covcontainer_${IMAGE_VERSION}`:${DOCKER_COVERAGE_KM_BLDDIR}/report.json ${COVERAGE_KM_BLDDIR}/
 
