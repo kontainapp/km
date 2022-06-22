@@ -218,7 +218,7 @@ jobs:
       #   run: make -C tests generate-coverage-report REPORT_NAME=aws_report
 
       - name: generate HTML report and upload to git
-        run: make -C tests upload-coverage-ci GITHUB_TOKEN=${{ secrets.GH_TOKEN }}
+        run: make -C tests upload-coverage-ci GITHUB_TOKEN=${{ secrets.FULL_GITHUB_ACCESS_TOKEN }}
 
   # This step is to clean up on-demand runner. They work in conjunction with start-runner.
   # Make sure to add dependencies in both "needs" clauses

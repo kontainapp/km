@@ -64,12 +64,15 @@ function main {
       REPORT_REPO_URL=https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
    fi
 
-   git config user.email "coverage-pipeline@kontain.app"
-   git config user.name "Coverage Pipeline"
 
    # clone report repository
    git clone ${REPORT_REPO_URL} ${REPORT_REPO_WORKDIR}
    cd ${REPORT_REPO_WORKDIR}
+   # configure identity
+   if [[ ! -z ${GITHUB_TOKEN} ]]; then
+      git config user.email "coverage-pipeline@kontain.app"
+      git config user.name "Coverage Pipeline"
+   fi
 
    # Git will not automatically fetch all the tags, so we force it here.
    git fetch --tags --force
