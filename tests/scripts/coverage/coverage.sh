@@ -34,9 +34,6 @@ fi
 readonly COVERAGE_CMD_NAME=gcovr
 readonly COVERAGE_REPORT=${OUTPUT_DIR}/${REPORT_NAME}.json
 readonly PARALLEL=$(nproc --all)
-if [[ -z ${MATCH} || ${MATCH} == '.*' ]]; then
-    readonly COVERAGE_THRESHOLDS="--fail-under-branch 40  --fail-under-line 55"
-fi
 
 function usage() {
     cat <<- EOF
@@ -49,31 +46,31 @@ EOF
 }
 
 function check_params() {
-    if [[ -z ${INPUT_SRC_DIR} ]]; then usage; fi
-    if [[ -z ${INPUT_COVERAGE_SEARCH_DIR} ]]; then usage; fi
-    if [[ -z ${OUTPUT_DIR} ]]; then usage; fi
+   if [[ -z ${INPUT_SRC_DIR} ]]; then usage; fi
+   if [[ -z ${INPUT_COVERAGE_SEARCH_DIR} ]]; then usage; fi
+   if [[ -z ${OUTPUT_DIR} ]]; then usage; fi
 
-    if [[ ! -x $(command -v ${COVERAGE_CMD_NAME}) ]]; then
-        echo "Error: ${COVERAGE_CMD_NAME} is not installed"
-        exit 1
-    fi
+   if ! command -v ${COVERAGE_CMD_NAME} &> /dev/null ; then
+   #  if [[ ! -x $(command -v ${COVERAGE_CMD_NAME}) ]]; then
+      echo "Error: ${COVERAGE_CMD_NAME} is not installed"
+      exit 1
+   fi
 
 }
 
 function main() {
     check_params
 
-
    ${COVERAGE_CMD_NAME} \
       --json \
-      ${COVERAGE_THRESHOLDS} \
       --root ${INPUT_SRC_DIR} \
       --output ${COVERAGE_REPORT} \
-      ${INPUT_COVERAGE_SEARCH_DIR} \
-      --print-summary \
       -j ${PARALLEL} \
       --exclude-unreachable-branches \
-      --delete
+      --delete \
+      ${INPUT_COVERAGE_SEARCH_DIR}
+
+   echo "Report file generated: ${COVERAGE_REPORT}"
 }
 
 main
