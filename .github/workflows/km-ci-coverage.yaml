@@ -117,31 +117,6 @@ jobs:
       - name: Build and push KM  image
         run: make -C tests coverage-testenv-image push-coverage-testenv-image
 
-  kkm-build:
-    name: Build KKM, save test artifacts
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - name: Build KKM and KKM tests
-        run: make -C kkm/kkm && make -C kkm/test_kkm
-
-      - name: Install KKM
-        run: sudo insmod kkm/kkm/kkm.ko
-
-      - name: Sanity check - unit test
-        run: ./kkm/test_kkm/test_kkm
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: kkm
-          path: |
-            kkm/kkm/kkm.ko
-            kkm/test_kkm/test_kkm
-          retention-days: 7
-
   coverage-azure:
     name: Check code coverage on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
@@ -166,12 +141,15 @@ jobs:
         run: |
           make -C tests test-coverage-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
 
+      - run: |
+        ls build/km/coverage
+
       - name: Store coverage files in artifact
         uses: actions/upload-artifact@v2
         with:
           name: azure-coverage
           path: |
-            build/km/coverage
+            build/km/coverage/report.json
           retention-days: 7
 
   coverage-ec2:
@@ -200,12 +178,15 @@ jobs:
         run: |
           make -C tests test-coverage-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
 
+      - run: |
+        ls build/km/coverage
+
       - name: Store coverage files in artifact
         uses: actions/upload-artifact@v2
         with:
           name: ec2-coverage
           path: |
-            build/km/coverage
+            build/km/coverage/report.json
           retention-days: 7
 
   generate-report:
@@ -221,21 +202,23 @@ jobs:
         with:
           name: azure-coverage
           path: .
+      - run: mv report.json build/km/coverage/azure.json
 
-      - name: Generate Azure report
-        run: make -C tests generate-coverage-report REPORT_NAME=azure_report
+      # - name: Generate Azure report
+      #   run: make -C tests generate-coverage-report REPORT_NAME=azure_report
 
       - name: Get AWS report
         uses: actions/download-artifact@v2
         with:
           name: ec2-coverage
           path: .
+      - run: mv report.json build/km/coverage/aws.json
 
-      - name: Generate Azure report
-        run: make -C tests generate-coverage-report REPORT_NAME=aws_report
+      # - name: Generate Azure report
+      #   run: make -C tests generate-coverage-report REPORT_NAME=aws_report
 
       - name: generate HTML report and upload to git
-        run: make -C tests upload-coverage-withdocker GITHUB_TOKEN=${{ secrets.GH_TOKEN }}
+        run: make -C tests upload-coverage-ci GITHUB_TOKEN=${{ secrets.GH_TOKEN }}
 
   # This step is to clean up on-demand runner. They work in conjunction with start-runner.
   # Make sure to add dependencies in both "needs" clauses
