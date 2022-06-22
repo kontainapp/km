@@ -141,8 +141,7 @@ jobs:
         run: |
           make -C tests test-coverage-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
 
-      - run: |
-        ls build/km/coverage
+      - run: ls build/km/coverage
 
       - name: Store coverage files in artifact
         uses: actions/upload-artifact@v2
@@ -178,8 +177,7 @@ jobs:
         run: |
           make -C tests test-coverage-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
 
-      - run: |
-        ls build/km/coverage
+      - run: ls build/km/coverage
 
       - name: Store coverage files in artifact
         uses: actions/upload-artifact@v2
