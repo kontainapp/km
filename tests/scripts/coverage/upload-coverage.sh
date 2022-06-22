@@ -76,7 +76,6 @@ function main {
    rm -f report/*.html
    #copy new report files here
    cp ${REPORT_PATH}/*.html report/
-   cp ${REPORT_PATH}/*.css report/
    # stage all changes, including new files
    git add --all
    # commit changes
