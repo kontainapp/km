@@ -33,7 +33,7 @@ COPY --chown=appuser:appuser scripts scripts/
 COPY --chown=appuser:appuser test_snapshot.py test_snapshot.py
 COPY --chown=appuser:appuser cpython/pybuilddir.txt cpython/
 COPY --chown=appuser:appuser cpython/python.km test_unittest.py ./
-ADD --chown=appuser:appuser extras.tar.gz /home/appuser/km/build/
+ADD --chown=appuser:appuser extras.tar.gz /home/appuser/km
 COPY --chown=appuser:appuser cpython/Modules cpython/Modules/
 COPY --chown=appuser:appuser cpython/Lib cpython/Lib/
 # TODO: construct path names once, instread of hardcoding them here

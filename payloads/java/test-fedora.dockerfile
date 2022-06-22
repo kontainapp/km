@@ -16,7 +16,7 @@
 FROM fedora:31
 
 # Contains the scripts needs to run tests.
-ADD extras.tar.gz /home/appuser/km/build/
+ADD extras.tar.gz /home/appuser/km
 ARG JAVA_DIR=/home/appuser/km/build/opt/kontain
 ENV PATH=${JAVA_DIR}/bin:${PATH}
 COPY . ${JAVA_DIR}

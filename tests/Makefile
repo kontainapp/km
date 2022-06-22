@@ -37,7 +37,7 @@ ifneq ($(VALGRIND),)
 endif
 
 # Base command to run BATS, and derivatives - how to run outside of container, in container, etc..
-BATS_CMD := run_bats_tests.sh --match=\"${MATCH}\" --usevirt=\"${USEVIRT}\" ${IGNORE_FAILURE} ${__BATS_JOBS} ${__VALGRIND}
+BATS_CMD := run_bats_tests.sh --match=${MATCH} --usevirt=${USEVIRT} ${IGNORE_FAILURE} ${__BATS_JOBS} ${__VALGRIND}
 # this is how we run in outside of container
 TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
 COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_COVERAGE_BIN}/km
@@ -159,27 +159,13 @@ ifneq ($(no_deps),match)
 endif
 
 COVERAGE_SCRIPT := ${TOP}/tests/scripts/coverage/coverage.sh
-COVERAGE_REPORT_SCRIPT := ${TOP}/tests/scripts/coverage/coverage-report.sh
 UPLOAD_COVERAGE_SCRIPT := ${TOP}/tests/scripts/coverage/upload-coverage.sh
 
 test-coverage:
 	${COVERAGE_TEST_CMD}
 	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} report
-	${COVERAGE_REPORT_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
-
-# Since coverage is only relevent to km, put it here instead of image.mk
-DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage/coverage.sh
-DOCKER_COVERAGE_CMD := ${DOCKER_COVERAGE_SCRIPT} ${DOCKER_KM_TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR}
-DOCKER_COVERAGE_NAME := kontain-coverage-test
 
 upload-coverage: .check_image_version
 	${UPLOAD_COVERAGE_SCRIPT} ${COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
-
-generate-coverage-report:
-	${COVERAGE_SCRIPT} ${TOP}/km ${COVERAGE_KM_BLDDIR} ${COVERAGE_KM_BLDDIR} ${REPORT_NAME}
-
-upload-coverage-ci: .check_image_version
-	${COVERAGE_REPORT_SCRIPT} ${TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR} ${IMAGE_VERSION}
-	${UPLOAD_COVERAGE_SCRIPT} ${DOCKER_COVERAGE_KM_BLDDIR} ${IMAGE_VERSION} ${GITHUB_TOKEN}
 
 .PHONY: all clean test help gdb test-coverage

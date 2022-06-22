@@ -19,8 +19,6 @@
 
 set -e ; [ "$TRACE" ] && set -x
 
-set -x
-
 # usage upload-coverage.sh <report-directory> <github-token>
 readonly PROGNAME=$(basename ${0})
 readonly REPORT_PATH=${1}
@@ -29,7 +27,9 @@ readonly GITHUB_TOKEN=${3}
 
 readonly TIME=$(date -u)
 
-readonly REPORT_REPO_WORKDIR=${REPORT_PATH}/km-coverage-report
+readonly CURRENT_USER=$(id -u -n)
+readonly USER_HOME=$(eval echo ~$CURRENT_USER)
+readonly REPORT_REPO_WORKDIR=${USER_HOME}/km-coverage-report
 
 function usage() {
     cat <<- EOF
@@ -64,26 +64,32 @@ function main {
       REPORT_REPO_URL=https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
    fi
 
+
    # clone report repository
    git clone ${REPORT_REPO_URL} ${REPORT_REPO_WORKDIR}
    cd ${REPORT_REPO_WORKDIR}
+   # configure identity
+   if [[ ! -z ${GITHUB_TOKEN} ]]; then
+      git config user.email "coverage-pipeline@kontain.app"
+      git config user.name "Coverage Pipeline"
+   fi
 
    # Git will not automatically fetch all the tags, so we force it here.
    git fetch --tags --force
-   #check_tag ${IMAGE_VERSION}
+   check_tag ${TAG}
 
    # remove all checkpout files
    rm -f report/*.html
    #copy new report files here
    cp ${REPORT_PATH}/*.html report/
-   cp ${REPORT_PATH}/*.css report/
    # stage all changes, including new files
    git add --all
    # commit changes
-   git commit -m "KM Coverage Report: ${TIME} ${IMAGE_VERSION}"
-   # # add tag
-   git tag ${IMAGE_VERSION}
-   git push && git push --tags
+   git commit -m "KM Coverage Report: ${TIME} ${TAG}"
+   # add tag
+   git tag --force ${TAG}
+   git push https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
+   git push --tags --force https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
 
    # # delete reports directory
    rm -rf ${REPORT_REPO_WORKDIR}

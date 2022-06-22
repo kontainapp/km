@@ -21,5 +21,5 @@ ARG IMAGE_VERSION=latest
 
 FROM kontainapp/test-python-${DTYPE}:${IMAGE_VERSION}
 COPY --chown=appuser:appuser python.kmd.mimalloc python.km
-ADD --chown=appuser:appuser extras.tar.gz /home/appuser/km/build/
+ADD --chown=appuser:appuser extras.tar.gz /home/appuser/km
 ENV PATH "$PATH:/home/appuser/km/build/opt/kontain/bin"
