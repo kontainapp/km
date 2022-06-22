@@ -20,6 +20,6 @@ FROM kontainapp/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
 
 # turn off km symlink trick and minimal shell interpretation
 ADD --chown=0:0 busybox/_install run-test.sh run-all-tests.sh ./
-ADD --chown=appuser:appuser extras.tar.gz /home/appuser/km/build
+ADD --chown=appuser:appuser extras.tar.gz /home/appuser/km
 ENV PATH "$PATH:/home/appuser/km/build/opt/kontain/bin"
 
