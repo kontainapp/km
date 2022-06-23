@@ -134,7 +134,7 @@ fi
 
 @test "setup_basic($test_type): basic vm setup, workload invocation and exit value check (exit_value_test$ext)" {
    if [ -z "${VALGRIND}" ]; then
-      cnt=100
+      cnt=200
    else
       cnt=7
    fi
@@ -727,7 +727,7 @@ fi
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
    gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'div0 ('
-   # Check number of segments. Shoudl be 8
+   # Check number of segments. Should be 12 for normal run, and 10 for valgrind, as valgrind disables vdso/vvar
    nload=`readelf -l ${CORE} | grep LOAD | wc -l`
    if [ -z "${VALGRIND}" ]; then
       assert [ "${nload}" == "12" ]
