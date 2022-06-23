@@ -45,7 +45,7 @@ SRC_SHA ?= $(shell git rev-parse HEAD)
 SRC_VERSION := $(shell git rev-parse HEAD)
 BUILD_TIME := $(shell date -Iminutes)
 
-# all build results (including obj etc..)  go under this one
+# all build results (including obj etc..) go under this one
 BLDTOP := ${TOP}/build
 
 # Build results go here.
@@ -91,7 +91,7 @@ DTYPE ?= fedora
 USER  ?= appuser
 
 # needed in 'make withdocker' so duplicating it here, for now
-BUILDENV_IMG  ?= kontainapp/buildenv-${COMPONENT}-${DTYPE}
+BUILDENV_IMG ?= kontainapp/buildenv-${COMPONENT}-${DTYPE}
 
 DOCKER_BUILD_LABEL := \
 	--label "Vendor=Kontain.app" \

@@ -194,7 +194,7 @@ jobs:
           name: km-build
           path: .
 
-      - name: Changing permissions for build/opt/bintain/bin/* files
+      - name: Changing permissions for build/opt/kontain/bin/* files
         run: |
           ls -R build
           chmod +x build/opt/kontain/bin/*
@@ -314,10 +314,10 @@ jobs:
           name: krun-static
           path: build/container-runtime
 
-      - name: rename rkun.static to krun
+      - name: rename krun.static to krun
         run: |
           set -x
-          # rename rkun.static to krun
+          # rename krun.static to krun
           mv build/container-runtime/krun.static build/opt/kontain/bin/krun
           mv container-runtime/docker_config.sh build/opt/kontain/bin/docker_config.sh
 
