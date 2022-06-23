@@ -460,9 +460,6 @@ static void km_vcpu_exit_all(km_vcpu_t* vcpu)
 {
    machine.exit_group = 1;   // make sure we exit and not waiting for gdb
    km_vcpu_pause_all(vcpu, ALL);
-   if (km_gdb_client_is_attached() != 0) {
-      km_gdb_notify(vcpu, GDB_KMSIGNAL_THREADEXIT);
-   }
    km_signal_machine_fini();
    km_vcpu_stopped(vcpu);
 }
