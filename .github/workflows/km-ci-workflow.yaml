@@ -43,7 +43,7 @@ on:
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
     # Minute Hour DayOfMonth MonthOfYear DayOfWeek
     - cron: "0 7 * * *" # Daily build midnight pacific time (UTC + 7)
-    # Gitgub doc says:
+    # Github doc says:
     #    Scheduled workflows run on the latest commit on the default or base branch.
     #    The shortest interval you can run scheduled workflows is once every 5 minutes.
 
@@ -97,7 +97,7 @@ jobs:
           az-tenant-id: ${{ secrets.SP_TENANT }}
           az-image: "auto-github-runner:L0BaseImage"
           az-location: "westus"
-          az-vm-size: "Standard_D4s_v3"
+          az-vm-size: "Standard_D4s_v5"
 
   km-build:
     name: Build KM
@@ -194,7 +194,7 @@ jobs:
           name: km-build
           path: .
 
-      - name: Changing permissions for build/opt/bintain/bin/* files
+      - name: Changing permissions for build/opt/kontain/bin/* files
         run: |
           ls -R build
           chmod +x build/opt/kontain/bin/*
@@ -281,7 +281,7 @@ jobs:
           name: ${{ env.CRUN_SHA}}
           path: /tmp/krun-static
 
-      # regardles how we got krun-static (by retrieving persistent artifact or bulding)
+      # regardless how we got krun-static (by retrieving persistent artifact or building)
       # upload it as krun-static artifact
       - uses: actions/upload-artifact@v2
         with:
@@ -308,16 +308,16 @@ jobs:
           name: km-build
           path: .
 
-      #get static krun created by krun-static-build job
+      # get static krun created by krun-static-build job
       - uses: actions/download-artifact@v2
         with:
           name: krun-static
           path: build/container-runtime
 
-      - name: rename rkun.static to krun
+      - name: rename krun.static to krun
         run: |
           set -x
-          # rename rkun.static to krun
+          # rename krun.static to krun
           mv build/container-runtime/krun.static build/opt/kontain/bin/krun
           mv container-runtime/docker_config.sh build/opt/kontain/bin/docker_config.sh
 
@@ -331,7 +331,7 @@ jobs:
 
       # Note: need to have kkm.run ready for this step
       #     make withdocker TARGET=kkm-pkg
-      # because dependencies force it to re-build everything. We want to use pre-built km, krun (static) , kkm and so un
+      # because dependencies force it to re-build everything. We want to use pre-built km, krun (static), kkm and so on
       #
       - name: Create kontain bundles
         run: |
@@ -600,7 +600,7 @@ jobs:
           # kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
           sleep 20
 
-      # uncomment to get logs from damonset.
+      # uncomment to get logs from daemonset.
       #- name: Check k8s install
       #  run: |
       #    set -x

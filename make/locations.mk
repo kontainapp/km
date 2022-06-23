@@ -45,7 +45,7 @@ SRC_SHA ?= $(shell git rev-parse HEAD)
 SRC_VERSION := $(shell git rev-parse HEAD)
 BUILD_TIME := $(shell date -Iminutes)
 
-# all build results (including obj etc..)  go under this one
+# all build results (including obj etc..) go under this one
 BLDTOP := ${TOP}/build
 
 # Build results go here.
@@ -91,7 +91,7 @@ DTYPE ?= fedora
 USER  ?= appuser
 
 # needed in 'make withdocker' so duplicating it here, for now
-BUILDENV_IMG  ?= kontainapp/buildenv-${COMPONENT}-${DTYPE}
+BUILDENV_IMG ?= kontainapp/buildenv-${COMPONENT}-${DTYPE}
 
 DOCKER_BUILD_LABEL := \
 	--label "Vendor=Kontain.app" \
@@ -113,7 +113,12 @@ DOCKER_RUN_CLEANUP ?= --rm
 DOCKER_INTERACTIVE ?= -it
 
 DOCKER_KRUN_RUNTIME ?= --runtime krun
+# valgrind crashes (out of memory?) with default nofile
+ifneq (${VALGRIND},)
+DOCKER_RUN := docker run --ulimit nofile=262144:262144 --sysctl net.ipv4.ip_unprivileged_port_start=1024 ${DOCKER_RUN_CLEANUP}
+else
 DOCKER_RUN := docker run --sysctl net.ipv4.ip_unprivileged_port_start=1024 ${DOCKER_RUN_CLEANUP}
+endif
 # DOCKER_RUN_BUILD are used for building and other operations that requires
 # output of files to volumes. When we need to write files to the volumes mapped
 # in, we need to map the current used into the container, since containers are

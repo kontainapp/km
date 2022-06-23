@@ -35,7 +35,7 @@ include ${TOP}/make/locations.mk
 # customization of build should be in custom.mk
 include ${TOP}/make/custom.mk
 
-CFLAGS = ${COPTS} ${LOCAL_COPTS} -Wall -ggdb3 -pthread $(addprefix -I , ${INCLUDES}) -ffile-prefix-map=${TOP}/=
+CFLAGS = ${COPTS} ${LOCAL_COPTS} -Wall -ggdb3 -pthread $(addprefix -I , ${INCLUDES}) -ffile-prefix-map=${TOP}/= -fdebug-prefix-map=${TOP}/=
 DEPS = $(addprefix ${BLDDIR}/, $(addsuffix .d, $(basename ${SOURCES})))
 OBJS = $(sort $(addprefix ${BLDDIR}/, $(addsuffix .o, $(basename ${SOURCES}))))
 BLDEXEC = $(addprefix ${BLDDIR}/,${EXEC})

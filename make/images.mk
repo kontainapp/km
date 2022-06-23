@@ -205,7 +205,7 @@ validate-runenv-image: ## Validate runtime image
 	docker-daemon:${RUNENV_DEMO_IMG_TAGGED} \
 	"$${tmp_bash_array[@]}" 2>&1 | grep "${RUNENV_VALIDATE_EXPECTED}"
 
-push-runenv-image:  runenv-image ## pushes image.
+push-runenv-image: runenv-image ## pushes image.
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(RUNENV_IMG):$(IMAGE_VERSION) TO=$(RUNENV_IMG_REG):$(IMAGE_VERSION)

@@ -74,7 +74,7 @@ COPTS := -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 	-fomit-frame-pointer \
 	-ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math \
 	-fno-tree-loop-distribute-patterns -fno-stack-protector \
-	${CWERRS} ${CWARNS} -ffile-prefix-map=${TOP}/=
+	${CWERRS} ${CWARNS} -ffile-prefix-map=${TOP}/= -fdebug-prefix-map=${TOP}/=
 
 include ${TOP}/make/actions.mk
 
