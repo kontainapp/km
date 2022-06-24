@@ -623,7 +623,7 @@ fi
 }
 
 @test "threads_basic($test_type): threads with TLS, create, exit and join (hello_2_loops_tls_test$ext)" {
-   run km_with_timeout hello_2_loops_tls_test.km
+   run km_with_timeout hello_2_loops_tls_test$ext
    assert_success
    if [ $test_type != "static" ] ; then
       refute_line --partial 'BAD'
@@ -631,11 +631,7 @@ fi
 }
 
 @test "threads_basic_tsd($test_type): threads with TSD, create, exit and join (hello_2_loops_test$ext)" {
-   for i in $(seq 1 3); do # only fail if all 3 tries failed
-      echo pass $i
-      run km_with_timeout hello_2_loops_test$ext
-      if [ $status == 0 ] ; then break; fi
-   done
+   run km_with_timeout hello_2_loops_test$ext
    assert_success
 }
 
@@ -854,20 +850,11 @@ fi
 }
 
 @test "pthread_cancel($test_type): (pthread_cancel_test$ext)" {
-   for i in $(seq 1 3); do # only fail if all 3 tries failed
-      echo pass $i
-      run km_with_timeout pthread_cancel_test$ext -v
-      if [[ $status == 0 && \
-         ! "$output" =~ "PTHREAD_CANCEL_ASYNCHRONOUS" && \
-         "$output" =~ "PTHREAD_CANCEL_DEFERRED" &&
-         "$output" =~ "thread_func(): end of DISABLE_CANCEL_TEST" ]]
-      then break; else status=1; fi
-   done
+   run km_with_timeout pthread_cancel_test$ext -v
    assert_success
-   # This is what we really need to check once, once pthread_cancel stops being noisy
-   # assert_line --partial "thread_func(): end of DISABLE_CANCEL_TEST"
-   # refute_line --partial "PTHREAD_CANCEL_ASYNCHRONOUS"
-   # assert_line --partial "PTHREAD_CANCEL_DEFERRED"
+   assert_line --partial "thread_func(): end of DISABLE_CANCEL_TEST"
+   refute_line --partial "PTHREAD_CANCEL_ASYNCHRONOUS"
+   assert_line --partial "PTHREAD_CANCEL_DEFERRED"
 }
 
 # C++ tests

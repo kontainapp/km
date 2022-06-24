@@ -26,7 +26,7 @@ TOP := $(shell git rev-parse --show-toplevel)
 
 # scan all these and 'make' stuff there
 # do not build dynamic krun for ci
-ifneq (${RUN_IN_CI}, )
+ifneq (${RUN_IN_CI},)
 	SUBDIRS := lib km km_cli runtime tests tools/bin include
 else
 	SUBDIRS := lib km km_cli runtime tests container-runtime tools/bin include

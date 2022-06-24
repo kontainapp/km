@@ -684,12 +684,11 @@ km_cond_timedwait(pthread_cond_t* cond, pthread_mutex_t* mutex, struct timespec*
       }                                                                                            \
    } while (0)
 
-#define km_pkill(vcpu, signo)                                                                      \
+#define km_pkill(thread, signo, val)                                                               \
    do {                                                                                            \
       int ret;                                                                                     \
-      sigval_t val = {.sival_ptr = vcpu};                                                          \
-      if ((ret = pthread_sigqueue(vcpu->vcpu_thread, signo, val)) != 0) {                          \
-         km_err(ret, "pthread_sigqueue(" #vcpu "->vcpu_thread, " #signo ") Failed ");              \
+      if ((ret = pthread_sigqueue(thread, signo, val)) != 0) {                                     \
+         km_err(ret, "pthread_sigqueue(" #thread ", " #signo ", " #val ") Failed ");               \
       }                                                                                            \
    } while (0)
 
