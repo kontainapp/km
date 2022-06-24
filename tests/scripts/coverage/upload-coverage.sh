@@ -19,8 +19,6 @@
 
 set -e ; [ "$TRACE" ] && set -x
 
-set -x
-
 # usage upload-coverage.sh <report-directory> <github-token>
 readonly PROGNAME=$(basename ${0})
 readonly REPORT_PATH=${1}
