@@ -91,7 +91,6 @@ void km_vcpu_fini(km_vcpu_t* vcpu, int join_thr)
    }
    if (join_thr) {
       pthread_cancel(vcpu->vcpu_thread);
-      // km_pkill(vcpu, KM_SIGVCPUSTOP);
       pthread_join(vcpu->vcpu_thread, NULL);
    }
    machine.vm_vcpus[vcpu->vcpu_id] = NULL;
@@ -385,16 +384,22 @@ km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
    return NULL;
 }
 
+static inline void km_signal_vcpu_stop(km_vcpu_t* vcpu)
+{
+   sigval_t val = {.sival_int = vcpu->vcpu_id | 0x10000};
+
+   km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP, val);
+}
+
 /*
- * Force KVM to exit by sending a signal to vcpu thread that is IN_GUEST. The signal handler can be
- * a noop, just need to exist.
- * Returns 1 if the vcpu is IN_GUEST and 0 otherwise
+ * Force KVM to exit by sending a signal to vcpu thread that is IN_GUEST. The signal handler can
+ * be a noop, just need to exist. Returns 1 if the vcpu is IN_GUEST and 0 otherwise
  */
 static int km_vcpu_in_guest(km_vcpu_t* vcpu, void* skip_me)
 {
    if (vcpu->state == IN_GUEST && vcpu != skip_me) {
-      km_pkill(vcpu, KM_SIGVCPUSTOP);
-      km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
+      km_signal_vcpu_stop(vcpu);
+      km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id, 1);
       return 1;
    }
    return 0;
@@ -403,10 +408,10 @@ static int km_vcpu_in_guest(km_vcpu_t* vcpu, void* skip_me)
 // Returns 1 if the vcpu is not PAUSED and sends KM_SIGVCPUSTOP to it
 static int km_vcpu_not_paused(km_vcpu_t* vcpu, void* skip_me)
 {
-   if (vcpu->state == PAUSED || vcpu->state == HCALL_INT || vcpu == skip_me) {
+   if (vcpu->state == PAUSED || vcpu == skip_me) {
       return 0;
    }
-   km_pkill(vcpu, KM_SIGVCPUSTOP);
+   km_signal_vcpu_stop(vcpu);
    km_infox(KM_TRACE_VCPU, "VCPU %d signalled to pause", vcpu->vcpu_id);
    return 1;
 }

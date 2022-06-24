@@ -438,6 +438,15 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
    km_hc_ret_t ret = HC_CONTINUE;
    if (km_hcalls_table[hc] != NULL) {
       ret = km_hcalls_table[hc](vcpu, hc, ga_kma);
+      // check for interrupted hypercall, set restart if needed
+      if (ga_kma->hc_ret == -EINTR && vcpu->state == HCALL_INT) {
+         vcpu->regs_valid = 0;
+         km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
+         vcpu->restart = 1;
+         vcpu->state = HYPERCALL;
+      } else {
+         vcpu->restart = 0;
+      }
    } else {
       km_infox(KM_TRACE_HC, "Unimplemented hypercall %d (%s)", hc, km_hc_name_get(hc));
       ga_kma->hc_ret = (uint64_t)-ENOTSUP;
@@ -568,13 +577,6 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
                machine.pause_requested,
                vcpu->gdb_vcpu_state.gdb_run_state,
                vcpu->state);
-      if (hc_ret == -EINTR && vcpu->state == HCALL_INT) {   // interrupted hypercall, need to restart
-         vcpu->regs_valid = 0;
-         km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
-         vcpu->restart = 1;
-      } else {
-         vcpu->restart = 0;
-      }
       vcpu->state = PAUSED;
       km_cond_wait(&machine.pause_cv, &machine.pause_mtx);
       vcpu->state = HYPERCALL;
@@ -821,13 +823,16 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
  * Signal handler. Used when we want VCPU to stop. For vcpu->state == IN_GUEST the signal causes
  * KVM_RUN exit with -EINTR. It also interrupts some system calls, which we mark with HCALL_INT.
  *
+ * We use this for two reasons - to stop vcpus for snapshot, exit or gdb; or to notify there is a
+ * signal pending. We distinguish these two cases by setting 0x10000 bit in the si_int field.
+ *
  * Calling km_info() and km_infox() from this function seems to occasionally cause a mutex
  * deadlock in the regular expression code called from km_info*().
  */
 static void km_vcpu_pause_sighandler(int signum, siginfo_t* info, void* ucontext_unused)
 {
-   if (signum == KM_SIGVCPUSTOP) {
-      km_vcpu_t* vcpu = info->si_value.sival_ptr;
+   if ((info->si_int & 0x10000) != 0) {
+      km_vcpu_t* vcpu = machine.vm_vcpus[info->si_int & ~0x10000];
       if (vcpu->state == HYPERCALL) {
          vcpu->state = HCALL_INT;
       }
