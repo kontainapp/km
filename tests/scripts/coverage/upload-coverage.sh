@@ -29,7 +29,9 @@ readonly GITHUB_TOKEN=${3}
 
 readonly TIME=$(date -u)
 
-readonly REPORT_REPO_WORKDIR=${REPORT_PATH}/km-coverage-report
+readonly CURRENT_USER=$(id -u -n)
+readonly USER_HOME=$(eval echo ~$CURRENT_USER)
+readonly REPORT_REPO_WORKDIR=${USER_HOME}/km-coverage-report
 
 function usage() {
     cat <<- EOF
@@ -76,7 +78,7 @@ function main {
 
    # Git will not automatically fetch all the tags, so we force it here.
    git fetch --tags --force
-   #check_tag ${IMAGE_VERSION}
+   check_tag ${TAG}
 
    # remove all checkpout files
    rm -f report/*.html
@@ -85,11 +87,11 @@ function main {
    # stage all changes, including new files
    git add --all
    # commit changes
-   git commit -m "KM Coverage Report: ${TIME} ${IMAGE_VERSION}"
+   git commit -m "KM Coverage Report: ${TIME} ${TAG}"
    # add tag
-   git tag ${IMAGE_VERSION}
+   git tag --force ${TAG}
    git push https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
-   git push --tags https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
+   git push --tags --force https://${GITHUB_TOKEN}@github.com/kontainapp/km-coverage-report.git
 
    # # delete reports directory
    rm -rf ${REPORT_REPO_WORKDIR}
