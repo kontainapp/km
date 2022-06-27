@@ -44,6 +44,9 @@ include ${TOP}/make/locations.mk
 TEST_IMG := kontainapp/test-${COMPONENT}-${DTYPE}
 TEST_IMG_TAGGED := ${TEST_IMG}:${IMAGE_VERSION}
 
+COVERAGE_TEST_IMG := kontainapp/coverage-test-${COMPONENT}-${DTYPE}
+COVERAGE_TEST_IMG_TAGGED := ${COVERAGE_TEST_IMG}:${IMAGE_VERSION}
+
 BUILDENV_IMG := kontainapp/buildenv-${COMPONENT}-${DTYPE}
 BUILDENV_IMG_TAGGED := ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION}
 
@@ -58,6 +61,8 @@ RUNENV_DEMO_IMG_TAGGED := ${RUNENV_DEMO_IMG}:${IMAGE_VERSION}
 # image names with proper registry
 TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(TEST_IMG))
 BUILDENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(BUILDENV_IMG))
+
+COVERAGE_TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(COVERAGE_TEST_IMG))
 
 RUNENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_IMG))
 RUNENV_DEMO_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_DEMO_IMG))
@@ -76,23 +81,53 @@ RUNENV_DEMO_PATH ?= .
 
 define testenv_prep =
 	$(call testenv_preprocess)
-	tar -czvf ${TESTENV_PATH}/extras.tar.gz \
-		-C ${BLDTOP} \
-						opt/kontain/runtime/libc.so \
-						opt/kontain/runtime/ld-linux-x86-64.so.2 \
-						opt/kontain/runtime/libstdc++.so \
-						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
-						opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
-						opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
-						opt/kontain/bin/km \
-						opt/kontain/lib/libmimalloc.so \
-						opt/kontain/lib/libmimalloc.so.1.7 \
-						opt/kontain/alpine-lib/usr/lib/libffi.so \
-						opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
-						opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
-						opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
-						opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
-						opt/kontain/runtime/libpthread.so
+	tar -czf ${TESTENV_PATH}/extras.tar.gz \
+		-C ${TOP} \
+			build/opt/kontain/runtime/libc.so \
+			build/opt/kontain/runtime/ld-linux-x86-64.so.2 \
+			build/opt/kontain/runtime/libstdc++.so \
+			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
+			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
+			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
+			build/opt/kontain/lib/libmimalloc.so \
+			build/opt/kontain/lib/libmimalloc.so.1.7 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
+			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
+			build/opt/kontain/runtime/libpthread.so \
+			build/opt/kontain/bin/km \
+			km \
+			include \
+
+	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
+endef
+
+define coverage_testenv_prep =
+	$(call testenv_preprocess)
+	tar -czf ${TESTENV_PATH}/extras.tar.gz \
+		--transform='s/coverage\/bin/bin/g' \
+		-C ${TOP} \
+			build/opt/kontain/runtime/libc.so \
+			build/opt/kontain/runtime/ld-linux-x86-64.so.2 \
+			build/opt/kontain/runtime/libstdc++.so \
+			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
+			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
+			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
+			build/opt/kontain/lib/libmimalloc.so \
+			build/opt/kontain/lib/libmimalloc.so.1.7 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
+			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
+			build/opt/kontain/runtime/libpthread.so \
+			build/opt/kontain/coverage/bin/km \
+			build/km/coverage \
+			km \
+			include \
+
 	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
 endef
 
@@ -115,6 +150,22 @@ testenv-image:
 	$(call testenv_cleanup)
 	$(call testenv_cleanup_extras)
 
+coverage-testenv-image:
+	$(call clean_container_image,${COVERAGE_TEST_IMG_TAGGED})
+	$(call coverage_testenv_prep)
+	${DOCKER_BUILD} --no-cache \
+			--build-arg=branch=${SRC_SHA} \
+			--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
+			--build-arg=IMAGE_VERSION=${IMAGE_VERSION} \
+			--build-arg=MODE=${BUILD} \
+			${TESTENV_IMAGE_EXTRA_ARGS} \
+			-t ${COVERAGE_TEST_IMG_TAGGED} \
+			-f ${TEST_DOCKERFILE} \
+			${TESTENV_PATH}
+	$(call testenv_cleanup)
+	$(call testenv_cleanup_extras)
+
+
 buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
 	${DOCKER_BUILD} -t ${BUILDENV_IMG_TAGGED} \
 		--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
@@ -126,10 +177,20 @@ push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont wa
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG):$(IMAGE_VERSION) TO=$(TEST_IMG_REG):$(IMAGE_VERSION)
 
+push-coverage-testenv-image: coverage-testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .push-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
+		FROM=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION) TO=$(COVERAGE_TEST_IMG_REG):$(IMAGE_VERSION)
+
 pull-testenv-image: ## pulls test image. Mainly need for CI
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG_REG):$(IMAGE_VERSION) TO=$(TEST_IMG):$(IMAGE_VERSION)
+
+pull-coverage-testenv-image: ## pulls test image. Mainly need for CI
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
+		FROM=$(COVERAGE_TEST_IMG_REG):$(IMAGE_VERSION) TO=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION)
 
 # a few of Helpers for push/pull image and re-tag
 .push-image:
@@ -237,11 +298,32 @@ CONTAINER_TEST_CMD ?= \
 
 CONTAINER_TEST_ALL_CMD ?= ${CONTAINER_TEST_CMD}
 
+DOCKER_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage/coverage.sh
+DOCKER_UPLOAD_COVERAGE_SCRIPT := ${DOCKER_KM_TOP}/tests/scripts/coverage/upload-coverage.sh
+
 test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_CMD}
 
 test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
+
+test-coverage-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
+	mkdir -p ${COVERAGE_KM_BLDDIR}
+	chmod o+w ${COVERAGE_KM_BLDDIR}
+	${DOCKER_RUN_TEST} --name covcontainer_${IMAGE_VERSION} -v ${COVERAGE_KM_BLDDIR}:/tmp ${COVERAGE_TEST_IMG_TAGGED} \
+		/bin/bash -c "if [ -f /tmp/km_main.gcda ];then cp /tmp/*.gcda  ${DOCKER_COVERAGE_KM_BLDDIR}; fi\
+			 	&& ${CONTAINER_TEST_CMD} \
+				&& cp ${DOCKER_COVERAGE_KM_BLDDIR}/*.gcda /tmp"
+	chmod o-w ${COVERAGE_KM_BLDDIR}
+
+upload-coverage-withdocker: .check_image_version
+	mkdir -p ${COVERAGE_KM_BLDDIR}
+	${DOCKER_RUN} --name covcontainer_${IMAGE_VERSION} -v ${COVERAGE_KM_BLDDIR}:/tmp ${COVERAGE_TEST_IMG_TAGGED} \
+		/bin/bash -c "if [ -f /tmp/km_main.gcda ];then cp /tmp/*.gcda  ${DOCKER_COVERAGE_KM_BLDDIR}; fi\
+			&& ls -l ${DOCKER_COVERAGE_KM_BLDDIR} \
+			&& ${DOCKER_COVERAGE_SCRIPT} ${DOCKER_KM_TOP}/km ${DOCKER_COVERAGE_KM_BLDDIR} ${DOCKER_COVERAGE_KM_BLDDIR} \
+			&&${DOCKER_UPLOAD_COVERAGE_SCRIPT} ${DOCKER_COVERAGE_KM_BLDDIR} ${IMAGE_VERSION} ${GITHUB_TOKEN}"
+
 
 # === BUILDENV LOCAL
 
@@ -270,8 +352,6 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 	@if ! docker image inspect ${BUILDENV_IMG_TAGGED} > /dev/null ; then \
 		echo -e "$(RED)${BUILDENV_IMG_TAGGED} is not available. Use 'make buildenv-image' or 'make pull-buildenv-image' to build or pull$(NOCOLOR)"; false; fi
 
-${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
-	sudo sh -c "mkdir -p $@ && chown ${CURRENT_UID}:${CURRENT_GID} $@ && chmod 777 $@"
 
 DOCKER_REG ?= docker.io
 RELEASE_REG = ${DOCKER_REG}/kontainapp

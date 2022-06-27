@@ -25,7 +25,7 @@ ARG MODE=Release
 ENV MODE=$MODE VERS=$VERS NODETOP=/home/appuser/node
 
 COPY --chown=appuser:appuser node /home/$USER/node
-ADD --chown=appuser:appuser ./extras.tar.gz /home/$USER/km/build
+ADD --chown=appuser:appuser ./extras.tar.gz /home/$USER/km
 COPY --chown=appuser:appuser scripts /home/$USER/scripts
 COPY --chown=appuser:appuser skip_* /home/$USER/
 COPY --chown=appuser:appuser platform:f35_skip /home/$USER/

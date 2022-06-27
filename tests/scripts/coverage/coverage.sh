@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2021 Kontain Inc
+# Copyright 2022 Kontain Inc
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ readonly PROGNAME=$(basename $0)
 readonly INPUT_SRC_DIR=$1
 readonly INPUT_COVERAGE_SEARCH_DIR=$2
 readonly OUTPUT_DIR=$3
-readonly REPORT_VERSION=$4
+
 if [[ -z ${REPORT_VERSION} ]]; then
     readonly REPORT_TITLE="Kontain Monitor Code Coverage Report"
 else
@@ -33,50 +33,44 @@ fi
 readonly COVERAGE_CMD_NAME=gcovr
 readonly COVERAGE_REPORT=${OUTPUT_DIR}/report.html
 readonly PARALLEL=$(nproc --all)
-if [[ -z ${MATCH} || ${MATCH} == '.*' ]]; then
-    readonly COVERAGE_THRESHOLDS="--fail-under-branch 40  --fail-under-line 55"
-fi
 
 function usage() {
     cat <<- EOF
-usage: $PROGNAME <INPUT_SRC_DIR> <INPUT_COVERAGE_SEARCH_DIR> <OUTPUT_DIR> <Optional REPORT_VERSION>
+usage: $PROGNAME <INPUT_SRC_DIR> <INPUT_COVERAGE_SEARCH_DIR> <OUTPUT_DIR> <Optional REPORT_NAME>
 
-Run test coverage analysis.
+Run test coverage analysis. Will geberate .json file. Use coverage-report.sh to generate HTML reports.
 
 EOF
     exit 1
 }
 
 function check_params() {
-    if [[ -z ${INPUT_SRC_DIR} ]]; then usage; fi
-    if [[ -z ${INPUT_COVERAGE_SEARCH_DIR} ]]; then usage; fi
-    if [[ -z ${OUTPUT_DIR} ]]; then usage; fi
+   if [[ -z ${INPUT_SRC_DIR} ]]; then usage; fi
+   if [[ -z ${INPUT_COVERAGE_SEARCH_DIR} ]]; then usage; fi
+   if [[ -z ${OUTPUT_DIR} ]]; then usage; fi
+
+   if ! command -v ${COVERAGE_CMD_NAME} &> /dev/null ; then
+      echo "Error: ${COVERAGE_CMD_NAME} is not installed"
+      exit 1
+   fi
+
 }
 
 function main() {
     check_params
 
-    if [[ ! -x $(command -v ${COVERAGE_CMD_NAME}) ]]; then
-        echo "Error: ${COVERAGE_CMD_NAME} is not installed"
-        exit 1
-    fi
+   #generate json report to be combined
+   ${COVERAGE_CMD_NAME} \
+      --html \
+      --html-details \
+      --root ${INPUT_SRC_DIR} \
+      --output ${COVERAGE_REPORT} \
+      -j ${PARALLEL} \
+      --exclude-unreachable-branches \
+      --print-summary \
+      ${INPUT_COVERAGE_SEARCH_DIR}
 
-    ${COVERAGE_CMD_NAME} \
-        --html-title "${REPORT_TITLE}" \
-        --html \
-        --html-details \
-        ${COVERAGE_THRESHOLDS} \
-        --root ${INPUT_SRC_DIR} \
-        --output ${COVERAGE_REPORT} \
-        ${INPUT_COVERAGE_SEARCH_DIR} \
-        --print-summary \
-        -j ${PARALLEL} \
-        --exclude-unreachable-branches \
-        --delete
-
-    if [[ -f ${COVERAGE_REPORT} ]]; then
-        echo "Report is located at ${COVERAGE_REPORT}"
-    fi
+   echo "Report file generated: ${COVERAGE_REPORT}"
 }
 
 main

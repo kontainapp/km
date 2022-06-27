@@ -51,8 +51,8 @@ subdirs: $(SUBDIRS)
 clean: subdirs ## clean all build artifacts.
 test: subdirs ## run basic tests (KM tests and short payload tests)
 test-all: subdirs ## run extended tests(KM tests full payload tests)
-coverage: subdirs ## build km with code coverage support
-covclean: subdirs ## clean coverage-related build artifacts
+coverage: subdirs ## build with coverage
+coverage-clean: subdirs ## clean coverage-related build artifacts
 test-coverage: subdirs ## run tests with code coverage support
 buildenv-image: subdirs ## builds and packages all build environment image
 buildenv-local-fedora: subdirs ## make local build environment for KM
@@ -112,20 +112,7 @@ ${BLDSOLIB}: $(OBJS)
 
 endif # ifneq (${LIB},)
 
-.PHONY: coverage
-ifneq (${COVERAGE},)
-coverage:
-	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" COPTS="$(COPTS) --coverage"
-
-covclean:
-	$(MAKE) BLDTYPE=$(COV_BLDTYPE) MAKEFLAGS="$(MAKEFLAGS)" clean
-
-else
 coverage: all
-
-covclean:
-	@echo `pwd`: Nothing to do for '$@'.
-endif
 
 OBJDIRS = $(sort $(dir ${OBJS}))
 ${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exists
@@ -133,8 +120,6 @@ ${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exis
 ${OBJDIRS}:
 	mkdir -p $@
 
-${KM_OPT_BIN_PATH}:
-	mkdir -p $@
 
 # The sed regexp below is the same as in Visual Studion Code problemWatcher in tasks.json.
 # \\1 - filename :\\2:\\3: - position (note \\3: is optional) \\4 - severity \\5 - message
@@ -156,10 +141,16 @@ ${BLDDIR}/%.d: %.c
 
 test test-all: all
 
+
 # using :: allows other makefile to add rules for clean-up, and keep the same name
 clean::
 	rm -rf ${BLDDIR}
-	rm -rf ${KM_OPT_BIN_PATH}/*
+	rm -rf ${KM_OPT_BIN_PATH}
+	rm -rf ${KM_OPT_BIN}
+
+coverage-clean::
+	rm -rf ${COVERAGE_KM_BLDDIR}
+	rm -rf ${KM_OPT_COVERAGE}
 
 #
 # do not generate .d file for some targets

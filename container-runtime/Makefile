@@ -37,11 +37,11 @@ include ${TOP}/make/actions.mk
 
 # Building crun shows errors indicating generated header files are not built yet,
 # so force single threading the make.
-all:	$(CRUNDIR)/Makefile .makefile_check | ${KM_OPT_BIN_PATH}
+all:	$(CRUNDIR)/Makefile .makefile_check | ${KM_OPT_BIN}
 	make -j1 -C $(CRUNDIR) all
-	cp $(CRUNDIR)/crun ${KM_OPT_BIN_PATH}
-	ln -f ${KM_OPT_BIN_PATH}/crun ${KM_OPT_BIN_PATH}/krun
-	ln -f ${KM_OPT_BIN_PATH}/crun ${KM_OPT_BIN_PATH}/krun-label-trigger
+	cp $(CRUNDIR)/crun ${KM_OPT_BIN}
+	ln -f ${KM_OPT_BIN}/crun ${KM_OPT_BIN}/krun
+	ln -f ${KM_OPT_BIN}/crun ${KM_OPT_BIN}/krun-label-trigger
 	mkdir -p ${BLDDIR}
 	cp $(CRUNDIR)/crun ${BLDDIR}/crun
 	ln -f ${BLDDIR}/crun ${BLDDIR}/krun
@@ -50,13 +50,14 @@ all:	$(CRUNDIR)/Makefile .makefile_check | ${KM_OPT_BIN_PATH}
 $(CRUNDIR)/Makefile:
 	cd $(CRUNDIR); ./autogen.sh; ./configure
 
+
 # Run crun's tests
 test:	all
 	@if [ ! -x ${KM_OPT_KM} ] ; then \
 		echo -e "${RED}Error: ${KM_OPT_KM} is not there or is not executable${NOCOLOR}"; false; \
 	fi
-	OCI_RUNTIME=${KM_OPT_BIN_PATH}/krun make -C $(CRUNDIR) check-TESTS
-	OCI_RUNTIME=${KM_OPT_BIN_PATH}/crun make -C $(CRUNDIR) check-TESTS
+	OCI_RUNTIME=${KM_OPT_BIN}/krun make -C $(CRUNDIR) check-TESTS
+	OCI_RUNTIME=${KM_OPT_BIN}/crun make -C $(CRUNDIR) check-TESTS
 
 clean::
 	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) clean

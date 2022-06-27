@@ -28,7 +28,7 @@ WORKDIR ${DHOME}
 
 COPY --chown=appuser:appuser dweb/dweb dweb/js/  dweb/css/ dweb/fonts/ dweb/*.htm* dweb/*.png dweb/*.ico ${DHOME}/
 RUN ln -s km demo-dweb && ln -s dweb demo-dweb.km
-ADD --chown=appuser:appuser extras.tar.gz ${KM_TOP}/build/
+ADD --chown=appuser:appuser extras.tar.gz ${KM_TOP}
 
 EXPOSE 8080/tcp
 ENV KM_VERBOSE="GENERIC"
