@@ -1,5 +1,6 @@
 Regular ![regular](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg?branch=master&event=push)
 Nightly ![nightly](https://github.com/kontainapp/km/actions/workflows/km-ci-workflow.yaml/badge.svg?branch=master&event=schedule)
+![coverage](https://img.shields.io/endpoint?url=https://kontainapp.github.io/km-coverage-report/report/badge.json)
 
 # Kontain
 
