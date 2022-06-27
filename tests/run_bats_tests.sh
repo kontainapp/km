@@ -43,6 +43,7 @@ Usage:  ${BASH_SOURCE[0]} [options]
   --usevirt=virtmanager   optional argument to override virtualization platform kvm or kkm
   --jobs=count            optional argument to override parallel runs. Default is the result of nproc command (`nproc`)
   --rt_ld_path=path       optional argument to specify runtime libraries to use intead of /opt/kontain/*** in standard LD_LIBRARY_PATH format
+  --valgrind              run tests with valgrind
 EOF
 }
 

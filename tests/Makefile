@@ -32,14 +32,12 @@ ifneq ($(TEST_JOBS),.)
   __BATS_JOBS := --jobs=${TEST_JOBS}
 endif
 
-ifneq ($(VALGRIND),)
-  __VALGRIND=--valgrind
-endif
 
 # Base command to run BATS, and derivatives - how to run outside of container, in container, etc..
-BATS_CMD := run_bats_tests.sh --match=${MATCH} --usevirt=${USEVIRT} ${IGNORE_FAILURE} ${__BATS_JOBS} ${__VALGRIND}
+BATS_CMD := run_bats_tests.sh --match=${MATCH} --usevirt=${USEVIRT} ${IGNORE_FAILURE} ${__BATS_JOBS}
 # this is how we run in outside of container
 TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
+VALGRIND_TEST_CMD := ${TEST_CMD} --valgrind
 COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_COVERAGE_BIN}/km
 # this is how we run tests in containers:
 CONTAINER_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_OPT_KONTAIN_BIN}/km
@@ -74,9 +72,7 @@ SEXECS := ${SRC_SHR:%.c=%.so}
 # Only tests matching this regexp will be run
 MATCH ?= .*
 
-all coverage: ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
-
-
+all coverage valgrind: ${EXECS} ${SEXECS} ## Build all test, for Linux and KM
 
 ${EXECS} ${SEXECS}: libhelper.a
 
@@ -160,6 +156,9 @@ endif
 
 COVERAGE_SCRIPT := ${TOP}/tests/scripts/coverage/coverage.sh
 UPLOAD_COVERAGE_SCRIPT := ${TOP}/tests/scripts/coverage/upload-coverage.sh
+
+test-valgrind:
+	${VALGRIND_TEST_CMD}
 
 test-coverage:
 	${COVERAGE_TEST_CMD}

@@ -135,7 +135,7 @@ testenv_cleanup = rm ${TESTENV_PATH}/extras.tar.gz
 testenv_cleanup_extras=$(if ${TESTENV_EXTRA_FILES}, @for f in ${TESTENV_EXTRA_FILES}; do f=$$(basename $${f}); echo "rm -rf ${TESTENV_PATH}/$${f}"; rm -rf ${TESTENV_PATH}/$${f}; done )
 
 ## build test image with test tools and code
-testenv-image:
+testenv-image valgrind-testenv-image:
 	$(call clean_container_image,${TEST_IMG_TAGGED})
 	$(call testenv_prep)
 	${DOCKER_BUILD} --no-cache \
@@ -172,7 +172,7 @@ buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
 		${BUILDENV_IMAGE_EXTRA_ARGS} \
 		${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 
-push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
+push-testenv-image push-valgrind-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG):$(IMAGE_VERSION) TO=$(TEST_IMG_REG):$(IMAGE_VERSION)
@@ -182,7 +182,7 @@ push-coverage-testenv-image: coverage-testenv-image ## pushes image. Blocks ':la
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION) TO=$(COVERAGE_TEST_IMG_REG):$(IMAGE_VERSION)
 
-pull-testenv-image: ## pulls test image. Mainly need for CI
+pull-testenv-image pull-valgrind-testenv-image: ## pulls test image. Mainly need for CI
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG_REG):$(IMAGE_VERSION) TO=$(TEST_IMG):$(IMAGE_VERSION)
@@ -306,6 +306,9 @@ test-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to
 
 test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
+
+test-valgrind-withdocker:
+	${DOCKER_RUN_TEST} --ulimit nofile=262144:262144 ${TEST_IMG_TAGGED} ${CONTAINER_TEST_CMD} --valgrind
 
 test-coverage-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
 	mkdir -p ${COVERAGE_KM_BLDDIR}

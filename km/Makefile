@@ -26,7 +26,8 @@ SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c km_mem.c
 VERSION_SRC := km_main.c # it has branch/version info, so rebuild it if git info changes
 INCLUDES := ${TOP}/include
 EXEC := km
-ifneq (${VALGRIND},)
+
+ifeq (valgrind, $(filter valgrind,$(MAKECMDGOALS)))
 	LOCAL_COPTS := -Werror -D_GNU_SOURCE -DKM_GPA_AT_16T=1
 	LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -pie
 else

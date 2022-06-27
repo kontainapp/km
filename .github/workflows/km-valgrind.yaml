@@ -96,10 +96,10 @@ jobs:
         run: make -C tests pull-buildenv-image .buildenv-local-lib
 
       - name: Build KM and tests using buildenv image
-        run: make -j withdocker RUN_IN_CI=1 VALGRIND=1
+        run: make -j withdocker RUN_IN_CI=1 TARGET=valgrind
 
       - name: Build and push KM testenv image
-        run: make -C tests testenv-image push-testenv-image
+        run: make -C tests valgrind-testenv-image push-valgrind-testenv-image
 
   km-test:
     name: KM, KVM on Azure
@@ -118,10 +118,10 @@ jobs:
           sudo udevadm control --reload-rules && sudo udevadm trigger
 
       - name: Pull testenv images
-        run: make -C tests pull-testenv-image
+        run: make -C tests pull-valgrind-testenv-image
 
       - name: KM with KVM Test - Azure
-        run: make -C tests test-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= VALGRIND=1
+        run: make -C tests test-valgrind-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
         timeout-minutes: 60
 
   kkm-test-vms:
@@ -145,7 +145,7 @@ jobs:
         run: make -C tests pull-testenv-image
 
       - name: KM with KKM Test - AWS
-        run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= VALGRIND=1
+        run: make -C tests test-valgrind-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= 
         timeout-minutes: 60
 
   slack-workflow-status:
