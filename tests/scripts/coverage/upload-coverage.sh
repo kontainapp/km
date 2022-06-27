@@ -80,8 +80,10 @@ function main {
 
    # remove all checkpout files
    rm -f report/*.html
-   #copy new report files here
+   # copy new report files here
    cp ${REPORT_PATH}/*.html report/
+   # copy badge.json
+   cp ${REPORT_PATH}/badge.json report/
    # stage all changes, including new files
    git add --all
    # commit changes
