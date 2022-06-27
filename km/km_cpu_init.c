@@ -273,21 +273,6 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
 }
 
 /*
- * KKM driver keeps debug and syscall state.
- * When KM reuses VCPU this state becomes stale.
- * This ioctl bring KKM and KM state to sync.
- */
-static inline int km_vmmonitor_vcpu_init(km_vcpu_t* vcpu)
-{
-   int retval = 0;
-
-   if (machine.vm_type == VM_TYPE_KKM) {
-      km_kkm_vcpu_init(vcpu);
-   }
-   return retval;
-}
-
-/*
  * km_vcpu_get() finds vcpu slot that can be used for a new vcpu.
  * It could be previously used slot left by exited thread, or a new one. Previously used vcpus are
  * maintained in an SLIST. If that SLIST is empty we allocate and initialize a new one. When a
@@ -305,7 +290,7 @@ km_vcpu_t* km_vcpu_get(void)
       vcpu->state = STARTING;
       km_mutex_unlock(&machine.vm_vcpu_mtx);
       km_gdb_vcpu_state_init(vcpu);
-      km_vmmonitor_vcpu_init(vcpu);
+      km_vmdriver_vcpu_init(vcpu);
       return vcpu;
    }
    // no idle VCPUs, try to allocate a new one
