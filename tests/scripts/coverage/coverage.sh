@@ -77,12 +77,12 @@ function main() {
    LINE_LABEL=`echo ${SUMMARY} | awk 'NR==1{print $1}'`
    LINE_VALUE=`echo ${SUMMARY} | awk 'NR==1{print $2}'`
    LINE_VALUE_NUM=`echo ${LINE_VALUE} | sed 's/%//g'`
-   LINE_VALUE_NUM=$(echo "($LINE_VALUE_NUM*100)/1"|bc)
+   LINE_VALUE_NUM=`echo | awk -v num=$LINE_VALUE_NUM '{print (num*100)/1}'`
 
    BRANCH_LABEL=`echo ${SUMMARY} | awk 'NR==1{print $7}'`
    BRANCH_VALUE=`echo ${SUMMARY} | awk 'NR==1{print $8}'`
    BRANCH_VALUE_NUM=`echo ${BRANCH_VALUE} | sed 's/%//g'`
-   BRANCH_VALUE_NUM=$(echo "($BRANCH_VALUE_NUM*100)/1"|bc)
+   BRANCH_VALUE_NUM=`echo | awk -v num=$BRANCH_VALUE_NUM '{print (num*100)/1}'`
 
    echo ${LINE_LABEL} ${LINE_VALUE} ${LINE_VALUE_NUM}
    echo ${BRANCH_LABEL} ${BRANCH_VALUE} ${BRANCH_VALUE_NUM}
