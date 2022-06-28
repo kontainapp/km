@@ -41,6 +41,7 @@ VALGRIND_TEST_CMD := ${TEST_CMD} --valgrind
 COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_COVERAGE_BIN}/km
 # this is how we run tests in containers:
 CONTAINER_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_OPT_KONTAIN_BIN}/km
+CONTAINER_VARGRIND_TEST_CMD := ${CONTAINER_TEST_CMD} --valgrind
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files
 SRC_C := $(abspath $(wildcard *_test.c))

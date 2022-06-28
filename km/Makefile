@@ -27,28 +27,23 @@ VERSION_SRC := km_main.c # it has branch/version info, so rebuild it if git info
 INCLUDES := ${TOP}/include
 EXEC := km
 
+LOCAL_COPTS := -Werror -D_GNU_SOURCE -fpic
+LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd
+
 ifeq (valgrind, $(filter valgrind,$(MAKECMDGOALS)))
-	LOCAL_COPTS := -Werror -D_GNU_SOURCE -DKM_GPA_AT_16T=1
-	LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -pie
-else
-	LOCAL_COPTS := -Werror -D_GNU_SOURCE
-	LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -static-pie
-endif
-
-ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
+	LOCAL_COPTS += -DKM_GPA_AT_16T=1
+	LOCAL_LDOPTS += -pie
+else ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
 	BLDDIR := $(abspath ${TOP}/build/${FROMTOP}/coverage)
-	LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd -pie -lgcov
-	CFLAGS += --coverage -std=gnu11
+	LOCAL_LDOPTS += -pie -lgcov
+	LOCAL_COPTS += --coverage
+else
+	LOCAL_LDOPTS += -static-pie
 endif
-
 
 include ${TOP}/make/actions.mk
 
-coverage: CFLAGS += --coverage -std=gnu11
 coverage: all
-
-${BLDDIR}/km_guest_asmcode.o: CFLAGS += -fpic
-CFLAGS += -fpic
 
 coverage-clean::
 #	rm -rf ${COVERAGE_KM_BLDDIR}

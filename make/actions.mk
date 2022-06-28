@@ -53,7 +53,7 @@ test: subdirs ## run basic tests (KM tests and short payload tests)
 test-all: subdirs ## run extended tests(KM tests full payload tests)
 coverage: subdirs ## build with coverage
 coverage-clean: subdirs ## clean coverage-related build artifacts
-valgrind: subdirs
+valgrind: subdirs ## build for valgrind
 test-coverage: subdirs ## run tests with code coverage support
 buildenv-image: subdirs ## builds and packages all build environment image
 buildenv-local-fedora: subdirs ## make local build environment for KM
@@ -113,9 +113,7 @@ ${BLDSOLIB}: $(OBJS)
 
 endif # ifneq (${LIB},)
 
-coverage: all
-
-valgrind: all
+coverage valgrind: all
 
 OBJDIRS = $(sort $(dir ${OBJS}))
 ${OBJS} ${DEPS}: | ${OBJDIRS}	# order only prerequisite - just make sure it exists
