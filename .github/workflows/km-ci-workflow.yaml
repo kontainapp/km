@@ -404,6 +404,7 @@ jobs:
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
     needs: [start-runners, km-build-payloads, km-test-azure]
     steps:
+      # no need to checkout - just continue where tests left
       - name: Pull testenv images
         run: |
           make -C payloads -j pull-testenv-image
