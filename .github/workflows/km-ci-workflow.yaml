@@ -483,7 +483,7 @@ jobs:
         run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
         timeout-minutes: 15
 
-       - name: Kernel logs
+      - name: Kernel logs
         if: ${{ always() }}
         run: sudo dmesg --ctime
 
@@ -528,7 +528,7 @@ jobs:
         timeout-minutes: 20
 
       - name: Kernel logs
-        if: always()
+        if: ${{ always() }}
         run: sudo dmesg --ctime
 
   kkm-payloads-aws:
