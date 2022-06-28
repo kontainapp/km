@@ -395,6 +395,10 @@ jobs:
         run: make -C tests test-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
         timeout-minutes: 20
 
+      - name: Get kernel logs
+        if: always()
+        run: sudo dmesg --ctime
+
   km-payloads-azure:
     name: Payloads on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
@@ -422,6 +426,10 @@ jobs:
           make -C payloads/ -j pull-demo-runenv-image
           make -C payloads validate-runenv-image DOCKER_INTERACTIVE=
         timeout-minutes: 20
+
+       - name: Get kernel logs
+        if: failure()
+        run: sudo dmesg --ctime
 
   kkm-build:
     name: Build KKM, save test artifacts
@@ -477,7 +485,7 @@ jobs:
 
       - name: Get kernel logs
         if: always()
-        run: sudo dmesg
+        run: sudo dmesg --ctime
 
   kkm-test-aws:
     name: KM tests, KKM on AWS
@@ -519,6 +527,10 @@ jobs:
         run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
         timeout-minutes: 20
 
+      - name: Get kernel logs
+        if: always()
+        run: sudo dmesg --ctime
+
   kkm-payloads-aws:
     name: Payloads on AWS
     needs: [start-runners, km-build-payloads, kkm-test-aws]
@@ -546,6 +558,10 @@ jobs:
           make -C payloads/ -j pull-demo-runenv-image
           make -C payloads validate-runenv-image HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
         timeout-minutes: 20
+
+      - name: Get kernel logs
+        if: failure()
+        run: sudo dmesg --ctime
 
   minikube-testing:
     name: kubernetes tests against minikube
