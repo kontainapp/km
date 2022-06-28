@@ -396,7 +396,7 @@ jobs:
         timeout-minutes: 20
 
       - name: Kernel logs
-        if: always()
+        if: ${{ always() }}
         run: sudo dmesg --ctime
 
   km-payloads-azure:
@@ -428,7 +428,7 @@ jobs:
         timeout-minutes: 20
 
       - name: Kernel logs
-        if: failure()
+        if: ${{ failure() }}
         run: sudo dmesg --ctime
 
   kkm-build:
@@ -484,7 +484,7 @@ jobs:
         timeout-minutes: 15
 
        - name: Kernel logs
-        if: always()
+        if: ${{ always() }}
         run: sudo dmesg --ctime
 
   kkm-test-aws:
@@ -560,7 +560,7 @@ jobs:
         timeout-minutes: 20
 
       - name: Kernel logs
-        if: failure()
+        if: ${{ failure() }}
         run: sudo dmesg --ctime
 
   minikube-testing:
