@@ -174,29 +174,15 @@ COMPONENT := km
 #  	<os-type> is "fedora" by default. See ${TOP}/docker/build for supported OSes
 #
 
-# ifeq (${TARGET},test-coverage)
-# 	# Coverage is a special case that's neither build nor test. It's a combined
-# 	# step of running the tests and write to build dir, so we need both
-# 	# `--device=/dev/kvm` to run and the build options (user mapping for ex.).
-# 	_CMD := ${DOCKER_RUN_BUILD} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE}
-# else ifeq (${TARGET},test)
-# 	# Testing requires a different set of options to docker run commands.
-# 	_CMD := ${DOCKER_RUN_TEST}
-# else
-# 	_CMD := ${DOCKER_RUN_BUILD}
-# endif
-
-_CMD := ${DOCKER_RUN_BUILD}
-
 withdocker: ## Build using Docker container for build environment. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	# @if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${BUILDENV_IMG} ; then \
 	# 	echo -e "$(CYAN)${BUILDENV_IMG} is missing locally, will try to pull from registry. \
 	# 	Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
-	${_CMD} \
+	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${DOCKER_KM_TOP}:z \
 		-w ${DOCKER_KM_TOP}/${FROMTOP} \
+		--env MAKEFLAGS="$(MAKEFLAGS)" \
 		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
-		--env MAKEFLAGS="$(MAKEFLAGS)"
 		$(MAKE) $(TARGET)
 
 .PHONY: all clean test help withdocker
