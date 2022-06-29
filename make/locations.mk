@@ -141,7 +141,7 @@ DOCKER_COVERAGE_KM_BLDDIR := ${DOCKER_BLDTOP}/km/coverage
 
 ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
 	KM_OPT_BIN_PATH := ${KM_OPT_COVERAGE_BIN}
-else ifeq (valgrind, $(filter coverage,$(MAKECMDGOALS)))
+else ifeq (valgrind, $(filter valgrind,$(MAKECMDGOALS)))
 	KM_OPT_BIN_PATH := ${KM_OPT_VALGRIND_BIN}
 else
 	KM_OPT_BIN_PATH := ${KM_OPT_BIN}
