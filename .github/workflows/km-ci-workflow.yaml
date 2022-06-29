@@ -416,11 +416,18 @@ jobs:
           name: krun-static
           path: build/container-runtime
 
+      # get km
+      - uses: actions/download-artifact@v2
+        with:
+          name: km
+          path: .
+
       - name: rename krun.static to krun
         run: |
           sudo mkdir -p /opt/kontain/bin
           sudo mv build/container-runtime/krun.static /opt/kontain/bin/krun
-          sudo chmod +x /opt/kontain/bin/krun
+          sudo mv build/opt/kontain/bin/km /opt/kontain/bin/km
+          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
           sudo bash ./container-runtime/podman_config.sh
           sudo bash ./container-runtime/docker_config.sh
 
@@ -552,11 +559,18 @@ jobs:
           name: krun-static
           path: build/container-runtime
 
+      # get km
+      - uses: actions/download-artifact@v2
+        with:
+          name: km
+          path: .
+
       - name: rename krun.static to krun
         run: |
           sudo mkdir -p /opt/kontain/bin
           sudo mv build/container-runtime/krun.static /opt/kontain/bin/krun
-          sudo chmod +x /opt/kontain/bin/krun
+          sudo mv build/opt/kontain/bin/km /opt/kontain/bin/km
+          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
           sudo bash ./container-runtime/podman_config.sh
           sudo bash ./container-runtime/docker_config.sh
 
