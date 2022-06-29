@@ -157,7 +157,6 @@ jobs:
           path: |
             build/opt/kontain/bin/km
             build/opt/kontain/bin/kontain-gcc
-            build/opt/kontain/bin/krun
             build/opt/kontain/bin/shim
           retention-days: 7
 
@@ -368,21 +367,11 @@ jobs:
 
       - uses: actions/download-artifact@v2
         with:
-          name: km
-          path: /tmp/
-
-      - uses: actions/download-artifact@v2
-        with:
           name: km-build
           path: .
 
       - name: Configure KRUN
         run: |
-          sudo mkdir -p /opt/kontain/bin
-          sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
-          sudo bash ./container-runtime/podman_config.sh
-          sudo bash ./container-runtime/docker_config.sh
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
           sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger
@@ -500,11 +489,6 @@ jobs:
 
       - uses: actions/download-artifact@v2
         with:
-          name: km
-          path: /tmp/
-
-      - uses: actions/download-artifact@v2
-        with:
           name: km-build
           path: .
 
@@ -513,11 +497,6 @@ jobs:
           make -C kkm/kkm && make -C kkm/test_kkm
           sudo insmod kkm/kkm/kkm.ko
           ./kkm/test_kkm/test_kkm
-          sudo mkdir -p /opt/kontain/bin
-          sudo mv -t /opt/kontain/bin /tmp/km /tmp/krun
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
-          sudo bash ./container-runtime/podman_config.sh
-          sudo bash ./container-runtime/docker_config.sh
 
       - name: Pull testenv image
         run: |
