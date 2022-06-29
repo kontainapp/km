@@ -79,6 +79,9 @@ COVERAGE_KM_BLDDIR := ${BLDTOP}/km/coverage
 KM_OPT_COVERAGE := ${KM_OPT}/coverage
 KM_OPT_COVERAGE_BIN := ${KM_OPT}/coverage/bin
 
+VALGRIND_KM_BLDDIR := ${BLDTOP}/km/valgrind
+KM_OPT_VALGRIND_BIN := ${KM_OPT}/valgrind/bin
+
 # dockerized build
 # TODO: Some of these values should be moved to images.mk , but we have multiple
 # dependencies on that , so keeping it here for now
@@ -138,6 +141,8 @@ DOCKER_COVERAGE_KM_BLDDIR := ${DOCKER_BLDTOP}/km/coverage
 
 ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
 	KM_OPT_BIN_PATH := ${KM_OPT_COVERAGE_BIN}
+else ifeq (valgrind, $(filter coverage,$(MAKECMDGOALS)))
+	KM_OPT_BIN_PATH := ${KM_OPT_VALGRIND_BIN}
 else
 	KM_OPT_BIN_PATH := ${KM_OPT_BIN}
 endif

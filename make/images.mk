@@ -154,7 +154,7 @@ define valgrind_testenv_prep =
 			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
 			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
 			build/opt/kontain/runtime/libpthread.so \
-			build/opt/kontain/coverage/bin/km \
+			build/opt/kontain/valgrind/bin/km \
 			build/km/valgrind \
 			km \
 			include \
@@ -166,7 +166,7 @@ testenv_cleanup = rm ${TESTENV_PATH}/extras.tar.gz
 testenv_cleanup_extras=$(if ${TESTENV_EXTRA_FILES}, @for f in ${TESTENV_EXTRA_FILES}; do f=$$(basename $${f}); echo "rm -rf ${TESTENV_PATH}/$${f}"; rm -rf ${TESTENV_PATH}/$${f}; done )
 
 ## build test image with test tools and code
-testenv-image valgrind-testenv-image:
+testenv-image :
 	$(call clean_container_image,${TEST_IMG_TAGGED})
 	$(call testenv_prep)
 	${DOCKER_BUILD} --no-cache \
