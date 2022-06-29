@@ -192,7 +192,7 @@ withdocker: ## Build using Docker container for build environment. 'make withdoc
 	# @if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${BUILDENV_IMG} ; then \
 	# 	echo -e "$(CYAN)${BUILDENV_IMG} is missing locally, will try to pull from registry. \
 	# 	Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
-	echo ${_CMD} \
+	${_CMD} \
 		-v ${TOP}:${DOCKER_KM_TOP}:z \
 		-w ${DOCKER_KM_TOP}/${FROMTOP} \
 		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
