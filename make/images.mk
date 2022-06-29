@@ -363,7 +363,7 @@ test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
 
 test-valgrind-withdocker:
-	${DOCKER_RUN_TEST} --ulimit nofile=262144:262144 ${VALGRIND_IMG_TAGGED} ${CONTAINER_VARGRIND_TEST_CMD}
+	${DOCKER_RUN_TEST} --ulimit nofile=262144:262144 ${VALGRIND_TEST_IMG_TAGGED} ${CONTAINER_VARGRIND_TEST_CMD}
 
 test-coverage-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
 	mkdir -p ${COVERAGE_KM_BLDDIR}
