@@ -47,6 +47,9 @@ TEST_IMG_TAGGED := ${TEST_IMG}:${IMAGE_VERSION}
 COVERAGE_TEST_IMG := kontainapp/coverage-test-${COMPONENT}-${DTYPE}
 COVERAGE_TEST_IMG_TAGGED := ${COVERAGE_TEST_IMG}:${IMAGE_VERSION}
 
+VALGRIND_TEST_IMG := kontainapp/coverage-test-${COMPONENT}-${DTYPE}
+VALGRIND_TEST_IMG_TAGGED := ${VALGRIND_TEST_IMG}:${IMAGE_VERSION}
+
 BUILDENV_IMG := kontainapp/buildenv-${COMPONENT}-${DTYPE}
 BUILDENV_IMG_TAGGED := ${BUILDENV_IMG}:${BUILDENV_IMAGE_VERSION}
 
@@ -63,6 +66,7 @@ TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(TEST_IMG))
 BUILDENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(BUILDENV_IMG))
 
 COVERAGE_TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(COVERAGE_TEST_IMG))
+VALGRIND_TEST_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(VALGRIND_TEST_IMG))
 
 RUNENV_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_IMG))
 RUNENV_DEMO_IMG_REG := $(subst kontainapp/,$(REGISTRY)/,$(RUNENV_DEMO_IMG))
@@ -131,6 +135,33 @@ define coverage_testenv_prep =
 	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
 endef
 
+define valgrind_testenv_prep =
+	$(call testenv_preprocess)
+	tar -czf ${TESTENV_PATH}/extras.tar.gz \
+		--transform='s/valgrind\/bin/bin/g' \
+		-C ${TOP} \
+			build/opt/kontain/runtime/libc.so \
+			build/opt/kontain/runtime/ld-linux-x86-64.so.2 \
+			build/opt/kontain/runtime/libstdc++.so \
+			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
+			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
+			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
+			build/opt/kontain/lib/libmimalloc.so \
+			build/opt/kontain/lib/libmimalloc.so.1.7 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.6 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7 \
+			build/opt/kontain/alpine-lib/usr/lib/libffi.so.7.1.0 \
+			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
+			build/opt/kontain/runtime/libpthread.so \
+			build/opt/kontain/coverage/bin/km \
+			build/km/valgrind \
+			km \
+			include \
+
+	$(if ${TESTENV_EXTRA_FILES},cp -r --preserve=links ${TESTENV_EXTRA_FILES} ${TESTENV_PATH})
+endef
+
 testenv_cleanup = rm ${TESTENV_PATH}/extras.tar.gz
 testenv_cleanup_extras=$(if ${TESTENV_EXTRA_FILES}, @for f in ${TESTENV_EXTRA_FILES}; do f=$$(basename $${f}); echo "rm -rf ${TESTENV_PATH}/$${f}"; rm -rf ${TESTENV_PATH}/$${f}; done )
 
@@ -165,6 +196,20 @@ coverage-testenv-image:
 	$(call testenv_cleanup)
 	$(call testenv_cleanup_extras)
 
+valgrind-testenv-image:
+	$(call clean_container_image,${VALGRIND_TEST_IMG_TAGGED})
+	$(call valgrind_testenv_prep)
+	${DOCKER_BUILD} --no-cache \
+			--build-arg=branch=${SRC_SHA} \
+			--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
+			--build-arg=IMAGE_VERSION=${IMAGE_VERSION} \
+			--build-arg=MODE=${BUILD} \
+			${TESTENV_IMAGE_EXTRA_ARGS} \
+			-t ${VALGRIND_TEST_IMG_TAGGED} \
+			-f ${TEST_DOCKERFILE} \
+			${TESTENV_PATH}
+	$(call testenv_cleanup)
+	$(call testenv_cleanup_extras)
 
 buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
 	${DOCKER_BUILD} -t ${BUILDENV_IMG_TAGGED} \
@@ -172,7 +217,7 @@ buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
 		${BUILDENV_IMAGE_EXTRA_ARGS} \
 		${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
 
-push-testenv-image push-valgrind-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
+push-testenv-image: testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .push-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG):$(IMAGE_VERSION) TO=$(TEST_IMG_REG):$(IMAGE_VERSION)
@@ -182,7 +227,12 @@ push-coverage-testenv-image: coverage-testenv-image ## pushes image. Blocks ':la
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION) TO=$(COVERAGE_TEST_IMG_REG):$(IMAGE_VERSION)
 
-pull-testenv-image pull-valgrind-testenv-image: ## pulls test image. Mainly need for CI
+push-valgrind-testenv-image: valgrind-testenv-image ## pushes image. Blocks ':latest' - we dont want to step on each other
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .push-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
+		FROM=$(VALGRIND_TEST_IMG):$(IMAGE_VERSION) TO=$(VALGRIND_TEST_IMG_REG):$(IMAGE_VERSION)
+
+pull-testenv-image: ## pulls test image. Mainly need for CI
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(TEST_IMG_REG):$(IMAGE_VERSION) TO=$(TEST_IMG):$(IMAGE_VERSION)
@@ -191,6 +241,11 @@ pull-coverage-testenv-image: ## pulls test image. Mainly need for CI
 	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
 		IMAGE_VERSION="$(IMAGE_VERSION)" \
 		FROM=$(COVERAGE_TEST_IMG_REG):$(IMAGE_VERSION) TO=$(COVERAGE_TEST_IMG):$(IMAGE_VERSION)
+
+pull-valgrind-testenv-image: ## pulls test image. Mainly need for CI
+	$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" .check_image_version .pull-image \
+		IMAGE_VERSION="$(IMAGE_VERSION)" \
+		FROM=$(VALGRIND_TEST_IMG_REG):$(IMAGE_VERSION) TO=$(VALGRIND_TEST_IMG):$(IMAGE_VERSION)
 
 # a few of Helpers for push/pull image and re-tag
 .push-image:

@@ -31,6 +31,7 @@ LOCAL_COPTS := -Werror -D_GNU_SOURCE -fpic
 LOCAL_LDOPTS := -Wl,--script=km_guest_ldcmd
 
 ifeq (valgrind, $(filter valgrind,$(MAKECMDGOALS)))
+	BLDDIR := $(abspath ${TOP}/build/${FROMTOP}/valgrind)
 	LOCAL_COPTS += -DKM_GPA_AT_16T=1
 	LOCAL_LDOPTS += -pie
 else ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
@@ -44,8 +45,4 @@ endif
 include ${TOP}/make/actions.mk
 
 coverage: all
-
-coverage-clean::
-#	rm -rf ${COVERAGE_KM_BLDDIR}
-#	rm -rf ${KM_OPT_COVERAGE}
 
