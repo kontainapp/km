@@ -420,7 +420,7 @@ jobs:
         run: |
           sudo mkdir -p /opt/kontain/bin
           sudo mv build/container-runtime/krun.static /opt/kontain/bin/krun
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
+          sudo chmod +x /opt/kontain/bin/krun
           sudo bash ./container-runtime/podman_config.sh
           sudo bash ./container-runtime/docker_config.sh
 
@@ -556,7 +556,7 @@ jobs:
         run: |
           sudo mkdir -p /opt/kontain/bin
           sudo mv build/container-runtime/krun.static /opt/kontain/bin/krun
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
+          sudo chmod +x /opt/kontain/bin/krun
           sudo bash ./container-runtime/podman_config.sh
           sudo bash ./container-runtime/docker_config.sh
 
