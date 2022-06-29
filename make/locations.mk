@@ -194,7 +194,7 @@ endif
 # needs to explicitly points to bash.
 SHELL=/bin/bash
 
-${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
+${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_VALGRIND_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
 	mkdir -p $@ && chmod 777 $@
 
 # Helper when we need to make sure IMAGE_VERSION is defined and not 'latest'

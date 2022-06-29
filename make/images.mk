@@ -400,7 +400,7 @@ buildenv-local-fedora: .buildenv-local-dnf .buildenv-local-lib ## make local bui
 # It'd a prerequisite for all further builds and needs to be called right after building
 # or pull the buildenv-image. Call it via 'make buildenv-local-fedora' or 'make .buildenv-local-lib'
 # so that libs are on the host and can be copied to runenv-image and testenv-image
-.buildenv-local-lib: .buildenv-local-check-image | ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}
+.buildenv-local-lib: .buildenv-local-check-image | ${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_VALGRIND_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}
 	docker create --name tmp_env ${BUILDENV_IMG_TAGGED}
 	sudo docker cp tmp_env:/opt/kontain/. ${KM_OPT}
 	sudo chown --recursive ${CURRENT_UID}:${CURRENT_GID} ${BLDTOP}
