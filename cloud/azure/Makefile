@@ -101,7 +101,7 @@ login-cli: .check_tools  ## Non-interactive login to Azure, Azure Container Regi
 CI_IMAGE_PURGE_AGE ?= 3d
 CI_IMAGE_PURGE_TIMEOUT ?= 1800
 CI_IMAGE_NAMES := busybox dweb dynamic-base dynamic-base-large dynamic-python jdk-11.0.8 node python
-CI_IMAGE_REPOS_TO_PURGE := test-km-fedora $(patsubst %,test-%-fedora,$(CI_IMAGE_NAMES)) $(patsubst %,demo-runenv-%,$(CI_IMAGE_NAMES)) runenv-kontain-installer
+CI_IMAGE_REPOS_TO_PURGE := test-km-fedora coverage-test-km-fedora valgrind-test-km-fedora $(patsubst %,test-%-fedora,$(CI_IMAGE_NAMES)) $(patsubst %,demo-runenv-%,$(CI_IMAGE_NAMES)) runenv-kontain-installer
 CI_IMAGE_DRY_RUN ?= --dry-run
 # "image purge" command to execute on each registry. We *ONLY* clean up images tagged as ci-*
 CI_IMAGE_PURGE_CMD=mcr.microsoft.com/acr/acr-cli:0.1 purge --registry {{.Run.Registry}} \
