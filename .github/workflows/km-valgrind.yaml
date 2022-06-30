@@ -64,6 +64,7 @@ jobs:
         uses: ./workflow-actions/start-cloud-runners
         with:
           public-keys-dir: ${{ github.workspace }}/cloud/ssh
+          secrets: ${{ secrets }}
 
   # km-build:
   #   name: Build KM, push test image

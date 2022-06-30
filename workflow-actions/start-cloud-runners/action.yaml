@@ -4,6 +4,9 @@ inputs:
   public-keys-dir:
     description: Directory containing ssh keys
     required: true
+  secrets:
+    description: github secrets
+    required: true
 outputs:
   run-ons:
     description: started runners
@@ -20,16 +23,16 @@ runs:
           runner-user: kontain
           subnet: "10.0.0.0"
           public-keys-dir: ${{ inputs.public-keys-dir }}
-          ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ec2-access-key-id: ${{ inputs.secrets.AWS_ACCESS_KEY_ID }}
+          ec2-secret-access-key: ${{ inputs.secrets.AWS_SECRET_ACCESS_KEY }}
           ec2-region: "us-east-2"
           ec2-image: "L0BaseImage"
           ec2-instance-type: "m5.xlarge"
           ec2-vpc-name: "github-runner"
-          az-subscription-id: ${{ secrets.SP_SUBSCRIPTION_ID }}
-          az-client-id: ${{ secrets.SP_APPID }}
-          az-secret: ${{ secrets.SP_PASSWORD }}
-          az-tenant-id: ${{ secrets.SP_TENANT }}
+          az-subscription-id: ${{ inputs.secrets.SP_SUBSCRIPTION_ID }}
+          az-client-id: ${{ inputs.secrets.SP_APPID }}
+          az-secret: ${{ inputs.secrets.SP_PASSWORD }}
+          az-tenant-id: ${{ inputs.secrets.SP_TENANT }}
           az-image: "auto-github-runner:L0BaseImage"
           az-location: "westus"
           az-vm-size: "Standard_D4s_v5"
