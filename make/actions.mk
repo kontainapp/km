@@ -175,9 +175,9 @@ COMPONENT := km
 #
 
 withdocker: ## Build using Docker container for build environment. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
-	# @if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${BUILDENV_IMG} ; then \
-	# 	echo -e "$(CYAN)${BUILDENV_IMG} is missing locally, will try to pull from registry. \
-	# 	Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
+	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${BUILDENV_IMG} ; then \
+		echo -e "$(CYAN)${BUILDENV_IMG} is missing locally, will try to pull from registry. \
+		Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${DOCKER_KM_TOP}:z \
 		-w ${DOCKER_KM_TOP}/${FROMTOP} \

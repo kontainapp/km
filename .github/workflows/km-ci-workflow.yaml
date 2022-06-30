@@ -73,7 +73,7 @@ jobs:
     outputs:
       run-ons: ${{ steps.start-cloud-runner.outputs.run-ons }}
     steps:
-      - name: Get public Keys
+      - name: Checkout to get public keys
         uses: actions/checkout@v2
 
       - name: Start Cloud runners
@@ -103,7 +103,8 @@ jobs:
     name: Build KM
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           submodules: true
 
@@ -124,7 +125,8 @@ jobs:
           echo ==== CPU Info
           lscpu
 
-      - run: make -C cloud/azure login-cli
+      - name: Login into Azure Repository
+        run: make -C cloud/azure login-cli
 
       - name: Prepare KM build env
         run: make -C tests pull-buildenv-image .buildenv-local-lib
@@ -134,10 +136,6 @@ jobs:
 
       - name: Build KM and tests using buildenv image
         run: make -j withdocker RUN_IN_CI=1
-
-      - name: Build KM for coverage
-        run: make -C km -j withdocker TARGET=coverage
-        if: env.TEST_COVERAGE == 'true'
 
       - name: Build and push KM testenv image
         run: make -C tests testenv-image push-testenv-image
@@ -151,19 +149,11 @@ jobs:
           mkdir build/opt/kontain/bin/shim
           cp -r build/cloud/k8s/deploy/shim/* build/opt/kontain/bin/shim
 
-      - uses: actions/upload-artifact@v2
-        with:
-          name: km
-          path: |
-            build/opt/kontain/bin/km
-            build/opt/kontain/bin/kontain-gcc
-            build/opt/kontain/bin/shim
-          retention-days: 7
-
       # passing hello_test.kmd that is required by testenv of payloads - it already has correct RPATH.
       # passing hello_test.c and libhelper.a
       # because we will need to rebuild hello_test.kmd with correct RPATH for runtime environments
-      - uses: actions/upload-artifact@v2
+      - name: Upload km-build artifact
+        uses: actions/upload-artifact@v2
         with:
           name: km-build
           path: |
@@ -180,25 +170,28 @@ jobs:
           retention-days: 7
 
   km-build-payloads:
-    name: Build payloads and create test images
+    name: Build payloads with test and demo images
     runs-on: ubuntu-20.04
     needs: km-build
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           submodules: true
 
-      - uses: actions/download-artifact@v2
+      - name: Download km-build artifact
+        uses: actions/download-artifact@v2
         with:
           name: km-build
           path: .
 
-      - name: Changing permissions for build/opt/kontain/bin/* files
+      - name: Change permissions for build/opt/kontain/bin/* files
         run: |
           ls -R build
           chmod +x build/opt/kontain/bin/*
 
-      - run: make -C cloud/azure login-cli
+      - name: Login into Azure Repository
+        run: make -C cloud/azure login-cli
 
       - name: Prepare KM build env
         run: make -C tests pull-buildenv-image .buildenv-local-lib
@@ -232,7 +225,8 @@ jobs:
     name: Build static KRUN binary
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           submodules: recursive
       - name: Set env
@@ -243,7 +237,7 @@ jobs:
       # Note: to figure out where krun needs to be rebuild ot not we use SHA of the container-runtime/crun/ directory
       # in teh step above. That SHA becomes artifact name. If there were changes to krun, SHA will change
       # forcing the re-build
-      - name: check artifact
+      - name: Check if artifact exists
         id: check-artifact
         uses: kontainapp/persistent-artifact@v1
         with:
@@ -260,7 +254,7 @@ jobs:
           path: .cache
           key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
 
-      - name: Build krun
+      - name: Build static krun
         if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
         run: |
           set -x
@@ -274,7 +268,8 @@ jobs:
 
       # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
       # and was built in the previous step, upload it with SHA as artifact name
-      - uses: actions/upload-artifact@v2
+      - name: Upload krun-static under SHA to be available for persistent check (see above)
+        uses: actions/upload-artifact@v2
         if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
         with:
           name: ${{ env.CRUN_SHA}}
@@ -282,7 +277,8 @@ jobs:
 
       # regardless how we got krun-static (by retrieving persistent artifact or building)
       # upload it as krun-static artifact
-      - uses: actions/upload-artifact@v2
+      - name: Upload krun.static artifact
+        uses: actions/upload-artifact@v2
         with:
           name: krun-static
           path: /tmp/krun-static/krun.static
@@ -297,32 +293,36 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [km-build, krun-static-build]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           submodules: true
 
       # get build directory created by km-build job
-      - uses: actions/download-artifact@v2
+      - name: Download km-build artifact
+        uses: actions/download-artifact@v2
         with:
           name: km-build
           path: .
 
       # get static krun created by krun-static-build job
-      - uses: actions/download-artifact@v2
+      - name: Download krun-static atrifact
+        uses: actions/download-artifact@v2
         with:
           name: krun-static
           path: build/container-runtime
 
-      - name: rename krun.static to krun
+      - name: Configure KRUN
         run: |
           set -x
           # rename krun.static to krun
           mv build/container-runtime/krun.static build/opt/kontain/bin/krun
           # make krun-label-trigger
-          ln build/opt/kontain/bin/krun  build/opt/kontain/bin/krun-label-trigger
+          ln build/opt/kontain/bin/krun build/opt/kontain/bin/krun-label-trigger
           mv container-runtime/docker_config.sh build/opt/kontain/bin/docker_config.sh
 
-      - run: make -C cloud/azure login-cli
+      - name: Login into Azure Repository
+        run: make -C cloud/azure login-cli
 
       - name: Prepare KM build env
         run: make -C tests pull-buildenv-image .buildenv-local-lib
@@ -351,7 +351,8 @@ jobs:
                 cloud/k8s/deploy/shim/containerd-shim-krun-v2 \
                 kkm.run
 
-      - uses: actions/upload-artifact@v2
+      - name: Upload km-k8s-rel-artifact
+        uses: actions/upload-artifact@v2
         with:
           name: km-k8s-rel-artifact
           path: build/kontain_bin.tar.gz
@@ -361,18 +362,21 @@ jobs:
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
     needs: [start-runners, km-build]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           submodules: true
 
-      - run: make -C cloud/azure login-cli
+      - name: Login into Azure Repository
+        run: make -C cloud/azure login-cli
 
-      - uses: actions/download-artifact@v2
+      - name: Download km-build artifact
+        uses: actions/download-artifact@v2
         with:
           name: km-build
           path: .
 
-      - name: Configure KRUN
+      - name: Configure KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
           sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
@@ -413,12 +417,13 @@ jobs:
         timeout-minutes: 20
 
       # get static krun created by krun-static-build job
-      - uses: actions/download-artifact@v2
+      - name: Download krun-static artifact
+        uses: actions/download-artifact@v2
         with:
           name: krun-static
           path: build/container-runtime
 
-      - name: rename krun.static to krun
+      - name: Configure KRUN
         run: |
           sudo mkdir -p /opt/kontain/bin
           sudo mv build/container-runtime/krun.static /opt/kontain/bin/krun
@@ -441,7 +446,8 @@ jobs:
     name: Build KKM, save test artifacts
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           submodules: true
 
@@ -454,7 +460,8 @@ jobs:
       - name: Sanity check - unit test
         run: ./kkm/test_kkm/test_kkm
 
-      - uses: actions/upload-artifact@v2
+      - name: Upload kkm artifact
+        uses: actions/upload-artifact@v2
         with:
           name: kkm
           path: |
@@ -468,12 +475,14 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [km-build, kkm-build]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           submodules: true
       - run: make -C cloud/azure login-cli
 
-      - uses: actions/download-artifact@v2
+      - name: Download kkm artifact
+        uses: actions/download-artifact@v2
         with:
           name: kkm
           path: kkm
@@ -498,13 +507,16 @@ jobs:
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
     needs: [start-runners, km-build, kkm-build]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           submodules: true
 
-      - run: make -C cloud/azure login-cli
+      - name: Login into Azure Repository
+        run: make -C cloud/azure login-cli
 
-      - uses: actions/download-artifact@v2
+      - name: Download km-build artifact
+        uses: actions/download-artifact@v2
         with:
           name: km-build
           path: .
@@ -550,12 +562,13 @@ jobs:
         timeout-minutes: 20
 
       # get static krun created by krun-static-build job
-      - uses: actions/download-artifact@v2
+      - name: Download krun-static artifact
+        uses: actions/download-artifact@v2
         with:
           name: krun-static
           path: build/container-runtime
 
-      - name: rename krun.static to krun
+      - name: Configure KRUN
         run: |
           sudo mkdir -p /opt/kontain/bin
           sudo mv build/container-runtime/krun.static /opt/kontain/bin/krun
@@ -586,25 +599,28 @@ jobs:
         runtime: ["containerd"] # "cri-o" later
         driver: ["docker", "podman"]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           submodules: true
 
-      - uses: actions/download-artifact@v2
+      - name: Download kkm artifact
+        uses: actions/download-artifact@v2
         with:
           name: kkm
           path: kkm
       - run: chmod a+x kkm/test_kkm/test_kkm
 
-      - uses: actions/download-artifact@v2
+      - name: Download km-k8s-rel-artifact
+        uses: actions/download-artifact@v2
         with:
           name: km-k8s-rel-artifact
           path: /tmp/bin_release
 
-      - name: print downloaded artifact
+      - name: Print downloaded artifact
         run: find /tmp/bin_release
 
-      - name: start local file server
+      - name: Start local file server
         run: |
           (cd /tmp/bin_release; python3 -m http.server 8000) &
 
@@ -651,17 +667,20 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [k8s-release-bin, kkm-build]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           submodules: true
 
-      - uses: actions/download-artifact@v2
+      - name: Download kkm artifact
+        uses: actions/download-artifact@v2
         with:
           name: kkm
           path: kkm
       - run: chmod a+x kkm/test_kkm/test_kkm
 
-      - uses: actions/download-artifact@v2
+      - name: Download km-k8s-rel-artifact
+        uses: actions/download-artifact@v2
         with:
           name: km-k8s-rel-artifact
           path: /tmp/bin_release
@@ -692,7 +711,7 @@ jobs:
              }
           EOF
 
-      - name: restart Docker
+      - name: Restart Docker
         run: |
           sudo systemctl daemon-reload
           sudo systemctl restart docker
@@ -726,7 +745,7 @@ jobs:
         language: ["cpp"]
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v2
 
       # Initializes the CodeQL tools for scanning.
@@ -737,7 +756,8 @@ jobs:
           # enhanced security checks.
           queries: security-extended
 
-      - run: |
+      - name: Build KM
+        run: |
           make -C km all
 
       - name: Perform CodeQL Analysis
