@@ -3,3 +3,11 @@ on:
   # Manual trigger.
   # See https://github.blog/changelog/2020-07-06-github-actions-manual-triggers-with-workflow_dispatch/
   workflow_dispatch:
+jobs:
+  # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner
+  test1:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - name:dummy
+        run: ls 
