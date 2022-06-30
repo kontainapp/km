@@ -52,7 +52,6 @@ clean: subdirs ## clean all build artifacts.
 test: subdirs ## run basic tests (KM tests and short payload tests)
 test-all: subdirs ## run extended tests(KM tests full payload tests)
 coverage: subdirs ## build with coverage
-coverage-clean: subdirs ## clean coverage-related build artifacts
 valgrind: subdirs ## build for valgrind
 test-coverage: subdirs ## run tests with code coverage support
 buildenv-image: subdirs ## builds and packages all build environment image
@@ -142,16 +141,11 @@ ${BLDDIR}/%.d: %.c
 
 test test-all: all
 
-
 # using :: allows other makefile to add rules for clean-up, and keep the same name
 clean::
 	rm -rf ${BLDDIR}
 	rm -rf ${KM_OPT_BIN_PATH}
 	rm -rf ${KM_OPT_BIN}
-
-coverage-clean::
-	rm -rf ${COVERAGE_KM_BLDDIR}
-	rm -rf ${KM_OPT_COVERAGE}
 
 #
 # do not generate .d file for some targets
@@ -180,26 +174,15 @@ COMPONENT := km
 #  	<os-type> is "fedora" by default. See ${TOP}/docker/build for supported OSes
 #
 
-ifeq (${TARGET},test-coverage)
-	# Coverage is a special case that's neither build nor test. It's a combined
-	# step of running the tests and write to build dir, so we need both
-	# `--device=/dev/kvm` to run and the build options (user mapping for ex.).
-	_CMD := ${DOCKER_RUN_BUILD} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEVICE}
-else ifeq (${TARGET},test)
-	# Testing requires a different set of options to docker run commands.
-	_CMD := ${DOCKER_RUN_TEST}
-else
-	_CMD := ${DOCKER_RUN_BUILD}
-endif
-
 withdocker: ## Build using Docker container for build environment. 'make withdocker [TARGET=clean] [DTYPE=ubuntu]'
 	@if ! docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q ${BUILDENV_IMG} ; then \
 		echo -e "$(CYAN)${BUILDENV_IMG} is missing locally, will try to pull from registry. \
 		Use 'make buildenv-image' to build$(NOCOLOR)" ; fi
-	${_CMD} \
+	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${DOCKER_KM_TOP}:z \
 		-w ${DOCKER_KM_TOP}/${FROMTOP} \
+		--env MAKEFLAGS="$(MAKEFLAGS)" \
 		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
-		$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" $(TARGET)
+		$(MAKE) $(TARGET)
 
 .PHONY: all clean test help withdocker

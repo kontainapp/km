@@ -150,7 +150,7 @@ clean:
 #
 # do not generate .d file for some targets
 #
-no_deps := $(shell tmp=(${MAKEFLAGS}) && [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "${tmp[0]}" =~ "n" ]] && echo -n match)
+no_deps := $(shell tmp=(${MAKEFLAGS}) && [[ "${MAKECMDGOALS}" =~ ^${NO_DEPS_TARGETS}$$ || "$${tmp[0]}" =~ "n" ]] && echo -n match)
 ifneq ($(no_deps),match)
 -include ${DEPS}
 endif

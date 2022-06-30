@@ -535,10 +535,6 @@ To maintain the quality of code, we implemented code coverage for `km`.
 First, we need to build a version of km with extra flag `--coverage`.
 
 ```sh
-make  coverage-clean 
-```
-
-```sh
 make  coverage
 ```
 
@@ -566,7 +562,7 @@ We also have the option to run coverage tests inside the container. First, we
 need to build the km binary inside the container.
 
 ```sh
-make -C km withdocker TARGET=coverage
+make withdocker TARGET=coverage
 ```
 
 build test image

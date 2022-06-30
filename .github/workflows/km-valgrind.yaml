@@ -142,10 +142,10 @@ jobs:
           ./kkm/test_kkm/test_kkm
 
       - name: Pull testenv images
-        run: make -C tests pull-testenv-image
+        run: make -C tests pull-valgrind-testenv-image
 
       - name: KM with KKM Test - AWS
-        run: make -C tests test-valgrind-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP= 
+        run: make -C tests test-valgrind-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
         timeout-minutes: 60
 
   slack-workflow-status:

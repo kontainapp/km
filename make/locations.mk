@@ -79,6 +79,9 @@ COVERAGE_KM_BLDDIR := ${BLDTOP}/km/coverage
 KM_OPT_COVERAGE := ${KM_OPT}/coverage
 KM_OPT_COVERAGE_BIN := ${KM_OPT}/coverage/bin
 
+VALGRIND_KM_BLDDIR := ${BLDTOP}/km/valgrind
+KM_OPT_VALGRIND_BIN := ${KM_OPT}/valgrind/bin
+
 # dockerized build
 # TODO: Some of these values should be moved to images.mk , but we have multiple
 # dependencies on that , so keeping it here for now
@@ -138,6 +141,8 @@ DOCKER_COVERAGE_KM_BLDDIR := ${DOCKER_BLDTOP}/km/coverage
 
 ifeq (coverage, $(filter coverage,$(MAKECMDGOALS)))
 	KM_OPT_BIN_PATH := ${KM_OPT_COVERAGE_BIN}
+else ifeq (valgrind, $(filter valgrind,$(MAKECMDGOALS)))
+	KM_OPT_BIN_PATH := ${KM_OPT_VALGRIND_BIN}
 else
 	KM_OPT_BIN_PATH := ${KM_OPT_BIN}
 endif
@@ -174,7 +179,7 @@ RELEASE_TAG ?= v0.1-test
 # Generic support - applies for all flavors (SUBDIR, EXEC, LIB, whatever)
 
 # regexp for targets which should not try to build dependencies (.d)
-NO_DEPS_TARGETS := (clean|clobber|coverage-clean|test-coverage|.*-image|.*-release|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|upload-coverage.*|vm-images)
+NO_DEPS_TARGETS := (clean|clobber|test-coverage|.*-image|.*-release|\.buildenv-local-.*|buildenv-local-.*|print-.*|debugvars|help|test-.*with.*|upload-coverage.*|vm-images)
 NO_DEPS_TARGETS := ${NO_DEPS_TARGETS}( ${NO_DEPS_TARGETS})*
 # colors for pretty output. Unless we are in Azure pipelines
 ifeq (${PIPELINE_WORKSPACE},)
@@ -189,7 +194,7 @@ endif
 # needs to explicitly points to bash.
 SHELL=/bin/bash
 
-${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
+${KM_OPT_RT} ${KM_OPT_BIN} ${KM_OPT_COVERAGE_BIN} ${KM_OPT_VALGRIND_BIN} ${KM_OPT_INC} ${KM_OPT_LIB}:
 	mkdir -p $@ && chmod 777 $@
 
 # Helper when we need to make sure IMAGE_VERSION is defined and not 'latest'
