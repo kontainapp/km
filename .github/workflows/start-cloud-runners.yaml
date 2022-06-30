@@ -1,9 +1,5 @@
 on:
   workflow_call:
-    inputs:
-      public-keys-dir:
-        description: Directory containing ssh keys
-        required: true
     # Map the workflow outputs to job outputs
     outputs:
       runs-on:
