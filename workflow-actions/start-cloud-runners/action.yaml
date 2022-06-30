@@ -19,7 +19,7 @@ runs:
         uses: kontainapp/cloud-github-runner@v3.1
         with:
           mode: start
-          github-token: ${{ secrets.GH_TOKEN }}
+          github-token: ${{ inputs.secrets.GH_TOKEN }}
           runner-user: kontain
           subnet: "10.0.0.0"
           public-keys-dir: ${{ inputs.public-keys-dir }}
