@@ -2,9 +2,9 @@ on:
   workflow_call:
     # Map the workflow outputs to job outputs
     outputs:
-      runs-on:
-        description: Array of referenses to cloud runners
-        value: ${{ jobs.start-runners.outputs.runs-on }}
+      run-ons:
+        description: Array of references to cloud runners
+        value: ${{ jobs.start-runners.outputs.run-ons }}
 
 jobs:
   # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner
