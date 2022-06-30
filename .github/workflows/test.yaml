@@ -36,7 +36,7 @@ env:
 jobs:
   # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner
   start-runners:
-    uses: ./.github/actions/start-cloud-runners
+    uses: ./.github/workflows/start-cloud-runners.yaml
     secrets: inherit
 
   print-results:
