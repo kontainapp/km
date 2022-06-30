@@ -47,9 +47,10 @@ jobs:
       - name: Start Cloud runners
         id: start-cloud-runner
         uses: ./workflow-actions/start-cloud-runners
+        secrets: inherit
         with:
           public-keys-dir: ${{ github.workspace }}/cloud/ssh
-        secrets: inherit
+          
   # km-build:
   #   name: Build KM, push test image
   #   runs-on: ubuntu-20.04
