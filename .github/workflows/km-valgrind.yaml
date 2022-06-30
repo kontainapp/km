@@ -65,103 +65,103 @@ jobs:
         with:
           public-keys-dir: ${{ github.workspace }}/cloud/ssh
 
-  km-build:
-    name: Build KM, push test image
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
+  # km-build:
+  #   name: Build KM, push test image
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         submodules: true
 
-      - run: make -C cloud/azure login-cli
+  #     - run: make -C cloud/azure login-cli
 
-      - name: Prepare KM build env
-        run: make -C tests pull-buildenv-image .buildenv-local-lib
+  #     - name: Prepare KM build env
+  #       run: make -C tests pull-buildenv-image .buildenv-local-lib
 
-      - name: Build KM and tests using buildenv image
-        run: make -j withdocker RUN_IN_CI=1 TARGET=valgrind
+  #     - name: Build KM and tests using buildenv image
+  #       run: make -j withdocker RUN_IN_CI=1 TARGET=valgrind
 
-      - name: Build and push KM testenv image
-        run: make -C tests valgrind-testenv-image push-valgrind-testenv-image
+  #     - name: Build and push KM testenv image
+  #       run: make -C tests valgrind-testenv-image push-valgrind-testenv-image
 
-  km-test:
-    name: KM, KVM on Azure
-    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
-    needs: [start-runners, km-build]
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
+  # km-test:
+  #   name: KM, KVM on Azure
+  #   runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
+  #   needs: [start-runners, km-build]
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         submodules: true
 
-      - run: make -C cloud/azure login-cli
+  #     - run: make -C cloud/azure login-cli
 
-      - run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
-          sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
-          sudo udevadm control --reload-rules && sudo udevadm trigger
+  #     - run: |
+  #         echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
+  #         sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
+  #         sudo udevadm control --reload-rules && sudo udevadm trigger
 
-      - name: Pull testenv images
-        run: make -C tests pull-valgrind-testenv-image
+  #     - name: Pull testenv images
+  #       run: make -C tests pull-valgrind-testenv-image
 
-      - name: KM with KVM Test - Azure
-        run: make -C tests test-valgrind-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
-        timeout-minutes: 60
+  #     - name: KM with KVM Test - Azure
+  #       run: make -C tests test-valgrind-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
+  #       timeout-minutes: 60
 
-  kkm-test-vms:
-    name: KM tests, KKM AWS
-    needs: [start-runners, km-build]
-    runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
+  # kkm-test-vms:
+  #   name: KM tests, KKM AWS
+  #   needs: [start-runners, km-build]
+  #   runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         submodules: true
 
-      - run: make -C cloud/azure login-cli
+  #     - run: make -C cloud/azure login-cli
 
-      - name: KKM and KKM tests
-        run: |
-          make -C kkm/kkm VALGRIND=1 && make -C kkm/test_kkm
-          sudo insmod kkm/kkm/kkm.ko
-          ./kkm/test_kkm/test_kkm
+  #     - name: KKM and KKM tests
+  #       run: |
+  #         make -C kkm/kkm VALGRIND=1 && make -C kkm/test_kkm
+  #         sudo insmod kkm/kkm/kkm.ko
+  #         ./kkm/test_kkm/test_kkm
 
-      - name: Pull testenv images
-        run: make -C tests pull-valgrind-testenv-image
+  #     - name: Pull testenv images
+  #       run: make -C tests pull-valgrind-testenv-image
 
-      - name: KM with KKM Test - AWS
-        run: make -C tests test-valgrind-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
-        timeout-minutes: 60
+  #     - name: KM with KKM Test - AWS
+  #       run: make -C tests test-valgrind-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
+  #       timeout-minutes: 60
 
-  slack-workflow-status:
-    name: Notify slack, if needed
-    runs-on: ubuntu-latest
-    # 'contains' shows how to add conditions, e.g. on workflow 'name:', or many other contexts.
-    # see https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
-    if: (failure() && github.ref == 'refs/heads/master') ||
-      contains(github.workflow, 'noisy')
-    # Dependencies. (A skipped dependency is considered satisfied)
-    needs:
-      [
-        km-build,
-        km-test,
-        kkm-test-vms,
-      ]
-    steps:
-      - name: Send notification to slack
-        uses: Gamesight/slack-workflow-status@master
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          include_jobs: true
-          channel: "#build_and_test"
-          name: "CI workflow status"
-          icon_emoji: ":thumbsdown:"
+  # slack-workflow-status:
+  #   name: Notify slack, if needed
+  #   runs-on: ubuntu-latest
+  #   # 'contains' shows how to add conditions, e.g. on workflow 'name:', or many other contexts.
+  #   # see https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
+  #   if: (failure() && github.ref == 'refs/heads/master') ||
+  #     contains(github.workflow, 'noisy')
+  #   # Dependencies. (A skipped dependency is considered satisfied)
+  #   needs:
+  #     [
+  #       km-build,
+  #       km-test,
+  #       kkm-test-vms,
+  #     ]
+  #   steps:
+  #     - name: Send notification to slack
+  #       uses: Gamesight/slack-workflow-status@master
+  #       with:
+  #         repo_token: ${{ secrets.GITHUB_TOKEN }}
+  #         slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+  #         include_jobs: true
+  #         channel: "#build_and_test"
+  #         name: "CI workflow status"
+  #         icon_emoji: ":thumbsdown:"
 
   # This step is to clean up on-demand runner. They work in conjunction with start-runner.
   # Make sure to add dependencies in both "needs" clauses
   stop-runner:
     if: always()
     name: Terminate self-hosted cloud runners
-    needs: [start-runners, km-test, kkm-test-vms]
+    needs: [start-runners]
     runs-on: ubuntu-latest
     steps:
       - name: Stop runners
