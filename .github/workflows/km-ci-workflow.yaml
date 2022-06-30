@@ -272,9 +272,6 @@ jobs:
           mkdir -p /tmp/krun-static
           cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
       # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
       # and was built in the previous step, upload it with SHA as artifact name
       - uses: actions/upload-artifact@v2
