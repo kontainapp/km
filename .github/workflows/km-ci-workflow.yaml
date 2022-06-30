@@ -416,12 +416,6 @@ jobs:
           name: krun-static
           path: build/container-runtime
 
-      # get km
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: .
-
       - name: rename krun.static to krun
         run: |
           sudo mkdir -p /opt/kontain/bin
@@ -558,12 +552,6 @@ jobs:
         with:
           name: krun-static
           path: build/container-runtime
-
-      # get km
-      - uses: actions/download-artifact@v2
-        with:
-          name: km
-          path: .
 
       - name: rename krun.static to krun
         run: |
