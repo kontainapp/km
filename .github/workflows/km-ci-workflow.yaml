@@ -243,14 +243,14 @@ jobs:
       # Note: to figure out where krun needs to be rebuild ot not we use SHA of the container-runtime/crun/ directory
       # in teh step above. That SHA becomes artifact name. If there were changes to krun, SHA will change
       # forcing the re-build
-      # - name: check artifact
-      #   id: check-artifact
-      #   uses: kontainapp/persistent-artifact@v1
-      #   with:
-      #     github-token: ${{ secrets.GH_TOKEN }}
-      #     artifact-name: ${{ env.CRUN_SHA}}
-      #     path: /tmp/krun-static
-      #     debug: true
+      - name: check artifact
+        id: check-artifact
+        uses: kontainapp/persistent-artifact@v1
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          artifact-name: ${{ env.CRUN_SHA}}
+          path: /tmp/krun-static
+          debug: true
 
       # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
       # build krun
@@ -321,6 +321,8 @@ jobs:
           set -x
           # rename krun.static to krun
           mv build/container-runtime/krun.static build/opt/kontain/bin/krun
+          # make krun-label-trigger
+          ln build/opt/kontain/bin/krun  build/opt/kontain/bin/krun-label-trigger
           mv container-runtime/docker_config.sh build/opt/kontain/bin/docker_config.sh
 
       - run: make -C cloud/azure login-cli
@@ -394,7 +396,7 @@ jobs:
   km-payloads-azure:
     name: Payloads on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
-    needs: [start-runners, km-build-payloads, km-test-azure]
+    needs: [start-runners, km-build-payloads, km-test-azure, krun-static-build]
     steps:
       # no need to checkout - just continue where tests left
       - name: Pull testenv images
@@ -496,8 +498,8 @@ jobs:
 
   kkm-test-aws:
     name: KM tests, KKM on AWS
-    needs: [start-runners, km-build, kkm-build]
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
+    needs: [start-runners, km-build, kkm-build]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -530,8 +532,8 @@ jobs:
 
   kkm-payloads-aws:
     name: Payloads on AWS
-    needs: [start-runners, km-build-payloads, kkm-test-aws]
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
+    needs: [start-runners, km-build-payloads, kkm-test-aws, krun-static-build]
     steps:
       # no need to checkout - just continue where stopped after tests
       - name: Pull testenv image
