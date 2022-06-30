@@ -19,7 +19,7 @@ runs:
           github-token: ${{ secrets.GH_TOKEN }}
           runner-user: kontain
           subnet: "10.0.0.0"
-          public-keys-dir: ${{ github.workspace }}/cloud/ssh
+          public-keys-dir: ${{ inputs.public-keys-dir }}
           ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ec2-region: "us-east-2"

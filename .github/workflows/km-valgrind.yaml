@@ -61,7 +61,7 @@ jobs:
 
       - name: Start Cloud runners
         id: start-cloud-runner
-        uses: ./workflow-actions/start_cloud_runners
+        uses: ./workflow-actions/start-cloud-runners
         with:
           public-keys-dir: ${{ github.workspace }}/cloud/ssh
 
