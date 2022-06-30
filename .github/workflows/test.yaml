@@ -43,7 +43,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: start-runners
     steps:
-      - run: echo ${{ needs.start-runners.outputs.run-ons['ec2'] }} ${{ needs.start-runners.outputs.run-ons['azure'] }}
+      - run: |
+        echo Outputs
+        echo ${{ JSON.stringify(needs.start-runners.outputs) }}
+        echo ${{ needs.start-runners.outputs.run-ons['ec2'] }}
+        echo ${{ needs.start-runners.outputs.run-ons['azure'] }}
 
   # km-build:
   #   name: Build KM, push test image
