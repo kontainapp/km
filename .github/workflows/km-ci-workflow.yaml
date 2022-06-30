@@ -243,14 +243,14 @@ jobs:
       # Note: to figure out where krun needs to be rebuild ot not we use SHA of the container-runtime/crun/ directory
       # in teh step above. That SHA becomes artifact name. If there were changes to krun, SHA will change
       # forcing the re-build
-      - name: check artifact
-        id: check-artifact
-        uses: kontainapp/persistent-artifact@v1
-        with:
-          github-token: ${{ secrets.GH_TOKEN }}
-          artifact-name: ${{ env.CRUN_SHA}}
-          path: /tmp/krun-static
-          debug: true
+      # - name: check artifact
+      #   id: check-artifact
+      #   uses: kontainapp/persistent-artifact@v1
+      #   with:
+      #     github-token: ${{ secrets.GH_TOKEN }}
+      #     artifact-name: ${{ env.CRUN_SHA}}
+      #     path: /tmp/krun-static
+      #     debug: true
 
       # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
       # build krun
@@ -274,7 +274,7 @@ jobs:
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
-        
+
       # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
       # and was built in the previous step, upload it with SHA as artifact name
       - uses: actions/upload-artifact@v2
