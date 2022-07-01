@@ -239,18 +239,14 @@ int km_run_vcpu_thread(km_vcpu_t* vcpu)
 
       km_attr_init(&att);
       km_attr_setstacksize(&att, 16 * KM_PAGE_SIZE);
-      km_lock_vcpu_thr(vcpu);
       vcpu->state = HYPERCALL;
       if ((rc = -pthread_create(&vcpu->vcpu_thread, &att, (void* (*)(void*))km_vcpu_run, vcpu)) != 0) {
          vcpu->state = STARTING;
       }
-      km_unlock_vcpu_thr(vcpu);
       km_attr_destroy(&att);
    } else {
-      km_lock_vcpu_thr(vcpu);
       vcpu->state = HYPERCALL;
       km_cond_signal(&vcpu->thr_cv);
-      km_unlock_vcpu_thr(vcpu);
    }
    if (rc != 0) {
       km_info(KM_TRACE_VCPU, "run_vcpu_thread: failed activating vcpu thread");
@@ -260,14 +256,20 @@ int km_run_vcpu_thread(km_vcpu_t* vcpu)
 
 void km_vcpu_stopped(km_vcpu_t* vcpu)
 {
-   km_lock_vcpu_thr(vcpu);
    km_exit(vcpu);   // release user space thread list lock, do delayed stack unmap
+   km_mutex_lock(&machine.vm_vcpu_mtx);
+   km_lock_vcpu_thr(vcpu);
    km_vcpu_put(vcpu);
+   km_mutex_unlock(&machine.vm_vcpu_mtx);
 
-   while (vcpu->state != HYPERCALL) {
+   while (machine.exit_group == 0 && vcpu->state != HYPERCALL && vcpu->state != HCALL_INT) {
       km_cond_wait(&vcpu->thr_cv, &vcpu->thr_mtx);
    }
    km_unlock_vcpu_thr(vcpu);
+   if (machine.exit_group != 0) {
+      vcpu->state = PARKED_IDLE;
+      pthread_exit(NULL);
+   }
 }
 
 int km_clone(km_vcpu_t* vcpu,
@@ -296,11 +298,7 @@ int km_clone(km_vcpu_t* vcpu,
    }
    new_vcpu->stack_top = child_stack;
    new_vcpu->guest_thr = newtls;
-   int rc = km_vcpu_clone_to_run(vcpu, new_vcpu);
-   if (rc < 0) {
-      km_vcpu_put(new_vcpu);
-      return rc;
-   }
+   km_vcpu_clone_to_run(vcpu, new_vcpu);
 
    // Obey parent set tid protocol
    if ((flags & CLONE_PARENT_SETTID) != 0) {
@@ -321,10 +319,14 @@ int km_clone(km_vcpu_t* vcpu,
             new_vcpu->vcpu_id,
             new_vcpu->regs.rip,
             new_vcpu->regs.rsp);
+
+   km_lock_vcpu_thr(new_vcpu);
    if (km_run_vcpu_thread(new_vcpu) < 0) {
       km_vcpu_put(new_vcpu);
+      km_unlock_vcpu_thr(new_vcpu);
       return -EAGAIN;
    }
+   km_unlock_vcpu_thr(new_vcpu);
 
    return km_vcpu_get_tid(new_vcpu);
 }

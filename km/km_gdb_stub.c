@@ -1122,14 +1122,11 @@ static int build_thread_list_entry(km_vcpu_t* vcpu, void* data)
    char threadname[MAX_THREADNAME_SIZE];
    char threadlistentry[MAX_THREADLISTENTRY_SIZE];
 
-   km_lock_vcpu_thr(vcpu);
    if (vcpu->state == STARTING) {
       // This thread is not fully instantiated.
-      km_unlock_vcpu_thr(vcpu);
       return 0;
    }
    km_getname_np(vcpu->vcpu_thread, threadname, sizeof(threadname));
-   km_unlock_vcpu_thr(vcpu);
 
    snprintf(threadlistentry,
             sizeof(threadlistentry),

@@ -77,8 +77,14 @@ void km_signal_machine_fini(void)
  * Release resources allocated in km_vcpu_init(). Used in km_machine_fini() for final cleanup.
  * For normal thread completion use km_vcpu_put()
  */
-void km_vcpu_fini(km_vcpu_t* vcpu, int join_thr)
+void km_vcpu_fini(km_vcpu_t* vcpu)
 {
+   if (vcpu->vcpu_thread != 0) {
+      km_cond_signal(&vcpu->thr_cv);
+      if (pthread_join(vcpu->vcpu_thread, NULL) != 0) {
+         km_err(1, "Cannot join vcpu-%d thread", vcpu->vcpu_id);
+      }
+   }
    if (vcpu->cpu_run != NULL) {
       if (munmap(vcpu->cpu_run, machine.vm_run_size) != 0) {
          km_err(3, "munmap cpu_run for vcpu fd");
@@ -88,10 +94,6 @@ void km_vcpu_fini(km_vcpu_t* vcpu, int join_thr)
       if (close(vcpu->kvm_vcpu_fd) != 0) {
          km_err(3, "closing vcpu fd");
       }
-   }
-   if (join_thr) {
-      pthread_cancel(vcpu->vcpu_thread);
-      pthread_join(vcpu->vcpu_thread, NULL);
    }
    machine.vm_vcpus[vcpu->vcpu_id] = NULL;
    free(vcpu);
@@ -108,7 +110,7 @@ void km_machine_fini(void)
       if ((vcpu = machine.vm_vcpus[i]) == NULL) {
          break;
       }
-      km_vcpu_fini(vcpu, 1);
+      km_vcpu_fini(vcpu);
    }
    free(machine.auxv);
    if (km_guest.km_filename != NULL) {
@@ -283,11 +285,14 @@ km_vcpu_t* km_vcpu_get(void)
 
    km_mutex_lock(&machine.vm_vcpu_mtx);
    if ((vcpu = SLIST_FIRST(&machine.vm_idle_vcpus.head)) != 0) {
-      km_assert(vcpu->state == PARKED_IDLE);
       SLIST_REMOVE_HEAD(&machine.vm_idle_vcpus.head, next_idle);
       machine.vm_vcpu_run_cnt++;
+      km_lock_vcpu_thr(vcpu);
+      km_assert(vcpu->state == PARKED_IDLE);
       vcpu->state = STARTING;
+      km_unlock_vcpu_thr(vcpu);
       km_mutex_unlock(&machine.vm_vcpu_mtx);
+
       km_gdb_vcpu_state_init(vcpu);
       km_vmdriver_vcpu_init(vcpu);
       return vcpu;
@@ -303,12 +308,15 @@ km_vcpu_t* km_vcpu_get(void)
    if (km_vcpu_init(vcpu) != 0) {
       km_mutex_unlock(&machine.vm_vcpu_mtx);
       km_warnx("VCPU init failed");
-      km_vcpu_fini(vcpu, 0);
+      km_vcpu_fini(vcpu);
       return NULL;
    }
    machine.vm_vcpu_cnt++;
    machine.vm_vcpu_run_cnt++;
+   km_lock_vcpu_thr(vcpu);
    vcpu->state = STARTING;
+   km_unlock_vcpu_thr(vcpu);
+
    km_gdb_vcpu_state_init(vcpu);
    machine.vm_vcpus[vcpu->vcpu_id] = vcpu;
    km_mutex_unlock(&machine.vm_vcpu_mtx);
@@ -337,7 +345,7 @@ km_vcpu_t* km_vcpu_restore(int tid)
    vcpu->vcpu_id = slot;
    if (km_vcpu_init(vcpu) < 0) {
       km_warnx("km_vcpu_init failed - cannot restore snapshot");
-      km_vcpu_fini(vcpu, 0);
+      km_vcpu_fini(vcpu);
       return NULL;
    }
    km_gdb_vcpu_state_init(vcpu);
@@ -359,17 +367,21 @@ int km_vcpu_apply_all(km_vcpu_apply_cb func, void* data)
    int ret;
    int total = 0;
 
+   km_mutex_lock(&machine.vm_vcpu_mtx);
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       km_vcpu_t* vcpu;
 
       if ((vcpu = machine.vm_vcpus[i]) == NULL) {
          break;   // since we allocate vcpus sequentially, no reason to scan after NULL
       }
+      km_lock_vcpu_thr(vcpu);
       if (vcpu->state != PARKED_IDLE && (ret = (*func)(vcpu, data)) != 0) {
          km_infox(KM_TRACE_VCPU, "func ret %d for VCPU %d", ret, vcpu->vcpu_id);
          total += ret;
       }
+      km_unlock_vcpu_thr(vcpu);
    }
+   km_mutex_unlock(&machine.vm_vcpu_mtx);
    return total;
 }
 
@@ -386,14 +398,15 @@ km_vcpu_t* km_vcpu_fetch_by_tid(pid_t tid)
 
 static inline void km_signal_vcpu_stop(km_vcpu_t* vcpu)
 {
-   sigval_t val = {.sival_int = vcpu->vcpu_id | 0x10000};
+   sigval_t val = {.sival_int = vcpu->vcpu_id | VCPU_STOP};
 
-   km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP, val);
+   km_pkill_no_esrch(vcpu->vcpu_thread, KM_SIGVCPUSTOP, val);
 }
 
 /*
- * Force KVM to exit by sending a signal to vcpu thread that is IN_GUEST. The signal handler can
- * be a noop, just need to exist. Returns 1 if the vcpu is IN_GUEST and 0 otherwise
+ * Force KVM to exit by sending a signal to vcpu thread that is IN_GUEST. The signal handler can be
+ * a noop, just need to exist.
+ * Returns 1 if the vcpu is IN_GUEST and 0 otherwise
  */
 static int km_vcpu_in_guest(km_vcpu_t* vcpu, void* skip_me)
 {
@@ -450,7 +463,6 @@ void km_vcpu_pause_all(km_vcpu_t* vcpu, km_pause_t type)
  */
 void km_vcpu_put(km_vcpu_t* vcpu)
 {
-   km_mutex_lock(&machine.vm_vcpu_mtx);
    vcpu->guest_thr = 0;
    // vcpu->stack_top = 0; Reused by slist
    vcpu->state = PARKED_IDLE;
@@ -458,7 +470,6 @@ void km_vcpu_put(km_vcpu_t* vcpu)
    if (--machine.vm_vcpu_run_cnt == 0) {
       km_signal_machine_fini();
    }
-   km_mutex_unlock(&machine.vm_vcpu_mtx);
 }
 
 /*
@@ -490,7 +501,7 @@ int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg)
    return 0;
 }
 
-int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
+void km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
 {
    kvm_vcpu_init_sregs(new_vcpu);
 
@@ -518,7 +529,6 @@ int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu)
    if (km_gdb_client_is_attached() != 0) {
       km_gdb_update_vcpu_debug(new_vcpu, NULL);
    }
-   return 0;
 }
 
 void km_check_kernel(void)

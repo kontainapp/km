@@ -85,6 +85,8 @@ typedef stack_t km_stack_t;
 
 typedef unsigned long int pthread_tid_t;
 
+const static int VCPU_STOP = 0x10000;   // bit to indicate stop VCPU not signal to deliver
+
 /*
  * When a thread hits a breakpoint, or a single step operation completes, or a signal is generated,
  * a gdb event is queued by the thread and then the gdb server is woken.  The gdb server then
@@ -218,7 +220,7 @@ extern km_machine_init_params_t km_machine_init_params;
 void km_machine_setup(km_machine_init_params_t* params);
 void km_machine_init(km_machine_init_params_t* params);
 void km_signal_machine_fini(void);
-void km_vcpu_fini(km_vcpu_t* vcpu, int join_thr);
+void km_vcpu_fini(km_vcpu_t* vcpu);
 void km_machine_fini(void);
 void kvm_vcpu_init_sregs(km_vcpu_t* vcpu);
 void km_start_all_vcpus(void);
@@ -398,7 +400,7 @@ km_vcpu_t* km_vcpu_get(void);
 km_vcpu_t* km_vcpu_restore(int tid);   // Used by snapshot restore
 void km_vcpu_put(km_vcpu_t* vcpu);
 int km_vcpu_set_to_run(km_vcpu_t* vcpu, km_gva_t start, uint64_t arg);
-int km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);
+void km_vcpu_clone_to_run(km_vcpu_t* vcpu, km_vcpu_t* new_vcpu);
 void km_vcpu_detach(km_vcpu_t* vcpu);
 
 typedef int (*km_vcpu_apply_cb)(km_vcpu_t* vcpu, void* data);
@@ -688,6 +690,14 @@ km_cond_timedwait(pthread_cond_t* cond, pthread_mutex_t* mutex, struct timespec*
    do {                                                                                            \
       int ret;                                                                                     \
       if ((ret = pthread_sigqueue(thread, signo, val)) != 0) {                                     \
+         km_err(ret, "pthread_sigqueue(" #thread ", " #signo ", " #val ") Failed ");               \
+      }                                                                                            \
+   } while (0)
+
+#define km_pkill_no_esrch(thread, signo, val)                                                      \
+   do {                                                                                            \
+      int ret;                                                                                     \
+      if ((ret = pthread_sigqueue(thread, signo, val)) != 0 && ret != ESRCH) {                     \
          km_err(ret, "pthread_sigqueue(" #thread ", " #signo ", " #val ") Failed ");               \
       }                                                                                            \
    } while (0)
