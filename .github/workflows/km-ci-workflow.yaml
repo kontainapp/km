@@ -370,6 +370,12 @@ jobs:
       - name: Login into Azure Repository
         run: make -C cloud/azure login-cli
 
+      - name: Download km-build artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: km-build
+          path: .
+
       - name: Configure KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules

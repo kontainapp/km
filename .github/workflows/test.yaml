@@ -36,7 +36,7 @@ env:
 jobs:
   # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner
   start-runners:
-    uses: ./.github/workflows/start-cloud-runners.yaml
+    uses: ./.github/workflows/common-jobs/start-cloud-runners.yaml
     secrets: inherit
 
   print-results:
@@ -44,27 +44,7 @@ jobs:
     needs: start-runners
     steps:
       - run: |
-          echo ${{ needs.start-runners.outputs.test }}
           echo ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
-
-  # km-build:
-  #   name: Build KM, push test image
-  #   runs-on: ubuntu-20.04
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #       with:
-  #         submodules: true
-
-  #     - run: make -C cloud/azure login-cli
-
-  #     - name: Prepare KM build env
-  #       run: make -C tests pull-buildenv-image .buildenv-local-lib
-
-  #     - name: Build KM and tests using buildenv image
-  #       run: make -j withdocker RUN_IN_CI=1 TARGET=valgrind
-
-  #     - name: Build and push KM testenv image
-  #       run: make -C tests valgrind-testenv-image push-valgrind-testenv-image
 
   # km-test:
   #   name: KM, KVM on Azure
@@ -144,5 +124,5 @@ jobs:
     if: always()
     name: Terminate self-hosted cloud runners
     needs: [start-runners]
-    uses: ./.github/workflows/stop-cloud-runners.yaml
+    uses: ./.github/workflows/common-jobs/stop-cloud-runners.yaml
     secrets: inherit
