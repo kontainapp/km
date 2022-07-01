@@ -45,10 +45,10 @@ jobs:
     steps:
       - name: Print return values
         run: |
-          echo ${{ needs.start-runners.outputs }} - ${{ fromJSON(needs.start-runners.outputs) }}
-          echo ${{ needs.start-runners.outputs.run-ons }} - ${{ fromJSON(needs.start-runners.outputs.run-ons) }}
-          echo ${{ needs.start-runners.outputs.run-ons['ec2'] }}
-          echo ${{ needs.start-runners.outputs.run-ons['azure'] }}
+          echo "${{ needs.start-runners.outputs }} - ${{ fromJSON(needs.start-runners.outputs) }}"
+          echo "${{ needs.start-runners.outputs.run-ons }} - ${{ fromJSON(needs.start-runners.outputs.run-ons) }}"
+          echo "${{ needs.start-runners.outputs.run-ons['ec2'] }}"
+          echo "${{ needs.start-runners.outputs.run-ons['azure'] }}"
 
   # km-build:
   #   name: Build KM, push test image
