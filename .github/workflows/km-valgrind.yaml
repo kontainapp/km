@@ -51,36 +51,8 @@ env:
 jobs:
   # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner
   start-runners:
-    name: Start cloud runners
-    runs-on: ubuntu-latest
-    outputs:
-      run-ons: ${{ steps.start-cloud-runner.outputs.run-ons }}
-    steps:
-      - name: Get public Keys
-        uses: actions/checkout@v2
-
-      - name: Start Cloud runners
-        id: start-cloud-runner
-        uses: kontainapp/cloud-github-runner@v3.1
-        with:
-          mode: start
-          github-token: ${{ secrets.GH_TOKEN }}
-          runner-user: kontain
-          subnet: "10.0.0.0"
-          public-keys-dir: ${{ github.workspace }}/cloud/ssh
-          ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ec2-region: "us-east-2"
-          ec2-image: "L0BaseImage"
-          ec2-instance-type: "m5.xlarge"
-          ec2-vpc-name: "github-runner"
-          az-subscription-id: ${{ secrets.SP_SUBSCRIPTION_ID }}
-          az-client-id: ${{ secrets.SP_APPID }}
-          az-secret: ${{ secrets.SP_PASSWORD }}
-          az-tenant-id: ${{ secrets.SP_TENANT }}
-          az-image: "auto-github-runner:L0BaseImage"
-          az-location: "westus"
-          az-vm-size: "Standard_D4s_v5"
+    uses: ./.github/workflows/start-cloud-runners.yaml
+    secrets: inherit
 
   km-build:
     name: Build KM, push test image
@@ -177,20 +149,6 @@ jobs:
   # Make sure to add dependencies in both "needs" clauses
   stop-runner:
     if: always()
-    name: Terminate self-hosted cloud runners
     needs: [start-runners, km-test, kkm-test-vms]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Stop runners
-        uses: kontainapp/cloud-github-runner@v3.1
-        with:
-          mode: stop
-          status: ${{ toJSON(needs) }}
-          github-token: ${{ secrets.GH_TOKEN }}
-          ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ec2-region: "us-east-2"
-          az-subscription-id: ${{ secrets.SP_SUBSCRIPTION_ID }}
-          az-client-id: ${{ secrets.SP_APPID }}
-          az-secret: ${{ secrets.SP_PASSWORD }}
-          az-tenant-id: ${{ secrets.SP_TENANT }}
+    uses: ./.github/workflows/stop-cloud-runners.yaml
+    secrets: inherit

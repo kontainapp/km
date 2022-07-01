@@ -1,0 +1,26 @@
+on:
+  workflow_call:
+    # Map the workflow outputs to job outputs
+    outputs:
+      runs-on:
+        description: Array of referenses to cloud runners
+        value: ${{ jobs.start-runners.outputs.runs-on }}
+
+jobs:
+  stop-runner:
+    name: Terminate self-hosted cloud runners
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop runners
+        uses: kontainapp/cloud-github-runner@v3.1
+        with:
+          mode: stop
+          status: ${{ toJSON(needs) }}
+          github-token: ${{ secrets.GH_TOKEN }}
+          ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ec2-region: "us-east-2"
+          az-subscription-id: ${{ secrets.SP_SUBSCRIPTION_ID }}
+          az-client-id: ${{ secrets.SP_APPID }}
+          az-secret: ${{ secrets.SP_PASSWORD }}
+          az-tenant-id: ${{ secrets.SP_TENANT }}
