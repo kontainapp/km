@@ -5,6 +5,9 @@ on:
       run-ons:
         description: Array of references to cloud runners
         value: ${{ jobs.start-runners.outputs.run-ons }}
+      test:
+        description: Test
+        value: Hello World
 
 jobs:
   # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner

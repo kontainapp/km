@@ -44,7 +44,8 @@ jobs:
     needs: start-runners
     steps:
       - run: |
-          echo ${{ fromJSON(needs.start-runners.outputs) }}
+          echo ${{ needs.start-runners.outputs.test }}
+          echo ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
 
   # km-build:
   #   name: Build KM, push test image
