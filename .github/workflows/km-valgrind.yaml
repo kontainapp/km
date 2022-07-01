@@ -51,7 +51,6 @@ env:
 jobs:
   # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner
   start-runners:
-    runs-on: ubuntu-latest
     uses: ./.github/workflows/start-cloud-runners.yaml
     secrets: inherit
 
@@ -151,6 +150,5 @@ jobs:
   stop-runner:
     if: always()
     needs: [start-runners, km-test, kkm-test-vms]
-    runs-on: ubuntu-latest
     uses: ./.github/workflows/stop-cloud-runners.yaml
     secrets: inherit
