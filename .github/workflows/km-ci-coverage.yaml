@@ -66,7 +66,6 @@ env:
 jobs:
   # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner
   start-runners:
-    name: Start cloud runners
     runs-on: ubuntu-latest
     uses: ./.github/workflows/start-cloud-runners.yaml
     secrets: inherit
@@ -207,7 +206,6 @@ jobs:
   # Make sure to add dependencies in both "needs" clauses
   stop-runner:
     if: always()
-    name: Terminate self-hosted cloud runners
     needs: [start-runners, coverage-azure, coverage-ec2]
     runs-on: ubuntu-latest
     uses: ./.github/workflows/stop-cloud-runners.yaml
