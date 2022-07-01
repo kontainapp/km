@@ -163,7 +163,8 @@ static void km_fork_remove_parent_vmstate(void)
    // Should try to free all of the stacks for the now defunt vcpu threads?
    for (int i = 0; i < machine.vm_vcpu_cnt; i++) {
       if (machine.vm_vcpus[i] != NULL) {
-         km_vcpu_fini(machine.vm_vcpus[i], 0);
+         machine.vm_vcpus[i]->vcpu_thread = 0;   // that thread was in parent
+         km_vcpu_fini(machine.vm_vcpus[i]);
       }
    }
 

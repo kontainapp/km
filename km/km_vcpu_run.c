@@ -443,7 +443,6 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
          vcpu->regs_valid = 0;
          km_vcpu_sync_rip(vcpu);   // sync RIP with KVM
          vcpu->restart = 1;
-         vcpu->state = HYPERCALL;
       } else {
          vcpu->restart = 0;
       }
@@ -541,20 +540,8 @@ static int km_vcpu_is_running(km_vcpu_t* vcpu, void* skip_me)
    return (vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) ? 0 : 1;
 }
 
-static void pause_cleanup(void* unused)
-{
-   km_mutex_unlock(&machine.pause_mtx);
-}
-
 static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
 {
-   if (machine.exit_group != 0) {   // exit_group() - we are done.
-      km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
-      km_abortx("Reached the unreachable");
-   }
-   if (machine.pause_requested == 0 && km_gdb_client_is_attached() == 0) {
-      return;
-   }
    /*
     * Interlock with machine.pause_requested. This is mostly for the benefits of gdb stub, but
     * also used to stop all vcpus in exit_grp() and in fatal signal. .pause_requested makes all
@@ -567,7 +554,6 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
     * or step). gdb stub changes these fields *only* when .pause_requested is set to 1, hence it is
     * safe to check them here, even though gdb stub doesn't keep the pause_mtx lock when changing them.
     */
-   pthread_cleanup_push(pause_cleanup, NULL);
    km_mutex_lock(&machine.pause_mtx);
    while ((machine.pause_requested != 0 || (km_gdb_client_is_attached() != 0 &&
                                             vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) &&
@@ -581,7 +567,7 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
       km_cond_wait(&machine.pause_cv, &machine.pause_mtx);
       vcpu->state = HYPERCALL;
    }
-   pthread_cleanup_pop(1);   // km_mutex_unlock(&machine.pause_mtx);
+   km_mutex_unlock(&machine.pause_mtx);
    // if exit_group() or equivalent happened while we were sleeping, like destructive snapshot, handle it
    if (machine.exit_group != 0) {   // exit_group() - we are done.
       km_vcpu_stopped(vcpu);        // Clean up and exit the current VCPU thread
@@ -593,7 +579,6 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
 {
    int hc_ret = 0;
 
-   pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
    char thread_name[16];   // see 'man pthread_getname_np'
    sprintf(thread_name, "vcpu-%d", vcpu->vcpu_id);
    km_setname_np(vcpu->vcpu_thread, thread_name);
@@ -824,15 +809,15 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
  * KVM_RUN exit with -EINTR. It also interrupts some system calls, which we mark with HCALL_INT.
  *
  * We use this for two reasons - to stop vcpus for snapshot, exit or gdb; or to notify there is a
- * signal pending. We distinguish these two cases by setting 0x10000 bit in the si_int field.
+ * signal pending. We distinguish these two cases by setting VCPU_STOP bit in the si_int field.
  *
  * Calling km_info() and km_infox() from this function seems to occasionally cause a mutex
  * deadlock in the regular expression code called from km_info*().
  */
 static void km_vcpu_pause_sighandler(int signum, siginfo_t* info, void* ucontext_unused)
 {
-   if ((info->si_int & 0x10000) != 0) {
-      km_vcpu_t* vcpu = machine.vm_vcpus[info->si_int & ~0x10000];
+   if ((info->si_int & VCPU_STOP) != 0) {
+      km_vcpu_t* vcpu = machine.vm_vcpus[info->si_int & ~VCPU_STOP];
       if (vcpu->state == HYPERCALL) {
          vcpu->state = HCALL_INT;
       }
