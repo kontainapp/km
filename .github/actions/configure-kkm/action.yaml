@@ -1,0 +1,10 @@
+name: Configure KKM
+description: Build, install and test kkm
+
+runs:
+  using: "composite"
+  steps:
+    - run: |
+      make -C kkm/kkm && make -C kkm/test_kkm
+      sudo insmod kkm/kkm/kkm.ko
+      ./kkm/test_kkm/test_kkm

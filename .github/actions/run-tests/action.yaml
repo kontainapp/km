@@ -1,0 +1,46 @@
+name: Run tests
+description: Perform all necessary configurations and run tests
+inputs:
+  kernel:
+    description: kvm or kkm - will configure as requested
+    required: true
+  build-flavor:
+    description: coverage or valgrind
+    required: false
+    default: '' # assumes all
+
+runs:
+  using: "composite"
+  steps:
+
+    - id: process inputs
+      run: |
+        [[ -z "${{inputs.build-flavor}}" ]] && echo "::set-output name=img::" || echo "::set-output name=img::${{inputs.build-flavor}}-"
+        [[ "${{inputs.kernel}}" == "kkm" ]] && echo "::set-output name=device::HYPERVISOR_DEVICE=/dev/kkm" || echo "::set-output name=device::"
+        [[ "${{inputs.build-flavor}}" == "valgrind" ]] && echo "::set-output name=flags::VALGRIND=1" || echo "::set-output name=flags::"
+      shell: bash
+
+    - name: Login to Azure Repository
+      run: make -C cloud/azure login-cli
+      shell: bash
+
+    - run:
+        if [[ kernel == 'kvm' ]]; then
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
+          sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger
+        else
+          make -C kkm/kkm ${{steps.make-image-name.outputs.flags}} && make -C kkm/test_kkm
+          sudo insmod kkm/kkm/kkm.ko
+          ./kkm/test_kkm/test_kkm
+        fi
+      shell: bash
+
+    - name: Pull ${{build-flavor}} testenv images
+      run: make -C tests pull-${{steps.make-image-name.outputs.img}}testenv-image
+      shell: bash
+
+    - name: Run ${{build-flavor}} tests
+      run: |
+        make -C tests test-${{steps.make-image-name.outputs.img}}withdocker ${{steps.make-image-name.outputs.device}} DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
+      shell: bash

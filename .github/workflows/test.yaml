@@ -38,11 +38,45 @@ jobs:
   #   uses: ./.github/workflows/start-cloud-runners.yaml
   #   secrets: inherit
 
+  km-build-coverage:
+    name: Build KM for Coverage
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Build KM for coverage
+        uses: ./.github/actions/km-build
+        with:
+          build-flavor: coverage
+
+  km-build-valgrind:
+    name: Build KM for Valgrind
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Build KM for valgrind
+        uses: ./.github/actions/km-build
+        with:
+          build-flavor: valgrind
+
   km-build:
     name: Build KM
     runs-on: ubuntu-20.04
     steps:
-        uses: ./.github/workflows/km-build
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Build KM regular
+        uses: ./.github/actions/km-build
 
   # km-test:
   #   name: KM, KVM on Azure

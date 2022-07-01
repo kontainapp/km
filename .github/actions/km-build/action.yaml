@@ -1,17 +1,19 @@
 name: Km Build
-description: Starts cloud runners
+description: Build km - regular. coverage and valgrind based on build-flavor input parameter
 inputs:
   build-flavor:
     description: coverage or valgrind
     required: false
     default: '' # assumes all
+
 runs:
   using: "composite"
   steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        submodules: true
+  
+    - id: make-image-name
+      run: |
+        [[ -z "${{inputs.build-flavor}}" ]] && echo "::set-output name=img::" || echo "::set-output name=img::${{inputs.build-flavor}}-"
+      shell: bash
 
     - name: Print build environment info
       run: |
@@ -29,19 +31,24 @@ runs:
         env
         echo ==== CPU Info
         lscpu
+      shell: bash
 
     - name: Login into Azure Repository
       run: make -C cloud/azure login-cli
+      shell: bash
 
     - name: Prepare KM build env
       run: make -C tests pull-buildenv-image .buildenv-local-lib
+      shell: bash
 
     - name: Check clang-format on source code
-      if ${{ flavor == ''}}
       run: make withdocker TARGET=clang-format-check
+      shell: bash
 
     - name: Build KM and tests using buildenv image
-      run: make -j withdocker TRAGET=${{build-flavor}} RUN_IN_CI=1
+      run: make -j withdocker TARGET=${{inputs.build-flavor}} RUN_IN_CI=1
+      shell: bash
 
     - name: Build and push KM testenv image
-      run: make -C tests testenv${{format '{0}-', ${{build-flavor}}}}image push-testenv${{format '{0}-', ${{build-flavor}} }}image
+      run: make -C tests ${{steps.make-image-name.outputs.img}}testenv-image push-${{steps.make-image-name.outputs.img}}testenv-image
+      shell: bash

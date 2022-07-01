@@ -80,37 +80,7 @@ jobs:
         with:
           submodules: true
 
-      - name: Print build environment info
-        run: |
-          echo "Event: ${{ github.event_name }} inputs.run_type: ${{ github.event.inputs.run_type }}"
-          echo ====Environment info===
-          echo "SHA: $(git rev-parse HEAD)"
-          echo "=== Last 10 commits:"
-          git log -n 10 --graph --pretty=format:'%h% %d %s %cr %ce'
-          echo "=== VM/OS:"
-          cat /proc/version
-          cat /etc/os-release
-          echo "=== Docker version:"
-          docker version
-          echo ==== Environment Variables
-          env
-          echo ==== CPU Info
-          lscpu
-
-      - name: Login into Azure Repository
-        run: make -C cloud/azure login-cli
-
-      - name: Prepare KM build env
-        run: make -C tests pull-buildenv-image .buildenv-local-lib
-
-      - name: Check clang-format on source code
-        run: make withdocker TARGET=clang-format-check
-
-      - name: Build KM and tests using buildenv image
-        run: make -j withdocker RUN_IN_CI=1
-
-      - name: Build and push KM testenv image
-        run: make -C tests testenv-image push-testenv-image
+      - uses: ./.github/actions/km-build
 
       - name: Build faktory
         run: make -C tools/faktory all
@@ -277,21 +247,10 @@ jobs:
           name: km-build
           path: .
 
-      # get static krun created by krun-static-build job
-      - name: Download krun-static atrifact
-        uses: actions/download-artifact@v2
+      # download artifact and confugure krun
+      - uses: ./.github/actions/configure-krun
         with:
-          name: krun-static
-          path: build/container-runtime
-
-      - name: Configure KRUN
-        run: |
-          set -x
-          # rename krun.static to krun
-          mv build/container-runtime/krun.static build/opt/kontain/bin/krun
-          # make krun-label-trigger
-          ln build/opt/kontain/bin/krun build/opt/kontain/bin/krun-label-trigger
-          mv container-runtime/docker_config.sh build/opt/kontain/bin/docker_config.sh
+          target-dir: build/opt/kontain
 
       - name: Login into Azure Repository
         run: make -C cloud/azure login-cli
@@ -339,28 +298,15 @@ jobs:
         with:
           submodules: true
 
-      - name: Login into Azure Repository
-        run: make -C cloud/azure login-cli
-
       - name: Download km-build artifact
         uses: actions/download-artifact@v2
         with:
           name: km-build
           path: .
 
-      - name: Configure KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' > /tmp/rules
-          sudo mv /tmp/rules /etc/udev/rules.d/99-perm.rules
-          sudo udevadm control --reload-rules && sudo udevadm trigger
-
-      - name: Pull testenv images
-        run: |
-          make -C tests pull-testenv-image
-
-      - name: KM with KVM Test - Azure
-        run: make -C tests test-withdocker DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
-        timeout-minutes: 20
+      - uses: ./.github/actions/run-tests
+        with:
+          kernel: kvm
 
       - name: Kernel logs
         if: ${{ always() }}
@@ -388,21 +334,10 @@ jobs:
         run: make -C payloads test-all-withdocker DOCKER_INTERACTIVE=
         timeout-minutes: 20
 
-      # get static krun created by krun-static-build job
-      - name: Download krun-static artifact
-        uses: actions/download-artifact@v2
+      # download artifact and confugure krun
+      - uses: ./.github/actions/configure-krun
         with:
-          name: krun-static
-          path: build/container-runtime
-
-      - name: Configure KRUN
-        run: |
-          sudo mkdir -p /opt/kontain/bin
-          sudo mv build/container-runtime/krun.static /opt/kontain/bin/krun
-          sudo mv build/opt/kontain/bin/km /opt/kontain/bin/km
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
-          sudo bash ./container-runtime/podman_config.sh
-          sudo bash ./container-runtime/docker_config.sh
+          target-dir: /opt/kontain
 
       - name: KM with KVM Validate runenv images - Azure
         run: |
@@ -414,61 +349,20 @@ jobs:
         if: ${{ failure() }}
         run: sudo dmesg --ctime
 
-  kkm-build:
-    name: Build KKM, save test artifacts
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - name: Build KKM and KKM tests
-        run: make -C kkm/kkm && make -C kkm/test_kkm
-
-      - name: Install KKM
-        run: sudo insmod kkm/kkm/kkm.ko
-
-      - name: Sanity check - unit test
-        run: ./kkm/test_kkm/test_kkm
-
-      - name: Upload kkm artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: kkm
-          path: |
-            kkm/kkm/kkm.ko
-            kkm/test_kkm/test_kkm
-          retention-days: 7
-
   # TODO: Maybe not needed - review
   kkm-test-ubuntu:
     name: KM tests, KKM on CI VM
     runs-on: ubuntu-20.04
-    needs: [km-build, kkm-build]
+    needs: [km-build]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           submodules: true
-      - run: make -C cloud/azure login-cli
 
-      - name: Download kkm artifact
-        uses: actions/download-artifact@v2
+      - uses: ./.github/actions/run-tests
         with:
-          name: kkm
-          path: kkm
-      - run: chmod a+x kkm/test_kkm/test_kkm
-
-      - name: Install KKM
-        run: sudo insmod kkm/kkm/kkm.ko
-
-      - name: Pull testenv image
-        run: make -C tests pull-testenv-image
-
-      - name: KM Tests - locally with KKM
-        run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
-        timeout-minutes: 15
+          kernel: kkm
 
       - name: Kernel logs
         if: ${{ always() }}
@@ -477,15 +371,12 @@ jobs:
   kkm-test-aws:
     name: KM tests, KKM on AWS
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
-    needs: [start-runners, km-build, kkm-build]
+    needs: [start-runners, km-build]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           submodules: true
-
-      - name: Login into Azure Repository
-        run: make -C cloud/azure login-cli
 
       - name: Download km-build artifact
         uses: actions/download-artifact@v2
@@ -493,19 +384,9 @@ jobs:
           name: km-build
           path: .
 
-      - name: KKM and KKM tests
-        run: |
-          make -C kkm/kkm && make -C kkm/test_kkm
-          sudo insmod kkm/kkm/kkm.ko
-          ./kkm/test_kkm/test_kkm
-
-      - name: Pull testenv image
-        run: |
-          make -C tests pull-testenv-image
-
-      - name: KM with KKM Test - AWS
-        run: make -C tests test-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE= DOCKER_RUN_CLEANUP=
-        timeout-minutes: 20
+      - uses: ./.github/actions/run-tests
+        with:
+          kernel: kkm
 
       - name: Kernel logs
         if: ${{ always() }}
@@ -533,21 +414,10 @@ jobs:
         run: make -C payloads test-all-withdocker HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
         timeout-minutes: 20
 
-      # get static krun created by krun-static-build job
-      - name: Download krun-static artifact
-        uses: actions/download-artifact@v2
+      # download artifact and configure krun
+      - uses: ./.github/actions/configure-krun
         with:
-          name: krun-static
-          path: build/container-runtime
-
-      - name: Configure KRUN
-        run: |
-          sudo mkdir -p /opt/kontain/bin
-          sudo mv build/container-runtime/krun.static /opt/kontain/bin/krun
-          sudo mv build/opt/kontain/bin/km /opt/kontain/bin/km
-          sudo chmod +x /opt/kontain/bin/km /opt/kontain/bin/krun
-          sudo bash ./container-runtime/podman_config.sh
-          sudo bash ./container-runtime/docker_config.sh
+          target-dir: /opt/kontain
 
       - name: KM with KKM Validate runenv images - AWS
         run: |
@@ -562,7 +432,7 @@ jobs:
   minikube-testing:
     name: kubernetes tests against minikube
     runs-on: ubuntu-20.04
-    needs: [k8s-release-bin, kkm-build]
+    needs: [k8s-release-bin]
     strategy:
       matrix:
         # We want to test against containerd and crio. crio support is a bit brittle in
@@ -576,12 +446,7 @@ jobs:
         with:
           submodules: true
 
-      - name: Download kkm artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: kkm
-          path: kkm
-      - run: chmod a+x kkm/test_kkm/test_kkm
+      - uses: ./.github/actions/configure-kkm
 
       - name: Download km-k8s-rel-artifact
         uses: actions/download-artifact@v2
@@ -595,9 +460,6 @@ jobs:
       - name: Start local file server
         run: |
           (cd /tmp/bin_release; python3 -m http.server 8000) &
-
-      - name: Install KKM
-        run: sudo insmod kkm/kkm/kkm.ko
 
       - name: Start minikube
         run: |
@@ -637,28 +499,20 @@ jobs:
   ecs-hack-test:
     name: test alternate KM triggers
     runs-on: ubuntu-20.04
-    needs: [k8s-release-bin, kkm-build]
+    needs: [k8s-release-bin]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           submodules: true
 
-      - name: Download kkm artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: kkm
-          path: kkm
-      - run: chmod a+x kkm/test_kkm/test_kkm
+      - uses: ./.github/actions/configure-kkm
 
       - name: Download km-k8s-rel-artifact
         uses: actions/download-artifact@v2
         with:
           name: km-k8s-rel-artifact
           path: /tmp/bin_release
-
-      - name: Install KKM
-        run: sudo insmod kkm/kkm/kkm.ko
 
       - name: Stop Docker
         run: sudo systemctl stop docker
@@ -747,7 +601,6 @@ jobs:
       [
         km-build,
         krun-static-build,
-        kkm-build,
         km-test-azure,
         km-payloads-azure,
         kkm-test-ubuntu,

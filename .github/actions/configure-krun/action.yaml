@@ -1,0 +1,30 @@
+name: Configure KRUN
+description: Configure static krun from artifact
+inputs:
+  target-dir:
+    description: directory to configure krun in : build/opt/kontain or /opt/kontain/
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    # get static krun created by krun-static-build job
+    - name: Download krun-static atrifact
+      uses: actions/download-artifact@v2
+      with:
+        name: krun-static
+        path: build/container-runtime
+
+    - name: Configure KRUN
+      run: |
+        sudo mkdir -p ${{ target-dir }}
+        # rename krun.static to krun
+        sudo mv build/container-runtime/krun.static ${{target-dir}}/bin/krun
+        # make krun-label-trigger
+        sudo ln ${{target-dir}}/bin/krun ${{target-dir}}/bin/krun-label-trigger
+        sudo mv container-runtime/docker_config.sh ${{target-dir}}/bin/docker_config.sh
+        [[ ${{target-dir}} == /opt/* ]] && sudo mv build/opt/kontain/bin/km /opt/kontain/bin/km
+        sudo chmod +x ${{target-dir}}/bin/km ${{target-dir}}/bin/krun
+        sudo bash ./container-runtime/podman_config.sh
+        sudo bash ./container-runtime/docker_config.sh
+      shell: bash
