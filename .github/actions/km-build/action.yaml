@@ -1,0 +1,47 @@
+name: Km Build
+description: Starts cloud runners
+inputs:
+  build-flavor:
+    description: coverage or valgrind
+    required: false
+    default: '' # assumes all
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Print build environment info
+      run: |
+        echo "Event: ${{ github.event_name }} inputs.run_type: ${{ github.event.inputs.run_type }}"
+        echo ====Environment info===
+        echo "SHA: $(git rev-parse HEAD)"
+        echo "=== Last 10 commits:"
+        git log -n 10 --graph --pretty=format:'%h% %d %s %cr %ce'
+        echo "=== VM/OS:"
+        cat /proc/version
+        cat /etc/os-release
+        echo "=== Docker version:"
+        docker version
+        echo ==== Environment Variables
+        env
+        echo ==== CPU Info
+        lscpu
+
+    - name: Login into Azure Repository
+      run: make -C cloud/azure login-cli
+
+    - name: Prepare KM build env
+      run: make -C tests pull-buildenv-image .buildenv-local-lib
+
+    - name: Check clang-format on source code
+      if ${{ flavor == ''}}
+      run: make withdocker TARGET=clang-format-check
+
+    - name: Build KM and tests using buildenv image
+      run: make -j withdocker TRAGET=${{build-flavor}} RUN_IN_CI=1
+
+    - name: Build and push KM testenv image
+      run: make -C tests testenv${{format '{0}-', ${{build-flavor}}}}image push-testenv${{format '{0}-', ${{build-flavor}} }}image

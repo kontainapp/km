@@ -34,16 +34,15 @@ env:
 
 jobs:
   # starts self-hosted runner in AWS and Azure. They are NOT ephemeral and will run until cleanup in the stop-runner
-  start-runners:
-    uses: ./.github/workflows/start-cloud-runners.yaml
-    secrets: inherit
+  # start-runners:
+  #   uses: ./.github/workflows/start-cloud-runners.yaml
+  #   secrets: inherit
 
-  print-results:
-    runs-on: ubuntu-latest
-    needs: start-runners
+  km-build:
+    name: Build KM
+    runs-on: ubuntu-20.04
     steps:
-      - run: |
-          echo ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
+        uses: ./.github/workflows/km-build
 
   # km-test:
   #   name: KM, KVM on Azure
@@ -119,8 +118,8 @@ jobs:
 
   # This step is to clean up on-demand runner. They work in conjunction with start-runner.
   # Make sure to add dependencies in both "needs" clauses
-  stop-runner:
-    if: always()
-    needs: [start-runners]
-    uses: ./.github/workflows/stop-cloud-runners.yaml
-    secrets: inherit
+  # stop-runner:
+  #   if: always()
+  #   needs: [start-runners]
+  #   uses: ./.github/workflows/stop-cloud-runners.yaml
+  #   secrets: inherit
