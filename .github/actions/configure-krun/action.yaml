@@ -2,7 +2,7 @@ name: Configure KRUN
 description: Configure static krun from artifact
 inputs:
   target-dir:
-    description: directory to configure krun in : build/opt/kontain or /opt/kontain/
+    description: directory to configure krun in ( build/opt/kontain or /opt/kontain/)
     required: true
 
 runs:
@@ -17,14 +17,14 @@ runs:
 
     - name: Configure KRUN
       run: |
-        sudo mkdir -p ${{ target-dir }}
+        sudo mkdir -p ${{inputs.target-dir}}/bin
         # rename krun.static to krun
-        sudo mv build/container-runtime/krun.static ${{target-dir}}/bin/krun
+        sudo mv build/container-runtime/krun.static ${{inputs.target-dir}}/bin/krun
         # make krun-label-trigger
-        sudo ln ${{target-dir}}/bin/krun ${{target-dir}}/bin/krun-label-trigger
-        sudo mv container-runtime/docker_config.sh ${{target-dir}}/bin/docker_config.sh
-        [[ ${{target-dir}} == /opt/* ]] && sudo mv build/opt/kontain/bin/km /opt/kontain/bin/km
-        sudo chmod +x ${{target-dir}}/bin/km ${{target-dir}}/bin/krun
+        sudo ln ${{inputs.target-dir}}/bin/krun ${{inputs.target-dir}}/bin/krun-label-trigger
+        sudo cp container-runtime/docker_config.sh ${{inputs.target-dir}}/bin/docker_config.sh
+        [[ ${{inputs.target-dir}} == /opt/* ]] && sudo mv build/opt/kontain/bin/km /opt/kontain/bin/km
+        sudo chmod +x ${{inputs.target-dir}}/bin/km ${{inputs.target-dir}}/bin/krun
         sudo bash ./container-runtime/podman_config.sh
         sudo bash ./container-runtime/docker_config.sh
       shell: bash

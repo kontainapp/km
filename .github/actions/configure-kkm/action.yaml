@@ -4,7 +4,11 @@ description: Build, install and test kkm
 runs:
   using: "composite"
   steps:
-    - run: |
-      make -C kkm/kkm && make -C kkm/test_kkm
-      sudo insmod kkm/kkm/kkm.ko
-      ./kkm/test_kkm/test_kkm
+
+    - name: Build kkm and kkm_test
+      run: |
+        make -C kkm/kkm
+        make -C kkm/test_kkm
+        sudo insmod kkm/kkm/kkm.ko
+        ./kkm/test_kkm/test_kkm
+      shell: bash
