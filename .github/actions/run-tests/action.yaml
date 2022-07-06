@@ -24,6 +24,8 @@ runs:
       shell: bash
 
     - uses: ./.github/actions/configure-kkm
+      with:
+        build-flavor: valgrind
 
     - run: |
         if [ "${{inputs.kernel}}" == "kvm" ]
