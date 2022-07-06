@@ -1,5 +1,9 @@
 on:
   workflow_call:
+    inputs:
+      needs:
+        description: propagates needs array from caller workflow
+        required: true
     # Map the workflow outputs to job outputs
     outputs:
       runs-on:

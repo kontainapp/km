@@ -774,4 +774,6 @@ jobs:
     if: always()
     needs: [start-runners, km-build, km-test-azure, kkm-test-aws, km-payloads-azure, kkm-payloads-aws]
     uses: ./.github/workflows/stop-cloud-runners.yaml
+      with:
+        needs: ${{stop-runner.needs}}
     secrets: inherit
