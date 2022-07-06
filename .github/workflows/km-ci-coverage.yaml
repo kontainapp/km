@@ -205,6 +205,8 @@ jobs:
   # Make sure to add dependencies in both "needs" clauses
   stop-runner:
     if: always()
-    needs: [start-runners, coverage-azure, coverage-ec2]
+    needs: [start-runners, coverage-azure, coverage-ec2, generate-report]
     uses: ./.github/workflows/stop-cloud-runners.yaml
+    with:
+      dependencies: ${{ toJSON(needs) }}
     secrets: inherit
