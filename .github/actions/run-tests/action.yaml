@@ -25,7 +25,7 @@ runs:
 
     - uses: ./.github/actions/configure-kkm
       with:
-        build-flavor: valgrind
+        build-flavor: ${{inputs.build-flavor}}
 
     - run: |
         if [ "${{inputs.kernel}}" == "kvm" ]
