@@ -88,6 +88,8 @@ jobs:
     steps:
 
       - uses: actions/checkout@v2
+        with:
+          submodules: true
 
       - uses: ./.github/actions/run-tests
         with:
@@ -145,8 +147,6 @@ jobs:
     steps:
 
       - uses: actions/checkout@v2
-        with:
-          submodules: true
 
       - name: Login to Azure Repository
         run: make -C cloud/azure login-cli
