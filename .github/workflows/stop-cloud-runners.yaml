@@ -1,8 +1,8 @@
 on:
   workflow_call:
     inputs:
-      needs:
-        description: propagates needs array from caller workflow
+      dependencies:
+        type: string
         required: true
     # Map the workflow outputs to job outputs
     outputs:
@@ -19,7 +19,7 @@ jobs:
         uses: kontainapp/cloud-github-runner@v3.1
         with:
           mode: stop
-          status: ${{ toJSON(needs) }}
+          status: ${{ inputs.dependencies }}
           github-token: ${{ secrets.GH_TOKEN }}
           ec2-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           ec2-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

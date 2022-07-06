@@ -97,11 +97,6 @@ jobs:
 
       - uses: actions/checkout@v2
 
-      - name: Force failrure
-        run: |
-          echo "::error"
-          exit 1
-
       - name: Login to Azure Repository
         run: make -C cloud/azure login-cli
 
@@ -210,8 +205,8 @@ jobs:
   # Make sure to add dependencies in both "needs" clauses
   stop-runner:
     if: always()
-    needs: [start-runners, coverage-azure, coverage-ec2]
+    needs: [start-runners, coverage-azure, coverage-ec2, generate-report]
     uses: ./.github/workflows/stop-cloud-runners.yaml
     with:
-      needs: ${{needs}}
+      dependencies: ${{ toJSON(needs) }}
     secrets: inherit

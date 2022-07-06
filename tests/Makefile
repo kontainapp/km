@@ -37,7 +37,7 @@ endif
 BATS_CMD := run_bats_tests.sh --match=${MATCH} --usevirt=${USEVIRT} ${IGNORE_FAILURE} ${__BATS_JOBS}
 # this is how we run in outside of container
 TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
-VALGRIND_TEST_CMD := ${TEST_CMD} --valgrind
+VALGRIND_TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_VALGRIND_BIN}/km --valgrind
 COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_COVERAGE_BIN}/km
 # this is how we run tests in containers:
 CONTAINER_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_OPT_KONTAIN_BIN}/km
