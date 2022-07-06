@@ -17,7 +17,6 @@ runs:
       run: |
         [[ -z "${{inputs.build-flavor}}" ]] && echo "::set-output name=img::" || echo "::set-output name=img::${{inputs.build-flavor}}-"
         [[ "${{inputs.kernel}}" == "kkm" ]] && echo "::set-output name=device::HYPERVISOR_DEVICE=/dev/kkm" || echo "::set-output name=device::"
-        [[ "${{inputs.build-flavor}}" == "valgrind" ]] && echo "::set-output name=flags::VALGRIND=1" || echo "::set-output name=flags::"
       shell: bash
 
     - name: Login to Azure Repository
