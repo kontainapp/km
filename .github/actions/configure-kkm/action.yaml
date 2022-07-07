@@ -1,0 +1,23 @@
+name: Configure KKM
+description: Build, install and test kkm
+inputs:
+  build-flavor:
+    description: coverage or valgrind
+    required: false
+    default: '' # assumes all
+
+runs:
+  using: "composite"
+  steps:
+    - id: process-inputs
+      run: |
+        [[ "${{inputs.build-flavor}}" == "valgrind" ]] && echo "::set-output name=flags::VALGRIND=1" || echo "::set-output name=flags::"
+      shell: bash
+
+    - name: Build kkm and kkm_test
+      run: |
+        make -C kkm/kkm ${{steps.process-inputs.outputs.flags}}
+        make -C kkm/test_kkm
+        sudo insmod kkm/kkm/kkm.ko
+        ./kkm/test_kkm/test_kkm
+      shell: bash
