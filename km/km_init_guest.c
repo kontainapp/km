@@ -329,14 +329,21 @@ int km_clone(km_vcpu_t* vcpu,
    return km_vcpu_get_tid(new_vcpu);
 }
 
-long km_clone3(km_vcpu_t* vcpu, struct clone_args* cl_args)
+long km_clone3(km_vcpu_t* vcpu, struct clone_args* cl_args, size_t cl_args_len)
 {
-   if (cl_args->set_tid_size != 0 || cl_args->cgroup != 0) {
-      km_warnx("Not supported clone3 args: tid_size, cgroup %llu, %llu",
-               cl_args->set_tid_size,
-               cl_args->cgroup);
+   /*
+    * clone_args is defined differently based on kernel version.
+    * This allows us to compile and run with all versions of clone_args.
+    * *(&cl_args->tls + 2) ~= cl_args->set_tid_size
+    * 0x200000000ULL ~= CLONE_INTO_CGROUP
+    */
+   if ((cl_args_len > CLONE_ARGS_SIZE_VER0 && *(&cl_args->tls + 2) != 0) ||
+       cl_args->flags & 0x200000000ULL) {
+      km_warnx("Not supported clone3 args: tid_size %llu or CLONE_INTO_CGROUP specified",
+               *(&cl_args->tls + 2));
       return -ENOSYS;
    }
+
    return km_clone(vcpu,
                    cl_args->flags | cl_args->exit_signal,
                    cl_args->stack + cl_args->stack_size,

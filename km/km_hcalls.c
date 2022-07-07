@@ -1458,7 +1458,7 @@ static km_hc_ret_t clone3_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -ENOSYS;
       return HC_CONTINUE;
    }
-   arg->hc_ret = km_clone3(vcpu, cl_args);
+   arg->hc_ret = km_clone3(vcpu, cl_args, arg->arg2);
    return HC_CONTINUE;
 }
 
