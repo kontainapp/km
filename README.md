@@ -4,13 +4,7 @@ Nightly ![nightly](https://github.com/kontainapp/km/actions/workflows/km-ci-work
 
 # Kontain
 
-Kontain is compatible with existing Docker and Kubernetest containers, and can be used to run your existing Container workloads in a manner that is "secure, fast and small—choose three" and with no changes to CI/CD tooling.
-
-Kontain works as a runtime for Docker and Kubernetes to run existing Containers with virtual machine level isolation and security,  but without traditional VM overhead.
-
-In fact, Kontain can generate smaller artifacts with much faster startup times than "classic" Docker containers.
-Kontain works by wrapping your code into a unikernel executable that is packaged as a standard Docker container.
-To distinguish a Kontain container from a "classic" container, we spell it _kontainer_.
+Kontain is compatible with existing Docker and Kubernetest containers, and can be used to run your existing Container workloads in a manner that is "secure, fast and small—choose three" and with no changes to CI/CD tooling. Kontain works as a runtime for Docker and Kubernetes to run existing Containers with virtual machine level isolation and security,  but without traditional VM overhead. In fact, Kontain can generate smaller artifacts with much faster startup times than "classic" Docker containers. Kontain works by wrapping your code into a unikernel executable that is packaged as a standard Docker container. To distinguish a Kontain container from a "classic" container, we spell it _kontainer_.
 
 Use cases for Kontain include ML inferencing, serverless/FaaS computing,
 mobile edge cloud, healthcare, financial services, and ecommerce.
