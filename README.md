@@ -4,11 +4,10 @@ Nightly ![nightly](https://github.com/kontainapp/km/actions/workflows/km-ci-work
 
 # Kontain
 
-Kontain is the way to run container workloads "secure, fast and small—choose three."
-Kontain runs workloads with virtual machine level isolation and security,
-but without traditional VM overhead.
-In fact, Kontain generates smaller artifacts and much faster startup times than "classic" Docker containers.
-Kontain works by wrapping your code into a unikernel executable that is packaged as a standard container.
+Kontain is compatible with your existing Docker and Kubernetest containers, and can be used to run your existing Container workloads in a manner that is "secure, fast and small—choose three."
+Kontain works as a runtime for Docker and Kubernetes to run existing Containers with virtual machine level isolation and security,  but without traditional VM overhead.
+In fact, Kontain can generate smaller artifacts with much faster startup times than "classic" Docker containers.
+Kontain works by wrapping your code into a unikernel executable that is packaged as a standard Docker container.
 To distinguish a Kontain container from a "classic" container, we spell it _kontainer_.
 
 Use cases for Kontain include ML inferencing, serverless/FaaS computing,
@@ -17,8 +16,11 @@ If you use containers for your application,
 but are sensitive to security, performance, scalability, and the cost of running your application in production,
 Kontain may be for you.
 
-For Developers wanting to use Kontain to package and run their applications in Docker and Kubernetes, the user guide is located at:
+For Developers wanting to use Kontain to package and run their applications in Docker using Kontain secure runtime and Kubernetes, the User guide is located at:
 https://kontainapp.github.io/guide/
+
+For a quick look at how Kontain can be used to run Docker containers:
+https://kontainapp.github.io/guide/quickstart/
 
 ![](https://kontainapp.github.io/guide/anim/quickstart.gif)
 
