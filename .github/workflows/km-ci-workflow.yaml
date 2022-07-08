@@ -129,7 +129,6 @@ jobs:
 
       - name: Change permissions for build/opt/kontain/bin/* files
         run: |
-          ls -R build
           chmod +x build/opt/kontain/bin/*
 
       - name: Login into Azure Repository
@@ -159,71 +158,71 @@ jobs:
           make -C payloads/python custom CUSTOM_MODULES="markupsafe wrapt"
 
 
-  # Builds a static linked, stripped binary for krun/crun
-  # This uses the NIX virtual machine, just like the crun CI.
-  # NIX takes a long time, so we build the static krun binary in
-  # parallel with the rest of KM build and test.
-  krun-static-build:
-    name: Build static KRUN binary
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: recursive
-      - name: Set env
-        run: echo "CRUN_SHA=$(cd container-runtime/crun/ && git rev-parse --short=12 HEAD)" >> $GITHUB_ENV
+  # # Builds a static linked, stripped binary for krun/crun
+  # # This uses the NIX virtual machine, just like the crun CI.
+  # # NIX takes a long time, so we build the static krun binary in
+  # # parallel with the rest of KM build and test.
+  # krun-static-build:
+  #   name: Build static KRUN binary
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v2
+  #       with:
+  #         submodules: recursive
+  #     - name: Set env
+  #       run: echo "CRUN_SHA=$(cd container-runtime/crun/ && git rev-parse --short=12 HEAD)" >> $GITHUB_ENV
 
-      # get persistent artifact that contains static krun
-      # it will set step's output variable artifact-status to either 'available' or 'not-found'
-      # Note: to figure out where krun needs to be rebuild ot not we use SHA of the container-runtime/crun/ directory
-      # in teh step above. That SHA becomes artifact name. If there were changes to krun, SHA will change
-      # forcing the re-build
-      - name: Check if artifact exists
-        id: check-artifact
-        uses: kontainapp/persistent-artifact@v1
-        with:
-          github-token: ${{ secrets.GH_TOKEN }}
-          artifact-name: ${{ env.CRUN_SHA}}
-          path: /tmp/krun-static
-          debug: true
+  #     # get persistent artifact that contains static krun
+  #     # it will set step's output variable artifact-status to either 'available' or 'not-found'
+  #     # Note: to figure out where krun needs to be rebuild ot not we use SHA of the container-runtime/crun/ directory
+  #     # in teh step above. That SHA becomes artifact name. If there were changes to krun, SHA will change
+  #     # forcing the re-build
+  #     - name: Check if artifact exists
+  #       id: check-artifact
+  #       uses: kontainapp/persistent-artifact@v1
+  #       with:
+  #         github-token: ${{ secrets.GH_TOKEN }}
+  #         artifact-name: ${{ env.CRUN_SHA}}
+  #         path: /tmp/krun-static
+  #         debug: true
 
-      # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
-      # build krun
-      - uses: actions/cache@v2
-        if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
-        with:
-          path: .cache
-          key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
+  #     # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
+  #     # build krun
+  #     - uses: actions/cache@v2
+  #       if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
+  #       with:
+  #         path: .cache
+  #         key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
 
-      - name: Build static krun
-        if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
-        run: |
-          set -x
-          CRUN_DIR=$(pwd)/container-runtime/crun
-          # These next two lines were taken from the crun release.yaml and build-aux/release.sh
-          # to setup and execute a nix based build of stripped static
-          if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix:2.3.12 cp -rfT /nix /mnt/nix; fi
-          sudo docker run --rm --privileged -v /nix:/nix -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix:2.3.12 nix build --print-build-logs --file nix/
-          mkdir -p /tmp/krun-static
-          cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
+  #     - name: Build static krun
+  #       if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
+  #       run: |
+  #         set -x
+  #         CRUN_DIR=$(pwd)/container-runtime/crun
+  #         # These next two lines were taken from the crun release.yaml and build-aux/release.sh
+  #         # to setup and execute a nix based build of stripped static
+  #         if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix:2.3.12 cp -rfT /nix /mnt/nix; fi
+  #         sudo docker run --rm --privileged -v /nix:/nix -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix:2.3.12 nix build --print-build-logs --file nix/
+  #         mkdir -p /tmp/krun-static
+  #         cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
 
-      # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
-      # and was built in the previous step, upload it with SHA as artifact name
-      - name: Upload krun-static under SHA to be available for persistent check (see above)
-        uses: actions/upload-artifact@v2
-        if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
-        with:
-          name: ${{ env.CRUN_SHA}}
-          path: /tmp/krun-static
+  #     # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
+  #     # and was built in the previous step, upload it with SHA as artifact name
+  #     - name: Upload krun-static under SHA to be available for persistent check (see above)
+  #       uses: actions/upload-artifact@v2
+  #       if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
+  #       with:
+  #         name: ${{ env.CRUN_SHA}}
+  #         path: /tmp/krun-static
 
-      # regardless how we got krun-static (by retrieving persistent artifact or building)
-      # upload it as krun-static artifact
-      - name: Upload krun.static artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: krun-static
-          path: /tmp/krun-static/krun.static
+  #     # regardless how we got krun-static (by retrieving persistent artifact or building)
+  #     # upload it as krun-static artifact
+  #     - name: Upload krun.static artifact
+  #       uses: actions/upload-artifact@v2
+  #       with:
+  #         name: krun-static
+  #         path: /tmp/krun-static/krun.static
 
   # Build the k8s release artifact. Static KRUN is built separately and
   # in parallel from the rest of KM. The k8s artifact contains:
@@ -520,8 +519,6 @@ jobs:
       - name: Untar release
         run: |
           sudo tar -C / -xf /tmp/bin_release/kontain_bin.tar.gz
-          sudo ls -R /opt/kontain
-          sudo ls -R /cloud
 
       - name: Install KM and Reconfigure Docker
         run: |

@@ -63,7 +63,7 @@ endif
 KM_RELEASE := ${BLDTOP}/kontain.tar.gz
 KM_KKM_RELEASE := ${BLDTOP}/kkm.run
 KM_BIN_RELEASE := ${BLDTOP}/kontain_bin.tar.gz
-KM_BINARIES := -C ${BLDTOP} km/km container-runtime/krun container-runtime/krun-label-trigger \
+KM_BINARIES := -C ${BLDTOP} km/km container-runtime/ \
                cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
                -C ${BLDTOP}/opt/kontain bin/docker_config.sh
 # Show this on the release page
@@ -78,11 +78,23 @@ kkm-pkg: ## Build KKM module self-extracting package.
 release: ${KM_RELEASE} ${KM_BIN_RELEASE} ## Package kontain.tar.gz file for release
 	ls -lh ${KM_RELEASE} ${KM_BIN}
 
-${KM_RELEASE}: ${TOP}/tools/bin/create_release.sh ## Build a release tar.gz file for KM (called from release: target)
+${KM_BIN_RELEASE}: ${KM_RELEASE} ## Build a release tar.gz file for KM runtime binaries
+	mkdir -p ${BLDTOP}/container-runtime 
+	cp -f ${TOP}/container-runtime/crun/krun.static ${BLDTOP}/container-runtime/krun
+	ln -f ${BLDTOP}/container-runtime/krun ${BLDTOP}/container-runtime/krun-label-trigger
+	tar -czvf $@ ${KM_BINARIES}
+	rm -rf ${BLDTOP}/container-runtime
+
+${KM_RELEASE}:  ${TOP}/container-runtime/crun/krun.static ${TOP}/tools/bin/create_release.sh ## Build a release tar.gz file for KM (called from release: target)
 	${TOP}/tools/bin/create_release.sh
 
-${KM_BIN_RELEASE}: ${KM_RELEASE} ## Build a release tar.gz file for KM runtime binaries
-	tar -czvf $@ ${KM_BINARIES}
+build-release:
+	make -j RUN_IN_CI=1 RPATH=${KM_INSTALL}
+	make -C cloud/k8s/deploy/shim
+	make kkm-pkg
+
+${TOP}/container-runtime/crun/krun.static:
+	make -C container-runtime static
 
 clean-release: ## Clean the release tar files
 	rm -f ${KM_RELEASE} ${KM_BIN_RELEASE}
