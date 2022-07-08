@@ -22,8 +22,6 @@ https://kontainapp.github.io/guide/quickstart/
 
 **Using Kontain to run existing Docker Containers securely without changes to CI/CD processes and tooling**
 ![](https://guide-assets.s3.us-west-2.amazonaws.com/downloads/run_docker_ctrs.gif)
-**Image size benefits when using Kontain capabilities**
-![](https://guide-assets.s3.us-west-2.amazonaws.com/downloads/image_sizes.png)
 ## Installing Kontain
 **short clip to show how easy it is to install Kontain.**
 ![](https://guide-assets.s3.us-west-2.amazonaws.com/downloads/install.gif)
