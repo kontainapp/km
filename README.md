@@ -20,13 +20,11 @@ For a quick look at how Kontain can be used to run Docker containers:
 
 https://kontainapp.github.io/guide/quickstart/
 
-Below is a short clip to show how easily Kontain is installed.
-![](https://kontainapp.github.io/guide/anim/install.gif)
-
-and how it can be used to run existing Docker Containers without any changes to CI/CD processes and tooling.
-![](https://kontainapp.github.io/guide/anim/run_docker_ctrs.gif)
-
+![Using Kontain to run existing Docker Containers securely without changes to CI/CD processes and tooling](https://guide-assets.s3.us-west-2.amazonaws.com/downloads/run_docker_ctrs.gif)
+![Image size benefits when using Kontain capabilities](https://guide-assets.s3.us-west-2.amazonaws.com/downloads/image_sizes.png)
 ## Installing Kontain
+**short clip to show how easy it is to install Kontain.**
+![](https://guide-assets.s3.us-west-2.amazonaws.com/downloads/install.gif)
 
 Kontain runs on Linux kernel version 4.15 or newer,
 running on Intel VT (vmx) or AMD (svm) with virtualization enabled.
