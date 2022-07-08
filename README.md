@@ -20,6 +20,7 @@ Kontain may be for you.
 For Developers wanting to use Kontain to package and run their applications in Docker and Kubernetes, the user guide is located at:
 https://kontainapp.github.io/guide/
 
+![](https://kontainapp.github.io/guide/anim/quickstart.gif)
 
 ## Installing Kontain
 
