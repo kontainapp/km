@@ -13,13 +13,18 @@ but are sensitive to security, performance, scalability, and the cost of running
 Kontain may be for you.
 
 For Developers wanting to use Kontain to package and run their applications in Docker using Kontain secure runtime and Kubernetes, the User guide is located at:
+
 https://kontainapp.github.io/guide/
 
 For a quick look at how Kontain can be used to run Docker containers:
+
 https://kontainapp.github.io/guide/quickstart/
 
-Below is a small animation showing how Kontain is installed and how it can be used to run existing Docker Containers without any changes.
-![](https://kontainapp.github.io/guide/anim/quickstart.gif)
+Below is a short clip to show how easily Kontain is installed.
+![](https://kontainapp.github.io/guide/anim/install.gif)
+
+and how it can be used to run existing Docker Containers without any changes to CI/CD processes and tooling.
+![](https://kontainapp.github.io/guide/anim/run_docker_ctrs.gif)
 
 ## Installing Kontain
 
