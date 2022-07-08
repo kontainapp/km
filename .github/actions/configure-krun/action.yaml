@@ -2,66 +2,67 @@ name: Configure KRUN
 description: Configure static krun from artifact
 inputs:
   target-dir:
-    description: directory to configure krun in ( build/opt/kontain or /opt/kontain/)
-    required: true
-  skip-configure:
-    description: whether or not to configure krun
+    description: directory to configure krun in ( build/opt/kontain or /opt/kontain/). If ommited, no configuration is performed
     required: false
+    default: ''
+  token:
+    description: github token
+    required: true
 
 runs:
   using: "composite"
   steps:
-      # get persistent artifact that contains static krun
-      # it will set step's output variable artifact-status to either 'available' or 'not-found'
-      # Note: to figure out where krun needs to be rebuild ot not we use SHA of the container-runtime/crun/ directory
-      # in teh step above. That SHA becomes artifact name. If there were changes to krun, SHA will change
-      # forcing the re-build
-      - name: Check if artifact exists
-        id: check-artifact
-        uses: kontainapp/persistent-artifact@v1
-        with:
-          github-token: ${{ secrets.GH_TOKEN }}
-          artifact-name: ${{ env.CRUN_SHA}}
-          path: container-runtime/crun/krun.static
+    - name: Set env
+      run: echo "CRUN_SHA=$(cd container-runtime/crun/ && git rev-parse --short=12 HEAD)" >> $GITHUB_ENV
+      shell: bash
 
-      - run: |
-        ls -R container-runtime/crun
+    # get persistent artifact that contains static krun
+    # it will set step's output variable artifact-status to either 'available' or 'not-found'
+    # Note: to figure out where krun needs to be rebuild ot not we use SHA of the container-runtime/crun/ directory
+    # in teh step above. That SHA becomes artifact name. If there were changes to krun, SHA will change
+    # forcing the re-build
+    - name: Check if artifact exists
+      id: check-artifact
+      uses: kontainapp/persistent-artifact@v1
+      with:
+        github-token: ${{ inputs.token }}
+        artifact-name: ${{ env.CRUN_SHA }}
+        path: container-runtime/crun
 
-      # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
-      # build krun
-      - uses: actions/cache@v2
-        if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
-        with:
-          path: .cache
-          key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
+    # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
+    # build krun
+    - uses: actions/cache@v2
+      if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
+      with:
+        path: .cache
+        key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
 
-      - name: Build static krun
-        if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
-        run: |
-          make -C container-runtime static
+    - name: Build static krun
+      if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
+      run: |
+        make -C container-runtime static
+      shell: bash
 
-      # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
-      # and was built in the previous step, upload it with SHA as artifact name
-      - name: Upload krun-static under SHA to be available for persistent check (see above)
-        uses: actions/upload-artifact@v2
-        if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
-        with:
-          name: ${{ env.CRUN_SHA}}
-          path: container-runtime/crun/krun.static
+    # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
+    # and was built in the previous step, upload it with SHA as artifact name
+    - name: Upload krun-static under SHA to be available for persistent check (see above)
+      uses: actions/upload-artifact@v2
+      if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
+      with:
+        name: ${{ env.CRUN_SHA }}
+        path: container-runtime/crun/krun.static
 
     - name: Configure KRUN
+      if: ${{ inputs.target-dir != '' }}
       run: |
-        if [ -z '${{inputs.skip-configure}}']
-        then 
-          sudo mkdir -p ${{inputs.target-dir}}/bin
-          # rename krun.static to krun
-          sudo mv container-runtime/crun/krun.static ${{inputs.target-dir}}/bin/krun
-          # make krun-label-trigger
-          sudo ln ${{inputs.target-dir}}/bin/krun ${{inputs.target-dir}}/bin/krun-label-trigger
-          sudo cp container-runtime/docker_config.sh ${{inputs.target-dir}}/bin/docker_config.sh
-          [[ ${{inputs.target-dir}} == /opt/* ]] && sudo mv build/opt/kontain/bin/km /opt/kontain/bin/km
-          sudo chmod +x ${{inputs.target-dir}}/bin/km ${{inputs.target-dir}}/bin/krun
-          sudo bash ./container-runtime/podman_config.sh
-          sudo bash ./container-runtime/docker_config.sh
-        fi
+        sudo mkdir -p ${{inputs.target-dir}}/bin
+        # rename krun.static to krun
+        sudo cp container-runtime/crun/krun.static ${{inputs.target-dir}}/bin/krun
+        # make krun-label-trigger
+        sudo cp -f ${{inputs.target-dir}}/bin/krun ${{inputs.target-dir}}/bin/krun-label-trigger
+        sudo cp container-runtime/docker_config.sh ${{inputs.target-dir}}/bin/docker_config.sh
+        [[ ${{inputs.target-dir}} == /opt/* ]] && sudo mv build/opt/kontain/bin/km /opt/kontain/bin/km
+        sudo chmod +x ${{inputs.target-dir}}/bin/km ${{inputs.target-dir}}/bin/krun
+        sudo bash ./container-runtime/podman_config.sh
+        sudo bash ./container-runtime/docker_config.sh
       shell: bash

@@ -30,10 +30,18 @@ readonly OPT_KONTAIN=${BLDTOP}/opt/kontain
 readonly OPT_KONTAIN_TMP=${BLDTOP}/opt/kontain_tmp
 
 echo "Creating temporary directory"
-mkdir -p ${OPT_KONTAIN_TMP}
+mkdir -p ${OPT_KONTAIN_TMP}/bin
 
 # we may need to modify all obj file so make sure we work on a copy
-cp -rf --preserve=links ${OPT_KONTAIN}/* ${OPT_KONTAIN_TMP}
+cp -rf --preserve=links ${OPT_KONTAIN}/alpine-lib ${OPT_KONTAIN_TMP}
+cp -rf --preserve=links ${OPT_KONTAIN}/bin ${OPT_KONTAIN_TMP}
+cp -rf --preserve=links ${OPT_KONTAIN}/include ${OPT_KONTAIN_TMP}
+cp -rf --preserve=links ${OPT_KONTAIN}/lib ${OPT_KONTAIN_TMP}
+cp -rf --preserve=links ${OPT_KONTAIN}/runtime ${OPT_KONTAIN_TMP}
+
+# copy krun 
+cp -f --preserve=links ${TOP}/container-runtime/crun/krun.static ${OPT_KONTAIN_TMP}/bin/krun
+ln -f ${OPT_KONTAIN_TMP}/bin/krun ${OPT_KONTAIN_TMP}/bin/krun-label-trigger
 
 # include docker and podman config scripts in the tarball
 cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN_TMP}/bin
@@ -41,14 +49,13 @@ cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN}/bin # for k
 cp ${TOP}/km-releases/kontain-install.sh ${OPT_KONTAIN_TMP}/bin
 cp ${BLDTOP}/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${OPT_KONTAIN_TMP}/bin
 
-
 # package by doing `tar -C locations[i] files[i]`
 declare -a locations
 declare -a files
 declare -a exclude
 # For each location copy related files to the destination (/opt/kontain).
-locations=($OPT_KONTAIN_TMP $TOP $TOP/tools $TOP/km-releases)
-files=(. ./tests/hello_test.km bin examples)
+locations=($OPT_KONTAIN_TMP $TOP $TOP/km-releases)
+files=(. tests/hello_test.km examples)
 
 for i in $(seq 0 $(("${#locations[@]}" - 1))); do
    source="${locations[$i]}/${files[$i]}"

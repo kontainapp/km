@@ -32,6 +32,7 @@ DEP_PACKAGES := python git gcc automake autoconf libcap-devel \
 		openssl-libs openssl-devel
 # The crun workspace is in the crun directory
 CRUNDIR := crun
+CRUNDIR_ABS := $(realpath $(CRUNDIR))
 
 include ${TOP}/make/actions.mk
 
@@ -50,6 +51,11 @@ all:	$(CRUNDIR)/Makefile .makefile_check | ${KM_OPT_BIN}
 $(CRUNDIR)/Makefile:
 	cd $(CRUNDIR); ./autogen.sh; ./configure
 
+static:
+	[[ -z '$(ls -A /nix)' ]] && sudo docker run --rm --privileged -v /:/mnt nixos/nix:2.3.12 cp -rfT /nix /mnt/nix
+	sudo docker run --rm --privileged -v /nix:/nix -v ${CRUNDIR_ABS}:${CRUNDIR_ABS} -w ${CRUNDIR_ABS} nixos/nix:2.3.12 nix-build --cores 0 --max-jobs auto  --arg enableSystemd false nix/
+	cp -f ${CRUNDIR_ABS}/result/bin/crun ${CRUNDIR_ABS}/krun.static
+	ln -f ${CRUNDIR_ABS}/krun.static ${CRUNDIR_ABS}/krun.static-label-trigger
 
 # Run crun's tests
 test:	all
@@ -68,6 +74,9 @@ clean::
 clobber: clean
 	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) distclean
 	rm -f $(CRUNDIR)/configure
+	rm -f $(CRUNDIR)/krun
+	rm -f $(CRUNDIR)/krun.static
+	rm -f $(CRUNDIR)/krun.static-label-trigger
 
 # If they have a Makefile made for some other directory ask them to remake it
 # Switching between docker builds and non-docker builds in the same dir can cause this.
