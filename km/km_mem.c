@@ -54,6 +54,11 @@
  *
  * When using kkm driver
  * - fixed 512GB of memory is supported.
+ *
+ * Pagetable implementation in this file assumes physical memory to be linear 0-512GB.
+ * KKM is running inside linux kernel with demand paging and non linear physical memory.
+ * KKM driver implements its page tables in conjunction with kernel paging infrastructure.
+ * Manipulating the pagetables is only required when using KVM as virtualization driver.
  */
 
 /*
@@ -319,25 +324,27 @@ static void km_add_vvar_vdso_to_guest_address_space(void)
       km_err(1, "KVM: set vvar/vdso region failed");
    }
 
-   // Now add vdso and vvar to the payload's virtual address space
-   int idx;
-   uint64_t virtaddr = km_vvar_vdso_base[0];
-   uint64_t physaddr = GUEST_VVAR_VDSO_BASE_GPA;
-   x86_pte_4k_t* pte = km_page_table()->pt1;
+   if (machine.vm_type == VM_TYPE_KVM) {
+      // Now add vdso and vvar to the payload's virtual address space
+      int idx;
+      uint64_t virtaddr = km_vvar_vdso_base[0];
+      uint64_t physaddr = GUEST_VVAR_VDSO_BASE_GPA;
+      x86_pte_4k_t* pte = km_page_table()->pt1;
 
-   for (int i = 0; i < vvar_vdso_regions_count; i++) {
-      km_infox(KM_TRACE_MEM,
-               "%s: km vaddr 0x%lx, payload paddr 0x%lx, payload vaddr 0x%lx",
-               vvar_vdso_regions[i].name_substring,
-               vvar_vdso_regions[i].begin_addr,
-               physaddr,
-               virtaddr);
-      for (uint64_t b = vvar_vdso_regions[i].begin_addr; b < vvar_vdso_regions[i].end_addr;
-           b += KM_PAGE_SIZE) {
-         idx = PTE_SLOT(virtaddr);
-         pte_set(pte + idx, physaddr);
-         virtaddr += KM_PAGE_SIZE;
-         physaddr += KM_PAGE_SIZE;
+      for (int i = 0; i < vvar_vdso_regions_count; i++) {
+         km_infox(KM_TRACE_MEM,
+                  "%s: km vaddr 0x%lx, payload paddr 0x%lx, payload vaddr 0x%lx",
+                  vvar_vdso_regions[i].name_substring,
+                  vvar_vdso_regions[i].begin_addr,
+                  physaddr,
+                  virtaddr);
+         for (uint64_t b = vvar_vdso_regions[i].begin_addr; b < vvar_vdso_regions[i].end_addr;
+              b += KM_PAGE_SIZE) {
+            idx = PTE_SLOT(virtaddr);
+            pte_set(pte + idx, physaddr);
+            virtaddr += KM_PAGE_SIZE;
+            physaddr += KM_PAGE_SIZE;
+         }
       }
    }
 
@@ -379,19 +386,21 @@ static void km_add_code_to_guest_address_space(void)
       km_err(1, "KVM: set km_guest mem region failed");
    }
 
-   /*
-    * We know this is the page table the km_guest page addresses will be placed into.
-    * If you change the value of GUEST_KMGUESTMEM_BASE_VA be sure you verify that we
-    * are updating the correct page table.
-    */
-   x86_pte_4k_t* pte = km_page_table()->pt1;
+   if (machine.vm_type == VM_TYPE_KVM) {
+      /*
+       * We know this is the page table the km_guest page addresses will be placed into.
+       * If you change the value of GUEST_KMGUESTMEM_BASE_VA be sure you verify that we
+       * are updating the correct page table.
+       */
+      x86_pte_4k_t* pte = km_page_table()->pt1;
 
-   // Add the km_guest pages into the guest virtual address space
-   for (uint8_t* p = &km_guest_start; p < &km_guest_end; p += KM_PAGE_SIZE) {
-      idx = PTE_SLOT(virtaddr);
-      pte_set(pte + idx, physaddr);
-      virtaddr += KM_PAGE_SIZE;
-      physaddr += KM_PAGE_SIZE;
+      // Add the km_guest pages into the guest virtual address space
+      for (uint8_t* p = &km_guest_start; p < &km_guest_end; p += KM_PAGE_SIZE) {
+         idx = PTE_SLOT(virtaddr);
+         pte_set(pte + idx, physaddr);
+         virtaddr += KM_PAGE_SIZE;
+         physaddr += KM_PAGE_SIZE;
+      }
    }
 
    /*
@@ -476,21 +485,25 @@ void km_guest_page_free(km_gva_t addr, size_t size)
  */
 void km_mem_init(km_machine_init_params_t* params)
 {
-   kvm_mem_reg_t* reg;
-   void* ptr;
-
    machine.overcommit_memory = (params->overcommit_memory == KM_FLAG_FORCE_ENABLE);
-   reg = &machine.vm_mem_regs[KM_RSRV_MEMSLOT];
-   if ((ptr = km_guest_page_malloc(RSV_MEM_START, RSV_MEM_SIZE, PROT_READ | PROT_WRITE)) == NULL) {
-      km_err(1, "KVM: no memory for reserved pages");
-   }
-   reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
-   reg->slot = KM_RSRV_MEMSLOT;
-   reg->guest_phys_addr = RSV_MEM_START;
-   reg->memory_size = RSV_MEM_SIZE;
-   reg->flags = 0;   // set to KVM_MEM_READONLY for readonly
-   if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
-      km_err(1, "KVM: set reserved region failed");
+
+   if (machine.vm_type == VM_TYPE_KVM) {
+      kvm_mem_reg_t* reg;
+      void* ptr;
+
+      reg = &machine.vm_mem_regs[KM_RSRV_MEMSLOT];
+      if ((ptr = km_guest_page_malloc(RSV_MEM_START, RSV_MEM_SIZE, PROT_READ | PROT_WRITE)) == NULL) {
+         km_err(1, "KVM: no memory for reserved pages");
+      }
+      reg->userspace_addr = (typeof(reg->userspace_addr))ptr;
+      reg->slot = KM_RSRV_MEMSLOT;
+      reg->guest_phys_addr = RSV_MEM_START;
+      reg->memory_size = RSV_MEM_SIZE;
+      reg->flags = 0;   // set to KVM_MEM_READONLY for readonly
+      if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
+         km_err(1, "KVM: set reserved region failed");
+      }
+      init_pml4((km_kma_t)reg->userspace_addr);
    }
    /*
     * Move identity map page out of the way. It only gets used if unrestricted_guest support is off,
@@ -500,7 +513,6 @@ void km_mem_init(km_machine_init_params_t* params)
    if (ioctl(machine.mach_fd, KVM_SET_IDENTITY_MAP_ADDR, &idmap) < 0) {
       km_err(1, "KVM: set identity map addr failed");
    }
-   init_pml4((km_kma_t)reg->userspace_addr);
 
    machine.brk = GUEST_MEM_START_VA;
    machine.tbrk = GUEST_MEM_TOP_VA;
@@ -728,7 +740,9 @@ static int km_alloc_region(int idx, size_t size, int upper_va)
       memset(reg, 0, sizeof(*reg));
       return -errno;
    }
-   set_pml4_hierarchy(reg, upper_va);
+   if (machine.vm_type == VM_TYPE_KVM) {
+      set_pml4_hierarchy(reg, upper_va);
+   }
    return 0;
 }
 
@@ -738,7 +752,9 @@ static void km_free_region(int idx, int upper_va)
    uint64_t size = reg->memory_size;
 
    km_assert(size != 0);
-   clear_pml4_hierarchy(reg, upper_va);
+   if (machine.vm_type == VM_TYPE_KVM) {
+      clear_pml4_hierarchy(reg, upper_va);
+   }
    reg->memory_size = 0;
    if (ioctl(machine.mach_fd, KVM_SET_USER_MEMORY_REGION, reg) < 0) {
       km_err(1, "KVM: failed to unplug memory region %d", idx);
@@ -786,7 +802,9 @@ km_gva_t km_mem_brk(km_gva_t brk)
           * the slot is already populated which means the tbrk side allocated it.
           * Still need to establish virtual to physical page mapping on this side.
           */
-         set_pml4_hierarchy(&machine.vm_mem_regs[idx], 0);
+         if (machine.vm_type == VM_TYPE_KVM) {
+            set_pml4_hierarchy(&machine.vm_mem_regs[idx], 0);
+         }
       } else if (km_alloc_region(idx, memreg_size(idx), 0) != 0) {
          idx--;
          brk = machine.brk;
@@ -800,7 +818,9 @@ km_gva_t km_mem_brk(km_gva_t brk)
          km_free_region(idx, 0);
       }
    }
-   fixup_bottom_page_tables(machine.brk, brk);
+   if (machine.vm_type == VM_TYPE_KVM) {
+      fixup_bottom_page_tables(machine.brk, brk);
+   }
    km_gva_t oldpage = roundup(machine.brk, KM_PAGE_SIZE);
    km_gva_t newpage = roundup(brk, KM_PAGE_SIZE);
    if (oldpage < newpage) {
@@ -848,7 +868,9 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
           * the slot is already populated which means the brk side allocated it.
           * Still need to establish virtual to physical page mapping on this side.
           */
-         set_pml4_hierarchy(&machine.vm_mem_regs[idx], 1);
+         if (machine.vm_type == VM_TYPE_KVM) {
+            set_pml4_hierarchy(&machine.vm_mem_regs[idx], 1);
+         }
       } else if (km_alloc_region(idx, memreg_size(idx), 1) != 0) {
          idx++;
          tbrk = machine.tbrk;
@@ -863,7 +885,9 @@ km_gva_t km_mem_tbrk(km_gva_t tbrk)
          km_free_region(idx, 1);
       }
    }
-   fixup_top_page_tables(machine.tbrk, tbrk);   // fix in-guest page tables used/unused flag
+   if (machine.vm_type == VM_TYPE_KVM) {
+      fixup_top_page_tables(machine.tbrk, tbrk);   // fix in-guest page tables used/unused flag
+   }
    // Note: below-tbrk mprotect is managed in guest mmaps (km_mmap.c), so here we just move tbrk up/down.
    machine.tbrk = tbrk;
    km_mem_unlock();
