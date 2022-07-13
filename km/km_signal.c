@@ -55,6 +55,12 @@
 TAILQ_HEAD(km_signal_wait_queue, km_vcpu);
 struct km_signal_wait_queue km_signal_wait_queue;
 
+/*
+ * Threads that are sleeping in a hypercall that can be interrupted by a signal, i.e epoll_pwait()
+ */
+TAILQ_HEAD(km_signal_sleep_queue, km_vcpu);
+struct km_signal_wait_queue km_signal_sleep_queue;
+
 void km_install_sighandler(int signum, sa_action_t func)
 {
    struct sigaction sa = {.sa_sigaction = func, .sa_flags = SA_SIGINFO};
@@ -145,6 +151,7 @@ void km_signal_init(void)
    km_sigaddset(&def_ign_signals, SIGWINCH);
 
    TAILQ_INIT(&km_signal_wait_queue);
+   TAILQ_INIT(&km_signal_sleep_queue);
 }
 
 void km_signal_fini(void)
@@ -366,16 +373,20 @@ static inline void km_signal_vcpu_signal(km_vcpu_t* vcpu)
    km_pkill(vcpu->vcpu_thread, KM_SIGVCPUSTOP, val);
 }
 
-static int km_can_interrupt(km_vcpu_t* vcpu, void* data)
+void km_queue_sig_sleep(km_vcpu_t* vcpu)
 {
-   int signo = *(int*)data;
-   if (signo >= 0 && km_sigismember(&vcpu->sigmask, signo) == 0 &&
-       (vcpu->state == HYPERCALL || vcpu->state == HCALL_INT) && vcpu->hypercall == SYS_epoll_pwait) {
-      km_signal_vcpu_signal(vcpu);
-      km_infox(KM_TRACE_SIGNALS, "interrupting vcpu %d to deliver signal %d", vcpu->vcpu_id, signo);
-      *(int*)data = -1;   // we only want to interrupt one payload thread
+   km_signal_lock();
+   TAILQ_INSERT_TAIL(&km_signal_sleep_queue, vcpu, signal_link);
+   km_signal_unlock();
+}
+
+void km_dequeue_sig_sleep(km_vcpu_t* vcpu)
+{
+   km_signal_lock();
+   if (vcpu->signal_link.tqe_prev != NULL) {
+      TAILQ_REMOVE(&km_signal_sleep_queue, vcpu, signal_link);
    }
-   return 0;
+   km_signal_unlock();
 }
 
 /*
@@ -384,7 +395,20 @@ static int km_can_interrupt(km_vcpu_t* vcpu, void* data)
  */
 static void km_interrupt_thread(int signo)
 {
-   km_vcpu_apply_all(km_can_interrupt, (void*)&signo);
+   km_vcpu_t* vcpu;
+
+   if (signo >= 0) {
+      km_signal_lock();
+      if ((vcpu = TAILQ_FIRST(&km_signal_sleep_queue)) != NULL) {
+         if (km_sigismember(&vcpu->sigmask, signo) == 0) {
+            TAILQ_REMOVE(&km_signal_sleep_queue, vcpu, signal_link);
+            vcpu->signal_link.tqe_prev = NULL;
+            km_signal_vcpu_signal(vcpu);
+            km_infox(KM_TRACE_SIGNALS, "interrupting vcpu %d to deliver signal %d", vcpu->vcpu_id, signo);
+         }
+      }
+      km_signal_unlock();
+   }
 }
 
 void km_post_signal(km_vcpu_t* vcpu, siginfo_t* info)
