@@ -2,7 +2,7 @@ name: Configure KRUN
 description: Configure static krun from artifact
 inputs:
   target-dir:
-    description: directory to configure krun in ( build/opt/kontain or /opt/kontain/). If ommited, no configuration is performed
+    description: directory to configure krun in ( build/opt/kontain or /opt/kontain/ ). If omitted, no configuration is performed
     required: false
     default: ''
   token:
@@ -18,8 +18,8 @@ runs:
 
     # get persistent artifact that contains static krun
     # it will set step's output variable artifact-status to either 'available' or 'not-found'
-    # Note: to figure out where krun needs to be rebuild ot not we use SHA of the container-runtime/crun/ directory
-    # in teh step above. That SHA becomes artifact name. If there were changes to krun, SHA will change
+    # Note: to figure out whether krun needs to be rebuild or not we use SHA of the container-runtime/crun/ directory
+    # in the step above. That SHA becomes artifact name. If there were changes to krun, SHA will change
     # forcing the re-build
     - name: Check if artifact exists
       id: check-artifact

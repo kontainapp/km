@@ -85,7 +85,7 @@ ${KM_BIN_RELEASE}: ${KM_RELEASE} ## Build a release tar.gz file for KM runtime b
 	tar -czvf $@ ${KM_BINARIES}
 	rm -rf ${BLDTOP}/container-runtime
 
-${KM_RELEASE}:  ${TOP}/container-runtime/crun/krun.static ${TOP}/tools/bin/create_release.sh ## Build a release tar.gz file for KM (called from release: target)
+${KM_RELEASE}: ${TOP}/container-runtime/crun/krun.static ${TOP}/tools/bin/create_release.sh ## Build a release tar.gz file for KM (called from release: target)
 	${TOP}/tools/bin/create_release.sh
 
 build-release:

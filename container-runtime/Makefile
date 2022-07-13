@@ -38,7 +38,7 @@ include ${TOP}/make/actions.mk
 
 # Building crun shows errors indicating generated header files are not built yet,
 # so force single threading the make.
-all:	$(CRUNDIR)/Makefile .makefile_check | ${KM_OPT_BIN}
+all: $(CRUNDIR)/Makefile .makefile_check | ${KM_OPT_BIN}
 	make -j1 -C $(CRUNDIR) all
 	cp $(CRUNDIR)/crun ${KM_OPT_BIN}
 	ln -f ${KM_OPT_BIN}/crun ${KM_OPT_BIN}/krun
@@ -53,7 +53,7 @@ $(CRUNDIR)/Makefile:
 
 static:
 	[[ -z '$(ls -A /nix)' ]] && sudo docker run --rm --privileged -v /:/mnt nixos/nix:2.3.12 cp -rfT /nix /mnt/nix
-	sudo docker run --rm --privileged -v /nix:/nix -v ${CRUNDIR_ABS}:${CRUNDIR_ABS} -w ${CRUNDIR_ABS} nixos/nix:2.3.12 nix-build --cores 0 --max-jobs auto  --arg enableSystemd false nix/
+	sudo docker run --rm --privileged -v /nix:/nix -v ${CRUNDIR_ABS}:${CRUNDIR_ABS} -w ${CRUNDIR_ABS} nixos/nix:2.3.12 nix-build --cores 0 --max-jobs auto --arg enableSystemd false nix/
 	cp -f ${CRUNDIR_ABS}/result/bin/crun ${CRUNDIR_ABS}/krun.static
 	ln -f ${CRUNDIR_ABS}/krun.static ${CRUNDIR_ABS}/krun.static-label-trigger
 
@@ -73,10 +73,7 @@ clean::
 # Cleanup to force rebuilding of the crun Makefile in addition to crun
 clobber: clean
 	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) distclean
-	rm -f $(CRUNDIR)/configure
-	rm -f $(CRUNDIR)/krun
-	rm -f $(CRUNDIR)/krun.static
-	rm -f $(CRUNDIR)/krun.static-label-trigger
+	rm -f $(CRUNDIR)/configure $(CRUNDIR)/krun $(CRUNDIR)/krun.static $(CRUNDIR)/krun.static-label-trigger
 
 # If they have a Makefile made for some other directory ask them to remake it
 # Switching between docker builds and non-docker builds in the same dir can cause this.
