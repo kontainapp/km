@@ -1439,6 +1439,13 @@ fi
    run grep -q "calling hc = 231 (exit_group)" $LOGFILE
    assert_failure
    rm -f $LOGFILE
+
+   # Verify that the KM_LOGTO environment variable can control where km logging goes.
+   KM_LOGTO=$LOGFILE run ${KM_BIN} -V ${KM_ARGS_PRIVATE} hello_test$ext
+   assert_success
+   run grep -q "calling hc = 231 (exit_group)" $LOGFILE
+   assert_success
+   rm -f $LOGFILE
 }
 
 # Verify that gdb can follow an execve() system call to the new executable.

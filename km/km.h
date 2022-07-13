@@ -467,6 +467,7 @@ static const struct timespec _1ms = {
  * Environment Variables
  */
 static const_string_t KM_VERBOSE = "KM_VERBOSE";
+static const_string_t KM_LOGTO = "KM_LOGTO";
 static const_string_t KM_MGTPIPE = "KM_MGTPIPE";
 static const_string_t KM_KILL_UNIMPL_SCALL = "KM_KILL_UNIMPL_SCALL";
 
