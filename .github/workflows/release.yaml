@@ -36,46 +36,13 @@ env:
   # TRACE: true # uncomment to enable '-x' in all bash scripts
 
 jobs:
-  # Builds a static linked, stripped binary for krun/crun
-  # This uses the NIX virtual machine, just like the crun CI.
-  # NIX takes a long time, so we build the static krun binary in
-  # parallel with the rest of KM build and test.
-  krun-static-build:
-    name: Build static KRUN binary
+  km-kkm-build:
+    name: Build KM, save kontain and kkm release artifacts
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
-
-      - uses: actions/cache@v2
-        with:
-          path: .cache
-          key: nix-v1-${{ hashFiles('container-runtime/crun/nix/nixpkgs.json') }}
-
-      - run: |
-          CRUN_DIR=$(pwd)/container-runtime/crun
-          # These next two lines were taken from the crun release.yaml and build-aux/release.sh
-          # to setup and execute a nix based build of stripped static
-          if [[ -z $(ls -A /nix) ]]; then sudo docker run --rm --privileged -v /:/mnt nixos/nix:2.3.12 cp -rfT /nix /mnt/nix; fi
-          sudo docker run --rm --privileged -v /nix:/nix -v ${CRUN_DIR}:${CRUN_DIR} -w ${CRUN_DIR} nixos/nix:2.3.12 nix build --print-build-logs --file nix/ --arg enableSystemd false
-          mkdir -p /tmp/krun-static
-          cp ${CRUN_DIR}/result/bin/crun /tmp/krun-static/krun.static
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: krun-static
-          path: /tmp/krun-static/krun.static
-          retention-days: 7
-
-  km-kkm-build:
-    name: Build KM, save kontain and kkm release artifacts
-    runs-on: ubuntu-20.04
-    needs: krun-static-build
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
 
       - name: Print build environment info
         run: |
@@ -105,17 +72,9 @@ jobs:
           make -j withdocker RUN_IN_CI=1 RPATH=/opt/kontain
           make -C cloud/k8s/deploy/shim
 
-      # get prebuilt static krun into its proper place
-      - uses: actions/download-artifact@v2
-        with:
-          name: krun-static
-          path: build/container-runtime
-
-      - run: |
-          set -x
-          # rename krun.static to krun
-          mv build/container-runtime/krun.static build/container-runtime/krun
-          chmod 755 build/container-runtime/krun
+      - name: Build static krun
+        run: |
+          make -C container-runtime static
 
       - name: Create kkm release artifact
         run: make withdocker TARGET=kkm-pkg
@@ -123,10 +82,6 @@ jobs:
       # Note: need to have kkm.run ready for this step
       - name: Create kontain bundles
         run: make withdocker TARGET=release
-
-        # Note: we need to have km built before kontaind.
-      - name: Build and push kontaind image
-        run: make -C cloud/k8s/kontaind push-runenv-image
 
       - name: Build payloads and create runenv images
         run: make -C payloads pull-buildenv-image clean all runenv-image
@@ -273,7 +228,6 @@ jobs:
     needs:
       [
         km-kkm-build,
-        krun-static-build,
         km-kkm-smoke-test,
         km-boxes,
         km-ami,
