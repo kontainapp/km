@@ -47,6 +47,9 @@ uint64_t km_rt_sigsuspend(km_vcpu_t* vcpu, km_sigset_t* mask, size_t masksize);
 uint64_t km_rt_sigtimedwait(
     km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, struct timespec* timeout, size_t setlen);
 
+void km_queue_sig_sleep(km_vcpu_t* vcpu);
+void km_dequeue_sig_sleep(km_vcpu_t* vcpu);
+
 static inline int km_sigindex(int signo)
 {
    return signo - 1;

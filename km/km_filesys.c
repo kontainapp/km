@@ -1794,6 +1794,7 @@ uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
       return -EBADF;
    }
 
+   km_queue_sig_sleep(vcpu);
    int ret = __syscall_6(SYS_epoll_pwait,
                          host_epfd,
                          (uintptr_t)events,
@@ -1801,6 +1802,7 @@ uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
                          timeout,
                          (uintptr_t)sigmask,
                          sigsetsize);
+   km_dequeue_sig_sleep(vcpu);
    return ret;
 }
 
