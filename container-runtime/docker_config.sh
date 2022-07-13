@@ -30,7 +30,7 @@ set -e ; [ "$TRACE" ] && set -x
 
 # If docker is not here, don't do anything.
 DOCKERPATH=$(which docker) || echo "Docker is not present on this system"
-[ $DOCKERPATH = "" ] && exit 0
+[ -z $DOCKERPATH ] && exit 0
 
 # docker config file locations
 ETC_DAEMON_JSON=/etc/docker/daemon.json
