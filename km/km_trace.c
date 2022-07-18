@@ -223,6 +223,10 @@ void km_trace_setup(int argc, char* argv[])
       // has anything to say.
       trace_regex = getenv(KM_VERBOSE);
    }
+   if (kmlogto == NULL) {
+      // See if the environment tells us where to log if not specified on the command line.
+      kmlogto = getenv(KM_LOGTO);
+   }
    if (trace_regex != NULL) {
       if (*trace_regex == 0) {
          km_info_trace.level = KM_TRACE_INFO;
