@@ -17,4 +17,4 @@ FROM scratch
 ENV HOME /root
 # turn off km symlink trick and minimal shell interpretation
 ADD --chown=0:0 bin.tar /
-ADD --chown=0:0 .kontain /
+ADD --chown=0:0 .kontain /.kontain

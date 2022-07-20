@@ -16,4 +16,4 @@
 
 FROM scratch
 ADD --chown=0:0 libs.tar /opt/kontain/
-ADD --chown=0:0 .kontain /
+ADD --chown=0:0 .kontain /.kontain
