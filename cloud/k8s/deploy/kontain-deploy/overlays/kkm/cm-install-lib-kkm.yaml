@@ -22,7 +22,7 @@ metadata:
   labels:
     app: kontain-init
 data:
-  kontain_install_lib.sh: |-
+  kontain_install_lib.sh: >
     #!/usr/bin/env bash
 
     TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
