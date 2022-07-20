@@ -24,6 +24,7 @@ metadata:
 data:
   kontain_install_lib.sh: |-
     #!/usr/bin/env bash
+
     TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
     KONTAIN_RELEASE_URL="https://github.com/kontainapp/km/releases/download/${TAG}/kontain_bin.tar.gz"
     echo KONTAIN_RELEASE_URL is: ${KONTAIN_RELEASE_URL}
@@ -44,7 +45,7 @@ data:
         echo we are running this daemonset on ${ID}
       fi;
 
-      echo "Install Kontain Runtime Artifacts (KM & KRUN)"
+      echo Install Kontain Runtime Artifacts (KM & KRUN)
 
       mkdir -p ${ROOT_MOUNT_DIR}/kontain-artifacts
       curl -Ls "${KONTAIN_RELEASE_URL}" | tar -xzf - -C ${ROOT_MOUNT_DIR}/kontain-artifacts
