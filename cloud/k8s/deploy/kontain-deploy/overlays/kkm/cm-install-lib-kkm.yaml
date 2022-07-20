@@ -24,7 +24,8 @@ metadata:
 data:
   kontain_install_lib.sh: |-
     #!/usr/bin/env bash
-    KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://github.com/kontainapp/km/releases/download/v0.9.5/kontain_bin.tar.gz}"
+    TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
+    KONTAIN_RELEASE_URL="https://github.com/kontainapp/km/releases/download/${TAG}/kontain_bin.tar.gz"
     echo KONTAIN_RELEASE_URL is: ${KONTAIN_RELEASE_URL}
 
     function install_kontain_artifacts() {
