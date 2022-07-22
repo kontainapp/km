@@ -19,6 +19,9 @@
 # The bats tests need this behavior so, tell it to keep logging to stderr.
 KM_ARGS="--km-log-to=stderr"
 
+# Put logs, cores, and snaps in this directory. /tmp disappears after CI run
+TMP=./tmp
+
 signal_flag=128
 
 load test_helper
@@ -205,7 +208,7 @@ fi
    assert_failure
    assert_line --partial "Invalid gdb port number 'foobar'"
 
-   corefile=/tmp/km$$
+   corefile=${TMP}/km$$
    run km_with_timeout -Vcoredump -C $corefile -- hello_test$ext # -C sets coredump file name
    assert_success
    assert_output --partial "Setting coredump path to $corefile"
@@ -381,7 +384,7 @@ fi
 @test "gdb_server_race($test_type): gdb server concurrent wakeup test" {
    local port_id=5
    local km_gdb_port=$(( $port_range_start + $port_id))
-   km_trace_file=/tmp/gdb_server_race_test_static_$$.out
+   km_trace_file=${TMP}/gdb_server_race_test_static_$$.out
    # Test with breakpoints triggering and SIGILL happening continuously
    # Save output to a log file for our own check using grep below.
    echo trace in $km_trace_file
@@ -432,7 +435,7 @@ fi
 @test "gdb_delete_breakpoint($test_type): gdb delete breakpoint test" {
    local port_id=7
    local km_gdb_port=$(( $port_range_start + $port_id))
-   km_trace_file=/tmp/gdb_delete_breakpoint_test_$$.out
+   km_trace_file=${TMP}/gdb_delete_breakpoint_test_$$.out
 
    km_with_timeout -V -g$km_gdb_port gdb_delete_breakpoint_test$ext >$km_trace_file 2>&1 &
    local pid=$!
@@ -714,7 +717,7 @@ fi
 }
 
 @test "exception($test_type): exceptions and faults in the guest (stray_test$ext)" {
-   CORE=/tmp/kmcore.$$
+   CORE=${TMP}/kmcore.$$
    # divide by zero
    assert [ ! -f ${CORE} ]
    run km_with_timeout --coredump=${CORE} stray_test$ext div0
@@ -984,8 +987,8 @@ fi
 # Test fix for issue #459 - short write in core dump
 # checks that coredump writing completed sucessfully.
 @test "trunc_mmap($test_type): truncate a mmaped file and dump core (trunc_mmap$ext)" {
-   CORE=/tmp/kmcore.$$
-   FILE=/tmp/trunc_mmap.$$
+   CORE=${TMP}/kmcore.$$
+   FILE=${TMP}/trunc_mmap.$$
    run km_with_timeout --coredump=${CORE} stray_test$ext trunc_mmap ${FILE}
    assert_failure $(( $signal_flag + 6))  # SIGABRT
    assert_output --partial "Aborted (core dumped)"
@@ -1011,10 +1014,10 @@ fi
 # We compensate for this by retrying the test at most 10 times and declare
 # success with the first passing run.
 @test "sigsuspend($test_type): sigsuspend() and signal forwarding (sigsuspend_test$ext)" {
-   FLAGFILE=/tmp/sigsuspend_test.$$
-   KMTRACE=/tmp/sigsuspend_kmtrace.$$
+   FLAGFILE=${TMP}/sigsuspend_test.$$
+   KMTRACE=${TMP}/sigsuspend_kmtrace.$$
    WAIT=5
-   KMOUT=/tmp/sigsuspend_kmout.$$
+   KMOUT=${TMP}/sigsuspend_kmout.$$
 
    tries=0
    while [ $tries -lt 10 ]; do
@@ -1078,11 +1081,11 @@ fi
    local port_id=21
    local snapshot_test_port=$(( $port_range_start + $port_id))
 
-   SNAP=/tmp/snap.$$
-   CORE=/tmp/core.$$
-   KMLOG=/tmp/kmlog.$$
-   SNAP_INPUT=/tmp/snap_input.$$
-   SNAP_OUTPUT=/tmp/snap_output.$$
+   SNAP=${TMP}/snap.$$
+   CORE=${TMP}/core.$$
+   KMLOG=${TMP}/kmlog.$$
+   SNAP_INPUT=${TMP}/snap_input.$$
+   SNAP_OUTPUT=${TMP}/snap_output.$$
 
    echo "This is test data" > ${SNAP_INPUT}
 
@@ -1188,8 +1191,8 @@ fi
 }
 
 @test "futex_snapshot($test_type): futex_snapshot and resume (futex_test$ext)" {
-   SNAP=/tmp/snap.$$
-   CORE=/tmp/core.$$
+   SNAP=${TMP}/snap.$$
+   CORE=${TMP}/core.$$
 
    if [ -z "${VALGRIND}" ]; then
       cnt=100
@@ -1303,9 +1306,9 @@ fi
 
 @test "popen($test_type): popen pclose test (popen_test$ext)" {
    # use pipetarget_test to read /etc/group and pass through a popen pipe into a result file
-   f1=/tmp/f1$$
-   f2=/tmp/f2$$
-   flog=/tmp/xx$$
+   f1=${TMP}/f1$$
+   f2=${TMP}/f2$$
+   flog=${TMP}/xx$$
    if [ -z ${VALGRIND} ]; then
       to=5s
    else
@@ -1382,7 +1385,7 @@ fi
 }
 
 @test "km_logging($test_type): test the --km-log-to flag (hello_test$ext)" {
-   LOGFILE="/tmp/km_$$.log"
+   LOGFILE="${TMP}/km_$$.log"
    # We need KM_ARGS but we need to control the logging settings for this test
    KM_ARGS_PRIVATE=`echo $KM_ARGS | sed -e "s/--km-log-to=stderr//"`
 
@@ -1393,7 +1396,7 @@ fi
    assert grep -q "calling hc = 231 (exit_group)" $LOGFILE
    rm -f LOGFILE
 
-   # Verify that logging when stderr is a pipe will switch logging to /tmp/km_XXXXX.log
+   # Verify that logging when stderr is a pipe will switch logging to ${TMP}/km_XXXXX.log
    ${KM_BIN} -V ${KM_ARGS_PRIVATE} hello_test$ext 2>&1 | grep -v matchnothing >$LOGFILE
    assert_success
    run grep -q "calling hc = 231 (exit_group)" $LOGFILE
@@ -1495,7 +1498,7 @@ fi
    # This test used 2 network ports.  The next free port would be 21.
    local port_id=19
    local socket_port=$(($port_range_start + $port_id))
-   KMTRACE=/tmp/exec_guest_files_kmtrace.$$
+   KMTRACE=${TMP}/exec_guest_files_kmtrace.$$
 
    rm -f $KMTRACE
    SOCKET_PORT=$socket_port KM_VERBOSE="" run km_with_timeout --km-log-to=$KMTRACE exec_guest_files_test$ext exec_to_target
@@ -1506,7 +1509,7 @@ fi
 }
 
 @test "uidgid($test_type): smoke test for uid/gid related hypercalls (uidgid_test$ext)" {
-   UIDGIDOUT=/tmp/uidgid$$.out
+   UIDGIDOUT=${TMP}/uidgid$$.out
    km_with_timeout uidgid_test$ext | sort -n >$UIDGIDOUT
    assert_success
    id -G | tr " " "\n" | sort -n >$UIDGIDOUT.expected
