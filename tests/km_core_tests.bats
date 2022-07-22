@@ -1086,6 +1086,31 @@ fi
 
    echo "This is test data" > ${SNAP_INPUT}
 
+   # Verify that certain conditions cause the snapshot operation to fail
+   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -e
+   assert_failure
+   assert_output --partial "Can't perform snapshot, epoll fd "
+   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -p
+   assert_failure
+   assert_output --partial "Can't take a snapshot, fifo fd "
+   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -s
+   assert_failure
+   assert_output --partial "Couldn't perform snapshot, socketpair fd "
+   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -t
+   assert_failure
+   assert_output --partial "Can't take a snapshot, active interval timer(s)"
+
+   # make sure resume with payloads args fails
+   run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext
+   assert_success
+   assert [ -f ${SNAP} ]
+   assert [ ! -f ${CORE} ]
+   check_kmcore ${SNAP}
+   run km_with_timeout ${SNAP} --some args
+   assert_failure
+   assert_output --partial "cannot set payload arguments when resuming a snapshot"
+   assert [ ! -f ${CORE} ]
+
    if [ -z "${VALGRIND}" ]; then
       cnt=100
    else
@@ -1108,6 +1133,7 @@ fi
       assert [ -f ${SNAP_OUTPUT} ]
       run diff ${SNAP_INPUT} ${SNAP_OUTPUT}
       assert_success
+      [ $status -ne 0 ] && break
       rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
 
       # snapshot with closed stdio
@@ -1125,6 +1151,7 @@ fi
       assert grep 'label: snaptest_label' ${KMLOG}
       assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
+      [ $status -ne 0 ] && break
       rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
 
       # snapshot resume that core dumps
@@ -1157,34 +1184,10 @@ fi
       assert grep 'label: snaptest_label' ${KMLOG}
       assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
+      [ $status -ne 0 ] && break
       rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
    done
-
-   # Verify that certain conditions cause the snapshot operation to fail
-   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -e
-   assert_failure
-   assert_output --partial "Can't perform snapshot, epoll fd "
-   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -p
-   assert_failure
-   assert_output --partial "Can't take a snapshot, fifo fd "
-   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -s
-   assert_failure
-   assert_output --partial "Couldn't perform snapshot, socketpair fd "
-   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -t
-   assert_failure
-   assert_output --partial "Can't take a snapshot, active interval timer(s)"
-
-   # make sure resume with payloads args fails
-   run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext
-   assert_success
-   assert [ -f ${SNAP} ]
-   assert [ ! -f ${CORE} ]
-   check_kmcore ${SNAP}
-   run km_with_timeout ${SNAP} --some args
-   assert_failure
-   assert_output --partial "cannot set payload arguments when resuming a snapshot"
-   assert [ ! -f ${CORE} ]
-   rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT} ${SNAP_INPUT}
+   [ $status -eq 0 ] && rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT} ${SNAP_INPUT}
 }
 
 @test "futex_snapshot($test_type): futex_snapshot and resume (futex_test$ext)" {
@@ -1206,6 +1209,7 @@ fi
       assert_success
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
+      [ $status -ne 0 ] && break
       rm -f ${SNAP}
    done
 }
