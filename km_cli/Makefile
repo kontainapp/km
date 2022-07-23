@@ -21,5 +21,6 @@ EXEC := km_cli
 SOURCES := km_client.c
 VERSION_SRC := km_client.c # it has branch/version info, so rebuild it if git info changes
 LOCAL_LDOPTS := -static
+LOCAL_COPTS := -I${TOP}/lib/libkontain
 
 include ${TOP}/make/actions.mk
