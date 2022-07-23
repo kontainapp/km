@@ -30,6 +30,7 @@
 #include "km_filesys.h"
 #include "km_management.h"
 #include "km_snapshot.h"
+#include "libkontain_mgmt.h"
 
 static int sock = -1;
 static struct sockaddr_un addr = {.sun_family = AF_UNIX};
@@ -38,6 +39,11 @@ int kill_thread = 0;
 
 static void* mgt_main(void* arg)
 {
+   ssize_t br;
+   struct snapshot_req mgmtrequest;
+   struct mgmtreply mgmtreply;
+   int wewanttodie;
+
    if (listen(sock, 1) < 0) {
       km_warn("listen");
       return NULL;
@@ -49,15 +55,48 @@ static void* mgt_main(void* arg)
     * about message formats and the like for now.
     */
    while (kill_thread == 0) {
+      wewanttodie = 0;
       int nfd = km_mgt_accept(sock, NULL, NULL);
-      km_warnx("Connection accepted");
-      close(nfd);
-
-      if (km_snapshot_create(NULL, NULL, NULL, 0) != 0) {
+      km_tracex("Connection accepted");
+      if (nfd < 0) {
+         // Probably fini closed the listening socket, wait for kill_thread to drop us out of the loop.
          continue;
       }
-      unlink(addr.sun_path);
-      exit(0);
+
+      // Read the request.
+      br = recv(nfd, &mgmtrequest, sizeof(mgmtrequest), 0);
+      if (br < 0) {
+         km_warn("recv mgmt request failed");
+	 close(nfd);
+	 continue;
+      }
+      if (br < 2 * sizeof(int)) {
+         km_warnx("mgmt request is too short, %ld bytes", br);
+         close(nfd);
+         continue;
+      }
+
+      switch (mgmtrequest.opcode) {
+      case KM_MGMT_REQ_SNAPSHOT:
+         mgmtreply.request_status = km_snapshot_create(NULL, mgmtrequest.label, mgmtrequest.description, mgmtrequest.snapshot_path, mgmtrequest.live);
+         wewanttodie = (mgmtrequest.live == 0);
+         break;
+      default:
+         km_warnx("Unknown mgmt request %d, length %d", mgmtrequest.opcode, mgmtrequest.length);
+         mgmtreply.request_status = EINVAL;
+         break;
+      }
+
+      // let them know what happened.
+      ssize_t bw = send(nfd, &mgmtreply, sizeof(mgmtreply), MSG_NOSIGNAL);
+      if (bw != sizeof(mgmtreply)) {
+         km_warn("send mgmt reply failed, byteswritten %ld", bw);
+      }
+      close(nfd);
+
+      if (wewanttodie != 0) {
+         exit(0);
+      }
    }
    return NULL;
 }
@@ -96,6 +135,7 @@ void km_mgt_fini(void)
       return;
    }
    unlink(addr.sun_path);
+   kill_thread = 1;
    close(sock);
    return;
 }

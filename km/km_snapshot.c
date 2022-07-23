@@ -513,7 +513,7 @@ int km_snapshot_restore(km_elf_t* e)
    return 0;
 }
 
-int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, int live)
+int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* dumppath, int live)
 {
    // No snapshots while GDB is running
    if (km_gdb_is_enabled() != 0) {
@@ -537,7 +537,10 @@ int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, int live
    /*
     * TODO: Work label and description into this.
     */
-   km_dump_core(km_get_snapshot_path(), vcpu, NULL, label, description, KM_DO_SNAP);
+   if (dumppath == NULL || dumppath[0] == 0) {
+      dumppath = km_get_snapshot_path();
+   }
+   km_dump_core(dumppath, vcpu, NULL, label, description, KM_DO_SNAP);
 
    if (live == 0) {
       machine.exit_group = 1;

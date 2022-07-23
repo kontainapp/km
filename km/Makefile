@@ -23,7 +23,7 @@ SOURCES := load_elf.c km_cpu_init.c km_main.c km_vcpu_run.c km_hcalls.c km_mem.c
 		km_guest_asmcode.s km_snapshot.c km_exec.c km_fork.c km_management.c \
 		km_kkm.c km_vmdriver.c km_exec_fd_save_recover.c
 VERSION_SRC := km_main.c # it has branch/version info, so rebuild it if git info changes
-INCLUDES := ${TOP}/include
+INCLUDES := ${TOP}/include ${TOP}/lib/libkontain
 COVERAGE := yes
 EXEC := km
 ifneq (${VALGRIND},)
