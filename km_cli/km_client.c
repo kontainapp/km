@@ -139,7 +139,7 @@ int send_request(char* sock_name, void* reqp, size_t reqlen)
       return 1;
    }
 
-   struct mgmtreply reply;
+   mgmtreply_t reply;
    ssize_t br = recv(sockfd, &reply, sizeof(reply), 0);
    if (br < 0) {
       fprintf(stderr, "reply not recieved, error %s\n", strerror(errno));
@@ -163,25 +163,25 @@ int send_request(char* sock_name, void* reqp, size_t reqlen)
  */
 int snapshot_process(char* sockname, char* snapshot_file, char* label, char* description, int live)
 {
-   struct snapshot_req req;
+   mgmtrequest_t req;
 
    req.opcode = KM_MGMT_REQ_SNAPSHOT;
 
    if (label != NULL) {
-      strncpy(req.label, label, sizeof(req.label) - 1);
+      strncpy(req.requests.snapshot_req.label, label, sizeof(req.requests.snapshot_req.label) - 1);
    }
-   req.description[0] = 0;
+   req.requests.snapshot_req.description[0] = 0;
    if (description != NULL) {
-      strncpy(req.description, description, sizeof(req.description) - 1);
+      strncpy(req.requests.snapshot_req.description, description, sizeof(req.requests.snapshot_req.description) - 1);
    }
-   req.live = live;
-   req.snapshot_path[0] = 0;
+   req.requests.snapshot_req.live = live;
+   req.requests.snapshot_req.snapshot_path[0] = 0;
    if (snapshot_file != NULL) {
-      if (strlen(snapshot_file) >= sizeof(req.snapshot_path)) {
-         fprintf(stderr, "snapshot filename %s is too long, %ld bytes allowed\n", snapshot_file, sizeof(req.snapshot_path));
+      if (strlen(snapshot_file) >= sizeof(req.requests.snapshot_req.snapshot_path)) {
+         fprintf(stderr, "snapshot filename %s is too long, %ld bytes allowed\n", snapshot_file, sizeof(req.requests.snapshot_req.snapshot_path));
          return EINVAL;
       }
-      strncpy(req.snapshot_path, snapshot_file, sizeof(req.snapshot_path));
+      strncpy(req.requests.snapshot_req.snapshot_path, snapshot_file, sizeof(req.requests.snapshot_req.snapshot_path));
    }
    return send_request(sockname, &req, sizeof(req));
 }

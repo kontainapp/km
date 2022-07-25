@@ -40,8 +40,8 @@ int kill_thread = 0;
 static void* mgt_main(void* arg)
 {
    ssize_t br;
-   struct snapshot_req mgmtrequest;
-   struct mgmtreply mgmtreply;
+   mgmtrequest_t mgmtrequest;
+   mgmtreply_t mgmtreply;
    int wewanttodie;
 
    if (listen(sock, 1) < 0) {
@@ -79,11 +79,11 @@ static void* mgt_main(void* arg)
       switch (mgmtrequest.opcode) {
          case KM_MGMT_REQ_SNAPSHOT:
             mgmtreply.request_status = km_snapshot_create(NULL,
-                                                          mgmtrequest.label,
-                                                          mgmtrequest.description,
-                                                          mgmtrequest.snapshot_path,
-                                                          mgmtrequest.live);
-            wewanttodie = (mgmtrequest.live == 0);
+                                                          mgmtrequest.requests.snapshot_req.label,
+                                                          mgmtrequest.requests.snapshot_req.description,
+                                                          mgmtrequest.requests.snapshot_req.snapshot_path,
+                                                          mgmtrequest.requests.snapshot_req.live);
+            wewanttodie = (mgmtrequest.requests.snapshot_req.live == 0);
             break;
          default:
             km_warnx("Unknown mgmt request %d, length %d", mgmtrequest.opcode, mgmtrequest.length);
