@@ -67,8 +67,8 @@ static void* mgt_main(void* arg)
       br = recv(nfd, &mgmtrequest, sizeof(mgmtrequest), 0);
       if (br < 0) {
          km_warn("recv mgmt request failed");
-	 close(nfd);
-	 continue;
+         close(nfd);
+         continue;
       }
       if (br < 2 * sizeof(int)) {
          km_warnx("mgmt request is too short, %ld bytes", br);
@@ -77,14 +77,18 @@ static void* mgt_main(void* arg)
       }
 
       switch (mgmtrequest.opcode) {
-      case KM_MGMT_REQ_SNAPSHOT:
-         mgmtreply.request_status = km_snapshot_create(NULL, mgmtrequest.label, mgmtrequest.description, mgmtrequest.snapshot_path, mgmtrequest.live);
-         wewanttodie = (mgmtrequest.live == 0);
-         break;
-      default:
-         km_warnx("Unknown mgmt request %d, length %d", mgmtrequest.opcode, mgmtrequest.length);
-         mgmtreply.request_status = EINVAL;
-         break;
+         case KM_MGMT_REQ_SNAPSHOT:
+            mgmtreply.request_status = km_snapshot_create(NULL,
+                                                          mgmtrequest.label,
+                                                          mgmtrequest.description,
+                                                          mgmtrequest.snapshot_path,
+                                                          mgmtrequest.live);
+            wewanttodie = (mgmtrequest.live == 0);
+            break;
+         default:
+            km_warnx("Unknown mgmt request %d, length %d", mgmtrequest.opcode, mgmtrequest.length);
+            mgmtreply.request_status = EINVAL;
+            break;
       }
 
       // let them know what happened.
