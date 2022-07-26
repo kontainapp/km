@@ -1083,6 +1083,31 @@ fi
    KMLOG=/tmp/kmlog.$$
    SNAP_INPUT=/tmp/snap_input.$$
    SNAP_OUTPUT=/tmp/snap_output.$$
+   MGMTPIPE=/tmp/mgmtpipe.$$
+   SNAPDIR=/tmp/snapdir.$$
+
+   # Test the km_cli -p, -c and -d command line arguments
+   # Since we work on the command name to decide which process to request perform a
+   # snapshot, we should not run concurrent instances of the bats tests as we
+   # can't be sure of which instance of hello_html_test.XXX we have requested to
+   # produce a snapshot.  I suppose we could create a copy of the program like
+   # hello_html_test_$$.XXX and then run that.
+   mkdir -p $SNAPDIR
+   rm -f $MGMTPIPE
+   KM_MGTPIPE=$MGMTPIPE km_with_timeout hello_html_test$ext $snapshot_test_port &
+   # Wait for the process to exist
+   while ! pidof hello_html_test$ext; do sleep 1; done
+   pid=`pidof hello_html_test$ext`
+   run ../build/km_cli/km_cli -p $pid -d $SNAPDIR
+   assert_success
+   assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
+   rm $SNAPDIR/hello_html_test$ext.$pid.kmsnap
+   run ../build/km_cli/km_cli -c hello_html_test$ext -d $SNAPDIR
+   assert_success
+   assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
+   run curl -s localhost:$snapshot_test_port --retry-connrefused  --retry 3 --retry-delay 1
+   assert_success
+   rm -fr $SNAPDIR $MGMTPIPE
 
    echo "This is test data" > ${SNAP_INPUT}
 

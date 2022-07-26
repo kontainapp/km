@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <errno.h>
 
 static in_port_t PORT = 8002;
 
@@ -52,7 +53,7 @@ int tcp_listen(void)
    setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
 
    if (bind(listen_sd, (struct sockaddr*)&sa_serv, sizeof(sa_serv)) < 0) {
-      puts("bind\n");
+      printf("bind, port %d failed, %s\n", PORT, strerror(errno));
       exit(1);
    }
 

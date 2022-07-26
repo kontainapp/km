@@ -402,6 +402,10 @@ int find_processes_to_snap(char *commandnames[], pid_t *processids, struct found
          sprintf(path, "%s/%s/cmdline", PROCDIR, de->d_name);
          FILE* cmdfp = fopen(path, "r");
          if (cmdfp == NULL) {
+            if (errno == ENOENT) {
+               // the process just terminated, no need to look at this one.
+               continue;
+            }
             fprintf(stderr, "Can't open %s, %s\n", path, strerror(errno));
             break;
          }
