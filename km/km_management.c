@@ -78,11 +78,12 @@ static void* mgt_main(void* arg)
 
       switch (mgmtrequest.opcode) {
          case KM_MGMT_REQ_SNAPSHOT:
-            mgmtreply.request_status = km_snapshot_create(NULL,
-                                                          mgmtrequest.requests.snapshot_req.label,
-                                                          mgmtrequest.requests.snapshot_req.description,
-                                                          mgmtrequest.requests.snapshot_req.snapshot_path,
-                                                          mgmtrequest.requests.snapshot_req.live);
+            mgmtreply.request_status =
+                km_snapshot_create(NULL,
+                                   mgmtrequest.requests.snapshot_req.label,
+                                   mgmtrequest.requests.snapshot_req.description,
+                                   mgmtrequest.requests.snapshot_req.snapshot_path,
+                                   mgmtrequest.requests.snapshot_req.live);
             wewanttodie = (mgmtrequest.requests.snapshot_req.live == 0);
             break;
          default:
