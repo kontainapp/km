@@ -64,6 +64,13 @@ build {
     script          = "../scripts/L0-image-provision.sh"
   }
 
+  // TODO: https://github.com/kontainapp/km/issues/1600
+  // Disable enlightened vmcs for now until we figure the fix
+  provisioner "shell" {
+    execute_command = "{{ .Vars }} sudo -E sh '{{ .Path }}' ${var.username}"
+    inline          = ["echo 'options kvm_intel enlightened_vmcs=N'> /etc/modprobe.d/kvm_intel.conf"]
+  }
+
   // TBD azure Image should be "deprovisioned", see https://www.packer.io/docs/builders/azure/arm
   // see https://docs.microsoft.com/en-us/azure/virtual-machines/extensions/agent-linux
   // turned off for now as it breaks the build

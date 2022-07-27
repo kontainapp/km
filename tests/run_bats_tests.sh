@@ -155,6 +155,15 @@ if [ ! -c $device_node ] ; then
    exit 1
 fi
 
+# TODO: https://github.com/kontainapp/km/issues/1600
+# check for enlightened vmcs for now until we figure the fix
+if [[ $usevirt == "kvm" && -f /sys/module/kvm_intel/parameters/enlightened_vmcs ]] ; then
+   if [[ $(cat /sys/module/kvm_intel/parameters/enlightened_vmcs) == "Y" ]] ; then
+      echo -e "${RED}**ERROR** Enlightened VMCS is on, bailing ${NOCOLOR}"
+      exit 1
+   fi
+fi
+
 echo -e "${GREEN}**Running tests with virtualization $usevirt.${NOCOLOR}"
 
 if [ ! -x $km_bin ] ; then
