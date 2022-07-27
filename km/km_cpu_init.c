@@ -400,7 +400,9 @@ static inline void km_signal_vcpu_stop(km_vcpu_t* vcpu)
 {
    sigval_t val = {.sival_int = vcpu->vcpu_id | VCPU_STOP};
 
-   km_pkill_no_esrch(vcpu->vcpu_thread, KM_SIGVCPUSTOP, val);
+   if (vcpu->vcpu_thread != 0) {
+      km_pkill_no_esrch(vcpu->vcpu_thread, KM_SIGVCPUSTOP, val);
+   }
 }
 
 /*
