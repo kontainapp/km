@@ -69,6 +69,7 @@ KM_OPT_RT := ${KM_OPT}/runtime
 KM_OPT_ALPINELIB := ${KM_OPT}/alpine-lib
 KM_LDSO := ${KM_OPT_RT}/libc.so
 KM_BIN := ${KM_OPT_BIN}/km
+KM_CLI_BIN := ${KM_OPT_BIN}/km_cli
 
 PATH := $(abspath ${KM_OPT_BIN}):${PATH}
 

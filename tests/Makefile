@@ -35,12 +35,12 @@ endif
 
 # Base command to run BATS, and derivatives - how to run outside of container, in container, etc..
 BATS_CMD := run_bats_tests.sh --match=${MATCH} --usevirt=${USEVIRT} ${IGNORE_FAILURE} ${__BATS_JOBS}
-# this is how we run in outside of container
-TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --pretty
-VALGRIND_TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_VALGRIND_BIN}/km --valgrind
-COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_COVERAGE_BIN}/km
+# this is how we run outside of container
+TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_BIN}/km --km-cli=${KM_OPT_BIN}/km_cli --pretty
+VALGRIND_TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_VALGRIND_BIN}/km --km-cli=${KM_OPT_BIN}/km_cli --valgrind
+COVERAGE_TEST_CMD := time ./${BATS_CMD} --km=${KM_OPT_COVERAGE_BIN}/km --km-cli=${KM_OPT_BIN}/km_cli
 # this is how we run tests in containers:
-CONTAINER_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_OPT_KONTAIN_BIN}/km
+CONTAINER_TEST_CMD := ${DOCKER_KM_TOP}/tests/${BATS_CMD} --km=${DOCKER_OPT_KONTAIN_BIN}/km --km-cli=${DOCKER_OPT_KONTAIN_BIN}/km_cli
 CONTAINER_VARGRIND_TEST_CMD := ${CONTAINER_TEST_CMD} --valgrind
 
 # Build from these sources. Note that test may be skipped using "skip" support in out bats files

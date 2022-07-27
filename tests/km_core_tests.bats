@@ -1096,13 +1096,15 @@ fi
    rm -f $MGMTPIPE
    KM_MGTPIPE=$MGMTPIPE km_with_timeout hello_html_test$ext $snapshot_test_port &
    # Wait for the process to exist
-   while ! pidof hello_html_test$ext; do sleep 1; done
+   tries=5
+   while ! pidof hello_html_test$ext && $tries -gt 0; do sleep 1; tries=`expr $tries - 1`; done
+   assert [ $tries -gt 0 ]
    pid=`pidof hello_html_test$ext`
-   run ../build/km_cli/km_cli -p $pid -d $SNAPDIR
+   run ${KM_CLI_BIN} -p $pid -d $SNAPDIR
    assert_success
    assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
    rm $SNAPDIR/hello_html_test$ext.$pid.kmsnap
-   run ../build/km_cli/km_cli -c hello_html_test$ext -d $SNAPDIR
+   run ${KM_CLI_BIN} -c hello_html_test$ext -d $SNAPDIR
    assert_success
    assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
    run curl -s localhost:$snapshot_test_port --retry-connrefused  --retry 3 --retry-delay 1
