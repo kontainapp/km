@@ -32,7 +32,7 @@ data:
 
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
-    echo logging the instance this is running on for debugging purposes
+    echo "logging the instance this is running on for debugging purposes"
     chroot ${ROOT_MOUNT_DIR} echo running on $(hostname)
 
     CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
@@ -55,23 +55,23 @@ data:
     elif [ -d /root/var/lib/rancher/k3s/agent ]; then
       echo "its a k3s install"
       CONTAINERD_CFG_DIR="${K3S_CONTAINERD_DIR:/root/var/lib/rancher/k3s/agent/etc/containerd}"
-      cp "$CONTAINERD_CFG_DIR/config.toml" "$CONTAINERD_CFG_DIR/config.toml.tmpl"
-      containerd_conf_file="$CONTAINERD_CFG_DIR/config.toml.tmpl"
+      cp "${CONTAINERD_CFG_DIR}/config.toml" "${CONTAINERD_CFG_DIR}/config.toml.tmpl"
+      containerd_conf_file="${CONTAINERD_CFG_DIR}/config.toml.tmpl"
     fi
 
     runtime="krun"
     configuration="configuration"
     pluginid=cri
-    if grep -q "version = 2\>" $containerd_conf_file; then
+    if grep -q "version = 2\>" ${containerd_conf_file}; then
       pluginid=\"io.containerd.grpc.v1.cri\"
     fi
 
     runtime_table="plugins.${pluginid}.containerd.runtimes.$runtime"
-    runtime_type="io.containerd.$runtime.v2"
-    options_table="$runtime_table.options"
+    runtime_type="io.containerd.${runtime}.v2"
+    options_table="${runtime_table}.options"
     config_path=""
-    if grep -q "\[$runtime_table\]" $containerd_conf_file; then
-        echo "Configuration exists for $runtime_table, overwriting"
+    if grep -q "\[$runtime_table\]" ${containerd_conf_file}; then
+        echo "Configuration exists for ${runtime_table}, overwriting"
         sed -i "/\[$runtime_table\]/,+1s#runtime_type.*#runtime_type = \"${runtime_type}\"#" $containerd_conf_file
     else
         cat <<-EOT | tee -a $containerd_conf_file

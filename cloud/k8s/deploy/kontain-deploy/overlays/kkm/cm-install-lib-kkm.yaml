@@ -22,30 +22,29 @@ metadata:
   labels:
     app: kontain-init
 data:
-  kontain_install_lib.sh: >
+  kontain_install_lib.sh: |-
     #!/usr/bin/env bash
-
     TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
     KONTAIN_RELEASE_URL="https://github.com/kontainapp/km/releases/download/${TAG}/kontain_bin.tar.gz"
-    echo KONTAIN_RELEASE_URL is: ${KONTAIN_RELEASE_URL}
+    echo "KONTAIN_RELEASE_URL is: ${KONTAIN_RELEASE_URL}"
 
     function install_kontain_artifacts() {
       ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
       source /$ROOT_MOUNT_DIR/etc/os-release
-      if [[ "$ID" == "amzn" ]]; then 
-        echo we are running this daemonset on ${ID}
+      if [[ "$ID" == "amzn" ]]; then
+        echo "we are running this daemonset on ${ID}"
         chroot ${ROOT_MOUNT_DIR} rm /var/lib/rpm/__db*
         chroot ${ROOT_MOUNT_DIR} yum update -y
         sleep 2
         chroot ${ROOT_MOUNT_DIR} yum install  -y kernel-devel-$(uname -r)
         sleep 2
         chroot ${ROOT_MOUNT_DIR} ls /lib/modules
-      elif [[ "$ID" == "ubuntu" ]]; then 
-        echo we are running this daemonset on ${ID}
+      elif [[ "$ID" == "ubuntu" ]]; then
+        echo "we are running this daemonset on ${ID}"
       fi;
 
-      echo Install Kontain Runtime Artifacts (KM & KRUN)
+      echo "Install Kontain Runtime Artifacts (KM & KRUN)"
 
       mkdir -p ${ROOT_MOUNT_DIR}/kontain-artifacts
       curl -Ls "${KONTAIN_RELEASE_URL}" | tar -xzf - -C ${ROOT_MOUNT_DIR}/kontain-artifacts
