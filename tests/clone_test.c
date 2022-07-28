@@ -23,6 +23,8 @@
 #include <sys/utsname.h>
 #include <sys/wait.h>
 
+int flag;   // child waits for this to become non-zero before proceeding
+
 #define errExit(msg)                                                                               \
    do {                                                                                            \
       perror(msg);                                                                                 \
@@ -31,8 +33,10 @@
 
 static int childFunc(void* arg)
 {
+   while (flag == 0)   // wait for main to print
+      ;
    fprintf(stderr, "Hello from clone\n");
-   return 0; /* Child terminates now */
+   _Exit(EXIT_SUCCESS);
 }
 
 #define STACK_SIZE (1024 * 1024) /* Stack size for cloned child */
@@ -56,6 +60,7 @@ int main(int argc, char* argv[])
    }
    printf("clone() returned %ld\n", (long)pid);
 
-   usleep(100000);
-   exit(EXIT_SUCCESS);
+   flag = 1;   // tell child to proceed
+   pause();
+   exit(EXIT_FAILURE);
 }
