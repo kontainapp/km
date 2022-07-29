@@ -39,10 +39,10 @@ tests: km runtime lib tools/bin
 
 .PHONY: clang-format clang-format-check
 clang-format-check:
-	clang-format --dry-run -Werror km/*.h km/*.c tests/*.h tests/*.c tests/*.cpp
+	clang-format --dry-run -Werror km/*.h km/*.c tests/*.h tests/*.c tests/*.cpp km_cli/*.c
 
 clang-format:
-	clang-format -i km/*.h km/*.c tests/*.h tests/*.c tests/*.cpp
+	clang-format -i km/*.h km/*.c tests/*.h tests/*.c tests/*.cpp km_cli/*.c
 
 withdocker runtime: | ${KM_OPT}/alpine-lib/gcc-libs-path.txt
 
