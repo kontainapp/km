@@ -496,6 +496,8 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
       char* mgt_e = getenv(KM_MGTPIPE);
       if (mgt_e != NULL) {
          mgtpipe = strdup(mgt_e);
+         // We don't want the mgmt pipe to appear in the snapshot
+         unsetenv(KM_MGTPIPE);
       }
    }
 

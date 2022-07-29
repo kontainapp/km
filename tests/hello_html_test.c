@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,7 +53,7 @@ int tcp_listen(void)
    setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
 
    if (bind(listen_sd, (struct sockaddr*)&sa_serv, sizeof(sa_serv)) < 0) {
-      puts("bind\n");
+      printf("bind, port %d failed, %s\n", PORT, strerror(errno));
       exit(1);
    }
 

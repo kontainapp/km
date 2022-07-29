@@ -38,6 +38,7 @@ Usage:  ${BASH_SOURCE[0]} [options]
   --time-info-file=name   Temp file with tests time tracing (default /tmp/km_test_time_info_$$)
   --km=km_name            KM path. (default derived from git )
   --km-args="args...."    Optional argument to pass to each KM invocation
+  --km-cli=km_cli         Path of the km_cli executable
   --ignore-failure        Return success even if some tests fail.
   --dry-run               print commands instead of executing them
   --usevirt=virtmanager   optional argument to override virtualization platform kvm or kkm
@@ -67,6 +68,9 @@ while [ $# -gt 0 ]; do
       ;;
     --km=*)
       km="${1#*=}"
+      ;;
+    --km-cli=*)
+      km_cli="${1#*=}"
       ;;
     --km-args=*)
       export KM_ARGS="${1#*=}"
@@ -138,6 +142,16 @@ if [ -z "$km_bin" ] ; then
    fi
 fi
 
+# set the path to km_cli
+km_cli_bin="${km_cli}"
+if [ -z "$km_cli_bin" ] ; then
+   if [ -x km_cli ] ; then
+      km_cli_bin=$(realpath km_cli)
+   else
+      km_cli_bin="$(git rev-parse --show-toplevel)/build/km_cli/km_cli"
+   fi
+fi
+
 if [ "$usevirt" != 'kvm' ] && [ "$usevirt" != 'kkm' ] ; then
    if [ -c '/dev/kvm' ] ; then
       usevirt="kvm"
@@ -174,6 +188,7 @@ fi
 $DEBUG export TIME_INFO=$time_info_file
 $DEBUG export KM_BIN=$km_bin
 $DEBUG export USE_VIRT=$usevirt
+$DEBUG export KM_CLI_BIN=$km_cli_bin
 
 # Generate files for bats, one file per type (e.g. km), from source
 for t in $test_type ; do

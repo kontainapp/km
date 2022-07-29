@@ -102,6 +102,7 @@ define testenv_prep =
 			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
 			build/opt/kontain/runtime/libpthread.so \
 			build/opt/kontain/bin/km \
+			build/opt/kontain/bin/km_cli \
 			km \
 			include \
 
@@ -128,6 +129,7 @@ define coverage_testenv_prep =
 			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
 			build/opt/kontain/runtime/libpthread.so \
 			build/opt/kontain/coverage/bin/km \
+			build/opt/kontain/bin/km_cli \
 			build/km/coverage \
 			km \
 			include \
@@ -155,6 +157,7 @@ define valgrind_testenv_prep =
 			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so \
 			build/opt/kontain/runtime/libpthread.so \
 			build/opt/kontain/valgrind/bin/km \
+			build/opt/kontain/bin/km_cli \
 			build/km/valgrind \
 			km \
 			include \
