@@ -45,40 +45,42 @@
  * There are many things to consider when taking snapshots.
  * - we need to snapshot all processes in a container
  * - we need to be able to snapshot only some processes in a container
- * - we need to be able to snapshot a single process that is not in a container, mostly for smoke testing.
- * - we should also tolerate multiple unrelated km instances running outside of a container and not view
- *   then as somehow related.
- * - we should probably freeze the processes in a container before snapshoting them.  We don't do this.
+ * - we need to be able to snapshot a single process that is not in a container, mostly for smoke
+ * testing.
+ * - we should also tolerate multiple unrelated km instances running outside of a container and not
+ * view then as somehow related.
+ * - we should probably freeze the processes in a container before snapshoting them.  We don't do
+ * this.
  * - we should be able to snapshot with km_cli inside the container and outside the container.
- * - the management pipe used to access a km instance may not be visible from outside the container so
- *   running km_cli outsisde a container accessing a mgmt pipe inside a container will fail even though we
- *   can discover that pipe's name from outside the container.
- * - if we snapshot processes that are the children of a parent snapshot, the parent-child relationship
- *   of these processes is not preserved since the snapshots are restarted seperately.  I think we could
- *   solve this problem if we change the snapshot recovery code to be aware that it needs to preserve
- *   parent child relationships.  It seems messy but we could do it.
- *   We should also consider that the parent processes may remember the pid of its child process and the
- *   resumed child process won't have the same pid causing problems when waiting for specific pid to
- *   terminate.  Snapshoting multiprocess containers is a long way from being supported.
- * These seem to be the requirements for this program.  We don't handle all of them.
+ * - the management pipe used to access a km instance may not be visible from outside the container
+ * so running km_cli outsisde a container accessing a mgmt pipe inside a container will fail even
+ * though we can discover that pipe's name from outside the container.
+ * - if we snapshot processes that are the children of a parent snapshot, the parent-child
+ * relationship of these processes is not preserved since the snapshots are restarted seperately.  I
+ * think we could solve this problem if we change the snapshot recovery code to be aware that it
+ * needs to preserve parent child relationships.  It seems messy but we could do it. We should also
+ * consider that the parent processes may remember the pid of its child process and the resumed
+ * child process won't have the same pid causing problems when waiting for specific pid to terminate.
+ * Snapshoting multiprocess containers is a long way from being supported. These seem to be the
+ * requirements for this program.  We don't handle all of them.
  */
 
-#include <stdio.h>
-#include <unistd.h>
 #include <ctype.h>
-#include <string.h>
-#include <time.h>
-#include <stdlib.h>
 #include <errno.h>
 #include <libgen.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <sys/types.h>
 #include <dirent.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "libkontain_mgmt.h"
 
@@ -88,8 +90,8 @@ char* socket_name = NULL;
 int debug = 0;
 
 // Upper limit of -c and -p arguments
-#define MAXPIDS 32      // -p limit
-#define MAXNAMES 32     // -c limit
+#define MAXPIDS 32    // -p limit
+#define MAXNAMES 32   // -c limit
 
 // Our value for KM_MGM_LISTEN must match what km is using.
 #define KM_MGM_LISTEN 729
@@ -98,9 +100,14 @@ int debug = 0;
 
 void usage(void)
 {
-   fprintf(stderr, "Usage: %s [-l] [-c commandname] [-d snapshot_dirname] [-p processid] [-s socket_name]\n", cmdname);
+   fprintf(stderr,
+           "Usage: %s [-l] [-c commandname] [-d snapshot_dirname] [-p processid] [-s "
+           "socket_name]\n",
+           cmdname);
    fprintf(stderr, "       -l   = turn on debug logging\n");
-   fprintf(stderr, "       -c   = search for km processes running commandname (max of %d command names)\n", MAXNAMES);
+   fprintf(stderr,
+           "       -c   = search for km processes running commandname (max of %d command names)\n",
+           MAXNAMES);
    fprintf(stderr, "       -p   = search for km processes with a process id (max of %d pids)\n", MAXPIDS);
    fprintf(stderr, "       -d   = place snapshots in the specified directory\n");
    fprintf(stderr, "       -s   = use socket_name to request a snapshot\n");
@@ -172,16 +179,23 @@ int snapshot_process(char* sockname, char* snapshot_file, char* label, char* des
    }
    req.requests.snapshot_req.description[0] = 0;
    if (description != NULL) {
-      strncpy(req.requests.snapshot_req.description, description, sizeof(req.requests.snapshot_req.description) - 1);
+      strncpy(req.requests.snapshot_req.description,
+              description,
+              sizeof(req.requests.snapshot_req.description) - 1);
    }
    req.requests.snapshot_req.live = live;
    req.requests.snapshot_req.snapshot_path[0] = 0;
    if (snapshot_file != NULL) {
       if (strlen(snapshot_file) >= sizeof(req.requests.snapshot_req.snapshot_path)) {
-         fprintf(stderr, "snapshot filename %s is too long, %ld bytes allowed\n", snapshot_file, sizeof(req.requests.snapshot_req.snapshot_path));
+         fprintf(stderr,
+                 "snapshot filename %s is too long, %ld bytes allowed\n",
+                 snapshot_file,
+                 sizeof(req.requests.snapshot_req.snapshot_path));
          return EINVAL;
       }
-      strncpy(req.requests.snapshot_req.snapshot_path, snapshot_file, sizeof(req.requests.snapshot_req.snapshot_path));
+      strncpy(req.requests.snapshot_req.snapshot_path,
+              snapshot_file,
+              sizeof(req.requests.snapshot_req.snapshot_path));
    }
    return send_request(sockname, &req, sizeof(req));
 }
@@ -194,7 +208,7 @@ struct found_process {
 struct found_processes {
    int total_elements;
    int used_elements;
-   struct found_process *elements;
+   struct found_process* elements;
 };
 
 int processidmatches(pid_t processid, pid_t* processids)
@@ -212,7 +226,11 @@ int commandnamematches(char* commandname, char* commandnames[])
    for (int i = 0; commandnames[i] != NULL; i++) {
       if (strstr(commandname, commandnames[i]) != NULL) {
          if (debug > 0) {
-            fprintf(stderr, "commandname %s matches commandnames[%d] %s\n", commandname, i, commandnames[i]);
+            fprintf(stderr,
+                    "commandname %s matches commandnames[%d] %s\n",
+                    commandname,
+                    i,
+                    commandnames[i]);
          }
          return 1;
       }
@@ -220,21 +238,27 @@ int commandnamematches(char* commandname, char* commandnames[])
    return 0;
 }
 
-int addprocess(struct found_processes *matched_processes, char* commandname, pid_t processid, char* commandpipe)
+int addprocess(struct found_processes* matched_processes, char* commandname, pid_t processid, char* commandpipe)
 {
    if (matched_processes->total_elements <= matched_processes->used_elements) {
       // not enough space, grow.
       int increment = 5;
-      struct found_process* new = realloc(matched_processes->elements, (matched_processes->total_elements + increment) * sizeof(struct found_process));
+      struct found_process* new =
+          realloc(matched_processes->elements,
+                  (matched_processes->total_elements + increment) * sizeof(struct found_process));
       if (new == NULL) {
          return -1;
       }
       matched_processes->elements = new;
       matched_processes->total_elements += increment;
    }
-   strncpy(matched_processes->elements[matched_processes->used_elements].commandname, commandname, sizeof(matched_processes->elements[matched_processes->used_elements].commandname)-1);
+   strncpy(matched_processes->elements[matched_processes->used_elements].commandname,
+           commandname,
+           sizeof(matched_processes->elements[matched_processes->used_elements].commandname) - 1);
    matched_processes->elements[matched_processes->used_elements].processid = processid;
-   strncpy(matched_processes->elements[matched_processes->used_elements].cmdpipename, commandpipe, sizeof(matched_processes->elements[matched_processes->used_elements].cmdpipename)-1);
+   strncpy(matched_processes->elements[matched_processes->used_elements].cmdpipename,
+           commandpipe,
+           sizeof(matched_processes->elements[matched_processes->used_elements].cmdpipename) - 1);
    matched_processes->used_elements++;
    return 0;
 }
@@ -288,8 +312,7 @@ int read_procnetunix(pid_t pid, char* pnu, size_t pnul)
  * the km mgmt pipe.  We can have no errors but still no pipe.
  * We would like the command to fail on errors but an absent mgmt pipe is not an error.
  */
-int
-get_kmmgmt_pipe(pid_t processid, char* commandpipe, char* pnu, size_t pnul)
+int get_kmmgmt_pipe(pid_t processid, char* commandpipe, char* pnu, size_t pnul)
 {
    char path[512];
    struct stat statb;
@@ -300,7 +323,11 @@ get_kmmgmt_pipe(pid_t processid, char* commandpipe, char* pnu, size_t pnul)
    sprintf(path, "%s/%d/fd/%d", PROCDIR, processid, KM_MGM_LISTEN);
    if (stat(path, &statb) != 0) {
       if (debug > 0) {
-         fprintf(stderr, "process %d has %s km mgmt pipe, %s\n", processid, errno == ENOENT ? "no" : "an inaccessible", strerror(errno));
+         fprintf(stderr,
+                 "process %d has %s km mgmt pipe, %s\n",
+                 processid,
+                 errno == ENOENT ? "no" : "an inaccessible",
+                 strerror(errno));
       }
       return 0;
    }
@@ -325,7 +352,7 @@ get_kmmgmt_pipe(pid_t processid, char* commandpipe, char* pnu, size_t pnul)
       // not a km mgmt pipe
       return 0;
    }
-   pipeinode[strlen(pipeinode)-1] = 0;
+   pipeinode[strlen(pipeinode) - 1] = 0;
    if (debug > 0) {
       fprintf(stderr, "search /proc/%d/net/unix for inode %s\n", processid, &pipeinode[8]);
    }
@@ -371,13 +398,14 @@ get_kmmgmt_pipe(pid_t processid, char* commandpipe, char* pnu, size_t pnul)
  *   0 - success
  *   != 0 - failure
  */
-int find_processes_to_snap(char *commandnames[], pid_t *processids, struct found_processes *matched_processes)
+int find_processes_to_snap(char* commandnames[], pid_t* processids, struct found_processes* matched_processes)
 {
    DIR* procdir;
    struct dirent* de;
    struct stat statb;
-   int rv = -1; // expect failure
-   size_t pnul = 200 * 1024;	// for now assume /proc/XXX/net/unix will be no bigger than 200 kilobytes.
+   int rv = -1;   // expect failure
+   size_t pnul =
+       200 * 1024;   // for now assume /proc/XXX/net/unix will be no bigger than 200 kilobytes.
    char* pnu = malloc(pnul);
    if (pnu == NULL) {
       fprintf(stderr, "Couldn't allocate %ld byte buffer for /proc/XXX/net/unix file contents\n", pnul);
@@ -394,7 +422,6 @@ int find_processes_to_snap(char *commandnames[], pid_t *processids, struct found
    while ((de = readdir(procdir)) != NULL) {
       char path[512];
       if (isdigit(de->d_name[0])) {
-
          // get the process id
          pid_t processid = atoi(de->d_name);
 
@@ -409,7 +436,7 @@ int find_processes_to_snap(char *commandnames[], pid_t *processids, struct found
             fprintf(stderr, "Can't open %s, %s\n", path, strerror(errno));
             break;
          }
-	 char commandline[256];
+         char commandline[256];
          fgets(commandline, sizeof(commandline), cmdfp);
          fclose(cmdfp);
          if (debug > 0) {
@@ -423,22 +450,27 @@ int find_processes_to_snap(char *commandnames[], pid_t *processids, struct found
             char commandpipe[256];
 
             if (get_kmmgmt_pipe(processid, commandpipe, pnu, pnul) != 0) {
-	       // Some kind of error that is bad enough for us to quit.
+               // Some kind of error that is bad enough for us to quit.
                break;
             }
             if (commandpipe[0] == 0) {
-	       // There is no km mgmt pipe, skip this process.
+               // There is no km mgmt pipe, skip this process.
                continue;
             }
 
             // The command pipe may only be accessible inside the container.
             // Warn the user but don't quit.
             if (stat(commandpipe, &statb) != 0) {
-               fprintf(stderr, "warning: unix socket %s is not accessible, %s\n", commandpipe, strerror(errno));
+               fprintf(stderr,
+                       "warning: unix socket %s is not accessible, %s\n",
+                       commandpipe,
+                       strerror(errno));
             }
 
             if (addprocess(matched_processes, commandline, processid, commandpipe) != 0) {
-               fprintf(stderr, "Can't grow process list to %d elements\n", matched_processes->total_elements);
+               fprintf(stderr,
+                       "Can't grow process list to %d elements\n",
+                       matched_processes->total_elements);
                break;
             }
             if (debug > 0) {
@@ -465,9 +497,9 @@ int main(int argc, char* argv[])
 {
    int c;
    int pidindex = 0;
-   pid_t commandpids[MAXPIDS+1];
+   pid_t commandpids[MAXPIDS + 1];
    int nameindex = 0;
-   char* commandnames[MAXNAMES+1];
+   char* commandnames[MAXNAMES + 1];
    char* snapdir = NULL;
 
    cmdname = argv[0];
@@ -514,7 +546,6 @@ int main(int argc, char* argv[])
 
    // Keep support for -s
    if (socket_name != NULL) {
-
       // use the pipename supplied, the snapshot name is supplied on the km command line,
       // no label or description, and the payload dies after the snapshot.
       int rc = snapshot_process(socket_name, NULL, NULL, NULL, 0);
@@ -533,27 +564,44 @@ int main(int argc, char* argv[])
    }
 
    // Now take snapshots of km process that match the -c and -p command line args
-   struct found_processes found_processes = { 0, 0, NULL };
+   struct found_processes found_processes = {0, 0, NULL};
    int rc = find_processes_to_snap(commandnames, commandpids, &found_processes);
    if (rc == 0) {
       for (int i = 0; i < found_processes.used_elements; i++) {
          char snapfilename[SNAPPATHMAX];
          char label[SNAPLABELMAX];
          char description[SNAPDESCMAX];
-	 char* cname = strdup(found_processes.elements[i].commandname);
-         snprintf(snapfilename, sizeof(snapfilename), "%s/%s.%d.kmsnap", snapdir, basename(cname), found_processes.elements[i].processid);
-         snprintf(label, sizeof(label), "%.120s %d %.120s", cname, found_processes.elements[i].processid, found_processes.elements[i].cmdpipename);
-         struct tm *gmt;
+         char* cname = strdup(found_processes.elements[i].commandname);
+         snprintf(snapfilename,
+                  sizeof(snapfilename),
+                  "%s/%s.%d.kmsnap",
+                  snapdir,
+                  basename(cname),
+                  found_processes.elements[i].processid);
+         snprintf(label,
+                  sizeof(label),
+                  "%.120s %d %.120s",
+                  cname,
+                  found_processes.elements[i].processid,
+                  found_processes.elements[i].cmdpipename);
+         struct tm* gmt;
          time_t now;
          time(&now);
          gmt = gmtime(&now);
          snprintf(description, sizeof(description), "snapshot date %s", asctime(gmt));
          rc = snapshot_process(found_processes.elements[i].cmdpipename, snapfilename, label, description, 1);
          if (rc != 0) {
-            fprintf(stderr, "%s, pid %d snapshot failed\n", found_processes.elements[i].commandname, found_processes.elements[i].processid);
+            fprintf(stderr,
+                    "%s, pid %d snapshot failed\n",
+                    found_processes.elements[i].commandname,
+                    found_processes.elements[i].processid);
             break;
          } else {
-            fprintf(stdout, "snapshot for %s:%d is in file %s\n", found_processes.elements[i].commandname, found_processes.elements[i].processid, snapfilename);
+            fprintf(stdout,
+                    "snapshot for %s:%d is in file %s\n",
+                    found_processes.elements[i].commandname,
+                    found_processes.elements[i].processid,
+                    snapfilename);
          }
          free(cname);
       }
@@ -561,7 +609,7 @@ int main(int argc, char* argv[])
       found_processes.elements = NULL;
       if (found_processes.used_elements == 0) {
          fprintf(stderr, "No matching processes found\n");
-	 return 2;
+         return 2;
       }
    } else {
       return 1;
