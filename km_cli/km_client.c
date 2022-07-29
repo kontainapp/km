@@ -60,9 +60,9 @@
  * think we could solve this problem if we change the snapshot recovery code to be aware that it
  * needs to preserve parent child relationships.  It seems messy but we could do it. We should also
  * consider that the parent processes may remember the pid of its child process and the resumed
- * child process won't have the same pid causing problems when waiting for specific pid to terminate.
- * Snapshoting multiprocess containers is a long way from being supported. These seem to be the
- * requirements for this program.  We don't handle all of them.
+ * child process won't have the same pid causing problems when waiting for specific pid to
+ * terminate. Snapshoting multiprocess containers is a long way from being supported. These seem to
+ * be the requirements for this program.  We don't handle all of them.
  */
 
 #include <ctype.h>
