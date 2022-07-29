@@ -32,14 +32,12 @@ data:
 
     ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
-    echo "logging the instance this is running on for debugging purposes"
-    chroot ${ROOT_MOUNT_DIR} echo running on $(hostname)
+    chroot cat /etc/hostname
 
     CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
 
     source /scripts-lib/kontain_install_lib.sh
 
-    echo "Installing Kontain Runtime Artifacts (KM & KRUN)"
     install_kontain_artifacts
 
     echo "Add Kontain Runtime to containerd configuration"

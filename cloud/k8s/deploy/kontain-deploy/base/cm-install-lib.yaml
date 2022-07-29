@@ -29,16 +29,18 @@ data:
 
     function install_kontain_artifacts() {
       echo "Install Kontain Runtime Artifacts (KM & KRUN)"
+      ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
+
       mkdir /kontain-artifacts
       curl -L "${KONTAIN_RELEASE_URL}" | tar -xzf - -C /kontain-artifacts
-      mkdir -p /root/opt/kontain/bin
-      cp /kontain-artifacts/km/km /root/opt/kontain/bin/km
-      chmod +x /root/opt/kontain/bin/km
-      cp /kontain-artifacts/container-runtime/krun /root/opt/kontain/bin/krun
-      chmod +x /root/opt/kontain/bin/krun
-      mkdir -p /root/opt/kontain/shim
-      cp /kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /root/opt/kontain/shim/containerd-shim-krun-v2
-      chmod +x /root/opt/kontain/shim/containerd-shim-krun-v2
-      cp /kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /root/usr/local/bin/containerd-shim-krun-v2
-      chmod +x /root/usr/local/bin/containerd-shim-krun-v2
+      mkdir -p ${ROOT_MOUNT_DIR}/opt/kontain/bin
+      cp /kontain-artifacts/km/km ${ROOT_MOUNT_DIR}/opt/kontain/bin/km
+      chmod +x ${ROOT_MOUNT_DIR}/opt/kontain/bin/km
+      cp /kontain-artifacts/container-runtime/krun ${ROOT_MOUNT_DIR}/opt/kontain/bin/krun
+      chmod +x ${ROOT_MOUNT_DIR}/opt/kontain/bin/krun
+      mkdir -p ${ROOT_MOUNT_DIR}/opt/kontain/shim
+      cp /kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2
+      chmod +x ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2
+      cp /kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${ROOT_MOUNT_DIR}/usr/local/bin/containerd-shim-krun-v2
+      chmod +x ${ROOT_MOUNT_DIR}/usr/local/bin/containerd-shim-krun-v2
     }
