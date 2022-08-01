@@ -17,7 +17,7 @@
 /*
  * Command line description:
  *
- * km_cli [-c cmdname] [-p processid] [-d snapshotdir] [-s socket_name] [-l]
+ * km_cli [-c cmdname] [-p processid] [-d snapshotdir] [-s socket_name] [-l] [-t]
  *
  * There are 2 parts to this command, selection of processes to snapshot and then
  * snapshotting the selected processes.
@@ -39,6 +39,7 @@
  * --snapshot=filename flag.
  *
  * The -l flag causes debug logging to stderr to happen.
+ * The -t flag causes the km payload to terminate after the snapshot is taken.
  */
 
 /*
@@ -88,6 +89,7 @@ char* cmdname;
 char* socket_name = NULL;
 
 int debug = 0;
+int terminate_app = 0;
 
 // Upper limit of -c and -p arguments
 #define MAXPIDS 32    // -p limit
@@ -102,7 +104,7 @@ void usage(void)
 {
    fprintf(stderr,
            "Usage: %s [-l] [-c commandname] [-d snapshot_dirname] [-p processid] [-s "
-           "socket_name]\n",
+           "socket_name] [-t]\n",
            cmdname);
    fprintf(stderr, "       -l   = turn on debug logging\n");
    fprintf(stderr,
@@ -111,6 +113,7 @@ void usage(void)
    fprintf(stderr, "       -p   = search for km processes with a process id (max of %d pids)\n", MAXPIDS);
    fprintf(stderr, "       -d   = place snapshots in the specified directory\n");
    fprintf(stderr, "       -s   = use socket_name to request a snapshot\n");
+   fprintf(stderr, "       -t   = terminate the km payload after the snapshot completes\n");
    fprintf(stderr, "       -c and -p flags may be specified multiplte times\n");
 }
 
@@ -173,6 +176,7 @@ int snapshot_process(char* sockname, char* snapshot_file, char* label, char* des
    mgmtrequest_t req;
 
    req.opcode = KM_MGMT_REQ_SNAPSHOT;
+   req.length = sizeof(req.requests.snapshot_req);
 
    if (label != NULL) {
       strncpy(req.requests.snapshot_req.label, label, sizeof(req.requests.snapshot_req.label) - 1);
@@ -509,7 +513,7 @@ int main(int argc, char* argv[])
       return 1;
    }
 
-   while ((c = getopt(argc, argv, "lc:d:p:s:")) != -1) {
+   while ((c = getopt(argc, argv, "ltc:d:p:s:")) != -1) {
       switch (c) {
          case 'c':   // snapshot processes with this unix command name
             if (nameindex >= MAXNAMES) {
@@ -534,6 +538,9 @@ int main(int argc, char* argv[])
          case 's':
             socket_name = optarg;
             break;
+         case 't':
+            terminate_app = 1;
+            break;
          default:
             fprintf(stderr, "unrecognized option %c\n", c);
             usage();
@@ -544,11 +551,13 @@ int main(int argc, char* argv[])
    commandpids[pidindex] = 0;
    commandnames[nameindex] = NULL;
 
-   // Keep support for -s
+   // Take a payload snapshot using the km mgmt pipename supplied on the cmd line.
    if (socket_name != NULL) {
-      // use the pipename supplied, the snapshot name is supplied on the km command line,
-      // no label or description, and the payload dies after the snapshot.
-      int rc = snapshot_process(socket_name, NULL, NULL, NULL, 0);
+      char snapfilename[SNAPPATHMAX] = {"kmsnap"};
+      if (snapdir != NULL) {
+         snprintf(snapfilename, sizeof(snapfilename), "%s/kmsnap", snapdir);
+      }
+      int rc = snapshot_process(socket_name, snapfilename, NULL, NULL, terminate_app == 0);
       if (rc != 0) {
          return 1;
       }
@@ -589,7 +598,11 @@ int main(int argc, char* argv[])
          time(&now);
          gmt = gmtime(&now);
          snprintf(description, sizeof(description), "snapshot date %s", asctime(gmt));
-         rc = snapshot_process(found_processes.elements[i].cmdpipename, snapfilename, label, description, 1);
+         rc = snapshot_process(found_processes.elements[i].cmdpipename,
+                               snapfilename,
+                               label,
+                               description,
+                               terminate_app == 0);
          if (rc != 0) {
             fprintf(stderr,
                     "%s, pid %d snapshot failed\n",
