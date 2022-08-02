@@ -1562,7 +1562,7 @@ fi
    rm -f $MGTPIPE
    mkdir -p $SNAPDIR
    KEEP_RUNNING=yes run km_with_timeout --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
-   run curl -s localhost:$socket_port --retry-connrefused  --retry 3 --retry-delay 1
+   run curl -s -S localhost:$socket_port --retry-connrefused  --retry 3 --retry-delay 1
    assert_success
    assert [ -S $MGTPIPE ]
 
