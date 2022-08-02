@@ -35,6 +35,10 @@ fi
 # TODO: gdb_delete_breakpoint and gdb_server_race are caused by race described in https://github.com/kontainapp/km/issues/821.
 # Disable them for now to improve signal/noise ratio
 todo_generic='gdb_delete_breakpoint gdb_server_race clock_gettime'
+if [ -n "${VALGRIND}" ]; then
+   # valground executables don't have the payload's name so pidof doesn't work.
+   todo_generic="$todo_generic basic_snapshot"
+fi
 
 not_needed_static='gdb_sharedlib dlopen'
 todo_static=''
