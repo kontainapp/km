@@ -1550,3 +1550,39 @@ fi
    assert_success
    rm -f $UIDGIDOUT.expected $UIDGIDOUT
 }
+
+@test "continue_after_snapshot($test_type): resume payload after taking a snapshot (hello_html_test$ext)" {
+   # this test uses a single port, so the next free port will be 23
+   local port_id=22
+   local socket_port=$(($port_range_start + $port_id))
+   local MGTPIPE=resume_after_mgtpipe.$$
+   local SNAPDIR=snapdir.$$
+
+   # startup the toy html server and wait for it to get going.
+   rm -f $MGTPIPE
+   mkdir -p $SNAPDIR
+   KEEP_RUNNING=yes run km_with_timeout --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
+   run curl -s localhost:$socket_port --retry-connrefused  --retry 3 --retry-delay 1
+   assert_success
+   assert [ -S $MGTPIPE ]
+
+   # just do snapshots and html requests for a while
+   # How many spins is enough?
+   for ((i=0; i<25; i++))
+   do
+      run ${KM_CLI_BIN} -d $SNAPDIR -s $MGTPIPE
+      assert_success
+      assert [ -f $SNAPDIR/kmsnap ]
+
+      run curl localhost:$socket_port
+      assert_success
+
+      rm -f $SNAPDIR/kmsnap
+   done
+   # Get the html server to stop
+   curl localhost:$socket_port/stop
+
+   # cleanup
+   rm -f $MGTPIPE
+   rm -fr $SNAPDIR
+}
