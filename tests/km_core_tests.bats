@@ -1557,13 +1557,15 @@ fi
    local socket_port=$(($port_range_start + $port_id))
    local MGTPIPE=resume_after_mgtpipe.$$
    local SNAPDIR=snapdir.$$
+   local KMLOG=/tmp/hello_html_test.kmlog.$$
 
    # startup the toy html server and wait for it to get going.
    rm -f $MGTPIPE
    mkdir -p $SNAPDIR
-   KEEP_RUNNING=yes run km_with_timeout --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
+   KEEP_RUNNING=yes run km_with_timeout --mgtpipe=$MGTPIPE --km-log-to=$KMLOG -V hello_html_test$ext $socket_port &
    run curl -s -S localhost:$socket_port --retry-connrefused  --retry 25 --retry-delay 1
-   assert_success
+   rv=$?
+   if [ $rv -ne 0 ]; then sed -e "s/^/# /" <$KMLOG; fi
    assert [ -S $MGTPIPE ]
 
    # just do snapshots and html requests for a while
@@ -1585,4 +1587,5 @@ fi
    # cleanup
    rm -f $MGTPIPE
    rm -fr $SNAPDIR
+   rm -f $KMLOG
 }
