@@ -1564,7 +1564,7 @@ fi
    rm -f $MGTPIPE
    mkdir -p $SNAPDIR
    KEEP_RUNNING=yes km_with_timeout --mgtpipe=$MGTPIPE --km-log-to=$KMLOG -V hello_html_test$ext $socket_port 2>$STDERR &
-   run curl -s -S localhost:$socket_port --retry-connrefused  --retry 25 --retry-delay 1
+   run curl -s -S --retry-connrefused  --retry 25 --retry-delay 1 localhost:$socket_port
    sed -e "s/^/# /" <$KMLOG >&3
    sed -e "s/^/# /" <$STDERR >&3
    assert [ $status -eq 0 ]
