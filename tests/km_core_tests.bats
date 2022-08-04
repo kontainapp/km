@@ -1566,6 +1566,7 @@ fi
    run curl -s -S localhost:$socket_port --retry-connrefused  --retry 25 --retry-delay 1
    rv=$?
    if [ $rv -ne 0 ]; then sed -e "s/^/# /" <$KMLOG; fi
+   assert [ $rv -eq 0 ]
    assert [ -S $MGTPIPE ]
 
    # just do snapshots and html requests for a while
