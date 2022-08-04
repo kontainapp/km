@@ -1562,11 +1562,10 @@ fi
    # startup the toy html server and wait for it to get going.
    rm -f $MGTPIPE
    mkdir -p $SNAPDIR
-   KEEP_RUNNING=yes run km_with_timeout --mgtpipe=$MGTPIPE --km-log-to=$KMLOG -V hello_html_test$ext $socket_port &
+   KEEP_RUNNING=yes km_with_timeout --mgtpipe=$MGTPIPE --km-log-to=$KMLOG -V hello_html_test$ext $socket_port &
    run curl -s -S localhost:$socket_port --retry-connrefused  --retry 25 --retry-delay 1
-   rv=$?
-   if [ $rv -ne 0 ]; then sed -e "s/^/# /" <$KMLOG; fi
-   assert [ $rv -eq 0 ]
+   sed -e "s/^/# /" <$KMLOG >&3
+   assert [ $status -eq 0 ]
    assert [ -S $MGTPIPE ]
 
    # just do snapshots and html requests for a while
