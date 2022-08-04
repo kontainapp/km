@@ -1558,13 +1558,15 @@ fi
    local MGTPIPE=resume_after_mgtpipe.$$
    local SNAPDIR=snapdir.$$
    local KMLOG=/tmp/hello_html_test.kmlog.$$
+   local STDERR=/tmp/hello_html_test.stderr.$$
 
    # startup the toy html server and wait for it to get going.
    rm -f $MGTPIPE
    mkdir -p $SNAPDIR
-   KEEP_RUNNING=yes km_with_timeout --mgtpipe=$MGTPIPE --km-log-to=$KMLOG -V hello_html_test$ext $socket_port &
+   KEEP_RUNNING=yes km_with_timeout --mgtpipe=$MGTPIPE --km-log-to=$KMLOG -V hello_html_test$ext $socket_port 2>$STDERR &
    run curl -s -S localhost:$socket_port --retry-connrefused  --retry 25 --retry-delay 1
    sed -e "s/^/# /" <$KMLOG >&3
+   sed -e "s/^/# /" <$STDERR >&3
    assert [ $status -eq 0 ]
    assert [ -S $MGTPIPE ]
 
