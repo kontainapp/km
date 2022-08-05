@@ -112,10 +112,15 @@ int main(int argc, char const* argv[])
    keep_running = (getenv("KEEP_RUNNING") != NULL);
 
    listen_sd = tcp_listen();
-   printf("Listening on %d\n", PORT);
+   printf("Listening on port %d\n", PORT);
    do {
       sd = tcp_accept(listen_sd);
-      ret = read(sd, buf, 4096);
+      ret = read(sd, buf, sizeof(buf) - 1);
+      if (ret >= 0) {
+         buf[ret] = 0;
+      } else {
+         buf[0] = 0;
+      }
       ret = write(sd, wbuf, sizeof(wbuf));
       // suppress compiler warning about unused var
       if (ret)

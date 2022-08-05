@@ -1584,6 +1584,5 @@ fi
    curl localhost:$socket_port/stop
 
    # cleanup
-   rm -f $MGTPIPE
-   rm -fr $SNAPDIR
+   rm -fr $SNAPDIR $MGTPIPE
 }
