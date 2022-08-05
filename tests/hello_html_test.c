@@ -104,19 +104,32 @@ int main(int argc, char const* argv[])
    char buf[4096];
    int listen_sd, sd;
    size_t ret;
+   int keep_running;
 
    if (argc == 2) {
       PORT = atoi(argv[1]);
    }
+   keep_running = (getenv("KEEP_RUNNING") != NULL);
+
    listen_sd = tcp_listen();
-   printf("Listening on %d\n", PORT);
-   sd = tcp_accept(listen_sd);
-   ret = read(sd, buf, 4096);
-   ret = write(sd, wbuf, sizeof(wbuf));
-   // suppress compiler warning about unused var
-   if (ret)
-      ;
-   tcp_close(sd);
+   printf("Listening on port %d\n", PORT);
+   do {
+      sd = tcp_accept(listen_sd);
+      ret = read(sd, buf, sizeof(buf) - 1);
+      if (ret >= 0) {
+         buf[ret] = 0;
+      } else {
+         buf[0] = 0;
+      }
+      ret = write(sd, wbuf, sizeof(wbuf));
+      // suppress compiler warning about unused var
+      if (ret)
+         ;
+      tcp_close(sd);
+      if (strstr(buf, "stop") != NULL) {
+         break;
+      }
+   } while (keep_running != 0);
    tcp_close(listen_sd);
    exit(0);
 }
