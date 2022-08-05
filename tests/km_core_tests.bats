@@ -1563,7 +1563,7 @@ fi
    mkdir -p $SNAPDIR
    KEEP_RUNNING=yes km_with_timeout --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
    # Use "curl -4" to make sure we use ipv4.
-   run curl -4 -s -S --retry-connrefused  --retry 25 --retry-delay 1 localhost:$socket_port
+   run curl -4 -s -S --retry-connrefused  --retry 3 --retry-delay 1 localhost:$socket_port
    assert [ $status -eq 0 ]
    assert [ -S $MGTPIPE ]
 
