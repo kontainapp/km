@@ -1557,16 +1557,13 @@ fi
    local socket_port=$(($port_range_start + $port_id))
    local MGTPIPE=resume_after_mgtpipe.$$
    local SNAPDIR=snapdir.$$
-   local KMLOG=/tmp/hello_html_test.kmlog.$$
-   local STDERR=/tmp/hello_html_test.stderr.$$
 
    # startup the toy html server and wait for it to get going.
    rm -f $MGTPIPE
    mkdir -p $SNAPDIR
-   KEEP_RUNNING=yes km_with_timeout --mgtpipe=$MGTPIPE --km-log-to=$KMLOG -V hello_html_test$ext $socket_port 2>$STDERR &
+   KEEP_RUNNING=yes km_with_timeout --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
+   # Use "curl -4" to make sure we use ipv4.
    run curl -4 -s -S --retry-connrefused  --retry 25 --retry-delay 1 localhost:$socket_port
-   sed -e "s/^/# /" <$KMLOG >&3
-   sed -e "s/^/# /" <$STDERR >&3
    assert [ $status -eq 0 ]
    assert [ -S $MGTPIPE ]
 
@@ -1589,5 +1586,4 @@ fi
    # cleanup
    rm -f $MGTPIPE
    rm -fr $SNAPDIR
-   rm -f $KMLOG
 }
