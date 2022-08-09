@@ -54,11 +54,13 @@ int tcp_listen(void)
 
    if (bind(listen_sd, (struct sockaddr*)&sa_serv, sizeof(sa_serv)) < 0) {
       printf("bind, port %d failed, %s\n", PORT, strerror(errno));
+      close(listen_sd);
       exit(1);
    }
 
    if (listen(listen_sd, 1024) < 0) {
-      puts("listen\n");
+      printf("listen failed, %s\n", strerror(errno));
+      close(listen_sd);
       exit(1);
    }
    return listen_sd;
@@ -72,11 +74,14 @@ int tcp_accept(int listen_sd)
    char topbuf[512];
 
    sd = accept(listen_sd, (struct sockaddr*)&sa_cli, &client_len);
-
-   printf("- connection from %s, port %d, addrlen %d\n",
-          inet_ntop(AF_INET, &sa_cli.sin_addr, topbuf, sizeof(topbuf)),
-          ntohs(sa_cli.sin_port),
-          client_len);
+   if (sd < 0) {
+      printf("accept failed, %s\n", strerror(errno));
+   } else {
+      printf("- connection from %s, port %d, addrlen %d\n",
+             inet_ntop(AF_INET, &sa_cli.sin_addr, topbuf, sizeof(topbuf)),
+             ntohs(sa_cli.sin_port),
+             client_len);
+   }
 
    return sd;
 }
@@ -103,7 +108,7 @@ int main(int argc, char const* argv[])
 {
    char buf[4096];
    int listen_sd, sd;
-   size_t ret;
+   ssize_t ret;
    int keep_running;
 
    if (argc == 2) {
@@ -115,16 +120,22 @@ int main(int argc, char const* argv[])
    printf("Listening on port %d\n", PORT);
    do {
       sd = tcp_accept(listen_sd);
+      if (sd < 0) {
+         tcp_close(listen_sd);
+         exit(1);
+      }
       ret = read(sd, buf, sizeof(buf) - 1);
       if (ret >= 0) {
          buf[ret] = 0;
       } else {
+         printf("read failed, %s\n", strerror(errno));
          buf[0] = 0;
       }
       ret = write(sd, wbuf, sizeof(wbuf));
       // suppress compiler warning about unused var
-      if (ret)
-         ;
+      if (ret < 0) {
+         printf("write failed, %s\n", strerror(errno));
+      }
       tcp_close(sd);
       if (strstr(buf, "stop") != NULL) {
          break;
