@@ -40,16 +40,19 @@ data:
 
     echo "Add Kontain Runtime to containerd configuration"
     # check to see if its a normal k8s distribution or k3s
-    if [ ! -f /root/var/lib/rancher/k3s/agent ]; then
-      echo " its a regular k8s install"
+    if [ -f /etc/containerd/config.toml ]; then
+      echo "its a regular k8s install"
       CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
       containerd_conf_file="/etc/containerd/config.toml"
-    else
-      echo " its a k3s install"
-      # else its a k3s containerd install
-      CONTAINERD_CFG_DIR="${K3S_CONTAINERD_DIR:/root/var/lib/rancher/k3s/agent/etc/containerd}"
-      cp "$CONTAINERD_CFG_DIR/config.toml" "$CONTAINERD_CFG_DIR/config.toml.tmpl"
-      containerd_conf_file="$CONTAINERD_CFG_DIR/config.toml.tmpl"
+    elif [ -f /etc/containerd/config-kops.toml ]; then
+      echo "its a kops cluster install"
+      CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
+      containerd_conf_file="${CONTAINERD_CFG_DIR}/config-kops.toml"
+    elif [ -d ${ROOT_MOUNT_DIR}/var/lib/rancher/k3s/agent ]; then
+      echo "its a k3s install"
+      CONTAINERD_CFG_DIR="${K3S_CONTAINERD_DIR:${ROOT_MOUNT_DIR}/var/lib/rancher/k3s/agent/etc/containerd}"
+      cp "${CONTAINERD_CFG_DIR}/config.toml" "${CONTAINERD_CFG_DIR}/config.toml.tmpl"
+      containerd_conf_file="${CONTAINERD_CFG_DIR}/config.toml.tmpl"
     fi
 
     runtime="krun"
@@ -75,7 +78,7 @@ data:
     EOT
     fi
 
-    [ -c /root/dev/kvm ] && chmod 666 /root/dev/kvm
+    [ -c ${ROOT_MOUNT_DIR}/dev/kvm ] && chmod 666 ${ROOT_MOUNT_DIR}/dev/kvm
 
     echo "restart containerd"
     systemctl daemon-reload

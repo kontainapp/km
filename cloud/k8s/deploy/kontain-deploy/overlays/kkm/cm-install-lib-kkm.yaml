@@ -24,23 +24,30 @@ metadata:
 data:
   kontain_install_lib.sh: |-
     #!/usr/bin/env bash
+    TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
+    KONTAIN_RELEASE_URL="https://github.com/kontainapp/km/releases/download/${TAG}/kontain_bin.tar.gz"
+    echo "KONTAIN_RELEASE_URL is: ${KONTAIN_RELEASE_URL}"
 
-    # This will get overridden be ENV definition in kontain-deploy.yaml
-    KONTAIN_RELEASE_URL="${KONTAIN_RELEASE_URL:-https://github.com/kontainapp/km/releases/download/current/kontain_bin.tar.gz}"
-
-    # we use chroot here because the host is rooted at /root
-    # and kkm install looks for sudo and dkms in locations on the host
     function install_kontain_artifacts() {
-
       ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
 
-      # check to see if deltarpm is installed and if not install it (for Amzn Linux 2)
-      yum -q list installed deltarpm &>/dev/null && echo "deltarpm already installed" || (echo "Not installed"; yum install -y deltarpm)
+      source /$ROOT_MOUNT_DIR/etc/os-release
+      if [[ "$ID" == "amzn" ]]; then
+        echo "we are running this daemonset on ${ID}"
+        chroot ${ROOT_MOUNT_DIR} rm /var/lib/rpm/__db*
+        chroot ${ROOT_MOUNT_DIR} yum update -y
+        # sleep 2
+        chroot ${ROOT_MOUNT_DIR} yum install  -y kernel-devel-$(uname -r)
+        # sleep 2
+        ls ${ROOT_MOUNT_DIR}/lib/modules
+      elif [[ "$ID" == "ubuntu" ]]; then
+        echo "we are running this daemonset on ${ID}"
+      fi;
 
       echo "Install Kontain Runtime Artifacts (KM & KRUN)"
 
       mkdir -p ${ROOT_MOUNT_DIR}/kontain-artifacts
-      curl -L "${KONTAIN_RELEASE_URL}" | tar -xzf - -C ${ROOT_MOUNT_DIR}/kontain-artifacts
+      curl -Ls "${KONTAIN_RELEASE_URL}" | tar -xzf - -C ${ROOT_MOUNT_DIR}/kontain-artifacts
 
       mkdir -p ${ROOT_MOUNT_DIR}/opt/kontain/bin
 
@@ -53,8 +60,11 @@ data:
       mkdir -p ${ROOT_MOUNT_DIR}/opt/kontain/shim
       cp ${ROOT_MOUNT_DIR}/kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2
       chmod +x ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2
-      chroot ${ROOT_MOUNT_DIR} ln -sf /opt/kontain/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
+      ln -sf ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2 ${ROOT_MOUNT_DIR}/usr/bin/containerd-shim-krun-v2
 
       chmod +x ${ROOT_MOUNT_DIR}/kontain-artifacts/kkm.run
-      chroot ${ROOT_MOUNT_DIR}   /kontain-artifacts/kkm.run -- --force-install
+
+      chroot ${ROOT_MOUNT_DIR} /kontain-artifacts/kkm.run -- --force-install
+
+      lsmod |grep kkm
     }
