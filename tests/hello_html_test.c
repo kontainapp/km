@@ -132,7 +132,6 @@ int main(int argc, char const* argv[])
          buf[0] = 0;
       }
       ret = write(sd, wbuf, sizeof(wbuf));
-      // suppress compiler warning about unused var
       if (ret < 0) {
          printf("write failed, %s\n", strerror(errno));
       }
