@@ -147,7 +147,7 @@ void send_api_response(struct hitArgs* args, char* path, char* request_body)
    }
 }
 
-extern char* get_cpu_vendorid(void);
+extern char* get_cpu_release(void);
 extern char* get_cpu_proc(void);
 
 void send_file_response(struct hitArgs* args, char* path, char* request_body, int path_length)
@@ -170,8 +170,8 @@ void send_file_response(struct hitArgs* args, char* path, char* request_body, in
                  "iJTQUOhcWr7x9JvoRxT2MZw1T\" crossorigin=\"anonymous\">");
       string_add(response, "<body>");
 
-      string_add(response, "<h1>CPU Vendor Id is: <span class=\"badge badge-success\">");
-      string_add(response, get_cpu_vendorid());
+      string_add(response, "<h1>Release is: <span class=\"badge badge-success\">");
+      string_add(response, get_cpu_release());
       string_add(response, "</span></h1> <br /> ");
 
       string_add(response, "<h2>Processor: <span class=\"badge badge-info\">");

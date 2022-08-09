@@ -57,7 +57,7 @@ register-boxes: ## register pre-created boxes in local vagrant cache
 # for an examle how to do it
 ami: .check_packer ## Builds AMI with KKM in the AWS
 	packer init aws_ami_templates
-	${PACKER_BUILD} --var release_tag=${RELEASE_TAG} aws_ami_templates
+	${PACKER_BUILD} --var release_tag=${RELEASE_TAG} --var aws_region=${AWS_REGION} aws_ami_templates
 
 test-box-upload: ## Helper to test Vagrant Box upload from existing BOX file
 	${PACKER_BUILD} test_box_upload.pkr.hcl
