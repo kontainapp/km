@@ -286,12 +286,12 @@ fi
    local address="http://127.0.0.1:$port"
 
    (./hello_html_test.fedora $port &)
-   run curl -s $address --retry-connrefused  --retry 3 --retry-delay 1
+   run curl -4 -s $address --retry-connrefused  --retry 3 --retry-delay 1
    assert_success
    linux_out="${output}"
 
    (km_with_timeout hello_html_test$ext $port &)
-   run curl -s $address --retry-connrefused  --retry 3 --retry-delay 1
+   run curl -4 -s $address --retry-connrefused  --retry 3 --retry-delay 1
    assert_success
    diff <(echo -e "$linux_out") <(echo -e "$output")
 }
@@ -1111,7 +1111,7 @@ fi
    run ${KM_CLI_BIN} -c hello_html_test$ext -d $SNAPDIR
    assert_success
    assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
-   run curl -s localhost:$snapshot_test_port --retry-connrefused  --retry 3 --retry-delay 1
+   run curl -4 -s localhost:$snapshot_test_port --retry-connrefused  --retry 3 --retry-delay 1
    assert_success
    rm -fr $SNAPDIR $MGMTPIPE
 
