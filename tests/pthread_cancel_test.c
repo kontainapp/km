@@ -37,6 +37,8 @@
       exit(EXIT_FAILURE);                                                                          \
    } while (0)
 
+int thread_started;   // used to tell main that the thread has started
+
 long count;
 
 struct timeval start;
@@ -102,6 +104,7 @@ static long thread_func(void* arg)
 {
    int s;
 
+   thread_started = 1;
    s = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
    ASSERT_EQ(0, s);
    print_msg("thread_func(): started; cancellation disabled\n");
@@ -143,17 +146,19 @@ TEST main_thread(void)
    gettimeofday(&start, NULL);
 
    /* Start a thread and then send it a cancellation request while it is canceldisable */
-
+   thread_started = 0;
    if ((s = pthread_create(&thr, NULL, (void* (*)(void*)) & thread_func, DISABLE_CANCEL_TEST)) != 0) {
       handle_error_en(s, "pthread_create");
    }
    print_msg("main(): Give thread a chance to get started\n");
 
-   sleep(2); /* Give thread a chance to get started */
+   while (thread_started == 0) {
+      usleep(1000); /* Give thread a chance to get started */
+   }
 
    print_msg("main(): sending cancellation request\n");
    s = pthread_cancel(thr);
-   ASSERT(s == 0 || s == ESRCH);
+   ASSERT(s == 0);
    /* Join with thread to see what its exit status was */
    s = pthread_join(thr, &res);
    ASSERT_EQ(0, s);
@@ -162,17 +167,19 @@ TEST main_thread(void)
    gettimeofday(&start, NULL);
 
    /* Start a thread and then send it a cancellation request cancel enable and sync cancellation */
-
+   thread_started = 0;
    if ((s = pthread_create(&thr, NULL, (void* (*)(void*)) & thread_func, ASYNC_CANCEL_TEST)) != 0) {
       handle_error_en(s, "pthread_create");
    }
    print_msg("main(): Give thread a chance to get started\n");
 
-   sleep(2); /* Give thread a chance to get started */
+   while (thread_started == 0) {
+      usleep(1000); /* Give thread a chance to get started */
+   }
 
    print_msg("main(): sending cancellation request\n");
    s = pthread_cancel(thr);
-   ASSERT(s == 0 || s == ESRCH);
+   ASSERT(s == 0);
    /* Join with thread to see what its exit status was */
    s = pthread_join(thr, &res);
    ASSERT_EQ(0, s);
@@ -181,17 +188,19 @@ TEST main_thread(void)
    gettimeofday(&start, NULL);
 
    /* Start a thread and then send it a cancellation request cancel enable and deferred */
-
+   thread_started = 0;
    if ((s = pthread_create(&thr, NULL, (void* (*)(void*)) & thread_func, DEFERRED_CANCEL_TEST)) != 0) {
       handle_error_en(s, "pthread_create");
    }
    print_msg("main(): Give thread a chance to get started\n");
 
-   sleep(2); /* Give thread a chance to get started */
+   while (thread_started == 0) {
+      usleep(1000); /* Give thread a chance to get started */
+   }
 
    print_msg("main(): sending cancellation request\n");
    s = pthread_cancel(thr);
-   ASSERT(s == 0 || s == ESRCH);
+   ASSERT(s == 0);
    /* Join with thread to see what its exit status was */
    s = pthread_join(thr, &res);
    ASSERT_EQ(0, s);
