@@ -24,18 +24,13 @@
 #include <cpuid.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/utsname.h>
 
-char* get_cpu_vendorid(void)
+char* get_cpu_release(void)
 {
-   static char vendor[13];
-   unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
-
-   __get_cpuid(0, &eax, &ebx, &ecx, &edx);   // mov eax,0; cpuid
-   memcpy(vendor, &ebx, 4);                  // copy EBX
-   memcpy(vendor + 4, &edx, 4);              // copy EDX
-   memcpy(vendor + 8, &ecx, 4);              // copy ECX
-   vendor[12] = '\0';
-   return vendor;
+   static struct utsname buf;
+   uname(&buf);
+   return buf.release;
 }
 
 char* get_cpu_proc(void)

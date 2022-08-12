@@ -248,7 +248,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          submodules: true
+          submodules: recursive
 
       - name: Download km-build artifact
         uses: actions/download-artifact@v2
@@ -329,7 +329,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          submodules: true
+          submodules: recursive
 
       - name: Download km-build artifact
         uses: actions/download-artifact@v2

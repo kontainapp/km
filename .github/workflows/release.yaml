@@ -24,6 +24,14 @@ on:
   # Manual trigger.
   # See https://github.blog/changelog/2020-07-06-github-actions-manual-triggers-with-workflow_dispatch/
   workflow_dispatch:
+    doTrace:
+      description: "Set Trace"
+      required: true
+      default: "false"
+      type: choice
+      options:
+        - true
+        - false
 
 env:
   BUILDENV_IMAGE_VERSION: latest # use this for all buildenv containers
@@ -33,7 +41,8 @@ env:
   SP_PASSWORD: ${{ secrets.SP_PASSWORD }}
   SP_TENANT: ${{ secrets.SP_TENANT }}
   VAGRANT_CLOUD_TOKEN: ${{ secrets.VAGRANT_CLOUD_TOKEN }}
-  # TRACE: true # uncomment to enable '-x' in all bash scripts
+  AWS_REGION: us-west-1
+  TRACE: ${{ inputs.doTrace }} # uncomment to enable '-x' in all bash scripts
 
 jobs:
   km-kkm-build:
@@ -174,6 +183,72 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: make -C tools/hashicorp ami
 
+  km-aws-ecs-ami:
+    name: Create AWS ECS AMI
+    runs-on: ubuntu-20.04
+    needs: [km-kkm-smoke-test, km-runenv]
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - name: Get RELEASE_TAG
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: kontain
+          path: build
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Create AMI
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: make -C cloud/aws/amazon-ecs-ami REGION=${{env.AWS_REGION}} AMI_VERSION=${{env.RELEASE_TAG}} al2
+
+      - name: Test ECS
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: make -C cloud/aws/amazon-ecs-ami REGION=${{env.AWS_REGION}} test-al2
+
+  km-aws-eks-ami:
+    name: Create AWS EKS AMI
+    runs-on: ubuntu-20.04
+    needs: [km-kkm-smoke-test, km-runenv]
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - name: Get RELEASE_TAG
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: kontain
+          path: build
+
+      - run: make -C cloud/azure login-cli
+
+      - name: Create AMI
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: make -C cloud/aws/amazon-eks-ami REGION=${{env.AWS_REGION}} AMI_VERSION=${{env.RELEASE_TAG}} 1.22
+
+      - name: Test EKS
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: make -C cloud/aws/amazon-eks-ami REGION=${{env.AWS_REGION}} test-1.22
+
   km-runenv:
     name: Publish runenv images
     runs-on: ubuntu-20.04
@@ -231,6 +306,8 @@ jobs:
         km-kkm-smoke-test,
         km-boxes,
         km-ami,
+        km-aws-ecs-ami,
+        km-aws-eks-ami,
         km-runenv,
         km-release,
       ]
