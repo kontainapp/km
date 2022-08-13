@@ -1101,7 +1101,8 @@ fi
    KM_MGTPIPE=$MGMTPIPE km_with_timeout hello_html_test$ext $snapshot_test_port &
    # Wait for the process to exist
    tries=5
-   while ! pidof hello_html_test$ext && [ $tries -gt 0 ]; do sleep 1; tries=`expr $tries - 1`; done
+   #while ! pidof hello_html_test$ext && [ $tries -gt 0 ]; do sleep 1; tries=`expr $tries - 1`; done
+   while [ ! -S ${MGMTPIPE} ] && [ $tries -gt 0 ]; do sleep 1; tries=`expr $tries - 1`; done
    assert [ $tries -gt 0 ]
    pid=`pidof hello_html_test$ext`
    run ${KM_CLI_BIN} -p $pid -d $SNAPDIR
