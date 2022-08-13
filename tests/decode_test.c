@@ -168,7 +168,6 @@ TEST copyout_test()
 
 TEST mem_source_test()
 {
-
    /*
     * Make sure we decode correctly when memory is the source.
     * Use RDX because it is also used by guest interrupt
@@ -364,7 +363,6 @@ TEST test_allreg()
 
    PASS();
 }
-
 
 TEST mem_RSI_RDIaddress_test()
 {
