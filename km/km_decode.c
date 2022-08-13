@@ -38,6 +38,9 @@ typedef struct x86_instruction {
    unsigned char rex_r;   // ModR/M Reg field extention
    unsigned char rex_x;   // Extension of SIB index
    unsigned char rex_b;   // Extension of ModR/M r/m field, SIB base, or Opcode Reg
+   // opcode
+   unsigned char opcode_present;
+   unsigned char opcode;
    // ModR/M fields
    unsigned char modrm_present;
    unsigned char modrm_mode;
@@ -241,10 +244,9 @@ static inline void find_modrm_fault(km_vcpu_t* vcpu, x86_instruction_t* ins)
       return;
    }
    if (ins->modrm_mode == 0x03) {
-      km_infox(KM_TRACE_DECODE, "Register to register");
       return;
    }
-   if (ins->modrm_reg == 0x04 || ins->modrm_rm == 0x04) {
+   if (ins->modrm_rm == 0x04) {
       decode_sib(vcpu, ins);
       km_infox(KM_TRACE_DECODE,
                " sib: scale:%d index:%d base:%d",
@@ -297,11 +299,15 @@ static inline void find_modrm_fault(km_vcpu_t* vcpu, x86_instruction_t* ins)
       return;
    }
    // With SIB
-   uint64_t* indexp = km_reg_ptr(vcpu, ins->rex_x, ins->sib_index);
    uint64_t* basep = km_reg_ptr(vcpu, ins->rex_b, ins->sib_base);
-   uint64_t scale = 1 << ins->sib_scale;
-   km_infox(KM_TRACE_DECODE, "base:0x%lx index:0x%lx scale=%ld disp=%d", *basep, *indexp, scale, ins->disp);
-   ins->failed_addr = *basep + (*indexp * scale) + ins->disp;
+   if (ins->rex_x == 0 && ins->sib_index == 4) {
+      ins->failed_addr = *basep + ins->disp;
+   } else {
+      uint64_t scale = 1 << ins->sib_scale;
+      uint64_t* indexp = km_reg_ptr(vcpu, ins->rex_x, ins->sib_index);
+      km_infox(KM_TRACE_DECODE, "base:0x%lx index:0x%lx scale=%ld disp=%d", *basep, *indexp, scale, ins->disp);
+      ins->failed_addr = *basep + (*indexp * scale) + ins->disp;
+   }
 }
 
 unsigned char x86_3byte_0_38_w[] = {0xc8,   // sha1nexte
@@ -433,6 +439,8 @@ unsigned char x86_3byte_66_3a_w[] = {0x01,   // vpermpd
 static void decode_3byte_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins, unsigned char prevop)
 {
    unsigned char opcode = ins->curbyte;
+   ins->opcode_present = 1;
+   ins->opcode = opcode;
    decode_consume_byte(vcpu, ins);
 
    if (ins->prefix == 0x66 && opcode == 0) {
@@ -634,6 +642,8 @@ unsigned char x86_2byte_f3_w[] = {0x10,   // vmovss
 static void decode_2byte_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    unsigned char opcode = ins->curbyte;
+   ins->opcode_present = 1;
+   ins->opcode = opcode;
    decode_consume_byte(vcpu, ins);
    if (opcode == 0x38 || opcode == 0x3a) {
       decode_3byte_opcode(vcpu, ins, opcode);
@@ -692,6 +702,8 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
    }
 
    unsigned char opcode = ins->curbyte;
+   ins->opcode_present = 1;
+   ins->opcode = opcode;
    decode_consume_byte(vcpu, ins);
    if (ins->failed_addr != 0) {
       return;
