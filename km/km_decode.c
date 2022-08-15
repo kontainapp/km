@@ -740,18 +740,10 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
                ins->modrm_rm);
       decode_consume_byte(vcpu, ins);
       find_modrm_fault(vcpu, ins);
-   } else if (opcode == 0xa5) {
-      // MOVS/MOVSB/MOVSW/MOVSQ - These do moves based on RSI and RDI
-      km_infox(KM_TRACE_DECODE, "MOVS: RSI:0x%llx RDI:0x%llx", vcpu->regs.rsi, vcpu->regs.rdi);
-      if (km_is_gva_accessable(vcpu->regs.rsi, sizeof(uint64_t), PROT_READ) == 0) {
-         ins->failed_addr = vcpu->regs.rsi;
-      } else if (km_is_gva_accessable(vcpu->regs.rdi, sizeof(uint64_t), PROT_WRITE) == 0) {
-         ins->failed_addr = vcpu->regs.rdi;
-      }
    } else if (opcode == 0x0f) {
       decode_2byte_opcode(vcpu, ins);
    } else {
-      km_infox(KM_TRACE_DECODE, "Uninterpreted Opcode=0x%x", opcode);
+      km_warnx("KM intruction decode: Uninterpreted Opcode=0x%x", opcode);
    }
 
    return;
