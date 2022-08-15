@@ -361,6 +361,28 @@ TEST test_allreg()
    ASSERT_EQ(datapage_page, failing_page());
    ASSERT_EQ(0, teardown());
 
+   ASSERT_EQ(0, setup());
+   asm volatile("mov %0, %%rsi\n\t"
+                "xor %%rax, %%rax\n\t"
+                "test %%rax, (%%rsi)"
+                : /* No output */
+                : "r"(datapage_page)
+                : "%rsi", "%rax");
+   ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
+   ASSERT_EQ(datapage_page, failing_page());
+   ASSERT_EQ(0, teardown());
+
+   ASSERT_EQ(0, setup());
+   asm volatile("mov %0, %%rdi\n\t"
+                "xor %%rax, %%rax\n\t"
+                "test %%rax, (%%rdi)"
+                : /* No output */
+                : "r"(datapage_page)
+                : "%rdi", "%rax");
+   ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
+   ASSERT_EQ(datapage_page, failing_page());
+   ASSERT_EQ(0, teardown());
+
    PASS();
 }
 
