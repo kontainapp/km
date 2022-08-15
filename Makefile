@@ -64,8 +64,8 @@ KM_RELEASE := ${BLDTOP}/kontain.tar.gz
 KM_KKM_RELEASE := ${BLDTOP}/kkm.run
 KM_BIN_RELEASE := ${BLDTOP}/kontain_bin.tar.gz
 KM_BINARIES := -C ${BLDTOP} km/km container-runtime/ \
-               cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
-               -C ${BLDTOP}/opt/kontain bin/docker_config.sh
+				cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
+				-C ${BLDTOP}/opt/kontain bin/docker_config.sh bin/km_cli
 # Show this on the release page
 RELEASE_MESSAGE ?= Kontain KM Beta Release. branch: ${SRC_BRANCH} sha: ${SRC_SHA}
 
