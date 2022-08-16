@@ -639,7 +639,7 @@ unsigned char x86_2byte_f3_w[] = {0x10,   // vmovss
                                   0xe6,   // vcvtdq2pd
                                   0};
 
-static void decode_2byte_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
+static void decode_multibyte_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    unsigned char opcode = ins->curbyte;
    ins->opcode_present = 1;
@@ -676,24 +676,80 @@ static void decode_2byte_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
    }
 }
 
-// These opcodes address memory through RSI. Memory type 'X' in SDM
+/*
+ * These single byte opcodes use RSI Memory type 'X' in SDM
+ */
 unsigned char x86_rsi_addressed[] = {0xac,   // LODS/B
                                      0xad,   // LODS/W/D/Q
                                      0};
 
-// These opcodes address memory through RDI. Memory type 'Y' in SDM
+/*
+ * These single byte opcodes use RDI Memory type 'Y' in SDM
+ */
 unsigned char x86_rdi_addressed[] = {0xaa,   // STOS/B
                                      0xab,   // STOS/W/D/Q
                                      0xae,   // SCAS/B
                                      0xaf,   // SCAS/W/D/Q
                                      0};
 
-// These opcode use both RSI and RDI.
+/*
+ * These single byte opcodes use both RSI and RDI
+ */
 unsigned char x86_rsi_rdi_addressed[] = {0xa4,   // MOVS/B
                                          0xa5,   // MOVS/W/D/Q
                                          0xa6,   // CMPS/B
                                          0xa7,   // CMPS/W/D/Q
                                          0};
+
+/*
+ * Single byte opcodes that use rmmod bytes for register indirect addressing
+ * See SDM Table A-2
+ */
+unsigned char x86_rmmod_addressed[] = {0x01,   // ADD Gv, Ev
+                                       0x02,   // ADD Ev, Gb
+                                       0x03,   // ADD Ev, Gv
+                                       0x08,   // OR  Gb, Eb
+                                       0x09,   // OR  Gv, Ev
+                                       0x0a,   // OR  Eb, Gb
+                                       0x0b,   // OR  Ev, Gv
+                                       0x10,   // ADC Gb, Eb
+                                       0x11,   // ADC Gv, Ev
+                                       0x12,   // ADC Eb, Gb
+                                       0x13,   // ADC Ev, Gv
+                                       0x18,   // SBB Gb, Eb
+                                       0x19,   // SBB Gv, Ev
+                                       0x1a,   // SBB Eb, Gb
+                                       0x1b,   // SBB Ev, Gv
+                                       0x20,   // AND Gb, Eb
+                                       0x21,   // AND Gv, Ev
+                                       0x22,   // AND Eb, Gb
+                                       0x23,   // AND Ev, Gv
+                                       0x28,   // SUB Gb, Eb
+                                       0x29,   // SUB Gv, Ev
+                                       0x2a,   // SUB Eb, Gb
+                                       0x2b,   // SUB Ev, Gv
+                                       0x30,   // XOR Gb, Eb
+                                       0x31,   // XOR Gv, Ev
+                                       0x32,   // XOR Eb, Gb
+                                       0x33,   // XOR Ev, Gv
+                                       0x38,   // CMP Gb, Eb
+                                       0x39,   // CMP Gv, Ev
+                                       0x3a,   // CMP Eb, Gb
+                                       0x3b,   // CMP Ev, Gv
+                                       0x63,   // MOVXSD Gv, Ev
+                                       0x69,   // IMUL Gv, Ev, lz
+                                       0x6b,   // IMUL Gv, Ev, lb
+                                       0x84,   // TEST Eb, Gb
+                                       0x85,   // TEST Ev, Gv
+                                       0x86,   // XCHG Eb, Gb
+                                       0x87,   // XCHG Ev, Gv
+                                       0x88,   // MOV  Eb, Gb
+                                       0x89,   // MOV  Ev, Gv
+                                       0x8a,   // MOV  Gb, Eb
+                                       0x8b,   // MOV  Gv, Ev
+                                       0x8c,   // MOV  Ev, Sw
+                                       0x8e,   // MOV  Sw, Ev
+                                       0};
 
 static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
@@ -708,25 +764,20 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
    if (ins->failed_addr != 0) {
       return;
    }
-   if (decode_in_list(opcode, x86_rsi_addressed) != 0) {
-      ins->failed_addr = vcpu->regs.rsi;
+
+   /*
+    * multi-byte opcode?
+    */
+   if (opcode == 0x0f) {
+      decode_multibyte_opcode(vcpu, ins);
       return;
    }
-   if (decode_in_list(opcode, x86_rdi_addressed) != 0) {
-      ins->failed_addr = vcpu->regs.rdi;
-      return;
-   }
-   if (decode_in_list(opcode, x86_rsi_rdi_addressed) != 0) {
-      if (km_is_gva_accessable(vcpu->regs.rsi, sizeof(uint64_t), PROT_READ) == 0) {
-         ins->failed_addr = vcpu->regs.rsi;
-      } else {
-         ins->failed_addr = vcpu->regs.rdi;
-      }
-      return;
-   }
-   // TEST, XCHG, MOV: ModR/M
-   // TODO: Generalize to all instructions with ModR/M byte.
-   if (opcode >= 0x84 && opcode <= 0x8b) {
+
+   /*
+    * One byte opcodes that use mod/rm. 0x00 is ADD. Special case since decode_in_list
+    * uses 0 to note end of list.
+    */
+   if (opcode == 0x00 || decode_in_list(opcode, x86_rmmod_addressed) != 0) {
       if (ins->failed_addr != 0) {
          return;
       }
@@ -740,11 +791,36 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
                ins->modrm_rm);
       decode_consume_byte(vcpu, ins);
       find_modrm_fault(vcpu, ins);
-   } else if (opcode == 0x0f) {
-      decode_2byte_opcode(vcpu, ins);
-   } else {
-      km_warnx("KM intruction decode: Uninterpreted Opcode=0x%x", opcode);
+      return;
    }
+
+   /*
+    * Single byte opcodes that implicitly use RSI
+    */
+   if (decode_in_list(opcode, x86_rsi_addressed) != 0) {
+      ins->failed_addr = vcpu->regs.rsi;
+      return;
+   }
+   /*
+    * Single byte opcodes that implicitly use RDI
+    */
+   if (decode_in_list(opcode, x86_rdi_addressed) != 0) {
+      ins->failed_addr = vcpu->regs.rdi;
+      return;
+   }
+   /*
+    * Single byte opcodes that implicitly use both RSI and RDI
+    */
+   if (decode_in_list(opcode, x86_rsi_rdi_addressed) != 0) {
+      if (km_is_gva_accessable(vcpu->regs.rsi, sizeof(uint64_t), PROT_READ) == 0) {
+         ins->failed_addr = vcpu->regs.rsi;
+      } else {
+         ins->failed_addr = vcpu->regs.rdi;
+      }
+      return;
+   }
+
+   km_warnx("KM intruction decode: Uninterpreted Opcode=0x%x", opcode);
 
    return;
 }
