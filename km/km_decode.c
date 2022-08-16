@@ -639,7 +639,7 @@ unsigned char x86_2byte_f3_w[] = {0x10,   // vmovss
                                   0xe6,   // vcvtdq2pd
                                   0};
 
-static void decode_2byte_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
+static void decode_multibyte_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
 {
    unsigned char opcode = ins->curbyte;
    ins->opcode_present = 1;
@@ -676,19 +676,25 @@ static void decode_2byte_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
    }
 }
 
-// These opcodes address memory through RSI. Memory type 'X' in SDM
+/*
+ * These single byte opcodes use RSI Memory type 'X' in SDM
+ */
 unsigned char x86_rsi_addressed[] = {0xac,   // LODS/B
                                      0xad,   // LODS/W/D/Q
                                      0};
 
-// These opcodes address memory through RDI. Memory type 'Y' in SDM
+/*
+ * These single byte opcodes use RDI Memory type 'Y' in SDM
+ */
 unsigned char x86_rdi_addressed[] = {0xaa,   // STOS/B
                                      0xab,   // STOS/W/D/Q
                                      0xae,   // SCAS/B
                                      0xaf,   // SCAS/W/D/Q
                                      0};
 
-// These opcode use both RSI and RDI.
+/*
+ * These single byte opcodes use both RSI and RDI
+ */
 unsigned char x86_rsi_rdi_addressed[] = {0xa4,   // MOVS/B
                                          0xa5,   // MOVS/W/D/Q
                                          0xa6,   // CMPS/B
@@ -758,22 +764,15 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
    if (ins->failed_addr != 0) {
       return;
    }
-   if (decode_in_list(opcode, x86_rsi_addressed) != 0) {
-      ins->failed_addr = vcpu->regs.rsi;
+
+   /*
+    * multi-byte opcode?
+    */
+   if (opcode == 0x0f) {
+      decode_multibyte_opcode(vcpu, ins);
       return;
    }
-   if (decode_in_list(opcode, x86_rdi_addressed) != 0) {
-      ins->failed_addr = vcpu->regs.rdi;
-      return;
-   }
-   if (decode_in_list(opcode, x86_rsi_rdi_addressed) != 0) {
-      if (km_is_gva_accessable(vcpu->regs.rsi, sizeof(uint64_t), PROT_READ) == 0) {
-         ins->failed_addr = vcpu->regs.rsi;
-      } else {
-         ins->failed_addr = vcpu->regs.rdi;
-      }
-      return;
-   }
+
    /*
     * One byte opcodes that use mod/rm. 0x00 is ADD. Special case since decode_in_list
     * uses 0 to note end of list.
@@ -792,11 +791,36 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
                ins->modrm_rm);
       decode_consume_byte(vcpu, ins);
       find_modrm_fault(vcpu, ins);
-   } else if (opcode == 0x0f) {
-      decode_2byte_opcode(vcpu, ins);
-   } else {
-      km_warnx("KM intruction decode: Uninterpreted Opcode=0x%x", opcode);
+      return;
    }
+
+   /*
+    * Single byte opcodes that implicitly use RSI
+    */
+   if (decode_in_list(opcode, x86_rsi_addressed) != 0) {
+      ins->failed_addr = vcpu->regs.rsi;
+      return;
+   }
+   /*
+    * Single byte opcodes that implicitly use RDI
+    */
+   if (decode_in_list(opcode, x86_rdi_addressed) != 0) {
+      ins->failed_addr = vcpu->regs.rdi;
+      return;
+   }
+   /*
+    * Single byte opcodes that implicitly use both RSI and RDI
+    */
+   if (decode_in_list(opcode, x86_rsi_rdi_addressed) != 0) {
+      if (km_is_gva_accessable(vcpu->regs.rsi, sizeof(uint64_t), PROT_READ) == 0) {
+         ins->failed_addr = vcpu->regs.rsi;
+      } else {
+         ins->failed_addr = vcpu->regs.rdi;
+      }
+      return;
+   }
+
+   km_warnx("KM intruction decode: Uninterpreted Opcode=0x%x", opcode);
 
    return;
 }
