@@ -292,7 +292,7 @@ jobs:
       - name: Publish Github release
         env:
           GITHUB_RELEASE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: make -C km publish-release
+        run: make publish-release
 
   slack-workflow-status:
     name: Notify slack, if needed
