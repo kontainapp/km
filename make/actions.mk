@@ -73,7 +73,6 @@ demo-runenv-image: subdirs ## builds a demo image based off runenv-image
 test-withdocker: subdirs ##
 test-all-withdocker: subdirs ## build all and run KM and payload tests
 release: subdirs ## Package .tar.gz files for external release to build dir
-publish-release: subdirs ## Publish release tarballs to githib km-releases repo
 
 $(SUBDIRS):
 	$(MAKE) -C $@ MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=

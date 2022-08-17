@@ -79,7 +79,7 @@ release: ${KM_RELEASE} ${KM_BIN_RELEASE} ## Package kontain.tar.gz file for rele
 	ls -lh ${KM_RELEASE} ${KM_BIN}
 
 ${KM_BIN_RELEASE}: ${KM_RELEASE} ## Build a release tar.gz file for KM runtime binaries
-	mkdir -p ${BLDTOP}/container-runtime 
+	mkdir -p ${BLDTOP}/container-runtime
 	cp -f ${TOP}/container-runtime/crun/krun.static ${BLDTOP}/container-runtime/krun
 	ln -f ${BLDTOP}/container-runtime/krun ${BLDTOP}/container-runtime/krun-label-trigger
 	tar -czvf $@ ${KM_BINARIES}
@@ -127,7 +127,7 @@ ifneq ("${RELEASE_TAG}", "v0.1-test")
 	@echo setting current
 	git tag -f current ${RELEASE_TAG}
 endif
-	git push -f --tags
+	git push -f origin current ${RELEASE_TAG}
 
 deploy-config:
 	@echo "building overlays for km, kkm, km-crio, k3s"
