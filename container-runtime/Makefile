@@ -53,7 +53,7 @@ $(CRUNDIR)/Makefile:
 
 static:
 	[[ -z '$(ls -A /nix)' ]] && sudo docker run --rm --privileged -v /:/mnt nixos/nix:2.3.12 cp -rfT /nix /mnt/nix
-	sudo docker run --rm --privileged -v /nix:/nix -v ${CRUNDIR_ABS}:${CRUNDIR_ABS} -w ${CRUNDIR_ABS} nixos/nix:2.3.12 nix-build --cores 0 --max-jobs auto --arg enableSystemd false nix/
+	sudo docker run --rm --privileged -v /nix:/nix -v ${CRUNDIR_ABS}:${CRUNDIR_ABS} -w ${CRUNDIR_ABS} nixos/nix:2.3.12 nix-build --cores 0 --max-jobs auto --arg enableSystemd true nix/
 	cp -f ${CRUNDIR_ABS}/result/bin/crun ${CRUNDIR_ABS}/krun.static
 	ln -f ${CRUNDIR_ABS}/krun.static ${CRUNDIR_ABS}/krun.static-label-trigger
 
