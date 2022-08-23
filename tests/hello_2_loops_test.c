@@ -24,6 +24,7 @@
 #include "syscall.h"
 
 int detached = 0;
+int count;   // count of child threads in detached mode
 pthread_key_t mystr_key, mystr_key_2;
 
 void free_key(void* str)
@@ -66,6 +67,9 @@ void subrun(char* msg)
                 (char*)pthread_getspecific(mystr_key));
       }
    }
+   if (detached != 0) {
+      __atomic_sub_fetch(&count, 1, __ATOMIC_SEQ_CST);
+   }
    pthread_exit(0);
 }
 
@@ -88,9 +92,15 @@ void* run(void* msg)
       }
       int rc;
 
+      if (detached != 0) {
+         __atomic_add_fetch(&count, 1, __ATOMIC_SEQ_CST);
+      }
       if ((rc = pthread_create(&pt1, &attr, (void* (*)(void*))subrun, (void*)brick_msg)) != 0) {
          printf("pthread_create() %d, %s", rc, strerror(errno));
          return (void*)(long)rc;
+      }
+      if (detached != 0) {
+         __atomic_add_fetch(&count, 1, __ATOMIC_SEQ_CST);
       }
       if ((rc = pthread_create(&pt2, &attr, (void* (*)(void*))subrun, (void*)dust_msg)) != 0) {
          printf("pthread_create() %d, %s", rc, strerror(errno));
@@ -105,6 +115,10 @@ void* run(void* msg)
          pthread_join(pt1, NULL);
          if (greatest_get_verbosity() != 0) {
             printf(" ... joined %p\n", (void*)pt1);
+         }
+      } else {
+         while (__atomic_load_n(&count, __ATOMIC_SEQ_CST) != 0) {
+            usleep(1000);
          }
       }
    }
