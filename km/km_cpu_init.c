@@ -283,6 +283,9 @@ km_vcpu_t* km_vcpu_get(void)
 {
    km_vcpu_t* vcpu;
 
+   if (machine.exit_group != 0) {
+      return NULL;
+   }
    km_mutex_lock(&machine.vm_vcpu_mtx);
    if ((vcpu = SLIST_FIRST(&machine.vm_idle_vcpus.head)) != 0) {
       SLIST_REMOVE_HEAD(&machine.vm_idle_vcpus.head, next_idle);
