@@ -1,0 +1,293 @@
+apiVersion: v1
+data:
+  containerd-cfg-get.sh: |-
+    #!/usr/bin/env bash
+
+    CONTAINERD_CFG_FULL_PATH=${ROOT_MOUNT_DIR}/${CONTAINERD_CFG_DIR}/${CONTAINERD_CONFIG_FILE}
+
+    cp ${CONTAINERD_CFG_FULL_PATH} ${CONTAINERD_CFG_FULL_PATH}.tmpl
+    CONTAINERD_CFG_FULL_PATH=${CONTAINERD_CFG_FULL_PATH}.tmpl
+kind: ConfigMap
+metadata:
+  labels:
+    app: kontain-init
+  name: kontain-containerd-cfg-get
+  namespace: kube-system
+---
+apiVersion: v1
+data:
+  containerd-cfg-update.sh: |-
+    #!/usr/bin/env bash
+
+    CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
+    CONTAINERD_CONFIG_FILE_=${CONTAINERD_CONFIG_FILE:=config.toml}
+
+    CONTAINERD_CFG_FULL_PATH="${CONTAINERD_CFG_FULL_PATH:-${CONTAINERD_CFG_DIR}/${CONTAINERD_CONFIG_FILE}}"
+
+    # all config files must be from ROOT_MOUNT_DIR
+    CONTAINERD_CFG_FULL_PATH=${ROOT_MOUNT_DIR}/${CONTAINERD_CFG_FULL_PATH}
+
+    function update_containerd_config() {
+
+      runtime="krun"
+      configuration="configuration"
+      pluginid=cri
+      if grep -q "version = 2\>" $containerd_conf_file; then
+        pluginid=\"io.containerd.grpc.v1.cri\"
+      fi
+
+      runtime_table="plugins.${pluginid}.containerd.runtimes.$runtime"
+      runtime_type="io.containerd.$runtime.v2"
+      options_table="$runtime_table.options"
+      config_path=""
+      if grep -q "\[$runtime_table\]" $containerd_conf_file; then
+          echo "Configuration exists for $runtime_table, overwriting"
+          sed -i "/\[$runtime_table\]/,+1s#runtime_type.*#runtime_type = \"${runtime_type}\"#" $containerd_conf_file
+      else
+        echo "[$runtime_table]" | tee -a $containerd_conf_file
+        echo "runtime_type = \"${runtime_type}\"" | tee -a $containerd_conf_file
+        echo "privileged_without_host_devices = true" | tee -a $containerd_conf_file
+        echo "pod_annotations = [\"app.kontain.*\"]" | tee -a $containerd_conf_file
+      fi
+
+      echo "restart containerd"
+      systemctl daemon-reload
+      systemctl restart containerd
+
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app: kontain-init
+  name: kontain-containerd-cfg-update
+  namespace: kube-system
+---
+apiVersion: v1
+data:
+  containerd-config.sh: |-
+    #!/usr/bin/env bash
+
+    source /scripts-lib/containerd-cfg-get.sh
+    source /scripts-lib/containerd-cfg-update.sh
+    source /scripts-lib/containerd-restart.sh
+kind: ConfigMap
+metadata:
+  labels:
+    app: kontain-init
+  name: kontain-containerd-install
+  namespace: kube-system
+---
+apiVersion: v1
+data:
+  containerd-restart.sh: |-
+    #!/usr/bin/env bash
+
+    echo "restart containerd"
+    systemctl k3s
+kind: ConfigMap
+metadata:
+  labels:
+    app: kontain-init
+  name: kontain-containerd-restart
+  namespace: kube-system
+---
+apiVersion: v1
+data:
+  entrypoint.sh: |-
+    #!/usr/bin/env bash
+
+    set -x
+    set -euo pipefail
+
+    # reading latest release artifact tag info from current_release.txt
+    TAG=${TAG:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
+
+    KONTAIN_RELEASE_URL=${KONTAIN_RELEASE_URL:-"https://github.com/kontainapp/km/releases/download/${TAG}/kontain_bin.tar.gz"}
+
+    ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
+
+    echo "Install Kontain Runtime Artifacts (KM & KRUN)"
+    source /scripts-lib/kontain_install_lib.sh
+    install_kontain_artifacts
+
+    echo "Configure Containerd"
+    source /scripts-lib/containerd-config.sh
+    configure_containerd
+
+    sleep infinity
+kind: ConfigMap
+metadata:
+  labels:
+    app: kontain-init
+  name: kontain-install-entrypoint
+  namespace: kube-system
+---
+apiVersion: v1
+data:
+  kontain_install_lib.sh: |-
+    #!/usr/bin/env bash
+
+    function install_kontain_artifacts() {
+      echo "Install Kontain Runtime Artifacts (KM & KRUN)"
+      mkdir -p ${TMP_MOUNT_DIR}/kontain-artifacts
+      curl -L "${KONTAIN_RELEASE_URL}" | tar -xzf - -C ${TMP_MOUNT_DIR}/kontain-artifacts
+      mkdir -p ${ROOT_MOUNT_DIR}/opt/kontain/bin
+      cp ${TMP_MOUNT_DIR}/kontain-artifacts/km/km ${ROOT_MOUNT_DIR}/opt/kontain/bin/km
+      chmod +x ${ROOT_MOUNT_DIR}/opt/kontain/bin/km
+      cp ${TMP_MOUNT_DIR}/kontain-artifacts//bin/km_cli ${ROOT_MOUNT_DIR}/opt/kontain/bin/km_cli
+      cp ${TMP_MOUNT_DIR}/kontain-artifacts/container-runtime/krun ${ROOT_MOUNT_DIR}/opt/kontain/bin/krun
+      chmod +x /${ROOT_MOUNT_DIR}/opt/kontain/bin/krun
+      mkdir -p ${ROOT_MOUNT_DIR}/opt/kontain/shim
+      cp ${TMP_MOUNT_DIR}/kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2
+      chmod +x ${ROOT_MOUNT_DIR}/opt/kontain/shim/containerd-shim-krun-v2
+      cp ${TMP_MOUNT_DIR}/kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${ROOT_MOUNT_DIR}${SHIM_DIR}/containerd-shim-krun-v2
+      chmod +x ${ROOT_MOUNT_DIR}/usr/local/bin/containerd-shim-krun-v2
+
+      # check for kvm
+      if [ -c ${ROOT_MOUNT_DIR}/dev/kvm ];then
+        chmod 666 ${ROOT_MOUNT_DIR}/dev/kvm
+      else
+        chmod +x ${TMP_MOUNT_DIR}/kontain-artifacts/kkm.run
+        chroot ${ROOT_MOUNT_DIR} ${TMP_MOUNT_DIR}/kontain-artifacts/kkm.run -- --force-install
+      fi
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app: kontain-init
+  name: kontain-install-lib
+  namespace: kube-system
+---
+apiVersion: v1
+data:
+  RELEASE_TAG: ""
+kind: ConfigMap
+metadata:
+  name: my-vars-gfmt64592g
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: kontain-init
+  name: kontain-node-initializer
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: kontain-init
+  template:
+    metadata:
+      labels:
+        app: kontain-init
+        name: kontain-node-initializer
+    spec:
+      containers:
+      - command:
+        - /scripts/entrypoint.sh
+        env:
+        - name: CONTAINERD_CFG_DIR
+          value: /var/lib/rancher/k3s/agent/etc/containerd
+        - name: CONTAINERD_CONFIG_FILE
+          value: config.toml
+        - name: SHIM_DIR
+          value: /var/lib/rancher/k3s/data/current/bin
+        - name: ROOT_MOUNT_DIR
+          value: /root
+        - name: TMP_MOUNT_DIR
+          value: /tmp
+        - name: CONTAINERD_CFG_FILE
+          value: config.toml
+        - name: CRIO_CFG_DIR
+          value: /etc/crio/
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: TAG
+          value: ""
+        image: centos:7
+        name: node-initializer
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /root
+          name: root-mount
+        - mountPath: /tmp
+          name: tmp-mount
+        - mountPath: /scripts-lib/kontain_install_lib.sh
+          name: lib-entrypoint-install
+          subPath: kontain_install_lib.sh
+        - mountPath: /scripts-lib/containerd-config.sh
+          name: lib-containerd-install
+          subPath: containerd-config.sh
+        - mountPath: /scripts-lib/containerd-cfg-get.sh
+          name: lib-containerd-cfg-get
+          subPath: containerd-cfg-get.sh
+        - mountPath: /scripts-lib/containerd-cfg-update.sh
+          name: lib-containerd-cfg-update
+          subPath: containerd-cfg-update.sh
+        - mountPath: /scripts-lib/containerd-restart.sh
+          name: lib-containerd-restart
+          subPath: containerd-restart.sh
+        - mountPath: /scripts
+          name: entrypoint
+        - mountPath: /etc/crio/
+          name: crio-conf
+        - mountPath: /etc/containerd/
+          name: containerd-conf
+        - mountPath: /var/run/dbus
+          name: dbus
+        - mountPath: /run/systemd
+          name: systemd
+      volumes:
+      - hostPath:
+          path: /
+        name: root-mount
+      - hostPath:
+          path: /tmp
+        name: tmp-mount
+      - configMap:
+          defaultMode: 484
+          name: kontain-install-entrypoint
+        name: entrypoint
+      - configMap:
+          defaultMode: 484
+          name: kontain-install-lib
+        name: lib-entrypoint-install
+      - configMap:
+          defaultMode: 484
+          name: kkontain-containerd-install
+        name: lib-containerd-install
+      - configMap:
+          defaultMode: 484
+          name: kontain-containerd-cfg-get
+        name: lib-containerd-cfg-get
+      - configMap:
+          defaultMode: 484
+          name: kontain-containerd-cfg-update
+        name: lib-containerd-cfg-update
+      - configMap:
+          defaultMode: 484
+          name: kontain-containerd-restart
+        name: lib-containerd-restart
+      - hostPath:
+          path: /etc/crio/
+        name: crio-conf
+      - hostPath:
+          path: /etc/containerd/
+        name: containerd-conf
+      - hostPath:
+          path: /var/run/dbus
+        name: dbus
+      - hostPath:
+          path: /run/systemd
+        name: systemd
+  updateStrategy:
+    type: RollingUpdate
+---
+apiVersion: node.k8s.io/v1
+handler: krun
+kind: RuntimeClass
+metadata:
+  name: kontain

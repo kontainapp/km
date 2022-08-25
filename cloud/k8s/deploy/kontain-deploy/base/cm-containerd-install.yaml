@@ -17,68 +17,14 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kontain-install-entrypoint
+  name: kontain-containerd-install
   namespace: kube-system
   labels:
     app: kontain-init
-# data-from-file:
-#   entrypoint.sh: ./entrypoint.sh
 data:
-  entrypoint.sh: |-
+  containerd-config.sh: |-
     #!/usr/bin/env bash
 
-    set -x
-    set -euo pipefail
-
-    ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
-    CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
-
-    source /scripts-lib/kontain_install_lib.sh
-
-    echo "Install Kontain Runtime Artifacts (KM & KRUN)"
-    install_kontain_artifacts
-
-    echo "Add Kontain Runtime to containerd configuration"
-    # check to see if its a normal k8s distribution or k3s
-    if [ ! -f /root/var/lib/rancher/k3s/agent ]; then
-      echo " its a regular k8s install"
-      CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
-      containerd_conf_file="/etc/containerd/config.toml"
-    else
-      echo " its a k3s install"
-      # else its a k3s containerd install
-      CONTAINERD_CFG_DIR="${K3S_CONTAINERD_DIR:/root/var/lib/rancher/k3s/agent/etc/containerd}"
-      cp "$CONTAINERD_CFG_DIR/config.toml" "$CONTAINERD_CFG_DIR/config.toml.tmpl"
-      containerd_conf_file="$CONTAINERD_CFG_DIR/config.toml.tmpl"
-    fi
-
-    runtime="krun"
-    configuration="configuration"
-    pluginid=cri
-    if grep -q "version = 2\>" $containerd_conf_file; then
-      pluginid=\"io.containerd.grpc.v1.cri\"
-    fi
-
-    runtime_table="plugins.${pluginid}.containerd.runtimes.$runtime"
-    runtime_type="io.containerd.$runtime.v2"
-    options_table="$runtime_table.options"
-    config_path=""
-    if grep -q "\[$runtime_table\]" $containerd_conf_file; then
-        echo "Configuration exists for $runtime_table, overwriting"
-        sed -i "/\[$runtime_table\]/,+1s#runtime_type.*#runtime_type = \"${runtime_type}\"#" $containerd_conf_file
-    else
-        cat <<-EOT | tee -a $containerd_conf_file
-          [$runtime_table]
-          runtime_type = "${runtime_type}"
-          privileged_without_host_devices = true
-          pod_annotations = ["app.kontain.*"]
-    EOT
-    fi
-
-    [ -c /root/dev/kvm ] && chmod 666 /root/dev/kvm
-
-    echo "restart containerd"
-    systemctl daemon-reload
-    systemctl restart containerd
-
-    sleep infinity
+    source /scripts-lib/containerd-cfg-get.sh
+    source /scripts-lib/containerd-cfg-update.sh
+    source /scripts-lib/containerd-restart.sh

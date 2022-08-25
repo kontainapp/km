@@ -1,0 +1,176 @@
+apiVersion: v1
+data:
+  entrypoint.sh: |-
+    #!/usr/bin/env bash
+
+    set -x
+    set -euo pipefail
+
+    ROOT_MOUNT_DIR="${ROOT_MOUNT_DIR:-/root}"
+
+    echo "logging the instance this is running on for debugging purposes"
+    chroot ${ROOT_MOUNT_DIR} echo running on $(hostname)
+
+    CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
+
+    source /scripts-lib/kontain_install_lib.sh
+
+    echo "Installing Kontain Runtime Artifacts (KM & KRUN)"
+    install_kontain_artifacts
+
+    echo "Add Kontain Runtime to containerd configuration"
+    # check to see if its a normal k8s distribution or k3s
+    if [[ -d /root/var/lib/rancher/k3s/agent ]]; then
+      echo "its a k3s install"
+      CONTAINERD_CFG_DIR="/root/var/lib/rancher/k3s/agent/etc/containerd"
+      cp "${CONTAINERD_CFG_DIR}/config.toml" "${CONTAINERD_CFG_DIR}/config.toml.tmpl"
+      containerd_conf_file="${CONTAINERD_CFG_DIR}/config.toml.tmpl"
+    fi
+
+    runtime="krun"
+    configuration="configuration"
+    pluginid=cri
+    if grep -q "version = 2\>" ${containerd_conf_file}; then
+      pluginid=\"io.containerd.grpc.v1.cri\"
+    fi
+
+    runtime_table="plugins.${pluginid}.containerd.runtimes.$runtime"
+    runtime_type="io.containerd.${runtime}.v2"
+    options_table="${runtime_table}.options"
+    config_path=""
+    if grep -q "\[$runtime_table\]" ${containerd_conf_file}; then
+        echo "Configuration exists for ${runtime_table}, overwriting"
+        sed -i "/\[$runtime_table\]/,+1s#runtime_type.*#runtime_type = \"${runtime_type}\"#" $containerd_conf_file
+    else
+        cat <<-EOT | tee -a $containerd_conf_file
+          [$runtime_table]
+          runtime_type = "${runtime_type}"
+          privileged_without_host_devices = true
+          pod_annotations = ["app.kontain.*"]
+    EOT
+    fi
+
+    [ -c /root/dev/kvm ] && chmod 666 /root/dev/kvm
+
+    echo "restart containerd"
+    systemctl daemon-reload
+    systemctl restart containerd
+
+    sleep infinity
+kind: ConfigMap
+metadata:
+  labels:
+    app: kontain-init
+  name: kontain-install-entrypoint
+  namespace: kube-system
+---
+apiVersion: v1
+data:
+  kontain_install_lib.sh: |-
+    #!/usr/bin/env bash
+    TAG=${1:-$(curl -L -s https://raw.githubusercontent.com/kontainapp/km/current/km-releases/current_release.txt)}
+    TAG="v0.9.8"
+    KONTAIN_RELEASE_URL="https://github.com/kontainapp/km/releases/download/${TAG}/kontain_bin.tar.gz"
+
+    function install_kontain_artifacts() {
+      echo "Install Kontain Runtime Artifacts (KM & KRUN)"
+      mkdir /kontain-artifacts
+      curl -L "${KONTAIN_RELEASE_URL}" | tar -xzf - -C /kontain-artifacts
+      mkdir -p /root/opt/kontain/bin
+      cp /kontain-artifacts/km/km /root/opt/kontain/bin/km
+      chmod +x /root/opt/kontain/bin/km
+      cp /kontain-artifacts/container-runtime/krun /root/opt/kontain/bin/krun
+      chmod +x /root/opt/kontain/bin/krun
+      mkdir -p /root/opt/kontain/shim
+      cp /kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /root/opt/kontain/shim/containerd-shim-krun-v2
+      chmod +x /root/opt/kontain/shim/containerd-shim-krun-v2
+      cp /kontain-artifacts/cloud/k8s/deploy/shim/containerd-shim-krun-v2 /root/usr/local/bin/containerd-shim-krun-v2
+      chmod +x /root/usr/local/bin/containerd-shim-krun-v2
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app: kontain-init
+  name: kontain-install-lib
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: kontain-init
+  name: kontain-node-initializer
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: kontain-init
+  template:
+    metadata:
+      labels:
+        app: kontain-init
+        name: kontain-node-initializer
+    spec:
+      containers:
+      - command:
+        - /scripts/entrypoint.sh
+        env:
+        - name: ROOT_MOUNT_DIR
+          value: /root
+        - name: CONTAINERD_CFG_DIR
+          value: /etc/containerd
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: centos:7
+        name: node-initializer
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /root
+          name: root-mount
+        - mountPath: /scripts-lib
+          name: lib-entrypoint
+        - mountPath: /scripts
+          name: entrypoint
+        - mountPath: /etc/crio/
+          name: crio-conf
+        - mountPath: /etc/containerd/
+          name: containerd-conf
+        - mountPath: /var/run/dbus
+          name: dbus
+        - mountPath: /run/systemd
+          name: systemd
+      volumes:
+      - hostPath:
+          path: /
+        name: root-mount
+      - configMap:
+          defaultMode: 484
+          name: kontain-install-entrypoint
+        name: entrypoint
+      - configMap:
+          defaultMode: 484
+          name: kontain-install-lib
+        name: lib-entrypoint
+      - hostPath:
+          path: /etc/crio/
+        name: crio-conf
+      - hostPath:
+          path: /etc/containerd/
+        name: containerd-conf
+      - hostPath:
+          path: /var/run/dbus
+        name: dbus
+      - hostPath:
+          path: /run/systemd
+        name: systemd
+  updateStrategy:
+    type: RollingUpdate
+---
+apiVersion: node.k8s.io/v1
+handler: krun
+kind: RuntimeClass
+metadata:
+  name: kontain

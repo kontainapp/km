@@ -1,33 +1,21 @@
-# Kontain Integration into Kubernetes
+# Kubeval
 
-The Kontain Runtime is installed into Kubernetes by introducing a new `RuntimeClass` object called `kontain`.
-This new `RuntimeClass` is used in Pod specifications as follows:
+`kubeval` is a tool for validating a Kubernetes YAML or JSON configuration file.
+It does so using schemas generated from the Kubernetes OpenAPI specification, and
+therefore can validate schemas for multiple versions of Kubernetes.
+
+[![CircleCI](https://circleci.com/gh/instrumenta/kubeval.svg?style=svg)](https://circleci.com/gh/instrumenta/kubeval)
+[![Go Report
+Card](https://goreportcard.com/badge/github.com/instrumenta/kubeval)](https://goreportcard.com/report/github.com/instrumenta/kubeval)
+[![GoDoc](https://godoc.org/github.com/instrumenta/kubeval?status.svg)](https://godoc.org/github.com/instrumenta/kubeval)
+
 
 ```
-...
-    spec:
-      runtimeClassName: kontain
-      containers:
-      - name: kontain-test-app
-        image: busybox:latest
-        command: [ "sleep", "infinity" ]
-        imagePullPolicy: IfNotPresent
-...
+$ kubeval my-invalid-rc.yaml
+WARN - fixtures/my-invalid-rc.yaml contains an invalid ReplicationController - spec.replicas: Invalid type. Expected: [integer,null], given: string
+$ echo $?
+1
 ```
 
-In order to implement this, Kontain needs to be installed on the Kubernetes worker nodes. The installation
-involves:
 
-- Add Kontain binaries to worker node.
-- Modify worker node container runtime manager (containerd or cri-o) to recognize new `RuntimeClass`.
-- (optional) Install KKM virtualization driver.
-
-## Manual Installation Procedure
-
-- `kubectl apply -f runtime-class.yaml`
-- `kubectl apply -f cm-install-lib-class.yaml`
-- `kubectl apply -f cm-containerd-install.yaml` or `kubectl apply -f cm-crio-install.yaml`
-- `kubectl apply -k kontain-deploy/base`
-
-The plan is to wrap this up inside a single `kontain-install.sh` that is run from the outside (where
-security scope is hopefully not a problem).
+For full usage and installation instructions see [kubeval.com](https://kubeval.com/).
