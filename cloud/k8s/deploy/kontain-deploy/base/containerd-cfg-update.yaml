@@ -25,39 +25,27 @@ data:
   containerd-cfg-update.sh: |-
     #!/usr/bin/env bash
 
-    CONTAINERD_CFG_DIR="${CONTAINERD_CFG_DIR:-/etc/containerd}"
-    CONTAINERD_CONFIG_FILE_=${CONTAINERD_CONFIG_FILE:=config.toml}
+    # must be called after containerd-cfg-get 
+    [ -z ${CONTAINERD_CFG_FULL_PATH} ] && echo "must be called after containerd-cfg-get" && exit 1
 
-    CONTAINERD_CFG_FULL_PATH="${CONTAINERD_CFG_FULL_PATH:-${CONTAINERD_CFG_DIR}/${CONTAINERD_CONFIG_FILE}}"
 
-    # all config files must be from ROOT_MOUNT_DIR
-    CONTAINERD_CFG_FULL_PATH=${ROOT_MOUNT_DIR}/${CONTAINERD_CFG_FULL_PATH}
+    runtime="krun"
+    configuration="configuration"
+    pluginid=cri
+    if grep -q "version = 2\>" ${CONTAINERD_CFG_FULL_PATH}; then
+      pluginid=\"io.containerd.grpc.v1.cri\"
+    fi
 
-    function update_containerd_config() {
-
-      runtime="krun"
-      configuration="configuration"
-      pluginid=cri
-      if grep -q "version = 2\>" $containerd_conf_file; then
-        pluginid=\"io.containerd.grpc.v1.cri\"
-      fi
-
-      runtime_table="plugins.${pluginid}.containerd.runtimes.$runtime"
-      runtime_type="io.containerd.$runtime.v2"
-      options_table="$runtime_table.options"
-      config_path=""
-      if grep -q "\[$runtime_table\]" $containerd_conf_file; then
-          echo "Configuration exists for $runtime_table, overwriting"
-          sed -i "/\[$runtime_table\]/,+1s#runtime_type.*#runtime_type = \"${runtime_type}\"#" $containerd_conf_file
-      else
-        echo "[$runtime_table]" | tee -a $containerd_conf_file
-        echo "runtime_type = \"${runtime_type}\"" | tee -a $containerd_conf_file
-        echo "privileged_without_host_devices = true" | tee -a $containerd_conf_file
-        echo "pod_annotations = [\"app.kontain.*\"]" | tee -a $containerd_conf_file
-      fi
-
-      echo "restart containerd"
-      systemctl daemon-reload
-      systemctl restart containerd
-
-    }
+    runtime_table="plugins.${pluginid}.containerd.runtimes.$runtime"
+    runtime_type="io.containerd.$runtime.v2"
+    options_table="$runtime_table.options"
+    config_path=""
+    if grep -q "\[$runtime_table\]" ${CONTAINERD_CFG_FULL_PATH}; then
+        echo "Configuration exists for $runtime_table, overwriting"
+        sed -i "/\[$runtime_table\]/,+1s#runtime_type.*#runtime_type = \"${runtime_type}\"#" ${CONTAINERD_CFG_FULL_PATH}
+    else
+      echo "[$runtime_table]" | tee -a ${CONTAINERD_CFG_FULL_PATH}
+      echo "runtime_type = \"${runtime_type}\"" | tee -a ${CONTAINERD_CFG_FULL_PATH}
+      echo "privileged_without_host_devices = true" | tee -a ${CONTAINERD_CFG_FULL_PATH}
+      echo "pod_annotations = [\"app.kontain.*\"]" | tee -a ${CONTAINERD_CFG_FULL_PATH}
+    fi

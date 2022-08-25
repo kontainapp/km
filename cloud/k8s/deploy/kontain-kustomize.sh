@@ -18,6 +18,7 @@
 [ "$TRACE" ] && set -x
 
 set -x
+
 tag=""
 location=""
 
@@ -108,4 +109,9 @@ echo "LOCATION = $location"
 
 kubectl apply -k $location
 
+pod=$(kubectl get pods -A -ojson | jq -r '.items[] | .metadata |.name |select(. | startswith("kontain") )')
+echo "waiting for kontain deamonset to be running"
+kubectl wait --for=condition=Running pod/$pod -n kube-system
+
+echo "restarting k3s to apply kustomization"
 ${post_process}

@@ -41,6 +41,5 @@ data:
 
     echo "Configure Containerd"
     source /scripts-lib/containerd-config.sh
-    configure_containerd
 
     sleep infinity

@@ -23,5 +23,4 @@ data:
   containerd-restart.sh: |-
     #!/usr/bin/env bash
 
-    echo "restart containerd"
-    #systemctl restart k3s
+    echo "make sure to restart K3s after kustomization has completed"

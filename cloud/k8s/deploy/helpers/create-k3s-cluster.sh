@@ -20,16 +20,9 @@
 
 print_help() {
     echo "usage: $0  [options] prefix"
-    echo "Creates AKS cluster with the name <prefix>-aks-cluster. All other associated recource names are prefixes with <prefix> "
-    echo ""
-    echo "Prerequisites:"
-    echo "  AZURE CLI"
+    echo "Creates k3s cluster"
     echo ""
     echo "-h,--help print this help"
-    echo "--tenant AZURE tenant ID"
-    echo "--app-id AZURE app id"
-    echo "--password AZURE secret or password"
-    echo "--region Sets aws region. Default to us-west-1"
     echo "--cleanup Instructs script to delete cluster and all related resourses "
     exit 0
 }
