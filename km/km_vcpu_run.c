@@ -466,7 +466,9 @@ static int hypercall(km_vcpu_t* vcpu, int* hc_ret)
 
 static void km_vcpu_exit_all(km_vcpu_t* vcpu)
 {
+   km_mutex_lock(&machine.vm_vcpu_mtx);
    machine.exit_group = 1;   // make sure we exit and not waiting for gdb
+   km_mutex_unlock(&machine.vm_vcpu_mtx);
    km_vcpu_pause_all(vcpu, ALL);
    km_signal_machine_fini();
    km_vcpu_stopped(vcpu);
