@@ -77,7 +77,7 @@ static inline void usage()
 "\n"
 "Options:\n"
 "\t--verbose[=regexp] (-V[regexp])     - Verbose print where internal info tag matches 'regexp'\n"
-"\t--gdb-server-port[=port] (-g[port]) - Enable gbd server listening on <port> (default 2159)\n"
+"\t--gdb-server-port[=port] (-g[port]) - Enable gdb server listening on <port> (default 2159)\n"
 "\t--gdb-listen                        - gdb server listens for client while payload runs\n"
 "\t--gdb-dynlink                       - gdb server waits for client attach before dyn link runs\n"
 "\t--version (-v)                      - Print version info and exit\n"
