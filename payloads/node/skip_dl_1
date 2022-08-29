@@ -14,10 +14,8 @@ addons/hello-world/test.js
 addons/not-a-binding/test.js
 addons/dlopen-ping-pong/test.js
 addons/new-target/test.js
-addons/async-hooks-promise/test.js
 addons/make-callback-recurse/test.js
 addons/node-module-version/test.js
-addons/at-exit/test.js
 addons/async-resource/test.js
 addons/errno-exception/test.js
 addons/parse-encoding/test.js
@@ -42,14 +40,13 @@ addons/stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-1
 addons/stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-2.js
 addons/hello-world/test-worker.js
 addons/dlopen-ping-pong/test-worker.js
-addons/01_function_arguments/test.js
-addons/02_callbacks/test.js
-addons/03_object_factory/test.js
-addons/05_wrapping_c_objects/test.js
-addons/04_function_factory/test.js
-addons/06_factory_of_wrapped_objects/test.js
-addons/07_passing_wrapped_objects_around/test.js
-addons/08_void_atexitcallback_args/test.js
+addons/02_function_arguments/test.js
+addons/03_callbacks/test.js
+addons/04_object_factory/test.js
+addons/05_function_factory/test.js
+addons/06_wrapping_c_objects/test.js
+addons/07_factory_of_wrapped_objects/test.js
+addons/08_passing_wrapped_objects_around/test.js
 js-native-api/5_function_factory/test.js
 js-native-api/8_passing_wrapped/test.js
 js-native-api/6_object_wrap/test.js
@@ -65,7 +62,6 @@ node-api/test_make_callback/test.js
 node-api/test_make_callback_recurse/test.js
 node-api/test_callback_scope/test-async-hooks.js
 node-api/test_make_callback/test-async-hooks.js
-node-api/test_make_callback/test-async-hooks-gcable.js
 node-api/test_callback_scope/test-resolve-async.js
 node-api/test_policy/test_policy.js
 js-native-api/test_function/test.js
@@ -96,7 +92,6 @@ js-native-api/test_general/testInstanceOf.js
 js-native-api/test_general/testNapiRun.js
 js-native-api/test_general/testNapiStatus.js
 node-api/test_uv_loop/test.js
-node-api/test_env_sharing/test.js
 node-api/test_fatal/test.js
 node-api/test_general/test.js
 node-api/test_async/test.js
@@ -131,7 +126,7 @@ js-native-api/test_object/test_null.js
 js-native-api/test_string/test_null.js
 node-api/test_async_cleanup_hook/test.js
 node-api/test_worker_buffer_callback/test.js
-node-api/test_worker_terminate_finalization/test.j
+node-api/test_worker_terminate_finalization/test.js
 node-api/test_async_context/test.js
 node-api/test_env_teardown_gc/test.js
 node-api/test_instance_data/test.js

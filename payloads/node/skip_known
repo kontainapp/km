@@ -1,4 +1,4 @@
-test/wasi/test-wasi.js
+wasi/test-wasi.js
 
 parallel/test-stream-pipeline-process.js
 parallel/test-worker-init-failure.js
