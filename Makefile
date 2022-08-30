@@ -63,9 +63,14 @@ endif
 KM_RELEASE := ${BLDTOP}/kontain.tar.gz
 KM_KKM_RELEASE := ${BLDTOP}/kkm.run
 KM_BIN_RELEASE := ${BLDTOP}/kontain_bin.tar.gz
-KM_BINARIES := -C ${BLDTOP} km/km container-runtime/ \
-				cloud/k8s/deploy/shim/containerd-shim-krun-v2 kkm.run \
-				-C ${BLDTOP}/opt/kontain bin/docker_config.sh bin/km_cli
+KM_BINARIES := -C ${BLDTOP}/opt/kontain \
+					shim/containerd-shim-krun-v2  \
+					bin/km \
+					bin/km_cli \
+					bin/kkm.run \
+					bin/krun \
+					bin/krun-label-trigger
+
 # Show this on the release page
 RELEASE_MESSAGE ?= Kontain KM Beta Release. branch: ${SRC_BRANCH} sha: ${SRC_SHA}
 
@@ -78,20 +83,18 @@ kkm-pkg: ## Build KKM module self-extracting package.
 release: ${KM_RELEASE} ${KM_BIN_RELEASE} ## Package kontain.tar.gz file for release
 	ls -lh ${KM_RELEASE} ${KM_BIN}
 
-${KM_BIN_RELEASE}: ${KM_RELEASE} ## Build a release tar.gz file for KM runtime binaries
-	mkdir -p ${BLDTOP}/container-runtime
-	cp -f ${TOP}/container-runtime/crun/krun.static ${BLDTOP}/container-runtime/krun
-	ln -f ${BLDTOP}/container-runtime/krun ${BLDTOP}/container-runtime/krun-label-trigger
+k8s-bundle: ${KM_BIN_RELEASE} ## Build a k8s kontain-bin.tar.gz
+
+${KM_BIN_RELEASE}: ${TOP}/container-runtime/crun/krun.static
+	cp -f ${BLDTOP}/kkm.run ${BLDTOP}/opt/kontain/bin/kkm.run
+	cp -f ${TOP}/container-runtime/crun/krun.static ${BLDTOP}/opt/kontain/bin/krun
+	ln -f ${BLDTOP}/opt/kontain/bin/krun ${BLDTOP}/opt/kontain/bin/krun-label-trigger
+	mkdir -p ${BLDTOP}/opt/kontain/shim/
+	cp -f ${BLDTOP}/cloud/k8s/shim/containerd-shim-krun-v2 ${BLDTOP}/opt/kontain/shim/containerd-shim-krun-v2
 	tar -czvf $@ ${KM_BINARIES}
-	rm -rf ${BLDTOP}/container-runtime
 
 ${KM_RELEASE}: ${TOP}/container-runtime/crun/krun.static ${TOP}/tools/bin/create_release.sh ## Build a release tar.gz file for KM (called from release: target)
 	${TOP}/tools/bin/create_release.sh
-
-build-release:
-	make -j RUN_IN_CI=1 RPATH=${KM_INSTALL}
-	make -C cloud/k8s/deploy/shim
-	make kkm-pkg
 
 ${TOP}/container-runtime/crun/krun.static:
 	make -C container-runtime static
@@ -123,7 +126,7 @@ uninstall-dev-runtime: ## Remove docker and podman configuration for local build
 ##  -- updating km-releases/current_release.txt  with passed in version number
 ##  --
 ##  Requires RELEASE_TAG to be passed in
-release-prep: deploy-config
+release-prep: 
 	@echo ${RELEASE_TAG}
 	@echo -n "Confirm the tag for release!!! [y/N] " && read ans && [ $${ans:-N} = y ]
 	@echo ${RELEASE_TAG} > km-releases/current_release.txt
@@ -134,16 +137,6 @@ ifneq ("${RELEASE_TAG}", "v0.1-test")
 	git tag -f current ${RELEASE_TAG}
 endif
 	git push -f origin current ${RELEASE_TAG}
-
-deploy-config:
-	@echo "building overlays for km, kkm, km-crio, k3s"
-	@mkdir -p cloud/k8s/deploy/kontain-deploy/daemonset
-	envsubst < cloud/k8s/deploy/kontain-deploy/base/set_env.templ > cloud/k8s/deploy/kontain-deploy/base/set_env.yaml
-	kustomize build "cloud/k8s/deploy/kontain-deploy/base" > cloud/k8s/deploy/kontain-deploy/daemonset/km.yaml
-	kustomize build "cloud/k8s/deploy/kontain-deploy/overlays/km-crio" > cloud/k8s/deploy/kontain-deploy/daemonset/km-crio.yaml
-	kustomize build "cloud/k8s/deploy/kontain-deploy/overlays/kkm" > cloud/k8s/deploy/kontain-deploy/daemonset/kkm.yaml
-	kustomize build "cloud/k8s/deploy/kontain-deploy/overlays/k3s" > cloud/k8s/deploy/kontain-deploy/daemonset/k3s.yaml
-	rm cloud/k8s/deploy/kontain-deploy/base/set_env.yaml
 
 # Install git hooks, if needed
 GITHOOK_DIR ?= .githooks
