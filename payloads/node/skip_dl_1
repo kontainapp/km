@@ -104,7 +104,6 @@ node-api/test_async/test-async-hooks.js
 node-api/test_async/test-loop.js
 node-api/test_async/test-uncaught.js
 node-api/test_fatal/test2.js
-
 addons/worker-buffer-callback/test.js
 addons/04_object_factory/test.js
 addons/register-signal-handler/test.js
