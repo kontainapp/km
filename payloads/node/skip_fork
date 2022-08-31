@@ -20,6 +20,7 @@ parallel/test-process-env.js
 parallel/test-process-kill-null.js
 parallel/test-tls-server-verify.js
 parallel/test-v8-coverage.js
+parallel/test-child-process-stdio-overlapped.js
 addons/worker-addon/test.js
 node-api/test_cleanup_hook/test.js
 sequential/test-child-process-emfile.js
