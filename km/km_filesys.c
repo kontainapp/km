@@ -1968,11 +1968,7 @@ static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* 
    size_t remain = length;
 
    km_infox(KM_TRACE_SNAPSHOT, "fd=%d eventfd", fd);
-   cur += km_add_note_header(cur,
-                             remain,
-                             KM_NT_NAME,
-                             NT_KM_EVENTFD,
-                             sizeof(km_nt_file_t));
+   cur += km_add_note_header(cur, remain, KM_NT_NAME, NT_KM_EVENTFD, sizeof(km_nt_file_t));
    km_nt_file_t* fnote = (km_nt_file_t*)cur;
    cur += sizeof(km_nt_file_t);
    fnote->size = sizeof(km_nt_file_t);
@@ -2049,9 +2045,9 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
       km_file_t* file = &km_fs()->guest_files[i];
       if (km_is_file_used(file) != 0) {
          size_t sz = 0;
-	 if (file->how == KM_FILE_HOW_EPOLLFD) {
+         if (file->how == KM_FILE_HOW_EPOLLFD) {
             sz = fs_core_write_epollfd(cur, remain, file, i);
-	 } else if (file->how == KM_FILE_HOW_EVENTFD) {
+         } else if (file->how == KM_FILE_HOW_EVENTFD) {
             sz = fs_core_write_eventfd(cur, remain, file, i);
          } else if (file->sockinfo == NULL) {
             sz = fs_core_write_nonsocket(cur, remain, file, i);
@@ -2966,7 +2962,12 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
       km_warn("eventfd failed, guest fd %d", nt_file->fd);
       return -1;
    }
-   km_fs_recover_fd(nt_file->fd, hostfd, nt_file->flags, km_get_nonfile_name(hostfd), nt_file->data, KM_FILE_HOW_EVENTFD);
+   km_fs_recover_fd(nt_file->fd,
+                    hostfd,
+                    nt_file->flags,
+                    km_get_nonfile_name(hostfd),
+                    nt_file->data,
+                    KM_FILE_HOW_EVENTFD);
 
    return 0;
 }
@@ -2979,7 +2980,9 @@ static int km_fs_recover_epollfd(char* ptr, size_t length)
 
    km_infox(KM_TRACE_SNAPSHOT, "EPOLLFD fd=%d", nt_eventfd->fd);
    if (nt_eventfd->size != sizeof(km_nt_eventfd_t)) {
-      km_warnx("nt_km_eventfd_t size mismatch - old snapshot?, got %d, expected %d", nt_eventfd->size, sizeof(km_nt_eventfd_t));
+      km_warnx("nt_km_eventfd_t size mismatch - old snapshot?, got %d, expected %d",
+               nt_eventfd->size,
+               sizeof(km_nt_eventfd_t));
       return -1;
    }
    if (nt_eventfd->fd < 0 || nt_eventfd->fd >= machine.filesys->nfdmap) {

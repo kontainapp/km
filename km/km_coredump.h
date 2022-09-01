@@ -181,9 +181,8 @@ typedef struct km_nt_eventfd {
 } km_nt_eventfd_t;
 #define NT_KM_EPOLLFD 0x4b4d4550   // "KMEP"
 
-// eventfd 
+// eventfd
 #define NT_KM_EVENTFD 0x4b4d4556   // "KMEV" no null term
-
 
 /*
  * Elf note record for signal handler.

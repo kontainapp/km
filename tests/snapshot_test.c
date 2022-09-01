@@ -29,12 +29,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <linux/futex.h>
-#include <sys/eventfd.h>
 
 #include "km_hcalls.h"
 
@@ -105,7 +105,7 @@ void setup_process_state()
    int tmpfd;
    CHECK_SYSCALL(tmpfd = open("/dev/zero", O_RDONLY));
    CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));
-   CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));     // are we intentionally leaking an fd here?
+   CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));   // are we intentionally leaking an fd here?
    CHECK_SYSCALL(filefd = open("/etc/passwd", O_RDONLY));
    CHECK_SYSCALL(lseek(filefd, 100, SEEK_SET));
    CHECK_SYSCALL(pipe(pipefd));
