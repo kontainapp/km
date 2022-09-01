@@ -1,4 +1,1 @@
-sequential/test-net-bytes-per-incoming-chunk-overhead.js
-
-parallel/test-cluster-primary-error.js
-parallel/test-cluster-primary-kill.js
+pummel/test-net-bytes-per-incoming-chunk-overhead.js

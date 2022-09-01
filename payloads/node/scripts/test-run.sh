@@ -19,6 +19,8 @@
 # wrapper/entrypoint for running tests
 #
 
+export OPENSSL_CONF=/etc/ssl
+
 usage() {
    cat <<EOF
 Run short or long node tests. Usually called from Makefile or Docker Entry with proper params
