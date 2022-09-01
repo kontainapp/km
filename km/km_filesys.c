@@ -1962,6 +1962,48 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
    return cur - buf;
 }
 
+/*
+ * Open /proc/self/fdinfo/%d, read its contents, find the field named by
+ * fieldname, convert its associated value to binary and return that value.
+ * The passed fd should be an fd for an eventfd.
+ * We expect the fdinfo file to look something like this:
+ * [paulp@home km]$ sudo cat /proc/1022/fdinfo/3
+ * pos:	0
+ * flags:	02004002
+ * mnt_id:	15
+ * ino:	12162
+ * eventfd-count:                0
+ * eventfd-id: 4
+ * [paulp@home km]$
+ */
+static inline void extract_fdinfo_field(int fd, char* fieldname, uint64_t* value)
+{
+   char procfile[128];
+   char fdinfobuf[256];
+   snprintf(procfile, sizeof(procfile), "/proc/self/fdinfo/%d", fd);
+   int pfd = open(procfile, O_RDONLY);
+   if (pfd < 0) {
+      km_err(1, "Couldn't open eventfd proc file %s", procfile);
+   }
+   ssize_t readcount = read(pfd, fdinfobuf, sizeof(fdinfobuf));
+   if (readcount < 0) {
+      km_err(1, "read evetnfd proc entry %s failed", procfile);
+   }
+   close(pfd);
+   fdinfobuf[readcount] = 0;
+   char* p = strstr(fdinfobuf, fieldname);
+   if (p == NULL) {
+      km_errx(1, "Couldn't find %s field in %s?", fieldname, procfile);
+   }
+   p += strlen(fieldname);
+   char* endptr;
+   *value = strtoll(p, &endptr, 10);
+   if (endptr == p) {
+      km_errx(1, "Unable to convert %s to decimal?", p);
+   }
+}
+
+#define EVENTFD_COUNT "eventfd-count:"
 static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* file, int fd)
 {
    char* cur = buf;
@@ -1974,6 +2016,10 @@ static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* 
    fnote->size = sizeof(km_nt_file_t);
    fnote->fd = fd;
    fnote->flags = file->flags;
+
+   uint64_t eventfd_count;
+   extract_fdinfo_field(fd, EVENTFD_COUNT, &eventfd_count);
+   fnote->data = eventfd_count;
 
    return cur - buf;
 }
