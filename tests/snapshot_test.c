@@ -34,6 +34,7 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <linux/futex.h>
+#include <sys/eventfd.h>
 
 #include "km_hcalls.h"
 
@@ -61,6 +62,7 @@ int pipefd[2] = {1, -1};
 int spairfd[2] = {1, -1};
 int socketfd = -1;
 int epollfd = -1;
+int eventfd_fd = -1;
 
 typedef struct process_state {
    int zerofail;         // zerofd stat failed
@@ -72,6 +74,7 @@ typedef struct process_state {
    struct stat spairst[2];   // socketpair stat
    struct stat socketst;     // socket(2) stat
    struct stat epollst;      // epoll_create stat
+   struct stat eventfdst;
 } process_state_t;
 
 process_state_t presnap;
@@ -102,13 +105,14 @@ void setup_process_state()
    int tmpfd;
    CHECK_SYSCALL(tmpfd = open("/dev/zero", O_RDONLY));
    CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));
-   CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));
+   CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));     // are we intentionally leaking an fd here?
    CHECK_SYSCALL(filefd = open("/etc/passwd", O_RDONLY));
    CHECK_SYSCALL(lseek(filefd, 100, SEEK_SET));
    CHECK_SYSCALL(pipe(pipefd));
    CHECK_SYSCALL(socketpair(AF_UNIX, SOCK_STREAM, 0, spairfd));
    CHECK_SYSCALL(socketfd = socket(AF_INET, SOCK_STREAM, 0));
    CHECK_SYSCALL(epollfd = epoll_create(1));
+   CHECK_SYSCALL(eventfd_fd = eventfd(99, 0));
    // leave a gap in FS space for recovery
    CHECK_SYSCALL(close(tmpfd));
 
@@ -143,6 +147,7 @@ void get_process_state(process_state_t* state)
    CHECK_SYSCALL(fstat(spairfd[1], &state->spairst[1]));
    CHECK_SYSCALL(fstat(socketfd, &state->socketst));
    CHECK_SYSCALL(fstat(epollfd, &state->epollst));
+   CHECK_SYSCALL(fstat(eventfd_fd, &state->eventfdst));
    return;
 }
 
@@ -201,6 +206,10 @@ int compare_process_state(process_state_t* prestate, process_state_t* poststate)
    }
    if (prestate->epollst.st_mode != poststate->epollst.st_mode) {
       fprintf(stderr, "epoll changed\n");
+      ret = -1;
+   }
+   if (prestate->eventfdst.st_mode != poststate->eventfdst.st_mode) {
+      fprintf(stderr, "eventfd changed\n");
       ret = -1;
    }
    return ret;

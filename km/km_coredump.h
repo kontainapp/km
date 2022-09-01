@@ -179,7 +179,11 @@ typedef struct km_nt_eventfd {
    Elf64_Word event_size;   // size of event records that follow
    Elf64_Word nevent;       // number of event records that follow
 } km_nt_eventfd_t;
+#define NT_KM_EPOLLFD 0x4b4d4550   // "KMEP"
+
+// eventfd 
 #define NT_KM_EVENTFD 0x4b4d4556   // "KMEV" no null term
+
 
 /*
  * Elf note record for signal handler.
