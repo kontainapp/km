@@ -1716,7 +1716,7 @@ uint64_t km_fs_epoll_create1(km_vcpu_t* vcpu, int flags)
    int ret = -1;
    int hostfd = __syscall_1(SYS_epoll_create1, flags);
    if (hostfd >= 0) {
-      ret = km_add_guest_fd_internal(vcpu, hostfd, NULL, 0, KM_FILE_HOW_EVENTFD, NULL);
+      ret = km_add_guest_fd_internal(vcpu, hostfd, NULL, 0, KM_FILE_HOW_EPOLLFD, NULL);
    }
    return ret;
 }
@@ -1856,6 +1856,8 @@ size_t km_fs_core_notes_length()
       km_file_t* file = &km_fs()->guest_files[i];
       if (km_is_file_used(file) != 0) {
          if (file->how == KM_FILE_HOW_EVENTFD) {
+            ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_file_t);
+         } else if (file->how == KM_FILE_HOW_EPOLLFD) {
             ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_eventfd_t);
             km_fs_event_t* ptr;
             TAILQ_FOREACH (ptr, &file->events, link) {
@@ -1961,11 +1963,68 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
 }
 
 /*
- * Snapshot seems to be treating event fd's and epoll fd's at the same thing.
- * When a snapshot is recovered, km only creates epoll fd's.
- * For now this function is handling epoll fd's contrary to what its name says.
+ * Open /proc/self/fdinfo/%d, read its contents, find the field named by
+ * fieldname, convert its associated value to binary and return that value.
+ * The passed fd should be an fd for an eventfd.
+ * We expect the fdinfo file to look something like this:
+ * [paulp@home km]$ sudo cat /proc/1022/fdinfo/3
+ * pos:	0
+ * flags:	02004002
+ * mnt_id:	15
+ * ino:	12162
+ * eventfd-count:                0
+ * eventfd-id: 4
+ * [paulp@home km]$
  */
+static inline void extract_fdinfo_field(int fd, char* fieldname, uint64_t* value)
+{
+   char procfile[128];
+   char fdinfobuf[256];
+   snprintf(procfile, sizeof(procfile), "/proc/self/fdinfo/%d", fd);
+   int pfd = open(procfile, O_RDONLY);
+   if (pfd < 0) {
+      km_err(1, "Couldn't open eventfd proc file %s", procfile);
+   }
+   ssize_t readcount = read(pfd, fdinfobuf, sizeof(fdinfobuf));
+   if (readcount < 0) {
+      km_err(1, "read evetnfd proc entry %s failed", procfile);
+   }
+   close(pfd);
+   fdinfobuf[readcount] = 0;
+   char* p = strstr(fdinfobuf, fieldname);
+   if (p == NULL) {
+      km_errx(1, "Couldn't find %s field in %s?", fieldname, procfile);
+   }
+   p += strlen(fieldname);
+   char* endptr;
+   *value = strtoll(p, &endptr, 10);
+   if (endptr == p) {
+      km_errx(1, "Unable to convert %s to decimal?", p);
+   }
+}
+
+#define EVENTFD_COUNT "eventfd-count:"
 static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* file, int fd)
+{
+   char* cur = buf;
+   size_t remain = length;
+
+   km_infox(KM_TRACE_SNAPSHOT, "fd=%d eventfd", fd);
+   cur += km_add_note_header(cur, remain, KM_NT_NAME, NT_KM_EVENTFD, sizeof(km_nt_file_t));
+   km_nt_file_t* fnote = (km_nt_file_t*)cur;
+   cur += sizeof(km_nt_file_t);
+   fnote->size = sizeof(km_nt_file_t);
+   fnote->fd = fd;
+   fnote->flags = file->flags;
+
+   uint64_t eventfd_count;
+   extract_fdinfo_field(fd, EVENTFD_COUNT, &eventfd_count);
+   fnote->data = eventfd_count;
+
+   return cur - buf;
+}
+
+static inline size_t fs_core_write_epollfd(char* buf, size_t length, km_file_t* file, int fd)
 {
    char* cur = buf;
    size_t remain = length;
@@ -1976,12 +2035,12 @@ static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* 
       nevent++;
    }
 
-   km_infox(KM_TRACE_SNAPSHOT, "fd=%d %s nevent=%d", fd, file->name, nevent);
+   km_infox(KM_TRACE_SNAPSHOT, "fd=%d epollfd %s nevent=%d", fd, file->name, nevent);
 
    /*
     * Verify that there are no pending epoll events.
     * Note that this call to epoll_wait() may be triggered by an edge but since we don't
-    * actually do anything base on this, the edge that triggered this is now gone and the
+    * actually do anything based on this, the edge that triggered this is now gone and the
     * payload missed the edge.  And to add to this, we have failed the snapshot and the
     * payload must continue and it didn't get its event.
     * As far as I can tell there is no non-destructive way to find out if there are pending
@@ -1999,7 +2058,7 @@ static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* 
    cur += km_add_note_header(cur,
                              remain,
                              KM_NT_NAME,
-                             NT_KM_EVENTFD,
+                             NT_KM_EPOLLFD,
                              sizeof(km_nt_eventfd_t) + nevent * sizeof(km_nt_event_t));
    km_nt_eventfd_t fval = {
        .size = sizeof(km_nt_eventfd_t),
@@ -2032,7 +2091,9 @@ size_t km_fs_core_notes_write(char* buf, size_t length)
       km_file_t* file = &km_fs()->guest_files[i];
       if (km_is_file_used(file) != 0) {
          size_t sz = 0;
-         if (file->how == KM_FILE_HOW_EVENTFD) {
+         if (file->how == KM_FILE_HOW_EPOLLFD) {
+            sz = fs_core_write_epollfd(cur, remain, file, i);
+         } else if (file->how == KM_FILE_HOW_EVENTFD) {
             sz = fs_core_write_eventfd(cur, remain, file, i);
          } else if (file->sockinfo == NULL) {
             sz = fs_core_write_nonsocket(cur, remain, file, i);
@@ -2235,10 +2296,6 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
    }
    if ((nt_file->mode & __S_IFMT) == __S_IFIFO) {
       return km_fs_recover_pipe(nt_file, name);
-   }
-   if ((nt_file->mode & __S_IFMT) == 0) {
-      km_warnx("TODO: recover epollfd");
-      return 0;
    }
 
    int fd = open(name, nt_file->flags, 0);
@@ -2934,13 +2991,44 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
 
 static int km_fs_recover_eventfd(char* ptr, size_t length)
 {
+   km_nt_file_t* nt_file = (km_nt_file_t*)ptr;
+   if (nt_file->size != sizeof(km_nt_file_t)) {
+      km_warnx("nt_km_file_t size mismatch - old snapshot?");
+      return -1;
+   }
+   km_infox(KM_TRACE_SNAPSHOT, "fd=%d eventfd", nt_file->fd);
+
+   km_file_t* file = &km_fs()->guest_files[nt_file->fd];
+   if (km_is_file_used(file) != 0) {
+      km_errx(2, "eventfd file %d in use.", nt_file->fd);
+   }
+
+   int hostfd = eventfd(nt_file->data, nt_file->flags);
+   if (hostfd < 0) {
+      km_warn("eventfd failed, guest fd %d", nt_file->fd);
+      return -1;
+   }
+   km_fs_recover_fd(nt_file->fd,
+                    hostfd,
+                    nt_file->flags,
+                    km_get_nonfile_name(hostfd),
+                    nt_file->data,
+                    KM_FILE_HOW_EVENTFD);
+
+   return 0;
+}
+
+static int km_fs_recover_epollfd(char* ptr, size_t length)
+{
    char* cur = ptr;
    km_nt_eventfd_t* nt_eventfd = (km_nt_eventfd_t*)cur;
    cur += sizeof(km_nt_eventfd_t);
 
-   km_infox(KM_TRACE_SNAPSHOT, "EVENTFD fd=%d", nt_eventfd->fd);
+   km_infox(KM_TRACE_SNAPSHOT, "EPOLLFD fd=%d", nt_eventfd->fd);
    if (nt_eventfd->size != sizeof(km_nt_eventfd_t)) {
-      km_warnx("nt_km_eventfd_t size mismatch - old snapshot?");
+      km_warnx("nt_km_eventfd_t size mismatch - old snapshot?, got %d, expected %d",
+               nt_eventfd->size,
+               sizeof(km_nt_eventfd_t));
       return -1;
    }
    if (nt_eventfd->fd < 0 || nt_eventfd->fd >= machine.filesys->nfdmap) {
@@ -2958,7 +3046,7 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
       km_warn("epoll_create failed");
       return -1;
    }
-   km_fs_recover_fd(nt_eventfd->fd, hostfd, 0, km_get_nonfile_name(hostfd), -1, KM_FILE_HOW_EVENTFD);
+   km_fs_recover_fd(nt_eventfd->fd, hostfd, 0, km_get_nonfile_name(hostfd), -1, KM_FILE_HOW_EPOLLFD);
    for (int i = 0; i < nt_eventfd->nevent; i++) {
       km_nt_event_t* nt_event = (km_nt_event_t*)cur;
       int host_efd = km_fs_g2h_fd(nt_event->fd, NULL);
@@ -2989,10 +3077,13 @@ int km_fs_recover(char* notebuf, size_t notesize)
       km_errx(2, "recover open files failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_SOCKET, km_fs_recover_open_socket) < 0) {
-      km_errx(2, "recover open files failed");
+      km_errx(2, "recover open sockets failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_EVENTFD, km_fs_recover_eventfd) < 0) {
-      km_errx(2, "recover open files failed");
+      km_errx(2, "recover open eventfd's failed");
+   }
+   if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_EPOLLFD, km_fs_recover_epollfd) < 0) {
+      km_errx(2, "recover open epollfd's failed");
    }
    return 0;
 }
