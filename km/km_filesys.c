@@ -1900,7 +1900,7 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
       fnote->data = file->ofd;   // default to ofd. override based on file type
       // If a non-std{in,out,err} pipe contains data we don't snapshot
       if (fd > 2 && ioctlfionread(fd) > 0) {
-         km_warn("Can't take a snapshot, fifo fd %d has buffered data", fd);
+         km_errx(1, "Can't take a snapshot, fifo fd %d has buffered data", fd);
       }
    } else {
       fnote->data = lseek(fd, 0, SEEK_CUR);
@@ -1939,7 +1939,7 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
    // Don't snapshot a socketpair with in flight data.
    if (file->how == KM_FILE_HOW_SOCKETPAIR0 || file->how == KM_FILE_HOW_SOCKETPAIR1) {
       if (ioctlfionread(fd) > 0) {
-         km_warn("Couldn't perform snapshot, socketpair fd %d has queued data", fd);
+         km_errx(1, "Couldn't perform snapshot, socketpair fd %d has queued data", fd);
       }
    }
    fnote->state = KM_NT_SKSTATE_OPEN;
