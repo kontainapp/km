@@ -128,7 +128,9 @@ typedef struct km_nt_file {
     *   __S_ISOCK  - 'other' fd in socketpair
     */
    Elf64_Off data;   // depends on file type.
+   Elf64_Word datalength; // bytes of pipe contents following filename
    // Followed by file name
+   // Followed by pipe or socketpair contents
 } km_nt_file_t;
 #define NT_KM_FILE 0x4b4d4644   // "KMFD" no null term
 
@@ -143,7 +145,9 @@ typedef struct km_nt_socket {
    Elf64_Word protocol;
    Elf64_Word other;   // 'other' fd for socketpair(2)
    Elf64_Word addrlen;
+   Elf64_Word datalength; // bytes of to write back into this side
    // Address follows
+   // Data queued in socket follows the address
 } km_nt_socket_t;
 #define NT_KM_SOCKET 0x4b4d534b   // "KMSK" no null term
 
@@ -159,9 +163,15 @@ typedef struct km_nt_socket {
 #define KM_NT_SKSTATE_CONNECT 4
 #define KM_NT_SKSTATE_ERROR 5
 
+// Use a function so that we consistently roundup note related pieces in the rest of the code.
+static inline size_t km_nt_chunk_roundup(size_t size)
+{
+   return roundup(size, 4);
+}
+
 static inline size_t km_nt_file_padded_size(const char* str)
 {
-   return roundup(strlen(str) + 1, 4);
+   return km_nt_chunk_roundup(strlen(str) + 1);
 }
 
 // Single event on eventfd (epoll_create)
