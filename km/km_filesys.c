@@ -1866,7 +1866,7 @@ size_t km_fs_core_notes_length()
          if (file->how == KM_FILE_HOW_EVENTFD) {
             ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_file_t);
          } else if (file->how == KM_FILE_HOW_EPOLLFD) {
-            ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_eventfd_t);
+            ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_epollfd_t);
             km_fs_event_t* ptr;
             TAILQ_FOREACH (ptr, &file->events, link) {
                ret += sizeof(km_nt_event_t);
@@ -1965,7 +1965,7 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
 {
    struct stat st = {};
    if (fstat(fd, &st) < 0) {
-      km_warn("fstat failed fd=%d errno=%d - ignore", fd, errno);
+      km_warn("Can't take a snaphot, fstat failed fd=%d", fd);   // TODO: return error
    }
 
    size_t queuedbytes = 0;
@@ -1986,6 +1986,8 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
    cur += sizeof(km_nt_file_t);
    fnote->size = sizeof(km_nt_file_t);
    fnote->fd = fd;
+   fnote->dev = st.st_dev;
+   fnote->ino = st.st_ino;
    fnote->flags = file->flags;
    fnote->mode = st.st_mode;
    if (fnote->mode & S_IFIFO) {
@@ -2010,6 +2012,11 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
  */
 static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* file, int fd)
 {
+   struct stat st = {};
+   if (fstat(fd, &st) < 0) {
+      km_warn("Can't take a snaphot, fstat failed fd=%d", fd);   // TODO: return error
+   }
+
    char* cur = buf;
    size_t remain = length;
    size_t queuedbytes = 0;
@@ -2033,6 +2040,8 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
    cur += sizeof(km_nt_socket_t);
    fnote->size = sizeof(km_nt_socket_t);
    fnote->fd = fd;
+   fnote->dev = st.st_dev;
+   fnote->ino = st.st_ino;
    fnote->domain = file->sockinfo->domain;
    fnote->type = file->sockinfo->type;
    fnote->protocol = file->sockinfo->protocol;
@@ -2115,6 +2124,11 @@ static inline void extract_fdinfo_field(int fd, char* fieldname, uint64_t* value
 #define EVENTFD_COUNT "eventfd-count:"
 static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* file, int fd)
 {
+   struct stat st = {};
+   if (fstat(fd, &st) < 0) {
+      km_warn("Can't take a snaphot, fstat failed fd=%d", fd);   // TODO: return error
+   }
+
    char* cur = buf;
    size_t remain = length;
 
@@ -2124,6 +2138,8 @@ static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* 
    cur += sizeof(km_nt_file_t);
    fnote->size = sizeof(km_nt_file_t);
    fnote->fd = fd;
+   fnote->dev = st.st_dev;
+   fnote->ino = st.st_ino;
    fnote->flags = file->flags;
 
    uint64_t eventfd_count;
@@ -2135,6 +2151,11 @@ static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* 
 
 static inline size_t fs_core_write_epollfd(char* buf, size_t length, km_file_t* file, int fd)
 {
+   struct stat st = {};
+   if (fstat(fd, &st) < 0) {
+      km_warn("Can't take a snaphot, fstat failed fd=%d", fd);   // TODO: return error
+   }
+
    char* cur = buf;
    size_t remain = length;
    km_fs_event_t* event;
@@ -2168,18 +2189,20 @@ static inline size_t fs_core_write_epollfd(char* buf, size_t length, km_file_t* 
                              remain,
                              KM_NT_NAME,
                              NT_KM_EPOLLFD,
-                             sizeof(km_nt_eventfd_t) + nevent * sizeof(km_nt_event_t));
-   km_nt_eventfd_t fval = {
-       .size = sizeof(km_nt_eventfd_t),
+                             sizeof(km_nt_epollfd_t) + nevent * sizeof(km_nt_event_t));
+   km_nt_epollfd_t fval = {
+       .size = sizeof(km_nt_epollfd_t),
        .fd = fd,
+       .dev = st.st_dev,
+       .ino = st.st_ino,
        .flags = file->flags,
        .event_size = sizeof(km_nt_event_t),
        .nevent = nevent,
 
    };
-   km_nt_eventfd_t* fnote = (km_nt_eventfd_t*)cur;
+   km_nt_epollfd_t* fnote = (km_nt_epollfd_t*)cur;
    *fnote = fval;
-   cur += sizeof(km_nt_eventfd_t);
+   cur += sizeof(km_nt_epollfd_t);
    TAILQ_FOREACH (event, &file->events, link) {
       km_infox(KM_TRACE_SNAPSHOT, "  monitored event: fd=%d events=0x%x", event->fd, event->event.events);
       km_nt_event_t eval = {.fd = event->fd, .event = event->event.events, .data = event->event.data.u64};
@@ -2249,6 +2272,33 @@ static inline void km_fs_recover_fd(int guestfd, int hostfd, int flags, char* na
             name,
             ofd,
             how);
+}
+
+typedef struct km_dup_data {
+   dev_t dev;
+   ino_t ino;
+} km_dup_data_t;
+
+static km_dup_data_t* dup_data;
+
+/*
+ * Record inode and decv of recovered file for dup detection. Note that inode and dev are from the
+ * snashot, so the actual values on this instance likely different. We use the values only to detect
+ * the dups.
+ */
+static inline void km_fs_record_dev_ino(int fd, dev_t dev, ino_t ino)
+{
+   dup_data[fd] = (km_dup_data_t){.dev = dev, .ino = ino};
+}
+
+static int km_fs_check_for_dups(dev_t dev, ino_t ino)
+{
+   for (int i = 0; i < km_fs()->nfdmap; i++) {
+      if (dup_data[i].dev == dev && dup_data[i].ino == ino) {   // we are dup of i
+         return i;
+      }
+   }
+   return -1;
 }
 
 static inline int km_fs_recover_fdpair(int guestfd[2], int hostfd[2], int how[2], int flags[2])
@@ -2342,7 +2392,7 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name, char* pi
    if (km_fs_recover_fdpair(guestfd, hostfd, how, flags) < 0) {
       return -1;
    }
-
+   km_fs_record_dev_ino(nt_file->fd, nt_file->dev, nt_file->ino);
    // Recover queued pipe contents
    return km_fs_recover_pipedata(nt_file, pipedata);
 }
@@ -2363,6 +2413,7 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
       return -1;
    }
    km_fs_recover_fd(nt_sock->fd, host_fd, 0, km_get_nonfile_name(host_fd), -1, nt_sock->how);
+   km_fs_record_dev_ino(nt_sock->fd, nt_sock->dev, nt_sock->ino);
 
    km_fd_socket_t sval = {
        .domain = nt_sock->domain,
@@ -2432,6 +2483,13 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
       km_warnx("bad file descriptor=%d", nt_file->fd);
       return -1;
    }
+   int dup_fd = km_fs_check_for_dups(nt_file->dev, nt_file->ino);
+   if (dup_fd >= 0) {
+      if (km_fs_dup3(NULL, dup_fd, nt_file->fd, nt_file->flags & O_CLOEXEC) < 0) {
+         return -1;
+      }
+      return 0;
+   }
 
    if ((nt_file->mode & __S_IFMT) == __S_IFSOCK) {
       km_warnx("TODO: recover __S_ISOCK data=0x%lx", nt_file->data);
@@ -2458,6 +2516,7 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
    }
 
    km_fs_recover_fd(nt_file->fd, fd, nt_file->flags, strdup(name), nt_file->data, nt_file->how);
+   km_fs_record_dev_ino(nt_file->fd, nt_file->dev, nt_file->ino);
    if ((nt_file->mode & __S_IFMT) == __S_IFREG && nt_file->data != 0) {
       if (lseek(nt_file->fd, nt_file->data, SEEK_SET) != nt_file->data) {
          km_warn("lseek failed");
@@ -3022,7 +3081,7 @@ void km_close_stdio(int log_to_fd)
 }
 
 /*
- *   == Snapshot recovery for files
+ * Snapshot recovery for files
  */
 
 static int km_fs_recover_socketdata(km_nt_socket_t* nt_sock)
@@ -3091,7 +3150,7 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
          return -1;
       }
    }
-
+   km_fs_record_dev_ino(nt_sock->fd, nt_sock->dev, nt_sock->ino);
    // Recover any data that needs to be written on this fd.
    return km_fs_recover_socketdata(nt_sock);
 }
@@ -3108,6 +3167,13 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
       km_warnx("nt_km_socket_t size mismatch - old snapshot?");
       return -1;
    }
+   int dup_fd = km_fs_check_for_dups(nt_sock->dev, nt_sock->ino);
+   if (dup_fd >= 0) {
+      if (km_fs_dup2(NULL, dup_fd, nt_sock->fd) < 0) {
+         return -1;
+      }
+      return 0;
+   }
    if (nt_sock->state == KM_NT_SKSTATE_ERROR) {
       return km_fs_recover_socket_error(nt_sock);
    }
@@ -3119,7 +3185,7 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
    }
 
    /*
-    * Assume socket optianally bound for listening
+    * Assume socket optionally bound for listening
     */
    km_infox(KM_TRACE_SNAPSHOT,
             "socket: fd=%d other=%d how=%d addrlen=%d",
@@ -3142,7 +3208,7 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
          return -1;
       }
       if (bind(hostfd, sa, nt_sock->addrlen) < 0) {
-         km_warn("recover bind failed");
+         km_warn("recover bind failed");   // TODO: return error
          return -1;
       }
       if (nt_sock->state == KM_SOCK_STATE_LISTEN) {
@@ -3169,6 +3235,13 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
    if (km_is_file_used(file) != 0) {
       km_errx(2, "eventfd file %d in use.", nt_file->fd);
    }
+   int dup_fd = km_fs_check_for_dups(nt_file->dev, nt_file->ino);
+   if (dup_fd >= 0) {
+      if (km_fs_dup3(NULL, dup_fd, nt_file->fd, nt_file->flags & O_CLOEXEC) < 0) {
+         return -1;
+      }
+      return 0;
+   }
 
    int hostfd = eventfd(nt_file->data, nt_file->flags);
    if (hostfd < 0) {
@@ -3181,40 +3254,48 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
                     km_get_nonfile_name(hostfd),
                     nt_file->data,
                     KM_FILE_HOW_EVENTFD);
-
+   km_fs_record_dev_ino(nt_file->fd, nt_file->dev, nt_file->ino);
    return 0;
 }
 
 static int km_fs_recover_epollfd(char* ptr, size_t length)
 {
    char* cur = ptr;
-   km_nt_eventfd_t* nt_eventfd = (km_nt_eventfd_t*)cur;
-   cur += sizeof(km_nt_eventfd_t);
+   km_nt_epollfd_t* nt_epollfd = (km_nt_epollfd_t*)cur;
+   cur += sizeof(km_nt_epollfd_t);
 
-   km_infox(KM_TRACE_SNAPSHOT, "EPOLLFD fd=%d", nt_eventfd->fd);
-   if (nt_eventfd->size != sizeof(km_nt_eventfd_t)) {
+   km_infox(KM_TRACE_SNAPSHOT, "EPOLLFD fd=%d", nt_epollfd->fd);
+   if (nt_epollfd->size != sizeof(km_nt_epollfd_t)) {
       km_warnx("nt_km_eventfd_t size mismatch - old snapshot?, got %d, expected %d",
-               nt_eventfd->size,
-               sizeof(km_nt_eventfd_t));
+               nt_epollfd->size,
+               sizeof(km_nt_epollfd_t));
       return -1;
    }
-   if (nt_eventfd->fd < 0 || nt_eventfd->fd >= machine.filesys->nfdmap) {
-      km_warnx("cannot recover invalid event fd %d", nt_eventfd->fd);
+   if (nt_epollfd->fd < 0 || nt_epollfd->fd >= machine.filesys->nfdmap) {
+      km_warnx("cannot recover invalid event fd %d", nt_epollfd->fd);
       return -1;
    }
 
-   km_file_t* file = &km_fs()->guest_files[nt_eventfd->fd];
+   km_file_t* file = &km_fs()->guest_files[nt_epollfd->fd];
    if (km_is_file_used(file) != 0) {
-      km_errx(2, "file %d in use. %s", nt_eventfd->fd, file->name);
+      km_errx(2, "file %d in use. %s", nt_epollfd->fd, file->name);
+   }
+   int dup_fd = km_fs_check_for_dups(nt_epollfd->dev, nt_epollfd->ino);
+   if (dup_fd >= 0) {
+      if (km_fs_dup3(NULL, dup_fd, nt_epollfd->fd, nt_epollfd->flags & O_CLOEXEC) < 0) {
+         return -1;
+      }
+      return 0;
    }
 
-   int hostfd = epoll_create1(nt_eventfd->flags);
+   int hostfd = epoll_create1(nt_epollfd->flags);
    if (hostfd < 0) {
       km_warn("epoll_create failed");
       return -1;
    }
-   km_fs_recover_fd(nt_eventfd->fd, hostfd, 0, km_get_nonfile_name(hostfd), -1, KM_FILE_HOW_EPOLLFD);
-   for (int i = 0; i < nt_eventfd->nevent; i++) {
+   km_fs_recover_fd(nt_epollfd->fd, hostfd, 0, km_get_nonfile_name(hostfd), -1, KM_FILE_HOW_EPOLLFD);
+   km_fs_record_dev_ino(nt_epollfd->fd, nt_epollfd->dev, nt_epollfd->ino);
+   for (int i = 0; i < nt_epollfd->nevent; i++) {
       km_nt_event_t* nt_event = (km_nt_event_t*)cur;
       int host_efd = km_fs_g2h_fd(nt_event->fd, NULL);
       if (host_efd < 0) {
@@ -3222,7 +3303,7 @@ static int km_fs_recover_epollfd(char* ptr, size_t length)
          return -1;
       }
       struct epoll_event ev = {.events = nt_event->event, .data.u64 = nt_event->data};
-      if (epoll_ctl(nt_eventfd->fd, EPOLL_CTL_ADD, host_efd, &ev) < 0) {
+      if (epoll_ctl(nt_epollfd->fd, EPOLL_CTL_ADD, host_efd, &ev) < 0) {
          km_warn("epoll_ctl for fd=%d failed", nt_event->fd);
          return -1;
       }
@@ -3240,6 +3321,10 @@ static int km_fs_recover_epollfd(char* ptr, size_t length)
 
 int km_fs_recover(char* notebuf, size_t notesize)
 {
+   if ((dup_data = calloc(km_fs()->nfdmap, sizeof(km_dup_data_t))) == NULL) {
+      km_err(2, "km_fs_recover: calloc failed");
+   }
+
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_FILE, km_fs_recover_open_file) < 0) {
       km_errx(2, "recover open files failed");
    }
@@ -3252,5 +3337,7 @@ int km_fs_recover(char* notebuf, size_t notesize)
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_EPOLLFD, km_fs_recover_epollfd) < 0) {
       km_errx(2, "recover open epollfd's failed");
    }
+   free(dup_data);
+   dup_data = NULL;
    return 0;
 }

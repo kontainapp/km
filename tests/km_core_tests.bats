@@ -1132,7 +1132,7 @@ fi
    assert_success
 
    # make sure resume with payloads args fails
-   run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext
+   run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext $snapshot_test_port
    assert_success
    assert [ -f ${SNAP} ]
    assert [ ! -f ${CORE} ]
@@ -1149,7 +1149,7 @@ fi
    fi
    for i in $(seq $cnt) ; do
       # snapshot resume that successfully exits
-      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext
+      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext $snapshot_test_port
       assert_success
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
@@ -1168,7 +1168,7 @@ fi
       rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
 
       # snapshot with closed stdio
-      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -c
+      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -c $snapshot_test_port
       assert_success
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
@@ -1186,7 +1186,7 @@ fi
       rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
 
       # snapshot resume that core dumps
-      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -a
+      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -a $snapshot_test_port
       assert_success
       assert [ -f ${SNAP} ]
       check_kmcore ${SNAP}
@@ -1203,7 +1203,7 @@ fi
       rm -f ${SNAP} ${CORE} ${KMLOG} ${SNAP_OUTPUT}
 
       # 'live' snapshot
-      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -l
+      run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -l $snapshot_test_port
       assert_success
       assert [ -f ${SNAP} ]
       check_kmcore ${SNAP}

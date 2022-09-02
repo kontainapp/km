@@ -34,13 +34,17 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <arpa/inet.h>
 #include <linux/futex.h>
+#include <netinet/in.h>
 
 #include "km_hcalls.h"
 
 #ifndef SA_RESTORER
 #define SA_RESTORER 0x04000000
 #endif
+
+int port = 6565;
 
 char* cmdname = "???";
 int do_abort = 0;
@@ -58,9 +62,11 @@ pthread_cond_t cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
 int woken = 0;
 int zerofd = -1;   // fd to '/dev/zero'
 int filefd = -1;   // fd to '/etc/passwd' O_RDONLY
+int fdupfd = -1;   // fd to '/etc/passwd' O_RDONLY
 int pipefd[2] = {1, -1};
 int spairfd[2] = {1, -1};
 int socketfd = -1;
+int socdupfd = -1;
 int epollfd = -1;
 int eventfd_fd = -1;
 
@@ -69,10 +75,12 @@ typedef struct process_state {
    struct stat zerost;   // zerofd stat
    int filefail;         // filefd stat failed
    struct stat filest;   // filefd stat
+   struct stat fdupst;   // fdupfd stat
    off_t fileoff;
    struct stat pipest[2];    // pipe stat
    struct stat spairst[2];   // socketpair stat
    struct stat socketst;     // socket(2) stat
+   struct stat socdupst;     // socket(2) dup stat
    struct stat epollst;      // epoll_create stat
    struct stat eventfdst;
 } process_state_t;
@@ -107,10 +115,19 @@ void setup_process_state()
    CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));
    CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));   // are we intentionally leaking an fd here?
    CHECK_SYSCALL(filefd = open("/etc/passwd", O_RDONLY));
+   CHECK_SYSCALL(fdupfd = dup(filefd));
    CHECK_SYSCALL(lseek(filefd, 100, SEEK_SET));
    CHECK_SYSCALL(pipe(pipefd));
    CHECK_SYSCALL(socketpair(AF_UNIX, SOCK_STREAM, 0, spairfd));
    CHECK_SYSCALL(socketfd = socket(AF_INET, SOCK_STREAM, 0));
+   int flag = 1;
+   CHECK_SYSCALL(setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)));
+   struct sockaddr_in saddr;
+   saddr.sin_family = AF_INET;
+   inet_pton(AF_INET, "127.0.0.1", &saddr.sin_addr);
+   saddr.sin_port = port;
+   CHECK_SYSCALL(bind(socketfd, (struct sockaddr*)&saddr, sizeof(saddr)));
+   CHECK_SYSCALL(socdupfd = dup(socketfd));
    CHECK_SYSCALL(epollfd = epoll_create(1));
    CHECK_SYSCALL(eventfd_fd = eventfd(99, 0));
    // leave a gap in FS space for recovery
@@ -140,12 +157,17 @@ void get_process_state(process_state_t* state)
       state->filefail = 1;
       fprintf(stderr, "fstat filefd %d, %s\n", filefd, strerror(errno));
    }
+   if (fstat(fdupfd, &state->fdupst) < 0) {
+      state->filefail = 1;
+      fprintf(stderr, "fstat filefd %d, %s\n", filefd, strerror(errno));
+   }
    CHECK_SYSCALL(state->fileoff = lseek(filefd, 0, SEEK_CUR));
    CHECK_SYSCALL(fstat(pipefd[0], &state->pipest[0]));
    CHECK_SYSCALL(fstat(pipefd[1], &state->pipest[1]));
    CHECK_SYSCALL(fstat(spairfd[0], &state->spairst[0]));
    CHECK_SYSCALL(fstat(spairfd[1], &state->spairst[1]));
    CHECK_SYSCALL(fstat(socketfd, &state->socketst));
+   CHECK_SYSCALL(fstat(socdupfd, &state->socdupst));
    CHECK_SYSCALL(fstat(epollfd, &state->epollst));
    CHECK_SYSCALL(fstat(eventfd_fd, &state->eventfdst));
    return;
@@ -159,11 +181,11 @@ int compare_process_state(process_state_t* prestate, process_state_t* poststate)
 {
    int ret = 0;
    if (prestate->zerofail != 0 || prestate->filefail != 0) {
-      fprintf(stderr, "prestate fstat failure");
+      fprintf(stderr, "prestate fstat failure\n");
       ret = -1;
    }
    if (poststate->zerofail != 0 || poststate->filefail != 0) {
-      fprintf(stderr, "postestate fstat failure");
+      fprintf(stderr, "poststate fstat failure\n");
       ret = -1;
    }
    if (prestate->zerost.st_mode != poststate->zerost.st_mode) {
@@ -173,12 +195,19 @@ int compare_process_state(process_state_t* prestate, process_state_t* poststate)
               poststate->zerost.st_mode);
       ret = -1;
    }
-   if (prestate->filest.st_mode != poststate->filest.st_mode) {
+   if (prestate->filest.st_mode != poststate->filest.st_mode ||
+       poststate->fdupst.st_mode != poststate->filest.st_mode) {
       fprintf(stderr, "/etc/passwd mode changed\n");
       ret = -1;
    }
    if (prestate->fileoff != poststate->fileoff) {
       fprintf(stderr, "/etc/passwd offset changed\n");
+      ret = -1;
+   }
+   // check fdupfd off moves with filefd
+   lseek(fdupfd, 1, SEEK_CUR);
+   if (lseek(filefd, 0, SEEK_CUR) != lseek(fdupfd, 0, SEEK_CUR)) {
+      fprintf(stderr, "/etc/passwd offset didn't follow dup\n");
       ret = -1;
    }
 
@@ -200,8 +229,13 @@ int compare_process_state(process_state_t* prestate, process_state_t* poststate)
       fprintf(stderr, "socketpair[1]changed\n");
       ret = -1;
    }
-   if (prestate->socketst.st_mode != poststate->socketst.st_mode) {
-      fprintf(stderr, "socket changed\n");
+   if (prestate->socketst.st_mode != poststate->socketst.st_mode ||
+       poststate->socdupst.st_mode != poststate->socketst.st_mode) {
+      fprintf(stderr,
+              "socket changed 0x%x 0x%x 0x%x\n",
+              prestate->socketst.st_mode,
+              poststate->socketst.st_mode,
+              poststate->socdupst.st_mode);
       ret = -1;
    }
    if (prestate->epollst.st_mode != poststate->epollst.st_mode) {
@@ -290,7 +324,7 @@ void* thread_main(void* arg)
 
 void usage()
 {
-   fprintf(stderr, "%s [-a] [-sn] [-sp]\n", cmdname);
+   fprintf(stderr, "%s [-a] [-sn] [-sp] port\n", cmdname);
    fprintf(stderr, " -a  Abort after snapshot resume\n");
    fprintf(stderr, " -sn Don't create snapshot. Runs to completion\n");
    fprintf(stderr, " -sp pause instead of creating snapshot. Runs to completion\n");
@@ -327,6 +361,9 @@ int main(int argc, char* argv[])
             usage();
             break;
       }
+   }
+   if (optind < argc) {
+      port = atoi(argv[optind]);
    }
 
    setup_process_state();
