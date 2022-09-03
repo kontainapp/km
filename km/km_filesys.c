@@ -1892,7 +1892,8 @@ size_t km_fs_core_notes_length()
    return ret;
 }
 
-static inline size_t fs_core_save_pipe_contents(char* buf, size_t length, km_file_t* file, int writefd, size_t queuedbytes)
+static inline size_t
+fs_core_save_pipe_contents(char* buf, size_t length, km_file_t* file, int writefd, size_t queuedbytes)
 {
    km_assert(queuedbytes <= length);
 
@@ -1934,7 +1935,8 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
                              remain,
                              KM_NT_NAME,
                              NT_KM_FILE,
-                             sizeof(km_nt_file_t) + km_nt_file_padded_size(file->name) + roundup(queuedbytes, 4));
+                             sizeof(km_nt_file_t) + km_nt_file_padded_size(file->name) +
+                                 roundup(queuedbytes, 4));
    km_nt_file_t* fnote = (km_nt_file_t*)cur;
    cur += sizeof(km_nt_file_t);
    fnote->size = sizeof(km_nt_file_t);
@@ -1980,7 +1982,8 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
                              remain,
                              KM_NT_NAME,
                              NT_KM_SOCKET,
-                             sizeof(km_nt_socket_t) + km_nt_chunk_roundup(file->sockinfo->addrlen) + km_nt_chunk_roundup(queuedbytes));
+                             sizeof(km_nt_socket_t) + km_nt_chunk_roundup(file->sockinfo->addrlen) +
+                                 km_nt_chunk_roundup(queuedbytes));
    km_nt_socket_t* fnote = (km_nt_socket_t*)cur;
    cur += sizeof(km_nt_socket_t);
    fnote->size = sizeof(km_nt_socket_t);
@@ -2019,7 +2022,7 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
             file->name,
             fnote->other,
             file->ofd,
-	    fnote->datalength);
+            fnote->datalength);
    return cur - buf;
 }
 
@@ -2243,7 +2246,10 @@ static inline int km_fs_recover_pipedata(km_nt_file_t* nt_file, char* pipedata)
          return -1;
       }
       if (byteswritten != nt_file->datalength) {
-         km_warnx("expected to write %ld bytes of pipe data, but wrote %ld bytes to fd %d", nt_file->datalength, byteswritten, nt_file->fd);
+         km_warnx("expected to write %ld bytes of pipe data, but wrote %ld bytes to fd %d",
+                  nt_file->datalength,
+                  byteswritten,
+                  nt_file->fd);
          return -1;
       }
    }
@@ -2256,8 +2262,11 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name, char* pi
 
    km_infox(KM_TRACE_SNAPSHOT,
             "recovering pipe: file used %d, flags=0x%x, fd %d, data %d, datalength %ld",
-	    km_is_file_used(file),
-            nt_file->flags, nt_file->fd, nt_file->data, nt_file->datalength);
+            km_is_file_used(file),
+            nt_file->flags,
+            nt_file->fd,
+            nt_file->data,
+            nt_file->datalength);
 
    if (km_is_file_used(file) != 0) {
       // Created in by other side
@@ -2354,7 +2363,7 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
       return -1;
    }
    char* name = ptr + sizeof(km_nt_file_t);
-   char *pipedata = name + km_nt_file_padded_size(name);
+   char* pipedata = name + km_nt_file_padded_size(name);
    km_infox(KM_TRACE_SNAPSHOT,
             "fd=%d name=%s flags=0x%x mode=%o pos=%ld",
             nt_file->fd,
@@ -2978,14 +2987,17 @@ void km_close_stdio(int log_to_fd)
 static int km_fs_recover_socketdata(km_nt_socket_t* nt_sock)
 {
    if (nt_sock->datalength > 0) {
-      char *p = (char*)nt_sock + sizeof(km_nt_socket_t) + km_nt_chunk_roundup(nt_sock->addrlen);
+      char* p = (char*)nt_sock + sizeof(km_nt_socket_t) + km_nt_chunk_roundup(nt_sock->addrlen);
       ssize_t byteswritten = write(nt_sock->fd, p, nt_sock->datalength);
       if (byteswritten < 0) {
          km_warn("write %ld bytes queued data to fd %d failed", nt_sock->fd, nt_sock->datalength);
          return -1;
       }
       if (byteswritten < nt_sock->datalength) {
-         km_warnx("write to fd %d truncated, wrote %ld, expected to write %ld", nt_sock->fd, nt_sock->datalength, byteswritten);
+         km_warnx("write to fd %d truncated, wrote %ld, expected to write %ld",
+                  nt_sock->fd,
+                  nt_sock->datalength,
+                  byteswritten);
          return -1;
       }
    }

@@ -127,8 +127,8 @@ typedef struct km_nt_file {
     *   __S_IFIFO  - 'other' fd in pipe
     *   __S_ISOCK  - 'other' fd in socketpair
     */
-   Elf64_Off data;   // depends on file type.
-   Elf64_Word datalength; // bytes of pipe contents following filename
+   Elf64_Off data;          // depends on file type.
+   Elf64_Word datalength;   // bytes of pipe contents following filename
    // Followed by file name
    // Followed by pipe or socketpair contents
 } km_nt_file_t;
@@ -145,7 +145,7 @@ typedef struct km_nt_socket {
    Elf64_Word protocol;
    Elf64_Word other;   // 'other' fd for socketpair(2)
    Elf64_Word addrlen;
-   Elf64_Word datalength; // bytes of to write back into this side
+   Elf64_Word datalength;   // bytes of to write back into this side
    // Address follows
    // Data queued in socket follows the address
 } km_nt_socket_t;

@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
          exit(100);
          break;
 
-      // Snapshot when a pipe has queued data
+         // Snapshot when a pipe has queued data
 #define PIPEDATA "stuff"
       case 'p':;
          if (pipe(pipefd) < 0) {
@@ -144,7 +144,7 @@ int main(int argc, char* argv[])
                fprintf(stderr, "read from pipe failed %s\n", strerror(errno));
                exit(120);
             }
-	    buf[bytesread] = 0;
+            buf[bytesread] = 0;
             fprintf(stdout, "pipedata >>>>%s<<<<\n", buf);
             if (bytesread != sizeof(PIPEDATA)) {
                fprintf(stderr, "Read %ld bytes back from pipe, expected %ld", bytesread, sizeof(PIPEDATA));
@@ -156,7 +156,7 @@ int main(int argc, char* argv[])
             }
             close(pipefd[0]);
             close(pipefd[1]);
-	    exit(0);
+            exit(0);
          }
          break;
 
@@ -243,7 +243,7 @@ int main(int argc, char* argv[])
          exit(100);
          break;
 
-      // Snapshot when a socketpair has queued data
+         // Snapshot when a socketpair has queued data
 #define SOCKETPAIRDATA0 "chocolate chip cookie"
 #define SOCKETPAIRDATA1 "krik's steak burger"
       case 's':;
@@ -276,20 +276,26 @@ int main(int argc, char* argv[])
 
             fprintf(stdout, "Attempt to read socketpair buffered data after snapshot resume\n");
 
-	    // read from sp[0]
+            // read from sp[0]
             bytesread = read(sp[0], buf, sizeof(buf));
             if (bytesread < 0) {
                fprintf(stderr, "read from socketpair 0 failed %s\n", strerror(errno));
                exit(120);
             }
-	    buf[bytesread] = 0;
+            buf[bytesread] = 0;
             fprintf(stdout, "socketpair 0 data length %ld, >>>>%s<<<<\n", bytesread, buf);
             if (bytesread != sizeof(SOCKETPAIRDATA1)) {
-               fprintf(stderr, "Read %ld bytes back from socketpair 0, expected %ld", bytesread, sizeof(SOCKETPAIRDATA1));
+               fprintf(stderr,
+                       "Read %ld bytes back from socketpair 0, expected %ld",
+                       bytesread,
+                       sizeof(SOCKETPAIRDATA1));
                exit(121);
             }
             if (strcmp(buf, SOCKETPAIRDATA1) != 0) {
-               fprintf(stderr, "socketpair 0 data is wrong, expected <%s>, got <%s>\n", SOCKETPAIRDATA1, buf);
+               fprintf(stderr,
+                       "socketpair 0 data is wrong, expected <%s>, got <%s>\n",
+                       SOCKETPAIRDATA1,
+                       buf);
                exit(122);
             }
 
@@ -299,21 +305,27 @@ int main(int argc, char* argv[])
                fprintf(stderr, "read from socketpair 1 failed %s\n", strerror(errno));
                exit(120);
             }
-	    buf[bytesread] = 0;
+            buf[bytesread] = 0;
             fprintf(stdout, "socketpair 1 data length %ld >>>>%s<<<<\n", bytesread, buf);
             if (bytesread != sizeof(SOCKETPAIRDATA0)) {
-               fprintf(stderr, "Read %ld bytes back from socketpair 1, expected %ld", bytesread, sizeof(SOCKETPAIRDATA0));
+               fprintf(stderr,
+                       "Read %ld bytes back from socketpair 1, expected %ld",
+                       bytesread,
+                       sizeof(SOCKETPAIRDATA0));
                exit(121);
             }
             if (strcmp(buf, SOCKETPAIRDATA0) != 0) {
-               fprintf(stderr, "socketpair 1 data is wrong, expected <%s>, got <%s>\n", SOCKETPAIRDATA0, buf);
+               fprintf(stderr,
+                       "socketpair 1 data is wrong, expected <%s>, got <%s>\n",
+                       SOCKETPAIRDATA0,
+                       buf);
                exit(122);
             }
 
             close(sp[0]);
             close(sp[1]);
             fprintf(stdout, "socketpair buffered data test succeeds\n");
-	    exit(0);
+            exit(0);
          }
          // We expect the snapshot to fail because of the queued socket data.
          fprintf(stderr, "snapshot when socketpair has queued data returned?\n");
