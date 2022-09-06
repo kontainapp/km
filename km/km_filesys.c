@@ -1892,28 +1892,73 @@ size_t km_fs_core_notes_length()
    return ret;
 }
 
+// Helper function to ensure we read all the bytes requested.
+// We abort after 50 tries.
+static inline void do_full_read(int fd, char* bufp, size_t bufl)
+{
+   int read_attempts = 0;
+   ssize_t total_bytes_read = 0;
+   while (total_bytes_read != bufl) {
+      ssize_t bytes_read = read(fd, bufp + total_bytes_read, bufl - total_bytes_read);
+      if (bytes_read < 0) {
+         km_err(1, "read fd %d, %ld bytes failed", fd, bufl - total_bytes_read);
+      }
+      total_bytes_read += bytes_read;
+      if (++read_attempts > 50) {
+         // Don't get stuck doing unproductive reads
+         km_errx(1, "After %d read attempts, failed to read %ld bytes from fd %d", read_attempts, bufl, fd);
+      }
+   }
+}
+
+// Helper function to ensure we write all bytes requested.
+// We abort after 50 tries.
+static inline void do_full_write(int fd, char* bufp, size_t bufl)
+{
+   int write_attempts = 0;
+   ssize_t total_bytes_written = 0;
+   while (total_bytes_written != bufl) {
+      ssize_t bytes_written = write(fd, bufp + total_bytes_written, bufl - total_bytes_written);
+      if (bytes_written < 0) {
+         km_err(1, "write fd %d, %ld bytes failed", fd, bufl - total_bytes_written);
+      }
+      total_bytes_written += bytes_written;
+      if (++write_attempts > 50) {
+         // Don't get stuck doing unproductive writes
+         km_errx(1,
+                 "After %d write attempts, failed to write %ld bytes from fd %d",
+                 write_attempts,
+                 bufl,
+                 fd);
+      }
+   }
+}
+
+/*
+ * Read the data buffered in a pipe or socketpair and store it in buf
+ * Arguments:
+ *  buf - store the data buffered in a pipe/socketpair into this buffer.
+ *    We know the buffer is big enough because the buffer for all of the
+ *    elf notes is precomputed before we build the notes.
+ *  length - amount of space available at what buf points to.
+ *  file - the fd we can read the buffered pipe data from.
+ *  writefd - the fd we need to write the data back into so that it will
+ *    be there for the payload to read if we resume after taking a snapshot.
+ *  queuedbytes - the number of bytes queued in the pipe/socketpair.
+ * Returns:
+ *  The number of bytes written into the elf note.
+ */
 static inline size_t
 fs_core_save_pipe_contents(char* buf, size_t length, km_file_t* file, int writefd, size_t queuedbytes)
 {
    km_assert(queuedbytes <= length);
 
    // Read the bytes queued in the pipe
-   ssize_t bytesread = read(file->ofd, buf, queuedbytes);
-   if (bytesread < 0) {
-      km_err(1, "read pipe fd %d, %ld bytes failed", file->ofd, queuedbytes);
-   }
-   if (bytesread != queuedbytes) {
-      km_errx(1, "fd %d: expected to read %ld bytes, got %ld bytes", file->ofd, queuedbytes, bytesread);
-   }
+   do_full_read(file->ofd, buf, queuedbytes);
+
    // now write the bytes back into the pipe
-   ssize_t byteswritten = write(writefd, buf, bytesread);
-   if (byteswritten < 0) {
-      km_err(1, "write pipe fd %d, %ld bytes failed", writefd, bytesread);
-   }
-   if (byteswritten < bytesread) {
-      km_errx(1, "fd %d, expected to write %ld bytes, wrote %ld bytes", writefd, bytesread, byteswritten);
-   }
-   return byteswritten;
+   do_full_write(writefd, buf, queuedbytes);
+   return queuedbytes;
 }
 
 static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t* file, int fd)
@@ -1936,7 +1981,7 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
                              KM_NT_NAME,
                              NT_KM_FILE,
                              sizeof(km_nt_file_t) + km_nt_file_padded_size(file->name) +
-                                 roundup(queuedbytes, 4));
+                                 km_nt_chunk_roundup(queuedbytes));
    km_nt_file_t* fnote = (km_nt_file_t*)cur;
    cur += sizeof(km_nt_file_t);
    fnote->size = sizeof(km_nt_file_t);
@@ -2299,11 +2344,7 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name, char* pi
    }
 
    // Recover queued pipe contents
-   if (km_fs_recover_pipedata(nt_file, pipedata) != 0) {
-      return -1;
-   }
-
-   return 0;
+   return km_fs_recover_pipedata(nt_file, pipedata);
 }
 
 static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr* addr, int addrlen)
