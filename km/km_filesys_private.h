@@ -21,9 +21,17 @@
  * getting big and we need to split out functionality to another file.
  */
 
+typedef enum km_sock_state {
+   KM_SOCK_STATE_OPEN = 0,
+   KM_SOCK_STATE_BIND = 1,
+   KM_SOCK_STATE_LISTEN = 2,
+   KM_SOCK_STATE_ACCEPT = 3,
+   KM_SOCK_STATE_CONNECT = 4,
+} km_sock_state_t;
+
 // Each km_file_t has an optional point to socket state described by this structure.
 typedef struct km_fd_socket {
-   int state;
+   km_sock_state_t state;
    int backlog;
    int domain;
    int type;
@@ -33,13 +41,6 @@ typedef struct km_fd_socket {
    char addr[128];   // the local address passed to bind()
 } km_fd_socket_t;
 
-// Valid values for the state field in km_fd_socket_t
-#define KM_SOCK_STATE_OPEN 0
-#define KM_SOCK_STATE_BIND 1
-#define KM_SOCK_STATE_LISTEN 2
-#define KM_SOCK_STATE_ACCEPT 3
-#define KM_SOCK_STATE_CONNECT 4
-
 // Description of an event associated with an eventfd.
 typedef struct km_fs_event {
    TAILQ_ENTRY(km_fs_event) link;
@@ -47,10 +48,24 @@ typedef struct km_fs_event {
    struct epoll_event event;
 } km_fs_event_t;
 
+// Valid values for the how field in km_file_t
+typedef enum km_file_how {
+   KM_FILE_HOW_OPEN = 0,    /* Regular open */
+   KM_FILE_HOW_PIPE_0 = 1,  /* read half of pipe */
+   KM_FILE_HOW_PIPE_1 = 2,  /* write half of pipe */
+   KM_FILE_HOW_EPOLLFD = 3, /* epoll_create() */
+   KM_FILE_HOW_SOCKET = 4,
+   KM_FILE_HOW_ACCEPT = 5,
+   KM_FILE_HOW_SOCKETPAIR0 = 6,
+   KM_FILE_HOW_SOCKETPAIR1 = 7,
+   KM_FILE_HOW_RECVMSG = 8,
+   KM_FILE_HOW_EVENTFD = 9, /* eventfd() */
+} km_file_how_t;
+
 // Each file opened by the guest has one of these structures.
 typedef struct km_file {
    int inuse;            // if true, this entry is inuse.
-   int how;              // How was this file created
+   km_file_how_t how;    // How was this file created
    int flags;            // Open flags
    int error;            // If non-zero, error code to return for all syscalls. Snapshot recovery.
    km_file_ops_t* ops;   // Overwritten file ops for file matched at open
@@ -59,18 +74,6 @@ typedef struct km_file {
    km_fd_socket_t* sockinfo;                           // For sockets
    TAILQ_HEAD(km_fs_event_head, km_fs_event) events;   // for epoll_create fd's
 } km_file_t;
-
-// Valid values for the how field in km_file_t
-#define KM_FILE_HOW_OPEN 0    /* Regular open */
-#define KM_FILE_HOW_PIPE_0 1  /* read half of pipe */
-#define KM_FILE_HOW_PIPE_1 2  /* write half of pipe */
-#define KM_FILE_HOW_EPOLLFD 3 /* epoll_create() */
-#define KM_FILE_HOW_SOCKET 4
-#define KM_FILE_HOW_ACCEPT 5
-#define KM_FILE_HOW_SOCKETPAIR0 6
-#define KM_FILE_HOW_SOCKETPAIR1 7
-#define KM_FILE_HOW_RECVMSG 8
-#define KM_FILE_HOW_EVENTFD 9 /* eventfd() */
 
 // machine.filesys points to a km_filesys_t structure.
 typedef struct km_filesys {

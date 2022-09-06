@@ -117,8 +117,6 @@ typedef struct km_nt_guest {
 typedef struct km_nt_file {
    Elf64_Word size;    // Size of record
    Elf64_Word fd;      // Open fd number
-   Elf64_Word dev;     // Device number - for dup detection
-   Elf64_Word ino;     // Inode number
    Elf64_Word how;     // How file was created
    Elf64_Word flags;   // open(2) flags
    Elf64_Word mode;    // file mode (includes type)
@@ -141,8 +139,6 @@ typedef struct km_nt_file {
 typedef struct km_nt_socket {
    Elf64_Word size;      // Size of record
    Elf64_Word fd;        // Open fd number
-   Elf64_Word dev;       // Device number - for dup detection
-   Elf64_Word ino;       // Inode number
    Elf64_Word how;       // How socket was created
    Elf64_Word state;     // state of socket
    Elf64_Word backlog;   // listen backlog
@@ -192,7 +188,7 @@ static inline size_t km_nt_file_padded_size(const char* str)
    return km_nt_chunk_roundup(strlen(str) + 1);
 }
 
-// Single event on eventfd (epoll_create)
+// Single event on epollfd (epoll_create)
 typedef struct km_nt_event {
    Elf64_Word fd;   // fd to monitor
    Elf64_Word event;
@@ -201,14 +197,11 @@ typedef struct km_nt_event {
 
 // eventfd (epoll_create)
 typedef struct km_nt_epollfd {
-   Elf64_Word size;         // Size of record
-   Elf64_Word fd;           // Open event fd
-   Elf64_Word dev;          // Device number - for dup detection
-   Elf64_Word ino;          // Inode number
-   Elf64_Word flags;        // flags
-   Elf64_Word event_size;   // size of event records that follow
-   Elf64_Word nevent;       // number of event records that follow
-   // Followed by event records km_nt_event_t
+   Elf64_Word size;           // Size of record
+   Elf64_Word fd;             // Open event fd
+   Elf64_Word flags;          // flags
+   Elf64_Word nevent;         // number of event records that follow
+   km_nt_event_t events[0];   // Followed by event records km_nt_event_t
 } km_nt_epollfd_t;
 #define NT_KM_EPOLLFD 0x4b4d4550   // "KMEP"
 

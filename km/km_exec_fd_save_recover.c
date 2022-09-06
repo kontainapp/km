@@ -329,7 +329,7 @@ static void km_fs_destroy_fd(int fd)
    km_set_file_used(file, 0);
 }
 
-static int km_exec_restore_file(int fd, int how, int flags, int index)
+static int km_exec_restore_file(int fd, km_file_how_t how, int flags, int index)
 {
    km_file_t* file;
 
@@ -392,7 +392,7 @@ static int km_exec_restore_eventfd(int fd, int flags)
    return 0;
 }
 
-static int km_exec_restore_pipe(int fd, int how, int flags, unsigned long ofd)
+static int km_exec_restore_pipe(int fd, km_file_how_t how, int flags, unsigned long ofd)
 {
    km_file_t* file;
    km_exec_get_file_pointer(fd, &file, NULL);
@@ -451,7 +451,7 @@ static int km_exec_socket_get_sockopts(int fd)
    return 0;
 }
 
-static int km_exec_restore_socketpair(int fd, int how, int ofd)
+static int km_exec_restore_socketpair(int fd, km_file_how_t how, int ofd)
 {
    km_file_t* file;
    km_exec_get_file_pointer(fd, &file, NULL);
@@ -486,7 +486,7 @@ static int km_exec_restore_socketpair(int fd, int how, int ofd)
 }
 
 static int
-km_exec_restore_socket(int fd, int how, int state, int backlog, int ofd, km_fd_socket_t* sockinfo)
+km_exec_restore_socket(int fd, km_file_how_t how, km_sock_state_t state, int backlog, int ofd, km_fd_socket_t* sockinfo)
 {
    km_file_t* file;
    km_exec_get_file_pointer(fd, &file, NULL);
