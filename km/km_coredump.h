@@ -112,6 +112,22 @@ typedef struct km_nt_guest {
 #define NT_KM_DYNLINKER 0x4b4d444c   // "KMDL" no null term
 
 /*
+ * Elf note for dup data
+ */
+
+typedef Elf64_Word km_nt_dup_fd_t;
+typedef struct km_nt_dup_grp {
+   Elf64_Word size;
+   km_nt_dup_fd_t fds[0];
+} km_nt_dup_grp_t;
+
+typedef struct km_nt_dup {
+   Elf64_Word size;
+   km_nt_dup_grp_t grp[0];
+} km_nt_dup_t;
+#define NT_KM_DUP_DATA 0x4b4d4455   // "KMDU" no null term
+
+/*
  * Elf note record for open file.
  */
 typedef struct km_nt_file {

@@ -93,4 +93,17 @@ static inline km_filesys_t* km_fs()
 int km_is_file_used(km_file_t* file);
 void km_set_file_used(km_file_t* file, int val);
 
+// fds that are all dups of each other
+typedef struct km_fd_dup_grp {
+   int size;   // number of fds in the group. Never less than 2 - the original and the dup
+   int* fds;
+} km_fd_dup_grp_t;
+
+typedef struct km_fd_dup_data_s {
+   int size;   // number of groups
+   km_fd_dup_grp_t** groups;
+} km_fd_dup_data_t;
+
+extern km_fd_dup_data_t dup_data;
+
 #endif   // !defined(__KM_FILESYS_PRIVATE_H__)

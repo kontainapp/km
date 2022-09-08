@@ -72,6 +72,9 @@ static char* km_my_exec;   // my executable per /proc/self/exe to check with in 
 static int km_fs_g2h_filename(const char* name, char* buf, size_t bufsz, km_file_ops_t** ops);
 static int km_fs_g2h_readlink(const char* name, char* buf, size_t bufsz);
 
+km_fd_dup_data_t dup_data;
+pthread_mutex_t dup_data_mtx;
+
 /*
  * Tells whether a file is inuse or not.
  */
@@ -83,6 +86,123 @@ int km_is_file_used(km_file_t* file)
 void km_set_file_used(km_file_t* file, int val)
 {
    __atomic_store_n(&file->inuse, val, __ATOMIC_SEQ_CST);
+}
+
+/*
+ * On snap recover check if the fd was involved in dup. If it was check if other fds in the same dup
+ * group exist already. If they are dup them, if not we are fist so recrate normally.
+ *
+ * This is called during snapshot recovery, single threaded, no lock necessary
+ */
+static int km_fs_check_for_dups_nolock(int fd)
+{
+   for (int grp = 0; grp < dup_data.size; grp++) {
+      km_fd_dup_grp_t* group = dup_data.groups[grp];
+      int i;
+      for (i = 0; i < group->size; i++) {
+         if (fd == group->fds[i]) {
+            break;
+         }
+      }
+      if (i == group->size) {   // we are not in this group
+         continue;
+      }
+      for (int i = 0; i < group->size; i++) {
+         int ofd = group->fds[i];
+         // not us and already exists - we are dup of it
+         if (ofd != fd && km_is_file_used(&km_fs()->guest_files[ofd])) {
+            return ofd;
+         }
+      }
+      return -2;   // found ourselves in the group but others aren't ready - we are the first
+   }
+   return -1;   // not dup
+}
+
+static void km_fs_add_fd_to_dup_group(int fd, km_fd_dup_grp_t* group)
+{
+   if ((group->fds = realloc(group->fds, (group->size + 1) * sizeof(group->fds[0]))) == NULL) {
+      km_err(2, "no memory for dup group");
+   }
+   group->fds[group->size++] = fd;
+}
+
+/*
+ * Called during normal run to record dup operation
+ */
+static void km_fs_add_to_dup_data(int new_fd, int old_fd)
+{
+   if (machine.mmaps.recovery_mode != 0) {
+      // during snapshot recovery dup data gets restored fist, then used to restore files
+      return;
+   }
+   km_mutex_lock(&dup_data_mtx);
+   for (int grp = 0; grp < dup_data.size; grp++) {
+      km_fd_dup_grp_t* group = dup_data.groups[grp];
+      for (int i = 0; i < group->size; i++) {
+         int fd = group->fds[i];
+         if (fd == old_fd) {
+            // old_fd already in a group, add ourselves to it
+            km_fs_add_fd_to_dup_group(new_fd, group);
+            km_mutex_unlock(&dup_data_mtx);
+            return;
+         }
+      }
+   }
+   // new group
+   km_fd_dup_grp_t* group = malloc(sizeof(km_fd_dup_grp_t));
+   if (group == NULL) {
+      km_err(2, "no memory for dup group");
+   }
+   group->size = 2;
+   if ((group->fds = malloc(2 * sizeof(group->fds[0]))) == NULL) {
+      km_err(2, "no memory for dup group fds");
+   }
+   group->fds[0] = old_fd;
+   group->fds[1] = new_fd;
+   if ((dup_data.groups =
+            realloc(dup_data.groups, (dup_data.size + 1) * sizeof(dup_data.groups[0]))) == NULL) {
+      km_err(2, "no memory for dup data groups");
+   }
+   dup_data.groups[dup_data.size++] = group;
+   km_mutex_unlock(&dup_data_mtx);
+}
+
+/*
+ * Called during normal run to record closes of duped fds
+ */
+static void km_fd_close_dup(int fd)
+{
+   km_mutex_lock(&dup_data_mtx);
+   for (int grp = 0; grp < dup_data.size; grp++) {
+      km_fd_dup_grp_t* group = dup_data.groups[grp];
+      for (int i = 0; i < group->size; i++) {
+         if (fd == group->fds[i]) {
+            if (group->size > 2) {   // there are more than 2 dups - remove ourselves
+               if (i < group->size - 1) {
+                  memmove(&group->fds[i],
+                          &group->fds[i + 1],
+                          (group->size - 1 - i) * sizeof(group->fds[0]));
+               }
+               group->size--;
+               group->fds = realloc(group->fds, group->size * sizeof(group->fds[0]));
+            } else {   // only 2 dups - remove the group
+               free(group->fds);
+               free(group);
+               if (grp < dup_data.size - 1) {
+                  memmove(&dup_data.groups[grp],
+                          &dup_data.groups[grp + 1],
+                          (dup_data.size - 1 - grp) * sizeof(dup_data.groups[0]));
+               }
+               dup_data.size--;
+               dup_data.groups = realloc(dup_data.groups, dup_data.size * sizeof(dup_data.groups[0]));
+            }
+            km_mutex_unlock(&dup_data_mtx);
+            return;
+         }
+      }
+   }
+   km_mutex_unlock(&dup_data_mtx);
 }
 
 /*
@@ -201,6 +321,7 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
       TAILQ_REMOVE(&file->events, eventp, link);
       free(eventp);
    }
+   km_fd_close_dup(fd);
    if (file->ofd != -1) {
       km_file_t* other = &km_fs()->guest_files[file->ofd];
       file->ofd = -1;
@@ -504,6 +625,7 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
                                    (cmd == F_DUPFD) ? 0 : O_CLOEXEC,
                                    file->sockinfo,
                                    file->how);
+            km_fs_add_to_dup_data(ret, host_fd);
          } else {
             ret = km_add_guest_fd_internal(vcpu,
                                            ret,
@@ -1143,6 +1265,7 @@ uint64_t km_fs_dup(km_vcpu_t* vcpu, int fd)
       } else {
          ret = km_add_guest_fd_internal(vcpu, ret, name, 0, file->how, ops);
       }
+      km_fs_add_to_dup_data(ret, host_fd);
    }
    km_infox(KM_TRACE_FILESYS, "dup(%d) - %d", fd, ret);
    return ret;
@@ -1186,6 +1309,7 @@ uint64_t km_fs_dup3(km_vcpu_t* vcpu, int fd, int newfd, int flags)
       } else {
          ret = km_add_guest_fd(vcpu, ret, name, flags, ops);
       }
+      km_fs_add_to_dup_data(ret, host_fd);
    }
    km_infox(KM_TRACE_FILESYS, "dup3(%d, %d, 0x%x) - %d", fd, newfd, flags, ret);
    return ret;
@@ -1844,11 +1968,20 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
  * == Snapshot generation
  */
 
+size_t km_fs_dup_notes_length(void)
+{
+   size_t ret = km_note_header_size(KM_NT_NAME) + sizeof(km_nt_dup_t);
+   for (int i = 0; i < dup_data.size; i++) {
+      ret += sizeof(km_nt_dup_grp_t) + dup_data.groups[i]->size * sizeof(km_nt_dup_fd_t);
+   }
+   return ret;
+}
+
 // Helper function to return the number of bytes in a pipe or connection
 static int ioctlfionread(int fd)
 {
-   int bytesavailable;
-   if (ioctl(fd, FIONREAD, &bytesavailable) < 0) {
+   int bytesavailable = 0;
+   if (fd >= 0 && ioctl(fd, FIONREAD, &bytesavailable) < 0) {
       km_err(1, "ioctl FIONREAD on fd %d failed", fd);
    }
    return bytesavailable;
@@ -1857,7 +1990,7 @@ static int ioctlfionread(int fd)
 /*
  * Compute how much space all of the notes will need.
  */
-size_t km_fs_core_notes_length()
+size_t km_fs_core_notes_length(void)
 {
    ssize_t queuedbytes;
    size_t ret = 0;
@@ -2206,6 +2339,31 @@ static inline size_t fs_core_write_epollfd(char* buf, size_t length, km_file_t* 
    return cur - buf;
 }
 
+size_t km_fs_core_dup_write(char* buf, size_t length)
+{
+   char* cur = buf;
+   size_t remain = length;
+
+   cur += km_add_note_header(cur,
+                             remain,
+                             KM_NT_NAME,
+                             NT_KM_DUP_DATA,
+                             km_fs_dup_notes_length() - km_note_header_size(KM_NT_NAME));
+   km_nt_dup_t* dupnote = (km_nt_dup_t*)cur;
+   cur += sizeof(km_nt_dup_t);
+   dupnote->size = dup_data.size;
+   for (int i = 0; i < dup_data.size; i++) {
+      km_nt_dup_grp_t* dupgrp = (km_nt_dup_grp_t*)cur;
+      cur += sizeof(km_nt_dup_grp_t);
+      dupgrp->size = dup_data.groups[i]->size;
+      for (int j = 0; j < dup_data.groups[i]->size; j++) {
+         cur += sizeof(dupgrp->fds[j]);
+         dupgrp->fds[j] = dup_data.groups[i]->fds[j];
+      }
+   }
+   return cur - buf;
+}
+
 size_t km_fs_core_notes_write(char* buf, size_t length)
 {
    char* cur = buf;
@@ -2267,12 +2425,8 @@ km_fs_recover_fd(int guestfd, int hostfd, int flags, char* name, int ofd, km_fil
             how);
 }
 
-static int km_fs_check_for_dups(int fd)
-{
-   return -1;
-}
-
-static inline int km_fs_recover_fdpair(int guestfd[2], int hostfd[2], km_file_how_t how[2], int flags[2])
+static inline int
+km_fs_recover_fdpair(int guestfd[2], int hostfd[2], km_file_how_t how[2], int flags[2])
 {
    km_infox(KM_TRACE_SNAPSHOT,
             "recover_fdpair: guest:%d,%d host:%d,%d how:%d,%d flags:%d,%d",
@@ -2390,6 +2544,10 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
        .protocol = nt_sock->protocol,
    };
    km_fd_socket_t* sockinfo = (km_fd_socket_t*)malloc(sizeof(km_fd_socket_t));
+   if (sockinfo == NULL) {
+      km_err(2, "No memory for sockinfo");
+      return -1;
+   }
    *sockinfo = sval;
    if (addrlen > 0) {
       sockinfo->addrlen = addrlen;
@@ -2413,6 +2571,38 @@ static inline int km_fs_recover_socket_error(km_nt_socket_t* nt_sock)
                        .ofd = nt_sock->other,
                        .error = -ECONNRESET};
    TAILQ_INIT(&file->events);
+   return 0;
+}
+
+static int km_fs_recover_dup_data(char* ptr, size_t length)
+{
+   km_nt_dup_t* nt_dup = (km_nt_dup_t*)ptr;
+   ptr += sizeof(km_nt_dup_t);
+   dup_data.size = nt_dup->size;
+   if ((dup_data.groups = malloc(dup_data.size * sizeof(dup_data.groups))) == NULL) {
+      km_err(2, "No memory for dup_data.groups*");
+      return -1;
+   }
+   for (int i = 0; i < dup_data.size; i++) {
+      km_nt_dup_grp_t* nt_dup_grp = (km_nt_dup_grp_t*)ptr;
+      ptr += sizeof(km_nt_dup_grp_t);
+      km_fd_dup_grp_t* group = malloc(sizeof(km_fd_dup_grp_t));
+      if (group == NULL) {
+         km_err(2, "No memory for dup_data.groups");
+         return -1;
+      }
+      dup_data.groups[i] = group;
+      group->size = nt_dup_grp->size;
+      if ((group->fds = malloc(group->size * sizeof(dup_data.groups[0]->fds[0]))) == NULL) {
+         km_err(2, "No memory for dup_data.groups");
+         return -1;
+      }
+      for (int i = 0; i < group->size; i++) {
+         group->fds[i] = nt_dup_grp->fds[i];
+      }
+
+      ptr += sizeof(km_nt_dup_fd_t) * group->size;
+   }
    return 0;
 }
 
@@ -2452,7 +2642,7 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
       km_warnx("bad file descriptor=%d", nt_file->fd);
       return -1;
    }
-   int dup_fd = km_fs_check_for_dups(nt_file->fd);
+   int dup_fd = km_fs_check_for_dups_nolock(nt_file->fd);
    if (dup_fd >= 0) {
       if (km_fs_dup3(NULL, dup_fd, nt_file->fd, nt_file->flags & O_CLOEXEC) < 0) {
          return -1;
@@ -3134,7 +3324,7 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
       km_warnx("nt_km_socket_t size mismatch - old snapshot?");
       return -1;
    }
-   int dup_fd = km_fs_check_for_dups(nt_sock->fd);
+   int dup_fd = km_fs_check_for_dups_nolock(nt_sock->fd);
    if (dup_fd >= 0) {
       if (km_fs_dup2(NULL, dup_fd, nt_sock->fd) < 0) {
          return -1;
@@ -3151,13 +3341,6 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
       return km_fs_recover_socket_accepted(nt_sock);
    }
 
-   int dup_fd = km_fs_check_for_dups(nt_sock->dev, nt_sock->ino);
-   if (dup_fd >= 0) {
-      if (km_fs_dup2(NULL, dup_fd, nt_sock->fd) < 0) {
-         return -1;
-      }
-      return 0;
-   }
    /*
     * Assume socket optionally bound for listening
     */
@@ -3173,9 +3356,9 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
 
    if (nt_sock->state == KM_SOCK_STATE_BIND || nt_sock->state == KM_SOCK_STATE_LISTEN) {
       int hostfd = km_fs_g2h_fd(nt_sock->fd, NULL);
-      // If snapshot is being recovered right after it was taken there is a chance there are sockets
-      // in TIME_WAIT state from the remaining from the initial run, so the following bind() will
-      // fail. This avoid the falure.
+      // If snapshot is being recovered right after it was taken there is a chance there are
+      // sockets in TIME_WAIT state from the remaining from the initial run, so the following
+      // bind() will fail. This avoid the falure.
       int flag = 1;
       if (setsockopt(hostfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0) {
          km_warn("recover setsockopt(SO_REUSEADDR) failed");
@@ -3209,7 +3392,7 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
    if (km_is_file_used(file) != 0) {
       km_errx(2, "eventfd file %d in use.", nt_file->fd);
    }
-   int dup_fd = km_fs_check_for_dups(nt_file->fd);
+   int dup_fd = km_fs_check_for_dups_nolock(nt_file->fd);
    if (dup_fd >= 0) {
       if (km_fs_dup3(NULL, dup_fd, nt_file->fd, nt_file->flags & O_CLOEXEC) < 0) {
          return -1;
@@ -3251,7 +3434,7 @@ static int km_fs_recover_epollfd(char* ptr, size_t length)
    if (km_is_file_used(file) != 0) {
       km_errx(2, "file %d in use. %s", nt_epollfd->fd, file->name);
    }
-   int dup_fd = km_fs_check_for_dups(nt_epollfd->fd);
+   int dup_fd = km_fs_check_for_dups_nolock(nt_epollfd->fd);
    if (dup_fd >= 0) {
       if (km_fs_dup3(NULL, dup_fd, nt_epollfd->fd, nt_epollfd->flags & O_CLOEXEC) < 0) {
          return -1;
@@ -3290,6 +3473,9 @@ static int km_fs_recover_epollfd(char* ptr, size_t length)
 
 int km_fs_recover(char* notebuf, size_t notesize)
 {
+   if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_DUP_DATA, km_fs_recover_dup_data) < 0) {
+      km_errx(2, "recover open files failed");
+   }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_FILE, km_fs_recover_open_file) < 0) {
       km_errx(2, "recover open files failed");
    }

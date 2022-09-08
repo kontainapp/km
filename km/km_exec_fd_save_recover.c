@@ -485,8 +485,8 @@ static int km_exec_restore_socketpair(int fd, km_file_how_t how, int ofd)
    return 0;
 }
 
-static int
-km_exec_restore_socket(int fd, km_file_how_t how, km_sock_state_t state, int backlog, int ofd, km_fd_socket_t* sockinfo)
+static int km_exec_restore_socket(
+    int fd, km_file_how_t how, km_sock_state_t state, int backlog, int ofd, km_fd_socket_t* sockinfo)
 {
    km_file_t* file;
    km_exec_get_file_pointer(fd, &file, NULL);

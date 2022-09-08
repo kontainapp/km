@@ -62,7 +62,7 @@ pthread_cond_t cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
 int woken = 0;
 int zerofd = -1;   // fd to '/dev/zero'
 int filefd = -1;   // fd to '/etc/passwd' O_RDONLY
-int fdupfd = -1;   // fd to '/etc/passwd' O_RDONLY
+int sec_fd = -1;   // fd to '/etc/passwd' O_RDONLY
 int pipefd[2] = {1, -1};
 int spairfd[2] = {1, -1};
 int socketfd = -1;
@@ -70,12 +70,14 @@ int socdupfd = -1;
 int epollfd = -1;
 int eventfd_fd = -1;
 
+int dup_fd[5];
+
 typedef struct process_state {
    int zerofail;         // zerofd stat failed
    struct stat zerost;   // zerofd stat
    int filefail;         // filefd stat failed
    struct stat filest;   // filefd stat
-   struct stat fdupst;   // fdupfd stat
+   struct stat fdupst;   // sec_fd stat
    off_t fileoff;
    struct stat pipest[2];    // pipe stat
    struct stat spairst[2];   // socketpair stat
@@ -83,6 +85,7 @@ typedef struct process_state {
    struct stat socdupst;     // socket(2) dup stat
    struct stat epollst;      // epoll_create stat
    struct stat eventfdst;
+   struct stat dup_st[5];
 } process_state_t;
 
 process_state_t presnap;
@@ -115,7 +118,7 @@ void setup_process_state()
    CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));
    CHECK_SYSCALL(zerofd = open("/dev/zero", O_RDONLY));   // are we intentionally leaking an fd here?
    CHECK_SYSCALL(filefd = open("/etc/passwd", O_RDONLY));
-   CHECK_SYSCALL(fdupfd = dup(filefd));
+   CHECK_SYSCALL(sec_fd = open("/etc/passwd", O_RDONLY))
    CHECK_SYSCALL(lseek(filefd, 100, SEEK_SET));
    CHECK_SYSCALL(pipe(pipefd));
    CHECK_SYSCALL(socketpair(AF_UNIX, SOCK_STREAM, 0, spairfd));
@@ -132,6 +135,16 @@ void setup_process_state()
    CHECK_SYSCALL(eventfd_fd = eventfd(99, 0));
    // leave a gap in FS space for recovery
    CHECK_SYSCALL(close(tmpfd));
+
+   CHECK_SYSCALL(dup_fd[0] = open("/etc/passwd", O_RDONLY));
+   CHECK_SYSCALL(dup_fd[1] = dup(dup_fd[0]));
+   CHECK_SYSCALL(dup_fd[2] = dup(dup_fd[0]));
+   close(dup_fd[1]);
+
+   CHECK_SYSCALL(dup_fd[3] = open("/etc/passwd", O_RDONLY));
+   CHECK_SYSCALL(dup_fd[4] = dup(dup_fd[3]));
+
+   CHECK_SYSCALL(dup_fd[1] = dup(dup_fd[2]));
 
    struct sigaction act = {
        .sa_sigaction = test_sigaction,
@@ -157,9 +170,9 @@ void get_process_state(process_state_t* state)
       state->filefail = 1;
       fprintf(stderr, "fstat filefd %d, %s\n", filefd, strerror(errno));
    }
-   if (fstat(fdupfd, &state->fdupst) < 0) {
+   if (fstat(sec_fd, &state->fdupst) < 0) {
       state->filefail = 1;
-      fprintf(stderr, "fstat filefd %d, %s\n", filefd, strerror(errno));
+      fprintf(stderr, "fstat filefd %d, %s\n", sec_fd, strerror(errno));
    }
    CHECK_SYSCALL(state->fileoff = lseek(filefd, 0, SEEK_CUR));
    CHECK_SYSCALL(fstat(pipefd[0], &state->pipest[0]));
@@ -170,6 +183,9 @@ void get_process_state(process_state_t* state)
    CHECK_SYSCALL(fstat(socdupfd, &state->socdupst));
    CHECK_SYSCALL(fstat(epollfd, &state->epollst));
    CHECK_SYSCALL(fstat(eventfd_fd, &state->eventfdst));
+   for (int i = 0; i < 5; i++) {
+      CHECK_SYSCALL(fstat(dup_fd[i], &state->dup_st[i]));
+   }
    return;
 }
 
@@ -204,10 +220,34 @@ int compare_process_state(process_state_t* prestate, process_state_t* poststate)
       fprintf(stderr, "/etc/passwd offset changed\n");
       ret = -1;
    }
-   // check fdupfd off moves with filefd
-   lseek(fdupfd, 1, SEEK_CUR);
-   if (lseek(filefd, 0, SEEK_CUR) != lseek(fdupfd, 0, SEEK_CUR)) {
-      fprintf(stderr, "/etc/passwd offset didn't follow dup\n");
+   // check sec_fd off doesn't move with filefd
+   lseek(sec_fd, 1, SEEK_CUR);
+   if (lseek(filefd, 0, SEEK_CUR) == lseek(sec_fd, 0, SEEK_CUR)) {
+      fprintf(stderr, "/etc/passwd offset followed\n");
+      ret = -1;
+   }
+
+   if (prestate->dup_st[0].st_mode != poststate->dup_st[0].st_mode ||
+       prestate->dup_st[1].st_mode != poststate->dup_st[1].st_mode ||
+       prestate->dup_st[2].st_mode != poststate->dup_st[2].st_mode) {
+      fprintf(stderr, "dup 0 1 2 file mode changed\n");
+      ret = -1;
+   }
+
+   if (prestate->dup_st[3].st_mode != poststate->dup_st[3].st_mode ||
+       prestate->dup_st[3].st_mode != poststate->dup_st[4].st_mode) {
+      fprintf(stderr, "dup 3 4 file mode changed\n");
+      ret = -1;
+   }
+
+   lseek(dup_fd[0], 1, SEEK_CUR);
+   if (lseek(dup_fd[0], 0, SEEK_CUR) != lseek(dup_fd[1], 0, SEEK_CUR) ||
+       lseek(dup_fd[0], 0, SEEK_CUR) != lseek(dup_fd[2], 0, SEEK_CUR)) {
+      fprintf(stderr, "/etc/passwd didn't follow\n");
+      ret = -1;
+   }
+   if (lseek(dup_fd[3], 0, SEEK_CUR) == lseek(dup_fd[2], 0, SEEK_CUR)) {
+      fprintf(stderr, "/etc/passwd followed\n");
       ret = -1;
    }
 

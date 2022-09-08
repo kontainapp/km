@@ -510,6 +510,10 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu,
     * see things that are not snapshotable (like established network connections).
     */
    if (dumptype == KM_DO_SNAP) {
+      ret = km_fs_core_dup_write(cur, remain);
+      cur += ret;
+      remain -= ret;
+
       ret = km_fs_core_notes_write(cur, remain);
       cur += ret;
       remain -= ret;
@@ -642,6 +646,7 @@ km_core_notes_length(km_vcpu_t* vcpu, const char* label, const char* description
    }
 
    if (dumptype == KM_DO_SNAP) {
+      alloclen += km_fs_dup_notes_length();
       alloclen += km_fs_core_notes_length();
    }
    alloclen += km_sig_core_notes_length();
