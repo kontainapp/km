@@ -3167,13 +3167,6 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
       km_warnx("nt_km_socket_t size mismatch - old snapshot?");
       return -1;
    }
-   int dup_fd = km_fs_check_for_dups(nt_sock->dev, nt_sock->ino);
-   if (dup_fd >= 0) {
-      if (km_fs_dup2(NULL, dup_fd, nt_sock->fd) < 0) {
-         return -1;
-      }
-      return 0;
-   }
    if (nt_sock->state == KM_NT_SKSTATE_ERROR) {
       return km_fs_recover_socket_error(nt_sock);
    }
@@ -3184,6 +3177,13 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
       return km_fs_recover_socket_accepted(nt_sock);
    }
 
+   int dup_fd = km_fs_check_for_dups(nt_sock->dev, nt_sock->ino);
+   if (dup_fd >= 0) {
+      if (km_fs_dup2(NULL, dup_fd, nt_sock->fd) < 0) {
+         return -1;
+      }
+      return 0;
+   }
    /*
     * Assume socket optionally bound for listening
     */
@@ -3235,13 +3235,6 @@ static int km_fs_recover_eventfd(char* ptr, size_t length)
    if (km_is_file_used(file) != 0) {
       km_errx(2, "eventfd file %d in use.", nt_file->fd);
    }
-   int dup_fd = km_fs_check_for_dups(nt_file->dev, nt_file->ino);
-   if (dup_fd >= 0) {
-      if (km_fs_dup3(NULL, dup_fd, nt_file->fd, nt_file->flags & O_CLOEXEC) < 0) {
-         return -1;
-      }
-      return 0;
-   }
 
    int hostfd = eventfd(nt_file->data, nt_file->flags);
    if (hostfd < 0) {
@@ -3279,13 +3272,6 @@ static int km_fs_recover_epollfd(char* ptr, size_t length)
    km_file_t* file = &km_fs()->guest_files[nt_epollfd->fd];
    if (km_is_file_used(file) != 0) {
       km_errx(2, "file %d in use. %s", nt_epollfd->fd, file->name);
-   }
-   int dup_fd = km_fs_check_for_dups(nt_epollfd->dev, nt_epollfd->ino);
-   if (dup_fd >= 0) {
-      if (km_fs_dup3(NULL, dup_fd, nt_epollfd->fd, nt_epollfd->flags & O_CLOEXEC) < 0) {
-         return -1;
-      }
-      return 0;
    }
 
    int hostfd = epoll_create1(nt_epollfd->flags);
