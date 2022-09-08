@@ -80,7 +80,7 @@ RUN dnf install -y \
    python3-markupsafe libffi-devel parallel \
    automake autoconf libcap-devel yajl-devel libseccomp-devel \
    python3-libmount libtool cmake makeself \
-   systemd-devel valgrind \
+   systemd-devel valgrind lsof \
    && dnf upgrade -y && dnf clean all && rm -rf /var/cache/{dnf,yum}
 
 FROM buildenv-early AS buildclangformat

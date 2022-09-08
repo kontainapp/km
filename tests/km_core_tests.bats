@@ -1107,7 +1107,7 @@ fi
    # Find our pid if pidof returned multiple pids
    pid=""
    for p in $pidlist; do
-      if lsof -p $p | grep " 729u .* $MGMTPIPE " >/dev/null 2>&1; then
+      if lsof -p $p |& grep -q  " 729u .* $MGMTPIPE "; then
          pid=$p
          break
       fi
