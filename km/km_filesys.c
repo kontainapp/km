@@ -625,6 +625,7 @@ uint64_t km_fs_fcntl(km_vcpu_t* vcpu, int fd, int cmd, uint64_t arg)
                                    (cmd == F_DUPFD) ? 0 : O_CLOEXEC,
                                    file->sockinfo,
                                    file->how);
+            km_fs_add_to_dup_data(ret, host_fd);
          } else {
             ret = km_add_guest_fd_internal(vcpu,
                                            ret,
