@@ -605,7 +605,8 @@ static inline void km_guestmem_write(int fd, km_gva_t base, size_t length)
  * Returns buffer allocation size for core PT_NOTES section based on the
  * number of active vcpu's (threads).
  */
-static inline size_t km_core_notes_length(km_vcpu_t* vcpu, const char* label, const char* description)
+static inline size_t
+km_core_notes_length(km_vcpu_t* vcpu, const char* label, const char* description, km_coredump_type_t dumptype)
 {
    int nvcpu = km_vcpu_run_cnt();
    int nvcpu_inc = (vcpu == NULL) ? 0 : 1;
@@ -640,7 +641,9 @@ static inline size_t km_core_notes_length(km_vcpu_t* vcpu, const char* label, co
                   km_nt_file_padded_size(km_dynlinker.km_filename);
    }
 
-   alloclen += km_fs_core_notes_length();
+   if (dumptype == KM_DO_SNAP) {
+      alloclen += km_fs_core_notes_length();
+   }
    alloclen += km_sig_core_notes_length();
 
    return roundup(alloclen, KM_PAGE_SIZE);
@@ -815,7 +818,7 @@ void km_dump_core(char* core_path,
    size_t offset;   // Data offset
    km_mmap_reg_t* ptr;
    char* notes_buffer;
-   size_t notes_length = km_core_notes_length(vcpu, label, description);
+   size_t notes_length = km_core_notes_length(vcpu, label, description, dumptype);
    km_gva_t end_load = 0;
    int phnum = km_core_count_phdrs(vcpu, &end_load);
 
