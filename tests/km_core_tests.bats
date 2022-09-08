@@ -1103,7 +1103,16 @@ fi
    tries=5
    while [ ! -S ${MGMTPIPE} ] && [ $tries -gt 0 ]; do sleep 1; tries=`expr $tries - 1`; done
    assert [ $tries -gt 0 ]
-   pid=`pidof hello_html_test$ext`
+   pidlist=`pidof hello_html_test$ext`
+   # Find our pid if pidof returned multiple pids
+   pid=""
+   for p in $pidlist; do
+      if lsof -p $p |& grep -q  " 729u .* $MGMTPIPE "; then
+         pid=$p
+         break
+      fi
+   done
+   assert [ ! -z "$pid" ]
    run ${KM_CLI_BIN} -p $pid -d $SNAPDIR
    assert_success
    assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
