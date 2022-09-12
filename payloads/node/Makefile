@@ -90,16 +90,16 @@ clean:
 	@echo "Note - 'clean' doesn't remove ./node artifacts. use 'clobber' to force remove build artifacts"
 
 test test-all: ${PAYLOAD_KM} ${TEST_KM}
-	scripts/test-run.sh $@ ${KM_BIN} ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+	scripts/test-run.sh $@ ${KM_BIN} ${KM_CLI_BIN} ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
 
 # Command to run tests in testenv-image container:
-CONTAINER_TEST_CMD := scripts/test-run.sh test km ${PAYLOAD_KM} ${TEST_KM}
+CONTAINER_TEST_CMD := scripts/test-run.sh test km_cli ${PAYLOAD_KM} ${TEST_KM}
 
 # TODO: revert when kkm is fixed
 ifeq (${HYPERVISOR_DEVICE},/dev/kkm)
-CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test km ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test km km_cli ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
 else
-CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test-all km ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test-all km km_cli ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
 endif
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
