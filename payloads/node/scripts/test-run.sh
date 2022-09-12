@@ -25,8 +25,7 @@ usage() {
    cat <<EOF
 Run short or long node tests. Usually called from Makefile or Docker Entry with proper params
 Usage:
-   short tests: test-run.sh test KM_BIN PAYLOAD_KM TEST_KM
-   long  tests: test-run.sh test-all NODETOP BUILD
+   test-run.sh < test | test-all > KM_BIN KM_CLI_BIN PAYLOAD_KM TEST_KM NODETOP BUILD
 EOF
    exit 1
 }
@@ -45,20 +44,33 @@ check_crypto
 
 if [[ "$1" == "test" || "$1" == "test-all" ]]; then
    KM_BIN=$2
-   PAYLOAD_KM=$3
-   TEST_KM=$4
+   KM_CLI_BIN=$3
+   PAYLOAD_KM=$4
+   TEST_KM=$5
+   MGMTPIPE=/tmp/mgmtpipe.$$
 
    ${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
    echo noop.js - expecting exit with code 22:
    ${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js || [ $? -eq 22 ]
-   ${KM_BIN} ${PAYLOAD_KM} ./scripts/micro-srv.js & sleep 1 ; curl localhost:8080
-   curl -X POST localhost:8080 || echo Forcing srv to exit and ignoring curl 'empty reply'
    ${KM_BIN} ${TEST_KM} --gtest_filter="*"
+
+   rm -rf ${MGMTPIPE}
+   ${KM_BIN} --mgtpipe=${MGMTPIPE} ${PAYLOAD_KM} ./scripts/micro-srv.js &
+   pid=$!
+   tries=5
+   curl -4 -s localhost:8080 --retry-connrefused  --retry $tries --retry-delay 1
+   sleep 1 # give them a chance to quiesce
+   ${KM_CLI_BIN} -s ${MGMTPIPE} -t
+   wait $pid
+   ${KM_BIN} kmsnap &
+   curl -4 -s localhost:8080 --retry-connrefused  --retry $tries --retry-delay 1
+   curl localhost:8080
+   curl -X POST localhost:8080 || echo Forcing srv to exit and ignoring curl 'empty reply'
 fi
 
 if [[ "$1" == "test-all" ]]; then
-   NODETOP=$5
-   BUILD=$6
+   NODETOP=$6
+   BUILD=$7
    trap cleanup EXIT
    TMP_FILE=$(mktemp /tmp/node.XXXXXXXXXX)
    echo -e "#!/bin/bash\n${KM_BIN} $(realpath ${NODETOP}/out/${BUILD}/node.km) \$*\n" > ${TMP_FILE} && chmod +x ${TMP_FILE}
