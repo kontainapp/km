@@ -238,7 +238,7 @@ int km_add_guest_fd_internal(
                                    0,
                                    __ATOMIC_SEQ_CST,
                                    __ATOMIC_SEQ_CST) == 0) {
-      km_errx(0, "file slot %d is taken unexpectedly", host_fd);
+      km_errx(0, "file slot %d for %s is taken unexpectedly", host_fd, name);
    }
    km_file_t* file = &km_fs()->guest_files[host_fd];
    file->ops = ops;
@@ -2201,12 +2201,12 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
    }
 
    km_infox(KM_TRACE_SNAPSHOT,
-            "fd:%d ISOCK: how=%d %s other=0x%x ofd %d, datalength %ld",
+            "fd:%d ISOCK: how=%d %s other=0x%x state=%d, datalength %ld",
             fnote->fd,
             fnote->how,
             file->name,
             fnote->other,
-            file->ofd,
+            fnote->state,
             fnote->datalength);
    return cur - buf;
 }
@@ -2538,7 +2538,13 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
       return -1;
    }
    km_fs_recover_fd(nt_sock->fd, host_fd, 0, km_get_nonfile_name(host_fd), -1, nt_sock->how);
-
+   if (nt_sock->state == KM_NT_SKSTATE_ERROR) {
+      file->error = -ECONNRESET;
+      if (file->name != NULL) {
+         free(file->name);
+      }
+      file->name = strdup("socket error");
+   }
    km_fd_socket_t sval = {
        .domain = nt_sock->domain,
        .type = nt_sock->type,
@@ -2556,22 +2562,6 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
    }
    file->sockinfo = sockinfo;
 
-   return 0;
-}
-
-static inline int km_fs_recover_socket_error(km_nt_socket_t* nt_sock)
-{
-   if (nt_sock->fd < 0 || nt_sock->fd >= machine.filesys->nfdmap) {
-      km_warn("socket fd %d invalid", nt_sock->fd);
-      return -1;
-   }
-   km_file_t* file = &km_fs()->guest_files[nt_sock->fd];
-   *file = (km_file_t){.inuse = 1,
-                       .how = nt_sock->how,
-                       .name = strdup("socket error"),
-                       .ofd = nt_sock->other,
-                       .error = -ECONNRESET};
-   TAILQ_INIT(&file->events);
    return 0;
 }
 
@@ -2661,13 +2651,13 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
 
    int fd = open(name, nt_file->flags, 0);
    if (fd < 0) {
-      km_warn("cannon open %s", name);
+      km_warn("can't open %s for fd %d", name, nt_file->fd);
       return -1;
    }
 
    struct stat st;
    if (fstat(fd, &st) < 0) {
-      km_warn("cannon fstat %s", name);
+      km_warn("can't fstat %s", name);
       return -1;
    }
    if (st.st_mode != nt_file->mode) {
@@ -3331,9 +3321,6 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
          return -1;
       }
       return 0;
-   }
-   if (nt_sock->state == KM_NT_SKSTATE_ERROR) {
-      return km_fs_recover_socket_error(nt_sock);
    }
    if (nt_sock->how == KM_FILE_HOW_SOCKETPAIR0 || nt_sock->how == KM_FILE_HOW_SOCKETPAIR1) {
       return km_fs_recover_socketpair(nt_sock);
