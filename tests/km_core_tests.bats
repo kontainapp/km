@@ -35,10 +35,6 @@ fi
 # TODO: gdb_delete_breakpoint and gdb_server_race are caused by race described in https://github.com/kontainapp/km/issues/821.
 # Disable them for now to improve signal/noise ratio
 todo_generic='gdb_delete_breakpoint gdb_server_race clock_gettime'
-if [ -n "${VALGRIND}" ]; then
-   # valground executables don't have the payload's name so pidof doesn't work.
-   todo_generic="$todo_generic basic_snapshot"
-fi
 
 not_needed_static='gdb_sharedlib dlopen'
 todo_static=''
@@ -1103,23 +1099,30 @@ fi
    tries=5
    while [ ! -S ${MGMTPIPE} ] && [ $tries -gt 0 ]; do sleep 1; tries=`expr $tries - 1`; done
    assert [ $tries -gt 0 ]
-   pidlist=`pidof hello_html_test$ext`
-   # Find our pid if pidof returned multiple pids
-   pid=""
-   for p in $pidlist; do
-      if lsof -p $p |& grep -q  " 729u .* $MGMTPIPE "; then
-         pid=$p
-         break
-      fi
-   done
-   assert [ ! -z "$pid" ]
-   run ${KM_CLI_BIN} -p $pid -d $SNAPDIR
+   # valgrind executables don't have the payload's name so pidof doesn't work.
+   if [ -z ${VALGRIND} ]; then
+      pidlist=`pidof hello_html_test$ext`
+      # Find our pid if pidof returned multiple pids
+      pid=""
+      for p in $pidlist; do
+         if lsof -p $p |& grep -q  " 729u .* $MGMTPIPE "; then
+            pid=$p
+            break
+         fi
+      done
+      assert [ ! -z "$pid" ]
+      run ${KM_CLI_BIN} -p $pid -d $SNAPDIR
+      assert_success
+      assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
+      rm $SNAPDIR/hello_html_test$ext.$pid.kmsnap
+      run ${KM_CLI_BIN} -c hello_html_test$ext -d $SNAPDIR
+      assert_success
+      assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
+      rm $SNAPDIR/hello_html_test$ext.$pid.kmsnap
+   fi
+   run ${KM_CLI_BIN} -s $MGMTPIPE -d $SNAPDIR
    assert_success
-   assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
-   rm $SNAPDIR/hello_html_test$ext.$pid.kmsnap
-   run ${KM_CLI_BIN} -c hello_html_test$ext -d $SNAPDIR
-   assert_success
-   assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
+   assert [ -f $SNAPDIR/kmsnap ]
    run curl -4 -s localhost:$snapshot_test_port --retry-connrefused  --retry 3 --retry-delay 1
    assert_success
    rm -fr $SNAPDIR $MGMTPIPE
