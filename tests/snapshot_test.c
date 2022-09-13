@@ -138,7 +138,7 @@ void setup_process_state()
 
    CHECK_SYSCALL(dup_fd[0] = open("/etc/passwd", O_RDONLY));
    CHECK_SYSCALL(dup_fd[1] = dup(dup_fd[0]));
-   CHECK_SYSCALL(dup_fd[2] = dup(dup_fd[0]));
+   CHECK_SYSCALL(dup_fd[2] = fcntl(dup_fd[0], F_DUPFD, 0));
    close(dup_fd[1]);
 
    CHECK_SYSCALL(dup_fd[3] = open("/etc/passwd", O_RDONLY));
