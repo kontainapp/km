@@ -1981,7 +1981,7 @@ size_t km_fs_dup_notes_length(void)
 static int ioctlfionread(int fd)
 {
    int bytesavailable = 0;
-   if (fd >= 0 && ioctl(fd, FIONREAD, &bytesavailable) < 0) {
+   if (ioctl(fd, FIONREAD, &bytesavailable) < 0) {
       km_err(1, "ioctl FIONREAD on fd %d failed", fd);
    }
    return bytesavailable;
@@ -2008,7 +2008,7 @@ size_t km_fs_core_notes_length(void)
          } else if (file->sockinfo == NULL) {
             queuedbytes = 0;
             if (file->how == KM_FILE_HOW_PIPE_0) {
-               // We are looking at the write end of a pipe, find out how much data is queued
+               // We are looking at the read end of a pipe, find out how much data is queued
                queuedbytes = ioctlfionread(i);
             }
             ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_file_t) +
@@ -2077,31 +2077,65 @@ static inline int do_full_write(int fd, char* bufp, size_t bufl)
  *    We know the buffer is big enough because the buffer for all of the
  *    elf notes is precomputed before we build the notes.
  *  length - amount of space available at what buf points to.
- *  file - the fd we can read the buffered pipe data from.
- *  writefd - the fd we need to write the data back into so that it will
- *    be there for the payload to read if we resume after taking a snapshot.
+ *  fd - the fd we can read the buffered pipe data from.
  *  queuedbytes - the number of bytes queued in the pipe/socketpair.
  * Returns:
- *  The number of bytes written into the elf note.
+ *  0 - success
+ *  != 0 - errno for the failure
  */
-static inline int
-fs_core_save_pipe_contents(char* buf, size_t length, km_file_t* file, int writefd, size_t queuedbytes)
+static inline int fs_core_save_pipe_contents(char* buf, size_t length, int fd, size_t queuedbytes)
 {
+   km_file_t* file = &km_fs()->guest_files[fd];
    km_assert(queuedbytes <= length);
+   km_assert(fd >= 0);
 
-   // Read the bytes queued in the pipe
-   int rc = do_full_read(file->ofd, buf, queuedbytes);
+   // Read the bytes queued in the pipe into the memory buf points to
+   int rc = do_full_read(fd, buf, queuedbytes);
    if (rc != 0) {
       return rc;
    }
 
-   // now write the bytes back into the pipe
-   return do_full_write(writefd, buf, queuedbytes);
+   if (file->ofd < 0) {
+      // The write side of this pipe is closed.  So we need to recreate the pipe
+      // to put the data back into the pipe buffer and then close the write end
+      // after writing the data.
+      // If any of this fails, we can not allow the payload to resume since we can't
+      // recreate is half open pipe or sockpair.
+      int fdpair[2];
+      if (file->how == KM_FILE_HOW_SOCKETPAIR0 || file->how == KM_FILE_HOW_SOCKETPAIR1) {
+         if (socketpair(file->sockinfo->domain, file->sockinfo->type, file->sockinfo->protocol, fdpair) <
+             0) {
+            km_err(1, "Unable to recreate half open socketpair, fd %d", fd);
+         }
+      } else {
+         if (pipe2(fdpair, file->flags) < 0) {
+            km_err(1, "Unable to recreate half open pipe, fd %d", fd);
+         }
+      }
+      rc = do_full_write(fdpair[1], buf, queuedbytes);
+      if (rc != 0) {
+         km_err(1, "Unabled to put data back into half open pipe/socketpair, fd %d", fd);
+      }
+      close(fdpair[1]);
+      if (dup2(fdpair[0], fd) < 0) {
+         km_err(1, "Unable to dup2 for half open pipe, fd %d", fd);
+      }
+      close(fdpair[0]);
+   } else {
+      // both ends of the pipe are open, we can write the data back into the write end.
+      // If this fails, we can't let the payload continue.
+      rc = do_full_write(file->ofd, buf, queuedbytes);
+      if (rc != 0) {
+         km_errx(1, "Unable to write data back into pipe/socketpair, fd %d", fd);
+      }
+   }
+   return rc;
 }
 
 static inline int
 fs_core_write_nonsocket(char* buf, size_t length, km_file_t* file, int fd, size_t* sizep)
 {
+   int pipesize = 0;
    struct stat st = {};
    if (fstat(fd, &st) < 0) {
       km_warn("Can't take a snaphot, fstat failed fd=%d", fd);
@@ -2109,9 +2143,10 @@ fs_core_write_nonsocket(char* buf, size_t length, km_file_t* file, int fd, size_
    }
 
    size_t queuedbytes = 0;
-   if (file->how == KM_FILE_HOW_PIPE_1) {
-      // This is the write side of the pipe, get the number of bytes waiting on the read end.
-      queuedbytes = ioctlfionread(file->ofd);
+   if (file->how == KM_FILE_HOW_PIPE_0) {
+      // This is the read side of the pipe, get the number of bytes waiting to be read
+      queuedbytes = ioctlfionread(fd);
+      pipesize = fcntl(fd, F_GETPIPE_SZ);
    }
    km_infox(KM_TRACE_SNAPSHOT, "fd=%d %s, queuedbytes %ld", fd, file->name, queuedbytes);
    char* cur = buf;
@@ -2127,7 +2162,9 @@ fs_core_write_nonsocket(char* buf, size_t length, km_file_t* file, int fd, size_
    fnote->size = sizeof(km_nt_file_t);
    fnote->fd = fd;
    fnote->flags = file->flags;
+   fnote->how = file->how;
    fnote->mode = st.st_mode;
+   fnote->pipesize = pipesize;
    if (fnote->mode & S_IFIFO) {
       fnote->data = file->ofd;   // default to ofd. override based on file type
    } else {
@@ -2141,8 +2178,9 @@ fs_core_write_nonsocket(char* buf, size_t length, km_file_t* file, int fd, size_
    strcpy(cur, file->name);
    cur += km_nt_file_padded_size(file->name);
 
+   // Save any data queued in the read size of the pipe into this elf note.
    if (queuedbytes > 0 && fd > 2) {
-      int rc = fs_core_save_pipe_contents(cur, length - (cur - buf), file, fd, queuedbytes);
+      int rc = fs_core_save_pipe_contents(cur, length - (cur - buf), fd, queuedbytes);
       if (rc != 0) {
          return rc;
       }
@@ -2172,10 +2210,9 @@ static inline int fs_core_write_socket(char* buf, size_t length, km_file_t* file
    km_assert(file->sockinfo != NULL);
    if (file->how == KM_FILE_HOW_SOCKETPAIR0 || file->how == KM_FILE_HOW_SOCKETPAIR1) {
       /*
-       * We put queued data into the note for the write side of the socket pair.  That data must be
-       * read from the other fd of the pair.  So we check file->ofd to know how much data to read.
+       * We put queued data into the note for the read side of the socket pair's elf note.
        */
-      queuedbytes = ioctlfionread(file->ofd);
+      queuedbytes = ioctlfionread(fd);
    }
    km_infox(KM_TRACE_SNAPSHOT, "fd=%d %s, how %d, queuedbytes %ld", fd, file->name, file->how, queuedbytes);
    cur += km_add_note_header(cur,
@@ -2211,7 +2248,7 @@ static inline int fs_core_write_socket(char* buf, size_t length, km_file_t* file
 
    // Save data queued in the socket for this direction.
    if (queuedbytes > 0) {
-      int rc = fs_core_save_pipe_contents(cur, length - (cur - buf), file, fd, queuedbytes);
+      int rc = fs_core_save_pipe_contents(cur, length - (cur - buf), fd, queuedbytes);
       if (rc != 0) {
          return rc;
       }
@@ -2499,19 +2536,19 @@ km_fs_recover_fdpair(int guestfd[2], int hostfd[2], km_file_how_t how[2], int fl
    return 0;
 }
 
-static inline int km_fs_recover_pipedata(km_nt_file_t* nt_file, char* pipedata)
+static inline int km_fs_recover_pipedata(km_nt_file_t* nt_file, int writefd, char* pipedata)
 {
    if (nt_file->datalength > 0) {
-      ssize_t byteswritten = write(nt_file->fd, pipedata, nt_file->datalength);
+      ssize_t byteswritten = write(writefd, pipedata, nt_file->datalength);
       if (byteswritten < 0) {
-         km_warn("write queued pipe data to fd %d failed", nt_file->fd);
+         km_warn("write queued pipe data to fd %d failed", writefd);
          return -1;
       }
       if (byteswritten != nt_file->datalength) {
          km_warnx("expected to write %ld bytes of pipe data, but wrote %ld bytes to fd %d",
                   nt_file->datalength,
                   byteswritten,
-                  nt_file->fd);
+                  writefd);
          return -1;
       }
    }
@@ -2531,11 +2568,14 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name, char* pi
             nt_file->datalength);
 
    if (km_is_file_used(file) != 0) {
-      // Created in by other side
+      // This end of the pipe was create when the other end of the pipe's fd was created.
       km_assert(file->ofd == nt_file->data);
 
-      // If this is the write side we need to recover the pipe data
-      return km_fs_recover_pipedata(nt_file, pipedata);
+      // If this is the read side we may have buffered data in the elf note
+      // that needs to be written into the write side of the pipe.
+      // We cant do this here, the pipe's writefd may already be closed. !!!!!!!!!
+      return (file->how == KM_FILE_HOW_PIPE_0) ? km_fs_recover_pipedata(nt_file, file->ofd, pipedata)
+                                               : 0;
    }
    int hostfd[2];
    int syscall_flags = nt_file->flags & ~O_WRONLY;
@@ -2543,6 +2583,21 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name, char* pi
       km_warn("pipe recover failure");
       return -1;
    }
+
+   // If we are the read side of the pipe, write any buffered data from this elf note
+   // into the write side of the pipe.  Do this now because the write end may be closed
+   // below.
+   if (nt_file->how == KM_FILE_HOW_PIPE_0) {
+      if (km_fs_recover_pipedata(nt_file, hostfd[1], pipedata) != 0) {
+         return -1;
+      }
+   }
+
+   if (fcntl(hostfd[0], F_SETPIPE_SZ, nt_file->pipesize) < 0) {
+      km_warn("set pipe buffer size, host fd %d", hostfd[0]);
+      return -1;
+   }
+
    /*
     * pipes are asymmetric. Make sure restored correctly.
     */
@@ -2559,8 +2614,7 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name, char* pi
    if ((km_fs_recover_fdpair(guestfd, hostfd, how, flags)) != 0) {
       return -1;
    }
-   // Recover queued pipe contents
-   return km_fs_recover_pipedata(nt_file, pipedata);
+   return 0;
 }
 
 static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr* addr, int addrlen)
@@ -3275,11 +3329,11 @@ void km_close_stdio(int log_to_fd)
  * Snapshot recovery for files
  */
 
-static int km_fs_recover_socketdata(km_nt_socket_t* nt_sock)
+static int km_fs_recover_socketdata(km_nt_socket_t* nt_sock, int writefd)
 {
    if (nt_sock->datalength > 0) {
       char* p = (char*)nt_sock + sizeof(km_nt_socket_t) + km_nt_chunk_roundup(nt_sock->addrlen);
-      ssize_t byteswritten = write(nt_sock->fd, p, nt_sock->datalength);
+      ssize_t byteswritten = write(writefd, p, nt_sock->datalength);
       if (byteswritten < 0) {
          km_warn("write %ld bytes queued data to fd %d failed", nt_sock->fd, nt_sock->datalength);
          return -1;
@@ -3309,12 +3363,22 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
 
    if (km_is_file_used(&km_fs()->guest_files[nt_sock->fd]) != 0) {
       // Our fd is already created, just restore any data queued in the pipe.
-      return km_fs_recover_socketdata(nt_sock);
+      return km_fs_recover_socketdata(nt_sock, nt_sock->other);
    }
 
    int host_sv[2];
    if (socketpair(nt_sock->domain, nt_sock->type, nt_sock->protocol, host_sv) < 0) {
       km_warn("socketpair recovery failure");
+      return -1;
+   }
+
+   /*
+    * Restore any data buffered in the socket before calling km_fs_recover_fdpair()
+    * because km_fs_recover_fdpair() will close the other end if this is a half
+    * open socketpair.
+    */
+   if (km_fs_recover_socketdata(nt_sock,
+                                nt_sock->how == KM_FILE_HOW_SOCKETPAIR0 ? host_sv[1] : host_sv[0]) < 0) {
       return -1;
    }
 
@@ -3341,8 +3405,7 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
          return -1;
       }
    }
-   // Recover any data that needs to be written on this fd.
-   return km_fs_recover_socketdata(nt_sock);
+   return 0;
 }
 
 static int km_fs_recover_socket_accepted(km_nt_socket_t* nt_sock)

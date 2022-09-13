@@ -61,6 +61,26 @@ static km_fork_state_t km_fork_state = {
 };
 
 /*
+ * If this process has successfully fork()'ed, we don't allow snapshots to be taken.
+ * Snapshots must preserve unread data buffered in pipes and socketpairs and then write
+ * that data back into the other end of the pipe/socketpair.  If a fork
+ * has happened snapshot can't tell if a pipe or socketpair with a single end in this process
+ * has no other end, or the other end is in another process.
+ * If the other end is in another process, we can't snapshot buffered data.
+ * This counter is used by snapshot to disable snapshots after a fork has be done.
+ */
+unsigned int km_fork_count = 0;
+
+/*
+ * Helper function for snapshot to disable snapshot during and after fork.
+ * This is racey!
+ */
+unsigned int km_have_forked(void)
+{
+   return km_fork_count > 0;
+}
+
+/*
  * This function is modeled after km_machine_init(). There are differences because after a fork or
  * clone hypercall we want to use some of the state inherited from the parent process. We get all of
  * the memory from the parent so we don't need to initialize the memory maps, but since we must
@@ -328,6 +348,7 @@ int km_dofork(int* in_child)
       km_mutex_unlock(&km_fork_state.mutex);
       return 0;
    }
+   km_fork_count++;
 
    // TODO: We need to block more signals here, this just gets the simple test passing.
    sigset_t blockthese;
@@ -382,6 +403,7 @@ int km_dofork(int* in_child)
          km_fork_state.arg->hc_ret = linux_child_pid;
       } else {   // fork failed
          km_fork_state.arg->hc_ret = -errno;
+         km_fork_count--;
       }
       km_infox(KM_TRACE_FORK,
                "parent: after fork/clone linux_child_pid %d, errno %d",
