@@ -1094,7 +1094,7 @@ fi
    # hello_html_test_$$.XXX and then run that.
    mkdir -p $SNAPDIR
    rm -f $MGMTPIPE
-   KM_MGTPIPE=$MGMTPIPE km_with_timeout hello_html_test$ext $snapshot_test_port &
+   KM_MGTPIPE=$MGMTPIPE km_with_timeout --snapshot=${SNAPDIR}/kmsnap hello_html_test$ext $snapshot_test_port &
    # Wait for the management pipe to exist
    tries=5
    while [ ! -S ${MGMTPIPE} ] && [ $tries -gt 0 ]; do sleep 1; tries=`expr $tries - 1`; done
@@ -1111,16 +1111,16 @@ fi
          fi
       done
       assert [ ! -z "$pid" ]
-      run ${KM_CLI_BIN} -p $pid -d $SNAPDIR
+      run ${KM_CLI_BIN} -r -p $pid -d $SNAPDIR
       assert_success
       assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
       rm $SNAPDIR/hello_html_test$ext.$pid.kmsnap
-      run ${KM_CLI_BIN} -c hello_html_test$ext -d $SNAPDIR
+      run ${KM_CLI_BIN} -r -c hello_html_test$ext -d $SNAPDIR
       assert_success
       assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
       rm $SNAPDIR/hello_html_test$ext.$pid.kmsnap
    fi
-   run ${KM_CLI_BIN} -s $MGMTPIPE -d $SNAPDIR
+   run ${KM_CLI_BIN} -r -s $MGMTPIPE -d $SNAPDIR
    assert_success
    assert [ -f $SNAPDIR/kmsnap ]
    run curl -4 -s localhost:$snapshot_test_port --retry-connrefused  --retry 3 --retry-delay 1
@@ -1573,7 +1573,7 @@ fi
    # startup the toy html server and wait for it to get going.
    rm -f $MGTPIPE
    mkdir -p $SNAPDIR
-   KEEP_RUNNING=yes km_with_timeout --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
+   KEEP_RUNNING=yes km_with_timeout --snapshot ${SNAPDIR}/kmsnap --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
    # Use "curl -4" to make sure we use ipv4.
    run curl -4 -s -S --retry-connrefused  --retry 3 --retry-delay 1 localhost:$socket_port
    assert [ $status -eq 0 ]
@@ -1583,7 +1583,7 @@ fi
    # How many spins is enough?
    for ((i=0; i<25; i++))
    do
-      run ${KM_CLI_BIN} -d $SNAPDIR -s $MGTPIPE
+      run ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
       assert_success
       assert [ -f $SNAPDIR/kmsnap ]
 
