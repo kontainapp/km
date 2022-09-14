@@ -236,12 +236,12 @@ typedef struct km_nt_sighand {
 
 // Core dump guest.
 typedef enum { KM_DO_CORE, KM_DO_SNAP } km_coredump_type_t;
-void km_dump_core(char* filename,
-                  km_vcpu_t* vcpu,
-                  x86_interrupt_frame_t* iframe,
-                  const char* label,
-                  const char* description,
-                  km_coredump_type_t dumptype);
+int km_dump_core(char* filename,
+                 km_vcpu_t* vcpu,
+                 x86_interrupt_frame_t* iframe,
+                 const char* label,
+                 const char* description,
+                 km_coredump_type_t dumptype);
 void km_set_coredump_path(char* path);
 char* km_get_coredump_path();
 size_t km_note_header_size(char* owner);

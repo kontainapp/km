@@ -295,7 +295,7 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
 size_t km_fs_dup_notes_length(void);
 size_t km_fs_core_dup_write(char* buf, size_t length);
 size_t km_fs_core_notes_length(void);
-size_t km_fs_core_notes_write(char* cur, size_t remain);
+int km_fs_core_notes_write(char* cur, size_t remain, size_t* sizep);
 
 void km_redirect_msgs(const char* name);
 void km_redirect_msgs_after_exec(void);

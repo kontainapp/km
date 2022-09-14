@@ -2007,16 +2007,16 @@ size_t km_fs_core_notes_length(void)
             }
          } else if (file->sockinfo == NULL) {
             queuedbytes = 0;
-            if (file->how == KM_FILE_HOW_PIPE_1) {
+            if (file->how == KM_FILE_HOW_PIPE_0) {
                // We are looking at the write end of a pipe, find out how much data is queued
-               queuedbytes = ioctlfionread(file->ofd);
+               queuedbytes = ioctlfionread(i);
             }
             ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_file_t) +
                    km_nt_file_padded_size(file->name) + km_nt_chunk_roundup(queuedbytes);
          } else {
             queuedbytes = 0;
             if (file->how == KM_FILE_HOW_SOCKETPAIR0 || file->how == KM_FILE_HOW_SOCKETPAIR1) {
-               queuedbytes = ioctlfionread(file->ofd);
+               queuedbytes = ioctlfionread(i);
             }
             ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_socket_t) +
                    km_nt_file_padded_size(file->name) + km_nt_chunk_roundup(queuedbytes);
@@ -2028,44 +2028,46 @@ size_t km_fs_core_notes_length(void)
 
 // Helper function to ensure we read all the bytes requested.
 // We abort after 50 tries.
-static inline void do_full_read(int fd, char* bufp, size_t bufl)
+static inline int do_full_read(int fd, char* bufp, size_t bufl)
 {
    int read_attempts = 0;
    ssize_t total_bytes_read = 0;
    while (total_bytes_read != bufl) {
       ssize_t bytes_read = read(fd, bufp + total_bytes_read, bufl - total_bytes_read);
       if (bytes_read < 0) {
-         km_err(1, "read fd %d, %ld bytes failed", fd, bufl - total_bytes_read);
+         km_warn("read fd %d, %ld bytes failed", fd, bufl - total_bytes_read);
+         return errno;
       }
       total_bytes_read += bytes_read;
       if (++read_attempts > 50) {
          // Don't get stuck doing unproductive reads
-         km_errx(1, "After %d read attempts, failed to read %ld bytes from fd %d", read_attempts, bufl, fd);
+         km_warnx("After %d read attempts, failed to read %ld bytes from fd %d", read_attempts, bufl, fd);
+         return EINVAL;
       }
    }
+   return 0;
 }
 
 // Helper function to ensure we write all bytes requested.
 // We abort after 50 tries.
-static inline void do_full_write(int fd, char* bufp, size_t bufl)
+static inline int do_full_write(int fd, char* bufp, size_t bufl)
 {
    int write_attempts = 0;
    ssize_t total_bytes_written = 0;
    while (total_bytes_written != bufl) {
       ssize_t bytes_written = write(fd, bufp + total_bytes_written, bufl - total_bytes_written);
       if (bytes_written < 0) {
-         km_err(1, "write fd %d, %ld bytes failed", fd, bufl - total_bytes_written);
+         km_warn("write fd %d, %ld bytes failed", fd, bufl - total_bytes_written);
+         return errno;
       }
       total_bytes_written += bytes_written;
       if (++write_attempts > 50) {
          // Don't get stuck doing unproductive writes
-         km_errx(1,
-                 "After %d write attempts, failed to write %ld bytes from fd %d",
-                 write_attempts,
-                 bufl,
-                 fd);
+         km_warnx("After %d write attempts, failed to write %ld bytes to fd %d", write_attempts, bufl, fd);
+         return EINVAL;
       }
    }
+   return 0;
 }
 
 /*
@@ -2082,24 +2084,28 @@ static inline void do_full_write(int fd, char* bufp, size_t bufl)
  * Returns:
  *  The number of bytes written into the elf note.
  */
-static inline size_t
+static inline int
 fs_core_save_pipe_contents(char* buf, size_t length, km_file_t* file, int writefd, size_t queuedbytes)
 {
    km_assert(queuedbytes <= length);
 
    // Read the bytes queued in the pipe
-   do_full_read(file->ofd, buf, queuedbytes);
+   int rc = do_full_read(file->ofd, buf, queuedbytes);
+   if (rc != 0) {
+      return rc;
+   }
 
    // now write the bytes back into the pipe
-   do_full_write(writefd, buf, queuedbytes);
-   return queuedbytes;
+   return do_full_write(writefd, buf, queuedbytes);
 }
 
-static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t* file, int fd)
+static inline int
+fs_core_write_nonsocket(char* buf, size_t length, km_file_t* file, int fd, size_t* sizep)
 {
    struct stat st = {};
    if (fstat(fd, &st) < 0) {
-      km_warn("Can't take a snaphot, fstat failed fd=%d", fd);   // TODO: return error
+      km_warn("Can't take a snaphot, fstat failed fd=%d", fd);
+      return errno;
    }
 
    size_t queuedbytes = 0;
@@ -2126,27 +2132,37 @@ static inline size_t fs_core_write_nonsocket(char* buf, size_t length, km_file_t
       fnote->data = file->ofd;   // default to ofd. override based on file type
    } else {
       fnote->data = lseek(fd, 0, SEEK_CUR);
+      if (fnote->data == (off_t)-1 && errno != ESPIPE) {
+         km_warn("lseek fd %d failed", fd);
+         return errno;
+      }
    }
 
    strcpy(cur, file->name);
    cur += km_nt_file_padded_size(file->name);
 
    if (queuedbytes > 0 && fd > 2) {
-      fnote->datalength = fs_core_save_pipe_contents(cur, length - (cur - buf), file, fd, queuedbytes);
+      int rc = fs_core_save_pipe_contents(cur, length - (cur - buf), file, fd, queuedbytes);
+      if (rc != 0) {
+         return rc;
+      }
+      fnote->datalength = queuedbytes;
       cur += km_nt_chunk_roundup(fnote->datalength);
    }
 
-   return cur - buf;
+   *sizep = cur - buf;
+   return 0;
 }
 
 /*
  * Handles sockets created by socket() and socketpair().
  */
-static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* file, int fd)
+static inline int fs_core_write_socket(char* buf, size_t length, km_file_t* file, int fd, size_t* sizep)
 {
    struct stat st = {};
    if (fstat(fd, &st) < 0) {
       km_warn("Can't take a snaphot, fstat failed fd=%d", fd);   // TODO: return error
+      return errno;
    }
 
    char* cur = buf;
@@ -2195,7 +2211,11 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
 
    // Save data queued in the socket for this direction.
    if (queuedbytes > 0) {
-      fnote->datalength = fs_core_save_pipe_contents(cur, length - (cur - buf), file, fd, queuedbytes);
+      int rc = fs_core_save_pipe_contents(cur, length - (cur - buf), file, fd, queuedbytes);
+      if (rc != 0) {
+         return rc;
+      }
+      fnote->datalength = queuedbytes;
       cur += km_nt_chunk_roundup(fnote->datalength);
    }
 
@@ -2207,7 +2227,8 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
             fnote->other,
             fnote->state,
             fnote->datalength);
-   return cur - buf;
+   *sizep = cur - buf;
+   return 0;
 }
 
 /*
@@ -2224,39 +2245,47 @@ static inline size_t fs_core_write_socket(char* buf, size_t length, km_file_t* f
  * eventfd-id: 4
  * [paulp@home km]$
  */
-static inline void extract_fdinfo_field(int fd, char* fieldname, uint64_t* value)
+static inline int extract_fdinfo_field(int fd, char* fieldname, uint64_t* value)
 {
    char procfile[128];
    char fdinfobuf[256];
    snprintf(procfile, sizeof(procfile), "/proc/self/fdinfo/%d", fd);
    int pfd = open(procfile, O_RDONLY);
    if (pfd < 0) {
-      km_err(1, "Couldn't open eventfd proc file %s", procfile);
+      km_warn("Couldn't open eventfd proc file %s", procfile);
+      return errno;
    }
    ssize_t readcount = read(pfd, fdinfobuf, sizeof(fdinfobuf));
    if (readcount < 0) {
-      km_err(1, "read evetnfd proc entry %s failed", procfile);
+      km_warn("read eventfd proc entry %s failed", procfile);
+      close(pfd);
+      return errno;
    }
    close(pfd);
    fdinfobuf[readcount] = 0;
    char* p = strstr(fdinfobuf, fieldname);
    if (p == NULL) {
-      km_errx(1, "Couldn't find %s field in %s?", fieldname, procfile);
+      km_warnx("Couldn't find %s field in %s?", fieldname, procfile);
+      return EINVAL;
    }
    p += strlen(fieldname);
    char* endptr;
    *value = strtoll(p, &endptr, 10);
    if (endptr == p) {
-      km_errx(1, "Unable to convert %s to decimal?", p);
+      km_warnx("Unable to convert %s to decimal?", p);
+      return EINVAL;
    }
+   return 0;
 }
 
 #define EVENTFD_COUNT "eventfd-count:"
-static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* file, int fd)
+static inline int
+fs_core_write_eventfd(char* buf, size_t length, km_file_t* file, int fd, size_t* sizep)
 {
    struct stat st = {};
    if (fstat(fd, &st) < 0) {
       km_warn("Can't take a snaphot, fstat failed fd=%d", fd);   // TODO: return error
+      return errno;
    }
 
    char* cur = buf;
@@ -2270,18 +2299,24 @@ static inline size_t fs_core_write_eventfd(char* buf, size_t length, km_file_t* 
    fnote->fd = fd;
    fnote->flags = file->flags;
 
-   uint64_t eventfd_count;
-   extract_fdinfo_field(fd, EVENTFD_COUNT, &eventfd_count);
+   uint64_t eventfd_count = 0;
+   int rc = extract_fdinfo_field(fd, EVENTFD_COUNT, &eventfd_count);
+   if (rc != 0) {
+      return rc;
+   }
    fnote->data = eventfd_count;
 
-   return cur - buf;
+   *sizep = cur - buf;
+   return 0;
 }
 
-static inline size_t fs_core_write_epollfd(char* buf, size_t length, km_file_t* file, int fd)
+static inline int
+fs_core_write_epollfd(char* buf, size_t length, km_file_t* file, int fd, size_t* sizep)
 {
-   struct stat st = {};
+   struct stat st;
    if (fstat(fd, &st) < 0) {
-      km_warn("Can't take a snaphot, fstat failed fd=%d", fd);   // TODO: return error
+      km_warn("Can't take a snaphot, fstat failed fd=%d", fd);
+      return errno;
    }
 
    char* cur = buf;
@@ -2307,10 +2342,12 @@ static inline size_t fs_core_write_epollfd(char* buf, size_t length, km_file_t* 
    struct epoll_event epollevent;
    int fdcount = epoll_wait(fd, &epollevent, 1, 0);
    if (fdcount < 0) {
-      km_err(1, "epoll_wait( %d ) failed", fd);
+      km_warn("epoll_wait( %d ) failed", fd);
+      return errno;
    }
    if (fdcount > 0) {
-      km_errx(1, "Can't perform snapshot, epoll fd %d has pending events %d", fd, fdcount);
+      km_warnx("Can't perform snapshot, epoll fd %d has pending events %d", fd, fdcount);
+      return EAGAIN;
    }
 
    cur += km_add_note_header(cur,
@@ -2336,7 +2373,8 @@ static inline size_t fs_core_write_epollfd(char* buf, size_t length, km_file_t* 
       cur += sizeof(km_nt_event_t);
    }
 
-   return cur - buf;
+   *sizep = cur - buf;
+   return 0;
 }
 
 size_t km_fs_core_dup_write(char* buf, size_t length)
@@ -2364,47 +2402,52 @@ size_t km_fs_core_dup_write(char* buf, size_t length)
    return cur - buf;
 }
 
-size_t km_fs_core_notes_write(char* buf, size_t length)
+int km_fs_core_notes_write(char* buf, size_t length, size_t* sizep)
 {
    char* cur = buf;
    size_t remain = length;
+   int rc;
 
    for (int i = 0; i < km_fs()->nfdmap; i++) {
       km_file_t* file = &km_fs()->guest_files[i];
       if (km_is_file_used(file) != 0) {
          size_t sz = 0;
          if (file->how == KM_FILE_HOW_EPOLLFD) {
-            sz = fs_core_write_epollfd(cur, remain, file, i);
+            rc = fs_core_write_epollfd(cur, remain, file, i, &sz);
          } else if (file->how == KM_FILE_HOW_EVENTFD) {
-            sz = fs_core_write_eventfd(cur, remain, file, i);
+            rc = fs_core_write_eventfd(cur, remain, file, i, &sz);
          } else if (file->sockinfo == NULL) {
-            sz = fs_core_write_nonsocket(cur, remain, file, i);
+            rc = fs_core_write_nonsocket(cur, remain, file, i, &sz);
          } else {
             // This includes normal connections and socketpair connections
-            sz = fs_core_write_socket(cur, remain, file, i);
+            rc = fs_core_write_socket(cur, remain, file, i, &sz);
+         }
+         if (rc != 0) {
+            return rc;
          }
          cur += sz;
       }
    }
-   return cur - buf;
+   *sizep = cur - buf;
+   return 0;
 }
 
 /*
  * == Snapshot recovery
  */
-static inline void
-km_fs_recover_fd(int guestfd, int hostfd, int flags, char* name, int ofd, km_file_how_t how)
+static inline int km_fs_recover_fd(int guestfd, int hostfd, int flags, char* name, int ofd, int how)
 {
    km_file_t* file = &km_fs()->guest_files[guestfd];
 
    if (guestfd < 0) {
+      // Nothing to do for pipes and socketpairs where other end is closed.
       close(hostfd);
-      return;
+      return 0;
    }
    if (guestfd != hostfd) {
       if (guestfd != dup2(hostfd, guestfd)) {
          km_warn("can not dup2 %s to %d", name, guestfd);
-         return;
+         return errno;
       }
       close(hostfd);
    }
@@ -2423,6 +2466,7 @@ km_fs_recover_fd(int guestfd, int hostfd, int flags, char* name, int ofd, km_fil
             name,
             ofd,
             how);
+   return 0;
 }
 
 static inline int
@@ -2441,18 +2485,51 @@ km_fs_recover_fdpair(int guestfd[2], int hostfd[2], km_file_how_t how[2], int fl
    // Ensure we don't overwrite hostfd[1] in error.
    if (guestfd[0] >= machine.filesys->nfdmap) {
       km_warn("recover fd %d is invalid", guestfd[0]);
-      return -1;
+      return EINVAL;
    }
    if (guestfd[1] >= machine.filesys->nfdmap) {
       km_warn("recover fd %d is invalid", guestfd[1]);
-      return -1;
+      return EINVAL;
    }
+   int rc;
    if (guestfd[0] == hostfd[1]) {
-      km_fs_recover_fd(guestfd[1], hostfd[1], flags[1], km_get_nonfile_name(hostfd[1]), guestfd[0], how[1]);
-      km_fs_recover_fd(guestfd[0], hostfd[0], flags[0], km_get_nonfile_name(hostfd[0]), guestfd[1], how[0]);
+      rc = km_fs_recover_fd(guestfd[1],
+                            hostfd[1],
+                            flags[1],
+                            km_get_nonfile_name(hostfd[1]),
+                            guestfd[0],
+                            how[1]);
+      if (rc != 0) {
+         return rc;
+      }
+      rc = km_fs_recover_fd(guestfd[0],
+                            hostfd[0],
+                            flags[0],
+                            km_get_nonfile_name(hostfd[0]),
+                            guestfd[1],
+                            how[0]);
+      if (rc != 0) {
+         return rc;
+      }
    } else {
-      km_fs_recover_fd(guestfd[0], hostfd[0], flags[0], km_get_nonfile_name(hostfd[0]), guestfd[1], how[0]);
-      km_fs_recover_fd(guestfd[1], hostfd[1], flags[1], km_get_nonfile_name(hostfd[1]), guestfd[0], how[1]);
+      rc = km_fs_recover_fd(guestfd[0],
+                            hostfd[0],
+                            flags[0],
+                            km_get_nonfile_name(hostfd[0]),
+                            guestfd[1],
+                            how[0]);
+      if (rc != 0) {
+         return rc;
+      }
+      rc = km_fs_recover_fd(guestfd[1],
+                            hostfd[1],
+                            flags[1],
+                            km_get_nonfile_name(hostfd[1]),
+                            guestfd[0],
+                            how[1]);
+      if (rc != 0) {
+         return rc;
+      }
    }
    return 0;
 }
@@ -2463,14 +2540,14 @@ static inline int km_fs_recover_pipedata(km_nt_file_t* nt_file, char* pipedata)
       ssize_t byteswritten = write(nt_file->fd, pipedata, nt_file->datalength);
       if (byteswritten < 0) {
          km_warn("write queued pipe data to fd %d failed", nt_file->fd);
-         return -1;
+         return errno;
       }
       if (byteswritten != nt_file->datalength) {
          km_warnx("expected to write %ld bytes of pipe data, but wrote %ld bytes to fd %d",
                   nt_file->datalength,
                   byteswritten,
                   nt_file->fd);
-         return -1;
+         return E2BIG;
       }
    }
    return 0;
@@ -2499,7 +2576,7 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name, char* pi
    int syscall_flags = nt_file->flags & ~O_WRONLY;
    if (pipe2(hostfd, syscall_flags) < 0) {
       km_warn("pipe recover failure");
-      return -1;
+      return errno;
    }
    /*
     * pipes are asymmetric. Make sure restored correctly.
@@ -2514,8 +2591,9 @@ static inline int km_fs_recover_pipe(km_nt_file_t* nt_file, char* name, char* pi
    km_file_how_t how[2] = {KM_FILE_HOW_PIPE_0, KM_FILE_HOW_PIPE_1};
    int flags[2] = {syscall_flags, syscall_flags};
 
-   if (km_fs_recover_fdpair(guestfd, hostfd, how, flags) < 0) {
-      return -1;
+   int rc;
+   if ((rc = km_fs_recover_fdpair(guestfd, hostfd, how, flags)) != 0) {
+      return rc;
    }
    // Recover queued pipe contents
    return km_fs_recover_pipedata(nt_file, pipedata);
@@ -2602,7 +2680,7 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
    km_nt_file_t* nt_file = (km_nt_file_t*)ptr;
    if (nt_file->size != sizeof(km_nt_file_t)) {
       km_warnx("nt_km_file_t size mismatch - old snapshot?");
-      return -1;
+      return EINVAL;
    }
    char* name = ptr + sizeof(km_nt_file_t);
    char* pipedata = name + km_nt_file_padded_size(name);
@@ -2616,7 +2694,7 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
 
    if (nt_file->fd < 0 || nt_file->fd >= machine.filesys->nfdmap) {
       km_warn("cannot recover invalid fd %d", nt_file->fd);
-      return -1;
+      return EINVAL;
    }
    /*
     * If the std fds names are [std{in,out,err}] (as set in km_fs_init()) we inherit the fds from
@@ -2631,19 +2709,21 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
 
    if (nt_file->fd < 0 || nt_file->fd >= km_fs()->nfdmap) {
       km_warnx("bad file descriptor=%d", nt_file->fd);
-      return -1;
+      return EINVAL;
    }
    int dup_fd = km_fs_check_for_dups_nolock(nt_file->fd);
    if (dup_fd >= 0) {
-      if (km_fs_dup3(NULL, dup_fd, nt_file->fd, nt_file->flags & O_CLOEXEC) < 0) {
-         return -1;
+      int newfd = km_fs_dup3(NULL, dup_fd, nt_file->fd, nt_file->flags & O_CLOEXEC);
+      if (newfd < 0) {
+         // Return the error number
+         return -newfd;
       }
       return 0;
    }
 
    if ((nt_file->mode & __S_IFMT) == __S_IFSOCK) {
       km_warnx("TODO: recover __S_ISOCK data=0x%lx", nt_file->data);
-      return -1;
+      return EOPNOTSUPP;
    }
    if ((nt_file->mode & __S_IFMT) == __S_IFIFO) {
       return km_fs_recover_pipe(nt_file, name, pipedata);
@@ -2652,24 +2732,24 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
    int fd = open(name, nt_file->flags, 0);
    if (fd < 0) {
       km_warn("can't open %s for fd %d", name, nt_file->fd);
-      return -1;
+      return errno;
    }
 
    struct stat st;
    if (fstat(fd, &st) < 0) {
       km_warn("can't fstat %s", name);
-      return -1;
+      return errno;
    }
    if (st.st_mode != nt_file->mode) {
       km_warnx("file mode mistmatch expect %o got %o %s", nt_file->mode, st.st_mode, name);
-      return -1;
+      return EINVAL;
    }
 
    km_fs_recover_fd(nt_file->fd, fd, nt_file->flags, strdup(name), nt_file->data, nt_file->how);
    if ((nt_file->mode & __S_IFMT) == __S_IFREG && nt_file->data != 0) {
       if (lseek(nt_file->fd, nt_file->data, SEEK_SET) != nt_file->data) {
          km_warn("lseek failed");
-         return -1;
+         return errno;
       }
    }
    return 0;

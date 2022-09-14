@@ -371,7 +371,7 @@ int km_snapshot_notes_apply(char* notebuf, size_t notesize, int type, int (*func
       Elf64_Nhdr* nhdr = (Elf64_Nhdr*)cur;
       if (nhdr->n_type == type) {
          int ret = func(cur + sizeof(Elf64_Nhdr) + nhdr->n_namesz, nhdr->n_descsz);
-         if (ret < 0) {
+         if (ret != 0) {
             return ret;
          }
       }
@@ -384,10 +384,10 @@ int km_snapshot_notes_apply(char* notebuf, size_t notesize, int type, int (*func
 static inline int km_ss_recover_vcpus(char* notebuf, size_t notesize)
 {
    int ret;
-   if ((ret = km_snapshot_notes_apply(notebuf, notesize, NT_PRSTATUS, km_ss_recover_prstatus)) < 0) {
+   if ((ret = km_snapshot_notes_apply(notebuf, notesize, NT_PRSTATUS, km_ss_recover_prstatus)) != 0) {
       return ret;
    }
-   if ((ret = km_snapshot_notes_apply(notebuf, notesize, NT_KM_VCPU, km_ss_recover_vcpu_info)) < 0) {
+   if ((ret = km_snapshot_notes_apply(notebuf, notesize, NT_KM_VCPU, km_ss_recover_vcpu_info)) != 0) {
       return ret;
    }
    return 0;
@@ -540,15 +540,18 @@ int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* du
    if (dumppath == NULL || dumppath[0] == 0) {
       dumppath = km_get_snapshot_path();
    }
-   km_dump_core(dumppath, vcpu, NULL, label, description, KM_DO_SNAP);
-
-   if (live == 0) {
-      machine.exit_group = 1;
+   int rc = km_dump_core(dumppath, vcpu, NULL, label, description, KM_DO_SNAP);
+   if (rc == 0) {
+      if (live == 0) {
+         machine.exit_group = 1;
+      }
+   } else {
+      km_warnx("Cannot create snapshot, %s", strerror(rc));
    }
    pthread_mutex_lock(&snap_mutex);
    in_snapshot = 0;
    pthread_mutex_unlock(&snap_mutex);
 
    km_vcpu_resume_all();
-   return 0;
+   return rc;
 }

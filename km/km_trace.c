@@ -73,6 +73,7 @@ void __km_trace(int errnum, const char* function, int linenumber, const char* fm
    struct tm tm;
    char* p;
    va_list ap;
+   int save_errno = errno;
 
    km_trace_open_log_on_demand();
 
@@ -139,6 +140,7 @@ void __km_trace(int errnum, const char* function, int linenumber, const char* fm
          fputs(p, stderr);
       }
    }
+   errno = save_errno;
 }
 
 void km_trace_include_pid(uint8_t trace_pid)

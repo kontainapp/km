@@ -1119,6 +1119,12 @@ fi
       assert_success
       assert [ -f $SNAPDIR/hello_html_test$ext.$pid.kmsnap ]
       rm $SNAPDIR/hello_html_test$ext.$pid.kmsnap
+
+      # ensure failed snapshot does not cause payload to terminate
+      rm -fr /doesntexist
+      run ${KM_CLI_BIN} -r -d /doesntexist -p $pid
+      assert_failure
+      assert_output --partial "Cannot create snapshot"
    fi
    run ${KM_CLI_BIN} -r -s $MGMTPIPE -d $SNAPDIR
    assert_success
