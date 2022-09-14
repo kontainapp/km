@@ -21,7 +21,7 @@ ARG JAVA_DIR=/home/appuser/km/build/opt/kontain
 ENV PATH=${JAVA_DIR}/bin:${PATH}
 COPY . ${JAVA_DIR}
 RUN mkdir -p /home/appuser/km/payloads/java
-COPY ./scripts/* /home/appuser/km/payloads/java/scripts/
+COPY scripts/* /home/appuser/km/payloads/java/scripts/
 
 ENV JAVA_DIR=${JAVA_DIR}
 ENV JAVA_LD_PATH=${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime

@@ -51,3 +51,35 @@ load "${TESTS_BASE}/bats-assert/load.bash"  # see manual in bats-assert/README.m
 
   rm -f ${SNAP_FILE}
 }
+
+@test "Java SpringBoot snapshot" {
+  SNAP_FILE=kmsnap
+  MGMTPIPE=/tmp/xxx.$$
+  rm -f ${SNAP_FILE}
+
+  ${KM_BIN} -Vsnapshot --mgtpipe=${MGMTPIPE} --snapshot=${SNAP_FILE} \
+      --putenv=LD_LIBRARY_PATH=${JAVA_LD_PATH}:${BLDDIR}/lib \
+		${JAVA_DIR}/bin/java.kmd -XX:-UseCompressedOops -jar sb.jar &
+  pid=$!
+  tries=20
+  run curl -4 -s localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
+
+  assert_success
+  assert_output --partial 'Hello, World!'
+
+  ${KM_CLI_BIN} -s ${MGMTPIPE} -t
+  wait $pid
+  assert_success
+  assert [ -f ${SNAP_FILE} ]
+
+  ${KM_BIN} -Vsnapshot ${SNAP_FILE} &
+  pid=$!
+  run curl -4 -s localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
+  assert_success
+  assert_output --regexp '"id":2.*Hello, World!'
+  run curl -4 -s localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
+  assert_success
+  assert_output --regexp '"id":3.*Hello, World!'
+  kill $pid
+  rm -f ${SNAP_FILE}
+}
