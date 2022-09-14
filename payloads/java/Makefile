@@ -29,7 +29,7 @@ define testenv_preprocess
 	./link-km.sh ${JDK_BUILD_DIR} /home/appuser/km/build/opt/kontain
 endef
 
-TESTENV_EXTRA_FILES := ${JDK_BUILD_DIR}/images/jdk/* ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd
+TESTENV_EXTRA_FILES := ${JDK_BUILD_DIR}/images/jdk/* ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd ${APP_JAR}
 # this is how we are running tests in the container
 CONTAINER_TEST_CMD := ./scripts/test-run.sh
 
@@ -57,7 +57,8 @@ RUNENV_VALIDATE_EXPECTED := Hello, World!
 RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 	scripts/SimpleHttpServer.class \
 	app.kontain/app/kontain/snapshots/Snapshot.class \
-	app.kontain/app/kontain/snapshots/libkm_java_native.so
+	app.kontain/app/kontain/snapshots/libkm_java_native.so \
+	sb.jar
 
 # runenv-image configs
 export define runenv_prep
@@ -158,6 +159,21 @@ in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke
 	tar -C /home/appuser/java -cf - . | tar -C ${JDK_BUILD_DIR} -xf -
 	./link-km.sh ${JDK_BUILD_DIR}
 
+REPO_COMMIT := f7f2acb31d27f57550d6a9d37bbe50e185d1ca4b
+SRC_REPO_DIR := rest-service-11
+SRC_DIR := ${SRC_REPO_DIR}/complete
+APP_JAR := ${SRC_DIR}/build/libs/rest-service-0.0.1-SNAPSHOT.jar
+
+${SRC_REPO_DIR}:
+	git clone https://github.com/spring-guides/gs-rest-service.git ${SRC_REPO_DIR}
+	cd ${SRC_REPO_DIR}; git reset --hard ${REPO_COMMIT}
+
+${APP_JAR}: | ${SRC_REPO_DIR}
+	docker run --rm -v $$(pwd)/${SRC_REPO_DIR}:/app:rw -w /app/complete -u $(shell id -u):$(shell id -g) openjdk:8u342-jdk ./gradlew -q --console=plain build
+
+sb.jar: ${APP_JAR}
+	cp ${APP_JAR} sb.jar
+
 JAVA_LD_PATH := ${CURDIR}/${JAVA_DIR}/lib/server:${CURDIR}/${JAVA_DIR}/lib/jli:${CURDIR}/${JAVA_DIR}/lib
 test: ${RUNENV_VALIDATE_DEPENDENCIES} api test_java.bats ## Basic test run
 	JAVA_DIR=${CURDIR}/${JAVA_DIR} JAVA_LD_PATH=${JAVA_LD_PATH} BLDDIR=${BLDDIR} \
@@ -186,6 +202,7 @@ clean:
 	rm -f ${JDK_BUILD_DIR}/images/jdk/bin/java.k*
 	rm -f app/kontain/*.class app/kontain/*.so
 	rm -f app/kontain/snapshots/*.class app/kontain/snapshots/*.so
+	rm -rf ${SRC_REPO_DIR} sb.jar
 	find . -name "*.class" -type f -delete
 	rm -rf ${BLDDIR}/*
 

@@ -1,3 +1,5 @@
 jdk-11*
+rest-service-11*
 *.class
 *.so
+*.jar

@@ -93,7 +93,7 @@ test test-all: ${PAYLOAD_KM} ${TEST_KM}
 	scripts/test-run.sh $@ ${KM_BIN} ${KM_CLI_BIN} ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
 
 # Command to run tests in testenv-image container:
-CONTAINER_TEST_CMD := scripts/test-run.sh test km_cli ${PAYLOAD_KM} ${TEST_KM}
+CONTAINER_TEST_CMD := scripts/test-run.sh test km km_cli ${PAYLOAD_KM} ${TEST_KM}
 
 # TODO: revert when kkm is fixed
 ifeq (${HYPERVISOR_DEVICE},/dev/kkm)
