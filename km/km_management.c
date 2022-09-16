@@ -44,11 +44,6 @@ static void* mgt_main(void* arg)
    mgmtreply_t mgmtreply;
    int wewanttodie;
 
-   if (listen(sock, 1) < 0) {
-      km_warn("listen");
-      return NULL;
-   }
-
    /*
     * First implementation is really dumb. Listen on a socket. When a connect
     * happens, snapshot the guest. This has the advantage of not doing anything
@@ -121,6 +116,10 @@ void km_mgt_init(char* path)
    }
    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
       km_warn("bind failure: %s", path);
+      goto err;
+   }
+   if (listen(sock, 1) < 0) {
+      km_warn("listen");
       goto err;
    }
    if (pthread_create(&thread, NULL, mgt_main, NULL) != 0) {
