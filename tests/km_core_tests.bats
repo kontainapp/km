@@ -918,7 +918,7 @@ fi
    #       concurrent_open_test runs in a loop. The3 default is
    #       10000. We use 500 here to accomodate azure, where the
    #       open/close cycle is ~40ms vs 1ms on a local workstation.
-   run km_with_timeout filepath_test$ext ${DIRNAME} 500
+   run km_with_timeout filepath_test$ext "${DIRNAME}" 500
    assert_success
    rm -rf ${DIRNAME}
 }
@@ -1100,7 +1100,7 @@ fi
    while [ ! -S ${MGMTPIPE} ] && [ $tries -gt 0 ]; do sleep 1; tries=`expr $tries - 1`; done
    assert [ $tries -gt 0 ]
    # valgrind executables don't have the payload's name so pidof doesn't work.
-   if [ -z ${VALGRIND} ]; then
+   if [ -z "${VALGRIND}" ]; then
       pidlist=`pidof hello_html_test$ext`
       # Find our pid if pidof returned multiple pids
       pid=""
@@ -1353,7 +1353,7 @@ fi
    f1=/tmp/f1$$
    f2=/tmp/f2$$
    flog=/tmp/xx$$
-   if [ -z ${VALGRIND} ]; then
+   if [ -z "${VALGRIND}" ]; then
       to=5s
    else
       to=25s
@@ -1415,7 +1415,7 @@ fi
 # In addition this may expose other problems such as misdeclared km arrays like km_hcargs[].
 #
 @test "threads_create($test_type): create a large number of threads that run briefly (gdb_lots_of_threads$ext)" {
-   if [ -z ${VALGRIND} ]; then
+   if [ -z "${VALGRIND}" ]; then
       run km_with_timeout --timeout 5s gdb_lots_of_threads_test$ext -a 2 -t 287 -w
    else
       run km_with_timeout --timeout 25s gdb_lots_of_threads_test$ext -a 10 -t 287 -w

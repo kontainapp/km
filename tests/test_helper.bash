@@ -177,7 +177,7 @@ function km_with_timeout () {
    # Per timeout(1) it returns 124 on timeout, and 128+signal when killed by signal
    s=$?; if [[ $s == 124  ]] ; then
       echo -e "\nTime out in $t : ${CMD} $@"
-   elif [[ $s > 128 ]] ; then
+   elif [[ $s -gt 128 ]] ; then
       echo -e "\nKilled by signal. Timeout returns $s: ${CMD} $@"
    fi
    return $s
