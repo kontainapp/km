@@ -56,7 +56,7 @@ char* km_get_coredump_path()
 /*
  * Write a buffer in KM memory.
  */
-static inline void km_core_write_mem(int fd, void* buffer, size_t length, int is_guestmem)
+static inline int km_core_write_mem(int fd, void* buffer, size_t length, int is_guestmem)
 {
    int rc;
    char* cur = buffer;
@@ -66,29 +66,31 @@ static inline void km_core_write_mem(int fd, void* buffer, size_t length, int is
       if ((rc = write(fd, cur, remain)) == -1) {
          if (errno == EFAULT && is_guestmem) {
             if (lseek(fd, remain, SEEK_CUR) < 0) {
-               km_err(errno, "lseek error fd=%d cur=%p remain=0x%lx, exiting", fd, cur, remain);
+               km_warn("lseek error fd=%d cur=%p remain=0x%lx, exiting", fd, cur, remain);
+               return errno;
             }
             rc = remain;
          } else {
-            km_err(errno,
-                   "write error - cur=%p remain=0x%lx buffer=%p length=0x%lx, exiting",
-                   cur,
-                   remain,
-                   buffer,
-                   length);
+            km_warn("write error - cur=%p remain=0x%lx buffer=%p length=0x%lx, exiting",
+                    cur,
+                    remain,
+                    buffer,
+                    length);
+            return errno;
          }
       }
       remain -= rc;
       cur += rc;
    }
+   return 0;
 }
 
-static inline void km_core_write(int fd, void* buffer, size_t length)
+static inline int km_core_write(int fd, void* buffer, size_t length)
 {
    return km_core_write_mem(fd, buffer, length, 0);
 }
 
-static inline void km_core_write_elf_header(int fd, int phnum)
+static inline int km_core_write_elf_header(int fd, int phnum)
 {
    Elf64_Ehdr ehdr = {};
 
@@ -109,11 +111,10 @@ static inline void km_core_write_elf_header(int fd, int phnum)
    ehdr.e_shnum = 0;
    ehdr.e_shstrndx = 0;
 
-   km_core_write(fd, &ehdr, sizeof(Elf64_Ehdr));
+   return km_core_write(fd, &ehdr, sizeof(Elf64_Ehdr));
 }
 
-static inline void
-km_core_write_load_header(int fd, off_t offset, km_gva_t base, size_t size, int flags)
+static inline int km_core_write_load_header(int fd, off_t offset, km_gva_t base, size_t size, int flags)
 {
    Elf64_Phdr phdr = {};
 
@@ -132,7 +133,7 @@ km_core_write_load_header(int fd, off_t offset, km_gva_t base, size_t size, int 
    phdr.p_memsz = size;
    phdr.p_flags = flags;
 
-   km_core_write(fd, &phdr, sizeof(Elf64_Phdr));
+   return km_core_write(fd, &phdr, sizeof(Elf64_Phdr));
 }
 
 size_t km_note_header_size(char* owner)
@@ -449,7 +450,7 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu,
                                       int fd,
                                       const char* label,
                                       const char* description,
-                                      off_t offset,
+                                      size_t* offsetp,
                                       char* buf,
                                       size_t size,
                                       km_coredump_type_t dumptype)
@@ -514,7 +515,10 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu,
       cur += ret;
       remain -= ret;
 
-      ret = km_fs_core_notes_write(cur, remain);
+      int rc = km_fs_core_notes_write(cur, remain, &ret);
+      if (rc != 0) {
+         return rc;
+      }
       cur += ret;
       remain -= ret;
    }
@@ -564,16 +568,19 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu,
    //  NT_X86_XSTATE (X86 XSAVE extended state)
 
    phdr.p_type = PT_NOTE;
-   phdr.p_offset = offset;
+   phdr.p_offset = *offsetp;
    phdr.p_vaddr = 0;
    phdr.p_paddr = 0;
    phdr.p_filesz = cur - buf;
    phdr.p_memsz = 0;
    phdr.p_flags = 0;
-   km_core_write(fd, &phdr, sizeof(Elf64_Phdr));
+   int rc = km_core_write(fd, &phdr, sizeof(Elf64_Phdr));
+   if (rc != 0) {
+      return rc;
+   }
 
-   // return cur - buf;
-   return size;
+   *offsetp += size;
+   return 0;
 }
 
 /*
@@ -582,7 +589,7 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu,
  * We assume we'll always be able to write 1MB. Always write whole
  * pages. This won't hurt since we seek to page boundaries.
  */
-static inline void km_guestmem_write(int fd, km_gva_t base, size_t length)
+static inline int km_guestmem_write(int fd, km_gva_t base, size_t length)
 {
    km_gva_t current = base;
    // roundup here to catch the whole page.
@@ -591,18 +598,29 @@ static inline void km_guestmem_write(int fd, km_gva_t base, size_t length)
 
    // Page Align
    off_t off = lseek(fd, 0, SEEK_CUR);
+   if (off == (off_t)-1) {
+      km_warn("lseek( SEEK_CUR ) failed");
+      return errno;
+   }
    if (off != roundup(off, KM_PAGE_SIZE)) {
       off = roundup(off, KM_PAGE_SIZE);
-      lseek(fd, off, SEEK_SET);
+      if (lseek(fd, off, SEEK_SET) == (off_t)-1) {
+         km_warn("lseek to %ld failed", off);
+         return errno;
+      }
    }
    km_infox(KM_TRACE_COREDUMP, "base=0x%lx length=0x%lx off=0x%lx", base, remain, off);
    while (remain > 0) {
       size_t wsz = MIN(remain, maxwrite);
 
-      km_core_write_mem(fd, km_gva_to_kma_nocheck(current), wsz, 1);
+      int rc = km_core_write_mem(fd, km_gva_to_kma_nocheck(current), wsz, 1);
+      if (rc != 0) {
+         return rc;
+      }
       current += wsz;
       remain -= wsz;
    }
+   return 0;
 }
 
 /*
@@ -711,8 +729,10 @@ static inline int km_core_last_load_adjust(Elf64_Phdr* phdr, km_gva_t end_load)
 }
 
 static inline size_t
-km_core_write_payload_phdr(km_payload_t* payload, km_gva_t end_load, int fd, size_t offset)
+km_core_write_payload_phdr(km_payload_t* payload, km_gva_t end_load, int fd, size_t* offsetp)
 {
+   int rc;
+   size_t offset = *offsetp;
    for (int i = 0; i < payload->km_ehdr.e_phnum; i++) {
       Elf64_Phdr* phdr = &payload->km_phdr[i];
       if (phdr->p_type != PT_LOAD) {
@@ -722,38 +742,54 @@ km_core_write_payload_phdr(km_payload_t* payload, km_gva_t end_load, int fd, siz
       write_size += km_core_last_load_adjust(phdr, end_load);
       size_t extra = phdr->p_vaddr - rounddown(phdr->p_vaddr, KM_PAGE_SIZE);
       offset = roundup(offset, KM_PAGE_SIZE);
-      km_core_write_load_header(fd,
-                                offset,
-                                rounddown(phdr->p_vaddr + payload->km_load_adjust, KM_PAGE_SIZE),
-                                write_size + extra,
-                                phdr->p_flags);
+      rc = km_core_write_load_header(fd,
+                                     offset,
+                                     rounddown(phdr->p_vaddr + payload->km_load_adjust, KM_PAGE_SIZE),
+                                     write_size + extra,
+                                     phdr->p_flags);
+      if (rc != 0) {
+         return rc;
+      }
       offset += write_size + extra;
    }
-   return offset;
+   *offsetp = offset;
+   return 0;
 }
 
-static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
-                                       int fd,
-                                       int phnum,
-                                       km_gva_t end_load,
-                                       char* notes_buffer,
-                                       size_t notes_length,
-                                       const char* label,
-                                       const char* description,
-                                       size_t* offsetp,
-                                       km_coredump_type_t dumptype)
+static inline int km_core_write_phdrs(km_vcpu_t* vcpu,
+                                      int fd,
+                                      int phnum,
+                                      km_gva_t end_load,
+                                      char* notes_buffer,
+                                      size_t notes_length,
+                                      const char* label,
+                                      const char* description,
+                                      size_t* offsetp,
+                                      km_coredump_type_t dumptype)
 {
+   int rc;
    km_mmap_reg_t* ptr;
 
    // write elf header
-   km_core_write_elf_header(fd, phnum);
+   rc = km_core_write_elf_header(fd, phnum);
+   if (rc != 0) {
+      return rc;
+   }
    // Create PT_NOTE in memory and write the header
-   *offsetp +=
-       km_core_write_notes(vcpu, fd, label, description, *offsetp, notes_buffer, notes_length, dumptype);
+   rc = km_core_write_notes(vcpu, fd, label, description, offsetp, notes_buffer, notes_length, dumptype);
+   if (rc != 0) {
+      return rc;
+   }
    // Write headers for segments from ELF
-   *offsetp = km_core_write_payload_phdr(&km_guest, end_load, fd, *offsetp);
+   rc = km_core_write_payload_phdr(&km_guest, end_load, fd, offsetp);
+   if (rc != 0) {
+      return rc;
+   }
    if (km_dynlinker.km_filename != NULL) {
-      *offsetp = km_core_write_payload_phdr(&km_dynlinker, end_load, fd, *offsetp);
+      rc = km_core_write_payload_phdr(&km_dynlinker, end_load, fd, offsetp);
+      if (rc != 0) {
+         return rc;
+      }
    }
    // Headers for MMAPs
    TAILQ_FOREACH (ptr, &machine.mmaps.busy, link) {
@@ -772,6 +808,7 @@ static inline void km_core_write_phdrs(km_vcpu_t* vcpu,
                                 mmap_to_elf_flags[ptr->protection & 0x7]);
       *offsetp += ptr->size;
    }
+   return 0;
 }
 
 /*
@@ -810,41 +847,57 @@ static int km_snapshot_ok(void)
 
 /*
  * Drop a core file containing the guest image.
+ * Returns:
+ *  0 - success
+ *  != 0 - failure, unix errno values are returned.
  */
-void km_dump_core(char* core_path,
-                  km_vcpu_t* vcpu,
-                  x86_interrupt_frame_t* iframe,
-                  const char* label,
-                  const char* description,
-                  km_coredump_type_t dumptype)
+int km_dump_core(char* core_path,
+                 km_vcpu_t* vcpu,
+                 x86_interrupt_frame_t* iframe,
+                 const char* label,
+                 const char* description,
+                 km_coredump_type_t dumptype)
 {
    // char* core_path = km_get_coredump_path();
    int fd;
+   int rc = 0;
    size_t offset;   // Data offset
    km_mmap_reg_t* ptr;
-   char* notes_buffer;
+   char* notes_buffer = NULL;
    size_t notes_length = km_core_notes_length(vcpu, label, description, dumptype);
    km_gva_t end_load = 0;
    int phnum = km_core_count_phdrs(vcpu, &end_load);
 
    if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0600)) < 0) {
-      km_err(2, "Cannot open corefile '%s', exiting", core_path);
+      km_warn("Cannot create %s '%s'", dumptype == KM_DO_SNAP ? "snapshot" : "corefile", core_path);
+      return errno;
    }
-   km_warnx("Write %s to '%s'", dumptype == KM_DO_SNAP ? "snapshot" : "coredump", core_path);
+   km_warnx("Writing %s to '%s'", dumptype == KM_DO_SNAP ? "snapshot" : "coredump", core_path);
 
    if (dumptype == KM_DO_SNAP && km_snapshot_ok() != 0) {
-      km_errx(1, "Can't take a snapshot, active interval timer(s)");
+      km_warnx("Can't take a snapshot, active interval timer(s) exist");
+      rc = EINVAL;
+      goto out;
    }
 
    if ((notes_buffer = (char*)calloc(1, notes_length)) == NULL) {
-      km_err(2, "cannot allocate notes buffer, exiting");
+      km_warn("cannot allocate notes buffer, %ld bytes, exiting", notes_length);
+      rc = ENOMEM;
+      goto out;
    }
    offset = sizeof(Elf64_Ehdr) + phnum * sizeof(Elf64_Phdr);
 
-   km_core_write_phdrs(vcpu, fd, phnum, end_load, notes_buffer, notes_length, label, description, &offset, dumptype);
+   rc = km_core_write_phdrs(
+       vcpu, fd, phnum, end_load, notes_buffer, notes_length, label, description, &offset, dumptype);
+   if (rc != 0) {
+      goto out;
+   }
 
    // Write the actual data.
-   km_core_write(fd, notes_buffer, notes_length);
+   rc = km_core_write(fd, notes_buffer, notes_length);
+   if (rc != 0) {
+      goto out;
+   }
    km_infox(KM_TRACE_COREDUMP, "Dump executable");
    for (int i = 0; i < km_guest.km_ehdr.e_phnum; i++) {
       Elf64_Phdr* phdr = &km_guest.km_phdr[i];
@@ -854,9 +907,12 @@ void km_dump_core(char* core_path,
       size_t write_size = phdr->p_memsz;
       write_size += km_core_last_load_adjust(phdr, end_load);
       size_t extra = phdr->p_vaddr - rounddown(phdr->p_vaddr, KM_PAGE_SIZE);
-      km_guestmem_write(fd,
-                        rounddown(phdr->p_vaddr + km_guest.km_load_adjust, KM_PAGE_SIZE),
-                        write_size + extra);
+      rc = km_guestmem_write(fd,
+                             rounddown(phdr->p_vaddr + km_guest.km_load_adjust, KM_PAGE_SIZE),
+                             write_size + extra);
+      if (rc != 0) {
+         goto out;
+      }
    }
    if (km_dynlinker.km_filename != NULL) {
       km_infox(KM_TRACE_COREDUMP, "Dump dynlinker");
@@ -868,9 +924,12 @@ void km_dump_core(char* core_path,
          size_t write_size = phdr->p_memsz;
          write_size += km_core_last_load_adjust(phdr, end_load);
          size_t extra = phdr->p_vaddr - rounddown(phdr->p_vaddr, KM_PAGE_SIZE);
-         km_guestmem_write(fd,
-                           rounddown(phdr->p_vaddr + km_dynlinker.km_load_adjust, KM_PAGE_SIZE),
-                           write_size + extra);
+         rc = km_guestmem_write(fd,
+                                rounddown(phdr->p_vaddr + km_dynlinker.km_load_adjust, KM_PAGE_SIZE),
+                                write_size + extra);
+         if (rc != 0) {
+            goto out;
+         }
       }
    }
    km_infox(KM_TRACE_COREDUMP, "Dump mmaps");
@@ -882,17 +941,26 @@ void km_dump_core(char* core_path,
       // make sure we can read the mapped memory (e.g. it can be EXEC only)
       if (ptr->km_flags.km_mmap_part_of_monitor == 0 && (ptr->protection & PROT_READ) != PROT_READ) {
          if (mprotect(start, ptr->size, ptr->protection | PROT_READ) != 0) {
-            km_err(2, "failed to make %p,0x%lx readable for dump, exiting", start, ptr->size);
+            km_warn("failed to make %p,0x%lx readable for dump, exiting", start, ptr->size);
+            rc = errno;
+            goto out;
          }
       }
-      km_guestmem_write(fd, ptr->start, ptr->size);
+      rc = km_guestmem_write(fd, ptr->start, ptr->size);
+      if (rc != 0) {
+         goto out;
+      }
       // recover protection, in case it's a live coredump and we are not exiting yet
       if (ptr->km_flags.km_mmap_part_of_monitor == 0 && (ptr->protection & PROT_READ) != PROT_READ &&
           mprotect(start, ptr->size, ptr->protection) != 0) {
-         km_err(2, "failed to set %p,0x%lx prot to 0x%x, exiting", start, ptr->size, ptr->protection);
+         km_warn("failed to set %p,0x%lx prot to 0x%x, exiting", start, ptr->size, ptr->protection);
+         rc = errno;
+         goto out;
       }
    }
 
+out:;
    free(notes_buffer);
    (void)close(fd);
+   return rc;
 }

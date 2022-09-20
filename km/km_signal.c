@@ -610,11 +610,16 @@ void km_deliver_signal(km_vcpu_t* vcpu, siginfo_t* info)
       km_vcpu_pause_all(vcpu, GUEST_ONLY);
       if ((km_sigismember(&perror_signals, info->si_signo) != 0) || (info->si_signo == SIGQUIT)) {
          extern int debug_dump_on_err;
-         km_dump_core(km_get_coredump_path(), vcpu, NULL, NULL, "Signal Delivery", KM_DO_CORE);
-         if (debug_dump_on_err) {
-            abort();
+         int rc;
+         if ((rc = km_dump_core(km_get_coredump_path(), vcpu, NULL, NULL, "Signal Delivery", KM_DO_CORE)) ==
+             0) {
+            if (debug_dump_on_err) {
+               abort();
+            }
+            core_dumped = 1;
+         } else {
+            km_warnx("core dump failed, error %s", strerror(rc));
          }
-         core_dumped = 1;
       }
       km_warnx("guest: Terminated by signal: %s %s",
                strsignal(info->si_signo),

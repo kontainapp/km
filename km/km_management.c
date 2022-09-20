@@ -42,7 +42,6 @@ static void* mgt_main(void* arg)
    ssize_t br;
    mgmtrequest_t mgmtrequest;
    mgmtreply_t mgmtreply;
-   int wewanttodie;
 
    /*
     * First implementation is really dumb. Listen on a socket. When a connect
@@ -50,7 +49,6 @@ static void* mgt_main(void* arg)
     * about message formats and the like for now.
     */
    while (kill_thread == 0) {
-      wewanttodie = 0;
       int nfd = km_mgt_accept(sock, NULL, NULL);
       km_tracex("Connection accepted");
       if (nfd < 0) {
@@ -79,7 +77,6 @@ static void* mgt_main(void* arg)
                                    mgmtrequest.requests.snapshot_req.description,
                                    mgmtrequest.requests.snapshot_req.snapshot_path,
                                    mgmtrequest.requests.snapshot_req.live);
-            wewanttodie = (mgmtrequest.requests.snapshot_req.live == 0);
             break;
          default:
             km_warnx("Unknown mgmt request %d, length %d", mgmtrequest.opcode, mgmtrequest.length);
@@ -93,10 +90,6 @@ static void* mgt_main(void* arg)
          km_warn("send mgmt reply failed, byteswritten %ld", bw);
       }
       close(nfd);
-
-      if (wewanttodie != 0) {
-         exit(0);
-      }
    }
    return NULL;
 }

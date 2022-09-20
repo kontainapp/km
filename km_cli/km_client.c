@@ -98,6 +98,9 @@ int terminate_app = 1;   // by default the payload is terminated after the snaps
 // Our value for KM_MGM_LISTEN must match what km is using.
 #define KM_MGM_LISTEN 729
 
+// Retry requests to km MAX_RETRIES times
+#define MAX_RETRIES 4
+
 #define PROCDIR "/proc"
 
 void usage(void)
@@ -121,28 +124,32 @@ void usage(void)
 int send_request(char* sock_name, void* reqp, size_t reqlen)
 {
    int sockfd;
+   int rc;
    struct sockaddr_un addr = {.sun_family = AF_UNIX};
    if (strlen(sock_name) + 1 > sizeof(addr.sun_path)) {
       fprintf(stderr, "socket name too long\n");
-      return 1;
+      return E2BIG;
    }
    strcpy(addr.sun_path, sock_name);
 
    sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
    if (sockfd < 0) {
+      rc = errno;
       perror("socket");
-      return 1;
+      return rc;
    }
    if (connect(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+      rc = errno;
       perror("connect");
       close(sockfd);
-      return 1;
+      return rc;
    }
    ssize_t bytes_written = send(sockfd, reqp, reqlen, MSG_NOSIGNAL);
    if (bytes_written < 0) {
+      rc = errno;
       perror("send request");
       close(sockfd);
-      return 1;
+      return rc;
    }
    if (bytes_written != reqlen) {
       fprintf(stderr, "send truncated, wrote %ld bytes, sent %lu bytes\n", bytes_written, reqlen);
@@ -153,17 +160,15 @@ int send_request(char* sock_name, void* reqp, size_t reqlen)
    mgmtreply_t reply;
    ssize_t br = recv(sockfd, &reply, sizeof(reply), 0);
    if (br < 0) {
-      fprintf(stderr, "reply not recieved, error %s\n", strerror(errno));
+      fprintf(stderr, "snapshot reply not recieved, error %s\n", strerror(errno));
+      reply.request_status = errno;
    } else if (br != sizeof(reply)) {
       fprintf(stderr, "reply too small, got %ld bytes, expected %ld bytes\n", br, sizeof(reply));
-   } else {
-      if (reply.request_status != 0) {
-         fprintf(stderr, "request failed, error %d\n", reply.request_status);
-      }
+      reply.request_status = EINVAL;
    }
 
    close(sockfd);
-   return 0;
+   return reply.request_status;
 }
 
 /*
@@ -202,7 +207,22 @@ int snapshot_process(char* sockname, char* snapshot_file, char* label, char* des
               snapshot_file,
               sizeof(req.requests.snapshot_req.snapshot_path));
    }
-   return send_request(sockname, &req, sizeof(req));
+   int rc;
+   for (int i = 0; i < MAX_RETRIES; i++) {
+      if (i != 0) {
+         fprintf(stdout, "Retrying snapshot request after transient error\n");
+      }
+      rc = send_request(sockname, &req, sizeof(req));
+      if (rc == 0) {
+         break;
+      }
+      if (rc != EAGAIN) {
+         break;
+      }
+      struct timespec ts = {0, 250000000L};   // .25 seconds
+      nanosleep(&ts, NULL);
+   }
+   return rc;
 }
 
 struct found_process {
@@ -562,6 +582,7 @@ int main(int argc, char* argv[])
    if (socket_name != NULL) {
       int rc = snapshot_process(socket_name, NULL, NULL, NULL, terminate_app == 0);
       if (rc != 0) {
+         fprintf(stderr, "Snapshot via management pipe %s failed, %s\n", socket_name, strerror(rc));
          return 1;
       }
 
@@ -608,10 +629,11 @@ int main(int argc, char* argv[])
                                terminate_app == 0);
          if (rc != 0) {
             fprintf(stderr,
-                    "%s, pid %d snapshot failed\n",
+                    "Cannot create snapshot: cmd %s, pid %d snapshot, %s\n",
                     found_processes.elements[i].commandname,
-                    found_processes.elements[i].processid);
-            break;
+                    found_processes.elements[i].processid,
+                    strerror(rc));
+            return 3;
          } else {
             fprintf(stdout,
                     "snapshot for %s:%d is in file %s\n",
