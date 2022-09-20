@@ -28,6 +28,7 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
@@ -50,9 +51,12 @@ char* SOCKET_PORT = "SOCKET_PORT";
  * Command line flags:
  *  -e - eventfd
  *  -p - pipe
+ *  -h - pipe with write end closed
  *  -c - connected socket
  *  -s - socketpair
+ *  -m - socketpair with one end closed
  *  -t - active interval timers (setitimer() type timers)
+ *  -f - verify that snapshot is not allowed after a process has forked.
  *  -z - timer_create() type interval timers (no support for this yet)
  * Use only one flag at a time.
 
@@ -67,11 +71,164 @@ void usage(void)
 {
    fprintf(stderr, "Usage: snapshot_fail_test [ -e | -p | -c | -s | -t | -z ]\n");
    fprintf(stderr, "       -e = epoll fd pending events\n");
+   fprintf(stderr, "       -f = snapshot fails after process forks\n");
    fprintf(stderr, "       -p = pipe with queued data\n");
+   fprintf(stderr, "       -h = half open pipe with queued data\n");
    fprintf(stderr, "       -c = connected socket\n");
    fprintf(stderr, "       -s = socketpair with queued data\n");
+   fprintf(stderr, "       -m = half open socketpair with queued data\n");
    fprintf(stderr, "       -t = active setitimer interval timer\n");
    fprintf(stderr, "       -z = active timer_create interval timer (km does not support these yet)\n");
+}
+
+/*
+ * Parameters:
+ *  halfopen - if not zero, then close the write end of the pipe before
+ *    taking the snapshot.  Otherwise leave the write end of the pipe open.
+ */
+#define PIPEDATA "stuff"
+void pipetest(int halfopen)
+{
+   ssize_t bc;
+   int pipefd[2];
+   km_hc_args_t snapshotargs;
+
+   if (pipe(pipefd) < 0) {
+      fprintf(stderr, "Couldn't create pipe, %s\n", strerror(errno));
+      exit(100);
+   }
+   bc = write(pipefd[1], PIPEDATA, sizeof("stuff"));
+   if (bc != sizeof("stuff")) {
+      fprintf(stderr, "Couldn't write to pipe, bc %ld, %s\n", bc, strerror(errno));
+      exit(100);
+   }
+   if (halfopen != 0) {
+      close(pipefd[1]);
+   }
+   snapshotargs = (km_hc_args_t){.arg1 = (uint64_t) "snaptest_label",
+                                 .arg2 = (uint64_t) "Snapshot pipe with data",
+                                 .arg3 = 0};
+   km_hcall(HC_snapshot, &snapshotargs);
+   if (snapshotargs.hc_ret != 0) {
+      fprintf(stderr, "snapshot pipe with data failed, error %ld\n", snapshotargs.hc_ret);
+      exit(100);
+   } else {
+      // We should resume from the snapshot here.  So, read the pipe contents.
+      char buf[32];
+      ssize_t bytesread = read(pipefd[0], buf, sizeof(buf));
+      if (bytesread < 0) {
+         fprintf(stderr, "read from pipe failed %s\n", strerror(errno));
+         exit(120);
+      }
+      buf[bytesread] = 0;
+      fprintf(stdout, "pipedata >>>>%s<<<<\n", buf);
+      if (bytesread != sizeof(PIPEDATA)) {
+         fprintf(stderr, "Read %ld bytes back from pipe, expected %ld\n", bytesread, sizeof(PIPEDATA));
+         exit(121);
+      }
+      if (strcmp(buf, PIPEDATA) != 0) {
+         fprintf(stderr, "pipe data is wrong, expected %s, got %s\n", PIPEDATA, buf);
+         exit(122);
+      }
+      close(pipefd[0]);
+      if (halfopen == 0) {
+         close(pipefd[1]);
+      }
+      exit(0);
+   }
+}
+
+#define SOCKETPAIRDATA0 "chocolate chip cookie"
+#define SOCKETPAIRDATA1 "krik's steak burger"
+void socketpairtest(int halfopen)
+{
+   ssize_t bc;
+   int sp[2];
+   km_hc_args_t snapshotargs;
+
+   if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp) < 0) {
+      fprintf(stderr, "Couldn't create socketpair, %s\n", strerror(errno));
+      exit(100);
+   }
+   bc = write(sp[0], SOCKETPAIRDATA0, sizeof(SOCKETPAIRDATA0));
+   if (bc != sizeof(SOCKETPAIRDATA0)) {
+      fprintf(stderr, "Couldn't write to socketpair end 0, bc %ld, %s\n", bc, strerror(errno));
+      exit(100);
+   }
+   bc = write(sp[1], SOCKETPAIRDATA1, sizeof(SOCKETPAIRDATA1));
+   if (bc != sizeof(SOCKETPAIRDATA1)) {
+      fprintf(stderr, "Couldn't write to socketpair end 1, bc %ld, %s\n", bc, strerror(errno));
+      exit(100);
+   }
+   snapshotargs = (km_hc_args_t){.arg1 = (uint64_t) "snaptest_label",
+                                 .arg2 = (uint64_t) "Snapshot socketpair with data",
+                                 .arg3 = 0};
+   if (halfopen != 0) {
+      if (close(sp[1]) < 0) {
+         // Just keep going
+         fprintf(stderr, "close sockerpair fd 0 failed, %s\n", strerror(errno));
+      }
+   }
+   km_hcall(HC_snapshot, &snapshotargs);
+   if (snapshotargs.hc_ret != 0) {
+      fprintf(stderr, "snapshot socketpair with data failed, error %ld\n", snapshotargs.hc_ret);
+      exit(100);
+   } else {
+      // We should resume from the snapshot here.  So, read the socket contents from each end.
+      char buf[64];
+      ssize_t bytesread;
+
+      fprintf(stdout, "Attempt to read socketpair buffered data after snapshot resume\n");
+
+      // read from sp[0]
+      bytesread = read(sp[0], buf, sizeof(buf));
+      if (bytesread < 0) {
+         fprintf(stderr, "read from socketpair 0 failed %s\n", strerror(errno));
+         exit(120);
+      }
+      buf[bytesread] = 0;
+      fprintf(stdout, "socketpair 0 data length %ld, >>>>%s<<<<\n", bytesread, buf);
+      if (bytesread != sizeof(SOCKETPAIRDATA1)) {
+         fprintf(stderr,
+                 "Read %ld bytes back from socketpair 0, expected %ld\n",
+                 bytesread,
+                 sizeof(SOCKETPAIRDATA1));
+         exit(121);
+      }
+      if (strcmp(buf, SOCKETPAIRDATA1) != 0) {
+         fprintf(stderr, "socketpair 0 data is wrong, expected <%s>, got <%s>\n", SOCKETPAIRDATA1, buf);
+         exit(122);
+      }
+
+      // read from sp[1]
+      if (halfopen == 0) {
+         bytesread = read(sp[1], buf, sizeof(buf));
+         if (bytesread < 0) {
+            fprintf(stderr, "read from socketpair 1 failed %s\n", strerror(errno));
+            exit(120);
+         }
+         buf[bytesread] = 0;
+         fprintf(stdout, "socketpair 1 data length %ld >>>>%s<<<<\n", bytesread, buf);
+         if (bytesread != sizeof(SOCKETPAIRDATA0)) {
+            fprintf(stderr,
+                    "Read %ld bytes back from socketpair 1, expected %ld\n",
+                    bytesread,
+                    sizeof(SOCKETPAIRDATA0));
+            exit(121);
+         }
+         if (strcmp(buf, SOCKETPAIRDATA0) != 0) {
+            fprintf(stderr, "socketpair 1 data is wrong, expected <%s>, got <%s>\n", SOCKETPAIRDATA0, buf);
+            exit(122);
+         }
+      }
+
+      close(sp[0]);
+      if (halfopen == 0) {
+         close(sp[1]);
+      }
+      fprintf(stdout, "socketpair buffered data test succeeds\n");
+      exit(0);
+   }
 }
 
 int main(int argc, char* argv[])
@@ -79,6 +236,7 @@ int main(int argc, char* argv[])
    km_hc_args_t snapshotargs;
    int bc;
    int pipefd[2];
+   pid_t pid;
 
    if (argc != 2) {
       usage();
@@ -117,47 +275,52 @@ int main(int argc, char* argv[])
          exit(100);
          break;
 
-         // Snapshot when a pipe has queued data
-#define PIPEDATA "stuff"
-      case 'p':;
-         if (pipe(pipefd) < 0) {
-            fprintf(stderr, "Couldn't create pipe, %s\n", strerror(errno));
-            exit(100);
-         }
-         bc = write(pipefd[1], PIPEDATA, sizeof("stuff"));
-         if (bc != sizeof("stuff")) {
-            fprintf(stderr, "Couldn't write to pipe, bc %d, %s\n", bc, strerror(errno));
-            exit(100);
-         }
-         snapshotargs = (km_hc_args_t){.arg1 = (uint64_t) "snaptest_label",
-                                       .arg2 = (uint64_t) "Snapshot pipe with data",
-                                       .arg3 = 0};
-         km_hcall(HC_snapshot, &snapshotargs);
-         if (snapshotargs.hc_ret != 0) {
-            fprintf(stderr, "snapshot pipe with data failed, error %ld\n", snapshotargs.hc_ret);
-            exit(100);
+      // Fork then snapshot.  This should fail.
+      // snapshotting pipe and socketpair buffered data is not possible if another
+      // process was forked.
+      case 'f':
+         pid = fork();
+         if (pid > 0) {
+            // we are the parent process. attempt a snapshot which should fail.
+            snapshotargs = (km_hc_args_t){.arg1 = (uint64_t) "snaptest_label",
+                                          .arg2 = (uint64_t) "Snapshot after fork",
+                                          .arg3 = 1};
+            km_hcall(HC_snapshot, &snapshotargs);
+
+            // Wait for the child to terminate.
+            int wstatus;
+            pid_t reapedpid = waitpid(pid, &wstatus, 0);
+            if (reapedpid < 0) {
+               fprintf(stderr, "Waiting for child pid %d failed, %s\n", pid, strerror(errno));
+               exit(112);
+            }
+            fprintf(stdout, "Successfully reaped child pid %d\n", reapedpid);
+
+            // Be sure snapshot failed.
+            if (snapshotargs.hc_ret == 0) {
+               fprintf(stderr, "snapshot after fork() succeeded and should not\n");
+               exit(111);
+            }
+            fprintf(stdout, "snapshot failed after fork() as expected\n");
+            exit(0);
+         } else if (pid < 0) {
+            // Fork failed!
+            fprintf(stderr, "fork failed, %s\n", strerror(errno));
+            exit(110);
          } else {
-            // We should resume from the snapshot here.  So, read the pipe contents.
-            char buf[32];
-            ssize_t bytesread = read(pipefd[0], buf, sizeof(buf));
-            if (bytesread < 0) {
-               fprintf(stderr, "read from pipe failed %s\n", strerror(errno));
-               exit(120);
-            }
-            buf[bytesread] = 0;
-            fprintf(stdout, "pipedata >>>>%s<<<<\n", buf);
-            if (bytesread != sizeof(PIPEDATA)) {
-               fprintf(stderr, "Read %ld bytes back from pipe, expected %ld", bytesread, sizeof(PIPEDATA));
-               exit(121);
-            }
-            if (strcmp(buf, PIPEDATA) != 0) {
-               fprintf(stderr, "pipe data is wrong, expected %s, got %s\n", PIPEDATA, buf);
-               exit(122);
-            }
-            close(pipefd[0]);
-            close(pipefd[1]);
+            // We are the child.  Do nothing just exit.
             exit(0);
          }
+         break;
+
+      // Snapshot when a pipe has queued data
+      case 'p':;
+         pipetest(0);
+         break;
+
+      // Half open pipe with buffered data
+      case 'h':
+         pipetest(1);
          break;
 
       // Snapshot with a connected network connection
@@ -243,93 +406,14 @@ int main(int argc, char* argv[])
          exit(100);
          break;
 
-         // Snapshot when a socketpair has queued data
-#define SOCKETPAIRDATA0 "chocolate chip cookie"
-#define SOCKETPAIRDATA1 "krik's steak burger"
-      case 's':;
-         int sp[2];
-         if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp) < 0) {
-            fprintf(stderr, "Couldn't create socketpair, %s\n", strerror(errno));
-            exit(100);
-         }
-         bc = write(sp[0], SOCKETPAIRDATA0, sizeof(SOCKETPAIRDATA0));
-         if (bc != sizeof(SOCKETPAIRDATA0)) {
-            fprintf(stderr, "Couldn't write to socketpair end 0, bc %d, %s\n", bc, strerror(errno));
-            exit(100);
-         }
-         bc = write(sp[1], SOCKETPAIRDATA1, sizeof(SOCKETPAIRDATA1));
-         if (bc != sizeof(SOCKETPAIRDATA1)) {
-            fprintf(stderr, "Couldn't write to socketpair end 1, bc %d, %s\n", bc, strerror(errno));
-            exit(100);
-         }
-         snapshotargs = (km_hc_args_t){.arg1 = (uint64_t) "snaptest_label",
-                                       .arg2 = (uint64_t) "Snapshot socketpair with data",
-                                       .arg3 = 0};
-         km_hcall(HC_snapshot, &snapshotargs);
-         if (snapshotargs.hc_ret != 0) {
-            fprintf(stderr, "snapshot socketpair with data failed, error %ld\n", snapshotargs.hc_ret);
-            exit(100);
-         } else {
-            // We should resume from the snapshot here.  So, read the socket contents from each end.
-            char buf[64];
-            ssize_t bytesread;
+      // Snapshot when a socketpair has queued data
+      case 's':
+         socketpairtest(0);
+         break;
 
-            fprintf(stdout, "Attempt to read socketpair buffered data after snapshot resume\n");
-
-            // read from sp[0]
-            bytesread = read(sp[0], buf, sizeof(buf));
-            if (bytesread < 0) {
-               fprintf(stderr, "read from socketpair 0 failed %s\n", strerror(errno));
-               exit(120);
-            }
-            buf[bytesread] = 0;
-            fprintf(stdout, "socketpair 0 data length %ld, >>>>%s<<<<\n", bytesread, buf);
-            if (bytesread != sizeof(SOCKETPAIRDATA1)) {
-               fprintf(stderr,
-                       "Read %ld bytes back from socketpair 0, expected %ld",
-                       bytesread,
-                       sizeof(SOCKETPAIRDATA1));
-               exit(121);
-            }
-            if (strcmp(buf, SOCKETPAIRDATA1) != 0) {
-               fprintf(stderr,
-                       "socketpair 0 data is wrong, expected <%s>, got <%s>\n",
-                       SOCKETPAIRDATA1,
-                       buf);
-               exit(122);
-            }
-
-            // read from sp[1]
-            bytesread = read(sp[1], buf, sizeof(buf));
-            if (bytesread < 0) {
-               fprintf(stderr, "read from socketpair 1 failed %s\n", strerror(errno));
-               exit(120);
-            }
-            buf[bytesread] = 0;
-            fprintf(stdout, "socketpair 1 data length %ld >>>>%s<<<<\n", bytesread, buf);
-            if (bytesread != sizeof(SOCKETPAIRDATA0)) {
-               fprintf(stderr,
-                       "Read %ld bytes back from socketpair 1, expected %ld",
-                       bytesread,
-                       sizeof(SOCKETPAIRDATA0));
-               exit(121);
-            }
-            if (strcmp(buf, SOCKETPAIRDATA0) != 0) {
-               fprintf(stderr,
-                       "socketpair 1 data is wrong, expected <%s>, got <%s>\n",
-                       SOCKETPAIRDATA0,
-                       buf);
-               exit(122);
-            }
-
-            close(sp[0]);
-            close(sp[1]);
-            fprintf(stdout, "socketpair buffered data test succeeds\n");
-            exit(0);
-         }
-         // We expect the snapshot to fail because of the queued socket data.
-         fprintf(stderr, "snapshot when socketpair has queued data returned?\n");
-         exit(100);
+      // Half open socketpair with buffered data
+      case 'm':
+         socketpairtest(1);
          break;
 
       // Snapshot when there is an active setitimer() timer.  We should try all of the internal timer types.

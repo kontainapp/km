@@ -36,11 +36,21 @@
 #define KM_VIRT_DEVICE "--virt-device="   // convenience macro
 
 /*
+ * What to do?
+ * We need to fetch and store km_fork_count for exec() purposes.
+ * I don't really want to provide interface functions in the fork code
+ * to allow these accesses since that might encourage other modules to
+ * use them.
+ * So I just hand code an extern.  Ewwwww.
+ */
+extern unsigned int km_fork_count;
+
+/*
  * The execve hypercall builds the following environment variables which are appended to
  * the exec'ed program's environment.  The exec'ed km picks these up and and sets things
  * up for the exec'ed payload.
  * KM state environment variables:
- * KM_EXEC_VERS=1,nfdmap
+ * KM_EXEC_VERS=3,nfdmap,fork_count
  * KM_EXEC_VMFDS=kvmfd,machfd,vcpufd,vcpufd,vcpufd,vcpufd,......
  * KM_EXEC_EVENTFDS=intrfd,shutdownfd
  * KM_EXEC_GUESTFDS=gfd:hfd,gfd:hfd,.....
@@ -48,7 +58,7 @@
  * KM_EXEC_GDBINFO=gdbenabled,waitatstarup
  */
 #define KM_EXEC_VARS 6
-static const int KM_EXEC_VERNUM = 2;
+static const int KM_EXEC_VERNUM = 3;
 static char KM_EXEC_VERS[] = "KM_EXEC_VERS";
 static char KM_EXEC_VMFDS[] = "KM_EXEC_VMFDS";
 static char KM_EXEC_EVENTFDS[] = "KM_EXEC_EVENTFDS";
@@ -65,6 +75,7 @@ typedef struct km_exec_state {
    int mach_fd;
    int kvm_vcpu_fd[KVM_MAX_VCPUS];
    int nfdmap;
+   int fork_count;
    km_file_t guestfds[0];
 } km_exec_state_t;
 
@@ -93,15 +104,16 @@ int km_called_via_exec(void)
 }
 
 /*
- * Build an "KM_EXEC_VERS=1,xxxx" string to put in the environment for an execve() so that the
+ * Build an "KM_EXEC_VERS=1,xxxx,yyyy" string to put in the environment for an execve() so that the
  * exec'ed instance of km can know how to put the payload environment back together.
  */
 static char* km_exec_vers_var(void)
 {
-   int bufl = sizeof(KM_EXEC_VERS) + 1 + 4 + sizeof(",fffff");
+   int bufl = sizeof(KM_EXEC_VERS) + 1 + 4 + sizeof(",fffff") + sizeof(",fffff");
    char* bufp = malloc(bufl);
    if (bufp != NULL) {
-      if (snprintf(bufp, bufl, "%s=%d,%d", KM_EXEC_VERS, KM_EXEC_VERNUM, km_fs_max_guestfd()) + 1 >
+      if (snprintf(bufp, bufl, "%s=%d,%d,%d", KM_EXEC_VERS, KM_EXEC_VERNUM, km_fs_max_guestfd(), km_fork_count) +
+              1 >
           bufl) {
          free(bufp);
          bufp = NULL;
@@ -482,6 +494,7 @@ int km_exec_recover_kmstate(void)
    char* gdbinfo = getenv(KM_EXEC_GDBINFO);
    int version;
    int nfdmap;
+   int fork_count;
    int n;
 
    km_infox(KM_TRACE_EXEC, "recovering km exec state, vernum: %s", vernum != NULL ? vernum : "parent");
@@ -495,7 +508,7 @@ int km_exec_recover_kmstate(void)
    }
 
    km_exec_started_this_payload = 1;
-   if ((n = sscanf(vernum, "%d,%d", &version, &nfdmap)) != 2) {
+   if ((n = sscanf(vernum, "%d,%d,%d", &version, &nfdmap, &fork_count)) != 3) {
       km_infox(KM_TRACE_EXEC, "couldn't process vernum %s, n %d", vernum, n);
       return -1;
    }
@@ -519,6 +532,8 @@ int km_exec_recover_kmstate(void)
    }
    execstatep->version = version;
    execstatep->nfdmap = nfdmap;
+   execstatep->fork_count = fork_count;
+   km_fork_count = fork_count;
    km_trace_include_pid(execstatep->tracepid);
    // Tracing should be ok from this point on.
 

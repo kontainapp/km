@@ -131,11 +131,13 @@ typedef struct km_nt_dup {
  * Elf note record for open file.
  */
 typedef struct km_nt_file {
-   Elf64_Word size;    // Size of record
-   Elf64_Word fd;      // Open fd number
-   Elf64_Word how;     // How file was created
-   Elf64_Word flags;   // open(2) flags
-   Elf64_Word mode;    // file mode (includes type)
+   Elf64_Word size;       // Size of record
+   Elf64_Word fd;         // Open fd number
+   Elf64_Word how;        // How file was created
+   Elf64_Word flags;      // open(2) flags
+   Elf64_Word mode;       // file mode (includes type)
+   Elf64_Word pipesize;   // if how == KM_FILE_HOW_PIPE_0/1 the size of the
+                          // kernel buffer for this pipe
    /*
     * The contents of data depends on the file type
     *   __S_IFREG  - lseek position
@@ -168,11 +170,11 @@ typedef struct km_nt_socket {
                             // bytes follow the protocol address of
                             // this note.
    // Protocol address follows
-   // Data buffered in the "write side" of a socketpair follows
+   // Data buffered in the "read side" of a socketpair follows
 } km_nt_socket_t;
 #define NT_KM_SOCKET 0x4b4d534b   // "KMSK" no null term
 
-// values for 'how' field
+// values for 'how' field in km_nt_socket
 #define KM_NT_SKHOW_SOCKETPAIR 0
 #define KM_NT_SKHOW_SOCKET 1
 #define KM_NT_SKHOW_ACCEPT 2

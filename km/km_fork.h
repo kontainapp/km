@@ -20,5 +20,6 @@
 extern void km_forward_sigchild(int signo, siginfo_t* sinfo, void* ucontext_unused);
 extern int km_before_fork(km_vcpu_t* vcpu, km_hc_args_t* arg, uint8_t is_clone);
 extern int km_dofork(int* in_child);
+extern unsigned int km_have_forked(void);
 
 #endif /* !defined(__KM_FORK_H__) */

@@ -1142,12 +1142,35 @@ fi
    run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -t
    assert_failure
    assert_output --partial "Can't take a snapshot, active interval timer(s)"
+   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext  -f
+   assert_success
+   assert_output --partial "Cannot create snapshot after forking"
 
    # Verify that data buffered in pipes and socketpairs are snapshoted and restored
    run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -p
    assert_success
+   run km_with_timeout ${SNAP}
+   assert_success
+   assert_output --partial "pipedata >>>>stuff<<<<"
    run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -s
    assert_success
+   run km_with_timeout ${SNAP}
+   assert_success
+   assert_output --partial "socketpair 0 data length 20, >>>>krik's steak burger<<<<"
+   assert_output --partial "socketpair 1 data length 22 >>>>chocolate chip cookie<<<<"
+
+   # buffered data in half open pipe and socketpair test
+   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -h
+   assert_success
+   run km_with_timeout ${SNAP}
+   assert_success
+   assert_output --partial "pipedata >>>>stuff<<<<"
+   run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -m
+   assert_success
+   run km_with_timeout ${SNAP}
+   assert_success
+   assert_output --partial "socketpair 0 data length 20, >>>>krik's steak burger<<<<"
+   refute_output --partial "socketpair 1 data length 22 >>>>chocolate chip cookie<<<<"
 
    # make sure resume with payloads args fails
    run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext $snapshot_test_port
