@@ -59,13 +59,14 @@ if [[ "$1" == "test" || "$1" == "test-all" ]]; then
    pid=$!
    tries=5
    curl -4 -s localhost:8080 --retry-connrefused  --retry $tries --retry-delay 1
-   sleep 1 # give them a chance to quiesce
    ${KM_CLI_BIN} -s ${MGMTPIPE} -t
    wait $pid
    ${KM_BIN} kmsnap &
+   pid=$!
    curl -4 -s localhost:8080 --retry-connrefused  --retry $tries --retry-delay 1
    curl localhost:8080
    curl -X POST localhost:8080 || echo Forcing srv to exit and ignoring curl 'empty reply'
+   wait $pid
 fi
 
 if [[ "$1" == "test-all" ]]; then
