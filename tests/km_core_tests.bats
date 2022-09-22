@@ -1085,6 +1085,7 @@ fi
    SNAP_OUTPUT=/tmp/snap_output.$$
    MGMTPIPE=/tmp/mgmtpipe.$$
    SNAPDIR=/tmp/snapdir.$$
+   MGTDIR=/tmp/mgtdir.$$
 
    # Test the km_cli -p, -c and -d command line arguments
    # Since we work on the command name to decide which process to request perform a
@@ -1132,6 +1133,19 @@ fi
    run curl -4 -s localhost:$snapshot_test_port --retry-connrefused  --retry 3 --retry-delay 1
    assert_success
    rm -fr $SNAPDIR $MGMTPIPE
+
+   # Test km with the KM_MGTDIR environment variable
+   mkdir -p ${MGTDIR}
+   assert_success
+   KM_MGTDIR=${MGTDIR} km_with_timeout hello_html_test$ext $snapshot_test_port &
+   echo "<$MGTDIR>"
+   ls -l ${MGTDIR}
+   tries=5; while [ ! -S ${MGTDIR}/kmpipe.* ] && [ $tries -gt 0 ]; do sleep 1; tries=`expr $tries - 1`; done
+   assert [ $tries -gt 0 ]
+   run ${KM_CLI_BIN} -s ${MGTDIR}/kmpipe.*
+   assert_success
+   assert [ -f ${MGTDIR}/kmsnap.hello_html_test$ext.[0-9]* ]
+   rm -fr ${MGTDIR}
 
    echo "This is test data" > ${SNAP_INPUT}
 

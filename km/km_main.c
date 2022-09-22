@@ -317,6 +317,14 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    int pl_index = 0;     // payload_name index in argv array
    char** envp = NULL;   // NULL terminated array of env pointers
    int envc = 1;   // count of elements in envp (including NULL), see realloc below in case 'e'
+   char* p;
+
+   // Pickup snapshot setting so we can warn about conflicts from command line.
+   if ((p = getenv(KM_MGTDIR)) != NULL && p[0] != 0) {
+      if ((km_mgtdir = strdup(p)) == NULL) {
+         km_err(1, "Can't allocate dup of KM_MGTDIR %s", p);
+      }
+   }
 
    // pick up env variable. explicit option can override.
    if (getenv(KM_KILL_UNIMPL_SCALL) != NULL) {
@@ -440,6 +448,11 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             km_machine_init_params.vdev_name = strdup(optarg);
             break;
          case 's':
+            if (km_mgtdir != NULL) {
+               km_warnx("KM_MGTDIR=%s is defined, --snapshot's value %s will be ignored",
+                        km_mgtdir,
+                        optarg);
+            }
             km_set_snapshot_path(optarg);
             break;
          case 'D':
@@ -481,6 +494,11 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             km_set_snapshot_output_path(optarg);
             break;
          case 'm':
+            if (km_mgtdir != NULL) {
+               km_warnx("KM_MGTDIR=%s is defined, --mgtpipe's value %s will be ignored",
+                        km_mgtdir,
+                        optarg);
+            }
             mgtpipe = strdup(optarg);
             break;
          case ':':
@@ -492,7 +510,7 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
    }
    pl_index = optind;
 
-   if (mgtpipe == NULL) {
+   if (km_mgtdir == NULL && mgtpipe == NULL) {
       char* mgt_e = getenv(KM_MGTPIPE);
       if (mgt_e != NULL) {
          mgtpipe = strdup(mgt_e);

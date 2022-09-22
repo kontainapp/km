@@ -514,8 +514,33 @@ int km_snapshot_restore(km_elf_t* e)
    return 0;
 }
 
-int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* dumppath, int live)
+static pthread_mutex_t snap_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int in_snapshot = 0;
+int km_snapshot_block(km_vcpu_t* vcpu)
 {
+   pthread_mutex_lock(&snap_mutex);
+   if (in_snapshot != 0) {
+      pthread_mutex_unlock(&snap_mutex);
+      km_warnx("Only one snapshot request allowed at a time");
+      return -EAGAIN;
+   }
+   in_snapshot = 1;
+   pthread_mutex_unlock(&snap_mutex);
+   km_vcpu_pause_all(vcpu, ALL);   // Wait for everyone to get to the pause point.
+   return 0;
+}
+void km_snapshot_unblock(void)
+{
+   pthread_mutex_lock(&snap_mutex);
+   in_snapshot = 0;
+   pthread_mutex_unlock(&snap_mutex);
+   km_vcpu_resume_all();
+}
+
+int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* dumppath)
+{
+   char dumpfile[128];
+
    // No snapshots while GDB is running
    if (km_gdb_is_enabled() != 0) {
       km_warnx("Cannot create snapshot with GDB running");
@@ -526,37 +551,23 @@ int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* du
       return -EBUSY;
    }
 
-   static pthread_mutex_t snap_mutex = PTHREAD_MUTEX_INITIALIZER;
-   static int in_snapshot = 0;
-   pthread_mutex_lock(&snap_mutex);
-   if (in_snapshot != 0) {
-      pthread_mutex_unlock(&snap_mutex);
-      km_warnx("Only one snapshot request allowed at a time");
-      return -EBUSY;
-   }
-   in_snapshot = 1;
-   pthread_mutex_unlock(&snap_mutex);
-
-   km_vcpu_pause_all(vcpu, ALL);   // Wait for everyone to get to the pause point.
-
-   /*
-    * TODO: Work label and description into this.
-    */
    if (dumppath == NULL || dumppath[0] == 0) {
-      dumppath = km_get_snapshot_path();
+      if (km_mgtdir != NULL) {
+         snprintf(dumpfile,
+                  sizeof(dumpfile),
+                  "%s/kmsnap.%s.%d",
+                  km_mgtdir,
+                  basename(km_payload_name),
+                  getpid());
+         dumppath = dumpfile;
+      } else {
+         dumppath = km_get_snapshot_path();
+      }
    }
    int rc = km_dump_core(dumppath, vcpu, NULL, label, description, KM_DO_SNAP);
-   if (rc == 0) {
-      if (live == 0) {
-         machine.exit_group = 1;
-      }
-   } else {
-      km_warnx("Cannot create snapshot, %s", strerror(rc));
+   if (rc != 0) {
+      km_warnx("Cannot create snapshot %s, %s", dumppath, strerror(rc));
    }
-   pthread_mutex_lock(&snap_mutex);
-   in_snapshot = 0;
-   pthread_mutex_unlock(&snap_mutex);
 
-   km_vcpu_resume_all();
    return rc;
 }
