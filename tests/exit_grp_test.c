@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include "greatest/greatest.h"
 
 #define PCOUNT 10   // total count of threads to start
@@ -62,6 +63,9 @@ TEST tests_in_flight(void)
    for (int i = 0; i < PCOUNT - 1; i++) {
       char buf[64];
       int ret = pthread_create(&thr[i], NULL, run_thr, (void*)(i % 2 == 0 ? 1ul : 4096ul * 1024));   // odd run longer
+      if (ret != 0) {
+         printf("pthread_create %d failed, errno %d\n", i, errno);
+      }
       sprintf(buf, "Started %d (%p)", i, (void*)thr[i]);
       ASSERT_EQm(buf, 0, ret);
       if (greatest_get_verbosity() > 0) {
@@ -78,6 +82,9 @@ TEST wait_for_some(void)
       char buf[64];
       sprintf(buf, "Join %d (%p)", i, (void*)thr[i]);
       int ret = pthread_join(thr[i], &retval);
+      if (ret != 0) {
+         printf(" pthread_join thread 0x%lx failed, errno %d", thr[i], errno);
+      }
       ASSERT_EQm(buf, 0, ret);
       if (greatest_get_verbosity() > 0) {
          printf("%s\n", buf);
