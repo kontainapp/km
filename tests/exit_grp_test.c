@@ -20,22 +20,25 @@
  */
 
 #include <err.h>
+#include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
 #include "greatest/greatest.h"
 
 #define PCOUNT 10   // total count of threads to start
 #define EXIT_GRP_GENERATE_DEADLOCK 1
 
+int run_thr_running;
+
 // run thread. arg defines how soon the thread will exit (larger arg - longer life)
 void* run_thr(void* arg)
 {
    uint64_t ret;
+   __atomic_fetch_add(&run_thr_running, 1, __ATOMIC_SEQ_CST);
    for (int i = 0; i < 1024 * 1024 * 5 * (uint64_t)arg; i++) {
       volatile int r = 1024 * rand();
       r /= 22;
@@ -78,6 +81,7 @@ TEST tests_in_flight(void)
 TEST wait_for_some(void)
 {
    void* retval;
+   printf("run_thr_running %d\n", run_thr_running);
    for (int i = 0; i < PCOUNT - 1; i += 2) {
       char buf[64];
       sprintf(buf, "Join %d (%p)", i, (void*)thr[i]);

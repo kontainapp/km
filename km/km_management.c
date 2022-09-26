@@ -113,12 +113,12 @@ static void* mgt_main(void* arg)
 
 void km_mgt_fini(void)
 {
-   unlink(addr.sun_path);
-   if (sock == -1) {
-      return;
-   }
    kill_thread = 1;
-   close(sock);
+   unlink(addr.sun_path);
+   if (sock >= 0) {
+      close(sock);
+      sock = -1;
+   }
    free(km_mgtdir);
    km_mgtdir = NULL;
    return;
@@ -136,7 +136,8 @@ void km_mgt_init(char* path)
       struct stat sb;
       int rc = stat(km_mgtdir, &sb);
       if (rc != 0) {
-         km_err(3, "KM_MGTDIR directory <%s> is not accessible", km_mgtdir);
+         km_warn("KM_MGTDIR directory <%s> is not accessible", km_mgtdir);
+         goto err;
       }
       snprintf(pipename, sizeof(pipename), "%s/kmpipe.%s.%d", km_mgtdir, basename(km_payload_name), getpid());
       path = pipename;
@@ -150,10 +151,11 @@ void km_mgt_init(char* path)
    }
    strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
-   km_warnx("snapshot pipe name is %s", path);
+   km_info(KM_TRACE_SNAPSHOT, "snapshot pipe name is %s", path);
 
    if ((sock = km_mgt_listen(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-      km_err(2, "mgt socket %s", addr.sun_path);
+      km_warn("mgt socket %s", addr.sun_path);
+      goto err;
    }
    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
       km_warn("bind failure: %s", path);
@@ -172,8 +174,6 @@ void km_mgt_init(char* path)
    atexit(km_mgt_fini);
    return;
 err:
-   close(sock);
-   unlink(addr.sun_path);
-   sock = -1;
+   km_mgt_fini();
    return;
 }

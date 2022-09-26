@@ -449,9 +449,10 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             break;
          case 's':
             if (km_mgtdir != NULL) {
-               km_warnx("KM_MGTDIR=%s is defined, --snapshot's value %s will be ignored",
-                        km_mgtdir,
-                        optarg);
+               km_errx(1,
+                       "KM_MGTDIR=%s is defined and --snapshot %s are mutually exclusive",
+                       km_mgtdir,
+                       optarg);
             }
             km_set_snapshot_path(optarg);
             break;
@@ -495,9 +496,10 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             break;
          case 'm':
             if (km_mgtdir != NULL) {
-               km_warnx("KM_MGTDIR=%s is defined, --mgtpipe's value %s will be ignored",
-                        km_mgtdir,
-                        optarg);
+               km_errx(1,
+                       "KM_MGTDIR=%s is defined and --mgtpipe %s are mutually exclusive",
+                       km_mgtdir,
+                       optarg);
             }
             mgtpipe = strdup(optarg);
             break;
