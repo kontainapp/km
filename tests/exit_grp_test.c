@@ -20,6 +20,7 @@
  */
 
 #include <err.h>
+#include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -31,10 +32,13 @@
 #define PCOUNT 10   // total count of threads to start
 #define EXIT_GRP_GENERATE_DEADLOCK 1
 
+int run_thr_running;
+
 // run thread. arg defines how soon the thread will exit (larger arg - longer life)
 void* run_thr(void* arg)
 {
    uint64_t ret;
+   __atomic_fetch_add(&run_thr_running, 1, __ATOMIC_SEQ_CST);
    for (int i = 0; i < 1024 * 1024 * 5 * (uint64_t)arg; i++) {
       volatile int r = 1024 * rand();
       r /= 22;
@@ -62,6 +66,9 @@ TEST tests_in_flight(void)
    for (int i = 0; i < PCOUNT - 1; i++) {
       char buf[64];
       int ret = pthread_create(&thr[i], NULL, run_thr, (void*)(i % 2 == 0 ? 1ul : 4096ul * 1024));   // odd run longer
+      if (ret != 0) {
+         printf("pthread_create %d failed, errno %d\n", i, errno);
+      }
       sprintf(buf, "Started %d (%p)", i, (void*)thr[i]);
       ASSERT_EQm(buf, 0, ret);
       if (greatest_get_verbosity() > 0) {
@@ -74,10 +81,14 @@ TEST tests_in_flight(void)
 TEST wait_for_some(void)
 {
    void* retval;
+   printf("run_thr_running %d\n", run_thr_running);
    for (int i = 0; i < PCOUNT - 1; i += 2) {
       char buf[64];
       sprintf(buf, "Join %d (%p)", i, (void*)thr[i]);
       int ret = pthread_join(thr[i], &retval);
+      if (ret != 0) {
+         printf(" pthread_join thread 0x%lx failed, errno %d", thr[i], errno);
+      }
       ASSERT_EQm(buf, 0, ret);
       if (greatest_get_verbosity() > 0) {
          printf("%s\n", buf);

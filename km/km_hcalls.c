@@ -1942,8 +1942,13 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    ((km_vcpu_t*)vcpu)->regs_valid = 0;   // force register reread after the sync_rip
    km_read_registers(vcpu);
 
+   if ((arg->hc_ret = km_snapshot_block(vcpu)) != 0) {
+      return HC_CONTINUE;
+   }
+
    // Create the snapshot.
-   arg->hc_ret = km_snapshot_create(vcpu, label, description, NULL, live);
+   arg->hc_ret = km_snapshot_create(vcpu, label, description, NULL);
+   km_snapshot_unblock();
    // negative value means EBUSY or other similar condition.
    // TODO: in case of live (non zero last arg) returning HC_CONTINUE should just work
    if (arg->hc_ret < 0 || live != 0) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Kontain Inc
+ * Copyright 2021-2022 Kontain Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,9 @@
 
 void km_set_snapshot_path(char* path);
 char* km_get_snapshot_path();
-int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* path, int live);
+int km_snapshot_block(km_vcpu_t* vcpu);
+void km_snapshot_unblock(void);
+int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* path);
 int km_snapshot_restore(km_elf_t* elf);
 int km_snapshot_notes_apply(char* notebuf, size_t notesize, int type, int (*func)(char*, size_t));
 void km_snapshot_io_path_fini();

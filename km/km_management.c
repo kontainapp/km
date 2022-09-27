@@ -36,12 +36,15 @@ static int sock = -1;
 static struct sockaddr_un addr = {.sun_family = AF_UNIX};
 pthread_t thread;
 int kill_thread = 0;
+char* km_mgtdir = NULL;
 
 static void* mgt_main(void* arg)
 {
    ssize_t br;
    mgmtrequest_t mgmtrequest;
    mgmtreply_t mgmtreply;
+   int needunblock;
+   ssize_t bw;
 
    /*
     * First implementation is really dumb. Listen on a socket. When a connect
@@ -69,14 +72,20 @@ static void* mgt_main(void* arg)
          continue;
       }
 
+      needunblock = 0;
       switch (mgmtrequest.opcode) {
          case KM_MGMT_REQ_SNAPSHOT:
-            mgmtreply.request_status =
-                km_snapshot_create(NULL,
-                                   mgmtrequest.requests.snapshot_req.label,
-                                   mgmtrequest.requests.snapshot_req.description,
-                                   mgmtrequest.requests.snapshot_req.snapshot_path,
-                                   mgmtrequest.requests.snapshot_req.live);
+            if ((mgmtreply.request_status = km_snapshot_block(NULL)) == 0) {
+               mgmtreply.request_status =
+                   km_snapshot_create(NULL,
+                                      mgmtrequest.requests.snapshot_req.label,
+                                      mgmtrequest.requests.snapshot_req.description,
+                                      mgmtrequest.requests.snapshot_req.snapshot_path);
+               if (mgmtreply.request_status == 0 && mgmtrequest.requests.snapshot_req.live == 0) {
+                  machine.exit_group = 1;
+               }
+               needunblock = 1;
+            }
             break;
          default:
             km_warnx("Unknown mgmt request %d, length %d", mgmtrequest.opcode, mgmtrequest.length);
@@ -85,54 +94,86 @@ static void* mgt_main(void* arg)
       }
 
       // let them know what happened.
-      ssize_t bw = send(nfd, &mgmtreply, sizeof(mgmtreply), MSG_NOSIGNAL);
+      bw = send(nfd, &mgmtreply, sizeof(mgmtreply), MSG_NOSIGNAL);
       if (bw != sizeof(mgmtreply)) {
-         km_warn("send mgmt reply failed, byteswritten %ld", bw);
+         km_warn("send mgmt reply failed, byteswritten %ld, expected %d", bw, sizeof(mgmtreply));
       }
       close(nfd);
+      if (needunblock != 0) {
+         // We need to send the reply before potentially shutting down the payload threads.
+         km_snapshot_unblock();
+      }
+      if (mgmtreply.request_status == 0 && mgmtrequest.requests.snapshot_req.live == 0) {
+         // Payload threads are terminating, this thread doesn't need to receive any more mgmt requests.
+         break;
+      }
    }
    return NULL;
 }
 
+void km_mgt_fini(void)
+{
+   kill_thread = 1;
+   unlink(addr.sun_path);
+   if (sock >= 0) {
+      close(sock);
+      sock = -1;
+   }
+   free(km_mgtdir);
+   km_mgtdir = NULL;
+   return;
+}
+
 void km_mgt_init(char* path)
 {
-   if (path == NULL) {
-      return;
+   char pipename[128];
+   if (km_mgtdir != NULL) {
+      /*
+       * If KM_MGTDIR is in the environment we ignore the pipe name supplied on the
+       * command line or the KM_MGTPIPE env var.  Instead we use self generated names
+       * in the directory supplied with KM_MGTDIR.
+       */
+      struct stat sb;
+      int rc = stat(km_mgtdir, &sb);
+      if (rc != 0) {
+         km_warn("KM_MGTDIR directory <%s> is not accessible", km_mgtdir);
+         goto err;
+      }
+      snprintf(pipename, sizeof(pipename), "%s/kmpipe.%s.%d", km_mgtdir, basename(km_payload_name), getpid());
+      path = pipename;
+   } else {
+      if (path == NULL) {
+         return;
+      }
    }
    if (strlen(path) + 1 > sizeof(addr.sun_path)) {
-      km_errx(2, "mgmt path too long");
+      km_errx(2, "mgmt path <%s> too long, max length %d", path, sizeof(addr.sun_path));
    }
    strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
+   km_info(KM_TRACE_SNAPSHOT, "snapshot pipe name is %s", path);
+
    if ((sock = km_mgt_listen(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-      km_err(2, "mgt socket(2)");
+      km_warn("mgt socket %s", addr.sun_path);
+      goto err;
    }
    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
       km_warn("bind failure: %s", path);
       goto err;
    }
    if (listen(sock, 1) < 0) {
-      km_warn("listen");
+      km_warn("mgt listen %s", addr.sun_path);
       goto err;
    }
+   kill_thread = 0;
    if (pthread_create(&thread, NULL, mgt_main, NULL) != 0) {
-      km_warn("phtread_create failure");
+      km_warn("phtread_create mgt_main() failure");
       goto err;
    }
+   // Ensure the mgt pipe is deleted if km calls km_err()
+   atexit(km_mgt_fini);
    return;
 err:
-   close(sock);
-   sock = -1;
-   return;
-}
-
-void km_mgt_fini(void)
-{
-   if (sock == -1) {
-      return;
-   }
-   unlink(addr.sun_path);
-   kill_thread = 1;
-   close(sock);
+   km_mgt_fini();
    return;
 }
