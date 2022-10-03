@@ -60,6 +60,7 @@ KKM_DEVICE=/dev/kkm
 
 # Podman configuration related
 DOCKER_INIT=$(docker info -f '{{json .}}' | jq -r '.InitBinary')
+DOCKER_INIT=$(which "$DOCKER_INIT")
 # if running under sudo, update the invokers containers.conf, not root's
 # Note that the shell nazi's think eval to expand ~ is evil but I can't find a better way
 HOME_CONTAINERS_CONF=`eval echo ~${SUDO_USER}/.config/containers/containers.conf`
