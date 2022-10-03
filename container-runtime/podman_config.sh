@@ -32,6 +32,24 @@ set -e ; [ "$TRACE" ] && set -x
 # Some programs we care about
 KRUN_PATH=/opt/kontain/bin/krun
 KM_PATH=/opt/kontain/bin/km
+RUNTIME_NAME=krun
+
+for arg in "$@"
+do
+   case "$arg" in
+        -u)
+            UNINSTALL=yes
+        ;;
+        --runtime-name=*)
+            RUNTIME_NAME="${1#*=}"
+        ;;
+        --runtime-path=*)
+            KRUN_PATH="${1#*=}"
+            KM_PATH=$(echo "${KRUN_PATH}" | sed 's/krun/km/')
+        ;;
+    esac
+    shift
+done
 
 # selinux policy related
 GETENFORCEPATH=/usr/sbin/getenforce
@@ -41,10 +59,7 @@ POLDIR=/tmp/$KONTAIN_SELINUX_POLICY
 KKM_DEVICE=/dev/kkm
 
 # Podman configuration related
-DOCKER_INIT_FEDORA=/usr/libexec/docker/docker-init
-DOCKER_INIT_UBUNTU=/usr/bin/docker-init
-CONTAINERS_CONF=/usr/share/containers/containers.conf
-ETC_CONTAINERS_CONF=/etc/containers/containers.conf
+DOCKER_INIT=$(docker info -f '{{json .}}' | jq -r '.InitBinary')
 # if running under sudo, update the invokers containers.conf, not root's
 # Note that the shell nazi's think eval to expand ~ is evil but I can't find a better way
 HOME_CONTAINERS_CONF=`eval echo ~${SUDO_USER}/.config/containers/containers.conf`
@@ -93,12 +108,12 @@ function persistent-apt-get
 }
 
 # UNINSTALL
-if [ $# -eq 1 -a "$1" = "-u" ]; then
+if [ -n "$UNINSTALL" ]; then
     echo "Removing kontain related podman config changes"
     # put back their containers.conf file
     if [ -e $HOME_CONTAINERS_CONF.kontainsave ]; then
-        cp $HOME_CONTAINERS_CONF.kontainsave $HOME_CONTAINERS_CONF
-        rm -f $HOME_CONTAINERS_CONF.kontainsave
+        #remove specified config
+        sed -i '/'"$RUNTIME_NAME"'/{:a;N;/]/!ba};//d' $HOME_CONTAINERS_CONF
     else
         # No .kontainsave file, so they didn't have one before we got here
         rm -f $HOME_CONTAINERS_CONF
@@ -137,10 +152,6 @@ function selinux_is_enabled()
     return 1
 }
 
-# docker-init is in different directories for different distributions
-DI=DOCKER_INIT_${ID^^}
-DOCKER_INIT=${!DI}
-
 # Install podman and policy build tools
 echo "Installing podman and selinux packages"
 PACKAGES=${ID^^}_PACKAGES
@@ -178,7 +189,7 @@ init_path = "$DOCKER_INIT"
 [engine]
 
 [engine.runtimes]
-krun = [
+"$RUNTIME_NAME" = [
         "$KRUN_PATH"
 ]
 EOF
@@ -214,11 +225,11 @@ else
         fi
     fi
     
-    # add krun to ~/.config/containers/containers.conf at the beginning of the [engine.runtimes] section
+    # add runtime to ~/.config/containers/containers.conf at the beginning of the [engine.runtimes] section
     echo
-    if ! grep -q "^ *krun =" $HOME_CONTAINERS_CONF
+    if ! grep -q "^ *$RUNTIME_NAME =" $HOME_CONTAINERS_CONF
     then
-        sed --in-place -e "/^\[engine.runtimes\]/akrun = [\n   \"$KRUN_PATH\",\n]\n" $HOME_CONTAINERS_CONF
+        sed --in-place -e "/^\[engine.runtimes\]/a$RUNTIME_NAME = [\n   \"$KRUN_PATH\",\n]\n" $HOME_CONTAINERS_CONF
     else
         echo "runtime krun already configured in $HOME_CONTAINERS_CONF"
         grep -A 3 "^ *krun =" $HOME_CONTAINERS_CONF

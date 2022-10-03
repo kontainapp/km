@@ -113,7 +113,8 @@ DOCKER_RUN_CLEANUP ?= --rm
 # When running tests in containers on CI, we can't use tty and interactive
 DOCKER_INTERACTIVE ?= -it
 
-DOCKER_KRUN_RUNTIME ?= --runtime krun
+RUNTIME ?= krun
+DOCKER_KRUN_RUNTIME = --runtime ${RUNTIME}
 DOCKER_RUN := docker run --sysctl net.ipv4.ip_unprivileged_port_start=1024 ${DOCKER_RUN_CLEANUP}
 # DOCKER_RUN_BUILD are used for building and other operations that requires
 # output of files to volumes. When we need to write files to the volumes mapped
@@ -124,7 +125,7 @@ DOCKER_RUN_TEST := ${DOCKER_RUN} ${DOCKER_INTERACTIVE} --device=${HYPERVISOR_DEV
 
 # These PODMAN_* variables mirror the docker related ones.
 # Initially we use these to verify that runenv-images work with podman
-PODMAN_KRUN_RUNTIME ?= --runtime krun
+PODMAN_KRUN_RUNTIME = --runtime ${RUNTIME}
 PODMAN_RUN := podman run ${DOCKER_RUN_CLEANUP}
 PODMAN_RUN_TEST := ${PODMAN_RUN} ${DOCKER_INTERACTIVE} --init
 
