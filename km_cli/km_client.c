@@ -249,7 +249,7 @@ int processidmatches(pid_t processid, pid_t* processids)
 int commandnamematches(char* commandname, char* commandnames[])
 {
    for (int i = 0; commandnames[i] != NULL; i++) {
-      if (strstr(commandname, commandnames[i]) != NULL) {
+      if (strcmp(commandname, commandnames[i]) == 0) {
          if (debug > 0) {
             fprintf(stderr,
                     "commandname %s matches commandnames[%d] %s\n",
