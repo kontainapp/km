@@ -227,7 +227,7 @@ make test-withdocker
 Once you have kontain source code in your working directory you need to install podman and then configure podman and docker to
 use krun and km to run payloads.
 
-/opt/kontain/ contains Kontain release if one has been installe and runtime krun in both docker and podman will point to that release
+/opt/kontain/ contains Kontain release if one has been install and runtime krun in both docker and podman will point to that release
 
 To configure docker and podman with local version you've just built run
 
@@ -248,7 +248,7 @@ make -C payloads validate-runenv-image RUNTIME=your-runtime-name
 ```
 The kontain makefile clean target cleans out build/opt/kontain/bin so you will find that docker or podman run fail because
 these two programs are missing.
-Just rebuild them.
+Just rebuild them. There is no need to re-install runtime when you re-build as it will continue to point to your local development directory. 
 
 ## Following are various tools
 
