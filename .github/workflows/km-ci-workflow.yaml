@@ -175,6 +175,7 @@ jobs:
       - uses: ./.github/actions/configure-krun
         with:
           token: ${{secrets.GH_TOKEN}}
+          build-only: 'yes'
 
   # Build the k8s release artifact. Static KRUN is built separately and
   # in parallel from the rest of KM. The k8s artifact contains:
