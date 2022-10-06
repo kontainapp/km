@@ -24,6 +24,14 @@
 set pagination off
 print stop_running
 
+# Wait for all of the threads to be running
+# The breakpoint should be on this line: while (wait_for_gdb != 0) {
+if all_running == 0
+   print all threads are not running
+   br main.c:180
+   continue
+end
+
 if wait_for_gdb != 0
    print "set BP"
    br usleep if wait_for_gdb != 0

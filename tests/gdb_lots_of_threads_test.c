@@ -45,6 +45,7 @@ time_t starttime;
 int stop_after_seconds;
 int wait_for_gdb = 1;
 int running_count = 0;
+int all_running = 0;
 
 pthread_mutex_t rand_serialize = PTHREAD_MUTEX_INITIALIZER;
 
@@ -170,9 +171,10 @@ int main(int argc, char* argv[])
 
    // Wait for all the threads to be running.
    // Yes, sometimes the threads have been created but are not yet joinable.
-   while (running_count < i) {
+   while (__atomic_load_n(&running_count, __ATOMIC_SEQ_CST) < i) {
       usleep(100);
    }
+   all_running = 1;
 
    // Wait for gdb to attach.
    while (wait_for_gdb != 0) {
