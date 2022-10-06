@@ -113,6 +113,12 @@ edge-release: ## Trigger edge-release building pipeline
 	git tag -a ${RELEASE_TAG} --message "${EDGE_RELEASE_MESSAGE}"
 	git push ${REPO_URL} ${RELEASE_TAG}
 
+install-dev-runtime: ## Configure docker and podman to use build/opt/kontain/krun and km
+	make -C container-runtime install-dev-runtime MAKEFLAGS="$(MAKEFLAGS)"
+
+uninstall-dev-runtime: ## Remove docker and podman configuration for local build
+	make -C container-runtime uninstall-dev-runtime MAKEFLAGS="$(MAKEFLAGS)"
+
 ## Prepares release by
 ##  -- updating km-releases/current_release.txt  with passed in version number
 ##  --

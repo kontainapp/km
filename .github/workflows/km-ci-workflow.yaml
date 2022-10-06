@@ -175,6 +175,7 @@ jobs:
       - uses: ./.github/actions/configure-krun
         with:
           token: ${{secrets.GH_TOKEN}}
+          build-only: 'yes'
 
   # Build the k8s release artifact. Static KRUN is built separately and
   # in parallel from the rest of KM. The k8s artifact contains:
@@ -203,6 +204,7 @@ jobs:
         with:
           target-dir: build/opt/kontain
           token: ${{secrets.GH_TOKEN}}
+          build-only: "yes"
 
       - name: Login into Azure Repository
         run: make -C cloud/azure login-cli

@@ -57,6 +57,20 @@ static:
 	cp -f ${CRUNDIR_ABS}/result/bin/crun ${CRUNDIR_ABS}/krun.static
 	ln -f ${CRUNDIR_ABS}/krun.static ${CRUNDIR_ABS}/krun.static-label-trigger
 
+install-dev-runtime:
+	@if [[ -z "${RUNTIME}" ]] || [[ "${RUNTIME}" = "krun" ]]; then \
+		echo -e "$(RED)Parameter RUNTIME=<your name> is required and cannot be krun$(NOCOLOR)" && false; \
+	fi
+	sudo ./docker_config.sh --runtime-name=${RUNTIME} --runtime-path=${KM_OPT_BIN}/krun
+	sudo ./podman_config.sh --runtime-name=${RUNTIME} --runtime-path=${KM_OPT_BIN}/krun
+
+uninstall-dev-runtime:
+	@if [[ -z "${RUNTIME}" ]] || [[ "${RUNTIME}" = "krun" ]]; then \
+		echo -e "$(RED)Parameter RUNTIME=<your name> is required and cannot be krun$(NOCOLOR)" && false; \
+	fi
+	sudo ./docker_config.sh -u --runtime-name=${RUNTIME}
+	sudo ./podman_config.sh -u --runtime-name=${RUNTIME}
+
 # Run crun's tests
 test:	all
 	@if [ ! -x ${KM_OPT_KM} ] ; then \

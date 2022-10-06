@@ -8,6 +8,10 @@ inputs:
   token:
     description: github token
     required: true
+  build-only:
+    description: set to true to skip actual docker configuration
+    required: false
+    default: 'no'
 
 runs:
   using: "composite"
@@ -63,6 +67,11 @@ runs:
         sudo cp container-runtime/docker_config.sh ${{inputs.target-dir}}/bin/docker_config.sh
         [[ ${{inputs.target-dir}} == /opt/* ]] && sudo mv build/opt/kontain/bin/km /opt/kontain/bin/km
         sudo chmod +x ${{inputs.target-dir}}/bin/km ${{inputs.target-dir}}/bin/krun
+      shell: bash
+
+    - name: Configure Docker and Podman
+      if: ${{ inputs.build-only == 'no' }}
+      run: |
         sudo bash ./container-runtime/podman_config.sh
         sudo bash ./container-runtime/docker_config.sh
       shell: bash

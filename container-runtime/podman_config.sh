@@ -30,8 +30,39 @@ set -e ; [ "$TRACE" ] && set -x
 [ "$ID" != "fedora" -a "$ID" != "ubuntu" -a "$ID" != "amzn" ] && echo "Unsupported linux distribution: $ID" && exit 1
 
 # Some programs we care about
-KRUN_PATH=/opt/kontain/bin/krun
-KM_PATH=/opt/kontain/bin/km
+KRUN_PATH="/opt/kontain/bin/krun"
+KM_PATH="/opt/kontain/bin/km"
+RUNTIME_NAME="krun"
+PODMAN_EXISTED=/opt/kontain/config/podman_existed
+
+for arg in "$@"
+do
+   case "$arg" in
+        -u)
+            UNINSTALL=yes
+        ;;
+        --runtime-name=*)
+            RUNTIME_NAME="${1#*=}"
+        ;;
+        --runtime-path=*)
+            KRUN_PATH="${1#*=}"
+            KM_PATH=$(echo "${KRUN_PATH}" | sed 's/krun/km/')
+        ;;
+    esac
+    shift
+done
+
+# check that KRUN_PATH points to an executable file
+if [ ! -x "$KRUN_PATH" ] && [ -z "$UNINSTALL" ]; then
+   echo "Runtime path must be full path to an existing krun executable"
+   exit 1
+fi
+
+# check that KM_PATH points to an executable file
+if [ ! -x "$KM_PATH" ] && [ -z "$UNINSTALL" ]; then
+   echo "KM execuable is not found or is not executable"
+   exit 1
+fi
 
 # selinux policy related
 GETENFORCEPATH=/usr/sbin/getenforce
@@ -41,10 +72,8 @@ POLDIR=/tmp/$KONTAIN_SELINUX_POLICY
 KKM_DEVICE=/dev/kkm
 
 # Podman configuration related
-DOCKER_INIT_FEDORA=/usr/libexec/docker/docker-init
-DOCKER_INIT_UBUNTU=/usr/bin/docker-init
-CONTAINERS_CONF=/usr/share/containers/containers.conf
-ETC_CONTAINERS_CONF=/etc/containers/containers.conf
+DOCKER_INIT=$(docker info -f '{{json .}}' | jq -r '.InitBinary')
+DOCKER_INIT=$(which "$DOCKER_INIT")
 # if running under sudo, update the invokers containers.conf, not root's
 # Note that the shell nazi's think eval to expand ~ is evil but I can't find a better way
 HOME_CONTAINERS_CONF=`eval echo ~${SUDO_USER}/.config/containers/containers.conf`
@@ -69,7 +98,7 @@ function persistent-apt-get
 {
     eflag=0
     if echo $- | grep -q "e"; then eflag=1; fi
-    
+
     MESSAGE="E: Could not get lock /var/lib/dpkg/lock-frontend."
     APT_GET_OUTPUT=/tmp/apt-get-out-$$
     while true; do
@@ -93,32 +122,29 @@ function persistent-apt-get
 }
 
 # UNINSTALL
-if [ $# -eq 1 -a "$1" = "-u" ]; then
+if [ -n "$UNINSTALL" ]; then
     echo "Removing kontain related podman config changes"
-    # put back their containers.conf file
-    if [ -e $HOME_CONTAINERS_CONF.kontainsave ]; then
-        cp $HOME_CONTAINERS_CONF.kontainsave $HOME_CONTAINERS_CONF
-        rm -f $HOME_CONTAINERS_CONF.kontainsave
-    else
-        # No .kontainsave file, so they didn't have one before we got here
-        rm -f $HOME_CONTAINERS_CONF
-    fi
-    
-    # remove our selinux policy
-    if [ "$ID" = "fedora" ]; then
-        semodule --remove=$KONTAIN_SELINUX_POLICY
-        # Remove the POLDIR?
-        #rm -fr $POLDIR
-        # We don't restore km's selinux context.
-    fi
-    
-    # remove podman and selinux-policy-devel packages
-    # We don't remove the packages needed by krun since many of them are usually present by default.
-    UNINSTALL=UNINSTALL_${ID^^}_PACKAGES
-    PACKAGES=CLEAN_${ID^^}_PACKAGES
-    ${!UNINSTALL} ${!PACKAGES}
-    
-    exit 0
+    #remove specified config
+    sed -i '/'"$RUNTIME_NAME"'/{:a;N;/]/!ba};//d' $HOME_CONTAINERS_CONF
+
+    # check if there are Kontain runtimes left
+    if grep -q /opt/kontain/bin/krun $HOME_CONTAINERS_CONF && [ ! -d "$PODMAN_EXISTED" ]; then
+
+      # remove our selinux policy
+      if [ "$ID" = "fedora" ]; then
+         semodule --remove=$KONTAIN_SELINUX_POLICY
+         # Remove the POLDIR?
+         #rm -fr $POLDIR
+         # We don't restore km's selinux context.
+      fi
+
+      # remove podman and selinux-policy-devel packages
+      # We don't remove the packages needed by krun since many of them are usually present by default.
+      UNINSTALL=UNINSTALL_${ID^^}_PACKAGES
+      PACKAGES=CLEAN_${ID^^}_PACKAGES
+      ${!UNINSTALL} ${!PACKAGES}
+   fi
+   exit 0
 fi
 
 # return success if selinux is present and enabled, otherwise return fail
@@ -137,18 +163,19 @@ function selinux_is_enabled()
     return 1
 }
 
-# docker-init is in different directories for different distributions
-DI=DOCKER_INIT_${ID^^}
-DOCKER_INIT=${!DI}
-
 # Install podman and policy build tools
 echo "Installing podman and selinux packages"
 PACKAGES=${ID^^}_PACKAGES
 INSTALL=INSTALL_${ID^^}_PACKAGES
 REFRESH=REFRESH_${ID^^}_PACKAGES
 
+if command -v podman &> /dev/null
+then
+   mkdir -p "$PODMAN_EXISTED"
+fi
+
 # Tell ubuntu about the ppackage repo containing podman
-if test "$ID" = "ubuntu"
+if [ "$ID" = "ubuntu" ]
 then
     persistent-apt-get update
     persistent-apt-get install -y wget gnupg2
@@ -178,7 +205,7 @@ init_path = "$DOCKER_INIT"
 [engine]
 
 [engine.runtimes]
-krun = [
+"$RUNTIME_NAME" = [
         "$KRUN_PATH"
 ]
 EOF
@@ -213,12 +240,12 @@ else
             echo "init_path = \"$DOCKER_INIT\"" is already in $HOME_CONTAINERS_CONF
         fi
     fi
-    
-    # add krun to ~/.config/containers/containers.conf at the beginning of the [engine.runtimes] section
+
+    # add runtime to ~/.config/containers/containers.conf at the beginning of the [engine.runtimes] section
     echo
-    if ! grep -q "^ *krun =" $HOME_CONTAINERS_CONF
+    if ! grep -q "^ *$RUNTIME_NAME =" $HOME_CONTAINERS_CONF
     then
-        sed --in-place -e "/^\[engine.runtimes\]/akrun = [\n   \"$KRUN_PATH\",\n]\n" $HOME_CONTAINERS_CONF
+        sed --in-place -e "/^\[engine.runtimes\]/a$RUNTIME_NAME = [\n   \"$KRUN_PATH\",\n]\n" $HOME_CONTAINERS_CONF
     else
         echo "runtime krun already configured in $HOME_CONTAINERS_CONF"
         grep -A 3 "^ *krun =" $HOME_CONTAINERS_CONF
@@ -229,7 +256,7 @@ fi
 if selinux_is_enabled
 then
     echo "selinux is present on this system"
-    
+
     # set selinux context on /opt/kontain/bin/km
     if [ -e "$KM_PATH" ]; then
         chcon $KM_SELINUX_CONTEXT $KM_PATH
@@ -237,7 +264,7 @@ then
         echo "$KM_PATH does not exist, when it does exist run the following:"
         echo "chcon $KM_SELINUX_CONTEXT $KM_PATH"
     fi
-    
+
     # Add kontain selinux policy adjustments
     mkdir -p $POLDIR
     pushd $POLDIR || exit
@@ -256,12 +283,12 @@ allow container_t kvm_device_t:chr_file { append getattr ioctl lock open read wr
 # This is a known issue, see:
 # https://bugzilla.redhat.com/show_bug.cgi?id=1861968
 EOF
-    
+
    cat <<EOF >$KONTAIN_SELINUX_POLICY.fc
 $KKM_DEVICE		-c	gen_context(system_u:object_r:kvm_device_t,s0)
 $KM_PATH		--	gen_context(system_u:object_r:bin_t,s0)
 EOF
-    
+
     ln -sf /usr/share/selinux/devel/Makefile
     make
     make reload
