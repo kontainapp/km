@@ -42,7 +42,7 @@ apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_re
 
 # Install stuff
 apt-get update --yes -q
-apt-get install --yes -q git make makeself gcc linux-headers-$(uname -r) \
+apt-get install --yes -q git make makeself gcc linux-headers-$(uname -r) jq \
                          docker-ce docker-ce-cli containerd.io azure-cli \
                          vagrant packer virtualbox
 

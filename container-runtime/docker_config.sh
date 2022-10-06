@@ -26,7 +26,9 @@ set -e ; [ "$TRACE" ] && set -x
 # read arguments id any
 UNINSTALL=
 RUNTIME_NAME="krun"
-KRUN_PATH="/opt/kontain/bin/krun" 
+KRUN_PATH="/opt/kontain/bin/krun"
+KM_PATH="/opt/kontain/bin/km"
+
 
 for arg in "$@"
 do
@@ -39,10 +41,23 @@ do
         ;;
         --runtime-path=*)
             KRUN_PATH="${1#*=}"
+            KM_PATH=$(echo "${KRUN_PATH}" | sed 's/krun/km/')
         ;;
     esac
     shift
 done
+
+# check that KRUN_PATH points to an executable file
+if [ ! -x "$KRUN_PATH" ] && [ -z "$UNINSTALL" ]; then
+   echo "Runtime path must be full path to an existing krun executable"
+   exit 1
+fi
+# check that KM_PATH points to an executable file
+if [ ! -x "$KM_PATH" ] && [ -z "$UNINSTALL" ]; then
+   echo "KM execuable is not found or is not executable"
+   exit 1
+fi
+
 # Can we assume docker is installed?
 #apt-get update
 #apt-get install -y -q docker.io
