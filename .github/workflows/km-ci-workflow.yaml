@@ -203,6 +203,7 @@ jobs:
         with:
           target-dir: build/opt/kontain
           token: ${{secrets.GH_TOKEN}}
+          build-only: "yes"
 
       - name: Login into Azure Repository
         run: make -C cloud/azure login-cli
