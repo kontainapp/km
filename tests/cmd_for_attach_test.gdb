@@ -27,8 +27,8 @@ print stop_running
 # Wait for all of the threads to be running
 # The breakpoint should be on this line: while (wait_for_gdb != 0) {
 if all_running == 0
-   print all threads are not running
-   br main.c:180
+   print "all threads are not running"
+   br gdb_lots_of_threads_test.c:180
    continue
 end
 
