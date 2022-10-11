@@ -394,7 +394,7 @@ int km_clone(km_vcpu_t* vcpu,
 long km_clone3(km_vcpu_t* vcpu, struct clone_args* cl_args, size_t cl_args_len);
 uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr);
 void km_exit(km_vcpu_t* vcpu);
-void handle_km_auxv(char **penvp);
+void handle_km_auxv(char** penvp);
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
