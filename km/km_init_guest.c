@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/auxv.h>
 #include <sys/ioctl.h>
 #include <sys/random.h>
 #include <sys/syscall.h>
@@ -373,26 +374,11 @@ void km_exit(km_vcpu_t* vcpu)
    km_delayed_munmap(vcpu);
 }
 
-void handle_km_auxv(char** penvp)
+void handle_km_auxv()
 {
-   Elf64_Ehdr* ehdr = NULL;
-   Elf64_Phdr* phdr = NULL;
+   Elf64_Ehdr* ehdr = (Elf64_Ehdr*)getauxval(AT_SYSINFO_EHDR);
+   Elf64_Phdr* phdr = (Elf64_Phdr*)getauxval(AT_PHDR);
 
-   // Find VDSO ELF HDR.
-   while (*penvp++ != NULL)
-      ;
-   Elf64_auxv_t* auxv = (Elf64_auxv_t*)penvp;
-   for (int i = 0; auxv[i].a_type != AT_NULL; i++) {
-      if (auxv[i].a_type == AT_SYSINFO_EHDR) {
-         ehdr = (Elf64_Ehdr*)auxv[i].a_un.a_val;
-      }
-      if (auxv[i].a_type == AT_PHDR) {
-         phdr = (Elf64_Phdr*)auxv[i].a_un.a_val;
-      }
-      if (ehdr != NULL && phdr != NULL) {
-         break;
-      }
-   }
    if (ehdr == NULL) {
       km_err(2, "KM VDSO EHDR not found in AUXV");
    }
