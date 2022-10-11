@@ -607,7 +607,7 @@ static inline int km_need_pause_all(void)
            (km_called_via_exec() != 0 && km_gdb_client_is_attached() != 0));
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char* argv[], char** _penvp)
 {
    km_vcpu_t* vcpu = NULL;
    int envc;   // payload env
@@ -618,6 +618,11 @@ int main(int argc, char* argv[])
    km_trace_setup(argc, argv);   // setup trace settings as early as possible
 
    km_gdbstub_init();
+
+   /*
+    * Process KM's AUXV vector.
+    */
+   handle_km_auxv(_penvp);
 
    if (km_exec_recover_kmstate() < 0) {   // exec state is messed up
       km_errx(2, "Problems in performing post exec processing");
