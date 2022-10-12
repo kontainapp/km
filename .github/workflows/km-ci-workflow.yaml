@@ -87,9 +87,9 @@ jobs:
 
       - name: Build shim
         run: |
-          make -C cloud/k8s/deploy/shim
+          make -C cloud/k8s/shim
           mkdir build/opt/kontain/bin/shim
-          cp -r build/cloud/k8s/deploy/shim/* build/opt/kontain/bin/shim
+          cp -r build/cloud/k8s/shim/* build/opt/kontain/bin/shim
 
       # passing hello_test.kmd that is required by testenv of payloads - it already has correct RPATH.
       # passing hello_test.c and libhelper.a
@@ -99,7 +99,7 @@ jobs:
         with:
           name: km-build
           path: |
-            build/cloud/k8s/deploy/shim
+            build/cloud/k8s/shim
             build/opt/kontain/bin
             build/opt/kontain/lib
             build/opt/kontain/include
@@ -108,7 +108,7 @@ jobs:
             tests/libhelper.a
             container-runtime/docker_config.sh
             build/opt/kontain/runtime
-            build/cloud/k8s/deploy/shim/containerd-shim-krun-v2
+            build/cloud/k8s/shim/containerd-shim-krun-v2
           retention-days: 7
 
   km-build-payloads:
@@ -157,7 +157,6 @@ jobs:
           make -C payloads/python build-modules pack-modules CUSTOM_MODULES="markupsafe wrapt"
           make -C payloads/python custom CUSTOM_MODULES="markupsafe wrapt"
 
-
   # Builds a static linked, stripped binary for krun/crun
   # This uses the NIX virtual machine, just like the crun CI.
   # NIX takes a long time, so we build the static krun binary in
@@ -175,7 +174,7 @@ jobs:
       - uses: ./.github/actions/configure-krun
         with:
           token: ${{secrets.GH_TOKEN}}
-          build-only: 'yes'
+          build-only: "yes"
 
   # Build the k8s release artifact. Static KRUN is built separately and
   # in parallel from the rest of KM. The k8s artifact contains:
@@ -226,15 +225,9 @@ jobs:
           chmod 755 ${BLDTOP}/opt/kontain/bin/km
           chmod 755 ${BLDTOP}/opt/kontain/bin/krun
           chmod 755 ${BLDTOP}/opt/kontain/bin/krun-label-trigger
-          chmod 755 ${BLDTOP}/cloud/k8s/deploy/shim/containerd-shim-krun-v2
+          chmod 755 ${BLDTOP}/cloud/k8s/shim/containerd-shim-krun-v2
 
-          tar -czvf ${BLDTOP}/kontain_bin.tar.gz \
-              -C ${BLDTOP} opt/kontain/bin/km \
-                opt/kontain/bin/krun \
-                opt/kontain/bin/krun-label-trigger \
-                opt/kontain/bin/docker_config.sh \
-                cloud/k8s/deploy/shim/containerd-shim-krun-v2 \
-                kkm.run
+          make k8s-bundle
 
       - name: Upload km-k8s-rel-artifact
         uses: actions/upload-artifact@v2
@@ -396,13 +389,14 @@ jobs:
         # driver than the docker minikube driver.
         runtime: ["containerd"] # "cri-o" later
         driver: ["docker", "podman"]
+        # include:
+        #   - runtime: cri-o
+        #     driver: podman
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           submodules: true
-
-      - uses: ./.github/actions/configure-kkm
 
       - name: Download km-k8s-rel-artifact
         uses: actions/download-artifact@v2
@@ -425,25 +419,20 @@ jobs:
       - name: Install Kontain on minikube k8s
         run: |
           # merges and applies all the files for CI overlay
-          export RELEASE_TAG=current && envsubst < cloud/k8s/deploy/kontain-deploy/base/set_env.templ > cloud/k8s/deploy/kontain-deploy/base/set_env.yaml
-          kubectl apply -k cloud/k8s/deploy/kontain-deploy/overlays/ci
-          # kubectl apply -f cloud/k8s/deploy/runtime-class.yaml
-          # kubectl apply -f cloud/k8s/deploy/cm-install-lib.yaml
-          # kubectl apply -f cloud/k8s/deploy/cm-containerd-install.yaml
-          # kubectl apply -k cloud/k8s/deploy/kontain-deploy/ci
-          sleep 20
+          curl -o kontain-kustomize.sh -sL https://raw.githubusercontent.com/kontainapp/k8s-deploy/current/kontain-kustomize.sh
+          chmod +x kontain-kustomize.sh
+          ./kontain-kustomize.sh --km-url=http://host.minikube.internal:8000/kontain_bin.tar.gz
 
-      # uncomment to get logs from daemonset.
-      #- name: Check k8s install
-      #  run: |
-      #    set -x
-      #    kubectl get pod -A
-      #    kubectl logs -n kube-system -l app=kontain-init
+      - name: Check k8s install
+        run: |
+          echo "Pods "
+          kubectl get pod -A
+          kubectl logs -n kube-system -l app=kontain-init
 
       - name: Run user test
         run: |
           # start the test pod, which will just sleep
-          kubectl apply -f demo/k8s/test.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kontainapp/k8s-deploy/current/tests/test.yaml
           sleep 10
           # exec `uname -r` on the test pod. Should get back '.kontain.KKM' appended to the linux release name
           pname=$(kubectl get pod -l kontain=test-app -o jsonpath="{.items[0].metadata.name}")
@@ -475,11 +464,12 @@ jobs:
 
       - name: Untar release
         run: |
-          sudo tar -C / -xf /tmp/bin_release/kontain_bin.tar.gz
+          sudo mkdir -p /opt/kontain
+          sudo tar -C /opt/kontain -xf /tmp/bin_release/kontain_bin.tar.gz
 
       - name: Install KM and Reconfigure Docker
         run: |
-          sudo mv /cloud/k8s/deploy/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
+          sudo mv /opt/kontain/shim/containerd-shim-krun-v2 /usr/bin/containerd-shim-krun-v2
           cat << EOF | sudo tee /etc/docker/daemon.json
              {
                  "default-runtime": "krun",
@@ -578,7 +568,15 @@ jobs:
   # Make sure to add dependencies in both "needs" clauses
   stop-runner:
     if: always()
-    needs: [start-runners, km-build, km-test-azure, kkm-test-aws, km-payloads-azure, kkm-payloads-aws]
+    needs:
+      [
+        start-runners,
+        km-build,
+        km-test-azure,
+        kkm-test-aws,
+        km-payloads-azure,
+        kkm-payloads-aws,
+      ]
     uses: ./.github/workflows/stop-cloud-runners.yaml
     with:
       dependencies: ${{ toJSON(needs) }}

@@ -28,3 +28,6 @@
 [submodule "cloud/aws/amazon-ecs-ami"]
 	path = cloud/aws/amazon-ecs-ami
 	url = git@github.com:kontainapp/amazon-ecs-ami.git
+[submodule "cloud/k8s/k8s-deploy"]
+	path = cloud/k8s/deploy
+	url = git@github.com:kontainapp/k8s-deploy.git
