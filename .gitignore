@@ -32,3 +32,5 @@ perf*.data.old
 *.svg
 cloud/k8s/deploy/kontain-deploy/base/set_env.yaml
 outputs/
+._.DS_Store
+.DS_Store
