@@ -15,6 +15,7 @@
  */
 
 #include <errno.h>
+#include <execinfo.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdarg.h>
@@ -25,7 +26,6 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
-#include <execinfo.h>
 
 #include "km.h"
 #include "km_exec.h"
@@ -261,8 +261,8 @@ void km_trace_setup(int argc, char* argv[])
 void km_pathetic_stacktrace(void)
 {
    int nretaddrs;
-   void *return_addresses[MAX_STACK_DEPTH];
-   char **symbolic_ra;
+   void* return_addresses[MAX_STACK_DEPTH];
+   char** symbolic_ra;
 
    nretaddrs = backtrace(return_addresses, MAX_STACK_DEPTH);
    symbolic_ra = backtrace_symbols(return_addresses, nretaddrs);
