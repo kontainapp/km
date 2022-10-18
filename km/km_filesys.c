@@ -232,15 +232,15 @@ int km_add_guest_fd_internal(
    km_assert(host_fd >= 0 && host_fd < km_fs()->nfdmap);
    int available = 0;
    int taken = 1;
-   if (__atomic_compare_exchange_n(&km_fs()->guest_files[host_fd].inuse,
+   km_file_t* file = &km_fs()->guest_files[host_fd];
+   if (__atomic_compare_exchange_n(&file->inuse,
                                    &available,
                                    taken,
                                    0,
                                    __ATOMIC_SEQ_CST,
                                    __ATOMIC_SEQ_CST) == 0) {
-      km_errx(0, "file slot %d for %s is taken unexpectedly", host_fd, name);
+      km_abortx("open file slot %d already open on file %s, new file %s ", host_fd, file->name, name);
    }
-   km_file_t* file = &km_fs()->guest_files[host_fd];
    file->ops = ops;
    file->how = how;
    file->ofd = -1;

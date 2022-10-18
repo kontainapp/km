@@ -1612,11 +1612,14 @@ fi
    local socket_port=$(($port_range_start + $port_id))
    local MGTPIPE=resume_after_mgtpipe.$$
    local SNAPDIR=snapdir.$$
+   # Temporary km tracing until we understand the understand unexpected use of fd 1 problem.
+   local TRACEFILE=tracefile.$$
 
    # startup the toy html server and wait for it to get going.
-   rm -f $MGTPIPE
+   rm -f $MGTPIPE $TRACEFILE
    mkdir -p $SNAPDIR
-   KEEP_RUNNING=yes km_with_timeout --snapshot ${SNAPDIR}/kmsnap --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
+   KEEP_RUNNING=yes km_with_timeout -V --km-log-to=$TRACEFILE --snapshot ${SNAPDIR}/kmsnap --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
+   local pid=$!
    # Use "curl -4" to make sure we use ipv4.
    run curl -4 -s -S --retry-connrefused  --retry 3 --retry-delay 1 localhost:$socket_port
    assert [ $status -eq 0 ]
@@ -1638,6 +1641,13 @@ fi
    # Get the html server to stop
    curl localhost:$socket_port/stop
 
+   # Wait for the test to terminate.
+   # If the test program failed, spew its km trace into the bats log.
+   wait $pid
+   if test "$?" -ne 0; then
+      sed -e "s/^/# /" $TRACEFILE >&3
+   fi
+
    # cleanup
-   rm -fr $SNAPDIR $MGTPIPE
+   rm -fr $SNAPDIR $MGTPIPE $TRACEFILE
 }
