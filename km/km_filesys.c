@@ -233,12 +233,8 @@ int km_add_guest_fd_internal(
    int available = 0;
    int taken = 1;
    km_file_t* file = &km_fs()->guest_files[host_fd];
-   if (__atomic_compare_exchange_n(&file->inuse,
-                                   &available,
-                                   taken,
-                                   0,
-                                   __ATOMIC_SEQ_CST,
-                                   __ATOMIC_SEQ_CST) == 0) {
+   if (__atomic_compare_exchange_n(&file->inuse, &available, taken, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST) ==
+       0) {
       km_abortx("open file slot %d already open on file %s, new file %s ", host_fd, file->name, name);
    }
    file->ops = ops;
