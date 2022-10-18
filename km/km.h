@@ -497,6 +497,7 @@ extern const_string_t km_cmd_short_options;
 
 void km_trace_fini(void);
 void km_trace_setup(int argc, char* argv[]);
+void km_pathetic_stacktrace(void);
 
 extern int km_collect_hc_stats;
 

@@ -25,6 +25,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <execinfo.h>
 
 #include "km.h"
 #include "km_exec.h"
@@ -251,4 +252,31 @@ void km_trace_setup(int argc, char* argv[])
        */
       km_redirect_msgs_after_exec();
    }
+}
+
+/*
+ * Produce a stack trace to the km trace destination.
+ */
+#define MAX_STACK_DEPTH 128
+void km_pathetic_stacktrace(void)
+{
+   int nretaddrs;
+   void *return_addresses[MAX_STACK_DEPTH];
+   char **symbolic_ra;
+
+   nretaddrs = backtrace(return_addresses, MAX_STACK_DEPTH);
+   symbolic_ra = backtrace_symbols(return_addresses, nretaddrs);
+   if (symbolic_ra == NULL) {
+      km_warn("backtrace_symbols() returned nothing, printing %d raw addresses", nretaddrs);
+      for (int j = 0; j < nretaddrs; j++) {
+         km_warnx("addr %d: %p", j, return_addresses[j]);
+      }
+      return;
+   }
+
+   for (int j = 0; j < nretaddrs; j++) {
+      km_warnx("%s", symbolic_ra[j]);
+   }
+
+   free(symbolic_ra);
 }
