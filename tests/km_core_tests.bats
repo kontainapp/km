@@ -1629,24 +1629,27 @@ fi
    # How many spins is enough?
    for ((i=0; i<25; i++))
    do
-      run ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
-      assert_success
+      #run ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
+      #assert_success
+      ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
+      if test "$?" -ne 0; then
+         sed -e "s/^/# /" $TRACEFILE >&3
+         fail "km_cli failed, km trace is in the bats log"
+      fi
       assert [ -f $SNAPDIR/kmsnap ]
 
-      run curl localhost:$socket_port
-      assert_success
+      #run curl localhost:$socket_port
+      #assert_success
+      curl localhost:$socket_port
+      if test "$?" -ne 0; then
+         sed -e "s/^/# /" $TRACEFILE >&3
+         fail "curl failed, km trace is in the bats log"
+      fi
 
       rm -f $SNAPDIR/kmsnap
    done
    # Get the html server to stop
    curl localhost:$socket_port/stop
-
-   # Wait for the test to terminate.
-   # If the test program failed, spew its km trace into the bats log.
-   wait $pid
-   if test "$?" -ne 0; then
-      sed -e "s/^/# /" $TRACEFILE >&3
-   fi
 
    # cleanup
    rm -fr $SNAPDIR $MGTPIPE $TRACEFILE
