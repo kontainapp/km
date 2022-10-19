@@ -1612,11 +1612,14 @@ fi
    local socket_port=$(($port_range_start + $port_id))
    local MGTPIPE=resume_after_mgtpipe.$$
    local SNAPDIR=snapdir.$$
+   # Temporary km tracing until we understand the understand unexpected use of fd 1 problem.
+   local TRACEFILE=tracefile.$$
 
    # startup the toy html server and wait for it to get going.
-   rm -f $MGTPIPE
+   rm -f $MGTPIPE $TRACEFILE
    mkdir -p $SNAPDIR
-   KEEP_RUNNING=yes km_with_timeout --snapshot ${SNAPDIR}/kmsnap --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
+   KEEP_RUNNING=yes km_with_timeout -V --km-log-to=$TRACEFILE --snapshot ${SNAPDIR}/kmsnap --mgtpipe=$MGTPIPE hello_html_test$ext $socket_port &
+   local pid=$!
    # Use "curl -4" to make sure we use ipv4.
    run curl -4 -s -S --retry-connrefused  --retry 3 --retry-delay 1 localhost:$socket_port
    assert [ $status -eq 0 ]
@@ -1626,12 +1629,22 @@ fi
    # How many spins is enough?
    for ((i=0; i<25; i++))
    do
-      run ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
-      assert_success
+      #run ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
+      #assert_success
+      ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
+      if test "$?" -ne 0; then
+         sed -e "s/^/# /" $TRACEFILE >&3
+         fail "km_cli failed, km trace is in the bats log"
+      fi
       assert [ -f $SNAPDIR/kmsnap ]
 
-      run curl localhost:$socket_port
-      assert_success
+      #run curl localhost:$socket_port
+      #assert_success
+      curl localhost:$socket_port
+      if test "$?" -ne 0; then
+         sed -e "s/^/# /" $TRACEFILE >&3
+         fail "curl failed, km trace is in the bats log"
+      fi
 
       rm -f $SNAPDIR/kmsnap
    done
@@ -1639,5 +1652,5 @@ fi
    curl localhost:$socket_port/stop
 
    # cleanup
-   rm -fr $SNAPDIR $MGTPIPE
+   rm -fr $SNAPDIR $MGTPIPE $TRACEFILE
 }
