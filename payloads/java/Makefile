@@ -29,7 +29,11 @@ define testenv_preprocess
 	./link-km.sh ${JDK_BUILD_DIR} /home/appuser/km/build/opt/kontain
 endef
 
-TESTENV_EXTRA_FILES := ${JDK_BUILD_DIR}/images/jdk/* ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd ${APP_JAR}
+TESTENV_EXTRA_FILES := ${JDK_BUILD_DIR}/images/jdk/* ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd ${APP_JAR} \
+	${TOP}/tests/bats ${TOP}/tests/bats-assert ${TOP}/tests/bats-support \
+	${TOP}/tests/run_bats_tests.sh \
+	${TOP}/build/payloads 
+
 # this is how we are running tests in the container
 CONTAINER_TEST_CMD := ./scripts/test-run.sh
 

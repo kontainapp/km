@@ -18,7 +18,8 @@
 #
 # wrapper/entrypoint for running tests
 
-#echo "Test will go here"
-
-km --putenv=LD_LIBRARY_PATH=${JAVA_LD_PATH} \
-		${JAVA_DIR}/bin/java.kmd -version
+JAVA_DIR=${CURDIR}/${JAVA_DIR} JAVA_LD_PATH=${JAVA_LD_PATH} BLDDIR=${BLDDIR} \
+		scripts/run_bats_tests.sh --km=${JAVA_DIR}/bin/km \
+        --km-cli=${JAVA_DIR}/bin/km_cli \
+        --jobs=1 \
+		--tests=scripts/test_java.bats --test-type=dynamic

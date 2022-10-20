@@ -18,12 +18,22 @@ FROM fedora:31
 # Contains the scripts needs to run tests.
 ADD extras.tar.gz /home/appuser/km
 ARG JAVA_DIR=/home/appuser/km/build/opt/kontain
+ARG BLDDIR=/home/appuser/km/build/
 ENV PATH=${JAVA_DIR}/bin:${PATH}
 COPY . ${JAVA_DIR}
 RUN mkdir -p /home/appuser/km/payloads/java
 COPY scripts/* /home/appuser/km/payloads/java/scripts/
+COPY bats/ /home/appuser/km/payloads/java/scripts/bats/
+COPY bats-assert/ /home/appuser/km/payloads/java/scripts/bats-assert/
+COPY bats-support/ /home/appuser/km/payloads/java/scripts/bats-support/
+COPY run_bats_tests.sh /home/appuser/km/payloads/java/scripts/
+COPY test_java.bats /home/appuser/km/payloads/java/scripts/
+COPY payloads/java/mods/ ${BLDDIR}/mods/
+COPY payloads/java/lib/ ${BLDDIR}/lib/
+COPY sb.jar /home/appuser/km/payloads/java/
 
 ENV JAVA_DIR=${JAVA_DIR}
+ENV BLDDIR=${BLDDIR}
 ENV JAVA_LD_PATH=${JAVA_DIR}/lib/server:${JAVA_DIR}/lib/jli:${JAVA_DIR}/lib:/opt/kontain/runtime
 ENV PATH=${JAVA_DIR}/bin:${PATH}
 
