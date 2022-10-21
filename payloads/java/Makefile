@@ -32,7 +32,7 @@ endef
 TESTENV_EXTRA_FILES := ${JDK_BUILD_DIR}/images/jdk/* ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd ${APP_JAR} \
 	${TOP}/tests/bats ${TOP}/tests/bats-assert ${TOP}/tests/bats-support \
 	${TOP}/tests/run_bats_tests.sh \
-	${TOP}/build/payloads 
+	${TOP}/build/payloads
 
 # this is how we are running tests in the container
 CONTAINER_TEST_CMD := ./scripts/test-run.sh
@@ -73,7 +73,11 @@ endef
 
 include ${TOP}/make/images.mk
 
-all: ## Link java.kmd based on either full build or build artifats in docker image
+all: ${RUNENV_PATH}/bin/java.kmd ${RUNENV_VALIDATE_DEPENDENCIES} api sb.jar ## Link java.kmd based on either full build or build artifats in docker image
+
+${RUNENV_VALIDATE_DEPENDENCIES} api sb.jar: ${RUNENV_PATH}/bin/java.kmd
+
+${RUNENV_PATH}/bin/java.kmd:
 ifneq ($(FROMSRC),yes)
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
@@ -156,7 +160,7 @@ scripts/%.class: scripts/%.java
 		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
-		${JAVA_DIR}/bin/javac $?
+		${JAVA_DIR}/bin/javac $<
 
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
 	mkdir -p ${JDK_BUILD_DIR}
@@ -184,7 +188,7 @@ test: ${RUNENV_VALIDATE_DEPENDENCIES} api test_java.bats ## Basic test run
 		${TOP}/tests/run_bats_tests.sh --km=${KM_BIN} \
 		--tests=${TOP}/payloads/java/test_java.bats --test-type=dynamic
 
-test-all:test
+test-all: test
 
 .PHONY: .check
 .check: # a helper to check for needed packages
