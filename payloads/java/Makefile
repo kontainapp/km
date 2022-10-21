@@ -126,7 +126,7 @@ JAVA_DIR := ${JDK_BUILD_DIR}/images/jdk
 #  ${BLDDIR}/app.kontain.jmod - JPMS JMod file. Useful for customers to build
 #                               custom runtimes with JLINK
 
-api: ${BLDDIR}/app.kontain.jmod ${BLDDIR}/html/index.html
+api: ${RUNENV_PATH}/bin/java.kmd ${BLDDIR}/app.kontain.jmod ${BLDDIR}/html/index.html
 
 ${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_native.so
 	${DOCKER_RUN_BUILD} \
