@@ -46,7 +46,7 @@ DEP_PACKAGES := java-11-openjdk \
 	fontconfig-devel \
 	cups-devel \
 	alsa-lib-devel \
-   libXtst-devel \
+   	libXtst-devel \
 	libXt-devel \
 	libXrender-devel \
 	libXrandr-devel \
@@ -63,6 +63,8 @@ RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 	app.kontain/app/kontain/snapshots/Snapshot.class \
 	app.kontain/app/kontain/snapshots/libkm_java_native.so \
 	sb.jar
+TEST_DEPENDENCIES := ${RUNENV_VALIDATE_DEPENDENCIES} \
+	api
 
 # runenv-image configs
 export define runenv_prep
@@ -73,9 +75,9 @@ endef
 
 include ${TOP}/make/images.mk
 
-all: ${RUNENV_PATH}/bin/java.kmd ${RUNENV_VALIDATE_DEPENDENCIES} api sb.jar ## Link java.kmd based on either full build or build artifats in docker image
+all: ${RUNENV_PATH}/bin/java.kmd ${TEST_DEPENDENCIES} ## Link java.kmd based on either full build or build artifats in docker image
 
-${RUNENV_VALIDATE_DEPENDENCIES} api sb.jar: ${RUNENV_PATH}/bin/java.kmd
+${TEST_DEPENDENCIES}: ${RUNENV_PATH}/bin/java.kmd
 
 ${RUNENV_PATH}/bin/java.kmd:
 ifneq ($(FROMSRC),yes)
