@@ -61,6 +61,8 @@ RUNENV_VALIDATE_EXPECTED := Hello, World!
 RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 	scripts/SimpleHttpServer.class \
 	app.kontain/app/kontain/snapshots/Snapshot.class \
+	app.kontain/app/kontain/snapshots/libkm_java_native.so \
+    sb.jar
 
 # runenv-image configs
 export define runenv_prep
@@ -72,12 +74,13 @@ endef
 include ${TOP}/make/images.mk
 
 TEST_DEPENDENCIES := \
+	${BLDDIR}/mods/app.kontain \
+	${BLDDIR}/lib/libkm_java_native.so \
+	${BLDDIR}/html/index.html \
 	scripts/Hello.class \
 	scripts/SimpleHttpServer.class \
-	${BLDDIR}/lib/libkm_java_native.so \
-	# ${BLDDIR}/html/index.html \
-	# sb.jar \
-	# test_java.bats 
+	sb.jar \
+	test_java.bats \
 
 
 all: ${TEST_DEPENDENCIES} 
@@ -92,6 +95,8 @@ ifneq ($(FROMSRC),yes)
 		-w ${TOP} \
 		${BUILDENV_IMG_TAGGED} \
 		make -C payloads/java in-blank-container
+	echo "finished kmd build"
+	ls -l ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd
 else
 	./link-km.sh ${JDK_BUILD_DIR}
 endif
@@ -143,24 +148,26 @@ ${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_
 		--libs ${BLDDIR}/lib $@
 
 ${BLDDIR}/mods/app.kontain: app.kontain/module-info.java
+	echo "starting app.kontain"
+	ls -l ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd
 	mkdir -p ${BLDDIR}/mods
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
-		${JDK_BUILD_DIR}/images/jdk/bin/javac -d ${BLDDIR}/mods --module-source-path . --module app.kontain $?
+		${JDK_BUILD_DIR}/images/jdk/bin/javac -d ${BLDDIR}/mods --module-source-path . --module app.kontain $<
 
 ${BLDDIR}/lib/libkm_java_native.so: app.kontain/app/kontain/snapshots/km_java_native_snapshot.c
 	mkdir -p ${BLDDIR}/lib
 	gcc -fPIC -shared -O3 -I/usr/include -I${JAVA_DIR}/include -I${JAVA_DIR}/include/linux \
-		$? -o $@
+		$< -o $@
 
 ${BLDDIR}/html/index.html: app.kontain/app/kontain/snapshots/Snapshot.java
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
-		${JDK_BUILD_DIR}/images/jdk/bin/javadoc -d ${BLDDIR}/html $?
+		${JDK_BUILD_DIR}/images/jdk/bin/javadoc -d ${BLDDIR}/html $<
 
 scripts/%.class: scripts/%.java
 	${DOCKER_RUN_BUILD} \
