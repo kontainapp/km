@@ -61,8 +61,6 @@ RUNENV_VALIDATE_EXPECTED := Hello, World!
 RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 	scripts/SimpleHttpServer.class \
 	app.kontain/app/kontain/snapshots/Snapshot.class \
-	app.kontain/app/kontain/snapshots/libkm_java_native.so \
-	sb.jar
 
 # runenv-image configs
 export define runenv_prep
@@ -73,11 +71,20 @@ endef
 
 include ${TOP}/make/images.mk
 
-all: ${RUNENV_PATH}/bin/java.kmd ${RUNENV_VALIDATE_DEPENDENCIES} api ## Link java.kmd based on either full build or build artifats in docker image
+TEST_DEPENDENCIES := \
+	scripts/Hello.class \
+	scripts/SimpleHttpServer.class \
+	${BLDDIR}/lib/libkm_java_native.so \
+	# ${BLDDIR}/html/index.html \
+	# sb.jar \
+	# test_java.bats 
 
-${RUNENV_VALIDATE_DEPENDENCIES}: ${RUNENV_PATH}/bin/java.kmd
 
-${RUNENV_PATH}/bin/java.kmd:
+all: ${TEST_DEPENDENCIES} 
+
+${TEST_DEPENDENCIES}: ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd
+
+${JDK_BUILD_DIR}/images/jdk/bin/java.kmd: 
 ifneq ($(FROMSRC),yes)
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
@@ -124,7 +131,7 @@ JAVA_DIR := ${JDK_BUILD_DIR}/images/jdk
 #  ${BLDDIR}/app.kontain.jmod - JPMS JMod file. Useful for customers to build
 #                               custom runtimes with JLINK
 
-api: ${RUNENV_PATH}/bin/java.kmd ${BLDDIR}/app.kontain.jmod ${BLDDIR}/html/index.html
+api: ${BLDDIR}/app.kontain.jmod ${BLDDIR}/html/index.html
 
 ${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_native.so
 	${DOCKER_RUN_BUILD} \
@@ -183,7 +190,7 @@ sb.jar: ${APP_JAR}
 	cp ${APP_JAR} sb.jar
 
 JAVA_LD_PATH := ${CURDIR}/${JAVA_DIR}/lib/server:${CURDIR}/${JAVA_DIR}/lib/jli:${CURDIR}/${JAVA_DIR}/lib
-test: ${RUNENV_VALIDATE_DEPENDENCIES} api test_java.bats ## Basic test run
+test: ${TEST_DEPENDENCIES} ## Basic test run
 	JAVA_DIR=${CURDIR}/${JAVA_DIR} JAVA_LD_PATH=${JAVA_LD_PATH} BLDDIR=${BLDDIR} \
 		${TOP}/tests/run_bats_tests.sh --km=${KM_BIN} \
 		--tests=${TOP}/payloads/java/test_java.bats --test-type=dynamic
