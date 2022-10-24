@@ -95,7 +95,6 @@ ifneq ($(FROMSRC),yes)
 		-w ${TOP} \
 		${BUILDENV_IMG_TAGGED} \
 		make -C payloads/java in-blank-container
-	echo "finished kmd build"
 	ls -l ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd
 else
 	./link-km.sh ${JDK_BUILD_DIR}
@@ -148,7 +147,6 @@ ${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_
 		--libs ${BLDDIR}/lib $@
 
 ${BLDDIR}/mods/app.kontain: app.kontain/module-info.java
-	echo "starting app.kontain"
 	ls -l ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd
 	mkdir -p ${BLDDIR}/mods
 	${DOCKER_RUN_BUILD} \
