@@ -7,9 +7,10 @@
    "editor.formatOnSave": true,
    "editor.formatOnType": true,
    "files.exclude": {
-      "**/kmcore": true,
+      "**/*.{dyn,dynamic,so,static,alpine_static,glibc_static,glibc_dynamic}": true,
       "**/*.{fedora,native_static}": true,
-      "**/*.{o,d,km}": true
+      "**/*.{o,d,km,kmd}": true,
+      "**/kmcore": true
    },
    "cSpell.words": [
       "FUTEX",

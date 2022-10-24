@@ -3,3 +3,4 @@ rest-service-11*
 *.class
 *.so
 *.jar
+*.dynamic

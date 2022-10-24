@@ -29,7 +29,11 @@ define testenv_preprocess
 	./link-km.sh ${JDK_BUILD_DIR} /home/appuser/km/build/opt/kontain
 endef
 
-TESTENV_EXTRA_FILES := ${JDK_BUILD_DIR}/images/jdk/* ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd ${APP_JAR}
+TESTENV_EXTRA_FILES := ${JDK_BUILD_DIR}/images/jdk/* ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd ${APP_JAR} \
+	${TOP}/tests/bats ${TOP}/tests/bats-assert ${TOP}/tests/bats-support \
+	${TOP}/tests/run_bats_tests.sh \
+	${TOP}/build/payloads
+
 # this is how we are running tests in the container
 CONTAINER_TEST_CMD := ./scripts/test-run.sh
 
@@ -42,7 +46,7 @@ DEP_PACKAGES := java-11-openjdk \
 	fontconfig-devel \
 	cups-devel \
 	alsa-lib-devel \
-   libXtst-devel \
+   	libXtst-devel \
 	libXt-devel \
 	libXrender-devel \
 	libXrandr-devel \
@@ -58,7 +62,7 @@ RUNENV_VALIDATE_DEPENDENCIES := scripts/Hello.class \
 	scripts/SimpleHttpServer.class \
 	app.kontain/app/kontain/snapshots/Snapshot.class \
 	app.kontain/app/kontain/snapshots/libkm_java_native.so \
-	sb.jar
+    sb.jar
 
 # runenv-image configs
 export define runenv_prep
@@ -69,7 +73,21 @@ endef
 
 include ${TOP}/make/images.mk
 
-all: ## Link java.kmd based on either full build or build artifats in docker image
+TEST_DEPENDENCIES := \
+	${BLDDIR}/mods/app.kontain \
+	${BLDDIR}/lib/libkm_java_native.so \
+	${BLDDIR}/html/index.html \
+	scripts/Hello.class \
+	scripts/SimpleHttpServer.class \
+	sb.jar \
+	test_java.bats \
+
+
+all: ${TEST_DEPENDENCIES} 
+
+${TEST_DEPENDENCIES}: ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd
+
+${JDK_BUILD_DIR}/images/jdk/bin/java.kmd: 
 ifneq ($(FROMSRC),yes)
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
@@ -77,6 +95,7 @@ ifneq ($(FROMSRC),yes)
 		-w ${TOP} \
 		${BUILDENV_IMG_TAGGED} \
 		make -C payloads/java in-blank-container
+	ls -l ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd
 else
 	./link-km.sh ${JDK_BUILD_DIR}
 endif
@@ -128,31 +147,32 @@ ${BLDDIR}/app.kontain.jmod: ${BLDDIR}/mods/app.kontain ${BLDDIR}/lib/libkm_java_
 		--libs ${BLDDIR}/lib $@
 
 ${BLDDIR}/mods/app.kontain: app.kontain/module-info.java
+	ls -l ${JDK_BUILD_DIR}/images/jdk/bin/java.kmd
 	mkdir -p ${BLDDIR}/mods
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
-		${JDK_BUILD_DIR}/images/jdk/bin/javac -d ${BLDDIR}/mods --module-source-path . --module app.kontain $?
+		${JDK_BUILD_DIR}/images/jdk/bin/javac -d ${BLDDIR}/mods --module-source-path . --module app.kontain $<
 
 ${BLDDIR}/lib/libkm_java_native.so: app.kontain/app/kontain/snapshots/km_java_native_snapshot.c
 	mkdir -p ${BLDDIR}/lib
 	gcc -fPIC -shared -O3 -I/usr/include -I${JAVA_DIR}/include -I${JAVA_DIR}/include/linux \
-		$? -o $@
+		$< -o $@
 
 ${BLDDIR}/html/index.html: app.kontain/app/kontain/snapshots/Snapshot.java
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
-		${JDK_BUILD_DIR}/images/jdk/bin/javadoc -d ${BLDDIR}/html $?
+		${JDK_BUILD_DIR}/images/jdk/bin/javadoc -d ${BLDDIR}/html $<
 
 scripts/%.class: scripts/%.java
 	${DOCKER_RUN_BUILD} \
 		-v ${TOP}:${TOP}:z \
 		-w ${CURDIR} \
 		${BUILDENV_IMG_TAGGED} \
-		${JAVA_DIR}/bin/javac $?
+		${JAVA_DIR}/bin/javac $<
 
 in-blank-container: ## invoked in blank container by ``make all''. DO NOT invoke manually
 	mkdir -p ${JDK_BUILD_DIR}
@@ -175,12 +195,12 @@ sb.jar: ${APP_JAR}
 	cp ${APP_JAR} sb.jar
 
 JAVA_LD_PATH := ${CURDIR}/${JAVA_DIR}/lib/server:${CURDIR}/${JAVA_DIR}/lib/jli:${CURDIR}/${JAVA_DIR}/lib
-test: ${RUNENV_VALIDATE_DEPENDENCIES} api test_java.bats ## Basic test run
+test: ${TEST_DEPENDENCIES} ## Basic test run
 	JAVA_DIR=${CURDIR}/${JAVA_DIR} JAVA_LD_PATH=${JAVA_LD_PATH} BLDDIR=${BLDDIR} \
 		${TOP}/tests/run_bats_tests.sh --km=${KM_BIN} \
 		--tests=${TOP}/payloads/java/test_java.bats --test-type=dynamic
 
-test-all:test
+test-all: test
 
 .PHONY: .check
 .check: # a helper to check for needed packages
