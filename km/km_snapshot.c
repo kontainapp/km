@@ -397,13 +397,6 @@ static inline int km_ss_recover_vcpus(char* notebuf, size_t notesize)
 static inline int km_ss_recover_km_monitor(char* notebuf, size_t notesize)
 {
    km_nt_monitor_t* mon = (km_nt_monitor_t*)notebuf;
-   char* base = (char*)(mon + 1);
-   if (mon->label_length > 0) {
-      km_warnx("label: %s", base);
-   }
-   if (mon->description_length > 0) {
-      km_warnx("description: %s", base + mon->label_length);
-   }
    // Verify that the virtualization driver used when the snapshot was taken is the same
    // as the one km was told to use with the -F (or --virt-device) command flag.
    if (!(mon->monitor_type == KM_NT_MONITOR_TYPE_KVM && machine.vm_type == VM_TYPE_KVM) &&

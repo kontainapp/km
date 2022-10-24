@@ -19,6 +19,7 @@ GPATH
 GRTAGS
 kmcore
 kmsnap
+kmsnap.*
 payloads/node/node
 payloads/java/jdk*
 payloads/java/jtreg

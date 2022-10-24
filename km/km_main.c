@@ -628,15 +628,7 @@ int main(int argc, char* argv[])
       usage();
    }
 
-   km_hcalls_init();
-   km_machine_init(&km_machine_init_params);
-   km_exec_fini();   // calls to km_called_via_exec() not valid beyond this point!
-
-   km_mgt_init(mgtpipe);
-
    km_elf_t* elf = km_open_elf_file(km_payload_name);
-
-   // snapshot file is type ET_CORE. We check for additional notes in restore
    if (elf->ehdr.e_type == ET_CORE) {
       // check for incompatible options
       if (envp != NULL) {
@@ -645,6 +637,16 @@ int main(int argc, char* argv[])
       if (argc_p > 1) {
          km_errx(1, "cannot set payload arguments when resuming a snapshot");
       }
+      light_snap_listen();
+   }
+   km_hcalls_init();
+   km_machine_init(&km_machine_init_params);
+   km_exec_fini();   // calls to km_called_via_exec() not valid beyond this point!
+
+   km_mgt_init(mgtpipe);
+
+   // snapshot file is type ET_CORE. We check for additional notes in restore
+   if (elf->ehdr.e_type == ET_CORE) {
       if (km_snapshot_restore(elf) < 0) {
          km_err(1, "failed to restore from snapshot %s", km_payload_name);
       }

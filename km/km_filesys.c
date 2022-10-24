@@ -42,6 +42,8 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/un.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include "bsd_queue.h"
 #include "km.h"
@@ -54,6 +56,7 @@
 #include "km_snapshot.h"
 #include "km_syscall.h"
 
+// gdb socket numbers are also used for lightweight snap start
 static const int KM_GDB_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES;
 static const int KM_GDB_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 1;
 static const int KM_MGM_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES + 2;
@@ -76,6 +79,78 @@ km_fd_dup_data_t dup_data;
 pthread_mutex_t dup_data_mtx;
 
 /*
+ * Lightweight snap start - wait for connection on the snap_listen_sock before restoring the snapshot.
+ */
+static const_string_t KM_SNAP_LISTEN_PORT = "SNAP_LISTEN_PORT";
+
+static int snap_listen_sock = -1;
+static km_fd_socket_t* snap_listen_sockinfo;
+static int km_internal_fd(int fd, int km_fd);
+
+void light_snap_listen(void)
+{
+   char* port;
+   if ((port = getenv(KM_SNAP_LISTEN_PORT)) == NULL) {
+      return;
+   }
+
+   if (strncmp(port, "i4", strlen("i4")) == 0) {
+      snap_listen_sock = socket(AF_INET, SOCK_STREAM, 0);
+
+      if ((snap_listen_sockinfo = malloc(sizeof(km_fd_socket_t))) == NULL) {
+         km_err(2, "no memory for snap_listen_sockinfo");
+      }
+      *snap_listen_sockinfo = (km_fd_socket_t){.domain = AF_INET, .type = SOCK_STREAM, .protocol = 0};
+
+      struct sockaddr_in sa_serv = {.sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY};
+      sa_serv.sin_port = htons(atol(port + strlen("i4")));
+
+      int optval = 1;
+      setsockopt(snap_listen_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
+      if (bind(snap_listen_sock, (struct sockaddr*)&sa_serv, sizeof(sa_serv)) < 0) {
+         km_err(2, "bind, port %d failed\n", port);
+      }
+
+      snap_listen_sockinfo->addrlen = sizeof(sa_serv);
+      memcpy(snap_listen_sockinfo->addr, &sa_serv, sizeof(sa_serv));
+   } else {
+      snap_listen_sock = socket(AF_INET6, SOCK_STREAM, 0);
+
+      snap_listen_sockinfo = malloc(sizeof(km_fd_socket_t));
+      *snap_listen_sockinfo = (km_fd_socket_t){.domain = AF_INET6, .type = SOCK_STREAM, .protocol = 0};
+
+      struct sockaddr_in6 sa_serv = {.sin6_family = AF_INET6, .sin6_addr = in6addr_any};
+      sa_serv.sin6_port = htons(atol(port + strlen("i6")));
+
+      int optval = 1;
+      setsockopt(snap_listen_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
+      if (bind(snap_listen_sock, (struct sockaddr*)&sa_serv, sizeof(sa_serv)) < 0) {
+         km_err(2, "bind, port %d failed\n", port);
+      }
+
+      snap_listen_sockinfo->addrlen = sizeof(sa_serv);
+      memcpy(snap_listen_sockinfo->addr, &sa_serv, sizeof(sa_serv));
+   }
+
+   // will adjust the backlog value to that of the snapshot later
+   if (listen(snap_listen_sock, 1) < 0) {
+      km_err(2, "listen failed");
+   }
+
+   // wait for connection to arrive but don't accept it just yet. When payload starts it will accept it
+   fd_set fds;
+   FD_ZERO(&fds);
+   FD_SET(snap_listen_sock, &fds);
+
+   if (select(snap_listen_sock + 1, &fds, NULL, NULL, NULL) < 0) {
+      km_err(2, "waiting for connection failed");
+   }
+   // reuse gdb socket number here, gdb setup is later when we done
+   snap_listen_sock = km_internal_fd(snap_listen_sock, KM_GDB_LISTEN);
+   // connection is ready for accept - we can start the snapshot and let it handle the accept
+}
+
+/*
  * Tells whether a file is inuse or not.
  */
 int km_is_file_used(km_file_t* file)
@@ -90,7 +165,7 @@ void km_set_file_used(km_file_t* file, int val)
 
 /*
  * On snap recover check if the fd was involved in dup. If it was check if other fds in the same dup
- * group exist already. If they are dup them, if not we are fist so recrate normally.
+ * group exist already. If they are dup them, if not we are fist so recreate normally.
  *
  * This is called during snapshot recovery, single threaded, no lock necessary
  */
@@ -268,9 +343,8 @@ static inline int km_add_socket_fd(
 {
    int ret = km_add_guest_fd_internal(vcpu, hostfd, name, flags, how, NULL);
    if (ret >= 0) {
-      km_fd_socket_t sockval = {.domain = domain, .type = type, .protocol = protocol};
-      km_fd_socket_t* sockinfo = calloc(1, sizeof(km_fd_socket_t));
-      *sockinfo = sockval;
+      km_fd_socket_t* sockinfo = malloc(sizeof(km_fd_socket_t));
+      *sockinfo = (km_fd_socket_t){.domain = domain, .type = type, .protocol = protocol};
       km_fs()->guest_files[ret].sockinfo = sockinfo;
    }
    return ret;
@@ -2243,6 +2317,21 @@ static inline int fs_core_write_socket(char* buf, size_t length, km_file_t* file
    fnote->backlog = file->sockinfo->backlog;
    cur += km_nt_chunk_roundup(file->sockinfo->addrlen);
 
+   if (fnote->state == KM_SOCK_STATE_BIND || fnote->state == KM_SOCK_STATE_LISTEN) {
+      char buf[1024];
+      uint16_t p = -1;
+      switch (fnote->domain) {
+         case AF_INET:
+            inet_ntop(fnote->domain, &((struct sockaddr_in*)file->sockinfo->addr)->sin_addr, buf, 1024);
+            p = ((struct sockaddr_in*)file->sockinfo->addr)->sin_port;
+            break;
+         case AF_INET6:
+            inet_ntop(fnote->domain, &((struct sockaddr_in6*)file->sockinfo->addr)->sin6_addr, buf, 1024);
+            p = ((struct sockaddr_in6*)file->sockinfo->addr)->sin6_port;
+            break;
+      }
+      km_warnx("===> %s %s %d", fnote->domain == AF_INET ? "i4" : "i6", buf, ntohs(p));
+   }
    // Save data queued in the socket for this direction.
    if (queuedbytes > 0) {
       int rc = fs_core_save_pipe_contents(cur, length - (cur - buf), fd, queuedbytes);
@@ -2624,10 +2713,53 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
    km_file_t* file = &km_fs()->guest_files[nt_sock->fd];
    km_assert(km_is_file_used(file) == 0);
 
-   int host_fd = socket(nt_sock->domain, nt_sock->type, nt_sock->protocol);
-   if (host_fd < 0) {
-      km_warn("socket recover");
-      return -1;
+   int host_fd;
+   // check if this is lightweight snap listening socket, restore it accordingly
+   if (snap_listen_sockinfo != NULL && nt_sock->domain == snap_listen_sockinfo->domain &&
+       memcmp(nt_sock + 1, snap_listen_sockinfo->addr, snap_listen_sockinfo->addrlen) == 0) {
+      host_fd = snap_listen_sock;
+      free(snap_listen_sockinfo);
+      snap_listen_sockinfo = NULL;
+      // set the backlog to what the payload requested originally, not default
+      if (nt_sock->state == KM_SOCK_STATE_LISTEN) {
+         if (listen(host_fd, nt_sock->backlog) < 0) {
+            km_warn("recover listen failed");
+            return -1;
+         }
+      }
+      if ((nt_sock->type & SOCK_NONBLOCK) == SOCK_NONBLOCK) {
+         int flags;
+         if ((flags = fcntl(snap_listen_sock, F_GETFL, 0)) == -1 ||
+             (fcntl(snap_listen_sock, F_SETFL, flags | FNDELAY)) == -1) {
+            km_err(2, "fcntl FNDELAY failed");
+         }
+      }
+   } else {
+      if ((host_fd = socket(nt_sock->domain, nt_sock->type, nt_sock->protocol)) < 0) {
+         km_warn("socket recover");
+         return -1;
+      }
+
+      if (nt_sock->state == KM_SOCK_STATE_BIND || nt_sock->state == KM_SOCK_STATE_LISTEN) {
+         // If snapshot is being recovered right after it was taken there is a chance there are
+         // sockets in TIME_WAIT state from the remaining from the initial run, so the following
+         // bind() will fail. This avoid the falure.
+         int flag = 1;
+         if (setsockopt(host_fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0) {
+            km_warn("recover setsockopt(SO_REUSEADDR) failed");
+            return -1;
+         }
+         if (bind(host_fd, addr, nt_sock->addrlen) < 0) {
+            km_warn("recover bind failed");   // TODO: return error
+            return -1;
+         }
+         if (nt_sock->state == KM_SOCK_STATE_LISTEN) {
+            if (listen(host_fd, nt_sock->backlog) < 0) {
+               km_warn("recover listen failed");
+               return -1;
+            }
+         }
+      }
    }
    km_fs_recover_fd(nt_sock->fd, host_fd, 0, km_get_nonfile_name(host_fd), -1, nt_sock->how);
    if (nt_sock->state == KM_NT_SKSTATE_ERROR) {
@@ -3405,11 +3537,6 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
    return 0;
 }
 
-static int km_fs_recover_socket_accepted(km_nt_socket_t* nt_sock)
-{
-   return 0;
-}
-
 static int km_fs_recover_open_socket(char* ptr, size_t length)
 {
    km_nt_socket_t* nt_sock = (km_nt_socket_t*)ptr;
@@ -3427,9 +3554,6 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
    if (nt_sock->how == KM_FILE_HOW_SOCKETPAIR0 || nt_sock->how == KM_FILE_HOW_SOCKETPAIR1) {
       return km_fs_recover_socketpair(nt_sock);
    }
-   if (nt_sock->how == KM_FILE_HOW_ACCEPT) {
-      return km_fs_recover_socket_accepted(nt_sock);
-   }
 
    /*
     * Assume socket optionally bound for listening
@@ -3443,29 +3567,6 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
 
    struct sockaddr* sa = (struct sockaddr*)(ptr + sizeof(km_nt_socket_t));
    km_fs_recover_socket(nt_sock, sa, nt_sock->addrlen);
-
-   if (nt_sock->state == KM_SOCK_STATE_BIND || nt_sock->state == KM_SOCK_STATE_LISTEN) {
-      int hostfd = km_fs_g2h_fd(nt_sock->fd, NULL);
-      // If snapshot is being recovered right after it was taken there is a chance there are
-      // sockets in TIME_WAIT state from the remaining from the initial run, so the following
-      // bind() will fail. This avoid the falure.
-      int flag = 1;
-      if (setsockopt(hostfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0) {
-         km_warn("recover setsockopt(SO_REUSEADDR) failed");
-         return -1;
-      }
-      if (bind(hostfd, sa, nt_sock->addrlen) < 0) {
-         km_warn("recover bind failed");   // TODO: return error
-         return -1;
-      }
-      if (nt_sock->state == KM_SOCK_STATE_LISTEN) {
-         if (listen(hostfd, nt_sock->backlog) < 0) {
-            km_warn("recover listen failed");
-            return -1;
-         }
-      }
-   }
-
    return 0;
 }
 
