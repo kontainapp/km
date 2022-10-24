@@ -29,10 +29,13 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/procfs.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include "km.h"
 #include "km_coredump.h"
 #include "km_filesys.h"
+#include "km_filesys_private.h"
 #include "km_guest.h"
 #include "km_mem.h"
 #include "km_signal.h"
@@ -959,6 +962,52 @@ int km_dump_core(char* core_path,
       }
    }
 
+   if (dumptype == KM_DO_SNAP) {
+      int cfd;   // conf file fd
+      char cpath[MAXPATHLEN];
+      sprintf(cpath, "%s.conf", core_path);
+      if ((cfd = open(cpath, O_RDWR | O_CREAT | O_TRUNC, 0600)) < 0) {
+         km_warn("Cannot create %s '%s'", "snapshot config", cpath);
+         (void)unlink(cpath);
+         goto out;
+      }
+
+      for (int i = 0; i < km_fs()->nfdmap; i++) {
+         km_file_t* file = &km_fs()->guest_files[i];
+         if (km_is_file_used(file) != 0) {
+            if (file->how == KM_FILE_HOW_SOCKET) {
+               if (file->sockinfo->state == KM_SOCK_STATE_BIND ||
+                   file->sockinfo->state == KM_SOCK_STATE_LISTEN) {
+                  char buf[1024];
+                  char* cp = buf;
+                  switch (file->sockinfo->domain) {
+                     case AF_INET:
+                        cp += sprintf(cp,
+                                      "i4 %d ",
+                                      ntohs(((struct sockaddr_in*)file->sockinfo->addr)->sin_port));
+                        inet_ntop(file->sockinfo->domain,
+                                  &((struct sockaddr_in*)file->sockinfo->addr)->sin_addr,
+                                  cp,
+                                  1024);
+                        break;
+                     case AF_INET6:
+                        cp += sprintf(cp,
+                                      "i6 %d ",
+                                      ntohs(((struct sockaddr_in6*)file->sockinfo->addr)->sin6_port));
+                        inet_ntop(file->sockinfo->domain,
+                                  &((struct sockaddr_in6*)file->sockinfo->addr)->sin6_addr,
+                                  cp,
+                                  1024);
+                        break;
+                  }
+                  strcat(buf, "\n");
+                  write(cfd, buf, strlen(buf));
+               }
+            }
+         }
+      }
+      close(cfd);
+   }
 out:;
    free(notes_buffer);
    (void)close(fd);
