@@ -376,17 +376,14 @@ void km_exit(km_vcpu_t* vcpu)
 
 void handle_km_auxv()
 {
-   Elf64_Ehdr* ehdr = (Elf64_Ehdr*)getauxval(AT_SYSINFO_EHDR);
-   Elf64_Phdr* phdr = (Elf64_Phdr*)getauxval(AT_PHDR);
+   char *ehdr_base = (char*)getauxval(AT_SYSINFO_EHDR);
+   Elf64_Ehdr* ehdr = (Elf64_Ehdr*)ehdr_base;
+   km_infox(KM_TRACE_VDSO, "EHDR: 0x%lx", ehdr);
 
    if (ehdr == NULL) {
       km_err(2, "KM VDSO EHDR not found in AUXV");
    }
-   if (phdr == NULL) {
-      km_err(2, "KM PHDR not found in AUXV");
-   }
 
-   // km_warn("VDSO EHDR: 0x%lx", (uint64_t) ehdr);
    /*
     * TODO:
     * ehdr is a full ELF representation of the VDSO that KM is
@@ -394,7 +391,38 @@ void handle_km_auxv()
     * state is included in the snapshot/resume path?
     * Compatability between VDSO versions is dependent on what?
     * The entrypoints being at the same offsets? Anything else?
-    *
-    * phdr is the segments from KM itself. We can find vvar from it.
     */
+   if (ehdr->e_phentsize != sizeof(Elf64_Phdr)) {
+      km_err(2, "KM is not a ELF 64 - cannot continue\n");
+   }
+
+   for (int i = 0; i < ehdr->e_phnum; i++) {
+      Elf64_Phdr* phdr = &((Elf64_Phdr*)(ehdr_base + ehdr->e_phoff))[i];
+      km_infox(KM_TRACE_VDSO, "phdr[%d] type:%d flags:%d offset:0x%lx vaddr:0x%lx memsz:0x%lx", i, phdr->p_type, phdr->p_flags, phdr->p_offset, phdr->p_vaddr, phdr->p_memsz);
+   }
+
+   Elf64_Shdr* shdr_base = (Elf64_Shdr*)(ehdr_base + ehdr->e_shoff);
+   // Elf64_Shdr* str_shdr = &shdr_base[ehdr->e_shstrndx];
+
+   // Get reference to string table for the SHDRs.
+   // char *strings = (ehdr_base + str_shdr->sh_offset);
+
+   // Look for SHT_DYNSYM
+   Elf64_Sym* symbase = NULL;
+   int nsym = 0;
+   char* symstr = NULL;
+   for (int i = 0; i < ehdr->e_shnum; i++) {
+      Elf64_Shdr* shdr = &shdr_base[i];
+      if (shdr->sh_type == SHT_DYNSYM) {
+         symbase = (Elf64_Sym*)(ehdr_base + shdr->sh_offset);
+         Elf64_Shdr* str_shdr = &shdr_base[shdr->sh_link];
+         symstr = (char*) (ehdr_base + str_shdr->sh_offset);
+         nsym = shdr->sh_size / shdr->sh_entsize;
+      }
+   }
+
+   for (int i = 0; i < nsym; i++) {
+      Elf64_Sym* sym = &symbase[i];  
+      km_infox(KM_TRACE_VDSO, "SYM: %d(%s) bind:%d type:%d other:%d sindex:%d value:0x%lx size:%d", sym->st_name, &symstr[sym->st_name], ELF64_ST_BIND(sym->st_info), ELF64_ST_BIND(sym->st_info), sym->st_other, sym->st_shndx, sym->st_value, sym->st_size);
+   }
 }

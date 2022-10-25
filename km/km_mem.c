@@ -298,6 +298,8 @@ static void km_add_vvar_vdso_to_guest_address_space(void)
       km_infox(KM_TRACE_MEM, "Couldn't find vvar/vdso memory segments, not using vdso");
       return;
    }
+   km_infox(KM_TRACE_VDSO, "VVAR: start:0x%lx end:0x:%lx", vvar_vdso_regions[vvar_region_index].begin_addr, vvar_vdso_regions[vvar_region_index].end_addr);
+   km_infox(KM_TRACE_VDSO, "VDSO: start:0x%lx end:0x:%lx", vvar_vdso_regions[vdso_region_index].begin_addr, vvar_vdso_regions[vdso_region_index].end_addr);
 
    // This code assumes [vvar] and [vdso] are adjacent.
    km_assert(vvar_vdso_regions[vvar_region_index].end_addr ==
