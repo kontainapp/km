@@ -1675,6 +1675,11 @@ km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* add
    if (ret >= 0) {
       km_fd_socket_t* sock = km_fs()->guest_files[sockfd].sockinfo;
       ret = km_add_socket_fd(vcpu, ret, NULL, 0, sock->domain, sock->type, sock->protocol, KM_FILE_HOW_ACCEPT);
+      if (ret < 0) {
+         close(ret);
+      } else {
+         sock->state = KM_SOCK_STATE_CONNECTED;
+      }
    }
    return ret;
 }
