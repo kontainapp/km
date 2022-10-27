@@ -76,6 +76,37 @@ km_file_ops_t* km_file_ops(int i);
 char* km_get_nonfile_name(int hostfd);
 
 /*
+ * Open fd and socket state needed to reconstruct reality when a snapshot is recovered.
+ * These values are used in both the km open file table entries and in the snapshot note
+ * entries so we define these values here to make them accessible to the coredump/snapshot
+ * code.
+ */
+
+// Valid values for the how field in km_file_t and the how field in km_nt_file_t and km_nt_socket_t
+typedef enum km_file_how {
+   KM_FILE_HOW_OPEN = 0,    /* Regular open */
+   KM_FILE_HOW_PIPE_0 = 1,  /* read half of pipe */
+   KM_FILE_HOW_PIPE_1 = 2,  /* write half of pipe */
+   KM_FILE_HOW_EPOLLFD = 3, /* epoll_create() */
+   KM_FILE_HOW_SOCKET = 4,  /* socket specific state in km_fd_socket_t */
+   KM_FILE_HOW_ACCEPT = 5,
+   KM_FILE_HOW_SOCKETPAIR0 = 6,
+   KM_FILE_HOW_SOCKETPAIR1 = 7,
+   KM_FILE_HOW_RECVMSG = 8,
+   KM_FILE_HOW_EVENTFD = 9, /* eventfd() */
+} km_file_how_t;
+
+// Valid values for the state field of km_fd_socket_t and km_nt_socket_t structures.
+typedef enum km_sock_state {
+   KM_SOCK_STATE_UNCONNECTED,
+   KM_SOCK_STATE_LISTENING,
+   KM_SOCK_STATE_CONNECTED,
+   KM_SOCK_STATE_XMIT_DISCONNECTED,   // because of shutdown
+   KM_SOCK_STATE_RECV_DISCONNECTED,   // because of shutdown
+   KM_SOCK_STATE_CONNLOST,            // snapshot forces the socket to appear as connection lost
+} km_sock_state_t;
+
+/*
  * maps a host fd to a guest fd. Returns a negative error number if mapping does
  * not exist. Used by SIGPIPE/SIGIO signal handlers and select.
  * Note: vcpu is NULL if called from km signal handler.

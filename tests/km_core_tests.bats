@@ -1074,7 +1074,7 @@ fi
 }
 
 @test "basic_snapshot($test_type): snapshot and resume(snapshot_test$ext)" {
-   # this test uses a single port, so the next free port will be 22
+   # this test uses a 2 ports, so the next free port will be 23
    local port_id=21
    local snapshot_test_port=$(( $port_range_start + $port_id))
 
@@ -1607,8 +1607,8 @@ fi
 }
 
 @test "continue_after_snapshot($test_type): resume payload after taking a snapshot (hello_html_test$ext)" {
-   # this test uses a single port, so the next free port will be 23
-   local port_id=22
+   # this test uses a single port, so the next free port will be 24
+   local port_id=23
    local socket_port=$(($port_range_start + $port_id))
    local MGTPIPE=resume_after_mgtpipe.$$
    local SNAPDIR=snapdir.$$

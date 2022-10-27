@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Kontain Inc
+ * Copyright 2021-2022 Kontain Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,6 @@
  * getting big and we need to split out functionality to another file.
  */
 
-typedef enum km_sock_state {
-   KM_SOCK_STATE_OPEN = 0,
-   KM_SOCK_STATE_BIND = 1,
-   KM_SOCK_STATE_LISTEN = 2,
-   KM_SOCK_STATE_ACCEPT = 3,
-   KM_SOCK_STATE_CONNECT = 4,
-} km_sock_state_t;
-
 // Each km_file_t has an optional point to socket state described by this structure.
 typedef struct km_fd_socket {
    km_sock_state_t state;
@@ -47,20 +39,6 @@ typedef struct km_fs_event {
    int fd;
    struct epoll_event event;
 } km_fs_event_t;
-
-// Valid values for the how field in km_file_t
-typedef enum km_file_how {
-   KM_FILE_HOW_OPEN = 0,    /* Regular open */
-   KM_FILE_HOW_PIPE_0 = 1,  /* read half of pipe */
-   KM_FILE_HOW_PIPE_1 = 2,  /* write half of pipe */
-   KM_FILE_HOW_EPOLLFD = 3, /* epoll_create() */
-   KM_FILE_HOW_SOCKET = 4,
-   KM_FILE_HOW_ACCEPT = 5,
-   KM_FILE_HOW_SOCKETPAIR0 = 6,
-   KM_FILE_HOW_SOCKETPAIR1 = 7,
-   KM_FILE_HOW_RECVMSG = 8,
-   KM_FILE_HOW_EVENTFD = 9, /* eventfd() */
-} km_file_how_t;
 
 // Each file opened by the guest has one of these structures.
 typedef struct km_file {

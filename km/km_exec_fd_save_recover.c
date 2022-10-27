@@ -478,7 +478,7 @@ static int km_exec_restore_socketpair(int fd, km_file_how_t how, int ofd)
       km_fs_destroy_fd(fd);
       return -1;
    }
-   file->sockinfo->state = KM_SOCK_STATE_CONNECT;
+   file->sockinfo->state = KM_SOCK_STATE_CONNECTED;
    file->sockinfo->backlog = 0;
    file->sockinfo->addrlen = 0;
 

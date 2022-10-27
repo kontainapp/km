@@ -133,7 +133,7 @@ typedef struct km_nt_dup {
 typedef struct km_nt_file {
    Elf64_Word size;       // Size of record
    Elf64_Word fd;         // Open fd number
-   Elf64_Word how;        // How file was created
+   Elf64_Word how;        // How file was created, values from km_file_how_t
    Elf64_Word flags;      // open(2) flags
    Elf64_Word mode;       // file mode (includes type)
    Elf64_Word pipesize;   // if how == KM_FILE_HOW_PIPE_0/1 the size of the
@@ -163,8 +163,8 @@ typedef struct km_nt_socket {
    Elf64_Word domain;
    Elf64_Word type;
    Elf64_Word protocol;
-   Elf64_Word other;   // 'other' fd for socketpair(2)
-   Elf64_Word addrlen;
+   Elf64_Word other;        // 'other' fd for socketpair(2)
+   Elf64_Word addrlen;      // if zero, no local address is bound
    Elf64_Word datalength;   // number of bytes to write back to the
                             // write side of a socketpair.  The data
                             // bytes follow the protocol address of
@@ -175,16 +175,13 @@ typedef struct km_nt_socket {
 #define NT_KM_SOCKET 0x4b4d534b   // "KMSK" no null term
 
 // values for 'how' field in km_nt_socket
-#define KM_NT_SKHOW_SOCKETPAIR 0
-#define KM_NT_SKHOW_SOCKET 1
-#define KM_NT_SKHOW_ACCEPT 2
+#define KM_NT_SKHOW_SOCKETPAIR ((Elf64_Word)KM_FILE_HOW_SOCKETPAIR0)
+#define KM_NT_SKHOW_SOCKET ((Elf64_Word)KM_FILE_HOW_SOCKET)
 
-#define KM_NT_SKSTATE_OPEN 0
-#define KM_NT_SKSTATE_BIND 1
-#define KM_NT_SKSTATE_LISTEN 2
-#define KM_NT_SKSTATE_ACCEPT 3
-#define KM_NT_SKSTATE_CONNECT 4
-#define KM_NT_SKSTATE_ERROR 5
+// Values for 'state' field in km_nt_socket
+#define KM_NT_SKSTATE_OPEN ((Elf64_Word)KM_SOCK_STATE_UNCONNECTED)
+#define KM_NT_SKSTATE_LISTEN ((Elf64_Word)KM_SOCK_STATE_LISTENING)
+#define KM_NT_SKSTATE_ERROR ((Elf64_Word)KM_SOCK_STATE_CONNLOST)
 
 /*
  * Use a function so that we consistently roundup note related pieces in the rest of the code.

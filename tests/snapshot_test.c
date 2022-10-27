@@ -65,7 +65,11 @@ int filefd = -1;   // fd to '/etc/passwd' O_RDONLY
 int sec_fd = -1;   // fd to '/etc/passwd' O_RDONLY
 int pipefd[2] = {1, -1};
 int spairfd[2] = {1, -1};
-int socketfd = -1;
+int socketonlyfd = -1;
+int socketbindfd = -1;
+int socketlistenfd = -1;
+int socketconnected_end0_fd = -1;
+int socketconnected_end1_fd = -1;
 int socdupfd = -1;
 int epollfd = -1;
 int eventfd_fd = -1;
@@ -81,11 +85,19 @@ typedef struct process_state {
    off_t fileoff;
    struct stat pipest[2];    // pipe stat
    struct stat spairst[2];   // socketpair stat
-   struct stat socketst;     // socket(2) stat
-   struct stat socdupst;     // socket(2) dup stat
-   struct stat epollst;      // epoll_create stat
+   struct stat socketonlyst;
+   struct stat socketbindst;              // socket(2) stat
+   struct stat socketlistenst;            // socket(2) stat
+   struct stat socketconnected_end0_st;   // socket(2) stat
+   struct stat socketconnected_end1_st;   // socket(2) stat
+   struct stat socdupst;                  // socket(2) dup stat
+   struct stat epollst;                   // epoll_create stat
    struct stat eventfdst;
    struct stat dup_st[5];
+   socklen_t socketbind_socklen;
+   struct sockaddr socketbind_sockname;
+   socklen_t socketlisten_socklen;
+   struct sockaddr socketlisten_sockname;
 } process_state_t;
 
 process_state_t presnap;
@@ -122,15 +134,52 @@ void setup_process_state()
    CHECK_SYSCALL(lseek(filefd, 100, SEEK_SET));
    CHECK_SYSCALL(pipe(pipefd));
    CHECK_SYSCALL(socketpair(AF_UNIX, SOCK_STREAM, 0, spairfd));
-   CHECK_SYSCALL(socketfd = socket(AF_INET, SOCK_STREAM, 0));
+
+   // Create a socket with nothing done to it
+   CHECK_SYSCALL(socketonlyfd = socket(AF_INET, SOCK_STREAM, 0));
+
+   // Create a socket with local address bound
+   CHECK_SYSCALL(socketbindfd = socket(AF_INET, SOCK_STREAM, 0));
    int flag = 1;
-   CHECK_SYSCALL(setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)));
+   CHECK_SYSCALL(setsockopt(socketbindfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)));
    struct sockaddr_in saddr;
    saddr.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &saddr.sin_addr);
-   saddr.sin_port = port;
-   CHECK_SYSCALL(bind(socketfd, (struct sockaddr*)&saddr, sizeof(saddr)));
-   CHECK_SYSCALL(socdupfd = dup(socketfd));
+   saddr.sin_port = htons(port);
+   CHECK_SYSCALL(bind(socketbindfd, (struct sockaddr*)&saddr, sizeof(saddr)));
+
+   // Create a socket that is listening
+   CHECK_SYSCALL(socketlistenfd = socket(AF_INET, SOCK_STREAM, 0));
+   flag = 1;
+   CHECK_SYSCALL(setsockopt(socketlistenfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)));
+   saddr.sin_family = AF_INET;
+   inet_pton(AF_INET, "127.0.0.1", &saddr.sin_addr);
+   saddr.sin_port = htons(port + 1);
+   CHECK_SYSCALL(bind(socketlistenfd, (struct sockaddr*)&saddr, sizeof(saddr)));
+   CHECK_SYSCALL(listen(socketlistenfd, 1));
+
+   // Now create a pair of fd's for each end of a connection.
+   CHECK_SYSCALL(socketconnected_end0_fd = socket(AF_INET, SOCK_STREAM, 0));
+   CHECK_SYSCALL(fcntl(socketconnected_end0_fd, F_SETFL, O_NONBLOCK));
+   struct sockaddr_in connect_sa;
+   int connect_socklen = sizeof(connect_sa);
+   connect_sa.sin_family = AF_INET;
+   connect_sa.sin_port = htons(port + 1);
+   connect_sa.sin_addr.s_addr = inet_addr("127.0.0.1");
+   // initiate the connect
+   if (connect(socketconnected_end0_fd, &connect_sa, connect_socklen) < 0) {
+      if (errno != EINPROGRESS) {
+         fprintf(stderr, "Couldn't connect, %s\n", strerror(errno));
+         exit(100);
+      }
+   }
+   struct sockaddr_in accepted_sa;
+   socklen_t accepted_socklen = sizeof(accepted_sa);
+   CHECK_SYSCALL(socketconnected_end1_fd = accept(socketlistenfd, &accepted_sa, &accepted_socklen));
+   // finish off the connect
+   CHECK_SYSCALL(connect(socketconnected_end0_fd, &connect_sa, connect_socklen));
+
+   CHECK_SYSCALL(socdupfd = dup(socketbindfd));
    CHECK_SYSCALL(epollfd = epoll_create(1));
    CHECK_SYSCALL(eventfd_fd = eventfd(99, 0));
    // leave a gap in FS space for recovery
@@ -179,7 +228,19 @@ void get_process_state(process_state_t* state)
    CHECK_SYSCALL(fstat(pipefd[1], &state->pipest[1]));
    CHECK_SYSCALL(fstat(spairfd[0], &state->spairst[0]));
    CHECK_SYSCALL(fstat(spairfd[1], &state->spairst[1]));
-   CHECK_SYSCALL(fstat(socketfd, &state->socketst));
+   CHECK_SYSCALL(fstat(socketonlyfd, &state->socketonlyst));
+
+   CHECK_SYSCALL(fstat(socketbindfd, &state->socketbindst));
+   state->socketbind_socklen = sizeof(state->socketbind_sockname);
+   CHECK_SYSCALL(getsockname(socketbindfd, &state->socketbind_sockname, &state->socketbind_socklen));
+
+   CHECK_SYSCALL(fstat(socketlistenfd, &state->socketlistenst));
+   state->socketlisten_socklen = sizeof(state->socketlisten_sockname);
+   CHECK_SYSCALL(
+       getsockname(socketlistenfd, &state->socketlisten_sockname, &state->socketlisten_socklen));
+
+   CHECK_SYSCALL(fstat(socketconnected_end0_fd, &state->socketconnected_end0_st));
+   CHECK_SYSCALL(fstat(socketconnected_end1_fd, &state->socketconnected_end1_st));
    CHECK_SYSCALL(fstat(socdupfd, &state->socdupst));
    CHECK_SYSCALL(fstat(epollfd, &state->epollst));
    CHECK_SYSCALL(fstat(eventfd_fd, &state->eventfdst));
@@ -269,15 +330,79 @@ int compare_process_state(process_state_t* prestate, process_state_t* poststate)
       fprintf(stderr, "socketpair[1]changed\n");
       ret = -1;
    }
-   if (prestate->socketst.st_mode != poststate->socketst.st_mode ||
-       poststate->socdupst.st_mode != poststate->socketst.st_mode) {
+   if (prestate->socketonlyst.st_mode != poststate->socketonlyst.st_mode) {
+      fprintf(stderr, "socketonly changed\n");
+      ret = -1;
+   }
+   if (prestate->socketbindst.st_mode != poststate->socketbindst.st_mode ||
+       poststate->socdupst.st_mode != poststate->socketbindst.st_mode) {
       fprintf(stderr,
               "socket changed 0x%x 0x%x 0x%x\n",
-              prestate->socketst.st_mode,
-              poststate->socketst.st_mode,
+              prestate->socketbindst.st_mode,
+              poststate->socketbindst.st_mode,
               poststate->socdupst.st_mode);
       ret = -1;
    }
+   if (prestate->socketbind_socklen != poststate->socketbind_socklen ||
+       memcmp(&prestate->socketbind_sockname,
+              &poststate->socketbind_sockname,
+              prestate->socketbind_socklen) != 0) {
+      fprintf(stderr,
+              "socketbindfd: sockname differences (socklen pre %d, post %d), (sockname pre "
+              "%d:%d:0x%x post %d:%d:0x%x)\n",
+              prestate->socketbind_socklen,
+              poststate->socketbind_socklen,
+              ((struct sockaddr_in*)&prestate->socketbind_sockname)->sin_family,
+              ((struct sockaddr_in*)&prestate->socketbind_sockname)->sin_port,
+              ((struct sockaddr_in*)&prestate->socketbind_sockname)->sin_addr.s_addr,
+              ((struct sockaddr_in*)&poststate->socketbind_sockname)->sin_family,
+              ((struct sockaddr_in*)&poststate->socketbind_sockname)->sin_port,
+              ((struct sockaddr_in*)&poststate->socketbind_sockname)->sin_addr.s_addr);
+      ret = -1;
+   }
+   if (prestate->socketlistenst.st_mode != poststate->socketlistenst.st_mode) {
+      fprintf(stderr, "socketlisten changed\n");
+      ret = -1;
+   }
+   if (prestate->socketlisten_socklen != poststate->socketlisten_socklen ||
+       memcmp(&prestate->socketlisten_sockname,
+              &poststate->socketlisten_sockname,
+              prestate->socketlisten_socklen) != 0) {
+      fprintf(stderr,
+              "socketlistenfd: sockname differences (socklen pre %d, post %d), (sockname pre "
+              "%d:%d:0x%x post %d:%d:0x%x)\n",
+              prestate->socketlisten_socklen,
+              poststate->socketlisten_socklen,
+              ((struct sockaddr_in*)&prestate->socketlisten_sockname)->sin_family,
+              ((struct sockaddr_in*)&prestate->socketlisten_sockname)->sin_port,
+              ((struct sockaddr_in*)&prestate->socketlisten_sockname)->sin_addr.s_addr,
+              ((struct sockaddr_in*)&poststate->socketlisten_sockname)->sin_family,
+              ((struct sockaddr_in*)&poststate->socketlisten_sockname)->sin_port,
+              ((struct sockaddr_in*)&poststate->socketlisten_sockname)->sin_addr.s_addr);
+      ret = -1;
+   }
+   if (prestate->socketconnected_end0_st.st_mode != poststate->socketconnected_end0_st.st_mode) {
+      fprintf(stderr, "socketconnected_end0 changed\n");
+      ret = -1;
+   }
+   if (prestate->socketconnected_end1_st.st_mode != poststate->socketconnected_end1_st.st_mode) {
+      fprintf(stderr, "socketconnected_end1 changed\n");
+      ret = -1;
+   }
+   // Verify that the connected socket fd's are now no longer connected.
+   int rc;
+   char buf[16];
+   rc = recv(socketconnected_end0_fd, buf, sizeof(buf), MSG_DONTWAIT);
+   if (rc >= 0 || errno != ECONNRESET) {
+      fprintf(stderr, "connected socket 0 is still connected after snapshot, rc %d, errno %d\n", rc, errno);
+      ret = -1;
+   }
+   rc = recv(socketconnected_end1_fd, buf, sizeof(buf), MSG_DONTWAIT);
+   if (rc >= 0 || errno != ECONNRESET) {
+      fprintf(stderr, "connected socket 1 is still connected after snapshot, rc %d, errno %d\n", rc, errno);
+      ret = -1;
+   }
+
    if (prestate->epollst.st_mode != poststate->epollst.st_mode) {
       fprintf(stderr, "epoll changed\n");
       ret = -1;

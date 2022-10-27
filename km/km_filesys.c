@@ -249,6 +249,7 @@ int km_add_guest_fd_internal(
       file->name = strdup(name);
    }
    file->flags = flags;
+   file->error = 0;
    return host_fd;
 }
 
@@ -268,7 +269,10 @@ static inline int km_add_socket_fd(
 {
    int ret = km_add_guest_fd_internal(vcpu, hostfd, name, flags, how, NULL);
    if (ret >= 0) {
-      km_fd_socket_t sockval = {.domain = domain, .type = type, .protocol = protocol};
+      km_fd_socket_t sockval = {.state = KM_SOCK_STATE_UNCONNECTED,
+                                .domain = domain,
+                                .type = type,
+                                .protocol = protocol};
       km_fd_socket_t* sockinfo = calloc(1, sizeof(km_fd_socket_t));
       *sockinfo = sockval;
       km_fs()->guest_files[ret].sockinfo = sockinfo;
@@ -507,7 +511,34 @@ int km_fs_shutdown(km_vcpu_t* vcpu, int sockfd, int how)
    if (ret != 0) {
       return ret;
    }
+   km_fd_socket_t* sock = km_fs()->guest_files[host_fd].sockinfo;
    ret = __syscall_2(SYS_shutdown, host_fd, how);
+   if (ret == 0 && sock->state != KM_SOCK_STATE_UNCONNECTED) {
+      // shutdown() worked, fixup the socket state.
+      switch (how) {
+         case SHUT_RD:
+            if (sock->state == KM_SOCK_STATE_XMIT_DISCONNECTED) {
+               sock->state = KM_SOCK_STATE_UNCONNECTED;
+            } else {
+               sock->state = KM_SOCK_STATE_RECV_DISCONNECTED;
+            }
+            break;
+         case SHUT_WR:
+            if (sock->state == KM_SOCK_STATE_RECV_DISCONNECTED) {
+               sock->state = KM_SOCK_STATE_UNCONNECTED;
+            } else {
+               sock->state = KM_SOCK_STATE_XMIT_DISCONNECTED;
+            }
+            break;
+         case SHUT_RDWR:
+            sock->state = KM_SOCK_STATE_XMIT_DISCONNECTED;
+            break;
+         default:
+            // the syscall was happy with an invalid how value?
+            km_abortx("shutdown() syscall accepted invalid how value?, now %d", how);
+            break;
+      }
+   }
    return ret;
 }
 
@@ -1171,10 +1202,14 @@ uint64_t km_fs_fstat(km_vcpu_t* vcpu, int fd, struct stat* statbuf)
    if ((host_fd = km_fs_g2h_fd(fd, NULL)) < 0) {
       return -EBADF;
    }
+#if 0
    int ret = km_guestfd_error(vcpu, fd);
    if (ret != 0) {
       return ret;
    }
+#else
+   int ret;
+#endif
    ret = __syscall_2(SYS_fstat, host_fd, (uintptr_t)statbuf);
    if (km_trace_enabled() != 0) {
       char* file_name = km_guestfd_name(vcpu, fd);
@@ -1539,7 +1574,6 @@ uint64_t km_fs_bind(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_
       km_fd_socket_t* sock = km_fs()->guest_files[sockfd].sockinfo;
       sock->addrlen = addrlen;
       memcpy(sock->addr, addr, addrlen);
-      sock->state = KM_SOCK_STATE_BIND;
    }
    return ret;
 }
@@ -1558,7 +1592,7 @@ uint64_t km_fs_listen(km_vcpu_t* vcpu, int sockfd, int backlog)
    ret = __syscall_2(SYS_listen, host_sockfd, backlog);
    if (ret == 0) {
       km_fd_socket_t* sock = km_fs()->guest_files[sockfd].sockinfo;
-      sock->state = KM_SOCK_STATE_LISTEN;
+      sock->state = KM_SOCK_STATE_LISTENING;
       sock->backlog = backlog;
    }
    return ret;
@@ -1587,7 +1621,7 @@ uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockle
       return -ENOMEM;
    }
    km_fd_socket_t* sock = km_fs()->guest_files[guestfd].sockinfo;
-   sock->state = KM_SOCK_STATE_ACCEPT;
+   sock->state = KM_SOCK_STATE_CONNECTED;
    return guestfd;
 }
 
@@ -1605,7 +1639,7 @@ uint64_t km_fs_connect(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockl
    ret = __syscall_3(SYS_connect, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
    if (ret >= 0) {
       km_fd_socket_t* sock = km_fs()->guest_files[sockfd].sockinfo;
-      sock->state = KM_SOCK_STATE_CONNECT;
+      sock->state = KM_SOCK_STATE_CONNECTED;
    }
    return ret;
 }
@@ -2233,11 +2267,9 @@ static inline int fs_core_write_socket(char* buf, size_t length, km_file_t* file
    }
    fnote->datalength = 0;
    fnote->state = KM_NT_SKSTATE_OPEN;
-   if (file->sockinfo->state == KM_SOCK_STATE_BIND) {
-      fnote->state = KM_NT_SKSTATE_BIND;
-   } else if (file->sockinfo->state == KM_SOCK_STATE_LISTEN) {
+   if (file->sockinfo->state == KM_SOCK_STATE_LISTENING) {
       fnote->state = KM_NT_SKSTATE_LISTEN;
-   } else if (file->sockinfo->state != KM_SOCK_STATE_OPEN) {
+   } else if (file->sockinfo->state != KM_SOCK_STATE_UNCONNECTED) {
       fnote->state = KM_NT_SKSTATE_ERROR;
    }
    fnote->backlog = file->sockinfo->backlog;
@@ -2650,9 +2682,9 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
    }
    *sockinfo = sval;
    if (addrlen > 0) {
-      sockinfo->addrlen = addrlen;
       memcpy(sockinfo->addr, addr, addrlen);
    }
+   sockinfo->addrlen = addrlen;
    file->sockinfo = sockinfo;
 
    return 0;
@@ -3405,11 +3437,6 @@ static int km_fs_recover_socketpair(km_nt_socket_t* nt_sock)
    return 0;
 }
 
-static int km_fs_recover_socket_accepted(km_nt_socket_t* nt_sock)
-{
-   return 0;
-}
-
 static int km_fs_recover_open_socket(char* ptr, size_t length)
 {
    km_nt_socket_t* nt_sock = (km_nt_socket_t*)ptr;
@@ -3427,9 +3454,6 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
    if (nt_sock->how == KM_FILE_HOW_SOCKETPAIR0 || nt_sock->how == KM_FILE_HOW_SOCKETPAIR1) {
       return km_fs_recover_socketpair(nt_sock);
    }
-   if (nt_sock->how == KM_FILE_HOW_ACCEPT) {
-      return km_fs_recover_socket_accepted(nt_sock);
-   }
 
    /*
     * Assume socket optionally bound for listening
@@ -3444,8 +3468,9 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
    struct sockaddr* sa = (struct sockaddr*)(ptr + sizeof(km_nt_socket_t));
    km_fs_recover_socket(nt_sock, sa, nt_sock->addrlen);
 
-   if (nt_sock->state == KM_SOCK_STATE_BIND || nt_sock->state == KM_SOCK_STATE_LISTEN) {
-      int hostfd = km_fs_g2h_fd(nt_sock->fd, NULL);
+   int hostfd = km_fs_g2h_fd(nt_sock->fd, NULL);
+   // If addrlen is non-zero then we need to bind() a local address
+   if (nt_sock->addrlen > 0) {
       // If snapshot is being recovered right after it was taken there is a chance there are
       // sockets in TIME_WAIT state from the remaining from the initial run, so the following
       // bind() will fail. This avoid the falure.
@@ -3455,14 +3480,14 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
          return -1;
       }
       if (bind(hostfd, sa, nt_sock->addrlen) < 0) {
-         km_warn("recover bind failed");   // TODO: return error
+         km_warn("recover bind failed");
          return -1;
       }
-      if (nt_sock->state == KM_SOCK_STATE_LISTEN) {
-         if (listen(hostfd, nt_sock->backlog) < 0) {
-            km_warn("recover listen failed");
-            return -1;
-         }
+   }
+   if (nt_sock->state == KM_SOCK_STATE_LISTENING) {
+      if (listen(hostfd, nt_sock->backlog) < 0) {
+         km_warn("recover listen failed");
+         return -1;
       }
    }
 
