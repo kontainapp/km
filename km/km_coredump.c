@@ -967,8 +967,8 @@ int km_dump_core(char* core_path,
       char cpath[MAXPATHLEN];
       sprintf(cpath, "%s.conf", core_path);
       if ((cfd = open(cpath, O_RDWR | O_CREAT | O_TRUNC, 0600)) < 0) {
+         rc = errno;
          km_warn("Cannot create %s '%s'", "snapshot config", cpath);
-         (void)unlink(cpath);
          goto out;
       }
 
@@ -1011,5 +1011,8 @@ int km_dump_core(char* core_path,
 out:;
    free(notes_buffer);
    (void)close(fd);
+   if (rc != 0) {
+      (void)unlink(core_path);
+   }
    return rc;
 }

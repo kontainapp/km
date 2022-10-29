@@ -1144,7 +1144,8 @@ fi
    assert [ $tries -gt 0 ]
    run ${KM_CLI_BIN} -s ${MGTDIR}/kmpipe.*
    assert_success
-   assert [ -f ${MGTDIR}/kmsnap.hello_html_test$ext.[0-9]* ]
+   local -a tmp=($(echo ${MGTDIR}/kmsnap.hello_html_test$ext.[0-9]*))
+   assert [ -f ${tmp[0]} ]
    rm -fr ${MGTDIR}
 
    echo "This is test data" > ${SNAP_INPUT}
@@ -1213,8 +1214,6 @@ fi
       assert_success
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
-      assert grep 'label: snaptest_label' ${KMLOG}
-      assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
       assert [ -f ${SNAP_OUTPUT} ]
       run diff ${SNAP_INPUT} ${SNAP_OUTPUT}
@@ -1234,8 +1233,6 @@ fi
       [[ $test_type =~ glibc* ]] && refute_line --partial "Hello from thread"
       [[ $test_type =~ glibc* ]] || assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
-      assert grep 'label: snaptest_label' ${KMLOG}
-      assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
       [ $status -ne 0 ] && break
       rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
@@ -1250,8 +1247,6 @@ fi
       assert [ -f ${CORE} ]
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
-      assert grep 'label: snaptest_label' ${KMLOG}
-      assert grep 'description: Snapshot test application' ${KMLOG}
       if [ "$test_type" = ".km.so" ]; then
          gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
       fi
@@ -1267,8 +1262,6 @@ fi
       assert_success
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
-      assert grep 'label: snaptest_label' ${KMLOG}
-      assert grep 'description: Snapshot test application' ${KMLOG}
       assert [ ! -f ${CORE} ]
       [ $status -ne 0 ] && break
       rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
