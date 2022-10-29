@@ -63,9 +63,8 @@ load "${TESTS_BASE}/bats-assert/load.bash"  # see manual in bats-assert/README.m
   pid=$!
   tries=20
   run curl -4 -s localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
-
   assert_success
-  assert_output --partial 'Hello, World!'
+  assert_output --regexp '"id":1.*Hello, World!'
 
   ${KM_CLI_BIN} -s ${MGMTPIPE} -t
   wait $pid
@@ -81,5 +80,20 @@ load "${TESTS_BASE}/bats-assert/load.bash"  # see manual in bats-assert/README.m
   assert_success
   assert_output --regexp '"id":3.*Hello, World!'
   kill $pid
-  rm -f ${SNAP_FILE}
+  wait $pid || true
+
+  SNAP_LISTEN_PORT=$(cat ${SNAP_FILE}.conf) ${KM_BIN} -Vsnapshot ${SNAP_FILE} &
+  pid=$!
+  run curl -4 -s -H "User-Agent: kube-probe" localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
+  assert_success
+  run curl -4 -s -H "User-Agent: kube-probe" localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
+  assert_success
+  run curl -4 -s localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
+  assert_success
+  assert_output --regexp '"id":2.*Hello, World!'
+  run curl -4 -s localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
+  assert_success
+  assert_output --regexp '"id":3.*Hello, World!'
+  kill $pid
+  rm -f ${SNAP_FILE} ${SNAP_FILE}.conf
 }

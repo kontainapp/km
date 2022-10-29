@@ -151,7 +151,7 @@ void km_mgt_init(char* path)
    }
    strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
-   km_info(KM_TRACE_SNAPSHOT, "snapshot pipe name is %s", path);
+   km_infox(KM_TRACE_SNAPSHOT, "snapshot pipe name is %s", path);
 
    if ((sock = km_mgt_listen(AF_UNIX, SOCK_STREAM, 0)) < 0) {
       km_warn("mgt socket %s", addr.sun_path);
