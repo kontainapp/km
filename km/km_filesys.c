@@ -85,6 +85,9 @@ static const_string_t KM_SNAP_LISTEN_PORT = "SNAP_LISTEN_PORT";
 
 static int snap_listen_sock = -1;
 static km_fd_socket_t* snap_listen_sockinfo;
+static int snap_conn_sock = -1;
+static km_fd_socket_t sc_conn;
+
 static int km_internal_fd(int fd, int km_fd);
 
 void light_snap_listen(void)
@@ -137,17 +140,37 @@ void light_snap_listen(void)
       km_err(2, "listen failed");
    }
 
-   // wait for connection to arrive but don't accept it just yet. When payload starts it will accept it
-   fd_set fds;
-   FD_ZERO(&fds);
-   FD_SET(snap_listen_sock, &fds);
+   do {
+      if ((snap_conn_sock = accept(snap_listen_sock,
+                                   (struct sockaddr*)&sc_conn.addr,
+                                   (socklen_t*)&sc_conn.addrlen)) < 0) {
+         km_err(2, "accept failed");
+      }
 
-   if (select(snap_listen_sock + 1, &fds, NULL, NULL, NULL) < 0) {
-      km_err(2, "waiting for connection failed");
-   }
-   // reuse gdb socket number here, gdb setup is later when we done
+      // peek in http header for knative readiness probe
+      char buf[1024];
+      char wbuf[] = "HTTP/1.1 200 OK\n"
+                    "Content-Length: 0\n"
+                    "Content-Type: text/html\n"
+                    "Connection: Closed\n"
+                    "\n";
+      int rc = recv(snap_conn_sock, buf, sizeof(buf), MSG_PEEK);
+      if (rc < 0) {
+         km_err(2, "can't peek in accepted socket data");
+      }
+      buf[rc] = '\0';
+      km_infox(KM_TRACE_SNAPSHOT, "connection: ---\n%s\n---", buf);
+      if (strstr(buf, "User-Agent: kube-probe") != NULL) {
+         write(snap_conn_sock, wbuf, sizeof(wbuf));
+         shutdown(snap_conn_sock, SHUT_RDWR); /* no more receptions */
+         close(snap_conn_sock);
+         snap_conn_sock = -1;
+      }
+   } while (snap_conn_sock < 0);
+
+   // reuse gdb socket numbers here, gdb setup is later when we done
    snap_listen_sock = km_internal_fd(snap_listen_sock, KM_GDB_LISTEN);
-   // connection is ready for accept - we can start the snapshot and let it handle the accept
+   snap_conn_sock = km_internal_fd(snap_conn_sock, KM_GDB_ACCEPT);
 }
 
 /*
@@ -1638,8 +1661,8 @@ uint64_t km_fs_listen(km_vcpu_t* vcpu, int sockfd, int backlog)
    return ret;
 }
 
-// int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
+// int accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags);
+uint64_t km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen, int fl)
 {
    int host_sockfd;
    if ((host_sockfd = km_fs_g2h_fd(sockfd, NULL)) < 0) {
@@ -1649,7 +1672,27 @@ uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockle
    if (ret != 0) {
       return ret;
    }
-   int hostfd = __syscall_3(SYS_accept, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
+   int hostfd;
+   if (snap_listen_sock == sockfd) {
+      hostfd = dup(snap_conn_sock);
+      close(snap_conn_sock);
+      snap_conn_sock = -1;
+      if (addrlen != NULL) {
+         *addrlen = sc_conn.addrlen;
+      }
+      if (addr != NULL) {
+         memcpy(addr, sc_conn.addr, sc_conn.addrlen);
+      }
+      snap_listen_sock = -1;
+      if (fl != 0) {
+         int tmp = fcntl(hostfd, F_GETFL, NULL);
+         fcntl(hostfd, F_SETFL, tmp | (fl & (SOCK_NONBLOCK | SOCK_CLOEXEC)));
+      }
+   } else {
+      if ((hostfd = __syscall_4(SYS_accept4, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen, fl)) < 0) {
+         return hostfd;
+      }
+   }
    if (hostfd < 0) {
       return hostfd;
    }
@@ -1663,6 +1706,12 @@ uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockle
    km_fd_socket_t* sock = km_fs()->guest_files[guestfd].sockinfo;
    sock->state = KM_SOCK_STATE_ACCEPT;
    return guestfd;
+}
+
+// int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+uint64_t km_fs_accept(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
+{
+   return km_fs_accept4(vcpu, sockfd, addr, addrlen, 0);
 }
 
 // int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
@@ -1695,26 +1744,6 @@ uint64_t km_fs_socketpair(km_vcpu_t* vcpu, int domain, int type, int protocol, i
       sv[1] =
           km_add_socket_fd(vcpu, host_sv[1], NULL, 0, domain, type, protocol, KM_FILE_HOW_SOCKETPAIR1);
       km_connect_files(vcpu, sv);
-   }
-   return ret;
-}
-
-// int accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags);
-uint64_t
-km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_t* addrlen, int flags)
-{
-   int host_sockfd;
-   if ((host_sockfd = km_fs_g2h_fd(sockfd, NULL)) < 0) {
-      return -EBADF;
-   }
-   int ret = km_guestfd_error(vcpu, sockfd);
-   if (ret != 0) {
-      return ret;
-   }
-   ret = __syscall_4(SYS_accept4, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen, flags);
-   if (ret >= 0) {
-      km_fd_socket_t* sock = km_fs()->guest_files[sockfd].sockinfo;
-      ret = km_add_socket_fd(vcpu, ret, NULL, 0, sock->domain, sock->type, sock->protocol, KM_FILE_HOW_ACCEPT);
    }
    return ret;
 }
@@ -1813,6 +1842,19 @@ uint64_t km_fs_pselect6(km_vcpu_t* vcpu,
       return ret;
    }
 
+   // Handle pre-snapshot recovery listening games
+   // Seems like we will need a mutex to handle races between select() and accept().
+   if (snap_listen_sock >= 0 && snap_listen_sock < FD_SETSIZE) {
+      if (FD_ISSET(snap_listen_sock, readfds)) {
+         // pselect() wants to know if our listen fd has a new pending connection.
+         FD_ZERO(readfds);
+         FD_ZERO(writefds);
+         FD_ZERO(exceptfds);
+         FD_SET(snap_listen_sock, readfds);
+         return 1;
+      }
+   }
+
    // Account for sigmask changes in vcpu
    km_sigset_t oldset;
    km_sigemptyset(&oldset);
@@ -1840,12 +1882,14 @@ uint64_t km_fs_select(km_vcpu_t* vcpu,
                       fd_set* exceptfds,
                       struct timeval* timeout)
 {
-   int ret;
-   // If there is a KM level file error on any of the fds
-   if ((ret = km_fs_check_select_errors(vcpu, nfds, readfds, writefds, exceptfds)) != 0) {
-      return ret;
+   struct timespec ts;
+   struct timespec* tsp = NULL;
+   if (timeout != NULL) {
+      ts.tv_sec = timeout->tv_sec;
+      ts.tv_nsec = timeout->tv_usec * 1000;
+      tsp = &ts;
    }
-   return select(nfds, readfds, writefds, exceptfds, timeout);
+   return km_fs_pselect6(vcpu, nfds, readfds, writefds, exceptfds, tsp, NULL);
 }
 
 // int poll(struct pollfd *fds, nfds_t nfds, int timeout);
@@ -1859,6 +1903,10 @@ uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeou
       if (ret != 0) {
          fds[i].revents = POLLERR;
          return ret;
+      }
+      if (snap_listen_sock >= 0 && fds[i].fd == snap_listen_sock && (fds[i].events & POLLIN) != 0) {
+         fds[i].revents = POLLIN;
+         return 1;
       }
    }
    int ret = __syscall_3(SYS_poll, (uintptr_t)fds, nfds, timeout);
@@ -1962,19 +2010,6 @@ km_fs_event_check_errors(km_vcpu_t* vcpu, km_file_t* file, struct epoll_event* e
    return errors;
 }
 
-// int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
-uint64_t
-km_fs_epoll_wait(km_vcpu_t* vcpu, int epfd, struct epoll_event* events, int maxevents, int timeout)
-{
-   int host_epfd;
-   if ((host_epfd = km_fs_g2h_fd(epfd, NULL)) < 0) {
-      return -EBADF;
-   }
-
-   int ret = __syscall_4(SYS_epoll_wait, host_epfd, (uintptr_t)events, maxevents, timeout);
-   return ret;
-}
-
 // int epoll_pwait(int epfd, struct epoll_event *events, int maxevents, int timeout,
 //  const sigset_t *sigmask);
 uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
@@ -1990,6 +2025,16 @@ uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
       return -EBADF;
    }
 
+   if (snap_listen_sock >= 0) {
+      km_file_t* file = &km_fs()->guest_files[epfd];
+      km_fs_event_t* eventp = km_fs_event_find(vcpu, file, snap_listen_sock);
+      if (eventp != NULL && (eventp->event.events & EPOLLIN) != 0) {
+         events[0].data = eventp->event.data;
+         events[0].events = EPOLLIN;
+         return 1;
+      }
+   }
+
    km_queue_sig_sleep(vcpu);
    int ret = __syscall_6(SYS_epoll_pwait,
                          host_epfd,
@@ -2000,6 +2045,13 @@ uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
                          sigsetsize);
    km_dequeue_sig_sleep(vcpu);
    return ret;
+}
+
+// int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+uint64_t
+km_fs_epoll_wait(km_vcpu_t* vcpu, int epfd, struct epoll_event* events, int maxevents, int timeout)
+{
+   return km_fs_epoll_pwait(vcpu, epfd, events, maxevents, timeout, NULL, 0);
 }
 
 // int prlimit(pid_t pid, int resource, const struct rlimit *new_limit, struct rlimit *old_limit);
@@ -2720,6 +2772,7 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
       host_fd = snap_listen_sock;
       free(snap_listen_sockinfo);
       snap_listen_sockinfo = NULL;
+      snap_listen_sock = nt_sock->fd;   // to compare with in accept
       // set the backlog to what the payload requested originally, not default
       if (nt_sock->state == KM_SOCK_STATE_LISTEN) {
          if (listen(host_fd, nt_sock->backlog) < 0) {
@@ -2727,10 +2780,11 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
             return -1;
          }
       }
-      if ((nt_sock->type & SOCK_NONBLOCK) == SOCK_NONBLOCK) {
+      if ((nt_sock->type & SOCK_NONBLOCK) == SOCK_NONBLOCK) {   // TODO: should we do SOCK_CLOEXEC
+                                                                // here as well?
          int flags;
-         if ((flags = fcntl(snap_listen_sock, F_GETFL, 0)) == -1 ||
-             (fcntl(snap_listen_sock, F_SETFL, flags | FNDELAY)) == -1) {
+         if ((flags = fcntl(host_fd, F_GETFL, 0)) == -1 ||
+             (fcntl(host_fd, F_SETFL, flags | FNDELAY)) == -1) {
             km_err(2, "fcntl FNDELAY failed");
          }
       }
