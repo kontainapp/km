@@ -44,6 +44,7 @@
 
 km_info_trace_t km_info_trace;
 char* km_payload_name;
+char* km_snapshot_name;
 
 extern int vcpu_dump;
 
@@ -637,7 +638,9 @@ int main(int argc, char* argv[])
       if (argc_p > 1) {
          km_errx(1, "cannot set payload arguments when resuming a snapshot");
       }
-      light_snap_listen();
+      km_snapshot_name = strdup(km_payload_name);
+      km_assert(km_snapshot_name != NULL);
+      light_snap_listen(fileno(elf->file));
    }
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
@@ -710,6 +713,27 @@ int main(int argc, char* argv[])
       km_gdb_destroy_listen();
    }
 
+   if (light_snap_accept_timeout != 0) {
+      fd_set readfds;
+      FD_ZERO(&readfds);
+      FD_SET(machine.shutdown_fd, &readfds);
+      struct timeval timeout = {.tv_sec = light_snap_accept_timeout / 1000,
+                                .tv_usec = (light_snap_accept_timeout % 1000) * 1000};
+      int rc = 1;   //
+
+      while (km_get_accept_time_diff() < light_snap_accept_timeout) {
+         if ((rc = select(machine.shutdown_fd + 1, &readfds, NULL, NULL, &timeout)) < 0 &&
+             errno != EINTR) {
+            km_err(2, "can't select on machine.shutdown_fd");
+         }
+         if (rc > 0) {
+            break;
+         }
+      }
+      if (rc == 0) {
+         km_shrink_footprint(NULL);
+      }
+   }
    do {
       km_wait_on_eventfd(machine.shutdown_fd);
    } while (km_dofork(NULL) != 0);
