@@ -413,6 +413,7 @@ typedef enum {
 } km_pause_t;
 
 void km_vcpu_pause_all(km_vcpu_t* vcpu, km_pause_t type);
+void km_vcpu_resume_all(void);
 km_vcpu_t* km_vcpu_fetch_by_tid(int tid);
 
 static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
@@ -491,6 +492,7 @@ typedef struct km_info_trace {
 } km_info_trace_t;
 extern km_info_trace_t km_info_trace;
 extern char* km_payload_name;
+extern char* km_snapshot_name;
 extern char* km_mgtdir;
 extern struct option km_cmd_long_options[];
 extern const_string_t km_cmd_short_options;

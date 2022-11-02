@@ -44,6 +44,7 @@
 
 km_info_trace_t km_info_trace;
 char* km_payload_name;
+char* km_snapshot_name;
 
 extern int vcpu_dump;
 
@@ -637,7 +638,9 @@ int main(int argc, char* argv[])
       if (argc_p > 1) {
          km_errx(1, "cannot set payload arguments when resuming a snapshot");
       }
-      light_snap_listen();
+      km_snapshot_name = strdup(km_payload_name);
+      km_assert(km_snapshot_name != NULL);
+      light_snap_listen(fileno(elf->file));
    }
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);

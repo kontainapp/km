@@ -77,7 +77,7 @@ enum km_internal_hypercalls {
    HC_reserved2 = KM_MAX_HCALL - 2,
    HC_guest_interrupt = KM_MAX_HCALL - 3,
    HC_reserved3 = KM_MAX_HCALL - 5,
-   HC_reserved4 = KM_MAX_HCALL - 4,
+   HC_shrink    = KM_MAX_HCALL - 4,
    HC_unmapself = KM_MAX_HCALL - 6,
    HC_snapshot = KM_MAX_HCALL - 7,
    HC_snapshot_getdata = KM_MAX_HCALL - 8,

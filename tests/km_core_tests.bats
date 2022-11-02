@@ -1198,6 +1198,27 @@ fi
    assert_output --partial "cannot set payload arguments when resuming a snapshot"
    assert [ ! -f ${CORE} ]
 
+   # test SNAP_LISTEN_PORT env var
+   mkdir -p ${MGTDIR}
+   KM_MGTDIR=${MGTDIR} km_with_timeout prelisten_test$ext $snapshot_test_port &
+   pid=$!
+   tries=5; while [ ! -S ${MGTDIR}/kmpipe.* ] && [ $tries -gt 0 ]; do ls -l ${MGTDIR}; sleep 1; tries=`expr $tries - 1`; done
+   assert [ $tries -gt 0 ]
+   run ${KM_CLI_BIN} -t -s ${MGTDIR}/kmpipe.*
+   assert_success
+   wait $pid
+   echo snapshot is in file: ${MGTDIR}/kmsnap.*.[0-9]*
+   SNAP_LISTEN_PORT=$(cat ${MGTDIR}/kmsnap.*.conf) km_with_timeout ${MGTDIR}/kmsnap.*.[0-9]* >${MGTDIR}/prelisten.log &
+   pid=$!
+   curl localhost:$snapshot_test_port
+   wait $pid
+   assert_success
+   assert grep -q "select() returned that input is available on listening fd" ${MGTDIR}/prelisten.log
+   assert grep -q "poll() returned that input is available on listening fd " ${MGTDIR}/prelisten.log
+   assert grep -q "epoll_wait() returned that input is available on listening fd" ${MGTDIR}/prelisten.log
+   assert grep -q "accept returned fd" ${MGTDIR}/prelisten.log
+   rm -fr ${MGTDIR}
+
    if [ -z "${VALGRIND}" ]; then
       cnt=100
    else
