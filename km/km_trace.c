@@ -193,6 +193,12 @@ void km_trace_setup(int argc, char* argv[])
    char* kmlogto = NULL;
    static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int invoked_by_exec = (getenv("KM_EXEC_VERS") != NULL);
+   char* slp = getenv(KM_SNAP_LISTEN_PORT);
+
+   if (slp != NULL && (strncmp(slp, "fd", strlen("fd"))) == 0) {
+      km_redirect_msgs_after_exec();
+      return;
+   }
 
    if (invoked_by_exec == 0) {
       /*

@@ -1969,6 +1969,12 @@ static km_hc_ret_t snapshot_putdata_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t shrink_payload_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = -km_shrink_footprint(vcpu);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t sched_yield_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    arg->hc_ret = sched_yield();
@@ -2178,6 +2184,7 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [HC_snapshot] = snapshot_hcall,
     [HC_snapshot_getdata] = snapshot_getdata_hcall,
     [HC_snapshot_putdata] = snapshot_putdata_hcall,
+    [HC_shrink] = shrink_payload_hcall,
 };
 
 static void km_print_hcall_stats(void)

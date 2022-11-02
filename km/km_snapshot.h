@@ -39,7 +39,7 @@ void km_set_snapshot_output_path(char* path);
 int km_snapshot_getdata(km_vcpu_t* vcpu, char* buf, int buflen);
 int km_snapshot_putdata(km_vcpu_t* vcpu, char* buf, int buflen);
 
-void light_snap_listen(void);
+void light_snap_listen(int elf_fd);
 
 #define KM_TRACE_SNAPSHOT "snapshot"
 

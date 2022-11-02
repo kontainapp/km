@@ -27,6 +27,8 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 
+#include "km_hcalls.h"
+
 void usage(void)
 {
    fprintf(stderr, "prelisten port#\n");
@@ -34,6 +36,7 @@ void usage(void)
 
 int main(int argc, char* argv[])
 {
+   int rc;
    if (argc < 2) {
       usage();
       return 1;
@@ -45,6 +48,11 @@ int main(int argc, char* argv[])
    int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
    if (sockfd < 0) {
       fprintf(stderr, "socket() failed, %s\n", strerror(errno));
+      return 1;
+   }
+   int flag = 1;
+   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0) {
+      fprintf(stderr, "setsockopt( SOL_SOCKET, SO_REUSEADDR ) failed, %s\n", strerror(errno));
       return 1;
    }
 
@@ -121,7 +129,7 @@ int main(int argc, char* argv[])
       return 1;
    }
    struct epoll_event event = {.events = EPOLLIN, .data.u64 = 22334499};
-   int rc = epoll_ctl(epfd, EPOLL_CTL_ADD, sockfd, &event);
+   rc = epoll_ctl(epfd, EPOLL_CTL_ADD, sockfd, &event);
    if (rc < 0) {
       fprintf(stderr, "epoll_ctl() failed, %s\n", strerror(errno));
       return 1;
@@ -155,9 +163,21 @@ int main(int argc, char* argv[])
       fprintf(stderr, "accept() failed, %s\n", strerror(errno));
       return 1;
    }
-   fprintf(stderr, "accept returned fd %d\n", acceptedfd);
+   fprintf(stdout, "accept returned fd %d\n", acceptedfd);
+   fflush(stderr);
+   fflush(stdout);
 
+   char* something = "HTTP/1.1 200 OK\n"
+                     "Content-Length: 0\n"
+                     "Content-Type: text/html\n"
+                     "Connection: Closed\n"
+                     "\n";
+   rc = write(acceptedfd, something, strlen(something));
+   if (rc < 0) {
+      fprintf(stderr, "write to acceptedfd %d failed, %s\n", acceptedfd, strerror(errno));
+   }
    close(acceptedfd);
+
    close(sockfd);
 
    return 0;
