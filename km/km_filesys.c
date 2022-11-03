@@ -26,7 +26,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <netdb.h> /* getaddrinfo(3) et al.                       */
 #include <poll.h>
 #include <pthread.h>
 #include <stdarg.h>
@@ -142,8 +141,11 @@ void light_snap_listen(void)
    }
 
    do {
-      snap_conn_sock =
-          accept(snap_listen_sock, (struct sockaddr*)&sc_conn.addr, (socklen_t*)&sc_conn.addrlen);
+      if ((snap_conn_sock = accept(snap_listen_sock,
+                                   (struct sockaddr*)&sc_conn.addr,
+                                   (socklen_t*)&sc_conn.addrlen)) < 0) {
+         km_err(2, "accept failed");
+      }
 
       // peek in http header for knative readiness probe
       char buf[1024];
@@ -1682,14 +1684,14 @@ uint64_t km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockl
          memcpy(addr, sc_conn.addr, sc_conn.addrlen);
       }
       snap_listen_sock = -1;
+      if (fl != 0) {
+         int tmp = fcntl(hostfd, F_GETFL, NULL);
+         fcntl(hostfd, F_SETFL, tmp | (fl & (SOCK_NONBLOCK | SOCK_CLOEXEC)));
+      }
    } else {
       if ((hostfd = __syscall_4(SYS_accept4, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen, fl)) < 0) {
          return hostfd;
       }
-   }
-   if (fl != 0) {
-      int tmp = fcntl(hostfd, F_GETFL, NULL);
-      fcntl(hostfd, F_SETFL, tmp | (fl & (SOCK_NONBLOCK | SOCK_CLOEXEC)));
    }
    if (hostfd < 0) {
       return hostfd;
