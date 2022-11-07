@@ -101,9 +101,10 @@ int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
    } else if (*((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0) == 0x48 &&
               *((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0 + 1) == 0x8b) {
       offset_to_load_head_instr = KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0;
-    } else if (*((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_ubuntu_gcc_11_2) == 0x48 &&
-               *((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_ubuntu_gcc_11_2 + 1) == 0x8b) {
-       offset_to_load_head_instr = KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_ubuntu_gcc_11_2;
+   } else if (*((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_ubuntu_gcc_11_2) == 0x48 &&
+              *((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_ubuntu_gcc_11_2 + 1) ==
+                  0x8b) {
+      offset_to_load_head_instr = KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_ubuntu_gcc_11_2;
    } else {
       km_warnx("Can't find the head of the payload's loaded library list");
       return rc;
