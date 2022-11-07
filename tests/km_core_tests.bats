@@ -533,6 +533,8 @@ fi
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_sharedlib2_test.gdb" --ex=q
    assert_success
+   # If km can't find the head of the dynamic library list, fail now.
+   refute_line --partial "Can't find the head of the payload's loaded library list"
    assert_line --regexp "Yes         .*/dlopen_test_lib.so"
    assert_line --partial "Dump of assembler code for function do_function"
    assert_line --partial "Hit the breakpoint at do_function"
