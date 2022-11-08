@@ -302,7 +302,7 @@ int addprocess(struct found_processes* matched_processes, char* commandname, pid
 ssize_t readfile(int fd, char* bufp, size_t bufl)
 {
    size_t offset = 0;
-   size_t maxread = 16*1024;
+   size_t maxread = 16 * 1024;
    size_t readsize;
 
    if (lseek(fd, 0, SEEK_SET) < 0) {
@@ -343,7 +343,7 @@ int read_procnetunix(pid_t pid)
    }
    if (pnup == NULL) {
       // Get our initial buffer
-      pnul = 64*1024;
+      pnul = 64 * 1024;
       pnup = malloc(pnul);
       if (pnup == NULL) {
          fprintf(stderr, "Couldn't allocate %ld byte memory buffer for %s\n", pnul, procpidunix);
