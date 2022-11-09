@@ -79,6 +79,7 @@ int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
    static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR = 17;          // gcc <= 11 -O2
    static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_gcc_12 = 20;   // gcc 12 -O2
    static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0 = 45;       // -O0 both versions
+   static const uint64_t KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_ubuntu_gcc_11_2 = 21;
 
    static const uint64_t KM_DLOPEN_LOAD_HEAD_INSTR_LEN = 0x7;
 
@@ -100,8 +101,12 @@ int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
    } else if (*((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0) == 0x48 &&
               *((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0 + 1) == 0x8b) {
       offset_to_load_head_instr = KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_O0;
+   } else if (*((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_ubuntu_gcc_11_2) == 0x48 &&
+              *((uint8_t*)dlopen_kma + KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_ubuntu_gcc_11_2 + 1) ==
+                  0x8b) {
+      offset_to_load_head_instr = KM_DLOPEN_OFFSET_TO_LOAD_HEAD_INSTR_ubuntu_gcc_11_2;
    } else {
-      km_infox(KM_TRACE_KVM, "Unexpected instruction in dlopen, has musl dlopen() changed?");
+      km_warnx("Can't find the head of the payload's loaded library list");
       return rc;
    }
 
