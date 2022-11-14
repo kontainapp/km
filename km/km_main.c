@@ -714,22 +714,18 @@ int main(int argc, char* argv[])
    }
 
    if (light_snap_accept_timeout != 0) {
-      fd_set readfds;
-      FD_ZERO(&readfds);
-      FD_SET(machine.shutdown_fd, &readfds);
-      struct timeval timeout = {.tv_sec = light_snap_accept_timeout / 1000,
-                                .tv_usec = (light_snap_accept_timeout % 1000) * 1000};
-      int rc = 1;   //
-
-      while (km_get_accept_time_diff() < light_snap_accept_timeout) {
-         if ((rc = select(machine.shutdown_fd + 1, &readfds, NULL, NULL, &timeout)) < 0 &&
-             errno != EINTR) {
+      fd_set fds;
+      FD_ZERO(&fds);
+      FD_SET(machine.shutdown_fd, &fds);
+      struct timeval to = {.tv_sec = light_snap_accept_timeout / 1000,
+                           .tv_usec = (light_snap_accept_timeout % 1000) * 1000};
+      int rc = 0;
+      do {
+         if ((rc = select(machine.shutdown_fd + 1, &fds, NULL, NULL, &to)) < 0 && errno != EINTR) {
             km_err(2, "can't select on machine.shutdown_fd");
          }
-         if (rc > 0) {
-            break;
-         }
-      }
+      } while (rc == 0 && km_get_accept_time_diff() < light_snap_accept_timeout);
+      // either payload exited or timeout expired. If former rc == 1 as shutdown_fd is signalled
       if (rc == 0) {
          km_shrink_footprint(NULL);
       }
