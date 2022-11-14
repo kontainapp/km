@@ -294,43 +294,6 @@ int addprocess(struct found_processes* matched_processes, char* commandname, pid
    return 0;
 }
 
-/*
- * You can't read /proc/xxxx/net/unix as one giant read.
- * The kernel feeds you little chunks.  So, we just keep reading
- * until we get it all.
- */
-ssize_t readfile(int fd, char* bufp, size_t bufl)
-{
-   size_t offset = 0;
-   size_t maxread = 16 * 1024;
-   size_t readsize;
-
-   if (lseek(fd, 0, SEEK_SET) < 0) {
-      fprintf(stderr, "lseek to offset 0 on fd %d failed, %s\n", fd, strerror(errno));
-      return -1;
-   }
-   while (offset < bufl) {
-      readsize = bufl - offset;
-      if (readsize > maxread) {
-         readsize = maxread;
-      }
-      ssize_t br = read(fd, &bufp[offset], readsize);
-      if (br < 0) {
-         fprintf(stderr, "Failed to read file, offset %lu, error %s\n", offset, strerror(errno));
-         return -1;
-      }
-      if (debug > 0) {
-         fprintf(stderr, "read %ld bytes from offset %ld, returns %ld bytes\n", readsize, offset, br);
-      }
-      offset += br;
-      if (br == 0) {
-         break;
-      }
-   }
-   bufp[offset] = 0;
-   return offset;
-}
-
 #define PROC_NET_UNIX "/proc/%d/net/unix"
 int read_procnetunix(pid_t pid)
 {
@@ -351,27 +314,35 @@ int read_procnetunix(pid_t pid)
          return 1;
       }
    }
+   /*
+    * The kernel gives us chunks less than 4k when reading /proc/self/net/unix so we need
+    * to kick it in the head until it finally returns 0 bytes.
+    * In addition the kernel can't tell us how big the file really is so we have to read
+    * it until end of file, so we keep reading and growing the buffer until we've got it
+    * all.
+    */
    ssize_t bytesread;
-   while ((bytesread = readfile(pnufd, pnup, pnul)) == pnul) {
-      if (bytesread < 0) {
-         close(pnufd);
-         break;
-      }
-      pnul *= 2;
-      pnup = realloc(pnup, pnul);
-      if (pnup == NULL) {
-         fprintf(stderr, "Couldn't realloc %ld byte memory buffer for %s\n", pnul, procpidunix);
-         close(pnufd);
-         return 1;
+   size_t offset = 0;
+   while ((bytesread = read(pnufd, pnup + offset, pnul - offset)) > 0) {
+      offset += bytesread;
+      if (offset == pnul) {
+         pnul *= 2;
+         pnup = realloc(pnup, pnul);
+         if (pnup == NULL) {
+            fprintf(stderr, "Couldn't realloc %ld byte memory buffer for %s\n", pnul, procpidunix);
+            close(pnufd);
+            return 1;
+         }
       }
    }
-   close(pnufd);
+   int rv = 0;
    if (bytesread < 0) {
       fprintf(stderr, "Couldn't read %s, %s\n", procpidunix, strerror(errno));
-      return 1;
+      rv = 1;
    }
-   pnup[bytesread] = 0;
-   return 0;
+   close(pnufd);
+   pnup[offset] = 0;
+   return rv;
 }
 
 /*
