@@ -88,6 +88,12 @@
 char* cmdname;
 char* socket_name = NULL;
 
+// A buffer to hold the contents of /proc/XXXX/net/unix
+// The buffer will be grown as needed to hold the current unix file
+// being examined.
+char* pnup = NULL;
+size_t pnul = 0;
+
 int debug = 0;
 int terminate_app = 1;   // by default the payload is terminated after the snapshot is taken
 
@@ -288,44 +294,55 @@ int addprocess(struct found_processes* matched_processes, char* commandname, pid
    return 0;
 }
 
-int readfile(int fd, char* bufp, size_t bufl)
-{
-   size_t offset = 0;
-
-   while (offset < bufl) {
-      ssize_t br = read(fd, &bufp[offset], bufl - offset);
-      if (br < 0) {
-         fprintf(stderr, "Failed to read file, offset %lu, error %s\n", offset, strerror(errno));
-         return -1;
-      }
-      offset += br;
-      if (br == 0) {
-         break;
-      }
-   }
-   bufp[offset] = 0;
-   return 0;
-}
-
 #define PROC_NET_UNIX "/proc/%d/net/unix"
-int read_procnetunix(pid_t pid, char* pnu, size_t pnul)
+int read_procnetunix(pid_t pid)
 {
    char procpidunix[128];
    snprintf(procpidunix, sizeof(procpidunix), PROC_NET_UNIX, pid);
    int pnufd = open(procpidunix, O_RDONLY);
-   if (pnufd >= 0) {
-      // Can we read the whole file in one fell swoop?  No.
-      int br = readfile(pnufd, pnu, pnul);
-      close(pnufd);
-      if (br != 0) {
-         // read failed
-         free(pnu);
-         return 1;
-      }
-   } else {
+   if (pnufd < 0) {
+      fprintf(stderr, "Couldn't open %s, %s\n", procpidunix, strerror(errno));
       return 1;
    }
-   return 0;
+   if (pnup == NULL) {
+      // Get our initial buffer
+      pnul = 64 * 1024;
+      pnup = malloc(pnul);
+      if (pnup == NULL) {
+         fprintf(stderr, "Couldn't allocate %ld byte memory buffer for %s\n", pnul, procpidunix);
+         close(pnufd);
+         return 1;
+      }
+   }
+   /*
+    * The kernel gives us chunks less than 4k when reading /proc/self/net/unix so we need
+    * to kick it in the head until it finally returns 0 bytes.
+    * In addition the kernel can't tell us how big the file really is so we have to read
+    * it until end of file, so we keep reading and growing the buffer until we've got it
+    * all.
+    */
+   ssize_t bytesread;
+   size_t offset = 0;
+   while ((bytesread = read(pnufd, pnup + offset, pnul - offset)) > 0) {
+      offset += bytesread;
+      if (offset == pnul) {
+         pnul *= 2;
+         pnup = realloc(pnup, pnul);
+         if (pnup == NULL) {
+            fprintf(stderr, "Couldn't realloc %ld byte memory buffer for %s\n", pnul, procpidunix);
+            close(pnufd);
+            return 1;
+         }
+      }
+   }
+   int rv = 0;
+   if (bytesread < 0) {
+      fprintf(stderr, "Couldn't read %s, %s\n", procpidunix, strerror(errno));
+      rv = 1;
+   }
+   close(pnufd);
+   pnup[offset] = 0;
+   return rv;
 }
 
 /*
@@ -337,7 +354,7 @@ int read_procnetunix(pid_t pid, char* pnu, size_t pnul)
  * the km mgmt pipe.  We can have no errors but still no pipe.
  * We would like the command to fail on errors but an absent mgmt pipe is not an error.
  */
-int get_kmmgmt_pipe(pid_t processid, char* commandpipe, char* pnu, size_t pnul)
+int get_kmmgmt_pipe(pid_t processid, char* commandpipe)
 {
    char path[512];
    struct stat statb;
@@ -385,14 +402,14 @@ int get_kmmgmt_pipe(pid_t processid, char* commandpipe, char* pnu, size_t pnul)
    // now find the entry in /proc/pid/net/unix for the inode number, this gets us the pipe name.
    // We must read this pid's unix file since the process may be in a container and will have a
    // unix file specific to that container.
-   if (read_procnetunix(processid, pnu, pnul) != 0) {
+   if (read_procnetunix(processid) != 0) {
       fprintf(stderr, "Unable to read /proc/%d/net/unix file\n", processid);
       return -1;
    }
    if (debug > 0) {
-      fprintf(stderr, "/proc/%d/net/unix is %ld bytes long\n", processid, strlen(pnu));
+      fprintf(stderr, "/proc/%d/net/unix is %ld bytes long\n", processid, strlen(pnup));
    }
-   char* p = strstr(pnu, &pipeinode[8]);
+   char* p = strstr(pnup, &pipeinode[8]);
    if (p == NULL) {
       // can't find that inode.  Maybe the socket was closed while we were looking.
       fprintf(stderr, "Didn't find inode %s in /proc/%d/net/unix\n", &pipeinode[8], processid);
@@ -429,19 +446,11 @@ int find_processes_to_snap(char* commandnames[], pid_t* processids, struct found
    struct dirent* de;
    struct stat statb;
    int rv = -1;   // expect failure
-   size_t pnul =
-       200 * 1024;   // for now assume /proc/XXX/net/unix will be no bigger than 200 kilobytes.
-   char* pnu = malloc(pnul);
-   if (pnu == NULL) {
-      fprintf(stderr, "Couldn't allocate %ld byte buffer for /proc/XXX/net/unix file contents\n", pnul);
-      return rv;
-   }
 
    // Open /proc to scan the list of processes on the system.
    procdir = opendir(PROCDIR);
    if (procdir == NULL) {
       perror(PROCDIR);
-      free(pnu);
       return -1;
    }
    while ((de = readdir(procdir)) != NULL) {
@@ -474,7 +483,7 @@ int find_processes_to_snap(char* commandnames[], pid_t* processids, struct found
              (commandnames != NULL && commandnamematches(commandline, commandnames) != 0)) {
             char commandpipe[256];
 
-            if (get_kmmgmt_pipe(processid, commandpipe, pnu, pnul) != 0) {
+            if (get_kmmgmt_pipe(processid, commandpipe) != 0) {
                // Some kind of error that is bad enough for us to quit.
                break;
             }
@@ -510,7 +519,8 @@ int find_processes_to_snap(char* commandnames[], pid_t* processids, struct found
    if (procdir != NULL) {
       closedir(procdir);
    }
-   free(pnu);
+   free(pnup);
+   pnup = NULL;
    return rv;
 }
 
