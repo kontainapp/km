@@ -39,7 +39,7 @@ cp -rf --preserve=links ${OPT_KONTAIN}/include ${OPT_KONTAIN_TMP}
 cp -rf --preserve=links ${OPT_KONTAIN}/lib ${OPT_KONTAIN_TMP}
 cp -rf --preserve=links ${OPT_KONTAIN}/runtime ${OPT_KONTAIN_TMP}
 
-# copy krun 
+# copy krun
 cp -f --preserve=links ${TOP}/container-runtime/crun/krun.static ${OPT_KONTAIN_TMP}/bin/krun
 ln -f ${OPT_KONTAIN_TMP}/bin/krun ${OPT_KONTAIN_TMP}/bin/krun-label-trigger
 
@@ -47,7 +47,7 @@ ln -f ${OPT_KONTAIN_TMP}/bin/krun ${OPT_KONTAIN_TMP}/bin/krun-label-trigger
 cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN_TMP}/bin
 cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN}/bin # for kontain_bin.tar ( since _TMP wil be deleted)
 cp ${TOP}/km-releases/kontain-install.sh ${OPT_KONTAIN_TMP}/bin
-cp ${BLDTOP}/cloud/k8s/deploy/shim/containerd-shim-krun-v2 ${OPT_KONTAIN_TMP}/bin
+cp ${BLDTOP}/cloud/k8s/shim/containerd-shim-krun-v2 ${OPT_KONTAIN_TMP}/bin
 
 # package by doing `tar -C locations[i] files[i]`
 declare -a locations
