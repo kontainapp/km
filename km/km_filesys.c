@@ -90,8 +90,9 @@ static int km_snap_listenfd = -1;
 static km_fd_socket_t sc_conn;
 
 static u_int64_t accept_time;   // time stamp of the latest accept HC in milliseconds
+static int accepted_fd = -1;    // fd of accepted socket
 
-static inline void km_set_accept_time(void)
+static inline void km_set_accept_time(int fd)
 {
    if (light_snap_accept_timeout != 0) {
       struct timespec tp;
@@ -99,6 +100,7 @@ static inline void km_set_accept_time(void)
          km_err(2, "can't update accept time");
       }
       accept_time = tp.tv_sec * 1000 + tp.tv_nsec / 1000000;
+      accepted_fd = fd;
    }
 }
 
@@ -108,7 +110,10 @@ u_int64_t km_get_accept_time_diff(void)
    if (clock_gettime(CLOCK_MONOTONIC, &tp) != 0) {
       km_err(2, "can't get time");
    }
-   return tp.tv_sec * 1000 + tp.tv_nsec / 1000000 - accept_time;
+   if (accepted_fd < 0) {   // accepted connection is gone, return elapsed time since last accept
+      return tp.tv_sec * 1000 + tp.tv_nsec / 1000000 - accept_time;
+   }
+   return 0;   // accepted connection still here, keep soldiering
 }
 
 static int km_internal_fd(int fd, int km_fd);
@@ -254,7 +259,7 @@ void light_snap_listen(int elf_fd)
    // Remember the listenfd for payload shrink.
    km_snap_listenfd = snap_listen_sock;
 
-   km_set_accept_time();
+   km_set_accept_time(snap_conn_sock);
 }
 
 /*
@@ -715,6 +720,9 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    ret = __syscall_1(SYS_close, fd);
    if (ret != 0) {
       km_warn(" error return from close of guest fd %d", fd);
+   }
+   if (fd == accepted_fd) {
+      accepted_fd = -1;
    }
    return ret;
 }
@@ -1851,7 +1859,7 @@ uint64_t km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockl
    km_fd_socket_t* sock = km_fs()->guest_files[guestfd].sockinfo;
    sock->state = KM_SOCK_STATE_ACCEPT;
 
-   km_set_accept_time();
+   km_set_accept_time(guestfd);
 
    return guestfd;
 }
