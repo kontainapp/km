@@ -23,7 +23,7 @@
 readonly storage="/tmp"
 
 # dnf install kernel-headers-$(uname -r) -y 2>&1
-dnf install -q -y kernel-headers gdb moby-engine
+dnf install -q -y kernel-headers gdb moby-engine jq
 
 grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"
 

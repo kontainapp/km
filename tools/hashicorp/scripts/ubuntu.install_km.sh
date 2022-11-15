@@ -36,7 +36,7 @@ add-apt-repository \
 # get ready for installs
 apt-get update -y -q
 
-apt-get -y -q install linux-headers-$(uname -r) docker-ce docker-ce-cli containerd.io gdb
+apt-get -y -q install linux-headers-$(uname -r) docker-ce docker-ce-cli containerd.io gdb jq
 
 # Install KKM... it will also validate hardware.
 bash $storage/kkm.run --noprogress -- --force-install 2>&1
