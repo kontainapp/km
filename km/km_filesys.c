@@ -82,7 +82,7 @@ pthread_mutex_t dup_data_mtx;
 /*
  * Lightweight snap start - wait for connection on the snap_listen_sock before restoring the snapshot.
  */
-int light_snap_accept_timeout;
+u_int64_t light_snap_accept_timeout;
 static int snap_listen_sock = -1;
 static km_fd_socket_t* snap_listen_sockinfo;
 static int snap_conn_sock = -1;
@@ -90,30 +90,37 @@ static int km_snap_listenfd = -1;
 static km_fd_socket_t sc_conn;
 
 static u_int64_t accept_time;   // time stamp of the latest accept HC in milliseconds
-static int accepted_fd = -1;    // fd of accepted socket
+static int64_t accept_cnt;      // count of active accepted sockets
 
-static inline void km_set_accept_time(int fd)
+// Account for new accept: ++ count and record the time
+static inline void km_set_accept_time(void)
 {
    if (light_snap_accept_timeout != 0) {
+      __atomic_add_fetch(&accept_cnt, 1, __ATOMIC_SEQ_CST);
       struct timespec tp;
       if (clock_gettime(CLOCK_MONOTONIC, &tp) != 0) {
          km_err(2, "can't update accept time");
       }
       accept_time = tp.tv_sec * 1000 + tp.tv_nsec / 1000000;
-      accepted_fd = fd;
    }
 }
 
-u_int64_t km_get_accept_time_diff(void)
+/*
+ * Check for active accepted sockets, and if none - check for how long since the last accept.
+ * Return 1 if there *are* active accepted sockets, and 0 if none for the timeout
+ */
+int km_active_accept(void)
 {
+   // there are active accepted sockets - don't shrink
+   if (__atomic_load_n(&accept_cnt, __ATOMIC_SEQ_CST) != 0) {
+      return 1;
+   }
+
    struct timespec tp;
    if (clock_gettime(CLOCK_MONOTONIC, &tp) != 0) {
       km_err(2, "can't get time");
    }
-   if (accepted_fd < 0) {   // accepted connection is gone, return elapsed time since last accept
-      return tp.tv_sec * 1000 + tp.tv_nsec / 1000000 - accept_time;
-   }
-   return 0;   // accepted connection still here, keep soldiering
+   return tp.tv_sec * 1000 + tp.tv_nsec / 1000000 > accept_time + light_snap_accept_timeout ? 0 : 1;
 }
 
 static int km_internal_fd(int fd, int km_fd);
@@ -258,8 +265,6 @@ void light_snap_listen(int elf_fd)
    snap_conn_sock = km_internal_fd(snap_conn_sock, KM_GDB_ACCEPT);
    // Remember the listenfd for payload shrink.
    km_snap_listenfd = snap_listen_sock;
-
-   km_set_accept_time(snap_conn_sock);
 }
 
 /*
@@ -286,38 +291,45 @@ int km_shrink_footprint(km_vcpu_t* vcpu)
       return EINVAL;
    }
    km_vcpu_pause_all(vcpu, ALL);
-   snprintf(listeningfd, sizeof(listeningfd), "%s=fd %d", KM_SNAP_LISTEN_PORT, km_snap_listenfd);
-   int i = 0;
-   envarray[i++] = listeningfd;
-   if ((tmp = getenv(KM_VERBOSE)) != NULL) {
-      snprintf(kmverbose, sizeof(kmverbose), "%s=%s", KM_VERBOSE, tmp);
-      envarray[i++] = kmverbose;
+   // recheck active accepted sockets to make sure none snuck in after the lighter check
+   int rc = 0;
+   if (__atomic_load_n(&accept_cnt, __ATOMIC_SEQ_CST) == 0) {
+      snprintf(listeningfd, sizeof(listeningfd), "%s=fd %d", KM_SNAP_LISTEN_PORT, km_snap_listenfd);
+      int i = 0;
+      envarray[i++] = listeningfd;
+      if ((tmp = getenv(KM_VERBOSE)) != NULL) {
+         snprintf(kmverbose, sizeof(kmverbose), "%s=%s", KM_VERBOSE, tmp);
+         envarray[i++] = kmverbose;
+      }
+      if ((tmp = getenv(KM_SNAP_LISTEN_TIMEOUT)) != NULL) {
+         snprintf(timeout, sizeof(timeout), "%s=%s", KM_SNAP_LISTEN_TIMEOUT, tmp);
+         envarray[i++] = timeout;
+      }
+      envarray[i] = NULL;
+      ssize_t meleng = readlink(PROC_SELF_EXE, me, sizeof(me) - 1);
+      if (meleng < 0) {
+         km_warn("readlink( %s ) failed", PROC_SELF_EXE);
+         return errno;
+      }
+      me[meleng] = 0;
+      argv[0] = me;
+      argv[1] = km_snapshot_name;
+      argv[2] = NULL;
+      km_infox(KM_TRACE_SNAPSHOT,
+               "execve() to %s, argv[1] %s, envarrary[0] %s, [1] %s, [2] %s",
+               me,
+               argv[1],
+               envarray[0],
+               envarray[1],
+               envarray[2]);
+      rc = execve(me, argv, envarray);
+      // We got here, something went wrong.
+      rc = errno;
+      km_warn("execve() to %s failed", me);
+   } else {
+      km_warn("aborted shrink");
    }
-   if ((tmp = getenv(KM_SNAP_LISTEN_TIMEOUT)) != NULL) {
-      snprintf(timeout, sizeof(timeout), "%s=%s", KM_SNAP_LISTEN_TIMEOUT, tmp);
-      envarray[i++] = timeout;
-   }
-   envarray[i] = NULL;
-   ssize_t meleng = readlink(PROC_SELF_EXE, me, sizeof(me) - 1);
-   if (meleng < 0) {
-      km_warn("readlink( %s ) failed", PROC_SELF_EXE);
-      return errno;
-   }
-   me[meleng] = 0;
-   argv[0] = me;
-   argv[1] = km_snapshot_name;
-   argv[2] = NULL;
-   km_infox(KM_TRACE_SNAPSHOT,
-            "execve() to %s, argv[1] %s, envarrary[0] %s, [1] %s, [2] %s",
-            me,
-            argv[1],
-            envarray[0],
-            envarray[1],
-            envarray[2]);
-   int rc = execve(me, argv, envarray);
-   // We got here, something went wrong.
-   rc = errno;
-   km_warn("execve() to %s failed", me);
+
    km_vcpu_resume_all();
    return rc;
 }
@@ -548,6 +560,12 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
    km_assert(fd >= 0 && fd < km_fs()->nfdmap);
    km_file_t* file = &km_fs()->guest_files[fd];
    km_assert(km_is_file_used(file) != 0);
+   if (light_snap_accept_timeout != 0 && file->how == KM_FILE_HOW_ACCEPT) {
+      // account for accepted socket closing
+      int64_t cnt = __atomic_sub_fetch(&accept_cnt, 1, __ATOMIC_SEQ_CST);
+      km_assert(cnt >= 0);
+   }
+
    if (__atomic_exchange_n(&file->inuse, 0, __ATOMIC_SEQ_CST) != 0) {
       file->ops = NULL;
       if (file->name != NULL) {
@@ -720,9 +738,6 @@ uint64_t km_fs_close(km_vcpu_t* vcpu, int fd)
    ret = __syscall_1(SYS_close, fd);
    if (ret != 0) {
       km_warn(" error return from close of guest fd %d", fd);
-   }
-   if (fd == accepted_fd) {
-      accepted_fd = -1;
    }
    return ret;
 }
@@ -1859,7 +1874,7 @@ uint64_t km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockl
    km_fd_socket_t* sock = km_fs()->guest_files[guestfd].sockinfo;
    sock->state = KM_SOCK_STATE_ACCEPT;
 
-   km_set_accept_time(guestfd);
+   km_set_accept_time();
 
    return guestfd;
 }

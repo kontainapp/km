@@ -712,7 +712,6 @@ int main(int argc, char* argv[])
       km_gdb_main_loop(vcpu);
       km_gdb_destroy_listen();
    }
-
    if (light_snap_accept_timeout != 0) {
       fd_set fds;
       FD_ZERO(&fds);
@@ -720,14 +719,19 @@ int main(int argc, char* argv[])
       struct timeval to = {.tv_sec = light_snap_accept_timeout / 1000,
                            .tv_usec = (light_snap_accept_timeout % 1000) * 1000};
       int rc = 0;
-      do {
+      while (1) {
          if ((rc = select(machine.shutdown_fd + 1, &fds, NULL, NULL, &to)) < 0 && errno != EINTR) {
             km_err(2, "can't select on machine.shutdown_fd");
          }
-      } while (rc == 0 && km_get_accept_time_diff() < light_snap_accept_timeout);
-      // either payload exited or timeout expired. If former rc == 1 as shutdown_fd is signalled
-      if (rc == 0) {
-         km_shrink_footprint(NULL);
+         // either payload exited or timeout expired. If former rc == 1 as shutdown_fd is signalled
+         if (rc > 0) {
+            break;
+         }
+         if (km_active_accept() == 0) {
+            // no active accepted sockets and timeout expired. We will recheck in
+            // km_shrink_footprint() to make sure none snuck in between now and vcpus stopped
+            km_shrink_footprint(NULL);
+         }
       }
    }
    do {
