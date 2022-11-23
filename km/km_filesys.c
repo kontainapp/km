@@ -214,6 +214,8 @@ void light_snap_listen(int elf_fd)
 
       // Get rid of vm related fd's and payload fd's we inherited from the previous instance of km
       km_vmstate_destroy(snap_listen_sock, elf_fd);
+   } else {
+      km_errx(2, "env var %s's value %s is invalid", KM_SNAP_LISTEN_PORT, port);
    }
 
    // will adjust the backlog value to that of the snapshot later
