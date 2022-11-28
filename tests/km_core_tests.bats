@@ -1418,7 +1418,7 @@ fi
    f2=/tmp/f2$$
    flog=/tmp/xx$$
    if [ -z "${VALGRIND}" ]; then
-      to=5s
+      to=10s
    else
       to=25s
    fi
@@ -1465,7 +1465,7 @@ fi
 }
 
 @test "files_on_exec($test_type): passing /proc and such to execed process (fs_exec_test$ext)" {
-   run km_with_timeout --timeout 5s fs_exec_test$ext parent
+   run km_with_timeout --timeout 10s fs_exec_test$ext parent
    assert_success
    assert_line --regexp "parent exe: /[^[:space:]]*/tests/fs_exec_test$ext parent"
    assert_line --regexp "child  exe: /[^[:space:]]*/tests/fs_exec_test$ext child"
