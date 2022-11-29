@@ -1001,14 +1001,18 @@ int km_dump_core(char* core_path,
                         break;
                   }
                   strcat(buf, "\n");
-                  write(cfd, buf, strlen(buf));
+                  if (write(cfd, buf, strlen(buf)) != strlen(buf)) {
+                     km_warn("unexpected short write to %s", cpath);
+                     close(cfd);
+                     goto out;
+                  }
                }
             }
          }
       }
       close(cfd);
    }
-out:;
+out:
    free(notes_buffer);
    (void)close(fd);
    if (rc != 0) {

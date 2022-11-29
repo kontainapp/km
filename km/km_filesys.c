@@ -255,7 +255,9 @@ void light_snap_listen(int elf_fd)
       buf[rc] = '\0';
       km_infox(KM_TRACE_SNAPSHOT, "connection: ---\n%s\n---", buf);
       if (strstr(buf, "User-Agent: kube-probe") != NULL) {
-         write(snap_conn_sock, wbuf, sizeof(wbuf));
+         if (write(snap_conn_sock, wbuf, sizeof(wbuf)) != sizeof(wbuf)) {
+            km_warn("unexpected short write to snap_conn_sock");
+         }
          shutdown(snap_conn_sock, SHUT_RDWR); /* no more receptions */
          close(snap_conn_sock);
          snap_conn_sock = -1;
