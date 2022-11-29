@@ -64,7 +64,8 @@ KM_RELEASE := ${BLDTOP}/kontain.tar.gz
 KM_KKM_RELEASE := ${BLDTOP}/kkm.run
 KM_BIN_RELEASE := ${BLDTOP}/kontain_bin.tar.gz
 KM_BINARIES := -C ${BLDTOP}/opt/kontain \
-					shim/containerd-shim-krun-v2  \
+					shim/containerd-shim-krun-v2 \
+					shim/containerd-shim-krun-label-trigger-v2 \
 					bin/km \
 					bin/km_cli \
 					bin/kkm.run \
@@ -91,6 +92,7 @@ ${KM_BIN_RELEASE}: ${TOP}/container-runtime/crun/krun.static
 	ln -f ${BLDTOP}/opt/kontain/bin/krun ${BLDTOP}/opt/kontain/bin/krun-label-trigger
 	mkdir -p ${BLDTOP}/opt/kontain/shim/
 	cp -f ${BLDTOP}/cloud/k8s/shim/containerd-shim-krun-v2 ${BLDTOP}/opt/kontain/shim/containerd-shim-krun-v2
+	cp -f ${BLDTOP}/cloud/k8s/shim/containerd-shim-krun-label-trigger-v2 ${BLDTOP}/opt/kontain/shim/containerd-shim-krun-label-trigger-v2
 	tar -czvf $@ ${KM_BINARIES}
 
 ${KM_RELEASE}: ${TOP}/container-runtime/crun/krun.static ${TOP}/tools/bin/create_release.sh ## Build a release tar.gz file for KM (called from release: target)
@@ -126,7 +128,7 @@ uninstall-dev-runtime: ## Remove docker and podman configuration for local build
 ##  -- updating km-releases/current_release.txt  with passed in version number
 ##  --
 ##  Requires RELEASE_TAG to be passed in
-release-prep: 
+release-prep:
 	@echo ${RELEASE_TAG}
 	@echo -n "Confirm the tag for release!!! [y/N] " && read ans && [ $${ans:-N} = y ]
 	@echo ${RELEASE_TAG} > km-releases/current_release.txt

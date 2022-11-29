@@ -18,7 +18,7 @@
 */
 
 /*
- * This is a containerd shim for KRUN. The idea is a layer on top of the 
+ * This is a containerd shim for KRUN. The idea is a layer on top of the
  * standard 'runc' that reconfigures it to use the KRUN binary instead of
  * RUNC'. This would be trivially easy with C++ (or Java) class inheritance,
  * but alas GO doesn't do that.
@@ -74,7 +74,7 @@ func (s *service) Cleanup(ctx context.Context) (*taskAPI.DeleteResponse, error) 
 func (s *service) Create(ctx context.Context, r *taskAPI.CreateTaskRequest) (_ *taskAPI.CreateTaskResponse, err error) {
 
 	r.Options, err = typeurl.MarshalAny(&runc_opts.Options{
-		BinaryName: "/opt/kontain/bin/krun",
+		BinaryName:    krun,
 		SystemdCgroup: false,
 	})
 	return s.parent.Create(ctx, r)
