@@ -21,7 +21,8 @@ include ${TOP}/make/locations.mk
 .PHONY: all
 all:
 	mkdir -p ${BLDDIR}
-	CGO_ENABLED=0 go build -o ${BLDDIR}/containerd-shim-krun-v2 cmd/main.go
+	CGO_ENABLED=0 go build -o ${BLDDIR}/containerd-shim-krun-v2 -tags krun cmd/main.go
+	CGO_ENABLED=0 go build -o ${BLDDIR}/containerd-shim-krun-label-trigger-v2 -tags krun_label_trigger cmd/main.go
 
 .PHONY: clean
 clean:

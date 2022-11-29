@@ -48,6 +48,7 @@ cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN_TMP}/bin
 cp ${TOP}/container-runtime/{podman,docker}_config.sh ${OPT_KONTAIN}/bin # for kontain_bin.tar ( since _TMP wil be deleted)
 cp ${TOP}/km-releases/kontain-install.sh ${OPT_KONTAIN_TMP}/bin
 cp ${BLDTOP}/cloud/k8s/shim/containerd-shim-krun-v2 ${OPT_KONTAIN_TMP}/bin
+cp ${BLDTOP}/cloud/k8s/shim/containerd-shim-krun-label-trigger-v2 ${OPT_KONTAIN_TMP}/bin
 
 # package by doing `tar -C locations[i] files[i]`
 declare -a locations
