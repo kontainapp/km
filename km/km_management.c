@@ -95,7 +95,7 @@ static void* mgt_main(void* arg)
          }
       } else {
          // The payload has not started, can't do the request.
-	 // This probably should be on a per request type basis, not all requests.
+         // This probably should be on a per request type basis, not all requests.
          mgmtreply.request_status = EAGAIN;
          km_warnx("Payload not running, failing management request %d", mgmtrequest.opcode);
       }
