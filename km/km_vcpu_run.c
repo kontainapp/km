@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Kontain Inc
+ * Copyright 2021-2022 Kontain Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,8 @@
 int vcpu_dump = 0;
 int km_collect_hc_stats = 0;
 int kill_unimpl_hcall = 0;
+// Prevent snapshotting until the payload is running.
+int km_vcpus_are_started = 0;
 
 #define fx "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx "
 
@@ -893,4 +895,5 @@ void km_start_vcpus()
    }
 
    km_start_all_vcpus();
+   km_vcpus_are_started = 1;
 }

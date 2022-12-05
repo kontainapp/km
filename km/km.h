@@ -498,6 +498,7 @@ extern char* km_snapshot_name;
 extern char* km_mgtdir;
 extern struct option km_cmd_long_options[];
 extern const_string_t km_cmd_short_options;
+extern int km_vcpus_are_started;
 
 void km_trace_fini(void);
 void km_trace_setup(int argc, char* argv[]);

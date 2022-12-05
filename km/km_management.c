@@ -73,24 +73,31 @@ static void* mgt_main(void* arg)
       }
 
       needunblock = 0;
-      switch (mgmtrequest.opcode) {
-         case KM_MGMT_REQ_SNAPSHOT:
-            if ((mgmtreply.request_status = km_snapshot_block(NULL)) == 0) {
-               mgmtreply.request_status =
-                   km_snapshot_create(NULL,
-                                      mgmtrequest.requests.snapshot_req.label,
-                                      mgmtrequest.requests.snapshot_req.description,
-                                      mgmtrequest.requests.snapshot_req.snapshot_path);
-               if (mgmtreply.request_status == 0 && mgmtrequest.requests.snapshot_req.live == 0) {
-                  machine.exit_group = 1;
+      if (km_vcpus_are_started != 0) {
+         switch (mgmtrequest.opcode) {
+            case KM_MGMT_REQ_SNAPSHOT:
+               if ((mgmtreply.request_status = km_snapshot_block(NULL)) == 0) {
+                  mgmtreply.request_status =
+                      km_snapshot_create(NULL,
+                                         mgmtrequest.requests.snapshot_req.label,
+                                         mgmtrequest.requests.snapshot_req.description,
+                                         mgmtrequest.requests.snapshot_req.snapshot_path);
+                  if (mgmtreply.request_status == 0 && mgmtrequest.requests.snapshot_req.live == 0) {
+                     machine.exit_group = 1;
+                  }
+                  needunblock = 1;
                }
-               needunblock = 1;
-            }
-            break;
-         default:
-            km_warnx("Unknown mgmt request %d, length %d", mgmtrequest.opcode, mgmtrequest.length);
-            mgmtreply.request_status = EINVAL;
-            break;
+               break;
+            default:
+               km_warnx("Unknown mgmt request %d, length %d", mgmtrequest.opcode, mgmtrequest.length);
+               mgmtreply.request_status = EINVAL;
+               break;
+         }
+      } else {
+         // The payload has not started, can't do the request.
+         // This probably should be on a per request type basis, not all requests.
+         mgmtreply.request_status = EAGAIN;
+         km_warnx("Payload not running, failing management request %d", mgmtrequest.opcode);
       }
 
       // let them know what happened.
