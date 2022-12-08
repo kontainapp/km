@@ -19,12 +19,17 @@
  *
  * There is a management thread responsible for listening on a UNIX domain socket
  * for management requests.
+ *
+ * Also responsible for 'guest started' callbacks.
  */
 
+#include <strings.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <netdb.h>
 
 #include "km_coredump.h"
 #include "km_filesys.h"
@@ -183,4 +188,103 @@ void km_mgt_init(char* path)
 err:
    km_mgt_fini();
    return;
+}
+
+static int cb_domain = AF_INET;
+static int cb_type = SOCK_DGRAM;
+static struct sockaddr* cb_sockaddr = NULL;
+static int cb_sockaddr_len = 0;
+
+int
+km_build_ipaddress(char *host, char* port)
+{
+   struct addrinfo hints = { .ai_flags = AI_NUMERICHOST, };
+   struct addrinfo* info;
+   int err;
+
+   if ((err = getaddrinfo(host, port, &hints, &info)) != 0) {
+      km_warnx("getaddrinfo: %s", gai_strerror(err));
+      return -1;
+   }
+
+   if (info == NULL) {
+      km_warnx("getaddrinfo returned a NULL result");
+      return -1;
+   }
+
+   cb_sockaddr = (struct sockaddr*) malloc(info->ai_addrlen);
+   memcpy(cb_sockaddr, info->ai_addr, info->ai_addrlen);
+   cb_sockaddr_len = info->ai_addrlen;
+
+   freeaddrinfo(info);
+   return 0;
+}
+
+int
+km_init_started_callback(char* cb)
+{
+   char *cb_copy = strdup(cb);
+   char *savptr = NULL;
+   char *delim = ":";
+
+   char *cb_proto = strtok_r(cb_copy, delim, &savptr);
+   if (cb_proto == NULL) {
+      km_warnx("strtok_r returned NULL. cb_copy=%s", cb_copy);
+      free(cb_copy);
+      return -1;
+   }
+   if (strcmp(cb_proto, "udp") == 0) {
+      char *cb_addr = strtok_r(NULL, delim, &savptr);
+      char *cb_port = strtok_r(NULL, delim, &savptr);
+      km_warnx("callback addr: %s  port:%s", cb_addr, cb_port);
+      if (km_build_ipaddress(cb_addr, cb_port) < 0) {
+         free(cb_copy);
+         return -1;
+      }
+      free(cb_copy);
+      cb_domain = AF_INET;
+      cb_type = SOCK_DGRAM;
+      return 0;
+   } else if (strcmp(cb_proto, "tcp") == 0) {
+      km_warnx("callbacks on tcp sockets - not yet");
+      free(cb_copy);
+      return -1;
+   } else if (strcmp(cb_proto, "unix") == 0) {
+      km_warnx("callbacks on unix sockets - not yet");
+      free(cb_copy);
+      return -1;
+   }
+   km_warnx("unrecognized callback type '%s' - only udp, tcp, unix", cb_proto);
+   free(cb_copy);
+   return -1;
+}
+
+static void
+km_fire_callback(int msg)
+{
+   if (cb_sockaddr == NULL) {
+      return;
+   }
+
+   int sock = socket(cb_domain, cb_type, 0);
+   if (sock < 0) {
+      km_warn("callback socket create");
+   }
+
+   if (cb_domain == AF_INET && cb_type == SOCK_DGRAM) {
+      if (sendto(sock, &msg, sizeof(msg), 0, cb_sockaddr, cb_sockaddr_len) < 0) {
+         km_warnx("callback udp sendto failed");
+      }
+   }
+}
+
+void km_fire_km_started_callback()
+{
+   km_fire_callback(0);
+}
+
+void
+km_fire_guest_started_callback()
+{
+   km_fire_callback(1);
 }

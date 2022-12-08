@@ -102,7 +102,10 @@ static inline void usage()
 "\t--virt-device=<file-name>  (-Ffile) - Use provided file-name for virtualization device\n"
 "\t--input-data=<file-name>            - File with data for HC_snapshot_getdata\n"
 "\t--output-data=<file-name>           - File with data from HC_snapshot_putdata\n"
-"\t--mgtpipe <path>                    - Name for management pipe.\n");
+"\t--no-log-redirect                   - Do not redirect logs.\n"
+"\t--mgtpipe <path>                    - Name for management pipe.\n"
+"\t--started-callback=<endpoint>       - Define a endpoint to be called back when the client has been started\n"
+"\t                                      Legal endpoint formats: udp:<ipadddr>:<port>, tcp:<ipaddr>:<port>,unix:<path>\n");
    // clang-format on
 }
 
@@ -148,7 +151,9 @@ km_machine_init_params_t km_machine_init_params = {
 };
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
+int opt_no_log_redirect = 0;  // if 1, skip redirecting log if stderr is socket or fifo.
 static char* mgtpipe = NULL;
+static char* started_callback = NULL;
 static int log_to_fd = -1;
 extern int set_cpu_vendor_id;
 extern int kill_unimpl_hcall;
@@ -180,11 +185,13 @@ struct option km_cmd_long_options[] = {
     {"output-data", required_argument, 0, 'O'},
     {"mgtpipe", required_argument, 0, 'm'},
     {"kill-unimpl-scall", no_argument, &(kill_unimpl_hcall), KM_FLAG_FORCE_ENABLE},
+    {"started-callback", required_argument, 0, 'c'},
+    {"no-log-redirect", no_argument, &opt_no_log_redirect, 1},
 
     {0, 0, 0, 0},
 };
 
-const_string_t km_cmd_short_options = "+g::e:AV::F:P:vC:Sk:";
+const_string_t km_cmd_short_options = "+g::e:AV::F:P:vC:Sk:c:";
 
 static const_string_t SHEBANG = "#!";
 static const size_t SHEBANG_LEN = 2;              // strlen(SHEBANG)
@@ -442,6 +449,9 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             }
             free(no_envp);
             break;
+         case 'c':
+            started_callback = strdup(optarg);
+            break;
          case 'C':
             km_set_coredump_path(optarg);
             break;
@@ -629,6 +639,12 @@ int main(int argc, char* argv[])
       usage();
    }
 
+   // If anyone is listening for status, give it to them.
+   if (started_callback != NULL && km_init_started_callback(started_callback) < 0) {
+      km_err(1, "invalid started_callback");
+   }
+   km_fire_km_started_callback();
+
    km_elf_t* elf = km_open_elf_file(km_payload_name);
    if (elf->ehdr.e_type == ET_CORE) {
       // check for incompatible options
@@ -710,6 +726,8 @@ int main(int argc, char* argv[])
    km_close_stdio(log_to_fd);
 
    km_start_vcpus();
+
+   km_fire_guest_started_callback();
 
    if (km_gdb_is_enabled() != 0) {
       km_gdb_main_loop(vcpu);

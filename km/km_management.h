@@ -25,4 +25,8 @@
 
 void km_mgt_init(char* path);
 void km_mgt_fini();
+
+int km_init_started_callback(char *callback);
+void km_fire_guest_started_callback();
+void km_fire_km_started_callback();
 #endif

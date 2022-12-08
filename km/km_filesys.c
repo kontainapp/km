@@ -45,6 +45,7 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netdb.h>
 
 #include "bsd_queue.h"
 #include "km.h"
@@ -2337,6 +2338,7 @@ uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
                          timeout,
                          (uintptr_t)sigmask,
                          sigsetsize);
+km_infox(KM_TRACE_FILESYS, "epoll_pwait returns");
    km_dequeue_sig_sleep(vcpu);
    return ret;
 }
@@ -3721,6 +3723,9 @@ void km_redirect_msgs(const char* name)
              * If we can create and open /tmp/km_XXXXX.log then log there.  If we can't
              * create the log file, then /tmp could be on a readonly filesystem, so we don't log.
              */
+            if (opt_no_log_redirect != 0) {
+               return;
+            }
             char filename[32];
             snprintf(filename, sizeof(filename), "/tmp/km_%d.log", getpid());
             km_tracex("Switch km logging to %s on first attempt to log", filename);
@@ -3910,6 +3915,38 @@ static int km_fs_recover_open_socket(char* ptr, size_t length)
 
    struct sockaddr* sa = (struct sockaddr*)(ptr + sizeof(km_nt_socket_t));
    km_fs_recover_socket(nt_sock, sa, nt_sock->addrlen);
+#if 0
+<<<<<<< HEAD
+=======
+
+   if (nt_sock->state == KM_SOCK_STATE_BIND || nt_sock->state == KM_SOCK_STATE_LISTEN) {
+      int hostfd = km_fs_g2h_fd(nt_sock->fd, NULL);
+      // If snapshot is being recovered right after it was taken there is a chance there are
+      // sockets in TIME_WAIT state from the remaining from the initial run, so the following
+      // bind() will fail. This avoid the falure.
+      int flag = 1;
+      if (setsockopt(hostfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0) {
+         km_warn("recover setsockopt(SO_REUSEADDR) failed");
+         return -1;
+      }
+      char host[64];
+      char port[8];
+      getnameinfo(sa, nt_sock->addrlen, host, sizeof(host), port, sizeof(port), NI_NUMERICHOST | NI_NUMERICSERV);
+      km_infox(KM_TRACE_SNAPSHOT, "bind(%fd, %s:%s)", nt_sock->fd, host, port);
+      if (bind(hostfd, sa, nt_sock->addrlen) < 0) {
+         km_warn("recover bind failed");   // TODO: return error
+         return -1;
+      }
+      if (nt_sock->state == KM_SOCK_STATE_LISTEN) {
+         if (listen(hostfd, nt_sock->backlog) < 0) {
+            km_warn("recover listen failed");
+            return -1;
+         }
+      }
+   }
+
+>>>>>>> 31a9b665 (changes for faas server)
+#endif
    return 0;
 }
 

@@ -228,6 +228,9 @@ int snapshot_process(char* sockname, char* snapshot_file, char* label, char* des
       struct timespec ts = {0, 250000000L};   // .25 seconds
       nanosleep(&ts, NULL);
    }
+   if (rc != 0) {
+      fprintf(stderr, "error returned from KM %s(%d)\n", strerror(rc), rc);
+   }
    return rc;
 }
 
