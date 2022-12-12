@@ -62,7 +62,7 @@ load "${TESTS_BASE}/bats-assert/load.bash"  # see manual in bats-assert/README.m
 		${JAVA_DIR}/bin/java.kmd -XX:-UseCompressedOops -jar sb.jar &
   pid=$!
   tries=20
-  run curl -4 -s localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
+  run curl -4 localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
   assert_success
   assert_output --regexp '"id":1.*Hello, World!'
 
