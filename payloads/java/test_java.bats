@@ -61,7 +61,8 @@ load "${TESTS_BASE}/bats-assert/load.bash"  # see manual in bats-assert/README.m
       --putenv=LD_LIBRARY_PATH=${JAVA_LD_PATH}:${BLDDIR}/lib \
 		${JAVA_DIR}/bin/java.kmd -XX:-UseCompressedOops -jar sb.jar &
   pid=$!
-  tries=20
+  # Starting springboot in a github runner can take quite a while on a bad day.
+  tries=120
   run curl -4 localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
   assert_success
   assert_output --regexp '"id":1.*Hello, World!'
