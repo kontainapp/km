@@ -820,7 +820,16 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
       return;
    }
 
-   km_warnx("KM intruction decode: Uninterpreted Opcode=0x%x", opcode);
+   uint64_t pc = vcpu->regs.rip;
+   km_warnx("KM intruction decode: PC 0x%x, Uninterpreted Instruction=%02x %02x %02x %02x %02x "
+            "%02x",
+            pc,
+            *(unsigned char*)km_gva_to_kma(pc),
+            *(unsigned char*)km_gva_to_kma(pc + 1),
+            *(unsigned char*)km_gva_to_kma(pc + 2),
+            *(unsigned char*)km_gva_to_kma(pc + 3),
+            *(unsigned char*)km_gva_to_kma(pc + 4),
+            *(unsigned char*)km_gva_to_kma(pc + 5));
 
    return;
 }

@@ -650,9 +650,11 @@ int main(int argc, char* argv[])
 
    // snapshot file is type ET_CORE. We check for additional notes in restore
    if (elf->ehdr.e_type == ET_CORE) {
+      km_infox(KM_TRACE_SNAPSHOT, "Snapshot recover started, pid %d, from %s", getpid(), km_payload_name);
       if (km_snapshot_restore(elf) < 0) {
          km_err(1, "failed to restore from snapshot %s", km_payload_name);
       }
+      km_infox(KM_TRACE_SNAPSHOT, "Snapshot recover complete, pid %d", getpid());
       vcpu = machine.vm_vcpus[0];
    } else {
       // if environment wasn't set up copy it from host

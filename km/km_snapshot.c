@@ -557,9 +557,12 @@ int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* du
          dumppath = km_get_snapshot_path();
       }
    }
+   km_infox(KM_TRACE_SNAPSHOT, "Begin snapshot pid %d to %s", getpid(), dumppath);
    int rc = km_dump_core(dumppath, vcpu, NULL, label, description, KM_DO_SNAP);
    if (rc != 0) {
       km_warnx("Cannot create snapshot %s, %s", dumppath, strerror(rc));
+   } else {
+      km_infox(KM_TRACE_SNAPSHOT, "Snapshot complete, pid %d", getpid());
    }
 
    return rc;
