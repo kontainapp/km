@@ -82,7 +82,9 @@ pthread_mutex_t dup_data_mtx;
 /*
  * Lightweight snap start - wait for connection on the snap_listen_sock before restoring the snapshot.
  */
-u_int64_t light_snap_accept_timeout;
+int64_t light_snap_accept_timeout;   // != 0 means light weight accept is enabled
+                                     // < 0 means shrink only by accept count
+                                     // > 0 means shrink by accept count and timeout
 static int snap_listen_sock = -1;
 static km_fd_socket_t* snap_listen_sockinfo;
 static int snap_conn_sock = -1;
@@ -93,15 +95,29 @@ static u_int64_t accept_time;   // time stamp of the latest accept HC in millise
 static int64_t accept_cnt;      // count of active accepted sockets
 
 // Account for new accept: ++ count and record the time
-static inline void km_set_accept_time(void)
+static inline void km_set_active_accept(void)
 {
    if (light_snap_accept_timeout != 0) {
       __atomic_add_fetch(&accept_cnt, 1, __ATOMIC_SEQ_CST);
-      struct timespec tp;
-      if (clock_gettime(CLOCK_MONOTONIC, &tp) != 0) {
-         km_err(2, "can't update accept time");
+      if (light_snap_accept_timeout > 0) {
+         struct timespec tp;
+         if (clock_gettime(CLOCK_MONOTONIC, &tp) != 0) {
+            km_err(2, "can't update accept time");
+         }
+         accept_time = tp.tv_sec * 1000 + tp.tv_nsec / 1000000;
       }
-      accept_time = tp.tv_sec * 1000 + tp.tv_nsec / 1000000;
+   }
+}
+
+// Account for closing accepted socket: -- count
+static inline void km_set_inactive_accept(void)
+{
+   if (light_snap_accept_timeout != 0) {
+      int64_t cnt = __atomic_sub_fetch(&accept_cnt, 1, __ATOMIC_SEQ_CST);
+      km_assert(accept_cnt >= 0);
+      if (light_snap_accept_timeout < 0 && cnt == 0) {   // this is the last one
+         km_signal_machine_fini();
+      }
    }
 }
 
@@ -111,11 +127,12 @@ static inline void km_set_accept_time(void)
  */
 int km_active_accept(void)
 {
-   // there are active accepted sockets - don't shrink
-   if (__atomic_load_n(&accept_cnt, __ATOMIC_SEQ_CST) != 0) {
+   if (__atomic_load_n(&accept_cnt, __ATOMIC_SEQ_CST) != 0) {   // there are active accepted sockets
       return 1;
    }
-
+   if (light_snap_accept_timeout < 0) {   // go by count only
+      return 0;
+   }
    struct timespec tp;
    if (clock_gettime(CLOCK_MONOTONIC, &tp) != 0) {
       km_err(2, "can't get time");
@@ -563,9 +580,7 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
    km_file_t* file = &km_fs()->guest_files[fd];
    km_assert(km_is_file_used(file) != 0);
    if (light_snap_accept_timeout != 0 && file->how == KM_FILE_HOW_ACCEPT) {
-      // account for accepted socket closing
-      int64_t cnt = __atomic_sub_fetch(&accept_cnt, 1, __ATOMIC_SEQ_CST);
-      km_assert(cnt >= 0);
+      km_set_inactive_accept();   // account for accepted socket closing
    }
 
    if (__atomic_exchange_n(&file->inuse, 0, __ATOMIC_SEQ_CST) != 0) {
@@ -1876,7 +1891,7 @@ uint64_t km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockl
    km_fd_socket_t* sock = km_fs()->guest_files[guestfd].sockinfo;
    sock->state = KM_SOCK_STATE_ACCEPT;
 
-   km_set_accept_time();
+   km_set_active_accept();
 
    return guestfd;
 }

@@ -804,7 +804,7 @@ void km_vmdriver_restore_fork_info(
     km_vcpu_t* vcpu, uint8_t ksi_valid, void* ksi, uint8_t kx_valid, void* kx);
 int km_vmdriver_fp_format(km_vcpu_t* vcpu);
 
-extern u_int64_t light_snap_accept_timeout;   // milliseconds
+extern int64_t light_snap_accept_timeout;   // milliseconds
 int km_active_accept(void);
 
 int km_shrink_footprint(km_vcpu_t* vcpu);
