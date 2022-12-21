@@ -195,8 +195,10 @@ static int cb_type = SOCK_DGRAM;
 static struct sockaddr* cb_sockaddr = NULL;
 static int cb_sockaddr_len = 0;
 
-int
-km_build_ipaddress(char *host, char* port)
+static int cb_socket = -1;
+
+static int
+km_build_ipaddr(char *host, char* port)
 {
    struct addrinfo hints = { .ai_flags = AI_NUMERICHOST, };
    struct addrinfo* info;
@@ -220,6 +222,22 @@ km_build_ipaddress(char *host, char* port)
    return 0;
 }
 
+static int
+km_build_unixaddr(char *path)
+{
+   struct sockaddr_un *addr = (struct sockaddr_un *) malloc(sizeof(struct sockaddr_un));
+   if (strlen(path) >= sizeof(addr->sun_path)) {
+      free(addr);
+      cb_sockaddr = NULL;
+      return -1;
+   }
+   strncpy(addr->sun_path, path, sizeof(addr->sun_path));
+   addr->sun_family = AF_UNIX;
+   cb_sockaddr = (struct sockaddr *) addr;
+   cb_sockaddr_len = SUN_LEN(addr);
+   return 0;
+}
+
 int
 km_init_started_callback(char* cb)
 {
@@ -237,7 +255,7 @@ km_init_started_callback(char* cb)
       char *cb_addr = strtok_r(NULL, delim, &savptr);
       char *cb_port = strtok_r(NULL, delim, &savptr);
       km_warnx("callback addr: %s  port:%s", cb_addr, cb_port);
-      if (km_build_ipaddress(cb_addr, cb_port) < 0) {
+      if (km_build_ipaddr(cb_addr, cb_port) < 0) {
          free(cb_copy);
          return -1;
       }
@@ -250,9 +268,24 @@ km_init_started_callback(char* cb)
       free(cb_copy);
       return -1;
    } else if (strcmp(cb_proto, "unix") == 0) {
-      km_warnx("callbacks on unix sockets - not yet");
+      char *cb_path = strtok_r(NULL, "", &savptr);
+      if (km_build_unixaddr(cb_path) < 0) {
+         free(cb_copy);
+         return -1;
+      }
       free(cb_copy);
-      return -1;
+      cb_domain = AF_UNIX;
+      cb_type = SOCK_SEQPACKET;
+
+      if ((cb_socket = socket(cb_domain, cb_type, 0)) < 0) {
+         km_warn("cannnot open callback socket");
+         return -1;
+      }
+      if (connect(cb_socket, cb_sockaddr, cb_sockaddr_len) < 0) {
+         km_warn("cannnot open connect callback socket");
+         return -1;
+      }
+      return 0;
    }
    km_warnx("unrecognized callback type '%s' - only udp, tcp, unix", cb_proto);
    free(cb_copy);
@@ -266,25 +299,42 @@ km_fire_callback(int msg)
       return;
    }
 
+   if (cb_domain == AF_UNIX) {
+      if (send(cb_socket, &msg, sizeof(msg), 0) < 0) {
+         km_warn("km_fire_callback: send error"); 
+      }
+      return;
+   }
+
+   // cb_domain must == AF_INET
    int sock = socket(cb_domain, cb_type, 0);
    if (sock < 0) {
       km_warn("callback socket create");
+      return;
    }
 
-   if (cb_domain == AF_INET && cb_type == SOCK_DGRAM) {
-      if (sendto(sock, &msg, sizeof(msg), 0, cb_sockaddr, cb_sockaddr_len) < 0) {
-         km_warnx("callback udp sendto failed");
-      }
+   if (sendto(sock, &msg, sizeof(msg), 0, cb_sockaddr, cb_sockaddr_len) < 0) {
+      km_warn("callback udp sendto failed");
    }
+   close(sock);
 }
 
 void km_fire_km_started_callback()
 {
-   km_fire_callback(0);
+   km_fire_callback(0x304d4b);
 }
 
 void
 km_fire_guest_started_callback()
 {
-   km_fire_callback(1);
+   km_fire_callback(0x314d4b);
+}
+
+void
+km_fire_km_listen_callback(km_vcpu_t* vcpu, int fd)
+{
+   static int called = 0;
+   if (called) return;
+   called = 1;
+   km_fire_callback(0x324d4b);
 }

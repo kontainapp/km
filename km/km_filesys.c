@@ -57,6 +57,7 @@
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
+#include "km_management.h"
 
 /*
  * km uses open fd's for its own purposes.  The km fd's are kept at the
@@ -1937,6 +1938,7 @@ uint64_t km_fs_listen(km_vcpu_t* vcpu, int sockfd, int backlog)
    if (ret != 0) {
       return ret;
    }
+   km_fire_km_listen_callback(vcpu, sockfd);
    ret = __syscall_2(SYS_listen, host_sockfd, backlog);
    if (ret == 0) {
       km_fd_socket_t* sock = km_fs()->guest_files[sockfd].sockinfo;
