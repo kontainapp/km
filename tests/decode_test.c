@@ -523,9 +523,7 @@ TEST test_avx()
 TEST test_vex_2byte(void)
 {
    ASSERT_EQ(0, setup());
-   __asm__ volatile("vmovdqa %%ymm6, (%0)\n"
-                    :
-                    : "r"(datapage_page));
+   __asm__ volatile("vmovdqa %%ymm6, (%0)\n" : : "r"(datapage_page));
 
    ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
    ASSERT_EQ(datapage_page, failing_page());
@@ -536,9 +534,7 @@ TEST test_vex_2byte(void)
 TEST test_vex_3byte(void)
 {
    ASSERT_EQ(0, setup());
-   asm volatile("vptest (%0), %%ymm1 "
-                    :
-                    : "r"(datapage_page));
+   asm volatile("vptest (%0), %%ymm1 " : : "r"(datapage_page));
 
    ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
    ASSERT_EQ(datapage_page, failing_page());

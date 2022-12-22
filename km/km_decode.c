@@ -854,7 +854,7 @@ static void decode_opcode(km_vcpu_t* vcpu, x86_instruction_t* ins)
  */
 #define VEX_2BYTE_PREFIX 0xc5
 #define VEX_3BYTE_PREFIX 0xc4
-#define XOP_PREFIX       0x8f
+#define XOP_PREFIX 0x8f
 #if 0
 // For computing the fault address, we ignore these prefixes.
 // This is just here to remind us that the vex pp field can be ignored.
@@ -872,13 +872,13 @@ char vex_pp_encoding[] = {
 #define OPCODE_MASK 0x00ff
 #define OPCODE_GROUP_MASK 0x1f00
 #define OPCODE_GROUP_FLAG 0x2000
-#define OPCODE_GROUP_0  (OPCODE_GROUP_FLAG | (0 << 8))
-#define OPCODE_GROUP_12 (OPCODE_GROUP_FLAG | (12<<8))
-#define OPCODE_GROUP_13 (OPCODE_GROUP_FLAG | (13<<8))
-#define OPCODE_GROUP_14 (OPCODE_GROUP_FLAG | (14<<8))
-#define OPCODE_GROUP_15 (OPCODE_GROUP_FLAG | (15<<8))
-#define OPCODE_GROUP_17 (OPCODE_GROUP_FLAG | (17<<8))
-#define OPCODE_GROUP_31 (OPCODE_GROUP_FLAG | (31<<8))
+#define OPCODE_GROUP_0 (OPCODE_GROUP_FLAG | (0 << 8))
+#define OPCODE_GROUP_12 (OPCODE_GROUP_FLAG | (12 << 8))
+#define OPCODE_GROUP_13 (OPCODE_GROUP_FLAG | (13 << 8))
+#define OPCODE_GROUP_14 (OPCODE_GROUP_FLAG | (14 << 8))
+#define OPCODE_GROUP_15 (OPCODE_GROUP_FLAG | (15 << 8))
+#define OPCODE_GROUP_17 (OPCODE_GROUP_FLAG | (17 << 8))
+#define OPCODE_GROUP_31 (OPCODE_GROUP_FLAG | (31 << 8))
 #define OPCODE_MAP_END 0xffff
 
 /*
@@ -917,11 +917,9 @@ unsigned char vexgroup_17[] = {
    VEXGROUP_END
 };
 #endif
-unsigned char vexgroup_15[] = {
-   0x02,        // VLDMXCSR (pp = 0)
-   0x03,        // VSTMXCSR (pp = 1)
-   VEXGROUP_END
-};
+unsigned char vexgroup_15[] = {0x02,   // VLDMXCSR (pp = 0)
+                               0x03,   // VSTMXCSR (pp = 1)
+                               VEXGROUP_END};
 unsigned char* vex_groups[32] = {
 #if 0
    [12] = vexgroup_12,
@@ -929,299 +927,296 @@ unsigned char* vex_groups[32] = {
    [14] = vexgroup_14,
    [17] = vexgroup_17
 #endif
-   [15] = vexgroup_15,
+    [15] = vexgroup_15,
 };
 
-ushort vex_map1[] = {
-   0x10, 0x11,  // VMOVUPS, VMOVUPD, VMOVSS, VMOVSD
-   0x12, 0x13,  // VMOVLPS, VMOVLPD, VMOVSLDUP (0x12 only), VMOVDDUP (0x12 only)
-   0x14,        // VUNPCKLPS, VUNPCKLPD
-   0x15,        // VUNPCKHPS, VUNPCKHPD
-   0x16, 0x17,  // VMOVHPS, VMOVSHDUP, VMOVHPD
-   0x28,        // VMOVAPS (pp = 0), VMOVAPD (pp = 1)
-   0x29,        // VMOVAPS (pp = 0), VMOVAPD (pp = 1)
-   0x2a,        // VCVTSI2SS (pp = 2), VCVTSI2SD (pp = 3)
-   0x2b,        // VMOVNTPS (pp = 0), VMOVNTPD (pp = 1)
-   0x2c,        // VCVTTSS2SI (pp = 2), VCVTTSD2SI (pp = 3)
-   0x2d,        // VCVTSS2SI (pp = 2), VCVTSD2SI (pp = 3)
-   0x2e,        // VUCOMISS (pp = 0), VUCOMISD (pp = 1)
-   0x2f,        // VCOMISS (pp = 0), VCOMISD (pp = 1)
-   0x51,        // VSQRTPS, VSQRTPD, VSQRTSS, VSQRTSD
-   0x52,        // VRSQRTPS, VRSQRTSS
-   0x53,        // VRCPPS, VRCPSS
-   0x54,        // VANDPS, VANDPD
-   0x55,        // VANDNPS, VANDNPD
-   0x56,        // VORPS, VORPD
-   0x57,        // VXORPS, VXORPD
-   0x58,        // VADDPS (pp = 0), VADDPD (pp = 1), VADDSS (pp = 2), VADDSD (pp = 3)
-   0x59,        // VMULPS (pp = 0), VMULPD (pp = 1), VMULSS (pp = 2), VMULSD (pp = 3)
-   0x5a,        // VCVTPS2PD (pp = 0), VCVTPD2PS (pp = 1), VCVTSS2SD (pp = 2), VCVTSD2SS (pp = 3)
-   0x5b,        // VCVTDQ2PS (pp = 0), VCVTPS2DQ (pp = 1), VCVTTPS2DQ ( pp = 2)
-   0x5c,        // VSUBPS (pp = 0), VSUBPD (pp = 1), VSUBSS (pp = 2), VSUBSD (pp = 3)
-   0x5d,        // VMINPS (pp = 0), VMINPD (pp = 1), VMINSS (pp = 2), VMINSD (pp = 3)
-   0x5e,        // VDIVPS (pp = 0), VDIVPD (pp = 1), VDIVSS (pp = 2), VDIVSD(pp = 3)
-   0x5f,        // VMAXPS (pp = 0), VMAXPD (pp = 1), VMAXSS (pp = 2), VMAXSD (pp = 3)
-   0x60,        // VPUNPCKLBW
-   0x61,        // VPUNPCKLWD
-   0x62,        // VPUNPCKLDQ
-   0x63,        // VPACKSSWB
-   0x64,        // VPCMPGTB
-   0x65,        // VPCMPGTW
-   0x66,        // VPCMPGTD
-   0x67,        // VPACKUSWB
-   0x68,        // VPUNPCKHBW (pp = 1)
-   0x69,        // VPUNPCKHWD (pp = 1)
-   0x6a,        // VPUNPCKHDQ (pp = 1)
-   0x6b,        // VPACKSSDW (pp = 1)
-   0x6c,        // VPUNPCKLQDQ (pp = 1)
-   0x6d,        // VPUNPCKHQDQ (pp = 1)
-   0x6e,        // VMOVD (pp = 1)
-   0x6f,        // VMOVDQA (pp = 1), VMOVDQU (pp = 2)
-   0x70,        // VPSHUFD, VPSHUFHW, VPSHUFLW
+ushort vex_map1[] = {0x10,
+                     0x11,   // VMOVUPS, VMOVUPD, VMOVSS, VMOVSD
+                     0x12,
+                     0x13,   // VMOVLPS, VMOVLPD, VMOVSLDUP (0x12 only), VMOVDDUP (0x12 only)
+                     0x14,   // VUNPCKLPS, VUNPCKLPD
+                     0x15,   // VUNPCKHPS, VUNPCKHPD
+                     0x16,
+                     0x17,   // VMOVHPS, VMOVSHDUP, VMOVHPD
+                     0x28,   // VMOVAPS (pp = 0), VMOVAPD (pp = 1)
+                     0x29,   // VMOVAPS (pp = 0), VMOVAPD (pp = 1)
+                     0x2a,   // VCVTSI2SS (pp = 2), VCVTSI2SD (pp = 3)
+                     0x2b,   // VMOVNTPS (pp = 0), VMOVNTPD (pp = 1)
+                     0x2c,   // VCVTTSS2SI (pp = 2), VCVTTSD2SI (pp = 3)
+                     0x2d,   // VCVTSS2SI (pp = 2), VCVTSD2SI (pp = 3)
+                     0x2e,   // VUCOMISS (pp = 0), VUCOMISD (pp = 1)
+                     0x2f,   // VCOMISS (pp = 0), VCOMISD (pp = 1)
+                     0x51,   // VSQRTPS, VSQRTPD, VSQRTSS, VSQRTSD
+                     0x52,   // VRSQRTPS, VRSQRTSS
+                     0x53,   // VRCPPS, VRCPSS
+                     0x54,   // VANDPS, VANDPD
+                     0x55,   // VANDNPS, VANDNPD
+                     0x56,   // VORPS, VORPD
+                     0x57,   // VXORPS, VXORPD
+                     0x58,   // VADDPS (pp = 0), VADDPD (pp = 1), VADDSS (pp = 2), VADDSD (pp = 3)
+                     0x59,   // VMULPS (pp = 0), VMULPD (pp = 1), VMULSS (pp = 2), VMULSD (pp = 3)
+                     0x5a,   // VCVTPS2PD (pp = 0), VCVTPD2PS (pp = 1), VCVTSS2SD (pp = 2),
+                             // VCVTSD2SS (pp = 3)
+                     0x5b,   // VCVTDQ2PS (pp = 0), VCVTPS2DQ (pp = 1), VCVTTPS2DQ ( pp = 2)
+                     0x5c,   // VSUBPS (pp = 0), VSUBPD (pp = 1), VSUBSS (pp = 2), VSUBSD (pp = 3)
+                     0x5d,   // VMINPS (pp = 0), VMINPD (pp = 1), VMINSS (pp = 2), VMINSD (pp = 3)
+                     0x5e,   // VDIVPS (pp = 0), VDIVPD (pp = 1), VDIVSS (pp = 2), VDIVSD(pp = 3)
+                     0x5f,   // VMAXPS (pp = 0), VMAXPD (pp = 1), VMAXSS (pp = 2), VMAXSD (pp = 3)
+                     0x60,   // VPUNPCKLBW
+                     0x61,   // VPUNPCKLWD
+                     0x62,   // VPUNPCKLDQ
+                     0x63,   // VPACKSSWB
+                     0x64,   // VPCMPGTB
+                     0x65,   // VPCMPGTW
+                     0x66,   // VPCMPGTD
+                     0x67,   // VPACKUSWB
+                     0x68,   // VPUNPCKHBW (pp = 1)
+                     0x69,   // VPUNPCKHWD (pp = 1)
+                     0x6a,   // VPUNPCKHDQ (pp = 1)
+                     0x6b,   // VPACKSSDW (pp = 1)
+                     0x6c,   // VPUNPCKLQDQ (pp = 1)
+                     0x6d,   // VPUNPCKHQDQ (pp = 1)
+                     0x6e,   // VMOVD (pp = 1)
+                     0x6f,   // VMOVDQA (pp = 1), VMOVDQU (pp = 2)
+                     0x70,   // VPSHUFD, VPSHUFHW, VPSHUFLW
 #if 0
    OPCODE_GROUP_12 | 0x71,     // these instructions do not reference memory
    OPCODE_GROUP_13 | 0x72,     // these instructions do not reference memory
    OPCODE_GROUP_14 | 0x73,     // these instructions do not reference memory
 #endif
-   0x74,        // VPCMPEQB,
-   0x75,        // VPCMPEQW,
-   0x76,        // VPCMPEQD,
-   0x7c,        // VHADDPD (pp = 1), VHADDPS (pp = 3)
-   0x7d,        // VHSUBPD (pp = 1), VHSUBPS (pp = 3)
-   0x7e,        // VMOVD (pp = 1), VMOVQ (pp = 2)
-   0x7f,        // VMOVDQA (pp = 1), VMOVDQU(pp = 2)
-   OPCODE_GROUP_15 | 0xae,
-   0xc2,        // VCMPccPS, VCMPccPD, VCMPccSS, VCMPccSD
-   0xc4,        // VPINSRW,
-   0xc6,        // VSHUFPS, VSHUFPD
-   0xd0,        // VADDSUBPD (pp = 1), VADDSUBPS (pp = 3)
-   0xd1,        // VPSRLW (pp = 1)
-   0xd2,        // VPSRLD (pp = 1)
-   0xd3,        // VPSRLQ (pp = 1)
-   0xd4,        // VPADDQ (pp = 1)
-   0xd5,        // VPMULLW (pp = 1)
-   0xd8,        // VPSUBUSB (pp = 1)
-   0xd9,        // VPSUBUSW (pp = 1)
-   0xda,        // VPMINUB (pp = 1)
-   0xdb,        // VPAND (pp = 1)
-   0xdc,        // VPADDUSB (pp = 1)
-   0xdd,        // VPADDUSW (pp = 1)
-   0xde,        // VPMAXUB (pp = 1)
-   0xdf,        // VPANDN (pp = 1)
-   0xe0,        // VPAVGB (pp = 1)
-   0xe1,        // VPSRAW (pp = 1)
-   0xe2,        // VPSRAD (pp = 1)
-   0xe3,        // VPAVGW (pp = 1)
-   0xe4,        // VPMULHUW (pp = 1)
-   0xe5,        // VPMULHW (pp = 1)
-   0xe6,        // VCVTTPD2DQ (pp = 1), VCVTDQ2PD (pp = 2), VCVTPD2DQ (pp = 3)
-   0xe8,        // VPSUBSB (pp = 1)
-   0xe9,        // VPSUBSW (pp = 1)
-   0xea,        // VPMINSW (pp = 1)
-   0xeb,        // VPOR (pp = 1)
-   0xec,        // VPADDSB (pp = 1)
-   0xed,        // VPADDSW (pp = 1)
-   0xee,        // VPMAXSW (pp = 1)
-   0xef,        // VPXOR (pp = 1)
-   0xf0,        // VLDDQU (pp = 3)
-   0xf1,        // VPSLLW (pp = 1)
-   0xf2,        // VPSLLD (pp = 1)
-   0xf3,        // VPSLLQ (pp = 1)
-   0xf4,        // VPMULUDQ (pp = 1)
-   0xf5,        // VPMADDWD (pp = 1)
-   0xf6,        // VPSADBW (pp = 1)
-   0xf7,        // VMASKMOVDQU (pp = 1)
-   0xf8,        // VPSUBB (pp = 1)
-   0xf9,        // VPSUBW (pp = 1)
-   0xfa,        // VPSUBD (pp = 1)
-   0xfb,        // VPSUBQ (pp = 1)
-   0xfc,        // VPADDB (pp = 1)
-   0xfd,        // VPADDW (pp = 1)
-   0xfe,        // VPADDD (pp = 1)
-   OPCODE_MAP_END
-};
-ushort vex_map2[] = {
-   0x00,        // VPSHUFB (pp = 1)
-   0x01,        // VPHADDW (pp = 1)
-   0x02,        // VPHADDD (pp = 1)
-   0x03,        // VPHADDSW (pp = 1)
-   0x04,        // VPMADDUBSW (pp = 1)
-   0x05,        // VPHSUBW (pp = 1)
-   0x06,        // VPHSUBD (pp = 1)
-   0x07,        // VPHSUBSW (pp = 1)
-   0x08,        // VPSIGNB (pp = 1)
-   0x09,        // VPSIGNW (pp = 1)
-   0x0a,        // VPSIGND (pp = 1)
-   0x0b,        // VPMULHRSW (pp = 1)
-   0x0c,        // VPERMILPS (pp = 1)
-   0x0d,        // VPERMILPD (pp = 1)
-   0x0e,        // VTESTPS (pp = 1)
-   0x0f,        // VTETSPD (pp = 1)
-   0x13,        // VCVTPH2PS (pp = 1)
-   0x16,        // VPERMPS (pp = 1)
-   0x17,        // VPTEST (pp = 1)
-   0x18,        // VBROADCASTSS (pp = 1)
-   0x19,        // VBROADCASTSD (pp = 1)
-   0x1a,        // VBROADCASTF128 (pp = 1)
-   0x1c,        // VPABSB (pp = 1)
-   0x1d,        // VPABSW (pp = 1)
-   0x1e,        // VPABSD (pp = 1)
-   0x20,        // VPMOVSXBW (pp = 1)
-   0x21,        // VPMOVSXBD (pp = 1)
-   0x22,        // VPMOVSXBQ (pp = 1)
-   0x23,        // VPMOVSXWD (pp = 1)
-   0x24,        // VPMOVSXWQ (pp = 1)
-   0x25,        // VPMOVSXDQ (pp = 1)
-   0x28,        // VPMULDQ (pp = 1)
-   0x29,        // VPCMPEQQ (pp = 1)
-   0x2a,        // VMOVNTDQA (pp = 1)
-   0x2b,        // VPACKUSDW (pp = 1)
-   0x2c,        // VMASKMOVPS (pp = 1) ??
-   0x2d,        // VMASKMOVPD (pp = 1) ??
-   0x2e,        // VMASKMOVPS (pp = 1) ??
-   0x2f,        // VMASKMOVPD (pp = 1) ??
-   0x30,        // VPMOVZXBW (pp = 1)
-   0x31,        // VPMOVZXBD (pp = 1)
-   0x32,        // VPMOVZXBQ (pp = 1)
-   0x33,        // VPMOVZXWD (pp = 1)
-   0x34,        // VPMOVZXWQ (pp = 1)
-   0x35,        // VPMOVZXDQ (pp = 1)
-   0x37,        // VPCMPGTQ (pp = 1)
-   0x38,        // VPMINSB (pp = 1)
-   0x39,        // VPMINSD (pp = 1)
-   0x3a,        // VPMINUW (pp = 1)
-   0x3b,        // VPMINUD (pp = 1)
-   0x3c,        // VPMAXSB (pp = 1)
-   0x3d,        // VPMAXSD (pp = 1)
-   0x3e,        // VPMAXUW (pp = 1)
-   0x3f,        // VPMAXUD (pp = 1)
-   0x40,        // VPMULLD (pp = 1)
-   0x41,        // VPHMINPOSUW (pp = 1)
-   0x58,        // VPBROADCASTD (pp = 1)
-   0x59,        // VPBROADCASTQ (pp = 1)
-   0x5a,        // VPBROADCASTI128 (pp = 1)
-   0x78,        // VPBROADCASTB (pp = 1)
-   0x79,        // VPBROADCASTQ (pp = 1)
-   0x7a,        // VPBROADCASTI128 (pp = 1)
-   0x8c,        // VPMASKMOV (pp = 1)
-   0x8e,        // VPMASKMOV (pp = 1)
-   0x90,        // VPGATHERD (pp = 1)
-   0x91,        // VPGATHERQ (pp = 1)
-   0x92,        // VGATHERD (pp = 1)
-   0x93,        // VGATHERQ (pp = 1)
-   0x96,        // VFMADDSUB132 (pp = 1)  does this one do memory reference?
-   0x97,        // VFMSUBADD132 (pp = 1)
-   0x98,        // VFMADD132 (pp = 1)
-   0x99,        // VFMADD132 (pp = 1)
-   0x9a,        // VFMSUB132 (pp = 1)
-   0x9b,        // VFMSUB132 (pp = 1)
-   0x9c,        // VFNMADD132 (pp = 1)
-   0x9d,        // VFNMADD132 (pp = 1)
-   0x9e,        // VFNMSUB132 (pp = 1)
-   0x9f,        // VFNMSUB132 (pp = 1)
-   0xa6,        // VFMADDSUB213
-   0xa7,        // VFMSUBADD213
-   0xa8,        // VFMADD213 (pp = 1)
-   0xa9,        // VFMADD213 (pp = 1)
-   0xaa,        // VFMSUB213 (pp = 1)
-   0xab,        // VFMSUB213 (pp = 1)
-   0xac,        // VFNMADD213 (pp = 1)
-   0xad,        // VFNMADD213 (pp = 1)
-   0xae,        // VFNMSUB213 (pp = 1)
-   0xaf,        // VFNMSUB213 (pp = 1)
-   0xb6,        // VFMADDSUB231
-   0xb7,        // VFMSUBADD231
-   0xb8,        // VFMADD231 (pp = 1)
-   0xb9,        // VFMADD231 (pp = 1)
-   0xba,        // VFMSUB231 (pp = 1)
-   0xbb,        // VFMSUB231 (pp = 1)
-   0xbc,        // VFNMADD231 (pp = 1)
-   0xbd,        // VFNMADD231 (pp = 1)
-   0xbe,        // VFNMSUB231 (pp = 1)
-   0xbf,        // VFNMSUB231 (pp = 1)
-   0xdb,        // VAESIMC (pp = 1)
-   0xdc,        // VAESENC (pp = 1)
-   0xdd,        // VAESENCLAST (pp = 1)
-   0xde,        // VAESDEC (pp = 1)
-   0xdf,        // VAESDECLAST (pp = 1)
-   0xf2,        // ANDN
+                     0x74,   // VPCMPEQB,
+                     0x75,   // VPCMPEQW,
+                     0x76,   // VPCMPEQD,
+                     0x7c,   // VHADDPD (pp = 1), VHADDPS (pp = 3)
+                     0x7d,   // VHSUBPD (pp = 1), VHSUBPS (pp = 3)
+                     0x7e,   // VMOVD (pp = 1), VMOVQ (pp = 2)
+                     0x7f,   // VMOVDQA (pp = 1), VMOVDQU(pp = 2)
+                     OPCODE_GROUP_15 | 0xae,
+                     0xc2,   // VCMPccPS, VCMPccPD, VCMPccSS, VCMPccSD
+                     0xc4,   // VPINSRW,
+                     0xc6,   // VSHUFPS, VSHUFPD
+                     0xd0,   // VADDSUBPD (pp = 1), VADDSUBPS (pp = 3)
+                     0xd1,   // VPSRLW (pp = 1)
+                     0xd2,   // VPSRLD (pp = 1)
+                     0xd3,   // VPSRLQ (pp = 1)
+                     0xd4,   // VPADDQ (pp = 1)
+                     0xd5,   // VPMULLW (pp = 1)
+                     0xd8,   // VPSUBUSB (pp = 1)
+                     0xd9,   // VPSUBUSW (pp = 1)
+                     0xda,   // VPMINUB (pp = 1)
+                     0xdb,   // VPAND (pp = 1)
+                     0xdc,   // VPADDUSB (pp = 1)
+                     0xdd,   // VPADDUSW (pp = 1)
+                     0xde,   // VPMAXUB (pp = 1)
+                     0xdf,   // VPANDN (pp = 1)
+                     0xe0,   // VPAVGB (pp = 1)
+                     0xe1,   // VPSRAW (pp = 1)
+                     0xe2,   // VPSRAD (pp = 1)
+                     0xe3,   // VPAVGW (pp = 1)
+                     0xe4,   // VPMULHUW (pp = 1)
+                     0xe5,   // VPMULHW (pp = 1)
+                     0xe6,   // VCVTTPD2DQ (pp = 1), VCVTDQ2PD (pp = 2), VCVTPD2DQ (pp = 3)
+                     0xe8,   // VPSUBSB (pp = 1)
+                     0xe9,   // VPSUBSW (pp = 1)
+                     0xea,   // VPMINSW (pp = 1)
+                     0xeb,   // VPOR (pp = 1)
+                     0xec,   // VPADDSB (pp = 1)
+                     0xed,   // VPADDSW (pp = 1)
+                     0xee,   // VPMAXSW (pp = 1)
+                     0xef,   // VPXOR (pp = 1)
+                     0xf0,   // VLDDQU (pp = 3)
+                     0xf1,   // VPSLLW (pp = 1)
+                     0xf2,   // VPSLLD (pp = 1)
+                     0xf3,   // VPSLLQ (pp = 1)
+                     0xf4,   // VPMULUDQ (pp = 1)
+                     0xf5,   // VPMADDWD (pp = 1)
+                     0xf6,   // VPSADBW (pp = 1)
+                     0xf7,   // VMASKMOVDQU (pp = 1)
+                     0xf8,   // VPSUBB (pp = 1)
+                     0xf9,   // VPSUBW (pp = 1)
+                     0xfa,   // VPSUBD (pp = 1)
+                     0xfb,   // VPSUBQ (pp = 1)
+                     0xfc,   // VPADDB (pp = 1)
+                     0xfd,   // VPADDW (pp = 1)
+                     0xfe,   // VPADDD (pp = 1)
+                     OPCODE_MAP_END};
+ushort vex_map2[] = {0x00,   // VPSHUFB (pp = 1)
+                     0x01,   // VPHADDW (pp = 1)
+                     0x02,   // VPHADDD (pp = 1)
+                     0x03,   // VPHADDSW (pp = 1)
+                     0x04,   // VPMADDUBSW (pp = 1)
+                     0x05,   // VPHSUBW (pp = 1)
+                     0x06,   // VPHSUBD (pp = 1)
+                     0x07,   // VPHSUBSW (pp = 1)
+                     0x08,   // VPSIGNB (pp = 1)
+                     0x09,   // VPSIGNW (pp = 1)
+                     0x0a,   // VPSIGND (pp = 1)
+                     0x0b,   // VPMULHRSW (pp = 1)
+                     0x0c,   // VPERMILPS (pp = 1)
+                     0x0d,   // VPERMILPD (pp = 1)
+                     0x0e,   // VTESTPS (pp = 1)
+                     0x0f,   // VTETSPD (pp = 1)
+                     0x13,   // VCVTPH2PS (pp = 1)
+                     0x16,   // VPERMPS (pp = 1)
+                     0x17,   // VPTEST (pp = 1)
+                     0x18,   // VBROADCASTSS (pp = 1)
+                     0x19,   // VBROADCASTSD (pp = 1)
+                     0x1a,   // VBROADCASTF128 (pp = 1)
+                     0x1c,   // VPABSB (pp = 1)
+                     0x1d,   // VPABSW (pp = 1)
+                     0x1e,   // VPABSD (pp = 1)
+                     0x20,   // VPMOVSXBW (pp = 1)
+                     0x21,   // VPMOVSXBD (pp = 1)
+                     0x22,   // VPMOVSXBQ (pp = 1)
+                     0x23,   // VPMOVSXWD (pp = 1)
+                     0x24,   // VPMOVSXWQ (pp = 1)
+                     0x25,   // VPMOVSXDQ (pp = 1)
+                     0x28,   // VPMULDQ (pp = 1)
+                     0x29,   // VPCMPEQQ (pp = 1)
+                     0x2a,   // VMOVNTDQA (pp = 1)
+                     0x2b,   // VPACKUSDW (pp = 1)
+                     0x2c,   // VMASKMOVPS (pp = 1) ??
+                     0x2d,   // VMASKMOVPD (pp = 1) ??
+                     0x2e,   // VMASKMOVPS (pp = 1) ??
+                     0x2f,   // VMASKMOVPD (pp = 1) ??
+                     0x30,   // VPMOVZXBW (pp = 1)
+                     0x31,   // VPMOVZXBD (pp = 1)
+                     0x32,   // VPMOVZXBQ (pp = 1)
+                     0x33,   // VPMOVZXWD (pp = 1)
+                     0x34,   // VPMOVZXWQ (pp = 1)
+                     0x35,   // VPMOVZXDQ (pp = 1)
+                     0x37,   // VPCMPGTQ (pp = 1)
+                     0x38,   // VPMINSB (pp = 1)
+                     0x39,   // VPMINSD (pp = 1)
+                     0x3a,   // VPMINUW (pp = 1)
+                     0x3b,   // VPMINUD (pp = 1)
+                     0x3c,   // VPMAXSB (pp = 1)
+                     0x3d,   // VPMAXSD (pp = 1)
+                     0x3e,   // VPMAXUW (pp = 1)
+                     0x3f,   // VPMAXUD (pp = 1)
+                     0x40,   // VPMULLD (pp = 1)
+                     0x41,   // VPHMINPOSUW (pp = 1)
+                     0x58,   // VPBROADCASTD (pp = 1)
+                     0x59,   // VPBROADCASTQ (pp = 1)
+                     0x5a,   // VPBROADCASTI128 (pp = 1)
+                     0x78,   // VPBROADCASTB (pp = 1)
+                     0x79,   // VPBROADCASTQ (pp = 1)
+                     0x7a,   // VPBROADCASTI128 (pp = 1)
+                     0x8c,   // VPMASKMOV (pp = 1)
+                     0x8e,   // VPMASKMOV (pp = 1)
+                     0x90,   // VPGATHERD (pp = 1)
+                     0x91,   // VPGATHERQ (pp = 1)
+                     0x92,   // VGATHERD (pp = 1)
+                     0x93,   // VGATHERQ (pp = 1)
+                     0x96,   // VFMADDSUB132 (pp = 1)  does this one do memory reference?
+                     0x97,   // VFMSUBADD132 (pp = 1)
+                     0x98,   // VFMADD132 (pp = 1)
+                     0x99,   // VFMADD132 (pp = 1)
+                     0x9a,   // VFMSUB132 (pp = 1)
+                     0x9b,   // VFMSUB132 (pp = 1)
+                     0x9c,   // VFNMADD132 (pp = 1)
+                     0x9d,   // VFNMADD132 (pp = 1)
+                     0x9e,   // VFNMSUB132 (pp = 1)
+                     0x9f,   // VFNMSUB132 (pp = 1)
+                     0xa6,   // VFMADDSUB213
+                     0xa7,   // VFMSUBADD213
+                     0xa8,   // VFMADD213 (pp = 1)
+                     0xa9,   // VFMADD213 (pp = 1)
+                     0xaa,   // VFMSUB213 (pp = 1)
+                     0xab,   // VFMSUB213 (pp = 1)
+                     0xac,   // VFNMADD213 (pp = 1)
+                     0xad,   // VFNMADD213 (pp = 1)
+                     0xae,   // VFNMSUB213 (pp = 1)
+                     0xaf,   // VFNMSUB213 (pp = 1)
+                     0xb6,   // VFMADDSUB231
+                     0xb7,   // VFMSUBADD231
+                     0xb8,   // VFMADD231 (pp = 1)
+                     0xb9,   // VFMADD231 (pp = 1)
+                     0xba,   // VFMSUB231 (pp = 1)
+                     0xbb,   // VFMSUB231 (pp = 1)
+                     0xbc,   // VFNMADD231 (pp = 1)
+                     0xbd,   // VFNMADD231 (pp = 1)
+                     0xbe,   // VFNMSUB231 (pp = 1)
+                     0xbf,   // VFNMSUB231 (pp = 1)
+                     0xdb,   // VAESIMC (pp = 1)
+                     0xdc,   // VAESENC (pp = 1)
+                     0xdd,   // VAESENCLAST (pp = 1)
+                     0xde,   // VAESDEC (pp = 1)
+                     0xdf,   // VAESDECLAST (pp = 1)
+                     0xf2,   // ANDN
 #if 0
    OPCODE_GROUP_17 | 0xf3,     // these instructions do not reference memory
 #endif
-   0xf5,        // BZHI (pp = 0), PEXT (pp = 1), PDEP (pp = 3)
-   0xf6,        // MULX (pp = 3)
-   0xf7,        // BEXTR (pp = 0), SHLX (pp = 1), SARX (pp = 2), SHRX (pp = 3)
-   OPCODE_MAP_END
-};
-ushort vex_map3[] = {
-   0x00,        // VPERMQ (pp = 1)
-   0x01,        // VPERMPD (pp = 1)
-   0x02,        // VPBLENDD (pp = 1)
-   0x04,        // VPERMILPS (pp = 1)
-   0x05,        // VPERMILPD (pp = 1)
-   0x06,        // VPERM2F128 (pp = 1)
-   0x08,        // VROUNDPS (pp = 1)
-   0x09,        // VROUNDPD (pp = 1)
-   0x0a,        // VROUNDSS (pp = 1)
-   0x0b,        // VROUNDSD (pp = 1)
-   0x0c,        // VBLENDPS (pp = 1)
-   0x0d,        // VBLENDPD (pp = 1)
-   0x0e,        // VPBLENDW (pp = 1)
-   0x0f,        // VPALIGNR (pp = 1)
-   0x14,        // VPEXTRB (pp = 1)
-   0x15,        // VPEXTRW (pp = 1)
-   0x16,        // VPEXTRD (pp = 1)
-   0x17,        // VEXTRACTPS (pp = 1)
-   0x18,        // VINSERTF128 (pp = 1)
-   0x19,        // VEXTRACTF128 (pp = 1)
-   0x1d,        // VCVTPS2PH (pp = 1)
-   0x20,        // VPINSRB (pp = 1)
-   0x21,        // VINSERTPS (pp = 1)
-   0x22,        // VPINSRD, VPINSRQ (pp = 1)
-   0x38,        // VINSERTI128 (pp = 1)
-   0x39,        // VEXTRACTI128 (pp = 1)
-   0x40,        // VDPPS (pp = 1)
-   0x41,        // VDPPD (pp = 1)
-   0x42,        // VMPSADBW (pp = 1)
-   0x44,        // VPCLMULQDQ (pp = 1)
-   0x46,        // VPERM2I128 (pp = 1)
-   0x48,        // VPERMILzz2PS (pp = 1)
-   0x49,        // VPERMILzz2PD (pp = 1)
-   0x4a,        // VBLENDVPS (pp = 1)
-   0x4b,        // VBLENDVPD (pp = 1)
-   0x4c,        // VPBLENDVB (pp = 1)
-   0x5c,        // VFMADDSUBPS (pp = 1)
-   0x5d,        // VFMADDSUBPD (pp = 1)
-   0x5e,        // VFMSUBADDPS (pp = 1)
-   0x5f,        // VFMSUBADDPD (pp = 1)
-   0x60,        // VPCMPESTRM (pp = 1)
-   0x61,        // VPCMPESTRI (pp = 1)
-   0x62,        // VPCMPISTRM (pp = 1)
-   0x63,        // VPCMPISTRI (pp = 1)
-   0x78,        // VFNMADDPS (pp = 1)
-   0x79,        // VFNMADDPD (pp = 1)
-   0x7a,        // VFNMADDSS (pp = 1)
-   0x7b,        // VFNMADDSD (pp = 1)
-   0x7c,        // VFNMSUBPS (pp = 1)
-   0x7d,        // VFNMSUBPD (pp = 1)
-   0x7e,        // VFNMSUBSS (pp = 1)
-   0x7f,        // VFNMSUBSD (pp = 1)
-   0xdf,        // VAESKEYGENASSIST (pp = 1)
-   0xf0,        // RORX (pp = 3)
-   OPCODE_MAP_END
-};
+                     0xf5,   // BZHI (pp = 0), PEXT (pp = 1), PDEP (pp = 3)
+                     0xf6,   // MULX (pp = 3)
+                     0xf7,   // BEXTR (pp = 0), SHLX (pp = 1), SARX (pp = 2), SHRX (pp = 3)
+                     OPCODE_MAP_END};
+ushort vex_map3[] = {0x00,   // VPERMQ (pp = 1)
+                     0x01,   // VPERMPD (pp = 1)
+                     0x02,   // VPBLENDD (pp = 1)
+                     0x04,   // VPERMILPS (pp = 1)
+                     0x05,   // VPERMILPD (pp = 1)
+                     0x06,   // VPERM2F128 (pp = 1)
+                     0x08,   // VROUNDPS (pp = 1)
+                     0x09,   // VROUNDPD (pp = 1)
+                     0x0a,   // VROUNDSS (pp = 1)
+                     0x0b,   // VROUNDSD (pp = 1)
+                     0x0c,   // VBLENDPS (pp = 1)
+                     0x0d,   // VBLENDPD (pp = 1)
+                     0x0e,   // VPBLENDW (pp = 1)
+                     0x0f,   // VPALIGNR (pp = 1)
+                     0x14,   // VPEXTRB (pp = 1)
+                     0x15,   // VPEXTRW (pp = 1)
+                     0x16,   // VPEXTRD (pp = 1)
+                     0x17,   // VEXTRACTPS (pp = 1)
+                     0x18,   // VINSERTF128 (pp = 1)
+                     0x19,   // VEXTRACTF128 (pp = 1)
+                     0x1d,   // VCVTPS2PH (pp = 1)
+                     0x20,   // VPINSRB (pp = 1)
+                     0x21,   // VINSERTPS (pp = 1)
+                     0x22,   // VPINSRD, VPINSRQ (pp = 1)
+                     0x38,   // VINSERTI128 (pp = 1)
+                     0x39,   // VEXTRACTI128 (pp = 1)
+                     0x40,   // VDPPS (pp = 1)
+                     0x41,   // VDPPD (pp = 1)
+                     0x42,   // VMPSADBW (pp = 1)
+                     0x44,   // VPCLMULQDQ (pp = 1)
+                     0x46,   // VPERM2I128 (pp = 1)
+                     0x48,   // VPERMILzz2PS (pp = 1)
+                     0x49,   // VPERMILzz2PD (pp = 1)
+                     0x4a,   // VBLENDVPS (pp = 1)
+                     0x4b,   // VBLENDVPD (pp = 1)
+                     0x4c,   // VPBLENDVB (pp = 1)
+                     0x5c,   // VFMADDSUBPS (pp = 1)
+                     0x5d,   // VFMADDSUBPD (pp = 1)
+                     0x5e,   // VFMSUBADDPS (pp = 1)
+                     0x5f,   // VFMSUBADDPD (pp = 1)
+                     0x60,   // VPCMPESTRM (pp = 1)
+                     0x61,   // VPCMPESTRI (pp = 1)
+                     0x62,   // VPCMPISTRM (pp = 1)
+                     0x63,   // VPCMPISTRI (pp = 1)
+                     0x78,   // VFNMADDPS (pp = 1)
+                     0x79,   // VFNMADDPD (pp = 1)
+                     0x7a,   // VFNMADDSS (pp = 1)
+                     0x7b,   // VFNMADDSD (pp = 1)
+                     0x7c,   // VFNMSUBPS (pp = 1)
+                     0x7d,   // VFNMSUBPD (pp = 1)
+                     0x7e,   // VFNMSUBSS (pp = 1)
+                     0x7f,   // VFNMSUBSD (pp = 1)
+                     0xdf,   // VAESKEYGENASSIST (pp = 1)
+                     0xf0,   // RORX (pp = 3)
+                     OPCODE_MAP_END};
 
-ushort *vex_maps[32] = {  // 1-3 are valid indexes
-   NULL,
-   vex_map1,
-   vex_map2,
-   vex_map3
-};
+ushort* vex_maps[32] = {   // 1-3 are valid indexes
+    NULL,
+    vex_map1,
+    vex_map2,
+    vex_map3};
 // We don't support the xop maps yet.
 // But the code is plumbed to use them since they are about the same as
 // VEX_3BYTE_PREFIX instruction prefixes.
 unsigned char* xop_groups[32];
-ushort *xop_maps[32];  // 8-10 are valid indexes
+ushort* xop_maps[32];   // 8-10 are valid indexes
 
 static unsigned short find_opcode_in_map(ushort* map, unsigned char opcode)
 {
@@ -1247,45 +1242,45 @@ static void decode_vex_opcodes(km_vcpu_t* vcpu, x86_instruction_t* ins)
       return;
    }
    switch (prefix) {
-   case VEX_3BYTE_PREFIX:
-   case XOP_PREFIX:
-      // Overload rex_* fields so we can use decode_modrm()
-      // Note that field values are complimented for vex and xop.
-      ins->rex_r = ((ins->curbyte >> 7) & 1) ^ 1;
-      ins->rex_x = ((ins->curbyte >> 6) & 1) ^ 1;
-      ins->rex_b = ((ins->curbyte >> 5) & 1) ^ 1;
-      map_select = (ins->curbyte & 0x1f);
-      opcodemap = (prefix == VEX_3BYTE_PREFIX) ? vex_maps[map_select] : xop_maps[map_select];
+      case VEX_3BYTE_PREFIX:
+      case XOP_PREFIX:
+         // Overload rex_* fields so we can use decode_modrm()
+         // Note that field values are complimented for vex and xop.
+         ins->rex_r = ((ins->curbyte >> 7) & 1) ^ 1;
+         ins->rex_x = ((ins->curbyte >> 6) & 1) ^ 1;
+         ins->rex_b = ((ins->curbyte >> 5) & 1) ^ 1;
+         map_select = (ins->curbyte & 0x1f);
+         opcodemap = (prefix == VEX_3BYTE_PREFIX) ? vex_maps[map_select] : xop_maps[map_select];
 
-      decode_consume_byte(vcpu, ins);
-      if (ins->failed_addr != 0) {
-         return;
-      }
-      ins->rex_w = ((ins->curbyte >> 7) & 1) ^ 1;
-      //vvvv = (ins->curbyte >> 3) & 0xf;
-      //l = (ins->curbyte >> 1) & 1;
-      //pp = (ins->curbyte & 3);
-      //prefix = vex_pp_encoding[pp];
-      break;
+         decode_consume_byte(vcpu, ins);
+         if (ins->failed_addr != 0) {
+            return;
+         }
+         ins->rex_w = ((ins->curbyte >> 7) & 1) ^ 1;
+         // vvvv = (ins->curbyte >> 3) & 0xf;
+         // l = (ins->curbyte >> 1) & 1;
+         // pp = (ins->curbyte & 3);
+         // prefix = vex_pp_encoding[pp];
+         break;
 
-   case VEX_2BYTE_PREFIX:
-      // 2 byte vex uses default values for many fields.
-      ins->rex_x = 0;
-      ins->rex_b = 0;
-      ins->rex_w = 1;
-      map_select = 1;
-      opcodemap = vex_maps[map_select];
-      ins->rex_r = ((ins->curbyte >> 7) & 1) ^ 1;
-      //vvvv = (*pc >> 3) & 0xf;
-      //l = (*pc >> 2) & 1;
-      //pp = (*pc & 3);
-      //prefix = vex_pp_encoding[pp];
-      break;
+      case VEX_2BYTE_PREFIX:
+         // 2 byte vex uses default values for many fields.
+         ins->rex_x = 0;
+         ins->rex_b = 0;
+         ins->rex_w = 1;
+         map_select = 1;
+         opcodemap = vex_maps[map_select];
+         ins->rex_r = ((ins->curbyte >> 7) & 1) ^ 1;
+         // vvvv = (*pc >> 3) & 0xf;
+         // l = (*pc >> 2) & 1;
+         // pp = (*pc & 3);
+         // prefix = vex_pp_encoding[pp];
+         break;
 
-   default:
-      // The caller should not have called us with this prefix byte.
-      km_abort("Called with unsupported opcode prefix 0x%x", prefix);
-      break;
+      default:
+         // The caller should not have called us with this prefix byte.
+         km_abort("Called with unsupported opcode prefix 0x%x", prefix);
+         break;
    }
    // Detect opcode maps we don't yet have support for.
    if (opcodemap == NULL) {
@@ -1311,26 +1306,31 @@ static void decode_vex_opcodes(km_vcpu_t* vcpu, x86_instruction_t* ins)
       // instruction performs.
       if ((map_entry & ~OPCODE_MASK) >= OPCODE_GROUP_0 &&
           (map_entry & ~OPCODE_MASK) <= OPCODE_GROUP_31) {
-	 int i = (map_entry & OPCODE_GROUP_MASK) >> 8;
+         int i = (map_entry & OPCODE_GROUP_MASK) >> 8;
          unsigned char* group;
          group = (prefix == XOP_PREFIX) ? xop_groups[i] : vex_groups[i];
-	 unsigned char* p;
-	 for (p = group; *p != 0; p++) {
+         unsigned char* p;
+         for (p = group; *p != 0; p++) {
             if (((ins->curbyte >> 3) & 0x07) == *p) {
                break;
             }
          }
          if (*p == 0) {
             // This instruction references memory but we don't think it does.
-            km_warnx("VEX/XOP group instruction faulted but doesn't reference memory: Prefix 0x%x, map_select %d, Opcode 0x%x, modrm 0x%x",
-                     prefix, map_select, ins->opcode, ins->curbyte);
+            km_warnx("VEX/XOP group instruction faulted but doesn't reference memory: Prefix 0x%x, "
+                     "map_select %d, Opcode 0x%x, modrm 0x%x",
+                     prefix,
+                     map_select,
+                     ins->opcode,
+                     ins->curbyte);
             return;
          }
       }
       // Found the opcode, compute reference memory address
       decode_modrm(vcpu, ins);
       km_infox(KM_TRACE_DECODE,
-               "prefix 0x%x, opcode: 0x%02x, vex/xop map entry 0x%x, modrm: present:%d mode:%d reg:%d rm:%d",
+               "prefix 0x%x, opcode: 0x%02x, vex/xop map entry 0x%x, modrm: present:%d mode:%d "
+               "reg:%d rm:%d",
                prefix,
                ins->opcode,
                map_entry,
@@ -1343,8 +1343,11 @@ static void decode_vex_opcodes(km_vcpu_t* vcpu, x86_instruction_t* ins)
       find_modrm_fault(vcpu, ins);
    } else {
       // We are not expecting this instruction to reference memory.  Something is wrong.
-      km_warnx("VEX/XOP instruction faulted but doesn't reference memory: Prefix 0x%x, map_select %d, Opcode 0x%x",
-               prefix, map_select, ins->opcode);
+      km_warnx("VEX/XOP instruction faulted but doesn't reference memory: Prefix 0x%x, map_select "
+               "%d, Opcode 0x%x",
+               prefix,
+               map_select,
+               ins->opcode);
    }
 }
 
