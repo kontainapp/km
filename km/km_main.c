@@ -720,13 +720,18 @@ int main(int argc, char* argv[])
       FD_SET(machine.shutdown_fd, &fds);
       int rc = 0;
       while (1) {
-         struct timeval to = {.tv_sec = light_snap_accept_timeout / 1000,
-                              .tv_usec = (light_snap_accept_timeout % 1000) * 1000};
-         if ((rc = select(machine.shutdown_fd + 1, &fds, NULL, NULL, &to)) < 0 && errno != EINTR) {
-            km_err(2, "can't select on machine.shutdown_fd");
+         if (light_snap_accept_timeout > 0) {
+            struct timeval to = {.tv_sec = light_snap_accept_timeout / 1000,
+                                 .tv_usec = (light_snap_accept_timeout % 1000) * 1000};
+            if ((rc = select(machine.shutdown_fd + 1, &fds, NULL, NULL, &to)) < 0 && errno != EINTR) {
+               km_err(2, "can't select on machine.shutdown_fd");
+            }
+         } else {
+            if ((rc = select(machine.shutdown_fd + 1, &fds, NULL, NULL, NULL)) < 0 && errno != EINTR) {
+               km_err(2, "can't select on machine.shutdown_fd");
+            }
          }
-         // either payload exited or timeout expired. If former rc == 1 as shutdown_fd is signalled
-         if (rc > 0) {
+         if (machine.exit_group != 0 || machine.vm_vcpu_run_cnt == 0) {   // payload exited
             break;
          }
          if (km_active_accept() == 0) {
