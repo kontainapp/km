@@ -665,6 +665,7 @@ int main(int argc, char* argv[])
    km_mgt_init(mgtpipe);
 
    // snapshot file is type ET_CORE. We check for additional notes in restore
+   int snap_start = 0;
    if (elf->ehdr.e_type == ET_CORE) {
       km_infox(KM_TRACE_SNAPSHOT, "Snapshot recover started, pid %d, from %s", getpid(), km_payload_name);
       // km_snapshot_restore() closes the elf file.
@@ -673,6 +674,7 @@ int main(int argc, char* argv[])
       }
       km_infox(KM_TRACE_SNAPSHOT, "Snapshot recover complete, pid %d", getpid());
       vcpu = machine.vm_vcpus[0];
+      snap_start = 1;
    } else {
       // if environment wasn't set up copy it from host
       if (envp == NULL) {
@@ -728,6 +730,10 @@ int main(int argc, char* argv[])
    km_start_vcpus();
 
    km_fire_guest_started_callback();
+   if (snap_start != 0) {
+      // snapshots don't need to wait for listen
+      km_fire_km_listen_callback(NULL, -1);
+   }
 
    if (km_gdb_is_enabled() != 0) {
       km_gdb_main_loop(vcpu);
