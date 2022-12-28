@@ -9,10 +9,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-  
+
     - id: make-image-name
       run: |
-        [[ -z "${{inputs.build-flavor}}" ]] && echo "::set-output name=img::" || echo "::set-output name=img::${{inputs.build-flavor}}-"
+        [[ -z "${{inputs.build-flavor}}" ]] && echo "img=" >> $GITHUB_OUTPUT || echo "img=${{inputs.build-flavor}}-" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Print build environment info

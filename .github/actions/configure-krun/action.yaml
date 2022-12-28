@@ -50,7 +50,7 @@ runs:
     # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
     # and was built in the previous step, upload it with SHA as artifact name
     - name: Upload krun-static under SHA to be available for persistent check (see above)
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
       with:
         name: ${{ env.CRUN_SHA }}

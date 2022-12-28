@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
 
@@ -95,7 +95,7 @@ jobs:
       # passing hello_test.c and libhelper.a
       # because we will need to rebuild hello_test.kmd with correct RPATH for runtime environments
       - name: Upload km-build artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: km-build
           path: |
@@ -117,12 +117,12 @@ jobs:
     needs: km-build
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
 
       - name: Download km-build artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: km-build
           path: .
@@ -166,7 +166,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: recursive
 
@@ -187,13 +187,13 @@ jobs:
     needs: [km-build, krun-static-build]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
 
       # get build directory created by km-build job
       - name: Download km-build artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: km-build
           path: .
@@ -230,7 +230,7 @@ jobs:
           make k8s-bundle
 
       - name: Upload km-k8s-rel-artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: km-k8s-rel-artifact
           path: build/kontain_bin.tar.gz
@@ -241,12 +241,12 @@ jobs:
     needs: [start-runners, km-build]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: recursive
 
       - name: Download km-build artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: km-build
           path: .
@@ -304,7 +304,7 @@ jobs:
     needs: [km-build]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
 
@@ -322,12 +322,12 @@ jobs:
     needs: [start-runners, km-build]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: recursive
 
       - name: Download km-build artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: km-build
           path: .
@@ -394,18 +394,15 @@ jobs:
         #     driver: podman
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
 
       - name: Download km-k8s-rel-artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: km-k8s-rel-artifact
           path: /tmp/bin_release
-
-      - name: Print downloaded artifact
-        run: find /tmp/bin_release
 
       - name: Start local file server
         run: |
@@ -447,14 +444,14 @@ jobs:
     needs: [k8s-release-bin]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
 
       - uses: ./.github/actions/configure-kkm
 
       - name: Download km-k8s-rel-artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: km-k8s-rel-artifact
           path: /tmp/bin_release
@@ -516,7 +513,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL

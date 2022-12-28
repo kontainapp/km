@@ -15,7 +15,7 @@ jobs:
       run-ons: ${{ steps.start-cloud-runner.outputs.run-ons }}
     steps:
       - name: Get public Keys
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Start Cloud runners
         id: start-cloud-runner
