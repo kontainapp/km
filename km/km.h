@@ -394,6 +394,7 @@ int km_clone(km_vcpu_t* vcpu,
 long km_clone3(km_vcpu_t* vcpu, struct clone_args* cl_args, size_t cl_args_len);
 uint64_t km_set_tid_address(km_vcpu_t* vcpu, km_gva_t tidptr);
 void km_exit(km_vcpu_t* vcpu);
+void handle_km_auxv();
 
 void km_vcpu_stopped(km_vcpu_t* vcpu);
 km_vcpu_t* km_vcpu_get(void);
@@ -764,6 +765,7 @@ static inline void km_signal_unlock(void)
 #define KM_TRACE_FORK "fork"   // also clone() for a process.
 #define KM_TRACE_ARGS "args"
 #define KM_TRACE_LOAD "load"
+#define KM_TRACE_VDSO "vdso"
 
 /*
  * The km definition of the link_map structure in runtime/musl/include/link.h

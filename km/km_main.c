@@ -620,6 +620,11 @@ int main(int argc, char* argv[])
 
    km_gdbstub_init();
 
+   /*
+    * Process KM's AUXV vector.
+    */
+   handle_km_auxv();
+
    if (km_exec_recover_kmstate() < 0) {   // exec state is messed up
       km_errx(2, "Problems in performing post exec processing");
    }
