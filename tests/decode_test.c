@@ -520,6 +520,28 @@ TEST test_avx()
    PASS();
 }
 
+TEST test_vex_2byte(void)
+{
+   ASSERT_EQ(0, setup());
+   __asm__ volatile("vmovdqa %%ymm6, (%0)\n" : : "r"(datapage_page));
+
+   ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
+   ASSERT_EQ(datapage_page, failing_page());
+   ASSERT_EQ(0, teardown());
+   PASS();
+}
+
+TEST test_vex_3byte(void)
+{
+   ASSERT_EQ(0, setup());
+   asm volatile("vptest (%0), %%ymm1 " : : "r"(datapage_page));
+
+   ASSERT_EQ(SIGSEGV, datapage_siginfo.si_signo);
+   ASSERT_EQ(datapage_page, failing_page());
+   ASSERT_EQ(0, teardown());
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char* argv[])
@@ -542,6 +564,11 @@ int main(int argc, char* argv[])
    RUN_TEST(test_2byte);
    RUN_TEST(test_3byte);
    RUN_TEST(test_avx);
+   __builtin_cpu_init();
+   if (__builtin_cpu_supports("avx") != 0 || __builtin_cpu_supports("avx2") != 0) {
+      RUN_TEST(test_vex_2byte);
+      RUN_TEST(test_vex_3byte);
+   }
 
    GREATEST_PRINT_REPORT();
    return greatest_info.failed;
