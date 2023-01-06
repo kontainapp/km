@@ -313,6 +313,17 @@ int km_shrink_footprint(km_vcpu_t* vcpu)
    // recheck active accepted sockets to make sure none snuck in after the lighter check
    int rc = 0;
    if (__atomic_load_n(&accept_cnt, __ATOMIC_SEQ_CST) == 0) {
+      // An experiment to see if forking before execing will get rid of the perf degradation
+      pid_t pid = fork();
+      if (pid < 0) {
+         km_err(3, "fork() failed while trying to shrink");
+      } else if (pid == 0) {
+         // We are the parent process, we exit to discard this process context
+         // so the child can start with a hopefully cleaner process context.
+	 km_infox(KM_TRACE_SNAPSHOT, "shrinking/parent km is exiting, child %d will carry on", pid);
+	 exit(0);
+      }
+      // End of experiment code.
       snprintf(listeningfd, sizeof(listeningfd), "%s=fd %d", KM_SNAP_LISTEN_PORT, km_snap_listenfd);
       int i = 0;
       envarray[i++] = listeningfd;
