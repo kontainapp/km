@@ -640,7 +640,7 @@ int main(int argc, char* argv[])
       }
       km_snapshot_name = strdup(km_payload_name);
       km_assert(km_snapshot_name != NULL);
-      light_snap_listen(fileno(elf->file));
+      light_snap_listen(elf);
    }
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
@@ -651,6 +651,7 @@ int main(int argc, char* argv[])
    // snapshot file is type ET_CORE. We check for additional notes in restore
    if (elf->ehdr.e_type == ET_CORE) {
       km_infox(KM_TRACE_SNAPSHOT, "Snapshot recover started, pid %d, from %s", getpid(), km_payload_name);
+      // km_snapshot_restore() closes the elf file.
       if (km_snapshot_restore(elf) < 0) {
          km_err(1, "failed to restore from snapshot %s", km_payload_name);
       }

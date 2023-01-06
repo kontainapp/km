@@ -1675,3 +1675,85 @@ fi
    # cleanup
    rm -fr $SNAPDIR $MGTPIPE $TRACEFILE
 }
+
+#
+# When this test fails it usually leaves a copy of multilist_test$ext running for 250s.
+# Either kill it or wait until it times out before running the this again.
+#
+@test "multilisten-snapshot($test_type): shrinking snapshot listening on many ports (multilisten_test$ext)" {
+   # this test uses $port_count ports.  So the next available port is $port_id + $port_count
+   local port_id=23
+   local port_count=10
+   local socket_port=$(($port_range_start + $port_id))
+   local MGTDIR=multilisten_mgtdir.$$
+   mkdir -p $MGTDIR
+
+   # startup multilisten
+   rm -fr $MGTDIR/*
+   KM_MGTDIR=$MGTDIR km_with_timeout multilisten_test$ext $port_count $socket_port &
+
+   # wait for multilisten to get going
+   target_port=`expr $socket_port + $port_count - 1`
+   tries=10
+   for ((i=0; i<10; i++))
+   do
+      echo "hi there" | ./netpipe_test.fedora -c +$target_port
+      if test $? -eq 0; then
+         break;
+      fi
+      sleep 2
+      tries=`expr $tries - 1`
+   done
+   assert [ $tries -ne 0 ]
+
+   # get the km mgt pipe file name
+   pipefile=`ls $MGTDIR/kmpipe.multilisten_test$ext.[0-9]*`
+   assert_success
+
+   # take snapshot, this should also terminate multilisten
+   ${KM_CLI_BIN} -s $pipefile
+   assert_success
+   rm -f $MGTDIR/kmsnap.multilisten_test$ext.[0-9]*.conf
+   snapfile=`ls $MGTDIR/kmsnap.multilisten_test$ext.[0-9]*`
+   assert_success
+
+   # wait for the snapped version of multilisten to terminate
+   # this prevents bind "addr in use" errors, errr
+   sleep 5
+
+   # start snapshot with SNAP_LISTEN_TIMEOUT=500
+   SNAP_LISTEN_TIMEOUT=500 km_with_timeout $snapfile &
+
+   # wait for multilisten snapshot to start
+   tries=10
+   for ((i=0; i<10; i++))
+   do
+      echo "hi there" | ./netpipe_test.fedora -c +$socket_port
+      if test $? -eq 0; then
+         break;
+      fi
+      sleep .5
+      tries=`expr $tries - 1`
+   done
+   assert [ $tries -ne 0 ]
+   echo "multilisten snapshot found running with $tries probes remaining"
+
+   # make connections to each port multilisten is listening on
+   for ((i=0; i<$port_count; i++))
+   do
+      port=`expr $socket_port + $i`
+      echo "Trying port $port"
+      run ./netpipe_test.fedora -c +$port <<EOF
+stuff
+EOF
+      assert_success
+      assert_output "goofy message from port $port"
+   done
+
+   # stop the test program
+   echo terminate | ./netpipe_test.fedora -c +$port_id
+   assert_success
+
+   # cleanup mgtdir
+   rm -fr $MGTDIR
+}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Kontain Inc
+ * Copyright 2022-2023 Kontain Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,13 +57,34 @@
 #include "km_snapshot.h"
 #include "km_syscall.h"
 
-// gdb socket numbers are also used for lightweight snap start
-static const int KM_GDB_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES;
-static const int KM_GDB_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 1;
-static const int KM_MGM_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES + 2;
-static const int KM_MGM_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 3;
+/*
+ * km uses open fd's for its own purposes.  The km fd's are kept at the
+ * top of the fd space.  These are the fd's that km uses:
+ *  kvm/kkm virt dev fd
+ *  per vcpu fd (up to 288)
+ *  shutdown fd
+ *  intr fd
+ *  gdb listen fd
+ *  gdb active connection fd
+ *  km mgmt listen fd
+ *  km mgmt connection fd
+ *  snapshot input fd
+ *  snapshot output fd
+ *  km logging/tracing fd
+ *
+ * In addition the snapshot recover fd overloads the gdb active connection fd since
+ * open snapshots are not used concurrent with gdb accessing the payload.
+ * If concurrency is required we will need to allocate another km fd for an open
+ * snapshot file.
+ */
+const int MAX_OPEN_FILES = 1024;
+const int MAX_KM_FILES = KVM_MAX_VCPUS + 2 + 2 + 2 + 2 + 1;   // eventfds, kvm, gdb, km mgmt, snap, log
+const int KM_GDB_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES;
+const int KM_GDB_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 1;
+const int KM_MGM_LISTEN = MAX_OPEN_FILES - MAX_KM_FILES + 2;
+const int KM_MGM_ACCEPT = MAX_OPEN_FILES - MAX_KM_FILES + 3;
 const int KM_LOGGING = MAX_OPEN_FILES - MAX_KM_FILES + 4;
-static const int KM_START_FDS = MAX_OPEN_FILES - MAX_KM_FILES + 5;
+const int KM_START_FDS = MAX_OPEN_FILES - MAX_KM_FILES + 5;
 
 static char proc_pid_fd[128];
 static char proc_pid_exe[128];
@@ -75,21 +96,31 @@ static char* km_my_exec;   // my executable per /proc/self/exe to check with in 
 // file name conversion functions forward declarations
 static int km_fs_g2h_filename(const char* name, char* buf, size_t bufsz, km_file_ops_t** ops);
 static int km_fs_g2h_readlink(const char* name, char* buf, size_t bufsz);
+static void km_snapshot_listenfds_find(km_elf_t* e);
 
 km_fd_dup_data_t dup_data;
 pthread_mutex_t dup_data_mtx;
 
 /*
- * Lightweight snap start - wait for connection on the snap_listen_sock before restoring the snapshot.
+ * Lightweight snap start - wait for connection on the snap_listen_sock before restoring the
+ * snapshot. The env var KM_SNAP_LISTEN_TIMEOUT supplies this value.
  */
 int64_t light_snap_accept_timeout;   // != 0 means light weight accept is enabled
                                      // < 0 means shrink only by accept count
                                      // > 0 means shrink by accept count and timeout
-static int snap_listen_sock = -1;
-static km_fd_socket_t* snap_listen_sockinfo;
-static int snap_conn_sock = -1;
-static int km_snap_listenfd = -1;
-static km_fd_socket_t sc_conn;
+
+/*
+ * Use this to keep track of which fd's are listening inside of a snapshot.
+ * We fill this from the open file notes in the snapshot elf file.
+ */
+typedef struct km_snap_listening_state {
+   int listen_fd;
+   int accept_fd;   // if >= 0, this listen fd rehydrated the payload
+   km_fd_socket_t listen_sockinfo;
+} km_snap_listening_state_t;
+km_snap_listening_state_t* km_snap_listening_state_p;
+int km_snap_listening_state_max;   // number of array in what km_snap_listening_state_p points to
+int km_snap_listening_state_cnt;   // how many elements in km_snap_listening_state_p[] are in use
 
 static u_int64_t accept_time;   // time stamp of the latest accept HC in milliseconds
 static int64_t accept_cnt;      // count of active accepted sockets
@@ -140,122 +171,188 @@ int km_active_accept(void)
    return tp.tv_sec * 1000 + tp.tv_nsec / 1000000 > accept_time + light_snap_accept_timeout ? 0 : 1;
 }
 
-static int km_internal_fd(int fd, int km_fd);
+int km_snap_is_listener(int fd)
+{
+   for (int i = 0; i < km_snap_listening_state_cnt; i++) {
+      if (km_snap_listening_state_p[i].listen_fd == fd) {
+         return 1;
+      }
+   }
+   return 0;
+}
 
-void km_vmstate_destroy(int listenfd, int elf_fd)
+void km_vmstate_destroy(int elf_fd)
 {
    int i;
    struct stat statb;
 
    for (i = 3; i < MAX_OPEN_FILES; i++) {
-      if (i != listenfd && i != KM_LOGGING && i != elf_fd && fstat(i, &statb) == 0) {
+      if (km_snap_is_listener(i) == 0 && i != KM_LOGGING && i != elf_fd && fstat(i, &statb) == 0) {
          close(i);
       }
    }
 }
 
-void light_snap_listen(int elf_fd)
+/*
+ * If the passed listening fd has an accepted connection that
+ * was accepted before the payload was hydrated, then return that
+ * fd.
+ * If we find nothing return -1
+ */
+static int km_snap_find_accepted(int listenfd)
 {
-   char* port;
-   if ((port = getenv(KM_SNAP_LISTEN_PORT)) == NULL) {
-      return;
+   for (int i = 0; i < km_snap_listening_state_cnt; i++) {
+      if (km_snap_listening_state_p[i].listen_fd == listenfd) {
+         int accept_fd;
+         if ((accept_fd = km_snap_listening_state_p[i].accept_fd) >= 0) {
+            km_snap_listening_state_p[i].accept_fd = -1;
+            return accept_fd;
+         }
+         break;
+      }
    }
+   return -1;
+}
+
+// helper routine to get network port numbers for messages
+static uint16_t extract_port(struct sockaddr* sap)
+{
+   switch (sap->sa_family) {
+      case AF_INET:
+         return ntohs(((struct sockaddr_in*)sap)->sin_port);
+      case AF_INET6:
+         return ntohs(((struct sockaddr_in6*)sap)->sin6_port);
+      default:
+         km_errx(2, "Unsupported sockaddr address family %d", sap->sa_family);
+   }
+   return 0;
+}
+
+void light_snap_listen(km_elf_t* e)
+{
+   /*
+    * SNAP_LISTEN_TIMEOUT's presence in the environment enables the light
+    * snap listen mode of operation.
+    */
    char* to = getenv(KM_SNAP_LISTEN_TIMEOUT);
    if (to != NULL) {
       light_snap_accept_timeout = atol(to);
    }
-
-   if ((snap_listen_sockinfo = malloc(sizeof(km_fd_socket_t))) == NULL) {
-      km_err(2, "no memory for snap_listen_sockinfo");
-   }
-   if (strncmp(port, "i4", strlen("i4")) == 0) {
-      snap_listen_sock = socket(AF_INET, SOCK_STREAM, 0);
-
-      *snap_listen_sockinfo = (km_fd_socket_t){.domain = AF_INET, .type = SOCK_STREAM, .protocol = 0};
-
-      struct sockaddr_in sa_serv = {.sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY};
-      sa_serv.sin_port = htons(atol(port + strlen("i4")));
-
-      int optval = 1;
-      setsockopt(snap_listen_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
-      if (bind(snap_listen_sock, (struct sockaddr*)&sa_serv, sizeof(sa_serv)) < 0) {
-         km_err(2, "bind, port %d failed", port);
-      }
-
-      snap_listen_sockinfo->addrlen = sizeof(sa_serv);
-      memcpy(snap_listen_sockinfo->addr, &sa_serv, sizeof(sa_serv));
-   } else if (strncmp(port, "i6", strlen("i6")) == 0) {
-      snap_listen_sock = socket(AF_INET6, SOCK_STREAM, 0);
-
-      *snap_listen_sockinfo = (km_fd_socket_t){.domain = AF_INET6, .type = SOCK_STREAM, .protocol = 0};
-
-      struct sockaddr_in6 sa_serv = {.sin6_family = AF_INET6, .sin6_addr = in6addr_any};
-      sa_serv.sin6_port = htons(atol(port + strlen("i6")));
-
-      int optval = 1;
-      setsockopt(snap_listen_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
-      if (bind(snap_listen_sock, (struct sockaddr*)&sa_serv, sizeof(sa_serv)) < 0) {
-         km_err(2, "bind, port %d failed", port);
-      }
-
-      snap_listen_sockinfo->addrlen = sizeof(sa_serv);
-      memcpy(snap_listen_sockinfo->addr, &sa_serv, sizeof(sa_serv));
-   } else if (strncmp(port, "fd", strlen("fd")) == 0) {
-      // We have exec'ed to km from a snapshot that wants to shrink back to its tiny waiting size
-      // Reconstruct the listening socket state.
-      // Except backlog which snapshot restart will restore.
-      snap_listen_sock = atoi(&port[strlen("fd")]);
-      km_infox(KM_TRACE_SNAPSHOT, "restart snapshot, snap_listen_sock %d", snap_listen_sock);
-      snap_listen_sockinfo->state = KM_SOCK_STATE_LISTEN;
-      socklen_t socklen;
-      socklen = sizeof(snap_listen_sockinfo->domain);
-      if (getsockopt(snap_listen_sock, SOL_SOCKET, SO_DOMAIN, &snap_listen_sockinfo->domain, &socklen) <
-          0) {
-         km_err(2, "can't get listen socket fd domain, fd %d", snap_listen_sock);
-      }
-      socklen = sizeof(snap_listen_sockinfo->type);
-      if (getsockopt(snap_listen_sock, SOL_SOCKET, SO_TYPE, &snap_listen_sockinfo->type, &socklen) < 0) {
-         km_err(2, "can't get listen socket fd type");
-      }
-      socklen = sizeof(snap_listen_sockinfo->protocol);
-      if (getsockopt(snap_listen_sock, SOL_SOCKET, SO_PROTOCOL, &snap_listen_sockinfo->protocol, &socklen) <
-          0) {
-         km_err(2, "can't get listen socket fd protocol");
-      }
-      snap_listen_sockinfo->addrlen = sizeof(snap_listen_sockinfo->addr);
-      if (getsockname(snap_listen_sock,
-                      (struct sockaddr*)snap_listen_sockinfo->addr,
-                      (socklen_t*)&snap_listen_sockinfo->addrlen) < 0) {
-         km_err(2, "getsockname on listen socket fd");
-      }
-
-      // Get rid of vm related fd's and payload fd's we inherited from the previous instance of km
-      km_vmstate_destroy(snap_listen_sock, elf_fd);
-   } else {
-      km_errx(2, "env var %s's value %s is invalid", KM_SNAP_LISTEN_PORT, port);
+   if (light_snap_accept_timeout == 0) {
+      return;
    }
 
-   // will adjust the backlog value to that of the snapshot later
-   if (listen(snap_listen_sock, 1) < 0) {
-      km_err(2, "listen failed, fd %d", snap_listen_sock);
+   // Build a list of the listening socket fd's in the snapshot
+   km_snapshot_listenfds_find(e);
+   km_infox(KM_TRACE_SHRINK,
+            "light_snap_accept_timeout %ld ms, listener count %d",
+            light_snap_accept_timeout,
+            km_snap_listening_state_cnt);
+   if (km_snap_listening_state_cnt <= 0) {
+      // No listening fd's in the snapshot.
+      // We have nothing to trigger shrinking an idle running snapshot so
+      // just run as normal.
+      km_infox(KM_TRACE_SNAPSHOT, "snapshot has no listening sockets to trigger payload shrink");
+      return;
    }
 
+   // Create open fd's for all the listening sockets.  If we got here because
+   // the running snapshot shrank itself, then the listening socket fd's will
+   // be open so we don't need to open anything.
+   // It is important that earlier parts of km do NOT use the payload fd space.
+   // That fd may be one of the fd's that the resuming snapshot will be listening
+   // on and the existence of the open fd will confuse this into thinking we are
+   // here because of a shrink operation.
+   for (int i = 0; i < km_snap_listening_state_cnt; i++) {
+      km_infox(KM_TRACE_SHRINK,
+               "%d: listen_fd %d, accept_fd %d, port %d",
+               i,
+               km_snap_listening_state_p[i].listen_fd,
+               km_snap_listening_state_p[i].accept_fd,
+               ntohs(((struct sockaddr_in*)km_snap_listening_state_p[i].listen_sockinfo.addr)->sin_port));
+      struct stat statb;
+      if (fstat(km_snap_listening_state_p[i].listen_fd, &statb) == 0) {
+         km_assert((statb.st_mode & S_IFMT) == S_IFSOCK);
+         // We've been exec'ed to by a payload shrink, the payload's fd's are still open.
+         // Get rid of vm related fd's and payload fd's we inherited from the previous instance of
+         // km But, we keep the payload's listening fd's and the open snapshot.
+         km_vmstate_destroy(fileno(e->file));
+         km_infox(KM_TRACE_SNAPSHOT,
+                  "Using %d listening fd's that existed before shrinking",
+                  km_snap_listening_state_cnt);
+         break;
+      } else {
+         km_assert(errno == EBADF);
+         km_snap_listening_state_t* p = &km_snap_listening_state_p[i];
+         int fd =
+             socket(p->listen_sockinfo.domain, p->listen_sockinfo.type, p->listen_sockinfo.protocol);
+         if (fd < 0) {
+            km_err(2, "socket() can't create listening fd %d", p->listen_fd);
+         }
+         // We should only do SO_REUSEADDR if the snapshoted program did this.
+         km_warnx("fd %d, listen_fd %d, port %d, socketoptions 0x%x",
+                  fd,
+                  p->listen_fd,
+                  extract_port((struct sockaddr*)p->listen_sockinfo.addr),
+                  p->listen_sockinfo.socketoptions);
+         if ((p->listen_sockinfo.socketoptions & SNAP_SO_REUSEADDR) != 0) {
+            int flag = 1;
+            if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0) {
+               km_err(2, "setsockopt(SO_REUSEADDR) failed");
+            }
+         }
+         if (bind(fd, (struct sockaddr*)p->listen_sockinfo.addr, p->listen_sockinfo.addrlen) < 0) {
+            km_err(2,
+                   "bind() fd %d to port %d failed",
+                   p->listen_fd,
+                   extract_port((struct sockaddr*)p->listen_sockinfo.addr));
+         }
+         if (listen(fd, p->listen_sockinfo.backlog) < 0) {
+            km_err(2, "listen failed, fd %d", p->listen_fd);
+         }
+         if (fd != p->listen_fd) {
+            if (dup2(fd, p->listen_fd) < 0) {
+               km_err(2, "listen failed, fd %d", p->listen_fd);
+            }
+            close(fd);
+         }
+      }
+   }
+
+   int i;
+   int snap_conn_sock = -1;
    do {
+      int maxfd = 0;
       fd_set fds;
+
+      // Build the mask of the litening fd's to wait for.
       FD_ZERO(&fds);
-      FD_SET(snap_listen_sock, &fds);
+      for (i = 0; i < km_snap_listening_state_cnt; i++) {
+         FD_SET(km_snap_listening_state_p[i].listen_fd, &fds);
+         if (km_snap_listening_state_p[i].listen_fd > maxfd) {
+            maxfd = km_snap_listening_state_p[i].listen_fd;
+         }
+      }
+
+      // Wait for something to happen on a listening fd.
       int rc;
       do {
-         rc = select(snap_listen_sock + 1, &fds, NULL, NULL, NULL);
+         rc = select(maxfd + 1, &fds, NULL, NULL, NULL);
          if (rc < 0 && errno != EINTR) {
             km_err(2, "select in light accept");
          }
       } while (rc < 0 && errno == EINTR);
 
-      sc_conn.addrlen = sizeof(sc_conn.addr);
-      if ((snap_conn_sock = accept(snap_listen_sock,
-                                   (struct sockaddr*)&sc_conn.addr,
-                                   (socklen_t*)&sc_conn.addrlen)) < 0) {
+      // Find the fd that fired
+      int trigered_fd = -1;
+      for (i = 0; i < km_snap_listening_state_cnt; i++) {
+         if (FD_ISSET(km_snap_listening_state_p[i].listen_fd, &fds)) {
+            trigered_fd = km_snap_listening_state_p[i].listen_fd;
+            break;
+         }
+      }
+      km_assert(trigered_fd >= 0);
+      if ((snap_conn_sock = accept(trigered_fd, NULL, NULL)) < 0) {
          km_err(2, "accept failed");
       }
 
@@ -281,10 +378,9 @@ void light_snap_listen(int elf_fd)
    } while (snap_conn_sock < 0);
 
    // reuse gdb socket numbers here, gdb setup is later when we done
-   snap_listen_sock = km_internal_fd(snap_listen_sock, KM_GDB_LISTEN);
-   snap_conn_sock = km_internal_fd(snap_conn_sock, KM_GDB_ACCEPT);
+   km_snap_listening_state_p[i].accept_fd = km_internal_fd(snap_conn_sock, KM_GDB_ACCEPT);
    // Remember the listenfd for payload shrink.
-   km_snap_listenfd = snap_listen_sock;
+   // km_snap_listenfd = snap_listen_sock;
 }
 
 /*
@@ -296,17 +392,16 @@ int km_shrink_footprint(km_vcpu_t* vcpu)
 {
    char* envarray[5];
    char* argv[3];
-   char listeningfd[32];
    char timeout[32];
    char kmverbose[32];
    char me[128];
    char* tmp;
 
    km_infox(KM_TRACE_SNAPSHOT,
-            "km_snap_listenfd %d, km_snapshot_name %s",
-            km_snap_listenfd,
+            "km_snap_listening_state_cnt %d, km_snapshot_name %s",
+            km_snap_listening_state_cnt,
             km_snapshot_name);
-   if (km_snap_listenfd < 0) {
+   if (km_snap_listening_state_cnt <= 0) {
       km_warnx("not running in a reduced footprint snapshot");
       return EINVAL;
    }
@@ -314,9 +409,7 @@ int km_shrink_footprint(km_vcpu_t* vcpu)
    // recheck active accepted sockets to make sure none snuck in after the lighter check
    int rc = 0;
    if (__atomic_load_n(&accept_cnt, __ATOMIC_SEQ_CST) == 0) {
-      snprintf(listeningfd, sizeof(listeningfd), "%s=fd %d", KM_SNAP_LISTEN_PORT, km_snap_listenfd);
       int i = 0;
-      envarray[i++] = listeningfd;
       if ((tmp = getenv(KM_VERBOSE)) != NULL) {
          snprintf(kmverbose, sizeof(kmverbose), "%s=%s", KM_VERBOSE, tmp);
          envarray[i++] = kmverbose;
@@ -1859,18 +1952,16 @@ uint64_t km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockl
       return ret;
    }
    int hostfd;
-   if (snap_listen_sock == sockfd) {
+   int accept_fd;
+   if ((accept_fd = km_snap_find_accepted(sockfd)) >= 0) {
       // return the connection accepted in light_snap_listen().
-      hostfd = dup(snap_conn_sock);
-      close(snap_conn_sock);
-      snap_conn_sock = -1;
-      if (addrlen != NULL) {
-         *addrlen = sc_conn.addrlen;
+      hostfd = dup(accept_fd);
+      close(accept_fd);
+      if (addr != NULL && addrlen != NULL) {
+         if (getpeername(hostfd, addr, addrlen) < 0) {
+            return -errno;
+         }
       }
-      if (addr != NULL) {
-         memcpy(addr, sc_conn.addr, sc_conn.addrlen);
-      }
-      snap_listen_sock = -1;
       if (fl != 0) {
          int tmp = fcntl(hostfd, F_GETFL, NULL);
          fcntl(hostfd, F_SETFL, tmp | (fl & (SOCK_NONBLOCK | SOCK_CLOEXEC)));
@@ -2034,13 +2125,18 @@ uint64_t km_fs_pselect6(km_vcpu_t* vcpu,
 
    // Handle pre-snapshot recovery listening games
    // Seems like we will need a mutex to handle races between select() and accept().
-   if (snap_listen_sock >= 0 && snap_listen_sock < FD_SETSIZE) {
-      if (FD_ISSET(snap_listen_sock, readfds)) {
+   for (int i = 0; i < km_snap_listening_state_cnt; i++) {
+      if (km_snap_listening_state_p[i].accept_fd >= 0 && readfds != NULL &&
+          FD_ISSET(km_snap_listening_state_p[i].listen_fd, readfds)) {
          // pselect() wants to know if our listen fd has a new pending connection.
          FD_ZERO(readfds);
-         FD_ZERO(writefds);
-         FD_ZERO(exceptfds);
-         FD_SET(snap_listen_sock, readfds);
+         FD_SET(km_snap_listening_state_p[i].listen_fd, readfds);
+         if (writefds != NULL) {
+            FD_ZERO(writefds);
+         }
+         if (exceptfds != NULL) {
+            FD_ZERO(exceptfds);
+         }
          return 1;
       }
    }
@@ -2094,7 +2190,8 @@ uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeou
          fds[i].revents = POLLERR;
          return ret;
       }
-      if (snap_listen_sock >= 0 && fds[i].fd == snap_listen_sock && (fds[i].events & POLLIN) != 0) {
+      if ((fds[i].events & POLLIN) != 0 && km_snap_is_listener(fds[i].fd) != 0 &&
+          km_snap_listening_state_p[i].accept_fd >= 0) {
          fds[i].revents = POLLIN;
          return 1;
       }
@@ -2215,13 +2312,15 @@ uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
       return -EBADF;
    }
 
-   if (snap_listen_sock >= 0) {
-      km_file_t* file = &km_fs()->guest_files[epfd];
-      km_fs_event_t* eventp = km_fs_event_find(vcpu, file, snap_listen_sock);
-      if (eventp != NULL && (eventp->event.events & EPOLLIN) != 0) {
-         events[0].data = eventp->event.data;
-         events[0].events = EPOLLIN;
-         return 1;
+   km_file_t* file = &km_fs()->guest_files[epfd];
+   for (int i = 0; i < km_snap_listening_state_cnt; i++) {
+      if (km_snap_listening_state_p[i].accept_fd >= 0) {
+         km_fs_event_t* eventp = km_fs_event_find(vcpu, file, km_snap_listening_state_p[i].listen_fd);
+         if (eventp != NULL && (eventp->event.events & EPOLLIN) != 0) {
+            events[0].data = eventp->event.data;
+            events[0].events = EPOLLIN;
+            return 1;
+         }
       }
    }
 
@@ -2543,6 +2642,16 @@ static inline int fs_core_write_socket(char* buf, size_t length, km_file_t* file
    fnote->protocol = file->sockinfo->protocol;
    fnote->how = file->how;
    fnote->other = file->ofd;
+
+   // Save the setting of SO_REUSEADDR
+   int flag;
+   socklen_t flaglen = sizeof(flag);
+   if (getsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, &flaglen) < 0) {
+      km_warn("getsockopt(fd %d, SO_REUSEADDR) failed", fd);
+      return 1;
+   }
+   fnote->socketoptions.soflags = flag != 0 ? SNAP_SO_REUSEADDR : 0;
+
    fnote->addrlen = file->sockinfo->addrlen;
    if (file->sockinfo->addrlen > 0) {
       memcpy(cur, file->sockinfo->addr, file->sockinfo->addrlen);
@@ -2957,20 +3066,8 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
 
    int host_fd;
    // check if this is lightweight snap listening socket, restore it accordingly
-   if (snap_listen_sockinfo != NULL && nt_sock->domain == snap_listen_sockinfo->domain &&
-       memcmp(nt_sock + 1, snap_listen_sockinfo->addr, snap_listen_sockinfo->addrlen) == 0) {
-      host_fd = snap_listen_sock;
-      free(snap_listen_sockinfo);
-      snap_listen_sockinfo = NULL;
-      snap_listen_sock = nt_sock->fd;        // to compare with in accept
-      km_snap_listenfd = snap_listen_sock;   // for payload snapshot shrink
-      // set the backlog to what the payload requested originally, not default
-      if (nt_sock->state == KM_SOCK_STATE_LISTEN) {
-         if (listen(host_fd, nt_sock->backlog) < 0) {
-            km_warn("recover listen failed");
-            return -1;
-         }
-      }
+   if (km_snap_is_listener(nt_sock->fd) != 0) {
+      host_fd = nt_sock->fd;
       if ((nt_sock->type & SOCK_NONBLOCK) == SOCK_NONBLOCK) {   // TODO: should we do SOCK_CLOEXEC
                                                                 // here as well?
          int flags;
@@ -2986,14 +3083,21 @@ static inline int km_fs_recover_socket(km_nt_socket_t* nt_sock, struct sockaddr*
       }
 
       if (nt_sock->state == KM_SOCK_STATE_BIND || nt_sock->state == KM_SOCK_STATE_LISTEN) {
-         // If snapshot is being recovered right after it was taken there is a chance there are
-         // sockets in TIME_WAIT state from the remaining from the initial run, so the following
-         // bind() will fail. This avoid the falure.
-         int flag = 1;
-         if (setsockopt(host_fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0) {
-            km_warn("recover setsockopt(SO_REUSEADDR) failed");
-            return -1;
+         // Recover the SO_REUSEADDR setting.
+         if ((nt_sock->socketoptions.soflags & SNAP_SO_REUSEADDR) != 0) {
+            int flag = 1;
+            if (setsockopt(host_fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0) {
+               km_warn("recover setsockopt(SO_REUSEADDR) failed");
+               return -1;
+            }
          }
+         struct sockaddr_in* sock4p = (struct sockaddr_in*)addr;
+         km_infox(KM_TRACE_SNAPSHOT,
+                  "binding fd %d to family %d, port %d, addr 0x%x",
+                  host_fd,
+                  sock4p->sin_family,
+                  ntohs(sock4p->sin_port),
+                  ntohl(sock4p->sin_addr.s_addr));
          if (bind(host_fd, addr, nt_sock->addrlen) < 0) {
             km_warn("recover bind failed");   // TODO: return error
             return -1;
@@ -3511,7 +3615,7 @@ void km_filesys_internal_fd_reset()
 }
 
 // dup internal fd to km private area
-static int km_internal_fd(int fd, int km_fd)
+int km_internal_fd(int fd, int km_fd)
 {
    if (fd < 0) {
       return fd;
@@ -3925,4 +4029,85 @@ int km_fs_recover(char* notebuf, size_t notesize)
       km_errx(2, "recover open epollfd's failed");
    }
    return 0;
+}
+
+/*
+ * Go thru the open socket fd notes and find all of the listening sockets
+ * in the snapshot.  Save that information in the global km_snap_listening_state.
+ */
+static int km_fs_harvest_listenfds(char* ptr, size_t length)
+{
+   km_nt_socket_t* nt_sock = (km_nt_socket_t*)ptr;
+   if (nt_sock->size != sizeof(km_nt_socket_t)) {
+      km_warnx("nt_km_socket_t size mismatch - old snapshot?");
+      return -1;
+   }
+   if (nt_sock->state == KM_NT_SKSTATE_LISTEN) {
+      if (km_snap_listening_state_cnt >= km_snap_listening_state_max) {
+         if (km_snap_listening_state_max == 0) {
+            km_snap_listening_state_max = 16;
+         } else {
+            km_snap_listening_state_max *= 2;
+         }
+         km_snap_listening_state_p =
+             realloc(km_snap_listening_state_p,
+                     sizeof(km_snap_listening_state_t) * km_snap_listening_state_max);
+         if (km_snap_listening_state_p == NULL) {
+            km_errx(2,
+                    "Couldn't allocate %ld bytes for listening socket table",
+                    sizeof(km_snap_listening_state_t) * km_snap_listening_state_max);
+         }
+      }
+      km_snap_listening_state_t* p = &km_snap_listening_state_p[km_snap_listening_state_cnt++];
+      p->listen_fd = nt_sock->fd;
+      p->accept_fd = -1;
+      p->listen_sockinfo.state = KM_SOCK_STATE_LISTEN;
+      p->listen_sockinfo.backlog = nt_sock->backlog;
+      p->listen_sockinfo.domain = nt_sock->domain;
+      p->listen_sockinfo.type = nt_sock->type;
+      p->listen_sockinfo.protocol = nt_sock->protocol;
+      p->listen_sockinfo.socketoptions = nt_sock->socketoptions.soflags;
+      p->listen_sockinfo.addrlen = nt_sock->addrlen;
+      memcpy(p->listen_sockinfo.addr, nt_sock + 1, nt_sock->addrlen);
+   }
+   km_infox(KM_TRACE_SNAPSHOT, "Found %d listening fd's in the snapshot", km_snap_listening_state_cnt);
+   return 0;
+}
+
+// Free memory allocated by km_snapshot_listenfds_find()
+void km_snapshot_listenfds_free(void)
+{
+   free(km_snap_listening_state_p);
+   km_snap_listening_state_p = NULL;
+   km_snap_listening_state_max = 0;
+   km_snap_listening_state_cnt = 0;
+}
+
+/*
+ * Get a list of all listening socket fd's in the snapshot and produce a list
+ * pointed to by km_snap_listening_state_p.
+ * If an error occurs this function exits.
+ */
+static void km_snapshot_listenfds_find(km_elf_t* e)
+{
+   km_payload_t tmp_payload = {};
+   km_snapshot_fill_km_payload(e, &tmp_payload);
+   long save_offset = ftell(e->file);
+
+   size_t notesize = 0;
+   char* notebuf = km_snapshot_read_notes(fileno(e->file), &notesize, &tmp_payload);
+   if (notebuf == NULL) {
+      km_errx(2, "PT_NOTES not found");
+   }
+   if (fseek(e->file, save_offset, SEEK_SET) != 0) {
+      km_err(2, "seek back to previous offset failed");
+   }
+
+   // Find the listening fd's
+   if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_SOCKET, km_fs_harvest_listenfds) < 0) {
+      km_errx(2, "Couldn't find listening socket fd's");
+   }
+
+   free(notebuf);
+   free(tmp_payload.km_phdr);
 }

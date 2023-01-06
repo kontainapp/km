@@ -154,6 +154,10 @@ typedef struct km_nt_file {
 // eventfd
 #define NT_KM_EVENTFD 0x4b4d4556   // "KMEV" no null term
 
+typedef struct km_nt_socket_options {
+   Elf64_Word soflags;
+#define SNAP_SO_REUSEADDR 0x00000001   // if bit is non-zero then turn on SO_REUSEADDR
+} km_nt_socket_options_t;
 typedef struct km_nt_socket {
    Elf64_Word size;      // Size of record
    Elf64_Word fd;        // Open fd number
@@ -164,6 +168,7 @@ typedef struct km_nt_socket {
    Elf64_Word type;
    Elf64_Word protocol;
    Elf64_Word other;   // 'other' fd for socketpair(2)
+   km_nt_socket_options_t socketoptions;
    Elf64_Word addrlen;
    Elf64_Word datalength;   // number of bytes to write back to the
                             // write side of a socketpair.  The data
