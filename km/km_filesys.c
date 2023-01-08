@@ -579,7 +579,8 @@ static inline void del_guest_fd(km_vcpu_t* vcpu, int fd)
    km_assert(fd >= 0 && fd < km_fs()->nfdmap);
    km_file_t* file = &km_fs()->guest_files[fd];
    km_assert(km_is_file_used(file) != 0);
-   if (light_snap_accept_timeout != 0 && file->how == KM_FILE_HOW_ACCEPT) {
+   // file->error != 0 means socket was connected when snapshot was taken. We do not want to count that
+   if (light_snap_accept_timeout != 0 && file->how == KM_FILE_HOW_ACCEPT && file->error == 0) {
       km_set_inactive_accept();   // account for accepted socket closing
    }
 
