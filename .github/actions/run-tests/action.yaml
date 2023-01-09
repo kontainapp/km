@@ -15,8 +15,8 @@ runs:
 
     - id: process-inputs
       run: |
-        [[ -z "${{inputs.build-flavor}}" ]] && echo "::set-output name=img::" || echo "::set-output name=img::${{inputs.build-flavor}}-"
-        [[ "${{inputs.kernel}}" == "kkm" ]] && echo "::set-output name=device::HYPERVISOR_DEVICE=/dev/kkm" || echo "::set-output name=device::"
+        [[ -z "${{inputs.build-flavor}}" ]] && echo "img=" >> $GITHUB_OUTPUT || echo "img=${{inputs.build-flavor}}-" >> $GITHUB_OUTPUT
+        [[ "${{inputs.kernel}}" == "kkm" ]] && echo "device=HYPERVISOR_DEVICE=/dev/kkm" >> $GITHUB_OUTPUT || echo "device=" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Login to Azure Repository

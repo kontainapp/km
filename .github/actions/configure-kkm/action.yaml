@@ -11,7 +11,7 @@ runs:
   steps:
     - id: process-inputs
       run: |
-        [[ "${{inputs.build-flavor}}" == "valgrind" ]] && echo "::set-output name=flags::VALGRIND=1" || echo "::set-output name=flags::"
+        [[ "${{inputs.build-flavor}}" == "valgrind" ]] && echo "flags=VALGRIND=1" >> $GITHUB_OUTPUT || echo "flags=" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Build kkm and kkm_test
