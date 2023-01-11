@@ -23,13 +23,13 @@
  * Also responsible for 'guest started' callbacks.
  */
 
-#include <strings.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <netdb.h>
+#include <pthread.h>
+#include <strings.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/un.h>
 
 #include "km_coredump.h"
 #include "km_filesys.h"
@@ -197,10 +197,11 @@ static int cb_sockaddr_len = 0;
 
 static int cb_socket = -1;
 
-static int
-km_build_ipaddr(char *host, char* port)
+static int km_build_ipaddr(char* host, char* port)
 {
-   struct addrinfo hints = { .ai_flags = AI_NUMERICHOST, };
+   struct addrinfo hints = {
+       .ai_flags = AI_NUMERICHOST,
+   };
    struct addrinfo* info;
    int err;
 
@@ -214,7 +215,7 @@ km_build_ipaddr(char *host, char* port)
       return -1;
    }
 
-   cb_sockaddr = (struct sockaddr*) malloc(info->ai_addrlen);
+   cb_sockaddr = (struct sockaddr*)malloc(info->ai_addrlen);
    memcpy(cb_sockaddr, info->ai_addr, info->ai_addrlen);
    cb_sockaddr_len = info->ai_addrlen;
 
@@ -222,10 +223,9 @@ km_build_ipaddr(char *host, char* port)
    return 0;
 }
 
-static int
-km_build_unixaddr(char *path)
+static int km_build_unixaddr(char* path)
 {
-   struct sockaddr_un *addr = (struct sockaddr_un *) malloc(sizeof(struct sockaddr_un));
+   struct sockaddr_un* addr = (struct sockaddr_un*)malloc(sizeof(struct sockaddr_un));
    if (strlen(path) >= sizeof(addr->sun_path)) {
       free(addr);
       cb_sockaddr = NULL;
@@ -233,27 +233,26 @@ km_build_unixaddr(char *path)
    }
    strncpy(addr->sun_path, path, sizeof(addr->sun_path));
    addr->sun_family = AF_UNIX;
-   cb_sockaddr = (struct sockaddr *) addr;
+   cb_sockaddr = (struct sockaddr*)addr;
    cb_sockaddr_len = SUN_LEN(addr);
    return 0;
 }
 
-int
-km_init_started_callback(char* cb)
+int km_init_started_callback(char* cb)
 {
-   char *cb_copy = strdup(cb);
-   char *savptr = NULL;
-   char *delim = ":";
+   char* cb_copy = strdup(cb);
+   char* savptr = NULL;
+   char* delim = ":";
 
-   char *cb_proto = strtok_r(cb_copy, delim, &savptr);
+   char* cb_proto = strtok_r(cb_copy, delim, &savptr);
    if (cb_proto == NULL) {
       km_warnx("strtok_r returned NULL. cb_copy=%s", cb_copy);
       free(cb_copy);
       return -1;
    }
    if (strcmp(cb_proto, "udp") == 0) {
-      char *cb_addr = strtok_r(NULL, delim, &savptr);
-      char *cb_port = strtok_r(NULL, delim, &savptr);
+      char* cb_addr = strtok_r(NULL, delim, &savptr);
+      char* cb_port = strtok_r(NULL, delim, &savptr);
       km_warnx("callback addr: %s  port:%s", cb_addr, cb_port);
       if (km_build_ipaddr(cb_addr, cb_port) < 0) {
          free(cb_copy);
@@ -268,7 +267,7 @@ km_init_started_callback(char* cb)
       free(cb_copy);
       return -1;
    } else if (strcmp(cb_proto, "unix") == 0) {
-      char *cb_path = strtok_r(NULL, "", &savptr);
+      char* cb_path = strtok_r(NULL, "", &savptr);
       if (km_build_unixaddr(cb_path) < 0) {
          free(cb_copy);
          return -1;
@@ -292,8 +291,7 @@ km_init_started_callback(char* cb)
    return -1;
 }
 
-static void
-km_fire_callback(int msg)
+static void km_fire_callback(int msg)
 {
    if (cb_sockaddr == NULL) {
       return;
@@ -301,7 +299,7 @@ km_fire_callback(int msg)
 
    if (cb_domain == AF_UNIX) {
       if (send(cb_socket, &msg, sizeof(msg), 0) < 0) {
-         km_warn("km_fire_callback: send error"); 
+         km_warn("km_fire_callback: send error");
       }
       return;
    }
@@ -324,17 +322,16 @@ void km_fire_km_started_callback()
    km_fire_callback(0x304d4b);
 }
 
-void
-km_fire_guest_started_callback()
+void km_fire_guest_started_callback()
 {
    km_fire_callback(0x314d4b);
 }
 
-void
-km_fire_km_listen_callback(km_vcpu_t* vcpu, int fd)
+void km_fire_km_listen_callback(km_vcpu_t* vcpu, int fd)
 {
    static int called = 0;
-   if (called) return;
+   if (called)
+      return;
    called = 1;
    km_fire_callback(0x324d4b);
 }
