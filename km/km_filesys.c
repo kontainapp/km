@@ -26,6 +26,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <poll.h>
 #include <pthread.h>
 #include <stdarg.h>
@@ -45,7 +46,6 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <netdb.h>
 
 #include "bsd_queue.h"
 #include "km.h"
@@ -53,11 +53,11 @@
 #include "km_exec.h"
 #include "km_filesys.h"
 #include "km_filesys_private.h"
+#include "km_management.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
 #include "km_syscall.h"
-#include "km_management.h"
 
 /*
  * km uses open fd's for its own purposes.  The km fd's are kept at the
@@ -2340,7 +2340,7 @@ uint64_t km_fs_epoll_pwait(km_vcpu_t* vcpu,
                          timeout,
                          (uintptr_t)sigmask,
                          sigsetsize);
-km_infox(KM_TRACE_FILESYS, "epoll_pwait returns");
+   km_infox(KM_TRACE_FILESYS, "epoll_pwait returns");
    km_dequeue_sig_sleep(vcpu);
    return ret;
 }

@@ -150,8 +150,8 @@ km_machine_init_params_t km_machine_init_params = {
     .vdev_name = NULL,   // redundant, but let's be paranoid
 };
 static int wait_for_signal = 0;
-int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
-int opt_no_log_redirect = 0;  // if 1, skip redirecting log if stderr is socket or fifo.
+int debug_dump_on_err = 0;     // if 1, will abort() instead of err()
+int opt_no_log_redirect = 0;   // if 1, skip redirecting log if stderr is socket or fifo.
 static char* mgtpipe = NULL;
 static char* started_callback = NULL;
 static int log_to_fd = -1;
