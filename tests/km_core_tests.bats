@@ -1687,6 +1687,11 @@ fi
    local socket_port=$(($port_range_start + $port_id))
    local MGTDIR=multilisten_mgtdir.$$
    mkdir -p $MGTDIR
+   local NPDATA=netpipe.data.$$
+   cat <<EOF >$NPDATA
+hi there
+EOF
+   assert_success
 
    # startup multilisten
    rm -fr $MGTDIR/*
@@ -1697,8 +1702,8 @@ fi
    tries=10
    for ((i=0; i<10; i++))
    do
-      echo "hi there" | ./netpipe_test.fedora -c +$target_port
-      if test $? -eq 0; then
+      if ./netpipe_test.fedora -c +$target_port <$NPDATA
+      then
          break;
       fi
       sleep 2
@@ -1739,8 +1744,8 @@ fi
    tries=10
    for ((i=0; i<10; i++))
    do
-      echo "hi there" | ./netpipe_test.fedora -c +$socket_port
-      if test $? -eq 0; then
+      if ./netpipe_test.fedora -c +$socket_port <$NPDATA
+      then
          break;
       fi
       sleep .5
@@ -1754,20 +1759,20 @@ fi
    do
       port=`expr $socket_port + $i`
       echo "Trying port $port"
-      run ./netpipe_test.fedora -c +$port <<EOF
-stuff
-EOF
+      run ./netpipe_test.fedora -c +$port <$NPDATA
       assert_success
       assert_output "goofy message from port $port"
       # we need to pause here to let multilisten shrink
    done
 
    # stop the test program
-   ./netpipe_test.fedora -c +$port_id <<EOF
+   cat <<EOF >$NPDATA
 terminate
 EOF
    assert_success
+   run ./netpipe_test.fedora -c +$socket_port <$NPDATA
+   assert_success
 
    # cleanup mgtdir
-   rm -fr $MGTDIR
+   rm -fr $MGTDIR $NPDATA
 }

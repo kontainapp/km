@@ -60,6 +60,7 @@ void usage(void)
 
 int main(int argc, char* argv[])
 {
+   int result = 0;
    progname = argv[0];
 
    if (argc < 2) {
@@ -68,11 +69,12 @@ int main(int argc, char* argv[])
    }
 
    for (int i = 1; i < argc; i++) {
+      result = 0;
       if (strcmp(argv[i], "-l") == 0) {
-         dolisten(argv[i + 1]);
+         result = dolisten(argv[i + 1]);
          i++;
       } else if (strcmp(argv[i], "-c") == 0) {
-         doconnect(argv[i + 1]);
+         result = doconnect(argv[i + 1]);
          i++;
       } else if (strcmp(argv[i], "-d") == 0) {
          debug++;
@@ -80,8 +82,11 @@ int main(int argc, char* argv[])
          usage();
          return 1;
       }
+      if (result != 0) {
+         break;
+      }
    }
-   return 0;
+   return result;
 }
 
 int parseaddrport(char* addrplusport, struct addrinfo** result)
@@ -211,6 +216,7 @@ int doconnect(char* addrplusport)
    }
    freeaddrinfo(result);
    if (connectfd < 0) {
+      fprintf(stderr, "Unable to connect to any address\n");
       return 1;
    }
 
