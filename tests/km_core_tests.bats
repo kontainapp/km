@@ -1680,7 +1680,7 @@ fi
 # When this test fails it usually leaves a copy of multilist_test$ext running for 250s.
 # Either kill it or wait until it times out before running the this again.
 #
-@test "multilisten-snapshot($test_type): shrinking snapshot listening on many ports (multilisten_test$ext)" {
+@test "multilisten-snapshot($test_type): shrink snapshot listening on many ports (multilisten_test$ext)" {
    # this test uses $port_count ports.  So the next available port is $port_id + $port_count
    local port_id=23
    local port_count=10
@@ -1692,7 +1692,7 @@ fi
    rm -fr $MGTDIR/*
    KM_MGTDIR=$MGTDIR km_with_timeout multilisten_test$ext $port_count $socket_port &
 
-   # wait for multilisten to get going
+   # wait for multilisten to be listening on its last port
    target_port=`expr $socket_port + $port_count - 1`
    tries=10
    for ((i=0; i<10; i++))
@@ -1704,21 +1704,32 @@ fi
       sleep 2
       tries=`expr $tries - 1`
    done
-   assert [ $tries -ne 0 ]
+   assert [ $tries -gt 0 ]
 
-   # get the km mgt pipe file name
-   pipefile=`ls $MGTDIR/kmpipe.multilisten_test$ext.[0-9]*`
-   assert_success
+   # wait for the km mgmt pipe to exist
+   tries=10
+   for ((i=0; i<10; i++))
+   do
+      ls $MGTDIR | grep -q kmpipe
+      if test $? -eq 0; then
+         break;
+      fi
+      sleep 2
+      tries=`expr $tries - 1`
+   done
+   assert [ $tries -gt 0 ]
+
+   pipefile=`ls $MGTDIR | grep kmpipe`
 
    # take snapshot, this should also terminate multilisten
-   ${KM_CLI_BIN} -s $pipefile
+   ${KM_CLI_BIN} -s $MGTDIR/$pipefile
    assert_success
    rm -f $MGTDIR/kmsnap.multilisten_test$ext.[0-9]*.conf
    snapfile=`ls $MGTDIR/kmsnap.multilisten_test$ext.[0-9]*`
    assert_success
 
    # wait for the snapped version of multilisten to terminate
-   # this prevents bind "addr in use" errors, errr
+   # this prevents bind "addr in use" errors below, errr
    sleep 5
 
    # start snapshot with SNAP_LISTEN_TIMEOUT=500
@@ -1748,10 +1759,13 @@ stuff
 EOF
       assert_success
       assert_output "goofy message from port $port"
+      # we need to pause here to let multilisten shrink
    done
 
    # stop the test program
-   echo terminate | ./netpipe_test.fedora -c +$port_id
+   ./netpipe_test.fedora -c +$port_id <<EOF
+terminate
+EOF
    assert_success
 
    # cleanup mgtdir
