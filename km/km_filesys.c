@@ -252,6 +252,7 @@ void light_snap_listen(int elf_fd)
          }
       } while (rc < 0 && errno == EINTR);
 
+      sc_conn.addrlen = sizeof(sc_conn.addr);
       if ((snap_conn_sock = accept(snap_listen_sock,
                                    (struct sockaddr*)&sc_conn.addr,
                                    (socklen_t*)&sc_conn.addrlen)) < 0) {
