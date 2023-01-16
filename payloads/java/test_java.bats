@@ -83,12 +83,17 @@ load "${TESTS_BASE}/bats-assert/load.bash"  # see manual in bats-assert/README.m
   kill $pid
   wait $pid || true
 
-  SNAP_LISTEN_PORT=$(cat ${SNAP_FILE}.conf) ${KM_BIN} -Vsnapshot ${SNAP_FILE} &
+  # start the snapshot, payload shrinks when there are no active connections and no new conns for 500ms.
+  # readiness probes do not cause payload rehydration so html request seqno should not increment for them.
+  # is 500ms to short for the cloud?
+  SNAP_LISTEN_TIMEOUT=500 ${KM_BIN} -Vsnapshot ${SNAP_FILE} &
   pid=$!
+  # readiness probes
   run curl -4 -s -H "User-Agent: kube-probe" localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
   assert_success
   run curl -4 -s -H "User-Agent: kube-probe" localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
   assert_success
+  # real requests.
   run curl -4 -s localhost:8080/greeting --retry-connrefused  --retry $tries --retry-delay 1
   assert_success
   assert_output --regexp '"id":2.*Hello, World!'
