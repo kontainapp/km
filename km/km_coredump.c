@@ -1001,7 +1001,13 @@ int km_dump_core(char* core_path,
                         break;
                   }
                   strcat(buf, "\n");
-                  write(cfd, buf, strlen(buf));
+                  ssize_t byteswritten = write(cfd, buf, strlen(buf));
+                  if (byteswritten < 0) {
+                     rc = errno;
+                     km_warn("Write snapshot config file failed:");
+                     break;
+                  }
+                  km_assert(byteswritten == strlen(buf));
                }
             }
          }

@@ -1214,6 +1214,7 @@ fi
    assert_success
    wait $pid
    local -a snapname=($(echo ${MGTDIR}/kmsnap.prelisten_test$ext.[0-9]*))
+   assert test -s ${MGTDIR}/kmsnap.*.conf
    SNAP_LISTEN_PORT=$(cat ${MGTDIR}/kmsnap.*.conf) km_with_timeout ${snapname[0]} &
    pid=$!
    run curl -4 -s -S --retry-connrefused  --retry 3 --retry-delay 1 localhost:$snapshot_test_port
