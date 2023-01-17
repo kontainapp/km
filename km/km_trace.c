@@ -193,9 +193,10 @@ void km_trace_setup(int argc, char* argv[])
    char* kmlogto = NULL;
    static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int invoked_by_exec = (getenv("KM_EXEC_VERS") != NULL);
-   char* slp = getenv(KM_SNAP_LISTEN_PORT);
 
-   if (slp != NULL && (strncmp(slp, "fd", strlen("fd"))) == 0) {
+   if (km_shrunken != 0) {
+      // We got here because of a payload shrink operation.  Use the logging
+      // setup from the initial start of the snapshot.
       km_redirect_msgs_after_exec();
       return;
    }
