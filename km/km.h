@@ -809,6 +809,5 @@ extern int64_t light_snap_accept_timeout;   // milliseconds
 int km_active_accept(void);
 
 int km_shrink_footprint(km_vcpu_t* vcpu);
-extern int opt_no_log_redirect;
 
 #endif /* #ifndef __KM_H__ */

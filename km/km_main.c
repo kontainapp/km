@@ -102,7 +102,6 @@ static inline void usage()
 "\t--virt-device=<file-name>  (-Ffile) - Use provided file-name for virtualization device\n"
 "\t--input-data=<file-name>            - File with data for HC_snapshot_getdata\n"
 "\t--output-data=<file-name>           - File with data from HC_snapshot_putdata\n"
-"\t--no-log-redirect                   - Do not redirect logs.\n"
 "\t--mgtpipe <path>                    - Name for management pipe.\n"
 "\t--started-callback=<endpoint>       - Define a endpoint to be called back when the client has been started\n"
 "\t                                      Legal endpoint formats: udp:<ipadddr>:<port>, tcp:<ipaddr>:<port>,unix:<path>\n");
@@ -151,7 +150,6 @@ km_machine_init_params_t km_machine_init_params = {
 };
 static int wait_for_signal = 0;
 int debug_dump_on_err = 0;     // if 1, will abort() instead of err()
-int opt_no_log_redirect = 0;   // if 1, skip redirecting log if stderr is socket or fifo.
 static char* mgtpipe = NULL;
 static char* started_callback = NULL;
 static int log_to_fd = -1;
@@ -186,7 +184,6 @@ struct option km_cmd_long_options[] = {
     {"mgtpipe", required_argument, 0, 'm'},
     {"kill-unimpl-scall", no_argument, &(kill_unimpl_hcall), KM_FLAG_FORCE_ENABLE},
     {"started-callback", required_argument, 0, 'c'},
-    {"no-log-redirect", no_argument, &opt_no_log_redirect, 1},
 
     {0, 0, 0, 0},
 };

@@ -3725,9 +3725,6 @@ void km_redirect_msgs(const char* name)
              * If we can create and open /tmp/km_XXXXX.log then log there.  If we can't
              * create the log file, then /tmp could be on a readonly filesystem, so we don't log.
              */
-            if (opt_no_log_redirect != 0) {
-               return;
-            }
             char filename[32];
             snprintf(filename, sizeof(filename), "/tmp/km_%d.log", getpid());
             km_tracex("Switch km logging to %s on first attempt to log", filename);
