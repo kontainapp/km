@@ -396,12 +396,18 @@ int km_shrink_footprint(km_vcpu_t* vcpu)
    char me[128];
    char* tmp;
 
+   /*
+    * If we aren't running a snapshot or the SNAP_LISTEN_TIMEOUT
+    * env var is undefined, then km will not stay in shrunken state
+    * after execing back to km, so there is no reason to attempt
+    * a shrink payload operation.
+    */
    km_infox(KM_TRACE_SNAPSHOT,
-            "km_snap_listening_state_cnt %d, km_snapshot_name %s",
-            km_snap_listening_state_cnt,
+            "light_snap_accept_timeout %d, km_snapshot_name %s",
+            light_snap_accept_timeout,
             km_snapshot_name);
-   if (km_snap_listening_state_cnt <= 0) {
-      km_warnx("not running in a reduced footprint snapshot");
+   if (km_snapshot_name == NULL || light_snap_accept_timeout == 0) {
+      km_warnx("not running in a snapshot");
       return EINVAL;
    }
    km_vcpu_pause_all(vcpu, ALL);

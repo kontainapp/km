@@ -194,9 +194,19 @@ void km_trace_setup(int argc, char* argv[])
    static const int regex_flags = (REG_ICASE | REG_NOSUB | REG_EXTENDED);
    int invoked_by_exec = (getenv("KM_EXEC_VERS") != NULL);
 
-   if (km_shrunken != 0) {
-      // We got here because of a payload shrink operation.  Use the logging
-      // setup from the initial start of the snapshot.
+   /*
+    * If we are running a snapshot and rehydrating after a snapshot
+    * shrink, then KM_LOGGING should already be open.  We just need to
+    * have the km logging code use the open logging fd.
+    * If KM_SNAP_LISTEN_TIMEOUT has a non-zero value then we are going to
+    * be running a snapshot.  If fstat(KM_LOGGING) succeeds then we know
+    * we were exec'ed to by another instance of km.  The only concern is
+    * if the exec was because of a payload shrink or because one non-snapshot
+    * payload exec'ed into a snapshot of a payload.
+    */
+   struct stat statb;
+   char* slt = getenv(KM_SNAP_LISTEN_TIMEOUT);
+   if (slt != NULL && atol(slt) != 0 && fstat(KM_LOGGING, &statb) == 0) {
       km_redirect_msgs_after_exec();
       return;
    }
