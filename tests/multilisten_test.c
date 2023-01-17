@@ -162,12 +162,13 @@ int main(int argc, char* argv[])
             close(newconn);
             continue;
          }
+         buffer[bytesread] = 0;
          char message[64];
          snprintf(message,
                   sizeof(message),
                   "goofy message from port %d\n",
                   ntohs(((struct sockaddr_in*)(&sockname))->sin_port));
-         ssize_t byteswritten = send(newconn, message, sizeof(message), 0);
+         ssize_t byteswritten = send(newconn, message, strlen(message), 0);
          if (byteswritten < 0) {
             fprintf(stderr, "send() failed, %s\n", strerror(errno));
             close(newconn);
