@@ -208,7 +208,7 @@ static int km_snap_find_accepted(int listenfd)
          int accept_fd;
          if ((accept_fd = km_snap_listening_state_p[i].accept_fd) >= 0) {
             km_snap_listening_state_p[i].accept_fd = -1;
-	    km_snapshot_listenfds_free();
+            km_snapshot_listenfds_free();
             return accept_fd;
          }
          break;
