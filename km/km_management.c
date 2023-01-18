@@ -276,7 +276,7 @@ int km_init_started_callback(char* cb)
       cb_domain = AF_UNIX;
       cb_type = SOCK_SEQPACKET;
 
-      if ((cb_socket = socket(cb_domain, cb_type, 0)) < 0) {
+      if ((cb_socket = km_internal_socket(cb_domain, cb_type, 0)) < 0) {
          km_warn("cannnot open callback socket");
          return -1;
       }
@@ -305,7 +305,7 @@ static void km_fire_callback(int msg)
    }
 
    // cb_domain must == AF_INET
-   int sock = socket(cb_domain, cb_type, 0);
+   int sock = km_internal_socket(cb_domain, cb_type, 0);
    if (sock < 0) {
       km_warn("callback socket create");
       return;

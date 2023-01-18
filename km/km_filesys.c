@@ -3637,6 +3637,12 @@ int km_internal_open(const char* name, int flag, int mode)
    return km_internal_fd(fd, -1);
 }
 
+int km_internal_socket(int domain, int type, int protocol)
+{
+   int fd = socket(domain, type, protocol);
+   return km_internal_fd(fd, -1);
+}
+
 int km_internal_eventfd(unsigned int initval, int flags)
 {
    int fd = eventfd(initval, flags);

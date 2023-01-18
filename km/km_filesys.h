@@ -316,6 +316,7 @@ void km_close_stdio(int log_to_fd);
 void km_filesys_internal_fd_reset();
 int km_internal_fd(int fd, int km_fd);
 int km_internal_open(const char* name, int flag, int mode);
+int km_internal_socket(int domain, int type, int protocol);
 int km_internal_eventfd(unsigned int initval, int flags);
 int km_internal_fd_ioctl(int fd, unsigned long reques, ...);
 int km_gdb_listen(int domain, int type, int protocol);
