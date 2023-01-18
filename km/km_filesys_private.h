@@ -36,7 +36,6 @@ typedef struct km_fd_socket {
    int domain;
    int type;
    int protocol;
-   int socketoptions;
    // currently all linux sockaddr variations fit in 128 bytes
    int addrlen;
    char addr[128];   // the local address passed to bind()

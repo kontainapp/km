@@ -474,7 +474,6 @@ static const_string_t KM_LOGTO = "KM_LOGTO";
 static const_string_t KM_MGTPIPE = "KM_MGTPIPE";
 static const_string_t KM_MGTDIR = "KM_MGTDIR";
 static const_string_t KM_KILL_UNIMPL_SCALL = "KM_KILL_UNIMPL_SCALL";
-// static const_string_t KM_SNAP_LISTEN_PORT = "SNAP_LISTEN_PORT";
 static const_string_t KM_SNAP_LISTEN_TIMEOUT = "SNAP_LISTEN_TIMEOUT";
 
 /*

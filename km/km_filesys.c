@@ -326,7 +326,7 @@ void light_snap_listen(km_elf_t* e)
       int maxfd = 0;
       fd_set fds;
 
-      // Build the mask of the litening fd's to wait for.
+      // Build the mask of the listening fd's to wait for.
       FD_ZERO(&fds);
       for (i = 0; i < km_snap_listening_state_cnt; i++) {
          FD_SET(km_snap_listening_state_p[i].listen_fd, &fds);
@@ -399,7 +399,7 @@ int km_shrink_footprint(km_vcpu_t* vcpu)
    /*
     * If we aren't running a snapshot or the SNAP_LISTEN_TIMEOUT
     * env var is undefined, then km will not stay in shrunken state
-    * after execing back to km, so there is no reason to attempt
+    * after exec'ing back to km, so there is no reason to attempt
     * a shrink payload operation.
     */
    km_infox(KM_TRACE_SNAPSHOT,
@@ -2647,14 +2647,6 @@ static inline int fs_core_write_socket(char* buf, size_t length, km_file_t* file
    fnote->protocol = file->sockinfo->protocol;
    fnote->how = file->how;
    fnote->other = file->ofd;
-
-   // Save the setting of SO_REUSEADDR
-   int flag;
-   socklen_t flaglen = sizeof(flag);
-   if (getsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, &flaglen) < 0) {
-      km_warn("getsockopt(fd %d, SO_REUSEADDR) failed", fd);
-      return 1;
-   }
 
    fnote->addrlen = file->sockinfo->addrlen;
    if (file->sockinfo->addrlen > 0) {
