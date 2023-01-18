@@ -255,7 +255,7 @@ void light_snap_listen(km_elf_t* e)
       // No listening fd's in the snapshot.
       // We have nothing to trigger shrinking an idle running snapshot so
       // just run as normal.
-      km_infox(KM_TRACE_SNAPSHOT, "snapshot has no listening sockets to trigger payload shrink");
+      km_infox(KM_TRACE_SNAPSHOT, "snapshot has no listening sockets");
       return;
    }
 
