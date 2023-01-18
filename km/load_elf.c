@@ -308,8 +308,18 @@ km_elf_t* km_open_elf_file(const char* path)
    km_elf_t* elf = (km_elf_t*)malloc(sizeof(km_elf_t));
    memset(elf, 0, sizeof(km_elf_t));
    elf->path = path;
-   if ((elf->file = fopen(elf->path, "r")) == NULL) {
+   int fd;
+   if ((fd = open(elf->path, O_RDONLY)) < 0) {
       km_err(2, "Cannot open %s", path);
+   }
+   // Use an fd from the km fd space to allow light_snap_listen() to work
+   // when being invoked as a result of a payload shrink operation.
+   int kmfd = km_internal_fd(fd, KM_GDB_LISTEN);
+   if (kmfd < 0) {
+      km_err(2, "path %s, fd %d", path, fd);
+   }
+   if ((elf->file = fdopen(kmfd, "r")) == NULL) {
+      km_err(2, "fdopen( %d ) for %s failed", kmfd, path);
    }
 
    // Read ELF header

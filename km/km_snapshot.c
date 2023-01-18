@@ -187,7 +187,7 @@ static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t*
  * Read in notes. Allocates buffer for return. Caller responsible for
  * freeing buffer.
  */
-static inline char* km_snapshot_read_notes(int fd, size_t* notesize, km_payload_t* payload)
+char* km_snapshot_read_notes(int fd, size_t* notesize, km_payload_t* payload)
 {
    Elf64_Ehdr* ehdr = &payload->km_ehdr;
    for (int i = 0; i < ehdr->e_phnum; i++) {
@@ -198,7 +198,11 @@ static inline char* km_snapshot_read_notes(int fd, size_t* notesize, km_payload_
          int rc;
          if ((rc = pread(fd, notebuf, phdr->p_filesz, phdr->p_offset)) != phdr->p_filesz) {
             if (rc < 0) {
-               km_err(1, "read notes failed:");
+               long current_offset = lseek(fd, 0, SEEK_CUR);
+               km_err(1,
+                      "read notes failed, current offset %ld, seek to %ld",
+                      current_offset,
+                      phdr->p_offset);
             } else {
                km_errx(2, "read notes short: expect:%ld got:%d", phdr->p_filesz, rc);
             }
@@ -427,24 +431,28 @@ static inline int km_ss_recover_km_monitor(char* notebuf, size_t notesize)
    return 0;
 }
 
+void km_snapshot_fill_km_payload(km_elf_t* e, km_payload_t* p)
+{
+   p->km_ehdr = e->ehdr;
+
+   // Read ELF PHDR into tmp_payload.
+   if ((p->km_phdr = malloc(sizeof(Elf64_Phdr) * e->ehdr.e_phnum)) == NULL) {
+      km_err(2, "no memory for elf program headers");
+   }
+   for (int i = 0; i < p->km_ehdr.e_phnum; i++) {
+      if (km_elf_get_phdr(e, i, &p->km_phdr[i]) != 0) {
+         km_err(2, "cannot get phdr %d", i);
+      }
+   }
+}
+
 int km_snapshot_restore(km_elf_t* e)
 {
    // Record top of memory
    km_gva_t tbrk_gva = km_mem_tbrk(0);
 
    km_payload_t tmp_payload = {};
-
-   tmp_payload.km_ehdr = e->ehdr;
-
-   // Read ELF PHDR into tmp_payload.
-   if ((tmp_payload.km_phdr = alloca(sizeof(Elf64_Phdr) * e->ehdr.e_phnum)) == NULL) {
-      km_err(2, "no memory for elf program headers");
-   }
-   for (int i = 0; i < tmp_payload.km_ehdr.e_phnum; i++) {
-      if (km_elf_get_phdr(e, i, &tmp_payload.km_phdr[i]) != 0) {
-         km_err(2, "cannot get phdr %d", i);
-      }
-   }
+   km_snapshot_fill_km_payload(e, &tmp_payload);
 
    // disable mmap consolidation during recovery
    km_mmap_set_recovery_mode(1);
@@ -504,6 +512,7 @@ int km_snapshot_restore(km_elf_t* e)
    // reenable mmap consolidation
    km_mmap_set_recovery_mode(0);
    free(notebuf);
+   free(tmp_payload.km_phdr);
    return 0;
 }
 
