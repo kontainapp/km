@@ -149,7 +149,7 @@ km_machine_init_params_t km_machine_init_params = {
     .vdev_name = NULL,   // redundant, but let's be paranoid
 };
 static int wait_for_signal = 0;
-int debug_dump_on_err = 0;     // if 1, will abort() instead of err()
+int debug_dump_on_err = 0;   // if 1, will abort() instead of err()
 static char* mgtpipe = NULL;
 static char* started_callback = NULL;
 static int log_to_fd = -1;
