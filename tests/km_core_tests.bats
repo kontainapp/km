@@ -1713,14 +1713,14 @@ EOF
 
    # wait for the km mgmt pipe to exist
    tries=10
-   for ((i=0; i<10; i++))
+   while [ $tries -gt 0 ]
    do
       ls $MGTDIR | grep -q kmpipe
       if test $? -eq 0; then
          break;
       fi
       sleep 2
-      tries=`expr $tries - 1`
+      tries=$(($tries - 1))
    done
    assert [ $tries -gt 0 ]
 
@@ -1742,14 +1742,14 @@ EOF
 
    # wait for multilisten snapshot to start
    tries=10
-   for ((i=0; i<10; i++))
+   while [ $tries -gt 0 ]
    do
       if ./netpipe_test.fedora -c +$socket_port <$NPDATA
       then
          break;
       fi
       sleep .5
-      tries=`expr $tries - 1`
+      tries=$(($tries - 1))
    done
    assert [ $tries -ne 0 ]
    echo "multilisten snapshot found running with $tries probes remaining"
