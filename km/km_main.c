@@ -633,7 +633,7 @@ int main(int argc, char* argv[])
    if (elf->ehdr.e_type == ET_CORE) {
       // check for incompatible options
       if (envp != NULL) {
-         km_errx(1, "cannot set new environment when resuming a snapshot");
+         km_warnx("ignoring new environment when resuming a snapshot");
       }
       if (argc_p > 1) {
          km_errx(1, "cannot set payload arguments when resuming a snapshot");
