@@ -445,7 +445,7 @@ int km_shrink_footprint(km_vcpu_t* vcpu)
       rc = errno;
       km_warn("execve() to %s failed", me);
    } else {
-      km_warn("aborted shrink");
+      km_warnx("aborted shrink");
    }
 
    km_vcpu_resume_all();

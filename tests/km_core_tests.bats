@@ -72,9 +72,8 @@ todo_alpine_dynamic=$todo_alpine_static
 not_needed_dynamic='linux_exec setup_load mem_slots cli mem_brk mmap_1 km_identity exec_sh'
 todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps km_exec_guest_files'
 if [ ! -z "${VALGRIND}" ]; then
-todo_dynamic+=' gdb_sharedlib cpp_throw basic_snapshot futex_snapshot popen files_on_exec '
-todo_alpine_dynamic+=' gdb_sharedlib cpp_throw basic_snapshot futex_snapshot popen files_on_exec'
-todo_glibc_dynamic+=' basic_snapshot futex_snapshot'
+todo_dynamic+=' gdb_sharedlib cpp_throw files_on_exec '
+todo_alpine_dynamic+=' gdb_sharedlib cpp_throw popen files_on_exec'
 fi
 # running .so as executables was useful at some point, but it isn't needed anymore.
 # Simply disable the tests for now. Ultimately we will drop build and test support for them.
