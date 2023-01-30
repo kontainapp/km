@@ -43,6 +43,8 @@
 // TODO: Need to figure out where the corefile and snapshotdefault should go.
 static char* coredump_path = "./kmcore";
 
+int km_sparse_corefile = 0;   // if true, don't write unbacked data pages to the core file
+
 void km_set_coredump_path(char* path)
 {
    km_infox(KM_TRACE_COREDUMP, "Setting coredump path to %s", path);
@@ -586,6 +588,24 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu,
    return 0;
 }
 
+static inline int km_corefile_align(int corefd, off_t* offp)
+{
+   off_t off = lseek(corefd, 0, SEEK_CUR);
+   if (off == (off_t)-1) {
+      km_warn("lseek( SEEK_CUR ) failed");
+      return errno;
+   }
+   if (off != roundup(off, KM_PAGE_SIZE)) {
+      off = roundup(off, KM_PAGE_SIZE);
+      if (lseek(corefd, off, SEEK_SET) == (off_t)-1) {
+         km_warn("lseek to %ld failed", off);
+         return errno;
+      }
+   }
+   *offp = off;
+   return 0;
+}
+
 /*
  * Write a contiguous area in guest memory. Since write can
  * be very large, break it up into reasonably sized pieces (1MB).
@@ -600,17 +620,10 @@ static inline int km_guestmem_write(int fd, km_gva_t base, size_t length)
    static size_t maxwrite = MIB;
 
    // Page Align
-   off_t off = lseek(fd, 0, SEEK_CUR);
-   if (off == (off_t)-1) {
-      km_warn("lseek( SEEK_CUR ) failed");
-      return errno;
-   }
-   if (off != roundup(off, KM_PAGE_SIZE)) {
-      off = roundup(off, KM_PAGE_SIZE);
-      if (lseek(fd, off, SEEK_SET) == (off_t)-1) {
-         km_warn("lseek to %ld failed", off);
-         return errno;
-      }
+   off_t off = 0;
+   int rc = km_corefile_align(fd, &off);
+   if (rc != 0) {
+      return rc;
    }
    km_infox(KM_TRACE_COREDUMP, "base=0x%lx length=0x%lx off=0x%lx", base, remain, off);
    while (remain > 0) {
@@ -624,6 +637,157 @@ static inline int km_guestmem_write(int fd, km_gva_t base, size_t length)
       remain -= wsz;
    }
    return 0;
+}
+
+/*
+ * The following macros define the format of the 8 byte words in
+ * the file /proc/PID/pagemap.
+ * They were copied from linux kernel source file fs/proc/task_mmu.c
+ * So far only km_guestmem_write_sparse() needs these.
+ */
+#define BIT_ULL(nr) (1ULL << (nr))
+#define GENMASK_ULL(h, l) (((~0ULL) << (l)) & (~0ULL >> (sizeof(long long) * 8 - 1 - (h))))
+#define PM_PFRAME_BITS 55
+#define PM_PFRAME_MASK GENMASK_ULL(PM_PFRAME_BITS - 1, 0)
+#define PM_SOFT_DIRTY BIT_ULL(55)
+#define PM_MMAP_EXCLUSIVE BIT_ULL(56)
+#define PM_UFFD_WP BIT_ULL(57)
+#define PM_FILE BIT_ULL(61)
+#define PM_SWAP BIT_ULL(62)
+#define PM_PRESENT BIT_ULL(63)
+
+/*
+ * Only write virtual memory pages that have a physical memory page or
+ * a page on backing store.
+ * Any other pages in the virtual address space have no backing and will
+ * be created with zero fill when they are referenced.
+ * Since the pages have nothing of value in them we don't need to save them
+ * in our snapshots.
+ * We leave holes in the produced core file for these unbacked pages since
+ * the holes will read as zero filled bytes.
+ * A little investigation seemed to show that the memory manager in the kernel
+ * is willing to create unbacked pages when chunks of the core file are mapped
+ * into memory with mmap() so, we don't need to do anything special during snapshot
+ * startup to ensure the holes in the snapshot file appear as unbacked memory
+ * pages in the start payload.
+ * It should also be noted that the linux cp and tar programs are willing to detect
+ * holes in files and ensure the holes are propagated when copies are made.
+ * Use their --sparse command line flags.
+ */
+#define PROC_PAGEMAP "/proc/self/pagemap"
+#define PROC_PAGEMAP_ENTRYSIZE (sizeof(uint64_t))
+static inline int km_guestmem_write_sparse(int corefd, km_gva_t base, size_t length)
+{
+   km_assert(base == roundup(base, KM_PAGE_SIZE));
+
+   // align to page boundary in output file
+   off_t base_offset = 0;
+   int rc = km_corefile_align(corefd, &base_offset);
+   if (rc != 0) {
+      return rc;
+   }
+
+   km_infox(KM_TRACE_COREDUMP, "base=0x%lx length=0x%lx file offset=0x%lx", base, length, base_offset);
+
+   // !!!! use km virtual address
+   km_kma_t kma_base = km_gva_to_kma(base);
+
+   // Get virtual memory page backing info for the passed memory range from /proc/self/pagemap
+   size_t bytestowrite = roundup(length, KM_PAGE_SIZE);
+   size_t numberofpages = bytestowrite / KM_PAGE_SIZE;
+   uint64_t* pagemap = malloc(numberofpages * PROC_PAGEMAP_ENTRYSIZE);
+   int pagemapfd = open(PROC_PAGEMAP, O_RDONLY);
+   if (pagemapfd < 0) {
+      km_warn("open pagemap %s failed, %s", PROC_PAGEMAP, strerror(errno));
+      free(pagemap);
+      return errno;
+   }
+   off_t pagemap_offset = ((uint64_t)kma_base / KM_PAGE_SIZE * PROC_PAGEMAP_ENTRYSIZE);
+   if (lseek(pagemapfd, pagemap_offset, SEEK_SET) < 0) {
+      km_warn("pagemap seek to 0x%lx failed, %s", pagemap_offset, strerror(errno));
+      close(pagemapfd);
+      free(pagemap);
+      return errno;
+   }
+   size_t bytestoread = numberofpages * PROC_PAGEMAP_ENTRYSIZE;
+   ssize_t bytesread = read(pagemapfd, pagemap, bytestoread);
+   if (bytesread < 0) {
+      km_warn("pagemap read %ld bytes failed, %s", bytestoread, strerror(errno));
+      close(pagemapfd);
+      free(pagemap);
+      return errno;
+   }
+   close(pagemapfd);
+
+   // Range over the pagemap entries for the passed region of memory.
+   // Write only the backed pages to the core file.
+   int pageindex;
+   uint64_t unbackedpages_count = 0;
+   for (pageindex = 0; pageindex < numberofpages;) {
+      // Skip over any unbacked virtual pages
+      if ((pagemap[pageindex] & (PM_PRESENT | PM_SWAP)) == 0) {
+         // km_infox(KM_TRACE_COREDUMP, "page at %p is unbacked", base + (pageindex * KM_PAGE_SIZE));
+         pageindex++;
+         unbackedpages_count++;
+         continue;
+      }
+      if (unbackedpages_count != 0) {
+         km_infox(KM_TRACE_COREDUMP, "not writing %lu unbacked pages", unbackedpages_count);
+         unbackedpages_count = 0;
+      }
+
+      // Count the number of contiguous backed virtual pages
+      uint64_t backedpages_count;
+      for (backedpages_count = 0; pageindex + backedpages_count < numberofpages; backedpages_count++) {
+         if ((pagemap[pageindex] & (PM_PRESENT | PM_SWAP)) == 0) {
+            break;
+         }
+      }
+      // There must be at least one backed page.
+      km_assert(backedpages_count > 0);
+
+      // Write the backed pages to the coredump/snapshot file.
+      km_infox(KM_TRACE_COREDUMP,
+               "writing %ld backed pages at %p",
+               backedpages_count,
+               base + (pageindex * KM_PAGE_SIZE));
+      ssize_t byteswritten = pwrite(corefd,
+                                    kma_base + (pageindex * KM_PAGE_SIZE),
+                                    backedpages_count * KM_PAGE_SIZE,
+                                    base_offset + (pageindex * KM_PAGE_SIZE));
+      if (byteswritten < 0) {
+         km_warn("pwrite to core/snap file failed, %s", strerror(errno));
+         break;
+      }
+      // Be sure all the backed pages were written.
+      km_assert(byteswritten == backedpages_count * KM_PAGE_SIZE);
+
+      // Advance the pageindex to the next unbacked page (or the end of the region).
+      pageindex += backedpages_count;
+   }
+
+   // If there are unbacked (hence unwritten) trailing pages in the dump region
+   // skip to where we should be in the core file, and up truncate the filesize
+   // to that same offset.
+   off_t current_offset = lseek(corefd, 0, SEEK_CUR);
+   if (current_offset < 0) {
+      rc = errno;
+      km_warn("couldn't get current core file offset");
+   } else if ((current_offset - base_offset) < bytestowrite) {
+      km_infox(KM_TRACE_COREDUMP,
+               "region has trailing unbacked pages, extend corefile to 0x%lx",
+               base_offset + bytestowrite);
+      if (ftruncate(corefd, base_offset + bytestowrite) < 0) {
+         rc = errno;
+         km_warn("fruncate() to %ld bytes failed", base_offset + bytestowrite);
+      } else if (lseek(corefd, base_offset + bytestowrite, SEEK_SET) < 0) {
+         rc = errno;
+         km_warn("end of region lseek to %ld in core file failed", base_offset + bytestowrite);
+      }
+   }
+   // Free pagemap memory
+   free(pagemap);
+   return rc;
 }
 
 /*
@@ -871,6 +1035,11 @@ int km_dump_core(char* core_path,
    km_gva_t end_load = 0;
    int phnum = km_core_count_phdrs(vcpu, &end_load);
 
+   char* sparse_core = getenv(KM_SPARSE_COREFILE);
+   if (sparse_core != NULL) {
+      km_sparse_corefile = atoi(sparse_core);
+   }
+
    if ((fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0600)) < 0) {
       km_warn("Cannot create %s '%s'", dumptype == KM_DO_SNAP ? "snapshot" : "corefile", core_path);
       return errno;
@@ -910,9 +1079,15 @@ int km_dump_core(char* core_path,
       size_t write_size = phdr->p_memsz;
       write_size += km_core_last_load_adjust(phdr, end_load);
       size_t extra = phdr->p_vaddr - rounddown(phdr->p_vaddr, KM_PAGE_SIZE);
-      rc = km_guestmem_write(fd,
-                             rounddown(phdr->p_vaddr + km_guest.km_load_adjust, KM_PAGE_SIZE),
-                             write_size + extra);
+      if (dumptype == KM_DO_SNAP && km_sparse_corefile != 0) {
+         rc = km_guestmem_write_sparse(fd,
+                                       rounddown(phdr->p_vaddr + km_guest.km_load_adjust, KM_PAGE_SIZE),
+                                       write_size + extra);
+      } else {
+         rc = km_guestmem_write(fd,
+                                rounddown(phdr->p_vaddr + km_guest.km_load_adjust, KM_PAGE_SIZE),
+                                write_size + extra);
+      }
       if (rc != 0) {
          goto out;
       }
@@ -949,7 +1124,12 @@ int km_dump_core(char* core_path,
             goto out;
          }
       }
-      rc = km_guestmem_write(fd, ptr->start, ptr->size);
+      if (dumptype == KM_DO_SNAP && km_sparse_corefile != 0) {
+         // Should we do sparse coredumps too?
+         rc = km_guestmem_write_sparse(fd, ptr->start, ptr->size);
+      } else {
+         rc = km_guestmem_write(fd, ptr->start, ptr->size);
+      }
       if (rc != 0) {
          goto out;
       }

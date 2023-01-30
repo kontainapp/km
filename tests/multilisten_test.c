@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/mman.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -100,6 +101,19 @@ int main(int argc, char* argv[])
          maxfd = listenfd[i];
       }
    }
+
+   // allocate a big chunk of memory with malloc() and then don't touch it.
+   char* chunkmalloc = malloc(100 * 1024 * 1024);
+   fprintf(stdout, "chunkmalloc %p\n", chunkmalloc);
+
+   // allocate another big chunk of memory with mmap() and don't touch that
+   char* chunkmmap =
+       mmap(NULL, 100 * 1024 * 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+   if (chunkmmap == MAP_FAILED) {
+      fprintf(stderr, "mmap() failed, %s\n", strerror(errno));
+      return 1;
+   }
+   fprintf(stdout, "chunkmmap %p\n", chunkmmap);
 
    // Setup select mask to listen for connections
    fd_set readfds;
