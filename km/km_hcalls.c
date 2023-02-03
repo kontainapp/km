@@ -1775,10 +1775,11 @@ static km_hc_ret_t getXXid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 /*
  * int getgroups(int size, gid_t list[]);
  */
-static km_hc_ret_t getgroups_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+static km_hc_ret_t get_set_groups_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   int size = arg->arg1;
    gid_t* list = km_gva_to_kma(arg->arg2);
-   if (list == NULL) {
+   if (size != 0 && list == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
@@ -2130,7 +2131,8 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_getegid] = getXXid_hcall,
     [SYS_getgid] = getXXid_hcall,
 
-    [SYS_getgroups] = getgroups_hcall,
+    [SYS_getgroups] = get_set_groups_hcall,
+    [SYS_setgroups] = get_set_groups_hcall,
 
     [SYS_setsid] = setsid_hcall,
     [SYS_getsid] = getsid_hcall,
