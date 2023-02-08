@@ -304,6 +304,9 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
                          int resource,
                          const struct rlimit* new_limit,
                          struct rlimit* old_limit);
+
+uint64_t km_fs_timerfd_create(km_vcpu_t* vcpu, int clockid, int flags);
+
 size_t km_fs_dup_notes_length(void);
 size_t km_fs_core_dup_write(char* buf, size_t length);
 size_t km_fs_core_notes_length(void);
