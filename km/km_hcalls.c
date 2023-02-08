@@ -25,13 +25,13 @@
 #include <sys/syscall.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
+#include <sys/timerfd.h>
 #include <sys/times.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <asm/prctl.h>
 #include <linux/futex.h>
 #include <linux/stat.h>
-#include <sys/timerfd.h>
 
 #include "km.h"
 #include "km_coredump.h"
@@ -1906,12 +1906,12 @@ static km_hc_ret_t timerfd_create_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t timerfd_settime_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   const struct itimerspec *new_value = km_gva_to_kma(arg->arg3);
+   const struct itimerspec* new_value = km_gva_to_kma(arg->arg3);
    if (new_value == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   struct itimerspec *old_value = NULL;
+   struct itimerspec* old_value = NULL;
    if (arg->arg4 != 0) {
       old_value = km_gva_to_kma(arg->arg4);
       if (old_value == NULL) {
@@ -1928,7 +1928,7 @@ static km_hc_ret_t timerfd_settime_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t timerfd_gettime_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   struct itimerspec *curr_value = km_gva_to_kma(arg->arg2);
+   struct itimerspec* curr_value = km_gva_to_kma(arg->arg2);
    if (curr_value == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;

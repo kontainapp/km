@@ -1804,9 +1804,12 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
          for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
             if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
                int fdcount = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
-	       km_infox(KM_TRACE_FILESYS, "sockfd %d: processing SCM_RIGHTS send chunk containing %d fd's", sockfd, fdcount);
+               km_infox(KM_TRACE_FILESYS,
+                        "sockfd %d: processing SCM_RIGHTS send chunk containing %d fd's",
+                        sockfd,
+                        fdcount);
                int* guest_fd = (int*)CMSG_DATA(cmsg);
-	       for (int i = 0; i < fdcount; i++) {
+               for (int i = 0; i < fdcount; i++) {
                   int host_fd = km_fs_g2h_fd(guest_fd[i], NULL);
                   km_infox(KM_TRACE_FILESYS, "fd[%d] send guest fd %d as host fd %d", i, guest_fd[i], host_fd);
                   guest_fd[i] = host_fd;
@@ -1821,13 +1824,20 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
       if (msg->msg_control != NULL) {
          for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
             if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-               int fdcount = (cmsg->cmsg_len  - sizeof(struct cmsghdr)) / sizeof(int);
-	       km_infox(KM_TRACE_FILESYS, "sockfd %d: processing SCM_RIGHTS recv chunk containing %d fd's", sockfd, fdcount);
+               int fdcount = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
+               km_infox(KM_TRACE_FILESYS,
+                        "sockfd %d: processing SCM_RIGHTS recv chunk containing %d fd's",
+                        sockfd,
+                        fdcount);
                int* host_fd = (int*)CMSG_DATA(cmsg);
-	       for (int i = 0; i < fdcount; i++) {
+               for (int i = 0; i < fdcount; i++) {
                   int guest_fd =
                       km_add_guest_fd_internal(vcpu, host_fd[i], NULL, flag, KM_FILE_HOW_RECVMSG, NULL);
-                  km_infox(KM_TRACE_FILESYS, "fd[%d]: received host fd %d will be guest fd %d", i, host_fd[i], guest_fd);
+                  km_infox(KM_TRACE_FILESYS,
+                           "fd[%d]: received host fd %d will be guest fd %d",
+                           i,
+                           host_fd[i],
+                           guest_fd);
                   host_fd[i] = guest_fd;
                }
             }
