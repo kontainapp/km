@@ -18,7 +18,7 @@
  * Simple test of env vars
  */
 #undef _FORTIFY_SOURCE   // TODO : this is needed on Ubuntu; to make right we need to define _
-//#define _GNU_SOURCE
+// #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

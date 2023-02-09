@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Kontain Inc
+ * Copyright 2021-2023 Kontain Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,6 +60,7 @@ typedef enum km_file_how {
    KM_FILE_HOW_SOCKETPAIR1 = 7,
    KM_FILE_HOW_RECVMSG = 8,
    KM_FILE_HOW_EVENTFD = 9, /* eventfd() */
+   KM_FILE_HOW_TIMERFD = 10
 } km_file_how_t;
 
 // Each file opened by the guest has one of these structures.

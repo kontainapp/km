@@ -1800,25 +1800,47 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
    }
    if (scall == SYS_sendmsg) {
       // translate sent file descriptors if any
-      for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-         if (cmsg->cmsg_type == SCM_RIGHTS) {
-            int guest_fd = *(int*)CMSG_DATA(cmsg);
-            int host_fd = km_fs_g2h_fd(guest_fd, NULL);
-            *(int*)CMSG_DATA(cmsg) = host_fd;
-            km_infox(KM_TRACE_FILESYS, "send guest fd %d as host %d", guest_fd, host_fd);
+      if (msg->msg_control != NULL) {
+         for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+            if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+               int fdcount = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
+               km_infox(KM_TRACE_FILESYS,
+                        "sockfd %d: processing SCM_RIGHTS send chunk containing %d fd's",
+                        sockfd,
+                        fdcount);
+               int* guest_fd = (int*)CMSG_DATA(cmsg);
+               for (int i = 0; i < fdcount; i++) {
+                  int host_fd = km_fs_g2h_fd(guest_fd[i], NULL);
+                  km_infox(KM_TRACE_FILESYS, "fd[%d] send guest fd %d as host fd %d", i, guest_fd[i], host_fd);
+                  guest_fd[i] = host_fd;
+               }
+            }
          }
       }
    }
    ret = __syscall_3(scall, host_sockfd, (uintptr_t)msg, flag);
-   if (scall == SYS_recvmsg) {
+   if (scall == SYS_recvmsg && ret >= 0) {
       // receive file descriptors if any
-      for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-         if (cmsg->cmsg_type == SCM_RIGHTS) {
-            int host_fd = *(int*)CMSG_DATA(cmsg);
-            int guest_fd =
-                km_add_guest_fd_internal(vcpu, host_fd, NULL, flag, KM_FILE_HOW_RECVMSG, NULL);
-            *(int*)CMSG_DATA(cmsg) = guest_fd;
-            km_infox(KM_TRACE_FILESYS, "received host fd %d as guest %d", host_fd, guest_fd);
+      if (msg->msg_control != NULL) {
+         for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+            if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+               int fdcount = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
+               km_infox(KM_TRACE_FILESYS,
+                        "sockfd %d: processing SCM_RIGHTS recv chunk containing %d fd's",
+                        sockfd,
+                        fdcount);
+               int* host_fd = (int*)CMSG_DATA(cmsg);
+               for (int i = 0; i < fdcount; i++) {
+                  int guest_fd =
+                      km_add_guest_fd_internal(vcpu, host_fd[i], NULL, flag, KM_FILE_HOW_RECVMSG, NULL);
+                  km_infox(KM_TRACE_FILESYS,
+                           "fd[%d]: received host fd %d will be guest fd %d",
+                           i,
+                           host_fd[i],
+                           guest_fd);
+                  host_fd[i] = guest_fd;
+               }
+            }
          }
       }
    }
@@ -2280,6 +2302,15 @@ uint64_t km_fs_epoll_ctl(km_vcpu_t* vcpu, int epfd, int op, int fd, struct epoll
             km_fs_event_del(vcpu, file, fd, event);
             break;
       }
+   }
+   return ret;
+}
+
+uint64_t km_fs_timerfd_create(km_vcpu_t* vcpu, int clockid, int flags)
+{
+   int ret = __syscall_2(SYS_timerfd_create, clockid, flags);
+   if (ret >= 0) {
+      ret = km_add_guest_fd_internal(vcpu, ret, NULL, flags, KM_FILE_HOW_TIMERFD, NULL);
    }
    return ret;
 }
@@ -2886,6 +2917,9 @@ int km_fs_core_notes_write(char* buf, size_t length, size_t* sizep)
             rc = fs_core_write_epollfd(cur, remain, file, i, &sz);
          } else if (file->how == KM_FILE_HOW_EVENTFD) {
             rc = fs_core_write_eventfd(cur, remain, file, i, &sz);
+         } else if (file->how == KM_FILE_HOW_TIMERFD) {
+            rc = EOPNOTSUPP;
+            km_warnx("Can't snapshot timerfd's yet, fd %d", i);
          } else if (file->sockinfo == NULL) {
             rc = fs_core_write_nonsocket(cur, remain, file, i, &sz);
          } else {

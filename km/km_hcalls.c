@@ -25,6 +25,7 @@
 #include <sys/syscall.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
+#include <sys/timerfd.h>
 #include <sys/times.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
@@ -271,22 +272,41 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   msg.msg_name = km_gva_to_kma((uint64_t)msg_kma->msg_name);   // optional
-   msg.msg_namelen = msg_kma->msg_namelen;
-   msg.msg_iovlen = msg_kma->msg_iovlen;
-   struct iovec iov[msg.msg_iovlen];
-   for (int i = 0; i < msg.msg_iovlen; i++) {
-      struct iovec* iov_kma;
-
-      if ((iov_kma = km_gva_to_kma((uint64_t)msg_kma->msg_iov)) == NULL) {
+   if (msg_kma->msg_name != NULL) {
+      msg.msg_name = km_gva_to_kma((uint64_t)msg_kma->msg_name);   // optional
+      if (msg.msg_name == NULL) {
          arg->hc_ret = -EFAULT;
          return HC_CONTINUE;
       }
+   } else {
+      msg.msg_name = NULL;
+   }
+   msg.msg_namelen = msg_kma->msg_namelen;
+   msg.msg_iovlen = msg_kma->msg_iovlen;
+   struct iovec iov[msg.msg_iovlen];
+   struct iovec* iov_kma;
+   if ((iov_kma = km_gva_to_kma((uint64_t)msg_kma->msg_iov)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   for (int i = 0; i < msg.msg_iovlen; i++) {
       iov[i].iov_base = km_gva_to_kma((uint64_t)iov_kma[i].iov_base);
+      if (iov[i].iov_base == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
       iov[i].iov_len = iov_kma[i].iov_len;
    }
    msg.msg_iov = iov;
-   msg.msg_control = km_gva_to_kma((uint64_t)msg_kma->msg_control);   // optional
+   if (msg_kma->msg_control != NULL) {
+      msg.msg_control = km_gva_to_kma((uint64_t)msg_kma->msg_control);   // optional
+      if (msg.msg_control == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+   } else {
+      msg.msg_control = NULL;
+   }
    msg.msg_controllen = msg_kma->msg_controllen;
    msg.msg_flags = msg_kma->msg_flags;
    arg->hc_ret = km_fs_sendrecvmsg(vcpu, hc, arg->arg1, &msg, arg->arg3);
@@ -1773,6 +1793,16 @@ static km_hc_ret_t getXXid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 }
 
 /*
+ * uid_t setuid(void);
+ * gid_t setgid(void);
+ */
+static km_hc_ret_t setXid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = __syscall_1(hc, arg->arg1);
+   return HC_CONTINUE;
+}
+
+/*
  * int getgroups(int size, gid_t list[]);
  */
 static km_hc_ret_t get_set_groups_hcall(void* vcpu, int hc, km_hc_args_t* arg)
@@ -1857,6 +1887,53 @@ static km_hc_ret_t getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
    arg->hc_ret = getitimer(arg->arg1, curr);
+   return HC_CONTINUE;
+}
+
+/*
+ * int timerfd_create(int clockid, int flags);
+ */
+static km_hc_ret_t timerfd_create_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_fs_timerfd_create(vcpu, arg->arg1, arg->arg2);
+   return HC_CONTINUE;
+}
+
+/*
+ * int timerfd_settime(int fd, int flags,
+ *                     const struct itimerspec *new_value,
+ *                     struct itimerspec *old_value);
+ */
+static km_hc_ret_t timerfd_settime_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   const struct itimerspec* new_value = km_gva_to_kma(arg->arg3);
+   if (new_value == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   struct itimerspec* old_value = NULL;
+   if (arg->arg4 != 0) {
+      old_value = km_gva_to_kma(arg->arg4);
+      if (old_value == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+   }
+   arg->hc_ret = timerfd_settime(arg->arg1, arg->arg2, new_value, old_value);
+   return HC_CONTINUE;
+}
+
+/*
+ * int timerfd_gettime(int fd, struct itimerspec *curr_value);
+ */
+static km_hc_ret_t timerfd_gettime_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct itimerspec* curr_value = km_gva_to_kma(arg->arg2);
+   if (curr_value == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = timerfd_gettime(arg->arg1, curr_value);
    return HC_CONTINUE;
 }
 
@@ -2130,6 +2207,8 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_getuid] = getXXid_hcall,
     [SYS_getegid] = getXXid_hcall,
     [SYS_getgid] = getXXid_hcall,
+    [SYS_setuid] = setXid_hcall,
+    [SYS_setgid] = setXid_hcall,
 
     [SYS_getgroups] = get_set_groups_hcall,
     [SYS_setgroups] = get_set_groups_hcall,
@@ -2173,6 +2252,10 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_getitimer] = getitimer_hcall,
     [SYS_statfs] = statfs_hcall,
     [SYS_fstatfs] = fstatfs_hcall,
+
+    [SYS_timerfd_create] = timerfd_create_hcall,
+    [SYS_timerfd_settime] = timerfd_settime_hcall,
+    [SYS_timerfd_gettime] = timerfd_gettime_hcall,
 
     [SYS_mknodat] = mknodat_hcall,
     [SYS_newfstatat] = newfstatat_hcall,
