@@ -1937,47 +1937,6 @@ static km_hc_ret_t timerfd_gettime_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
-#if 0
-/*
- * long io_setup(unsigned int nr_events, aio_context_t *ctx_idp);
- */
-static km_hc_ret_t io_setup_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-}
-
-/*
- * int io_submit(aio_context_t ctx_id, long nr, struct iocb **iocbpp);
- */
-static km_hc_ret_t io_submit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-}
-
-/*
- * int syscall(SYS_io_cancel, aio_context_t ctx_id, struct iocb *iocb,
- *             struct io_event *result);
- */
-static km_hc_ret_t io_cancel_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-}
-
-/*
- * int syscall(SYS_io_cancel, aio_context_t ctx_id, struct iocb *iocb,
- *             struct io_event *result);
- */
-static km_hc_ret_t io_destroy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-}
-
-/*
- * int syscall(SYS_io_getevents, aio_context_t ctx_id,
- *             long min_nr, long nr, struct io_event *events,
- *             struct timespec *timeout);
- */
-static km_hc_ret_t io_getevents_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-}
-#endif
-
 static km_hc_ret_t statfs_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    char* pathname = km_gva_to_kma(arg->arg1);
