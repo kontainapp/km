@@ -882,6 +882,16 @@ int km_dump_core(char* core_path,
       rc = EINVAL;
       goto out;
    }
+   if (dumptype == KM_DO_SNAP && km_io_context_count > 0) {
+      // io context id's are assigned by the kernel with io_setup().
+      // A resumed snapshot won't get the same id(s) when started up.
+      // So, we need to map io contexts between what the payload is
+      // using and what the kernel handed out.  When we add support
+      // for that we can snapshot payloads using asynch io.
+      km_warnx("Can't take a snapshot, %d active io contexts exist", km_io_context_count);
+      rc = EINVAL;
+      goto out;
+   }
 
    if ((notes_buffer = (char*)calloc(1, notes_length)) == NULL) {
       km_warn("cannot allocate notes buffer, %ld bytes, exiting", notes_length);
