@@ -286,7 +286,7 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    msg.msg_namelen = msg_kma->msg_namelen;
    msg.msg_iovlen = msg_kma->msg_iovlen;
    struct iovec iov[msg.msg_iovlen];
-   struct iovec* iov_kma;
+   struct iovec* iov_kma = NULL;
    // If iovec has no elements the iovec pointer is not validated.
    // msg_iovlen is unsigned so can never be negative.
    if (msg.msg_iovlen > 0 && (iov_kma = km_gva_to_kma((uint64_t)msg_kma->msg_iov)) == NULL) {
