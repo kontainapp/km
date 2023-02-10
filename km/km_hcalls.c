@@ -295,7 +295,8 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    }
    for (int i = 0; i < msg.msg_iovlen; i++) {
       // Don't validate addresses if the element has a length of zero.
-      if (iov_kma[i].iov_len > 0 && (iov[i].iov_base = km_gva_to_kma((uint64_t)iov_kma[i].iov_base)) == NULL) {
+      if (iov_kma[i].iov_len > 0 &&
+          (iov[i].iov_base = km_gva_to_kma((uint64_t)iov_kma[i].iov_base)) == NULL) {
          arg->hc_ret = -EFAULT;
          return HC_CONTINUE;
       }
