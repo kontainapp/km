@@ -272,6 +272,8 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
+   // The kernel seems to check the msg_name pointer before looking to see if
+   // msg_namelen > 0.  So we validate msg_name first.
    if (msg_kma->msg_name != NULL) {
       msg.msg_name = km_gva_to_kma((uint64_t)msg_kma->msg_name);   // optional
       if (msg.msg_name == NULL) {
@@ -284,28 +286,28 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    msg.msg_namelen = msg_kma->msg_namelen;
    msg.msg_iovlen = msg_kma->msg_iovlen;
    struct iovec iov[msg.msg_iovlen];
-   struct iovec* iov_kma;
-   if ((iov_kma = km_gva_to_kma((uint64_t)msg_kma->msg_iov)) == NULL) {
+   struct iovec* iov_kma = NULL;
+   // If iovec has no elements the iovec pointer is not validated.
+   // msg_iovlen is unsigned so can never be negative.
+   if (msg.msg_iovlen > 0 && (iov_kma = km_gva_to_kma((uint64_t)msg_kma->msg_iov)) == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
    for (int i = 0; i < msg.msg_iovlen; i++) {
-      iov[i].iov_base = km_gva_to_kma((uint64_t)iov_kma[i].iov_base);
-      if (iov[i].iov_base == NULL) {
+      // Don't validate addresses if the element has a length of zero.
+      if (iov_kma[i].iov_len > 0 &&
+          (iov[i].iov_base = km_gva_to_kma((uint64_t)iov_kma[i].iov_base)) == NULL) {
          arg->hc_ret = -EFAULT;
          return HC_CONTINUE;
       }
       iov[i].iov_len = iov_kma[i].iov_len;
    }
    msg.msg_iov = iov;
-   if (msg_kma->msg_control != NULL) {
-      msg.msg_control = km_gva_to_kma((uint64_t)msg_kma->msg_control);   // optional
-      if (msg.msg_control == NULL) {
-         arg->hc_ret = -EFAULT;
-         return HC_CONTINUE;
-      }
-   } else {
-      msg.msg_control = NULL;
+   // If msg_controlen is zero the msg_control pointer is not validated.
+   if (msg_kma->msg_controllen > 0 &&
+       (msg.msg_control = km_gva_to_kma((uint64_t)msg_kma->msg_control)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
    }
    msg.msg_controllen = msg_kma->msg_controllen;
    msg.msg_flags = msg_kma->msg_flags;
