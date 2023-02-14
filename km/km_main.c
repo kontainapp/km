@@ -409,17 +409,17 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
             char** no_envp;
 
             if ((no_envp = malloc(2 * sizeof(char*))) == NULL) {
-               km_err(errno, "Failed to alloc memory for copyenv args %s", optarg);
+               km_err(2, "Failed to alloc memory for copyenv args %s", optarg);
             }
             for (no_envc = 1, no_envp[0] = strtok(optarg, "=");
                  (no_envp[no_envc] = strtok(NULL, "=")) != NULL;
                  no_envc++) {
                if ((no_envp = realloc(no_envp, (no_envc + 1) * sizeof(char*))) == NULL) {
-                  km_err(errno, "Failed to alloc memory for copyenv args %s", optarg);
+                  km_err(2, "Failed to alloc memory for copyenv args %s", optarg);
                }
             }
             if ((envp = malloc(sizeof(char*))) == NULL) {
-               km_err(errno, "Failed to alloc memory for copyenv %s", optarg);
+               km_err(2, "Failed to alloc memory for copyenv %s", optarg);
             }
             envp[0] = NULL;
             for (int ec = 0; __environ[ec] != NULL; ec++) {
@@ -432,10 +432,10 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
                if (i == no_envc) {
                   envc++;
                   if ((envp = realloc(envp, sizeof(char*) * envc)) == NULL) {
-                     km_err(errno, "Failed to alloc memory for copyenv %s", optarg);
+                     km_err(2, "Failed to alloc memory for copyenv %s", optarg);
                   }
                   if ((envp[envc - 2] = strdup(__environ[ec])) == NULL) {
-                     km_err(errno, "Failed to alloc memory for copyenv %s value", optarg);
+                     km_err(2, "Failed to alloc memory for copyenv %s value", optarg);
                   }
                   envp[envc - 1] = NULL;
                }

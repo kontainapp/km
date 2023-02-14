@@ -148,7 +148,7 @@ static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t*
                // Guest mprotect gets the KM mmap regs split.
                int ret = km_guest_mprotect(phdr->p_vaddr, phdr->p_filesz, prot);
                if (ret != 0) {
-                  km_err(-ret, "km_guest_mprotect failed");
+                  km_err_e(2, -ret, "km_guest_mprotect failed");
                }
                // mmap the data
                void* m = mmap(km_gva_to_kma(phdr->p_vaddr),
@@ -158,11 +158,7 @@ static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t*
                               fd,
                               phdr->p_offset);
                if (m == MAP_FAILED) {
-                  km_err(errno,
-                         "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx",
-                         i,
-                         phdr->p_vaddr,
-                         phdr->p_offset);
+                  km_err(2, "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx", i, phdr->p_vaddr, phdr->p_offset);
                }
             }
          } else {
@@ -176,7 +172,7 @@ static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t*
                            fd,
                            phdr->p_offset - extra);
             if (m == MAP_FAILED) {
-               km_err(errno, "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx", i, phdr->p_vaddr, phdr->p_offset);
+               km_err(2, "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx", i, phdr->p_vaddr, phdr->p_offset);
             }
          }
       }
