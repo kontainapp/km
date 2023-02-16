@@ -611,7 +611,7 @@ int km_snapshot_sigcreate(km_vcpu_t* vcpu)
    if (machine.sigactions[km_sigindex(KM_SIGSNAPCREATE)].handler == 0) {
       return 0;
    }
-   siginfo_t info = { .si_signo =  KM_SIGSNAPCREATE };
+   siginfo_t info = {.si_signo = KM_SIGSNAPCREATE};
    km_post_signal(vcpu, &info);
    vcpu->snap_state = SNAP_STATE_RUNHOOK_CREATE;
    return 1;
@@ -622,7 +622,7 @@ int km_snapshot_sigrestore_live(km_vcpu_t* vcpu)
    if (machine.sigactions[km_sigindex(KM_SIGSNAPRESTORE)].handler == 0) {
       return 0;
    }
-   siginfo_t info = { .si_signo =  KM_SIGSNAPRESTORE };
+   siginfo_t info = {.si_signo = KM_SIGSNAPRESTORE};
    km_post_signal(vcpu, &info);
    vcpu->snap_state = SNAP_STATE_RUNHOOK_RESTORE_LIVE;
    return 1;

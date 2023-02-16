@@ -37,7 +37,8 @@ void km_snapshot_fill_km_payload(km_elf_t* e, km_payload_t* p);
 void km_set_snapshot_input_path(char* path);
 void km_set_snapshot_output_path(char* path);
 
-int km_snap_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t* oldact, size_t sigsetsize);
+int km_snap_sigaction(
+    km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t* oldact, size_t sigsetsize);
 int km_snapshot_sigcreate(km_vcpu_t* vcpu);
 int km_snapshot_sigrestore_live(km_vcpu_t* vcpu);
 void km_snapshot_return_createhook(km_vcpu_t* vcpu);

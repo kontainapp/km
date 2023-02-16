@@ -192,7 +192,7 @@ typedef struct km_vcpu {
    uint64_t dr_regs[4];   // remember the addresses we are watching and have written into
                           // the processor's debugging facilities in DR0 - DR3.
    gdb_vcpu_state_t gdb_vcpu_state;   // gdb's per thread (vcpu) state.
-   km_snap_state_t  snap_state;
+   km_snap_state_t snap_state;
 } km_vcpu_t;
 
 static inline int km_on_altstack(km_vcpu_t* vcpu, km_gva_t sp)
