@@ -702,6 +702,17 @@ void km_rt_sigreturn(km_vcpu_t* vcpu)
    }
    restore_signal_context(vcpu, frame);
    km_write_registers(vcpu);
+
+   if (vcpu->snap_state == SNAP_STATE_RUNHOOK_CREATE) {
+      km_snapshot_return_createhook(vcpu);
+      return;
+   }
+
+   if (vcpu->snap_state == SNAP_STATE_RUNHOOK_RESTORE) {
+      km_snapshot_return_restorehook(vcpu);
+      return;
+   }
+
    km_info(KM_TRACE_SIGNALS, "Return: RIP 0x%0llx RSP 0x%0llx", vcpu->regs.rip, vcpu->regs.rsp);
 }
 
@@ -755,6 +766,10 @@ km_rt_sigprocmask(km_vcpu_t* vcpu, int how, km_sigset_t* set, km_sigset_t* oldse
 uint64_t
 km_rt_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t* oldact, size_t sigsetsize)
 {
+   if (signo == KM_SIGSNAPCREATE || signo == KM_SIGSNAPRESTORE) {
+      return km_snap_sigaction(vcpu, signo, act, oldact, sigsetsize);
+   }
+
    if (sigsetsize != sizeof(km_sigset_t)) {
       return -EINVAL;
    }
@@ -1025,11 +1040,12 @@ km_rt_sigtimedwait(km_vcpu_t* vcpu, km_sigset_t* set, siginfo_t* info, struct ti
 
 /*
  * Dump in elf format
+ * Note: Include snapshot create/resume signals
  */
 size_t km_sig_core_notes_length()
 {
    size_t ret = 0;
-   for (int i = 1; i <= _NSIG; i++) {
+   for (int i = 1; i <= KM_NSIG; i++) {
       km_sigaction_t* sa = &machine.sigactions[km_sigindex(i)];
       if (sa->handler != (uintptr_t)SIG_DFL) {
          ret += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_sighand_t);
@@ -1042,13 +1058,19 @@ size_t km_sig_core_notes_write(char* buf, size_t length)
 {
    char* cur = buf;
    size_t remain = length;
-   for (int i = 1; i <= _NSIG; i++) {
+   for (int i = 1; i <= KM_NSIG; i++) {
       km_sigaction_t* sa = &machine.sigactions[km_sigindex(i)];
       if (sa->handler != (uintptr_t)SIG_DFL) {
+         int signo = i;
+         if (i == _NSIG + 1) {
+            signo = KM_SIGSNAPCREATE;
+         } else if (i == _NSIG + 2) {
+            signo = KM_SIGSNAPRESTORE;
+         }
          cur += km_add_note_header(cur, remain, KM_NT_NAME, NT_KM_SIGHAND, sizeof(km_nt_sighand_t));
          km_nt_sighand_t* nt_sa = (km_nt_sighand_t*)cur;
          nt_sa->size = sizeof(km_nt_sighand_t);
-         nt_sa->signo = i;
+         nt_sa->signo = signo;
          nt_sa->handler = sa->handler;
          nt_sa->mask = sa->sa_mask;
          nt_sa->flags = sa->sa_flags;
@@ -1066,6 +1088,9 @@ int km_sig_snapshot_recover(char* buf, size_t length)
    if (nt_sa->size != sizeof(km_nt_sighand_t)) {
       km_warnx("km_nt_sighand_t size mismatch - old snapshot?");
       return -1;
+   }
+   if (nt_sa->signo == NSIG) {
+      km_warnx("SIG_SNAPCREATE");
    }
    km_infox(KM_TRACE_SNAPSHOT, "signal %d handler=0x%lx", nt_sa->signo, nt_sa->handler);
    km_sigaction_t sa = {

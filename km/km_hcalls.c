@@ -1275,17 +1275,10 @@ static km_hc_ret_t rt_sigprocmask_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static km_hc_ret_t rt_sigaction_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
-   km_sigaction_t* act = NULL;
-   km_sigaction_t* oldact = NULL;
+   // note: act or oldact can be NULL. Let the lower level function sort it out.
+   km_sigaction_t* act = km_gva_to_kma(arg->arg2);
+   km_sigaction_t* oldact = km_gva_to_kma(arg->arg3);
 
-   if (arg->arg2 != 0 && (act = km_gva_to_kma(arg->arg2)) == NULL) {
-      arg->hc_ret = -EFAULT;
-      return HC_CONTINUE;
-   }
-   if (arg->arg3 != 0 && (oldact = km_gva_to_kma(arg->arg3)) == NULL) {
-      arg->hc_ret = -EFAULT;
-      return HC_CONTINUE;
-   }
    arg->hc_ret = km_rt_sigaction(vcpu, arg->arg1, act, oldact, arg->arg4);
    return HC_CONTINUE;
 }
@@ -2138,8 +2131,6 @@ static km_hc_ret_t newfstatat_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   km_warnx("SNAPSHOT");
-
    char* label = km_gva_to_kma(arg->arg1);
    if (arg->arg1 != 0 && label == NULL) {
       arg->hc_ret = -EFAULT;
@@ -2157,8 +2148,21 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    ((km_vcpu_t*)vcpu)->regs_valid = 0;   // force register reread after the sync_rip
    km_read_registers(vcpu);
 
-   if ((arg->hc_ret = km_snapshot_block(vcpu)) != 0) {
-      return HC_CONTINUE;
+   if (((km_vcpu_t*)vcpu)->snap_state == SNAP_STATE_RUNNING) {
+      if ((arg->hc_ret = km_snapshot_block(vcpu)) != 0) {
+         return HC_CONTINUE;
+      }
+
+      // When km_snapshot_sigcreate returns a non-zero value, the snapshot
+      // create hook is called and this hypercall is recalled after the 
+      // the hook returns. snap_state is used to keep track of this.
+      if ((arg->hc_ret = km_snapshot_sigcreate(vcpu)) != 0) {
+         km_assert(((km_vcpu_t*)vcpu)->snap_state == SNAP_STATE_RUNHOOK_CREATE);
+         ((km_vcpu_t*)vcpu)->regs.rip -= 1;	// Redo the OUT instruction.
+         km_write_registers(vcpu);
+         km_vcpu_sync_rip(vcpu);
+         return HC_CONTINUE;
+      }
    }
 
    // Create the snapshot.

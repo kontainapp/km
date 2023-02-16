@@ -52,6 +52,12 @@ void km_dequeue_sig_sleep(km_vcpu_t* vcpu);
 
 static inline int km_sigindex(int signo)
 {
+   if (signo == KM_SIGSNAPCREATE) {
+      return _NSIG;
+   }
+   if (signo == KM_SIGSNAPRESTORE) {
+      return _NSIG + 1;
+   }
    return signo - 1;
 }
 

@@ -551,6 +551,13 @@ static int km_vcpu_is_running(km_vcpu_t* vcpu, void* skip_me)
 
 static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
 {
+   if (vcpu->snap_state == SNAP_STATE_RUNHOOK_CREATE) {
+      return;
+   }
+   if (vcpu->snap_state == SNAP_STATE_RUNHOOK_RESTORE) {
+      return;
+   }
+
    /*
     * Interlock with machine.pause_requested. This is mostly for the benefits of gdb stub, but
     * also used to stop all vcpus in exit_grp() and in fatal signal. .pause_requested makes all
@@ -565,8 +572,8 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
     */
    km_mutex_lock(&machine.pause_mtx);
    while ((machine.pause_requested != 0 || (km_gdb_client_is_attached() != 0 &&
-                                            vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED)) &&
-          machine.exit_group == 0) {
+                                            vcpu->gdb_vcpu_state.gdb_run_state == THREADSTATE_PAUSED) ||
+           vcpu->snap_state == SNAP_STATE_PAUSED) && machine.exit_group == 0) {
       km_infox(KM_TRACE_VCPU,
                "pause_requested %d, gvs_gdb_run_state %d, vcpu state %d",
                machine.pause_requested,
@@ -591,6 +598,15 @@ void* km_vcpu_run(km_vcpu_t* vcpu)
    char thread_name[16];   // see 'man pthread_getname_np'
    sprintf(thread_name, "vcpu-%d", vcpu->vcpu_id);
    km_setname_np(vcpu->vcpu_thread, thread_name);
+
+   if (vcpu->snap_state == SNAP_STATE_RUNHOOK_RESTORE) {
+      km_assert(machine.sigactions[km_sigindex(KM_SIGSNAPRESTORE)].handler != 0); 
+      siginfo_t info = {
+         .si_signo = KM_SIGSNAPRESTORE,
+         .si_code = SI_KERNEL,
+      };
+      km_deliver_signal(vcpu, &info);
+   }
 
    while (1) {
       int reason;
