@@ -583,7 +583,6 @@ int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* du
 
 int km_snap_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t* oldact, size_t sigsetsize)
 {
-   km_warnx("km_snapsigaction: called signo=%d", signo);
    int index = _NSIG;
    if (signo == KM_SIGSNAPRESTORE) {
       index = _NSIG + 1;
@@ -615,6 +614,17 @@ int km_snapshot_sigcreate(km_vcpu_t* vcpu)
    siginfo_t info = { .si_signo =  KM_SIGSNAPCREATE };
    km_post_signal(vcpu, &info);
    vcpu->snap_state = SNAP_STATE_RUNHOOK_CREATE;
+   return 1;
+}
+
+int km_snapshot_sigrestore_live(km_vcpu_t* vcpu)
+{
+   if (machine.sigactions[km_sigindex(KM_SIGSNAPRESTORE)].handler == 0) {
+      return 0;
+   }
+   siginfo_t info = { .si_signo =  KM_SIGSNAPRESTORE };
+   km_post_signal(vcpu, &info);
+   vcpu->snap_state = SNAP_STATE_RUNHOOK_RESTORE_LIVE;
    return 1;
 }
 

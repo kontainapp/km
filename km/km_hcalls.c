@@ -2148,6 +2148,11 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    ((km_vcpu_t*)vcpu)->regs_valid = 0;   // force register reread after the sync_rip
    km_read_registers(vcpu);
 
+   if (((km_vcpu_t*)vcpu)->snap_state == SNAP_STATE_RUNHOOK_RESTORE_LIVE) {
+      km_snapshot_unblock();
+      return HC_CONTINUE;
+   }
+
    if (((km_vcpu_t*)vcpu)->snap_state == SNAP_STATE_RUNNING) {
       if ((arg->hc_ret = km_snapshot_block(vcpu)) != 0) {
          return HC_CONTINUE;
@@ -2156,7 +2161,7 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       // When km_snapshot_sigcreate returns a non-zero value, the snapshot
       // create hook is called and this hypercall is recalled after the 
       // the hook returns. snap_state is used to keep track of this.
-      if ((arg->hc_ret = km_snapshot_sigcreate(vcpu)) != 0) {
+      if (km_snapshot_sigcreate(vcpu) != 0) {
          km_assert(((km_vcpu_t*)vcpu)->snap_state == SNAP_STATE_RUNHOOK_CREATE);
          ((km_vcpu_t*)vcpu)->regs.rip -= 1;	// Redo the OUT instruction.
          km_write_registers(vcpu);
@@ -2167,12 +2172,24 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
    // Create the snapshot.
    arg->hc_ret = km_snapshot_create(vcpu, label, description, NULL);
-   km_snapshot_unblock();
    // negative value means EBUSY or other similar condition.
    // TODO: in case of live (non zero last arg) returning HC_CONTINUE should just work
-   if (arg->hc_ret < 0 || live != 0) {
+   if (arg->hc_ret < 0) {
+      km_snapshot_unblock();
       return HC_CONTINUE;
    }
+   if (live != 0) {
+      if (km_snapshot_sigrestore_live(vcpu) != 0) {
+         km_assert(((km_vcpu_t*)vcpu)->snap_state == SNAP_STATE_RUNHOOK_RESTORE_LIVE);
+         ((km_vcpu_t*)vcpu)->regs.rip -= 1;	// Redo the OUT instruction.
+         km_write_registers(vcpu);
+         km_vcpu_sync_rip(vcpu);
+         return HC_CONTINUE;
+      }
+      km_snapshot_unblock();
+      return HC_CONTINUE;
+   }
+   km_snapshot_unblock();
    return HC_ALLSTOP;
 }
 

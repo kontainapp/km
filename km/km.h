@@ -146,6 +146,7 @@ typedef enum {
    SNAP_STATE_PAUSED,
    SNAP_STATE_RUNHOOK_CREATE,
    SNAP_STATE_RUNHOOK_RESTORE,
+   SNAP_STATE_RUNHOOK_RESTORE_LIVE,
 } km_snap_state_t;
 
 typedef struct km_vcpu {

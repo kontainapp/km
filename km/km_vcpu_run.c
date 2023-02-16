@@ -557,6 +557,9 @@ static inline void km_vcpu_handle_pause(km_vcpu_t* vcpu, int hc_ret)
    if (vcpu->snap_state == SNAP_STATE_RUNHOOK_RESTORE) {
       return;
    }
+   if (vcpu->snap_state == SNAP_STATE_RUNHOOK_RESTORE_LIVE) {
+      return;
+   }
 
    /*
     * Interlock with machine.pause_requested. This is mostly for the benefits of gdb stub, but
