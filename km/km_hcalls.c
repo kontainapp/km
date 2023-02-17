@@ -2123,6 +2123,7 @@ static km_hc_ret_t io_setup_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t io_submit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   int needed_iovecs = 0;
    struct iocb km_iocb_copy[arg->arg2];
    struct iocb* km_iocb_list[arg->arg2];
    struct iocb** local_iocbpp = km_gva_to_kma(arg->arg3);
@@ -2135,12 +2136,61 @@ static km_hc_ret_t io_submit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    for (int i = 0; i < arg->arg2; i++) {
       km_iocb_copy[i] = *local_iocbpp[i];
       km_iocb_list[i] = &km_iocb_copy[i];
-      km_iocb_copy[i].aio_buf = (uint64_t)km_gva_to_kma(local_iocbpp[i]->aio_buf);
-      if (km_iocb_copy[i].aio_buf == (uint64_t)NULL) {
-         arg->hc_ret = -EFAULT;
-         return HC_CONTINUE;
+      switch (km_iocb_copy[i].aio_lio_opcode) {
+         case IOCB_CMD_PWRITE:
+         case IOCB_CMD_PREAD:
+            km_iocb_copy[i].aio_buf = (uint64_t)km_gva_to_kma(local_iocbpp[i]->aio_buf);
+            if (km_iocb_copy[i].aio_buf == (uint64_t)NULL) {
+               arg->hc_ret = -EFAULT;
+               return HC_CONTINUE;
+            }
+            break;
+         case IOCB_CMD_PREADV:
+         case IOCB_CMD_PWRITEV:
+            // add to the total iovec's we will need for this submission.
+            needed_iovecs += km_iocb_copy[i].aio_nbytes;
+            break;
+         case IOCB_CMD_FDSYNC:
+         case IOCB_CMD_FSYNC:
+         case IOCB_CMD_POLL:
+            break;
+         default:
+            km_assert(0);
+            break;
       }
    }
+
+   // Now create iovec's with xlated addresses in them (if needed)
+   struct iovec kmiovecs[needed_iovecs];
+   if (needed_iovecs > 0) {
+      int freeiovec_index = 0;
+      for (int i = 0; i < arg->arg2; i++) {
+         if ((km_iocb_copy[i].aio_lio_opcode == IOCB_CMD_PREADV ||
+              km_iocb_copy[i].aio_lio_opcode == IOCB_CMD_PWRITEV) &&
+             km_iocb_copy[i].aio_nbytes > 0) {
+            struct iovec* km_aio_buf = km_gva_to_kma(km_iocb_copy[i].aio_buf);
+            if (km_aio_buf == NULL) {
+               arg->hc_ret = -EFAULT;
+               return HC_CONTINUE;
+            }
+            km_iocb_copy[i].aio_buf = (__u64)&kmiovecs[freeiovec_index];
+            for (int j = 0; j < km_iocb_copy[i].aio_nbytes; j++) {
+               km_assert(freeiovec_index < needed_iovecs);
+               if (km_aio_buf[j].iov_len != 0) {
+                  kmiovecs[freeiovec_index].iov_base = km_gva_to_kma((km_gva_t)km_aio_buf[j].iov_base);
+                  if (kmiovecs[freeiovec_index].iov_base == NULL) {
+                     arg->hc_ret = -EFAULT;
+                     return HC_CONTINUE;
+                  }
+               }
+               kmiovecs[freeiovec_index].iov_len = km_aio_buf[j].iov_len;
+               freeiovec_index++;
+            }
+         }
+      }
+      km_assert(freeiovec_index == needed_iovecs);
+   }
+
    int reqs_submitted = __syscall_3(SYS_io_submit, arg->arg1, arg->arg2, (uint64_t)&km_iocb_list);
    if (reqs_submitted >= 0) {
       __atomic_add_fetch(&km_io_active_count, reqs_submitted, __ATOMIC_SEQ_CST);
