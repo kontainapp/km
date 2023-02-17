@@ -1775,3 +1775,8 @@ EOF
    # cleanup mgtdir
    rm -fr $MGTDIR $NPDATA
 }
+
+@test "aio($test_type): exercise io_*() syscalls (aio_test$ext)" {
+   km_with_timeout aio_test$ext 13
+   assert_success
+}

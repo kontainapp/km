@@ -30,6 +30,7 @@
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <asm/prctl.h>
+#include <linux/aio_abi.h>
 #include <linux/futex.h>
 #include <linux/stat.h>
 
@@ -2085,6 +2086,202 @@ static km_hc_ret_t mlock_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+/*
+ * Count of the number of active io contexts.
+ * Count of the number of active io requests.
+ * Use this to prevent snapshots while io contexts are alive.
+ * The kernel supplies context id's in response to io_setup() calls.
+ * If we are going to snapshot asynch i/o the payload will have previously
+ * issue io contexts which km will need to match to newly created io contexts
+ * when a snapshot is resumed.
+ */
+unsigned int km_io_context_count = 0;   // the number of active io context's
+unsigned int km_io_active_count = 0;    // the number of running iocb's
+
+/*
+ * long io_setup(unsigned int nr_events, aio_context_t *ctx_idp);
+ */
+static km_hc_ret_t io_setup_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   void* ctx_idp = km_gva_to_kma(arg->arg2);
+   if (ctx_idp == NULL) {
+      arg->hc_ret = -EFAULT;
+   } else {
+      int rv = __syscall_2(SYS_io_setup, arg->arg1, (uint64_t)ctx_idp);
+      if (rv == 0) {
+         __atomic_add_fetch(&km_io_context_count, 1, __ATOMIC_SEQ_CST);
+         arg->hc_ret = 0;
+      } else {
+         arg->hc_ret = -errno;
+      }
+   }
+   return HC_CONTINUE;
+}
+
+/*
+ * int io_submit(aio_context_t ctx_id, long nr, struct iocb **iocbpp);
+ */
+static km_hc_ret_t io_submit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   int needed_iovecs = 0;
+   struct iocb km_iocb_copy[arg->arg2];
+   struct iocb* km_iocb_list[arg->arg2];
+   struct iocb** local_iocbpp = km_gva_to_kma(arg->arg3);
+   if (local_iocbpp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
+   // xlate guest address in the iocb's to km address
+   for (int i = 0; i < arg->arg2; i++) {
+      km_iocb_copy[i] = *local_iocbpp[i];
+      km_iocb_list[i] = &km_iocb_copy[i];
+      switch (km_iocb_copy[i].aio_lio_opcode) {
+         case IOCB_CMD_PWRITE:
+         case IOCB_CMD_PREAD:
+            km_iocb_copy[i].aio_buf = (uint64_t)km_gva_to_kma(local_iocbpp[i]->aio_buf);
+            if (km_iocb_copy[i].aio_buf == (uint64_t)NULL) {
+               arg->hc_ret = -EFAULT;
+               return HC_CONTINUE;
+            }
+            break;
+         case IOCB_CMD_PREADV:
+         case IOCB_CMD_PWRITEV:
+            // add to the total iovec's we will need for this submission.
+            needed_iovecs += km_iocb_copy[i].aio_nbytes;
+            break;
+         case IOCB_CMD_FDSYNC:
+         case IOCB_CMD_FSYNC:
+         case IOCB_CMD_POLL:
+            break;
+         default:
+            km_assert(0);
+            break;
+      }
+   }
+
+   // Now create iovec's with xlated addresses in them (if needed)
+   struct iovec kmiovecs[needed_iovecs];
+   if (needed_iovecs > 0) {
+      int freeiovec_index = 0;
+      for (int i = 0; i < arg->arg2; i++) {
+         if ((km_iocb_copy[i].aio_lio_opcode == IOCB_CMD_PREADV ||
+              km_iocb_copy[i].aio_lio_opcode == IOCB_CMD_PWRITEV) &&
+             km_iocb_copy[i].aio_nbytes > 0) {
+            struct iovec* km_aio_buf = km_gva_to_kma(km_iocb_copy[i].aio_buf);
+            if (km_aio_buf == NULL) {
+               arg->hc_ret = -EFAULT;
+               return HC_CONTINUE;
+            }
+            km_iocb_copy[i].aio_buf = (__u64)&kmiovecs[freeiovec_index];
+            for (int j = 0; j < km_iocb_copy[i].aio_nbytes; j++) {
+               km_assert(freeiovec_index < needed_iovecs);
+               if (km_aio_buf[j].iov_len != 0) {
+                  kmiovecs[freeiovec_index].iov_base = km_gva_to_kma((km_gva_t)km_aio_buf[j].iov_base);
+                  if (kmiovecs[freeiovec_index].iov_base == NULL) {
+                     arg->hc_ret = -EFAULT;
+                     return HC_CONTINUE;
+                  }
+               }
+               kmiovecs[freeiovec_index].iov_len = km_aio_buf[j].iov_len;
+               freeiovec_index++;
+            }
+         }
+      }
+      km_assert(freeiovec_index == needed_iovecs);
+   }
+
+   int reqs_submitted = __syscall_3(SYS_io_submit, arg->arg1, arg->arg2, (uint64_t)&km_iocb_list);
+   if (reqs_submitted >= 0) {
+      __atomic_add_fetch(&km_io_active_count, reqs_submitted, __ATOMIC_SEQ_CST);
+      arg->hc_ret = reqs_submitted;
+   } else {
+      arg->hc_ret = -errno;
+   }
+
+   // Give back kernel supplied values.
+   for (int i = 0; i < arg->arg2; i++) {
+      local_iocbpp[i]->aio_key = km_iocb_copy[i].aio_key;
+   }
+
+   return HC_CONTINUE;
+}
+
+/*
+ * int syscall(SYS_io_cancel, aio_context_t ctx_id, struct iocb *iocb,
+ *             struct io_event *result);
+ */
+static km_hc_ret_t io_cancel_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct iocb* local_iocbp = km_gva_to_kma(arg->arg2);
+   struct io_event* local_resultp = km_gva_to_kma(arg->arg3);
+   if (local_iocbp == NULL || local_resultp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   km_infox(KM_TRACE_HC, "io context 0x%lx, iocb %p, io_event %p", arg->arg1, local_iocbp, local_resultp);
+   int rv = __syscall_3(SYS_io_cancel, arg->arg1, (uint64_t)local_iocbp, (uint64_t)local_resultp);
+   if (rv >= 0) {
+      arg->hc_ret = 0;
+      __atomic_sub_fetch(&km_io_active_count, 1, __ATOMIC_SEQ_CST);
+   } else {
+      arg->hc_ret = -errno;
+   }
+   return HC_CONTINUE;
+}
+
+/*
+ * int syscall(SYS_io_destroy, aio_context_t ctx_id);
+ */
+static km_hc_ret_t io_destroy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   int rv = __syscall_1(SYS_io_destroy, arg->arg1);
+   if (rv == 0) {
+      km_assert(__atomic_load_n(&km_io_context_count, __ATOMIC_SEQ_CST) > 0);
+      __atomic_sub_fetch(&km_io_context_count, 1, __ATOMIC_SEQ_CST);
+      arg->hc_ret = 0;
+   } else {
+      arg->hc_ret = -errno;
+   }
+   return HC_CONTINUE;
+}
+
+/*
+ * int syscall(SYS_io_getevents, aio_context_t ctx_id,
+ *             long min_nr, long nr, struct io_event *events,
+ *             struct timespec *timeout);
+ */
+static km_hc_ret_t io_getevents_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct events* local_eventsp = km_gva_to_kma(arg->arg4);
+   struct timeout* local_timeoutp = NULL;
+   if (local_eventsp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (arg->arg5 != 0) {
+      local_timeoutp = km_gva_to_kma(arg->arg5);
+      if (local_timeoutp == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+   }
+
+   int rv = __syscall_5(SYS_io_getevents,
+                        arg->arg1,
+                        arg->arg2,
+                        arg->arg3,
+                        (uint64_t)local_eventsp,
+                        (uint64_t)local_timeoutp);
+   if (rv >= 0) {
+      __atomic_sub_fetch(&km_io_active_count, rv, __ATOMIC_SEQ_CST);
+      arg->hc_ret = rv;
+   } else {
+      arg->hc_ret = -errno;
+   }
+   return HC_CONTINUE;
+}
+
 km_hc_stats_t* km_hcalls_stats;
 const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_arch_prctl] = arch_prctl_hcall,
@@ -2265,6 +2462,12 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_inotify_init] = inotify_init_hcall,
     [SYS_inotify_init1] = inotify_init1_hcall,
     [SYS_mlock] = mlock_hcall,
+
+    [SYS_io_setup] = io_setup_hcall,
+    [SYS_io_submit] = io_submit_hcall,
+    [SYS_io_cancel] = io_cancel_hcall,
+    [SYS_io_getevents] = io_getevents_hcall,
+    [SYS_io_destroy] = io_destroy_hcall,
 
     [HC_guest_interrupt] = guest_interrupt_hcall,
     [HC_unmapself] = unmapself_hcall,
