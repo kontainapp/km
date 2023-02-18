@@ -2134,12 +2134,17 @@ static km_hc_ret_t io_submit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
    // xlate guest address in the iocb's to km address
    for (int i = 0; i < arg->arg2; i++) {
-      km_iocb_copy[i] = *local_iocbpp[i];
+      struct iocb* iocbp = km_gva_to_kma((km_gva_t)local_iocbpp[i]);
+      if (iocbp == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+      km_iocb_copy[i] = *iocbp;
       km_iocb_list[i] = &km_iocb_copy[i];
       switch (km_iocb_copy[i].aio_lio_opcode) {
          case IOCB_CMD_PWRITE:
          case IOCB_CMD_PREAD:
-            km_iocb_copy[i].aio_buf = (uint64_t)km_gva_to_kma(local_iocbpp[i]->aio_buf);
+            km_iocb_copy[i].aio_buf = (uint64_t)km_gva_to_kma(iocbp->aio_buf);
             if (km_iocb_copy[i].aio_buf == (uint64_t)NULL) {
                arg->hc_ret = -EFAULT;
                return HC_CONTINUE;
@@ -2201,7 +2206,8 @@ static km_hc_ret_t io_submit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
    // Give back kernel supplied values.
    for (int i = 0; i < arg->arg2; i++) {
-      local_iocbpp[i]->aio_key = km_iocb_copy[i].aio_key;
+      struct iocb* iocbp = km_gva_to_kma((km_gva_t)local_iocbpp[i]);
+      iocbp->aio_key = km_iocb_copy[i].aio_key;
    }
 
    return HC_CONTINUE;
