@@ -44,6 +44,7 @@
 #include <sys/uio.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
+#include <linux/aio_abi.h>
 #include <netinet/in.h>
 
 #include "bsd_queue.h"
@@ -52,6 +53,7 @@
 #include "km_exec.h"
 #include "km_filesys.h"
 #include "km_filesys_private.h"
+#include "km_iocontext.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
@@ -4056,6 +4058,9 @@ int km_fs_recover(char* notebuf, size_t notesize)
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_EPOLLFD, km_fs_recover_epollfd) < 0) {
       km_errx(2, "recover open epollfd's failed");
+   }
+   if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_IOCONTEXTS, km_fs_recover_iocontexts) < 0) {
+      km_errx(2, "recover iocontexts failed");
    }
    return 0;
 }

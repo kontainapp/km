@@ -176,7 +176,17 @@ static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t*
                            fd,
                            phdr->p_offset - extra);
             if (m == MAP_FAILED) {
-               km_err(errno, "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx", i, phdr->p_vaddr, phdr->p_offset);
+               km_err(errno,
+                      "snapshot mmap[%d]: p_vaddr 0x%lx, extra 0x%lx, addr %p, size %lu, "
+                      "vaddr=0x%lx offset=0x%lx, prot 0x%x",
+                      i,
+                      phdr->p_vaddr,
+                      extra,
+                      addr,
+                      phdr->p_filesz + extra,
+                      phdr->p_vaddr,
+                      phdr->p_offset,
+                      prot_elf_to_mmap(phdr->p_flags));
             }
          }
       }
