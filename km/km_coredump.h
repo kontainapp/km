@@ -119,7 +119,7 @@ typedef struct km_nt_guest {
 typedef struct km_nt_guestv {
    Elf64_Word version;
    Elf64_Addr load_adjust;
-   Elf64_Addr dlopen;		// to get back to the list of loaded shared libraries
+   Elf64_Addr dlopen;   // to get back to the list of loaded shared libraries
    Elf64_Ehdr ehdr;
    // Followed by PHDR list and filename
 } km_nt_guestv_t;

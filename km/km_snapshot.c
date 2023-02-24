@@ -364,7 +364,8 @@ static inline int km_ss_recover_payload(char* ptr, size_t length, km_payload_t* 
 static inline int km_ss_recover_guest(char* ptr, size_t length)
 {
    if (km_payload_guest != 0) {
-      km_warnx("Ignoring elf note NT_KM_GUEST in snapshot because another note has already been encountered");
+      km_warnx("Ignoring elf note NT_KM_GUEST in snapshot because another note has already been "
+               "encountered");
       return 0;
    }
    km_payload_guest = NT_KM_GUEST;
@@ -398,7 +399,8 @@ static inline int km_ss_recover_payloadv(char* ptr, size_t length, km_payload_t*
 static inline int km_ss_recover_guestv(char* ptr, size_t length)
 {
    if (km_payload_guest != 0) {
-      km_warnx("Ignoring elf note NT_KM_GUESTV in snapshot because another note has already been encountered");
+      km_warnx("Ignoring elf note NT_KM_GUESTV in snapshot because another note has already been "
+               "encountered");
       return 0;
    }
    km_payload_guest = NT_KM_GUESTV;
