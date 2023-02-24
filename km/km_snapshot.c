@@ -341,6 +341,8 @@ static int km_ss_recover_file_maps(char* ptr, size_t length)
 /*
  * Recover payload state.
  */
+unsigned int km_payload_guest = 0;
+
 static inline int km_ss_recover_payload(char* ptr, size_t length, km_payload_t* payload)
 {
    char* cur = ptr;
@@ -361,12 +363,46 @@ static inline int km_ss_recover_payload(char* ptr, size_t length, km_payload_t* 
 
 static inline int km_ss_recover_guest(char* ptr, size_t length)
 {
+   if (km_payload_guest != 0) {
+      km_warnx("Ignoring elf note NT_KM_GUEST in snapshot because another note has already been encountered");
+      return 0;
+   }
+   km_payload_guest = NT_KM_GUEST;
    return km_ss_recover_payload(ptr, length, &km_guest);
 }
 
 static inline int km_ss_recover_dynlinker(char* ptr, size_t length)
 {
    return km_ss_recover_payload(ptr, length, &km_dynlinker);
+}
+
+static inline int km_ss_recover_payloadv(char* ptr, size_t length, km_payload_t* payload)
+{
+   char* cur = ptr;
+   km_nt_guestv_t* g = (km_nt_guestv_t*)cur;
+
+   payload->km_load_adjust = g->load_adjust;
+   payload->km_dlopen = g->dlopen;
+   payload->km_ehdr = g->ehdr;
+   cur += sizeof(km_nt_guestv_t);
+
+   Elf64_Phdr* phdr = malloc(payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr));
+   memcpy(phdr, cur, payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr));
+   payload->km_phdr = phdr;
+   cur += payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr);
+
+   payload->km_filename = strdup(cur);
+   return 0;
+}
+
+static inline int km_ss_recover_guestv(char* ptr, size_t length)
+{
+   if (km_payload_guest != 0) {
+      km_warnx("Ignoring elf note NT_KM_GUESTV in snapshot because another note has already been encountered");
+      return 0;
+   }
+   km_payload_guest = NT_KM_GUESTV;
+   return km_ss_recover_payloadv(ptr, length, &km_guest);
 }
 
 int km_snapshot_notes_apply(char* notebuf, size_t notesize, int type, int (*func)(char*, size_t))
@@ -478,6 +514,11 @@ int km_snapshot_restore(km_elf_t* e)
 
    if (km_snapshot_notes_apply(notebuf, notesize, NT_FILE, km_ss_recover_file_maps) < 0) {
       km_errx(2, "recover file maps failed");
+   }
+   // we only expect to see one of NT_KM_GUESTV or NT_KM_GUEST.
+   // One is versioned the other is not.
+   if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_GUESTV, km_ss_recover_guestv) < 0) {
+      km_errx(2, "recover guest payload failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_GUEST, km_ss_recover_guest) < 0) {
       km_errx(2, "recover guest payload failed");

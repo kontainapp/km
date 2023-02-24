@@ -449,6 +449,34 @@ static inline int km_core_dump_payload_note(km_payload_t* payload, int tag, char
    return roundup(cur - buf, 4);
 }
 
+/*
+ * Dump a versioned payload note.
+ */
+static inline int km_core_dump_payloadv_note(km_payload_t* payload, int tag, char* buf, size_t length)
+{
+   char* cur = buf;
+   size_t remain = length;
+
+   cur += km_add_note_header(cur,
+                             remain,
+                             KM_NT_NAME,
+                             tag,
+                             sizeof(km_nt_guestv_t) + payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
+                                 strlen(payload->km_filename) + 1);
+   km_nt_guestv_t* guest = (km_nt_guestv_t*)cur;
+   guest->version = KM_NT_GUESTV_VERSION;
+   guest->load_adjust = payload->km_load_adjust;
+   guest->dlopen = payload->km_dlopen;
+   guest->ehdr = payload->km_ehdr;
+   cur += sizeof(km_nt_guestv_t);
+   memcpy(cur, payload->km_phdr, payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr));
+   cur += payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr);
+   strcpy(cur, payload->km_filename);
+   cur += km_nt_file_padded_size(payload->km_filename);
+
+   return roundup(cur - buf, 4);
+}
+
 static inline int km_core_write_notes(km_vcpu_t* vcpu,
                                       int fd,
                                       const char* label,
@@ -499,7 +527,7 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu,
    cur = ctx.pr_cur;
    remain = ctx.pr_remain;
 
-   ret = km_core_dump_payload_note(&km_guest, NT_KM_GUEST, cur, remain);
+   ret = km_core_dump_payloadv_note(&km_guest, NT_KM_GUESTV, cur, remain);
    cur += ret;
    remain -= ret;
    if (km_dynlinker.km_filename != NULL) {
@@ -657,7 +685,7 @@ km_core_notes_length(km_vcpu_t* vcpu, const char* label, const char* description
        nvcpu;
 
    // Kontain specific guest info(for snapshot restore)
-   alloclen += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_guest_t) +
+   alloclen += km_note_header_size(KM_NT_NAME) + sizeof(km_nt_guestv_t) +
                km_guest.km_ehdr.e_phnum * sizeof(Elf64_Phdr) +
                km_nt_file_padded_size(km_guest.km_filename);
    if (km_dynlinker.km_filename != NULL) {
