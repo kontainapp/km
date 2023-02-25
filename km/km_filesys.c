@@ -378,8 +378,9 @@ void light_snap_listen(km_elf_t* e)
       }
    } while (snap_conn_sock < 0);
 
-   // reuse gdb socket numbers here, gdb setup is later when we done
-   km_snap_listening_state_p[i].accept_fd = km_internal_fd(snap_conn_sock, KM_GDB_ACCEPT);
+   // reuse mgmt socket fd number here, resumed snapshots currently don't have
+   // a mgmmt thread.
+   km_snap_listening_state_p[i].accept_fd = km_internal_fd(snap_conn_sock, KM_MGM_ACCEPT);
 }
 
 /*

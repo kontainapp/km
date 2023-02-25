@@ -657,6 +657,10 @@ int main(int argc, char* argv[])
       }
       km_infox(KM_TRACE_SNAPSHOT, "Snapshot recover complete, pid %d", getpid());
       vcpu = machine.vm_vcpus[0];
+      if (getenv(KM_GDB_WAIT_BEFORE_SNAP_RESUME) != NULL) {
+         gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
+         km_gdb_enable(1);
+      }
    } else {
       // if environment wasn't set up copy it from host
       if (envp == NULL) {
