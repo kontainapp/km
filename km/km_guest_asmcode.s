@@ -158,7 +158,7 @@ km_hcargs:
     .global __km_syscall_handler
 __km_syscall_handler:
     .cfi_startproc
-    .cfi_register 16, 2  # old %rip is in %rcx
+    .cfi_register %rip, %rcx  # old %rip is in %rcx
     // create a km_hcall_t on the stack.
     push %r9    # arg6
     push %r8    # arg5
