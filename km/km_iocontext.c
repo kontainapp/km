@@ -33,6 +33,7 @@
  */
 
 #include <errno.h>
+#include <unistd.h>
 #include <sys/syscall.h>
 #include <linux/aio_abi.h>
 
