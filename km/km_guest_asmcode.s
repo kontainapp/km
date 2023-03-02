@@ -30,8 +30,11 @@
 __km_sigreturn:
     .type __km_sigreturn, @function
     .global __km_sigreturn
+    .cfi_startproc
     mov $15, %rax
     syscall
+    hlt                     # Should never hit here.
+    .cfi_endproc
 /*
  * Trampoline for x86 exception and interrupt handling. IDT entries point here.
  */
@@ -40,6 +43,7 @@ __km_sigreturn:
 __km_handle_interrupt:
     .type __km_handle_interrupt, @function
     .global __km_handle_interrupt
+    .cfi_startproc
     push %rdx
     push %rbx
     push %rax
@@ -48,6 +52,7 @@ __km_handle_interrupt:
     mov $0x81fd, %dx        # HC_guest_interrupt
     out %eax, (%dx)         # Enter KM
     hlt                     # Should never hit here.
+    .cfi_endproc
 
 /*
  * Convienience macro for exception and interrupt handlers.
@@ -55,6 +60,7 @@ __km_handle_interrupt:
 .macro intr_hand name, num
     .align 16
 handler\name :
+    .cfi_startproc
     push %rdx
     push %rbx
     push %rax
@@ -63,6 +69,7 @@ handler\name :
     mov $0x81fd, %dx        # HC_guest_interrupt
     out %eax, (%dx)         # Enter KM
     hlt                     # Should never hit here.
+    .cfi_endproc
 
 .endm
 
@@ -150,6 +157,8 @@ km_hcargs:
     .type __km_syscall_handler, @function
     .global __km_syscall_handler
 __km_syscall_handler:
+    .cfi_startproc
+    .cfi_register %rip, %rcx  # old %rip is in %rcx
     // create a km_hcall_t on the stack.
     push %r9    # arg6
     push %r8    # arg5
@@ -178,3 +187,5 @@ __km_syscall_handler:
      * We don't change PL or RFLAGS so we can just jump back.
      */
     jmp *%rcx
+    .cfi_endproc
+
