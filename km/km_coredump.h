@@ -251,6 +251,19 @@ typedef struct km_nt_sighand {
 } km_nt_sighand_t;
 #define NT_KM_SIGHAND 0x4b4d5348   // "KMSH" no null term
 
+// Elf note for storing io contexts created with io_setup() in a snapshot file.
+typedef struct km_nt_iocontext {
+   Elf64_Word nr_events;    // max number of events for this context
+   Elf64_Xword iocontext;   // the io context id the payload knows
+} km_nt_iocontext_t;
+typedef struct km_nt_iocontexts {
+   Elf64_Word size;          // size of this note
+   Elf64_Word nr_contexts;   // number of contexts in context[]
+   Elf64_Xword piocontext;   // the next payload io context id to hand out
+   km_nt_iocontext_t contexts[0];
+} km_nt_iocontexts_t;
+#define NT_KM_IOCONTEXTS 0x4b4d4358   // "KMCX"
+
 // Core dump guest.
 typedef enum { KM_DO_CORE, KM_DO_SNAP } km_coredump_type_t;
 int km_dump_core(char* filename,

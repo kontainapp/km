@@ -30,6 +30,7 @@
 #include <sys/ioctl.h>
 #include <sys/procfs.h>
 #include <arpa/inet.h>
+#include <linux/aio_abi.h>
 #include <netinet/in.h>
 
 #include "km.h"
@@ -37,6 +38,7 @@
 #include "km_filesys.h"
 #include "km_filesys_private.h"
 #include "km_guest.h"
+#include "km_iocontext.h"
 #include "km_mem.h"
 #include "km_signal.h"
 
@@ -552,6 +554,10 @@ static inline int km_core_write_notes(km_vcpu_t* vcpu,
       }
       cur += ret;
       remain -= ret;
+
+      ret = km_fs_iocontext_notes_write(cur, remain);
+      cur += ret;
+      remain -= ret;
    }
 
    ret = km_sig_core_notes_write(cur, remain);
@@ -697,6 +703,7 @@ km_core_notes_length(km_vcpu_t* vcpu, const char* label, const char* description
    if (dumptype == KM_DO_SNAP) {
       alloclen += km_fs_dup_notes_length();
       alloclen += km_fs_core_notes_length();
+      alloclen += km_fs_iocontext_notes_length();
    }
    alloclen += km_sig_core_notes_length();
 
@@ -910,14 +917,11 @@ int km_dump_core(char* core_path,
       rc = EINVAL;
       goto out;
    }
-   if (dumptype == KM_DO_SNAP && km_io_context_count > 0) {
-      // io context id's are assigned by the kernel with io_setup().
-      // A resumed snapshot won't get the same id(s) when started up.
-      // So, we need to map io contexts between what the payload is
-      // using and what the kernel handed out.  When we add support
-      // for that we can snapshot payloads using asynch io.
-      km_warnx("Can't take a snapshot, %d active io contexts exist", km_io_context_count);
-      rc = EINVAL;
+   if (dumptype == KM_DO_SNAP && km_io_active_count > 0) {
+      // if there are asynch i/o operations in progress we won't snapshot
+      km_warnx("Can't take a snapshot, %d active asynch io operations are in progress",
+               km_io_active_count);
+      rc = EINVAL;   // maybe should use EAGAIN to allow km_cli to retry on its own
       goto out;
    }
 

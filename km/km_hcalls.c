@@ -41,6 +41,7 @@
 #include "km_fork.h"
 #include "km_guest.h"
 #include "km_hcalls.h"
+#include "km_iocontext.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
@@ -2087,7 +2088,6 @@ static km_hc_ret_t mlock_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 }
 
 /*
- * Count of the number of active io contexts.
  * Count of the number of active io requests.
  * Use this to prevent snapshots while io contexts are alive.
  * The kernel supplies context id's in response to io_setup() calls.
@@ -2095,8 +2095,7 @@ static km_hc_ret_t mlock_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  * issue io contexts which km will need to match to newly created io contexts
  * when a snapshot is resumed.
  */
-unsigned int km_io_context_count = 0;   // the number of active io context's
-unsigned int km_io_active_count = 0;    // the number of running iocb's
+unsigned int km_io_active_count = 0;   // the number of running iocb's
 
 /*
  * long io_setup(unsigned int nr_events, aio_context_t *ctx_idp);
@@ -2107,12 +2106,11 @@ static km_hc_ret_t io_setup_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    if (ctx_idp == NULL) {
       arg->hc_ret = -EFAULT;
    } else {
-      int rv = __syscall_2(SYS_io_setup, arg->arg1, (uint64_t)ctx_idp);
+      int rv = km_iocontext_add(arg->arg1, ctx_idp);
       if (rv == 0) {
-         __atomic_add_fetch(&km_io_context_count, 1, __ATOMIC_SEQ_CST);
          arg->hc_ret = 0;
       } else {
-         arg->hc_ret = -errno;
+         arg->hc_ret = -rv;
       }
    }
    return HC_CONTINUE;
@@ -2129,6 +2127,13 @@ static km_hc_ret_t io_submit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    struct iocb** local_iocbpp = km_gva_to_kma(arg->arg3);
    if (local_iocbpp == NULL) {
       arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
+   aio_context_t kiocontext;
+   int rv = km_iocontext_xlate_p2k(arg->arg1, &kiocontext);
+   if (rv != 0) {
+      arg->hc_ret = -rv;
       return HC_CONTINUE;
    }
 
@@ -2196,7 +2201,7 @@ static km_hc_ret_t io_submit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       km_assert(freeiovec_index == needed_iovecs);
    }
 
-   int reqs_submitted = __syscall_3(SYS_io_submit, arg->arg1, arg->arg2, (uint64_t)&km_iocb_list);
+   int reqs_submitted = __syscall_3(SYS_io_submit, kiocontext, arg->arg2, (uint64_t)&km_iocb_list);
    if (reqs_submitted >= 0) {
       __atomic_add_fetch(&km_io_active_count, reqs_submitted, __ATOMIC_SEQ_CST);
       arg->hc_ret = reqs_submitted;
@@ -2226,7 +2231,15 @@ static km_hc_ret_t io_cancel_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
    km_infox(KM_TRACE_HC, "io context 0x%lx, iocb %p, io_event %p", arg->arg1, local_iocbp, local_resultp);
-   int rv = __syscall_3(SYS_io_cancel, arg->arg1, (uint64_t)local_iocbp, (uint64_t)local_resultp);
+
+   aio_context_t kiocontext;
+   int rv = km_iocontext_xlate_p2k(arg->arg1, &kiocontext);
+   if (rv != 0) {
+      arg->hc_ret = -rv;
+      return HC_CONTINUE;
+   }
+
+   rv = __syscall_3(SYS_io_cancel, kiocontext, (uint64_t)local_iocbp, (uint64_t)local_resultp);
    if (rv >= 0) {
       arg->hc_ret = 0;
       __atomic_sub_fetch(&km_io_active_count, 1, __ATOMIC_SEQ_CST);
@@ -2241,13 +2254,11 @@ static km_hc_ret_t io_cancel_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  */
 static km_hc_ret_t io_destroy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   int rv = __syscall_1(SYS_io_destroy, arg->arg1);
+   int rv = km_iocontext_remove(arg->arg1);
    if (rv == 0) {
-      km_assert(__atomic_load_n(&km_io_context_count, __ATOMIC_SEQ_CST) > 0);
-      __atomic_sub_fetch(&km_io_context_count, 1, __ATOMIC_SEQ_CST);
       arg->hc_ret = 0;
    } else {
-      arg->hc_ret = -errno;
+      arg->hc_ret = -rv;
    }
    return HC_CONTINUE;
 }
@@ -2265,6 +2276,12 @@ static km_hc_ret_t io_getevents_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
+   aio_context_t kiocontext;
+   int rv = km_iocontext_xlate_p2k(arg->arg1, &kiocontext);
+   if (rv != 0) {
+      arg->hc_ret = -rv;
+      return HC_CONTINUE;
+   }
    if (arg->arg5 != 0) {
       local_timeoutp = km_gva_to_kma(arg->arg5);
       if (local_timeoutp == NULL) {
@@ -2273,12 +2290,12 @@ static km_hc_ret_t io_getevents_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       }
    }
 
-   int rv = __syscall_5(SYS_io_getevents,
-                        arg->arg1,
-                        arg->arg2,
-                        arg->arg3,
-                        (uint64_t)local_eventsp,
-                        (uint64_t)local_timeoutp);
+   rv = __syscall_5(SYS_io_getevents,
+                    kiocontext,
+                    arg->arg2,
+                    arg->arg3,
+                    (uint64_t)local_eventsp,
+                    (uint64_t)local_timeoutp);
    if (rv >= 0) {
       __atomic_sub_fetch(&km_io_active_count, rv, __ATOMIC_SEQ_CST);
       arg->hc_ret = rv;
