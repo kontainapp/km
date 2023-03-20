@@ -112,6 +112,21 @@ typedef struct km_nt_guest {
 #define NT_KM_DYNLINKER 0x4b4d444c   // "KMDL" no null term
 
 /*
+ * New versioned km_nt_guest_t to allow us to add more fields
+ * when needed by adding a new version number
+ */
+#define KM_NT_GUESTV_VERSION 1
+typedef struct km_nt_guestv {
+   Elf64_Word version;
+   Elf64_Addr load_adjust;
+   Elf64_Addr dlopen;   // to get back to the list of loaded shared libraries
+   Elf64_Ehdr ehdr;
+   // Followed by PHDR list and filename
+} km_nt_guestv_t;
+#define NT_KM_GUESTV 0x4b4d4756       // "KMGV" no null term
+#define NT_KM_DYNLINKERV 0x4b4d4456   // "KMDV" no null term
+
+/*
  * Elf note for dup data
  */
 
@@ -235,6 +250,19 @@ typedef struct km_nt_sighand {
    Elf64_Addr restorer;
 } km_nt_sighand_t;
 #define NT_KM_SIGHAND 0x4b4d5348   // "KMSH" no null term
+
+// Elf note for storing io contexts created with io_setup() in a snapshot file.
+typedef struct km_nt_iocontext {
+   Elf64_Word nr_events;    // max number of events for this context
+   Elf64_Xword iocontext;   // the io context id the payload knows
+} km_nt_iocontext_t;
+typedef struct km_nt_iocontexts {
+   Elf64_Word size;          // size of this note
+   Elf64_Word nr_contexts;   // number of contexts in context[]
+   Elf64_Xword piocontext;   // the next payload io context id to hand out
+   km_nt_iocontext_t contexts[0];
+} km_nt_iocontexts_t;
+#define NT_KM_IOCONTEXTS 0x4b4d4358   // "KMCX"
 
 // Core dump guest.
 typedef enum { KM_DO_CORE, KM_DO_SNAP } km_coredump_type_t;

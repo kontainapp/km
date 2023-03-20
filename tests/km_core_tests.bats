@@ -72,9 +72,8 @@ todo_alpine_dynamic=$todo_alpine_static
 not_needed_dynamic='linux_exec setup_load mem_slots cli mem_brk mmap_1 km_identity exec_sh'
 todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps km_exec_guest_files'
 if [ ! -z "${VALGRIND}" ]; then
-todo_dynamic+=' gdb_sharedlib cpp_throw basic_snapshot futex_snapshot popen files_on_exec '
-todo_alpine_dynamic+=' gdb_sharedlib cpp_throw basic_snapshot futex_snapshot popen files_on_exec'
-todo_glibc_dynamic+=' basic_snapshot futex_snapshot'
+todo_dynamic+=' gdb_sharedlib cpp_throw popen files_on_exec '
+todo_alpine_dynamic+=' gdb_sharedlib cpp_throw popen files_on_exec'
 fi
 # running .so as executables was useful at some point, but it isn't needed anymore.
 # Simply disable the tests for now. Ultimately we will drop build and test support for them.
@@ -1674,4 +1673,173 @@ fi
 
    # cleanup
    rm -fr $SNAPDIR $MGTPIPE $TRACEFILE
+}
+
+#
+# When this test fails it usually leaves a copy of multilist_test$ext running for 250s.
+# Either kill it or wait until it times out before running the this again.
+#
+@test "multilisten-snapshot($test_type): shrink snapshot listening on many ports (multilisten_test$ext)" {
+   # this test uses $port_count ports.  So the next available port is $port_id + $port_count
+   local port_id=23
+   local port_count=10
+   local socket_port=$(($port_range_start + $port_id))
+   local MGTDIR=multilisten_mgtdir.$$
+   mkdir -p $MGTDIR
+   local NPDATA=netpipe.data.$$
+   cat <<EOF >$NPDATA
+hi there
+EOF
+   assert_success
+
+   # startup multilisten
+   rm -fr $MGTDIR/*
+   KM_MGTDIR=$MGTDIR km_with_timeout multilisten_test$ext $port_count $socket_port &
+
+   # wait for multilisten to be listening on its last port
+   target_port=`expr $socket_port + $port_count - 1`
+   tries=10
+   for ((i=0; i<10; i++))
+   do
+      if ./netpipe_test.fedora -c +$target_port <$NPDATA
+      then
+         break;
+      fi
+      sleep 2
+      tries=`expr $tries - 1`
+   done
+   assert [ $tries -gt 0 ]
+
+   # wait for the km mgmt pipe to exist
+   tries=10
+   while [ $tries -gt 0 ]
+   do
+      ls $MGTDIR | grep -q kmpipe
+      if test $? -eq 0; then
+         break;
+      fi
+      sleep 2
+      tries=$(($tries - 1))
+   done
+   assert [ $tries -gt 0 ]
+
+   pipefile=`ls $MGTDIR | grep kmpipe`
+
+   # take snapshot, this should also terminate multilisten
+   ${KM_CLI_BIN} -s $MGTDIR/$pipefile
+   assert_success
+   rm -f $MGTDIR/kmsnap.multilisten_test$ext.[0-9]*.conf
+   snapfile=`ls $MGTDIR/kmsnap.multilisten_test$ext.[0-9]*`
+   assert_success
+
+   # wait for the snapped version of multilisten to terminate
+   # this prevents bind "addr in use" errors below, errr
+   sleep 5
+
+   # start snapshot with SNAP_LISTEN_TIMEOUT=500
+   SNAP_LISTEN_TIMEOUT=500 km_with_timeout $snapfile &
+
+   # wait for multilisten snapshot to start
+   tries=10
+   while [ $tries -gt 0 ]
+   do
+      if ./netpipe_test.fedora -c +$socket_port <$NPDATA
+      then
+         break;
+      fi
+      sleep .5
+      tries=$(($tries - 1))
+   done
+   assert [ $tries -ne 0 ]
+   echo "multilisten snapshot found running with $tries probes remaining"
+
+   # make connections to each port multilisten is listening on
+   for ((i=0; i<$port_count; i++))
+   do
+      port=`expr $socket_port + $i`
+      echo "Trying port $port"
+      run ./netpipe_test.fedora -c +$port <$NPDATA
+      assert_success
+      assert_output "goofy message from port $port"
+      # we need to pause here to let multilisten shrink
+   done
+
+   # stop the test program
+   cat <<EOF >$NPDATA
+terminate
+EOF
+   assert_success
+   run ./netpipe_test.fedora -c +$socket_port <$NPDATA
+   assert_success
+
+   # cleanup mgtdir
+   rm -fr $MGTDIR $NPDATA
+}
+
+@test "aio($test_type): exercise io_*() syscalls (aio_test$ext)" {
+   WORKDIR=aio_workdir.$$
+   mkdir -p $WORKDIR
+   assert_success
+
+   AIO_TEST_WORKDIR=$WORKDIR run km_with_timeout aio_test$ext -f 13 -c 1
+   assert_success
+
+   # Now try snapshotting and resuming a payload with io contexts
+   # This snapshot should succeed because there will be no active asynch
+   # i/o requests
+   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR  run km_with_timeout aio_test$ext -f 13 -c 1 -ss &
+   tries=10
+   while [ $tries -gt 0 ]; do
+      if [ -e $WORKDIR/waiting ]; then
+         break;
+      fi
+      sleep .5
+      tries=$(($tries - 1))
+   done
+   assert [ $tries -ne 0 ]
+   rm -f $WORKDIR/waiting
+
+   # take the snapshot, we let the payload terminate after snapshot
+   ${KM_CLI_BIN} -s $WORKDIR/kmpipe* -t
+   assert_success
+   rm -f $WORKDIR/kmsnap.*.conf
+   snapfile=`ls $WORKDIR/kmsnap.aio_test$ext.[0-9]*`
+   assert_success
+
+   # start the snapshot and tell it to get going
+   run km_with_timeout $snapfile &
+   local pid=$!
+   run touch $WORKDIR/continue
+   assert_success
+
+   # wait for the snapshot to finish
+   wait_and_check $pid 0
+
+   # Now try to take a snapshot when async i/o is active.
+   # This snapshot should fail.
+   rm -f $WORKDIR/*
+   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR  run km_with_timeout aio_test$ext -f 13 -c 1 -sf &
+   tries=10
+   while [ $tries -gt 0 ]; do
+      if [ -e $WORKDIR/waiting ]; then
+         break;
+      fi
+      sleep .5
+      tries=$(($tries - 1))
+   done
+   assert [ $tries -ne 0 ]
+   rm -f $WORKDIR/waiting
+
+   # attempt the the snapshot, it should fail
+   run ${KM_CLI_BIN} -s $WORKDIR/kmpipe* -t
+   assert_failure
+
+   # let the test finish
+   run touch $WORKDIR/continue
+   assert_success
+
+   # we need to wait a little while for the aio_test to find the continue file so it can finish
+   sleep 5
+
+   rm -fr $WORKDIR
 }

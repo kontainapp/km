@@ -633,14 +633,14 @@ int main(int argc, char* argv[])
    if (elf->ehdr.e_type == ET_CORE) {
       // check for incompatible options
       if (envp != NULL) {
-         km_errx(1, "cannot set new environment when resuming a snapshot");
+         km_warnx("ignoring new environment when resuming a snapshot");
       }
       if (argc_p > 1) {
          km_errx(1, "cannot set payload arguments when resuming a snapshot");
       }
       km_snapshot_name = strdup(km_payload_name);
       km_assert(km_snapshot_name != NULL);
-      light_snap_listen(fileno(elf->file));
+      light_snap_listen(elf);
    }
    km_hcalls_init();
    km_machine_init(&km_machine_init_params);
@@ -651,11 +651,16 @@ int main(int argc, char* argv[])
    // snapshot file is type ET_CORE. We check for additional notes in restore
    if (elf->ehdr.e_type == ET_CORE) {
       km_infox(KM_TRACE_SNAPSHOT, "Snapshot recover started, pid %d, from %s", getpid(), km_payload_name);
+      // km_snapshot_restore() closes the elf file.
       if (km_snapshot_restore(elf) < 0) {
          km_err(1, "failed to restore from snapshot %s", km_payload_name);
       }
       km_infox(KM_TRACE_SNAPSHOT, "Snapshot recover complete, pid %d", getpid());
       vcpu = machine.vm_vcpus[0];
+      if (getenv(KM_GDB_WAIT_BEFORE_SNAP_RESUME) != NULL) {
+         gdbstub.wait_for_attach = GDB_WAIT_FOR_ATTACH_AT_START;
+         km_gdb_enable(1);
+      }
    } else {
       // if environment wasn't set up copy it from host
       if (envp == NULL) {

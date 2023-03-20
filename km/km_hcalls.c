@@ -25,10 +25,12 @@
 #include <sys/syscall.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
+#include <sys/timerfd.h>
 #include <sys/times.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <asm/prctl.h>
+#include <linux/aio_abi.h>
 #include <linux/futex.h>
 #include <linux/stat.h>
 
@@ -39,6 +41,7 @@
 #include "km_fork.h"
 #include "km_guest.h"
 #include "km_hcalls.h"
+#include "km_iocontext.h"
 #include "km_mem.h"
 #include "km_signal.h"
 #include "km_snapshot.h"
@@ -271,22 +274,43 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
-   msg.msg_name = km_gva_to_kma((uint64_t)msg_kma->msg_name);   // optional
-   msg.msg_namelen = msg_kma->msg_namelen;
-   msg.msg_iovlen = msg_kma->msg_iovlen;
-   struct iovec iov[msg.msg_iovlen];
-   for (int i = 0; i < msg.msg_iovlen; i++) {
-      struct iovec* iov_kma;
-
-      if ((iov_kma = km_gva_to_kma((uint64_t)msg_kma->msg_iov)) == NULL) {
+   // The kernel seems to check the msg_name pointer before looking to see if
+   // msg_namelen > 0.  So we validate msg_name first.
+   if (msg_kma->msg_name != NULL) {
+      msg.msg_name = km_gva_to_kma((uint64_t)msg_kma->msg_name);   // optional
+      if (msg.msg_name == NULL) {
          arg->hc_ret = -EFAULT;
          return HC_CONTINUE;
       }
-      iov[i].iov_base = km_gva_to_kma((uint64_t)iov_kma[i].iov_base);
+   } else {
+      msg.msg_name = NULL;
+   }
+   msg.msg_namelen = msg_kma->msg_namelen;
+   msg.msg_iovlen = msg_kma->msg_iovlen;
+   struct iovec iov[msg.msg_iovlen];
+   struct iovec* iov_kma = NULL;
+   // If iovec has no elements the iovec pointer is not validated.
+   // msg_iovlen is unsigned so can never be negative.
+   if (msg.msg_iovlen > 0 && (iov_kma = km_gva_to_kma((uint64_t)msg_kma->msg_iov)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   for (int i = 0; i < msg.msg_iovlen; i++) {
+      // Don't validate addresses if the element has a length of zero.
+      if (iov_kma[i].iov_len > 0 &&
+          (iov[i].iov_base = km_gva_to_kma((uint64_t)iov_kma[i].iov_base)) == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
       iov[i].iov_len = iov_kma[i].iov_len;
    }
    msg.msg_iov = iov;
-   msg.msg_control = km_gva_to_kma((uint64_t)msg_kma->msg_control);   // optional
+   // If msg_controlen is zero the msg_control pointer is not validated.
+   if (msg_kma->msg_controllen > 0 &&
+       (msg.msg_control = km_gva_to_kma((uint64_t)msg_kma->msg_control)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
    msg.msg_controllen = msg_kma->msg_controllen;
    msg.msg_flags = msg_kma->msg_flags;
    arg->hc_ret = km_fs_sendrecvmsg(vcpu, hc, arg->arg1, &msg, arg->arg3);
@@ -1773,12 +1797,23 @@ static km_hc_ret_t getXXid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 }
 
 /*
+ * uid_t setuid(void);
+ * gid_t setgid(void);
+ */
+static km_hc_ret_t setXid_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = __syscall_1(hc, arg->arg1);
+   return HC_CONTINUE;
+}
+
+/*
  * int getgroups(int size, gid_t list[]);
  */
-static km_hc_ret_t getgroups_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+static km_hc_ret_t get_set_groups_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
+   int size = arg->arg1;
    gid_t* list = km_gva_to_kma(arg->arg2);
-   if (list == NULL) {
+   if (size != 0 && list == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
@@ -1856,6 +1891,53 @@ static km_hc_ret_t getitimer_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
    arg->hc_ret = getitimer(arg->arg1, curr);
+   return HC_CONTINUE;
+}
+
+/*
+ * int timerfd_create(int clockid, int flags);
+ */
+static km_hc_ret_t timerfd_create_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_fs_timerfd_create(vcpu, arg->arg1, arg->arg2);
+   return HC_CONTINUE;
+}
+
+/*
+ * int timerfd_settime(int fd, int flags,
+ *                     const struct itimerspec *new_value,
+ *                     struct itimerspec *old_value);
+ */
+static km_hc_ret_t timerfd_settime_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   const struct itimerspec* new_value = km_gva_to_kma(arg->arg3);
+   if (new_value == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   struct itimerspec* old_value = NULL;
+   if (arg->arg4 != 0) {
+      old_value = km_gva_to_kma(arg->arg4);
+      if (old_value == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+   }
+   arg->hc_ret = timerfd_settime(arg->arg1, arg->arg2, new_value, old_value);
+   return HC_CONTINUE;
+}
+
+/*
+ * int timerfd_gettime(int fd, struct itimerspec *curr_value);
+ */
+static km_hc_ret_t timerfd_gettime_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct itimerspec* curr_value = km_gva_to_kma(arg->arg2);
+   if (curr_value == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = timerfd_gettime(arg->arg1, curr_value);
    return HC_CONTINUE;
 }
 
@@ -2005,6 +2087,224 @@ static km_hc_ret_t mlock_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+/*
+ * Count of the number of active io requests.
+ * Use this to prevent snapshots while io contexts are alive.
+ * The kernel supplies context id's in response to io_setup() calls.
+ * If we are going to snapshot asynch i/o the payload will have previously
+ * issue io contexts which km will need to match to newly created io contexts
+ * when a snapshot is resumed.
+ */
+unsigned int km_io_active_count = 0;   // the number of running iocb's
+
+/*
+ * long io_setup(unsigned int nr_events, aio_context_t *ctx_idp);
+ */
+static km_hc_ret_t io_setup_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   void* ctx_idp = km_gva_to_kma(arg->arg2);
+   if (ctx_idp == NULL) {
+      arg->hc_ret = -EFAULT;
+   } else {
+      int rv = km_iocontext_add(arg->arg1, ctx_idp);
+      if (rv == 0) {
+         arg->hc_ret = 0;
+      } else {
+         arg->hc_ret = -rv;
+      }
+   }
+   return HC_CONTINUE;
+}
+
+/*
+ * int io_submit(aio_context_t ctx_id, long nr, struct iocb **iocbpp);
+ */
+static km_hc_ret_t io_submit_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   int needed_iovecs = 0;
+   struct iocb km_iocb_copy[arg->arg2];
+   struct iocb* km_iocb_list[arg->arg2];
+   struct iocb** local_iocbpp = km_gva_to_kma(arg->arg3);
+   if (local_iocbpp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
+   aio_context_t kiocontext;
+   int rv = km_iocontext_xlate_p2k(arg->arg1, &kiocontext);
+   if (rv != 0) {
+      arg->hc_ret = -rv;
+      return HC_CONTINUE;
+   }
+
+   // xlate guest address in the iocb's to km address
+   for (int i = 0; i < arg->arg2; i++) {
+      struct iocb* iocbp = km_gva_to_kma((km_gva_t)local_iocbpp[i]);
+      if (iocbp == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+      km_iocb_copy[i] = *iocbp;
+      km_iocb_list[i] = &km_iocb_copy[i];
+      switch (km_iocb_copy[i].aio_lio_opcode) {
+         case IOCB_CMD_PWRITE:
+         case IOCB_CMD_PREAD:
+            km_iocb_copy[i].aio_buf = (uint64_t)km_gva_to_kma(iocbp->aio_buf);
+            if (km_iocb_copy[i].aio_buf == (uint64_t)NULL) {
+               arg->hc_ret = -EFAULT;
+               return HC_CONTINUE;
+            }
+            break;
+         case IOCB_CMD_PREADV:
+         case IOCB_CMD_PWRITEV:
+            // add to the total iovec's we will need for this submission.
+            needed_iovecs += km_iocb_copy[i].aio_nbytes;
+            break;
+         case IOCB_CMD_FDSYNC:
+         case IOCB_CMD_FSYNC:
+         case IOCB_CMD_POLL:
+            break;
+         default:
+            km_assert(0);
+            break;
+      }
+   }
+
+   // Now create iovec's with xlated addresses in them (if needed)
+   struct iovec kmiovecs[needed_iovecs];
+   if (needed_iovecs > 0) {
+      int freeiovec_index = 0;
+      for (int i = 0; i < arg->arg2; i++) {
+         if ((km_iocb_copy[i].aio_lio_opcode == IOCB_CMD_PREADV ||
+              km_iocb_copy[i].aio_lio_opcode == IOCB_CMD_PWRITEV) &&
+             km_iocb_copy[i].aio_nbytes > 0) {
+            struct iovec* km_aio_buf = km_gva_to_kma(km_iocb_copy[i].aio_buf);
+            if (km_aio_buf == NULL) {
+               arg->hc_ret = -EFAULT;
+               return HC_CONTINUE;
+            }
+            km_iocb_copy[i].aio_buf = (__u64)&kmiovecs[freeiovec_index];
+            for (int j = 0; j < km_iocb_copy[i].aio_nbytes; j++) {
+               km_assert(freeiovec_index < needed_iovecs);
+               if (km_aio_buf[j].iov_len != 0) {
+                  kmiovecs[freeiovec_index].iov_base = km_gva_to_kma((km_gva_t)km_aio_buf[j].iov_base);
+                  if (kmiovecs[freeiovec_index].iov_base == NULL) {
+                     arg->hc_ret = -EFAULT;
+                     return HC_CONTINUE;
+                  }
+               }
+               kmiovecs[freeiovec_index].iov_len = km_aio_buf[j].iov_len;
+               freeiovec_index++;
+            }
+         }
+      }
+      km_assert(freeiovec_index == needed_iovecs);
+   }
+
+   int reqs_submitted = __syscall_3(SYS_io_submit, kiocontext, arg->arg2, (uint64_t)&km_iocb_list);
+   if (reqs_submitted >= 0) {
+      __atomic_add_fetch(&km_io_active_count, reqs_submitted, __ATOMIC_SEQ_CST);
+      arg->hc_ret = reqs_submitted;
+   } else {
+      arg->hc_ret = -errno;
+   }
+
+   // Give back kernel supplied values.
+   for (int i = 0; i < arg->arg2; i++) {
+      struct iocb* iocbp = km_gva_to_kma((km_gva_t)local_iocbpp[i]);
+      iocbp->aio_key = km_iocb_copy[i].aio_key;
+   }
+
+   return HC_CONTINUE;
+}
+
+/*
+ * int syscall(SYS_io_cancel, aio_context_t ctx_id, struct iocb *iocb,
+ *             struct io_event *result);
+ */
+static km_hc_ret_t io_cancel_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct iocb* local_iocbp = km_gva_to_kma(arg->arg2);
+   struct io_event* local_resultp = km_gva_to_kma(arg->arg3);
+   if (local_iocbp == NULL || local_resultp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   km_infox(KM_TRACE_HC, "io context 0x%lx, iocb %p, io_event %p", arg->arg1, local_iocbp, local_resultp);
+
+   aio_context_t kiocontext;
+   int rv = km_iocontext_xlate_p2k(arg->arg1, &kiocontext);
+   if (rv != 0) {
+      arg->hc_ret = -rv;
+      return HC_CONTINUE;
+   }
+
+   rv = __syscall_3(SYS_io_cancel, kiocontext, (uint64_t)local_iocbp, (uint64_t)local_resultp);
+   if (rv >= 0) {
+      arg->hc_ret = 0;
+      __atomic_sub_fetch(&km_io_active_count, 1, __ATOMIC_SEQ_CST);
+   } else {
+      arg->hc_ret = -errno;
+   }
+   return HC_CONTINUE;
+}
+
+/*
+ * int syscall(SYS_io_destroy, aio_context_t ctx_id);
+ */
+static km_hc_ret_t io_destroy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   int rv = km_iocontext_remove(arg->arg1);
+   if (rv == 0) {
+      arg->hc_ret = 0;
+   } else {
+      arg->hc_ret = -rv;
+   }
+   return HC_CONTINUE;
+}
+
+/*
+ * int syscall(SYS_io_getevents, aio_context_t ctx_id,
+ *             long min_nr, long nr, struct io_event *events,
+ *             struct timespec *timeout);
+ */
+static km_hc_ret_t io_getevents_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   struct events* local_eventsp = km_gva_to_kma(arg->arg4);
+   struct timeout* local_timeoutp = NULL;
+   if (local_eventsp == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   aio_context_t kiocontext;
+   int rv = km_iocontext_xlate_p2k(arg->arg1, &kiocontext);
+   if (rv != 0) {
+      arg->hc_ret = -rv;
+      return HC_CONTINUE;
+   }
+   if (arg->arg5 != 0) {
+      local_timeoutp = km_gva_to_kma(arg->arg5);
+      if (local_timeoutp == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+   }
+
+   rv = __syscall_5(SYS_io_getevents,
+                    kiocontext,
+                    arg->arg2,
+                    arg->arg3,
+                    (uint64_t)local_eventsp,
+                    (uint64_t)local_timeoutp);
+   if (rv >= 0) {
+      __atomic_sub_fetch(&km_io_active_count, rv, __ATOMIC_SEQ_CST);
+      arg->hc_ret = rv;
+   } else {
+      arg->hc_ret = -errno;
+   }
+   return HC_CONTINUE;
+}
+
 km_hc_stats_t* km_hcalls_stats;
 const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_arch_prctl] = arch_prctl_hcall,
@@ -2129,8 +2429,11 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_getuid] = getXXid_hcall,
     [SYS_getegid] = getXXid_hcall,
     [SYS_getgid] = getXXid_hcall,
+    [SYS_setuid] = setXid_hcall,
+    [SYS_setgid] = setXid_hcall,
 
-    [SYS_getgroups] = getgroups_hcall,
+    [SYS_getgroups] = get_set_groups_hcall,
+    [SYS_setgroups] = get_set_groups_hcall,
 
     [SYS_setsid] = setsid_hcall,
     [SYS_getsid] = getsid_hcall,
@@ -2172,12 +2475,22 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_statfs] = statfs_hcall,
     [SYS_fstatfs] = fstatfs_hcall,
 
+    [SYS_timerfd_create] = timerfd_create_hcall,
+    [SYS_timerfd_settime] = timerfd_settime_hcall,
+    [SYS_timerfd_gettime] = timerfd_gettime_hcall,
+
     [SYS_mknodat] = mknodat_hcall,
     [SYS_newfstatat] = newfstatat_hcall,
 
     [SYS_inotify_init] = inotify_init_hcall,
     [SYS_inotify_init1] = inotify_init1_hcall,
     [SYS_mlock] = mlock_hcall,
+
+    [SYS_io_setup] = io_setup_hcall,
+    [SYS_io_submit] = io_submit_hcall,
+    [SYS_io_cancel] = io_cancel_hcall,
+    [SYS_io_getevents] = io_getevents_hcall,
+    [SYS_io_destroy] = io_destroy_hcall,
 
     [HC_guest_interrupt] = guest_interrupt_hcall,
     [HC_unmapself] = unmapself_hcall,

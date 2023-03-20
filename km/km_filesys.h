@@ -46,8 +46,20 @@
 #include "km_mem.h"
 #include "km_syscall.h"
 
-static const int MAX_OPEN_FILES = 1024;
-static const int MAX_KM_FILES = KVM_MAX_VCPUS + 2 + 2 + 2 + 2 + 1;   // eventfds, kvm, gdb, snap, log
+/*
+ * Constants related to the km private fd's that occupy the fd space from
+ * MAX_OPEN_FILES and downward.  km uses MAX_KM_FILES fd's.
+ * Some km fd's are fixed in value, and the rest are allocated as they are
+ * opened.  The virtualization fd and the vcpu's are allocated as needed.
+ */
+extern const int MAX_OPEN_FILES;
+extern const int MAX_KM_FILES;
+extern const int KM_GDB_LISTEN;
+extern const int KM_GDB_ACCEPT;
+extern const int KM_MGM_LISTEN;
+extern const int KM_MGM_ACCEPT;
+extern const int KM_LOGGING;
+extern const int KM_START_FDS;
 
 // types for file names conversion
 typedef int (*km_file_open_t)(const char* guest_fn, char* host_fn, size_t host_fn_sz);
@@ -292,6 +304,9 @@ uint64_t km_fs_prlimit64(km_vcpu_t* vcpu,
                          int resource,
                          const struct rlimit* new_limit,
                          struct rlimit* old_limit);
+
+uint64_t km_fs_timerfd_create(km_vcpu_t* vcpu, int clockid, int flags);
+
 size_t km_fs_dup_notes_length(void);
 size_t km_fs_core_dup_write(char* buf, size_t length);
 size_t km_fs_core_notes_length(void);
@@ -302,6 +317,7 @@ void km_redirect_msgs_after_exec(void);
 void km_close_stdio(int log_to_fd);
 
 void km_filesys_internal_fd_reset();
+int km_internal_fd(int fd, int km_fd);
 int km_internal_open(const char* name, int flag, int mode);
 int km_internal_eventfd(unsigned int initval, int flags);
 int km_internal_fd_ioctl(int fd, unsigned long reques, ...);
