@@ -348,15 +348,21 @@ static void km_add_vvar_vdso_to_guest_address_space(void)
       }
    }
 
+   /*
+    * Do not supply a filename arg to km_monitor_pages_in_guest() here.
+    * Adding a filename prevents gdb from discovering that these addresses
+    * belong to the vdso area and hence getting symbols from the vdso
+    * area which is in reality an elf format object file.
+    */
    rc = km_monitor_pages_in_guest(km_vvar_vdso_base[0],
                                   vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr,
                                   PROT_READ,
-                                  "[vvar]");
+                                  NULL);
    km_assert(rc == 0);
    rc = km_monitor_pages_in_guest(km_vvar_vdso_base[1],
                                   vvar_vdso_regions[1].end_addr - vvar_vdso_regions[1].begin_addr,
                                   PROT_EXEC,
-                                  "[vdso]");
+                                  NULL);
    km_assert(rc == 0);
 }
 
