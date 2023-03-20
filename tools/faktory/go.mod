@@ -15,5 +15,6 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
+	golang.org/x/sys v0.1.0
+	gotest.tools v2.2.0+incompatible // indirect
 )
