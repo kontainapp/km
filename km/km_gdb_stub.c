@@ -3003,7 +3003,10 @@ void km_gdb_main_loop(km_vcpu_t* main_vcpu)
    km_wait_on_eventfd(machine.intr_fd);   // Wait for km_start_vcpus to be called
 
    km_assert(gdbstub.wait_for_attach != GDB_WAIT_FOR_ATTACH_UNSPECIFIED);
-   if (km_dynlinker.km_filename != NULL && gdbstub.wait_for_attach == GDB_WAIT_FOR_ATTACH_AT_START) {
+   // Resumed snapshots have dynamic linker info but we won't run the liner for a resumed snapshot,
+   // so don't wait for it in that case.
+   if (km_dynlinker.km_filename != NULL && km_snapshot_name == NULL &&
+       gdbstub.wait_for_attach == GDB_WAIT_FOR_ATTACH_AT_START) {
       km_gdb_wait_for_dynlink_to_finish();
    }
 
