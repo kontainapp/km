@@ -3266,7 +3266,11 @@ static int km_fs_recover_open_file(char* ptr, size_t length)
       return -1;
    }
    if (st.st_mode != nt_file->mode) {
-      km_warnx("file mode mismatch expect 0%o got 0%o %s, payload fd %d", nt_file->mode, st.st_mode, name, nt_file->fd);
+      km_warnx("file mode mismatch expect 0%o got 0%o %s, payload fd %d",
+               nt_file->mode,
+               st.st_mode,
+               name,
+               nt_file->fd);
       return -1;
    }
 
