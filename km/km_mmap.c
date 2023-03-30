@@ -457,7 +457,7 @@ static int km_guest_mprotect_nolock(km_gva_t addr, size_t size, int prot)
 
 static int km_guest_madvise_nolock(km_gva_t addr, size_t size, int advise)
 {
-   km_assert(advise == MADV_DONTNEED || advise == MADV_HUGEPAGE);
+   km_assert(advise == MADV_DONTNEED || advise == MADV_HUGEPAGE || advise == MADV_WILLNEED);
    if (km_mmap_busy_check_contiguous(addr, size) != 0) {
       km_infox(KM_TRACE_MMAP, "madvise area not fully mapped");
       return -ENOMEM;
@@ -827,7 +827,7 @@ int km_guest_mprotect(km_gva_t addr, size_t size, int prot)
 int km_guest_madvise(km_gva_t addr, size_t size, int advise)
 {
    km_infox(KM_TRACE_MMAP, "madvise guest(0x%lx 0x%lx advise %x)", addr, size, advise);
-   if (advise != MADV_DONTNEED && advise != MADV_HUGEPAGE) {
+   if (advise != MADV_DONTNEED && advise != MADV_HUGEPAGE && advise != MADV_WILLNEED) {
       return -EINVAL;
    }
    if (addr != rounddown(addr, KM_PAGE_SIZE) || (size = roundup(size, KM_PAGE_SIZE)) == 0) {
