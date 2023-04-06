@@ -384,7 +384,7 @@ static km_hc_ret_t sendrecvmmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    }
 
    // Is entire mmsghdr array memory valid?
-   if (km_gva_to_kma(arg->arg2 + arg->arg3*sizeof(struct mmsghdr) - 1) == NULL) {
+   if (km_gva_to_kma(arg->arg2 + arg->arg3 * sizeof(struct mmsghdr) - 1) == NULL) {
       arg->hc_ret = -EFAULT;
       return HC_CONTINUE;
    }
@@ -423,7 +423,7 @@ static km_hc_ret_t sendrecvmmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    }
 
    // Handle time for recvmmsg.
-   struct timespec *ts = NULL;
+   struct timespec* ts = NULL;
    if (hc == SYS_recvmmsg && arg->arg5 != 0) {
       // Translate and validate timer.
       if ((ts = km_gva_to_kma(arg->arg5)) == NULL) {
@@ -432,8 +432,7 @@ static km_hc_ret_t sendrecvmmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       }
    }
 
-   arg->hc_ret =
-       km_fs_sendrecvmmsg(vcpu, hc, arg->arg1, km_mmsghdr, arg->arg3, arg->arg4, ts);
+   arg->hc_ret = km_fs_sendrecvmmsg(vcpu, hc, arg->arg1, km_mmsghdr, arg->arg3, arg->arg4, ts);
 
    // Post syscall processing.
    for (int i = 0; i < arg->arg3; i++) {
