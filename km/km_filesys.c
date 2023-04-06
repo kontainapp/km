@@ -1850,7 +1850,13 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
    return ret;
 }
 
-uint64_t km_fs_sendrecvmmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flag, struct timespec *timeout)
+uint64_t km_fs_sendrecvmmsg(km_vcpu_t* vcpu,
+                            int scall,
+                            int sockfd,
+                            struct mmsghdr* msgvec,
+                            unsigned int vlen,
+                            int flag,
+                            struct timespec* timeout)
 {
    int host_sockfd;
    if ((host_sockfd = km_fs_g2h_fd(sockfd, NULL)) < 0) {

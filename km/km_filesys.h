@@ -221,7 +221,13 @@ km_fs_setsockopt(km_vcpu_t* vcpu, int sockfd, int level, int optname, void* optv
 uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr* msg, int flag);
 // int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags);
 // int recvmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags, struct timespec *timeout);
-uint64_t km_fs_sendrecvmmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct mmsghdr* msg, unsigned int vlen, int flag, struct timespec *timeout);
+uint64_t km_fs_sendrecvmmsg(km_vcpu_t* vcpu,
+                            int scall,
+                            int sockfd,
+                            struct mmsghdr* msg,
+                            unsigned int vlen,
+                            int flag,
+                            struct timespec* timeout);
 // ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
 uint64_t km_fs_sendfile(km_vcpu_t* vcpu, int out_fd, int in_fd, off_t* offset, size_t count);
 // ssize_t copy_file_range(int fd_in, off_t *off_in, int fd_out, loff_t *off_out, size_t len,

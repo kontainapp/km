@@ -327,7 +327,7 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
  * We need to do this becuase the msghdr passes iovec's between user land and
  * kernel land and they contain addresses that need translation.
  */
-static int copyin_msghdr(struct msghdr *km_msg, struct msghdr *guest_msg)
+static int copyin_msghdr(struct msghdr* km_msg, struct msghdr* guest_msg)
 {
    if (guest_msg->msg_name != NULL) {
       km_msg->msg_name = km_gva_to_kma((uintptr_t)guest_msg->msg_name);
@@ -368,7 +368,8 @@ static int copyin_msghdr(struct msghdr *km_msg, struct msghdr *guest_msg)
 static km_hc_ret_t sendrecvmmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags);
-   // int recvmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags, struct timespec *timeout);
+   // int recvmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags, struct timespec
+   // *timeout);
 
    if (arg->arg2 == 0) {
       arg->hc_ret = -EFAULT;
@@ -394,10 +395,10 @@ static km_hc_ret_t sendrecvmmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    size_t allocsz = (sizeof(struct mmsghdr) * arg->arg3) + (sizeof(struct iovec) * niovecs);
    char buffer[allocsz];
    memset(buffer, 0, allocsz);
-   char *current = buffer;
+   char* current = buffer;
 
    // Pass 2. Setup the translated mmsghdrs and iovecs.
-   struct mmsghdr *km_mmsghdr = (struct mmsghdr *) current;
+   struct mmsghdr* km_mmsghdr = (struct mmsghdr*)current;
 
    current += (sizeof(struct mmsghdr) * arg->arg3);
 
@@ -405,10 +406,10 @@ static km_hc_ret_t sendrecvmmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    for (int i = 0; i < arg->arg3; i++) {
       if (guest_mmsghdr[i].msg_hdr.msg_iovlen > 0) {
          km_mmsghdr[i].msg_hdr.msg_iovlen = guest_mmsghdr[i].msg_hdr.msg_iovlen;
-         km_mmsghdr[i].msg_hdr.msg_iov = (struct iovec *) current;
+         km_mmsghdr[i].msg_hdr.msg_iov = (struct iovec*)current;
          current += sizeof(struct iovec) * guest_mmsghdr[i].msg_hdr.msg_iovlen;
       }
-      
+
       // copy iovec and other msghdr info into kma copy.
       int ret = copyin_msghdr(&km_mmsghdr[i].msg_hdr, &guest_mmsghdr[i].msg_hdr);
       if (ret < 0) {
@@ -422,13 +423,14 @@ static km_hc_ret_t sendrecvmmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       // TODO: Translate and validate timer.
    }
 
-   arg->hc_ret = km_fs_sendrecvmmsg(vcpu, hc, arg->arg1, km_mmsghdr, arg->arg3, arg->arg4, (void*)arg->arg5);
+   arg->hc_ret =
+       km_fs_sendrecvmmsg(vcpu, hc, arg->arg1, km_mmsghdr, arg->arg3, arg->arg4, (void*)arg->arg5);
 
    // Post syscall processing.
    for (int i = 0; i < arg->arg3; i++) {
       guest_mmsghdr[i].msg_len = km_mmsghdr[i].msg_len;
    }
-   
+
    return HC_CONTINUE;
 }
 
