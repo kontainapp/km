@@ -1843,3 +1843,8 @@ EOF
 
    rm -fr $WORKDIR
 }
+
+@test "getaddrinfo_test($test_type): test getaddrinfo syscall (getaddrinfo_test$ext)" {
+   km_with_timeout getaddrinfo_test$ext
+   assert_success
+}
