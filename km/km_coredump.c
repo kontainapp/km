@@ -1007,7 +1007,7 @@ int km_dump_core(char* core_path,
    if (dumptype == KM_DO_SNAP) {
       int cfd;   // conf file fd
       char cpath[MAXPATHLEN];
-      sprintf(cpath, "%s.conf", core_path);
+      snprintf(cpath, sizeof(cpath), "%s.conf", core_path);
       if ((cfd = open(cpath, O_RDWR | O_CREAT | O_TRUNC, 0600)) < 0) {
          rc = errno;
          km_warn("Cannot create %s '%s'", "snapshot config", cpath);
