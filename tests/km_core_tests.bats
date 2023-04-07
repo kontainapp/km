@@ -1844,7 +1844,12 @@ EOF
    rm -fr $WORKDIR
 }
 
-@test "getaddrinfo_test($test_type): test getaddrinfo syscall (getaddrinfo_test$ext)" {
+@test "sendmsg_test($test_type): test sendmsg like syscalls (sendmsg_test$ext)" {
+   km_with_timeout sendmsg_test$ext
+   assert_success
+}
+
+@test "getaddrinfo_test($test_type): test getaddrinfo lib calls (getaddrinfo_test$ext)" {
    km_with_timeout getaddrinfo_test$ext
    assert_success
 }
