@@ -73,15 +73,11 @@ TEST test_sendmmsg()
    struct iovec iov = {.iov_base = msg, .iov_len = strlen(msg)};
    char* msg2 = "Hello Moon";
    struct iovec iov2 = {.iov_base = msg2, .iov_len = strlen(msg2)};
-   struct mmsghdr mmsghdr[2] = {
-                          {.msg_hdr = {.msg_name = &recvaddr,
-                           .msg_namelen = recvaddrlen,
-                           .msg_iov = &iov,
-                           .msg_iovlen = 1}, .msg_len = 0}, 
-                          {.msg_hdr = {.msg_name = &recvaddr,
-                           .msg_namelen = recvaddrlen,
-                           .msg_iov = &iov2,
-                           .msg_iovlen = 1}, .msg_len = 0}};
+   struct mmsghdr mmsghdr[2] =
+       {{.msg_hdr = {.msg_name = &recvaddr, .msg_namelen = recvaddrlen, .msg_iov = &iov, .msg_iovlen = 1},
+         .msg_len = 0},
+        {.msg_hdr = {.msg_name = &recvaddr, .msg_namelen = recvaddrlen, .msg_iov = &iov2, .msg_iovlen = 1},
+         .msg_len = 0}};
 
    // Send 2 messages to reciver
    ASSERT(sendmmsg(sendfd, mmsghdr, 2, 0) == 2);
@@ -92,10 +88,8 @@ TEST test_sendmmsg()
    char buffer2[1024];
    memset(buffer2, 0, sizeof(buffer2));
    struct iovec riov2 = {.iov_base = buffer2, .iov_len = sizeof(buffer2)};
-   struct mmsghdr rmmsghdr[2] = {
-                                {.msg_hdr = {.msg_iov = &riov, .msg_iovlen = 1}},
-                                {.msg_hdr = {.msg_iov = &riov2, .msg_iovlen = 1}}
-                                };
+   struct mmsghdr rmmsghdr[2] = {{.msg_hdr = {.msg_iov = &riov, .msg_iovlen = 1}},
+                                 {.msg_hdr = {.msg_iov = &riov2, .msg_iovlen = 1}}};
 
    ASSERT(recvmmsg(recvfd, rmmsghdr, 2, 0, NULL) == 2);
 
