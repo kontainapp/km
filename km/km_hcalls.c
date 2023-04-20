@@ -2039,18 +2039,6 @@ static km_hc_ret_t snapshot_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_ALLSTOP;
 }
 
-static km_hc_ret_t snapshot_getdata_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-   arg->hc_ret = km_snapshot_getdata(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
-   return HC_CONTINUE;
-}
-
-static km_hc_ret_t snapshot_putdata_hcall(void* vcpu, int hc, km_hc_args_t* arg)
-{
-   arg->hc_ret = km_snapshot_putdata(vcpu, km_gva_to_kma(arg->arg1), arg->arg2);
-   return HC_CONTINUE;
-}
-
 static km_hc_ret_t shrink_payload_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    arg->hc_ret = -km_shrink_footprint(vcpu);
@@ -2495,8 +2483,6 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [HC_guest_interrupt] = guest_interrupt_hcall,
     [HC_unmapself] = unmapself_hcall,
     [HC_snapshot] = snapshot_hcall,
-    [HC_snapshot_getdata] = snapshot_getdata_hcall,
-    [HC_snapshot_putdata] = snapshot_putdata_hcall,
     [HC_shrink] = shrink_payload_hcall,
 };
 

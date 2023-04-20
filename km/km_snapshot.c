@@ -43,9 +43,6 @@
 // TODO: Need to figure out where the snapshot default should go.
 static char* snapshot_path = "./kmsnap";
 
-static char* snapshot_input_path = NULL;
-static char* snapshot_output_path = NULL;
-
 void km_set_snapshot_path(char* path)
 {
    km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot path to %s", path);
@@ -57,78 +54,6 @@ void km_set_snapshot_path(char* path)
 char* km_get_snapshot_path()
 {
    return snapshot_path;
-}
-
-void km_snapshot_io_path_fini()
-{
-   if (snapshot_input_path != NULL) {
-      free(snapshot_input_path);
-   }
-   if (snapshot_output_path != NULL) {
-      free(snapshot_output_path);
-   }
-}
-
-void km_set_snapshot_input_path(char* path)
-{
-   km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot input to %s", path);
-   if ((snapshot_input_path = strdup(path)) == NULL) {
-      km_err(1, "Failed to alloc memory for snapshot input");
-   }
-}
-
-void km_set_snapshot_output_path(char* path)
-{
-   km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot output to %s", path);
-   if ((snapshot_output_path = strdup(path)) == NULL) {
-      km_err(1, "Failed to alloc memory for snapshot output");
-   }
-}
-
-int km_snapshot_getdata(km_vcpu_t* vcpu, char* buf, int buflen)
-{
-   if (buf == NULL) {
-      km_infox(KM_TRACE_SNAPSHOT, "bad buffer");
-      return -EFAULT;
-   }
-   if (snapshot_input_path == NULL) {
-      return 0;
-   }
-   int fd = km_internal_open(snapshot_input_path, O_RDONLY, 0);
-   if (fd < 0) {
-      km_info(KM_TRACE_SNAPSHOT, "open failure");
-      return -errno;
-   }
-   int rc = read(fd, buf, buflen);
-   if (rc < 0) {
-      km_info(KM_TRACE_SNAPSHOT, "read failure");
-      rc = -errno;
-   }
-   close(fd);
-   return rc;
-}
-
-int km_snapshot_putdata(km_vcpu_t* vcpu, char* buf, int buflen)
-{
-   if (buf == NULL) {
-      km_infox(KM_TRACE_SNAPSHOT, "bad buffer");
-      return -EFAULT;
-   }
-   if (snapshot_output_path == NULL) {
-      return 0;
-   }
-   int fd = km_internal_open(snapshot_output_path, O_RDWR | O_CREAT | O_TRUNC, 0666);
-   if (fd < 0) {
-      km_info(KM_TRACE_SNAPSHOT, "open failure");
-      return -errno;
-   }
-   int rc = write(fd, buf, buflen);
-   if (rc < 0) {
-      km_info(KM_TRACE_SNAPSHOT, "write failure");
-      rc = -errno;
-   }
-   close(fd);
-   return rc;
 }
 
 static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t* payload)

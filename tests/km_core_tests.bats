@@ -1084,8 +1084,6 @@ fi
    SNAP=/tmp/snap.$$
    CORE=/tmp/core.$$
    KMLOG=/tmp/kmlog.$$
-   SNAP_INPUT=/tmp/snap_input.$$
-   SNAP_OUTPUT=/tmp/snap_output.$$
    MGMTPIPE=/tmp/mgmtpipe.$$
    SNAPDIR=/tmp/snapdir.$$
    MGTDIR=/tmp/mgtdir.$$
@@ -1150,8 +1148,6 @@ fi
    local -a tmp=($(echo ${MGTDIR}/kmsnap.hello_html_test$ext.[0-9]*))
    assert [ -f ${tmp[0]} ]
    rm -fr ${MGTDIR}
-
-   echo "This is test data" > ${SNAP_INPUT}
 
    # Verify that certain conditions cause the snapshot operation to fail
    run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -e
@@ -1237,16 +1233,14 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --km-log-to=${KMLOG} --input-data=${SNAP_INPUT} --output-data=${SNAP_OUTPUT} ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} ${SNAP}
       assert_success
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
-      assert [ -f ${SNAP_OUTPUT} ]
-      run diff ${SNAP_INPUT} ${SNAP_OUTPUT}
       assert_success
       [ $status -ne 0 ] && break
-      rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
+      rm -f ${SNAP} ${KMLOG}
 
       # snapshot with closed stdio
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -c $snapshot_test_port
@@ -1262,7 +1256,7 @@ fi
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
       [ $status -ne 0 ] && break
-      rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
+      rm -f ${SNAP} ${KMLOG}
 
       # snapshot resume that core dumps
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -a $snapshot_test_port
@@ -1277,7 +1271,7 @@ fi
       if [ "$test_type" = ".km.so" ]; then
          gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
       fi
-      rm -f ${SNAP} ${CORE} ${KMLOG} ${SNAP_OUTPUT}
+      rm -f ${SNAP} ${CORE} ${KMLOG}
 
       # 'live' snapshot
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -l $snapshot_test_port
@@ -1291,9 +1285,9 @@ fi
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
       [ $status -ne 0 ] && break
-      rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
+      rm -f ${SNAP} ${KMLOG}
    done
-   [ $status -eq 0 ] && rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT} ${SNAP_INPUT}
+   [ $status -eq 0 ] && rm -f ${SNAP} ${KMLOG}
 }
 
 @test "futex_snapshot($test_type): futex_snapshot and resume (futex_test$ext)" {

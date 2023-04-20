@@ -30,19 +30,3 @@ int snapshot(char* label, char* application_name, int snapshot_live)
 
    return snapshot_args.hc_ret;
 }
-
-size_t snapshot_getdata(void* buffer, size_t count)
-{
-   km_hc_args_t snapshot_getdata_args = {.arg1 = (uint64_t)buffer, .arg2 = (uint64_t)count};
-   km_hcall(HC_snapshot_getdata, &snapshot_getdata_args);
-
-   return (size_t)snapshot_getdata_args.hc_ret;
-}
-
-size_t snapshot_putdata(void* buffer, size_t count)
-{
-   km_hc_args_t snapshot_putdata_args = {.arg1 = (uint64_t)buffer, .arg2 = (uint64_t)count};
-   km_hcall(HC_snapshot_putdata, &snapshot_putdata_args);
-
-   return (size_t)snapshot_putdata_args.hc_ret;
-}

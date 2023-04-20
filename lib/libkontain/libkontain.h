@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Kontain Inc
+ * Copyright 2023 Kontain Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,5 @@
 #define __LIBKONTAIN_H__
 
 int snapshot(char* label, char* application_name, int snapshot_live);
-size_t snapshot_getdata(void* buffer, size_t count);
-size_t snapshot_putdata(void* buffer, size_t count);
 
 #endif /* #ifndef __LIBKONTAIN_H__ */

@@ -100,8 +100,6 @@ static inline void usage()
 "\t--enable-1g-pages                   - Force enable 1G pages support (default). Assumes hardware support\n"
 "\t--disable-1g-pages                  - Force disable 1G pages support\n"
 "\t--virt-device=<file-name>  (-Ffile) - Use provided file-name for virtualization device\n"
-"\t--input-data=<file-name>            - File with data for HC_snapshot_getdata\n"
-"\t--output-data=<file-name>           - File with data from HC_snapshot_putdata\n"
 "\t--mgtpipe <path>                    - Name for management pipe.\n");
    // clang-format on
 }
@@ -176,8 +174,6 @@ struct option km_cmd_long_options[] = {
     {"hcall-stats", no_argument, 0, 'S'},
     {"virt-device", required_argument, 0, 'F'},
     {"snapshot", required_argument, 0, 's'},
-    {"input-data", required_argument, 0, 'I'},
-    {"output-data", required_argument, 0, 'O'},
     {"mgtpipe", required_argument, 0, 'm'},
     {"kill-unimpl-scall", no_argument, &(kill_unimpl_hcall), KM_FLAG_FORCE_ENABLE},
 
@@ -489,12 +485,6 @@ km_parse_args(int argc, char* argv[], int* argc_p, char** argv_p[], int* envc_p,
          case 'S':
             km_collect_hc_stats = 1;
             break;
-         case 'I':
-            km_set_snapshot_input_path(optarg);
-            break;
-         case 'O':
-            km_set_snapshot_output_path(optarg);
-            break;
          case 'm':
             if (km_mgtdir != NULL) {
                km_errx(1,
@@ -751,7 +741,6 @@ int main(int argc, char* argv[])
    } while (km_dofork(NULL) != 0);
 
    km_machine_fini();
-   km_snapshot_io_path_fini();
    km_mgt_fini();
    km_trace_fini();
    exit(machine.exit_status);
