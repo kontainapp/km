@@ -80,8 +80,8 @@ enum km_internal_hypercalls {
    HC_shrink    = KM_MAX_HCALL - 4,
    HC_unmapself = KM_MAX_HCALL - 6,
    HC_snapshot = KM_MAX_HCALL - 7,
-   HC_snapshot_getdata = KM_MAX_HCALL - 8,
-   HC_snapshot_putdata = KM_MAX_HCALL - 9,
+   HC_reserved4 = KM_MAX_HCALL - 8,
+   HC_reserved5 = KM_MAX_HCALL - 9,
    HC_start = KM_MAX_HCALL - 10,   // must be last in list
 };
 
