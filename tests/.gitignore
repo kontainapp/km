@@ -8,3 +8,6 @@ gdb.txt
 km_*.log
 vgcore.*
 !shebang*
+netpipe.data.*
+tracefile.*
+aio_file_*

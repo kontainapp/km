@@ -2477,6 +2477,36 @@ size_t km_fs_core_notes_length(void)
    return ret;
 }
 
+/*
+ * check if there are reading ends of pipes with data
+ */
+
+int km_pipes(void)
+{
+   ssize_t queuedbytes = 0;
+
+   for (int i = 0; i < km_fs()->nfdmap; i++) {
+      km_file_t* file = &km_fs()->guest_files[i];
+      if (file->sockinfo == NULL) {
+         if (file->how == KM_FILE_HOW_PIPE_0) {
+            // We are looking at the read end of a pipe, find out how much data is queued
+            queuedbytes = ioctlfionread(i);
+            if (queuedbytes != 0) {
+               return 1;
+            }
+         }
+      } else {
+         if (file->how == KM_FILE_HOW_SOCKETPAIR0 || file->how == KM_FILE_HOW_SOCKETPAIR1) {
+            queuedbytes = ioctlfionread(i);
+            if (queuedbytes != 0) {
+               return 1;
+            }
+         }
+      }
+   }
+   return 0;
+}
+
 // Helper function to ensure we read all the bytes requested.
 // We abort after 50 tries.
 static inline int do_full_read(int fd, char* bufp, size_t bufl)

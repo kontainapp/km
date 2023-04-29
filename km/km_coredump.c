@@ -37,6 +37,7 @@
 #include "km_coredump.h"
 #include "km_filesys.h"
 #include "km_filesys_private.h"
+#include "km_fork.h"
 #include "km_guest.h"
 #include "km_iocontext.h"
 #include "km_mem.h"
@@ -912,17 +913,24 @@ int km_dump_core(char* core_path,
    }
    km_warnx("Writing %s to '%s'", dumptype == KM_DO_SNAP ? "snapshot" : "coredump", core_path);
 
-   if (dumptype == KM_DO_SNAP && km_snapshot_ok() != 0) {
-      km_warnx("Can't take a snapshot, active interval timer(s) exist");
-      rc = EINVAL;
-      goto out;
-   }
-   if (dumptype == KM_DO_SNAP && km_io_active_count > 0) {
-      // if there are asynch i/o operations in progress we won't snapshot
-      km_warnx("Can't take a snapshot, %d active asynch io operations are in progress",
-               km_io_active_count);
-      rc = EINVAL;   // maybe should use EAGAIN to allow km_cli to retry on its own
-      goto out;
+   if (dumptype == KM_DO_SNAP) {
+      if (km_have_forked() != 0 && km_pipes() != 0) {
+         km_warnx("Cannot create snapshot after forking");
+         return EAGAIN;
+      }
+
+      if (km_snapshot_ok() != 0) {
+         km_warnx("Can't take a snapshot, active interval timer(s) exist");
+         rc = EAGAIN;
+         goto out;
+      }
+      if (km_io_active_count > 0) {
+         // if there are asynch i/o operations in progress we won't snapshot
+         km_warnx("Can't take a snapshot, %d active asynch io operations are in progress",
+                  km_io_active_count);
+         rc = EAGAIN;
+         goto out;
+      }
    }
 
    if ((notes_buffer = (char*)calloc(1, notes_length)) == NULL) {
@@ -1004,52 +1012,6 @@ int km_dump_core(char* core_path,
       }
    }
 
-   if (dumptype == KM_DO_SNAP) {
-      int cfd;   // conf file fd
-      char cpath[MAXPATHLEN];
-      snprintf(cpath, sizeof(cpath), "%s.conf", core_path);
-      if ((cfd = open(cpath, O_RDWR | O_CREAT | O_TRUNC, 0600)) < 0) {
-         rc = errno;
-         km_warn("Cannot create %s '%s'", "snapshot config", cpath);
-         goto out;
-      }
-
-      for (int i = 0; i < km_fs()->nfdmap; i++) {
-         km_file_t* file = &km_fs()->guest_files[i];
-         if (km_is_file_used(file) != 0) {
-            if (file->how == KM_FILE_HOW_SOCKET) {
-               if (file->sockinfo->state == KM_SOCK_STATE_BIND ||
-                   file->sockinfo->state == KM_SOCK_STATE_LISTEN) {
-                  char buf[1024];
-                  char* cp = buf;
-                  switch (file->sockinfo->domain) {
-                     case AF_INET:
-                        cp += sprintf(cp,
-                                      "i4 %d ",
-                                      ntohs(((struct sockaddr_in*)file->sockinfo->addr)->sin_port));
-                        inet_ntop(file->sockinfo->domain,
-                                  &((struct sockaddr_in*)file->sockinfo->addr)->sin_addr,
-                                  cp,
-                                  1024);
-                        break;
-                     case AF_INET6:
-                        cp += sprintf(cp,
-                                      "i6 %d ",
-                                      ntohs(((struct sockaddr_in6*)file->sockinfo->addr)->sin6_port));
-                        inet_ntop(file->sockinfo->domain,
-                                  &((struct sockaddr_in6*)file->sockinfo->addr)->sin6_addr,
-                                  cp,
-                                  1024);
-                        break;
-                  }
-                  strcat(buf, "\n");
-                  write(cfd, buf, strlen(buf));
-               }
-            }
-         }
-      }
-      close(cfd);
-   }
 out:;
    free(notes_buffer);
    (void)close(fd);

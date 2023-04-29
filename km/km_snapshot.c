@@ -33,7 +33,6 @@
 #include "km_coredump.h"
 #include "km_elf.h"
 #include "km_filesys.h"
-#include "km_fork.h"
 #include "km_gdb.h"
 #include "km_guest.h"
 #include "km_mem.h"
@@ -526,11 +525,6 @@ int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* du
       km_warnx("Cannot create snapshot with GDB running");
       return -EBUSY;
    }
-   if (km_have_forked() != 0) {
-      km_warnx("Cannot create snapshot after forking");
-      return -EBUSY;
-   }
-
    if (dumppath == NULL || dumppath[0] == 0) {
       if (km_mgtdir != NULL) {
          snprintf(dumpfile,
