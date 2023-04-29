@@ -278,7 +278,7 @@ int main(int argc, char* argv[])
       // Fork then snapshot.  This should fail.
       // snapshotting pipe and socketpair buffered data is not possible if another
       // process was forked.
-      case 'f':
+      case 'f': {
          int pipefd[2];
          pipe(pipefd);
          pid = fork();
@@ -316,7 +316,7 @@ int main(int argc, char* argv[])
             exit(0);
          }
          break;
-
+      }
       // Snapshot when a pipe has queued data
       case 'p':;
          pipetest(0);
