@@ -67,7 +67,7 @@ extern km_hc_stats_t* km_hcalls_stats;
 /*
  * Maximum hypercall number, defines the size of the km_hcalls_table
  */
-#define KM_MAX_HCALL 512
+#define KM_MAX_HCALL 1024
 
 /*
  * Hypercalls that don't translate directly into system calls.

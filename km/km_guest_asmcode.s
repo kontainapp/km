@@ -49,7 +49,7 @@ __km_handle_interrupt:
     push %rax
     mov $0xdeadbeef, %rbx
     mov %rsp, %gs:0         # KM Setup km_hc_args_t on stack for us to use
-    mov $0x81fd, %dx        # HC_guest_interrupt
+    mov $0x83fd, %dx        # HC_guest_interrupt
     out %eax, (%dx)         # Enter KM
     hlt                     # Should never hit here.
     .cfi_endproc
@@ -66,7 +66,7 @@ handler\name :
     push %rax
     mov $\num, %rbx
     mov %rsp, %gs:0         # KM Setup km_hc_args_t on stack for us to use
-    mov $0x81fd, %dx        # HC_guest_interrupt
+    mov $0x83fd, %dx        # HC_guest_interrupt
     out %eax, (%dx)         # Enter KM
     hlt                     # Should never hit here.
     .cfi_endproc

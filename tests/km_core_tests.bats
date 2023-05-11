@@ -169,7 +169,7 @@ fi
    assert_failure $(( $signal_flag + 7))   #SIGBUS
    assert_output --partial "Bus error"
 
-   run km_with_timeout stray_test$ext hc 1000
+   run km_with_timeout stray_test$ext hc 1100
    assert_failure $(( $signal_flag + 7))   #SIGBUS
    assert_output --partial "Bus error"
 

@@ -22,7 +22,7 @@
 .set KVM_MAX_VCPUS, 288
 .set KM_HCALL_PORT_BASE, 0x8000
 .set SYS_rt_sigreturn, 15
-.set HC_guest_interrupt, 0x1fd
+.set HC_guest_interrupt, 0x3fd
 .set BYTES_PER_UINT64, 8
 .set CACHE_LINE_LENGTH, 64
 
