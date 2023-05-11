@@ -376,8 +376,6 @@ static const char* const hc_name[KM_MAX_HCALL] = {
    [HC_shrink]    = "shrink",
    [HC_unmapself] = "unmapself",
    [HC_snapshot] = "snapshot",
-   [HC_snapshot_getdata] = "snapshot_getdata",
-   [HC_snapshot_putdata] = "snapshot_putdata",
    [HC_start] = "start",
 };
 // clang-format on

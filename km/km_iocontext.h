@@ -14,9 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef __LIBKONTAIN_H__
-#define __LIBKONTAIN_H__
+#ifndef __KM_IOCONTEXT_H__
+#define __KM_IOCONTEXT_H__
 
-int snapshot(char* label, char* application_name, int snapshot_live);
+int km_iocontext_recover(unsigned int nr_events, aio_context_t pcontext);
+int km_iocontext_add(unsigned int nr_events, aio_context_t* pcontextp);
+int km_iocontext_remove(aio_context_t pcontext);
+int km_iocontext_xlate_p2k(aio_context_t pcontext, aio_context_t* kcontext);
+size_t km_fs_iocontext_notes_length(void);
+size_t km_fs_iocontext_notes_write(char* buf, size_t length);
+int km_fs_recover_iocontexts(char* ptr, size_t length);
+void km_iocontext_init(void);
+void km_iocontext_deinit(void);
 
-#endif /* #ifndef __LIBKONTAIN_H__ */
+#endif   // !defined(__KM_IOCONTEXT_H__)

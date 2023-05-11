@@ -38,3 +38,19 @@ valgrind --sim-hints=lax-ioctls --trace-children=yes --suppressions=km_valgrind.
 As of early Feb 2020, (commit 18e40972da2d4f69270bb05bec05a4a4ade27a85) there are no memory errors running our tests and `make test-all` in python.
 
 There are three memory leaks that seem to be coming from `libc` implementation of `pthread_create`, they are excluded by the `--suppressions=km_valgrind.supp`.
+
+
+## valgrind support has been added to some of our Makefile targets
+
+You need to build km with minor changes to accomodate valgrind:
+```
+make -C km valgrind
+```
+Once that completes a valgrind version of km will be placed in build/km/valgrind/km and build/opt/kontain/valgrind/bin.
+
+## Run bats tests with valgrind
+
+Run this to have the bats tests run with km and valgrind:
+```
+make -C tests test-valgrind
+```

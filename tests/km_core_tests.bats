@@ -1084,8 +1084,6 @@ fi
    SNAP=/tmp/snap.$$
    CORE=/tmp/core.$$
    KMLOG=/tmp/kmlog.$$
-   SNAP_INPUT=/tmp/snap_input.$$
-   SNAP_OUTPUT=/tmp/snap_output.$$
    MGMTPIPE=/tmp/mgmtpipe.$$
    SNAPDIR=/tmp/snapdir.$$
    MGTDIR=/tmp/mgtdir.$$
@@ -1150,8 +1148,6 @@ fi
    local -a tmp=($(echo ${MGTDIR}/kmsnap.hello_html_test$ext.[0-9]*))
    assert [ -f ${tmp[0]} ]
    rm -fr ${MGTDIR}
-
-   echo "This is test data" > ${SNAP_INPUT}
 
    # Verify that certain conditions cause the snapshot operation to fail
    run km_with_timeout --snapshot=${SNAP} snapshot_fail_test$ext -e
@@ -1237,16 +1233,14 @@ fi
       assert [ -f ${SNAP} ]
       assert [ ! -f ${CORE} ]
       check_kmcore ${SNAP}
-      run km_with_timeout --km-log-to=${KMLOG} --input-data=${SNAP_INPUT} --output-data=${SNAP_OUTPUT} ${SNAP}
+      run km_with_timeout --km-log-to=${KMLOG} ${SNAP}
       assert_success
       assert_output --partial "Hello from thread"
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
-      assert [ -f ${SNAP_OUTPUT} ]
-      run diff ${SNAP_INPUT} ${SNAP_OUTPUT}
       assert_success
       [ $status -ne 0 ] && break
-      rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
+      rm -f ${SNAP} ${KMLOG}
 
       # snapshot with closed stdio
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -c $snapshot_test_port
@@ -1262,7 +1256,7 @@ fi
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
       [ $status -ne 0 ] && break
-      rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
+      rm -f ${SNAP} ${KMLOG}
 
       # snapshot resume that core dumps
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -a $snapshot_test_port
@@ -1277,7 +1271,7 @@ fi
       if [ "$test_type" = ".km.so" ]; then
          gdb --ex=bt --ex=q snapshot_test$ext ${CORE} | grep -F 'abort ('
       fi
-      rm -f ${SNAP} ${CORE} ${KMLOG} ${SNAP_OUTPUT}
+      rm -f ${SNAP} ${CORE} ${KMLOG}
 
       # 'live' snapshot
       run km_with_timeout --coredump=${CORE} --snapshot=${SNAP} snapshot_test$ext -l $snapshot_test_port
@@ -1291,9 +1285,9 @@ fi
       refute_line --partial "state restoration error"
       assert [ ! -f ${CORE} ]
       [ $status -ne 0 ] && break
-      rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT}
+      rm -f ${SNAP} ${KMLOG}
    done
-   [ $status -eq 0 ] && rm -f ${SNAP} ${KMLOG} ${SNAP_OUTPUT} ${SNAP_INPUT}
+   [ $status -eq 0 ] && rm -f ${SNAP} ${KMLOG}
 }
 
 @test "futex_snapshot($test_type): futex_snapshot and resume (futex_test$ext)" {
@@ -1774,4 +1768,72 @@ EOF
 
    # cleanup mgtdir
    rm -fr $MGTDIR $NPDATA
+}
+
+@test "aio($test_type): exercise io_*() syscalls (aio_test$ext)" {
+   WORKDIR=aio_workdir.$$
+   mkdir -p $WORKDIR
+   assert_success
+
+   AIO_TEST_WORKDIR=$WORKDIR run km_with_timeout aio_test$ext -f 13 -c 1
+   assert_success
+
+   # Now try snapshotting and resuming a payload with io contexts
+   # This snapshot should succeed because there will be no active asynch
+   # i/o requests
+   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR  run km_with_timeout aio_test$ext -f 13 -c 1 -ss &
+   tries=10
+   while [ $tries -gt 0 ]; do
+      if [ -e $WORKDIR/waiting ]; then
+         break;
+      fi
+      sleep .5
+      tries=$(($tries - 1))
+   done
+   assert [ $tries -ne 0 ]
+   rm -f $WORKDIR/waiting
+
+   # take the snapshot, we let the payload terminate after snapshot
+   ${KM_CLI_BIN} -s $WORKDIR/kmpipe* -t
+   assert_success
+   rm -f $WORKDIR/kmsnap.*.conf
+   snapfile=`ls $WORKDIR/kmsnap.aio_test$ext.[0-9]*`
+   assert_success
+
+   # start the snapshot and tell it to get going
+   run km_with_timeout $snapfile &
+   local pid=$!
+   run touch $WORKDIR/continue
+   assert_success
+
+   # wait for the snapshot to finish
+   wait_and_check $pid 0
+
+   # Now try to take a snapshot when async i/o is active.
+   # This snapshot should fail.
+   rm -f $WORKDIR/*
+   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR  run km_with_timeout aio_test$ext -f 13 -c 1 -sf &
+   tries=10
+   while [ $tries -gt 0 ]; do
+      if [ -e $WORKDIR/waiting ]; then
+         break;
+      fi
+      sleep .5
+      tries=$(($tries - 1))
+   done
+   assert [ $tries -ne 0 ]
+   rm -f $WORKDIR/waiting
+
+   # attempt the the snapshot, it should fail
+   run ${KM_CLI_BIN} -s $WORKDIR/kmpipe* -t
+   assert_failure
+
+   # let the test finish
+   run touch $WORKDIR/continue
+   assert_success
+
+   # we need to wait a little while for the aio_test to find the continue file so it can finish
+   sleep 5
+
+   rm -fr $WORKDIR
 }

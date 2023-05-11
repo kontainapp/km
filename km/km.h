@@ -475,6 +475,7 @@ static const_string_t KM_MGTPIPE = "KM_MGTPIPE";
 static const_string_t KM_MGTDIR = "KM_MGTDIR";
 static const_string_t KM_KILL_UNIMPL_SCALL = "KM_KILL_UNIMPL_SCALL";
 static const_string_t KM_SNAP_LISTEN_TIMEOUT = "SNAP_LISTEN_TIMEOUT";
+static const_string_t KM_GDB_WAIT_BEFORE_SNAP_RESUME = "KM_GDB_WAIT_BEFORE_SNAP_RESUME";
 
 /*
  * Trivial trace control - with switch to turn on/off and on and a tag to match.
@@ -499,6 +500,8 @@ extern struct option km_cmd_long_options[];
 extern const_string_t km_cmd_short_options;
 extern int km_vcpus_are_started;
 extern int km_shrunken;
+extern unsigned int km_io_context_count;
+extern unsigned int km_io_active_count;
 
 void km_trace_fini(void);
 void km_trace_setup(int argc, char* argv[]);

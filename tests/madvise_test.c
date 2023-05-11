@@ -47,7 +47,8 @@ TEST simple_test()
         {__LINE__, "3a. madvise MADV_FREE, EINVAL fail", TYPE_MADVISE, 8 * MIB, 10 * MIB, 0, flags, EINVAL, MADV_FREE},
         {__LINE__, "3b. OK to READ, should read in not 0", TYPE_READ, 9 * MIB, 1 * MIB, '2', 0, OK, 0},
         {__LINE__, "3c. madvise MADV_DONTNEED", TYPE_MADVISE, 8 * MIB, 10 * MIB, 0, flags, OK, MADV_DONTNEED},
-        {__LINE__, "4.  OK to READ", TYPE_READ, 9 * MIB, 1 * MIB, 0, 0, OK, 0},
+        {__LINE__, "3d. madvise MADV_WILLNEED", TYPE_MADVISE, 9 * MIB, 1 * MIB, 0, 0, OK, MADV_WILLNEED},
+        {__LINE__, "4.  OK to READ", TYPE_READ, 10 * MIB, 1 * MIB, 0, 0, OK, 0},
         {0}};
    if (greatest_get_verbosity() != 0) {
       printf("Running %s\n", __FUNCTION__);

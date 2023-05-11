@@ -43,9 +43,6 @@
 // TODO: Need to figure out where the snapshot default should go.
 static char* snapshot_path = "./kmsnap";
 
-static char* snapshot_input_path = NULL;
-static char* snapshot_output_path = NULL;
-
 void km_set_snapshot_path(char* path)
 {
    km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot path to %s", path);
@@ -57,78 +54,6 @@ void km_set_snapshot_path(char* path)
 char* km_get_snapshot_path()
 {
    return snapshot_path;
-}
-
-void km_snapshot_io_path_fini()
-{
-   if (snapshot_input_path != NULL) {
-      free(snapshot_input_path);
-   }
-   if (snapshot_output_path != NULL) {
-      free(snapshot_output_path);
-   }
-}
-
-void km_set_snapshot_input_path(char* path)
-{
-   km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot input to %s", path);
-   if ((snapshot_input_path = strdup(path)) == NULL) {
-      km_err(1, "Failed to alloc memory for snapshot input");
-   }
-}
-
-void km_set_snapshot_output_path(char* path)
-{
-   km_infox(KM_TRACE_SNAPSHOT, "Setting snapshot output to %s", path);
-   if ((snapshot_output_path = strdup(path)) == NULL) {
-      km_err(1, "Failed to alloc memory for snapshot output");
-   }
-}
-
-int km_snapshot_getdata(km_vcpu_t* vcpu, char* buf, int buflen)
-{
-   if (buf == NULL) {
-      km_infox(KM_TRACE_SNAPSHOT, "bad buffer");
-      return -EFAULT;
-   }
-   if (snapshot_input_path == NULL) {
-      return 0;
-   }
-   int fd = km_internal_open(snapshot_input_path, O_RDONLY, 0);
-   if (fd < 0) {
-      km_info(KM_TRACE_SNAPSHOT, "open failure");
-      return -errno;
-   }
-   int rc = read(fd, buf, buflen);
-   if (rc < 0) {
-      km_info(KM_TRACE_SNAPSHOT, "read failure");
-      rc = -errno;
-   }
-   close(fd);
-   return rc;
-}
-
-int km_snapshot_putdata(km_vcpu_t* vcpu, char* buf, int buflen)
-{
-   if (buf == NULL) {
-      km_infox(KM_TRACE_SNAPSHOT, "bad buffer");
-      return -EFAULT;
-   }
-   if (snapshot_output_path == NULL) {
-      return 0;
-   }
-   int fd = km_internal_open(snapshot_output_path, O_RDWR | O_CREAT | O_TRUNC, 0666);
-   if (fd < 0) {
-      km_info(KM_TRACE_SNAPSHOT, "open failure");
-      return -errno;
-   }
-   int rc = write(fd, buf, buflen);
-   if (rc < 0) {
-      km_info(KM_TRACE_SNAPSHOT, "write failure");
-      rc = -errno;
-   }
-   close(fd);
-   return rc;
 }
 
 static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t* payload)
@@ -172,7 +97,17 @@ static inline void km_ss_recover_memory(int fd, km_gva_t tbrk_gva, km_payload_t*
                            fd,
                            phdr->p_offset - extra);
             if (m == MAP_FAILED) {
-               km_err(2, "snapshot mmap[%d]: vaddr=0x%lx offset=0x%lx", i, phdr->p_vaddr, phdr->p_offset);
+               km_err(2,
+                      "snapshot mmap[%d]: p_vaddr 0x%lx, extra 0x%lx, addr %p, size %lu, "
+                      "vaddr=0x%lx offset=0x%lx, prot 0x%x",
+                      i,
+                      phdr->p_vaddr,
+                      extra,
+                      addr,
+                      phdr->p_filesz + extra,
+                      phdr->p_vaddr,
+                      phdr->p_offset,
+                      prot_elf_to_mmap(phdr->p_flags));
             }
          }
       }
@@ -337,6 +272,8 @@ static int km_ss_recover_file_maps(char* ptr, size_t length)
 /*
  * Recover payload state.
  */
+unsigned int km_payload_guest = 0;
+
 static inline int km_ss_recover_payload(char* ptr, size_t length, km_payload_t* payload)
 {
    char* cur = ptr;
@@ -357,12 +294,48 @@ static inline int km_ss_recover_payload(char* ptr, size_t length, km_payload_t* 
 
 static inline int km_ss_recover_guest(char* ptr, size_t length)
 {
+   if (km_payload_guest != 0) {
+      km_warnx("Ignoring elf note NT_KM_GUEST in snapshot because another note has already been "
+               "encountered");
+      return 0;
+   }
+   km_payload_guest = NT_KM_GUEST;
    return km_ss_recover_payload(ptr, length, &km_guest);
 }
 
 static inline int km_ss_recover_dynlinker(char* ptr, size_t length)
 {
    return km_ss_recover_payload(ptr, length, &km_dynlinker);
+}
+
+static inline int km_ss_recover_payloadv(char* ptr, size_t length, km_payload_t* payload)
+{
+   char* cur = ptr;
+   km_nt_guestv_t* g = (km_nt_guestv_t*)cur;
+
+   payload->km_load_adjust = g->load_adjust;
+   payload->km_dlopen = g->dlopen;
+   payload->km_ehdr = g->ehdr;
+   cur += sizeof(km_nt_guestv_t);
+
+   Elf64_Phdr* phdr = malloc(payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr));
+   memcpy(phdr, cur, payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr));
+   payload->km_phdr = phdr;
+   cur += payload->km_ehdr.e_phnum * sizeof(Elf64_Phdr);
+
+   payload->km_filename = strdup(cur);
+   return 0;
+}
+
+static inline int km_ss_recover_guestv(char* ptr, size_t length)
+{
+   if (km_payload_guest != 0) {
+      km_warnx("Ignoring elf note NT_KM_GUESTV in snapshot because another note has already been "
+               "encountered");
+      return 0;
+   }
+   km_payload_guest = NT_KM_GUESTV;
+   return km_ss_recover_payloadv(ptr, length, &km_guest);
 }
 
 int km_snapshot_notes_apply(char* notebuf, size_t notesize, int type, int (*func)(char*, size_t))
@@ -474,6 +447,11 @@ int km_snapshot_restore(km_elf_t* e)
 
    if (km_snapshot_notes_apply(notebuf, notesize, NT_FILE, km_ss_recover_file_maps) < 0) {
       km_errx(2, "recover file maps failed");
+   }
+   // we only expect to see one of NT_KM_GUESTV or NT_KM_GUEST.
+   // One is versioned the other is not.
+   if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_GUESTV, km_ss_recover_guestv) < 0) {
+      km_errx(2, "recover guest payload failed");
    }
    if (km_snapshot_notes_apply(notebuf, notesize, NT_KM_GUEST, km_ss_recover_guest) < 0) {
       km_errx(2, "recover guest payload failed");
