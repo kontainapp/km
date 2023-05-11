@@ -310,6 +310,7 @@ uint64_t km_fs_timerfd_create(km_vcpu_t* vcpu, int clockid, int flags);
 size_t km_fs_dup_notes_length(void);
 size_t km_fs_core_dup_write(char* buf, size_t length);
 size_t km_fs_core_notes_length(void);
+int km_pipes(void);
 int km_fs_core_notes_write(char* cur, size_t remain, size_t* sizep);
 
 void km_redirect_msgs(const char* name);

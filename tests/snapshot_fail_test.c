@@ -278,9 +278,12 @@ int main(int argc, char* argv[])
       // Fork then snapshot.  This should fail.
       // snapshotting pipe and socketpair buffered data is not possible if another
       // process was forked.
-      case 'f':
+      case 'f': {
+         int pipefd[2];
+         pipe(pipefd);
          pid = fork();
          if (pid > 0) {
+            sleep(1);   // allow child to write into pipe
             // we are the parent process. attempt a snapshot which should fail.
             snapshotargs = (km_hc_args_t){.arg1 = (uint64_t) "snaptest_label",
                                           .arg2 = (uint64_t) "Snapshot after fork",
@@ -308,11 +311,12 @@ int main(int argc, char* argv[])
             fprintf(stderr, "fork failed, %s\n", strerror(errno));
             exit(110);
          } else {
+            write(pipefd[1], "hello", sizeof("hello"));
             // We are the child.  Do nothing just exit.
             exit(0);
          }
          break;
-
+      }
       // Snapshot when a pipe has queued data
       case 'p':;
          pipetest(0);
