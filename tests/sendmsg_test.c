@@ -92,6 +92,10 @@ TEST test_sendmmsg()
                                  {.msg_hdr = {.msg_iov = &riov2, .msg_iovlen = 1}}};
 
    ASSERT(recvmmsg(recvfd, rmmsghdr, 2, 0, NULL) == 2);
+   ASSERT(rmmsghdr[0].msg_len == strlen(msg));
+   ASSERT(memcmp(rmmsghdr[0].msg_hdr.msg_iov->iov_base, msg, strlen(msg)) == 0);
+   ASSERT(rmmsghdr[1].msg_len == strlen(msg2));
+   ASSERT(memcmp(rmmsghdr[1].msg_hdr.msg_iov->iov_base, msg2, strlen(msg2)) == 0);
 
    close(recvfd);
    close(sendfd);
