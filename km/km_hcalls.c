@@ -322,6 +322,134 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+/*
+ * Copy a 'struct msghdr' from <sys/socket.h from guest space to km space.
+ * We need to do this becuase the msghdr passes iovec's between user land and
+ * kernel land and they contain addresses that need translation.
+ */
+static int copyin_msghdr(struct msghdr* km_msg, struct msghdr* guest_msg)
+{
+   if (guest_msg->msg_name != NULL) {
+      km_msg->msg_name = km_gva_to_kma((uintptr_t)guest_msg->msg_name);
+      if (km_msg->msg_name == NULL) {
+         return -EFAULT;
+      }
+   } else {
+      km_msg->msg_name = NULL;
+   }
+   km_msg->msg_namelen = guest_msg->msg_namelen;
+   if (guest_msg->msg_iovlen >= UIO_MAXIOV) {
+      return -EINVAL;
+   }
+
+   if (km_msg->msg_iovlen > 0) {
+      for (int i = 0; i < km_msg->msg_iovlen; i++) {
+         // Don't validate addresses if the element has a length of zero.
+         if (guest_msg->msg_iov[i].iov_len > 0) {
+            km_msg->msg_iov[i].iov_len = guest_msg->msg_iov[i].iov_len;
+            km_msg->msg_iov[i].iov_base = km_gva_to_kma((uintptr_t)guest_msg->msg_iov[i].iov_base);
+            if (km_msg->msg_iov[i].iov_base == NULL) {
+               return -EFAULT;
+            }
+         }
+      }
+   }
+   if (guest_msg->msg_control != NULL) {
+      km_msg->msg_control = km_gva_to_kma((uintptr_t)guest_msg->msg_control);
+      if (km_msg->msg_control == NULL) {
+         return -EFAULT;
+      }
+   }
+   km_msg->msg_controllen = guest_msg->msg_controllen;
+   km_msg->msg_flags = guest_msg->msg_flags;
+   return 0;
+}
+
+static km_hc_ret_t sendrecvmmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags);
+   // int recvmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags, struct timespec
+   // *timeout);
+
+   if (arg->arg2 == 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   struct mmsghdr* guest_mmsghdr = km_gva_to_kma(arg->arg2);
+   if (guest_mmsghdr == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
+   int vlen = arg->arg3;
+   if (vlen == 0) {
+      arg->hc_ret = -EINVAL;
+      return HC_CONTINUE;
+   }
+   // Can't have more then UIO_MAXIOV mmsghdr's
+   if (vlen > UIO_MAXIOV) {
+      vlen = UIO_MAXIOV;
+   }
+
+   // Is entire mmsghdr array memory valid?
+   if (km_gva_to_kma(arg->arg2 + vlen * sizeof(struct mmsghdr) - 1) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
+   // Pass 1. Count the iovecsc in all the mmsgs.
+   int niovecs = 0;
+   for (int i = 0; i < vlen; i++) {
+      niovecs += guest_mmsghdr[i].msg_hdr.msg_iovlen;
+   }
+
+   // Allocate space on the stack for translated mmsghdrs and iovecs.
+   size_t allocsz = (sizeof(struct mmsghdr) * vlen) + (sizeof(struct iovec) * niovecs);
+   char buffer[allocsz];
+   memset(buffer, 0, allocsz);
+   char* current = buffer;
+
+   // Pass 2. Setup the translated mmsghdrs and iovecs.
+   struct mmsghdr* km_mmsghdr = (struct mmsghdr*)current;
+
+   current += (sizeof(struct mmsghdr) * vlen);
+
+   // Setup buffer space (on stack) for iovecs.
+   for (int i = 0; i < vlen; i++) {
+      if (guest_mmsghdr[i].msg_hdr.msg_iovlen > 0) {
+         km_mmsghdr[i].msg_hdr.msg_iovlen = guest_mmsghdr[i].msg_hdr.msg_iovlen;
+         km_mmsghdr[i].msg_hdr.msg_iov = (struct iovec*)current;
+         current += sizeof(struct iovec) * guest_mmsghdr[i].msg_hdr.msg_iovlen;
+      }
+
+      // copy iovec and other msghdr info into kma copy.
+      int ret = copyin_msghdr(&km_mmsghdr[i].msg_hdr, &guest_mmsghdr[i].msg_hdr);
+      if (ret < 0) {
+         arg->hc_ret = ret;
+         return HC_CONTINUE;
+      }
+   }
+
+   // Handle time for recvmmsg.
+   struct timespec* ts = NULL;
+   if (hc == SYS_recvmmsg && arg->arg5 != 0) {
+      // Translate and validate timer.
+      if ((ts = km_gva_to_kma(arg->arg5)) == NULL) {
+         arg->hc_ret = -EFAULT;
+         return HC_CONTINUE;
+      }
+   }
+
+   arg->hc_ret = km_fs_sendrecvmmsg(vcpu, hc, arg->arg1, km_mmsghdr, vlen, arg->arg4, ts);
+
+   // Post syscall processing.
+   for (int i = 0; i < vlen; i++) {
+      guest_mmsghdr[i].msg_len = km_mmsghdr[i].msg_len;
+   }
+
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t sendfile_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
@@ -2317,6 +2445,8 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_setsockopt] = setsockopt_hcall,
     [SYS_sendmsg] = sendrecvmsg_hcall,
     [SYS_recvmsg] = sendrecvmsg_hcall,
+    [SYS_sendmmsg] = sendrecvmmsg_hcall,
+    [SYS_recvmmsg] = sendrecvmmsg_hcall,
     [SYS_sendfile] = sendfile_hcall,
     [SYS_copy_file_range] = copy_file_range_hcall,
     [SYS_ioctl] = ioctl_hcall,

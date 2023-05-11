@@ -1850,6 +1850,30 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
    return ret;
 }
 
+uint64_t km_fs_sendrecvmmsg(km_vcpu_t* vcpu,
+                            int scall,
+                            int sockfd,
+                            struct mmsghdr* msgvec,
+                            unsigned int vlen,
+                            int flag,
+                            struct timespec* timeout)
+{
+   int host_sockfd;
+   if ((host_sockfd = km_fs_g2h_fd(sockfd, NULL)) < 0) {
+      return -EBADF;
+   }
+   int ret = km_guestfd_error(vcpu, sockfd);
+   if (ret != 0) {
+      return ret;
+   }
+   if (scall == SYS_recvmmsg) {
+      ret = __syscall_5(scall, sockfd, (uintptr_t)msgvec, vlen, flag, (uintptr_t)timeout);
+   } else {
+      ret = __syscall_4(scall, sockfd, (uintptr_t)msgvec, vlen, flag);
+   }
+   return ret;
+}
+
 // ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
 uint64_t km_fs_sendfile(km_vcpu_t* vcpu, int out_fd, int in_fd, off_t* offset, size_t count)
 {
