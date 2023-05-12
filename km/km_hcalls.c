@@ -268,7 +268,7 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    // ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
    // ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
    struct msghdr* msg_kma = km_gva_to_kma(arg->arg2);
-   struct msghdr msg;
+   struct msghdr msg = {};
 
    if (msg_kma == NULL) {
       arg->hc_ret = -EFAULT;
