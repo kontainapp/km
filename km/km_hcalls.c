@@ -342,8 +342,8 @@ static int copyin_msghdr(struct msghdr* km_msg, struct msghdr* guest_msg)
       return -EINVAL;
    }
 
-   if (km_msg->msg_iovlen > 0) {
-      for (int i = 0; i < km_msg->msg_iovlen; i++) {
+   if (guest_msg->msg_iovlen > 0) {
+      for (int i = 0; i < guest_msg->msg_iovlen; i++) {
          // Don't validate addresses if the element has a length of zero.
          if (guest_msg->msg_iov[i].iov_len > 0) {
             km_msg->msg_iov[i].iov_len = guest_msg->msg_iov[i].iov_len;
