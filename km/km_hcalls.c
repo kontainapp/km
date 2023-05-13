@@ -305,6 +305,7 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       iov[i].iov_len = iov_kma[i].iov_len;
    }
    msg.msg_iov = iov;
+   msg.msg_control = msg_kma->msg_control;
    // If msg_controlen is zero the msg_control pointer is not validated.
    if (msg_kma->msg_controllen > 0 &&
        (msg.msg_control = km_gva_to_kma((uint64_t)msg_kma->msg_control)) == NULL) {
@@ -330,7 +331,7 @@ static km_hc_ret_t sendrecvmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 static int copyin_msghdr(struct msghdr* km_msg, struct msghdr* guest_msg)
 {
    if (guest_msg->msg_name != NULL) {
-      km_msg->msg_name = km_gva_to_kma((uintptr_t)guest_msg->msg_name);
+      km_msg->msg_name = km_gva_to_kma((km_gva_t)guest_msg->msg_name);
       if (km_msg->msg_name == NULL) {
          return -EFAULT;
       }
@@ -345,17 +346,22 @@ static int copyin_msghdr(struct msghdr* km_msg, struct msghdr* guest_msg)
    if (km_msg->msg_iovlen > 0) {
       for (int i = 0; i < km_msg->msg_iovlen; i++) {
          // Don't validate addresses if the element has a length of zero.
-         if (guest_msg->msg_iov[i].iov_len > 0) {
-            km_msg->msg_iov[i].iov_len = guest_msg->msg_iov[i].iov_len;
-            km_msg->msg_iov[i].iov_base = km_gva_to_kma((uintptr_t)guest_msg->msg_iov[i].iov_base);
+         struct iovec* iov = km_gva_to_kma((km_gva_t)guest_msg->msg_iov);
+         if (iov == NULL) {
+            return -EFAULT;
+         }
+         km_msg->msg_iov[i].iov_len = iov[i].iov_len;
+         if (iov[i].iov_len > 0) {
+            km_msg->msg_iov[i].iov_base = km_gva_to_kma((uintptr_t)iov[i].iov_base);
             if (km_msg->msg_iov[i].iov_base == NULL) {
                return -EFAULT;
             }
          }
       }
    }
+   km_msg->msg_control = NULL;
    if (guest_msg->msg_control != NULL) {
-      km_msg->msg_control = km_gva_to_kma((uintptr_t)guest_msg->msg_control);
+      km_msg->msg_control = km_gva_to_kma((km_gva_t)guest_msg->msg_control);
       if (km_msg->msg_control == NULL) {
          return -EFAULT;
       }
