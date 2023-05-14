@@ -3229,7 +3229,8 @@ static int km_fs_recover_dup_data(char* ptr, size_t length)
    km_nt_dup_t* nt_dup = (km_nt_dup_t*)ptr;
    ptr += sizeof(km_nt_dup_t);
    dup_data.size = nt_dup->size;
-   if ((dup_data.groups = malloc(dup_data.size * sizeof(dup_data.groups))) == NULL) {
+   if (dup_data.size != 0 &&
+       (dup_data.groups = malloc(dup_data.size * sizeof(dup_data.groups))) == NULL) {
       km_err(2, "No memory for dup_data.groups*");
       return -1;
    }
