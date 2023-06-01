@@ -175,7 +175,7 @@ int km_active_accept(void)
    return tp.tv_sec * 1000 + tp.tv_nsec / 1000000 > accept_time + light_snap_accept_timeout ? 0 : 1;
 }
 
-int km_snap_is_listener(int fd)
+static int km_snap_is_listener(int fd)
 {
    for (int i = 0; i < km_snap_listening_state_cnt; i++) {
       if (km_snap_listening_state_p[i].listen_fd == fd) {
@@ -185,7 +185,7 @@ int km_snap_is_listener(int fd)
    return 0;
 }
 
-void km_vmstate_destroy(int elf_fd)
+static void km_vmstate_destroy(int elf_fd)
 {
    int i;
    struct stat statb;
@@ -606,7 +606,7 @@ char* km_get_nonfile_name(int hostfd)
  * Assigns lowest available guest fd, just like the kernel.
  * TODO: Support open flags (O_CLOEXEC in particular)
  */
-int km_add_guest_fd_internal(
+static int km_add_guest_fd_internal(
     km_vcpu_t* vcpu, int host_fd, char* name, int flags, km_file_how_t how, km_file_ops_t* ops)
 {
    km_assert(host_fd >= 0 && host_fd < km_fs()->nfdmap);
@@ -632,7 +632,7 @@ int km_add_guest_fd_internal(
    return host_fd;
 }
 
-int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, char* name, int flags, km_file_ops_t* ops)
+static int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, char* name, int flags, km_file_ops_t* ops)
 {
    return km_add_guest_fd_internal(vcpu, host_fd, name, flags, KM_FILE_HOW_OPEN, ops);
 }

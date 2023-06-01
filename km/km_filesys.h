@@ -95,7 +95,6 @@ char* km_get_nonfile_name(int hostfd);
 int km_fs_h2g_fd(int hostfd);
 int km_fs_g2h_fd(int guestfd, km_file_ops_t** ops);
 int km_fs_max_guestfd();
-int km_add_guest_fd(km_vcpu_t* vcpu, int host_fd, char* name, int flags, km_file_ops_t* ops);
 char* km_guestfd_name(km_vcpu_t* vcpu, int fd);
 int km_fs_init(void);
 void km_fs_fini(void);
