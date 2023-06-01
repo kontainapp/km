@@ -152,6 +152,31 @@ int __isnan(double arg)
    return isnan(arg);
 }
 
+int __isnanf(float x)
+{
+   return isnan(x);
+}
+
+int __isnanl(long double x)
+{
+   return isnan(x);
+}
+
+int __finite(double x)
+{
+   return isfinite(x);
+}
+
+int __finitef(float x)
+{
+   return isfinite(x);
+}
+
+int __finitel(long double x)
+{
+   return isfinite(x);
+}
+
 void __syslog_chk(int priority, __attribute__((unused)) int flag, const char* format)
 {
    syslog(priority, format);
