@@ -62,7 +62,7 @@
  * - we don't need to walk this list while the guest is running since we are
  *   not holding a mutex to exclude changes to the list.
  */
-int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
+int km_link_map_walk_musl(link_map_visit_function_t* callme, void* visitargp)
 {
    link_map_t* lmp_kma;
    link_map_t* lmp_gva;
@@ -132,6 +132,48 @@ int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
          break;
       }
       lmp_gva = lmp_kma->l_next;
+   }
+   return rc;
+}
+
+#define KM_DL_NNS 16
+#define KM_NAMESPACE_SIZE (0xa0)
+int km_link_map_walk_glibc(link_map_visit_function_t* callme, void* visitargp)
+{
+   int rc = 0;
+   for (int ns = 0; ns < KM_DL_NNS; ns++) {
+      link_map_t* lmp_gva = (link_map_t*)*((uint64_t*)(km_guest.km_dlopen + ns * KM_NAMESPACE_SIZE));
+      link_map_t* lmp_kma = (link_map_t*)km_gva_to_kma((km_gva_t)lmp_gva);
+
+      km_infox(KM_TRACE_KVM, "namespace %d gva %p kma_ns %p\n", ns, lmp_gva, lmp_kma);
+
+      while (lmp_gva != NULL) {
+         link_map_t* lmp_kma = (link_map_t*)km_gva_to_kma((km_gva_t)lmp_gva);
+         km_infox(KM_TRACE_KVM, "namespace %d gva %p kma_ns %p\n", ns, lmp_gva, lmp_kma);
+         rc = (*callme)(lmp_kma, lmp_gva, visitargp);
+         if (rc != 0) {
+            return rc;
+         }
+         lmp_gva = lmp_kma->l_next;
+      }
+   }
+   return rc;
+}
+#undef KM_NAMESPACE_SIZE
+#undef KM_DL_NNS
+
+int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp)
+{
+   int rc = 0;
+   switch (km_guest.km_libc) {
+      case KM_LIBC_MUSL:
+         rc = km_link_map_walk_musl(callme, visitargp);
+         break;
+      case KM_LIBC_GLIBC:
+         rc = km_link_map_walk_glibc(callme, visitargp);
+         break;
+      case KM_LIBC_UNKNOWN:
+         break;
    }
    return rc;
 }

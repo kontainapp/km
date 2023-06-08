@@ -26,8 +26,14 @@
 #include <stdint.h>
 #include <sys/mman.h>
 
-#define KM_DLOPEN_SYM_NAME "dlopen"
+#define KM_DLOPEN_SYM_NAME_MUSL "dlopen"
+#define KM_DLOPEN_SYM_NAME_GLIBC "_rtld_global"
 
+typedef enum {
+   KM_LIBC_UNKNOWN,
+   KM_LIBC_MUSL,
+   KM_LIBC_GLIBC,
+} km_libc_type_t;
 /*
  * Description of the guest payload. Note these structures come from guest ELF and represent values
  * in guest address space. We'll need to convert them to monitor (KM) addresses to acces.
@@ -35,6 +41,7 @@
 typedef struct km_payload {
    Elf64_Ehdr km_ehdr;            // elf file header
    Elf64_Phdr* km_phdr;           // elf program headers
+   km_libc_type_t km_libc;        // libc type
    Elf64_Addr km_dlopen;          // dlopen() address to find link_map chain
    Elf64_Addr km_load_adjust;     // elf->guest vaddr adjustment
    const char* km_filename;       // elf file name
