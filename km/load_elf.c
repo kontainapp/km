@@ -136,21 +136,32 @@ static void km_find_dlopen(km_elf_t* e, km_gva_t adjust)
       km_err(2, "strings table read failure");
    }
 
-   km_infox(KM_TRACE_LOAD, "looking for %s", KM_DLOPEN_SYM_NAME);
+   km_infox(KM_TRACE_LOAD, "looking for %s or %s", KM_DLOPEN_SYM_NAME_MUSL, KM_DLOPEN_SYM_NAME_GLIBC);
    for (int i = 0; i < nsym; i++) {
       Elf64_Sym sym = symtab[i];
 
       km_infox(KM_TRACE_LOAD, "st_info=0x%x symbol=%s", sym.st_info, &strings[sym.st_name]);
-      if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC) &&
-          strcmp(&strings[sym.st_name], KM_DLOPEN_SYM_NAME) == 0) {
-         km_guest.km_dlopen = sym.st_value + adjust;
-         km_infox(KM_TRACE_LOAD, "found! value=0x%lx", km_guest.km_dlopen);
-         free(strings);
-         free(symtab);
-         return;
+      if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_FUNC)) {
+         if (strcmp(&strings[sym.st_name], KM_DLOPEN_SYM_NAME_MUSL) == 0) {
+            km_guest.km_libc = KM_LIBC_MUSL;
+            km_guest.km_dlopen = sym.st_value + adjust;
+            break;
+         }
+      }
+      if (sym.st_info == ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT)) {
+         if (strcmp(&strings[sym.st_name], KM_DLOPEN_SYM_NAME_GLIBC) == 0) {
+            km_guest.km_libc = KM_LIBC_GLIBC;
+            km_guest.km_dlopen = sym.st_value + adjust;
+            break;
+         }
       }
    }
-   km_infox(KM_TRACE_LOAD, "not found!");
+   if (km_guest.km_dlopen) {
+      km_infox(KM_TRACE_LOAD, "found! value=0x%lx", km_guest.km_dlopen);
+   } else {
+      km_infox(KM_TRACE_LOAD, "not found!");
+      km_guest.km_libc = KM_LIBC_UNKNOWN;
+   }
    free(strings);
    free(symtab);
    return;
