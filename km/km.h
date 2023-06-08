@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <getopt.h>
+#include <link.h>
 #include <pthread.h>
 #include <regex.h>
 #include <signal.h>
@@ -775,19 +776,8 @@ static inline void km_signal_unlock(void)
 #define KM_TRACE_LOAD "load"
 #define KM_TRACE_SHRINK "shrink"
 
-/*
- * The km definition of the link_map structure in runtime/musl/include/link.h
- */
-typedef struct km_link_map {
-   uint64_t l_addr;
-   char* l_name;
-   uint64_t l_ld;
-   struct km_link_map* l_next;
-   struct km_link_map* l_prev;
-} link_map_t;
-
 // Helper function to visit entries in the dynamically loaded modules list.
-typedef int(link_map_visit_function_t)(link_map_t* kma, link_map_t* gva, void* visitargp);
+typedef int(link_map_visit_function_t)(struct link_map* kma, struct link_map* gva, void* visitargp);
 
 int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp);
 

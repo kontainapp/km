@@ -64,8 +64,8 @@
  */
 int km_link_map_walk_musl(link_map_visit_function_t* callme, void* visitargp)
 {
-   link_map_t* lmp_kma;
-   link_map_t* lmp_gva;
+   struct link_map* lmp_kma;
+   struct link_map* lmp_gva;
    km_kma_t dlopen_kma;
    uint32_t rip_offset_of_head;
    km_kma_t adderss_of_linkmaphead_kma;
@@ -123,10 +123,10 @@ int km_link_map_walk_musl(link_map_visit_function_t* callme, void* visitargp)
    km_infox(KM_TRACE_KVM, "link map head gva 0x%lx", linkmapheadp_gva);
 
    // Visit the entries in the link_map list
-   lmp_gva = (link_map_t*)linkmapheadp_gva;
+   lmp_gva = (struct link_map*)linkmapheadp_gva;
    while (lmp_gva != NULL) {
       km_infox(KM_TRACE_KVM, "Examining link map entry at %p", lmp_gva);
-      lmp_kma = (link_map_t*)km_gva_to_kma((km_gva_t)lmp_gva);
+      lmp_kma = (struct link_map*)km_gva_to_kma((km_gva_t)lmp_gva);
       rc = (*callme)(lmp_kma, lmp_gva, visitargp);
       if (rc != 0) {
          break;
@@ -142,13 +142,14 @@ int km_link_map_walk_glibc(link_map_visit_function_t* callme, void* visitargp)
 {
    int rc = 0;
    for (int ns = 0; ns < KM_DL_NNS; ns++) {
-      link_map_t* lmp_gva = (link_map_t*)*((uint64_t*)(km_guest.km_dlopen + ns * KM_NAMESPACE_SIZE));
-      link_map_t* lmp_kma = (link_map_t*)km_gva_to_kma((km_gva_t)lmp_gva);
+      struct link_map* lmp_gva =
+          (struct link_map*)*((uint64_t*)(km_guest.km_dlopen + ns * KM_NAMESPACE_SIZE));
+      struct link_map* lmp_kma = (struct link_map*)km_gva_to_kma((km_gva_t)lmp_gva);
 
       km_infox(KM_TRACE_KVM, "namespace %d gva %p kma_ns %p\n", ns, lmp_gva, lmp_kma);
 
       while (lmp_gva != NULL) {
-         link_map_t* lmp_kma = (link_map_t*)km_gva_to_kma((km_gva_t)lmp_gva);
+         struct link_map* lmp_kma = (struct link_map*)km_gva_to_kma((km_gva_t)lmp_gva);
          km_infox(KM_TRACE_KVM, "namespace %d gva %p kma_ns %p\n", ns, lmp_gva, lmp_kma);
          rc = (*callme)(lmp_kma, lmp_gva, visitargp);
          if (rc != 0) {
