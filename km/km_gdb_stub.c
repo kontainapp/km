@@ -1436,7 +1436,7 @@ typedef struct gdb_linkmap_arg {
  * Visitor function for traversing the list of dynamically loaded libraries.
  * This function is called once for each library.
  */
-static int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
+static int km_gdb_linkmap_visit(struct link_map* kmap, struct link_map* gvap, void* argp)
 {
    gdb_linkmap_arg_t* lmargp = (gdb_linkmap_arg_t*)argp;
    int worked;
@@ -1450,7 +1450,7 @@ static int km_gdb_linkmap_visit(link_map_t* kmap, link_map_t* gvap, void* argp)
    } else {
       snprintf(temp,
                sizeof(temp),
-               "  <library name=\"%s\" lm=\"%p\" l_addr=\"0x%lx\" l_ld=\"0x%lx\"/>\n",
+               "  <library name=\"%s\" lm=\"%p\" l_addr=\"0x%lx\" l_ld=\"%p\"/>\n",
                libname,
                gvap,
                kmap->l_addr,
