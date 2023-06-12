@@ -49,42 +49,15 @@ static void __attribute__((noinline)) got_symbol_breakpoint(void)
    printf("do something to trick the compiler\n");
 }
 
-int main(int argc, char* argv[])
+int show_link_map()
 {
    void* n;
+   int rc;
    struct link_map* lmp;
    struct link_map* lmnext;
-   int rc;
-   void* symvalue = NULL;
-
-   // Dynamically load our test shared library
-   void* c = dlopen(SHARED_LIB, RTLD_LAZY);
-   if (c == NULL) {
-      printf("Couldn't dlopen() %s, does your LD_LIBRARY_PATH env var contain the tests "
-             "directory\n",
-             SHARED_LIB);
-   } else {
-      dlerror();
-      symvalue = dlsym(c, SHARED_LIB_SYMBOL);
-      printf("symbol %s has value %p\n", SHARED_LIB_SYMBOL, symvalue);
-      char* dlsym_error = dlerror();
-      if (dlsym_error != NULL) {
-         printf("Couldn't find the value of symbol %s, error %s\n", SHARED_LIB_SYMBOL, dlsym_error);
-      } else {
-         int (*do_function)(void);
-         got_symbol_breakpoint();
-         do_function = symvalue;
-         int rv = (*do_function)();
-         printf("%s returned %d\n", SHARED_LIB_SYMBOL, rv);
-      }
-      dlclose(c);
-   }
-   printf("\n");
-
-   hit_breakpoint(symvalue);
 
    // Follow the link_map list and print out info.
-   n = dlopen(NULL, RTLD_NOLOAD);
+   n = dlopen(NULL, RTLD_NOLOAD | RTLD_NOW);
    if (n == NULL) {
       printf("dlopen(NULL) returned NULL?\n");
       return 1;
@@ -107,4 +80,45 @@ int main(int argc, char* argv[])
    dlclose(n);
 
    return 0;
+}
+
+int main(int argc, char* argv[])
+{
+   void* symvalue = NULL;
+
+   // Dynamically load our test shared library
+   void* c = dlopen(SHARED_LIB, RTLD_LAZY);
+   if (c == NULL) {
+      printf("Couldn't dlopen() %s, does your LD_LIBRARY_PATH env var contain the tests "
+             "directory\n",
+             SHARED_LIB);
+   } else {
+      dlerror();
+      symvalue = dlsym(c, SHARED_LIB_SYMBOL);
+      printf("symbol %s has value %p\n", SHARED_LIB_SYMBOL, symvalue);
+      char* dlsym_error = dlerror();
+      if (dlsym_error != NULL) {
+         printf("Couldn't find the value of symbol %s, error %s\n", SHARED_LIB_SYMBOL, dlsym_error);
+      } else {
+         int (*do_function)(void);
+         got_symbol_breakpoint();
+         do_function = symvalue;
+         int rv = (*do_function)();
+         printf("%s returned %d\n", SHARED_LIB_SYMBOL, rv);
+      }
+   }
+   printf("\n");
+
+   hit_breakpoint(symvalue);
+
+   int rc = show_link_map();
+
+   if (c) {
+      // test still has breakpoints on the shared library
+      // dlclose in glibc really closes the library and
+      // gdb breakpoint functionality has problems with this.
+      // dlclose(c);
+   }
+
+   return rc;
 }
