@@ -46,7 +46,7 @@ todo_alpine_static='dl_iterate_phdr gdb_forkexec'
 
 # glibc native
 not_needed_glibc_static='cpuid setup_link setup_load gdb_sharedlib km_identity dlopen exec_sh'
-not_needed_glibc_dynamic='cpuid setup_link setup_load gdb_sharedlib km_identity dlopen exec_sh'
+not_needed_glibc_dynamic='cpuid setup_link setup_load km_identity dlopen exec_sh'
 
 # exception - extra segment in kmcore
 # dl_iterate_phdr - load starts at 4MB instead of 2MB
@@ -500,7 +500,12 @@ fi
    run gdb_with_timeout -q -nx --ex="target remote :$km_gdb_port" \
       --ex="source cmd_for_sharedlib_test.gdb" --ex=q
    assert_success
-   refute_line --regexp "0x[0-9a-f]* in _start ()"
+   if [[ "$ext" == ".fedora.dyn" ]]
+   then
+      assert_line --regexp "0x[0-9a-f]* in _start ()"
+   else
+      assert_line --regexp "0x[0-9a-f]* in _dlstart ()"
+   fi
    wait_and_check $pid $(( $signal_flag + 11)) # expect KM to abort with SIGSEGV
 
    # test with attach at _start entry point
@@ -511,9 +516,9 @@ fi
    assert_success
    assert_line --regexp "0x[0-9a-f]* in _start ()"
    # Check for some output from "info auxv"
-   assert_line --regexp "31   AT_EXECFN            File name of executable *0x[0-9a-f]*.*stray_test.kmd"
+   assert_line --regexp "31   AT_EXECFN            File name of executable *0x[0-9a-f]*.*stray_test.*"
    # Check for some output from "info sharedlibrary"
-   assert_line --regexp "0x[0-9a-f]*  0x[0-9a-f]*  Yes         .*/libc.so"
+   assert_line --regexp "0x[0-9a-f]*  0x[0-9a-f]*  Yes*.*/libc.so"
    wait_and_check $pid $(( $signal_flag + 11)) # expect KM to exit with SIGSEGV
 
    # There is no explicit test for vFile remote commands.  gdb uses vFile as part of
