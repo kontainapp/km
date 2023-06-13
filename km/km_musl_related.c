@@ -142,8 +142,8 @@ int km_link_map_walk_glibc(link_map_visit_function_t* callme, void* visitargp)
 {
    int rc = 0;
    for (int ns = 0; ns < KM_DL_NNS; ns++) {
-      struct link_map* lmp_gva =
-          (struct link_map*)*((uint64_t*)(km_guest.km_dlopen + ns * KM_NAMESPACE_SIZE));
+      km_kma_t head = km_gva_to_kma((km_gva_t)(km_guest.km_dlopen + (ns * KM_NAMESPACE_SIZE)));
+      struct link_map* lmp_gva = (struct link_map*)*((uint64_t*)head);
       struct link_map* lmp_kma = (struct link_map*)km_gva_to_kma((km_gva_t)lmp_gva);
 
       km_infox(KM_TRACE_KVM, "namespace %d gva %p kma_ns %p\n", ns, lmp_gva, lmp_kma);
