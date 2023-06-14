@@ -127,7 +127,7 @@ int km_link_map_walk_musl(link_map_visit_function_t* callme, void* visitargp)
    while (lmp_gva != NULL) {
       km_infox(KM_TRACE_KVM, "Examining link map entry at %p", lmp_gva);
       lmp_kma = (struct link_map*)km_gva_to_kma((km_gva_t)lmp_gva);
-      rc = (*callme)(lmp_kma, lmp_gva, visitargp);
+      rc = (*callme)(lmp_kma, lmp_gva, visitargp, 0);
       if (rc != 0) {
          break;
       }
@@ -150,8 +150,10 @@ int km_link_map_walk_glibc(link_map_visit_function_t* callme, void* visitargp)
 
       while (lmp_gva != NULL) {
          struct link_map* lmp_kma = (struct link_map*)km_gva_to_kma((km_gva_t)lmp_gva);
-         km_infox(KM_TRACE_KVM, "namespace %d gva %p kma_ns %p\n", ns, lmp_gva, lmp_kma);
-         rc = (*callme)(lmp_kma, lmp_gva, visitargp);
+         long int lib_ns =
+             ((uint64_t*)lmp_kma)[6];   // use the value maintained by glibc instead of loop index
+         km_infox(KM_TRACE_KVM, "namespace %d gva %p kma_ns %p lib_ns %llx\n", ns, lmp_gva, lmp_kma, lib_ns);
+         rc = (*callme)(lmp_kma, lmp_gva, visitargp, lib_ns);
          if (rc != 0) {
             return rc;
          }
