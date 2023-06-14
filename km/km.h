@@ -777,7 +777,10 @@ static inline void km_signal_unlock(void)
 #define KM_TRACE_SHRINK "shrink"
 
 // Helper function to visit entries in the dynamically loaded modules list.
-typedef int(link_map_visit_function_t)(struct link_map* kma, struct link_map* gva, void* visitargp);
+typedef int(link_map_visit_function_t)(struct link_map* kma,
+                                       struct link_map* gva,
+                                       void* visitargp,
+                                       long int ns);
 
 int km_link_map_walk(link_map_visit_function_t* callme, void* visitargp);
 
