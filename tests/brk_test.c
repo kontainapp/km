@@ -16,6 +16,7 @@
 
 /*
  * Test brk() with different values
+ * dont make this test multithreaded
  */
 #include <assert.h>
 #include <errno.h>
@@ -65,6 +66,8 @@ static unsigned long const offs[] = {1 * GIB + MIB, 15 * GIB + MIB, 16 * GIB + 2
 static int offs_success[] = {1, 1, 0, 0};
 static unsigned long const map_off = 16 * GIB + 800 * MIB;
 
+char msg[128];
+
 TEST tbrk_brk_test()
 {
    void* brk = SYS_break(0);
@@ -72,8 +75,6 @@ TEST tbrk_brk_test()
    for (int r = 0; r < sizeof(regs) / sizeof(long); r++) {
       size_t map_s = (size_t)__39_bit_mem - regs[r] - map_off;
       for (int o = 0; o < sizeof(offs) / sizeof(long); o++) {
-         char msg[128];
-
          sprintf(msg, "%s reg %d off %d 0x%lx", "mmap", r, o, map_s);
          void* map_p = simple_addr_reserve(map_s);
          ASSERT_NEQ_FMTm(msg, map_p, MAP_FAILED, "%p");
@@ -101,8 +102,6 @@ TEST brk_tbrk_test()
    for (int r = 0; r < sizeof(regs) / sizeof(long); r++) {
       size_t map_s = (size_t)__39_bit_mem - regs[r] - map_off;
       for (int o = 0; o < sizeof(offs) / sizeof(long); o++) {
-         char msg[128];
-
          void* brk_exp = (void*)(regs[r] + offs[o]);
          sprintf(msg, "%s reg %d off %d %p", "brk ", r, o, brk_exp);
          void* brk_got = SYS_break(brk_exp);
