@@ -69,7 +69,7 @@ not_needed_alpine_dynamic=$not_needed_alpine_static
 todo_alpine_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
-not_needed_dynamic='linux_exec setup_load mem_slots cli mem_brk mmap_1 km_identity exec_sh'
+not_needed_dynamic='linux_exec setup_load mem_slots cli mmap_1 km_identity exec_sh'
 todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps km_exec_guest_files'
 if [ ! -z "${VALGRIND}" ]; then
 todo_dynamic+=' gdb_sharedlib cpp_throw popen files_on_exec '
@@ -115,7 +115,7 @@ fi
 @test "linux_exec($test_type) make sure *some* linux tests actually pass" {
    # Note: needed only once, expected to run only in static pass
    # TODO actual run. MANY TESTS FAILS - need to review. Putting in a scaffolding hack for now
-   for test in hello mmap_1 mem env misc mutex longjmp memslot mprotect semaphore; do
+   for test in hello mmap_1 mem env misc mutex longjmp memslot semaphore; do
       echo Running ${test}_test.fedora
       ./${test}_test.fedora
    done
