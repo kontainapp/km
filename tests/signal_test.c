@@ -41,13 +41,15 @@
 #include "test_common_functions.h"
 
 int signal_seen = 0;
-void* stack_addr = NULL;
+uint64_t stack_addr = 0;
 
 void signal_handler(int signal)
 {
-   char buf[128];
-   stack_addr = buf;
    signal_seen++;
+   asm volatile("movq %%rsp, %0"
+                : "=r"(stack_addr)
+                :
+                : "memory");
 }
 
 /*
@@ -348,10 +350,12 @@ TEST test_safepoint()
 
 void* tmain(void* arg)
 {
-   static void* sav;
-   char buf[64];
-   sav = buf;
-   return sav;
+   uint64_t value;
+   asm volatile("movq %%rsp, %0"
+                : "=r"(value)
+                :
+                : "memory");
+   return (void *)value;
 }
 
 TEST test_thread_stack_alignment()
