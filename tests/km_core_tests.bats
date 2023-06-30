@@ -74,6 +74,7 @@ todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps km_exec_guest_file
 if [ ! -z "${VALGRIND}" ]; then
 todo_dynamic+=' gdb_sharedlib cpp_throw popen files_on_exec '
 todo_alpine_dynamic+=' gdb_sharedlib cpp_throw popen files_on_exec'
+todo_glibc_dynamic+=' gdb_sharedlib'
 fi
 # running .so as executables was useful at some point, but it isn't needed anymore.
 # Simply disable the tests for now. Ultimately we will drop build and test support for them.
