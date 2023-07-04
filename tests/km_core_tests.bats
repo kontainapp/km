@@ -65,6 +65,11 @@ todo_glibc_dynamic="${todo_glibc_dynamic} mem_brk"
 # because it isn't bundled with LIBC like it is with MUSL.
 todo_glibc_dynamic="${todo_glibc_dynamic} mem_mmap monitor_maps semaphore gdb_protected_mem mmap_1"
 
+# We use --putenv with the gdb_sharedlib test.  Valgrind uses --copyenv which is
+# incompatible with --putenv
+if [ ! -z "${VALGRIND}" ]; then
+todo_glibc_dynamic="${todo_glibc_dynamic} gdb_sharedlib"
+fi
 not_needed_alpine_dynamic=$not_needed_alpine_static
 todo_alpine_dynamic=$todo_alpine_static
 
