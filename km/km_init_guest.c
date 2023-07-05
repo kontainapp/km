@@ -194,6 +194,8 @@ km_gva_t km_init_main(km_vcpu_t* vcpu, int argc, char* const argv[], int envc, c
    km_assert(phdr_found != 0);
    NEW_AUXV_ENT(AT_CLKTCK, sysconf(_SC_CLK_TCK));
    NEW_AUXV_ENT(AT_PAGESZ, KM_PAGE_SIZE);
+   int signal_stack_size = (SIGSTKSZ > 0) ? SIGSTKSZ + 2 * KM_PAGE_SIZE : 4 * KM_PAGE_SIZE;
+   NEW_AUXV_ENT(AT_MINSIGSTKSZ, signal_stack_size);
    // TODO: AT_HWCAP
    if (km_vvar_vdso_base[1] != 0) {
       NEW_AUXV_ENT(AT_SYSINFO_EHDR, km_vvar_vdso_base[1]);
