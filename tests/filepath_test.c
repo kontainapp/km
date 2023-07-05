@@ -18,7 +18,6 @@
  * Tests for file path oriented system calls
  */
 
-#define _GNU_SOURCE
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>

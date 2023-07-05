@@ -17,7 +17,6 @@
 /*
  * Common code for guest memory management (mmap/mprotect/madvise/munmap) testing
  */
-#define _GNU_SOURCE /* See feature_test_macros(7) */
 #include <err.h>
 #include <errno.h>
 #include <signal.h>

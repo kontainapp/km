@@ -18,8 +18,6 @@
  * Start a thread and then send it a cancellation request.
  * Two cases - PTHREAD_CANCEL_DISABLE and PTHREAD_CANCEL_ENABLE
  */
-
-#define _GNU_SOURCE
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>

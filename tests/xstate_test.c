@@ -24,8 +24,6 @@
  * signal test
  * verifies state is saved and restored across signal handler
  */
-
-#define _GNU_SOURCE
 #include <cpuid.h>
 #include <errno.h>
 #include <pthread.h>
