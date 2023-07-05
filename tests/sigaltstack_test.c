@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <elf.h>
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
@@ -24,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/auxv.h>
 #include <sys/mman.h>
 #include <sys/user.h>
 
@@ -45,6 +47,9 @@
  * restarts the very instruction that caused SIGSEGV.
  */
 
+int min_signal_stack_size = 0;
+int signal_stack_size = 0;
+
 stack_t ss;
 int* bad = 0;
 
@@ -64,12 +69,12 @@ void handler_lj(int sig, siginfo_t* info, void* ucontext)
 
 TEST sas_lj()
 {
-   if ((ss.ss_sp = malloc(SIGSTKSZ)) == NULL) {
+   if ((ss.ss_sp = malloc(signal_stack_size)) == NULL) {
       perror("malloc");
       exit(EXIT_FAILURE);
    }
 
-   ss.ss_size = SIGSTKSZ;
+   ss.ss_size = signal_stack_size;
    ss.ss_flags = 0;
    if (sigaltstack(&ss, NULL) == -1) {
       perror("sigaltstack");
@@ -122,12 +127,12 @@ void handler(int sig, siginfo_t* info, void* ucontext)
 
 TEST sas()
 {
-   if ((ss.ss_sp = malloc(SIGSTKSZ)) == NULL) {
+   if ((ss.ss_sp = malloc(signal_stack_size)) == NULL) {
       perror("malloc");
       exit(EXIT_FAILURE);
    }
 
-   ss.ss_size = SIGSTKSZ;
+   ss.ss_size = signal_stack_size;
    ss.ss_flags = 0;
    if (sigaltstack(&ss, NULL) == -1) {
       perror("sigaltstack");
@@ -178,7 +183,21 @@ GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
 {
-   printf("=== %ld %ld\n", SIGSTKSZ, MINSIGSTKSZ);
+   /*
+    * musl does not support MINSIGSTKSZ and SIGSTKSZ
+    * when compiled with _GNU_SOURCE
+    */
+   min_signal_stack_size = MINSIGSTKSZ;
+   signal_stack_size = SIGSTKSZ;
+
+   if (min_signal_stack_size <= 0) {
+      min_signal_stack_size = getauxval(AT_MINSIGSTKSZ);
+      ASSERT_GTm("getauxval AT_MINSIGSTKSZ is less than 0", min_signal_stack_size, 0);
+   }
+   if (signal_stack_size < min_signal_stack_size) {
+      signal_stack_size = min_signal_stack_size;
+   }
+   printf("=== %d %d\n", signal_stack_size, min_signal_stack_size);
 
    GREATEST_MAIN_BEGIN();   // init & parse command-line args
    greatest_set_verbosity(1);
