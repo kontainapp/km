@@ -17,8 +17,6 @@
 /*
  * Tests for socket oriented system calls
  */
-
-#define _GNU_SOURCE
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>

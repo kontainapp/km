@@ -17,7 +17,6 @@
 /*
  * Useful headers for mmap tests
  */
-#define _GNU_SOURCE /* See feature_test_macros(7) */
 #include <cpuid.h>
 #include <setjmp.h>
 #include <stdint.h>

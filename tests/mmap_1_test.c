@@ -18,7 +18,6 @@
  * Test mmap/smaller mprotect in the middle/unmap sequence. Expect the maps clean after that.
  */
 
-#define _GNU_SOURCE /* See feature_test_macros(7) */
 #include <assert.h>
 #include <err.h>
 #include <errno.h>

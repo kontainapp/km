@@ -178,7 +178,7 @@ GREATEST_MAIN_DEFS();
 
 int main(int argc, char** argv)
 {
-   printf("=== %d %d\n", SIGSTKSZ, MINSIGSTKSZ);
+   printf("=== %ld %ld\n", SIGSTKSZ, MINSIGSTKSZ);
 
    GREATEST_MAIN_BEGIN();   // init & parse command-line args
    greatest_set_verbosity(1);

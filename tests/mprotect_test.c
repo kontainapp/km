@@ -21,7 +21,6 @@
  * Note that mmap_test.c is the test coverign mmap() protection flag test, as well as basic
  * protection for munmapped areas, so here we mainly focus on brk() and mprotect() call
  */
-#define _GNU_SOURCE /* See feature_test_macros(7) */
 #include <err.h>
 #include <errno.h>
 #include <signal.h>

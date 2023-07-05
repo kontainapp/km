@@ -52,7 +52,7 @@ HELPER_SRC := $(abspath $(wildcard *_helper.c))
 SRC_SHR := $(abspath dlopen_test.c dlopen_test_lib.c dlopen_test_lib2.c)
 
 DEBUG ?= -ggdb3
-CFLAGS = -Wall -Werror $(COPTS) ${DEBUG}  \
+CFLAGS = -Wall -Werror $(COPTS) ${DEBUG} -D_GNU_SOURCE \
          -DGREATEST_STDOUT=stderr \
 			-fPIC -fno-stack-protector -pthread \
 			-I${TOP}/include -I${TOP}/km -ffile-prefix-map=${CURDIR}/=

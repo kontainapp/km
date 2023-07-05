@@ -35,8 +35,6 @@
  * disassemble the syscall c library function to see what is really going on.  Some of the
  * c library functions that invoke a syscall actually do more than you would think.
  */
-
-#define _GNU_SOURCE
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>

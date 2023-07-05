@@ -17,7 +17,6 @@
 /*
  * Print out the command line args and the environment.
  */
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

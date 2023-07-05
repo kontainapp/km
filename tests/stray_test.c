@@ -18,7 +18,6 @@
  * This program generates exceptions in guest in order to test guest coredumps
  * and other processing.
  */
-#define _GNU_SOURCE
 #include <assert.h>
 #include <err.h>
 #include <errno.h>

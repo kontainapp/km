@@ -17,8 +17,6 @@
 /*
  * Tests for file system oriented operations.
  */
-
-#define _GNU_SOURCE
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>

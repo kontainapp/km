@@ -17,7 +17,6 @@
 /*
  * Basic test for mmap() and friends.
  */
-#define _GNU_SOURCE /* See feature_test_macros(7) */
 #include <assert.h>
 #include <err.h>
 #include <errno.h>

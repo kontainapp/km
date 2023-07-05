@@ -18,8 +18,6 @@
  * Simple test for snapshots. Two threads, main and a worker. Worker initiates
  * snapshot. Ensure state from prior to the snapshot is restored properly.
  */
-
-#define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>

@@ -30,7 +30,6 @@
    a synchronization protocol that ensures that they alternate in
    writing messages.
 */
-#define _GNU_SOURCE
 #include <assert.h>
 #include <err.h>
 #include <errno.h>

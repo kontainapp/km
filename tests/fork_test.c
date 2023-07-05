@@ -18,7 +18,6 @@
  * Simple test of the fork, execve, execveat (really fexecve), wait4, waitid, kill,
  * and pipe system calls.
  */
-#define _GNU_SOURCE
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>

@@ -19,8 +19,6 @@
  * calls that reside in the vdso memory segment mapped into the payload
  * address space
  */
-
-#define _GNU_SOURCE
 #include <assert.h>
 #include <sched.h>
 #include <stdio.h>
