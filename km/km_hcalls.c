@@ -387,7 +387,7 @@ static km_hc_ret_t sendrecvmmsg_hcall(void* vcpu, int hc, km_hc_args_t* arg)
       return HC_CONTINUE;
    }
 
-   int vlen = arg->arg3;
+   unsigned int vlen = arg->arg3;
    if (vlen == 0) {
       arg->hc_ret = -EINVAL;
       return HC_CONTINUE;
