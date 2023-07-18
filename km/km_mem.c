@@ -357,12 +357,12 @@ static void km_add_vvar_vdso_to_guest_address_space(void)
    rc = km_monitor_pages_in_guest(km_vvar_vdso_base[0],
                                   vvar_vdso_regions[0].end_addr - vvar_vdso_regions[0].begin_addr,
                                   PROT_READ,
-                                  NULL);
+                                  "[vvar]");
    km_assert(rc == 0);
    rc = km_monitor_pages_in_guest(km_vvar_vdso_base[1],
                                   vvar_vdso_regions[1].end_addr - vvar_vdso_regions[1].begin_addr,
                                   PROT_EXEC,
-                                  NULL);
+                                  "[vdso]");
    km_assert(rc == 0);
 }
 
