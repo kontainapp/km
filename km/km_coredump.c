@@ -759,7 +759,7 @@ static inline int km_core_count_phdrs(km_vcpu_t* vcpu, km_gva_t* endloadp)
  * We add the data upto machine.brk to PT_LOAD for the last loaded ELF segment.
  * This allows snapshot restore to use mmapsince everything is page aligned.
  */
-static inline int km_core_last_load_adjust(Elf64_Phdr* phdr, km_gva_t end_load)
+static inline size_t km_core_last_load_adjust(Elf64_Phdr* phdr, km_gva_t end_load)
 {
    if (phdr->p_vaddr + km_guest.km_load_adjust + phdr->p_memsz == end_load) {
       return machine.brk - end_load;
