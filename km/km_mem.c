@@ -262,6 +262,14 @@ static inline int PDE_SLOT(km_gva_t __addr)
 {
    return (__addr >> 21) & 0x1ff;
 }
+static inline int PDE_SLOT_ROUNDUP(km_gva_t __addr)
+{
+   int slot = PDE_SLOT(__addr);
+   if ((__addr & 0x1fffff) != 0) {
+      slot++;
+   }
+   return slot;
+}
 
 /*
  * Slot number for 1G chunk in PDPT table for gva '_addr'
@@ -270,6 +278,14 @@ static inline int PDE_SLOT(km_gva_t __addr)
 static inline int PDPTE_SLOT(km_gva_t __addr)
 {
    return ((__addr)&0x7ffffffffful) >> 30;
+}
+static inline int PDPTE_SLOT_ROUNDUP(km_gva_t __addr)
+{
+   int slot = PDPTE_SLOT(__addr);
+   if ((__addr & (PDPTE_REGION - 1)) != 0) {
+      slot++;
+   }
+   return slot;
 }
 
 /*
@@ -588,18 +604,35 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
                new_brk,
                new_2m_slot,
                new_1g_slot);
-      if (old_1g_slot > 0) {
-         int start = (new_1g_slot == 0) ? 1 : new_1g_slot;
-         for (int i = start; i < old_1g_slot; i++) {
+      if (old_1g_slot > 0 && new_1g_slot > 0) {
+         // Handle brk() call where old break and new break are both in the 1g page region.
+         new_1g_slot = PDPTE_SLOT_ROUNDUP(new_brk);     // leave a partial page in the page table
+	 for (int i = old_1g_slot; i >= new_1g_slot; i--) {
             pdpe[i].p = 0;
          }
-      }
-      if (new_1g_slot == 0) {
-         int limit = (old_1g_slot == 0) ? old_2m_slot : MAX_PDE_SLOT;
-         for (int i = new_2m_slot + 1; i <= limit; i++) {
+      } else if (old_1g_slot == 0 && new_1g_slot == 0) {
+         // Handle brk() call where old break and new break are both in the 2m page region
+	 new_2m_slot = PDE_SLOT_ROUNDUP(new_brk);
+	 for (int i = old_2m_slot; i >= new_2m_slot; i--) {
+            pde[i].p = 0;
+         }
+      } else {
+         // Handle brk() call where old break is in the 1g page region and new brk is in 2m page region.
+	 for (int i = old_1g_slot; i >= 1; i--) {
+            pdpe[i].p = 0;
+         }
+	 new_2m_slot = PDE_SLOT_ROUNDUP(new_brk);
+	 km_infox(KM_TRACE_MEM, "pde %p, updating pde slots from %d down to %d", pde, PT_ENTRIES-1, new_2m_slot);
+	 for (int i = PT_ENTRIES - 1; i >= new_2m_slot; i--) {
             pde[i].p = 0;
          }
       }
+      /*
+       * We are NOT handling the case where old_brk is in the upper 2m page region
+       * and new_brk is in either the 1g page or the lower 2m page region.
+       * It seems unlikely that they would be able to get that high in memory
+       * using the brk() system call.
+       */
    }
 }
 
