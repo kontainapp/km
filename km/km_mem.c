@@ -609,14 +609,13 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
                new_2m_slot,
                new_1g_slot);
       if (old_1g_slot > 0) {
-         int start = (new_1g_slot == 0) ? 1 : new_1g_slot + 1;
-         for (int i = start; i < old_1g_slot; i++) {
+         for (int i = new_1g_slot + 1; i <= old_1g_slot; i++) {
             pdpe[i].p = 0;
          }
       }
       if (new_1g_slot == 0) {
          // new_brk is below 1GB, need to change 2MB pages
-         // Check if old_brk ws below 1GB or not - operate on some 2MB or all of the from the top
+         // Check if old_brk is below 1GB or not - operate on some 2MB or all of them from the top
          int limit = (old_1g_slot == 0) ? old_2m_slot : MAX_PDE_SLOT;
          for (int i = new_2m_slot + 1; i <= limit; i++) {
             pde[i].p = 0;
