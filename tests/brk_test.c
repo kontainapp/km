@@ -19,13 +19,13 @@
  */
 #include <assert.h>
 #include <errno.h>
+#include <setjmp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <signal.h>
-#include <setjmp.h>
 
 #include "greatest/greatest.h"
 #include "syscall.h"
@@ -237,7 +237,7 @@ int setbrk_checkaccess(void* brkaddr)
  */
 TEST brk_shrink()
 {
-   void *ptr;
+   void* ptr;
    struct sigaction sa;
    void* brkaddr;
 
@@ -250,35 +250,35 @@ TEST brk_shrink()
    ptr = (void*)(((unsigned long)ptr + 4095) & ~4095);
 
    // Set brk in the 1g page region of the page table
-   brkaddr = (void*)(8*GIB);
+   brkaddr = (void*)(8 * GIB);
    ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
 
    // Drop down to the next lower 1g boundary.
-   brkaddr -= 1*GIB;
+   brkaddr -= 1 * GIB;
    ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
 
    // Drop down to inside the 1g page
-   brkaddr -= 128*MIB;
+   brkaddr -= 128 * MIB;
    ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
 
    // Drop down to 1g
-   brkaddr = (void*)(1*GIB);
+   brkaddr = (void*)(1 * GIB);
    ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
 
    // Drop down into the 2m page region of the page table
-   brkaddr = (void*)(512*MIB);
+   brkaddr = (void*)(512 * MIB);
    ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
 
    // Drop to an address not on a 2m boundary
-   brkaddr -= 1*MIB;
+   brkaddr -= 1 * MIB;
    ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
 
    // Move back into the 1g page region of the page table
-   brkaddr = (void*)(1*GIB + 16*MIB);
+   brkaddr = (void*)(1 * GIB + 16 * MIB);
    ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
 
    // Drop down into the 2m page region of the page table
-   brkaddr = (void*)(1*GIB - 128*KIB);
+   brkaddr = (void*)(1 * GIB - 128 * KIB);
    ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
 
    // Put the break back to where it was

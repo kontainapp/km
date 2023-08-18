@@ -606,24 +606,28 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
                new_1g_slot);
       if (old_1g_slot > 0 && new_1g_slot > 0) {
          // Handle brk() call where old break and new break are both in the 1g page region.
-         new_1g_slot = PDPTE_SLOT_ROUNDUP(new_brk);     // leave a partial page in the page table
-	 for (int i = old_1g_slot; i >= new_1g_slot; i--) {
+         new_1g_slot = PDPTE_SLOT_ROUNDUP(new_brk);   // leave a partial page in the page table
+         for (int i = old_1g_slot; i >= new_1g_slot; i--) {
             pdpe[i].p = 0;
          }
       } else if (old_1g_slot == 0 && new_1g_slot == 0) {
          // Handle brk() call where old break and new break are both in the 2m page region
-	 new_2m_slot = PDE_SLOT_ROUNDUP(new_brk);
-	 for (int i = old_2m_slot; i >= new_2m_slot; i--) {
+         new_2m_slot = PDE_SLOT_ROUNDUP(new_brk);
+         for (int i = old_2m_slot; i >= new_2m_slot; i--) {
             pde[i].p = 0;
          }
       } else {
          // Handle brk() call where old break is in the 1g page region and new brk is in 2m page region.
-	 for (int i = old_1g_slot; i >= 1; i--) {
+         for (int i = old_1g_slot; i >= 1; i--) {
             pdpe[i].p = 0;
          }
-	 new_2m_slot = PDE_SLOT_ROUNDUP(new_brk);
-	 km_infox(KM_TRACE_MEM, "pde %p, updating pde slots from %d down to %d", pde, PT_ENTRIES-1, new_2m_slot);
-	 for (int i = PT_ENTRIES - 1; i >= new_2m_slot; i--) {
+         new_2m_slot = PDE_SLOT_ROUNDUP(new_brk);
+         km_infox(KM_TRACE_MEM,
+                  "pde %p, updating pde slots from %d down to %d",
+                  pde,
+                  PT_ENTRIES - 1,
+                  new_2m_slot);
+         for (int i = PT_ENTRIES - 1; i >= new_2m_slot; i--) {
             pde[i].p = 0;
          }
       }
