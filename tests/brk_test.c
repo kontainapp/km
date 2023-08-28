@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Kontain Inc
+ * Copyright 2021,2023 Kontain Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
  */
 #include <assert.h>
 #include <errno.h>
+#include <setjmp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,6 +32,7 @@
 
 #define GIB (1ul << 30)
 #define MIB (1ul << 20)
+#define KIB (1ul << 10)
 
 void* SYS_break(void const* addr)
 {
@@ -177,11 +180,125 @@ TEST brk_not_too_greedy()
    PASS();
 }
 
+jmp_buf jbuf;
+void access_fault(int signal)
+{
+   siglongjmp(jbuf, 1);
+}
+
+/*
+ * Set the break to brkaddr then verify that we can write
+ * below the break and can't write above the break.
+ * Returns:
+ *   0 - success
+ *   1 - memory access failed
+ *   2 - brk() call failed
+ * We expect the brkaddr arg to be on a page boundary.
+ */
+int setbrk_checkaccess(void* brkaddr)
+{
+   int sjrc;
+   char* pokehere;
+
+   if (SYS_break(brkaddr) != brkaddr) {
+      printf("Set break to %p failed\n", brkaddr);
+      return 2;
+   }
+   pokehere = brkaddr;
+   if ((sjrc = sigsetjmp(jbuf, 1)) == 0) {
+      *(pokehere - 1) = 99;
+   }
+   if (sjrc != 0) {
+      // Can't write below the break
+      printf("Can't write below the break at %p\n", pokehere - 1);
+      return 1;
+   }
+   if ((sjrc = sigsetjmp(jbuf, 1)) == 0) {
+      *(pokehere + 1) = 88;
+   }
+   if (sjrc != 1) {
+      // We can write above the break, really?
+      printf("Can write above the break at %p\n", pokehere + 1);
+      return 1;
+   }
+   return 0;
+}
+
+/*
+ * Test brk() which shrinks the brk region of memory.
+ * We try things like brk() completely within in the 1g page region,
+ * brk() completely within the 2m page region and brk from the 1g
+ * page region into the 2m page region.
+ * We verify that memory below the new brk is still accessible and memory above
+ * the new break is not accessible.
+ * And, we also test brk() to pdpe and pde boundaries and brk() to
+ * non-pdpe and non-pde boundaries and verify that the memory we expect to be
+ * accessible is accessible.
+ */
+TEST brk_shrink()
+{
+   void* ptr;
+   struct sigaction sa;
+   void* brkaddr;
+
+   sa.sa_handler = access_fault;
+   sigemptyset(&sa.sa_mask);
+   sa.sa_flags = 0;
+   ASSERT_EQ(sigaction(SIGSEGV, &sa, NULL), 0);
+
+   printf("initial break is %p\n", ptr = SYS_break(NULL));
+   ptr = (void*)(((unsigned long)ptr + 4095) & ~4095);
+
+   // Set brk in the 1g page region of the page table
+   brkaddr = (void*)(8 * GIB);
+   ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
+
+   // Drop down to the next lower 1g boundary.
+   brkaddr -= 1 * GIB;
+   ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
+
+   // Drop down to inside the 1g page
+   brkaddr -= 128 * MIB;
+   ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
+
+   // Drop down to 1g
+   brkaddr = (void*)(1 * GIB);
+   ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
+
+   // Drop down into the 2m page region of the page table
+   brkaddr = (void*)(512 * MIB);
+   ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
+
+   // Drop to an address not on a 2m boundary
+   brkaddr -= 1 * MIB;
+   ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
+
+   // Move back into the 1g page region of the page table
+   brkaddr = (void*)(1 * GIB + 16 * MIB);
+   ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
+
+   // Drop down into the 2m page region of the page table
+   brkaddr = (void*)(1 * GIB - 128 * KIB);
+   ASSERT_EQ(setbrk_checkaccess(brkaddr), 0);
+
+   // Put the break back to where it was
+   SYS_break((void*)ptr);
+   ASSERT_EQ(ptr, SYS_break(NULL));
+
+   // Turn off signal handler
+   sa.sa_handler = SIG_DFL;
+   ASSERT_EQ(sigaction(SIGSEGV, &sa, NULL), 0);
+
+   PASS();
+}
+
 GREATEST_MAIN_DEFS();
 int main(int argc, char** argv)
 {
    GREATEST_MAIN_BEGIN();
    greatest_set_verbosity(1);
+
+   RUN_TEST(brk_shrink);
 
    RUN_TEST(brk_2gib);
    RUN_TEST(brk_test);

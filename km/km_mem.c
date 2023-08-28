@@ -262,6 +262,14 @@ static inline int PDE_SLOT(km_gva_t __addr)
 {
    return (__addr >> 21) & 0x1ff;
 }
+static inline int PDE_SLOT_ROUNDUP(km_gva_t __addr)
+{
+   int slot = PDE_SLOT(__addr);
+   if ((__addr & 0x1fffff) != 0) {
+      slot++;
+   }
+   return slot;
+}
 
 /*
  * Slot number for 1G chunk in PDPT table for gva '_addr'
@@ -270,6 +278,14 @@ static inline int PDE_SLOT(km_gva_t __addr)
 static inline int PDPTE_SLOT(km_gva_t __addr)
 {
    return ((__addr)&0x7ffffffffful) >> 30;
+}
+static inline int PDPTE_SLOT_ROUNDUP(km_gva_t __addr)
+{
+   int slot = PDPTE_SLOT(__addr);
+   if ((__addr & (PDPTE_REGION - 1)) != 0) {
+      slot++;
+   }
+   return slot;
 }
 
 /*
@@ -553,10 +569,12 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
    page_tables_t* pt = km_page_table();
    x86_pde_2m_t* pde = (x86_pde_2m_t*)pt->pd0;
    x86_pdpte_1g_t* pdpe = (x86_pdpte_1g_t*)pt->pdpt0;
-   int old_2m_slot = PDE_SLOT(old_brk);
-   int new_2m_slot = PDE_SLOT(new_brk);
-   int old_1g_slot = PDPTE_SLOT(old_brk);
-   int new_1g_slot = PDPTE_SLOT(new_brk);
+   // - 1 because brk is the fist unusable byte
+   // These two are only used in the bottom 1g region. We never operate on the 0 - 2MB page, hence MAX
+   int old_2m_slot = MAX(1, PDE_SLOT(old_brk - 1));
+   int new_2m_slot = MAX(1, PDE_SLOT(new_brk - 1));
+   int old_1g_slot = PDPTE_SLOT(old_brk - 1);
+   int new_1g_slot = PDPTE_SLOT(new_brk - 1);
 
    if (new_brk > old_brk) {
       km_infox(KM_TRACE_MEM,
@@ -568,6 +586,8 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
                new_2m_slot,
                new_1g_slot);
       if (old_1g_slot == 0) {
+         // old_brk was below 1GB, need to change 2MB pages.
+         // Check if new_brk still below 1GB or not - operate on some 2MB or all of them to the top
          int limit = (new_1g_slot == 0) ? new_2m_slot : MAX_PDE_SLOT;
          for (int i = old_2m_slot; i <= limit; i++) {
             pde[i].p = 1;
@@ -589,17 +609,23 @@ static inline void fixup_bottom_page_tables(km_gva_t old_brk, km_gva_t new_brk)
                new_2m_slot,
                new_1g_slot);
       if (old_1g_slot > 0) {
-         int start = (new_1g_slot == 0) ? 1 : new_1g_slot;
-         for (int i = start; i < old_1g_slot; i++) {
+         for (int i = new_1g_slot + 1; i <= old_1g_slot; i++) {
             pdpe[i].p = 0;
          }
       }
       if (new_1g_slot == 0) {
+         // new_brk is below 1GB, need to change 2MB pages
+         // Check if old_brk is below 1GB or not - operate on some 2MB or all of them from the top
          int limit = (old_1g_slot == 0) ? old_2m_slot : MAX_PDE_SLOT;
          for (int i = new_2m_slot + 1; i <= limit; i++) {
             pde[i].p = 0;
          }
       }
+      /*
+       * We are NOT handling the case where old_brk is in the upper 2m page region
+       * and new_brk is in either the 1g page or the lower 2m page region.
+       * It can never get there with brk() as there is always at least main thread stack in the way.
+       */
    }
 }
 
