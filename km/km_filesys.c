@@ -907,7 +907,7 @@ uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, void* buf, size_t count, 
    if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, fd);
+   ssize_t ret = km_guestfd_error(vcpu, fd);
    if (ret != 0) {
       return ret;
    }
@@ -935,7 +935,7 @@ km_fs_prwv(km_vcpu_t* vcpu, int scall, int fd, const struct iovec* guest_iov, si
    if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, fd);
+   ssize_t ret = km_guestfd_error(vcpu, fd);
    if (ret != 0) {
       return ret;
    }
@@ -1028,7 +1028,7 @@ uint64_t km_fs_lseek(km_vcpu_t* vcpu, int fd, off_t offset, int whence)
    if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, fd);
+   off_t ret = km_guestfd_error(vcpu, fd);
    if (ret != 0) {
       return ret;
    }
@@ -1054,7 +1054,7 @@ uint64_t km_fs_getdents(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int count)
    if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, fd);
+   long ret = km_guestfd_error(vcpu, fd);
    if (ret != 0) {
       return ret;
    }
@@ -1075,7 +1075,7 @@ uint64_t km_fs_getdents64(km_vcpu_t* vcpu, int fd, void* dirp, unsigned int coun
    if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, fd);
+   ssize_t ret = km_guestfd_error(vcpu, fd);
    if (ret != 0) {
       return ret;
    }
@@ -1155,7 +1155,7 @@ static int proc_self_exe_name(const char* pathname, char* buf, size_t bufsz)
 // ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
 uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz)
 {
-   int ret;
+   ssize_t ret;
 
    /*
     * If we can't we handle request from internal tables and the actual readlink is ok,
@@ -1185,7 +1185,7 @@ uint64_t km_fs_readlink(km_vcpu_t* vcpu, char* pathname, char* buf, size_t bufsz
 // ssize_t readlinkat(it dirfd, const char *pathname, char *buf, size_t bufsiz);
 uint64_t km_fs_readlinkat(km_vcpu_t* vcpu, int dirfd, char* pathname, char* buf, size_t bufsz)
 {
-   int ret;
+   ssize_t ret;
 
    if ((ret = km_fs_g2h_readlink(pathname, buf, bufsz)) == 0) {
       if ((ret = km_fs_at(dirfd, pathname)) < 0) {
@@ -1797,7 +1797,7 @@ uint64_t km_fs_sendrecvmsg(km_vcpu_t* vcpu, int scall, int sockfd, struct msghdr
    if ((host_sockfd = km_fs_g2h_fd(sockfd, NULL)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, sockfd);
+   ssize_t ret = km_guestfd_error(vcpu, sockfd);
    if (ret != 0) {
       return ret;
    }
@@ -1862,7 +1862,7 @@ uint64_t km_fs_sendrecvmmsg(km_vcpu_t* vcpu,
    if ((host_sockfd = km_fs_g2h_fd(sockfd, NULL)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, sockfd);
+   ssize_t ret = km_guestfd_error(vcpu, sockfd);
    if (ret != 0) {
       return ret;
    }
@@ -1882,7 +1882,7 @@ uint64_t km_fs_sendfile(km_vcpu_t* vcpu, int out_fd, int in_fd, off_t* offset, s
    if ((host_outfd = km_fs_g2h_fd(out_fd, NULL)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, out_fd);
+   ssize_t ret = km_guestfd_error(vcpu, out_fd);
    if (ret != 0) {
       return ret;
    }
@@ -1911,7 +1911,7 @@ uint64_t km_fs_copy_file_range(
    if ((host_outfd = km_fs_g2h_fd(fd_out, NULL)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, fd_out);
+   ssize_t ret = km_guestfd_error(vcpu, fd_out);
    if (ret != 0) {
       return ret;
    }
@@ -2097,7 +2097,7 @@ uint64_t km_fs_sendto(km_vcpu_t* vcpu,
    if ((host_sockfd = km_fs_g2h_fd(sockfd, NULL)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, sockfd);
+   ssize_t ret = km_guestfd_error(vcpu, sockfd);
    if (ret != 0) {
       return ret;
    }
@@ -2114,7 +2114,7 @@ uint64_t km_fs_recvfrom(
    if ((host_sockfd = km_fs_g2h_fd(sockfd, NULL)) < 0) {
       return -EBADF;
    }
-   int ret = km_guestfd_error(vcpu, sockfd);
+   ssize_t ret = km_guestfd_error(vcpu, sockfd);
    if (ret != 0) {
       return ret;
    }
