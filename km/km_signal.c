@@ -1089,7 +1089,7 @@ int km_sig_snapshot_recover(char* buf, size_t length)
       km_warnx("km_nt_sighand_t size mismatch - old snapshot?");
       return -1;
    }
-   if (nt_sa->signo == NSIG) {
+   if (nt_sa->signo == KM_SIGSNAPCREATE) {
       km_warnx("SIG_SNAPCREATE");
    }
    km_infox(KM_TRACE_SNAPSHOT, "signal %d handler=0x%lx", nt_sa->signo, nt_sa->handler);

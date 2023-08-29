@@ -141,6 +141,9 @@ typedef enum {
    PAUSED       // Paused in km_vcpu_handle_pause
 } __attribute__((__packed__)) km_vcpu_state_t;
 
+// These states are used for the optional guest callbacks for snapshot
+// create and restore. They are stored in the snap_state field of the
+// VCPU. Only one VCPU runs the snapshot callbacks.
 typedef enum {
    SNAP_STATE_RUNNING,
    SNAP_STATE_PAUSED,

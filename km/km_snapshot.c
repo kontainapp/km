@@ -521,7 +521,7 @@ int km_snapshot_block(km_vcpu_t* vcpu)
 
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       if (machine.vm_vcpus[i] == NULL) {
-         continue;
+         break;
       }
       if (machine.vm_vcpus[i]->state == PAUSED) {
          machine.vm_vcpus[i]->snap_state = SNAP_STATE_PAUSED;

@@ -1279,6 +1279,15 @@ static km_hc_ret_t rt_sigaction_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    km_sigaction_t* act = km_gva_to_kma(arg->arg2);
    km_sigaction_t* oldact = km_gva_to_kma(arg->arg3);
 
+   if (arg->arg2 != 0 && (act = km_gva_to_kma(arg->arg2)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   if (arg->arg3 != 0 && (oldact = km_gva_to_kma(arg->arg3)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+
    arg->hc_ret = km_rt_sigaction(vcpu, arg->arg1, act, oldact, arg->arg4);
    return HC_CONTINUE;
 }
