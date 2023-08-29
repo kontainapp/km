@@ -1655,8 +1655,17 @@ fi
    do
       #run ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
       #assert_success
-      ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
-      if test "$?" -ne 0; then
+      run ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
+      if test "$status" -ne 0; then
+         run /bin/kill -0 $pid
+         if test $status -ne 0; then
+            # html server is not running, if km_with_timeout timed it out, we give up on this loop and dont fail the test
+            wait -p kmstatus $pid
+            if test $kmstatus -eq 124; then
+               break;
+            fi
+            # km failed for some other reason, get the trace
+         fi
          sed -e "s/^/# /" $TRACEFILE >&3
          fail "km_cli failed, km trace is in the bats log"
       fi
@@ -1664,8 +1673,17 @@ fi
 
       #run curl localhost:$socket_port
       #assert_success
-      curl localhost:$socket_port
-      if test "$?" -ne 0; then
+      run curl -4 localhost:$socket_port
+      if test "$status" -ne 0; then
+         run /bin/kill -0 $pid
+         if test $status -ne 0; then
+            # html server is not running, if km_with_timeout timed it out, we give up on this loop and dont fail the test
+            wait -p kmstatus $pid
+            if test $kmstatus -eq 124; then
+               break;
+            fi
+            # km failed for some other reason, get the trace
+         fi
          sed -e "s/^/# /" $TRACEFILE >&3
          fail "curl failed, km trace is in the bats log"
       fi
@@ -1673,7 +1691,7 @@ fi
       rm -f $SNAPDIR/kmsnap
    done
    # Get the html server to stop
-   curl localhost:$socket_port/stop
+   curl -4 localhost:$socket_port/stop
 
    # cleanup
    rm -fr $SNAPDIR $MGTPIPE $TRACEFILE
