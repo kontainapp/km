@@ -43,7 +43,6 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/un.h>
-#include <arpa/inet.h>
 #include <linux/aio_abi.h>
 #include <netinet/in.h>
 
@@ -2754,21 +2753,6 @@ static inline int fs_core_write_socket(char* buf, size_t length, km_file_t* file
    fnote->backlog = file->sockinfo->backlog;
    cur += km_nt_chunk_roundup(file->sockinfo->addrlen);
 
-   if (fnote->state == KM_SOCK_STATE_BIND || fnote->state == KM_SOCK_STATE_LISTEN) {
-      char buf[1024];
-      uint16_t p = -1;
-      switch (fnote->domain) {
-         case AF_INET:
-            inet_ntop(fnote->domain, &((struct sockaddr_in*)file->sockinfo->addr)->sin_addr, buf, 1024);
-            p = ((struct sockaddr_in*)file->sockinfo->addr)->sin_port;
-            break;
-         case AF_INET6:
-            inet_ntop(fnote->domain, &((struct sockaddr_in6*)file->sockinfo->addr)->sin6_addr, buf, 1024);
-            p = ((struct sockaddr_in6*)file->sockinfo->addr)->sin6_port;
-            break;
-      }
-      km_warnx("===> %s %s %d", fnote->domain == AF_INET ? "i4" : "i6", buf, ntohs(p));
-   }
    // Save data queued in the socket for this direction.
    if (queuedbytes > 0) {
       int rc = fs_core_save_pipe_contents(cur, length - (cur - buf), fd, queuedbytes);

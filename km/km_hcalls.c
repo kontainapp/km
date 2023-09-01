@@ -1646,8 +1646,7 @@ static km_hc_ret_t sched_setaffinity_hcall(void* vcpu, int hc, km_hc_args_t* arg
 {
    // int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask);
    km_infox(KM_TRACE_SCHED, "(0x%lx, 0x%lx, 0x%lx)", arg->arg1, arg->arg2, arg->arg3);
-   km_warnx("Unsupported");
-   arg->hc_ret = -ENOTSUP;
+   arg->hc_ret = 0;
    return HC_CONTINUE;
 }
 
