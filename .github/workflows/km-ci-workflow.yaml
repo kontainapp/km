@@ -544,8 +544,8 @@ jobs:
     runs-on: ubuntu-latest
     # 'contains' shows how to add conditions, e.g. on workflow 'name:', or many other contexts.
     # see https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
-    if: (failure() && github.ref == 'refs/heads/master') ||
-      contains(github.workflow, 'noisy') || (github.actor != 'dependabot[bot]')
+    if: (failure() && github.ref == 'refs/heads/master' && github.actor != 'dependabot[bot]') ||
+      contains(github.workflow, 'noisy') 
     # Dependencies. (A skipped dependency is considered satisfied)
     needs:
       [
