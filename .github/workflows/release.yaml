@@ -83,7 +83,7 @@ jobs:
 
       - name: Build static krun
         run: |
-          make -C container-runtime static
+          make -C container-runtime
 
       - name: Create kkm release artifact
         run: make withdocker TARGET=kkm-pkg
@@ -124,8 +124,12 @@ jobs:
         run: |
           sudo apt-get update -y -q
           sudo apt-get -y -q install linux-headers-$(uname -r)
+          echo sudo bash kkm.run --noprogress
           sudo bash kkm.run --noprogress
+          echo $?
+          echo sudo mkdir -p /opt/kontain && sudo tar -C /opt/kontain -xzf kontain.tar.gz
           sudo mkdir -p /opt/kontain && sudo tar -C /opt/kontain -xzf kontain.tar.gz
+          echo $?
           sudo bash /opt/kontain/bin/podman_config.sh
           sudo bash /opt/kontain/bin/docker_config.sh
 
