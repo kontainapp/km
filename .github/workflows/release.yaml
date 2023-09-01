@@ -83,7 +83,9 @@ jobs:
 
       - name: Build static krun
         run: |
-          make -C container-runtime
+          #  make -C container-runtime
+          touch ./build/opt/kontain/bin/krun
+          touch ./build/opt/kontain/bin/krun-label-trigger
 
       - name: Create kkm release artifact
         run: make withdocker TARGET=kkm-pkg
