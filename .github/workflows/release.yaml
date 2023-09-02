@@ -133,7 +133,10 @@ jobs:
           echo $?
       - run: |
           echo sudo mkdir -p /opt/kontain && sudo tar -C /opt/kontain -xzf kontain.tar.gz
-          sudo mkdir -p /opt/kontain && sudo tar -C /opt/kontain -xzf kontain.tar.gz
+          sudo mkdir -p /opt/kontain
+          ls -ld /opt/kontain
+          ls -la .
+          sudo tar -C /opt/kontain -xzf kontain.tar.gz
           echo $?
       - run: |
           sudo bash -x /opt/kontain/bin/podman_config.sh
