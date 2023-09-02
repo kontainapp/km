@@ -5,22 +5,22 @@
 
 version: 2
 updates:
-  - package-ecosystem: "gomod
+  - package-ecosystem: "gomod"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
 
-  - package-ecosystem: "pip
+  - package-ecosystem: "pip"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
 
-  - package-ecosystem: "Docker
+  - package-ecosystem: "Docker"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
 
-  - package-ecosystem: "github-actions
+  - package-ecosystem: "github-actions"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
