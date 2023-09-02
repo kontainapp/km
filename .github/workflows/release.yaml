@@ -87,6 +87,8 @@ jobs:
           touch ./build/opt/kontain/bin/krun
           touch ./build/opt/kontain/bin/krun-label-trigger
           touch container-runtime/crun/krun.static
+          sudo chmod a+x ./build/opt/kontain/bin/krun
+          sudo chmod a+x ./build/opt/kontain/bin/krun-label-trigger
 
       - name: Create kkm release artifact
         run: make withdocker TARGET=kkm-pkg
@@ -142,6 +144,8 @@ jobs:
       - run: |
           sudo tar -C /opt/kontain -xzf kontain.tar.gz
           echo $?
+      - run: |
+          ls -la /opt/kontain
       - run: |
           sudo bash -x /opt/kontain/bin/podman_config.sh
           sudo bash -x /opt/kontain/bin/docker_config.sh
