@@ -72,8 +72,8 @@ POLDIR=/tmp/$KONTAIN_SELINUX_POLICY
 KKM_DEVICE=/dev/kkm
 
 # Podman configuration related
-DOCKER_INIT=$(docker info -f '{{json .}}' | jq -r '.InitBinary')
-DOCKER_INIT=$(which "$DOCKER_INIT")
+DOCKER_INIT=/bin/tini-static
+
 # if running under sudo, update the invokers containers.conf, not root's
 # Note that the shell nazi's think eval to expand ~ is evil but I can't find a better way
 HOME_CONTAINERS_CONF=`eval echo ~${SUDO_USER}/.config/containers/containers.conf`
@@ -81,11 +81,11 @@ mkdir -p `dirname $HOME_CONTAINERS_CONF`
 
 # Needed packages
 # Note that docker_config.sh does not install the packages needed by krun. It depends on podman_config.sh doing it.
-readonly FEDORA_PACKAGES="podman selinux-policy-devel yajl libcap libseccomp openssl-libs"
+readonly FEDORA_PACKAGES="podman selinux-policy-devel yajl libcap libseccomp openssl-libs tini-static"
 # libseccomp libcap openssl-libs are protected, at least on Fedora
-readonly CLEAN_FEDORA_PACKAGES="podman selinux-policy-devel yajl-devel"
-readonly UBUNTU_PACKAGES="podman libyajl2 libcap2 libseccomp2 openssl"
-readonly CLEAN_UBUNTU_PACKAGES="podman libyajl2"
+readonly CLEAN_FEDORA_PACKAGES="podman selinux-policy-devel yajl-devel tini-static"
+readonly UBUNTU_PACKAGES="podman libyajl2 libcap2 libseccomp2 openssl tini"
+readonly CLEAN_UBUNTU_PACKAGES="podman libyajl2 tini"
 readonly REFRESH_UBUNTU_PACKAGES="persistent-apt-get update"
 readonly REFRESH_FEDORA_PACKAGES=true
 readonly INSTALL_UBUNTU_PACKAGES="persistent-apt-get install -y "
