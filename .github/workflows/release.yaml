@@ -132,7 +132,7 @@ jobs:
           sudo bash -x kkm.run --noprogress
           echo $?
       - run: |
-          sudo mkdir /opt
+          sudo mkdir -p /opt
       - run: |
           sudo mkdir -p /opt/kontain
       - run: |
