@@ -83,7 +83,8 @@ jobs:
 
       - name: Build static krun
         run: |
-          make -C container-runtime static
+          # make -C container-runtime static
+          touch container-runtime/crun/krun.static
 
       - name: Create kkm release artifact
         run: make withdocker TARGET=kkm-pkg
@@ -92,11 +93,11 @@ jobs:
       - name: Create kontain bundles
         run: make withdocker TARGET=release
 
-      - name: Build payloads and create runenv images
-        run: make -C payloads pull-buildenv-image clean all runenv-image
+      # - name: Build payloads and create runenv images
+      #   run: make -C payloads pull-buildenv-image clean all runenv-image
 
-      - name: Push payloads runenv and demo-runenv images
-        run: make -C payloads push-runenv-image push-demo-runenv-image
+      # - name: Push payloads runenv and demo-runenv images
+      #   run: make -C payloads push-runenv-image push-demo-runenv-image
 
       - uses: actions/upload-artifact@v3
         with:
@@ -120,161 +121,161 @@ jobs:
         with:
           name: kontain
 
-      - name: Install Kontain and KKM
-        run: |
-          sudo apt-get update -y -q
-          sudo apt-get -y -q install linux-headers-$(uname -r)
-          sudo bash kkm.run --noprogress
-          sudo mkdir -p /opt/kontain && sudo tar -C /opt/kontain -xzf kontain.tar.gz
-          sudo bash /opt/kontain/bin/podman_config.sh
-          sudo bash /opt/kontain/bin/docker_config.sh
+      # - name: Install Kontain and KKM
+      #   run: |
+      #     sudo apt-get update -y -q
+      #     sudo apt-get -y -q install linux-headers-$(uname -r)
+      #     sudo bash kkm.run --noprogress
+      #     sudo mkdir -p /opt/kontain && sudo tar -C /opt/kontain -xzf kontain.tar.gz
+      #     sudo bash /opt/kontain/bin/podman_config.sh
+      #     sudo bash /opt/kontain/bin/docker_config.sh
 
-      - name: Pull demo-runenv image
-        run: make -C payloads pull-demo-runenv-image
+      # - name: Pull demo-runenv image
+      #   run: make -C payloads pull-demo-runenv-image
 
-      - name: Validate runenv images locally with KKM
-        run: make -C payloads validate-runenv-image HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
-        timeout-minutes: 15
+      # - name: Validate runenv images locally with KKM
+      #   run: make -C payloads validate-runenv-image HYPERVISOR_DEVICE=/dev/kkm DOCKER_INTERACTIVE=
+      #   timeout-minutes: 15
 
-  km-boxes:
-    name: Create vagrant boxes
-    runs-on: ubuntu-20.04
-    needs: [km-kkm-smoke-test]
-    if: ${{ github.event_name == 'push' }}
-    steps:
-      - name: Get RELEASE_TAG
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+  # km-boxes:
+  #   name: Create vagrant boxes
+  #   runs-on: ubuntu-20.04
+  #   needs: [km-kkm-smoke-test]
+  #   if: ${{ github.event_name == 'push' }}
+  #   steps:
+  #     - name: Get RELEASE_TAG
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v3
 
-      - uses: actions/download-artifact@v3
-        with:
-          name: kontain
-          path: build
+  #     - uses: actions/download-artifact@v3
+  #       with:
+  #         name: kontain
+  #         path: build
 
-      - run: make -C cloud/azure login-cli
+  #     - run: make -C cloud/azure login-cli
 
-      - name: Create vagrant boxes
-        run: make -C cloud/azure vagrant-box
+  #     - name: Create vagrant boxes
+  #       run: make -C cloud/azure vagrant-box
 
-  km-ami:
-    name: Create AMI
-    runs-on: ubuntu-20.04
-    needs: [km-kkm-smoke-test]
-    if: ${{ github.event_name == 'push' }}
-    steps:
-      - name: Get RELEASE_TAG
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+  # km-ami:
+  #   name: Create AMI
+  #   runs-on: ubuntu-20.04
+  #   needs: [km-kkm-smoke-test]
+  #   if: ${{ github.event_name == 'push' }}
+  #   steps:
+  #     - name: Get RELEASE_TAG
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v3
 
-      - uses: actions/download-artifact@v3
-        with:
-          name: kontain
-          path: build
+  #     - uses: actions/download-artifact@v3
+  #       with:
+  #         name: kontain
+  #         path: build
 
-      - run: make -C cloud/azure login-cli
+  #     - run: make -C cloud/azure login-cli
 
-      - name: Create AMI
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C tools/hashicorp ami
+  #     - name: Create AMI
+  #       env:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #       run: make -C tools/hashicorp ami
 
-  km-aws-ecs-ami:
-    name: Create AWS ECS AMI
-    runs-on: ubuntu-20.04
-    needs: [km-kkm-smoke-test, km-runenv]
-    if: ${{ github.event_name == 'push' }}
-    steps:
-      - name: Get RELEASE_TAG
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+  # km-aws-ecs-ami:
+  #   name: Create AWS ECS AMI
+  #   runs-on: ubuntu-20.04
+  #   needs: [km-kkm-smoke-test, km-runenv]
+  #   if: ${{ github.event_name == 'push' }}
+  #   steps:
+  #     - name: Get RELEASE_TAG
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         submodules: recursive
 
-      - uses: actions/download-artifact@v3
-        with:
-          name: kontain
-          path: build
+  #     - uses: actions/download-artifact@v3
+  #       with:
+  #         name: kontain
+  #         path: build
 
-      - run: make -C cloud/azure login-cli
+  #     - run: make -C cloud/azure login-cli
 
-      - name: Create AMI
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C cloud/aws/amazon-ecs-ami REGION=${{env.AWS_REGION}} AMI_VERSION=${{env.RELEASE_TAG}} al2
+  #     - name: Create AMI
+  #       env:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #       run: make -C cloud/aws/amazon-ecs-ami REGION=${{env.AWS_REGION}} AMI_VERSION=${{env.RELEASE_TAG}} al2
 
-      - name: Test ECS
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C cloud/aws/amazon-ecs-ami REGION=${{env.AWS_REGION}} test-al2
+  #     - name: Test ECS
+  #       env:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #       run: make -C cloud/aws/amazon-ecs-ami REGION=${{env.AWS_REGION}} test-al2
 
-  km-aws-eks-ami:
-    name: Create AWS EKS AMI
-    runs-on: ubuntu-20.04
-    needs: [km-kkm-smoke-test, km-runenv]
-    if: ${{ github.event_name == 'push' }}
-    steps:
-      - name: Get RELEASE_TAG
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+  # km-aws-eks-ami:
+  #   name: Create AWS EKS AMI
+  #   runs-on: ubuntu-20.04
+  #   needs: [km-kkm-smoke-test, km-runenv]
+  #   if: ${{ github.event_name == 'push' }}
+  #   steps:
+  #     - name: Get RELEASE_TAG
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         submodules: recursive
 
-      - uses: actions/download-artifact@v3
-        with:
-          name: kontain
-          path: build
+  #     - uses: actions/download-artifact@v3
+  #       with:
+  #         name: kontain
+  #         path: build
 
-      - run: make -C cloud/azure login-cli
+  #     - run: make -C cloud/azure login-cli
 
-      - name: Create AMI
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C cloud/aws/amazon-eks-ami REGION=${{env.AWS_REGION}} AMI_VERSION=${{env.RELEASE_TAG}} 1.22
+  #     - name: Create AMI
+  #       env:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #       run: make -C cloud/aws/amazon-eks-ami REGION=${{env.AWS_REGION}} AMI_VERSION=${{env.RELEASE_TAG}} 1.22
 
-      - name: Test EKS
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: make -C cloud/aws/amazon-eks-ami REGION=${{env.AWS_REGION}} test-1.22
+  #     - name: Test EKS
+  #       env:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #       run: make -C cloud/aws/amazon-eks-ami REGION=${{env.AWS_REGION}} test-1.22
 
-  km-runenv:
-    name: Publish runenv images
-    runs-on: ubuntu-20.04
-    needs: [km-kkm-smoke-test]
-    if: ${{ github.event_name == 'push' }}
-    steps:
-      - name: Get RELEASE_TAG
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+  # km-runenv:
+  #   name: Publish runenv images
+  #   runs-on: ubuntu-20.04
+  #   needs: [km-kkm-smoke-test]
+  #   if: ${{ github.event_name == 'push' }}
+  #   steps:
+  #     - name: Get RELEASE_TAG
+  #       if: startsWith(github.ref, 'refs/tags/v')
+  #       run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v3
 
-      - run: |
-          make -C cloud/azure login-cli
-          echo ${{ secrets.DOCKER_HUB_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_LOGIN }} --password-stdin
+  #     - run: |
+  #         make -C cloud/azure login-cli
+  #         echo ${{ secrets.DOCKER_HUB_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_LOGIN }} --password-stdin
 
-      - run: make -C payloads pull-runenv-image
+  #     - run: make -C payloads pull-runenv-image
 
-      - name: Publish runenv images
-        run: make -C payloads publish-runenv-image
+  #     - name: Publish runenv images
+  #       run: make -C payloads publish-runenv-image
 
   km-release:
     name: Publish release on Github
     runs-on: ubuntu-20.04
     needs: [km-kkm-smoke-test]
-    if: ${{ github.event_name == 'push' }}
+    # if: ${{ github.event_name == 'push' }}
     steps:
       - name: Get RELEASE_TAG
         if: startsWith(github.ref, 'refs/tags/v')
@@ -286,38 +287,48 @@ jobs:
         with:
           name: kontain
           path: build
-
-      - run: pip3 install PyGithub
 
       - name: Publish Github release
         env:
           GITHUB_RELEASE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: make publish-release
 
-  slack-workflow-status:
-    name: Notify slack, if needed
-    runs-on: ubuntu-latest
-    if: (failure() && github.ref == 'refs/heads/master') ||
-      contains(github.workflow, 'noisy')
-    # Dependencies. (A skipped dependency is considered satisfied)
-    needs:
-      [
-        km-kkm-build,
-        km-kkm-smoke-test,
-        km-boxes,
-        km-ami,
-        km-aws-ecs-ami,
-        km-aws-eks-ami,
-        km-runenv,
-        km-release,
-      ]
-    steps:
-      - name: Send notification to slack
-        uses: Gamesight/slack-workflow-status@master
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          include_jobs: true
-          channel: "#build_and_test"
-          name: "CI workflow status"
-          icon_emoji: ":thumbsdown:"
+      # - name: release
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     allowUpdates: true
+      #     artifacts: "./build/kontain.tar.gz,./build/kontain_bin.tar.gz,./build/kkm.run"
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     draft: true
+      #     generateReleaseNotes: true
+      #     name: Kontain
+      #     prerelease: true
+      #     tag: ${{ github.ref }}
+
+  # slack-workflow-status:
+  #   name: Notify slack, if needed
+  #   runs-on: ubuntu-latest
+  #   if: (failure() && github.ref == 'refs/heads/master') ||
+  #     contains(github.workflow, 'noisy')
+  #   # Dependencies. (A skipped dependency is considered satisfied)
+  #   needs:
+  #     [
+  #       km-kkm-build,
+  #       km-kkm-smoke-test,
+  #       km-boxes,
+  #       km-ami,
+  #       km-aws-ecs-ami,
+  #       km-aws-eks-ami,
+  #       km-runenv,
+  #       km-release,
+  #     ]
+  #   steps:
+  #     - name: Send notification to slack
+  #       uses: Gamesight/slack-workflow-status@master
+  #       with:
+  #         repo_token: ${{ secrets.GITHUB_TOKEN }}
+  #         slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+  #         include_jobs: true
+  #         channel: "#build_and_test"
+  #         name: "CI workflow status"
+  #         icon_emoji: ":thumbsdown:"

@@ -105,7 +105,7 @@ clean-release: ## Clean the release tar files
 	rm -f ${KM_RELEASE} ${KM_BIN_RELEASE}
 
 publish-release: ## Publish release with RELEASE_TAG to github
-	cd ${TOP}/tools/release; ./release_km.py ${KM_RELEASE} ${KM_BIN_RELEASE} ${KM_KKM_RELEASE} --version ${RELEASE_TAG} --message "${RELEASE_MESSAGE}"
+	cd ${TOP}/tools/release; ./gh_release.sh  --token=${GITHUB_RELEASE_TOKEN} --tag=${RELEASE_TAG} --message="${RELEASE_MESSAGE}" ${KM_RELEASE} ${KM_BIN_RELEASE} ${KM_KKM_RELEASE}
 
 EDGE_RELEASE_MESSAGE ?= Kontain KM Edge - date: $(shell date) sha: $(shell git rev-parse HEAD)
 REPO_URL := https://${GITHUB_TOKEN}@github.com/kontainapp/km.git
