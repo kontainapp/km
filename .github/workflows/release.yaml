@@ -145,9 +145,10 @@ jobs:
           sudo tar -C /opt/kontain -xzf kontain.tar.gz
           echo $?
       - run: |
-          ls -la /opt/kontain
+          ls -la /opt/kontain/bin
       - run: |
           sudo bash -x /opt/kontain/bin/podman_config.sh
+      - run: |
           sudo bash -x /opt/kontain/bin/docker_config.sh
 
       - name: Pull demo-runenv image
