@@ -573,7 +573,7 @@ jobs:
   # This step is to clean up on-demand runner. They work in conjunction with start-runner.
   # Make sure to add dependencies in both "needs" clauses
   stop-runner:
-    if: (github.actor != 'dependabot[bot]')
+    if: (always() && github.actor != 'dependabot[bot]')
     # Dependencies. (A skipped dependency is considered satisfied)
     needs:
       [
