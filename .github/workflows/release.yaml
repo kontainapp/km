@@ -132,10 +132,14 @@ jobs:
           sudo bash -x kkm.run --noprogress
           echo $?
       - run: |
-          echo sudo mkdir -p /opt/kontain && sudo tar -C /opt/kontain -xzf kontain.tar.gz
+          sudo mkdir /opt
+      - run: |
           sudo mkdir -p /opt/kontain
+      - run: |
           ls -ld /opt/kontain
+      - run: |
           ls -la .
+      - run: |
           sudo tar -C /opt/kontain -xzf kontain.tar.gz
           echo $?
       - run: |
