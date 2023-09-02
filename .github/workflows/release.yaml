@@ -136,16 +136,11 @@ jobs:
           echo sudo bash kkm.run --noprogress
           sudo bash -x kkm.run --noprogress
           echo $?
-          sudo mkdir -p /opt/kontain
+          sudo mkdir -p /opt/kontain && sudo tar -C /opt/kontain -xzf kontain.tar.gz
       - run: |
           ls -ld /opt/kontain
       - run: |
           ls -la .
-      - run: |
-          sudo tar -C /opt/kontain -xzf kontain.tar.gz
-          echo $?
-      - run: |
-          ls -la /opt/kontain/bin
       - run: |
           sudo bash -x /opt/kontain/bin/podman_config.sh
       - run: |
