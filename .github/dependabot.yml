@@ -15,7 +15,7 @@ updates:
     schedule:
       interval: "weekly"
 
-  - package-ecosystem: "Docker"
+  - package-ecosystem: "docker"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
