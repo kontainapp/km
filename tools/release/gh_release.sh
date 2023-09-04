@@ -2,18 +2,19 @@
 
 [ "$TRACE" ] && set -x
 
+# To run this script ( to create release ) on local machine the gh cli must be installed:
+#
 # sudo dnf install 'dnf-command(config-manager)'
 # sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
 # sudo dnf install gh -y
 
-# Use this is the version name is not compliant with expectations
+# Use this is the version name if running script on any branch/tag other then vX.X.X, i.e. for testing purposes
 RELEASE_DEFAULT_VERSION="v0.1-test"
 # Delete these if they already exist
 OVERRIDABLE_RELEASES=($RELEASE_DEFAULT_VERSION, "v0.1-beta", "v0.1-edge")
 
 files=
 
-# by default use current tag 
 for arg in "$@"
 do
    case "$arg" in
@@ -37,7 +38,7 @@ do
             files="$files ${1}"
             shift
         ;;
- esac
+    esac
 done
 
 if [ -z "$tag" ]; then 
@@ -63,4 +64,4 @@ if [ -n "$lookup" ]; then
 fi
 
 
-gh release create "$tag" --draft --prerelease --title "Kontain $tag" --notes "$message" $files
+gh release create "$tag" --draft --title "Kontain $tag" --notes "$message" $files
