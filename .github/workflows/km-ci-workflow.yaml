@@ -27,6 +27,7 @@ on:
       - km-releases
       - payloads/longhaul-test/**
       - "**/L0-image**"
+
   push:
     branches: [master]
     paths-ignore:
@@ -70,7 +71,7 @@ jobs:
   start-runners:
     uses: ./.github/workflows/start-cloud-runners.yaml
     secrets: inherit
-    if: (github.actor != 'dependabot[bot]')
+    if: (github.triggering_actor != 'dependabot[bot]')
 
   km-build:
     name: Build KM
@@ -115,7 +116,7 @@ jobs:
   km-build-payloads:
     name: Build payloads with test and demo images
     runs-on: ubuntu-20.04
-    if: (github.actor != 'dependabot[bot]')
+    if: (github.triggering_actor != 'dependabot[bot]')
     needs: km-build
     steps:
       - name: Checkout
@@ -166,7 +167,7 @@ jobs:
   krun-static-build:
     name: Build static KRUN binary
     runs-on: ubuntu-20.04
-    if: (github.actor != 'dependabot[bot]')
+    if: (github.triggering_actor != 'dependabot[bot]')
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -188,7 +189,7 @@ jobs:
     name: make k8s release bundle
     runs-on: ubuntu-20.04
     needs: [km-build, krun-static-build]
-    if: (github.actor != 'dependabot[bot]')
+    if: (github.triggering_actor != 'dependabot[bot]')
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -242,7 +243,7 @@ jobs:
   km-test-azure:
     name: KM tests, KVM on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
-    if: (github.actor != 'dependabot[bot]')
+    if: (github.triggering_actor != 'dependabot[bot]')
     needs: [start-runners, km-build]
     steps:
       - name: Checkout
@@ -267,7 +268,7 @@ jobs:
   km-payloads-azure:
     name: Payloads on Azure
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
-    if: (github.actor != 'dependabot[bot]')
+    if: (github.triggering_actor != 'dependabot[bot]')
     needs: [start-runners, krun-static-build, km-build-payloads, km-test-azure]
     steps:
       # no need to checkout - just continue where tests left
@@ -325,7 +326,7 @@ jobs:
   kkm-test-aws:
     name: KM tests, KKM on AWS
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
-    if: (github.actor != 'dependabot[bot]')
+    if: (github.triggering_actor != 'dependabot[bot]')
     needs: [start-runners, km-build]
     steps:
       - name: Checkout
@@ -350,7 +351,7 @@ jobs:
   kkm-payloads-aws:
     name: Payloads on AWS
     runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
-    if: (github.actor != 'dependabot[bot]')
+    if: (github.triggering_actor != 'dependabot[bot]')
     needs: [start-runners, krun-static-build, km-build-payloads, kkm-test-aws]
     steps:
       # no need to checkout - just continue where stopped after tests
@@ -505,7 +506,7 @@ jobs:
     # CodeQL Code Scanning/Static Analysis
     name: Analyze
     runs-on: ubuntu-latest
-    if: (github.actor != 'dependabot[bot]')
+    if: (github.triggering_actor != 'dependabot[bot]')
     permissions:
       security-events: write
 
@@ -544,8 +545,9 @@ jobs:
     runs-on: ubuntu-latest
     # 'contains' shows how to add conditions, e.g. on workflow 'name:', or many other contexts.
     # see https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
-    if: (failure() && github.ref == 'refs/heads/master' && github.actor != 'dependabot[bot]') ||
-      contains(github.workflow, 'noisy') 
+    if:
+      (failure() && github.ref == 'refs/heads/master' && github.triggering_actor != 'dependabot[bot]') ||
+      contains(github.workflow, 'noisy')
     # Dependencies. (A skipped dependency is considered satisfied)
     needs:
       [

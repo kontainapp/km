@@ -9,19 +9,31 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    commit-message:
+      # without space, a ':' will be added to prefix. 
+      prefix: "[no ci] "
 
   - package-ecosystem: "pip"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    commit-message:
+      # without space, a ':' will be added to prefix. 
+      prefix: "[no ci] "
 
   - package-ecosystem: "docker"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    commit-message:
+      # without space, a ':' will be added to prefix. 
+      prefix: "[no ci] "
 
   - package-ecosystem: "github-actions"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    commit-message:
+      # without space, a ':' will be added to prefix. 
+      prefix: "[no ci] "
 
