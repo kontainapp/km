@@ -22,7 +22,7 @@ include ${TOP}/make/actions.mk
 all: vm-images
 
 # Use these boxes as sources for our boxes builds. (`generic/$os' is the box)
-SRC_OS := ubuntu2004 fedora32
+SRC_OS := ubuntu2004
 # Note: SRC_OS needs to be synced with os_name in *pkrvars.hcl files
 ARTIFACTS := ${TOP}/build/kkm.run ${TOP}/build/kontain.tar.gz
 

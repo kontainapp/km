@@ -287,8 +287,6 @@ jobs:
           name: kontain
           path: build
 
-      - run: pip3 install PyGithub
-
       - name: Publish Github release
         env:
           GITHUB_RELEASE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
