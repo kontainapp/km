@@ -9,4 +9,7 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
+    commit-message:
+      # without space, a ':' will be added to prefix. 
+      prefix: "[no ci] "
 
