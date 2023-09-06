@@ -21,6 +21,16 @@ on:
     # No final release artifacts will be created
     branches: [releases/*/*]
 
+  schedule:
+    # This will run every Friday at 4 am and create draft v0.1-test
+    # Posix cron format:
+    # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
+    # Minute Hour DayOfMonth MonthOfYear DayOfWeek
+    - cron: "0 4 * * 5" # Every friday at 4 am (not to overlap with CI nightly)
+    # Github doc says:
+    #    Scheduled workflows run on the latest commit on the default or base branch.
+    #    The shortest interval you can run scheduled workflows is once every 5 minutes.
+
   # Manual trigger.
   # See https://github.blog/changelog/2020-07-06-github-actions-manual-triggers-with-workflow_dispatch/
   workflow_dispatch:
