@@ -43,7 +43,7 @@ jobs:
   #   runs-on: ubuntu-20.04
   #   steps:
   #     - name: Checkout
-  #       uses: actions/checkout@v3
+  #       uses: actions/checkout@v4
   #       with:
   #         submodules: true
 
@@ -57,7 +57,7 @@ jobs:
   #   runs-on: ubuntu-20.04
   #   steps:
   #     - name: Checkout
-  #       uses: actions/checkout@v3
+  #       uses: actions/checkout@v4
   #       with:
   #         submodules: true
 
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Set env
@@ -92,7 +92,7 @@ jobs:
 
       # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
       # build krun
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
         with:
           path: .cache
@@ -133,7 +133,7 @@ jobs:
     needs: [krun-static-build]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -155,7 +155,7 @@ jobs:
   #   runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['azure'] }}
   #   needs: [start-runners, km-build]
   #   steps:
-  #     - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v4
   #       with:
   #         submodules: true
 
@@ -178,7 +178,7 @@ jobs:
   #   needs: [start-runners, km-build]
   #   runs-on: ${{ fromJSON(needs.start-runners.outputs.run-ons)['ec2'] }}
   #   steps:
-  #     - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v4
   #       with:
   #         submodules: true
 
