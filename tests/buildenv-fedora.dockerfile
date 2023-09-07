@@ -61,7 +61,7 @@ RUN tar -cf - -C /usr/local/lib64 . | tar xf - -C $PREFIX/runtime
 # Save the path to gcc versioned libs for the future
 RUN dirname $(gcc --print-file-name libgcc.a) > $PREFIX/alpine-lib/gcc-libs-path.txt
 
-FROM fedora:31 AS buildenv-early
+FROM fedora:35 AS buildenv-early
 # Some of the packages needed only for payloads and /or faktory, but we land them here for convenience.
 #
 # Also, this list is used on generating local build environment, so we explicitly add
@@ -69,11 +69,12 @@ FROM fedora:31 AS buildenv-early
 # We have also added packages needed by python.km extensions json generation (jq, googler), by python configuration (libffi-devel) and crun's build:
 #   automake autoconf libcap-devel yajl-devel libseccomp-devel
 #   python3-libmount libtool
+RUN dnf install -y 'dnf-command(config-manager)' \
+   && dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
 RUN dnf install -y \
-   gcc gcc-c++ make gdb git-core gcovr \
+   gcc gcc-c++ make gdb git-core gcovr gh \
    time patch file findutils diffutils which procps-ng python2 \
-   glibc-devel glibc-static libstdc++-static \
-   bzip2-devel \
+   glibc-devel glibc-static libstdc++-static bzip2-devel \
    golang-sigs-k8s-kustomize \
    zlib-static bzip2-static xz-static xz \
    openssl-devel openssl-static jq googler \

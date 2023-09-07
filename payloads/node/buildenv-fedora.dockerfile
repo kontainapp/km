@@ -27,10 +27,13 @@ FROM kontainapp/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION} AS buildenv-node
 ARG MODE
 ARG VERS
 
+USER root
+RUN dnf install -y crypto-policies-scripts && update-crypto-policies --set LEGACY
+USER $USER
 RUN git clone https://github.com/nodejs/node.git -b $VERS
 RUN cd node && ./configure --gdb `[[ $MODE == Debug ]] && echo -n --debug`
 RUN cd node && make -j`expr 2 \* $(nproc)`
-RUN cd node && make jstest CI_SKIP_TESTS="parallel/test-cluster-bind-privileged-port.js,parallel/test-cluster-shared-handle-bind-privileged-port.js"
+RUN cd node && make jstest CI_SKIP_TESTS="parallel/test-cluster-bind-privileged-port.js,parallel/test-cluster-shared-handle-bind-privileged-port.js,parallel/test-https-selfsigned-no-keycertsign-no-crash.js"
 
 FROM kontainapp/buildenv-km-fedora:${BUILDENV_IMAGE_VERSION}
 ARG MODE

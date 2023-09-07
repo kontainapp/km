@@ -13,10 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM fedora:31
+
+ARG DTYPE=fedora
+ARG BUILDENV_IMAGE_VERSION=latest
+
+FROM kontainapp/buildenv-km-${DTYPE}:${BUILDENV_IMAGE_VERSION}
+
+# Dedicated arbitrary in-image uid/gid, same as in km buildenv
+ARG UID=1001
+ARG GID=117
 
 # Contains the scripts needs to run tests.
-ADD extras.tar.gz /home/appuser/km
+ADD --chown=$UID:$GID extras.tar.gz /home/appuser/km
 ARG JAVA_DIR=/home/appuser/km/build/opt/kontain
 ARG BLDDIR=/home/appuser/km/build/
 ENV PATH=${JAVA_DIR}/bin:${PATH}
