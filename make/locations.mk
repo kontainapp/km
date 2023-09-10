@@ -101,7 +101,7 @@ DOCKER_BUILD_LABEL := \
 	--label "KONTAIN:BRANCH=$(SRC_BRANCH)" \
 	--label "KONTAIN:SHA=$(SRC_SHA)"
 
-DOCKER_BUILD := docker build ${DOCKER_BUILD_LABEL}
+DOCKER_BUILD := docker build ${DOCKER_BUILD_LABEL} --progress=plain
 
 CURRENT_UID := $(shell id -u)
 CURRENT_GID := $(shell id -g)

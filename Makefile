@@ -79,6 +79,7 @@ kkm-pkg: ## Build KKM module self-extracting package.
 	@if ! type makeself >& /dev/null ; then echo Please install \"makeself\" first; false; fi
 	@# We only need source code, so running 'clean' first
 	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/kkm/kkm clean >& /dev/null
+	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C ${TOP}/kkm/test_kkm clean >& /dev/null
 	makeself -q kkm ${BLDTOP}/kkm.run "beta-release" ./installer/build-script.sh
 
 release: ${KM_RELEASE} ${KM_BIN_RELEASE} ## Package kontain.tar.gz file for release

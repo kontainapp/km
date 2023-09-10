@@ -43,7 +43,7 @@ ADD jtreg-4.2-b16.tar.gz /home/$USER/
 RUN cd ${JDK_VERSION} && bash configure \
    --disable-warnings-as-errors --with-native-debug-symbols=internal \
    --with-jvm-variants=server --with-zlib=bundled --with-jtreg=/home/$USER/jtreg \
-   --enable-jtreg-failure-handler
+   --enable-jtreg-failure-handler --with-extra-cflags=-fcommon
 RUN make -C ${JDK_VERSION} images
 
 ARG BUILD=/home/$USER/jdk-11.0.8+10/build/linux-x86_64-normal-server-release/
