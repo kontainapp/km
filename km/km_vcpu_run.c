@@ -41,7 +41,7 @@ int kill_unimpl_hcall = 0;
 // Prevent snapshotting until the payload is running.
 int km_vcpus_are_started = 0;
 
-#define fx "VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx "
+#define fx " VCPU %d RIP 0x%0llx RSP 0x%0llx CR2 0x%llx"
 
 #define __run_err(vcpu, __s, __f, ...)                                                             \
    km_err(__s, __f fx, ##__VA_ARGS__, vcpu->vcpu_id, vcpu->regs.rip, vcpu->regs.rsp, vcpu->sregs.cr2);
@@ -491,6 +491,7 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
    int rc;
 
    vcpu->state = IN_GUEST;
+   errno = 0;
    vcpu->cpu_run->exit_reason = KVM_EXIT_UNKNOWN;   // Clear exit_reason from the preceding ioctl
    vcpu->regs_valid = 0;                            // Invalidate cached registers
    vcpu->sregs_valid = 0;
@@ -509,6 +510,9 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
    }
 
    if (rc != 0) {
+      if (errno == 0) {
+         errno = -rc;
+      }
       km_info(KM_TRACE_KVM,
               "RIP 0x%0llx RSP 0x%0llx CR2 0x%llx",
               vcpu->regs.rip,
