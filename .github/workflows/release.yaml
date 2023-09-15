@@ -217,7 +217,7 @@ jobs:
       RELEASE_TAG: ${{ needs.set-envs.outputs.release_tag }}
       AMI_GROUP: ${{ needs.set-envs.outputs.ami_groups }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v3
         with:
@@ -238,7 +238,7 @@ jobs:
       AMI_GROUPS: "[${{ needs.set-envs.outputs.ami_groups }}]"
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v3
         with:
@@ -261,7 +261,7 @@ jobs:
       RELEASE_TAG: ${{ needs.set-envs.outputs.release_tag }}
       AMI_GROUPS: "[${{ needs.set-envs.outputs.ami_groups }}]"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -323,7 +323,7 @@ jobs:
       RELEASE_TAG: ${{ needs.set-envs.outputs.release_tag }}
       AMI_GROUPS: ${{ needs.set-envs.outputs.ami_groups }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - run: |
           make -C cloud/azure login-cli
@@ -342,7 +342,7 @@ jobs:
       RELEASE_TAG: ${{ needs.set-envs.outputs.release_tag }}
       AMI_GROUPS: ${{ needs.set-envs.outputs.ami_groups }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v3
         with:
