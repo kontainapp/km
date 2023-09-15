@@ -1657,11 +1657,11 @@ fi
       #assert_success
       run ${KM_CLI_BIN} -r -d $SNAPDIR -s $MGTPIPE
       if test "$status" -ne 0; then
-         run /bin/kill -0 $pid
+         run /bin/kill -0 $pid >& /dev/null
          if test $status -ne 0; then
             # html server is not running, if km_with_timeout timed it out, we give up on this loop and dont fail the test
-            wait -p kmstatus $pid
-            if test $kmstatus -eq 124; then
+            wait $pid
+            if test $? -eq 124; then
                break;
             fi
             # km failed for some other reason, get the trace
@@ -1675,11 +1675,11 @@ fi
       #assert_success
       run curl -4 localhost:$socket_port
       if test "$status" -ne 0; then
-         run /bin/kill -0 $pid
+         run /bin/kill -0 $pid >& /dev/null
          if test $status -ne 0; then
             # html server is not running, if km_with_timeout timed it out, we give up on this loop and dont fail the test
-            wait -p kmstatus $pid
-            if test $kmstatus -eq 124; then
+            wait kmstatus $pid
+            if test $? -eq 124; then
                break;
             fi
             # km failed for some other reason, get the trace
