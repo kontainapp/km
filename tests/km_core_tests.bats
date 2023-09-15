@@ -1678,7 +1678,7 @@ fi
          run /bin/kill -0 $pid >& /dev/null
          if test $status -ne 0; then
             # html server is not running, if km_with_timeout timed it out, we give up on this loop and dont fail the test
-            wait kmstatus $pid
+            wait $pid
             if test $? -eq 124; then
                break;
             fi
