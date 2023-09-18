@@ -49,6 +49,12 @@ variable "release_tag" {
   description = "Kontain release version"
 }
 
+variable "ami_groups" {
+  type        = list(string)
+  description = "User group with access"
+  default = []
+}
+
 variable "ssh_user" {
   type    = string
   default = "ubuntu"
@@ -84,7 +90,7 @@ locals { timestamp = regex_replace(timestamp(), "[- TZ:]", "") }
 
 source "amazon-ebs" "build" {
   ami_description             = local.target_ami_label
-  ami_groups                  = ["all"]
+  ami_groups                  = var.ami_groups
   ami_name                    = local.target_ami_name
   associate_public_ip_address = true
   force_deregister            = true
