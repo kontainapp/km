@@ -200,7 +200,7 @@ fi
 # this is how we invoke gdb - with timeout
 function gdb_with_timeout () {
    timeout --foreground $timeout \
-      gdb "$@"
+      gdb --batch "$@"
    s=$?; if [ $s -eq 124 ] ; then echo "\nTimed out in $timeout" ; fi ; return $s
 }
 
