@@ -517,7 +517,8 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
               vcpu->regs.rsp,
               vcpu->sregs.cr2);
       vcpu->cpu_run->exit_reason = KVM_EXIT_INTR;
-      switch (ioctl_errno) {
+      errno = ioctl_errno;
+      switch (errno) {
          case EINTR:
             break;
 
