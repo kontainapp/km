@@ -109,6 +109,22 @@ void test_sigaction(int signo, siginfo_t* info, void* ctx)
    pthread_mutex_unlock(&signal_lock);
 }
 
+static int secret = 1;
+void clear_secret(int signo)
+{
+   fprintf(stderr, "clearing secret\n");
+   secret = 0;
+}
+
+void restore_secret(int signo)
+{
+   if (secret != 0) {
+      fprintf(stderr, "secret was not cleared before snapshot\n");
+      exit(1);
+   }
+   secret = 2;
+}
+
 void setup_process_state()
 {
    int tmpfd;
@@ -149,6 +165,22 @@ void setup_process_state()
        .sa_flags = SA_SIGINFO,
    };
    CHECK_SYSCALL(sigaction(SIGUSR1, &act, NULL));
+
+   {
+      struct sigaction act = {
+          .sa_handler = clear_secret,
+          .sa_flags = SA_SIGINFO,
+      };
+      CHECK_SYSCALL(syscall(SYS_rt_sigaction, KM_SIGSNAPCREATE, &act, NULL, sizeof(sigset_t)));
+   }
+   {
+      struct sigaction act = {
+          .sa_handler = restore_secret,
+          .sa_flags = SA_SIGINFO,
+      };
+      CHECK_SYSCALL(syscall(SYS_rt_sigaction, KM_SIGSNAPRESTORE, &act, NULL, sizeof(sigset_t)));
+   }
+
    return;
 }
 
@@ -323,6 +355,7 @@ void* thread_main(void* arg)
                 : /* No output */
                 : "r"(seventeen)
                 : "%xmm0");
+
    /*
     * Take the snapshot.
     */
@@ -338,6 +371,11 @@ void* thread_main(void* arg)
     */
    if (pthread_mutex_trylock(&long_lock) == 0) {
       fprintf(stderr, "long_lock state not restored\n");
+      exit(1);
+   }
+
+   if (secret != 2) {
+      fprintf(stderr, "secret was not updated before restore\n");
       exit(1);
    }
 
