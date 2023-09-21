@@ -366,6 +366,12 @@ static const char* const hc_name[KM_MAX_HCALL] = {
    [431] = "fsconfig",
    [432] = "fsmount",
    [433] = "fspick",
+   [434] = "pidfd_open",
+   [435] = "clone3",
+   [436] = "close_range",
+   [437] = "openat2",
+   [438] = "pidfd_getfd",
+   [439] = "faccessat2",
    // reserved to be compatible with earlier-built payloads.
    // TODO: drop before release, we do not need compat with
    // pre-release payloads

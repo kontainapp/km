@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <ctype.h>
 #include <errno.h>
 #include <execinfo.h>
 #include <fcntl.h>
@@ -26,6 +27,9 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/un.h>
+#include <arpa/inet.h>
+#include <linux/netlink.h>
 
 #include "km.h"
 #include "km_exec.h"
@@ -142,6 +146,104 @@ void __km_trace(int errnum, const char* function, int linenumber, const char* fm
       }
    }
    errno = save_errno;
+}
+
+/*
+ * A small routine to format an arbitrary part of memory into the km trace.
+ * We produce a trace like this:
+ * OOOOOO: XX XX XX XX XX XX XX XX XX XX XX XX XX XX XX XX  *AAAAAAAAAAAAAAAA*
+ * Where OOOOOO is the offset from start of the buffer, XX is hex for a byte,
+ * A is ascii for that byte
+ * We handle short lengths a lengths that are not a multiple of 16.
+ * This function does not decide if the trace should happen, that is the
+ * caller's responsibility.
+ */
+void km_trace_mem(const char* function, int linenumber, const void* p, size_t l)
+{
+   char linebuffer[128];
+   if (l == 0) {
+      return;
+   }
+   for (unsigned int offset = 0; offset < l; offset += 16) {
+      int bytecount = l - offset;
+      if (bytecount > 16) {
+         bytecount = 16;
+      }
+      char* cp = linebuffer;
+      cp += snprintf(linebuffer, sizeof(linebuffer), "%06x: ", offset);
+      for (int i = 0; i < 16; i++) {
+         if (i < bytecount) {
+            cp += sprintf(cp, "%02x ", ((unsigned char*)p)[offset + i]);
+         } else {
+            cp += sprintf(cp, "%s", "   ");
+         }
+      }
+      // Now do the ascii
+      *cp++ = '*';
+      for (int i = 0; i < 16; i++) {
+         if (i >= bytecount) {
+            *cp = ' ';
+         } else if (isprint(((unsigned char*)p)[offset + i])) {
+            *cp = ((unsigned char*)p)[offset + i];
+         } else {
+            *cp = '.';
+         }
+         cp++;
+      }
+      *cp++ = '*';
+      *cp = 0;
+      __km_trace(0, function, linenumber, "%s", linebuffer);
+   }
+}
+
+void km_trace_sockaddr(const char* function, int linenumber, const char* tag, const struct sockaddr* sap)
+{
+   unsigned short port;
+   char addrbuffer[128];
+   char linebuffer[256];
+   if (sap == NULL) {
+      return;
+   }
+   switch (sap->sa_family) {
+      case AF_UNSPEC:
+         snprintf(linebuffer,
+                  sizeof(linebuffer),
+                  "%s unspec: sa_data %02x %02x %02x ...",
+                  tag,
+                  sap->sa_data[0],
+                  sap->sa_data[1],
+                  sap->sa_data[2]);
+         break;
+      case AF_INET:
+         inet_ntop(sap->sa_family, &((struct sockaddr_in*)sap)->sin_addr, addrbuffer, sizeof(addrbuffer));
+         port = ntohs(((struct sockaddr_in*)sap)->sin_port);
+         snprintf(linebuffer, sizeof(linebuffer), "%s inet4: port %u, addr %s", tag, port, addrbuffer);
+         break;
+      case AF_INET6:
+         inet_ntop(sap->sa_family, &((struct sockaddr_in6*)sap)->sin6_addr, addrbuffer, sizeof(addrbuffer));
+         port = ntohs(((struct sockaddr_in6*)sap)->sin6_port);
+         snprintf(linebuffer, sizeof(linebuffer), "%s inet6: port %u, addr %s", tag, port, addrbuffer);
+         break;
+      case AF_UNIX:
+         snprintf(linebuffer, sizeof(linebuffer), "%s unix: %s", tag, ((struct sockaddr_un*)sap)->sun_path);
+         break;
+      case AF_NETLINK:
+         snprintf(linebuffer,
+                  sizeof(linebuffer),
+                  "%s netlink: nl_pid %u, nl_groups %u",
+                  tag,
+                  ((struct sockaddr_nl*)sap)->nl_pid,
+                  ((struct sockaddr_nl*)sap)->nl_groups);
+         break;
+      default:
+         snprintf(linebuffer,
+                  sizeof(linebuffer),
+                  "%s unhandled address family: %d, fixme!",
+                  tag,
+                  sap->sa_family);
+         break;
+   }
+   __km_trace(0, function, linenumber, "%s", linebuffer);
 }
 
 void km_trace_include_pid(uint8_t trace_pid)

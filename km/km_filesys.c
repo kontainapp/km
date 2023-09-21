@@ -1948,7 +1948,11 @@ km_fs_get_sock_peer_name(km_vcpu_t* vcpu, int hc, int sockfd, struct sockaddr* a
    if (ret != 0) {
       return ret;
    }
+   km_infox(KM_TRACE_NETWORK, "fd %d", sockfd);
    ret = __syscall_3(hc, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
+   if (ret == 0) {
+      km_info_sockaddr(KM_TRACE_NETWORK, (hc == SYS_getpeername) ? "peername" : "sockname", addr);
+   }
    return ret;
 }
 
@@ -1963,6 +1967,7 @@ uint64_t km_fs_bind(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_
    if (ret != 0) {
       return ret;
    }
+   km_infox(KM_TRACE_NETWORK, "fd %d", sockfd);
    ret = __syscall_3(SYS_bind, host_sockfd, (uintptr_t)addr, addrlen);
    if (ret == 0) {
       km_fd_socket_t* sock = km_fs()->guest_files[sockfd].sockinfo;
@@ -1970,6 +1975,7 @@ uint64_t km_fs_bind(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, socklen_
       memcpy(sock->addr, addr, addrlen);
       sock->state = KM_SOCK_STATE_BIND;
    }
+   km_info_sockaddr(KM_TRACE_NETWORK, "bind addr", addr);
    return ret;
 }
 
@@ -1984,6 +1990,7 @@ uint64_t km_fs_listen(km_vcpu_t* vcpu, int sockfd, int backlog)
    if (ret != 0) {
       return ret;
    }
+   km_infox(KM_TRACE_NETWORK, "fd %d, backlog %d", sockfd, backlog);
    ret = __syscall_2(SYS_listen, host_sockfd, backlog);
    if (ret == 0) {
       km_fd_socket_t* sock = km_fs()->guest_files[sockfd].sockinfo;
@@ -2039,6 +2046,15 @@ uint64_t km_fs_accept4(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockl
 
    km_set_active_accept();
 
+   km_infox(KM_TRACE_NETWORK,
+            "sockfd %d, addr %p, addrlen %p, fl 0x%x, accepted fd %d",
+            sockfd,
+            addr,
+            addrlen,
+            fl,
+            guestfd);
+   km_info_sockaddr(KM_TRACE_NETWORK, "accept4 peer", addr);
+
    return guestfd;
 }
 
@@ -2059,6 +2075,8 @@ uint64_t km_fs_connect(km_vcpu_t* vcpu, int sockfd, struct sockaddr* addr, sockl
    if (ret != 0) {
       return ret;
    }
+   km_infox(KM_TRACE_NETWORK, "fd %d", sockfd);
+   km_info_sockaddr(KM_TRACE_NETWORK, "connect to", addr);
    ret = __syscall_3(SYS_connect, host_sockfd, (uintptr_t)addr, (uintptr_t)addrlen);
    if (ret >= 0) {
       km_fd_socket_t* sock = km_fs()->guest_files[sockfd].sockinfo;
@@ -2100,6 +2118,15 @@ uint64_t km_fs_sendto(km_vcpu_t* vcpu,
    if (ret != 0) {
       return ret;
    }
+   km_infox(KM_TRACE_NETWORK,
+            "sockfd %d, buf %p, len %lu, flags 0x%x, dest_addr %p, addrlen %d",
+            sockfd,
+            buf,
+            len,
+            flags,
+            addr,
+            addrlen);
+   km_info_mem(KM_TRACE_NETWORK, buf, len);
    ret = __syscall_6(SYS_sendto, host_sockfd, (uintptr_t)buf, len, flags, (uintptr_t)addr, addrlen);
    return ret;
 }
@@ -2117,8 +2144,19 @@ uint64_t km_fs_recvfrom(
    if (ret != 0) {
       return ret;
    }
+   km_infox(KM_TRACE_NETWORK,
+            "fd %d, buf %p, len %lu, flags 0x%x, addr %p, addrlen %p",
+            sockfd,
+            buf,
+            len,
+            flags,
+            addr,
+            addrlen);
    ret =
        __syscall_6(SYS_recvfrom, host_sockfd, (uintptr_t)buf, len, flags, (uintptr_t)addr, (uintptr_t)addrlen);
+   if (ret > 0) {
+      km_info_mem(KM_TRACE_NETWORK, buf, ret);
+   }
    return ret;
 }
 

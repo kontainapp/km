@@ -32,6 +32,7 @@
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <linux/kvm.h>
 #include <linux/sched.h>
@@ -436,6 +437,8 @@ static inline void km_vcpu_sync_rip(km_vcpu_t* vcpu)
 extern FILE* km_log_file;
 
 void __km_trace(int errnum, const char* function, int linenumber, const char* fmt, ...);
+void km_trace_mem(const char* function, int linenumber, const void* buf, size_t len);
+void km_trace_sockaddr(const char* function, int linenumber, const char* tag, const struct sockaddr* sap);
 void km_trace_include_pid(uint8_t trace_pid);
 uint8_t km_trace_include_pid_value(void);
 void km_trace_set_noninteractive(void);
@@ -538,6 +541,20 @@ static inline int km_trace_tag_enabled(const char* tag)
    do {                                                                                            \
       if (km_trace_tag_enabled(tag) != 0)                                                          \
          __km_trace(0, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__);                                \
+   } while (0)
+
+// Trace the contents of memory pointed to by buf, for a length of len
+#define km_info_mem(tag, buf, len)                                                                 \
+   do {                                                                                            \
+      if (km_trace_tag_enabled(tag) != 0)                                                          \
+         km_trace_mem(__FUNCTION__, __LINE__, (void*)(buf), len);                                  \
+   } while (0)
+
+// Trace the contents of a struct sockaddr based on the family field's value
+#define km_info_sockaddr(tag, idstring, sap)                                                       \
+   do {                                                                                            \
+      if (km_trace_tag_enabled(tag) != 0 && (sap) != NULL)                                         \
+         km_trace_sockaddr(__FUNCTION__, __LINE__, idstring, sap);                                 \
    } while (0)
 
 // trace no matter what the tag is, but only if -V is enabled
@@ -775,6 +792,7 @@ static inline void km_signal_unlock(void)
 #define KM_TRACE_ARGS "args"
 #define KM_TRACE_LOAD "load"
 #define KM_TRACE_SHRINK "shrink"
+#define KM_TRACE_NETWORK "network"
 
 // Helper function to visit entries in the dynamically loaded modules list.
 typedef int(link_map_visit_function_t)(struct link_map* kma,
