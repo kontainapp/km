@@ -490,15 +490,15 @@ static void km_vcpu_one_kvm_run(km_vcpu_t* vcpu)
 {
    int rc;
 
-   vcpu->state = IN_GUEST;
    vcpu->cpu_run->exit_reason = KVM_EXIT_UNKNOWN;   // Clear exit_reason from the preceding ioctl
    vcpu->regs_valid = 0;                            // Invalidate cached registers
    vcpu->sregs_valid = 0;
    km_infox(KM_TRACE_VCPU, "about to ioctl( KVM_RUN )");
    errno = 0;
+   vcpu->state = IN_GUEST;
    rc = ioctl(vcpu->kvm_vcpu_fd, KVM_RUN, NULL);
-   int ioctl_errno = errno;
    vcpu->state = HYPERCALL;
+   int ioctl_errno = errno;
    km_infox(KM_TRACE_VCPU,
             "ioctl( KVM_RUN ) returned %d KVM_RUN exit %d (%s)",
             rc,
