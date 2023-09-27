@@ -89,7 +89,6 @@ define testenv_prep =
 		-C ${TOP} \
 			build/opt/kontain/runtime/libc.so \
 			build/opt/kontain/runtime/ld-linux-x86-64.so.2 \
-			build/opt/kontain/runtime/libstdc++.so \
 			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
 			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
 			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
@@ -116,7 +115,6 @@ define coverage_testenv_prep =
 		-C ${TOP} \
 			build/opt/kontain/runtime/libc.so \
 			build/opt/kontain/runtime/ld-linux-x86-64.so.2 \
-			build/opt/kontain/runtime/libstdc++.so \
 			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
 			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
 			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \
@@ -144,7 +142,6 @@ define valgrind_testenv_prep =
 		-C ${TOP} \
 			build/opt/kontain/runtime/libc.so \
 			build/opt/kontain/runtime/ld-linux-x86-64.so.2 \
-			build/opt/kontain/runtime/libstdc++.so \
 			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6 \
 			build/opt/kontain/alpine-lib/usr/lib/libstdc++.so.6.0.28 \
 			build/opt/kontain/alpine-lib/usr/lib/libgcc_s.so.1 \

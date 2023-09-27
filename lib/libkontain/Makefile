@@ -33,3 +33,6 @@ all: libkontain.h
 	mkdir -p ${KM_OPT_LIB}
 	cp ${BLDTOP}/lib/libkontain/libkontain.a ${KM_OPT_LIB}
 	cp ${BLDTOP}/lib/libkontain/libkontain.so ${KM_OPT_LIB}
+
+clean::
+	rm -f ${KM_OPT_INC}/libkontain.h

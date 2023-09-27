@@ -169,3 +169,9 @@ ${BLDDIR}/${SRCDIR}/include/bits/syscall.h: $(SRCDIR)/arch/$(ARCH)/bits/syscall.
 ${BLDDIR}/${SRCDIR}/include/version.h: $(wildcard $(SRCDIR)/VERSION $(SRCDIR)/.git)
 	mkdir -p $(dir $@)
 	printf '#define VERSION "%s"\n' "$$(cd $(SRCDIR); sh tools/version.sh)" > $@
+
+clean::
+	$(MAKE) -C musl distclean
+	rm -rf ${BLDDIR}/*
+	rm -f ${KM_OPT_RT}/*
+
