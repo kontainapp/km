@@ -34,3 +34,8 @@ all:
 	ln -sf libmimalloc.so.1.7 ${KM_OPT_LIB}/libmimalloc.so
 	ldd ${ME_MI_BLDDIR}/libmimalloc.so.1.7
 
+clean::
+	rm -rf ${ME_MI_BLDDIR}
+	rm -f ${KM_OPT_LIB}/libmimalloc.a
+	rm -f ${KM_OPT_LIB}/libmimalloc.so.1.7
+	rm -f  ${KM_OPT_LIB}/libmimalloc.so

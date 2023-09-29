@@ -23,3 +23,5 @@ all: km_hcalls.h
 	mkdir -p ${KM_OPT_INC}
 	cp km_hcalls.h ${KM_OPT_INC}
 
+clean:
+	rm -f ${KM_OPT_INC}/km_hcalls.h

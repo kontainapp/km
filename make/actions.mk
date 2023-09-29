@@ -75,7 +75,7 @@ test-all-withdocker: subdirs ## build all and run KM and payload tests
 release: subdirs ## Package .tar.gz files for external release to build dir
 
 $(SUBDIRS):
-	$(MAKE) -C $@ MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=
+	$(MAKE) -C $@ MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=;\
 
 .PHONY: subdirs $(SUBDIRS)
 
@@ -98,6 +98,13 @@ ${VERSION_SRC}: ${TOP}/.git/HEAD ${TOP}/.git/index
 ${BLDDIR}/$(subst .c,.o,${VERSION_SRC}): CFLAGS += -DSRC_BRANCH=${SRC_BRANCH} -DSRC_VERSION=${SRC_VERSION} -DBUILD_TIME=${BUILD_TIME}
 endif # ifneq (${VERSION_SRC},)
 
+# rm is split due to "Argument list too long" bash error
+clean::
+	rm -f ${BLDEXEC} 
+	rm -f $(OBJS) 
+	rm -f $(DEPS)
+	rm -f $(KM_OPT_BIN)/`basename ${EXEC}`
+
 endif # ifneq (${EXEC},)
 
 ifneq (${LIB},)
@@ -108,6 +115,14 @@ ${BLDLIB}: $(OBJS)
 
 ${BLDSOLIB}: $(OBJS)
 	@echo "Making " $@; rm -f $@; ${CC} -shared -o $@ $(OBJS)
+
+# rm is split due to "Argument list too long" bash error
+clean::
+	rm -f $(OBJS) 
+	rm -f ${BLDLIB} ${BLDSOLIB} 
+	rm -f $(DEPS)
+	rm -f $(addprefix ${KM_OPT_LIB}/lib,$(addsuffix .a,${LIB}))
+	rm -f $(addprefix ${KM_OPT_LIB}/lib,$(addsuffix .so,${SOLIB}))
 
 endif # ifneq (${LIB},)
 
@@ -139,12 +154,6 @@ ${BLDDIR}/%.d: %.c
 	$(CC) -MT ${BLDDIR}/$*.o -MT $@ -MM ${CFLAGS} $(abspath $<) -o $@
 
 test test-all: all
-
-# using :: allows other makefile to add rules for clean-up, and keep the same name
-clean::
-	rm -rf ${BLDDIR}
-	rm -rf ${KM_OPT_BIN_PATH}
-	rm -rf ${KM_OPT_BIN}
 
 #
 # do not generate .d file for some targets

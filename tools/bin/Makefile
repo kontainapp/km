@@ -24,3 +24,9 @@ all coverage: kontain-gcc | ${KM_OPT_BIN}
 	cp kontain-ar ${KM_OPT_BIN}
 	cp kontain-strip ${KM_OPT_BIN}
 	ln -sf kontain-gcc ${KM_OPT_BIN}/kontain-g++
+
+clean:
+	rm -f ${KM_OPT_BIN}/kontain-gcc
+	rm -f ${KM_OPT_BIN}/kontain-ar
+	rm -f ${KM_OPT_BIN}/kontain-strip
+	rm -f ${KM_OPT_BIN}/kontain-g++

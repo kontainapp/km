@@ -47,6 +47,8 @@ all: $(CRUNDIR)/Makefile .makefile_check | ${KM_OPT_BIN}
 	cp $(CRUNDIR)/crun ${BLDDIR}/crun
 	ln -f ${BLDDIR}/crun ${BLDDIR}/krun
 	ln -f ${BLDDIR}/crun ${BLDDIR}/krun-label-trigger
+	cp ./docker_config.sh ${KM_OPT_BIN}
+	cp ./podman_config.sh ${KM_OPT_BIN}
 
 $(CRUNDIR)/Makefile:
 	cd $(CRUNDIR); ./autogen.sh; ./configure
@@ -80,14 +82,14 @@ test:	all
 	OCI_RUNTIME=${KM_OPT_BIN}/crun make -C $(CRUNDIR) check-TESTS
 
 clean::
-	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) clean
+	@if [ -f "$(CRUNDIR)/Makefile" ];then\
+	   $(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) distclean;\
+	fi
 	@# crun's clean removes this file, so git sees it as a change. Restore back to clean
 	cd $(CRUNDIR) && git checkout crun.1
-
-# Cleanup to force rebuilding of the crun Makefile in addition to crun
-clobber: clean
-	-$(MAKE) MAKEFLAGS="$(MAKEFLAGS)" -C $(CRUNDIR) distclean
 	rm -f $(CRUNDIR)/configure $(CRUNDIR)/krun $(CRUNDIR)/krun.static $(CRUNDIR)/krun.static-label-trigger
+	rm -f ${KM_OPT_BIN}/crun ${KM_OPT_BIN}/krun ${KM_OPT_BIN}/krun-label-trigger ${KM_OPT_BIN}/docker_config.sh ${KM_OPT_BIN}/podman_config.sh
+	rm -f ${BLDDIR}/crun ${BLDDIR}/krun ${BLDDIR}/krun-label-trigger
 
 # If they have a Makefile made for some other directory ask them to remake it
 # Switching between docker builds and non-docker builds in the same dir can cause this.
