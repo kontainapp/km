@@ -707,11 +707,11 @@ fi
 @test "cpuid($test_type): test cpu vendor id (cpuid_test$ext)" {
    cpuidexpected='Kontain'
    if [ "${USE_VIRT}" = 'kkm' ]; then
-      cpuidexpected='GenuineIntel'
+      cpuidexpected='(GenuineIntel|AuthenticAMD)'
    fi
    run km_with_timeout --vendorid cpuid_test$ext
    assert_success
-   assert_line --partial $cpuidexpected
+   assert_line --regexp ".*${cpuidexpected}.*"
 }
 
 @test "longjmp_test($test_type): basic setjmp/longjump" {
