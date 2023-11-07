@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 {
    struct addrinfo* ar;
    int err;
-   char* port = getenv("PORT");
+   char* port = (argc >= 2) ? argv[1] : NULL;
    int portn = 7777;
    if (port != NULL) {
       portn = atoi(port);
