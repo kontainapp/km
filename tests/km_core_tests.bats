@@ -1870,7 +1870,7 @@ EOF
    # This test uses 2 ports, so the next free port would be 35.
    local port_id=33
    local socket_port=$(($port_range_start + $port_id))
-   km_with_timeout --putenv=PORT=$socket_port sendmsg_test$ext
+   km_with_timeout sendmsg_test$ext $socket_port
    assert_success
 }
 
