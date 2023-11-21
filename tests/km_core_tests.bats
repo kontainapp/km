@@ -1801,7 +1801,6 @@ EOF
 @test "aio($test_type): exercise io_*() syscalls (aio_test$ext)" {
    WORKDIR=`pwd`/aio_workdir.$$
    mkdir -p $WORKDIR
-   assert_success
 
    AIO_TEST_WORKDIR=$WORKDIR run km_with_timeout aio_test$ext -f 13 -c 1
    assert_success
@@ -1820,8 +1819,7 @@ EOF
       tries=$(($tries - 1))
    done
    assert [ $tries -ne 0 ]
-   run rm -f $WORKDIR/waiting
-   assert_success
+   rm -f $WORKDIR/waiting
 
    # take the snapshot, we let the payload terminate after snapshot
    run ${KM_CLI_BIN} -s $WORKDIR/kmpipe* -t
@@ -1836,7 +1834,7 @@ EOF
    assert [ -n "$snapfile" ]
 
    # start the snapshot and tell it to get going
-   run km_with_timeout $snapfile &
+   km_with_timeout $snapfile &
    local pid=$!
    run touch $WORKDIR/continue
    assert_success
@@ -1847,7 +1845,7 @@ EOF
    # Now try to take a snapshot when async i/o is active.
    # This snapshot should fail.
    rm -f $WORKDIR/*
-   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR  run km_with_timeout aio_test$ext -f 13 -c 1 -sf &
+   KM_MGTDIR=$WORKDIR AIO_TEST_WORKDIR=$WORKDIR km_with_timeout aio_test$ext -f 13 -c 1 -sf &
    aio_test_pid=$!
    tries=10
    while [ $tries -gt 0 ]; do
