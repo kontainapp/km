@@ -495,12 +495,14 @@ jobs:
       - name: Check krun personality
         run: |
           OUT=$(docker run --rm -v /.kontain busybox uname -r)
-          echo ${OUT} | grep -q '.*\.kontain.KKM$'
+          echo ${OUT}
+          echo ${OUT} | grep -q '.*\.kontain.K[KV]M$'
 
       - name: Check crun personality
         run: |
           OUT=$(docker run --rm busybox uname -r)
-          echo ${OUT} | grep -v -q '.*\.kontain.KKM$'
+          echo ${OUT}
+          echo ${OUT} | grep -v -q '.*\.kontain.K[KV]M$'
 
   codeql-scan:
     # CodeQL Code Scanning/Static Analysis
