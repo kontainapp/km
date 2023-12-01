@@ -100,7 +100,7 @@ all: ${BLDDIR}/.finalize
 # libc.musl-x86_64.so.1 -> libc.so # needed for Alpine libstdc++
 # ld-linux-x86-64.so.2 -> libc.so  # needed for all non-Alpine (eg Fedora) .so
 .PHONY: ${BLDDIR}/.finalize
-${BLDDIR}/.finalize: $(addprefix ${BLDDIR}/,libm.a libpthread.a libpthread.so libc.so) ${CRT_OBJS} ${KM_OPT_RT}
+${BLDDIR}/.finalize: $(addprefix ${BLDDIR}/,libm.a libpthread.a libpthread.so libc.so libruntime.a) ${CRT_OBJS} ${KM_OPT_RT}
 	@#
 	@# set symlinks in ../build
 	@#
@@ -117,7 +117,7 @@ ${BLDDIR}/.finalize: $(addprefix ${BLDDIR}/,libm.a libpthread.a libpthread.so li
 		echo -e "${RED}${KM_OPT_RT} is not writeable - run 'make -C tests buildenv-local-fedora'$(NOCOLOR)" ; \
 		false; \
 	fi
-	@echo Copy libs to ${KM_OPT_RT}...; cp --no-dereference --preserve=all --update ${BLDDIR}/lib{*.a,*.so*} ${BLDDIR}/ld-linux* ${KM_OPT_RT}
+	cp --no-dereference --preserve=all --update ${BLDDIR}/lib{*.a,*.so*} ${BLDDIR}/ld-linux* ${KM_OPT_RT}
 	@touch $@
 
 $(addprefix ${BLDDIR}/, libm.a):
