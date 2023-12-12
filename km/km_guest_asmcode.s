@@ -45,8 +45,11 @@ __km_handle_interrupt:
     .global __km_handle_interrupt
     .cfi_startproc
     push %rdx
+    .cfi_def_cfa rsp, 8
     push %rbx
+    .cfi_def_cfa rsp, 16
     push %rax
+    .cfi_def_cfa rsp, 24
     mov $0xdeadbeef, %rbx
     mov %rsp, %gs:0         # KM Setup km_hc_args_t on stack for us to use
     mov $0x81fd, %dx        # HC_guest_interrupt
@@ -161,12 +164,19 @@ __km_syscall_handler:
     .cfi_register %rip, %rcx  # old %rip is in %rcx
     // create a km_hcall_t on the stack.
     push %r9    # arg6
+    .cfi_def_cfa rsp, 8
     push %r8    # arg5
+    .cfi_def_cfa rsp, 16
     push %r10   # arg4
+    .cfi_def_cfa rsp, 24
     push %rdx   # arg3
+    .cfi_def_cfa rsp, 32
     push %rsi   # arg2
+    .cfi_def_cfa rsp, 40
     push %rdi   # arg1
+    .cfi_def_cfa rsp, 48
     push %rax   # hc_ret - don't care about value. %rax is convienent.
+    .cfi_def_cfa rsp, 56
     mov %rsp,%gs:0  # set this thread's hcargs pointer
 
     mov %ax, %dx     # Do the KM HCall
@@ -176,10 +186,13 @@ __km_syscall_handler:
     mov hc_arg3(%rsp), %rdx  # restore rdx
     mov hc_ret(%rsp), %rax   # Get return code into RAX
     add $HCARG_SIZE, %rsp    # Restore stack
+    .cfi_def_cfa rsp, 8
 
     andq $0x3C7FD7, %r11    # restore the flag register
     push %r11
+    .cfi_def_cfa rsp, 8
     popfq
+    .cfi_def_cfa rsp, 0
 
     /*
      * SYSCALL saved address of the next instruction in %rcx.

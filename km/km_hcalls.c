@@ -2384,6 +2384,12 @@ static km_hc_ret_t io_destroy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t rseq_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = -ENOSYS;
+   return HC_CONTINUE;
+}
+
 /*
  * int syscall(SYS_io_getevents, aio_context_t ctx_id,
  *             long min_nr, long nr, struct io_event *events,
@@ -2614,6 +2620,8 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_io_cancel] = io_cancel_hcall,
     [SYS_io_getevents] = io_getevents_hcall,
     [SYS_io_destroy] = io_destroy_hcall,
+
+    [SYS_rseq] = rseq_hcall,
 
     [HC_guest_interrupt] = guest_interrupt_hcall,
     [HC_unmapself] = unmapself_hcall,
