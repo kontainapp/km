@@ -1799,9 +1799,8 @@ EOF
 }
 
 @test "aio($test_type): exercise io_*() syscalls (aio_test$ext)" {
-   WORKDIR=aio_workdir.$$
+   WORKDIR=`pwd`/aio_workdir.$$
    mkdir -p $WORKDIR
-   assert_success
 
    AIO_TEST_WORKDIR=$WORKDIR run km_with_timeout aio_test$ext -f 13 -c 1
    assert_success
@@ -1809,7 +1808,8 @@ EOF
    # Now try snapshotting and resuming a payload with io contexts
    # This snapshot should succeed because there will be no active asynch
    # i/o requests
-   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR  run km_with_timeout aio_test$ext -f 13 -c 1 -ss &
+   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR km_with_timeout aio_test$ext -f 13 -c 1 -ss &
+   local aio_test_pid=$!
    tries=10
    while [ $tries -gt 0 ]; do
       if [ -e $WORKDIR/waiting ]; then
@@ -1822,25 +1822,31 @@ EOF
    rm -f $WORKDIR/waiting
 
    # take the snapshot, we let the payload terminate after snapshot
-   ${KM_CLI_BIN} -s $WORKDIR/kmpipe* -t
-   assert_success
-   rm -f $WORKDIR/kmsnap.*.conf
-   snapfile=`ls $WORKDIR/kmsnap.aio_test$ext.[0-9]*`
+   run ${KM_CLI_BIN} -s $WORKDIR/kmpipe* -t
    assert_success
 
+   # wait for snapshotted aio_test to terminate
+   wait_and_check $aio_test_pid 0
+
+   # Get the snapshot file name
+   rm -f $WORKDIR/kmsnap.*.conf
+   snapfile=`ls $WORKDIR/kmsnap.aio_test$ext.[0-9]*`
+   assert [ -n "$snapfile" ]
+
    # start the snapshot and tell it to get going
-   run km_with_timeout $snapfile &
+   km_with_timeout $snapfile &
    local pid=$!
    run touch $WORKDIR/continue
    assert_success
 
-   # wait for the snapshot to finish
+   # wait for aio_test snapshot to terminate
    wait_and_check $pid 0
 
    # Now try to take a snapshot when async i/o is active.
    # This snapshot should fail.
    rm -f $WORKDIR/*
-   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR  run km_with_timeout aio_test$ext -f 13 -c 1 -sf &
+   KM_MGTDIR=$WORKDIR AIO_TEST_WORKDIR=$WORKDIR km_with_timeout aio_test$ext -f 13 -c 1 -sf &
+   aio_test_pid=$!
    tries=10
    while [ $tries -gt 0 ]; do
       if [ -e $WORKDIR/waiting ]; then
@@ -1860,8 +1866,8 @@ EOF
    run touch $WORKDIR/continue
    assert_success
 
-   # we need to wait a little while for the aio_test to find the continue file so it can finish
-   sleep 5
+   # wait for aio_test to terminate
+   wait_and_check $aio_test_pid 0
 
    rm -fr $WORKDIR
 }
