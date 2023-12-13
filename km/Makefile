@@ -46,3 +46,5 @@ include ${TOP}/make/actions.mk
 
 coverage: all
 
+all:
+	cp ${KM_BLDDIR}/km_guest_asmcode.o ${KM_OPT_BIN_PATH}
