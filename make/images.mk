@@ -129,7 +129,7 @@ define coverage_testenv_prep =
 			build/opt/kontain/runtime/libpthread.so \
 			build/opt/kontain/coverage/bin/km \
 			build/opt/kontain/coverage/bin/km_cli \
-			build/opt/kontain/bin/km_guest_asmcode.o \
+			build/opt/kontain/coverage/bin/km_guest_asmcode.o \
 			build/km/coverage \
 			km \
 			include \
@@ -157,7 +157,7 @@ define valgrind_testenv_prep =
 			build/opt/kontain/runtime/libpthread.so \
 			build/opt/kontain/valgrind/bin/km \
 			build/opt/kontain/valgrind/bin/km_cli \
-			build/opt/kontain/bin/km_guest_asmcode.o \
+			build/opt/kontain/valgrind/bin/km_guest_asmcode.o \
 			build/km/valgrind \
 			km \
 			include \
