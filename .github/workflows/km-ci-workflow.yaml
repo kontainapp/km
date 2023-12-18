@@ -97,7 +97,7 @@ jobs:
       # passing hello_test.c and libhelper.a
       # because we will need to rebuild hello_test.kmd with correct RPATH for runtime environments
       - name: Upload km-build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: km-build
           path: |
@@ -125,7 +125,7 @@ jobs:
           submodules: true
 
       - name: Download km-build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-build
           path: .
@@ -198,7 +198,7 @@ jobs:
 
       # get build directory created by km-build job
       - name: Download km-build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-build
           path: .
@@ -235,7 +235,7 @@ jobs:
           make k8s-bundle
 
       - name: Upload km-k8s-rel-artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: km-k8s-rel-artifact
           path: build/kontain_bin.tar.gz
@@ -252,7 +252,7 @@ jobs:
           submodules: recursive
 
       - name: Download km-build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-build
           path: .
@@ -335,7 +335,7 @@ jobs:
           submodules: recursive
 
       - name: Download km-build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-build
           path: .
@@ -408,7 +408,7 @@ jobs:
           submodules: true
 
       - name: Download km-k8s-rel-artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-k8s-rel-artifact
           path: /tmp/bin_release
@@ -460,7 +460,7 @@ jobs:
       - uses: ./.github/actions/configure-kkm
 
       - name: Download km-k8s-rel-artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-k8s-rel-artifact
           path: /tmp/bin_release
@@ -495,12 +495,14 @@ jobs:
       - name: Check krun personality
         run: |
           OUT=$(docker run --rm -v /.kontain busybox uname -r)
-          echo ${OUT} | grep -q '.*\.kontain.KKM$'
+          echo ${OUT}
+          echo ${OUT} | grep -q '.*\.kontain.K[KV]M$'
 
       - name: Check crun personality
         run: |
           OUT=$(docker run --rm busybox uname -r)
-          echo ${OUT} | grep -v -q '.*\.kontain.KKM$'
+          echo ${OUT}
+          echo ${OUT} | grep -v -q '.*\.kontain.K[KV]M$'
 
   codeql-scan:
     # CodeQL Code Scanning/Static Analysis
@@ -527,7 +529,7 @@ jobs:
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           # enhanced security checks.
@@ -538,7 +540,7 @@ jobs:
           make -C km all
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
 
   slack-workflow-status:
     name: Notify slack, if needed

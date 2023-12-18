@@ -102,6 +102,7 @@ define testenv_prep =
 			build/opt/kontain/runtime/libpthread.so \
 			build/opt/kontain/bin/km \
 			build/opt/kontain/bin/km_cli \
+			build/opt/kontain/bin/km_guest_asmcode.o \
 			km \
 			include \
 
@@ -128,6 +129,7 @@ define coverage_testenv_prep =
 			build/opt/kontain/runtime/libpthread.so \
 			build/opt/kontain/coverage/bin/km \
 			build/opt/kontain/coverage/bin/km_cli \
+			build/opt/kontain/coverage/bin/km_guest_asmcode.o \
 			build/km/coverage \
 			km \
 			include \
@@ -155,6 +157,7 @@ define valgrind_testenv_prep =
 			build/opt/kontain/runtime/libpthread.so \
 			build/opt/kontain/valgrind/bin/km \
 			build/opt/kontain/valgrind/bin/km_cli \
+			build/opt/kontain/valgrind/bin/km_guest_asmcode.o \
 			build/km/valgrind \
 			km \
 			include \
@@ -363,7 +366,7 @@ test-all-withdocker: ## a special helper to run more node.km tests.
 	${DOCKER_RUN_TEST} ${TEST_IMG_TAGGED} ${CONTAINER_TEST_ALL_CMD}
 
 test-valgrind-withdocker:
-	${DOCKER_RUN_TEST} --ulimit nofile=262144:262144 ${VALGRIND_TEST_IMG_TAGGED} ${CONTAINER_VARGRIND_TEST_CMD}
+	${DOCKER_RUN_TEST} ${VALGRIND_TEST_IMG_TAGGED} ${CONTAINER_VARGRIND_TEST_CMD}
 
 test-coverage-withdocker: ## Run tests in local Docker. IMAGE_VERSION (i.e. tag) needs to be passed in
 	mkdir -p ${COVERAGE_KM_BLDDIR}
