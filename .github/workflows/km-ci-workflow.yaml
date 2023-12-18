@@ -97,7 +97,7 @@ jobs:
       # passing hello_test.c and libhelper.a
       # because we will need to rebuild hello_test.kmd with correct RPATH for runtime environments
       - name: Upload km-build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: km-build
           path: |
@@ -235,7 +235,7 @@ jobs:
           make k8s-bundle
 
       - name: Upload km-k8s-rel-artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: km-k8s-rel-artifact
           path: build/kontain_bin.tar.gz
