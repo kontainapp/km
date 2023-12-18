@@ -125,7 +125,7 @@ jobs:
           submodules: true
 
       - name: Download km-build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-build
           path: .
@@ -198,7 +198,7 @@ jobs:
 
       # get build directory created by km-build job
       - name: Download km-build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-build
           path: .
@@ -252,7 +252,7 @@ jobs:
           submodules: recursive
 
       - name: Download km-build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-build
           path: .
@@ -335,7 +335,7 @@ jobs:
           submodules: recursive
 
       - name: Download km-build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-build
           path: .
@@ -408,7 +408,7 @@ jobs:
           submodules: true
 
       - name: Download km-k8s-rel-artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-k8s-rel-artifact
           path: /tmp/bin_release
@@ -460,7 +460,7 @@ jobs:
       - uses: ./.github/actions/configure-kkm
 
       - name: Download km-k8s-rel-artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: km-k8s-rel-artifact
           path: /tmp/bin_release
