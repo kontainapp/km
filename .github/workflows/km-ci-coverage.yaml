@@ -98,7 +98,7 @@ jobs:
       - run: ls -la build/km/coverage/*.gcda
 
       - name: Store coverage files in artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: azure-coverage
           path: |
@@ -131,7 +131,7 @@ jobs:
       - run: ls -la build/km/coverage/*
 
       - name: Store coverage files in artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: aws-azure-coverage
           path: |

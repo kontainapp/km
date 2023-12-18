@@ -168,7 +168,7 @@ jobs:
       - name: Push payloads runenv and demo-runenv images
         run: make -C payloads push-runenv-image push-demo-runenv-image
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: kontain
           path: |

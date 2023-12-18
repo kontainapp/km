@@ -113,7 +113,7 @@ jobs:
       # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
       # and was built in the previous step, upload it with SHA as artifact name
       - name: Upload krun-static under SHA to be available for persistent check (see above)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
         with:
           name: ${{ env.CRUN_SHA}}
@@ -122,7 +122,7 @@ jobs:
       # regardless how we got krun-static (by retrieving persistent artifact or building)
       # upload it as krun-static artifact
       - name: Upload krun.static artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: krun-static
           path: /tmp/krun-static/krun.static
