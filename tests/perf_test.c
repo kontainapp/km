@@ -65,7 +65,7 @@ typedef struct {
 
 static sample_t g_sample;
 
-static const long calibrate_loops = (long)1e7;
+static const long calibrate_loops = (long)1e9;
 static const long hypercall_loops = (long)1e4;
 static const long mmap_loops = (long)1e4;   // CAUTION: 1e4 is max, otherwise we are OOM
 

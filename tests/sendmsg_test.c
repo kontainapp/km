@@ -105,9 +105,21 @@ int main(int argc, char* argv[])
 {
    struct addrinfo* ar;
    int err;
+   char* port = (argc >= 2) ? argv[1] : NULL;
+   int portn = 7777;
+   if (port != NULL) {
+      portn = atoi(port);
+      printf("Using port %d from the PORT environment variable\n", portn);
+   } else {
+      printf("Using default port %d\n", portn);
+   }
+   char port1[16];
+   char port2[16];
+   snprintf(port1, sizeof(port1), "%d", portn);
+   snprintf(port2, sizeof(port1), "%d", portn + 1);
 
-   if ((err = getaddrinfo("127.0.0.1", "7777", NULL, &ar)) != 0) {
-      fprintf(stderr, "ERROR: getaddrinfo 127.0.0.1:7777 failed:%s\n", gai_strerror(err));
+   if ((err = getaddrinfo("127.0.0.1", port1, NULL, &ar)) != 0) {
+      fprintf(stderr, "ERROR: getaddrinfo 127.0.0.1:%s failed:%s\n", port1, gai_strerror(err));
       if (err == EAI_SYSTEM) {
          perror("getaddrinfo");
       }
@@ -117,8 +129,8 @@ int main(int argc, char* argv[])
    sendaddrlen = ar[0].ai_addrlen;
    freeaddrinfo(ar);
 
-   if ((err = getaddrinfo("127.0.0.1", "7778", NULL, &ar)) != 0) {
-      fprintf(stderr, "ERROR: getaddrinfo 127.0.0.1:7778 failed:%s\n", gai_strerror(err));
+   if ((err = getaddrinfo("127.0.0.1", port2, NULL, &ar)) != 0) {
+      fprintf(stderr, "ERROR: getaddrinfo 127.0.0.1:%s failed:%s\n", port2, gai_strerror(err));
       if (err == EAI_SYSTEM) {
          perror("getaddrinfo");
       }

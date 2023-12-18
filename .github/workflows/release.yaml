@@ -168,7 +168,7 @@ jobs:
       - name: Push payloads runenv and demo-runenv images
         run: make -C payloads push-runenv-image push-demo-runenv-image
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: kontain
           path: |
@@ -189,7 +189,7 @@ jobs:
 
       - run: make -C cloud/azure login-cli
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: kontain
 
@@ -219,7 +219,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: kontain
           path: build
@@ -240,7 +240,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: kontain
           path: build
@@ -265,7 +265,7 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: kontain
           path: build
@@ -296,7 +296,7 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: kontain
           path: build
@@ -344,7 +344,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: kontain
           path: build

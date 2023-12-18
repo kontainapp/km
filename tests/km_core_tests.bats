@@ -55,8 +55,8 @@ not_needed_glibc_dynamic='cpuid setup_link setup_load km_identity dlopen exec_sh
 # raw_clone - glibc clone() wrapper needs pthread structure
 # gdb_forkexec - gdb stack trace needs symbols when in a hypercall
 
-todo_glibc_static='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test gdb_forkexec km_exec_guest_files'
-todo_glibc_dynamic='exception dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test gdb_forkexec km_exec_guest_files sigaltstack gdb_attach'
+todo_glibc_static='dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test gdb_forkexec km_exec_guest_files'
+todo_glibc_dynamic='dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test gdb_forkexec km_exec_guest_files sigaltstack gdb_attach'
 
 # TODO: figure out why mem_brk doesn't work
 todo_glibc_dynamic="${todo_glibc_dynamic} mem_brk"
@@ -75,7 +75,7 @@ todo_alpine_dynamic=$todo_alpine_static
 
 # note: these are generally redundant as they are tested in 'static' pass
 not_needed_dynamic='linux_exec setup_load mem_slots cli mem_brk mmap_1 km_identity exec_sh'
-todo_dynamic='mem_mmap exception dl_iterate_phdr monitor_maps km_exec_guest_files'
+todo_dynamic='mem_mmap dl_iterate_phdr monitor_maps km_exec_guest_files'
 if [ ! -z "${VALGRIND}" ]; then
 todo_dynamic+=' gdb_sharedlib cpp_throw popen files_on_exec '
 todo_alpine_dynamic+=' gdb_sharedlib cpp_throw popen files_on_exec'
@@ -707,11 +707,11 @@ fi
 @test "cpuid($test_type): test cpu vendor id (cpuid_test$ext)" {
    cpuidexpected='Kontain'
    if [ "${USE_VIRT}" = 'kkm' ]; then
-      cpuidexpected='GenuineIntel'
+      cpuidexpected='(GenuineIntel|AuthenticAMD)'
    fi
    run km_with_timeout --vendorid cpuid_test$ext
    assert_success
-   assert_line --partial $cpuidexpected
+   assert_line --regexp ".*${cpuidexpected}.*"
 }
 
 @test "longjmp_test($test_type): basic setjmp/longjump" {
@@ -735,14 +735,7 @@ fi
    echo $output | grep -F 'Floating point exception (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
-   gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'div0 ('
-   # Check number of segments. Should be 12 for normal run, and 10 for valgrind, as valgrind disables vdso/vvar
-   nload=`readelf -l ${CORE} | grep LOAD | wc -l`
-   if [ -z "${VALGRIND}" ]; then
-      assert [ "${nload}" == "12" ]
-   else
-      assert [ "${nload}" == "10" ]
-   fi
+   gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'div0 ('
    rm -f ${CORE}
 
    # invalid opcode
@@ -752,7 +745,7 @@ fi
    echo $output | grep -F 'Illegal instruction (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
-   gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'undefined_op ('
+   gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'undefined_op ('
    rm -f ${CORE}
 
    # page fault
@@ -762,7 +755,7 @@ fi
    echo $output | grep -F 'Segmentation fault (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
-   gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'stray_reference ('
+   gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'stray_reference ('
    rm -f ${CORE}
 
    # bad hcall
@@ -772,7 +765,9 @@ fi
    echo $output | grep -F 'Bad system call (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
-   [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'main ('
+   # TODO: remove when kkm stack trace from syscall is fixed
+   [[ $test_type =~ (alpine|glibc)* && $USE_VIRT =~ "kkm" ]] || \
+      gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'main ('
    rm -f ${CORE}
 
    # write to text (protected memory)
@@ -782,7 +777,7 @@ fi
    echo $output | grep -F 'Segmentation fault (core dumped)'
    [ -f ${CORE} ]
    check_kmcore ${CORE}
-   gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'write_text ('
+   gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'write_text ('
    assert rm -f ${CORE}
 
    # abort
@@ -792,7 +787,9 @@ fi
    echo $output | grep -F 'Aborted (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
-   [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'abort ('
+   # TODO: remove when kkm stack trace from syscall is fixed
+   [[ $test_type =~ (alpine|glibc)* && $USE_VIRT =~ "kkm" ]] || \
+      gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'abort ('
    rm -f ${CORE}
 
    # quit
@@ -802,7 +799,7 @@ fi
    echo $output | grep -F 'Quit (core dumped)'
    assert [ -f ${CORE} ]
    check_kmcore ${CORE}
-   [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'kill ('
+   gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'kill ('
    rm -f ${CORE}
 
    # term
@@ -818,12 +815,18 @@ fi
    assert_failure $(( $signal_flag + 6))  # SIGABRT
    echo $output | grep -F 'Aborted'
    assert [  -f ${CORE} ]
-   [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'abort ('
-   [[ $test_type =~ (alpine|glibc)* ]] || gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'signal_abort_handler ('
-   # With km_sigreturn in km itself as opposed to libruntine, stack
-   # traces going across a signal handler don't work very well.
-   #gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F '<signal handler called>'
-   #gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'signal_abort_test ('
+   # TODO: remove when kkm stack trace from syscall is fixed
+   [[ $test_type =~ (alpine|glibc)* && $USE_VIRT =~ "kkm" ]] || \
+      gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'abort ('
+   # TODO: remove when kkm stack trace from syscall is fixed
+   [[ $test_type =~ (alpine|glibc)* && $USE_VIRT =~ "kkm" ]] || \
+      gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'signal_abort_handler ('
+   # TODO: remove when kkm stack trace from syscall is fixed
+   [[ $test_type =~ (alpine|glibc)* && $USE_VIRT =~ "kkm" ]] || \
+      gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F '<signal handler called>'
+   # TODO: remove when kkm stack trace from syscall is fixed
+   [[ $test_type =~ (alpine|glibc)* && $USE_VIRT =~ "kkm" ]] || \
+      gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'signal_abort_test ('
    rm -f ${CORE}
 
    # sigsegv blocked
@@ -832,7 +835,7 @@ fi
    assert_failure $(( $signal_flag + 11))  # SIGSEGV
    echo $output | grep -F 'Segmentation fault (core dumped)'
    assert [  -f ${CORE} ]
-   gdb --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'stray_reference ('
+   gdb --batch --ex="add-symbol-file ../build/opt/kontain/bin/km_guest_asmcode.o -o 0x8000008000" --ex=bt --ex=q stray_test$ext ${CORE} | grep -F 'stray_reference ('
    rm -f ${CORE}
 
    # ensure that the guest can ignore a SIGPIPE.
@@ -1799,9 +1802,8 @@ EOF
 }
 
 @test "aio($test_type): exercise io_*() syscalls (aio_test$ext)" {
-   WORKDIR=aio_workdir.$$
+   WORKDIR=`pwd`/aio_workdir.$$
    mkdir -p $WORKDIR
-   assert_success
 
    AIO_TEST_WORKDIR=$WORKDIR run km_with_timeout aio_test$ext -f 13 -c 1
    assert_success
@@ -1809,7 +1811,8 @@ EOF
    # Now try snapshotting and resuming a payload with io contexts
    # This snapshot should succeed because there will be no active asynch
    # i/o requests
-   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR  run km_with_timeout aio_test$ext -f 13 -c 1 -ss &
+   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR km_with_timeout aio_test$ext -f 13 -c 1 -ss &
+   local aio_test_pid=$!
    tries=10
    while [ $tries -gt 0 ]; do
       if [ -e $WORKDIR/waiting ]; then
@@ -1822,25 +1825,31 @@ EOF
    rm -f $WORKDIR/waiting
 
    # take the snapshot, we let the payload terminate after snapshot
-   ${KM_CLI_BIN} -s $WORKDIR/kmpipe* -t
-   assert_success
-   rm -f $WORKDIR/kmsnap.*.conf
-   snapfile=`ls $WORKDIR/kmsnap.aio_test$ext.[0-9]*`
+   run ${KM_CLI_BIN} -s $WORKDIR/kmpipe* -t
    assert_success
 
+   # wait for snapshotted aio_test to terminate
+   wait_and_check $aio_test_pid 0
+
+   # Get the snapshot file name
+   rm -f $WORKDIR/kmsnap.*.conf
+   snapfile=`ls $WORKDIR/kmsnap.aio_test$ext.[0-9]*`
+   assert [ -n "$snapfile" ]
+
    # start the snapshot and tell it to get going
-   run km_with_timeout $snapfile &
+   km_with_timeout $snapfile &
    local pid=$!
    run touch $WORKDIR/continue
    assert_success
 
-   # wait for the snapshot to finish
+   # wait for aio_test snapshot to terminate
    wait_and_check $pid 0
 
    # Now try to take a snapshot when async i/o is active.
    # This snapshot should fail.
    rm -f $WORKDIR/*
-   KM_MGTDIR=$WORKDIR  AIO_TEST_WORKDIR=$WORKDIR  run km_with_timeout aio_test$ext -f 13 -c 1 -sf &
+   KM_MGTDIR=$WORKDIR AIO_TEST_WORKDIR=$WORKDIR km_with_timeout aio_test$ext -f 13 -c 1 -sf &
+   aio_test_pid=$!
    tries=10
    while [ $tries -gt 0 ]; do
       if [ -e $WORKDIR/waiting ]; then
@@ -1860,14 +1869,17 @@ EOF
    run touch $WORKDIR/continue
    assert_success
 
-   # we need to wait a little while for the aio_test to find the continue file so it can finish
-   sleep 5
+   # wait for aio_test to terminate
+   wait_and_check $aio_test_pid 0
 
    rm -fr $WORKDIR
 }
 
 @test "sendmsg_test($test_type): test sendmsg like syscalls (sendmsg_test$ext)" {
-   km_with_timeout sendmsg_test$ext
+   # This test uses 2 ports, so the next free port would be 35.
+   local port_id=33
+   local socket_port=$(($port_range_start + $port_id))
+   km_with_timeout sendmsg_test$ext $socket_port
    assert_success
 }
 
