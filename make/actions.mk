@@ -75,7 +75,7 @@ test-all-withdocker: subdirs ## build all and run KM and payload tests
 release: subdirs ## Package .tar.gz files for external release to build dir
 
 $(SUBDIRS):
-	$(MAKE) -C $@ MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=;\
+	$(MAKE) -C $@ MAKEFLAGS="$(MAKEFLAGS)" $(MAKECMDGOALS) MAKEOVERRIDES=
 
 .PHONY: subdirs $(SUBDIRS)
 
@@ -100,8 +100,8 @@ endif # ifneq (${VERSION_SRC},)
 
 # rm is split due to "Argument list too long" bash error
 clean::
-	rm -f ${BLDEXEC} 
-	rm -f $(OBJS) 
+	rm -f ${BLDEXEC}
+	rm -f $(OBJS)
 	rm -f $(DEPS)
 	rm -f $(KM_OPT_BIN)/`basename ${EXEC}`
 
@@ -118,8 +118,8 @@ ${BLDSOLIB}: $(OBJS)
 
 # rm is split due to "Argument list too long" bash error
 clean::
-	rm -f $(OBJS) 
-	rm -f ${BLDLIB} ${BLDSOLIB} 
+	rm -f $(OBJS)
+	rm -f ${BLDLIB} ${BLDSOLIB}
 	rm -f $(DEPS)
 	rm -f $(addprefix ${KM_OPT_LIB}/lib,$(addsuffix .a,${LIB}))
 	rm -f $(addprefix ${KM_OPT_LIB}/lib,$(addsuffix .so,${SOLIB}))
