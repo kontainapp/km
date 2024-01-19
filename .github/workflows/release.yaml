@@ -26,7 +26,7 @@ on:
     # Posix cron format:
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
     # Minute Hour DayOfMonth MonthOfYear DayOfWeek
-    - cron: "0 4 * * 5" # Every friday at 4 am (not to overlap with CI nightly)
+    # - cron: "0 4 * * 5" # Every friday at 4 am (not to overlap with CI nightly)
     # Github doc says:
     #    Scheduled workflows run on the latest commit on the default or base branch.
     #    The shortest interval you can run scheduled workflows is once every 5 minutes.
