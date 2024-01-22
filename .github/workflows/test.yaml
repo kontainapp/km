@@ -92,7 +92,7 @@ jobs:
 
       # if persistent artifact was not found, i.e output of the previous step artifact-status != 'available'
       # build krun
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         if: ${{ steps.check-artifact.outputs.artifact-status != 'available' }}
         with:
           path: .cache
