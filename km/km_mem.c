@@ -484,6 +484,10 @@ static void* km_guest_page_malloc(km_gva_t gpa_hint, size_t size, int prot)
    km_kma_t addr;
    int flags = MAP_PRIVATE | MAP_ANONYMOUS | (machine.overcommit_memory == 1 ? MAP_NORESERVE : 0);
 
+   if (gpa_hint != 0) {
+	   flags |= MAP_FIXED_NOREPLACE;
+   }
+
    if ((size & (KM_PAGE_SIZE - 1)) != 0 || (gpa_hint & (KM_PAGE_SIZE - 1)) != 0) {
       errno = EINVAL;
       return NULL;
