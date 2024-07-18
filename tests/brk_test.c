@@ -79,7 +79,7 @@ TEST tbrk_brk_test()
 
          sprintf(msg, "%s reg %d off %d 0x%lx", "mmap", r, o, map_s);
          void* map_p = simple_addr_reserve(map_s);
-         ASSERT_NEQ_FMTm(msg, map_p, MAP_FAILED, "%p");
+         ASSERT_NEQ_FMTm(strdup(msg), map_p, MAP_FAILED, "%p");
 
          void* brk_exp = (void*)(regs[r] + offs[o]);
          sprintf(msg, "%s reg %d off %d %p", "brk ", r, o, brk_exp);
@@ -87,7 +87,7 @@ TEST tbrk_brk_test()
          if (!offs_success[o]) {
             brk_exp = (void*)-1;
          }
-         ASSERT_EQ_FMTm(msg, brk_exp, brk_got, "%p");
+         ASSERT_EQ_FMTm(strdup(msg), brk_exp, brk_got, "%p");
 
          munmap(map_p, map_s);
          brk_got = SYS_break(brk);
@@ -109,14 +109,14 @@ TEST brk_tbrk_test()
          void* brk_exp = (void*)(regs[r] + offs[o]);
          sprintf(msg, "%s reg %d off %d %p", "brk ", r, o, brk_exp);
          void* brk_got = SYS_break(brk_exp);
-         ASSERT_EQ_FMTm(msg, brk_exp, brk_got, "%p");
+         ASSERT_EQ_FMTm(strdup(msg), brk_exp, brk_got, "%p");
 
          sprintf(msg, "%s reg %d off %d", "mmap", r, o);
          void* map_p = simple_addr_reserve(map_s);
          if (offs_success[o]) {
-            ASSERT_NEQ_FMTm(msg, map_p, MAP_FAILED, "%p");
+            ASSERT_NEQ_FMTm(strdup(msg), map_p, MAP_FAILED, "%p");
          } else {
-            ASSERT_EQ_FMTm(msg, map_p, MAP_FAILED, "%p");
+            ASSERT_EQ_FMTm(strdup(msg), map_p, MAP_FAILED, "%p");
          }
 
          munmap(map_p, map_s);
