@@ -46,7 +46,7 @@ int check_mystr(char* msg)
    int allowed = fedora ? 256 : roundup(sizeof(my_str) + sizeof(msg), 16);
 
    // knowing how things are placed, check the addresses
-   delta = PTHREAD_SELF() - (long)MIN(my_str, &my_msg);
+   delta = PTHREAD_SELF() - (long)MIN((uint64_t)my_str, (uint64_t)&my_msg);
    if (delta <= 0 || delta > allowed) {
       return 2;
    }
