@@ -70,7 +70,7 @@ CWARNS := -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-va
 
 # -ffunction-sections -fdata-sections work together with linker script, see km.ld
 # Other -f... options are to reduce generated code size
-COPTS := -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc \
+COPTS := -D_LARGEFILE64_SOURCE -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 	-fomit-frame-pointer \
 	-ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math \
 	-fno-tree-loop-distribute-patterns -fno-stack-protector \
