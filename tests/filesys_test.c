@@ -407,6 +407,8 @@ TEST test_dup()
    rc = close(ret);
    ASSERT_EQ(0, rc);
 
+#if 0
+   // Looks like it is fixed in 1.2.5
    /*
     * Interestingly, this is a place where
     * the musl implementation doesn't strictly
@@ -421,6 +423,7 @@ TEST test_dup()
    rc = dup3(fd5, fd2, 0xffff);
    ASSERT_NEQ(-1, rc);
    close(rc);
+#endif
 
    rc = dup3(fd5, fd2, 0xffff | O_CLOEXEC);
    ASSERT_EQ(-1, rc);
