@@ -330,7 +330,8 @@ TEST test_bad_fd()
       ASSERT_EQ(EBADF, errno);
    }
    // poll
-   for (int i = 0; badfd[i] != 0; i++) {
+   // -1 is a valid parameter in pfd.fd
+   for (int i = 1; badfd[i] != 0; i++) {
       struct pollfd pfd;
       pfd.fd = badfd[i];
       pfd.events = POLLIN | POLLERR;
