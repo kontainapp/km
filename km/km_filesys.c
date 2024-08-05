@@ -2273,7 +2273,7 @@ uint64_t km_fs_select(km_vcpu_t* vcpu,
 uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeout)
 {
    for (int i = 0; i < nfds; i++) {
-      if (km_fs_g2h_fd(fds[i].fd, NULL) < 0) {
+      if ((fds[i].fd != 0xffffffff) && (km_fs_g2h_fd(fds[i].fd, NULL) < 0)) {
          return -EBADF;
       }
       int ret = km_guestfd_error(vcpu, i);
