@@ -124,6 +124,9 @@ TEST test_stat()
    PASS();
 }
 
+#if 0
+// we no longer close inherited fd's.
+// this test is no longer valid
 TEST test_getdents()
 {
    // from 'man 2 getdents
@@ -239,6 +242,7 @@ TEST test_getdents64()
 
    PASS();
 }
+#endif
 
 // socket pair and pipes
 TEST test_socketpair()
@@ -791,8 +795,10 @@ int main(int argc, char** argv)
    RUN_TEST(test_statfs);
    RUN_TEST(test_close);
    RUN_TEST(test_stat);
+#if 0
    RUN_TEST(test_getdents);
    RUN_TEST(test_getdents64);
+#endif
    RUN_TEST(test_socketpair);
    RUN_TEST(test_openat);
    RUN_TEST(test_open_fd_fill);
