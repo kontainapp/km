@@ -19,7 +19,7 @@
 TOP := $(shell git rev-parse --show-toplevel)
 
 BUILD ?= Release
-VERS ?= v16.13.1
+VERS ?= v20.8.1
 
 # Location of Node sources. When building in container, it is set in buildenv dockerfile.
 NODETOP ?= node
@@ -37,7 +37,7 @@ PAYLOAD_KM := ${NODEOUT}/node.km
 TEST_KM := ${NODEOUT}/cctest.km
 
 # name to be added to runtime image label(s)
-PAYLOAD_NAME := NodeJs16.13
+PAYLOAD_NAME := NodeJs20.8
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools benchmark)
