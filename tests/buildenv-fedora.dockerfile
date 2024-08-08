@@ -91,6 +91,11 @@ RUN git clone https://github.com/llvm/llvm-project.git -b llvmorg-17.0.0 && cd l
    make -C build/tools/clang/tools/clang-format -j`expr 2 \* $(nproc)` && \
    make -C build/tools/clang/tools/clang-format install
 
+RUN pwd
+RUN git clone https://github.com/kontainapp/musl-latest.git -b alpine musl-latest-alpine && cd musl-latest-alpine && \
+   ./configure --enable-debug CFLAGS=-D_LARGEFILE64_SOURCE && make
+RUN ls /musl-latest-alpine/lib/libc.*
+
 FROM buildenv-early AS buildenv
 ARG USER=appuser
 # Dedicated arbitrary in-image uid/gid, mainly for file access
@@ -106,6 +111,9 @@ WORKDIR /home/$USER
 
 COPY --from=buildclangformat /usr/local/bin /usr/local/bin/
 COPY --from=alpine-lib-image $PREFIX $PREFIX/
+COPY --from=buildclangformat /musl-latest-alpine/lib/libc.a ${PREFIX}/alpine-lib/usr/lib/libc.a
+COPY --from=buildclangformat /musl-latest-alpine/lib/libc.so ${PREFIX}/alpine-lib/usr/lib/libc.so
+
 RUN for i in runtime alpine-lib ; do \
        mkdir -p $PREFIX/$i && chgrp users $PREFIX/$i && chmod 777 $PREFIX/$i ; \
     done
