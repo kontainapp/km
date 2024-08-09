@@ -215,7 +215,7 @@ valgrind-testenv-image:
 	$(call testenv_cleanup_extras)
 
 buildenv-image: ${BLDDIR} ## make build image based on ${DTYPE}
-	${DOCKER_BUILD} -t ${BUILDENV_IMG_TAGGED} \
+	${DOCKER_BUILD} --no-cache -t ${BUILDENV_IMG_TAGGED} \
 		--build-arg=BUILDENV_IMAGE_VERSION=${BUILDENV_IMAGE_VERSION} \
 		${BUILDENV_IMAGE_EXTRA_ARGS} \
 		${BUILDENV_PATH} -f ${BUILDENV_DOCKERFILE}
