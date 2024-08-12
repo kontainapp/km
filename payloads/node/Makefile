@@ -77,8 +77,12 @@ ${NODETOP}: |
 ${NODETOP}/config.mk: | ${NODETOP}
 	cd ${NODETOP} && ./configure --gdb `[[ ${BUILD} == Debug ]] && echo -n --debug`
 
+
+#	cd ${NODETOP} && make -j`expr 2 \* $$(nproc)` && make jstest CI_SKIP_TESTS="parallel/test-https-selfsigned-no-keycertsign-no-crash.js" 
+
 fromsrc: ${NODETOP}/config.mk
-	cd ${NODETOP} && make -j`expr 2 \* $$(nproc)` && make jstest CI_SKIP_TESTS="parallel/test-https-selfsigned-no-keycertsign-no-crash.js"
+	make -C ${NODETOP} -j`expr 2 \* $$(nproc)`
+	-make -C ${NODETOP} jstest CI_SKIP_TESTS="parallel/test-https-selfsigned-no-keycertsign-no-crash.js"
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
 	./link-km.sh ${NODEBUILD} ${NODEOUT}
 
@@ -89,7 +93,7 @@ clean:
 	rm -rf $(RUNENV_PATH)
 	@echo "Note - 'clean' doesn't remove ./node artifacts. use 'clobber' to force remove build artifacts"
 
-test test-all: ${PAYLOAD_KM} ${TEST_KM}
+test test-short test-long test-all: ${PAYLOAD_KM} ${TEST_KM}
 	scripts/test-run.sh $@ ${KM_BIN} ${KM_CLI_BIN} ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
 
 # Command to run tests in testenv-image container:
