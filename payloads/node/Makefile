@@ -33,8 +33,8 @@ COMPONENT := node
 NODE_REPO := https://github.com/nodejs/node.git
 
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
-PAYLOAD_KM := ${NODEOUT}/node.km
-TEST_KM := ${NODEOUT}/cctest.km
+PAYLOAD_KM := ${CURDIR}/${NODEOUT}/node.km
+CCTEST_KM := ${CURDIR}/${NODEOUT}/cctest.km
 
 # name to be added to runtime image label(s)
 PAYLOAD_NAME := NodeJs20.8
@@ -93,17 +93,17 @@ clean:
 	rm -rf $(RUNENV_PATH)
 	@echo "Note - 'clean' doesn't remove ./node artifacts. use 'clobber' to force remove build artifacts"
 
-test test-short test-long test-all: ${PAYLOAD_KM} ${TEST_KM}
-	scripts/test-run.sh $@ ${KM_BIN} ${KM_CLI_BIN} ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+test test-short test-long test-all: ${PAYLOAD_KM} ${CCTEST_KM}
+	scripts/test-run.sh $@ ${KM_BIN} ${KM_CLI_BIN} ${PAYLOAD_KM} ${CCTEST_KM} ${NODETOP} ${BUILD}
 
 # Command to run tests in testenv-image container:
-CONTAINER_TEST_CMD := scripts/test-run.sh test km km_cli ${PAYLOAD_KM} ${TEST_KM}
+CONTAINER_TEST_CMD := scripts/test-run.sh test km km_cli ${PAYLOAD_KM} ${CCTEST_KM}
 
 # TODO: revert when kkm is fixed
 ifeq (${HYPERVISOR_DEVICE},/dev/kkm)
-CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test km km_cli ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test km km_cli ${PAYLOAD_KM} ${CCTEST_KM} ${NODETOP} ${BUILD}
 else
-CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test-all km km_cli ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test-all km km_cli ${PAYLOAD_KM} ${CCTEST_KM} ${NODETOP} ${BUILD}
 endif
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)
