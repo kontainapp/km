@@ -53,7 +53,7 @@ if [[ "$1" == "test-short" || "$1" == "test" || "$1" == "test-all" ]]; then
    ${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
    echo noop.js - expecting exit with code 22:
    ${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js || [ $? -eq 22 ]
-   ${KM_BIN} ${TEST_KM} --gtest_filter="*"
+   (cd node; ${KM_BIN} ${TEST_KM} --gtest_filter="*")
 
    rm -rf ${MGMTPIPE}
    ${KM_BIN} --mgtpipe=${MGMTPIPE} ${PAYLOAD_KM} ./scripts/micro-srv.js &
