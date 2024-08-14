@@ -4227,3 +4227,49 @@ static void km_snapshot_listenfds_find(km_elf_t* e)
    free(notebuf);
    free(tmp_payload.km_phdr);
 }
+
+int km_fs_inotify_init(km_vcpu_t* vcpu)
+{
+   int hostfd = __syscall_0(SYS_inotify_init);
+   if (hostfd >= 0) {
+      hostfd = km_add_guest_fd_internal(vcpu, hostfd, NULL, 0, KM_FILE_HOW_WATCH, NULL);
+   }
+   return hostfd;
+}
+
+int km_fs_inotify_init1(km_vcpu_t* vcpu, int flags)
+{
+   int hostfd = __syscall_1(SYS_inotify_init1, flags);
+   if (hostfd >= 0) {
+      hostfd = km_add_guest_fd_internal(vcpu, hostfd, NULL, flags, KM_FILE_HOW_WATCH1, NULL);
+   }
+   return hostfd;
+}
+
+int km_fs_inotify_add_watch(km_vcpu_t* vcpu, int guest_fd, char* pathname, uint32_t mask)
+{
+   int host_fd = km_fs_g2h_fd(guest_fd, NULL);
+   if (host_fd < 0) {
+      return -EBADF;
+   }
+
+   char host_pathname[PATH_MAX];
+   int ret = km_fs_g2h_filename(pathname, host_pathname, sizeof(host_pathname), NULL);
+   if (ret < 0) {
+      return ret;
+   }
+   uint64_t name = (ret == 0) ? (uint64_t)pathname : (uint64_t)host_pathname;
+
+   ret = __syscall_3(SYS_inotify_add_watch, host_fd, name, mask);
+   return ret;
+}
+
+int km_fs_inotify_rm_watch(km_vcpu_t* vcpu, int guest_fd, int wd)
+{
+   int host_fd = km_fs_g2h_fd(guest_fd, NULL);
+   if (host_fd < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_2(SYS_inotify_rm_watch, host_fd, wd);
+   return ret;
+}

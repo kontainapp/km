@@ -80,7 +80,7 @@ if [[ "$1" == "test-short" || "$1" == "test" || "$1" == "test-all" ]]; then
    wait $pid
 fi
 
-if [[ "$1" == "test-long" || "$1" == "test" || "$1" == "test-all" ]]; then
+if [[ "$1" == "test-long" || "$1" == "test-all" ]]; then
    NODETOP=$6
    BUILD=$7
    trap cleanup EXIT
