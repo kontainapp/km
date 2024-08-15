@@ -1,9 +1,6 @@
 parallel/test-fs-cp.mjs
 parallel/test-blob-buffer-too-large.js
+parallel/test-child-process-destroy.js
 parallel/test-runner-output.mjs
 parallel/test-icu-env.js
 parallel/test-snapshot-warning.js
-parallel/test-strace-openat-openssl.js
-addons/request-interrupt/test.js
-addons/report-fatalerror/test.js
-

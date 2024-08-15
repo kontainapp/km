@@ -47,9 +47,11 @@ addons/openssl-providers/test-no-legacy-provider-option.js
 addons/openssl-test-engine/test.js
 addons/openssl-test-engine/build/Release/testsetengine.engine
 addons/parse-encoding/test.js
+addons/request-interrupt/test.js
 addons/register-signal-handler/test.js
 addons/repl-domain-abort/test.js
 addons/report-api/test.js
+addons/report-fatalerror/test.js
 addons/stringbytes-external-exceed-max/test-stringbytes-external-at-max.js
 addons/stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-1-ascii.js
 addons/stringbytes-external-exceed-max/test-stringbytes-external-exceed-max-by-1-base64.js
