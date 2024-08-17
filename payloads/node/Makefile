@@ -18,8 +18,20 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
+OS_NAME=$(shell awk 'BEGIN { FS = "=" } $$1 == "ID" { NAME=$$2;} $$1 == "VERSION_ID" { VERS=$$2; } END { printf "%s%s", NAME, VERS }' /etc/os-release)
+
+ifeq ($(OS_NAME),fedora40)
+	VERS ?= v20.12.2
+	PAYLOAD_NAME := NodeJs20.12
+else ifeq ($(OS_NAME),fedora39)
+	VERS ?= v20.8
+	PAYLOAD_NAME := NodeJs20.8
+else
+	VERS ?= v16.13.1
+	PAYLOAD_NAME := NodeJs16.13
+endif
+
 BUILD ?= Release
-VERS ?= v20.8.1
 
 # Location of Node sources. When building in container, it is set in buildenv dockerfile.
 NODETOP ?= node
@@ -37,7 +49,6 @@ PAYLOAD_KM := ${CURDIR}/${NODEOUT}/node.km
 CCTEST_KM := ${CURDIR}/${NODEOUT}/cctest.km
 
 # name to be added to runtime image label(s)
-PAYLOAD_NAME := NodeJs20.8
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools benchmark)
