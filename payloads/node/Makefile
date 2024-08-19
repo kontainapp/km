@@ -74,12 +74,12 @@ ifneq ($(shell test -d node/.git && echo OK),OK)
 		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
 		/bin/bash -x -c "make -C payloads/node in-blank-container"
 else
-	./link-km.sh ${NODEBUILD} ${NODEOUT}
+	./link-km.sh ${NODEBUILD} ${NODEOUT} ${OS_NAME}
 endif
 
 in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
 	mkdir -p ${NODEOUT}
-	./link-km.sh ${NODEBUILD} ${NODEOUT}
+	./link-km.sh ${NODEBUILD} ${NODEOUT} ${OS_NAME}
 	tar -C ${NODETOP}/.. --exclude='.tmp*' -cf - ${NODE_DISTRO_FILES} | tar -xf -
 
 ${NODETOP}: |
@@ -95,7 +95,7 @@ fromsrc: ${NODETOP}/config.mk
 	make -C ${NODETOP} -j`expr 2 \* $$(nproc)`
 	-make -C ${NODETOP} jstest CI_SKIP_TESTS="parallel/test-https-selfsigned-no-keycertsign-no-crash.js"
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
-	./link-km.sh ${NODEBUILD} ${NODEOUT}
+	./link-km.sh ${NODEBUILD} ${NODEOUT} ${OS_NAME}
 
 clobber:
 	rm -rf node
