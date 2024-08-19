@@ -408,7 +408,7 @@ link_cctest() {
 if [[ "${OS_VERSION}" == "fedora40" ]] ; then
 	link_node_fedora_40
 	link_cctest_fedora_40
-elif [[ "${OS_VERSION}" == "fedora40" ]] ; then
+elif [[ "${OS_VERSION}" == "fedora39" ]] ; then
 	link_node_fedora_39
 	link_cctest_fedora_39
 else
