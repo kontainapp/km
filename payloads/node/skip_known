@@ -1,3 +1,4 @@
-parallel/test-worker-memory.js
 parallel/test-https-selfsigned-no-keycertsign-no-crash.js
+parallel/test-snapshot-warning.js
 parallel/test-worker-init-failure.js
+parallel/test-worker-memory.js
