@@ -85,7 +85,7 @@ if [[ "$1" == "test-long" || "$1" == "test-all" ]]; then
    BUILD=$7
    trap cleanup EXIT
    TMP_FILE=$(mktemp /tmp/node.XXXXXXXXXX)
-   echo -e "#!/bin/bash\n${KM_BIN} $(realpath ${NODETOP}/out/${BUILD}/node.km) \$*\n" > ${TMP_FILE} && chmod +x ${TMP_FILE}
+   echo -e "#!/bin/bash\nexport PYTHONWARNINGS=\"ignore::DeprecationWarning\"\n${KM_BIN} $(realpath ${NODETOP}/out/${BUILD}/node.km) \$*\n" > ${TMP_FILE} && chmod +x ${TMP_FILE}
    cd ${NODETOP}
    python tools/test.py --shell=${TMP_FILE} -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr -s '\n ' ','` default addons js-native-api node-api
    echo "Tests are Successful"
