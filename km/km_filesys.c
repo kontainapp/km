@@ -902,7 +902,7 @@ uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, void* buf, size_t count, 
 {
    int host_fd;
    km_file_ops_t* ops;
-   km_infox(KM_TRACE_FILESYS, "%s(fd %d, count %ld, offset %ld)", km_hc_name_get(scall), fd, count, offset);
+   km_infox(KM_TRACE_FILESYS, "%s(fd %d, buf %p count %ld, offset %ld)", km_hc_name_get(scall), fd, buf, count, offset);
    if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
       return -EBADF;
    }
