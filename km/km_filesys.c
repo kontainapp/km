@@ -2276,10 +2276,13 @@ uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeou
       if (km_fs_g2h_fd(fds[i].fd, NULL) < 0) {
          return -EBADF;
       }
-      int ret = km_guestfd_error(vcpu, i);
-      if (ret != 0) {
-         fds[i].revents = POLLERR;
-         return ret;
+      if (fds[i].events == 0 || (fds[i].events & POLLERR) != 0) {
+         int ret = km_guestfd_error(vcpu, fds[i].fd);
+         if (ret != 0) {
+            km_infox(KM_TRACE_FILESYS, "fd %d, recover error %d", fds[i].fd, ret);
+            fds[i].revents = POLLERR;
+            return 1;
+         }
       }
       if ((fds[i].events & POLLIN) != 0 && km_snap_is_listener(fds[i].fd) != 0 &&
           km_snap_listening_state_p[i].accept_fd >= 0) {
@@ -2288,6 +2291,37 @@ uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeou
       }
    }
    int ret = __syscall_3(SYS_poll, (uintptr_t)fds, nfds, timeout);
+   return ret;
+}
+
+// int syscall(SYS_ppoll, struct pollfd *fds, nfds_t nfds, const struct timespec *tmo_p, const
+// sigset_t *sigmask, size_t sigsetsize);
+uint64_t km_fs_ppoll(km_vcpu_t* vcpu,
+                     struct pollfd* fds,
+                     nfds_t nfds,
+                     struct timespec* tmo_p,
+                     sigset_t* sigmask,
+                     size_t sigsetsize)
+{
+   for (int i = 0; i < nfds; i++) {
+      if (km_fs_g2h_fd(fds[i].fd, NULL) < 0) {
+         return -EBADF;
+      }
+      if (fds[i].events == 0 || (fds[i].events & POLLERR) != 0) {
+         int ret = km_guestfd_error(vcpu, fds[i].fd);
+         if (ret != 0) {
+            fds[i].revents = POLLERR;
+            return 1;
+         }
+      }
+      if ((fds[i].events & POLLIN) != 0 && km_snap_is_listener(fds[i].fd) != 0 &&
+          km_snap_listening_state_p[i].accept_fd >= 0) {
+         fds[i].revents = POLLIN;
+         return 1;
+      }
+   }
+   int ret =
+       __syscall_5(SYS_ppoll, (uintptr_t)fds, nfds, (uintptr_t)tmo_p, (uintptr_t)sigmask, sigsetsize);
    return ret;
 }
 
