@@ -1157,6 +1157,29 @@ static km_hc_ret_t poll_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    return HC_CONTINUE;
 }
 
+static km_hc_ret_t ppoll_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   // int syscall(SYS_ppoll, struct pollfd *fds, nfds_t nfds,
+   //           const struct timespec *tmo_p, const sigset_t *sigmask, size_t sigsetsize);
+   void* fds = km_gva_to_kma(arg->arg1);
+   if (fds == NULL && arg->arg2 != 0) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   void* tmop = NULL;
+   if (arg->arg3 != 0 && (tmop = km_gva_to_kma(arg->arg3)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   void* sigmask = NULL;
+   if (arg->arg4 != 0 && (sigmask = km_gva_to_kma(arg->arg4)) == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_ppoll(vcpu, fds, arg->arg2, tmop, sigmask, arg->arg5);
+   return HC_CONTINUE;
+}
+
 static km_hc_ret_t accept4_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
    // int accept4(int sockfd, struct sockaddr *addr,
@@ -2521,6 +2544,7 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_getsockname] = get_sock_peer_name_hcall,
     [SYS_getpeername] = get_sock_peer_name_hcall,
     [SYS_poll] = poll_hcall,
+    [SYS_ppoll] = ppoll_hcall,
     [SYS_accept4] = accept4_hcall,
     [SYS_recvfrom] = recvfrom_hcall,
     [SYS_epoll_create1] = epoll1_create_hcall,

@@ -290,6 +290,14 @@ uint64_t km_fs_select(km_vcpu_t* vcpu,
                       struct timeval* timeout);
 // int poll(struct pollfd *fds, nfds_t nfds, int timeout);
 uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeout);
+// int syscall(SYS_ppoll, struct pollfd *fds, nfds_t nfds, const struct timespec *tmo_p, const
+// sigset_t *sigmask, size_t sigsetsize);
+uint64_t km_fs_ppoll(km_vcpu_t* vcpu,
+                     struct pollfd* fds,
+                     nfds_t nfds,
+                     struct timespec* tmo_p,
+                     sigset_t* sigmask,
+                     size_t sigsetsize);
 // int epoll_create1(int flags);
 uint64_t km_fs_epoll_create1(km_vcpu_t* vcpu, int flags);
 // int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
