@@ -264,6 +264,8 @@ static int km_vcpu_init(km_vcpu_t* vcpu)
    vcpu->thr_mtx = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
    vcpu->thr_cv = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
 
+   vcpu->snap_state = SNAP_STATE_RUNNING;
+
    // Since we may do timed wait on signal_wait_cv, we must specify which clock to use.
    pthread_condattr_t condattr;
    pthread_condattr_init(&condattr);

@@ -142,6 +142,17 @@ typedef enum {
    PAUSED       // Paused in km_vcpu_handle_pause
 } __attribute__((__packed__)) km_vcpu_state_t;
 
+// These states are used for the optional guest callbacks for snapshot
+// create and restore. They are stored in the snap_state field of the
+// VCPU. Only one VCPU runs the snapshot callbacks.
+typedef enum {
+   SNAP_STATE_RUNNING,
+   SNAP_STATE_PAUSED,
+   SNAP_STATE_RUNHOOK_CREATE,
+   SNAP_STATE_RUNHOOK_RESTORE,
+   SNAP_STATE_RUNHOOK_RESTORE_LIVE,
+} km_snap_state_t;
+
 typedef struct km_vcpu {
    short vcpu_id;                      // uniq ID
    int kvm_vcpu_fd;                    // this VCPU file descriptor
@@ -185,6 +196,7 @@ typedef struct km_vcpu {
    uint64_t dr_regs[4];   // remember the addresses we are watching and have written into
                           // the processor's debugging facilities in DR0 - DR3.
    gdb_vcpu_state_t gdb_vcpu_state;   // gdb's per thread (vcpu) state.
+   km_snap_state_t snap_state;
 } km_vcpu_t;
 
 static inline int km_on_altstack(km_vcpu_t* vcpu, km_gva_t sp)
@@ -307,6 +319,16 @@ static const int CPUID_ENTRIES = 100;   // A little padding, kernel says 80
  */
 #define KM_MEM_SLOTS 43
 
+/*
+ * Signal table sizing. There are extended signals introduced by KM call guest processes
+ * when a snapshot is created and a snapshot is restored. We handle this by extending the
+ * signal handler array in the machine structure. The actual signal values in the guest API
+ * are sparse WRT linux symbols.
+ * Note: Since the KM snapshot signals only happen when the process is quieced, there is no
+ *       support for them in sigmask.
+ */
+#define KM_NSIG (_NSIG + 2)
+
 typedef struct km_machine {
    int kvm_fd;                                // /dev/kvm file descriptor
    vm_type_t vm_type;                         // VM type kvm or kkm
@@ -347,7 +369,7 @@ typedef struct km_machine {
    pthread_mutex_t signal_mutex;   // Protect signal data structures.
    km_signal_list_t sigpending;    // List of signals pending for guest
    km_signal_list_t sigfree;       // Freelist of signal entries.
-   km_sigaction_t sigactions[_NSIG];
+   km_sigaction_t sigactions[KM_NSIG];
    km_filesys_ptr_t filesys;
    km_mmap_cb_t mmaps;   // guest memory regions managed with mmaps/mprotect/munmap
    void* auxv;           // Copy of process AUXV (used if core is dumped)

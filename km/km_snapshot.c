@@ -201,7 +201,7 @@ static int km_ss_recover_vcpu_info(char* ptr, size_t length)
     * This is a compile time check to remind developers to check
     * for snapshot implications when km_vcpu_t changes.
     */
-   static_assert(sizeof(km_vcpu_t) == 960,
+   static_assert(sizeof(km_vcpu_t) == 968,
                  "sizeof(km_vcpu_t) changed. Check for snapshot implications");
 
    if (length < sizeof(km_nt_vcpu_t)) {
@@ -465,6 +465,11 @@ int km_snapshot_restore(km_elf_t* e)
       km_errx(2, "recover open files failed");
    }
 
+   int do_restore_hook = 0;
+   if (machine.sigactions[km_sigindex(KM_SIGSNAPRESTORE)].handler != 0) {
+      do_restore_hook = 1;
+   }
+
    /*
     * km_vcpu_get() assumes that VCPU tasks are allocated and never freed.
     * Create any needed idle vcpu threads needed to meet this assumption.
@@ -473,7 +478,17 @@ int km_snapshot_restore(km_elf_t* e)
    for (int i = 0; i < KVM_MAX_VCPUS; i++) {
       if (machine.vm_vcpus[i] != NULL) {
          top_vcpu = i;
+         /*
+          * There is a restore hook, so puase all threads until the hook runs.
+          */
+         if (do_restore_hook) {
+            machine.vm_vcpus[i]->snap_state = SNAP_STATE_PAUSED;
+         }
       }
+   }
+   if (do_restore_hook) {
+      machine.vm_vcpus[top_vcpu]->snap_state = SNAP_STATE_RUNHOOK_RESTORE;
+      machine.pause_requested = 1;
    }
    for (int i = 0; i < top_vcpu; i++) {
       if (machine.vm_vcpus[i] == NULL) {
@@ -486,6 +501,7 @@ int km_snapshot_restore(km_elf_t* e)
    km_mmap_set_recovery_mode(0);
    free(notebuf);
    free(tmp_payload.km_phdr);
+
    return 0;
 }
 
@@ -502,10 +518,30 @@ int km_snapshot_block(km_vcpu_t* vcpu)
    in_snapshot = 1;
    pthread_mutex_unlock(&snap_mutex);
    km_vcpu_pause_all(vcpu, ALL);   // Wait for everyone to get to the pause point.
+
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      if (machine.vm_vcpus[i] == NULL) {
+         break;
+      }
+      if (machine.vm_vcpus[i]->state == PAUSED) {
+         machine.vm_vcpus[i]->snap_state = SNAP_STATE_PAUSED;
+      }
+   }
+   if (vcpu != NULL) {
+      vcpu->snap_state = SNAP_STATE_RUNNING;
+   }
    return 0;
 }
 void km_snapshot_unblock(void)
 {
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      if (machine.vm_vcpus[i] == NULL) {
+         continue;
+      }
+      if (machine.vm_vcpus[i]->snap_state == SNAP_STATE_PAUSED) {
+         machine.vm_vcpus[i]->snap_state = SNAP_STATE_RUNNING;
+      }
+   }
    pthread_mutex_lock(&snap_mutex);
    in_snapshot = 0;
    pthread_mutex_unlock(&snap_mutex);
@@ -543,4 +579,68 @@ int km_snapshot_create(km_vcpu_t* vcpu, char* label, char* description, char* du
    }
 
    return rc;
+}
+
+int km_snap_sigaction(km_vcpu_t* vcpu, int signo, km_sigaction_t* act, km_sigaction_t* oldact, size_t sigsetsize)
+{
+   int index = _NSIG;
+   if (signo == KM_SIGSNAPRESTORE) {
+      index = _NSIG + 1;
+   } else if (signo != KM_SIGSNAPCREATE) {
+      return -EINVAL;
+   }
+   km_signal_lock();
+   if (oldact != NULL) {
+      *oldact = machine.sigactions[index];
+   }
+   if (act != NULL) {
+      // TODO: what kind of validations to we want to do on act?
+      // there probably isn't any reason to support SIG_IGN, or stuff like that.
+      // should make shure it is a valid address in a execuatable segment perhaps?
+      machine.sigactions[index] = *act;
+   }
+   km_signal_unlock();
+   return 0;
+}
+
+int km_snapshot_sigcreate(km_vcpu_t* vcpu)
+{
+   if (vcpu->snap_state == SNAP_STATE_RUNHOOK_CREATE) {
+      km_errx(1, "exit - got the syscall a 2nd time!!!");
+   }
+   if (machine.sigactions[km_sigindex(KM_SIGSNAPCREATE)].handler == 0) {
+      return 0;
+   }
+   siginfo_t info = {.si_signo = KM_SIGSNAPCREATE};
+   km_post_signal(vcpu, &info);
+   vcpu->snap_state = SNAP_STATE_RUNHOOK_CREATE;
+   return 1;
+}
+
+int km_snapshot_sigrestore_live(km_vcpu_t* vcpu)
+{
+   if (machine.sigactions[km_sigindex(KM_SIGSNAPRESTORE)].handler == 0) {
+      return 0;
+   }
+   siginfo_t info = {.si_signo = KM_SIGSNAPRESTORE};
+   km_post_signal(vcpu, &info);
+   vcpu->snap_state = SNAP_STATE_RUNHOOK_RESTORE_LIVE;
+   return 1;
+}
+
+void km_snapshot_return_createhook(km_vcpu_t* vcpu)
+{
+}
+
+/*
+ * return fron snapshot restore hook.
+ */
+void km_snapshot_return_restorehook(km_vcpu_t* vcpu)
+{
+   for (int i = 0; i < KVM_MAX_VCPUS; i++) {
+      if (machine.vm_vcpus[i] != 0 && machine.vm_vcpus[i] != vcpu) {
+         machine.vm_vcpus[i]->snap_state = SNAP_STATE_RUNNING;
+      }
+   }
+   km_vcpu_resume_all();
 }
