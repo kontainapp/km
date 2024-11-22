@@ -2209,17 +2209,30 @@ static km_hc_ret_t sched_yield_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 
 static km_hc_ret_t inotify_init_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   // int inotify_init(void);
-   km_warnx("Unsupported call inotify_init");
-   arg->hc_ret = -ENOTSUP;
+   arg->hc_ret = km_fs_inotify_init(vcpu);
    return HC_CONTINUE;
 }
 
 static km_hc_ret_t inotify_init1_hcall(void* vcpu, int hc, km_hc_args_t* arg)
 {
-   // int inotify_init1(int flags);
-   km_warnx("Unsupported call inotify_init1");
-   arg->hc_ret = -ENOTSUP;
+   arg->hc_ret = km_fs_inotify_init1(vcpu, arg->arg1);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t inotify_add_watch_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   void* pathname = km_gva_to_kma(arg->arg2);
+   if (pathname == NULL) {
+      arg->hc_ret = -EFAULT;
+      return HC_CONTINUE;
+   }
+   arg->hc_ret = km_fs_inotify_add_watch(vcpu, arg->arg1, pathname, arg->arg3);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t inotify_rm_watch_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = km_fs_inotify_rm_watch(vcpu, arg->arg1, arg->arg2);
    return HC_CONTINUE;
 }
 
@@ -2404,6 +2417,18 @@ static km_hc_ret_t io_destroy_hcall(void* vcpu, int hc, km_hc_args_t* arg)
    } else {
       arg->hc_ret = -rv;
    }
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t getpriority_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = __syscall_2(SYS_getpriority, arg->arg1, arg->arg2);
+   return HC_CONTINUE;
+}
+
+static km_hc_ret_t setpriority_hcall(void* vcpu, int hc, km_hc_args_t* arg)
+{
+   arg->hc_ret = __syscall_3(SYS_setpriority, arg->arg1, arg->arg2, arg->arg3);
    return HC_CONTINUE;
 }
 
@@ -2637,6 +2662,9 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
 
     [SYS_inotify_init] = inotify_init_hcall,
     [SYS_inotify_init1] = inotify_init1_hcall,
+    [SYS_inotify_add_watch] = inotify_add_watch_hcall,
+    [SYS_inotify_rm_watch] = inotify_rm_watch_hcall,
+
     [SYS_mlock] = mlock_hcall,
 
     [SYS_io_setup] = io_setup_hcall,
@@ -2644,6 +2672,9 @@ const km_hcall_fn_t km_hcalls_table[KM_MAX_HCALL] = {
     [SYS_io_cancel] = io_cancel_hcall,
     [SYS_io_getevents] = io_getevents_hcall,
     [SYS_io_destroy] = io_destroy_hcall,
+
+    [SYS_getpriority] = getpriority_hcall,
+    [SYS_setpriority] = setpriority_hcall,
 
     [SYS_rseq] = rseq_hcall,
 

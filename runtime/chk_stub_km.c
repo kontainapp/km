@@ -301,6 +301,7 @@ ssize_t __read_chk(int fd, void* buf, size_t nbytes, size_t buflen)
    return read(fd, buf, nbytes);
 }
 
+#if 0
 ssize_t __pread64_chk(int fd, void* buf, size_t nbytes, off64_t offset, size_t buflen)
 {
    if (nbytes > buflen) {
@@ -308,6 +309,7 @@ ssize_t __pread64_chk(int fd, void* buf, size_t nbytes, off64_t offset, size_t b
    }
    return pread64(fd, buf, nbytes, offset);
 }
+#endif
 
 void* __memmove_chk(void* dest, const void* src, size_t len, size_t dstlen)
 {

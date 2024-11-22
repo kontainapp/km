@@ -45,8 +45,7 @@ void* stack_addr = NULL;
 
 void signal_handler(int signal)
 {
-   char buf[128];
-   stack_addr = buf;
+   asm volatile("movq %%rsp, %0" : "=r"(stack_addr));
    signal_seen++;
 }
 
@@ -349,8 +348,7 @@ TEST test_safepoint()
 void* tmain(void* arg)
 {
    static void* sav;
-   char buf[64];
-   sav = buf;
+   asm volatile("movq %%rsp, %0" : "=r"(stack_addr));
    return sav;
 }
 

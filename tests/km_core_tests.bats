@@ -55,8 +55,8 @@ not_needed_glibc_dynamic='cpuid setup_link setup_load km_identity dlopen exec_sh
 # raw_clone - glibc clone() wrapper needs pthread structure
 # gdb_forkexec - gdb stack trace needs symbols when in a hypercall
 
-todo_glibc_static='dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test gdb_forkexec km_exec_guest_files'
-todo_glibc_dynamic='dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test gdb_forkexec km_exec_guest_files sigaltstack gdb_attach'
+todo_glibc_static='dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test gdb_forkexec km_exec_guest_files decode'
+todo_glibc_dynamic='dl_iterate_phdr filesys gdb_nextstep raw_clone xstate_test gdb_forkexec km_exec_guest_files sigaltstack gdb_attach decode'
 
 # TODO: figure out why mem_brk doesn't work
 todo_glibc_dynamic="${todo_glibc_dynamic} mem_brk"

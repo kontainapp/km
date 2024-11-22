@@ -31,3 +31,6 @@
 [submodule "cloud/k8s/k8s-deploy"]
 	path = cloud/k8s/deploy
 	url = git@github.com:kontainapp/k8s-deploy.git
+[submodule "runtime/musl-latest"]
+	path = runtime/musl-latest
+	url = https://github.com/kontainapp/musl-latest.git

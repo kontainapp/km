@@ -23,7 +23,7 @@ MALLOC_DIR = mallocng
 # following it to compute SOURCES, picking up all .c files from relevant dirs
 # (i.e. skipping SKIP_SRC_DIR). Then drop the base implementations for the sake of
 # arch specific ones based on ARCH.
-SRCDIR := musl
+SRCDIR := musl-latest
 ARCH := x86_64
 SKIP_SRC_DIR := $(addprefix $(SRCDIR)/src/, ipc mq)
 SRC_DIRS := $(filter-out $(addsuffix /,${SKIP_SRC_DIR}), $(wildcard $(addprefix $(SRCDIR)/,src/*/ crt/ ldso/ src/malloc/$(MALLOC_DIR)/)))
@@ -52,13 +52,13 @@ ALL_SOURCES := $(filter-out ${REPLACED_SRCS}, ${BASE_SRCS} ${ARCH_SRCS})
 ALL_SOURCES := $(filter-out $(addprefix %, ${KM_REPLACED_SRCS}), ${ALL_SOURCES}) ${KM_EXTRA_SRCS}
 
 # sources for objects used librutime.a - i.e. used in all version (shared and static)
-SOURCES := $(filter-out $(addprefix %, ${PTHREAD_SRCS}), $(filter musl/src/%,$(ALL_SOURCES))) ${KM_EXTRA_SRCS}
+SOURCES := $(filter-out $(addprefix %, ${PTHREAD_SRCS}), $(filter musl-latest/src/%,$(ALL_SOURCES))) ${KM_EXTRA_SRCS}
 
 # pthead-specific sources for a separate lib
-PTHREAD_SRCS := $(filter $(addprefix %, ${PTHREAD_SRCS}), $(filter musl/src/%,$(ALL_SOURCES)))
+PTHREAD_SRCS := $(filter $(addprefix %, ${PTHREAD_SRCS}), $(filter musl-latest/src/%,$(ALL_SOURCES)))
 
-DL_SOURCES := $(filter musl/ldso/%,${ALL_SOURCES})
-CRT_SOURCES := $(filter musl/crt/%,$(ALL_SOURCES))
+DL_SOURCES := $(filter musl-latest/ldso/%,${ALL_SOURCES})
+CRT_SOURCES := $(filter musl-latest/crt/%,$(ALL_SOURCES))
 
 H_DIRS := arch/$(ARCH) arch/generic src/include src/internal src/errno include
 # has to be recursive assignment as BLDDIR is defined in an include below
@@ -70,7 +70,7 @@ CWARNS := -Wno-parentheses -Wno-uninitialized -Wno-missing-braces -Wno-unused-va
 
 # -ffunction-sections -fdata-sections work together with linker script, see km.ld
 # Other -f... options are to reduce generated code size
-COPTS := -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc \
+COPTS := -D_LARGEFILE64_SOURCE -Os -ggdb3 -D_XOPEN_SOURCE=700 -pipe -nostdinc \
 	-fomit-frame-pointer \
 	-ffunction-sections -fdata-sections -fexcess-precision=standard -frounding-math \
 	-fno-tree-loop-distribute-patterns -fno-stack-protector \
@@ -89,7 +89,7 @@ PTHREAD_OBJS = $(addprefix ${BLDDIR}/, $(addsuffix .o, $(basename ${PTHREAD_SRCS
 
 $(CRT_OBJS): CFLAGS += -DCRT
 $(SO_OBJS) $(DL_OBJS): CFLAGS += -fPIC
-${BLDDIR}/musl/crt/Scrt1.o ${BLDDIR}/musl/crt/rcrt1.o: CFLAGS += -fPIC
+${BLDDIR}/musl-latest/crt/Scrt1.o ${BLDDIR}/musl-latest/crt/rcrt1.o: CFLAGS += -fPIC
 
 all: ${BLDDIR}/.finalize
 
@@ -138,7 +138,7 @@ $(addprefix ${BLDDIR}/, libpthread.so): km_pthread_dummy.c
 LIBGCC = ${KM_OPT_ALPINELIB}$(shell cat ${KM_OPT}/alpine-lib/gcc-libs-path.txt)/libgcc.a
 $(addprefix ${BLDDIR}/, libc.so): ${SO_OBJS} ${DL_OBJS}
 	@if [ ! -f ${LIBGCC} ] ; then echo -e  "${RED}${LIBGCC} is not found. Check installation${NOCOLOR}"; false; fi
-	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} ${LIBGCC}
+	$(CC) $(CFLAGS) $(LDFLAGS_ALL) -nostdlib -shared -Wl,-e,_dlstart -Wl,--gc-sections -Wl,--exclude-libs=ALL -Wl,--dynamic-list=./musl-latest/dynamic.list -o $@ ${SO_OBJS} ${DL_OBJS} ${LIBGCC}
 
 ${DEPS}: | $(addprefix ${BLDDIR}/${SRCDIR}/include/, bits/alltypes.h bits/syscall.h version.h)
 
@@ -171,7 +171,7 @@ ${BLDDIR}/${SRCDIR}/include/version.h: $(wildcard $(SRCDIR)/VERSION $(SRCDIR)/.g
 	printf '#define VERSION "%s"\n' "$$(cd $(SRCDIR); sh tools/version.sh)" > $@
 
 clean::
-	$(MAKE) -C musl distclean
+	$(MAKE) -C musl-latest distclean
 	rm -rf ${BLDDIR}/*
 	rm -f ${KM_OPT_RT}/*
 

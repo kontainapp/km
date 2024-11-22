@@ -70,7 +70,7 @@ TEST tests_in_flight(void)
          printf("pthread_create %d failed, errno %d\n", i, errno);
       }
       sprintf(buf, "Started %d (%p)", i, (void*)thr[i]);
-      ASSERT_EQm(buf, 0, ret);
+      ASSERT_EQm(strdup(buf), 0, ret);
       if (greatest_get_verbosity() > 0) {
          printf("%s\n", buf);
       }
@@ -89,7 +89,7 @@ TEST wait_for_some(void)
       if (ret != 0) {
          printf(" pthread_join thread 0x%lx failed, errno %d", thr[i], errno);
       }
-      ASSERT_EQm(buf, 0, ret);
+      ASSERT_EQm(strdup(buf), 0, ret);
       if (greatest_get_verbosity() > 0) {
          printf("%s\n", buf);
       }

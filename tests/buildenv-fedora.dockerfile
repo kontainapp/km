@@ -25,9 +25,9 @@
 
 # Form alpine-based container to extract alpine-libs from
 # This is a temp stage, so we don't care about layers count.
-FROM alpine:3.13.0 as alpine-lib-image
+FROM alpine:3.20.0 AS alpine-lib-image
 ENV PREFIX=/opt/kontain
-ARG LIBSTDCPPVER=releases/gcc-11.2.0
+ARG LIBSTDCPPVER=releases/gcc-13.2.0
 
 RUN apk add bash file make git g++ gcc flex bison musl-dev libffi-dev sqlite-static util-linux-dev gmp-dev mpfr-dev mpc1-dev isl-dev zlib-dev
 
@@ -61,7 +61,7 @@ RUN tar -cf - -C /usr/local/lib64 . | tar xf - -C $PREFIX/runtime
 # Save the path to gcc versioned libs for the future
 RUN dirname $(gcc --print-file-name libgcc.a) > $PREFIX/alpine-lib/gcc-libs-path.txt
 
-FROM fedora:35 AS buildenv-early
+FROM fedora:39 AS buildenv-early
 # Some of the packages needed only for payloads and /or faktory, but we land them here for convenience.
 #
 # Also, this list is used on generating local build environment, so we explicitly add
@@ -77,7 +77,7 @@ RUN dnf install -y \
    glibc-devel glibc-static libstdc++-static bzip2-devel \
    golang-sigs-k8s-kustomize \
    zlib-static bzip2-static xz-static xz \
-   openssl-devel openssl-static jq googler \
+   openssl-devel jq googler \
    python3-markupsafe libffi-devel parallel \
    automake autoconf libcap-devel yajl-devel libseccomp-devel \
    python3-libmount libtool cmake makeself \
@@ -86,10 +86,15 @@ RUN dnf install -y \
 
 FROM buildenv-early AS buildclangformat
 
-RUN git clone https://github.com/llvm/llvm-project.git -b llvmorg-13.0.0 && cd llvm-project && \
+RUN git clone https://github.com/llvm/llvm-project.git -b llvmorg-17.0.0 && cd llvm-project && \
    cmake -S llvm -B build -G "Unix Makefiles" -DLLVM_ENABLE_PROJECTS="clang" -DCMAKE_BUILD_TYPE=Release && \
    make -C build/tools/clang/tools/clang-format -j`expr 2 \* $(nproc)` && \
    make -C build/tools/clang/tools/clang-format install
+
+RUN pwd
+RUN git clone https://github.com/kontainapp/musl-latest.git -b alpine musl-latest-alpine && cd musl-latest-alpine && \
+   ./configure --enable-debug CFLAGS=-D_LARGEFILE64_SOURCE && make
+RUN ls /musl-latest-alpine/lib/libc.*
 
 FROM buildenv-early AS buildenv
 ARG USER=appuser
@@ -106,10 +111,13 @@ WORKDIR /home/$USER
 
 COPY --from=buildclangformat /usr/local/bin /usr/local/bin/
 COPY --from=alpine-lib-image $PREFIX $PREFIX/
+COPY --from=buildclangformat /musl-latest-alpine/lib/libc.a ${PREFIX}/alpine-lib/usr/lib/libc.a
+COPY --from=buildclangformat /musl-latest-alpine/lib/libc.so ${PREFIX}/alpine-lib/usr/lib/libc.so
+
 RUN for i in runtime alpine-lib ; do \
        mkdir -p $PREFIX/$i && chgrp users $PREFIX/$i && chmod 777 $PREFIX/$i ; \
     done
 # take libcrypto from Fedora - python ssl doesn't like alpine one
-RUN cp /usr/lib64/libcrypto.so.1.1.1[a-z] ${PREFIX}/alpine-lib/lib/libcrypto.so.1.1
+RUN cp /usr/lib64/libcrypto.so.3.1.1 ${PREFIX}/alpine-lib/lib/
 
 USER $USER

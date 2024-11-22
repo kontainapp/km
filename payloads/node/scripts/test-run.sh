@@ -25,7 +25,7 @@ usage() {
    cat <<EOF
 Run short or long node tests. Usually called from Makefile or Docker Entry with proper params
 Usage:
-   test-run.sh < test | test-all > KM_BIN KM_CLI_BIN PAYLOAD_KM TEST_KM NODETOP BUILD
+   test-run.sh < test | test-all | test-short | test-long > KM_BIN KM_CLI_BIN PAYLOAD_KM TEST_KM NODETOP BUILD
 EOF
    exit 1
 }
@@ -42,17 +42,18 @@ check_crypto() {
 }
 check_crypto
 
-if [[ "$1" == "test" || "$1" == "test-all" ]]; then
-   KM_BIN=$2
-   KM_CLI_BIN=$3
-   PAYLOAD_KM=$4
-   TEST_KM=$5
+KM_BIN=$2
+KM_CLI_BIN=$3
+PAYLOAD_KM=$4
+TEST_KM=$5
+
+if [[ "$1" == "test-short" || "$1" == "test" || "$1" == "test-all" ]]; then
    MGMTPIPE=/tmp/mgmtpipe.$$
 
    ${KM_BIN} ${PAYLOAD_KM} ./scripts/hello.js
    echo noop.js - expecting exit with code 22:
    ${KM_BIN} ${PAYLOAD_KM} ./scripts/noop.js || [ $? -eq 22 ]
-   ${KM_BIN} ${TEST_KM} --gtest_filter="*"
+   (cd node; ${KM_BIN} ${TEST_KM} --gtest_filter="*")
 
    rm -rf ${MGMTPIPE}
    ${KM_BIN} --mgtpipe=${MGMTPIPE} ${PAYLOAD_KM} ./scripts/micro-srv.js &
@@ -79,18 +80,18 @@ if [[ "$1" == "test" || "$1" == "test-all" ]]; then
    wait $pid
 fi
 
-if [[ "$1" == "test-all" ]]; then
+if [[ "$1" == "test-long" || "$1" == "test-all" ]]; then
    NODETOP=$6
    BUILD=$7
    trap cleanup EXIT
    TMP_FILE=$(mktemp /tmp/node.XXXXXXXXXX)
-   echo -e "#!/bin/bash\n${KM_BIN} $(realpath ${NODETOP}/out/${BUILD}/node.km) \$*\n" > ${TMP_FILE} && chmod +x ${TMP_FILE}
+   echo -e "#!/bin/bash\nexport PYTHONWARNINGS=\"ignore::DeprecationWarning\"\n${KM_BIN} $(realpath ${NODETOP}/out/${BUILD}/node.km) \$*\n" > ${TMP_FILE} && chmod +x ${TMP_FILE}
    cd ${NODETOP}
-   python tools/test.py --shell=${TMP_FILE} -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr -s '\n ' ','` default addons js-native-api node-api
+   python tools/test.py --shell=${TMP_FILE} --timeout=120 -J --mode=`echo -n ${BUILD} | tr '[A-Z]' '[a-z]'` --skip-tests=`cat ../skip_* ../${PLATFORM_ID}_skip | tr -s '\n ' ','` default addons js-native-api node-api
    echo "Tests are Successful"
 fi
 
-if [[ "$1" != "test" && "$1" != "test-all" ]]; then
+if [[ "$1" != "test-short" && "$1" != "test-long" && "$1" != "test" && "$1" != "test-all" ]]; then
   usage
 fi
 

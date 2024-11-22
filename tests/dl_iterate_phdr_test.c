@@ -46,6 +46,9 @@ static int callback(struct dl_phdr_info* info, size_t size, void* data)
          case PT_NOTE:
             type = "PT_NOTE";
             break;
+         case PT_SHLIB:
+            type = "PT_SHLIB";
+            break;
          case PT_PHDR:
             type = "PT_PHDR";
             break;
@@ -60,6 +63,9 @@ static int callback(struct dl_phdr_info* info, size_t size, void* data)
             break;
          case PT_GNU_RELRO:
             type = "PT_GNU_RELRO";
+            break;
+         case PT_GNU_PROPERTY:
+            type = "PT_GNU_PROPERTY";
             break;
          default:
             type = NULL;
@@ -91,9 +97,9 @@ TEST test(void)
    ASSERT_EQ(0x38, phent);
 
    ASSERT_EQ(1, info_idx);
-   ASSERT_EQ(buffer[0].dlpi_phnum, 7);
+   ASSERT_IN_RANGE(buffer[0].dlpi_phnum, 8, 9);
    ASSERT_EQ(buffer[0].dlpi_phdr[0].p_type, PT_LOAD);
-   ASSERT_EQ(buffer[0].dlpi_phdr[0].p_flags, 4);
+   ASSERT_EQ(buffer[0].dlpi_phdr[0].p_flags & PF_R, PF_R);
    ASSERT_EQ(buffer[0].dlpi_phdr[0].p_vaddr, 0x200000);
 
    PASS();

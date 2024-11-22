@@ -68,7 +68,7 @@ __stub__(backtrace);
 __stub__(backtrace_symbols_fd);
 __stub__(mallopt);
 __stub__(mallinfo);
-__stub__(pthread_getname_np);
+//__stub__(pthread_getname_np);
 
 // TODO: Implement these
 __stub_core__(jnl);

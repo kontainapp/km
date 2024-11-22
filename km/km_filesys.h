@@ -344,6 +344,12 @@ int km_mgt_listen(int domain, int type, int protocol);
 int km_mgt_accept(int fd, struct sockaddr* addr, socklen_t* addrlen);
 
 int km_fs_recover(char* ptr, size_t length);
+
+int km_fs_inotify_init(km_vcpu_t* vcpu);
+int km_fs_inotify_init1(km_vcpu_t* vcpu, int flags);
+int km_fs_inotify_add_watch(km_vcpu_t* vcpu, int fd, char* pathname, uint32_t mask);
+int km_fs_inotify_rm_watch(km_vcpu_t* vcpu, int fd, int wd);
+
 #define KM_TRACE_FILESYS "filesys"
 
 #endif

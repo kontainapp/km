@@ -60,7 +60,9 @@ typedef enum km_file_how {
    KM_FILE_HOW_SOCKETPAIR1 = 7,
    KM_FILE_HOW_RECVMSG = 8,
    KM_FILE_HOW_EVENTFD = 9, /* eventfd() */
-   KM_FILE_HOW_TIMERFD = 10
+   KM_FILE_HOW_TIMERFD = 10,
+   KM_FILE_HOW_WATCH = 11,
+   KM_FILE_HOW_WATCH1 = 12
 } km_file_how_t;
 
 // Each file opened by the guest has one of these structures.

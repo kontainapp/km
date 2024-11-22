@@ -108,7 +108,7 @@ void* tcp_server_main(void* arg)
    }
 
    struct sockaddr caddr;
-   socklen_t caddr_len;
+   socklen_t caddr_len = sizeof(caddr);
    int newfd = accept4(fd, &caddr, &caddr_len, SOCK_CLOEXEC);
    if (newfd < 0) {
       perror("accept4");
@@ -141,7 +141,7 @@ TEST test_tcp()
    int rc;
    sfd = socket(AF_INET, SOCK_STREAM, 0);
    ASSERT_NEQ(-1, sfd);
-   struct sockaddr_in saddr;
+   struct sockaddr_in saddr = {};
    saddr.sin_family = AF_INET;
    inet_pton(AF_INET, "127.0.0.1", &saddr.sin_addr);
    saddr.sin_port = TEST_PORT;
@@ -330,7 +330,8 @@ TEST test_bad_fd()
       ASSERT_EQ(EBADF, errno);
    }
    // poll
-   for (int i = 0; badfd[i] != 0; i++) {
+   // -1 is a valid parameter in pfd.fd
+   for (int i = 1; badfd[i] != 0; i++) {
       struct pollfd pfd;
       pfd.fd = badfd[i];
       pfd.events = POLLIN | POLLERR;

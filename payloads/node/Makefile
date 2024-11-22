@@ -18,8 +18,20 @@
 
 TOP := $(shell git rev-parse --show-toplevel)
 
+OS_NAME=$(shell awk 'BEGIN { FS = "=" } $$1 == "ID" { NAME=$$2;} $$1 == "VERSION_ID" { VERS=$$2; } END { printf "%s%s", NAME, VERS }' /etc/os-release)
+
+ifeq ($(OS_NAME),fedora40)
+	VERS ?= v20.12.2
+	PAYLOAD_NAME := NodeJs20.12
+else ifeq ($(OS_NAME),fedora39)
+	VERS ?= v20.8
+	PAYLOAD_NAME := NodeJs20.8
+else
+	VERS ?= v16.13.1
+	PAYLOAD_NAME := NodeJs16.13
+endif
+
 BUILD ?= Release
-VERS ?= v16.13.1
 
 # Location of Node sources. When building in container, it is set in buildenv dockerfile.
 NODETOP ?= node
@@ -33,11 +45,10 @@ COMPONENT := node
 NODE_REPO := https://github.com/nodejs/node.git
 
 # KM file name, relative to currentdir. Note that the same will be absolute in the container
-PAYLOAD_KM := ${NODEOUT}/node.km
-TEST_KM := ${NODEOUT}/cctest.km
+PAYLOAD_KM := ${CURDIR}/${NODEOUT}/node.km
+CCTEST_KM := ${CURDIR}/${NODEOUT}/cctest.km
 
 # name to be added to runtime image label(s)
-PAYLOAD_NAME := NodeJs16.13
 
 # List of artifacts necessary to run tests. See buildenv-fedora.dockerfile
 NODE_DISTRO_FILES := $(addprefix node/, deps doc test tools benchmark)
@@ -63,12 +74,12 @@ ifneq ($(shell test -d node/.git && echo OK),OK)
 		$(BUILDENV_IMG):$(BUILDENV_IMAGE_VERSION) \
 		/bin/bash -x -c "make -C payloads/node in-blank-container"
 else
-	./link-km.sh ${NODEBUILD} ${NODEOUT}
+	./link-km.sh ${NODEBUILD} ${NODEOUT} ${OS_NAME}
 endif
 
 in-blank-container: ## invoked in blank contaier by ``make all''. DO NOT invoke manually
 	mkdir -p ${NODEOUT}
-	./link-km.sh ${NODEBUILD} ${NODEOUT}
+	./link-km.sh ${NODEBUILD} ${NODEOUT} ${OS_NAME}
 	tar -C ${NODETOP}/.. --exclude='.tmp*' -cf - ${NODE_DISTRO_FILES} | tar -xf -
 
 ${NODETOP}: |
@@ -77,10 +88,14 @@ ${NODETOP}: |
 ${NODETOP}/config.mk: | ${NODETOP}
 	cd ${NODETOP} && ./configure --gdb `[[ ${BUILD} == Debug ]] && echo -n --debug`
 
+
+#	cd ${NODETOP} && make -j`expr 2 \* $$(nproc)` && make jstest CI_SKIP_TESTS="parallel/test-https-selfsigned-no-keycertsign-no-crash.js" 
+
 fromsrc: ${NODETOP}/config.mk
-	cd ${NODETOP} && make -j`expr 2 \* $$(nproc)` && make jstest CI_SKIP_TESTS="parallel/test-https-selfsigned-no-keycertsign-no-crash.js"
+	make -C ${NODETOP} -j`expr 2 \* $$(nproc)`
+	-make -C ${NODETOP} jstest CI_SKIP_TESTS="parallel/test-https-selfsigned-no-keycertsign-no-crash.js"
 	mv ${NODEBUILD}/node ${NODEBUILD}/node.static
-	./link-km.sh ${NODEBUILD} ${NODEOUT}
+	./link-km.sh ${NODEBUILD} ${NODEOUT} ${OS_NAME}
 
 clobber:
 	rm -rf node
@@ -89,17 +104,17 @@ clean:
 	rm -rf $(RUNENV_PATH)
 	@echo "Note - 'clean' doesn't remove ./node artifacts. use 'clobber' to force remove build artifacts"
 
-test test-all: ${PAYLOAD_KM} ${TEST_KM}
-	scripts/test-run.sh $@ ${KM_BIN} ${KM_CLI_BIN} ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+test test-short test-long test-all: ${PAYLOAD_KM} ${CCTEST_KM}
+	scripts/test-run.sh $@ ${KM_BIN} ${KM_CLI_BIN} ${PAYLOAD_KM} ${CCTEST_KM} ${NODETOP} ${BUILD}
 
 # Command to run tests in testenv-image container:
-CONTAINER_TEST_CMD := scripts/test-run.sh test km km_cli ${PAYLOAD_KM} ${TEST_KM}
+CONTAINER_TEST_CMD := scripts/test-run.sh test km km_cli ${PAYLOAD_KM} ${CCTEST_KM}
 
 # TODO: revert when kkm is fixed
 ifeq (${HYPERVISOR_DEVICE},/dev/kkm)
-CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test km km_cli ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test km km_cli ${PAYLOAD_KM} ${CCTEST_KM} ${NODETOP} ${BUILD}
 else
-CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test-all km km_cli ${PAYLOAD_KM} ${TEST_KM} ${NODETOP} ${BUILD}
+CONTAINER_TEST_ALL_CMD := scripts/test-run.sh test-all km km_cli ${PAYLOAD_KM} ${CCTEST_KM} ${NODETOP} ${BUILD}
 endif
 
 # Use existing small dir for buildenv image builds (saves on sending data to docker svc)

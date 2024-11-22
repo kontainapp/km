@@ -902,7 +902,7 @@ uint64_t km_fs_prw(km_vcpu_t* vcpu, int scall, int fd, void* buf, size_t count, 
 {
    int host_fd;
    km_file_ops_t* ops;
-   km_infox(KM_TRACE_FILESYS, "%s(fd %d, count %ld, offset %ld)", km_hc_name_get(scall), fd, count, offset);
+   km_infox(KM_TRACE_FILESYS, "%s(fd %d, buf %p count %ld, offset %ld)", km_hc_name_get(scall), fd, buf, count, offset);
    if ((host_fd = km_fs_g2h_fd(fd, &ops)) < 0) {
       return -EBADF;
    }
@@ -2273,7 +2273,7 @@ uint64_t km_fs_select(km_vcpu_t* vcpu,
 uint64_t km_fs_poll(km_vcpu_t* vcpu, struct pollfd* fds, nfds_t nfds, int timeout)
 {
    for (int i = 0; i < nfds; i++) {
-      if (km_fs_g2h_fd(fds[i].fd, NULL) < 0) {
+      if ((fds[i].fd != 0xffffffff) && (km_fs_g2h_fd(fds[i].fd, NULL) < 0)) {
          return -EBADF;
       }
       if (fds[i].events == 0 || (fds[i].events & POLLERR) != 0) {
@@ -4260,4 +4260,50 @@ static void km_snapshot_listenfds_find(km_elf_t* e)
 
    free(notebuf);
    free(tmp_payload.km_phdr);
+}
+
+int km_fs_inotify_init(km_vcpu_t* vcpu)
+{
+   int hostfd = __syscall_0(SYS_inotify_init);
+   if (hostfd >= 0) {
+      hostfd = km_add_guest_fd_internal(vcpu, hostfd, NULL, 0, KM_FILE_HOW_WATCH, NULL);
+   }
+   return hostfd;
+}
+
+int km_fs_inotify_init1(km_vcpu_t* vcpu, int flags)
+{
+   int hostfd = __syscall_1(SYS_inotify_init1, flags);
+   if (hostfd >= 0) {
+      hostfd = km_add_guest_fd_internal(vcpu, hostfd, NULL, flags, KM_FILE_HOW_WATCH1, NULL);
+   }
+   return hostfd;
+}
+
+int km_fs_inotify_add_watch(km_vcpu_t* vcpu, int guest_fd, char* pathname, uint32_t mask)
+{
+   int host_fd = km_fs_g2h_fd(guest_fd, NULL);
+   if (host_fd < 0) {
+      return -EBADF;
+   }
+
+   char host_pathname[PATH_MAX];
+   int ret = km_fs_g2h_filename(pathname, host_pathname, sizeof(host_pathname), NULL);
+   if (ret < 0) {
+      return ret;
+   }
+   uint64_t name = (ret == 0) ? (uint64_t)pathname : (uint64_t)host_pathname;
+
+   ret = __syscall_3(SYS_inotify_add_watch, host_fd, name, mask);
+   return ret;
+}
+
+int km_fs_inotify_rm_watch(km_vcpu_t* vcpu, int guest_fd, int wd)
+{
+   int host_fd = km_fs_g2h_fd(guest_fd, NULL);
+   if (host_fd < 0) {
+      return -EBADF;
+   }
+   int ret = __syscall_2(SYS_inotify_rm_watch, host_fd, wd);
+   return ret;
 }
